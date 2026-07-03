@@ -58,8 +58,25 @@ for (const btn of document.querySelectorAll('#tour-picker button')) {
   })
 }
 
-const map = createMap('map', [start[0], start[1]], cfg.demMaxzoom)
+const map = createMap('map', [start[0], start[1]])
 window.__j = { map, route }
+
+// Boot-Screen sanft ausblenden, sobald die Karte da ist. 'idle' gibt das
+// schönste Timing (Kacheln gerendert); 'load' und ein absoluter Timeout sind
+// Fallbacks, damit der Screen nie hängen bleibt (z.B. gedrosselter Hintergrund-Tab).
+const boot = document.getElementById('boot')
+if (boot) {
+  let dismissed = false
+  const dismissBoot = () => {
+    if (dismissed) return
+    dismissed = true
+    boot.classList.add('gone')
+    setTimeout(() => boot.remove(), 800)
+  }
+  map.once('idle', dismissBoot)
+  map.once('load', dismissBoot)
+  setTimeout(dismissBoot, 4000)
+}
 
 map.on('error', (e) => console.error('map error:', e.error?.message ?? e))
 

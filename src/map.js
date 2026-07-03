@@ -2,8 +2,13 @@
 // dazu Atmosphäre und die beiden Routen-Layer.
 import maplibregl from 'maplibre-gl'
 import { indexAt } from './geo.js'
+import { registerDemClean } from './demclean.js'
 
 export const EXAGGERATION = 1.35
+
+// DEM-Kacheln durch die Spike-Bereinigung leiten (siehe demclean.js): kaputte
+// Ausreißer-Pixel in den groben Overview-Kacheln werden vor dem Rendern gekappt.
+registerDemClean(maplibregl)
 
 // Touch-Geräte: pixelRatio auf 2 kappen und auf MSAA verzichten — bei ≥2×
 // nicht unterscheidbar, halbiert aber die GPU-Last auf 3×-Displays fast.
@@ -21,7 +26,12 @@ const COARSE = window.matchMedia('(pointer: coarse)').matches
 // Satellitenszene sitzen, nicht darüber leuchten. Dächer nahe an den echten
 // Stockholmer Dachfarben (dunkler Ziegel, Grau-Braun) statt heller Deckel.
 const FACADE_WALLS = ['#ab834e', '#a2957a', '#8a4234', '#9d6c50', '#87837a', '#997a55', '#966e59']
-const ROOFS = ['#6e5847', '#63605a', '#7c6350', '#59544d', '#715c49']
+// Dächer in warmem Ziegel-/Terrakottaton nah an den Fassaden. Grund: in der dicht
+// gemappten Altstadt überlappen sich OSM-Gebäude/-parts, ihre Wände (rot) und
+// fremde Dachdeckel (früher braungrau) liegen dann in derselben Ebene und streiten
+// per Z-Fighting → das gemeldete Rot↔Braun-Flimmern. Nah beieinander liegende Töne
+// lassen den Kipp-Kontrast praktisch verschwinden (und Ziegelrot ist realistischer).
+const ROOFS = ['#6f4636', '#7a4e3c', '#653f30', '#814d39', '#714634']
 const ROOFS_NIGHT = ['#2e3138', '#2a2d34', '#32353c', '#2c2e36', '#34363e']
 
 // Tile-Feature-ID = OSM-ID × 10 + Typziffer — erst ÷10, sonst streut das
@@ -51,8 +61,11 @@ const patternFor = (prefix) => ['concat', prefix, ['to-string', TONE_IDX]]
 // ohne Mipmaps beim Verkleinern zu hochfrequentem Textur-Flimmern — die
 // fensterlosen Varianten nehmen die Frequenz raus, und beim Zoomstufen-
 // Wechsel ist der Unterschied aus der Entfernung nicht mehr auflösbar.
-const FACADE_PATTERN = ['step', ['zoom'], patternFor('facade-flat-'), 14.6, patternFor('facade-')]
-const FACADE_PATTERN_NIGHT = ['step', ['zoom'], patternFor('facade-night-flat-'), 14.6, patternFor('facade-night-')]
+// Schwelle bewusst hoch (15.4): das Fensterraster erscheint erst, wenn die
+// Kamera wirklich nah dran ist (Gassen von Gamla Stan) — auf mittlere Distanz
+// (Tram-/Fährvorbeifahrt) bleibt die ruhige flat-Kachel, die nicht flimmert.
+const FACADE_PATTERN = ['step', ['zoom'], patternFor('facade-flat-'), 15.4, patternFor('facade-')]
+const FACADE_PATTERN_NIGHT = ['step', ['zoom'], patternFor('facade-night-flat-'), 15.4, patternFor('facade-night-')]
 
 // Höhe hart auf 250 m deckeln: einzelne OSM-Gebäude tragen fehlerhafte Höhen
 // (Tippfehler, falsche Einheit), und beim Tile-Nachladen kann eine noch grob
@@ -63,12 +76,13 @@ const BLD_H = ['min', ['coalesce', ['get', 'render_height'], 8], 250]
 const ROOF_BASE = ['max', ['-', BLD_H, 2], 1] // Wandoberkante = Dachunterkante (kein Z-Fighting)
 
 // Gebäudedaten gibt es erst ab Zoom ~14 — ohne Fade tauchen an dieser Schwelle
-// alle Häuser eines Tiles schlagartig auf. Über eine knappe Zoomstufe von 0 auf
-// volle Deckkraft hochblenden: der Übergang wird weich, und die kurze
-// Halbtransparenz liegt genau dort, wo die Häuser noch klein und fern sind —
-// das Durchschimmern des Wand-Patterns durch den Dachdeckel fällt da nicht auf.
-// Ab 14.6 (normale Fahr-Zoomstufen) sind die Gebäude wieder voll deckend.
-const APPEAR = ['interpolate', ['linear'], ['zoom'], 13.9, 0, 14.6, 1]
+// alle Häuser eines Tiles schlagartig auf. Über eine schmale Zoomstufe von 0 auf
+// volle Deckkraft hochblenden. WICHTIG: das Blendband bewusst kurz halten —
+// halbtransparente fill-extrusion schreibt keine Tiefe, benachbarte/über Tile-
+// Grenzen geteilte Häuser flackern dann gegeneinander (Z-Fighting). Deshalb ist
+// die Deckkraft schon ab 14.25 wieder 1; die kurze Transparenz liegt dort, wo die
+// Häuser noch klein und fern sind, das Pop-in bleibt trotzdem weich.
+const APPEAR = ['interpolate', ['linear'], ['zoom'], 13.9, 0, 14.25, 1]
 
 // Fundament 2 m unter Grund setzen: auf dem überhöhten, grob aufgelösten DEM
 // (maxzoom 13) sitzt die Hangkante sonst mal knapp über, mal knapp unter der
@@ -130,19 +144,26 @@ function facadeImage(wall, night = false, flat = false) {
         }
         continue
       }
-      ctx.fillStyle = 'rgba(242,236,222,0.5)' // Rahmen, gedämpft
+      // Kontraste bewusst niedrig: ohne Mipmaps kippt eine verkleinerte Kachel
+      // sonst pro Frame zwischen heller Wand und dunklem Fenster (Rot↔Braun-
+      // Flimmern). Rahmen dezent, Glas halbtransparent — so bleibt das Fenster
+      // eine abgedunkelte Tönung der Wand statt eines fremden Grautons, der
+      // Kipp-Ausschlag beim Aliasing wird klein.
+      ctx.fillStyle = 'rgba(242,236,222,0.32)' // Rahmen, gedämpft
       ctx.fillRect(x - 2, y - 2, w + 4, h + 4)
-      ctx.fillStyle = '#4a4f58' // Glas, näher an der Wand-Helligkeit
+      ctx.fillStyle = 'rgba(46,49,58,0.5)' // Glas: dunkle Tönung, Wand scheint durch
       ctx.fillRect(x, y, w, h)
-      ctx.fillStyle = 'rgba(195,208,220,0.22)' // Lichtkante im Glas
+      ctx.fillStyle = 'rgba(195,208,220,0.14)' // Lichtkante im Glas
       ctx.fillRect(x + 2, y + 2, w / 2 - 2, h - 4)
-      ctx.fillStyle = 'rgba(0,0,0,0.12)' // Schattenlinie unterm Fenstersims
+      ctx.fillStyle = 'rgba(0,0,0,0.08)' // Schattenlinie unterm Fenstersims
       ctx.fillRect(x - 2, y + h + 2, w + 4, 1.5)
     }
   }
   if (!night) {
-    // Putz-Schleier über allem: nimmt den Fenstern die harte Kante (Anti-Flimmern)
-    ctx.globalAlpha = 0.16
+    // Putz-Schleier über allem: nimmt den Fenstern die harte Kante (Anti-Flimmern).
+    // Kräftiger als zuvor, damit die verkleinerte Kachel weniger zwischen Wand-
+    // und Fensterton kippt.
+    ctx.globalAlpha = 0.26
     ctx.fillStyle = wall
     ctx.fillRect(0, 0, S, S)
     ctx.globalAlpha = 1
@@ -157,12 +178,7 @@ export function setBuildingsNight(map, on) {
   map.setPaintProperty('buildings-roof', 'fill-extrusion-color', on ? perBuilding(ROOFS_NIGHT) : perBuilding(ROOFS))
 }
 
-// demMaxzoom: Auflösungsdeckel der DEM-Quelle. Niedriger = gröberes Gelände,
-// aber weniger LOD-Zoomstufen gleichzeitig im Bild → keine Terrain-Nahtspikes
-// (MapLibre-Skirt-Artefakt an Tile-Grenzen, sichtbar v. a. über Wasser). Für
-// flache, wasserreiche Touren (Stockholm) auf 11 senken; Bergtouren (Oberland)
-// brauchen 13 für die Gipfel und verstecken die Naht ohnehin im Relief.
-export function createMap(container, center, demMaxzoom = 13) {
+export function createMap(container, center) {
   const map = new maplibregl.Map({
     container,
     center,
@@ -190,10 +206,12 @@ export function createMap(container, center, demMaxzoom = 13) {
         },
         dem: {
           type: 'raster-dem',
-          tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
+          // Über demclean:// geleitet — die groben Overview-Kacheln werden von
+          // korrupten Ausreißer-Pixeln bereinigt (siehe demclean.js).
+          tiles: ['demclean://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
           encoding: 'terrarium',
           tileSize: 256,
-          maxzoom: demMaxzoom,
+          maxzoom: 13,
           attribution: 'Terrain: Mapzen / AWS Open Data',
         },
         // OpenFreeMap-Vektortiles (OpenMapTiles-Schema) — liefern OSM-Gebäude
@@ -250,14 +268,17 @@ export function createMap(container, center, demMaxzoom = 13) {
       // nach Ausrichtung unterschiedlich hell — Volumen statt Einheitsgrau
       light: { anchor: 'map', position: [1.3, 220, 40], color: '#ffedd6', intensity: 0.4 },
       terrain: { source: 'dem', exaggeration: EXAGGERATION },
+      // Start-Himmel (bis die Tag/Nacht-Regie übernimmt) — Horizont/Fog nah am
+      // Himmelblau, kein grauer Dunstbalken; weiche Blendzonen für einen
+      // natürlichen, kantenlosen Horizont.
       sky: {
         'sky-color': '#7ab3e0',
-        'horizon-color': '#e8eef2',
-        'fog-color': '#dfe6ea',
-        'sky-horizon-blend': 0.6,
-        'horizon-fog-blend': 0.55,
-        'fog-ground-blend': 0.6,
-        'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 12, 0.22, 14, 0.12],
+        'horizon-color': '#9fc2e0',
+        'fog-color': '#a9cae2',
+        'sky-horizon-blend': 0.7,
+        'horizon-fog-blend': 0.7,
+        'fog-ground-blend': 0.5,
+        'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 8, 0.28, 12, 0.1, 14, 0.06, 16, 0.05],
       },
     },
   })

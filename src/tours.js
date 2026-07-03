@@ -102,10 +102,6 @@ export const TOURS = {
     // Spätsommertag bis in die Nacht: Sonnenuntergang ~20:10, Finale im Dunkeln
     time: { start: '2025-08-24T09:30:00+02:00', end: '2025-08-24T23:00:00+02:00', zone: 'Europe/Stockholm' },
     geoid: 22, // m: Geoid über WGS84-Ellipsoid in der Region (für den Google-3D-Testmodus)
-    // Flacher Schärengarten: DEM auf maxzoom 11 gröbern → keine Terrain-Nahtspikes
-    // über dem Wasser (MapLibre-Skirt-Artefakt). Auf der flachen Insellandschaft
-    // ist der Auflösungsverlust unsichtbar, die Überhöhung bleibt voll erhalten.
-    demMaxzoom: 11,
     // Landwege: reale Straßenrouten (FOSSGIS-OSRM, Fußprofil, OSM-Wegenetz);
     // Tram: echte Gleistrasse aus OSM (railway=tram, via Overpass gestitcht)
     segments: [
@@ -275,21 +271,8 @@ export const TOURS = {
     ],
     photos: [
       {
-        src: '/photos/stockholm/01-gamla-stan.jpg',
-        title: 'Stortorget',
-        caption: 'Gamla Stans bunte Giebel — der älteste Platz der Stadt.',
-        // bewusst erst am Slottsbacken verankert: so ist der Intro-Anflug
-        // abgeschlossen, bevor der erste Foto-Stopp auslöst
-        anchor: [18.0742, 59.32641],
-      },
-      {
-        // zweites Foto am selben Halt (gleicher Anker) → gemeinsamer Foto-Stopp
-        src: '/photos/stockholm/prastgatan.jpg',
-        title: 'Prästgatan',
-        caption: 'Eine Gasse weiter: schiefe Fassaden in Ocker und Falunrot.',
-        anchor: [18.0742, 59.32641],
-      },
-      {
+        // erster Foto-Stopp jetzt am Kungsträdgården — bewusst so spät, dass der
+        // Intro-Anflug abgeschlossen ist, bevor der erste Stopp auslöst
         src: '/photos/stockholm/kungstradgarden.jpg',
         title: 'Kungsträdgården',
         caption: 'Stockholms grünes Wohnzimmer — Linden, Fontäne, Sommerpause.',

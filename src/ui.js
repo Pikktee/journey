@@ -245,8 +245,7 @@ export class UI {
       this.onModeChange?.(modeKey)
     }
     this.els.progRect.setAttribute('width', (frac * 100).toFixed(2))
-    this.els.head.style.left = `${frac * 100}%`
-    this.els.head.style.top = `${this.yAt(frac)}%`
+    this.els.head.style.left = `${frac * 100}%` // Playhead: vertikale Linie, nur X
     if (next) {
       this.els.nextStop.hidden = false
       this.els.nextName.textContent = next.title

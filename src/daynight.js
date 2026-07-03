@@ -11,8 +11,12 @@ const KEYS = [
   { a: -14, br: 0.2, sat: -0.55, sky: '#0a1424', hor: '#141f33', fog: '#0c1220', li: 0.22, lc: '#93a7d4' },
   { a: -6, br: 0.34, sat: -0.42, sky: '#15254a', hor: '#4a3a5e', fog: '#252838', li: 0.28, lc: '#b3a3c9' },
   { a: 0, br: 0.6, sat: -0.18, sky: '#39557f', hor: '#e08a5a', fog: '#b98a72', li: 0.36, lc: '#ffb27a' },
-  { a: 7, br: 0.86, sat: -0.04, sky: '#5f92c8', hor: '#efc8a0', fog: '#e0cdbb', li: 0.42, lc: '#ffdfb3' },
-  { a: 16, br: 1, sat: 0, sky: '#7ab3e0', hor: '#e8eef2', fog: '#dfe6ea', li: 0.4, lc: '#ffedd6' },
+  { a: 7, br: 0.86, sat: -0.04, sky: '#5f92c8', hor: '#e6c6a4', fog: '#dcc6ac', li: 0.42, lc: '#ffdfb3' },
+  // Tag: Horizont UND Fog liegen jetzt nah am Himmelblau — kein abgesetzter grauer
+  // Dunstbalken mehr. Der Himmel ist dann ein durchgehend weicher Blauverlauf, und
+  // der Übergang zum Gelände ist ein natürlicher Horizont (Blau→Land) statt einer
+  // sichtbaren Schleier-Kante. Genau darin lag der harte Übergang.
+  { a: 16, br: 1, sat: 0, sky: '#7ab3e0', hor: '#9fc2e0', fog: '#a9cae2', li: 0.4, lc: '#ffedd6' },
 ]
 
 const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
@@ -47,7 +51,10 @@ export function createDayNight(map, setNight) {
   let lastAlt = Infinity
   let lastApply = 0
   let night = false
-  const atmosphere = ['interpolate', ['linear'], ['zoom'], 8, 0.5, 12, 0.22, 14, 0.12]
+  // Atmosphäre generell dezent — und im Flug-Zoombereich (13–16) fast flach, damit
+  // der Dunst nicht „auf einen Schlag“ auftaucht, wenn die Kamera aufs offene Wasser
+  // rauszieht (Zoomwechsel) oder sich der Horizont öffnet.
+  const atmosphere = ['interpolate', ['linear'], ['zoom'], 8, 0.28, 12, 0.1, 14, 0.06, 16, 0.05]
   return (date, lnglat) => {
     const sun = sunPosition(date, lnglat[1], lnglat[0])
     // Die virtuelle Uhr läuft schnell (~3°/s Sonnenbewegung) — 2–4 Updates/s
@@ -71,9 +78,12 @@ export function createDayNight(map, setNight) {
       'sky-color': p.sky,
       'horizon-color': p.hor,
       'fog-color': p.fog,
-      'sky-horizon-blend': 0.6,
-      'horizon-fog-blend': 0.55,
-      'fog-ground-blend': 0.6,
+      // Weiche, breite Blendzonen für einen fließenden Verlauf. fog-ground-blend
+      // moderat (nicht hoch — hoch presst den Dunst zu einem schmalen Band an den
+      // Horizont; wir wollen ihn gerade weich auslaufen lassen).
+      'sky-horizon-blend': 0.7,
+      'horizon-fog-blend': 0.7,
+      'fog-ground-blend': 0.5,
       'atmosphere-blend': atmosphere,
     })
     // Fenster an/aus mit Hysterese, damit es in der Dämmerung nicht flackert
