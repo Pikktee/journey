@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Journey — Berner Oberland</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⛰️</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <div id="map"></div>
+  <!-- Google Photorealistic 3D Tiles (Testmodus) — Cesium rendert hierhin -->
+  <div id="g3d" hidden></div>
+
+  <!-- Kino-Atmosphäre -->
+  <div class="cine cine-top" aria-hidden="true"></div>
+  <div class="cine cine-bottom" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="blink" id="blink" aria-hidden="true"></div>
+
+  <!-- Marke / Titel oben links -->
+  <header class="brand">
+    <div class="brand-kicker" id="brand-kicker">Journey · N°01</div>
+    <h1 class="brand-title" id="brand-title">Berner Oberland</h1>
+    <div class="brand-route" id="brand-route">Lauterbrunnen — Wengen — Kleine Scheidegg — Grindelwald</div>
+  </header>
+
+  <!-- Nächster Halt oben rechts -->
+  <aside class="next-stop" id="next-stop" hidden>
+    <div class="next-stop-kicker">Nächster Halt</div>
+    <div class="next-stop-value"><span id="next-stop-name">—</span><span class="next-stop-km" id="next-stop-km"></span></div>
+  </aside>
+
+  <!-- Intro -->
+  <section class="intro" id="intro">
+    <div class="intro-inner">
+      <div class="intro-kicker reveal" style="--d: 0.1s" id="intro-kicker">Eine Reise durch das</div>
+      <h2 class="intro-title reveal" style="--d: 0.25s" id="intro-title">Berner<br />Oberland</h2>
+      <div class="intro-rule reveal" style="--d: 0.45s"></div>
+      <div class="intro-route reveal" style="--d: 0.55s" id="intro-route">
+        Lauterbrunnen&ensp;→&ensp;Wengen&ensp;→&ensp;Kleine Scheidegg&ensp;→&ensp;Grindelwald
+      </div>
+      <div class="intro-meta reveal" style="--d: 0.7s">
+        <span class="chip" id="chip-distance">— km</span>
+        <span class="chip" id="chip-gain">— hm</span>
+        <span class="chip" id="chip-photos">4 Fotos</span>
+      </div>
+      <button class="btn-start reveal" id="btn-start" style="--d: 0.85s">Tour starten</button>
+      <div class="tour-picker reveal" style="--d: 1s" id="tour-picker">
+        <button data-tour="oberland">Berner Oberland</button>
+        <button data-tour="stockholm">Stockholm &amp; Schären</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Foto-Overlay -->
+  <section class="photo-layer" id="photo-layer" aria-hidden="true">
+    <div class="photo-backdrop" id="photo-backdrop"></div>
+    <div class="photo-flash" id="photo-flash"></div>
+    <figure class="photo-card" id="photo-card" title="Klick: anhalten / weiterlaufen">
+      <div class="photo-frame">
+        <img id="photo-img" alt="" decoding="async" />
+        <div class="photo-held" aria-hidden="true">Angehalten — Klick zum Weiterlaufen</div>
+        <div class="photo-hold" aria-hidden="true"><div class="photo-hold-fill" id="photo-hold-fill"></div></div>
+      </div>
+      <figcaption class="photo-caption">
+        <div class="photo-title" id="photo-title">—</div>
+        <div class="photo-badges">
+          <div class="photo-chip" id="photo-count" hidden>Foto 1/2</div>
+          <div class="photo-chip" id="photo-chip">KM 0.0</div>
+        </div>
+        <button class="photo-next" id="photo-next" title="Nächstes Foto / weiterfahren">Weiter&ensp;▸</button>
+        <div class="photo-sub" id="photo-sub">—</div>
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Finale -->
+  <section class="finale" id="finale" hidden>
+    <div class="finale-card">
+      <div class="finale-kicker">Ziel erreicht</div>
+      <h2 class="finale-title" id="finale-title">Grindelwald</h2>
+      <div class="finale-stats">
+        <div class="stat"><span class="stat-label">Distanz</span><span class="stat-value" id="final-km">—</span></div>
+        <div class="stat"><span class="stat-label">Höhenmeter</span><span class="stat-value" id="final-gain">—</span></div>
+        <div class="stat"><span class="stat-label">Fotos</span><span class="stat-value" id="final-photos">—</span></div>
+      </div>
+      <button class="btn-replay" id="btn-replay">Noch einmal erleben</button>
+    </div>
+  </section>
+
+  <!-- API-Schlüssel-Dialog für den Google-3D-Testmodus -->
+  <section class="g3d-modal" id="g3d-modal" hidden>
+    <div class="g3d-card">
+      <h3>Google Photorealistic 3D Tiles</h3>
+      <p>Testmodus — dafür brauchst du einen eigenen Google-Maps-Platform-Schlüssel:</p>
+      <ol>
+        <li>In der <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">Google Cloud Console</a> ein Projekt anlegen und die Abrechnung aktivieren</li>
+        <li>Die <strong>Map Tiles API</strong> aktivieren</li>
+        <li>Unter „Anmeldedaten“ einen API-Schlüssel erstellen (empfohlen: auf die Map Tiles API und diese Domain beschränken)</li>
+      </ol>
+      <p class="g3d-note">1.000 Sessions/Monat sind frei, danach $6 je 1.000. Der Schlüssel bleibt nur lokal in diesem Browser (localStorage) — er wird nirgendwohin übertragen außer an Google.</p>
+      <input id="g3d-key" type="text" placeholder="AIza…" autocomplete="off" spellcheck="false" />
+      <div class="g3d-actions">
+        <button id="g3d-cancel">Abbrechen</button>
+        <button id="g3d-save">Aktivieren</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Kurzmeldungen (z.B. Fehler des Google-3D-Testmodus) -->
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- UI ein-/ausblenden — das Icon zeigt immer die Aktion, Details im Tooltip -->
+  <button class="ui-toggle" id="btn-ui" title="UI ausblenden (H)" aria-label="UI ausblenden" aria-pressed="false" hidden>
+    <svg id="icon-eye-off" viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5c2 0 3.7.6 5.1 1.4M22 12s-3.5 6.5-10 6.5c-2 0-3.7-.6-5.1-1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <svg id="icon-eye" viewBox="0 0 24 24" hidden><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+  </button>
+
+  <!-- Steuerleiste -->
+  <footer class="dock" id="dock" hidden>
+    <div class="dock-cluster">
+      <button class="icon-btn" id="btn-menu" title="Zum Hauptmenü" aria-label="Zum Hauptmenü">
+        <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 9.5V19a1 1 0 0 0 1 1h3.4v-4.6h3.2V20H17a1 1 0 0 0 1-1V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="play-btn" id="btn-play" title="Abspielen / Pause" aria-label="Abspielen / Pause">
+        <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg id="icon-pause" viewBox="0 0 24 24" hidden><rect x="6.5" y="5" width="3.6" height="14" rx="1"/><rect x="13.9" y="5" width="3.6" height="14" rx="1"/></svg>
+      </button>
+      <button class="icon-btn speed-btn" id="btn-speed" title="Geschwindigkeit">1×</button>
+      <button class="icon-btn" id="btn-g3d" title="Google Photorealistic 3D (Test)" aria-label="Google Photorealistic 3D umschalten" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.7 2.3 4.2 5.2 4.2 8.5s-1.5 6.2-4.2 8.5c-2.7-2.3-4.2-5.2-4.2-8.5s1.5-6.2 4.2-8.5z"/></svg>
+      </button>
+    </div>
+
+    <div class="dock-cluster zoom-presets" role="group" aria-label="Kameradistanz">
+      <button class="preset-btn" data-preset="nah" title="Kamera nah">Nah</button>
+      <button class="preset-btn active" data-preset="mittel" title="Kamera mittel">Mittel</button>
+      <button class="preset-btn" data-preset="weit" title="Kamera weit">Weit</button>
+    </div>
+
+    <div class="dock-cluster telemetry">
+      <div class="tele"><span class="tele-label">Unterwegs mit</span><span class="tele-value" id="tele-mode">—</span></div>
+      <div class="tele"><span class="tele-label">Distanz</span><span class="tele-value" id="tele-km">0.0 km</span></div>
+      <div class="tele"><span class="tele-label">Höhe</span><span class="tele-value" id="tele-ele">— m</span></div>
+      <div class="tele" id="tele-time-wrap" hidden><span class="tele-label">Uhrzeit</span><span class="tele-value" id="tele-time">—</span></div>
+    </div>
+
+    <!-- Höhenprofil als Fortschrittsleiste -->
+    <div class="progress" id="progress" title="Klicken zum Springen, Ziehen zum Scrubben">
+      <svg id="profile-svg" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="prog-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#f5a524" />
+            <stop offset="1" stop-color="#ff6f52" />
+          </linearGradient>
+          <clipPath id="prog-clip"><rect id="prog-rect" x="0" y="0" width="0" height="30" /></clipPath>
+        </defs>
+        <path id="profile-base" d="" />
+        <path id="profile-fill" d="" clip-path="url(#prog-clip)" />
+      </svg>
+      <div class="progress-head" id="progress-head"></div>
+      <div class="progress-dots" id="progress-dots"></div>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
