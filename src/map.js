@@ -54,8 +54,27 @@ const patternFor = (prefix) => ['concat', prefix, ['to-string', TONE_IDX]]
 const FACADE_PATTERN = ['step', ['zoom'], patternFor('facade-flat-'), 14.6, patternFor('facade-')]
 const FACADE_PATTERN_NIGHT = ['step', ['zoom'], patternFor('facade-night-flat-'), 14.6, patternFor('facade-night-')]
 
-const BLD_H = ['coalesce', ['get', 'render_height'], 8]
+// Höhe hart auf 250 m deckeln: einzelne OSM-Gebäude tragen fehlerhafte Höhen
+// (Tippfehler, falsche Einheit), und beim Tile-Nachladen kann eine noch grob
+// tesselierte Geometrie kurz nach oben schießen. Ohne Deckel steht dann ein
+// riesiger Textur-Spike im Bild, der verschwindet, sobald das saubere Tile da
+// ist. 250 m liegt weit über allem entlang der Touren (höchstes Haus ~100 m).
+const BLD_H = ['min', ['coalesce', ['get', 'render_height'], 8], 250]
 const ROOF_BASE = ['max', ['-', BLD_H, 2], 1] // Wandoberkante = Dachunterkante (kein Z-Fighting)
+
+// Gebäudedaten gibt es erst ab Zoom ~14 — ohne Fade tauchen an dieser Schwelle
+// alle Häuser eines Tiles schlagartig auf. Über eine knappe Zoomstufe von 0 auf
+// volle Deckkraft hochblenden: der Übergang wird weich, und die kurze
+// Halbtransparenz liegt genau dort, wo die Häuser noch klein und fern sind —
+// das Durchschimmern des Wand-Patterns durch den Dachdeckel fällt da nicht auf.
+// Ab 14.6 (normale Fahr-Zoomstufen) sind die Gebäude wieder voll deckend.
+const APPEAR = ['interpolate', ['linear'], ['zoom'], 13.9, 0, 14.6, 1]
+
+// Fundament 2 m unter Grund setzen: auf dem überhöhten, grob aufgelösten DEM
+// (maxzoom 13) sitzt die Hangkante sonst mal knapp über, mal knapp unter der
+// drapierten Satellitenfläche — der Wandfuß flimmert dann gegen den Boden. Ein
+// paar Meter versenkt verschwindet die Naht unter dem Gelände (unsichtbar).
+const BLD_BASE = ['-', ['coalesce', ['get', 'render_min_height'], 0], 2]
 
 // Eine Fassaden-Kachel: Putz mit Körnung, zwei Etagen mit Geschossband,
 // 3×2 Fenster. Nahtlos kachelbar. Der Kontrast ist bewusst niedrig gehalten
@@ -138,7 +157,12 @@ export function setBuildingsNight(map, on) {
   map.setPaintProperty('buildings-roof', 'fill-extrusion-color', on ? perBuilding(ROOFS_NIGHT) : perBuilding(ROOFS))
 }
 
-export function createMap(container, center) {
+// demMaxzoom: Auflösungsdeckel der DEM-Quelle. Niedriger = gröberes Gelände,
+// aber weniger LOD-Zoomstufen gleichzeitig im Bild → keine Terrain-Nahtspikes
+// (MapLibre-Skirt-Artefakt an Tile-Grenzen, sichtbar v. a. über Wasser). Für
+// flache, wasserreiche Touren (Stockholm) auf 11 senken; Bergtouren (Oberland)
+// brauchen 13 für die Gipfel und verstecken die Naht ohnehin im Relief.
+export function createMap(container, center, demMaxzoom = 13) {
   const map = new maplibregl.Map({
     container,
     center,
@@ -169,7 +193,7 @@ export function createMap(container, center) {
           tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
           encoding: 'terrarium',
           tileSize: 256,
-          maxzoom: 13,
+          maxzoom: demMaxzoom,
           attribution: 'Terrain: Mapzen / AWS Open Data',
         },
         // OpenFreeMap-Vektortiles (OpenMapTiles-Schema) — liefern OSM-Gebäude
@@ -199,10 +223,11 @@ export function createMap(container, center) {
             'fill-extrusion-pattern': FACADE_PATTERN,
             'fill-extrusion-pattern-transition': { duration: 1500 }, // Tag/Nacht weich blenden
             'fill-extrusion-height': ROOF_BASE,
-            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-            // voll deckend: schon 5 % Resttransparenz ließen das Fenster-
-            // Pattern der Wand-Oberseite durch die Dachdeckel schimmern
-            'fill-extrusion-opacity': 1,
+            'fill-extrusion-base': BLD_BASE,
+            // Beim Erscheinen weich einblenden (sonst schimmert bei Resttransparenz
+            // das Wand-Pattern durch den Dachdeckel — bei APPEAR unkritisch, weil
+            // nur ganz kurz und in der Ferne); ab Zoom 14.6 wieder voll deckend
+            'fill-extrusion-opacity': APPEAR,
           },
         },
         {
@@ -217,7 +242,7 @@ export function createMap(container, center) {
             'fill-extrusion-color-transition': { duration: 1500 }, // Tag/Nacht weich blenden
             'fill-extrusion-height': ['max', BLD_H, 1.5],
             'fill-extrusion-base': ROOF_BASE,
-            'fill-extrusion-opacity': 1,
+            'fill-extrusion-opacity': APPEAR, // synchron mit den Wänden einblenden
           },
         },
       ],
@@ -239,6 +264,9 @@ export function createMap(container, center) {
   // Die Tour steuert die Center-Höhe selbst — nicht ans Terrain klemmen,
   // sonst springt die Kamera, solange DEM-Tiles noch laden.
   map.setCenterClampedToGround(false)
+  // MapLibres eigene Tastensteuerung abschalten: Pfeiltasten steuern den Player
+  // (Einzelbild vor/zurück), nicht das Verschieben/Zoomen der Karte.
+  map.keyboard.disable()
   // Fassaden-Kacheln lazy erzeugen, wenn der Stil sie anfordert — robuster
   // als addImage vor dem Style-Parsing und kostet nur Gebäude-Tiles etwas
   map.on('styleimagemissing', (e) => {

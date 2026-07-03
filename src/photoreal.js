@@ -80,7 +80,15 @@ export function createPhotoreal(containerId, route, geoidOffset = 0) {
       // Requests danach laufen über das darin enthaltene Session-Token.
       tileset = await Cesium.Cesium3DTileset.fromUrl(
         `https://tile.googleapis.com/v1/3dtiles/root.json?key=${encodeURIComponent(key)}`,
-        { showCreditsOnScreen: true } // Google-Attribution ist Pflicht
+        {
+          showCreditsOnScreen: true, // Google-Attribution ist Pflicht
+          // Volle LOD-Verfeinerung erzwingen. Mit skipLevelOfDetail (der schnelleren
+          // Voreinstellung) blendet Cesium beim Kameraschwenk kurz einen groben
+          // Vorfahren-Tile durch, während die Kinder laden — genau die riesigen
+          // Textur-Spikes, die nach ein paar Sekunden von selbst verschwinden.
+          // false lädt jede Stufe vollständig, bevor sie sichtbar wird: kein Spike.
+          skipLevelOfDetail: false,
+        }
       )
       viewer.scene.primitives.add(tileset)
     }

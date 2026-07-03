@@ -61,6 +61,7 @@ export class Tour {
     this.speed = 0
     this.baseSpeed = 120 // m/s Streckenfortschritt bei 1×
     this.mult = 1
+    this.dir = 1 // Wiedergaberichtung: +1 vorwärts, −1 rückwärts (JKL-Shuttle)
     this.preset = PRESETS.mittel
     this.nextIdx = 0 // Index des nächsten Foto-Stopps
     this.itemIdx = 0 // Foto innerhalb des aktuellen Stopps
@@ -119,18 +120,41 @@ export class Tour {
     this.playing = on
     this.ui.setPlaying(on)
     if (on) {
-      // Nutzer hat evtl. die Karte bewegt — harten Schnitt mit Blende kaschieren
+      // Nur blenden, wenn der Nutzer die Karte in der Pause tatsächlich verschoben
+      // hat — dann ist das Fortsetzen ein harter Rücksprung. Beim bloßen Weiter-
+      // Drücken (Space, ohne die Karte anzufassen) läuft das Bild nahtlos weiter.
+      const moved = this._camMoved()
       this.map.dragPan.disable()
       this.map.scrollZoom.disable()
       this.map.touchZoomRotate.disable()
       this.map.touchPitch.disable()
-      this.ui.blink(() => {})
+      if (moved) this.ui.blink(() => {})
     } else {
       this.map.dragPan.enable()
       this.map.scrollZoom.enable()
       this.map.touchZoomRotate.enable()
       this.map.touchPitch.enable()
+      this.camSnap = this._camNow() // Ausgangsstand merken, um späteres Verschieben zu erkennen
     }
+  }
+
+  // Kamerastand als Signatur (Vergleich für den bedingten Resume-Fade)
+  _camNow() {
+    const c = this.map.getCenter()
+    return { lng: c.lng, lat: c.lat, zoom: this.map.getZoom(), bearing: this.map.getBearing(), pitch: this.map.getPitch() }
+  }
+
+  _camMoved() {
+    const s = this.camSnap
+    if (!s) return false
+    const c = this.map.getCenter()
+    return (
+      Math.abs(c.lng - s.lng) > 1e-6 ||
+      Math.abs(c.lat - s.lat) > 1e-6 ||
+      Math.abs(this.map.getZoom() - s.zoom) > 1e-3 ||
+      Math.abs(this.map.getBearing() - s.bearing) > 0.05 ||
+      Math.abs(this.map.getPitch() - s.pitch) > 0.05
+    )
   }
 
   setPreset(p) {
@@ -148,14 +172,21 @@ export class Tour {
     this.phase = 'ride'
     this.s = s
     this.speed = 0
+    this.dir = 1
     this.glide = 1.6
     this.photoShown = false
     this.course = bearingAt(this.route, s) // nach Teleport nicht minutenlang nachdrehen
     this.tuck.set(1)
-    this.nextIdx = this.stops.findIndex((st) => st.s > s + 160)
-    if (this.nextIdx === -1) this.nextIdx = this.stops.length
+    this.syncNextIdx()
     this.ui.syncDots(s)
     if (!this.playing) this.setPlaying(true)
+  }
+
+  // Index des nächsten (vorwärts liegenden) Foto-Stopps neu bestimmen — nötig
+  // nach jedem Sprung/Richtungswechsel, damit Stopps korrekt wieder auslösen
+  syncNextIdx() {
+    this.nextIdx = this.stops.findIndex((st) => st.s > this.s + 160)
+    if (this.nextIdx === -1) this.nextIdx = this.stops.length
   }
 
   // — Timeline-Scrubbing (Ziehen wie im Video-Editor) —
@@ -174,8 +205,7 @@ export class Tour {
   scrub(frac) {
     this.s = Math.max(0, Math.min(1, frac)) * this.route.total
     this.glide = Math.min(this.glide, 0.5) // Kamera zieht straff nach statt zu schweben
-    this.nextIdx = this.stops.findIndex((st) => st.s > this.s + 160)
-    if (this.nextIdx === -1) this.nextIdx = this.stops.length
+    this.syncNextIdx()
     this.emitStats() // Kopf und Telemetrie sofort, nicht erst beim 10-Hz-Takt
   }
 
@@ -258,6 +288,7 @@ export class Tour {
       this.s = st.s
       this.course = b
       this.speed = 0
+      this.dir = 1
       this.phase = 'photo'
       this.shownStop = st
       this.nextIdx = idx + 1
@@ -278,6 +309,7 @@ export class Tour {
     this.ui.blink(() => {
       this.s = 0
       this.speed = 0
+      this.dir = 1
       this.nextIdx = 0
       this.phase = 'ride'
       this.glide = 1
@@ -300,6 +332,81 @@ export class Tour {
   cycleSpeed() {
     this.mult = this.mult >= 4 ? 1 : this.mult * 2
     return this.mult
+  }
+
+  // — Tastatursteuerung wie im Video-Editor —
+
+  // Einzelbild vor/zurück (Cursortasten). Ein „Bild“ = Strecke bei 1× in 1/24 s
+  // des aktuellen Modus. Bleibt angehalten, snappt die Kamera hart auf die neue
+  // Position (kein Nachschweben) und aktualisiert Kamerastand → kein Resume-Fade.
+  nudge(frames) {
+    if (this.phase === 'intro') return
+    if (this.phase === 'photo') this.ui.hidePhoto()
+    if (this.phase === 'finale') this.ui.hideFinale()
+    this.phase = 'ride'
+    this.photoShown = false
+    this.dir = 1
+    this.speed = 0
+    this.setPlaying(false)
+    const mo = this.modeAt(this.s)
+    const step = frames * this.baseSpeed * (MODE_SPEED[mo.mode] ?? 1) / 24
+    this.s = Math.max(0, Math.min(this.route.total, this.s + step))
+    this.syncNextIdx()
+    this._snapRideCamera()
+    this.ui.updateTrace(this.s, pointAt(this.route, this.s))
+    this.ui.syncDots(this.s)
+    this.emitStats()
+    this.camSnap = this._camNow() // Kamera steht auf der Tour-Pose ⇒ Fortsetzen ohne Blende
+  }
+
+  // Fahrt-Kamera für this.s ohne Glättung setzen (Snap). Spiegelt bewusst die
+  // Rahmung des else-Zweigs in update(), nur mit .set() statt .to().
+  _snapRideCamera() {
+    const { route, preset } = this
+    const rider = pointAt(route, this.s)
+    const mo = this.modeAt(this.s)
+    this.course = bearingAt(route, this.s)
+    const backDir = (this.course + 180) % 360
+    const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
+    const sc = MODE_SCALE[mo.mode] ?? MODE_SCALE.bike
+    this.scaleSm.set(sc.behind)
+    this.hoverSm.set(sc.hover)
+    const behind = preset.behind * sc.behind
+    const hover = preset.hover * sc.hover
+    let k = 1
+    while (k > 0.4) {
+      const cand = destination([rider[0], rider[1]], behind * k, backDir)
+      if (this.groundAlt(cand, rider[2]) + 110 <= riderG + hover * k) break
+      k -= 0.12
+    }
+    this.tuck.set(k)
+    const cgPos = destination([rider[0], rider[1]], behind * k, backDir)
+    this.cg.lng.set(cgPos[0])
+    this.cg.lat.set(cgPos[1])
+    this.alt.set(Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110))
+    this.lt.lng.set(rider[0])
+    this.lt.lat.set(rider[1])
+    this.ltAlt.set(this.groundAlt([rider[0], rider[1]], rider[2]))
+    this.glide = 1
+    this.applyCamera()
+  }
+
+  // JKL-Shuttle: L (dir +1) / J (dir −1). Erneut in dieselbe Richtung = schneller;
+  // Richtungswechsel startet wieder bei 1×. K hält an (in main.js verdrahtet).
+  shuttle(dir) {
+    if (this.phase === 'intro') return
+    if (this.phase === 'photo') this.ui.hidePhoto()
+    if (this.phase === 'finale') this.ui.hideFinale()
+    this.phase = 'ride'
+    this.photoShown = false
+    if (this.playing && this.dir === dir) {
+      this.mult = this.mult >= 8 ? 8 : this.mult * 2
+    } else {
+      this.dir = dir
+      this.mult = 1
+      this.syncNextIdx() // Richtung/Position neu ⇒ nächsten Stopp neu bestimmen
+    }
+    if (!this.playing) this.setPlaying(true)
   }
 
   // — pro Frame —
@@ -365,12 +472,17 @@ export class Tour {
           : 0
       const speedTau = this.phase === 'photo' ? 0.55 : 1.1
       this.speed += (speedTarget - this.speed) * (1 - Math.exp(-dt / speedTau))
-      // Beim Scrubben bestimmt allein der Zeigefinger die Position
-      if (!this.scrubbing) this.s = Math.min(this.s + this.speed * dt, route.total)
+      // Beim Scrubben bestimmt allein der Zeigefinger die Position; sonst trägt
+      // die Richtung (this.dir) das Vorzeichen — Rückwärtswiedergabe per JKL.
+      if (!this.scrubbing) {
+        this.s = Math.max(0, Math.min(this.s + this.dir * this.speed * dt, route.total))
+        if (this.dir < 0 && this.s <= 0) { this.dir = 1; this.setPlaying(false) } // am Anfang angekommen
+      }
 
       // Foto-Trigger: Bremsweg der Ausrollkurve (≈ speed · τ) einplanen,
-      // damit der Stopp nahe am Ankerpunkt landet
-      if (this.phase === 'ride' && !this.scrubbing && this.nextIdx < this.stops.length) {
+      // damit der Stopp nahe am Ankerpunkt landet (nur vorwärts — beim Zurück-
+      // spulen soll die Fahrt nicht an jedem Stopp hängenbleiben)
+      if (this.phase === 'ride' && !this.scrubbing && this.dir > 0 && this.nextIdx < this.stops.length) {
         const brake = this.speed * 0.62
         if (this.s >= this.stops[this.nextIdx].s - brake) {
           this.phase = 'photo'
@@ -388,7 +500,7 @@ export class Tour {
       }
     }
 
-    if (this.s >= route.total && this.phase !== 'photo' && !this.scrubbing) {
+    if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && !this.scrubbing) {
       if (this.phase !== 'finale') {
         this.phase = 'finale'
         this.glide = 2.2
@@ -485,5 +597,8 @@ export class Tour {
       // Füllstand des Anzeige-Balkens auf der Foto-Karte (steht bei Pause)
       holdFrac: this.photoShown === true ? Math.min(this.holdT / HOLD_HIDE, 1) : null,
     })
+    // Tempo-Anzeige (Button) mit Faktor + Richtung aktuell halten — auch nach
+    // JKL-Shuttle oder automatischem Stopp am Streckenanfang
+    this.ui.onSpeed?.(this.mult, this.dir)
   }
 }

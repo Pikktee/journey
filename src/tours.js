@@ -102,6 +102,10 @@ export const TOURS = {
     // Spätsommertag bis in die Nacht: Sonnenuntergang ~20:10, Finale im Dunkeln
     time: { start: '2025-08-24T09:30:00+02:00', end: '2025-08-24T23:00:00+02:00', zone: 'Europe/Stockholm' },
     geoid: 22, // m: Geoid über WGS84-Ellipsoid in der Region (für den Google-3D-Testmodus)
+    // Flacher Schärengarten: DEM auf maxzoom 11 gröbern → keine Terrain-Nahtspikes
+    // über dem Wasser (MapLibre-Skirt-Artefakt). Auf der flachen Insellandschaft
+    // ist der Auflösungsverlust unsichtbar, die Überhöhung bleibt voll erhalten.
+    demMaxzoom: 11,
     // Landwege: reale Straßenrouten (FOSSGIS-OSRM, Fußprofil, OSM-Wegenetz);
     // Tram: echte Gleistrasse aus OSM (railway=tram, via Overpass gestitcht)
     segments: [

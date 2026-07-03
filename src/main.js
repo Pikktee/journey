@@ -58,7 +58,7 @@ for (const btn of document.querySelectorAll('#tour-picker button')) {
   })
 }
 
-const map = createMap('map', [start[0], start[1]])
+const map = createMap('map', [start[0], start[1]], cfg.demMaxzoom)
 window.__j = { map, route }
 
 map.on('error', (e) => console.error('map error:', e.error?.message ?? e))
@@ -141,8 +141,15 @@ map.on('load', () => {
   document.getElementById('btn-replay').addEventListener('click', () => tour.restart())
 
   const speedBtn = document.getElementById('btn-speed')
+  // Tempo-Label aus dem Tour-Zustand: Faktor + Richtung (−4× = 4× rückwärts).
+  // Wird pro Stats-Tick aufgerufen, bleibt also auch nach JKL-Shuttle aktuell.
+  ui.onSpeed = (mult, dir) => {
+    const txt = `${dir < 0 ? '−' : ''}${mult}×`
+    if (speedBtn.textContent !== txt) speedBtn.textContent = txt
+  }
   speedBtn.addEventListener('click', () => {
-    speedBtn.textContent = `${tour.cycleSpeed()}×`
+    tour.dir = 1 // Button ist ein Vorwärts-Tempo-Umschalter
+    ui.onSpeed(tour.cycleSpeed(), tour.dir)
   })
 
   for (const btn of document.querySelectorAll('.preset-btn')) {
@@ -271,6 +278,11 @@ map.on('load', () => {
   let g3dOn = false
   let g3dBusy = false
 
+  // Nur im lokalen Dev-Server: Google-Schlüssel aus der .env (VITE_GOOGLE_MAP_TILES_API_KEY).
+  // Der DEV-Guard lässt den Wert beim Produktions-Build als toten Code wegfallen —
+  // im deployten Bundle landet er nie.
+  const g3dEnvKey = import.meta.env.DEV ? import.meta.env.VITE_GOOGLE_MAP_TILES_API_KEY || '' : ''
+
   const setG3d = async (on) => {
     if (g3dBusy) return
     if (!on) {
@@ -282,7 +294,7 @@ map.on('load', () => {
       g3dBtn.setAttribute('aria-pressed', 'false')
       return
     }
-    const key = localStorage.getItem('g3dKey')
+    const key = localStorage.getItem('g3dKey') || g3dEnvKey
     if (!key) {
       g3dModal.hidden = false
       g3dKeyInput.focus()
@@ -317,13 +329,42 @@ map.on('load', () => {
     setG3d(true)
   })
 
+  // Tastatursteuerung des Players (wie in Videoschnitt-Software)
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && tour.phase !== 'intro') {
-      e.preventDefault()
-      tour.setPlaying(!tour.playing)
-    }
-    if (e.code === 'KeyH' && tour.phase !== 'intro') {
-      setClean(!document.body.classList.contains('ui-clean'))
+    // In Textfeldern (z. B. Google-Key-Dialog) nichts abfangen
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    if (tour.phase === 'intro') return // vor dem Start hat der Player keine Tasten
+
+    switch (e.code) {
+      case 'Space': // Start/Stopp
+        e.preventDefault()
+        tour.setPlaying(!tour.playing)
+        break
+      case 'KeyH': // UI ein-/ausblenden
+        setClean(!document.body.classList.contains('ui-clean'))
+        break
+      case 'ArrowRight': // ein Bild vor (Shift: 12 Bilder)
+        e.preventDefault()
+        tour.nudge(e.shiftKey ? 12 : 1)
+        break
+      case 'ArrowLeft': // ein Bild zurück
+        e.preventDefault()
+        tour.nudge(e.shiftKey ? -12 : -1)
+        break
+      case 'KeyL': // JKL: vorwärts (nochmal = schneller)
+        e.preventDefault()
+        tour.shuttle(1)
+        break
+      case 'KeyJ': // JKL: rückwärts (nochmal = schneller)
+        e.preventDefault()
+        tour.shuttle(-1)
+        break
+      case 'KeyK': // JKL: anhalten
+        e.preventDefault()
+        tour.mult = 1
+        tour.dir = 1
+        tour.setPlaying(false)
+        break
     }
   })
 })
