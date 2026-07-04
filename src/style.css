@@ -1112,6 +1112,101 @@ body.ui-clean .ui-toggle {
   background: rgba(245, 165, 36, 0.14);
 }
 
+/* Ebenen-/Renderer-Dropdown (ersetzt die einzelnen Gebäude-/Google-Buttons) */
+.layers-wrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.layers-menu {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 224px;
+  padding: 8px;
+  background: rgba(12, 15, 20, 0.82);
+  border: 1px solid var(--glass-brd);
+  border-radius: 14px;
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 2px;
+  z-index: 50;
+}
+.layers-menu[hidden] {
+  display: none;
+}
+.lm-group-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 10px 4px;
+}
+.lm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lm-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.lm-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%; /* Optionsfeld (radio), nicht Kontrollkästchen */
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  display: grid;
+  place-items: center;
+}
+.lm-item.on {
+  color: var(--amber);
+}
+.lm-item.on .lm-check {
+  border-color: var(--amber);
+}
+.lm-item.on .lm-check::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+.lm-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lm-tag {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--glass-brd);
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+.lm-sep {
+  height: 1px;
+  background: var(--glass-brd);
+  margin: 6px 4px;
+}
+
 .g3d-modal {
   position: fixed;
   inset: 0;

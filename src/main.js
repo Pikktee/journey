@@ -178,28 +178,60 @@ map.on('load', () => {
     // Satellitenfarbe). MapLibre-Gebäudelayer aus, damit sich nichts überlagert.
     map.setLayoutProperty('buildings-3d', 'visibility', 'none')
     import('./deckbuildings.js').then(({ installDeckBuildings }) => {
-      window.__j.buildings2 = installDeckBuildings(map)
+      // Route mitgeben → Satellitenkacheln des Korridors vorab laden (kein Nachfärben zur Fahrt).
+      window.__j.buildings2 = installDeckBuildings(map, { route })
       if (!buildings3dOn) window.__j.buildings2.setVisible(false) // falls vor dem Laden umgeschaltet
+      if (isNight) window.__j.buildings2.setNight(true) // Nacht-Zustand nachziehen, falls schon aktiv
     })
   } else {
     window.__j.buildings = installBuildingEnhancer(map)
   }
 
-  // 3D-Gebäude ein/aus (Steuerleisten-Button). Wirkt in beiden Renderer-Pfaden; die
-  // Wurf-Schatten folgen den Gebäuden (und bleiben nachts ohnehin aus, s. Tag/Nacht).
-  let buildings3dOn = true
+  // Gebäude-Sichtbarkeit aus dem Modus abgeleitet (?buildings=off = „Gebäude ausblenden"). Wird
+  // auch von der Tag/Nacht- und Schatten-Logik genutzt (buildings3dOn), daher als Funktion erhalten.
+  let buildings3dOn = params.get('buildings') !== 'off'
   let isNight = false
   const applyShadows = () => shadows?.setVisible(buildings3dOn && !isNight)
-  const buildingsBtn = document.getElementById('btn-buildings')
   const setBuildings3d = (on) => {
     buildings3dOn = on
     if (deckMode) window.__j.buildings2?.setVisible(on)
     else if (map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', on ? 'visible' : 'none')
     applyShadows()
-    buildingsBtn.classList.toggle('active', on)
-    buildingsBtn.setAttribute('aria-pressed', String(on))
   }
-  buildingsBtn.addEventListener('click', () => setBuildings3d(!buildings3dOn))
+  setBuildings3d(buildings3dOn) // Anfangszustand anwenden (v.a. „Gebäude ausblenden")
+
+  // Ansicht-Dropdown: EINE Radio-Gruppe, alle Optionen schließen sich gegenseitig aus. Auswahl
+  // lädt in den gewählten Modus (Query-Param); der aktive Modus wird aus der URL abgeleitet.
+  const layersBtn = document.getElementById('btn-layers')
+  const layersMenu = document.getElementById('layers-menu')
+  const closeLayers = () => { layersMenu.hidden = true; layersBtn.setAttribute('aria-expanded', 'false') }
+  const openLayers = () => { layersMenu.hidden = false; layersBtn.setAttribute('aria-expanded', 'true') }
+  const curMode = params.get('g3d') === '1' ? 'google'
+    : params.get('scene') === '1' ? 'scene'
+    : deckMode ? 'deck'
+    : params.get('buildings') === 'off' ? 'hidden'
+    : 'maplibre'
+  layersMenu.querySelectorAll('[data-mode]').forEach((el) => {
+    const active = el.dataset.mode === curMode
+    el.classList.toggle('on', active)
+    el.setAttribute('aria-checked', String(active))
+    el.addEventListener('click', () => {
+      if (el.dataset.mode === curMode) { closeLayers(); return }
+      const u = new URL(location.href)
+      ;['deck', 'scene', 'g3d', 'buildings'].forEach((p) => u.searchParams.delete(p))
+      const m = el.dataset.mode
+      if (m === 'deck') u.searchParams.set('deck', '1')
+      else if (m === 'scene') u.searchParams.set('scene', '1')
+      else if (m === 'google') u.searchParams.set('g3d', '1')
+      else if (m === 'hidden') u.searchParams.set('buildings', 'off')
+      location.href = u.toString() // Reload in den gewählten Modus
+    })
+  })
+  layersBtn.addEventListener('click', (e) => { e.stopPropagation(); layersMenu.hidden ? openLayers() : closeLayers() })
+  document.addEventListener('click', (e) => {
+    if (!layersMenu.hidden && !layersMenu.contains(e.target) && e.target !== layersBtn) closeLayers()
+  })
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLayers() })
 
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
   const syncSpots = addSpotLayers(
@@ -270,6 +302,7 @@ map.on('load', () => {
     const dayNight = createDayNight(map, (on) => {
       isNight = on
       setBuildingsNight(map, on)
+      window.__j.buildings2?.setNight(on) // deck-Gebäude nachts mit abdunkeln
       applyShadows() // nachts kein Sonnenschatten; folgt auch dem Gebäude-Umschalter
     })
     ui.onTick = (frac) => {
@@ -376,7 +409,6 @@ map.on('load', () => {
     toastT = setTimeout(() => (toastEl.hidden = true), 5200)
   }
 
-  const g3dBtn = document.getElementById('btn-g3d')
   const g3dModal = document.getElementById('g3d-modal')
   const g3dKeyInput = document.getElementById('g3d-key')
   let g3dOn = false
@@ -394,8 +426,6 @@ map.on('load', () => {
       tour.extCamera = null
       photoreal.disable()
       document.getElementById('map').style.visibility = ''
-      g3dBtn.classList.remove('active')
-      g3dBtn.setAttribute('aria-pressed', 'false')
       return
     }
     const key = localStorage.getItem('g3dKey') || g3dEnvKey
@@ -405,25 +435,24 @@ map.on('load', () => {
       return
     }
     g3dBusy = true
-    g3dBtn.classList.add('active')
     try {
       await photoreal.enable(key)
       g3dOn = true
       tour.extCamera = photoreal.setCamera
       document.getElementById('map').style.visibility = 'hidden'
-      g3dBtn.setAttribute('aria-pressed', 'true')
       tour.applyCamera() // Cesium sofort auf die aktuelle Pose setzen
       toast('Google Photorealistic 3D aktiv (Testmodus)')
     } catch (err) {
       console.error('Google 3D Tiles:', err)
-      g3dBtn.classList.remove('active')
       toast('Google 3D Tiles ließen sich nicht laden — Schlüssel/Abrechnung prüfen. Details in der Konsole.')
       localStorage.removeItem('g3dKey') // beim nächsten Versuch neu abfragen
     }
     g3dBusy = false
   }
 
-  g3dBtn.addEventListener('click', () => setG3d(!g3dOn))
+  // Google-3D ist jetzt ein Modus der Ansicht-Radiogruppe (?g3d=1) → beim Laden aktivieren.
+  // Fehlt der Schlüssel, öffnet setG3d den Key-Dialog.
+  if (params.get('g3d') === '1') setG3d(true)
   document.getElementById('g3d-cancel').addEventListener('click', () => (g3dModal.hidden = true))
   document.getElementById('g3d-save').addEventListener('click', () => {
     const key = g3dKeyInput.value.trim()
