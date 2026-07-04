@@ -1,0 +1,23 @@
+# Statisches Ausliefern des Vite-Builds.
+# Railway setzt $PORT; lokal (docker run) fällt es auf 8080 zurück.
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	root * /srv
+	encode gzip zstd
+	file_server
+
+	# Gehashte Vite-Assets sind unveränderlich → aggressiv cachen.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html nie langfristig cachen, damit neue Deploys sofort greifen.
+	header /index.html Cache-Control "no-cache"
+
+	# Unbekannte Pfade auf index.html zurückfallen (App nutzt ?tour=-Query,
+	# keine echten Unterpfade — schadet aber nicht).
+	try_files {path} /index.html
+}

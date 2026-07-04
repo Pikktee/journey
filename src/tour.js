@@ -57,6 +57,10 @@ export class Tour {
     this.phase = 'intro'
     this.playing = false
     this.scrubbing = false
+    // Steht die Kamera in der Pause bereits auf der idealen Fahrt-Pose? Nur dann
+    // schneidet die Einzelbild-Taste hart; sonst schwingt sie erst weich ein
+    // (verhindert den Sprung beim ersten Cursortasten-Druck).
+    this.settled = false
     this.s = 0
     this.speed = 0
     this.baseSpeed = 120 // m/s Streckenfortschritt bei 1×
@@ -111,6 +115,7 @@ export class Tour {
   begin() {
     this.phase = 'ride'
     this.playing = true
+    this.settled = false
     this.glide = 2.4 // langer, epischer Anflug hinter den Startpunkt
     this.ui.hideIntro()
   }
@@ -119,6 +124,7 @@ export class Tour {
     if (on === this.playing) return
     this.playing = on
     this.ui.setPlaying(on)
+    if (on) this.settled = false // Bewegung ⇒ Kamera muss sich neu einschwingen
     if (on) {
       // Nur blenden, wenn der Nutzer die Karte in der Pause tatsächlich verschoben
       // hat — dann ist das Fortsetzen ein harter Rücksprung. Beim bloßen Weiter-
@@ -182,6 +188,32 @@ export class Tour {
     if (!this.playing) this.setPlaying(true)
   }
 
+  // Nach einem Reload an die gemerkte Position zurückkehren, OHNE Intro-Orbit:
+  // Fahrt-Phase, Kamera hart auf die Pose schneiden (kein Einschwingen aus der
+  // Übersicht), standardmäßig pausiert — so zeigt ein Reload exakt denselben Frame
+  // (nötig fürs A/B-Vergleichen). Terrain-Höhen sind evtl. noch nicht geladen →
+  // groundAlt fällt aufs Höhenprofil zurück, die Pose sitzt beim nächsten Tick sauber.
+  resumeAt(s, play = false) {
+    this.ui.hideIntro()
+    this.phase = 'ride'
+    this.playing = false
+    this.scrubbing = false
+    this.s = Math.max(0, Math.min(this.route.total, s))
+    this.speed = 0
+    this.dir = 1
+    this.glide = 1
+    this.photoShown = false
+    this.tuck.set(1)
+    this.syncNextIdx()
+    this._snapRideCamera() // setzt cg/lt/alt hart + applyCamera
+    this.settled = true
+    this.camSnap = this._camNow()
+    this.ui.syncDots(this.s)
+    this.ui.updateTrace(this.s, pointAt(this.route, this.s))
+    this.emitStats()
+    if (play) this.setPlaying(true)
+  }
+
   // Index des nächsten (vorwärts liegenden) Foto-Stopps neu bestimmen — nötig
   // nach jedem Sprung/Richtungswechsel, damit Stopps korrekt wieder auslösen
   syncNextIdx() {
@@ -198,6 +230,7 @@ export class Tour {
     this.scrubbing = true
     this.phase = 'ride'
     this.photoShown = false
+    this.settled = false
     this.speed = 0
     this.scrub(frac)
   }
@@ -343,6 +376,12 @@ export class Tour {
     if (this.phase === 'intro') return
     if (this.phase === 'photo') this.ui.hidePhoto()
     if (this.phase === 'finale') this.ui.hideFinale()
+    // Kam die Kamera gerade aus der Fahrt (noch nicht eingeschwungen), läge sie
+    // auf einer nachlaufenden Pose — ein harter Snap auf die ideale Pose wäre
+    // dann genau der sichtbare Sprung. In dem Fall NICHT snappen, sondern die
+    // Einschwing-Schleife (tick) die Kamera weich nachziehen lassen; ab dem
+    // nächsten Bild sitzt sie auf ideal und die Taste schneidet knackig.
+    const wasSettled = this.settled && this.phase === 'ride'
     this.phase = 'ride'
     this.photoShown = false
     this.dir = 1
@@ -352,11 +391,17 @@ export class Tour {
     const step = frames * this.baseSpeed * (MODE_SPEED[mo.mode] ?? 1) / 24
     this.s = Math.max(0, Math.min(this.route.total, this.s + step))
     this.syncNextIdx()
-    this._snapRideCamera()
+    if (wasSettled) {
+      this._snapRideCamera() // eingeschwungen ⇒ harter Einzelbild-Schnitt, kein Sprung
+      this.settled = true
+      this.camSnap = this._camNow() // Kamera steht auf der Tour-Pose ⇒ Fortsetzen ohne Blende
+    } else {
+      this.settled = false // tick schwingt die Kamera jetzt weich auf die neue Pose ein
+      this.glide = Math.min(this.glide, 0.45) // zügig, damit es nur kurz „nachzieht“
+    }
     this.ui.updateTrace(this.s, pointAt(this.route, this.s))
     this.ui.syncDots(this.s)
     this.emitStats()
-    this.camSnap = this._camNow() // Kamera steht auf der Tour-Pose ⇒ Fortsetzen ohne Blende
   }
 
   // Fahrt-Kamera für this.s ohne Glättung setzen (Snap). Spiegelt bewusst die
@@ -420,6 +465,15 @@ export class Tour {
       this.updateOrbitCamera(dt, this.mid, this.ovR, this.ovA)
     } else if (this.playing || this.scrubbing) {
       this.update(dt) // beim Scrubben muss die Kamera auch in Pause folgen
+    } else if (this.phase === 'ride' && !this.settled) {
+      // Pausiert und noch nicht eingeschwungen: Kamera zügig auf die ideale
+      // Fahrt-Pose ziehen, damit die Cursortasten danach ohne Sprung Bild für
+      // Bild schneiden. camSnap mitführen, damit die Drag-Erkennung (Resume-
+      // Fade) korrekt bleibt — sonst hielte sie die Einschwing-Bewegung für
+      // ein Verschieben durch den Nutzer.
+      this.glide = Math.min(this.glide, 0.45)
+      this.update(dt)
+      this.camSnap = this._camNow()
     }
 
     this.uiClock += dt
@@ -467,14 +521,15 @@ export class Tour {
       return
     } else {
       const speedTarget =
-        this.phase === 'ride' && !this.scrubbing
+        this.phase === 'ride' && !this.scrubbing && this.playing
           ? this.baseSpeed * this.mult * (MODE_SPEED[mo.mode] ?? 1)
           : 0
       const speedTau = this.phase === 'photo' ? 0.55 : 1.1
       this.speed += (speedTarget - this.speed) * (1 - Math.exp(-dt / speedTau))
       // Beim Scrubben bestimmt allein der Zeigefinger die Position; sonst trägt
       // die Richtung (this.dir) das Vorzeichen — Rückwärtswiedergabe per JKL.
-      if (!this.scrubbing) {
+      // In Pause (nur Einschwingen) darf sich s nicht bewegen.
+      if (!this.scrubbing && this.playing) {
         this.s = Math.max(0, Math.min(this.s + this.dir * this.speed * dt, route.total))
         if (this.dir < 0 && this.s <= 0) { this.dir = 1; this.setPlaying(false) } // am Anfang angekommen
       }
@@ -482,7 +537,7 @@ export class Tour {
       // Foto-Trigger: Bremsweg der Ausrollkurve (≈ speed · τ) einplanen,
       // damit der Stopp nahe am Ankerpunkt landet (nur vorwärts — beim Zurück-
       // spulen soll die Fahrt nicht an jedem Stopp hängenbleiben)
-      if (this.phase === 'ride' && !this.scrubbing && this.dir > 0 && this.nextIdx < this.stops.length) {
+      if (this.phase === 'ride' && !this.scrubbing && this.playing && this.dir > 0 && this.nextIdx < this.stops.length) {
         const brake = this.speed * 0.62
         if (this.s >= this.stops[this.nextIdx].s - brake) {
           this.phase = 'photo'
@@ -500,7 +555,7 @@ export class Tour {
       }
     }
 
-    if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && !this.scrubbing) {
+    if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && !this.scrubbing && this.playing) {
       if (this.phase !== 'finale') {
         this.phase = 'finale'
         this.glide = 2.2
@@ -539,6 +594,16 @@ export class Tour {
       const cg = [cgPos[0], cgPos[1], rider[2]]
       const alt = Math.max(riderG + hover * kk, this.groundAlt(cgPos, rider[2]) + 110)
       this.smoothTowards(dt, cg, alt, rider)
+      if (!this.playing && !this.scrubbing) {
+        // Pausiert: sobald die Kamera praktisch auf der idealen Fahrt-Pose sitzt,
+        // gilt sie als eingeschwungen — ab dann schneidet die Einzelbild-Taste hart.
+        const near =
+          Math.abs(this.cg.lng.v - cg[0]) < 2e-6 &&
+          Math.abs(this.cg.lat.v - cg[1]) < 2e-6 &&
+          Math.abs(this.alt.v - alt) < 0.5 &&
+          Math.abs(angleDelta(this.course, bearingAt(route, this.s))) < 0.15
+        if (near) this.settled = true
+      }
     }
 
     this.applyCamera()

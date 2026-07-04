@@ -1,4 +1,6 @@
-# Journey — 3D-Reise-Visualisierung (Proof of Concept)
+# Luhambo — 3D-Reise-Visualisierung
+
+> **Luhambo** ist Siswati für „Reise“.
 
 Relive-artige 3D-Kamerafahrt über eine GPS-Route mit automatischen Foto-Stopps,
 komplett auf Basis kostenloser Kartendaten.
@@ -42,6 +44,36 @@ npm run dev
   (Overlays werden dabei über den Map-Frames komponiert)
 - 3D-Fahrzeugmodelle (glTF) als Custom Layer
 - Höhenprofil aus dem DEM statt aus Wegpunkt-Höhen
+
+## Deployment (Railway)
+
+Die App wird als statischer Vite-Build ausgeliefert (Multi-Stage-`Dockerfile`:
+Node baut, Caddy serviert). Es sind **keine Build-Secrets** nötig — der
+Google-3D-Key wird nur im Dev genutzt.
+
+**Einmalige Einrichtung:**
+
+1. Auf [Railway](https://railway.app) ein Projekt + Service anlegen (Deploy from
+   Dockerfile). Railway setzt `$PORT` automatisch; die `Caddyfile` liest ihn aus.
+2. In den Railway-**Projekteinstellungen → Tokens** einen Projekt-Token erzeugen.
+3. Im GitHub-Repo unter **Settings → Secrets and variables → Actions**:
+   - Secret `RAILWAY_TOKEN` = der Projekt-Token.
+   - *(optional)* Variable `RAILWAY_SERVICE` = Service-Name, falls das Projekt
+     mehrere Services hat.
+
+**Ablauf:** Ein Version-Tag (`vX.Y.Z`) triggert
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) → `npm run build`
+als Gate → `railway up`. Tags erzeugt man mit dem Release-Tool:
+
+```bash
+npm run release            # interaktiv fragen (bugfix/minor/major)
+npm run release bugfix     # Patch  (0.1.0 → 0.1.1)
+npm run release minor      # Minor  (0.1.0 → 0.2.0)
+npm run release major      # Major  (0.1.0 → 1.0.0)
+```
+
+Das Tool prüft ein sauberes Arbeitsverzeichnis, hebt die Version an
+(`npm version`), committet, taggt und pusht — der Push startet den Deploy.
 
 ## Datenquellen & Attribution
 

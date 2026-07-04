@@ -1,0 +1,39 @@
+name: Deploy
+
+# Läuft nur bei Version-Tags (vX.Y.Z), erzeugt vom Release-Tool
+# (scripts/release.sh bzw. `npm run release`).
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # Schnelles Gate: bricht der Build, wird gar nicht erst deployt.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Railway CLI installieren
+        run: npm i -g @railway/cli
+      - name: Auf Railway deployen
+        env:
+          # Projekt-Token aus den Railway-Projekteinstellungen → als
+          # GitHub-Secret RAILWAY_TOKEN hinterlegen.
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Service-Name als Repo-Variable RAILWAY_SERVICE (optional,
+          # nötig wenn das Projekt mehrere Services hat).
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+        run: |
+          railway up --ci ${RAILWAY_SERVICE:+--service "$RAILWAY_SERVICE"}

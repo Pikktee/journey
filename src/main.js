@@ -4,6 +4,8 @@ import { TOURS } from './tours.js'
 import { buildRoute, nearestS, pointAt } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
 import { createDayNight } from './daynight.js'
+import { installBuildingEnhancer } from './buildings.js'
+import { installBuildingShadows } from './shadows.js'
 import { createPhotoreal } from './photoreal.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI } from './ui.js'
@@ -39,8 +41,8 @@ const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
 const setText = (id, text) => (document.getElementById(id).textContent = text)
-document.title = `Journey — ${cfg.brandTitle}`
-setText('brand-kicker', `Journey · ${cfg.no}`)
+document.title = `Luhambo — ${cfg.brandTitle}`
+setText('brand-kicker', `Luhambo · ${cfg.no}`)
 setText('brand-title', cfg.brandTitle)
 setText('brand-route', cfg.stops.join(' — '))
 setText('intro-kicker', cfg.kicker)
@@ -139,6 +141,66 @@ map.on('load', () => {
   const tour = new Tour(map, route, stops, ui, { modes })
   Object.assign(window.__j, { tour, rider })
 
+  // Diagnose-Helfer (Konsole): alle Baukörper um [x,y] Pixel verschieben. Bringt ein
+  // KONSTANTER Versatz die Häuser sauber auf ihre Satelliten-Textur, ist es ein
+  // Registrierungs-Offset (OSM↔Esri, ggf. korrigierbar). Bleibt der Versatz nur
+  // teilweise weg / kippt je nach Blickrichtung, ist es Luftbild-Parallaxe (nicht
+  // korrigierbar, nur mit eigenen Gebäude-Tiles). __j.nudgeBuildings() setzt zurück.
+  window.__j.nudgeBuildings = (x = 0, y = 0) =>
+    map.setPaintProperty('buildings-3d', 'fill-extrusion-translate', [x, y])
+
+  // Gebäude-Renderer wählen. Default: der MapLibre-fill-extrusion-Layer, aufgewertet
+  // per Satelliten-Dachfarbe (buildings.js). Mit ?deck=1: HYBRID-Renderer — MapLibre
+  // behält Boden/Terrain/Schatten, deck.gl rendert die Gebäude interleaved mit
+  // gerichteter Beleuchtung und prozeduraler Fassade (Etagen/Fenster). Der MapLibre-
+  // Gebäudelayer wird dann ausgeblendet, damit sich nichts überlagert. Siehe deckbuildings.js.
+  // Stufe 0 des Renderer-Plans: eigenständige deck.gl-Terrain-Szene (Terrain+Satellit),
+  // MapLibre unsichtbar als Kamera-/Terrain-Rechner. Spiegelt die Pose über tour.extCamera.
+  if (params.get('scene') === '1') {
+    import('./deckscene.js').then(({ installDeckScene }) => {
+      const scene = installDeckScene(map)
+      scene.enable()
+      tour.extCamera = scene.setCamera
+      tour.applyCamera() // Szene sofort auf die aktuelle Pose ziehen
+      window.__j.scene = scene
+    })
+  }
+
+  let shadows = null
+  // Geerdete Wurf-Schatten in beiden Pfaden (erden auch die deck-Gebäude). ?noshadows=1
+  // zum A/B-Vergleich. Nachts unten über die Tag/Nacht-Regie abgeschaltet.
+  if (params.get('noshadows') !== '1') shadows = installBuildingShadows(map)
+  window.__j.shadows = shadows
+
+  const deckMode = params.get('deck') === '1'
+  if (deckMode) {
+    // HYBRID: MapLibre-Boden behalten, Gebäude aus deck.gl (interleaved, beleuchtet, echte
+    // Satellitenfarbe). MapLibre-Gebäudelayer aus, damit sich nichts überlagert.
+    map.setLayoutProperty('buildings-3d', 'visibility', 'none')
+    import('./deckbuildings.js').then(({ installDeckBuildings }) => {
+      window.__j.buildings2 = installDeckBuildings(map)
+      if (!buildings3dOn) window.__j.buildings2.setVisible(false) // falls vor dem Laden umgeschaltet
+    })
+  } else {
+    window.__j.buildings = installBuildingEnhancer(map)
+  }
+
+  // 3D-Gebäude ein/aus (Steuerleisten-Button). Wirkt in beiden Renderer-Pfaden; die
+  // Wurf-Schatten folgen den Gebäuden (und bleiben nachts ohnehin aus, s. Tag/Nacht).
+  let buildings3dOn = true
+  let isNight = false
+  const applyShadows = () => shadows?.setVisible(buildings3dOn && !isNight)
+  const buildingsBtn = document.getElementById('btn-buildings')
+  const setBuildings3d = (on) => {
+    buildings3dOn = on
+    if (deckMode) window.__j.buildings2?.setVisible(on)
+    else if (map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', on ? 'visible' : 'none')
+    applyShadows()
+    buildingsBtn.classList.toggle('active', on)
+    buildingsBtn.setAttribute('aria-pressed', String(on))
+  }
+  buildingsBtn.addEventListener('click', () => setBuildings3d(!buildings3dOn))
+
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
   const syncSpots = addSpotLayers(
     map,
@@ -151,6 +213,27 @@ map.on('load', () => {
   )
   ui.registerSpots(syncSpots)
   ui.syncDots(0)
+
+  // Position über Reloads hinweg merken (z.B. beim Umschalten von Query-Parametern
+  // für A/B-Vergleiche): Die eine Zustandsgröße `s` reicht. Nur während der Fahrt/
+  // Foto-Phase sichern; im Menü/Finale wird der Merker gelöscht, damit ein Reload
+  // dort normal ins Intro startet. Wiederhergestellt wird pausiert am selben Frame.
+  const POS_KEY = `luhambo:pos:${tourId}`
+  try {
+    const saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null')
+    if (saved && Date.now() - saved.ts < 30 * 60 * 1000 && saved.s > 5) {
+      tour.resumeAt(saved.s, false)
+    }
+  } catch {
+    /* defekter Merker: ignorieren, normal ins Intro starten */
+  }
+  setInterval(() => {
+    if (tour.phase === 'ride' || tour.phase === 'photo') {
+      localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now() }))
+    } else {
+      localStorage.removeItem(POS_KEY)
+    }
+  }, 600)
 
   // — Steuerung —
   document.getElementById('btn-start').addEventListener('click', () => tour.begin())
@@ -184,7 +267,11 @@ map.on('load', () => {
     const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: cfg.time.zone })
     const teleTime = document.getElementById('tele-time')
     document.getElementById('tele-time-wrap').hidden = false
-    const dayNight = createDayNight(map, (on) => setBuildingsNight(map, on))
+    const dayNight = createDayNight(map, (on) => {
+      isNight = on
+      setBuildingsNight(map, on)
+      applyShadows() // nachts kein Sonnenschatten; folgt auch dem Gebäude-Umschalter
+    })
     ui.onTick = (frac) => {
       const date = new Date(t0 + frac * (t1 - t0))
       const pos = pointAt(route, frac * route.total)

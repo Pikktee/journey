@@ -1,14 +1,19 @@
 {
-  "name": "journey",
+  "name": "luhambo",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
+    "@deck.gl/core": "^9.3.6",
+    "@deck.gl/geo-layers": "^9.3.6",
+    "@deck.gl/layers": "^9.3.6",
+    "@deck.gl/mapbox": "^9.3.6",
     "maplibre-gl": "^5.6.0"
   },
   "devDependencies": {

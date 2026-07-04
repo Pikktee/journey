@@ -4,9 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Was das ist
 
-Journey ist ein Proof-of-Concept für Relive-artige 3D-Kamerafahrten über eine GPS-Route
-mit automatischen Foto-Stopps — vollständig auf freien Kartendaten. Vanilla JS + Vite,
-gerendert mit MapLibre GL JS. Kein Framework, keine Tests, kein Backend.
+Luhambo (Siswati für „Reise“) ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
+automatischen Foto-Stopps — vollständig auf freien Kartendaten. Aktuell Vanilla JS + Vite,
+gerendert mit MapLibre GL JS; derzeit ohne Framework, ohne Tests, ohne Backend.
+
+**Luhambo wird von einem Prototyp zu einem echten Produkt ausgebaut** — größere
+Architektur-Investitionen (z. B. echter 3D-Renderer für Dächer/Schatten, eigene
+aufbereitete Gebäude-Tiles, Tests, Backend) sind daher eingeplant, werden aber
+inkrementell angegangen statt als Big-Bang-Rewrite.
 
 Sprache im gesamten Projekt (Code-Kommentare, UI, Doku) ist **Deutsch**.
 
@@ -17,11 +22,19 @@ npm install
 npm run dev      # Vite-Dev-Server, Port 5173 (strictPort — belegt = Fehler, nicht Ausweichport)
 npm run build    # Produktions-Build nach dist/
 npm run preview  # gebautes dist/ lokal servieren
+npm run release  # Version anheben + Tag pushen → triggert Deploy (bugfix|minor|major)
 ```
 
 Es gibt keine Lint- oder Test-Skripte. Verifikation läuft über den Dev-Server im Browser.
 
 Tour-Auswahl per Query-Param: `?tour=oberland` bzw. `?tour=<id aus TOURS>` (Default `oberland`).
+
+**Deployment.** Statischer Vite-Build → Railway, ausgeliefert per Multi-Stage-`Dockerfile`
+(Node baut, Caddy serviert; Port aus `$PORT` via [Caddyfile](Caddyfile)). Keine Build-Secrets
+(der Google-Key ist Dev-only). Ein Version-Tag `vX.Y.Z` triggert
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml): `npm run build` als Gate, dann
+`railway up`. Tags erzeugt [scripts/release.sh](scripts/release.sh) (`npm run release`). Nötige
+GitHub-Konfiguration: Secret `RAILWAY_TOKEN`, optional Variable `RAILWAY_SERVICE`. Siehe [README.md](README.md).
 
 ## Architektur
 
@@ -61,6 +74,16 @@ AWS-Terrain-DEM (`EXAGGERATION`-Konstante), Atmosphäre, Routen-Layer, Foto-Wegp
 (`addSpotLayers`), Fahrer-Marker (`createRider`/`setRiderIcon` mit `MODE_ICONS`).
 [src/daynight.js](src/daynight.js) + [src/sun.js](src/sun.js) mappen Streckenanteil → Pseudo-Uhrzeit
 → Sonnenstand → Szenenstimmung (nur wenn `cfg.time` gesetzt ist).
+
+**Gebäude sind ein einzelner fill-extrusion-Layer** (`buildings-3d`; MapLibre kann kein
+AO/Schatten/Fenster). [src/buildings.js](src/buildings.js) sampelt beim Kachel-Laden die echte
+Dachfarbe aus dem Esri-Satellitenpixel am Gebäude-Zentroid und setzt sie per `feature-state`
+{color} (nachts ignoriert → dunkle Palette). **Kritisch:** In den OpenFreeMap-Kacheln fehlt
+`hide_3d`, ~15 % der Polygone überlappen (Umriss + parts) und flimmern durch koplanares
+Z-Fighting; clientseitig ist das geometrisch nicht sauber lösbar. Deshalb werden ALLE
+Gebäudefarben (gesampelt wie Fallback-Palette) auf **konstante Luminanz** normalisiert — der
+Z-Fight kippt dann nur im Farbton, kaum sichtbar. Echte Geometrie-Bereinigung + Dächer/Schatten
+brauchen einen zweiten Renderer (deck.gl über MapLibre) — geplant.
 
 **UI.** [src/ui.js](src/ui.js) `UI` verwaltet Overlays, Steuerleiste, Telemetrie, Höhenprofil und
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in

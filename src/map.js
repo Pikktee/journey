@@ -14,74 +14,78 @@ registerDemClean(maplibregl)
 // nicht unterscheidbar, halbiert aber die GPU-Last auf 3×-Displays fast.
 const COARSE = window.matchMedia('(pointer: coarse)').matches
 
-// Gebäude: fill-extrusion kann keine UV-gemappten Fototexturen tragen — was
-// es kann, sind gekachelte Patterns auf den Wandflächen. Die Wände bekommen
-// deshalb prozedurale Putz-und-Fenster-Kacheln (Canvas, zur Laufzeit erzeugt)
-// in Stockholmer Fassadentönen. Den Ton bestimmt die echte OSM-Fassadenfarbe
-// (colour ist hier gut gepflegt), sonst ein stabiler Hash über die OSM-ID.
-// Obendrauf sitzt ein hellerer, sonnengebleichter Dachdeckel als zweite,
-// dünne Extrusion — der fängt zugleich ab, dass das Fenster-Pattern sonst
-// auch auf den Dachflächen läge.
-// Gedeckt und breiter gestreut — die Häuser sollen in der dunkel gegradeten
-// Satellitenszene sitzen, nicht darüber leuchten. Dächer nahe an den echten
-// Stockholmer Dachfarben (dunkler Ziegel, Grau-Braun) statt heller Deckel.
-const FACADE_WALLS = ['#ab834e', '#a2957a', '#8a4234', '#9d6c50', '#87837a', '#997a55', '#966e59']
-// Dächer in warmem Ziegel-/Terrakottaton nah an den Fassaden. Grund: in der dicht
-// gemappten Altstadt überlappen sich OSM-Gebäude/-parts, ihre Wände (rot) und
-// fremde Dachdeckel (früher braungrau) liegen dann in derselben Ebene und streiten
-// per Z-Fighting → das gemeldete Rot↔Braun-Flimmern. Nah beieinander liegende Töne
-// lassen den Kipp-Kontrast praktisch verschwinden (und Ziegelrot ist realistischer).
-const ROOFS = ['#6f4636', '#7a4e3c', '#653f30', '#814d39', '#714634']
-const ROOFS_NIGHT = ['#2e3138', '#2a2d34', '#32353c', '#2c2e36', '#34363e']
+// Gebäude — ein EINZELNER, solider fill-extrusion-Layer (kein Fenster-Pattern,
+// kein separater Dachdeckel).
+//
+// DIAGNOSE des hartnäckigen Flimmerns (an echten OpenFreeMap-Kacheln gemessen,
+// Gamla Stan z14/9014/4817): 69 Gebäude, davon ~10 mit ÜBERLAPPENDEN Polygonen
+// (Gebäude-Umriss + building:parts) auf UNTERSCHIEDLICHEN Höhen → koplanares
+// Z-Fighting an den geteilten Wandflächen. Und: `hide_3d` ist in diesen Kacheln
+// bei KEINEM Feature gesetzt — die eigentlich zu verdeckenden Umrisse werden also
+// mitgerendert. Das ist DATENSEITIG kaputt und clientseitig nicht sauber
+// auflösbar (fill-extrusion hat keinen Depth-Bias, die Umrisse sind per Property
+// nicht von den Teilen unterscheidbar).
+//
+// FIX, der wirklich greift: den Streit UNSICHTBAR machen statt die Geometrie zu
+// reparieren. Das Auge nimmt HELLIGKEITS-Flimmern viel stärker wahr als Farbton-
+// Flimmern. Beide Paletten haben deshalb bei voller Farbtonvielfalt eine EXAKT
+// KONSTANTE Luminanz (Tag alle Luma≈142, Nacht alle ≈46, rechnerisch erzeugt) und
+// niedrige Sättigung. Zwei überlappende Häuser tragen dann zwar verschiedene
+// Farbtöne, aber gleiche Helligkeit → der Frame-zu-Frame-Wechsel des Z-Fights ist
+// nur noch ein kaum sichtbarer Farbschimmer statt eines harten Hell/Dunkel-Kippens.
+// (Gilt auch durch Licht/Verlauf: die streitenden Flächen sind gleich orientierte
+// Wände → gleiche Schattierung → die Luma-Gleichheit bleibt erhalten.)
+// Nebenbei löst dasselbe „zu dominant“ (gedeckt, gleichmäßig) und „alle gleich“
+// (14 Farbtöne).
+const BLD_DAY = [
+  '#9d8d6c', '#a08a71', '#a48777', '#a8857c', '#969264', '#829b6a', '#9b8f69',
+  '#a38975', '#a9837e', '#8e9664', '#7796a5', '#7d92a8', '#9f8c70', '#999066',
+]
+const BLD_NIGHT = [
+  '#272e3d', '#282e3e', '#25303b', '#362d23', '#26303c', '#243238', '#2a2c42',
+  '#382b24', '#243039', '#292d41', '#272e3c', '#2b2b44', '#392a25', '#272e3e',
+]
 
 // Tile-Feature-ID = OSM-ID × 10 + Typziffer — erst ÷10, sonst streut das
 // Modulo nicht (die letzte Ziffer ist fast immer 0 oder 2)
 const BID = ['floor', ['/', ['coalesce', ['id'], 0], 10]]
-const perBuilding = (colors) => {
-  const expr = ['match', ['%', BID, colors.length]]
-  colors.slice(0, -1).forEach((c, i) => expr.push(i, c))
-  expr.push(colors[colors.length - 1]) // match braucht einen Fallback-Zweig
+
+// Farbwahl pro Gebäude: bekannte OSM-colour-Namen grob auf einen Paletten-Index
+// abbilden (gelbe Häuser bleiben gelblich, rote rötlich …), alles andere per
+// ID-Hash. Beides ist ID/colour-stabil, sodass ein Haus über Tile-Grenzen und
+// Frames hinweg IMMER seine Farbe behält — Voraussetzung, damit Duplikate sicher
+// denselben Ton bekommen. Ergebnis ist ein number→Farbe-`match` (color-sicher).
+function buildingColor(palette) {
+  const idx = [
+    'match', ['coalesce', ['get', 'colour'], ''],
+    ['yellow', 'lightyellow', 'gold', '#fcf0cc', '#fcf1d4', '#f4e3c0'], 0,
+    ['orange', 'salmon', 'lightsalmon', 'coral', 'peachpuff', 'sandybrown'], 1,
+    ['red', 'firebrick', 'darkred', '#8b0000', 'indianred', 'maroon'], 3,
+    ['beige', 'ivory', 'cream', 'papayawhip', '#f7f5ec', '#f6f1e2'], 6,
+    ['brown', 'sienna', 'saddlebrown', 'chocolate'], 7,
+    ['gray', 'grey', 'lightgrey', 'lightgray', 'silver', '#dadbdb'], 9,
+    ['white', 'snow', '#ffffff', '#fefdfc', '#faf9fa'], 13,
+    ['%', BID, palette.length], // Fallback: stabiler Hash
+  ]
+  const expr = ['match', idx]
+  palette.forEach((c, i) => { if (i < palette.length - 1) expr.push(i, c) })
+  expr.push(palette[palette.length - 1]) // match braucht einen Fallback-Zweig
   return expr
 }
-
-// Fassadenton: gängige OSM-Farbnamen grob auf die Kachel-Töne abbilden
-// (Gelb → Ocker, Weiß → Creme, Rot → Falunrot, …), alles andere per Hash
-const TONE_IDX = [
-  'match',
-  ['coalesce', ['get', 'colour'], ''],
-  ['yellow', 'lightyellow', 'gold', '#fcf0cc', '#fcf1d4', '#f4e3c0', '#f0d1a2', '#eed8b0'], 0,
-  ['white', 'ivory', 'beige', 'papayawhip', '#fefdfc', '#faf9fa', '#f7f5ec', '#f6f1e2', '#f8edd8'], 1,
-  ['red', 'firebrick', 'darkred', '#8b0000', 'indianred', 'brown', 'sienna', 'maroon', '#994a41'], 2,
-  ['orange', 'salmon', 'lightsalmon', 'coral', 'peachpuff', 'sandybrown', '#d77358', '#df7964'], 3,
-  ['gray', 'grey', 'lightgrey', 'lightgray', 'silver', '#dadbdb', '#b8b8b8'], 4,
-  ['%', BID, FACADE_WALLS.length],
-]
-const patternFor = (prefix) => ['concat', prefix, ['to-string', TONE_IDX]]
-// Ab mittlerer Distanz die fensterlose Kachel: das feine Fensterraster wird
-// ohne Mipmaps beim Verkleinern zu hochfrequentem Textur-Flimmern — die
-// fensterlosen Varianten nehmen die Frequenz raus, und beim Zoomstufen-
-// Wechsel ist der Unterschied aus der Entfernung nicht mehr auflösbar.
-// Schwelle bewusst hoch (15.4): das Fensterraster erscheint erst, wenn die
-// Kamera wirklich nah dran ist (Gassen von Gamla Stan) — auf mittlere Distanz
-// (Tram-/Fährvorbeifahrt) bleibt die ruhige flat-Kachel, die nicht flimmert.
-const FACADE_PATTERN = ['step', ['zoom'], patternFor('facade-flat-'), 15.4, patternFor('facade-')]
-const FACADE_PATTERN_NIGHT = ['step', ['zoom'], patternFor('facade-night-flat-'), 15.4, patternFor('facade-night-')]
 
 // Höhe hart auf 250 m deckeln: einzelne OSM-Gebäude tragen fehlerhafte Höhen
 // (Tippfehler, falsche Einheit), und beim Tile-Nachladen kann eine noch grob
 // tesselierte Geometrie kurz nach oben schießen. Ohne Deckel steht dann ein
-// riesiger Textur-Spike im Bild, der verschwindet, sobald das saubere Tile da
-// ist. 250 m liegt weit über allem entlang der Touren (höchstes Haus ~100 m).
+// riesiger Spike im Bild, der verschwindet, sobald das saubere Tile da ist.
+// 250 m liegt weit über allem entlang der Touren (höchstes Haus ~100 m).
 const BLD_H = ['min', ['coalesce', ['get', 'render_height'], 8], 250]
-const ROOF_BASE = ['max', ['-', BLD_H, 2], 1] // Wandoberkante = Dachunterkante (kein Z-Fighting)
 
-// Gebäudedaten gibt es erst ab Zoom ~14 — ohne Fade tauchen an dieser Schwelle
-// alle Häuser eines Tiles schlagartig auf. Über eine schmale Zoomstufe von 0 auf
-// volle Deckkraft hochblenden. WICHTIG: das Blendband bewusst kurz halten —
-// halbtransparente fill-extrusion schreibt keine Tiefe, benachbarte/über Tile-
-// Grenzen geteilte Häuser flackern dann gegeneinander (Z-Fighting). Deshalb ist
-// die Deckkraft schon ab 14.25 wieder 1; die kurze Transparenz liegt dort, wo die
-// Häuser noch klein und fern sind, das Pop-in bleibt trotzdem weich.
+// Weiches Einblenden über eine schmale Zoomstufe — sonst poppen alle Häuser eines
+// Tiles schlagartig auf (das „ruckartige Einblenden"). Der Fade ist NICHT die Quelle
+// der gemeldeten Stippel-Artefakte: die sind Z-Fighting überlappender OSM-Polygone
+// und werden dadurch unsichtbar, dass alle Gebäudefarben auf konstante Luminanz
+// normalisiert sind (siehe buildings.js / BLD_DAY) — das Flimmern kippt dann nur noch
+// im Farbton, kaum wahrnehmbar, statt in der Helligkeit.
 const APPEAR = ['interpolate', ['linear'], ['zoom'], 13.9, 0, 14.25, 1]
 
 // Fundament 2 m unter Grund setzen: auf dem überhöhten, grob aufgelösten DEM
@@ -90,92 +94,16 @@ const APPEAR = ['interpolate', ['linear'], ['zoom'], 13.9, 0, 14.25, 1]
 // paar Meter versenkt verschwindet die Naht unter dem Gelände (unsichtbar).
 const BLD_BASE = ['-', ['coalesce', ['get', 'render_min_height'], 0], 2]
 
-// Eine Fassaden-Kachel: Putz mit Körnung, zwei Etagen mit Geschossband,
-// 3×2 Fenster. Nahtlos kachelbar. Der Kontrast ist bewusst niedrig gehalten
-// (Rahmen/Glas nur angedeutet, zum Schluss ein Putz-Schleier) — harte Kanten
-// flimmern beim Verkleinern. flat-Varianten für die Distanz: Tag ohne
-// Fenster, Nacht nur weiche Lichtpunkte statt scharfer Rechtecke.
-function facadeImage(wall, night = false, flat = false) {
-  const S = 128
-  const cv = document.createElement('canvas')
-  cv.width = S
-  cv.height = S
-  const ctx = cv.getContext('2d')
-  ctx.fillStyle = wall
-  ctx.fillRect(0, 0, S, S)
-  if (night) {
-    ctx.fillStyle = 'rgba(9,12,22,0.78)' // Fassade in der Nacht fast schlucken
-    ctx.fillRect(0, 0, S, S)
-  }
-  for (let i = 0; i < (night ? 90 : 260); i++) {
-    ctx.fillStyle = i % 2 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.045)'
-    ctx.fillRect(Math.random() * S, Math.random() * S, 1.6, 1.6)
-  }
-  const cell = S / 3
-  const w = 20
-  const h = 30
-  if (!flat) {
-    ctx.fillStyle = night ? 'rgba(0,0,0,0.22)' : 'rgba(56,42,28,0.12)' // Geschossbänder
-    ctx.fillRect(0, 62, S, 2)
-    ctx.fillRect(0, 126, S, 2)
-  }
-  for (let r = 0; r < 2 && (!flat || night); r++) {
-    for (let c = 0; c < 3; c++) {
-      const x = Math.round(c * cell + (cell - w) / 2)
-      const y = r * 64 + 16
-      if (night) {
-        if (Math.random() < 0.55) {
-          // erleuchtetes Fenster; in der flat-Variante nur der weiche Schein —
-          // scharfe helle Rechtecke wären in der Ferne wieder Flimmer-Quellen
-          ctx.shadowColor = 'rgba(255,190,110,0.9)'
-          ctx.shadowBlur = flat ? 11 : 7
-          ctx.fillStyle = flat ? 'rgba(255,205,130,0.75)' : '#ffd08a'
-          ctx.fillRect(x + (flat ? 4 : 0), y + (flat ? 8 : 0), flat ? w - 8 : w, flat ? h - 16 : h)
-          ctx.shadowBlur = 0
-          if (!flat) {
-            ctx.fillStyle = 'rgba(255,240,205,0.9)'
-            ctx.fillRect(x + 3, y + 3, w - 6, h / 2 - 3)
-          }
-        } else if (!flat) {
-          ctx.fillStyle = 'rgba(190,185,170,0.14)' // Rahmen, kaum sichtbar
-          ctx.fillRect(x - 2, y - 2, w + 4, h + 4)
-          ctx.fillStyle = '#10141d' // dunkles Fenster
-          ctx.fillRect(x, y, w, h)
-        }
-        continue
-      }
-      // Kontraste bewusst niedrig: ohne Mipmaps kippt eine verkleinerte Kachel
-      // sonst pro Frame zwischen heller Wand und dunklem Fenster (Rot↔Braun-
-      // Flimmern). Rahmen dezent, Glas halbtransparent — so bleibt das Fenster
-      // eine abgedunkelte Tönung der Wand statt eines fremden Grautons, der
-      // Kipp-Ausschlag beim Aliasing wird klein.
-      ctx.fillStyle = 'rgba(242,236,222,0.32)' // Rahmen, gedämpft
-      ctx.fillRect(x - 2, y - 2, w + 4, h + 4)
-      ctx.fillStyle = 'rgba(46,49,58,0.5)' // Glas: dunkle Tönung, Wand scheint durch
-      ctx.fillRect(x, y, w, h)
-      ctx.fillStyle = 'rgba(195,208,220,0.14)' // Lichtkante im Glas
-      ctx.fillRect(x + 2, y + 2, w / 2 - 2, h - 4)
-      ctx.fillStyle = 'rgba(0,0,0,0.08)' // Schattenlinie unterm Fenstersims
-      ctx.fillRect(x - 2, y + h + 2, w + 4, 1.5)
-    }
-  }
-  if (!night) {
-    // Putz-Schleier über allem: nimmt den Fenstern die harte Kante (Anti-Flimmern).
-    // Kräftiger als zuvor, damit die verkleinerte Kachel weniger zwischen Wand-
-    // und Fensterton kippt.
-    ctx.globalAlpha = 0.26
-    ctx.fillStyle = wall
-    ctx.fillRect(0, 0, S, S)
-    ctx.globalAlpha = 1
-  }
-  return ctx.getImageData(0, 0, S, S)
-}
+// Tag-Farbe: die aus dem Satellitenbild gesampelte Dachfarbe (feature-state {color},
+// gesetzt von buildings.js — luminanz-normalisiert, daher flimmer-sicher), solange
+// noch nicht gesampelt die Fallback-Palette (ebenfalls konstante Luminanz).
+const DAY_COLOR = ['coalesce', ['feature-state', 'color'], buildingColor(BLD_DAY)]
 
-// Tag/Nacht-Umschalter für die Gebäude: Fenster-Pattern und Dachfarben —
-// beide Eigenschaften sind transitionsfähig und blenden weich über
+// Tag/Nacht-Umschalter für die Gebäude: nur die Farbe (transitionsfähig, blendet
+// über fill-extrusion-color-transition weich). Nachts die dunkle Palette statt der
+// Satellitenfarbe (das Satellitenbild ist eine Tagaufnahme).
 export function setBuildingsNight(map, on) {
-  map.setPaintProperty('buildings-3d', 'fill-extrusion-pattern', on ? FACADE_PATTERN_NIGHT : FACADE_PATTERN)
-  map.setPaintProperty('buildings-roof', 'fill-extrusion-color', on ? perBuilding(ROOFS_NIGHT) : perBuilding(ROOFS))
+  map.setPaintProperty('buildings-3d', 'fill-extrusion-color', on ? buildingColor(BLD_NIGHT) : DAY_COLOR)
 }
 
 export function createMap(container, center) {
@@ -231,6 +159,9 @@ export function createMap(container, center) {
           paint: { 'raster-fade-duration': 500 },
         },
         {
+          // EIN einziger Baukörper-Layer (siehe Kommentar oben bei BLD_DAY) —
+          // solide Farbe je OSM-ID, vertikaler Verlauf für Volumen, kein Pattern,
+          // kein separater Dachdeckel. Das ist der Kern der Flimmer-Behebung.
           id: 'buildings-3d',
           type: 'fill-extrusion',
           source: 'buildings',
@@ -238,29 +169,14 @@ export function createMap(container, center) {
           minzoom: 13,
           filter: ['!=', ['get', 'hide_3d'], true],
           paint: {
-            'fill-extrusion-pattern': FACADE_PATTERN,
-            'fill-extrusion-pattern-transition': { duration: 1500 }, // Tag/Nacht weich blenden
-            'fill-extrusion-height': ROOF_BASE,
-            'fill-extrusion-base': BLD_BASE,
-            // Beim Erscheinen weich einblenden (sonst schimmert bei Resttransparenz
-            // das Wand-Pattern durch den Dachdeckel — bei APPEAR unkritisch, weil
-            // nur ganz kurz und in der Ferne); ab Zoom 14.6 wieder voll deckend
-            'fill-extrusion-opacity': APPEAR,
-          },
-        },
-        {
-          id: 'buildings-roof',
-          type: 'fill-extrusion',
-          source: 'buildings',
-          'source-layer': 'building',
-          minzoom: 13,
-          filter: ['!=', ['get', 'hide_3d'], true],
-          paint: {
-            'fill-extrusion-color': perBuilding(ROOFS),
+            'fill-extrusion-color': DAY_COLOR,
             'fill-extrusion-color-transition': { duration: 1500 }, // Tag/Nacht weich blenden
-            'fill-extrusion-height': ['max', BLD_H, 1.5],
-            'fill-extrusion-base': ROOF_BASE,
-            'fill-extrusion-opacity': APPEAR, // synchron mit den Wänden einblenden
+            'fill-extrusion-height': BLD_H,
+            'fill-extrusion-base': BLD_BASE,
+            'fill-extrusion-opacity': APPEAR,
+            // Basis dunkler → die Baukörper wirken geerdet und treten hinter das
+            // Satellitenbild zurück, statt flach darüber zu leuchten.
+            'fill-extrusion-vertical-gradient': true,
           },
         },
       ],
@@ -268,17 +184,18 @@ export function createMap(container, center) {
       // nach Ausrichtung unterschiedlich hell — Volumen statt Einheitsgrau
       light: { anchor: 'map', position: [1.3, 220, 40], color: '#ffedd6', intensity: 0.4 },
       terrain: { source: 'dem', exaggeration: EXAGGERATION },
-      // Start-Himmel (bis die Tag/Nacht-Regie übernimmt) — Horizont/Fog nah am
-      // Himmelblau, kein grauer Dunstbalken; weiche Blendzonen für einen
-      // natürlichen, kantenlosen Horizont.
+      // Start-Himmel (bis die Tag/Nacht-Regie übernimmt) — reiner Blauverlauf
+      // OHNE Dunst: fog = horizon (kein abgesetzter Schleier), Fog an den Horizont
+      // gepinnt (fog-ground-blend 1) und keine Atmosphäre (atmosphere-blend 0).
+      // Das Gelände trifft den Himmel sauber, kein grauer Schleierbalken mehr.
       sky: {
-        'sky-color': '#7ab3e0',
-        'horizon-color': '#9fc2e0',
-        'fog-color': '#a9cae2',
-        'sky-horizon-blend': 0.7,
-        'horizon-fog-blend': 0.7,
-        'fog-ground-blend': 0.5,
-        'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 8, 0.28, 12, 0.1, 14, 0.06, 16, 0.05],
+        'sky-color': '#77b0df',
+        'horizon-color': '#aacdeb',
+        'fog-color': '#aacdeb',
+        'sky-horizon-blend': 0.9,
+        'horizon-fog-blend': 0,
+        'fog-ground-blend': 1,
+        'atmosphere-blend': 0,
       },
     },
   })
@@ -288,12 +205,6 @@ export function createMap(container, center) {
   // MapLibres eigene Tastensteuerung abschalten: Pfeiltasten steuern den Player
   // (Einzelbild vor/zurück), nicht das Verschieben/Zoomen der Karte.
   map.keyboard.disable()
-  // Fassaden-Kacheln lazy erzeugen, wenn der Stil sie anfordert — robuster
-  // als addImage vor dem Style-Parsing und kostet nur Gebäude-Tiles etwas
-  map.on('styleimagemissing', (e) => {
-    const m = e.id.match(/^facade-(night-)?(flat-)?(\d+)$/)
-    if (m) map.addImage(e.id, facadeImage(FACADE_WALLS[+m[3] % FACADE_WALLS.length], !!m[1], !!m[2]), { pixelRatio: 2 })
-  })
   // Pflicht-Attribution (Esri/OSM/Mapzen) hinter dem ⓘ-Knopf: MapLibre startet
   // compact ausgeklappt und klappt erst bei Klick ein — Zustand selbst setzen
   // (gleiche Klassen-/Attribut-Kombination wie der eingebaute Toggle-Klick).

@@ -12,11 +12,12 @@ const KEYS = [
   { a: -6, br: 0.34, sat: -0.42, sky: '#15254a', hor: '#4a3a5e', fog: '#252838', li: 0.28, lc: '#b3a3c9' },
   { a: 0, br: 0.6, sat: -0.18, sky: '#39557f', hor: '#e08a5a', fog: '#b98a72', li: 0.36, lc: '#ffb27a' },
   { a: 7, br: 0.86, sat: -0.04, sky: '#5f92c8', hor: '#e6c6a4', fog: '#dcc6ac', li: 0.42, lc: '#ffdfb3' },
-  // Tag: Horizont UND Fog liegen jetzt nah am Himmelblau — kein abgesetzter grauer
-  // Dunstbalken mehr. Der Himmel ist dann ein durchgehend weicher Blauverlauf, und
-  // der Übergang zum Gelände ist ein natürlicher Horizont (Blau→Land) statt einer
-  // sichtbaren Schleier-Kante. Genau darin lag der harte Übergang.
-  { a: 16, br: 1, sat: 0, sky: '#7ab3e0', hor: '#9fc2e0', fog: '#a9cae2', li: 0.4, lc: '#ffedd6' },
+  // Tag: Horizont UND Fog liegen jetzt sehr nah am Himmelblau — die Farb-Deltas
+  // sind bewusst winzig, damit der Schleier kein abgesetzter grauer Balken ist,
+  // sondern ein kaum sichtbarer, langer Auslauf ins Blau (silhouettenhaft, das
+  // ferne Gelände verschwindet allmählich statt an einer Kante). Zusammen mit dem
+  // gesenkten fog-ground-blend zieht sich der Verlauf über ein hohes Band nach unten.
+  { a: 16, br: 1, sat: 0, sky: '#7ab3e0', hor: '#8dbbe2', fog: '#96c0e3', li: 0.4, lc: '#ffedd6' },
 ]
 
 const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
@@ -51,10 +52,6 @@ export function createDayNight(map, setNight) {
   let lastAlt = Infinity
   let lastApply = 0
   let night = false
-  // Atmosphäre generell dezent — und im Flug-Zoombereich (13–16) fast flach, damit
-  // der Dunst nicht „auf einen Schlag“ auftaucht, wenn die Kamera aufs offene Wasser
-  // rauszieht (Zoomwechsel) oder sich der Horizont öffnet.
-  const atmosphere = ['interpolate', ['linear'], ['zoom'], 8, 0.28, 12, 0.1, 14, 0.06, 16, 0.05]
   return (date, lnglat) => {
     const sun = sunPosition(date, lnglat[1], lnglat[0])
     // Die virtuelle Uhr läuft schnell (~3°/s Sonnenbewegung) — 2–4 Updates/s
@@ -74,17 +71,18 @@ export function createDayNight(map, setNight) {
       color: p.lc,
       intensity: +p.li.toFixed(3),
     })
+    // Kein Dunst mehr: fog = horizon (kein abgesetzter Schleier), Fog an den
+    // Horizont gepinnt und keine Atmosphäre. Nur der reine Sky→Horizont-Blau-
+    // verlauf bleibt, farblich von der Tageszeit getragen. Das Gelände trifft
+    // den Himmel sauber statt in einen grauen Schleier auszulaufen.
     map.setSky({
       'sky-color': p.sky,
       'horizon-color': p.hor,
-      'fog-color': p.fog,
-      // Weiche, breite Blendzonen für einen fließenden Verlauf. fog-ground-blend
-      // moderat (nicht hoch — hoch presst den Dunst zu einem schmalen Band an den
-      // Horizont; wir wollen ihn gerade weich auslaufen lassen).
-      'sky-horizon-blend': 0.7,
-      'horizon-fog-blend': 0.7,
-      'fog-ground-blend': 0.5,
-      'atmosphere-blend': atmosphere,
+      'fog-color': p.hor,
+      'sky-horizon-blend': 0.9,
+      'horizon-fog-blend': 0,
+      'fog-ground-blend': 1,
+      'atmosphere-blend': 0,
     })
     // Fenster an/aus mit Hysterese, damit es in der Dämmerung nicht flackert
     const wantNight = night ? sun.altitude < -2 : sun.altitude < -4
