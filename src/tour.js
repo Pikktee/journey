@@ -65,6 +65,8 @@ export class Tour {
     // Kameradistanz-Wechsel). Nur wenn gesetzt, darf sich die Kamera in Pause
     // bewegen — ein einfacher Pause-Klick friert dagegen exakt ein (kein Nachziehen).
     this.repose = false
+    // Aktiver zeitbasierter Kameraschwenk (Scrub-Sprung im Pause-Modus) oder null.
+    this.reposeTween = null
     this.s = 0
     this.speed = 0
     this.baseSpeed = 120 // m/s Streckenfortschritt bei 1×
@@ -131,6 +133,7 @@ export class Tour {
     this.playing = on
     this.ui.setPlaying(on)
     this.repose = false // weder Play noch Pause ziehen automatisch nach
+    this.reposeTween = null // laufenden Scrub-Schwenk abbrechen
     if (on) {
       this.settled = false // Bewegung ⇒ Kamera muss sich neu einschwingen
       // Nur blenden, wenn der Nutzer die Karte in der Pause tatsächlich verschoben
@@ -191,6 +194,7 @@ export class Tour {
     // Kameradistanz und rastet danach wieder ein.
     if (!this.playing && !this.scrubbing && this.phase === 'ride') {
       this.repose = true
+      this.reposeTween = null // velocity-basiertes Ease auf die neue Distanz (kein Sprung-Schwenk)
       this.settled = false
     }
   }
@@ -217,14 +221,13 @@ export class Tour {
       // neue Stelle. camSnap auf die aktuelle Pose, damit kein Resume-Fade entsteht.
       this.camSnap = this._camNow()
     } else {
-      // Pausiert bleiben — wie im Video-Editor beim Klick in die Timeline: hart auf
-      // die ideale Fahrt-Pose der Zielstelle schneiden und dort einfrieren (kein
-      // Losspielen, kein sekundenlanges Nachziehen). Bei echtem Ziehen liegt die
-      // Kamera bereits dicht an der Zielpose, der Schnitt ist dann unsichtbar.
-      this._snapRideCamera()
-      this.ui.updateTrace(this.s, pointAt(this.route, this.s)) // Fahrer-Marker/Spur nachziehen
-      this.settled = true
-      this.repose = false
+      // Pausiert bleiben, aber weich: statt eines harten Schnitts ein kurzer,
+      // zügiger Schwenk (~0,7 s, sanft auslaufend) von der aktuellen (Scrub-)Pose
+      // auf die ideale Zielpose, dann einfrieren. Bei echtem Ziehen ist der Rest-
+      // Weg klein (die Kamera folgte live), bei einem weiten Sprung wird es ein
+      // schneller, weich auslaufender Schwenk — nie ruckartig, nie Nachkriechen.
+      this.ui.updateTrace(this.s, pointAt(this.route, this.s)) // Fahrer-Marker sofort an die Zielposition
+      this._beginReposeTween(0.7)
       this.camSnap = this._camNow()
     }
   }
@@ -436,6 +439,7 @@ export class Tour {
     } else {
       this.settled = false // tick schwingt die Kamera jetzt weich auf die neue Pose ein
       this.repose = true // Umposition erlauben (sonst bliebe die Pause eingefroren)
+      this.reposeTween = null // velocity-basiertes Ease (kein Sprung-Schwenk)
       this.glide = Math.min(this.glide, 0.45) // zügig, damit es nur kurz „nachzieht“
     }
     this.ui.updateTrace(this.s, pointAt(this.route, this.s))
@@ -443,18 +447,17 @@ export class Tour {
     this.emitStats()
   }
 
-  // Fahrt-Kamera für this.s ohne Glättung setzen (Snap). Spiegelt bewusst die
-  // Rahmung des else-Zweigs in update(), nur mit .set() statt .to().
-  _snapRideCamera() {
+  // Ideale Fahrt-Pose (Kameraposition + Blickpunkt) für Streckenmeter s berechnen,
+  // OHNE etwas zu setzen. Spiegelt bewusst die Rahmung des else-Zweigs in update().
+  // Geteilt vom harten Snap und vom weichen Scrub-Schwenk.
+  _ridePose(s) {
     const { route, preset } = this
-    const rider = pointAt(route, this.s)
-    const mo = this.modeAt(this.s)
-    this.course = bearingAt(route, this.s)
-    const backDir = (this.course + 180) % 360
+    const rider = pointAt(route, s)
+    const mo = this.modeAt(s)
+    const course = bearingAt(route, s)
+    const backDir = (course + 180) % 360
     const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
     const sc = MODE_SCALE[mo.mode] ?? MODE_SCALE.bike
-    this.scaleSm.set(sc.behind)
-    this.hoverSm.set(sc.hover)
     const behind = preset.behind * sc.behind
     const hover = preset.hover * sc.hover
     let k = 1
@@ -463,16 +466,53 @@ export class Tour {
       if (this.groundAlt(cand, rider[2]) + 110 <= riderG + hover * k) break
       k -= 0.12
     }
-    this.tuck.set(k)
     const cgPos = destination([rider[0], rider[1]], behind * k, backDir)
-    this.cg.lng.set(cgPos[0])
-    this.cg.lat.set(cgPos[1])
-    this.alt.set(Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110))
-    this.lt.lng.set(rider[0])
-    this.lt.lat.set(rider[1])
-    this.ltAlt.set(this.groundAlt([rider[0], rider[1]], rider[2]))
+    return {
+      course, sc, k,
+      cg: cgPos,
+      alt: Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110),
+      lt: [rider[0], rider[1]],
+      ltAlt: this.groundAlt([rider[0], rider[1]], rider[2]),
+    }
+  }
+
+  // Fahrt-Kamera für this.s ohne Glättung setzen (harter Snap), nur mit .set().
+  _snapRideCamera() {
+    const p = this._ridePose(this.s)
+    this.course = p.course
+    this.scaleSm.set(p.sc.behind)
+    this.hoverSm.set(p.sc.hover)
+    this.tuck.set(p.k)
+    this.cg.lng.set(p.cg[0])
+    this.cg.lat.set(p.cg[1])
+    this.alt.set(p.alt)
+    this.lt.lng.set(p.lt[0])
+    this.lt.lat.set(p.lt[1])
+    this.ltAlt.set(p.ltAlt)
     this.glide = 1
     this.applyCamera()
+  }
+
+  // Kurzer, zeitbasierter Kameraschwenk auf die ideale Fahrt-Pose der aktuellen
+  // Position (Scrub-Sprung im Pause-Modus): weich, sanft auslaufend, und — anders
+  // als exponentielles Nachziehen — nach `dur` garantiert sauber am Ziel. Ersetzt
+  // den harten, ruckartigen Schnitt. Kurs/Distanz-Skalierung werden sofort auf den
+  // Zielwert gesetzt (sie bestimmen die feste Ziel-Pose), nur cg/alt/Blickpunkt
+  // werden über die Zeit interpoliert.
+  _beginReposeTween(dur) {
+    const to = this._ridePose(this.s)
+    this.course = to.course
+    this.scaleSm.set(to.sc.behind)
+    this.hoverSm.set(to.sc.hover)
+    this.tuck.set(to.k)
+    this.reposeTween = {
+      t: 0,
+      dur,
+      from: { cgLng: this.cg.lng.v, cgLat: this.cg.lat.v, alt: this.alt.v, ltLng: this.lt.lng.v, ltLat: this.lt.lat.v, ltAlt: this.ltAlt.v },
+      to: { cgLng: to.cg[0], cgLat: to.cg[1], alt: to.alt, ltLng: to.lt[0], ltLat: to.lt[1], ltAlt: to.ltAlt },
+    }
+    this.repose = true
+    this.settled = false
   }
 
   // JKL-Shuttle: L (dir +1) / J (dir −1). Erneut in dieselbe Richtung = schneller;
@@ -505,25 +545,43 @@ export class Tour {
     } else if (this.playing || this.scrubbing) {
       this.update(dt) // beim Scrubben muss die Kamera auch in Pause folgen
     } else if (this.phase === 'ride' && this.repose && !this.settled) {
-      // Pausiert, aber eine Umposition wurde explizit angefordert (Einzelbild-
-      // Taste oder Kameradistanz-Wechsel): Kamera weich auf die neue Pose ziehen,
-      // danach rastet sie ein (settled). Ohne repose bleibt die Pause bewegungslos
-      // eingefroren. Einrasten GESCHWINDIGKEITSbasiert (kommt die Bewegung pro Bild
-      // zum Stillstand), nicht über eine absolute Zieldistanz — sonst kröche die
-      // Kamera bei großer Kameradistanz sekundenlang nach und bekämpfte ein
-      // gleichzeitiges Pannen. camSnap mitführen, damit die Drag-Erkennung diese
-      // Systembewegung nicht für ein Nutzer-Verschieben hält.
-      const prev = this._camNow()
-      this.update(dt)
-      const cur = this._camNow()
-      this.camSnap = cur
-      const stopped =
-        Math.abs(cur.lng - prev.lng) < 1e-7 &&
-        Math.abs(cur.lat - prev.lat) < 1e-7 &&
-        Math.abs(cur.zoom - prev.zoom) < 5e-4 &&
-        Math.abs(cur.bearing - prev.bearing) < 0.02 &&
-        Math.abs(cur.pitch - prev.pitch) < 0.02
-      if (stopped) { this.settled = true; this.repose = false }
+      // Pausiert, aber eine Umposition wurde explizit angefordert. Ohne repose
+      // bleibt die Pause bewegungslos eingefroren.
+      if (this.reposeTween) {
+        // Scrub-Sprung: zeitbasierter Schwenk fester Dauer, sanft auslaufend
+        // (easeOut) — nie ruckartig, nie sekundenlanges Nachkriechen. camSnap
+        // mitführen, damit die Drag-Erkennung diese Systembewegung nicht für ein
+        // Nutzer-Verschieben hält.
+        const tw = this.reposeTween
+        tw.t += dt
+        const f = Math.min(tw.t / tw.dur, 1)
+        const e = 1 - Math.pow(1 - f, 3) // easeOutCubic: schnell los, weich aus
+        const L = (a, b) => a + (b - a) * e
+        this.cg.lng.set(L(tw.from.cgLng, tw.to.cgLng))
+        this.cg.lat.set(L(tw.from.cgLat, tw.to.cgLat))
+        this.alt.set(L(tw.from.alt, tw.to.alt))
+        this.lt.lng.set(L(tw.from.ltLng, tw.to.ltLng))
+        this.lt.lat.set(L(tw.from.ltLat, tw.to.ltLat))
+        this.ltAlt.set(L(tw.from.ltAlt, tw.to.ltAlt))
+        this.applyCamera()
+        this.camSnap = this._camNow()
+        if (f >= 1) { this.settled = true; this.repose = false; this.reposeTween = null }
+      } else {
+        // Kameradistanz-Wechsel / Einzelbild: Kamera weich auf die neue Pose
+        // ziehen, Einrasten GESCHWINDIGKEITSbasiert (kommt die Bewegung pro Bild
+        // zum Stillstand). camSnap mitführen (s.o.).
+        const prev = this._camNow()
+        this.update(dt)
+        const cur = this._camNow()
+        this.camSnap = cur
+        const stopped =
+          Math.abs(cur.lng - prev.lng) < 1e-7 &&
+          Math.abs(cur.lat - prev.lat) < 1e-7 &&
+          Math.abs(cur.zoom - prev.zoom) < 5e-4 &&
+          Math.abs(cur.bearing - prev.bearing) < 0.02 &&
+          Math.abs(cur.pitch - prev.pitch) < 0.02
+        if (stopped) { this.settled = true; this.repose = false }
+      }
     }
 
     this.uiClock += dt
@@ -652,7 +710,7 @@ export class Tour {
           Math.abs(this.cg.lat.v - cg[1]) < 2e-6 &&
           Math.abs(this.alt.v - alt) < 0.5 &&
           Math.abs(angleDelta(this.course, bearingAt(route, this.s))) < 0.15
-        if (near) { this.settled = true; this.repose = false }
+        if (near) { this.settled = true; this.repose = false; this.reposeTween = null }
       }
     }
 
