@@ -6,14 +6,13 @@ import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, se
 import { createDayNight } from './daynight.js'
 import { installBuildingEnhancer } from './buildings.js'
 import { installBuildingShadows } from './shadows.js'
-import { createPhotoreal } from './photoreal.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI } from './ui.js'
 import { Tour } from './tour.js'
 
 // — Tour-Auswahl via ?tour=… —
 const params = new URLSearchParams(location.search)
-const tourId = TOURS[params.get('tour')] ? params.get('tour') : 'oberland'
+const tourId = TOURS[params.get('tour')] ? params.get('tour') : 'stockholm'
 const cfg = TOURS[tourId]
 
 // Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
@@ -98,13 +97,16 @@ map.on('load', () => {
   const syncTrace = addRouteLayers(map, route)
   const rider = createRider(map, [start[0], start[1]], modes[0].mode)
 
-  const photoreal = createPhotoreal('g3d', route, cfg.geoid ?? 0)
+  let tiles3d = null // „Google 3D"-Modus via Three.js (?tiles3d=1), lazy geladen
+
+  let scene = null // reine deck-Szene (?scene=1), async geladen — Trace/Tag-Nacht hängen daran
 
   const ui = new UI(stops, route)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, pos)
     rider.setLngLat([pos[0], pos[1]])
-    photoreal.setProgress(pos) // no-op, solange der Google-3D-Modus aus ist
+    scene?.setProgress(s, pos) // reine deck-Szene: Trace bis exakt zum Fahrer nachziehen
+    tiles3d?.setProgress(s, pos) // Google-3D-Modus: Trace + Fahrer-Marker (no-op solange aus)
   }
   ui.onModeChange = (mode) => setRiderIcon(rider, mode)
   document.getElementById('tele-mode').textContent = modes[0].label
@@ -170,21 +172,36 @@ map.on('load', () => {
   // MapLibre unsichtbar als Kamera-/Terrain-Rechner. Spiegelt die Pose über tour.extCamera.
   if (params.get('scene') === '1') {
     import('./deckscene.js').then(({ installDeckScene }) => {
-      const scene = installDeckScene(map)
+      scene = installDeckScene(map, { route, stops, shadows: params.get('shadows') === '1' })
       scene.enable()
       tour.extCamera = scene.setCamera
       tour.applyCamera() // Szene sofort auf die aktuelle Pose ziehen
+      if (isNight) scene.setNight(true) // Nacht-Zustand nachziehen, falls schon aktiv
       window.__j.scene = scene
+    })
+  }
+
+  // Leichter Dächer-Renderer (?roofs=1): MapLibre-Boden bleibt, der flache fill-extrusion-Layer
+  // wird ausgeblendet und durch prozedurale 3D-Gebäude mit Dächern (Three.js-Custom-Layer) ersetzt.
+  // Statische Geometrie → leicht, kein Lüfter. Stil (nordic/alpine) passt zur Region.
+  if (params.get('roofs') === '1') {
+    if (map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', 'none')
+    import('./buildings3d.js').then(({ installBuildings3D }) => {
+      const style = cfg.buildingStyle || (tourId === 'oberland' ? 'alpine' : 'nordic')
+      window.__j.buildings3d = installBuildings3D(map, { route, style })
+      window.__j.buildings3d.setVisible(buildings3dOn) // „Gebäude ausblenden"-Zustand beim Laden nachziehen
+      if (isNight) window.__j.buildings3d.setNight(true) // Nacht-Zustand nachziehen, falls schon aktiv
     })
   }
 
   let shadows = null
   // Geerdete Wurf-Schatten in beiden Pfaden (erden auch die deck-Gebäude). ?noshadows=1
   // zum A/B-Vergleich. Nachts unten über die Tag/Nacht-Regie abgeschaltet.
-  if (params.get('noshadows') !== '1') shadows = installBuildingShadows(map)
+  if (params.get('noshadows') !== '1' && params.get('roofs') !== '1') shadows = installBuildingShadows(map)
   window.__j.shadows = shadows
 
   const deckMode = params.get('deck') === '1'
+  const roofsMode = params.get('roofs') === '1' // Dächer-Renderer aktiv → flache Ebene bleibt AUS
   if (deckMode) {
     // HYBRID: MapLibre-Boden behalten, Gebäude aus deck.gl (interleaved, beleuchtet, echte
     // Satellitenfarbe). MapLibre-Gebäudelayer aus, damit sich nichts überlagert.
@@ -207,7 +224,10 @@ map.on('load', () => {
   const setBuildings3d = (on) => {
     buildings3dOn = on
     if (deckMode) window.__j.buildings2?.setVisible(on)
-    else if (map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', on ? 'visible' : 'none')
+    // Im Roofs-Modus die flache fill-extrusion-Ebene NICHT anfassen — sie bleibt dauerhaft aus
+    // (die Three.js-Dächer ersetzen sie); sonst rendern beide doppelt und „Ausblenden" greift nicht.
+    else if (!roofsMode && map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', on ? 'visible' : 'none')
+    window.__j.buildings3d?.setVisible(on) // Dächer-Renderer (?roofs=1) folgt dem Umschalter mit
     applyShadows()
   }
   setBuildings3d(buildings3dOn) // Anfangszustand anwenden (v.a. „Gebäude ausblenden")
@@ -218,7 +238,7 @@ map.on('load', () => {
   const layersMenu = document.getElementById('layers-menu')
   const closeLayers = () => { layersMenu.hidden = true; layersBtn.setAttribute('aria-expanded', 'false') }
   const openLayers = () => { layersMenu.hidden = false; layersBtn.setAttribute('aria-expanded', 'true') }
-  const curMode = params.get('g3d') === '1' ? 'google'
+  const curMode = params.get('tiles3d') === '1' ? 'google'
     : params.get('scene') === '1' ? 'scene'
     : deckMode ? 'deck'
     : params.get('buildings') === 'off' ? 'hidden'
@@ -230,11 +250,11 @@ map.on('load', () => {
     el.addEventListener('click', () => {
       if (el.dataset.mode === curMode) { closeLayers(); return }
       const u = new URL(location.href)
-      ;['deck', 'scene', 'g3d', 'buildings'].forEach((p) => u.searchParams.delete(p))
+      ;['deck', 'scene', 'g3d', 'tiles3d', 'buildings'].forEach((p) => u.searchParams.delete(p))
       const m = el.dataset.mode
       if (m === 'deck') u.searchParams.set('deck', '1')
       else if (m === 'scene') u.searchParams.set('scene', '1')
-      else if (m === 'google') u.searchParams.set('g3d', '1')
+      else if (m === 'google') u.searchParams.set('tiles3d', '1')
       else if (m === 'hidden') u.searchParams.set('buildings', 'off')
       savePos(tour) // Position + Play/Pause-Zustand sichern → Reload läuft nahtlos weiter
       location.href = u.toString() // Reload in den gewählten Modus
@@ -307,12 +327,19 @@ map.on('load', () => {
     const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: cfg.time.zone })
     const teleTime = document.getElementById('tele-time')
     document.getElementById('tele-time-wrap').hidden = false
-    const dayNight = createDayNight(map, (on) => {
-      isNight = on
-      setBuildingsNight(map, on)
-      window.__j.buildings2?.setNight(on) // deck-Gebäude nachts mit abdunkeln
-      applyShadows() // nachts kein Sonnenschatten; folgt auch dem Gebäude-Umschalter
-    })
+    const dayNight = createDayNight(
+      map,
+      (on) => {
+        isNight = on
+        setBuildingsNight(map, on)
+        window.__j.buildings2?.setNight(on) // deck-Gebäude (Hybrid) nachts mit abdunkeln
+        window.__j.buildings3d?.setNight(on) // Dächer-Renderer (?roofs=1) nachts mit abdunkeln
+        tiles3d?.setNight(on) // Google-3D: Himmel/Licht dezent abtönen (Tiles sind tag-fotografiert)
+        applyShadows() // nachts kein Sonnenschatten; folgt auch dem Gebäude-Umschalter
+      },
+      // deck-Szene + Dächer-Renderer + Google-3D der Regie folgen lassen (dimmen mit dem Boden)
+      (p, sun) => { scene?.applyDayNight(p, sun); window.__j.buildings3d?.applyDayNight(p, sun); tiles3d?.applyDayNight(p, sun) },
+    )
     ui.onTick = (frac) => {
       const date = new Date(t0 + frac * (t1 - t0))
       const pos = pointAt(route, frac * route.total)
@@ -405,9 +432,10 @@ map.on('load', () => {
     tour.toMenu()
   })
 
-  // — Google Photorealistic 3D Tiles (Testmodus) —
-  // MapLibre läuft unsichtbar weiter (Tour-Engine braucht dessen Terrain);
-  // Cesium spiegelt die Kamera. Der API-Schlüssel bleibt im localStorage.
+  // — Google Photorealistic 3D Tiles („Google 3D"-Modus) —
+  // MapLibre läuft unsichtbar weiter (Tour-Engine braucht dessen Terrain-Abfragen); ein schlanker
+  // Three.js-Renderer (tiles3d.js, 3DTilesRendererJS — kein Cesium) rendert die Google-Tiles und
+  // spiegelt die Kamera. Der API-Schlüssel bleibt im localStorage. Aktiv über ?tiles3d=1.
   const toastEl = document.getElementById('toast')
   let toastT = null
   const toast = (msg) => {
@@ -419,55 +447,46 @@ map.on('load', () => {
 
   const g3dModal = document.getElementById('g3d-modal')
   const g3dKeyInput = document.getElementById('g3d-key')
-  let g3dOn = false
   let g3dBusy = false
 
   // Nur im lokalen Dev-Server: Google-Schlüssel aus der .env (VITE_GOOGLE_MAP_TILES_API_KEY).
-  // Der DEV-Guard lässt den Wert beim Produktions-Build als toten Code wegfallen —
-  // im deployten Bundle landet er nie.
+  // Der DEV-Guard lässt den Wert beim Produktions-Build als toten Code wegfallen.
   const g3dEnvKey = import.meta.env.DEV ? import.meta.env.VITE_GOOGLE_MAP_TILES_API_KEY || '' : ''
 
-  const setG3d = async (on) => {
-    if (g3dBusy) return
-    if (!on) {
-      g3dOn = false
-      tour.extCamera = null
-      photoreal.disable()
-      document.getElementById('map').style.visibility = ''
-      return
-    }
+  const enableGoogle3d = () => {
+    if (g3dBusy || tiles3d) return
     const key = localStorage.getItem('g3dKey') || g3dEnvKey
-    if (!key) {
-      g3dModal.hidden = false
-      g3dKeyInput.focus()
-      return
-    }
+    if (!key) { g3dModal.hidden = false; g3dKeyInput.focus(); return }
     g3dBusy = true
-    try {
-      await photoreal.enable(key)
-      g3dOn = true
-      tour.extCamera = photoreal.setCamera
+    // FreeCamera-FOV von MapLibre übernehmen, damit die Google-Ansicht denselben Bildausschnitt hat.
+    import('./tiles3d.js').then(({ createTiles3D }) => {
+      tiles3d = createTiles3D(route, cfg.geoid ?? 0, map.transform?.fov ?? 45, stops)
+      tiles3d.enable(key)
+      if (isNight) tiles3d.setNight(true)
+      tour.extCamera = tiles3d.setCamera
       document.getElementById('map').style.visibility = 'hidden'
-      tour.applyCamera() // Cesium sofort auf die aktuelle Pose setzen
-      toast('Google Photorealistic 3D aktiv (Testmodus)')
-    } catch (err) {
-      console.error('Google 3D Tiles:', err)
-      toast('Google 3D Tiles ließen sich nicht laden — Schlüssel/Abrechnung prüfen. Details in der Konsole.')
-      localStorage.removeItem('g3dKey') // beim nächsten Versuch neu abfragen
-    }
-    g3dBusy = false
+      tour.applyCamera()
+      window.__j.tiles3d = tiles3d
+      toast('Google Photorealistic 3D aktiv')
+      g3dBusy = false
+    }).catch((err) => {
+      console.error('tiles3d:', err)
+      toast('Google 3D ließ sich nicht laden — Schlüssel/Abrechnung prüfen. Details in der Konsole.')
+      localStorage.removeItem('g3dKey')
+      g3dBusy = false
+    })
   }
 
-  // Google-3D ist jetzt ein Modus der Ansicht-Radiogruppe (?g3d=1) → beim Laden aktivieren.
-  // Fehlt der Schlüssel, öffnet setG3d den Key-Dialog.
-  if (params.get('g3d') === '1') setG3d(true)
+  // „Google 3D" ist ein Modus der Ansicht-Radiogruppe (?tiles3d=1) → beim Laden aktivieren.
+  // Fehlt der Schlüssel, öffnet enableGoogle3d den Key-Dialog.
+  if (params.get('tiles3d') === '1') enableGoogle3d()
   document.getElementById('g3d-cancel').addEventListener('click', () => (g3dModal.hidden = true))
   document.getElementById('g3d-save').addEventListener('click', () => {
     const key = g3dKeyInput.value.trim()
     if (!key) return
     localStorage.setItem('g3dKey', key)
     g3dModal.hidden = true
-    setG3d(true)
+    enableGoogle3d()
   })
 
   // Tastatursteuerung des Players (wie in Videoschnitt-Software)

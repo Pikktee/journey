@@ -47,8 +47,11 @@ function paramsAt(alt) {
   }
 }
 
-// setNight: Fassaden-Pattern + Dachfarben umschalten (map.js), überblendet
-export function createDayNight(map, setNight) {
+// setNight: Fassaden-Pattern + Dachfarben umschalten (map.js), überblendet.
+// onParams(p, sun): optionaler Hook, der dieselben interpolierten Keyframe-Werte + den
+// Sonnenstand herausreicht — die reine deck-Szene (deckscene.js) hängt sich dort an, damit
+// ihr Himmel/Licht exakt derselben Regie folgt wie MapLibres Boden.
+export function createDayNight(map, setNight, onParams) {
   let lastAlt = Infinity
   let lastApply = 0
   let night = false
@@ -61,6 +64,7 @@ export function createDayNight(map, setNight) {
     lastAlt = sun.altitude
     lastApply = now
     const p = paramsAt(sun.altitude)
+    onParams?.(p, sun)
     map.setPaintProperty('satellite', 'raster-brightness-max', +p.br.toFixed(3))
     map.setPaintProperty('satellite', 'raster-saturation', +p.sat.toFixed(3))
     map.setLight({

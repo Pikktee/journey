@@ -1,6 +1,10 @@
 # Renderer-Plan: von MapLibre-Klötzen zur echten 3D-Szene
 
-Stand: 2026-07 · Status: **Entscheidungsvorlage**, noch nicht begonnen
+Stand: 2026-07 · Status: **Stufe 0–2 gebaut** ([src/deckscene.js](../src/deckscene.js), Flag
+`?scene=1`) — eigenständige deck-Szene mit Terrain+Satellit, Gebäuden, geerdeten Schatten,
+Route, Wegpunkten, Himmel und Tag/Nacht; gemeinsame Datenschicht [src/buildingdata.js](../src/buildingdata.js)
+(mit dem Hybrid geteilt). Offen: **Stufe 3** (Anti-Klotz-Realismus: eigene Satelliten-Textur-
+Drapierung fürs Nahbild, Fassaden/Fenster, AO) und **Stufe 4** (Default-Wechsel/MapLibre-Rückbau).
 
 ## 1. Warum überhaupt
 

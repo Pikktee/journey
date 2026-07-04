@@ -27,7 +27,7 @@ npm run release  # Version anheben + Tag pushen → triggert Deploy (bugfix|mino
 
 Es gibt keine Lint- oder Test-Skripte. Verifikation läuft über den Dev-Server im Browser.
 
-Tour-Auswahl per Query-Param: `?tour=oberland` bzw. `?tour=<id aus TOURS>` (Default `oberland`).
+Tour-Auswahl per Query-Param: `?tour=oberland` bzw. `?tour=<id aus TOURS>` (Default `stockholm`).
 
 **Deployment.** Statischer Vite-Build → Railway, ausgeliefert per Multi-Stage-`Dockerfile`
 (Node baut, Caddy serviert; Port aus `$PORT` via [Caddyfile](Caddyfile)). Keine Build-Secrets
@@ -90,10 +90,15 @@ die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Fot
 main.js über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
 `tour.jumpToPhoto`. Der DOM liegt statisch in [index.html](index.html); JS greift per `id` zu.
 
-**Optionaler Google-3D-Modus.** [src/photoreal.js](src/photoreal.js) ist ein Prototyp, der
-CesiumJS lazy vom CDN lädt und Google Photorealistic 3D Tiles rendert. MapLibre läuft dabei
-**unsichtbar weiter** (die Tour-Engine braucht dessen Terrain-Abfragen); Cesium spiegelt nur pro
-Frame die Kamera-Pose. Aktivierung über einen API-Key im `localStorage`. Standardmäßig aus.
+**„Google 3D"-Modus (`?tiles3d=1`).** [src/tiles3d.js](src/tiles3d.js) rendert Google
+Photorealistic 3D Tiles — den echten Fotoscan der Stadt, also „die echten Gebäude, die dort
+stehen" — in einer eigenen, lazy geladenen **Three.js**-Szene via 3DTilesRendererJS (kein
+Cesium). MapLibre läuft dabei **unsichtbar weiter** (die Tour-Engine braucht dessen Terrain-
+Abfragen); die Kamera wird pro Frame in ECEF gespiegelt (`extCamera`, `WGS84_ELLIPSOID`).
+Route/Fahrer/Tag-Nacht sind integriert. Aktivierung über einen Google-Map-Tiles-API-Key
+(`VITE_GOOGLE_MAP_TILES_API_KEY` im Dev bzw. `localStorage`). Grenze: Google deckt nur ~2.500
+Städte ab (nicht alpin) → für unabgedeckte Regionen bleibt der MapLibre-Boden der Fallback.
+Renderer-Landschaft & Begründung: [docs/renderer-plan.md](docs/renderer-plan.md).
 
 ## Konventionen
 
