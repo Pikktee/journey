@@ -893,6 +893,13 @@ body.scrubbing * {
   cursor: var(--scrub-cursor) !important;
 }
 
+/* Von der Tour geführte Kamera (Play, Intro, Foto, Finale): MapLibre zeigt über
+   die interactive-Klasse sonst dauerhaft die Greifhand — die suggeriert fälschlich,
+   die Karte sei verschiebbar. Nur in der Fahrt-Pause (kein cam-locked) ist sie es. */
+body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: default;
+}
+
 #profile-svg {
   position: absolute;
   inset: 0;
@@ -913,10 +920,10 @@ body.scrubbing * {
 
 /* Aktuelle Position als vertikaler Playhead über die ganze Leistenhöhe (wie im
    Videoschnitt) — deutlich besser erkennbar als ein Punkt auf der Kurve. Oben
-   sitzt ein heller Knopf mit Bernstein-Ring. */
+   sitzt ein schildförmiger Kopf im Final-Cut-Pro-Stil. */
 .progress-head {
   position: absolute;
-  top: -3px;
+  top: 0; /* Kopf beginnt an der Leisten-Oberkante — kein Überstand in die Controls */
   bottom: -3px;
   width: 2px;
   border-radius: 2px;
@@ -927,17 +934,21 @@ body.scrubbing * {
   z-index: 4;
 }
 
+/* FCPX-Playhead: schildförmiger Kopf, dessen Spitze nach unten auf die Linie zeigt.
+   Sitzt bündig oben in der Leiste (nicht darüber, sonst ragt er in die Steuerleiste).
+   Weiße Füllung mit Bernstein-Kontur (auf Tag- wie Nacht-Gelände gut sichtbar) —
+   als SVG-Datei-URI für saubere Spitze und Kontur (Border/Radius kann das nicht). */
 .progress-head::before {
   content: '';
   position: absolute;
-  top: -6px;
+  top: 0;
   left: 50%;
-  width: 13px;
-  height: 13px;
-  margin-left: -6.5px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(245, 165, 36, 0.6), 0 2px 8px rgba(0, 0, 0, 0.6);
+  width: 16px;
+  height: 17px;
+  margin-left: -8px;
+  background: center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='17'%20viewBox='0%200%2016%2017'%3E%3Cpath%20d='M1.7%201.3H14.3V9.2L8%2015.7L1.7%209.2Z'%20fill='%23fff'%20stroke='%23f5a524'%20stroke-width='1.6'%20stroke-linejoin='round'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
 }
 
 .photo-dot {

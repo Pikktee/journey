@@ -61,6 +61,10 @@ export class Tour {
     // schneidet die Einzelbild-Taste hart; sonst schwingt sie erst weich ein
     // (verhindert den Sprung beim ersten Cursortasten-Druck).
     this.settled = false
+    // Explizit angeforderte Kamera-Umposition im Pause-Modus (Einzelbild-Taste,
+    // Kameradistanz-Wechsel). Nur wenn gesetzt, darf sich die Kamera in Pause
+    // bewegen — ein einfacher Pause-Klick friert dagegen exakt ein (kein Nachziehen).
+    this.repose = false
     this.s = 0
     this.speed = 0
     this.baseSpeed = 120 // m/s Streckenfortschritt bei 1×
@@ -91,6 +95,7 @@ export class Tour {
     this.ltAlt = new Smooth(mid[2] * EXAGGERATION)
 
     this.applyCamera()
+    this.updateMapLock() // Intro-Orbit: Karte gesperrt, kein Greifhand-Cursor
     this.lastT = performance.now()
     this.uiClock = 0
     this._tick = this.tick.bind(this)
@@ -118,30 +123,43 @@ export class Tour {
     this.settled = false
     this.glide = 2.4 // langer, epischer Anflug hinter den Startpunkt
     this.ui.hideIntro()
+    this.updateMapLock() // Fahrt läuft ⇒ Karte gesperrt, kein Greifhand-Cursor
   }
 
   setPlaying(on) {
     if (on === this.playing) return
     this.playing = on
     this.ui.setPlaying(on)
-    if (on) this.settled = false // Bewegung ⇒ Kamera muss sich neu einschwingen
+    this.repose = false // weder Play noch Pause ziehen automatisch nach
     if (on) {
+      this.settled = false // Bewegung ⇒ Kamera muss sich neu einschwingen
       // Nur blenden, wenn der Nutzer die Karte in der Pause tatsächlich verschoben
       // hat — dann ist das Fortsetzen ein harter Rücksprung. Beim bloßen Weiter-
       // Drücken (Space, ohne die Karte anzufassen) läuft das Bild nahtlos weiter.
       const moved = this._camMoved()
-      this.map.dragPan.disable()
-      this.map.scrollZoom.disable()
-      this.map.touchZoomRotate.disable()
-      this.map.touchPitch.disable()
+      this.updateMapLock() // Karte sperren (Kamera folgt wieder der Tour)
       if (moved) this.ui.blink(() => {})
     } else {
-      this.map.dragPan.enable()
-      this.map.scrollZoom.enable()
-      this.map.touchZoomRotate.enable()
-      this.map.touchPitch.enable()
-      this.camSnap = this._camNow() // Ausgangsstand merken, um späteres Verschieben zu erkennen
+      // Pause: Kamera exakt an der aktuellen Pose einfrieren — KEIN Nachziehen auf
+      // eine „ideale" Pose (das wirkte als störender Nachschwenk nach dem Stopp).
+      this.updateMapLock() // Karte freigeben (Pannen/Zoomen) + camSnap merken
     }
+  }
+
+  // Karten-Interaktion an den Zustand koppeln: NUR in der Fahrt-Pause darf frei
+  // gepannt/gezoomt werden. In jeder von der Tour geführten Phase (Intro, laufende
+  // Fahrt, Foto, Finale) wird die Karte gesperrt — sonst kämpfen Nutzer-Geste und
+  // Kamerafahrt gegeneinander. `cam-locked` unterdrückt zusätzlich den Greifhand-
+  // Cursor, den MapLibre sonst über die interactive-Klasse dauerhaft zeigt.
+  updateMapLock() {
+    const free = !this.playing && !this.scrubbing && this.phase === 'ride'
+    const act = free ? 'enable' : 'disable'
+    this.map.dragPan[act]()
+    this.map.scrollZoom[act]()
+    this.map.touchZoomRotate[act]()
+    this.map.touchPitch[act]()
+    document.body.classList.toggle('cam-locked', !free)
+    if (free) this.camSnap = this._camNow() // Referenzpose, um späteres Pannen zu erkennen
   }
 
   // Kamerastand als Signatur (Vergleich für den bedingten Resume-Fade)
@@ -168,6 +186,13 @@ export class Tour {
     // Zügig ausfahren: der Wechsel soll sich wie ein Schnitt anfühlen, nicht
     // wie eine Kamerafahrt (Tile-Nachladen fangen Fade + größerer Cache ab)
     this.glide = Math.min(this.glide, 0.6)
+    // Auch im Pause-Modus soll der Distanz-Wechsel sichtbar sein: einmalige
+    // Umposition anfordern (repose), die Kamera zieht dann weich auf die neue
+    // Kameradistanz und rastet danach wieder ein.
+    if (!this.playing && !this.scrubbing && this.phase === 'ride') {
+      this.repose = true
+      this.settled = false
+    }
   }
 
   seek(frac) {
@@ -185,7 +210,23 @@ export class Tour {
     this.tuck.set(1)
     this.syncNextIdx()
     this.ui.syncDots(s)
-    if (!this.playing) this.setPlaying(true)
+    this.emitStats() // Kopf/Telemetrie sofort auf die Zielposition
+    // Wiedergabezustand vom Scrubben beibehalten:
+    if (this.playing) {
+      // Läuft weiter: Kamera zieht von der aktuellen (Scrub-)Pose weich an die
+      // neue Stelle. camSnap auf die aktuelle Pose, damit kein Resume-Fade entsteht.
+      this.camSnap = this._camNow()
+    } else {
+      // Pausiert bleiben — wie im Video-Editor beim Klick in die Timeline: hart auf
+      // die ideale Fahrt-Pose der Zielstelle schneiden und dort einfrieren (kein
+      // Losspielen, kein sekundenlanges Nachziehen). Bei echtem Ziehen liegt die
+      // Kamera bereits dicht an der Zielpose, der Schnitt ist dann unsichtbar.
+      this._snapRideCamera()
+      this.ui.updateTrace(this.s, pointAt(this.route, this.s)) // Fahrer-Marker/Spur nachziehen
+      this.settled = true
+      this.repose = false
+      this.camSnap = this._camNow()
+    }
   }
 
   // Nach einem Reload an die gemerkte Position zurückkehren, OHNE Intro-Orbit:
@@ -207,11 +248,12 @@ export class Tour {
     this.syncNextIdx()
     this._snapRideCamera() // setzt cg/lt/alt hart + applyCamera
     this.settled = true
-    this.camSnap = this._camNow()
+    this.updateMapLock() // Karte je nach Play/Pause sperren/freigeben (+ camSnap)
     this.ui.syncDots(this.s)
     this.ui.updateTrace(this.s, pointAt(this.route, this.s))
     this.emitStats()
     if (play) this.setPlaying(true)
+    else this.ui.setPlaying(false) // Play/Pause-Icon auf Pause stellen (hideIntro setzt es auf Play)
   }
 
   // Index des nächsten (vorwärts liegenden) Foto-Stopps neu bestimmen — nötig
@@ -286,11 +328,7 @@ export class Tour {
     this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
     this.ui.syncDots(0)
     this.ui.showMenu()
-    // Ausgangszustand wie beim ersten Laden: Karte nicht frei beweglich
-    this.map.dragPan.disable()
-    this.map.scrollZoom.disable()
-    this.map.touchZoomRotate.disable()
-    this.map.touchPitch.disable()
+    this.updateMapLock() // Intro-Orbit: Karte gesperrt wie beim ersten Laden
   }
 
   // Foto-Stopp direkt öffnen (Klick auf Timeline-Dot oder Karten-Wegpunkt):
@@ -397,6 +435,7 @@ export class Tour {
       this.camSnap = this._camNow() // Kamera steht auf der Tour-Pose ⇒ Fortsetzen ohne Blende
     } else {
       this.settled = false // tick schwingt die Kamera jetzt weich auf die neue Pose ein
+      this.repose = true // Umposition erlauben (sonst bliebe die Pause eingefroren)
       this.glide = Math.min(this.glide, 0.45) // zügig, damit es nur kurz „nachzieht“
     }
     this.ui.updateTrace(this.s, pointAt(this.route, this.s))
@@ -465,15 +504,26 @@ export class Tour {
       this.updateOrbitCamera(dt, this.mid, this.ovR, this.ovA)
     } else if (this.playing || this.scrubbing) {
       this.update(dt) // beim Scrubben muss die Kamera auch in Pause folgen
-    } else if (this.phase === 'ride' && !this.settled) {
-      // Pausiert und noch nicht eingeschwungen: Kamera zügig auf die ideale
-      // Fahrt-Pose ziehen, damit die Cursortasten danach ohne Sprung Bild für
-      // Bild schneiden. camSnap mitführen, damit die Drag-Erkennung (Resume-
-      // Fade) korrekt bleibt — sonst hielte sie die Einschwing-Bewegung für
-      // ein Verschieben durch den Nutzer.
-      this.glide = Math.min(this.glide, 0.45)
+    } else if (this.phase === 'ride' && this.repose && !this.settled) {
+      // Pausiert, aber eine Umposition wurde explizit angefordert (Einzelbild-
+      // Taste oder Kameradistanz-Wechsel): Kamera weich auf die neue Pose ziehen,
+      // danach rastet sie ein (settled). Ohne repose bleibt die Pause bewegungslos
+      // eingefroren. Einrasten GESCHWINDIGKEITSbasiert (kommt die Bewegung pro Bild
+      // zum Stillstand), nicht über eine absolute Zieldistanz — sonst kröche die
+      // Kamera bei großer Kameradistanz sekundenlang nach und bekämpfte ein
+      // gleichzeitiges Pannen. camSnap mitführen, damit die Drag-Erkennung diese
+      // Systembewegung nicht für ein Nutzer-Verschieben hält.
+      const prev = this._camNow()
       this.update(dt)
-      this.camSnap = this._camNow()
+      const cur = this._camNow()
+      this.camSnap = cur
+      const stopped =
+        Math.abs(cur.lng - prev.lng) < 1e-7 &&
+        Math.abs(cur.lat - prev.lat) < 1e-7 &&
+        Math.abs(cur.zoom - prev.zoom) < 5e-4 &&
+        Math.abs(cur.bearing - prev.bearing) < 0.02 &&
+        Math.abs(cur.pitch - prev.pitch) < 0.02
+      if (stopped) { this.settled = true; this.repose = false }
     }
 
     this.uiClock += dt
@@ -602,7 +652,7 @@ export class Tour {
           Math.abs(this.cg.lat.v - cg[1]) < 2e-6 &&
           Math.abs(this.alt.v - alt) < 0.5 &&
           Math.abs(angleDelta(this.course, bearingAt(route, this.s))) < 0.15
-        if (near) this.settled = true
+        if (near) { this.settled = true; this.repose = false }
       }
     }
 

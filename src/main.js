@@ -16,6 +16,18 @@ const params = new URLSearchParams(location.search)
 const tourId = TOURS[params.get('tour')] ? params.get('tour') : 'oberland'
 const cfg = TOURS[tourId]
 
+// Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
+// Renderer-/Ansicht-Wechsel (Full-Reload) am selben Frame und im selben Wieder-
+// gabezustand weiterläuft. Modulweit, weil auch der Ansicht-Umschalter davor speichert.
+const POS_KEY = `luhambo:pos:${tourId}`
+const savePos = (tour) => {
+  if (tour.phase === 'ride' || tour.phase === 'photo') {
+    localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now(), playing: tour.playing }))
+  } else {
+    localStorage.removeItem(POS_KEY)
+  }
+}
+
 // Segmente zu einer Wegpunktliste verbinden (Nahtpunkte dedupen)
 const waypoints = []
 for (const seg of cfg.segments) {
@@ -224,6 +236,7 @@ map.on('load', () => {
       else if (m === 'scene') u.searchParams.set('scene', '1')
       else if (m === 'google') u.searchParams.set('g3d', '1')
       else if (m === 'hidden') u.searchParams.set('buildings', 'off')
+      savePos(tour) // Position + Play/Pause-Zustand sichern → Reload läuft nahtlos weiter
       location.href = u.toString() // Reload in den gewählten Modus
     })
   })
@@ -250,22 +263,17 @@ map.on('load', () => {
   // für A/B-Vergleiche): Die eine Zustandsgröße `s` reicht. Nur während der Fahrt/
   // Foto-Phase sichern; im Menü/Finale wird der Merker gelöscht, damit ein Reload
   // dort normal ins Intro startet. Wiederhergestellt wird pausiert am selben Frame.
-  const POS_KEY = `luhambo:pos:${tourId}`
   try {
     const saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null')
     if (saved && Date.now() - saved.ts < 30 * 60 * 1000 && saved.s > 5) {
-      tour.resumeAt(saved.s, false)
+      // War die Tour beim Reload am Abspielen, läuft sie danach direkt weiter;
+      // war sie pausiert, bleibt sie pausiert (z.B. A/B-Vergleich am selben Frame).
+      tour.resumeAt(saved.s, saved.playing === true)
     }
   } catch {
     /* defekter Merker: ignorieren, normal ins Intro starten */
   }
-  setInterval(() => {
-    if (tour.phase === 'ride' || tour.phase === 'photo') {
-      localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now() }))
-    } else {
-      localStorage.removeItem(POS_KEY)
-    }
-  }, 600)
+  setInterval(() => savePos(tour), 600)
 
   // — Steuerung —
   document.getElementById('btn-start').addEventListener('click', () => tour.begin())
