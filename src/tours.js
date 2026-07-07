@@ -831,7 +831,7 @@ export const TOURS = {
       {
         src: '/photos/kohphangan/10-longtail.jpg',
         title: 'Auf dem Golf',
-        caption: 'Longtail auf dem Golf — der Regen ist vorbei, zwischen den Wolken bricht der Vollmond durch und legt Silber aufs Wasser.',
+        caption: 'Longtail auf dem Golf — der Regen ist vorbei, unter dichten Wolken gleitet das Boot durch die dunkle Nacht über den weiten Golf.',
         anchor: [100.0845, 9.718], // water
       },
       {

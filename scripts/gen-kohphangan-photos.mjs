@@ -19,17 +19,20 @@ if (!KEY) { console.error('FAL_KEY fehlt in .env'); process.exit(1) }
 const NIGHT = 'Photorealistic cinematic travel photograph, natural realistic colours, sharp focus, atmospheric low-light night photography.'
 // Kein Sonnen-Look: das war der Fehler der alten Bilder (Strahlenkranz + Flare).
 const NO_SUN = 'NO sun, no sunset, no sunrise, no sunburst, no starburst, no star-shaped light rays, no radiating rays, no lens flare, no glare, no bright glowing horizon, no warm orange light. It is the middle of the night.'
+// Für Stopp 9+10 wollte der User WEDER Sonne NOCH Mond sichtbar — der diffuse helle
+// Ball wurde als Sonne gelesen. Also kein Himmelskörper im Bild, nur indirektes Mondlicht.
+const NO_ORB = 'Absolutely NO moon and NO sun anywhere in the frame — no bright disc, no glowing orb, no bright spot, no bright patch or glow in the sky or in the clouds, no light break in the clouds, no light beams, no shafts of light, no crepuscular rays, no god rays, no light source at all. The night sky and clouds are UNIFORMLY DARK deep blue. It is a dark moonless-looking tropical night.'
 
 const PHOTOS = [
   {
-    // Stopp 9 · ~21:30 · Vollmond, dunkle Dschungelberge
+    // Stopp 9 · ~21:30 · dunkle Dschungelberge, KEIN Himmelskörper im Bild (User)
     name: '09-ostkueste.jpg',
-    prompt: `${NIGHT} POV from the bow of a traditional Thai longtail boat traveling down the wild remote east coast of Koh Phangan at night. Steep black jungle-covered mountains and hidden coves on both sides, calm dark sea. A bright full moon high up in the dark starry night sky — a small crisp clean round moon disc — casting soft silvery moonlight that shimmers in a path across the rippling water. A couple of tiny distant boat lights. Deep dark tropical night, cool blue moonlit tones. ${NO_SUN}`,
+    prompt: `${NIGHT} POV from the bow of a traditional Thai longtail boat traveling down the wild remote east coast of Koh Phangan at night. Steep black jungle-covered mountains and hidden coves on both sides, calm very dark sea, a couple of small fishing boats with tiny warm lights in the distance. The sky between the mountains is a deep dark blue, moody and overcast, uniformly dark. ${NO_ORB} ${NO_SUN}`,
   },
   {
-    // Stopp 10 · ~22:36 · Vollmond bricht zwischen Wolken durch
+    // Stopp 10 · ~22:36 · Wolken, KEIN Himmelskörper im Bild (User)
     name: '10-longtail.jpg',
-    prompt: `${NIGHT} POV from the bow of a traditional Thai longtail boat on the open Gulf of Thailand at night, after the rain has passed. Scattered clouds across the dark night sky with a bright full moon breaking through a gap between the clouds — a small crisp clean round moon disc — its silvery light reflecting on the calm dark water. A faint dark silhouette of a distant island on the right. Deep dark tropical night, cool blue and silver moonlit tones. ${NO_SUN}`,
+    prompt: `${NIGHT} POV from the bow of a traditional Thai longtail boat on the open Gulf of Thailand at night, after the rain has passed. A completely overcast night sky with thick UNBROKEN dark cloud cover — no gaps, no breaks, no openings anywhere between the clouds — very dark calm sea, a faint dark silhouette of a distant island on the right, a couple of tiny distant boat lights low on the horizon. Deep dark tropical night, cool dark blue tones. ${NO_ORB} ${NO_SUN}`,
   },
   {
     // Stopp 11 · ~23:26 · klare Nacht, Mond hoch, Lichter von Haad Rin
