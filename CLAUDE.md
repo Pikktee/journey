@@ -49,8 +49,11 @@ alles antreibt, ist `s` — die Position entlang der Route in Metern.** `pointAt
 Kurswinkel. Fotos und Modus-Wechsel werden über `s` verankert.
 
 **Tour-Konfiguration als Daten.** [src/tours.js](src/tours.js) exportiert `TOURS` — pro Tour:
-`segments` (jedes mit `pts` und `mode`: walk/bike/tram/ferry), `photos` (mit `anchor`-Koordinate),
-Intro-/Finale-Texte, optional `time` (für Tag/Nacht) und `geoid`. main.js verkettet die Segmente
+`segments` (jedes mit `pts` und `mode`: walk/moped/bike/jeep/tram/ferry), `photos` (mit
+`anchor`-Koordinate), Intro-/Finale-Texte, optional `time` (für Tag/Nacht), `geoid` und `weather`.
+`weather` ist eine kuratierte Wetter-Timeline `[{ km, mode, k }]` (km entlang der Route) und hat
+Vorrang vor dem historischen Auto-Wetter — nötig, wenn das ERA5-Archiv einen Effekt nie codiert
+(z.B. Gewitter über Koh Pha-ngan). main.js verkettet die Segmente
 zu einer Wegpunktliste, baut die Route und verankert Fotos via `nearestS`. Nahe beieinander
 liegende Fotos (< 120 m in `s`) werden zu einem **Stopp** mit mehreren `items` gruppiert.
 
@@ -107,3 +110,26 @@ Renderer-Landschaft & Begründung: [docs/renderer-plan.md](docs/renderer-plan.md
 - Externe Datenquellen brauchen sichtbare Attribution (Esri/Maxar, AWS Terrain) — auch in
   späteren Video-Exporten einbrennen. Siehe [README.md](README.md).
 - Neue Tour hinzufügen = neuer Eintrag in `TOURS`; keine Code-Änderung an der Engine nötig.
+
+## Medien-Generierung
+
+**Medien werden AUSSCHLIESSLICH über zwei Dienste generiert — keine anderen:**
+
+- **Bilder** (Foto-Stopps etc.): **fal.ai**. HTTP-API `https://fal.run/<model>` mit
+  Header `Authorization: Key $FAL_KEY`; Standardmodell `fal-ai/flux/dev`, Seitenverhältnis
+  3:2 (`image_size` `{width:1344,height:896}`), `output_format: 'jpeg'`. Fotorealistische,
+  auf Ort/Uhrzeit/Wetter des jeweiligen Anker-Punktes abgestimmte Prompts.
+- **Audio** (TTS, Wetter-Sounds, Fahrgeräusche, Hintergrundmusik): **ElevenLabs**.
+  Wetter-SFX via Sound-Generation-API ([scripts/gen-weather-audio.mjs](scripts/gen-weather-audio.mjs)),
+  Fahrzeug-Motorloop (`eng-jeep.mp3`) ebenso via Sound-Generation
+  ([scripts/gen-vehicle-audio.mjs](scripts/gen-vehicle-audio.mjs) — nur noch der Jeep;
+  Moped/Auto/Boot auf Nutzerwunsch entfernt), Ambient-Musik via Music-API
+  `POST /v1/music` `{prompt, music_length_ms}`
+  ([scripts/gen-music.mjs](scripts/gen-music.mjs) → `public/audio/ambient.mp3`).
+  Loops laufen nahtlos über den Crossfade-Wrapper [src/audioloop.js](src/audioloop.js)
+  (`SeamlessLoop`), die Hintergrundmusik über [src/music.js](src/music.js) (Dock-Toggle),
+  der Jeep-Motorloop über [src/vehicle.js](src/vehicle.js) (`MODE_SOUND`) — folgt
+  `ui.onModeChange`, läuft nur während der Fahrt (Gate in main.js).
+
+Keine anderen Bild-/Audio-/Video-Generatoren verwenden. Beide Keys liegen in `.env`
+(`FAL_KEY`, `ELEVEN_LABS_KEY`) — nur lokal/Dev, nicht in den Build/das Repo.

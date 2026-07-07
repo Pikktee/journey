@@ -4,6 +4,12 @@ import { TOURS } from './tours.js'
 import { buildRoute, nearestS, pointAt } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
 import { createDayNight } from './daynight.js'
+import { sunPosition } from './sun.js'
+import { createAtmosphere } from './atmosphere.js'
+import { createWeather } from './weather.js'
+import { createMusic } from './music.js'
+import { createVehicle } from './vehicle.js'
+import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { installBuildingEnhancer } from './buildings.js'
 import { installBuildingShadows } from './shadows.js'
 import { sampleElevations, smoothValues } from './elevation.js'
@@ -12,7 +18,7 @@ import { Tour } from './tour.js'
 
 // — Tour-Auswahl via ?tour=… —
 const params = new URLSearchParams(location.search)
-const tourId = TOURS[params.get('tour')] ? params.get('tour') : 'stockholm'
+const tourId = TOURS[params.get('tour')] ? params.get('tour') : 'kohphangan'
 const cfg = TOURS[tourId]
 
 // Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
@@ -27,17 +33,43 @@ const savePos = (tour) => {
   }
 }
 
+// ?reverse=1: Tour rückwärts abspielen (nur Wegpunkt-/Segment-Reihenfolge umgedreht,
+// nichts am Kamera-/Sonnen-Code). Grund: Die Pseudo-Zeit koppelt Sonnenuntergang an den
+// Streckenfortschritt — je nach Route zeigt die Fahrtrichtung dann zur oder von der Sonne
+// weg. Für Stockholm liegt die untergehende Sonne rückwärts die GANZE Golden Hour voraus
+// (vorwärts nur an einer einzigen Stelle). Fotos werden per nearestS neu verankert.
+const reverse = params.get('reverse') === '1'
+const segsSrc = reverse
+  ? cfg.segments.slice().reverse().map((seg) => ({ ...seg, pts: seg.pts.slice().reverse() }))
+  : cfg.segments
+
 // Segmente zu einer Wegpunktliste verbinden (Nahtpunkte dedupen)
 const waypoints = []
-for (const seg of cfg.segments) {
+for (const seg of segsSrc) {
   waypoints.push(...(waypoints.length ? seg.pts.slice(1) : seg.pts))
 }
 const route = buildRoute(waypoints)
-const modes = cfg.segments.map((seg) => ({
-  s: nearestS(route, seg.pts[0]),
-  mode: seg.mode,
-  label: seg.label ?? seg.mode,
-}))
+
+// Modus-Grenzen. Vorwärts: sauber via nearestS je Segment-Startpunkt. Rückwärts:
+// die VORWÄRTS-Grenzen an der Streckenmitte spiegeln — nearestS auf reversierte
+// Segment-Nähte ist mehrdeutig (Inseln wie Fjäderholmarna liegen nah an der
+// Stadtstrecke → die Fähre würde über die halbe Route „auslaufen").
+let modes
+if (reverse) {
+  const fwdWp = []
+  for (const seg of cfg.segments) fwdWp.push(...(fwdWp.length ? seg.pts.slice(1) : seg.pts))
+  const fwdRoute = buildRoute(fwdWp)
+  const T = fwdRoute.total
+  const fwd = cfg.segments.map((seg) => ({ s: nearestS(fwdRoute, seg.pts[0]), mode: seg.mode, label: seg.label ?? seg.mode }))
+  fwd[0].s = 0
+  const bounds = fwd.map((m) => m.s).concat([T]) // [0, s1, …, T] — Segment-Intervalle
+  const scale = route.total / T // reversierte Route ist minimal anders lang
+  modes = fwd
+    .map((m, i) => ({ s: (T - bounds[i + 1]) * scale, mode: m.mode, label: m.label }))
+    .sort((a, b) => a.s - b.s)
+} else {
+  modes = cfg.segments.map((seg) => ({ s: nearestS(route, seg.pts[0]), mode: seg.mode, label: seg.label ?? seg.mode }))
+}
 modes[0].s = 0
 const photos = cfg.photos.map((p) => ({ ...p, s: nearestS(route, p.anchor) })).sort((a, b) => a.s - b.s)
 // Fotos mit nahe beieinanderliegenden Ankern zu einem Stopp gruppieren —
@@ -108,7 +140,12 @@ map.on('load', () => {
     scene?.setProgress(s, pos) // reine deck-Szene: Trace bis exakt zum Fahrer nachziehen
     tiles3d?.setProgress(s, pos) // Google-3D-Modus: Trace + Fahrer-Marker (no-op solange aus)
   }
-  ui.onModeChange = (mode) => setRiderIcon(rider, mode)
+  // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
+  // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
+  const vehicle = createVehicle('/audio')
+  vehicle.setMode(modes[0].mode)
+  window.__j.vehicle = vehicle
+  ui.onModeChange = (mode) => { setRiderIcon(rider, mode); vehicle.setMode(mode) }
   document.getElementById('tele-mode').textContent = modes[0].label
 
   const km = `${(route.total / 1000).toFixed(1)} km`
@@ -216,9 +253,13 @@ map.on('load', () => {
     window.__j.buildings = installBuildingEnhancer(map)
   }
 
-  // Gebäude-Sichtbarkeit aus dem Modus abgeleitet (?buildings=off = „Gebäude ausblenden"). Wird
+  // Gebäude-Sichtbarkeit aus dem Modus abgeleitet. Standard ist AUS („Gebäude ausblenden")
+  // — nur ein expliziter Modus-Wunsch (?buildings=on oder ein anderer 3D-Renderer) schaltet sie
+  // ein; ?buildings=off erzwingt aus, auch innerhalb eines sonst gebäudefähigen Renderers. Wird
   // auch von der Tag/Nacht- und Schatten-Logik genutzt (buildings3dOn), daher als Funktion erhalten.
-  let buildings3dOn = params.get('buildings') !== 'off'
+  let buildings3dOn =
+    params.get('buildings') !== 'off' &&
+    (params.get('buildings') === 'on' || deckMode || roofsMode || params.get('scene') === '1' || params.get('tiles3d') === '1')
   let isNight = false
   const applyShadows = () => shadows?.setVisible(buildings3dOn && !isNight)
   const setBuildings3d = (on) => {
@@ -237,12 +278,12 @@ map.on('load', () => {
   const layersBtn = document.getElementById('btn-layers')
   const layersMenu = document.getElementById('layers-menu')
   const closeLayers = () => { layersMenu.hidden = true; layersBtn.setAttribute('aria-expanded', 'false') }
-  const openLayers = () => { layersMenu.hidden = false; layersBtn.setAttribute('aria-expanded', 'true') }
+  const openLayers = () => { closeWeather(); layersMenu.hidden = false; layersBtn.setAttribute('aria-expanded', 'true') }
   const curMode = params.get('tiles3d') === '1' ? 'google'
     : params.get('scene') === '1' ? 'scene'
     : deckMode ? 'deck'
-    : params.get('buildings') === 'off' ? 'hidden'
-    : 'maplibre'
+    : params.get('buildings') === 'on' ? 'maplibre'
+    : 'hidden'
   layersMenu.querySelectorAll('[data-mode]').forEach((el) => {
     const active = el.dataset.mode === curMode
     el.classList.toggle('on', active)
@@ -255,6 +296,7 @@ map.on('load', () => {
       if (m === 'deck') u.searchParams.set('deck', '1')
       else if (m === 'scene') u.searchParams.set('scene', '1')
       else if (m === 'google') u.searchParams.set('tiles3d', '1')
+      else if (m === 'maplibre') u.searchParams.set('buildings', 'on')
       else if (m === 'hidden') u.searchParams.set('buildings', 'off')
       savePos(tour) // Position + Play/Pause-Zustand sichern → Reload läuft nahtlos weiter
       location.href = u.toString() // Reload in den gewählten Modus
@@ -264,7 +306,138 @@ map.on('load', () => {
   document.addEventListener('click', (e) => {
     if (!layersMenu.hidden && !layersMenu.contains(e.target) && e.target !== layersBtn) closeLayers()
   })
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLayers() })
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeLayers(); closeWeather() } })
+
+  // — Wetter-Dropdown (Regen/Gewitter) — live umschaltbar, unabhängig vom Renderer UND
+  // von Tag/Nacht. Das Overlay läuft in eigener Schleife, friert aber über das Gate
+  // ein, sobald die Szene pausiert (stehende Kamera = stehender Regen). Kein Reload
+  // wie bei der Ansicht-Radiogruppe: setMode wirkt sofort. Wahl + Stärke werden gemerkt.
+  const weather = createWeather(document.body)
+  // Animiert die Szene? Fahrt läuft, Nutzer scrubbt, oder eine Orbit-Phase dreht
+  // (Intro/Finale drehen unabhängig von playing) — nur dann läuft auch das Wetter.
+  const sceneAnimating = () => tour.playing || tour.scrubbing || tour.phase === 'intro' || tour.phase === 'finale'
+  weather.setGate(sceneAnimating)
+  window.__j.weather = weather
+
+  // Motorloop nur während der eigentlichen Fahrt: nicht im Foto-Stopp, Intro/Finale,
+  // beim Scrubben oder in Pause (dort geht der Motor weich aus wie an einer Ampel).
+  vehicle.setGate(() => tour.playing && !tour.scrubbing && tour.phase === 'ride')
+  const WEATHER_KEY = 'luhambo:weather'
+  const WEATHER_INT_KEY = 'luhambo:weather-int'
+  // Wetter-Stärke: drei UI-Stufen auf einer stufenlosen Skala (die API nimmt jedes
+  // 0..1 — ein späteres Echtwetter kann feiner dosieren). Default Mittel.
+  const WEATHER_INT = { leicht: 0.4, mittel: 0.7, stark: 1 }
+  let weatherInt = 'mittel'
+  // Himmel je Wetter-Modus: Wolkendeckung als SPANNE [c0..c1] über die Stärke —
+  // die Atmosphäre formt daraus die Wolken selbst (locker → aufgerissen →
+  // geschlossen). „Wolkig" spannt den ganzen Bogen: Leicht = einzelne Wolken
+  // (Sonne frei), Mittel = aufgerissener Himmel, Stark = geschlossene Decke ohne
+  // sichtbare Sonne. Niederschlags-Modi starten dagegen schon bedeckt (auch
+  // leichter Regen fällt nicht aus heiterem Himmel). Die Atmosphäre existiert erst
+  // nach dem Tag/Nacht-Block (cfg.time) → später via atmoWeather-Hook gekoppelt.
+  const WEATHER_SKY = {
+    off: { c0: 0, c1: 0, dark: 0, fog: 0 },
+    clouds: { c0: 0.28, c1: 0.98, dark: 0.34, fog: 0 },
+    fog: { c0: 0.22, c1: 0.45, dark: 0.2, fog: 1 },
+    rain: { c0: 0.72, c1: 1, dark: 0.55, fog: 0.16 },
+    snow: { c0: 0.62, c1: 0.96, dark: 0.3, fog: 0.4 },
+    storm: { c0: 0.88, c1: 1, dark: 0.8, fog: 0.12 },
+  }
+  const skyFor = (m, k) => {
+    const b = WEATHER_SKY[m] ?? WEATHER_SKY.off
+    // k läuft im UI 0.4..1 (Leicht..Stark); darunter (künftiges Echtwetter,
+    // stufenlos) bleibt die Deckung am unteren Ende der Spanne
+    const t = Math.max(0, Math.min(1, (k - 0.4) / 0.6))
+    return { cover: b.c0 + (b.c1 - b.c0) * t, dark: b.dark * (0.4 + 0.6 * k), fog: b.fog * (0.35 + 0.65 * k) }
+  }
+  let atmoWeather = null // () => atmo.setWeather(skyFor(...)), gesetzt sobald atmo existiert
+  let groundSnow = null // () => dayNight.setSnow(...), gesetzt sobald die Tag/Nacht-Regie existiert
+  const weatherBtn = document.getElementById('btn-weather')
+  const weatherMenu = document.getElementById('weather-menu')
+  const closeWeather = () => { weatherMenu.hidden = true; weatherBtn.setAttribute('aria-expanded', 'false') }
+  const openWeather = () => { closeLayers(); weatherMenu.hidden = false; weatherBtn.setAttribute('aria-expanded', 'true') }
+  const syncWeatherUI = (m) => {
+    weatherBtn.classList.toggle('active', m !== 'off') // aktiver Zustand am Button ablesbar
+    weatherMenu.querySelectorAll('[data-weather]').forEach((el) => {
+      const on = el.dataset.weather === m
+      el.classList.toggle('on', on)
+      el.setAttribute('aria-checked', String(on))
+    })
+    weatherMenu.querySelectorAll('[data-wlevel]').forEach((el) => {
+      const on = el.dataset.wlevel === weatherInt
+      el.classList.toggle('on', on)
+      el.setAttribute('aria-checked', String(on))
+    })
+  }
+  // — Auto-Wetter: echtes historisches Wetter (Open-Meteo + EXIF, autoweather.js) —
+  // Default-Modus; jede manuelle Wahl im Menü überschreibt ihn (und wird gemerkt).
+  // Die Timeline lädt asynchron; bis dahin (und bei Fetch-Fehlern) bleibt es bei
+  // „Kein Wetter". k ist im Auto-Modus stufenlos (dafür ist setIntensity gebaut).
+  let weatherK = WEATHER_INT[weatherInt] // wirksame Stärke (UI-Stufe bzw. Auto-Wert)
+  let weatherAuto = false
+  let wxTimeline = null // [{s, mode, k}] sobald geladen
+  let wxSegment = null // zuletzt angewandter Timeline-Eintrag (gegen Dauer-Reapply)
+
+  const applyWx = (m, k) => {
+    weatherK = k
+    weather.setIntensity(k)
+    weather.setMode(m)
+    atmoWeather?.()
+    groundSnow?.()
+  }
+  const applyAutoNow = () => {
+    const e = weatherAt(wxTimeline, tour.s)
+    if (!e) { applyWx('off', WEATHER_INT[weatherInt]); return }
+    if (wxSegment === e) return
+    wxSegment = e
+    applyWx(e.mode, e.k)
+  }
+  const applyWeather = (m, persist = true) => {
+    weatherAuto = m === 'auto'
+    if (weatherAuto) {
+      wxSegment = null
+      applyAutoNow()
+    } else {
+      applyWx(m, WEATHER_INT[weatherInt])
+    }
+    syncWeatherUI(weatherAuto ? 'auto' : weather.mode)
+    if (persist) {
+      try {
+        localStorage.setItem(WEATHER_KEY, weatherAuto ? 'auto' : weather.mode)
+        localStorage.setItem(WEATHER_INT_KEY, weatherInt)
+      } catch { /* Storage evtl. gesperrt */ }
+    }
+  }
+  // Beim Fahren die Abschnittsmitten überwachen (die Übergänge blenden weich in
+  // weather.js/atmosphere.js) — 0,8 s reichen, Wetter ändert sich gemächlich
+  setInterval(() => { if (weatherAuto && wxTimeline) applyAutoNow() }, 800)
+  weatherMenu.querySelectorAll('[data-weather]').forEach((el) => {
+    el.addEventListener('click', () => { applyWeather(el.dataset.weather); closeWeather() })
+  })
+  // Stärke-Umschalter (Leicht/Mittel/Stark): wirkt live auf den laufenden Modus,
+  // Menü bleibt offen (man will die Wirkung direkt vergleichen)
+  weatherMenu.querySelectorAll('[data-wlevel]').forEach((el) => {
+    el.addEventListener('click', () => {
+      weatherInt = WEATHER_INT[el.dataset.wlevel] ? el.dataset.wlevel : 'mittel'
+      // Im Auto-Modus bleibt Auto aktiv (die Stärke kommt dort aus den Wetterdaten,
+      // die Stufe greift erst wieder bei manueller Wahl)
+      applyWeather(weatherAuto ? 'auto' : weather.mode)
+    })
+  })
+  weatherBtn.addEventListener('click', (e) => { e.stopPropagation(); weatherMenu.hidden ? openWeather() : closeWeather() })
+  document.addEventListener('click', (e) => {
+    if (!weatherMenu.hidden && !weatherMenu.contains(e.target) && e.target !== weatherBtn) closeWeather()
+  })
+  // Gemerkte Wetter-Wahl + Stärke wiederherstellen. OHNE gemerkte Wahl ist
+  // AUTO der Default (echtes Wetter der Reise); „off" bleibt eine bewusste Wahl.
+  try {
+    const savedI = localStorage.getItem(WEATHER_INT_KEY)
+    if (savedI && WEATHER_INT[savedI]) weatherInt = savedI
+    const savedW = localStorage.getItem(WEATHER_KEY)
+    if (savedW == null || savedW === 'auto') applyWeather('auto', false)
+    else if (WEATHER_SKY[savedW] && savedW !== 'off') applyWeather(savedW, false)
+    else syncWeatherUI('off')
+  } catch { syncWeatherUI('off') }
 
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
   const syncSpots = addSpotLayers(
@@ -300,6 +473,33 @@ map.on('load', () => {
   document.getElementById('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
   document.getElementById('btn-replay').addEventListener('click', () => tour.restart())
 
+  // — Hintergrundmusik (unaufdringlich, nahtlos geloopt) — läuft während der
+  // Track-Animation (Fahrt/Foto/Finale), pausiert im Menü; per Dock-Knopf abschaltbar.
+  const music = createMusic('/audio/ambient.mp3')
+  music.setGate(() => tour.phase !== 'intro')
+  window.__j.music = music
+  const musicBtn = document.getElementById('btn-music')
+  const iconMusic = document.getElementById('icon-music')
+  const iconMusicOff = document.getElementById('icon-music-off')
+  const MUSIC_KEY = 'luhambo:music'
+  const syncMusicBtn = (on) => {
+    iconMusic.toggleAttribute('hidden', !on) // Note = an, durchgestrichen = aus
+    iconMusicOff.toggleAttribute('hidden', on)
+    musicBtn.setAttribute('aria-pressed', String(on))
+    musicBtn.title = on ? 'Musik aus' : 'Musik an'
+    musicBtn.setAttribute('aria-label', on ? 'Hintergrundmusik ausschalten' : 'Hintergrundmusik einschalten')
+  }
+  let musicOn = true
+  try { musicOn = localStorage.getItem(MUSIC_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
+  music.setEnabled(musicOn)
+  syncMusicBtn(musicOn)
+  musicBtn.addEventListener('click', () => {
+    musicOn = !musicOn
+    music.setEnabled(musicOn)
+    syncMusicBtn(musicOn)
+    try { localStorage.setItem(MUSIC_KEY, musicOn ? 'on' : 'off') } catch { /* Storage evtl. gesperrt */ }
+  })
+
   const speedBtn = document.getElementById('btn-speed')
   // Tempo-Label aus dem Tour-Zustand: Faktor + Richtung (−4× = 4× rückwärts).
   // Wird pro Stats-Tick aufgerufen, bleibt also auch nach JKL-Shuttle aktuell.
@@ -327,6 +527,38 @@ map.on('load', () => {
     const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: cfg.time.zone })
     const teleTime = document.getElementById('tele-time')
     document.getElementById('tele-time-wrap').hidden = false
+
+    // Atmosphäre-Overlay (Horizont-Dunst, Sterne, Sonne + Lens-Flare): folgt der
+    // Tour-Kamera pro Frame (tour.onPose), unabhängig vom aktiven Renderer.
+    const atmo = createAtmosphere(document.body)
+    atmo.setFov(map.transform?.fov ?? 36.87)
+    // Echte (geclampte) Render-Kamera fürs Overlay — die Tour-Pose kennt MapLibres
+    // maxPitch-Clamp nicht; ohne das säße die Sonne unter der gerenderten Horizontkante.
+    atmo.setCamera(() => ({ pitch: map.getPitch(), bearing: map.getBearing() }))
+    // DEM-Sonde: verdeckt nahes Gelände die Horizontlinie (Talkessel/Bergwand),
+    // blendet die Atmosphäre ihre horizont-verankerten Ebenen (Dunst-Band, Glut) aus
+    atmo.setTerrain((lng, lat) => map.queryTerrainElevation([lng, lat]))
+    // Sonnenstand PRO FRAME exakt aus der Pseudo-Zeit (die Astronomie ist billig):
+    // kein Drossel-Lag, keine Glättung im Overlay — Scrubben/Springen landet damit
+    // IMMER auf exakt demselben Sonnenstand (Himmelsrichtung/Geografie/Jahreszeit echt
+    // via sunPosition). Die Tag/Nacht-Regie drosselt nur noch die teuren Map-Paints.
+    tour.onPose = (pose) => {
+      const frac = Math.max(0, Math.min(1, tour.s / route.total))
+      const date = new Date(t0 + frac * (t1 - t0))
+      const pos = pointAt(route, frac * route.total)
+      const sun = sunPosition(date, pos[1], pos[0])
+      atmo.setSun(sun)
+      tour.setSun(sun) // Kamera-Himmel-Momente (skyLift/Yaw) folgen ohne Drossel-Lag
+      atmo.render(pose)
+    }
+    window.__j.atmo = atmo
+    // Wetter-Himmel jetzt an die Atmosphäre koppeln + den ggf. wiederhergestellten
+    // Modus nachziehen (der Restore lief, bevor die Atmosphäre existierte).
+    // Gleiches Pause-Gate wie das Partikel-Overlay: Wolken-Drift steht in der Pause.
+    atmoWeather = () => atmo.setWeather(skyFor(weather.mode, weatherK))
+    atmoWeather()
+    atmo.setGate(sceneAnimating)
+
     const dayNight = createDayNight(
       map,
       (on) => {
@@ -337,9 +569,37 @@ map.on('load', () => {
         tiles3d?.setNight(on) // Google-3D: Himmel/Licht dezent abtönen (Tiles sind tag-fotografiert)
         applyShadows() // nachts kein Sonnenschatten; folgt auch dem Gebäude-Umschalter
       },
-      // deck-Szene + Dächer-Renderer + Google-3D der Regie folgen lassen (dimmen mit dem Boden)
-      (p, sun) => { scene?.applyDayNight(p, sun); window.__j.buildings3d?.applyDayNight(p, sun); tiles3d?.applyDayNight(p, sun) },
+      // deck-Szene + Dächer-Renderer + Google-3D + Atmosphäre der Regie folgen lassen.
+      // (atmo.setSun/tour.setSun laufen NICHT mehr hier — die Drossel machte den
+      // Sonnenstand beim Scrubben pfadabhängig; beide werden pro Frame in onPose gesetzt.)
+      (p, sun) => {
+        scene?.applyDayNight(p, sun)
+        window.__j.buildings3d?.applyDayNight(p, sun)
+        tiles3d?.applyDayNight(p, sun)
+        atmo.setSky(p.hor, p.sky, p.fog) // Dunst an Horizont/Himmel/Fog der Tageszeit koppeln
+      },
     )
+    // Schneedecke aufs Satellitenbild koppeln (Stärke → Deckungsgrad); den ggf.
+    // wiederhergestellten Schnee-Modus nachziehen (Restore lief vor der Regie)
+    groundSnow = () => dayNight.setSnow(
+      weather.mode === 'snow' ? 0.3 + 0.7 * Math.max(0, (weatherK - 0.4) / 0.6) : 0,
+    )
+    groundSnow()
+    // Auto-Wetter-Timeline laden (asynchron; braucht die Pseudo-Zeit dieser Tour).
+    // Bei Fetch-Fehlern (offline, API weg) bleibt Auto still bei „Kein Wetter".
+    // Kuratierte Wetter-Timeline der Tour (cfg.weather, km entlang der Route) hat
+    // Vorrang vor dem Auto-Wetter — nötig, weil das ERA5-Archiv für manche Orte nie
+    // ein Gewitter codiert (z.B. Koh Pha-ngan). Sonst echtes historisches Wetter.
+    const wxSource = cfg.weather
+      ? Promise.resolve(cfg.weather.map((w) => ({ s: w.km * 1000, mode: w.mode, k: w.k })).sort((a, b) => a.s - b.s))
+      : buildWeatherTimeline({ photos, route, time: cfg.time, pointAt })
+    wxSource
+      .then((tl) => {
+        wxTimeline = tl
+        window.__j.wxTimeline = tl
+        if (weatherAuto) { wxSegment = null; applyAutoNow() }
+      })
+      .catch((err) => console.info('Auto-Wetter nicht verfügbar:', err?.message ?? err))
     ui.onTick = (frac) => {
       const date = new Date(t0 + frac * (t1 - t0))
       const pos = pointAt(route, frac * route.total)

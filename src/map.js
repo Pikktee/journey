@@ -113,13 +113,19 @@ export function createMap(container, center) {
     zoom: 11,
     pitch: 48,
     bearing: -35,
-    maxPitch: 72,
+    // 86 statt 72: die „Himmel-Momente" der Tour (tour.js skyLift) kippen die Kamera
+    // zur Golden Hour/Nacht über den Horizont hinaus, damit ein echter Himmelsanteil
+    // MIT Sonne/Sternen ins Bild kommt — dafür braucht die FreeCamera-Ableitung
+    // Pitch-Spielraum, sonst klemmt die Rahmung und der Horizont klebt am oberen Rand.
+    maxPitch: 86,
     antialias: !COARSE,
     pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
     // Mehr Zoomstufen im Tile-Cache halten: bei schnellen Zooms (Preset-Wechsel,
     // Foto-Sprünge) sind Eltern-/Kind-Tiles dann oft noch da statt neu zu laden
     maxTileCacheZoomLevels: 7,
-    attributionControl: { compact: true },
+    // Open-Meteo: Quelle des Auto-Wetters (autoweather.js), CC-BY 4.0 — Attribution
+    // ist Lizenzbedingung, daher fest im Control (auch in spätere Video-Exporte einbrennen)
+    attributionControl: { compact: true, customAttribution: 'Wetter: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>' },
     style: {
       version: 8,
       // Schriftglyphen für Symbol-Layer (nummerierte Foto-Wegpunkte)
@@ -405,6 +411,17 @@ export const MODE_ICONS = {
   ferry: `${SVG_OPEN}
     <path d="M4.5 14.5h15l-2.2 4.1a2 2 0 0 1-1.8 1.1H8.5a2 2 0 0 1-1.8-1.1z"/>
     <path d="M7.5 14.5V10.2h9v4.3"/><path d="M10 10.2V7.4h4v2.8"/><path d="M12 7.4V4.8"/></svg>`,
+  // Roller: zwei Räder, durchgestiegener Rahmen, Lenker mit Beinschild
+  moped: `${SVG_OPEN}
+    <circle cx="5.8" cy="17.3" r="2.9"/><circle cx="18.2" cy="17.3" r="2.9"/>
+    <path d="M5.8 17.3h5.6l2.5-4.7h2"/><path d="M13.4 8.4h2.2l2.6 8.9"/>
+    <path d="M8.4 12.9c1.3-1.3 3.2-1.5 5-1.3"/></svg>`,
+  // Jeep/4×4: kantiger, hochgesetzter Aufbau mit Windschutzscheibe, zwei Räder
+  jeep: `${SVG_OPEN}
+    <circle cx="7.6" cy="16.8" r="2.3"/><circle cx="16.4" cy="16.8" r="2.3"/>
+    <path d="M3.3 16.8H5.3M9.9 16.8h4.2M18.7 16.8h2"/>
+    <path d="M3.5 16.4v-3.1a1.1 1.1 0 0 1 1.1-1.1h2.2l1.9-2.5h6.3l1.6 2.5h1.6a1.1 1.1 0 0 1 1.1 1.1v3.1"/>
+    <path d="M8.5 11.7h5.4"/></svg>`,
 }
 
 export function createRider(map, lnglat, mode = 'bike') {

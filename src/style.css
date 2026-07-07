@@ -67,6 +67,38 @@ button:focus-visible {
 
 /* — Atmosphäre — */
 
+/* Atmosphäre — Horizont-Dunst, Sterne, Sonne + Lens-Flare (atmosphere.js): über
+   allen Renderer-Canvases (z-index 1), unter Vignette/Grain, damit sich die
+   Kino-Ästhetik (Vignette/Korn) auch über die Atmosphäre legt. */
+#atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Wetter — Regen/Gewitter (weather.js): über der Atmosphäre (Regen liegt im Vordergrund,
+   vor Sonne/Dunst), unter Vignette/Grain und der gesamten UI. */
+#weather {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Fern-Unschärfe (atmosphere.js): progressiv maskierter backdrop-blur unter der
+   Horizontlinie — nimmt der Ferne die Schärfe (Distanz-Unschärfe) und kaschiert
+   die Esri-LOD-Kante. Liegt über der Karte, unter #atmosphere und aller UI. */
+#farblur {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  visibility: hidden;
+  backdrop-filter: blur(2.2px);
+  -webkit-backdrop-filter: blur(2.2px);
+}
+
 .vignette {
   position: fixed;
   inset: 0;
@@ -381,7 +413,11 @@ body.cinema .cine {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: rgba(4, 7, 11, 0.5);
+  /* Bewusst heller Schleier: das frühere 0.5-Schwarz + brightness(0.85) lief über
+     dunklen Szenen (Schärenwasser) zusammen mit Vignette + cine-Balken auf einen
+     komplett schwarzen oberen Bildrand hinaus — die Szene bleibt jetzt hinter der
+     Karte erkennbar, die Trennung übernimmt der Blur. */
+  background: rgba(6, 10, 16, 0.3);
   opacity: 0;
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
@@ -390,8 +426,8 @@ body.cinema .cine {
 
 .photo-layer.show .photo-backdrop {
   opacity: 1;
-  backdrop-filter: blur(12px) saturate(0.8) brightness(0.85);
-  -webkit-backdrop-filter: blur(12px) saturate(0.8) brightness(0.85);
+  backdrop-filter: blur(14px) saturate(0.85) brightness(0.96);
+  -webkit-backdrop-filter: blur(14px) saturate(0.85) brightness(0.96);
 }
 
 /* Kamerablitz beim Erreichen des Foto-Spots */
@@ -1060,6 +1096,16 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   height: 18px;
 }
 
+/* Musik-Toggle: dezent direkt unter dem UI-Toggle. Aus-Zustand leicht gedimmt. */
+.music-toggle {
+  top: 152px;
+}
+
+.music-toggle[aria-pressed='false'] {
+  color: var(--muted, rgba(255, 255, 255, 0.55));
+  opacity: 0.7;
+}
+
 .ui-toggle:hover {
   color: var(--amber);
   border-color: rgba(245, 165, 36, 0.5);
@@ -1216,6 +1262,38 @@ body.ui-clean .ui-toggle {
   height: 1px;
   background: var(--glass-brd);
   margin: 6px 4px;
+}
+
+/* Wetter-Menü teilt sich die Optik der Ebenen-Liste, braucht aber weniger Breite */
+.weather-menu {
+  min-width: 168px;
+}
+
+/* Stärke-Stufen (Leicht/Mittel/Stark) als Segmentleiste unten im Wetter-Menü */
+.lm-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+  padding: 2px 4px 4px;
+}
+.lm-seg-btn {
+  padding: 6px 0;
+  border: 1px solid var(--glass-brd);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.lm-seg-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+.lm-seg-btn.on {
+  color: var(--amber);
+  border-color: var(--amber);
 }
 
 .g3d-modal {
@@ -1602,6 +1680,10 @@ body.ui-clean .ui-toggle {
     top: calc(max(14px, env(safe-area-inset-top)) + 66px);
     width: 36px;
     height: 36px;
+  }
+
+  .music-toggle {
+    top: calc(max(14px, env(safe-area-inset-top)) + 110px);
   }
 
   .ui-toggle svg {

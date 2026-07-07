@@ -18,6 +18,18 @@ export const PRESETS = {
 const HOLD_HIDE = 5.2 // s sichtbare Foto-Karte, danach ausblenden bzw. nächstes Foto
 const HOLD_END = 6.0 // s: weiterfahren (Ausblend-Animation ist durch)
 
+// „Himmel-Momente": Zur Golden Hour und nachts kippt die Kamera nach oben, damit
+// Horizont + Sonne/Sterne ins Bild kommen und der Fahrer ins untere Drittel rutscht.
+// Statt den Blickpunkt um eine feste Fraktion zu heben (zu indirekt — bei hoher
+// Kamera bleibt der Horizont trotzdem am oberen Rand), steuern wir den ZIEL-Blick-
+// winkel direkt: der Blick-nach-unten-Winkel wird von seinem natürlichen Wert
+// Richtung SKY_MIN_DOWN abgeflacht. Das kippt die Kamera geometrieunabhängig bis
+// knapp über den Horizont. Tagsüber ist skyLift 0 ⇒ exakt der bisherige Blick.
+const SKY_MIN_DOWN = 3 * (Math.PI / 180) // flachster Blick-nach-unten (Pitch ~87°, von maxPitch gedeckelt)
+const SKY_LIFT_TAU = 3.5 // Einschwingzeit der Anhebung (weich, kein Ruck)
+const _cl = (x) => (x < 0 ? 0 : x > 1 ? 1 : x)
+const _ss = (a, b, x) => { const t = _cl((x - a) / (b - a)); return t * t * (3 - 2 * t) }
+
 class Smooth {
   constructor(v) {
     this.v = v
@@ -35,9 +47,11 @@ class Smooth {
 // Spreizung macht den Moduswechsel körperlich spürbar.
 // hover > behind bei walk: in Städten schaut die Kamera dadurch etwas steiler
 // über die Dächer, statt hinter Häuserzeilen zu hängen
-const MODE_SPEED = { walk: 0.4, tram: 1.25, ferry: 2.5, bike: 1 }
+const MODE_SPEED = { walk: 0.4, moped: 1.15, bike: 1, jeep: 1.45, tram: 1.25, ferry: 2.5 }
 const MODE_SCALE = {
   walk: { behind: 0.5, hover: 0.68 },
+  moped: { behind: 0.95, hover: 1 }, // wendig wie ein Rad, Kamera dicht dran
+  jeep: { behind: 1.25, hover: 1.25 }, // Wagen: sitzt etwas höher/weiter zurück
   tram: { behind: 1.15, hover: 1.2 },
   ferry: { behind: 2.3, hover: 2.2 },
   bike: { behind: 1, hover: 1 },
@@ -80,6 +94,8 @@ export class Tour {
     this.glide = 1 // Tau-Multiplikator, >1 direkt nach Phasenwechseln (epischere Schwenks)
     this.course = bearingAt(route, 0) // stark geglättete Fahrtrichtung für die Kameraposition
     this.tuck = new Smooth(1) // 1 = voller Abstand; <1 = näher am Fahrer (Hindernis im Rücken)
+    this.skyLift = new Smooth(0) // 0 = Blick nach unten (Tag); →1 = Kamera kippt zum Horizont
+    this.skyLiftTarget = 0 // von setSunAlt aus dem Sonnenstand gespeist
 
     // Übersichts-Orbit für Intro und Finale (bei großen Touren gedeckelt)
     const mid = pointAt(route, route.total * 0.5)
@@ -117,6 +133,42 @@ export class Tour {
   groundAlt(lnglat, fallbackEle) {
     const e = this.map.queryTerrainElevation(lnglat)
     return e ?? fallbackEle * EXAGGERATION
+  }
+
+  // Sonnenstand (Grad) → Ziel-Anhebung der Kamera + gemerkter Sonnen-Azimut fürs
+  // Yaw. Golden Hour (Sonne tief) hebt voll an, tiefe Nacht moderat (damit Sterne
+  // sichtbar sind, ohne den ganzen Nachtteil in Dauerschräglage zu zwingen), heller
+  // Tag gar nicht. Wird von der Tag/Nacht-Regie (main.js) gespeist; die Smooths in
+  // update() ziehen weich nach.
+  setSun(sun) {
+    this.sunAlt = sun.altitude
+    this.sunAz = sun.azimuth
+    const gh = _ss(14, 1, sun.altitude) // 0 bei 14°, 1 bei ≤1° (Sonne nähert sich Horizont)
+    const night = _ss(-6, -12, sun.altitude) // 0 bei −6°, 1 bei ≤−12° (tiefe Nacht)
+    // Moderate Anhebung: etwas Himmel/Horizont ins Bild, aber der Fahrer/Wegpunkt
+    // bleibt klar über der Navigationsleiste sichtbar. FRÜHER hob Nacht auf 0.9 —
+    // dabei rutschte der Marker unter das Dock und war nicht mehr zu sehen.
+    this.skyLiftTarget = Math.max(0.5 * gh * (1 - night), 0.28 * night)
+  }
+
+  // Kamera-Standrichtung: immer in Fahrtrichtung hinter dem Fahrer. FRÜHER drehte sie
+  // sich zur Golden Hour bis ±140° zur Sonne ein — das riss die Kamera aber vom
+  // Wegpunkt weg (zu weit, nicht mehr auf der Marke ausgerichtet). Bewusst KEIN
+  // Sonnen-Eindrehen mehr: liegt der Untergang ohnehin voraus, ist er im Bild; steht
+  // die Sonne seitlich/im Rücken, wird nicht extra dorthin geschwenkt.
+  yawedBackDir(course) {
+    return (course + 180) % 360
+  }
+
+  // Blickpunkt-Höhe für eine Fahrt-Pose inkl. Himmel-Anhebung. Der natürliche Blick-
+  // nach-unten-Winkel (Kamera→Fahrer) wird per skyLift Richtung SKY_MIN_DOWN abge-
+  // flacht — das kippt die Kamera geometrieunabhängig zum Horizont. Rückgabe: Ziel-
+  // ltAlt für den Blickpunkt (bei skyLift 0 exakt die Fahrer-Bodenhöhe).
+  liftedLtAlt(cgPos, riderLngLat, riderGround, camAlt) {
+    const D = Math.max(dist(cgPos, riderLngLat), 50) // horizontaler Kamera-Fahrer-Abstand (m)
+    const thNat = Math.atan2(camAlt - riderGround, D) // natürlicher Blick-nach-unten (rad)
+    const th = Math.min(thNat, thNat * (1 - this.skyLift.v) + SKY_MIN_DOWN * this.skyLift.v)
+    return camAlt - D * Math.tan(th)
   }
 
   begin() {
@@ -455,7 +507,7 @@ export class Tour {
     const rider = pointAt(route, s)
     const mo = this.modeAt(s)
     const course = bearingAt(route, s)
-    const backDir = (course + 180) % 360
+    const backDir = this.yawedBackDir(course) // Golden Hour: zur Sonne eindrehen (Pause/Scrub konsistent)
     const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
     const sc = MODE_SCALE[mo.mode] ?? MODE_SCALE.bike
     const behind = preset.behind * sc.behind
@@ -467,12 +519,13 @@ export class Tour {
       k -= 0.12
     }
     const cgPos = destination([rider[0], rider[1]], behind * k, backDir)
+    const alt = Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110)
     return {
       course, sc, k,
       cg: cgPos,
-      alt: Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110),
+      alt,
       lt: [rider[0], rider[1]],
-      ltAlt: this.groundAlt([rider[0], rider[1]], rider[2]),
+      ltAlt: this.liftedLtAlt(cgPos, [rider[0], rider[1]], riderG, alt), // Himmel-Moment auch bei Pause/Scrub
     }
   }
 
@@ -602,6 +655,7 @@ export class Tour {
   update(dt) {
     const { route, preset } = this
     this.glide += (1 - this.glide) * (1 - Math.exp(-dt / 2.2))
+    this.skyLift.to(this.skyLiftTarget, dt, SKY_LIFT_TAU) // Himmel-Anhebung weich nachziehen
     const mo = this.modeAt(this.s)
 
     if (this.phase === 'photo' && this.photoShown) {
@@ -679,7 +733,7 @@ export class Tour {
       // ruhigen Schwenk statt hektischer Kamerasprünge entlang der Route.
       const rider = pointAt(route, this.s)
       this.course += angleDelta(this.course, bearingAt(route, this.s)) * (1 - Math.exp(-dt / (2.8 * this.glide)))
-      const backDir = (this.course + 180) % 360
+      const backDir = this.yawedBackDir(this.course) // Golden Hour: zur Sonne eindrehen
       const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
       // Kameradistanz an den Fortbewegungsmodus anpassen (zu Fuß nah, Fähre weit)
       const sc = MODE_SCALE[mo.mode] ?? MODE_SCALE.bike
@@ -701,7 +755,8 @@ export class Tour {
       const cgPos = destination([rider[0], rider[1]], behind * kk, backDir)
       const cg = [cgPos[0], cgPos[1], rider[2]]
       const alt = Math.max(riderG + hover * kk, this.groundAlt(cgPos, rider[2]) + 110)
-      this.smoothTowards(dt, cg, alt, rider)
+      // Himmel-Moment: Blickwinkel abflachen → Kamera kippt zum Horizont
+      this.smoothTowards(dt, cg, alt, rider, this.liftedLtAlt(cgPos, [rider[0], rider[1]], riderG, alt))
       if (!this.playing && !this.scrubbing) {
         // Pausiert: sobald die Kamera praktisch auf der idealen Fahrt-Pose sitzt,
         // gilt sie als eingeschwungen — ab dann schneidet die Einzelbild-Taste hart.
@@ -725,7 +780,7 @@ export class Tour {
     if (this.phase === 'intro') this.applyCamera()
   }
 
-  smoothTowards(dt, cgTarget, altTarget, lookTarget) {
+  smoothTowards(dt, cgTarget, altTarget, lookTarget, ltAltTarget) {
     // Kameraposition träge (ruhige Fahrt), Blickpunkt straff (Fahrer zentriert)
     const g = this.glide
     this.cg.lng.to(cgTarget[0], dt, 2.2 * g)
@@ -733,7 +788,9 @@ export class Tour {
     this.alt.to(altTarget, dt, 2.6 * g)
     this.lt.lng.to(lookTarget[0], dt, 0.55 * g)
     this.lt.lat.to(lookTarget[1], dt, 0.55 * g)
-    this.ltAlt.to(this.groundAlt([lookTarget[0], lookTarget[1]], lookTarget[2]), dt, 0.8 * g)
+    // ltAltTarget explizit (Himmel-Momente heben den Blickpunkt an); sonst Boden
+    const ltA = ltAltTarget != null ? ltAltTarget : this.groundAlt([lookTarget[0], lookTarget[1]], lookTarget[2])
+    this.ltAlt.to(ltA, dt, 0.8 * g)
   }
 
   applyCamera() {
@@ -746,13 +803,16 @@ export class Tour {
       this.ltAlt.v
     )
     this.map.jumpTo(opts)
-    // Optionaler Zweit-Renderer (Google-3D-Testmodus) bekommt dieselbe Pose
-    this.extCamera?.({
+    const pose = {
       cg: [this.cg.lng.v, this.cg.lat.v],
       alt: this.alt.v,
       lt: [this.lt.lng.v, this.lt.lat.v],
       ltAlt: this.ltAlt.v,
-    })
+    }
+    // Optionaler Zweit-Renderer (Google-3D-Testmodus) bekommt dieselbe Pose
+    this.extCamera?.(pose)
+    // Sonnen-Flare-Overlay (sunflare.js) — läuft renderer-unabhängig immer mit
+    this.onPose?.(pose)
   }
 
   emitStats() {

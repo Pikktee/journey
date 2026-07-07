@@ -136,6 +136,7 @@ export class UI {
   hideIntro() {
     this.els.intro.classList.add('gone')
     $('btn-ui').hidden = false // der UI-Toggle gehört zur Tour, nicht zum Intro
+    $('btn-music').hidden = false // Musik-Toggle ebenso (schwebt unter dem UI-Toggle)
     this.els.dock.hidden = false
     void this.els.dock.offsetWidth // Reflow, damit die Einblende-Transition greift
     this.els.dock.classList.add('up')
@@ -151,6 +152,7 @@ export class UI {
     this.els.dock.classList.remove('up')
     this.els.dock.hidden = true
     $('btn-ui').hidden = true
+    $('btn-music').hidden = true
     this.showIntro()
   }
 
