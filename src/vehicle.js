@@ -5,9 +5,10 @@
 // das ausgeht). Modi ohne Motor (walk/bike/tram) ⇒ Stille.
 import { SeamlessLoop } from './audioloop.js'
 
-// Segment-Modus → Motor-Loop-Datei (public/audio/<name>.mp3). Nur der Jeep hat einen
-// Motorloop (dramatische Bergüberquerung) — Moped/Auto/Boot auf Nutzerwunsch entfernt.
-const MODE_SOUND = { jeep: 'eng-jeep' }
+// Segment-Modus → Motor-Loop-Datei (public/audio/<name>.mp3). Die drei Fahrmodi der
+// Koh-Pha-ngan-Tour: Moped (Honda Wave 110, Küstenfahrt), Jeep (Bergüberquerung),
+// Boot (thailändisches Longtail auf dem Golf). Modi ohne Motor (walk/bike/tram) ⇒ Stille.
+const MODE_SOUND = { moped: 'eng-moped', jeep: 'eng-jeep', ferry: 'eng-boat' }
 
 export function createVehicle(base = '/audio', { volume = 0.2 } = {}) {
   const loops = {} // Sound-Name → SeamlessLoop (lazy: erst beim ersten Gebrauch geladen)

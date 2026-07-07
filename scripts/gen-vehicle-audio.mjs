@@ -18,14 +18,14 @@ const KEY = (env.match(/^ELEVEN_LABS_KEY\s*=\s*(.+)$/m) || [])[1]?.trim().replac
 if (!KEY) { console.error('ELEVEN_LABS_KEY fehlt in .env'); process.exit(1) }
 
 // Gleichmäßige, konstante Motorläufe ohne Aufheulen/Gangwechsel — damit der Loop
-// nahtlos wirkt und dezent unter der Szene bleibt. Nur der Jeep hat noch einen Motorloop
-// (dramatische Bergüberquerung); Moped/Auto/Boot auf Nutzerwunsch wieder entfernt — die
-// Prompts stehen auskommentiert bereit, falls sie zurückkehren sollen.
+// nahtlos wirkt und dezent unter der Szene bleibt. Jeep (Bergüberquerung), Moped
+// (Honda Wave 110, Küstenfahrt) und Boot (thailändisches Longtail auf dem Golf) — die
+// drei Fortbewegungsmodi der Koh-Pha-ngan-Tour. Auto-Prompt bleibt auskommentiert bereit.
 const CLIPS = [
   { name: 'eng-jeep', dur: 16, loop: true, text: 'Old rugged 4x4 off-road jeep engine running steadily under load on a rough track, low diesel grumble and drivetrain rumble, constant moderate RPM, no revving spikes, no gear changes, no music, no voices' },
-  // { name: 'eng-moped', dur: 16, loop: true, text: 'Small 125cc motor scooter engine running at a steady cruising speed, continuous smooth single-cylinder two-wheeler engine hum with a light exhaust buzz, constant moderate RPM, no revving, no gear changes, no music, no voices' },
+  { name: 'eng-moped', dur: 16, loop: true, text: 'Small Honda Wave 110cc four-stroke single-cylinder underbone motorcycle engine cruising at a steady moderate speed, continuous smooth light engine hum with a soft airy exhaust buzz, constant moderate RPM, no revving, no gear changes, no music, no voices' },
+  { name: 'eng-boat', dur: 16, loop: true, text: 'Thai wooden long-tail boat puttering steadily across calm sea at a constant slow cruising speed, the distinctive exposed long-tail propeller engine with a rhythmic mechanical chug and putter, gentle wash of water against the wooden hull, constant slow RPM, no revving, no music, no voices' },
   // { name: 'eng-car', dur: 16, loop: true, text: 'Passenger car cruising at a steady speed on a road, smooth continuous petrol engine hum with faint tyre and road noise, constant RPM, no revving, no music, no voices' },
-  // { name: 'eng-boat', dur: 16, loop: true, text: 'Steady marine diesel boat engine puttering on the water at a slow constant speed, low rhythmic mechanical chug and exhaust with a gentle wash of water against the hull, constant slow RPM, no revving, no music, no voices' },
 ]
 
 // Bereits erzeugte Dateien nicht neu generieren (Aufruf kostet API-Guthaben);
