@@ -811,31 +811,37 @@ export const TOURS = {
         anchor: [100.04633, 9.72766], // interior · echter Grat-Hochpunkt (~326 m) · Aufklaren am Sonnenuntergang (~18:37)
       },
       {
-        src: '/photos/kohphangan/07-thong-nai-pan.jpg',
+        src: '/photos/kohphangan/07-daemmerung.jpg',
+        title: 'Blaue Stunde',
+        caption: 'Kammabfahrt zur Ostküste — 40 Minuten nach Sonnenuntergang glüht ein letzter Streifen Violett überm Golf, das Gewitter ist durchgezogen, der Vollmond steigt durch die aufreissenden Wolken; tief unten öffnet sich die Bucht von Thong Nai Pan.',
+        anchor: [100.0494, 9.7512], // interior · Jeep-Abfahrt NO-Flanke (~291 m) · ~19:20 · blaue Stunde, Aufklaren nach dem Gewitter
+      },
+      {
+        src: '/photos/kohphangan/08-thong-nai-pan.jpg',
         title: 'Thong Nai Pan',
         caption: 'Das Gewitter ist durchgezogen — über der Doppelbucht reißen die Wolken auf, der volle Mond steigt übers Meer und legt einen Silberpfad auf den nassen Sand.',
         anchor: [100.0582, 9.7702], // land · Einbruch der Nacht
       },
       {
-        src: '/photos/kohphangan/08-ostkueste.jpg',
+        src: '/photos/kohphangan/09-ostkueste.jpg',
         title: 'Wilde Ostküste',
         caption: 'Die einsame Ostküste hinab — der Longtail tuckert unter dem Vollmond an schwarzen Dschungelbergen und verborgenen Buchten (Than Sadet) vorbei, Mondlicht zittert auf dem Wasser.',
         anchor: [100.07947, 9.75823], // water · ~21:24, füllt die lange Boot-Lücke
       },
       {
-        src: '/photos/kohphangan/09-longtail.jpg',
+        src: '/photos/kohphangan/10-longtail.jpg',
         title: 'Auf dem Golf',
         caption: 'Longtail auf dem Golf — der Regen ist vorbei, zwischen den Wolken bricht der Vollmond durch und legt Silber aufs Wasser.',
         anchor: [100.0845, 9.718], // water
       },
       {
-        src: '/photos/kohphangan/10-vor-haad-rin.jpg',
+        src: '/photos/kohphangan/11-vor-haad-rin.jpg',
         title: 'Vor Haad Rin',
         caption: 'Klare Nacht vor der Ostküste — der volle Mond steht hoch, vorn tauchen die Lichter von Haad Rin auf.',
         anchor: [100.08, 9.686], // water
       },
       {
-        src: '/photos/kohphangan/11-haad-rin.jpg',
+        src: '/photos/kohphangan/12-haad-rin.jpg',
         title: 'Haad Rin',
         caption: 'Mitternacht am Sunrise Beach — Feuertänzer, Bass und Neon, der Vollmond überm Meer: die Full Moon Party.',
         anchor: [100.0679, 9.67635], // land
