@@ -38,19 +38,19 @@ const PHOTOS = [
     prompt: `${FILM} The Djurgården waterfront promenade at the Gröna Lund amusement park in Stockholm on a late-August summer day. A tall red steel drop-tower and roller-coaster structure, a colourful ornate illuminated "Gröna Lund" entrance sign, crowds of people in light summer clothes, t-shirts and shorts, strolling along the quayside, a white excursion steamer moored on the right by the water. Lush green leafy summer trees in full foliage. Flat overcast grey cloudy sky, soft diffuse light, NO sun, no blue sky, muted colours, dry ground. Warm humid overcast summer day. No bare trees, no autumn, no winter coats, no snow.`,
   },
   {
-    // ~13:03, leichter Regen
+    // ~13:03, Regen — kräftiger, sichtbarer Niederschlag (Einschlagsringe + Schleier)
     name: 'saltsjon.jpg',
-    prompt: `${FILM} View from the stern of a ferry looking back at the Stockholm skyline receding across the water: the City Hall tower, church spires, and the Gröna Lund Ferris wheel on the right, a churning white wake trailing behind, seagulls following the boat. Early afternoon in light rain, overcast grey sky, hazy rainy atmosphere, rain drizzle over the water, wet desaturated muted colours, dull flat light, NO sun, no golden light. Moody.`,
+    prompt: `${FILM} View from the open stern deck of a ferry looking back at the Stockholm skyline receding across the water in HEAVY RAIN. The entire water surface is covered with countless splashes and concentric ripple rings from heavy falling raindrops, dense diagonal streaks of rain fill the whole frame, a thick grey curtain of pouring rain almost hides the distant City Hall tower and the Gröna Lund Ferris wheel, a wet dripping deck railing in the foreground, dark low rain clouds, desaturated grey-green colours, dull flat light. It is visibly raining hard. NO sun, no dry weather, no blue sky.`,
   },
   {
-    // ~13:52, leichter Regen
+    // ~13:52, Regen — Regenstriche vor den dunklen Kiefern sichtbar (Kontrast-Trick)
     name: '03-schaeren.jpg',
-    prompt: `${FILM} View from a ferry deck over the Stockholm archipelago: a classic red wooden cottage with white trim on a rocky pine-covered islet on the left, small rocky skerries, a Swedish flag on the boat's stern railing, white wake in the water. Early afternoon in light rain, grey overcast sky, damp misty rainy atmosphere, wet dark rocks, drizzle, muted cool desaturated colours, dull flat light, NO sun, no blue sky.`,
+    prompt: `${FILM} View from a ferry deck over the Stockholm archipelago in HEAVY POURING RAIN. A classic red wooden cottage on a rocky islet with dark green pine trees on the left. Bright silvery streaks of heavy rain are clearly visible falling diagonally across the whole frame, standing out sharply against the dark pine trees; the water surface in the foreground is covered with splashes and concentric ripple rings from the pounding rain; a dripping wet Swedish flag on the boat's stern railing; a grey curtain of rain hazes the far islands. Dark low rain clouds, wet glistening rocks, desaturated cool colours, dull light. It is unmistakably raining hard. NO sun, no dry weather, no blue sky.`,
   },
   {
-    // ~17:33, Regen / Niesel
+    // ~17:33, Regen — durch die nasse Scheibe, Tropfen am Glas
     name: 'hoggarnsfjarden.jpg',
-    prompt: `${FILM} Open archipelago water seen through a ferry's window frame, a single white sailing yacht heeling in the breeze, low rocky pine-covered islands on the horizon, choppy grey-green water. Late afternoon in steady rain, overcast leaden grey sky, rainy hazy atmosphere, rain streaks, wet muted desaturated colours, dull light, NO sun, no blue sky, no fair-weather clouds. Moody and grey.`,
+    prompt: `${FILM} View through a rain-covered ferry window in heavy steady rain: the glass streaked with running raindrops and rivulets of water, beyond it the open archipelago with a single white sailing yacht heeling in the breeze, low rocky pine-covered islands on the horizon, choppy grey-green water. Clearly visible falling rain streaks outside, water droplets and trickles blurring the window glass, dark leaden grey overcast rain clouds, wet muted desaturated colours, dull light. NO sun, no blue sky, no fair-weather clouds, no dry weather. Very rainy and wet.`,
   },
   {
     // ~22:15, Nacht (Sonnenuntergang war ~20:07), leicht bewölkt
