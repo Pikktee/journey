@@ -737,22 +737,46 @@ body.cinema .cine {
   font-variant-numeric: tabular-nums;
 }
 
-.btn-replay {
+.finale-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.btn-replay,
+.btn-finale-menu {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--amber);
   background: transparent;
-  border: 1px solid rgba(245, 165, 36, 0.55);
   border-radius: 999px;
   padding: 14px 36px;
   cursor: pointer;
-  transition: background 0.25s ease, transform 0.25s ease;
+  transition: background 0.25s ease, transform 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+.btn-replay {
+  color: var(--amber);
+  border: 1px solid rgba(245, 165, 36, 0.55);
 }
 
 .btn-replay:hover {
   background: rgba(245, 165, 36, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Sekundäre Aktion — dezenter als der Amber-Replay-Button */
+.btn-finale-menu {
+  color: var(--muted);
+  border: 1px solid var(--glass-brd);
+}
+
+.btn-finale-menu:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
   transform: translateY(-1px);
 }
 
@@ -1546,7 +1570,8 @@ body.ui-clean .ui-toggle {
     font-size: 17px;
   }
 
-  .btn-replay {
+  .btn-replay,
+  .btn-finale-menu {
     padding: 13px 26px;
     font-size: 11px;
   }

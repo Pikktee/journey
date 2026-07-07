@@ -112,6 +112,10 @@ export function createWeather(container) {
   // loopAct bleibt beim Ausklingen gesetzt (mode ist da schon 'off'), damit der
   // Sound mit dem Level verklingt; shutdown() räumt am Ende auf.
   let loopAct = null
+  // Globaler Ton-Gain (0..1), multipliziert auf jede Loop-Lautstärke. Das Visual
+  // bleibt unberührt — beim Finale („Ziel erreicht") blendet nur der SOUND weich
+  // aus (Rampe in step, ~2,5 s), während die Regen-Partikel im Orbit weiterlaufen.
+  let soundGain = 1, soundGainTgt = 1
   const tryPlay = (a) => {
     if (!a.paused) return
     // Autoplay-Block merken statt jedes Frame erneut anzuspielen (Promise-Spam);
@@ -123,7 +127,7 @@ export function createWeather(container) {
     const base = sounds[THUNDERS[Math.floor(rand() * THUNDERS.length)]]
     if (!base) return
     const a = base.cloneNode() // Klon → Donnerschläge dürfen sich überlappen
-    a.volume = (0.5 + rand() * 0.4) * (0.55 + 0.45 * k)
+    a.volume = (0.5 + rand() * 0.4) * (0.55 + 0.45 * k) * soundGain
     a.playbackRate = 0.85 + rand() * 0.4 // Tonhöhen-/Längenvariation
     a.play().catch(() => {})
   }
@@ -234,10 +238,11 @@ export function createWeather(container) {
     // früheren festen 2,2-s-Rampe direkt beim Umschalten.
     if (soundsReady) {
       const kA = 1 - Math.exp(-dt / 1.1)
+      soundGain += (soundGainTgt - soundGain) * (1 - Math.exp(-dt / 0.85)) // Finale-Blende ~2,5 s
       for (const key of LOOPS) {
         const a = sounds[key]
         if (!a) continue
-        const vTgt = key === loopAct ? volFor(key) * smooth01(level) : 0
+        const vTgt = (key === loopAct ? volFor(key) * smooth01(level) : 0) * soundGain
         a.volume = Math.max(0, Math.min(1, a.volume + (vTgt - a.volume) * kA))
         if (vTgt > 0 && a.paused && !a._blocked) tryPlay(a)
         else if (vTgt === 0 && !a.paused && a.volume < 0.004) { a.pause(); a.volume = 0 }
@@ -427,5 +432,8 @@ export function createWeather(container) {
     if (a) { a._blocked = false; if (a.paused && pAct) tryPlay(a) } // Lautstärke hebt step() (Level-Kopplung)
   }, { passive: true })
 
-  return { setMode, setIntensity, setGate: (fn) => { gate = fn }, get mode() { return mode }, get intensity() { return k } }
+  // Ton an-/ausblenden ohne das Visual anzutasten (Finale). Beim Einschalten sofort
+  // voll (kein Einblend-Lag beim Neustart), beim Ausschalten weiche Rampe in step().
+  const setSoundEnabled = (on) => { soundGainTgt = on ? 1 : 0; if (on) soundGain = 1 }
+  return { setMode, setIntensity, setGate: (fn) => { gate = fn }, setSoundEnabled, get mode() { return mode }, get intensity() { return k } }
 }

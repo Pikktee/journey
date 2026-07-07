@@ -409,8 +409,13 @@ map.on('load', () => {
     }
   }
   // Beim Fahren die Abschnittsmitten überwachen (die Übergänge blenden weich in
-  // weather.js/atmosphere.js) — 0,8 s reichen, Wetter ändert sich gemächlich
-  setInterval(() => { if (weatherAuto && wxTimeline) applyAutoNow() }, 800)
+  // weather.js/atmosphere.js) — 0,8 s reichen, Wetter ändert sich gemächlich.
+  // Zugleich den Wetter-Ton beim Finale („Ziel erreicht") ausblenden (nur der
+  // Sound; die Regen-Partikel laufen im Orbit weiter) — kommt beim Neustart zurück.
+  setInterval(() => {
+    if (weatherAuto && wxTimeline) applyAutoNow()
+    weather.setSoundEnabled(tour.phase !== 'finale')
+  }, 800)
   weatherMenu.querySelectorAll('[data-weather]').forEach((el) => {
     el.addEventListener('click', () => { applyWeather(el.dataset.weather); closeWeather() })
   })
@@ -472,11 +477,18 @@ map.on('load', () => {
   document.getElementById('btn-start').addEventListener('click', () => tour.begin())
   document.getElementById('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
   document.getElementById('btn-replay').addEventListener('click', () => tour.restart())
+  // Vom „Ziel erreicht“-Screen zurück ins Hauptmenü (wie der Dock-Menü-Knopf)
+  document.getElementById('btn-finale-menu').addEventListener('click', () => {
+    setClean(false)
+    tour.toMenu()
+  })
 
   // — Hintergrundmusik (unaufdringlich, nahtlos geloopt) — läuft während der
-  // Track-Animation (Fahrt/Foto/Finale), pausiert im Menü; per Dock-Knopf abschaltbar.
+  // Track-Animation (Fahrt/Foto), pausiert im Menü; per Dock-Knopf abschaltbar.
+  // Beim Finale („Ziel erreicht") aus dem Gate → die Musik blendet über die
+  // eingebaute ~2,5-s-Blende aus (kommt beim „Noch einmal erleben" wieder).
   const music = createMusic('/audio/ambient.mp3')
-  music.setGate(() => tour.phase !== 'intro')
+  music.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
   const musicBtn = document.getElementById('btn-music')
   const iconMusic = document.getElementById('icon-music')
