@@ -24,7 +24,7 @@ if (!KEY) { console.error('ELEVEN_LABS_KEY fehlt in .env'); process.exit(1) }
 const CLIPS = [
   { name: 'eng-jeep', dur: 16, loop: true, text: 'Old rugged 4x4 off-road jeep engine running steadily under load on a rough track, low diesel grumble and drivetrain rumble, constant moderate RPM, no revving spikes, no gear changes, no music, no voices' },
   { name: 'eng-moped', dur: 16, loop: true, text: 'Small Honda Wave 110cc four-stroke single-cylinder underbone motorcycle engine cruising at a steady moderate speed, continuous smooth light engine hum with a soft airy exhaust buzz, constant moderate RPM, no revving, no gear changes, no music, no voices' },
-  { name: 'eng-boat', dur: 16, loop: true, text: 'Thai wooden long-tail boat puttering steadily across calm sea at a constant slow cruising speed, the distinctive exposed long-tail propeller engine with a rhythmic mechanical chug and putter, gentle wash of water against the wooden hull, constant slow RPM, no revving, no music, no voices' },
+  { name: 'eng-boat', dur: 16, loop: true, text: 'Loud throaty Thai long-tail boat engine cruising at a steady speed on the open sea, the distinctive exposed car-engine-on-a-pole long-tail motor with a strong rhythmic mechanical chugging putter and a prominent exhaust beat, close-up and clearly audible over the water, constant moderate RPM, no revving, no music, no voices' },
   // { name: 'eng-car', dur: 16, loop: true, text: 'Passenger car cruising at a steady speed on a road, smooth continuous petrol engine hum with faint tyre and road noise, constant RPM, no revving, no music, no voices' },
 ]
 
