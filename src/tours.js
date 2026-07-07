@@ -360,19 +360,20 @@ export const TOURS = {
     // Regen, Gewitter über dem Inselinneren (kuratiert via `weather`), abends aufklarend.
     time: { start: '2025-05-12T14:00:00+07:00', end: '2025-05-13T00:00:00+07:00', zone: 'Asia/Bangkok' },
     geoid: -31,
-    // km-Marken an die 42-km-Route (Sonnenuntergang ~18:40 ≙ km 19,6). An der Küste erst
-    // schwül-bewölkt: der Regen setzt bewusst KURZ NACH Foto 2 ein (Haad Baan Tai, km 4,44 —
-    // dort regnet es noch NICHT; Grenze clouds→rain bei km 4,75 ≙ ~15:06). Dann kräftiger im
-    // Dschungel, Gewitter-Höhepunkt am unteren Jeep-Anstieg (Dschungelpiste, km 17,5 ≙ 18:10,
+    // km-Marken an die ~41,8-km-Route (Sonnenuntergang ~18:40 ≙ km 19,5). An der Küste erst
+    // schwül-bewölkt: der Regen setzt bewusst KURZ NACH Foto 2 ein (Haad Baan Tai, ~km 4,2 —
+    // dort regnet es noch NICHT; Grenze clouds→rain bei km 5,5 ≙ ~15:14). Dann kräftiger im
+    // Dschungel, Gewitter-Höhepunkt am unteren Jeep-Anstieg (Dschungelpiste, ~km 17,3 ≙ 18:08,
     // NOCH vor Sonnenuntergang) — danach klart es KURZ VOR Sonnenuntergang auf (Grenze
-    // rain→clouds bei km 19,2 ≙ 18:34): der Bergkamm (km 19,5 ≙ 18:39) liegt schon im
+    // rain→clouds bei km 19,2 ≙ 18:36): der Bergkamm (~km 19,3 ≙ 18:37) liegt schon im
     // aufklarenden Abendrot, die Nacht ist klar.
     // weatherAt() schaltet an den MITTEN zwischen den Marken; die Engine rampt weich.
     weather: [
       { km: 0, mode: 'clouds', k: 0.45 },
       { km: 3, mode: 'clouds', k: 0.55 },
       { km: 4.5, mode: 'clouds', k: 0.62 },
-      { km: 5, mode: 'rain', k: 0.35 },
+      { km: 5, mode: 'clouds', k: 0.6 },
+      { km: 6, mode: 'rain', k: 0.35 },
       { km: 9, mode: 'rain', k: 0.6 },
       { km: 14, mode: 'rain', k: 0.68 },
       { km: 16.5, mode: 'storm', k: 0.82 },
@@ -399,11 +400,11 @@ export const TOURS = {
           [99.98538, 9.71128, 8],
           [99.98610, 9.71045, 8],
           [99.98604, 9.71037, 8],
-          [99.98485, 9.70958, 8],
-          [99.98475, 9.70943, 8],
-          [99.98529, 9.70909, 8],
-          [99.98475, 9.70943, 8],
-          [99.98485, 9.70958, 8],
+          [99.98607, 9.70965, 8],
+          [99.98612, 9.70918, 8],
+          [99.98615, 9.70895, 8],
+          [99.98612, 9.70918, 8],
+          [99.98607, 9.70965, 8],
           [99.98604, 9.71037, 8],
           [99.98614, 9.71040, 8],
           [99.98706, 9.70941, 8],
@@ -776,8 +777,8 @@ export const TOURS = {
       {
         src: '/photos/kohphangan/01-thong-sala.jpg',
         title: 'Thong Sala',
-        caption: 'Ankunft am Ufer von Thong Sala — schwüle Luft, über dem Golf türmen sich dunkle Wolken, das Gewitter kündigt sich an.',
-        anchor: [99.98529, 9.70909], // ~14:12 · Strand an den Piers
+        caption: 'Ankunft am Strand von Thong Sala — schwüle Luft, über dem Golf türmen sich dunkle Wolken, das Gewitter kündigt sich an.',
+        anchor: [99.98615, 9.70895], // ~14:12 · auf dem Sand des Thong-Sala-Stadtstrands (nicht am Pier/Wasser)
       },
       {
         src: '/photos/kohphangan/02-baan-tai.jpg',

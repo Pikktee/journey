@@ -15,7 +15,7 @@ verschiebt die zweite Tourhälfte in die Nacht. Medien-Policy: nur fal.ai (Bild)
 
 | # | Datei | Ort (Art) | ~Zeit | Wetter |
 |---|-------|-----------|-------|--------|
-| 1 | `01-thong-sala.jpg` | Thong-Sala-Ufer/Strand an den Piers (Küste) | 14:12 | schwül, Sturm zieht auf |
+| 1 | `01-thong-sala.jpg` | Thong-Sala-Stadtstrand (Sand, nicht Pier/Wasser) | 14:11 | schwül, Sturm zieht auf |
 | 2 | `02-baan-tai.jpg` | Haad Baan Tai, Südküste (Küste) | 15:03 | bedeckt/schwül, noch trocken (Regen setzt kurz danach ein) |
 | 3 | `03-phaeng.jpg` | Nam-Tok-Phaeng-Wasserfall (interior) | 16:14 | Regenguss im Dschungel |
 | 4 | `04-dschungelbach.jpg` | Bach-Furt der Jeeppiste im Regenwald (interior) | 17:15 | starker Regen |
