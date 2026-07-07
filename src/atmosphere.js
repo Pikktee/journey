@@ -477,6 +477,23 @@ export function createAtmosphere(container) {
       tc.fillStyle = g2
       tc.fillRect(0, s0, w, Math.min(hy, h) - s0)
     }
+    // Naht-Deckung: MapLibre zieht am flachen Horizont eine dünne DUNKLE Linie (Terrain-
+    // Horizont-Artefakt — verifiziert unabhängig von sky/atmosphere-/horizon-fog-/
+    // sky-horizon-blend, bleibt auch ohne das ganze Overlay stehen). Der breite Dunst
+    // deckt darüber nur ~0,74 (Tag-/edgeFade-gedämpft) — über der schwarzen Naht bleibt
+    // ein Rest sichtbar. Ein schmaler, GENAU an der Linie voll deckender Streifen (oben
+    // Horizont-, unten Fog-Farbe = der natürliche Verlauf) schließt sie unsichtbar. Liegt
+    // mit im Offscreen ⇒ der Fächer maskiert ihn dort weg, wo Fels über der Linie steht
+    // (dann gibt es gar keine Naht). Nur wenn die Linie wirklich im Bild ist.
+    if (hy > -6 && hy < h + 6) {
+      const seam = Math.max(3, Math.round(h * 0.006))
+      const gS = tc.createLinearGradient(0, hy - seam, 0, hy + seam)
+      gS.addColorStop(0, `rgba(${hr},${hg},${hbl},0)`)
+      gS.addColorStop(0.5, `rgba(${Math.round((hr + r) / 2)},${Math.round((hg + g) / 2)},${Math.round((hbl + bl) / 2)},${(edgeFade * fUni).toFixed(3)})`)
+      gS.addColorStop(1, `rgba(${r},${g},${bl},0)`)
+      tc.fillStyle = gS
+      tc.fillRect(0, Math.round(hy - seam), w, 2 * seam)
+    }
     if (!uniform) {
       // Horizontale Fächer-Maske: Stützstellen an den Sonden-Azimuten, auf
       // Bildschirm-x projiziert (tan(offset) im Kamera-Maßstab); Ränder clampen
