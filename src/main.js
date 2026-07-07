@@ -84,7 +84,7 @@ const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
 const setText = (id, text) => (document.getElementById(id).textContent = text)
-document.title = `Luhambo — ${cfg.brandTitle}`
+document.title = 'Luhambo — deine Reisen als kinematische 3D-Erlebnisse'
 setText('brand-kicker', `Luhambo · ${cfg.no}`)
 setText('brand-title', cfg.brandTitle)
 setText('brand-route', cfg.stops.join(' — '))
