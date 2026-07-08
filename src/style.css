@@ -7,7 +7,7 @@
   --ink: #0a0d12;
   --paper: #f6f1e7;
   --text: #f2ede3;
-  --muted: rgba(242, 237, 227, 0.55);
+  --muted: rgba(242, 237, 227, 0.64); /* etwas kräftiger: Mikro-Labels über hellem Kartenbild lesbarer */
   --amber: #f5a524;
   --coral: #ff6f52;
   --glass: rgba(12, 15, 20, 0.55);
@@ -242,8 +242,17 @@ body.cinema .cine {
   display: grid;
   place-items: center;
   text-align: center;
-  background: radial-gradient(120% 90% at 50% 42%, rgba(6, 9, 14, 0.3) 0%, rgba(6, 9, 14, 0.88) 100%);
-  transition: opacity 1s ease, visibility 1s;
+  /* Ruhige Bühne: die live rotierende Karte wird nach hinten geschoben — kräftigerer
+     Scrim (Mitte 0.62 statt 0.3) plus leichter Blur macht sie zur Atmosphäre statt zum
+     Fokus-Konkurrenten des Titels. Der Blur läuft nur im Intro (vor dem Tour-Start). */
+  background: radial-gradient(125% 95% at 50% 44%, rgba(6, 9, 14, 0.62) 0%, rgba(5, 8, 12, 0.94) 100%);
+  backdrop-filter: blur(3px) saturate(0.92);
+  -webkit-backdrop-filter: blur(3px) saturate(0.92);
+  /* Weicher Übergang in die Tour: der unscharfe, dunkle Schleier löst sich langsam auf
+     (2 s) und gibt die scharfe Szene sanft frei. visibility gleich lang, damit das Intro
+     während des Fades sichtbar bleibt und erst am Ende ausgehängt wird (die Sonder-
+     Interpolation von visibility zeigt es beim Zurück ins Menü sofort wieder). */
+  transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1), visibility 2s;
 }
 
 .intro.gone {
@@ -254,6 +263,13 @@ body.cinema .cine {
 
 .intro-inner {
   padding: 24px;
+  /* Vordergrund (Titel/Chips/Button) blendet etwas früher als der Schleier — erst geht
+     der Text, dann lichtet sich langsam die Bühne. Beides deutlich ruhiger als zuvor. */
+  transition: opacity 1.5s ease;
+}
+
+.intro.gone .intro-inner {
+  opacity: 0;
 }
 
 .intro-kicker {
@@ -1011,6 +1027,10 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
 }
 
+/* Fotopunkte auf der Timeline — DIESELBE Sprache wie die Karten-Wegpunkte (map.js),
+   nur kompakter: kommend = creme gefüllt · nächster = creme + Amber-RING · besucht =
+   amber GEFÜLLT + weißer Ring. Gleiche Größe (box-sizing: border-box → der Ring ändert
+   die Punktgröße nicht), kein Puls, nichts schrumpft. */
 .photo-dot {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -1018,25 +1038,34 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   height: 11px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.75);
-  background: #2c2f36;
+  border: 1.5px solid rgba(23, 17, 6, 0.35);
+  background: #f6f1e7;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
+  transition: background 0.3s ease, border-color 0.3s ease, border-width 0.2s ease, transform 0.2s ease;
   z-index: 3;
 }
 
-.photo-dot:hover {
-  transform: translate(-50%, -50%) scale(1.4);
+/* Vergrößerte, unsichtbare Trefferfläche (~25px) — leichter auf Touch zu treffen. */
+.photo-dot::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
 }
 
+.photo-dot:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* besucht: amber gefüllt + weißer Ring (trennt es von der amberfarbenen Fülllinie) */
 .photo-dot.seen {
   background: var(--amber);
-  border-color: #fff;
+  border: 2px solid #fff;
 }
 
+/* nächster: creme gefüllt + Amber-RING (die Anfahrt-Vorschau, füllt sich bei Ankunft) */
 .photo-dot.is-next {
-  box-shadow: 0 0 0 4px rgba(245, 165, 36, 0.25);
-  border-color: var(--amber);
+  border: 2.5px solid var(--amber);
 }
 
 /* Foto-Wegpunkte und Startpunkt leben als GL-Layer in der Karte (map.js) —
@@ -1118,16 +1147,6 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
 .ui-toggle svg {
   width: 18px;
   height: 18px;
-}
-
-/* Musik-Toggle: dezent direkt unter dem UI-Toggle. Aus-Zustand leicht gedimmt. */
-.music-toggle {
-  top: 152px;
-}
-
-.music-toggle[aria-pressed='false'] {
-  color: var(--muted, rgba(255, 255, 255, 0.55));
-  opacity: 0.7;
 }
 
 .ui-toggle:hover {
@@ -1435,6 +1454,160 @@ body.ui-clean .ui-toggle {
   text-align: center;
 }
 
+/* — Entwicklermodus: Render-Art, Wetter-Palette, Kameradistanz sind Dev-Regler —
+   Standard (Endnutzer) blendet sie aus; body.dev (Tippfolge „dev" / ?dev=1) zeigt sie. */
+body:not(.dev) .dev-only {
+  display: none !important;
+}
+
+.dev-chip {
+  align-self: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--amber);
+  border: 1px solid rgba(245, 165, 36, 0.5);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+/* — Optionen-Dialog (Endnutzer): Ton · Musik · Wetter-Effekte — */
+.opt-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 8, 12, 0.66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.opt-card {
+  width: min(92vw, 380px);
+  padding: 24px 26px 20px;
+  border-radius: 18px;
+  background: rgba(16, 20, 27, 0.94);
+  border: 1px solid var(--glass-brd);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+}
+
+.opt-card h3 {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 420;
+  font-size: 24px;
+}
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--glass-brd);
+}
+
+.opt-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.opt-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.opt-text {
+  flex: 1;
+}
+
+/* Schalter (role=switch): Pille mit gleitendem Knopf, an = Amber */
+.opt-switch {
+  flex: none;
+  width: 50px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.22s ease;
+}
+
+.opt-switch[aria-checked='true'] {
+  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+}
+
+.opt-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.opt-switch[aria-checked='true'] .opt-knob {
+  transform: translateX(20px);
+}
+
+.opt-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+#opt-close {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 11px 24px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  color: #171106;
+  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+}
+
+/* Brand oben links im Intro ausblenden — Ort + Route stehen dort groß im Hero;
+   sie kommt weich mit dem Tour-Start (Transition liegt auf .brand). */
+body.intro-open .brand {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+/* — Bewegung reduzieren — respektiert die System-Einstellung: die kinematischen
+   Animationen (Reveal, Ken-Burns, Puls, Dock-Slide) werden still/gesetzt, die
+   Inhalte bleiben aber sichtbar (kein „unsichtbar, weil animation-start"). */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .photo-frame img,
+  .photo-card.in .photo-frame img {
+    transform: scale(1.02) !important;
+    animation: none !important;
+  }
+  .rider-pulse,
+  .photo-dot.is-next {
+    animation: none !important;
+  }
+}
+
 /* — MapLibre-Anpassungen — */
 
 .maplibregl-ctrl-bottom-right {
@@ -1511,7 +1684,7 @@ body.ui-clean .ui-toggle {
   }
 
   .next-stop-kicker {
-    font-size: 7.5px;
+    font-size: 9px;
     margin-bottom: 2px;
   }
 
@@ -1634,25 +1807,26 @@ body.ui-clean .ui-toggle {
     -webkit-backdrop-filter: blur(12px) saturate(1.35);
   }
 
+  /* Touch-Ziele ≥44px (Apple HIG / WCAG 2.5.5) */
   .icon-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 
   .play-btn {
-    width: 42px;
-    height: 42px;
-    border-radius: 13px;
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
   }
 
   .play-btn svg {
-    width: 19px;
-    height: 19px;
+    width: 21px;
+    height: 21px;
   }
 
   .speed-btn {
-    width: 40px;
+    width: 44px;
     font-size: 11px;
   }
 
@@ -1682,38 +1856,32 @@ body.ui-clean .ui-toggle {
   }
 
   .tele-label {
-    font-size: 8px;
+    font-size: 9px;
   }
 
   .tele-value {
-    font-size: 12px;
+    font-size: 12.5px;
     white-space: nowrap;
   }
 
   .progress {
-    height: 34px;
-  }
-
-  .photo-dot {
-    width: 13px;
-    height: 13px;
-  }
-
-  /* Toggle kompakter und unter dem „Nächster Halt“-Chip */
-  .ui-toggle {
-    right: 12px;
-    top: calc(max(14px, env(safe-area-inset-top)) + 66px);
-    width: 36px;
     height: 36px;
   }
 
-  .music-toggle {
-    top: calc(max(14px, env(safe-area-inset-top)) + 110px);
+  /* Punktgrößen kommen aus den Zuständen (kommend/nächster/besucht) — hier NICHT
+     platt überschreiben; die Trefferfläche (::before) macht sie ohnehin gut tippbar. */
+
+  /* Toggle unter dem „Nächster Halt“-Chip, ≥44px Touch-Ziel */
+  .ui-toggle {
+    right: 12px;
+    top: calc(max(14px, env(safe-area-inset-top)) + 66px);
+    width: 44px;
+    height: 44px;
   }
 
   .ui-toggle svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   /* Attribution bleibt Pflicht und sichtbar: über die Steuerleiste heben */
@@ -1726,25 +1894,103 @@ body.ui-clean .ui-toggle {
   }
 }
 
-/* Quer gehaltenes Telefon: Höhe ist knapp — Telemetrie zurück in die erste
-   Zeile (Breite ist ja da) und weniger Reserve für die Foto-Caption */
-@media (max-width: 940px) and (max-height: 480px) {
+/* Quer gehaltenes Telefon: Höhe ist knapp, Breite reichlich → Split-UI.
+   Steuerung + Telemetrie wandern in eine schmale LINKE Leiste, die Timeline bleibt
+   als dünner Streifen unten über die volle Breite. Das gibt der Karte die knappe
+   vertikale Höhe zurück (der große Punkt: die Bühne wird höher). */
+@media (max-width: 940px) and (max-height: 500px) and (orientation: landscape) {
+  /* Brand kompakt und über der Leiste (nicht dahinter) */
+  .brand {
+    top: max(10px, env(safe-area-inset-top));
+    left: 12px;
+  }
+
+  .brand-title {
+    font-size: 18px;
+  }
+
+  .brand-route {
+    display: none;
+  }
+
   .dock {
-    gap: 6px 10px;
+    left: 10px;
+    right: auto;
+    top: calc(max(10px, env(safe-area-inset-top)) + 54px); /* unter der kompakten Brand */
+    bottom: 44px; /* über der unten fixierten Timeline */
+    width: auto;
+    max-width: 172px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    overflow-y: auto;
+    gap: 12px;
+    padding: 12px;
+    /* KEIN Transform UND kein backdrop-filter: beides erzeugt einen Containing-Block
+       für die unten fixierte Timeline (fixed-Kind) — sie soll sich aber auf den
+       Viewport beziehen, nicht aufs Dock. Reveal daher nur über Opazität; statt
+       Glas-Blur ein etwas dichteres Panel (auf Mobil-GPUs ohnehin billiger). */
+    transform: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(12, 15, 20, 0.86);
+    opacity: 0;
+    transition: opacity 0.5s ease;
   }
 
+  .dock.up {
+    transform: none;
+    opacity: 1;
+  }
+
+  /* Button-Cluster: vertikal zentriert, umbrechend */
+  .dock-cluster:first-child {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Telemetrie als Spalte in der Leiste (im Querformat greift der 700er-Breakpoint nicht) */
   .telemetry {
-    flex: 0 1 auto;
-    margin-left: auto;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 0;
+    gap: 7px;
   }
 
+  .telemetry .tele:first-child .tele-label {
+    display: none; /* „Unterwegs mit" spart Platz — „Jeep 4×4" erklärt sich */
+  }
+
+  .tele {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .tele-label {
+    font-size: 9px;
+  }
+
+  .tele-value {
+    font-size: 12.5px;
+  }
+
+  /* Timeline: eigener, viewport-fixierter Streifen unten über die volle Breite */
   .progress {
-    height: 26px;
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    height: 30px;
+    flex: none;
   }
 
   .photo-frame {
-    width: min(88vw, calc((100vh - 160px) * 1.5));
-    width: min(88vw, calc((100dvh - 160px) * 1.5));
+    width: min(72vw, calc((100vh - 90px) * 1.5));
+    width: min(72vw, calc((100dvh - 90px) * 1.5));
   }
 
   .photo-title {
@@ -1752,6 +1998,11 @@ body.ui-clean .ui-toggle {
   }
 
   .photo-sub {
-    display: none; /* einzige Ausnahme: für die Bildunterschrift ist quer schlicht kein Platz */
+    display: none; /* für die Bildunterschrift ist quer schlicht kein Platz */
+  }
+
+  /* Attribution über den Timeline-Streifen heben */
+  .maplibregl-ctrl-bottom-right {
+    bottom: calc(44px + env(safe-area-inset-bottom));
   }
 }

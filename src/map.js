@@ -380,11 +380,16 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
     id: 'spots-circle',
     type: 'circle',
     source: 'spots',
+    // Einheitliche Sprache mit der Timeline, alle Punkte GLEICH GROSS:
+    //   kommend  = creme GEFÜLLT, dünner neutraler Ring   (steht aus)
+    //   nächster = creme gefüllt + Amber-RING             (Ziel, Ring als Vorschau)
+    //   besucht  = amber GEFÜLLT + weißer Ring            (erreicht — Ring „füllt sich")
+    // Der weiße Ring trennt „besucht" sauber von der amberfarbenen Fahrtlinie.
     paint: {
-      'circle-radius': 12,
+      'circle-radius': 11,
       'circle-color': ['case', done, '#f5a524', '#f6f1e7'],
-      'circle-stroke-color': ['case', next, '#f5a524', done, 'rgba(255,255,255,0.75)', 'rgba(23,17,6,0.4)'],
-      'circle-stroke-width': ['case', next, 3, 1.5],
+      'circle-stroke-color': ['case', done, '#ffffff', next, '#f5a524', 'rgba(23,17,6,0.4)'],
+      'circle-stroke-width': ['case', done, 2, next, 2.5, 1.3],
       'circle-pitch-alignment': 'viewport',
       'circle-pitch-scale': 'viewport',
     },
@@ -396,7 +401,7 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
     layout: {
       'text-field': ['get', 'label'],
       'text-font': ['Noto Sans Bold'],
-      'text-size': 12.5,
+      'text-size': 12,
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-pitch-alignment': 'viewport',
@@ -414,11 +419,13 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
   map.on('mouseenter', 'spots-circle', () => (map.getCanvas().style.cursor = 'pointer'))
   map.on('mouseleave', 'spots-circle', () => (map.getCanvas().style.cursor = ''))
 
-  // Fortschritts-Zustand der Wegpunkte (erledigt / als Nächstes dran)
+  // Fortschritts-Zustand der Wegpunkte (erledigt / als Nächstes dran). „Besucht" erst
+  // bei ERREICHEN (kleiner 20-m-Vorlauf, damit es mit dem Einblenden der Foto-Karte
+  // zusammenfällt) — NICHT mehr 200 m davor.
   return (s) => {
     let nextFound = false
     spots.forEach((sp, i) => {
-      const isDone = sp.s <= s + 200
+      const isDone = sp.s <= s + 20
       const isNext = !isDone && !nextFound && (nextFound = true)
       map.setFeatureState({ source: 'spots', id: i }, { done: isDone, next: isNext })
     })

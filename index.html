@@ -180,6 +180,28 @@
     </div>
   </section>
 
+  <!-- Optionen (Endnutzer) — Ton/Musik/Wetter global schalten -->
+  <section class="opt-modal" id="options-modal" hidden>
+    <div class="opt-card" role="dialog" aria-modal="true" aria-label="Optionen">
+      <h3>Optionen</h3>
+      <div class="opt-row">
+        <div class="opt-text"><div class="opt-name">Ton</div><div class="opt-desc">Alle Geräusche &amp; Musik</div></div>
+        <button class="opt-switch" id="opt-audio" role="switch" aria-checked="true" aria-label="Ton"><span class="opt-knob"></span></button>
+      </div>
+      <div class="opt-row">
+        <div class="opt-text"><div class="opt-name">Musik</div><div class="opt-desc">Hintergrundmusik</div></div>
+        <button class="opt-switch" id="opt-music" role="switch" aria-checked="true" aria-label="Musik"><span class="opt-knob"></span></button>
+      </div>
+      <div class="opt-row">
+        <div class="opt-text"><div class="opt-name">Wetter-Effekte</div><div class="opt-desc">Echtes Wetter der Reise</div></div>
+        <button class="opt-switch" id="opt-weather" role="switch" aria-checked="true" aria-label="Wetter-Effekte"><span class="opt-knob"></span></button>
+      </div>
+      <div class="opt-actions">
+        <button id="opt-close">Fertig</button>
+      </div>
+    </div>
+  </section>
+
   <!-- Kurzmeldungen (z.B. Fehler des Google-3D-Testmodus) -->
   <div class="toast" id="toast" hidden></div>
 
@@ -187,12 +209,6 @@
   <button class="ui-toggle" id="btn-ui" title="UI ausblenden (H)" aria-label="UI ausblenden" aria-pressed="false" hidden>
     <svg id="icon-eye-off" viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5c2 0 3.7.6 5.1 1.4M22 12s-3.5 6.5-10 6.5c-2 0-3.7-.6-5.1-1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     <svg id="icon-eye" viewBox="0 0 24 24" hidden><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-  </button>
-
-  <!-- Hintergrundmusik an/aus — subtil unter dem UI-Toggle -->
-  <button class="ui-toggle music-toggle" id="btn-music" title="Musik aus" aria-label="Hintergrundmusik ausschalten" aria-pressed="true" hidden>
-    <svg id="icon-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
-    <svg id="icon-music-off" viewBox="0 0 24 24" hidden fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/><path d="M3.5 3.5 20.5 20.5" stroke-width="2"/></svg>
   </button>
 
   <!-- Steuerleiste -->
@@ -206,7 +222,12 @@
         <svg id="icon-pause" viewBox="0 0 24 24" hidden><rect x="6.5" y="5" width="3.6" height="14" rx="1"/><rect x="13.9" y="5" width="3.6" height="14" rx="1"/></svg>
       </button>
       <button class="icon-btn speed-btn" id="btn-speed" title="Geschwindigkeit">1×</button>
-      <div class="layers-wrap">
+      <button class="icon-btn" id="btn-options" title="Optionen" aria-label="Optionen" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.4" fill="currentColor"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.4" fill="currentColor"/></svg>
+      </button>
+      <!-- Nur im Entwicklermodus (body.dev) sichtbar -->
+      <span class="dev-chip dev-only" aria-hidden="true">DEV</span>
+      <div class="layers-wrap dev-only">
         <button class="icon-btn" id="btn-layers" title="Ebenen & Renderer" aria-label="Ebenen und Renderer" aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3.2 12.5 12 17.5l8.8-5"/><path d="M3.2 17 12 22l8.8-5"/></svg>
         </button>
@@ -218,7 +239,7 @@
           <button class="lm-item" role="menuitemradio" data-mode="google"><span class="lm-check"></span><span class="lm-text">Google 3D<span class="lm-tag">echt</span></span></button>
         </div>
       </div>
-      <div class="layers-wrap weather-wrap">
+      <div class="layers-wrap weather-wrap dev-only">
         <button class="icon-btn" id="btn-weather" title="Wetter" aria-label="Wettereffekte" aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14h8a3.2 3.2 0 0 0 .3-6.4 4.6 4.6 0 0 0-8.8-1.2A3.3 3.3 0 0 0 8 14z"/><path d="M8.5 16.5 7.5 19M12.5 16.5 11.5 19M16.5 16.5 15.5 19"/></svg>
         </button>
@@ -241,7 +262,7 @@
       </div>
     </div>
 
-    <div class="dock-cluster zoom-presets" role="group" aria-label="Kameradistanz">
+    <div class="dock-cluster zoom-presets dev-only" role="group" aria-label="Kameradistanz">
       <button class="preset-btn" data-preset="nah" title="Kamera nah">Nah</button>
       <button class="preset-btn active" data-preset="mittel" title="Kamera mittel">Mittel</button>
       <button class="preset-btn" data-preset="weit" title="Kamera weit">Weit</button>

@@ -306,7 +306,7 @@ map.on('load', () => {
   document.addEventListener('click', (e) => {
     if (!layersMenu.hidden && !layersMenu.contains(e.target) && e.target !== layersBtn) closeLayers()
   })
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeLayers(); closeWeather() } })
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeLayers(); closeWeather(); document.getElementById('options-modal').hidden = true } })
 
   // — Wetter-Dropdown (Regen/Gewitter) — live umschaltbar, unabhängig vom Renderer UND
   // von Tag/Nacht. Das Overlay läuft in eigener Schleife, friert aber über das Gate
@@ -414,7 +414,8 @@ map.on('load', () => {
   // Sound; die Regen-Partikel laufen im Orbit weiter) — kommt beim Neustart zurück.
   setInterval(() => {
     if (weatherAuto && wxTimeline) applyAutoNow()
-    weather.setSoundEnabled(tour.phase !== 'finale')
+    // Wetter-SFX folgt dem Audio-Master (Optionen) UND blendet beim Finale aus
+    weather.setSoundEnabled(audioOn && tour.phase !== 'finale')
   }, 800)
   weatherMenu.querySelectorAll('[data-weather]').forEach((el) => {
     el.addEventListener('click', () => { applyWeather(el.dataset.weather); closeWeather() })
@@ -490,26 +491,77 @@ map.on('load', () => {
   const music = createMusic('/audio/ambient.mp3')
   music.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
-  const musicBtn = document.getElementById('btn-music')
-  const iconMusic = document.getElementById('icon-music')
-  const iconMusicOff = document.getElementById('icon-music-off')
+
+  // — Optionen (Endnutzer): Ton (Master) · Musik · Wetter-Effekte —
+  // Switches im Optionen-Dialog, Zustände in localStorage. „Ton" ist der Master über
+  // ALLE Klänge (Motor, Musik, Wetter-SFX); „Musik" schaltet nur den Ambient-Loop;
+  // „Wetter-Effekte" schaltet global zwischen Auto-Wetter (echt) und Aus.
   const MUSIC_KEY = 'luhambo:music'
-  const syncMusicBtn = (on) => {
-    iconMusic.toggleAttribute('hidden', !on) // Note = an, durchgestrichen = aus
-    iconMusicOff.toggleAttribute('hidden', on)
-    musicBtn.setAttribute('aria-pressed', String(on))
-    musicBtn.title = on ? 'Musik aus' : 'Musik an'
-    musicBtn.setAttribute('aria-label', on ? 'Hintergrundmusik ausschalten' : 'Hintergrundmusik einschalten')
-  }
+  const AUDIO_KEY = 'luhambo:audio'
   let musicOn = true
+  let audioOn = true
   try { musicOn = localStorage.getItem(MUSIC_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
-  music.setEnabled(musicOn)
-  syncMusicBtn(musicOn)
-  musicBtn.addEventListener('click', () => {
+  try { audioOn = localStorage.getItem(AUDIO_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
+  // Master wirkt auf Motor + Musik sofort; der Wetter-Ton hängt zusätzlich am 800-ms-Tick.
+  const applyAudio = () => {
+    vehicle.setEnabled(audioOn)
+    music.setEnabled(audioOn && musicOn)
+  }
+  applyAudio()
+
+  const optAudio = document.getElementById('opt-audio')
+  const optMusic = document.getElementById('opt-music')
+  const optWeather = document.getElementById('opt-weather')
+  const setSwitch = (el, on) => el.setAttribute('aria-checked', String(on))
+  setSwitch(optAudio, audioOn)
+  setSwitch(optMusic, musicOn)
+  optAudio.addEventListener('click', () => {
+    audioOn = !audioOn
+    setSwitch(optAudio, audioOn)
+    applyAudio()
+    try { localStorage.setItem(AUDIO_KEY, audioOn ? 'on' : 'off') } catch { /* Storage evtl. gesperrt */ }
+  })
+  optMusic.addEventListener('click', () => {
     musicOn = !musicOn
-    music.setEnabled(musicOn)
-    syncMusicBtn(musicOn)
+    setSwitch(optMusic, musicOn)
+    applyAudio()
     try { localStorage.setItem(MUSIC_KEY, musicOn ? 'on' : 'off') } catch { /* Storage evtl. gesperrt */ }
+  })
+  // Wetter-Effekte: an = Auto-Wetter (echt), aus = kein Wetter. Steuert dieselbe
+  // Wetter-Logik wie das Dev-Menü (das Dev-Menü kann darüber hinaus feiner dosieren).
+  const syncWeatherSwitch = () => setSwitch(optWeather, weather.mode !== 'off')
+  syncWeatherSwitch()
+  optWeather.addEventListener('click', () => {
+    applyWeather(weather.mode === 'off' ? 'auto' : 'off')
+    syncWeatherSwitch()
+  })
+
+  // Optionen-Dialog öffnen/schließen (Wetter-Switch beim Öffnen aktualisieren, falls
+  // im Dev-Menü verstellt). Klick auf den abgedunkelten Hintergrund schließt.
+  const optModal = document.getElementById('options-modal')
+  const openOptions = () => { syncWeatherSwitch(); optModal.hidden = false }
+  const closeOptions = () => { optModal.hidden = true }
+  document.getElementById('btn-options').addEventListener('click', openOptions)
+  document.getElementById('opt-close').addEventListener('click', closeOptions)
+  optModal.addEventListener('click', (e) => { if (e.target === optModal) closeOptions() })
+
+  // — Entwicklermodus — blendet Dev-Regler (Render-Art, Wetter-Palette, Kamera-
+  // distanz) ein. Aktivierung: ?dev=1 ODER Tippfolge „dev". Merker in localStorage,
+  // damit ein Reload (z.B. Renderer-Wechsel) den Modus behält.
+  const DEV_KEY = 'luhambo:dev'
+  let devOn = params.get('dev') === '1'
+  try { devOn = devOn || localStorage.getItem(DEV_KEY) === '1' } catch { /* Storage evtl. gesperrt */ }
+  const setDev = (on) => {
+    devOn = on
+    document.body.classList.toggle('dev', on)
+    try { localStorage.setItem(DEV_KEY, on ? '1' : '0') } catch { /* Storage evtl. gesperrt */ }
+  }
+  setDev(devOn)
+  let devSeq = ''
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    devSeq = (devSeq + e.key).slice(-3).toLowerCase()
+    if (devSeq === 'dev') { setDev(!devOn); toast(devOn ? 'Entwicklermodus an' : 'Entwicklermodus aus') }
   })
 
   const speedBtn = document.getElementById('btn-speed')

@@ -593,7 +593,9 @@ export class Tour {
     this.lastT = now
 
     if (this.phase === 'intro') {
-      this.orbitA += 1.7 * dt
+      // Ruhiger, langsamer Orbit: das Intro ist Bühne, nicht Bewegungsschau — die
+      // langsame Drift liegt hinter dem abgedunkelten/verwischten Titel-Scrim (style.css)
+      this.orbitA += 0.7 * dt
       this.updateOrbitCamera(dt, this.mid, this.ovR, this.ovA)
     } else if (this.playing || this.scrubbing) {
       this.update(dt) // beim Scrubben muss die Kamera auch in Pause folgen

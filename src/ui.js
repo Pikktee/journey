@@ -46,6 +46,9 @@ export class UI {
     this._lastSyncS = -1
     this._preloaded = new Set()
     this._preloadImgs = [] // Referenzen halten, sonst darf der Browser abbrechen
+    // Solange das Intro offen ist, blendet die Brand oben links aus (sonst stehen
+    // Ort + Route doppelt: groß im Hero UND oben links). Sie kommt mit dem Tour-Start.
+    document.body.classList.add('intro-open')
   }
 
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
@@ -120,9 +123,13 @@ export class UI {
     this._lastSyncS = s
     let nextFound = false
     for (const dot of this.els.dots.children) {
-      const done = Number(dot.dataset.s) <= s + 200
-      dot.classList.toggle('seen', done)
-      dot.classList.toggle('is-next', !done && !nextFound && (nextFound = true))
+      // „Besucht" erst, wenn der Playhead den Punkt tatsächlich erreicht hat
+      // (kleiner 25-m-Vorlauf, damit der Zustand exakt mit dem Einblenden der
+      // Foto-Karte kippt) — NICHT mehr 200 m davor. So ist die Timeline ehrlich:
+      // der Amber-Fortschrittsbalken und der gefüllte Punkt laufen gemeinsam vorbei.
+      const visited = Number(dot.dataset.s) <= s + 25
+      dot.classList.toggle('seen', visited)
+      dot.classList.toggle('is-next', !visited && !nextFound && (nextFound = true))
     }
     this.spotSync?.(s)
     // 300 m Vorlauf: auch der Stopp, dessen Anfahrt gerade beginnt, zählt noch
@@ -135,8 +142,8 @@ export class UI {
 
   hideIntro() {
     this.els.intro.classList.add('gone')
+    document.body.classList.remove('intro-open') // Brand oben links jetzt einblenden
     $('btn-ui').hidden = false // der UI-Toggle gehört zur Tour, nicht zum Intro
-    $('btn-music').hidden = false // Musik-Toggle ebenso (schwebt unter dem UI-Toggle)
     this.els.dock.hidden = false
     void this.els.dock.offsetWidth // Reflow, damit die Einblende-Transition greift
     this.els.dock.classList.add('up')
@@ -145,6 +152,7 @@ export class UI {
 
   showIntro() {
     this.els.intro.classList.remove('gone')
+    document.body.classList.add('intro-open') // im Menü wieder die Brand-Dopplung vermeiden
   }
 
   // Zurück ins Hauptmenü: Intro wieder zeigen, Tour-UI komplett einziehen
@@ -152,7 +160,6 @@ export class UI {
     this.els.dock.classList.remove('up')
     this.els.dock.hidden = true
     $('btn-ui').hidden = true
-    $('btn-music').hidden = true
     this.showIntro()
   }
 
