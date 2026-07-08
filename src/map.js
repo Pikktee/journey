@@ -465,7 +465,11 @@ export function createRider(map, lnglat, mode = 'bike') {
     <div class="rider-pulse"></div>
     <div class="rider-puck">${MODE_ICONS[mode] ?? MODE_ICONS.bike}</div>`
   // subpixelPositioning: sonst rundet MapLibre auf ganze Pixel → Marker zittert
-  return new maplibregl.Marker({ element: el, pitchAlignment: 'viewport', rotationAlignment: 'viewport', subpixelPositioning: true })
+  // opacityWhenCovered '1': MapLibre dimmt Terrain-Marker per Default auf 0.2, sobald sein
+  //   Tiefentest sie „hinter dem Gelände" wähnt. Der bodennahe Fahrer-Marker fällt bei
+  //   unserer tief-schrägen Verfolgungskamera (Pitch bis 86°) fast durchgehend in diesen
+  //   Test → halbtransparent. Als Navi-Element soll er IMMER voll sichtbar bleiben.
+  return new maplibregl.Marker({ element: el, pitchAlignment: 'viewport', rotationAlignment: 'viewport', subpixelPositioning: true, opacityWhenCovered: '1' })
     .setLngLat(lnglat)
     .addTo(map)
 }
