@@ -10,9 +10,27 @@ export const EXAGGERATION = 1.35
 // Ausreißer-Pixel in den groben Overview-Kacheln werden vor dem Rendern gekappt.
 registerDemClean(maplibregl)
 
-// Touch-Geräte: pixelRatio auf 2 kappen und auf MSAA verzichten — bei ≥2×
-// nicht unterscheidbar, halbiert aber die GPU-Last auf 3×-Displays fast.
+// Touch-Geräte: auf MSAA verzichten (bei ≥2× nicht unterscheidbar) und die
+// Render-Auflösung härter deckeln (s. targetPixelRatio).
 const COARSE = window.matchMedia('(pointer: coarse)').matches
+
+// Adaptive Render-Auflösung als PIXELBUDGET. Profiling (M4 an 4K) zeigt eine harte
+// 60→30-fps-Klippe der Füllrate oberhalb von ~5 MP Zeichenfläche (bei schwächeren GPUs
+// noch früher) — nicht Netzwerk, Geometrie oder unser Code, sondern schlicht die
+// Pixelmenge (Zeichenfläche = CSS-Fläche × pixelRatio²). Statt einer festen pixelRatio
+// deckeln wir die Zeichenfläche auf MAX_RENDER_MP: kleine Fenster bleiben pixelgleich
+// (Budget greift nie, volle Schärfe), große/4K-Displays regeln nur so weit herunter,
+// dass die Fahrt flüssig bleibt. Touch-Geräte zusätzlich hart auf 1,5 (weiche Verläufe/
+// Karte am Handy-DPI kaum sichtbar). Eine Quelle der Wahrheit für Karte UND die beiden
+// Overlay-Canvases (atmosphere/weather), die sonst dieselbe Klippe reißen würden.
+export const MAX_RENDER_MP = 5
+export function targetPixelRatio() {
+  const dpr = window.devicePixelRatio || 1
+  const hardCap = COARSE ? 1.5 : 2
+  const area = window.innerWidth * window.innerHeight
+  const budget = area > 0 ? Math.sqrt((MAX_RENDER_MP * 1e6) / area) : hardCap
+  return Math.max(1, Math.min(dpr, hardCap, budget)) // nie unter 1 (sonst zu weich)
+}
 
 // Gebäude — ein EINZELNER, solider fill-extrusion-Layer (kein Fenster-Pattern,
 // kein separater Dachdeckel).
@@ -119,7 +137,11 @@ export function createMap(container, center) {
     // Pitch-Spielraum, sonst klemmt die Rahmung und der Horizont klebt am oberen Rand.
     maxPitch: 86,
     antialias: !COARSE,
-    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+    // Render-Auflösung als Pixelbudget deckeln (s. targetPixelRatio) — hält den M4 an
+    // 4K und schwächere GPUs unter der 60→30-fps-Füllraten-Klippe, ohne kleine Fenster
+    // anzutasten. pixelRatio skaliert MapLibres GESAMTE Pipeline (Raster-Decode, Terrain-
+    // Mesh, readPixels-Tiefenpuffer, Fill), die im Profil ~72–90 % der Frame-Zeit trägt.
+    pixelRatio: targetPixelRatio(),
     // Mehr Zoomstufen im Tile-Cache halten: bei schnellen Zooms (Preset-Wechsel,
     // Foto-Sprünge) sind Eltern-/Kind-Tiles dann oft noch da statt neu zu laden
     maxTileCacheZoomLevels: 7,
@@ -225,6 +247,18 @@ export function createMap(container, center) {
   }
   map.once('load', collapseAttrib)
   map.once('idle', collapseAttrib) // falls eine Quelle erst nach 'load' meldet
+  // Pixelbudget beim Fenster-Resize neu einregeln: Aufziehen von klein → 4K-Vollbild
+  // würde sonst die Zeichenfläche über die Füllraten-Klippe treiben (pixelRatio bleibt
+  // bei MapLibre über Resizes konstant). Gedrosselt + Schwellwert, damit das Ziehen am
+  // Fensterrand keinen Dauer-Realloc des Framebuffers auslöst.
+  let prTimer = null
+  window.addEventListener('resize', () => {
+    clearTimeout(prTimer)
+    prTimer = setTimeout(() => {
+      const pr = targetPixelRatio()
+      if (Math.abs(map.getPixelRatio() - pr) > 0.05) map.setPixelRatio(pr)
+    }, 250)
+  })
   return map
 }
 

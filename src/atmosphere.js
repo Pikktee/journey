@@ -7,6 +7,8 @@
 // Sonnenstand (daynight.js → setSky). Die Kamera-Basis (fwd/right/up) ist für alle
 // drei Ebenen dieselbe — dadurch sind Sterne welt-verankert (bewegen sich korrekt
 // mit dem Blick) und die Sonne sitzt exakt an ihrem echten Azimut/Höhe.
+import { targetPixelRatio } from './map.js'
+
 const DEG = Math.PI / 180
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
@@ -164,7 +166,12 @@ export function createAtmosphere(container) {
   let sky = { hor: [170, 205, 235], skyc: [119, 176, 223], fogc: [150, 192, 227] } // Horizont-/Himmel-/Fog-Farbe (RGB), von daynight
   let fovDeg = 36.87
   let w = 0, h = 0, aspect = 1
-  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  // Backing-Auflösung des Overlays über dasselbe Pixelbudget wie die Karte kappen
+  // (targetPixelRatio, map.js): der vollflächige Canvas wird pro Frame als GPU-Textur
+  // neu hochgeladen — auf großen Displays/Handys ist das messbar (Pixel-9: sauberer
+  // 52→45-fps-Verlust). Weiche Verläufe/Sonne/Sterne vertragen die niedrigere Auflösung.
+  // Wird im resize() neu berechnet, damit ein Fenster-Aufziehen das Budget nachzieht.
+  let dpr = targetPixelRatio()
   const stars = makeStars(3000)
   let twinkle = 0
   let lastT = performance.now() // für echtes dt (tour.onPose liefert keins)
@@ -195,6 +202,7 @@ export function createAtmosphere(container) {
   let occRise = 0, occRiseTgt = 0 // Silhouetten-Überstand (ndc) am SONNEN-Azimut — dort versinkt die Scheibe
 
   const resize = () => {
+    dpr = targetPixelRatio() // Fenster-Aufziehen (klein → 4K) zieht das Pixelbudget nach
     w = window.innerWidth
     h = window.innerHeight
     aspect = w / h

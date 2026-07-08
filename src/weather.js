@@ -9,6 +9,7 @@
 // Himmel zeichnet die Atmosphäre (atmo.setWeather), verdrahtet in main.js.
 // Reines 2D-Canvas, keine externen Abhängigkeiten.
 import { SeamlessLoop } from './audioloop.js'
+import { targetPixelRatio } from './map.js'
 
 const rand = () => Math.random()
 
@@ -56,7 +57,11 @@ export function createWeather(container) {
   canvas.setAttribute('aria-hidden', 'true')
   container.appendChild(canvas)
   const ctx = canvas.getContext('2d')
-  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  // Wie beim Atmosphäre-Overlay: Backing-Auflösung übers gemeinsame Pixelbudget kappen
+  // (targetPixelRatio, map.js) — auch dieser Partikel-Canvas wird jedes Frame neu als
+  // Textur hochgeladen. Regenstriche/Flocken sind weich und transluzent. Im resize()
+  // neu berechnet, damit ein Fenster-Aufziehen das Budget nachzieht.
+  let dpr = targetPixelRatio()
   // Blitze flackern → bei reduzierter Bewegung abschalten (Barrierefreiheit)
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
@@ -157,6 +162,7 @@ export function createWeather(container) {
   }
 
   const resize = () => {
+    dpr = targetPixelRatio() // Fenster-Aufziehen (klein → 4K) zieht das Pixelbudget nach
     w = window.innerWidth; h = window.innerHeight
     canvas.width = w * dpr; canvas.height = h * dpr
     canvas.style.width = `${w}px`; canvas.style.height = `${h}px`
