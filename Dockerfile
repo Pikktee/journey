@@ -1,8 +1,10 @@
 # ————————————————————————————————————————————
-#  Luhambo — Produktions-Image für Railway
+#  Luhambo — Web-Image (Hetzner-VPS, Docker Compose)
 #  Zwei Stufen: Vite-Build (Node) → statisches Ausliefern (Caddy).
-#  Kein Node-Runtime und keine Build-Secrets nötig — der Google-Key
-#  wird nur im Dev genutzt (import.meta.env.DEV), nicht im Prod-Build.
+#  Caddy übernimmt zusätzlich TLS (SITE_ADDRESS) und den /api-Proxy
+#  zum Backend-Container — siehe Caddyfile + docker-compose.yml.
+#  Keine Build-Secrets nötig — der Google-Key wird nur im Dev genutzt
+#  (import.meta.env.DEV), nicht im Prod-Build.
 # ————————————————————————————————————————————
 
 # ---- Build-Stufe: Vite-Produktionsbuild nach /app/dist ----
@@ -17,5 +19,6 @@ RUN npm run build
 FROM caddy:2-alpine
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
-# Railway gibt den Port über $PORT vor; Caddy liest ihn aus der Caddyfile.
-EXPOSE 8080
+# Mit SITE_ADDRESS (Domain) lauscht Caddy auf 80/443 (auto-TLS);
+# ohne fällt die Caddyfile auf :8080 zurück (lokales Testen).
+EXPOSE 80 443 8080

@@ -1,6 +1,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
 import { TOURS } from './tours.js'
+import { loadRemoteTour, ladeServerTouren, createTimeAt } from './remote'
 import { buildRoute, nearestS, pointAt } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
 import { createDayNight } from './daynight.js'
@@ -16,10 +17,27 @@ import { sampleElevations, smoothValues } from './elevation.js'
 import { UI } from './ui.js'
 import { Tour } from './tour.js'
 
-// — Tour-Auswahl via ?tour=… —
+// — Tour-Auswahl via ?tour=… — statische Registry oder aufgezeichnete Tour vom
+// Backend (?tour=srv:<id>, remote.ts). Top-Level-Await hält bewusst den Boot-
+// Screen, bis die Tour-Daten da sind (Vite/Zielbrowser können TLA seit ES2022);
+// scheitert das Laden, fällt der Player auf die Standard-Tour zurück.
 const params = new URLSearchParams(location.search)
-const tourId = TOURS[params.get('tour')] ? params.get('tour') : 'kohphangan'
-const cfg = TOURS[tourId]
+const tourParam = params.get('tour') ?? 'kohphangan'
+let remoteCfg = null
+let remoteFehler = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
+if (tourParam.startsWith('srv:')) {
+  remoteCfg = await loadRemoteTour(tourParam.slice('srv:'.length)).catch((err) => {
+    remoteFehler = err?.message ?? String(err)
+    console.error('Remote-Tour nicht ladbar:', remoteFehler)
+    return null
+  })
+}
+// tourId bleibt der Schlüssel für Positions-Merker und Tour-Picker — für
+// Server-Touren der volle „srv:…"-Param (eigener Merker pro Aufzeichnung).
+// Lookup via Object.hasOwn: ?tour=constructor o. Ä. darf nicht über die
+// Prototypkette eine Funktion statt einer Tour liefern.
+const tourId = remoteCfg ? tourParam : Object.hasOwn(TOURS, tourParam) ? tourParam : 'kohphangan'
+const cfg = remoteCfg ?? TOURS[tourId]
 
 // Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
 // Renderer-/Ansicht-Wechsel (Full-Reload) am selben Frame und im selben Wieder-
@@ -95,13 +113,25 @@ setText('finale-title', cfg.finaleTitle)
 setText('chip-photos', `${photos.length} Fotos`)
 setText('final-photos', String(photos.length))
 
-// Tour-Auswahl im Intro
-for (const btn of document.querySelectorAll('#tour-picker button')) {
+// Tour-Auswahl im Intro: statische Touren plus — falls am Backend angemeldet —
+// die eigenen aufgezeichneten Touren (dynamisch, gleicher Klick-Weg)
+const tourPicker = document.getElementById('tour-picker')
+const wirePickerBtn = (btn) => {
   btn.classList.toggle('active', btn.dataset.tour === tourId)
   btn.addEventListener('click', () => {
     if (btn.dataset.tour !== tourId) location.search = `?tour=${btn.dataset.tour}`
   })
 }
+for (const btn of tourPicker.querySelectorAll('button')) wirePickerBtn(btn)
+ladeServerTouren().then((touren) => {
+  for (const t of touren) {
+    const btn = document.createElement('button')
+    btn.dataset.tour = `srv:${t.id}`
+    btn.textContent = t.title ?? t.id
+    tourPicker.appendChild(btn)
+    wirePickerBtn(btn)
+  }
+})
 
 const map = createMap('map', [start[0], start[1]])
 window.__j = { map, route }
@@ -584,10 +614,14 @@ map.on('load', () => {
     })
   }
 
-  // Tag/Nacht: Streckenanteil ↦ Pseudo-Uhrzeit ↦ Sonnenstand ↦ Szenenstimmung
+  // Tag/Nacht: Streckenanteil ↦ Pseudo-Uhrzeit ↦ Sonnenstand ↦ Szenenstimmung.
+  // Aufgezeichnete Touren (M2) bringen timeline-Stützstellen mit — die Pseudo-
+  // Uhr folgt dann dem echten Tempo (Pausen serverseitig komprimiert) statt
+  // linear über die Strecke zu laufen; statische Touren bleiben linear.
   if (cfg.time) {
     const t0 = Date.parse(cfg.time.start)
     const t1 = Date.parse(cfg.time.end)
+    const timeAt = createTimeAt(cfg.timeline, t0, t1)
     const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: cfg.time.zone })
     const teleTime = document.getElementById('tele-time')
     document.getElementById('tele-time-wrap').hidden = false
@@ -608,7 +642,7 @@ map.on('load', () => {
     // via sunPosition). Die Tag/Nacht-Regie drosselt nur noch die teuren Map-Paints.
     tour.onPose = (pose) => {
       const frac = Math.max(0, Math.min(1, tour.s / route.total))
-      const date = new Date(t0 + frac * (t1 - t0))
+      const date = new Date(timeAt(frac))
       const pos = pointAt(route, frac * route.total)
       const sun = sunPosition(date, pos[1], pos[0])
       atmo.setSun(sun)
@@ -665,7 +699,7 @@ map.on('load', () => {
       })
       .catch((err) => console.info('Auto-Wetter nicht verfügbar:', err?.message ?? err))
     ui.onTick = (frac) => {
-      const date = new Date(t0 + frac * (t1 - t0))
+      const date = new Date(timeAt(frac))
       const pos = pointAt(route, frac * route.total)
       dayNight(date, [pos[0], pos[1]])
       teleTime.textContent = fmt.format(date)
@@ -768,6 +802,11 @@ map.on('load', () => {
     clearTimeout(toastT)
     toastT = setTimeout(() => (toastEl.hidden = true), 5200)
   }
+
+  // Konnte eine ?tour=srv:… nicht geladen werden (gelöscht, noch in
+  // Verarbeitung, Server weg), läuft die Standard-Tour — das dem Nutzer
+  // sichtbar sagen, nicht nur der Konsole.
+  if (remoteFehler) toast(remoteFehler)
 
   const g3dModal = document.getElementById('g3d-modal')
   const g3dKeyInput = document.getElementById('g3d-key')

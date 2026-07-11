@@ -1,0 +1,42 @@
+# Luhambo auf dem Hetzner-VPS: Caddy (web) serviert den Vite-Build und proxyt
+# /api zum Backend (api). Tour-Daten liegen als Bind-Mount unter
+# /srv/luhambo/daten — DAS Verzeichnis fürs Backup (Hetzner-Snapshot/rclone).
+#
+# Erstbetrieb auf dem VPS:
+#   /srv/luhambo/.env anlegen (SITE_ADDRESS, LUHAMBO_COOKIE_SECRET,
+#   LUHAMBO_ADMIN_EMAIL, LUHAMBO_ADMIN_PASSWORT) → docker compose up -d
+# Deploys übernimmt .github/workflows/deploy.yml (GHCR-Pull + up -d).
+
+services:
+  web:
+    image: ghcr.io/pikktee/journey-web:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      # Domain des VPS (z. B. luhambo.example.de) → Caddy macht auto-TLS.
+      # Ohne .env-Eintrag: lokaler Betrieb ohne TLS auf Port 8080.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      API_UPSTREAM: api:8787
+    volumes:
+      - caddy-daten:/data # Let's-Encrypt-Zertifikate überleben Neustarts
+    depends_on:
+      - api
+
+  api:
+    image: ghcr.io/pikktee/journey-api:latest
+    build: ./server
+    restart: unless-stopped
+    environment:
+      LUHAMBO_DATEN_DIR: /data
+      LUHAMBO_COOKIE_SECRET: ${LUHAMBO_COOKIE_SECRET:?LUHAMBO_COOKIE_SECRET in .env setzen}
+      LUHAMBO_ADMIN_EMAIL: ${LUHAMBO_ADMIN_EMAIL:-}
+      LUHAMBO_ADMIN_PASSWORT: ${LUHAMBO_ADMIN_PASSWORT:-}
+      LUHAMBO_HINTER_TLS: '1'
+    volumes:
+      - /srv/luhambo/daten:/data
+
+volumes:
+  caddy-daten:

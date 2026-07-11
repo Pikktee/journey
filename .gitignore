@@ -3,3 +3,8 @@ dist
 .vercel
 .DS_Store
 .env
+
+# Backend: lokale Dev-Daten (SQLite + Tour-Ablage) und Coverage-Berichte
+server/daten
+server/coverage
+coverage

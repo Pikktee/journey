@@ -35,28 +35,38 @@ async function buildAnchors({ photos, route, time, pointAt }) {
   const t0 = Date.parse(time.start)
   const t1 = Date.parse(time.end)
   const pseudo = (s) => new Date(t0 + (s / route.total) * (t1 - t0))
+  // Datum → Kalender-Komponenten der TOUR-Zone auflösen — Open-Meteo wird mit
+  // timezone=<Tour-Zone> befragt, dann passen die Stunden-Indizes
+  const inZone = (d) => {
+    const parts = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: time.zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d).reduce((o, x) => ((o[x.type] = x.value), o), {})
+    return { y: +parts.year, mo: +parts.month, d: +parts.day, hh: +parts.hour, mm: +parts.minute }
+  }
   const anchors = []
   for (const p of photos) {
-    const exif = await readExifDate(p.src) // null bei fehlendem EXIF (Stock-Fotos)
-    const dt = exif ?? (() => {
-      const d = pseudo(p.s)
-      // Pseudo-Zeit in Kalender-Komponenten der TOUR-Zone auflösen — Open-Meteo
-      // wird mit timezone=<Tour-Zone> befragt, dann passen die Stunden-Indizes
-      const parts = new Intl.DateTimeFormat('sv-SE', {
-        timeZone: time.zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-      }).formatToParts(d).reduce((o, x) => ((o[x.type] = x.value), o), {})
-      return { y: +parts.year, mo: +parts.month, d: +parts.day, hh: +parts.hour, mm: +parts.minute }
-    })()
-    anchors.push({ s: p.s, lnglat: p.anchor, dt, exif: !!exif })
+    // Aufgezeichnete Touren (remote.ts) liefern takenAt direkt mit — dann ist
+    // kein EXIF-Fetch nötig (schneller, und App-Fotos sind teils EXIF-gestrippt)
+    let dt = null
+    let echt = false
+    if (p.takenAt && Number.isFinite(Date.parse(p.takenAt))) {
+      dt = inZone(new Date(Date.parse(p.takenAt)))
+      echt = true
+    } else {
+      const exif = await readExifDate(p.src) // null bei fehlendem EXIF (Stock-Fotos)
+      if (exif) {
+        dt = exif
+        echt = true
+      } else {
+        dt = inZone(pseudo(p.s))
+      }
+    }
+    anchors.push({ s: p.s, lnglat: p.anchor, dt, exif: echt })
   }
   // Routen-Enden mit Pseudo-Zeit ergänzen (gleiche Auflösung wie oben)
   for (const s of [0, route.total]) {
     const pos = pointAt(route, s)
-    const d = pseudo(s)
-    const parts = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: time.zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(d).reduce((o, x) => ((o[x.type] = x.value), o), {})
-    anchors.push({ s, lnglat: [pos[0], pos[1]], dt: { y: +parts.year, mo: +parts.month, d: +parts.day, hh: +parts.hour, mm: +parts.minute }, exif: false })
+    anchors.push({ s, lnglat: [pos[0], pos[1]], dt: inZone(pseudo(s)), exif: false })
   }
   anchors.sort((a, b) => a.s - b.s)
   return anchors
