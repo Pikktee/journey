@@ -61,13 +61,13 @@ describe('adaptiereTour', () => {
     ])
   })
 
-  it('filtert Videos bis M4 heraus (Player kennt nur <img> im Foto-Stopp)', () => {
+  it('reicht Videos mit Poster und Dauer durch (M4)', () => {
     const tour = beispielTour()
     tour.media.push({
       id: 'm2',
       type: 'video',
-      src: '/api/media/t_abc123/m2.mp4',
-      poster: '/api/media/t_abc123/m2-poster.jpg',
+      src: '/api/media/t_abc123/m2.web.mp4',
+      poster: '/api/media/t_abc123/m2.poster.jpg',
       durationS: 23.4,
       title: 'Video · 10:14',
       caption: '',
@@ -75,8 +75,14 @@ describe('adaptiereTour', () => {
       takenAt: '2026-07-04T10:14:03+02:00',
     })
     const cfg = adaptiereTour(tour)
-    expect(cfg.photos).toHaveLength(1)
-    expect(cfg.photos[0]?.type).toBe('photo')
+    expect(cfg.photos).toHaveLength(2)
+    const video = cfg.photos.find((p) => p.type === 'video')
+    expect(video?.src).toBe('/api/media/t_abc123/m2.web.mp4')
+    expect(video?.poster).toBe('/api/media/t_abc123/m2.poster.jpg')
+    expect(video?.durationS).toBe(23.4)
+    // Fotos ohne poster/durationS bleiben schlank (kein undefined-Feld)
+    const foto = cfg.photos.find((p) => p.type === 'photo')
+    expect(foto && 'poster' in foto).toBe(false)
   })
 
   it('wirft bei laufender Verarbeitung einen sprechenden Fehler', () => {

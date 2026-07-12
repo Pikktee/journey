@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stilisierte Route mit Foto-Punkt — das Luhambo-Motiv als simples Vector. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M30,78 C42,66 38,54 50,48 C62,42 66,34 74,30"
+        android:strokeColor="#F5A623"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M74,30 m-7,0 a7,7 0 1,1 14,0 a7,7 0 1,1 -14,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M30,78 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0"
+        android:fillColor="#F5A623" />
+</vector>

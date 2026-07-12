@@ -104,20 +104,18 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     finaleTitle: tour.finaleTitle,
     time: tour.time,
     segments: tour.segments,
-    photos: tour.media
-      // Videos erst ab M4 (der Player kennt bisher nur <img> im Foto-Stopp);
-      // bis dahin würde ein Video-Eintrag als kaputtes Bild erscheinen.
-      .filter((m) => m.type === 'photo')
-      .map((m) => ({
-        src: m.src,
-        title: m.title,
-        caption: m.caption,
-        anchor: m.anchor,
-        takenAt: m.takenAt,
-        type: m.type,
-        ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
-        ...(m.poster !== undefined ? { poster: m.poster } : {}),
-      })),
+    // Fotos UND Videos (M4): beide werden im Foto-Overlay als Stopp gezeigt,
+    // Videos halten bis zum Ende statt für eine feste Dauer (tour.js/ui.js).
+    photos: tour.media.map((m) => ({
+      src: m.src,
+      title: m.title,
+      caption: m.caption,
+      anchor: m.anchor,
+      takenAt: m.takenAt,
+      type: m.type,
+      ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
+      ...(m.poster !== undefined ? { poster: m.poster } : {}),
+    })),
     stats: tour.stats,
   }
   if (tour.weather?.length) {

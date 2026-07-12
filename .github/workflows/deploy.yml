@@ -38,8 +38,24 @@ jobs:
           npm run test:coverage
           npm run typecheck
 
+  # Android-Unit-Tests (JVM/Robolectric — kein Emulator nötig). Die App wird
+  # nicht über diesen Workflow ausgeliefert, aber ein kaputter App-Stand soll
+  # ein Release genauso blockieren wie Web/Backend.
+  pruefen-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Android — Unit-Tests
+        working-directory: android
+        run: ./gradlew testDebugUnitTest --console=plain
+
   deploy:
-    needs: pruefen
+    needs: [pruefen, pruefen-android]
     runs-on: ubuntu-latest
     permissions:
       contents: read

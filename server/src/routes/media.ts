@@ -47,8 +47,12 @@ export function registriereMediaRouten(app: FastifyInstance): void {
   // — Auslieferung mit Range-Support —
   app.get<{ Params: { tourId: string; datei: string } }>('/api/media/:tourId/:datei', async (request, reply) => {
     const { tourId, datei } = request.params
-    // Nur von uns vergebene Dateinamen (Medien-ID + Endung) — keine Pfad-Spiele
-    if (!/^[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(datei)) return reply.code(404).send({ fehler: 'Nicht gefunden' })
+    // Nur von uns vergebene Dateinamen — keine Pfad-Spiele. Mehrere Punkt-
+    // Segmente sind erlaubt (Poster „m1.poster.jpg", Transcode „m1.web.mp4"),
+    // aber jedes Segment braucht ein echtes Zeichen → „.." ist ausgeschlossen.
+    if (!/^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*\.[a-z0-9]+$/.test(datei)) {
+      return reply.code(404).send({ fehler: 'Nicht gefunden' })
+    }
 
     const tour = ladeTour(app, tourId)
     if (!tour || !darfSehen(tour, request.benutzer?.id ?? null)) {

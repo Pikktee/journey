@@ -532,6 +532,54 @@ body.cinema .cine {
   }
 }
 
+/* Video-Stopp (M4): nicht beschneiden (auch Hochformat-Handyvideos), schwarzer
+   Rahmen füllt das 3:2-Feld. Kein Ken-Burns/„Entwickeln“ wie beim Foto. */
+.photo-frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+/* [hidden] muss das display:block von .photo-frame img/video schlagen */
+.photo-frame img[hidden],
+.photo-frame video[hidden] {
+  display: none;
+}
+
+/* Ton-Umschalter im Video (Opt-in wegen der Autoplay-Policy) */
+.photo-sound {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(10, 8, 5, 0.55);
+  color: #f2ede3;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.photo-sound:hover {
+  background: rgba(10, 8, 5, 0.78);
+}
+.photo-sound:active {
+  transform: scale(0.94);
+}
+.photo-sound svg {
+  width: 20px;
+  height: 20px;
+}
+.photo-sound[aria-pressed='true'] {
+  background: rgba(245, 165, 36, 0.9);
+  color: #1a1206;
+}
+
 /* Anzeige-Fortschritt am unteren Bildrand — steht, wenn angehalten */
 .photo-hold {
   position: absolute;

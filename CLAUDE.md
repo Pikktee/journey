@@ -5,15 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Was das ist
 
 Luhambo (Siswati für „Reise“) ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
-automatischen Foto-Stopps — vollständig auf freien Kartendaten. Aktuell Vanilla JS + Vite,
-gerendert mit MapLibre GL JS; derzeit ohne Framework, ohne Tests, ohne Backend.
+automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vanilla JS + Vite
+(neue Module in TypeScript), gerendert mit MapLibre GL JS.
 
-**Luhambo wird von einem Prototyp zu einem echten Produkt ausgebaut** — größere
-Architektur-Investitionen (z. B. echter 3D-Renderer für Dächer/Schatten, eigene
-aufbereitete Gebäude-Tiles, Tests, Backend) sind daher eingeplant, werden aber
-inkrementell angegangen statt als Big-Bang-Rewrite.
+**Luhambo wird von einem Prototyp zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
+Meilensteine M1–M9): eigene Touren aufzeichnen (Android), hochladen, serverseitig anreichern
+und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 
-Sprache im gesamten Projekt (Code-Kommentare, UI, Doku) ist **Deutsch**.
+- **Root**: Web-Player (Vite). Spielt statische `TOURS` und aufgezeichnete Touren
+  (`?tour=srv:<id>` → [src/remote.ts](src/remote.ts) gegen das Backend).
+- **[server/](server/)**: Backend (Node 22 + Fastify + better-sqlite3, TypeScript strict).
+  Upload → Anreicherungs-Pipeline (Benennung, Timeline mit Pausen-Kompression, Auto-Wetter
+  via Open-Meteo) → Tour-JSON. Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md).
+- **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — GPS-Tracking als
+  Foreground-Service, Fotos (CameraX), WorkManager-Upload, WebView-Player.
+
+Sprache im gesamten Projekt (Code-Kommentare, UI, Doku, Commit-Messages) ist **Deutsch** —
+auch in server/ und android/ (deutsche Bezeichner).
 
 ## Commands
 
@@ -25,16 +33,28 @@ npm run preview  # gebautes dist/ lokal servieren
 npm run release  # Version anheben + Tag pushen → triggert Deploy (bugfix|minor|major)
 ```
 
-Es gibt keine Lint- oder Test-Skripte. Verifikation läuft über den Dev-Server im Browser.
+Weitere Arbeitsbereiche:
 
-Tour-Auswahl per Query-Param: `?tour=oberland` bzw. `?tour=<id aus TOURS>` (Default `stockholm`).
+```bash
+npm test                      # Web-Unit-Tests (Vitest: geo.js, remote.ts-Adapter, timeAt)
+cd server && npm run dev      # Backend (tsx watch, Port 8787; Henriks Mac: 8791, s. u.)
+cd server && npm test         # Backend-Tests (Vitest, Coverage-Gate 80 %)
+cd android && ./gradlew test  # Android-Unit-Tests (JAVA_HOME auf JDK 17 setzen)
+```
 
-**Deployment.** Statischer Vite-Build → Railway, ausgeliefert per Multi-Stage-`Dockerfile`
-(Node baut, Caddy serviert; Port aus `$PORT` via [Caddyfile](Caddyfile)). Keine Build-Secrets
-(der Google-Key ist Dev-only). Ein Version-Tag `vX.Y.Z` triggert
-[.github/workflows/deploy.yml](.github/workflows/deploy.yml): `npm run build` als Gate, dann
-`railway up`. Tags erzeugt [scripts/release.sh](scripts/release.sh) (`npm run release`). Nötige
-GitHub-Konfiguration: Secret `RAILWAY_TOKEN`, optional Variable `RAILWAY_SERVICE`. Siehe [README.md](README.md).
+Optik-Verifikation läuft weiterhin über den Dev-Server im Browser. Dev-Proxy: `/api` →
+`http://localhost:8787` (übersteuerbar via `LUHAMBO_API`-Env, z. B. wenn 8787 belegt ist).
+
+Tour-Auswahl per Query-Param: `?tour=oberland` bzw. `?tour=<id aus TOURS>` (Default
+`kohphangan`); aufgezeichnete Touren via `?tour=srv:<id>`.
+
+**Deployment.** Docker Compose auf einem Hetzner-VPS (Railway ist abgelöst): Service `web`
+(Root-`Dockerfile`: Node baut, Caddy serviert + `/api`-Proxy via [Caddyfile](Caddyfile)) und
+Service `api` ([server/Dockerfile](server/Dockerfile), Daten-Bind-Mount `/srv/luhambo/daten`).
+Ein Version-Tag `vX.Y.Z` triggert [.github/workflows/deploy.yml](.github/workflows/deploy.yml):
+Web- und Backend-Tests als Gate, Images nach GHCR, dann per SSH `docker compose up -d`.
+Tags erzeugt [scripts/release.sh](scripts/release.sh) (`npm run release`). Nötige
+GitHub-Konfiguration: Secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`. Siehe [README.md](README.md).
 
 ## Architektur
 

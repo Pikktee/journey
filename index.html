@@ -129,6 +129,12 @@
     <figure class="photo-card" id="photo-card" title="Klick: anhalten / weiterlaufen">
       <div class="photo-frame">
         <img id="photo-img" alt="" decoding="async" />
+        <!-- Video-Stopp (M4): spielt stumm mit Autoplay, hält bis zum Ende; Ton per Opt-in -->
+        <video id="photo-video" playsinline muted preload="metadata" hidden></video>
+        <button class="photo-sound" id="photo-sound" hidden aria-pressed="false" aria-label="Video-Ton ein/aus" title="Ton ein/aus">
+          <svg class="ico-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
+          <svg class="ico-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
+        </button>
         <div class="photo-held" aria-hidden="true">Angehalten — Klick zum Weiterlaufen</div>
         <div class="photo-hold" aria-hidden="true"><div class="photo-hold-fill" id="photo-hold-fill"></div></div>
       </div>

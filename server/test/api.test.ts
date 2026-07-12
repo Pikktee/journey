@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { TourJson } from '../src/pipeline/enrich.js'
+import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
@@ -95,6 +96,52 @@ describe('Tour-Lebenszyklus', () => {
     expect(tour.timeline?.[0]).toEqual({ f: 0, t: '2026-07-04T06:12:31Z' })
     expect(tour.timeline?.length).toBeGreaterThanOrEqual(2)
     expect(tour.weather).toEqual([{ f: 0, mode: 'rain', k: 0.6, source: 'openmeteo' }])
+  })
+
+  it('bereitet Videos auf: Poster + Transcode landen im tour.json und werden ausgeliefert (M4)', async () => {
+    const werkzeug = new FakeVideoWerkzeug({
+      codecVideo: 'hevc', // neues iPhone/Pixel → muss transkodiert werden
+      codecAudio: 'aac',
+      dauerS: 9.2,
+      breite: 3840,
+      hoehe: 2160,
+    })
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, werkzeug)
+    const manifest = beispielManifest()
+    manifest.media.push({
+      id: 'm2',
+      type: 'video',
+      file: 'VID_0007.mov',
+      takenAt: '2026-07-04T10:15:00+02:00',
+      anchor: [7.9142, 46.5872],
+      caption: null,
+    })
+    const id = await legeTourAn(u, manifest)
+    await ladeMediumHoch(u, id, 'm1')
+    await ladeMediumHoch(u, id, 'm2', 'fake-hevc-bytes') // Original .mov
+    await finalisiere(u, id)
+
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    const v = tour.media.find((m) => m.id === 'm2')
+    expect(v?.type).toBe('video')
+    expect(v?.src).toBe(`/api/media/${id}/m2.web.mp4`) // transkodiert, nicht das Original
+    expect(v?.poster).toBe(`/api/media/${id}/m2.poster.jpg`)
+    expect(v?.durationS).toBe(9.2)
+    expect(werkzeug.aufrufe).toEqual(['probe', 'poster', 'transkodiere'])
+
+    // Poster ausgeliefert (der erweiterte Dateiname-Regex lässt zwei Punkte durch)
+    const poster = await u.app.inject({ method: 'GET', url: `/api/media/${id}/m2.poster.jpg` })
+    expect(poster.statusCode).toBe(200)
+    expect(poster.headers['content-type']).toBe('image/jpeg')
+
+    // Transkodiertes Video mit Range-Support (Video-Seeking)
+    const range = await u.app.inject({
+      method: 'GET',
+      url: `/api/media/${id}/m2.web.mp4`,
+      headers: { range: 'bytes=0-3' },
+    })
+    expect(range.statusCode).toBe(206)
+    expect(range.headers['content-type']).toBe('video/mp4')
   })
 
   it('verweigert Finalize bei fehlenden Medien', async () => {

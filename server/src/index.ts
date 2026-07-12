@@ -6,6 +6,7 @@ import { baueApp } from './app.js'
 import { konfigAusEnv } from './config.js'
 import { oeffneDb } from './db.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
+import { FfmpegWerkzeug } from './pipeline/video.js'
 import { OpenMeteoQuelle } from './pipeline/weather.js'
 import { FsStorage } from './storage.js'
 
@@ -16,8 +17,9 @@ const db = oeffneDb(join(konfig.datenDir, 'luhambo.db'))
 const storage = new FsStorage(join(konfig.datenDir, 'tours'))
 const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
+const videoWerkzeug = new FfmpegWerkzeug()
 
-const app = baueApp({ konfig, db, storage, geocoder, wetter })
+const app = baueApp({ konfig, db, storage, geocoder, wetter, videoWerkzeug })
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
 
 await app.listen({ port: konfig.port, host: '0.0.0.0' })

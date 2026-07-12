@@ -9,6 +9,7 @@ import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { benenneTour, type Geocoder } from './naming.js'
+import type { VideoMeta } from './video.js'
 import { berechneWetter, type WetterQuelle } from './weather.js'
 import { baueZeitreihe, destilliereTimeline } from './zeit.js'
 
@@ -37,6 +38,8 @@ export interface TourJson {
     anchor: [number, number]
     takenAt: string
     durationS?: number
+    /** Video-Standbild fürs Foto-Overlay (M4) */
+    poster?: string
   }>
   /** Stützstellen Streckenanteil → Pseudo-Zeit (Pausen komprimiert, M2) */
   timeline?: Array<{ f: number; t: string }>
@@ -75,6 +78,8 @@ export interface EnrichEingabe {
   geocoder: Geocoder
   /** Auto-Wetter-Quelle; fehlt sie, bleibt `weather` weg (Client-Fallback) */
   wetter?: WetterQuelle | null
+  /** Aufbereitete Video-Metadaten je Medien-ID (M4; Dauer/Poster/Auslieferungspfad) */
+  videoMeta?: Map<string, VideoMeta>
   /** Hinweis-Kanal für nicht-fatale Ausfälle (z. B. Wetterdienst down) */
   protokoll?: (nachricht: string) => void
 }
@@ -85,7 +90,8 @@ export interface EnrichEingabe {
  * ohne Netz und Dateisystem testbar.
  */
 export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
-  const { tourId, nummer, manifest, titelOverride, beschreibungOverride, geocoder, wetter, protokoll } = eingabe
+  const { tourId, nummer, manifest, titelOverride, beschreibungOverride, geocoder, wetter, videoMeta, protokoll } =
+    eingabe
 
   const erstesSegment = manifest.segments[0]
   const letztesSegment = manifest.segments[manifest.segments.length - 1]
@@ -116,16 +122,23 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     .filter((m) => Array.isArray(m.anchor))
     .sort((a, b) => Date.parse(a.takenAt) - Date.parse(b.takenAt))
     .map((m) => {
+      // Video-Aufbereitung (M4) liefert Dauer, Poster und den Auslieferungspfad
+      // (transkodiert oder Original). Fehlt sie (Foto, oder Aufbereitung fiel
+      // aus), bleibt es beim Original ohne Poster.
+      const meta = videoMeta?.get(m.id)
+      const datei = meta?.videoDatei ?? mediumDateiname(m)
       const eintrag: TourJson['media'][number] = {
         id: m.id,
         type: m.type,
-        src: `/api/media/${tourId}/${mediumDateiname(m)}`,
+        src: `/api/media/${tourId}/${datei}`,
         title: `${m.type === 'video' ? 'Video' : 'Foto'} · ${uhrzeit(m.takenAt, manifest.time.zone)}`,
         caption: m.caption ?? '',
         anchor: m.anchor as [number, number],
         takenAt: m.takenAt,
       }
-      if (m.durationS !== undefined) eintrag.durationS = m.durationS
+      const dauer = meta?.dauerS ?? m.durationS
+      if (dauer !== undefined) eintrag.durationS = dauer
+      if (meta?.posterDatei) eintrag.poster = `/api/media/${tourId}/${meta.posterDatei}`
       return eintrag
     })
 

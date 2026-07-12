@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { erfordereBenutzer } from '../app.js'
 import { neueTourId } from '../ids.js'
 import { reichereAn } from '../pipeline/enrich.js'
+import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import {
   mediumDateiname,
   uploadManifestJsonSchema,
@@ -275,11 +276,31 @@ function setzeStatus(app: FastifyInstance, id: string, status: TourZeile['status
 
 /** Anreicherung ausführen und Ergebnis persistieren (läuft asynchron nach finalize). */
 async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
-  const { db, storage, geocoder, wetter } = app.deps
+  const { db, storage, geocoder, wetter, videoWerkzeug } = app.deps
   try {
     const tour = ladeTour(app, tourId)
     if (!tour) return
     const manifest = JSON.parse((await storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
+
+    // Videos aufbereiten (ffprobe/Poster/Transcode) VOR der Anreicherung — Dauer,
+    // Poster und der Auslieferungspfad (transkodiert oder Original) fließen ins
+    // tour.json. Storage-Adapter statt Direktzugriff, damit die Aufbereitung den
+    // konkreten Speicher nicht kennt (FS heute, R2 später).
+    let videoMeta: Map<string, VideoMeta> | undefined
+    const videoMedien = manifest.media.filter((m) => m.type === 'video')
+    if (videoWerkzeug && videoMedien.length) {
+      videoMeta = await bereiteVideosAuf({
+        medien: videoMedien.map((m) => ({ id: m.id, originalDatei: mediumDateiname(m) })),
+        speicher: {
+          lese: (relPfad) => storage.lese(tourId, relPfad),
+          schreibe: (relPfad, inhalt) => storage.schreibe(tourId, relPfad, inhalt),
+          info: (relPfad) => storage.info(tourId, relPfad),
+        },
+        werkzeug: videoWerkzeug,
+        protokoll: (nachricht) => app.log.warn(nachricht),
+      })
+    }
+
     const tourJson = await reichereAn({
       tourId,
       nummer: tour.no,
@@ -288,6 +309,7 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       beschreibungOverride: tour.description,
       geocoder,
       wetter,
+      ...(videoMeta ? { videoMeta } : {}),
       protokoll: (nachricht) => app.log.warn(nachricht),
     })
     await storage.schreibe(tourId, TOURJSON_PFAD, JSON.stringify(tourJson, null, 2))

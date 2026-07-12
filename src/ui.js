@@ -19,6 +19,8 @@ export class UI {
       layer: $('photo-layer'),
       card: $('photo-card'),
       img: $('photo-img'),
+      video: $('photo-video'),
+      sound: $('photo-sound'),
       flash: $('photo-flash'),
       pTitle: $('photo-title'),
       pSub: $('photo-sub'),
@@ -46,9 +48,54 @@ export class UI {
     this._lastSyncS = -1
     this._preloaded = new Set()
     this._preloadImgs = [] // Referenzen halten, sonst darf der Browser abbrechen
+
+    // Video-Stopps (M4): Ton ist Opt-in (Autoplay-Policy erzwingt muted), die
+    // Wahl bleibt für die Session gemerkt. Ende des Videos → onMediaEnded stößt
+    // denselben Weiter-Pfad an wie ein abgelaufenes Foto-HOLD (main.js → tour.js).
+    this._soundOn = false
+    try {
+      this._soundOn = sessionStorage.getItem('luhambo:video-sound') === '1'
+    } catch { /* Storage kann in restriktiven Kontexten fehlen */ }
+    this.els.video.addEventListener('ended', () => this.onMediaEnded?.())
+    // Kann das Video nicht abspielen (Dekodierfehler, unspielbarer Codec), darf
+    // die Tour nicht am Stopp hängen bleiben — weiter wie bei einem Video-Ende.
+    this.els.video.addEventListener('error', () => this.onMediaEnded?.())
+    this.els.video.addEventListener('timeupdate', () => {
+      // Fortschrittsbalken folgt der Videozeit (tour.js liefert holdFrac=null,
+      // rührt den Balken bei Videos also nicht an)
+      const v = this.els.video
+      if (v.duration > 0) this.els.holdFill.style.transform = `scaleX(${(v.currentTime / v.duration).toFixed(3)})`
+    })
+    this.els.sound.addEventListener('click', (e) => {
+      e.stopPropagation() // nicht die Foto-Karte anhalten (deren Klick pausiert)
+      this._soundOn = !this._soundOn
+      this.els.video.muted = !this._soundOn
+      if (this._soundOn) this.els.video.play().catch(() => {})
+      try {
+        sessionStorage.setItem('luhambo:video-sound', this._soundOn ? '1' : '0')
+      } catch { /* ignorieren */ }
+      this._syncSoundBtn()
+    })
+
     // Solange das Intro offen ist, blendet die Brand oben links aus (sonst stehen
     // Ort + Route doppelt: groß im Hero UND oben links). Sie kommt mit dem Tour-Start.
     document.body.classList.add('intro-open')
+  }
+
+  _syncSoundBtn() {
+    const { sound } = this.els
+    sound.setAttribute('aria-pressed', this._soundOn ? 'true' : 'false')
+    sound.querySelector('.ico-muted').hidden = this._soundOn
+    sound.querySelector('.ico-sound').hidden = !this._soundOn
+  }
+
+  // Laufendes Video anhalten und die Ressource freigeben (Stopp-Wechsel/Ausblenden)
+  _stopVideo() {
+    const v = this.els.video
+    if (!v.getAttribute('src')) return
+    v.pause()
+    v.removeAttribute('src')
+    v.load()
   }
 
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
@@ -59,8 +106,12 @@ export class UI {
     if (!st || this._preloaded.has(i)) return
     this._preloaded.add(i)
     for (const p of st.items) {
+      // Video-Stopps laden ihr Poster vor (das Video selbst holt der <video>-Tag
+      // beim Anzeigen per preload="metadata" — ein Vollabruf wäre Verschwendung)
+      const url = p.type === 'video' ? p.poster : p.src
+      if (!url) continue
       const img = new Image()
-      img.src = p.src
+      img.src = url
       this._preloadImgs.push(img)
     }
   }
@@ -170,17 +221,46 @@ export class UI {
     this.els.iconPause.toggleAttribute('hidden', !on)
     // Angehaltene Foto-Karte kennzeichnen (Badge „Angehalten“)
     this.els.card.classList.toggle('held', !on)
+    // Video-Stopp: Pause/Weiter hält auch das laufende Video an bzw. weiter
+    const v = this.els.video
+    if (!v.hidden && v.getAttribute('src')) {
+      if (on) v.play().catch(() => {})
+      else v.pause()
+    }
   }
 
   setPhotoContent(photo, idx, count) {
-    const { img, pTitle, pSub, pChip, pCount } = this.els
-    img.src = photo.src
-    img.alt = photo.title
+    const { img, video, sound, pTitle, pSub, pChip, pCount } = this.els
+    const istVideo = photo.type === 'video'
+    if (istVideo) {
+      this._stopVideo() // ein evtl. noch laufendes Video sauber ablösen
+      img.hidden = true
+      video.hidden = false
+      sound.hidden = false
+      if (photo.poster) video.poster = photo.poster
+      video.muted = !this._soundOn
+      this._syncSoundBtn()
+      video.src = photo.src
+      video.play().catch(() => {
+        // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt (Ton-Opt-in aus
+        // der Session) → stumm erzwingen, damit das Video überhaupt läuft und
+        // 'ended' feuert; sonst bliebe die Tour am Video-Stopp stehen.
+        video.muted = true
+        video.play().catch(() => {})
+      })
+    } else {
+      this._stopVideo()
+      video.hidden = true
+      sound.hidden = true
+      img.hidden = false
+      img.src = photo.src
+      img.alt = photo.title
+    }
     pTitle.textContent = photo.title
     pSub.textContent = photo.caption
     pChip.textContent = `KM ${(photo.s / 1000).toFixed(1)}`
     pCount.hidden = count < 2
-    pCount.textContent = `Foto ${idx + 1}/${count}`
+    pCount.textContent = `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
   }
 
   showPhoto(photo, idx, count) {
@@ -220,6 +300,9 @@ export class UI {
 
   hidePhoto() {
     const { layer, card } = this.els
+    this._stopVideo() // Video anhalten + Ressource freigeben
+    this.els.video.hidden = true
+    this.els.sound.hidden = true
     card.classList.remove('in')
     card.classList.remove('held')
     layer.classList.remove('show')

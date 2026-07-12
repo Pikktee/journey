@@ -9,6 +9,7 @@ import { AuthDienst, type Benutzer } from './auth/auth.js'
 import type { Konfig } from './config.js'
 import type { Db } from './db.js'
 import type { Geocoder } from './pipeline/naming.js'
+import type { VideoWerkzeug } from './pipeline/video.js'
 import type { WetterQuelle } from './pipeline/weather.js'
 import { registriereAuthRouten } from './routes/auth.js'
 import { registriereMediaRouten } from './routes/media.js'
@@ -25,6 +26,8 @@ export interface AppAbhaengigkeiten {
   geocoder: Geocoder
   /** Auto-Wetter-Quelle (M2); null = Feature aus, Player-Fallback greift */
   wetter: WetterQuelle | null
+  /** Video-Aufbereitung (M4); null = keine Videos verarbeiten (Original ohne Poster) */
+  videoWerkzeug: VideoWerkzeug | null
 }
 
 // Fastify-Typen um unsere Dekorationen erweitern

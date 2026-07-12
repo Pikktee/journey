@@ -7,6 +7,7 @@ import { baueApp } from '../src/app.js'
 import type { Konfig } from '../src/config.js'
 import { oeffneDb } from '../src/db.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
+import type { VideoWerkzeug } from '../src/pipeline/video.js'
 import type { WetterQuelle } from '../src/pipeline/weather.js'
 import { MemStorage } from '../src/storage.js'
 import type { UploadManifest } from '../src/schema/upload.js'
@@ -34,6 +35,9 @@ export async function baueTestApp(
   // Default null: Wetter aus — Tests, die Keyframes brauchen, geben eine
   // FesteWetterQuelle herein (Spiegelbild der OpenMeteoQuelle in index.ts)
   wetter: WetterQuelle | null = null,
+  // Default null: keine Video-Aufbereitung — Video-Tests geben einen
+  // FakeVideoWerkzeug herein (Spiegelbild des FfmpegWerkzeug in index.ts)
+  videoWerkzeug: VideoWerkzeug | null = null,
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
@@ -43,6 +47,7 @@ export async function baueTestApp(
     storage,
     geocoder: new FesterGeocoder(geocoderAntworten),
     wetter,
+    videoWerkzeug,
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')
 

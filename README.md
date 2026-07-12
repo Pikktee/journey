@@ -45,25 +45,29 @@ npm run dev
 - 3D-Fahrzeugmodelle (glTF) als Custom Layer
 - Höhenprofil aus dem DEM statt aus Wegpunkt-Höhen
 
-## Deployment (Railway)
+## Deployment (Hetzner-VPS, Docker Compose)
 
-Die App wird als statischer Vite-Build ausgeliefert (Multi-Stage-`Dockerfile`:
-Node baut, Caddy serviert). Es sind **keine Build-Secrets** nötig — der
-Google-3D-Key wird nur im Dev genutzt.
+Zwei Services aus einem Repo: `web` (statischer Vite-Build, Multi-Stage-
+`Dockerfile`: Node baut, Caddy serviert und proxyt `/api` → Backend) und `api`
+([`server/`](server/), eigene `server/Dockerfile` mit ffmpeg). Caddy übernimmt
+TLS (Let's Encrypt) über die eigene Domain. Es sind **keine Build-Secrets**
+nötig — der Google-3D-Key wird nur im Dev genutzt.
 
 **Einmalige Einrichtung:**
 
-1. Auf [Railway](https://railway.app) ein Projekt + Service anlegen (Deploy from
-   Dockerfile). Railway setzt `$PORT` automatisch; die `Caddyfile` liest ihn aus.
-2. In den Railway-**Projekteinstellungen → Tokens** einen Projekt-Token erzeugen.
+1. Hetzner-Cloud-Server (z. B. CAX11) mit Docker; DNS-A-Record auf die Server-IP.
+2. Auf dem Server `/srv/luhambo/` anlegen mit der [`docker-compose.yml`](docker-compose.yml)
+   aus dem Repo und einer `.env`:
+   `SITE_ADDRESS=deine-domain.tld`, `LUHAMBO_COOKIE_SECRET=<lang & zufällig>`,
+   `LUHAMBO_ADMIN_EMAIL`/`LUHAMBO_ADMIN_PASSWORT` (Seed-Benutzer). Tour-Daten
+   landen im Bind-Mount `/srv/luhambo/daten` (→ Backup einplanen!).
 3. Im GitHub-Repo unter **Settings → Secrets and variables → Actions**:
-   - Secret `RAILWAY_TOKEN` = der Projekt-Token.
-   - *(optional)* Variable `RAILWAY_SERVICE` = Service-Name, falls das Projekt
-     mehrere Services hat.
+   Secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (Deploy-Key des Servers).
 
 **Ablauf:** Ein Version-Tag (`vX.Y.Z`) triggert
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) → `npm run build`
-als Gate → `railway up`. Tags erzeugt man mit dem Release-Tool:
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) → Web- und
+Backend-Tests als Gate → Images nach GHCR → per SSH `docker compose pull && up -d`.
+Tags erzeugt man mit dem Release-Tool:
 
 ```bash
 npm run release            # interaktiv fragen (bugfix/minor/major)

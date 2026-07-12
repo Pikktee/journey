@@ -40,6 +40,41 @@ describe('reichereAn', () => {
     expect(m?.anchor).toEqual([7.9105, 46.59])
   })
 
+  it('setzt Video-Src, Poster und Dauer aus der Aufbereitung (M4)', async () => {
+    const manifest = beispielManifest()
+    manifest.media.push({
+      id: 'm2',
+      type: 'video',
+      file: 'VID_0007.mov',
+      takenAt: '2026-07-04T10:15:00+02:00',
+      anchor: [7.9142, 46.5872],
+      caption: null,
+    })
+    const videoMeta = new Map([['m2', { dauerS: 12.5, videoDatei: 'm2.web.mp4', posterDatei: 'm2.poster.jpg' }]])
+    const tour = await reichereAn(eingabe({ manifest, videoMeta }))
+    const v = tour.media.find((m) => m.id === 'm2')
+    expect(v?.type).toBe('video')
+    expect(v?.src).toBe('/api/media/t_test1234/m2.web.mp4') // transkodierte Datei
+    expect(v?.poster).toBe('/api/media/t_test1234/m2.poster.jpg')
+    expect(v?.durationS).toBe(12.5)
+    expect(v?.title).toBe('Video · 10:15')
+  })
+
+  it('fällt ohne Video-Aufbereitung auf das Original ohne Poster zurück', async () => {
+    const manifest = beispielManifest()
+    manifest.media.push({
+      id: 'm2',
+      type: 'video',
+      file: 'VID.mp4',
+      takenAt: '2026-07-04T10:15:00+02:00',
+      anchor: [7.9142, 46.5872],
+    })
+    const tour = await reichereAn(eingabe({ manifest })) // keine videoMeta
+    const v = tour.media.find((m) => m.id === 'm2')
+    expect(v?.src).toBe('/api/media/t_test1234/m2.mp4')
+    expect(v?.poster).toBeUndefined()
+  })
+
   it('lässt Medien ohne Anker in M1 weg', async () => {
     const manifest = beispielManifest()
     manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T10:00:00+02:00' })

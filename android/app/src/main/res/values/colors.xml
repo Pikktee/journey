@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Markenfarben des Web-Players: dunkles Nachtblau + Sonnen-Akzent -->
+    <color name="luhambo_nacht">#0E1420</color>
+    <color name="luhambo_sonne">#F5A623</color>
+</resources>

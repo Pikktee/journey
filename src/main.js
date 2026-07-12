@@ -767,6 +767,8 @@ map.on('load', () => {
     e.stopPropagation()
     tour.photoNext()
   })
+  // Video-Stopp durchgelaufen: weiter wie nach einem abgelaufenen Foto-HOLD (M4)
+  ui.onMediaEnded = () => tour.onMediaEnded()
 
   // UI ein-/ausblenden (Kino-Modus) — das Icon zeigt immer die AKTION:
   // durchgestrichenes Auge = ausblenden, offenes Auge = wieder einblenden

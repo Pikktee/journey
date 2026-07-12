@@ -93,8 +93,13 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 - Die Kopf-Felder (`no`…`finaleTitle`) sind bewusst deckungsgleich mit der
   statischen `TOURS`-Registry (`src/tours.js`) — der Adapter reicht sie durch.
 - `media` wird im Player zu `cfg.photos`; die vorhandene Anker→`nearestS`→
-  Stopp-Gruppierung greift unverändert. `type: video` (+ `poster`,
-  `durationS`) kommt in M4 in die Anzeige.
+  Stopp-Gruppierung greift unverändert. `type: video` (M4) zeigt im Foto-Overlay
+  ein `<video>`: stumme Autoplay-Wiedergabe, Haltedauer = Videolänge (statt fester
+  Foto-Zeit), Ton per Opt-in. `poster` (Standbild) und `durationS` erzeugt die
+  Pipeline serverseitig (`server/src/pipeline/video.ts`: ffprobe → Poster; nicht
+  web-taugliche Codecs wie HEVC werden nach H.264/AAC 1080p transkodiert und unter
+  `src` als `<id>.web.mp4` ausgeliefert, das Original bleibt unangetastet). Die
+  Medien-Route liefert Videos mit HTTP-Range-Support (Seeking).
 - `timeline` (M2, `server/src/pipeline/zeit.ts`): destillierte Stützstellen
   Streckenanteil→Pseudo-Zeit (stückweise linear, ±45 s genau); Pausen > 15 min
   sind serverseitig auf 2 min komprimiert (sonst springt die Pseudo-Sonne beim
