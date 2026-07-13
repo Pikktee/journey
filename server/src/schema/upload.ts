@@ -36,7 +36,12 @@ export interface UploadManifest {
   title?: string | null
   description?: string | null
   time: { start: string; end: string; zone: string }
-  segments: UploadSegment[]
+  /** Segmente ODER trackFile (genau eines) — bei trackFile parst der Server das GPX */
+  segments?: UploadSegment[]
+  /** Referenz auf ein per PUT hochzuladendes GPX (statt segments), M6 */
+  trackFile?: string
+  /** Gewünschter Modus fürs GPX-Segment; fehlt er, rät der Server aus dem Tempo */
+  trackMode?: Modus
   media: UploadMedium[]
 }
 
@@ -50,12 +55,16 @@ const ISO_ZEIT_PATTERN = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}'
 export const uploadManifestJsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['schema', 'time', 'segments', 'media'],
+  required: ['schema', 'time', 'media'],
+  // Genau EINE Track-Quelle: entweder eingebettete Segmente oder ein GPX-Verweis.
+  oneOf: [{ required: ['segments'] }, { required: ['trackFile'] }],
   properties: {
     schema: { const: UPLOAD_SCHEMA_ID },
     clientTourId: { type: 'string', maxLength: 100 },
     title: { type: ['string', 'null'], maxLength: 200 },
     description: { type: ['string', 'null'], maxLength: 5000 },
+    trackFile: { type: 'string', minLength: 1, maxLength: 255 },
+    trackMode: { enum: ['walk', 'bike', 'tram', 'ferry'] },
     time: {
       type: 'object',
       additionalProperties: false,

@@ -9,6 +9,7 @@ import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { benenneTour, type Geocoder } from './naming.js'
+import { platziereMedien, type Platzierung } from './placement.js'
 import type { VideoMeta } from './video.js'
 import { berechneWetter, type WetterQuelle } from './weather.js'
 import { baueZeitreihe, destilliereTimeline } from './zeit.js'
@@ -35,7 +36,10 @@ export interface TourJson {
     src: string
     title: string
     caption: string
-    anchor: [number, number]
+    /** Anker [lng,lat] auf dem Track; null = unplatziert (Player überspringt, Editor setzt, M6/M7) */
+    anchor: [number, number] | null
+    /** Herkunft des Ankers (M6): gps | zeit | manuell | unplatziert */
+    placement: Platzierung
     takenAt: string
     durationS?: number
     /** Video-Standbild fürs Foto-Overlay (M4) */
@@ -93,8 +97,12 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   const { tourId, nummer, manifest, titelOverride, beschreibungOverride, geocoder, wetter, videoMeta, protokoll } =
     eingabe
 
-  const erstesSegment = manifest.segments[0]
-  const letztesSegment = manifest.segments[manifest.segments.length - 1]
+  // Segmente kommen entweder direkt aus dem Manifest oder — bei GPX-Quelle —
+  // vom Aufrufer bereits geparst hineingereicht (verarbeite in tours.ts).
+  const rohSegmente = manifest.segments
+  if (!rohSegmente?.length) throw new Error('Manifest ohne Segmente')
+  const erstesSegment = rohSegmente[0]
+  const letztesSegment = rohSegmente[rohSegmente.length - 1]
   if (!erstesSegment || !letztesSegment) throw new Error('Manifest ohne Segmente')
   const startPunkt = erstesSegment.pts[0] as UploadPunkt
   const zielPunkt = letztesSegment.pts[letztesSegment.pts.length - 1] as UploadPunkt
@@ -109,19 +117,23 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   })
 
   // Statistik auf den ROHDATEN (volle Auflösung), Ausgabe-Punkte vereinfacht.
-  const stats = berechneStats(manifest.segments)
-  const segments = manifest.segments.map((seg) => ({
+  const stats = berechneStats(rohSegmente)
+  const segments = rohSegmente.map((seg) => ({
     mode: seg.mode,
     label: seg.label ?? MODE_LABELS[seg.mode] ?? seg.mode,
     pts: vereinfacheSegment(seg.pts).map((p): [number, number, number] => [p[0], p[1], p[2]]),
   }))
 
-  // Medien ohne Anker bleiben in M1 außen vor (Zeit-Platzierung kommt in M6);
-  // der Player kann ohne Anker nichts verorten.
-  const media = manifest.media
-    .filter((m) => Array.isArray(m.anchor))
-    .sort((a, b) => Date.parse(a.takenAt) - Date.parse(b.takenAt))
-    .map((m) => {
+  // Medien-Platzierung (M6): jedem Medium einen Track-Anker geben (GPS nah am
+  // Track, sonst Zeit-Mapping, sonst unplatziert). Unplatzierte bleiben mit im
+  // tour.json (fürs Studio/den Editor), der Player überspringt sie (kein Anker).
+  const alleTrackpunkte = rohSegmente.flatMap((s) => s.pts)
+  const startMs = Date.parse(manifest.time.start)
+  const media = platziereMedien(manifest.media, alleTrackpunkte, startMs)
+    // `|| 0`: ein (schema-durchgerutschtes) unparsebares takenAt darf die
+    // Sortierung nicht in NaN-Vergleiche kippen (undefinierte Reihenfolge)
+    .sort((a, b) => (Date.parse(a.medium.takenAt) || 0) - (Date.parse(b.medium.takenAt) || 0))
+    .map(({ medium: m, anchor, placement }) => {
       // Video-Aufbereitung (M4) liefert Dauer, Poster und den Auslieferungspfad
       // (transkodiert oder Original). Fehlt sie (Foto, oder Aufbereitung fiel
       // aus), bleibt es beim Original ohne Poster.
@@ -133,7 +145,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         src: `/api/media/${tourId}/${datei}`,
         title: `${m.type === 'video' ? 'Video' : 'Foto'} · ${uhrzeit(m.takenAt, manifest.time.zone)}`,
         caption: m.caption ?? '',
-        anchor: m.anchor as [number, number],
+        anchor,
+        placement,
         takenAt: m.takenAt,
       }
       const dauer = meta?.dauerS ?? m.durationS
@@ -145,7 +158,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Nichtlineare Pseudo-Zeit: Stützstellen f→Zeit mit komprimierten Pausen.
   // Auto-Wetter ist eine ANREICHERUNG, kein Muss — fällt die Quelle aus, wird
   // `weather` weggelassen und der Player nutzt sein Client-Auto-Wetter.
-  const reihe = baueZeitreihe(manifest.segments)
+  const reihe = baueZeitreihe(rohSegmente)
   const timeline = destilliereTimeline(reihe, manifest.time.start)
   let weather: TourJson['weather']
   if (wetter) {

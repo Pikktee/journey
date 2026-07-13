@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { erfordereBenutzer } from '../app.js'
 import { neueTourId } from '../ids.js'
 import { reichereAn } from '../pipeline/enrich.js'
+import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import {
   mediumDateiname,
@@ -29,6 +30,7 @@ export interface TourZeile {
 }
 
 export const MANIFEST_PFAD = 'original/manifest.json'
+export const TRACK_PFAD = 'original/track.gpx'
 export const TOURJSON_PFAD = 'tour.json'
 
 export function ladeTour(app: FastifyInstance, id: string): TourZeile | null {
@@ -147,6 +149,11 @@ export function registriereTourRouten(app: FastifyInstance): void {
     if (claim.changes === 0) return reply.code(409).send({ fehler: 'Verarbeitung läuft bereits' })
 
     const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
+    // Bei GPX-Quelle muss die Track-Datei da sein, bevor die Pipeline sie parst
+    if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PFAD))) {
+      setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
+      return reply.code(409).send({ fehler: 'Track (GPX) fehlt', fehlend: ['track.gpx'] })
+    }
     const fehlend: string[] = []
     for (const medium of manifest.media) {
       const info = await storage.info(tour.id, `media/${mediumDateiname(medium)}`)
@@ -280,7 +287,19 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
   try {
     const tour = ladeTour(app, tourId)
     if (!tour) return
-    const manifest = JSON.parse((await storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
+    let manifest = JSON.parse((await storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
+
+    // GPX-Quelle (M6): das hochgeladene trackFile serverseitig zu einem Segment
+    // parsen und ins Manifest einsetzen — ab hier ist die Pipeline quellenblind.
+    if (manifest.trackFile) {
+      const gpxText = (await storage.lese(tourId, TRACK_PFAD)).toString()
+      const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
+        startMs: Date.parse(manifest.time.start),
+        endMs: Date.parse(manifest.time.end),
+        ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
+      })
+      manifest = { ...manifest, segments: [segment] }
+    }
 
     // Videos aufbereiten (ffprobe/Poster/Transcode) VOR der Anreicherung — Dauer,
     // Poster und der Auslieferungspfad (transkodiert oder Original) fließen ins

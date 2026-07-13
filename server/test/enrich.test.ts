@@ -38,6 +38,7 @@ describe('reichereAn', () => {
     expect(m?.src).toBe('/api/media/t_test1234/m1.jpg')
     expect(m?.title).toBe('Foto · 09:01')
     expect(m?.anchor).toEqual([7.9105, 46.59])
+    expect(m?.placement).toBe('gps') // Anker liegt auf dem Track
   })
 
   it('setzt Video-Src, Poster und Dauer aus der Aufbereitung (M4)', async () => {
@@ -75,11 +76,24 @@ describe('reichereAn', () => {
     expect(v?.poster).toBeUndefined()
   })
 
-  it('lässt Medien ohne Anker in M1 weg', async () => {
+  it('platziert ein Medium ohne Anker per Zeit-Mapping (M6)', async () => {
     const manifest = beispielManifest()
     manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T10:00:00+02:00' })
     const tour = await reichereAn(eingabe({ manifest }))
-    expect(tour.media.map((m) => m.id)).toEqual(['m1'])
+    expect(tour.media.map((m) => m.id)).toEqual(['m1', 'm2'])
+    const m2 = tour.media.find((m) => m.id === 'm2')
+    expect(m2?.placement).toBe('zeit')
+    expect(m2?.anchor).not.toBeNull()
+  })
+
+  it('lässt ein Medium außerhalb der Tour-Zeit ohne Anker unplatziert (M6)', async () => {
+    const manifest = beispielManifest()
+    // takenAt VOR time.start (08:12) → keine Track-Zeit, kein GPS → unplatziert
+    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
+    const tour = await reichereAn(eingabe({ manifest }))
+    const m2 = tour.media.find((m) => m.id === 'm2')
+    expect(m2?.placement).toBe('unplatziert')
+    expect(m2?.anchor).toBeNull()
   })
 
   it('sortiert Medien nach Aufnahmezeit', async () => {

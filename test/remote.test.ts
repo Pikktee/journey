@@ -85,6 +85,24 @@ describe('adaptiereTour', () => {
     expect(foto && 'poster' in foto).toBe(false)
   })
 
+  it('überspringt unplatzierte Medien (anchor null, M6)', () => {
+    const tour = beispielTour()
+    tour.media.push({
+      id: 'm2',
+      type: 'photo',
+      src: '/api/media/t_abc123/m2.jpg',
+      title: 'Foto · 11:00',
+      caption: '',
+      anchor: null,
+      placement: 'unplatziert',
+      takenAt: '2026-07-04T11:00:00+02:00',
+    })
+    const cfg = adaptiereTour(tour)
+    // nur das platzierte m1 landet im Player; m2 hat keinen Track-Anker
+    expect(cfg.photos).toHaveLength(1)
+    expect(cfg.photos[0]?.src).toBe('/api/media/t_abc123/m1.jpg')
+  })
+
   it('wirft bei laufender Verarbeitung einen sprechenden Fehler', () => {
     const inArbeit = { id: 't_abc123', status: 'verarbeitung' } as unknown as TourJsonAntwort
     expect(() => adaptiereTour(inArbeit)).toThrow(RemoteTourFehler)

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Luhambo Studio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎬</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0a0d12; --karte: #141a22; --rand: #232c38; --text: #f2ede3; --gedimmt: #9aa6b4;
+      --amber: #f5a524; --amber2: #ff6f52; --gruen: #3ecf8e; --rot: #e5484d; --blau: #5b9dff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+    body { min-height: 100vh; }
+    a { color: var(--amber); }
+    h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; }
+
+    header.brand {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid var(--rand);
+    }
+    header.brand .logo { font-family: 'Fraunces', serif; font-size: 22px; }
+    header.brand .logo b { color: var(--amber); }
+
+    main, section.auth { max-width: 860px; margin: 0 auto; padding: 24px; }
+
+    .karte {
+      background: var(--karte); border: 1px solid var(--rand); border-radius: 12px;
+      padding: 22px; margin-bottom: 22px;
+    }
+    label { display: block; margin: 14px 0 6px; color: var(--gedimmt); font-size: 13px; }
+    input, select, button {
+      font-family: inherit; font-size: 14px; color: var(--text);
+      background: #0e131a; border: 1px solid var(--rand); border-radius: 8px; padding: 10px 12px;
+    }
+    input, select { width: 100%; }
+    input[type=file] { padding: 8px; }
+    button {
+      cursor: pointer; background: linear-gradient(90deg, var(--amber), var(--amber2));
+      color: #1a1206; border: none; font-weight: 600; padding: 11px 18px;
+    }
+    button:disabled { opacity: 0.5; cursor: default; filter: grayscale(0.4); }
+    button.leise { background: #1b2430; color: var(--text); border: 1px solid var(--rand); }
+
+    .hinweis { font-size: 13px; color: var(--gedimmt); margin-top: 8px; min-height: 1em; }
+    .fehler { color: var(--rot); }
+    .ok { color: var(--gruen); }
+
+    .tour {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 0; border-top: 1px solid var(--rand);
+    }
+    .tour:first-child { border-top: none; }
+    .tour .titel { flex: 1; }
+    .tour .titel small { display: block; color: var(--gedimmt); font-size: 12px; margin-top: 3px; }
+    .badge { font-size: 11px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge.bereit { background: rgba(62, 207, 142, 0.16); color: var(--gruen); }
+    .badge.verarbeitung { background: rgba(245, 165, 36, 0.16); color: var(--amber); }
+    .badge.fehler { background: rgba(229, 72, 77, 0.16); color: var(--rot); }
+    .badge.angelegt { background: rgba(155, 166, 180, 0.16); color: var(--gedimmt); }
+
+    .tour-actions { display: flex; gap: 8px; }
+    .tour-actions a, .tour-actions button { font-size: 13px; padding: 7px 12px; text-decoration: none; border-radius: 8px; }
+    .tour-actions a { background: #1b2430; color: var(--text); border: 1px solid var(--rand); }
+
+    .leer { color: var(--gedimmt); padding: 20px 0; }
+    progress { width: 100%; height: 8px; margin-top: 10px; accent-color: var(--amber); }
+  </style>
+</head>
+<body>
+  <header class="brand">
+    <div class="logo">Luhambo <b>Studio</b></div>
+    <button class="leise" id="abmelden" hidden>Abmelden</button>
+  </header>
+
+  <!-- Anmeldung -->
+  <section class="auth" id="login-view">
+    <div class="karte" style="max-width: 420px; margin: 40px auto;">
+      <h2 style="margin-top: 0;">Anmelden</h2>
+      <form id="login-form">
+        <label for="email">E-Mail</label>
+        <input id="email" type="email" autocomplete="username" required />
+        <label for="passwort">Passwort</label>
+        <input id="passwort" type="password" autocomplete="current-password" required />
+        <div class="hinweis fehler" id="login-fehler"></div>
+        <button type="submit" style="margin-top: 16px; width: 100%;">Anmelden</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- App -->
+  <main id="app-view" hidden>
+    <div class="karte">
+      <h2 style="margin-top: 0;">Neue Tour hochladen</h2>
+      <label for="gpx">GPX-Track</label>
+      <input id="gpx" type="file" accept=".gpx,application/gpx+xml" />
+      <div class="hinweis" id="gpx-info"></div>
+
+      <label for="titel">Titel <span style="color:var(--gedimmt)">(leer = automatisch)</span></label>
+      <input id="titel" type="text" placeholder="z. B. Sonntagsrunde am See" />
+
+      <label for="mode">Fortbewegung</label>
+      <select id="mode">
+        <option value="walk">Zu Fuß</option>
+        <option value="bike" selected>Rad</option>
+        <option value="tram">Tram</option>
+        <option value="ferry">Fähre</option>
+      </select>
+
+      <label for="medien">Fotos &amp; Videos <span style="color:var(--gedimmt)">(optional, mehrere)</span></label>
+      <input id="medien" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple />
+      <div class="hinweis" id="medien-info"></div>
+
+      <button id="hochladen" style="margin-top: 18px;" disabled>Hochladen</button>
+      <progress id="fortschritt" hidden></progress>
+      <div class="hinweis" id="upload-status"></div>
+    </div>
+
+    <div class="karte">
+      <h2 style="margin-top: 0;">Meine Touren</h2>
+      <div id="liste"><div class="leer">Wird geladen …</div></div>
+    </div>
+  </main>
+
+  <script type="module" src="/src/studio/studio.ts"></script>
+</body>
+</html>

@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Readable } from 'node:stream'
 import { erfordereBenutzer } from '../app.js'
 import { mediumDateiname, type UploadManifest } from '../schema/upload.js'
-import { darfSehen, ladeTour, MANIFEST_PFAD } from './tours.js'
+import { darfSehen, ladeTour, MANIFEST_PFAD, TRACK_PFAD } from './tours.js'
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -42,6 +42,19 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       konfig.maxMediumBytes,
     )
     return reply.code(200).send({ id: medium.id, bytes: info.groesse })
+  })
+
+  // — GPX-Track hochladen (M6): das trackFile des Manifests, roher Body —
+  app.put<{ Params: { id: string } }>('/api/tours/:id/track', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const tour = ladeTour(app, request.params.id)
+    if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+    if (tour.status === 'bereit' || tour.status === 'verarbeitung') {
+      return reply.code(409).send({ fehler: `Track ist im Status „${tour.status}" unveränderlich` })
+    }
+    const info = await storage.schreibeStream(tour.id, TRACK_PFAD, request.body as Readable, konfig.maxMediumBytes)
+    return reply.code(200).send({ bytes: info.groesse })
   })
 
   // — Auslieferung mit Range-Support —

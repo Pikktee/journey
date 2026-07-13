@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // CLI-Importer: GPX-Track (mit Zeitstempeln) + optionaler Fotoordner →
-// Upload-Manifest (luhambo/upload@1) → Backend-Upload → Finalize.
-// M1-Testtreiber für das Austauschformat; ab M6 macht das Web-Studio dasselbe
-// über die gleiche API. Fotos werden per EXIF verortet (GPS bevorzugt, sonst
-// über die Aufnahmezeit auf den Track interpoliert).
+// Upload-Manifest (luhambo/upload@1, trackFile) → Backend-Upload → Finalize.
+// Ab M6 ein DÜNNER Wrapper um dieselbe API wie das Web-Studio: Der Server parst
+// das GPX (pipeline/gpx.ts) und verortet die Fotos (pipeline/placement.ts) —
+// das CLI liefert nur die Datei, die Zeitspanne und pro Foto EXIF-Zeit/-GPS.
 //
 // Aufruf:
 //   node scripts/import-gpx.mjs <track.gpx> [fotoOrdner] \
@@ -28,23 +28,24 @@ function parseArgs(argv) {
   return args
 }
 
-// — GPX lesen (bewusst ohne XML-Abhängigkeit: trkpt-Blöcke sind flach) —
+// — Zeitspanne aus den Track-Punkten (der Server parst die volle Geometrie) —
 
-function parseGpx(xml) {
-  const punkte = []
-  const re = /<trkpt\b([^>]*)>([\s\S]*?)<\/trkpt>/g
-  let m
-  while ((m = re.exec(xml))) {
-    const attrs = m[1]
-    const inhalt = m[2]
-    const lat = /lat="([^"]+)"/.exec(attrs)?.[1]
-    const lon = /lon="([^"]+)"/.exec(attrs)?.[1]
-    if (lat === undefined || lon === undefined) continue
-    const ele = /<ele>([^<]+)<\/ele>/.exec(inhalt)?.[1]
-    const time = /<time>([^<]+)<\/time>/.exec(inhalt)?.[1]
-    punkte.push({ lng: Number(lon), lat: Number(lat), ele: ele ? Number(ele) : 0, time: time ? Date.parse(time) : null })
+function gpxTrackZeiten(xml) {
+  // Nicht-backtrackend (wie parseGpx im Server): nur den öffnenden Tag matchen,
+  // Inhalt bis zum nächsten </trkpt> per indexOf — eine lazy Gruppe wäre bei
+  // fehlenden Schluss-Tags quadratisch.
+  const zeiten = []
+  const re = /<trkpt\b[^>]*>/g
+  while (re.exec(xml) !== null) {
+    // festes Fenster statt unbeschränktem indexOf (O(N²) ohne Treffer)
+    const inhalt = xml.slice(re.lastIndex, re.lastIndex + 500)
+    const t = /<time>([^<]+)<\/time>/.exec(inhalt)?.[1]
+    if (t) {
+      const ms = Date.parse(t)
+      if (Number.isFinite(ms)) zeiten.push(ms)
+    }
   }
-  return punkte
+  return zeiten
 }
 
 // — EXIF-Zeit (zonenlos) in der Tour-Zone als Epochen-Millisekunden deuten —
@@ -62,7 +63,6 @@ function zonenOffsetMs(utcMs, zone) {
 
 function exifDatumZuMs(d, zone) {
   const naiv = Date.UTC(d.y, d.mo - 1, d.d, d.hh, d.mm, d.ss)
-  // Offset iterieren (zweimal reicht — DST-Kanten ändern den Offset höchstens einmal)
   let ms = naiv - zonenOffsetMs(naiv, zone)
   ms = naiv - zonenOffsetMs(ms, zone)
   return ms
@@ -75,22 +75,6 @@ const isoMitZone = (ms, zone) => {
   const hh = String(Math.floor(absMin / 60)).padStart(2, '0')
   const mm = String(absMin % 60).padStart(2, '0')
   return new Date(ms + offset).toISOString().replace(/\.\d{3}Z$/, `${vorzeichen}${hh}:${mm}`)
-}
-
-// — Foto über die Aufnahmezeit auf dem Track verorten —
-
-function ankerZurZeit(punkte, ms) {
-  if (ms <= punkte[0].time) return [punkte[0].lng, punkte[0].lat]
-  for (let i = 1; i < punkte.length; i++) {
-    const a = punkte[i - 1]
-    const b = punkte[i]
-    if (ms <= b.time) {
-      const t = b.time === a.time ? 0 : (ms - a.time) / (b.time - a.time)
-      return [a.lng + (b.lng - a.lng) * t, a.lat + (b.lat - a.lat) * t]
-    }
-  }
-  const letzter = punkte[punkte.length - 1]
-  return [letzter.lng, letzter.lat]
 }
 
 // — API-Aufrufe —
@@ -125,22 +109,18 @@ if (!email || !passwort) {
   exit(1)
 }
 
-const gpx = parseGpx(await readFile(gpxPfad, 'utf8'))
-if (gpx.length < 2) {
-  console.error(`GPX enthält zu wenige Trackpunkte (${gpx.length}).`)
+const gpxText = await readFile(gpxPfad, 'utf8')
+const zeiten = gpxTrackZeiten(gpxText)
+if (zeiten.length < 2) {
+  console.error('GPX ohne (parsebare) <time>-Zeitstempel — für Auto-Wetter/Tag-Nacht werden echte Zeiten benötigt.')
   exit(1)
 }
-if (gpx.some((p) => p.time === null || Number.isNaN(p.time))) {
-  console.error('GPX ohne (parsebare) Zeitstempel — für M1 werden echte <time>-Einträge benötigt (Auto-Wetter/Tag-Nacht).')
-  exit(1)
-}
+const startMs = zeiten[0]
+const endeMs = zeiten[zeiten.length - 1]
+console.log(`Track: ${zeiten.length} Zeitpunkte, ${((endeMs - startMs) / 3600000).toFixed(1)} h, Modus ${args.mode}`)
 
-const startMs = gpx[0].time
-const endeMs = gpx[gpx.length - 1].time
-const pts = gpx.map((p) => [p.lng, p.lat, p.ele, Math.round((p.time - startMs) / 1000)])
-console.log(`Track: ${gpx.length} Punkte, ${((endeMs - startMs) / 3600000).toFixed(1)} h, Modus ${args.mode}`)
-
-// Fotos einsammeln + verorten
+// Fotos einsammeln: EXIF-Zeit (Pflicht) + EXIF-GPS (optional; sonst platziert
+// der Server über die Aufnahmezeit).
 const media = []
 const dateien = []
 if (fotoOrdner) {
@@ -154,11 +134,12 @@ if (fotoOrdner) {
       continue
     }
     const ms = exifDatumZuMs(datum, args.zone)
-    const anchor = gps ?? ankerZurZeit(gpx, ms)
     const id = `m${media.length + 1}`
-    media.push({ id, type: 'photo', file: basename(name), takenAt: isoMitZone(ms, args.zone), anchor })
+    const eintrag = { id, type: 'photo', file: basename(name), takenAt: isoMitZone(ms, args.zone) }
+    if (gps) eintrag.anchor = gps
+    media.push(eintrag)
     dateien.push({ id, inhalt })
-    console.log(`  Foto ${name}: ${gps ? 'EXIF-GPS' : 'Zeit-Anker'} [${anchor.map((v) => v.toFixed(5)).join(', ')}]`)
+    console.log(`  Foto ${name}: ${gps ? 'EXIF-GPS' : 'Server-Zeit-Platzierung'}`)
   }
 }
 
@@ -168,11 +149,12 @@ const manifest = {
   title: args.title ?? null,
   description: null,
   time: { start: isoMitZone(startMs, args.zone), end: isoMitZone(endeMs, args.zone), zone: args.zone },
-  segments: [{ mode: args.mode, pts }],
+  trackFile: 'track.gpx',
+  trackMode: args.mode,
   media,
 }
 
-// Login → Token → Upload → Finalize
+// Login → Token → Upload (Manifest + GPX + Fotos) → Finalize
 const login = await api(args.server, '/api/auth/login', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -186,18 +168,24 @@ const { id, wiederverwendet } = await api(args.server, '/api/tours', {
   body: JSON.stringify(manifest),
 })
 if (wiederverwendet) {
-  // Nach dem Rendern sind Medien unveränderlich — eine bereits fertige Tour
-  // wird nicht erneut hochgeladen, nur ihre Abspiel-URL ausgegeben.
   const tour = await api(args.server, `/api/tours/${id}`)
   if (tour.schema === 'luhambo/tour@1') {
     console.log(`Tour ${id} existiert bereits („${tour.brandTitle}").`)
     console.log(`Abspielen: http://localhost:5173/?tour=srv:${id}`)
     process.exit(0)
   }
-  console.log(`Tour ${id} bereits vorhanden (Status ${tour.status}) — Medien werden erneut geladen`)
+  console.log(`Tour ${id} bereits vorhanden (Status ${tour.status}) — Dateien werden erneut geladen`)
 } else {
   console.log(`Tour ${id} angelegt`)
 }
+
+// GPX hochladen (der Server parst es beim Finalize)
+await api(args.server, `/api/tours/${id}/track`, {
+  method: 'PUT',
+  headers: { ...auth, 'content-type': 'application/gpx+xml' },
+  body: gpxText,
+})
+console.log(`  GPX hochgeladen (${(gpxText.length / 1024).toFixed(0)} kB)`)
 
 for (const { id: mid, inhalt } of dateien) {
   await api(args.server, `/api/tours/${id}/media/${mid}`, {

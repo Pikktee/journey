@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { TourJson } from '../src/pipeline/enrich.js'
 import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
+import type { UploadManifest } from '../src/schema/upload.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
@@ -29,6 +30,35 @@ async function finalisiere(u: TestUmgebung, tourId: string): Promise<void> {
   const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${tourId}/finalize`, cookies: u.cookies })
   expect(antwort.statusCode).toBe(202)
   await u.app.verarbeitungen.get(tourId)
+}
+
+async function ladeTrackHoch(u: TestUmgebung, tourId: string, gpx: string): Promise<void> {
+  const antwort = await u.app.inject({
+    method: 'PUT',
+    url: `/api/tours/${tourId}/track`,
+    cookies: u.cookies,
+    headers: { 'content-type': 'application/gpx+xml' },
+    payload: gpx,
+  })
+  expect(antwort.statusCode).toBe(200)
+}
+
+const BEISPIEL_GPX = `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>
+  <trkpt lat="46.5934" lon="7.9086"><ele>800</ele><time>2026-07-04T08:00:00Z</time></trkpt>
+  <trkpt lat="46.5900" lon="7.9105"><ele>830</ele><time>2026-07-04T08:10:00Z</time></trkpt>
+  <trkpt lat="46.5872" lon="7.9142"><ele>905</ele><time>2026-07-04T08:30:00Z</time></trkpt>
+</trkseg></trk></gpx>`
+
+function gpxManifest(): UploadManifest {
+  return {
+    schema: 'luhambo/upload@1',
+    clientTourId: 'gpx-e2e-1',
+    title: null,
+    time: { start: '2026-07-04T08:00:00Z', end: '2026-07-04T08:30:00Z', zone: 'UTC' },
+    trackFile: 'track.gpx',
+    trackMode: 'bike',
+    media: [],
+  }
 }
 
 describe('Auth', () => {
@@ -142,6 +172,44 @@ describe('Tour-Lebenszyklus', () => {
     })
     expect(range.statusCode).toBe(206)
     expect(range.headers['content-type']).toBe('video/mp4')
+  })
+
+  it('nimmt ein GPX als trackFile an, parst es serverseitig und rendert die Tour (M6)', async () => {
+    const u = await baueTestApp()
+    const anlegen = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: gpxManifest() })
+    expect(anlegen.statusCode).toBe(201)
+    const id = (anlegen.json() as { id: string }).id
+    await ladeTrackHoch(u, id, BEISPIEL_GPX)
+    await finalisiere(u, id)
+
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.segments).toHaveLength(1)
+    expect(tour.segments[0]?.mode).toBe('bike') // trackMode durchgereicht
+    expect(tour.stats.km).toBeGreaterThan(0)
+    expect(tour.timeline?.length).toBeGreaterThanOrEqual(2) // echte GPX-Zeiten → Timeline
+  })
+
+  it('verweigert Finalize, wenn das trackFile fehlt (M6)', async () => {
+    const u = await baueTestApp()
+    const id = (await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: gpxManifest() })).json() as { id: string }
+    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id.id}/finalize`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(409)
+    expect((antwort.json() as { fehlend: string[] }).fehlend).toEqual(['track.gpx'])
+  })
+
+  it('weist ein Manifest mit BEIDEN Track-Quellen ab (segments + trackFile)', async () => {
+    const u = await baueTestApp()
+    const kaputt = { ...gpxManifest(), segments: beispielManifest().segments }
+    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: kaputt })
+    expect(antwort.statusCode).toBe(400)
+  })
+
+  it('weist ein Manifest OHNE Track-Quelle ab (weder segments noch trackFile)', async () => {
+    const u = await baueTestApp()
+    const { time, media } = beispielManifest()
+    const ohne = { schema: 'luhambo/upload@1', clientTourId: 'ohne-track', title: null, time, media }
+    const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: ohne })
+    expect(antwort.statusCode).toBe(400)
   })
 
   it('verweigert Finalize bei fehlenden Medien', async () => {

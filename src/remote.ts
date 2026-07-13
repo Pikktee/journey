@@ -10,7 +10,10 @@ export interface RemoteMedium {
   src: string
   title: string
   caption: string
-  anchor: [number, number]
+  /** null = unplatziert (M6): kein Track-Anker, wird nicht abgespielt */
+  anchor: [number, number] | null
+  /** Herkunft des Ankers (M6): gps | zeit | manuell | unplatziert */
+  placement?: string
   takenAt: string
   durationS?: number
   poster?: string
@@ -106,16 +109,19 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     segments: tour.segments,
     // Fotos UND Videos (M4): beide werden im Foto-Overlay als Stopp gezeigt,
     // Videos halten bis zum Ende statt für eine feste Dauer (tour.js/ui.js).
-    photos: tour.media.map((m) => ({
-      src: m.src,
-      title: m.title,
-      caption: m.caption,
-      anchor: m.anchor,
-      takenAt: m.takenAt,
-      type: m.type,
-      ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
-      ...(m.poster !== undefined ? { poster: m.poster } : {}),
-    })),
+    // Unplatzierte Medien (anchor null, M6) hat der Player nirgends zu verorten.
+    photos: tour.media
+      .filter((m) => Array.isArray(m.anchor))
+      .map((m) => ({
+        src: m.src,
+        title: m.title,
+        caption: m.caption,
+        anchor: m.anchor as [number, number],
+        takenAt: m.takenAt,
+        type: m.type,
+        ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
+        ...(m.poster !== undefined ? { poster: m.poster } : {}),
+      })),
     stats: tour.stats,
   }
   if (tour.weather?.length) {
