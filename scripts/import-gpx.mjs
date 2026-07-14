@@ -69,7 +69,9 @@ function exifDatumZuMs(d, zone) {
 }
 
 const isoMitZone = (ms, zone) => {
-  const offset = zonenOffsetMs(ms, zone)
+  // Ganze Minuten: Sub-Sekunden-Reste im Eingang dürfen nicht in den
+  // Zonen-Offset lecken (M7-Fund, wie src/studio/upload.ts)
+  const offset = Math.round(zonenOffsetMs(ms, zone) / 60000) * 60000
   const vorzeichen = offset >= 0 ? '+' : '-'
   const absMin = Math.abs(offset) / 60000
   const hh = String(Math.floor(absMin / 60)).padStart(2, '0')

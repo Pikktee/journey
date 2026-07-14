@@ -100,6 +100,7 @@ async function ladeListe(): Promise<void> {
       ${badge(t.status)}
       <div class="tour-actions">
         ${t.status === 'bereit' ? `<a href="/?tour=srv:${t.id}" target="_blank" rel="noopener">Abspielen</a>` : ''}
+        ${t.status === 'bereit' || t.status === 'fehler' ? `<button class="leise" data-bearbeiten="${t.id}">Bearbeiten</button>` : ''}
         <button class="leise" data-loeschen="${t.id}">Löschen</button>
       </div>`
     els.liste.appendChild(el)
@@ -109,6 +110,17 @@ async function ladeListe(): Promise<void> {
       if (!confirm('Diese Tour endgültig löschen?')) return
       await api.loescheTour(btn.dataset.loeschen!)
       await ladeListe()
+    })
+  })
+  // Editor (M7) lazy laden — MapLibre kommt erst beim ersten Bearbeiten
+  els.liste.querySelectorAll<HTMLButtonElement>('[data-bearbeiten]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const { oeffneEditor } = await import('./editor.js')
+      els.appView.hidden = true
+      await oeffneEditor(btn.dataset.bearbeiten!, () => {
+        els.appView.hidden = false
+        void ladeListe()
+      })
     })
   })
 }

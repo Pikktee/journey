@@ -5,8 +5,10 @@
 // Später ergänzt (gleiche Stelle, gleiche Signatur): Bildanalyse (M5),
 // GPX-Quelle + Medien-Platzierung (M6), Edit-Overlay (M7).
 
+import type { EditOverlay } from '../schema/edits.js'
 import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
+import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { benenneTour, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
@@ -79,6 +81,8 @@ export interface EnrichEingabe {
   /** Nutzer-Overrides aus der DB (PATCH); null = Auto-Benennung */
   titelOverride: string | null
   beschreibungOverride: string | null
+  /** Edit-Overlay (M7): Trim/Modus-Grenzen/Medien-Overrides; null = keins */
+  edits?: EditOverlay | null
   geocoder: Geocoder
   /** Auto-Wetter-Quelle; fehlt sie, bleibt `weather` weg (Client-Fallback) */
   wetter?: WetterQuelle | null
@@ -94,13 +98,17 @@ export interface EnrichEingabe {
  * ohne Netz und Dateisystem testbar.
  */
 export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
-  const { tourId, nummer, manifest, titelOverride, beschreibungOverride, geocoder, wetter, videoMeta, protokoll } =
+  const { tourId, nummer, manifest, titelOverride, beschreibungOverride, edits, geocoder, wetter, videoMeta, protokoll } =
     eingabe
 
   // Segmente kommen entweder direkt aus dem Manifest oder — bei GPX-Quelle —
   // vom Aufrufer bereits geparst hineingereicht (verarbeite in tours.ts).
-  const rohSegmente = manifest.segments
-  if (!rohSegmente?.length) throw new Error('Manifest ohne Segmente')
+  // Das Edit-Overlay (M7) greift direkt danach: Trim + Modus-Grenzen formen
+  // den Track, ALLES Nachgelagerte (Benennung, Timeline, Wetter, Platzierung)
+  // rechnet auf dem bearbeiteten Stand.
+  const startMs = Date.parse(manifest.time.start)
+  const rohSegmente = wendeEditsAufSegmenteAn(manifest.segments ?? [], edits, startMs)
+  if (!rohSegmente.length) throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
   const erstesSegment = rohSegmente[0]
   const letztesSegment = rohSegmente[rohSegmente.length - 1]
   if (!erstesSegment || !letztesSegment) throw new Error('Manifest ohne Segmente')
@@ -128,8 +136,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Track, sonst Zeit-Mapping, sonst unplatziert). Unplatzierte bleiben mit im
   // tour.json (fürs Studio/den Editor), der Player überspringt sie (kein Anker).
   const alleTrackpunkte = rohSegmente.flatMap((s) => s.pts)
-  const startMs = Date.parse(manifest.time.start)
-  const media = platziereMedien(manifest.media, alleTrackpunkte, startMs)
+  const media = wendeMedienEditsAn(platziereMedien(manifest.media, alleTrackpunkte, startMs), edits)
     // `|| 0`: ein (schema-durchgerutschtes) unparsebares takenAt darf die
     // Sortierung nicht in NaN-Vergleiche kippen (undefinierte Reihenfolge)
     .sort((a, b) => (Date.parse(a.medium.takenAt) || 0) - (Date.parse(b.medium.takenAt) || 0))

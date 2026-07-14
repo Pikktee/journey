@@ -120,6 +120,50 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 - Reserviert (v1 leer): `camera: [{f, preset}]`, `audio: [{type, src, f0, f1}]`,
   `media[].display: {holdS?, kenBurns?}`.
 
+## Edit-Overlay `luhambo/edits@1` (M7)
+
+Alle Bearbeitungen einer Tour leben in EINER Datei `edits.json` neben den
+unantastbaren Rohdaten unter `original/` — die Pipeline rendert das Tour-JSON
+stets aus Rohdaten + Overlay neu (`PUT /api/tours/:id/edits` speichert und
+rendert; `POST /api/tours/:id/reprocess` rendert nur neu, z. B. für frisches
+Auto-Wetter — die Edits bleiben dabei erhalten).
+
+```jsonc
+{
+  "schema": "luhambo/edits@1",
+  "medien": {                          // Overrides je Medien-ID des Manifests
+    "m3": { "caption": "Neuer Text" },
+    "m5": { "anchor": [7.912, 46.51] },// manuell gesetzt → placement "manuell"
+    "m7": { "geloescht": true }        // aus der Wiedergabe; Rohdatei bleibt
+  },
+  "modi": [                            // Fortbewegung ab Zeitpunkt (bis zur nächsten Grenze)
+    { "ab": "2026-07-04T10:15:00Z", "mode": "ferry" }
+  ],
+  "trim": {                            // Track beschneiden (je optional)
+    "start": "2026-07-04T08:30:00Z",
+    "ende":  "2026-07-04T16:00:00Z"
+  }
+}
+```
+
+Kern-Designentscheid: Edits referenzieren **stabile Anker** — Medien-IDs,
+Koordinaten und absolute Zeitstempel, **nie den Streckenanteil `f`**. Ein Trim
+verschiebt so keine nachfolgenden Bearbeitungen (Anker hängen an Koordinaten,
+Grenzen an Uhrzeiten). Titel/Beschreibung liegen bewusst NICHT im Overlay,
+sondern in den DB-Spalten (`PATCH /api/tours/:id`) — eine Quelle der Wahrheit
+pro Feld. Anwendungsreihenfolge in der Pipeline (`pipeline/edits.ts`):
+Trim → Modus-Grenzen → Auto-Platzierung → Medien-Overrides; Benennung,
+Timeline und Wetter rechnen danach auf dem bearbeiteten Track.
+
+Der Studio-Editor holt sich seine Arbeitsgrundlage über
+`GET /api/tours/:id/editor` (Owner-only): Original-Track **mit Zeit-Offsets**
+(`pts: [lng, lat, ele, tOffsetS]`, vereinfacht), Auto-Platzierung aller Medien
+(inklusive gelöschter/unplatzierter) und das gespeicherte Overlay. Bewusste
+Vereinfachung: Die Auto-Platzierung im Editor rechnet auf dem **Original-**
+(untrimmten) Track — beschneidet ein Trim das Umfeld eines Auto-Ankers, kann
+das Render-Ergebnis davon abweichen (Medium wird `unplatziert`); der
+gerenderte Stand ist immer die Wahrheit des Players.
+
 ## Status- und Fehlerfälle
 
 | Zustand | `GET /api/tours/:id` liefert |

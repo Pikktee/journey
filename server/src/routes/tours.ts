@@ -6,12 +6,21 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { erfordereBenutzer } from '../app.js'
 import { neueTourId } from '../ids.js'
 import { reichereAn } from '../pipeline/enrich.js'
+import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
+import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
+import {
+  EDITS_SCHEMA_ID,
+  editsJsonSchema,
+  pruefeEditsSemantik,
+  type EditOverlay,
+} from '../schema/edits.js'
 import {
   mediumDateiname,
   uploadManifestJsonSchema,
   type UploadManifest,
+  type UploadSegment,
 } from '../schema/upload.js'
 
 export interface TourZeile {
@@ -32,6 +41,8 @@ export interface TourZeile {
 export const MANIFEST_PFAD = 'original/manifest.json'
 export const TRACK_PFAD = 'original/track.gpx'
 export const TOURJSON_PFAD = 'tour.json'
+/** Edit-Overlay (M7) — liegt NEBEN original/, die Rohdaten bleiben unantastbar */
+export const EDITS_PFAD = 'edits.json'
 
 export function ladeTour(app: FastifyInstance, id: string): TourZeile | null {
   return (app.deps.db.prepare('SELECT * FROM tours WHERE id = ?').get(id) as TourZeile | undefined) ?? null
@@ -203,7 +214,9 @@ export function registriereTourRouten(app: FastifyInstance): void {
       // über denselben Status-Claim wie finalize (nie zwei Renderer parallel,
       // Antwort hängt nicht an Nominatim). Läuft gerade eine Verarbeitung,
       // ist nichts zu tun: sie liest die eben aktualisierte DB-Zeile.
-      if (tour.status === 'bereit' && (title || description)) {
+      // ACHTUNG: gegen undefined prüfen, nicht truthy — description '' ist
+      // ein legitimes Leeren und muss genauso neu rendern (Review-Fund M7).
+      if (tour.status === 'bereit' && (title !== undefined || description !== undefined)) {
         const claim = db
           .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status = 'bereit'`)
           .run(new Date().toISOString(), tour.id)
@@ -217,6 +230,121 @@ export function registriereTourRouten(app: FastifyInstance): void {
       return { ok: true }
     },
   )
+
+  // — Edit-Overlay lesen (M7) — Owner-only, wie alles Bearbeitende —
+  app.get<{ Params: { id: string } }>('/api/tours/:id/edits', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const tour = nurOwner(app, request.params.id, benutzer.id, reply)
+    if (!tour) return
+    if (!(await storage.info(tour.id, EDITS_PFAD))) return { schema: EDITS_SCHEMA_ID }
+    return reply
+      .header('content-type', 'application/json; charset=utf-8')
+      .send(await storage.lese(tour.id, EDITS_PFAD))
+  })
+
+  // — Edit-Overlay speichern (M7): ablegen + gerenderte Tour neu rendern —
+  app.put<{ Params: { id: string }; Body: EditOverlay }>(
+    '/api/tours/:id/edits',
+    { schema: { body: editsJsonSchema } },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      const tour = nurOwner(app, request.params.id, benutzer.id, reply)
+      if (!tour) return
+      const fehler = pruefeEditsSemantik(request.body)
+      if (fehler) return reply.code(400).send({ fehler })
+      // Während laufender Verarbeitung nicht speichern: sie hätte das Overlay
+      // ggf. schon gelesen — das Ergebnis wäre undefiniert. Restrisiko: startet
+      // zwischen dieser Prüfung und dem Schreiben ein anderer Handler (finalize)
+      // den Renderer, kann tour.json einen Render hinter edits.json liegen —
+      // selbstheilend beim nächsten Render/Reprocess, kein Doppel-Renderer.
+      if (tour.status === 'verarbeitung') {
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft — bitte gleich erneut speichern' })
+      }
+      await storage.schreibe(tour.id, EDITS_PFAD, JSON.stringify(request.body, null, 2))
+      // Fertige (oder gescheiterte) Tour direkt neu rendern — gleicher
+      // Status-Claim wie finalize, nie zwei Renderer parallel.
+      if (starteVerarbeitung(app, tour.id)) return reply.code(202).send({ ok: true, status: 'verarbeitung' })
+      // angelegt: das Overlay fließt beim Finalize ein
+      return { ok: true, status: ladeTour(app, tour.id)?.status ?? tour.status }
+    },
+  )
+
+  // — Neu verarbeiten (M7): Anreicherung (Benennung/Wetter) neu, Edits bleiben —
+  app.post<{ Params: { id: string } }>('/api/tours/:id/reprocess', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const tour = nurOwner(app, request.params.id, benutzer.id, reply)
+    if (!tour) return
+    if (tour.status === 'angelegt') return reply.code(409).send({ fehler: 'Tour ist noch nicht finalisiert' })
+    if (!starteVerarbeitung(app, tour.id)) return reply.code(409).send({ fehler: 'Verarbeitung läuft bereits' })
+    return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
+  })
+
+  // — Editor-Daten (M7): Original-Track MIT Zeiten + Auto-Platzierung + Overlay —
+  // Bewusst getrennt vom Player-JSON: der Editor braucht die Zeit je Trackpunkt
+  // (Trim/Modus-Grenzen referenzieren Zeitstempel) und auch gelöschte/
+  // unplatzierte Medien; das tour.json zeigt dagegen den ANGEWANDTEN Stand.
+  app.get<{ Params: { id: string } }>('/api/tours/:id/editor', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const tour = nurOwner(app, request.params.id, benutzer.id, reply)
+    if (!tour) return
+    const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
+    if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PFAD))) {
+      return reply.code(409).send({ fehler: 'Track (GPX) fehlt noch' })
+    }
+    // Kaputtes GPX als 409 mit Ursache melden — gerade fehler-Touren sollen
+    // im Editor sehen, WORAN es liegt, nicht „Interner Fehler" (Review-Fund).
+    let segmente: UploadSegment[]
+    try {
+      segmente = await ladeOriginalSegmente(app, tour.id, manifest)
+    } catch (fehler) {
+      return reply.code(409).send({ fehler: `Track nicht lesbar: ${(fehler as Error).message}` })
+    }
+    if (!segmente.some((s) => s.pts.length >= 2)) return reply.code(409).send({ fehler: 'Tour hat keinen Track' })
+    const startMs = Date.parse(manifest.time.start)
+
+    // Auto-Platzierung auf dem ORIGINAL-Track (ohne Overlay): die Basis, auf
+    // die der Editor seine Overrides live legt. Gelöschte bleiben sichtbar.
+    const platziert = platziereMedien(manifest.media, segmente.flatMap((s) => s.pts), startMs)
+    const medien: Array<Record<string, unknown>> = []
+    for (const { medium, anchor, placement } of platziert) {
+      const eintrag: Record<string, unknown> = {
+        id: medium.id,
+        type: medium.type,
+        src: `/api/media/${tour.id}/${mediumDateiname(medium)}`,
+        takenAt: medium.takenAt,
+        caption: medium.caption ?? '',
+        anchor,
+        placement,
+      }
+      if (medium.type === 'video') {
+        const poster = `${medium.id}.poster.jpg`
+        if (await storage.info(tour.id, `media/${poster}`)) eintrag['poster'] = `/api/media/${tour.id}/${poster}`
+      }
+      medien.push(eintrag)
+    }
+    medien.sort((a, b) => (Date.parse(a['takenAt'] as string) || 0) - (Date.parse(b['takenAt'] as string) || 0))
+
+    let edits: EditOverlay = { schema: EDITS_SCHEMA_ID }
+    if (await storage.info(tour.id, EDITS_PFAD)) {
+      edits = JSON.parse((await storage.lese(tour.id, EDITS_PFAD)).toString()) as EditOverlay
+    }
+
+    return {
+      id: tour.id,
+      status: tour.status,
+      title: tour.title,
+      description: tour.description,
+      time: manifest.time,
+      // Original-Segmente, fürs Netz vereinfacht — behält [lng,lat,ele,tOffsetS]
+      segmente: segmente.map((s) => ({ mode: s.mode, pts: vereinfacheSegment(s.pts) })),
+      medien,
+      edits,
+    }
+  })
 
   // — Eigene Touren auflisten —
   // Ganz ohne Anmeldedaten: leere Liste statt 401 — der Player fragt hier bei
@@ -281,6 +409,38 @@ function setzeStatus(app: FastifyInstance, id: string, status: TourZeile['status
     .run(status, fehler ?? null, new Date().toISOString(), id)
 }
 
+/**
+ * Verarbeitung atomar beanspruchen (nur aus bereit/fehler heraus) und starten.
+ * false = eine andere Verarbeitung läuft bereits oder die Tour ist angelegt.
+ */
+function starteVerarbeitung(app: FastifyInstance, tourId: string): boolean {
+  const claim = app.deps.db
+    .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status IN ('bereit', 'fehler')`)
+    .run(new Date().toISOString(), tourId)
+  if (claim.changes === 0) return false
+  app.verarbeitungen.set(
+    tourId,
+    verarbeite(app, tourId).finally(() => app.verarbeitungen.delete(tourId)),
+  )
+  return true
+}
+
+/** Original-Segmente des Manifests — bei GPX-Quelle (M6) serverseitig geparst. */
+async function ladeOriginalSegmente(
+  app: FastifyInstance,
+  tourId: string,
+  manifest: UploadManifest,
+): Promise<UploadSegment[]> {
+  if (!manifest.trackFile) return manifest.segments ?? []
+  const gpxText = (await app.deps.storage.lese(tourId, TRACK_PFAD)).toString()
+  const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
+    startMs: Date.parse(manifest.time.start),
+    endMs: Date.parse(manifest.time.end),
+    ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
+  })
+  return [segment]
+}
+
 /** Anreicherung ausführen und Ergebnis persistieren (läuft asynchron nach finalize). */
 async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
   const { db, storage, geocoder, wetter, videoWerkzeug } = app.deps
@@ -291,14 +451,13 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
 
     // GPX-Quelle (M6): das hochgeladene trackFile serverseitig zu einem Segment
     // parsen und ins Manifest einsetzen — ab hier ist die Pipeline quellenblind.
-    if (manifest.trackFile) {
-      const gpxText = (await storage.lese(tourId, TRACK_PFAD)).toString()
-      const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
-        startMs: Date.parse(manifest.time.start),
-        endMs: Date.parse(manifest.time.end),
-        ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
-      })
-      manifest = { ...manifest, segments: [segment] }
+    manifest = { ...manifest, segments: await ladeOriginalSegmente(app, tourId, manifest) }
+
+    // Edit-Overlay (M7): Trim, Modus-Grenzen und Medien-Overrides fließen als
+    // eigene Pipeline-Eingabe ein — die Rohdaten unter original/ bleiben unberührt.
+    let edits: EditOverlay | null = null
+    if (await storage.info(tourId, EDITS_PFAD)) {
+      edits = JSON.parse((await storage.lese(tourId, EDITS_PFAD)).toString()) as EditOverlay
     }
 
     // Videos aufbereiten (ffprobe/Poster/Transcode) VOR der Anreicherung — Dauer,
@@ -326,6 +485,7 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       manifest,
       titelOverride: tour.title,
       beschreibungOverride: tour.description,
+      ...(edits ? { edits } : {}),
       geocoder,
       wetter,
       ...(videoMeta ? { videoMeta } : {}),

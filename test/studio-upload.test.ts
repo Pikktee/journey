@@ -57,6 +57,12 @@ describe('isoMitZone / exifDatumZuMs', () => {
     expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z'), 'Europe/Berlin')).toBe('2026-07-04T08:00:00+02:00')
   })
 
+  it('lässt Sub-Sekunden-Reste nicht in den Zonen-Offset lecken (M7-Fund)', () => {
+    // file.lastModified kann Bruchteile tragen → ohne Rundung wurde daraus
+    // ein kaputter Offset wie „+01:59.99335…"
+    expect(isoMitZone(Date.parse('2026-07-04T06:00:00Z') + 0.4, 'Europe/Berlin')).toBe('2026-07-04T08:00:00+02:00')
+  })
+
   it('deutet zonenlose EXIF-Zeit in der Tour-Zone', () => {
     const d = { y: 2026, mo: 7, d: 4, hh: 8, mm: 0, ss: 0 }
     expect(exifDatumZuMs(d, 'UTC')).toBe(Date.parse('2026-07-04T08:00:00Z'))

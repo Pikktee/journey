@@ -95,3 +95,43 @@ export function tour(id: string): Promise<{ status?: string; fehler?: string | n
 export function loescheTour(id: string): Promise<unknown> {
   return anfrage(`/tours/${id}`, { method: 'DELETE' })
 }
+
+// — Editor (M7) —
+
+export interface EditorMedium {
+  id: string
+  type: 'photo' | 'video'
+  src: string
+  poster?: string
+  takenAt: string
+  caption: string
+  anchor: [number, number] | null
+  placement: string
+}
+
+export interface EditorDaten {
+  id: string
+  status: string
+  title: string | null
+  description: string | null
+  time: { start: string; end: string; zone: string }
+  segmente: Array<{ mode: string; pts: Array<[number, number, number, number]> }>
+  medien: EditorMedium[]
+  edits: unknown
+}
+
+export function editorDaten(id: string): Promise<EditorDaten> {
+  return anfrage(`/tours/${id}/editor`)
+}
+
+export function speichereEdits(id: string, edits: unknown): Promise<{ ok: boolean; status: string }> {
+  return anfrage(`/tours/${id}/edits`, { method: 'PUT', headers: jsonKopf, body: JSON.stringify(edits) })
+}
+
+export function patchTour(id: string, felder: { title?: string; description?: string }): Promise<unknown> {
+  return anfrage(`/tours/${id}`, { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
+}
+
+export function reprocess(id: string): Promise<unknown> {
+  return anfrage(`/tours/${id}/reprocess`, { method: 'POST' })
+}

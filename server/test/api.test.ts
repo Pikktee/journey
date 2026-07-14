@@ -479,3 +479,204 @@ describe('Medien-Auslieferung', () => {
     expect(antwort.statusCode).toBe(413)
   })
 })
+
+describe('Edit-Overlay + Editor (M7)', () => {
+  async function fremdeCookies(u: TestUmgebung): Promise<{ luhambo_session: string }> {
+    await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim456', 'Fremd')
+    const login = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'fremd@example.com', passwort: 'geheim456' },
+    })
+    return { luhambo_session: login.cookies.find((c) => c.name === 'luhambo_session')?.value ?? '' }
+  }
+
+  it('liefert ein leeres Overlay, solange keins gespeichert ist', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(200)
+    expect(antwort.json()).toEqual({ schema: 'luhambo/edits@1' })
+  })
+
+  it('PUT speichert, rendert neu — Caption, Modus-Grenze, Trim und manueller Anker erreichen das Tour-JSON', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+    const vorher = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+
+    const put = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: {
+        schema: 'luhambo/edits@1',
+        medien: { m1: { caption: 'Handgeschrieben', anchor: [7.9184, 46.5891] } },
+        // tOffset 1400 (Segmentwechsel walk→bike) — ab hier Fähre
+        modi: [{ ab: '2026-07-04T08:35:51+02:00', mode: 'ferry' }],
+        // tOffset 620: erster Walk-Punkt fällt weg
+        trim: { start: '2026-07-04T08:22:51+02:00' },
+      },
+    })
+    expect(put.statusCode).toBe(202)
+    await u.app.verarbeitungen.get(id)
+
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.status).toBe('bereit')
+    expect(tour.media[0]?.caption).toBe('Handgeschrieben')
+    expect(tour.media[0]?.placement).toBe('manuell')
+    expect(tour.media[0]?.anchor).toEqual([7.9184, 46.5891])
+    expect(tour.segments.map((s) => s.mode)).toEqual(['walk', 'ferry'])
+    expect(tour.stats.km).toBeLessThan(vorher.stats.km)
+
+    // Overlay ist wieder abrufbar (Editor lädt den gespeicherten Stand)
+    const edits = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })).json() as {
+      medien: Record<string, { caption?: string }>
+    }
+    expect(edits.medien['m1']?.caption).toBe('Handgeschrieben')
+  })
+
+  it('Reprocess rendert neu, ohne Edits zu verlieren (Plan-Kriterium)', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+    await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: { schema: 'luhambo/edits@1', medien: { m1: { caption: 'Bleibt' } } },
+    })
+    await u.app.verarbeitungen.get(id)
+
+    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(202)
+    await u.app.verarbeitungen.get(id)
+
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.status).toBe('bereit')
+    expect(tour.media[0]?.caption).toBe('Bleibt')
+  })
+
+  it('weist kaputte Overlays ab (Form + Semantik)', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    // Hinweis: UNBEKANNTE Felder strippt Fastifys Ajv (removeAdditional) —
+    // den 400 gibt es für falsch getypte bekannte Felder.
+    const form = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: { schema: 'luhambo/edits@1', modi: 'quatsch' },
+    })
+    expect(form.statusCode).toBe(400)
+    const semantik = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: {
+        schema: 'luhambo/edits@1',
+        trim: { start: '2026-07-04T10:00:00Z', ende: '2026-07-04T09:00:00Z' },
+      },
+    })
+    expect(semantik.statusCode).toBe(400)
+    expect(semantik.json()).toMatchObject({ fehler: expect.stringContaining('Trim-Start') })
+  })
+
+  it('Reprocess braucht eine finalisierte Tour', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    const antwort = await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(409)
+  })
+
+  it('Editor-Daten: Original-Track mit Zeiten, Auto-Platzierung, Overlay', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const daten = antwort.json() as {
+      segmente: Array<{ mode: string; pts: number[][] }>
+      medien: Array<{ id: string; placement: string; src: string }>
+      edits: { schema: string }
+      time: { start: string }
+    }
+    expect(daten.segmente.map((s) => s.mode)).toEqual(['walk', 'bike'])
+    // Trackpunkte behalten den Zeit-Offset (4. Koordinate) — Trim/Grenzen brauchen ihn
+    expect(daten.segmente[0]?.pts[0]).toHaveLength(4)
+    expect(daten.medien[0]).toMatchObject({ id: 'm1', placement: 'gps', src: `/api/media/${id}/m1.jpg` })
+    expect(daten.edits.schema).toBe('luhambo/edits@1')
+  })
+
+  it('Editor-Daten funktionieren auch für GPX-Quellen', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u, gpxManifest())
+    await ladeTrackHoch(u, id, BEISPIEL_GPX)
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const daten = antwort.json() as { segmente: Array<{ mode: string; pts: number[][] }> }
+    expect(daten.segmente).toHaveLength(1)
+    expect(daten.segmente[0]?.mode).toBe('bike')
+    expect(daten.segmente[0]?.pts).toHaveLength(3)
+  })
+
+  it('Beschreibung leeren erreicht das Tour-JSON (Review-Fund)', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { description: 'Erst was' } })
+    await u.app.verarbeitungen.get(id)
+    await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: u.cookies, payload: { description: '' } })
+    await u.app.verarbeitungen.get(id)
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.description).toBe('')
+  })
+
+  it('Editor-Daten melden kaputtes GPX als 409 mit Ursache statt 500 (Review-Fund)', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u, gpxManifest())
+    await ladeTrackHoch(u, id, '<gpx><trkpt lat="1" lon="2"><time>2026-07-04T08:00:00Z</time></trkpt></gpx>')
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(409)
+    expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('Track nicht lesbar') })
+  })
+
+  it('weist Zeitstempel mit Anhängsel ab — Pattern voll verankert (Review-Fund)', async () => {
+    const u = await baueTestApp()
+    const boese = beispielManifest()
+    boese.media[0]!.takenAt = '2026-07-04T09:01:12+02:00<img src=x onerror=alert(1)>'
+    expect((await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: boese })).statusCode).toBe(400)
+    const id = await legeTourAn(u)
+    const edits = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: { schema: 'luhambo/edits@1', modi: [{ ab: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }] },
+    })
+    expect(edits.statusCode).toBe(400)
+  })
+
+  it('fremde Benutzer sehen weder Edits noch Editor-Daten (404)', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    const fremd = await fremdeCookies(u)
+    expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: fremd })).statusCode).toBe(404)
+    expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: fremd })).statusCode).toBe(404)
+    expect(
+      (
+        await u.app.inject({
+          method: 'PUT',
+          url: `/api/tours/${id}/edits`,
+          cookies: fremd,
+          payload: { schema: 'luhambo/edits@1' },
+        })
+      ).statusCode,
+    ).toBe(404)
+    expect((await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: fremd })).statusCode).toBe(404)
+  })
+})

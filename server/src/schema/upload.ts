@@ -45,10 +45,14 @@ export interface UploadManifest {
   media: UploadMedium[]
 }
 
-// ISO-8601-Zeitstempel (grobe Struktur; die Semantik prüft Date.parse in der
-// Pipeline). Bewusst KEIN `format: 'date-time'` — Fastifys Ajv bringt ohne
-// ajv-formats keine Format-Prüfer mit und würde beim Registrieren scheitern.
-const ISO_ZEIT_PATTERN = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}'
+// ISO-8601-Zeitstempel (die Semantik prüft Date.parse in der Pipeline).
+// Bewusst KEIN `format: 'date-time'` — Fastifys Ajv bringt ohne ajv-formats
+// keine Format-Prüfer mit und würde beim Registrieren scheitern.
+// VOLL verankert (^…$): ein unverankertes Präfix-Pattern ließe beliebige
+// Anhängsel durch — Zeitstempel landen in Editor/Doku, HTML hat dort nichts
+// verloren (Review-Fund M7). Erlaubt: Sekundenbruchteile, `Z` oder `±HH:MM`.
+export const ISO_ZEIT_PATTERN = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$'
+export const ISO_ZEIT_MAXLAENGE = 40
 
 // JSON-Schema für die Fastify-Validierung. Bewusst strikt (additionalProperties
 // false) — Tippfehler im Client fallen sofort auf statt still zu verschwinden.
@@ -70,8 +74,8 @@ export const uploadManifestJsonSchema = {
       additionalProperties: false,
       required: ['start', 'end', 'zone'],
       properties: {
-        start: { type: 'string', pattern: ISO_ZEIT_PATTERN },
-        end: { type: 'string', pattern: ISO_ZEIT_PATTERN },
+        start: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+        end: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
         zone: { type: 'string', maxLength: 60 },
       },
     },
@@ -111,7 +115,7 @@ export const uploadManifestJsonSchema = {
           id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
           type: { enum: ['photo', 'video'] },
           file: { type: 'string', minLength: 1, maxLength: 255 },
-          takenAt: { type: 'string', pattern: ISO_ZEIT_PATTERN },
+          takenAt: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
           caption: { type: ['string', 'null'], maxLength: 1000 },
           durationS: { type: 'number', minimum: 0 },

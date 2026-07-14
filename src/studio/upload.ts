@@ -73,7 +73,10 @@ function zonenOffsetMs(utcMs: number, zone: string): number {
 
 /** Epoche-ms → ISO 8601 mit dem Offset der Zone (z. B. „…+02:00"). */
 export function isoMitZone(ms: number, zone: string): string {
-  const offset = zonenOffsetMs(ms, zone)
+  // Auf ganze Minuten runden: file.lastModified kann Sub-Sekunden-Bruchteile
+  // tragen, die sonst in den Offset lecken („+01:59.99335…", M7-Fund) —
+  // echte Zonen-Offsets sind immer ganze Minuten.
+  const offset = Math.round(zonenOffsetMs(ms, zone) / 60000) * 60000
   const vorzeichen = offset >= 0 ? '+' : '-'
   const absMin = Math.abs(offset) / 60000
   const hh = String(Math.floor(absMin / 60)).padStart(2, '0')
