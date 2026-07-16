@@ -28,6 +28,8 @@ export interface TourListe {
 export interface Benutzer {
   id: string
   email: string
+  /** Anzeigename (der Server leitet ihn beim Anlegen aus der E-Mail ab) */
+  name?: string
 }
 
 async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {

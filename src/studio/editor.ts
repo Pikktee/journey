@@ -157,9 +157,12 @@ function baueTrackLayer(k: maplibregl.Map): void {
 
 function passeAusschnittAn(): void {
   if (!karte || !z || !z.track.length) return
+  // Der Container ist Teil eines frisch eingeblendeten Grids — Maß nachziehen,
+  // bevor der Ausschnitt gerechnet wird (sonst passt fitBounds auf alte Größe).
+  karte.resize()
   const grenzen = new maplibregl.LngLatBounds()
   for (const p of z.track) grenzen.extend([p[0], p[1]])
-  karte.fitBounds(grenzen, { padding: 48, duration: 0 })
+  karte.fitBounds(grenzen, { padding: 56, duration: 0 })
 }
 
 function klickAufKarte(e: maplibregl.MapMouseEvent): void {
@@ -228,7 +231,8 @@ function zeichneMarker(): void {
     el.className = 'm-marker'
     const thumb = m.type === 'photo' ? m.src : m.poster
     if (thumb) el.style.backgroundImage = `url("${thumb}")`
-    else el.textContent = '🎬'
+    else el.innerHTML = '<svg aria-hidden="true"><use href="#i-film"/></svg>' // statisches Sprite-Icon
+
     el.title = `${m.id} · ${PLACEMENT_NAMEN[m.placement] ?? m.placement}`
     const mk = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(m.anchor).addTo(karte)
     mk.on('dragend', () => {
@@ -344,7 +348,6 @@ function renderTrimUndGrenzen(): void {
 
 function entfernenKnopf(aktion: () => void): HTMLButtonElement {
   const knopf = document.createElement('button')
-  knopf.className = 'leise'
   knopf.textContent = 'Entfernen'
   knopf.addEventListener('click', () => {
     aktion()
@@ -375,18 +378,27 @@ function renderMedien(): void {
     thumb.className = 'thumb'
     if (m.type === 'photo') thumb.src = m.src
     else if (m.poster) thumb.src = m.poster
-    else thumb.textContent = '🎬'
+    else thumb.innerHTML = '<svg aria-hidden="true"><use href="#i-film"/></svg>' // statisches Sprite-Icon
     zeile.appendChild(thumb)
 
     const info = document.createElement('div')
     info.className = 'm-info'
     // Kein innerHTML: uhrzeit() fällt bei kaputtem takenAt auf den ROHEN
     // Manifest-String zurück — Nutzerdaten gehören nur in Textknoten.
-    info.append(`${uhrzeit(m.takenAt)} Uhr `)
+    const kopf = document.createElement('div')
+    kopf.className = 'm-kopf'
+    // Eigener Span mit Ellipsis: bei unparsebarem takenAt fällt uhrzeit() auf
+    // den rohen ISO-String zurück — der darf das Layout nicht sprengen.
+    const zeit = document.createElement('span')
+    zeit.className = 'm-zeit'
+    zeit.textContent = `${uhrzeit(m.takenAt)} Uhr`
+    zeit.title = zeit.textContent
+    kopf.appendChild(zeit)
     const badgeEl = document.createElement('span')
     badgeEl.className = `badge ${m.geloescht ? 'geloescht' : m.placement}`
     badgeEl.textContent = m.geloescht ? 'gelöscht' : (PLACEMENT_NAMEN[m.placement] ?? m.placement)
-    info.appendChild(badgeEl)
+    kopf.appendChild(badgeEl)
+    info.appendChild(kopf)
     const caption = document.createElement('input')
     caption.type = 'text'
     caption.placeholder = 'Bildunterschrift'
@@ -405,7 +417,7 @@ function renderMedien(): void {
     const aktionen = document.createElement('div')
     aktionen.className = 'm-aktionen'
     const platzieren = document.createElement('button')
-    platzieren.className = 'leise'
+    platzieren.className = z.platzieren === m.id ? 'aktiv' : ''
     platzieren.textContent = z.platzieren === m.id ? 'Abbrechen' : 'Platzieren'
     platzieren.addEventListener('click', () => {
       if (!z) return
@@ -415,7 +427,6 @@ function renderMedien(): void {
     aktionen.appendChild(platzieren)
     if (z.edits.medien?.[m.id]?.anchor) {
       const auto = document.createElement('button')
-      auto.className = 'leise'
       auto.textContent = 'Auto-Anker'
       auto.title = 'Manuellen Anker verwerfen, Auto-Platzierung gilt wieder'
       auto.addEventListener('click', () => {
@@ -426,7 +437,6 @@ function renderMedien(): void {
       aktionen.appendChild(auto)
     }
     const loeschen = document.createElement('button')
-    loeschen.className = 'leise'
     loeschen.textContent = m.geloescht ? 'Wiederherstellen' : 'Löschen'
     loeschen.addEventListener('click', () => {
       if (!z) return

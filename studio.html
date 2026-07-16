@@ -4,216 +4,838 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Luhambo Studio</title>
+  <meta name="description" content="Luhambo Studio — Touren hochladen, anreichern und bearbeiten." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎬</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Space+Grotesk:wght@400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
     rel="stylesheet"
   />
   <style>
+    /* ————————————————————————————————————————————————————————————
+       Luhambo Studio — App-Shell. Design-DNA des Players (Fraunces +
+       Plex Mono + Amber auf warmem Dunkel), aber als Werkzeug gedacht:
+       voller Viewport, Panels mit eigenem Scroll, Karte als Bühne.
+       ———————————————————————————————————————————————————————————— */
     :root {
-      --bg: #0a0d12; --karte: #141a22; --rand: #232c38; --text: #f2ede3; --gedimmt: #9aa6b4;
-      --amber: #f5a524; --amber2: #ff6f52; --gruen: #3ecf8e; --rot: #e5484d; --blau: #5b9dff;
+      --bg: #090c11;
+      --bg-tief: #06080c;
+      --fl-1: #10151d;
+      --fl-2: #151c26;
+      --fl-3: #1c2530;
+      --rand: #222b37;
+      --rand-hell: #2e3a49;
+      --text: #f2ede3;
+      --text-2: #a7b1bf;
+      --text-3: #67727f;
+      --akzent: #f5a524;
+      --akzent-2: #ff6f52;
+      --gruen: #3ecf8e;
+      --rot: #e5484d;
+      --blau: #5b9dff;
+      --lila: #c58bff;
+      --schatten: 0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
+      --font-display: 'Fraunces', Georgia, serif;
+      --font-ui: 'Space Grotesk', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+      --topbar-h: 58px;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; }
-    body { min-height: 100vh; }
-    a { color: var(--amber); }
-    h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; }
-
-    header.brand {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 24px; border-bottom: 1px solid var(--rand);
+    /* Ansichten setzen explizite display-Werte — [hidden] muss trotzdem gewinnen */
+    [hidden] { display: none !important; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14.5px;
+      line-height: 1.5;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
-    header.brand .logo { font-family: 'Fraunces', serif; font-size: 22px; }
-    header.brand .logo b { color: var(--amber); }
+    ::selection { background: rgba(245, 165, 36, 0.3); }
+    a { color: var(--akzent); text-decoration: none; }
+    h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
+    .mono { font-family: var(--font-mono); }
 
-    main, section.auth { max-width: 860px; margin: 0 auto; padding: 24px; }
-
-    .karte {
-      background: var(--karte); border: 1px solid var(--rand); border-radius: 12px;
-      padding: 22px; margin-bottom: 22px;
+    /* Feiner Filmkorn-Schleier gegen digitale Flachheit */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      pointer-events: none;
+      opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
     }
-    label { display: block; margin: 14px 0 6px; color: var(--gedimmt); font-size: 13px; }
-    input, select, button {
-      font-family: inherit; font-size: 14px; color: var(--text);
-      background: #0e131a; border: 1px solid var(--rand); border-radius: 8px; padding: 10px 12px;
-    }
-    input, select { width: 100%; }
-    input[type=file] { padding: 8px; }
-    button {
-      cursor: pointer; background: linear-gradient(90deg, var(--amber), var(--amber2));
-      color: #1a1206; border: none; font-weight: 600; padding: 11px 18px;
-    }
-    button:disabled { opacity: 0.5; cursor: default; filter: grayscale(0.4); }
-    button.leise { background: #1b2430; color: var(--text); border: 1px solid var(--rand); }
 
-    .hinweis { font-size: 13px; color: var(--gedimmt); margin-top: 8px; min-height: 1em; }
-    .fehler { color: var(--rot); }
-    .ok { color: var(--gruen); }
+    /* — Grundbausteine — */
+    button, .knopf {
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--fl-2);
+      border: 1px solid var(--rand);
+      border-radius: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: background 160ms ease, border-color 160ms ease, transform 120ms ease, box-shadow 160ms ease, color 160ms ease, opacity 160ms ease;
+      white-space: nowrap;
+    }
+    button:hover, .knopf:hover { background: var(--fl-3); border-color: var(--rand-hell); }
+    button:active, .knopf:active { transform: scale(0.975); }
+    button:disabled { opacity: 0.45; cursor: default; transform: none; }
+    button:disabled:hover { background: var(--fl-2); border-color: var(--rand); }
+    button.primaer, .knopf.primaer {
+      background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
+      color: #221302;
+      border: none;
+      font-weight: 600;
+      padding: 10px 16px;
+      box-shadow: 0 6px 18px rgba(245, 133, 40, 0.22);
+    }
+    button.primaer:hover, .knopf.primaer:hover { box-shadow: 0 8px 24px rgba(245, 133, 40, 0.34); filter: brightness(1.06); }
+    button.gefahr:hover { border-color: rgba(229, 72, 77, 0.6); color: var(--rot); }
+    button.icon {
+      padding: 8px;
+      border-radius: 9px;
+      color: var(--text-2);
+    }
+    button.icon:hover { color: var(--text); }
+    button svg, .knopf svg { width: 16px; height: 16px; flex: none; }
+    :is(button, .knopf, input, select, textarea, [role='button'], a):focus-visible {
+      outline: 2px solid var(--akzent);
+      outline-offset: 2px;
+      border-radius: 10px;
+    }
 
+    input[type='text'], input[type='email'], input[type='password'], select, textarea {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      color: var(--text);
+      background: var(--bg-tief);
+      border: 1px solid var(--rand);
+      border-radius: 10px;
+      padding: 10px 12px;
+      width: 100%;
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    :is(input, select, textarea):hover { border-color: var(--rand-hell); }
+    :is(input, select, textarea):focus { border-color: var(--akzent); outline: none; background: #0a0e15; }
+    ::placeholder { color: var(--text-3); }
+    label { display: block; margin: 0 0 6px; color: var(--text-2); font-size: 12.5px; font-weight: 500; }
+    label .zusatz { color: var(--text-3); font-weight: 400; }
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b1bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+    textarea { min-height: 76px; resize: vertical; }
+
+    .hinweis { font-size: 12.5px; color: var(--text-2); min-height: 1.2em; }
+    .hinweis.fehler { color: var(--rot); }
+    .hinweis.ok { color: var(--gruen); }
+
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge.bereit { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
+    .badge.verarbeitung { background: rgba(245, 165, 36, 0.13); color: var(--akzent); }
+    .badge.fehler { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
+    .badge.angelegt { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
+    .badge.gps { background: rgba(91, 157, 255, 0.13); color: var(--blau); }
+    .badge.zeit { background: rgba(245, 165, 36, 0.13); color: var(--akzent); }
+    .badge.manuell { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
+    .badge.unplatziert, .badge.geloescht { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
+
+    /* Sanftes Einblenden beim Ansichtswechsel */
+    @keyframes ansichtEin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    #app-view:not([hidden]), #editor-view:not([hidden]), #login-view:not([hidden]) { animation: ansichtEin 320ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+    /* ————————————————— Anmeldung ————————————————— */
+    #login-view {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      background: var(--bg);
+      z-index: 10;
+    }
+    .login-buehne {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(120% 90% at 15% 10%, rgba(245, 165, 36, 0.08), transparent 55%),
+        radial-gradient(100% 100% at 85% 95%, rgba(255, 111, 82, 0.06), transparent 60%),
+        linear-gradient(160deg, #0b0f16, var(--bg-tief));
+      border-right: 1px solid var(--rand);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 44px 48px;
+    }
+    .login-buehne .wortmarke { font-family: var(--font-display); font-size: 21px; letter-spacing: 0.01em; }
+    .login-buehne .wortmarke b { color: var(--akzent); font-weight: 600; }
+    .login-claim h1 {
+      font-size: clamp(34px, 4.2vw, 52px);
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+      font-weight: 480;
+      max-width: 11em;
+      text-wrap: balance;
+    }
+    .login-claim h1 em { font-style: italic; color: var(--akzent); }
+    .login-claim p { color: var(--text-2); max-width: 42ch; margin: 18px 0 0; font-size: 15px; }
+    .login-fuss { color: var(--text-3); font-size: 12px; font-family: var(--font-mono); }
+    .login-route { position: absolute; inset: 0; pointer-events: none; }
+    .login-route path {
+      fill: none;
+      stroke: rgba(245, 165, 36, 0.55);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 6 10;
+      animation: routeFluss 60s linear infinite;
+    }
+    .login-route .kontur { stroke: rgba(167, 177, 191, 0.1); stroke-width: 1; stroke-dasharray: none; animation: none; }
+    .login-route circle { fill: var(--bg); stroke: var(--akzent); stroke-width: 2; }
+    @keyframes routeFluss { to { stroke-dashoffset: -1600; } }
+    .login-formseite { display: grid; place-items: center; padding: 32px; overflow: auto; }
+    .login-box { width: min(360px, 100%); }
+    .login-box h2 { font-size: 26px; font-weight: 520; letter-spacing: -0.01em; }
+    .login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; }
+    .login-box .feld { margin-bottom: 16px; }
+    .login-box button[type='submit'] { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
+    @media (max-width: 860px) {
+      #login-view { grid-template-columns: 1fr; }
+      .login-buehne { display: none; }
+    }
+
+    /* ————————————————— App-Shell ————————————————— */
+    .topbar {
+      height: var(--topbar-h);
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--rand);
+      background: rgba(13, 17, 24, 0.82);
+      backdrop-filter: blur(14px);
+      position: relative;
+      z-index: 5;
+    }
+    .topbar .wortmarke { font-family: var(--font-display); font-size: 18px; }
+    .topbar .wortmarke b { color: var(--akzent); font-weight: 600; }
+    .topbar .luecke { flex: 1; }
+    .benutzer-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-2);
+      background: var(--fl-1);
+      border: 1px solid var(--rand);
+      border-radius: 999px;
+      padding: 6px 12px 6px 7px;
+    }
+    .benutzer-chip .punkt {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+      color: #221302;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    #app-view {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .app-rumpf {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(340px, 420px) 1fr;
+    }
+
+    /* — Upload-Panel (links) — */
+    .upload-panel {
+      border-right: 1px solid var(--rand);
+      overflow-y: auto;
+      padding: 26px 24px 34px;
+      background:
+        radial-gradient(90% 40% at 0% 0%, rgba(245, 165, 36, 0.045), transparent 70%),
+        var(--bg);
+    }
+    .panel-titel { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+    .panel-titel h2 { font-size: 21px; font-weight: 520; letter-spacing: -0.01em; }
+    .panel-untertitel { color: var(--text-3); font-size: 12.5px; margin: 0 0 18px; }
+
+    .dropzone {
+      border: 1.5px dashed var(--rand-hell);
+      border-radius: 14px;
+      padding: 26px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+      background: rgba(21, 28, 38, 0.4);
+    }
+    .dropzone:hover { border-color: var(--text-3); background: var(--fl-1); }
+    .dropzone.aktiv {
+      border-color: var(--akzent);
+      background: rgba(245, 165, 36, 0.07);
+      transform: scale(1.012);
+    }
+    .dropzone svg { width: 26px; height: 26px; color: var(--akzent); margin-bottom: 10px; }
+    .dropzone .dz-haupt { font-weight: 500; font-size: 14px; }
+    .dropzone .dz-neben { color: var(--text-3); font-size: 12.5px; margin-top: 3px; }
+    .dropzone .dz-neben u { text-decoration-color: var(--akzent); text-underline-offset: 3px; }
+
+    .datei-chips { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .gpx-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--fl-1);
+      border: 1px solid var(--rand);
+      border-radius: 11px;
+      padding: 9px 11px;
+    }
+    .gpx-chip svg { width: 17px; height: 17px; color: var(--akzent); flex: none; }
+    .gpx-chip .gc-name { font-family: var(--font-mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gpx-chip .gc-meta { font-size: 11.5px; color: var(--text-2); font-family: var(--font-mono); margin-top: 1px; }
+    .gpx-chip .gc-meta.fehler { color: var(--rot); white-space: normal; }
+    .gpx-chip .gc-text { flex: 1; min-width: 0; }
+    .chip-x {
+      flex: none; width: 24px; height: 24px; border-radius: 7px; padding: 0;
+      display: grid; place-items: center; color: var(--text-3);
+      background: transparent; border: none; font-size: 15px; line-height: 1;
+    }
+    .chip-x:hover { color: var(--rot); background: rgba(229, 72, 77, 0.12); }
+
+    .medien-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 7px; }
+    .medien-kachel {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 9px;
+      overflow: hidden;
+      background: var(--fl-2) center/cover no-repeat;
+      border: 1px solid var(--rand);
+    }
+    .medien-kachel .mk-video {
+      position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2);
+      background: linear-gradient(160deg, var(--fl-2), var(--fl-3));
+    }
+    .medien-kachel .mk-video svg { width: 18px; height: 18px; }
+    .medien-kachel .chip-x {
+      position: absolute; top: 2px; right: 2px;
+      background: rgba(6, 8, 12, 0.72);
+      color: var(--text);
+      width: 18px; height: 18px; border-radius: 6px; font-size: 12px;
+      opacity: 0;
+      transition: opacity 140ms ease;
+    }
+    .medien-kachel:hover .chip-x { opacity: 1; }
+
+    .upload-felder { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+    .segmente { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 11px; padding: 4px; }
+    .segmente label {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 4px 7px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-3);
+      font-size: 11.5px;
+      font-weight: 500;
+      transition: background 140ms ease, color 140ms ease;
+      text-align: center;
+    }
+    .segmente label:hover { color: var(--text-2); background: var(--fl-2); }
+    .segmente input { position: absolute; opacity: 0; pointer-events: none; }
+    .segmente svg { width: 17px; height: 17px; }
+    .segmente label:has(input:checked) { background: var(--fl-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--rand-hell); }
+    .segmente label:has(input:focus-visible) { outline: 2px solid var(--akzent); outline-offset: 1px; }
+
+    #hochladen { width: 100%; justify-content: center; font-size: 14.5px; }
+    progress {
+      appearance: none; width: 100%; height: 5px; border: none; margin-top: 12px;
+      border-radius: 999px; overflow: hidden; background: var(--fl-2); display: block;
+    }
+    progress::-webkit-progress-bar { background: var(--fl-2); }
+    progress::-webkit-progress-value { background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); transition: width 300ms ease; }
+    progress::-moz-progress-bar { background: var(--akzent); }
+    #upload-status { margin-top: 9px; }
+
+    /* — Bibliothek (rechts) — */
+    .bibliothek { overflow-y: auto; padding: 26px 30px 40px; min-width: 0; }
+    .bib-kopf { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+    .bib-kopf h2 { font-size: 21px; font-weight: 520; letter-spacing: -0.01em; }
+    .bib-kopf .anzahl { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); }
+
+    #liste { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
     .tour {
-      display: flex; align-items: center; gap: 14px;
-      padding: 14px 0; border-top: 1px solid var(--rand);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      background: var(--fl-1);
+      border: 1px solid var(--rand);
+      border-radius: 13px;
+      transition: background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+      animation: ansichtEin 360ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
     }
-    .tour:first-child { border-top: none; }
-    .tour .titel { flex: 1; }
-    .tour .titel small { display: block; color: var(--gedimmt); font-size: 12px; margin-top: 3px; }
-    .badge { font-size: 11px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .badge.bereit { background: rgba(62, 207, 142, 0.16); color: var(--gruen); }
-    .badge.verarbeitung { background: rgba(245, 165, 36, 0.16); color: var(--amber); }
-    .badge.fehler { background: rgba(229, 72, 77, 0.16); color: var(--rot); }
-    .badge.angelegt { background: rgba(155, 166, 180, 0.16); color: var(--gedimmt); }
+    .tour:nth-child(2) { animation-delay: 40ms; }
+    .tour:nth-child(3) { animation-delay: 80ms; }
+    .tour:nth-child(4) { animation-delay: 120ms; }
+    .tour:nth-child(n + 5) { animation-delay: 160ms; }
+    .tour:hover { background: var(--fl-2); border-color: var(--rand-hell); transform: translateY(-1px); box-shadow: var(--schatten); }
+    .tour .nummer { font-family: var(--font-mono); font-size: 12px; color: var(--akzent); flex: none; width: 44px; }
+    .tour .titel { flex: 1; min-width: 0; }
+    .tour .titel .t-name { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tour .titel small { display: block; color: var(--text-3); font-size: 12px; font-family: var(--font-mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tour-actions { display: flex; gap: 7px; align-items: center; }
+    .tour-actions .knopf, .tour-actions button { font-size: 12.5px; padding: 7px 11px; }
 
-    .tour-actions { display: flex; gap: 8px; }
-    .tour-actions a, .tour-actions button { font-size: 13px; padding: 7px 12px; text-decoration: none; border-radius: 8px; }
-    .tour-actions a { background: #1b2430; color: var(--text); border: 1px solid var(--rand); }
+    .leer { color: var(--text-3); }
+    .leer-buehne {
+      max-width: 980px;
+      border: 1.5px dashed var(--rand);
+      border-radius: 16px;
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--text-2);
+    }
+    .leer-buehne svg { width: 30px; height: 30px; color: var(--akzent); margin-bottom: 12px; }
+    .leer-buehne .lb-titel { font-family: var(--font-display); font-size: 19px; color: var(--text); }
+    .leer-buehne p { font-size: 13px; color: var(--text-3); margin: 6px auto 0; max-width: 40ch; }
 
-    .leer { color: var(--gedimmt); padding: 20px 0; }
-    progress { width: 100%; height: 8px; margin-top: 10px; accent-color: var(--amber); }
+    .skelett { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
+    .skelett .zeile { height: 66px; border-radius: 13px; background: linear-gradient(100deg, var(--fl-1) 40%, var(--fl-2) 50%, var(--fl-1) 60%) 0 0 / 200% 100%; animation: schimmer 1.3s linear infinite; }
+    @keyframes schimmer { to { background-position: -200% 0; } }
 
-    /* — Editor (M7) — */
-    #editor-view { max-width: 1180px; margin: 0 auto; padding: 18px 24px; }
-    .editor-kopf { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .editor-kopf input { flex: 1; min-width: 220px; }
-    .editor-kopf a { font-size: 13px; padding: 9px 12px; background: #1b2430; color: var(--text);
-      border: 1px solid var(--rand); border-radius: 8px; text-decoration: none; }
-    #editor-map { height: 52vh; min-height: 320px; margin-top: 12px;
-      border: 1px solid var(--rand); border-radius: 12px; overflow: hidden; background: #0e131a; }
+    /* ————————————————— Editor ————————————————— */
+    #editor-view {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    .editor-kopf {
+      height: var(--topbar-h);
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--rand);
+      background: rgba(13, 17, 24, 0.82);
+      backdrop-filter: blur(14px);
+      z-index: 5;
+    }
+    #editor-titel {
+      flex: 1;
+      min-width: 140px;
+      max-width: 460px;
+      font-family: var(--font-display);
+      font-size: 17px;
+      background: transparent;
+      border-color: transparent;
+      padding: 8px 10px;
+    }
+    #editor-titel:hover { border-color: var(--rand); background: var(--bg-tief); }
+    #editor-titel:focus { border-color: var(--akzent); background: var(--bg-tief); }
+    #editor-status { flex: 1; text-align: right; padding-right: 4px; }
+
+    .editor-rumpf {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr minmax(340px, 400px);
+    }
+    .karten-buehne { position: relative; min-width: 0; background: var(--bg-tief); }
+    #editor-map { position: absolute; inset: 0; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }
-    .editor-spalten { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; align-items: start; }
-    @media (max-width: 900px) { .editor-spalten { grid-template-columns: 1fr; } }
-    .editor-spalten h3 { margin: 16px 0 6px; font-size: 15px; }
-    .editor-spalten h3:first-child { margin-top: 0; }
-    .editor-aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .editor-aktionen select { width: auto; }
-    .grenz-zeile { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
-    .grenz-zeile .farbe { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-    .grenz-zeile button { padding: 3px 8px; font-size: 12px; }
-    .medien-zeile { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--rand); }
-    .medien-zeile:first-child { border-top: none; }
-    .medien-zeile.geloescht { opacity: 0.45; }
-    .medien-zeile .thumb { width: 58px; height: 44px; object-fit: cover; border-radius: 6px;
-      background: #0e131a; border: 1px solid var(--rand); flex: none;
-      display: flex; align-items: center; justify-content: center; font-size: 20px; }
-    .medien-zeile .m-info { flex: 1; min-width: 0; font-size: 12px; color: var(--gedimmt); }
-    .medien-zeile .m-info input { margin-top: 5px; font-size: 13px; padding: 6px 8px; }
-    .medien-zeile .m-aktionen { display: flex; flex-direction: column; gap: 5px; }
-    .medien-zeile .m-aktionen button { padding: 4px 9px; font-size: 12px; }
-    .badge.gps { background: rgba(91, 157, 255, 0.16); color: var(--blau); }
-    .badge.zeit { background: rgba(245, 165, 36, 0.16); color: var(--amber); }
-    .badge.manuell { background: rgba(62, 207, 142, 0.16); color: var(--gruen); }
-    .badge.unplatziert, .badge.geloescht { background: rgba(229, 72, 77, 0.16); color: var(--rot); }
-    textarea { width: 100%; min-height: 64px; resize: vertical; font-family: inherit; font-size: 14px;
-      color: var(--text); background: #0e131a; border: 1px solid var(--rand); border-radius: 8px; padding: 10px 12px; }
+    .maplibregl-ctrl-attrib { font-size: 10px; background: rgba(6, 8, 12, 0.55) !important; color: var(--text-2); }
+    .maplibregl-ctrl-attrib a { color: var(--text-2); }
+    .maplibregl-ctrl-group { background: rgba(13, 17, 24, 0.9) !important; border: 1px solid var(--rand); border-radius: 10px !important; overflow: hidden; }
+    .maplibregl-ctrl-group button { border-radius: 0 !important; border: none !important; background: transparent !important; }
+    .maplibregl-ctrl-group button + button { border-top: 1px solid var(--rand) !important; }
+    .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(0.9); }
 
-    /* Karten-Marker */
-    .sel-marker { width: 14px; height: 14px; border-radius: 50%; background: #fff;
-      border: 3px solid var(--amber); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); }
-    .m-marker { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
-      background: #1b2430 center/cover no-repeat; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
-      cursor: grab; display: flex; align-items: center; justify-content: center; font-size: 15px; }
-    .g-marker, .t-marker { padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600;
-      background: #0e131aee; border: 1px solid var(--rand); color: var(--text); white-space: nowrap; }
-    .t-marker { border-color: var(--amber); color: var(--amber); }
+    /* Schwebender Hinweis auf der Karte (Platzieren-Modus) */
+    #editor-medien-hinweis {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      background: rgba(13, 17, 24, 0.92);
+      border: 1px solid var(--akzent);
+      color: var(--text);
+      font-size: 12.5px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      box-shadow: var(--schatten);
+      max-width: min(520px, 86%);
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+    #editor-medien-hinweis:empty { display: none; }
+
+    .editor-seite {
+      border-left: 1px solid var(--rand);
+      overflow-y: auto;
+      padding: 18px 18px 30px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .werkzeug-gruppe .gruppen-titel {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .werkzeug-gruppe .gruppen-titel::after { content: ''; flex: 1; height: 1px; background: var(--rand); }
+    #editor-punkt-info { font-family: var(--font-mono); font-size: 12px; margin-bottom: 10px; }
+    .editor-aktionen { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+    .editor-aktionen button { font-size: 12.5px; padding: 8px 11px; }
+    .editor-aktionen select { width: auto; font-size: 12.5px; padding: 8px 28px 8px 10px; }
+
+    .grenz-zeile {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 11px;
+      font-size: 12.5px;
+      font-family: var(--font-mono);
+      background: var(--fl-1);
+      border: 1px solid var(--rand);
+      border-radius: 10px;
+      margin-top: 6px;
+    }
+    .grenz-zeile .farbe { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+    .grenz-zeile span:not(.farbe) { flex: 1; }
+    .grenz-zeile button { padding: 3px 8px; font-size: 11.5px; margin-left: auto; }
+    #editor-trim.hinweis, #editor-grenzen.hinweis { font-size: 12.5px; }
+
+    #editor-medien { display: flex; flex-direction: column; gap: 9px; }
+    .medien-zeile {
+      display: flex;
+      gap: 11px;
+      align-items: flex-start;
+      padding: 10px;
+      background: var(--fl-1);
+      border: 1px solid var(--rand);
+      border-radius: 12px;
+      transition: border-color 160ms ease, opacity 160ms ease;
+    }
+    .medien-zeile:hover { border-color: var(--rand-hell); }
+    .medien-zeile.geloescht { opacity: 0.45; }
+    .medien-zeile .thumb {
+      width: 62px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: var(--fl-2);
+      border: 1px solid var(--rand);
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-2);
+    }
+    .medien-zeile .thumb svg { width: 18px; height: 18px; }
+    .medien-zeile .m-info { flex: 1; min-width: 0; font-size: 12px; color: var(--text-2); }
+    .medien-zeile .m-kopf { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 11.5px; min-width: 0; }
+    .medien-zeile .m-zeit { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .medien-zeile .m-kopf .badge { flex: none; }
+    .medien-zeile .m-info input { margin-top: 7px; font-size: 12.5px; padding: 6px 9px; background: transparent; border-color: transparent; border-bottom: 1px solid var(--rand); border-radius: 0; }
+    .medien-zeile .m-info input:hover { border-bottom-color: var(--rand-hell); }
+    .medien-zeile .m-info input:focus { border-bottom-color: var(--akzent); background: transparent; }
+    .medien-zeile .m-aktionen { display: flex; flex-direction: column; gap: 5px; flex: none; }
+    .medien-zeile .m-aktionen button { padding: 5px 9px; font-size: 11.5px; justify-content: center; }
+    .medien-zeile .m-aktionen button.aktiv { border-color: var(--akzent); color: var(--akzent); background: rgba(245, 165, 36, 0.08); }
+
+    /* — Karten-Marker — */
+    .sel-marker {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--akzent);
+      box-shadow: 0 0 0 3px rgba(6, 8, 12, 0.55), 0 0 18px rgba(245, 165, 36, 0.5);
+    }
+    .m-marker {
+      width: 36px; height: 36px; border-radius: 11px;
+      border: 2px solid rgba(255, 255, 255, 0.92);
+      background: var(--fl-3) center/cover no-repeat;
+      box-shadow: 0 2px 10px rgba(2, 5, 10, 0.6);
+      cursor: grab;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text);
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+    .m-marker:hover { transform: scale(1.12); box-shadow: 0 4px 16px rgba(2, 5, 10, 0.75); }
+    .m-marker svg { width: 15px; height: 15px; }
+    .g-marker, .t-marker {
+      padding: 3px 9px; border-radius: 7px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+      background: rgba(13, 17, 24, 0.92);
+      border: 1px solid var(--rand-hell);
+      color: var(--text);
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(2, 5, 10, 0.5);
+    }
+    .t-marker { border-color: var(--akzent); color: var(--akzent); }
+
+    /* ————————————————— Schmale Viewports ————————————————— */
+    @media (max-width: 960px) {
+      body { overflow: auto; }
+      #app-view { position: static; height: auto; min-height: 100dvh; }
+      .app-rumpf { grid-template-columns: 1fr; }
+      .upload-panel { border-right: none; border-bottom: 1px solid var(--rand); }
+      .tour { flex-wrap: wrap; row-gap: 10px; }
+      .tour-actions { width: 100%; justify-content: flex-end; }
+      .editor-rumpf { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; }
+      .editor-seite { border-left: none; border-top: 1px solid var(--rand); }
+      #editor-status { display: none; }
+      /* Kopf-Aktionen icon-only, damit Speichern nie aus dem Bild läuft */
+      .editor-kopf :is(button:not(.icon), .knopf) { font-size: 0; gap: 0; padding: 10px; }
+    }
   </style>
 </head>
 <body>
-  <header class="brand">
-    <div class="logo">Luhambo <b>Studio</b></div>
-    <button class="leise" id="abmelden" hidden>Abmelden</button>
-  </header>
+  <!-- Icon-Sprite: eigener 24er-Satz, 1.75er-Strich (kein Icon-Font, kein CDN) -->
+  <svg hidden xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="5.5" r="2.5"/>
+        <path d="M8 18.5h6a4 4 0 0 0 0-8H9.5a4 4 0 0 1 0-8" transform="translate(0 1) scale(1 0.98)" opacity="0"/>
+        <path d="M7.7 16.6C10 14 13 13.6 15 11.5c1.6-1.7 1.9-3 1.6-4.3"/>
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 15V4.5"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M4.5 15.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5"/>
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 5.5v13l11-6.5z"/>
+      </symbol>
+      <symbol id="i-stift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 19.5 5 16 16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-3.5.5z"/><path d="m14.5 6.5 3 3"/>
+      </symbol>
+      <symbol id="i-muell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 7h14"/><path d="M9.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v2"/><path d="M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.5l.8-12"/>
+      </symbol>
+      <symbol id="i-zurueck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5.5"/><path d="m11 5.5-6.5 6.5L11 18.5"/>
+      </symbol>
+      <symbol id="i-neu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12a7.5 7.5 0 0 1 13-5.1L19.5 9"/><path d="M19.5 4.5V9H15"/><path d="M19.5 12a7.5 7.5 0 0 1-13 5.1L4.5 15"/><path d="M4.5 19.5V15H9"/>
+      </symbol>
+      <symbol id="i-haken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m4.5 12.5 5 5L19.5 7"/>
+      </symbol>
+      <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7.5 5.5v13M16.5 5.5v13M3.5 9.5h4M3.5 14.5h4M16.5 9.5h4M16.5 14.5h4"/>
+      </symbol>
+      <symbol id="i-abmelden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 4.5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-3"/><path d="M4 12h10"/><path d="m10.5 8.5 3.5 3.5-3.5 3.5"/>
+      </symbol>
+      <symbol id="i-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12.5" cy="4.6" r="1.9"/><path d="M9 21l2.2-5.2L9.6 12l1.2-4.4 2.7-.6 2 3.2 2.5 1"/><path d="m13.5 15.5 2 5.5"/><path d="M9.6 12l-2.6 1.2L6 16"/>
+      </symbol>
+      <symbol id="i-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="16.5" r="3.4"/><circle cx="18" cy="16.5" r="3.4"/><path d="m9.5 8.5 3.5 8 3-7.5h2.4"/><path d="M6 16.5 9.5 8.5H7"/>
+      </symbol>
+      <symbol id="i-tram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="5.5" width="12" height="12" rx="2.5"/><path d="M6 11.5h12"/><path d="M9.5 5.5 12 2.8l2.5 2.7"/><path d="m8.5 17.5-1.5 3M15.5 17.5l1.5 3"/><path d="M9.4 14.6h.01M14.6 14.6h.01" stroke-width="2.4"/>
+      </symbol>
+      <symbol id="i-ferry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 17c1.4 1.2 2.8 1.2 4.2 0 1.3 1.2 2.7 1.2 4 0 1.3 1.2 2.7 1.2 4 0 1.2 1 2.4 1.2 3.8.3"/><path d="m6 14-.8-3.5L12 8.5l6.8 2L18 14"/><path d="M9.5 8.8V6h5v2.8"/>
+      </symbol>
+    </defs>
+  </svg>
 
   <!-- Anmeldung -->
-  <section class="auth" id="login-view">
-    <div class="karte" style="max-width: 420px; margin: 40px auto;">
-      <h2 style="margin-top: 0;">Anmelden</h2>
-      <form id="login-form">
-        <label for="email">E-Mail</label>
-        <input id="email" type="email" autocomplete="username" required />
-        <label for="passwort">Passwort</label>
-        <input id="passwort" type="password" autocomplete="current-password" required />
-        <div class="hinweis fehler" id="login-fehler"></div>
-        <button type="submit" style="margin-top: 16px; width: 100%;">Anmelden</button>
+  <section id="login-view">
+    <div class="login-buehne" aria-hidden="true">
+      <svg class="login-route" viewBox="0 0 700 900" preserveAspectRatio="xMidYMid slice">
+        <path class="kontur" d="M-40 260 C 140 180, 240 320, 430 250 S 760 300, 790 210" />
+        <path class="kontur" d="M-40 330 C 150 250, 250 390, 440 320 S 760 380, 790 290" />
+        <path class="kontur" d="M-40 620 C 120 700, 320 560, 470 660 S 720 740, 790 660" />
+        <path class="kontur" d="M-40 700 C 130 780, 330 640, 480 740 S 720 820, 790 740" />
+        <path d="M60 810 C 180 700, 90 590, 210 500 S 420 430, 430 320 S 560 170, 660 120" />
+        <circle cx="60" cy="810" r="5"/>
+        <circle cx="235" cy="480" r="5"/>
+        <circle cx="435" cy="300" r="5"/>
+        <circle cx="660" cy="120" r="5"/>
+      </svg>
+      <div class="wortmarke">Luhambo <b>Studio</b></div>
+      <div class="login-claim">
+        <h1>Der Schneideraum für deine <em>Reisen</em>.</h1>
+        <p>Aufzeichnen, hochladen, verfeinern: aus GPS-Track, Fotos und Videos wird eine abspielbare 3D-Kamerafahrt — mit echtem Wetter und echter Tageszeit.</p>
+      </div>
+      <div class="login-fuss">GPX · Fotos · Videos → Tour</div>
+    </div>
+    <div class="login-formseite">
+      <form id="login-form" class="login-box">
+        <h2>Anmelden</h2>
+        <p class="unterzeile">Weiter zu deinen Touren.</p>
+        <div class="feld">
+          <label for="email">E-Mail</label>
+          <input id="email" type="email" autocomplete="username" required />
+        </div>
+        <div class="feld">
+          <label for="passwort">Passwort</label>
+          <input id="passwort" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="hinweis fehler" id="login-fehler" role="alert"></div>
+        <button type="submit" class="primaer">Anmelden</button>
       </form>
     </div>
   </section>
 
-  <!-- App -->
+  <!-- App: Upload + Bibliothek -->
   <main id="app-view" hidden>
-    <div class="karte">
-      <h2 style="margin-top: 0;">Neue Tour hochladen</h2>
-      <label for="gpx">GPX-Track</label>
-      <input id="gpx" type="file" accept=".gpx,application/gpx+xml" />
-      <div class="hinweis" id="gpx-info"></div>
+    <header class="topbar">
+      <div class="wortmarke">Luhambo <b>Studio</b></div>
+      <div class="luecke"></div>
+      <span class="benutzer-chip" id="benutzer-chip" hidden><span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span></span>
+      <button class="icon" id="abmelden" hidden title="Abmelden" aria-label="Abmelden"><svg><use href="#i-abmelden"/></svg></button>
+    </header>
+    <div class="app-rumpf">
+      <aside class="upload-panel">
+        <div class="panel-titel"><h2>Neue Tour</h2></div>
+        <p class="panel-untertitel">GPX-Aufzeichnung plus Fotos und Videos — der Rest passiert automatisch.</p>
 
-      <label for="titel">Titel <span style="color:var(--gedimmt)">(leer = automatisch)</span></label>
-      <input id="titel" type="text" placeholder="z. B. Sonntagsrunde am See" />
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Dateien wählen oder hierher ziehen">
+          <svg><use href="#i-upload"/></svg>
+          <div class="dz-haupt">Dateien hierher ziehen</div>
+          <div class="dz-neben">GPX, JPEG, PNG, MP4, MOV — oder <u>durchsuchen</u></div>
+        </div>
+        <input id="dateien" type="file" hidden multiple
+          accept=".gpx,application/gpx+xml,image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" />
 
-      <label for="mode">Fortbewegung</label>
-      <select id="mode">
-        <option value="walk">Zu Fuß</option>
-        <option value="bike" selected>Rad</option>
-        <option value="tram">Tram</option>
-        <option value="ferry">Fähre</option>
-      </select>
+        <div class="datei-chips" id="gpx-chip"></div>
+        <div class="hinweis" id="gpx-info" hidden></div>
+        <div class="datei-chips"><div class="medien-raster" id="medien-raster"></div></div>
+        <div class="hinweis" id="medien-info"></div>
 
-      <label for="medien">Fotos &amp; Videos <span style="color:var(--gedimmt)">(optional, mehrere)</span></label>
-      <input id="medien" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple />
-      <div class="hinweis" id="medien-info"></div>
+        <div class="upload-felder">
+          <div>
+            <label for="titel">Titel <span class="zusatz">— leer lassen für automatische Benennung</span></label>
+            <input id="titel" type="text" placeholder="z. B. Sonntagsrunde am See" />
+          </div>
+          <div>
+            <label id="mode-label">Fortbewegung</label>
+            <div class="segmente" role="radiogroup" aria-labelledby="mode-label">
+              <label><input type="radio" name="mode" value="walk" /><svg><use href="#i-walk"/></svg>Zu Fuß</label>
+              <label><input type="radio" name="mode" value="bike" checked /><svg><use href="#i-bike"/></svg>Rad</label>
+              <label><input type="radio" name="mode" value="tram" /><svg><use href="#i-tram"/></svg>Tram</label>
+              <label><input type="radio" name="mode" value="ferry" /><svg><use href="#i-ferry"/></svg>Fähre</label>
+            </div>
+          </div>
+          <div>
+            <button id="hochladen" class="primaer" disabled><svg><use href="#i-upload"/></svg>Hochladen</button>
+            <progress id="fortschritt" hidden></progress>
+            <div class="hinweis" id="upload-status" role="status"></div>
+          </div>
+        </div>
+      </aside>
 
-      <button id="hochladen" style="margin-top: 18px;" disabled>Hochladen</button>
-      <progress id="fortschritt" hidden></progress>
-      <div class="hinweis" id="upload-status"></div>
-    </div>
-
-    <div class="karte">
-      <h2 style="margin-top: 0;">Meine Touren</h2>
-      <div id="liste"><div class="leer">Wird geladen …</div></div>
+      <section class="bibliothek">
+        <div class="bib-kopf">
+          <h2>Meine Touren</h2>
+          <span class="anzahl" id="touren-anzahl"></span>
+        </div>
+        <div id="liste"></div>
+      </section>
     </div>
   </main>
 
   <!-- Editor (M7) -->
   <section id="editor-view" hidden>
-    <div class="editor-kopf">
-      <button class="leise" id="editor-zurueck">← Zurück</button>
+    <header class="editor-kopf">
+      <button class="icon" id="editor-zurueck" title="Zurück zur Bibliothek" aria-label="Zurück"><svg><use href="#i-zurueck"/></svg></button>
       <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
            per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
       <input id="editor-titel" type="text" placeholder="Titel der Tour" />
-      <a id="editor-vorschau" href="#" target="_blank" rel="noopener">Vorschau ▸</a>
-      <button class="leise" id="editor-reprocess" title="Benennung/Wetter neu ableiten — Bearbeitungen bleiben erhalten">Neu verarbeiten</button>
-      <button id="editor-speichern">Speichern</button>
-    </div>
-    <div class="hinweis" id="editor-status"></div>
-    <div id="editor-map"></div>
-    <div class="editor-spalten">
-      <div class="karte">
-        <h3>Ausgewählter Punkt</h3>
-        <div class="hinweis" id="editor-punkt-info">Auf den Track klicken, um einen Punkt zu wählen.</div>
-        <div class="editor-aktionen">
-          <button class="leise" id="e-trim-start" disabled title="Alles vor diesem Punkt abschneiden">Start ab hier</button>
-          <button class="leise" id="e-trim-ende" disabled title="Alles nach diesem Punkt abschneiden">Ende bis hier</button>
-          <select id="e-grenze-mode">
-            <option value="walk">Zu Fuß</option>
-            <option value="bike">Rad</option>
-            <option value="tram">Tram</option>
-            <option value="ferry">Fähre</option>
-          </select>
-          <button class="leise" id="e-grenze" disabled title="Fortbewegung ab diesem Punkt ändern">ab hier</button>
+      <div class="hinweis" id="editor-status" role="status"></div>
+      <a id="editor-vorschau" class="knopf" href="#" target="_blank" rel="noopener"><svg><use href="#i-play"/></svg>Vorschau</a>
+      <button id="editor-reprocess" title="Benennung/Wetter neu ableiten — Bearbeitungen bleiben erhalten"><svg><use href="#i-neu"/></svg>Neu verarbeiten</button>
+      <button id="editor-speichern" class="primaer"><svg><use href="#i-haken"/></svg>Speichern</button>
+    </header>
+    <div class="editor-rumpf">
+      <div class="karten-buehne">
+        <div id="editor-map"></div>
+        <div id="editor-medien-hinweis"></div>
+      </div>
+      <aside class="editor-seite">
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Ausgewählter Punkt</div>
+          <div class="hinweis" id="editor-punkt-info">Auf den Track klicken, um einen Punkt zu wählen.</div>
+          <div class="editor-aktionen">
+            <button id="e-trim-start" disabled title="Alles vor diesem Punkt abschneiden">⟦ Start ab hier</button>
+            <button id="e-trim-ende" disabled title="Alles nach diesem Punkt abschneiden">Ende bis hier ⟧</button>
+          </div>
+          <div class="editor-aktionen" style="margin-top: 7px;">
+            <select id="e-grenze-mode" aria-label="Fortbewegung ab diesem Punkt">
+              <option value="walk">Zu Fuß</option>
+              <option value="bike">Rad</option>
+              <option value="tram">Tram</option>
+              <option value="ferry">Fähre</option>
+            </select>
+            <button id="e-grenze" disabled title="Fortbewegung ab diesem Punkt ändern">ab hier</button>
+          </div>
         </div>
-        <h3>Trim</h3>
-        <div id="editor-trim" class="hinweis">—</div>
-        <h3>Fortbewegungs-Grenzen</h3>
-        <div id="editor-grenzen" class="hinweis">—</div>
-        <h3>Beschreibung</h3>
-        <textarea id="editor-beschreibung" placeholder="Beschreibung der Tour (optional)"></textarea>
-      </div>
-      <div class="karte">
-        <h3>Medien</h3>
-        <div class="hinweis" id="editor-medien-hinweis"></div>
-        <div id="editor-medien"><div class="leer">Keine Medien.</div></div>
-      </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Trim</div>
+          <div id="editor-trim" class="hinweis">—</div>
+        </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Fortbewegungs-Grenzen</div>
+          <div id="editor-grenzen" class="hinweis">—</div>
+        </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Beschreibung</div>
+          <textarea id="editor-beschreibung" placeholder="Beschreibung der Tour (optional)"></textarea>
+        </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Medien</div>
+          <div id="editor-medien"><div class="leer">Keine Medien.</div></div>
+        </div>
+      </aside>
     </div>
   </section>
 
