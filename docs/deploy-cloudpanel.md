@@ -7,7 +7,7 @@ CloudPanels Nginx übernimmt Webserver, TLS und den `/api`-Reverse-Proxy — der
 
 ```
 Internet ──HTTPS──▶ CloudPanel-Nginx ──┬─▶ dist/ (statischer Web-Build)
-   (Domain, LE-Cert)                    └─▶ /api ▶ 127.0.0.1:8787  (API-Container)
+   (Domain, LE-Cert)                    └─▶ /api ▶ 127.0.0.1:8790  (API-Container)
                                                     └─ SQLite + Medien in /srv/luhambo/daten
 ```
 
@@ -64,7 +64,8 @@ docker compose -f docker-compose.cloudpanel.yml up -d
 docker compose -f docker-compose.cloudpanel.yml logs -f api   # „läuft auf Port 8787"
 ```
 
-Test: `curl -s http://127.0.0.1:8787/api/gesundheit` → `{"ok":true}`.
+Test: `curl -s http://127.0.0.1:8790/api/gesundheit` → `{"ok":true}`. (Host-Port
+8790, weil 8787 auf dem Server belegt ist; container-intern loggt die API 8787.)
 
 ## 4. Web-Build ausliefern
 
@@ -111,6 +112,6 @@ Danach: `npm run release minor` → Tag → automatischer Deploy.
 Falls kein Docker: Node 22 + ffmpeg auf den Host (`apt install ffmpeg`), die API
 als systemd-Dienst (`server/` bauen: `npm ci && npm run build`, dann
 `node dist/index.js` mit denselben Env-Variablen, `LUHAMBO_DATEN_DIR` auf ein
-Verzeichnis mit Schreibrecht). Der Nginx-Vhost bleibt identisch (proxyt weiter
-auf `127.0.0.1:8787`). Der Deploy zieht dann statt `docker compose` einen
+Verzeichnis mit Schreibrecht, `PORT=8790` da 8787 belegt ist). Der Nginx-Vhost
+bleibt identisch (proxyt weiter auf `127.0.0.1:8790`). Der Deploy zieht dann statt `docker compose` einen
 `git pull && npm ci && npm run build && systemctl restart luhambo-api`.

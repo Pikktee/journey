@@ -19,7 +19,10 @@ services:
     restart: unless-stopped
     # NUR Loopback veröffentlichen: erreichbar allein für CloudPanels Nginx.
     ports:
-      - '127.0.0.1:8787:8787'
+      # Host-Port 8790 (nicht 8787): auf dem Zielserver lauscht auf 127.0.0.1:8787
+      # bereits ein anderer Node-Dienst. Container-intern bleibt es 8787. Muss zum
+      # proxy_pass im CloudPanel-Vhost (deploy/cloudpanel-nginx.conf) passen.
+      - '127.0.0.1:8790:8787'
     environment:
       LUHAMBO_DATEN_DIR: /data
       LUHAMBO_COOKIE_SECRET: ${LUHAMBO_COOKIE_SECRET:?LUHAMBO_COOKIE_SECRET in .env setzen}
