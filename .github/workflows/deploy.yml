@@ -1,8 +1,10 @@
 name: Deploy
 
 # Läuft nur bei Version-Tags (vX.Y.Z), erzeugt vom Release-Tool
-# (scripts/release.sh bzw. `npm run release`). Ziel: Hetzner-VPS via
-# Docker Compose — Images aus der GitHub Container Registry (GHCR).
+# (scripts/release.sh bzw. `npm run release`). Ziel: Hetzner-Server mit
+# CloudPanel — die API läuft als Docker-Container (GHCR-Image), CloudPanels
+# Nginx serviert den statischen Web-Build (dist/, per rsync) und proxyt /api.
+# Runbook: docs/deploy-cloudpanel.md.
 
 on:
   push:
@@ -29,6 +31,12 @@ jobs:
           npm test
           npm run typecheck
           npm run build
+      - name: Web-Build als Artefakt sichern (für den Deploy-rsync)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+          retention-days: 1
       - name: Backend — Abhängigkeiten
         working-directory: server
         run: npm ci
@@ -60,6 +68,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    # Der Server-Deploy läuft nur, wenn die CloudPanel-Secrets gesetzt sind. Der
+    # ERSTE Deploy ist manuell (docs/deploy-cloudpanel.md) — bis die Secrets
+    # stehen, baut dieser Job nur das API-Image nach GHCR und überspringt das
+    # Ausrollen (der Tag bleibt trotzdem grün).
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      CLOUDPANEL_DOCROOT: ${{ secrets.CLOUDPANEL_DOCROOT }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -69,16 +86,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Web-Image bauen + pushen
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/pikktee/journey-web:latest
-            ghcr.io/pikktee/journey-web:${{ github.ref_name }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,scope=web,mode=max
+      # Nur die API landet im Container. Den Webserver (statisches dist/) + TLS +
+      # /api-Proxy macht CloudPanels Nginx — kein Caddy-„web"-Image mehr.
       - name: API-Image bauen + pushen
         uses: docker/build-push-action@v6
         with:
@@ -89,18 +98,25 @@ jobs:
             ghcr.io/pikktee/journey-api:${{ github.ref_name }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,scope=api,mode=max
-      - name: Auf dem VPS ausrollen
-        # Benötigte Secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY (Private Key,
-        # Gegenstück in ~/.ssh/authorized_keys des VPS-Nutzers).
-        # Auf dem VPS liegen /srv/luhambo/docker-compose.yml + .env.
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      - name: Web-Build laden (für den rsync in den Site-Docroot)
+        if: ${{ env.CLOUDPANEL_DOCROOT != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+      - name: Auf CloudPanel ausrollen (API-Container + statischer Web-Build)
+        # Secrets (docs/deploy-cloudpanel.md, Tabelle in §5): VPS_HOST, VPS_USER,
+        # VPS_SSH_KEY, CLOUDPANEL_DOCROOT. Der Deploy-User (VPS_USER) muss Docker
+        # ausführen können (root ODER in der docker-Gruppe) UND Schreibrecht im
+        # Site-Docroot haben.
+        if: ${{ env.CLOUDPANEL_DOCROOT != '' }}
         run: |
           mkdir -p ~/.ssh
           echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # API-Container aktualisieren (bindet nur an 127.0.0.1, hinter Nginx)
           ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" \
-            'cd /srv/luhambo && docker compose pull && docker compose up -d && docker image prune -f'
+            'cd /srv/luhambo && docker compose -f docker-compose.cloudpanel.yml pull && docker compose -f docker-compose.cloudpanel.yml up -d && docker image prune -f'
+          # Statischen Web-Build in den Site-Docroot spiegeln
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" dist/ "$VPS_USER@$VPS_HOST:$CLOUDPANEL_DOCROOT/"

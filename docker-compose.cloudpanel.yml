@@ -1,0 +1,37 @@
+# Luhambo auf einem Server MIT CloudPanel: Anders als docker-compose.yml läuft
+# hier NUR die API im Container — den Webserver, TLS und den /api-Reverse-Proxy
+# übernimmt CloudPanels Nginx (siehe deploy/cloudpanel-nginx.conf). Der Caddy-
+# „web"-Service entfällt, damit es keinen Konflikt um Port 80/443 gibt.
+#
+# Die API bindet NUR an 127.0.0.1 — von außen unerreichbar, nur CloudPanels
+# Nginx auf demselben Host proxyt dorthin. Der statische Web-Build (dist/) wird
+# per rsync in das CloudPanel-Site-Verzeichnis geschoben (nicht hier).
+#
+# Erstbetrieb:
+#   1. In CloudPanel eine Site für die Domain anlegen, Reverse-Proxy-Block aus
+#      deploy/cloudpanel-nginx.conf in die Vhost eintragen, SSL aktivieren.
+#   2. /srv/luhambo/.env füllen (SITE-Angaben s. README-Tabelle).
+#   3. docker compose -f docker-compose.cloudpanel.yml up -d
+
+services:
+  api:
+    image: ghcr.io/pikktee/journey-api:latest
+    restart: unless-stopped
+    # NUR Loopback veröffentlichen: erreichbar allein für CloudPanels Nginx.
+    ports:
+      - '127.0.0.1:8787:8787'
+    environment:
+      LUHAMBO_DATEN_DIR: /data
+      LUHAMBO_COOKIE_SECRET: ${LUHAMBO_COOKIE_SECRET:?LUHAMBO_COOKIE_SECRET in .env setzen}
+      LUHAMBO_ADMIN_EMAIL: ${LUHAMBO_ADMIN_EMAIL:-}
+      LUHAMBO_ADMIN_PASSWORT: ${LUHAMBO_ADMIN_PASSWORT:-}
+      # Hinter CloudPanels TLS-Nginx: Cookies bekommen `secure`.
+      LUHAMBO_HINTER_TLS: '1'
+      # Mehrbenutzer-Betrieb (M9)
+      LUHAMBO_BASIS_URL: ${LUHAMBO_BASIS_URL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      LUHAMBO_MAIL_ABSENDER: ${LUHAMBO_MAIL_ABSENDER:-}
+      LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: ${LUHAMBO_MAX_SPEICHER_PRO_BENUTZER:-}
+      LUHAMBO_REGISTRIERUNG_OFFEN: ${LUHAMBO_REGISTRIERUNG_OFFEN:-}
+    volumes:
+      - /srv/luhambo/daten:/data
