@@ -115,7 +115,8 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   Players (`cfg.weather`, Vorrang vor dem Client-Auto-Wetter). `source`
   dokumentiert die Herkunft (`openmeteo` | `photo` ab M5).
 - **Bildanalyse (M5, `server/src/pipeline/vision.ts`)**: optional (nur mit
-  `ANTHROPIC_API_KEY`). Die Fotos werden per Claude Haiku klassifiziert (reine
+  `OPEN_ROUTER_KEY`). Die Fotos werden per Vision-Sprachmodell (OpenRouter,
+  Default `google/gemini-2.5-flash-lite`) klassifiziert (reine
   Klassifikation, keine Medien-Generierung) und übersteuern das API-Wetter LOKAL
   am Foto-Anker — aber nur, wenn das Bild sicher (`himmelSichtbar`,
   Konfidenz ≥ 0.7) **mehr** Wetter zeigt als die API (Rangfolge

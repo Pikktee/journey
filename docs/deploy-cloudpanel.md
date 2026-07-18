@@ -41,7 +41,8 @@ LUHAMBO_ADMIN_PASSWORT=<stark>
 LUHAMBO_BASIS_URL=https://luhambo.henrikheil.net
 RESEND_API_KEY=re_…            # aus deiner lokalen .env
 LUHAMBO_MAIL_ABSENDER=Luhambo <noreply@henrikheil.net>   # Domain muss in Resend verifiziert sein
-ANTHROPIC_API_KEY=sk-ant-…     # optional (M5): Wetter-Verfeinerung per Bildanalyse; fehlt er, bleibt das Auto-Wetter wie in M2
+OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildanalyse (Vision-Modell via OpenRouter); fehlt er, bleibt das Auto-Wetter wie in M2
+# LUHAMBO_VISION_MODELL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
 ```
 
 ## 2. CloudPanel-Site + Vhost + SSL

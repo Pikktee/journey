@@ -27,8 +27,8 @@ export const TEST_KONFIG: Konfig = {
   registrierungOffen: true,
   basisUrl: 'http://localhost:5173',
   mailAbsender: 'Luhambo <noreply@test>',
-  anthropicApiKey: null,
-  anthropicModell: 'claude-haiku-4-5-20251001',
+  openRouterKey: null,
+  visionModell: 'google/gemini-2.5-flash-lite',
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
@@ -64,7 +64,7 @@ export async function baueTestApp(
   // M9: einzelne Konfig-Werte übersteuern (Quota, Registrierung offen/zu …)
   konfigPatch: Partial<Konfig> = {},
   // Default null: keine Bildanalyse (M5) — Vision-Tests geben einen
-  // FesterKlassifikator herein (Spiegelbild des AnthropicKlassifikator in index.ts)
+  // FesterKlassifikator herein (Spiegelbild des OpenRouterKlassifikator in index.ts)
   bildKlassifikator: BildKlassifikator | null = null,
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')

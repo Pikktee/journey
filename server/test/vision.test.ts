@@ -1,10 +1,10 @@
 // Wetter-Verfeinerung per Bildanalyse (M5): Befund→Wetter-Mapping, die
-// Konflikt-Merge-Regel (reine Funktionen, kein Netz) und die Anthropic-Anbindung
+// Konflikt-Merge-Regel (reine Funktionen, kein Netz) und die OpenRouter-Anbindung
 // mit injiziertem fetch (ebenfalls netzlos).
 
 import { describe, expect, it, vi } from 'vitest'
 import {
-  AnthropicKlassifikator,
+  OpenRouterKlassifikator,
   FesterKlassifikator,
   bildBefundZuWetter,
   verfeinereWetterMitFotos,
@@ -116,58 +116,64 @@ describe('verfeinereWetterMitFotos', () => {
   })
 })
 
-describe('AnthropicKlassifikator', () => {
+describe('OpenRouterKlassifikator', () => {
   const bild = { daten: new Uint8Array([1, 2, 3]), medientyp: 'image/jpeg' }
 
-  it('ruft die Messages-API mit Haiku 4.5 + base64-Bild und parst strenges JSON', async () => {
+  it('ruft die OpenRouter-Chat-API mit dem Vision-Modell + base64-Bild und parst strenges JSON', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        content: [{ type: 'text', text: 'Ergebnis: {"himmel":"bedeckt","niederschlag":"regen","himmelSichtbar":true,"konfidenz":0.82}' }],
+        choices: [{ message: { content: 'Ergebnis: {"himmel":"bedeckt","niederschlag":"regen","himmelSichtbar":true,"konfidenz":0.82}' } }],
       }),
     }))
-    const k = new AnthropicKlassifikator('sk-test', fetchMock as unknown as typeof fetch)
+    const k = new OpenRouterKlassifikator('sk-test', fetchMock as unknown as typeof fetch)
     const b = await k.klassifiziere(bild)
     expect(b).toEqual({ himmel: 'bedeckt', niederschlag: 'regen', himmelSichtbar: true, konfidenz: 0.82 })
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.anthropic.com/v1/messages')
-    expect((init.headers as Record<string, string>)['x-api-key']).toBe('sk-test')
-    expect((init.headers as Record<string, string>)['anthropic-version']).toBeTruthy()
+    expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer sk-test')
     const body = JSON.parse(init.body as string) as {
       model: string
-      messages: Array<{ content: Array<{ type: string; source?: { data: string; media_type: string } }> }>
+      messages: Array<{ content: Array<{ type: string; image_url?: { url: string } }> }>
     }
-    expect(body.model).toBe('claude-haiku-4-5-20251001')
-    const bildBlock = body.messages[0]?.content.find((c) => c.type === 'image')
-    expect(bildBlock?.source?.media_type).toBe('image/jpeg')
-    expect(bildBlock?.source?.data).toBe(Buffer.from([1, 2, 3]).toString('base64'))
+    expect(body.model).toBe('google/gemini-2.5-flash-lite')
+    const bildBlock = body.messages[0]?.content.find((c) => c.type === 'image_url')
+    expect(bildBlock?.image_url?.url).toBe(`data:image/jpeg;base64,${Buffer.from([1, 2, 3]).toString('base64')}`)
+  })
+
+  it('nutzt das übergebene Modell-Override', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{}' } }] }) }))
+    const k = new OpenRouterKlassifikator('sk', fetchMock as unknown as typeof fetch, 'openai/gpt-4o-mini')
+    await k.klassifiziere(bild)
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect((JSON.parse(init.body as string) as { model: string }).model).toBe('openai/gpt-4o-mini')
   })
 
   it('liefert einen neutralen Befund (konfidenz 0) bei HTTP-Fehler', async () => {
-    const k = new AnthropicKlassifikator('sk', (async () => ({ ok: false, status: 500 })) as unknown as typeof fetch)
+    const k = new OpenRouterKlassifikator('sk', (async () => ({ ok: false, status: 500 })) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).konfidenz).toBe(0)
   })
 
   it('liefert einen neutralen Befund, wenn die Antwort kein verwertbares JSON enthält', async () => {
-    const k = new AnthropicKlassifikator('sk', (async () => ({
+    const k = new OpenRouterKlassifikator('sk', (async () => ({
       ok: true,
-      json: async () => ({ content: [{ type: 'text', text: 'keine Ahnung, tut mir leid' }] }),
+      json: async () => ({ choices: [{ message: { content: 'keine Ahnung, tut mir leid' } }] }),
     })) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).konfidenz).toBe(0)
   })
 
   it('fängt Netz-Ausnahmen ab (neutraler Befund statt Absturz)', async () => {
-    const k = new AnthropicKlassifikator('sk', (async () => {
+    const k = new OpenRouterKlassifikator('sk', (async () => {
       throw new Error('offline')
     }) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).himmelSichtbar).toBe(false)
   })
 
   it('weist unbekannte Enum-Werte als neutral zurück', async () => {
-    const k = new AnthropicKlassifikator('sk', (async () => ({
+    const k = new OpenRouterKlassifikator('sk', (async () => ({
       ok: true,
-      json: async () => ({ content: [{ type: 'text', text: '{"himmel":"sonnig","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}' }] }),
+      json: async () => ({ choices: [{ message: { content: '{"himmel":"sonnig","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}' } }] }),
     })) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).konfidenz).toBe(0)
   })

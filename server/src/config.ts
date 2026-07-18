@@ -1,6 +1,8 @@
 // Zentrale Konfiguration aus der Umgebung. Alle Werte haben Dev-taugliche
 // Defaults; in Produktion (Docker Compose) kommen sie aus dem Environment.
 
+import { VISION_MODELL_DEFAULT } from './pipeline/vision.js'
+
 export interface Konfig {
   /** TCP-Port der API */
   port: number
@@ -25,10 +27,10 @@ export interface Konfig {
   basisUrl: string
   /** Absender der System-Mails */
   mailAbsender: string
-  /** Anthropic-API-Key für die Wetter-Bildanalyse (M5); null = Feature aus (No-Op) */
-  anthropicApiKey: string | null
-  /** Modell für die Bildanalyse (M5); Default Claude Haiku 4.5 */
-  anthropicModell: string
+  /** OpenRouter-API-Key für die Wetter-Bildanalyse (M5); null = Feature aus (No-Op) */
+  openRouterKey: string | null
+  /** Vision-Modell (M5) über OpenRouter; Default gutes Preis/Leistung, via Env überschreibbar */
+  visionModell: string
 }
 
 // Docker-Compose reicht Variablen als ${VAR:-} durch — nicht gesetzte werden zu
@@ -56,7 +58,7 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     basisUrl: text(env.LUHAMBO_BASIS_URL, 'http://localhost:5173'),
     mailAbsender: text(env.LUHAMBO_MAIL_ABSENDER, 'Luhambo <noreply@luhambo.app>'),
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
-    anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() ? env.ANTHROPIC_API_KEY.trim() : null,
-    anthropicModell: text(env.ANTHROPIC_MODELL, 'claude-haiku-4-5-20251001'),
+    openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
+    visionModell: text(env.LUHAMBO_VISION_MODELL, VISION_MODELL_DEFAULT),
   }
 }

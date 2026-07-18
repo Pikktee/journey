@@ -8,7 +8,7 @@ import { oeffneDb } from './db.js'
 import { KonsoleMail, ResendMail, type MailVersand } from './mail.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
 import { FfmpegWerkzeug } from './pipeline/video.js'
-import { AnthropicKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
+import { OpenRouterKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
 import { OpenMeteoQuelle } from './pipeline/weather.js'
 import { FsStorage } from './storage.js'
 
@@ -21,8 +21,8 @@ const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
 const videoWerkzeug = new FfmpegWerkzeug()
 // Bildanalyse (M5) nur mit Key — sonst null (No-Op, Wetter exakt wie M2).
-const bildKlassifikator: BildKlassifikator | null = konfig.anthropicApiKey
-  ? new AnthropicKlassifikator(konfig.anthropicApiKey, undefined, konfig.anthropicModell)
+const bildKlassifikator: BildKlassifikator | null = konfig.openRouterKey
+  ? new OpenRouterKlassifikator(konfig.openRouterKey, undefined, konfig.visionModell)
   : null
 // Mit RESEND_API_KEY: echter Versand; ohne (Dev/kleine Instanz): Link ins Log.
 const mail: MailVersand = process.env.RESEND_API_KEY

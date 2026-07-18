@@ -180,12 +180,14 @@ export function verfeinereWetterMitFotos(
   return fertig
 }
 
-// — Echte Anthropic-Anbindung (nur Produktion; Tests injizieren fetch/Fake) —
+// — Echte OpenRouter-Anbindung (nur Produktion; Tests injizieren fetch/Fake) —
+// OpenRouter spricht die OpenAI-kompatible Chat-Completions-API und bündelt viele
+// Vision-Modelle hinter EINEM Key — ein Modellwechsel ist dann eine Env-Variable,
+// keine Code-Änderung.
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_VERSION = '2023-06-01'
-/** Modell exakt festgelegt (Plan M5): Claude Haiku 4.5. */
-export const HAIKU_MODELL = 'claude-haiku-4-5-20251001'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+/** Vision-Modell mit gutem Preis/Leistung (überschreibbar via LUHAMBO_VISION_MODELL). */
+export const VISION_MODELL_DEFAULT = 'google/gemini-2.5-flash-lite'
 
 const PROMPT = [
   'Analysiere das Foto und beschreibe ausschließlich die WETTERLAGE am Himmel.',
@@ -229,27 +231,29 @@ function zuBase64(daten: Uint8Array): string {
 type FetchFn = typeof fetch
 
 /**
- * Klassifiziert Fotos per Claude Haiku über die Anthropic Messages API. Der
- * Konstruktor nimmt den API-Key, optional ein `fetch` (injizierbar für Tests)
- * und ein Modell-Override. Fehler (Netz, HTTP, kaputte Antwort) enden im
- * neutralen Befund (konfidenz 0) statt in einer Exception — ein einzelnes Bild
- * darf die Anreicherung nie scheitern lassen.
+ * Klassifiziert Fotos per Vision-Sprachmodell über OpenRouter (OpenAI-kompatible
+ * Chat-Completions). Der Konstruktor nimmt den API-Key, optional ein `fetch`
+ * (injizierbar für Tests) und ein Modell-Override. Fehler (Netz, HTTP, kaputte
+ * Antwort) enden im neutralen Befund (konfidenz 0) statt in einer Exception —
+ * ein einzelnes Bild darf die Anreicherung nie scheitern lassen.
  */
-export class AnthropicKlassifikator implements BildKlassifikator {
+export class OpenRouterKlassifikator implements BildKlassifikator {
   constructor(
     private readonly apiKey: string,
     private readonly fetchFn: FetchFn = fetch,
-    private readonly modell: string = HAIKU_MODELL,
+    private readonly modell: string = VISION_MODELL_DEFAULT,
   ) {}
 
   async klassifiziere(bild: { daten: Uint8Array; medientyp: string }): Promise<BildBefund> {
     try {
-      const antwort = await this.fetchFn(ANTHROPIC_URL, {
+      const antwort = await this.fetchFn(OPENROUTER_URL, {
         method: 'POST',
         headers: {
-          'x-api-key': this.apiKey,
-          'anthropic-version': ANTHROPIC_VERSION,
+          authorization: `Bearer ${this.apiKey}`,
           'content-type': 'application/json',
+          // Optionale OpenRouter-Attribution — taucht in der Nutzungsübersicht auf.
+          'http-referer': 'https://luhambo.henrikheil.net',
+          'x-title': 'Luhambo',
         },
         body: JSON.stringify({
           model: this.modell,
@@ -258,19 +262,16 @@ export class AnthropicKlassifikator implements BildKlassifikator {
             {
               role: 'user',
               content: [
-                {
-                  type: 'image',
-                  source: { type: 'base64', media_type: bild.medientyp, data: zuBase64(bild.daten) },
-                },
                 { type: 'text', text: PROMPT },
+                { type: 'image_url', image_url: { url: `data:${bild.medientyp};base64,${zuBase64(bild.daten)}` } },
               ],
             },
           ],
         }),
       })
       if (!antwort.ok) return NEUTRAL
-      const json = (await antwort.json()) as { content?: Array<{ type?: string; text?: string }> }
-      const text = json.content?.find((c) => c.type === 'text')?.text ?? ''
+      const json = (await antwort.json()) as { choices?: Array<{ message?: { content?: string } }> }
+      const text = json.choices?.[0]?.message?.content ?? ''
       return parseBefund(text)
     } catch {
       return NEUTRAL

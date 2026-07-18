@@ -37,6 +37,8 @@ services:
       LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: ${LUHAMBO_MAX_SPEICHER_PRO_BENUTZER:-}
       LUHAMBO_REGISTRIERUNG_OFFEN: ${LUHAMBO_REGISTRIERUNG_OFFEN:-}
       # Wetter-Bildanalyse (M5) — optional: ohne Key ist das Feature aus (No-Op).
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Vision-Modell läuft über OpenRouter; LUHAMBO_VISION_MODELL überschreibt den Default.
+      OPEN_ROUTER_KEY: ${OPEN_ROUTER_KEY:-}
+      LUHAMBO_VISION_MODELL: ${LUHAMBO_VISION_MODELL:-}
     volumes:
       - /srv/luhambo/daten:/data
