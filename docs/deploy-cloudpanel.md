@@ -86,8 +86,11 @@ Registrierung + Bestätigungsmail funktionieren, ein Test-Upload spielt ab.
 
 [`deploy.yml`](../.github/workflows/deploy.yml) ist bereits auf den
 CloudPanel-Fluss umgestellt: Test-Gate (Web + Backend + Android) → **API-Image**
-nach GHCR → per SSH den API-Container aktualisieren **und** `dist/` in den
-Site-Root synchronisieren (der `web`/Caddy-Image-Schritt entfällt). Der
+nach GHCR → per SSH die **Compose-Datei** auf den Server spiegeln, den
+API-Container aktualisieren **und** `dist/` in den Site-Root synchronisieren
+(der `web`/Caddy-Image-Schritt entfällt). Weil die Compose-Datei mitgespiegelt
+wird, brauchen neue Env-Variablen (z. B. `OPEN_ROUTER_KEY`) künftig nur noch
+eine Zeile in `/srv/luhambo/.env` — die Durchreichung kommt aus dem Repo. Der
 Server-Deploy-Schritt ist an das Secret `CLOUDPANEL_DOCROOT` gekoppelt: solange
 es fehlt, **baut der Tag nur das API-Image** und überspringt das Ausrollen — der
 **erste** Deploy läuft also manuell (Schritte 1–4), danach setzt du die Secrets

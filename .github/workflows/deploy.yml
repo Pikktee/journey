@@ -115,6 +115,10 @@ jobs:
           echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Compose-Datei mitspiegeln, damit Env-Änderungen (neue Keys/Variablen aus dem
+          # Repo) auf dem Server ankommen — `docker compose up -d` unten liest sie dann
+          # frisch. Ohne diesen Schritt driftet die Server-Datei (Repo ist die Quelle).
+          scp -i ~/.ssh/deploy_key docker-compose.cloudpanel.yml "$VPS_USER@$VPS_HOST:/srv/luhambo/docker-compose.cloudpanel.yml"
           # API-Container aktualisieren (bindet nur an 127.0.0.1, hinter Nginx)
           ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" \
             'cd /srv/luhambo && docker compose -f docker-compose.cloudpanel.yml pull && docker compose -f docker-compose.cloudpanel.yml up -d && docker image prune -f'
