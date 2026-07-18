@@ -1,5 +1,7 @@
-// Abspielen im WebView: lädt den gehosteten Web-Player mit ?tour=srv:<id> —
-// komplette Wiederverwendung der Engine (Plan-Entscheid), braucht Internet.
+// Abspielen im WebView: lädt den gehosteten Web-Player mit /erlebnis.html?tour=srv:<id>
+// — komplette Wiederverwendung der Engine (Plan-Entscheid), braucht Internet.
+// (Die Landing liegt auf `/`; ältere App-Versionen mit `/?tour=…` fängt ein
+// Redirect in index.html ab.)
 package app.luhambo.ui
 
 import android.annotation.SuppressLint
@@ -43,7 +45,7 @@ fun PlayerScreen(serverUrl: String, serverTourId: String, zurueck: () -> Unit) {
                     settings.domStorageEnabled = true
                     // MapLibre GL braucht WebGL — in modernen WebViews vorhanden
                     webViewClient = WebViewClient()
-                    loadUrl("$serverUrl/?tour=srv:$serverTourId")
+                    loadUrl("$serverUrl/erlebnis.html?tour=srv:$serverTourId")
                 }
             },
         )

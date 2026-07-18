@@ -7,11 +7,15 @@ export default defineConfig({
     // Targets (TLA: Chrome 89+/Firefox 89+/Safari 15+) kann die App ohnehin
     // voraussetzen, MapLibre GL verlangt moderne Browser.
     target: ['es2022', 'chrome107', 'edge107', 'firefox104', 'safari16'],
-    // Einstiegsseiten: Player (index.html), Studio (studio.html) und die
-    // statischen Rechtstexte (M9), damit sie im dist/-Build landen.
+    // Einstiegsseiten: Landing (index.html), Player (erlebnis.html), Studio
+    // (studio.html) und die statischen Rechtstexte (M9), damit sie im
+    // dist/-Build landen. `/` ist die schlanke Landing (kein MapLibre), der
+    // Player liegt unter /erlebnis.html — Alt-Deeplinks `/?tour=…` (und die
+    // App-WebView) fängt ein Redirect in index.html ab.
     rollupOptions: {
       input: {
         main: 'index.html',
+        erlebnis: 'erlebnis.html',
         studio: 'studio.html',
         impressum: 'impressum.html',
         datenschutz: 'datenschutz.html',

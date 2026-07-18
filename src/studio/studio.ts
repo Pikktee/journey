@@ -303,7 +303,7 @@ async function ladeListe(): Promise<void> {
       ${badge(t.status)}
       <div class="tour-actions">
         ${t.status === 'bereit' ? sichtbarkeitSelect(t.id, t.visibility) : ''}
-        ${t.status === 'bereit' ? `<a class="knopf" href="/?tour=srv:${t.id}" target="_blank" rel="noopener">${icon('play')}Abspielen</a>` : ''}
+        ${t.status === 'bereit' ? `<a class="knopf" href="/erlebnis.html?tour=srv:${t.id}" target="_blank" rel="noopener">${icon('play')}Abspielen</a>` : ''}
         ${t.status === 'bereit' || t.status === 'fehler' ? `<button data-bearbeiten="${t.id}">${icon('stift')}Bearbeiten</button>` : ''}
         <button class="icon gefahr" data-loeschen="${t.id}" title="Tour löschen" aria-label="Tour löschen">${icon('muell')}</button>
       </div>`
@@ -606,7 +606,7 @@ els.hochladen.addEventListener('click', async () => {
 
 function fertig(id: string, text: string): void {
   els.uploadStatus.className = 'hinweis ok'
-  els.uploadStatus.innerHTML = `${escape(text)} <a href="/?tour=srv:${id}" target="_blank" rel="noopener">Abspielen ▸</a>`
+  els.uploadStatus.innerHTML = `${escape(text)} <a href="/erlebnis.html?tour=srv:${id}" target="_blank" rel="noopener">Abspielen ▸</a>`
   leereAuswahl()
   void ladeListe()
 }

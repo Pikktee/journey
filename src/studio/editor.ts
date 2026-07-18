@@ -111,7 +111,7 @@ async function ladeDaten(tourId: string): Promise<void> {
   }
   ;($('editor-titel') as HTMLInputElement).value = daten.title ?? ''
   ;($('editor-beschreibung') as HTMLTextAreaElement).value = daten.description ?? ''
-  ;($('editor-vorschau') as HTMLAnchorElement).href = `/?tour=srv:${tourId}`
+  ;($('editor-vorschau') as HTMLAnchorElement).href = `/erlebnis.html?tour=srv:${tourId}`
   ;($('editor-vorschau') as HTMLAnchorElement).style.display = daten.status === 'bereit' ? '' : 'none'
 
   if (!karte) {
