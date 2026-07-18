@@ -190,6 +190,8 @@
     }
     .login-buehne .wortmarke { font-family: var(--font-display); font-size: 21px; letter-spacing: 0.01em; }
     .login-buehne .wortmarke b { color: var(--akzent); font-weight: 600; }
+    .wortmarke a { color: inherit; text-decoration: none; transition: opacity 0.2s ease; }
+    .wortmarke a:hover { opacity: 0.8; }
     .login-claim h1 {
       font-size: clamp(34px, 4.2vw, 52px);
       line-height: 1.08;
@@ -921,7 +923,7 @@
         <circle cx="435" cy="300" r="5"/>
         <circle cx="660" cy="120" r="5"/>
       </svg>
-      <div class="wortmarke">Luhambo <b>Studio</b></div>
+      <div class="wortmarke"><a href="/" title="Zur Startseite">Luhambo <b>Studio</b></a></div>
       <div class="login-claim">
         <h1>Der Schneideraum für deine <em>Reisen</em>.</h1>
         <p>Aufzeichnen, hochladen, verfeinern: aus GPS-Track, Fotos und Videos wird eine abspielbare 3D-Kamerafahrt — mit echtem Wetter und echter Tageszeit.</p>
@@ -1001,6 +1003,7 @@
         </form>
 
         <p class="auth-rechtstexte">
+          <a href="/">Startseite</a> ·
           <a href="/impressum.html" target="_blank" rel="noopener">Impressum</a> ·
           <a href="/datenschutz.html" target="_blank" rel="noopener">Datenschutz</a>
         </p>
@@ -1011,7 +1014,7 @@
   <!-- App: Upload + Bibliothek -->
   <main id="app-view" hidden>
     <header class="topbar">
-      <div class="wortmarke">Luhambo <b>Studio</b></div>
+      <div class="wortmarke"><a href="/" title="Zur Startseite">Luhambo <b>Studio</b></a></div>
       <div class="luecke"></div>
       <div class="konto-wrap">
         <button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false">

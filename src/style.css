@@ -177,6 +177,16 @@ body.cinema .cine {
   color: var(--amber);
 }
 
+/* Der Marken-Kicker ist ein Home-Link zur Landing — .brand ist sonst pointer-events:none,
+   darum hier explizit klickbar (nur der Kicker, nicht der ganze Overlay). */
+a.brand-kicker {
+  display: inline-block;
+  pointer-events: auto;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+a.brand-kicker:hover { opacity: 0.72; }
+
 .brand-title {
   margin: 4px 0 6px;
   font-family: var(--font-display);
@@ -380,6 +390,20 @@ body.cinema .cine {
 .tour-picker button:hover {
   color: var(--text);
 }
+
+/* „Zur Startseite" unter dem Tour-Picker im Intro-Menü */
+.intro-home {
+  display: inline-block;
+  margin-top: 24px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.intro-home:hover { color: var(--text); }
 
 .tour-picker button.active {
   background: rgba(245, 165, 36, 0.18);
