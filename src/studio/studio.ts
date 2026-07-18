@@ -22,13 +22,33 @@ const els = {
   loginView: $('login-view'),
   appView: $('app-view'),
   abmelden: $<HTMLButtonElement>('abmelden'),
-  benutzerChip: $('benutzer-chip'),
+  benutzerChip: $<HTMLButtonElement>('benutzer-chip'),
   benutzerName: $('benutzer-name'),
   benutzerInitial: $('benutzer-initial'),
   loginForm: $<HTMLFormElement>('login-form'),
   email: $<HTMLInputElement>('email'),
   passwort: $<HTMLInputElement>('passwort'),
   loginFehler: $('login-fehler'),
+  // M9: Registrierung / Passwort-Reset
+  authBox: $('auth-box'),
+  registerForm: $<HTMLFormElement>('register-form'),
+  regName: $<HTMLInputElement>('reg-name'),
+  regEmail: $<HTMLInputElement>('reg-email'),
+  regPasswort: $<HTMLInputElement>('reg-passwort'),
+  registerFehler: $('register-fehler'),
+  resetAnfordernForm: $<HTMLFormElement>('reset-anfordern-form'),
+  resetEmail: $<HTMLInputElement>('reset-email'),
+  resetAnfordernStatus: $('reset-anfordern-status'),
+  resetSetzenForm: $<HTMLFormElement>('reset-setzen-form'),
+  resetPasswort: $<HTMLInputElement>('reset-passwort'),
+  resetSetzenFehler: $('reset-setzen-fehler'),
+  // M9: Konto-Menü + Verifikations-Banner
+  kontoMenue: $('konto-menue'),
+  kmMail: $('km-mail'),
+  kmQuotaText: $('km-quota-text'),
+  kmBalkenFuell: $('km-balken-fuell'),
+  kontoLoeschen: $<HTMLButtonElement>('konto-loeschen'),
+  verifyBanner: $('verify-banner'),
   dropzone: $('dropzone'),
   dateien: $<HTMLInputElement>('dateien'),
   gpxChip: $('gpx-chip'),
@@ -65,33 +85,174 @@ function zeigeBenutzer(benutzer: api.Benutzer | null): void {
   const anzeige = benutzer?.name || benutzer?.email || ''
   els.benutzerName.textContent = anzeige
   els.benutzerInitial.textContent = anzeige.slice(0, 1)
+  els.kmMail.textContent = benutzer?.email ?? ''
+}
+
+// — Auth-Modus umschalten (Anmelden / Registrieren / Reset) —
+type AuthModus = 'login' | 'register' | 'reset-anfordern' | 'reset-setzen'
+const authFormen: Record<AuthModus, HTMLFormElement> = {
+  login: els.loginForm,
+  register: els.registerForm,
+  'reset-anfordern': els.resetAnfordernForm,
+  'reset-setzen': els.resetSetzenForm,
+}
+
+function zeigeAuthModus(modus: AuthModus): void {
+  for (const [name, form] of Object.entries(authFormen)) form.hidden = name !== modus
+}
+
+// Modus-Wechsel-Links (data-modus) in allen Auth-Formularen
+els.authBox.querySelectorAll<HTMLButtonElement>('[data-modus]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    els.loginFehler.textContent = ''
+    els.registerFehler.textContent = ''
+    zeigeAuthModus(btn.dataset.modus as AuthModus)
+  })
+})
+
+/** Verifikations-Stand: Banner + Upload-Sperre + Quota-Balken aktualisieren. */
+let uploadGesperrt = false
+
+function zeigeSitzung(sitzung: api.Sitzung): void {
+  const unbestaetigt = sitzung.benutzer !== null && sitzung.verifiziert === false
+  els.verifyBanner.hidden = !unbestaetigt
+  uploadGesperrt = unbestaetigt
+  els.hochladen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
+  aktualisiereUploadKnopf()
+  if (sitzung.quota) {
+    const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
+    const anteil = sitzung.quota.limit > 0 ? sitzung.quota.benutzt / sitzung.quota.limit : 0
+    els.kmQuotaText.textContent = `${mb(sitzung.quota.benutzt)} / ${mb(sitzung.quota.limit)} MB`
+    els.kmBalkenFuell.style.width = `${Math.min(100, anteil * 100).toFixed(0)}%`
+    els.kmBalkenFuell.classList.toggle('voll', anteil > 0.9)
+  }
+}
+
+async function ladeSitzung(): Promise<api.Sitzung> {
+  const sitzung = await api.me()
+  zeigeBenutzer(sitzung.benutzer)
+  zeige(!!sitzung.benutzer)
+  if (sitzung.benutzer) {
+    zeigeSitzung(sitzung)
+    await ladeListe()
+  }
+  return sitzung
 }
 
 async function pruefeAnmeldung(): Promise<void> {
-  const benutzer = await api.me()
-  zeigeBenutzer(benutzer)
-  zeige(!!benutzer)
-  if (benutzer) await ladeListe()
+  // Zuerst Mail-Links aus der URL abarbeiten (#verify=… / #reset=…)
+  await behandleAuthHash()
+  await ladeSitzung()
 }
+
+/** E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln. */
+async function behandleAuthHash(): Promise<void> {
+  const hash = location.hash.slice(1)
+  const verify = hash.match(/(?:^|&)verify=([^&]+)/)?.[1]
+  const reset = hash.match(/(?:^|&)reset=([^&]+)/)?.[1]
+  if (verify) {
+    history.replaceState(null, '', location.pathname + location.search)
+    try {
+      await api.verifiziereEmail(decodeURIComponent(verify))
+      hinweisToast('E-Mail bestätigt — du kannst jetzt hochladen.') // danach eingeloggt → App-View sichtbar
+    } catch (fehler) {
+      // Fehlschlag heißt: nicht eingeloggt → App-View bleibt verborgen. Die
+      // Meldung gehört daher ins (sichtbare) Login-Fehlerfeld.
+      els.loginFehler.textContent = (fehler as Error).message
+    }
+  } else if (reset) {
+    history.replaceState(null, '', location.pathname + location.search)
+    resetToken = decodeURIComponent(reset)
+    zeigeAuthModus('reset-setzen')
+  }
+}
+
+let resetToken: string | null = null
 
 els.loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   els.loginFehler.textContent = ''
   try {
-    const { benutzer } = await api.login(els.email.value.trim(), els.passwort.value)
+    await api.login(els.email.value.trim(), els.passwort.value)
     els.passwort.value = ''
-    zeigeBenutzer(benutzer)
-    zeige(true)
-    await ladeListe()
+    await ladeSitzung()
   } catch (fehler) {
     els.loginFehler.textContent = (fehler as Error).message
+  }
+})
+
+els.registerForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  els.registerFehler.textContent = ''
+  try {
+    await api.registriere(els.regEmail.value.trim(), els.regPasswort.value, els.regName.value.trim())
+    els.regPasswort.value = ''
+    await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
+  } catch (fehler) {
+    els.registerFehler.textContent = (fehler as Error).message
+  }
+})
+
+els.resetAnfordernForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  await api.passwortResetAnfordern(els.resetEmail.value.trim())
+  // Bewusst neutrale Rückmeldung (keine Existenz-Auskunft)
+  els.resetAnfordernStatus.textContent = 'Falls ein Konto existiert, ist eine E-Mail unterwegs.'
+  els.resetAnfordernStatus.className = 'hinweis ok'
+})
+
+els.resetSetzenForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  els.resetSetzenFehler.textContent = ''
+  if (!resetToken) return
+  try {
+    await api.passwortReset(resetToken, els.resetPasswort.value)
+    resetToken = null
+    await ladeSitzung()
+  } catch (fehler) {
+    els.resetSetzenFehler.textContent = (fehler as Error).message
   }
 })
 
 els.abmelden.addEventListener('click', async () => {
   await api.logout()
   zeige(false)
+  zeigeAuthModus('login')
 })
+
+// — Konto-Menü (Quota + Konto löschen) —
+els.benutzerChip.addEventListener('click', () => {
+  const auf = els.kontoMenue.hidden
+  els.kontoMenue.hidden = !auf
+  els.benutzerChip.setAttribute('aria-expanded', String(auf))
+})
+document.addEventListener('click', (e) => {
+  if (!els.kontoMenue.hidden && !(e.target as HTMLElement).closest('.konto-wrap')) {
+    els.kontoMenue.hidden = true
+    els.benutzerChip.setAttribute('aria-expanded', 'false')
+  }
+})
+
+els.kontoLoeschen.addEventListener('click', async () => {
+  // Zweistufig: erster Klick schärft, zweiter löscht endgültig.
+  if (!els.kontoLoeschen.dataset.scharf) {
+    els.kontoLoeschen.dataset.scharf = '1'
+    els.kontoLoeschen.textContent = 'Endgültig löschen — alle Touren!'
+    setTimeout(() => {
+      if (!els.kontoLoeschen.isConnected || !els.kontoLoeschen.dataset.scharf) return
+      delete els.kontoLoeschen.dataset.scharf
+      els.kontoLoeschen.textContent = 'Konto löschen …'
+    }, 4000)
+    return
+  }
+  await api.loescheKonto()
+  location.reload()
+})
+
+function hinweisToast(text: string, fehler = false): void {
+  els.uploadStatus.textContent = text
+  els.uploadStatus.className = fehler ? 'upload-status fehler' : 'upload-status ok'
+}
 
 // — Tour-Liste —
 
@@ -103,6 +264,15 @@ function badge(status: string): string {
 function datum(iso: string): string {
   const d = new Date(iso)
   return Number.isFinite(d.getTime()) ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+}
+
+/** Sichtbarkeits-Auswahl je Tour (M9): privat / per Link / öffentlich. */
+function sichtbarkeitSelect(id: string, aktuell: string): string {
+  const opt = (wert: string, text: string): string =>
+    `<option value="${wert}"${wert === aktuell ? ' selected' : ''}>${text}</option>`
+  return `<select class="sicht-select" data-sicht="${id}" title="Sichtbarkeit" aria-label="Sichtbarkeit">
+    ${opt('private', 'Privat')}${opt('unlisted', 'Per Link')}${opt('public', 'Öffentlich')}
+  </select>`
 }
 
 async function ladeListe(): Promise<void> {
@@ -132,12 +302,19 @@ async function ladeListe(): Promise<void> {
       <div class="titel"><div class="t-name">${escape(t.title ?? '(ohne Titel)')}</div><small>${meta}</small></div>
       ${badge(t.status)}
       <div class="tour-actions">
+        ${t.status === 'bereit' ? sichtbarkeitSelect(t.id, t.visibility) : ''}
         ${t.status === 'bereit' ? `<a class="knopf" href="/?tour=srv:${t.id}" target="_blank" rel="noopener">${icon('play')}Abspielen</a>` : ''}
         ${t.status === 'bereit' || t.status === 'fehler' ? `<button data-bearbeiten="${t.id}">${icon('stift')}Bearbeiten</button>` : ''}
         <button class="icon gefahr" data-loeschen="${t.id}" title="Tour löschen" aria-label="Tour löschen">${icon('muell')}</button>
       </div>`
     els.liste.appendChild(el)
   }
+  // Sichtbarkeit ändern → PATCH; „unlisted"/„public" = per Link teilbar
+  els.liste.querySelectorAll<HTMLSelectElement>('[data-sicht]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      await api.patchTour(sel.dataset.sicht!, { visibility: sel.value as 'private' | 'unlisted' | 'public' })
+    })
+  })
   els.liste.querySelectorAll<HTMLButtonElement>('[data-loeschen]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       // Zweistufig statt confirm(): erster Klick schärft, zweiter löscht.
@@ -302,7 +479,14 @@ function renderAuswahl(): void {
     els.medienRaster.appendChild(kachel)
   }
 
-  els.hochladen.disabled = !(gpxText !== null && gpxZeitspanne(gpxText ?? ''))
+  aktualisiereUploadKnopf()
+}
+
+// Upload nur bei gültigem GPX UND bestätigter E-Mail (M9). Beide Quellen
+// (Dateiwahl, Verifikations-Stand) rufen diesen einen Ort.
+function aktualisiereUploadKnopf(): void {
+  const bereit = gpxText !== null && !!gpxZeitspanne(gpxText ?? '')
+  els.hochladen.disabled = !bereit || uploadGesperrt
 }
 
 // — Upload —
@@ -401,13 +585,20 @@ els.hochladen.addEventListener('click', async () => {
     } else {
       const t = await api.tour(id)
       const unplatziert = (t.media ?? []).filter((m) => m.placement === 'unplatziert').length
-      fertig(id, unplatziert ? `Fertig — ${unplatziert} Medien blieben unplatziert.` : 'Fertig.')
+      fertig(
+        id,
+        unplatziert
+          ? `Fertig — ${unplatziert === 1 ? 'ein Medium blieb' : `${unplatziert} Medien blieben`} unplatziert (im Editor platzierbar).`
+          : 'Fertig.',
+      )
     }
     await ladeListe()
+    // Quota nach dem Upload nachziehen (Balken im Konto-Menü)
+    zeigeSitzung(await api.me())
   } catch (fehler) {
     setzeStatus((fehler as Error).message, 'fehler')
   } finally {
-    els.hochladen.disabled = false
+    aktualisiereUploadKnopf()
     els.fortschritt.hidden = true
     renderAuswahl()
   }

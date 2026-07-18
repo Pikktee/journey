@@ -90,11 +90,22 @@ describe('Auth', () => {
     expect((antwort.json() as { benutzer: { email: string } }).benutzer.email).toBe('test@example.com')
   })
 
-  it('beendet Sessions beim Logout', async () => {
+  it('beendet Sessions beim Logout (me() antwortet danach mit benutzer null)', async () => {
     const u = await baueTestApp()
     await u.app.inject({ method: 'POST', url: '/api/auth/logout', cookies: u.cookies })
     const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me', cookies: u.cookies })
-    expect(antwort.statusCode).toBe(401)
+    expect(antwort.statusCode).toBe(200)
+    expect((antwort.json() as { benutzer: unknown }).benutzer).toBeNull()
+    // Schreibzugriffe bleiben nach dem Logout gesperrt
+    const schreiben = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: beispielManifest() })
+    expect(schreiben.statusCode).toBe(401)
+  })
+
+  it('me() ohne Anmeldung: 200 mit benutzer null statt 401 (kein Konsole-Rauschen)', async () => {
+    const u = await baueTestApp()
+    const antwort = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
+    expect(antwort.statusCode).toBe(200)
+    expect((antwort.json() as { benutzer: unknown }).benutzer).toBeNull()
   })
 })
 
@@ -601,7 +612,8 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(antwort.statusCode).toBe(200)
     const daten = antwort.json() as {
       segmente: Array<{ mode: string; pts: number[][] }>
-      medien: Array<{ id: string; placement: string; src: string }>
+      medien: Array<{ id: string; placement: string; src: string; gpsAnker?: [number, number] }>
+      audio: unknown[]
       edits: { schema: string }
       time: { start: string }
     }
@@ -609,7 +621,23 @@ describe('Edit-Overlay + Editor (M7)', () => {
     // Trackpunkte behalten den Zeit-Offset (4. Koordinate) — Trim/Grenzen brauchen ihn
     expect(daten.segmente[0]?.pts[0]).toHaveLength(4)
     expect(daten.medien[0]).toMatchObject({ id: 'm1', placement: 'gps', src: `/api/media/${id}/m1.jpg` })
+    // Roher Manifest-Anker als gpsAnker (Baukasten: „GPS-Ort verwenden")
+    expect(daten.medien[0]?.gpsAnker).toEqual([7.9105, 46.59])
+    // Ohne hochgeladene Audio-Dateien ist die Liste leer (Fotos zählen nicht)
+    expect(daten.audio).toEqual([])
     expect(daten.edits.schema).toBe('luhambo/edits@1')
+  })
+
+  it('Editor-Daten lassen gpsAnker weg, wenn das Manifest keinen Anker trägt', async () => {
+    const u = await baueTestApp()
+    const manifest = beispielManifest()
+    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T10:00:00+02:00' })
+    const id = await legeTourAn(u, manifest)
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const daten = antwort.json() as { medien: Array<{ id: string }> }
+    const m2 = daten.medien.find((m) => m.id === 'm2')
+    expect(m2).toBeDefined()
+    expect(m2 && 'gpsAnker' in m2).toBe(false)
   })
 
   it('Editor-Daten funktionieren auch für GPX-Quellen', async () => {

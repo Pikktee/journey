@@ -10,10 +10,17 @@ export type Modus = 'walk' | 'bike' | 'tram' | 'ferry'
 /** Trackpunkt der Editor-Daten: [lng, lat, ele, tOffsetS] */
 export type TrackPunkt = [number, number, number, number]
 
+/** Anzeigeoptionen eines Fotos (holdS = Haltedauer in s, kenBurns aus = statisch) */
+export interface DisplayEdit {
+  holdS?: number
+  kenBurns?: boolean
+}
+
 export interface MediumEdit {
   caption?: string
   anchor?: [number, number]
   geloescht?: boolean
+  display?: DisplayEdit
 }
 
 export interface ModusGrenze {
@@ -21,11 +28,30 @@ export interface ModusGrenze {
   mode: Modus
 }
 
+export type KameraPreset = 'nah' | 'mittel' | 'weit'
+
+/** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
+export interface KameraGrenze {
+  ab: string
+  preset: KameraPreset
+}
+
+/** Platziertes Audio-Asset: Musik mit Bereich [ab,bis], SFX als Einzelschuss. */
+export interface AudioEintrag {
+  datei: string
+  typ: 'musik' | 'sfx'
+  ab: string
+  bis?: string
+  lautstaerke?: number
+}
+
 export interface EditOverlay {
   schema: 'luhambo/edits@1'
   medien?: Record<string, MediumEdit>
   modi?: ModusGrenze[]
   trim?: { start?: string; ende?: string }
+  kamera?: KameraGrenze[]
+  audio?: AudioEintrag[]
 }
 
 export interface EditorSegment {
@@ -49,6 +75,75 @@ export function isoZuOffset(startIso: string, iso: string): number {
 
 // — Geometrie —
 
+export interface TrackProjektion {
+  /** interpolierter Punkt AUF der Track-Linie (inkl. tOffset) */
+  punkt: TrackPunkt
+  /** Index des Anfangspunkts des getroffenen Liniensegments */
+  index: number
+}
+
+/**
+ * Lotfußpunkt von [lng,lat] auf die Track-LINIE (lokale Plattkarte). Anders
+ * als naechsterPunktIndex wird zwischen den Stützpunkten interpoliert — der
+ * Editor-Track ist Douglas-Peucker-vereinfacht, auf Geraden (Fähre!) liegen
+ * Stützpunkte kilometerweit auseinander; ein Vertex-Snap versetzte Anker dort
+ * um ganze Kilometer (Bughunt-Befund).
+ */
+export function projiziereAufTrack(punkte: readonly TrackPunkt[], lng: number, lat: number): TrackProjektion {
+  if (punkte.length < 2) {
+    const p = punkte[0] ?? [lng, lat, 0, 0]
+    return { punkt: [p[0], p[1], p[2], p[3]], index: 0 }
+  }
+  const kx = Math.cos(((punkte[0]?.[1] ?? lat) * Math.PI) / 180)
+  const px = lng * kx
+  let best: TrackProjektion = { punkt: [...(punkte[0] as TrackPunkt)] as TrackPunkt, index: 0 }
+  let bestD = Infinity
+  for (let i = 0; i < punkte.length - 1; i++) {
+    const a = punkte[i] as TrackPunkt
+    const b = punkte[i + 1] as TrackPunkt
+    const ax = a[0] * kx
+    const bx = b[0] * kx
+    const dx = bx - ax
+    const dy = b[1] - a[1]
+    const len2 = dx * dx + dy * dy
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (lat - a[1]) * dy) / len2))
+    const qx = ax + dx * t
+    const qy = a[1] + dy * t
+    const d = (px - qx) * (px - qx) + (lat - qy) * (lat - qy)
+    if (d < bestD) {
+      bestD = d
+      best = {
+        punkt: [
+          a[0] + (b[0] - a[0]) * t,
+          a[1] + (b[1] - a[1]) * t,
+          a[2] + (b[2] - a[2]) * t,
+          a[3] + (b[3] - a[3]) * t,
+        ],
+        index: i,
+      }
+    }
+  }
+  return best
+}
+
+/** Interpolierte Track-Position zu einem Zeit-Offset (s); geklemmt an die Enden. */
+export function punktZuOffset(punkte: readonly TrackPunkt[], tOffsetS: number): TrackPunkt | null {
+  const erster = punkte[0]
+  const letzter = punkte[punkte.length - 1]
+  if (!erster || !letzter) return null
+  if (tOffsetS <= erster[3]) return [...erster] as TrackPunkt
+  if (tOffsetS >= letzter[3]) return [...letzter] as TrackPunkt
+  for (let i = 1; i < punkte.length; i++) {
+    const a = punkte[i - 1] as TrackPunkt
+    const b = punkte[i] as TrackPunkt
+    if (tOffsetS <= b[3]) {
+      const t = b[3] === a[3] ? 0 : (tOffsetS - a[3]) / (b[3] - a[3])
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, tOffsetS]
+    }
+  }
+  return [...letzter] as TrackPunkt
+}
+
 /** Index des Trackpunkts, der [lng,lat] am nächsten liegt (lokale Plattkarte). */
 export function naechsterPunktIndex(punkte: readonly TrackPunkt[], lng: number, lat: number): number {
   const kx = Math.cos(((punkte[0]?.[1] ?? lat) * Math.PI) / 180)
@@ -70,19 +165,21 @@ export function naechsterPunktIndex(punkte: readonly TrackPunkt[], lng: number, 
 // — Overlay immutabel fortschreiben (leere Strukturen werden weggeräumt,
 //    damit das gespeicherte JSON minimal bleibt) —
 
-/** Patch-Semantik: Schlüssel vorhanden + undefined/false = Override entfernen. */
+/** Patch-Semantik: Schlüssel vorhanden + undefined/false/leer = Override entfernen. */
 export interface MediumEditPatch {
   caption?: string | undefined
   anchor?: [number, number] | undefined
   geloescht?: boolean | undefined
+  display?: DisplayEdit | undefined
 }
 
 export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditPatch): EditOverlay {
   const eintrag: MediumEdit = { ...(edits.medien?.[id] ?? {}) }
-  for (const key of ['caption', 'anchor', 'geloescht'] as const) {
+  for (const key of ['caption', 'anchor', 'geloescht', 'display'] as const) {
     if (!(key in patch)) continue
     const wert = patch[key]
-    if (wert === undefined || wert === false) delete eintrag[key]
+    const leeresDisplay = key === 'display' && wert !== undefined && !Object.keys(wert).length
+    if (wert === undefined || wert === false || leeresDisplay) delete eintrag[key]
     else (eintrag as Record<string, unknown>)[key] = wert
   }
   const medien = { ...(edits.medien ?? {}) }
@@ -120,11 +217,93 @@ export function mitTrim(edits: EditOverlay, teil: 'start' | 'ende', iso: string 
   return naechste
 }
 
+/** Grenze setzen/ersetzen (gleicher `ab`-Zeitpunkt = ersetzen), sortiert. */
+export function mitKameraGrenze(edits: EditOverlay, ab: string, preset: KameraPreset): EditOverlay {
+  const kamera = (edits.kamera ?? []).filter((g) => g.ab !== ab)
+  kamera.push({ ab, preset })
+  kamera.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
+  return { ...edits, kamera }
+}
+
+export function ohneKameraGrenze(edits: EditOverlay, ab: string): EditOverlay {
+  const kamera = (edits.kamera ?? []).filter((g) => g.ab !== ab)
+  const naechste: EditOverlay = { ...edits }
+  if (kamera.length) naechste.kamera = kamera
+  else delete naechste.kamera
+  return naechste
+}
+
+// — Audio-Einträge (Identität = Index im Overlay-Array, Reihenfolge stabil) —
+
+export function mitAudioEintrag(edits: EditOverlay, eintrag: AudioEintrag): EditOverlay {
+  return { ...edits, audio: [...(edits.audio ?? []), eintrag] }
+}
+
+/** Patch-Semantik wie MediumEditPatch: Schlüssel vorhanden + undefined = entfernen. */
+export interface AudioPatch {
+  typ?: 'musik' | 'sfx'
+  ab?: string
+  bis?: string | undefined
+  lautstaerke?: number | undefined
+}
+
+export function mitAudioPatch(edits: EditOverlay, index: number, patch: AudioPatch): EditOverlay {
+  const audio = (edits.audio ?? []).map((e, i) => {
+    if (i !== index) return e
+    const neu: AudioEintrag = { ...e }
+    for (const key of ['typ', 'ab', 'bis', 'lautstaerke'] as const) {
+      if (!(key in patch)) continue
+      const wert = patch[key]
+      if (wert === undefined) delete neu[key]
+      else (neu as unknown as Record<string, unknown>)[key] = wert
+    }
+    if (neu.typ === 'sfx') delete neu.bis // Einzelschuss hat kein Ende
+    return neu
+  })
+  return { ...edits, audio }
+}
+
+export function ohneAudioEintrag(edits: EditOverlay, index: number): EditOverlay {
+  const audio = (edits.audio ?? []).filter((_, i) => i !== index)
+  const naechste: EditOverlay = { ...edits }
+  if (audio.length) naechste.audio = audio
+  else delete naechste.audio
+  return naechste
+}
+
 /** Semantik-Prüfung vor dem Speichern (Spiegel der Server-Prüfung). */
 export function pruefeOverlay(edits: EditOverlay): string | null {
   const { start, ende } = edits.trim ?? {}
   if (start !== undefined && ende !== undefined && Date.parse(start) >= Date.parse(ende)) {
     return 'Trim-Start muss vor dem Trim-Ende liegen'
+  }
+  // Mengen-Limits des Server-Schemas gespiegelt — sonst käme beim Speichern
+  // nur ein generisches „Ungültige Anfrage" zurück
+  if ((edits.modi ?? []).length > 200) return 'Zu viele Modus-Grenzen (maximal 200)'
+  if ((edits.kamera ?? []).length > 100) return 'Zu viele Kamera-Grenzen (maximal 100)'
+  if ((edits.audio ?? []).length > 50) return 'Zu viele Audio-Einträge (maximal 50)'
+  for (const g of edits.kamera ?? []) {
+    if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Kamera-Grenze: ${g.ab}`
+  }
+  for (const [i, a] of (edits.audio ?? []).entries()) {
+    if (!Number.isFinite(Date.parse(a.ab))) return `Audio ${i + 1}: unparsebarer Beginn`
+    if (a.bis !== undefined) {
+      if (a.typ !== 'musik') return `Audio ${i + 1}: ein Ende gibt es nur für Musik`
+      if (!Number.isFinite(Date.parse(a.bis))) return `Audio ${i + 1}: unparsebares Ende`
+      if (Date.parse(a.bis) <= Date.parse(a.ab)) return `Audio ${i + 1}: das Ende muss nach dem Beginn liegen`
+    }
+    if (a.lautstaerke !== undefined && !(Number.isFinite(a.lautstaerke) && a.lautstaerke >= 0 && a.lautstaerke <= 1)) {
+      return `Audio ${i + 1}: Lautstärke muss zwischen 0 und 1 liegen`
+    }
+  }
+  for (const [id, m] of Object.entries(edits.medien ?? {})) {
+    const holdS = m.display?.holdS
+    if (holdS !== undefined && !(Number.isFinite(holdS) && holdS >= 2 && holdS <= 60)) {
+      return `Haltedauer für ${id} muss zwischen 2 und 60 Sekunden liegen`
+    }
+    if (m.caption !== undefined && m.caption.length > 1000) {
+      return `Beschreibung für ${id} ist zu lang (maximal 1000 Zeichen)`
+    }
   }
   return null
 }
@@ -203,10 +382,13 @@ export interface MediumBasis {
   caption: string
   anchor: [number, number] | null
   placement: string
+  /** roher GPS-Anker aus dem Manifest (auch wenn die Auto-Platzierung ihn verwarf) */
+  gpsAnker?: [number, number]
 }
 
 export interface MediumAnzeige extends MediumBasis {
   geloescht: boolean
+  display?: DisplayEdit
 }
 
 /** Overlay auf die Auto-Platzierung legen; Gelöschte bleiben (markiert) drin. */
@@ -219,6 +401,7 @@ export function effektiveMedien(basis: readonly MediumBasis[], edits: EditOverla
       anchor: e?.anchor ?? m.anchor,
       placement: e?.anchor ? 'manuell' : m.placement,
       geloescht: e?.geloescht === true,
+      ...(e?.display ? { display: e.display } : {}),
     }
   })
 }

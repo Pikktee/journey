@@ -32,6 +32,20 @@ export interface Benutzer {
   name?: string
 }
 
+export interface Quota {
+  benutzt: number
+  limit: number
+  frei: number
+}
+
+/** Antwort von GET /auth/me — angemeldet um Verifikation + Quota angereichert. */
+export interface Sitzung {
+  benutzer: Benutzer | null
+  verifiziert?: boolean
+  quota?: Quota
+  registrierungOffen?: boolean
+}
+
 async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${pfad}`, { credentials: 'same-origin', ...optionen })
   const text = await res.text()
@@ -54,16 +68,39 @@ export function login(email: string, passwort: string): Promise<{ benutzer: Benu
   return anfrage('/auth/login', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ email, passwort }) })
 }
 
-export async function me(): Promise<Benutzer | null> {
+/** Voller Sitzungs-Zustand (benutzer=null wenn nicht angemeldet). Wirft nie. */
+export async function me(): Promise<Sitzung> {
   try {
-    return (await anfrage<{ benutzer: Benutzer }>('/auth/me')).benutzer
+    return await anfrage<Sitzung>('/auth/me')
   } catch {
-    return null
+    return { benutzer: null }
   }
 }
 
 export function logout(): Promise<unknown> {
   return anfrage('/auth/logout', { method: 'POST' })
+}
+
+// — Selbst-Registrierung & Passwort-Reset (M9) —
+
+export function registriere(email: string, passwort: string, name: string): Promise<{ benutzer: Benutzer; verifiziert: boolean }> {
+  return anfrage('/auth/register', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ email, passwort, name }) })
+}
+
+export function verifiziereEmail(token: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/verifiziere', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
+}
+
+export function passwortResetAnfordern(email: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/passwort-reset-anfordern', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ email }) })
+}
+
+export function passwortReset(token: string, passwort: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/passwort-reset', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token, passwort }) })
+}
+
+export function loescheKonto(): Promise<unknown> {
+  return anfrage('/auth/me', { method: 'DELETE' })
 }
 
 export async function listeTouren(): Promise<TourListe[]> {
@@ -109,6 +146,8 @@ export interface EditorMedium {
   caption: string
   anchor: [number, number] | null
   placement: string
+  /** roher Manifest-GPS-Anker (auch wenn die Auto-Platzierung ihn verwarf) */
+  gpsAnker?: [number, number]
 }
 
 export interface EditorDaten {
@@ -119,6 +158,8 @@ export interface EditorDaten {
   time: { start: string; end: string; zone: string }
   segmente: Array<{ mode: string; pts: Array<[number, number, number, number]> }>
   medien: EditorMedium[]
+  /** hochgeladene Audio-Assets (Dateien unter media/ mit Audio-Endung) */
+  audio: Array<{ datei: string; groesse: number }>
   edits: unknown
 }
 
@@ -130,10 +171,27 @@ export function speichereEdits(id: string, edits: unknown): Promise<{ ok: boolea
   return anfrage(`/tours/${id}/edits`, { method: 'PUT', headers: jsonKopf, body: JSON.stringify(edits) })
 }
 
-export function patchTour(id: string, felder: { title?: string; description?: string }): Promise<unknown> {
+export function patchTour(
+  id: string,
+  felder: { title?: string; description?: string; visibility?: 'private' | 'unlisted' | 'public' },
+): Promise<unknown> {
   return anfrage(`/tours/${id}`, { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
 }
 
 export function reprocess(id: string): Promise<unknown> {
   return anfrage(`/tours/${id}/reprocess`, { method: 'POST' })
+}
+
+// — Audio-Assets (Kreativbaukasten) —
+
+export function ladeAudio(id: string, datei: string, daten: Blob): Promise<{ datei: string; bytes: number }> {
+  return anfrage(`/tours/${id}/audio/${encodeURIComponent(datei)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: daten,
+  })
+}
+
+export function loescheAudio(id: string, datei: string): Promise<unknown> {
+  return anfrage(`/tours/${id}/audio/${encodeURIComponent(datei)}`, { method: 'DELETE' })
 }

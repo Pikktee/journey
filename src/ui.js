@@ -18,6 +18,8 @@ export class UI {
       dock: $('dock'),
       layer: $('photo-layer'),
       card: $('photo-card'),
+      // .photo-frame trägt keine id — Träger der Ken-Burns-Klasse/-Dauer (display)
+      frame: $('photo-card').querySelector('.photo-frame'),
       img: $('photo-img'),
       video: $('photo-video'),
       sound: $('photo-sound'),
@@ -230,8 +232,13 @@ export class UI {
   }
 
   setPhotoContent(photo, idx, count) {
-    const { img, video, sound, pTitle, pSub, pChip, pCount } = this.els
+    const { frame, img, video, sound, pTitle, pSub, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'
+    // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar,
+    // die Drift-Dauer folgt der Anzeigedauer (holdS + Ausblende) — der Drift
+    // läuft so nie vor der Karte aus. Default (7 s) bleibt ohne display identisch.
+    frame.classList.toggle('kein-kb', photo.display?.kenBurns === false)
+    frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? 5.2) + 1.8}s`)
     if (istVideo) {
       this._stopVideo() // ein evtl. noch laufendes Video sauber ablösen
       img.hidden = true
@@ -281,19 +288,27 @@ export class UI {
 
   // Nächstes Foto am selben Halt: Inhalt kurz aus- und wieder einblenden
   swapPhoto(photo, idx, count) {
-    const { card, img } = this.els
+    const { card, frame, img } = this.els
     card.classList.add('swapping')
     this.els.holdFill.style.transform = 'scaleX(0)'
     setTimeout(() => {
       this.setPhotoContent(photo, idx, count)
-      // Ken-Burns-Drift und „Entwickeln“ für das neue Bild neu starten
-      img.style.transition = 'none'
+      // „Entwickeln“-Blende (animation) für das neue Bild IMMER neu starten —
+      // sie ist die Foto-Signatur, unabhängig von Ken Burns. Der Drift-Reset
+      // (transform/transition) bleibt auf Ken-Burns-Bilder beschränkt: bei
+      // kein-kb würde der Inline-Reset scale(1.12) hart erzwingen.
+      const mitKb = !frame.classList.contains('kein-kb')
       img.style.animation = 'none'
-      img.style.transform = 'scale(1.12)'
+      if (mitKb) {
+        img.style.transition = 'none'
+        img.style.transform = 'scale(1.12)'
+      }
       void img.offsetWidth
-      img.style.transition = ''
       img.style.animation = ''
-      img.style.transform = ''
+      if (mitKb) {
+        img.style.transition = ''
+        img.style.transform = ''
+      }
       card.classList.remove('swapping')
     }, 260)
   }

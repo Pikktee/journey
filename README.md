@@ -64,6 +64,26 @@ nötig — der Google-3D-Key wird nur im Dev genutzt.
 3. Im GitHub-Repo unter **Settings → Secrets and variables → Actions**:
    Secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (Deploy-Key des Servers).
 
+**Mehrbenutzer-Betrieb (M9).** Für den offenen Betrieb kommen in die `.env`:
+
+| Variable | Zweck | Default |
+|---|---|---|
+| `LUHAMBO_BASIS_URL` | Öffentliche URL für die Links in System-Mails | `http://localhost:5173` |
+| `RESEND_API_KEY` | Aktiviert echten Mail-Versand (sonst landet der Bestätigungslink nur im Server-Log) | – |
+| `LUHAMBO_MAIL_ABSENDER` | Absender der System-Mails | `Luhambo <noreply@luhambo.app>` |
+| `LUHAMBO_MAX_SPEICHER_PRO_BENUTZER` | Speicher-Quota je Benutzer (Bytes) | 2 GiB |
+| `LUHAMBO_REGISTRIERUNG_OFFEN` | `0` schließt die Selbst-Registrierung (private Instanz) | offen |
+
+Vor dem öffentlichen Start ausfüllen: die Platzhalter in [`impressum.html`](impressum.html)
+und [`datenschutz.html`](datenschutz.html) (Betreiberangaben, Hosting-/Mail-Anbieter).
+
+**Backup (Pflicht — die einzigen Kopien der Touren liegen im Bind-Mount).**
+Täglicher Hetzner-Snapshot (~1 €/Monat) **oder** ein `rclone`-Cron von
+`/srv/luhambo/daten` zu einem Objektspeicher. Die SQLite läuft im WAL-Modus —
+für ein konsistentes Dateisystem-Backup entweder kurz stoppen oder
+`sqlite3 luhambo.db ".backup"` nutzen. Betrieb härten: `unattended-upgrades`,
+Firewall nur auf 80/443/22, SSH nur per Key.
+
 **Ablauf:** Ein Version-Tag (`vX.Y.Z`) triggert
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) → Web- und
 Backend-Tests als Gate → Images nach GHCR → per SSH `docker compose pull && up -d`.

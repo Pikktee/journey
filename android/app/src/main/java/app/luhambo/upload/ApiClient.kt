@@ -65,6 +65,17 @@ class ApiClient(private val einstellungen: Einstellungen) {
         }
     }
 
+    /** PUT des GPX-Tracks (Import, M8): rohes GPX in den Body. */
+    suspend fun trackHochladen(serverTourId: String, gpx: String) {
+        withContext(Dispatchers.IO) {
+            ausfuehren(
+                autorisiert("/api/tours/$serverTourId/track")
+                    .put(gpx.toRequestBody("application/gpx+xml".toMediaType()))
+                    .build(),
+            )
+        }
+    }
+
     /**
      * Finalize: stößt die Anreicherung an. Wirft auch bei 409 — das kann
      * „läuft bereits" (harmlos) ODER „Medien fehlen" (echtes Problem) heißen;

@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { AuthDienst, type Benutzer } from './auth/auth.js'
 import type { Konfig } from './config.js'
 import type { Db } from './db.js'
+import type { MailVersand } from './mail.js'
 import type { Geocoder } from './pipeline/naming.js'
 import type { VideoWerkzeug } from './pipeline/video.js'
 import type { WetterQuelle } from './pipeline/weather.js'
@@ -28,6 +29,8 @@ export interface AppAbhaengigkeiten {
   wetter: WetterQuelle | null
   /** Video-Aufbereitung (M4); null = keine Videos verarbeiten (Original ohne Poster) */
   videoWerkzeug: VideoWerkzeug | null
+  /** Mail-Versand (M9): Registrierungs-Bestätigung + Passwort-Reset */
+  mail: MailVersand
 }
 
 // Fastify-Typen um unsere Dekorationen erweitern
@@ -48,6 +51,11 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
     logger: process.env.NODE_ENV !== 'test' && { level: 'info' },
     // Manifeste langer Aufzeichnungen können mehrere MB JSON sein
     bodyLimit: 64 * 1024 * 1024,
+    // Hinter Caddy (Prod): request.ip aus X-Forwarded-For nehmen, damit die
+    // Rate-Limits (Login/Registrierung/Reset) pro CLIENT greifen — ohne das
+    // wäre die Proxy-IP EIN globaler Eimer. Das api-Image ist nur über das
+    // Compose-Netz (nur Caddy) erreichbar, der Header ist also vertrauenswürdig.
+    trustProxy: true,
   })
 
   app.decorate('deps', deps)

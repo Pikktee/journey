@@ -6,6 +6,7 @@ import type { FastifyInstance } from 'fastify'
 import { baueApp } from '../src/app.js'
 import type { Konfig } from '../src/config.js'
 import { oeffneDb } from '../src/db.js'
+import type { MailNachricht, MailVersand } from '../src/mail.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { VideoWerkzeug } from '../src/pipeline/video.js'
 import type { WetterQuelle } from '../src/pipeline/weather.js'
@@ -19,12 +20,31 @@ export const TEST_KONFIG: Konfig = {
   adminEmail: null,
   adminPasswort: null,
   maxMediumBytes: 1024 * 1024,
+  maxAudioBytes: 1024 * 1024,
+  maxSpeicherProBenutzer: 50 * 1024 * 1024,
   hinterTls: false,
+  registrierungOffen: true,
+  basisUrl: 'http://localhost:5173',
+  mailAbsender: 'Luhambo <noreply@test>',
+}
+
+/** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
+export class SammelMail implements MailVersand {
+  nachrichten: MailNachricht[] = []
+  async sende(nachricht: MailNachricht): Promise<void> {
+    this.nachrichten.push(nachricht)
+  }
+  /** Letzten Link (verify/reset) aus dem Mail-Text ziehen — für die Token-Einlösung. */
+  letzterLink(): string | null {
+    const text = this.nachrichten.at(-1)?.text ?? ''
+    return text.match(/https?:\/\/\S+/)?.[0] ?? null
+  }
 }
 
 export interface TestUmgebung {
   app: FastifyInstance
   storage: MemStorage
+  mail: SammelMail
   /** Session-Cookie des angemeldeten Testbenutzers, für inject() */
   cookies: { luhambo_session: string }
   apiToken: string
@@ -38,16 +58,20 @@ export async function baueTestApp(
   // Default null: keine Video-Aufbereitung — Video-Tests geben einen
   // FakeVideoWerkzeug herein (Spiegelbild des FfmpegWerkzeug in index.ts)
   videoWerkzeug: VideoWerkzeug | null = null,
+  // M9: einzelne Konfig-Werte übersteuern (Quota, Registrierung offen/zu …)
+  konfigPatch: Partial<Konfig> = {},
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
+  const mail = new SammelMail()
   const app = baueApp({
-    konfig: TEST_KONFIG,
+    konfig: { ...TEST_KONFIG, ...konfigPatch },
     db,
     storage,
     geocoder: new FesterGeocoder(geocoderAntworten),
     wetter,
     videoWerkzeug,
+    mail,
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')
 
@@ -60,7 +84,7 @@ export async function baueTestApp(
   const sessionCookie = login.cookies.find((c) => c.name === 'luhambo_session')
   const apiToken = (login.json() as { apiToken: string }).apiToken
 
-  return { app, storage, cookies: { luhambo_session: sessionCookie?.value ?? '' }, apiToken }
+  return { app, storage, mail, cookies: { luhambo_session: sessionCookie?.value ?? '' }, apiToken }
 }
 
 /** Minimales, gültiges Upload-Manifest: 2 Segmente, 1 Foto (Berner Oberland). */

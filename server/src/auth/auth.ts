@@ -15,7 +15,14 @@ export interface Benutzer {
   name: string
 }
 
+export type MailZweck = 'verify' | 'reset'
+
 const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
+// Lebensdauer der Einmal-Token: E-Mail-Bestätigung großzügig, Passwort-Reset kurz.
+const MAIL_TOKEN_DAUER_MS: Record<MailZweck, number> = {
+  verify: 24 * 60 * 60 * 1000, // 24 h
+  reset: 60 * 60 * 1000, // 1 h
+}
 
 const sha256 = (wert: string): string => createHash('sha256').update(wert).digest('hex')
 
@@ -29,13 +36,30 @@ export class AuthDienst {
     await this.legeBenutzerAn(email, passwort, email.split('@')[0] ?? 'admin')
   }
 
-  async legeBenutzerAn(email: string, passwort: string, name: string): Promise<Benutzer> {
+  /**
+   * Legt einen Benutzer an. `verifiziert` ist absichtlich per Default true
+   * (Seed-Admin, Tests, Direktanlage) — die Selbst-Registrierung (M9) setzt es
+   * explizit auf false und schaltet erst nach E-Mail-Bestätigung frei.
+   */
+  async legeBenutzerAn(email: string, passwort: string, name: string, verifiziert = true): Promise<Benutzer> {
     const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name }
     const pwHash = await hashePasswort(passwort)
     this.db
-      .prepare('INSERT INTO users (id, email, pw_hash, name, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString())
+      .prepare('INSERT INTO users (id, email, pw_hash, name, created_at, email_verified) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString(), verifiziert ? 1 : 0)
     return benutzer
+  }
+
+  /** Existiert bereits ein Benutzer mit dieser E-Mail? (Registrierungs-Vorabprüfung) */
+  emailVergeben(email: string): boolean {
+    return !!this.db.prepare('SELECT 1 FROM users WHERE email = ?').get(email.toLowerCase().trim())
+  }
+
+  istVerifiziert(userId: string): boolean {
+    const zeile = this.db.prepare('SELECT email_verified FROM users WHERE id = ?').get(userId) as
+      | { email_verified: number }
+      | undefined
+    return !!zeile?.email_verified
   }
 
   /** E-Mail + Passwort prüfen; null bei Fehlschlag (bewusst ohne Grund-Detail). */
@@ -111,5 +135,83 @@ export class AuthDienst {
 
   widerrufeTokens(userId: string): void {
     this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
+  }
+
+  // — Mail-Token: E-Mail-Bestätigung + Passwort-Reset (M9) —
+
+  /**
+   * Erzeugt einen Einmal-Token für `zweck`; nur der Hash landet in der DB, der
+   * Klartext wandert direkt in die Mail. Frühere offene Token desselben Zwecks
+   * werden verworfen (ein angefordertes Reset entwertet das vorige).
+   */
+  erzeugeMailToken(userId: string, zweck: MailZweck): string {
+    this.db.prepare('DELETE FROM mail_tokens WHERE user_id = ? AND zweck = ? AND used_at IS NULL').run(userId, zweck)
+    const klartext = neuesTokenSecret()
+    const jetzt = Date.now()
+    this.db
+      .prepare('INSERT INTO mail_tokens (id, user_id, zweck, hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(
+        neueSessionId(),
+        userId,
+        zweck,
+        sha256(klartext),
+        new Date(jetzt).toISOString(),
+        new Date(jetzt + MAIL_TOKEN_DAUER_MS[zweck]).toISOString(),
+      )
+    return klartext
+  }
+
+  /**
+   * Löst einen Mail-Token ein: prüft Zweck, Ablauf und Einmaligkeit, markiert
+   * ihn als verbraucht und gibt die user_id zurück (null bei ungültig/abgelaufen/
+   * schon benutzt). Bewusst atomar in einer Transaktion gegen Doppel-Einlösung.
+   */
+  loeseMailToken(klartext: string, zweck: MailZweck): string | null {
+    const hash = sha256(klartext)
+    return this.db.transaction(() => {
+      const zeile = this.db
+        .prepare('SELECT id, user_id, expires_at, used_at FROM mail_tokens WHERE hash = ? AND zweck = ?')
+        .get(hash, zweck) as { id: string; user_id: string; expires_at: string; used_at: string | null } | undefined
+      if (!zeile || zeile.used_at || Date.parse(zeile.expires_at) < Date.now()) return null
+      this.db.prepare('UPDATE mail_tokens SET used_at = ? WHERE id = ?').run(new Date().toISOString(), zeile.id)
+      return zeile.user_id
+    })()
+  }
+
+  verifiziereEmail(userId: string): void {
+    this.db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(userId)
+  }
+
+  /** E-Mail → user_id (für den Reset-Anstoß); null, ohne die Existenz zu verraten. */
+  benutzerIdFuerEmail(email: string): string | null {
+    const zeile = this.db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim()) as
+      | { id: string }
+      | undefined
+    return zeile?.id ?? null
+  }
+
+  async setzePasswort(userId: string, passwort: string): Promise<void> {
+    const pwHash = await hashePasswort(passwort)
+    this.db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(pwHash, userId)
+    // Sicherheitshalber alle Sessions/Tokens beenden — nach einem Reset soll
+    // niemand mit einer alten Sitzung weiterlaufen.
+    this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+    this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
+  }
+
+  /** IDs aller Touren des Benutzers (für die Storage-Aufräumung vor dem Löschen). */
+  tourIds(userId: string): string[] {
+    return (this.db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{ id: string }>).map(
+      (z) => z.id,
+    )
+  }
+
+  /**
+   * Löscht den Benutzer samt aller DB-Daten (Sessions, Tokens, Mail-Token und
+   * Touren via ON DELETE CASCADE). Die Storage-Dateien räumt der Aufrufer davor
+   * ab (er kennt den Storage) — hier fällt nur die DB-Seite.
+   */
+  loescheBenutzer(userId: string): void {
+    this.db.prepare('DELETE FROM users WHERE id = ?').run(userId)
   }
 }

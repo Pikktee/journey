@@ -48,6 +48,23 @@ const MIGRATIONEN: string[] = [
   CREATE INDEX idx_tours_owner ON tours(owner_id, created_at DESC);
   CREATE UNIQUE INDEX idx_tours_client ON tours(owner_id, client_tour_id) WHERE client_tour_id IS NOT NULL;
   `,
+  // M9 (offener Betrieb): E-Mail-Bestätigung + Passwort-Reset. Beide laufen
+  // über kurzlebige, nur als Hash gespeicherte Einmal-Token (Tabelle
+  // mail_tokens). `email_verified` gatet das Hochladen — anmelden darf man
+  // sofort, Touren anlegen erst nach Bestätigung.
+  `
+  ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE mail_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    zweck TEXT NOT NULL CHECK (zweck IN ('verify','reset')),
+    hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT
+  );
+  CREATE INDEX idx_mail_tokens_user ON mail_tokens(user_id, zweck);
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

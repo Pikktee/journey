@@ -7,9 +7,15 @@ export default defineConfig({
     // Targets (TLA: Chrome 89+/Firefox 89+/Safari 15+) kann die App ohnehin
     // voraussetzen, MapLibre GL verlangt moderne Browser.
     target: ['es2022', 'chrome107', 'edge107', 'firefox104', 'safari16'],
-    // Zwei Einstiegsseiten: der Player (index.html) und das Studio (studio.html).
+    // Einstiegsseiten: Player (index.html), Studio (studio.html) und die
+    // statischen Rechtstexte (M9), damit sie im dist/-Build landen.
     rollupOptions: {
-      input: { main: 'index.html', studio: 'studio.html' },
+      input: {
+        main: 'index.html',
+        studio: 'studio.html',
+        impressum: 'impressum.html',
+        datenschutz: 'datenschutz.html',
+      },
     },
   },
   server: {

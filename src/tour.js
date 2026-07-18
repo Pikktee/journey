@@ -15,8 +15,13 @@ export const PRESETS = {
   weit: { behind: 1900, hover: 1300 },
 }
 
-const HOLD_HIDE = 5.2 // s sichtbare Foto-Karte, danach ausblenden bzw. nächstes Foto
-const HOLD_END = 6.0 // s: weiterfahren (Ausblend-Animation ist durch)
+const HOLD_HIDE = 5.2 // s sichtbare Foto-Karte (Default; display.holdS übersteuert pro Medium)
+const HOLD_AUSBLEND = 0.8 // s Ausblend-Animation nach der Anzeige, dann weiterfahren
+
+// Anzeigedauer eines Foto-Items: vom Autor im Studio gesetzt (display.holdS,
+// Kreativbaukasten) oder der Default. Videos halten unabhängig davon bis zum
+// Ende (ui.onMediaEnded) — auf ihnen ist holdS wirkungslos.
+const holdDauer = (item) => item?.display?.holdS ?? HOLD_HIDE
 
 // „Himmel-Momente": Zur Golden Hour und nachts kippt die Kamera nach oben, damit
 // Horizont + Sonne/Sterne ins Bild kommen und der Fahrer ins untere Drittel rutscht.
@@ -363,7 +368,7 @@ export class Tour {
       this.ui.swapPhoto(items[this.itemIdx], this.itemIdx, items.length)
     } else {
       this.photoShown = 'hiding'
-      this.holdT = HOLD_HIDE
+      this.holdT = 0 // Ausblendphase läuft ab hier (HOLD_AUSBLEND, s. update)
       this.ui.hidePhoto()
     }
   }
@@ -682,12 +687,13 @@ export class Tour {
       // kein Nachschwingen. Der Einfrier-Moment liegt unter dem Kamerablitz.
       this.speed = 0
       this.holdT += dt
-      // Fotos blenden nach HOLD_HIDE weiter; Videos halten die Karte, bis sie
-      // durchgelaufen sind (ui.onMediaEnded → onMediaEnded ruft advancePhoto).
-      if (this.photoShown === true && !this.aktuellesItemIstVideo() && this.holdT >= HOLD_HIDE) {
+      // Fotos blenden nach ihrer Anzeigedauer weiter (holdDauer: Autor-Wert oder
+      // Default); Videos halten die Karte, bis sie durchgelaufen sind
+      // (ui.onMediaEnded → onMediaEnded ruft advancePhoto).
+      if (this.photoShown === true && !this.aktuellesItemIstVideo() && this.holdT >= holdDauer(this.shownStop?.items[this.itemIdx])) {
         this.advancePhoto()
       }
-      if (this.photoShown === 'hiding' && this.holdT >= HOLD_END) {
+      if (this.photoShown === 'hiding' && this.holdT >= HOLD_AUSBLEND) {
         this.phase = 'ride'
         this.photoShown = false
         this.glide = 1.5
@@ -842,7 +848,9 @@ export class Tour {
       // Füllstand des Anzeige-Balkens auf der Foto-Karte (steht bei Pause).
       // Bei Videos null → ui.js füllt ihn selbst aus der Videozeit (timeupdate).
       holdFrac:
-        this.photoShown === true && !this.aktuellesItemIstVideo() ? Math.min(this.holdT / HOLD_HIDE, 1) : null,
+        this.photoShown === true && !this.aktuellesItemIstVideo()
+          ? Math.min(this.holdT / holdDauer(this.shownStop?.items[this.itemIdx]), 1)
+          : null,
     })
     // Tempo-Anzeige (Button) mit Faktor + Richtung aktuell halten — auch nach
     // JKL-Shuttle oder automatischem Stopp am Streckenanfang

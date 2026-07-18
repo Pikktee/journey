@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -51,6 +52,7 @@ fun StartScreen(
     zurAufzeichnung: () -> Unit,
     zurTour: (String) -> Unit,
     zuEinstellungen: () -> Unit,
+    zuImport: () -> Unit,
 ) {
     val touren by viewModel.touren.collectAsState(initial = emptyList())
     val laufend by AufzeichnungsZustand.aktuell.collectAsState()
@@ -60,6 +62,9 @@ fun StartScreen(
             TopAppBar(
                 title = { Text("Luhambo") },
                 actions = {
+                    IconButton(onClick = zuImport) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Tour importieren")
+                    }
                     IconButton(onClick = zuEinstellungen) {
                         Icon(Icons.Default.Settings, contentDescription = "Einstellungen")
                     }

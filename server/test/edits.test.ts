@@ -173,6 +173,52 @@ describe('pruefeEditsSemantik', () => {
       pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { anchor: [Infinity, 46.5] } } }),
     ).toMatch(/Anker/)
   })
+
+  it('prüft Kamera-Grenzen (Baukasten)', () => {
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', kamera: [{ ab: iso(0), preset: 'nah' }] }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] }),
+    ).toMatch(/Kamera-Grenze/)
+  })
+
+  it('prüft Audio-Einträge: Zeiten, Spanne, bis nur bei Musik, Lautstärke endlich', () => {
+    const basis = { datei: 'a1.mp3', ab: iso(0) } as const
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(600), lautstaerke: 0.5 }] }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'sfx' }] }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-13-99T99:99:99Z' }] }),
+    ).toMatch(/Audio-Start/)
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', bis: '2026-13-99T99:99:99Z' }] }),
+    ).toMatch(/Audio-Ende/)
+    // bis <= ab: leere Spanne
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(0) }] }),
+    ).toMatch(/Audio-Ende muss nach/)
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'sfx', bis: iso(600) }] }),
+    ).toMatch(/nur bei Musik/)
+    // JSON.parse('1e999') → Infinity: minimum/maximum fangen das im Schema,
+    // die Semantik bleibt trotzdem wasserdicht (Number.isFinite)
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', lautstaerke: Infinity }] }),
+    ).toMatch(/Lautstärke/)
+  })
+
+  it('prüft display.holdS auf Endlichkeit (Baukasten)', () => {
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: 8, kenBurns: false } } } }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: Infinity } } } }),
+    ).toMatch(/Standzeit/)
+  })
 })
 
 describe('reichereAn mit Edit-Overlay', () => {
@@ -226,5 +272,135 @@ describe('reichereAn mit Edit-Overlay', () => {
     await expect(
       reichereAn(eingabe({ schema: 'luhambo/edits@1', trim: { start: iso(90000) } })),
     ).rejects.toThrow(/Kein Track/)
+  })
+
+  it('rendert Kamera-Keyframes: ab-Zeit → f, nach f sortiert (Baukasten)', async () => {
+    const tour = await reichereAn(
+      eingabe({
+        schema: 'luhambo/edits@1',
+        // absichtlich unsortiert übergeben
+        kamera: [
+          { ab: iso(900), preset: 'nah' },
+          { ab: iso(0), preset: 'weit' },
+        ],
+      }),
+    )
+    expect(tour.camera).toHaveLength(2)
+    expect(tour.camera?.[0]).toEqual({ f: 0, preset: 'weit' })
+    expect(tour.camera?.[1]?.preset).toBe('nah')
+    // t=900 liegt in der Streckenmitte (gleichförmige Punkte)
+    expect(tour.camera?.[1]?.f).toBeGreaterThan(0.4)
+    expect(tour.camera?.[1]?.f).toBeLessThan(0.6)
+  })
+
+  it('klemmt Kamera-Grenzen vor dem Trim-Start auf f=0 — der spätere ab gewinnt', async () => {
+    const tour = await reichereAn(
+      eingabe({
+        schema: 'luhambo/edits@1',
+        trim: { start: iso(300) },
+        kamera: [
+          { ab: iso(0), preset: 'nah' },
+          { ab: iso(120), preset: 'weit' },
+        ],
+      }),
+    )
+    // Beide Grenzen liegen vor dem getrimmten Track → beide auf f=0 geklemmt,
+    // nur die spätere überlebt (Punktfunktion: sie gilt „ab hier")
+    expect(tour.camera).toEqual([{ f: 0, preset: 'weit' }])
+  })
+
+  it('verwirft Kamera-Grenzen hinter dem Track-Ende (statt auf f=1 zu klemmen)', async () => {
+    const meldungen: string[] = []
+    const tour = await reichereAn({
+      ...eingabe({
+        schema: 'luhambo/edits@1',
+        kamera: [
+          { ab: iso(600), preset: 'nah' },
+          { ab: iso(3600), preset: 'weit' }, // weit hinter dem Track-Ende (t=1800)
+        ],
+      }),
+      protokoll: (m) => meldungen.push(m),
+    })
+    // Nur die gültige Grenze bleibt; die späte fällt raus (kein Umschalten am Finale)
+    expect(tour.camera).toHaveLength(1)
+    expect(tour.camera?.[0]?.preset).toBe('nah')
+    expect(meldungen.some((m) => /Kamera-Grenze hinter dem Track-Ende/.test(m))).toBe(true)
+  })
+
+  it('rendert Audio-Spuren: musik als Bereich mit gain, sfx als Punkt (Baukasten)', async () => {
+    const meldungen: string[] = []
+    const tour = await reichereAn({
+      ...eingabe({
+        schema: 'luhambo/edits@1',
+        audio: [
+          { datei: 'knall.wav', typ: 'sfx', ab: iso(900) },
+          { datei: 'musik.mp3', typ: 'musik', ab: iso(0), lautstaerke: 0.7 },
+        ],
+      }),
+      audioDateien: ['musik.mp3', 'knall.wav'],
+      protokoll: (m) => meldungen.push(m),
+    })
+    expect(meldungen).toEqual([])
+    expect(tour.audio).toHaveLength(2)
+    // sortiert nach f0: Musik (f0=0) vor SFX (f0≈0.5)
+    expect(tour.audio?.[0]).toEqual({ type: 'music', src: '/api/media/t1/musik.mp3', f0: 0, f1: 1, gain: 0.7 })
+    const sfx = tour.audio?.[1]
+    expect(sfx?.type).toBe('sfx')
+    expect(sfx?.f0).toBe(sfx?.f1)
+    expect(sfx && 'gain' in sfx).toBe(false)
+  })
+
+  it('überspringt fehlende Audio-Dateien mit Warnung — audio bleibt dann weg', async () => {
+    const meldungen: string[] = []
+    const tour = await reichereAn({
+      ...eingabe({
+        schema: 'luhambo/edits@1',
+        audio: [{ datei: 'fehlt.mp3', typ: 'musik', ab: iso(0) }],
+      }),
+      audioDateien: ['musik.mp3'],
+      protokoll: (m) => meldungen.push(m),
+    })
+    expect(meldungen).toEqual(['Audio-Datei fehlt: fehlt.mp3'])
+    expect(tour.audio).toBeUndefined()
+  })
+
+  it('Trim-Wechselwirkung: geklemmte Musik spielt ab 0, leere Spannen und SFX außerhalb fliegen raus', async () => {
+    const meldungen: string[] = []
+    const tour = await reichereAn({
+      ...eingabe({
+        schema: 'luhambo/edits@1',
+        trim: { start: iso(300) },
+        audio: [
+          // komplett vor dem Trim-Start: f0=f1=0 → verworfen
+          { datei: 'vorher.mp3', typ: 'musik', ab: iso(0), bis: iso(300) },
+          // Start vor dem Trim, Ende offen → auf f0=0 geklemmt, spielt die ganze Tour
+          { datei: 'musik.mp3', typ: 'musik', ab: iso(0) },
+          // SFX vor dem getrimmten Track: würde sonst am Tour-Start knallen → verworfen
+          { datei: 'knall.wav', typ: 'sfx', ab: iso(0) },
+          // SFX innerhalb bleibt
+          { datei: 'ping.ogg', typ: 'sfx', ab: iso(600) },
+        ],
+      }),
+      audioDateien: ['vorher.mp3', 'musik.mp3', 'knall.wav', 'ping.ogg'],
+      protokoll: (m) => meldungen.push(m),
+    })
+    expect(meldungen).toEqual([
+      'Audio außerhalb des Tracks übersprungen: vorher.mp3',
+      'Audio außerhalb des Tracks übersprungen: knall.wav',
+    ])
+    expect(tour.audio?.map((a) => a.src)).toEqual(['/api/media/t1/musik.mp3', '/api/media/t1/ping.ogg'])
+    expect(tour.audio?.[0]).toMatchObject({ f0: 0, f1: 1 })
+  })
+
+  it('reicht display aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
+    const tour = await reichereAn(
+      eingabe({
+        schema: 'luhambo/edits@1',
+        medien: { m1: { display: { holdS: 12, kenBurns: false } } },
+      }),
+    )
+    expect(tour.media[0]?.display).toEqual({ holdS: 12, kenBurns: false })
+    const m2 = tour.media.find((m) => m.id === 'm2')
+    expect(m2 && 'display' in m2).toBe(false)
   })
 })

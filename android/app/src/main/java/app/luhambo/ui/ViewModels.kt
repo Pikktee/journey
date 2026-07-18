@@ -102,6 +102,8 @@ class LuhamboViewModelFactory(
             TourViewModel(app.repository, app, requireNotNull(tourId) { "tourId fehlt" }) as T
         modelClass.isAssignableFrom(EinstellungenViewModel::class.java) ->
             EinstellungenViewModel(app.einstellungen, app.apiClient) as T
+        modelClass.isAssignableFrom(ImportViewModel::class.java) ->
+            ImportViewModel(app) as T
         else -> throw IllegalArgumentException("Unbekanntes ViewModel: ${modelClass.name}")
     }
 }

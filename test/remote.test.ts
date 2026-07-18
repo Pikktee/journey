@@ -103,6 +103,61 @@ describe('adaptiereTour', () => {
     expect(cfg.photos[0]?.src).toBe('/api/media/t_abc123/m1.jpg')
   })
 
+  it('reicht Anzeige-Optionen der Medien durch (display, Kreativbaukasten)', () => {
+    const tour = beispielTour()
+    tour.media[0]!.display = { holdS: 8, kenBurns: false }
+    const cfg = adaptiereTour(tour)
+    expect(cfg.photos[0]?.display).toEqual({ holdS: 8, kenBurns: false })
+  })
+
+  it('lässt Fotos ohne display schlank (kein undefined-Feld)', () => {
+    const cfg = adaptiereTour(beispielTour())
+    const foto = cfg.photos[0]
+    expect(foto && 'display' in foto).toBe(false)
+  })
+
+  it('reicht Kamera-Keyframes und Audio-Spuren roh durch (f-basiert)', () => {
+    const tour = beispielTour()
+    tour.camera = [{ f: 0.2, preset: 'nah' }, { f: 0.7, preset: 'weit' }]
+    tour.audio = [
+      { type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0.1, f1: 0.9, gain: 0.8 },
+      { type: 'sfx', src: '/api/media/t_abc123/knall.mp3', f0: 0.5, f1: 0.5 },
+    ]
+    const cfg = adaptiereTour(tour)
+    expect(cfg.camera).toEqual(tour.camera)
+    expect(cfg.audio).toEqual(tour.audio)
+  })
+
+  it('filtert Kamera-/Audio-Einträge mit kaputten f-Werten (Number.isFinite)', () => {
+    const tour = beispielTour()
+    tour.camera = [{ f: Number.NaN, preset: 'weit' }, { f: 0.4, preset: 'mittel' }]
+    tour.audio = [{ type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0, f1: Number.NaN }]
+    const cfg = adaptiereTour(tour)
+    expect(cfg.camera).toEqual([{ f: 0.4, preset: 'mittel' }])
+    // ALLE Audio-Einträge kaputt → Feld bleibt ganz weg („nur bei Länge setzen")
+    expect(cfg.audio).toBeUndefined()
+  })
+
+  it('filtert Audio-Spuren mit nicht-endlichem gain (liefe sonst bis in el.volume)', () => {
+    const tour = beispielTour()
+    tour.audio = [
+      { type: 'music', src: '/api/media/t_abc123/kaputt.mp3', f0: 0.1, f1: 0.9, gain: Number.NaN },
+      { type: 'music', src: '/api/media/t_abc123/ok.mp3', f0: 0.2, f1: 0.8, gain: 0.5 },
+      { type: 'sfx', src: '/api/media/t_abc123/ohne-gain.mp3', f0: 0.5, f1: 0.5 },
+    ]
+    const cfg = adaptiereTour(tour)
+    expect(cfg.audio).toEqual([
+      { type: 'music', src: '/api/media/t_abc123/ok.mp3', f0: 0.2, f1: 0.8, gain: 0.5 },
+      { type: 'sfx', src: '/api/media/t_abc123/ohne-gain.mp3', f0: 0.5, f1: 0.5 },
+    ])
+  })
+
+  it('lässt camera/audio weg, wenn der Server sie nicht liefert', () => {
+    const cfg = adaptiereTour(beispielTour())
+    expect(cfg.camera).toBeUndefined()
+    expect(cfg.audio).toBeUndefined()
+  })
+
   it('wirft bei laufender Verarbeitung einen sprechenden Fehler', () => {
     const inArbeit = { id: 't_abc123', status: 'verarbeitung' } as unknown as TourJsonAntwort
     expect(() => adaptiereTour(inArbeit)).toThrow(RemoteTourFehler)

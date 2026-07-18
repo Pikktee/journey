@@ -14,7 +14,7 @@ import { benenneTour, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
 import type { VideoMeta } from './video.js'
 import { berechneWetter, type WetterQuelle } from './weather.js'
-import { baueZeitreihe, destilliereTimeline } from './zeit.js'
+import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
 
 export const TOUR_SCHEMA_ID = 'luhambo/tour@1'
 
@@ -46,13 +46,15 @@ export interface TourJson {
     durationS?: number
     /** Video-Standbild fürs Foto-Overlay (M4) */
     poster?: string
+    /** Anzeige-Optionen des Foto-Stopps aus dem Edit-Overlay (Baukasten) */
+    display?: { holdS?: number; kenBurns?: boolean }
   }>
   /** Stützstellen Streckenanteil → Pseudo-Zeit (Pausen komprimiert, M2) */
   timeline?: Array<{ f: number; t: string }>
   /** Auto-Wetter-Keyframes (M2, Open-Meteo; ab M5 auch source "photo") */
   weather?: Array<{ f: number; mode: string; k: number; source: string }>
   camera?: Array<{ f: number; preset: string }>
-  audio?: Array<{ type: string; src: string; f0: number; f1: number }>
+  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
   stats: TourStats
 }
 
@@ -83,6 +85,8 @@ export interface EnrichEingabe {
   beschreibungOverride: string | null
   /** Edit-Overlay (M7): Trim/Modus-Grenzen/Medien-Overrides; null = keins */
   edits?: EditOverlay | null
+  /** Vorhandene Audio-Dateinamen unter media/ (Baukasten) — edits.audio-Verweise ohne Datei werden übersprungen */
+  audioDateien?: readonly string[]
   geocoder: Geocoder
   /** Auto-Wetter-Quelle; fehlt sie, bleibt `weather` weg (Client-Fallback) */
   wetter?: WetterQuelle | null
@@ -98,8 +102,19 @@ export interface EnrichEingabe {
  * ohne Netz und Dateisystem testbar.
  */
 export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
-  const { tourId, nummer, manifest, titelOverride, beschreibungOverride, edits, geocoder, wetter, videoMeta, protokoll } =
-    eingabe
+  const {
+    tourId,
+    nummer,
+    manifest,
+    titelOverride,
+    beschreibungOverride,
+    edits,
+    audioDateien,
+    geocoder,
+    wetter,
+    videoMeta,
+    protokoll,
+  } = eingabe
 
   // Segmente kommen entweder direkt aus dem Manifest oder — bei GPX-Quelle —
   // vom Aufrufer bereits geparst hineingereicht (verarbeite in tours.ts).
@@ -107,6 +122,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // den Track, ALLES Nachgelagerte (Benennung, Timeline, Wetter, Platzierung)
   // rechnet auf dem bearbeiteten Stand.
   const startMs = Date.parse(manifest.time.start)
+  const endeMs = Date.parse(manifest.time.end)
   const rohSegmente = wendeEditsAufSegmenteAn(manifest.segments ?? [], edits, startMs)
   if (!rohSegmente.length) throw new Error('Kein Track übrig (Segmente fehlen oder der Trim entfernt alles)')
   const erstesSegment = rohSegmente[0]
@@ -146,11 +162,16 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // aus), bleibt es beim Original ohne Poster.
       const meta = videoMeta?.get(m.id)
       const datei = meta?.videoDatei ?? mediumDateiname(m)
+      // Uhrzeit im Titel NUR, wenn takenAt in der Tour-Zeitspanne liegt —
+      // mtime-Fallback-Zeiten tourfremder Dateien sind Unsinn (Bughunt-Befund).
+      const takenMs = Date.parse(m.takenAt)
+      const art = m.type === 'video' ? 'Video' : 'Foto'
+      const inSpanne = Number.isFinite(takenMs) && takenMs >= startMs && takenMs <= endeMs
       const eintrag: TourJson['media'][number] = {
         id: m.id,
         type: m.type,
         src: `/api/media/${tourId}/${datei}`,
-        title: `${m.type === 'video' ? 'Video' : 'Foto'} · ${uhrzeit(m.takenAt, manifest.time.zone)}`,
+        title: inSpanne ? `${art} · ${uhrzeit(m.takenAt, manifest.time.zone)}` : art,
         caption: m.caption ?? '',
         anchor,
         placement,
@@ -159,6 +180,9 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       const dauer = meta?.dauerS ?? m.durationS
       if (dauer !== undefined) eintrag.durationS = dauer
       if (meta?.posterDatei) eintrag.poster = `/api/media/${tourId}/${meta.posterDatei}`
+      // Anzeige-Optionen aus dem Overlay (Baukasten) — nur wenn dort gesetzt
+      const display = edits?.medien?.[m.id]?.display
+      if (display) eintrag.display = display
       return eintrag
     })
 
@@ -167,6 +191,85 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // `weather` weggelassen und der Player nutzt sein Client-Auto-Wetter.
   const reihe = baueZeitreihe(rohSegmente)
   const timeline = destilliereTimeline(reihe, manifest.time.start)
+
+  // Kamera-Keyframes (Baukasten): absolute `ab`-Zeiten → Streckenanteil f über
+  // die Zeitreihe des GETRIMMTEN Tracks (tSek relativ zu manifest.time.start,
+  // exakt wie die tOffsets der Punkte). positionZurZeit klemmt außerhalb —
+  // eine Grenze vor dem Trim-Start landet auf f des Track-Anfangs (gewollt:
+  // „gilt ab hier" bleibt auch nach dem Beschneiden wahr).
+  let camera: TourJson['camera']
+  if (edits?.kamera?.length) {
+    // Eine Grenze HINTER dem (getrimmten) Track-Ende würde auf f=1 geklemmt —
+    // die Kamera schaltete dann sichtbar exakt am Finale um, wo die Grenze nie
+    // gemeint war → verwerfen. Vor dem Start bleibt die Klemmung („gilt ab hier").
+    const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
+    const keyframes = edits.kamera
+      .map((g) => ({ abMs: Date.parse(g.ab), preset: g.preset }))
+      .filter((g) => Number.isFinite(g.abMs))
+      .filter((g) => {
+        if (trackEndeSek === undefined || (g.abMs - startMs) / 1000 <= trackEndeSek) return true
+        protokoll?.(`Kamera-Grenze hinter dem Track-Ende übersprungen (${g.preset})`)
+        return false
+      })
+      // positionZurZeit ist monoton in der Zeit → nach `ab` sortiert ist auch
+      // f sortiert; bei gleichem f gewinnt unten der spätere `ab`.
+      .sort((a, b) => a.abMs - b.abMs)
+      .map((g) => ({ f: positionZurZeit(reihe, (g.abMs - startMs) / 1000).f, preset: g.preset }))
+    const dedupliziert: NonNullable<TourJson['camera']> = []
+    for (const k of keyframes) {
+      const letzter = dedupliziert[dedupliziert.length - 1]
+      if (letzter && letzter.f === k.f) letzter.preset = k.preset
+      else dedupliziert.push(k)
+    }
+    if (dedupliziert.length) camera = dedupliziert
+  }
+
+  // Audio-Spuren (Baukasten): absolute Zeiten → f-Bereiche. Fehlende Dateien
+  // und Bereiche, die der Trim vollständig entfernt hat, werden mit Warnung
+  // übersprungen — ein kaputter Verweis darf den Render nie scheitern lassen.
+  let audio: TourJson['audio']
+  if (edits?.audio?.length) {
+    const vorhandene = new Set(audioDateien ?? [])
+    const ersterPunkt = reihe.punkte[0]
+    const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
+    const spuren: NonNullable<TourJson['audio']> = []
+    for (const spur of edits.audio) {
+      if (!vorhandene.has(spur.datei)) {
+        protokoll?.(`Audio-Datei fehlt: ${spur.datei}`)
+        continue
+      }
+      const tAb = (Date.parse(spur.ab) - startMs) / 1000
+      const f0 = positionZurZeit(reihe, tAb).f
+      let f1: number
+      if (spur.typ === 'musik') {
+        f1 = spur.bis !== undefined ? positionZurZeit(reihe, (Date.parse(spur.bis) - startMs) / 1000).f : 1
+        // Leere Spanne (z. B. komplett vor den Trim-Start geklemmt) → weg damit
+        if (f1 <= f0) {
+          protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
+          continue
+        }
+      } else {
+        // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
+        // Tracks, würde die Klemmung den Knall an den Tour-Start/-Ende legen,
+        // wo er nie gemeint war → überspringen.
+        if (ersterPunkt && letzterPunkt && (tAb < ersterPunkt.tSek || tAb > letzterPunkt.tSek)) {
+          protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
+          continue
+        }
+        f1 = f0
+      }
+      spuren.push({
+        type: spur.typ === 'musik' ? 'music' : 'sfx',
+        src: `/api/media/${tourId}/${spur.datei}`,
+        f0,
+        f1,
+        ...(spur.lautstaerke !== undefined ? { gain: spur.lautstaerke } : {}),
+      })
+    }
+    spuren.sort((a, b) => a.f0 - b.f0)
+    if (spuren.length) audio = spuren
+  }
+
   let weather: TourJson['weather']
   if (wetter) {
     try {
@@ -193,6 +296,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     media,
     ...(timeline ? { timeline } : {}),
     ...(weather ? { weather } : {}),
+    ...(camera ? { camera } : {}),
+    ...(audio ? { audio } : {}),
     stats,
   }
 }

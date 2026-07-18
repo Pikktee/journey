@@ -219,6 +219,15 @@
     .login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; }
     .login-box .feld { margin-bottom: 16px; }
     .login-box button[type='submit'] { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
+    .auth-wechsel { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    .auth-wechsel .link, .link {
+      background: none; border: none; padding: 0; color: var(--akzent);
+      font: inherit; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .link:hover { text-decoration: underline; }
+    .auth-rechtstexte { margin-top: 28px; text-align: center; font-size: 12px; color: var(--text-3); }
+    .auth-rechtstexte a { color: var(--text-3); }
+    .hinweis.ok { color: var(--ok, #56c271); }
     @media (max-width: 860px) {
       #login-view { grid-template-columns: 1fr; }
       .login-buehne { display: none; }
@@ -264,6 +273,30 @@
       font-weight: 700;
       text-transform: uppercase;
     }
+
+    .konto-wrap { position: relative; }
+    .benutzer-chip { cursor: pointer; }
+    .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
+    .konto-menue {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
+      width: 250px; padding: 14px; border-radius: 12px;
+      background: var(--fl-2, #131922); border: 1px solid var(--rand);
+      box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .km-mail { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); word-break: break-all; }
+    .km-quota-kopf { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-3); margin-bottom: 6px; }
+    .km-balken { height: 6px; border-radius: 3px; background: var(--fl-1); overflow: hidden; }
+    .km-balken span { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); transition: width 300ms; }
+    .km-balken span.voll { background: var(--warn, #e8a13c); }
+    .km-eintrag { width: 100%; justify-content: center; font-size: 13px; }
+    .verify-banner {
+      flex: none; display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px; font-size: 12.5px;
+      background: color-mix(in srgb, var(--warn, #e8a13c) 16%, transparent);
+      color: var(--warn, #e8a13c); border-bottom: 1px solid var(--rand);
+    }
+    .verify-banner svg { width: 15px; height: 15px; flex: none; }
 
     #app-view {
       position: fixed;
@@ -420,6 +453,7 @@
     .tour .titel small { display: block; color: var(--text-3); font-size: 12px; font-family: var(--font-mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .tour-actions { display: flex; gap: 7px; align-items: center; }
     .tour-actions .knopf, .tour-actions button { font-size: 12.5px; padding: 7px 11px; }
+    .sicht-select { font-size: 12px; padding: 6px 24px 6px 9px; color: var(--text-2); }
 
     .leer { color: var(--text-3); }
     .leer-buehne {
@@ -481,6 +515,8 @@
     .karten-buehne { position: relative; min-width: 0; background: var(--bg-tief); }
     #editor-map { position: absolute; inset: 0; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }
+    /* Beim Platzieren zählt nur der Track: Marker dürfen den Klick nicht schlucken */
+    #editor-map.platzieren .m-marker { pointer-events: none; }
     .maplibregl-ctrl-attrib { font-size: 10px; background: rgba(6, 8, 12, 0.55) !important; color: var(--text-2); }
     .maplibregl-ctrl-attrib a { color: var(--text-2); }
     .maplibregl-ctrl-group { background: rgba(13, 17, 24, 0.9) !important; border: 1px solid var(--rand); border-radius: 10px !important; overflow: hidden; }
@@ -620,6 +656,178 @@
     }
     .t-marker { border-color: var(--akzent); color: var(--akzent); }
 
+    /* — Zeitleiste (Kreativbaukasten): Zeitachse mit Trim-Griffen, Bändern,
+         Medien-Dots, Pins und Audio-Spur — schwebt unten über der Karte — */
+    #zeitleiste {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      z-index: 4;
+      background: rgba(11, 15, 21, 0.88);
+      border: 1px solid var(--rand);
+      border-radius: 13px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--schatten);
+      padding: 12px 14px 8px;
+      user-select: none;
+      touch-action: none;
+    }
+    .zl-spur { position: relative; height: 30px; }
+    .zl-grund { position: absolute; inset: 10px 0; border-radius: 6px; background: var(--fl-2); overflow: hidden; }
+    .zl-band { position: absolute; top: 0; bottom: 0; opacity: 0.9; }
+    .zl-band.inaktiv { opacity: 0.22; }
+    .zl-schatten { position: absolute; top: 8px; bottom: 8px; background: rgba(4, 6, 10, 0.62); pointer-events: none; z-index: 2; }
+    .zl-schatten.links { left: 0; border-radius: 6px 0 0 6px; }
+    .zl-schatten.rechts { right: 0; border-radius: 0 6px 6px 0; }
+    .zl-griff {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      width: 12px;
+      margin-left: -6px;
+      z-index: 4; /* über den Medien-Dots: die Griffe sind das primäre Werkzeug */
+      cursor: ew-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zl-griff::before {
+      content: '';
+      width: 5px;
+      height: 100%;
+      border-radius: 4px;
+      background: var(--akzent);
+      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.8);
+      transition: transform 120ms ease;
+    }
+    .zl-griff:hover::before, .zl-griff.zieht::before { transform: scaleX(1.5); }
+    .zl-dot {
+      position: absolute;
+      top: 50%;
+      width: 11px;
+      height: 11px;
+      margin: -5.5px 0 0 -5.5px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2.5px solid var(--akzent);
+      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.7);
+      z-index: 3;
+      cursor: pointer;
+      transition: transform 120ms ease;
+    }
+    .zl-dot:hover { transform: scale(1.35); }
+    .zl-dot.video { border-radius: 3px; }
+    .zl-pin {
+      position: absolute;
+      top: -3px;
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      border-radius: 3px 3px 3px 0;
+      transform: rotate(-45deg);
+      border: 1.5px solid rgba(6, 8, 12, 0.8);
+      z-index: 3;
+      cursor: grab;
+    }
+    .zl-pin.kamera { background: var(--text-2); border-radius: 50% 50% 50% 0; }
+    .zl-pin.zieht { cursor: grabbing; }
+    .zl-hover { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--text); opacity: 0.65; pointer-events: none; z-index: 4; display: none; }
+    .zl-tip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 3px 7px;
+      background: rgba(6, 8, 12, 0.92);
+      border: 1px solid var(--rand-hell);
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 5;
+      display: none;
+    }
+    .zl-audio { position: relative; height: 16px; margin-top: 3px; }
+    .zl-audio:empty { display: none; }
+    .zl-audio-balken {
+      position: absolute;
+      top: 2px;
+      height: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, rgba(245, 165, 36, 0.55), rgba(255, 111, 82, 0.55));
+      border: 1px solid rgba(245, 165, 36, 0.8);
+      cursor: grab;
+      min-width: 8px;
+    }
+    .zl-audio-balken .kante {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      width: 8px;
+      cursor: ew-resize;
+    }
+    .zl-audio-balken .kante.von { left: -4px; }
+    .zl-audio-balken .kante.bis { right: -4px; }
+    .zl-sfx {
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      margin: -5px 0 0 -5px;
+      transform: rotate(45deg);
+      background: var(--lila);
+      border: 1.5px solid rgba(6, 8, 12, 0.8);
+      border-radius: 2px;
+      cursor: grab;
+    }
+    .zl-ticks { position: relative; height: 14px; margin-top: 2px; }
+    .zl-ticks span {
+      position: absolute;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--text-3);
+    }
+
+    /* — Audio-Panel (Sidebar) — */
+    .audio-zeile {
+      background: var(--fl-1);
+      border: 1px solid var(--rand);
+      border-radius: 12px;
+      padding: 10px 11px;
+      margin-bottom: 9px;
+      font-size: 12px;
+    }
+    .audio-zeile .a-kopf { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .audio-zeile .a-warnung { margin-top: 7px; padding: 6px 8px; border-radius: 7px; background: color-mix(in srgb, var(--warn, #e8a13c) 14%, transparent); color: var(--warn, #e8a13c); font-size: 11px; line-height: 1.35; }
+    .audio-zeile .a-kopf svg { width: 15px; height: 15px; color: var(--akzent); flex: none; }
+    .audio-zeile .a-name { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .audio-zeile select { width: auto; font-size: 11.5px; padding: 5px 26px 5px 8px; }
+    .audio-zeile .a-zeiten { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); flex-wrap: wrap; }
+    .audio-zeile .a-zeiten button { padding: 4px 8px; font-size: 11px; }
+    .audio-zeile .a-fuss { display: flex; align-items: center; gap: 9px; margin-top: 8px; }
+    .audio-zeile input[type='range'] { flex: 1; accent-color: var(--akzent); height: 4px; }
+    .audio-zeile .a-fuss button { padding: 4px 8px; font-size: 11px; }
+    .audio-zeile .a-fuss .laut { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); width: 38px; text-align: right; }
+
+    /* — Foto-Optionen in der Medien-Zeile — */
+    .m-optionen { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+    .m-optionen select { width: auto; font-size: 11.5px; padding: 4px 26px 4px 8px; }
+    .m-optionen label.kb {
+      display: inline-flex; align-items: center; gap: 5px; margin: 0;
+      font-size: 11.5px; color: var(--text-2); cursor: pointer;
+    }
+    .m-optionen label.kb input { width: auto; accent-color: var(--akzent); margin: 0; }
+    .m-gps-knopf { padding: 4px 8px; font-size: 11px; }
+
+    /* — Karte↔Liste-Synchronisation — */
+    @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
+    .m-marker.puls { animation: markerPuls 700ms ease-out 2; }
+    @keyframes zeileBlitz { 0% { border-color: var(--akzent); background: rgba(245, 165, 36, 0.1); } 100% { border-color: var(--rand); background: var(--fl-1); } }
+    .medien-zeile.blitz { animation: zeileBlitz 1.4s ease-out; }
+    .hover-marker { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); box-shadow: 0 0 8px rgba(242, 237, 227, 0.6); pointer-events: none; }
+
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
       body { overflow: auto; }
@@ -684,6 +892,18 @@
       <symbol id="i-ferry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 17c1.4 1.2 2.8 1.2 4.2 0 1.3 1.2 2.7 1.2 4 0 1.3 1.2 2.7 1.2 4 0 1.2 1 2.4 1.2 3.8.3"/><path d="m6 14-.8-3.5L12 8.5l6.8 2L18 14"/><path d="M9.5 8.8V6h5v2.8"/>
       </symbol>
+      <symbol id="i-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="17.5" r="2.8"/><circle cx="16.5" cy="15.5" r="2.8"/><path d="M9.8 17.5V6.5l9.5-2v11"/><path d="M9.8 9.5 19.3 7.5"/>
+      </symbol>
+      <symbol id="i-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5 10.5 4.8h3L15 7.5"/><circle cx="12" cy="13.5" r="3.2"/>
+      </symbol>
+      <symbol id="i-blitz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 3 5.5 13.5h5L11 21l7.5-10.5h-5z"/>
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21s-6.5-6.2-6.5-10.7a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -709,20 +929,82 @@
       <div class="login-fuss">GPX · Fotos · Videos → Tour</div>
     </div>
     <div class="login-formseite">
-      <form id="login-form" class="login-box">
-        <h2>Anmelden</h2>
-        <p class="unterzeile">Weiter zu deinen Touren.</p>
-        <div class="feld">
-          <label for="email">E-Mail</label>
-          <input id="email" type="email" autocomplete="username" required />
-        </div>
-        <div class="feld">
-          <label for="passwort">Passwort</label>
-          <input id="passwort" type="password" autocomplete="current-password" required />
-        </div>
-        <div class="hinweis fehler" id="login-fehler" role="alert"></div>
-        <button type="submit" class="primaer">Anmelden</button>
-      </form>
+      <div class="login-box" id="auth-box">
+        <!-- Anmelden -->
+        <form id="login-form" class="auth-form">
+          <h2>Anmelden</h2>
+          <p class="unterzeile">Weiter zu deinen Touren.</p>
+          <div class="feld">
+            <label for="email">E-Mail</label>
+            <input id="email" type="email" autocomplete="username" required />
+          </div>
+          <div class="feld">
+            <label for="passwort">Passwort</label>
+            <input id="passwort" type="password" autocomplete="current-password" required />
+          </div>
+          <div class="hinweis fehler" id="login-fehler" role="alert"></div>
+          <button type="submit" class="primaer">Anmelden</button>
+          <div class="auth-wechsel">
+            <button type="button" class="link" data-modus="reset-anfordern">Passwort vergessen?</button>
+            <button type="button" class="link" data-modus="register">Konto erstellen</button>
+          </div>
+        </form>
+
+        <!-- Registrieren -->
+        <form id="register-form" class="auth-form" hidden>
+          <h2>Konto erstellen</h2>
+          <p class="unterzeile">Kostenlos — du bekommst gleich eine Bestätigungsmail.</p>
+          <div class="feld">
+            <label for="reg-name">Name</label>
+            <input id="reg-name" type="text" autocomplete="name" maxlength="80" required />
+          </div>
+          <div class="feld">
+            <label for="reg-email">E-Mail</label>
+            <input id="reg-email" type="email" autocomplete="username" required />
+          </div>
+          <div class="feld">
+            <label for="reg-passwort">Passwort <span class="zusatz">— mindestens 8 Zeichen</span></label>
+            <input id="reg-passwort" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <div class="hinweis fehler" id="register-fehler" role="alert"></div>
+          <button type="submit" class="primaer">Konto erstellen</button>
+          <div class="auth-wechsel">
+            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+          </div>
+        </form>
+
+        <!-- Passwort-Reset anfordern -->
+        <form id="reset-anfordern-form" class="auth-form" hidden>
+          <h2>Passwort zurücksetzen</h2>
+          <p class="unterzeile">Wir schicken dir einen Link zum Neu-Setzen.</p>
+          <div class="feld">
+            <label for="reset-email">E-Mail</label>
+            <input id="reset-email" type="email" autocomplete="username" required />
+          </div>
+          <div class="hinweis" id="reset-anfordern-status" role="status"></div>
+          <button type="submit" class="primaer">Link anfordern</button>
+          <div class="auth-wechsel">
+            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+          </div>
+        </form>
+
+        <!-- Neues Passwort setzen (aus dem Mail-Link, #reset=…) -->
+        <form id="reset-setzen-form" class="auth-form" hidden>
+          <h2>Neues Passwort</h2>
+          <p class="unterzeile">Wähle ein neues Passwort für dein Konto.</p>
+          <div class="feld">
+            <label for="reset-passwort">Neues Passwort <span class="zusatz">— mindestens 8 Zeichen</span></label>
+            <input id="reset-passwort" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <div class="hinweis fehler" id="reset-setzen-fehler" role="alert"></div>
+          <button type="submit" class="primaer">Passwort speichern</button>
+        </form>
+
+        <p class="auth-rechtstexte">
+          <a href="/impressum.html" target="_blank" rel="noopener">Impressum</a> ·
+          <a href="/datenschutz.html" target="_blank" rel="noopener">Datenschutz</a>
+        </p>
+      </div>
     </div>
   </section>
 
@@ -731,9 +1013,25 @@
     <header class="topbar">
       <div class="wortmarke">Luhambo <b>Studio</b></div>
       <div class="luecke"></div>
-      <span class="benutzer-chip" id="benutzer-chip" hidden><span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span></span>
+      <div class="konto-wrap">
+        <button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false">
+          <span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span>
+        </button>
+        <div class="konto-menue" id="konto-menue" hidden>
+          <div class="km-mail" id="km-mail"></div>
+          <div class="km-quota">
+            <div class="km-quota-kopf"><span>Speicher</span><span id="km-quota-text"></span></div>
+            <div class="km-balken"><span id="km-balken-fuell"></span></div>
+          </div>
+          <button class="km-eintrag gefahr" id="konto-loeschen">Konto löschen …</button>
+        </div>
+      </div>
       <button class="icon" id="abmelden" hidden title="Abmelden" aria-label="Abmelden"><svg><use href="#i-abmelden"/></svg></button>
     </header>
+    <div class="verify-banner" id="verify-banner" hidden>
+      <svg><use href="#i-blitz"/></svg>
+      <span>Bitte bestätige deine E-Mail-Adresse — der Link liegt in deinem Postfach. Hochladen ist erst danach möglich.</span>
+    </div>
     <div class="app-rumpf">
       <aside class="upload-panel">
         <div class="panel-titel"><h2>Neue Tour</h2></div>
@@ -800,6 +1098,7 @@
       <div class="karten-buehne">
         <div id="editor-map"></div>
         <div id="editor-medien-hinweis"></div>
+        <div id="zeitleiste" hidden></div>
       </div>
       <aside class="editor-seite">
         <div class="werkzeug-gruppe">
@@ -817,6 +1116,12 @@
               <option value="ferry">Fähre</option>
             </select>
             <button id="e-grenze" disabled title="Fortbewegung ab diesem Punkt ändern">ab hier</button>
+            <select id="e-kamera-preset" aria-label="Kamera ab diesem Punkt">
+              <option value="nah">Kamera nah</option>
+              <option value="mittel" selected>Kamera mittel</option>
+              <option value="weit">Kamera weit</option>
+            </select>
+            <button id="e-kamera" disabled title="Kamera-Nähe ab diesem Punkt ändern">ab hier</button>
           </div>
         </div>
         <div class="werkzeug-gruppe">
@@ -826,6 +1131,17 @@
         <div class="werkzeug-gruppe">
           <div class="gruppen-titel">Fortbewegungs-Grenzen</div>
           <div id="editor-grenzen" class="hinweis">—</div>
+        </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Kamera-Verläufe</div>
+          <div id="editor-kamera" class="hinweis">—</div>
+        </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Musik &amp; Sound</div>
+          <div id="editor-audio"></div>
+          <button id="e-audio-hinzu" style="margin-top: 8px;"><svg aria-hidden="true"><use href="#i-note"/></svg>Musik/Sound hochladen</button>
+          <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
+          <div class="hinweis" id="editor-audio-status" role="status"></div>
         </div>
         <div class="werkzeug-gruppe">
           <div class="gruppen-titel">Beschreibung</div>

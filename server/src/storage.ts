@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -23,6 +23,12 @@ export interface Storage {
   info(tourId: string, relPfad: string): Promise<DateiInfo | null>
   /** Lese-Stream mit optionalem Byte-Bereich (für HTTP-Range/Video-Seeking) */
   leseStream(tourId: string, relPfad: string, bereich?: { start: number; ende: number }): Readable
+  /** Einzelne Datei löschen (Audio-Assets, Baukasten); fehlende Datei ist ok */
+  loesche(tourId: string, relPfad: string): Promise<void>
+  /** Dateien eines Unterordners auflisten (nicht-rekursiv); fehlender Ordner → [] */
+  listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>>
+  /** Summe aller Bytes einer Tour (rekursiv über alle Unterordner) — für die Quota (M9) */
+  gesamtGroesse(tourId: string): Promise<number>
   loescheTour(tourId: string): Promise<void>
 }
 
@@ -107,6 +113,49 @@ export class FsStorage implements Storage {
     return bereich ? createReadStream(pfad, { start: bereich.start, end: bereich.ende }) : createReadStream(pfad)
   }
 
+  async loesche(tourId: string, relPfad: string): Promise<void> {
+    await rm(this.pfad(tourId, relPfad), { force: true })
+  }
+
+  async listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>> {
+    const ordner = this.pfad(tourId, unterordner)
+    let eintraege
+    try {
+      eintraege = await readdir(ordner, { withFileTypes: true })
+    } catch {
+      return [] // fehlender Ordner = keine Dateien (Tour ohne Medien/Audio)
+    }
+    const dateien: Array<{ name: string; groesse: number }> = []
+    for (const eintrag of eintraege) {
+      if (!eintrag.isFile()) continue // nicht-rekursiv: Unterordner ignorieren
+      const s = await stat(join(ordner, eintrag.name))
+      dateien.push({ name: eintrag.name, groesse: s.size })
+    }
+    // Deterministische Reihenfolge (readdir garantiert keine) — Fs und Mem
+    // verhalten sich gleich, Tests und Editor-Listen bleiben stabil.
+    return dateien.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  async gesamtGroesse(tourId: string): Promise<number> {
+    const wurzel = sicherePfad(this.basisDir, tourId, '.')
+    let summe = 0
+    const gehe = async (ordner: string): Promise<void> => {
+      let eintraege
+      try {
+        eintraege = await readdir(ordner, { withFileTypes: true })
+      } catch {
+        return // Tour ohne Verzeichnis (noch nichts hochgeladen)
+      }
+      for (const eintrag of eintraege) {
+        const pfad = join(ordner, eintrag.name)
+        if (eintrag.isDirectory()) await gehe(pfad)
+        else if (eintrag.isFile()) summe += (await stat(pfad)).size
+      }
+    }
+    await gehe(wurzel)
+    return summe
+  }
+
   async loescheTour(tourId: string): Promise<void> {
     await rm(sicherePfad(this.basisDir, tourId, '.'), { recursive: true, force: true })
   }
@@ -153,6 +202,30 @@ export class MemStorage implements Storage {
     if (!inhalt) throw Object.assign(new Error('nicht gefunden'), { code: 'ENOENT' })
     const ausschnitt = bereich ? inhalt.subarray(bereich.start, bereich.ende + 1) : inhalt
     return Readable.from([ausschnitt])
+  }
+
+  async loesche(tourId: string, relPfad: string): Promise<void> {
+    this.dateien.delete(this.key(tourId, relPfad))
+  }
+
+  async listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>> {
+    const praefix = `${this.key(tourId, unterordner)}/`
+    const dateien: Array<{ name: string; groesse: number }> = []
+    for (const [key, inhalt] of this.dateien) {
+      if (!key.startsWith(praefix)) continue
+      const name = key.slice(praefix.length)
+      if (name.includes('/')) continue // nicht-rekursiv (gleiche Semantik wie FsStorage)
+      dateien.push({ name, groesse: inhalt.length })
+    }
+    return dateien.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  async gesamtGroesse(tourId: string): Promise<number> {
+    let summe = 0
+    for (const [key, inhalt] of this.dateien) {
+      if (key.startsWith(`${tourId}/`)) summe += inhalt.length
+    }
+    return summe
   }
 
   async loescheTour(tourId: string): Promise<void> {

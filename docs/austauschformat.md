@@ -117,8 +117,19 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 - Fehlt `weather`, greift im Player das Client-Auto-Wetter
   (`src/autoweather.js`) als Fallback — echte `takenAt`/`time`-Werte machen es
   bei aufgezeichneten Touren sofort sinnvoll.
-- Reserviert (v1 leer): `camera: [{f, preset}]`, `audio: [{type, src, f0, f1}]`,
-  `media[].display: {holdS?, kenBurns?}`.
+- **Kreativbaukasten-Felder** (aus dem Edit-Overlay gerendert, s. u.; der
+  Player ignoriert sie, wenn sie fehlen):
+  - `camera: [{f, preset}]` — Kamera-Preset-Keyframes (nah|mittel|weit),
+    sortiert nach `f`; gilt ab `f` bis zum nächsten Keyframe. Der Player
+    (main.js-Folger) wendet sie über `tour.setPreset` an; ein manueller
+    Preset-Klick des Zuschauers übersteuert den Verlauf.
+  - `audio: [{type, src, f0, f1, gain?}]` — `music` spielt im Streckenbereich
+    [f0, f1) mit weichen Blenden (src/audiotracks.js; ersetzt die statische
+    Hintergrundmusik der Tour komplett), `sfx` feuert einmal beim
+    Vorwärts-Überfahren von `f0` (f1 == f0). `gain` 0..1 (Default 1).
+  - `media[].display: {holdS?, kenBurns?}` — Haltedauer des Foto-Stopps in
+    Sekunden (Default 5,2 s) und Ken-Burns-Drift an/aus (Default an);
+    für Videos wirkungslos (Haltedauer = Videolänge).
 
 ## Edit-Overlay `luhambo/edits@1` (M7)
 
@@ -158,11 +169,53 @@ Timeline und Wetter rechnen danach auf dem bearbeiteten Track.
 Der Studio-Editor holt sich seine Arbeitsgrundlage über
 `GET /api/tours/:id/editor` (Owner-only): Original-Track **mit Zeit-Offsets**
 (`pts: [lng, lat, ele, tOffsetS]`, vereinfacht), Auto-Platzierung aller Medien
-(inklusive gelöschter/unplatzierter) und das gespeicherte Overlay. Bewusste
-Vereinfachung: Die Auto-Platzierung im Editor rechnet auf dem **Original-**
-(untrimmten) Track — beschneidet ein Trim das Umfeld eines Auto-Ankers, kann
-das Render-Ergebnis davon abweichen (Medium wird `unplatziert`); der
-gerenderte Stand ist immer die Wahrheit des Players.
+(inklusive gelöschter/unplatzierter; je Medium zusätzlich `gpsAnker` = roher
+Manifest-Anker, auch wenn die Platzierung ihn verwarf), die hochgeladenen
+Audio-Assets (`audio: [{datei, groesse}]`) und das gespeicherte Overlay.
+Bewusste Vereinfachung: Die Auto-Platzierung im Editor rechnet auf dem
+**Original-** (untrimmten) Track — beschneidet ein Trim das Umfeld eines
+Auto-Ankers, kann das Render-Ergebnis davon abweichen (Medium wird
+`unplatziert`); der gerenderte Stand ist immer die Wahrheit des Players.
+
+### Kreativbaukasten (edits@1-Erweiterung)
+
+Drei zusätzliche Overlay-Bereiche, alle mit **absoluten Zeitstempeln** als
+Anker (trim-stabil, nie `f`):
+
+```jsonc
+{
+  "medien": { "m3": { "display": { "holdS": 8, "kenBurns": false } } },
+  "kamera": [ { "ab": "2026-07-04T10:00:00Z", "preset": "weit" } ],
+  "audio": [
+    { "datei": "musik.mp3", "typ": "musik", "ab": "…", "bis": "…", "lautstaerke": 0.8 },
+    { "datei": "knall.mp3", "typ": "sfx", "ab": "…" }
+  ]
+}
+```
+
+- `display.holdS` 2..60 s, `kenBurns` boolean; nur bei Fotos wirksam.
+- `kamera` (max. 100): Preset ab Zeitpunkt bis zur nächsten Grenze.
+- `audio` (max. 50): `musik` mit optionalem `bis` (fehlt = Tour-Ende),
+  `sfx` als Einzelschuss (kein `bis`); `lautstaerke` 0..1.
+
+**Audio-Assets** sind KEINE Aufnahme-Medien (nicht im Upload-Manifest),
+sondern kreative Zutaten mit eigenem Lebenszyklus:
+
+- `PUT /api/tours/:id/audio/:datei` — roher Body; `datei` =
+  `^[A-Za-z0-9_-]{1,64}\.(mp3|m4a|ogg|wav)$`; auch auf `bereit`-Touren
+  erlaubt (nur während `verarbeitung` 409). Überschreiben ist verboten
+  (409) — die Auslieferung verspricht `immutable`-Caching, neue Version =
+  neuer Name. Limit `maxAudioBytes` (Default 25 MB) → 413.
+- `DELETE /api/tours/:id/audio/:datei` — löscht das Asset (das Overlay
+  bereinigt der Editor beim Speichern; die Pipeline überspringt Einträge
+  mit fehlender Datei mit Protokoll-Warnung).
+- Ablage unter `media/`, Auslieferung über die normale Medien-Route
+  (Range-Support fürs Seeking, korrekte audio/*-Content-Types).
+
+Beim Rendern bildet die Pipeline die Zeit-Anker über `positionZurZeit` auf
+den **bearbeiteten** (getrimmten) Track ab: `kamera.ab → camera[].f`,
+`audio.ab/bis → f0/f1` (Musik ohne `bis` → f1 = 1; Einträge, die komplett
+außerhalb der Wiedergabespanne liegen, entfallen mit Warnung).
 
 ## Status- und Fehlerfälle
 

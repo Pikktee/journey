@@ -4,8 +4,9 @@
 #
 # Erstbetrieb auf dem VPS:
 #   /srv/luhambo/.env anlegen (SITE_ADDRESS, LUHAMBO_COOKIE_SECRET,
-#   LUHAMBO_ADMIN_EMAIL, LUHAMBO_ADMIN_PASSWORT) → docker compose up -d
-# Deploys übernimmt .github/workflows/deploy.yml (GHCR-Pull + up -d).
+#   LUHAMBO_ADMIN_EMAIL, LUHAMBO_ADMIN_PASSWORT; für den Mehrbenutzer-Betrieb
+#   zusätzlich LUHAMBO_BASIS_URL, RESEND_API_KEY, LUHAMBO_MAIL_ABSENDER) →
+#   docker compose up -d. Deploys übernimmt .github/workflows/deploy.yml.
 
 services:
   web:
@@ -35,6 +36,14 @@ services:
       LUHAMBO_ADMIN_EMAIL: ${LUHAMBO_ADMIN_EMAIL:-}
       LUHAMBO_ADMIN_PASSWORT: ${LUHAMBO_ADMIN_PASSWORT:-}
       LUHAMBO_HINTER_TLS: '1'
+      # Mehrbenutzer-Betrieb (M9): öffentliche URL für Mail-Links, Mail-Versand,
+      # Quota, Registrierungs-Schalter. Leere Werte fallen serverseitig auf die
+      # Defaults zurück (ohne RESEND_API_KEY loggt der Server den Link nur).
+      LUHAMBO_BASIS_URL: ${LUHAMBO_BASIS_URL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      LUHAMBO_MAIL_ABSENDER: ${LUHAMBO_MAIL_ABSENDER:-}
+      LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: ${LUHAMBO_MAX_SPEICHER_PRO_BENUTZER:-}
+      LUHAMBO_REGISTRIERUNG_OFFEN: ${LUHAMBO_REGISTRIERUNG_OFFEN:-}
     volumes:
       - /srv/luhambo/daten:/data
 

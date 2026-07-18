@@ -514,7 +514,9 @@ body.cinema .cine {
   height: 100%;
   object-fit: cover;
   transform: scale(1.12);
-  transition: transform 7s ease-out;
+  /* Drift-Dauer folgt der Anzeigedauer des Mediums (--kb-dauer aus ui.js,
+     display.holdS + Ausblende); ohne Studio-Wert bleibt es beim 7-s-Default */
+  transition: transform var(--kb-dauer, 7s) ease-out;
   filter: brightness(1) contrast(1.02) saturate(1.05);
 }
 
@@ -530,6 +532,16 @@ body.cinema .cine {
   to {
     filter: brightness(1) contrast(1.02) saturate(1.05);
   }
+}
+
+/* Ken-Burns pro Medium abschaltbar (display.kenBurns === false, Studio): das
+   Bild steht ruhig, ohne Drift und ohne „Entwickeln“. !important schlägt die
+   spezifischeren .photo-card.in-Regeln oben. */
+/* Ken-Burns abgeschaltet: nur der DRIFT entfällt — das „Entwickeln"
+   (develop-Filterblende) gehört zur Foto-Signatur und bleibt. */
+.photo-frame.kein-kb img {
+  transform: none !important;
+  transition: none;
 }
 
 /* Video-Stopp (M4): nicht beschneiden (auch Hochformat-Handyvideos), schwarzer

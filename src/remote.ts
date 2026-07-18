@@ -17,6 +17,8 @@ export interface RemoteMedium {
   takenAt: string
   durationS?: number
   poster?: string
+  /** Anzeige-Optionen aus dem Studio (Kreativbaukasten): Haltedauer + Ken-Burns */
+  display?: { holdS?: number; kenBurns?: boolean }
 }
 
 /** Server-JSON `luhambo/tour@1` (Ausschnitt, den der Player braucht). */
@@ -38,6 +40,10 @@ export interface TourJsonAntwort {
   /** Wetter-Keyframes über den Streckenanteil f (kommt in M2 vom Server) */
   weather?: Array<{ f: number; mode: string; k: number; source?: string }>
   timeline?: Array<{ f: number; t: string }>
+  /** Kamera-Keyframes über den Streckenanteil f (Kreativbaukasten): Preset ab f */
+  camera?: Array<{ f: number; preset: string }>
+  /** Audio-Spuren über den Streckenanteil f: Musik-Bereiche [f0,f1) + SFX (f0=f1) */
+  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
   stats: { km: number; gainM: number }
 }
 
@@ -61,10 +67,15 @@ export interface RemoteTourCfg {
     type: 'photo' | 'video'
     durationS?: number
     poster?: string
+    display?: { holdS?: number; kenBurns?: boolean }
   }>
   /** Kuratierte Wetter-Timeline im Player-Format (km entlang der Route) */
   weather?: Array<{ km: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
+  /** Kamera-Keyframes (roh, f-basiert — main.js rechnet frac = s/total selbst) */
+  camera?: Array<{ f: number; preset: string }>
+  /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.js spielt sie ab) */
+  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
   stats: { km: number; gainM: number }
 }
 
@@ -121,6 +132,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
         type: m.type,
         ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
         ...(m.poster !== undefined ? { poster: m.poster } : {}),
+        ...(m.display !== undefined ? { display: m.display } : {}),
       })),
     stats: tour.stats,
   }
@@ -128,6 +140,21 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     cfg.weather = tour.weather.map((w) => ({ km: w.f * tour.stats.km, mode: w.mode, k: w.k }))
   }
   if (tour.timeline?.length) cfg.timeline = tour.timeline
+  // Kamera-Keyframes + Audio-Spuren ROH durchreichen (f-basiert — main.js
+  // rechnet frac = tour.s/route.total selbst). Kaputte f-Werte fliegen raus
+  // (Muster createTimeAt); leere Ergebnisse lassen das Feld ganz weg.
+  if (tour.camera?.length) {
+    const kamera = tour.camera.filter((k) => Number.isFinite(k.f))
+    if (kamera.length) cfg.camera = kamera
+  }
+  if (tour.audio?.length) {
+    // gain ist optional — aber wenn gesetzt, muss er endlich sein: NaN liefe
+    // sonst bis in el.volume und würfe dort im Abspiel-Timer Exceptions.
+    const spuren = tour.audio.filter(
+      (a) => Number.isFinite(a.f0) && Number.isFinite(a.f1) && (a.gain === undefined || Number.isFinite(a.gain)),
+    )
+    if (spuren.length) cfg.audio = spuren
+  }
   return cfg
 }
 

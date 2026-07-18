@@ -39,8 +39,25 @@ data class UploadManifest(
     val title: String? = null,
     val description: String? = null,
     val time: ManifestZeit,
-    val segments: List<ManifestSegment>,
+    // segments ODER trackFile — bei Aufnahme entstehen Segmente aus Room,
+    // beim Import (M8) referenziert trackFile das per PUT hochzuladende GPX;
+    // die Segmentierung/Platzierung macht dann der Server.
+    val segments: List<ManifestSegment>? = null,
+    val trackFile: String? = null,
     val media: List<ManifestMedium>,
+)
+
+/** Zeitspanne einer Aufzeichnung/eines Imports (Millisekunden seit Epoch). */
+data class Zeitspanne(val startMs: Long, val endeMs: Long)
+
+/** Ein zu importierendes Medium mit den für die Platzierung nötigen Metadaten. */
+data class ImportMedium(
+    val id: String,
+    val typ: String, // "photo" | "video"
+    val datei: String,
+    val aufgenommenMs: Long,
+    val ankerLng: Double? = null,
+    val ankerLat: Double? = null,
 )
 
 object ManifestBau {
@@ -93,6 +110,35 @@ object ManifestBau {
         repeat(stellen) { p *= 10 }
         return Math.round(x * p) / p
     }
+
+    /**
+     * Import-Manifest (M8): statt Segmenten eine trackFile-Referenz — der Server
+     * parst das GPX und platziert die Medien. Die App liefert nur die Zeitspanne
+     * (aus dem GPX gelesen) und die Medien-Metadaten (aus EXIF, soweit vorhanden).
+     */
+    fun baueImport(
+        clientTourId: String,
+        titel: String?,
+        zone: String,
+        zeitspanne: Zeitspanne,
+        medien: List<ImportMedium>,
+        trackDatei: String = "track.gpx",
+    ): UploadManifest = UploadManifest(
+        clientTourId = clientTourId,
+        title = titel?.ifBlank { null },
+        time = ManifestZeit(start = iso(zeitspanne.startMs), end = iso(zeitspanne.endeMs), zone = zone),
+        segments = null,
+        trackFile = trackDatei,
+        media = medien.map { m ->
+            ManifestMedium(
+                id = m.id,
+                type = m.typ,
+                file = m.datei.substringAfterLast('/'),
+                takenAt = iso(m.aufgenommenMs),
+                anchor = if (m.ankerLng != null && m.ankerLat != null) listOf(m.ankerLng, m.ankerLat) else null,
+            )
+        },
+    )
 
     /** Komplettes Manifest aus dem Room-Bestand einer Tour. */
     fun baue(

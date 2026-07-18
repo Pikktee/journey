@@ -28,6 +28,14 @@ fun LuhamboNavigation() {
                 zurAufzeichnung = { navController.navigate("aufzeichnung") },
                 zurTour = { tourId -> navController.navigate("tour/$tourId") },
                 zuEinstellungen = { navController.navigate("einstellungen") },
+                zuImport = { navController.navigate("import") },
+            )
+        }
+        composable("import") {
+            ImportScreen(
+                viewModel = viewModel(factory = LuhamboViewModelFactory(app)),
+                zurueck = { navController.popBackStack() },
+                abspielen = { serverId -> navController.navigate("player/$serverId") },
             )
         }
         composable("aufzeichnung") {

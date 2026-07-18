@@ -96,6 +96,20 @@ describe('reichereAn', () => {
     expect(m2?.anchor).toBeNull()
   })
 
+  it('lässt die Uhrzeit im Titel weg, wenn takenAt außerhalb der Tour-Zeit liegt (Bughunt-Befund)', async () => {
+    const manifest = beispielManifest()
+    // VOR time.start (08:12): mtime-Fallback einer tourfremden Datei —
+    // die Uhrzeit wäre Unsinn, der Titel bleibt nackt.
+    manifest.media.push({ id: 'vorher', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
+    // NACH time.end (14:03) — Video, gleiche Regel
+    manifest.media.push({ id: 'nachher', type: 'video', file: 'y.mp4', takenAt: '2026-07-04T20:00:00+02:00' })
+    const tour = await reichereAn(eingabe({ manifest }))
+    expect(tour.media.find((m) => m.id === 'vorher')?.title).toBe('Foto')
+    expect(tour.media.find((m) => m.id === 'nachher')?.title).toBe('Video')
+    // Innerhalb der Spanne bleibt die Uhrzeit
+    expect(tour.media.find((m) => m.id === 'm1')?.title).toBe('Foto · 09:01')
+  })
+
   it('sortiert Medien nach Aufnahmezeit', async () => {
     const manifest = beispielManifest()
     manifest.media.unshift({

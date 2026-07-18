@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { FsStorage, ZuGrossFehler } from '../src/storage.js'
+import { FsStorage, MemStorage, ZuGrossFehler, type Storage } from '../src/storage.js'
 
 let dir: string
 let storage: FsStorage
@@ -70,5 +70,52 @@ describe('FsStorage', () => {
     await storage.loescheTour('t_1')
     expect(await storage.info('t_1', 'tour.json')).toBeNull()
     expect(await storage.info('t_2', 'tour.json')).toEqual({ groesse: 2 })
+  })
+
+  it('verweigert Pfad-Ausbrüche auch beim Einzel-Löschen', async () => {
+    await expect(storage.loesche('t_1', '../t_2/tour.json')).rejects.toThrow(/Unzulässiger Pfad/)
+  })
+})
+
+// Gemeinsame Verhaltensgarantien beider Implementierungen — der MemStorage-
+// Fake muss sich in Tests exakt wie das echte Dateisystem verhalten.
+describe.each<{ name: string; baue: () => Storage }>([
+  { name: 'FsStorage', baue: () => storage },
+  { name: 'MemStorage', baue: () => new MemStorage() },
+])('$name: loesche + listeDateien (Baukasten)', ({ baue }) => {
+  it('löscht einzelne Dateien; fehlende Dateien sind kein Fehler', async () => {
+    const s = baue()
+    await s.schreibe('t_1', 'media/a1.mp3', 'mp3-bytes')
+    await s.loesche('t_1', 'media/a1.mp3')
+    expect(await s.info('t_1', 'media/a1.mp3')).toBeNull()
+    await expect(s.loesche('t_1', 'media/gibtsnicht.mp3')).resolves.toBeUndefined()
+  })
+
+  it('listet Dateien eines Unterordners nicht-rekursiv, sortiert, mit Größe', async () => {
+    const s = baue()
+    await s.schreibe('t_1', 'media/b.wav', '123456')
+    await s.schreibe('t_1', 'media/a1.mp3', '0123456789')
+    await s.schreibe('t_1', 'media/unter/tief.mp3', 'x') // Unterordner: ignoriert
+    await s.schreibe('t_1', 'tour.json', '{}') // anderer Ordner: ignoriert
+    await s.schreibe('t_2', 'media/fremd.mp3', 'x') // fremde Tour: ignoriert
+    expect(await s.listeDateien('t_1', 'media')).toEqual([
+      { name: 'a1.mp3', groesse: 10 },
+      { name: 'b.wav', groesse: 6 },
+    ])
+  })
+
+  it('liefert für fehlende Ordner eine leere Liste', async () => {
+    const s = baue()
+    expect(await s.listeDateien('t_1', 'media')).toEqual([])
+  })
+
+  it('gesamtGroesse summiert rekursiv über alle Unterordner (Quota, M9)', async () => {
+    const s = baue()
+    expect(await s.gesamtGroesse('t_1')).toBe(0) // Tour ohne Dateien
+    await s.schreibe('t_1', 'manifest.json', '12345') // 5
+    await s.schreibe('t_1', 'media/a1.mp3', '0123456789') // 10
+    await s.schreibe('t_1', 'original/track.gpx', 'xyz') // 3
+    await s.schreibe('t_2', 'media/fremd.mp3', 'x') // fremde Tour zählt nicht
+    expect(await s.gesamtGroesse('t_1')).toBe(18)
   })
 })

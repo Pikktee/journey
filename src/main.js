@@ -9,6 +9,7 @@ import { sunPosition } from './sun.js'
 import { createAtmosphere } from './atmosphere.js'
 import { createWeather } from './weather.js'
 import { createMusic } from './music.js'
+import { createAudioTracks } from './audiotracks.js'
 import { createVehicle } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { installBuildingEnhancer } from './buildings.js'
@@ -38,6 +39,14 @@ if (tourParam.startsWith('srv:')) {
 // Prototypkette eine Funktion statt einer Tour liefern.
 const tourId = remoteCfg ? tourParam : Object.hasOwn(TOURS, tourParam) ? tourParam : 'kohphangan'
 const cfg = remoteCfg ?? TOURS[tourId]
+
+// — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
+// Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
+// cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
+const tourAudio = cfg.audio?.length ? createAudioTracks(cfg.audio) : null
+// Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
+// sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
+const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 
 // Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
 // Renderer-/Ansicht-Wechsel (Full-Reload) am selben Frame und im selben Wieder-
@@ -134,7 +143,7 @@ ladeServerTouren().then((touren) => {
 })
 
 const map = createMap('map', [start[0], start[1]])
-window.__j = { map, route }
+window.__j = { map, route, tourAudio }
 
 // Boot-Screen sanft ausblenden, sobald die Karte da ist. 'idle' gibt das
 // schönste Timing (Kacheln gerendert); 'load' und ein absoluter Timeout sind
@@ -164,11 +173,16 @@ map.on('load', () => {
   let scene = null // reine deck-Szene (?scene=1), async geladen — Trace/Tag-Nacht hängen daran
 
   const ui = new UI(stops, route)
+  let kamFolger = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, pos)
     rider.setLngLat([pos[0], pos[1]])
     scene?.setProgress(s, pos) // reine deck-Szene: Trace bis exakt zum Fahrer nachziehen
     tiles3d?.setProgress(s, pos) // Google-3D-Modus: Trace + Fahrer-Marker (no-op solange aus)
+    // Tour-Audio folgt dem Streckenanteil pro Frame: Musik-Bereiche + SFX-Kanten.
+    // istPlayback nur bei echter Wiedergabe — Scrub-/Seek-Sprünge feuern keine SFX.
+    tourAudio?.setFrac(s / route.total, tour.playing && !tour.scrubbing)
+    kamFolger?.(s / route.total)
   }
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
@@ -221,6 +235,34 @@ map.on('load', () => {
 
   const tour = new Tour(map, route, stops, ui, { modes })
   Object.assign(window.__j, { tour, rider })
+
+  // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
+  // Keyframes über den Streckenanteil f. Es gilt der letzte Keyframe mit f <= frac
+  // (Punktfunktion wie die Modi); vor dem ersten Keyframe bleibt der Player-Default.
+  // Feuert NUR bei Preset-Änderung — setPreset klemmt glide, nie pro Frame rufen.
+  // Ein manueller Klick auf einen Preset-Button schaltet den Folger dauerhaft aus
+  // (bis Reload): der Nutzer hat das letzte Wort über die Kameradistanz.
+  let kamManuell = false
+  if (cfg.camera?.length) {
+    const keyframes = cfg.camera.slice().sort((a, b) => a.f - b.f)
+    // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
+    // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
+    const defaultPreset = document.querySelector('.preset-btn.active')?.dataset.preset ?? 'mittel'
+    let kamAktiv = null // zuletzt angewendetes Preset (gegen Dauer-Reapply)
+    kamFolger = (frac) => {
+      if (kamManuell) return
+      // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
+      let k = null
+      for (const kf of keyframes) if (kf.f <= frac) k = kf
+      const preset = k ? k.preset : kamAktiv === null ? null : defaultPreset
+      if (preset === null || preset === kamAktiv) return
+      kamAktiv = preset
+      tour.setPreset(preset)
+      // Button-Zustand nachziehen (gleiches Muster wie der Klick-Handler unten)
+      document.querySelector('.preset-btn.active')?.classList.remove('active')
+      document.querySelector(`.preset-btn[data-preset="${preset}"]`)?.classList.add('active')
+    }
+  }
 
   // Diagnose-Helfer (Konsole): alle Baukörper um [x,y] Pixel verschieben. Bringt ein
   // KONSTANTER Versatz die Häuser sauber auf ihre Satelliten-Textur, ist es ein
@@ -518,9 +560,18 @@ map.on('load', () => {
   // Track-Animation (Fahrt/Foto), pausiert im Menü; per Dock-Knopf abschaltbar.
   // Beim Finale („Ziel erreicht") aus dem Gate → die Musik blendet über die
   // eingebaute ~2,5-s-Blende aus (kommt beim „Noch einmal erleben" wieder).
-  const music = createMusic('/audio/ambient.mp3')
-  music.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale')
+  // Bringt die Tour EIGENE Musik mit (cfg.audio), entfällt der Ambient-Loop —
+  // der Musik-Schalter in den Optionen steuert dann die Tour-Musik (tourAudio).
+  const music = hatEigeneMusik ? null : createMusic('/audio/ambient.mp3')
+  music?.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
+
+  // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub und friert bei Pause
+  // ein (Level-Rampe) — bewusst anders als music.js, denn die eigene Musik gehört
+  // zur SZENE, nicht zur App. Menü (intro) und Finale blenden aus.
+  tourAudio?.setGate(
+    () => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing || tour.phase === 'photo'),
+  )
 
   // — Optionen (Endnutzer): Ton (Master) · Musik · Wetter-Effekte —
   // Switches im Optionen-Dialog, Zustände in localStorage. „Ton" ist der Master über
@@ -533,9 +584,12 @@ map.on('load', () => {
   try { musicOn = localStorage.getItem(MUSIC_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
   try { audioOn = localStorage.getItem(AUDIO_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
   // Master wirkt auf Motor + Musik sofort; der Wetter-Ton hängt zusätzlich am 800-ms-Tick.
+  // Tour-Audio: der Musik-Schalter steuert die Musik-Spuren, SFX hängen nur am Master.
   const applyAudio = () => {
     vehicle.setEnabled(audioOn)
-    music.setEnabled(audioOn && musicOn)
+    music?.setEnabled(audioOn && musicOn)
+    tourAudio?.setMusikEnabled(audioOn && musicOn)
+    tourAudio?.setSfxEnabled(audioOn)
   }
   applyAudio()
 
@@ -608,6 +662,7 @@ map.on('load', () => {
 
   for (const btn of document.querySelectorAll('.preset-btn')) {
     btn.addEventListener('click', () => {
+      kamManuell = true // manueller Eingriff: Kamera-Folger dauerhaft aus (bis Reload)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
       btn.classList.add('active')
       tour.setPreset(btn.dataset.preset)

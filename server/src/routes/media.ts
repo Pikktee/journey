@@ -1,11 +1,14 @@
 // Medien-Routen: Upload einzelner Dateien (PUT, idempotent — WorkManager-
-// freundlich) und Auslieferung mit HTTP-Range-Support (Video-Seeking).
+// freundlich), Audio-Assets (Baukasten) und Auslieferung mit HTTP-Range-
+// Support (Video-Seeking, Audio-Scrubbing).
 
 import type { FastifyInstance } from 'fastify'
 import type { Readable } from 'node:stream'
 import { erfordereBenutzer } from '../app.js'
+import { pruefeQuota } from '../quota.js'
+import { AUDIO_DATEI_PATTERN, type EditOverlay } from '../schema/edits.js'
 import { mediumDateiname, type UploadManifest } from '../schema/upload.js'
-import { darfSehen, ladeTour, MANIFEST_PFAD, TRACK_PFAD } from './tours.js'
+import { darfSehen, EDITS_PFAD, ladeTour, MANIFEST_PFAD, TRACK_PFAD } from './tours.js'
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -14,10 +17,35 @@ const CONTENT_TYPES: Record<string, string> = {
   mp4: 'video/mp4',
   mov: 'video/quicktime',
   webm: 'video/webm',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
 }
 
+// Params-Schema der Audio-Routen: der Dateiname ist Client-Eingabe und wird
+// Teil des Ablagepfads — nur die enge Basisname+Endung-Form kommt durch.
+const audioParamsSchema = {
+  type: 'object',
+  required: ['id', 'datei'],
+  properties: {
+    id: { type: 'string' },
+    datei: { type: 'string', pattern: AUDIO_DATEI_PATTERN },
+  },
+} as const
+
 export function registriereMediaRouten(app: FastifyInstance): void {
-  const { storage, konfig } = app.deps
+  const { storage, konfig, db } = app.deps
+
+  // Quota-Vorabprüfung anhand von Content-Length (M9): fängt den Regelfall ab,
+  // bevor Bytes fließen. Ohne Header greift weiterhin die harte Pro-Datei-Grenze
+  // (maxMediumBytes/maxAudioBytes) im Stream-Guard. Setzt einen aufgelösten
+  // Owner voraus (Aufrufer hat das geprüft).
+  const quotaVorabPruefung = async (request: import('fastify').FastifyRequest): Promise<string | null> => {
+    const laenge = Number(request.headers['content-length'] ?? 0)
+    if (!Number.isFinite(laenge) || laenge <= 0 || !request.benutzer) return null
+    return pruefeQuota(db, storage, request.benutzer.id, konfig.maxSpeicherProBenutzer, laenge)
+  }
 
   // — Upload: rohes Binär in den Body, Dateiname kommt aus dem Manifest —
   app.put<{ Params: { id: string; mid: string } }>('/api/tours/:id/media/:mid', async (request, reply) => {
@@ -34,6 +62,9 @@ export function registriereMediaRouten(app: FastifyInstance): void {
     const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
     const medium = manifest.media.find((m) => m.id === request.params.mid)
     if (!medium) return reply.code(404).send({ fehler: `Unbekannte Medien-ID: ${request.params.mid}` })
+
+    const quotaFehler = await quotaVorabPruefung(request)
+    if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
 
     const info = await storage.schreibeStream(
       tour.id,
@@ -53,9 +84,73 @@ export function registriereMediaRouten(app: FastifyInstance): void {
     if (tour.status === 'bereit' || tour.status === 'verarbeitung') {
       return reply.code(409).send({ fehler: `Track ist im Status „${tour.status}" unveränderlich` })
     }
+    const quotaFehler = await quotaVorabPruefung(request)
+    if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
     const info = await storage.schreibeStream(tour.id, TRACK_PFAD, request.body as Readable, konfig.maxMediumBytes)
     return reply.code(200).send({ bytes: info.groesse })
   })
+
+  // — Audio-Assets (Baukasten): Musik/SFX für das Edit-Overlay hochladen —
+  // Anders als Manifest-Medien sind Audios auch bei „bereit"/„fehler"/„angelegt"
+  // erlaubt (sie werden im Editor nachgerüstet); nur während einer laufenden
+  // Verarbeitung ist die Ablage tabu (der Renderer liest media/ gerade).
+  app.put<{ Params: { id: string; datei: string } }>(
+    '/api/tours/:id/audio/:datei',
+    { schema: { params: audioParamsSchema } },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      const tour = ladeTour(app, request.params.id)
+      if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+      if (tour.status === 'verarbeitung') {
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft — bitte gleich erneut hochladen' })
+      }
+      const relPfad = `media/${request.params.datei}`
+      // ÜBERSCHREIBEN VERBOTEN: die GET-Auslieferung verspricht
+      // public/immutable-Cache-Header — eine neue Version unter altem Namen
+      // würde stale ausgeliefert. Neue Version = neuer Name.
+      if (await storage.info(tour.id, relPfad)) {
+        return reply.code(409).send({ fehler: 'Audio-Datei existiert bereits — anderen Namen wählen' })
+      }
+      const quotaFehler = await quotaVorabPruefung(request)
+      if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
+      const info = await storage.schreibeStream(tour.id, relPfad, request.body as Readable, konfig.maxAudioBytes)
+      return reply.code(200).send({ datei: request.params.datei, bytes: info.groesse })
+    },
+  )
+
+  // — Audio-Asset löschen — kein Re-Render hier: den löst der Editor über
+  // PUT /edits aus (das Overlay referenziert die Datei ja ggf. noch).
+  app.delete<{ Params: { id: string; datei: string } }>(
+    '/api/tours/:id/audio/:datei',
+    { schema: { params: audioParamsSchema } },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      const tour = ladeTour(app, request.params.id)
+      if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+      if (tour.status === 'verarbeitung') {
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft — bitte gleich erneut löschen' })
+      }
+      // Referenz-Schutz: solange die GESPEICHERTEN Bearbeitungen die Datei noch
+      // nutzen, würde das Löschen ein bereits gerendertes tour.json auf eine
+      // 404-Quelle zeigen lassen — erst Eintrag entfernen und speichern.
+      if (await storage.info(tour.id, EDITS_PFAD)) {
+        const edits = JSON.parse((await storage.lese(tour.id, EDITS_PFAD)).toString()) as EditOverlay
+        if (edits.audio?.some((a) => a.datei === request.params.datei)) {
+          return reply
+            .code(409)
+            .send({ fehler: 'Datei wird von den gespeicherten Bearbeitungen genutzt — erst Eintrag entfernen und speichern' })
+        }
+      }
+      const relPfad = `media/${request.params.datei}`
+      if (!(await storage.info(tour.id, relPfad))) {
+        return reply.code(404).send({ fehler: 'Audio-Datei nicht gefunden' })
+      }
+      await storage.loesche(tour.id, relPfad)
+      return { ok: true }
+    },
+  )
 
   // — Auslieferung mit Range-Support —
   app.get<{ Params: { tourId: string; datei: string } }>('/api/media/:tourId/:datei', async (request, reply) => {

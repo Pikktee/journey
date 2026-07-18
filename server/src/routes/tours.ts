@@ -13,6 +13,7 @@ import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import {
   EDITS_SCHEMA_ID,
   editsJsonSchema,
+  istAudioDatei,
   pruefeEditsSemantik,
   type EditOverlay,
 } from '../schema/edits.js'
@@ -82,6 +83,12 @@ export function registriereTourRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
+
+      // M9: Hochladen erst nach E-Mail-Bestätigung — bremst Wegwerf-Accounts und
+      // die daran hängenden Speicher-/Vision-Kosten.
+      if (!app.auth.istVerifiziert(benutzer.id)) {
+        return reply.code(403).send({ fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' })
+      }
 
       // Idempotenz: dieselbe App-Tour erneut angelegt → vorhandene ID zurück
       const clientId = request.body.clientTourId ?? null
@@ -319,6 +326,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
         caption: medium.caption ?? '',
         anchor,
         placement,
+        // Roher GPS-Anker aus dem Manifest (nur wenn vorhanden): der Editor
+        // bietet damit „GPS-Ort verwenden" an, wenn die Auto-Platzierung auf
+        // zeit zurückfiel oder ein manueller Anker zurückgenommen werden soll.
+        ...(medium.anchor ? { gpsAnker: medium.anchor } : {}),
       }
       if (medium.type === 'video') {
         const poster = `${medium.id}.poster.jpg`
@@ -333,6 +344,12 @@ export function registriereTourRouten(app: FastifyInstance): void {
       edits = JSON.parse((await storage.lese(tour.id, EDITS_PFAD)).toString()) as EditOverlay
     }
 
+    // Vorhandene Audio-Assets (Baukasten): media/ enthält auch Fotos/Videos/
+    // Poster — der Dateinamen-Filter lässt nur echte Audio-Dateien durch.
+    const audio = (await storage.listeDateien(tour.id, 'media'))
+      .filter((d) => istAudioDatei(d.name))
+      .map((d) => ({ datei: d.name, groesse: d.groesse }))
+
     return {
       id: tour.id,
       status: tour.status,
@@ -342,6 +359,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
       // Original-Segmente, fürs Netz vereinfacht — behält [lng,lat,ele,tOffsetS]
       segmente: segmente.map((s) => ({ mode: s.mode, pts: vereinfacheSegment(s.pts) })),
       medien,
+      audio,
       edits,
     }
   })
@@ -479,6 +497,10 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       })
     }
 
+    // Vorhandene Audio-Dateien an die Pipeline reichen (Baukasten) —
+    // edits.audio-Einträge ohne Datei überspringt sie dort mit Warnung.
+    const audioDateien = (await storage.listeDateien(tourId, 'media')).map((d) => d.name).filter(istAudioDatei)
+
     const tourJson = await reichereAn({
       tourId,
       nummer: tour.no,
@@ -486,6 +508,7 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       titelOverride: tour.title,
       beschreibungOverride: tour.description,
       ...(edits ? { edits } : {}),
+      audioDateien,
       geocoder,
       wetter,
       ...(videoMeta ? { videoMeta } : {}),
