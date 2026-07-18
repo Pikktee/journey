@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { reichereAn } from '../src/pipeline/enrich.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
+import type { BildBefund } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
 import { mediumDateiname } from '../src/schema/upload.js'
 import { beispielManifest } from './helfer.js'
+
+const bewoelkt = () => new FesteWetterQuelle(testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))))
+const regnerisch = () =>
+  new FesteWetterQuelle(testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ code: 61, regenMm: 1, wolken: 95 }))))
 
 const eingabe = (patch: Partial<Parameters<typeof reichereAn>[0]> = {}) => ({
   tourId: 't_test1234',
@@ -159,6 +164,43 @@ describe('reichereAn', () => {
     expect(tour.weather).toBeUndefined()
     expect(tour.timeline).toBeDefined()
     expect(meldungen[0]).toMatch(/Auto-Wetter nicht verfügbar/)
+  })
+
+  // — Wetter-Verfeinerung per Bildanalyse (M5) —
+
+  const gewitterBefund: BildBefund = { himmel: 'bedeckt', niederschlag: 'gewitter', himmelSichtbar: true, konfidenz: 0.9 }
+
+  it('verfeinert das Wetter mit Foto-Befunden: ein source:photo-Keyframe erscheint (M5)', async () => {
+    const bildBefunde = new Map<string, BildBefund>([['m1', gewitterBefund]])
+    const tour = await reichereAn(eingabe({ wetter: bewoelkt(), bildBefunde }))
+    const photo = tour.weather?.filter((w) => w.source === 'photo') ?? []
+    expect(photo.length).toBeGreaterThan(0)
+    expect(photo.every((w) => w.mode === 'storm')).toBe(true)
+    // Die Basis (openmeteo) bleibt außerhalb des Fensters erhalten
+    expect(tour.weather?.some((w) => w.source === 'openmeteo' && w.mode === 'clouds')).toBe(true)
+  })
+
+  it('lässt API-Niederschlag gegen ein klar-Foto stehen (M5)', async () => {
+    const bildBefunde = new Map<string, BildBefund>([
+      ['m1', { himmel: 'klar', niederschlag: 'kein', himmelSichtbar: true, konfidenz: 0.95 }],
+    ])
+    const tour = await reichereAn(eingabe({ wetter: regnerisch(), bildBefunde }))
+    expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
+    expect(tour.weather?.every((w) => w.mode === 'rain')).toBe(true)
+  })
+
+  it('überspringt unplatzierte Fotos bei der Verfeinerung (M5)', async () => {
+    const manifest = beispielManifest()
+    // takenAt VOR time.start → unplatziert (kein Anker) → Befund wird ignoriert
+    manifest.media.push({ id: 'm2', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
+    const bildBefunde = new Map<string, BildBefund>([['m2', gewitterBefund]])
+    const tour = await reichereAn(eingabe({ manifest, wetter: bewoelkt(), bildBefunde }))
+    expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
+  })
+
+  it('lässt das Wetter ohne Bild-Befunde exakt wie in M2 (Regressionsschutz)', async () => {
+    const tour = await reichereAn(eingabe({ wetter: bewoelkt() }))
+    expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
   })
 })
 

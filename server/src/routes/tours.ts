@@ -10,6 +10,7 @@ import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
 import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
+import type { BildBefund } from '../pipeline/vision.js'
 import {
   EDITS_SCHEMA_ID,
   editsJsonSchema,
@@ -427,6 +428,14 @@ function setzeStatus(app: FastifyInstance, id: string, status: TourZeile['status
     .run(status, fehler ?? null, new Date().toISOString(), id)
 }
 
+/** MIME-Typ eines Foto-Ablagenamens für die Bildanalyse (M5); Default JPEG. */
+function bildMedientyp(datei: string): string {
+  const endung = datei.toLowerCase().split('.').pop()
+  if (endung === 'png') return 'image/png'
+  if (endung === 'webp') return 'image/webp'
+  return 'image/jpeg'
+}
+
 /**
  * Verarbeitung atomar beanspruchen (nur aus bereit/fehler heraus) und starten.
  * false = eine andere Verarbeitung läuft bereits oder die Tour ist angelegt.
@@ -461,7 +470,7 @@ async function ladeOriginalSegmente(
 
 /** Anreicherung ausführen und Ergebnis persistieren (läuft asynchron nach finalize). */
 async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
-  const { db, storage, geocoder, wetter, videoWerkzeug } = app.deps
+  const { db, storage, geocoder, wetter, videoWerkzeug, bildKlassifikator } = app.deps
   try {
     const tour = ladeTour(app, tourId)
     if (!tour) return
@@ -501,6 +510,27 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
     // edits.audio-Einträge ohne Datei überspringt sie dort mit Warnung.
     const audioDateien = (await storage.listeDateien(tourId, 'media')).map((d) => d.name).filter(istAudioDatei)
 
+    // Bildanalyse (M5): nur mit konfiguriertem Klassifikator (Anthropic-Key).
+    // Fotos einlesen und klassifizieren → Befund-Map je Medien-ID. I/O bleibt
+    // hier (außerhalb der reinen Pipeline), exakt wie videoMeta. Ein einzelnes
+    // scheiterndes Bild darf die Anreicherung nie kippen — überspringen. Welche
+    // Fotos tatsächlich verwertet werden (platziert), entscheidet reichereAn.
+    let bildBefunde: Map<string, BildBefund> | undefined
+    if (bildKlassifikator) {
+      bildBefunde = new Map<string, BildBefund>()
+      for (const m of manifest.media.filter((x) => x.type === 'photo')) {
+        try {
+          const datei = mediumDateiname(m)
+          if (!(await storage.info(tourId, `media/${datei}`))) continue
+          const daten = await storage.lese(tourId, `media/${datei}`)
+          const befund = await bildKlassifikator.klassifiziere({ daten, medientyp: bildMedientyp(datei) })
+          bildBefunde.set(m.id, befund)
+        } catch (fehler) {
+          app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+        }
+      }
+    }
+
     const tourJson = await reichereAn({
       tourId,
       nummer: tour.no,
@@ -512,6 +542,7 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       geocoder,
       wetter,
       ...(videoMeta ? { videoMeta } : {}),
+      ...(bildBefunde?.size ? { bildBefunde } : {}),
       protokoll: (nachricht) => app.log.warn(nachricht),
     })
     await storage.schreibe(tourId, TOURJSON_PFAD, JSON.stringify(tourJson, null, 2))

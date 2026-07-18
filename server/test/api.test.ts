@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TourJson } from '../src/pipeline/enrich.js'
 import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
+import { FesterKlassifikator } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
 import type { UploadManifest } from '../src/schema/upload.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
@@ -137,6 +138,35 @@ describe('Tour-Lebenszyklus', () => {
     expect(tour.timeline?.[0]).toEqual({ f: 0, t: '2026-07-04T06:12:31Z' })
     expect(tour.timeline?.length).toBeGreaterThanOrEqual(2)
     expect(tour.weather).toEqual([{ f: 0, mode: 'rain', k: 0.6, source: 'openmeteo' }])
+  })
+
+  it('verfeinert das Auto-Wetter per Bildanalyse, wenn ein Klassifikator konfiguriert ist (M5)', async () => {
+    const wetter = new FesteWetterQuelle(
+      testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))), // bewölkt
+    )
+    const klass = new FesterKlassifikator({ himmel: 'bedeckt', niederschlag: 'gewitter', himmelSichtbar: true, konfidenz: 0.9 })
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter, null, {}, klass)
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id) // m1 (Foto)
+    await finalisiere(u, id)
+
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.weather?.some((w) => w.source === 'photo' && w.mode === 'storm')).toBe(true)
+    expect(klass.aufrufe).toHaveLength(1) // genau das eine Foto klassifiziert
+    expect(klass.aufrufe[0]?.medientyp).toBe('image/jpeg')
+  })
+
+  it('lässt das Wetter ohne konfigurierten Klassifikator unberührt (M5 No-Op)', async () => {
+    const wetter = new FesteWetterQuelle(
+      testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))),
+    )
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], wetter) // kein Klassifikator
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
   })
 
   it('bereitet Videos auf: Poster + Transcode landen im tour.json und werden ausgeliefert (M4)', async () => {

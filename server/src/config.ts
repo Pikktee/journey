@@ -25,6 +25,10 @@ export interface Konfig {
   basisUrl: string
   /** Absender der System-Mails */
   mailAbsender: string
+  /** Anthropic-API-Key für die Wetter-Bildanalyse (M5); null = Feature aus (No-Op) */
+  anthropicApiKey: string | null
+  /** Modell für die Bildanalyse (M5); Default Claude Haiku 4.5 */
+  anthropicModell: string
 }
 
 // Docker-Compose reicht Variablen als ${VAR:-} durch — nicht gesetzte werden zu
@@ -51,5 +55,8 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     registrierungOffen: env.LUHAMBO_REGISTRIERUNG_OFFEN !== '0',
     basisUrl: text(env.LUHAMBO_BASIS_URL, 'http://localhost:5173'),
     mailAbsender: text(env.LUHAMBO_MAIL_ABSENDER, 'Luhambo <noreply@luhambo.app>'),
+    // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
+    anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() ? env.ANTHROPIC_API_KEY.trim() : null,
+    anthropicModell: text(env.ANTHROPIC_MODELL, 'claude-haiku-4-5-20251001'),
   }
 }

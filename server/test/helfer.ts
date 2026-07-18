@@ -9,6 +9,7 @@ import { oeffneDb } from '../src/db.js'
 import type { MailNachricht, MailVersand } from '../src/mail.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { VideoWerkzeug } from '../src/pipeline/video.js'
+import type { BildKlassifikator } from '../src/pipeline/vision.js'
 import type { WetterQuelle } from '../src/pipeline/weather.js'
 import { MemStorage } from '../src/storage.js'
 import type { UploadManifest } from '../src/schema/upload.js'
@@ -26,6 +27,8 @@ export const TEST_KONFIG: Konfig = {
   registrierungOffen: true,
   basisUrl: 'http://localhost:5173',
   mailAbsender: 'Luhambo <noreply@test>',
+  anthropicApiKey: null,
+  anthropicModell: 'claude-haiku-4-5-20251001',
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
@@ -60,6 +63,9 @@ export async function baueTestApp(
   videoWerkzeug: VideoWerkzeug | null = null,
   // M9: einzelne Konfig-Werte übersteuern (Quota, Registrierung offen/zu …)
   konfigPatch: Partial<Konfig> = {},
+  // Default null: keine Bildanalyse (M5) — Vision-Tests geben einen
+  // FesterKlassifikator herein (Spiegelbild des AnthropicKlassifikator in index.ts)
+  bildKlassifikator: BildKlassifikator | null = null,
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
@@ -71,6 +77,7 @@ export async function baueTestApp(
     geocoder: new FesterGeocoder(geocoderAntworten),
     wetter,
     videoWerkzeug,
+    bildKlassifikator,
     mail,
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')

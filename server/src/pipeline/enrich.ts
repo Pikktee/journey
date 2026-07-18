@@ -13,6 +13,8 @@ import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { benenneTour, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
 import type { VideoMeta } from './video.js'
+import type { BildBefund } from './vision.js'
+import { verfeinereWetterMitFotos } from './vision.js'
 import { berechneWetter, type WetterQuelle } from './weather.js'
 import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
 
@@ -92,6 +94,10 @@ export interface EnrichEingabe {
   wetter?: WetterQuelle | null
   /** Aufbereitete Video-Metadaten je Medien-ID (M4; Dauer/Poster/Auslieferungspfad) */
   videoMeta?: Map<string, VideoMeta>
+  /** Bild-Befunde je Medien-ID (M5; vom Aufrufer per Klassifikator vorbereitet) —
+   *  verfeinern das Auto-Wetter lokal am Foto-Anker. Fehlt die Map, bleibt das
+   *  Wetter exakt wie in M2 (No-Op ohne konfigurierten Klassifikator). */
+  bildBefunde?: Map<string, BildBefund>
   /** Hinweis-Kanal für nicht-fatale Ausfälle (z. B. Wetterdienst down) */
   protokoll?: (nachricht: string) => void
 }
@@ -113,6 +119,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     geocoder,
     wetter,
     videoMeta,
+    bildBefunde,
     protokoll,
   } = eingabe
 
@@ -273,7 +280,22 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   let weather: TourJson['weather']
   if (wetter) {
     try {
-      const keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
+      let keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
+      // Bildanalyse (M5): platzierte Fotos mit Befund lokal auf ihre f-Position
+      // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
+      // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
+      if (keyframes.length && bildBefunde?.size) {
+        const fotos: Array<{ f: number; befund: BildBefund }> = []
+        for (const m of media) {
+          if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
+          const befund = bildBefunde.get(m.id)
+          if (!befund) continue
+          const tSek = (Date.parse(m.takenAt) - startMs) / 1000
+          if (!Number.isFinite(tSek)) continue
+          fotos.push({ f: positionZurZeit(reihe, tSek).f, befund })
+        }
+        if (fotos.length) keyframes = verfeinereWetterMitFotos(keyframes, fotos)
+      }
       if (keyframes.length) weather = keyframes
     } catch (fehler) {
       protokoll?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(fehler as Error).message}`)

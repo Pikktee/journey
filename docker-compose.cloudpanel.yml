@@ -36,5 +36,7 @@ services:
       LUHAMBO_MAIL_ABSENDER: ${LUHAMBO_MAIL_ABSENDER:-}
       LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: ${LUHAMBO_MAX_SPEICHER_PRO_BENUTZER:-}
       LUHAMBO_REGISTRIERUNG_OFFEN: ${LUHAMBO_REGISTRIERUNG_OFFEN:-}
+      # Wetter-Bildanalyse (M5) — optional: ohne Key ist das Feature aus (No-Op).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - /srv/luhambo/daten:/data

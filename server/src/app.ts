@@ -11,6 +11,7 @@ import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
 import type { Geocoder } from './pipeline/naming.js'
 import type { VideoWerkzeug } from './pipeline/video.js'
+import type { BildKlassifikator } from './pipeline/vision.js'
 import type { WetterQuelle } from './pipeline/weather.js'
 import { registriereAuthRouten } from './routes/auth.js'
 import { registriereMediaRouten } from './routes/media.js'
@@ -29,6 +30,8 @@ export interface AppAbhaengigkeiten {
   wetter: WetterQuelle | null
   /** Video-Aufbereitung (M4); null = keine Videos verarbeiten (Original ohne Poster) */
   videoWerkzeug: VideoWerkzeug | null
+  /** Bild-Klassifikator für die Wetter-Verfeinerung (M5); null = Feature aus */
+  bildKlassifikator: BildKlassifikator | null
   /** Mail-Versand (M9): Registrierungs-Bestätigung + Passwort-Reset */
   mail: MailVersand
 }

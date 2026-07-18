@@ -114,6 +114,15 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   `f` auf km um und speist die VORHANDENE kuratierte Wetter-Timeline des
   Players (`cfg.weather`, Vorrang vor dem Client-Auto-Wetter). `source`
   dokumentiert die Herkunft (`openmeteo` | `photo` ab M5).
+- **Bildanalyse (M5, `server/src/pipeline/vision.ts`)**: optional (nur mit
+  `ANTHROPIC_API_KEY`). Die Fotos werden per Claude Haiku klassifiziert (reine
+  Klassifikation, keine Medien-Generierung) und übersteuern das API-Wetter LOKAL
+  am Foto-Anker — aber nur, wenn das Bild sicher (`himmelSichtbar`,
+  Konfidenz ≥ 0.7) **mehr** Wetter zeigt als die API (Rangfolge
+  `off < clouds < fog < rain < snow < storm`); ein API-Niederschlag bleibt gegen
+  ein „klar"-Foto stehen. Solche Stellen erscheinen als Keyframe-Fenster
+  (±0.03 f um den Anker) mit `source: 'photo'`. Ohne Key ist M5 ein No-Op — das
+  Wetter ist dann exakt das aus Open-Meteo (M2).
 - Fehlt `weather`, greift im Player das Client-Auto-Wetter
   (`src/autoweather.js`) als Fallback — echte `takenAt`/`time`-Werte machen es
   bei aufgezeichneten Touren sofort sinnvoll.
