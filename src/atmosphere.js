@@ -7,7 +7,7 @@
 // Sonnenstand (daynight.js → setSky). Die Kamera-Basis (fwd/right/up) ist für alle
 // drei Ebenen dieselbe — dadurch sind Sterne welt-verankert (bewegen sich korrekt
 // mit dem Blick) und die Sonne sitzt exakt an ihrem echten Azimut/Höhe.
-import { targetPixelRatio } from './map.js'
+import { overlayPixelRatio } from './map.js'
 
 const DEG = Math.PI / 180
 
@@ -41,6 +41,11 @@ const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), pa
 // die Silhouette oft schon unter 1 km); ein Verfeinerungspass um das Maximum
 // (probeRay) fängt schmale Grate zwischen den Stützstellen
 const PROBE_DISTS = Array.from({ length: 20 }, (_, i) => Math.round(500 * Math.pow(96, i / 19)))
+
+// Takt der Sonde. Auf Touch-Geräten gemächlicher: dort ist jede DEM-Abfrage
+// spürbar teurer (s. Messung am inkrementellen Fächer weiter unten), und der
+// Horizont ändert sich auf einer Kamerafahrt langsam genug dafür.
+const PROBE_MS = window.matchMedia?.('(pointer: coarse)').matches ? 200 : 120
 
 // Warmton der Sonnenscheibe: am/unter dem Horizont tief orangerot (Extinktion in der
 // dicken Atmosphäre), zur Mittagshöhe blasser/weißer.
@@ -167,11 +172,11 @@ export function createAtmosphere(container) {
   let fovDeg = 36.87
   let w = 0, h = 0, aspect = 1
   // Backing-Auflösung des Overlays über dasselbe Pixelbudget wie die Karte kappen
-  // (targetPixelRatio, map.js): der vollflächige Canvas wird pro Frame als GPU-Textur
+  // (overlayPixelRatio, map.js): der vollflächige Canvas wird pro Frame als GPU-Textur
   // neu hochgeladen — auf großen Displays/Handys ist das messbar (Pixel-9: sauberer
   // 52→45-fps-Verlust). Weiche Verläufe/Sonne/Sterne vertragen die niedrigere Auflösung.
   // Wird im resize() neu berechnet, damit ein Fenster-Aufziehen das Budget nachzieht.
-  let dpr = targetPixelRatio()
+  let dpr = overlayPixelRatio()
   const stars = makeStars(3000)
   let twinkle = 0
   let lastT = performance.now() // für echtes dt (tour.onPose liefert keins)
@@ -198,11 +203,13 @@ export function createAtmosphere(container) {
   const FAN_OFF = [-31, -20, -10, 0, 10, 20, 31]
   const horFan = FAN_OFF.map(() => 1)
   let horFanTgt = FAN_OFF.map(() => 1)
+  let fanBereit = false // erster Durchlauf misst den ganzen Fächer, danach reihum
+  let fanNaechster = 0
   let hazeCv = null, hazeCtx = null // Offscreen für die horizontale Maskierung (lazy)
   let occRise = 0, occRiseTgt = 0 // Silhouetten-Überstand (ndc) am SONNEN-Azimut — dort versinkt die Scheibe
 
   const resize = () => {
-    dpr = targetPixelRatio() // Fenster-Aufziehen (klein → 4K) zieht das Pixelbudget nach
+    dpr = overlayPixelRatio() // Fenster-Aufziehen (klein → 4K) zieht das Pixelbudget nach
     w = window.innerWidth
     h = window.innerHeight
     aspect = w / h
@@ -331,23 +338,27 @@ export function createAtmosphere(container) {
   // 0.04–0.2 ndc an und die Scheibe „versank" weit über dem Wasser.
   const silhouetteFloor = (b) => Math.max(b.horizonRenderNdcY, b.horizonNdcY)
 
+  // Ein einzelner Fächer-Strahl. Die weiche Glättung (0,55 s) + die horizontale
+  // Interpolation in drawHaze machen Kamera-Schwenks graduell statt sprunghaft.
+  function fanWert(pose, b, off) {
+    const cam = getCam?.()
+    if (!cam) return 1
+    const rp = probeRay(pose, b, (cam.bearing + off) * DEG)
+    if (!rp) return 1
+    // Silhouetten-Überstand über dem Fluchtpunkt-Floor: flaches Gelände kann den
+    // Floor NICHT überschreiten (es konvergiert genau dort — Totband 0.012 nur
+    // gegen DEM-Rauschen), und bei Pitch ~86 sind schon 1–2° Überstand ~30–40 px
+    // sichtbare Felswand über der Linie. Die Rampe muss also STEIL sein: mit der
+    // alten flachen (0.03–0.18) blieb ein klar überragender Grat halb wirksam.
+    const rise = smoothstep(0.012, 0.05, rp.ndcY - silhouetteFloor(b))
+    const near = 1 - smoothstep(12000, 35000, rp.dist) // nur NAHE Verdecker unterdrücken
+    return 1 - rise * near
+  }
+
   function probeFan(pose, b) {
     const cam = getCam?.()
     if (!cam) return FAN_OFF.map(() => 1)
-    // Ein Strahl je Fächer-Offset; die weiche Glättung (0,55 s) + die horizontale
-    // Interpolation in drawHaze machen Kamera-Schwenks graduell statt sprunghaft.
-    return FAN_OFF.map((off) => {
-      const rp = probeRay(pose, b, (cam.bearing + off) * DEG)
-      if (!rp) return 1
-      // Silhouetten-Überstand über dem Fluchtpunkt-Floor: flaches Gelände kann den
-      // Floor NICHT überschreiten (es konvergiert genau dort — Totband 0.012 nur
-      // gegen DEM-Rauschen), und bei Pitch ~86 sind schon 1–2° Überstand ~30–40 px
-      // sichtbare Felswand über der Linie. Die Rampe muss also STEIL sein: mit der
-      // alten flachen (0.03–0.18) blieb ein klar überragender Grat halb wirksam.
-      const rise = smoothstep(0.012, 0.05, rp.ndcY - silhouetteFloor(b))
-      const near = 1 - smoothstep(12000, 35000, rp.dist) // nur NAHE Verdecker unterdrücken
-      return 1 - rise * near
-    })
+    return FAN_OFF.map((off) => fanWert(pose, b, off))
   }
 
   // — Ebene 1: Horizont-Dunst (Luftperspektive) —
@@ -1044,9 +1055,26 @@ export function createAtmosphere(container) {
       // Horizont-Sichtbarkeit (gedrosselt — 2×6 DEM-Lookups) weich nachziehen:
       // einmal am Blick-Bearing (Dunst-Band), einmal am Sonnen-Azimut (die Scheibe
       // versinkt an der GELÄNDE-Silhouette, nicht an der flachen Mercator-Linie)
-      if (now - lastProbe > 120) {
+      if (now - lastProbe > PROBE_MS) {
         lastProbe = now
-        horFanTgt = probeFan(pose, b)
+        // INKREMENTELLER FÄCHER. Der volle Fächer kostet 7 Strahlen × 24 Stütz-
+        // stellen = 168 DEM-Abfragen, mit dem Sonnenstrahl ~190 je Durchlauf.
+        // queryTerrainElevation ist zwar ein reiner CPU-Lookup in die dekodierten
+        // DEM-Daten (kein GPU-Sync), aber auf dem Pixel 9 gemessene ~0,33 ms pro
+        // Abfrage summieren sich: bei 120 ms Takt landeten so ~73 Abfragen JE BILD
+        // auf der CPU — grob 24 ms Frame-Zeit, mehr als das Zeichnen der ganzen
+        // Overlays. Darum wird pro Durchlauf nur EIN Strahl erneuert, reihum; die
+        // Abfragen fielen dadurch auf ~10 je Bild (A/B-gemessen: die verbleibenden
+        // 10 kosten noch ~1,7 fps). Vertretbar ist das, weil die Werte ohnehin über
+        // 0,55 s geglättet werden und Dunst ein weicher Verlauf ist, keine harte
+        // Kante. Der erste Durchlauf misst den ganzen Fächer, damit der Start stimmt.
+        if (fanBereit) {
+          const i = fanNaechster++ % FAN_OFF.length
+          horFanTgt[i] = fanWert(pose, b, FAN_OFF[i])
+        } else {
+          horFanTgt = probeFan(pose, b)
+          fanBereit = true
+        }
         horVisTgt = horFanTgt.reduce((s, v) => s + v, 0) / horFanTgt.length
         occRiseTgt = 0
         if (sun && sun.altitude > -10) {

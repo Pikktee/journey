@@ -14,6 +14,34 @@ registerDemClean(maplibregl)
 // Render-Auflösung härter deckeln (s. targetPixelRatio).
 const COARSE = window.matchMedia('(pointer: coarse)').matches
 
+// ————————————————————————————————————————————————————————————————
+// MOBILE BILDRATE — was GEMESSEN wurde (Pixel 9, Chrome, Querformat, Koh Pha-ngan
+// zwischen km 5 und 9, echte Fahrt mit ~670 m in 5 s). Damit niemand dieselben
+// Sackgassen erneut abläuft:
+//
+//   Ausgangslage ~22–26 fps in der Fahrt, ~60 fps am ruhenden Foto-Stopp.
+//   `map.setTerrain(null)` → 48–60 fps. Das Terrain-Rendering IST die Kosten.
+//
+// Ohne belegbare Wirkung (alle im A/B-Wechsel gemessen, Differenz im Rauschen):
+//   · setSourceTileLodParams(9.314, 1.5 bzw. 1.2) — Kachelbudget bei hohem Pitch
+//   · setAnisotropicFilterPitch(90) statt Default 20
+//   · raster-fade-duration 0 statt 500 auf dem Satelliten-Layer
+//   · pixelRatio 1.0 statt 1.5; Overlay-Canvases in halber Auflösung
+//   · DEM-maxzoom 11 statt 13 (war sogar LANGSAMER — Overzoom spart keine Meshes)
+//   · maxPitch-Deckel 70/60 statt 86
+//   · Reisetempo halbiert (120 → 60 m/s): nur +11 % bei doppelter Tourdauer
+//
+// Wirksam war einzig, die DEM-Abfragen der Horizont-Sonde zu senken
+// (s. atmosphere.js, inkrementeller Fächer).
+//
+// METHODIK-WARNUNG für künftige Messungen: Einzelmessungen täuschen hier massiv.
+// Der erste Lauf nach dem Umschalten ist durch den kalten Kachel-Cache langsamer,
+// und das Gerät drosselt über eine Messreihe hinweg thermisch (26 → 20 fps bei
+// UNVERÄNDERTER Konfiguration). Nur A/B/A/B-Wechsel mit verworfenem Erstlauf je
+// Zustand ist aussagekräftig — und die Messung muss zwischen zwei Foto-Stopps
+// liegen, sonst misst man die ruhende Orbit-Kamera (immer ~60 fps).
+// ————————————————————————————————————————————————————————————————
+
 // Adaptive Render-Auflösung als PIXELBUDGET. Profiling (M4 an 4K) zeigt eine harte
 // 60→30-fps-Klippe der Füllrate oberhalb von ~5 MP Zeichenfläche (bei schwächeren GPUs
 // noch früher) — nicht Netzwerk, Geometrie oder unser Code, sondern schlicht die
@@ -30,6 +58,18 @@ export function targetPixelRatio() {
   const area = window.innerWidth * window.innerHeight
   const budget = area > 0 ? Math.sqrt((MAX_RENDER_MP * 1e6) / area) : hardCap
   return Math.max(1, Math.min(dpr, hardCap, budget)) // nie unter 1 (sonst zu weich)
+}
+
+// Auflösung der OVERLAY-Canvases (Atmosphäre, Wetter) — bewusst getrennt vom
+// Kartenbudget. Beide tragen nur weiche Verläufe, Wolken und Partikel; auf Touch
+// deshalb fest auf 1,0 statt 1,5 (am Handy-DPI nicht auszumachen), was ihre
+// Zeichenfläche und den Texturspeicher halbiert.
+// EHRLICHE EINORDNUNG: Auf dem Pixel 9 gemessen bringt das für die BILDRATE
+// nichts — dort limitiert nicht die Füllrate, sondern MapLibres Terrain-Pass
+// (s. PROBE_MS in atmosphere.js). Die Regel bleibt wegen Speicher/Bandbreite und
+// weil schwächere Geräte als das Pixel 9 sehr wohl füllratenbegrenzt sein können.
+export function overlayPixelRatio() {
+  return COARSE ? 1 : targetPixelRatio()
 }
 
 // Gebäude — ein EINZELNER, solider fill-extrusion-Layer (kein Fenster-Pattern,
@@ -167,6 +207,8 @@ export function createMap(container, center) {
           tiles: ['demclean://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
           encoding: 'terrarium',
           tileSize: 256,
+          // maxzoom bleibt 13: eine Senkung auf 11 wurde auf dem Pixel 9 gemessen
+          // und war LANGSAMER (Overzoom spart keine Meshes, kostet aber Skalierung).
           maxzoom: 13,
           attribution: 'Terrain: Mapzen / AWS Open Data',
         },
