@@ -13,14 +13,32 @@ import app.luhambo.daten.TourRepository
 import app.luhambo.upload.ApiClient
 import app.luhambo.upload.Einstellungen
 import app.luhambo.upload.Konto
+import app.luhambo.upload.ServerTour
 import app.luhambo.upload.UploadWorker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class StartViewModel(repository: TourRepository) : ViewModel() {
-    val touren: Flow<List<TourEntity>> = repository.alleTouren()
+class StartViewModel(
+    repository: TourRepository,
+    private val apiClient: ApiClient,
+) : ViewModel() {
+    /** Auf diesem Gerät aufgezeichnete/importierte Touren (Room, Live-Flow). */
+    val lokaleTouren: Flow<List<TourEntity>> = repository.alleTouren()
+
+    private val internServerTouren = MutableStateFlow<List<ServerTour>>(emptyList())
+    /** Touren des angemeldeten Kontos vom Server — inkl. der im Web-Studio erstellten. */
+    val serverTouren: StateFlow<List<ServerTour>> = internServerTouren
+
+    init { aktualisiere() }
+
+    /** Server-Liste (neu) laden. Fehler (offline/401) lassen die bisherige Liste stehen. */
+    fun aktualisiere() {
+        viewModelScope.launch {
+            runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
+        }
+    }
 }
 
 class TourViewModel(
@@ -62,13 +80,15 @@ class EinstellungenViewModel(
     private val internZustand = MutableStateFlow<Zustand>(Zustand.Ruhe)
     val zustand: StateFlow<Zustand> = internZustand
 
-    fun anmelden(server: String, email: String, passwort: String) {
+    fun anmelden(email: String, passwort: String) {
         viewModelScope.launch {
             internZustand.value = Zustand.Laedt
             try {
-                einstellungen.setzeServer(server)
+                // Feste Prod-URL — überschreibt auch einen evtl. veralteten gespeicherten
+                // Dev-Wert, sodass alle authentifizierten Aufrufe gegen Prod laufen.
+                einstellungen.setzeServer(Einstellungen.STANDARD_SERVER)
                 val token = apiClient.login(
-                    server.trim().trimEnd('/'),
+                    Einstellungen.STANDARD_SERVER,
                     email.trim(),
                     passwort,
                     geraet = android.os.Build.MODEL ?: "Android",
@@ -81,11 +101,8 @@ class EinstellungenViewModel(
         }
     }
 
-    fun abmelden(server: String?) {
-        viewModelScope.launch {
-            server?.let { einstellungen.setzeServer(it) }
-            einstellungen.abmelden()
-        }
+    fun abmelden() {
+        viewModelScope.launch { einstellungen.abmelden() }
     }
 }
 
@@ -97,7 +114,7 @@ class LuhamboViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
         modelClass.isAssignableFrom(StartViewModel::class.java) ->
-            StartViewModel(app.repository) as T
+            StartViewModel(app.repository, app.apiClient) as T
         modelClass.isAssignableFrom(TourViewModel::class.java) ->
             TourViewModel(app.repository, app, requireNotNull(tourId) { "tourId fehlt" }) as T
         modelClass.isAssignableFrom(EinstellungenViewModel::class.java) ->

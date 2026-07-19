@@ -5,8 +5,11 @@ package app.luhambo.upload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
@@ -18,6 +21,20 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 class ApiFehler(val status: Int, nachricht: String) : Exception("HTTP $status: $nachricht")
+
+/** Eine Server-Tour aus GET /api/tours (auch die im Web-Studio erstellten). */
+data class ServerTour(
+    val id: String,
+    val no: String,
+    val titel: String?,
+    /** bereit | verarbeitung | angelegt | fehler */
+    val status: String,
+    val km: Double?,
+    /** private | unlisted | public */
+    val visibility: String,
+) {
+    val spielbar get() = status == "bereit"
+}
 
 class ApiClient(private val einstellungen: Einstellungen) {
 
@@ -103,6 +120,28 @@ class ApiClient(private val einstellungen: Einstellungen) {
     suspend fun tourStatus(serverTourId: String): String = withContext(Dispatchers.IO) {
         val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId").get().build())
         antwort["status"]?.jsonPrimitive?.content ?: "bereit"
+    }
+
+    /**
+     * Alle eigenen Touren des angemeldeten Kontos (owner-gescopet, inkl. der im
+     * Web-Studio erstellten). Der Server liefert { tours: [...] } — ohne gültiges
+     * Token wirft autorisiert() 401; der Aufrufer fängt das zu einer leeren Liste.
+     */
+    suspend fun toureListe(): List<ServerTour> = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(autorisiert("/api/tours").get().build())
+        val liste = antwort["tours"] as? JsonArray ?: return@withContext emptyList()
+        liste.mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            ServerTour(
+                id = id,
+                no = obj["no"]?.jsonPrimitive?.contentOrNull ?: "",
+                titel = obj["title"]?.jsonPrimitive?.contentOrNull,
+                status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                km = (obj["stats"] as? JsonObject)?.get("km")?.jsonPrimitive?.doubleOrNull,
+                visibility = obj["visibility"]?.jsonPrimitive?.contentOrNull ?: "unlisted",
+            )
+        }
     }
 
     private suspend fun autorisiert(pfad: String): Request.Builder {

@@ -7,6 +7,8 @@ package app.luhambo.kamera
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,7 +61,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import app.luhambo.LuhamboApp
 import app.luhambo.aufzeichnung.AufzeichnungsZustand
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class AufnahmeModus { FOTO, VIDEO }
 
@@ -92,6 +97,25 @@ fun KameraScreen(zurueck: () -> Unit) {
             .setQualitySelector(QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
             .build()
         VideoCapture.withOutput(recorder)
+    }
+
+    // Geräteausrichtung nachführen: die Compose-UI ist nicht rotationsgebunden,
+    // also muss die Aufnahme-Rotation aktiv gesetzt werden, sonst schreibt CameraX
+    // die EXIF-Orientation nur für die beim Binden gültige Displaylage korrekt.
+    DisposableEffect(imageCapture) {
+        val lauscher = object : OrientationEventListener(context) {
+            override fun onOrientationChanged(grad: Int) {
+                if (grad == OrientationEventListener.ORIENTATION_UNKNOWN) return
+                imageCapture.targetRotation = when {
+                    grad >= 315 || grad < 45 -> Surface.ROTATION_0
+                    grad < 135 -> Surface.ROTATION_270
+                    grad < 225 -> Surface.ROTATION_180
+                    else -> Surface.ROTATION_90
+                }
+            }
+        }
+        if (lauscher.canDetectOrientation()) lauscher.enable()
+        onDispose { lauscher.disable() }
     }
 
     // Video im App-Speicher ablegen und im App-Scope registrieren — das Finalize
@@ -205,6 +229,9 @@ fun KameraScreen(zurueck: () -> Unit) {
                         object : ImageCapture.OnImageSavedCallback {
                             override fun onImageSaved(ergebnis: ImageCapture.OutputFileResults) {
                                 app.appScope.launch {
+                                    // Vor dem Registrieren physisch aufrecht drehen (EXIF → Pixel),
+                                    // damit das Foto in Player UND Studio richtig herum erscheint.
+                                    withContext(Dispatchers.IO) { richteFotoAuf(datei) }
                                     val anker = aufnahme.letzterPunkt?.let { it.lng to it.lat }
                                     app.repository.registriereFoto(aufnahme.tourId, relativ, System.currentTimeMillis(), anker)
                                     speichert = false

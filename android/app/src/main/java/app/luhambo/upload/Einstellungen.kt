@@ -56,8 +56,10 @@ class Einstellungen(private val context: Context) {
     }
 
     companion object {
-        // Emulator-Standard: 10.0.2.2 = Host-Mac (Dev-Backend); Produktions-URL
-        // trägt der Nutzer in den Einstellungen ein, sobald der VPS läuft.
-        const val STANDARD_SERVER = "http://10.0.2.2:8787"
+        // Produktions-Server (fest verdrahtet — Endnutzer geben keine Server-Adresse
+        // mehr ein). Für Emulator-Dev kann ein Test den Wert per setzeServer() auf
+        // http://10.0.2.2:8787 ziehen (netz_sicherheit.xml erlaubt dort Cleartext);
+        // der ApiClientTest nutzt genau das gegen den MockWebServer.
+        const val STANDARD_SERVER = "https://luhambo.henrikheil.net"
     }
 }
