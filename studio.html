@@ -186,7 +186,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 44px 48px;
+      padding: 78px 48px 44px;
     }
     .login-buehne .wortmarke { font-family: var(--font-display); font-size: 21px; letter-spacing: 0.01em; }
     .login-buehne .wortmarke b { color: var(--akzent); font-weight: 600; }
@@ -230,9 +230,48 @@
     .auth-rechtstexte { margin-top: 28px; text-align: center; font-size: 12px; color: var(--text-3); }
     .auth-rechtstexte a { color: var(--text-3); }
     .hinweis.ok { color: var(--ok, #56c271); }
+    /* Zurück zur Landing — fix oben links, in BEIDEN Breakpoints sichtbar. Die
+       .login-buehne ist aria-hidden + auf Mobil ausgeblendet, taugt also nicht als
+       alleiniger Rückweg; darum ein eigenständiger Link außerhalb. Optik = Landing-
+       Marke (⛰ + Mono-Wortmarke), auf Desktop als Breadcrumb über der Wortmarke. */
+    .login-zurueck {
+      position: fixed;
+      top: 30px;
+      left: 48px;
+      z-index: 40;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 15px 8px 12px;
+      border: 1px solid var(--rand);
+      border-radius: 999px;
+      background: rgba(9, 13, 20, 0.55);
+      -webkit-backdrop-filter: blur(8px) saturate(1.1);
+      backdrop-filter: blur(8px) saturate(1.1);
+      color: var(--text-2);
+      text-decoration: none;
+      transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+    }
+    .login-zurueck:hover {
+      color: var(--text);
+      border-color: rgba(245, 165, 36, 0.55);
+      background: rgba(9, 13, 20, 0.8);
+    }
+    .login-zurueck .lz-chevron {
+      font-size: 17px; line-height: 0; margin-top: -1px;
+      transition: transform 0.22s ease;
+    }
+    .login-zurueck:hover .lz-chevron { transform: translateX(-3px); }
+    .login-zurueck .lz-mark { font-size: 13px; line-height: 1; filter: saturate(0.9); }
+    .login-zurueck .lz-word {
+      font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+      letter-spacing: 0.26em; text-indent: 0.26em; text-transform: uppercase;
+    }
     @media (max-width: 860px) {
       #login-view { grid-template-columns: 1fr; }
       .login-buehne { display: none; }
+      .login-zurueck { top: 20px; left: 20px; }
+      .login-formseite { padding-top: 76px; }
     }
 
     /* ————————————————— App-Shell ————————————————— */
@@ -911,6 +950,11 @@
 
   <!-- Anmeldung -->
   <section id="login-view">
+    <a class="login-zurueck" href="/" aria-label="Zurück zur Startseite">
+      <span class="lz-chevron" aria-hidden="true">‹</span>
+      <span class="lz-mark" aria-hidden="true">⛰️</span>
+      <span class="lz-word">Startseite</span>
+    </a>
     <div class="login-buehne" aria-hidden="true">
       <svg class="login-route" viewBox="0 0 700 900" preserveAspectRatio="xMidYMid slice">
         <path class="kontur" d="M-40 260 C 140 180, 240 320, 430 250 S 760 300, 790 210" />
@@ -923,7 +967,7 @@
         <circle cx="435" cy="300" r="5"/>
         <circle cx="660" cy="120" r="5"/>
       </svg>
-      <div class="wortmarke"><a href="/" title="Zur Startseite">Luhambo <b>Studio</b></a></div>
+      <div class="wortmarke">Luhambo <b>Studio</b></div>
       <div class="login-claim">
         <h1>Der Schneideraum für deine <em>Reisen</em>.</h1>
         <p>Aufzeichnen, hochladen, verfeinern: aus GPS-Track, Fotos und Videos wird eine abspielbare 3D-Kamerafahrt — mit echtem Wetter und echter Tageszeit.</p>
@@ -1003,7 +1047,6 @@
         </form>
 
         <p class="auth-rechtstexte">
-          <a href="/">Startseite</a> ·
           <a href="/impressum.html" target="_blank" rel="noopener">Impressum</a> ·
           <a href="/datenschutz.html" target="_blank" rel="noopener">Datenschutz</a>
         </p>
