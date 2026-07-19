@@ -1,7 +1,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
 import { TOURS } from './tours.js'
-import { loadRemoteTour, ladeServerTouren, createTimeAt } from './remote'
+import { loadRemoteTour, createTimeAt } from './remote'
 import { buildRoute, nearestS, pointAt } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
 import { createDayNight } from './daynight.js'
@@ -24,6 +24,13 @@ import { Tour } from './tour.js'
 // scheitert das Laden, fällt der Player auf die Standard-Tour zurück.
 const params = new URLSearchParams(location.search)
 const tourParam = params.get('tour') ?? 'kohphangan'
+
+// — App-Modus (?app=1): der Player läuft in der WebView der Android-App —
+// Dort sind Verweise auf die Landing-Seite sinnlos (es gibt keine „Startseite",
+// aus der man käme) und die Tour-Auswahl überflüssig — gewählt wird in der
+// Tourliste der App bzw. im Studio. body.app blendet beides aus (style.css).
+const appModus = params.get('app') === '1'
+if (appModus) document.body.classList.add('app')
 let remoteCfg = null
 let remoteFehler = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
 if (tourParam.startsWith('srv:')) {
@@ -122,25 +129,14 @@ setText('finale-title', cfg.finaleTitle)
 setText('chip-photos', `${photos.length} Fotos`)
 setText('final-photos', String(photos.length))
 
-// Tour-Auswahl im Intro: statische Touren plus — falls am Backend angemeldet —
-// die eigenen aufgezeichneten Touren (dynamisch, gleicher Klick-Weg)
-const tourPicker = document.getElementById('tour-picker')
-const wirePickerBtn = (btn) => {
-  btn.classList.toggle('active', btn.dataset.tour === tourId)
-  btn.addEventListener('click', () => {
-    if (btn.dataset.tour !== tourId) location.search = `?tour=${btn.dataset.tour}`
-  })
+// Im App-Modus zeigt der Kicker sonst auf die Landing — dort führt er ins Leere.
+// Der Titel muss mit weg, sonst kündigen Tooltip und Screenreader weiterhin eine
+// „Startseite" an, die es in der App nicht gibt.
+if (appModus) {
+  const kicker = document.getElementById('brand-kicker')
+  kicker.removeAttribute('href')
+  kicker.removeAttribute('title')
 }
-for (const btn of tourPicker.querySelectorAll('button')) wirePickerBtn(btn)
-ladeServerTouren().then((touren) => {
-  for (const t of touren) {
-    const btn = document.createElement('button')
-    btn.dataset.tour = `srv:${t.id}`
-    btn.textContent = t.title ?? t.id
-    tourPicker.appendChild(btn)
-    wirePickerBtn(btn)
-  }
-})
 
 const map = createMap('map', [start[0], start[1]])
 window.__j = { map, route, tourAudio }
@@ -841,6 +837,32 @@ map.on('load', () => {
   }
   uiBtn.addEventListener('click', () => setClean(!document.body.classList.contains('ui-clean')))
 
+  // — Auto-Rückzug der Bedienelemente auf Touch —
+  // Auf Handy-Schirmen (quer erst recht) ist Fläche die knappste Ressource:
+  // während der FAHRT zieht sich die UI nach kurzer Ruhe zurück und ist bei der
+  // nächsten Berührung sofort wieder da. Nur mit Touch — bei Maus/Trackpad wäre
+  // verschwindende UI irritierend, und dort fehlt der Platz auch nicht.
+  if (window.matchMedia('(pointer: coarse)').matches) {
+    let ruheTimer = 0
+    const planeRueckzug = () => {
+      clearTimeout(ruheTimer)
+      ruheTimer = setTimeout(() => {
+        // Bei Pause, Foto-Stopp, Intro und Finale gehören die Bedienelemente auf
+        // den Schirm — dann später erneut prüfen statt den Rückzug zu vergessen
+        // (die Fahrt läuft nach einem Foto-Stopp ohne Zutun weiter).
+        if (tour.phase === 'ride' && tour.playing) setClean(true)
+        else planeRueckzug()
+      }, 4000)
+    }
+    const weckeUi = () => {
+      if (document.body.classList.contains('ui-clean')) setClean(false)
+      planeRueckzug()
+    }
+    document.addEventListener('pointerdown', weckeUi, { passive: true })
+    document.addEventListener('keydown', weckeUi, { passive: true })
+    planeRueckzug()
+  }
+
   // Zurück ins Hauptmenü — ein evtl. aktiver Kino-Modus endet dabei mit
   document.getElementById('btn-menu').addEventListener('click', () => {
     setClean(false)
@@ -908,6 +930,30 @@ map.on('load', () => {
     g3dModal.hidden = true
     enableGoogle3d()
   })
+
+  // — Bildraten-Protokoll (?app=1 oder ?fps=1) —
+  // In der App-WebView gibt es kein DevTools-Fenster; der WebChromeClient leitet
+  // console-Ausgaben aber ins Logcat (Tag „LuhamboPlayer"). So lässt sich die
+  // Flüssigkeit auf dem echten Gerät messen statt zu raten:
+  //   adb logcat -s LuhamboPlayer | grep fps
+  if (appModus || params.get('fps') === '1') {
+    let bilder = 0
+    let fenster = performance.now()
+    const zaehle = () => {
+      bilder++
+      const jetzt = performance.now()
+      if (jetzt - fenster >= 3000) {
+        const fps = (bilder * 1000) / (jetzt - fenster)
+        console.info(
+          `[luhambo] fps ${fps.toFixed(1)} · ${innerWidth}×${innerHeight} @${devicePixelRatio} · Phase ${tour.phase}`,
+        )
+        bilder = 0
+        fenster = jetzt
+      }
+      requestAnimationFrame(zaehle)
+    }
+    requestAnimationFrame(zaehle)
+  }
 
   // Tastatursteuerung des Players (wie in Videoschnitt-Software)
   window.addEventListener('keydown', (e) => {

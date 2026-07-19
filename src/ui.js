@@ -239,6 +239,18 @@ export class UI {
     // läuft so nie vor der Karte aus. Default (7 s) bleibt ohne display identisch.
     frame.classList.toggle('kein-kb', photo.display?.kenBurns === false)
     frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? 5.2) + 1.8}s`)
+    // Rahmen aufs echte Seitenverhältnis stellen (s. --photo-ar in style.css) —
+    // ohne das schneidet der starre 3:2-Rahmen aus einem Hochformat-Foto einen
+    // Mittelstreifen heraus. Zurück auf 3:2, bis das neue Medium vermessen ist.
+    frame.style.removeProperty('--photo-ar')
+    const merkeSeitenverhaeltnis = (el) => {
+      const b = el.naturalWidth || el.videoWidth
+      const h = el.naturalHeight || el.videoHeight
+      if (!b || !h) return
+      // Deckeln: extreme Panoramen/Hochformate sonst breiter/höher als die Bühne
+      const ar = Math.max(0.62, Math.min(1.85, b / h))
+      frame.style.setProperty('--photo-ar', ar.toFixed(4))
+    }
     if (istVideo) {
       this._stopVideo() // ein evtl. noch laufendes Video sauber ablösen
       img.hidden = true
@@ -247,6 +259,7 @@ export class UI {
       if (photo.poster) video.poster = photo.poster
       video.muted = !this._soundOn
       this._syncSoundBtn()
+      video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video), { once: true })
       video.src = photo.src
       video.play().catch(() => {
         // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt (Ton-Opt-in aus
@@ -262,6 +275,9 @@ export class UI {
       img.hidden = false
       img.src = photo.src
       img.alt = photo.title
+      // Aus dem Cache ist das Bild sofort vollständig — dann feuert onload nicht mehr
+      if (img.complete) merkeSeitenverhaeltnis(img)
+      else img.addEventListener('load', () => merkeSeitenverhaeltnis(img), { once: true })
     }
     pTitle.textContent = photo.title
     pSub.textContent = photo.caption
