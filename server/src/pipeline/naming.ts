@@ -30,9 +30,12 @@ export class NominatimGeocoder implements Geocoder {
 }
 
 export class FesterGeocoder implements Geocoder {
+  /** Zahl der ortsname-Aufrufe — Tests prüfen damit die Geocoding-Vermeidung. */
+  public aufrufe = 0
   constructor(private readonly antworten: ReadonlyArray<string | null>) {}
   private index = 0
   async ortsname(): Promise<string | null> {
+    this.aufrufe++
     return this.antworten[this.index++] ?? null
   }
 }
@@ -59,24 +62,44 @@ const datumDeutsch = (iso: string, zone: string): string => {
   }
 }
 
-/**
- * Erzeugt die Anzeige-Texte einer Tour. Ein vom Nutzer vergebener Titel hat
- * immer Vorrang; geocodiert wird nur für die automatische Benennung und die
- * Stops-Zeile.
- */
-export async function benenneTour(args: {
-  nutzerTitel: string | null
-  startPunkt: [number, number]
-  zielPunkt: [number, number]
-  zeitStart: string
-  zone: string
-  geocoder: Geocoder
-}): Promise<Benennung> {
-  const { nutzerTitel, startPunkt, zielPunkt, zeitStart, zone, geocoder } = args
-  const datum = datumDeutsch(zeitStart, zone)
+/** Reverse-Geocoding-Ergebnis der beiden Endpunkte — reine Funktion der
+ *  Koordinaten (unabhängig von Trim/Titel), daher der cachebare Teil. */
+export interface Endpunkte {
+  startOrt: string | null
+  zielOrt: string | null
+}
 
+/**
+ * Der EINZIGE Netz-Schritt der Benennung: die beiden Endpunkte zu Ortsnamen
+ * auflösen. Bewusst getrennt vom Zusammenbau der Texte, damit die Anreicherung
+ * das Ergebnis cachen kann (Ortsname einer Koordinate ist ein fixer Fakt).
+ */
+export async function geocodiereEndpunkte(
+  geocoder: Geocoder,
+  startPunkt: [number, number],
+  zielPunkt: [number, number],
+): Promise<Endpunkte> {
   const startOrt = await geocoder.ortsname(startPunkt[0], startPunkt[1])
   const zielOrt = await geocoder.ortsname(zielPunkt[0], zielPunkt[1])
+  return { startOrt, zielOrt }
+}
+
+/**
+ * Erzeugt die Anzeige-Texte aus den (ggf. gecachten) Ortsnamen — REIN, ohne
+ * Netz. Ein vom Nutzer vergebener Titel hat immer Vorrang; `stops`/`finaleTitle`
+ * kommen dagegen immer aus den Ortsnamen. Deshalb wird hier bei JEDEM Render neu
+ * zusammengebaut (der Titel kann sich per PATCH ändern, ohne dass neu geocodiert
+ * werden muss).
+ */
+export function baueBenennung(args: {
+  startOrt: string | null
+  zielOrt: string | null
+  nutzerTitel: string | null
+  zeitStart: string
+  zone: string
+}): Benennung {
+  const { startOrt, zielOrt, nutzerTitel, zeitStart, zone } = args
+  const datum = datumDeutsch(zeitStart, zone)
 
   const rundtour = startOrt !== null && startOrt === zielOrt
   const stops = rundtour ? [startOrt] : [startOrt, zielOrt].filter((o): o is string => o !== null)
@@ -100,6 +123,24 @@ export async function benenneTour(args: {
     stops: stops.length ? stops : [title],
     finaleTitle: zielOrt ?? stops[stops.length - 1] ?? title,
   }
+}
+
+/**
+ * Benennung in einem Rutsch (Geocoding + Zusammenbau) — Bequemlichkeit für
+ * Direktaufrufe und Tests. Der Produktionspfad (Anreicherung) nutzt stattdessen
+ * `geocodiereEndpunkte` (gecacht) + `baueBenennung` (pro Render).
+ */
+export async function benenneTour(args: {
+  nutzerTitel: string | null
+  startPunkt: [number, number]
+  zielPunkt: [number, number]
+  zeitStart: string
+  zone: string
+  geocoder: Geocoder
+}): Promise<Benennung> {
+  const { nutzerTitel, startPunkt, zielPunkt, zeitStart, zone, geocoder } = args
+  const orte = await geocodiereEndpunkte(geocoder, startPunkt, zielPunkt)
+  return baueBenennung({ ...orte, nutzerTitel, zeitStart, zone })
 }
 
 /**

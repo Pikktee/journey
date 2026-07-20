@@ -10,12 +10,12 @@ import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
-import { benenneTour, type Geocoder } from './naming.js'
+import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
 import type { VideoMeta } from './video.js'
 import type { BildBefund } from './vision.js'
 import { verfeinereWetterMitFotos } from './vision.js'
-import { berechneWetter, type WetterQuelle } from './weather.js'
+import { berechneWetter, type WetterKeyframe, type WetterQuelle } from './weather.js'
 import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
 
 export const TOUR_SCHEMA_ID = 'luhambo/tour@1'
@@ -90,9 +90,18 @@ export interface EnrichEingabe {
   edits?: EditOverlay | null
   /** Vorhandene Audio-Dateinamen unter media/ (Baukasten) — edits.audio-Verweise ohne Datei werden übersprungen */
   audioDateien?: readonly string[]
-  geocoder: Geocoder
+  /** Geocoder für die Auto-Benennung. Optional: ist `orte` vorgegeben (Cache),
+   *  wird NICHT geocodiert und der Geocoder nicht gebraucht. */
+  geocoder?: Geocoder
+  /** Vorgegebene Ortsnamen aus dem Anreicherungs-Cache. Ist es gesetzt, wird die
+   *  Benennung daraus + dem aktuellen Titel lokal gebaut (kein Netz). */
+  orte?: Endpunkte
   /** Auto-Wetter-Quelle; fehlt sie, bleibt `weather` weg (Client-Fallback) */
   wetter?: WetterQuelle | null
+  /** Vorgegebene rohe Wetter-Keyframes aus dem Cache. `undefined` = aus der
+   *  Quelle berechnen; `null`/`[]` = kein Auto-Wetter. Die Foto-Verfeinerung
+   *  (M5) läuft danach IMMER lokal, weil sie an den platzierten Fotos hängt. */
+  wetterRoh?: WetterKeyframe[] | null
   /** Aufbereitete Video-Metadaten je Medien-ID (M4; Dauer/Poster/Auslieferungspfad) */
   videoMeta?: Map<string, VideoMeta>
   /** Bild-Befunde je Medien-ID (M5; vom Aufrufer per Klassifikator vorbereitet) —
@@ -118,7 +127,9 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     edits,
     audioDateien,
     geocoder,
+    orte,
     wetter,
+    wetterRoh,
     videoMeta,
     bildBefunde,
     protokoll,
@@ -139,14 +150,23 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   const startPunkt = erstesSegment.pts[0] as UploadPunkt
   const zielPunkt = letztesSegment.pts[letztesSegment.pts.length - 1] as UploadPunkt
 
-  const benennung = await benenneTour({
-    nutzerTitel: titelOverride ?? manifest.title ?? null,
-    startPunkt: [startPunkt[0], startPunkt[1]],
-    zielPunkt: [zielPunkt[0], zielPunkt[1]],
-    zeitStart: manifest.time.start,
-    zone: manifest.time.zone,
-    geocoder,
-  })
+  // Benennung: bevorzugt aus gecachten Ortsnamen + aktuellem Titel lokal bauen
+  // (kein Netz); nur ohne Cache wird direkt geocodiert (Direktaufruf/Test).
+  const nutzerTitel = titelOverride ?? manifest.title ?? null
+  let benennung: Benennung
+  if (orte) {
+    benennung = baueBenennung({ ...orte, nutzerTitel, zeitStart: manifest.time.start, zone: manifest.time.zone })
+  } else {
+    if (!geocoder) throw new Error('reichereAn: weder orte noch geocoder übergeben')
+    benennung = await benenneTour({
+      nutzerTitel,
+      startPunkt: [startPunkt[0], startPunkt[1]],
+      zielPunkt: [zielPunkt[0], zielPunkt[1]],
+      zeitStart: manifest.time.start,
+      zone: manifest.time.zone,
+      geocoder,
+    })
+  }
 
   // Statistik auf den ROHDATEN (volle Auflösung), Ausgabe-Punkte vereinfacht.
   const stats = berechneStats(rohSegmente)
@@ -312,28 +332,37 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   }
 
   let weather: TourJson['weather']
-  if (wetter) {
-    try {
-      let keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
-      // Bildanalyse (M5): platzierte Fotos mit Befund lokal auf ihre f-Position
-      // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
-      // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
-      if (keyframes.length && bildBefunde?.size) {
-        const fotos: Array<{ f: number; befund: BildBefund }> = []
-        for (const m of media) {
-          if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
-          const befund = bildBefunde.get(m.id)
-          if (!befund) continue
-          const tSek = (Date.parse(m.takenAt) - startMs) / 1000
-          if (!Number.isFinite(tSek)) continue
-          fotos.push({ f: positionZurZeit(reihe, tSek).f, befund })
-        }
-        if (fotos.length) keyframes = verfeinereWetterMitFotos(keyframes, fotos)
-      }
-      if (keyframes.length) weather = keyframes
-    } catch (fehler) {
-      protokoll?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(fehler as Error).message}`)
+  // Roh-Wetter: bevorzugt vorgegeben (Anreicherungs-Cache, kein Netz); sonst aus
+  // der Quelle berechnen (Direktaufruf/Test). `wetterRoh === undefined` heißt
+  // „nicht im Cache" → berechnen; `null`/`[]` heißt „berechnet, aber kein Wetter".
+  const wetterVorgegeben = wetterRoh !== undefined
+  try {
+    let keyframes: WetterKeyframe[]
+    if (wetterVorgegeben) {
+      keyframes = wetterRoh ?? []
+    } else if (wetter) {
+      keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
+    } else {
+      keyframes = []
     }
+    // Bildanalyse (M5): platzierte Fotos mit Befund lokal auf ihre f-Position
+    // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
+    // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
+    if (keyframes.length && bildBefunde?.size) {
+      const fotos: Array<{ f: number; befund: BildBefund }> = []
+      for (const m of media) {
+        if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
+        const befund = bildBefunde.get(m.id)
+        if (!befund) continue
+        const tSek = (Date.parse(m.takenAt) - startMs) / 1000
+        if (!Number.isFinite(tSek)) continue
+        fotos.push({ f: positionZurZeit(reihe, tSek).f, befund })
+      }
+      if (fotos.length) keyframes = verfeinereWetterMitFotos(keyframes, fotos)
+    }
+    if (keyframes.length) weather = keyframes
+  } catch (fehler) {
+    protokoll?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(fehler as Error).message}`)
   }
 
   return {

@@ -5,6 +5,14 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { erfordereBenutzer } from '../app.js'
 import { neueTourId } from '../ids.js'
+import {
+  ANREICHERUNG_SCHEMA_ID,
+  berechneRohAnreicherung,
+  mapZuRecord,
+  recordZuMap,
+  trimSignatur,
+  type AnreicherungsCache,
+} from '../pipeline/anreicherung.js'
 import { reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
@@ -45,6 +53,9 @@ export const TRACK_PFAD = 'original/track.gpx'
 export const TOURJSON_PFAD = 'tour.json'
 /** Edit-Overlay (M7) — liegt NEBEN original/, die Rohdaten bleiben unantastbar */
 export const EDITS_PFAD = 'edits.json'
+/** Anreicherungs-Cache: teure extern beschaffte Ergebnisse (Bildanalyse, Wetter,
+ *  Geocoding, Video) — beim Finalize/Reprocess erzeugt, von Edit-Saves genutzt */
+export const ANREICHERUNG_PFAD = 'anreicherung.json'
 
 export function ladeTour(app: FastifyInstance, id: string): TourZeile | null {
   return (app.deps.db.prepare('SELECT * FROM tours WHERE id = ?').get(id) as TourZeile | undefined) ?? null
@@ -183,9 +194,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
       return reply.code(409).send({ fehler: 'Medien fehlen', fehlend })
     }
 
+    // Erst-Render: alle externen Schritte laufen und füllen den Anreicherungs-Cache.
     app.verarbeitungen.set(
       tour.id,
-      verarbeite(app, tour.id).finally(() => app.verarbeitungen.delete(tour.id)),
+      verarbeite(app, tour.id, { frisch: true }).finally(() => app.verarbeitungen.delete(tour.id)),
     )
     return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
   })
@@ -229,9 +241,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
           .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status = 'bereit'`)
           .run(new Date().toISOString(), tour.id)
         if (claim.changes === 1) {
+          // Nur Texte nachziehen — Anreicherung aus dem Cache (kein Netz).
           app.verarbeitungen.set(
             tour.id,
-            verarbeite(app, tour.id).finally(() => app.verarbeitungen.delete(tour.id)),
+            verarbeite(app, tour.id, { frisch: false }).finally(() => app.verarbeitungen.delete(tour.id)),
           )
         }
       }
@@ -286,7 +299,8 @@ export function registriereTourRouten(app: FastifyInstance): void {
     const tour = nurOwner(app, request.params.id, benutzer.id, reply)
     if (!tour) return
     if (tour.status === 'angelegt') return reply.code(409).send({ fehler: 'Tour ist noch nicht finalisiert' })
-    if (!starteVerarbeitung(app, tour.id)) return reply.code(409).send({ fehler: 'Verarbeitung läuft bereits' })
+    // „Neu verarbeiten" holt die Anreicherung bewusst frisch (verwirft den Cache).
+    if (!starteVerarbeitung(app, tour.id, true)) return reply.code(409).send({ fehler: 'Verarbeitung läuft bereits' })
     return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
   })
 
@@ -440,14 +454,14 @@ function bildMedientyp(datei: string): string {
  * Verarbeitung atomar beanspruchen (nur aus bereit/fehler heraus) und starten.
  * false = eine andere Verarbeitung läuft bereits oder die Tour ist angelegt.
  */
-function starteVerarbeitung(app: FastifyInstance, tourId: string): boolean {
+function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch = false): boolean {
   const claim = app.deps.db
     .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status IN ('bereit', 'fehler')`)
     .run(new Date().toISOString(), tourId)
   if (claim.changes === 0) return false
   app.verarbeitungen.set(
     tourId,
-    verarbeite(app, tourId).finally(() => app.verarbeitungen.delete(tourId)),
+    verarbeite(app, tourId, { frisch }).finally(() => app.verarbeitungen.delete(tourId)),
   )
   return true
 }
@@ -468,9 +482,18 @@ async function ladeOriginalSegmente(
   return [segment]
 }
 
-/** Anreicherung ausführen und Ergebnis persistieren (läuft asynchron nach finalize). */
-async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
+/**
+ * Anreicherung ausführen und Ergebnis persistieren (läuft asynchron nach
+ * finalize/edits/patch/reprocess). `frisch` (finalize/reprocess) erzwingt die
+ * teuren externen Schritte (Bildanalyse, Reverse-Geocoding, Wetter, Video) und
+ * erneuert den Anreicherungs-Cache; ohne `frisch` (edits/patch) werden sie —
+ * soweit gültig — aus dem Cache übernommen, sodass nur das Overlay lokal
+ * angewandt wird (Sekundenbruchteil statt zig Sekunden).
+ */
+async function verarbeite(app: FastifyInstance, tourId: string, opts: { frisch?: boolean } = {}): Promise<void> {
+  const { frisch = false } = opts
   const { db, storage, geocoder, wetter, videoWerkzeug, bildKlassifikator } = app.deps
+  const protokoll = (nachricht: string): void => app.log.warn(nachricht)
   try {
     const tour = ladeTour(app, tourId)
     if (!tour) return
@@ -487,50 +510,80 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       edits = JSON.parse((await storage.lese(tourId, EDITS_PFAD)).toString()) as EditOverlay
     }
 
-    // Videos aufbereiten (ffprobe/Poster/Transcode) VOR der Anreicherung — Dauer,
-    // Poster und der Auslieferungspfad (transkodiert oder Original) fließen ins
-    // tour.json. Storage-Adapter statt Direktzugriff, damit die Aufbereitung den
-    // konkreten Speicher nicht kennt (FS heute, R2 später).
-    let videoMeta: Map<string, VideoMeta> | undefined
-    const videoMedien = manifest.media.filter((m) => m.type === 'video')
-    if (videoWerkzeug && videoMedien.length) {
-      videoMeta = await bereiteVideosAuf({
-        medien: videoMedien.map((m) => ({ id: m.id, originalDatei: mediumDateiname(m) })),
-        speicher: {
-          lese: (relPfad) => storage.lese(tourId, relPfad),
-          schreibe: (relPfad, inhalt) => storage.schreibe(tourId, relPfad, inhalt),
-          info: (relPfad) => storage.info(tourId, relPfad),
-        },
-        werkzeug: videoWerkzeug,
-        protokoll: (nachricht) => app.log.warn(nachricht),
-      })
+    // Anreicherungs-Cache: die teuren extern beschafften Ergebnisse. `frisch`
+    // ignoriert ihn und erneuert alles; sonst wird — soweit gültig — daraus
+    // übernommen. Beschädigter/alter Cache (Schema-Mismatch) zählt wie keiner →
+    // dann wird unten alles frisch berechnet (selbstheilend, kein Migrationslauf).
+    const sig = trimSignatur(edits)
+    let cache: AnreicherungsCache | null = null
+    if (!frisch && (await storage.info(tourId, ANREICHERUNG_PFAD))) {
+      try {
+        const geladen = JSON.parse((await storage.lese(tourId, ANREICHERUNG_PFAD)).toString()) as AnreicherungsCache
+        if (geladen?.schema === ANREICHERUNG_SCHEMA_ID) cache = geladen
+      } catch {
+        cache = null
+      }
+    }
+
+    // (1) Video-Meta + Bildbefunde hängen NUR an den Rohfotos/-videos → aus dem
+    //     Cache übernehmen; nur ohne Cache neu berechnen. Das erspart dem
+    //     Edit-Speichern ffprobe/Transcode UND die teure, sequenzielle
+    //     Foto-Bildanalyse (1 Vision-Call je Foto) — der Löwenanteil der Zeit.
+    let videoMeta: Map<string, VideoMeta>
+    let bildBefunde: Map<string, BildBefund>
+    if (cache) {
+      videoMeta = recordZuMap(cache.videoMeta)
+      bildBefunde = recordZuMap(cache.befunde)
+    } else {
+      videoMeta = new Map<string, VideoMeta>()
+      const videoMedien = manifest.media.filter((m) => m.type === 'video')
+      if (videoWerkzeug && videoMedien.length) {
+        videoMeta = await bereiteVideosAuf({
+          medien: videoMedien.map((m) => ({ id: m.id, originalDatei: mediumDateiname(m) })),
+          speicher: {
+            lese: (relPfad) => storage.lese(tourId, relPfad),
+            schreibe: (relPfad, inhalt) => storage.schreibe(tourId, relPfad, inhalt),
+            info: (relPfad) => storage.info(tourId, relPfad),
+          },
+          werkzeug: videoWerkzeug,
+          protokoll,
+        })
+      }
+      // Bildanalyse (M5): nur mit konfiguriertem Klassifikator (OpenRouter-Key).
+      // Ein einzelnes scheiterndes Bild darf die Anreicherung nie kippen. Welche
+      // Fotos tatsächlich verwertet werden (platziert), entscheidet reichereAn.
+      bildBefunde = new Map<string, BildBefund>()
+      if (bildKlassifikator) {
+        for (const m of manifest.media.filter((x) => x.type === 'photo')) {
+          try {
+            const datei = mediumDateiname(m)
+            if (!(await storage.info(tourId, `media/${datei}`))) continue
+            const daten = await storage.lese(tourId, `media/${datei}`)
+            bildBefunde.set(m.id, await bildKlassifikator.klassifiziere({ daten, medientyp: bildMedientyp(datei) }))
+          } catch (fehler) {
+            app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+          }
+        }
+      }
+    }
+
+    // (2) Ortsnamen + Roh-Wetter hängen am (getrimmten) Track → aus dem Cache nur
+    //     bei passender Trim-Signatur; sonst neu holen. Das sind die einzigen
+    //     externen Aufrufe, die ein Edit (nämlich ein Trim) noch auslösen kann.
+    let orte: AnreicherungsCache['orte']
+    let wetterRoh: AnreicherungsCache['wetterRoh']
+    if (cache && cache.trimSignatur === sig) {
+      orte = cache.orte
+      wetterRoh = cache.wetterRoh
+    } else {
+      ;({ orte, wetterRoh } = await berechneRohAnreicherung({ manifest, edits, geocoder, wetter, protokoll }))
     }
 
     // Vorhandene Audio-Dateien an die Pipeline reichen (Baukasten) —
     // edits.audio-Einträge ohne Datei überspringt sie dort mit Warnung.
     const audioDateien = (await storage.listeDateien(tourId, 'media')).map((d) => d.name).filter(istAudioDatei)
 
-    // Bildanalyse (M5): nur mit konfiguriertem Klassifikator (Anthropic-Key).
-    // Fotos einlesen und klassifizieren → Befund-Map je Medien-ID. I/O bleibt
-    // hier (außerhalb der reinen Pipeline), exakt wie videoMeta. Ein einzelnes
-    // scheiterndes Bild darf die Anreicherung nie kippen — überspringen. Welche
-    // Fotos tatsächlich verwertet werden (platziert), entscheidet reichereAn.
-    let bildBefunde: Map<string, BildBefund> | undefined
-    if (bildKlassifikator) {
-      bildBefunde = new Map<string, BildBefund>()
-      for (const m of manifest.media.filter((x) => x.type === 'photo')) {
-        try {
-          const datei = mediumDateiname(m)
-          if (!(await storage.info(tourId, `media/${datei}`))) continue
-          const daten = await storage.lese(tourId, `media/${datei}`)
-          const befund = await bildKlassifikator.klassifiziere({ daten, medientyp: bildMedientyp(datei) })
-          bildBefunde.set(m.id, befund)
-        } catch (fehler) {
-          app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
-        }
-      }
-    }
-
+    // Render ist jetzt rein lokal: alle externen Ergebnisse liegen als Eingabe vor.
     const tourJson = await reichereAn({
       tourId,
       nummer: tour.no,
@@ -539,13 +592,24 @@ async function verarbeite(app: FastifyInstance, tourId: string): Promise<void> {
       beschreibungOverride: tour.description,
       ...(edits ? { edits } : {}),
       audioDateien,
-      geocoder,
-      wetter,
-      ...(videoMeta ? { videoMeta } : {}),
-      ...(bildBefunde?.size ? { bildBefunde } : {}),
-      protokoll: (nachricht) => app.log.warn(nachricht),
+      orte,
+      wetterRoh,
+      ...(videoMeta.size ? { videoMeta } : {}),
+      ...(bildBefunde.size ? { bildBefunde } : {}),
+      protokoll,
     })
     await storage.schreibe(tourId, TOURJSON_PFAD, JSON.stringify(tourJson, null, 2))
+
+    // Anreicherungs-Cache zurückschreiben — das nächste Edit-Speichern nutzt ihn.
+    const neuerCache: AnreicherungsCache = {
+      schema: ANREICHERUNG_SCHEMA_ID,
+      befunde: mapZuRecord(bildBefunde),
+      videoMeta: mapZuRecord(videoMeta),
+      trimSignatur: sig,
+      orte,
+      wetterRoh,
+    }
+    await storage.schreibe(tourId, ANREICHERUNG_PFAD, JSON.stringify(neuerCache, null, 2))
     // title nur setzen, wenn noch keiner existiert (Auto-Benennung persistieren) —
     // ein während der Verarbeitung per PATCH gesetzter Nutzer-Titel darf nicht
     // rückwirkend überschrieben werden (Lost Update).
