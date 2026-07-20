@@ -101,6 +101,21 @@ describe('Anreicherungs-Cache', () => {
     expect((await tourJson(u, id)).media[0]?.caption).toBe('Schön hier')
   })
 
+  it('Wetter-Edit ersetzt das Auto-Wetter OHNE externe Aufrufe (reine Render-Änderung)', async () => {
+    const { u, wetter, klass, id } = await baueUndFinalisiere()
+    const vor = stand(u, wetter, klass)
+
+    // Wetter-Grenze am Tour-Start → ganze Tour „storm". Rein render-seitig: der
+    // Cache (Geocoding/Auto-Wetter/Bildanalyse) trägt weiter, nichts wird neu geholt.
+    const start = new Date(Date.parse('2026-07-04T08:12:31+02:00')).toISOString()
+    await speichereEdits(u, id, { schema: 'luhambo/edits@1', wetter: [{ ab: start, mode: 'storm' }] })
+
+    expect(stand(u, wetter, klass)).toEqual(vor)
+    const weather = (await tourJson(u, id)).weather ?? []
+    expect(weather.length).toBeGreaterThan(0)
+    expect(weather.every((w) => w.source === 'studio' && w.mode === 'storm')).toBe(true)
+  })
+
   it('Trim holt Ortsnamen + Wetter neu, aber NICHT die Bildanalyse', async () => {
     const { u, wetter, klass, id } = await baueUndFinalisiere()
     const vor = stand(u, wetter, klass)

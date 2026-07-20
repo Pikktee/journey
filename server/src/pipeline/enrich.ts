@@ -15,7 +15,7 @@ import { platziereMedien, type Platzierung } from './placement.js'
 import type { VideoMeta } from './video.js'
 import type { BildBefund } from './vision.js'
 import { verfeinereWetterMitFotos } from './vision.js'
-import { berechneWetter, type WetterKeyframe, type WetterQuelle } from './weather.js'
+import { berechneWetter, wetterAusOverlay, type WetterKeyframe, type WetterQuelle } from './weather.js'
 import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
 
 export const TOUR_SCHEMA_ID = 'luhambo/tour@1'
@@ -332,37 +332,45 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   }
 
   let weather: TourJson['weather']
-  // Roh-Wetter: bevorzugt vorgegeben (Anreicherungs-Cache, kein Netz); sonst aus
-  // der Quelle berechnen (Direktaufruf/Test). `wetterRoh === undefined` heißt
-  // „nicht im Cache" → berechnen; `null`/`[]` heißt „berechnet, aber kein Wetter".
-  const wetterVorgegeben = wetterRoh !== undefined
-  try {
-    let keyframes: WetterKeyframe[]
-    if (wetterVorgegeben) {
-      keyframes = wetterRoh ?? []
-    } else if (wetter) {
-      keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
-    } else {
-      keyframes = []
-    }
-    // Bildanalyse (M5): platzierte Fotos mit Befund lokal auf ihre f-Position
-    // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
-    // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
-    if (keyframes.length && bildBefunde?.size) {
-      const fotos: Array<{ f: number; befund: BildBefund }> = []
-      for (const m of media) {
-        if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
-        const befund = bildBefunde.get(m.id)
-        if (!befund) continue
-        const tSek = (Date.parse(m.takenAt) - startMs) / 1000
-        if (!Number.isFinite(tSek)) continue
-        fotos.push({ f: positionZurZeit(reihe, tSek).f, befund })
-      }
-      if (fotos.length) keyframes = verfeinereWetterMitFotos(keyframes, fotos)
-    }
+  if (edits?.wetter?.length) {
+    // Studio-Wetter (Baukasten): eine bewusst gesetzte Stufenfunktion ersetzt
+    // das Auto-Wetter VOLLSTÄNDIG — auch die Foto-Verfeinerung entfällt, weil der
+    // Nutzer hier korrigiert, was Open-Meteo/Bildanalyse falsch hatten.
+    const keyframes = wetterAusOverlay(edits.wetter, reihe, startMs)
     if (keyframes.length) weather = keyframes
-  } catch (fehler) {
-    protokoll?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(fehler as Error).message}`)
+  } else {
+    // Roh-Wetter: bevorzugt vorgegeben (Anreicherungs-Cache, kein Netz); sonst aus
+    // der Quelle berechnen (Direktaufruf/Test). `wetterRoh === undefined` heißt
+    // „nicht im Cache" → berechnen; `null`/`[]` heißt „berechnet, aber kein Wetter".
+    const wetterVorgegeben = wetterRoh !== undefined
+    try {
+      let keyframes: WetterKeyframe[]
+      if (wetterVorgegeben) {
+        keyframes = wetterRoh ?? []
+      } else if (wetter) {
+        keyframes = await berechneWetter({ reihe, startIso: manifest.time.start, quelle: wetter })
+      } else {
+        keyframes = []
+      }
+      // Bildanalyse (M5): platzierte Fotos mit Befund lokal auf ihre f-Position
+      // abbilden (Aufnahmezeit → Zeitreihe, wie die Kamera-Keyframes) und das
+      // API-Wetter dort verfeinern. Ohne Befunde bleibt `keyframes` unberührt.
+      if (keyframes.length && bildBefunde?.size) {
+        const fotos: Array<{ f: number; befund: BildBefund }> = []
+        for (const m of media) {
+          if (m.type !== 'photo' || m.anchor === null) continue // nur platzierte Fotos
+          const befund = bildBefunde.get(m.id)
+          if (!befund) continue
+          const tSek = (Date.parse(m.takenAt) - startMs) / 1000
+          if (!Number.isFinite(tSek)) continue
+          fotos.push({ f: positionZurZeit(reihe, tSek).f, befund })
+        }
+        if (fotos.length) keyframes = verfeinereWetterMitFotos(keyframes, fotos)
+      }
+      if (keyframes.length) weather = keyframes
+    } catch (fehler) {
+      protokoll?.(`Auto-Wetter nicht verfügbar (${tourId}): ${(fehler as Error).message}`)
+    }
   }
 
   return {

@@ -10,7 +10,14 @@
 
 import { positionZurZeit, type Zeitreihe } from './zeit.js'
 
-export type WetterModus = 'off' | 'clouds' | 'fog' | 'rain' | 'snow' | 'storm'
+/**
+ * Die Wetterwelt des Players (src/weather.js) als Liste — Einzelquelle für den
+ * Typ, den JSON-Schema-Enum des Wetter-Overlays (schema/edits.ts importiert sie)
+ * und die Studio-Auswahl. Ein Drift-Wächter (test/studio-baukasten.test.ts)
+ * hält die Client-Kopie in editmodell.ts damit deckungsgleich.
+ */
+export const WETTER_MODI = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
+export type WetterModus = (typeof WETTER_MODI)[number]
 
 export interface WetterStunde {
   code: number
@@ -181,6 +188,71 @@ export async function berechneWetter(eingabe: {
     // einem Wechsel platziert die Umschalt-Mitte des Players zeitlich richtig.
     if (vorher && vorher.f === eintrag.f) keyframes.pop()
     keyframes.push(eintrag)
+  }
+  return keyframes
+}
+
+/** Standard-Stärke k eines Wetter-Overrides ohne eigene `staerke` (mittlere Intensität). */
+export const WETTER_STANDARD_K = 0.7
+
+/**
+ * Nutzer-Wetter aus dem Studio-Overlay (`edits.wetter`) in Player-Keyframes
+ * übersetzen. Anders als das Auto-Wetter ist das eine bewusst gesetzte
+ * Stufenfunktion: Grenzen „gilt ab T" (absolute Zeit, stabile Anker wie
+ * modi/kamera) werden über die Zeitreihe des (getrimmten) Tracks auf den
+ * Streckenanteil f abgebildet; der Grund vor der ersten Grenze ist klar (`off`).
+ * Ist Overlay-Wetter gesetzt, ERSETZT es das Auto-Wetter vollständig — enrich.ts
+ * überspringt dann auch die Foto-Verfeinerung (der Nutzer korrigiert bewusst).
+ *
+ * Keyframe-Trick: Jedes Band bekommt eine Marke an Anfang UND Ende (gleicher
+ * Modus). Die geteilte Kante zweier Bänder liegt damit doppelt auf demselben f
+ * (alter + neuer Modus). `weatherAt` im Player schaltet auf der MITTE zwischen
+ * zwei Marken um — bei gleichem f liegt die Umschaltgrenze so EXAKT auf der
+ * Nutzer-Grenze (statt auf halber Bandbreite).
+ */
+export function wetterAusOverlay(
+  grenzen: ReadonlyArray<{ ab: string; mode: WetterModus; staerke?: number }>,
+  reihe: Zeitreihe,
+  startMs: number,
+): WetterKeyframe[] {
+  const marken = grenzen
+    .map((g) => ({
+      f: positionZurZeit(reihe, (Date.parse(g.ab) - startMs) / 1000).f,
+      mode: g.mode,
+      k: g.staerke ?? WETTER_STANDARD_K,
+    }))
+    .filter((m) => Number.isFinite(m.f))
+    .sort((a, b) => a.f - b.f)
+
+  // Bänder: Grund = klar bis zur ersten Grenze; jede Grenze eröffnet ein Band
+  // bis zur nächsten, das letzte reicht bis f=1. Eine Grenze am/vor dem
+  // Track-Anfang (f ≤ 0, etwa vor den Trim geklemmt) ersetzt den Grund direkt.
+  const baender: Array<{ von: number; bis: number; mode: WetterModus; k: number }> = []
+  let von = 0
+  let cur: { mode: WetterModus; k: number } = { mode: 'off', k: WETTER_STANDARD_K }
+  for (const m of marken) {
+    if (m.f <= von) {
+      cur = { mode: m.mode, k: m.k }
+      continue
+    }
+    baender.push({ von, bis: m.f, ...cur })
+    von = m.f
+    cur = { mode: m.mode, k: m.k }
+  }
+  baender.push({ von, bis: 1, ...cur })
+
+  const roh: WetterKeyframe[] = []
+  for (const b of baender) {
+    roh.push({ f: rund(b.von, 4), mode: b.mode, k: rund(b.k, 2), source: 'studio' })
+    roh.push({ f: rund(b.bis, 4), mode: b.mode, k: rund(b.k, 2), source: 'studio' })
+  }
+  // Aufeinanderfolgende identische Keyframes (gleiches f, gleicher Zustand) weg —
+  // sie tragen nichts bei und blähen das Tour-JSON nur auf.
+  const keyframes: WetterKeyframe[] = []
+  for (const kf of roh) {
+    const v = keyframes[keyframes.length - 1]
+    if (v && v.f === kf.f && v.mode === kf.mode && v.k === kf.k) continue
+    keyframes.push(kf)
   }
   return keyframes
 }

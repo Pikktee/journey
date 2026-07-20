@@ -757,6 +757,12 @@
       background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px);
     }
     .zl-band.kamera.grund span { color: var(--text-3); }
+    /* Wetter-Bänder: helle Schrift auf mitteldunkler Füllung; Grund = „Automatisch" (Auto-Wetter) */
+    .zl-band.wetter span { color: var(--text); }
+    .zl-band.wetter.grund {
+      background: repeating-linear-gradient(-45deg, rgba(96, 165, 250, 0.14) 0 6px, transparent 6px 12px);
+    }
+    .zl-band.wetter.grund span { color: var(--text-3); }
 
     /* Ziehbare Bandkante = die Grenze im Overlay */
     .zl-kante {
@@ -959,6 +965,7 @@
     #editor-inspektor .insp-aktionen button { padding: 5px 9px; font-size: 11.5px; }
     #editor-inspektor .insp-dauer { width: 58px; flex: none; font-size: 11.5px; padding: 5px 6px; }
     #editor-inspektor .insp-skala { flex: 1 1 100%; accent-color: var(--akzent); height: 4px; margin-top: 2px; }
+    #editor-inspektor .insp-hinweis { margin-top: 9px; font-size: 11px; line-height: 1.4; color: var(--text-3); }
 
     /* — Audio-Panel (Sidebar) — */
     .audio-zeile {
@@ -1364,6 +1371,15 @@
               <option value="innehalten">Innehalten</option>
             </select>
             <button id="e-moment" disabled title="Kamera-Moment an diesem Punkt setzen — die Fahrt hält dort kurz an">Moment</button>
+            <select id="e-wetter-mode" aria-label="Wetter ab diesem Punkt">
+              <option value="off">Wetter klar</option>
+              <option value="clouds">Wolkig</option>
+              <option value="fog">Nebel</option>
+              <option value="rain">Regen</option>
+              <option value="snow">Schnee</option>
+              <option value="storm">Gewitter</option>
+            </select>
+            <button id="e-wetter" disabled title="Wetter ab diesem Punkt setzen — ersetzt das automatische Wetter">ab hier</button>
           </div>
           <div id="editor-trim"></div>
         </div>

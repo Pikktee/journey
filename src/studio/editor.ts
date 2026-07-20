@@ -19,11 +19,13 @@ import {
   mitModusGrenze,
   mitMoment,
   mitTrim,
+  mitWetterGrenze,
   MOMENT_DEFAULT_S,
   ohneAudioEintrag,
   ohneKameraGrenze,
   ohneModusGrenze,
   ohneMoment,
+  ohneWetterGrenze,
   offsetZuIso,
   projiziereAufTrack,
   pruefeOverlay,
@@ -38,6 +40,7 @@ import {
   type Modus,
   type MomentArt,
   type TrackPunkt,
+  type WetterModus,
 } from './editmodell.js'
 import {
   anteilZuOffset,
@@ -90,6 +93,26 @@ const MODUS_FARBEN: Record<Modus, string> = {
   ferry: '#c58bff',
 }
 const PRESET_NAMEN: Record<KameraPreset, string> = { nah: 'Nah', mittel: 'Mittel', weit: 'Weit' }
+/** Anzeigenamen der Wetter-Modi (Reihenfolge = Auswahl-Liste). */
+const WETTER_NAMEN: Record<WetterModus, string> = {
+  off: 'Klar',
+  clouds: 'Wolkig',
+  fog: 'Nebel',
+  rain: 'Regen',
+  snow: 'Schnee',
+  storm: 'Gewitter',
+}
+/** Wetter-Bänder: gedämpfte, mitteldunkle Füllung (helle Bandschrift bleibt lesbar). */
+const WETTER_FARBEN: Record<WetterModus, string> = {
+  off: 'rgba(70, 120, 175, 0.55)',
+  clouds: 'rgba(120, 132, 148, 0.62)',
+  fog: 'rgba(140, 150, 165, 0.55)',
+  rain: 'rgba(52, 110, 200, 0.68)',
+  snow: 'rgba(150, 170, 195, 0.62)',
+  storm: 'rgba(96, 78, 160, 0.72)',
+}
+/** Standard-Wetterstärke k (Spiegel von WETTER_STANDARD_K im Server). */
+const WETTER_STANDARD_K = 0.7
 const MOMENT_NAMEN: Record<MomentArt, string> = { umkreisen: 'Umkreisen', aufstieg: 'Aufstieg', innehalten: 'Innehalten' }
 /** Symbol je Moment-Art auf der Zeitleisten-Marke. */
 const MOMENT_ZEICHEN: Record<MomentArt, string> = { umkreisen: '↻', aufstieg: '↑', innehalten: '⏸' }
@@ -116,6 +139,7 @@ const icon = (name: string): string => `<svg aria-hidden="true"><use href="#i-${
 type Fokus =
   | { art: 'modus'; bezugS: number }
   | { art: 'kamera'; bezugS: number }
+  | { art: 'wetter'; bezugS: number }
   | { art: 'moment'; ab: string }
   | { art: 'audio'; index: number }
   | { art: 'medium'; id: string }
@@ -130,6 +154,9 @@ interface FokusInfo {
   ab: string | null
   mode?: Modus
   preset?: KameraPreset
+  wetterMode?: WetterModus
+  /** Wetter-Stärke k dieses Bands (nur bei eigener Grenze mit gesetzter staerke) */
+  staerke?: number
   momentArt?: MomentArt
   dauerS?: number
   index?: number
@@ -599,6 +626,32 @@ function loeseFokusAuf(): FokusInfo | null {
     return treffer.wert ? { ...basis, preset: treffer.wert } : basis
   }
 
+  if (f.art === 'wetter') {
+    // Grund: klar (`off`), sobald IRGENDeine Wetter-Grenze existiert (dann
+    // ersetzt das Overlay das Auto-Wetter komplett); sonst „automatisch".
+    const hatOverride = (z.edits.wetter ?? []).length > 0
+    const baender = baueZustandsBaender<WetterModus | null>(
+      (z.edits.wetter ?? []).map((g) => ({ ab: g.ab, wert: g.mode })),
+      start,
+      skala,
+      hatOverride ? 'off' : null,
+    )
+    const treffer = baender.find(
+      (b) => f.bezugS >= anteilZuOffset(skala, b.von) && f.bezugS <= anteilZuOffset(skala, b.bis),
+    )
+    if (!treffer) return null
+    const staerke = treffer.ab !== null ? z.edits.wetter?.find((g) => g.ab === treffer.ab)?.staerke : undefined
+    return {
+      art: 'wetter',
+      titel: treffer.wert ? `Wetter ${WETTER_NAMEN[treffer.wert]}` : 'Automatisches Wetter',
+      vonS: anteilZuOffset(skala, treffer.von),
+      bisS: anteilZuOffset(skala, treffer.bis),
+      ab: treffer.ab,
+      ...(treffer.wert ? { wetterMode: treffer.wert } : {}),
+      ...(staerke !== undefined ? { staerke } : {}),
+    }
+  }
+
   if (f.art === 'moment') {
     const m = (z.edits.momente ?? []).find((x) => x.ab === f.ab)
     if (!m) return null
@@ -631,7 +684,7 @@ function loeseFokusAuf(): FokusInfo | null {
 function renderAuswahl(): void {
   if (!z) return
   const aktivierbar = z.auswahl !== null
-  for (const id of ['e-trim-start', 'e-trim-ende', 'e-grenze', 'e-kamera', 'e-moment']) {
+  for (const id of ['e-trim-start', 'e-trim-ende', 'e-grenze', 'e-kamera', 'e-moment', 'e-wetter']) {
     ;($(id) as HTMLButtonElement).disabled = !aktivierbar
   }
   const info = $('editor-punkt-info')
@@ -742,6 +795,76 @@ function renderInspektor(): void {
       renderAlles()
     })
     aktionen.appendChild(weg)
+  } else if (info.art === 'wetter') {
+    const start = z.daten.time.start
+    const staerkeAlt = info.ab !== null ? z.edits.wetter?.find((g) => g.ab === info.ab)?.staerke : info.staerke
+    const wahl = document.createElement('select')
+    wahl.setAttribute('aria-label', 'Wetter dieses Abschnitts')
+    for (const [wert, name] of Object.entries(WETTER_NAMEN)) {
+      const opt = document.createElement('option')
+      opt.value = wert
+      opt.textContent = name
+      if (wert === info.wetterMode) opt.selected = true
+      wahl.appendChild(opt)
+    }
+    wahl.addEventListener('change', () => {
+      if (!z || !wahl.value) return
+      // Ohne eigene Grenze (Grundband „Automatisch") wird am Bandanfang eine neue
+      // gesetzt — der erste gesetzte Modus schaltet das Overlay scharf und ersetzt
+      // damit das Auto-Wetter. Stärke bei „Klar" verwerfen (dort ohne Wirkung).
+      const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      const neuMode = wahl.value as WetterModus
+      z.edits = mitWetterGrenze(z.edits, ab, neuMode, neuMode === 'off' ? undefined : staerkeAlt)
+      z.fokus = { art: 'wetter', bezugS: (info.vonS + info.bisS) / 2 }
+      renderAlles()
+    })
+    aktionen.appendChild(wahl)
+
+    // Stärke-Regler (nicht bei „Klar" — dort gibt es keine Intensität)
+    if (info.wetterMode && info.wetterMode !== 'off') {
+      const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      const mode = info.wetterMode
+      const regler = document.createElement('input')
+      regler.type = 'range'
+      regler.min = '0'
+      regler.max = '100'
+      regler.step = '10'
+      regler.className = 'insp-skala'
+      regler.value = String(Math.round((staerkeAlt ?? WETTER_STANDARD_K) * 100))
+      regler.title = 'Wetter-Stärke (leicht ↔ stark)'
+      regler.setAttribute('aria-label', 'Wetter-Stärke')
+      regler.addEventListener('change', () => {
+        if (!z) return
+        z.edits = mitWetterGrenze(z.edits, ab, mode, Number(regler.value) / 100)
+        z.fokus = { art: 'wetter', bezugS: (info.vonS + info.bisS) / 2 }
+        renderAlles()
+      })
+      aktionen.appendChild(regler)
+    }
+
+    if (info.ab !== null) {
+      const weg = document.createElement('button')
+      weg.textContent = 'Entfernen'
+      weg.title = 'Diese Wetter-Grenze aufheben — der vorherige Zustand gilt dann weiter'
+      const abFest = info.ab
+      weg.addEventListener('click', () => {
+        if (!z) return
+        z.edits = ohneWetterGrenze(z.edits, abFest)
+        z.fokus = null
+        renderAlles()
+      })
+      aktionen.appendChild(weg)
+    }
+    el.appendChild(aktionen)
+    // Hinweis: Overlay-Wetter ersetzt das automatische Wetter komplett
+    const hinweis = document.createElement('div')
+    hinweis.className = 'insp-hinweis'
+    hinweis.textContent =
+      (z.edits.wetter ?? []).length > 0
+        ? 'Eigenes Wetter ersetzt das automatische Wetter der ganzen Tour.'
+        : 'Ein Modus wählen ersetzt das automatische Wetter durch eigene Grenzen.'
+    el.appendChild(hinweis)
+    return
   } else if (info.art === 'modus' || info.art === 'kamera') {
     const werte: Array<[string, string]> =
       info.art === 'modus' ? Object.entries(MODUS_NAMEN) : Object.entries(PRESET_NAMEN)
@@ -1409,6 +1532,7 @@ interface ZugZustand {
   ab?: string
   mode?: Modus
   preset?: KameraPreset
+  wetterMode?: WetterModus
   momentArt?: MomentArt
   index?: number
   /** Abstand Cursor↔Balkenanfang beim Greifen (Anteil), für ruckfreies Schieben */
@@ -1429,6 +1553,7 @@ function bandZuFokus(el: HTMLElement | null): Fokus | null {
   if (!Number.isFinite(bezugS)) return null
   if (art === 'modus') return { art: 'modus', bezugS }
   if (art === 'kamera') return { art: 'kamera', bezugS }
+  if (art === 'wetter') return { art: 'wetter', bezugS }
   return null
 }
 
@@ -1478,7 +1603,7 @@ function renderZeitleiste(): void {
    * `art` macht das Band anklickbar: die Bandmitte dient als Fokus-Bezug
    * (überlebt das Verschieben von Grenzen besser als der Bandanfang).
    */
-  const band = (art: 'modus' | 'kamera', von: number, bis: number, text: string, farbe?: string): HTMLElement => {
+  const band = (art: 'modus' | 'kamera' | 'wetter', von: number, bis: number, text: string, farbe?: string): HTMLElement => {
     const d = document.createElement('div')
     d.className = 'zl-band'
     d.style.left = pos(von)
@@ -1554,6 +1679,43 @@ function renderZeitleiste(): void {
           'kamera',
           { ab: b.ab, preset: b.wert },
           `Kamera ${PRESET_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr — ziehen zum Verschieben`,
+        ),
+      )
+    }
+  }
+
+  // — Wetter: lückenlose Bänder wie Kamera; Grund je nach Overlay „Automatisch"
+  //   (kein Override → Auto-Wetter) oder „Klar" (Overlay ersetzt Auto-Wetter) —
+  const wetterBahn = bahn('Wetter', 'wetter')
+  const hatWetter = (z.edits.wetter ?? []).length > 0
+  const wetterBaender = baueZustandsBaender<WetterModus | null>(
+    (z.edits.wetter ?? []).map((g) => ({ ab: g.ab, wert: g.mode })),
+    start,
+    skala,
+    hatWetter ? 'off' : null,
+  )
+  for (const b of wetterBaender) {
+    const staerke = b.ab !== null ? z.edits.wetter?.find((g) => g.ab === b.ab)?.staerke : undefined
+    const staerkeTxt = b.wert && b.wert !== 'off' && staerke !== undefined ? ` ${Math.round(staerke * 100)}%` : ''
+    const d = band(
+      'wetter',
+      b.von,
+      b.bis,
+      (b.wert ? WETTER_NAMEN[b.wert] : 'Automatisch') + staerkeTxt,
+      b.wert ? WETTER_FARBEN[b.wert] : undefined,
+    )
+    d.classList.add('wetter')
+    if (!b.wert) d.classList.add('grund')
+    const mitte = anteilZuOffset(skala, (b.von + b.bis) / 2)
+    if (fokusInfo?.art === 'wetter' && mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS) d.classList.add('fokus')
+    wetterBahn.appendChild(d)
+    if (b.ab !== null && b.wert) {
+      wetterBahn.appendChild(
+        kante(
+          b.von,
+          'wetter',
+          { ab: b.ab, wettermode: b.wert },
+          `Wetter ${WETTER_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr — ziehen zum Verschieben`,
         ),
       )
     }
@@ -1744,6 +1906,16 @@ function zeitleisteZug(e: PointerEvent): void {
       zug.ab = neuAb
       break
     }
+    case 'wetter': {
+      if (zug.ab === undefined || !zug.wetterMode) break
+      const altAb = zug.ab
+      const neuAb = iso(anteil)
+      if (neuAb !== altAb && z.edits.wetter?.some((g) => g.ab === neuAb)) break
+      const altStaerke = z.edits.wetter?.find((g) => g.ab === altAb)?.staerke
+      z.edits = mitWetterGrenze(ohneWetterGrenze(z.edits, altAb), neuAb, zug.wetterMode, altStaerke)
+      zug.ab = neuAb
+      break
+    }
     case 'moment': {
       if (zug.ab === undefined || !zug.momentArt) break
       const altAb = zug.ab
@@ -1809,6 +1981,7 @@ function verdrahteZeitleiste(): void {
     if (ziel.dataset['ab'] !== undefined) zug.ab = ziel.dataset['ab']
     if (ziel.dataset['mode']) zug.mode = ziel.dataset['mode'] as Modus
     if (ziel.dataset['preset']) zug.preset = ziel.dataset['preset'] as KameraPreset
+    if (ziel.dataset['wettermode']) zug.wetterMode = ziel.dataset['wettermode'] as WetterModus
     if (ziel.dataset['art']) zug.momentArt = ziel.dataset['art'] as MomentArt
     if (ziel.dataset['index'] !== undefined) zug.index = Number(ziel.dataset['index'])
     if (rolle === 'audio-balken') {
@@ -2032,6 +2205,13 @@ function verdrahteEinmal(): void {
     const ab = offsetZuIso(z.daten.time.start, z.auswahl[3])
     z.edits = mitMoment(z.edits, ab, art)
     z.fokus = { art: 'moment', ab } // gleich fokussieren → Inspector zeigt ihn
+    renderAlles()
+  })
+  $('e-wetter').addEventListener('click', () => {
+    if (!z || !z.auswahl) return
+    const mode = ($('e-wetter-mode') as HTMLSelectElement).value as WetterModus
+    z.edits = mitWetterGrenze(z.edits, offsetZuIso(z.daten.time.start, z.auswahl[3]), mode)
+    z.fokus = { art: 'wetter', bezugS: z.auswahl[3] } // gleich fokussieren → Inspector zeigt ihn
     renderAlles()
   })
   $('e-audio-hinzu').addEventListener('click', () => $('e-audio-datei').click())

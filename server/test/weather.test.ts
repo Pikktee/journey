@@ -8,6 +8,8 @@ import {
   berechneWetter,
   glaetteSamples,
   testRaster,
+  wetterAusOverlay,
+  WETTER_STANDARD_K,
   wmoZuWetter,
   type WetterModus,
 } from '../src/pipeline/weather.js'
@@ -167,5 +169,54 @@ describe('OpenMeteoQuelle', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 429 }) as Response))
     const quelle = new OpenMeteoQuelle(() => new Date('2026-07-08T12:00:00Z'))
     await expect(quelle.stunden([{ lat: 46.59, lng: 8.0 }], '2026-06-01', '2026-06-01')).rejects.toThrow(/429/)
+  })
+})
+
+describe('wetterAusOverlay (Studio-Wetter)', () => {
+  // Gerade Strecke, Zeit linear zur Distanz → tOffset/1000 = f (bequeme Marken).
+  const reihe = baueZeitreihe([
+    { mode: 'walk', pts: [[7.9, 46.5, 0, 0], [7.91, 46.51, 0, 1000]] },
+  ] as UploadSegment[])
+  const START = Date.parse('2026-01-01T00:00:00Z')
+  const ab = (s: number): string => new Date(START + s * 1000).toISOString()
+
+  it('eine Grenze schaltet EXAKT an ihrem f (Marken-Paar auf demselben f)', () => {
+    const kf = wetterAusOverlay([{ ab: ab(500), mode: 'rain' }], reihe, START)
+    expect(kf).toEqual([
+      { f: 0, mode: 'off', k: WETTER_STANDARD_K, source: 'studio' },
+      { f: 0.5, mode: 'off', k: WETTER_STANDARD_K, source: 'studio' },
+      { f: 0.5, mode: 'rain', k: WETTER_STANDARD_K, source: 'studio' },
+      { f: 1, mode: 'rain', k: WETTER_STANDARD_K, source: 'studio' },
+    ])
+  })
+
+  it('übernimmt die Stärke der Grenze; der Grund bleibt klar mit Standardstärke', () => {
+    const kf = wetterAusOverlay([{ ab: ab(500), mode: 'rain', staerke: 0.5 }], reihe, START)
+    expect(kf.filter((k) => k.mode === 'rain').every((k) => k.k === 0.5)).toBe(true)
+    expect(kf.filter((k) => k.mode === 'off').every((k) => k.k === WETTER_STANDARD_K)).toBe(true)
+  })
+
+  it('eine Grenze am/vor dem Track-Anfang ersetzt den klaren Grund', () => {
+    const kf = wetterAusOverlay([{ ab: ab(-100), mode: 'snow' }], reihe, START)
+    expect(kf).toEqual([
+      { f: 0, mode: 'snow', k: WETTER_STANDARD_K, source: 'studio' },
+      { f: 1, mode: 'snow', k: WETTER_STANDARD_K, source: 'studio' },
+    ])
+  })
+
+  it('mehrere Grenzen ergeben lückenlose Bänder mit exakten Umschaltungen', () => {
+    const kf = wetterAusOverlay(
+      [{ ab: ab(300), mode: 'rain' }, { ab: ab(700), mode: 'snow' }],
+      reihe,
+      START,
+    )
+    expect(kf.map((k) => [k.f, k.mode])).toEqual([
+      [0, 'off'],
+      [0.3, 'off'],
+      [0.3, 'rain'],
+      [0.7, 'rain'],
+      [0.7, 'snow'],
+      [1, 'snow'],
+    ])
   })
 })

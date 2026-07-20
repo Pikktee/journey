@@ -202,6 +202,46 @@ describe('reichereAn', () => {
     const tour = await reichereAn(eingabe({ wetter: bewoelkt() }))
     expect(tour.weather).toEqual([{ f: 0, mode: 'clouds', k: 0.84, source: 'openmeteo' }])
   })
+
+  // — Studio-Wetter (edits.wetter) ersetzt das Auto-Wetter vollständig —
+
+  const START_MS = Date.parse(beispielManifest().time.start)
+  const abZeit = (offsetS: number): string => new Date(START_MS + offsetS * 1000).toISOString()
+
+  it('edits.wetter ersetzt das Auto-Wetter und ruft die Quelle gar nicht', async () => {
+    const wetter = bewoelkt()
+    const tour = await reichereAn(
+      eingabe({ wetter, edits: { schema: 'luhambo/edits@1', wetter: [{ ab: abZeit(0), mode: 'rain' }] } }),
+    )
+    expect(tour.weather?.every((w) => w.source === 'studio')).toBe(true)
+    expect(tour.weather?.every((w) => w.mode === 'rain')).toBe(true) // Grenze am Start → ganze Tour Regen
+    expect(wetter.abfragen).toHaveLength(0) // Auto-Wetter-Pfad übersprungen
+  })
+
+  it('überspringt bei edits.wetter auch die Foto-Verfeinerung (M5)', async () => {
+    const bildBefunde = new Map<string, BildBefund>([['m1', gewitterBefund]])
+    const tour = await reichereAn(
+      eingabe({
+        wetter: bewoelkt(),
+        bildBefunde,
+        edits: { schema: 'luhambo/edits@1', wetter: [{ ab: abZeit(0), mode: 'clouds' }] },
+      }),
+    )
+    expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
+    expect(tour.weather?.every((w) => w.source === 'studio' && w.mode === 'clouds')).toBe(true)
+  })
+
+  it('eine Wetter-Grenze in der Mitte schaltet exakt dort um', async () => {
+    const tour = await reichereAn(
+      eingabe({ edits: { schema: 'luhambo/edits@1', wetter: [{ ab: abZeit(10500), mode: 'storm' }] } }),
+    )
+    const w = tour.weather ?? []
+    expect(w[0]).toMatchObject({ f: 0, mode: 'off' }) // Grund vor der Grenze = klar
+    expect(w[w.length - 1]).toMatchObject({ f: 1, mode: 'storm' })
+    // Umschalt-Paar: zwei Marken auf demselben f, alter → neuer Modus
+    const paar = w.findIndex((k, i) => i > 0 && w[i - 1]?.f === k.f && w[i - 1]?.mode === 'off' && k.mode === 'storm')
+    expect(paar).toBeGreaterThan(0)
+  })
 })
 
 describe('mediumDateiname', () => {

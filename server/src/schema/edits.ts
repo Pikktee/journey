@@ -10,6 +10,7 @@
 // Titel/Beschreibung liegen bewusst NICHT hier, sondern in den DB-Spalten
 // (PATCH /api/tours/:id) — eine Quelle der Wahrheit pro Feld.
 
+import { WETTER_MODI, type WetterModus } from '../pipeline/weather.js'
 import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, MODI, type Modus } from './upload.js'
 
 export const EDITS_SCHEMA_ID = 'luhambo/edits@1'
@@ -69,6 +70,20 @@ export interface ModusGrenze {
   mode: Modus
 }
 
+/**
+ * Wetter-Override ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze
+ * (Punktfunktion wie modi/kamera). Ist überhaupt eine Wetter-Grenze gesetzt,
+ * ERSETZT das Overlay das Auto-Wetter der Tour vollständig (Grund vor der ersten
+ * Grenze = klar). Bewusste Korrektur, wenn das automatische Wetter danebenlag.
+ */
+export interface WetterGrenze {
+  /** ISO 8601, absolut (stabil gegenüber Trim) */
+  ab: string
+  mode: WetterModus
+  /** Stärke k (0..1, stufenlos); fehlt = Standardstärke des Players */
+  staerke?: number
+}
+
 /** Moment-Arten — muss mit der Engine (src/tour.js) synchron bleiben. */
 export const MOMENT_ARTEN = ['umkreisen', 'aufstieg', 'innehalten'] as const
 export type MomentArt = (typeof MOMENT_ARTEN)[number]
@@ -95,6 +110,8 @@ export interface EditOverlay {
   momente?: KameraMoment[]
   /** Audio-Spuren/Effekte — f-Bereiche entstehen erst beim Rendern */
   audio?: AudioEdit[]
+  /** Wetter-Grenzen — ersetzen (sobald gesetzt) das Auto-Wetter vollständig */
+  wetter?: WetterGrenze[]
 }
 
 // Gleiche (voll verankerte) ISO-Prüfung wie im Upload-Schema — die Semantik
@@ -196,6 +213,20 @@ export const editsJsonSchema = {
         },
       },
     },
+    wetter: {
+      type: 'array',
+      maxItems: 200,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['ab', 'mode'],
+        properties: {
+          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          mode: { enum: [...WETTER_MODI] },
+          staerke: { type: 'number', minimum: 0, maximum: 1 },
+        },
+      },
+    },
   },
 } as const
 
@@ -241,6 +272,15 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
       !(Number.isFinite(spur.lautstaerke) && spur.lautstaerke >= 0 && spur.lautstaerke <= 1)
     ) {
       return `Ungültige Lautstärke (${spur.datei})`
+    }
+  }
+  for (const grenze of edits.wetter ?? []) {
+    if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Wetter-Grenze: ${grenze.ab}`
+    if (
+      grenze.staerke !== undefined &&
+      !(Number.isFinite(grenze.staerke) && grenze.staerke >= 0 && grenze.staerke <= 1)
+    ) {
+      return `Ungültige Wetter-Stärke: ${grenze.ab}`
     }
   }
   const { start, ende } = edits.trim ?? {}

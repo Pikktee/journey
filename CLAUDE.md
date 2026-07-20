@@ -175,9 +175,16 @@ damit MapLibre nicht ins Basis-Bundle kommt.
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`luhambo/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
-`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `trim`, `kamera`, `audio`.
+`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `trim`, `kamera`, `audio`, `wetter`.
 Beim Speichern rendert der Server die Tour aus Rohdaten + Overlay neu. Edits referenzieren
 **stabile Anker** — Medien-IDs, Koordinaten, absolute ISO-Zeitstempel, nie den Streckenanteil `f`.
+`wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
+gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
+vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `wetterAusOverlay`
+([server/src/pipeline/weather.ts](server/src/pipeline/weather.ts)) baut daraus eine
+Stufenfunktion; Marken-PAARE auf demselben `f` legen die Umschaltung (Player: Mitte zweier
+Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache bleibt gültig
+(ein Wetter-Edit löst keine externen Aufrufe aus).
 
 **Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
 immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
@@ -185,7 +192,7 @@ immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/st
 [src/studio/editor.ts](src/studio/editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
 Neue Editor-Logik gehört in die beiden ersten Module, sonst ist sie nicht testbar.
 
-**Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Musik & Sound, Fotos) auf
+**Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Wetter, Momente, Musik & Sound, Fotos) auf
 gemeinsamer Zeitachse. Zustände sind **lückenlose, beschriftete Bänder** — Anfang und Ende
 eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Trim-Griffe, Auswahl- und
 Hover-Linie liegen als Overlay über allen Bahnen (absolut positioniert, **nicht** als

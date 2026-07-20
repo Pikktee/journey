@@ -219,6 +219,21 @@ describe('pruefeEditsSemantik', () => {
       pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: Infinity } } } }),
     ).toMatch(/Standzeit/)
   })
+
+  it('prüft Wetter-Grenzen: Zeit parsebar, Stärke endlich und in [0,1]', () => {
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.6 }] }),
+    ).toBeNull()
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: '2026-13-99T99:99:99Z', mode: 'rain' }] }),
+    ).toMatch(/Wetter-Grenze/)
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: Infinity }] }),
+    ).toMatch(/Wetter-Stärke/)
+    expect(
+      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.5 }] }),
+    ).toMatch(/Wetter-Stärke/)
+  })
 })
 
 describe('reichereAn mit Edit-Overlay', () => {

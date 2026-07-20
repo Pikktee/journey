@@ -12,15 +12,18 @@ import {
   mitMedienEdit,
   mitMoment,
   mitTrim,
+  mitWetterGrenze,
   MODI,
   MOMENT_DEFAULT_S,
   offsetZuIso,
   ohneAudioEintrag,
   ohneKameraGrenze,
   ohneMoment,
+  ohneWetterGrenze,
   projiziereAufTrack,
   pruefeOverlay,
   punktZuOffset,
+  WETTER_MODI,
   type EditOverlay,
   type MediumBasis,
   type TrackPunkt,
@@ -265,6 +268,47 @@ describe('Fortbewegungs-Modi', () => {
     const block = quelle.match(/const MODE_SCALE = \{([\s\S]*?)\n\}/)
     const engine = [...(block?.[1] ?? '').matchAll(/^\s{2}(\w+)\s*:/gm)].map((m) => m[1] as string)
     expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
+  })
+})
+
+describe('Wetter-Grenzen', () => {
+  it('setzt und ersetzt am selben ab, sortiert nach Zeit', () => {
+    let e: EditOverlay = LEERES_OVERLAY
+    e = mitWetterGrenze(e, iso(600), 'rain')
+    e = mitWetterGrenze(e, iso(0), 'clouds')
+    e = mitWetterGrenze(e, iso(600), 'storm', 0.9) // ersetzt die rain-Grenze
+    expect(e.wetter).toEqual([
+      { ab: iso(0), mode: 'clouds' },
+      { ab: iso(600), mode: 'storm', staerke: 0.9 },
+    ])
+  })
+
+  it('lässt staerke 1/undefined weg, hält das JSON minimal', () => {
+    const e = mitWetterGrenze(LEERES_OVERLAY, iso(0), 'fog')
+    expect(e.wetter).toEqual([{ ab: iso(0), mode: 'fog' }])
+  })
+
+  it('entfernt die Grenze und räumt das leere Feld weg (zurück zum Auto-Wetter)', () => {
+    const e = mitWetterGrenze(LEERES_OVERLAY, iso(0), 'snow')
+    const ohne = ohneWetterGrenze(e, iso(0))
+    expect('wetter' in ohne).toBe(false)
+  })
+
+  it('pruefeOverlay lehnt Stärke außerhalb [0,1] ab', () => {
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.4 }] })).toMatch(
+      /Wetter-Stärke/,
+    )
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.5 }] })).toBeNull()
+  })
+
+  // Drift-Wächter: die Wetter-Modi müssen client- und serverseitig gleich sein
+  // (der JSON-Schema-Enum und die Studio-Auswahl teilen dieselbe Wetterwelt).
+  it('decken sich mit WETTER_MODI im Server (schema/pipeline)', () => {
+    const quelle = readFileSync(new URL('../server/src/pipeline/weather.ts', import.meta.url), 'utf8')
+    const block = quelle.match(/WETTER_MODI = \[([^\]]*)\]/)
+    expect(block, 'WETTER_MODI in server/src/pipeline/weather.ts nicht gefunden').not.toBeNull()
+    const server = [...(block?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((m) => m[1] as string)
+    expect(server).toEqual([...WETTER_MODI])
   })
 })
 

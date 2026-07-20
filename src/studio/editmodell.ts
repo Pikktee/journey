@@ -17,6 +17,14 @@
 export const MODI = ['walk', 'bike', 'moped', 'jeep', 'tram', 'ferry'] as const
 
 export type Modus = (typeof MODI)[number]
+
+/**
+ * Wetter-Modi — deckungsgleich mit WETTER_MODI in server/src/pipeline/weather.ts
+ * (und der Wetterwelt des Players in src/weather.js). Ein Drift-Wächter in
+ * test/studio-baukasten.test.ts vergleicht die Liste mit dem Server.
+ */
+export const WETTER_MODI = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
+export type WetterModus = (typeof WETTER_MODI)[number]
 /** Trackpunkt der Editor-Daten: [lng, lat, ele, tOffsetS] */
 export type TrackPunkt = [number, number, number, number]
 
@@ -36,6 +44,19 @@ export interface MediumEdit {
 export interface ModusGrenze {
   ab: string
   mode: Modus
+}
+
+/**
+ * Wetter-Override ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze.
+ * Sobald eine Wetter-Grenze existiert, ersetzt das Overlay das Auto-Wetter
+ * vollständig (Grund vor der ersten Grenze = klar). Spiegel von WetterGrenze in
+ * server/src/schema/edits.ts.
+ */
+export interface WetterGrenze {
+  ab: string
+  mode: WetterModus
+  /** Stärke k (0..1); fehlt = Standardstärke des Players */
+  staerke?: number
 }
 
 export type KameraPreset = 'nah' | 'mittel' | 'weit'
@@ -94,6 +115,7 @@ export interface EditOverlay {
   kamera?: KameraGrenze[]
   momente?: KameraMoment[]
   audio?: AudioEintrag[]
+  wetter?: WetterGrenze[]
 }
 
 export interface EditorSegment {
@@ -276,6 +298,23 @@ export function ohneKameraGrenze(edits: EditOverlay, ab: string): EditOverlay {
   return naechste
 }
 
+/** Wetter-Grenze setzen/ersetzen (gleicher `ab` = ersetzen), sortiert.
+ *  staerke undefined wird weggelassen — hält das gespeicherte JSON minimal. */
+export function mitWetterGrenze(edits: EditOverlay, ab: string, mode: WetterModus, staerke?: number): EditOverlay {
+  const wetter = (edits.wetter ?? []).filter((g) => g.ab !== ab)
+  wetter.push(staerke !== undefined ? { ab, mode, staerke } : { ab, mode })
+  wetter.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
+  return { ...edits, wetter }
+}
+
+export function ohneWetterGrenze(edits: EditOverlay, ab: string): EditOverlay {
+  const wetter = (edits.wetter ?? []).filter((g) => g.ab !== ab)
+  const naechste: EditOverlay = { ...edits }
+  if (wetter.length) naechste.wetter = wetter
+  else delete naechste.wetter
+  return naechste
+}
+
 /** Moment setzen/ersetzen (gleicher `ab` = ersetzen), sortiert. */
 export function mitMoment(edits: EditOverlay, ab: string, art: MomentArt, dauerS?: number): EditOverlay {
   const momente = (edits.momente ?? []).filter((m) => m.ab !== ab)
@@ -342,6 +381,13 @@ export function pruefeOverlay(edits: EditOverlay): string | null {
   if ((edits.kamera ?? []).length > 100) return 'Zu viele Kamera-Grenzen (maximal 100)'
   if ((edits.momente ?? []).length > 100) return 'Zu viele Kamera-Momente (maximal 100)'
   if ((edits.audio ?? []).length > 50) return 'Zu viele Audio-Einträge (maximal 50)'
+  if ((edits.wetter ?? []).length > 200) return 'Zu viele Wetter-Grenzen (maximal 200)'
+  for (const g of edits.wetter ?? []) {
+    if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Wetter-Grenze: ${g.ab}`
+    if (g.staerke !== undefined && !(Number.isFinite(g.staerke) && g.staerke >= 0 && g.staerke <= 1)) {
+      return `Wetter-Stärke muss zwischen 0 und 1 liegen`
+    }
+  }
   for (const g of edits.kamera ?? []) {
     if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Kamera-Grenze: ${g.ab}`
     if (g.skala !== undefined && !(Number.isFinite(g.skala) && g.skala >= 0.5 && g.skala <= 2)) {
