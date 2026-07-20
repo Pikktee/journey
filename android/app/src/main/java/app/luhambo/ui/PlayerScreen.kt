@@ -9,6 +9,9 @@
 // die Kamerafahrt IST der Inhalt, jede Leiste darüber verschenkt Bühne. Zurück
 // geht über die System-Geste; beim Verlassen kommen die Leisten wieder.
 //
+// Zurück in die Tourliste führt der Knopf im Web-Player über PlayerBruecke
+// (window.LuhamboApp.verlassen) — zusätzlich zur System-Zurück-Geste.
+//
 // Kritisch für den Ton: der WebView wird beim Verlassen vollständig abgebaut
 // (about:blank + destroy) und im Hintergrund pausiert — sonst laufen Musik,
 // Fahrgeräusche und Wetter-Loops weiter, obwohl der Player längst zu ist.
@@ -19,6 +22,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.util.Log
+import android.webkit.JavascriptInterface
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
@@ -47,12 +51,26 @@ private tailrec fun Context.findeActivity(): Activity? = when (this) {
     else -> null
 }
 
+/**
+ * Brücke für den „Player verlassen"-Knopf der Web-Oberfläche. Im Vollbild gibt es
+ * keine Titelleiste mehr; ohne sichtbaren Ausweg bliebe nur die System-Geste, die
+ * nicht jeder kennt. Der Web-Player ruft `window.LuhamboApp.verlassen()`.
+ *
+ * Nur diese eine, mit @JavascriptInterface annotierte Methode ist aus JavaScript
+ * erreichbar (seit API 17), und der WebView lädt ausschließlich unser eigenes
+ * Origin — die Angriffsfläche bleibt damit auf genau diesen Aufruf beschränkt.
+ * Der Rückweg läuft über den Haupt-Thread, weil Navigation UI-Arbeit ist.
+ */
+private class PlayerBruecke(private val ansicht: WebView, private val zurueck: () -> Unit) {
+    @JavascriptInterface
+    fun verlassen() {
+        ansicht.post { zurueck() }
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-// Kein zurueck-Parameter: den Rückweg übernimmt die System-Zurück-Geste, die
-// Compose Navigation ohnehin auf popBackStack legt — ein eigener Knopf bräuchte
-// eine Leiste, und genau die soll hier nicht sein.
-fun PlayerScreen(serverUrl: String, serverTourId: String) {
+fun PlayerScreen(serverUrl: String, serverTourId: String, zurueck: () -> Unit) {
     val ansicht = LocalView.current
 
     // — Vollbild: System-Leisten weg, Wischen holt sie kurz zurück —
@@ -100,6 +118,8 @@ fun PlayerScreen(serverUrl: String, serverTourId: String) {
                 // Der Player startet Audio/Video (Motor, Wetter, Musik) ohne
                 // frische Nutzergeste — sonst blockt der WebView den Autoplay.
                 settings.mediaPlaybackRequiresUserGesture = false
+                // Weg zurück in die Tourliste für den Knopf im Web-Player
+                addJavascriptInterface(PlayerBruecke(this, zurueck), "LuhamboApp")
                 // MapLibre GL braucht WebGL — in modernen WebViews vorhanden.
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(nachricht: ConsoleMessage): Boolean {

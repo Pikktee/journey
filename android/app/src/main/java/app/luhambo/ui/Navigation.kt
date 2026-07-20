@@ -94,6 +94,7 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
             PlayerScreen(
                 serverUrl = Einstellungen.STANDARD_SERVER,
                 serverTourId = serverId,
+                zurueck = { navController.popBackStack() },
             )
         }
         composable("einstellungen") {

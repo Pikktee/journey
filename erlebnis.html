@@ -223,6 +223,12 @@
   <!-- Steuerleiste -->
   <footer class="dock" id="dock" hidden>
     <div class="dock-cluster">
+      <!-- Nur im App-Modus (body.app): sichtbarer Weg zurück in die Tourliste der
+           App. Im Vollbild-Player ist die System-Geste sonst der einzige Ausweg —
+           das findet niemand, der sie nicht kennt. -->
+      <button class="icon-btn app-exit" id="btn-app-zurueck" title="Player verlassen" aria-label="Player verlassen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.5 7.5 12l6.5 6.5"/></svg>
+      </button>
       <button class="icon-btn" id="btn-menu" title="Zum Hauptmenü" aria-label="Zum Hauptmenü">
         <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 9.5V19a1 1 0 0 0 1 1h3.4v-4.6h3.2V20H17a1 1 0 0 0 1-1V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>

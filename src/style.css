@@ -530,8 +530,14 @@ a.brand-kicker:hover { opacity: 0.72; }
   --photo-ar: 1.5;
   --photo-chrome: 235px;
   --photo-breite: min(1500px, 92vw);
-  --photo-h: min(calc(100vh - var(--photo-chrome)), calc(var(--photo-breite) / var(--photo-ar)));
-  --photo-h: min(calc(100dvh - var(--photo-chrome)), calc(var(--photo-breite) / var(--photo-ar))); /* mobile Browserleisten */
+  /* --vh-app kommt aus main.js (window.innerHeight, bei resize nachgeführt).
+     NICHT dvh verwenden: in der Android-WebView der App ist `100dvh` NULL —
+     sie hat keine ein-/ausblendende Adressleiste und damit keinen dynamischen
+     Viewport. `CSS.supports('height','100dvh')` meldet dort trotzdem `true`,
+     ein @supports-Fallback greift also nicht. Am Gerät gemessen: der Rahmen
+     kollabierte auf 0×0 und die Fotos blieben unsichtbar. `100vh` bleibt der
+     Fallback, falls das Skript (noch) nicht gelaufen ist. */
+  --photo-h: min(calc(var(--vh-app, 100vh) - var(--photo-chrome)), calc(var(--photo-breite) / var(--photo-ar)));
   position: relative;
   overflow: hidden;
   border-radius: 5px;
@@ -1677,10 +1683,20 @@ body.intro-open .brand {
 }
 
 /* — App-Modus (?app=1, WebView der Android-App) —
-   In der App gibt es keine Landing-Seite, aus der man käme — der Zurück-Weg ist
-   dort die System-Zurück-Geste, ein Link dorthin wäre eine Sackgasse. */
+   In der App gibt es keine Landing-Seite, aus der man käme — ein Link dorthin
+   wäre eine Sackgasse. Statt dessen steht in der Steuerleiste ein sichtbarer
+   Weg zurück in die Tourliste (.app-exit): im Vollbild-Player wäre sonst die
+   System-Geste der einzige Ausweg, und den findet nur, wer ihn kennt. */
 body.app .intro-back {
   display: none;
+}
+
+.app-exit {
+  display: none;
+}
+
+body.app .app-exit {
+  display: inline-flex;
 }
 
 /* — Bewegung reduzieren — respektiert die System-Einstellung: die kinematischen
@@ -1960,12 +1976,31 @@ body.app .intro-back {
     white-space: nowrap;
   }
 
+  /* Timeline ist auf dem Handy das wichtigste Bedienelement (Scrubben, Foto-
+     Sprünge) — sie war auf 36 px gestaucht und damit kaum zu erkennen. Jetzt
+     HÖHER als am Desktop: das Höhenprofil bekommt Fläche, die Punkte werden
+     größer. Der Platz kostet nichts, weil sich die Leiste während der Fahrt
+     ohnehin zurückzieht (Auto-Hide in main.js). */
   .progress {
-    height: 36px;
+    height: 54px;
   }
 
-  /* Punktgrößen kommen aus den Zuständen (kommend/nächster/besucht) — hier NICHT
-     platt überschreiben; die Trefferfläche (::before) macht sie ohnehin gut tippbar. */
+  /* Höhenprofil kontrastreicher: über hellem Satellitenbild ging die dezente
+     Desktop-Füllung auf dem kleinen Schirm unter. */
+  #profile-base {
+    fill: rgba(255, 255, 255, 0.22);
+  }
+
+  /* Punktgrößen kommen sonst aus den Zuständen (kommend/nächster/besucht) — auf
+     Touch dürfen sie ruhig kräftiger sein, ohne die Zustandslogik zu ändern. */
+  .photo-dot {
+    width: 13px;
+    height: 13px;
+  }
+
+  .progress-head {
+    width: 2.5px;
+  }
 
   /* Toggle unter dem „Nächster Halt“-Chip, ≥44px Touch-Ziel */
   .ui-toggle {
@@ -2008,306 +2043,313 @@ body.app .intro-back {
      zweispaltig, sonst liegt „Tour starten" unterhalb der Bildkante.
    Bewusst nur an Höhe + Ausrichtung geknüpft (kein max-width): die knappe
    Höhe ist die echte Beschränkung, nicht die Geräteklasse. */
-@media (max-height: 500px) and (orientation: landscape) {
-  .brand {
-    top: max(8px, env(safe-area-inset-top));
-    left: 12px;
-    max-width: 46vw;
-  }
-
-  .brand-kicker {
-    font-size: 9px;
-    letter-spacing: 0.2em;
-  }
-
-  .brand-title {
-    font-size: 17px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .brand-route {
-    display: none;
-  }
-
-  .next-stop {
-    top: max(8px, env(safe-area-inset-top));
-    right: 12px;
-    max-width: 40vw;
-    padding: 6px 10px 7px;
-    border-radius: 10px;
-    background: rgba(12, 15, 20, 0.68);
-    backdrop-filter: blur(10px) saturate(1.3);
-    -webkit-backdrop-filter: blur(10px) saturate(1.3);
-  }
-
-  .next-stop-kicker {
-    font-size: 8.5px;
-    margin-bottom: 1px;
-  }
-
-  .next-stop-value {
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .next-stop-km {
-    display: block;
-    margin: 1px 0 0;
-    font-size: 9px;
-  }
-
-  /* — Steuerstreifen: eine Zeile über die volle Breite — */
-  .dock {
-    left: 8px;
-    right: 8px;
-    bottom: calc(6px + env(safe-area-inset-bottom));
-    width: auto;
-    flex-wrap: nowrap;
-    gap: 10px;
-    padding: 7px 10px;
-    border-radius: 14px;
-    background: rgba(12, 15, 20, 0.74);
-    backdrop-filter: blur(14px) saturate(1.35);
-    -webkit-backdrop-filter: blur(14px) saturate(1.35);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-    /* left/right spannen die Leiste selbst auf — die -50%-Zentrierung der
-       Grundregel würde sie um die halbe Breite nach links schieben. */
-    transform: translateY(80px);
-  }
-
-  .dock.up {
-    transform: translateY(0);
-  }
-
-  .dock-cluster:first-child {
-    order: 1;
-    flex: none;
-    gap: 6px;
-  }
-
-  /* Timeline nimmt den Rest der Zeile — der Streifen bleibt dadurch einzeilig */
-  .progress {
-    order: 2;
-    flex: 1 1 120px;
-    min-width: 0;
-    height: 32px;
-  }
-
-  .telemetry {
-    order: 3;
-    flex: none;
-    margin-left: 0;
-    gap: 12px;
-  }
-
-  .icon-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 11px;
-  }
-
-  .play-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
-  }
-
-  .play-btn svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .speed-btn {
-    width: 40px;
-    font-size: 10.5px;
-  }
-
-  .telemetry .tele:first-child .tele-label {
-    display: none; /* „Jeep 4×4" erklärt sich ohne „Unterwegs mit" */
-  }
-
-  /* Höhe und Uhrzeit sind quer Luxus — Fortbewegungsmittel und Distanz tragen
-     die Information, der Rest würde die Timeline zusammendrücken. */
-  .telemetry .tele:nth-child(3),
-  #tele-time-wrap {
-    display: none;
-  }
-
-  .tele {
-    flex-direction: row;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .tele-label {
-    font-size: 8.5px;
-  }
-
-  .tele-value {
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  /* — Foto-Karte quer: Bild links, Text rechts — */
-  .photo-card {
-    display: flex;
-    align-items: stretch;
-    gap: 12px;
-    max-width: 96vw;
-    padding: 9px;
-    padding-bottom: 9px;
-  }
-
-  .photo-frame {
-    --photo-breite: 62vw;
-    /* Quer steht die Caption NEBEN dem Bild, vertikal kostet also nur der
-       Kartenrand — plus Luft, damit die leicht gedrehte Karte (rotate) mit
-       ihren Ecken nicht an die Bildkanten stößt. */
-    --photo-chrome: 64px;
-  }
-
-  .photo-caption {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 9px;
-    text-align: left;
-    /* Grundregel spannt die Caption auf die volle Kartenbreite (width:0 +
-       min-width:100%) — quer ist sie eine eigene, schmale Spalte. */
-    width: min(34vw, 280px);
-    min-width: 0;
-    padding: 4px 6px 4px 0;
-  }
-
-  .photo-title {
-    order: 1;
-    font-size: 17px;
-  }
-
-  .photo-sub {
-    order: 2;
-    display: block; /* quer ist neben dem Bild Platz für die Bildunterschrift */
-    font-size: 10.5px;
-    line-height: 1.45;
-  }
-
-  .photo-badges {
-    order: 3;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .photo-chip {
-    font-size: 8.5px;
-    padding: 3px 8px;
-  }
-
-  .photo-next {
-    order: 4;
-    align-self: flex-start;
-    padding: 9px 15px;
-    font-size: 10px;
-  }
-
-  .photo-held {
-    top: 10px;
-    padding: 6px 11px;
-    font-size: 9px;
-    /* Kein nowrap: bei einem Hochformat-Foto ist der Rahmen schmal, der Hinweis
-       liefe sonst rechts und links über die Bildkante hinaus. */
-    max-width: calc(100% - 18px);
-    text-align: center;
-  }
-
-  /* — Intro zweispaltig: Titel links, Aktionen rechts — */
-  .intro-inner {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 6px 26px;
-    max-width: 96vw;
-    padding: 10px 18px;
-    text-align: left;
-  }
-
-  .intro-kicker {
-    grid-area: 1 / 1;
-    font-size: 9.5px;
-    letter-spacing: 0.26em;
-  }
-
-  .intro-title {
-    grid-area: 2 / 1;
-    margin: 4px 0 0;
-    font-size: clamp(30px, 5.4vw, 54px);
-  }
-
-  .intro-rule {
-    display: none; /* die Spaltenkante trennt bereits */
-  }
-
-  .intro-route {
-    grid-area: 3 / 1;
-    margin-top: 6px;
-    font-size: 9px;
-    letter-spacing: 0.1em;
-  }
-
-  .intro-meta {
-    grid-area: 1 / 2;
-    margin-top: 0;
-    justify-content: flex-start;
-  }
-
-  .chip {
-    font-size: 9px;
-    padding: 6px 10px;
-  }
-
-  .btn-start {
-    grid-area: 2 / 2;
-    justify-self: start;
-    margin-top: 0;
-    padding: 14px 32px;
-    font-size: 11.5px;
-  }
-
-
-  .intro-back {
-    top: max(8px, env(safe-area-inset-top));
-    left: 12px;
-  }
-
-  .finale-card {
-    width: min(94vw, 460px);
-    padding: 18px 20px 16px;
-  }
-
-  .finale-stats {
-    gap: 18px;
-    margin: 14px 0 16px;
-  }
-
-  .ui-toggle {
-    right: 12px;
-    top: calc(max(8px, env(safe-area-inset-top)) + 58px);
-    width: 40px;
-    height: 40px;
-  }
-
-  /* Attribution über den Steuerstreifen heben (Pflicht: Esri/AWS) */
-  .maplibregl-ctrl-bottom-right {
-    bottom: calc(var(--dock-h, 56px) + 10px);
-  }
-
-  body.ui-clean .maplibregl-ctrl-bottom-right {
-    bottom: 0;
-  }
+/* Angehängt an body.kompakt-quer (gesetzt in main.js aus innerWidth/innerHeight)
+ statt an `(max-height: 500px) and (orientation: landscape)`: Beide Media
+ Features sind in der Android-WebView der App FALSCH — bei 375×843 meldet sie
+ `orientation: landscape` und `max-height: 500px` als zutreffend, wodurch
+ dieses kompakte Layout im Hochformat zuschlug. */
+body.kompakt-quer .brand {
+  top: max(8px, env(safe-area-inset-top));
+  left: 12px;
+  max-width: 46vw;
 }
+
+body.kompakt-quer .brand-kicker {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+body.kompakt-quer .brand-title {
+  font-size: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.kompakt-quer .brand-route {
+  display: none;
+}
+
+body.kompakt-quer .next-stop {
+  top: max(8px, env(safe-area-inset-top));
+  right: 12px;
+  max-width: 40vw;
+  padding: 6px 10px 7px;
+  border-radius: 10px;
+  background: rgba(12, 15, 20, 0.68);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+
+body.kompakt-quer .next-stop-kicker {
+  font-size: 8.5px;
+  margin-bottom: 1px;
+}
+
+body.kompakt-quer .next-stop-value {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.kompakt-quer .next-stop-km {
+  display: block;
+  margin: 1px 0 0;
+  font-size: 9px;
+}
+
+body.kompakt-quer /* — Steuerstreifen: eine Zeile über die volle Breite — */
+.dock {
+  left: 8px;
+  right: 8px;
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  width: auto;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 14px;
+  background: rgba(12, 15, 20, 0.74);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  /* left/right spannen die Leiste selbst auf — die -50%-Zentrierung der
+     Grundregel würde sie um die halbe Breite nach links schieben. */
+  transform: translateY(80px);
+}
+
+body.kompakt-quer .dock.up {
+  transform: translateY(0);
+}
+
+body.kompakt-quer .dock-cluster:first-child {
+  order: 1;
+  flex: none;
+  gap: 6px;
+}
+
+body.kompakt-quer /* Timeline nimmt den Rest der Zeile — der Streifen bleibt dadurch einzeilig */
+.progress {
+  order: 2;
+  flex: 1 1 120px;
+  min-width: 0;
+  height: 32px;
+}
+
+body.kompakt-quer .telemetry {
+  order: 3;
+  flex: none;
+  margin-left: 0;
+  gap: 12px;
+}
+
+body.kompakt-quer .icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
+
+body.kompakt-quer .play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+
+body.kompakt-quer .play-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+body.kompakt-quer .speed-btn {
+  width: 40px;
+  font-size: 10.5px;
+}
+
+body.kompakt-quer .telemetry .tele:first-child .tele-label {
+  display: none; /* „Jeep 4×4" erklärt sich ohne „Unterwegs mit" */
+}
+
+body.kompakt-quer /* Höhe und Uhrzeit sind quer Luxus — Fortbewegungsmittel und Distanz tragen
+   die Information,
+body.kompakt-quer der Rest würde die Timeline zusammendrücken. */
+.telemetry .tele:nth-child(3),
+body.kompakt-quer #tele-time-wrap {
+  display: none;
+}
+
+body.kompakt-quer .tele {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.kompakt-quer .tele-label {
+  font-size: 8.5px;
+}
+
+body.kompakt-quer .tele-value {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+body.kompakt-quer /* — Foto-Karte quer: Bild links,
+body.kompakt-quer Text rechts — */
+.photo-card {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  max-width: 96vw;
+  padding: 9px;
+  padding-bottom: 9px;
+}
+
+body.kompakt-quer .photo-frame {
+  --photo-breite: 62vw;
+  /* Quer steht die Caption NEBEN dem Bild, vertikal kostet also nur der
+     Kartenrand — plus Luft, damit die leicht gedrehte Karte (rotate) mit
+     ihren Ecken nicht an die Bildkanten stößt. */
+  --photo-chrome: 64px;
+}
+
+body.kompakt-quer .photo-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 9px;
+  text-align: left;
+  /* Grundregel spannt die Caption auf die volle Kartenbreite (width:0 +
+     min-width:100%) — quer ist sie eine eigene, schmale Spalte. */
+  width: min(34vw, 280px);
+  min-width: 0;
+  padding: 4px 6px 4px 0;
+}
+
+body.kompakt-quer .photo-title {
+  order: 1;
+  font-size: 17px;
+}
+
+body.kompakt-quer .photo-sub {
+  order: 2;
+  display: block; /* quer ist neben dem Bild Platz für die Bildunterschrift */
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+body.kompakt-quer .photo-badges {
+  order: 3;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+body.kompakt-quer .photo-chip {
+  font-size: 8.5px;
+  padding: 3px 8px;
+}
+
+body.kompakt-quer .photo-next {
+  order: 4;
+  align-self: flex-start;
+  padding: 9px 15px;
+  font-size: 10px;
+}
+
+body.kompakt-quer .photo-held {
+  top: 10px;
+  padding: 6px 11px;
+  font-size: 9px;
+  /* Kein nowrap: bei einem Hochformat-Foto ist der Rahmen schmal, der Hinweis
+     liefe sonst rechts und links über die Bildkante hinaus. */
+  max-width: calc(100% - 18px);
+  text-align: center;
+}
+
+body.kompakt-quer /* — Intro zweispaltig: Titel links,
+body.kompakt-quer Aktionen rechts — */
+.intro-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 26px;
+  max-width: 96vw;
+  padding: 10px 18px;
+  text-align: left;
+}
+
+body.kompakt-quer .intro-kicker {
+  grid-area: 1 / 1;
+  font-size: 9.5px;
+  letter-spacing: 0.26em;
+}
+
+body.kompakt-quer .intro-title {
+  grid-area: 2 / 1;
+  margin: 4px 0 0;
+  font-size: clamp(30px, 5.4vw, 54px);
+}
+
+body.kompakt-quer .intro-rule {
+  display: none; /* die Spaltenkante trennt bereits */
+}
+
+body.kompakt-quer .intro-route {
+  grid-area: 3 / 1;
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+body.kompakt-quer .intro-meta {
+  grid-area: 1 / 2;
+  margin-top: 0;
+  justify-content: flex-start;
+}
+
+body.kompakt-quer .chip {
+  font-size: 9px;
+  padding: 6px 10px;
+}
+
+body.kompakt-quer .btn-start {
+  grid-area: 2 / 2;
+  justify-self: start;
+  margin-top: 0;
+  padding: 14px 32px;
+  font-size: 11.5px;
+}
+
+
+body.kompakt-quer .intro-back {
+  top: max(8px, env(safe-area-inset-top));
+  left: 12px;
+}
+
+body.kompakt-quer .finale-card {
+  width: min(94vw, 460px);
+  padding: 18px 20px 16px;
+}
+
+body.kompakt-quer .finale-stats {
+  gap: 18px;
+  margin: 14px 0 16px;
+}
+
+body.kompakt-quer .ui-toggle {
+  right: 12px;
+  top: calc(max(8px, env(safe-area-inset-top)) + 58px);
+  width: 40px;
+  height: 40px;
+}
+
+body.kompakt-quer /* Attribution über den Steuerstreifen heben (Pflicht: Esri/AWS) */
+.maplibregl-ctrl-bottom-right {
+  bottom: calc(var(--dock-h, 56px) + 10px);
+}
+
+body.kompakt-quer body.ui-clean .maplibregl-ctrl-bottom-right {
+  bottom: 0;
+}
+
 

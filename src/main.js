@@ -31,6 +31,35 @@ const tourParam = params.get('tour') ?? 'kohphangan'
 // Tourliste der App bzw. im Studio. body.app blendet beides aus (style.css).
 const appModus = params.get('app') === '1'
 if (appModus) document.body.classList.add('app')
+
+// — Verfügbare Viewport-Höhe als CSS-Variable —
+// Die Foto-Karte bemisst sich daran (--photo-h in style.css). CSS-Einheiten
+// taugen dafür nicht: `100dvh` ist in der Android-WebView der App NULL (kein
+// dynamischer Viewport ohne Adressleiste) und meldet über CSS.supports trotzdem
+// Unterstützung — am Gerät gemessen kollabierte der Foto-Rahmen dadurch auf 0×0.
+// window.innerHeight stimmt überall; visualViewport folgt zusätzlich der
+// Tastatur/Leisten-Änderung, wo es sie gibt.
+// Zugleich die Ausrichtung als Klasse setzen: Die Media Features `orientation`
+// und `max-height` sind in der App-WebView UNBRAUCHBAR — bei 375×843 (klar
+// hochkant) meldet sie dort `orientation: landscape` UND `max-height: 500px`
+// als zutreffend. Das kompakte Querformat-Layout schlug deshalb im Hochformat
+// zu (Bild neben Text, Steuerung in einer engen Zeile). innerWidth/innerHeight
+// stimmen dagegen — also entscheidet JS, und das CSS hängt an body.kompakt-quer.
+const KOMPAKT_HOEHE = 560 // darüber ist auch quer genug Platz für das Normal-Layout
+const setzeViewportHoehe = () => {
+  const h = window.visualViewport?.height || window.innerHeight
+  if (h > 0) document.documentElement.style.setProperty('--vh-app', `${Math.round(h)}px`)
+  const quer = window.innerWidth > window.innerHeight && window.innerHeight <= KOMPAKT_HOEHE
+  document.body.classList.toggle('kompakt-quer', quer)
+}
+setzeViewportHoehe()
+window.addEventListener('resize', setzeViewportHoehe)
+window.addEventListener('orientationchange', setzeViewportHoehe)
+window.visualViewport?.addEventListener('resize', setzeViewportHoehe)
+// Sicherheitsnetz: ein ResizeObserver meldet Größenänderungen auch dort, wo kein
+// resize-Event ankommt (WebViews, eingebettete Ansichten) — sonst bliebe nach
+// einer Drehung das Layout des vorherigen Formats stehen.
+new ResizeObserver(setzeViewportHoehe).observe(document.documentElement)
 let remoteCfg = null
 let remoteFehler = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
 if (tourParam.startsWith('srv:')) {
@@ -867,6 +896,14 @@ map.on('load', () => {
   document.getElementById('btn-menu').addEventListener('click', () => {
     setClean(false)
     tour.toMenu()
+  })
+
+  // Player verlassen (nur im App-Modus sichtbar): die Android-App stellt dafür
+  // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa
+  // weil jemand ?app=1 im normalen Browser aufruft —, bleibt der History-Rückweg.
+  document.getElementById('btn-app-zurueck').addEventListener('click', () => {
+    if (window.LuhamboApp?.verlassen) window.LuhamboApp.verlassen()
+    else history.back()
   })
 
   // — Google Photorealistic 3D Tiles („Google 3D"-Modus) —
