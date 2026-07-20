@@ -13,6 +13,8 @@ enum class TourStatus { AUFNAHME, ENTWURF, LAEDT_HOCH, HOCHGELADEN, FEHLER }
 enum class Modus(val schluessel: String, val anzeige: String) {
     WALK("walk", "Zu Fuß"),
     BIKE("bike", "Rad"),
+    MOPED("moped", "Moped"),
+    JEEP("jeep", "Jeep"),
     TRAM("tram", "Tram"),
     FERRY("ferry", "Fähre"),
     ;

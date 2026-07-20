@@ -48,7 +48,10 @@ Grundprinzipien:
 - `segments[].pts`: `[lng, lat, ele(m), tOffset(s ab time.start)]` — die Zeit
   als 4. Koordinate trägt die nichtlineare Pseudo-Zeit (M2) und die
   Zeit-Platzierung von Medien.
-- `mode`: `walk | bike | tram | ferry` (Tempo + Kameradistanz im Player).
+- `mode`: `walk | bike | moped | jeep | tram | ferry` (Tempo + Kameradistanz im Player).
+  Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
+  Engine (`MODE_SPEED`/`MODE_SCALE` in `src/tour.js`); Motorgeräusche gibt es für
+  `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.js`).
 - `title: null` ⇒ Auto-Benennung serverseitig (Reverse-Geocoding Start/Ziel).
 - `clientTourId`: idempotentes Anlegen — dieselbe App-Tour erzeugt nie zwei
   Server-Touren; die Antwort liefert die vorhandene ID zurück.

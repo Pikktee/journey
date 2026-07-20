@@ -55,7 +55,8 @@ export interface TourJson {
   timeline?: Array<{ f: number; t: string }>
   /** Auto-Wetter-Keyframes (M2, Open-Meteo; ab M5 auch source "photo") */
   weather?: Array<{ f: number; mode: string; k: number; source: string }>
-  camera?: Array<{ f: number; preset: string }>
+  camera?: Array<{ f: number; preset: string; skala?: number }>
+  moments?: Array<{ f: number; art: string; dauerS?: number }>
   audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
   stats: TourStats
 }
@@ -211,7 +212,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     // gemeint war → verwerfen. Vor dem Start bleibt die Klemmung („gilt ab hier").
     const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
     const keyframes = edits.kamera
-      .map((g) => ({ abMs: Date.parse(g.ab), preset: g.preset }))
+      .map((g) => ({ abMs: Date.parse(g.ab), preset: g.preset, skala: g.skala }))
       .filter((g) => Number.isFinite(g.abMs))
       .filter((g) => {
         if (trackEndeSek === undefined || (g.abMs - startMs) / 1000 <= trackEndeSek) return true
@@ -221,14 +222,43 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // positionZurZeit ist monoton in der Zeit → nach `ab` sortiert ist auch
       // f sortiert; bei gleichem f gewinnt unten der spätere `ab`.
       .sort((a, b) => a.abMs - b.abMs)
-      .map((g) => ({ f: positionZurZeit(reihe, (g.abMs - startMs) / 1000).f, preset: g.preset }))
+      .map((g) => ({
+        f: positionZurZeit(reihe, (g.abMs - startMs) / 1000).f,
+        preset: g.preset,
+        ...(g.skala !== undefined && g.skala !== 1 ? { skala: g.skala } : {}),
+      }))
     const dedupliziert: NonNullable<TourJson['camera']> = []
     for (const k of keyframes) {
       const letzter = dedupliziert[dedupliziert.length - 1]
-      if (letzter && letzter.f === k.f) letzter.preset = k.preset
-      else dedupliziert.push(k)
+      if (letzter && letzter.f === k.f) {
+        letzter.preset = k.preset
+        if (k.skala !== undefined) letzter.skala = k.skala
+        else delete letzter.skala
+      } else dedupliziert.push(k)
     }
     if (dedupliziert.length) camera = dedupliziert
+  }
+
+  // Kamera-Momente: Punkt-Ereignisse. Wie Kamera-Grenzen an f verankert; ein
+  // Moment hinter dem (getrimmten) Track-Ende ergibt keinen Sinn → verwerfen.
+  let moments: TourJson['moments']
+  if (edits?.momente?.length) {
+    const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
+    const liste = edits.momente
+      .map((m) => ({ abMs: Date.parse(m.ab), art: m.art, dauerS: m.dauerS }))
+      .filter((m) => Number.isFinite(m.abMs))
+      .filter((m) => {
+        if (trackEndeSek === undefined || (m.abMs - startMs) / 1000 <= trackEndeSek) return true
+        protokoll?.(`Kamera-Moment hinter dem Track-Ende übersprungen (${m.art})`)
+        return false
+      })
+      .sort((a, b) => a.abMs - b.abMs)
+      .map((m) => ({
+        f: positionZurZeit(reihe, (m.abMs - startMs) / 1000).f,
+        art: m.art,
+        ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
+      }))
+    if (liste.length) moments = liste
   }
 
   // Audio-Spuren (Baukasten): absolute Zeiten → f-Bereiche. Fehlende Dateien
@@ -241,7 +271,10 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
     const spuren: NonNullable<TourJson['audio']> = []
     for (const spur of edits.audio) {
-      if (!vorhandene.has(spur.datei)) {
+      const ausBibliothek = spur.quelle === 'bibliothek'
+      // Hochgeladene Dateien müssen unter media/ liegen; Bibliothekseffekte sind
+      // global (public/audio/sfx/) und werden hier nicht geprüft.
+      if (!ausBibliothek && !vorhandene.has(spur.datei)) {
         protokoll?.(`Audio-Datei fehlt: ${spur.datei}`)
         continue
       }
@@ -267,7 +300,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       }
       spuren.push({
         type: spur.typ === 'musik' ? 'music' : 'sfx',
-        src: `/api/media/${tourId}/${spur.datei}`,
+        // Bibliothek: statisch ausgeliefert (wie ambient.mp3); sonst tour-lokal.
+        src: ausBibliothek ? `/audio/sfx/${spur.datei}` : `/api/media/${tourId}/${spur.datei}`,
         f0,
         f1,
         ...(spur.lautstaerke !== undefined ? { gain: spur.lautstaerke } : {}),
@@ -319,6 +353,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     ...(timeline ? { timeline } : {}),
     ...(weather ? { weather } : {}),
     ...(camera ? { camera } : {}),
+    ...(moments ? { moments } : {}),
     ...(audio ? { audio } : {}),
     stats,
   }

@@ -17,10 +17,13 @@ import {
   mitKameraGrenze,
   mitMedienEdit,
   mitModusGrenze,
+  mitMoment,
   mitTrim,
+  MOMENT_DEFAULT_S,
   ohneAudioEintrag,
   ohneKameraGrenze,
   ohneModusGrenze,
+  ohneMoment,
   offsetZuIso,
   projiziereAufTrack,
   pruefeOverlay,
@@ -33,6 +36,7 @@ import {
   type MediumAnzeige,
   type MediumBasis,
   type Modus,
+  type MomentArt,
   type TrackPunkt,
 } from './editmodell.js'
 import {
@@ -40,24 +44,97 @@ import {
   audioWirdVerworfen,
   baueAudioBalken,
   baueBaender,
-  baueMedienDots,
-  bauePins,
+  baueMedienMarken,
   baueSkala,
   baueTicks,
   baueTrimGriffe,
+  baueZustandsBaender,
+  formatiereDauer,
+  haltedauerS,
   offsetZuAnteil,
+  schaetzeAnimationsdauer,
   type ZeitSkala,
 } from './zeitleiste.js'
+import { SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
+
+/** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, sonst Dateiname. */
+function audioName(a: AudioEintrag): string {
+  return (a.quelle === 'bibliothek' ? sfxEffekt(a.datei)?.name : undefined) ?? a.datei
+}
+
+/** Abspiel-URL eines Audio-Eintrags — Bibliothek statisch, sonst tour-lokal. */
+function audioUrl(a: AudioEintrag, tourId: string): string {
+  return a.quelle === 'bibliothek'
+    ? `/audio/sfx/${encodeURIComponent(a.datei)}`
+    : `/api/media/${tourId}/${encodeURIComponent(a.datei)}`
+}
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 
-const MODUS_FARBEN: Record<Modus, string> = { walk: '#3ecf8e', bike: '#5b9dff', tram: '#f5a524', ferry: '#c58bff' }
-const MODUS_NAMEN: Record<Modus, string> = { walk: 'Zu Fuß', bike: 'Rad', tram: 'Tram', ferry: 'Fähre' }
+// Reihenfolge bestimmt die Auswahl-Listen (Object.entries): unmotorisiert →
+// motorisiert → öffentlich → Wasser.
+const MODUS_NAMEN: Record<Modus, string> = {
+  walk: 'Zu Fuß',
+  bike: 'Rad',
+  moped: 'Moped',
+  jeep: 'Jeep',
+  tram: 'Tram',
+  ferry: 'Fähre',
+}
+const MODUS_FARBEN: Record<Modus, string> = {
+  walk: '#3ecf8e',
+  bike: '#5b9dff',
+  moped: '#ff6f52',
+  jeep: '#b98a5a',
+  tram: '#f5a524',
+  ferry: '#c58bff',
+}
 const PRESET_NAMEN: Record<KameraPreset, string> = { nah: 'Nah', mittel: 'Mittel', weit: 'Weit' }
+const MOMENT_NAMEN: Record<MomentArt, string> = { umkreisen: 'Umkreisen', aufstieg: 'Aufstieg', innehalten: 'Innehalten' }
+/** Symbol je Moment-Art auf der Zeitleisten-Marke. */
+const MOMENT_ZEICHEN: Record<MomentArt, string> = { umkreisen: '↻', aufstieg: '↑', innehalten: '⏸' }
+/** Kamera-Bänder: ein Farbton, Deckkraft = Nähe (nah kräftig, weit zurückhaltend). */
+const PRESET_FARBEN: Record<KameraPreset, string> = {
+  nah: 'rgba(91, 157, 255, 0.72)',
+  mittel: 'rgba(91, 157, 255, 0.46)',
+  weit: 'rgba(91, 157, 255, 0.24)',
+}
 const PLACEMENT_NAMEN: Record<string, string> = { gps: 'GPS', zeit: 'Zeit', manuell: 'manuell', unplatziert: 'unplatziert' }
 const AUDIO_ENDUNGEN = ['mp3', 'm4a', 'ogg', 'wav']
 /** Icon aus dem Sprite in studio.html (nur für vertrauten, statischen Markup-Bau). */
 const icon = (name: string): string => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`
+
+/**
+ * Fokussiertes Objekt — die gemeinsame Auswahl von Zeitleiste, Karte und
+ * Inspector. Bewusst nur die IDENTITÄT: Bänder entstehen aus Overlay + Track
+ * und würden als kopierte Spanne veralten, sobald man eine Grenze verschiebt.
+ * Die konkrete Spanne löst loeseFokusAuf() bei jedem Render neu auf.
+ *
+ * Getrennt von `auswahl` (der Einfügemarke für „ab hier"-Aktionen) — wie
+ * Abspielkopf und Selektion in einem Schnittprogramm.
+ */
+type Fokus =
+  | { art: 'modus'; bezugS: number }
+  | { art: 'kamera'; bezugS: number }
+  | { art: 'moment'; ab: string }
+  | { art: 'audio'; index: number }
+  | { art: 'medium'; id: string }
+
+/** Aufgelöster Fokus: was im Inspector steht und auf der Karte leuchtet. */
+interface FokusInfo {
+  art: Fokus['art']
+  titel: string
+  vonS: number
+  bisS: number
+  /** Overlay-Grenze, die dieses Band eröffnet — null = aus der Aufzeichnung, nicht entfernbar */
+  ab: string | null
+  mode?: Modus
+  preset?: KameraPreset
+  momentArt?: MomentArt
+  dauerS?: number
+  index?: number
+  id?: string
+}
 
 interface Zustand {
   tourId: string
@@ -67,11 +144,20 @@ interface Zustand {
   gespeichert: string
   /** Trackpunkte flach über alle Segmente */
   track: TrackPunkt[]
-  /** ausgewählter Punkt AUF der Track-Linie (interpoliert, inkl. tOffset) */
+  /** Einfügemarke: Punkt AUF der Track-Linie (interpoliert, inkl. tOffset) */
   auswahl: TrackPunkt | null
+  /** fokussiertes Objekt (Band, Audio-Spur, Medium) — siehe Fokus */
+  fokus: Fokus | null
   /** Medien-ID im „auf den Track klicken"-Platzieren-Modus */
   platzieren: string | null
+  /** frühere Overlay-Stände (Undo), ältester zuerst */
+  historie: EditOverlay[]
+  /** zurückgenommene Stände (Redo), jüngster zuletzt */
+  zukunft: EditOverlay[]
 }
+
+/** Maximale Undo-Tiefe — Overlays sind klein, aber unbegrenzt wächst unschön. */
+const HISTORIE_MAX = 100
 
 let karte: maplibregl.Map | null = null
 let z: Zustand | null = null
@@ -81,6 +167,16 @@ let hoverMarker: maplibregl.Marker | null = null
 let vorschau: { audio: HTMLAudioElement; datei: string } | null = null
 let zurueckCb: (() => void) | null = null
 let verdrahtet = false
+/**
+ * Overlay-Stand beim letzten Voll-Render — Grundlage der Undo-Erfassung.
+ *
+ * Das Overlay wird ausschließlich immutabel fortgeschrieben (editmodell.ts), ein
+ * REFERENZ-Vergleich erkennt also jede Änderung, egal aus welchem der ~30
+ * Handler sie kam. Das erspart es, jede Mutation einzeln zu instrumentieren.
+ * Während eines Zeitleisten-Zugs läuft nur renderNachZug(), das den Stand nicht
+ * fortschreibt — der ganze Zug wird dadurch zu genau einem Undo-Schritt.
+ */
+let letzterStand: EditOverlay | null = null
 
 // — Einstieg —
 
@@ -107,8 +203,12 @@ async function ladeDaten(tourId: string): Promise<void> {
     gespeichert: JSON.stringify(edits),
     track: daten.segmente.flatMap((s) => s.pts),
     auswahl: null,
+    fokus: null,
     platzieren: null,
+    historie: [],
+    zukunft: [],
   }
+  letzterStand = edits
   ;($('editor-titel') as HTMLInputElement).value = daten.title ?? ''
   ;($('editor-beschreibung') as HTMLTextAreaElement).value = daten.description ?? ''
   ;($('editor-vorschau') as HTMLAnchorElement).href = `/erlebnis.html?tour=srv:${tourId}`
@@ -129,6 +229,7 @@ function schliesse(): void {
   karte?.remove()
   karte = null
   z = null
+  letzterStand = null
   marker = []
   medienMarker = new Map()
   hoverMarker = null
@@ -186,6 +287,63 @@ function baueTrackLayer(k: maplibregl.Map): void {
     paint: { 'line-color': ['get', 'farbe'], 'line-width': 4 },
     layout: { 'line-cap': 'round', 'line-join': 'round' },
   })
+  // Fokus-Abschnitt: leuchtet über allem. Damit beantwortet die ROUTE die Frage
+  // „wo endet das" räumlich — die Zeitleiste sagt wann, die Karte sagt wo.
+  k.addSource('fokus', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  k.addLayer({
+    id: 'fokus-schein',
+    type: 'line',
+    source: 'fokus',
+    paint: { 'line-color': '#f5a524', 'line-width': 13, 'line-opacity': 0.28, 'line-blur': 4 },
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+  })
+  k.addLayer({
+    id: 'fokus-linie',
+    type: 'line',
+    source: 'fokus',
+    paint: { 'line-color': '#ffd27a', 'line-width': 5 },
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+  })
+  // Punktförmiger Fokus (Foto, Einzel-Sound) hat keine Ausdehnung
+  k.addLayer({
+    id: 'fokus-punkt',
+    type: 'circle',
+    source: 'fokus',
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: { 'circle-radius': 8, 'circle-color': '#ffd27a', 'circle-opacity': 0.9, 'circle-stroke-width': 2, 'circle-stroke-color': '#0a0d12' },
+  })
+}
+
+/** Fokussierten Streckenabschnitt auf der Karte hervorheben. */
+function zeichneFokus(): void {
+  if (!karte || !z) return
+  const quelle = karte.getSource('fokus') as maplibregl.GeoJSONSource | undefined
+  if (!quelle) return
+  const info = loeseFokusAuf()
+  const features: GeoJSON.Feature[] = []
+  if (info) {
+    if (info.bisS > info.vonS) {
+      // Ränder interpolieren, damit der Abschnitt exakt an der Bandkante endet
+      // und nicht am nächsten Stützpunkt (Fähren-Geraden!)
+      const punkte: TrackPunkt[] = []
+      const anfang = punktZuOffset(z.track, info.vonS)
+      if (anfang) punkte.push(anfang)
+      for (const p of z.track) if (p[3] > info.vonS && p[3] < info.bisS) punkte.push(p)
+      const ende = punktZuOffset(z.track, info.bisS)
+      if (ende) punkte.push(ende)
+      if (punkte.length >= 2) {
+        features.push({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: punkte.map((p) => [p[0], p[1]]) },
+        })
+      }
+    } else {
+      const p = punktZuOffset(z.track, info.vonS)
+      if (p) features.push({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p[0], p[1]] } })
+    }
+  }
+  quelle.setData({ type: 'FeatureCollection', features })
 }
 
 function passeAusschnittAn(): void {
@@ -231,11 +389,21 @@ function klickAufKarte(e: maplibregl.MapMouseEvent): void {
 
 function renderAlles(): void {
   if (!karte || !z) return
+  // Undo-Punkt setzen, wenn sich das Overlay seit dem letzten Voll-Render
+  // geändert hat (s. letzterStand). Undo/Redo selbst ziehen den Stand vorher
+  // nach und lösen hier deshalb keinen neuen Eintrag aus.
+  if (letzterStand && letzterStand !== z.edits) {
+    z.historie.push(letzterStand)
+    if (z.historie.length > HISTORIE_MAX) z.historie.shift()
+    z.zukunft = []
+  }
+  letzterStand = z.edits
+  renderHistorieKnoepfe()
   zeichneTrack()
   zeichneMarker()
   renderAuswahl()
-  renderTrimUndGrenzen()
-  renderKamera()
+  renderTrim()
+  renderInspektor()
   renderAudio()
   renderMedien()
   renderZeitleiste()
@@ -243,6 +411,34 @@ function renderAlles(): void {
   $('editor-medien-hinweis').textContent = z.platzieren
     ? 'Auf den Track klicken, um das Medium dort zu verankern — erneut „Platzieren" drücken bricht ab.'
     : ''
+}
+
+// — Undo/Redo: das Overlay ist immutabel, ein Stapel von Ständen genügt —
+
+function rueckgaengig(): void {
+  const zz = z // Modul-let: Narrowing überlebt die Aufrufe unten nicht
+  if (!zz?.historie.length) return
+  zz.zukunft.push(zz.edits)
+  zz.edits = zz.historie.pop() as EditOverlay
+  letzterStand = zz.edits // der Rücksprung selbst ist kein neuer Undo-Punkt
+  renderAlles()
+  status('Rückgängig gemacht.')
+}
+
+function wiederherstellen(): void {
+  const zz = z
+  if (!zz?.zukunft.length) return
+  zz.historie.push(zz.edits)
+  zz.edits = zz.zukunft.pop() as EditOverlay
+  letzterStand = zz.edits
+  renderAlles()
+  status('Wiederhergestellt.')
+}
+
+function renderHistorieKnoepfe(): void {
+  if (!z) return
+  ;($('editor-undo') as HTMLButtonElement).disabled = !z.historie.length
+  ;($('editor-redo') as HTMLButtonElement).disabled = !z.zukunft.length
 }
 
 function zeichneTrack(): void {
@@ -257,6 +453,7 @@ function zeichneTrack(): void {
       geometry: { type: 'LineString', coordinates: a.pts.map((p) => [p[0], p[1]]) },
     })),
   })
+  zeichneFokus()
 }
 
 function zeichneMarker(): void {
@@ -293,6 +490,9 @@ function zeichneMarker(): void {
         gezogen = false
         return
       }
+      if (!z) return
+      z.fokus = { art: 'medium', id: m.id }
+      renderAlles()
       blitzeZeile(m.id)
     })
     medienMarker.set(m.id, el)
@@ -344,10 +544,94 @@ function zeitText(iso: string): string {
   }
 }
 
+/**
+ * Fokus-Identität → konkretes Objekt mit Zeitspanne, gegen den AKTUELLEN
+ * Overlay-Stand aufgelöst. Liefert null, wenn das Objekt weg ist (Grenze
+ * entfernt, Audio gelöscht) — der Inspector zeigt dann wieder den Leerzustand.
+ */
+function loeseFokusAuf(): FokusInfo | null {
+  if (!z?.fokus) return null
+  const skala = baueSkala(z.track)
+  if (!skala) return null
+  const start = z.daten.time.start
+  const f = z.fokus
+
+  if (f.art === 'modus') {
+    // Aus den Anzeige-Abschnitten (haben echte Trackpunkte, also echte Zeiten)
+    const treffer = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start).find((a) => {
+      const von = (a.pts[0] as TrackPunkt)[3]
+      const bis = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
+      return f.bezugS >= von && f.bezugS <= bis
+    })
+    if (!treffer) return null
+    const vonS = (treffer.pts[0] as TrackPunkt)[3]
+    const bisS = (treffer.pts[treffer.pts.length - 1] as TrackPunkt)[3]
+    // Verantwortliche Overlay-Grenze: die letzte, die zu Bandbeginn schon gilt
+    // und denselben Modus setzt. Fehlt sie, stammt das Band aus der
+    // Aufzeichnung und lässt sich nicht entfernen — nur überschreiben.
+    let ab: string | null = null
+    for (const g of z.edits.modi ?? []) {
+      const gS = isoZuOffset(start, g.ab)
+      if (!Number.isFinite(gS) || gS > vonS + 1) break
+      if (g.mode === treffer.mode) ab = g.ab
+    }
+    return { art: 'modus', titel: MODUS_NAMEN[treffer.mode], vonS, bisS, ab, mode: treffer.mode }
+  }
+
+  if (f.art === 'kamera') {
+    const baender = baueZustandsBaender<KameraPreset | null>(
+      (z.edits.kamera ?? []).map((g) => ({ ab: g.ab, wert: g.preset })),
+      start,
+      skala,
+      null,
+    )
+    const treffer = baender.find(
+      (b) => f.bezugS >= anteilZuOffset(skala, b.von) && f.bezugS <= anteilZuOffset(skala, b.bis),
+    )
+    if (!treffer) return null
+    const basis = {
+      art: 'kamera' as const,
+      titel: treffer.wert ? `Kamera ${PRESET_NAMEN[treffer.wert]}` : 'Preset des Zuschauers',
+      vonS: anteilZuOffset(skala, treffer.von),
+      bisS: anteilZuOffset(skala, treffer.bis),
+      ab: treffer.ab,
+    }
+    return treffer.wert ? { ...basis, preset: treffer.wert } : basis
+  }
+
+  if (f.art === 'moment') {
+    const m = (z.edits.momente ?? []).find((x) => x.ab === f.ab)
+    if (!m) return null
+    const s = isoZuOffset(start, m.ab)
+    return {
+      art: 'moment',
+      titel: MOMENT_NAMEN[m.art],
+      vonS: s,
+      bisS: s,
+      ab: m.ab,
+      momentArt: m.art,
+      ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
+    }
+  }
+
+  if (f.art === 'audio') {
+    const a = (z.edits.audio ?? [])[f.index]
+    if (!a) return null
+    const vonS = isoZuOffset(start, a.ab)
+    const bisS = a.typ === 'sfx' ? vonS : a.bis !== undefined ? isoZuOffset(start, a.bis) : skala.bisS
+    return { art: 'audio', titel: a.datei, vonS, bisS, ab: a.ab, index: f.index }
+  }
+
+  const m = medienAnzeige().find((x) => x.id === f.id)
+  if (!m?.anchor) return null
+  const p = projiziereAufTrack(z.track, m.anchor[0], m.anchor[1])
+  return { art: 'medium', titel: m.caption || m.id, vonS: p.punkt[3], bisS: p.punkt[3], ab: null, id: m.id }
+}
+
 function renderAuswahl(): void {
   if (!z) return
   const aktivierbar = z.auswahl !== null
-  for (const id of ['e-trim-start', 'e-trim-ende', 'e-grenze', 'e-kamera']) {
+  for (const id of ['e-trim-start', 'e-trim-ende', 'e-grenze', 'e-kamera', 'e-moment']) {
     ;($(id) as HTMLButtonElement).disabled = !aktivierbar
   }
   const info = $('editor-punkt-info')
@@ -358,69 +642,219 @@ function renderAuswahl(): void {
   info.textContent = `Punkt bei ${zeitText(offsetZuIso(z.daten.time.start, z.auswahl[3]))} Uhr`
 }
 
-function renderTrimUndGrenzen(): void {
+/** Uhrzeit ohne Sekunden — Inspector-Zeiten sollen überfliegbar sein. */
+function uhrKurz(iso: string): string {
+  if (!z) return iso
+  try {
+    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: z.daten.time.zone }).format(
+      new Date(iso),
+    )
+  } catch {
+    return iso
+  }
+}
+
+/**
+ * Inspector: zeigt das fokussierte Objekt mit Spanne UND Dauer und lässt es
+ * dort ändern. Ersetzt die früheren Listen „Trim/Fortbewegungs-Grenzen/
+ * Kamera-Verläufe", die jede Grenze ein zweites Mal aufzählten — ohne zu
+ * sagen, wann sie endet.
+ */
+function renderInspektor(): void {
+  if (!z) return
+  const el = $('editor-inspektor')
+  el.innerHTML = ''
+  const info = loeseFokusAuf()
+  if (!info) {
+    const leer = document.createElement('div')
+    leer.className = 'leer'
+    leer.textContent = 'Nichts gewählt — auf ein Band, eine Marke oder die Karte klicken.'
+    el.appendChild(leer)
+    return
+  }
+  const start = z.daten.time.start
+
+  const kopf = document.createElement('div')
+  kopf.className = 'insp-kopf'
+  if (info.mode) {
+    const farbe = document.createElement('span')
+    farbe.className = 'farbe'
+    farbe.style.background = MODUS_FARBEN[info.mode]
+    kopf.appendChild(farbe)
+  }
+  const titel = document.createElement('strong')
+  titel.textContent = info.titel
+  kopf.appendChild(titel)
+  el.appendChild(kopf)
+
+  // Die eigentliche Antwort auf „wann startet das, wo endet es"
+  const zeit = document.createElement('div')
+  zeit.className = 'insp-zeit'
+  zeit.textContent =
+    info.bisS > info.vonS
+      ? `${uhrKurz(offsetZuIso(start, info.vonS))} – ${uhrKurz(offsetZuIso(start, info.bisS))} Uhr · ${formatiereDauer(info.bisS - info.vonS)}`
+      : `${uhrKurz(offsetZuIso(start, info.vonS))} Uhr`
+  el.appendChild(zeit)
+
+  const aktionen = document.createElement('div')
+  aktionen.className = 'insp-aktionen'
+
+  if (info.art === 'moment') {
+    const abFest = info.ab as string
+    // Art wählen (ersetzt den Moment am selben ab, Dauer bleibt erhalten)
+    const wahl = document.createElement('select')
+    wahl.setAttribute('aria-label', 'Art des Kamera-Moments')
+    for (const [wert, name] of Object.entries(MOMENT_NAMEN)) {
+      const opt = document.createElement('option')
+      opt.value = wert
+      opt.textContent = name
+      if (wert === info.momentArt) opt.selected = true
+      wahl.appendChild(opt)
+    }
+    wahl.addEventListener('change', () => {
+      if (!z) return
+      z.edits = mitMoment(z.edits, abFest, wahl.value as MomentArt, info.dauerS)
+      renderAlles()
+    })
+    aktionen.appendChild(wahl)
+    // Dauer in Sekunden (leer = Default der Art)
+    const dauer = document.createElement('input')
+    dauer.type = 'number'
+    dauer.min = '1'
+    dauer.max = '30'
+    dauer.className = 'insp-dauer'
+    dauer.value = info.dauerS !== undefined ? String(info.dauerS) : ''
+    dauer.placeholder = `${MOMENT_DEFAULT_S[info.momentArt as MomentArt]}s`
+    dauer.title = 'Dauer in Sekunden (leer = Standard)'
+    dauer.addEventListener('change', () => {
+      if (!z) return
+      const v = dauer.value.trim() === '' ? undefined : Math.max(1, Math.min(30, Number(dauer.value)))
+      z.edits = mitMoment(z.edits, abFest, info.momentArt as MomentArt, v)
+      renderAlles()
+    })
+    aktionen.appendChild(dauer)
+    const weg = document.createElement('button')
+    weg.textContent = 'Entfernen'
+    weg.addEventListener('click', () => {
+      if (!z) return
+      z.edits = ohneMoment(z.edits, abFest)
+      z.fokus = null
+      renderAlles()
+    })
+    aktionen.appendChild(weg)
+  } else if (info.art === 'modus' || info.art === 'kamera') {
+    const werte: Array<[string, string]> =
+      info.art === 'modus' ? Object.entries(MODUS_NAMEN) : Object.entries(PRESET_NAMEN)
+    const aktuell = info.art === 'modus' ? (info.mode as string) : (info.preset as string | undefined)
+    const wahl = document.createElement('select')
+    wahl.setAttribute('aria-label', info.art === 'modus' ? 'Fortbewegung dieses Abschnitts' : 'Kamera dieses Abschnitts')
+    if (aktuell === undefined) {
+      const leer = document.createElement('option')
+      leer.textContent = 'Preset des Zuschauers'
+      leer.value = ''
+      wahl.appendChild(leer)
+    }
+    for (const [wert, name] of werte) {
+      const opt = document.createElement('option')
+      opt.value = wert
+      opt.textContent = name
+      if (wert === aktuell) opt.selected = true
+      wahl.appendChild(opt)
+    }
+    // Aktuelle Feinjustierung dieses Kamera-Bands (falls eigene Grenze)
+    const kamSkala = info.art === 'kamera' && info.ab !== null
+      ? z.edits.kamera?.find((g) => g.ab === info.ab)?.skala
+      : undefined
+    wahl.addEventListener('change', () => {
+      if (!z || !wahl.value) return
+      // Ohne eigene Grenze (Band aus der Aufzeichnung) wird am Bandanfang eine
+      // neue gesetzt — so lässt sich JEDER Abschnitt direkt umstellen.
+      const ab = info.ab ?? offsetZuIso(z.daten.time.start, info.vonS)
+      z.edits =
+        info.art === 'modus'
+          ? mitModusGrenze(z.edits, ab, wahl.value as Modus)
+          : mitKameraGrenze(z.edits, ab, wahl.value as KameraPreset, kamSkala) // Skala erhalten
+      // Bandmitte als Bezug: bleibt im Band, auch wenn die neue Grenze exakt
+      // auf dem alten Anfang liegt
+      const bezugS = (info.vonS + info.bisS) / 2
+      z.fokus = info.art === 'modus' ? { art: 'modus', bezugS } : { art: 'kamera', bezugS }
+      renderAlles()
+    })
+    aktionen.appendChild(wahl)
+
+    // Näher/Weiter-Regler: stufenlose Feinjustierung eines Kamera-Bands mit Preset
+    if (info.art === 'kamera' && info.preset) {
+      const ab = info.ab ?? offsetZuIso(z.daten.time.start, info.vonS)
+      const preset = info.preset
+      const regler = document.createElement('input')
+      regler.type = 'range'
+      regler.min = '50'
+      regler.max = '200'
+      regler.step = '5'
+      regler.className = 'insp-skala'
+      regler.value = String(Math.round((kamSkala ?? 1) * 100))
+      regler.title = 'Näher ↔ Weiter (Feinjustierung über das Preset hinaus)'
+      regler.setAttribute('aria-label', 'Kamera näher oder weiter')
+      regler.addEventListener('change', () => {
+        if (!z) return
+        const s = Number(regler.value) / 100
+        z.edits = mitKameraGrenze(z.edits, ab, preset, s)
+        z.fokus = { art: 'kamera', bezugS: (info.vonS + info.bisS) / 2 }
+        renderAlles()
+      })
+      aktionen.appendChild(regler)
+    }
+
+    if (info.ab !== null) {
+      const weg = document.createElement('button')
+      weg.textContent = 'Entfernen'
+      weg.title = 'Diese Grenze aufheben — der vorherige Zustand gilt dann weiter'
+      const abFest = info.ab
+      weg.addEventListener('click', () => {
+        if (!z) return
+        z.edits = info.art === 'modus' ? ohneModusGrenze(z.edits, abFest) : ohneKameraGrenze(z.edits, abFest)
+        z.fokus = null
+        renderAlles()
+      })
+      aktionen.appendChild(weg)
+    }
+  } else {
+    // Audio/Medien werden weiterhin in ihren Panels bearbeitet — von hier aus
+    // wird nur dorthin gesprungen.
+    const hin = document.createElement('button')
+    hin.textContent = 'Im Panel bearbeiten'
+    hin.addEventListener('click', () => {
+      if (info.art === 'medium') {
+        blitzeZeile(info.id as string) // scrollt selbst
+        return
+      }
+      const zeile = document.querySelector<HTMLElement>(`#editor-audio .audio-zeile[data-index="${info.index}"]`)
+      zeile?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      zeile?.classList.remove('blitz')
+      void zeile?.offsetWidth
+      zeile?.classList.add('blitz')
+    })
+    aktionen.appendChild(hin)
+  }
+  el.appendChild(aktionen)
+}
+
+/** Trim-Status kompakt unter der Einfügemarke (früher eine eigene Gruppe). */
+function renderTrim(): void {
   if (!z) return
   const trimEl = $('editor-trim')
   trimEl.innerHTML = ''
   const { start, ende } = z.edits.trim ?? {}
-  if (start === undefined && ende === undefined) {
-    trimEl.textContent = 'Kein Trim — Griffe an der Zeitleiste ziehen oder einen Punkt wählen.'
-  } else {
-    for (const [teil, iso] of [['start', start], ['ende', ende]] as Array<['start' | 'ende', string | undefined]>) {
-      if (iso === undefined) continue
-      const zeile = document.createElement('div')
-      zeile.className = 'grenz-zeile'
-      const text = document.createElement('span')
-      text.textContent = `${teil === 'start' ? 'Start ab' : 'Ende bei'} ${zeitText(iso)} Uhr`
-      zeile.appendChild(text)
-      zeile.appendChild(entfernenKnopf(() => z && (z.edits = mitTrim(z.edits, teil, null))))
-      trimEl.appendChild(zeile)
-    }
-  }
-
-  const grenzenEl = $('editor-grenzen')
-  grenzenEl.innerHTML = ''
-  const modi = z.edits.modi ?? []
-  if (!modi.length) {
-    grenzenEl.textContent = 'Keine Grenzen — es gelten die Modi der Aufzeichnung.'
-    return
-  }
-  for (const g of modi) {
+  if (start === undefined && ende === undefined) return
+  for (const [teil, iso] of [['start', start], ['ende', ende]] as Array<['start' | 'ende', string | undefined]>) {
+    if (iso === undefined) continue
     const zeile = document.createElement('div')
     zeile.className = 'grenz-zeile'
-    const farbe = document.createElement('span')
-    farbe.className = 'farbe'
-    farbe.style.background = MODUS_FARBEN[g.mode]
-    zeile.appendChild(farbe)
     const text = document.createElement('span')
-    text.textContent = `ab ${zeitText(g.ab)} Uhr: ${MODUS_NAMEN[g.mode]}`
+    text.textContent = `${teil === 'start' ? 'Start ab' : 'Ende bei'} ${zeitText(iso)} Uhr`
     zeile.appendChild(text)
-    zeile.appendChild(entfernenKnopf(() => z && (z.edits = ohneModusGrenze(z.edits, g.ab))))
-    grenzenEl.appendChild(zeile)
-  }
-}
-
-function renderKamera(): void {
-  if (!z) return
-  const el = $('editor-kamera')
-  el.innerHTML = ''
-  const kamera = z.edits.kamera ?? []
-  if (!kamera.length) {
-    el.textContent = 'Keine Verläufe — die Kamera bleibt beim Preset des Zuschauers.'
-    return
-  }
-  for (const g of kamera) {
-    const zeile = document.createElement('div')
-    zeile.className = 'grenz-zeile'
-    const sym = document.createElement('span')
-    sym.innerHTML = icon('kamera')
-    sym.style.cssText = 'display:inline-flex;width:13px;height:13px;color:var(--text-2)'
-    zeile.appendChild(sym)
-    const text = document.createElement('span')
-    text.textContent = `ab ${zeitText(g.ab)} Uhr: ${PRESET_NAMEN[g.preset]}`
-    zeile.appendChild(text)
-    zeile.appendChild(entfernenKnopf(() => z && (z.edits = ohneKameraGrenze(z.edits, g.ab))))
-    el.appendChild(zeile)
+    zeile.appendChild(entfernenKnopf(() => z && (z.edits = mitTrim(z.edits, teil, null))))
+    trimEl.appendChild(zeile)
   }
 }
 
@@ -668,6 +1102,7 @@ function renderAudio(): void {
   eintraege.forEach((a, index) => {
     const zeile = document.createElement('div')
     zeile.className = 'audio-zeile'
+    zeile.dataset['index'] = String(index) // Sprungziel aus dem Inspector
     // Liegt der Eintrag komplett im weggetrimmten Bereich, verwirft ihn die
     // Pipeline still — hier sichtbar machen, statt den Nutzer rätseln zu lassen
     const verworfen = trimSkala !== null && audioWirdVerworfen(a, zz.edits, start, trimSkala)
@@ -677,9 +1112,15 @@ function renderAudio(): void {
     kopf.innerHTML = icon(a.typ === 'musik' ? 'note' : 'blitz')
     const name = document.createElement('span')
     name.className = 'a-name'
-    name.textContent = a.datei
+    name.textContent = audioName(a)
     name.title = a.datei
     kopf.appendChild(name)
+    if (a.quelle === 'bibliothek') {
+      const badge = document.createElement('span')
+      badge.className = 'a-quelle'
+      badge.textContent = 'Bibliothek'
+      kopf.appendChild(badge)
+    }
     const typ = document.createElement('select')
     for (const [wert, text] of [['musik', 'Musik'], ['sfx', 'Sound']]) {
       const opt = document.createElement('option')
@@ -768,7 +1209,7 @@ function renderAudio(): void {
         stoppeVorschau()
       } else {
         stoppeVorschau()
-        const audio = new Audio(`/api/media/${z.tourId}/${encodeURIComponent(a.datei)}`)
+        const audio = new Audio(audioUrl(a, z.tourId))
         audio.volume = a.lautstaerke ?? 1
         audio.addEventListener('ended', () => {
           stoppeVorschau()
@@ -841,6 +1282,99 @@ function renderAudio(): void {
   }
 }
 
+// — Soundeffekt-Bibliothek (Dialog) —
+
+let dialogAudio: HTMLAudioElement | null = null
+let dialogSpielt: string | null = null // Datei des gerade vorgehörten Effekts
+
+function stoppeDialogVorschau(): void {
+  dialogAudio?.pause()
+  dialogAudio = null
+  dialogSpielt = null
+}
+
+/** Effekt aus der Bibliothek in die Tour übernehmen (ab gewähltem Punkt bzw. Beginn). */
+function sfxEinsetzen(eff: SfxEffekt): void {
+  if (!z) return
+  const start = z.daten.time.start
+  const skala = baueSkala(z.track)
+  // Ist ein Punkt gewählt, dort einsetzen (v. a. für One-Shots gemeint) — sonst
+  // ab Trim-/Tour-Beginn, wie beim Upload.
+  const abOffset = z.auswahl
+    ? z.auswahl[3]
+    : z.edits.trim?.start !== undefined
+      ? isoZuOffset(start, z.edits.trim.start)
+      : (skala?.vonS ?? 0)
+  z.edits = mitAudioEintrag(z.edits, { datei: eff.datei, typ: eff.typ, ab: offsetZuIso(start, abOffset), quelle: 'bibliothek' })
+  schliesseSfxDialog()
+  renderAlles()
+  audioStatus(`„${eff.name}" eingesetzt — auf der Zeitleiste platzieren, dann Speichern.`, 'ok')
+}
+
+function baueSfxDialog(): void {
+  const inhalt = $('sfx-inhalt')
+  inhalt.innerHTML = ''
+  for (const [kat, titel] of [
+    ['umgebung', 'Umgebung — Loops über einen Bereich'],
+    ['effekt', 'Effekte — einmalig an einem Punkt'],
+  ] as const) {
+    const gruppe = document.createElement('div')
+    gruppe.className = 'sfx-gruppe'
+    gruppe.textContent = titel
+    inhalt.appendChild(gruppe)
+    for (const eff of SFX_BIBLIOTHEK.filter((e) => e.kategorie === kat)) {
+      const zeile = document.createElement('div')
+      zeile.className = 'sfx-eintrag'
+      const spielt = dialogSpielt === eff.datei
+      const hoeren = document.createElement('button')
+      hoeren.className = 'sfx-hoeren'
+      hoeren.innerHTML = spielt ? '■' : icon('play')
+      hoeren.title = spielt ? 'Stoppen' : 'Vorhören'
+      hoeren.addEventListener('click', () => {
+        if (dialogSpielt === eff.datei) {
+          stoppeDialogVorschau()
+        } else {
+          stoppeDialogVorschau()
+          dialogAudio = new Audio(`/audio/sfx/${encodeURIComponent(eff.datei)}`)
+          dialogSpielt = eff.datei
+          dialogAudio.addEventListener('ended', () => {
+            stoppeDialogVorschau()
+            baueSfxDialog()
+          })
+          void dialogAudio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
+        }
+        baueSfxDialog()
+      })
+      zeile.appendChild(hoeren)
+      const text = document.createElement('div')
+      text.className = 'sfx-text'
+      const nm = document.createElement('div')
+      nm.className = 'sfx-name'
+      nm.textContent = eff.name
+      const be = document.createElement('div')
+      be.className = 'sfx-besch'
+      be.textContent = eff.beschreibung
+      text.append(nm, be)
+      zeile.appendChild(text)
+      const nutzen = document.createElement('button')
+      nutzen.textContent = 'Einsetzen'
+      nutzen.addEventListener('click', () => sfxEinsetzen(eff))
+      zeile.appendChild(nutzen)
+      inhalt.appendChild(zeile)
+    }
+  }
+}
+
+function oeffneSfxDialog(): void {
+  baueSfxDialog()
+  ;($('sfx-dialog') as HTMLDialogElement).showModal()
+}
+
+function schliesseSfxDialog(): void {
+  stoppeDialogVorschau()
+  ;($('sfx-dialog') as HTMLDialogElement).close()
+}
+
 function audioEintragEntfernen(index: number): void {
   if (!z) return
   const eintrag = (z.edits.audio ?? [])[index]
@@ -875,18 +1409,37 @@ interface ZugZustand {
   ab?: string
   mode?: Modus
   preset?: KameraPreset
+  momentArt?: MomentArt
   index?: number
   /** Abstand Cursor↔Balkenanfang beim Greifen (Anteil), für ruckfreies Schieben */
   griffVersatz?: number
+  /**
+   * Beim pointerdown getroffenes Band. Muss HIER gemerkt werden: nach
+   * setPointerCapture zeigt e.target im pointerup auf das Capture-Element
+   * (#zeitleiste), nicht mehr auf das Band unter dem Finger.
+   */
+  fokus?: Fokus | null
   bewegt: boolean
+}
+
+/** data-Attribute eines Bandes → Fokus-Identität. */
+function bandZuFokus(el: HTMLElement | null): Fokus | null {
+  const art = el?.dataset['fokus']
+  const bezugS = Number(el?.dataset['bezugs'])
+  if (!Number.isFinite(bezugS)) return null
+  if (art === 'modus') return { art: 'modus', bezugS }
+  if (art === 'kamera') return { art: 'kamera', bezugS }
+  return null
 }
 
 let zug: ZugZustand | null = null
 
 function spurAnteil(clientX: number): number {
-  const spur = document.querySelector<HTMLElement>('#zeitleiste .zl-spur')
-  if (!spur) return 0
-  const r = spur.getBoundingClientRect()
+  // Das Overlay deckt exakt die Bahn-Spalte des Grids — alle Bahnen teilen
+  // dieselbe Geometrie, eine Referenz genügt für alle Spuren.
+  const bezug = document.querySelector<HTMLElement>('#zeitleiste .zl-overlay')
+  if (!bezug) return 0
+  const r = bezug.getBoundingClientRect()
   return Math.max(0, Math.min(1, (clientX - r.left) / r.width))
 }
 
@@ -901,34 +1454,190 @@ function renderZeitleiste(): void {
   el.hidden = false
   const start = z.daten.time.start
   const pos = (anteil: number): string => `${(anteil * 100).toFixed(3)}%`
+  const anteilVon = (iso: string): number => offsetZuAnteil(skala, isoZuOffset(start, iso))
 
   el.innerHTML = ''
-  const spur = document.createElement('div')
-  spur.className = 'zl-spur'
+  const gitter = document.createElement('div')
+  gitter.className = 'zl-bahnen'
 
-  const grund = document.createElement('div')
-  grund.className = 'zl-grund'
-  grund.dataset['rolle'] = 'spur'
-  for (const b of baueBaender(zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start), skala)) {
-    const band = document.createElement('div')
-    band.className = `zl-band${b.aktiv ? '' : ' inaktiv'}`
-    band.style.left = pos(b.von)
-    band.style.width = pos(b.bis - b.von)
-    band.style.background = MODUS_FARBEN[b.mode]
-    grund.appendChild(band)
+  /** Beschriftete Bahn ins Grid hängen (Label-Spalte + Bahn-Spalte). */
+  const bahn = (name: string, spur: string): HTMLElement => {
+    const label = document.createElement('div')
+    label.className = 'zl-name'
+    label.textContent = name
+    gitter.appendChild(label)
+    const b = document.createElement('div')
+    b.className = `zl-bahn ${spur}`
+    b.dataset['rolle'] = 'spur'
+    gitter.appendChild(b)
+    return b
   }
-  spur.appendChild(grund)
 
-  // Trim: abgedunkelte Außenbereiche + zwei Griffe
+  /**
+   * Zustandsband mit Beschriftung — Anfang und Ende sind dieselbe Kante.
+   * `art` macht das Band anklickbar: die Bandmitte dient als Fokus-Bezug
+   * (überlebt das Verschieben von Grenzen besser als der Bandanfang).
+   */
+  const band = (art: 'modus' | 'kamera', von: number, bis: number, text: string, farbe?: string): HTMLElement => {
+    const d = document.createElement('div')
+    d.className = 'zl-band'
+    d.style.left = pos(von)
+    d.style.width = pos(bis - von)
+    if (farbe) d.style.background = farbe
+    d.dataset['fokus'] = art
+    d.dataset['bezugs'] = String(anteilZuOffset(skala, (von + bis) / 2))
+    const t = document.createElement('span')
+    t.textContent = text
+    d.appendChild(t)
+    return d
+  }
+
+  const fokusInfo = loeseFokusAuf()
+
+  /** Ziehbare Bandkante = die Grenze im Overlay (Identität über `ab`). */
+  const kante = (anteil: number, rolle: string, daten: Record<string, string>, titel: string): HTMLElement => {
+    const k = document.createElement('div')
+    k.className = 'zl-kante'
+    k.style.left = pos(anteil)
+    k.dataset['rolle'] = rolle
+    for (const [schluessel, wert] of Object.entries(daten)) k.dataset[schluessel] = wert
+    k.title = titel
+    return k
+  }
+
+  // — Fortbewegung: Bänder aus der Anzeige-Zerlegung (Segment-Modi + Grenzen +
+  //   Trim-Graufärbung); ziehbar sind nur die ECHTEN Overlay-Grenzen —
+  const modusBahn = bahn('Fortbewegung', 'modus')
+  for (const b of baueBaender(zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start), skala)) {
+    const d = band('modus', b.von, b.bis, MODUS_NAMEN[b.mode], MODUS_FARBEN[b.mode])
+    if (!b.aktiv) d.classList.add('inaktiv')
+    const mitte = anteilZuOffset(skala, (b.von + b.bis) / 2)
+    if (fokusInfo?.art === 'modus' && mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS) d.classList.add('fokus')
+    modusBahn.appendChild(d)
+  }
+  for (const g of z.edits.modi ?? []) {
+    const a = anteilVon(g.ab)
+    if (!Number.isFinite(a)) continue
+    modusBahn.appendChild(
+      kante(a, 'grenze', { ab: g.ab, mode: g.mode }, `${MODUS_NAMEN[g.mode]} ab ${zeitText(g.ab)} Uhr — ziehen zum Verschieben`),
+    )
+  }
+
+  // — Kamera: früher nur Punkt-Pins („ab hier"), jetzt lückenlose Bänder —
+  const kameraBahn = bahn('Kamera', 'kamera')
+  const kameraBaender = baueZustandsBaender<KameraPreset | null>(
+    (z.edits.kamera ?? []).map((g) => ({ ab: g.ab, wert: g.preset })),
+    start,
+    skala,
+    null,
+  )
+  for (const b of kameraBaender) {
+    // Feinjustierung (falls ≠ 1) an die Beschriftung hängen: „Nah ×1.3"
+    const feinSkala = b.ab !== null ? z.edits.kamera?.find((g) => g.ab === b.ab)?.skala : undefined
+    const skalaTxt = feinSkala !== undefined && feinSkala !== 1 ? ` ×${String(+feinSkala.toFixed(2))}` : ''
+    const d = band(
+      'kamera',
+      b.von,
+      b.bis,
+      (b.wert ? PRESET_NAMEN[b.wert] : 'Preset des Zuschauers') + skalaTxt,
+      b.wert ? PRESET_FARBEN[b.wert] : undefined,
+    )
+    d.classList.add('kamera')
+    if (!b.wert) d.classList.add('grund')
+    const mitte = anteilZuOffset(skala, (b.von + b.bis) / 2)
+    if (fokusInfo?.art === 'kamera' && mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS) d.classList.add('fokus')
+    kameraBahn.appendChild(d)
+    if (b.ab !== null && b.wert) {
+      kameraBahn.appendChild(
+        kante(
+          b.von,
+          'kamera',
+          { ab: b.ab, preset: b.wert },
+          `Kamera ${PRESET_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr — ziehen zum Verschieben`,
+        ),
+      )
+    }
+  }
+
+  // — Kamera-Momente: Punkt-Marken (ziehbar), je Art ein Symbol —
+  const momentBahn = bahn('Momente', 'moment')
+  for (const m of z.edits.momente ?? []) {
+    const a = anteilVon(m.ab)
+    if (!Number.isFinite(a)) continue
+    const marke = document.createElement('div')
+    marke.className = 'zl-moment'
+    marke.style.left = pos(a)
+    marke.textContent = MOMENT_ZEICHEN[m.art]
+    marke.dataset['rolle'] = 'moment'
+    marke.dataset['ab'] = m.ab
+    marke.dataset['art'] = m.art
+    marke.title = `${MOMENT_NAMEN[m.art]} bei ${zeitText(m.ab)} Uhr — ziehen zum Verschieben`
+    if (fokusInfo?.art === 'moment' && fokusInfo.ab === m.ab) marke.classList.add('fokus')
+    momentBahn.appendChild(marke)
+  }
+
+  // — Musik & Sound: Balken mit sichtbaren Kanten, SFX als Einzelmarke —
+  const audioBahn = bahn('Musik & Sound', 'audio')
+  for (const b of baueAudioBalken(z.edits.audio ?? [], start, skala)) {
+    if (b.typ === 'musik') {
+      const balken = document.createElement('div')
+      balken.className = 'zl-audio-balken'
+      balken.style.left = pos(b.von)
+      balken.style.width = pos(Math.max(0.004, b.bis - b.von))
+      balken.dataset['rolle'] = 'audio-balken'
+      balken.dataset['index'] = String(b.index)
+      balken.title = `${b.datei} — ziehen zum Verschieben, Kanten für Anfang und Ende`
+      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) balken.classList.add('fokus')
+      const name = document.createElement('span')
+      name.textContent = b.datei
+      balken.appendChild(name)
+      for (const seite of ['von', 'bis'] as const) {
+        const griff = document.createElement('div')
+        griff.className = `kante ${seite}`
+        griff.dataset['rolle'] = `audio-${seite}`
+        griff.dataset['index'] = String(b.index)
+        balken.appendChild(griff)
+      }
+      audioBahn.appendChild(balken)
+    } else {
+      const raute = document.createElement('div')
+      raute.className = 'zl-sfx'
+      raute.style.left = pos(b.von)
+      raute.dataset['rolle'] = 'sfx'
+      raute.dataset['index'] = String(b.index)
+      raute.title = `${b.datei} (Einzel-Sound) — ziehen zum Verschieben`
+      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) raute.classList.add('fokus')
+      audioBahn.appendChild(raute)
+    }
+  }
+
+  // — Fotos: Marke so breit wie die Haltedauer (Größenkodierung, s. zeitleiste.ts) —
+  const medienBahn = bahn('Fotos', 'medien')
+  for (const m of baueMedienMarken(medienAnzeige(), z.track, skala)) {
+    const marke = document.createElement('div')
+    marke.className = `zl-marke${m.type === 'video' ? ' video' : ''}`
+    marke.style.left = pos(m.anteil)
+    marke.style.width = `max(11px, ${pos(m.breite)})`
+    marke.dataset['rolle'] = 'dot'
+    marke.dataset['id'] = m.id
+    marke.title = m.haltedauerS ? `${m.id} — ${m.haltedauerS} s Haltedauer` : m.id
+    if (fokusInfo?.art === 'medium' && fokusInfo.id === m.id) marke.classList.add('fokus')
+    medienBahn.appendChild(marke)
+  }
+
+  // — Overlay über ALLE Bahnen: Trim, Auswahl, Hover (die Linien sollen
+  //   durchgehen, damit man Ereignisse spurübergreifend ausrichten kann) —
+  const overlay = document.createElement('div')
+  overlay.className = 'zl-overlay'
   const trim = baueTrimGriffe(z.edits, start, skala)
   const links = document.createElement('div')
   links.className = 'zl-schatten links'
   links.style.width = pos(trim.start)
-  spur.appendChild(links)
+  overlay.appendChild(links)
   const rechts = document.createElement('div')
   rechts.className = 'zl-schatten rechts'
   rechts.style.width = pos(1 - trim.ende)
-  spur.appendChild(rechts)
+  overlay.appendChild(rechts)
   for (const [rolle, anteil, titel] of [
     ['trim-start', trim.start, 'Start der Wiedergabe (ganz nach links = kein Trim)'],
     ['trim-ende', trim.ende, 'Ende der Wiedergabe (ganz nach rechts = kein Trim)'],
@@ -938,118 +1647,59 @@ function renderZeitleiste(): void {
     griff.style.left = pos(anteil)
     griff.dataset['rolle'] = rolle
     griff.title = titel
-    spur.appendChild(griff)
+    overlay.appendChild(griff)
   }
-
-  // Modus- und Kamera-Pins (draggable)
-  for (const g of z.edits.modi ?? []) {
-    const p = bauePins([{ ab: g.ab, text: MODUS_NAMEN[g.mode] }], start, skala)[0]
-    if (!p) continue
-    const pin = document.createElement('div')
-    pin.className = 'zl-pin'
-    pin.style.left = pos(p.anteil)
-    pin.style.background = MODUS_FARBEN[g.mode]
-    pin.dataset['rolle'] = 'grenze'
-    pin.dataset['ab'] = g.ab
-    pin.dataset['mode'] = g.mode
-    pin.title = `${MODUS_NAMEN[g.mode]} ab ${zeitText(g.ab)} — ziehen zum Verschieben`
-    spur.appendChild(pin)
-  }
-  for (const g of z.edits.kamera ?? []) {
-    const p = bauePins([{ ab: g.ab, text: g.preset }], start, skala)[0]
-    if (!p) continue
-    const pin = document.createElement('div')
-    pin.className = 'zl-pin kamera'
-    pin.style.left = pos(p.anteil)
-    pin.dataset['rolle'] = 'kamera'
-    pin.dataset['ab'] = g.ab
-    pin.dataset['preset'] = g.preset
-    pin.title = `Kamera ${PRESET_NAMEN[g.preset]} ab ${zeitText(g.ab)} — ziehen zum Verschieben`
-    spur.appendChild(pin)
-  }
-
-  // Medien-Dots an ihrer Wiedergabe-Position
-  for (const d of baueMedienDots(medienAnzeige(), z.track, skala)) {
-    const dot = document.createElement('div')
-    dot.className = `zl-dot${d.type === 'video' ? ' video' : ''}`
-    dot.style.left = pos(d.anteil)
-    dot.dataset['rolle'] = 'dot'
-    dot.dataset['id'] = d.id
-    dot.title = d.id
-    spur.appendChild(dot)
-  }
-
-  // Auswahl-/Hover-Linie
   if (z.auswahl) {
     const sel = document.createElement('div')
-    sel.className = 'zl-hover'
-    sel.style.display = 'block'
-    sel.style.opacity = '0.9'
-    sel.style.background = 'var(--akzent)'
+    sel.className = 'zl-linie auswahl'
     sel.style.left = pos(offsetZuAnteil(skala, z.auswahl[3]))
-    spur.appendChild(sel)
+    overlay.appendChild(sel)
   }
   const hover = document.createElement('div')
-  hover.className = 'zl-hover'
+  hover.className = 'zl-linie'
   hover.dataset['teil'] = 'hover'
-  spur.appendChild(hover)
+  overlay.appendChild(hover)
   const tip = document.createElement('div')
   tip.className = 'zl-tip'
   tip.dataset['teil'] = 'tip'
-  spur.appendChild(tip)
+  overlay.appendChild(tip)
+  gitter.appendChild(overlay)
+  el.appendChild(gitter)
 
-  el.appendChild(spur)
-
-  // Audio-Spur (Musik-Balken + SFX-Rauten)
-  const audioSpur = document.createElement('div')
-  audioSpur.className = 'zl-audio'
-  for (const b of baueAudioBalken(z.edits.audio ?? [], start, skala)) {
-    if (b.typ === 'musik') {
-      const balken = document.createElement('div')
-      balken.className = 'zl-audio-balken'
-      balken.style.left = pos(b.von)
-      balken.style.width = pos(Math.max(0.004, b.bis - b.von))
-      balken.dataset['rolle'] = 'audio-balken'
-      balken.dataset['index'] = String(b.index)
-      balken.title = `${b.datei} — ziehen zum Verschieben, Kanten für den Bereich`
-      for (const kante of ['von', 'bis'] as const) {
-        const griff = document.createElement('div')
-        griff.className = `kante ${kante}`
-        griff.dataset['rolle'] = `audio-${kante}`
-        griff.dataset['index'] = String(b.index)
-        balken.appendChild(griff)
-      }
-      audioSpur.appendChild(balken)
-    } else {
-      const raute = document.createElement('div')
-      raute.className = 'zl-sfx'
-      raute.style.left = pos(b.von)
-      raute.dataset['rolle'] = 'sfx'
-      raute.dataset['index'] = String(b.index)
-      raute.title = `${b.datei} — ziehen zum Verschieben`
-      audioSpur.appendChild(raute)
-    }
-  }
-  el.appendChild(audioSpur)
-
-  // Zeit-Ticks
+  // — Zeitachse; die Label-Spalte trägt die geschätzte Laufzeit der Animation —
+  const fuss = document.createElement('div')
+  fuss.className = 'zl-fuss'
+  const dauer = document.createElement('div')
+  dauer.className = 'zl-dauer'
+  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
+  const halte = medienAnzeige()
+    .filter((m) => m.type === 'photo' && !m.geloescht && m.anchor)
+    .map((m) => haltedauerS(m.display))
+  dauer.textContent = `~ ${formatiereDauer(schaetzeAnimationsdauer(abschnitte, halte))}`
+  dauer.title = 'Geschätzte Laufzeit der fertigen Animation (Fahrzeit + Foto-Stopps)'
+  fuss.appendChild(dauer)
   const ticks = document.createElement('div')
   ticks.className = 'zl-ticks'
   for (const t of baueTicks(start, skala, z.daten.time.zone)) {
     const s = document.createElement('span')
     s.style.left = pos(t.anteil)
     s.textContent = t.text
+    // Randticks klemmen: zentriert ragen sie sonst über die Achse hinaus —
+    // links in die Label-Spalte (wo die Laufzeit steht), rechts aus der Leiste.
+    if (t.anteil < 0.02) s.style.transform = 'none'
+    else if (t.anteil > 0.98) s.style.transform = 'translateX(-100%)'
     ticks.appendChild(s)
   }
-  el.appendChild(ticks)
+  fuss.appendChild(ticks)
+  el.appendChild(fuss)
 }
 
 /** Während eines Zugs nur die betroffenen Teile neu zeichnen (Karte + Leiste). */
 function renderNachZug(): void {
   zeichneTrack()
   renderZeitleiste()
-  renderTrimUndGrenzen()
-  renderKamera()
+  renderTrim()
+  renderInspektor()
 }
 
 function zeitleisteZug(e: PointerEvent): void {
@@ -1086,10 +1736,23 @@ function zeitleisteZug(e: PointerEvent): void {
     }
     case 'kamera': {
       if (zug.ab === undefined || !zug.preset) break
+      const altAb = zug.ab
       const neuAb = iso(anteil)
-      if (neuAb !== zug.ab && z.edits.kamera?.some((g) => g.ab === neuAb)) break
-      z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, zug.ab), neuAb, zug.preset)
+      if (neuAb !== altAb && z.edits.kamera?.some((g) => g.ab === neuAb)) break
+      const altSkala = z.edits.kamera?.find((g) => g.ab === altAb)?.skala
+      z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, altAb), neuAb, zug.preset, altSkala)
       zug.ab = neuAb
+      break
+    }
+    case 'moment': {
+      if (zug.ab === undefined || !zug.momentArt) break
+      const altAb = zug.ab
+      const neuAb = iso(anteil)
+      if (neuAb !== altAb && z.edits.momente?.some((m) => m.ab === neuAb)) break
+      const alt = z.edits.momente?.find((m) => m.ab === altAb)
+      z.edits = mitMoment(ohneMoment(z.edits, altAb), neuAb, zug.momentArt, alt?.dauerS)
+      zug.ab = neuAb
+      if (z.fokus?.art === 'moment') z.fokus = { art: 'moment', ab: neuAb } // Fokus mitziehen
       break
     }
     case 'audio-balken': {
@@ -1141,10 +1804,12 @@ function verdrahteZeitleiste(): void {
     if (rolle === 'dot') return // Klick, kein Zug
     e.preventDefault()
     el.setPointerCapture(e.pointerId)
-    zug = { rolle, bewegt: false }
+    el.classList.add('zieht')
+    zug = { rolle, bewegt: false, fokus: bandZuFokus((e.target as HTMLElement).closest<HTMLElement>('[data-fokus]')) }
     if (ziel.dataset['ab'] !== undefined) zug.ab = ziel.dataset['ab']
     if (ziel.dataset['mode']) zug.mode = ziel.dataset['mode'] as Modus
     if (ziel.dataset['preset']) zug.preset = ziel.dataset['preset'] as KameraPreset
+    if (ziel.dataset['art']) zug.momentArt = ziel.dataset['art'] as MomentArt
     if (ziel.dataset['index'] !== undefined) zug.index = Number(ziel.dataset['index'])
     if (rolle === 'audio-balken') {
       // Versatz zwischen Cursor und Balkenanfang merken → ruckfreies Schieben
@@ -1194,18 +1859,27 @@ function verdrahteZeitleiste(): void {
     if (zug) {
       const war = zug
       zug = null
+      el.classList.remove('zieht')
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
       if (war.bewegt) {
         renderAlles()
         return
       }
-      // Kein Zug = Klick: auf der Spur einen Punkt wählen
+      // Kein Zug = Klick: Einfügemarke setzen UND das getroffene Band
+      // fokussieren — ein Klick, beide sinnvollen Wirkungen.
       if (war.rolle === 'spur' || war.rolle === 'trim-start' || war.rolle === 'trim-ende') {
         const skala = baueSkala(zz.track)
         if (skala) {
           zz.auswahl = punktZuOffset(zz.track, anteilZuOffset(skala, spurAnteil(e.clientX)))
+          zz.fokus = war.fokus ?? null
           renderAlles()
         }
+      } else if (war.rolle === 'moment' && war.ab !== undefined) {
+        zz.fokus = { art: 'moment', ab: war.ab }
+        renderAlles()
+      } else if ((war.rolle === 'audio-balken' || war.rolle === 'sfx') && war.index !== undefined) {
+        zz.fokus = { art: 'audio', index: war.index }
+        renderAlles()
       }
     }
   }
@@ -1215,7 +1889,9 @@ function verdrahteZeitleiste(): void {
     if (dot && z) {
       const medium = medienAnzeige().find((m) => m.id === dot.dataset['id'])
       if (medium) {
+        z.fokus = { art: 'medium', id: medium.id }
         fliegeZuMedium(medium)
+        renderAlles() // baut die Medienliste neu — erst danach blitzen lassen
         blitzeZeile(medium.id)
       }
     }
@@ -1317,6 +1993,25 @@ function verdrahteEinmal(): void {
   $('editor-zurueck').addEventListener('click', schliesse)
   $('editor-speichern').addEventListener('click', () => void speichern())
   $('editor-reprocess').addEventListener('click', () => void neuVerarbeiten())
+  $('editor-undo').addEventListener('click', rueckgaengig)
+  $('editor-redo').addEventListener('click', wiederherstellen)
+  document.addEventListener('keydown', (e) => {
+    if (!z || $('editor-view').hidden) return
+    // In Eingabefeldern gilt das native Undo/Speichern des Browsers
+    if ((e.target as HTMLElement).closest('input, textarea, select')) return
+    const meta = e.metaKey || e.ctrlKey
+    if (meta && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      if (e.shiftKey) wiederherstellen()
+      else rueckgaengig()
+    } else if (meta && e.key.toLowerCase() === 's') {
+      e.preventDefault()
+      void speichern()
+    } else if (e.key === 'Escape' && z.platzieren) {
+      z.platzieren = null
+      renderAlles()
+    }
+  })
   $('e-trim-start').addEventListener('click', () => trimSetzen('start'))
   $('e-trim-ende').addEventListener('click', () => trimSetzen('ende'))
   $('e-grenze').addEventListener('click', () => {
@@ -1331,7 +2026,22 @@ function verdrahteEinmal(): void {
     z.edits = mitKameraGrenze(z.edits, offsetZuIso(z.daten.time.start, z.auswahl[3]), preset)
     renderAlles()
   })
+  $('e-moment').addEventListener('click', () => {
+    if (!z || !z.auswahl) return
+    const art = ($('e-moment-art') as HTMLSelectElement).value as MomentArt
+    const ab = offsetZuIso(z.daten.time.start, z.auswahl[3])
+    z.edits = mitMoment(z.edits, ab, art)
+    z.fokus = { art: 'moment', ab } // gleich fokussieren → Inspector zeigt ihn
+    renderAlles()
+  })
   $('e-audio-hinzu').addEventListener('click', () => $('e-audio-datei').click())
+  $('e-audio-bibliothek').addEventListener('click', oeffneSfxDialog)
+  $('sfx-schliessen').addEventListener('click', schliesseSfxDialog)
+  $('sfx-dialog').addEventListener('close', stoppeDialogVorschau)
+  // Klick aufs Backdrop (Ziel ist dann das dialog-Element selbst) schließt
+  $('sfx-dialog').addEventListener('click', (e) => {
+    if (e.target === $('sfx-dialog')) schliesseSfxDialog()
+  })
   $('e-audio-datei').addEventListener('change', () => {
     const eingabe = $('e-audio-datei') as HTMLInputElement
     const datei = eingabe.files?.[0]

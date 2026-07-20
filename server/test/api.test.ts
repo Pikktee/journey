@@ -625,6 +625,41 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(semantik.json()).toMatchObject({ fehler: expect.stringContaining('Trim-Start') })
   })
 
+  it('Bibliotheks-Audio übersteht den PUT und landet als /audio/sfx-URL', async () => {
+    // Absicherung gegen die Ajv-Strip-Falle: fehlte `quelle` im Schema, würde
+    // Fastifys removeAdditional es still entfernen → der Effekt gälte als
+    // tour-lokal, würde gegen media/ geprüft und als fehlend verworfen.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+    const put = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: {
+        schema: 'luhambo/edits@1',
+        audio: [{ datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'bibliothek' }],
+      },
+    })
+    expect(put.statusCode).toBe(202)
+    await u.app.verarbeitungen.get(id)
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    expect(tour.audio?.[0]?.src).toBe('/audio/sfx/amb-hafen.mp3')
+
+    // Ungültige Quelle wird abgelehnt (enum)
+    const boese = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: {
+        schema: 'luhambo/edits@1',
+        audio: [{ datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'boese' }],
+      },
+    })
+    expect(boese.statusCode).toBe(400)
+  })
+
   it('Reprocess braucht eine finalisierte Tour', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)

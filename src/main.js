@@ -89,7 +89,7 @@ const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 // gabezustand weiterläuft. Modulweit, weil auch der Ansicht-Umschalter davor speichert.
 const POS_KEY = `luhambo:pos:${tourId}`
 const savePos = (tour) => {
-  if (tour.phase === 'ride' || tour.phase === 'photo') {
+  if (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment') {
     localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now(), playing: tour.playing }))
   } else {
     localStorage.removeItem(POS_KEY)
@@ -143,6 +143,11 @@ for (const p of photos) {
   if (last && p.s - last.s < 120) last.items.push(p)
   else stops.push({ s: p.s, items: [p] })
 }
+// Kamera-Momente (Kreativbaukasten): Punkt-Ereignisse, f → Streckenmeter s.
+// Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.js).
+const moments = (cfg.moments ?? [])
+  .map((m) => ({ s: m.f * route.total, art: m.art, dauerS: m.dauerS }))
+  .sort((a, b) => a.s - b.s)
 const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
@@ -258,7 +263,7 @@ map.on('load', () => {
   map.touchZoomRotate.disable()
   map.touchPitch.disable()
 
-  const tour = new Tour(map, route, stops, ui, { modes })
+  const tour = new Tour(map, route, stops, ui, { modes, moments })
   Object.assign(window.__j, { tour, rider })
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
@@ -273,16 +278,20 @@ map.on('load', () => {
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
     const defaultPreset = document.querySelector('.preset-btn.active')?.dataset.preset ?? 'mittel'
-    let kamAktiv = null // zuletzt angewendetes Preset (gegen Dauer-Reapply)
+    let kamAktiv = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
     kamFolger = (frac) => {
       if (kamManuell) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
       let k = null
       for (const kf of keyframes) if (kf.f <= frac) k = kf
       const preset = k ? k.preset : kamAktiv === null ? null : defaultPreset
-      if (preset === null || preset === kamAktiv) return
-      kamAktiv = preset
-      tour.setPreset(preset)
+      const skala = k ? (k.skala ?? 1) : 1
+      // Kennung aus Preset+Skala: eine reine Feinjustierung (gleiches Preset,
+      // andere Skala) muss ebenfalls neu angewendet werden.
+      const kennung = preset === null ? null : `${preset}:${skala}`
+      if (kennung === null || kennung === kamAktiv) return
+      kamAktiv = kennung
+      tour.setPreset(preset, skala)
       // Button-Zustand nachziehen (gleiches Muster wie der Klick-Handler unten)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
       document.querySelector(`.preset-btn[data-preset="${preset}"]`)?.classList.add('active')

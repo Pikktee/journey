@@ -1,6 +1,7 @@
 // Kreativbaukasten (Editor-Seite): Segment-Projektion, Audio-/Kamera-/Display-
 // Mutatoren und die Zeitleisten-Helfer — alles reine Logik ohne DOM.
 
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   effektiveMedien,
@@ -9,10 +10,14 @@ import {
   mitAudioPatch,
   mitKameraGrenze,
   mitMedienEdit,
+  mitMoment,
   mitTrim,
+  MODI,
+  MOMENT_DEFAULT_S,
   offsetZuIso,
   ohneAudioEintrag,
   ohneKameraGrenze,
+  ohneMoment,
   projiziereAufTrack,
   pruefeOverlay,
   punktZuOffset,
@@ -20,15 +25,23 @@ import {
   type MediumBasis,
   type TrackPunkt,
 } from '../src/studio/editmodell'
+import { SFX_BIBLIOTHEK, SFX_DATEIEN, sfxEffekt } from '../src/studio/sfxbibliothek'
 import {
   anteilZuOffset,
   audioWirdVerworfen,
   baueAudioBalken,
   baueMedienDots,
+  baueMedienMarken,
   baueSkala,
   baueTicks,
   baueTrimGriffe,
+  baueZustandsBaender,
+  formatiereDauer,
+  haltedauerS,
+  HALTEDAUER_DEFAULT_S,
   offsetZuAnteil,
+  schaetzeAnimationsdauer,
+  type MedienMarke,
 } from '../src/studio/zeitleiste'
 
 const START = '2026-07-12T17:45:00Z'
@@ -86,6 +99,47 @@ describe('Kamera-Grenzen', () => {
     e = ohneKameraGrenze(e, iso(100))
     e = ohneKameraGrenze(e, iso(600))
     expect('kamera' in e).toBe(false)
+  })
+
+  it('Feinjustierung: skala wird gehalten, bei 1/undefined weggelassen', () => {
+    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah', 1.4).kamera).toEqual([{ ab: iso(0), preset: 'nah', skala: 1.4 }])
+    // skala 1 oder undefined = kein Feld (minimales JSON)
+    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah', 1).kamera).toEqual([{ ab: iso(0), preset: 'nah' }])
+    expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah').kamera).toEqual([{ ab: iso(0), preset: 'nah' }])
+    // pruefeOverlay: 0.5..2 erlaubt, außerhalb abgelehnt
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', kamera: [{ ab: iso(0), preset: 'nah', skala: 0.4 }] })).toMatch(/Feinjustierung/)
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', kamera: [{ ab: iso(0), preset: 'nah', skala: 1.5 }] })).toBeNull()
+  })
+})
+
+describe('Kamera-Momente', () => {
+  it('setzt, ersetzt (gleicher ab), sortiert und räumt auf', () => {
+    let e = mitMoment(LEERES_OVERLAY, iso(600), 'umkreisen')
+    e = mitMoment(e, iso(100), 'innehalten', 8)
+    e = mitMoment(e, iso(600), 'aufstieg') // ersetzt den Umkreisen-Moment
+    expect(e.momente).toEqual([
+      { ab: iso(100), art: 'innehalten', dauerS: 8 },
+      { ab: iso(600), art: 'aufstieg' },
+    ])
+    e = ohneMoment(e, iso(100))
+    e = ohneMoment(e, iso(600))
+    expect('momente' in e).toBe(false)
+  })
+
+  it('pruefeOverlay lehnt unparsebare Zeit und Dauer außerhalb 1..30 ab', () => {
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', momente: [{ ab: 'quatsch', art: 'umkreisen' }] })).toMatch(/Moment/)
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 99 }] })).toMatch(/Dauer/)
+    expect(pruefeOverlay({ schema: 'luhambo/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 6 }] })).toBeNull()
+  })
+
+  it('Default-Dauern decken sich mit der Engine (Drift-Wächter tour.js)', () => {
+    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const block = quelle.match(/const MOMENT_DEFAULT_S = \{([^}]*)\}/)
+    expect(block, 'MOMENT_DEFAULT_S in src/tour.js nicht gefunden').not.toBeNull()
+    const engine = Object.fromEntries(
+      [...(block?.[1] ?? '').matchAll(/(\w+):\s*(\d+)/g)].map((m) => [m[1] as string, Number(m[2])]),
+    )
+    expect(engine).toEqual(MOMENT_DEFAULT_S)
   })
 })
 
@@ -174,6 +228,72 @@ describe('audioWirdVerworfen (Trim-Warnung im Editor)', () => {
   })
 })
 
+describe('Fortbewegungs-Modi', () => {
+  // Drift-Wächter: Studio und Player-Engine müssen dieselben Modi kennen. Sie
+  // liefen auseinander — das Studio bot nur walk/bike/tram/ferry an, während
+  // Engine, Icons und Motorsound moped/jeep längst unterstützten; aufgezeichnete
+  // Touren konnten diese Modi deshalb nie bekommen. tour.js lädt MapLibre und
+  // ist im Node-Test nicht importierbar, also über den Quelltext.
+  it('decken sich mit MODE_SPEED der Engine', () => {
+    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const block = quelle.match(/const MODE_SPEED = \{([^}]*)\}/)
+    expect(block, 'MODE_SPEED in src/tour.js nicht gefunden').not.toBeNull()
+    const engine = [...(block?.[1] ?? '').matchAll(/(\w+)\s*:/g)].map((m) => m[1] as string)
+    expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
+  })
+
+  it('Tempo-Faktoren der Dauerschätzung stimmen mit der Engine überein', () => {
+    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const block = quelle.match(/const MODE_SPEED = \{([^}]*)\}/)
+    const engine = Object.fromEntries(
+      [...(block?.[1] ?? '').matchAll(/(\w+)\s*:\s*([\d.]+)/g)].map((m) => [m[1] as string, Number(m[2])]),
+    )
+    // Eine 12 km lange Fahrt je Modus: die geschätzte Dauer muss exakt
+    // Länge / (120 · MODE_SPEED) sein — prüft Faktor UND Basistempo.
+    for (const [modus, faktor] of Object.entries(engine)) {
+      const strecke: TrackPunkt[] = [
+        [9, 47, 0, 0],
+        [9 + 12000 / (111_320 * Math.cos((47 * Math.PI) / 180)), 47, 0, 3600],
+      ]
+      const sek = schaetzeAnimationsdauer([{ mode: modus as never, aktiv: true, pts: strecke }], [])
+      expect(sek, `Tempo für ${modus}`).toBeCloseTo(12000 / (120 * faktor), 1)
+    }
+  })
+
+  it('haben in der Engine auch eine Kamera-Skala', () => {
+    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const block = quelle.match(/const MODE_SCALE = \{([\s\S]*?)\n\}/)
+    const engine = [...(block?.[1] ?? '').matchAll(/^\s{2}(\w+)\s*:/gm)].map((m) => m[1] as string)
+    expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
+  })
+})
+
+describe('SFX-Bibliothek', () => {
+  it('Katalog ist konsistent: eindeutige Dateien, Kategorie passt zum Typ', () => {
+    const dateien = SFX_BIBLIOTHEK.map((e) => e.datei)
+    expect(new Set(dateien).size, 'doppelte Dateinamen im Katalog').toBe(dateien.length)
+    for (const e of SFX_BIBLIOTHEK) {
+      expect(e.datei, `${e.name}: Dateiname`).toMatch(/^[A-Za-z0-9_-]{1,64}\.mp3$/)
+      // Umgebung läuft als Loop (musik), Effekt als One-Shot (sfx)
+      expect(e.typ, `${e.name}: Typ passt zur Kategorie`).toBe(e.kategorie === 'umgebung' ? 'musik' : 'sfx')
+    }
+    expect(SFX_DATEIEN.has(SFX_BIBLIOTHEK[0]!.datei)).toBe(true)
+    expect(sfxEffekt(SFX_BIBLIOTHEK[0]!.datei)?.name).toBe(SFX_BIBLIOTHEK[0]!.name)
+    expect(sfxEffekt('gibtsnicht.mp3')).toBeUndefined()
+  })
+
+  it('deckt sich mit den erzeugten Clips (Drift-Wächter Katalog ↔ Skript)', async () => {
+    // Das Generier-Skript exportiert CLIPS (Prompts); der Katalog die Anzeige.
+    // Die Dateinamen-Mengen müssen exakt übereinstimmen, sonst wählt das Studio
+    // Effekte, die nie erzeugt werden — oder umgekehrt.
+    // @ts-expect-error — reines .mjs-Generier-Skript ohne Typdeklaration
+    const { CLIPS } = (await import('../scripts/gen-sfx-library.mjs')) as { CLIPS: Array<{ name: string }> }
+    const ausSkript = CLIPS.map((c) => `${c.name}.mp3`).sort()
+    const ausKatalog = SFX_BIBLIOTHEK.map((e) => e.datei).slice().sort()
+    expect(ausSkript).toEqual(ausKatalog)
+  })
+})
+
 describe('Zeitleiste', () => {
   const skala = baueSkala(track)!
 
@@ -218,6 +338,90 @@ describe('Zeitleiste', () => {
     expect(baueTrimGriffe(LEERES_OVERLAY, START, skala)).toEqual({ start: 0, ende: 1 })
     const e = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(300)), 'ende', iso(900))
     expect(baueTrimGriffe(e, START, skala)).toEqual({ start: 0.25, ende: 0.75 })
+  })
+
+  it('Zustandsbänder: lückenlos, jedes Band endet an der nächsten Grenze', () => {
+    const baender = baueZustandsBaender(
+      [
+        { ab: iso(300), wert: 'nah' },
+        { ab: iso(900), wert: 'weit' },
+      ],
+      START,
+      skala,
+      null,
+    )
+    expect(baender).toEqual([
+      { von: 0, bis: 0.25, wert: null, ab: null },
+      { von: 0.25, bis: 0.75, wert: 'nah', ab: iso(300) },
+      { von: 0.75, bis: 1, wert: 'weit', ab: iso(900) },
+    ])
+    // lückenlos: das Ende jedes Bandes ist der Anfang des nächsten
+    for (let i = 1; i < baender.length; i++) expect(baender[i]?.von).toBe(baender[i - 1]?.bis)
+  })
+
+  it('Zustandsbänder: Grenze bei 0 erzeugt kein leeres Grundband, Doppelgrenzen kein Null-Band', () => {
+    const abNull = baueZustandsBaender([{ ab: iso(0), wert: 'nah' }], START, skala, null)
+    expect(abNull).toEqual([{ von: 0, bis: 1, wert: 'nah', ab: iso(0) }])
+
+    const doppelt = baueZustandsBaender(
+      [
+        { ab: iso(600), wert: 'nah' },
+        { ab: iso(600), wert: 'weit' },
+      ],
+      START,
+      skala,
+      null,
+    )
+    expect(doppelt.every((b) => b.bis > b.von)).toBe(true)
+    expect(doppelt[doppelt.length - 1]).toMatchObject({ wert: 'weit', bis: 1 })
+  })
+
+  it('Zustandsbänder: unparsebare Grenzen fallen weg', () => {
+    const baender = baueZustandsBaender([{ ab: 'quatsch', wert: 'nah' }], START, skala, 'mittel')
+    expect(baender).toEqual([{ von: 0, bis: 1, wert: 'mittel', ab: null }])
+  })
+
+  it('Medien-Marken tragen die Haltedauer (Default 5 s, Video 0)', () => {
+    const basis: MediumBasis[] = [
+      { id: 'lang', type: 'photo', src: '/x', takenAt: iso(0), caption: '', anchor: [9.05, 47.002], placement: 'gps' },
+      { id: 'auto', type: 'photo', src: '/x', takenAt: iso(0), caption: '', anchor: [9.1, 47.02], placement: 'gps' },
+      { id: 'clip', type: 'video', src: '/x', takenAt: iso(0), caption: '', anchor: [9.1, 47.04], placement: 'gps' },
+    ]
+    const edits = mitMedienEdit(LEERES_OVERLAY, 'lang', { display: { holdS: 20 } })
+    const marken = baueMedienMarken(effektiveMedien(basis, edits), track, skala)
+    const nach = (id: string): MedienMarke => marken.find((m) => m.id === id)!
+    expect(nach('lang').haltedauerS).toBe(20)
+    expect(nach('auto').haltedauerS).toBe(HALTEDAUER_DEFAULT_S)
+    expect(nach('clip').haltedauerS).toBe(0)
+    // Größenkodierung: viermal so lang = viermal so breit
+    expect(nach('lang').breite).toBeCloseTo(4 * nach('auto').breite, 6)
+    expect(nach('clip').breite).toBe(0)
+  })
+
+  it('schätzt die Animationsdauer aus Fahrzeit und Foto-Stopps', () => {
+    // 12 km mit dem Rad (Faktor 1) = 12000/120 = 100 s
+    const strecke: TrackPunkt[] = [
+      [9, 47, 0, 0],
+      [9 + 12000 / (111_320 * Math.cos((47 * Math.PI) / 180)), 47, 0, 3600],
+    ]
+    expect(schaetzeAnimationsdauer([{ mode: 'bike', aktiv: true, pts: strecke }], [])).toBeCloseTo(100, 1)
+    // Weggetrimmte Abschnitte zählen nicht mit
+    expect(schaetzeAnimationsdauer([{ mode: 'bike', aktiv: false, pts: strecke }], [])).toBe(0)
+    // Je Foto Haltedauer + 0,8 s Ausblendung
+    expect(schaetzeAnimationsdauer([], [5.2, 12])).toBeCloseTo(5.2 + 12 + 1.6, 6)
+    // Default-Haltedauer entspricht HOLD_HIDE der Engine, nicht dem UI-Label „5 s"
+    expect(haltedauerS()).toBe(5.2)
+    expect(haltedauerS({ holdS: 20 })).toBe(20)
+  })
+
+  it('formatiert Dauern je nach Größenordnung', () => {
+    expect(formatiereDauer(0)).toBe('0 Sek')
+    expect(formatiereDauer(38)).toBe('38 Sek')
+    expect(formatiereDauer(60)).toBe('1 Min')
+    expect(formatiereDauer(870)).toBe('15 Min')
+    expect(formatiereDauer(3600)).toBe('1:00 Std')
+    expect(formatiereDauer(7500)).toBe('2:05 Std')
+    expect(formatiereDauer(-5)).toBe('0 Sek')
   })
 
   it('Ticks: 5-Minuten-Raster bei 20-Minuten-Spanne, innerhalb der Skala', () => {

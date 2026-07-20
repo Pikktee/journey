@@ -10,7 +10,7 @@
 // Titel/Beschreibung liegen bewusst NICHT hier, sondern in den DB-Spalten
 // (PATCH /api/tours/:id) — eine Quelle der Wahrheit pro Feld.
 
-import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, type Modus } from './upload.js'
+import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, MODI, type Modus } from './upload.js'
 
 export const EDITS_SCHEMA_ID = 'luhambo/edits@1'
 
@@ -40,11 +40,13 @@ export interface KameraGrenze {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
   ab: string
   preset: 'nah' | 'mittel' | 'weit'
+  /** Stufenlose Feinjustierung Abstand+Höhe (0.5..2); fehlt/1 = Preset unverändert */
+  skala?: number
 }
 
 /** Audio-Spur (Musik) oder One-Shot (SFX), verankert an absoluten Zeitpunkten. */
 export interface AudioEdit {
-  /** Dateiname unter media/ (per PUT /api/tours/:id/audio/:datei hochgeladen) */
+  /** Dateiname unter media/ (hochgeladen) bzw. unter public/audio/sfx/ (Bibliothek) */
   datei: string
   typ: 'musik' | 'sfx'
   ab: string
@@ -52,6 +54,12 @@ export interface AudioEdit {
   bis?: string
   /** 0..1; fehlt = Standard-Lautstärke des Players */
   lautstaerke?: number
+  /**
+   * Herkunft. Fehlt = tour-lokal hochgeladen (Datei muss unter media/ liegen).
+   * 'bibliothek' = kuratierter, global ausgelieferter Effekt; die Datei wird
+   * NICHT gegen media/ geprüft und über /audio/sfx/ statt /api/media/ geladen.
+   */
+  quelle?: 'bibliothek'
 }
 
 /** Fortbewegung ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
@@ -59,6 +67,18 @@ export interface ModusGrenze {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
   ab: string
   mode: Modus
+}
+
+/** Moment-Arten — muss mit der Engine (src/tour.js) synchron bleiben. */
+export const MOMENT_ARTEN = ['umkreisen', 'aufstieg', 'innehalten'] as const
+export type MomentArt = (typeof MOMENT_ARTEN)[number]
+
+/** Kamera-Moment: Punkt-Ereignis, an dem die Fahrt anhält und die Kamera agiert. */
+export interface KameraMoment {
+  ab: string
+  art: MomentArt
+  /** Dauer in s (1..30); fehlt = Default der Art im Player. */
+  dauerS?: number
 }
 
 export interface EditOverlay {
@@ -71,6 +91,8 @@ export interface EditOverlay {
   trim?: { start?: string; ende?: string }
   /** Kamera-Presets, wirksam ab `ab` bis zur nächsten Grenze (Punktfunktion wie modi) */
   kamera?: KameraGrenze[]
+  /** Kamera-Momente: Punkt-Ereignisse (Umkreisen/Aufstieg/Innehalten) */
+  momente?: KameraMoment[]
   /** Audio-Spuren/Effekte — f-Bereiche entstehen erst beim Rendern */
   audio?: AudioEdit[]
 }
@@ -117,7 +139,7 @@ export const editsJsonSchema = {
         required: ['ab', 'mode'],
         properties: {
           ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          mode: { enum: ['walk', 'bike', 'tram', 'ferry'] },
+          mode: { enum: [...MODI] },
         },
       },
     },
@@ -139,6 +161,21 @@ export const editsJsonSchema = {
         properties: {
           ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           preset: { enum: ['nah', 'mittel', 'weit'] },
+          skala: { type: 'number', minimum: 0.5, maximum: 2 },
+        },
+      },
+    },
+    momente: {
+      type: 'array',
+      maxItems: 100,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['ab', 'art'],
+        properties: {
+          ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          art: { enum: [...MOMENT_ARTEN] },
+          dauerS: { type: 'number', minimum: 1, maximum: 30 },
         },
       },
     },
@@ -155,6 +192,7 @@ export const editsJsonSchema = {
           ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           bis: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           lautstaerke: { type: 'number', minimum: 0, maximum: 1 },
+          quelle: { enum: ['bibliothek'] },
         },
       },
     },
@@ -181,6 +219,11 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
   }
   for (const grenze of edits.kamera ?? []) {
     if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Kamera-Grenze: ${grenze.ab}`
+    if (grenze.skala !== undefined && !Number.isFinite(grenze.skala)) return `Ungültige Kamera-Feinjustierung: ${grenze.ab}`
+  }
+  for (const moment of edits.momente ?? []) {
+    if (!Number.isFinite(Date.parse(moment.ab))) return `Unparsebarer Kamera-Moment: ${moment.ab}`
+    if (moment.dauerS !== undefined && !Number.isFinite(moment.dauerS)) return `Ungültige Moment-Dauer: ${moment.ab}`
   }
   for (const spur of edits.audio ?? []) {
     if (!Number.isFinite(Date.parse(spur.ab))) return `Unparsebarer Audio-Start: ${spur.ab}`

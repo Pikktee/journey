@@ -18,6 +18,13 @@ export const PRESETS = {
 const HOLD_HIDE = 5.2 // s sichtbare Foto-Karte (Default; display.holdS übersteuert pro Medium)
 const HOLD_AUSBLEND = 0.8 // s Ausblend-Animation nach der Anzeige, dann weiterfahren
 
+// Kamera-Momente (Kreativbaukasten): Default-Dauern je Art in Sekunden — muss
+// mit MOMENT_DEFAULT_S in src/studio/editmodell.ts übereinstimmen (Drift-Test).
+const MOMENT_DEFAULT_S = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
+const MOMENT_ORBIT_SPEED = 38 // Grad/s beim Umkreisen (6 s ≈ 228°, elegante Dreivierteldrehung)
+const MOMENT_ASCEND_LIFT = 2.4 // Faktor, um den die Kamera-Flughöhe beim Aufstieg wächst
+const momentDauer = (m) => m?.dauerS ?? MOMENT_DEFAULT_S[m?.art] ?? 5
+
 // Anzeigedauer eines Foto-Items: vom Autor im Studio gesetzt (display.holdS,
 // Kreativbaukasten) oder der Default. Videos halten unabhängig davon bis zum
 // Ende (ui.onMediaEnded) — auf ihnen ist holdS wirkungslos.
@@ -68,6 +75,7 @@ export class Tour {
     this.route = route
     this.stops = stops // [{ s, items: [Foto, …] }] aufsteigend nach s
     this.ui = ui
+    this.moments = opts.moments ?? [] // [{ s, art, dauerS? }] Kamera-Momente, aufsteigend
     this.modes = opts.modes ?? [{ s: 0, mode: 'bike', label: 'Rad' }]
     const sc0 = MODE_SCALE[this.modes[0].mode] ?? MODE_SCALE.bike
     this.scaleSm = new Smooth(sc0.behind)
@@ -96,6 +104,13 @@ export class Tour {
     this.itemIdx = 0 // Foto innerhalb des aktuellen Stopps
     this.holdT = 0
     this.photoShown = false
+    // Kamera-Momente: paralleler Zeiger + aktiver Moment + Timer/Orbit-Winkel.
+    // Bewusst getrennt von den Foto-Stopps (nextIdx), sonst kollidieren beide
+    // am selben s. Der Moment friert die Fahrt ein (wie ein Foto ohne Karte).
+    this.nextMomentIdx = 0
+    this.activeMoment = null
+    this.momentReady = false // true = Kamera ausgerollt, Moment-Bewegung läuft
+    this.momentT = 0 // Sekunden seit momentReady (Ablauf gegen momentDauer)
     this.glide = 1 // Tau-Multiplikator, >1 direkt nach Phasenwechseln (epischere Schwenks)
     this.course = bearingAt(route, 0) // stark geglättete Fahrtrichtung für die Kameraposition
     this.tuck = new Smooth(1) // 1 = voller Abstand; <1 = näher am Fahrer (Hindernis im Rücken)
@@ -241,8 +256,11 @@ export class Tour {
     )
   }
 
-  setPreset(p) {
-    this.preset = PRESETS[p] ?? PRESETS.mittel
+  setPreset(p, skala = 1) {
+    const base = PRESETS[p] ?? PRESETS.mittel
+    // Stufenlose Feinjustierung (Kreativbaukasten): skaliert Abstand UND Höhe
+    // gemeinsam — näher/weiter über die drei Presets hinaus. 1 = unverändert.
+    this.preset = skala === 1 ? base : { behind: base.behind * skala, hover: base.hover * skala }
     // Zügig ausfahren: der Wechsel soll sich wie ein Schnitt anfühlen, nicht
     // wie eine Kamerafahrt (Tile-Nachladen fangen Fade + größerer Cache ab)
     this.glide = Math.min(this.glide, 0.6)
@@ -321,6 +339,9 @@ export class Tour {
   syncNextIdx() {
     this.nextIdx = this.stops.findIndex((st) => st.s > this.s + 160)
     if (this.nextIdx === -1) this.nextIdx = this.stops.length
+    // Denselben Resync für die Kamera-Momente (paralleler Zeiger)
+    this.nextMomentIdx = this.moments.findIndex((m) => m.s > this.s + 160)
+    if (this.nextMomentIdx === -1) this.nextMomentIdx = this.moments.length
   }
 
   // — Timeline-Scrubbing (Ziehen wie im Video-Editor) —
@@ -682,6 +703,37 @@ export class Tour {
     this.skyLift.to(this.skyLiftTarget, dt, SKY_LIFT_TAU) // Himmel-Anhebung weich nachziehen
     const mo = this.modeAt(this.s)
 
+    if (this.phase === 'moment' && this.momentReady) {
+      // Kamera-Moment: Fahrt steht, die Kamera führt eine Bewegung aus. Läuft
+      // erst, wenn ausgerollt (momentReady) — davor greift der Fahrt-Framing-
+      // Zweig unten und bremst die Kamera weich am Ankerpunkt aus (wie Foto).
+      this.speed = 0
+      this.momentT += dt
+      const m = this.activeMoment
+      const p = pointAt(route, m.s)
+      const dauer = momentDauer(m)
+      if (m.art === 'umkreisen') {
+        this.orbitA += MOMENT_ORBIT_SPEED * dt
+        this.updateOrbitCamera(dt, p, this.preset.behind * this.scaleSm.v, this.preset.hover * this.hoverSm.v)
+      } else if (m.art === 'aufstieg') {
+        // Kamera-Bodenpunkt halten, Flughöhe + Blick über die Dauer anheben
+        const t = Math.min(1, this.momentT / dauer)
+        const ease = t * t * (3 - 2 * t)
+        const riderG = this.groundAlt([p[0], p[1]], p[2])
+        const zielAlt = riderG + this.preset.hover * this.hoverSm.v * (1 + (MOMENT_ASCEND_LIFT - 1) * ease)
+        this.smoothTowards(dt, [this.cg.lng.v, this.cg.lat.v], zielAlt, p)
+      } // innehalten: kein Kamera-Update → Pose bleibt exakt eingefroren
+      this.applyCamera()
+      this.ui.updateTrace(this.s, pointAt(route, this.s))
+      if (this.momentT >= dauer) {
+        this.phase = 'ride'
+        this.momentReady = false
+        this.activeMoment = null
+        this.glide = 1.8 // weicher Wiederanlauf
+      }
+      return
+    }
+
     if (this.phase === 'photo' && this.photoShown) {
       // Foto sichtbar: Route UND Kamera stehen komplett still — kein Orbit,
       // kein Nachschwingen. Der Einfrier-Moment liegt unter dem Kamerablitz.
@@ -704,7 +756,7 @@ export class Tour {
         this.phase === 'ride' && !this.scrubbing && this.playing
           ? this.baseSpeed * this.mult * (MODE_SPEED[mo.mode] ?? 1)
           : 0
-      const speedTau = this.phase === 'photo' ? 0.55 : 1.1
+      const speedTau = this.phase === 'photo' || this.phase === 'moment' ? 0.55 : 1.1
       this.speed += (speedTarget - this.speed) * (1 - Math.exp(-dt / speedTau))
       // Beim Scrubben bestimmt allein der Zeigefinger die Position; sonst trägt
       // die Richtung (this.dir) das Vorzeichen — Rückwärtswiedergabe per JKL.
@@ -725,6 +777,17 @@ export class Tour {
           this.nextIdx++
         }
       }
+      // Moment-Trigger: gleiche Bremsweg-Logik wie beim Foto, eigener Zeiger.
+      if (this.phase === 'ride' && !this.scrubbing && this.playing && this.dir > 0 && this.nextMomentIdx < this.moments.length) {
+        const brake = this.speed * 0.62
+        if (this.s >= this.moments[this.nextMomentIdx].s - brake) {
+          this.phase = 'moment'
+          this.activeMoment = this.moments[this.nextMomentIdx]
+          this.momentReady = false
+          this.nextMomentIdx++
+          this.glide = 2.2 // weicher Eingang in die Kamerabewegung
+        }
+      }
       // Ausgerollt: Karte zeigen — ab jetzt steht alles still
       if (this.phase === 'photo' && this.speed < 4) {
         this.speed = 0
@@ -733,9 +796,18 @@ export class Tour {
         this.holdT = 0
         this.ui.showPhoto(this.shownStop.items[0], 0, this.shownStop.items.length)
       }
+      // Moment ausgerollt: Bewegung starten. Orbit-Azimut nahtlos aus der
+      // aktuellen Kameralage übernehmen (wie beim Finale-Eintritt).
+      if (this.phase === 'moment' && !this.momentReady && this.speed < 4 && this.activeMoment) {
+        this.speed = 0
+        this.momentReady = true
+        this.momentT = 0
+        const p = pointAt(route, this.activeMoment.s)
+        this.orbitA = bearing([p[0], p[1]], [this.cg.lng.v, this.cg.lat.v])
+      }
     }
 
-    if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && !this.scrubbing && this.playing) {
+    if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && this.phase !== 'moment' && !this.scrubbing && this.playing) {
       if (this.phase !== 'finale') {
         this.phase = 'finale'
         this.glide = 2.2
@@ -835,7 +907,7 @@ export class Tour {
 
   emitStats() {
     const p = pointAt(this.route, this.s)
-    const inTour = this.phase === 'ride' || this.phase === 'photo'
+    const inTour = this.phase === 'ride' || this.phase === 'photo' || this.phase === 'moment'
     const next = inTour && this.nextIdx < this.stops.length ? this.stops[this.nextIdx] : null
     const mo = this.modeAt(this.s)
     this.ui.stats({

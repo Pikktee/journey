@@ -41,7 +41,9 @@ export interface TourJsonAntwort {
   weather?: Array<{ f: number; mode: string; k: number; source?: string }>
   timeline?: Array<{ f: number; t: string }>
   /** Kamera-Keyframes über den Streckenanteil f (Kreativbaukasten): Preset ab f */
-  camera?: Array<{ f: number; preset: string }>
+  camera?: Array<{ f: number; preset: string; skala?: number }>
+  /** Kamera-Momente über den Streckenanteil f: Punkt-Ereignisse (Umkreisen/…) */
+  moments?: Array<{ f: number; art: string; dauerS?: number }>
   /** Audio-Spuren über den Streckenanteil f: Musik-Bereiche [f0,f1) + SFX (f0=f1) */
   audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
   stats: { km: number; gainM: number }
@@ -73,7 +75,9 @@ export interface RemoteTourCfg {
   weather?: Array<{ km: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
   /** Kamera-Keyframes (roh, f-basiert — main.js rechnet frac = s/total selbst) */
-  camera?: Array<{ f: number; preset: string }>
+  camera?: Array<{ f: number; preset: string; skala?: number }>
+  /** Kamera-Momente (roh, f-basiert — main.js verankert sie an s) */
+  moments?: Array<{ f: number; art: string; dauerS?: number }>
   /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.js spielt sie ab) */
   audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
   stats: { km: number; gainM: number }
@@ -146,6 +150,12 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
   if (tour.camera?.length) {
     const kamera = tour.camera.filter((k) => Number.isFinite(k.f))
     if (kamera.length) cfg.camera = kamera
+  }
+  if (tour.moments?.length) {
+    // f muss endlich sein (landet als s-Anker in der Engine); dauerS optional,
+    // aber wenn gesetzt endlich (sonst NaN-Timer im Moment-Zweig).
+    const momente = tour.moments.filter((m) => Number.isFinite(m.f) && (m.dauerS === undefined || Number.isFinite(m.dauerS)))
+    if (momente.length) cfg.moments = momente
   }
   if (tour.audio?.length) {
     // gain ist optional — aber wenn gesetzt, muss er endlich sein: NaN liefe

@@ -4,7 +4,15 @@
 
 export const UPLOAD_SCHEMA_ID = 'luhambo/upload@1'
 
-export type Modus = 'walk' | 'bike' | 'tram' | 'ferry'
+/**
+ * Fortbewegungs-Modi — muss deckungsgleich mit der Player-Engine bleiben
+ * (MODE_SPEED/MODE_SCALE in src/tour.js, MODE_ICONS in src/map.js,
+ * MODE_SOUND in src/vehicle.js). Eine Quelle für Typ UND JSON-Schema-Enums,
+ * damit die drei Stellen nicht wieder auseinanderlaufen.
+ */
+export const MODI = ['walk', 'moped', 'bike', 'jeep', 'tram', 'ferry'] as const
+
+export type Modus = (typeof MODI)[number]
 
 /** Trackpunkt: [lng, lat, ele(m), tOffset(s ab time.start)] */
 export type UploadPunkt = [number, number, number, number]
@@ -68,7 +76,7 @@ export const uploadManifestJsonSchema = {
     title: { type: ['string', 'null'], maxLength: 200 },
     description: { type: ['string', 'null'], maxLength: 5000 },
     trackFile: { type: 'string', minLength: 1, maxLength: 255 },
-    trackMode: { enum: ['walk', 'bike', 'tram', 'ferry'] },
+    trackMode: { enum: [...MODI] },
     time: {
       type: 'object',
       additionalProperties: false,
@@ -88,7 +96,7 @@ export const uploadManifestJsonSchema = {
         additionalProperties: false,
         required: ['mode', 'pts'],
         properties: {
-          mode: { enum: ['walk', 'bike', 'tram', 'ferry'] },
+          mode: { enum: [...MODI] },
           label: { type: 'string', maxLength: 60 },
           pts: {
             type: 'array',

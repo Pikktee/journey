@@ -6,7 +6,17 @@
 // Wie serverseitig gilt: Edits referenzieren stabile Anker (Medien-IDs,
 // Koordinaten, absolute Zeitstempel), nie den Streckenanteil f.
 
-export type Modus = 'walk' | 'bike' | 'tram' | 'ferry'
+/**
+ * Fortbewegungs-Modi — deckungsgleich mit MODI in server/src/schema/upload.ts
+ * und mit der Player-Engine (MODE_SPEED/MODE_SCALE in src/tour.js). Reihenfolge
+ * wie in der UI: unmotorisiert → motorisiert → öffentlich → Wasser.
+ * Ein Drift-Wächter in test/studio-baukasten.test.ts vergleicht die Liste mit
+ * der Engine — sie lief schon einmal auseinander (Studio kannte moped/jeep nicht,
+ * obwohl Engine, Icons und Motorsound sie längst hatten).
+ */
+export const MODI = ['walk', 'bike', 'moped', 'jeep', 'tram', 'ferry'] as const
+
+export type Modus = (typeof MODI)[number]
 /** Trackpunkt der Editor-Daten: [lng, lat, ele, tOffsetS] */
 export type TrackPunkt = [number, number, number, number]
 
@@ -34,7 +44,32 @@ export type KameraPreset = 'nah' | 'mittel' | 'weit'
 export interface KameraGrenze {
   ab: string
   preset: KameraPreset
+  /**
+   * Stufenlose Feinjustierung von Abstand UND Höhe (0.5 = halb so weit weg,
+   * 2 = doppelt). Fehlt oder 1 = Preset unverändert. Multipliziert im Player die
+   * behind/hover-Werte des Presets (setPreset in src/tour.js).
+   */
+  skala?: number
 }
+
+/**
+ * Kamera-Moment: an einem Punkt hält die Fahrt kurz an und die Kamera führt
+ * eine dramatische Bewegung aus. Punkt-Ereignis (kein Band) — verankert am
+ * absoluten Zeitpunkt wie eine Grenze.
+ */
+export type MomentArt = 'umkreisen' | 'aufstieg' | 'innehalten'
+export interface KameraMoment {
+  ab: string
+  art: MomentArt
+  /** Dauer in s; fehlt = Default der Art (siehe MOMENT_DEFAULT_S). */
+  dauerS?: number
+}
+
+/**
+ * Default-Dauern je Moment-Art (s). Muss mit der Engine (src/tour.js) synchron
+ * bleiben — ein Drift-Wächter in test/studio-baukasten.test.ts prüft das.
+ */
+export const MOMENT_DEFAULT_S: Record<MomentArt, number> = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
 
 /** Platziertes Audio-Asset: Musik mit Bereich [ab,bis], SFX als Einzelschuss. */
 export interface AudioEintrag {
@@ -43,6 +78,12 @@ export interface AudioEintrag {
   ab: string
   bis?: string
   lautstaerke?: number
+  /**
+   * Herkunft der Datei. Fehlt = tour-lokal hochgeladen (→ /api/media/…).
+   * 'bibliothek' = kuratierter Effekt aus [[sfxbibliothek]] (→ /audio/sfx/…),
+   * liegt global und wird nicht mit der Tour hochgeladen.
+   */
+  quelle?: 'bibliothek'
 }
 
 export interface EditOverlay {
@@ -51,6 +92,7 @@ export interface EditOverlay {
   modi?: ModusGrenze[]
   trim?: { start?: string; ende?: string }
   kamera?: KameraGrenze[]
+  momente?: KameraMoment[]
   audio?: AudioEintrag[]
 }
 
@@ -217,10 +259,11 @@ export function mitTrim(edits: EditOverlay, teil: 'start' | 'ende', iso: string 
   return naechste
 }
 
-/** Grenze setzen/ersetzen (gleicher `ab`-Zeitpunkt = ersetzen), sortiert. */
-export function mitKameraGrenze(edits: EditOverlay, ab: string, preset: KameraPreset): EditOverlay {
+/** Grenze setzen/ersetzen (gleicher `ab`-Zeitpunkt = ersetzen), sortiert.
+ *  skala 1/undefined wird weggelassen — hält das gespeicherte JSON minimal. */
+export function mitKameraGrenze(edits: EditOverlay, ab: string, preset: KameraPreset, skala?: number): EditOverlay {
   const kamera = (edits.kamera ?? []).filter((g) => g.ab !== ab)
-  kamera.push({ ab, preset })
+  kamera.push(skala !== undefined && skala !== 1 ? { ab, preset, skala } : { ab, preset })
   kamera.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
   return { ...edits, kamera }
 }
@@ -230,6 +273,22 @@ export function ohneKameraGrenze(edits: EditOverlay, ab: string): EditOverlay {
   const naechste: EditOverlay = { ...edits }
   if (kamera.length) naechste.kamera = kamera
   else delete naechste.kamera
+  return naechste
+}
+
+/** Moment setzen/ersetzen (gleicher `ab` = ersetzen), sortiert. */
+export function mitMoment(edits: EditOverlay, ab: string, art: MomentArt, dauerS?: number): EditOverlay {
+  const momente = (edits.momente ?? []).filter((m) => m.ab !== ab)
+  momente.push(dauerS !== undefined ? { ab, art, dauerS } : { ab, art })
+  momente.sort((a, b) => Date.parse(a.ab) - Date.parse(b.ab))
+  return { ...edits, momente }
+}
+
+export function ohneMoment(edits: EditOverlay, ab: string): EditOverlay {
+  const momente = (edits.momente ?? []).filter((m) => m.ab !== ab)
+  const naechste: EditOverlay = { ...edits }
+  if (momente.length) naechste.momente = momente
+  else delete naechste.momente
   return naechste
 }
 
@@ -281,9 +340,19 @@ export function pruefeOverlay(edits: EditOverlay): string | null {
   // nur ein generisches „Ungültige Anfrage" zurück
   if ((edits.modi ?? []).length > 200) return 'Zu viele Modus-Grenzen (maximal 200)'
   if ((edits.kamera ?? []).length > 100) return 'Zu viele Kamera-Grenzen (maximal 100)'
+  if ((edits.momente ?? []).length > 100) return 'Zu viele Kamera-Momente (maximal 100)'
   if ((edits.audio ?? []).length > 50) return 'Zu viele Audio-Einträge (maximal 50)'
   for (const g of edits.kamera ?? []) {
     if (!Number.isFinite(Date.parse(g.ab))) return `Unparsebare Kamera-Grenze: ${g.ab}`
+    if (g.skala !== undefined && !(Number.isFinite(g.skala) && g.skala >= 0.5 && g.skala <= 2)) {
+      return `Kamera-Feinjustierung muss zwischen 0.5 und 2 liegen`
+    }
+  }
+  for (const m of edits.momente ?? []) {
+    if (!Number.isFinite(Date.parse(m.ab))) return `Unparsebarer Kamera-Moment: ${m.ab}`
+    if (m.dauerS !== undefined && !(Number.isFinite(m.dauerS) && m.dauerS >= 1 && m.dauerS <= 30)) {
+      return `Moment-Dauer muss zwischen 1 und 30 Sekunden liegen`
+    }
   }
   for (const [i, a] of (edits.audio ?? []).entries()) {
     if (!Number.isFinite(Date.parse(a.ab))) return `Audio ${i + 1}: unparsebarer Beginn`

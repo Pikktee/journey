@@ -627,7 +627,7 @@
     .grenz-zeile .farbe { width: 9px; height: 9px; border-radius: 3px; flex: none; }
     .grenz-zeile span:not(.farbe) { flex: 1; }
     .grenz-zeile button { padding: 3px 8px; font-size: 11.5px; margin-left: auto; }
-    #editor-trim.hinweis, #editor-grenzen.hinweis { font-size: 12.5px; }
+    #editor-trim:not(:empty) { margin-top: 9px; }
 
     #editor-medien { display: flex; flex-direction: column; gap: 9px; }
     .medien-zeile {
@@ -697,119 +697,161 @@
     }
     .t-marker { border-color: var(--akzent); color: var(--akzent); }
 
-    /* — Zeitleiste (Kreativbaukasten): Zeitachse mit Trim-Griffen, Bändern,
-         Medien-Dots, Pins und Audio-Spur — schwebt unten über der Karte — */
+    /* — Zeitleiste: EINE BAHN JE EREIGNISTYP (Fortbewegung, Kamera, Audio,
+         Fotos) auf gemeinsamer Zeitachse. Zustände sind lückenlose, beschriftete
+         Bänder — Anfang und Ende eines Zustands sind dieselbe Kante; vorher lagen
+         alle Typen als Punkt-Pins in einer einzigen Zeile übereinander. Trim,
+         Auswahl und Hover liegen als Overlay über allen Bahnen. — */
     #zeitleiste {
       position: absolute;
       left: 14px;
       right: 14px;
       bottom: 12px;
       z-index: 4;
-      background: rgba(11, 15, 21, 0.88);
+      background: rgba(11, 15, 21, 0.9);
       border: 1px solid var(--rand);
       border-radius: 13px;
       backdrop-filter: blur(14px);
       box-shadow: var(--schatten);
-      padding: 12px 14px 8px;
+      padding: 10px 14px 7px;
       user-select: none;
       touch-action: none;
     }
-    .zl-spur { position: relative; height: 30px; }
-    .zl-grund { position: absolute; inset: 10px 0; border-radius: 6px; background: var(--fl-2); overflow: hidden; }
-    .zl-band { position: absolute; top: 0; bottom: 0; opacity: 0.9; }
-    .zl-band.inaktiv { opacity: 0.22; }
-    .zl-schatten { position: absolute; top: 8px; bottom: 8px; background: rgba(4, 6, 10, 0.62); pointer-events: none; z-index: 2; }
-    .zl-schatten.links { left: 0; border-radius: 6px 0 0 6px; }
-    .zl-schatten.rechts { right: 0; border-radius: 0 6px 6px 0; }
-    .zl-griff {
-      position: absolute;
-      top: 2px;
-      bottom: 2px;
-      width: 12px;
-      margin-left: -6px;
-      z-index: 4; /* über den Medien-Dots: die Griffe sind das primäre Werkzeug */
-      cursor: ew-resize;
-      display: flex;
+    /* Label-Spalte + Bahn-Spalte: alle Bahnen und die Achse teilen dieselbe
+       Geometrie, sonst fluchten die Ereignisse nicht übereinander. */
+    .zl-bahnen {
+      position: relative;
+      display: grid;
+      grid-template-columns: var(--zl-label, 96px) 1fr;
+      column-gap: 10px;
+      row-gap: 3px;
       align-items: center;
+    }
+    .zl-name {
+      font-size: 10.5px;
+      color: var(--text-3);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .zl-bahn { position: relative; height: 21px; border-radius: 5px; background: var(--fl-2); overflow: hidden; }
+    .zl-bahn.audio, .zl-bahn.medien { height: 18px; }
+
+    /* Zustandsband — die Beschriftung macht das Nachschlagen im Seitenpanel überflüssig */
+    .zl-band { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; overflow: hidden; }
+    .zl-band span {
+      padding-left: 6px;
+      font-size: 10px;
+      line-height: 1;
+      color: rgba(6, 10, 16, 0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+    .zl-band.inaktiv { opacity: 0.25; }
+    .zl-band.kamera span { color: var(--text-2); }
+    /* Grundband = noch keine Grenze gesetzt: sichtbar, aber offensichtlich „leer" */
+    .zl-band.kamera.grund {
+      background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px);
+    }
+    .zl-band.kamera.grund span { color: var(--text-3); }
+
+    /* Ziehbare Bandkante = die Grenze im Overlay */
+    .zl-kante {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 22px;
+      margin-left: -11px;
+      z-index: 3;
+      cursor: grab;
+      display: flex;
       justify-content: center;
     }
-    .zl-griff::before {
+    .zl-kante::before {
       content: '';
-      width: 5px;
+      width: 2.5px;
       height: 100%;
-      border-radius: 4px;
-      background: var(--akzent);
-      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.8);
-      transition: transform 120ms ease;
+      background: rgba(242, 237, 227, 0.85);
+      box-shadow: 0 0 0 1px rgba(6, 8, 12, 0.75);
+      transition: width 120ms ease, background 120ms ease;
     }
-    .zl-griff:hover::before, .zl-griff.zieht::before { transform: scaleX(1.5); }
-    .zl-dot {
+    .zl-kante:hover::before { width: 4px; background: var(--akzent); }
+    /* Während eines Zugs gilt der Greif-Cursor überall — die Leiste wird pro
+       pointermove neu gebaut, eine Klasse am gezogenen Element überlebt das nicht */
+    #zeitleiste.zieht * { cursor: grabbing; }
+
+    /* Foto-Marke: Breite = Haltedauer (Größenkodierung, s. zeitleiste.ts) */
+    .zl-marke {
       position: absolute;
       top: 50%;
-      width: 11px;
       height: 11px;
-      margin: -5.5px 0 0 -5.5px;
-      border-radius: 50%;
+      margin-top: -5.5px;
+      border-radius: 6px;
       background: #fff;
-      border: 2.5px solid var(--akzent);
+      border: 2px solid var(--akzent);
       box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.7);
       z-index: 3;
       cursor: pointer;
       transition: transform 120ms ease;
     }
-    .zl-dot:hover { transform: scale(1.35); }
-    .zl-dot.video { border-radius: 3px; }
-    .zl-pin {
+    .zl-marke:hover { transform: scaleY(1.3); }
+    .zl-marke.video { border-radius: 3px; border-color: var(--lila); }
+
+    /* Kamera-Moment: Punkt-Marke mit Art-Symbol, ziehbar */
+    .zl-moment {
       position: absolute;
-      top: -3px;
-      width: 10px;
-      height: 10px;
-      margin-left: -5px;
-      border-radius: 3px 3px 3px 0;
-      transform: rotate(-45deg);
-      border: 1.5px solid rgba(6, 8, 12, 0.8);
-      z-index: 3;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
+      border-radius: 50%;
+      background: var(--fl-3);
+      border: 1.5px solid var(--akzent);
+      color: var(--akzent);
+      font-size: 10px;
+      line-height: 13px;
+      text-align: center;
       cursor: grab;
+      z-index: 3;
+      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.7);
+      transition: transform 120ms ease;
     }
-    .zl-pin.kamera { background: var(--text-2); border-radius: 50% 50% 50% 0; }
-    .zl-pin.zieht { cursor: grabbing; }
-    .zl-hover { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--text); opacity: 0.65; pointer-events: none; z-index: 4; display: none; }
-    .zl-tip {
-      position: absolute;
-      bottom: calc(100% + 6px);
-      transform: translateX(-50%);
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      padding: 3px 7px;
-      background: rgba(6, 8, 12, 0.92);
-      border: 1px solid var(--rand-hell);
-      border-radius: 6px;
-      white-space: nowrap;
-      pointer-events: none;
-      z-index: 5;
-      display: none;
-    }
-    .zl-audio { position: relative; height: 16px; margin-top: 3px; }
-    .zl-audio:empty { display: none; }
+    .zl-moment:hover { transform: scale(1.2); }
+    .zl-moment.fokus { background: var(--akzent); color: #0b0f15; box-shadow: 0 0 0 2px var(--akzent), 0 0 9px rgba(245, 165, 36, 0.5); }
+
+    /* Audio */
     .zl-audio-balken {
       position: absolute;
       top: 2px;
-      height: 12px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, rgba(245, 165, 36, 0.55), rgba(255, 111, 82, 0.55));
-      border: 1px solid rgba(245, 165, 36, 0.8);
+      height: 14px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, rgba(245, 165, 36, 0.5), rgba(255, 111, 82, 0.5));
+      border-left: 2.5px solid var(--akzent);
+      border-right: 2.5px solid var(--akzent);
       cursor: grab;
       min-width: 8px;
+      /* KEIN overflow:hidden — das clippt die 7px überstehenden Kanten-Griffe
+         weg und macht Anfang/Ende ungreifbar. Der Name clippt selbst. */
     }
-    .zl-audio-balken .kante {
+    .zl-audio-balken span {
       position: absolute;
-      top: -2px;
-      bottom: -2px;
-      width: 8px;
-      cursor: ew-resize;
+      inset: 0;
+      padding-left: 5px;
+      line-height: 14px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
     }
-    .zl-audio-balken .kante.von { left: -4px; }
-    .zl-audio-balken .kante.bis { right: -4px; }
+    .zl-audio-balken .kante { position: absolute; top: -2px; bottom: -2px; width: 14px; cursor: ew-resize; }
+    .zl-audio-balken .kante.von { left: -7px; }
+    .zl-audio-balken .kante.bis { right: -7px; }
     .zl-sfx {
       position: absolute;
       top: 50%;
@@ -822,7 +864,71 @@
       border-radius: 2px;
       cursor: grab;
     }
-    .zl-ticks { position: relative; height: 14px; margin-top: 2px; }
+
+    /* Overlay über ALLE Bahnen — Trim, Auswahl, Hover gehen durch.
+       BEWUSST absolut statt als Grid-Item: ein Item mit grid-row: 1/-1 belegt
+       die ganze Spalte 2 und drängt die auto-platzierten Bahnen in Spalte 1. */
+    .zl-overlay {
+      position: absolute;
+      left: calc(var(--zl-label, 96px) + 10px); /* Label-Spalte + column-gap */
+      right: 0;
+      top: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .zl-schatten { position: absolute; top: 0; bottom: 0; background: rgba(4, 6, 10, 0.66); border-radius: 5px; }
+    .zl-schatten.links { left: 0; }
+    .zl-schatten.rechts { right: 0; }
+    .zl-griff {
+      position: absolute;
+      top: -3px;
+      bottom: -3px;
+      width: 24px; /* Trefferfläche; der sichtbare Strich ist 4px */
+      margin-left: -12px;
+      cursor: ew-resize;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zl-griff::before {
+      content: '';
+      width: 4px;
+      height: 100%;
+      border-radius: 3px;
+      background: var(--akzent);
+      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.8);
+      transition: transform 120ms ease;
+    }
+    .zl-griff:hover::before, .zl-griff.zieht::before { transform: scaleX(1.6); }
+    .zl-linie { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--text); opacity: 0.6; display: none; }
+    .zl-linie.auswahl { display: block; background: var(--akzent); opacity: 0.95; }
+    .zl-tip {
+      position: absolute;
+      bottom: calc(100% + 7px);
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 3px 7px;
+      background: rgba(6, 8, 12, 0.92);
+      border: 1px solid var(--rand-hell);
+      border-radius: 6px;
+      white-space: nowrap;
+      display: none;
+    }
+    /* Achse: gleiche Spaltenaufteilung wie die Bahnen */
+    .zl-fuss { display: grid; grid-template-columns: var(--zl-label, 96px) 1fr; column-gap: 10px; margin-top: 3px; }
+    /* Laufzeit der Animation — bewusst nur EINE Zahl, keine zweite Zeitachse */
+    .zl-dauer {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-2);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .zl-ticks { position: relative; height: 13px; }
     .zl-ticks span {
       position: absolute;
       transform: translateX(-50%);
@@ -830,6 +936,29 @@
       font-size: 9.5px;
       color: var(--text-3);
     }
+
+    /* — Fokus: dasselbe Objekt in Zeitleiste, Karte und Inspector — */
+    .zl-band.fokus { box-shadow: inset 0 0 0 2px var(--akzent); }
+    .zl-band.fokus span { color: var(--text); }
+    .zl-audio-balken.fokus, .zl-sfx.fokus, .zl-marke.fokus {
+      box-shadow: 0 0 0 2px var(--akzent), 0 0 10px rgba(245, 165, 36, 0.5);
+    }
+
+    /* — Inspector (Sidebar) — */
+    #editor-inspektor .insp-kopf { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+    #editor-inspektor .insp-kopf .farbe { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+    #editor-inspektor .insp-kopf strong { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #editor-inspektor .insp-zeit {
+      margin-top: 4px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-2);
+    }
+    #editor-inspektor .insp-aktionen { display: flex; align-items: center; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+    #editor-inspektor .insp-aktionen select { width: auto; flex: 1; min-width: 110px; font-size: 11.5px; padding: 5px 26px 5px 8px; }
+    #editor-inspektor .insp-aktionen button { padding: 5px 9px; font-size: 11.5px; }
+    #editor-inspektor .insp-dauer { width: 58px; flex: none; font-size: 11.5px; padding: 5px 6px; }
+    #editor-inspektor .insp-skala { flex: 1 1 100%; accent-color: var(--akzent); height: 4px; margin-top: 2px; }
 
     /* — Audio-Panel (Sidebar) — */
     .audio-zeile {
@@ -852,6 +981,34 @@
     .audio-zeile .a-fuss button { padding: 4px 8px; font-size: 11px; }
     .audio-zeile .a-fuss .laut { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); width: 38px; text-align: right; }
 
+    .audio-knoepfe { display: flex; gap: 7px; margin-top: 8px; }
+    .audio-knoepfe button { flex: 1; }
+    .a-quelle { font-size: 10px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; flex: none; }
+
+    /* — Soundeffekt-Bibliothek (Dialog) — */
+    .sfx-dialog {
+      width: min(560px, 92vw);
+      max-height: 82vh;
+      padding: 0;
+      border: 1px solid var(--rand-hell);
+      border-radius: 15px;
+      background: var(--fl-1);
+      color: var(--text);
+      box-shadow: var(--schatten);
+      overflow: hidden;
+    }
+    .sfx-dialog::backdrop { background: rgba(4, 6, 10, 0.6); backdrop-filter: blur(3px); }
+    .sfx-kopf { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--rand); }
+    .sfx-kopf strong { font-size: 15px; font-weight: 500; }
+    .sfx-inhalt { padding: 8px 16px 16px; overflow-y: auto; max-height: calc(82vh - 56px); }
+    .sfx-gruppe { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin: 14px 0 7px; }
+    .sfx-eintrag { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--rand); }
+    .sfx-eintrag .sfx-text { flex: 1; min-width: 0; }
+    .sfx-eintrag .sfx-name { font-size: 13px; }
+    .sfx-eintrag .sfx-besch { font-size: 11.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sfx-eintrag button { padding: 5px 9px; font-size: 11.5px; flex: none; }
+    .sfx-eintrag .sfx-hoeren { width: 30px; padding: 5px 0; }
+
     /* — Foto-Optionen in der Medien-Zeile — */
     .m-optionen { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
     .m-optionen select { width: auto; font-size: 11.5px; padding: 4px 26px 4px 8px; }
@@ -866,7 +1023,7 @@
     @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
     .m-marker.puls { animation: markerPuls 700ms ease-out 2; }
     @keyframes zeileBlitz { 0% { border-color: var(--akzent); background: rgba(245, 165, 36, 0.1); } 100% { border-color: var(--rand); background: var(--fl-1); } }
-    .medien-zeile.blitz { animation: zeileBlitz 1.4s ease-out; }
+    .medien-zeile.blitz, .audio-zeile.blitz { animation: zeileBlitz 1.4s ease-out; }
     .hover-marker { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); box-shadow: 0 0 8px rgba(242, 237, 227, 0.6); pointer-events: none; }
 
     /* ————————————————— Schmale Viewports ————————————————— */
@@ -879,9 +1036,25 @@
       .tour-actions { width: 100%; justify-content: flex-end; }
       .editor-rumpf { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; }
       .editor-seite { border-left: none; border-top: 1px solid var(--rand); }
-      #editor-status { display: none; }
+      /* Status als Streifen UNTER den Kopf, statt ihn auszublenden — sonst sind
+         Speicher- und Fehlermeldungen auf schmalen Viewports unsichtbar. */
+      .editor-kopf { position: relative; }
+      #editor-status {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin: 0;
+        padding: 7px 14px;
+        background: rgba(13, 17, 24, 0.94);
+        border-bottom: 1px solid var(--rand);
+        z-index: 6;
+      }
+      #editor-status:empty { display: none; }
       /* Kopf-Aktionen icon-only, damit Speichern nie aus dem Bild läuft */
       .editor-kopf :is(button:not(.icon), .knopf) { font-size: 0; gap: 0; padding: 10px; }
+      /* Schmalere Label-Spalte der Zeitleiste */
+      .zl-bahnen, .zl-fuss { --zl-label: 62px; }
     }
   </style>
 </head>
@@ -911,6 +1084,12 @@
       </symbol>
       <symbol id="i-neu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4.5 12a7.5 7.5 0 0 1 13-5.1L19.5 9"/><path d="M19.5 4.5V9H15"/><path d="M19.5 12a7.5 7.5 0 0 1-13 5.1L4.5 15"/><path d="M4.5 19.5V15H9"/>
+      </symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 14 4 9l5-5"/><path d="M4 9h10a5.5 5.5 0 0 1 0 11h-3"/>
+      </symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 14 5-5-5-5"/><path d="M20 9H10a5.5 5.5 0 0 0 0 11h3"/>
       </symbol>
       <symbol id="i-haken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <path d="m4.5 12.5 5 5L19.5 7"/>
@@ -1136,6 +1315,8 @@
            per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
       <input id="editor-titel" type="text" placeholder="Titel der Tour" />
       <div class="hinweis" id="editor-status" role="status"></div>
+      <button class="icon" id="editor-undo" disabled title="Rückgängig (⌘Z)" aria-label="Rückgängig"><svg><use href="#i-undo"/></svg></button>
+      <button class="icon" id="editor-redo" disabled title="Wiederherstellen (⇧⌘Z)" aria-label="Wiederherstellen"><svg><use href="#i-redo"/></svg></button>
       <a id="editor-vorschau" class="knopf" href="#" target="_blank" rel="noopener"><svg><use href="#i-play"/></svg>Vorschau</a>
       <button id="editor-reprocess" title="Benennung/Wetter neu ableiten — Bearbeitungen bleiben erhalten"><svg><use href="#i-neu"/></svg>Neu verarbeiten</button>
       <button id="editor-speichern" class="primaer"><svg><use href="#i-haken"/></svg>Speichern</button>
@@ -1147,9 +1328,16 @@
         <div id="zeitleiste" hidden></div>
       </div>
       <aside class="editor-seite">
+        <!-- Inspector: zeigt, was in Zeitleiste oder Karte gewählt ist. Ersetzt
+             die früheren Dauer-Listen (Trim/Grenzen/Kamera), die dieselbe
+             Information ein zweites Mal und ohne Ende-Angabe zeigten. -->
         <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Ausgewählter Punkt</div>
-          <div class="hinweis" id="editor-punkt-info">Auf den Track klicken, um einen Punkt zu wählen.</div>
+          <div class="gruppen-titel">Auswahl</div>
+          <div id="editor-inspektor"></div>
+        </div>
+        <div class="werkzeug-gruppe">
+          <div class="gruppen-titel">Einfügemarke</div>
+          <div class="hinweis" id="editor-punkt-info">Auf den Track oder die Zeitleiste klicken.</div>
           <div class="editor-aktionen">
             <button id="e-trim-start" disabled title="Alles vor diesem Punkt abschneiden">⟦ Start ab hier</button>
             <button id="e-trim-ende" disabled title="Alles nach diesem Punkt abschneiden">Ende bis hier ⟧</button>
@@ -1158,6 +1346,8 @@
             <select id="e-grenze-mode" aria-label="Fortbewegung ab diesem Punkt">
               <option value="walk">Zu Fuß</option>
               <option value="bike">Rad</option>
+              <option value="moped">Moped</option>
+              <option value="jeep">Jeep</option>
               <option value="tram">Tram</option>
               <option value="ferry">Fähre</option>
             </select>
@@ -1168,24 +1358,22 @@
               <option value="weit">Kamera weit</option>
             </select>
             <button id="e-kamera" disabled title="Kamera-Nähe ab diesem Punkt ändern">ab hier</button>
+            <select id="e-moment-art" aria-label="Kamera-Moment an diesem Punkt">
+              <option value="umkreisen">Umkreisen</option>
+              <option value="aufstieg">Aufstieg</option>
+              <option value="innehalten">Innehalten</option>
+            </select>
+            <button id="e-moment" disabled title="Kamera-Moment an diesem Punkt setzen — die Fahrt hält dort kurz an">Moment</button>
           </div>
-        </div>
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Trim</div>
-          <div id="editor-trim" class="hinweis">—</div>
-        </div>
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Fortbewegungs-Grenzen</div>
-          <div id="editor-grenzen" class="hinweis">—</div>
-        </div>
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Kamera-Verläufe</div>
-          <div id="editor-kamera" class="hinweis">—</div>
+          <div id="editor-trim"></div>
         </div>
         <div class="werkzeug-gruppe">
           <div class="gruppen-titel">Musik &amp; Sound</div>
           <div id="editor-audio"></div>
-          <button id="e-audio-hinzu" style="margin-top: 8px;"><svg aria-hidden="true"><use href="#i-note"/></svg>Musik/Sound hochladen</button>
+          <div class="audio-knoepfe">
+            <button id="e-audio-bibliothek"><svg aria-hidden="true"><use href="#i-note"/></svg>Aus Bibliothek</button>
+            <button id="e-audio-hinzu"><svg aria-hidden="true"><use href="#i-upload"/></svg>Hochladen</button>
+          </div>
           <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
           <div class="hinweis" id="editor-audio-status" role="status"></div>
         </div>
@@ -1199,6 +1387,14 @@
         </div>
       </aside>
     </div>
+    <!-- Soundeffekt-Bibliothek: Inhalt wird aus SFX_BIBLIOTHEK gebaut -->
+    <dialog id="sfx-dialog" class="sfx-dialog">
+      <div class="sfx-kopf">
+        <strong>Soundeffekt-Bibliothek</strong>
+        <button class="icon" id="sfx-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-zurueck"/></svg></button>
+      </div>
+      <div class="sfx-inhalt" id="sfx-inhalt"></div>
+    </dialog>
   </section>
 
   <script type="module" src="/src/studio/studio.ts"></script>

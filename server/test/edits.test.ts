@@ -327,6 +327,42 @@ describe('reichereAn mit Edit-Overlay', () => {
     expect(meldungen.some((m) => /Kamera-Grenze hinter dem Track-Ende/.test(m))).toBe(true)
   })
 
+  it('reicht die Kamera-Feinjustierung (skala) durch, lässt 1 weg', async () => {
+    const tour = await reichereAn(
+      eingabe({
+        schema: 'luhambo/edits@1',
+        kamera: [
+          { ab: iso(300), preset: 'nah', skala: 1.4 },
+          { ab: iso(600), preset: 'weit', skala: 1 }, // skala 1 → kein Feld
+        ],
+      }),
+    )
+    expect(tour.camera?.[0]).toMatchObject({ preset: 'nah', skala: 1.4 })
+    expect(tour.camera?.[1] && 'skala' in tour.camera[1]).toBe(false)
+  })
+
+  it('rendert Kamera-Momente an f, verwirft solche hinter dem Track-Ende', async () => {
+    const meldungen: string[] = []
+    const tour = await reichereAn({
+      ...eingabe({
+        schema: 'luhambo/edits@1',
+        momente: [
+          { ab: iso(600), art: 'umkreisen', dauerS: 8 },
+          { ab: iso(300), art: 'innehalten' }, // Default-Dauer (kein dauerS)
+          { ab: iso(3600), art: 'aufstieg' }, // hinter Track-Ende (t=1800) → weg
+        ],
+      }),
+      protokoll: (m) => meldungen.push(m),
+    })
+    expect(tour.moments).toHaveLength(2)
+    // sortiert nach f (300 vor 600)
+    expect(tour.moments?.[0]).toMatchObject({ art: 'innehalten' })
+    expect(tour.moments?.[0] && 'dauerS' in tour.moments[0]).toBe(false)
+    expect(tour.moments?.[1]).toMatchObject({ art: 'umkreisen', dauerS: 8 })
+    expect(tour.moments?.[0]?.f).toBeLessThan(tour.moments?.[1]?.f ?? 0)
+    expect(meldungen.some((m) => /Kamera-Moment hinter dem Track-Ende/.test(m))).toBe(true)
+  })
+
   it('rendert Audio-Spuren: musik als Bereich mit gain, sfx als Punkt (Baukasten)', async () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
@@ -348,6 +384,25 @@ describe('reichereAn mit Edit-Overlay', () => {
     expect(sfx?.type).toBe('sfx')
     expect(sfx?.f0).toBe(sfx?.f1)
     expect(sfx && 'gain' in sfx).toBe(false)
+  })
+
+  it('Bibliotheks-Audio: /audio/sfx-URL, keine media/-Prüfung', async () => {
+    const meldungen: string[] = []
+    const tour = await reichereAn({
+      ...eingabe({
+        schema: 'luhambo/edits@1',
+        audio: [
+          { datei: 'sfx-moewe.mp3', typ: 'sfx', ab: iso(900), quelle: 'bibliothek' },
+          { datei: 'amb-hafen.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
+        ],
+      }),
+      audioDateien: [], // Bibliothekseffekte liegen NICHT unter media/
+      protokoll: (m) => meldungen.push(m),
+    })
+    expect(meldungen).toEqual([]) // nicht als fehlend gemeldet
+    expect(tour.audio).toHaveLength(2)
+    expect(tour.audio?.[0]).toMatchObject({ type: 'music', src: '/audio/sfx/amb-hafen.mp3', f0: 0 })
+    expect(tour.audio?.[1]).toMatchObject({ type: 'sfx', src: '/audio/sfx/sfx-moewe.mp3' })
   })
 
   it('überspringt fehlende Audio-Dateien mit Warnung — audio bleibt dann weg', async () => {

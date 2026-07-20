@@ -105,22 +105,85 @@ export function baueMedienDots(
   return dots.sort((a, b) => a.anteil - b.anteil)
 }
 
-export interface ZeitPin {
-  /** Overlay-Anker (ISO) — Identität für Entfernen/Drag */
-  ab: string
-  anteil: number
-  text: string
+/** Abschnitt gleichen Zustands — mit Anfang UND Ende. */
+export interface ZustandsBand<T> {
+  von: number
+  bis: number
+  wert: T
+  /**
+   * ISO-Anker der Grenze, die dieses Band eröffnet — null beim Grundband vor
+   * der ersten Grenze. Identität für Ziehen/Entfernen (wie bei den Pins zuvor).
+   */
+  ab: string | null
 }
 
-export function bauePins(
-  eintraege: ReadonlyArray<{ ab: string; text: string }>,
+/**
+ * Grenzen („gilt ab T") in lückenlose Bänder übersetzen: jedes Band reicht bis
+ * zur nächsten Grenze, das letzte bis ans Ende der Leiste.
+ *
+ * Der Punkt der Übung: Eine Grenze zeigt nur, wo ein Zustand ANFÄNGT — wo er
+ * aufhört, musste man sich bisher aus der nächsten Grenze zusammenreimen. Als
+ * Band ist beides dieselbe Kante.
+ */
+export function baueZustandsBaender<T>(
+  grenzen: ReadonlyArray<{ ab: string; wert: T }>,
   startIso: string,
   skala: ZeitSkala,
-): ZeitPin[] {
-  return eintraege
-    .map((e) => ({ ab: e.ab, text: e.text, offset: isoZuOffset(startIso, e.ab) }))
-    .filter((e) => Number.isFinite(e.offset))
-    .map((e) => ({ ab: e.ab, text: e.text, anteil: offsetZuAnteil(skala, e.offset) }))
+  grund: T,
+): Array<ZustandsBand<T>> {
+  const sortiert = grenzen
+    .map((g) => ({ ab: g.ab, wert: g.wert, anteil: offsetZuAnteil(skala, isoZuOffset(startIso, g.ab)) }))
+    .filter((g) => Number.isFinite(g.anteil))
+    .sort((a, b) => a.anteil - b.anteil)
+
+  const baender: Array<ZustandsBand<T>> = []
+  let von = 0
+  let wert = grund
+  let ab: string | null = null
+  for (const g of sortiert) {
+    baender.push({ von, bis: g.anteil, wert, ab })
+    von = g.anteil
+    wert = g.wert
+    ab = g.ab
+  }
+  baender.push({ von, bis: 1, wert, ab })
+  // Null-breite Bänder (Grenze bei 0, zwei Grenzen auf demselben Punkt) fallen weg
+  return baender.filter((b) => b.bis > b.von)
+}
+
+/** Default-Haltedauer eines Fotos — entspricht „Auto (5 s)" im Editor. */
+export const HALTEDAUER_DEFAULT_S = 5
+
+/**
+ * Maßstab der Haltedauer-Breite: Anteil der Leistenbreite je Sekunde.
+ *
+ * BEWUSST unabhängig von der Zeitachse: Die Haltedauer ist Wiedergabezeit, die
+ * Leiste zeigt Aufnahmezeit — eine echte Projektion gäbe es nur über die
+ * Pausen-Kompression der Pipeline (zeit.ts), die hier nicht vorliegt. Die
+ * Breite ist eine Größenkodierung („12 s ist viermal so breit wie 3 s"),
+ * keine Zeitspanne auf der Achse; die Marke ist deshalb als Pille gezeichnet.
+ */
+const BREITE_JE_SEKUNDE = 0.0035
+
+export interface MedienMarke extends MedienDot {
+  /** Haltedauer in s (0 bei Video: die Länge liegt im Editor-Modell nicht vor) */
+  haltedauerS: number
+  /** Breite als Anteil der Leiste — Größenkodierung, s. BREITE_JE_SEKUNDE */
+  breite: number
+}
+
+/** Medien-Dots plus sichtbarer Haltedauer. */
+export function baueMedienMarken(
+  medien: readonly MediumAnzeige[],
+  track: readonly TrackPunkt[],
+  skala: ZeitSkala,
+): MedienMarke[] {
+  const nachId = new Map(medien.map((m) => [m.id, m]))
+  return baueMedienDots(medien, track, skala).map((d) => {
+    const m = nachId.get(d.id)
+    const haltedauerS = m?.type === 'photo' ? (m.display?.holdS ?? HALTEDAUER_DEFAULT_S) : 0
+    return { ...d, haltedauerS, breite: haltedauerS * BREITE_JE_SEKUNDE }
+  })
 }
 
 export interface AudioBalken {
@@ -154,6 +217,76 @@ export function baueTrimGriffe(edits: EditOverlay, startIso: string, skala: Zeit
   const start = edits.trim?.start !== undefined ? offsetZuAnteil(skala, isoZuOffset(startIso, edits.trim.start)) : 0
   const ende = edits.trim?.ende !== undefined ? offsetZuAnteil(skala, isoZuOffset(startIso, edits.trim.ende)) : 1
   return { start, ende }
+}
+
+// — Wiedergabedauer schätzen —
+//
+// Die Zeitleiste zeigt AUFNAHMEZEIT; wie lang die fertige Animation läuft, ist
+// eine andere Größe (die Engine fährt die Strecke mit eigenem Tempo ab und hält
+// an jedem Foto an). Beides auf einer Achse zu zeigen wäre verwirrend — deshalb
+// nur diese eine Zahl.
+//
+// Die drei Konstanten spiegeln src/tour.js. Ein Drift-Wächter in
+// test/studio-baukasten.test.ts vergleicht sie mit der Engine.
+
+/** `baseSpeed` in src/tour.js: Streckenfortschritt bei 1× in m/s. */
+const BASIS_TEMPO_MS = 120
+/** Spiegel von MODE_SPEED (src/tour.js). */
+const TEMPO: Record<Modus, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
+/** `HOLD_HIDE` (5,2 s Anzeige) + `HOLD_AUSBLEND` (0,8 s) in src/tour.js. */
+const HALT_ENGINE_S = 5.2
+const HALT_AUSBLEND_S = 0.8
+
+/** Meter zwischen zwei Trackpunkten (lokale Plattkarte — auf Segmentlänge genau genug). */
+function meterZwischen(a: TrackPunkt, b: TrackPunkt): number {
+  const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180)
+  const dx = (b[0] - a[0]) * kx
+  const dy = (b[1] - a[1]) * 110_540
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+/**
+ * Grobe Laufzeit der fertigen Animation in Sekunden: Fahrzeit je Abschnitt
+ * (Länge ÷ modusabhängiges Tempo) plus die Haltezeit an jedem Foto.
+ *
+ * BEWUSST eine Näherung: Die Engine glättet und resampled die Route beim Laden
+ * (buildRoute), beschleunigt weich an und hat ein Intro, das läuft, bis der
+ * Zuschauer startet. Für die Frage „grob zwei Minuten oder eher zehn?" reicht
+ * das; deshalb wird der Wert auch mit „~" angezeigt.
+ */
+export function schaetzeAnimationsdauer(
+  abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
+  haltedauernS: readonly number[],
+): number {
+  let sekunden = 0
+  for (const a of abschnitte) {
+    if (!a.aktiv) continue // weggetrimmt: läuft nicht mit
+    let meter = 0
+    for (let i = 1; i < a.pts.length; i++) {
+      meter += meterZwischen(a.pts[i - 1] as TrackPunkt, a.pts[i] as TrackPunkt)
+    }
+    sekunden += meter / (BASIS_TEMPO_MS * (TEMPO[a.mode] ?? 1))
+  }
+  for (const halt of haltedauernS) sekunden += halt + HALT_AUSBLEND_S
+  return sekunden
+}
+
+/** Haltedauer eines Fotos, wie die Engine sie anwendet (display.holdS oder Default). */
+export function haltedauerS(display?: { holdS?: number }): number {
+  return display?.holdS ?? HALT_ENGINE_S
+}
+
+/**
+ * Dauer in Sekunden → kurze Anzeige („2:05 Std", „14 Min", „38 Sek").
+ * Für den Inspector: Zu einem Band gehört nicht nur „ab wann", sondern auch,
+ * wie lange es gilt.
+ */
+export function formatiereDauer(sekunden: number): string {
+  const s = Math.max(0, Math.round(sekunden))
+  if (s < 60) return `${s} Sek`
+  const min = Math.round(s / 60)
+  if (min < 60) return `${min} Min`
+  return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')} Std`
 }
 
 /** Beschriftungs-Ticks: volle Stunden (oder Viertelstunden bei kurzen Touren). */
