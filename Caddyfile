@@ -21,8 +21,15 @@
 		@assets path /assets/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 
-		# index.html nie langfristig cachen, damit neue Deploys sofort greifen.
-		header /index.html Cache-Control "no-cache"
+		# HTML-Einstiegsseiten nie langfristig cachen, damit neue Deploys sofort
+		# greifen. Sie verweisen auf die gehashten Assets — bleibt die HTML im
+		# Cache, bleibt auch die alte App-Version, obwohl neue Assets bereitstehen.
+		# FRÜHER stand hier nur /index.html: beim Umzug des Players auf
+		# /erlebnis.html (v0.8.0) wurde die Regel nicht mitgezogen, wodurch die
+		# App-WebView nach einem Deploy weiter das alte Bundle lud (am Gerät
+		# beobachtet). Der Glob deckt jetzt auch künftige Seiten ab.
+		@html path / *.html
+		header @html Cache-Control "no-cache"
 
 		# Unbekannte Pfade auf index.html zurückfallen (App nutzt ?tour=-Query,
 		# keine echten Unterpfade — schadet aber nicht).
