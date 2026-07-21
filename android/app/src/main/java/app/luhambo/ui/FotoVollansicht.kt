@@ -15,22 +15,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,9 +38,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -92,40 +92,54 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
                 }
             }
 
-            TextField(
-                value = titel.orEmpty(),
-                onValueChange = { titel = it },
-                placeholder = { Text("Titel hinzufügen", color = Color(0x99FFFFFF)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { tastatur?.hide() }),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                ),
-                modifier = Modifier
+            // Kein Material-Textfeld: dessen Container und Unterstrich zögen auf
+            // schwarzem Grund einen grauen Kasten unter das Bild. Hier steht
+            // nur die Zeile selbst — mit gesperrter Überschrift darüber, damit
+            // erkennbar bleibt, dass sie beschreibbar ist.
+            Column(
+                Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 8.dp),
-            )
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+            ) {
+                Abschnittstitel("Titel")
+                Spacer(Modifier.height(8.dp))
+                Box {
+                    if (titel.isNullOrEmpty()) {
+                        Text(
+                            "Was ist hier zu sehen?",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Tinte.copy(alpha = 0.4f),
+                        )
+                    }
+                    BasicTextField(
+                        value = titel.orEmpty(),
+                        onValueChange = { titel = it },
+                        textStyle = MaterialTheme.typography.titleLarge.copy(color = Tinte),
+                        cursorBrush = SolidColor(Sonne),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { tastatur?.hide() }),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
 
-        IconButton(
-            onClick = zurueck,
-            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp),
-        ) {
-            Icon(Icons.Default.Close, contentDescription = "Schließen", tint = Color.White)
-        }
+        Rundknopf(
+            symbol = Icons.Default.Close,
+            beschreibung = "Schließen",
+            beiKlick = zurueck,
+            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
+        )
 
         if (loeschenErlaubt) {
-            IconButton(
-                onClick = { fragtLoeschen = true },
-                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp),
-            ) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = "Foto löschen", tint = Color.White)
-            }
+            Rundknopf(
+                symbol = Icons.Default.DeleteOutline,
+                beschreibung = "Foto löschen",
+                beiKlick = { fragtLoeschen = true },
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
+            )
         }
     }
 

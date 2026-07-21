@@ -8,16 +8,21 @@
 // Der Verifikations-Hinweis erscheint nur, wenn die Adresse noch nicht bestätigt
 // ist: ein grünes „Bestätigt" wäre eine Auszeichnung fürs Nichtstun. Fehlt die
 // Bestätigung, blockiert sie dagegen jeden Upload — dann muss es auffallen.
+//
+// Oben steht die Reisebilanz, nicht das Formular: Wer sein Profil öffnet, will
+// in aller Regel sehen, was er zusammengereist hat, und nicht seine Bio pflegen.
 package app.luhambo.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +30,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -33,20 +40,15 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,15 +60,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.luhambo.LuhamboApp
 import coil.compose.AsyncImage
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfilScreen(viewModel: ProfilViewModel) {
     val konto by viewModel.konto.collectAsState()
@@ -78,6 +81,7 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
     var anzeigename by remember { mutableStateOf<String?>(null) }
     var bio by remember { mutableStateOf<String?>(null) }
     var hinweisOhneNamen by remember { mutableStateOf(false) }
+    val nameFokus = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { viewModel.aktualisiere() }
 
@@ -110,151 +114,201 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
         berechneReisestatistik(verschmelzeTouren(lokale, vomServer))
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Profil") }) }) { innen ->
-        Column(
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
+    ) {
+        Spacer(Modifier.statusBarsPadding().height(24.dp))
+
+        // — Wer man ist —
+        Box(
             Modifier
-                .fillMaxSize()
-                .padding(innen)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Spacer(Modifier.height(4.dp))
-
-            // — Bild —
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(104.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable {
-                            bildWaehler.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                            )
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val bild = konto?.profil?.avatarUrl?.let { app.serverUrl() + it }
-                    if (bild != null) {
-                        AsyncImage(
-                            model = bild,
-                            contentDescription = "Profilbild ändern",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.AddAPhoto,
-                            contentDescription = "Profilbild wählen",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            if (konto?.profil?.avatarUrl != null) {
-                TextButton(
-                    onClick = viewModel::loescheAvatar,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) { Text("Bild entfernen") }
-            }
-
-            // — Reisen —
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Kennzahl(statistik.touren.toString(), "Touren")
-                Kennzahl(String.format(Locale.GERMAN, "%.0f", statistik.kilometer), "Kilometer")
-                Kennzahl(String.format(Locale.GERMAN, "%.0f", statistik.hoehenmeter), "Höhenmeter")
-            }
-
-            OutlinedTextField(
-                value = anzeigename.orEmpty(),
-                onValueChange = { anzeigename = it },
-                label = { Text("Anzeigename") },
-                placeholder = { Text("Wie du in der Galerie erscheinst") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = bio.orEmpty(),
-                onValueChange = { bio = it },
-                label = { Text("Über dich") },
-                placeholder = { Text("Ein, zwei Sätze") },
-                modifier = Modifier.fillMaxWidth().height(110.dp),
-            )
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Profilseite öffentlich", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Deine öffentlichen Touren erscheinen unter einer eigenen Seite.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                .clickable {
+                    bildWaehler.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
-                }
-                Switch(
-                    checked = konto?.profil?.oeffentlich == true,
-                    onCheckedChange = { an ->
-                        // Ohne Anzeigenamen wäre die Seite namenlos — einmal nachfragen
-                        if (an && anzeigename.isNullOrBlank()) hinweisOhneNamen = true
-                        else viewModel.setzeOeffentlich(an)
-                    },
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            val bild = konto?.profil?.avatarUrl?.let { app.serverUrl() + it }
+            if (bild != null) {
+                AsyncImage(
+                    model = bild,
+                    contentDescription = "Profilbild ändern",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Icon(
+                    Icons.Default.AddAPhoto,
+                    contentDescription = "Profilbild wählen",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(26.dp),
                 )
             }
+        }
 
-            HorizontalDivider()
+        Spacer(Modifier.height(14.dp))
+        val name = anzeigename?.takeIf { it.isNotBlank() }
+        if (name != null) {
+            Text(name, style = MaterialTheme.typography.headlineMedium)
+        } else {
+            // Kein Name gesetzt: nicht „Ohne Anzeigenamen" in Überschriftgröße
+            // hinschreiben — das macht aus einer Leerstelle einen Vorwurf.
+            // Stattdessen der Weg, sie zu füllen; der Fokus springt ins Feld
+            // weiter unten, und Compose scrollt es von selbst ins Bild.
+            TextButton(
+                onClick = { nameFokus.requestFocus() },
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+            ) { Text("Anzeigenamen festlegen") }
+        }
+        if (konto?.profil?.avatarUrl != null) {
+            TextButton(
+                onClick = viewModel::loescheAvatar,
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) { Text("Bild entfernen") }
+        }
 
-            // — Konto —
-            if (konto != null && !konto!!.verifiziert) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Default.WarningAmber, contentDescription = null)
-                        Text(
-                            "Bestätige deine E-Mail-Adresse — bis dahin lassen sich keine Touren hochladen.",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
-            }
+        // — Was man gereist ist —
+        Spacer(Modifier.height(24.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Kennzahl(statistik.touren.toString(), "Reisen", Modifier.weight(1f))
+            Trenner()
+            Kennzahl(String.format(Locale.GERMAN, "%.0f", statistik.kilometer), "Kilometer", Modifier.weight(1f))
+            Trenner()
+            Kennzahl(String.format(Locale.GERMAN, "%.0f", statistik.hoehenmeter), "Höhenmeter", Modifier.weight(1f))
+        }
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Konto", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(34.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        // — Was andere sehen —
+        Spacer(Modifier.height(26.dp))
+        Abschnittstitel("Öffentliches Profil")
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(
+            value = anzeigename.orEmpty(),
+            onValueChange = { anzeigename = it },
+            label = { Text("Anzeigename") },
+            placeholder = { Text("Wie du in der Galerie erscheinst") },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.fillMaxWidth().focusRequester(nameFokus),
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = bio.orEmpty(),
+            onValueChange = { bio = it },
+            label = { Text("Über dich") },
+            placeholder = { Text("Ein, zwei Sätze") },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.fillMaxWidth().height(104.dp),
+        )
+
+        Spacer(Modifier.height(18.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Profilseite freigeben", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    konto?.email ?: "…",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "Deine öffentlichen Reisen erscheinen dann unter einer eigenen Seite.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                konto?.let { stand ->
-                    if (stand.limitBytes > 0) {
-                        LinearProgressIndicator(
-                            progress = { stand.quotaAnteil.coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Text(
-                            "${megabyte(stand.benutztBytes)} von ${megabyte(stand.limitBytes)} belegt",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
             }
-
-            OutlinedButton(onClick = viewModel::abmelden, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Abmelden", Modifier.padding(start = 8.dp))
-            }
-            Spacer(Modifier.height(24.dp))
+            Switch(
+                checked = konto?.profil?.oeffentlich == true,
+                onCheckedChange = { an ->
+                    // Ohne Anzeigenamen wäre die Seite namenlos — einmal nachfragen
+                    if (an && anzeigename.isNullOrBlank()) hinweisOhneNamen = true
+                    else viewModel.setzeOeffentlich(an)
+                },
+            )
         }
+
+        Spacer(Modifier.height(30.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        // — Was einen selbst betrifft —
+        Spacer(Modifier.height(26.dp))
+        Abschnittstitel("Konto")
+        Spacer(Modifier.height(14.dp))
+
+        if (konto != null && !konto!!.verifiziert) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    "Bestätige deine E-Mail-Adresse — bis dahin lassen sich keine Reisen hochladen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+        }
+
+        Text(
+            konto?.email ?: "…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        konto?.let { stand ->
+            if (stand.limitBytes > 0) {
+                Spacer(Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { stand.quotaAnteil.coerceIn(0f, 1f) },
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    color = Sonne,
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "${megabyte(stand.benutztBytes)} von ${megabyte(stand.limitBytes)} belegt",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(26.dp))
+        TextButton(onClick = viewModel::abmelden) {
+            Icon(
+                Icons.AutoMirrored.Filled.Logout,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Text("Abmelden", Modifier.padding(start = 8.dp))
+        }
+        Spacer(Modifier.height(56.dp))
     }
 
     if (hinweisOhneNamen) {
@@ -273,17 +327,29 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
     }
 }
 
+/** Eine Zahl mit ihrer Bedeutung darunter — Ziffern in gleicher Breite. */
 @Composable
-private fun Kennzahl(wert: String, beschriftung: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(wert, style = MaterialTheme.typography.headlineMedium)
+private fun Kennzahl(wert: String, beschriftung: String, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(wert, style = MaterialTheme.typography.displayMedium.copy(fontSize = 30.sp))
+        Spacer(Modifier.height(4.dp))
         Text(
-            beschriftung,
-            style = MaterialTheme.typography.labelMedium,
+            beschriftung.uppercase(Locale.GERMAN),
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
         )
     }
+}
+
+/** Senkrechter Strich zwischen den Kennzahlen. */
+@Composable
+private fun Trenner() {
+    Box(
+        Modifier
+            .width(1.dp)
+            .height(30.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant),
+    )
 }
 
 private fun megabyte(bytes: Long): String =

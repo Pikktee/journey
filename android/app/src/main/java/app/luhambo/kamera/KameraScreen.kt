@@ -5,9 +5,10 @@
 // und Poster des Videos ermittelt das Backend beim Anreichern.
 //
 // Bedienung wie in einer gewohnten Kamera-App: Kneifen zoomt stufenlos, die
-// Pille springt auf feste Stufen, ein Tippen setzt Fokus und Belichtung, oben
-// wechseln Blitz und Frontkamera. Nach dem Auslösen schließt der Screen — an
-// einem Punkt der Strecke entsteht in aller Regel EIN Foto.
+// Pille springt auf feste Stufen, ein Tippen setzt Fokus und Belichtung. Alles,
+// was die Hand bedient — Zoom, Foto/Video, Auslöser, Kamerawechsel — liegt
+// unten; oben stehen nur Schließen und Blitz. Nach dem Auslösen schließt der
+// Screen — an einem Punkt der Strecke entsteht in aller Regel EIN Foto.
 package app.luhambo.kamera
 
 import android.Manifest
@@ -40,11 +41,16 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,14 +59,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -80,10 +80,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import app.luhambo.LuhamboApp
 import app.luhambo.aufzeichnung.AufzeichnungsZustand
+import app.luhambo.ui.Alarm
+import app.luhambo.ui.Rundknopf
+import app.luhambo.ui.Sonne
+import app.luhambo.ui.Tinte
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -289,162 +294,232 @@ fun KameraScreen(zurueck: () -> Unit) {
 
         // Schließen: läuft eine Aufnahme, erst sauber stoppen (Finalize registriert
         // sie asynchron), dann zurück — sonst direkt zurück.
-        IconButton(
-            onClick = {
+        //
+        // statusBarsPadding ist hier Pflicht, nicht Feinschliff: Die Vorschau
+        // füllt den Bildschirm bis unter die Systemleisten, und ohne den Abstand
+        // liegen X, Blitz und Umschalter auf der Uhr.
+        Rundknopf(
+            symbol = Icons.Default.Close,
+            beschreibung = "Schließen",
+            beiKlick = {
                 if (aufnahmeLaeuft != null) {
                     aufnahmeLaeuft?.stop()
                     aufnahmeLaeuft = null
                 }
                 zurueckEinmal()
             },
-            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-        ) {
-            Icon(Icons.Default.Close, contentDescription = "Schließen", tint = Color.White)
-        }
+            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
+        )
 
-        // Blitz und Kamerawechsel — während einer laufenden Videoaufnahme gesperrt
-        if (aufnahmeLaeuft == null) {
-            Row(
-                Modifier.align(Alignment.TopEnd).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (blitzNutzbar) {
-                    IconButton(onClick = { blitz = blitz.naechster() }) {
-                        Icon(
-                            when (blitz) {
-                                BlitzModus.AUS -> Icons.Default.FlashOff
-                                BlitzModus.AUTOMATISCH -> Icons.Default.FlashAuto
-                                BlitzModus.AN -> Icons.Default.FlashOn
-                            },
-                            contentDescription = blitz.beschriftung,
-                            tint = if (blitz == BlitzModus.AUS) Color.White else MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-                IconButton(onClick = { vorne = !vorne }) {
+        // Blitz oben rechts — während einer laufenden Videoaufnahme gesperrt
+        if (aufnahmeLaeuft == null && blitzNutzbar) {
+            Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp)) {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x8A06090E))
+                        .clickable(onClickLabel = blitz.beschriftung) { blitz = blitz.naechster() },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
-                        Icons.Default.Cameraswitch,
-                        contentDescription = if (vorne) "Rückkamera" else "Frontkamera",
-                        tint = Color.White,
+                        when (blitz) {
+                            BlitzModus.AUS -> Icons.Default.FlashOff
+                            BlitzModus.AUTOMATISCH -> Icons.Default.FlashAuto
+                            BlitzModus.AN -> Icons.Default.FlashOn
+                        },
+                        contentDescription = blitz.beschriftung,
+                        tint = if (blitz == BlitzModus.AUS) Tinte else Sonne,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
         }
 
-        // Foto/Video-Umschalter (während einer laufenden Aufnahme gesperrt)
-        if (aufnahmeLaeuft == null) {
-            Row(
-                Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = modus == AufnahmeModus.FOTO,
-                    onClick = { modus = AufnahmeModus.FOTO },
-                    label = { Text("Foto") },
-                )
-                FilterChip(
-                    selected = modus == AufnahmeModus.VIDEO,
-                    onClick = { modus = AufnahmeModus.VIDEO },
-                    label = { Text("Video") },
-                )
-            }
-        } else {
-            Text(
-                "● Aufnahme läuft",
-                color = Color(0xFFE5484D),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 20.dp),
-            )
-        }
-
-        // Zoom-Pille: feste Stufen zum Anspringen; beim Kneifen dazwischen zeigt
-        // sie stattdessen den erreichten Wert.
-        if (stufen.size > 1 && aufnahmeLaeuft == null) {
-            val aktiv = aktiveStufe(stufen, zoom)
+        if (aufnahmeLaeuft != null) {
             Row(
                 Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 128.dp)
-                    .background(Color(0x66000000), RoundedCornerShape(50))
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 16.dp)
+                    .background(Color(0xB306090E), CircleShape)
+                    .padding(start = 12.dp, end = 15.dp, top = 7.dp, bottom = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (aktiv == null) {
-                    Text(
-                        formatiereZoom(zoom),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                } else {
-                    stufen.forEachIndexed { index, stufe ->
-                        val gewaehlt = index == aktiv
+                Box(Modifier.size(8.dp).clip(CircleShape).background(Alarm))
+                Text("AUFNAHME", style = MaterialTheme.typography.labelSmall, color = Tinte)
+            }
+        }
+
+        // Alle Bedienelemente unten am Daumen — die Reihenfolge ist die jeder
+        // Kamera-App: Zoom, Betriebsart, Auslöser.
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Zoom-Pille: feste Stufen zum Anspringen; beim Kneifen dazwischen
+            // zeigt sie stattdessen den erreichten Wert.
+            if (stufen.size > 1 && aufnahmeLaeuft == null) {
+                val aktiv = aktiveStufe(stufen, zoom)
+                Row(
+                    Modifier
+                        .background(Color(0x8A06090E), RoundedCornerShape(50))
+                        .padding(horizontal = 5.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (aktiv == null) {
                         Text(
-                            stufe.beschriftung,
-                            color = if (gewaehlt) MaterialTheme.colorScheme.primary else Color.White,
-                            style = MaterialTheme.typography.labelLarge,
+                            formatiereZoom(zoom),
+                            color = Sonne,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        )
+                    } else {
+                        stufen.forEachIndexed { index, stufe ->
+                            val gewaehlt = index == aktiv
+                            Text(
+                                stufe.beschriftung,
+                                color = if (gewaehlt) Sonne else Tinte,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .clickable { setzeZoom(stufe.ratio) }
+                                    .background(if (gewaehlt) Color(0x26FFFFFF) else Color.Transparent)
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.size(18.dp))
+            }
+
+            // Foto/Video als Wortpaar statt als Chips: Chips sehen nach Filter
+            // aus, hier wird die Betriebsart gewechselt.
+            if (aufnahmeLaeuft == null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AufnahmeModus.entries.forEach { eintrag ->
+                        val gewaehlt = modus == eintrag
+                        Text(
+                            if (eintrag == AufnahmeModus.FOTO) "FOTO" else "VIDEO",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (gewaehlt) Sonne else Tinte.copy(alpha = 0.65f),
                             modifier = Modifier
-                                .clickable { setzeZoom(stufe.ratio) }
-                                .background(
-                                    if (gewaehlt) Color(0x33FFFFFF) else Color.Transparent,
-                                    CircleShape,
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .clip(CircleShape)
+                                .clickable { modus = eintrag }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.size(14.dp))
+            }
+
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.weight(1f))
+                Ausloeser(
+                    modus = modus,
+                    speichert = speichert,
+                    laeuftVideo = aufnahmeLaeuft != null,
+                    beiKlick = {
+                        val aufnahme = AufzeichnungsZustand.aktuell.value ?: return@Ausloeser
+                        if (modus == AufnahmeModus.FOTO) {
+                            if (speichert) return@Ausloeser
+                            speichert = true
+                            val (relativ, datei) = app.repository.neueMediumDatei(aufnahme.tourId, "jpg")
+                            imageCapture.takePicture(
+                                ImageCapture.OutputFileOptions.Builder(datei).build(),
+                                ContextCompat.getMainExecutor(context),
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(ergebnis: ImageCapture.OutputFileResults) {
+                                        app.appScope.launch {
+                                            // Vor dem Registrieren physisch aufrecht drehen (EXIF → Pixel),
+                                            // damit das Foto in Player UND Studio richtig herum erscheint.
+                                            withContext(Dispatchers.IO) { richteFotoAuf(datei) }
+                                            val anker = aufnahme.letzterPunkt?.let { it.lng to it.lat }
+                                            app.repository.registriereFoto(aufnahme.tourId, relativ, System.currentTimeMillis(), anker)
+                                            speichert = false
+                                            zurueckEinmal()
+                                        }
+                                    }
+
+                                    override fun onError(fehler: ImageCaptureException) {
+                                        datei.delete()
+                                        speichert = false
+                                    }
+                                },
+                            )
+                        } else if (aufnahmeLaeuft != null) {
+                            // Stopp: Finalize registriert asynchron im App-Scope, wir gehen zurück
+                            aufnahmeLaeuft?.stop()
+                            aufnahmeLaeuft = null
+                            zurueckEinmal()
+                        } else {
+                            // Start: Ton beim ersten Mal anfragen (danach startet der Launcher-Callback)
+                            if (tonErlaubt) starteVideoAufnahme()
+                            else audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                )
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    if (aufnahmeLaeuft == null) {
+                        Rundknopf(
+                            symbol = Icons.Default.Cameraswitch,
+                            beschreibung = if (vorne) "Rückkamera" else "Frontkamera",
+                            beiKlick = { vorne = !vorne },
                         )
                     }
                 }
             }
         }
+    }
+}
 
-        FloatingActionButton(
-            onClick = {
-                val aufnahme = AufzeichnungsZustand.aktuell.value ?: return@FloatingActionButton
-                if (modus == AufnahmeModus.FOTO) {
-                    if (speichert) return@FloatingActionButton
-                    speichert = true
-                    val (relativ, datei) = app.repository.neueMediumDatei(aufnahme.tourId, "jpg")
-                    imageCapture.takePicture(
-                        ImageCapture.OutputFileOptions.Builder(datei).build(),
-                        ContextCompat.getMainExecutor(context),
-                        object : ImageCapture.OnImageSavedCallback {
-                            override fun onImageSaved(ergebnis: ImageCapture.OutputFileResults) {
-                                app.appScope.launch {
-                                    // Vor dem Registrieren physisch aufrecht drehen (EXIF → Pixel),
-                                    // damit das Foto in Player UND Studio richtig herum erscheint.
-                                    withContext(Dispatchers.IO) { richteFotoAuf(datei) }
-                                    val anker = aufnahme.letzterPunkt?.let { it.lng to it.lat }
-                                    app.repository.registriereFoto(aufnahme.tourId, relativ, System.currentTimeMillis(), anker)
-                                    speichert = false
-                                    zurueckEinmal()
-                                }
-                            }
-
-                            override fun onError(fehler: ImageCaptureException) {
-                                datei.delete()
-                                speichert = false
-                            }
-                        },
-                    )
-                } else if (aufnahmeLaeuft != null) {
-                    // Stopp: Finalize registriert asynchron im App-Scope, wir gehen zurück
-                    aufnahmeLaeuft?.stop()
-                    aufnahmeLaeuft = null
-                    zurueckEinmal()
-                } else {
-                    // Start: Ton beim ersten Mal anfragen (danach startet der Launcher-Callback)
-                    if (tonErlaubt) starteVideoAufnahme()
-                    else audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-            },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp).size(72.dp),
-        ) {
-            when {
-                speichert -> CircularProgressIndicator(Modifier.size(28.dp))
-                modus == AufnahmeModus.FOTO -> Icon(Icons.Default.PhotoCamera, contentDescription = "Foto aufnehmen")
-                aufnahmeLaeuft != null -> Icon(Icons.Default.Stop, contentDescription = "Aufnahme stoppen")
-                else -> Icon(Icons.Default.Videocam, contentDescription = "Video aufnehmen")
-            }
+/**
+ * Der Auslöser — dieselbe Form wie der Aufnahme-Knopf der Hauptleiste.
+ *
+ * Vorher war es ein Standard-FAB: ein abgerundetes Rechteck mit Kamerasymbol.
+ * In einer Vollbild-Kamera erwartet die Hand einen Kreis an dieser Stelle, und
+ * ein Symbol darin sagt nichts, was die Lage nicht schon sagt.
+ */
+@Composable
+private fun Ausloeser(
+    modus: AufnahmeModus,
+    speichert: Boolean,
+    laeuftVideo: Boolean,
+    beiKlick: () -> Unit,
+) {
+    val beschreibung = when {
+        modus == AufnahmeModus.FOTO -> "Foto aufnehmen"
+        laeuftVideo -> "Aufnahme stoppen"
+        else -> "Video aufnehmen"
+    }
+    Box(
+        Modifier
+            .size(74.dp)
+            .clip(CircleShape)
+            .border(3.dp, Tinte.copy(alpha = 0.9f), CircleShape)
+            .clickable(onClickLabel = beschreibung, onClick = beiKlick),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            speichert -> CircularProgressIndicator(Modifier.size(28.dp), color = Tinte, strokeWidth = 3.dp)
+            // Laufendes Video: Quadrat im Ring — das Zeichen für „stoppen"
+            laeuftVideo -> Box(
+                Modifier.size(26.dp).clip(RoundedCornerShape(5.dp)).background(Alarm),
+            )
+            else -> Box(
+                Modifier
+                    .size(58.dp)
+                    .clip(CircleShape)
+                    .background(if (modus == AufnahmeModus.FOTO) Tinte else Alarm),
+            )
         }
     }
 }

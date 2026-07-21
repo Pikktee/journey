@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 
@@ -41,18 +40,20 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
         Modifier.fillMaxSize().padding(horizontal = 28.dp),
         verticalArrangement = Arrangement.Center,
     ) {
+        // Erst der Markenschriftzug, dann der Satz von der Website — das ist
+        // die erste Ansicht der App und die einzige Stelle, an der sie sich
+        // vorstellen kann.
         Text(
-            "Luhambo",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "Melde dich an, um deine Touren aufzuzeichnen, hochzuladen und abzuspielen.",
-            style = MaterialTheme.typography.bodyMedium,
+            "LUHAMBO",
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "Deine Reisen als filmischer Flug über echtes Gelände.",
+            style = MaterialTheme.typography.displaySmall,
+        )
+        Spacer(Modifier.height(34.dp))
 
         OutlinedTextField(
             value = email,
@@ -78,10 +79,14 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
         Button(
             onClick = { viewModel.anmelden(email.trim(), passwort) },
             enabled = !laedt && email.isNotBlank() && passwort.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             if (laedt) {
-                CircularProgressIndicator(Modifier.size(18.dp).padding(end = 8.dp))
+                CircularProgressIndicator(
+                    Modifier.size(16.dp).padding(end = 8.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
             }
             Text("Anmelden")
         }

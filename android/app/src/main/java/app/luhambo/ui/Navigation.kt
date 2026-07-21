@@ -13,6 +13,9 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -21,13 +24,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -44,8 +45,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -239,16 +243,51 @@ private fun wechsleReiter(navController: NavHostController, ziel: String) {
  * und sähe neben dem großen Auslöser nach nicht zu Ende gestalteter Vorlage
  * aus — und zwei zusätzliche Flächen würden ihm die Aufmerksamkeit streitig
  * machen. Der aktive Reiter zeigt sich stattdessen dreifach: gefülltes Symbol
- * (statt Umriss), Sonnenfarbe und heller Text.
+ * (statt Umriss), heller Text und volle Tinte statt gedämpfter.
+ *
+ * Bewusst NICHT in Sonnengelb: Der Akzent gehört dem Auslöser daneben. Zwei
+ * gelbe Punkte nebeneinander, und keiner von beiden führt mehr.
  */
 @Composable
 private fun reiterFarben(): NavigationBarItemColors = NavigationBarItemDefaults.colors(
-    selectedIconColor = Sonne,
-    selectedTextColor = Sonne,
+    selectedIconColor = Tinte,
+    selectedTextColor = Tinte,
     indicatorColor = Color.Transparent,
     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )
+
+/**
+ * Der Aufnahme-Knopf als Kamera-Auslöser: heller Ring, farbiger Kern.
+ *
+ * Vorher war es eine gefüllte gelbe Scheibe mit einem dunklen Punkt in der
+ * Mitte — die las sich als Ring mit Loch, nicht als Knopf, und war die größte
+ * Farbfläche der App. Ring und Kern sind die Form, die jede Kamera-App benutzt;
+ * sie ist sofort verständlich und braucht dafür deutlich weniger Gelb.
+ */
+@Composable
+private fun Ausloeser(aufnahmeLaeuft: Boolean, beiKlick: () -> Unit, modifier: Modifier = Modifier) {
+    val beschriftung =
+        if (aufnahmeLaeuft) "Zur laufenden Aufzeichnung" else "Neue Tour aufzeichnen"
+    Box(
+        modifier
+            .size(64.dp)
+            .clip(CircleShape)
+            // Der eigene dunkle Grund schneidet den Knopf sauber aus der Leiste
+            .background(Nacht)
+            .border(2.dp, Tinte.copy(alpha = 0.5f), CircleShape)
+            .clickable(onClickLabel = beschriftung, onClick = beiKlick)
+            .semantics { contentDescription = beschriftung },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(if (aufnahmeLaeuft) Alarm else Sonne),
+        )
+    }
+}
 
 @Composable
 private fun Hauptleiste(
@@ -260,8 +299,6 @@ private fun Hauptleiste(
     Box(contentAlignment = Alignment.TopCenter) {
         NavigationBar(
             containerColor = NachtFlaeche,
-            // Ohne das mischt Material die Primärfarbe in die Fläche und die
-            // Leiste bekommt einen Braunstich, der zum Nachtblau nicht passt.
             tonalElevation = 0.dp,
         ) {
             NavigationBarItem(
@@ -292,19 +329,10 @@ private fun Hauptleiste(
                 label = { Text("Profil") },
             )
         }
-        FloatingActionButton(
-            onClick = aufnahmeKnopf,
-            // Rund wie ein Auslöser — die eckige Standardform eines FAB liest
-            // sich als „Aktion", nicht als „Aufnahme".
-            shape = CircleShape,
-            containerColor = if (aufnahmeLaeuft) Color(0xFFE5484D) else MaterialTheme.colorScheme.primary,
-            modifier = Modifier.offset(y = (-20).dp).size(64.dp),
-        ) {
-            Icon(
-                Icons.Filled.FiberManualRecord,
-                contentDescription = if (aufnahmeLaeuft) "Zur laufenden Aufzeichnung" else "Neue Tour aufzeichnen",
-                modifier = Modifier.size(28.dp),
-            )
-        }
+        Ausloeser(
+            aufnahmeLaeuft = aufnahmeLaeuft,
+            beiKlick = aufnahmeKnopf,
+            modifier = Modifier.offset(y = (-20).dp),
+        )
     }
 }
