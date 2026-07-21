@@ -2,6 +2,9 @@
 // verschieden aussehen.
 package app.luhambo.ui
 
+import android.net.Uri
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import java.util.Locale
 
 /**
@@ -59,6 +64,63 @@ fun Rundknopf(
     ) {
         Icon(symbol, contentDescription = beschreibung, tint = Tinte, modifier = Modifier.size(20.dp))
     }
+}
+
+/**
+ * Kleines Abspielzeichen über einer Kachel — sagt „hier bewegt sich etwas".
+ *
+ * Ohne das sieht ein Video im Gitter aus wie ein Foto, das zufällig unscharf
+ * geraten ist: Die Kachel zeigt ja nur ein Standbild daraus.
+ */
+@Composable
+fun Videoabzeichen(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(26.dp)
+            .clip(CircleShape)
+            .background(Color(0xA606090E)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Default.PlayArrow,
+            contentDescription = "Video",
+            tint = Tinte,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+/**
+ * Ein abspielbares Video mit den Bedienelementen des Systems.
+ *
+ * `VideoView` statt eines eigenen Players: Es steckt im Framework, kann Datei-
+ * und Netz-Quellen und bringt die gewohnte Leiste mit. Die Kopfzeilen sind der
+ * Grund für die zweite Signatur — Medien beim Server hängen hinter der
+ * Anmeldung, und ohne sie käme nur ein Ladefehler.
+ */
+@Composable
+fun Videoflaeche(
+    quelle: Uri,
+    modifier: Modifier = Modifier,
+    kopfzeilen: Map<String, String> = emptyMap(),
+) {
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            VideoView(ctx).apply {
+                setMediaController(MediaController(ctx).also { it.setAnchorView(this) })
+                setVideoURI(quelle, kopfzeilen)
+                setOnPreparedListener { spieler ->
+                    spieler.isLooping = false
+                    start()
+                }
+            }
+        },
+        onRelease = { ansicht ->
+            // Ohne das läuft der Ton weiter, wenn die Ansicht verschwindet
+            ansicht.stopPlayback()
+        },
+    )
 }
 
 /** Kleine gesperrte Versal-Überschrift — die Gliederung der Website. */

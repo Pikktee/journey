@@ -11,6 +11,7 @@
 // Unterschied liegt in der Quelle — hier kommt alles über die API.
 package app.luhambo.ui
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -101,6 +102,10 @@ fun ServerTourScreen(
     var loeschenDialog by remember { mutableStateOf(false) }
     var teilen by remember { mutableStateOf(false) }
     var grossesFoto by remember { mutableStateOf<Serverfoto?>(null) }
+    // Der VideoView schickt kein Bearer-Token — er kennt nur Kopfzeilen, die wir
+    // ihm mitgeben. Dieselbe Sitzung wie beim WebView-Player tut es auch hier.
+    var sitzung by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { sitzung = runCatching { app.apiClient.sitzungFuerPlayer() }.getOrNull() }
 
     // Einmalig befüllen, sobald geladen ist; danach gehören die Texte dem Nutzer.
     //
@@ -192,6 +197,9 @@ fun ServerTourScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    if (foto.istVideo) {
+                        Videoabzeichen(Modifier.align(Alignment.Center))
+                    }
                 }
             }
 
@@ -240,6 +248,8 @@ fun ServerTourScreen(
     grossesFoto?.let { foto ->
         Fotoschau(
             bildUrl = app.serverUrl() + foto.pfad,
+            videoUrl = (app.serverUrl() + foto.quellPfad).takeIf { foto.istVideo },
+            sitzung = sitzung,
             nutzertext = foto.nutzertext,
             zeitzeile = foto.zeitzeile,
             setzeTitel = { viewModel.setzeFotoTitel(foto.id, it) },
@@ -365,6 +375,9 @@ private fun Serverkopf(
 @Composable
 private fun Fotoschau(
     bildUrl: String,
+    /** Gesetzt, wenn das Medium ein Video ist — dann wird abgespielt statt gezeigt. */
+    videoUrl: String?,
+    sitzung: String?,
     nutzertext: String,
     /** „Foto · 14:32“ — der Zeitstempel über dem Titel. */
     zeitzeile: String?,
@@ -384,12 +397,20 @@ private fun Fotoschau(
     BackHandler(onBack = beenden)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        AsyncImage(
-            model = bildUrl,
-            contentDescription = nutzertext.ifBlank { zeitzeile },
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-        )
+        if (videoUrl != null) {
+            Videoflaeche(
+                quelle = Uri.parse(videoUrl),
+                kopfzeilen = sitzung?.let { mapOf("Cookie" to "luhambo_session=$it") }.orEmpty(),
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            AsyncImage(
+                model = bildUrl,
+                contentDescription = nutzertext.ifBlank { zeitzeile },
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         Column(
             Modifier

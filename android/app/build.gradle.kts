@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.androidx.camera.video)
 
     implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.serialization.json)

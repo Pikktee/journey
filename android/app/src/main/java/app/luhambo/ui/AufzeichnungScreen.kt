@@ -141,15 +141,21 @@ fun AufzeichnungScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(medien, key = { it.id }) { medium ->
-                    AsyncImage(
-                        model = app.repository.mediumDatei(medium),
-                        contentDescription = medium.caption ?: "Aufnahme ${medium.id}",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
+                    Box(
+                        Modifier
                             .size(64.dp)
                             .clip(MaterialTheme.shapes.small)
                             .clickable { zumFoto(laufend.tourId, medium.id) },
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AsyncImage(
+                            model = app.repository.mediumDatei(medium),
+                            contentDescription = medium.caption ?: "Aufnahme ${medium.id}",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        if (medium.typ == "video") Videoabzeichen()
+                    }
                 }
             }
             Spacer(Modifier.height(20.dp))

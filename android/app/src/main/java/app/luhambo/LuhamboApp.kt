@@ -18,6 +18,7 @@ import app.luhambo.upload.Einstellungen.Companion.STANDARD_SERVER
 import app.luhambo.upload.UploadWorker
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.VideoFrameDecoder
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +71,12 @@ class LuhamboApp : Application(), ImageLoaderFactory {
                     )
                 }.build()
             }
+            // Ohne diesen Decoder kann Coil aus einer Videodatei kein Bild
+            // gewinnen und zeichnet eine schwarze Fläche — genau das passierte
+            // mit jedem aufgenommenen Video, in der Kachelreihe wie in der
+            // Vollansicht. Er greift nur lokal: Was beim Server liegt, hat ein
+            // fertiges Standbild (poster) aus der Anreicherung.
+            .components { add(VideoFrameDecoder.Factory()) }
             .build()
     }
 

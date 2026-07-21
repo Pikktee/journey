@@ -76,6 +76,10 @@ data class Serverfoto(
      * Bild entstand, bleibt auch dann interessant, wenn es einen Namen hat.
      */
     val zeitzeile: String?,
+    /** Videos zeigen als Kachel ihr Standbild — abgespielt wird die Datei. */
+    val istVideo: Boolean,
+    /** Serverpfad der abspielbaren Datei; bei Fotos gleich [pfad]. */
+    val quellPfad: String,
 )
 
 /** Konto-Auskunft aus GET /api/auth/me. */
@@ -297,6 +301,8 @@ class ApiClient(private val einstellungen: Einstellungen) {
                     titel = titel,
                     nutzertext = if (zeitzeile.isNotBlank()) titel.orEmpty() else "",
                     zeitzeile = if (zeitzeile.isNotBlank()) zeitzeile else titel,
+                    istVideo = obj["type"]?.jsonPrimitive?.contentOrNull == "video",
+                    quellPfad = src,
                 )
             },
         )

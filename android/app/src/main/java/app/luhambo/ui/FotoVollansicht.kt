@@ -10,6 +10,7 @@
 // eine einzelne Zeile wäre Zeremonie ohne Gewinn.
 package app.luhambo.ui
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,12 +86,20 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 medium?.let { m ->
-                    AsyncImage(
-                        model = viewModel.datei(m),
-                        contentDescription = "Aufgenommenes Foto",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    if (m.typ == "video") {
+                        // Lokale Datei — hier braucht es keine Anmeldung
+                        Videoflaeche(
+                            quelle = Uri.fromFile(viewModel.datei(m)),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        AsyncImage(
+                            model = viewModel.datei(m),
+                            contentDescription = "Aufgenommenes Foto",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
 

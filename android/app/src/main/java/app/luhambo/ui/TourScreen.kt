@@ -164,6 +164,9 @@ fun TourScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    if (medium.typ == "video") {
+                        Videoabzeichen(Modifier.align(Alignment.Center))
+                    }
                 }
             }
 
