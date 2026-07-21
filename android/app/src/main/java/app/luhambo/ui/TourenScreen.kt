@@ -13,6 +13,14 @@
 // Das ist der Normalfall und damit keine Nachricht; die ganze Karte führt
 // ohnehin dorthin. Sichtbar bleiben nur die AUSNAHMEN — lädt hoch, wird
 // verarbeitet, fehlgeschlagen —, denn nur die verlangen etwas vom Nutzer.
+//
+// Keine „N°04"-Plakette mehr auf dem Bild. Auf der Website trägt die Nummer
+// etwas — dort ist es eine kuratierte Auswahl, und „N°02 Stockholm" liest sich
+// wie eine Edition. Hier sind es die eigenen Reisen, chronologisch sortiert und
+// mit Datum: Die Nummer sagt nur, der wievielte Upload es war, und selbst das
+// stimmt nach dem ersten Löschen nicht mehr (der Server vergibt sie als
+// MAX(no) + 1 pro Konto, also wird die Nummer der gelöschten neuesten Reise
+// wieder vergeben).
 package app.luhambo.ui
 
 import androidx.compose.foundation.background
@@ -212,7 +220,6 @@ private fun LokaleKarte(tour: TourEntity, titelbild: java.io.File?, beiKlick: ()
     }
     Bildkarte(
         titel = tour.titel ?: "Unbenannte Tour",
-        marke = null,
         meta = listOfNotNull(km(tour.distanzM / 1000), datum(tour.startMs, tour.zone)),
         meldung = meldung,
         bild = titelbild,
@@ -234,8 +241,7 @@ private fun ServerKarte(
         else -> Meldung(Icons.Default.HourglassEmpty, Sonne, "Wird verarbeitet")
     }
     Bildkarte(
-        titel = tour.titel ?: tour.no,
-        marke = tour.no,
+        titel = tour.titel ?: "Unbenannte Reise",
         meta = listOfNotNull(tour.km?.let { km(it) }, isoDatum(tour.erstelltAm)),
         meldung = meldung,
         bild = bildUrl,
@@ -253,7 +259,6 @@ private fun ServerKarte(
 @Composable
 private fun Bildkarte(
     titel: String,
-    marke: String?,
     meta: List<String>,
     meldung: Meldung?,
     bild: Any?,
@@ -303,9 +308,6 @@ private fun Bildkarte(
                 ),
         )
 
-        if (marke != null) {
-            Plakette(marke, Modifier.align(Alignment.TopStart).padding(14.dp))
-        }
         if (meldung != null) {
             Zustandsplakette(meldung, Modifier.align(Alignment.TopEnd).padding(14.dp))
         }
@@ -335,20 +337,6 @@ private fun Bildkarte(
             }
         }
     }
-}
-
-/** Die Tour-Nummer, wie sie auch auf der Website über den Bildern steht. */
-@Composable
-private fun Plakette(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = Tinte,
-        modifier = modifier
-            .background(Color(0x8A06090E), CircleShape)
-            .border(1.dp, Color(0x33FFFFFF), CircleShape)
-            .padding(horizontal = 11.dp, vertical = 5.dp),
-    )
 }
 
 @Composable

@@ -138,7 +138,6 @@ fun ServerTourScreen(
                     titelbild = aktuelleTour?.cover?.let { app.serverUrl() + it },
                     titel = titel.orEmpty(),
                     setzeTitel = { titel = it },
-                    marke = aktuelleTour?.no,
                     abspielen = aktuelleTour
                         ?.takeIf { it.spielbar }
                         ?.let { t -> { abspielen(t.id) } },
@@ -295,7 +294,6 @@ private fun Serverkopf(
     titelbild: String?,
     titel: String,
     setzeTitel: (String) -> Unit,
-    marke: String?,
     abspielen: (() -> Unit)?,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
@@ -354,7 +352,7 @@ private fun Serverkopf(
         Schreibzeile(
             wert = titel,
             setzeWert = setzeTitel,
-            platzhalter = marke ?: "Unbenannte Reise",
+            platzhalter = "Unbenannte Reise",
             stil = MaterialTheme.typography.headlineMedium,
             fokus = fokus,
             fertig = { tastatur?.hide() },
