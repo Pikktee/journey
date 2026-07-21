@@ -17,6 +17,8 @@ export default defineConfig({
         main: 'index.html',
         erlebnis: 'erlebnis.html',
         studio: 'studio.html',
+        galerie: 'galerie.html',
+        profil: 'profil.html',
         impressum: 'impressum.html',
         datenschutz: 'datenschutz.html',
       },

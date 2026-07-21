@@ -31,13 +31,18 @@ class TeilenLinkTest {
     }
 
     @Test
-    fun `Oeffentlich steht erst zur Wahl, wenn es die Galerie gibt`() {
+    fun `Oeffentlich steht nur zur Wahl, wenn es die Galerie gibt`() {
         // Sonst wäre es ein Versprechen auf eine Seite, die niemand aufrufen kann
         val ohne = Sichtbarkeit.waehlbare(galerieVerfuegbar = false)
         assertFalse(ohne.contains(Sichtbarkeit.OEFFENTLICH))
         assertEquals(listOf(Sichtbarkeit.PRIVAT, Sichtbarkeit.UNGELISTET), ohne)
 
         assertTrue(Sichtbarkeit.waehlbare(galerieVerfuegbar = true).contains(Sichtbarkeit.OEFFENTLICH))
+    }
+
+    @Test
+    fun `die Galerie ist inzwischen da, also steht die Stufe zur Wahl`() {
+        assertTrue(Sichtbarkeit.waehlbare(GALERIE_VERFUEGBAR).contains(Sichtbarkeit.OEFFENTLICH))
     }
 
     @Test

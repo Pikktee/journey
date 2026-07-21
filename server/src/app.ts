@@ -14,6 +14,7 @@ import type { VideoWerkzeug } from './pipeline/video.js'
 import type { BildKlassifikator } from './pipeline/vision.js'
 import type { WetterQuelle } from './pipeline/weather.js'
 import { registriereAuthRouten } from './routes/auth.js'
+import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
 import { registriereTourRouten } from './routes/tours.js'
 import type { Storage } from './storage.js'
@@ -115,6 +116,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereAuthRouten(app)
   registriereTourRouten(app)
   registriereMediaRouten(app)
+  registriereGalerieRouten(app)
 
   app.get('/api/gesundheit', async () => ({ ok: true }))
 

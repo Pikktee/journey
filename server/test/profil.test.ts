@@ -9,7 +9,7 @@ interface ProfilAntwort {
   sichtbarkeit: 'private' | 'public'
 }
 
-async function patch(u: TestUmgebung, payload: unknown) {
+async function patch(u: TestUmgebung, payload: Record<string, unknown>) {
   return u.app.inject({ method: 'PATCH', url: '/api/auth/me/profil', cookies: u.cookies, payload })
 }
 

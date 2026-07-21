@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Galerie · Luhambo</title>
+  <meta name="description" content="Öffentlich geteilte Reisen — als 3D-Kamerafahrt über die echte Strecke." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰️</text></svg>" />
+  <style>
+    /* Farben und Schriften wie auf der Landing — die Galerie ist derselbe Ort,
+       nur eine Seite weiter. */
+    :root {
+      --bg: #0a0d12;
+      --bg-2: #06090e;
+      --ink: #f2ede3;
+      --muted: rgba(242, 237, 227, 0.64);
+      --faint: rgba(242, 237, 227, 0.42);
+      --amber: #f5a524;
+      --line: rgba(255, 255, 255, 0.1);
+      --card: rgba(255, 255, 255, 0.035);
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --display: 'Fraunces', Georgia, serif;
+      --mono: 'IBM Plex Mono', 'Courier New', monospace;
+      --wrap: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-2);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 22px; }
+
+    .nav { border-bottom: 1px solid var(--line); background: rgba(6, 9, 14, 0.86); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+    .brand-word { font-family: var(--mono); letter-spacing: 0.34em; text-indent: 0.34em; font-size: 13px; text-transform: uppercase; }
+    .nav-links { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 12.5px; }
+    .nav-links a { color: var(--muted); text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta { color: var(--ink) !important; border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px; }
+
+    header.kopf { padding: 64px 0 30px; }
+    header.kopf h1 { font-family: var(--display); font-weight: 500; font-size: clamp(31px, 5vw, 52px); line-height: 1.06; letter-spacing: -0.015em; margin: 12px 0 0; }
+    .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); margin: 0; }
+    header.kopf p.lead { color: var(--muted); font-size: 17px; line-height: 1.6; max-width: 54ch; margin: 16px 0 0; }
+
+    /* Karten-Gitter: fließend, ohne feste Spaltenzahl */
+    .gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; padding: 22px 0 8px; }
+
+    .karte { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); transition: transform 0.18s ease, border-color 0.18s ease; }
+    .karte:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.2); }
+    .karte:focus-within { border-color: rgba(255, 255, 255, 0.2); }
+    .karte-haupt { display: block; text-decoration: none; color: inherit; }
+    .karte-haupt:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+    .karte-bild { aspect-ratio: 3 / 2; background: rgba(255, 255, 255, 0.05); }
+    .karte-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .karte-text { padding: 15px 17px 17px; }
+    .karte-text h3 { font-family: var(--display); font-weight: 500; font-size: 21px; line-height: 1.2; margin: 0; }
+    .karte-meta { font-family: var(--mono); font-size: 12px; color: var(--faint); margin: 7px 0 0; }
+    .karte-autor { display: flex; align-items: center; gap: 8px; padding: 0 17px 16px; font-size: 13.5px; color: var(--muted); text-decoration: none; }
+    a.karte-autor:hover { color: var(--ink); }
+    .karte-autor img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+
+    .mehr-zeile { display: flex; justify-content: center; padding: 26px 0 70px; }
+    button#mehr { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 11px 26px; cursor: pointer; }
+    button#mehr:hover { border-color: rgba(255, 255, 255, 0.28); }
+    button#mehr:disabled { opacity: 0.5; cursor: default; }
+
+    .hinweis { color: var(--muted); font-size: 16px; padding: 30px 0 60px; grid-column: 1 / -1; }
+
+    footer { border-top: 1px solid var(--line); padding: 26px 0 40px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+    footer a { color: var(--faint); text-decoration: none; }
+    footer a:hover { color: var(--ink); }
+
+    @media (prefers-reduced-motion: reduce) { .karte { transition: none; } }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Luhambo — Startseite">
+        <span class="brand-mark">⛰️</span>
+        <span class="brand-word">Luhambo</span>
+      </a>
+      <div class="nav-links">
+        <a href="/">Start</a>
+        <a href="/studio.html" class="nav-cta">Anmelden</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="kopf">
+    <div class="wrap">
+      <p class="eyebrow">Galerie</p>
+      <h1>Geteilte Reisen</h1>
+      <p class="lead">
+        Aufgezeichnete Touren, die ihre Urheber öffentlich gestellt haben — jede
+        als Kamerafahrt über die echte Strecke, mit den Fotos an dem Ort, an dem
+        sie entstanden sind.
+      </p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="gitter" id="gitter"></div>
+    <div class="mehr-zeile"><button id="mehr" type="button" hidden>Mehr anzeigen</button></div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Luhambo</span>
+      <span>
+        <a href="/impressum.html">Impressum</a> ·
+        <a href="/datenschutz.html">Datenschutz</a>
+      </span>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { starteGalerie } from '/src/galerie/galerie.ts'
+    starteGalerie()
+  </script>
+</body>
+</html>

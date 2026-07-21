@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Profil · Luhambo</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰️</text></svg>" />
+  <style>
+    :root {
+      --bg-2: #06090e;
+      --ink: #f2ede3;
+      --muted: rgba(242, 237, 227, 0.64);
+      --faint: rgba(242, 237, 227, 0.42);
+      --amber: #f5a524;
+      --line: rgba(255, 255, 255, 0.1);
+      --card: rgba(255, 255, 255, 0.035);
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --display: 'Fraunces', Georgia, serif;
+      --mono: 'IBM Plex Mono', 'Courier New', monospace;
+      --wrap: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-2);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 22px; }
+
+    .nav { border-bottom: 1px solid var(--line); background: rgba(6, 9, 14, 0.86); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+    .brand-word { font-family: var(--mono); letter-spacing: 0.34em; text-indent: 0.34em; font-size: 13px; text-transform: uppercase; }
+    .nav-links { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 12.5px; }
+    .nav-links a { color: var(--muted); text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+
+    /* Der Kopf ist eine Vorstellung, kein Titelbild: Bild, Name, ein paar Sätze. */
+    header.profil { padding: 60px 0 26px; text-align: center; }
+    .profil-bild { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+    header.profil h1 { font-family: var(--display); font-weight: 500; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.08; margin: 16px 0 0; }
+    .profil-bio { color: var(--muted); font-size: 16.5px; line-height: 1.62; max-width: 52ch; margin: 14px auto 0; }
+
+    .gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; padding: 26px 0 70px; }
+
+    .karte { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); transition: transform 0.18s ease, border-color 0.18s ease; }
+    .karte:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.2); }
+    .karte:focus-within { border-color: rgba(255, 255, 255, 0.2); }
+    .karte-haupt { display: block; text-decoration: none; color: inherit; }
+    .karte-haupt:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+    .karte-bild { aspect-ratio: 3 / 2; background: rgba(255, 255, 255, 0.05); }
+    .karte-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .karte-text { padding: 15px 17px 17px; }
+    .karte-text h3 { font-family: var(--display); font-weight: 500; font-size: 21px; line-height: 1.2; margin: 0; }
+    .karte-meta { font-family: var(--mono); font-size: 12px; color: var(--faint); margin: 7px 0 0; }
+
+    .hinweis { color: var(--muted); font-size: 16px; padding: 20px 0 60px; grid-column: 1 / -1; text-align: center; }
+
+    footer { border-top: 1px solid var(--line); padding: 26px 0 40px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+    footer a { color: var(--faint); text-decoration: none; }
+    footer a:hover { color: var(--ink); }
+
+    @media (prefers-reduced-motion: reduce) { .karte { transition: none; } }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Luhambo — Startseite">
+        <span class="brand-mark">⛰️</span>
+        <span class="brand-word">Luhambo</span>
+      </a>
+      <div class="nav-links">
+        <a href="/galerie.html">Galerie</a>
+        <a href="/studio.html">Anmelden</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="profil wrap" id="kopf"></header>
+
+  <main class="wrap">
+    <div class="gitter" id="gitter"></div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Luhambo</span>
+      <span>
+        <a href="/impressum.html">Impressum</a> ·
+        <a href="/datenschutz.html">Datenschutz</a>
+      </span>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { starteProfil } from '/src/galerie/galerie.ts'
+    starteProfil()
+  </script>
+</body>
+</html>
