@@ -17,6 +17,7 @@ import app.luhambo.upload.Einstellungen
 import app.luhambo.upload.Konto
 import app.luhambo.upload.KontoStand
 import app.luhambo.upload.ServerTour
+import app.luhambo.upload.ServerTourDetail
 import app.luhambo.upload.UploadWorker
 import app.luhambo.upload.mitMediumTitel
 import kotlinx.coroutines.CoroutineScope
@@ -314,6 +315,95 @@ class EinstellungenViewModel(
 }
 
 /** Gemeinsame Factory: kennt die App-Singletons und baut jedes ViewModel. */
+/**
+ * Eine Tour, die beim Server liegt.
+ *
+ * Bewusst getrennt von [TourViewModel]: Der kennt nur die Zeile in Room und
+ * lebt für den Entwurf VOR dem Upload — mit Aufnahmestatus, Fortschritt und
+ * Dateien auf dem Gerät. Danach ist der Server die Wahrheit, und die sieht
+ * völlig anders aus. Beides in ein ViewModel zu zwingen hieße, in jeder
+ * Methode zu fragen, welcher Fall gerade gilt.
+ */
+class ServerTourViewModel(
+    private val repository: TourRepository,
+    private val apiClient: ApiClient,
+    private val appScope: CoroutineScope,
+    private val serverId: String,
+) : ViewModel() {
+    private val internTour = MutableStateFlow<ServerTour?>(null)
+    val tour: StateFlow<ServerTour?> = internTour
+
+    private val internDetail = MutableStateFlow<ServerTourDetail?>(null)
+    val detail: StateFlow<ServerTourDetail?> = internDetail
+
+    private val internLaedt = MutableStateFlow(true)
+    val laedt: StateFlow<Boolean> = internLaedt
+
+    private val internFehler = MutableStateFlow<String?>(null)
+    val fehler: StateFlow<String?> = internFehler
+
+    init { lade() }
+
+    fun lade() {
+        viewModelScope.launch {
+            internLaedt.value = true
+            internFehler.value = null
+            // Titel, Kilometer, Titelbild und Sichtbarkeit stehen in der Liste,
+            // Beschreibung und Fotos im gerenderten Tour-JSON.
+            runCatching { apiClient.toureListe().firstOrNull { it.id == serverId } }
+                .onSuccess { if (it != null) internTour.value = it }
+            runCatching { apiClient.tourDetail(serverId) }
+                .onSuccess { internDetail.value = it }
+                .onFailure { internFehler.value = "Die Reise ließ sich nicht laden." }
+            internLaedt.value = false
+        }
+    }
+
+    /**
+     * Titel und Beschreibung sichern (beim Verlassen des Screens, deshalb im
+     * prozessweiten Scope). Unveränderte Texte lösen keinen Aufruf aus.
+     */
+    fun sichereTexte(titel: String?, beschreibung: String?) {
+        val neuerTitel = titel?.trim()?.ifBlank { null }
+        val neueBeschreibung = beschreibung?.trim()?.ifBlank { null }
+        val vorher = internTour.value
+        val alteBeschreibung = internDetail.value?.beschreibung?.ifBlank { null }
+        if (vorher != null && vorher.titel == neuerTitel && alteBeschreibung == neueBeschreibung) return
+        appScope.launch {
+            runCatching { apiClient.patchTour(serverId, neuerTitel, neueBeschreibung) }
+            // Der lokale Entwurf lebt nach dem Upload weiter; bliebe sein Titel
+            // stehen, hieße die Tour nach einem erneuten Upload wieder alt.
+            repository.tourMitServerId(serverId)?.let {
+                repository.aktualisiereTexte(it.id, neuerTitel, neueBeschreibung)
+            }
+        }
+    }
+
+    fun setzeSichtbarkeit(sichtbarkeit: Sichtbarkeit) {
+        internTour.value = internTour.value?.copy(visibility = sichtbarkeit.schluessel)
+        appScope.launch {
+            runCatching { apiClient.setzeSichtbarkeit(serverId, sichtbarkeit.schluessel) }
+        }
+    }
+
+    /**
+     * Tour endgültig löschen — beim Server UND als lokaler Entwurf. Ohne den
+     * zweiten Teil taucht sie als „wartet auf Upload" wieder in der Liste auf
+     * und der Nachzügler-Upload lädt sie beim nächsten App-Start erneut hoch.
+     */
+    fun loesche(danach: () -> Unit) {
+        viewModelScope.launch {
+            val erfolg = runCatching { apiClient.loescheTour(serverId) }.isSuccess
+            if (!erfolg) {
+                internFehler.value = "Löschen fehlgeschlagen."
+                return@launch
+            }
+            repository.tourMitServerId(serverId)?.let { repository.loescheTour(it.id) }
+            danach()
+        }
+    }
+}
+
 class LuhamboViewModelFactory(
     private val app: LuhamboApp,
     private val tourId: String? = null,
@@ -330,6 +420,13 @@ class LuhamboViewModelFactory(
                 app.appScope,
                 app,
                 requireNotNull(tourId) { "tourId fehlt" },
+            ) as T
+        modelClass.isAssignableFrom(ServerTourViewModel::class.java) ->
+            ServerTourViewModel(
+                app.repository,
+                app.apiClient,
+                app.appScope,
+                requireNotNull(tourId) { "serverId fehlt" },
             ) as T
         modelClass.isAssignableFrom(FotoViewModel::class.java) ->
             FotoViewModel(

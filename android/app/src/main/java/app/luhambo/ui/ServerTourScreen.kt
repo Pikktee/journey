@@ -1,14 +1,14 @@
-// Eine einzelne Tour: ansehen, abspielen, benennen.
+// Eine fertige Reise: ansehen, abspielen, benennen, teilen, löschen.
 //
-// Seit der Upload automatisch läuft, ist das hier keine Freigabe-Station mehr,
-// sondern die Detailansicht. Der Titel wird darum beim Verlassen gesichert und
-// — sobald die Tour beim Server ist — gleich dorthin nachgezogen: sonst bliebe
-// eine nachträgliche Umbenennung für immer auf dem Gerät liegen.
+// Bis hierher gab es diese Seite nicht: Nach dem Upload gewann in der Liste die
+// Server-Karte, und die sprang direkt in den Player. Der lokale Detail-Screen
+// wäre leer geblieben — er liest die Zeile in Room, und die beschreibt den
+// Entwurf VOR dem Upload. Damit waren Fotos, Umbenennen und Löschen nach dem
+// Hochladen nur noch im Studio erreichbar.
 //
-// Der Titel steht IM Kopfbild und ist dort direkt beschreibbar. Vorher lagen
-// zwei beschriftete Eingabefelder ganz oben und die Fotos darunter — das machte
-// aus der Erinnerung an eine Reise einen Erfassungsbogen. Jetzt ist das erste,
-// was man sieht, das Bild; wer den Namen ändern will, tippt ihn an.
+// Aufbau wie beim Entwurf ([TourScreen]), damit sich beide gleich anfühlen:
+// Titelbild mit dem Namen darin, Kennzahlen, Fotogitter, Beschreibung. Der
+// Unterschied liegt in der Quelle — hier kommt alles über die API.
 package app.luhambo.ui
 
 import androidx.compose.foundation.background
@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,11 +40,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material3.AlertDialog
@@ -69,97 +69,124 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.luhambo.daten.TourEntity
-import app.luhambo.daten.TourStatus
+import app.luhambo.LuhamboApp
+import app.luhambo.upload.Serverfoto
 import coil.compose.AsyncImage
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun TourScreen(
-    viewModel: TourViewModel,
+fun ServerTourScreen(
+    viewModel: ServerTourViewModel,
     zurueck: () -> Unit,
     abspielen: (serverId: String) -> Unit,
-    zumFoto: (mediumId: String) -> Unit,
 ) {
-    val tour by viewModel.tour.collectAsState(initial = null)
-    val medien by viewModel.medien.collectAsState(initial = emptyList())
-    val sichtbarkeit by viewModel.sichtbarkeit.collectAsState()
+    val tour by viewModel.tour.collectAsState()
+    val detail by viewModel.detail.collectAsState()
+    val laedt by viewModel.laedt.collectAsState()
+    val fehler by viewModel.fehler.collectAsState()
+    val app = LocalContext.current.applicationContext as LuhamboApp
 
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var beschreibung by rememberSaveable { mutableStateOf<String?>(null) }
     var loeschenDialog by remember { mutableStateOf(false) }
     var teilen by remember { mutableStateOf(false) }
+    var grossesFoto by remember { mutableStateOf<Serverfoto?>(null) }
 
-    LaunchedEffect(tour?.serverId) { if (tour?.serverId != null) viewModel.ladeSichtbarkeit() }
+    // Einmalig befüllen, sobald geladen ist; danach gehören die Texte dem Nutzer.
+    //
+    // Die Abfrage auf die QUELLE ist entscheidend, nicht die auf das Feld: Beide
+    // Werte kommen erst nach einem Netzabruf. Ohne sie liefe der Effekt schon
+    // beim ersten Bild, machte aus dem noch fehlenden Titel per orEmpty() einen
+    // leeren String — und weil der nicht mehr null ist, käme der echte Titel
+    // danach nie an.
+    LaunchedEffect(tour) { tour?.let { if (titel == null) titel = it.titel.orEmpty() } }
+    LaunchedEffect(detail) { detail?.let { if (beschreibung == null) beschreibung = it.beschreibung.orEmpty() } }
 
-    // Einmalig aus der Datenbank befüllen; danach gehört der Text dem Nutzer.
-    // Die Ausnahme ist der Auto-Titel, den der Upload-Worker nachträgt: hat der
-    // Nutzer nichts getippt, soll er ihn sehen statt eines leeren Feldes.
-    LaunchedEffect(tour?.id, tour?.titel) {
-        if (titel.isNullOrBlank()) titel = tour?.titel
-        beschreibung = beschreibung ?: tour?.beschreibung
-    }
-
-    // Beim Verlassen sichern — kein „Speichern"-Knopf für zwei Textfelder
-    DisposableEffect(tour?.id) {
+    DisposableEffect(Unit) {
         onDispose { if (titel != null) viewModel.sichereTexte(titel, beschreibung) }
     }
 
-    val aktuelleTour = tour ?: return
     val unten = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val fotos = detail?.fotos.orEmpty()
+    val aktuelleTour = tour
 
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize(),
-            // Enge Fugen: die Fotos sollen als zusammenhängende Fläche lesen,
-            // nicht als Reihe einzelner Kacheln.
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
             contentPadding = PaddingValues(bottom = unten + 36.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Kopfbild(
-                    tour = aktuelleTour,
-                    titelbild = medien.lastOrNull()?.let { viewModel.datei(it) },
+                Serverkopf(
+                    titelbild = aktuelleTour?.cover?.let { app.serverUrl() + it },
                     titel = titel.orEmpty(),
                     setzeTitel = { titel = it },
-                    abspielen = aktuelleTour.serverId
-                        ?.takeIf { aktuelleTour.status == TourStatus.HOCHGELADEN }
-                        ?.let { id -> { abspielen(id) } },
+                    marke = aktuelleTour?.no,
+                    abspielen = aktuelleTour
+                        ?.takeIf { it.spielbar }
+                        ?.let { t -> { abspielen(t.id) } },
                 )
             }
 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
                     Spacer(Modifier.height(16.dp))
-                    Kennzahlen(aktuelleTour, medien.size)
-                    Zustandszeile(
-                        status = aktuelleTour.status,
-                        fehler = aktuelleTour.fehler,
-                        erneutVersuchen = { viewModel.ladeHoch(titel, beschreibung) },
+                    Text(
+                        kennzahlen(aktuelleTour, fotos.size),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    // Keine Überschrift „N Fotos" — die Zahl steht schon in der
-                    // Zeile darüber, und ein eingerückter Text unmittelbar über
-                    // dem randlosen Gitter risse eine Fluchtlinie auf, die
-                    // nirgends fortgesetzt wird.
+                    if (aktuelleTour != null && !aktuelleTour.spielbar) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Default.HourglassEmpty,
+                                contentDescription = null,
+                                tint = Sonne,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            Text(
+                                "Wird noch verarbeitet",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    fehler?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
                     Spacer(Modifier.height(22.dp))
                 }
             }
 
-            items(medien, key = { it.id }) { medium ->
+            items(fotos, key = { it.id }) { foto ->
                 Box(
                     Modifier
                         .aspectRatio(1f)
                         .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .clickable { zumFoto(medium.id) },
+                        .clickable { grossesFoto = foto },
                 ) {
                     AsyncImage(
-                        model = viewModel.datei(medium),
-                        contentDescription = medium.caption ?: "Aufnahme ${medium.id}",
+                        model = app.serverUrl() + foto.pfad,
+                        contentDescription = foto.titel,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -168,6 +195,11 @@ fun TourScreen(
 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(horizontal = 20.dp)) {
+                    if (laedt && fotos.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Sonne)
+                        }
+                    }
                     Spacer(Modifier.height(30.dp))
                     Abschnittstitel("Beschreibung")
                     Spacer(Modifier.height(10.dp))
@@ -179,60 +211,62 @@ fun TourScreen(
                         textStyle = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(Modifier.height(26.dp))
-                    // Löschen steht unten, nicht in der Kopfleiste: Es ist der
-                    // einzige Schritt hier, der sich nicht rückgängig machen
-                    // lässt — er soll gesucht, nicht getroffen werden.
                     TextButton(
                         onClick = { loeschenDialog = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Tour löschen", color = MaterialTheme.colorScheme.error)
+                        Text("Reise löschen", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
         }
 
-        // Die Knöpfe schweben über dem Bild, damit der Kopf randlos bleibt
         Rundknopf(
             symbol = Icons.AutoMirrored.Filled.ArrowBack,
             beschreibung = "Zurück",
             beiKlick = zurueck,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
-        // Teilen erst, wenn die Tour beim Server liegt — vorher gäbe es keinen
-        // Link, auf den man jemanden schicken könnte.
-        if (aktuelleTour.serverId != null) {
-            Rundknopf(
-                symbol = Icons.Default.Share,
-                beschreibung = "Tour teilen",
-                beiKlick = { teilen = true },
-                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
-            )
-        }
+        Rundknopf(
+            symbol = Icons.Default.Share,
+            beschreibung = "Reise teilen",
+            beiKlick = { teilen = true },
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
+        )
     }
 
-    if (teilen) {
-        aktuelleTour.serverId?.let { serverId ->
-            TeilenBlatt(
-                serverTourId = serverId,
-                titel = titel ?: aktuelleTour.titel,
-                aktuelleSichtbarkeit = sichtbarkeit ?: Sichtbarkeit.PRIVAT,
-                schliessen = { teilen = false },
-                setzeSichtbarkeit = viewModel::setzeSichtbarkeit,
-            )
-        }
+    grossesFoto?.let { foto ->
+        Fotoschau(
+            bildUrl = app.serverUrl() + foto.pfad,
+            titel = foto.titel,
+            schliessen = { grossesFoto = null },
+        )
+    }
+
+    if (teilen && aktuelleTour != null) {
+        TeilenBlatt(
+            serverTourId = aktuelleTour.id,
+            titel = titel ?: aktuelleTour.titel,
+            aktuelleSichtbarkeit = Sichtbarkeit.vonSchluessel(aktuelleTour.visibility),
+            schliessen = { teilen = false },
+            setzeSichtbarkeit = viewModel::setzeSichtbarkeit,
+        )
     }
 
     if (loeschenDialog) {
         AlertDialog(
             onDismissRequest = { loeschenDialog = false },
-            title = { Text("Tour löschen?") },
-            text = { Text("Track, Fotos und Entwurf werden vom Gerät entfernt.") },
+            title = { Text("Reise löschen?") },
+            text = {
+                Text(
+                    "Die Reise wird mit allen Fotos vom Server entfernt. " +
+                        "Geteilte Links führen danach ins Leere. Das lässt sich nicht rückgängig machen.",
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     loeschenDialog = false
-                    // Der Titel des gelöschten Entwurfs darf nicht nachträglich
-                    // wieder gesichert werden (DisposableEffect oben).
+                    // Kein Sichern beim Verlassen mehr — die Tour ist ja weg
                     titel = null
                     viewModel.loesche(danach = zurueck)
                 }) { Text("Löschen", color = MaterialTheme.colorScheme.error) }
@@ -242,18 +276,12 @@ fun TourScreen(
     }
 }
 
-/**
- * Titelbild mit dem Namen der Reise darauf — beschreibbar.
- *
- * Liegt eine fertige Tour vor, führt ein Abspiel-Knopf in der Mitte zum Player:
- * Die Tour IST ein Film, und ein Dreieck auf einem Standbild sagt das ohne Wort.
- */
 @Composable
-private fun Kopfbild(
-    tour: TourEntity,
-    titelbild: java.io.File?,
+private fun Serverkopf(
+    titelbild: String?,
     titel: String,
     setzeTitel: (String) -> Unit,
+    marke: String?,
     abspielen: (() -> Unit)?,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
@@ -296,12 +324,12 @@ private fun Kopfbild(
                     .size(66.dp)
                     .clip(CircleShape)
                     .background(Color(0x8A06090E))
-                    .clickable(onClickLabel = "Tour abspielen", onClick = abspielen),
+                    .clickable(onClickLabel = "Reise abspielen", onClick = abspielen),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Default.PlayArrow,
-                    contentDescription = "Tour abspielen",
+                    contentDescription = "Reise abspielen",
                     tint = Tinte,
                     modifier = Modifier.size(38.dp),
                 )
@@ -318,7 +346,7 @@ private fun Kopfbild(
             Box(Modifier.weight(1f)) {
                 if (titel.isBlank()) {
                     Text(
-                        if (tour.serverId == null) "Reise benennen" else "Unbenannte Reise",
+                        marke ?: "Unbenannte Reise",
                         style = MaterialTheme.typography.headlineMedium,
                         color = Tinte.copy(alpha = 0.45f),
                     )
@@ -338,8 +366,6 @@ private fun Kopfbild(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            // Ohne das Zeichen sieht man einem gesetzten Titel nicht an, dass er
-            // sich ändern lässt — er sähe aus wie eine Beschriftung des Bildes.
             Icon(
                 Icons.Default.Edit,
                 contentDescription = null,
@@ -350,95 +376,47 @@ private fun Kopfbild(
     }
 }
 
-/** Die harten Zahlen der Reise, in gleich breiten Ziffern. */
+/** Ein Foto formatfüllend, mit seinem Titel darunter. */
 @Composable
-private fun Kennzahlen(tour: TourEntity, fotos: Int) {
+private fun Fotoschau(bildUrl: String, titel: String?, schliessen: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        AsyncImage(
+            model = bildUrl,
+            contentDescription = titel,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (!titel.isNullOrBlank()) {
+            Text(
+                titel,
+                style = MaterialTheme.typography.titleMedium,
+                color = Tinte,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 22.dp),
+            )
+        }
+        Rundknopf(
+            symbol = Icons.Default.Close,
+            beschreibung = "Schließen",
+            beiKlick = schliessen,
+            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
+        )
+    }
+}
+
+private val DATUM = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN)
+
+private fun kennzahlen(tour: app.luhambo.upload.ServerTour?, fotos: Int): String {
     val teile = buildList {
-        add(String.format(Locale.GERMAN, "%.1f km", tour.distanzM / 1000))
-        dauer(tour)?.let { add(it) }
+        tour?.km?.let { add(String.format(Locale.GERMAN, "%.1f km", it)) }
+        tour?.hoehenmeter?.takeIf { it > 0 }?.let { add(String.format(Locale.GERMAN, "%.0f hm", it)) }
         add(if (fotos == 1) "1 Foto" else "$fotos Fotos")
-    }
-    Text(
-        teile.joinToString(" · "),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-/**
- * Was gerade mit der Tour passiert — und nur dann, wenn etwas passiert.
- *
- * Die fertige Tour meldet nichts: Der Abspiel-Knopf im Bild sagt bereits, dass
- * sie fertig ist.
- */
-@Composable
-private fun Zustandszeile(status: TourStatus, fehler: String?, erneutVersuchen: () -> Unit) {
-    when (status) {
-        TourStatus.HOCHGELADEN, TourStatus.AUFNAHME -> Unit
-        TourStatus.LAEDT_HOCH -> Hinweiszeile {
-            // size, nicht height: height allein lässt die Breite beim
-            // Standardmaß (40 dp) und der Kreis wird seitlich beschnitten.
-            CircularProgressIndicator(
-                Modifier.size(15.dp),
-                strokeWidth = 2.dp,
-                color = Sonne,
-            )
-            Text(
-                "Wird hochgeladen",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        TourStatus.FEHLER -> Hinweiszeile {
-            Icon(
-                Icons.Default.ErrorOutline,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(15.dp),
-            )
-            Text(
-                fehler ?: "Upload fehlgeschlagen",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            TextButton(onClick = erneutVersuchen, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
-                Text("Erneut", Modifier.padding(start = 6.dp))
-            }
-        }
-        // ENTWURF: der Upload läuft von selbst — hier steht nur, woran es hakt
-        else -> Hinweiszeile {
-            Icon(
-                Icons.Default.CloudUpload,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(15.dp),
-            )
-            Text(
-                "Wird geladen, sobald eine Verbindung besteht",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        tour?.erstelltAm?.let { iso ->
+            runCatching { DATUM.withZone(ZoneId.systemDefault()).format(Instant.parse(iso)) }.getOrNull()?.let(::add)
         }
     }
-}
-
-// RowScope, nicht nur @Composable: sonst steht `weight` im Inhalt nicht zur
-// Verfügung, und ein langer Fehlertext drängt den Knopf daneben aus dem Bild.
-@Composable
-private fun Hinweiszeile(inhalt: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) { inhalt() }
-}
-
-/** Aufnahmedauer als „1 h 12 min"; null, solange die Aufnahme läuft. */
-private fun dauer(tour: TourEntity): String? {
-    val ende = tour.endeMs ?: return null
-    val minuten = ((ende - tour.startMs) / 60_000).coerceAtLeast(0)
-    if (minuten < 1) return null
-    return if (minuten < 60) "$minuten min" else "${minuten / 60} h ${minuten % 60} min"
+    return teile.joinToString(" · ")
 }

@@ -37,6 +37,16 @@ interface TourDao {
     @Query("UPDATE touren SET serverId = :serverId WHERE id = :id")
     suspend fun setzeServerId(id: String, serverId: String)
 
+    /**
+     * Der lokale Entwurf hinter einer Server-Tour.
+     *
+     * Nach dem Upload bleibt er liegen (die Liste blendet ihn nur aus). Wird die
+     * Tour beim Server gelöscht, muss er mit weg — sonst taucht sie als Entwurf
+     * wieder in der Liste auf und der Nachzügler-Upload lädt sie erneut hoch.
+     */
+    @Query("SELECT * FROM touren WHERE serverId = :serverId LIMIT 1")
+    suspend fun tourMitServerId(serverId: String): TourEntity?
+
     @Query("UPDATE touren SET distanzM = :distanzM WHERE id = :id")
     suspend fun setzeDistanz(id: String, distanzM: Double)
 

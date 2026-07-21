@@ -80,7 +80,7 @@ fun TourenScreen(
     viewModel: StartViewModel,
     zurAufzeichnung: () -> Unit,
     zurTour: (tourId: String) -> Unit,
-    zumPlayer: (serverId: String) -> Unit,
+    zurServerTour: (serverId: String) -> Unit,
 ) {
     val lokale by viewModel.lokaleTouren.collectAsState(initial = emptyList())
     val vomServer by viewModel.serverTouren.collectAsState()
@@ -135,7 +135,10 @@ fun TourenScreen(
                         is Toureintrag.Server -> ServerKarte(
                             tour = eintrag.tour,
                             bildUrl = eintrag.tour.cover?.let { app.serverUrl() + it },
-                            beiKlick = { if (eintrag.tour.spielbar) zumPlayer(eintrag.tour.id) else zurTour(eintrag.tour.id) },
+                            // Tippen öffnet die Reise, nicht den Player: Fotos,
+                            // Umbenennen und Löschen gäbe es sonst nirgends, und
+                            // der Abspielen-Knopf steht dort groß im Titelbild.
+                            beiKlick = { zurServerTour(eintrag.tour.id) },
                             beiLangemDruck = { teilen = eintrag.tour },
                         )
                     }

@@ -156,7 +156,7 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
                     viewModel = viewModel(factory = LuhamboViewModelFactory(app)),
                     zurAufzeichnung = { navController.navigate("aufzeichnung") },
                     zurTour = { tourId -> navController.navigate("tour/$tourId") },
-                    zumPlayer = { serverId -> navController.navigate("player/$serverId") },
+                    zurServerTour = { serverId -> navController.navigate("servertour/$serverId") },
                 )
             }
             composable(REITER_PROFIL) {
@@ -198,6 +198,17 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
                     zurueck = { navController.popBackStack() },
                     abspielen = { serverId -> navController.navigate("player/$serverId") },
                     zumFoto = { mediumId -> navController.navigate("foto/$tourId/$mediumId") },
+                )
+            }
+            composable(
+                "servertour/{serverId}",
+                arguments = listOf(navArgument("serverId") { type = NavType.StringType }),
+            ) { ziel ->
+                val serverId = ziel.arguments?.getString("serverId") ?: return@composable
+                ServerTourScreen(
+                    viewModel = viewModel(factory = LuhamboViewModelFactory(app, serverId)),
+                    zurueck = { navController.popBackStack() },
+                    abspielen = { id -> navController.navigate("player/$id") },
                 )
             }
             composable(

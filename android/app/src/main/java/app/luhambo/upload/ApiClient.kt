@@ -44,6 +44,23 @@ data class ServerTour(
     val spielbar get() = status == "bereit"
 }
 
+/**
+ * Was eine fertige Tour über die Listen-Angaben hinaus hergibt — aus dem
+ * gerenderten Tour-JSON (GET /api/tours/:id).
+ */
+data class ServerTourDetail(
+    val beschreibung: String?,
+    val fotos: List<Serverfoto>,
+)
+
+/** Ein Medium der Tour, wie es die App anzeigt. */
+data class Serverfoto(
+    val id: String,
+    /** Serverpfad des anzeigbaren Bildes (/api/media/…) */
+    val pfad: String,
+    val titel: String?,
+)
+
 /** Konto-Auskunft aus GET /api/auth/me. */
 data class KontoStand(
     val email: String,
@@ -235,6 +252,39 @@ class ApiClient(private val einstellungen: Einstellungen) {
         withContext(Dispatchers.IO) {
             val body = buildJsonObject { put("visibility", sichtbarkeit) }.toString().toRequestBody(jsonTyp)
             ausfuehren(autorisiert("/api/tours/$serverTourId").patch(body).build())
+        }
+    }
+
+    /**
+     * Beschreibung und Medien einer fertigen Tour.
+     *
+     * Der Endpunkt liefert das gerenderte Tour-JSON — dieselbe Datei, die auch
+     * der Player liest. Für die App zählen daraus nur Beschreibung und Medien;
+     * Titel, Kilometer und Titelbild kommen aus der Liste.
+     */
+    suspend fun tourDetail(serverTourId: String): ServerTourDetail = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId").get().build())
+        val medien = antwort["media"] as? JsonArray ?: JsonArray(emptyList())
+        ServerTourDetail(
+            beschreibung = antwort["description"]?.jsonPrimitive?.contentOrNull,
+            fotos = medien.mapNotNull { element ->
+                val obj = element as? JsonObject ?: return@mapNotNull null
+                val src = obj["src"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                Serverfoto(
+                    id = obj["id"]?.jsonPrimitive?.contentOrNull ?: src,
+                    // Bei Videos zeigt das Standbild, was zu sehen ist — die
+                    // Datei selbst kann kein Bildbetrachter darstellen.
+                    pfad = obj["poster"]?.jsonPrimitive?.contentOrNull ?: src,
+                    titel = obj["title"]?.jsonPrimitive?.contentOrNull,
+                )
+            },
+        )
+    }
+
+    /** Tour beim Server löschen — endgültig, samt Medien. */
+    suspend fun loescheTour(serverTourId: String) {
+        withContext(Dispatchers.IO) {
+            ausfuehren(autorisiert("/api/tours/$serverTourId").delete().build())
         }
     }
 

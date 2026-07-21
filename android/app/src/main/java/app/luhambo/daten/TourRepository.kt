@@ -95,6 +95,8 @@ class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
 
     suspend fun setzeServerId(tourId: String, serverId: String) = dao.setzeServerId(tourId, serverId)
 
+    suspend fun tourMitServerId(serverId: String): TourEntity? = dao.tourMitServerId(serverId)
+
     suspend fun punkte(tourId: String): List<TrackpunktEntity> = dao.punkte(tourId)
     suspend fun moduswechsel(tourId: String): List<ModuswechselEntity> = dao.moduswechsel(tourId)
     suspend fun medien(tourId: String): List<MediumEntity> = dao.medien(tourId)
