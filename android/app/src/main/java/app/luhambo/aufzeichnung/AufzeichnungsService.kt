@@ -80,6 +80,7 @@ class AufzeichnungsService : LifecycleService() {
                         distanzM = filter.distanzM,
                         punktAnzahl = it.punktAnzahl + 1,
                         letzterPunkt = punkt,
+                        spur = ergaenzeSpur(it.spur, Spurpunkt(punkt.lng, punkt.lat)),
                     )
                 }
             }

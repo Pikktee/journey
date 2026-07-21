@@ -111,7 +111,7 @@ fun AufzeichnungScreen(
         Spacer(Modifier.height(20.dp))
         Zustandsmarke(pausiert = laufend.pausiert)
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(28.dp))
 
         // — Die Uhr —
         val dauerS = ((jetztMs - laufend.startMs) / 1000).coerceAtLeast(0)
@@ -126,7 +126,13 @@ fun AufzeichnungScreen(
         // der App als über die Tour.
         Wert(String.format(Locale.GERMAN, "%.2f", laufend.distanzM / 1000), "Kilometer")
 
-        Spacer(Modifier.weight(1f))
+        // — Der Weg, während er entsteht —
+        // Nimmt den freien Raum zwischen Uhr und Bedienung ein; vorher klaffte
+        // hier eine leere Fläche.
+        Routenskizze(
+            spur = laufend.spur,
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 12.dp),
+        )
 
         // — Was bisher aufgenommen wurde —
         // Ohne den Streifen verschwindet jedes Foto nach dem Auslösen spurlos;

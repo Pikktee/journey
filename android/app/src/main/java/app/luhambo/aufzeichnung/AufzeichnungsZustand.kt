@@ -17,6 +17,15 @@ data class LaufendeAufzeichnung(
     val pausiert: Boolean = false,
     /** Letzte akzeptierte Position — Anker für Fotos (robuster als Foto-EXIF) */
     val letzterPunkt: RohPunkt? = null,
+    /**
+     * Der bisherige Weg als Linie für die Skizze auf dem Aufnahme-Screen.
+     *
+     * Liegt hier und nicht in der Datenbank, weil die Punkte dort nur alle
+     * 30 Sekunden gebündelt ankommen — die Linie soll aber mitwachsen, während
+     * man geht. Gedeckelt auf [SPUR_HOECHSTZAHL], sonst wüchse sie über eine
+     * Tagestour unbegrenzt.
+     */
+    val spur: List<Spurpunkt> = emptyList(),
 )
 
 object AufzeichnungsZustand {

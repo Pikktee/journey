@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -33,17 +34,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import app.luhambo.aufzeichnung.Spurpunkt
+import app.luhambo.aufzeichnung.projiziereSpur
 import java.util.Locale
 
 /**
@@ -127,6 +135,53 @@ fun Videoflaeche(
             ansicht.stopPlayback()
         },
     )
+}
+
+/**
+ * Der bisher zurückgelegte Weg als Strichzeichnung.
+ *
+ * Keine Karte, mit Absicht: Ein Kartenrenderer samt Kachel-Downloads liefe
+ * stundenlang neben der Aufzeichnung her und wäre genau das, was den Akku
+ * leert. Die Form des Weges genügt für das, was man hier wissen will — läuft
+ * die Aufnahme, und sieht das plausibel aus? Sie ersetzt zugleich die Zahl der
+ * Wegpunkte, die früher belegte, dass der Empfänger arbeitet.
+ *
+ * Der helle Kopf am Ende der Linie ist die aktuelle Position.
+ */
+@Composable
+fun Routenskizze(spur: List<Spurpunkt>, modifier: Modifier = Modifier) {
+    if (spur.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Text(
+                "Suche Position …",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    Canvas(modifier) {
+        val punkte = projiziereSpur(spur, size.width, size.height, rand = 14.dp.toPx())
+        if (punkte.isEmpty()) return@Canvas
+
+        if (punkte.size >= 2) {
+            val pfad = Path().apply {
+                moveTo(punkte.first().x, punkte.first().y)
+                for (p in punkte.drop(1)) lineTo(p.x, p.y)
+            }
+            drawPath(
+                pfad,
+                color = Sonne,
+                style = Stroke(
+                    width = 3.dp.toPx(),
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round,
+                ),
+            )
+        }
+        val kopf = punkte.last()
+        drawCircle(Tinte, radius = 5.dp.toPx(), center = Offset(kopf.x, kopf.y))
+    }
 }
 
 /** Kleine gesperrte Versal-Überschrift — die Gliederung der Website. */
