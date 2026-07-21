@@ -27,12 +27,25 @@ class Einstellungen(private val context: Context) {
     private val schluesselToken = stringPreferencesKey("api_token")
     private val schluesselEmail = stringPreferencesKey("email")
 
+    /**
+     * Letzter bekannter Kontostand, synchron lesbar.
+     *
+     * DataStore liest asynchron — das passt überall, außer in einem OkHttp-
+     * Interceptor: der läuft synchron und darf nicht blockieren. Der Bild-Lader
+     * für Titelbilder braucht dort aber den Authorization-Header, sonst bleiben
+     * die Vorschaubilder privater Touren leer. Gefüllt wird der Wert aus dem
+     * `konto`-Flow (LuhamboApp sammelt ihn beim Start ein).
+     */
+    @Volatile
+    var letzterStand: Konto = Konto(STANDARD_SERVER, null, null)
+        private set
+
     val konto: Flow<Konto> = context.dataStore.data.map { prefs ->
         Konto(
             serverUrl = (prefs[schluesselServer] ?: STANDARD_SERVER).trimEnd('/'),
             apiToken = prefs[schluesselToken],
             email = prefs[schluesselEmail],
-        )
+        ).also { letzterStand = it }
     }
 
     suspend fun aktuellesKonto(): Konto = konto.first()

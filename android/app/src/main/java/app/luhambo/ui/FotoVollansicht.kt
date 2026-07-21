@@ -47,16 +47,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import app.luhambo.daten.TourStatus
 import coil.compose.AsyncImage
 
 @Composable
-fun FotoVollansicht(
-    viewModel: FotoViewModel,
-    zurueck: () -> Unit,
-    loeschenErlaubt: Boolean = true,
-) {
+fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
     val medium by viewModel.medium.collectAsState(initial = null)
+    val tour by viewModel.tour.collectAsState(initial = null)
     val tastatur = LocalSoftwareKeyboardController.current
+    // Während des Uploads ist das Manifest schon beim Server; verschwindet eine
+    // Datei danach, hängt seine Vollständigkeitsprüfung. Und was hochgeladen
+    // ist, wird nicht mehr auf dem Gerät gelöscht — dafür gibt es das Studio.
+    val loeschenErlaubt = tour?.status == TourStatus.AUFNAHME ||
+        tour?.status == TourStatus.ENTWURF ||
+        (tour?.status == TourStatus.FEHLER && tour?.serverId == null)
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var fragtLoeschen by remember { mutableStateOf(false) }
 

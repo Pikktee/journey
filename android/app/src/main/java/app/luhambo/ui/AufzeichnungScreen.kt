@@ -75,14 +75,6 @@ fun AufzeichnungScreen(
         }
     }
 
-    // Berechtigungen: Standort (Pflicht) + Notification (ab 33) vor dem Start
-    val rechteLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { ergebnis ->
-        if (ergebnis[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
-            AufzeichnungsService.starte(context, Modus.WALK)
-        }
-    }
     // Kamera-Berechtigung erst am Foto-Knopf — ohne sie bliebe die CameraX-
     // Vorschau einfach schwarz, das wäre für den Nutzer unerklärlich
     val kameraLauncher = rememberLauncherForActivityResult(
@@ -98,19 +90,11 @@ fun AufzeichnungScreen(
         ) {
             val laufend = aufnahme
             if (laufend == null) {
+                // Zwischenzustand: die Aufnahme ist gerade beendet worden und
+                // der Bildschirm wird abgeräumt. Gestartet wird ausschließlich
+                // über den Knopf in der Hauptleiste.
                 Spacer(Modifier.height(48.dp))
-                Text("Bereit für die nächste Reise?", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(24.dp))
-                Button(onClick = {
-                    val rechte = buildList {
-                        add(Manifest.permission.ACCESS_FINE_LOCATION)
-                        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    rechteLauncher.launch(rechte.toTypedArray())
-                }) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Text("Aufzeichnung starten", Modifier.padding(start = 8.dp))
-                }
+                Text("Keine laufende Aufzeichnung", style = MaterialTheme.typography.titleMedium)
             } else {
                 // — Telemetrie —
                 val dauerS = ((jetztMs - laufend.startMs) / 1000).coerceAtLeast(0)
@@ -125,19 +109,6 @@ fun AufzeichnungScreen(
                 )
                 if (laufend.pausiert) {
                     Text("Pausiert", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                // — Fortbewegungsmittel (Wechsel erzeugt neues Segment) —
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Modus.entries.forEach { modus ->
-                        FilterChip(
-                            selected = laufend.modus == modus,
-                            onClick = { AufzeichnungsService.wechsleModus(context, modus) },
-                            label = { Text(modus.anzeige) },
-                        )
-                    }
                 }
 
                 Spacer(Modifier.height(32.dp))

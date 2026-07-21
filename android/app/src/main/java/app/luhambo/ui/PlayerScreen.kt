@@ -25,6 +25,7 @@ import android.util.Log
 import android.webkit.JavascriptInterface
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -33,7 +34,11 @@ import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
@@ -70,8 +75,31 @@ private class PlayerBruecke(private val ansicht: WebView, private val zurueck: (
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun PlayerScreen(serverUrl: String, serverTourId: String, zurueck: () -> Unit) {
+fun PlayerScreen(
+    serverUrl: String,
+    serverTourId: String,
+    /** Tauscht das API-Token gegen eine Sitzung; null = ohne Anmeldung weiter. */
+    sitzungHolen: suspend () -> String?,
+    zurueck: () -> Unit,
+) {
     val ansicht = LocalView.current
+    // Der WebView schickt nur Cookies mit — das API-Token der App steckt im
+    // OkHttp-Client und erreicht ihn nicht. Ohne Sitzung sähe er nur Touren,
+    // die ohnehin für jeden mit Link sichtbar sind; private wären in der
+    // eigenen App unabspielbar. Erst danach laden, sonst rennt die Seite dem
+    // Cookie davon.
+    var bereit by remember { mutableStateOf(false) }
+    LaunchedEffect(serverTourId) {
+        val sitzung = sitzungHolen()
+        if (sitzung != null) {
+            CookieManager.getInstance().apply {
+                setAcceptCookie(true)
+                setCookie("$serverUrl/", "luhambo_session=$sitzung; Path=/; Secure; SameSite=Lax")
+                flush()
+            }
+        }
+        bereit = true
+    }
 
     // — Vollbild: System-Leisten weg, Wischen holt sie kurz zurück —
     DisposableEffect(ansicht) {
@@ -107,6 +135,8 @@ fun PlayerScreen(serverUrl: String, serverTourId: String, zurueck: () -> Unit) {
         lebenszyklus?.addObserver(beobachter)
         onDispose { lebenszyklus?.removeObserver(beobachter) }
     }
+
+    if (!bereit) return
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),

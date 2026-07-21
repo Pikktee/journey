@@ -24,6 +24,7 @@ import app.luhambo.MainActivity
 import app.luhambo.R
 import app.luhambo.daten.Modus
 import app.luhambo.daten.TrackpunktEntity
+import app.luhambo.upload.UploadWorker
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -85,7 +86,10 @@ class AufzeichnungsService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
-            AKTION_START -> starteAufzeichnung(Modus.vonSchluessel(intent.getStringExtra(EXTRA_MODUS) ?: "walk"))
+            AKTION_START -> starteAufzeichnung(
+                Modus.vonSchluessel(intent.getStringExtra(EXTRA_MODUS) ?: "walk"),
+                intent.getStringExtra(EXTRA_TITEL),
+            )
             AKTION_MODUS -> wechsleModus(Modus.vonSchluessel(intent.getStringExtra(EXTRA_MODUS) ?: "walk"))
             AKTION_PAUSE -> setzePause(true)
             AKTION_WEITER -> setzePause(false)
@@ -94,7 +98,7 @@ class AufzeichnungsService : LifecycleService() {
         return START_STICKY
     }
 
-    private fun starteAufzeichnung(modus: Modus) {
+    private fun starteAufzeichnung(modus: Modus, titel: String?) {
         if (tourId != null) return // läuft schon
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
@@ -108,7 +112,7 @@ class AufzeichnungsService : LifecycleService() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
         )
         lifecycleScope.launch {
-            val tour = app.repository.starteAufnahme(modus)
+            val tour = app.repository.starteAufnahme(modus, titel = titel)
             tourId = tour.id
             startMs = tour.startMs
             AufzeichnungsZustand.starte(tour.id, tour.startMs, modus)
@@ -151,6 +155,10 @@ class AufzeichnungsService : LifecycleService() {
             // Auto-Titel kommt erst beim Upload/Nachbearbeiten (Geocoder braucht
             // Netz) — hier wird nur sauber abgeschlossen.
             app.repository.beendeAufnahme(id, titel = null)
+            // Sofort in die Upload-Warteschlange: die Tour ist fertig, und
+            // niemand will nach der Reise noch einen Knopf suchen. WorkManager
+            // wartet notfalls auf Netz und überlebt das stopSelf gleich darunter.
+            UploadWorker.starte(this@AufzeichnungsService, id)
             AufzeichnungsZustand.beende()
             stopSelf()
         }
@@ -204,9 +212,13 @@ class AufzeichnungsService : LifecycleService() {
         const val AKTION_WEITER = "app.luhambo.WEITER"
         const val AKTION_MODUS = "app.luhambo.MODUS"
         const val EXTRA_MODUS = "modus"
+        const val EXTRA_TITEL = "titel"
 
-        fun starte(context: Context, modus: Modus) =
-            sende(context, AKTION_START, vordergrund = true) { putExtra(EXTRA_MODUS, modus.schluessel) }
+        fun starte(context: Context, modus: Modus, titel: String? = null) =
+            sende(context, AKTION_START, vordergrund = true) {
+                putExtra(EXTRA_MODUS, modus.schluessel)
+                titel?.ifBlank { null }?.let { putExtra(EXTRA_TITEL, it) }
+            }
 
         fun wechsleModus(context: Context, modus: Modus) =
             sende(context, AKTION_MODUS) { putExtra(EXTRA_MODUS, modus.schluessel) }

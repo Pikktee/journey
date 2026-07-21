@@ -7,10 +7,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -30,10 +32,28 @@ data class ServerTour(
     /** bereit | verarbeitung | angelegt | fehler */
     val status: String,
     val km: Double?,
+    /** Aufgestiegene Höhenmeter (für die Reise-Statistik im Profil) */
+    val hoehenmeter: Double?,
     /** private | unlisted | public */
     val visibility: String,
+    /** Titelbild-Pfad relativ zum Server (/api/media/…); null vor dem ersten Render */
+    val cover: String?,
+    /** ISO-Zeitstempel des Anlegens — sortiert die verschmolzene Liste */
+    val erstelltAm: String,
 ) {
     val spielbar get() = status == "bereit"
+}
+
+/** Konto-Auskunft aus GET /api/auth/me. */
+data class KontoStand(
+    val email: String,
+    val name: String?,
+    val verifiziert: Boolean,
+    val benutztBytes: Long,
+    val limitBytes: Long,
+) {
+    /** Anteil des belegten Kontingents (0..1); 0 wenn kein Limit gemeldet wurde. */
+    val quotaAnteil: Float get() = if (limitBytes > 0) (benutztBytes.toDouble() / limitBytes).toFloat() else 0f
 }
 
 class ApiClient(private val einstellungen: Einstellungen) {
@@ -133,15 +153,67 @@ class ApiClient(private val einstellungen: Einstellungen) {
         liste.mapNotNull { element ->
             val obj = element as? JsonObject ?: return@mapNotNull null
             val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val stats = obj["stats"] as? JsonObject
             ServerTour(
                 id = id,
                 no = obj["no"]?.jsonPrimitive?.contentOrNull ?: "",
                 titel = obj["title"]?.jsonPrimitive?.contentOrNull,
                 status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
-                km = (obj["stats"] as? JsonObject)?.get("km")?.jsonPrimitive?.doubleOrNull,
+                km = stats?.get("km")?.jsonPrimitive?.doubleOrNull,
+                hoehenmeter = stats?.get("gainM")?.jsonPrimitive?.doubleOrNull,
                 visibility = obj["visibility"]?.jsonPrimitive?.contentOrNull ?: "unlisted",
+                cover = obj["cover"]?.jsonPrimitive?.contentOrNull,
+                erstelltAm = obj["createdAt"]?.jsonPrimitive?.contentOrNull ?: "",
             )
         }
+    }
+
+    /** Konto-Auskunft (E-Mail, Bestätigungsstand, Kontingent). */
+    suspend fun kontoStand(): KontoStand = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(autorisiert("/api/auth/me").get().build())
+        val benutzer = antwort["benutzer"] as? JsonObject ?: throw ApiFehler(401, "Nicht angemeldet")
+        val quota = antwort["quota"] as? JsonObject
+        KontoStand(
+            email = benutzer["email"]?.jsonPrimitive?.contentOrNull ?: "",
+            name = benutzer["name"]?.jsonPrimitive?.contentOrNull,
+            verifiziert = antwort["verifiziert"]?.jsonPrimitive?.booleanOrNull ?: true,
+            benutztBytes = quota?.get("benutzt")?.jsonPrimitive?.longOrNull ?: 0,
+            limitBytes = quota?.get("limit")?.jsonPrimitive?.longOrNull ?: 0,
+        )
+    }
+
+    /** Sichtbarkeit ändern (privat | ungelistet | öffentlich). */
+    suspend fun setzeSichtbarkeit(serverTourId: String, sichtbarkeit: String) {
+        withContext(Dispatchers.IO) {
+            val body = buildJsonObject { put("visibility", sichtbarkeit) }.toString().toRequestBody(jsonTyp)
+            ausfuehren(autorisiert("/api/tours/$serverTourId").patch(body).build())
+        }
+    }
+
+    /** Edit-Overlay lesen; fehlt es, liefert der Server nur das Schema-Feld. */
+    suspend fun editsLesen(serverTourId: String): JsonObject = withContext(Dispatchers.IO) {
+        ausfuehren(autorisiert("/api/tours/$serverTourId/edits").get().build())
+    }
+
+    /** Edit-Overlay schreiben (der Server rendert die Tour danach neu). */
+    suspend fun editsSchreiben(serverTourId: String, overlay: JsonObject) {
+        withContext(Dispatchers.IO) {
+            ausfuehren(
+                autorisiert("/api/tours/$serverTourId/edits")
+                    .put(overlay.toString().toRequestBody(jsonTyp))
+                    .build(),
+            )
+        }
+    }
+
+    /**
+     * Tauscht das API-Token gegen eine Sitzung für den WebView-Player. Der lädt
+     * den Web-Player vom selben Origin und kann nur Cookies mitschicken; ohne
+     * Sitzung blieben private Touren in der eigenen App unabspielbar.
+     */
+    suspend fun sitzungFuerPlayer(): String = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(autorisiert("/api/auth/session-aus-token").post("".toRequestBody()).build())
+        antwort["sessionId"]?.jsonPrimitive?.contentOrNull ?: throw ApiFehler(200, "Antwort ohne sessionId")
     }
 
     private suspend fun autorisiert(pfad: String): Request.Builder {

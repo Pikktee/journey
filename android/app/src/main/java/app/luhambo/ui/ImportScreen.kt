@@ -1,6 +1,13 @@
 // Import-Screen (M8): GPX per SAF-Picker wählen, Fotos/Videos aus der Galerie
 // dazunehmen, optional einen Titel setzen — dann hochladen. Das Parsen und
 // Platzieren macht der Server; hier nur Auswahl + Fortschritt.
+//
+// DERZEIT OHNE EINSTIEG: Auf dem Telefon führt der Weg über die Aufnahme, und
+// eine GPX-Datei liegt selten dort — das ist eine Aufgabe fürs Studio am
+// Rechner. Der Code bleibt trotzdem stehen: er ist vollständig und getestet und
+// wird gebraucht, sobald die App GPX-Dateien per „Öffnen mit" annimmt
+// (Intent-Filter im Manifest). Wer ihn wieder erreichbar macht, hängt eine
+// Route in Navigation.kt ein.
 package app.luhambo.ui
 
 import android.net.Uri

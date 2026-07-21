@@ -12,11 +12,15 @@ import app.luhambo.daten.MediumEntity
 import app.luhambo.daten.TourEntity
 import app.luhambo.daten.TourRepository
 import app.luhambo.upload.ApiClient
+import app.luhambo.upload.ApiFehler
 import app.luhambo.upload.Einstellungen
 import app.luhambo.upload.Konto
+import app.luhambo.upload.KontoStand
 import app.luhambo.upload.ServerTour
 import app.luhambo.upload.UploadWorker
+import app.luhambo.upload.mitMediumTitel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,14 +50,39 @@ class StartViewModel(
 
 class TourViewModel(
     private val repository: TourRepository,
+    private val apiClient: ApiClient,
+    private val appScope: CoroutineScope,
     private val appContext: Context,
     private val tourId: String,
 ) : ViewModel() {
     val tour: Flow<TourEntity?> = repository.tourFluss(tourId)
-    val fotoAnzahl: Flow<Int> = repository.medienAnzahl(tourId)
+    val medien: Flow<List<MediumEntity>> = repository.medienFluss(tourId)
 
-    /** Texte sichern und den Upload-Worker einreihen. */
-    fun speichereUndLadeHoch(titel: String?, beschreibung: String?) {
+    fun datei(medium: MediumEntity): File = repository.mediumDatei(medium)
+
+    /**
+     * Titel und Beschreibung sichern. Ist die Tour schon beim Server, wandert
+     * die Änderung gleich dorthin — sonst bliebe eine nachträgliche Umbenennung
+     * für immer auf dem Gerät: der Upload-Worker patcht nur innerhalb seines
+     * eigenen Laufs, und der ist längst vorbei.
+     *
+     * Läuft im prozessweiten Scope, weil beim Verlassen des Screens gesichert
+     * wird und das ViewModel da schon auf dem Weg nach draußen ist.
+     */
+    fun sichereTexte(titel: String?, beschreibung: String?) {
+        val neuerTitel = titel?.trim()?.ifBlank { null }
+        val neueBeschreibung = beschreibung?.trim()?.ifBlank { null }
+        appScope.launch {
+            val vorher = repository.tour(tourId) ?: return@launch
+            if (vorher.titel == neuerTitel && vorher.beschreibung == neueBeschreibung) return@launch
+            repository.aktualisiereTexte(tourId, neuerTitel, neueBeschreibung)
+            val serverId = vorher.serverId ?: return@launch
+            runCatching { apiClient.patchTour(serverId, neuerTitel, neueBeschreibung) }
+        }
+    }
+
+    /** Upload erneut anstoßen (nach einem Fehlschlag). */
+    fun ladeHoch(titel: String?, beschreibung: String?) {
         viewModelScope.launch {
             repository.aktualisiereTexte(tourId, titel?.ifBlank { null }, beschreibung?.ifBlank { null })
             UploadWorker.starte(appContext, tourId)
@@ -77,16 +106,33 @@ class TourViewModel(
  */
 class FotoViewModel(
     private val repository: TourRepository,
+    private val apiClient: ApiClient,
     private val appScope: CoroutineScope,
     private val tourId: String,
     private val mediumId: String,
 ) : ViewModel() {
     val medium: Flow<MediumEntity?> = repository.mediumFluss(tourId, mediumId)
+    val tour: Flow<TourEntity?> = repository.tourFluss(tourId)
 
     fun datei(medium: MediumEntity): File = repository.mediumDatei(medium)
 
+    /**
+     * Titel setzen — lokal immer, und beim Server, sobald die Tour dort liegt.
+     *
+     * Nach dem Upload ist das Manifest unveränderlich; Medien-Änderungen laufen
+     * über das Edit-Overlay. Das wird gelesen, um genau einen Schlüssel ergänzt
+     * und zurückgeschrieben, damit im Studio gesetzte Kamerafahrten, Musik oder
+     * Wetterkorrekturen dabei nicht verloren gehen.
+     */
     fun setzeTitel(titel: String) {
-        appScope.launch { repository.setzeMediumCaption(tourId, mediumId, titel) }
+        appScope.launch {
+            repository.setzeMediumCaption(tourId, mediumId, titel)
+            val serverId = repository.tour(tourId)?.serverId ?: return@launch
+            wiederholeBeiVerarbeitung {
+                val overlay = apiClient.editsLesen(serverId)
+                apiClient.editsSchreiben(serverId, mitMediumTitel(overlay, mediumId, titel))
+            }
+        }
     }
 
     fun loesche(danach: () -> Unit) {
@@ -94,6 +140,48 @@ class FotoViewModel(
             repository.loescheMedium(tourId, mediumId)
             danach()
         }
+    }
+
+    /**
+     * Der Server weist Overlay-Änderungen mit 409 ab, während er eine Tour
+     * rendert. Das dauert Sekunden, nicht Minuten — kurz warten und erneut
+     * versuchen ist dem Nutzer gegenüber ehrlicher als eine Fehlermeldung.
+     */
+    private suspend fun wiederholeBeiVerarbeitung(versuch: suspend () -> Unit) {
+        repeat(3) { runde ->
+            val ergebnis = runCatching { versuch() }
+            if (ergebnis.isSuccess) return
+            val fehler = ergebnis.exceptionOrNull()
+            if (fehler !is ApiFehler || fehler.status != 409) return
+            if (runde < 2) delay(2_000)
+        }
+    }
+}
+
+/** Profil-Reiter: Kontostand vom Server plus die Zahlen der eigenen Touren. */
+class ProfilViewModel(
+    repository: TourRepository,
+    private val einstellungen: Einstellungen,
+    private val apiClient: ApiClient,
+) : ViewModel() {
+    val lokaleTouren: Flow<List<TourEntity>> = repository.alleTouren()
+
+    private val internServerTouren = MutableStateFlow<List<ServerTour>>(emptyList())
+    val serverTouren: StateFlow<List<ServerTour>> = internServerTouren
+
+    private val internKonto = MutableStateFlow<KontoStand?>(null)
+    val konto: StateFlow<KontoStand?> = internKonto
+
+    /** Kontostand und Tourliste neu holen; Fehler lassen den letzten Stand stehen. */
+    fun aktualisiere() {
+        viewModelScope.launch {
+            runCatching { apiClient.kontoStand() }.onSuccess { internKonto.value = it }
+            runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
+        }
+    }
+
+    fun abmelden() {
+        viewModelScope.launch { einstellungen.abmelden() }
     }
 }
 
@@ -149,14 +237,23 @@ class LuhamboViewModelFactory(
         modelClass.isAssignableFrom(StartViewModel::class.java) ->
             StartViewModel(app.repository, app.apiClient) as T
         modelClass.isAssignableFrom(TourViewModel::class.java) ->
-            TourViewModel(app.repository, app, requireNotNull(tourId) { "tourId fehlt" }) as T
+            TourViewModel(
+                app.repository,
+                app.apiClient,
+                app.appScope,
+                app,
+                requireNotNull(tourId) { "tourId fehlt" },
+            ) as T
         modelClass.isAssignableFrom(FotoViewModel::class.java) ->
             FotoViewModel(
                 app.repository,
+                app.apiClient,
                 app.appScope,
                 requireNotNull(tourId) { "tourId fehlt" },
                 requireNotNull(mediumId) { "mediumId fehlt" },
             ) as T
+        modelClass.isAssignableFrom(ProfilViewModel::class.java) ->
+            ProfilViewModel(app.repository, app.einstellungen, app.apiClient) as T
         modelClass.isAssignableFrom(EinstellungenViewModel::class.java) ->
             EinstellungenViewModel(app.einstellungen, app.apiClient) as T
         modelClass.isAssignableFrom(ImportViewModel::class.java) ->

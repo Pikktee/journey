@@ -28,10 +28,14 @@ class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
     suspend fun tour(id: String): TourEntity? = dao.tour(id)
 
     /** Neue Aufnahme beginnen: Tour + erster Moduswechsel. */
-    suspend fun starteAufnahme(modus: Modus, jetztMs: Long = System.currentTimeMillis()): TourEntity {
+    suspend fun starteAufnahme(
+        modus: Modus,
+        jetztMs: Long = System.currentTimeMillis(),
+        titel: String? = null,
+    ): TourEntity {
         val tour = TourEntity(
             id = "lokal-${UUID.randomUUID()}",
-            titel = null,
+            titel = titel?.trim()?.ifBlank { null },
             beschreibung = null,
             startMs = jetztMs,
             endeMs = null,
@@ -86,6 +90,8 @@ class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
 
     suspend fun setzeStatus(tourId: String, status: TourStatus, fehler: String? = null) =
         dao.setzeStatus(tourId, status, fehler)
+
+    suspend fun tourenMitStatus(status: TourStatus): List<TourEntity> = dao.tourenMitStatus(status)
 
     suspend fun setzeServerId(tourId: String, serverId: String) = dao.setzeServerId(tourId, serverId)
 

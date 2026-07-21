@@ -88,8 +88,11 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             repo.setzeServerId(tourId, serverId)
             // Wiederholter Upload (clientTourId): der Server behält sein erstes
             // Manifest — lokal geänderte Texte per PATCH nachziehen, sonst
-            // erreichen sie den Server nie
-            runCatching { app.apiClient.patchTour(serverId, aktuelleTour.titel, aktuelleTour.beschreibung) }
+            // erreichen sie den Server nie. Frisch aus der Datenbank gelesen:
+            // zwischen Manifest-Bau und hier können Sekunden liegen, in denen
+            // der Nutzer den Titel im Entwurf getippt hat.
+            val vorPatch = repo.tour(tourId) ?: aktuelleTour
+            runCatching { app.apiClient.patchTour(serverId, vorPatch.titel, vorPatch.beschreibung) }
 
             for (medium in repo.medien(tourId)) {
                 if (medium.uploadStatus == MediumUploadStatus.HOCHGELADEN) continue
@@ -116,6 +119,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 when (letzterStatus) {
                     "bereit" -> {
                         repo.setzeStatus(tourId, TourStatus.HOCHGELADEN)
+                        gleicheTitelAb(tourId, serverId, manifest)
                         return Result.success(workDataOf(AUSGABE_SERVER_ID to serverId))
                     }
                     "fehler" -> {
@@ -129,6 +133,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 return vermerkeUndRetry(tourId, ApiFehler(0, "Tour blieb im Status „$letzterStatus“"))
             }
             repo.setzeStatus(tourId, TourStatus.HOCHGELADEN)
+            gleicheTitelAb(tourId, serverId, manifest)
             Result.success(workDataOf(AUSGABE_SERVER_ID to serverId))
         } catch (fehler: ApiFehler) {
             if (istEndgueltigerUploadFehler(fehler.status)) {
@@ -147,6 +152,32 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
     }
 
+    /**
+     * Foto-Titel nachreichen, die WÄHREND des Uploads getippt wurden.
+     *
+     * Das Manifest ist zu diesem Zeitpunkt längst beim Server; ein danach
+     * gesetzter Titel erreichte ihn sonst nie. Nach dem Upload läuft die
+     * Beschriftung ohnehin über das Edit-Overlay — genau dieser Weg wird hier
+     * einmalig für die Abweichungen gegangen.
+     */
+    private suspend fun gleicheTitelAb(tourId: String, serverId: String, gesendet: UploadManifest) {
+        val imManifest = gesendet.media.associate { it.id to it.caption.orEmpty() }
+        val abweichungen = app.repository.medien(tourId)
+            .filter { it.caption.orEmpty().trim() != imManifest[it.id].orEmpty() }
+        if (abweichungen.isEmpty()) return
+
+        runCatching {
+            var overlay = app.apiClient.editsLesen(serverId)
+            for (medium in abweichungen) overlay = mitMediumTitel(overlay, medium.id, medium.caption)
+            app.apiClient.editsSchreiben(serverId, overlay)
+        }.onFailure { fehler ->
+            // Kein Grund, den Upload scheitern zu lassen: die Tour ist da, nur
+            // ein nachträglich getippter Titel fehlt. Er lässt sich jederzeit
+            // im Detail erneut setzen.
+            android.util.Log.w("Luhambo", "Foto-Titel konnten nicht nachgereicht werden", fehler)
+        }
+    }
+
     private suspend fun vermerkeUndRetry(tourId: String, fehler: Exception): Result {
         // ENTWURF statt FEHLER: WorkManager versucht es mit Backoff erneut,
         // die Tour bleibt in der Liste als „wartet auf Upload" sichtbar
@@ -158,15 +189,27 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         const val EINGABE_TOUR_ID = "tourId"
         const val AUSGABE_SERVER_ID = "serverId"
 
-        /** Upload einreihen (einmalig je Tour; erneuter Aufruf ersetzt). */
-        fun starte(context: Context, tourId: String) {
+        /** Name der eindeutigen Arbeit je Tour — auch für die Fortschritts-Anzeige. */
+        fun arbeitsname(tourId: String): String = "upload-$tourId"
+
+        /**
+         * Upload einreihen (einmalig je Tour).
+         *
+         * `ersetzen = false` für den Nachzügler beim App-Start: ein bereits
+         * wartender Versuch (Backoff nach Fehlschlag, oder Warten auf Netz) darf
+         * nicht zurückgesetzt und doppelt gestartet werden.
+         */
+        fun starte(context: Context, tourId: String, ersetzen: Boolean = true) {
             val anfrage = OneTimeWorkRequestBuilder<UploadWorker>()
                 .setInputData(workDataOf(EINGABE_TOUR_ID to tourId))
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, Duration.ofSeconds(15))
                 .build()
-            WorkManager.getInstance(context)
-                .enqueueUniqueWork("upload-$tourId", ExistingWorkPolicy.REPLACE, anfrage)
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                arbeitsname(tourId),
+                if (ersetzen) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
+                anfrage,
+            )
         }
     }
 }

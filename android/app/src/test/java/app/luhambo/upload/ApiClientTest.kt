@@ -88,6 +88,77 @@ class ApiClientTest {
     }
 
     @Test
+    fun `toureListe liest Titelbild, Zeitstempel und Hoehenmeter`() = runTest {
+        melodeAn()
+        server.enqueue(
+            MockResponse().setBody(
+                """
+                {"tours":[{"id":"t_1","no":"N°01","title":"Bucht","status":"bereit","visibility":"unlisted",
+                "cover":"/api/media/t_1/m1.jpg","createdAt":"2026-07-04T08:00:00.000Z",
+                "stats":{"km":12.5,"gainM":300}}]}
+                """.trimIndent(),
+            ),
+        )
+        val tour = client.toureListe().single()
+        assertEquals("/api/media/t_1/m1.jpg", tour.cover)
+        assertEquals("2026-07-04T08:00:00.000Z", tour.erstelltAm)
+        assertEquals(12.5, tour.km!!, 1e-9)
+        assertEquals(300.0, tour.hoehenmeter!!, 1e-9)
+    }
+
+    @Test
+    fun `eine Tour ohne Titelbild bleibt lesbar`() = runTest {
+        // Vor dem ersten Rendern gibt es kein cover — das darf die Liste nicht kippen
+        melodeAn()
+        server.enqueue(MockResponse().setBody("""{"tours":[{"id":"t_1","status":"verarbeitung"}]}"""))
+        val tour = client.toureListe().single()
+        assertEquals(null, tour.cover)
+        assertEquals(null, tour.km)
+    }
+
+    @Test
+    fun `kontoStand liest Bestaetigung und Kontingent`() = runTest {
+        melodeAn()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"benutzer":{"id":"u1","email":"a@b.c","name":"Ida"},"verifiziert":false,
+                   "quota":{"benutzt":1048576,"limit":10485760,"frei":9437184}}""",
+            ),
+        )
+        val stand = client.kontoStand()
+        assertEquals("a@b.c", stand.email)
+        assertEquals(false, stand.verifiziert)
+        assertEquals(0.1f, stand.quotaAnteil, 1e-6f)
+    }
+
+    @Test
+    fun `Overlay wird gelesen und unveraendert zurueckgeschrieben`() = runTest {
+        melodeAn()
+        server.enqueue(MockResponse().setBody("""{"schema":"luhambo/edits@1","kamera":[]}"""))
+        val overlay = client.editsLesen("t_1")
+        assertEquals("/api/tours/t_1/edits", server.takeRequest().path)
+
+        server.enqueue(MockResponse().setResponseCode(202).setBody("{}"))
+        client.editsSchreiben("t_1", mitMediumTitel(overlay, "m1", "Bucht"))
+        val anfrage = server.takeRequest()
+        assertEquals("PUT", anfrage.method)
+        val body = anfrage.body.readUtf8()
+        assertTrue(body.contains("\"caption\":\"Bucht\""))
+        assertTrue("Studio-Feld verloren: $body", body.contains("\"kamera\""))
+    }
+
+    @Test
+    fun `sitzungFuerPlayer liefert die Sitzungs-ID`() = runTest {
+        melodeAn()
+        server.enqueue(MockResponse().setBody("""{"sessionId":"s_abc","ablauf":"2026-08-01T00:00:00Z"}"""))
+        assertEquals("s_abc", client.sitzungFuerPlayer())
+        val anfrage = server.takeRequest()
+        assertEquals("POST", anfrage.method)
+        assertEquals("/api/auth/session-aus-token", anfrage.path)
+        assertEquals("Bearer lhb_testtoken", anfrage.getHeader("Authorization"))
+    }
+
+    @Test
     fun `Fehlertext des Backends landet in der Exception`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setResponseCode(413).setBody("""{"fehler":"Datei zu groß"}"""))
