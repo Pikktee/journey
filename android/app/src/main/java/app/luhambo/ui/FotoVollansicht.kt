@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -63,6 +64,7 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
         (tour?.status == TourStatus.FEHLER && tour?.serverId == null)
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var fragtLoeschen by remember { mutableStateOf(false) }
+    val fokus = remember { FocusRequester() }
 
     // Einmalig aus der Datenbank befüllen; danach gehört das Feld dem Nutzer
     // (dasselbe Muster wie die Titelfelder im Tour-Entwurf).
@@ -103,26 +105,14 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
                     .padding(horizontal = 20.dp, vertical = 18.dp),
             ) {
                 Abschnittstitel("Titel")
-                Spacer(Modifier.height(8.dp))
-                Box {
-                    if (titel.isNullOrEmpty()) {
-                        Text(
-                            "Was ist hier zu sehen?",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Tinte.copy(alpha = 0.4f),
-                        )
-                    }
-                    BasicTextField(
-                        value = titel.orEmpty(),
-                        onValueChange = { titel = it },
-                        textStyle = MaterialTheme.typography.titleLarge.copy(color = Tinte),
-                        cursorBrush = SolidColor(Sonne),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { tastatur?.hide() }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                Schreibzeile(
+                    wert = titel.orEmpty(),
+                    setzeWert = { titel = it },
+                    platzhalter = "Was ist hier zu sehen?",
+                    stil = MaterialTheme.typography.titleLarge,
+                    fokus = fokus,
+                    fertig = { tastatur?.hide() },
+                )
             }
         }
 

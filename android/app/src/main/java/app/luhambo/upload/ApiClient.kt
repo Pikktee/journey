@@ -58,7 +58,24 @@ data class Serverfoto(
     val id: String,
     /** Serverpfad des anzeigbaren Bildes (/api/media/…) */
     val pfad: String,
+    /** Was im Player als Überschrift steht — Nutzertext oder „Foto · 14:32“. */
     val titel: String?,
+    /**
+     * Der vom Nutzer gesetzte Text, leer wenn keiner.
+     *
+     * Im Tour-JSON tauschen die beiden Felder je nach Fall die Rollen: Gibt es
+     * einen Nutzertext, wird er zum `title` und die Uhrzeit rutscht in
+     * `caption`; sonst steht die Uhrzeit im `title` und `caption` ist leer. Eine
+     * gefüllte `caption` ist also das Zeichen dafür, dass `title` von Hand
+     * gesetzt wurde (s. server/src/pipeline/enrich.ts).
+     */
+    val nutzertext: String,
+    /**
+     * „Foto · 21:03" — die Maschinenangabe, aus dem Rollentausch oben wieder
+     * herausgerechnet. Sie steht in der Ansicht IMMER über dem Titel: Wann ein
+     * Bild entstand, bleibt auch dann interessant, wenn es einen Namen hat.
+     */
+    val zeitzeile: String?,
 )
 
 /** Konto-Auskunft aus GET /api/auth/me. */
@@ -270,12 +287,16 @@ class ApiClient(private val einstellungen: Einstellungen) {
             fotos = medien.mapNotNull { element ->
                 val obj = element as? JsonObject ?: return@mapNotNull null
                 val src = obj["src"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val titel = obj["title"]?.jsonPrimitive?.contentOrNull
+                val zeitzeile = obj["caption"]?.jsonPrimitive?.contentOrNull.orEmpty()
                 Serverfoto(
                     id = obj["id"]?.jsonPrimitive?.contentOrNull ?: src,
                     // Bei Videos zeigt das Standbild, was zu sehen ist — die
                     // Datei selbst kann kein Bildbetrachter darstellen.
                     pfad = obj["poster"]?.jsonPrimitive?.contentOrNull ?: src,
-                    titel = obj["title"]?.jsonPrimitive?.contentOrNull,
+                    titel = titel,
+                    nutzertext = if (zeitzeile.isNotBlank()) titel.orEmpty() else "",
+                    zeitzeile = if (zeitzeile.isNotBlank()) zeitzeile else titel,
                 )
             },
         )

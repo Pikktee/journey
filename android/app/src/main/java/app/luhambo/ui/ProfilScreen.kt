@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,10 +38,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -60,8 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -81,7 +85,7 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
     var anzeigename by remember { mutableStateOf<String?>(null) }
     var bio by remember { mutableStateOf<String?>(null) }
     var hinweisOhneNamen by remember { mutableStateOf(false) }
-    val nameFokus = remember { FocusRequester() }
+    var bildBlatt by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.aktualisiere() }
 
@@ -110,6 +114,10 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
         }
     }
 
+    val waehleBild = {
+        bildWaehler.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
     val statistik = remember(lokale, vomServer) {
         berechneReisestatistik(verschmelzeTouren(lokale, vomServer))
     }
@@ -123,59 +131,67 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
         Spacer(Modifier.statusBarsPadding().height(24.dp))
 
         // — Wer man ist —
-        Box(
-            Modifier
-                .size(96.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                .clickable {
-                    bildWaehler.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        //
+        // Beide Bild-Aktionen hängen am Bild selbst, statt als Textzeilen
+        // darunter zu stehen. Vorher las sich der Kopf als Liste von
+        // Aufforderungen („Anzeigenamen festlegen", „Bild entfernen") — zwei
+        // Nebensachen in der Rolle der Hauptsache. Das Kamerazeichen an der Ecke
+        // ist das gewohnte Zeichen dafür, dass sich hier ein Bild setzen lässt;
+        // was es damit zu tun gibt, fragt ein Blatt, sobald schon eines da ist.
+        val avatarUrl = konto?.profil?.avatarUrl?.let { app.serverUrl() + it }
+        Box(Modifier.size(100.dp)) {
+            Box(
+                Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .clickable(
+                        onClickLabel = if (avatarUrl == null) "Profilbild wählen" else "Profilbild ändern",
+                    ) {
+                        if (avatarUrl == null) waehleBild() else bildBlatt = true
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (avatarUrl != null) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "Profilbild",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            val bild = konto?.profil?.avatarUrl?.let { app.serverUrl() + it }
-            if (bild != null) {
-                AsyncImage(
-                    model = bild,
-                    contentDescription = "Profilbild ändern",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
+                } else {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Sonne),
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
-                    Icons.Default.AddAPhoto,
-                    contentDescription = "Profilbild wählen",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(26.dp),
+                    Icons.Default.PhotoCamera,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-        val name = anzeigename?.takeIf { it.isNotBlank() }
-        if (name != null) {
-            Text(name, style = MaterialTheme.typography.headlineMedium)
-        } else {
-            // Kein Name gesetzt: nicht „Ohne Anzeigenamen" in Überschriftgröße
-            // hinschreiben — das macht aus einer Leerstelle einen Vorwurf.
-            // Stattdessen der Weg, sie zu füllen; der Fokus springt ins Feld
-            // weiter unten, und Compose scrollt es von selbst ins Bild.
-            TextButton(
-                onClick = { nameFokus.requestFocus() },
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
-            ) { Text("Anzeigenamen festlegen") }
-        }
-        if (konto?.profil?.avatarUrl != null) {
-            TextButton(
-                onClick = viewModel::loescheAvatar,
-                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) { Text("Bild entfernen") }
+        // Der Name steht hier nur, wenn es einen gibt. Ein Platzhalter wäre
+        // doppelt: Das Feld dafür steht wenige Zeilen weiter unten, samt
+        // Beschriftung und Erklärung.
+        anzeigename?.takeIf { it.isNotBlank() }?.let {
+            Spacer(Modifier.height(14.dp))
+            Text(it, style = MaterialTheme.typography.headlineMedium)
         }
 
         // — Was man gereist ist —
@@ -205,7 +221,7 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             placeholder = { Text("Wie du in der Galerie erscheinst") },
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.fillMaxWidth().focusRequester(nameFokus),
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
@@ -311,6 +327,14 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
         Spacer(Modifier.height(56.dp))
     }
 
+    if (bildBlatt) {
+        BildBlatt(
+            schliessen = { bildBlatt = false },
+            waehlen = { bildBlatt = false; waehleBild() },
+            entfernen = { bildBlatt = false; viewModel.loescheAvatar() },
+        )
+    }
+
     if (hinweisOhneNamen) {
         AlertDialog(
             onDismissRequest = { hinweisOhneNamen = false },
@@ -354,3 +378,47 @@ private fun Trenner() {
 
 private fun megabyte(bytes: Long): String =
     String.format(Locale.GERMAN, "%.0f MB", bytes / 1024.0 / 1024.0)
+
+/** Was sich mit einem vorhandenen Profilbild anstellen lässt. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BildBlatt(schliessen: () -> Unit, waehlen: () -> Unit, entfernen: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = schliessen, sheetState = rememberModalBottomSheetState()) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("Profilbild", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(12.dp))
+            Blattzeile(Icons.Default.PhotoCamera, "Anderes Bild wählen", waehlen)
+            Blattzeile(
+                Icons.Default.DeleteOutline,
+                "Bild entfernen",
+                entfernen,
+                farbe = MaterialTheme.colorScheme.error,
+            )
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun Blattzeile(
+    symbol: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    beiKlick: () -> Unit,
+    farbe: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = beiKlick)
+            .padding(vertical = 14.dp, horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(symbol, contentDescription = null, tint = farbe, modifier = Modifier.size(20.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = farbe)
+    }
+}

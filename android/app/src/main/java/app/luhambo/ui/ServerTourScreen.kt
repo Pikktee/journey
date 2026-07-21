@@ -11,6 +11,7 @@
 // Unterschied liegt in der Quelle — hier kommt alles über die API.
 package app.luhambo.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -238,7 +240,9 @@ fun ServerTourScreen(
     grossesFoto?.let { foto ->
         Fotoschau(
             bildUrl = app.serverUrl() + foto.pfad,
-            titel = foto.titel,
+            nutzertext = foto.nutzertext,
+            zeitzeile = foto.zeitzeile,
+            setzeTitel = { viewModel.setzeFotoTitel(foto.id, it) },
             schliessen = { grossesFoto = null },
         )
     }
@@ -285,6 +289,7 @@ private fun Serverkopf(
     abspielen: (() -> Unit)?,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
+    val fokus = remember { FocusRequester() }
     Box(Modifier.fillMaxWidth().aspectRatio(16f / 11f)) {
         if (titelbild != null) {
             AsyncImage(
@@ -336,72 +341,80 @@ private fun Serverkopf(
             }
         }
 
-        Row(
-            Modifier
+        Schreibzeile(
+            wert = titel,
+            setzeWert = setzeTitel,
+            platzhalter = marke ?: "Unbenannte Reise",
+            stil = MaterialTheme.typography.headlineMedium,
+            fokus = fokus,
+            fertig = { tastatur?.hide() },
+            modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 18.dp, end = 14.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(Modifier.weight(1f)) {
-                if (titel.isBlank()) {
-                    Text(
-                        marke ?: "Unbenannte Reise",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Tinte.copy(alpha = 0.45f),
-                    )
-                }
-                BasicTextField(
-                    value = titel,
-                    // Zeilenumbrüche filtern statt singleLine: Ein Reisename wie
-                    // „Runde bei Frankfurt am Main" passt neben dem Stift nicht in
-                    // eine Zeile und wurde einzeilig mitten im Wort abgeschnitten.
-                    // Umbrechen darf er, ein echtes Newline enthalten nicht.
-                    onValueChange = { setzeTitel(it.replace("\n", " ")) },
-                    textStyle = MaterialTheme.typography.headlineMedium.copy(color = Tinte),
-                    cursorBrush = SolidColor(Sonne),
-                    maxLines = 2,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { tastatur?.hide() }),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            Icon(
-                Icons.Default.Edit,
-                contentDescription = null,
-                tint = Tinte.copy(alpha = 0.5f),
-                modifier = Modifier.size(17.dp),
-            )
-        }
+                .padding(start = 18.dp, end = 14.dp, bottom = 10.dp),
+        )
     }
 }
 
-/** Ein Foto formatfüllend, mit seinem Titel darunter. */
+/**
+ * Ein Foto formatfüllend, mit beschreibbarem Titel darunter.
+ *
+ * Der Text wird im Player zur Überschrift des Foto-Stopps und ist bei geteilten
+ * Reisen für jeden sichtbar — deshalb „Titel" und nicht „Notiz". Gesichert wird
+ * beim Schließen; ein Häkchen für eine einzelne Zeile wäre Zeremonie.
+ */
 @Composable
-private fun Fotoschau(bildUrl: String, titel: String?, schliessen: () -> Unit) {
+private fun Fotoschau(
+    bildUrl: String,
+    nutzertext: String,
+    /** „Foto · 14:32“ — der Zeitstempel über dem Titel. */
+    zeitzeile: String?,
+    setzeTitel: (String) -> Unit,
+    schliessen: () -> Unit,
+) {
+    val tastatur = LocalSoftwareKeyboardController.current
+    var text by rememberSaveable(nutzertext) { mutableStateOf(nutzertext) }
+    val fokus = remember { FocusRequester() }
+
+    val beenden = {
+        setzeTitel(text)
+        schliessen()
+    }
+    // Auch die Zurück-Geste sichert — sonst wäre der Text je nach Ausstieg da
+    // oder weg.
+    BackHandler(onBack = beenden)
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AsyncImage(
             model = bildUrl,
-            contentDescription = titel,
+            contentDescription = nutzertext.ifBlank { zeitzeile },
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),
         )
-        if (!titel.isNullOrBlank()) {
-            Text(
-                titel,
-                style = MaterialTheme.typography.titleMedium,
-                color = Tinte,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 22.dp),
+
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+        ) {
+            if (zeitzeile != null) {
+                Abschnittstitel(zeitzeile)
+                Spacer(Modifier.height(8.dp))
+            }
+            Schreibzeile(
+                wert = text,
+                setzeWert = { text = it },
+                platzhalter = "Was ist hier zu sehen?",
+                stil = MaterialTheme.typography.titleLarge,
+                fokus = fokus,
+                fertig = { tastatur?.hide() },
             )
         }
+
         Rundknopf(
             symbol = Icons.Default.Close,
             beschreibung = "Schließen",
-            beiKlick = schliessen,
+            beiKlick = beenden,
             modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
         )
     }

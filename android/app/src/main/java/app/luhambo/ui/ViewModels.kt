@@ -387,6 +387,37 @@ class ServerTourViewModel(
     }
 
     /**
+     * Beschriftung eines Fotos ändern.
+     *
+     * Nach dem Upload ist das Manifest unveränderlich; der Text landet im
+     * Edit-Overlay. Das wird gelesen, um EINEN Schlüssel ergänzt und
+     * zurückgeschrieben — als rohes JsonObject, damit im Studio gesetzte
+     * Kamerafahrten, Musik und Wetterkorrekturen nicht still verlorengehen.
+     *
+     * Die Anzeige wird sofort mitgezogen, statt auf den Server zu warten: Der
+     * rendert die Tour nach dem Schreiben neu, und bis das durch ist, stünde
+     * hier noch der alte Text.
+     */
+    fun setzeFotoTitel(mediumId: String, titel: String) {
+        val vorher = internDetail.value ?: return
+        val gekuerzt = titel.trim()
+        if (vorher.fotos.firstOrNull { it.id == mediumId }?.nutzertext == gekuerzt) return
+
+        internDetail.value = vorher.copy(
+            fotos = vorher.fotos.map {
+                if (it.id != mediumId) it
+                else it.copy(nutzertext = gekuerzt, titel = gekuerzt.ifBlank { it.zeitzeile })
+            },
+        )
+        appScope.launch {
+            runCatching {
+                val overlay = apiClient.editsLesen(serverId)
+                apiClient.editsSchreiben(serverId, mitMediumTitel(overlay, mediumId, gekuerzt))
+            }.onFailure { internFehler.value = "Der Titel ließ sich nicht speichern." }
+        }
+    }
+
+    /**
      * Tour endgültig löschen — beim Server UND als lokaler Entwurf. Ohne den
      * zweiten Teil taucht sie als „wartet auf Upload" wieder in der Liste auf
      * und der Nachzügler-Upload lädt sie beim nächsten App-Start erneut hoch.

@@ -65,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -257,6 +258,7 @@ private fun Kopfbild(
     abspielen: (() -> Unit)?,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
+    val fokus = remember { FocusRequester() }
     Box(Modifier.fillMaxWidth().aspectRatio(16f / 11f)) {
         if (titelbild != null) {
             AsyncImage(
@@ -308,45 +310,17 @@ private fun Kopfbild(
             }
         }
 
-        Row(
-            Modifier
+        Schreibzeile(
+            wert = titel,
+            setzeWert = setzeTitel,
+            platzhalter = if (tour.serverId == null) "Reise benennen" else "Unbenannte Reise",
+            stil = MaterialTheme.typography.headlineMedium,
+            fokus = fokus,
+            fertig = { tastatur?.hide() },
+            modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 18.dp, end = 14.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(Modifier.weight(1f)) {
-                if (titel.isBlank()) {
-                    Text(
-                        if (tour.serverId == null) "Reise benennen" else "Unbenannte Reise",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Tinte.copy(alpha = 0.45f),
-                    )
-                }
-                BasicTextField(
-                    value = titel,
-                    // Zeilenumbrüche filtern statt singleLine: Ein Reisename wie
-                    // „Runde bei Frankfurt am Main" passt neben dem Stift nicht in
-                    // eine Zeile und wurde einzeilig mitten im Wort abgeschnitten.
-                    // Umbrechen darf er, ein echtes Newline enthalten nicht.
-                    onValueChange = { setzeTitel(it.replace("\n", " ")) },
-                    textStyle = MaterialTheme.typography.headlineMedium.copy(color = Tinte),
-                    cursorBrush = SolidColor(Sonne),
-                    maxLines = 2,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { tastatur?.hide() }),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            // Ohne das Zeichen sieht man einem gesetzten Titel nicht an, dass er
-            // sich ändern lässt — er sähe aus wie eine Beschriftung des Bildes.
-            Icon(
-                Icons.Default.Edit,
-                contentDescription = null,
-                tint = Tinte.copy(alpha = 0.5f),
-                modifier = Modifier.size(17.dp),
-            )
-        }
+                .padding(start = 18.dp, end = 14.dp, bottom = 10.dp),
+        )
     }
 }
 
