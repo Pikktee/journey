@@ -73,11 +73,24 @@ interface TourDao {
     @Query("SELECT * FROM medien WHERE tourId = :tourId ORDER BY aufgenommenMs")
     suspend fun medien(tourId: String): List<MediumEntity>
 
+    /** Neueste zuerst — so zeigt der Foto-Streifen das eben Aufgenommene vorn. */
+    @Query("SELECT * FROM medien WHERE tourId = :tourId ORDER BY aufgenommenMs DESC")
+    fun medienFluss(tourId: String): Flow<List<MediumEntity>>
+
+    @Query("SELECT * FROM medien WHERE tourId = :tourId AND id = :id")
+    fun mediumFluss(tourId: String, id: String): Flow<MediumEntity?>
+
     @Query("SELECT COUNT(*) FROM medien WHERE tourId = :tourId")
     fun medienAnzahlFluss(tourId: String): Flow<Int>
 
     @Query("UPDATE medien SET uploadStatus = :status WHERE tourId = :tourId AND id = :id")
     suspend fun setzeMediumStatus(tourId: String, id: String, status: MediumUploadStatus)
+
+    @Query("UPDATE medien SET caption = :caption WHERE tourId = :tourId AND id = :id")
+    suspend fun setzeMediumCaption(tourId: String, id: String, caption: String?)
+
+    @Query("DELETE FROM medien WHERE tourId = :tourId AND id = :id")
+    suspend fun loescheMedium(tourId: String, id: String)
 
     @Query("DELETE FROM medien WHERE tourId = :tourId")
     suspend fun loescheMedien(tourId: String)

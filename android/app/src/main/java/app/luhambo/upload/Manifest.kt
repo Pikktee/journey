@@ -30,6 +30,8 @@ data class ManifestMedium(
     val file: String,
     val takenAt: String,
     val anchor: List<Double>? = null,
+    /** Nutzertext; in der App „Titel", im fertigen Tour-JSON die Überschrift. */
+    val caption: String? = null,
 )
 
 @Serializable
@@ -163,6 +165,7 @@ object ManifestBau {
                 file = m.datei.substringAfterLast('/'),
                 takenAt = iso(m.aufgenommenMs),
                 anchor = if (m.ankerLng != null && m.ankerLat != null) listOf(m.ankerLng, m.ankerLat) else null,
+                caption = m.caption?.ifBlank { null },
             )
         },
     )

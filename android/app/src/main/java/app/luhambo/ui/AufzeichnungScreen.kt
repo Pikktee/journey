@@ -7,6 +7,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Pause
@@ -38,18 +43,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.luhambo.LuhamboApp
 import app.luhambo.aufzeichnung.AufzeichnungsService
 import app.luhambo.aufzeichnung.AufzeichnungsZustand
 import app.luhambo.daten.Modus
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AufzeichnungScreen(zurKamera: () -> Unit, fertig: (tourId: String) -> Unit) {
+fun AufzeichnungScreen(
+    zurKamera: () -> Unit,
+    zumFoto: (tourId: String, mediumId: String) -> Unit,
+    fertig: (tourId: String) -> Unit,
+) {
     val context = LocalContext.current
+    val app = context.applicationContext as LuhamboApp
     val aufnahme by AufzeichnungsZustand.aktuell.collectAsState()
 
     // Uhr für die Dauer-Anzeige (1-Hz-Tick, unabhängig von GPS-Updates)
@@ -135,6 +149,34 @@ fun AufzeichnungScreen(zurKamera: () -> Unit, fertig: (tourId: String) -> Unit) 
                 ) {
                     Icon(Icons.Default.PhotoCamera, contentDescription = null)
                     Text("Foto aufnehmen", Modifier.padding(start = 8.dp))
+                }
+
+                // — Was bisher aufgenommen wurde —
+                // Ohne den Streifen verschwindet jedes Foto nach dem Auslösen
+                // spurlos; man weiß bis zum Hochladen nicht, ob es etwas geworden
+                // ist. Neueste zuerst, weil das eben Ausgelöste zuerst zählt.
+                val medien by remember(laufend.tourId) {
+                    app.repository.medienFluss(laufend.tourId)
+                }.collectAsState(initial = emptyList())
+
+                if (medien.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    LazyRow(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(medien, key = { it.id }) { medium ->
+                            AsyncImage(
+                                model = app.repository.mediumDatei(medium),
+                                contentDescription = medium.caption ?: "Aufnahme ${medium.id}",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { zumFoto(laufend.tourId, medium.id) },
+                            )
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))

@@ -103,6 +103,59 @@ class TourRepositoryTest {
     }
 
     @Test
+    fun `Nach dem Loeschen wird keine Nummer erneut vergeben (Kollisions-Fund)`() = runTest {
+        // „Anzahl + 1" zeigte nach dem Löschen auf eine schon vergebene ID und
+        // krachte in den (tourId, id)-Schlüssel. Jetzt zählt die höchste Nummer.
+        val tour = repo.starteAufnahme(Modus.WALK)
+        repo.registriereFoto(tour.id, "touren/${tour.id}/a.jpg", 100, null)
+        repo.registriereFoto(tour.id, "touren/${tour.id}/b.jpg", 200, null)
+        repo.loescheMedium(tour.id, "m1")
+        repo.registriereFoto(tour.id, "touren/${tour.id}/c.jpg", 300, null)
+
+        assertEquals(listOf("m2", "m3"), repo.medien(tour.id).map { it.id })
+    }
+
+    @Test
+    fun `Naechste Medium-Nummer aus vorhandenen IDs`() {
+        assertEquals(1, naechsteMediumNummer(emptyList()))
+        assertEquals(4, naechsteMediumNummer(listOf("m1", "m3")))
+        assertEquals(11, naechsteMediumNummer(listOf("m2", "m10")))
+    }
+
+    @Test
+    fun `Einzelnes Medium loeschen entfernt Eintrag und Datei`() = runTest {
+        val tour = repo.starteAufnahme(Modus.WALK)
+        val (relativ, datei) = repo.neueMediumDatei(tour.id, "jpg")
+        datei.writeBytes(byteArrayOf(1, 2, 3))
+        repo.registriereFoto(tour.id, relativ, 123, null)
+
+        repo.loescheMedium(tour.id, "m1")
+        assertTrue(repo.medien(tour.id).isEmpty())
+        assertTrue(!datei.exists())
+    }
+
+    @Test
+    fun `Titel eines Fotos wird gespeichert, Leerraum zaehlt als leer`() = runTest {
+        val tour = repo.starteAufnahme(Modus.WALK)
+        repo.registriereFoto(tour.id, "touren/${tour.id}/a.jpg", 123, null)
+
+        repo.setzeMediumCaption(tour.id, "m1", "  Blick über die Bucht  ")
+        assertEquals("Blick über die Bucht", repo.mediumFluss(tour.id, "m1").first()?.caption)
+
+        repo.setzeMediumCaption(tour.id, "m1", "   ")
+        assertNull(repo.medien(tour.id).single().caption)
+    }
+
+    @Test
+    fun `Medien-Fluss liefert die neuesten zuerst`() = runTest {
+        val tour = repo.starteAufnahme(Modus.WALK)
+        repo.registriereFoto(tour.id, "touren/${tour.id}/a.jpg", 100, null)
+        repo.registriereFoto(tour.id, "touren/${tour.id}/b.jpg", 200, null)
+
+        assertEquals(listOf("m2", "m1"), repo.medienFluss(tour.id).first().map { it.id })
+    }
+
+    @Test
     fun `Loeschen entfernt Tour, Punkte, Medien und Dateien`() = runTest {
         val tour = repo.starteAufnahme(Modus.WALK)
         val (relativ, datei) = repo.neueMediumDatei(tour.id, "jpg")

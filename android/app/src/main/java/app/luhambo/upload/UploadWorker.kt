@@ -22,6 +22,20 @@ import app.luhambo.daten.TourStatus
 import kotlinx.coroutines.delay
 import java.time.Duration
 
+/**
+ * Fehler, die kein Wiederholen heilt — sie brauchen den Nutzer:
+ * 400 ungültiges Manifest, 401 abgelaufene Anmeldung, 403 unbestätigte
+ * E-Mail-Adresse, 413 volles Kontingent. Ohne diese Unterscheidung liefe der
+ * automatisch angestoßene Upload endlos im Backoff-Kreis.
+ */
+fun istEndgueltigerUploadFehler(status: Int): Boolean = status in setOf(400, 401, 403, 413)
+
+/** Erklärung für die Tourliste; der Servertext ist meist der bessere. */
+fun uploadFehlerText(status: Int, serverText: String?): String = when (status) {
+    401 -> "Anmeldung abgelaufen — bitte neu anmelden"
+    else -> serverText?.ifBlank { null } ?: "Upload fehlgeschlagen (Fehler $status)"
+}
+
 class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     private val app = context.applicationContext as LuhamboApp
@@ -117,9 +131,13 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             repo.setzeStatus(tourId, TourStatus.HOCHGELADEN)
             Result.success(workDataOf(AUSGABE_SERVER_ID to serverId))
         } catch (fehler: ApiFehler) {
-            if (fehler.status == 401) {
-                // Anmeldung kaputt — Retry hilft nicht, der Nutzer muss ran
-                app.repository.setzeStatus(tourId, TourStatus.FEHLER, "Anmeldung abgelaufen — bitte neu anmelden")
+            if (istEndgueltigerUploadFehler(fehler.status)) {
+                // Retry hilft nicht, der Nutzer muss ran
+                app.repository.setzeStatus(
+                    tourId,
+                    TourStatus.FEHLER,
+                    uploadFehlerText(fehler.status, fehler.message),
+                )
                 Result.failure()
             } else {
                 vermerkeUndRetry(tourId, fehler)

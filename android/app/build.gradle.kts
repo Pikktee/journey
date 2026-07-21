@@ -40,6 +40,16 @@ android {
         compose = true
     }
 
+    // Room legt je Schema-Version eine JSON-Datei ab. Sie ist die Vergleichsbasis
+    // für Migrationstests: ohne sie lässt sich nicht prüfen, ob eine Migration die
+    // alte Datenbank wirklich in die neue Form überführt.
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+    sourceSets.getByName("test") {
+        assets.srcDir("$projectDir/schemas")
+    }
+
     testOptions {
         unitTests {
             // Robolectric braucht die Android-Ressourcen
@@ -74,6 +84,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.camera.video)
+
+    implementation(libs.coil.compose)
 
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.serialization.json)

@@ -10,6 +10,10 @@ import java.io.File
 import java.time.ZoneId
 import java.util.UUID
 
+/** Nächste freie Medien-Nummer aus den vorhandenen IDs („m3" → 4). */
+fun naechsteMediumNummer(vorhandeneIds: List<String>): Int =
+    (vorhandeneIds.mapNotNull { it.removePrefix("m").toIntOrNull() }.maxOrNull() ?: 0) + 1
+
 class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
 
     private val dao get() = db.tourDao()
@@ -88,9 +92,23 @@ class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
     suspend fun punkte(tourId: String): List<TrackpunktEntity> = dao.punkte(tourId)
     suspend fun moduswechsel(tourId: String): List<ModuswechselEntity> = dao.moduswechsel(tourId)
     suspend fun medien(tourId: String): List<MediumEntity> = dao.medien(tourId)
+    fun medienFluss(tourId: String): Flow<List<MediumEntity>> = dao.medienFluss(tourId)
+    fun mediumFluss(tourId: String, mediumId: String): Flow<MediumEntity?> =
+        dao.mediumFluss(tourId, mediumId)
     fun medienAnzahl(tourId: String): Flow<Int> = dao.medienAnzahlFluss(tourId)
     suspend fun setzeMediumHochgeladen(tourId: String, mediumId: String) =
         dao.setzeMediumStatus(tourId, mediumId, MediumUploadStatus.HOCHGELADEN)
+
+    /** Nutzertext setzen; Leerstring zählt als „nicht beschriftet". */
+    suspend fun setzeMediumCaption(tourId: String, mediumId: String, caption: String?) =
+        dao.setzeMediumCaption(tourId, mediumId, caption?.trim()?.ifBlank { null })
+
+    /** Einzelnes Medium samt Datei entfernen. */
+    suspend fun loescheMedium(tourId: String, mediumId: String) {
+        val medium = dao.medien(tourId).firstOrNull { it.id == mediumId } ?: return
+        dao.loescheMedium(tourId, mediumId)
+        mediumDatei(medium).delete()
+    }
 
     /** Zieldatei für ein neues Foto; Ordner je Tour unterm App-Speicher. */
     fun neueMediumDatei(tourId: String, endung: String): Pair<String, File> {
@@ -118,6 +136,10 @@ class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
     ) = registriereMedium(tourId, "video", relativerPfad, aufgenommenMs, anker)
 
     // Foto UND Video werden fortlaufend über die ganze Tour nummeriert (m1, m2 …).
+    // Die Nummer ist die HÖCHSTE vergebene plus eins, nicht die Anzahl: nach dem
+    // Löschen eines Fotos zeigte „Anzahl + 1" wieder auf eine schon vergebene ID
+    // und kollidierte im (tourId, id)-Primärschlüssel. Vergebene Nummern werden
+    // also nie erneut benutzt — Lücken sind harmlos.
     // Der Mutex macht „Nummer lesen + einfügen" atomar (s. medienMutex oben).
     private suspend fun registriereMedium(
         tourId: String,
@@ -126,7 +148,7 @@ class TourRepository(private val db: LuhamboDb, private val filesDir: File) {
         aufgenommenMs: Long,
         anker: Pair<Double, Double>?,
     ) = medienMutex.withLock {
-        val nummer = dao.medien(tourId).size + 1
+        val nummer = naechsteMediumNummer(dao.medien(tourId).map { it.id })
         dao.fuegeMediumEin(
             MediumEntity(
                 id = "m$nummer",

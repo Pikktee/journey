@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.luhambo.LuhamboApp
+import app.luhambo.daten.MediumEntity
 import app.luhambo.daten.TourEntity
 import app.luhambo.daten.TourRepository
 import app.luhambo.upload.ApiClient
@@ -15,10 +16,12 @@ import app.luhambo.upload.Einstellungen
 import app.luhambo.upload.Konto
 import app.luhambo.upload.ServerTour
 import app.luhambo.upload.UploadWorker
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class StartViewModel(
     repository: TourRepository,
@@ -60,6 +63,35 @@ class TourViewModel(
     fun loesche(danach: () -> Unit) {
         viewModelScope.launch {
             repository.loescheTour(tourId)
+            danach()
+        }
+    }
+}
+
+/**
+ * Foto-Vollansicht: ein Medium samt Nutzertext („Titel").
+ *
+ * Gespeichert wird im prozessweiten Scope, nicht im viewModelScope — der Text
+ * wird beim Verlassen des Screens gesichert, und da ist das ViewModel schon auf
+ * dem Weg nach draußen.
+ */
+class FotoViewModel(
+    private val repository: TourRepository,
+    private val appScope: CoroutineScope,
+    private val tourId: String,
+    private val mediumId: String,
+) : ViewModel() {
+    val medium: Flow<MediumEntity?> = repository.mediumFluss(tourId, mediumId)
+
+    fun datei(medium: MediumEntity): File = repository.mediumDatei(medium)
+
+    fun setzeTitel(titel: String) {
+        appScope.launch { repository.setzeMediumCaption(tourId, mediumId, titel) }
+    }
+
+    fun loesche(danach: () -> Unit) {
+        viewModelScope.launch {
+            repository.loescheMedium(tourId, mediumId)
             danach()
         }
     }
@@ -110,6 +142,7 @@ class EinstellungenViewModel(
 class LuhamboViewModelFactory(
     private val app: LuhamboApp,
     private val tourId: String? = null,
+    private val mediumId: String? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
@@ -117,6 +150,13 @@ class LuhamboViewModelFactory(
             StartViewModel(app.repository, app.apiClient) as T
         modelClass.isAssignableFrom(TourViewModel::class.java) ->
             TourViewModel(app.repository, app, requireNotNull(tourId) { "tourId fehlt" }) as T
+        modelClass.isAssignableFrom(FotoViewModel::class.java) ->
+            FotoViewModel(
+                app.repository,
+                app.appScope,
+                requireNotNull(tourId) { "tourId fehlt" },
+                requireNotNull(mediumId) { "mediumId fehlt" },
+            ) as T
         modelClass.isAssignableFrom(EinstellungenViewModel::class.java) ->
             EinstellungenViewModel(app.einstellungen, app.apiClient) as T
         modelClass.isAssignableFrom(ImportViewModel::class.java) ->

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -119,7 +120,9 @@ fun TourScreen(
             when (aktuelleTour.status) {
                 TourStatus.LAEDT_HOCH -> {
                     Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                        CircularProgressIndicator(Modifier.height(20.dp).padding(end = 8.dp))
+                        // size, nicht height: height allein lässt die Breite beim
+                        // Standardmaß (40dp) und der Kreis wird seitlich beschnitten.
+                        CircularProgressIndicator(Modifier.size(20.dp).padding(end = 4.dp))
                         Text("Wird hochgeladen …")
                     }
                 }

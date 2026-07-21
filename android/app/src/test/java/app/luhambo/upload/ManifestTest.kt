@@ -107,4 +107,26 @@ class ManifestTest {
         val json = ManifestBau.alsJson(manifest)
         assertFalse(json.contains("\"anchor\":null"))
     }
+
+    @Test
+    fun `Titel eines Fotos geht als caption mit, leerer Text gar nicht`() {
+        val medien = listOf(
+            MediumEntity(
+                id = "m1", tourId = "t", typ = "photo", datei = "touren/t/a.jpg",
+                aufgenommenMs = tour.startMs + 60_000, ankerLng = null, ankerLat = null,
+                caption = "Blick über die Bucht",
+            ),
+            MediumEntity(
+                id = "m2", tourId = "t", typ = "photo", datei = "touren/t/b.jpg",
+                aufgenommenMs = tour.startMs + 120_000, ankerLng = null, ankerLat = null,
+                caption = "   ",
+            ),
+        )
+        val punkte = (0..2).map { punkt(it.toLong(), it * 10.0) }
+        val manifest = ManifestBau.baue(tour, punkte, listOf(wechsel(0.0, Modus.WALK)), medien)
+
+        assertEquals("Blick über die Bucht", manifest.media[0].caption)
+        assertEquals(null, manifest.media[1].caption)
+        assertFalse(ManifestBau.alsJson(manifest).contains("\"caption\":null"))
+    }
 }

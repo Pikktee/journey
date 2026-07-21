@@ -64,6 +64,7 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
         composable("aufzeichnung") {
             AufzeichnungScreen(
                 zurKamera = { navController.navigate("kamera") },
+                zumFoto = { tourId, mediumId -> navController.navigate("foto/$tourId/$mediumId") },
                 fertig = { tourId ->
                     navController.navigate("tour/$tourId") { popUpTo("start") }
                 },
@@ -71,6 +72,20 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
         }
         composable("kamera") {
             KameraScreen(zurueck = { navController.popBackStack() })
+        }
+        composable(
+            "foto/{tourId}/{mediumId}",
+            arguments = listOf(
+                navArgument("tourId") { type = NavType.StringType },
+                navArgument("mediumId") { type = NavType.StringType },
+            ),
+        ) { eintrag ->
+            val tourId = eintrag.arguments?.getString("tourId") ?: return@composable
+            val mediumId = eintrag.arguments?.getString("mediumId") ?: return@composable
+            FotoVollansicht(
+                viewModel = viewModel(factory = LuhamboViewModelFactory(app, tourId, mediumId)),
+                zurueck = { navController.popBackStack() },
+            )
         }
         composable(
             "tour/{tourId}",

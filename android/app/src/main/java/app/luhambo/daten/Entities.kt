@@ -96,4 +96,10 @@ data class MediumEntity(
     val ankerLng: Double?,
     val ankerLat: Double?,
     val uploadStatus: MediumUploadStatus = MediumUploadStatus.LOKAL,
+    /**
+     * Der eine Nutzertext zum Medium — in der Oberfläche „Titel", im Manifest
+     * `caption`, im fertigen Tour-JSON `title` (der Player zeigt ihn als
+     * Überschrift des Foto-Stopps). null = nie beschriftet.
+     */
+    val caption: String? = null,
 )
