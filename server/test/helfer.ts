@@ -47,6 +47,8 @@ export class SammelMail implements MailVersand {
 export interface TestUmgebung {
   app: FastifyInstance
   storage: MemStorage
+  /** Ablage für Benutzerdateien (Avatare) */
+  benutzerStorage: MemStorage
   mail: SammelMail
   /** Session-Cookie des angemeldeten Testbenutzers, für inject() */
   cookies: { luhambo_session: string }
@@ -69,11 +71,13 @@ export async function baueTestApp(
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
+  const benutzerStorage = new MemStorage()
   const mail = new SammelMail()
   const app = baueApp({
     konfig: { ...TEST_KONFIG, ...konfigPatch },
     db,
     storage,
+    benutzerStorage,
     geocoder: new FesterGeocoder(geocoderAntworten),
     wetter,
     videoWerkzeug,
@@ -91,7 +95,7 @@ export async function baueTestApp(
   const sessionCookie = login.cookies.find((c) => c.name === 'luhambo_session')
   const apiToken = (login.json() as { apiToken: string }).apiToken
 
-  return { app, storage, mail, cookies: { luhambo_session: sessionCookie?.value ?? '' }, apiToken }
+  return { app, storage, benutzerStorage, mail, cookies: { luhambo_session: sessionCookie?.value ?? '' }, apiToken }
 }
 
 /** Minimales, gültiges Upload-Manifest: 2 Segmente, 1 Foto (Berner Oberland). */

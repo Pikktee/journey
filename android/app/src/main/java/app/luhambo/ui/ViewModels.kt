@@ -20,11 +20,13 @@ import app.luhambo.upload.ServerTour
 import app.luhambo.upload.UploadWorker
 import app.luhambo.upload.mitMediumTitel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class StartViewModel(
@@ -206,6 +208,7 @@ class ProfilViewModel(
     repository: TourRepository,
     private val einstellungen: Einstellungen,
     private val apiClient: ApiClient,
+    private val appScope: CoroutineScope,
 ) : ViewModel() {
     val lokaleTouren: Flow<List<TourEntity>> = repository.alleTouren()
 
@@ -221,6 +224,47 @@ class ProfilViewModel(
             runCatching { apiClient.kontoStand() }.onSuccess { internKonto.value = it }
             runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
         }
+    }
+
+    /** Anzeigename und Bio sichern (beim Verlassen des Screens). */
+    fun sichereProfil(anzeigename: String, bio: String) {
+        val stand = internKonto.value?.profil ?: return
+        if (anzeigename == stand.anzeigename.orEmpty() && bio == stand.bio.orEmpty()) return
+        appScope.launch {
+            runCatching { apiClient.setzeProfil(anzeigename = anzeigename, bio = bio) }
+                .onSuccess { aktualisiereStill() }
+        }
+    }
+
+    fun setzeOeffentlich(oeffentlich: Boolean) {
+        internKonto.value = internKonto.value?.let { it.copy(profil = it.profil.copy(oeffentlich = oeffentlich)) }
+        viewModelScope.launch {
+            runCatching { apiClient.setzeProfil(oeffentlich = oeffentlich) }.onFailure { aktualisiere() }
+        }
+    }
+
+    /**
+     * Profilbild setzen. Das Verkleinern läuft im Hintergrund-Thread und im
+     * prozessweiten Scope: Ein Rohfoto zu dekodieren dauert, und der Nutzer
+     * soll den Screen inzwischen verlassen dürfen.
+     */
+    fun setzeAvatar(oeffne: () -> java.io.InputStream) {
+        appScope.launch {
+            // Auch das Lesen wird abgesichert: die gewählte Datei kann inzwischen
+            // weg sein oder gar kein Bild enthalten — das darf die App nicht
+            // umwerfen, das Profil bleibt dann einfach unverändert.
+            val jpeg = withContext(Dispatchers.IO) { runCatching { skaliereFuerAvatar(oeffne) }.getOrNull() }
+                ?: return@launch
+            runCatching { apiClient.setzeAvatar(jpeg) }.onSuccess { aktualisiereStill() }
+        }
+    }
+
+    fun loescheAvatar() {
+        appScope.launch { runCatching { apiClient.loescheAvatar() }.onSuccess { aktualisiereStill() } }
+    }
+
+    private suspend fun aktualisiereStill() {
+        runCatching { apiClient.kontoStand() }.onSuccess { internKonto.value = it }
     }
 
     fun abmelden() {
@@ -296,7 +340,7 @@ class LuhamboViewModelFactory(
                 requireNotNull(mediumId) { "mediumId fehlt" },
             ) as T
         modelClass.isAssignableFrom(ProfilViewModel::class.java) ->
-            ProfilViewModel(app.repository, app.einstellungen, app.apiClient) as T
+            ProfilViewModel(app.repository, app.einstellungen, app.apiClient, app.appScope) as T
         modelClass.isAssignableFrom(EinstellungenViewModel::class.java) ->
             EinstellungenViewModel(app.einstellungen, app.apiClient) as T
         modelClass.isAssignableFrom(ImportViewModel::class.java) ->

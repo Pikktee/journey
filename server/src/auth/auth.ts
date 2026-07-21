@@ -15,6 +15,31 @@ export interface Benutzer {
   name: string
 }
 
+/**
+ * Das öffentliche Profil — bewusst getrennt vom Konto.
+ *
+ * `anzeigename` ist NICHT der Klarname aus der Registrierung: wer sich mit
+ * seinem echten Namen anmeldet, soll ihn nicht nebenbei veröffentlichen. Ohne
+ * gesetzten Anzeigenamen erscheint eine öffentliche Tour ohne Urheber.
+ */
+export interface Profil {
+  anzeigename: string | null
+  bio: string | null
+  /** Dateiname im Benutzer-Storage; null = kein Bild */
+  avatar: string | null
+  sichtbarkeit: 'private' | 'public'
+}
+
+/** Änderungswunsch am Profil; fehlende Felder bleiben, wie sie sind. */
+export interface ProfilAenderung {
+  anzeigename?: string
+  bio?: string
+  sichtbarkeit?: 'private' | 'public'
+}
+
+/** Leerer oder nur aus Leerraum bestehender Text heißt: Feld leeren. */
+const leerAlsNull = (wert: string): string | null => wert.trim() || null
+
 export type MailZweck = 'verify' | 'reset'
 
 const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
@@ -197,6 +222,55 @@ export class AuthDienst {
     // niemand mit einer alten Sitzung weiterlaufen.
     this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
     this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
+  }
+
+  /** Öffentliches Profil eines Benutzers; null, wenn es ihn nicht gibt. */
+  profil(userId: string): Profil | null {
+    const zeile = this.db
+      .prepare('SELECT anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
+      .get(userId) as
+      | { anzeigename: string | null; bio: string | null; avatar: string | null; profil_sichtbarkeit: string }
+      | undefined
+    if (!zeile) return null
+    return {
+      anzeigename: zeile.anzeigename,
+      bio: zeile.bio,
+      avatar: zeile.avatar,
+      sichtbarkeit: zeile.profil_sichtbarkeit === 'public' ? 'public' : 'private',
+    }
+  }
+
+  /**
+   * Profilfelder ändern. Nur übergebene Felder werden angefasst; ein leerer
+   * String leert das Feld.
+   *
+   * Das SET wird aus den vorhandenen Feldern gebaut statt mit COALESCE: dort
+   * wäre NULL sowohl „leeren" als auch „nicht angefasst" — ein geleerter
+   * Anzeigename bliebe stehen. (Die Spaltennamen stammen aus dem Code, nicht
+   * aus der Anfrage.)
+   */
+  setzeProfil(userId: string, aenderung: ProfilAenderung): void {
+    const zuweisungen: string[] = []
+    const werte: Array<string | null> = []
+    if (aenderung.anzeigename !== undefined) {
+      zuweisungen.push('anzeigename = ?')
+      werte.push(leerAlsNull(aenderung.anzeigename))
+    }
+    if (aenderung.bio !== undefined) {
+      zuweisungen.push('bio = ?')
+      werte.push(leerAlsNull(aenderung.bio))
+    }
+    if (aenderung.sichtbarkeit !== undefined) {
+      zuweisungen.push('profil_sichtbarkeit = ?')
+      werte.push(aenderung.sichtbarkeit)
+    }
+    if (zuweisungen.length === 0) return
+    this.db.prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`).run(...werte, userId)
+  }
+
+  /** Avatar-Dateiname vermerken (die Datei selbst legt der Aufrufer ab). */
+  setzeAvatar(userId: string, datei: string | null): void {
+    this.db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(datei, userId)
   }
 
   /** IDs aller Touren des Benutzers (für die Storage-Aufräumung vor dem Löschen). */

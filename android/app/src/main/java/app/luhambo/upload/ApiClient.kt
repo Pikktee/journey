@@ -51,10 +51,25 @@ data class KontoStand(
     val verifiziert: Boolean,
     val benutztBytes: Long,
     val limitBytes: Long,
+    val profil: ProfilStand,
 ) {
     /** Anteil des belegten Kontingents (0..1); 0 wenn kein Limit gemeldet wurde. */
     val quotaAnteil: Float get() = if (limitBytes > 0) (benutztBytes.toDouble() / limitBytes).toFloat() else 0f
 }
+
+/**
+ * Das öffentliche Profil — getrennt vom Konto.
+ *
+ * `anzeigename` ist NICHT der Klarname aus der Registrierung: wer sich mit
+ * seinem echten Namen anmeldet, veröffentlicht ihn nicht nebenbei.
+ */
+data class ProfilStand(
+    val anzeigename: String?,
+    val bio: String?,
+    /** Serverpfad des Profilbilds; null = keins gesetzt */
+    val avatarUrl: String?,
+    val oeffentlich: Boolean,
+)
 
 class ApiClient(private val einstellungen: Einstellungen) {
 
@@ -173,13 +188,46 @@ class ApiClient(private val einstellungen: Einstellungen) {
         val antwort = ausfuehren(autorisiert("/api/auth/me").get().build())
         val benutzer = antwort["benutzer"] as? JsonObject ?: throw ApiFehler(401, "Nicht angemeldet")
         val quota = antwort["quota"] as? JsonObject
+        val profil = antwort["profil"] as? JsonObject
         KontoStand(
             email = benutzer["email"]?.jsonPrimitive?.contentOrNull ?: "",
             name = benutzer["name"]?.jsonPrimitive?.contentOrNull,
             verifiziert = antwort["verifiziert"]?.jsonPrimitive?.booleanOrNull ?: true,
             benutztBytes = quota?.get("benutzt")?.jsonPrimitive?.longOrNull ?: 0,
             limitBytes = quota?.get("limit")?.jsonPrimitive?.longOrNull ?: 0,
+            profil = ProfilStand(
+                anzeigename = profil?.get("anzeigename")?.jsonPrimitive?.contentOrNull,
+                bio = profil?.get("bio")?.jsonPrimitive?.contentOrNull,
+                avatarUrl = profil?.get("avatarUrl")?.jsonPrimitive?.contentOrNull,
+                oeffentlich = profil?.get("sichtbarkeit")?.jsonPrimitive?.contentOrNull == "public",
+            ),
         )
+    }
+
+    /** Profilfelder ändern; nur übergebene Felder werden angefasst. */
+    suspend fun setzeProfil(anzeigename: String? = null, bio: String? = null, oeffentlich: Boolean? = null) {
+        withContext(Dispatchers.IO) {
+            val body = buildJsonObject {
+                anzeigename?.let { put("anzeigename", it) }
+                bio?.let { put("bio", it) }
+                oeffentlich?.let { put("sichtbarkeit", if (it) "public" else "private") }
+            }.toString().toRequestBody(jsonTyp)
+            ausfuehren(autorisiert("/api/auth/me/profil").patch(body).build())
+        }
+    }
+
+    /** Profilbild setzen (fertig skaliertes JPEG); liefert die neue Adresse. */
+    suspend fun setzeAvatar(jpeg: ByteArray): String = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(
+            autorisiert("/api/auth/me/avatar")
+                .put(jpeg.toRequestBody("image/jpeg".toMediaType()))
+                .build(),
+        )
+        antwort["avatarUrl"]?.jsonPrimitive?.contentOrNull ?: throw ApiFehler(200, "Antwort ohne avatarUrl")
+    }
+
+    suspend fun loescheAvatar() {
+        withContext(Dispatchers.IO) { ausfuehren(autorisiert("/api/auth/me/avatar").delete().build()) }
     }
 
     /** Sichtbarkeit ändern (privat | ungelistet | öffentlich). */

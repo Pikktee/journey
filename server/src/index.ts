@@ -19,6 +19,9 @@ await mkdir(konfig.datenDir, { recursive: true })
 
 const db = oeffneDb(join(konfig.datenDir, 'luhambo.db'))
 const storage = new FsStorage(join(konfig.datenDir, 'tours'))
+// Benutzerdateien (Avatare) liegen getrennt von den Touren, mit der Benutzer-ID
+// als Bereichsnamen — so räumt das Konto-Löschen sie mit einem Aufruf weg.
+const benutzerStorage = new FsStorage(join(konfig.datenDir, 'benutzer'))
 const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
 const videoWerkzeug = new FfmpegWerkzeug()
@@ -31,7 +34,17 @@ const mail: MailVersand = process.env.RESEND_API_KEY
   ? new ResendMail(process.env.RESEND_API_KEY, konfig.mailAbsender)
   : new KonsoleMail()
 
-const app = baueApp({ konfig, db, storage, geocoder, wetter, videoWerkzeug, bildKlassifikator, mail })
+const app = baueApp({
+  konfig,
+  db,
+  storage,
+  benutzerStorage,
+  geocoder,
+  wetter,
+  videoWerkzeug,
+  bildKlassifikator,
+  mail,
+})
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
 
 await app.listen({ port: konfig.port, host: '0.0.0.0' })

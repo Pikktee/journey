@@ -25,6 +25,16 @@ export interface AppAbhaengigkeiten {
   konfig: Konfig
   db: Db
   storage: Storage
+  /**
+   * Ablage für Benutzerdateien (bisher nur Avatare) — dieselbe Storage-Klasse
+   * unter einem anderen Wurzelverzeichnis.
+   *
+   * Das Interface ist auf Touren zugeschnitten, aber tatsächlich ein
+   * ID-benannter Ablagebereich: Pfadprüfung, atomares Schreiben, Größenlimit
+   * und das Wegräumen eines ganzen Bereichs (`loescheTour`) passen unverändert.
+   * Der erste Parameter jeder Methode ist hier die Benutzer-ID.
+   */
+  benutzerStorage: Storage
   geocoder: Geocoder
   /** Auto-Wetter-Quelle (M2); null = Feature aus, Player-Fallback greift */
   wetter: WetterQuelle | null

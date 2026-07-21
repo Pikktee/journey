@@ -72,6 +72,19 @@ const MIGRATIONEN: string[] = [
   `
   ALTER TABLE tours ADD COLUMN cover TEXT;
   `,
+  // Öffentliches Profil. Getrennt vom Konto-Namen: `name` ist der Klarname aus
+  // der Registrierung und bleibt privat, `anzeigename` ist der selbstgewählte
+  // Name, unter dem jemand in Galerie und auf seiner Profilseite auftaucht.
+  // Ohne diese Trennung würde eine Anmeldung mit dem echten Namen automatisch
+  // zur Veröffentlichung desselben führen. `profil_sichtbarkeit` steht deshalb
+  // ebenfalls auf 'private'.
+  `
+  ALTER TABLE users ADD COLUMN anzeigename TEXT;
+  ALTER TABLE users ADD COLUMN bio TEXT;
+  ALTER TABLE users ADD COLUMN avatar TEXT;
+  ALTER TABLE users ADD COLUMN profil_sichtbarkeit TEXT NOT NULL DEFAULT 'private'
+    CHECK (profil_sichtbarkeit IN ('private','public'));
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

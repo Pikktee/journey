@@ -3,8 +3,10 @@
 // Passwort-Reset und Konto-Löschung. Alle unauthentifizierten, teuren oder
 // mail-auslösenden Endpunkte sind pro Quelle/Adresse gebremst.
 
+import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer, SESSION_COOKIE } from '../app.js'
+import type { ProfilAenderung } from '../auth/auth.js'
 import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
 
@@ -14,6 +16,26 @@ interface LoginBody {
   /** Gesetzt (z. B. „Pixel 9"): zusätzlich ein API-Token für die App erzeugen */
   tokenLabel?: string
 }
+
+type ProfilBody = ProfilAenderung
+
+/**
+ * Ein Profilbild ist ein Vorschaubild, kein Foto-Upload — die App skaliert vor
+ * dem Senden auf ~512 px. Das Limit fängt nur ab, wenn jemand am Client
+ * vorbei ein Rohfoto schickt.
+ */
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+/**
+ * Öffentlicher Pfad eines Avatars.
+ *
+ * Der Dateiname hängt als Parameter dran, obwohl die Route ihn nicht braucht:
+ * Er macht die URL nach jedem Upload zu einer neuen und bricht damit den
+ * Cache. Ohne ihn zeigte der Browser nach einem Bildwechsel weiter das alte
+ * Bild — bei `immutable` ein Jahr lang.
+ */
+const avatarUrl = (userId: string, datei: string): string =>
+  `/api/benutzer/${userId}/avatar?v=${encodeURIComponent(datei)}`
 
 // Einfache In-Memory-Bremse pro Schlüssel (IP und/oder E-Mail): max. N Ereignisse
 // je Fenster. Bewusst schlank — hinter Caddy zählt die Proxy-Quelle, daher
@@ -38,7 +60,7 @@ const emailSchema = { type: 'string', maxLength: 254 } as const
 const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as const
 
 export function registriereAuthRouten(app: FastifyInstance): void {
-  const { konfig, mail, storage, db } = app.deps
+  const { konfig, mail, storage, benutzerStorage, db } = app.deps
   const loginGebremst = baueBremse(10)
   const registrierGebremst = baueBremse(5, 10 * 60_000) // 5 pro 10 min je IP
   const resetGebremst = baueBremse(5, 10 * 60_000)
@@ -206,21 +228,107 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
     for (const tourId of app.auth.tourIds(benutzer.id)) await storage.loescheTour(tourId)
+    // Auch die Benutzerdateien (Avatar) — sie hängen an keiner Tour und
+    // überlebten den Cascade sonst als Waisen auf der Platte.
+    await benutzerStorage.loescheTour(benutzer.id).catch(() => undefined)
     app.auth.loescheBenutzer(benutzer.id)
     reply.clearCookie(SESSION_COOKIE, { path: '/' })
     return { ok: true }
   })
 
   // — Ich-Abfrage OHNE 401 (Studio pollt bei jedem Laden). Angemeldet: um
-  // Verifikations-Stand und Quota angereichert.
+  // Verifikations-Stand, Quota und Profil angereichert.
   app.get('/api/auth/me', async (request) => {
     if (!request.benutzer) return { benutzer: null }
     const quota = await quotaStand(db, storage, request.benutzer.id, konfig.maxSpeicherProBenutzer)
+    const profil = app.auth.profil(request.benutzer.id)
     return {
       benutzer: request.benutzer,
       verifiziert: app.auth.istVerifiziert(request.benutzer.id),
       quota,
       registrierungOffen: konfig.registrierungOffen,
+      profil: {
+        anzeigename: profil?.anzeigename ?? null,
+        bio: profil?.bio ?? null,
+        avatarUrl: profil?.avatar ? avatarUrl(request.benutzer.id, profil.avatar) : null,
+        sichtbarkeit: profil?.sichtbarkeit ?? 'private',
+      },
     }
+  })
+
+  // — Profil ändern —
+  app.patch<{ Body: ProfilBody }>(
+    '/api/auth/me/profil',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            // '' leert das Feld; fehlt es, bleibt es unverändert
+            anzeigename: { type: 'string', maxLength: 80 },
+            bio: { type: 'string', maxLength: 500 },
+            sichtbarkeit: { enum: ['private', 'public'] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      app.auth.setzeProfil(benutzer.id, request.body)
+      const profil = app.auth.profil(benutzer.id)
+      return {
+        anzeigename: profil?.anzeigename ?? null,
+        bio: profil?.bio ?? null,
+        avatarUrl: profil?.avatar ? avatarUrl(benutzer.id, profil.avatar) : null,
+        sichtbarkeit: profil?.sichtbarkeit ?? 'private',
+      }
+    },
+  )
+
+  // — Avatar hochladen (roher Bild-Body) —
+  //
+  // Der Dateiname trägt einen Zeitstempel: Ein fester Name würde nach einem
+  // Wechsel aus dem Browser-Cache weiter das alte Bild liefern. Zählt nicht
+  // gegen die Tour-Quota — ein Profilbild ist kein Reise-Inhalt.
+  app.put('/api/auth/me/avatar', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const alt = app.auth.profil(benutzer.id)?.avatar ?? null
+    const datei = `avatar/${Date.now()}.jpg`
+    await benutzerStorage.schreibeStream(benutzer.id, datei, request.body as Readable, MAX_AVATAR_BYTES)
+    app.auth.setzeAvatar(benutzer.id, datei)
+    // Erst nach dem erfolgreichen Schreiben aufräumen — bricht der Upload ab,
+    // bleibt das bisherige Bild bestehen.
+    if (alt && alt !== datei) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    return { avatarUrl: avatarUrl(benutzer.id, datei) }
+  })
+
+  app.delete('/api/auth/me/avatar', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const alt = app.auth.profil(benutzer.id)?.avatar
+    if (alt) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    app.auth.setzeAvatar(benutzer.id, null)
+    return { ok: true }
+  })
+
+  // — Avatar ausliefern (öffentlich) —
+  //
+  // Ohne Anmeldung, wie die Medien geteilter Touren: Ein Avatar erscheint neben
+  // öffentlichen Touren in der Galerie und muss dort für jeden ladbar sein. Der
+  // Dateiname wechselt bei jedem Upload, deshalb darf lange gecacht werden.
+  app.get<{ Params: { id: string } }>('/api/benutzer/:id/avatar', async (request, reply) => {
+    const profil = app.auth.profil(request.params.id)
+    if (!profil?.avatar) return reply.code(404).send({ fehler: 'Kein Profilbild' })
+    const info = await benutzerStorage.info(request.params.id, profil.avatar)
+    if (!info) return reply.code(404).send({ fehler: 'Kein Profilbild' })
+    return reply
+      .header('content-type', 'image/jpeg')
+      .header('x-content-type-options', 'nosniff')
+      .header('cache-control', 'public, max-age=31536000, immutable')
+      .header('content-length', String(info.groesse))
+      .send(benutzerStorage.leseStream(request.params.id, profil.avatar))
   })
 }
