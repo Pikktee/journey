@@ -120,10 +120,11 @@ fun AufzeichnungScreen(
             style = MaterialTheme.typography.displayLarge,
         )
         Spacer(Modifier.height(20.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-            Wert(String.format(Locale.GERMAN, "%.2f", laufend.distanzM / 1000), "Kilometer")
-            Wert(laufend.punktAnzahl.toString(), "Punkte")
-        }
+        // Nur die Kilometer. Die Zahl der Wegpunkte stand hier als Beleg, dass
+        // der Empfänger arbeitet — aber sie beantwortet eine Frage, die sich auf
+        // einem Spaziergang niemand stellt, und verrät mehr über die Bauweise
+        // der App als über die Tour.
+        Wert(String.format(Locale.GERMAN, "%.2f", laufend.distanzM / 1000), "Kilometer")
 
         Spacer(Modifier.weight(1f))
 

@@ -58,6 +58,9 @@ class AufzeichnungsService : LifecycleService() {
                     ele = if (ort.hasAltitude()) ort.altitude else 0.0,
                     tOffsetS = (ort.time - startMs) / 1000.0,
                     genauigkeitM = if (ort.hasAccuracy()) ort.accuracy else 999f,
+                    // Unterscheidet Gehen von Stehen — ohne das hielte der
+                    // Filter das Positionsrauschen einer Rast für Wegstrecke.
+                    tempoMps = if (ort.hasSpeed()) ort.speed else null,
                 )
                 if (!filter.pruefe(punkt)) continue
                 synchronized(puffer) {

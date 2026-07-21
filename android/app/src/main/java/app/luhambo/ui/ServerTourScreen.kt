@@ -227,7 +227,7 @@ fun ServerTourScreen(
                         onClick = { loeschenDialog = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Reise löschen", color = MaterialTheme.colorScheme.error)
+                        Text("Tour löschen", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -241,7 +241,7 @@ fun ServerTourScreen(
         )
         Rundknopf(
             symbol = Icons.Default.Share,
-            beschreibung = "Reise teilen",
+            beschreibung = "Tour teilen",
             beiKlick = { teilen = true },
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
         )
@@ -272,10 +272,10 @@ fun ServerTourScreen(
     if (loeschenDialog) {
         AlertDialog(
             onDismissRequest = { loeschenDialog = false },
-            title = { Text("Reise löschen?") },
+            title = { Text("Tour löschen?") },
             text = {
                 Text(
-                    "Die Reise wird mit allen Fotos vom Server entfernt. " +
+                    "Die Tour wird mit allen Fotos vom Server entfernt. " +
                         "Geteilte Links führen danach ins Leere. Das lässt sich nicht rückgängig machen.",
                 )
             },
@@ -340,12 +340,12 @@ private fun Serverkopf(
                     .size(66.dp)
                     .clip(CircleShape)
                     .background(Color(0x8A06090E))
-                    .clickable(onClickLabel = "Reise abspielen", onClick = abspielen),
+                    .clickable(onClickLabel = "Tour abspielen", onClick = abspielen),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Default.PlayArrow,
-                    contentDescription = "Reise abspielen",
+                    contentDescription = "Tour abspielen",
                     tint = Tinte,
                     modifier = Modifier.size(38.dp),
                 )
@@ -355,10 +355,9 @@ private fun Serverkopf(
         Schreibzeile(
             wert = titel,
             setzeWert = setzeTitel,
-            platzhalter = "Unbenannte Reise",
+            platzhalter = "Unbenannte Tour",
             stil = MaterialTheme.typography.headlineMedium,
             fokus = fokus,
-            fertig = { tastatur?.hide() },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 18.dp, end = 14.dp, bottom = 10.dp),
@@ -444,7 +443,6 @@ private fun Fotoschau(
                 platzhalter = "Was ist hier zu sehen?",
                 stil = MaterialTheme.typography.titleLarge,
                 fokus = fokus,
-                fertig = { tastatur?.hide() },
             )
         }
 

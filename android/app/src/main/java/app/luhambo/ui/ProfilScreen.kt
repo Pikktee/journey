@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -86,6 +87,7 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
     var bio by remember { mutableStateOf<String?>(null) }
     var hinweisOhneNamen by remember { mutableStateOf(false) }
     var bildBlatt by remember { mutableStateOf(false) }
+    var kontoLoeschenDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.aktualisiere() }
 
@@ -324,6 +326,20 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             )
             Text("Abmelden", Modifier.padding(start = 8.dp))
         }
+
+        // Konto löschen ganz unten und ohne Symbol: Es ist der einzige Schritt
+        // in dieser App, der nichts zurücklässt — er soll gesucht werden, nicht
+        // ins Auge fallen. Was daran hängt, sagt der Dialog, nicht diese Zeile.
+        Spacer(Modifier.height(30.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.height(14.dp))
+        TextButton(
+            onClick = { kontoLoeschenDialog = true },
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+        ) { Text("Konto löschen") }
         Spacer(Modifier.height(56.dp))
     }
 
@@ -332,6 +348,38 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             schliessen = { bildBlatt = false },
             waehlen = { bildBlatt = false; waehleBild() },
             entfernen = { bildBlatt = false; viewModel.loescheAvatar() },
+        )
+    }
+
+    if (kontoLoeschenDialog) {
+        AlertDialog(
+            onDismissRequest = { kontoLoeschenDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text("Konto endgültig löschen?") },
+            text = {
+                Text(
+                    "Alle deine Touren, Fotos und dein Profil werden vom Server " +
+                        "entfernt. Geteilte Links führen danach ins Leere. " +
+                        "Das lässt sich nicht rückgängig machen.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    kontoLoeschenDialog = false
+                    // Die Navigation folgt von selbst: Ohne gültiges Token
+                    // zeigt LuhamboNavigation wieder die Anmeldung.
+                    viewModel.loescheKonto(danach = {})
+                }) { Text("Endgültig löschen", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { kontoLoeschenDialog = false }) { Text("Abbrechen") }
+            },
         )
     }
 

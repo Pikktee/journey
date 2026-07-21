@@ -17,6 +17,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -38,8 +41,10 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,6 +70,8 @@ import app.luhambo.aufzeichnung.AufzeichnungsZustand
 import app.luhambo.daten.Modus
 import app.luhambo.kamera.KameraScreen
 import app.luhambo.upload.Einstellungen
+import kotlinx.coroutines.delay
+import java.util.Locale
 
 /**
  * Gemerkter Startwunsch, bis der Berechtigungsdialog beantwortet ist.
@@ -104,6 +111,21 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
     val aufnahme by AufzeichnungsZustand.aktuell.collectAsState()
     var neueTour by remember { mutableStateOf(false) }
 
+    // Eigener Sekundentakt: Die Leiste ist auch dann sichtbar, wenn der
+    // Aufzeichnungs-Screen längst verlassen wurde — sie kann sich seine Uhr
+    // nicht ausleihen.
+    var jetztMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(aufnahme?.tourId) {
+        while (aufnahme != null) {
+            jetztMs = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+    val laufendeDauer = aufnahme?.let {
+        val s = ((jetztMs - it.startMs) / 1000).coerceAtLeast(0)
+        String.format(Locale.GERMAN, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
+    }
+
     val eintrag by navController.currentBackStackEntryAsState()
     val route = eintrag?.destination?.route
     val leisteSichtbar = route == REITER_TOUREN || route == REITER_PROFIL
@@ -135,6 +157,7 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
                 Hauptleiste(
                     aktuelleRoute = route,
                     aufnahmeLaeuft = aufnahme != null,
+                    dauer = laufendeDauer,
                     wechsle = { ziel -> wechsleReiter(navController, ziel) },
                     aufnahmeKnopf = {
                         // Läuft schon eine Aufnahme, führt der Knopf zu ihr zurück —
@@ -315,6 +338,8 @@ private fun Ausloeser(aufnahmeLaeuft: Boolean, beiKlick: () -> Unit, modifier: M
 private fun Hauptleiste(
     aktuelleRoute: String?,
     aufnahmeLaeuft: Boolean,
+    /** Laufende Aufnahmedauer als „0:07:12"; null, wenn nichts läuft. */
+    dauer: String?,
     wechsle: (String) -> Unit,
     aufnahmeKnopf: () -> Unit,
 ) {
@@ -351,10 +376,22 @@ private fun Hauptleiste(
                 label = { Text("Profil") },
             )
         }
-        Ausloeser(
-            aufnahmeLaeuft = aufnahmeLaeuft,
-            beiKlick = aufnahmeKnopf,
-            modifier = Modifier.offset(y = (-20).dp),
-        )
+        Column(
+            Modifier.offset(y = (-20).dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Ausloeser(aufnahmeLaeuft = aufnahmeLaeuft, beiKlick = aufnahmeKnopf)
+            // Die laufende Zeit unter dem Knopf: Aus jeder Ansicht heraus ist so
+            // zu sehen, dass gerade aufgezeichnet wird — sonst verrät es nur die
+            // rote Farbe, und die kann man für Zierde halten.
+            if (dauer != null) {
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    dauer,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Alarm,
+                )
+            }
+        }
     }
 }

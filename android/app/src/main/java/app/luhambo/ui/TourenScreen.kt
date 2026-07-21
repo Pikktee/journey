@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,9 +67,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import app.luhambo.LuhamboApp
 import app.luhambo.aufzeichnung.AufzeichnungsZustand
 import app.luhambo.daten.TourEntity
@@ -95,7 +99,18 @@ fun TourenScreen(
     val laufend by AufzeichnungsZustand.aktuell.collectAsState()
     val app = LocalContext.current.applicationContext as LuhamboApp
 
-    LaunchedEffect(Unit) { viewModel.aktualisiere() }
+    // Bei JEDEM Betreten neu laden, nicht nur beim ersten Aufbau: Kehrt man aus
+    // der Detailansicht zurück, bleibt dieser Screen in der Komposition — ein
+    // LaunchedEffect(Unit) liefe dann nicht noch einmal, und ein dort geänderter
+    // Titel stünde weiter in seiner alten Fassung in der Liste.
+    val lebenszyklus = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lebenszyklus) {
+        val beobachter = LifecycleEventObserver { _, ereignis ->
+            if (ereignis == Lifecycle.Event.ON_RESUME) viewModel.aktualisiere()
+        }
+        lebenszyklus.addObserver(beobachter)
+        onDispose { lebenszyklus.removeObserver(beobachter) }
+    }
     // Nach dem Ende einer Aufnahme läuft der Upload automatisch — die
     // Server-Liste holt die Tour dann von selbst nach.
     LaunchedEffect(laufend?.tourId) { if (laufend == null) viewModel.aktualisiere() }
@@ -195,7 +210,7 @@ private fun LeereListe(modifier: Modifier = Modifier) {
             modifier = Modifier.size(44.dp),
         )
         Spacer(Modifier.height(20.dp))
-        Text("Noch keine Reise", style = MaterialTheme.typography.headlineMedium)
+        Text("Noch keine Tour", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(10.dp))
         Text(
             // Der Knopf ist gelb, nicht rot — er wird es erst, während
@@ -241,7 +256,7 @@ private fun ServerKarte(
         else -> Meldung(Icons.Default.HourglassEmpty, Sonne, "Wird verarbeitet")
     }
     Bildkarte(
-        titel = tour.titel ?: "Unbenannte Reise",
+        titel = tour.titel ?: "Unbenannte Tour",
         meta = listOfNotNull(tour.km?.let { km(it) }, isoDatum(tour.erstelltAm)),
         meldung = meldung,
         bild = bildUrl,

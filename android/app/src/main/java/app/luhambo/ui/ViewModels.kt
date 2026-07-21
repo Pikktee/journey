@@ -277,6 +277,21 @@ class ProfilViewModel(
     fun abmelden() {
         viewModelScope.launch { einstellungen.abmelden() }
     }
+
+    /**
+     * Konto löschen und abmelden.
+     *
+     * Die Abmeldung folgt auch dann, wenn der Aufruf scheitert: Ist das Konto
+     * weg, wäre jede weitere Anfrage mit diesem Token ohnehin ein 401 — und die
+     * App bliebe in einem Zustand hängen, aus dem sie sich nicht befreien kann.
+     */
+    fun loescheKonto(danach: () -> Unit) {
+        viewModelScope.launch {
+            runCatching { apiClient.loescheKonto() }
+            einstellungen.abmelden()
+            danach()
+        }
+    }
 }
 
 class EinstellungenViewModel(

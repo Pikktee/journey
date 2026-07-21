@@ -268,6 +268,14 @@ class ApiClient(private val einstellungen: Einstellungen) {
         withContext(Dispatchers.IO) { ausfuehren(autorisiert("/api/auth/me/avatar").delete().build()) }
     }
 
+    /**
+     * Konto endgültig löschen — mitsamt allen Touren, Medien und dem Profil.
+     * Der Server räumt auch die Dateiablage; danach ist das Token wertlos.
+     */
+    suspend fun loescheKonto() {
+        withContext(Dispatchers.IO) { ausfuehren(autorisiert("/api/auth/me").delete().build()) }
+    }
+
     /** Sichtbarkeit ändern (privat | ungelistet | öffentlich). */
     suspend fun setzeSichtbarkeit(serverTourId: String, sichtbarkeit: String) {
         withContext(Dispatchers.IO) {

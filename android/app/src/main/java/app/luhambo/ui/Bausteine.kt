@@ -19,21 +19,27 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -155,25 +161,35 @@ fun Schreibzeile(
     platzhalter: String,
     stil: TextStyle,
     fokus: FocusRequester,
-    fertig: () -> Unit,
     modifier: Modifier = Modifier,
     farbe: Color = Tinte,
 ) {
+    val fokusManager = LocalFocusManager.current
+    var wirdBearbeitet by remember { mutableStateOf(false) }
+
+    // Bestätigen heißt: Fokus WEG. Die Tastatur nur zu schließen reichte nicht —
+    // das Feld blieb aktiv, der Schreibzeiger blinkte weiter, und man wusste
+    // nicht, ob die Änderung nun gilt.
+    val bestaetige = { fokusManager.clearFocus() }
+
     Row(
         modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable(
-                // Kein Ripple: Das hier ist eine Textzeile, keine Schaltfläche —
-                // der Schreibzeiger ist die Rückmeldung.
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = "Bearbeiten",
-            ) { fokus.requestFocus() },
+            .heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(Modifier.weight(1f)) {
+        Box(
+            Modifier
+                .weight(1f)
+                .clickable(
+                    // Kein Ripple: Das hier ist eine Textzeile, keine
+                    // Schaltfläche — der Schreibzeiger ist die Rückmeldung.
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClickLabel = "Bearbeiten",
+                ) { fokus.requestFocus() },
+        ) {
             if (wert.isEmpty()) {
                 Text(platzhalter, style = stil, color = farbe.copy(alpha = 0.45f), maxLines = 2)
             }
@@ -184,17 +200,40 @@ fun Schreibzeile(
                 cursorBrush = SolidColor(Sonne),
                 maxLines = 2,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { fertig() }),
-                modifier = Modifier.fillMaxWidth().focusRequester(fokus),
+                keyboardActions = KeyboardActions(onDone = { bestaetige() }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(fokus)
+                    .onFocusChanged { wirdBearbeitet = it.isFocused },
             )
         }
-        Icon(
-            Icons.Default.Edit,
-            // Die Zeile trägt die Beschriftung; ein zweites Mal „Bearbeiten"
-            // würde die Sprachausgabe nur wiederholen.
-            contentDescription = null,
-            tint = farbe.copy(alpha = 0.5f),
-            modifier = Modifier.size(17.dp),
-        )
+        // Der Stift wird beim Schreiben zum Haken — dieselbe Stelle, zwei
+        // Zustände: „lässt sich ändern" und „fertig". Ein sichtbarer Abschluss
+        // an genau der Stelle, an der man ihn sucht.
+        if (wirdBearbeitet) {
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .clickable(onClickLabel = "Fertig", onClick = bestaetige),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Fertig",
+                    tint = Sonne,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        } else {
+            Icon(
+                Icons.Default.Edit,
+                // Die Zeile trägt die Beschriftung; ein zweites Mal „Bearbeiten"
+                // würde die Sprachausgabe nur wiederholen.
+                contentDescription = null,
+                tint = farbe.copy(alpha = 0.5f),
+                modifier = Modifier.size(17.dp),
+            )
+        }
     }
 }

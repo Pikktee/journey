@@ -67,10 +67,16 @@ export function webVideoDateiname(mediumId: string): string {
   return `${mediumId}.web.mp4`
 }
 
-/** Poster-Zeitpunkt: früher Frame, aber nicht vor dem Videostart/übers Ende. */
-export function posterZeitpunkt(dauerS: number): number {
-  if (!Number.isFinite(dauerS) || dauerS <= 0) return 0
-  return Math.min(1, dauerS / 2)
+/**
+ * Poster-Zeitpunkt: der ERSTE Frame.
+ *
+ * Vorher lag er eine Sekunde später — ein besseres Standbild, aber der Player
+ * zeigt das Poster, bis die Wiedergabe einsetzt, und die beginnt bei null. Beim
+ * Umschalten sprang das Bild sichtbar. Ein zum Anfang passendes Standbild ist
+ * mehr wert als ein schöneres, das nicht zum nächsten Moment passt.
+ */
+export function posterZeitpunkt(_dauerS: number): number {
+  return 0
 }
 
 /** Ergebnis der Aufbereitung eines Videos — fließt in enrich.ts ins tour.json. */

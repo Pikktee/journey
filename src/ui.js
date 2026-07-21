@@ -51,10 +51,14 @@ export class UI {
     this._preloaded = new Set()
     this._preloadImgs = [] // Referenzen halten, sonst darf der Browser abbrechen
 
-    // Video-Stopps (M4): Ton ist Opt-in (Autoplay-Policy erzwingt muted), die
-    // Wahl bleibt für die Session gemerkt. Ende des Videos → onMediaEnded stößt
-    // denselben Weiter-Pfad an wie ein abgelaufenes Foto-HOLD (main.js → tour.js).
-    this._soundOn = false
+    // Video-Stopps (M4): Die Ton-Wahl bleibt für die Session gemerkt. Ende des
+    // Videos → onMediaEnded stößt denselben Weiter-Pfad an wie ein abgelaufenes
+    // Foto-HOLD (main.js → tour.js).
+    // Ton AN als Vorgabe: Der Player startet immer erst nach einem Klick auf
+    // „Tour starten" — damit gilt die Nutzergeste, die Browser für Autoplay mit
+    // Ton verlangen. Wo das doch scheitert, schaltet der Fallback in
+    // zeigeFoto() stumm und spielt weiter, statt gar nichts zu zeigen.
+    this._soundOn = true
     try {
       this._soundOn = sessionStorage.getItem('luhambo:video-sound') === '1'
     } catch { /* Storage kann in restriktiven Kontexten fehlen */ }

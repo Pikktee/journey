@@ -1,10 +1,28 @@
 // GPS-Punktfilter der Aufzeichnung — pure Kotlin-Klasse ohne Android-Bezug,
 // dadurch direkt unit-testbar (Plan M3: Kernlogik raus aus dem Service).
 //
-// Regeln (Plan): Genauigkeit schlechter 30 m → verwerfen; gespeichert wird bei
-// ≥ 5 m Distanz, > 15° Kurswechsel oder ≥ 30 s seit dem letzten Speichern —
+// Regeln: Genauigkeit schlechter 30 m → verwerfen; gespeichert wird bei
+// ≥ 3 m Distanz, > 15° Kurswechsel oder ≥ 30 s seit dem letzten Speichern —
 // so bleibt die Punktdichte klein, ohne Kurven oder Pausen zu verlieren
 // (die 30-s-Punkte im Stand braucht die Pausen-Erkennung des Backends).
+//
+// Die Mindestdistanz lag ursprünglich bei 5 m, und das war für Fußwege zu grob:
+// Der Standort kommt im 2-Sekunden-Takt, beim Gehen (~1,4 m/s) also alle 2,8 m —
+// jeder zweite Punkt fiel unter die Schwelle, und aus einem Spaziergang wurde
+// ein Streckenzug mit langen Sehnen.
+//
+// Einfach tiefer setzen ging aber nicht: Die 5 m schützten die Distanzmessung.
+// Im Stand wandert die gemeldete Position um mehrere Meter, und eine niedrige
+// Schwelle hätte dieses Rauschen als zurückgelegten Weg gezählt — zehn Minuten
+// Rast wären als halber Kilometer in der Telemetrie gelandet. Deshalb entscheidet
+// jetzt das vom Empfänger gemessene TEMPO, welche Regel gilt: In Bewegung
+// genügen 2,5 m, im Stand greift nur noch der 30-Sekunden-Takt, und die Distanz
+// wächst dort gar nicht.
+//
+// Das kostet keinen Akku: Der Empfänger läuft ohnehin durchgehend mit derselben
+// Rate, der Filter entscheidet nur, was davon in die Datenbank wandert. Teurer
+// wird allein die Datenmenge — rund 40 Byte je Punkt, für eine Tagestour also
+// wenige hundert Kilobyte.
 package app.luhambo.aufzeichnung
 
 import kotlin.math.asin
@@ -21,13 +39,22 @@ data class RohPunkt(
     /** Sekunden seit Tour-Start */
     val tOffsetS: Double,
     val genauigkeitM: Float,
+    /**
+     * Vom Empfänger gemessenes Tempo (m/s); null, wenn er keins liefert.
+     *
+     * Verlässlicher als die Distanz zwischen zwei Meldungen: Im Stand bleibt es
+     * nahe null, während die Position weiter umherspringt.
+     */
+    val tempoMps: Float? = null,
 )
 
 class PunktFilter(
     private val maxGenauigkeitM: Float = 30f,
-    private val minDistanzM: Double = 5.0,
+    private val minDistanzM: Double = 2.5,
     private val minKurswechselGrad: Double = 15.0,
     private val maxAbstandS: Double = 30.0,
+    /** Darunter gilt: Der Punkt steht, was sich bewegt, ist das Rauschen. */
+    private val stillstandMps: Float = 0.5f,
 ) {
     private var letzter: RohPunkt? = null
     private var vorletzter: RohPunkt? = null
@@ -53,14 +80,25 @@ class PunktFilter(
         val kursNeu = kursGrad(letzterPunkt.lng, letzterPunkt.lat, punkt.lng, punkt.lat)
         val kurswechsel = kursAlt?.let { winkelDifferenzGrad(it, kursNeu) } ?: 0.0
 
+        // Ohne Tempo-Angabe (GPX-Import, ältere Geräte) wie bisher entscheiden:
+        // Dann ist die Distanz das einzige Maß, das zur Verfügung steht.
+        val bewegt = punkt.tempoMps?.let { it >= stillstandMps } ?: true
+
         // Kurswechsel zählt nur mit Mindestbewegung — GPS-Jitter im Stand dreht
-        // den Kurs beliebig, würde also ohne die 2-m-Schwelle dauernd speichern.
-        val speichern = distanz >= minDistanzM ||
-            (kurswechsel > minKurswechselGrad && distanz >= minDistanzM * 0.4) ||
+        // den Kurs beliebig, würde also ohne diese Schwelle dauernd speichern.
+        val speichern = if (bewegt) {
+            distanz >= minDistanzM ||
+                (kurswechsel > minKurswechselGrad && distanz >= minDistanzM * 0.4) ||
+                zeit >= maxAbstandS
+        } else {
+            // Im Stand nur der Takt für die Pausen-Erkennung des Backends
             zeit >= maxAbstandS
+        }
         if (!speichern) return false
 
-        distanzM += distanz
+        // Im Stand zurückgelegte „Strecke" ist Rauschen und darf die Telemetrie
+        // nicht aufblähen.
+        if (bewegt) distanzM += distanz
         return akzeptiere(punkt)
     }
 

@@ -137,7 +137,6 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
                     platzhalter = "Was ist hier zu sehen?",
                     stil = MaterialTheme.typography.titleLarge,
                     fokus = fokus,
-                    fertig = { tastatur?.hide() },
                 )
             }
         }

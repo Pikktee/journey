@@ -316,10 +316,9 @@ private fun Kopfbild(
         Schreibzeile(
             wert = titel,
             setzeWert = setzeTitel,
-            platzhalter = if (tour.serverId == null) "Reise benennen" else "Unbenannte Reise",
+            platzhalter = if (tour.serverId == null) "Tour benennen" else "Unbenannte Tour",
             stil = MaterialTheme.typography.headlineMedium,
             fokus = fokus,
-            fertig = { tastatur?.hide() },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 18.dp, end = 14.dp, bottom = 10.dp),

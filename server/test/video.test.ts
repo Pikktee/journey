@@ -81,11 +81,14 @@ describe('abgeleitete Namen + Poster-Zeitpunkt', () => {
     expect(webVideoDateiname('m2')).toBe('m2.web.mp4')
   })
 
-  it('wählt einen frühen, aber gültigen Poster-Frame', () => {
+  it('nimmt den ersten Frame — den, mit dem die Wiedergabe beginnt', () => {
+    // Der Player zeigt das Poster, bis die Wiedergabe einsetzt, und die beginnt
+    // bei null. Jeder spätere Frame ließe das Bild im Moment des Umschaltens
+    // sichtbar springen — unabhängig von der Länge des Videos.
     expect(posterZeitpunkt(0)).toBe(0)
     expect(posterZeitpunkt(-5)).toBe(0) // unbekannte Dauer
-    expect(posterZeitpunkt(0.4)).toBeCloseTo(0.2, 10) // sehr kurzes Video: nicht übers Ende
-    expect(posterZeitpunkt(30)).toBe(1)
+    expect(posterZeitpunkt(0.4)).toBe(0) // sehr kurzes Video
+    expect(posterZeitpunkt(30)).toBe(0)
   })
 })
 
