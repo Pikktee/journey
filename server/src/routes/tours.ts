@@ -144,9 +144,14 @@ export function registriereTourRouten(app: FastifyInstance): void {
       try {
         // Nummer PRO BENUTZER und im selben synchronen Statement vergeben —
         // better-sqlite3 ist synchron, damit ist die Vergabe race-frei.
+        // visibility ausdrücklich auf 'private': Eine frisch hochgeladene Tour
+        // gehört erst einmal niemandem außer ihrem Urheber — geteilt wird
+        // bewusst, nicht als Nebenwirkung des Hochladens. Der Tabellen-Default
+        // bleibt 'unlisted', damit bestehende Touren (und die Links, die
+        // jemand verschickt hat) unangetastet bleiben.
         db.prepare(
-          `INSERT INTO tours (id, owner_id, no, status, client_tour_id, title, description, created_at, updated_at)
-           VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'angelegt', ?, ?, ?, ?, ?)`,
+          `INSERT INTO tours (id, owner_id, no, status, visibility, client_tour_id, title, description, created_at, updated_at)
+           VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'angelegt', 'private', ?, ?, ?, ?, ?)`,
         ).run(id, benutzer.id, benutzer.id, clientId, request.body.title ?? null, request.body.description ?? null, jetzt, jetzt)
       } catch (fehler) {
         // Paralleler Doppel-POST mit gleicher clientTourId: der UNIQUE-Index

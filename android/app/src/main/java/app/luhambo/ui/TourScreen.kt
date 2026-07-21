@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -67,10 +68,14 @@ fun TourScreen(
 ) {
     val tour by viewModel.tour.collectAsState(initial = null)
     val medien by viewModel.medien.collectAsState(initial = emptyList())
+    val sichtbarkeit by viewModel.sichtbarkeit.collectAsState()
 
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var beschreibung by rememberSaveable { mutableStateOf<String?>(null) }
     var loeschenDialog by remember { mutableStateOf(false) }
+    var teilen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(tour?.serverId) { if (tour?.serverId != null) viewModel.ladeSichtbarkeit() }
 
     // Einmalig aus der Datenbank befüllen; danach gehört der Text dem Nutzer.
     // Die Ausnahme ist der Auto-Titel, den der Upload-Worker nachträgt: hat der
@@ -97,6 +102,13 @@ fun TourScreen(
                     }
                 },
                 actions = {
+                    // Teilen erst, wenn die Tour beim Server liegt — vorher gäbe
+                    // es keinen Link, auf den man jemanden schicken könnte.
+                    if (aktuelleTour.serverId != null) {
+                        IconButton(onClick = { teilen = true }) {
+                            Icon(Icons.Default.Share, contentDescription = "Tour teilen")
+                        }
+                    }
                     IconButton(onClick = { loeschenDialog = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Tour löschen")
                     }
@@ -170,6 +182,18 @@ fun TourScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (teilen) {
+        aktuelleTour.serverId?.let { serverId ->
+            TeilenBlatt(
+                serverTourId = serverId,
+                titel = titel ?: aktuelleTour.titel,
+                aktuelleSichtbarkeit = sichtbarkeit ?: Sichtbarkeit.PRIVAT,
+                schliessen = { teilen = false },
+                setzeSichtbarkeit = viewModel::setzeSichtbarkeit,
+            )
         }
     }
 

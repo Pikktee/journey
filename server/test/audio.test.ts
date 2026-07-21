@@ -57,7 +57,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     expect(put.statusCode).toBe(200)
     expect(put.json()).toEqual({ datei: 'a1.mp3', bytes: 10 })
 
-    const voll = await u.app.inject({ method: 'GET', url: `/api/media/${id}/a1.mp3` })
+    const voll = await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` })
     expect(voll.statusCode).toBe(200)
     expect(voll.headers['content-type']).toBe('audio/mpeg')
     expect(voll.headers['accept-ranges']).toBe('bytes')
@@ -65,7 +65,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
 
     const range = await u.app.inject({
       method: 'GET',
-      url: `/api/media/${id}/a1.mp3`,
+      cookies: u.cookies, url: `/api/media/${id}/a1.mp3`,
       headers: { range: 'bytes=2-5' },
     })
     expect(range.statusCode).toBe(206)
@@ -79,7 +79,7 @@ describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
     const erwartet: Record<string, string> = { m4a: 'audio/mp4', ogg: 'audio/ogg', wav: 'audio/wav' }
     for (const [endung, typ] of Object.entries(erwartet)) {
       expect((await ladeAudioHoch(u, id, `klang.${endung}`)).statusCode).toBe(200)
-      const antwort = await u.app.inject({ method: 'GET', url: `/api/media/${id}/klang.${endung}` })
+      const antwort = await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/klang.${endung}` })
       expect(antwort.headers['content-type']).toBe(typ)
     }
   })
@@ -153,7 +153,7 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
     await ladeAudioHoch(u, id)
     const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: u.cookies })
     expect(del.statusCode).toBe(200)
-    expect((await u.app.inject({ method: 'GET', url: `/api/media/${id}/a1.mp3` })).statusCode).toBe(404)
+    expect((await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` })).statusCode).toBe(404)
     const nochmal = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: u.cookies })
     expect(nochmal.statusCode).toBe(404)
   })
@@ -176,7 +176,7 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
     // DELETE muss abgelehnt werden — sonst zeigte das gerenderte tour.json auf 404
     const del = await u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/audio/a1.mp3`, cookies: u.cookies })
     expect(del.statusCode).toBe(409)
-    expect((await u.app.inject({ method: 'GET', url: `/api/media/${id}/a1.mp3` })).statusCode).toBe(200)
+    expect((await u.app.inject({ method: 'GET', cookies: u.cookies, url: `/api/media/${id}/a1.mp3` })).statusCode).toBe(200)
   })
 })
 
@@ -223,7 +223,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
 
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
     expect(tour.status).toBe('bereit')
     expect(tour.media[0]?.display).toEqual({ holdS: 8, kenBurns: false })
     expect(tour.camera).toHaveLength(1)
@@ -256,7 +256,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
-    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
+    const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
     expect(tour.status).toBe('bereit')
     expect(tour.audio).toBeUndefined()
   })

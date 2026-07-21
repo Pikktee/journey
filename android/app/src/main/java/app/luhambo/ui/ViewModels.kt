@@ -46,6 +46,21 @@ class StartViewModel(
             runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
         }
     }
+
+    /**
+     * Sichtbarkeit direkt aus der Liste ändern. Nötig für Touren, die im Studio
+     * entstanden sind: sie haben keinen lokalen Entwurf, über den man ins
+     * Detail käme, wären ohne diesen Weg also in der App gar nicht teilbar.
+     */
+    fun setzeSichtbarkeit(serverTourId: String, sichtbarkeit: Sichtbarkeit) {
+        internServerTouren.value = internServerTouren.value.map {
+            if (it.id == serverTourId) it.copy(visibility = sichtbarkeit.schluessel) else it
+        }
+        viewModelScope.launch {
+            runCatching { apiClient.setzeSichtbarkeit(serverTourId, sichtbarkeit.schluessel) }
+                .onFailure { aktualisiere() } // Anzeige zurück auf den echten Stand
+        }
+    }
 }
 
 class TourViewModel(
@@ -58,7 +73,23 @@ class TourViewModel(
     val tour: Flow<TourEntity?> = repository.tourFluss(tourId)
     val medien: Flow<List<MediumEntity>> = repository.medienFluss(tourId)
 
+    // Wer die Tour sehen darf, weiß nur der Server — auf dem Gerät wird das
+    // nicht mitgeführt, sonst gäbe es zwei Wahrheiten, die auseinanderlaufen
+    // können (das Studio ändert die Sichtbarkeit ebenfalls).
+    private val internSichtbarkeit = MutableStateFlow<Sichtbarkeit?>(null)
+    val sichtbarkeit: StateFlow<Sichtbarkeit?> = internSichtbarkeit
+
     fun datei(medium: MediumEntity): File = repository.mediumDatei(medium)
+
+    /** Sichtbarkeit vom Server nachladen (nur sinnvoll nach dem Upload). */
+    fun ladeSichtbarkeit() {
+        viewModelScope.launch {
+            val serverId = repository.tour(tourId)?.serverId ?: return@launch
+            runCatching { apiClient.toureListe().firstOrNull { it.id == serverId } }
+                .getOrNull()
+                ?.let { internSichtbarkeit.value = Sichtbarkeit.vonSchluessel(it.visibility) }
+        }
+    }
 
     /**
      * Titel und Beschreibung sichern. Ist die Tour schon beim Server, wandert
@@ -78,6 +109,18 @@ class TourViewModel(
             repository.aktualisiereTexte(tourId, neuerTitel, neueBeschreibung)
             val serverId = vorher.serverId ?: return@launch
             runCatching { apiClient.patchTour(serverId, neuerTitel, neueBeschreibung) }
+        }
+    }
+
+    /** Sichtbarkeit der Tour beim Server setzen (nur nach dem Upload möglich). */
+    fun setzeSichtbarkeit(sichtbarkeit: Sichtbarkeit) {
+        internSichtbarkeit.value = sichtbarkeit
+        appScope.launch {
+            val serverId = repository.tour(tourId)?.serverId ?: return@launch
+            runCatching { apiClient.setzeSichtbarkeit(serverId, sichtbarkeit.schluessel) }
+                // Ging es schief, ist die Anzeige gelogen — zurück auf den
+                // Stand, den der Server wirklich kennt.
+                .onFailure { ladeSichtbarkeit() }
         }
     }
 

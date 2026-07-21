@@ -7,7 +7,7 @@
 // stehen in Listenverschmelzung.kt.
 package app.luhambo.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,6 +81,9 @@ fun TourenScreen(
     LaunchedEffect(laufend?.tourId) { if (laufend == null) viewModel.aktualisiere() }
 
     val eintraege = remember(lokale, vomServer) { verschmelzeTouren(lokale, vomServer) }
+    // Teilen direkt aus der Liste: Touren aus dem Studio haben keinen lokalen
+    // Entwurf und wären ohne diesen Weg in der App gar nicht teilbar.
+    var teilen by remember { mutableStateOf<ServerTour?>(null) }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Touren") }) }) { innen ->
         if (eintraege.isEmpty()) {
@@ -123,10 +128,21 @@ fun TourenScreen(
                         tour = eintrag.tour,
                         bildUrl = eintrag.tour.cover?.let { app.serverUrl() + it },
                         beiKlick = { if (eintrag.tour.spielbar) zumPlayer(eintrag.tour.id) else zurTour(eintrag.tour.id) },
+                        beiLangemDruck = { teilen = eintrag.tour },
                     )
                 }
             }
         }
+    }
+
+    teilen?.let { tour ->
+        TeilenBlatt(
+            serverTourId = tour.id,
+            titel = tour.titel,
+            aktuelleSichtbarkeit = Sichtbarkeit.vonSchluessel(tour.visibility),
+            schliessen = { teilen = null },
+            setzeSichtbarkeit = { viewModel.setzeSichtbarkeit(tour.id, it) },
+        )
     }
 }
 
@@ -150,7 +166,12 @@ private fun LokaleKarte(tour: TourEntity, titelbild: java.io.File?, beiKlick: ()
 }
 
 @Composable
-private fun ServerKarte(tour: ServerTour, bildUrl: String?, beiKlick: () -> Unit) {
+private fun ServerKarte(
+    tour: ServerTour,
+    bildUrl: String?,
+    beiKlick: () -> Unit,
+    beiLangemDruck: () -> Unit,
+) {
     val (symbol, farbe, zustand) = when (tour.status) {
         "bereit" -> Triple(Icons.Default.PlayCircleOutline, MaterialTheme.colorScheme.primary, "Abspielen")
         "fehler" -> Triple(Icons.Default.ErrorOutline, MaterialTheme.colorScheme.error, "Verarbeitung fehlgeschlagen")
@@ -164,6 +185,7 @@ private fun ServerKarte(tour: ServerTour, bildUrl: String?, beiKlick: () -> Unit
         symbol = symbol,
         bild = bildUrl,
         beiKlick = beiKlick,
+        beiLangemDruck = beiLangemDruck,
     )
 }
 
@@ -176,9 +198,12 @@ private fun Karte(
     symbol: ImageVector,
     bild: Any?,
     beiKlick: () -> Unit,
+    beiLangemDruck: (() -> Unit)? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = beiKlick),
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = beiKlick, onLongClick = beiLangemDruck),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
