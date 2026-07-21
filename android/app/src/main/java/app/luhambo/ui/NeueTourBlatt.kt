@@ -6,8 +6,16 @@
 // beim Start (sie sagt dem Server, was das Hauptfortbewegungsmittel ist),
 // unterwegs erkennt er Gehpausen später selbst.
 //
-// Beides ist optional. Wer nur auf „Aufzeichnen" tippt, kommt sofort los; der
-// Titel wird beim Hochladen ohnehin aus den Ortsnamen gebildet.
+// Auch das Titelfeld ist weg. Am Anfang einer Reise weiß man selten, wie sie
+// heißen soll, und der Server benennt sie beim Hochladen ohnehin nach den
+// Orten, durch die sie führt. Wer einen eigenen Namen will, schreibt ihn
+// hinterher in der Tour selbst — dort steht er groß im Titelbild. Ein Feld, das
+// man beim Losgehen fast immer überspringt, kostet nur einen Blick.
+//
+// „Automatisch" ist die Vorauswahl und war es faktisch schon immer: Ohne Angabe
+// ging bisher `walk` zum Server, und `walk` ist genau der Wert, bei dem er das
+// Tempo selbst auswertet. Bisher sah das nur aus wie die Behauptung, man sei zu
+// Fuß unterwegs.
 package app.luhambo.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -28,7 +36,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -37,7 +44,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.luhambo.daten.Modus
 
@@ -45,41 +51,35 @@ import app.luhambo.daten.Modus
 @Composable
 fun NeueTourBlatt(
     schliessen: () -> Unit,
-    starten: (titel: String?, modus: Modus) -> Unit,
+    starten: (modus: Modus?) -> Unit,
 ) {
     val zustand = rememberModalBottomSheetState()
-    var titel by remember { mutableStateOf("") }
+    // null = automatisch; der Server leitet das Fortbewegungsmittel aus dem
+    // Tempo ab, statt eine Angabe zu bekommen, die niemand gemacht hat.
     var modus by remember { mutableStateOf<Modus?>(null) }
 
     ModalBottomSheet(onDismissRequest = schliessen, sheetState = zustand) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Text("Neue Tour", style = MaterialTheme.typography.headlineSmall)
 
-            OutlinedTextField(
-                value = titel,
-                onValueChange = { titel = it },
-                label = { Text("Titel (optional)") },
-                placeholder = { Text("Wird sonst aus den Orten gebildet") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Womit bist du unterwegs?", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "Optional — Gehpausen erkennt Luhambo selbst.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = modus == null,
+                        onClick = { modus = null },
+                        label = { Text("Automatisch") },
+                    )
                     Modus.entries.forEach { eintrag ->
                         FilterChip(
                             selected = modus == eintrag,
-                            // Nochmal tippen wählt wieder ab
+                            // Nochmal tippen führt zurück auf „Automatisch"
                             onClick = { modus = if (modus == eintrag) null else eintrag },
                             label = { Text(eintrag.anzeige) },
                         )
@@ -88,11 +88,11 @@ fun NeueTourBlatt(
             }
 
             Button(
-                onClick = { starten(titel.trim().ifBlank { null }, modus ?: Modus.WALK) },
-                modifier = Modifier.fillMaxWidth(),
+                onClick = { starten(modus) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Text("Aufzeichnen", Modifier.padding(start = 8.dp))
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Aufzeichnen", Modifier.padding(start = 10.dp))
             }
             Spacer(Modifier.height(8.dp))
         }

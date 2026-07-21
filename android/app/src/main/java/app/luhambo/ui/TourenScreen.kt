@@ -100,9 +100,9 @@ fun TourenScreen(
     Box(Modifier.fillMaxSize()) {
         if (eintraege.isEmpty()) {
             Column(Modifier.fillMaxSize()) {
-                Markenzeile()
+                Kopfabstand()
                 // weight, nicht fillMaxSize: Letzteres nähme die volle Höhe der
-                // Spalte statt des Rests unter der Markenzeile und liefe unten
+                // Spalte statt des Rests unter dem Kopfabstand und liefe unten
                 // aus dem Bild.
                 LeereListe(Modifier.weight(1f))
             }
@@ -114,11 +114,7 @@ fun TourenScreen(
                 contentPadding = PaddingValues(bottom = 44.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
-                // Der Kopf scrollt mit: eine feste Titelleiste über einer Liste
-                // aus Bildern nimmt oben dauerhaft Platz weg, den die Bilder
-                // besser nutzen. Sie hieße außerdem „Touren" wie der Reiter,
-                // auf dem man ohnehin gerade steht.
-                item(key = "kopf") { Markenzeile() }
+                item(key = "kopf") { Kopfabstand() }
 
                 items(eintraege, key = { it.schluessel }) { eintrag ->
                     when (eintrag) {
@@ -159,17 +155,19 @@ fun TourenScreen(
     }
 }
 
-/** Der Markenschriftzug der Website als Kopfzeile — gesperrt, leise, klein. */
+/**
+ * Luft zwischen Statusleiste und erster Karte.
+ *
+ * Hier stand der Markenschriftzug „LUHAMBO". Das ist eine Gewohnheit aus dem
+ * Web und von iOS-Apps; unter Android gehört der App-Name in den Launcher und
+ * die Übersicht der laufenden Anwendungen, nicht in die Anwendung selbst — dort
+ * sieht Material einen Titel für den BILDSCHIRM vor. Der hieße hier „Touren"
+ * wie der Reiter darunter, auf dem man ohnehin gerade steht. Also keiner von
+ * beiden: Die Reisen fangen oben an.
+ */
 @Composable
-private fun Markenzeile() {
-    Text(
-        "LUHAMBO",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .statusBarsPadding()
-            .padding(start = 20.dp, top = 18.dp, bottom = 10.dp),
-    )
+private fun Kopfabstand() {
+    Spacer(Modifier.statusBarsPadding().height(14.dp))
 }
 
 @Composable

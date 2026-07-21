@@ -179,12 +179,22 @@ fun PlayerScreen(
         // Verlassen des Players: erst die Seite entladen (das stoppt Musik-, Motor-
         // und Wetter-Loops SOFORT), dann den WebView zerstören. Ohne das lief der
         // Ton weiter, weil der WebView bis zur Garbage Collection am Leben blieb.
+        //
+        // Statt pauseTimers() steht hier resumeTimers(), und das ist kein
+        // Vertipper: Anders als onPause() wirken beide laut Android-Doku auf ALLE
+        // WebViews des Prozesses. Vorher stand hier pauseTimers() — einmal beim
+        // Verlassen gesetzt und nie zurückgenommen, fror es die JavaScript-Timer
+        // jedes FOLGENDEN Players mit ein, und die zweite Tour blieb für immer im
+        // Ladebildschirm hängen. Der Aufruf hebt zugleich die Pause auf, die der
+        // Lebenszyklus-Beobachter gesetzt haben kann, wenn der Player aus dem
+        // Hintergrund heraus verlassen wird. Diese Instanz braucht ihn nicht mehr,
+        // sie wird zwei Zeilen später zerstört.
         onRelease = { web ->
             halter[0] = null
             web.stopLoading()
             web.loadUrl("about:blank")
             web.onPause()
-            web.pauseTimers()
+            web.resumeTimers()
             (web.parent as? ViewGroup)?.removeView(web)
             web.removeAllViews()
             web.destroy()

@@ -66,6 +66,15 @@ import app.luhambo.daten.Modus
 import app.luhambo.kamera.KameraScreen
 import app.luhambo.upload.Einstellungen
 
+/**
+ * Gemerkter Startwunsch, bis der Berechtigungsdialog beantwortet ist.
+ *
+ * Eine eigene Klasse statt `Modus?`, weil zwei verschiedene „nichts" zu
+ * unterscheiden sind: kein Wunsch offen — oder ein Wunsch ohne Angabe des
+ * Fortbewegungsmittels („Automatisch").
+ */
+private data class Startwunsch(val modus: Modus?)
+
 /** Reiter der Hauptnavigation. */
 private const val REITER_TOUREN = "touren"
 private const val REITER_PROFIL = "profil"
@@ -102,14 +111,16 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
     // Ohne Standort-Erlaubnis beendet sich der Aufzeichnungs-Service wortlos.
     // Sie wird deshalb erst erfragt, wenn wirklich losgeht — und die Wahl aus
     // dem Blatt so lange gemerkt, bis der Systemdialog beantwortet ist.
-    var wunsch by remember { mutableStateOf<Pair<String?, Modus>?>(null) }
+    var wunsch by remember { mutableStateOf<Startwunsch?>(null) }
     val rechteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { ergebnis ->
         val wahl = wunsch
         wunsch = null
         if (ergebnis[Manifest.permission.ACCESS_FINE_LOCATION] == true && wahl != null) {
-            AufzeichnungsService.starte(context, wahl.second, wahl.first)
+            // Ohne Angabe geht `walk` zum Server — der Wert, bei dem er das
+            // Fortbewegungsmittel aus dem Tempo ableitet.
+            AufzeichnungsService.starte(context, wahl.modus ?: Modus.WALK, null)
             navController.navigate("aufzeichnung")
         }
     }
@@ -210,9 +221,9 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
     if (neueTour) {
         NeueTourBlatt(
             schliessen = { neueTour = false },
-            starten = { titel, modus ->
+            starten = { modus ->
                 neueTour = false
-                wunsch = titel to modus
+                wunsch = Startwunsch(modus)
                 rechteLauncher.launch(
                     buildList {
                         add(Manifest.permission.ACCESS_FINE_LOCATION)
