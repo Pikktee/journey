@@ -81,6 +81,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.luhambo.LuhamboApp
+import app.luhambo.aufzeichnung.Fotomarke
 import app.luhambo.aufzeichnung.duenneAus
 import app.luhambo.upload.Serverfoto
 import coil.compose.AsyncImage
@@ -187,6 +188,16 @@ fun ServerTourScreen(
                     // Die Form der Reise. Nur wenn ein Track da ist — eine reine
                     // Foto-Tour oder eine noch in Verarbeitung hätte keinen.
                     val route = remember(detail) { detail?.route?.let { duenneAus(it) }.orEmpty() }
+                    // Nur platzierte Medien: Wo der Server keinen Anker fand,
+                    // gibt es auch keine Stelle auf dem Weg, an die der Punkt
+                    // gehörte. Im Gitter darunter sind sie trotzdem alle.
+                    val fotomarken = remember(detail) {
+                        fotos.mapNotNull { foto ->
+                            val lng = foto.ankerLng
+                            val lat = foto.ankerLat
+                            if (lng != null && lat != null) Fotomarke(foto.id, lng, lat) else null
+                        }
+                    }
                     if (route.size >= 2) {
                         Spacer(Modifier.height(22.dp))
                         Abschnittstitel("Route")
@@ -194,6 +205,10 @@ fun ServerTourScreen(
                         Routenskizze(
                             spur = route,
                             abgeschlossen = true,
+                            fotos = fotomarken,
+                            beiFotoklick = { id ->
+                                fotos.firstOrNull { it.id == id }?.let { treffer -> grossesFoto = treffer }
+                            },
                             modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
                     }

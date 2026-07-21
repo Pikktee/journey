@@ -73,6 +73,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import app.luhambo.aufzeichnung.Fotomarke
 import app.luhambo.daten.TourEntity
 import app.luhambo.daten.TourStatus
 import coil.compose.AsyncImage
@@ -144,7 +145,16 @@ fun TourScreen(
                         fehler = aktuelleTour.fehler,
                         erneutVersuchen = { viewModel.ladeHoch(titel, beschreibung) },
                     )
-                    // Die Form der Reise — sobald ein Track vorliegt.
+                    // Die Form der Reise — sobald ein Track vorliegt. Die Fotos
+                    // sitzen als Punkte darauf; ohne GPS beim Auslösen hat ein
+                    // Medium keinen Anker und bleibt der Skizze fern.
+                    val fotomarken = remember(medien) {
+                        medien.mapNotNull { medium ->
+                            val lng = medium.ankerLng
+                            val lat = medium.ankerLat
+                            if (lng != null && lat != null) Fotomarke(medium.id, lng, lat) else null
+                        }
+                    }
                     if (route.size >= 2) {
                         Spacer(Modifier.height(22.dp))
                         Abschnittstitel("Route")
@@ -152,6 +162,8 @@ fun TourScreen(
                         Routenskizze(
                             spur = route,
                             abgeschlossen = true,
+                            fotos = fotomarken,
+                            beiFotoklick = zumFoto,
                             modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
                     }

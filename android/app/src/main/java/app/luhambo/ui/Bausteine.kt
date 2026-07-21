@@ -8,6 +8,7 @@ import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,16 +44,27 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import app.luhambo.aufzeichnung.Bildpunkt
+import app.luhambo.aufzeichnung.Fotomarke
+import app.luhambo.aufzeichnung.Fotopunkt
+import app.luhambo.aufzeichnung.Projektion
 import app.luhambo.aufzeichnung.Spurpunkt
-import app.luhambo.aufzeichnung.projiziereSpur
+import app.luhambo.aufzeichnung.aufLinie
+import app.luhambo.aufzeichnung.balleFotos
 import java.util.Locale
+import kotlin.math.hypot
 
 /**
  * Runder Knopf, der über einem Bild schwebt.
@@ -149,12 +161,20 @@ fun Videoflaeche(
  * heller Kopf die aktuelle Position, und eine leere Spur zeigt „Suche Position".
  * Ist die Tour fertig, tragen Anfang und Ende je eine Marke — gefüllt der
  * Start, ein Ring das Ziel; bei einer Rundtour fallen sie zusammen.
+ *
+ * Sind [fotos] gesetzt, sitzen sie als Cremepunkte auf dem Weg. Das macht die
+ * Skizze zum RÄUMLICHEN Verzeichnis: „das Bild von oben am Grat" findet man hier,
+ * im zeitlich sortierten Gitter darunter nicht. Als Kacheln ginge das nicht —
+ * ein erkennbares Vorschaubild misst ~40 dp, ein Dutzend davon deckt die Linie
+ * vollständig zu.
  */
 @Composable
 fun Routenskizze(
     spur: List<Spurpunkt>,
     modifier: Modifier = Modifier,
     abgeschlossen: Boolean = false,
+    fotos: List<Fotomarke> = emptyList(),
+    beiFotoklick: ((String) -> Unit)? = null,
 ) {
     if (spur.isEmpty()) {
         if (abgeschlossen) return // ohne Track keine Skizze, kein leerer Kasten
@@ -167,14 +187,56 @@ fun Routenskizze(
         }
         return
     }
-    Canvas(modifier) {
-        val punkte = projiziereSpur(spur, size.width, size.height, rand = 14.dp.toPx())
-        if (punkte.isEmpty()) return@Canvas
 
-        if (punkte.size >= 2) {
+    val dichte = LocalDensity.current
+    val randPx = with(dichte) { 14.dp.toPx() }
+    // Zusammenfassen etwa ab Punktdurchmesser — enger sähe es nur nach Klecks aus.
+    val ballAbstandPx = with(dichte) { 13.dp.toPx() }
+    // Großzügige Trefferfläche: Die Punkte sind winzig, die Fingerkuppe ist es nicht.
+    val trefferPx = with(dichte) { 22.dp.toPx() }
+
+    // Die Geometrie liegt NEBEN dem Zeichnen, nicht darin: Der Tipp muss dieselben
+    // Punkte treffen, die gemalt wurden — sonst zeigt die Skizze das eine und
+    // öffnet das andere.
+    var flaeche by remember { mutableStateOf(IntSize.Zero) }
+    val geometrie = remember(flaeche, spur, fotos) {
+        val projektion = Projektion.aus(spur, flaeche.width.toFloat(), flaeche.height.toFloat(), randPx)
+            ?: return@remember null
+        val linie = spur.map { projektion.projiziere(it) }
+        Skizzengeometrie(
+            linie = linie,
+            fotos = balleFotos(
+                fotos.map { it.id to aufLinie(projektion.projiziere(Spurpunkt(it.lng, it.lat)), linie) },
+                ballAbstandPx,
+            ),
+        )
+    }
+
+    val klick = beiFotoklick
+    Canvas(
+        modifier
+            .onSizeChanged { flaeche = it }
+            .then(
+                if (klick != null && fotos.isNotEmpty()) {
+                    Modifier.pointerInput(geometrie) {
+                        detectTapGestures { tipp ->
+                            geometrie?.fotos
+                                ?.minByOrNull { hypot(it.punkt.x - tipp.x, it.punkt.y - tipp.y) }
+                                ?.takeIf { hypot(it.punkt.x - tipp.x, it.punkt.y - tipp.y) <= trefferPx }
+                                ?.let { klick(it.id) }
+                        }
+                    }
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
+        val gezeichnet = geometrie ?: return@Canvas
+
+        if (gezeichnet.linie.size >= 2) {
             val pfad = Path().apply {
-                moveTo(punkte.first().x, punkte.first().y)
-                for (p in punkte.drop(1)) lineTo(p.x, p.y)
+                moveTo(gezeichnet.linie.first().x, gezeichnet.linie.first().y)
+                for (p in gezeichnet.linie.drop(1)) lineTo(p.x, p.y)
             }
             drawPath(
                 pfad,
@@ -186,25 +248,45 @@ fun Routenskizze(
                 ),
             )
         }
+
+        // Alle Marken folgen derselben Grammatik: ein haarfeiner dunkler Rand,
+        // dann die Füllung. Der Rand trennt sie von der gelben Linie, ohne sie
+        // zu zerhacken — ein breiter Hof riss sichtbare Löcher in den Weg.
+        fun DrawScope.marke(bei: Bildpunkt, aussen: Float, male: DrawScope.(Offset) -> Unit) {
+            val mitte = Offset(bei.x, bei.y)
+            drawCircle(Nacht, radius = aussen, center = mitte)
+            male(mitte)
+        }
+
+        // Foto-Punkte gut halb so groß wie Start und Ziel: Sie sind die zweite
+        // Stimme, das Gelb der Linie bleibt der eine kräftige Ton. Bei voller
+        // Größe wurde die Skizze zur Perlenschnur.
+        for (foto in gezeichnet.fotos) {
+            marke(foto.punkt, 3.2.dp.toPx()) { mitte ->
+                drawCircle(Tinte, radius = 2.4.dp.toPx(), center = mitte)
+            }
+        }
+
         if (abgeschlossen) {
-            val start = punkte.first()
-            val ziel = punkte.last()
             // Start gefüllt, Ziel als Ring — so ist die Richtung ablesbar, ohne
-            // dass es eine Beschriftung braucht.
-            drawCircle(Sonne, radius = 5.dp.toPx(), center = Offset(start.x, start.y))
-            drawCircle(Nacht, radius = 4.dp.toPx(), center = Offset(ziel.x, ziel.y))
-            drawCircle(
-                Tinte,
-                radius = 5.dp.toPx(),
-                center = Offset(ziel.x, ziel.y),
-                style = Stroke(width = 2.dp.toPx()),
-            )
+            // dass es eine Beschriftung braucht. Zuletzt gezeichnet: Wo ein Foto
+            // genau am Anfang oder Ende liegt, gewinnt die Wegmarke.
+            marke(gezeichnet.linie.first(), 5.2.dp.toPx()) { mitte ->
+                drawCircle(Sonne, radius = 4.2.dp.toPx(), center = mitte)
+            }
+            marke(gezeichnet.linie.last(), 5.2.dp.toPx()) { mitte ->
+                drawCircle(Tinte, radius = 4.2.dp.toPx(), center = mitte, style = Stroke(width = 1.8.dp.toPx()))
+            }
         } else {
-            val kopf = punkte.last()
-            drawCircle(Tinte, radius = 5.dp.toPx(), center = Offset(kopf.x, kopf.y))
+            marke(gezeichnet.linie.last(), 5.2.dp.toPx()) { mitte ->
+                drawCircle(Tinte, radius = 4.2.dp.toPx(), center = mitte)
+            }
         }
     }
 }
+
+/** Was die Skizze zeichnet und was ein Tipp trifft — dieselben Koordinaten. */
+private data class Skizzengeometrie(val linie: List<Bildpunkt>, val fotos: List<Fotopunkt>)
 
 /** Kleine gesperrte Versal-Überschrift — die Gliederung der Website. */
 @Composable

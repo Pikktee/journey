@@ -83,6 +83,14 @@ data class Serverfoto(
     val istVideo: Boolean,
     /** Serverpfad der abspielbaren Datei; bei Fotos gleich [pfad]. */
     val quellPfad: String,
+    /**
+     * Wo am Track das Medium hängt — für den Punkt auf der Routenskizze. Beide
+     * null, wenn der Server es nicht platzieren konnte (kein GPS beim Auslösen,
+     * Aufnahmezeit außerhalb der Tour); der Player überspringt solche Medien,
+     * die Skizze lässt sie entsprechend aus.
+     */
+    val ankerLng: Double?,
+    val ankerLat: Double?,
 )
 
 /** Konto-Auskunft aus GET /api/auth/me. */
@@ -316,6 +324,8 @@ class ApiClient(private val einstellungen: Einstellungen) {
                 val src = obj["src"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
                 val titel = obj["title"]?.jsonPrimitive?.contentOrNull
                 val zeitzeile = obj["caption"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                // `anchor` ist [lng,lat] oder JSON-null — beides fängt das as?
+                val anker = obj["anchor"] as? JsonArray
                 Serverfoto(
                     id = obj["id"]?.jsonPrimitive?.contentOrNull ?: src,
                     // Bei Videos zeigt das Standbild, was zu sehen ist — die
@@ -326,6 +336,8 @@ class ApiClient(private val einstellungen: Einstellungen) {
                     zeitzeile = if (zeitzeile.isNotBlank()) zeitzeile else titel,
                     istVideo = obj["type"]?.jsonPrimitive?.contentOrNull == "video",
                     quellPfad = src,
+                    ankerLng = anker?.getOrNull(0)?.jsonPrimitive?.doubleOrNull,
+                    ankerLat = anker?.getOrNull(1)?.jsonPrimitive?.doubleOrNull,
                 )
             },
         )
