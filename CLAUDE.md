@@ -22,8 +22,10 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   `quota.ts`, `mail.ts`). Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md).
 - **Studio** ([studio.html](studio.html) + [src/studio/](src/studio/)): Weboberfläche zum
   Hochladen und Bearbeiten aufgezeichneter Touren (s. eigener Abschnitt unten).
-- **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — GPS-Tracking als
-  Foreground-Service, Fotos (CameraX), WorkManager-Upload, WebView-Player.
+- **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren)
+  und [profil.html](profil.html) (`?id=…`, die Reisen einer Person). Beide ohne Anmeldung,
+  Logik DOM-frei in [src/galerie/galeriemodell.ts](src/galerie/galeriemodell.ts).
+- **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — s. eigener Abschnitt.
 
 Sprache im gesamten Projekt (Code-Kommentare, UI, Doku, Commit-Messages) ist **Deutsch** —
 auch in server/ und android/ (deutsche Bezeichner).
@@ -115,6 +117,8 @@ auseinander** — Studio und Server kannten `moped`/`jeep` nicht, obwohl Engine,
 Motorsound sie längst unterstützten; aufgezeichnete Touren konnten diese Modi deshalb nie
 bekommen. Ein Drift-Wächter in [test/studio-baukasten.test.ts](test/studio-baukasten.test.ts)
 vergleicht die Listen (und die Tempo-Faktoren) jetzt automatisch.
+Der Modus wird bei der Aufnahme EINMAL angegeben; wo jemand stattdessen zu Fuß war, trennt
+[server/src/pipeline/tempo.ts](server/src/pipeline/tempo.ts) beim Rendern selbst ab (s. unten).
 
 **Höhen zweistufig.** Wegpunkt-Höhen sind nur der Startwert. Nach dem Laden holt
 [src/elevation.js](src/elevation.js) echte DEM-Höhen aus AWS Terrarium-Tiles (async fetch +
@@ -175,7 +179,8 @@ damit MapLibre nicht ins Basis-Bundle kommt.
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`luhambo/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
-`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `trim`, `kamera`, `audio`, `wetter`.
+`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `trim`, `kamera`, `audio`,
+`wetter`, `titelbild`.
 Beim Speichern rendert der Server die Tour aus Rohdaten + Overlay neu. Edits referenzieren
 **stabile Anker** — Medien-IDs, Koordinaten, absolute ISO-Zeitstempel, nie den Streckenanteil `f`.
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
@@ -185,6 +190,20 @@ vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `w
 Stufenfunktion; Marken-PAARE auf demselben `f` legen die Umschaltung (Player: Mitte zweier
 Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache bleibt gültig
 (ein Wetter-Edit löst keine externen Aufrufe aus).
+
+**Zwei Feinheiten der Pipeline, die man leicht „repariert":**
+
+1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`
+   (Oberfläche: „Titel") landet im Tour-JSON als `title`, die Uhrzeit rutscht als „Foto ·
+   14:32" darunter ([enrich.ts](server/src/pipeline/enrich.ts)). Ohne Beschriftung bleibt es
+   umgekehrt. Der Feldname `caption` ist historisch — wer den Text „zurück an seinen Platz"
+   schiebt, macht die Überschrift wieder zur Maschinenangabe.
+2. **Gehabschnitte trennt der Server selbst** ([tempo.ts](server/src/pipeline/tempo.ts)):
+   Rolling-Median über ±30 s, Hysterese 5,5/8 km/h, Mindestdauern gegen Ampel-Fehlalarme. Sie
+   läuft in `ladeOriginalSegmente` — der einen Stelle, die sich Editor und Render teilen;
+   nur beim Rendern angewandt, zeigte der Editor eine andere Aufteilung als das Video.
+   `edits.modi` wird darübergelegt und behält Vorrang; mehrere Segmente im Manifest bleiben
+   unangetastet (jemand hat dann selbst umgeschaltet).
 
 **Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
 immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
@@ -218,6 +237,49 @@ wird dadurch zu genau einem Undo-Schritt.
 **Falle bei Zeitleisten-Interaktion:** Nach `setPointerCapture` zeigt `e.target` im `pointerup`
 auf das Capture-Element, nicht mehr auf das Element unter dem Finger. Was angeklickt wurde,
 muss im `pointerdown` gemerkt werden.
+
+## Android-App
+
+Aufnahme-App unter [android/](android/) (Kotlin, Compose, minSdk 29). Aufgezeichnet wird in
+einem **Foreground-Service**; der Live-Zustand liegt als Prozess-Singleton
+(`AufzeichnungsZustand`, StateFlow), damit die Aufnahme das Verlassen des Screens überlebt.
+Alles landet zuerst in Room, der Upload ist entkoppelt (WorkManager, pro Datei
+wiederaufnehmbar).
+
+**Hülle.** Zwei Reiter (Touren · Profil) mit dem Aufnahme-Knopf dazwischen — er ist KEIN
+dritter Reiter: er wechselt nicht die Ansicht, sondern startet etwas, und während einer
+laufenden Aufnahme führt er zu ihr zurück. Vollbild ohne Leiste laufen Aufzeichnung, Kamera,
+Foto-Vollansicht, Tour-Detail und Player.
+
+**Eine Tourenliste.** Lokale Entwürfe und Server-Touren werden verschmolzen
+(`ui/Listenverschmelzung.kt`, DOM-frei getestet): Solange hochgeladen wird, gewinnt die lokale
+Karte (nur sie kennt Fortschritt und Fehler), danach die vom Server (nur sie kennt Titelbild
+und Kilometer). Der Upload startet automatisch beim Beenden der Aufnahme; der Nachzügler beim
+App-Start reiht mit **`ExistingWorkPolicy.KEEP`** ein, sonst setzt er einen wartenden Backoff
+zurück und startet doppelt.
+
+**Medien-IDs** (`m1`, `m2`, …) werden aus der HÖCHSTEN vergebenen Nummer plus eins gebildet,
+nicht aus der Anzahl — sonst kollidiert nach dem Löschen eines Fotos die nächste ID im
+Verbund-Primärschlüssel `(tourId, id)`.
+
+**Nach dem Upload ist das Manifest unveränderlich.** Foto-Titel und Titelbild laufen dann über
+das Edit-Overlay: lesen, EINEN Schlüssel ergänzen, zurückschreiben — als **rohes JsonObject**
+(`upload/EditsFortschreibung.kt`). Würde die App es in ein eigenes Modell parsen, fielen im
+Studio gesetzte Kamerafahrten, Musik und Wetterkorrekturen still unter den Tisch.
+
+**Der WebView-Player kann kein Bearer-Token schicken.** Er lädt `erlebnis.html` vom Web-Origin
+und kennt nur Cookies; das Token steckt im OkHttp-Client. Vor dem Abspielen tauscht die App es
+deshalb über `POST /api/auth/session-aus-token` gegen eine Sitzung — ohne das wären private
+Touren (der Default für neue Touren) in der eigenen App unabspielbar.
+
+**Room-Migrationen sind Pflicht**, kein `fallbackToDestructiveMigration`: auf dem Gerät liegen
+echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`
+exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und
+validieren.
+
+**Nicht erreichbar, aber vorhanden:** `ui/ImportScreen.kt` (GPX-Import) hat keinen Einstieg
+mehr — auf dem Telefon liegen selten GPX-Dateien, das ist eine Studio-Aufgabe. Der Code bleibt
+für einen späteren „Öffnen mit"-Intent-Filter stehen.
 
 ## Konventionen
 
