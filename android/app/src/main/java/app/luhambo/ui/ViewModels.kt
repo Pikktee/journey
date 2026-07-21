@@ -150,6 +150,26 @@ class TourViewModel(
  * wird beim Verlassen des Screens gesichert, und da ist das ViewModel schon auf
  * dem Weg nach draußen.
  */
+/**
+ * Der Server weist Overlay-Änderungen mit 409 ab, während er eine Tour rendert.
+ * Das dauert Sekunden, nicht Minuten — kurz warten und erneut versuchen ist dem
+ * Nutzer gegenüber ehrlicher als eine Fehlermeldung.
+ *
+ * Beide Wege zum Foto-Titel brauchen das: Jedes Schreiben stößt ein neues
+ * Rendern an, und wer zwei Bilder hintereinander beschriftet, läuft dem eigenen
+ * vorigen Auftrag in die Arme.
+ */
+private suspend fun wiederholeBeiVerarbeitung(versuch: suspend () -> Unit): Boolean {
+    repeat(3) { runde ->
+        val ergebnis = runCatching { versuch() }
+        if (ergebnis.isSuccess) return true
+        val fehler = ergebnis.exceptionOrNull()
+        if (fehler !is ApiFehler || fehler.status != 409) return false
+        if (runde < 2) delay(2_000)
+    }
+    return false
+}
+
 class FotoViewModel(
     private val repository: TourRepository,
     private val apiClient: ApiClient,
@@ -188,20 +208,6 @@ class FotoViewModel(
         }
     }
 
-    /**
-     * Der Server weist Overlay-Änderungen mit 409 ab, während er eine Tour
-     * rendert. Das dauert Sekunden, nicht Minuten — kurz warten und erneut
-     * versuchen ist dem Nutzer gegenüber ehrlicher als eine Fehlermeldung.
-     */
-    private suspend fun wiederholeBeiVerarbeitung(versuch: suspend () -> Unit) {
-        repeat(3) { runde ->
-            val ergebnis = runCatching { versuch() }
-            if (ergebnis.isSuccess) return
-            val fehler = ergebnis.exceptionOrNull()
-            if (fehler !is ApiFehler || fehler.status != 409) return
-            if (runde < 2) delay(2_000)
-        }
-    }
 }
 
 /** Profil-Reiter: Kontostand vom Server plus die Zahlen der eigenen Touren. */
@@ -410,10 +416,20 @@ class ServerTourViewModel(
             },
         )
         appScope.launch {
-            runCatching {
+            val geschafft = wiederholeBeiVerarbeitung {
                 val overlay = apiClient.editsLesen(serverId)
                 apiClient.editsSchreiben(serverId, mitMediumTitel(overlay, mediumId, gekuerzt))
-            }.onFailure { internFehler.value = "Der Titel ließ sich nicht speichern." }
+            }
+            if (!geschafft) {
+                internFehler.value = "Der Titel ließ sich nicht speichern."
+                return@launch
+            }
+            // Auch die lokale Zeile nachziehen, falls der Entwurf noch da ist.
+            // Sonst kennen Gerät und Server verschiedene Texte, und der
+            // Titel-Abgleich eines erneuten Uploads schriebe den alten zurück.
+            repository.tourMitServerId(serverId)?.let {
+                repository.setzeMediumCaption(it.id, mediumId, gekuerzt)
+            }
         }
     }
 

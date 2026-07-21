@@ -12,11 +12,14 @@ package app.luhambo.ui
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -43,6 +46,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +70,7 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var fragtLoeschen by remember { mutableStateOf(false) }
     val fokus = remember { FocusRequester() }
+    val fokusManager = LocalFocusManager.current
 
     // Einmalig aus der Datenbank befüllen; danach gehört das Feld dem Nutzer
     // (dasselbe Muster wie die Titelfelder im Tour-Entwurf).
@@ -79,7 +84,18 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
         onDispose { titel?.let { viewModel.setzeTitel(it) } }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+        // Tippen auf das Bild schließt die Tastatur. Ohne diesen Ausweg ist man
+        // bei offener Tastatur gefangen: Sie verdeckt den Schließen-Knopf, und
+        // wer die Zeile nicht mit dem Häkchen beendet, findet keinen Weg hinaus.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { fokusManager.clearFocus() },
+    ) {
         Column(Modifier.fillMaxSize()) {
             Box(
                 Modifier.fillMaxWidth().weight(1f),
@@ -110,6 +126,7 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .imePadding()
                     .navigationBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 18.dp),
             ) {

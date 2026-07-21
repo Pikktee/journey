@@ -15,6 +15,7 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -72,6 +74,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -383,6 +386,7 @@ private fun Fotoschau(
     schliessen: () -> Unit,
 ) {
     val tastatur = LocalSoftwareKeyboardController.current
+    val fokusManager = LocalFocusManager.current
     var text by rememberSaveable(nutzertext) { mutableStateOf(nutzertext) }
     val fokus = remember { FocusRequester() }
 
@@ -394,7 +398,18 @@ private fun Fotoschau(
     // oder weg.
     BackHandler(onBack = beenden)
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+        // Tippen auf das Bild schließt die Tastatur. Ohne diesen Ausweg ist man
+        // bei offener Tastatur gefangen: Sie verdeckt den Schließen-Knopf, und
+        // wer die Zeile nicht mit dem Häkchen beendet, findet keinen Weg hinaus.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { fokusManager.clearFocus() },
+    ) {
         if (videoUrl != null) {
             Videoflaeche(
                 quelle = Uri.parse(videoUrl),
@@ -413,6 +428,9 @@ private fun Fotoschau(
         Column(
             Modifier
                 .align(Alignment.BottomStart)
+                // imePadding vor navigationBarsPadding: So sitzt die Zeile bei
+                // offener Tastatur direkt darüber und sonst über der Systemleiste.
+                .imePadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 22.dp, vertical = 18.dp),
         ) {
