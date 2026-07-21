@@ -65,6 +65,13 @@ const MIGRATIONEN: string[] = [
   );
   CREATE INDEX idx_mail_tokens_user ON mail_tokens(user_id, zweck);
   `,
+  // Titelbild der Tour (Pfad wie media[].src im tour.json). Es steht hier und
+  // nicht nur im tour.json, weil die Tourliste sonst je Eintrag eine Datei
+  // lesen müsste — sie ist der heißeste Aufruf der API. Gefüllt wird die
+  // Spalte beim Rendern, genau wie stats_json daneben.
+  `
+  ALTER TABLE tours ADD COLUMN cover TEXT;
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

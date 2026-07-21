@@ -1063,7 +1063,9 @@ function renderMedien(): void {
     info.appendChild(kopf)
     const caption = document.createElement('input')
     caption.type = 'text'
-    caption.placeholder = 'Bildunterschrift'
+    // „Titel", nicht „Bildunterschrift": der Text steht im Player als
+    // Überschrift des Foto-Stopps, die Uhrzeit rutscht darunter.
+    caption.placeholder = 'Titel'
     caption.value = m.caption
     caption.addEventListener('change', () => {
       if (!z) return

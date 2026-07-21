@@ -97,8 +97,9 @@ describe('Anreicherungs-Cache', () => {
 
     // Der teure Teil bleibt komplett aus (Cache trägt alles)
     expect(stand(u, wetter, klass)).toEqual(vor)
-    // ... und der Edit ist trotzdem im gerenderten tour.json angekommen
-    expect((await tourJson(u, id)).media[0]?.caption).toBe('Schön hier')
+    // ... und der Edit ist trotzdem im gerenderten tour.json angekommen —
+    // als ÜBERSCHRIFT, die Uhrzeit rutscht in die Unterzeile
+    expect((await tourJson(u, id)).media[0]?.title).toBe('Schön hier')
   })
 
   it('Wetter-Edit ersetzt das Auto-Wetter OHNE externe Aufrufe (reine Render-Änderung)', async () => {

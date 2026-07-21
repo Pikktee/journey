@@ -274,7 +274,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     // Anker hängt an der Koordinate, nicht an f → durch den Trim unverändert
     expect(mit.media[0]?.anchor).toEqual(ohne.media[0]?.anchor)
     expect(mit.media[0]?.placement).toBe('gps')
-    expect(mit.media[0]?.caption).toBe('Neu')
+    expect(mit.media[0]?.title).toBe('Neu')
     // Gelöschtes Medium fehlt in der Wiedergabe
     expect(mit.media.map((m) => m.id)).toEqual(['m1'])
     // Modus-Grenze: ab t=900 Fähre

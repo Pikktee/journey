@@ -6,10 +6,12 @@ import { baueApp } from './app.js'
 import { konfigAusEnv } from './config.js'
 import { oeffneDb } from './db.js'
 import { KonsoleMail, ResendMail, type MailVersand } from './mail.js'
+import { trageTitelbilderNach } from './pipeline/cover.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
 import { FfmpegWerkzeug } from './pipeline/video.js'
 import { OpenRouterKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
 import { OpenMeteoQuelle } from './pipeline/weather.js'
+import { TOURJSON_PFAD } from './routes/tours.js'
 import { FsStorage } from './storage.js'
 
 const konfig = konfigAusEnv()
@@ -34,3 +36,11 @@ await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
 
 await app.listen({ port: konfig.port, host: '0.0.0.0' })
 app.log.info(`Luhambo-API läuft auf Port ${konfig.port}`)
+
+// Titelbilder der Bestandstouren nachtragen — nach dem listen, damit ein
+// langsamer Durchlauf die Bereitschaft der API nicht verzögert.
+void trageTitelbilderNach(db, storage, TOURJSON_PFAD, (n) => app.log.warn(n))
+  .then((anzahl) => {
+    if (anzahl > 0) app.log.info(`Titelbild nachgetragen für ${anzahl} Tour(en)`)
+  })
+  .catch((fehler: unknown) => app.log.error(fehler, 'Titelbild-Nachtrag fehlgeschlagen'))

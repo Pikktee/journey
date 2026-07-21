@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { reichereAn } from '../src/pipeline/enrich.js'
+import { bestimmeCover, reichereAn } from '../src/pipeline/enrich.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { BildBefund } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
@@ -44,6 +44,34 @@ describe('reichereAn', () => {
     expect(m?.title).toBe('Foto · 09:01')
     expect(m?.anchor).toEqual([7.9105, 46.59])
     expect(m?.placement).toBe('gps') // Anker liegt auf dem Track
+    expect(m?.caption).toBe('') // ohne Nutzertext bleibt die Unterzeile leer
+  })
+
+  it('beschriftetes Foto: Nutzertext wird Überschrift, Uhrzeit die Unterzeile', async () => {
+    const manifest = beispielManifest()
+    manifest.media[0]!.caption = 'Blick über das Tal'
+    const tour = await reichereAn(eingabe({ manifest }))
+    const m = tour.media[0]
+    expect(m?.title).toBe('Blick über das Tal')
+    expect(m?.caption).toBe('Foto · 09:01')
+  })
+
+  it('Leerraum als Beschriftung zählt als keine Beschriftung', async () => {
+    const manifest = beispielManifest()
+    manifest.media[0]!.caption = '   '
+    const tour = await reichereAn(eingabe({ manifest }))
+    expect(tour.media[0]?.title).toBe('Foto · 09:01')
+    expect(tour.media[0]?.caption).toBe('')
+  })
+
+  it('Foto außerhalb der Tour-Zeitspanne bekommt keine Uhrzeit', async () => {
+    const manifest = beispielManifest()
+    // Zeitstempel aus einem mtime-Fallback: liegt Tage neben der Tour
+    manifest.media[0]!.takenAt = '2026-07-01T09:01:12+02:00'
+    manifest.media[0]!.caption = 'Trotzdem beschriftet'
+    const tour = await reichereAn(eingabe({ manifest }))
+    expect(tour.media[0]?.title).toBe('Trotzdem beschriftet')
+    expect(tour.media[0]?.caption).toBe('Foto')
   })
 
   it('setzt Video-Src, Poster und Dauer aus der Aufbereitung (M4)', async () => {
@@ -241,6 +269,55 @@ describe('reichereAn', () => {
     // Umschalt-Paar: zwei Marken auf demselben f, alter → neuer Modus
     const paar = w.findIndex((k, i) => i > 0 && w[i - 1]?.f === k.f && w[i - 1]?.mode === 'off' && k.mode === 'storm')
     expect(paar).toBeGreaterThan(0)
+  })
+})
+
+describe('bestimmeCover', () => {
+  const foto = (id: string, anchor: [number, number] | null = [7.9, 46.6]) => ({
+    id,
+    type: 'photo' as const,
+    src: `/api/media/t1/${id}.jpg`,
+    title: '',
+    caption: '',
+    anchor,
+    placement: (anchor ? 'gps' : 'unplatziert') as 'gps' | 'unplatziert',
+    takenAt: '2026-07-04T09:01:12+02:00',
+  })
+  const video = (id: string, poster?: string) => ({
+    ...foto(id),
+    type: 'video' as const,
+    src: `/api/media/t1/${id}.mp4`,
+    ...(poster ? { poster } : {}),
+  })
+
+  it('nimmt ohne Wahl das erste platzierte Foto', () => {
+    expect(bestimmeCover([foto('m1'), foto('m2')])).toBe('/api/media/t1/m1.jpg')
+  })
+
+  it('die Wahl des Nutzers gewinnt', () => {
+    expect(bestimmeCover([foto('m1'), foto('m2')], 'm2')).toBe('/api/media/t1/m2.jpg')
+  })
+
+  it('gewähltes Video liefert sein Standbild', () => {
+    expect(bestimmeCover([foto('m1'), video('m2', '/api/media/t1/m2.poster.jpg')], 'm2')).toBe(
+      '/api/media/t1/m2.poster.jpg',
+    )
+  })
+
+  it('zeigt die Wahl ins Leere, wird still das erste Foto genommen', () => {
+    // z. B. weil das gewählte Medium inzwischen aus der Tour genommen wurde
+    expect(bestimmeCover([foto('m1')], 'geloescht')).toBe('/api/media/t1/m1.jpg')
+    // Video ohne Standbild taugt nicht als Titelbild
+    expect(bestimmeCover([video('m1'), foto('m2')], 'm1')).toBe('/api/media/t1/m2.jpg')
+  })
+
+  it('unplatziertes Foto ist besser als gar keins', () => {
+    expect(bestimmeCover([foto('m1', null)])).toBe('/api/media/t1/m1.jpg')
+  })
+
+  it('ohne brauchbares Medium bleibt es leer', () => {
+    expect(bestimmeCover([])).toBeNull()
+    expect(bestimmeCover([video('m1')])).toBeNull()
   })
 })
 

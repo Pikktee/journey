@@ -26,7 +26,17 @@ export function istAudioDatei(name: string): boolean {
 }
 
 export interface MediumEdit {
-  /** Bildunterschrift-Override ('' = leeren; fehlt = Original behalten) */
+  /**
+   * DER Nutzertext des Mediums ('' = leeren; fehlt = Original behalten).
+   *
+   * Achtung, der Begriff wechselt dreimal den Namen: In der Oberfläche (App und
+   * Studio) heißt er „Titel", hier im Overlay `caption`, und im gerenderten
+   * Tour-JSON landet er als `title` — der Player zeigt ihn als ÜBERSCHRIFT des
+   * Foto-Stopps, die Uhrzeit rutscht darunter (siehe enrich.ts). Der Feldname
+   * ist historisch; wer ihn „korrigiert", indem er den Text wieder in die
+   * Unterzeile schiebt, macht die Überschrift zur Maschinenangabe zurück.
+   * Käme je eine zweite Zeile dazu, hieße sie `untertitel`.
+   */
   caption?: string
   /** Manuell gesetzter Anker [lng,lat] → placement 'manuell' */
   anchor?: [number, number]
@@ -112,6 +122,12 @@ export interface EditOverlay {
   audio?: AudioEdit[]
   /** Wetter-Grenzen — ersetzen (sobald gesetzt) das Auto-Wetter vollständig */
   wetter?: WetterGrenze[]
+  /**
+   * Medien-ID des Bildes, das die Tour in Listen und Galerie vertritt. Fehlt
+   * es (oder zeigt es auf ein gelöschtes/unbekanntes Medium), wählt der Render
+   * das erste platzierte Foto.
+   */
+  titelbild?: string
 }
 
 // Gleiche (voll verankerte) ISO-Prüfung wie im Upload-Schema — die Semantik
@@ -124,6 +140,9 @@ export const editsJsonSchema = {
   required: ['schema'],
   properties: {
     schema: { const: EDITS_SCHEMA_ID },
+    // Medien-ID wie in `medien` — auf Existenz wird bewusst nicht geprüft, der
+    // Render fällt bei einer unbekannten ID auf das erste Foto zurück.
+    titelbild: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
     medien: {
       type: 'object',
       maxProperties: 500,

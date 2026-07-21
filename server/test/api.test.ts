@@ -338,6 +338,90 @@ describe('Tour-Lebenszyklus', () => {
   })
 })
 
+describe('Titelbild', () => {
+  it('die Liste liefert nach dem Rendern ein Titelbild', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+
+    // Vor dem Rendern gibt es noch keins
+    const vorher = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
+    expect((vorher.json() as { tours: Array<{ cover: string | null }> }).tours[0]?.cover).toBeNull()
+
+    await finalisiere(u, id)
+    const nachher = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
+    expect((nachher.json() as { tours: Array<{ cover: string | null }> }).tours[0]?.cover).toBe(
+      `/api/media/${id}/m1.jpg`,
+    )
+  })
+
+  it('titelbild im Overlay bestimmt das Bild der Liste', async () => {
+    const u = await baueTestApp()
+    const manifest = beispielManifest()
+    manifest.media.push({
+      id: 'm2',
+      type: 'photo',
+      file: 'IMG_0013.JPG',
+      takenAt: '2026-07-04T09:30:00+02:00',
+      anchor: [7.9142, 46.5872],
+      caption: null,
+    })
+    const id = await legeTourAn(u, manifest)
+    await ladeMediumHoch(u, id, 'm1')
+    await ladeMediumHoch(u, id, 'm2')
+    await finalisiere(u, id)
+
+    const put = await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: { schema: 'luhambo/edits@1', titelbild: 'm2' },
+    })
+    expect(put.statusCode).toBe(202)
+    await u.app.verarbeitungen.get(id)
+
+    const liste = await u.app.inject({ method: 'GET', url: '/api/tours', cookies: u.cookies })
+    expect((liste.json() as { tours: Array<{ cover: string | null }> }).tours[0]?.cover).toBe(`/api/media/${id}/m2.jpg`)
+  })
+})
+
+describe('Session aus API-Token (App-Player)', () => {
+  it('tauscht das Token gegen eine Sitzung, die private Touren sehen darf', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { visibility: 'private' },
+    })
+    // Ohne Sitzung ist die Tour für den WebView unsichtbar
+    expect((await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).statusCode).toBe(404)
+
+    const tausch = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/session-aus-token',
+      headers: { authorization: `Bearer ${u.apiToken}` },
+    })
+    expect(tausch.statusCode).toBe(200)
+    const { sessionId } = tausch.json() as { sessionId: string; ablauf: string }
+
+    const mitSitzung = await u.app.inject({
+      method: 'GET',
+      url: `/api/tours/${id}`,
+      cookies: { luhambo_session: sessionId },
+    })
+    expect(mitSitzung.statusCode).toBe(200)
+  })
+
+  it('ohne Anmeldung gibt es keine Sitzung', async () => {
+    const u = await baueTestApp()
+    expect((await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token' })).statusCode).toBe(401)
+  })
+})
+
 describe('Sichtbarkeit', () => {
   it('unlisted: jeder mit Link sieht Tour und Medien', async () => {
     const u = await baueTestApp()
@@ -565,7 +649,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
     const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
     expect(tour.status).toBe('bereit')
-    expect(tour.media[0]?.caption).toBe('Handgeschrieben')
+    expect(tour.media[0]?.title).toBe('Handgeschrieben')
     expect(tour.media[0]?.placement).toBe('manuell')
     expect(tour.media[0]?.anchor).toEqual([7.9184, 46.5891])
     expect(tour.segments.map((s) => s.mode)).toEqual(['walk', 'ferry'])
@@ -597,7 +681,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
 
     const tour = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}` })).json() as TourJson
     expect(tour.status).toBe('bereit')
-    expect(tour.media[0]?.caption).toBe('Bleibt')
+    expect(tour.media[0]?.title).toBe('Bleibt')
   })
 
   it('weist kaputte Overlays ab (Form + Semantik)', async () => {

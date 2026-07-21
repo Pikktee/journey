@@ -43,7 +43,10 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   const registrierGebremst = baueBremse(5, 10 * 60_000) // 5 pro 10 min je IP
   const resetGebremst = baueBremse(5, 10 * 60_000)
 
-  const setzeSessionCookie = (reply: import('fastify').FastifyReply, userId: string): void => {
+  const setzeSessionCookie = (
+    reply: import('fastify').FastifyReply,
+    userId: string,
+  ): { id: string; ablauf: Date } => {
     const session = app.auth.erzeugeSession(userId)
     reply.setCookie(SESSION_COOKIE, session.id, {
       path: '/',
@@ -52,6 +55,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       secure: konfig.hinterTls,
       expires: session.ablauf,
     })
+    return session
   }
 
   // — Login —
@@ -172,6 +176,22 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       return { ok: true }
     },
   )
+
+  // — Session aus einem API-Token —
+  //
+  // Für den Player IN DER APP: der läuft als WebView auf dem Web-Origin und
+  // holt Tour-JSON und Medien wie ein Browser, also mit Cookie. Das API-Token
+  // der App kann er nicht mitschicken (es steckt im OkHttp-Client, nicht im
+  // WebView). Ohne Sitzung sieht der WebView nur Touren, die ohnehin für jeden
+  // mit Link sichtbar sind — private Touren wären in der eigenen App
+  // unabspielbar. Die App tauscht deshalb vor dem Abspielen ihr Token gegen
+  // eine Sitzung und setzt sie als Cookie.
+  app.post('/api/auth/session-aus-token', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const session = setzeSessionCookie(reply, benutzer.id)
+    return { sessionId: session.id, ablauf: session.ablauf.toISOString() }
+  })
 
   app.post('/api/auth/logout', async (request, reply) => {
     const sessionId = request.cookies[SESSION_COOKIE]

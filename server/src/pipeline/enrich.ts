@@ -68,6 +68,26 @@ const MODE_LABELS: Record<string, string> = {
   ferry: 'Fähre',
 }
 
+/**
+ * Titelbild einer fertig gerenderten Tour — der Pfad, den Listen und Galerie
+ * anzeigen. Die Wahl des Nutzers (`edits.titelbild`) gewinnt; zeigt sie ins
+ * Leere (gelöschtes oder unbekanntes Medium), wird still das erste platzierte
+ * Foto genommen. Ein Video taugt nur mit Standbild.
+ */
+export function bestimmeCover(media: TourJson['media'], titelbild?: string): string | null {
+  const gewaehlt = titelbild ? media.find((m) => m.id === titelbild) : undefined
+  if (gewaehlt) {
+    if (gewaehlt.type === 'photo') return gewaehlt.src
+    if (gewaehlt.poster) return gewaehlt.poster
+  }
+  const ersteFotoAmTrack = media.find((m) => m.type === 'photo' && m.anchor)
+  if (ersteFotoAmTrack) return ersteFotoAmTrack.src
+  const erstesVideoAmTrack = media.find((m) => m.type === 'video' && m.anchor && m.poster)
+  if (erstesVideoAmTrack?.poster) return erstesVideoAmTrack.poster
+  // Auch ein unplatziertes Foto ist ein besseres Titelbild als gar keins
+  return media.find((m) => m.type === 'photo')?.src ?? null
+}
+
 const uhrzeit = (iso: string, zone: string): string => {
   try {
     return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zone }).format(
@@ -190,17 +210,23 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // aus), bleibt es beim Original ohne Poster.
       const meta = videoMeta?.get(m.id)
       const datei = meta?.videoDatei ?? mediumDateiname(m)
-      // Uhrzeit im Titel NUR, wenn takenAt in der Tour-Zeitspanne liegt —
-      // mtime-Fallback-Zeiten tourfremder Dateien sind Unsinn (Bughunt-Befund).
+      // Uhrzeit NUR, wenn takenAt in der Tour-Zeitspanne liegt — mtime-Fallback-
+      // Zeiten tourfremder Dateien sind Unsinn (Bughunt-Befund).
       const takenMs = Date.parse(m.takenAt)
       const art = m.type === 'video' ? 'Video' : 'Foto'
       const inSpanne = Number.isFinite(takenMs) && takenMs >= startMs && takenMs <= endeMs
+      const zeitangabe = inSpanne ? `${art} · ${uhrzeit(m.takenAt, manifest.time.zone)}` : art
+      // Hat der Nutzer das Medium beschriftet, gehört SEIN Text nach oben: der
+      // Player zeigt `title` groß und `caption` klein darunter. „Foto · 14:32"
+      // als Überschrift zu setzen und den einzigen menschlichen Satz in die
+      // Unterzeile zu verbannen, hatte die Sache genau verkehrt herum.
+      const nutzertext = m.caption?.trim() ?? ''
       const eintrag: TourJson['media'][number] = {
         id: m.id,
         type: m.type,
         src: `/api/media/${tourId}/${datei}`,
-        title: inSpanne ? `${art} · ${uhrzeit(m.takenAt, manifest.time.zone)}` : art,
-        caption: m.caption ?? '',
+        title: nutzertext || zeitangabe,
+        caption: nutzertext ? zeitangabe : '',
         anchor,
         placement,
         takenAt: m.takenAt,

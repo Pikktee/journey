@@ -13,7 +13,7 @@ import {
   trimSignatur,
   type AnreicherungsCache,
 } from '../pipeline/anreicherung.js'
-import { reichereAn } from '../pipeline/enrich.js'
+import { bestimmeCover, reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
 import { platziereMedien } from '../pipeline/placement.js'
@@ -43,6 +43,8 @@ export interface TourZeile {
   title: string | null
   description: string | null
   stats_json: string | null
+  /** Titelbild-Pfad (wie media[].src); beim Rendern gesetzt, NULL vor dem ersten Render */
+  cover: string | null
   fehler: string | null
   created_at: string
   updated_at: string
@@ -392,10 +394,15 @@ export function registriereTourRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const zeilen = db
       .prepare(
-        `SELECT id, no, status, visibility, title, stats_json, fehler, created_at
+        `SELECT id, no, status, visibility, title, stats_json, cover, fehler, created_at
          FROM tours WHERE owner_id = ? ORDER BY created_at DESC`,
       )
-      .all(benutzer.id) as Array<Pick<TourZeile, 'id' | 'no' | 'status' | 'visibility' | 'title' | 'stats_json' | 'fehler' | 'created_at'>>
+      .all(benutzer.id) as Array<
+      Pick<
+        TourZeile,
+        'id' | 'no' | 'status' | 'visibility' | 'title' | 'stats_json' | 'cover' | 'fehler' | 'created_at'
+      >
+    >
     return {
       tours: zeilen.map((z) => ({
         id: z.id,
@@ -404,6 +411,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
         visibility: z.visibility,
         title: z.title,
         stats: z.stats_json ? (JSON.parse(z.stats_json) as unknown) : null,
+        cover: z.cover,
         fehler: z.fehler,
         createdAt: z.created_at,
       })),
@@ -614,8 +622,16 @@ async function verarbeite(app: FastifyInstance, tourId: string, opts: { frisch?:
     // ein während der Verarbeitung per PATCH gesetzter Nutzer-Titel darf nicht
     // rückwirkend überschrieben werden (Lost Update).
     db.prepare(
-      'UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, fehler = NULL, updated_at = ? WHERE id = ?',
-    ).run('bereit', tourJson.brandTitle, JSON.stringify(tourJson.stats), new Date().toISOString(), tourId)
+      `UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, cover = ?,
+       fehler = NULL, updated_at = ? WHERE id = ?`,
+    ).run(
+      'bereit',
+      tourJson.brandTitle,
+      JSON.stringify(tourJson.stats),
+      bestimmeCover(tourJson.media, edits?.titelbild),
+      new Date().toISOString(),
+      tourId,
+    )
   } catch (fehler) {
     app.log.error(fehler, `Anreicherung fehlgeschlagen: ${tourId}`)
     setzeStatus(app, tourId, 'fehler', (fehler as Error).message)
