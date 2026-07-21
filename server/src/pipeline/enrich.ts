@@ -61,9 +61,13 @@ export interface TourJson {
   stats: TourStats
 }
 
+// Alle Modi aus MODI (schema/upload.ts) — fehlt einer, zeigt der Player den
+// rohen Schlüssel („moped" statt „Moped").
 const MODE_LABELS: Record<string, string> = {
   walk: 'Zu Fuß',
   bike: 'Rad',
+  moped: 'Moped',
+  jeep: 'Jeep',
   tram: 'Tram',
   ferry: 'Fähre',
 }

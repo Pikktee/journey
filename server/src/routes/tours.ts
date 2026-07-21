@@ -16,6 +16,7 @@ import {
 import { bestimmeCover, reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
+import { trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
 import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import type { BildBefund } from '../pipeline/vision.js'
@@ -480,19 +481,28 @@ function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch = false
 }
 
 /** Original-Segmente des Manifests — bei GPX-Quelle (M6) serverseitig geparst. */
+/**
+ * Die Segmente der Aufzeichnung, wie sie ohne Bearbeitung aussehen.
+ *
+ * Hier läuft auch die Gehabschnitts-Erkennung: Sie gehört zur ROHEN Tour, nicht
+ * zum Overlay — deshalb steht sie an dieser einen Stelle, die sich Editor und
+ * Render teilen. Liefe sie nur beim Rendern, zeigte der Editor eine andere
+ * Aufteilung als das fertige Video. Modus-Grenzen aus dem Overlay werden später
+ * darübergelegt und behalten Vorrang (wendeModiAn).
+ */
 async function ladeOriginalSegmente(
   app: FastifyInstance,
   tourId: string,
   manifest: UploadManifest,
 ): Promise<UploadSegment[]> {
-  if (!manifest.trackFile) return manifest.segments ?? []
+  if (!manifest.trackFile) return trenneGehabschnitteInSegmenten(manifest.segments ?? [])
   const gpxText = (await app.deps.storage.lese(tourId, TRACK_PFAD)).toString()
   const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
     startMs: Date.parse(manifest.time.start),
     endMs: Date.parse(manifest.time.end),
     ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
   })
-  return [segment]
+  return trenneGehabschnitteInSegmenten([segment])
 }
 
 /**
