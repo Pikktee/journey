@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Person
@@ -30,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemColors
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -107,6 +111,10 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
     }
 
     Scaffold(
+        // Die Systemleisten-Abstände macht jeder Screen selbst (sie haben eigene
+        // Scaffolds mit Titelleiste). Ohne das käme der Abstand zur Statusleiste
+        // doppelt: einmal von hier, einmal vom Screen darin.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (leisteSichtbar) {
                 Hauptleiste(
@@ -125,7 +133,8 @@ private fun AngemeldeteNavigation(app: LuhamboApp) {
         NavHost(
             navController = navController,
             startDestination = REITER_TOUREN,
-            modifier = Modifier.padding(if (leisteSichtbar) innen else androidx.compose.foundation.layout.PaddingValues(0.dp)),
+            // Nur unten Platz machen — für die Leiste, wo sie steht
+            modifier = Modifier.padding(bottom = if (leisteSichtbar) innen.calculateBottomPadding() else 0.dp),
         ) {
             composable(REITER_TOUREN) {
                 TourenScreen(
@@ -223,6 +232,24 @@ private fun wechsleReiter(navController: NavHostController, ziel: String) {
     }
 }
 
+/**
+ * Farben der beiden Reiter.
+ *
+ * Ohne Kasten hinter dem Symbol: Die Standard-Pille von Material ist farblos
+ * und sähe neben dem großen Auslöser nach nicht zu Ende gestalteter Vorlage
+ * aus — und zwei zusätzliche Flächen würden ihm die Aufmerksamkeit streitig
+ * machen. Der aktive Reiter zeigt sich stattdessen dreifach: gefülltes Symbol
+ * (statt Umriss), Sonnenfarbe und heller Text.
+ */
+@Composable
+private fun reiterFarben(): NavigationBarItemColors = NavigationBarItemDefaults.colors(
+    selectedIconColor = Sonne,
+    selectedTextColor = Sonne,
+    indicatorColor = Color.Transparent,
+    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
 @Composable
 private fun Hauptleiste(
     aktuelleRoute: String?,
@@ -231,10 +258,16 @@ private fun Hauptleiste(
     aufnahmeKnopf: () -> Unit,
 ) {
     Box(contentAlignment = Alignment.TopCenter) {
-        NavigationBar {
+        NavigationBar(
+            containerColor = NachtFlaeche,
+            // Ohne das mischt Material die Primärfarbe in die Fläche und die
+            // Leiste bekommt einen Braunstich, der zum Nachtblau nicht passt.
+            tonalElevation = 0.dp,
+        ) {
             NavigationBarItem(
                 selected = aktuelleRoute == REITER_TOUREN,
                 onClick = { wechsle(REITER_TOUREN) },
+                colors = reiterFarben(),
                 icon = {
                     Icon(
                         if (aktuelleRoute == REITER_TOUREN) Icons.Filled.Map else Icons.Outlined.Map,
@@ -249,6 +282,7 @@ private fun Hauptleiste(
             NavigationBarItem(
                 selected = aktuelleRoute == REITER_PROFIL,
                 onClick = { wechsle(REITER_PROFIL) },
+                colors = reiterFarben(),
                 icon = {
                     Icon(
                         if (aktuelleRoute == REITER_PROFIL) Icons.Filled.Person else Icons.Outlined.Person,
@@ -260,6 +294,9 @@ private fun Hauptleiste(
         }
         FloatingActionButton(
             onClick = aufnahmeKnopf,
+            // Rund wie ein Auslöser — die eckige Standardform eines FAB liest
+            // sich als „Aktion", nicht als „Aufnahme".
+            shape = CircleShape,
             containerColor = if (aufnahmeLaeuft) Color(0xFFE5484D) else MaterialTheme.colorScheme.primary,
             modifier = Modifier.offset(y = (-20).dp).size(64.dp),
         ) {
