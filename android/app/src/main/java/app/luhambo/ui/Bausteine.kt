@@ -138,19 +138,26 @@ fun Videoflaeche(
 }
 
 /**
- * Der bisher zurückgelegte Weg als Strichzeichnung.
+ * Ein Weg als Strichzeichnung — live wachsend oder als fertige Route.
  *
  * Keine Karte, mit Absicht: Ein Kartenrenderer samt Kachel-Downloads liefe
  * stundenlang neben der Aufzeichnung her und wäre genau das, was den Akku
- * leert. Die Form des Weges genügt für das, was man hier wissen will — läuft
- * die Aufnahme, und sieht das plausibel aus? Sie ersetzt zugleich die Zahl der
- * Wegpunkte, die früher belegte, dass der Empfänger arbeitet.
+ * leert. Die Form des Weges genügt für das, was man wissen will — läuft die
+ * Aufnahme plausibel? bzw.: welche Gestalt hatte diese Reise?
  *
- * Der helle Kopf am Ende der Linie ist die aktuelle Position.
+ * Zwei Zustände: Läuft die Aufnahme (`abgeschlossen = false`), markiert ein
+ * heller Kopf die aktuelle Position, und eine leere Spur zeigt „Suche Position".
+ * Ist die Tour fertig, tragen Anfang und Ende je eine Marke — gefüllt der
+ * Start, ein Ring das Ziel; bei einer Rundtour fallen sie zusammen.
  */
 @Composable
-fun Routenskizze(spur: List<Spurpunkt>, modifier: Modifier = Modifier) {
+fun Routenskizze(
+    spur: List<Spurpunkt>,
+    modifier: Modifier = Modifier,
+    abgeschlossen: Boolean = false,
+) {
     if (spur.isEmpty()) {
+        if (abgeschlossen) return // ohne Track keine Skizze, kein leerer Kasten
         Box(modifier, contentAlignment = Alignment.Center) {
             Text(
                 "Suche Position …",
@@ -179,8 +186,23 @@ fun Routenskizze(spur: List<Spurpunkt>, modifier: Modifier = Modifier) {
                 ),
             )
         }
-        val kopf = punkte.last()
-        drawCircle(Tinte, radius = 5.dp.toPx(), center = Offset(kopf.x, kopf.y))
+        if (abgeschlossen) {
+            val start = punkte.first()
+            val ziel = punkte.last()
+            // Start gefüllt, Ziel als Ring — so ist die Richtung ablesbar, ohne
+            // dass es eine Beschriftung braucht.
+            drawCircle(Sonne, radius = 5.dp.toPx(), center = Offset(start.x, start.y))
+            drawCircle(Nacht, radius = 4.dp.toPx(), center = Offset(ziel.x, ziel.y))
+            drawCircle(
+                Tinte,
+                radius = 5.dp.toPx(),
+                center = Offset(ziel.x, ziel.y),
+                style = Stroke(width = 2.dp.toPx()),
+            )
+        } else {
+            val kopf = punkte.last()
+            drawCircle(Tinte, radius = 5.dp.toPx(), center = Offset(kopf.x, kopf.y))
+        }
     }
 }
 

@@ -36,6 +36,20 @@ fun ergaenzeSpur(
 }
 
 /**
+ * Eine fertige Punktliste gleichmäßig auf höchstens [hoechstzahl] eindampfen.
+ *
+ * Für die Skizze einer abgeschlossenen Tour, deren Track leicht tausende Punkte
+ * hat: So viele einzelne Linien zu zeichnen wäre Verschwendung, in Daumengröße
+ * ohnehin nicht zu sehen. Anfang und Ende bleiben immer erhalten — die Linie
+ * soll dort beginnen und enden, wo die Reise es tat.
+ */
+fun duenneAus(punkte: List<Spurpunkt>, hoechstzahl: Int = SPUR_HOECHSTZAHL): List<Spurpunkt> {
+    if (punkte.size <= hoechstzahl) return punkte
+    val schritt = (punkte.size - 1).toDouble() / (hoechstzahl - 1)
+    return (0 until hoechstzahl).map { i -> punkte[(i * schritt).toInt()] }
+}
+
+/**
  * Die Spur auf eine Zeichenfläche legen: mittig, formtreu, mit Rand.
  *
  * Längengrade werden mit dem Kosinus der Breite gestaucht — ohne das wäre eine

@@ -4,6 +4,7 @@ package app.luhambo.upload
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.luhambo.aufzeichnung.Spurpunkt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -51,6 +52,8 @@ data class ServerTour(
 data class ServerTourDetail(
     val beschreibung: String?,
     val fotos: List<Serverfoto>,
+    /** Der gefahrene/gegangene Weg als Linie für die Skizze; leer ohne Track. */
+    val route: List<Spurpunkt>,
 )
 
 /** Ein Medium der Tour, wie es die App anzeigt. */
@@ -294,8 +297,20 @@ class ApiClient(private val einstellungen: Einstellungen) {
     suspend fun tourDetail(serverTourId: String): ServerTourDetail = withContext(Dispatchers.IO) {
         val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId").get().build())
         val medien = antwort["media"] as? JsonArray ?: JsonArray(emptyList())
+        // Die Segmente aneinanderhängen zu EINER Linie: Für die Skizze zählt die
+        // Form des ganzen Weges, nicht wo ein Modus in den nächsten übergeht.
+        val segmente = antwort["segments"] as? JsonArray ?: JsonArray(emptyList())
+        val route = segmente.flatMap { seg ->
+            (seg as? JsonObject)?.get("pts") as? JsonArray ?: JsonArray(emptyList())
+        }.mapNotNull { punkt ->
+            val paar = punkt as? JsonArray ?: return@mapNotNull null
+            val lng = paar.getOrNull(0)?.jsonPrimitive?.doubleOrNull
+            val lat = paar.getOrNull(1)?.jsonPrimitive?.doubleOrNull
+            if (lng == null || lat == null) null else Spurpunkt(lng, lat)
+        }
         ServerTourDetail(
             beschreibung = antwort["description"]?.jsonPrimitive?.contentOrNull,
+            route = route,
             fotos = medien.mapNotNull { element ->
                 val obj = element as? JsonObject ?: return@mapNotNull null
                 val src = obj["src"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null

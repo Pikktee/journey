@@ -16,6 +16,8 @@ import app.luhambo.upload.ApiFehler
 import app.luhambo.upload.Einstellungen
 import app.luhambo.upload.Konto
 import app.luhambo.upload.KontoStand
+import app.luhambo.aufzeichnung.Spurpunkt
+import app.luhambo.aufzeichnung.duenneAus
 import app.luhambo.upload.ServerTour
 import app.luhambo.upload.ServerTourDetail
 import app.luhambo.upload.UploadWorker
@@ -75,6 +77,17 @@ class TourViewModel(
 ) : ViewModel() {
     val tour: Flow<TourEntity?> = repository.tourFluss(tourId)
     val medien: Flow<List<MediumEntity>> = repository.medienFluss(tourId)
+
+    // Der aufgezeichnete Weg als Linie für die Skizze — einmalig geladen und
+    // ausgedünnt. Reicht: Ein Entwurf bekommt nach dem Aufnahmeende keine
+    // neuen Punkte mehr.
+    private val internRoute = MutableStateFlow<List<Spurpunkt>>(emptyList())
+    val route: StateFlow<List<Spurpunkt>> = internRoute
+    init {
+        viewModelScope.launch {
+            internRoute.value = duenneAus(repository.punkte(tourId).map { Spurpunkt(it.lng, it.lat) })
+        }
+    }
 
     // Wer die Tour sehen darf, weiß nur der Server — auf dem Gerät wird das
     // nicht mitgeführt, sonst gäbe es zwei Wahrheiten, die auseinanderlaufen

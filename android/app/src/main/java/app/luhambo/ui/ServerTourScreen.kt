@@ -81,6 +81,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.luhambo.LuhamboApp
+import app.luhambo.aufzeichnung.duenneAus
 import app.luhambo.upload.Serverfoto
 import coil.compose.AsyncImage
 import java.time.Instant
@@ -180,6 +181,20 @@ fun ServerTourScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
+
+                    // Die Form der Reise. Nur wenn ein Track da ist — eine reine
+                    // Foto-Tour oder eine noch in Verarbeitung hätte keinen.
+                    val route = remember(detail) { detail?.route?.let { duenneAus(it) }.orEmpty() }
+                    if (route.size >= 2) {
+                        Spacer(Modifier.height(22.dp))
+                        Abschnittstitel("Route")
+                        Spacer(Modifier.height(10.dp))
+                        Routenskizze(
+                            spur = route,
+                            abgeschlossen = true,
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
                         )
                     }
                     Spacer(Modifier.height(22.dp))

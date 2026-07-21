@@ -88,6 +88,7 @@ fun TourScreen(
     val tour by viewModel.tour.collectAsState(initial = null)
     val medien by viewModel.medien.collectAsState(initial = emptyList())
     val sichtbarkeit by viewModel.sichtbarkeit.collectAsState()
+    val route by viewModel.route.collectAsState()
 
     var titel by rememberSaveable { mutableStateOf<String?>(null) }
     var beschreibung by rememberSaveable { mutableStateOf<String?>(null) }
@@ -143,6 +144,17 @@ fun TourScreen(
                         fehler = aktuelleTour.fehler,
                         erneutVersuchen = { viewModel.ladeHoch(titel, beschreibung) },
                     )
+                    // Die Form der Reise — sobald ein Track vorliegt.
+                    if (route.size >= 2) {
+                        Spacer(Modifier.height(22.dp))
+                        Abschnittstitel("Route")
+                        Spacer(Modifier.height(10.dp))
+                        Routenskizze(
+                            spur = route,
+                            abgeschlossen = true,
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                        )
+                    }
                     // Keine Überschrift „N Fotos" — die Zahl steht schon in der
                     // Zeile darüber, und ein eingerückter Text unmittelbar über
                     // dem randlosen Gitter risse eine Fluchtlinie auf, die
