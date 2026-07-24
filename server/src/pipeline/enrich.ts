@@ -50,6 +50,8 @@ export interface TourJson {
     poster?: string
     /** Anzeige-Optionen des Foto-Stopps aus dem Edit-Overlay (Baukasten) */
     display?: { holdS?: number; kenBurns?: boolean }
+    /** Platz innerhalb des Foto-Stopps (0-basiert, aus dem Edit-Overlay) */
+    reihe?: number
   }>
   /** Stützstellen Streckenanteil → Pseudo-Zeit (Pausen komprimiert, M2) */
   timeline?: Array<{ f: number; t: string }>
@@ -241,6 +243,9 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // Anzeige-Optionen aus dem Overlay (Baukasten) — nur wenn dort gesetzt
       const display = edits?.medien?.[m.id]?.display
       if (display) eintrag.display = display
+      // Platz im Foto-Stopp: wirkt erst im Player, wo die Gruppierung entsteht
+      const reihe = edits?.medien?.[m.id]?.reihe
+      if (reihe !== undefined) eintrag.reihe = reihe
       return eintrag
     })
 

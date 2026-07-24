@@ -135,3 +135,40 @@ export function nearestS(route, lnglat) {
   }
   return route.cum[best]
 }
+
+/**
+ * Streckenmeter, unter denen zwei Fotos als „am selben Ort" gelten.
+ * Das Studio spiegelt den Wert (NAHE_M in src/studio/stopps.ts); ein
+ * Drift-Wächter in test/studio-stopps.test.ts vergleicht beide.
+ */
+export const NAHE_M = 120
+
+/**
+ * Fotos zu Stopps gruppieren: Wer weniger als `naheM` Streckenmeter vom
+ * Vorgänger entfernt liegt, gehört zum selben Halt — dort werden die Bilder
+ * nacheinander gezeigt (ein Halt, mehrere Aufnahmen).
+ *
+ * Innerhalb eines Stopps entscheidet `reihe` (im Studio gesetzt) über die
+ * Abfolge; ohne das Feld bleibt es bei der Reihenfolge nach Streckenmetern.
+ * Das ist der einzige Ort, an dem `reihe` wirkt — die Sortierung der Stopps
+ * untereinander bleibt die Strecke.
+ *
+ * Erwartet Fotos MIT `s` (Streckenmeter), aufsteigend sortiert.
+ */
+export function gruppiereStopps(photos, naheM = NAHE_M) {
+  const stops = []
+  for (const p of photos) {
+    const last = stops[stops.length - 1]
+    if (last && p.s - last.s < naheM) last.items.push(p)
+    else stops.push({ s: p.s, items: [p] })
+  }
+  for (const stop of stops) {
+    if (stop.items.length < 2) continue
+    stop.items.sort((a, b) => {
+      const ra = a.reihe ?? Number.POSITIVE_INFINITY
+      const rb = b.reihe ?? Number.POSITIVE_INFINITY
+      return ra === rb ? a.s - b.s : ra - rb
+    })
+  }
+  return stops
+}

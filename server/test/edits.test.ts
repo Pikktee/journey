@@ -211,6 +211,12 @@ describe('pruefeEditsSemantik', () => {
     ).toMatch(/Lautstärke/)
   })
 
+  it('lehnt einen nicht-ganzzahligen Platz im Stopp ab', () => {
+    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { reihe: 0 } } })).toBeNull()
+    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { reihe: 1.5 } } })).toMatch(/Platz im Stopp/)
+    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { reihe: Infinity } } })).toMatch(/Platz im Stopp/)
+  })
+
   it('prüft display.holdS auf Endlichkeit (Baukasten)', () => {
     expect(
       pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: 8, kenBurns: false } } } }),
@@ -472,5 +478,20 @@ describe('reichereAn mit Edit-Overlay', () => {
     expect(tour.media[0]?.display).toEqual({ holdS: 12, kenBurns: false })
     const m2 = tour.media.find((m) => m.id === 'm2')
     expect(m2 && 'display' in m2).toBe(false)
+  })
+
+  // Der Platz im Foto-Stopp wird hier nur DURCHGEREICHT — gruppiert wird erst
+  // im Player (gruppiereStopps in src/geo.js), der Server kennt keine Stopps.
+  it('reicht reihe aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
+    const tour = await reichereAn(
+      eingabe({
+        schema: 'luhambo/edits@1',
+        medien: { m1: { reihe: 0 }, m2: { reihe: 1 } },
+      }),
+    )
+    expect(tour.media.find((m) => m.id === 'm1')?.reihe).toBe(0)
+    expect(tour.media.find((m) => m.id === 'm2')?.reihe).toBe(1)
+    const ohne = await reichereAn(eingabe({ schema: 'luhambo/edits@1' }))
+    expect('reihe' in (ohne.media[0] ?? {})).toBe(false)
   })
 })

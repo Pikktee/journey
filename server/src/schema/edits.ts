@@ -44,6 +44,15 @@ export interface MediumEdit {
   geloescht?: boolean
   /** Anzeige-Optionen des Foto-Stopps: Standzeit (s) + Ken-Burns-Drift an/aus */
   display?: { holdS?: number; kenBurns?: boolean }
+  /**
+   * Platz INNERHALB des Foto-Stopps (0-basiert). Der Player fasst Aufnahmen, die
+   * weniger als 120 Streckenmeter auseinanderliegen, zu EINEM Halt zusammen und
+   * zeigt sie nacheinander; ohne dieses Feld entschiede allein die Projektion
+   * der Anker auf die Route über die Abfolge — für den Autor unkontrollierbar.
+   * Wirkt nur innerhalb eines Stopps; die Reihenfolge der Stopps untereinander
+   * bleibt die Strecke (gruppiereStopps in src/geo.js).
+   */
+  reihe?: number
 }
 
 /** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze (wie modi). */
@@ -163,6 +172,7 @@ export const editsJsonSchema = {
               kenBurns: { type: 'boolean' },
             },
           },
+          reihe: { type: 'integer', minimum: 0, maximum: 499 },
         },
       },
     },
@@ -265,6 +275,9 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     if (medium.anchor && !medium.anchor.every(Number.isFinite)) return `Ungültiger Anker für Medium ${id}`
     if (medium.display?.holdS !== undefined && !Number.isFinite(medium.display.holdS)) {
       return `Ungültige Standzeit für Medium ${id}`
+    }
+    if (medium.reihe !== undefined && !Number.isInteger(medium.reihe)) {
+      return `Ungültiger Platz im Stopp für Medium ${id}`
     }
   }
   for (const grenze of edits.kamera ?? []) {

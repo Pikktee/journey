@@ -19,6 +19,8 @@ export interface RemoteMedium {
   poster?: string
   /** Anzeige-Optionen aus dem Studio (Kreativbaukasten): Haltedauer + Ken-Burns */
   display?: { holdS?: number; kenBurns?: boolean }
+  /** Platz im Foto-Stopp (0-basiert) — greift in gruppiereStopps (src/geo.js) */
+  reihe?: number
 }
 
 /** Server-JSON `luhambo/tour@1` (Ausschnitt, den der Player braucht). */
@@ -137,6 +139,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
         ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
         ...(m.poster !== undefined ? { poster: m.poster } : {}),
         ...(m.display !== undefined ? { display: m.display } : {}),
+        ...(m.reihe !== undefined ? { reihe: m.reihe } : {}),
       })),
     stats: tour.stats,
   }

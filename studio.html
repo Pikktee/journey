@@ -621,6 +621,20 @@
     .medien-punkt:hover .halo { opacity: 0.55; }
     .medien-punkt.an .halo { opacity: 1; }
     .medien-punkt.an .kern { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45), 0 3px 12px rgba(2, 5, 10, 0.65); }
+    /* Halt mit mehreren Aufnahmen: angedeutete Karten dahinter + Anzahl */
+    .medien-punkt .stapel {
+      position: absolute; width: 30px; height: 30px; border-radius: 50%;
+      background: var(--fl-3); border: 2px solid rgba(255, 255, 255, 0.55);
+    }
+    .medien-punkt .stapel.s1 { transform: translate(6px, -4px) scale(0.94); }
+    .medien-punkt .stapel.s2 { transform: translate(11px, -7px) scale(0.88); opacity: 0.7; }
+    .medien-punkt .anzahl {
+      position: absolute; right: 0; bottom: 0; z-index: 3;
+      min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+      display: grid; place-items: center;
+      font-family: var(--font-mono); font-size: 10px; font-weight: 600; line-height: 1;
+      color: #1a1206; background: var(--akzent); border: 1.5px solid rgba(9, 12, 17, 0.8);
+    }
     @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
     .medien-punkt.puls .kern { animation: markerPuls 700ms ease-out 2; }
 
@@ -962,6 +976,21 @@
     .f-mini .v-badge svg { width: 8px; height: 8px; color: #fff; margin-left: 1px; }
     /* Stiel zur exakten Zeit — die Miniatur ist breiter als der Zeitpunkt. */
     .f-mini::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 1px; height: 8px; background: rgba(255, 255, 255, 0.2); }
+    /* Ein HALT mit mehreren Aufnahmen: angedeutete Karten dahinter, nach
+       rechts/oben versetzt — die vordere Karte bleibt genau auf der Zeit. */
+    .f-mini .stapel { position: absolute; inset: 0; border-radius: 6px; background: #1c2530; border: 1px solid rgba(255, 255, 255, 0.45); }
+    .f-mini .stapel.s1 { transform: translate(5px, -4px); }
+    .f-mini .stapel.s2 { transform: translate(10px, -8px); opacity: 0.7; }
+    .f-mini img { position: relative; z-index: 1; }
+    .f-mini .anzahl {
+      position: absolute; left: -6px; top: -6px; z-index: 3;
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+      display: grid; place-items: center;
+      font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; line-height: 1;
+      color: #1a1206; background: var(--akzent); border: 1.5px solid var(--bg-tief);
+    }
+    /* Rastet der gezogene Halt auf einer fremden Aufnahme ein, zeigt er das an. */
+    .f-mini.schnappt img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.55), 0 10px 26px rgba(0, 0, 0, 0.6); }
 
     /* — Overlay über allen Bahnen: Trim und Abspielkopf — */
     .zl-schatten { position: absolute; top: 30px; bottom: 4px; background: rgba(4, 6, 10, 0.62); pointer-events: none; z-index: 6; }
@@ -1087,6 +1116,43 @@
     .insp-loeschen:hover:not(:disabled) { border-color: var(--rot); background: rgba(229, 72, 77, 0.12); color: #ff9ea1; }
     .insp-loeschen svg { width: 14px; height: 14px; }
     .insp-loeschen:disabled { opacity: 0.4; cursor: default; }
+
+    /* — Filmstreifen eines Halts: umschalten und umordnen —
+         Jede Aufnahme behält ihre EIGENEN Einstellungen (auch die Standzeit);
+         der Streifen wählt nur aus, welche gerade im Inspector liegt. */
+    /* `flex: none` ist PFLICHT: `overflow-x` setzt die automatische Mindesthöhe
+       eines Flex-Items auf 0, und sobald der Inspector-Inhalt überläuft, würde
+       der Streifen auf seine Polsterung zusammengedrückt — die Bilder lägen
+       dann unsichtbar hinter dem großen Vorschaubild. */
+    .streifen { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 5px 4px 8px; margin: -5px -4px -4px; scrollbar-width: thin; }
+    .streifen button {
+      position: relative; flex: none; width: 46px; height: 46px; padding: 0;
+      background: none; border: none; cursor: grab; border-radius: 6px; touch-action: none;
+      transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .streifen button:active { cursor: grabbing; }
+    .streifen img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block;
+      border: 1px solid var(--rand); transition: border-color 150ms ease;
+    }
+    .streifen button:hover img { border-color: var(--text-3); }
+    .streifen button[aria-current='true'] img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45); }
+    /* Das gezogene Bild folgt dem Finger OHNE Übergang (sonst hinkt es hinterher)
+       und liegt über den Nachbarn, die weich ausweichen. */
+    .streifen button.zieht { transition: none; z-index: 4; cursor: grabbing; }
+    .streifen button.zieht img { border-color: var(--akzent); box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6); }
+    .streifen .st-nr {
+      position: absolute; left: 3px; top: 3px;
+      font-family: var(--font-mono); font-size: 9px; line-height: 1; padding: 2px 4px;
+      color: #fff; background: rgba(6, 8, 12, 0.7); border-radius: 4px;
+    }
+    /* Was der Halt im fertigen Film wirklich kostet */
+    .stopp-summe {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+      border-top: 1px dashed var(--rand); padding-top: 9px;
+    }
+    .stopp-summe b { font-weight: 500; color: var(--text-2); }
 
     /* — Soundeffekt-Bibliothek (Dialog) — */
     .sfx-dialog {

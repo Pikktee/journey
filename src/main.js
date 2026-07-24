@@ -2,7 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
 import { TOURS } from './tours.js'
 import { loadRemoteTour, createTimeAt } from './remote'
-import { buildRoute, nearestS, pointAt } from './geo.js'
+import { buildRoute, gruppiereStopps, nearestS, pointAt } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
@@ -137,12 +137,7 @@ modes[0].s = 0
 const photos = cfg.photos.map((p) => ({ ...p, s: nearestS(route, p.anchor) })).sort((a, b) => a.s - b.s)
 // Fotos mit nahe beieinanderliegenden Ankern zu einem Stopp gruppieren —
 // dort werden sie nacheinander gezeigt (ein Halt, mehrere Bilder)
-const stops = []
-for (const p of photos) {
-  const last = stops[stops.length - 1]
-  if (last && p.s - last.s < 120) last.items.push(p)
-  else stops.push({ s: p.s, items: [p] })
-}
+const stops = gruppiereStopps(photos)
 // Kamera-Momente (Kreativbaukasten): Punkt-Ereignisse, f → Streckenmeter s.
 // Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.js).
 const moments = (cfg.moments ?? [])

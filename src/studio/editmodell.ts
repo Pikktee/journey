@@ -39,6 +39,13 @@ export interface MediumEdit {
   anchor?: [number, number]
   geloescht?: boolean
   display?: DisplayEdit
+  /**
+   * Platz INNERHALB des Stopps (0-basiert). Fotos am selben Ort zeigt der Player
+   * nacheinander; welches zuerst kommt, ist eine Entscheidung und keine Messung —
+   * ohne dieses Feld entschiede die Projektion auf die Route darüber.
+   * Spiegel von MediumEdit.reihe in server/src/schema/edits.ts.
+   */
+  reihe?: number
 }
 
 export interface ModusGrenze {
@@ -235,11 +242,12 @@ export interface MediumEditPatch {
   anchor?: [number, number] | undefined
   geloescht?: boolean | undefined
   display?: DisplayEdit | undefined
+  reihe?: number | undefined
 }
 
 export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditPatch): EditOverlay {
   const eintrag: MediumEdit = { ...(edits.medien?.[id] ?? {}) }
-  for (const key of ['caption', 'anchor', 'geloescht', 'display'] as const) {
+  for (const key of ['caption', 'anchor', 'geloescht', 'display', 'reihe'] as const) {
     if (!(key in patch)) continue
     const wert = patch[key]
     const leeresDisplay = key === 'display' && wert !== undefined && !Object.keys(wert).length
@@ -504,6 +512,8 @@ export interface MediumBasis {
 export interface MediumAnzeige extends MediumBasis {
   geloescht: boolean
   display?: DisplayEdit
+  /** Platz im Stopp, falls gesetzt (s. MediumEdit.reihe) */
+  reihe?: number
 }
 
 /** Overlay auf die Auto-Platzierung legen; Gelöschte bleiben (markiert) drin. */
@@ -517,6 +527,7 @@ export function effektiveMedien(basis: readonly MediumBasis[], edits: EditOverla
       placement: e?.anchor ? 'manuell' : m.placement,
       geloescht: e?.geloescht === true,
       ...(e?.display ? { display: e.display } : {}),
+      ...(e?.reihe !== undefined ? { reihe: e.reihe } : {}),
     }
   })
 }

@@ -66,6 +66,7 @@ import {
   type ZeitSkala,
 } from './zeitleiste.js'
 import { SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
+import { baueStopps, reiheVergeben, snapZiel, stoppVon, type Stopp } from './stopps.js'
 
 /** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, sonst Dateiname. */
 function audioName(a: AudioEintrag): string {
@@ -504,19 +505,31 @@ function zeichneMarker(): void {
   marker = []
   medienMarker = new Map()
 
-  // Ein Medium zeigt sich als das, was es IST: das Bild selbst, rund
-  // beschnitten. Auf einem Satellitenbild ist ein Punkt nur ein weiterer heller
-  // Fleck; die Miniatur sagt sofort, was dort wartet. Ziehen verankert es neu.
-  for (const m of medienAnzeige()) {
-    if (!m.anchor || m.geloescht) continue
+  // Ein HALT ist auch auf der Karte EIN Punkt: drei Bilder vom selben Ort lägen
+  // sonst als drei fast deckungsgleiche Kreise übereinander und man sähe nur
+  // einen. Das Bild selbst zeigt, was dort wartet — auf einem Satellitenbild
+  // wäre ein Punkt nur ein weiterer heller Fleck.
+  for (const stopp of baueStopps(medienAnzeige(), z.track, kumStrecke)) {
+    const kopf = stopp.items[0]
+    if (!kopf?.anchor) continue
+    const anzahl = stopp.items.length
     const el = document.createElement('div')
     el.className = 'medien-punkt'
-    if (z.fokus?.art === 'medium' && z.fokus.id === m.id) el.classList.add('an')
+    const fokusId = z.fokus?.art === 'medium' ? z.fokus.id : null
+    if (fokusId && stopp.items.some((m) => m.id === fokusId)) el.classList.add('an')
     const halo = document.createElement('span')
     halo.className = 'halo'
+    el.appendChild(halo)
+    for (const nr of [2, 1]) {
+      if (anzahl > nr) {
+        const karte = document.createElement('span')
+        karte.className = `stapel s${nr}`
+        el.appendChild(karte)
+      }
+    }
     const kern = document.createElement('span')
     kern.className = 'kern'
-    const thumb = m.type === 'photo' ? m.src : m.poster
+    const thumb = kopf.type === 'photo' ? kopf.src : kopf.poster
     if (thumb) {
       const bild = document.createElement('img')
       bild.src = thumb
@@ -525,9 +538,26 @@ function zeichneMarker(): void {
     } else {
       kern.innerHTML = icon('film')
     }
-    el.append(halo, kern)
-    el.title = `${m.caption || m.id} · ${PLACEMENT_NAMEN[m.placement] ?? m.placement} — ziehen verankert neu`
-    const mk = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(m.anchor).addTo(karte)
+    el.appendChild(kern)
+    if (anzahl > 1) {
+      const plakette = document.createElement('span')
+      plakette.className = 'anzahl'
+      plakette.textContent = String(anzahl)
+      el.appendChild(plakette)
+    }
+    el.title =
+      anzahl > 1
+        ? `Halt mit ${anzahl} Aufnahmen — ziehen verankert alle neu`
+        : `${kopf.caption || kopf.id} · ${PLACEMENT_NAMEN[kopf.placement] ?? kopf.placement} — ziehen verankert neu`
+
+    const mk = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(kopf.anchor).addTo(karte)
+    // Beim Ziehen wandert der GANZE Halt: die Abstände der Mitglieder
+    // untereinander bleiben, sonst zerfiele er beim ersten Anfassen.
+    const versaetze = stopp.items.map((m) => ({
+      id: m.id,
+      dLng: (m.anchor?.[0] ?? 0) - (kopf.anchor as [number, number])[0],
+      dLat: (m.anchor?.[1] ?? 0) - (kopf.anchor as [number, number])[1],
+    }))
     let gezogen = false
     mk.on('dragstart', () => {
       gezogen = true
@@ -535,8 +565,12 @@ function zeichneMarker(): void {
     mk.on('dragend', () => {
       if (!z) return
       const ziel = mk.getLngLat()
-      const projektion = projiziereAufTrack(z.track, ziel.lng, ziel.lat)
-      z.edits = mitMedienEdit(z.edits, m.id, { anchor: [projektion.punkt[0], projektion.punkt[1]] })
+      let neu = z.edits
+      for (const v of versaetze) {
+        const p = projiziereAufTrack(z.track, ziel.lng + v.dLng, ziel.lat + v.dLat)
+        neu = mitMedienEdit(neu, v.id, { anchor: [p.punkt[0], p.punkt[1]] })
+      }
+      z.edits = neu
       renderAlles()
     })
     el.addEventListener('click', (ev) => {
@@ -546,10 +580,13 @@ function zeichneMarker(): void {
         return
       }
       if (!z) return
-      z.fokus = { art: 'medium', id: m.id }
+      // Ist schon ein Mitglied gewählt, bleibt es das — sonst das erste
+      const gewaehlt = z.fokus?.art === 'medium' ? z.fokus.id : null
+      const schon = stopp.items.find((m) => m.id === gewaehlt)
+      z.fokus = { art: 'medium', id: (schon ?? kopf).id }
       renderAlles()
     })
-    medienMarker.set(m.id, el)
+    for (const m of stopp.items) medienMarker.set(m.id, el)
     marker.push(mk)
   }
 
@@ -613,6 +650,220 @@ function uhrKurz(iso: string): string {
   } catch {
     return iso
   }
+}
+
+/**
+ * Einen ganzen Stopp über die Zeitleiste ziehen.
+ *
+ * Gezogen wird der HALT, nicht das einzelne Bild: Aufnahmen am selben Ort
+ * wandern gemeinsam. Kommt der Stopp einer fremden Aufnahme nahe, rastet er auf
+ * ihr ein — „an derselben Stelle" trifft man sonst nie auf den Pixel. Eine
+ * einzelne Aufnahme löst man über den Filmstreifen im Inspector heraus.
+ *
+ * Fenster-Listener statt Pointer-Capture (die 40-px-Miniatur verlöre schnelle
+ * Züge); während des Zugs wird nur nachgezeichnet, der volle Render am Ende
+ * macht daraus genau einen Undo-Schritt.
+ */
+function ziehStopp(e: PointerEvent, stopp: Stopp): void {
+  if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
+  e.preventDefault()
+  const skala = baueSkala(z.track)
+  if (!skala) return
+  const startX = e.clientX
+  const gruppe = stopp.items.map((m) => ({ id: m.id, meter0: meterVon(m) }))
+  const eigene = new Set(gruppe.map((g) => g.id))
+  // Streckenmeter aller FREMDEN Aufnahmen — Ziele fürs Einrasten
+  const fremde = medienAnzeige()
+    .filter((m) => m.anchor && !m.geloescht && !eigene.has(m.id))
+    .map((m) => ({ id: m.id, meter: meterVon(m) }))
+  const gesamtM = kumStrecke[kumStrecke.length - 1] ?? 0
+  const minM = Math.min(...gruppe.map((g) => g.meter0))
+  const maxM = Math.max(...gruppe.map((g) => g.meter0))
+  const mini = (e.currentTarget as HTMLElement).closest<HTMLElement>('.f-mini')
+  let gezogen = false
+
+  const zieh = (ev: PointerEvent): void => {
+    if (!z || !skala) return
+    if (!gezogen && Math.abs(ev.clientX - startX) < 4) return
+    gezogen = true
+    // Verschiebung, nicht Absolutposition: der Stapel behält seine innere
+    // Ordnung und staucht sich am Rand nicht zusammen.
+    const feld = document.getElementById('skala-feld')?.getBoundingClientRect()
+    if (!feld || feld.width <= 0) return
+    let dM = ((ev.clientX - startX) / feld.width) * gesamtM
+    dM = Math.max(-minM, Math.min(dM, gesamtM - maxM))
+    const zielMitte = (minM + maxM) / 2 + dM
+    const ziel = snapZiel(zielMitte, fremde)
+    if (ziel) dM += ziel.meter - zielMitte
+    let neu = z.edits
+    for (const g of gruppe) {
+      const punkt = punktZuMeter(g.meter0 + dM)
+      if (punkt) neu = mitMedienEdit(neu, g.id, { anchor: [punkt[0], punkt[1]] })
+    }
+    z.edits = neu
+    mini?.classList.toggle('schnappt', !!ziel)
+    renderOhneInspektor()
+  }
+  const los = (): void => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    mini?.classList.remove('schnappt')
+    if (!gezogen) return
+    unterdrueckeKlick = true
+    renderAlles()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+/** Streckenmeter einer Aufnahme (Anker auf die Linie projiziert). */
+function meterVon(m: MediumAnzeige): number {
+  if (!z || !m.anchor) return 0
+  const p = projiziereAufTrack(z.track, m.anchor[0], m.anchor[1])
+  return meterZuOffset(kumStrecke, z.track, p.punkt[3])
+}
+
+/** Trackpunkt bei einem Streckenmeter (Umkehrung von meterVon). */
+function punktZuMeter(meter: number): TrackPunkt | null {
+  if (!z) return null
+  const gesamt = kumStrecke[kumStrecke.length - 1] ?? 0
+  const geklemmt = Math.max(0, Math.min(meter, gesamt))
+  let i = 1
+  while (i < kumStrecke.length - 1 && (kumStrecke[i] as number) < geklemmt) i++
+  const a = z.track[i - 1] as TrackPunkt
+  const b = z.track[i] as TrackPunkt
+  const spanne = (kumStrecke[i] as number) - (kumStrecke[i - 1] as number)
+  const f = spanne > 0 ? (geklemmt - (kumStrecke[i - 1] as number)) / spanne : 0
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f]
+}
+
+/**
+ * Filmstreifen eines Stopps: zwischen seinen Aufnahmen umschalten und sie
+ * umordnen. Alle Einstellungen bleiben PRO AUFNAHME — der Streifen wählt nur
+ * aus, welche gerade im Inspector liegt.
+ */
+function baueStreifen(stopp: Stopp, aktuellId: string): HTMLElement {
+  const streifen = document.createElement('div')
+  streifen.className = 'streifen'
+  stopp.items.forEach((m, i) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.dataset['id'] = m.id
+    b.setAttribute('aria-current', String(m.id === aktuellId))
+    b.title = m.caption || m.id
+    const bild = document.createElement('img')
+    bild.src = (m.type === 'video' ? m.poster : m.src) ?? m.src
+    bild.alt = ''
+    const nr = document.createElement('span')
+    nr.className = 'st-nr'
+    nr.textContent = String(i + 1)
+    b.append(bild, nr)
+    b.addEventListener('pointerdown', (e) => ordneStreifen(e, streifen, stopp, m.id))
+    b.addEventListener('click', () => {
+      if (unterdrueckeKlick || !z) return
+      z.fokus = { art: 'medium', id: m.id }
+      renderAlles()
+    })
+    streifen.appendChild(b)
+  })
+  return streifen
+}
+
+/**
+ * Im Streifen ziehen ordnet die Aufnahmen des Halts um.
+ *
+ * Die DOM-Folge bleibt während des Zugs UNANGETASTET: das gezogene Bild folgt
+ * dem Finger, die überholten Nachbarn weichen um genau eine Position aus. Würde
+ * man live umsortieren, sprängen die Rechtecke unter dem Zeiger weg.
+ */
+function ordneStreifen(e: PointerEvent, streifen: HTMLElement, stopp: Stopp, id: string): void {
+  if (e.button !== 0 || stopp.items.length < 2) return
+  e.preventDefault()
+  const kinder = [...streifen.children] as HTMLElement[]
+  const knopf = kinder.find((k) => k.dataset['id'] === id)
+  if (!knopf) return
+  const vonIdx = kinder.indexOf(knopf)
+  const ersteBox = (kinder[0] as HTMLElement).getBoundingClientRect()
+  const zweiteBox = kinder[1]?.getBoundingClientRect()
+  const schritt = zweiteBox ? zweiteBox.left - ersteBox.left : ersteBox.width + 6
+  const startX = e.clientX
+  const startY = e.clientY
+  let nachIdx = vonIdx
+  let gezogen = false
+
+  // Über der KARTE losgelassen verlässt die Aufnahme den Halt und bekommt dort
+  // ihren eigenen Ort — der Weg, einen Stapel wieder aufzulösen.
+  let geist: HTMLElement | null = null
+  let aufKarte: { lng: number; lat: number } | null = null
+  const kartenRect = (): DOMRect | undefined => document.getElementById('editor-map')?.getBoundingClientRect()
+
+  const zieh = (ev: PointerEvent): void => {
+    if (!gezogen && Math.abs(ev.clientX - startX) < 5 && Math.abs(ev.clientY - startY) < 5) return
+    gezogen = true
+    const k = kartenRect()
+    const ueberKarte = !!k && ev.clientX >= k.left && ev.clientX <= k.right && ev.clientY >= k.top && ev.clientY <= k.bottom
+    if (ueberKarte && karte) {
+      // Herauslösen: Bild hängt am Zeiger, der Streifen bleibt in Ruhe
+      for (const kk of kinder) kk.style.transform = ''
+      knopf.classList.remove('zieht')
+      nachIdx = vonIdx
+      if (!geist) {
+        geist = document.createElement('div')
+        geist.className = 'zieh-geist'
+        const bild = document.createElement('img')
+        bild.src = (knopf.querySelector('img') as HTMLImageElement | null)?.src ?? ''
+        bild.alt = ''
+        geist.appendChild(bild)
+        document.body.appendChild(geist)
+      }
+      geist.style.left = `${ev.clientX}px`
+      geist.style.top = `${ev.clientY}px`
+      const p = karte.unproject([ev.clientX - (k as DOMRect).left, ev.clientY - (k as DOMRect).top])
+      aufKarte = { lng: p.lng, lat: p.lat }
+      return
+    }
+    if (geist) {
+      geist.remove()
+      geist = null
+      aufKarte = null
+    }
+    const dx = ev.clientX - startX
+    knopf.classList.add('zieht')
+    knopf.style.transform = `translateX(${dx}px) scale(1.06)`
+    nachIdx = Math.min(Math.max(Math.round((vonIdx * schritt + dx) / schritt), 0), kinder.length - 1)
+    for (const [i, k2] of kinder.entries()) {
+      if (k2 === knopf) continue
+      const v = i > vonIdx && i <= nachIdx ? -schritt : i >= nachIdx && i < vonIdx ? schritt : 0
+      k2.style.transform = v ? `translateX(${v}px)` : ''
+    }
+  }
+  const los = (): void => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    const abgelegt = aufKarte // VOR dem Aufräumen sichern
+    geist?.remove()
+    for (const k of kinder) {
+      k.style.transform = ''
+      k.classList.remove('zieht')
+    }
+    if (!gezogen || !z) return
+    if (abgelegt) {
+      unterdrueckeKlick = true
+      const p = projiziereAufTrack(z.track, abgelegt.lng, abgelegt.lat)
+      z.edits = mitMedienEdit(z.edits, id, { anchor: [p.punkt[0], p.punkt[1]], reihe: undefined })
+      z.fokus = { art: 'medium', id }
+      renderAlles()
+      return
+    }
+    if (nachIdx === vonIdx) return
+    unterdrueckeKlick = true
+    const folge = kinder.map((k) => k.dataset['id'] as string)
+    folge.splice(nachIdx, 0, folge.splice(vonIdx, 1)[0] as string)
+    z.edits = reiheVergeben(z.edits, folge)
+    renderAlles()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
 }
 
 // — Ereignis anlegen: Spur-Menüs an der Einfügemarke —
@@ -1337,6 +1588,12 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   const huelle = document.createElement('div')
   huelle.style.display = 'contents'
 
+  // Gehört die Aufnahme zu einem Halt mit mehreren Bildern? Dann oben ein
+  // Filmstreifen zum Umschalten und Umordnen — die Felder darunter gehören
+  // weiterhin dem EINEN gewählten Bild (auch die Standzeit).
+  const stopp = z ? stoppVon(baueStopps(medienAnzeige(), z.track, kumStrecke), m.id) : undefined
+  if (stopp && stopp.items.length > 1) huelle.appendChild(baueStreifen(stopp, m.id))
+
   const bild = document.createElement('img')
   bild.className = 'insp-bild'
   bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
@@ -1416,6 +1673,24 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   notiz.className = 'insp-notiz'
   notiz.textContent = `Aufgenommen ${zeitText(m.takenAt)} Uhr · verortet über ${PLACEMENT_NAMEN[m.placement] ?? m.placement}. Die Aufnahmezeit selbst lässt sich nicht ändern — verschiebe den Ort, um sie umzuhängen.`
   huelle.appendChild(notiz)
+
+  if (stopp && stopp.items.length > 1) {
+    // Was der Halt im fertigen Film wirklich kostet: die Summe seiner Bilder.
+    const summe = stopp.items.reduce((sum, x) => sum + (x.type === 'photo' ? haltedauerS(x.display) : 0), 0)
+    const zeile = document.createElement('div')
+    zeile.className = 'stopp-summe'
+    const links = document.createElement('span')
+    links.textContent = `Halt insgesamt · ${stopp.items.length} Aufnahmen`
+    const rechts = document.createElement('b')
+    rechts.textContent = `${Math.round(summe)} s`
+    zeile.append(links, rechts)
+    huelle.appendChild(zeile)
+    const hinweis = document.createElement('p')
+    hinweis.className = 'insp-notiz'
+    hinweis.textContent =
+      'Im Streifen ziehen ordnet die Aufnahmen um. Ein Zug in der Zeitleiste oder auf der Karte bewegt den ganzen Halt — eine einzelne Aufnahme löst du heraus, indem du sie aus dem Streifen auf die Karte ziehst.'
+    huelle.appendChild(hinweis)
+  }
   return huelle
 }
 
@@ -1923,32 +2198,58 @@ function renderZeitleiste(): void {
     }
   }
 
-  // — Fotos/Videos: Miniaturen an ihrer Aufnahmezeit —
+  // — Fotos/Videos: ein Stapel je STOPP —
+  //
+  // Aufnahmen am selben Ort zeigt der Player als EINEN Halt nacheinander. Als
+  // einzelne Miniaturen nebeneinander sähe man zwölf Halte und bekäme acht.
   const medien = medienAnzeige()
-  const nachId = new Map(medien.map((m) => [m.id, m]))
+  const alleStopps = baueStopps(medien, z.track, kumStrecke)
   const fotoBahn = spur('spur-fotos')
-  for (const d of baueMedienDots(medien, z.track, skala)) {
-    const m = nachId.get(d.id)
+  for (const stopp of alleStopps) {
+    const kopf = stopp.items[0]
+    if (!kopf) continue
+    const anzahl = stopp.items.length
     const mini = document.createElement('button')
     mini.type = 'button'
     mini.className = 'f-mini'
-    mini.style.left = pos(d.anteil)
+    mini.style.left = pos(offsetZuAnteil(skala, stopp.offsetS))
     mini.dataset['rolle'] = 'dot'
-    mini.dataset['id'] = d.id
-    const halt = m?.type === 'photo' ? haltedauerS(m.display) : 0
-    mini.title = halt ? `${d.id} — ${zeitText(m?.takenAt ?? '')} Uhr, ${halt} s Haltedauer` : d.id
+    mini.dataset['id'] = kopf.id
+    mini.dataset['ids'] = stopp.items.map((m) => m.id).join(' ')
+    const halt = stopp.items.reduce((sum, m) => sum + (m.type === 'photo' ? haltedauerS(m.display) : 0), 0)
+    mini.title =
+      anzahl > 1
+        ? `Stopp mit ${anzahl} Aufnahmen — ${Math.round(halt)} s Halt`
+        : `${kopf.caption || kopf.id} — ${uhrzeitKurz(kopf.takenAt)} Uhr, ${haltedauerS(kopf.display)} s Halt`
+    // Angedeutete Karten HINTER dem Kopfbild, nach rechts/oben versetzt: die
+    // vordere Karte bleibt damit genau auf der Zeit des Halts.
+    for (const nr of [2, 1]) {
+      if (anzahl > nr) {
+        const karte = document.createElement('span')
+        karte.className = `stapel s${nr}`
+        mini.appendChild(karte)
+      }
+    }
     const bild = document.createElement('img')
-    bild.src = (d.type === 'video' ? (m?.poster ?? '') : (m?.src ?? '')) || (m?.src ?? '')
+    bild.src = (kopf.type === 'video' ? kopf.poster : kopf.src) ?? kopf.src
     bild.alt = ''
     bild.loading = 'lazy'
     mini.appendChild(bild)
-    if (d.type === 'video') {
+    if (kopf.type === 'video') {
       const badge = document.createElement('span')
       badge.className = 'v-badge'
       badge.innerHTML = icon('play')
       mini.appendChild(badge)
     }
-    if (fokusInfo?.art === 'medium' && fokusInfo.id === d.id) mini.classList.add('fokus')
+    if (anzahl > 1) {
+      const plakette = document.createElement('span')
+      plakette.className = 'anzahl'
+      plakette.textContent = String(anzahl)
+      mini.appendChild(plakette)
+    }
+    // Die Auswahl trifft den ganzen Stapel: jedes Mitglied hebt ihn hervor.
+    if (fokusInfo?.art === 'medium' && stopp.items.some((m) => m.id === fokusInfo.id)) mini.classList.add('fokus')
+    mini.addEventListener('pointerdown', (ev) => ziehStopp(ev, stopp))
     fotoBahn.appendChild(mini)
   }
 
