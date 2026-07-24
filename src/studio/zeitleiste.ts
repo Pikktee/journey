@@ -154,38 +154,6 @@ export function baueZustandsBaender<T>(
 /** Default-Haltedauer eines Fotos — entspricht „Auto (5 s)" im Editor. */
 export const HALTEDAUER_DEFAULT_S = 5
 
-/**
- * Maßstab der Haltedauer-Breite: Anteil der Leistenbreite je Sekunde.
- *
- * BEWUSST unabhängig von der Zeitachse: Die Haltedauer ist Wiedergabezeit, die
- * Leiste zeigt Aufnahmezeit — eine echte Projektion gäbe es nur über die
- * Pausen-Kompression der Pipeline (zeit.ts), die hier nicht vorliegt. Die
- * Breite ist eine Größenkodierung („12 s ist viermal so breit wie 3 s"),
- * keine Zeitspanne auf der Achse; die Marke ist deshalb als Pille gezeichnet.
- */
-const BREITE_JE_SEKUNDE = 0.0035
-
-export interface MedienMarke extends MedienDot {
-  /** Haltedauer in s (0 bei Video: die Länge liegt im Editor-Modell nicht vor) */
-  haltedauerS: number
-  /** Breite als Anteil der Leiste — Größenkodierung, s. BREITE_JE_SEKUNDE */
-  breite: number
-}
-
-/** Medien-Dots plus sichtbarer Haltedauer. */
-export function baueMedienMarken(
-  medien: readonly MediumAnzeige[],
-  track: readonly TrackPunkt[],
-  skala: ZeitSkala,
-): MedienMarke[] {
-  const nachId = new Map(medien.map((m) => [m.id, m]))
-  return baueMedienDots(medien, track, skala).map((d) => {
-    const m = nachId.get(d.id)
-    const haltedauerS = m?.type === 'photo' ? (m.display?.holdS ?? HALTEDAUER_DEFAULT_S) : 0
-    return { ...d, haltedauerS, breite: haltedauerS * BREITE_JE_SEKUNDE }
-  })
-}
-
 export interface AudioBalken {
   /** Index im Overlay-Array (Identität für Patch/Entfernen) */
   index: number
@@ -289,23 +257,165 @@ export function formatiereDauer(sekunden: number): string {
   return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')} Std`
 }
 
-/** Beschriftungs-Ticks: volle Stunden (oder Viertelstunden bei kurzen Touren). */
-export function baueTicks(startIso: string, skala: ZeitSkala, zone: string): Array<{ anteil: number; text: string }> {
+// — Maßband —
+//
+// Beim Hineinzoomen wird Platz frei, also darf die Skala feiner werden. Die
+// Stufe ist die FEINSTE, bei der zwei Beschriftungen noch `MARKE_MIN_PX`
+// auseinanderliegen; reicht selbst die gröbste nicht (sehr lange Tour, ganz
+// herausgezoomt), wird sie genommen und die Beschriftungen rücken zusammen.
+
+/** Stufen in Minuten, aufsteigend — von der Minute bis zum Tag. */
+const STUFEN_MIN = [1, 2, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
+/** Mindestabstand zweier Beschriftungen in px (eine „HH:MM" ist ~34 px breit). */
+const MARKE_MIN_PX = 58
+/** Halbe Beschriftungsbreite — darunter würde die Marke am Rand angeschnitten. */
+const MARKE_HALB_PX = 20
+
+/** Feinste Stufe (Minuten), die bei diesem Maßstab noch lesbar bleibt. */
+export function waehleStufe(pxProMin: number): number {
+  for (const s of STUFEN_MIN) {
+    if (s * pxProMin >= MARKE_MIN_PX) return s
+  }
+  return STUFEN_MIN[STUFEN_MIN.length - 1] as number
+}
+
+function zeitFormat(zone: string): Intl.DateTimeFormat {
+  try {
+    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zone })
+  } catch {
+    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' })
+  }
+}
+
+/**
+ * Versatz der Zone zu UTC in Minuten, zum Zeitpunkt `ms`. Über formatToParts,
+ * weil `Date` selbst nur die Zone des Browsers kennt — die Tour kann in einer
+ * anderen liegen (Koh Pha-ngan: +07).
+ */
+function zonenVersatzMin(ms: number, zone: string): number {
+  let teile: Intl.DateTimeFormatPart[]
+  try {
+    teile = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(new Date(ms))
+  } catch {
+    return -new Date(ms).getTimezoneOffset()
+  }
+  const w = (typ: string) => Number(teile.find((t) => t.type === typ)?.value ?? '0')
+  // Stunde 24 kommt bei hour12:false für Mitternacht vor — Date.UTC verkraftet das.
+  const alsUtc = Date.UTC(w('year'), w('month') - 1, w('day'), w('hour'), w('minute'), w('second'))
+  return Math.round((alsUtc - ms) / 60000)
+}
+
+/**
+ * Wanduhrzeit (als wäre sie UTC) → echter Zeitpunkt. Zwei Durchgänge, weil der
+ * Versatz selbst vom Zeitpunkt abhängt: die erste Schätzung kann bei einer
+ * Sommerzeit-Umstellung eine Stunde danebenliegen.
+ */
+function lokalZuAbsolut(lokalMs: number, zone: string): number {
+  const ersterVersuch = lokalMs - zonenVersatzMin(lokalMs, zone) * 60000
+  return lokalMs - zonenVersatzMin(ersterVersuch, zone) * 60000
+}
+
+export interface Massbandmarke {
+  anteil: number
+  text: string
+  /** volle Stunde — kräftigerer Teilstrich als die Zwischenstufen */
+  voll: boolean
+  /** am Rand angeschnitten? Dann links- statt mittenbündig ausrichten. */
+  rand: 'anfang' | 'ende' | null
+}
+
+/**
+ * Beschriftete Marken der Zeitachse. Das Raster liegt auf der LOKALEN Uhrzeit
+ * der Tour (also „15:00", nicht „15:07 = Tourbeginn + 2 h") — sonst liest sich
+ * die Achse wie eine Stoppuhr statt wie eine Uhr.
+ */
+export function baueMassband(
+  startIso: string,
+  skala: ZeitSkala,
+  zone: string,
+  pxProMin: number,
+): Massbandmarke[] {
   const startMs = Date.parse(startIso)
+  if (!Number.isFinite(startMs)) return []
   const vonMs = startMs + skala.vonS * 1000
   const bisMs = startMs + skala.bisS * 1000
   const spanneMin = (bisMs - vonMs) / 60000
-  const rasterMin = spanneMin > 150 ? 60 : spanneMin > 40 ? 15 : 5
-  const ticks: Array<{ anteil: number; text: string }> = []
-  let fmt: Intl.DateTimeFormat
-  try {
-    fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zone })
-  } catch {
-    fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' })
+  if (!(spanneMin > 0)) return []
+
+  const stufeMin = waehleStufe(pxProMin)
+  const rasterMs = stufeMin * 60000
+  const breitePx = spanneMin * pxProMin
+  const fmt = zeitFormat(zone)
+
+  const versatz = zonenVersatzMin(vonMs, zone) * 60000
+  let lokal = Math.ceil((vonMs + versatz) / rasterMs) * rasterMs
+
+  const marken: Massbandmarke[] = []
+  // In der Sommerzeit-LÜCKE gibt es Wanduhrzeiten, die nie stattfinden (02:30
+  // am Umstellungstag). Die Rückrechnung liefert dann denselben Zeitpunkt wie
+  // eine spätere Marke — ohne diese Sperre stünde die Stunde doppelt und die
+  // Achse liefe rückwärts.
+  let letztesMs = -Infinity
+  // Deckel gegen Endlosschleifen bei absurden Eingaben (pxProMin ~ 0).
+  for (let i = 0; i < 5000; i++) {
+    const ms = lokalZuAbsolut(lokal, zone)
+    if (ms > bisMs) break
+    if (ms >= vonMs && ms > letztesMs) {
+      letztesMs = ms
+      const anteil = offsetZuAnteil(skala, (ms - startMs) / 1000)
+      const x = anteil * breitePx
+      marken.push({
+        anteil,
+        text: fmt.format(new Date(ms)),
+        voll: lokal % 3_600_000 === 0,
+        rand: x < MARKE_HALB_PX ? 'anfang' : x > breitePx - MARKE_HALB_PX ? 'ende' : null,
+      })
+    }
+    lokal += rasterMs
   }
-  const erster = Math.ceil(vonMs / (rasterMin * 60000)) * rasterMin * 60000
-  for (let ms = erster; ms <= bisMs; ms += rasterMin * 60000) {
-    ticks.push({ anteil: offsetZuAnteil(skala, (ms - startMs) / 1000), text: fmt.format(new Date(ms)) })
+  return marken
+}
+
+// — Streckenmeter —
+//
+// Die Leiste zeigt Zeit, die Kopf-Uhr daneben aber „19,2 km / 41,8 km": wo auf
+// der STRECKE steht der Abspielkopf? Dafür einmal die kumulierten Meter je
+// Trackpunkt aufbauen und zwischen den Punkten linear interpolieren.
+
+/** Kumulierte Streckenmeter je Trackpunkt (Index-gleich zu `track`). */
+export function kumMeter(track: readonly TrackPunkt[]): number[] {
+  const kum: number[] = new Array(track.length)
+  kum[0] = 0
+  for (let i = 1; i < track.length; i++) {
+    kum[i] = (kum[i - 1] as number) + meterZwischen(track[i - 1] as TrackPunkt, track[i] as TrackPunkt)
   }
-  return ticks
+  return kum
+}
+
+/** Zurückgelegte Meter zum Zeit-Offset (s), zwischen den Punkten interpoliert. */
+export function meterZuOffset(kum: readonly number[], track: readonly TrackPunkt[], tOffsetS: number): number {
+  if (track.length === 0) return 0
+  const erster = track[0] as TrackPunkt
+  const letzter = track[track.length - 1] as TrackPunkt
+  if (tOffsetS <= erster[3]) return 0
+  if (tOffsetS >= letzter[3]) return (kum[kum.length - 1] as number) ?? 0
+  let i = 1
+  while (i < track.length - 1 && (track[i] as TrackPunkt)[3] < tOffsetS) i++
+  const a = track[i - 1] as TrackPunkt
+  const b = track[i] as TrackPunkt
+  const spanne = b[3] - a[3]
+  const f = spanne > 0 ? (tOffsetS - a[3]) / spanne : 0
+  return (kum[i - 1] as number) + f * ((kum[i] as number) - (kum[i - 1] as number))
+}
+
+/**
+ * Nach dem Zoomen die Ansicht so scrollen, dass der Anker (Anteil 0..1) wieder
+ * an derselben Stelle im Fenster steht — sonst springt der Blick beim Zoomen
+ * irgendwohin. `spurXpx` ist die feste Breite der Namensspalte links.
+ */
+export function ankerScroll(ankerAnteil: number, zeitBreitePx: number, zielVx: number, spurXpx: number): number {
+  return Math.max(0, spurXpx + ankerAnteil * zeitBreitePx - zielVx)
 }

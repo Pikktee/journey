@@ -43,17 +43,20 @@ import {
   type WetterModus,
 } from './editmodell.js'
 import {
+  ankerScroll,
   anteilZuOffset,
   audioWirdVerworfen,
   baueAudioBalken,
   baueBaender,
-  baueMedienMarken,
+  baueMassband,
+  baueMedienDots,
   baueSkala,
-  baueTicks,
   baueTrimGriffe,
   baueZustandsBaender,
   formatiereDauer,
   haltedauerS,
+  kumMeter,
+  meterZuOffset,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
   type ZeitSkala,
@@ -190,10 +193,24 @@ let karte: maplibregl.Map | null = null
 let z: Zustand | null = null
 let marker: maplibregl.Marker[] = []
 let medienMarker = new Map<string, HTMLElement>()
-let hoverMarker: maplibregl.Marker | null = null
+let laeufer: maplibregl.Marker | null = null
 let vorschau: { audio: HTMLAudioElement; datei: string } | null = null
 let zurueckCb: (() => void) | null = null
 let verdrahtet = false
+/** Kumulierte Streckenmeter je Trackpunkt — für die km-Anzeige am Abspielkopf. */
+let kumStrecke: number[] = []
+/** Zoomfaktor der Zeitachse; 1 = ganze Tour im Fenster („angepasst"). */
+let zoom = 1
+/** Aktives Werkzeug der Zeitleiste (Auswahl · Hand · Zoom), wie in Final Cut. */
+let werkzeug: 'auswahl' | 'hand' | 'zoom' = 'auswahl'
+/**
+ * Schluckt den Klick NACH einem Zug, damit das Loslassen nicht zusätzlich
+ * auswählt. Aufgehoben wird die Sperre von der nächsten Zeigergeste (s.
+ * verdrahteEinmal) — NICHT vom folgenden `click`: `preventDefault()` im
+ * pointerdown unterdrückt die Maus-Kompatibilitätsereignisse, der Klick kommt
+ * dann gar nicht, und die Sperre fräße den nächsten echten Klick.
+ */
+let unterdrueckeKlick = false
 /**
  * Overlay-Stand beim letzten Voll-Render — Grundlage der Undo-Erfassung.
  *
@@ -229,6 +246,8 @@ async function ladeDaten(tourId: string): Promise<void> {
     edits,
     gespeichert: JSON.stringify(edits),
     track: daten.segmente.flatMap((s) => s.pts),
+    // Der Abspielkopf steht von Anfang an irgendwo — die Marke ist keine
+    // Sonderlage mehr, sondern die immer sichtbare Position auf der Achse.
     auswahl: null,
     fokus: null,
     platzieren: null,
@@ -241,13 +260,31 @@ async function ladeDaten(tourId: string): Promise<void> {
   ;($('editor-vorschau') as HTMLAnchorElement).href = `/erlebnis.html?tour=srv:${tourId}`
   ;($('editor-vorschau') as HTMLAnchorElement).style.display = daten.status === 'bereit' ? '' : 'none'
 
+  // Streckenmeter einmal je Tour vorrechnen — die km-Anzeige am Abspielkopf
+  // fragt sie bei jeder Bewegung ab.
+  kumStrecke = kumMeter(z.track)
+  const gesamt = document.getElementById('kopf-km-ges')
+  if (gesamt) gesamt.textContent = kmText(kumStrecke[kumStrecke.length - 1] ?? 0)
+
   if (!karte) {
     karte = baueKarte()
     await new Promise<void>((erfuellt) => karte?.once('load', () => erfuellt()))
     baueTrackLayer(karte)
   }
   passeAusschnittAn()
+  // Abspielkopf auf den Start der Wiedergabe (Trim-Anfang) stellen — er ist ab
+  // jetzt immer sichtbar, nicht mehr eine Sonderlage nach dem ersten Klick.
+  const skalaInit = baueSkala(z.track)
+  if (skalaInit) {
+    const trim = baueTrimGriffe(z.edits, z.daten.time.start, skalaInit)
+    z.auswahl = punktZuOffset(z.track, anteilZuOffset(skalaInit, trim.start))
+  }
   renderAlles()
+  // Die Achsenbreite ERST danach setzen: `renderZeitleiste` blendet die Leisten-
+  // Zone ein, und solange sie `hidden` ist, misst sich ihr Fenster als 0 breit —
+  // der Zoom-Fit hätte auf die Notbreite gerechnet und die Achse gestaucht.
+  zoom = 1
+  wendeZoomAn(1, 0, spurXpx())
 }
 
 function schliesse(): void {
@@ -259,7 +296,9 @@ function schliesse(): void {
   letzterStand = null
   marker = []
   medienMarker = new Map()
-  hoverMarker = null
+  laeufer = null
+  kumStrecke = []
+  zoom = 1
   zurueckCb?.()
 }
 
@@ -1561,44 +1600,52 @@ function bandZuFokus(el: HTMLElement | null): Fokus | null {
 
 let zug: ZugZustand | null = null
 
+/**
+ * Anteil 0..1 der Zeitachse an einer Bildschirm-x-Position. Bezug ist das
+ * Maßband-Feld: alle Spuren teilen dieselbe Spalte, eine Referenz genügt.
+ * Sein Rect ist bereits gescrollt und gezoomt — die Rechnung stimmt in jeder
+ * Zoomstufe ohne Zutun.
+ */
 function spurAnteil(clientX: number): number {
-  // Das Overlay deckt exakt die Bahn-Spalte des Grids — alle Bahnen teilen
-  // dieselbe Geometrie, eine Referenz genügt für alle Spuren.
-  const bezug = document.querySelector<HTMLElement>('#zeitleiste .zl-overlay')
+  const bezug = document.getElementById('skala-feld')
   if (!bezug) return 0
   const r = bezug.getBoundingClientRect()
+  if (r.width <= 0) return 0
   return Math.max(0, Math.min(1, (clientX - r.left) / r.width))
+}
+
+/** x-Position innerhalb von `.spuren` (Namenspalte + Anteil der Zeitachse). */
+const zeitX = (anteil: number): string => `calc(var(--spur-x) + ${anteil.toFixed(5)} * var(--zeit-breite))`
+
+/** Prozent der Zeitachse — für Kinder von `.band-reihe`/`.foto-spur`. */
+const pos = (anteil: number): string => `${(anteil * 100).toFixed(3)}%`
+
+/** Bahn leeren und zurückgeben (das Gerüst steht statisch in studio.html). */
+function spur(id: string): HTMLElement {
+  const el = $(id)
+  el.innerHTML = ''
+  return el
+}
+
+/** data-Attribute eines Bandes → Fokus-Identität. */
+function bandZuFokusEl(el: HTMLElement | null): Fokus | null {
+  return bandZuFokus(el)
 }
 
 function renderZeitleiste(): void {
   if (!z) return
-  const el = $('zeitleiste')
+  const zone = $('zeitleiste-zone')
   const skala = baueSkala(z.track)
   if (!skala) {
-    el.hidden = true
+    zone.hidden = true
     return
   }
-  el.hidden = false
+  zone.hidden = false
   const start = z.daten.time.start
-  const pos = (anteil: number): string => `${(anteil * 100).toFixed(3)}%`
   const anteilVon = (iso: string): number => offsetZuAnteil(skala, isoZuOffset(start, iso))
+  const fokusInfo = loeseFokusAuf()
 
-  el.innerHTML = ''
-  const gitter = document.createElement('div')
-  gitter.className = 'zl-bahnen'
-
-  /** Beschriftete Bahn ins Grid hängen (Label-Spalte + Bahn-Spalte). */
-  const bahn = (name: string, spur: string): HTMLElement => {
-    const label = document.createElement('div')
-    label.className = 'zl-name'
-    label.textContent = name
-    gitter.appendChild(label)
-    const b = document.createElement('div')
-    b.className = `zl-bahn ${spur}`
-    b.dataset['rolle'] = 'spur'
-    gitter.appendChild(b)
-    return b
-  }
+  renderSkala()
 
   /**
    * Zustandsband mit Beschriftung — Anfang und Ende sind dieselbe Kante.
@@ -1607,7 +1654,7 @@ function renderZeitleiste(): void {
    */
   const band = (art: 'modus' | 'kamera' | 'wetter', von: number, bis: number, text: string, farbe?: string): HTMLElement => {
     const d = document.createElement('div')
-    d.className = 'zl-band'
+    d.className = 'band'
     d.style.left = pos(von)
     d.style.width = pos(bis - von)
     if (farbe) d.style.background = farbe
@@ -1619,12 +1666,10 @@ function renderZeitleiste(): void {
     return d
   }
 
-  const fokusInfo = loeseFokusAuf()
-
   /** Ziehbare Bandkante = die Grenze im Overlay (Identität über `ab`). */
   const kante = (anteil: number, rolle: string, daten: Record<string, string>, titel: string): HTMLElement => {
     const k = document.createElement('div')
-    k.className = 'zl-kante'
+    k.className = 'kante'
     k.style.left = pos(anteil)
     k.dataset['rolle'] = rolle
     for (const [schluessel, wert] of Object.entries(daten)) k.dataset[schluessel] = wert
@@ -1632,14 +1677,20 @@ function renderZeitleiste(): void {
     return k
   }
 
+  /** Ein Band gilt als fokussiert, wenn seine Mitte in der Fokus-Spanne liegt. */
+  const istFokus = (art: string, von: number, bis: number): boolean => {
+    if (fokusInfo?.art !== art) return false
+    const mitte = anteilZuOffset(skala, (von + bis) / 2)
+    return mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS
+  }
+
   // — Fortbewegung: Bänder aus der Anzeige-Zerlegung (Segment-Modi + Grenzen +
   //   Trim-Graufärbung); ziehbar sind nur die ECHTEN Overlay-Grenzen —
-  const modusBahn = bahn('Fortbewegung', 'modus')
+  const modusBahn = spur('spur-wege')
   for (const b of baueBaender(zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start), skala)) {
     const d = band('modus', b.von, b.bis, MODUS_NAMEN[b.mode], MODUS_FARBEN[b.mode])
     if (!b.aktiv) d.classList.add('inaktiv')
-    const mitte = anteilZuOffset(skala, (b.von + b.bis) / 2)
-    if (fokusInfo?.art === 'modus' && mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS) d.classList.add('fokus')
+    if (istFokus('modus', b.von, b.bis)) d.classList.add('fokus')
     modusBahn.appendChild(d)
   }
   for (const g of z.edits.modi ?? []) {
@@ -1650,8 +1701,8 @@ function renderZeitleiste(): void {
     )
   }
 
-  // — Kamera: früher nur Punkt-Pins („ab hier"), jetzt lückenlose Bänder —
-  const kameraBahn = bahn('Kamera', 'kamera')
+  // — Kamera: lückenlose Bänder; das Grundband zeigt „Preset des Zuschauers" —
+  const kameraBahn = spur('spur-kamera')
   const kameraBaender = baueZustandsBaender<KameraPreset | null>(
     (z.edits.kamera ?? []).map((g) => ({ ab: g.ab, wert: g.preset })),
     start,
@@ -1669,10 +1720,9 @@ function renderZeitleiste(): void {
       (b.wert ? PRESET_NAMEN[b.wert] : 'Preset des Zuschauers') + skalaTxt,
       b.wert ? PRESET_FARBEN[b.wert] : undefined,
     )
-    d.classList.add('kamera')
-    if (!b.wert) d.classList.add('grund')
-    const mitte = anteilZuOffset(skala, (b.von + b.bis) / 2)
-    if (fokusInfo?.art === 'kamera' && mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS) d.classList.add('fokus')
+    if (!b.wert) d.classList.add('leise')
+    else d.classList.add('hell')
+    if (istFokus('kamera', b.von, b.bis)) d.classList.add('fokus')
     kameraBahn.appendChild(d)
     if (b.ab !== null && b.wert) {
       kameraBahn.appendChild(
@@ -1686,9 +1736,9 @@ function renderZeitleiste(): void {
     }
   }
 
-  // — Wetter: lückenlose Bänder wie Kamera; Grund je nach Overlay „Automatisch"
-  //   (kein Override → Auto-Wetter) oder „Klar" (Overlay ersetzt Auto-Wetter) —
-  const wetterBahn = bahn('Wetter', 'wetter')
+  // — Wetter: wie Kamera; Grund je nach Overlay „Automatisch" (kein Override →
+  //   Auto-Wetter) oder „Klar" (Overlay ersetzt das Auto-Wetter vollständig) —
+  const wetterBahn = spur('spur-wetter')
   const hatWetter = (z.edits.wetter ?? []).length > 0
   const wetterBaender = baueZustandsBaender<WetterModus | null>(
     (z.edits.wetter ?? []).map((g) => ({ ab: g.ab, wert: g.mode })),
@@ -1706,10 +1756,9 @@ function renderZeitleiste(): void {
       (b.wert ? WETTER_NAMEN[b.wert] : 'Automatisch') + staerkeTxt,
       b.wert ? WETTER_FARBEN[b.wert] : undefined,
     )
-    d.classList.add('wetter')
-    if (!b.wert) d.classList.add('grund')
-    const mitte = anteilZuOffset(skala, (b.von + b.bis) / 2)
-    if (fokusInfo?.art === 'wetter' && mitte >= fokusInfo.vonS && mitte <= fokusInfo.bisS) d.classList.add('fokus')
+    if (!b.wert) d.classList.add('leise')
+    else d.classList.add('hell')
+    if (istFokus('wetter', b.von, b.bis)) d.classList.add('fokus')
     wetterBahn.appendChild(d)
     if (b.ab !== null && b.wert) {
       wetterBahn.appendChild(
@@ -1724,7 +1773,7 @@ function renderZeitleiste(): void {
   }
 
   // — Kamera-Momente: Punkt-Marken (ziehbar), je Art ein Symbol —
-  const momentBahn = bahn('Momente', 'moment')
+  const momentBahn = spur('spur-momente')
   for (const m of z.edits.momente ?? []) {
     const a = anteilVon(m.ab)
     if (!Number.isFinite(a)) continue
@@ -1740,122 +1789,269 @@ function renderZeitleiste(): void {
     momentBahn.appendChild(marke)
   }
 
-  // — Musik & Sound: Balken mit sichtbaren Kanten, SFX als Einzelmarke —
-  const audioBahn = bahn('Musik & Sound', 'audio')
+  // — Musik & Sound: Klips (Dauer) unten, Klang-Pins (Zeitpunkt) oben —
+  const audioBahn = spur('spur-musik')
   for (const b of baueAudioBalken(z.edits.audio ?? [], start, skala)) {
     if (b.typ === 'musik') {
-      const balken = document.createElement('div')
-      balken.className = 'zl-audio-balken'
-      balken.style.left = pos(b.von)
-      balken.style.width = pos(Math.max(0.004, b.bis - b.von))
-      balken.dataset['rolle'] = 'audio-balken'
-      balken.dataset['index'] = String(b.index)
-      balken.title = `${b.datei} — ziehen zum Verschieben, Kanten für Anfang und Ende`
-      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) balken.classList.add('fokus')
+      const klip = document.createElement('div')
+      klip.className = 'zl-klip'
+      klip.style.left = pos(b.von)
+      klip.style.width = pos(Math.max(0.004, b.bis - b.von))
+      klip.dataset['rolle'] = 'audio-balken'
+      klip.dataset['index'] = String(b.index)
+      klip.title = `${b.datei} — ziehen zum Verschieben, Kanten für Anfang und Ende`
+      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) klip.classList.add('fokus')
       const name = document.createElement('span')
       name.textContent = b.datei
-      balken.appendChild(name)
+      klip.appendChild(name)
       for (const seite of ['von', 'bis'] as const) {
         const griff = document.createElement('div')
         griff.className = `kante ${seite}`
         griff.dataset['rolle'] = `audio-${seite}`
         griff.dataset['index'] = String(b.index)
-        balken.appendChild(griff)
+        klip.appendChild(griff)
       }
-      audioBahn.appendChild(balken)
+      audioBahn.appendChild(klip)
     } else {
-      const raute = document.createElement('div')
-      raute.className = 'zl-sfx'
-      raute.style.left = pos(b.von)
-      raute.dataset['rolle'] = 'sfx'
-      raute.dataset['index'] = String(b.index)
-      raute.title = `${b.datei} (Einzel-Sound) — ziehen zum Verschieben`
-      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) raute.classList.add('fokus')
-      audioBahn.appendChild(raute)
+      const pin = document.createElement('div')
+      pin.className = 'zl-sfx'
+      pin.style.left = pos(b.von)
+      pin.dataset['rolle'] = 'sfx'
+      pin.dataset['index'] = String(b.index)
+      pin.title = `${b.datei} (Einzel-Sound) — ziehen zum Verschieben`
+      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) pin.classList.add('fokus')
+      pin.appendChild(document.createElement('i'))
+      audioBahn.appendChild(pin)
     }
   }
 
-  // — Fotos: Marke so breit wie die Haltedauer (Größenkodierung, s. zeitleiste.ts) —
-  const medienBahn = bahn('Fotos', 'medien')
-  for (const m of baueMedienMarken(medienAnzeige(), z.track, skala)) {
-    const marke = document.createElement('div')
-    marke.className = `zl-marke${m.type === 'video' ? ' video' : ''}`
-    marke.style.left = pos(m.anteil)
-    marke.style.width = `max(11px, ${pos(m.breite)})`
-    marke.dataset['rolle'] = 'dot'
-    marke.dataset['id'] = m.id
-    marke.title = m.haltedauerS ? `${m.id} — ${m.haltedauerS} s Haltedauer` : m.id
-    if (fokusInfo?.art === 'medium' && fokusInfo.id === m.id) marke.classList.add('fokus')
-    medienBahn.appendChild(marke)
+  // — Fotos/Videos: Miniaturen an ihrer Aufnahmezeit —
+  const medien = medienAnzeige()
+  const nachId = new Map(medien.map((m) => [m.id, m]))
+  const fotoBahn = spur('spur-fotos')
+  for (const d of baueMedienDots(medien, z.track, skala)) {
+    const m = nachId.get(d.id)
+    const mini = document.createElement('button')
+    mini.type = 'button'
+    mini.className = 'f-mini'
+    mini.style.left = pos(d.anteil)
+    mini.dataset['rolle'] = 'dot'
+    mini.dataset['id'] = d.id
+    const halt = m?.type === 'photo' ? haltedauerS(m.display) : 0
+    mini.title = halt ? `${d.id} — ${zeitText(m?.takenAt ?? '')} Uhr, ${halt} s Haltedauer` : d.id
+    const bild = document.createElement('img')
+    bild.src = (d.type === 'video' ? (m?.poster ?? '') : (m?.src ?? '')) || (m?.src ?? '')
+    bild.alt = ''
+    bild.loading = 'lazy'
+    mini.appendChild(bild)
+    if (d.type === 'video') {
+      const badge = document.createElement('span')
+      badge.className = 'v-badge'
+      badge.innerHTML = icon('play')
+      mini.appendChild(badge)
+    }
+    if (fokusInfo?.art === 'medium' && fokusInfo.id === d.id) mini.classList.add('fokus')
+    fotoBahn.appendChild(mini)
   }
 
-  // — Overlay über ALLE Bahnen: Trim, Auswahl, Hover (die Linien sollen
-  //   durchgehen, damit man Ereignisse spurübergreifend ausrichten kann) —
-  const overlay = document.createElement('div')
-  overlay.className = 'zl-overlay'
-  const trim = baueTrimGriffe(z.edits, start, skala)
-  const links = document.createElement('div')
-  links.className = 'zl-schatten links'
-  links.style.width = pos(trim.start)
-  overlay.appendChild(links)
-  const rechts = document.createElement('div')
-  rechts.className = 'zl-schatten rechts'
-  rechts.style.width = pos(1 - trim.ende)
-  overlay.appendChild(rechts)
+  renderTrimGriffe(skala)
+  renderPlayhead()
+
+  // — Geschätzte Laufzeit der fertigen Animation (eine Zahl, keine zweite Achse) —
+  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
+  const halte = medien.filter((m) => m.type === 'photo' && !m.geloescht && m.anchor).map((m) => haltedauerS(m.display))
+  $('zl-dauer').textContent = `~ ${formatiereDauer(schaetzeAnimationsdauer(abschnitte, halte))} Laufzeit`
+}
+
+// — Zoom, Abspielkopf und Läufer —
+//
+// Die Zeitachse ist so breit wie `--zeit-breite` (Pixel, nicht Prozent): nur so
+// kann sie über das Fenster hinauswachsen und waagerecht scrollen. Bei Zoom 1
+// füllt sie das Fenster genau — das ist der Standard „an Fenster angepasst".
+
+const ZOOM_MAX = 40
+
+/** Breite der Zeitachse bei Zoom 1: Fensterbreite minus Namenspalte und Auslauf. */
+function basisBreitePx(): number {
+  const fenster = document.getElementById('spuren-fenster')
+  if (!fenster) return 0
+  return Math.max(120, fenster.clientWidth - spurXpx() - 26)
+}
+
+function spurXpx(): number {
+  const wert = getComputedStyle($('editor-view')).getPropertyValue('--spur-x')
+  return parseFloat(wert) || 168
+}
+
+function zeitBreitePx(): number {
+  return basisBreitePx() * zoom
+}
+
+/**
+ * Zoom setzen und die Ansicht so scrollen, dass `ankerAnteil` an der Fenster-x
+ * `zielVx` stehen bleibt — sonst springt der Blick beim Zoomen irgendwohin.
+ */
+function wendeZoomAn(neu: number, ankerAnteil: number, zielVx: number): void {
+  zoom = Math.max(1, Math.min(ZOOM_MAX, neu))
+  const breite = zeitBreitePx()
+  $('editor-view').style.setProperty('--zeit-breite', `${breite}px`)
+  renderSkala()
+  renderPlayhead()
+  const fenster = document.getElementById('spuren-fenster')
+  if (fenster) fenster.scrollLeft = ankerScroll(ankerAnteil, breite, zielVx, spurXpx())
+  zoomAnzeigen()
+}
+
+function zoomAnzeigen(): void {
+  const regler = document.getElementById('zoom-regler') as HTMLInputElement | null
+  if (regler) regler.value = String(Math.round((Math.log(zoom) / Math.log(ZOOM_MAX)) * 100))
+  const wert = document.getElementById('zoom-wert') as HTMLButtonElement | null
+  if (wert) {
+    wert.textContent = `${zoom.toFixed(1).replace('.', ',')}×`
+    wert.disabled = zoom <= 1.001
+  }
+  const raus = document.getElementById('zoom-raus') as HTMLButtonElement | null
+  if (raus) raus.disabled = zoom <= 1.001
+  const rein = document.getElementById('zoom-rein') as HTMLButtonElement | null
+  if (rein) rein.disabled = zoom >= ZOOM_MAX - 0.001
+}
+
+/** Nach Größenänderungen die Achse an die neue Fensterbreite anpassen. */
+function passeZeitBreiteAn(): void {
+  if (!z) return
+  const fenster = document.getElementById('spuren-fenster')
+  const anker = fenster && fenster.clientWidth > 0 ? (fenster.scrollLeft + spurXpx()) / Math.max(1, zeitBreitePx()) : 0
+  wendeZoomAn(zoom, Math.max(0, Math.min(1, anker)), spurXpx())
+}
+
+/**
+ * Der Abspielkopf ist die Einfügemarke `z.auswahl` — eine Größe, nicht zwei:
+ * was man anpeilt, ist auch die Stelle, ab der „ab hier"-Aktionen greifen.
+ */
+function setzeMarke(tOffsetS: number): void {
+  if (!z) return
+  const skala = baueSkala(z.track)
+  if (!skala) return
+  const geklemmt = Math.max(skala.vonS, Math.min(skala.bisS, tOffsetS))
+  const punkt = punktZuOffset(z.track, geklemmt)
+  if (punkt) z.auswahl = punkt
+  renderPlayhead()
+  renderAuswahl()
+}
+
+/** Kopfstrich, Kopf-Uhr und Läufer auf die aktuelle Marke stellen. */
+function renderPlayhead(): void {
+  if (!z) return
+  const strich = document.getElementById('kopfstrich')
+  const skala = baueSkala(z.track)
+  if (!strich || !skala) return
+  if (!z.auswahl) {
+    strich.hidden = true
+    return
+  }
+  strich.hidden = false
+  const tOffsetS = z.auswahl[3]
+  strich.style.left = zeitX(offsetZuAnteil(skala, tOffsetS))
+
+  const uhr = document.getElementById('kopf-uhr')
+  // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
+  // Sekundenstelle nur — und die Achse ist ohnehin minutengenau beschriftet.
+  if (uhr) uhr.textContent = uhrzeitKurz(offsetZuIso(z.daten.time.start, tOffsetS))
+  const km = document.getElementById('kopf-km')
+  if (km) km.textContent = kmText(meterZuOffset(kumStrecke, z.track, tOffsetS))
+
+  setzeLaeufer(tOffsetS)
+}
+
+const kmText = (meter: number): string => (meter / 1000).toFixed(1).replace('.', ',')
+
+/** Uhrzeit ohne Sekunden, in der Zone der Tour. */
+function uhrzeitKurz(iso: string): string {
+  if (!z) return iso
+  try {
+    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: z.daten.time.zone }).format(new Date(iso))
+  } catch {
+    return iso
+  }
+}
+
+/**
+ * Der Läufer zeigt, WO auf der Strecke die Marke steht — und WOMIT man dort
+ * unterwegs ist. Das Piktogramm ist zeichengleich mit dem Fahrer im Player
+ * (MODE_ICONS in src/map.js), damit Editor und Wiedergabe dieselbe Sprache
+ * sprechen.
+ */
+function setzeLaeufer(tOffsetS: number): void {
+  if (!z || !karte) return
+  const punkt = punktZuOffset(z.track, tOffsetS)
+  if (!punkt) return
+  if (!laeufer) {
+    const el = document.createElement('div')
+    el.className = 'laeufer'
+    el.innerHTML = `<span class="puls"></span><span class="puck">${icon('m-walk')}</span>`
+    laeufer = new maplibregl.Marker({ element: el }).setLngLat([punkt[0], punkt[1]]).addTo(karte)
+  } else {
+    laeufer.setLngLat([punkt[0], punkt[1]])
+  }
+  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start)
+  const treffer = abschnitte.find((a) => {
+    const erster = a.pts[0] as TrackPunkt
+    const letzter = a.pts[a.pts.length - 1] as TrackPunkt
+    return tOffsetS >= erster[3] && tOffsetS <= letzter[3]
+  })
+  const zeichen = `#i-m-${treffer?.mode ?? 'walk'}`
+  const use = laeufer.getElement().querySelector('.puck use')
+  // Nur bei echtem Wechsel setzen — ein neu gesetztes href lässt das <use> flackern.
+  if (use && use.getAttribute('href') !== zeichen) use.setAttribute('href', zeichen)
+}
+
+/** Maßband: Stufe folgt dem Zoom, damit die Achse immer lesbar bleibt. */
+function renderSkala(): void {
+  if (!z) return
+  const feld = document.getElementById('skala-feld')
+  const skala = baueSkala(z.track)
+  if (!feld || !skala) return
+  feld.innerHTML = ''
+  const breitePx = zeitBreitePx()
+  const spanneMin = (skala.bisS - skala.vonS) / 60
+  if (breitePx <= 0 || spanneMin <= 0) return
+  for (const m of baueMassband(z.daten.time.start, skala, z.daten.time.zone, breitePx / spanneMin)) {
+    const d = document.createElement('div')
+    d.className = 'skala-marke' + (m.voll ? ' voll' : '') + (m.rand ? ` am-${m.rand}` : '')
+    d.style.left = pos(m.anteil)
+    d.append(m.text, document.createElement('i'))
+    feld.appendChild(d)
+  }
+}
+
+/** Trim: abgedunkelte Ränder + die beiden Griffe, über allen Bahnen. */
+function renderTrimGriffe(skala: ZeitSkala): void {
+  if (!z) return
+  const wirt = $('zl-trim')
+  wirt.innerHTML = ''
+  const trim = baueTrimGriffe(z.edits, z.daten.time.start, skala)
+  for (const [seite, von, bis] of [
+    ['links', 0, trim.start],
+    ['rechts', trim.ende, 1],
+  ] as const) {
+    if (bis - von <= 0.0005) continue
+    const schatten = document.createElement('div')
+    schatten.className = `zl-schatten ${seite}`
+    schatten.style.left = zeitX(von)
+    schatten.style.width = `calc(${(bis - von).toFixed(5)} * var(--zeit-breite))`
+    wirt.appendChild(schatten)
+  }
   for (const [rolle, anteil, titel] of [
     ['trim-start', trim.start, 'Start der Wiedergabe (ganz nach links = kein Trim)'],
     ['trim-ende', trim.ende, 'Ende der Wiedergabe (ganz nach rechts = kein Trim)'],
   ] as const) {
     const griff = document.createElement('div')
     griff.className = 'zl-griff'
-    griff.style.left = pos(anteil)
+    griff.style.left = zeitX(anteil)
     griff.dataset['rolle'] = rolle
     griff.title = titel
-    overlay.appendChild(griff)
+    wirt.appendChild(griff)
   }
-  if (z.auswahl) {
-    const sel = document.createElement('div')
-    sel.className = 'zl-linie auswahl'
-    sel.style.left = pos(offsetZuAnteil(skala, z.auswahl[3]))
-    overlay.appendChild(sel)
-  }
-  const hover = document.createElement('div')
-  hover.className = 'zl-linie'
-  hover.dataset['teil'] = 'hover'
-  overlay.appendChild(hover)
-  const tip = document.createElement('div')
-  tip.className = 'zl-tip'
-  tip.dataset['teil'] = 'tip'
-  overlay.appendChild(tip)
-  gitter.appendChild(overlay)
-  el.appendChild(gitter)
-
-  // — Zeitachse; die Label-Spalte trägt die geschätzte Laufzeit der Animation —
-  const fuss = document.createElement('div')
-  fuss.className = 'zl-fuss'
-  const dauer = document.createElement('div')
-  dauer.className = 'zl-dauer'
-  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
-  const halte = medienAnzeige()
-    .filter((m) => m.type === 'photo' && !m.geloescht && m.anchor)
-    .map((m) => haltedauerS(m.display))
-  dauer.textContent = `~ ${formatiereDauer(schaetzeAnimationsdauer(abschnitte, halte))}`
-  dauer.title = 'Geschätzte Laufzeit der fertigen Animation (Fahrzeit + Foto-Stopps)'
-  fuss.appendChild(dauer)
-  const ticks = document.createElement('div')
-  ticks.className = 'zl-ticks'
-  for (const t of baueTicks(start, skala, z.daten.time.zone)) {
-    const s = document.createElement('span')
-    s.style.left = pos(t.anteil)
-    s.textContent = t.text
-    // Randticks klemmen: zentriert ragen sie sonst über die Achse hinaus —
-    // links in die Label-Spalte (wo die Laufzeit steht), rechts aus der Leiste.
-    if (t.anteil < 0.02) s.style.transform = 'none'
-    else if (t.anteil > 0.98) s.style.transform = 'translateX(-100%)'
-    ticks.appendChild(s)
-  }
-  fuss.appendChild(ticks)
-  el.appendChild(fuss)
 }
 
 /** Während eines Zugs nur die betroffenen Teile neu zeichnen (Karte + Leiste). */
@@ -1968,17 +2164,19 @@ function zeitleisteZug(e: PointerEvent): void {
 }
 
 function verdrahteZeitleiste(): void {
-  const el = $('zeitleiste')
+  const zone = $('zeitleiste-zone')
+  const fenster = $('spuren-fenster')
 
-  el.addEventListener('pointerdown', (e) => {
-    if (!z) return
+  // — Ziehen an Kanten, Griffen, Pins und Klips —
+  zone.addEventListener('pointerdown', (e) => {
+    if (!z || werkzeug !== 'auswahl') return
     const ziel = (e.target as HTMLElement).closest<HTMLElement>('[data-rolle]')
     if (!ziel) return
     const rolle = ziel.dataset['rolle']!
     if (rolle === 'dot') return // Klick, kein Zug
     e.preventDefault()
-    el.setPointerCapture(e.pointerId)
-    el.classList.add('zieht')
+    zone.setPointerCapture(e.pointerId)
+    zone.classList.add('zieht')
     zug = { rolle, bewegt: false, fokus: bandZuFokus((e.target as HTMLElement).closest<HTMLElement>('[data-fokus]')) }
     if (ziel.dataset['ab'] !== undefined) zug.ab = ziel.dataset['ab']
     if (ziel.dataset['mode']) zug.mode = ziel.dataset['mode'] as Modus
@@ -1987,7 +2185,7 @@ function verdrahteZeitleiste(): void {
     if (ziel.dataset['art']) zug.momentArt = ziel.dataset['art'] as MomentArt
     if (ziel.dataset['index'] !== undefined) zug.index = Number(ziel.dataset['index'])
     if (rolle === 'audio-balken') {
-      // Versatz zwischen Cursor und Balkenanfang merken → ruckfreies Schieben
+      // Versatz zwischen Cursor und Klipanfang merken → ruckfreies Schieben
       const skala = baueSkala(z.track)
       const a = (z.edits.audio ?? [])[zug.index ?? -1]
       if (skala && a) {
@@ -1996,36 +2194,8 @@ function verdrahteZeitleiste(): void {
     }
   })
 
-  el.addEventListener('pointermove', (e) => {
-    if (!z) return
-    if (zug) {
-      zeitleisteZug(e)
-      return
-    }
-    // Hover: Linie + Zeit-Tooltip + Positions-Marker auf der Karte
-    const skala = baueSkala(z.track)
-    if (!skala || !karte) return
-    const anteil = spurAnteil(e.clientX)
-    const offset = anteilZuOffset(skala, anteil)
-    const hover = el.querySelector<HTMLElement>('[data-teil="hover"]')
-    const tip = el.querySelector<HTMLElement>('[data-teil="tip"]')
-    if (hover && tip) {
-      hover.style.display = 'block'
-      hover.style.left = `${anteil * 100}%`
-      tip.style.display = 'block'
-      tip.style.left = `${anteil * 100}%`
-      tip.textContent = zeitText(offsetZuIso(z.daten.time.start, offset))
-    }
-    const punkt = punktZuOffset(z.track, offset)
-    if (punkt) {
-      if (!hoverMarker) {
-        const dot = document.createElement('div')
-        dot.className = 'hover-marker'
-        hoverMarker = new maplibregl.Marker({ element: dot }).setLngLat([punkt[0], punkt[1]]).addTo(karte)
-      } else {
-        hoverMarker.setLngLat([punkt[0], punkt[1]])
-      }
-    }
+  zone.addEventListener('pointermove', (e) => {
+    if (zug) zeitleisteZug(e)
   })
 
   const zugEnde = (e: PointerEvent): void => {
@@ -2034,15 +2204,17 @@ function verdrahteZeitleiste(): void {
     if (zug) {
       const war = zug
       zug = null
-      el.classList.remove('zieht')
-      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+      zone.classList.remove('zieht')
+      if (zone.hasPointerCapture(e.pointerId)) zone.releasePointerCapture(e.pointerId)
       if (war.bewegt) {
+        unterdrueckeKlick = true
         renderAlles()
         return
       }
-      // Kein Zug = Klick: Einfügemarke setzen UND das getroffene Band
-      // fokussieren — ein Klick, beide sinnvollen Wirkungen.
-      if (war.rolle === 'spur' || war.rolle === 'trim-start' || war.rolle === 'trim-ende') {
+      // Kein Zug = Klick: Abspielkopf setzen UND das getroffene Band
+      // fokussieren — ein Klick, beide sinnvollen Wirkungen. Traf er nichts,
+      // wird die Auswahl aufgehoben (wie im Schnittprogramm).
+      if (war.rolle === 'spur' || war.rolle === 'skala' || war.rolle === 'trim-start' || war.rolle === 'trim-ende') {
         const skala = baueSkala(zz.track)
         if (skala) {
           zz.auswahl = punktZuOffset(zz.track, anteilZuOffset(skala, spurAnteil(e.clientX)))
@@ -2058,10 +2230,10 @@ function verdrahteZeitleiste(): void {
       }
     }
   }
-  el.addEventListener('pointerup', (e) => {
-    // Dot-Klick: Karte + Liste synchronisieren
+  zone.addEventListener('pointerup', (e) => {
+    // Miniatur-Klick: Karte + Liste synchronisieren
     const dot = (e.target as HTMLElement).closest<HTMLElement>('[data-rolle="dot"]')
-    if (dot && z) {
+    if (dot && z && werkzeug === 'auswahl' && !unterdrueckeKlick) {
       const medium = medienAnzeige().find((m) => m.id === dot.dataset['id'])
       if (medium) {
         z.fokus = { art: 'medium', id: medium.id }
@@ -2072,16 +2244,155 @@ function verdrahteZeitleiste(): void {
     }
     zugEnde(e)
   })
-  el.addEventListener('pointercancel', zugEnde)
-  el.addEventListener('pointerleave', () => {
-    if (zug) return
-    const hover = el.querySelector<HTMLElement>('[data-teil="hover"]')
-    const tip = el.querySelector<HTMLElement>('[data-teil="tip"]')
-    if (hover) hover.style.display = 'none'
-    if (tip) tip.style.display = 'none'
-    hoverMarker?.remove()
-    hoverMarker = null
+  zone.addEventListener('pointercancel', zugEnde)
+
+  // — Abspielkopf ziehen —
+  //
+  // Über FENSTER-Listener statt Pointer-Capture: der Kopf ist 13 px breit,
+  // eine Capture darauf verlöre bei schnellen Bewegungen die Ereignisse.
+  $('kopf-griff').addEventListener('pointerdown', (e) => {
+    if (!z || e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    document.body.classList.add('scrubbt')
+    const skala = baueSkala(z.track)
+    const zieh = (ev: PointerEvent): void => {
+      if (!skala) return
+      setzeMarke(anteilZuOffset(skala, spurAnteil(ev.clientX)))
+    }
+    const los = (): void => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+      document.body.classList.remove('scrubbt')
+      unterdrueckeKlick = true
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
   })
+
+  // Klick/Zug auf dem Maßband scrubbt ebenfalls — die vertraute Geste.
+  $('skala-feld').addEventListener('pointerdown', (e) => {
+    if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
+    e.preventDefault()
+    const skala = baueSkala(z.track)
+    if (!skala) return
+    setzeMarke(anteilZuOffset(skala, spurAnteil(e.clientX)))
+    document.body.classList.add('scrubbt')
+    const zieh = (ev: PointerEvent): void => setzeMarke(anteilZuOffset(skala, spurAnteil(ev.clientX)))
+    const los = (): void => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+      document.body.classList.remove('scrubbt')
+      renderAlles()
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
+  })
+
+  // — Werkzeuge: Hand pannt, Zoom klickt/zieht. Der Abspielkopf bleibt in
+  //   jedem Werkzeug greifbar (er ist von diesem Handler ausgenommen). —
+  $('zeitleiste-zone').querySelector('.werkzeuge')?.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('.wkz')
+    if (b?.dataset['wkz']) setzeWerkzeug(b.dataset['wkz'] as typeof werkzeug)
+  })
+  fenster.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || werkzeug === 'auswahl') return
+    if ((e.target as HTMLElement).closest('.kopf-griff')) return
+    e.preventDefault()
+    const fr = fenster.getBoundingClientRect()
+    const anteilBei = (clientX: number): number =>
+      Math.min(Math.max((fenster.scrollLeft + (clientX - fr.left) - spurXpx()) / Math.max(1, zeitBreitePx()), 0), 1)
+    if (werkzeug === 'hand') {
+      fenster.classList.add('greift')
+      const startX = e.clientX
+      const startScroll = fenster.scrollLeft
+      const zieh = (ev: PointerEvent): void => {
+        fenster.scrollLeft = startScroll - (ev.clientX - startX)
+      }
+      const los = (): void => {
+        window.removeEventListener('pointermove', zieh)
+        window.removeEventListener('pointerup', los)
+        fenster.classList.remove('greift')
+      }
+      window.addEventListener('pointermove', zieh)
+      window.addEventListener('pointerup', los)
+      return
+    }
+    const startX = e.clientX
+    const box = $('zoom-box')
+    let gezogen = false
+    const zieh = (ev: PointerEvent): void => {
+      if (!gezogen && Math.abs(ev.clientX - startX) < 5) return
+      gezogen = true
+      box.style.display = 'block'
+      box.style.left = `${Math.min(startX, ev.clientX)}px`
+      box.style.width = `${Math.abs(ev.clientX - startX)}px`
+      box.style.top = `${fr.top}px`
+      box.style.height = `${fr.height}px`
+    }
+    const los = (ev: PointerEvent): void => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+      box.style.display = 'none'
+      if (gezogen) {
+        // Auf den aufgezogenen Bereich zoomen — er füllt danach die Breite
+        const a = anteilBei(Math.min(startX, ev.clientX))
+        const b = anteilBei(Math.max(startX, ev.clientX))
+        wendeZoomAn(1 / Math.max(b - a, 0.02), (a + b) / 2, fenster.clientWidth / 2)
+      } else {
+        wendeZoomAn(zoom * (ev.altKey ? 1 / 1.6 : 1.6), anteilBei(ev.clientX), ev.clientX - fr.left)
+      }
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
+  })
+
+  // — Zoom-Bedienung im Kopf —
+  const zoomAnker = (): { anteil: number; vx: number } => {
+    const skala = z ? baueSkala(z.track) : null
+    // Um den Abspielkopf zoomen, wenn er sichtbar ist — sonst um die Fenstermitte
+    if (z?.auswahl && skala) {
+      const anteil = offsetZuAnteil(skala, z.auswahl[3])
+      const vx = spurXpx() + anteil * zeitBreitePx() - fenster.scrollLeft
+      if (vx >= 0 && vx <= fenster.clientWidth) return { anteil, vx }
+    }
+    const mitte = fenster.clientWidth / 2
+    return { anteil: (fenster.scrollLeft + mitte - spurXpx()) / Math.max(1, zeitBreitePx()), vx: mitte }
+  }
+  $('zoom-rein').addEventListener('click', () => {
+    const a = zoomAnker()
+    wendeZoomAn(zoom * 1.6, a.anteil, a.vx)
+  })
+  $('zoom-raus').addEventListener('click', () => {
+    const a = zoomAnker()
+    wendeZoomAn(zoom / 1.6, a.anteil, a.vx)
+  })
+  $('zoom-wert').addEventListener('click', () => wendeZoomAn(1, 0, spurXpx()))
+  $('zoom-regler').addEventListener('input', (e) => {
+    const v = Number((e.target as HTMLInputElement).value) / 100
+    const a = zoomAnker()
+    wendeZoomAn(Math.pow(ZOOM_MAX, v), a.anteil, a.vx)
+  })
+  // Pinch/⌘-Rad zoomt um den Cursor (wie im Schnittprogramm)
+  fenster.addEventListener(
+    'wheel',
+    (e) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      const fr = fenster.getBoundingClientRect()
+      const anteil = (fenster.scrollLeft + (e.clientX - fr.left) - spurXpx()) / Math.max(1, zeitBreitePx())
+      wendeZoomAn(zoom * Math.exp(-e.deltaY / 220), Math.max(0, Math.min(1, anteil)), e.clientX - fr.left)
+    },
+    { passive: false },
+  )
+}
+
+/** Werkzeug umschalten — Cursor und Timeline-Verhalten folgen dem Zustand. */
+function setzeWerkzeug(w: typeof werkzeug): void {
+  werkzeug = w
+  document.querySelectorAll<HTMLElement>('.wkz').forEach((b) => b.classList.toggle('an', b.dataset['wkz'] === w))
+  const fenster = document.getElementById('spuren-fenster')
+  if (fenster) fenster.dataset['wkz'] = w
 }
 
 function status(text: string, klasse = ''): void {
@@ -2170,6 +2481,12 @@ function verdrahteEinmal(): void {
   $('editor-reprocess').addEventListener('click', () => void neuVerarbeiten())
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)
+  // Eine neue Zeigergeste hebt die Klick-Sperre auf (Capture-Phase, vor allen
+  // anderen Handlern) — s. Kommentar bei `unterdrueckeKlick`.
+  document.addEventListener('pointerdown', () => { unterdrueckeKlick = false }, true)
+  window.addEventListener('resize', () => {
+    if (!$('editor-view').hidden) passeZeitBreiteAn()
+  })
   document.addEventListener('keydown', (e) => {
     if (!z || $('editor-view').hidden) return
     // In Eingabefeldern gilt das native Undo/Speichern des Browsers
@@ -2182,10 +2499,33 @@ function verdrahteEinmal(): void {
     } else if (meta && e.key.toLowerCase() === 's') {
       e.preventDefault()
       void speichern()
+    } else if (meta && (e.key === '+' || e.key === '=' || e.key === '-')) {
+      e.preventDefault()
+      ;(e.key === '-' ? $('zoom-raus') : $('zoom-rein')).click()
+    } else if (e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      wendeZoomAn(1, 0, spurXpx()) // ⇧Z = an Fenster anpassen (wie in Final Cut)
     } else if (e.key === 'Escape' && z.platzieren) {
       z.platzieren = null
       renderAlles()
+    } else if (!meta && !e.altKey && !e.shiftKey) {
+      const k = e.key.toLowerCase()
+      if (k === 'a' || k === 'h' || k === 'z') {
+        e.preventDefault()
+        setzeWerkzeug(k === 'a' ? 'auswahl' : k === 'h' ? 'hand' : 'zoom')
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Feines Scrubben mit den Pfeiltasten: eine Minute je Tastendruck
+        e.preventDefault()
+        if (z.auswahl) setzeMarke(z.auswahl[3] + (e.key === 'ArrowRight' ? 60 : -60))
+      }
     }
+  })
+  // ⌥ zeigt beim Zoom-Werkzeug „herauszoomen" an
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Alt' && werkzeug === 'zoom') document.getElementById('spuren-fenster')?.classList.add('alt')
+  })
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'Alt') document.getElementById('spuren-fenster')?.classList.remove('alt')
   })
   $('e-trim-start').addEventListener('click', () => trimSetzen('start'))
   $('e-trim-ende').addEventListener('click', () => trimSetzen('ende'))
@@ -2244,4 +2584,18 @@ function trimSetzen(teil: 'start' | 'ende'): void {
 ;(window as unknown as Record<string, unknown>)['__studio'] = {
   karte: () => karte,
   zustand: () => z,
+  /** Abspielkopf: Zeit-Offset (s) — setzen scrubbt wie ein Zug am Kopf. */
+  marke: (tOffsetS?: number) => {
+    if (tOffsetS !== undefined) setzeMarke(tOffsetS)
+    return z?.auswahl?.[3] ?? null
+  },
+  laeufer: () => laeufer?.getLngLat() ?? null,
+  zoom: (neu?: number) => {
+    if (neu !== undefined) wendeZoomAn(neu, 0, spurXpx())
+    return zoom
+  },
+  werkzeug: (w?: 'auswahl' | 'hand' | 'zoom') => {
+    if (w) setzeWerkzeug(w)
+    return werkzeug
+  },
 }

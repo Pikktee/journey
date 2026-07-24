@@ -30,21 +30,22 @@ import {
 } from '../src/studio/editmodell'
 import { SFX_BIBLIOTHEK, SFX_DATEIEN, sfxEffekt } from '../src/studio/sfxbibliothek'
 import {
+  ankerScroll,
   anteilZuOffset,
   audioWirdVerworfen,
   baueAudioBalken,
+  baueMassband,
   baueMedienDots,
-  baueMedienMarken,
   baueSkala,
-  baueTicks,
   baueTrimGriffe,
   baueZustandsBaender,
   formatiereDauer,
   haltedauerS,
-  HALTEDAUER_DEFAULT_S,
+  kumMeter,
+  meterZuOffset,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
-  type MedienMarke,
+  waehleStufe,
 } from '../src/studio/zeitleiste'
 
 const START = '2026-07-12T17:45:00Z'
@@ -269,6 +270,31 @@ describe('Fortbewegungs-Modi', () => {
     const engine = [...(block?.[1] ?? '').matchAll(/^\s{2}(\w+)\s*:/gm)].map((m) => m[1] as string)
     expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
   })
+
+  // Der Läufer im Editor soll dasselbe Zeichen tragen wie der Fahrer im Player.
+  // Das Studio hat einen eigenen Sprite (studio.html), die Engine ihre MODE_ICONS
+  // (src/map.js) — zwei Orte, ein Bild. Hier wird beides verglichen: dass es je
+  // Modus ein Symbol gibt UND dass die Pfade wirklich deckungsgleich sind.
+  it('haben im Studio-Sprite ein zeichengleiches Piktogramm', () => {
+    const engineQuelle = readFileSync(new URL('../src/map.js', import.meta.url), 'utf8')
+    const engineBlock = engineQuelle.match(/export const MODE_ICONS = \{([\s\S]*?)\n\}/)
+    expect(engineBlock, 'MODE_ICONS in src/map.js nicht gefunden').not.toBeNull()
+    const studioQuelle = readFileSync(new URL('../studio.html', import.meta.url), 'utf8')
+
+    /** Alle `d="…"`-Pfade eines SVG-Schnipsels, Leerraum normalisiert. */
+    const pfade = (text: string): string[] =>
+      [...text.matchAll(/\sd="([^"]+)"/g)].map((m) => (m[1] as string).replace(/\s+/g, ' ').trim())
+
+    for (const modus of MODI) {
+      const engineIcon = (engineBlock?.[1] ?? '').match(
+        new RegExp(`(?:^|\\n)\\s*(?://[^\\n]*\\n\\s*)?${modus}:\\s*\`([\\s\\S]*?)\``),
+      )
+      expect(engineIcon, `MODE_ICONS.${modus} nicht gefunden`).not.toBeNull()
+      const studioIcon = studioQuelle.match(new RegExp(`<symbol id="i-m-${modus}"([\\s\\S]*?)</symbol>`))
+      expect(studioIcon, `Sprite #i-m-${modus} fehlt in studio.html`).not.toBeNull()
+      expect(pfade(studioIcon?.[1] ?? ''), `Pfade von ${modus}`).toEqual(pfade(engineIcon?.[1] ?? ''))
+    }
+  })
 })
 
 describe('Wetter-Grenzen', () => {
@@ -425,23 +451,6 @@ describe('Zeitleiste', () => {
     expect(baender).toEqual([{ von: 0, bis: 1, wert: 'mittel', ab: null }])
   })
 
-  it('Medien-Marken tragen die Haltedauer (Default 5 s, Video 0)', () => {
-    const basis: MediumBasis[] = [
-      { id: 'lang', type: 'photo', src: '/x', takenAt: iso(0), caption: '', anchor: [9.05, 47.002], placement: 'gps' },
-      { id: 'auto', type: 'photo', src: '/x', takenAt: iso(0), caption: '', anchor: [9.1, 47.02], placement: 'gps' },
-      { id: 'clip', type: 'video', src: '/x', takenAt: iso(0), caption: '', anchor: [9.1, 47.04], placement: 'gps' },
-    ]
-    const edits = mitMedienEdit(LEERES_OVERLAY, 'lang', { display: { holdS: 20 } })
-    const marken = baueMedienMarken(effektiveMedien(basis, edits), track, skala)
-    const nach = (id: string): MedienMarke => marken.find((m) => m.id === id)!
-    expect(nach('lang').haltedauerS).toBe(20)
-    expect(nach('auto').haltedauerS).toBe(HALTEDAUER_DEFAULT_S)
-    expect(nach('clip').haltedauerS).toBe(0)
-    // Größenkodierung: viermal so lang = viermal so breit
-    expect(nach('lang').breite).toBeCloseTo(4 * nach('auto').breite, 6)
-    expect(nach('clip').breite).toBe(0)
-  })
-
   it('schätzt die Animationsdauer aus Fahrzeit und Foto-Stopps', () => {
     // 12 km mit dem Rad (Faktor 1) = 12000/120 = 100 s
     const strecke: TrackPunkt[] = [
@@ -468,13 +477,66 @@ describe('Zeitleiste', () => {
     expect(formatiereDauer(-5)).toBe('0 Sek')
   })
 
-  it('Ticks: 5-Minuten-Raster bei 20-Minuten-Spanne, innerhalb der Skala', () => {
-    const ticks = baueTicks(START, skala, 'UTC')
-    expect(ticks.length).toBeGreaterThanOrEqual(3)
-    for (const t of ticks) {
-      expect(t.anteil).toBeGreaterThanOrEqual(0)
-      expect(t.anteil).toBeLessThanOrEqual(1)
-      expect(t.text).toMatch(/^\d{2}:(00|05|10|15|20|25|30|35|40|45|50|55)$/)
+  it('Maßband-Stufe ist die feinste, die noch lesbar bleibt', () => {
+    expect(waehleStufe(60)).toBe(1) // 1 Min ≙ 60 px
+    expect(waehleStufe(30)).toBe(2) // 1 Min nur 30 px → nächstgröbere
+    expect(waehleStufe(12)).toBe(5)
+    expect(waehleStufe(0.5)).toBe(120)
+    // Selbst die gröbste Stufe reicht nicht mehr → sie wird trotzdem genommen
+    expect(waehleStufe(0.0001)).toBe(1440)
+  })
+
+  it('Maßband: Marken auf dem lokalen Raster, innerhalb der Skala', () => {
+    const marken = baueMassband(START, skala, 'UTC', 12) // → 5-Minuten-Stufe
+    expect(marken.length).toBe(5) // 17:45 … 18:05
+    for (const m of marken) {
+      expect(m.anteil).toBeGreaterThanOrEqual(0)
+      expect(m.anteil).toBeLessThanOrEqual(1)
+      expect(m.text).toMatch(/^\d{2}:(00|05|10|15|20|25|30|35|40|45|50|55)$/)
     }
+    expect(marken[0]!.text).toBe('17:45')
+    expect(marken[0]!.rand).toBe('anfang') // liegt genau auf der Kante
+    expect(marken[marken.length - 1]!.rand).toBe('ende')
+    // Nur die volle Stunde bekommt den kräftigen Teilstrich
+    expect(marken.filter((m) => m.voll).map((m) => m.text)).toEqual(['18:00'])
+  })
+
+  it('Maßband rastet auf die ZONE der Tour, nicht auf UTC', () => {
+    const marken = baueMassband(START, skala, 'Asia/Bangkok', 12)
+    // 17:45 UTC = 00:45 in Bangkok — das Raster liegt trotzdem auf glatten Minuten
+    expect(marken[0]!.text).toBe('00:45')
+    expect(marken.map((m) => m.text)).toEqual(['00:45', '00:50', '00:55', '01:00', '01:05'])
+  })
+
+  it('Maßband übersteht die Sommerzeit-Umstellung', () => {
+    // 2026-03-29: Berlin springt um 01:00 UTC von 02:00 auf 03:00 Ortszeit
+    const start = '2026-03-29T00:30:00Z'
+    const marken = baueMassband(start, { vonS: 0, bisS: 7200 }, 'Europe/Berlin', 2) // 30-Min-Stufe
+    // 02:00 und 02:30 Ortszeit gibt es an diesem Tag nicht — sie fehlen, statt
+    // als Dubletten der Folgestunde aufzutauchen.
+    expect(marken.map((m) => m.text)).toEqual(['01:30', '03:00', '03:30', '04:00', '04:30'])
+    // Anteile bleiben streng steigend — kein Rückwärtssprung durch den Versatz
+    for (let i = 1; i < marken.length; i++) {
+      expect(marken[i]!.anteil).toBeGreaterThan(marken[i - 1]!.anteil)
+    }
+  })
+
+  it('Streckenmeter: kumuliert je Punkt, dazwischen interpoliert', () => {
+    const kum = kumMeter(track)
+    expect(kum[0]).toBe(0)
+    expect(kum[1]).toBeCloseTo(7592, -1) // 0,1° Länge auf 47° Breite
+    expect(kum[2]).toBeCloseTo(7592 + 5527, -1) // + 0,05° Breite
+    expect(meterZuOffset(kum, track, 0)).toBe(0)
+    expect(meterZuOffset(kum, track, 300)).toBeCloseTo(kum[1]! / 2, 3) // Mitte des ersten Segments
+    expect(meterZuOffset(kum, track, 1200)).toBeCloseTo(kum[2]!, 6)
+    expect(meterZuOffset(kum, track, 99_999)).toBeCloseTo(kum[2]!, 6) // hinterm Ende geklemmt
+    expect(meterZuOffset(kum, track, -50)).toBe(0)
+  })
+
+  it('Zoom-Anker: die angepeilte Stelle bleibt im Fenster stehen', () => {
+    // Anker in der Mitte einer 1000-px-Achse soll bei Fenster-x 300 landen
+    expect(ankerScroll(0.5, 1000, 300, 168)).toBe(368)
+    // Nie negativ scrollen: am Anfang klebt die Achse links
+    expect(ankerScroll(0, 1000, 500, 168)).toBe(0)
   })
 })

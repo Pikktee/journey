@@ -40,6 +40,12 @@
       --font-ui: 'Space Grotesk', system-ui, sans-serif;
       --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
       --topbar-h: 58px;
+      --spur-x: 168px;           /* feste Namenspalte der Zeitleiste — klebt beim Scrollen links */
+      --zeit-breite: 900px;      /* Breite des Zeitfelds; skaliert mit dem Zoom, JS setzt sie */
+      --inspector-breite: 380px;
+      /* Scrub-Cursor à la Final Cut Pro X — waagerechter Doppelpfeil (weiß mit
+         dunkler Kontur, damit er auf jedem Grund sichtbar ist), Hotspot mittig. */
+      --scrub: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='28'%20height='14'%3E%3Cg%20fill='none'%20stroke='%23000'%20stroke-width='3.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%203L3%207L8%2011M20%203L25%207L20%2011M3%207H25'/%3E%3C/g%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='1.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%203L3%207L8%2011M20%203L25%207L20%2011M3%207H25'/%3E%3C/g%3E%3C/svg%3E") 14 7, ew-resize;
     }
     * { box-sizing: border-box; }
     /* Ansichten setzen explizite display-Werte — [hidden] muss trotzdem gewinnen */
@@ -547,13 +553,17 @@
     #editor-titel:focus { border-color: var(--akzent); background: var(--bg-tief); }
     #editor-status { flex: 1; text-align: right; padding-right: 4px; }
 
+    /* Karte oben, Zeitleiste als EIGENE Zone darunter, Inspector über die volle
+       Höhe rechts — wie im Schnittprogramm. Vorher schwebte die Leiste als
+       Glasplatte über der Karte und verdeckte sie. */
     .editor-rumpf {
       flex: 1;
       min-height: 0;
       display: grid;
-      grid-template-columns: 1fr minmax(340px, 400px);
+      grid-template-columns: 1fr var(--inspector-breite);
     }
-    .karten-buehne { position: relative; min-width: 0; background: var(--bg-tief); }
+    .editor-links { min-width: 0; display: flex; flex-direction: column; }
+    .karten-buehne { position: relative; flex: 1; min-height: 0; min-width: 0; background: var(--bg-tief); }
     #editor-map { position: absolute; inset: 0; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }
     /* Beim Platzieren zählt nur der Track: Marker dürfen den Klick nicht schlucken */
@@ -697,257 +707,277 @@
     }
     .t-marker { border-color: var(--akzent); color: var(--akzent); }
 
-    /* — Zeitleiste: EINE BAHN JE EREIGNISTYP (Fortbewegung, Kamera, Audio,
-         Fotos) auf gemeinsamer Zeitachse. Zustände sind lückenlose, beschriftete
-         Bänder — Anfang und Ende eines Zustands sind dieselbe Kante; vorher lagen
-         alle Typen als Punkt-Pins in einer einzigen Zeile übereinander. Trim,
-         Auswahl und Hover liegen als Overlay über allen Bahnen. — */
-    #zeitleiste {
-      position: absolute;
-      left: 14px;
-      right: 14px;
-      bottom: 12px;
-      z-index: 4;
-      background: rgba(11, 15, 21, 0.9);
-      border: 1px solid var(--rand);
-      border-radius: 13px;
-      backdrop-filter: blur(14px);
-      box-shadow: var(--schatten);
-      padding: 10px 14px 7px;
+    /* ————————————————— Zeitleiste —————————————————
+       EINE BAHN JE EREIGNISTYP (Fotos, Fortbewegung, Kamera, Wetter, Momente,
+       Musik & Sound) auf gemeinsamer Zeitachse. Zustände sind lückenlose,
+       beschriftete Bänder — Anfang und Ende eines Zustands sind dieselbe Kante.
+       Die Achse zeigt AUFNAHMEZEIT; sie scrollt waagerecht und zoomt, die
+       Namenspalte klebt links. Trim-Griffe, Abspielkopf und Auswahl liegen als
+       Overlay über allen Bahnen. */
+    #zeitleiste-zone {
+      flex: none;
+      border-top: 1px solid var(--rand);
+      background: var(--bg-tief);
+      padding: 0 0 10px;
       user-select: none;
-      touch-action: none;
     }
-    /* Label-Spalte + Bahn-Spalte: alle Bahnen und die Achse teilen dieselbe
-       Geometrie, sonst fluchten die Ereignisse nicht übereinander. */
-    .zl-bahnen {
-      position: relative;
-      display: grid;
-      grid-template-columns: var(--zl-label, 96px) 1fr;
-      column-gap: 10px;
-      row-gap: 3px;
-      align-items: center;
+    .zl-kopf {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 8px 16px 6px;
     }
-    .zl-name {
-      font-size: 10.5px;
-      color: var(--text-3);
-      text-align: right;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .zl-bahn { position: relative; height: 21px; border-radius: 5px; background: var(--fl-2); overflow: hidden; }
-    .zl-bahn.audio, .zl-bahn.medien { height: 18px; }
+    .zl-kopf-links, .zl-kopf-rechts { display: flex; align-items: center; gap: 10px; }
 
-    /* Zustandsband — die Beschriftung macht das Nachschlagen im Seitenpanel überflüssig */
-    .zl-band { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; overflow: hidden; }
-    .zl-band span {
-      padding-left: 6px;
-      font-size: 10px;
-      line-height: 1;
-      color: rgba(6, 10, 16, 0.85);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
-    }
-    .zl-band.inaktiv { opacity: 0.25; }
-    .zl-band.kamera span { color: var(--text-2); }
-    /* Grundband = noch keine Grenze gesetzt: sichtbar, aber offensichtlich „leer" */
-    .zl-band.kamera.grund {
-      background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px);
-    }
-    .zl-band.kamera.grund span { color: var(--text-3); }
-    /* Wetter-Bänder: helle Schrift auf mitteldunkler Füllung; Grund = „Automatisch" (Auto-Wetter) */
-    .zl-band.wetter span { color: var(--text); }
-    .zl-band.wetter.grund {
-      background: repeating-linear-gradient(-45deg, rgba(96, 165, 250, 0.14) 0 6px, transparent 6px 12px);
-    }
-    .zl-band.wetter.grund span { color: var(--text-3); }
+    /* Werkzeuge (Auswahl/Hand/Zoom) — Segment-Umschalter wie in Final Cut. */
+    .werkzeuge { display: flex; align-items: center; gap: 3px; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 2px; }
+    .wkz { width: 27px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: 7px; }
+    .wkz svg { width: 15px; height: 15px; }
+    .wkz:hover { color: var(--text-2); background: var(--fl-3); }
+    .wkz.an { background: var(--akzent); color: #1a1206; }
+    /* Der Cursor des Werkzeugs MUSS auch über den Kindern gelten (Bänder, Klips,
+       Kanten): deren eigene Cursor gewännen sonst, obwohl Pan/Zoom wirkt.
+       Ausnahme ist der Abspielkopf — er bleibt in jedem Werkzeug ziehbar. */
+    .spuren-fenster[data-wkz='hand'], .spuren-fenster[data-wkz='hand'] *:not(.kopf-griff) { cursor: grab; }
+    .spuren-fenster[data-wkz='hand'].greift, .spuren-fenster[data-wkz='hand'].greift *:not(.kopf-griff) { cursor: grabbing; }
+    .spuren-fenster[data-wkz='zoom'], .spuren-fenster[data-wkz='zoom'] *:not(.kopf-griff) { cursor: zoom-in; }
+    .spuren-fenster[data-wkz='zoom'].alt, .spuren-fenster[data-wkz='zoom'].alt *:not(.kopf-griff) { cursor: zoom-out; }
+    .zoom-box { position: fixed; z-index: 55; display: none; background: rgba(245, 165, 36, 0.14); border: 1px solid var(--akzent); border-radius: 4px; pointer-events: none; }
 
-    /* Ziehbare Bandkante = die Grenze im Overlay */
-    .zl-kante {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 22px;
-      margin-left: -11px;
-      z-index: 3;
-      cursor: grab;
-      display: flex;
-      justify-content: center;
+    /* Abspielkopf-Anzeige: Uhrzeit der Aufnahme + zurückgelegte Strecke. Die
+       Breite darf NICHT mit den Werten zappeln — Mono heißt nicht gleiche
+       Zeichen-ANZAHL („0,8" vs. „41,4"), deshalb ein Slot fester Mindestbreite. */
+    .kopf-uhr {
+      display: flex; align-items: center; gap: 9px;
+      padding: 5px 12px; border-radius: 10px;
+      background: var(--fl-1); border: 1px solid var(--rand);
     }
-    .zl-kante::before {
-      content: '';
-      width: 2.5px;
-      height: 100%;
-      background: rgba(242, 237, 227, 0.85);
-      box-shadow: 0 0 0 1px rgba(6, 8, 12, 0.75);
-      transition: width 120ms ease, background 120ms ease;
+    .ku-icon { width: 14px; height: 14px; flex: none; color: var(--text-3); }
+    .ku-zeit { font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+    .ku-km {
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+      padding-left: 10px; border-left: 1px solid var(--rand); font-variant-numeric: tabular-nums;
     }
-    .zl-kante:hover::before { width: 4px; background: var(--akzent); }
-    /* Während eines Zugs gilt der Greif-Cursor überall — die Leiste wird pro
-       pointermove neu gebaut, eine Klasse am gezogenen Element überlebt das nicht */
-    #zeitleiste.zieht * { cursor: grabbing; }
+    .ku-km-cur { display: inline-block; min-width: 4ch; text-align: right; color: var(--text-2); }
+    .zl-dauer { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); white-space: nowrap; }
 
-    /* Foto-Marke: Breite = Haltedauer (Größenkodierung, s. zeitleiste.ts) */
-    .zl-marke {
-      position: absolute;
-      top: 50%;
-      height: 11px;
-      margin-top: -5.5px;
+    /* Zoom — Lupen + Regler, Standard „an Fenster angepasst" (⌘+/⌘−/⇧Z). */
+    .zoom { display: flex; align-items: center; gap: 7px; }
+    .zoom-b {
+      width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
+      border-radius: 7px; border: 1px solid var(--rand); background: transparent; color: var(--text-2);
+    }
+    .zoom-b svg { width: 14px; height: 14px; }
+    .zoom-b:hover { border-color: var(--rand-hell); color: var(--text); }
+    .zoom-b:disabled { opacity: 0.4; cursor: default; }
+    .zoom-b:disabled:hover { border-color: var(--rand); color: var(--text-2); }
+    .zoom input[type='range'] { width: 110px; accent-color: var(--akzent); cursor: pointer; }
+    .zoom-wert { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); min-width: 4ch; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; }
+    .zoom-wert:enabled:hover { border-color: var(--rand-hell); color: var(--text-2); }
+
+    /* Das Fenster scrollt waagerecht; die Namenspalte klebt darin links.
+       overflow-x: SCROLL (nicht auto) — die 10-px-Leiste ist immer reserviert,
+       sonst springt die Zeitleiste beim Zoomen um deren Höhe. `padding-top`
+       gibt den nach oben ragenden Etiketten Luft (overflow-y schneidet sonst ab).
+       touch-action: pan-x, damit Wischen scrollt; die Griffe setzen selbst `none`. */
+    .spuren-fenster { overflow-x: scroll; overflow-y: hidden; padding-top: 8px; touch-action: pan-x; }
+    .spuren-fenster::-webkit-scrollbar { height: 10px; }
+    .spuren-fenster::-webkit-scrollbar-track { background: transparent; }
+    .spuren-fenster::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 2px solid var(--bg-tief); }
+    /* 26 px Auslauf rechts: die letzte Miniatur (40 px, mittig auf Anteil 1)
+       ragt ~20 px über das Zeitfeld hinaus — knapper und es entsteht Overflow. */
+    .spuren { position: relative; width: calc(var(--spur-x) + var(--zeit-breite) + 26px); padding: 6px 0 4px; }
+    .spur { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); align-items: stretch; height: 30px; }
+    .spur.hoch { height: 62px; }
+    .spur.musik { height: 48px; }  /* Pin-Lane oben + Klips darunter */
+    .spur-name {
+      font-size: 12px; color: var(--text-3); padding: 0 12px 0 16px;
+      display: flex; align-items: center; gap: 6px; white-space: nowrap;
+      /* über den Pins (z8/9), sonst gleiten sie beim Scrollen über die Schrift */
+      position: sticky; left: 0; z-index: 11; background: var(--bg-tief);
+    }
+    .spur-icon { width: 15px; height: 15px; flex: none; color: var(--text-3); opacity: 0.9; }
+    .spur:hover .spur-icon { color: var(--text-2); }
+    .spur-feld { position: relative; height: 100%; }
+    /* Bahnen als leichte Rillen, damit sich die erhabenen Bänder abheben. */
+    .spur:not(.hoch) .spur-feld {
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.05));
       border-radius: 6px;
-      background: #fff;
-      border: 2px solid var(--akzent);
-      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.7);
-      z-index: 3;
-      cursor: pointer;
-      transition: transform 120ms ease;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
     }
-    .zl-marke:hover { transform: scaleY(1.3); }
-    .zl-marke.video { border-radius: 3px; border-color: var(--lila); }
 
-    /* Kamera-Moment: Punkt-Marke mit Art-Symbol, ziehbar */
+    /* — Maßband: Zahl oben, Teilstrich darunter (zeigt zu den Spuren) — */
+    .skala { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); height: 23px; border-bottom: 1px solid var(--rand); }
+    .skala > .skala-name { position: sticky; left: 0; z-index: 11; background: var(--bg-tief); }
+    #skala-feld { position: relative; }
+    .skala-marke {
+      position: absolute; top: 1px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center;
+      font-family: var(--font-mono); font-size: 9.5px; color: var(--text-3);
+      white-space: nowrap; pointer-events: none;
+    }
+    .skala-marke i { display: block; width: 1px; margin-top: 2px; background: rgba(255, 255, 255, 0.22); }
+    .skala-marke.voll i { height: 6px; }
+    .skala-marke:not(.voll) { opacity: 0.68; }
+    .skala-marke:not(.voll) i { height: 3px; background: rgba(255, 255, 255, 0.13); }
+    /* Am Rand mitten-bündig ausgerichtet würde die Beschriftung angeschnitten
+       (links von der klebenden Namensspalte verdeckt) — dort links- bzw.
+       rechtsbündig, der Teilstrich bleibt exakt auf der Zeit. */
+    .skala-marke.am-anfang { transform: translateX(0); align-items: flex-start; }
+    .skala-marke.am-ende { transform: translateX(-100%); align-items: flex-end; }
+
+    /* — Zustandsbänder: lückenlos, beschriftet, die Kante ist der Griff — */
+    .band-reihe { position: absolute; inset: 3px 0; }
+    .band {
+      position: absolute; top: 0; bottom: 0; border-radius: 5px;
+      display: flex; align-items: center; padding: 0 9px;
+      font-size: 11.5px; color: #10141b; overflow: hidden;
+      cursor: pointer; border: 1px solid transparent;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.17), 0 1px 2px rgba(0, 0, 0, 0.32);
+    }
+    /* Dezenter Verlauf gibt Volumen, ohne die Beschriftung zu stören. */
+    .band::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%, rgba(0, 0, 0, 0.11));
+    }
+    .band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+    .band.inaktiv { opacity: 0.28; }
+    /* Auswahl: ein „aufgehobener" Zustand statt bloßer Umrandung — der helle
+       warmweiße Ring kontrastiert auf JEDER Bandfarbe (auch Moped = amber). */
+    .band.fokus { z-index: 4; transform: translateY(-1px); box-shadow: inset 0 0 0 2px #fff5e4, 0 0 14px 1px rgba(245, 165, 36, 0.38), 0 4px 10px rgba(0, 0, 0, 0.5); }
+    /* Grundband = noch keine Grenze gesetzt: sichtbar, aber offensichtlich „leer" */
+    .band.leise {
+      color: var(--text-3); border-color: var(--rand);
+      background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.22);
+    }
+    .band.leise::after { display: none; }
+    /* Dunkel gefüllte Bänder (Wetter) brauchen helle Schrift */
+    .band.hell { color: var(--text); }
+
+    /* DIE KANTE IST DER GRIFF — Anfang des einen und Ende des anderen Zustands
+       sind dieselbe Stelle, also gibt es dafür auch nur einen Anfasser. */
+    .kante {
+      position: absolute; top: 0; bottom: 0; width: 13px; transform: translateX(-50%);
+      z-index: 5; cursor: col-resize; touch-action: none;
+    }
+    .kante::before {
+      content: ''; position: absolute; left: 50%; top: 2px; bottom: 2px; width: 2px;
+      transform: translateX(-50%); border-radius: 2px; background: var(--akzent);
+      opacity: 0; transition: opacity 140ms ease;
+    }
+    .kante:hover::before, .kante.zieht::before { opacity: 1; }
+    /* Während eines Zugs gilt der Greif-Cursor überall — die Leiste wird pro
+       pointermove neu gebaut, eine Klasse am gezogenen Element überlebt das nicht. */
+    #zeitleiste-zone.zieht, #zeitleiste-zone.zieht * { cursor: col-resize !important; }
+
+    /* — Kamera-Momente: Punktereignisse mit Art-Symbol — */
     .zl-moment {
-      position: absolute;
-      top: 50%;
-      width: 16px;
-      height: 16px;
-      margin: -8px 0 0 -8px;
-      border-radius: 50%;
-      background: var(--fl-3);
-      border: 1.5px solid var(--akzent);
-      color: var(--akzent);
-      font-size: 10px;
-      line-height: 13px;
-      text-align: center;
-      cursor: grab;
-      z-index: 3;
+      position: absolute; top: 50%; width: 17px; height: 17px;
+      margin: -8.5px 0 0 -8.5px; border-radius: 50%;
+      background: var(--fl-3); border: 1.5px solid var(--akzent); color: var(--akzent);
+      font-size: 10px; line-height: 14px; text-align: center;
+      cursor: grab; touch-action: none; z-index: 3;
       box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.7);
       transition: transform 120ms ease;
     }
-    .zl-moment:hover { transform: scale(1.2); }
-    .zl-moment.fokus { background: var(--akzent); color: #0b0f15; box-shadow: 0 0 0 2px var(--akzent), 0 0 9px rgba(245, 165, 36, 0.5); }
+    .zl-moment:hover { transform: scale(1.18); }
+    .zl-moment.fokus { background: var(--akzent); color: #0b0f15; box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(245, 165, 36, 0.55); }
 
-    /* Audio */
-    .zl-audio-balken {
-      position: absolute;
-      top: 2px;
-      height: 14px;
-      border-radius: 4px;
-      background: linear-gradient(90deg, rgba(245, 165, 36, 0.5), rgba(255, 111, 82, 0.5));
-      border-left: 2.5px solid var(--akzent);
-      border-right: 2.5px solid var(--akzent);
-      cursor: grab;
-      min-width: 8px;
-      /* KEIN overflow:hidden — das clippt die 7px überstehenden Kanten-Griffe
-         weg und macht Anfang/Ende ungreifbar. Der Name clippt selbst. */
+    /* — Musik & Sound: Klips (Dauer) unten, Klang-Pins (Zeitpunkt) oben — */
+    .zl-klip {
+      position: absolute; top: 20px; height: 22px; border-radius: 5px;
+      background: linear-gradient(180deg, rgba(245, 165, 36, 0.42), rgba(255, 111, 82, 0.42));
+      border-left: 2.5px solid var(--akzent); border-right: 2.5px solid var(--akzent);
+      cursor: grab; touch-action: none; min-width: 10px;
+      /* KEIN overflow:hidden — das clippt die überstehenden Kanten-Griffe weg
+         und macht Anfang/Ende ungreifbar. Der Name clippt selbst. */
     }
-    .zl-audio-balken span {
-      position: absolute;
-      inset: 0;
-      padding-left: 5px;
-      line-height: 14px;
-      font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
+    .zl-klip span {
+      position: absolute; inset: 0; padding-left: 6px; line-height: 22px;
+      font-family: var(--font-mono); font-size: 10px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
     }
-    .zl-audio-balken .kante { position: absolute; top: -2px; bottom: -2px; width: 14px; cursor: ew-resize; }
-    .zl-audio-balken .kante.von { left: -7px; }
-    .zl-audio-balken .kante.bis { right: -7px; }
-    .zl-sfx {
-      position: absolute;
-      top: 50%;
-      width: 10px;
-      height: 10px;
-      margin: -5px 0 0 -5px;
-      transform: rotate(45deg);
-      background: var(--lila);
-      border: 1.5px solid rgba(6, 8, 12, 0.8);
-      border-radius: 2px;
-      cursor: grab;
-    }
+    .zl-klip .kante { position: absolute; top: -2px; bottom: -2px; width: 14px; transform: none; cursor: ew-resize; }
+    .zl-klip .kante.von { left: -7px; }
+    .zl-klip .kante.bis { right: -7px; }
+    .zl-klip .kante::before { display: none; }
+    .zl-klip.fokus { box-shadow: 0 0 0 2px #fff5e4, 0 0 12px rgba(245, 165, 36, 0.45); }
+    /* Ein Klang hat einen Zeitpunkt, keine Dauer: Raute in eigener Lane oben,
+       ein Stiel zeigt auf die exakte Stelle. */
+    .zl-sfx { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; cursor: grab; touch-action: none; z-index: 8; }
+    .zl-sfx i { display: block; width: 100%; height: 100%; transform: rotate(45deg); background: var(--lila); border: 1.5px solid rgba(6, 8, 12, 0.8); border-radius: 2px; }
+    .zl-sfx::after { content: ''; position: absolute; left: 50%; top: 11px; width: 1px; height: 9px; background: rgba(197, 139, 255, 0.5); }
+    .zl-sfx.fokus i { box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(197, 139, 255, 0.6); }
 
-    /* Overlay über ALLE Bahnen — Trim, Auswahl, Hover gehen durch.
-       BEWUSST absolut statt als Grid-Item: ein Item mit grid-row: 1/-1 belegt
-       die ganze Spalte 2 und drängt die auto-platzierten Bahnen in Spalte 1. */
-    .zl-overlay {
-      position: absolute;
-      left: calc(var(--zl-label, 96px) + 10px); /* Label-Spalte + column-gap */
-      right: 0;
-      top: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 4;
+    /* — Foto-Bahn: Miniaturen an ihrer Aufnahmezeit — */
+    .foto-spur { position: relative; height: 100%; }
+    .f-mini {
+      position: absolute; top: 12px; transform: translateX(-50%);
+      width: 40px; height: 40px; padding: 0; background: none; border: none;
+      cursor: pointer; touch-action: none;
     }
-    .zl-schatten { position: absolute; top: 0; bottom: 0; background: rgba(4, 6, 10, 0.66); border-radius: 5px; }
-    .zl-schatten.links { left: 0; }
-    .zl-schatten.rechts { right: 0; }
+    .f-mini img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.16); display: block; background: var(--fl-2);
+      transition: border-color 180ms ease;
+    }
+    .f-mini:hover img { border-color: var(--akzent); }
+    .f-mini.fokus img { border-color: #fff5e4; box-shadow: 0 0 0 2px rgba(255, 245, 228, 0.9), 0 0 12px rgba(245, 165, 36, 0.45); }
+    .f-mini.geloescht img { opacity: 0.32; }
+    .f-mini .v-badge {
+      position: absolute; right: 3px; bottom: 3px; z-index: 2;
+      width: 15px; height: 15px; display: grid; place-items: center;
+      background: rgba(6, 8, 12, 0.72); border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 5px;
+    }
+    .f-mini .v-badge svg { width: 8px; height: 8px; color: #fff; margin-left: 1px; }
+    /* Stiel zur exakten Zeit — die Miniatur ist breiter als der Zeitpunkt. */
+    .f-mini::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 1px; height: 8px; background: rgba(255, 255, 255, 0.2); }
+
+    /* — Overlay über allen Bahnen: Trim und Abspielkopf — */
+    .zl-schatten { position: absolute; top: 30px; bottom: 4px; background: rgba(4, 6, 10, 0.62); pointer-events: none; z-index: 6; }
     .zl-griff {
-      position: absolute;
-      top: -3px;
-      bottom: -3px;
-      width: 24px; /* Trefferfläche; der sichtbare Strich ist 4px */
-      margin-left: -12px;
-      cursor: ew-resize;
-      pointer-events: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: absolute; top: 26px; bottom: 4px; width: 22px; margin-left: -11px;
+      z-index: 7; cursor: ew-resize; touch-action: none;
+      display: flex; align-items: center; justify-content: center;
     }
     .zl-griff::before {
-      content: '';
-      width: 4px;
-      height: 100%;
-      border-radius: 3px;
-      background: var(--akzent);
-      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.8);
+      content: ''; width: 3px; height: 100%; border-radius: 3px;
+      background: var(--akzent); box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.8);
       transition: transform 120ms ease;
     }
-    .zl-griff:hover::before, .zl-griff.zieht::before { transform: scaleX(1.6); }
-    .zl-linie { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--text); opacity: 0.6; display: none; }
-    .zl-linie.auswahl { display: block; background: var(--akzent); opacity: 0.95; }
-    .zl-tip {
-      position: absolute;
-      bottom: calc(100% + 7px);
-      transform: translateX(-50%);
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      padding: 3px 7px;
-      background: rgba(6, 8, 12, 0.92);
-      border: 1px solid var(--rand-hell);
-      border-radius: 6px;
-      white-space: nowrap;
-      display: none;
-    }
-    /* Achse: gleiche Spaltenaufteilung wie die Bahnen */
-    .zl-fuss { display: grid; grid-template-columns: var(--zl-label, 96px) 1fr; column-gap: 10px; margin-top: 3px; }
-    /* Laufzeit der Animation — bewusst nur EINE Zahl, keine zweite Zeitachse */
-    .zl-dauer {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-2);
-      text-align: right;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-    .zl-ticks { position: relative; height: 13px; }
-    .zl-ticks span {
-      position: absolute;
-      transform: translateX(-50%);
-      font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--text-3);
-    }
+    .zl-griff:hover::before, .zl-griff.zieht::before { transform: scaleX(1.8); }
 
-    /* — Fokus: dasselbe Objekt in Zeitleiste, Karte und Inspector — */
-    .zl-band.fokus { box-shadow: inset 0 0 0 2px var(--akzent); }
-    .zl-band.fokus span { color: var(--text); }
-    .zl-audio-balken.fokus, .zl-sfx.fokus, .zl-marke.fokus {
-      box-shadow: 0 0 0 2px var(--akzent), 0 0 10px rgba(245, 165, 36, 0.5);
+    /* Abspielkopf: Pentagon-Kopf IM Maßband, Linie über alle Bahnen. Die Linie
+       beginnt exakt an der Spitze des Kopfes (top = Maßbandhöhe), sonst ragt
+       sie darüber hinaus. pointer-events:none, damit sie Band-Klicks durchlässt. */
+    .kopfstrich { position: absolute; top: 23px; bottom: 0; width: 1px; background: var(--akzent); z-index: 9; pointer-events: none; }
+    .kopf-griff {
+      position: absolute; left: 50%; top: -13px; transform: translateX(-50%);
+      width: 13px; height: 14px; padding: 0; border: none; background: var(--akzent);
+      clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);
+      cursor: var(--scrub); pointer-events: auto; touch-action: none; z-index: 10;
+    }
+    .kopf-griff::after { content: ''; position: absolute; inset: -8px -9px; }  /* großer Greifbereich */
+    .kopf-griff:hover { filter: brightness(1.12); }
+    /* Beim Ziehen gilt der Scrub-Cursor global — der Zug läuft über Fenster-
+       Listener, ohne Pointer-Capture am kleinen Kopf. */
+    body.scrubbt, body.scrubbt * { cursor: var(--scrub) !important; }
+
+    /* — Läufer auf der Karte: wo der Abspielkopf steht, samt Fortbewegungsmittel.
+         Farbgleich mit dem Fahrer im Player (src/style.css .rider-puck). — */
+    .laeufer { width: 38px; height: 38px; display: grid; place-items: center; position: relative; z-index: 5; }
+    .laeufer .puck {
+      width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+      color: #171106; background: linear-gradient(145deg, #f8bb4b, #ef8f35);
+      border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+    }
+    .laeufer .puck svg { width: 18px; height: 18px; }
+    .laeufer .puls {
+      position: absolute; width: 38px; height: 38px; border-radius: 50%;
+      border: 2px solid rgba(245, 165, 36, 0.65); animation: laeuferPuls 2.2s ease-out infinite;
+    }
+    @keyframes laeuferPuls {
+      0% { transform: scale(0.78); opacity: 0.8; }
+      70%, 100% { transform: scale(1.7); opacity: 0; }
     }
 
     /* — Inspector (Sidebar) — */
@@ -1041,7 +1071,10 @@
       .upload-panel { border-right: none; border-bottom: 1px solid var(--rand); }
       .tour { flex-wrap: wrap; row-gap: 10px; }
       .tour-actions { width: 100%; justify-content: flex-end; }
-      .editor-rumpf { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; }
+      /* Karte / Zeitleiste / Inspector untereinander. Die Zeitleiste behält ihre
+         eigene Zone (sie scrollt waagerecht selbst), der Inspector nimmt den Rest. */
+      .editor-rumpf { grid-template-columns: 1fr; grid-template-rows: 40vh auto 1fr; }
+      .editor-links { display: contents; }
       .editor-seite { border-left: none; border-top: 1px solid var(--rand); }
       /* Status als Streifen UNTER den Kopf, statt ihn auszublenden — sonst sind
          Speicher- und Fehlermeldungen auf schmalen Viewports unsichtbar. */
@@ -1060,8 +1093,10 @@
       #editor-status:empty { display: none; }
       /* Kopf-Aktionen icon-only, damit Speichern nie aus dem Bild läuft */
       .editor-kopf :is(button:not(.icon), .knopf) { font-size: 0; gap: 0; padding: 10px; }
-      /* Schmalere Label-Spalte der Zeitleiste */
-      .zl-bahnen, .zl-fuss { --zl-label: 62px; }
+      /* Schmalere Namenspalte der Zeitleiste; der Kopf darf umbrechen */
+      #editor-view { --spur-x: 116px; }
+      .spur-name { padding-left: 10px; font-size: 11px; }
+      .zl-kopf { flex-wrap: wrap; row-gap: 8px; padding: 8px 12px 6px; }
     }
   </style>
 </head>
@@ -1122,6 +1157,57 @@
       <symbol id="i-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="7" cy="17.5" r="2.8"/><circle cx="16.5" cy="15.5" r="2.8"/><path d="M9.8 17.5V6.5l9.5-2v11"/><path d="M9.8 9.5 19.3 7.5"/>
       </symbol>
+      <!-- Fortbewegungs-Piktogramme für den Läufer auf der Karte — ZEICHENGLEICH
+           mit MODE_ICONS in src/map.js, damit er dasselbe Zeichen trägt wie der
+           Fahrer im Player. Ein Drift-Wächter in test/studio-baukasten.test.ts
+           vergleicht beide Sätze. -->
+      <symbol id="i-m-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="13.2" cy="4.6" r="2"/><path d="M12.9 7.6 12 12.6l-2.8 6.9"/><path d="M12 12.6l3.2 2.2 1 5"/><path d="M12.6 9.4 9.6 11.7l-.8 3"/><path d="M13.4 9.8l2.6 2 2.6.6"/>
+      </symbol>
+      <symbol id="i-m-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="5.5" cy="17.5" r="3.4"/><circle cx="18.5" cy="17.5" r="3.4"/><path d="M5.5 17.5 9.3 10.6h6l3.2 6.9"/><path d="M9.3 10.6 12.4 17.5h6.1"/><path d="M15.3 10.6 13.8 7.4h2.6"/><path d="M7.9 8.2h2.8"/>
+      </symbol>
+      <symbol id="i-m-moped" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="5.8" cy="17.3" r="2.9"/><circle cx="18.2" cy="17.3" r="2.9"/><path d="M5.8 17.3h5.6l2.5-4.7h2"/><path d="M13.4 8.4h2.2l2.6 8.9"/><path d="M8.4 12.9c1.3-1.3 3.2-1.5 5-1.3"/>
+      </symbol>
+      <symbol id="i-m-jeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7.6" cy="16.8" r="2.3"/><circle cx="16.4" cy="16.8" r="2.3"/><path d="M3.3 16.8H5.3M9.9 16.8h4.2M18.7 16.8h2"/><path d="M3.5 16.4v-3.1a1.1 1.1 0 0 1 1.1-1.1h2.2l1.9-2.5h6.3l1.6 2.5h1.6a1.1 1.1 0 0 1 1.1 1.1v3.1"/><path d="M8.5 11.7h5.4"/>
+      </symbol>
+      <symbol id="i-m-tram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6.5" y="4.5" width="11" height="12.5" rx="2.2"/><path d="M6.5 11.5h11"/><path d="M10.2 4.5 12 2.2l1.8 2.3"/><path d="M9.7 14.6h.01M14.3 14.6h.01"/><path d="M8.8 17.5 7.3 21M15.2 17.5 16.7 21"/>
+      </symbol>
+      <symbol id="i-m-ferry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 14.5h15l-2.2 4.1a2 2 0 0 1-1.8 1.1H8.5a2 2 0 0 1-1.8-1.1z"/><path d="M7.5 14.5V10.2h9v4.3"/><path d="M10 10.2V7.4h4v2.8"/><path d="M12 7.4V4.8"/>
+      </symbol>
+      <!-- Spur-Marken der Zeitleiste -->
+      <symbol id="i-spur-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.7-4.5L6.5 20"/>
+      </symbol>
+      <symbol id="i-spur-weg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6.5" cy="17.5" r="1.9"/><circle cx="17.5" cy="6.5" r="1.9"/><path d="M8.3 16C11 14 9.5 11 12 10.5s2.5-2.4 3.4-3.1" stroke-dasharray="0.5 2.6"/>
+      </symbol>
+      <symbol id="i-spur-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/>
+      </symbol>
+      <symbol id="i-spur-wetter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7.5 17.5a3.7 3.7 0 01-.5-7.4 5.2 5.2 0 0110.1 1.4A3.3 3.3 0 0116.6 18z"/><path d="M9 20.5l-.8 1.4M13 20.5l-.8 1.4"/>
+      </symbol>
+      <symbol id="i-spur-moment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/>
+      </symbol>
+      <symbol id="i-spur-musik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="17.5" r="2.4"/><circle cx="17.3" cy="15" r="2.4"/><path d="M9.4 17.5V6.2l10.3-2v10.8"/>
+      </symbol>
+      <!-- Werkzeuge und Zoom der Zeitleiste -->
+      <symbol id="i-cursor" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.4 L6 18.6 L9.9 14.9 L12.3 20.4 L14.5 19.4 L12.1 14 L17.2 14 Z"/></symbol>
+      <symbol id="i-hand" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M10.4 2a1.45 1.45 0 00-1.45 1.45v5.9a.45.45 0 01-.9 0V5.55a1.4 1.4 0 10-2.8 0v8.2l-1.15-1.4a1.55 1.55 0 00-2.45 1.9l3.15 4.25A6.15 6.15 0 0011.75 21h1.6A6.15 6.15 0 0019.5 14.85V6.35a1.4 1.4 0 10-2.8 0v3.1a.45.45 0 01-.9 0V4.25a1.4 1.4 0 10-2.8 0v5.1a.45.45 0 01-.9 0V3.45A1.45 1.45 0 0010.4 2z"/>
+      </symbol>
+      <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+      <symbol id="i-lupe-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+      <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
+      <symbol id="i-anpassen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+      <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
       <symbol id="i-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5 10.5 4.8h3L15 7.5"/><circle cx="12" cy="13.5" r="3.2"/>
       </symbol>
@@ -1329,10 +1415,75 @@
       <button id="editor-speichern" class="primaer"><svg><use href="#i-haken"/></svg>Speichern</button>
     </header>
     <div class="editor-rumpf">
-      <div class="karten-buehne">
-        <div id="editor-map"></div>
-        <div id="editor-medien-hinweis"></div>
-        <div id="zeitleiste" hidden></div>
+      <div class="editor-links">
+        <div class="karten-buehne">
+          <div id="editor-map"></div>
+          <div id="editor-medien-hinweis"></div>
+        </div>
+        <!-- Zeitleiste als EIGENE Zone unter der Karte. Das Gerüst (Maßband,
+             Spur-Zeilen, Abspielkopf) steht statisch hier; editor.ts füllt nur
+             die `#spur-*`-Felder und `#skala-feld`. -->
+        <section id="zeitleiste-zone" hidden>
+          <div class="zl-kopf">
+            <div class="zl-kopf-links">
+              <div class="werkzeuge" role="group" aria-label="Werkzeug">
+                <button class="wkz an" data-wkz="auswahl" title="Auswahl (A)" aria-label="Auswahl"><svg><use href="#i-cursor"/></svg></button>
+                <button class="wkz" data-wkz="hand" title="Verschieben (H)" aria-label="Verschieben"><svg><use href="#i-hand"/></svg></button>
+                <button class="wkz" data-wkz="zoom" title="Zoom (Z)" aria-label="Zoom"><svg><use href="#i-lupe"/></svg></button>
+              </div>
+              <div class="zl-dauer" id="zl-dauer" title="Geschätzte Laufzeit der fertigen Animation"></div>
+            </div>
+            <div class="kopf-uhr" title="Abspielkopf — Aufnahmezeit · zurückgelegte Strecke von gesamt">
+              <svg class="ku-icon" aria-hidden="true"><use href="#i-uhr"/></svg>
+              <span class="ku-zeit" id="kopf-uhr">--:--</span>
+              <span class="ku-km"><span class="ku-km-cur" id="kopf-km">0,0</span> km / <span id="kopf-km-ges">0,0</span> km</span>
+            </div>
+            <div class="zl-kopf-rechts">
+              <div class="zoom">
+                <button class="zoom-b" id="zoom-raus" title="Herauszoomen (⌘−)" aria-label="Herauszoomen"><svg><use href="#i-lupe-minus"/></svg></button>
+                <input type="range" id="zoom-regler" min="0" max="100" value="0" aria-label="Zeitleiste zoomen" />
+                <button class="zoom-b" id="zoom-rein" title="Hineinzoomen (⌘+)" aria-label="Hineinzoomen"><svg><use href="#i-lupe-plus"/></svg></button>
+                <button class="zoom-wert" id="zoom-wert" title="An Fenster anpassen (⇧Z)" disabled>1,0×</button>
+              </div>
+            </div>
+          </div>
+          <div class="spuren-fenster" id="spuren-fenster">
+            <div class="spuren" id="spuren">
+              <div class="skala">
+                <div class="skala-name"></div>
+                <div id="skala-feld"></div>
+              </div>
+              <div class="spur hoch">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-foto"/></svg>Fotos/Videos</div>
+                <div class="spur-feld"><div class="foto-spur" id="spur-fotos"></div></div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-weg"/></svg>Fortbewegung</div>
+                <div class="spur-feld"><div class="band-reihe" id="spur-wege"></div></div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-kamera"/></svg>Kamera</div>
+                <div class="spur-feld"><div class="band-reihe" id="spur-kamera"></div></div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-wetter"/></svg>Wetter</div>
+                <div class="spur-feld"><div class="band-reihe" id="spur-wetter"></div></div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-moment"/></svg>Momente</div>
+                <div class="spur-feld"><div class="band-reihe" id="spur-momente"></div></div>
+              </div>
+              <div class="spur musik">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Sound</div>
+                <div class="spur-feld"><div class="band-reihe" id="spur-musik"></div></div>
+              </div>
+              <div id="zl-trim"></div>
+              <div class="kopfstrich" id="kopfstrich" hidden>
+                <button class="kopf-griff" id="kopf-griff" title="Abspielkopf ziehen" aria-label="Abspielkopf"></button>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
       <aside class="editor-seite">
         <!-- Inspector: zeigt, was in Zeitleiste oder Karte gewählt ist. Ersetzt
@@ -1411,6 +1562,8 @@
       </div>
       <div class="sfx-inhalt" id="sfx-inhalt"></div>
     </dialog>
+    <!-- Aufziehrahmen des Zoom-Werkzeugs (fixed, damit ihn kein overflow klippt) -->
+    <div class="zoom-box" id="zoom-box"></div>
   </section>
 
   <script type="module" src="/src/studio/studio.ts"></script>
