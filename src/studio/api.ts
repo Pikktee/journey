@@ -168,6 +168,13 @@ export interface EditorDaten {
   medien: EditorMedium[]
   /** hochgeladene Audio-Assets (Dateien unter media/ mit Audio-Endung) */
   audio: Array<{ datei: string; groesse: number }>
+  /**
+   * Das automatisch ermittelte Wetter als Grenzen — dieselbe Form wie
+   * `edits.wetter`. Die Wetterspur zeigt es, solange niemand eingegriffen hat;
+   * der erste Eingriff schreibt es ins Overlay fest. Leer bei Touren, die noch
+   * nie gerendert wurden (oder deren Wetter schon aus dem Studio stammt).
+   */
+  autoWetter?: Array<{ ab: string; mode: string; staerke?: number }>
   edits: unknown
 }
 

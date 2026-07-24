@@ -20,6 +20,9 @@ import { trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
 import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import type { BildBefund } from '../pipeline/vision.js'
+import { wendeTrimAn } from '../pipeline/edits.js'
+import { baueZeitreihe } from '../pipeline/zeit.js'
+import { wetterZuGrenzen, type WetterKeyframe } from '../pipeline/weather.js'
 import {
   EDITS_SCHEMA_ID,
   editsJsonSchema,
@@ -383,6 +386,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
       segmente: segmente.map((s) => ({ mode: s.mode, pts: vereinfacheSegment(s.pts) })),
       medien,
       audio,
+      autoWetter: await ermittleAutoWetter(app, tour.id, segmente, edits, startMs),
       edits,
     }
   })
@@ -507,6 +511,53 @@ async function ladeOriginalSegmente(
     ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
   })
   return trenneGehabschnitteInSegmenten([segment])
+}
+
+/**
+ * Das AUTOMATISCH ermittelte Wetter der Tour als Zeitgrenzen — dieselbe Form,
+ * die auch `edits.wetter` benutzt.
+ *
+ * Der Editor zeigt damit auf der Wetterspur, was tatsächlich gilt, statt eines
+ * einzigen Bandes „Automatisch"; beim ersten Eingriff schreibt er es fest (das
+ * Overlay ersetzt das Auto-Wetter ja vollständig, sonst ginge alles Übrige
+ * verloren). Rein lesend — keine externen Aufrufe, kein Cache-Verfall.
+ *
+ * Quelle ist bevorzugt das gerenderte tour.json: dort steckt das Wetter
+ * einschließlich Foto-Verfeinerung (M5), also genau das, was der Player zeigt.
+ * Stammt es aus dem Studio (der Nutzer hat bereits eingegriffen), tritt der
+ * Anreicherungs-Cache an seine Stelle, der immer das Rohergebnis der Automatik
+ * hält. Fehlt beides (noch nie gerendert), bleibt die Liste leer.
+ */
+async function ermittleAutoWetter(
+  app: FastifyInstance,
+  tourId: string,
+  segmente: readonly UploadSegment[],
+  edits: EditOverlay,
+  startMs: number,
+): Promise<Array<{ ab: string; mode: string; staerke: number }>> {
+  const { storage } = app.deps
+  try {
+    let keyframes: WetterKeyframe[] = []
+    if (await storage.info(tourId, TOURJSON_PFAD)) {
+      const tourJson = JSON.parse((await storage.lese(tourId, TOURJSON_PFAD)).toString()) as {
+        weather?: WetterKeyframe[]
+      }
+      const kf = tourJson.weather ?? []
+      if (kf.length && !kf.some((k) => k.source === 'studio')) keyframes = kf
+    }
+    if (!keyframes.length && (await storage.info(tourId, ANREICHERUNG_PFAD))) {
+      const cache = JSON.parse((await storage.lese(tourId, ANREICHERUNG_PFAD)).toString()) as AnreicherungsCache
+      keyframes = cache.wetterRoh ?? []
+    }
+    if (!keyframes.length) return []
+    // Bezug ist der GETRIMMTE Track — auf ihm rechnet die Pipeline ihre f-Werte.
+    const reihe = baueZeitreihe(wendeTrimAn(segmente, edits.trim, startMs))
+    if (reihe.punkte.length < 2) return []
+    return wetterZuGrenzen(keyframes, reihe, startMs)
+  } catch {
+    // Kaputtes/altes tour.json darf den Editor nicht am Öffnen hindern
+    return []
+  }
 }
 
 /**

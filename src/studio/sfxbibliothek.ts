@@ -1,11 +1,14 @@
-// Kuratierte Soundeffekt-Bibliothek: ein fester Satz Effekte, den wir EINMAL
-// über ElevenLabs erzeugen (scripts/gen-sfx-library.mjs) und statisch unter
+// Kuratierte Klang- und Musikbibliothek: ein fester Satz, den wir EINMAL über
+// ElevenLabs erzeugen (scripts/gen-music-library.mjs für die Musik,
+// scripts/gen-sfx-library.mjs für Atmosphären und Effekte) und statisch unter
 // public/audio/sfx/ ausliefern. Anders als hochgeladene Tour-Audios sind diese
 // GLOBAL — jede Tour kann sie auswählen, ohne eine Datei mitzubringen.
+// (Eigene Dateien bleiben daneben jederzeit möglich: „Datei hochladen …".)
 //
 // Diese Datei ist die Autorität für Anzeige und Dateinamen; die Prompts zum
-// Erzeugen liegen im Skript. Ein Drift-Wächter (test/studio-baukasten.test.ts)
-// hält die Dateinamen-Menge beider Seiten synchron.
+// Erzeugen liegen in den Skripten. Ein Drift-Wächter
+// (test/studio-baukasten.test.ts) hält die Dateinamen-Menge beider Seiten
+// synchron.
 
 /** Wie ein Effekt abgespielt wird — deckt sich mit AudioEintrag.typ. */
 export type SfxTyp = 'musik' | 'sfx'
@@ -16,14 +19,32 @@ export interface SfxEffekt {
   /** Anzeigename im Studio-Katalog. */
   name: string
   /**
-   * 'umgebung' = Dauer-Atmosphäre (Loop über eine Spanne, typ 'musik'),
+   * 'musik' = komponiertes Stück (Loop über eine Spanne, typ 'musik'),
+   * 'umgebung' = Dauer-Atmosphäre (ebenfalls Loop, typ 'musik'),
    * 'effekt' = punktueller One-Shot (typ 'sfx').
    */
-  kategorie: 'umgebung' | 'effekt'
+  kategorie: 'musik' | 'umgebung' | 'effekt'
   typ: SfxTyp
   /** Ein Satz zum Charakter — Tooltip im Studio. */
   beschreibung: string
 }
+
+// Musik: zehn Stücke für die Stimmungen, die auf einer Reise vorkommen. Sie
+// laufen über eine Spanne und schleifen — deshalb typ 'musik' wie die
+// Atmosphären, aber eine eigene Kategorie: eine Komposition ist etwas anderes
+// als der Klang eines Ortes.
+const MUSIK: SfxEffekt[] = [
+  { datei: 'mus-aufbruch.mp3', name: 'Aufbruch', kategorie: 'musik', typ: 'musik', beschreibung: 'Hoffnungsvoller Folk zum Losfahren — Gitarre, Shaker, Glockenspiel' },
+  { datei: 'mus-fernweh.mp3', name: 'Fernweh', kategorie: 'musik', typ: 'musik', beschreibung: 'Weit und sehnsüchtig: Klavier über langsamen Streichern' },
+  { datei: 'mus-kuestenstrasse.mp3', name: 'Küstenstraße', kategorie: 'musik', typ: 'musik', beschreibung: 'Sonnige Fahrt am Meer — Surfgitarre, lockeres Schlagzeug' },
+  { datei: 'mus-nachtfahrt.mp3', name: 'Nachtfahrt', kategorie: 'musik', typ: 'musik', beschreibung: 'Pulsierender Synthwave durchs Dunkel' },
+  { datei: 'mus-bergpass.mp3', name: 'Bergpass', kategorie: 'musik', typ: 'musik', beschreibung: 'Weite Streicher und Hörner in dünner Höhenluft' },
+  { datei: 'mus-tropen.mp3', name: 'Tropen', kategorie: 'musik', typ: 'musik', beschreibung: 'Marimba, Nylongitarre, warme Perkussion' },
+  { datei: 'mus-stadtpuls.mp3', name: 'Stadtpuls', kategorie: 'musik', typ: 'musik', beschreibung: 'Trockener Groove, Funkgitarre, tiefer Bass' },
+  { datei: 'mus-goldene-stunde.mp3', name: 'Goldene Stunde', kategorie: 'musik', typ: 'musik', beschreibung: 'Glühende Gitarrenflächen, fast ohne Takt' },
+  { datei: 'mus-regentag.mp3', name: 'Regentag', kategorie: 'musik', typ: 'musik', beschreibung: 'Stilles Klavier, sparsam gesetzt' },
+  { datei: 'mus-heimkehr.mp3', name: 'Heimkehr', kategorie: 'musik', typ: 'musik', beschreibung: 'Ruhig auflösend — Gitarre und Klavier zum Ankommen' },
+]
 
 // Umgebungs-Atmosphären: nahtlose Loops, laufen über einen Streckenbereich.
 const UMGEBUNG: SfxEffekt[] = [
@@ -51,7 +72,14 @@ const EFFEKT: SfxEffekt[] = [
   { datei: 'sfx-kamera.mp3', name: 'Kamera', kategorie: 'effekt', typ: 'sfx', beschreibung: 'Auslöser einer Spiegelreflexkamera' },
 ]
 
-export const SFX_BIBLIOTHEK: readonly SfxEffekt[] = [...UMGEBUNG, ...EFFEKT]
+export const SFX_BIBLIOTHEK: readonly SfxEffekt[] = [...MUSIK, ...UMGEBUNG, ...EFFEKT]
+
+/** Überschriften der Gruppen im Katalog — Reihenfolge wie in SFX_BIBLIOTHEK. */
+export const KATEGORIE_NAMEN: Record<SfxEffekt['kategorie'], string> = {
+  musik: 'Musik',
+  umgebung: 'Atmosphäre',
+  effekt: 'Klänge',
+}
 
 /** Menge der Bibliotheks-Dateinamen — für die Validierung (Server/Player-Referenz). */
 export const SFX_DATEIEN: ReadonlySet<string> = new Set(SFX_BIBLIOTHEK.map((e) => e.datei))

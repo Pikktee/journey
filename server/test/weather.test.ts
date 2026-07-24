@@ -9,6 +9,7 @@ import {
   glaetteSamples,
   testRaster,
   wetterAusOverlay,
+  wetterZuGrenzen,
   WETTER_STANDARD_K,
   wmoZuWetter,
   type WetterModus,
@@ -218,5 +219,69 @@ describe('wetterAusOverlay (Studio-Wetter)', () => {
       [0.7, 'snow'],
       [1, 'snow'],
     ])
+  })
+})
+
+describe('wetterZuGrenzen (Auto-Wetter fürs Studio)', () => {
+  // Gerade Strecke, Zeit linear zur Distanz → f · 1000 s = tOffset.
+  const reihe = baueZeitreihe([
+    { mode: 'walk', pts: [[7.9, 46.5, 0, 0], [7.91, 46.51, 0, 1000]] },
+  ] as UploadSegment[])
+  const START = Date.parse('2026-01-01T00:00:00Z')
+  const bei = (s: number): string => new Date(START + s * 1000).toISOString()
+
+  it('setzt die Grenze auf die MITTE zwischen zwei Marken — wo der Player schaltet', () => {
+    const grenzen = wetterZuGrenzen(
+      [
+        { f: 0, mode: 'off', k: 0.7, source: 'openmeteo' },
+        { f: 0.4, mode: 'rain', k: 0.6, source: 'openmeteo' },
+      ],
+      reihe,
+      START,
+    )
+    expect(grenzen).toEqual([
+      { ab: bei(0), mode: 'off', staerke: 0.7 },
+      { ab: bei(200), mode: 'rain', staerke: 0.6 },
+    ])
+  })
+
+  it('fasst gleiche Zustände in Folge zu EINEM Band zusammen', () => {
+    const grenzen = wetterZuGrenzen(
+      [
+        { f: 0, mode: 'clouds', k: 0.5, source: 'openmeteo' },
+        { f: 0.3, mode: 'clouds', k: 0.5, source: 'openmeteo' },
+        { f: 0.6, mode: 'clouds', k: 0.5, source: 'openmeteo' },
+      ],
+      reihe,
+      START,
+    )
+    expect(grenzen).toEqual([{ ab: bei(0), mode: 'clouds', staerke: 0.5 }])
+  })
+
+  it('eine reine Stärke-Änderung ist auch eine Grenze', () => {
+    const grenzen = wetterZuGrenzen(
+      [
+        { f: 0, mode: 'rain', k: 0.4, source: 'openmeteo' },
+        { f: 0.5, mode: 'rain', k: 0.9, source: 'openmeteo' },
+      ],
+      reihe,
+      START,
+    )
+    expect(grenzen.map((g) => g.staerke)).toEqual([0.4, 0.9])
+  })
+
+  it('ist die Umkehrung von wetterAusOverlay (Rundlauf)', () => {
+    // Was der Editor zeigt, muss beim Speichern dieselbe Tour ergeben.
+    const original = [
+      { ab: bei(0), mode: 'clouds' as WetterModus, staerke: 0.6 },
+      { ab: bei(400), mode: 'rain' as WetterModus, staerke: 0.8 },
+      { ab: bei(700), mode: 'off' as WetterModus, staerke: 0.7 },
+    ]
+    const zurueck = wetterZuGrenzen(wetterAusOverlay(original, reihe, START), reihe, START)
+    expect(zurueck).toEqual(original)
+  })
+
+  it('bleibt bei leeren Keyframes leer', () => {
+    expect(wetterZuGrenzen([], reihe, START)).toEqual([])
   })
 })

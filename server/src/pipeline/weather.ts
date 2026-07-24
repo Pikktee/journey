@@ -8,7 +8,7 @@
 // Das WMO-Mapping ist der Zwilling von wmoToWeather in src/autoweather.js —
 // Server-Keyframes und Client-Fallback müssen dieselbe Wetterwelt erzählen.
 
-import { positionZurZeit, type Zeitreihe } from './zeit.js'
+import { positionZurZeit, zeitZurPosition, type Zeitreihe } from './zeit.js'
 
 /**
  * Die Wetterwelt des Players (src/weather.js) als Liste — Einzelquelle für den
@@ -255,6 +255,50 @@ export function wetterAusOverlay(
     keyframes.push(kf)
   }
   return keyframes
+}
+
+/**
+ * Umkehrung von `wetterAusOverlay`: Player-Keyframes → Wetter-Grenzen in
+ * absoluter Zeit, wie sie im Edit-Overlay stehen.
+ *
+ * WOZU. Das Auto-Wetter war im Studio bislang unsichtbar — die Wetterspur zeigte
+ * ein einziges Band „Automatisch", und die erste eigene Grenze warf die ganze
+ * automatische Einteilung weg (Overlay ERSETZT das Auto-Wetter vollständig).
+ * Mit dieser Umkehrung zeigt der Editor, was tatsächlich gilt, und kann es beim
+ * ersten Eingriff festschreiben — wie `materialisiereModi` bei der Fortbewegung.
+ *
+ * Die Bandgrenze liegt dort, wo auch der Player umschaltet: auf der MITTE
+ * zwischen zwei Marken (`weatherAt` in src/autoweather.js). Aufeinanderfolgende
+ * Marken mit gleichem Zustand sind dieselbe Aussage und werden zusammengefasst.
+ */
+export function wetterZuGrenzen(
+  keyframes: readonly WetterKeyframe[],
+  reihe: Zeitreihe,
+  startMs: number,
+): Array<{ ab: string; mode: WetterModus; staerke: number }> {
+  const sortiert = [...keyframes].sort((a, b) => a.f - b.f)
+  const erster = sortiert[0]
+  if (!erster) return []
+  const grenzen: Array<{ ab: string; mode: WetterModus; staerke: number }> = []
+  const zeitBei = (f: number): string => new Date(startMs + zeitZurPosition(reihe, f) * 1000).toISOString()
+
+  let letzter: { mode: WetterModus; k: number } = { mode: erster.mode, k: erster.k }
+  grenzen.push({ ab: zeitBei(erster.f), mode: erster.mode, staerke: erster.k })
+  for (let i = 1; i < sortiert.length; i++) {
+    const kf = sortiert[i] as WetterKeyframe
+    if (kf.mode === letzter.mode && kf.k === letzter.k) continue
+    const vorher = sortiert[i - 1] as WetterKeyframe
+    grenzen.push({ ab: zeitBei((vorher.f + kf.f) / 2), mode: kf.mode, staerke: kf.k })
+    letzter = { mode: kf.mode, k: kf.k }
+  }
+  // Zwei Grenzen auf derselben Sekunde (Marken-Paare der Overlay-Erzeugung, oder
+  // eine Pause im Track): die spätere gewinnt — sie ist die gültige Aussage.
+  const gefiltert: typeof grenzen = []
+  for (const g of grenzen) {
+    if (gefiltert[gefiltert.length - 1]?.ab === g.ab) gefiltert.pop()
+    gefiltert.push(g)
+  }
+  return gefiltert
 }
 
 // — Open-Meteo-Anbindung —

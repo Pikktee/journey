@@ -1,7 +1,7 @@
 // Kreativbaukasten (Editor-Seite): Segment-Projektion, Audio-/Kamera-/Display-
 // Mutatoren und die Zeitleisten-Helfer — alles reine Logik ohne DOM.
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   effektiveMedien,
@@ -338,29 +338,49 @@ describe('Wetter-Grenzen', () => {
   })
 })
 
-describe('SFX-Bibliothek', () => {
+describe('Musik- und Klangbibliothek', () => {
   it('Katalog ist konsistent: eindeutige Dateien, Kategorie passt zum Typ', () => {
     const dateien = SFX_BIBLIOTHEK.map((e) => e.datei)
     expect(new Set(dateien).size, 'doppelte Dateinamen im Katalog').toBe(dateien.length)
     for (const e of SFX_BIBLIOTHEK) {
       expect(e.datei, `${e.name}: Dateiname`).toMatch(/^[A-Za-z0-9_-]{1,64}\.mp3$/)
-      // Umgebung läuft als Loop (musik), Effekt als One-Shot (sfx)
-      expect(e.typ, `${e.name}: Typ passt zur Kategorie`).toBe(e.kategorie === 'umgebung' ? 'musik' : 'sfx')
+      // Musik und Umgebung laufen als Loop über eine Spanne (musik),
+      // Effekte als One-Shot an einem Punkt (sfx)
+      expect(e.typ, `${e.name}: Typ passt zur Kategorie`).toBe(e.kategorie === 'effekt' ? 'sfx' : 'musik')
     }
     expect(SFX_DATEIEN.has(SFX_BIBLIOTHEK[0]!.datei)).toBe(true)
     expect(sfxEffekt(SFX_BIBLIOTHEK[0]!.datei)?.name).toBe(SFX_BIBLIOTHEK[0]!.name)
     expect(sfxEffekt('gibtsnicht.mp3')).toBeUndefined()
   })
 
-  it('deckt sich mit den erzeugten Clips (Drift-Wächter Katalog ↔ Skript)', async () => {
-    // Das Generier-Skript exportiert CLIPS (Prompts); der Katalog die Anzeige.
+  it('bietet Musik an — nicht nur Atmosphären und Effekte', () => {
+    // Die Spur heißt „Musik & Sound"; ohne Musik wäre sie eine Ankündigung.
+    const musik = SFX_BIBLIOTHEK.filter((e) => e.kategorie === 'musik')
+    expect(musik.length).toBeGreaterThanOrEqual(10)
+    expect(musik.every((e) => e.typ === 'musik')).toBe(true)
+  })
+
+  it('deckt sich mit den erzeugten Clips (Drift-Wächter Katalog ↔ Skripte)', async () => {
+    // Die Generier-Skripte exportieren ihre Prompts; der Katalog die Anzeige.
     // Die Dateinamen-Mengen müssen exakt übereinstimmen, sonst wählt das Studio
-    // Effekte, die nie erzeugt werden — oder umgekehrt.
+    // Stücke, die nie erzeugt werden — oder umgekehrt.
     // @ts-expect-error — reines .mjs-Generier-Skript ohne Typdeklaration
     const { CLIPS } = (await import('../scripts/gen-sfx-library.mjs')) as { CLIPS: Array<{ name: string }> }
-    const ausSkript = CLIPS.map((c) => `${c.name}.mp3`).sort()
+    // @ts-expect-error — dito
+    const { MUSIK_CLIPS } = (await import('../scripts/gen-music-library.mjs')) as {
+      MUSIK_CLIPS: Array<{ name: string }>
+    }
+    const ausSkript = [...CLIPS, ...MUSIK_CLIPS].map((c) => `${c.name}.mp3`).sort()
     const ausKatalog = SFX_BIBLIOTHEK.map((e) => e.datei).slice().sort()
     expect(ausSkript).toEqual(ausKatalog)
+  })
+
+  it('jede Katalogdatei liegt wirklich unter public/audio/sfx/', () => {
+    // Ein Katalogeintrag ohne Datei ist ein Eintrag, der beim Anklicken schweigt.
+    for (const e of SFX_BIBLIOTHEK) {
+      const pfad = new URL(`../public/audio/sfx/${e.datei}`, import.meta.url)
+      expect(existsSync(pfad), `${e.name}: ${e.datei} fehlt`).toBe(true)
+    }
   })
 })
 

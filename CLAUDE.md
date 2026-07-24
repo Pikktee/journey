@@ -205,8 +205,10 @@ fahrende Kamera) steht noch aus: [docs/foto-tour.md](docs/foto-tour.md).
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`luhambo/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
-`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `trim`, `kamera`, `audio`,
-`wetter`, `titelbild`.
+`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `kamera`, `audio`,
+`wetter`, `titelbild` (dazu `trim` — im Format erhalten und serverseitig angewandt, aber
+**nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour beginnt
+und endet, wo sie aufgezeichnet wurde).
 Beim Speichern rendert der Server die Tour aus Rohdaten + Overlay neu. Edits referenzieren
 **stabile Anker** — Medien-IDs, Koordinaten, absolute ISO-Zeitstempel, nie den Streckenanteil `f`.
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
@@ -216,6 +218,18 @@ vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `w
 Stufenfunktion; Marken-PAARE auf demselben `f` legen die Umschaltung (Player: Mitte zweier
 Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache bleibt gültig
 (ein Wetter-Edit löst keine externen Aufrufe aus).
+
+**Die Wetterspur zeigt das echte Wetter, nicht das Wort „automatisch".** Weil das Overlay das
+Auto-Wetter vollständig ersetzt, hätte die erste eigene Grenze früher den Rest der Tour
+schlagartig klar gemacht. Deshalb liefert `/api/tours/:id/editor` das **ermittelte** Wetter als
+Zeitgrenzen mit (`autoWetter`): `wetterZuGrenzen` ist die Umkehrung von `wetterAusOverlay` —
+Keyframes → Grenzen, die Bandkante auf die MITTE zweier Marken (dort schaltet `weatherAt` im
+Player), `f` → Zeit über `zeitZurPosition`. Quelle ist das gerenderte `tour.json` (enthält die
+Foto-Verfeinerung), ersatzweise `wetterRoh` aus dem Anreicherungs-Cache; rein lesend, keine
+externen Aufrufe. Der Editor zeigt diese Grenzen als normale Bänder und schreibt sie beim
+ERSTEN Eingriff ins Overlay (`schreibeWetterFest`) — genau das Muster von `materialisiereModi`
+bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband heißt
+**„Standard"**, weil dort gilt, was der Zuschauer im Player einstellt (Nah/Mittel/Weit).
 
 **Zwei Feinheiten der Pipeline, die man leicht „repariert":**
 
@@ -239,9 +253,23 @@ Neue Editor-Logik gehört in die beiden ersten Module, sonst ist sie nicht testb
 
 **Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Wetter, Momente, Musik & Sound, Fotos) auf
 gemeinsamer Zeitachse. Zustände sind **lückenlose, beschriftete Bänder** — Anfang und Ende
-eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Trim-Griffe, Auswahl- und
-Hover-Linie liegen als Overlay über allen Bahnen (absolut positioniert, **nicht** als
-Grid-Item: ein Item mit `grid-row: 1/-1` belegt die ganze Spalte und drängt die Bahnen weg).
+eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Der Abspielkopf liegt als
+Overlay über allen Bahnen (absolut positioniert, **nicht** als Grid-Item: ein Item mit
+`grid-row: 1/-1` belegt die ganze Spalte und drängt die Bahnen weg).
+
+**Die Kante ist ein Griff, kein eigenes Objekt.** Sie liegt (9 px) ÜBER dem Band und ist dessen
+Geschwister, kein Vorfahr — `closest('[data-fokus]')` findet von dort aus nichts, und ein Klick
+auf die Kante wählte deshalb gar nichts aus (der Cursor sprang auf „Rand ziehen", und nichts
+geschah). `bandUnterZeiger` sucht das Band per `elementsFromPoint`; ziehen verschiebt die
+Grenze, bloßes Antippen wählt das Band darunter.
+
+**Während eines Zugs wird NICHTS neu gebaut.** Der Foto-Zug rief pro `pointermove` einen
+kompletten Neuaufbau der Leiste (~46 DOM-Änderungen, ein erzwungenes Layout in
+`kuerzeBeschriftungen`, frische `img`-Elemente): das Bild zuckte unter dem Finger, die Karte
+blieb stehen. Jetzt bewegt der Zug nur die Miniatur und den Kartenpunkt; das Overlay wird beim
+Loslassen einmal geschrieben (= genau ein Undo-Schritt). Analog schreibt `zeichneMarker` die
+Kartenpunkte **fort** statt sie abzureißen (geschlüsselt nach der Zusammensetzung des Halts) —
+sonst wurden bei jedem Klick alle Fotos kurz zu leeren Kreisen.
 
 **Die Achse zeigt Aufnahmezeit**, nicht Wiedergabezeit — daran hängen alle Overlay-Anker.
 Wie lang die fertige Animation läuft, ist eine andere Größe (die Engine fährt mit eigenem
@@ -342,6 +370,16 @@ für einen späteren „Öffnen mit"-Intent-Filter stehen.
   `eng-moped/eng-jeep/eng-boat.mp3`; das Auto ist auskommentiert), Ambient-Musik via Music-API
   `POST /v1/music` `{prompt, music_length_ms}`
   ([scripts/gen-music.mjs](scripts/gen-music.mjs) → `public/audio/ambient.mp3`).
+  Die **Studio-Bibliothek** (Musik & Sound) kommt aus denselben zwei APIs und liegt komplett
+  unter `public/audio/sfx/`: zehn Musikstücke à 100 s via Music-API
+  ([scripts/gen-music-library.mjs](scripts/gen-music-library.mjs), `mus-*.mp3`), zehn
+  Atmosphären-Loops und acht Einzelklänge via Sound-Generation
+  ([scripts/gen-sfx-library.mjs](scripts/gen-sfx-library.mjs), `amb-*`/`sfx-*`). Katalog
+  (Anzeige + Dateinamen) ist [src/studio/sfxbibliothek.ts](src/studio/sfxbibliothek.ts), die
+  Prompts stehen in den Skripten; ein Drift-Wächter hält beide Seiten synchron und prüft, dass
+  jede Katalogdatei wirklich existiert. Beide Skripte überspringen Vorhandenes — gezielt neu
+  erzeugen heißt: Datei vorher löschen. Eigene Dateien bleiben daneben jederzeit möglich
+  („Datei hochladen …" im „+"-Menü der Musikspur, landet unter `media/` der Tour).
   Loops laufen nahtlos über den Crossfade-Wrapper [src/audioloop.js](src/audioloop.js)
   (`SeamlessLoop`), die Hintergrundmusik über [src/music.js](src/music.js) (Dock-Toggle),
   die Motorloops über [src/vehicle.js](src/vehicle.js) (`MODE_SOUND` — `moped`/`jeep`/`ferry`;

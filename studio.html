@@ -1078,11 +1078,13 @@
     .spur-icon { width: 15px; height: 15px; flex: none; color: var(--text-3); opacity: 0.9; }
     .spur:hover .spur-icon { color: var(--text-2); }
     /* Ereignis anlegen — an JEDER Bahn, immer an der Einfügemarke. Der Knopf
-       hält sich zurück, bis man die Bahn ins Auge fasst. */
+       hält sich zurück, ist aber IMMER da: unsichtbar bis zum Hover war er
+       nicht zu finden („man kann keine Musik hochladen" — man sah nur eine
+       leere Bahn). Er tritt beim Hover hervor, verschwindet aber nie. */
     .spur-plus {
       width: 19px; height: 19px; flex: none; margin-left: auto; display: grid; place-items: center; padding: 0;
       border-radius: 50%; border: 1px dashed var(--rand-hell); background: transparent; color: var(--text-3);
-      opacity: 0; transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease;
+      opacity: 0.45; transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease;
     }
     .spur:hover .spur-plus, .spur-plus[aria-expanded='true'], .spur-plus:focus-visible { opacity: 1; }
     .spur-plus:hover, .spur-plus[aria-expanded='true'] { border-style: solid; border-color: var(--akzent); color: var(--akzent); }
@@ -1202,8 +1204,11 @@
 
     /* DIE KANTE IST DER GRIFF — Anfang des einen und Ende des anderen Zustands
        sind dieselbe Stelle, also gibt es dafür auch nur einen Anfasser. */
+    /* Schmal (9 px): der Griff liegt ÜBER dem Band, jeder Pixel mehr ist ein
+       Pixel, an dem der Cursor „Rand ziehen" zeigt, obwohl man das Band meint.
+       Ein Klick ohne Zug wählt trotzdem das Band darunter (bandUnterZeiger). */
     .kante {
-      position: absolute; top: 0; bottom: 0; width: 13px; transform: translateX(-50%);
+      position: absolute; top: 0; bottom: 0; width: 9px; transform: translateX(-50%);
       z-index: 5; cursor: col-resize; touch-action: none;
     }
     .kante::before {
@@ -1307,19 +1312,9 @@
       40% { transform: rotate(45deg) scale(1.5); background: var(--akzent); }
     }
 
-    /* — Overlay über allen Bahnen: Trim und Abspielkopf — */
-    .zl-schatten { position: absolute; top: 30px; bottom: 4px; background: rgba(4, 6, 10, 0.62); pointer-events: none; z-index: 6; }
-    .zl-griff {
-      position: absolute; top: 26px; bottom: 4px; width: 22px; margin-left: -11px;
-      z-index: 7; cursor: ew-resize; touch-action: none;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .zl-griff::before {
-      content: ''; width: 3px; height: 100%; border-radius: 3px;
-      background: var(--akzent); box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.8);
-      transition: transform 120ms ease;
-    }
-    .zl-griff:hover::before, .zl-griff.zieht::before { transform: scaleX(1.8); }
+    /* — Overlay über allen Bahnen: der Abspielkopf —
+       (Die Trim-Griffe an den Rändern sind entfallen: eine Tour beginnt und
+       endet, wo sie aufgezeichnet wurde.) */
 
     /* Abspielkopf: Pentagon-Kopf IM Maßband, Linie über alle Bahnen. Die Linie
        beginnt exakt an der Spitze des Kopfes (top = Maßbandhöhe), sonst ragt
@@ -1385,6 +1380,8 @@
     }
     .insp-art .farbe { width: 9px; height: 9px; border-radius: 3px; flex: none; }
     .insp-titel { font-family: var(--font-display); font-size: 19px; line-height: 1.25; margin: -6px 0 0; }
+    /* Erklärung unter einem Feld — soll gelesen werden können, ohne zu drängen */
+    .insp-hinweis { margin: -4px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-3); }
     .feld { display: flex; flex-direction: column; gap: 5px; }
     .feld > label { font-size: 11.5px; color: var(--text-3); }
     .feld select, .feld input[type='text'], .feld input[type='number'] { width: 100%; font-size: 13px; }
@@ -1469,7 +1466,7 @@
     }
     .stopp-summe b { font-weight: 500; color: var(--text-2); }
 
-    /* — Soundeffekt-Bibliothek (Dialog) — */
+    /* — Musik- und Klangbibliothek (Dialog) — */
     .sfx-dialog {
       width: min(560px, 92vw);
       max-height: 82vh;
@@ -1978,7 +1975,6 @@
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Sound<button class="spur-plus" data-spur="musik" aria-expanded="false" title="Musik oder Klang ab der Marke einsetzen" aria-label="Musik hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-musik"></div></div>
               </div>
-              <div id="zl-trim"></div>
               <div class="kopfstrich" id="kopfstrich" hidden>
                 <button class="kopf-griff" id="kopf-griff" title="Abspielkopf ziehen" aria-label="Abspielkopf"></button>
               </div>
@@ -2024,10 +2020,10 @@
         <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
       </aside>
     </div>
-    <!-- Soundeffekt-Bibliothek: Inhalt wird aus SFX_BIBLIOTHEK gebaut -->
+    <!-- Musik- und Klangbibliothek: Inhalt wird aus SFX_BIBLIOTHEK gebaut -->
     <dialog id="sfx-dialog" class="sfx-dialog">
       <div class="sfx-kopf">
-        <strong>Soundeffekt-Bibliothek</strong>
+        <strong>Musik &amp; Klang-Bibliothek</strong>
         <button class="icon" id="sfx-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-zurueck"/></svg></button>
       </div>
       <div class="sfx-inhalt" id="sfx-inhalt"></div>

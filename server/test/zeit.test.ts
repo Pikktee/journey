@@ -9,6 +9,7 @@ import {
   findePausen,
   komprimiereZeiten,
   positionZurZeit,
+  zeitZurPosition,
 } from '../src/pipeline/zeit.js'
 import type { UploadSegment } from '../src/schema/upload.js'
 
@@ -190,5 +191,45 @@ describe('positionZurZeit', () => {
   it('klemmt außerhalb der Zeitspanne auf die Enden', () => {
     expect(positionZurZeit(reihe, -50).f).toBe(0)
     expect(positionZurZeit(reihe, 99999).f).toBe(1)
+  })
+})
+
+describe('zeitZurPosition (Umkehrung)', () => {
+  const reihe = baueZeitreihe([
+    { mode: 'walk', pts: [[7.9, 46.5, 0, 0], [7.91, 46.51, 0, 1000]] },
+  ] as UploadSegment[])
+
+  it('führt zu genau der Zeit zurück, aus der der Anteil kam', () => {
+    for (const t of [0, 137, 500, 862, 1000]) {
+      const f = positionZurZeit(reihe, t).f
+      expect(zeitZurPosition(reihe, f)).toBeCloseTo(t, 3)
+    }
+  })
+
+  it('klemmt außerhalb von 0..1', () => {
+    expect(zeitZurPosition(reihe, -0.5)).toBe(0)
+    expect(zeitZurPosition(reihe, 4)).toBe(1000)
+  })
+
+  it('liefert an einer Pause den Moment des ANKOMMENS, nicht des Weiterfahrens', () => {
+    // Punkte 2 und 3 liegen am selben Ort: die Distanz wächst dort nicht, die
+    // Zeit schon. Der Anteil ist an dieser Stelle also mehrdeutig — geliefert
+    // wird der früheste Zeitpunkt.
+    const mitPause = baueZeitreihe([
+      {
+        mode: 'walk',
+        pts: [
+          [7.9, 46.5, 0, 0],
+          [7.91, 46.51, 0, 600],
+          [7.91, 46.51, 0, 3000],
+          [7.92, 46.52, 0, 4000],
+        ],
+      },
+    ] as UploadSegment[])
+    // Der Anteil AM ENDE der Pause führt auf ihren Anfang zurück
+    const fPause = positionZurZeit(mitPause, 3000).f
+    expect(zeitZurPosition(mitPause, fPause)).toBeCloseTo(600, 3)
+    // Am Tourende greift dagegen die Klemme: dort gilt der letzte Zeitpunkt.
+    expect(zeitZurPosition(mitPause, 1)).toBe(4000)
   })
 })

@@ -227,3 +227,37 @@ export function positionZurZeit(reihe: Zeitreihe, tSek: number): { lng: number; 
     f: anteil(a) + u * (anteil(b) - anteil(a)),
   }
 }
+
+/**
+ * Umkehrung von `positionZurZeit`: Tour-Zeit zum Streckenanteil `f`.
+ *
+ * Gebraucht, um Streckenanteile des Tour-JSONs (Wetter-Keyframes) zurück in
+ * absolute Zeiten zu übersetzen — die Ankerform aller Studio-Edits. Steht die
+ * Tour (Pause), wächst `tSek` bei gleichbleibender Distanz: der Anteil ist dort
+ * mehrdeutig, geliefert wird der FRÜHESTE Zeitpunkt (der Moment des Ankommens).
+ * Außerhalb 0..1 wird geklemmt — f=1 ist damit immer das Tour-Ende, auch wenn
+ * die Tour dort noch steht.
+ */
+export function zeitZurPosition(reihe: Zeitreihe, f: number): number {
+  const { punkte, gesamtM } = reihe
+  const erster = punkte[0] as ZeitPunkt | undefined
+  const letzter = punkte[punkte.length - 1] as ZeitPunkt | undefined
+  if (!erster || !letzter) return 0
+  const ziel = Math.max(0, Math.min(1, f)) * gesamtM
+  if (ziel <= erster.dist) return erster.tSek
+  if (ziel >= letzter.dist) return letzter.tSek
+
+  // Binärsuche: erster Punkt mit dist >= ziel (dist ist monoton)
+  let lo = 0
+  let hi = punkte.length - 1
+  while (lo < hi) {
+    const mitte = (lo + hi) >> 1
+    if ((punkte[mitte] as ZeitPunkt).dist < ziel) lo = mitte + 1
+    else hi = mitte
+  }
+  const b = punkte[lo] as ZeitPunkt
+  const a = punkte[lo - 1] as ZeitPunkt
+  const spanne = b.dist - a.dist
+  const u = spanne > 0 ? (ziel - a.dist) / spanne : 0
+  return a.tSek + u * (b.tSek - a.tSek)
+}
