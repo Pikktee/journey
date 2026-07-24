@@ -1,0 +1,2847 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Luhambo Studio, Editor (Skizze)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Space+Grotesk:wght@400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Editor, SKIZZE. Sie schließt den Klickweg (Bibliothek → Neue
+   Tour → Editor) und zeigt eine These, kein fertiges Design:
+
+   Der Prüf-Screen und der Editor sprechen dieselbe Sprache. Dieselbe
+   Zeitachse (Aufnahmezeit), dasselbe Tageslicht-Band, dieselben Miniaturen
+   an ihrer Uhrzeit. Der Unterschied ist die Tiefe: aus einer Bahn werden
+   fünf, dazu kommt der Inspector. Wer den Upload gesehen hat, kennt die
+   Zeitleiste schon.
+
+   Der eigentliche Editor-Entwurf steht noch aus.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #10151d;
+  --fl-2: #151c26;
+  --fl-3: #1c2530;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+  --akzent: #f5a524;
+  --akzent-2: #ff6f52;
+  --gruen: #3ecf8e;
+  --rot: #e5484d;
+  --blau: #5b9dff;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --spur-x: 168px;      /* feste Namenspalte links (Icon + Name + Rand) — bleibt beim Scrollen stehen */
+  --zeit-breite: 900px; /* Breite des Zeitfelds — skaliert mit dem Zoom; JS setzt sie beim Laden */
+  --inspector-breite: 340px; /* Breite des Inspector-Panels — per Griff verstellbar, 0 = eingeklappt */
+  /* Scrub-Cursor à la Final Cut Pro X — horizontaler Doppelpfeil (weiß mit dunkler
+     Kontur für Sichtbarkeit auf jedem Grund), Hotspot mittig. ew-resize als Fallback. */
+  --scrub: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='28'%20height='14'%3E%3Cg%20fill='none'%20stroke='%23000'%20stroke-width='3.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%203L3%207L8%2011M20%203L25%207L20%2011M3%207H25'/%3E%3C/g%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='1.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%203L3%207L8%2011M20%203L25%207L20%2011M3%207H25'/%3E%3C/g%3E%3C/svg%3E") 14 7, ew-resize;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14.5px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; overflow: hidden;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+.mockleiste {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 18px; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .12em; text-transform: uppercase;
+  background: repeating-linear-gradient(135deg, #14100a, #14100a 10px, #171209 10px, #171209 20px);
+  border-bottom: 1px solid #2a2113; color: #8d7a55; flex: none;
+}
+.mockleiste b { color: var(--akzent); font-weight: 600; }
+.mockleiste a { color: #c9a55f; }
+
+/* ————— Kopf ————— */
+.kopf {
+  flex: none; display: flex; align-items: center; gap: 14px;
+  padding: 11px 24px 11px 20px; border-bottom: 1px solid var(--rand);
+  background: linear-gradient(180deg, rgba(20,26,35,.75), rgba(9,12,17,.4));
+}
+.zurueck {
+  width: 32px; height: 32px; display: grid; place-items: center; flex: none;
+  background: transparent; border: 1px solid var(--rand); border-radius: 9px; color: var(--text-2);
+}
+.zurueck:hover { border-color: var(--rand-hell); color: var(--text); }
+.zurueck svg { width: 15px; height: 15px; }
+.kopf h1 { font-size: 19px; letter-spacing: -.01em; }
+.kopf .zustand { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); }
+.kopf .rechts { margin-left: auto; display: flex; align-items: center; gap: 9px; }
+.werkzeug {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1px solid var(--rand); color: var(--text-2);
+  padding: 7px 13px; border-radius: 999px; font-size: 13px;
+}
+.werkzeug:hover { border-color: var(--rand-hell); color: var(--text); }
+.werkzeug svg { width: 14px; height: 14px; }
+.werkzeug:disabled { opacity: .35; cursor: default; }
+.werkzeug:disabled:hover { border-color: var(--rand); color: var(--text-2); }
+/* Löschen wohnt HIER, nicht in der Bibliothek: dort steht es neben fünf anderen
+   Touren und einen Klick neben „abspielen". Hier hat man die Tour offen vor
+   sich und weiß, was man wegwirft. */
+.kopf-menue-huelle { position: relative; display: inline-flex; }
+.kopf-menue {
+  position: absolute; top: 40px; right: 0; z-index: 30; min-width: 210px;
+  background: rgba(14,19,26,.98); border: 1px solid var(--rand-hell);
+  border-radius: 12px; padding: 5px; box-shadow: 0 22px 50px rgba(2,5,10,.7);
+}
+.kopf-menue button {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text-2); padding: 8px 10px;
+  border-radius: 8px; font-size: 13px;
+}
+.kopf-menue button:hover { background: var(--fl-3); color: var(--text); }
+.kopf-menue button svg { width: 14px; height: 14px; opacity: .8; flex: none; }
+.kopf-menue button.gefahr { color: #f08c8f; }
+.kopf-menue button.gefahr:hover { background: rgba(229,72,77,.14); color: #ff9ea1; }
+.kopf-menue hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+.sicht-huelle { position: relative; display: inline-flex; }
+.sicht-knopf[aria-expanded="true"] { border-color: var(--akzent); color: var(--akzent); }
+.sicht-menue {
+  position: absolute; top: 40px; right: 0; z-index: 30; min-width: 230px;
+  background: rgba(14,19,26,.98); border: 1px solid var(--rand-hell); border-radius: 12px;
+  padding: 5px; box-shadow: 0 22px 50px rgba(2,5,10,.7);
+}
+.sicht-menue button {
+  display: flex; align-items: flex-start; gap: 9px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text-2); padding: 8px 10px;
+  border-radius: 9px; font-size: 13px; line-height: 1.35;
+}
+.sicht-menue button:hover { background: var(--fl-3); color: var(--text); }
+.sicht-menue button > svg { width: 14px; height: 14px; flex: none; margin-top: 2px; opacity: .8; }
+.sicht-menue button > span { flex: 1; }
+.sicht-menue em { display: block; font-style: normal; font-size: 11.5px; color: var(--text-3); }
+.sicht-menue .haken { display: none; width: 13px; height: 13px; color: var(--akzent); margin-top: 3px; }
+.sicht-menue button[aria-checked="true"] { color: var(--text); }
+.sicht-menue button[aria-checked="true"] .haken { display: block; }
+.knopf-primaer {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, var(--akzent), #f7b750); color: #1a1206;
+  border: none; padding: 8px 18px; border-radius: 999px; font-weight: 600; font-size: 13.5px;
+}
+.knopf-primaer:hover { filter: brightness(1.06); }
+
+/* ————— Bühne: Karte + Inspector ————— */
+.buehne {
+  flex: 1 1 auto; min-height: 0; display: grid; position: relative;
+  grid-template-columns: 1fr var(--inspector-breite); gap: 0;
+  transition: grid-template-columns .22s cubic-bezier(.4,0,.2,1);
+}
+.buehne.insp-zu { --inspector-breite: 0px; }
+.buehne.insp-zu .inspector { border-left: none; }
+.buehne.zieht-breite { transition: none; }
+/* Linke Spalte: Karte (dehnt sich) über der Timeline (feste Höhe). */
+.links { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+/* Griff (Breite ziehen) + Tab (ein-/ausblenden) sitzen auf der linken Panel-Kante. */
+.insp-griff {
+  position: absolute; top: 0; bottom: 0; right: var(--inspector-breite);
+  width: 10px; transform: translateX(5px); z-index: 6; cursor: col-resize;
+  transition: right .22s cubic-bezier(.4,0,.2,1);
+}
+.insp-griff::before {
+  content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 1px;
+  background: transparent; transition: background .15s ease;
+}
+.insp-griff:hover::before, .insp-griff.zieht::before { background: var(--akzent); }
+.buehne.insp-zu .insp-griff, .buehne.zieht-breite .insp-griff { transition: none; }
+.buehne.insp-zu .insp-griff { display: none; }
+.insp-tab {
+  position: absolute; top: 50%; right: var(--inspector-breite); transform: translateY(-50%);
+  z-index: 7; width: 15px; height: 48px; padding: 0; display: grid; place-items: center;
+  background: var(--fl-2); border: 1px solid var(--rand); border-right: none;
+  border-radius: 8px 0 0 8px; color: var(--text-3);
+  transition: right .22s cubic-bezier(.4,0,.2,1), color .15s ease, border-color .15s ease;
+}
+.insp-tab:hover { color: var(--text); border-color: var(--rand-hell); }
+.insp-tab svg { width: 13px; height: 13px; }
+.buehne.zieht-breite .insp-tab { transition: color .15s ease, border-color .15s ease; }
+.buehne.insp-zu .insp-tab { border-right: 1px solid var(--rand); }
+.karte-flaeche {
+  flex: 1 1 auto; min-height: 0;
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 35% 20%, rgba(60,80,104,.2), transparent 62%),
+    radial-gradient(70% 70% at 85% 90%, rgba(245,165,36,.06), transparent 60%),
+    var(--bg-tief);
+}
+/* Die Karte füllt die Fläche randlos (echte Kacheln, kein Ausschnitt).
+   ACHTUNG Spezifität: maplibre-gl.css wird per Import NACH diesem <style> in den
+   Head gehängt und setzt `.maplibregl-map { position: relative }`. Bei gleicher
+   Spezifität gewinnt es → der Container bliebe 0 hoch und die Karte lädt nie.
+   Deshalb hier zweistufig selektieren. */
+.karte-flaeche .karte { position: absolute; inset: 0; }
+.karte canvas { outline: none; }
+#karte .maplibregl-ctrl-bottom-right { z-index: 3; }
+/* Kartenquellen hinter einem (i): Die Nennung von Esri/Maxar ist PFLICHT, sie
+   darf also nicht verschwinden — sie steckt aber im Knopf-Label und in der Blase,
+   die bei Hover UND Tastaturfokus aufgeht (dasselbe Prinzip wie MapLibres
+   Kompakt-Attribution, nur in unserer Optik). */
+.karte-info { position: absolute; right: 12px; bottom: 12px; z-index: 8; }
+.karte-info .ki-knopf {
+  width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
+  border-radius: 50%; cursor: help;
+  background: rgba(14,19,26,.86); border: 1px solid var(--rand); color: var(--text-3);
+  box-shadow: 0 2px 8px rgba(0,0,0,.45);
+}
+.karte-info .ki-knopf:hover, .karte-info .ki-knopf:focus-visible {
+  background: rgba(28,37,48,.96); color: var(--akzent); border-color: rgba(245,165,36,.5);
+}
+.karte-info .ki-knopf svg { width: 15px; height: 15px; }
+/* Die Blase ist eine kleine Karteikarte, kein graues Kästchen: getönte Scheibe
+   mit warmem Schimmer aus der Ecke, in der der Knopf sitzt, plus Zipfel dorthin.
+   Sie wächst aus dem Knopf heraus (transform-origin unten rechts). */
+.karte-info .ki-blase {
+  position: absolute; right: -3px; bottom: calc(100% + 11px);
+  width: max-content; max-width: 330px; padding: 12px 15px 13px; border-radius: 13px;
+  background:
+    radial-gradient(120% 150% at 100% 100%, rgba(245,165,36,.14), transparent 60%),
+    linear-gradient(165deg, rgba(26,34,45,.94), rgba(9,12,17,.96));
+  border: 1px solid var(--rand-hell);
+  box-shadow: 0 20px 44px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter: blur(14px) saturate(1.25);
+  opacity: 0; transform: translateY(6px) scale(.95); transform-origin: 90% 100%;
+  pointer-events: none; transition: opacity .17s ease, transform .24s cubic-bezier(.2,.9,.3,1.2);
+}
+.karte-info .ki-blase::after {   /* Zipfel zum Knopf */
+  content: ''; position: absolute; right: 15px; bottom: -5px; width: 9px; height: 9px;
+  background: rgb(38,35,31); transform: rotate(45deg); border-bottom-right-radius: 2px;   /* Ton der warmen Blasenecke, nicht reines Dunkel */
+  border-right: 1px solid var(--rand-hell); border-bottom: 1px solid var(--rand-hell);
+}
+.karte-info:hover .ki-blase, .karte-info .ki-knopf:focus-visible + .ki-blase { opacity: 1; transform: none; }
+.ki-kicker {
+  display: block; margin-bottom: 9px;
+  font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--akzent); opacity: .9;
+}
+.ki-zeile { display: flex; align-items: flex-start; gap: 10px; }
+.ki-zeile .ki-sym { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--text-3); }
+.ki-zeile b {
+  display: block; margin-bottom: 1px; font-weight: 400;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.ki-zeile .ki-wert { font-family: var(--font-display); font-size: 13.5px; line-height: 1.35; color: var(--text); }
+/* Zoom-Steuerung der 2D-Karte (rechts oben, wie MapLibre/echtes Studio). */
+.karte-zoom {
+  position: absolute; top: 14px; right: 16px; z-index: 8;
+  display: flex; flex-direction: column; border-radius: 9px; overflow: hidden;
+  border: 1px solid var(--rand); box-shadow: 0 2px 8px rgba(0,0,0,.45);
+}
+.karte-zoom button {
+  width: 32px; height: 32px; display: grid; place-items: center; padding: 0;
+  background: rgba(14,19,26,.92); border: none; color: var(--text-2); cursor: pointer;
+}
+.karte-zoom button + button { border-top: 1px solid var(--rand); }
+.karte-zoom button:hover:not(:disabled) { background: rgba(28,37,48,.96); color: var(--text); }
+.karte-zoom button:disabled { color: var(--text-3); opacity: .55; cursor: default; }
+.karte-zoom svg { width: 17px; height: 17px; }
+/* Fotopunkte und Läufer sind DOM-Marker (maplibregl.Marker) — dadurch behalten
+   sie beim Zoomen ihre Größe und die bestehende .an/.pop-Logik greift weiter. */
+/* Ein Fotopunkt ist das FOTO SELBST, rund beschnitten — auf einem Satellitenbild
+   ist ein weißer Punkt nur ein weiterer heller Fleck; das Bild sagt sofort, was
+   dort wartet. Ein Stopp mit mehreren Aufnahmen zeigt einen Stapel + Anzahl. */
+.punkt {
+  width: 40px; height: 40px; display: grid; place-items: center;   /* großzügiger Trefferbereich */
+  cursor: pointer; position: relative;
+}
+.punkt .kern {
+  position: relative; width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
+  background: #0d1219; border: 2px solid rgba(255,255,255,.9);
+  box-shadow: 0 2px 7px rgba(0,0,0,.6);
+  transition: transform .16s cubic-bezier(.2,.8,.2,1), border-color .16s ease, box-shadow .16s ease;
+}
+.punkt .kern img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Zwei angedeutete Karten hinter dem Punkt = „hier liegen mehrere". */
+.punkt .stapel {
+  position: absolute; width: 30px; height: 30px; border-radius: 50%;
+  background: #0d1219; border: 2px solid rgba(255,255,255,.55);
+}
+.punkt .stapel.s1 { transform: translate(6px, -4px) scale(.94); }
+.punkt .stapel.s2 { transform: translate(11px, -7px) scale(.88); opacity: .7; }
+.punkt .anzahl {
+  position: absolute; right: 0; bottom: 0; z-index: 3;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; line-height: 1;
+  color: #1a1206; background: var(--akzent); border: 1.5px solid rgba(9,12,17,.8);
+}
+.punkt .halo {
+  position: absolute; width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(245,165,36,.3); opacity: 0; transition: opacity .16s ease;
+}
+.punkt:hover .kern { transform: scale(1.07); border-color: #fff; }
+.punkt:hover .halo { opacity: .55; }
+.punkt.an .halo { opacity: 1; }
+.punkt.an .kern { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245,165,36,.45), 0 3px 12px rgba(0,0,0,.65); }
+/* Der Läufer trägt das Zeichen des Fortbewegungsmittels — FARBGLEICH mit dem
+   Fahrer im Player (src/style.css .rider-puck): amber gefüllte Scheibe, dunkles
+   Zeichen, weißer Rand, amber Pulsring. Er liegt VOR den Foto-Punkten (z-index),
+   denn er ist das Navi-Element: wo man gerade steht, darf nie verdeckt sein. */
+#karte .laeufer { width: 38px; height: 38px; display: grid; place-items: center; z-index: 5; }
+.laeufer .puck {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  color: #171106; background: linear-gradient(145deg, #f8bb4b, #ef8f35);
+  border: 2px solid rgba(255,255,255,.85); box-shadow: 0 3px 10px rgba(0,0,0,.55);
+}
+.laeufer .puck svg { width: 18px; height: 18px; }
+.laeufer .puls {
+  position: absolute; width: 38px; height: 38px; border-radius: 50%;
+  border: 2px solid rgba(245,165,36,.65); animation: laeuferPuls 2.2s ease-out infinite;
+}
+@keyframes laeuferPuls {
+  0% { transform: scale(.78); opacity: .8; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+
+/* — Inspector — */
+.inspector {
+  border-left: 1px solid var(--rand); background: var(--fl-1);
+  padding: 18px; overflow: hidden; display: flex; flex-direction: column; gap: 14px;
+}
+/* Der Inhalt scrollt; der Fuß (Löschen) bleibt darunter IMMER sichtbar —
+   verlässlicher als ein sticky-Knopf im überlaufenden Flex-Inhalt. Schmaler,
+   gerahmter Scrollbalken statt des klobigen Default (der wirkte „kaputt"). */
+#insp-inhalt {
+  display: flex; flex-direction: column; gap: 15px; flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin;
+  scrollbar-color: var(--rand-hell) transparent; margin-right: -6px; padding-right: 6px;
+}
+#insp-inhalt::-webkit-scrollbar { width: 10px; }
+#insp-inhalt::-webkit-scrollbar-track { background: transparent; }
+#insp-inhalt::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 3px solid var(--fl-1); }
+#insp-inhalt::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+#insp-fuss { flex: none; padding-top: 12px; border-top: 1px solid var(--rand); }
+/* Der Typ-Kicker ist jetzt die Panel-Überschrift (kein zweiter „Titel" mehr) —
+   Akzentfarbe + Trennlinie geben ihm Gewicht. */
+.insp-art {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--akzent);
+  padding-bottom: 13px; border-bottom: 1px solid var(--rand);
+}
+.insp-bild { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 10px; }
+.feld { display: flex; flex-direction: column; gap: 5px; }
+.feld label { font-size: 11.5px; color: var(--text-3); }
+.feld input, .feld select {
+  background: var(--fl-2); border: 1px solid var(--rand); border-radius: 9px;
+  padding: 8px 10px; font-size: 13px; width: 100%;
+}
+.feld input:focus, .feld select:focus { outline: none; border-color: var(--akzent); }
+/* Leerzustand: füllt die Inspector-Höhe und zentriert Grafik+Text mittig.
+   display NUR über :not([hidden]) setzen — eine feste display-Regel würde das
+   `hidden`-Umschalten aushebeln ([hidden] vs. display-Falle). */
+.insp-leer { flex: 1 1 auto; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 18px; padding: 24px 16px; color: var(--text-3); }
+.insp-leer:not([hidden]) { display: flex; }
+.leer-grafik { width: 138px; height: auto; }
+.leer-titel { font-family: var(--font-display); font-size: 18px; color: var(--text-2); letter-spacing: .01em; }
+.leer-text { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-3); max-width: 224px; }
+.insp-notiz { margin: 0; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+
+/* Zwei Zeitfelder nebeneinander (Beginnt / Endet). */
+.zeit-paar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Zeitfeld im FCPX-Stil: Eingabe + Stepper, das ganze Feld ist scrubbar
+   (ew-resize signalisiert „ziehen ändert den Wert"); der Eingabe-Cursor bleibt
+   erhalten, weil das Tippen den Text im Input direkt bearbeitet. */
+.zf {
+  display: flex; align-items: stretch; background: var(--fl-2);
+  border: 1px solid var(--rand); border-radius: 9px; overflow: hidden; cursor: ew-resize;
+}
+.zf:focus-within { border-color: var(--akzent); }
+.zf.scrub { border-color: var(--akzent); background: var(--fl-3); }
+.zf-in {
+  flex: 1; min-width: 0; width: 100%; background: none; border: none; outline: none;
+  padding: 8px 10px; font-family: var(--font-mono); font-size: 13px; color: var(--text); cursor: text;
+}
+.zf-step { display: flex; flex-direction: column; flex: none; border-left: 1px solid var(--rand); }
+.zf-step button {
+  width: 22px; height: 50%; display: grid; place-items: center; padding: 0;
+  background: none; border: none; color: var(--text-3); font-size: 7px; line-height: 1;
+}
+.zf-step button:first-child { border-bottom: 1px solid var(--rand); }
+.zf-step button:hover { background: var(--fl-3); color: var(--akzent); }
+.zf.ro {
+  cursor: default; align-items: center; padding: 8px 10px; background: var(--fl-1);
+  border-style: dashed; color: var(--text-3); font-family: var(--font-mono); font-size: 12.5px;
+}
+
+/* ————— Zeitleiste ————— */
+.leiste { flex: none; border-top: 1px solid var(--rand); background: var(--bg-tief); padding: 0 0 14px; }
+.leiste-kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 18px 6px; }
+
+/* Werkzeuge (Auswahl/Hand/Zoom) — Segment-Umschalter links im Timeline-Kopf. */
+.werkzeuge { display: flex; align-items: center; gap: 3px; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 2px; }
+.wkz { width: 27px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: 7px; }
+.wkz svg { width: 15px; height: 15px; }
+.wkz:hover { color: var(--text-2); background: var(--fl-3); }
+.wkz.an { background: var(--akzent); color: #1a1206; }
+/* Cursor der Timeline je Werkzeug — MUSS auch über den Kindelementen (Klips,
+   Bänder, Foto-Minis, Kanten, SFX) gelten: deren eigene Cursor (grab/pointer/
+   col-resize) gewannen sonst, obwohl in Wahrheit Pan/Zoom wirkt. Ausnahme: der
+   Abspielkopf, der bleibt in jedem Werkzeug ziehbar (grab). */
+.spuren-fenster[data-wkz="hand"], .spuren-fenster[data-wkz="hand"] *:not(.kopf-griff) { cursor: grab; }
+.spuren-fenster[data-wkz="hand"].greift, .spuren-fenster[data-wkz="hand"].greift *:not(.kopf-griff) { cursor: grabbing; }
+.spuren-fenster[data-wkz="zoom"], .spuren-fenster[data-wkz="zoom"] *:not(.kopf-griff) { cursor: zoom-in; }
+.spuren-fenster[data-wkz="zoom"].alt, .spuren-fenster[data-wkz="zoom"].alt *:not(.kopf-griff) { cursor: zoom-out; }
+.zoom-box { position: fixed; z-index: 55; display: none; background: rgba(245,165,36,.14); border: 1px solid var(--akzent); border-radius: 4px; pointer-events: none; }
+
+/* Zoom — wie im Schnittprogramm: Lupen + Regler, Standard „an Fenster angepasst".
+   Kürzel ⌘+/⌘−/⇧Z (⇧Z = anpassen, wie in Final Cut). */
+.zoom { display: flex; align-items: center; gap: 7px; }
+.zoom-b {
+  width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
+  border-radius: 7px; border: 1px solid var(--rand); background: transparent; color: var(--text-2);
+}
+.zoom-b svg { width: 14px; height: 14px; }
+.zoom-b:hover { border-color: var(--rand-hell); color: var(--text); }
+.zoom-b:disabled { opacity: .4; cursor: default; }
+.zoom-b:disabled:hover { border-color: var(--rand); color: var(--text-2); }
+.zoom input[type=range] { width: 110px; accent-color: var(--akzent); cursor: pointer; }
+.zoom-fit { margin-left: 4px; }
+
+/* Das Fenster scrollt waagerecht; die Namenspalte klebt links (sticky), nur
+   die Bahnen wandern darunter durch. `padding-top` gibt den nach oben ragenden
+   Etiketten (Foto-Uhrzeit, Kopf-Chip) Luft — overflow-y schneidet sonst ab. */
+/* overflow-x: SCROLL (nicht auto): die 10-px-Scrollleiste ist IMMER reserviert,
+   egal ob gerade Überlauf besteht — sonst springt die Timeline beim Zoomen um
+   die Balkenhöhe nach oben/unten (Balken erscheint/verschwindet). Track transparent,
+   damit die reservierte Spur ohne Inhalt unsichtbar bleibt. */
+.spuren-fenster { overflow-x: scroll; overflow-y: hidden; padding-top: 8px; }
+.spuren-fenster::-webkit-scrollbar { height: 10px; }
+.spuren-fenster::-webkit-scrollbar-track { background: transparent; }
+.spuren-fenster::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 2px solid var(--bg-tief); }
+/* 26 px Auslauf rechts: die letzte Miniatur (40 px, mittig auf t≈1) ragt ~20 px
+   über das Zeitfeld hinaus — mit nur 18 px entstand 1 px Overflow → Scrollbalken. */
+.spuren { position: relative; width: calc(var(--spur-x) + var(--zeit-breite) + 26px); padding: 6px 0 4px; }
+.spur { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); align-items: stretch; height: 30px; }
+.spur.hoch { height: 62px; }
+.spur.musik { height: 48px; }   /* Platz für die Pin-Lane oben + Klips darunter */
+.spur-name {
+  font-size: 12px; color: var(--text-3); padding: 0 12px 0 18px;
+  display: flex; align-items: center; white-space: nowrap;
+  position: sticky; left: 0; z-index: 11; background: var(--bg-tief);   /* über den SFX-Pins (z8/9), sonst gleiten sie beim Scrollen über die Beschriftung */
+}
+.spur-feld { position: relative; height: 100%; }
+/* Bahnen als leichte Rillen — die erhabenen Bänder/Klips heben sich davon ab
+   (dezent, damit die Übersicht nicht leidet). Die Foto-Bahn bleibt frei. */
+.spur:not(.hoch) .spur-feld {
+  background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.05));
+  border-radius: 6px; box-shadow: inset 0 1px 2px rgba(0,0,0,.25), inset 0 -1px 0 rgba(255,255,255,.02);
+}
+
+/* Zustandsbänder: lückenlos, beschriftet, die Kante ist der Griff */
+.band-reihe { position: absolute; inset: 3px 0; display: flex; gap: 2px; }
+.band {
+  position: relative; border-radius: 5px; display: flex; align-items: center;
+  padding: 0 9px; font-size: 11.5px; color: #10141b; overflow: hidden;
+  cursor: pointer; border: 1px solid transparent;
+  /* leicht erhabene Optik: heller Oberkanten-Schein + weicher Schlagschatten */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.17), 0 1px 2px rgba(0,0,0,.32);
+}
+/* Ein dezenter Verlauf gibt den Bändern Volumen, ohne die Beschriftung zu stören
+   (sehr geringe Deckkraft, Text bleibt lesbar). Über der Farbe, unter dem Rahmen. */
+.band::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,0) 46%, rgba(0,0,0,.11));
+}
+.band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* INNENliegender Rahmen (box-shadow inset), nicht outline mit Offset nach außen:
+   sonst verdeckt die Namenspalte den linken Rand des linkesten Bandes. */
+/* Auswahl in der Zeitleiste — ein „aufgehobener" Zustand statt bloßer Umrandung:
+   das Element hebt sich minimal an, bekommt einen hellen, warmweißen Rahmen (der
+   auf JEDER Bandfarbe kontrastiert — auch Moped=amber, wo ein amberfarbener Ring
+   verschwand) und einen weichen amberfarbenen Schein. Klips bekommen denselben
+   Look (eigene Regel, damit die Quellreihenfolge nicht dazwischenfunkt). */
+.band.an { z-index: 4; transform: translateY(-1px); box-shadow: inset 0 0 0 2px #fff5e4, 0 0 14px 1px rgba(245,165,36,.38), 0 4px 10px rgba(0,0,0,.5); }
+.band.leise { background: var(--fl-2); color: var(--text-3); border-color: var(--rand); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.22); }
+.band.leise::after { display: none; }
+
+/* DIE KANTE IST DER GRIFF — Anfang des einen und Ende des anderen Zustands
+   sind dieselbe Stelle, also gibt es auch nur einen Anfasser dafür. Er liegt
+   als eigenes Element über der Grenze, damit der Zug nicht am Neuaufbau der
+   Bänder zerbricht (nach setPointerCapture darf das Element nicht ersetzt
+   werden — während des Ziehens werden nur Breiten gesetzt, nichts neu gebaut). */
+.kante {
+  position: absolute; top: -3px; bottom: -3px; width: 13px; transform: translateX(-50%);
+  z-index: 5; cursor: col-resize; touch-action: none;
+}
+.kante::before {
+  content: ''; position: absolute; left: 50%; top: 4px; bottom: 4px; width: 2px;
+  transform: translateX(-50%); border-radius: 2px; background: var(--akzent);
+  opacity: 0; transition: opacity .14s ease;
+}
+.kante:hover::before, .kante.zieht::before { opacity: 1; }
+.spuren.zieht, .spuren.zieht * { cursor: col-resize !important; }
+
+/* Ereignis anlegen: an jeder Spur, an der Einfügemarke */
+.spur-name { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* Kleine Marke vor dem Namen — hilft, die Bahnen auf einen Blick zu unterscheiden. */
+.spur-icon { width: 15px; height: 15px; flex: none; color: var(--text-3); opacity: .9; }
+.spur:hover .spur-icon { color: var(--text-2); }
+.spur-plus {
+  width: 19px; height: 19px; flex: none; display: grid; place-items: center; padding: 0;
+  border-radius: 50%; border: 1px dashed var(--rand-hell); background: transparent;
+  color: var(--text-3); opacity: 0; transition: opacity .15s ease, border-color .15s ease, color .15s ease;
+}
+.spur:hover .spur-plus, .spur-plus[aria-expanded="true"] { opacity: 1; }
+.spur-plus:hover, .spur-plus[aria-expanded="true"] { border-color: var(--akzent); border-style: solid; color: var(--akzent); }
+.spur-plus svg { width: 11px; height: 11px; }
+/* Am Body verankert + position:fixed, damit das overflow:hidden des Timeline-
+   Fensters es nicht oben abschneidet. Koordinaten setzt JS aus dem +-Knopf. */
+.spur-menue {
+  position: fixed; z-index: 60; min-width: 186px;
+  background: rgba(14,19,26,.98); border: 1px solid var(--rand-hell); border-radius: 12px;
+  padding: 5px; box-shadow: 0 22px 50px rgba(2,5,10,.7);
+}
+.spur-menue .kopfzeile {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-3); padding: 6px 10px 5px;
+}
+.spur-menue button {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text-2); padding: 7px 10px;
+  border-radius: 8px; font-size: 13px;
+}
+.spur-menue button:hover { background: var(--fl-3); color: var(--text); }
+.spur-menue button i { width: 11px; height: 11px; border-radius: 3px; flex: none; display: block; }
+/* .spur-name-huelle: hier KEIN position setzen! .spur-name ist position:sticky, damit
+   die Namenspalte beim Scrollen links stehen bleibt. Ein position:relative überschrieb
+   das (gleiche Spezifität, später in der Quelle) und ließ ALLE Namen mit „+"-Knopf
+   (also alle außer „Fotos/Videos") mitscrollen. Das +-Menü ist an <body> geportalt,
+   braucht also keinen relativen Anker hier. */
+
+/* Foto-Bahn */
+.foto-spur { position: relative; height: 100%; }
+.f-mini {
+  position: absolute; top: 12px; transform: translateX(-50%);
+  width: 40px; height: 40px; padding: 0; background: none; border: none;
+}
+.f-mini img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.16); display: block;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s ease;
+}
+.f-mini:hover img { border-color: var(--akzent); }   /* nur Rand-Highlight, KEINE Vergrößerung (ragte sonst ins Maßband) */
+.f-mini.an img { border-color: #fff5e4; box-shadow: 0 0 0 2px rgba(255,245,228,.9), 0 0 12px rgba(245,165,36,.45); }
+/* Video-Aufnahme: kleines Play-Abzeichen in der Timeline-Miniatur. */
+.f-mini .v-badge {
+  position: absolute; right: 3px; bottom: 3px; z-index: 2;
+  width: 15px; height: 15px; display: grid; place-items: center;
+  background: rgba(6,8,12,.72); border: 1px solid rgba(255,255,255,.28); border-radius: 5px;
+}
+.f-mini .v-badge svg { width: 8px; height: 8px; color: #fff; margin-left: 1px; }
+.f-mini::after {
+  content: ''; position: absolute; left: 50%; bottom: -8px; width: 1px; height: 8px;
+  background: rgba(255,255,255,.2);
+}
+/* Ein STOPP mit mehreren Aufnahmen: gestapelte Karten hinter der Miniatur, dazu
+   die Anzahl. Nach hinten VERSETZT (rechts/oben), damit die Vorderkarte weiter
+   genau auf ihrer Zeit sitzt — die Zeitachse darf nicht lügen. */
+.f-mini .stapel {
+  position: absolute; inset: 0; border-radius: 6px;
+  background: #1c2530; border: 1px solid rgba(255,255,255,.45);
+}
+.f-mini .stapel.s1 { transform: translate(5px, -4px); }
+.f-mini .stapel.s2 { transform: translate(10px, -8px); opacity: .7; }
+.f-mini img { position: relative; z-index: 1; }
+.f-mini .anzahl {
+  position: absolute; left: -6px; top: -6px; z-index: 3;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; line-height: 1;
+  color: #1a1206; background: var(--akzent); border: 1.5px solid var(--bg-tief);
+}
+/* Beim Ziehen in Schnapp-Nähe: der Zielstopp leuchtet, die gezogene Miniatur
+   bekommt einen Amber-Rand — das „gleich rastet es ein" muss sichtbar sein. */
+.f-mini.ziel img, .f-mini.ziel .stapel { border-color: var(--akzent); }
+.f-mini.ziel::before {
+  content: ''; position: absolute; inset: -5px; border-radius: 10px;
+  border: 1px dashed rgba(245,165,36,.75);
+}
+.f-mini.schnappt img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245,165,36,.55), 0 10px 26px rgba(0,0,0,.6); }
+
+/* Zeitskala */
+/* Maßband ganz OBEN: Zahl oben, Teilstrich darunter (zeigt zu den Spuren), eine
+   feine Trennlinie schließt es zum Spurenbereich ab. */
+.skala { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); height: 23px; border-bottom: 1px solid var(--rand); }
+.skala > div:first-child { position: sticky; left: 0; z-index: 11; background: var(--bg-tief); }
+.skala-feld { position: relative; }
+.skala-marke { position: absolute; top: 1px; transform: translateX(-50%); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); text-align: center; white-space: nowrap; }
+.skala-marke i { display: block; width: 1px; height: 5px; background: rgba(255,255,255,.2); margin: 2px auto 0; }
+/* Rand-Marken NICHT über die Kante schieben (sonst schluckt die klebende Namens-
+   spalte links „14“ → nur „:00“ bleibt): erste linksbündig am Teilstrich, letzte
+   rechtsbündig. Der Teilstrich bleibt exakt auf der Zeit. */
+.skala-marke.am-anfang { transform: translateX(0); text-align: left; }
+.skala-marke.am-anfang i { margin-left: 0; margin-right: auto; }
+.skala-marke.am-ende { transform: translateX(-100%); text-align: right; }
+.skala-marke.am-ende i { margin-left: auto; margin-right: 0; }
+/* Volle Stunden kräftig, Teilstunden (30/15/… min) dezenter + kürzerer Strich. */
+.skala-marke:not(.voll) { color: var(--text-3); opacity: .68; }
+.skala-marke:not(.voll) i { height: 3px; background: rgba(255,255,255,.13); }
+.skala-marke.voll i { height: 6px; }
+
+/* Abspielkopf: die LINIE ist nur Anzeige (pointer-events:none → stört Band-Klicks
+   nicht mehr); gegriffen wird allein der HEAD, der OBEN im Maßband sitzt (FCPX).
+   Die Linie beginnt GENAU an der Head-Spitze (top: 20px) — nicht darüber — und
+   läuft von dort bis unter die Spuren. Der Head wird per negativem top wieder ins
+   Maßband hochgezogen, sodass seine Spitze den Linienanfang küsst. */
+.kopfstrich { position: absolute; top: 20px; bottom: 0; width: 1px; background: var(--akzent); z-index: 4; pointer-events: none; }
+/* Beim Ziehen des Kopfes den Scrub-Cursor GLOBAL erzwingen: der Kopf folgt zwar
+   dem Zeiger, aber !important auf allem verhindert jedes Flackern zu den Element-
+   Cursorn darunter (der Zug läuft über Fenster-Listener, ohne Pointer-Capture). */
+body.scrubbt, body.scrubbt * { cursor: var(--scrub) !important; }
+.kopf-griff {
+  position: absolute; left: 50%; top: -12px; transform: translateX(-50%);
+  width: 13px; height: 14px; padding: 0; border: none; background: var(--akzent);
+  clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);   /* Spitze nach unten, zeigt ins Maßband */
+  cursor: var(--scrub); pointer-events: auto; touch-action: none; z-index: 6;
+}
+.kopf-griff::after { content: ''; position: absolute; inset: -8px -9px; }   /* großer Greifbereich */
+.kopf-griff:hover { filter: brightness(1.12); }
+
+/* Der Fahrer: wo die Marke steht, steht er auf der Route. */
+
+/* — Abspielen: Foto-Puls (Timeline + Karte), Foto-Einblendung, SFX-Puls. — */
+.f-mini.pop img { animation: fotoPop .7s ease; }
+@keyframes fotoPop {
+  0% { transform: none; }
+  28% { transform: translateY(-6px) scale(1.4); border-color: var(--akzent); box-shadow: 0 10px 26px rgba(0,0,0,.6); }
+  100% { transform: none; }
+}
+.punkt.pop .kern { animation: punktPop .7s ease; }
+.punkt.pop .halo { opacity: 1; animation: haloPop .7s ease; }
+@keyframes punktPop {
+  0% { transform: none; }
+  30% { transform: scale(1.28); border-color: var(--akzent); box-shadow: 0 0 0 3px rgba(245,165,36,.5), 0 6px 18px rgba(0,0,0,.6); }
+  100% { transform: none; }
+}
+@keyframes haloPop { 0% { opacity: .2; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.sfx.pling i { animation: sfxPling .5s ease; }
+@keyframes sfxPling { 0%,100% { transform: rotate(45deg) scale(1); } 40% { transform: rotate(45deg) scale(1.5); background: var(--akzent); } }
+
+/* Foto-Einblendung beim Abspielen — jetzt GENAU wie im echten Player: eine große
+   Foto-PRINT-Karte auf Papier (Bild mit Rand, Titel in Fraunces-Kursiv darunter,
+   FOTO/VIDEO-Chip), die mit Dreh + 3D-Kippen nach oben hereinfliegt und sich wie ein
+   Sofortbild „entwickelt", auf unscharf abgedunkeltem Hintergrund + Kamerablitz.
+   Deutlich größer als vorher; Video läuft UNGESCHNITTEN (contain) auf Schwarz. */
+.foto-einblendung {
+  position: absolute; left: 50%; top: 50%; z-index: 5;
+  /* Die Karte schrumpft auf ihren Inhalt; der Rahmen bemisst sich per Container-
+     Query an der Kartenfläche (Höhe UND Breite, s. .fe-frame), bleibt 3:2 → das
+     Video füllt ihn exakt (keine Balken), und Titel + Chip bleiben immer sichtbar. */
+  margin: 0; padding: 13px 13px 0; border-radius: 12px;
+  background: #f6f1e7; box-shadow: 0 46px 120px rgba(0,0,0,.72), 0 14px 40px rgba(0,0,0,.5);
+  opacity: 0; transform: translate(-50%, -50%) translateY(48px) scale(.9) rotate(1.6deg) rotateX(9deg);
+  transition: opacity .5s ease .04s, transform .95s cubic-bezier(.19, 1.16, .32, 1);
+  pointer-events: none;
+}
+.foto-einblendung.an { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-.5deg) rotateX(0deg); }
+.fe-frame { position: relative; overflow: hidden; border-radius: 5px; aspect-ratio: 3/2; height: min(66cqh, 58cqw); background: #d8d2c4; }
+.fe-frame img, .fe-frame video { width: 100%; height: 100%; display: block; }
+.fe-frame img { object-fit: cover; transform: scale(1.12); }
+/* „Entwickeln" (Filterblende) + Ken-Burns-Drift wie im Player; Video bewegt sich selbst. */
+.foto-einblendung.an .fe-frame img { animation: feDevelop 1.6s ease-out both, feKenburns 6s ease-out both; }
+@keyframes feDevelop { from { filter: brightness(1.45) contrast(.82) saturate(.55); } to { filter: none; } }
+@keyframes feKenburns { from { transform: scale(1.12); } to { transform: scale(1.02); } }
+.fe-frame video { object-fit: contain; background: #000; }
+.fe-cap { flex: none; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 12px; padding: 11px 6px 13px; }
+.fe-titel { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: clamp(20px, 2.3vw, 30px); line-height: 1.1; color: #1c1712; }
+.fe-chip {
+  justify-self: end; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .16em; color: #8a7a63; border: 1px solid rgba(28,23,18,.22); border-radius: 999px; padding: 4px 10px;
+}
+.fe-sub { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11.5px; color: rgba(28,23,18,.6); }
+/* Hintergrund: Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist (wie der
+   Player-Backdrop). perspective, damit das 3D-Kippen der Karte greift. */
+.karte-flaeche { perspective: 1300px; container-type: size; }
+.karte-flaeche::after {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: rgba(6,10,16,.34); opacity: 0;
+  transition: opacity .5s ease, backdrop-filter .5s ease, -webkit-backdrop-filter .5s ease;
+}
+.karte-flaeche.foto-an::after { opacity: 1; backdrop-filter: blur(10px) brightness(.92); -webkit-backdrop-filter: blur(10px) brightness(.92); }
+/* Kamerablitz beim Erscheinen des Fotos. */
+.foto-flash {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 46%, rgba(255,250,240,.9) 0%, rgba(255,250,240,.5) 42%, transparent 78%);
+}
+.foto-flash.blitz { animation: fotoBlitz .7s ease-out both; }
+@keyframes fotoBlitz { 0% { opacity: 0; } 12% { opacity: .9; } 100% { opacity: 0; } }
+/* Transport (Stopp + Play/Pause) links im Timeline-Kopf, wo das Abspielen sichtbar
+   passiert — der frühere „Abspielen"-Knopf oben im Kopf ist entfallen (kein zweiter
+   weit entfernter Play-Knopf). */
+.lk-gruppe { display: flex; align-items: center; gap: 10px; }
+.transport { display: flex; align-items: center; gap: 5px; }
+.tp-b {
+  width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+  border-radius: 8px; border: 1px solid var(--rand); background: var(--fl-1); color: var(--text-2);
+}
+.tp-b svg { width: 15px; height: 15px; }
+.tp-b:hover { border-color: var(--rand-hell); color: var(--text); }
+.tp-play { background: linear-gradient(135deg, var(--akzent), #f7b750); border-color: transparent; color: #1a1206; }
+.tp-play:hover { filter: brightness(1.06); color: #1a1206; }
+.tp-play.spielt { background: var(--fl-3); color: var(--akzent); border-color: var(--akzent); }
+.tempo-chip { font-family: var(--font-mono); font-size: 11px; color: var(--akzent); min-width: 30px; }
+/* Abspielkopf-Anzeige über der Timeline: ein schlanker amberfarbener Playhead-BALKEN
+   (spiegelt die Playhead-Linie — KEIN Dropdown-Pfeil mehr) + Aufnahmezeit + die
+   zurückgelegte Strecke von der Gesamtlänge. Aktualisiert live beim Scrubben/Abspielen. */
+.kopf-uhr {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, var(--fl-2), var(--fl-1));
+  border: 1px solid var(--rand); border-radius: 10px; padding: 5px 13px 5px 11px;
+  box-shadow: 0 2px 5px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.ku-icon { width: 14px; height: 14px; flex: none; color: var(--text-3); }
+.ku-zeit { font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--text);
+  letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+/* Kilometer-Stand. Feste Breite: der laufende Wert steht in einem rechtsbündigen
+   4-Zeichen-Slot (mono), damit die Pill beim Zählen nicht in der Breite zappelt. */
+.ku-km { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: .02em;
+  padding-left: 10px; border-left: 1px solid var(--rand); font-variant-numeric: tabular-nums; }
+.ku-km-cur { display: inline-block; min-width: 4ch; text-align: right; color: var(--text-2); }
+/* Zoom-Anzeige = zugleich „an Fenster anpassen": zeigt den Faktor, Klick setzt
+   zurück. Ersetzt den separaten Reset-Knopf (der wirkte doppelt zum Zoom-Werkzeug). */
+.zoom-wert {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
+  background: transparent; border: 1px solid transparent; border-radius: 7px;
+  padding: 3px 8px; min-width: 46px; text-align: center;
+}
+.zoom-wert:not(:disabled) { color: var(--text-2); border-color: var(--rand); cursor: pointer; }
+.zoom-wert:not(:disabled):hover { border-color: var(--akzent); color: var(--text); }
+
+/* Soundeffekte = EREIGNISSE (Zeitpunkt, keine Dauer). Sie sitzen in einer
+   eigenen Pin-Lane OBEN auf der Musik-Spur, ein Stiel zeigt den genauen Zeitpunkt
+   hinab zu den Klips. z-index ÜBER den Klips, damit sie beim Trimmen nicht
+   dahinter verschwinden. Verschiebbar wie ein Klip. */
+.sfx {
+  position: absolute; top: 1px; transform: translateX(-50%); z-index: 8;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  background: none; border: none; padding: 0; cursor: grab; touch-action: none;
+}
+.sfx.zieht { cursor: grabbing; z-index: 9; }
+.sfx i {
+  display: block; width: 12px; height: 12px; border-radius: 3px;
+  background: #7fb069; border: 1px solid rgba(255,255,255,.5); transform: rotate(45deg);
+  transition: background .16s ease, transform .16s ease;
+}
+.sfx .stiel {
+  width: 1px; height: 30px; margin-top: 2px;
+  background: linear-gradient(rgba(127,176,105,.75), rgba(127,176,105,.1));
+  transition: background .16s ease;
+}
+.sfx:hover i, .sfx.an i { background: var(--akzent); transform: rotate(45deg) scale(1.14); }
+.sfx.an .stiel { background: linear-gradient(rgba(245,165,36,.85), rgba(245,165,36,.12)); }
+.sfx .etikett {
+  position: absolute; top: -16px; font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-2); background: var(--fl-2); border: 1px solid var(--rand);
+  border-radius: 4px; padding: 0 5px; white-space: nowrap; opacity: 0; transition: opacity .14s ease;
+  pointer-events: none;
+}
+.sfx:hover .etikett, .sfx.an .etikett { opacity: 1; }
+
+/* Musik ist KEIN Zustand, sondern INHALT: ein Klip mit echtem Anfang UND Ende,
+   dazwischen Stille (= kein Klip, nicht ein Band „Stille"). Deshalb liegen die
+   Klips als frei platzierte Blöcke auf der Spur, nicht als lückenlose Bänder. */
+.band-reihe.klips { display: block; inset: 0; }
+.klip {
+  position: absolute; top: 20px; bottom: 4px; border-radius: 5px;
+  background: linear-gradient(180deg, #2f6d55, #22493a);
+  border: 1px solid rgba(120,200,160,.3); display: flex; align-items: center;
+  padding: 0 11px; font-size: 11.5px; color: #d6efe1; overflow: hidden;
+  cursor: grab; touch-action: none;
+  box-shadow: inset 0 1px 0 rgba(190,240,215,.22), 0 2px 5px rgba(0,0,0,.4);
+}
+/* angedeutete Wellenform, damit ein Klip nach Ton aussieht */
+.klip::before {
+  content: ''; position: absolute; inset: 0; opacity: .5; pointer-events: none;
+  background: repeating-linear-gradient(90deg,
+    rgba(180,235,205,.28) 0, rgba(180,235,205,.28) 1px,
+    transparent 1px, transparent 4px);
+  -webkit-mask-image: linear-gradient(180deg, transparent 32%, #000 50%, transparent 68%);
+          mask-image: linear-gradient(180deg, transparent 32%, #000 50%, transparent 68%);
+}
+.klip span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.klip.zieht { cursor: grabbing; z-index: 6; }
+.klip.an { z-index: 6; transform: translateY(-1px); box-shadow: inset 0 0 0 2px #fff5e4, 0 0 14px 1px rgba(245,165,36,.38), 0 4px 10px rgba(0,0,0,.5); }
+/* Griffe an beiden Rändern: die Länge trimmen wie einen Videoschnitt. */
+.klip .griff { position: absolute; top: 0; bottom: 0; width: 9px; cursor: col-resize; z-index: 2; }
+.klip .griff.l { left: -1px; } .klip .griff.r { right: -1px; }
+.klip .griff::before {
+  content: ''; position: absolute; top: 5px; bottom: 5px; left: 50%; width: 2px;
+  transform: translateX(-50%); border-radius: 2px; background: rgba(215,239,225,.6);
+  opacity: 0; transition: opacity .14s ease;
+}
+.klip:hover .griff::before, .klip .griff:hover::before { opacity: 1; }
+
+/* Löschen im Inspector — das markierte Element entfernen. Backspace/Entf tut
+   dasselbe. Zustands-Band → Nachbar füllt; Musik-Klip → Stille bleibt. */
+.insp-loeschen {
+  width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; border: 1px solid var(--rand); color: #d98a8d;
+  padding: 9px 12px; border-radius: 9px; font-size: 13px;
+}
+.insp-loeschen:hover { border-color: var(--rot); background: rgba(229,72,77,.12); color: #ff9ea1; }
+.insp-loeschen svg { width: 14px; height: 14px; }
+.insp-loeschen:disabled { opacity: .4; cursor: default; color: var(--text-3); }
+.insp-loeschen:disabled:hover { border-color: var(--rand); background: transparent; color: var(--text-3); }
+
+/* Aufnahmen lassen sich auf der Zeitachse verschieben — dann wandert ihr Punkt
+   auf der Route mit, weil der Server Medien über die AUFNAHMEZEIT platziert. */
+.f-mini { cursor: grab; touch-action: none; }
+.f-mini.zieht { cursor: grabbing; z-index: 6; }
+.f-mini.zieht img { border-color: var(--akzent); box-shadow: 0 10px 26px rgba(0,0,0,.6); }
+
+.insp-bild { cursor: zoom-in; }
+/* Video-Kennzeichnung auf dem Panel-Thumbnail (wie Play-Abzeichen). */
+.insp-bild-huelle { position: relative; }
+.insp-bild-huelle .insp-bild { display: block; }
+.insp-bild-badge {
+  position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: #fff; background: rgba(6,8,12,.72); border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px; padding: 3px 9px 3px 7px; pointer-events: none;
+}
+.insp-bild-badge svg { width: 9px; height: 9px; }
+
+/* — Stopp mit mehreren Aufnahmen: Filmstreifen zum Umschalten. Jede Aufnahme
+     behält ihre EIGENEN Einstellungen (auch die Standzeit) — der Streifen wählt
+     nur aus, welche gerade im Inspector liegt. — */
+/* Der Streifen darf beim Ziehen nicht klippen (das angehobene Bild ragt heraus),
+   deshalb Innenabstand statt knapper Kante; der negative Rand hält das Layout. */
+.streifen { display: flex; gap: 6px; overflow-x: auto; padding: 5px 4px 8px; margin: -5px -4px -4px; scrollbar-width: thin; }
+.streifen button {
+  position: relative; flex: none; width: 46px; height: 46px; padding: 0;
+  background: none; border: none; cursor: grab; border-radius: 6px; touch-action: none;
+  transition: transform .16s cubic-bezier(.2,.8,.2,1);
+}
+.streifen button:active { cursor: grabbing; }
+/* Das gezogene Bild folgt dem Finger OHNE Übergang (sonst hinkt es hinterher)
+   und liegt angehoben über den Nachbarn, die weich ausweichen. */
+.streifen button.zieht { transition: none; z-index: 4; cursor: grabbing; }
+.streifen button.zieht img { border-color: var(--akzent); box-shadow: 0 10px 22px rgba(0,0,0,.6); }
+.streifen button.raus img { opacity: .25; }
+.streifen img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block;
+  border: 1px solid rgba(255,255,255,.16); transition: border-color .15s ease;
+}
+.streifen button:hover img { border-color: var(--text-3); }
+.streifen button[aria-current="true"] img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245,165,36,.45); }
+.streifen .st-nr {
+  position: absolute; left: 3px; top: 3px;
+  font-family: var(--font-mono); font-size: 9px; line-height: 1; padding: 2px 4px;
+  color: #fff; background: rgba(6,8,12,.7); border-radius: 4px;
+}
+/* Die Summe der Standzeiten — was der Stopp im fertigen Film wirklich kostet. */
+.stopp-summe {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+  border-top: 1px dashed var(--rand); padding-top: 9px;
+}
+.stopp-summe b { font-weight: 500; color: var(--text-2); }
+/* Aus dem Streifen herausgezogen: das Bild hängt am Zeiger, die Zeitleiste zeigt
+   mit einer Marke, wo es landen würde. */
+.geist {
+  position: fixed; z-index: 95; width: 52px; height: 52px; pointer-events: none;
+  border-radius: 7px; overflow: hidden; transform: translate(-50%, -50%) rotate(-4deg);
+  border: 2px solid var(--akzent); box-shadow: 0 16px 36px rgba(0,0,0,.62);
+}
+.geist img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ablege {
+  position: absolute; top: 4px; bottom: -8px; width: 2px; margin-left: -1px;
+  background: var(--akzent); pointer-events: none; z-index: 7;
+  box-shadow: 0 0 10px rgba(245,165,36,.85);
+}
+.ablege::before {
+  content: ''; position: absolute; left: 50%; top: -4px; width: 9px; height: 9px;
+  margin-left: -4.5px; border-radius: 50%; background: var(--akzent);
+}
+
+/* Groß ansehen */
+.gross {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  background: rgba(4,6,10,.93); padding: 46px 76px;
+}
+.gross figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; max-height: 100%; }
+.gross img, .gross video { max-width: 100%; max-height: calc(100vh - 170px); border-radius: 10px; display: block; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.gross video { background: #000; }
+.gross .gt-video {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--akzent); border: 1px solid rgba(245,165,36,.5); border-radius: 999px;
+  padding: 2px 9px; vertical-align: middle; margin-left: 10px;
+}
+.gross figcaption { text-align: center; }
+.gross .gt { font-family: var(--font-display); font-size: 20px; }
+.gross .gm { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-top: 3px; }
+.gross .zu, .gross .blaettern {
+  position: absolute; display: grid; place-items: center; padding: 0;
+  background: rgba(255,255,255,.06); border: 1px solid var(--rand-hell); color: var(--text-2);
+  border-radius: 50%; width: 42px; height: 42px;
+}
+.gross .zu { top: 20px; right: 24px; width: 38px; height: 38px; }
+.gross .blaettern.links { left: 20px; top: 50%; transform: translateY(-50%); }
+.gross .blaettern.rechts { right: 20px; top: 50%; transform: translateY(-50%); }
+.gross .zu:hover, .gross .blaettern:hover { background: rgba(255,255,255,.13); color: var(--text); border-color: var(--text-3); }
+.gross .zu svg, .gross .blaettern svg { width: 17px; height: 17px; }
+
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-pfeil-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5.5" width="3.5" height="13" rx="1"/><rect x="14" y="5.5" width="3.5" height="13" rx="1"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></symbol>
+  <symbol id="i-mehr" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></symbol>
+  <symbol id="i-muell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V5.2A1.2 1.2 0 0110.7 4h2.6a1.2 1.2 0 011.2 1.2V7"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/></symbol>
+  <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-lupe-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
+  <symbol id="i-anpassen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.4 L6 18.6 L9.9 14.9 L12.3 20.4 L14.5 19.4 L12.1 14 L17.2 14 Z"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24" fill="currentColor"><path d="M10.4 2a1.45 1.45 0 00-1.45 1.45v5.9a.45.45 0 01-.9 0V5.55a1.4 1.4 0 10-2.8 0v8.2l-1.15-1.4a1.55 1.55 0 00-2.45 1.9l3.15 4.25A6.15 6.15 0 0011.75 21h1.6A6.15 6.15 0 0019.5 14.85V6.35a1.4 1.4 0 10-2.8 0v3.1a.45.45 0 01-.9 0V4.25a1.4 1.4 0 10-2.8 0v5.1a.45.45 0 01-.9 0V3.45A1.45 1.45 0 0010.4 2z"/></symbol>
+  <symbol id="i-panel-zu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-panel-auf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-pfeil-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5.5 12h13"/></symbol>
+  <symbol id="i-schloss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 118 0v3"/></symbol>
+  <symbol id="i-schloss-offen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 017.5-2"/></symbol>
+  <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></symbol>
+  <symbol id="i-haken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></symbol>
+  <!-- Vorschau = die fertige Tour im 3D-Player ansehen (Bildschirm mit Play). -->
+  <symbol id="i-vorschau" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 9.3l4.4 2.7-4.4 2.7z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2"/><path d="M12 7.7h.01"/></symbol>
+  <!-- Fortbewegungs-Piktogramme — ZEICHENGLEICH mit MODE_ICONS aus src/map.js,
+       damit der Läufer im Editor dasselbe Zeichen trägt wie der Fahrer im Player. -->
+  <symbol id="i-m-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.2" cy="4.6" r="2"/><path d="M12.9 7.6 12 12.6l-2.8 6.9"/><path d="M12 12.6l3.2 2.2 1 5"/><path d="M12.6 9.4 9.6 11.7l-.8 3"/><path d="M13.4 9.8l2.6 2 2.6.6"/></symbol>
+  <symbol id="i-m-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.4"/><circle cx="18.5" cy="17.5" r="3.4"/><path d="M5.5 17.5 9.3 10.6h6l3.2 6.9"/><path d="M9.3 10.6 12.4 17.5h6.1"/><path d="M15.3 10.6 13.8 7.4h2.6"/><path d="M7.9 8.2h2.8"/></symbol>
+  <symbol id="i-m-moped" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.8" cy="17.3" r="2.9"/><circle cx="18.2" cy="17.3" r="2.9"/><path d="M5.8 17.3h5.6l2.5-4.7h2"/><path d="M13.4 8.4h2.2l2.6 8.9"/><path d="M8.4 12.9c1.3-1.3 3.2-1.5 5-1.3"/></symbol>
+  <symbol id="i-m-jeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.6" cy="16.8" r="2.3"/><circle cx="16.4" cy="16.8" r="2.3"/><path d="M3.3 16.8H5.3M9.9 16.8h4.2M18.7 16.8h2"/><path d="M3.5 16.4v-3.1a1.1 1.1 0 0 1 1.1-1.1h2.2l1.9-2.5h6.3l1.6 2.5h1.6a1.1 1.1 0 0 1 1.1 1.1v3.1"/><path d="M8.5 11.7h5.4"/></symbol>
+  <symbol id="i-m-tram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="4.5" width="11" height="12.5" rx="2.2"/><path d="M6.5 11.5h11"/><path d="M10.2 4.5 12 2.2l1.8 2.3"/><path d="M9.7 14.6h.01M14.3 14.6h.01"/><path d="M8.8 17.5 7.3 21M15.2 17.5 16.7 21"/></symbol>
+  <symbol id="i-m-ferry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 14.5h15l-2.2 4.1a2 2 0 0 1-1.8 1.1H8.5a2 2 0 0 1-1.8-1.1z"/><path d="M7.5 14.5V10.2h9v4.3"/><path d="M10 10.2V7.4h4v2.8"/><path d="M12 7.4V4.8"/></symbol>
+  <!-- Bahn-Icons: kleine Marken vor den Spurnamen, damit man die Bahnen auf einen Blick auseinanderhält. -->
+  <symbol id="i-spur-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.7-4.5L6.5 20"/></symbol>
+  <symbol id="i-spur-weg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="17.5" r="1.9"/><circle cx="17.5" cy="6.5" r="1.9"/><path d="M8.3 16C11 14 9.5 11 12 10.5s2.5-2.4 3.4-3.1" stroke-dasharray="0.5 2.6"/></symbol>
+  <symbol id="i-spur-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/></symbol>
+  <symbol id="i-spur-wetter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 17.5a3.7 3.7 0 01-.5-7.4 5.2 5.2 0 0110.1 1.4A3.3 3.3 0 0116.6 18z"/><path d="M9 20.5l-.8 1.4M13 20.5l-.8 1.4"/></symbol>
+  <symbol id="i-spur-musik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="17.5" r="2.4"/><circle cx="17.3" cy="15" r="2.4"/><path d="M9.4 17.5V6.2l10.3-2v10.8"/></symbol>
+</defs></svg>
+
+<div class="mockleiste">
+  <b>Mockup</b> Editor — Skizze, kein fertiger Entwurf ·
+  <a href="studio-start.html">Bibliothek</a> · <a href="studio-neue-tour.html">Neue Tour</a> ·
+  <span style="margin-left:auto">Anklicken → Inspector · Backspace löscht · Leertaste spielt · ⇧Z / ⌘± zoomt</span>
+</div>
+
+<header class="kopf">
+  <button class="zurueck" id="zurueck" aria-label="Zurück zur Bibliothek"><svg><use href="#i-pfeil-l"/></svg></button>
+  <div>
+    <h1>Thong Sala → Haad Rin</h1>
+    <div class="zustand">41,8 km · 13 Aufnahmen</div>
+  </div>
+  <div class="rechts">
+    <button class="werkzeug" id="undo" title="Rückgängig (⌘Z)" disabled><svg><use href="#i-undo"/></svg></button>
+    <button class="werkzeug" id="redo" title="Wiederholen (⌘⇧Z)" disabled><svg><use href="#i-redo"/></svg></button>
+    <span class="sicht-huelle"><button class="werkzeug sicht-knopf" id="sicht-knopf" aria-haspopup="true" aria-expanded="false"><svg><use href="#i-schloss"/></svg><span id="sicht-wort">Privat</span></button></span>
+    <button class="werkzeug" id="vorschau" title="Fertige Tour im 3D-Player ansehen"><svg><use href="#i-vorschau"/></svg>Vorschau</button>
+    <button class="knopf-primaer">Speichern</button>
+    <span class="kopf-menue-huelle">
+      <button class="werkzeug" id="kopf-mehr" aria-label="Weitere Aktionen" aria-expanded="false"><svg><use href="#i-mehr"/></svg></button>
+    </span>
+  </div>
+</header>
+
+<main class="buehne" id="buehne">
+  <!-- Linke Spalte: Karte oben, Timeline unten (gestapelt). Der Inspector rechts
+       läuft über die volle Höhe beider — FCPX/Premiere-Anordnung. -->
+  <div class="links">
+  <div class="karte-flaeche">
+    <!-- Echte Karte wie im Live-Studio: MapLibre + Esri-Satellit. Route, Fokus-
+         Abschnitt und Marker sind Karten-Ebenen — sie behalten beim Zoomen ihre
+         Größe, statt mitskaliert zu werden. -->
+    <div class="karte" id="karte"></div>
+    <!-- Zoom der 2D-Karte (wie im echten Studio) — steuert die MapLibre-Karte. -->
+    <div class="karte-zoom" role="group" aria-label="Karte zoomen">
+      <button id="karte-plus" title="Hineinzoomen" aria-label="Hineinzoomen"><svg><use href="#i-plus"/></svg></button>
+      <button id="karte-minus" title="Herauszoomen" aria-label="Herauszoomen"><svg><use href="#i-minus"/></svg></button>
+    </div>
+    <!-- Kartenquellen: Pflichtangabe, aber platzsparend hinter einem (i). -->
+    <div class="karte-info">
+      <button class="ki-knopf" type="button" aria-label="Kartenquellen: Esri, Maxar, Earthstar Geographics" aria-describedby="karte-quelle"><svg><use href="#i-info"/></svg></button>
+      <div class="ki-blase" id="karte-quelle" role="tooltip">
+        <span class="ki-kicker">Kartenquellen</span>
+        <div class="ki-zeile">
+          <svg class="ki-sym" aria-hidden="true"><use href="#i-welt"/></svg>
+          <div><b>Satellitenbild</b><span class="ki-wert">Esri · Maxar · Earthstar&nbsp;Geographics</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Kamerablitz + Foto-Einblendung beim Abspielen (wenn der Playhead ein Foto passiert). -->
+    <div class="foto-flash" id="foto-flash"></div>
+    <div class="foto-einblendung" id="foto-einblendung"></div>
+  </div>
+
+  <!-- ————— Zeitleiste: eine Bahn je Ereignistyp, gemeinsame Aufnahmezeit ————— -->
+<section class="leiste">
+  <div class="leiste-kopf">
+    <div class="lk-gruppe">
+      <div class="transport" role="group" aria-label="Wiedergabe">
+        <button class="tp-b tp-play" id="play" title="Timeline abspielen / Pause (Leertaste) · J K L" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+        <span class="tempo-chip" id="tempo-chip" aria-hidden="true"></span>
+      </div>
+      <div class="werkzeuge" role="group" aria-label="Werkzeug">
+        <button class="wkz an" data-wkz="auswahl" title="Auswahl (A)" aria-label="Auswahl"><svg><use href="#i-cursor"/></svg></button>
+        <button class="wkz" data-wkz="hand" title="Hand — ziehen verschiebt die Timeline (H)" aria-label="Hand"><svg><use href="#i-hand"/></svg></button>
+        <button class="wkz" data-wkz="zoom" title="Zoom — klicken zoomt rein, ⌥ raus, ziehen zoomt auf Bereich (Z)" aria-label="Zoom"><svg><use href="#i-lupe"/></svg></button>
+      </div>
+    </div>
+    <div class="kopf-uhr" title="Abspielkopf — Aufnahmezeit · zurückgelegte Strecke von gesamt"><svg class="ku-icon" aria-hidden="true"><use href="#i-uhr"/></svg><span class="ku-zeit" id="kopf-uhr">20:12</span><span class="ku-km"><span class="ku-km-cur" id="kopf-km">19,3</span> km / 41,8 km</span></div>
+    <div class="zoom">
+      <button class="zoom-b" id="zoom-minus" title="Auszoomen (⌘−)" aria-label="Auszoomen"><svg><use href="#i-lupe-minus"/></svg></button>
+      <input type="range" id="zoom-regler" min="1" max="7" step="0.1" value="1" aria-label="Zeitleiste zoomen" />
+      <button class="zoom-b" id="zoom-plus" title="Einzoomen (⌘+)" aria-label="Einzoomen"><svg><use href="#i-lupe-plus"/></svg></button>
+      <button class="zoom-wert" id="zoom-wert" title="An Fenster anpassen (⇧Z)" aria-label="An Fenster anpassen" disabled>1,0×</button>
+    </div>
+  </div>
+
+  <div class="spuren-fenster" id="spuren-fenster">
+  <div class="spuren" id="spuren">
+    <!-- Maßband OBEN (FCPX): die Zeitachse als Lineal ganz oben, der Abspielkopf sitzt darin. -->
+    <div class="skala">
+      <div></div>
+      <div class="skala-feld" id="skala"></div>
+    </div>
+    <div class="spur hoch">
+      <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-foto"/></svg>Fotos/Videos</div>
+      <div class="spur-feld"><div class="foto-spur" id="foto-spur"></div></div>
+    </div>
+
+    <div class="spur">
+      <div class="spur-name spur-name-huelle"><svg class="spur-icon"><use href="#i-spur-weg"/></svg>Fortbewegung<button class="spur-plus" data-spur="spur-wege" aria-expanded="false" aria-label="Ereignis hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
+      <div class="spur-feld"><div class="band-reihe" id="spur-wege"></div></div>
+    </div>
+
+    <div class="spur">
+      <div class="spur-name spur-name-huelle"><svg class="spur-icon"><use href="#i-spur-kamera"/></svg>Kamera<button class="spur-plus" data-spur="spur-kamera" aria-expanded="false" aria-label="Ereignis hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
+      <div class="spur-feld"><div class="band-reihe" id="spur-kamera"></div></div>
+    </div>
+
+    <div class="spur">
+      <div class="spur-name spur-name-huelle"><svg class="spur-icon"><use href="#i-spur-wetter"/></svg>Wetter<button class="spur-plus" data-spur="spur-wetter" aria-expanded="false" aria-label="Ereignis hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
+      <div class="spur-feld"><div class="band-reihe" id="spur-wetter"></div></div>
+    </div>
+
+    <div class="spur musik">
+      <div class="spur-name spur-name-huelle"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Sound<button class="spur-plus" data-spur="spur-musik" aria-expanded="false" aria-label="Ereignis hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
+      <div class="spur-feld"><div class="band-reihe" id="spur-musik"></div></div>
+    </div>
+
+    <div class="kopfstrich" id="kopfstrich" style="left: calc(var(--spur-x) + 46%)"><button class="kopf-griff" id="kopf-griff" aria-label="Abspielkopf ziehen"></button></div>
+  </div>
+  </div>
+</section>
+  </div><!-- .links -->
+
+  <!-- Der Inspector — jetzt über die volle Höhe (Karte + Timeline). -->
+  <aside class="inspector" id="inspector">
+    <div class="insp-leer" id="insp-leer">
+      <svg class="leer-grafik" viewBox="0 0 140 108" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="9" y="10" width="122" height="82" rx="11" fill="#0c1016" stroke="#2e3a49" stroke-width="1.5"/>
+        <line x1="9" y1="25" x2="131" y2="25" stroke="#222b37" stroke-width="1.2"/>
+        <!-- Spur 1 -->
+        <rect x="19" y="33" width="44" height="10" rx="3" fill="#1c2530"/>
+        <rect x="67" y="33" width="54" height="10" rx="3" fill="#1c2530"/>
+        <!-- Spur 2 — ausgewählt -->
+        <rect x="19" y="49" width="72" height="12" rx="3.5" fill="#f5a524"/>
+        <rect x="19.7" y="49.7" width="70.6" height="10.6" rx="3" fill="none" stroke="#fff5e4" stroke-width="1.5"/>
+        <!-- Spur 3 -->
+        <rect x="19" y="67" width="36" height="10" rx="3" fill="#1c2530"/>
+        <rect x="59" y="67" width="62" height="10" rx="3" fill="#1c2530"/>
+        <!-- Abspielkopf -->
+        <line x1="98" y1="19" x2="98" y2="85" stroke="#f5a524" stroke-width="1.5" opacity=".45"/>
+        <!-- Cursor auf dem ausgewählten Band -->
+        <g transform="translate(74 52)">
+          <path d="M0 0 L0 16.5 L4.2 12.6 L6.9 18.6 L9.3 17.5 L6.6 11.5 L12.1 11.5 Z" fill="#0b0e13" stroke="#ffffff" stroke-width="1.3" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <div class="leer-titel">Noch nichts ausgewählt</div>
+      <p class="leer-text">Tippe in der Zeitleiste auf ein Band, ein Foto oder einen Klang — seine Einstellungen erscheinen dann hier.</p>
+    </div>
+    <div id="insp-inhalt" hidden></div>
+    <div id="insp-fuss" hidden></div>
+  </aside>
+  <!-- Griff zum Breiteziehen + Tab zum Ein-/Ausblenden — außerhalb des Inspectors,
+       damit sie bei Breite 0 (eingeklappt) sichtbar am Rand bleiben. -->
+  <div class="insp-griff" id="insp-griff" title="Breite ziehen"></div>
+  <button class="insp-tab" id="insp-tab" title="Panel ausblenden" aria-label="Panel ein-/ausblenden"><svg><use href="#i-panel-zu"/></svg></button>
+</main>
+
+<!-- Auswahlrechteck des Zoom-Werkzeugs (über allem, fixed) -->
+<div class="zoom-box" id="zoom-box"></div>
+
+<script type="module">
+import maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+
+/* ————— Karte: echte Kacheln wie im Live-Studio —————
+   Vorher war die Karte eine SVG-Skizze mit einem daraufprojizierten Satellitenbild —
+   das konnte nur einen festen Ausschnitt zeigen und skalierte beim Zoomen alles mit.
+   Jetzt liegt das Räumliche dort, wo es hingehört: in der Karte. Die Route ist die
+   ECHTE Koh-Pha-ngan-Geometrie aus src/tours.js (Segmente verkettet, 360 Punkte),
+   Route und Fokus-Abschnitt sind Linien-Ebenen, Fotopunkte und Läufer DOM-Marker.
+   Deshalb zoomt beim Zoomen NUR die Karte — Marker und Linienbreiten bleiben gleich. */
+const ROUTE = [[99.9856,9.7133],[99.9865,9.7129],[99.9868,9.71252],[99.9865,9.71246],[99.98657,9.71218],[99.98533,9.71167],[99.98534,9.71155],[99.98528,9.71145],[99.98538,9.71128],[99.9861,9.71045],[99.98604,9.71037],[99.98607,9.70965],[99.98612,9.70918],[99.98615,9.70895],[99.98612,9.70918],[99.98607,9.70965],[99.98604,9.71037],[99.98614,9.7104],[99.98706,9.70941],[99.98719,9.7093],[99.9873,9.70927],[99.98891,9.70913],[99.9899,9.70912],[99.99091,9.70916],[99.99157,9.70912],[99.99192,9.70908],[99.99343,9.70872],[99.99482,9.70836],[99.99479,9.70762],[99.99439,9.70762],[99.99479,9.70762],[99.99482,9.70836],[99.99533,9.70823],[99.99559,9.70822],[99.997,9.70854],[99.99743,9.7086],[99.99967,9.70866],[100.00183,9.70879],[100.00395,9.70872],[100.00433,9.70863],[100.0046,9.70852],[100.00569,9.70782],[100.00849,9.70641],[100.00982,9.70561],[100.00884,9.70367],[100.00982,9.70561],[100.00883,9.7062],[100.00968,9.70772],[100.00995,9.71035],[100.01038,9.7119],[100.01045,9.71236],[100.01041,9.71259],[100.01032,9.71288],[100.00969,9.71374],[100.00942,9.7139],[100.00876,9.71411],[100.01003,9.71602],[100.01013,9.71621],[100.01022,9.7166],[100.00858,9.71704],[100.00732,9.71745],[100.00773,9.71861],[100.00777,9.71884],[100.00775,9.71919],[100.00747,9.72074],[100.0068,9.72169],[100.0066,9.72184],[100.00659,9.72252],[100.00648,9.72341],[100.00649,9.72438],[100.00904,9.72455],[100.00916,9.72472],[100.00926,9.72576],[100.00913,9.72592],[100.00875,9.72592],[100.00862,9.72599],[100.00883,9.72693],[100.00903,9.72715],[100.00908,9.72742],[100.00906,9.72759],[100.00871,9.72867],[100.00879,9.72906],[100.00879,9.72945],[100.01024,9.72943],[100.01137,9.72957],[100.01152,9.72972],[100.01164,9.73022],[100.01176,9.73096],[100.01169,9.73119],[100.01197,9.73115],[100.01217,9.73137],[100.01239,9.73179],[100.01265,9.73264],[100.0125,9.7327],[100.01214,9.73271],[100.01181,9.73261],[100.01201,9.7331],[100.01212,9.73321],[100.01217,9.7334],[100.01244,9.73356],[100.01273,9.7335],[100.01299,9.73336],[100.01322,9.73333],[100.01373,9.73349],[100.01322,9.73333],[100.01244,9.73356],[100.01217,9.7334],[100.01181,9.73261],[100.01214,9.73271],[100.01265,9.73264],[100.01217,9.73137],[100.01197,9.73115],[100.01169,9.73119],[100.01176,9.73096],[100.01164,9.73022],[100.01152,9.72972],[100.01137,9.72957],[100.01024,9.72943],[100.00879,9.72945],[100.00873,9.72856],[100.00906,9.72759],[100.00903,9.72715],[100.00915,9.72707],[100.01044,9.72694],[100.01043,9.72745],[100.01052,9.72754],[100.01079,9.72755],[100.01113,9.72744],[100.01152,9.72756],[100.01195,9.72725],[100.01191,9.72698],[100.01201,9.72682],[100.01278,9.72654],[100.01285,9.72621],[100.01274,9.72585],[100.01284,9.72537],[100.01265,9.7249],[100.01267,9.72471],[100.01276,9.72465],[100.0129,9.72477],[100.01331,9.72488],[100.01384,9.72483],[100.01401,9.72504],[100.01451,9.72476],[100.01447,9.72458],[100.01406,9.72462],[100.01384,9.72403],[100.01403,9.72374],[100.01398,9.72254],[100.01404,9.72238],[100.01437,9.72225],[100.01444,9.72208],[100.01434,9.72194],[100.01388,9.72176],[100.01383,9.72074],[100.01392,9.72063],[100.01376,9.72041],[100.01381,9.72018],[100.01369,9.7199],[100.01326,9.71997],[100.01288,9.71983],[100.01284,9.7197],[100.01317,9.71942],[100.01317,9.71833],[100.01331,9.7182],[100.01354,9.71702],[100.01368,9.71702],[100.01378,9.71646],[100.01558,9.71667],[100.01627,9.71611],[100.01637,9.71583],[100.01626,9.71529],[100.01639,9.71474],[100.01713,9.71352],[100.01725,9.71284],[100.01764,9.71256],[100.01826,9.71245],[100.01879,9.71345],[100.01866,9.71401],[100.01866,9.71464],[100.01892,9.71575],[100.01881,9.71607],[100.01873,9.71707],[100.0202,9.71709],[100.02124,9.71687],[100.02207,9.71719],[100.02301,9.71726],[100.02374,9.71746],[100.02388,9.71694],[100.02411,9.71672],[100.0248,9.7164],[100.02553,9.71626],[100.02603,9.71581],[100.02643,9.71562],[100.02684,9.71596],[100.02718,9.71592],[100.02735,9.71617],[100.0276,9.71709],[100.02784,9.71724],[100.02788,9.71785],[100.02797,9.71809],[100.02828,9.71835],[100.02843,9.71835],[100.02861,9.71856],[100.02882,9.71896],[100.02876,9.7193],[100.0294,9.71919],[100.02963,9.71924],[100.02973,9.71947],[100.0297,9.71977],[100.02982,9.71981],[100.03005,9.71973],[100.03043,9.7198],[100.0307,9.71973],[100.03148,9.71939],[100.03182,9.7191],[100.0321,9.71873],[100.03242,9.71856],[100.03293,9.71872],[100.03305,9.71822],[100.03268,9.71751],[100.03372,9.71736],[100.03397,9.7174],[100.0341,9.71761],[100.03439,9.7188],[100.03459,9.71895],[100.03532,9.71909],[100.03627,9.71952],[100.03649,9.71971],[100.03647,9.71991],[100.03607,9.7202],[100.03605,9.72069],[100.03729,9.72125],[100.03753,9.72145],[100.03789,9.72241],[100.03764,9.72291],[100.03762,9.72316],[100.03799,9.7235],[100.03882,9.72394],[100.03892,9.72413],[100.03905,9.72505],[100.03962,9.72598],[100.04015,9.72654],[100.04025,9.72676],[100.04015,9.72706],[100.03957,9.72761],[100.03932,9.72812],[100.03901,9.72841],[100.03901,9.72882],[100.03911,9.72898],[100.04075,9.73002],[100.04241,9.72999],[100.04307,9.72976],[100.04371,9.72967],[100.04403,9.72949],[100.04493,9.72812],[100.04552,9.72765],[100.04624,9.72764],[100.0466,9.72785],[100.04674,9.72834],[100.04633,9.73042],[100.04657,9.73079],[100.04658,9.73097],[100.04623,9.73145],[100.04592,9.73229],[100.04592,9.73257],[100.04565,9.7331],[100.04586,9.73365],[100.04645,9.7342],[100.04658,9.73458],[100.04659,9.73595],[100.04669,9.7363],[100.04655,9.73681],[100.04655,9.73831],[100.04666,9.73942],[100.04766,9.74089],[100.04783,9.74145],[100.04816,9.74209],[100.04866,9.7424],[100.04938,9.74303],[100.05002,9.74424],[100.05052,9.74473],[100.05102,9.74554],[100.0511,9.74587],[100.05116,9.74718],[100.05097,9.74797],[100.05108,9.74942],[100.05098,9.74993],[100.05041,9.7508],[100.04959,9.75109],[100.04918,9.75144],[100.04896,9.75203],[100.04892,9.75326],[100.04833,9.75358],[100.04706,9.75457],[100.04685,9.75495],[100.04675,9.75594],[100.0463,9.75648],[100.04606,9.75706],[100.04578,9.75728],[100.04498,9.75718],[100.04443,9.75729],[100.04423,9.75755],[100.04396,9.75835],[100.04381,9.75946],[100.04445,9.76094],[100.04464,9.76197],[100.04491,9.76238],[100.04478,9.76307],[100.04483,9.76412],[100.04439,9.76476],[100.04368,9.76745],[100.04365,9.7695],[100.04378,9.77013],[100.04415,9.77099],[100.04428,9.77116],[100.0447,9.77135],[100.04486,9.77152],[100.04507,9.77262],[100.04619,9.77352],[100.04694,9.77313],[100.04767,9.77208],[100.04852,9.77232],[100.04866,9.7723],[100.04923,9.77173],[100.05066,9.77166],[100.05117,9.77145],[100.05186,9.7709],[100.05225,9.77081],[100.05285,9.77085],[100.05332,9.77071],[100.05561,9.7694],[100.05643,9.76918],[100.05748,9.76908],[100.05789,9.76976],[100.05821,9.76959],[100.0582,9.7702],[100.06,9.7699],[100.0605,9.7725],[100.063,9.7752],[100.07,9.7752],[100.0785,9.7715],[100.0825,9.7655],[100.07929,9.76],[100.08142,9.753],[100.08383,9.746],[100.08511,9.739],[100.08461,9.732],[100.08409,9.725],[100.08361,9.718],[100.08345,9.711],[100.08482,9.704],[100.08412,9.697],[100.08276,9.69],[100.08289,9.683],[100.0715,9.6772],[100.07,9.6768],[100.0688,9.67667],[100.0682,9.67655],[100.0678,9.67635]]
+const KOS = Math.cos(9.72 * Math.PI / 180)   // Längengrad-Stauchung auf dieser Breite
+const CUM = (() => {
+  const c = [0]
+  for (let i = 1; i < ROUTE.length; i++) c.push(c[i - 1] + Math.hypot((ROUTE[i][0] - ROUTE[i - 1][0]) * KOS, ROUTE[i][1] - ROUTE[i - 1][1]))
+  return c
+})()
+const ROUTE_L = CUM[CUM.length - 1]
+/** Ort auf der Route beim Streckenanteil t (0..1) — Ersatz für getPointAtLength. */
+function punktBei(t) {
+  const s = Math.min(Math.max(t, 0), 1) * ROUTE_L
+  let i = 1
+  while (i < CUM.length - 1 && CUM[i] < s) i++
+  const f = (s - CUM[i - 1]) / Math.max(CUM[i] - CUM[i - 1], 1e-9)
+  return [ROUTE[i - 1][0] + (ROUTE[i][0] - ROUTE[i - 1][0]) * f, ROUTE[i - 1][1] + (ROUTE[i][1] - ROUTE[i - 1][1]) * f]
+}
+/** Streckenstück zwischen zwei Anteilen — für den leuchtenden Fokus-Abschnitt. */
+function abschnittPunkte(von, bis) {
+  const s0 = von * ROUTE_L, s1 = bis * ROUTE_L
+  return [punktBei(von), ...ROUTE.filter((_, i) => CUM[i] > s0 && CUM[i] < s1), punktBei(bis)]
+}
+
+const karte = new maplibregl.Map({
+  container: 'karte',
+  // Schlanker Raster-Stil, identisch zum echten Studio-Editor (Esri-Satellit).
+  style: {
+    version: 8,
+    sources: {
+      sat: {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256, maxzoom: 19,
+        attribution: 'Esri, Maxar, Earthstar Geographics',
+      },
+    },
+    layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
+  },
+  // Attribution als eigenes Element (.karte-info) statt MapLibres Leiste — die
+  // Pflichtangabe bleibt, braucht aber keine Dauerzeile über der Karte.
+  center: punktBei(0.5), zoom: 11, attributionControl: false,
+})
+karte.dragRotate.disable()
+karte.touchZoomRotate.disableRotation()
+const FOTO_MARKER = new Map()
+let kartenBereit = false
+let fokusAbschnitt = null
+karte.on('load', () => {
+  karte.addSource('route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ROUTE } } })
+  // Dunkle Kontur unter der Linie — Lesbarkeit auf hellem Satellitenbild (wie im Studio).
+  karte.addLayer({ id: 'route-kontur', type: 'line', source: 'route', paint: { 'line-color': '#0a0d12', 'line-width': 7, 'line-opacity': .55 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  karte.addLayer({ id: 'route-linie', type: 'line', source: 'route', paint: { 'line-color': '#ffffff', 'line-width': 3 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  karte.addSource('fokus', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  karte.addLayer({ id: 'fokus-schein', type: 'line', source: 'fokus', paint: { 'line-color': '#f5a524', 'line-width': 13, 'line-opacity': .28, 'line-blur': 4 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  karte.addLayer({ id: 'fokus-linie', type: 'line', source: 'fokus', paint: { 'line-color': '#ffd27a', 'line-width': 5 }, layout: { 'line-cap': 'round', 'line-join': 'round' } })
+  const g = new maplibregl.LngLatBounds()
+  ROUTE.forEach((p) => g.extend(p))
+  // Erst die Canvas-Größe an den Container angleichen, DANN einpassen: stand die
+  // Karte beim Anlegen noch ohne Höhe da, rechnete fitBounds sonst auf die
+  // Notgröße 400×300 und die Route landete in der Ecke.
+  karte.resize()
+  karte.fitBounds(g, { padding: 48, duration: 0 })
+  kartenBereit = true
+  if (fokusAbschnitt) zeigeAbschnitt(fokusAbschnitt[0], fokusAbschnitt[1])
+})
+// Der Läufer zeigt, wo die Marke auf der Strecke steht — und WOMIT man dort
+// unterwegs ist (Piktogramm des Fortbewegungsmittels, wie der Fahrer im Player).
+const laeuferEl = document.createElement('div')
+laeuferEl.className = 'laeufer'
+laeuferEl.innerHTML = '<span class="puls"></span><span class="puck"><svg aria-hidden="true"><use href="#i-m-walk"/></svg></span>'
+const laeuferMarker = new maplibregl.Marker({ element: laeuferEl }).setLngLat(punktBei(0)).addTo(karte)
+document.getElementById('karte-plus').addEventListener('click', () => karte.zoomIn())
+document.getElementById('karte-minus').addEventListener('click', () => karte.zoomOut())
+// FOTOS_ALLE bleibt unangetastet (Stammliste); FOTOS ist die Arbeitsliste, die
+// beim Entfernen einer Aufnahme kürzer wird und per Undo aus der Stammliste
+// wieder aufgebaut wird.
+const FOTOS_ALLE = [{"nr":1,"src":"/photos/kohphangan/01-thong-sala.jpg","titel":"Thong Sala","zeit":"14:10","km":0.8,"t":0.0181,"x":1.71,"y":66.15},{"nr":2,"src":"/photos/kohphangan/02-baan-tai.jpg","titel":"Haad Baan Tai","zeit":"15:00","km":4.2,"t":0.1012,"x":24.49,"y":71.22},{"nr":3,"src":"/photos/kohphangan/03-phaeng.jpg","titel":"Nam Tok Phaeng","zeit":"16:11","km":9.2,"t":0.2198,"x":20.71,"y":42.86},{"nr":4,"src":"/photos/kohphangan/04-dschungelbach.jpg","titel":"Dschungelbach","zeit":"17:12","km":13.4,"t":0.3217,"x":29.6,"y":61.99,"video":"/video/dschungel.mp4"},{"nr":5,"src":"/photos/kohphangan/05-dschungelpiste.jpg","titel":"Dschungelpiste","zeit":"18:08","km":17.3,"t":0.4141,"x":46.42,"y":54.29},{"nr":6,"src":"/photos/kohphangan/06-bergpiste.jpg","titel":"Bergkamm","zeit":"18:36","km":19.3,"t":0.4617,"x":52.94,"y":48.39},{"nr":7,"src":"/photos/kohphangan/07-daemmerung.jpg","titel":"Blaue Stunde","zeit":"19:20","km":22.3,"t":0.5333,"x":49.22,"y":26.02},{"nr":8,"src":"/photos/kohphangan/08-thong-nai-pan.jpg","titel":"Thong Nai Pan","zeit":"20:26","km":26.9,"t":0.6446,"x":52.1,"y":7.92},{"nr":9,"src":"/photos/kohphangan/09-ostkueste.jpg","titel":"Wilde Ostküste","zeit":"21:30","km":31.4,"t":0.7515,"x":75.42,"y":19.35},{"nr":10,"src":"/photos/kohphangan/10-longtail.jpg","titel":"Auf dem Golf","zeit":"22:36","km":36,"t":0.8607,"x":90.58,"y":57.52},{"nr":11,"src":"/photos/kohphangan/11-vor-haad-rin.jpg","titel":"Vor Haad Rin","zeit":"23:26","km":39.5,"t":0.9447,"x":99.06,"y":87.21},{"nr":12,"src":"/photos/kohphangan/12-haad-rin.jpg","titel":"Haad Rin","zeit":"23:59","km":41.8,"t":0.9998,"x":87.51,"y":97.16}]
+let FOTOS = FOTOS_ALLE.map((f) => ({ ...f, standzeit: 'Normal' }))
+
+/* — Bahn-Inhalte. Die Fortbewegung kommt aus den echten Tour-Segmenten,
+     Kamera/Wetter/Musik sind Beispielstände, wie sie der Editor schreibt. — */
+const WEGE = [
+  { von: 0, bis: .005, name: 'zu Fuß', farbe: '#8fa3b8' },
+  { von: .005, bis: .256, name: 'Moped', farbe: '#f5a524' },
+  { von: .256, bis: .752, name: 'Jeep', farbe: '#e8734a' },
+  { von: .752, bis: .758, name: 'zu Fuß', farbe: '#8fa3b8' },
+  { von: .758, bis: 1, name: 'Fähre', farbe: '#5b9dff' },
+]
+const KAMERA = [
+  { von: 0, bis: .3, name: 'Mittel', farbe: '#5f7c93' },
+  { von: .3, bis: .55, name: 'Nah', farbe: '#7a94a8' },
+  { von: .55, bis: 1, name: 'Weit', farbe: '#4d6577' },
+]
+const WETTER = [
+  { von: 0, bis: .18, name: 'Wolkig', farbe: '#6d7684' },
+  { von: .18, bis: .49, name: 'Gewitter, stark', farbe: '#4a5568' },
+  { von: .49, bis: 1, name: 'Klar', farbe: '#3f5a6d' },
+]
+// Musik als KLIPS, NICHT als Bänder: ein Stück hat einen echten Anfang UND ein
+// echtes Ende, dazwischen ist Stille (= die Abwesenheit eines Klips, kein Band
+// „Stille"). Hier ein Grundthema und ein Finale-Stück mit stiller Lücke.
+const MUSIK = [
+  { von: 0, bis: .5, name: 'ambient.mp3' },
+  { von: .78, bis: 1, name: 'Finale-Thema' },
+]
+// Soundeffekte: Zeitpunkte, keine Zustände — sie liegen ÜBER der Musik.
+const SFX = [
+  { t: .13, name: 'Möwen' },
+  { t: .47, name: 'Donner' },
+  { t: .78, name: 'Brandung' },
+]
+
+/* Aufnahmezeit als Uhrzeit — die Achse läuft 14:00 bis 24:00. */
+const uhr = (t) => {
+  const min = Math.round(t * 600)
+  return String(14 + Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0')
+}
+const TOUR_KM = 41.8   // Gesamtlänge der Tour (aus dem Kopf); Streckenanteil = marke × Gesamt
+const komma = (n, k = 1) => n.toFixed(k).replace('.', ',')
+
+/* — Die Spuren als EIN Modell. Zwei Sorten Spur, und daran hängt alles:
+     ZUSTANDS-Spuren (Fortbewegung, Kamera, Wetter) sind lückenlose Bänder — zu
+     jedem Moment gilt genau ein Wert, ein Zustand hat kein eigenes Ende, wo der
+     nächste beginnt hört er auf. Bearbeitungen: Grenze EINFÜGEN (+ an der
+     Einfügemarke), Grenze VERSCHIEBEN (Kante ziehen), Band LÖSCHEN (der Nachbar
+     füllt den Raum).
+     INHALTS-Spuren (Musik) sind Klips mit echtem Ende, dazwischen Stille —
+     s. u. Ein Klip löschen hinterlässt eine Lücke, kein Nachbar rückt nach. */
+const SPUREN = {
+  'spur-wege': { art: 'Fortbewegung', daten: WEGE, werte: [
+    ['zu Fuß', '#8fa3b8'], ['Fahrrad', '#7fb069'], ['Moped', '#f5a524'],
+    ['Jeep', '#e8734a'], ['Tram', '#b48ead'], ['Fähre', '#5b9dff'],
+  ] },
+  'spur-kamera': { art: 'Kamera', daten: KAMERA, werte: [
+    ['Nah', '#7a94a8'], ['Mittel', '#5f7c93'], ['Weit', '#4d6577'],
+  ] },
+  'spur-wetter': { art: 'Wetter', daten: WETTER, werte: [
+    ['Klar', '#3f5a6d'], ['Wolkig', '#6d7684'], ['Regen', '#50637a'],
+    ['Gewitter', '#4a5568'], ['Nebel', '#737d8a'], ['Schnee', '#8ea3b8'],
+  ] },
+  /* Musik = KLIPS (Blöcke mit echtem Ende), ein Soundeffekt = EREIGNIS (Möwen,
+     Donner — ein Zeitpunkt, keine Dauer). Beides auf einer Spur: die Klips als
+     Blöcke, die Klänge als Pins darüber. Sie dürfen sich überlagern, ohne dass
+     die Leiste eine zweite Bahn Höhe kostet. `klips` statt `daten` schaltet die
+     Spur auf die Inhalts-Darstellung um. */
+  'spur-musik': { art: 'Musik & Sound', klips: MUSIK, ereignisse: SFX,
+    spuren: ['ambient.mp3', 'eigene Datei …'],
+    klaenge: ['Möwen', 'Donner', 'Regen', 'Motor aus', 'Brandung'] },
+}
+const spurIdVonArt = (art) => Object.keys(SPUREN).find((k) => SPUREN[k].art === art)
+
+function baueSpur(id) {
+  const s = SPUREN[id]
+  const el = document.getElementById(id)
+  el.textContent = ''
+  if (s.klips) { baueMusikSpur(id, s, el); return }
+  s.daten.forEach((b, i) => {
+    const d = document.createElement('div')
+    d.className = 'band' + (b.leise ? ' leise' : '')
+    d.style.flex = String(b.bis - b.von)
+    if (!b.leise) d.style.background = b.farbe
+    d.dataset.art = s.art
+    d.dataset.i = String(i)
+    d.innerHTML = '<span>' + b.name + '</span>'
+    el.append(d)
+  })
+  // Griffe auf den inneren Grenzen — die Ränder 0 und 1 sind keine.
+  s.daten.slice(1).forEach((b, i) => {
+    const k = document.createElement('div')
+    k.className = 'kante'
+    k.dataset.spur = id
+    k.dataset.i = String(i + 1)
+    k.title = 'Grenze verschieben'
+    el.append(k)
+  })
+  bauePins(s, el)
+  positioniereKanten(id)
+}
+
+/* Die Klänge (SFX) als Pins — auf jeder Spur gleich. */
+function bauePins(s, el) {
+  ;(s.ereignisse ?? []).forEach((x, i) => {
+    const b = document.createElement('button')
+    b.className = 'sfx'
+    b.dataset.sfx = String(i)
+    b.style.left = (x.t * 100) + '%'
+    b.innerHTML = `<i></i><span class="stiel"></span><span class="etikett">${x.name} · ${uhr(x.t)}</span>`
+    el.append(b)
+  })
+}
+
+/* Inhalts-Spur: Klips als frei liegende Blöcke (echtes Ende, Lücke = Stille),
+   mit Trimm-Griffen an beiden Rändern — kein lückenloses Bänder-Layout. */
+function baueMusikSpur(id, s, el) {
+  el.classList.add('klips')
+  s.klips.forEach((k, i) => {
+    const d = document.createElement('div')
+    d.className = 'klip'
+    d.dataset.i = String(i)
+    d.style.left = (k.von * 100) + '%'
+    d.style.width = ((k.bis - k.von) * 100) + '%'
+    d.innerHTML = `<span>${k.name}</span><i class="griff l"></i><i class="griff r"></i>`
+    el.append(d)
+  })
+  bauePins(s, el)
+}
+
+/* Die Kanten sitzen auf der ECHTEN Grenze, nicht auf dem Rechenwert:
+   `.band-reihe` hat 2 px Lücke zwischen den Bändern, und die verschiebt jede
+   Prozentangabe um bis zu ein paar Pixel — je weiter rechts, desto mehr.
+   Also fragen wir das Layout, statt es nachzurechnen. */
+function positioniereKanten(id) {
+  const el = document.getElementById(id)
+  const baender = [...el.querySelectorAll('.band')]
+  el.querySelectorAll('.kante').forEach((k, i) => {
+    const naechstes = baender[i + 1]
+    if (naechstes) k.style.left = (naechstes.offsetLeft - 1) + 'px'
+  })
+}
+Object.keys(SPUREN).forEach(baueSpur)
+addEventListener('resize', () => Object.keys(SPUREN).forEach(positioniereKanten))
+
+/* — Die Einfügemarke: „ab hier". Sie ist der Abspielkopf und zugleich der
+     Ort, an dem ein neues Ereignis beginnt — wie die Schnittmarke in einem
+     Schnittprogramm. — */
+let marke = .46
+const zeitfeld = () => document.getElementById('spur-wege').getBoundingClientRect()
+function setzeMarke(t) {
+  marke = Math.min(Math.max(t, 0), 1)
+  const feld = zeitfeld()
+  const strich = document.getElementById('kopfstrich')
+  const bezug = strich.offsetParent.getBoundingClientRect()
+  strich.style.left = (feld.left - bezug.left + marke * feld.width) + 'px'
+  const u = document.getElementById('kopf-uhr'); if (u) u.textContent = uhr(marke)
+  const kmEl = document.getElementById('kopf-km'); if (kmEl) kmEl.textContent = komma(marke * TOUR_KM)
+  setzeLaeufer(marke)
+}
+/* Der Läufer zeigt, WO auf der Strecke die Marke steht. Näherung fürs Mockup:
+   Zeitanteil = Streckenanteil. In der echten Engine übersetzt `pointAt(route, s)`
+   zwischen beidem, und die Timeline kennt die Pausen-Kompression. */
+// Bandname der Fortbewegungs-Spur → Piktogramm-Id (dieselben sechs Modi wie
+// MODE_ICONS/MODE_SPEED in der Engine).
+const MODUS_ZEICHEN = { 'zu Fuß': 'walk', 'Fahrrad': 'bike', 'Moped': 'moped', 'Jeep': 'jeep', 'Tram': 'tram', 'Fähre': 'ferry' }
+function setzeLaeufer(t) {
+  laeuferMarker.setLngLat(punktBei(t))
+  const weg = WEGE.find((w) => t >= w.von && t < w.bis) ?? WEGE[WEGE.length - 1]
+  const zeichen = '#i-m-' + (MODUS_ZEICHEN[weg?.name] ?? 'walk')
+  const use = laeuferEl.querySelector('.puck use')
+  if (use.getAttribute('href') !== zeichen) use.setAttribute('href', zeichen)   // nur bei Wechsel (sonst flackert das <use>)
+}
+addEventListener('load', () => setzeMarke(marke))
+addEventListener('resize', () => setzeMarke(marke))
+
+// Die Marke folgt NUR Klicks auf freie Fläche und die Zeitskala — NICHT dem
+// Klick auf ein Band. Sonst verlöre man beim Auswählen eines Bandes (um es zu
+// bearbeiten) seine Einfügemarke, die man vielleicht gerade platziert hat.
+document.getElementById('spuren').addEventListener('click', (e) => {
+  if (werkzeug !== 'auswahl') return
+  if (e.target.closest('.kante, .spur-name, .f-mini, .band, .sfx, .klip')) return
+  leerInspektor()   // Klick ins Leere demarkiert die aktuelle Auswahl (wie in einem Schnittprogramm)
+  halteAbspielen()
+  setzeMarke((e.clientX - zeitfeld().left) / zeitfeld().width)
+})
+
+/* — Scrubben: NUR den Head oben greifen und ziehen (nicht die Linie — die ist
+     pointer-events:none und würde sonst Band-Klicks abfangen). Beim Ziehen läuft
+     der Punkt über die Karte mit. Fenster-Listener, weil die Capture auf dem
+     kleinen Head schnelle Bewegungen verlöre. — */
+document.getElementById('kopf-griff').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return
+  e.preventDefault()
+  halteAbspielen()
+  const strich = document.getElementById('kopfstrich')
+  strich.classList.add('zieht')
+  document.body.classList.add('scrubbt')   // Scrub-Cursor global, solange gezogen wird
+  const zieh = (ev) => setzeMarke((ev.clientX - zeitfeld().left) / zeitfeld().width)
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    strich.classList.remove('zieht')
+    document.body.classList.remove('scrubbt')
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+})
+// Pfeiltasten ←/→ scrubben den Abspielkopf (Shift = größerer Schritt). Nicht
+// während man in einem Feld tippt oder die Großansicht offen ist (die nutzt ←/→).
+addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  const a = document.activeElement
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return
+  if (document.querySelector('.gross')) return
+  e.preventDefault()
+  halteAbspielen()
+  const schritt = (e.shiftKey ? 10 : 1) / 600   // 1 bzw. 10 Minuten
+  setzeMarke(marke + (e.key === 'ArrowRight' ? schritt : -schritt))
+})
+// Ziehen auf der Skala scrubbt ebenfalls — dort erwartet man es zuerst.
+document.getElementById('skala').addEventListener('pointerdown', (e) => {
+  if (werkzeug !== 'auswahl') return   // Hand/Zoom übernehmen die Skala
+  halteAbspielen()
+  const el = e.currentTarget
+  el.setPointerCapture(e.pointerId)
+  setzeMarke((e.clientX - zeitfeld().left) / zeitfeld().width)
+  const zieh = (ev) => setzeMarke((ev.clientX - zeitfeld().left) / zeitfeld().width)
+  el.addEventListener('pointermove', zieh)
+  el.addEventListener('lostpointercapture', () => el.removeEventListener('pointermove', zieh), { once: true })
+})
+
+/* — Kante ziehen. Während des Zugs wird NICHTS neu gebaut, nur Breiten
+     gesetzt: nach setPointerCapture würde ein Neuaufbau das greifende
+     Element ersetzen und der Zug risse ab. — */
+document.addEventListener('pointerdown', (e) => {
+  const k = e.target.closest('.kante')
+  if (!k || werkzeug !== 'auswahl') return
+  e.preventDefault()
+  const s = SPUREN[k.dataset.spur]
+  const i = Number(k.dataset.i)
+  const reihe = k.parentElement
+  const rect = reihe.getBoundingClientRect()
+  const min = s.daten[i - 1].von + .012
+  const max = s.daten[i].bis - .012
+  k.setPointerCapture(e.pointerId)
+  k.classList.add('zieht')
+  document.getElementById('spuren').classList.add('zieht')
+  const baender = reihe.querySelectorAll('.band')
+  const zieh = (ev) => {
+    const t = Math.min(Math.max((ev.clientX - rect.left) / rect.width, min), max)
+    s.daten[i - 1].bis = t
+    s.daten[i].von = t
+    s.daten.forEach((b, j) => { baender[j].style.flex = String(b.bis - b.von) })
+    positioniereKanten(k.dataset.spur)
+    // Die AUSWAHL BLEIBT, wo sie war. Verschieben ist keine Auswahl — nur wenn
+    // gerade eines der beiden Nachbarbänder im Inspector steht, zieht der mit.
+    if (fokus?.typ === 'band' && fokus.art === s.art && (fokus.i === i || fokus.i === i - 1)) {
+      zeigeBand(fokus.art, fokus.i, false)
+    }
+  }
+  k.addEventListener('pointermove', zieh)
+  k.addEventListener('lostpointercapture', () => {
+    k.removeEventListener('pointermove', zieh)
+    k.classList.remove('zieht')
+    document.getElementById('spuren').classList.remove('zieht')
+    baueSpur(k.dataset.spur)
+    if (fokus?.typ === 'band' && fokus.art === s.art) zeigeBand(fokus.art, fokus.i, true)
+    merke()
+  }, { once: true })
+})
+
+/* — Ereignis anlegen: + an der Spur, Wert wählen, gilt ab der Marke. — */
+const spurMenueZu = () => {
+  document.querySelector('.spur-menue')?.remove()
+  document.querySelectorAll('.spur-plus').forEach((b) => b.setAttribute('aria-expanded', 'false'))
+}
+document.addEventListener('click', (e) => {
+  const plus = e.target.closest('.spur-plus')
+  const wahl = e.target.closest('.spur-menue button')
+  if (wahl) {
+    const s = SPUREN[wahl.dataset.spur]
+    spurMenueZu()
+    // Ein Klang ist ein Punkt auf der Zeit, kein Abschnitt — er teilt nichts.
+    if (wahl.dataset.klang) {
+      s.ereignisse.push({ t: marke, name: wahl.dataset.klang })
+      s.ereignisse.sort((a, b) => a.t - b.t)
+      baueSpur(wahl.dataset.spur)
+      zeigeKlang(s.ereignisse.findIndex((x) => x.name === wahl.dataset.klang && x.t === marke))
+      merke()
+      return
+    }
+    // Ein Musik-Klip beginnt an der Marke — aber nur in einer stillen Lücke, nicht
+    // mitten in einem laufenden Klip. Er endet an der nächsten Musik oder am Ende.
+    if (wahl.dataset.klip) {
+      if (MUSIK.some((k) => marke >= k.von && marke < k.bis)) return
+      const naechster = MUSIK.filter((k) => k.von > marke).sort((a, b) => a.von - b.von)[0]
+      const bis = Math.min(marke + .22, naechster ? naechster.von : 1)
+      if (bis - marke < .04) return
+      MUSIK.push({ von: marke, bis, name: wahl.dataset.klip })
+      MUSIK.sort((a, b) => a.von - b.von)
+      baueSpur(wahl.dataset.spur)
+      zeigeKlip(MUSIK.findIndex((k) => k.von === marke))
+      merke()
+      return
+    }
+    const i = s.daten.findIndex((b) => marke > b.von && marke < b.bis)
+    if (i < 0) return
+    const alt = s.daten[i]
+    s.daten.splice(i + 1, 0, { von: marke, bis: alt.bis, name: wahl.dataset.wert, farbe: wahl.dataset.farbe, leise: wahl.dataset.farbe === 'transparent' })
+    alt.bis = marke
+    baueSpur(wahl.dataset.spur)
+    zeigeBand(s.art, i + 1, true)
+    merke()
+    return
+  }
+  if (!plus) { if (!e.target.closest('.spur-menue')) spurMenueZu(); return }
+  e.stopPropagation()
+  const offen = plus.getAttribute('aria-expanded') === 'true'
+  spurMenueZu()
+  if (offen) return
+  plus.setAttribute('aria-expanded', 'true')
+  const s = SPUREN[plus.dataset.spur]
+  // Zustände gelten „ab hier", Klips beginnen „hier", Klänge liegen „hier" —
+  // dieselbe Marke, Gruppen im selben Menü. Die Beschriftung sagt den Unterschied.
+  const klaenge = (s.klaenge ?? []).map((name) =>
+    '<button data-spur="' + plus.dataset.spur + '" data-klang="' + name + '">' +
+    '<i style="background:#6f8f7d;transform:rotate(45deg);width:9px;height:9px"></i>' + name + '</button>').join('')
+  const eintraege = s.klips
+    ? s.spuren.map((name) =>
+        '<button data-spur="' + plus.dataset.spur + '" data-klip="' + name + '">' +
+        '<i style="background:#2c6650"></i>' + name + '</button>').join('')
+    : s.werte.map(([wert, farbe]) =>
+        '<button data-spur="' + plus.dataset.spur + '" data-wert="' + wert + '" data-farbe="' + farbe + '">' +
+        '<i style="background:' + (farbe === 'transparent' ? 'var(--fl-3)' : farbe) + '"></i>' + wert + '</button>').join('')
+  const menue = document.createElement('div')
+  menue.className = 'spur-menue'
+  menue.innerHTML =
+    '<div class="kopfzeile">' + (s.klips ? 'Musik ab ' : s.art + ' ab ') + uhr(marke) + '</div>' +
+    eintraege +
+    (klaenge ? '<div class="kopfzeile">Klang bei ' + uhr(marke) + '</div>' + klaenge : '')
+  document.body.append(menue)
+  // Über dem +-Knopf platzieren (fixed → entkommt dem overflow des Fensters).
+  const r = plus.getBoundingClientRect()
+  menue.style.left = Math.round(Math.min(r.left, window.innerWidth - menue.offsetWidth - 8)) + 'px'
+  menue.style.bottom = Math.round(window.innerHeight - r.top + 6) + 'px'
+})
+
+/* — Aufnahmen an ihrer Uhrzeit, wie im Prüf-Screen —
+     Sie lassen sich ZIEHEN: Wer die Kamera falsch gestellt hatte, rückt das
+     Foto auf die richtige Zeit — und sein Punkt wandert auf der Route mit,
+     weil der Server Medien über die Aufnahmezeit platziert. — */
+const fotoSpur = document.getElementById('foto-spur')
+
+/* — STOPPS: Aufnahmen am selben Ort gehören zusammen —
+     Die Engine fasst Fotos, die in `s` weniger als 120 m auseinander liegen, zu
+     EINEM Stopp mit mehreren `items` zusammen (s. CLAUDE.md) — der Editor muss
+     dasselbe zeigen, sonst plant man zwölf Halte und sieht später acht.
+     NAH_T ist diese Schwelle als Streckenanteil (120 m auf 41,8 km ≈ 0,003),
+     etwas großzügiger, damit das Zusammenschieben von Hand gelingt.
+     Jede Aufnahme behält ihre EIGENEN Einstellungen — der Stopp ist eine
+     Gruppierung, kein gemeinsamer Datensatz. Seine Dauer ist die Summe. */
+const NAH_T = 0.005
+function stopps() {
+  const sortiert = [...FOTOS].sort((a, b) => a.t - b.t)
+  const gruppen = []
+  sortiert.forEach((f) => {
+    const letzte = gruppen[gruppen.length - 1]
+    const vorher = letzte && letzte.fotos[letzte.fotos.length - 1]
+    if (vorher && f.t - vorher.t <= NAH_T) letzte.fotos.push(f)
+    else gruppen.push({ fotos: [f] })
+  })
+  gruppen.forEach((g) => {
+    g.t = g.fotos.reduce((s, f) => s + f.t, 0) / g.fotos.length
+    // GRUPPIERT wird über die Zeit, GEORDNET über die Reihenfolge in FOTOS: welches
+    // Bild eines Halts zuerst kommt, ist eine Entscheidung, keine Messung — und im
+    // Filmstreifen umsortierbar, ohne an den Aufnahmezeiten zu drehen.
+    g.fotos.sort((a, b) => FOTOS.indexOf(a) - FOTOS.indexOf(b))
+  })
+  return gruppen
+}
+const stoppVon = (nr) => stopps().find((g) => g.fotos.some((f) => f.nr === nr))
+const stoppSignatur = () => stopps().map((g) => g.fotos.map((f) => f.nr).join('+')).join('|')
+let letzteStoppSignatur = ''
+
+// Auswahl trifft den ganzen Stapel: ein Stopp trägt die Nummern ALLER seiner
+// Aufnahmen in data-nrs, gefunden wird er über den Wortlisten-Selektor [~=].
+const markiereFoto = (nr) => {
+  document.querySelector(`.f-mini[data-nrs~="${nr}"]`)?.classList.add('an')
+  document.querySelector(`.punkt[data-nrs~="${nr}"]`)?.classList.add('an')
+}
+
+// Foto-Bahn UND Kartenpunkte aus der aktuellen FOTOS-Liste aufbauen — bei Undo/
+// Redo oder nach dem Entfernen einer Aufnahme (die Liste kann dann kürzer sein).
+function baueFotoReihe() {
+  fotoSpur.textContent = ''
+  FOTO_MARKER.forEach((m) => m.remove())
+  FOTO_MARKER.clear()
+  stopps().forEach((g) => {
+    const kopf = g.fotos[0]                       // vorderste Karte des Stapels
+    const nrs = g.fotos.map((f) => f.nr).join(' ')
+    const n = g.fotos.length
+    const stapel = (n > 2 ? '<span class="stapel s2"></span>' : '') + (n > 1 ? '<span class="stapel s1"></span>' : '')
+    const anzahl = n > 1 ? `<span class="anzahl">${n}</span>` : ''
+    const b = document.createElement('button')
+    b.className = 'f-mini'
+    b.dataset.nr = String(kopf.nr)
+    b.dataset.nrs = nrs
+    b.style.left = (g.t * 100) + '%'
+    b.title = n > 1 ? `Stopp mit ${n} Aufnahmen` : kopf.titel
+    b.innerHTML = stapel + `<img src="${kopf.src}" alt="${kopf.titel}" />` +
+      (kopf.video ? '<span class="v-badge"><svg><use href="#i-play"/></svg></span>' : '') + anzahl
+    fotoSpur.append(b)
+    // Kartenmarker: DOM-Element → behält beim Zoomen seine Größe, und die
+    // vorhandene .an/.pop-Logik (querySelector auf .punkt) greift weiter.
+    const el = document.createElement('div')
+    el.className = 'punkt'
+    el.dataset.nr = String(kopf.nr)
+    el.dataset.nrs = nrs
+    el.innerHTML = '<span class="halo"></span>' + stapel +
+      `<span class="kern"><img src="${kopf.src}" alt="" /></span>` + anzahl
+    FOTO_MARKER.set(kopf.nr, new maplibregl.Marker({ element: el }).setLngLat(punktBei(g.t)).addTo(karte))
+  })
+  letzteStoppSignatur = stoppSignatur()
+}
+/* Nur die Positionen nachziehen (Stopps unverändert) — das ist der billige Weg
+   beim Scrubben eines Zeitfeldes; erst wenn sich die Gruppierung ändert, wird
+   die Bahn wirklich neu gebaut. */
+function positioniereStopps() {
+  stopps().forEach((g) => {
+    const kopf = g.fotos[0]
+    const mini = fotoSpur.querySelector(`.f-mini[data-nr="${kopf.nr}"]`)
+    if (mini) mini.style.left = (g.t * 100) + '%'
+    FOTO_MARKER.get(kopf.nr)?.setLngLat(punktBei(g.t))
+  })
+}
+function aktualisiereFotoReihe() {
+  if (stoppSignatur() !== letzteStoppSignatur) baueFotoReihe()
+  else positioniereStopps()
+}
+
+/* Ziehen über WINDOW-Listener, nicht über setPointerCapture: Auf einem 40-px-
+   Button verliert die Capture beim schnellen Ziehen die Ereignisse, sobald der
+   Zeiger die Miniatur verlässt — dann folgte das Foto nicht. Am Fenster kommen
+   alle Bewegungen an. `unterdrueckeKlick` schluckt den Klick NACH einem Zug,
+   damit das Loslassen nicht zusätzlich die Aufnahme auswählt. */
+let unterdrueckeKlick = false
+/* Ein Zug endet mit gesetzter Sperre, damit das Loslassen nicht zusätzlich
+   auswählt — aufgehoben wird sie normalerweise von genau diesem Klick. Der kommt
+   aber NICHT immer: `preventDefault()` im pointerdown unterdrückt die Maus-
+   Kompatibilitätsereignisse, also auch `click`. Dann blieb die Sperre stehen und
+   schluckte den NÄCHSTEN echten Klick (Miniatur brauchte zwei Klicks). Deshalb
+   hebt jede neue Zeigergeste sie auf — in der Capture-Phase, vor allen Handlern. */
+document.addEventListener('pointerdown', () => { unterdrueckeKlick = false }, true)
+fotoSpur.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || werkzeug !== 'auswahl') return
+  const mini = e.target.closest('.f-mini')
+  if (!mini) return
+  e.preventDefault()
+  // Gezogen wird der STOPP, nicht das einzelne Bild: Aufnahmen am selben Ort
+  // wandern gemeinsam. Eine einzelne löst man über ihr Feld „Aufgenommen um".
+  const gruppe = (stoppVon(Number(mini.dataset.nr))?.fotos ?? []).map((f) => ({ f, t0: f.t }))
+  if (!gruppe.length) return
+  const marker = FOTO_MARKER.get(Number(mini.dataset.nr))
+  const t0Min = Math.min(...gruppe.map((x) => x.t0)), t0Max = Math.max(...gruppe.map((x) => x.t0))
+  const mitte0 = gruppe.reduce((s, x) => s + x.t0, 0) / gruppe.length
+  const start = e.clientX
+  let gezogen = false, zielMini = null
+  const zieh = (ev) => {
+    if (!gezogen && Math.abs(ev.clientX - start) < 4) return // Klick bleibt Klick
+    gezogen = true
+    mini.classList.add('zieht')
+    // Verschiebung, nicht Absolutposition: der Stapel behält seine innere Ordnung
+    // und staucht sich am Rand nicht zusammen.
+    let d = (ev.clientX - start) / zeitfeld().width
+    d = Math.min(Math.max(d, -t0Min), 1 - t0Max)
+    let mitte = mitte0 + d
+    // Einschnappen: kommt der Stopp einer fremden Aufnahme nahe, rastet er exakt
+    // auf deren Zeit — „an derselben Stelle" trifft man sonst nie auf den Pixel.
+    const fremd = FOTOS.filter((f) => !gruppe.some((x) => x.f === f))
+    const naechste = fremd.map((f) => ({ f, ab: Math.abs(f.t - mitte) })).sort((a, b) => a.ab - b.ab)[0]
+    const schnappt = naechste && naechste.ab <= NAH_T
+    if (schnappt) { d += naechste.f.t - mitte; mitte = naechste.f.t }
+    gruppe.forEach((x) => { x.f.t = x.t0 + d; x.f.zeit = uhr(x.f.t) })
+    mini.style.left = (mitte * 100) + '%'
+    mini.classList.toggle('schnappt', !!schnappt)
+    marker?.setLngLat(punktBei(mitte))
+    // Der Zielstopp leuchtet, solange es einrasten würde.
+    const neuesZiel = schnappt ? fotoSpur.querySelector(`.f-mini[data-nrs~="${naechste.f.nr}"]`) : null
+    if (neuesZiel !== zielMini) { zielMini?.classList.remove('ziel'); zielMini = neuesZiel; zielMini?.classList.add('ziel') }
+    if (mini.classList.contains('an') && fokus?.typ === 'foto') zeigeAufnahme(FOTOS.find((x) => x.nr === fokus.nr), false)
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    zielMini?.classList.remove('ziel')
+    mini.classList.remove('zieht', 'schnappt')
+    if (gezogen) {
+      unterdrueckeKlick = true
+      baueFotoReihe()   // Stopps neu bilden — jetzt evtl. verschmolzen oder getrennt
+      // Der Inspector muss IMMER nachziehen, nicht nur wenn der gezogene Stopp
+      // der ausgewählte war: ein FREMDES Bild kann dem gewählten Halt beitreten
+      // oder ihn verlassen — der Filmstreifen wäre sonst veraltet.
+      if (fokus?.typ === 'foto') zeigeAufnahme(FOTOS.find((x) => x.nr === fokus.nr), true)
+      merke()
+    }
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+})
+
+/* — Foto-Bahn + Punkte auf der Karte initial aufbauen — */
+baueFotoReihe()
+
+/* — Zeitskala 14:00 – 24:00, zoomabhängig fein — */
+// Beim Hineinzoomen wird mehr Platz frei → feinere Marken (2 h → 1 h → 30/15/10/5 min).
+// Die Schrittweite ist die feinste, bei der die Beschriftungen ≥ 58 px auseinander
+// liegen. Volle Stunden sind kräftiger (langer Teilstrich), Teilstunden dezenter.
+const SKALA_GESAMT_MIN = 600   // 14:00–24:00
+function baueSkala() {
+  const skala = document.getElementById('skala')
+  if (!skala) return
+  const px = basisBreite() * zoom
+  const pxProMin = px / SKALA_GESAMT_MIN
+  let step = 120
+  for (const s of [120, 60, 30, 15, 10, 5]) { if (s * pxProMin >= 58) step = s }
+  skala.innerHTML = ''
+  for (let m = 0; m <= SKALA_GESAMT_MIN; m += step) {
+    const d = document.createElement('div')
+    const voll = m % 60 === 0
+    d.className = 'skala-marke' + (m === 0 ? ' am-anfang' : m === SKALA_GESAMT_MIN ? ' am-ende' : '') + (voll ? ' voll' : '')
+    d.style.left = (m / SKALA_GESAMT_MIN * 100) + '%'
+    const tot = 14 * 60 + m
+    d.innerHTML = `${String(Math.floor(tot / 60) % 24).padStart(2, '0')}:${String(tot % 60).padStart(2, '0')}<i></i>`
+    skala.append(d)
+  }
+}
+
+/* — Eine Auswahl, drei Ansichten: Band ↔ Karte ↔ Inspector — */
+
+/* Der ausgewählte Streckenabschnitt leuchtet als EIGENE Geometrie auf der Karte
+   (Quelle „fokus"), enthält also nur den Abschnitt. Läuft der Aufruf, bevor der
+   Stil geladen ist, wird er gemerkt und beim `load` nachgeholt. */
+function zeigeAbschnitt(von, bis) {
+  fokusAbschnitt = bis > von ? [von, bis] : null
+  const q = kartenBereit && karte.getSource('fokus')
+  if (!q) return
+  q.setData(fokusAbschnitt
+    ? { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: abschnittPunkte(von, bis) } }
+    : { type: 'FeatureCollection', features: [] })
+}
+function inspektor(html, fuss = '') {
+  document.getElementById('insp-leer').hidden = true
+  const el = document.getElementById('insp-inhalt')
+  el.hidden = false
+  el.innerHTML = html
+  const f = document.getElementById('insp-fuss')
+  f.innerHTML = fuss
+  f.hidden = !fuss
+}
+
+/* Was der Inspector je Zustands-Art anbietet — sinnvoll PRO TYP. `data-feld`
+   koppelt jedes Feld ans Modell, damit eine Änderung LIVE die Beschriftung des
+   Bandes in der Zeitleiste mitzieht (kein zweiter „Titel" mehr nötig). */
+const feld = (label, optionen, aktuell, koppel = '') =>
+  `<div class="feld"><label>${label}</label><select${koppel ? ` data-feld="${koppel}"` : ''}>` +
+  optionen.map((o) => `<option${o === aktuell ? ' selected' : ''}>${o}</option>`).join('') +
+  `</select></div>`
+
+function inspFelder(art, b) {
+  if (art === 'Fortbewegung') return feld('Fortbewegungsmittel', ['zu Fuß', 'Fahrrad', 'Moped', 'Jeep', 'Tram', 'Fähre'], b.name, 'modus')
+  if (art === 'Kamera') return feld('Abstand zur Route', ['Nah', 'Mittel', 'Weit'], b.name, 'kamera-abstand') +
+    feld('Tempo der Fahrt', ['Ruhig', 'Normal', 'Zügig'], 'Normal', 'kamera-tempo')
+  if (art === 'Wetter') {
+    const [typ, staerke] = b.name.split(',').map((x) => x.trim())
+    return feld('Wetter', ['Klar', 'Wolkig', 'Regen', 'Gewitter', 'Nebel', 'Schnee'], typ, 'wetter-typ') +
+      (typ === 'Klar' ? '' : feld('Stärke', ['Leicht', 'Mittel', 'Stark'], staerke || 'Mittel', 'wetter-staerke'))
+  }
+  return ''
+}
+
+/* Uhrzeit ↔ Streckenanteil t (Achse 14:00–24:00). */
+const zeitAus = (str) => {
+  const m = /^(\d{1,2})[:.]?(\d{2})$/.exec(String(str).trim())
+  if (!m) return null
+  return Math.min(Math.max(((Number(m[1]) - 14) * 60 + Number(m[2])) / 600, 0), 1)
+}
+/* Zeitfeld im FCPX-Stil: über das Feld ZIEHEN ändert den Wert (scrubby), klicken
+   + tippen geht auch, ▲▼ / Pfeiltasten heben/senken um eine Minute. `rolle` sagt,
+   welche Grenze es steuert (beginn | ende | klang | foto). Kein Datum: die Tour
+   liegt an einem Tag; erst mehrtägige Touren bräuchten eins (dann kontextuell). */
+const zeitFeld = (label, t, rolle) =>
+  `<div class="feld"><label>${label}</label>
+    <div class="zf" data-rolle="${rolle}" title="Ziehen zum Ändern · tippen · ▲▼">
+      <input class="zf-in" value="${uhr(t)}" inputmode="numeric" aria-label="${label}" />
+      <span class="zf-step"><button class="zf-auf" tabindex="-1" aria-label="Eine Minute später">▲</button><button class="zf-ab" tabindex="-1" aria-label="Eine Minute früher">▼</button></span>
+    </div></div>`
+/* Unveränderliche Zeit (Tourbeginn/-ende) — sieht nicht wie ein Eingabefeld aus. */
+const zeitFest = (label, text) =>
+  `<div class="feld"><label>${label}</label><div class="zf ro">${text}</div></div>`
+
+/* Der Löschen-Knopf am Fuß des Inspectors — dasselbe tut Backspace/Entf. Bei
+   der letzten verbliebenen Zustands-Grenze ist er gesperrt (ein Zustand muss die
+   Tour lückenlos decken). */
+const loeschKnopf = (text, gesperrt = false) =>
+  `<button class="insp-loeschen"${gesperrt ? ' disabled title="Ein Zustand muss die ganze Tour decken"' : ''}>` +
+  `<svg><use href="#i-muell"/></svg>${text}</button>`
+
+const entferneAn = () => document.querySelectorAll('.band, .f-mini, .punkt, .sfx, .klip').forEach((x) => x.classList.remove('an'))
+
+function leerInspektor() {
+  document.getElementById('insp-inhalt').hidden = true
+  document.getElementById('insp-fuss').hidden = true
+  document.getElementById('insp-leer').hidden = false
+  zeigeAbschnitt(0, 0)   // Fokus-Abschnitt auf der Karte löschen
+  entferneAn()
+  fokus = null
+}
+
+// Eine Auswahl, viererlei Gestalt: {typ:'band',art,i} | {typ:'klip',i} |
+// {typ:'klang',i} | {typ:'foto',nr}. `fokus` sagt, was Backspace/Löschen trifft.
+// `hart` steuert nur, ob die Karte mitzieht (bei einem Zug wäre das unruhig).
+let fokus = null
+
+/* Ein Band: der Wert steht im Select (kein zweiter Titel), Beginn UND Ende als
+   Zeitfelder. Erste Grenze = Tourbeginn (fest), letzte = Tourende (fest). */
+function zeigeBand(art, i, hart = true) {
+  const id = spurIdVonArt(art), s = SPUREN[id], b = s.daten[i]
+  if (!b) return
+  fokus = { typ: 'band', art, i }
+  entferneAn()
+  document.querySelector('#' + id + ' .band:nth-child(' + (i + 1) + ')')?.classList.add('an')
+  if (hart) zeigeAbschnitt(b.von, b.bis)
+  const beginn = i === 0 ? zeitFest('Beginnt', 'mit dem Tourbeginn') : zeitFeld('Beginnt um', b.von, 'beginn')
+  const ende = i === s.daten.length - 1 ? zeitFest('Endet', 'am Tourende') : zeitFeld('Endet um', b.bis, 'ende')
+  inspektor(`
+    <div class="insp-art">${art}</div>
+    ${inspFelder(art, b)}
+    <div class="zeit-paar">${beginn}${ende}</div>`,
+    loeschKnopf('Abschnitt entfernen', s.daten.length <= 1))
+}
+
+/* Ein Musik-Klip: echter Anfang UND echtes Ende, danach Stille. */
+function zeigeKlip(i, hart = true) {
+  const k = MUSIK[i]
+  if (!k) return
+  fokus = { typ: 'klip', i }
+  entferneAn()
+  document.querySelector(`.klip[data-i="${i}"]`)?.classList.add('an')
+  if (hart) zeigeAbschnitt(k.von, k.bis)
+  inspektor(`
+    <div class="insp-art">Musik</div>
+    ${feld('Musikspur', ['ambient.mp3', 'eigene Datei …', 'Finale-Thema'], k.name, 'musik-spur')}
+    ${feld('Lautstärke', ['Leise', 'Mittel', 'Laut'], 'Mittel', 'musik-laut')}
+    <div class="zeit-paar">${zeitFeld('Beginnt um', k.von, 'beginn')}${zeitFeld('Endet um', k.bis, 'ende')}</div>
+    <p class="insp-notiz">Nach dem Klip ist Stille — bis der nächste beginnt.</p>`,
+    loeschKnopf('Musik entfernen'))
+}
+
+/* Eine Aufnahme — und, wenn mehrere am selben Ort liegen, der ganze Stopp:
+   oben ein Filmstreifen zum Umschalten, unten die Summe der Standzeiten. Die
+   Felder gehören IMMER der gewählten Aufnahme, auch die Standzeit — sonst
+   könnte man ein einzelnes starkes Bild nicht länger stehen lassen. */
+function zeigeAufnahme(f, hart = true) {
+  if (!f) return
+  fokus = { typ: 'foto', nr: f.nr }
+  entferneAn()
+  markiereFoto(f.nr)
+  const g = stoppVon(f.nr)
+  const mehr = g && g.fotos.length > 1
+  const t = g ? g.t : f.t
+  if (hart) zeigeAbschnitt(Math.max(0, t - .01), Math.min(1, t + .01))
+  const streifen = mehr ? `<div class="streifen">${g.fotos.map((x, i) => `
+      <button data-stopp-nr="${x.nr}" aria-current="${x.nr === f.nr}" title="${x.titel}">
+        <img src="${x.src}" alt="${x.titel}" /><span class="st-nr">${i + 1}</span>
+      </button>`).join('')}</div>` : ''
+  const summe = mehr
+    ? `<div class="stopp-summe"><span>Halt insgesamt</span><b>${komma(g.fotos.reduce((s, x) => s + (STANDZEIT_S[x.standzeit] ?? 4), 0))} s</b></div>
+       <p class="insp-notiz">Im Streifen ziehen ordnet die Aufnahmen um. Aus dem Streifen heraus in die Zeitleiste ziehen löst eine Aufnahme aus dem Stopp.</p>`
+    : ''
+  inspektor(`
+    <div class="insp-art">${mehr ? `Stopp · ${g.fotos.length} Aufnahmen` : (f.video ? 'Video' : 'Foto')}</div>
+    ${streifen}
+    <div class="insp-bild-huelle"><img class="insp-bild" src="${f.src}" alt="" data-nr="${f.nr}" title="${f.video ? 'Video groß ansehen' : 'Groß ansehen'}" />${f.video ? '<span class="insp-bild-badge"><svg><use href="#i-play"/></svg>Video</span>' : ''}</div>
+    <div class="feld"><label>Titel — erscheint als Überschrift</label><input data-feld="foto-titel" value="${f.titel}" /></div>
+    ${feld('Standzeit', ['Kurz', 'Normal', 'Lang'], f.standzeit, 'foto-standzeit')}
+    ${zeitFeld('Aufgenommen um', f.t, 'foto')}
+    ${summe}`,
+    loeschKnopf(f.video ? 'Video entfernen' : 'Foto entfernen'))
+}
+
+function zeigeKlang(i) {
+  const x = SFX[i]
+  if (!x) return
+  fokus = { typ: 'klang', i }
+  entferneAn()
+  document.querySelector(`.sfx[data-sfx="${i}"]`)?.classList.add('an')
+  zeigeAbschnitt(Math.max(0, x.t - .008), Math.min(1, x.t + .008))
+  inspektor(`
+    <div class="insp-art">Klang</div>
+    ${feld('Klang', SPUREN['spur-musik'].klaenge, x.name, 'klang-name')}
+    ${feld('Lautstärke', ['Leise', 'Mittel', 'Laut'], 'Mittel', 'klang-laut')}
+    ${zeitFeld('Erklingt um', x.t, 'klang')}
+    <p class="insp-notiz">Ein Klang hat einen Zeitpunkt, keine Dauer — er liegt über der Musik.</p>`,
+    loeschKnopf('Klang entfernen'))
+}
+
+/* Ein Feld im Inspector wurde geändert (Select oder Foto-Titel) → Modell
+   anpassen, Spur neu bauen (Beschriftung zieht mit), Auswahl behalten. */
+function wendeFeldAn(feldName, wert) {
+  if (!fokus) return
+  if (fokus.typ === 'band') {
+    const id = spurIdVonArt(fokus.art), s = SPUREN[id], b = s.daten[fokus.i]
+    const farbeVon = (name) => (s.werte.find(([n]) => n === name) ?? [])[1]
+    if (feldName === 'modus' || feldName === 'kamera-abstand') { b.name = wert; const c = farbeVon(wert); if (c) b.farbe = c }
+    else if (feldName === 'wetter-typ' || feldName === 'wetter-staerke') {
+      const cur = b.name.split(',').map((x) => x.trim())
+      const typ = feldName === 'wetter-typ' ? wert : cur[0]
+      const staerke = feldName === 'wetter-staerke' ? wert : (cur[1] || 'Mittel')
+      b.name = typ === 'Klar' ? 'Klar' : `${typ}, ${staerke}`
+      const c = farbeVon(typ); if (c) b.farbe = c
+    } else return   // Tempo o. Ä. ist kosmetisch, keine Beschriftung
+    baueSpur(id); zeigeBand(fokus.art, fokus.i, true); setzeLaeufer(marke); merke()
+  } else if (fokus.typ === 'klip' && feldName === 'musik-spur') {
+    MUSIK[fokus.i].name = wert; baueSpur('spur-musik'); zeigeKlip(fokus.i, true); merke()
+  } else if (fokus.typ === 'klang' && feldName === 'klang-name') {
+    SFX[fokus.i].name = wert; baueSpur('spur-musik'); zeigeKlang(fokus.i); merke()
+  } else if (fokus.typ === 'foto') {
+    const f = FOTOS.find((f) => f.nr === fokus.nr)
+    if (feldName === 'foto-titel') f.titel = wert
+    else if (feldName === 'foto-standzeit') {
+      f.standzeit = wert                       // steuert Halt + Einblende-Dauer
+      if (stoppVon(f.nr)?.fotos.length > 1) zeigeAufnahme(f, false)   // Summe des Stopps nachziehen
+    } else return
+    merke()
+  }
+}
+
+/* — Zeit eines Feldes ändern (scrubby / Stepper / Tippen). Zwei Bausteine:
+     setzeModellZeit klemmt + schreibt den Wert (gibt den geklemmten zurück),
+     repositioniereFokus rückt NUR das betroffene Element + die Karte nach, OHNE
+     den Inspector neu zu bauen — so behält ein fokussiertes Feld seinen Cursor. */
+function setzeModellZeit(rolle, neuT) {
+  neuT = Math.min(Math.max(neuT, 0), 1)
+  if (fokus.typ === 'band') {
+    const s = SPUREN[spurIdVonArt(fokus.art)], i = fokus.i, MIN = .012
+    if (rolle === 'beginn' && i > 0) { const v = Math.min(Math.max(neuT, s.daten[i - 1].von + MIN), s.daten[i].bis - MIN); s.daten[i - 1].bis = v; s.daten[i].von = v; return v }
+    if (rolle === 'ende' && i < s.daten.length - 1) { const v = Math.min(Math.max(neuT, s.daten[i].von + MIN), s.daten[i + 1].bis - MIN); s.daten[i].bis = v; s.daten[i + 1].von = v; return v }
+    return null
+  }
+  if (fokus.typ === 'klip') {
+    const k = MUSIK[fokus.i], i = fokus.i, MIN = .04, li = i > 0 ? MUSIK[i - 1].bis : 0, re = i < MUSIK.length - 1 ? MUSIK[i + 1].von : 1
+    if (rolle === 'beginn') { k.von = Math.min(Math.max(neuT, li), k.bis - MIN); return k.von }
+    if (rolle === 'ende') { k.bis = Math.min(Math.max(neuT, k.von + MIN), re); return k.bis }
+  }
+  if (fokus.typ === 'klang') { SFX[fokus.i].t = neuT; return neuT }
+  if (fokus.typ === 'foto') { const f = FOTOS.find((x) => x.nr === fokus.nr); f.t = neuT; f.zeit = uhr(neuT); return neuT }
+  return null
+}
+function repositioniereFokus() {
+  if (fokus.typ === 'band') {
+    const id = spurIdVonArt(fokus.art), s = SPUREN[id]
+    const baender = document.getElementById(id).querySelectorAll('.band')
+    s.daten.forEach((b, j) => { if (baender[j]) baender[j].style.flex = String(b.bis - b.von) })
+    positioniereKanten(id)
+    zeigeAbschnitt(s.daten[fokus.i].von, s.daten[fokus.i].bis)
+  } else if (fokus.typ === 'klip') {
+    const k = MUSIK[fokus.i], el = document.querySelector(`.klip[data-i="${fokus.i}"]`)
+    if (el) { el.style.left = (k.von * 100) + '%'; el.style.width = ((k.bis - k.von) * 100) + '%' }
+    zeigeAbschnitt(k.von, k.bis)
+  } else if (fokus.typ === 'klang') {
+    const x = SFX[fokus.i], el = document.querySelector(`.sfx[data-sfx="${fokus.i}"]`)
+    if (el) { el.style.left = (x.t * 100) + '%'; el.querySelector('.etikett').textContent = x.name + ' · ' + uhr(x.t) }
+    zeigeAbschnitt(Math.max(0, x.t - .008), Math.min(1, x.t + .008))
+  } else if (fokus.typ === 'foto') {
+    // Eine geänderte Zeit kann die Aufnahme aus ihrem Stopp lösen oder in einen
+    // anderen hineinschieben — die Bahn wird nur dann wirklich neu gebaut.
+    aktualisiereFotoReihe()
+    markiereFoto(fokus.nr)
+    const t = stoppVon(fokus.nr)?.t ?? FOTOS.find((x) => x.nr === fokus.nr).t
+    zeigeAbschnitt(Math.max(0, t - .01), Math.min(1, t + .01))
+  }
+}
+// Ein Zeitfeld anwenden: Modell klemmen, Feld + Zeitleiste live nachziehen.
+function zeitEditiert(zf, neuT) {
+  const v = setzeModellZeit(zf.dataset.rolle, neuT)
+  if (v == null) return
+  zf.querySelector('.zf-in').value = uhr(v)
+  repositioniereFokus()
+}
+// Inspector aus dem Modell neu aufbauen (z. B. wenn eine Tippeingabe ungültig war).
+function neuZeichnenFokus() {
+  if (!fokus) return
+  if (fokus.typ === 'band') zeigeBand(fokus.art, fokus.i, true)
+  else if (fokus.typ === 'klip') zeigeKlip(fokus.i, true)
+  else if (fokus.typ === 'klang') zeigeKlang(fokus.i)
+  else if (fokus.typ === 'foto') zeigeAufnahme(FOTOS.find((f) => f.nr === fokus.nr), true)
+}
+
+/* — Inspector-Verdrahtung — */
+const inspEl = document.getElementById('inspector')
+
+/* — Filmstreifen ziehen: umordnen ODER herauslösen —
+     IM Streifen bleiben = Reihenfolge des Halts ändern (die Aufnahmen liegen am
+     selben Ort, ihre Folge ist eine Entscheidung — die Aufnahmezeiten bleiben
+     unangetastet). HERAUS ziehen = die Aufnahme verlässt den Stopp: über der
+     Foto-Bahn abgelegt landet sie auf der gezeigten Zeit (dort kann sie auch
+     gleich einem anderen Stopp beitreten), sonst dicht neben ihrem alten Halt. */
+inspEl.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return
+  const knopf = e.target.closest('[data-stopp-nr]')
+  if (!knopf) return
+  const streifen = knopf.parentElement
+  const f = FOTOS.find((x) => x.nr === Number(knopf.dataset.stoppNr))
+  const gruppe = stoppVon(f?.nr)?.fotos ?? []
+  if (gruppe.length < 2) return
+  e.preventDefault()
+  const start = { x: e.clientX, y: e.clientY }
+  let gezogen = false, modus = null, geist = null, ablege = null, zielT = null
+  // Das Bild folgt dem Finger, die Nachbarn weichen aus — die DOM-Folge bleibt
+  // während des Zugs UNANGETASTET (sonst springen die Rechtecke unter dem Zeiger
+  // weg und die Bewegung wird ruckelig). Erst beim Loslassen zählt `nachIdx`.
+  const kinder = [...streifen.children]
+  const vonIdx = kinder.indexOf(knopf)
+  const schritt = kinder.length > 1
+    ? kinder[1].getBoundingClientRect().left - kinder[0].getBoundingClientRect().left
+    : knopf.getBoundingClientRect().width + 6
+  let nachIdx = vonIdx
+  const loescheVersatz = () => kinder.forEach((k) => { k.style.transform = ''; k.classList.remove('zieht') })
+  // Großzügiger Rahmen um den Streifen: erst wer ihn deutlich verlässt, löst heraus.
+  const imStreifen = (ev) => {
+    const r = streifen.getBoundingClientRect()
+    return ev.clientX >= r.left - 28 && ev.clientX <= r.right + 28 && ev.clientY >= r.top - 22 && ev.clientY <= r.bottom + 22
+  }
+  const raeumeGeist = () => { geist?.remove(); geist = null; ablege?.remove(); ablege = null; zielT = null }
+  const zieh = (ev) => {
+    if (!gezogen && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 5) return
+    gezogen = true
+    if (imStreifen(ev)) {
+      if (modus === 'loesen') { raeumeGeist(); knopf.classList.remove('raus') }
+      modus = 'ordnen'
+      const dx = ev.clientX - start.x
+      knopf.classList.add('zieht')
+      knopf.style.transform = `translateX(${dx}px) scale(1.06)`
+      nachIdx = Math.min(Math.max(Math.round((vonIdx * schritt + dx) / schritt), 0), kinder.length - 1)
+      // Die überholten Nachbarn rücken um genau eine Position — mit Übergang,
+      // also sichtbar weich statt als Sprung.
+      kinder.forEach((k, i) => {
+        if (k === knopf) return
+        const v = (i > vonIdx && i <= nachIdx) ? -schritt : (i >= nachIdx && i < vonIdx) ? schritt : 0
+        k.style.transform = v ? `translateX(${v}px)` : ''
+      })
+      return
+    }
+    loescheVersatz()
+    if (modus !== 'loesen') {
+      modus = 'loesen'
+      knopf.classList.add('raus')
+      geist = document.createElement('div')
+      geist.className = 'geist'
+      geist.innerHTML = `<img src="${f.src}" alt="" />`
+      document.body.append(geist)
+    }
+    geist.style.left = ev.clientX + 'px'
+    geist.style.top = ev.clientY + 'px'
+    const r = fotoSpur.getBoundingClientRect()
+    const ueberBahn = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top - 16 && ev.clientY <= r.bottom + 16
+    if (ueberBahn) {
+      const feld = zeitfeld()
+      zielT = Math.min(Math.max((ev.clientX - feld.left) / feld.width, 0), 1)
+      if (!ablege) { ablege = document.createElement('div'); ablege.className = 'ablege'; fotoSpur.append(ablege) }
+      ablege.style.left = (zielT * 100) + '%'
+    } else if (ablege) { ablege.remove(); ablege = null; zielT = null }
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    const abgelegtBei = zielT          // VOR dem Aufräumen sichern — es nullt zielT
+    raeumeGeist()
+    loescheVersatz()
+    knopf.classList.remove('raus')
+    if (!gezogen) return
+    unterdrueckeKlick = true
+    if (modus === 'ordnen') {
+      // Die Mitglieder besetzen ihre alten Plätze in FOTOS in der neuen Folge —
+      // so ändert sich NUR die Reihenfolge, keine Zeit und kein anderer Stopp.
+      const folge = kinder.map((k) => Number(k.dataset.stoppNr))
+      folge.splice(nachIdx, 0, folge.splice(vonIdx, 1)[0])
+      const plaetze = gruppe.map((x) => FOTOS.indexOf(x)).sort((a, b) => a - b)
+      folge.forEach((nr, i) => { FOTOS[plaetze[i]] = gruppe.find((x) => x.nr === nr) })
+      baueFotoReihe()
+      zeigeAufnahme(f, false)
+      merke()
+    } else if (modus === 'loesen') {
+      const alt = stoppVon(f.nr)
+      const abstand = NAH_T * 1.8
+      let neuT = abgelegtBei != null ? abgelegtBei : (alt ? alt.t + abstand : f.t + abstand)
+      // Wieder auf dem eigenen Halt abgelegt = nicht getrennt → daneben setzen.
+      if (alt && Math.abs(neuT - alt.t) <= NAH_T) neuT = alt.t + abstand
+      f.t = Math.min(Math.max(neuT, 0), 1)
+      f.zeit = uhr(f.t)
+      baueFotoReihe()
+      zeigeAufnahme(f, true)
+      merke()
+    }
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+})
+
+// Select/Foto-Titel geändert (Beschriftung zieht mit) bzw. Zeit eingetippt.
+inspEl.addEventListener('change', (e) => {
+  const zin = e.target.closest('.zf-in')
+  if (zin) {
+    const zf = zin.closest('.zf'), t = zeitAus(zin.value)
+    if (t == null) neuZeichnenFokus()          // ungültige Eingabe → Feld zurücksetzen
+    else { zeitEditiert(zf, t); merke(); pruefeStreifen() }
+    return
+  }
+  const feldEl = e.target.closest('[data-feld]')
+  if (feldEl) wendeFeldAn(feldEl.dataset.feld, feldEl.value)
+})
+
+/* Auch eine geänderte ZEIT kann eine Aufnahme aus ihrem Stopp lösen oder einem
+   anderen zuführen — dann stimmt der Filmstreifen nicht mehr. Während des Zugs
+   wird der Inspector bewusst NICHT neu gebaut (das Zeitfeld verlöre den Cursor),
+   also hier am Ende prüfen und nur dann neu zeichnen; der Cursor kommt zurück. */
+function pruefeStreifen() {
+  if (fokus?.typ !== 'foto') return
+  const soll = stoppVon(fokus.nr)?.fotos.length ?? 1
+  const ist = inspEl.querySelectorAll('.streifen button').length || 1
+  if (soll === ist) return
+  const rolle = document.activeElement?.closest?.('.zf')?.dataset.rolle
+  neuZeichnenFokus()
+  if (rolle) inspEl.querySelector(`.zf[data-rolle="${rolle}"] .zf-in`)?.focus()
+}
+
+// Scrubben: über ein Zeitfeld ziehen ändert die Minute (5 px ≈ 1 Min, wie FCPX).
+inspEl.addEventListener('pointerdown', (e) => {
+  const zf = e.target.closest('.zf')
+  if (!zf || zf.classList.contains('ro') || e.target.closest('.zf-step')) return
+  const input = zf.querySelector('.zf-in')
+  const startX = e.clientX, startT = zeitAus(input.value) ?? 0
+  let scrubt = false
+  const zieh = (ev) => {
+    if (!scrubt && Math.abs(ev.clientX - startX) < 3) return
+    scrubt = true; zf.classList.add('scrub'); ev.preventDefault()
+    zeitEditiert(zf, startT + ((ev.clientX - startX) / 5) / 600)
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh); window.removeEventListener('pointerup', los)
+    zf.classList.remove('scrub')
+    if (scrubt) { unterdrueckeKlick = true; merke(); pruefeStreifen() }
+  }
+  window.addEventListener('pointermove', zieh); window.addEventListener('pointerup', los)
+})
+
+// Stepper ▲▼ (Klick) und Pfeiltasten ↑↓: ± eine Minute.
+inspEl.addEventListener('click', (e) => {
+  const auf = e.target.closest('.zf-auf'), ab = e.target.closest('.zf-ab')
+  if (!auf && !ab) return
+  e.stopPropagation()
+  const zf = e.target.closest('.zf')
+  zeitEditiert(zf, (zeitAus(zf.querySelector('.zf-in').value) ?? 0) + (auf ? 1 : -1) / 600)
+  merke()
+  pruefeStreifen()
+})
+inspEl.addEventListener('keydown', (e) => {
+  const input = e.target.closest('.zf-in')
+  if (!input) return
+  if (e.key === 'Enter') { input.blur(); return }
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+  e.preventDefault()
+  zeitEditiert(input.closest('.zf'), (zeitAus(input.value) ?? 0) + (e.key === 'ArrowUp' ? 1 : -1) / 600)
+  merke()
+  pruefeStreifen()
+})
+
+/* Das fokussierte Element löschen — Knopf oder Backspace/Entf. Die Regel hängt
+   an der Art: Zustands-Band → der Nachbar füllt den Raum (erstes Band → der
+   Nachfolger dehnt sich zum Beginn); Musik-Klip → Stille bleibt (kein Nachrücken);
+   Klang/Aufnahme → einfach weg. Das letzte Zustands-Band bleibt (Tour muss
+   lückenlos gedeckt sein). */
+function loescheFokus() {
+  if (!fokus) return
+  if (fokus.typ === 'band') {
+    const id = spurIdVonArt(fokus.art), s = SPUREN[id]
+    if (s.daten.length <= 1) return
+    const i = fokus.i
+    if (i === 0) s.daten[1].von = 0
+    else s.daten[i - 1].bis = s.daten[i].bis
+    s.daten.splice(i, 1)
+    baueSpur(id)
+  } else if (fokus.typ === 'klip') {
+    MUSIK.splice(fokus.i, 1)
+    baueSpur('spur-musik')
+  } else if (fokus.typ === 'klang') {
+    SFX.splice(fokus.i, 1)
+    baueSpur('spur-musik')
+  } else if (fokus.typ === 'foto') {
+    // Beim Stopp mit mehreren Aufnahmen bleibt der Stopp ausgewählt — man löscht
+    // ja EIN Bild aus einem Halt, nicht den Halt.
+    const rest = (stoppVon(fokus.nr)?.fotos ?? []).filter((x) => x.nr !== fokus.nr)
+    const idx = FOTOS.findIndex((f) => f.nr === fokus.nr)
+    if (idx >= 0) FOTOS.splice(idx, 1)
+    baueFotoReihe()
+    if (rest.length) { zeigeAufnahme(rest[0], true); merke(); return }
+  }
+  leerInspektor()
+  merke()
+}
+
+document.addEventListener('click', (e) => {
+  // Ein Zug endet mit einem Klick — der darf nicht zusätzlich auswählen.
+  if (unterdrueckeKlick) { unterdrueckeKlick = false; return }
+  // Löschen-Knopf im Inspector.
+  const loesch = e.target.closest('.insp-loeschen')
+  if (loesch) { if (!loesch.disabled) loescheFokus(); return }
+  // Filmstreifen eines Stopps: zwischen den Aufnahmen desselben Halts umschalten.
+  const streifenKnopf = e.target.closest('[data-stopp-nr]')
+  if (streifenKnopf) { zeigeAufnahme(FOTOS.find((x) => x.nr === Number(streifenKnopf.dataset.stoppNr))); return }
+  // Groß ansehen im Editor: Klick auf das große Inspector-Bild (die Miniatur
+  // wählt hier aus, das ist die Hauptgeste — kein zweiter Griff an ihr).
+  if (e.target.matches('.insp-bild')) { zeigeGross(Number(e.target.dataset.nr)); return }
+  if (e.target.closest('.spuren') && werkzeug !== 'auswahl') return   // Hand/Zoom: keine Timeline-Auswahl
+  const sfx = e.target.closest('.sfx')
+  if (sfx) { zeigeKlang(Number(sfx.dataset.sfx)); return }
+  const klip = e.target.closest('.klip')
+  if (klip) { zeigeKlip(Number(klip.dataset.i)); return }
+  const band = e.target.closest('.band')
+  if (band) { zeigeBand(band.dataset.art, Number(band.dataset.i)); return }
+  // Fotopunkt auf der Karte-Skizze — dieselbe Auswahl wie die Miniatur.
+  const punkt = e.target.closest('.punkt')
+  if (punkt) { zeigeAufnahme(FOTOS.find((x) => x.nr === Number(punkt.dataset.nr))); return }
+  const mini = e.target.closest('.f-mini')
+  if (mini) zeigeAufnahme(FOTOS.find((x) => x.nr === Number(mini.dataset.nr)))
+})
+
+/* — Musik-Klip verschieben/trimmen. Mitte anfassen = ganzer Klip wandert, an
+     den Rändern = Länge trimmen. Fenster-Listener wie beim Foto (Capture auf
+     kleinen Elementen verliert schnelle Bewegungen). Grenzen: Nachbarklips und
+     eine Mindestlänge; die Lücke dazwischen ist Stille. — */
+const musikReihe = document.getElementById('spur-musik')
+
+/* Einen Klang-Pin verschieben. Wie beim Klip über Fenster-Listener; die SFX-
+   Liste wird erst beim Loslassen neu sortiert (sonst springt der Index im Zug). */
+function ziehePin(pin, e0) {
+  const i = Number(pin.dataset.sfx)
+  const x = SFX[i]
+  const startX = e0.clientX, t0 = x.t
+  let gezogen = false
+  const zieh = (ev) => {
+    if (!gezogen && Math.abs(ev.clientX - startX) < 4) return
+    gezogen = true
+    pin.classList.add('zieht')
+    x.t = Math.min(Math.max(t0 + (ev.clientX - startX) / musikReihe.getBoundingClientRect().width, 0), 1)
+    pin.style.left = (x.t * 100) + '%'
+    pin.querySelector('.etikett').textContent = x.name + ' · ' + uhr(x.t)
+    if (fokus?.typ === 'klang' && fokus.i === i) zeigeAbschnitt(Math.max(0, x.t - .008), Math.min(1, x.t + .008))
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    pin.classList.remove('zieht')
+    if (gezogen) {
+      unterdrueckeKlick = true
+      SFX.sort((a, b) => a.t - b.t)
+      baueSpur('spur-musik')
+      if (fokus?.typ === 'klang') zeigeKlang(SFX.indexOf(x))
+      merke()
+    }
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+musikReihe.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || werkzeug !== 'auswahl') return
+  const pin = e.target.closest('.sfx')
+  if (pin) { e.preventDefault(); ziehePin(pin, e); return }
+  const klipEl = e.target.closest('.klip')
+  if (!klipEl) return
+  e.preventDefault()
+  const griff = e.target.closest('.griff')
+  const modus = griff ? (griff.classList.contains('l') ? 'start' : 'ende') : 'move'
+  const i = Number(klipEl.dataset.i)
+  const k = MUSIK[i]
+  const startX = e.clientX
+  const von0 = k.von, bis0 = k.bis, breite = bis0 - von0
+  const links = i > 0 ? MUSIK[i - 1].bis : 0
+  const rechts = i < MUSIK.length - 1 ? MUSIK[i + 1].von : 1
+  const MIN = .04
+  let gezogen = false
+  const zieh = (ev) => {
+    if (!gezogen && Math.abs(ev.clientX - startX) < 4) return
+    gezogen = true
+    klipEl.classList.add('zieht')
+    const dt = (ev.clientX - startX) / musikReihe.getBoundingClientRect().width
+    if (modus === 'move') { const v = Math.min(Math.max(von0 + dt, links), rechts - breite); k.von = v; k.bis = v + breite }
+    else if (modus === 'start') k.von = Math.min(Math.max(von0 + dt, links), k.bis - MIN)
+    else k.bis = Math.min(Math.max(bis0 + dt, k.von + MIN), rechts)
+    klipEl.style.left = (k.von * 100) + '%'
+    klipEl.style.width = ((k.bis - k.von) * 100) + '%'
+    if (fokus?.typ === 'klip' && fokus.i === i) zeigeKlip(i, false)
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    klipEl.classList.remove('zieht')
+    if (gezogen) { unterdrueckeKlick = true; if (fokus?.typ === 'klip' && fokus.i === i) zeigeKlip(i, true); merke() }
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+})
+
+/* — Backspace/Entf löscht das fokussierte Element — außer man tippt gerade in
+     ein Feld oder die Großansicht ist offen. — */
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Backspace' && e.key !== 'Delete') return
+  const a = document.activeElement
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return
+  if (document.querySelector('.gross') || !fokus) return
+  e.preventDefault()
+  loescheFokus()
+})
+
+/* — Groß ansehen: dieselbe Ansicht wie im Prüf-Blatt — */
+function zeigeGross(nr) {
+  document.querySelector('.gross')?.remove()
+  const f = FOTOS.find((x) => x.nr === Number(nr))
+  if (!f) return
+  const el = document.createElement('div')
+  el.className = 'gross'
+  el.innerHTML = `
+    <button class="zu" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
+    <button class="blaettern links" aria-label="Vorige"><svg><use href="#i-pfeil-l"/></svg></button>
+    <button class="blaettern rechts" aria-label="Nächste"><svg><use href="#i-pfeil-r"/></svg></button>
+    <figure>${f.video
+        ? `<video src="${f.video}" controls autoplay loop playsinline></video>`
+        : `<img src="${f.src}" alt="${f.titel}" />`}
+      <figcaption><div class="gt">${f.titel}${f.video ? '<span class="gt-video">Video</span>' : ''}</div>
+        <div class="gm">${f.zeit} Uhr · km ${String(f.km).replace('.', ',')} · ${FOTOS.indexOf(f) + 1} von ${FOTOS.length}</div>
+      </figcaption></figure>`
+  document.body.append(el)
+  const blaettere = (r) => { const i = FOTOS.indexOf(f) + r; if (i >= 0 && i < FOTOS.length) zeigeGross(FOTOS[i].nr) }
+  el.querySelector('.zu').onclick = () => el.remove()
+  el.querySelector('.links').onclick = () => blaettere(-1)
+  el.querySelector('.rechts').onclick = () => blaettere(1)
+  el.onclick = (ev) => { if (ev.target === el) el.remove() }
+}
+addEventListener('keydown', (e) => {
+  const el = document.querySelector('.gross')
+  if (!el) return
+  if (e.key === 'Escape') el.remove()
+  if (e.key === 'ArrowLeft') el.querySelector('.links').click()
+  if (e.key === 'ArrowRight') el.querySelector('.rechts').click()
+})
+
+/* — Sichtbarkeit: dieselben drei Stufen wie in Bibliothek und Prüf-Blatt — */
+const SICHT = {
+  privat: { icon: 'i-schloss', wort: 'Privat', hinweis: 'Nur du siehst sie' },
+  link: { icon: 'i-schloss-offen', wort: 'Per Link', hinweis: 'Wer die Adresse hat' },
+  oeffentlich: { icon: 'i-welt', wort: 'Öffentlich', hinweis: 'Steht in der Galerie' },
+}
+let sichtStufe = 'privat'
+const sichtKnopf = document.getElementById('sicht-knopf')
+const sichtZu = () => {
+  document.querySelector('.sicht-menue')?.remove()
+  sichtKnopf.setAttribute('aria-expanded', 'false')
+}
+sichtKnopf.addEventListener('click', (e) => {
+  e.stopPropagation()
+  if (sichtKnopf.getAttribute('aria-expanded') === 'true') return sichtZu()
+  sichtKnopf.setAttribute('aria-expanded', 'true')
+  sichtKnopf.parentElement.insertAdjacentHTML('beforeend', '<div class="sicht-menue">' +
+    Object.entries(SICHT).map(([k, v]) =>
+      '<button data-sicht="' + k + '" aria-checked="' + (k === sichtStufe) + '">' +
+      '<svg><use href="#' + v.icon + '"/></svg><span>' + v.wort + '<em>' + v.hinweis + '</em></span>' +
+      '<svg class="haken"><use href="#i-haken"/></svg></button>').join('') + '</div>')
+})
+document.addEventListener('click', (e) => {
+  const wahl = e.target.closest('.sicht-menue button')
+  if (wahl) {
+    sichtStufe = wahl.dataset.sicht
+    sichtKnopf.querySelector('use').setAttribute('href', '#' + SICHT[sichtStufe].icon)
+    document.getElementById('sicht-wort').textContent = SICHT[sichtStufe].wort
+  }
+  if (!e.target.closest('.sicht-huelle')) sichtZu()
+})
+
+document.getElementById('zurueck').addEventListener('click', () => { location.href = 'studio-start.html' })
+
+/* — Inspector-Panel: Breite ziehen (Griff auf der Kante) + ein-/ausblenden (Tab).
+     Die Breite lebt als :root-Variable; eingeklappt setzt .insp-zu sie lokal auf
+     0 und gewinnt gegen den geerbten Wert — beim Aufklappen kehrt die alte
+     Breite zurück. — */
+const buehneEl = document.getElementById('buehne')
+const griffEl = document.getElementById('insp-griff')
+griffEl.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return
+  e.preventDefault()
+  griffEl.classList.add('zieht')
+  buehneEl.classList.add('zieht-breite')
+  const zieh = (ev) => {
+    const b = buehneEl.getBoundingClientRect()
+    const breite = Math.min(Math.max(b.right - ev.clientX, 260), Math.max(300, b.width - 420))
+    document.documentElement.style.setProperty('--inspector-breite', breite + 'px')
+    passeZeitBreiteAn()   // Timeline füllt live den frei werdenden/schrumpfenden Platz
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    griffEl.classList.remove('zieht')
+    buehneEl.classList.remove('zieht-breite')
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+})
+const tabEl = document.getElementById('insp-tab')
+tabEl.addEventListener('click', () => {
+  const zu = buehneEl.classList.toggle('insp-zu')
+  tabEl.querySelector('use').setAttribute('href', zu ? '#i-panel-auf' : '#i-panel-zu')
+  tabEl.title = zu ? 'Panel einblenden' : 'Panel ausblenden'
+  folgeUebergang()   // Timeline über die Transition mitwachsen lassen (kein Sprung)
+})
+
+/* Das Seltene und das Gefährliche liegt hier — nicht auf der Kachel. */
+const kopfMehr = document.getElementById('kopf-mehr')
+const kopfMenueZu = () => {
+  document.querySelector('.kopf-menue')?.remove()
+  kopfMehr.setAttribute('aria-expanded', 'false')
+}
+kopfMehr.addEventListener('click', (e) => {
+  e.stopPropagation()
+  const offen = kopfMehr.getAttribute('aria-expanded') === 'true'
+  kopfMenueZu()
+  if (offen) return
+  kopfMehr.setAttribute('aria-expanded', 'true')
+  // „Alle Änderungen zurücknehmen" stand hier einmal. Es ist technisch billig
+  // (das Overlay löschen, die Rohdaten liegen unangetastet daneben) — aber
+  // niemand sucht es, und wer es findet, verliert damit womöglich Stunden
+  // Arbeit auf einen Klick. Undo/Redo oben deckt den echten Bedarf.
+  kopfMehr.parentElement.insertAdjacentHTML('beforeend',
+    '<div class="kopf-menue">' +
+      '<button class="gefahr"><svg><use href="#i-muell"/></svg>Tour löschen</button>' +
+    '</div>')
+})
+document.addEventListener('click', kopfMenueZu)
+
+/* — Undo/Redo per SCHNAPPSCHUSS. Der Beleg dafür, dass es hier billig ist:
+     Der ganze bearbeitbare Zustand ist ein paar kleine Arrays. Statt für jede
+     Aktion eine Umkehrung zu schreiben, sichern wir nach jeder Änderung eine
+     Kopie und stellen sie beim Zurückgehen wieder her. In der echten App ist
+     der Schnappschuss das Edit-Overlay (dasselbe kleine JSON), die Rohdaten
+     bleiben unberührt — genau die Architektur, die das hier so leicht macht. */
+const historie = []
+let zeiger = -1
+const schnappschuss = () => JSON.stringify({
+  wege: WEGE, kamera: KAMERA, wetter: WETTER, musik: MUSIK, sfx: SFX,
+  // Nur nr + Zeit — die Liste kann Aufnahmen VERLOREN haben (Löschen); x/y
+  // ergeben sich beim Neuaufbau aus t. Stammdaten kommen aus FOTOS_ALLE.
+  fotos: FOTOS.map((f) => ({ nr: f.nr, t: f.t, zeit: f.zeit, standzeit: f.standzeit })),
+})
+function merke() {
+  historie.length = zeiger + 1            // ein neuer Schritt kappt den Redo-Zweig
+  historie.push(schnappschuss())
+  zeiger = historie.length - 1
+  standAnzeigen()
+}
+function stelleHer(json) {
+  const s = JSON.parse(json)
+  // WEGE/KAMERA/… IN PLACE ersetzen, damit die Referenzen in SPUREN gültig bleiben.
+  const fuelle = (arr, neu) => { arr.length = 0; arr.push(...neu) }
+  fuelle(WEGE, s.wege); fuelle(KAMERA, s.kamera); fuelle(WETTER, s.wetter)
+  fuelle(MUSIK, s.musik); fuelle(SFX, s.sfx)
+  // FOTOS aus der Stammliste neu bilden — so kommt auch eine gelöschte Aufnahme
+  // beim Undo mit allen Stammdaten (Bild, Titel, km) zurück.
+  FOTOS = s.fotos.map((fs) => ({ ...FOTOS_ALLE.find((a) => a.nr === fs.nr), t: fs.t, zeit: fs.zeit, standzeit: fs.standzeit ?? 'Normal' }))
+  Object.keys(SPUREN).forEach(baueSpur)
+  baueFotoReihe()
+  setzeLaeufer(marke)   // die Fortbewegung kann sich geändert haben → anderes Zeichen
+  leerInspektor()
+}
+function standAnzeigen() {
+  document.getElementById('undo').disabled = zeiger <= 0
+  document.getElementById('redo').disabled = zeiger >= historie.length - 1
+}
+document.getElementById('undo').addEventListener('click', () => {
+  if (zeiger <= 0) return
+  stelleHer(historie[--zeiger]); standAnzeigen()
+})
+document.getElementById('redo').addEventListener('click', () => {
+  if (zeiger >= historie.length - 1) return
+  stelleHer(historie[++zeiger]); standAnzeigen()
+})
+addEventListener('keydown', (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+  e.preventDefault()
+  document.getElementById(e.shiftKey ? 'redo' : 'undo').click()
+})
+merke()   // Ausgangszustand als erster Eintrag
+
+/* — Zoom: Standard „an Fenster angepasst" (die ganze Tour auf einen Blick).
+     Darüber hinein-zoomen und die Bahnen waagerecht scrollen — die Namenspalte
+     bleibt links stehen (sticky). Anker beim Zoomen ist der Kopf (bzw. der
+     Cursor beim Pinch), damit der Blick nicht wegspringt. Kürzel wie in Final
+     Cut: ⌘+/⌘− zoomen, ⇧Z passt an. — */
+const fenster = document.getElementById('spuren-fenster')
+const spurenEl = document.getElementById('spuren')
+const reglerEl = document.getElementById('zoom-regler')
+const fitEl = document.getElementById('zoom-wert')
+let zoom = 1
+const spurXpx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--spur-x'))
+// Breite des Zeitfelds bei zoom=1: Fensterbreite minus feste Namenspalte, minus
+// hinterer Rand — so füllt es genau und wirft keinen Scrollbalken.
+const basisBreite = () => Math.max(fenster.clientWidth - spurXpx() - 26 - 1, 320)
+const markeVx = () => { const feld = zeitfeld(), f = fenster.getBoundingClientRect(); return feld.left - f.left + marke * feld.width }
+function wendeZoomAn(neu, ankerFrac, ankerVx) {
+  zoom = Math.min(Math.max(neu, 1), 7)
+  const breite = basisBreite() * zoom
+  spurenEl.style.setProperty('--zeit-breite', breite + 'px')
+  baueSkala()   // Marken-Dichte an den neuen Zoom anpassen
+  reglerEl.value = String(zoom)
+  fitEl.disabled = zoom <= 1.001
+  fitEl.textContent = zoom.toFixed(1).replace('.', ',') + '×'
+  if (ankerFrac != null) {   // den Punkt unter ankerVx an Ort und Stelle halten
+    const ziel = ankerVx != null ? ankerVx : fenster.clientWidth / 2
+    fenster.scrollLeft = spurXpx() + ankerFrac * breite - ziel
+  }
+  setzeMarke(marke)
+  Object.keys(SPUREN).forEach(positioniereKanten)
+}
+const anpassen = () => { wendeZoomAn(1); fenster.scrollLeft = 0 }
+reglerEl.addEventListener('input', () => wendeZoomAn(parseFloat(reglerEl.value), marke, markeVx()))
+document.getElementById('zoom-plus').addEventListener('click', () => wendeZoomAn(zoom * 1.4, marke, markeVx()))
+document.getElementById('zoom-minus').addEventListener('click', () => wendeZoomAn(zoom / 1.4, marke, markeVx()))
+fitEl.addEventListener('click', anpassen)
+// Pinch (Trackpad = ctrl+wheel) zoomt um den Cursor.
+fenster.addEventListener('wheel', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return
+  e.preventDefault()
+  const vx = e.clientX - fenster.getBoundingClientRect().left
+  const frac = Math.min(Math.max((fenster.scrollLeft + vx - spurXpx()) / (basisBreite() * zoom), 0), 1)
+  wendeZoomAn(zoom * (e.deltaY < 0 ? 1.12 : 0.9), frac, vx)
+}, { passive: false })
+addEventListener('keydown', (e) => {
+  const a = document.activeElement
+  const imFeld = a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')
+  if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) { e.preventDefault(); wendeZoomAn(zoom * 1.4, marke, markeVx()) }
+  else if ((e.metaKey || e.ctrlKey) && (e.key === '-' || e.key === '_')) { e.preventDefault(); wendeZoomAn(zoom / 1.4, marke, markeVx()) }
+  else if (!e.metaKey && !e.ctrlKey && !imFeld && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); anpassen() }
+})
+// Zeitfeld an die AKTUELLE Fensterbreite anpassen (Zoom bleibt) — nötig immer dann,
+// wenn sich die verfügbare Breite ändert: Fenster-Resize UND Inspector ein-/
+// ausblenden oder in der Breite ziehen. Ohne das behielt die Timeline ihre alte
+// Breite → Scrollbalken beim Einklappen bzw. leere Fläche beim Ausklappen.
+function passeZeitBreiteAn() {
+  spurenEl.style.setProperty('--zeit-breite', (basisBreite() * zoom) + 'px')
+  baueSkala()   // Fensterbreite änderte sich → Marken-Dichte neu bestimmen
+  setzeMarke(marke)
+  Object.keys(SPUREN).forEach(positioniereKanten)
+}
+// Während der 0,22-s-Grid-Transition (Panel ein-/ausblenden) pro Frame mitfitten,
+// damit die Timeline weich mitwächst statt am Ende zu springen.
+function folgeUebergang(dauer = 300) {
+  const start = performance.now()
+  const tick = () => { passeZeitBreiteAn(); if (performance.now() - start < dauer) requestAnimationFrame(tick) }
+  requestAnimationFrame(tick)
+}
+addEventListener('resize', passeZeitBreiteAn)
+anpassen()   // Startzustand: genau eingepasst
+
+
+/* — Werkzeuge wie in Final Cut: Auswahl (A) · Hand/Pan (H) · Zoom (Z). Das
+     aktive Werkzeug steuert Cursor und Timeline-Verhalten; die bestehenden
+     Auswahl-Handler gaten auf `werkzeug === 'auswahl'`. — */
+let werkzeug = 'auswahl'
+function setzeWerkzeug(w) {
+  werkzeug = w
+  document.querySelectorAll('.wkz').forEach((b) => b.classList.toggle('an', b.dataset.wkz === w))
+  fenster.dataset.wkz = w
+}
+document.querySelector('.werkzeuge').addEventListener('click', (e) => {
+  const b = e.target.closest('.wkz'); if (b) setzeWerkzeug(b.dataset.wkz)
+})
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+  const a = document.activeElement
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return
+  const k = e.key.toLowerCase()
+  if (k === 'a') setzeWerkzeug('auswahl')
+  else if (k === 'h') setzeWerkzeug('hand')
+  else if (k === 'z') setzeWerkzeug('zoom')
+})
+// ⌥ zeigt beim Zoom-Werkzeug „auszoomen" an.
+addEventListener('keydown', (e) => { if (e.key === 'Alt' && werkzeug === 'zoom') fenster.classList.add('alt') })
+addEventListener('keyup', (e) => { if (e.key === 'Alt') fenster.classList.remove('alt') })
+
+// Hand pannt (scrollt), Zoom klickt/zieht — beides am Fenster; der Head behält
+// immer seine Funktion.
+fenster.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || werkzeug === 'auswahl') return
+  if (e.target.closest('.kopf-griff')) return
+  e.preventDefault()
+  const fr = fenster.getBoundingClientRect()
+  const feldBreite = () => basisBreite() * zoom
+  const fraktion = (clientX) => Math.min(Math.max((fenster.scrollLeft + (clientX - fr.left) - spurXpx()) / feldBreite(), 0), 1)
+  if (werkzeug === 'hand') {
+    fenster.classList.add('greift')
+    const startX = e.clientX, startScroll = fenster.scrollLeft
+    const zieh = (ev) => { fenster.scrollLeft = startScroll - (ev.clientX - startX) }
+    const los = () => { window.removeEventListener('pointermove', zieh); window.removeEventListener('pointerup', los); fenster.classList.remove('greift') }
+    window.addEventListener('pointermove', zieh); window.addEventListener('pointerup', los)
+  } else if (werkzeug === 'zoom') {
+    const startX = e.clientX
+    const box = document.getElementById('zoom-box')
+    let gezogen = false
+    const zieh = (ev) => {
+      if (!gezogen && Math.abs(ev.clientX - startX) < 5) return
+      gezogen = true
+      box.style.display = 'block'
+      box.style.left = Math.min(startX, ev.clientX) + 'px'
+      box.style.width = Math.abs(ev.clientX - startX) + 'px'
+      box.style.top = fr.top + 'px'; box.style.height = fr.height + 'px'
+    }
+    const los = (ev) => {
+      window.removeEventListener('pointermove', zieh); window.removeEventListener('pointerup', los)
+      box.style.display = 'none'
+      if (gezogen) {                                   // auf den gezogenen Bereich zoomen
+        const fa = fraktion(Math.min(startX, ev.clientX)), fb = fraktion(Math.max(startX, ev.clientX))
+        const spanne = Math.max(fb - fa, 0.02)
+        wendeZoomAn(1 / spanne, (fa + fb) / 2, fenster.clientWidth / 2)   // Ausschnitt füllt die Breite
+      } else {                                         // Klick: rein (⌥ raus) am Klickpunkt
+        wendeZoomAn(zoom * (ev.altKey ? 1 / 1.6 : 1.6), fraktion(ev.clientX), ev.clientX - fr.left)
+      }
+    }
+    window.addEventListener('pointermove', zieh); window.addEventListener('pointerup', los)
+  }
+})
+setzeWerkzeug('auswahl')
+
+/* — Abspielen: der Playhead läuft, Musik/SFX spielen ECHT (nur vorhandene
+     Dateien, nichts generiert), Fotos blenden auf. Leertaste = Play/Pause,
+     J/K/L = Shuttle (J zurück, K Pause, L vor; mehrfach = schneller), der
+     „Abspielen"-Knopf oben ebenso. Manuelles Scrubben pausiert. Wetter/Kamera
+     bleiben bewusst außen vor — die bräuchten den 3D-Viewer im Studio. — */
+const AUDIO_MUSIK = { 'ambient.mp3': '/audio/ambient.mp3' }   // Finale-Thema: keine Datei → still
+const AUDIO_SFX = { 'Möwen': '/audio/sfx/sfx-moewe.mp3', 'Donner': '/audio/thunder.mp3', 'Brandung': '/audio/sfx/amb-brandung.mp3', 'Regen': '/audio/rain.mp3' }
+const SPIEL_RATE = 1 / 28   // ganze Tour in ~28 s bei 1×
+let tempo = 0, spielAF = null, letzteTs = 0
+const musikAudio = new Audio(); musikAudio.loop = true; musikAudio.volume = .6
+let musikSrc = null
+// Laufende SFX-One-Shots merken, damit STOPP/Pause sie wirklich verstummen lässt —
+// ein angestoßener Donner klänge sonst nach dem Anhalten sekundenlang weiter.
+let aktiveSfx = []
+// Foto-Halt beim Abspielen: an jedem Foto ruht der Kopf für seine STANDZEIT (die im
+// Inspector gewählte Kurz/Normal/Lang), die Musik läuft derweil weiter (Modell B).
+// haltBis = Zeitstempel, bis zu dem geruht wird (0 = kein Halt).
+const STANDZEIT_S = { Kurz: 2.5, Normal: 4, Lang: 6 }
+let haltBis = 0
+// Die noch offenen Aufnahmen des Stopps, an dem gerade gehalten wird — sie
+// werden NACHEINANDER eingeblendet, ihre Standzeiten addieren sich.
+let fotoFolge = []
+
+function transportAnzeigen() {
+  const play = document.getElementById('play')
+  play.querySelector('use').setAttribute('href', tempo !== 0 ? '#i-pause' : '#i-play')
+  play.classList.toggle('spielt', tempo !== 0)
+  play.setAttribute('aria-label', tempo !== 0 ? 'Pause' : 'Abspielen')
+  // Beim Shuttle (J/L mehrfach) Faktor + Richtung zeigen; bei Stopp und 1× leer.
+  document.getElementById('tempo-chip').textContent =
+    (tempo === 0 || tempo === 1) ? '' : tempo < 0 ? (-tempo) + '×◀' : tempo + '×▶'
+}
+// Alles verstummen: Musik-Loop UND laufende SFX-One-Shots.
+function stoppeKlaenge() {
+  musikAudio.pause(); musikSrc = null
+  aktiveSfx.forEach((a) => { a.pause(); try { a.currentTime = 0 } catch {} })
+  aktiveSfx = []
+}
+// Anhalten = die rAF-Schleife WIRKLICH beenden (nicht nur Tempo 0 setzen — sonst
+// liefe der nächste Frame weiter und stieße die Musik erneut an → Ton lief nach
+// dem Stoppen weiter) und alles verstummen lassen.
+function haltAn() {
+  tempo = 0
+  haltBis = 0
+  fotoFolge = []
+  if (spielAF) { cancelAnimationFrame(spielAF); spielAF = null }
+  stoppeKlaenge()
+  transportAnzeigen()
+}
+function setzeTempo(t) {
+  if (t === 0) { haltAn(); return }
+  tempo = t
+  transportAnzeigen()
+  if (!spielAF) { letzteTs = 0; spielAF = requestAnimationFrame(spielSchritt) }
+}
+function halteAbspielen() { if (tempo !== 0) haltAn() }   // von manuellen Scrubs aufgerufen
+
+function spielSchritt(ts) {
+  const dt = letzteTs ? Math.min((ts - letzteTs) / 1000, 0.1) : 0
+  letzteTs = ts
+  // An einem Foto ruhen: Position halten, die Musik läuft WEITER (an die Animations-
+  // Uhr geschweißt), bis die Standzeit um ist — so „kostet" ein Foto sichtbar Zeit.
+  if (haltBis) {
+    if (ts < haltBis) { spielAudioMusik(marke); spielAF = requestAnimationFrame(spielSchritt); return }
+    haltBis = 0
+    // Noch eine Aufnahme an diesem Ort? Dann bleibt der Halt stehen und zeigt sie.
+    const naechste = fotoFolge.shift()
+    if (naechste) {
+      popFoto(naechste)
+      haltBis = ts + (STANDZEIT_S[naechste.standzeit] ?? 4) * 1000
+      spielAudioMusik(marke)
+      spielAF = requestAnimationFrame(spielSchritt)
+      return
+    }
+  }
+  const alt = marke
+  let m = marke + tempo * SPIEL_RATE * dt
+  // Ende nur RICHTUNGSABHÄNGIG: vorwärts am Tourende, rückwärts am Anfang. Sonst
+  // stoppte ein Start bei marke=0 sofort (erster Frame dt=0 → m=0 → traf „m<=0").
+  let ende = false
+  if (tempo > 0 && m >= 1) { m = 1; ende = true }
+  else if (tempo < 0 && m <= 0) { m = 0; ende = true }
+  // Bei normaler Vorwärtsfahrt (1×) am nächsten erreichten Foto anhalten (Standzeit).
+  let fotoHalt = null
+  if (tempo === 1) {
+    const getroffen = FOTOS.filter((f) => ueberquert(f.t, alt, m)).sort((a, b) => a.t - b.t)[0]
+    if (getroffen) {
+      // Am STOPP halten, nicht am einzelnen Bild: mehrere Aufnahmen am selben Ort
+      // liegen auf (fast) derselben Zeit — nacheinander gezeigt, sonst käme nur
+      // die erste je vor (die übrigen würden nie mehr „überquert").
+      const gruppe = stoppVon(getroffen.nr)?.fotos ?? [getroffen]
+      fotoHalt = gruppe[0]
+      fotoFolge = gruppe.slice(1)
+      m = Math.max(...gruppe.map((f) => f.t))   // der ganze Stopp gilt als passiert
+      ende = false
+    }
+  }
+  setzeMarke(m)
+  folgeKopf()
+  spielAudioMusik(m)
+  pruefeSfx(alt, m)
+  if (fotoHalt) {
+    popFoto(fotoHalt)
+    haltBis = ts + (STANDZEIT_S[fotoHalt.standzeit] ?? 4) * 1000
+    spielAF = requestAnimationFrame(spielSchritt)
+  } else if (ende) haltAn()
+  else spielAF = requestAnimationFrame(spielSchritt)
+}
+// View folgt dem Kopf, wenn er aus dem sichtbaren Fenster liefe (wie in FCPX).
+function folgeKopf() {
+  const feld = zeitfeld(), f = fenster.getBoundingClientRect(), rand = 48
+  const x = feld.left - f.left + marke * feld.width
+  if (x > f.width - rand) fenster.scrollLeft += x - (f.width - rand)
+  else if (x < spurXpx() + rand) fenster.scrollLeft -= (spurXpx() + rand) - x
+}
+function spielAudioMusik(m) {
+  // Musik nur bei normaler 1×-Vorwärtsfahrt (der Foto-Halt behält tempo 1, also trägt
+  // die Musik durch ihn hindurch); beim Shuttle/Rücklauf stumm (kein Chipmunk-Tempo).
+  const k = tempo === 1 ? MUSIK.find((k) => m >= k.von && m < k.bis && AUDIO_MUSIK[k.name]) : null
+  const src = k ? AUDIO_MUSIK[k.name] : null
+  if (src !== musikSrc) {
+    musikSrc = src
+    if (src) {
+      musikAudio.src = src
+      // Ab der RICHTIGEN Stelle einsetzen (Modell B): Offset = Animationszeit seit
+      // Klip-Beginn, im Loop umgebrochen — nicht stur bei 0. Kurze Dateien loopen.
+      const off = Math.max(0, (m - k.von) / SPIEL_RATE)
+      musikAudio.addEventListener('loadedmetadata', () => {
+        if (musikAudio.duration) { try { musikAudio.currentTime = off % musikAudio.duration } catch {} }
+      }, { once: true })
+      musikAudio.play().catch(() => {})
+    } else musikAudio.pause()
+  }
+}
+const ueberquert = (t, a, b) => (a < t && t <= b) || (b <= t && t < a)
+// Fotos werden beim Abspielen über den HALT behandelt (s. spielSchritt); hier nur
+// die Klänge, die beim Überqueren einmal auslösen.
+function pruefeSfx(a, b) {
+  SFX.forEach((x, i) => { if (ueberquert(x.t, a, b)) spielSfx(x, i) })
+}
+const neuAnimieren = (el, klasse, ms) => { if (!el) return; el.classList.remove(klasse); void el.getBoundingClientRect(); el.classList.add(klasse); setTimeout(() => el.classList.remove(klasse), ms) }
+function popFoto(f) {
+  neuAnimieren(document.querySelector(`.f-mini[data-nrs~="${f.nr}"]`), 'pop', 700)
+  neuAnimieren(document.querySelector(`.punkt[data-nrs~="${f.nr}"]`), 'pop', 700)
+  const v = document.getElementById('foto-einblendung')
+  // Video als echtes <video> (ungeschnitten, stumm, Loop), Foto als Bild mit Ken-Burns.
+  const medium = f.video
+    ? `<video src="${f.video}" autoplay muted loop playsinline></video>`
+    : `<img src="${f.src}" alt="">`
+  const km = ('km' in f) ? ' · km ' + String(f.km).replace('.', ',') : ''
+  v.innerHTML = `<div class="fe-frame">${medium}</div>
+    <div class="fe-cap">
+      <div class="fe-titel">${f.titel}</div>
+      <div class="fe-chip">${f.video ? 'VIDEO' : 'FOTO'}</div>
+      <div class="fe-sub">${f.zeit} Uhr${km}</div>
+    </div>`
+  v.classList.add('an')
+  document.querySelector('.karte-flaeche').classList.add('foto-an')
+  neuAnimieren(document.getElementById('foto-flash'), 'blitz', 750)   // Kamerablitz
+  const dauer = (STANDZEIT_S[f.standzeit] ?? 4) * 1000   // Einblendung = Standzeit
+  clearTimeout(v._t); v._t = setTimeout(() => { v.classList.remove('an'); document.querySelector('.karte-flaeche').classList.remove('foto-an') }, dauer)
+}
+function spielSfx(x, i) {
+  const src = AUDIO_SFX[x.name]
+  if (src) {
+    const a = new Audio(src); a.volume = .7
+    aktiveSfx.push(a)
+    a.addEventListener('ended', () => { aktiveSfx = aktiveSfx.filter((y) => y !== a) })
+    a.play().catch(() => {})
+  }
+  neuAnimieren(document.querySelector(`.sfx[data-sfx="${i}"]`), 'pling', 500)
+}
+
+// Play/Pause umschalten. Kein separater Stopp-Knopf mehr (Stopp vs. Pause war in
+// einem scrub-basierten Editor nicht selbsterklärend): steht der Kopf am Tourende,
+// startet Play wieder von vorn — das deckt „zurück an den Anfang" mit ab.
+function spielUmschalten() {
+  if (tempo !== 0) { haltAn(); return }
+  if (marke >= 0.999) setzeMarke(0)
+  setzeTempo(1)
+}
+document.getElementById('play').addEventListener('click', spielUmschalten)
+// „Vorschau" = die fertige Tour im echten 3D-Player ansehen (eigener Tab). Das ist
+// der Einstieg in die spätere, ins Studio eingebettete 3D-Vorschau.
+document.getElementById('vorschau').addEventListener('click', () => window.open('/erlebnis.html?tour=kohphangan', '_blank', 'noopener'))
+addEventListener('keydown', (e) => {
+  const a = document.activeElement
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return
+  if (document.querySelector('.gross')) return
+  if (e.code === 'Space') { e.preventDefault(); spielUmschalten() }
+  else if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setzeTempo(tempo < 1 ? 1 : Math.min(tempo * 2, 4)) }
+  else if (e.key === 'j' || e.key === 'J') { e.preventDefault(); setzeTempo(tempo > -1 ? -1 : Math.max(tempo * 2, -4)) }
+  else if (e.key === 'k' || e.key === 'K') { e.preventDefault(); setzeTempo(0) }
+})
+
+// Vorauswahl für Screenshots: ?wahl=jeep | foto | klip | klang · ?zoom=N
+const params = new URLSearchParams(location.search)
+const wahl = params.get('wahl')
+if (wahl === 'jeep') document.querySelector('#spur-wege .band:nth-child(3)')?.click()
+if (wahl === 'foto') document.querySelector('.f-mini[data-nr="6"] img')?.click()
+// Demo-Stand für Screenshots: zwei Aufnahmen zu EINEM Stopp zusammengeschoben.
+if (wahl === 'stopp') {
+  const ziel = FOTOS.find((f) => f.nr === 6), mit = FOTOS.find((f) => f.nr === 5)
+  if (ziel && mit) {
+    mit.t = ziel.t; mit.zeit = uhr(mit.t)
+    baueFotoReihe(); zeigeAufnahme(ziel, true)
+  }
+}
+if (wahl === 'klip') document.querySelector('#spur-musik .klip[data-i="0"]')?.click()
+if (wahl === 'klang') document.querySelector('#spur-musik .sfx[data-sfx="0"]')?.click()
+if (params.get('zoom')) wendeZoomAn(parseFloat(params.get('zoom')), marke, markeVx())
+/* Debug-Griff (das Skript ist ein Modul, also gibt es keine globalen Funktionen mehr). */
+window.__mock = { karte, ROUTE, punktBei, setzeMarke, zeigeAbschnitt, baueFotoReihe, FOTO_MARKER, stopps, get fotos() { return FOTOS }, get marke() { return marke } }
+</script>
+</body>
+</html>

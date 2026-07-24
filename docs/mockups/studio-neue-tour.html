@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Luhambo Studio, Neue Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Space+Grotesk:wght@400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Neue Tour.
+
+   Der erste Entwurf war ein Dialog mit vier Kästen: Zahlenliste, Bilderreihe,
+   Hinweiszeilen, Titelfeld. Er BEHAUPTETE, was mit den Dateien passiert
+   („1 Foto liegt 3 Stunden nach dem Ende"), statt es zu zeigen.
+
+   Dieser hier zeigt es. Eine Reise hat zwei Achsen — Ort und Zeit —, und
+   jedes Foto sitzt auf beiden. Links die Strecke, unten der Tag. Dasselbe
+   Foto ist an beiden Stellen dasselbe Objekt: Zeigefinger drauf, und es
+   leuchtet hier wie dort. Was nicht passt, sieht man dann von selbst — das
+   späte Foto steht sichtbar hinter dem Ende der Aufzeichnung, das Foto ohne
+   Ortsangabe hat einen hohlen Punkt.
+
+   GROSSES BLATT ÜBER DER BIBLIOTHEK, kein eigener Screen: Es braucht viel
+   Fläche, aber es ist ein Zwischenschritt und kein Ortswechsel. Die Kachel-
+   wand bleibt unscharf sichtbar — man sieht, wohin man zurückkommt, und
+   kommt mit Esc, ×, oder einem Klick daneben auch wirklich dorthin.
+
+   Zwei weitere Haltungen:
+   1. Die Übertragung läuft SCHON, während geprüft wird (Faden oben im Blatt).
+      Kein zweites Warten nach dem Klick.
+   2. Der Screen zeigt nur, was IN DEN DATEIEN STEHT — Zeiten, Orte, Lücken.
+      Fortbewegung, Wetter und Ortsnamen entstehen erst beim Bauen (Tempo-
+      Analyse und Bildanalyse laufen serverseitig); sie hier zu behaupten,
+      hieße Zahlen zu zeigen, die sich gleich wieder ändern.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #10151d;
+  --fl-2: #151c26;
+  --fl-3: #1c2530;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+  --akzent: #f5a524;
+  --akzent-2: #ff6f52;
+  --gruen: #3ecf8e;
+  --rot: #e5484d;
+  --blau: #5b9dff;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --kopf-h: 68px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14.5px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; height: 100%; overflow: hidden;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: rgba(245,165,36,.3); }
+
+/* — Mockup-Leiste (gehört NICHT ins Produkt) — */
+.mockleiste {
+  position: fixed; inset: 0 0 auto; z-index: 40;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 18px; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .12em; text-transform: uppercase;
+  background: repeating-linear-gradient(135deg, #14100a, #14100a 10px, #171209 10px, #171209 20px);
+  border-bottom: 1px solid #2a2113; color: #8d7a55; flex: none;
+}
+.mockleiste b { color: var(--akzent); font-weight: 600; }
+.mockleiste button {
+  background: #1d1608; border: 1px solid #3a2c12; color: #c9a55f;
+  padding: 3px 10px; border-radius: 999px; font: inherit; letter-spacing: .1em;
+}
+.mockleiste button[aria-pressed="true"] { background: var(--akzent); color: #201400; border-color: var(--akzent); }
+
+/* ————— Die Bibliothek dahinter —————
+   MASSGENAUER NACHBAU, nicht bloß Deko: Der Nutzer kommt von dieser Seite, und
+   wenn die Kacheln beim Öffnen ihre Plätze wechseln, wirkt das wie ein Sprung.
+   Gleiche Topbar-Höhe, gleicher Rumpf (max-width 1320, padding 34/26), gleiches
+   Raster, gleiche Bilder in gleicher Reihenfolge. Im echten Studio liegt hier
+   die Bibliothek selbst — dann ist es ohnehin dieselbe. */
+.kulisse { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg); }
+/* `filter` macht das Element zum Bezugsrahmen für alles Absolute darin —
+   deshalb sitzt hier alles relativ zu `.weich`, und `.weich` selbst spannt
+   den ganzen Bereich auf. Ohne das schob der Rand-Kollaps von `.rumpf` die
+   ganze Kulisse 21 px nach unten: beim Öffnen sprang die Kachelwand. */
+.kulisse .weich { position: absolute; inset: 0; }
+.kulisse .kleiste {
+  position: absolute; inset: 43px 0 auto; height: 58px;
+  border-bottom: 1px solid var(--rand); background: rgba(10,14,20,.86);
+  display: flex; align-items: center; gap: 14px; padding: 0 26px;
+}
+.kulisse .kleiste .wm { font-family: var(--font-display); font-size: 18px; color: var(--text); }
+.kulisse .kleiste .wm b { color: var(--akzent); font-weight: 600; }
+.kulisse .kleiste .luecke { flex: 1; }
+.kulisse .kleiste .such { width: min(330px, 34vw); height: 34px; border-radius: 999px; background: var(--fl-1); border: 1px solid var(--rand); }
+.kulisse .kleiste .kn { width: 128px; height: 34px; border-radius: 999px; background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
+.kulisse .kleiste .chip { width: 96px; height: 32px; border-radius: 999px; background: var(--fl-1); border: 1px solid var(--rand); }
+/* Maße aus der echten Bibliothek gemessen (studio-start.html), damit beim
+   Öffnen NICHTS springt: Topbar 43+58, Kopf bei 135, erste Kachel bei 235. */
+.kulisse .rumpf { max-width: 1320px; margin: 101px auto 0; padding: 34px 26px 0; }
+.kulisse .titel { height: 46px; width: 300px; border-radius: 8px; background: rgba(255,255,255,.07); margin-bottom: 54px; }
+.kulisse .kk { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; }
+.kulisse .kk > div { aspect-ratio: 16/10; border-radius: 15px; overflow: hidden; background: var(--fl-1); border: 1px solid var(--rand); }
+.kulisse .kk .neu { border: 1.5px dashed var(--rand-hell); background: var(--fl-1); }
+.kulisse .kk img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Die Unschärfe liegt auf dem GANZEN Nachbau, nicht nur auf den Kacheln —
+   sonst wäre die Topbar scharf und der Rest weich. */
+.kulisse .weich { filter: blur(9px) saturate(.8) brightness(.8); }
+.kulisse::after { content: ''; position: absolute; inset: 0; background: rgba(6,8,12,.3); }
+
+/* ————— Das Blatt ————— */
+.modal {
+  position: fixed; inset: 0; z-index: 10;
+  display: grid; place-items: center; padding: 54px 44px 30px;
+  background: rgba(6,8,12,.55);
+  animation: modalRein .22s ease backwards;
+}
+@keyframes modalRein { from { opacity: 0; } }
+.blatt {
+  position: relative; width: min(1290px, 100%); height: min(880px, 100%);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg); border: 1px solid var(--rand-hell); border-radius: 20px;
+  box-shadow: 0 40px 110px rgba(0,0,0,.66), 0 0 0 1px rgba(255,255,255,.03) inset;
+  animation: blattHoch .3s cubic-bezier(.2,.8,.2,1) backwards;
+  transition: width .42s cubic-bezier(.2,.8,.2,1), height .42s cubic-bezier(.2,.8,.2,1);
+}
+/* Solange nichts abgelegt ist, ist das Blatt ein Dialog. Mit den Dateien wächst
+   es zur Arbeitsfläche — die Bewegung sagt, dass jetzt etwas da ist. */
+.blatt.klein { width: min(680px, 100%); height: min(516px, 100%); }
+@keyframes blattHoch { from { opacity: 0; transform: translateY(14px) scale(.99); } }
+.ruhig .modal, .ruhig .blatt { animation: none; }
+
+/* Rückfrage beim Schließen — die einzige zerstörende Aktion des Screens
+   hängt an ihrem Auslöser, statt als „Verwerfen"-Knopf herumzustehen. */
+.rueckfrage { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(6,8,12,.72); }
+.rueckfrage .kasten {
+  background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: 16px;
+  padding: 22px 24px 18px; max-width: 400px; box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}
+.rueckfrage h3 { font-size: 19px; }
+.rueckfrage p { color: var(--text-2); font-size: 13.5px; margin: 8px 0 18px; }
+.rueckfrage .knoepfe { display: flex; gap: 10px; justify-content: flex-end; }
+.knopf-gefahr {
+  background: rgba(229,72,77,.14); border: 1px solid rgba(229,72,77,.4); color: #f08c8f;
+  padding: 8px 15px; border-radius: 999px;
+}
+.knopf-gefahr:hover { background: var(--rot); border-color: var(--rot); color: #fff; }
+
+/* ————— Kopf ————— */
+/* Der Kopf liegt ÜBER den Ganzflächen-Zuständen: das Schließen darf nie
+   verdeckt sein — im leeren Blatt ist es der einzige Ausweg. */
+.kopf {
+  position: relative; z-index: 25;
+  flex: none; display: flex; align-items: center; gap: 16px; min-height: var(--kopf-h);
+  padding: 15px 18px 14px 26px; border-bottom: 1px solid var(--rand);
+  background: linear-gradient(180deg, rgba(20,26,35,.75), rgba(9,12,17,.4));
+}
+/* Schließen sitzt außen rechts, mit Abstand zu allem anderen — im Blatt ist
+   es der Weg zurück, und es ist der einzige Weg, der etwas wegwirft. */
+.schliessen {
+  width: 34px; height: 34px; display: grid; place-items: center; flex: none;
+  background: transparent; border: none; border-radius: 10px; color: var(--text-3);
+  margin-left: 8px;
+}
+.schliessen:hover { background: var(--fl-2); color: var(--text); }
+.schliessen svg { width: 17px; height: 17px; }
+.kopf h1 { font-size: 20px; letter-spacing: -.01em; }
+.kopf .herkunft { color: var(--text-3); font-size: 12.5px; font-family: var(--font-mono); }
+.kopf .rechts { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.uebertragung { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12.5px; }
+.uebertragung .ring { width: 13px; height: 13px; flex: none; }
+.uebertragung .ring circle { fill: none; stroke-width: 2.6; }
+.uebertragung .ring .b { stroke: rgba(255,255,255,.13); }
+.uebertragung .ring .v { stroke: var(--akzent); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .9s ease; }
+.uebertragung.fertig .ring .v { stroke: var(--gruen); }
+.uebertragung b { font-family: var(--font-mono); font-weight: 500; color: var(--text); }
+.knopf-still {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1px solid var(--rand); color: var(--text-2);
+  padding: 8px 15px; border-radius: 999px;
+}
+.knopf-still svg { width: 14px; height: 14px; }
+.knopf-still:hover { border-color: var(--rand-hell); color: var(--text); }
+.knopf-rund {
+  width: 34px; height: 34px; display: grid; place-items: center; flex: none;
+  background: transparent; border: 1px solid var(--rand); border-radius: 50%; color: var(--text-2);
+}
+.knopf-rund:hover { border-color: var(--akzent); color: var(--akzent); }
+.knopf-rund svg { width: 15px; height: 15px; }
+.knopf-text { background: none; border: none; color: var(--text-3); padding: 8px 4px; }
+.knopf-text:hover { color: var(--text); }
+.knopf-primaer {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, var(--akzent), #f7b750); color: #1a1206;
+  border: none; padding: 9px 20px; border-radius: 999px; font-weight: 600;
+  box-shadow: 0 6px 18px rgba(245,165,36,.22);
+}
+.knopf-primaer:hover { filter: brightness(1.06); }
+.knopf-primaer svg { width: 15px; height: 15px; }
+
+/* ————— Bühne: Strecke links, Kennzahlen rechts ————— */
+/* overflow: hidden — sonst zeichnet die zu hohe rechte Spalte über die Bahn
+   darunter (bei niedrigen Fenstern schrumpft das Flex-Item, sein Inhalt nicht). */
+.buehne {
+  flex: 1 1 auto; min-height: 0; overflow: hidden;
+  display: grid; grid-template-columns: minmax(380px, 1.25fr) minmax(340px, 1fr);
+  gap: 34px; padding: 22px 26px 10px;
+}
+
+.flur {
+  position: relative; border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--rand);
+  background:
+    radial-gradient(120% 90% at 30% 15%, rgba(60,80,104,.22), transparent 62%),
+    radial-gradient(80% 70% at 85% 95%, rgba(245,165,36,.07), transparent 60%),
+    var(--bg-tief);
+}
+/* feines Punktraster — Landkarte, ohne eine zu behaupten */
+.flur::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.055) 1px, transparent 1px);
+  background-size: 22px 22px; mask-image: radial-gradient(85% 85% at 50% 50%, #000 40%, transparent 100%);
+}
+.flur svg.karte { position: absolute; inset: 0; width: 100%; height: 100%; padding: 30px 34px; }
+/* pathLength normiert die Pfadlänge auf 1000 — ohne das müsste die
+   stroke-dasharray die echte Länge treffen, und ein zu kurzer Wert schneidet
+   die Route stumm ab (der Fährabschnitt fehlte im ersten Anlauf komplett). */
+.flur .linie {
+  fill: none; stroke: rgba(255,255,255,.9); stroke-width: 2.4;
+  stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 7px rgba(245,165,36,.28));
+  stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: zeichnen 1.5s cubic-bezier(.3,.7,.2,1) .15s forwards;
+}
+.flur.geflogen .linie { stroke-dasharray: 3 4; stroke-dashoffset: 0; animation: none; stroke: rgba(255,255,255,.5); }
+@keyframes zeichnen { to { stroke-dashoffset: 0; } }
+.flur .marke { fill: none; stroke: var(--akzent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.flur .marke.voll { fill: var(--akzent); }
+
+/* Fotopunkte auf der Strecke — dasselbe Objekt wie die Miniatur unten */
+.punkt { cursor: pointer; }
+.punkt circle {
+  fill: #fff; stroke: rgba(9,12,17,.8); stroke-width: 1.4; vector-effect: non-scaling-stroke;
+  transition: r .18s cubic-bezier(.2,.8,.2,1);
+  opacity: 0; animation: aufblenden .5s ease forwards;
+}
+.punkt.ohne-ort circle { fill: rgba(9,12,17,.75); stroke: rgba(255,255,255,.75); stroke-dasharray: 1.6 1.4; }
+@keyframes aufblenden { to { opacity: 1; } }
+.punkt .halo { fill: rgba(245,165,36,.22); opacity: 0; transition: opacity .18s ease; animation: none; }
+.punkt.an .halo, .punkt:hover .halo { opacity: 1; }
+.punkt.an circle:not(.halo):not(.ring), .punkt:hover circle:not(.halo):not(.ring) { fill: var(--akzent); r: 2.6; }
+/* Mehrere Aufnahmen am selben Ort: ein Ring um den Punkt. Die Zahl steht am
+   Bildchen auf der Bahn — hier wäre sie zwei Pixel groß. */
+.punkt .ring { fill: none; stroke: rgba(255,255,255,.75); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.punkt.an .ring, .punkt:hover .ring { stroke: var(--akzent); }
+
+/* Schwebendes Bildchen am Punkt, wenn ein Foto gewählt ist */
+.blick {
+  position: absolute; z-index: 4; width: 168px; pointer-events: none;
+  transform: translate(-50%, -114%); transition: opacity .2s ease, transform .25s cubic-bezier(.2,.8,.2,1);
+  opacity: 0;
+}
+.blick.an { opacity: 1; }
+.blick img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 8px; display: block; box-shadow: 0 10px 26px rgba(0,0,0,.6); }
+.blick .bu {
+  margin-top: 6px; font-size: 11px; color: var(--text-2); text-align: center;
+  font-family: var(--font-mono); letter-spacing: 0; white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0,0,0,.9);
+}
+.blick::after {
+  content: ''; position: absolute; left: 50%; bottom: -22px; width: 1px; height: 22px;
+  background: linear-gradient(180deg, rgba(245,165,36,.7), transparent);
+}
+.flur .fussnote {
+  position: absolute; left: 18px; bottom: 14px; z-index: 3;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-3);
+}
+
+/* — rechte Spalte: der Titel trägt die Typografie, sonst hält sich alles
+     zurück. Vier große Kennzahlen waren vier Blickfänge zu viel. — */
+.daten { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding-top: 6px; scrollbar-width: thin; }
+.titelfeld {
+  width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--rand);
+  padding: 4px 2px 12px; font-family: var(--font-display); font-size: 31px; font-weight: 500;
+  letter-spacing: -.015em; transition: border-color .2s ease;
+}
+.titelfeld::placeholder { color: #56606e; }
+.titelfeld:focus { outline: none; border-color: var(--akzent); }
+/* Vier Größen, die alle aus den Dateien selbst kommen. Als Raster statt als
+   Fließtext: man liest sie einzeln, nicht als Satz. Die Zahl trägt Mono, das
+   Wort davor bleibt klein — kein Blickfang-Wettbewerb. */
+.fakten { margin: 20px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 15px 18px; }
+.fakt { display: flex; gap: 10px; min-width: 0; }
+.fakt > svg { width: 15px; height: 15px; color: var(--text-3); flex: none; margin-top: 4px; }
+.fakt dt { font-size: 11.5px; color: var(--text-3); letter-spacing: .01em; }
+.fakt dd { margin: 1px 0 0; font-family: var(--font-mono); font-size: 15px; color: var(--text); white-space: nowrap; }
+.fakt dd em { font-style: normal; color: var(--text-3); }
+
+/* Was beim Bauen passiert, steht am Knopf, der es auslöst — sichtbar für
+   den, der fragt, unsichtbar für den, der es schon weiß. */
+.mit-tip { position: relative; }
+.mit-tip::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 11px); right: 0; width: 262px;
+  background: var(--fl-2); color: var(--text-2); border: 1px solid var(--rand-hell);
+  border-radius: 11px; padding: 10px 12px; font-size: 12.5px; font-weight: 400;
+  line-height: 1.45; text-align: left; letter-spacing: 0;
+  box-shadow: 0 16px 40px rgba(2,5,10,.6);
+  opacity: 0; transform: translateY(4px); pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.mit-tip:hover::after, .mit-tip:focus-visible::after { opacity: 1; transform: none; }
+
+.befunde { margin-top: 26px; display: flex; flex-direction: column; gap: 8px; }
+.befund {
+  display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);
+  background: var(--fl-1); border: 1px solid var(--rand); border-radius: 11px; padding: 9px 13px;
+  transition: border-color .18s ease, background .18s ease;
+}
+.befund .zeichen {
+  width: 19px; height: 19px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  background: rgba(255,255,255,.07); color: var(--text-2);
+}
+.befund.warn { border-color: rgba(245,165,36,.32); background: rgba(245,165,36,.06); color: #e8d3ab; }
+.befund.warn .zeichen { background: var(--akzent); color: #1a1206; }
+.punkt.aus circle:not(.halo) { fill: rgba(120,132,148,.5); }
+.punkt.ortsicher circle { fill: #fff; stroke-dasharray: none; }
+.befund.erledigt { border-color: var(--rand); background: var(--fl-1); color: var(--text-3); text-decoration: line-through; text-decoration-color: rgba(255,255,255,.2); }
+.befund.erledigt .zeichen { background: rgba(255,255,255,.07); color: var(--text-3); }
+.befund .link { margin-left: auto; background: none; border: none; color: var(--akzent); padding: 0; font-size: 12.5px; }
+.befund .link:hover { text-decoration: underline; }
+.befund.hell { border-color: var(--rand-hell); background: var(--fl-2); }
+
+/* ————— Die Bahn: der Tag, auf dem alles liegt ————— */
+.bahn-huelle { flex: none; padding: 4px 26px 0; }
+.bahn-kopf {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 30px 6px; font-size: 12px; color: var(--text-3);
+}
+.bk-plus {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px dashed var(--rand-hell); color: var(--text-2);
+  padding: 5px 13px; border-radius: 999px; font-size: 12.5px;
+}
+.bk-plus svg { width: 13px; height: 13px; }
+.bk-plus:hover { border-color: var(--akzent); border-style: solid; color: var(--akzent); }
+/* Etagen von unten: Stunden (0) · Wege (22) · Tageslicht-Band (32) ·
+   Marken-Beschriftung (47) · Miniaturen (62). */
+.bahn {
+  position: relative; height: 186px; min-width: 820px;
+  padding: 0 var(--rand-x);
+  --rand-x: 30px;
+}
+.bahn-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+
+/* Miniaturen hängen an Nadeln über dem Band */
+.mini {
+  position: absolute; bottom: 62px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  background: none; border: none; padding: 0; z-index: 2;
+}
+.mini img, .mini .platte {
+  width: 46px; height: 46px; object-fit: cover; border-radius: 7px; display: block;
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 5px 14px rgba(0,0,0,.45);
+  transition: transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s ease, box-shadow .2s ease;
+  opacity: 0; animation: aufblenden .45s ease forwards;
+}
+.mini .nadel {
+  width: 1px; height: 30px; background: linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,.06));
+  transition: background .2s ease;
+}
+.mini .zeit {
+  position: absolute; top: -19px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3);
+  opacity: 0; transition: opacity .18s ease; white-space: nowrap;
+}
+.mini .bild { position: relative; display: block; transition: transform .2s cubic-bezier(.2,.8,.2,1); }
+.mini .bild img { position: relative; z-index: 1; }
+.mini:hover .bild, .mini.an .bild, .mini:focus-visible .bild { transform: translateY(-5px) scale(1.14); }
+.mini:hover img, .mini.an img, .mini:focus-visible img { border-color: var(--akzent); box-shadow: 0 10px 22px rgba(0,0,0,.6); }
+/* Leichte Vorschau (Befund-Hover): nur Rand und Nadel, kein Vergrößern —
+   sonst ragen Lupe/× am Rand über die Bahn und erzeugen eine Bildlaufleiste. */
+.mini.zeig img { border-color: var(--akzent); box-shadow: 0 0 0 1px rgba(245,165,36,.5); }
+.mini.zeig .nadel { background: linear-gradient(180deg, var(--akzent), rgba(245,165,36,.15)); }
+.punkt.zeig .halo { opacity: 1; }
+.punkt.zeig circle:not(.halo):not(.ring) { fill: var(--akzent); }
+
+/* Ein Stopp mit mehreren Aufnahmen: gestapelte Kanten und die Zahl. Das ist
+   kein Schmuck — ohne Bündelung liegen bei 45 Aufnahmen zwölf Bildchen
+   übereinander und man sieht weder das einzelne noch den Stopp. */
+.mini.stapel .bild::before, .mini.stapel .bild::after {
+  content: ''; position: absolute; inset: 0; border-radius: 7px;
+  background: var(--fl-3); border: 1px solid rgba(255,255,255,.15);
+}
+.mini.stapel .bild::before { transform: translate(4px, -4px); }
+.mini.stapel .bild::after { transform: translate(8px, -8px); opacity: .55; }
+.mini .zahl {
+  position: absolute; top: -14px; right: -13px; z-index: 3;
+  min-width: 20px; height: 19px; padding: 0 5px; border-radius: 999px;
+  background: var(--fl-3); border: 1px solid var(--rand-hell); color: var(--text);
+  font-family: var(--font-mono); font-size: 10.5px; display: grid; place-items: center;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.mini:hover .zahl, .mini.an .zahl { background: var(--akzent); border-color: var(--akzent); color: #1a1206; }
+
+/* Der Fächer klappt den Stopp auf — erst hier ist die einzelne Aufnahme wieder
+   ein eigenes Ding (und hat ihr eigenes ×). Er hängt am Blatt, nicht an der
+   Bahn: die scrollt waagerecht und würde ihn oben abschneiden. */
+.faecher {
+  position: absolute; z-index: 30; transform: translateX(-50%);
+  background: rgba(14,19,26,.98); border: 1px solid var(--rand-hell); border-radius: 13px;
+  padding: 9px 11px 11px; box-shadow: 0 20px 46px rgba(2,5,10,.7);
+  animation: faecherRein .16s ease backwards;
+}
+@keyframes faecherRein { from { opacity: 0; transform: translateX(-50%) translateY(5px); } }
+.faecher .fk {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 8px;
+}
+.faecher .fr { display: flex; flex-wrap: wrap; gap: 7px; width: 336px; }
+.fb { position: relative; background: none; border: none; padding: 0; }
+.fb img {
+  width: 44px; height: 44px; object-fit: cover; border-radius: 6px; display: block;
+  border: 1px solid rgba(255,255,255,.14); transition: border-color .16s ease;
+}
+.fb .fz { display: block; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-3); margin-top: 3px; }
+.fb:hover img, .fb.an img { border-color: var(--akzent); }
+.fb.an img { box-shadow: 0 0 0 1px var(--akzent); }
+.fb .weg-x { display: none; top: -7px; left: -7px; width: 17px; height: 17px; font-size: 11px; }
+.fb:hover .weg-x, .fb.weggelassen .weg-x { display: grid; }
+.fb.weggelassen img { filter: grayscale(1) brightness(.45); }
+.mini:hover .nadel, .mini.an .nadel { background: linear-gradient(180deg, var(--akzent), rgba(245,165,36,.15)); }
+.mini:hover .zeit, .mini.an .zeit, .mini:focus-visible .zeit { opacity: 1; }
+/* die letzte Aufnahme sitzt am rechten Rand — ihre Beschriftung klappt nach innen */
+.mini:last-of-type .zeit { right: -4px; transform: none; }
+.mini:focus-visible { outline: none; }
+.mini.ohne-ort img { border-style: dashed; border-color: rgba(255,255,255,.34); }
+.mini .ortlos {
+  position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--fl-3); border: 1px solid var(--rand-hell); color: var(--text-2);
+  font-family: var(--font-mono); font-size: 10px; display: grid; place-items: center;
+}
+.mini.spaet img { border-color: rgba(245,165,36,.6); }
+.mini.spaet .ortlos { background: var(--akzent); color: #1a1206; border-color: var(--akzent); font-weight: 600; }
+.mini.ohne-marke img { border-color: rgba(255,255,255,.14); border-style: solid; }
+.mini.ohne-marke .ortlos { display: none; }
+
+/* Weglassen sitzt AM Objekt und erscheint erst bei Auswahl — der Screen
+   kennt genau zwei Schreibaktionen: hinzufügen und weglassen. Alles
+   andere ist Sache des Editors. */
+.mini .weg-x {
+  position: absolute; top: -8px; left: -8px; width: 19px; height: 19px; z-index: 4;
+  border-radius: 50%; background: var(--fl-3); border: 1px solid var(--rand-hell);
+  color: var(--text-2); font-size: 13px; line-height: 1; padding: 0;
+  display: none; place-items: center;
+}
+.mini.an .weg-x, .mini.weggelassen .weg-x { display: grid; }
+.mini .weg-x:hover { background: var(--rot); border-color: var(--rot); color: #fff; }
+.mini.weggelassen img { filter: grayscale(1) brightness(.45); border-style: dashed; }
+.mini.weggelassen .nadel { opacity: .25; }
+.mini.weggelassen .weg-x { background: var(--fl-2); color: var(--text-3); }
+
+/* Groß ansehen = KLICK auf das Bild selbst. Kein eigener Lupen-Knopf: Der
+   Klick aufs Thumbnail hatte vorher keine andere Bedeutung, und ein winziges
+   Symbol als zweiter Griff war mehr Rätsel als Hilfe. Der Zeiger wird zur Lupe.
+   Die letzte Aufnahme klappt ihr × nach innen (sonst Bildlaufleiste). */
+.mini:not(.stapel), .fb { cursor: zoom-in; }
+.mini:last-of-type .weg-x { left: auto; right: -8px; }
+
+.gross {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  background: rgba(4,6,10,.93); padding: 46px 76px;
+  animation: modalRein .18s ease backwards;
+}
+.gross figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; max-height: 100%; }
+.gross img { max-width: 100%; max-height: calc(100vh - 170px); border-radius: 10px; display: block; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.gross figcaption { text-align: center; }
+.gross .gt { font-family: var(--font-display); font-size: 20px; }
+.gross .gm { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-top: 3px; }
+.gross .zu, .gross .blaettern {
+  position: absolute; display: grid; place-items: center; padding: 0;
+  background: rgba(255,255,255,.06); border: 1px solid var(--rand-hell); color: var(--text-2);
+  border-radius: 50%; width: 42px; height: 42px;
+}
+.gross .zu { top: 20px; right: 24px; width: 38px; height: 38px; }
+.gross .blaettern.links { left: 20px; top: 50%; transform: translateY(-50%); }
+.gross .blaettern.rechts { right: 20px; top: 50%; transform: translateY(-50%); }
+.gross .zu:hover, .gross .blaettern:hover { background: rgba(255,255,255,.13); color: var(--text); border-color: var(--text-3); }
+.gross .zu svg, .gross .blaettern svg { width: 17px; height: 17px; }
+
+/* Ablagefläche ist der ganze Screen — auch dieser hier, nicht nur der leere */
+.dropschirm {
+  position: absolute; inset: 0; z-index: 30; display: grid; place-items: center;
+  background: rgba(9,12,17,.86); backdrop-filter: blur(3px);
+}
+.dropschirm .rahmen {
+  border: 2px dashed rgba(245,165,36,.5); border-radius: 22px;
+  padding: 44px 70px; text-align: center; background: rgba(245,165,36,.05);
+}
+.dropschirm svg { width: 30px; height: 30px; color: var(--akzent); }
+.dropschirm .h { font-family: var(--font-display); font-size: 24px; margin-top: 12px; }
+.dropschirm .n { color: var(--text-2); font-size: 13.5px; margin-top: 6px; }
+
+/* Das Band = die Aufzeichnung, eingefärbt vom Licht des Tages */
+.band {
+  position: absolute; left: var(--rand-x); bottom: 32px; height: 13px; border-radius: 7px;
+  background: linear-gradient(90deg,
+    #3d5872 0%, #4d6c86 24%, #7d7a76 33%, #c98b44 38%,
+    #ee9a45 41%, #d6604a 44%, #7c3f63 47.5%,
+    #2b2f57 53%, #1d2340 70%, #171d34 100%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.07) inset, 0 4px 16px rgba(0,0,0,.45);
+  /* Der Verlauf beschreibt die ganze Zeitachse, das Band zeigt nur die Zeit
+     der Aufzeichnung — sonst läge der Sonnenuntergang neben seiner Marke. */
+  background-size: 116.67% 100%; background-repeat: no-repeat;
+}
+/* dahinter: die Zeit, in der nicht mehr aufgezeichnet wurde */
+.nachlauf {
+  position: absolute; bottom: 32px; height: 13px; border-radius: 7px;
+  background: repeating-linear-gradient(115deg, rgba(255,255,255,.06), rgba(255,255,255,.06) 3px, transparent 3px, transparent 8px);
+  border: 1px dashed rgba(255,255,255,.14); border-left: none;
+}
+.bandende { position: absolute; bottom: 28px; width: 1px; height: 30px; background: rgba(255,255,255,.45); }
+.bandende span {
+  position: absolute; bottom: 17px; right: 9px; font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-3); white-space: nowrap; text-transform: uppercase; letter-spacing: .08em;
+}
+/* Sonnenuntergang — kein Schmuck: an dieser Stelle kippt die Engine später
+   wirklich in die Dämmerung, und die Fotos ab hier sind dunkel. */
+.sonne { position: absolute; bottom: 34px; z-index: 3; transform: translateX(-50%); }
+.sonne .kreis {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fffaf0, #ffd089);
+  box-shadow: 0 0 10px rgba(255,220,170,.9), 0 0 0 1.5px rgba(40,18,4,.55);
+}
+.sonne span {
+  position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 10px; color: #c99a6a;
+  white-space: nowrap; letter-spacing: .06em; text-transform: uppercase;
+}
+/* Stundenraster */
+.stunde { position: absolute; bottom: 0; transform: translateX(-50%); text-align: center; }
+.stunde i { display: block; width: 1px; height: 6px; background: rgba(255,255,255,.14); margin: 0 auto 4px; }
+.stunde span { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+
+/* ————— Fuß: das Paar am Ende des Leseflusses —————
+   Links der Zustand („privat"), rechts die beiden Aktionen: erst die Frage
+   „habe ich alles?" (hinzufügen), dann die Antwort (bauen). Genau hier stellt
+   man sie sich — nicht in einer Kopfzeile über der Zeitachse. */
+.fuss {
+  flex: none; display: flex; align-items: center; gap: 14px;
+  padding: 13px 26px 16px; color: var(--text-3); font-size: 12.5px;
+  border-top: 1px solid var(--rand); background: rgba(9,12,17,.5);
+}
+/* Die Freigabe gehört hierher: wer die Tour vor sich sieht, entscheidet auch,
+   wer sie sehen darf. Vorher stand hier nur die Auskunft „ist privat". */
+.sicht-knopf {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; border: 1px solid var(--rand); border-radius: 999px;
+  padding: 6px 13px 6px 11px; color: var(--text-2); font-size: 12.5px;
+}
+.sicht-knopf:hover, .sicht-knopf[aria-expanded="true"] { border-color: var(--rand-hell); color: var(--text); background: var(--fl-1); }
+.sicht-knopf > svg:first-child { width: 14px; height: 14px; }
+.sicht-knopf .pfeil { width: 11px; height: 11px; opacity: .6; }
+.sicht-knopf.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,.35); }
+.sicht-huelle { position: relative; }
+.sicht-menue {
+  position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 30; min-width: 244px;
+  background: var(--fl-2); border: 1px solid var(--rand-hell); border-radius: 13px;
+  padding: 5px; box-shadow: 0 20px 46px rgba(2,5,10,.65);
+}
+.sicht-menue button {
+  display: flex; align-items: flex-start; gap: 9px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text-2); padding: 8px 10px;
+  border-radius: 9px; font-size: 13px; line-height: 1.35;
+}
+.sicht-menue button:hover { background: var(--fl-3); color: var(--text); }
+.sicht-menue button > svg { width: 14px; height: 14px; flex: none; margin-top: 2px; opacity: .8; }
+.sicht-menue button > span { flex: 1; }
+.sicht-menue em { display: block; font-style: normal; font-size: 11.5px; color: var(--text-3); }
+.sicht-menue .haken { display: none; width: 13px; height: 13px; color: var(--akzent); opacity: 1; margin-top: 3px; }
+.sicht-menue button[aria-checked="true"] { color: var(--text); }
+.sicht-menue button[aria-checked="true"] .haken { display: block; }
+.fuss .rechts { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+/* ————— Zustand „leer": der ganze Screen ist die Ablagefläche ————— */
+.leer {
+  position: absolute; inset: var(--kopf-h) 0 0; z-index: 20; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px;
+}
+/* Die ganze Fläche ist der Knopf. Der Rahmen macht das sichtbar, ohne dass
+   irgendwo „Ablagefläche" stehen muss — und er ist zugleich das Ziel, auf das
+   man Dateien fallen lässt. */
+.leer.klickbar { cursor: pointer; }
+.leer.klickbar::before {
+  content: ''; position: absolute; inset: 16px; border-radius: 16px;
+  border: 1.5px dashed var(--rand);
+  transition: border-color .2s ease, background .2s ease;
+}
+.leer.klickbar:hover::before { border-color: rgba(245,165,36,.5); background: rgba(245,165,36,.03); }
+.leer .kern { position: relative; max-width: 520px; display: flex; flex-direction: column; align-items: center; }
+
+/* Statt eines Symbols die FORM DESSEN, WAS ENTSTEHT: leere Plätze über einer
+   Tageslinie — genau die Bahn, die nach dem Ablegen unten im Blatt steht. */
+.skizze { width: 300px; height: 92px; margin-bottom: 22px; overflow: visible; }
+.skizze .platz {
+  fill: none; stroke: var(--rand-hell); stroke-width: 1.4; stroke-dasharray: 4 3.4;
+  animation: platzAtmen 3.4s ease-in-out infinite;
+}
+.skizze .platz.hell { stroke: rgba(245,165,36,.75); }
+.skizze .nadel { stroke: var(--rand); stroke-width: 1.2; }
+.skizze .achse { fill: url(#tageslicht); opacity: .5; }
+@keyframes platzAtmen { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.leer.klickbar:hover .platz { stroke: rgba(245,165,36,.6); }
+.leer.klickbar:hover .platz.hell { stroke: var(--akzent); }
+.ruhig .skizze .platz { animation: none; opacity: .85; }
+.lese-ring { width: 66px; height: 66px; margin: 0 auto 26px; }
+.lese-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.lese-ring circle { fill: none; stroke-width: 2.5; }
+.lese-ring .b { stroke: rgba(255,255,255,.09); }
+.lese-ring .v {
+  stroke: var(--akzent); stroke-linecap: round;
+  stroke-dasharray: 119; stroke-dashoffset: 119;
+  animation: lesen 1.6s cubic-bezier(.4,.1,.3,1) forwards;
+}
+@keyframes lesen { to { stroke-dashoffset: 18; } }
+.leer h2 { font-size: 31px; letter-spacing: -.02em; }
+.leer h2 em { font-style: italic; color: var(--akzent); }
+.leer p { color: var(--text-2); font-size: 14.5px; margin: 11px auto 24px; max-width: 40ch; }
+/* Der zweite Weg braucht keine eigene Kachel — er ist ein Nachsatz. */
+.leer .fein { color: var(--text-3); font-size: 12.5px; margin: 22px auto 0; max-width: 42ch; }
+
+/* Endzustand ohne Einblenden — für ?ruhig=1 (Screenshots, Tests) und für
+   alle, die Bewegung abbestellt haben. Ohne das steht die Zeichenanimation
+   in gedrosselten Umgebungen bei t=0 und die Route wirkt abgeschnitten. */
+.ruhig .linie, .ruhig .punkt circle, .ruhig .mini img, .ruhig .mini .platte { animation: none !important; }
+.ruhig .linie { stroke-dashoffset: 0 !important; stroke-dasharray: none !important; }
+.ruhig .flur.geflogen .linie { stroke-dasharray: 3 4 !important; }
+.ruhig .punkt circle:not(.halo), .ruhig .mini img, .ruhig .mini .platte { opacity: 1 !important; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .flur .linie { stroke-dashoffset: 0 !important; stroke-dasharray: none !important; animation: none !important; }
+  .flur.geflogen .linie { stroke-dasharray: 3 4 !important; }
+  /* :not(.halo) — sonst leuchtet der Hover-Hof dauerhaft um jeden Punkt */
+  .punkt circle:not(.halo), .mini img, .mini .platte { opacity: 1 !important; animation: none !important; }
+}
+@media (max-width: 1080px) {
+  .buehne { grid-template-columns: 1fr; gap: 18px; }
+  .flur { min-height: 220px; }
+  .zahlen { gap: 18px; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.4l3.4 2"/></symbol>
+  <symbol id="i-kalender" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="15" rx="2.4"/><path d="M3.5 10h17M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16M3 10h18M3 14h18"/></symbol>
+  <symbol id="i-schloss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 118 0v3"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19h5a3.5 3.5 0 000-7h-3a3.5 3.5 0 010-7h4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+  <symbol id="i-fotos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="3.5" width="13" height="13" rx="2.2"/><path d="M16.5 20.5h-11a2 2 0 01-2-2v-11"/><path d="M8 12.4l2.7-2.6 2.4 2.3 2-1.9 3.4 3.3"/><circle cx="12" cy="7.4" r="1.2"/></symbol>
+  <symbol id="i-haken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+  <symbol id="i-schloss-offen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 017.5-2"/></symbol>
+  <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-pfeil-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-pfeil-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+</defs></svg>
+
+<div class="mockleiste">
+  <b>Mockup</b> Neue Tour ·
+  <button data-z="pruefen" aria-pressed="true">mit Aufzeichnung</button>
+  <button data-z="fotos" aria-pressed="false">nur Fotos</button>
+  <button data-z="leer" aria-pressed="false">nichts abgelegt</button>
+  <button data-z="viele" aria-pressed="false">54 Aufnahmen</button>
+  <button data-z="sauber" aria-pressed="false">nichts zu melden</button>
+  <button data-z="drop" aria-pressed="false">Dateien überm Fenster</button>
+  <span style="margin-left:auto">Miniatur antippen → Ort auf der Strecke</span>
+</div>
+
+<!-- ————— Die Bibliothek dahinter (im echten Studio: die Seite selbst) ————— -->
+<div class="kulisse" aria-hidden="true">
+  <div class="weich">
+    <div class="kleiste">
+      <span class="wm">Luhambo <b>Studio</b></span>
+      <span class="luecke"></span>
+      <span class="such"></span><span class="kn"></span><span class="chip"></span>
+    </div>
+    <div class="rumpf">
+      <div class="titel"></div>
+      <div class="kk">
+        <div class="neu"></div>
+        <div><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /></div>
+        <div><img src="/landing/card-stockholm.jpg" alt="" /></div>
+        <div><img src="/photos/kohphangan/09-ostkueste.jpg" alt="" /></div>
+        <div><img src="/landing/card-oberland.jpg" alt="" /></div>
+        <div><img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" /></div>
+        <div><img src="/landing/card-phangan.jpg" alt="" /></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+<div class="blatt" id="blatt">
+
+<header class="kopf">
+  <div>
+    <h1>Neue Tour</h1>
+    <div class="herkunft" id="herkunft">13 Aufnahmen</div>
+  </div>
+  <div class="rechts">
+    <div class="uebertragung" id="uebertragung">
+      <svg class="ring" viewBox="0 0 20 20"><circle class="b" cx="10" cy="10" r="8"/><circle class="v" cx="10" cy="10" r="8" stroke-dasharray="50.3" stroke-dashoffset="50.3" id="ring-v"/></svg>
+      <span id="uebertragung-text"><b>0</b> von 13 übertragen</span>
+    </div>
+    <button class="schliessen" id="schliessen" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
+  </div>
+</header>
+
+<main class="buehne">
+  <!-- ————— Die Strecke. Echte Wegpunkte, echtes Seitenverhältnis. ————— -->
+  <div class="flur" id="flur">
+    <svg class="karte" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" id="karte">
+      <path class="linie" id="linie" pathLength="1000" d="M0 62.06L0.74 62.34L1.33 62.83L1.14 63.18L0.55 63.45L0.22 63.78L0.79 64.35L1.23 64.82L1.46 65.54L1.71 66.15L1.43 65.43L1.21 64.74L1.85 65.26L2.49 65.79L3.12 65.93L3.85 66L4.58 66.04L5.3 66.03L6.01 66L6.74 66.03L7.48 66.16L8.23 66.32L8.97 66.49L9.72 66.64L10.23 67.15L9.85 67.47L10.13 67.17L10.33 66.81L11.03 66.84L11.68 66.67L12.34 66.54L13.05 66.51L13.77 66.5L14.48 66.48L15.18 66.43L15.88 66.38L16.59 66.35L17.31 66.36L18.04 66.39L18.77 66.45L19.49 66.8L20.21 67.2L20.95 67.53L21.68 67.86L22.42 68.18L23.16 68.51L23.9 68.81L24.64 69.1L24.89 69.76L24.76 70.41L24.57 71.02L24.62 70.82L24.79 70.19L24.89 69.54L24.36 69.08L23.76 68.71L23.97 68.11L24.14 67.49L24.07 66.79L23.92 66.07L23.75 65.35L23.64 64.64L23.62 63.95L23.62 63.26L23.38 62.55L22.8 61.96L22.15 61.49L21.5 61.33L21.65 60.7L21.89 60.11L22.13 59.52L22.25 58.97L21.51 58.73L20.76 58.57L20.01 58.4L19.27 58.17L19.16 57.5L19.26 56.85L18.99 56.14L18.67 55.43L18.24 54.75L17.64 54.18L17.19 53.6L16.93 52.89L16.6 52.18L16.45 51.54L17.12 51.41L17.83 51.39L18.55 51.37L18.89 51.16L18.76 50.45L18.29 50.05L17.98 49.6L18.03 48.94L17.88 48.29L17.45 47.6L17.23 46.92L17.65 46.68L18.37 46.72L19.08 46.67L19.72 46.52L19.66 45.81L19.5 45.11L19.87 44.8L19.95 44.14L19.78 43.6L19.15 43.64L19.27 43.01L19.84 42.87L20.53 42.92L20.3 43L19.55 42.79L19.21 43.23L19.33 43.64L19.95 43.69L19.92 44.37L19.81 45.02L19.6 45.34L19.68 46.05L19.53 46.6L18.85 46.7L18.13 46.69L17.4 46.65L17.24 47.17L17.6 47.87L18.03 48.55L18.41 48.99L19.15 49.09L19.39 48.74L19.81 48.57L20.48 48.57L20.89 49.15L21.63 49.4L21.92 50L22.17 50.7L22.32 51.22L22.95 51.06L23.5 50.94L23.81 51.31L23.45 51.67L23.79 52.31L23.96 53.02L24.41 53.52L24.24 53.89L24.25 54.54L24.47 55.17L24.46 55.79L23.78 55.83L24.18 56.33L24.38 57.05L24.73 57.64L25.07 58.34L25.33 58.83L25.95 59.03L26.62 58.9L27.32 58.89L27.97 59.39L28.17 60.06L28.52 60.75L29.08 61.36L29.6 61.99L29.99 62.65L30.73 62.92L31.04 62.41L31.03 61.73L30.68 61.03L30.6 60.33L30.53 59.63L30.1 58.96L30.19 58.41L30.91 58.41L31.65 58.5L32.39 58.66L32.98 58.41L33.66 58.32L34.31 58.17L34.81 58.47L35.44 58.94L36.18 59.16L36.9 59.43L37.59 59.86L38.09 59.54L38.34 59.08L38.34 58.4L38.39 57.82L38.61 57.26L38.94 56.79L39.04 56.38L39.66 56.31L39.82 55.93L40.53 55.95L41.27 56.24L41.92 56.74L42.58 57L43.09 57.25L42.95 57.87L43.51 58.17L44.21 58.16L44.25 57.51L44.21 56.81L44.79 56.61L45.39 56.36L45.92 56.01L45.41 55.51L45.36 54.93L45.94 54.65L46.42 54.29L46.5 53.62L46.15 52.97L46.22 52.4L46.75 52.05L46.92 51.51L46.84 50.8L47.02 50.19L47.32 49.64L47.36 49.03L46.7 48.53L46.16 47.91L45.74 47.31L46.06 46.88L46.52 46.46L47.07 46.14L47.76 46.09L48.5 46.17L49.24 46.39L49.98 46.5L50.59 47.01L51.15 47.62L51.76 48.19L52.48 48.45L53.1 48.26L53.06 47.61L52.7 46.9L52.34 46.2L52.13 45.5L51.94 44.98L51.45 44.33L51.1 43.65L50.73 42.99L51 42.43L51.23 41.86L51.02 41.15L50.82 40.43L50.58 39.75L50.35 39.03L50.15 38.31L49.94 37.59L50 36.93L50.24 36.34L50.47 35.75L50.48 35.07L50.75 34.52L51.23 34.12L51.53 33.58L51.65 32.93L51.9 32.36L52.19 31.8L52.3 31.16L52.14 30.44L51.93 29.73L51.55 29.03L51.4 28.32L51.24 27.6L50.8 26.93L50.21 26.36L49.47 26.13L48.81 25.66L48.46 24.96L48.26 24.24L47.66 23.81L46.95 23.39L46.26 22.94L45.71 22.37L45.45 21.66L44.9 21.07L44.4 20.42L43.73 20.26L43.03 20.27L42.43 19.78L42.02 19.09L41.67 18.39L41.64 17.7L41.77 17.05L41.78 16.37L41.7 15.67L41.67 15.03L41.43 14.32L41.2 13.61L40.63 13.04L40.22 12.35L39.82 11.66L39.45 10.96L39.12 10.25L38.88 9.53L38.7 8.81L38.58 8.1L38.65 7.44L38.93 6.92L39.16 6.41L39.07 5.71L39.38 5.17L39.86 4.78L40.56 5.03L41.14 5.61L41.75 6.16L42.35 5.93L42.94 6.3L43.67 6.52L44.39 6.52L45.12 6.72L45.81 7.18L46.53 7.33L47.24 7.38L47.97 7.74L48.7 8.11L49.43 8.47L50.16 8.8L50.9 8.93L51.64 9.01L51.88 8.47L52.16 8.32L52.35 7.97L53.09 8.22L53.8 8.26L53.86 7.62L53.67 6.9L53.56 6.19L53.64 5.53L53.78 4.89L53.97 4.27L54.29 3.74L54.77 3.34L55.38 3.11L56.04 2.96L56.72 2.87L57.42 2.81L58.13 2.79L58.85 2.8L59.58 2.84L60.32 2.92L61.07 3.03L61.81 3.18L62.56 3.37L63.31 3.57L64.06 3.8L64.81 4.04L65.56 4.29L66.3 4.57L67.05 4.86L67.79 5.16L68.52 5.49L69.25 5.85L69.98 6.23L70.68 6.65L71.37 7.1L72.05 7.59L72.7 8.11L73.32 8.66L73.93 9.23L74.5 9.83L75.04 10.46L75.52 11.12L75.93 11.81L76.23 12.52L76.29 13.22L76.14 13.85L75.87 14.42L75.56 14.96L75.24 15.49L74.95 16.06L74.75 16.66L74.7 17.33L74.85 18.05L75.13 18.76L75.49 19.46L75.9 20.15L76.34 20.83L76.8 21.5L77.27 22.17L77.74 22.83L78.19 23.5L78.63 24.18L79.06 24.86L79.5 25.54L79.94 26.22L80.39 26.89L80.83 27.57L81.28 28.24L81.72 28.92L82.14 29.6L82.56 30.29L82.95 30.98L83.34 31.68L83.71 32.38L84.08 33.08L84.44 33.78L84.79 34.49L85.12 35.19L85.44 35.9L85.73 36.62L86 37.33L86.25 38.05L86.46 38.77L86.65 39.49L86.81 40.21L86.95 40.92L87.09 41.64L87.22 42.35L87.35 43.07L87.5 43.78L87.65 44.5L87.81 45.21L87.97 45.93L88.13 46.65L88.29 47.36L88.45 48.08L88.61 48.8L88.76 49.51L88.92 50.23L89.08 50.95L89.24 51.67L89.4 52.38L89.56 53.1L89.72 53.82L89.88 54.53L90.04 55.25L90.2 55.97L90.37 56.68L90.55 57.4L90.72 58.12L90.9 58.84L91.06 59.55L91.23 60.27L91.41 60.99L91.6 61.71L91.8 62.43L92.02 63.15L92.27 63.86L92.54 64.58L92.86 65.29L93.21 65.99L93.58 66.69L93.96 67.39L94.34 68.09L94.71 68.79L95.06 69.49L95.38 70.2L95.66 70.92L95.88 71.64L96.08 72.35L96.24 73.07L96.38 73.79L96.51 74.5L96.62 75.21L96.72 75.92L96.82 76.63L96.92 77.34L97.02 78.05L97.1 78.76L97.16 79.46L97.2 80.16L97.25 80.87L97.3 81.57L97.36 82.27L97.44 82.98L97.54 83.69L97.69 84.4L97.93 85.12L98.27 85.83L98.66 86.52L99.06 87.21L99.43 87.91L99.75 88.62L99.95 89.34L99.99 90.03L99.83 90.66L99.51 91.2L99.08 91.65L98.61 92.06L98.11 92.43L97.58 92.78L97.04 93.12L96.5 93.44L95.94 93.75L95.38 94.05L94.81 94.35L94.23 94.64L93.66 94.92L93.08 95.2L92.5 95.48L91.92 95.76L91.34 96.05L90.78 96.34L90.22 96.65L89.63 96.93L89.05 96.84L88.35 96.9L87.69 97.05L87.43 97.22" />
+      <circle class="marke voll" cx="0" cy="62.06" r="2.1" />
+      <circle class="marke" cx="87.43" cy="97.22" r="2.6" />
+      <g id="punkte"></g>
+    </svg>
+    <div class="blick" id="blick"><img id="blick-bild" src="" alt="" /><div class="bu" id="blick-text"></div></div>
+    <div class="fussnote" id="flur-fuss">Aufgezeichnete Strecke</div>
+  </div>
+
+  <!-- ————— Der Titel, vier Größen, was auffällt. Mehr nicht: alles Weitere
+       (Fortbewegung, Wetter, Ortsnamen) entsteht erst beim Bauen und gehört
+       dorthin, wo man es auch ändern kann — in den Editor. ————— -->
+  <div class="daten">
+    <input class="titelfeld" type="text" id="titel" placeholder="Thong Sala → Haad Rin" aria-label="Titel der Tour" />
+    <dl class="fakten" id="fakten">
+      <div class="fakt"><svg><use href="#i-route"/></svg><div><dt id="f-strecke-t">Strecke</dt><dd id="f-strecke">41,8 km</dd></div></div>
+      <div class="fakt"><svg><use href="#i-uhr"/></svg><div><dt>Unterwegs</dt><dd id="f-dauer">9 h 59 min</dd></div></div>
+      <div class="fakt"><svg><use href="#i-kalender"/></svg><div><dt>Aufgezeichnet</dt><dd id="f-datum">21. Juli · <em>14:10–23:59</em></dd></div></div>
+      <div class="fakt"><svg><use href="#i-film"/></svg><div><dt>Kamerafahrt</dt><dd>≈ 4:30 min</dd></div></div>
+    </dl>
+
+    <div class="befunde" id="befunde">
+      <div class="befund" data-hebt="ohne-ort">
+        <span class="zeichen">?</span>
+        2 Aufnahmen ohne Ortsangabe — eingeordnet nach ihrer Uhrzeit.
+      </div>
+      <div class="befund warn" data-hebt="spaet">
+        <span class="zeichen">!</span>
+        Eine Aufnahme liegt 1 h 41 min hinter dem Ende der Aufzeichnung.
+        <button class="link">Weglassen</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ————— Die Bahn: derselbe Tag, von der Zeitseite gesehen ————— -->
+<div class="bahn-huelle">
+  <div class="bahn-kopf">
+    <span class="bk-zahl" id="bk-zahl">13 Aufnahmen an ihrer Uhrzeit</span>
+  </div>
+  <div class="bahn-scroll">
+    <div class="bahn" id="bahn">
+      <div class="band" id="band"></div>
+      <div class="nachlauf" id="nachlauf"></div>
+      <!-- Ohne Beschriftung: die Schraffur dahinter, das Ausrufezeichen an der
+           späten Aufnahme und der Befund rechts sagen dreimal dasselbe. -->
+      <div class="bandende" id="bandende" title="Ende der Aufzeichnung, 23:59"></div>
+      <div class="sonne" id="sonne" title="Sonnenuntergang 18:47"><div class="kreis"></div></div>
+    </div>
+  </div>
+</div>
+
+<footer class="fuss">
+  <span class="sicht-huelle">
+    <button class="sicht-knopf" id="sicht-knopf" aria-haspopup="true" aria-expanded="false">
+      <svg><use href="#i-schloss"/></svg><span id="sicht-wort">Privat</span>
+      <svg class="pfeil"><use href="#i-chevron"/></svg>
+    </button>
+  </span>
+  <div class="rechts">
+    <button class="bk-plus" id="mehr-medien"><svg><use href="#i-fotos"/></svg>Aufnahmen hinzufügen</button>
+    <button class="knopf-primaer mit-tip" id="bauen"
+      data-tip="Luhambo trennt dabei die Gehstücke ab, holt das Wetter des Tages und benennt die Orte. Ändern kannst du alles danach im Editor.">
+      <svg><use href="#i-sparkle"/></svg>Tour bauen</button>
+  </div>
+</footer>
+
+<!-- ————— Dateien über dem Fenster ————— -->
+<div class="dropschirm" id="dropschirm" hidden>
+  <div class="rahmen">
+    <svg><use href="#i-upload"/></svg>
+    <div class="h">Dazulegen</div>
+    <div class="n">Die Aufnahmen setzen sich an ihre Zeit und ihren Ort.</div>
+  </div>
+</div>
+
+<!-- ————— Zwischen Ablegen und Prüfen: die Dateien werden gelesen. Bei 200
+     Fotos dauert das EXIF-Lesen spürbar — also zeigen wir es, statt den
+     Screen leer stehen zu lassen. ————— -->
+<div class="leer" id="lesezustand" hidden>
+  <div class="kern">
+    <div class="lese-ring"><svg viewBox="0 0 44 44"><circle class="b" cx="22" cy="22" r="19"/><circle class="v" cx="22" cy="22" r="19"/></svg></div>
+    <h2 id="lese-titel">Liest die Aufnahmen</h2>
+    <p id="lese-text">Aufnahmezeit und Ort stehen in den Dateien selbst — Luhambo liest sie und ordnet alles ein.</p>
+  </div>
+</div>
+
+<!-- ————— Zustand „leer": die ganze Fläche ist der Knopf ————— -->
+<div class="leer klickbar" id="leerzustand" role="button" tabindex="0" hidden>
+  <div class="kern">
+    <svg class="skizze" viewBox="0 0 300 92" aria-hidden="true">
+      <defs>
+        <linearGradient id="tageslicht" x1="0" x2="1">
+          <stop offset="0" stop-color="#3d5872"/><stop offset=".38" stop-color="#c98b44"/>
+          <stop offset=".5" stop-color="#d6604a"/><stop offset=".72" stop-color="#2b2f57"/>
+          <stop offset="1" stop-color="#171d34"/>
+        </linearGradient>
+      </defs>
+      <rect class="achse" x="8" y="72" width="284" height="9" rx="4.5"/>
+      <g class="nadel-gruppe">
+        <line class="nadel" x1="46" y1="44" x2="46" y2="72"/>
+        <line class="nadel" x1="112" y1="44" x2="112" y2="72"/>
+        <line class="nadel" x1="188" y1="44" x2="188" y2="72"/>
+        <line class="nadel" x1="248" y1="44" x2="248" y2="72"/>
+      </g>
+      <rect class="platz" x="32" y="16" width="28" height="28" rx="6" style="animation-delay:0s"/>
+      <rect class="platz hell" x="98" y="16" width="28" height="28" rx="6" style="animation-delay:.45s"/>
+      <rect class="platz" x="174" y="16" width="28" height="28" rx="6" style="animation-delay:.9s"/>
+      <rect class="platz" x="234" y="16" width="28" height="28" rx="6" style="animation-delay:1.35s"/>
+    </svg>
+    <h2>Hier beginnt deine <em>nächste Tour</em></h2>
+    <p>Aufzeichnung und Fotos hierher ziehen — Luhambo liest die Zeitstempel und ordnet alles selbst ein.</p>
+    <button class="knopf-primaer" id="waehlen"><svg><use href="#i-upload"/></svg>Dateien wählen</button>
+    <p class="fein">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>
+  </div>
+</div>
+
+<!-- ————— Rückfrage beim Schließen. Erst hier ist das Wegwerfen ein Thema —
+     als Folge des Schließens, nicht als eigener Knopf im Fuß. ————— -->
+<div class="rueckfrage" id="rueckfrage" hidden>
+  <div class="kasten">
+    <h3>Neue Tour verwerfen?</h3>
+    <p>Die bereits übertragenen Aufnahmen werden gelöscht. Die Dateien auf deinem Gerät bleiben, wo sie sind.</p>
+    <div class="knoepfe">
+      <button class="knopf-still" id="weiter-bearbeiten">Weiter bearbeiten</button>
+      <button class="knopf-gefahr" id="wirklich-verwerfen">Verwerfen</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- .blatt -->
+</div><!-- .modal -->
+
+<script>
+if (new URLSearchParams(location.search).has('ruhig')) document.body.classList.add('ruhig')
+const FOTOS =[{"nr":1,"src":"/photos/kohphangan/01-thong-sala.jpg","titel":"Thong Sala","zeit":"14:10","km":0.8,"t":0.0155,"x":1.71,"y":66.15,"ohneOrt":false},{"nr":2,"src":"/photos/kohphangan/02-baan-tai.jpg","titel":"Haad Baan Tai","zeit":"15:00","km":4.2,"t":0.0867,"x":24.49,"y":71.22,"ohneOrt":false},{"nr":3,"src":"/photos/kohphangan/03-phaeng.jpg","titel":"Nam Tok Phaeng","zeit":"16:11","km":9.2,"t":0.1884,"x":20.71,"y":42.86,"ohneOrt":true},{"nr":4,"src":"/photos/kohphangan/04-dschungelbach.jpg","titel":"Dschungelbach","zeit":"17:12","km":13.4,"t":0.2757,"x":29.6,"y":61.99,"ohneOrt":false},{"nr":5,"src":"/photos/kohphangan/05-dschungelpiste.jpg","titel":"Dschungelpiste","zeit":"18:08","km":17.3,"t":0.3549,"x":46.42,"y":54.29,"ohneOrt":false},{"nr":6,"src":"/photos/kohphangan/06-bergpiste.jpg","titel":"Bergkamm","zeit":"18:36","km":19.3,"t":0.3957,"x":52.94,"y":48.39,"ohneOrt":false},{"nr":7,"src":"/photos/kohphangan/07-daemmerung.jpg","titel":"Blaue Stunde","zeit":"19:20","km":22.3,"t":0.4571,"x":49.22,"y":26.02,"ohneOrt":false},{"nr":8,"src":"/photos/kohphangan/08-thong-nai-pan.jpg","titel":"Thong Nai Pan","zeit":"20:26","km":26.9,"t":0.5525,"x":52.1,"y":7.92,"ohneOrt":false},{"nr":9,"src":"/photos/kohphangan/09-ostkueste.jpg","titel":"Wilde Ostküste","zeit":"21:30","km":31.4,"t":0.6441,"x":75.42,"y":19.35,"ohneOrt":true},{"nr":10,"src":"/photos/kohphangan/10-longtail.jpg","titel":"Auf dem Golf","zeit":"22:36","km":36,"t":0.7377,"x":90.58,"y":57.52,"ohneOrt":false},{"nr":11,"src":"/photos/kohphangan/11-vor-haad-rin.jpg","titel":"Vor Haad Rin","zeit":"23:26","km":39.5,"t":0.8097,"x":99.06,"y":87.21,"ohneOrt":false},{"nr":12,"src":"/photos/kohphangan/12-haad-rin.jpg","titel":"Haad Rin","zeit":"23:59","km":41.8,"t":0.8569,"x":87.51,"y":97.16,"ohneOrt":false},{"nr":13,"src":"/landing/cta.jpg","titel":"Haad Rin","zeit":"01:40","km":null,"t":1,"x":null,"y":null,"ohneOrt":false,"spaet":true}]
+const RAND_X = 30
+// Anteil der Achse, den die Aufzeichnung selbst belegt (14:00–23:59 von 14:00–01:40)
+const BAND = 0.8571, SONNE = 0.41
+const spanne = (t) => `calc(${RAND_X}px + ${t} * (100% - ${RAND_X * 2}px))`
+
+/* — Der dichte Fall: so fotografiert man wirklich. Man bleibt an einem Ort
+     stehen und drückt fünfmal ab; am Strand zwölfmal. 45 Aufnahmen aus
+     denselben 13, mit Minutenabstand und ein paar Metern Streuung. — */
+const zeitPlus = (hhmm, min) => {
+  const [h, m] = hhmm.split(':').map(Number)
+  const g = (h * 60 + m + min) % 1440
+  return String(Math.floor(g / 60)).padStart(2, '0') + ':' + String(g % 60).padStart(2, '0')
+}
+const VIELE = (() => {
+  const dazu = { 1: 2, 2: 7, 3: 1, 4: 3, 5: 2, 6: 4, 7: 1, 8: 9, 9: 2, 10: 3, 11: 1, 12: 6 }
+  const raus = []
+  let nr = 100
+  for (const f of FOTOS) {
+    raus.push(f)
+    for (let i = 1; i <= (dazu[f.nr] ?? 0); i++) {
+      raus.push({
+        ...f, nr: ++nr, zeit: zeitPlus(f.zeit, i * 2),
+        t: f.t + (i * 2) / 700,
+        x: f.x + (i % 3 - 1) * 0.55, y: f.y + (i % 2 ? 0.5 : -0.45),
+        ohneOrt: false, spaet: false,
+      })
+    }
+  }
+  return raus.sort((a, b) => a.t - b.t)
+})()
+
+/* — Aufnahmen zeichnen: auf der Strecke und auf der Bahn —
+     Beide Ansichten BÜNDELN, was zu dicht liegt. Zwölf Fotos vom selben Strand
+     sind ein Stopp, kein Häufchen überlappender Bildchen — die Engine sieht es
+     genauso (Fotos unter 120 m in `s` werden EIN Stopp mit mehreren `items`).
+     Auf der Karte bündelt die Entfernung, auf der Bahn der Platz in Pixeln:
+     was sich sonst überlappen würde, rückt zusammen. */
+const NS = 'http://www.w3.org/2000/svg'
+const punkte = document.getElementById('punkte')
+const bahn = document.getElementById('bahn')
+let AUFNAHMEN = FOTOS
+
+const buendel = (liste, nah) => liste.reduce((gruppen, f) => {
+  const g = gruppen[gruppen.length - 1]
+  if (g && nah(g[g.length - 1], f)) g.push(f)
+  else gruppen.push([f])
+  return gruppen
+}, [])
+const mittel = (g, achse) => g.reduce((s, f) => s + f[achse], 0) / g.length
+const beschriftung = (g) => g.length === 1
+  ? `${g[0].titel} · ${g[0].zeit}`
+  : `${g.length} Aufnahmen · ${g[0].zeit}–${g[g.length - 1].zeit}`
+
+function zeichneAufnahmen() {
+  punkte.textContent = ''
+  bahn.querySelectorAll('.mini, .faecher').forEach((e) => e.remove())
+
+  buendel(AUFNAHMEN.filter((f) => f.x !== null), (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 3.4)
+    .forEach((g, i) => {
+      const el = document.createElementNS(NS, 'g')
+      el.setAttribute('class', 'punkt'
+        + (g.some((f) => f.ohneOrt) ? ' ohne-ort' : '')
+        + (g.length > 1 ? ' viele' : ''))
+      el.dataset.enthaelt = g.map((f) => f.nr).join(' ')
+      const x = mittel(g, 'x'), y = mittel(g, 'y')
+      const kreis = (klasse, r) => {
+        const c = document.createElementNS(NS, 'circle')
+        if (klasse) c.setAttribute('class', klasse)
+        c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', r)
+        return c
+      }
+      const halo = kreis('halo', 4.6)
+      const kern = kreis('', g.length > 1 ? 2.2 : 1.7)
+      kern.style.animationDelay = (1.1 + i * 0.05) + 's'
+      el.append(halo, kern)
+      // Ein Stopp mit mehreren Aufnahmen trägt einen Ring — die Zahl steht am
+      // Bildchen unten, hier wäre sie zwei Pixel groß.
+      if (g.length > 1) el.append(kreis('ring', 3.6))
+      punkte.append(el)
+    })
+
+  const breite = Math.max(bahn.clientWidth - RAND_X * 2, 1)
+  buendel(AUFNAHMEN, (a, b) => (b.t - a.t) * breite < 50).forEach((g, i) => {
+    const erste = g[0]
+    const b = document.createElement('button')
+    b.className = 'mini'
+      + (g.some((f) => f.ohneOrt) ? ' ohne-ort' : '')
+      + (g.some((f) => f.spaet) ? ' spaet' : '')
+      + (g.length > 1 ? ' stapel' : '')
+    b.dataset.enthaelt = g.map((f) => f.nr).join(' ')
+    b.style.left = `calc(${RAND_X}px + ${mittel(g, 't')} * (100% - ${RAND_X * 2}px))`
+    b.innerHTML = `<span class="zeit">${beschriftung(g)}</span>
+      <span class="bild"><img src="${erste.src}" alt="" style="animation-delay:${1.2 + i * 0.04}s" /></span>
+      ${g.length > 1 ? `<span class="zahl">${g.length}</span>` : ''}
+      ${g.some((f) => f.ohneOrt) && g.length === 1 ? '<span class="ortlos">?</span>' : ''}
+      ${g.some((f) => f.spaet) && g.length === 1 ? '<span class="ortlos">!</span>' : ''}
+      ${g.length === 1 ? '<span class="weg-x" role="button" tabindex="-1" aria-label="Weglassen">×</span>' : ''}
+      <span class="nadel"></span>`
+    bahn.append(b)
+  })
+}
+zeichneAufnahmen()
+// Die Bündelung hängt an der Breite — sie muss sich beim Ziehen neu ordnen.
+let messTakt = null
+addEventListener('resize', () => { clearTimeout(messTakt); messTakt = setTimeout(zeichneAufnahmen, 120) })
+
+/* Der Fächer: ein Stopp klappt auf, statt seine Bilder auf der Achse zu
+   stapeln. Erst hier bekommt die einzelne Aufnahme wieder ihr eigenes ×. */
+function oeffneFaecher(mini) {
+  document.querySelector('.faecher')?.remove()
+  if (!mini) return
+  const nrn = mini.dataset.enthaelt.split(' ').map(Number)
+  const g = nrn.map((n) => AUFNAHMEN.find((f) => f.nr === n)).filter(Boolean)
+  const f = document.createElement('div')
+  f.className = 'faecher'
+  f.innerHTML = `<div class="fk">${beschriftung(g)}</div><div class="fr">` + g.map((x) => `
+    <button class="fb${weggelassen.has(x.nr) ? ' weggelassen' : ''}" data-enthaelt="${x.nr}">
+      <img src="${x.src}" alt="" /><span class="fz">${x.zeit}</span>
+      <span class="weg-x" role="button" tabindex="-1" aria-label="Weglassen">×</span>
+    </button>`).join('') + '</div>'
+  blick.classList.remove('an')
+  const blatt = document.getElementById('blatt')
+  blatt.append(f)
+  const br = blatt.getBoundingClientRect(), mr = mini.getBoundingClientRect()
+  f.style.left = (mr.left + mr.width / 2 - br.left) + 'px'
+  f.style.bottom = (br.bottom - mr.top + 12) + 'px'
+  // am Blattrand nicht hinauslaufen
+  const r = f.getBoundingClientRect()
+  if (r.right > br.right - 10) f.style.transform = `translateX(calc(-50% - ${Math.ceil(r.right - br.right + 10)}px))`
+  if (r.left < br.left + 10) f.style.transform = `translateX(calc(-50% + ${Math.ceil(br.left + 10 - r.left)}px))`
+}
+
+/* — Stundenraster: alle zwei Stunden, 14:00 bis 01:40 — */
+const ACHSE_MIN = 11 * 60 + 40
+for (let m = 0; m <= ACHSE_MIN; m += 180) {
+  const s = document.createElement('div')
+  s.className = 'stunde'
+  s.style.left = `calc(${RAND_X}px + ${m / ACHSE_MIN} * (100% - ${RAND_X * 2}px))`
+  const std = (14 + m / 60) % 24
+  s.innerHTML = `<i></i><span>${String(std).padStart(2, '0')}:00</span>`
+  bahn.append(s)
+}
+
+/* Die Fortbewegung stand hier einmal als Farbstreifen unter dem Band — sie ist
+   raus: `trenneGehabschnitteInSegmenten` (server/src/pipeline/tempo.ts) läuft
+   erst beim Bauen, und die Bildanalyse sowieso. Was hier steht, muss in den
+   Dateien stehen, sonst zeigt der Screen Zahlen, die sich gleich ändern. */
+
+/* — Bandbreite, Ende, Sonnenuntergang — */
+document.getElementById('band').style.width = `calc(${BAND} * (100% - ${RAND_X * 2}px))`
+const nach = document.getElementById('nachlauf')
+nach.style.left = spanne(BAND)
+nach.style.width = `calc(${1 - BAND} * (100% - ${RAND_X * 2}px))`
+document.getElementById('bandende').style.left = spanne(BAND)
+document.getElementById('sonne').style.left = spanne(SONNE)
+
+/* — Eine Auswahl, zwei Ansichten — */
+const blick = document.getElementById('blick')
+const blickBild = document.getElementById('blick-bild')
+const blickText = document.getElementById('blick-text')
+let gewaehlt = null
+
+/* Hervorgehoben wird immer ein BÜNDEL — bei einer einzelnen Aufnahme ist das
+   eben ein Bündel aus einer. So bleibt die Kopplung Karte ↔ Bahn ↔ Fächer
+   dieselbe, egal wie dicht fotografiert wurde. */
+function zeigeAn(nrn) {
+  const faecherOffen = !!document.querySelector('.faecher')
+  const gesucht = nrn.map(String)
+  document.querySelectorAll('.mini, .punkt, .fb').forEach((el) => {
+    const eigene = (el.dataset.enthaelt || '').split(' ')
+    el.classList.toggle('an', eigene.some((n) => gesucht.includes(n)))
+  })
+  const g = nrn.map((n) => AUFNAHMEN.find((f) => f.nr === n)).filter(Boolean)
+  const verortet = g.filter((f) => f.x !== null)
+  if (!verortet.length) { blick.classList.remove('an'); return }
+  // SVG-Koordinate → Pixel im Flur (viewBox -6 -6 112 112, padding 30/34)
+  const flur = document.getElementById('flur').getBoundingClientRect()
+  const pad = { x: 34, y: 30 }
+  const w = flur.width - pad.x * 2, h = flur.height - pad.y * 2
+  const s = Math.min(w, h) / 112
+  blick.style.left = pad.x + (w - 112 * s) / 2 + (mittel(verortet, 'x') + 6) * s + 'px'
+  blick.style.top = pad.y + (h - 112 * s) / 2 + (mittel(verortet, 'y') + 6) * s + 'px'
+  blickBild.src = verortet[0].src
+  const einzeln = g.length === 1 && g[0].km !== null
+  blickText.textContent = beschriftung(g) + (einzeln ? ' · km ' + String(g[0].km).replace('.', ',') : '')
+  blick.classList.toggle('an', !faecherOffen)
+}
+const hebeHervor = (nr) => zeigeAn([Number(nr)])
+function loesche() {
+  if (gewaehlt) return zeigeAn(gewaehlt)
+  document.querySelectorAll('.mini, .punkt, .fb').forEach((el) => el.classList.remove('an'))
+  blick.classList.remove('an')
+}
+const nummern = (el) => (el.dataset.enthaelt || '').split(' ').map(Number)
+document.addEventListener('pointerover', (e) => {
+  const t = e.target.closest('.mini, .punkt, .fb')
+  if (t) zeigeAn(nummern(t))
+})
+document.addEventListener('pointerout', (e) => { if (e.target.closest('.mini, .punkt, .fb')) loesche() })
+document.addEventListener('click', (e) => {
+  const x = e.target.closest('.weg-x')
+  if (x) { lasseWeg(nummern(x.closest('.mini, .fb'))[0]); return }
+  const t = e.target.closest('.mini, .punkt, .fb')
+  if (!t) { oeffneFaecher(null); return }
+  const nrn = nummern(t)
+  // Ein Stopp klappt auf; alles Einzelne (Miniatur, Fächerbild, Kartenpunkt)
+  // öffnet direkt die große Ansicht — kein extra Lupen-Knopf mehr nötig.
+  if (t.classList.contains('mini') && nrn.length > 1) { zeigeAn(nrn); oeffneFaecher(t); return }
+  zeigeGross(nrn[0])
+})
+addEventListener('keydown', (e) => { if (e.key === 'Escape') oeffneFaecher(null) })
+document.querySelector('.bahn-scroll').addEventListener('scroll', () => oeffneFaecher(null))
+
+/* — Weglassen: die einzige entfernende Aktion hier. Umkehrbar, solange die
+     Tour nicht gebaut ist — deshalb bleibt die Miniatur stehen und verblasst
+     nur, statt zu verschwinden. — */
+/* — Groß ansehen. Blättert durch alle Aufnahmen in ihrer zeitlichen Folge,
+     nicht nur durch den Stopp: wer prüft, will die Reihe sehen. — */
+function zeigeGross(nr) {
+  document.querySelector('.gross')?.remove()
+  const f = AUFNAHMEN.find((x) => x.nr === Number(nr))
+  if (!f) return
+  const el = document.createElement('div')
+  el.className = 'gross'
+  el.innerHTML = `
+    <button class="zu" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
+    <button class="blaettern links" aria-label="Vorige"><svg><use href="#i-pfeil-l"/></svg></button>
+    <button class="blaettern rechts" aria-label="Nächste"><svg><use href="#i-pfeil-r"/></svg></button>
+    <figure>
+      <img src="${f.src}" alt="${f.titel}" />
+      <figcaption>
+        <div class="gt">${f.titel}</div>
+        <div class="gm">${f.zeit} Uhr${f.km !== null ? ' · km ' + String(f.km).replace('.', ',') : ' · ohne Ortsangabe'}
+          · ${AUFNAHMEN.indexOf(f) + 1} von ${AUFNAHMEN.length}</div>
+      </figcaption>
+    </figure>`
+  document.body.append(el)
+  const blaettere = (richtung) => {
+    const i = AUFNAHMEN.indexOf(f) + richtung
+    if (i < 0 || i >= AUFNAHMEN.length) return
+    zeigeGross(AUFNAHMEN[i].nr)
+  }
+  el.querySelector('.zu').onclick = () => el.remove()
+  el.querySelector('.links').onclick = () => blaettere(-1)
+  el.querySelector('.rechts').onclick = () => blaettere(1)
+  el.onclick = (e) => { if (e.target === el) el.remove() }
+  el.dataset.blaettert = '1'
+}
+addEventListener('keydown', (e) => {
+  const el = document.querySelector('.gross')
+  if (!el) return
+  if (e.key === 'Escape') { e.stopImmediatePropagation(); el.remove() }
+  if (e.key === 'ArrowLeft') el.querySelector('.links').click()
+  if (e.key === 'ArrowRight') el.querySelector('.rechts').click()
+}, true)
+
+const weggelassen = new Set()
+function lasseWeg(nr) {
+  weggelassen.has(nr) ? weggelassen.delete(nr) : weggelassen.add(nr)
+  const an = weggelassen.has(nr)
+  document.querySelector(`.mini[data-enthaelt="${nr}"]`)?.classList.toggle('weggelassen', an)
+  document.querySelector(`.fb[data-enthaelt="${nr}"]`)?.classList.toggle('weggelassen', an)
+  document.querySelector(`.punkt[data-enthaelt~="${nr}"]`)?.classList.toggle('aus', an)
+  zaehleNeu()
+  // Der Befund zum späten Foto erledigt sich, wenn man es weglässt
+  document.querySelector('.befund.warn').classList.toggle('erledigt', weggelassen.has(13))
+}
+function zaehleNeu() {
+  const dabei = AUFNAHMEN.length - weggelassen.size
+  document.getElementById('herkunft').textContent = weggelassen.size
+    ? `${dabei} Aufnahmen · ${weggelassen.size} weggelassen`
+    : `${dabei} Aufnahmen`
+  document.getElementById('bk-zahl').textContent = `${dabei} Aufnahmen an ihrer Uhrzeit`
+}
+document.querySelector('.befund.warn .link').addEventListener('click', () => lasseWeg(13))
+document.addEventListener('focusin', (e) => { if (e.target.closest('.mini')) hebeHervor(e.target.dataset.nr) })
+
+/* — Befund zeigt auf seine Objekte — VORSCHAU, keine Auswahl. Deshalb `.zeig`
+     statt `.an`: nur ein Leuchten, ohne Vergrößern und ohne die Eck-Knöpfe.
+     (Das Vergrößern schob die Lupe der rechten Aufnahme über die Bahn hinaus
+     und rief eine waagerechte Bildlaufleiste hervor.) — */
+document.querySelectorAll('.befund').forEach((b) => {
+  const art = b.dataset.hebt
+  const setz = (an) => {
+    document.querySelectorAll('.mini').forEach((m) => m.classList.toggle('zeig', an && m.classList.contains(art)))
+    document.querySelectorAll('.punkt').forEach((p) => p.classList.toggle('zeig', an && p.classList.contains(art)))
+    b.classList.toggle('hell', an)
+  }
+  b.addEventListener('pointerenter', () => setz(true))
+  b.addEventListener('pointerleave', () => setz(false))
+})
+
+/* — Die Übertragung läuft, während geprüft wird — sie beginnt mit den Dateien,
+     nicht mit dem Screen: im leeren Blatt gibt es nichts zu übertragen. — */
+const ringV = document.getElementById('ring-v')
+const uText = document.getElementById('uebertragung-text')
+let fertig = 0
+let takt = null
+function starteUebertragung() {
+  if (takt) return
+  takt = setInterval(() => {
+    const ziel = AUFNAHMEN.length
+    fertig = Math.min(ziel, fertig + Math.max(1, Math.round(ziel / 13)))
+    const p = fertig / ziel
+    ringV.style.strokeDashoffset = String(50.3 * (1 - p))
+    uText.innerHTML = fertig === ziel ? '<b>alles</b> übertragen' : `<b>${fertig}</b> von ${ziel} übertragen`
+    if (fertig === ziel) { document.getElementById('uebertragung').classList.add('fertig'); clearInterval(takt) }
+  }, 900)
+}
+
+/* — Sichtbarkeit: dieselben drei Stufen wie in der Bibliothek — */
+const SICHT = {
+  privat: { icon: 'i-schloss', wort: 'Privat', hinweis: 'Nur du siehst sie' },
+  link: { icon: 'i-schloss-offen', wort: 'Per Link', hinweis: 'Wer die Adresse hat' },
+  oeffentlich: { icon: 'i-welt', wort: 'Öffentlich', hinweis: 'Steht in der Galerie' },
+}
+let sichtStufe = 'privat'
+const sichtKnopf = document.getElementById('sicht-knopf')
+const sichtMenueZu = () => {
+  document.querySelector('.sicht-menue')?.remove()
+  sichtKnopf.setAttribute('aria-expanded', 'false')
+}
+sichtKnopf.addEventListener('click', (e) => {
+  e.stopPropagation()
+  if (sichtKnopf.getAttribute('aria-expanded') === 'true') return sichtMenueZu()
+  sichtKnopf.setAttribute('aria-expanded', 'true')
+  const eintraege = Object.entries(SICHT).map(([k, v]) =>
+    '<button role="menuitemradio" data-sicht="' + k + '" aria-checked="' + (k === sichtStufe) + '">' +
+      '<svg><use href="#' + v.icon + '"/></svg>' +
+      '<span>' + v.wort + '<em>' + v.hinweis + '</em></span>' +
+      '<svg class="haken"><use href="#i-haken"/></svg></button>').join('')
+  sichtKnopf.parentElement.insertAdjacentHTML('beforeend', '<div class="sicht-menue" role="menu">' + eintraege + '</div>')
+})
+document.addEventListener('click', (e) => {
+  const wahl = e.target.closest('.sicht-menue button')
+  if (wahl) {
+    sichtStufe = wahl.dataset.sicht
+    const v = SICHT[sichtStufe]
+    sichtKnopf.querySelector('use').setAttribute('href', '#' + v.icon)
+    document.getElementById('sicht-wort').textContent = v.wort
+    sichtKnopf.classList.toggle('oeffentlich', sichtStufe === 'oeffentlich')
+  }
+  if (!e.target.closest('.sicht-huelle')) sichtMenueZu()
+})
+
+/* — Click-Dummy: der Weg zurück und der Weg weiter —
+     Schließen fragt nach, sobald schon etwas da ist; im leeren Zustand gibt es
+     nichts wegzuwerfen und es geht ohne Rückfrage zurück. */
+const rueckfrage = document.getElementById('rueckfrage')
+const RUHIG = new URLSearchParams(location.search).has('ruhig')
+const zurueck = () => { location.href = 'studio-start.html' + (RUHIG ? '?ruhig=1' : '') }
+const schliesseAb = () => {
+  if (document.getElementById('leerzustand').hidden === false) return zurueck()
+  rueckfrage.hidden = false
+}
+document.getElementById('schliessen').addEventListener('click', schliesseAb)
+document.getElementById('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') schliesseAb() })
+document.getElementById('weiter-bearbeiten').addEventListener('click', () => { rueckfrage.hidden = true })
+document.getElementById('wirklich-verwerfen').addEventListener('click', zurueck)
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return
+  if (!rueckfrage.hidden) { rueckfrage.hidden = true; return }
+  schliesseAb()
+})
+document.getElementById('bauen').addEventListener('click', () => {
+  location.href = 'studio-start.html?neu=1' + (RUHIG ? '&ruhig=1' : '')
+})
+// „Hinzufügen" zeigt im Dummy, was beim Ablegen passiert
+document.getElementById('mehr-medien').addEventListener('click', () => {
+  const schirm = document.getElementById('dropschirm')
+  schirm.hidden = false
+  setTimeout(() => { schirm.hidden = true }, 1400)
+})
+
+/* — Mockup-Zustände — */
+const zustand = (z) => {
+  document.querySelectorAll('.mockleiste button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.z === z)))
+  document.getElementById('leerzustand').hidden = z !== 'leer'
+  document.getElementById('lesezustand').hidden = z !== 'liest'
+  document.getElementById('dropschirm').hidden = z !== 'drop'
+  // Solange nichts da ist, behauptet der Kopf auch nichts: keine Zahl, kein Ring.
+  document.getElementById('blatt').classList.toggle('klein', z === 'leer')
+  document.getElementById('herkunft').hidden = z === 'leer'
+  document.getElementById('uebertragung').hidden = z === 'leer' || z === 'liest'
+  if (z !== 'leer' && z !== 'liest' && z !== 'drop') starteUebertragung()
+  if (z === 'drop') return // der Schirm liegt über dem bestehenden Stand
+  // Der dichte Fall zeichnet dieselbe Tour mit 45 statt 13 Aufnahmen neu.
+  const gewuenscht = z === 'viele' ? VIELE : FOTOS
+  if (gewuenscht !== AUFNAHMEN) {
+    AUFNAHMEN = gewuenscht
+    gewaehlt = null
+    oeffneFaecher(null)
+    zeichneAufnahmen()
+    zaehleNeu()
+  }
+  if (z === 'viele') z = 'pruefen'
+  // Der Normalfall: alles sitzt, wo es hingehört. Dann steht hier nichts —
+  // Hinweise erscheinen nur, wenn es welche gibt.
+  const sauber = z === 'sauber'
+  document.getElementById('befunde').hidden = sauber
+  document.querySelectorAll('.mini.ohne-ort').forEach((m) => m.classList.toggle('ohne-marke', sauber))
+  document.querySelectorAll('.punkt.ohne-ort').forEach((p) => p.classList.toggle('ortsicher', sauber))
+  if (sauber) z = 'pruefen'
+  const flur = document.getElementById('flur')
+  flur.classList.toggle('geflogen', z === 'fotos')
+  document.getElementById('linie').setAttribute('d', z === 'fotos' ? LUFTLINIE : STRECKE)
+  // Ohne Aufzeichnung reicht die Zeitachse von der ersten bis zur letzten
+  // Aufnahme — es gibt kein „danach", also auch keinen Nachlauf und keinen
+  // Ausreißer: das späte Foto ist hier einfach das letzte.
+  const band = document.getElementById('band')
+  const ganz = z === 'fotos' || sauber // ohne späte Aufnahme reicht die Achse genau bis zum Ende
+  band.style.width = ganz
+    ? `calc(100% - ${RAND_X * 2}px)`
+    : `calc(${BAND} * (100% - ${RAND_X * 2}px))`
+  band.style.backgroundSize = ganz ? '100% 100%' : '116.67% 100%'
+  document.querySelector('.mini.spaet')?.classList.toggle('ohne-marke', z === 'fotos' || sauber)
+  document.querySelector('.befund.warn').hidden = z === 'fotos'
+  document.getElementById('flur-fuss').textContent = z === 'fotos' ? 'Geschätzter Flug zwischen den Aufnahmeorten' : 'Aufgezeichnete Strecke'
+  zaehleNeu()
+  if (z === 'fotos') document.getElementById('herkunft').textContent = `${AUFNAHMEN.length} Aufnahmen · keine Aufzeichnung`
+  // Ohne Aufzeichnung gibt es keine gefahrene Strecke — nur die Luftlinie
+  // zwischen den Aufnahmeorten. Das Wort davor sagt das, nicht eine Fußnote.
+  const nurFotos = z === 'fotos'
+  document.getElementById('f-strecke-t').textContent = nurFotos ? 'Luftlinie' : 'Strecke'
+  document.getElementById('f-strecke').textContent = nurFotos ? '38,4 km' : '41,8 km'
+  document.getElementById('f-dauer').textContent = nurFotos ? '11 h 40 min' : '9 h 59 min'
+  document.getElementById('f-datum').innerHTML = nurFotos ? '21. Juli · <em>14:10–01:40</em>' : '21. Juli · <em>14:10–23:59</em>'
+  document.getElementById('bandende').hidden = ganz
+  document.getElementById('nachlauf').hidden = ganz
+}
+const STRECKE = document.getElementById('linie').getAttribute('d')
+const LUFTLINIE = FOTOS.filter((f) => f.x !== null).map((f, i) => `${i ? 'L' : 'M'}${f.x} ${f.y}`).join('')
+document.querySelectorAll('.mockleiste button').forEach((b) => b.addEventListener('click', () => {
+  zustand(b.dataset.z)
+  location.hash = b.dataset.z
+}))
+
+/* Der Weg von vorn: leeres Blatt → Dateien wählen → lesen → prüfen.
+   Ohne Hash beginnt der Dummy dort, wo auch die echte App beginnt.
+   Die ganze leere Fläche löst aus, nicht nur der Knopf darin. */
+const lies = () => { zustand('liest'); setTimeout(() => zustand('pruefen'), 1700) }
+document.getElementById('leerzustand').addEventListener('click', lies)
+document.getElementById('leerzustand').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lies() }
+})
+document.getElementById('dropschirm').addEventListener('click', lies)
+
+// Zustand und Vorauswahl aus der Adresse — für Screenshots: #fotos, ?wahl=6
+zustand(location.hash ? location.hash.slice(1) : 'leer')
+const vorwahl = new URLSearchParams(location.search).get('wahl')
+if (vorwahl) { gewaehlt = Number(vorwahl); addEventListener('load', () => hebeHervor(gewaehlt)) }
+</script>
+</body>
+</html>

@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Luhambo Studio, Startscreen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Space+Grotesk:wght@400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — nicht die echte App. Design-DNA bleibt (Fraunces + Space
+   Grotesk + Plex Mono, Amber auf warmem Dunkel); neu ist die Haltung:
+   die Bibliothek ist die Bühne, der Upload eine Kachel darin.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #10151d;
+  --fl-2: #151c26;
+  --fl-3: #1c2530;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+  --akzent: #f5a524;
+  --akzent-2: #ff6f52;
+  --gruen: #3ecf8e;
+  --rot: #e5484d;
+  --blau: #5b9dff;
+  --schatten: 0 14px 34px rgba(2,5,10,.5), 0 2px 8px rgba(2,5,10,.35);
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --topbar-h: 58px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14.5px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: rgba(245,165,36,.3); }
+
+/* — Mockup-Leiste (gehört NICHT ins Produkt) — */
+.mockleiste {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 18px; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .12em; text-transform: uppercase;
+  background: repeating-linear-gradient(135deg, #14100a, #14100a 10px, #171209 10px, #171209 20px);
+  border-bottom: 1px solid #2a2113; color: #8d7a55;
+}
+.mockleiste b { color: var(--akzent); font-weight: 600; letter-spacing: .12em; }
+.mockleiste .sp { flex: 1; }
+.mockleiste button {
+  background: transparent; border: 1px solid #33291a; color: #a08c62;
+  border-radius: 999px; padding: 4px 11px; font-family: var(--font-mono);
+  font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+}
+.mockleiste button[aria-pressed='true'] { background: rgba(245,165,36,.14); border-color: rgba(245,165,36,.5); color: var(--akzent); }
+
+/* — Topbar — */
+.topbar {
+  position: sticky; top: 34px; z-index: 30;
+  height: var(--topbar-h); display: flex; align-items: center; gap: 14px;
+  padding: 0 26px; border-bottom: 1px solid var(--rand);
+  background: rgba(10,14,20,.86); backdrop-filter: blur(14px);
+}
+.wortmarke { font-family: var(--font-display); font-size: 18px; }
+.wortmarke b { color: var(--akzent); font-weight: 600; }
+.topbar .luecke { flex: 1; }
+.suche {
+  position: relative; width: min(330px, 34vw);
+}
+.suche input {
+  width: 100%; background: var(--fl-1); border: 1px solid var(--rand);
+  border-radius: 999px; padding: 8px 14px 8px 36px; font-size: 13.5px;
+  transition: border-color .18s ease, background .18s ease;
+}
+.suche input::placeholder { color: var(--text-3); }
+.suche input:focus { outline: none; border-color: var(--akzent); background: var(--bg-tief); }
+.suche svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; color: var(--text-3); }
+.suche kbd {
+  position: absolute; right: 10px; top: 50%; translate: 0 -50%;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+  border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px;
+}
+.benutzer-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-2);
+  background: var(--fl-1); border: 1px solid var(--rand);
+  border-radius: 999px; padding: 5px 12px 5px 6px;
+}
+.benutzer-chip .punkt {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+  color: #221302; display: grid; place-items: center;
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+}
+.knopf-primaer {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+  color: #241402; border: none; border-radius: 999px;
+  padding: 8px 16px; font-size: 13.5px; font-weight: 600;
+  box-shadow: 0 6px 18px rgba(245,165,36,.22);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.knopf-primaer:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(245,165,36,.3); }
+.knopf-primaer svg { width: 16px; height: 16px; }
+
+/* — Seitenkopf — */
+.rumpf { max-width: 1320px; margin: 0 auto; padding: 34px 26px 80px; }
+.kopf {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--rand);
+}
+.kopf h1 { font-size: clamp(28px, 3.2vw, 38px); letter-spacing: -.02em; font-weight: 480; }
+.kopf h1 em { font-style: italic; color: var(--akzent); }
+.kopf .sp { flex: 1; }
+
+/* — Werkzeuge im Kopf (Sortierung + Ansicht) — */
+.sortier {
+  background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px;
+  padding: 6px 10px; font-size: 12.5px; color: var(--text-2);
+}
+.ansicht-schalter { display: inline-flex; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 3px; gap: 3px; }
+.ansicht-schalter button { border: none; background: transparent; border-radius: 6px; padding: 5px 8px; color: var(--text-3); display: grid; place-items: center; }
+.ansicht-schalter button svg { width: 16px; height: 16px; }
+.ansicht-schalter button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
+
+/* Indeterminierter Balken: ein Segment läuft in EINE Richtung durch und
+   erscheint links wieder — kein Hin und Her (das las sich wie „unschlüssig"). */
+@keyframes wandern { from { left: -40%; } to { left: 100%; } }
+
+/* — Raster — */
+.raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; align-items: start; }
+/* overflow SICHTBAR — das Sichtbarkeits-Menü klappt über den Kartenrand hinaus.
+   Gerundet wird stattdessen am Bild (das die Karte füllt) und an den Auflagen;
+   mit `overflow: hidden` an der Karte wurde das Menü an ihrer Unterkante
+   abgeschnitten und lag optisch IN der Karte statt darüber. */
+.karte {
+  position: relative; border-radius: 15px; cursor: pointer;
+  background: var(--fl-1); border: 1px solid var(--rand);
+  transition: transform .2s cubic-bezier(.2,.7,.2,1), border-color .2s ease, box-shadow .2s ease;
+  animation: rein 420ms cubic-bezier(.2,.7,.2,1) backwards;
+}
+.karte.menue-offen { z-index: 10; }
+.karte:nth-child(2) { animation-delay: 45ms; }
+.karte:nth-child(3) { animation-delay: 90ms; }
+.karte:nth-child(4) { animation-delay: 135ms; }
+.karte:nth-child(5) { animation-delay: 180ms; }
+.karte:nth-child(n+6) { animation-delay: 225ms; }
+@keyframes rein { from { opacity: 0; transform: translateY(10px); } }
+.karte:hover { transform: translateY(-2px); border-color: var(--rand-hell); box-shadow: var(--schatten); }
+.karte .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: 14px; }
+/* Kein Bild-Zoom beim Überfahren: die Kachel IST das Foto, und wenn es sich
+   unter dem Zeiger bewegt, wirkt jede Kachel wie ein Werbebanner. Was auf
+   Hover reagiert, sind die Bedienelemente — nicht die Reise. */
+.karte .bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter .3s ease; }
+.karte .bild::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6,8,12,.05) 0%, rgba(6,8,12,.5) 72%, rgba(6,8,12,.86) 100%);
+}
+/* Route als Signatur über dem Bild — die Form der Tour, nicht nur ein Foto */
+/* Routen-Signet: die Form DIESER Tour, aus den echten Wegpunkten. Feste Fläche,
+   aber `meet` statt `none` — eine schmale, hohe Route bleibt schmal und hoch,
+   statt auf Kartenbreite gezerrt zu werden. Sitzt, wo vorher die Nummer stand. */
+.karte .spur {
+  position: absolute; top: 9px; left: 11px; z-index: 2;
+  width: 64px; height: 50px; padding: 5px; pointer-events: none;
+  /* Eigene Glasfläche: sonst verschwindet die Linie über hellem Fels oder Schnee */
+  background: rgba(6,8,12,.45); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 11px;
+  transition: width .25s cubic-bezier(.2,.7,.2,1), height .25s cubic-bezier(.2,.7,.2,1), background .25s ease;
+}
+.karte:hover .spur, .karte.hover-demo .spur { width: 80px; height: 62px; background: rgba(6,8,12,.6); }
+.karte .spur .linie {
+  fill: none; stroke: rgba(255,255,255,.92); stroke-width: 2.6;
+  stroke-linecap: round; stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 400; stroke-dashoffset: 0;
+}
+.karte .spur .start { fill: var(--akzent); }
+.karte .spur .ende { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+/* Beim Hover zeichnet sich die Route einmal nach */
+.karte:hover .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(.3,.6,.2,1); }
+@keyframes spurZeichnen { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .karte:hover .spur .linie { animation: none; }
+  .karte { animation: none; }
+}
+.karte .nr {
+  position: absolute; top: 9px; left: 11px; z-index: 2;
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .18em;
+  color: rgba(255,255,255,.78); padding: 4px 9px; border-radius: 999px;
+  background: rgba(6,8,12,.55); backdrop-filter: blur(7px);
+  border: 1px solid rgba(255,255,255,.1);
+}
+/* Sichtbarkeit: im Ruhezustand nur das Zeichen. Das Wort klappt auf, wenn der
+   Zeiger AUF DEM ZEICHEN steht — nicht schon beim Überfahren der Kachel: dort
+   bewegte sich sonst alles gleichzeitig (Wort, Knöpfe, Unschärfe).
+   Zugleich der Umschalter: wer den Zustand sieht, will ihn dort auch ändern. */
+.karte .griffe {
+  position: absolute; top: 9px; right: 11px; z-index: 4;
+  display: flex; flex-direction: row-reverse; align-items: center; gap: 6px;
+}
+.karte .sicht {
+  display: inline-flex; align-items: center; gap: 0;
+  font-size: 11px; padding: 5px; border-radius: 999px;
+  background: rgba(6,8,12,.55); backdrop-filter: blur(7px);
+  border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.82);
+  transition: gap .22s cubic-bezier(.2,.7,.2,1), padding .22s cubic-bezier(.2,.7,.2,1), background .22s ease;
+}
+.karte .sicht svg { width: 12px; height: 12px; flex: none; }
+.karte .sicht span {
+  max-width: 0; overflow: hidden; white-space: nowrap;
+  transition: max-width .22s cubic-bezier(.2,.7,.2,1);
+}
+.karte .sicht:hover, .karte .sicht[aria-expanded="true"] { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6,8,12,.9); }
+.karte .sicht:hover span, .karte .sicht[aria-expanded="true"] span { max-width: 90px; }
+.karte .sicht[aria-expanded="true"] { border-color: var(--akzent); color: var(--akzent); }
+.karte .sicht.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,.4); }
+.karte .fuss { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 14px 15px 13px; }
+.karte .fuss .t {
+  font-family: var(--font-display); font-size: 17px; font-weight: 500;
+  letter-spacing: -.01em; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.karte .fuss .m { font-family: var(--font-mono); font-size: 11.5px; color: rgba(242,237,227,.62); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+/* Erkannte Fortbewegung: Teil der Metazeile, nicht eigenes Bedienelement */
+.karte .fuss .m .mi { width: 13px; height: 13px; flex: none; opacity: .8; }
+/* DIE GANZE KACHEL SPIELT AB. Die Taste in der Mitte ist die Ansage dafür,
+   nicht das einzige Ziel — deshalb Handzeiger auf der ganzen Fläche und keine
+   Trefferjagd auf 54 Pixel. Daneben genau ein zweiter Griff (Bearbeiten) und
+   die Sichtbarkeit, die zugleich Anzeige und Umschalter ist. */
+.karte .play {
+  position: absolute; top: 50%; left: 50%; z-index: 3;
+  width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(10,14,20,.55); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,.28); color: #fff; padding: 0;
+  transform: translate(-50%, -50%) scale(.82); opacity: 0;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1), background .18s ease;
+}
+.karte .play svg { width: 19px; height: 19px; margin-left: 2px; }
+.karte:hover .play, .karte:focus-within .play, .karte.hover-demo .play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* Kein Amber unter dem Zeiger: Die Taste liegt auf einem Foto und soll es
+   nicht überstrahlen — sie wird nur kontrastreicher, nicht bunt. */
+.karte .play:hover { background: rgba(10,14,20,.8); border-color: rgba(255,255,255,.85); color: #fff; }
+/* leichter Schleier, damit die Taste auf hellen Fotos steht — keine Unschärfe */
+.karte .schleier {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(42% 42% at 50% 50%, rgba(6,8,12,.42), transparent 72%);
+  opacity: 0; transition: opacity .2s ease;
+}
+.karte:hover .schleier, .karte:focus-within .schleier, .karte.hover-demo .schleier { opacity: 1; }
+
+/* Bearbeiten — der zweite Griff, im selben Muster wie die Sichtbarkeit:
+   Zeichen im Ruhezustand, Wort beim Zeigen auf das Zeichen. */
+.stift-knopf {
+  display: inline-flex; align-items: center; gap: 0;
+  font-size: 11px; padding: 5px; border-radius: 999px;
+  background: rgba(6,8,12,.55); backdrop-filter: blur(7px);
+  border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.82);
+  opacity: 0;
+  transition: opacity .18s ease, gap .22s cubic-bezier(.2,.7,.2,1), padding .22s cubic-bezier(.2,.7,.2,1), background .22s ease;
+}
+.stift-knopf svg { width: 12px; height: 12px; flex: none; }
+.stift-knopf span { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width .22s cubic-bezier(.2,.7,.2,1); }
+.karte:hover .stift-knopf, .karte:focus-within .stift-knopf, .karte.hover-demo .stift-knopf { opacity: 1; }
+.stift-knopf:hover { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6,8,12,.9); color: #fff; }
+.stift-knopf:hover span { max-width: 90px; }
+
+/* Sichtbarkeits-Menü. Drei Stufen als Liste statt eines Rundlaufs: bei einer
+   Einstellung, die entscheidet, wer die Reise sehen darf, muss man vorher
+   wissen, wohin man kommt. Der Link steht dort, wo er entsteht — sobald die
+   Tour nicht mehr privat ist. */
+.menue {
+  position: absolute; top: 42px; right: 11px; z-index: 20; min-width: 226px;
+  background: rgba(14,19,26,.98); backdrop-filter: blur(14px);
+  border: 1px solid var(--rand-hell); border-radius: 13px; padding: 5px;
+  box-shadow: 0 22px 50px rgba(2,5,10,.7);
+  animation: menueRein .14s ease backwards;
+}
+@keyframes menueRein { from { opacity: 0; transform: translateY(-4px); } }
+.menue button {
+  display: flex; align-items: flex-start; gap: 9px; width: 100%;
+  background: none; border: none; color: var(--text-2); text-align: left;
+  padding: 8px 10px; border-radius: 9px; font-size: 13px; line-height: 1.35;
+}
+.menue button:hover { background: var(--fl-3); color: var(--text); }
+.menue button svg { width: 14px; height: 14px; opacity: .8; flex: none; margin-top: 2px; }
+.menue button > span { flex: 1; min-width: 0; }
+.menue button em { display: block; font-style: normal; font-size: 11.5px; color: var(--text-3); }
+.menue button[aria-checked="true"] { color: var(--text); }
+.menue button[aria-checked="true"] .haken { margin-left: auto; width: 13px; height: 13px; color: var(--akzent); opacity: 1; }
+.menue button .haken { display: none; }
+.menue button[aria-checked="true"] .haken { display: block; }
+.menue hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+.menue .kopfzeile {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-3); padding: 7px 10px 5px;
+}
+
+/* Listenansicht: dieselben zwei Griffe wie auf der Kachel */
+.akt {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(12,16,22,.6);
+  border-radius: 999px; padding: 7px; color: var(--text-2);
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.akt:hover { border-color: rgba(245,165,36,.6); color: var(--text); }
+.akt svg { width: 15px; height: 15px; }
+.akt.haupt { background: var(--akzent); color: #241402; border-color: transparent; }
+.akt.haupt:hover { background: #ffb63f; }
+
+/* Zustände. Die entstehende Tour braucht keine Vokabel — sie schimmert und
+   trägt einen laufenden Balken; das liest sich schneller als jedes Wort. */
+.karte.arbeitet .bild img { filter: grayscale(.5) brightness(.55); }
+.karte.arbeitet { cursor: default; }
+.karte.arbeitet::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: 14px;
+  background: linear-gradient(105deg, transparent 32%, rgba(245,165,36,.13) 46%, rgba(255,240,220,.16) 50%, rgba(245,165,36,.13) 54%, transparent 68%);
+  background-size: 260% 100%;
+  animation: schimmer 1.9s linear infinite;
+}
+@keyframes schimmer { from { background-position: 180% 0; } to { background-position: -80% 0; } }
+.karte .lauf { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.4); z-index: 4; border-radius: 0 0 14px 14px; overflow: hidden; }
+.karte .lauf span { position: absolute; top: 0; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: wandern 1.5s cubic-bezier(.65,0,.35,1) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .karte.arbeitet::after { animation: none; }
+}
+/* Fehler auf der Übersicht: nur das Zeichen. Was schiefging, gehört dorthin,
+   wo man es beheben kann — in die geöffnete Tour. */
+.fehler-punkt {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 700; font-size: 13px; line-height: 1;
+  background: rgba(229,72,77,.9); color: #fff;
+  border: 1px solid rgba(255,255,255,.18); box-shadow: 0 2px 10px rgba(229,72,77,.35);
+}
+.karte.defekt .bild img { filter: grayscale(.8) brightness(.5); }
+
+/* — Erkannte Fortbewegung: lesbar in der Metazeile, änderbar per Klick — */
+
+/* — Neue-Tour-Kachel — */
+.neu-kachel {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 7px; aspect-ratio: 16/10; overflow: hidden;   /* dieselbe Höhe wie die Karten: deren Höhe kommt vom 16/10-Bild (Titel/Meta liegen absolut darüber, tragen keine Höhe bei). War 16/10.9 → ~14px zu hoch. Inhalt bleibt kompakt + zentriert und passt in die Fläche. */
+  border: 1.5px dashed var(--rand-hell); border-radius: 15px; text-align: center;
+  background: radial-gradient(90% 70% at 50% 0%, rgba(245,165,36,.06), transparent 70%), var(--fl-1);
+  color: var(--text-2); padding: 14px 18px;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.neu-kachel:hover { border-color: var(--akzent); background: radial-gradient(90% 70% at 50% 0%, rgba(245,165,36,.12), transparent 70%), var(--fl-1); transform: translateY(-2px); }
+.neu-kachel svg { width: 23px; height: 23px; color: var(--akzent); }
+.neu-kachel .h { font-family: var(--font-display); font-size: 16px; color: var(--text); }
+.neu-kachel .n { font-size: 12px; color: var(--text-3); max-width: 30ch; line-height: 1.4; }
+
+/* — Leerzustand — */
+.leer {
+  border: 1.5px dashed var(--rand); border-radius: 20px; padding: 74px 28px;
+  text-align: center; position: relative; overflow: hidden;
+  background: radial-gradient(80% 60% at 50% 0%, rgba(245,165,36,.05), transparent 70%);
+}
+/* Route unter dem Text durchlaufen lassen, nicht hindurch: Maske am Textblock */
+.leer .route { position: absolute; left: 0; right: 0; bottom: -10px; height: 62%; pointer-events: none; opacity: .38; }
+.leer .route path { fill: none; stroke: rgba(245,165,36,.5); stroke-width: 2; stroke-dasharray: 6 10; stroke-linecap: round; animation: fluss 60s linear infinite; }
+@keyframes fluss { to { stroke-dashoffset: -1600; } }
+.leer h2 { font-size: 25px; font-weight: 480; letter-spacing: -.01em; position: relative; }
+.leer p { color: var(--text-3); font-size: 13.5px; max-width: 44ch; margin: 10px auto 22px; position: relative; }
+.leer .knopf-primaer { position: relative; }
+
+/* — Listenansicht — */
+.liste { display: flex; flex-direction: column; gap: 8px; }
+.zeile {
+  display: flex; align-items: center; gap: 15px; padding: 9px 14px 9px 9px;
+  background: var(--fl-1); border: 1px solid var(--rand); border-radius: 13px;
+  transition: background .16s ease, border-color .16s ease;
+}
+.zeile:hover { background: var(--fl-2); border-color: var(--rand-hell); }
+.zeile .mini { width: 74px; height: 48px; border-radius: 9px; overflow: hidden; flex: none; background: var(--fl-2); }
+.zeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.zeile .txt { flex: 1; min-width: 0; }
+.zeile .txt .t { font-family: var(--font-display); font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zeile .txt .m { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.zeile .rechts { display: flex; align-items: center; gap: 8px; }
+.zeile .sichtpille { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 999px; padding: 3px 10px; }
+.zeile .akt { padding: 7px 12px; font-size: 12.5px; background: var(--fl-2); }
+
+/* — Drop-Overlay über der ganzen Seite — */
+.drop-overlay {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  background: rgba(6,8,12,.82); backdrop-filter: blur(6px);
+  animation: rein 200ms ease backwards;
+}
+.drop-overlay .kasten {
+  border: 2px dashed var(--akzent); border-radius: 22px; padding: 60px 74px;
+  text-align: center; background: rgba(245,165,36,.06);
+}
+.drop-overlay svg { width: 38px; height: 38px; color: var(--akzent); }
+.drop-overlay .h { font-family: var(--font-display); font-size: 26px; margin-top: 14px; }
+.drop-overlay p { color: var(--text-2); font-size: 13.5px; margin: 8px 0 0; }
+
+/* — Upload-Schublade — */
+.schublade {
+  position: fixed; right: 22px; bottom: 22px; z-index: 70; width: min(370px, calc(100vw - 44px));
+  background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(2,5,10,.65); overflow: hidden;
+  animation: hoch 300ms cubic-bezier(.2,.7,.2,1) backwards;
+}
+@keyframes hoch { from { opacity: 0; transform: translateY(16px); } }
+.schublade .sk { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-bottom: 1px solid var(--rand); }
+.schublade .sk .h { font-family: var(--font-display); font-size: 15.5px; flex: 1; }
+.schublade .sk button { background: transparent; border: none; color: var(--text-3); font-size: 17px; line-height: 1; }
+.schublade .inhalt { padding: 14px 15px 16px; display: flex; flex-direction: column; gap: 13px; }
+.dz {
+  border: 1.5px dashed var(--rand-hell); border-radius: 12px; padding: 18px; text-align: center;
+  background: rgba(21,28,38,.4);
+}
+.dz svg { width: 22px; height: 22px; color: var(--akzent); }
+.dz .a { font-size: 13.5px; font-weight: 500; margin-top: 6px; }
+.dz .b { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.dz .b u { text-decoration-color: var(--akzent); text-underline-offset: 3px; }
+.mini-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
+.mini-raster div { aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--rand); }
+.mini-raster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.feld label { display: block; font-size: 12px; color: var(--text-3); margin-bottom: 5px; }
+.feld input {
+  width: 100%; background: var(--bg-tief); border: 1px solid var(--rand);
+  border-radius: 9px; padding: 8px 11px; font-size: 13.5px;
+}
+.feld input:focus { outline: none; border-color: var(--akzent); }
+.segmente { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 11px; padding: 4px; }
+.segmente button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: none; background: transparent; border-radius: 8px; padding: 7px 2px 6px;
+  color: var(--text-3); font-size: 10.5px;
+}
+.segmente button svg { width: 16px; height: 16px; }
+.segmente button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--rand-hell); }
+.notiz {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 12.5px; color: var(--text-2); line-height: 1.45;
+  background: rgba(245,165,36,.07); border: 1px solid rgba(245,165,36,.22);
+  border-radius: 11px; padding: 10px 12px;
+}
+.notiz svg { width: 15px; height: 15px; color: var(--akzent); flex: none; margin-top: 2px; }
+.schublade .lauf-bal { height: 4px; border-radius: 999px; background: var(--fl-2); overflow: hidden; }
+.schublade .lauf-bal span { display: block; height: 100%; width: 62%; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
+.schublade .stat { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
+
+@media (max-width: 820px) {
+  .topbar { padding: 0 16px; gap: 10px; }
+  .suche { display: none; }
+  .rumpf { padding: 24px 16px 90px; }
+  .raster { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+}
+</style>
+</head>
+<body>
+
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M7 4.8v14.4L19.5 12z"/></symbol>
+    <symbol id="i-stift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 10-4-4L4 16v4z"/></symbol>
+    <symbol id="i-schloss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+    <symbol id="i-schloss-offen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 017.5-2"/></symbol>
+    <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 14a4 4 0 006 .5l2-2a4 4 0 10-5.7-5.7L11 8"/><path d="M14 10a4 4 0 00-6-.5l-2 2A4 4 0 0011.7 17L13 16"/></symbol>
+    <symbol id="i-raster" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></symbol>
+    <symbol id="i-zeilen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.6"/><path d="M11 21l1.5-5.5L10 13V9l3.5-1.5L16 10l2.5 1"/><path d="M12.5 15.5L9 21"/></symbol>
+    <symbol id="i-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5.5" cy="17" r="3.4"/><circle cx="18.5" cy="17" r="3.4"/><path d="M5.5 17l4-8h5l4 8M9 9h6" stroke-linecap="round"/></symbol>
+    <symbol id="i-moped" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5.5" cy="17.5" r="2.9"/><circle cx="18.5" cy="17.5" r="2.9"/><path d="M5.5 17.5h7l3-8h2.5M12 9.5h3" stroke-linecap="round"/></symbol>
+    <symbol id="i-jeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 15v-3l2.5-4h10l3 4H21v3" stroke-linejoin="round"/><circle cx="7.5" cy="16.5" r="2.3"/><circle cx="16.5" cy="16.5" r="2.3"/></symbol>
+    <symbol id="i-tram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="6" y="4" width="12" height="13" rx="2.4"/><path d="M6 10h12M8 21l2-3M16 21l-2-3M12 4V2"/></symbol>
+    <symbol id="i-ferry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c1.6 0 1.6 1.4 3.2 1.4S8.8 18 10.4 18s1.6 1.4 3.2 1.4S15.2 18 16.8 18s1.6 1.4 3.2 1.4"/><path d="M5 15l1.6-4.6h10.8L19 15M9 10.4V7h6v3.4M12 4v3"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.4"/><circle cx="18" cy="5" r="2.4"/><path d="M8 17.5c6-1 3-9 8-10.5"/></symbol>
+    <symbol id="i-blitz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="M8 5v14M16 5v14M3 12h18"/></symbol>
+    <symbol id="i-muell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V5.2A1.2 1.2 0 0110.7 4h2.6a1.2 1.2 0 011.2 1.2V7"/><path d="M6.5 7l1 12a1.5 1.5 0 001.5 1.4h6a1.5 1.5 0 001.5-1.4l1-12"/></symbol>
+    <symbol id="i-haken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+  </defs>
+</svg>
+
+<!-- ————— Mockup-Steuerung (nicht Teil des Produkts) ————— -->
+<div class="mockleiste">
+  <b>Mockup</b> Bibliothek · <a href="studio-neue-tour.html">Neue Tour</a> · <a href="studio-editor.html">Editor</a>
+  <span class="sp"></span>
+  <button data-zustand="voll" aria-pressed="true">Gefüllt</button>
+  <button data-zustand="leer" aria-pressed="false">Erstnutzung</button>
+  <button data-zustand="drop" aria-pressed="false">Drag &amp; Drop</button>
+  <span style="margin-left:auto">Kachel anklicken → Editor · „Abspielen" → echter Player</span>
+</div>
+
+<header class="topbar">
+  <div class="wortmarke">Luhambo <b>Studio</b></div>
+  <div class="luecke"></div>
+  <div class="suche">
+    <svg><use href="#i-lupe"/></svg>
+    <input type="search" placeholder="Touren durchsuchen …" />
+    <kbd>/</kbd>
+  </div>
+  <button class="knopf-primaer" id="neu-knopf"><svg><use href="#i-plus"/></svg>Neue Tour</button>
+  <button class="benutzer-chip"><span class="punkt">H</span>henrik</button>
+</header>
+
+<main class="rumpf">
+  <!-- Kopf und Werkzeuge in einer Zeile; keine Status-Filter: Verarbeitung dauert
+       kurz, Fehler sind selten — ein Filter für zwei Ausnahmezustände wäre Ballast. -->
+  <div class="kopf" id="filterleiste">
+    <h1>Meine <em>Touren</em></h1>
+    <span class="sp"></span>
+    <select class="sortier" aria-label="Sortierung">
+      <option>Neueste zuerst</option>
+      <option>Älteste zuerst</option>
+      <option>Längste Strecke</option>
+      <option>Titel A–Z</option>
+    </select>
+    <div class="ansicht-schalter" id="ansicht">
+      <button data-ansicht="raster" aria-pressed="true" aria-label="Raster"><svg><use href="#i-raster"/></svg></button>
+      <button data-ansicht="liste" aria-pressed="false" aria-label="Liste"><svg><use href="#i-zeilen"/></svg></button>
+    </div>
+  </div>
+
+  <!-- ————— Rasteransicht ————— -->
+  <div class="raster" id="raster">
+    <button class="neu-kachel" id="neu-kachel">
+      <svg><use href="#i-upload"/></svg>
+      <span class="h">Neue Tour</span>
+      <span class="n">Aufzeichnung und Fotos hierher ziehen — den Rest macht Luhambo</span>
+    </button>
+
+    <!-- Verarbeitung ganz vorn: was gerade lädt, wurde zuletzt hochgeladen —
+         und „Neueste zuerst" ist der Default. Die Kachel trägt den Zustand
+         selbst, kein Band darüber. -->
+    <article class="karte arbeitet" id="karte-arbeitet">
+      <div class="bild">
+        <img src="/photos/kohphangan/09-ostkueste.jpg" alt="" />
+      </div>
+      <div class="fuss">
+        <div class="t">Ostküste bei Sonnenaufgang</div>
+        <div class="m">8 Fotos · gerade hochgeladen</div>
+      </div>
+      <div class="lauf"><span></span></div>
+    </article>
+
+    <article class="karte">
+      <div class="bild">
+        <img src="/photos/kohphangan/07-daemmerung.jpg" alt="" />
+        <svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path class="linie" d="M0 62.2L0.3 63.9L1.8 66.4L2.8 66.1L10.3 67L12.3 66.8L20.9 67.5L24.2 65L22 61.4L19.7 56.8L16.9 51.4L18.4 48.9L19 46.4L20.3 44.5L19.8 42.8L21.2 42.5L20.3 44.5L19 46.4L19.8 48.4L21.5 49L22.8 51.1L24.1 51.1L25.1 53.7L24.7 55.7L25.9 58.5L30.2 61.9L31.3 59.8L35.4 58.1L38.8 59.6L39.5 57.2L40.6 56.1L42.7 56.5L45.3 58.2L47 55.7L47.1 52.5L48.6 49L48.2 45.9L54.1 48.2L52.5 43.7L52.1 39.7L52.2 33.8L52.8 28.4L49.3 23.2L45.1 19.3L42.7 14.7L39.5 6.8L41.7 3.9L47.1 6L53.2 7.1L56.5 1.8L88.2 37.1L100 84.9L89.5 98.2"/><circle class="start" cx="0" cy="62.2" r="3.2"/><circle class="ende" cx="89.5" cy="98.2" r="3.2"/></svg>
+      </div>
+      <div class="griffe">
+        <button class="sicht" aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: Privat"><svg><use href="#i-schloss"/></svg><span>Privat</span></button>
+        <button class="stift-knopf" aria-label="Bearbeiten"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+      </div>
+      <div class="fuss">
+        <div class="t">Bergpiste nach Thong Nai Pan</div>
+        <div class="m">41,8 km · 12 Fotos · 18. Juli</div>
+      </div>
+      <div class="schleier"></div>
+      <button class="play" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+    </article>
+
+    <article class="karte">
+      <div class="bild">
+        <img src="/landing/card-stockholm.jpg" alt="" />
+        <svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path class="linie" d="M1.8 79.4L2.5 78.6L2.4 78.4L2.8 78.1L1.7 77.1L1.2 77.3L0.5 76.8L0.5 76.5L0.2 76L0 75.6L0.9 75.2L0 73.5L0.4 73.3L0.5 73.1L1.1 73L1.5 73L2.1 73.1L8.7 74.1L9.5 74L9.9 74.7L10.1 75.2L9.7 75.9L9.8 76.3L9.7 76.9L9.9 77.3L11 78L11.6 78.7L12 79.6L11.6 80.1L13.4 83.3L32.2 83.4L54.9 69.8L73.7 51.8L84.2 49.2L87.3 38.8L91.5 39.4L99.6 32.2L98.4 29.9L99.8 20.8L99.7 18L99.4 17.6L98.5 16.6L99.3 16.7L100 16.9L99.8 16.6"/><circle class="start" cx="1.8" cy="79.4" r="3.2"/><circle class="ende" cx="99.8" cy="16.6" r="3.2"/></svg>
+      </div>
+      <div class="griffe">
+        <button class="sicht oeffentlich" aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: Öffentlich"><svg><use href="#i-welt"/></svg><span>Öffentlich</span></button>
+        <button class="stift-knopf" aria-label="Bearbeiten"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+      </div>
+      <div class="fuss">
+        <div class="t">Stockholm, von Söder bis zum Wasser</div>
+        <div class="m">12,4 km · 10 Fotos · 12. Juli</div>
+      </div>
+      <div class="schleier"></div>
+      <button class="play" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+    </article>
+
+    <article class="karte">
+      <div class="bild">
+        <img src="/landing/card-oberland.jpg" alt="" />
+        <svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path class="linie" d="M9.9 74.2L9.1 74.8L7.3 63.5L5.9 59.3L3.9 57.4L2.2 50.6L2.9 40.5L0 34.1L3.2 32.7L3.9 30.4L8.8 32.6L14 28.3L19.8 27.3L21.9 26.2L28.1 26.5L37.4 25.2L42 26.1L47.4 25.4L50.7 27.1L54.9 27.7L54.8 29L57.3 29.9L66 28.9L70.5 30.2L79.4 37.4L79.4 38.7L84.3 43.4L87.8 44.2L89.1 43.1L91.3 43.1L91.7 42.1L93.9 44L97.6 43.7L97.6 42.6L100 40.6"/><circle class="start" cx="9.9" cy="74.2" r="3.2"/><circle class="ende" cx="100" cy="40.6" r="3.2"/></svg>
+      </div>
+      <div class="griffe">
+        <button class="sicht oeffentlich" aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: Öffentlich"><svg><use href="#i-welt"/></svg><span>Öffentlich</span></button>
+        <button class="stift-knopf" aria-label="Bearbeiten"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+      </div>
+      <div class="fuss">
+        <div class="t">Berner Oberland, Talstraße</div>
+        <div class="m">34,1 km · 9 Fotos · 4. Juli</div>
+      </div>
+      <div class="schleier"></div>
+      <button class="play" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+    </article>
+
+    <article class="karte defekt">
+      <div class="bild">
+        <img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" />
+      </div>
+      <!-- Auf der Übersicht nur das Zeichen; was schiefging, steht beim Öffnen -->
+      <div class="griffe">
+        <span class="fehler-punkt" title="Etwas ist schiefgelaufen — zum Öffnen klicken" aria-label="Fehler">!</span>
+        <button class="stift-knopf" aria-label="Bearbeiten"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+      </div>
+      <div class="fuss">
+        <div class="t">Dschungelbach</div>
+        <div class="m">6 Fotos · 28. Juni</div>
+      </div>
+      <div class="schleier"></div>
+      <button class="play" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+    </article>
+
+    <article class="karte">
+      <div class="bild">
+        <img src="/landing/card-phangan.jpg" alt="" />
+        <svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path class="linie" d="M56.5 100L58.5 99L55.2 90.7L66 87.4L65.2 85.8L65.7 84.4L65.3 84L72 81.5L72 80.6L70.7 79.1L71.1 78.9L57.3 63.3L55.1 63.8L49.2 68L47.8 66.3L46 67.5L38.2 58.9L36 60.4L35.6 58.8L35.1 58.8L33.7 56L35.1 55.3L34.9 54.8L29.9 49.1L31.8 47.5L31.5 46L29.6 43.1L28 41.6L30.7 39.1L38.3 34.7L41.8 34L32.3 17.3L33 17L28.1 8.5L29.3 8.6L32.3 7.7L33.8 5.1L33.2 4.2L35.8 3.8L36.1 2.8L38.5 1.9L45.4 1.4L45 0L51 0.1L51.3 1"/><circle class="start" cx="56.5" cy="100" r="3.2"/><circle class="ende" cx="51.3" cy="1" r="3.2"/></svg>
+      </div>
+      <div class="griffe">
+        <button class="sicht" aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: Per Link"><svg><use href="#i-schloss-offen"/></svg><span>Per Link</span></button>
+        <button class="stift-knopf" aria-label="Bearbeiten"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+      </div>
+      <div class="fuss">
+        <div class="t">Thong Sala am Morgen</div>
+        <div class="m">7,9 km · 5 Fotos · 21. Juni</div>
+      </div>
+      <div class="schleier"></div>
+      <button class="play" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+    </article>
+  </div>
+
+  <!-- ————— Listenansicht (dieselben Daten, dichter) ————— -->
+  <div class="liste" id="liste" hidden>
+    <div class="zeile">
+      <div class="mini"><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /></div>
+      <div class="txt"><div class="t">Bergpiste nach Thong Nai Pan</div><div class="m">41,8 km · 12 Fotos · 18. Juli 2026</div></div>
+      <div class="rechts">
+        <span class="sichtpille">Privat</span>
+        <button class="akt"><svg><use href="#i-play"/></svg>Abspielen</button>
+        <button class="akt"><svg><use href="#i-stift"/></svg></button>
+      </div>
+    </div>
+    <div class="zeile">
+      <div class="mini"><img src="/landing/card-stockholm.jpg" alt="" /></div>
+      <div class="txt"><div class="t">Stockholm, von Söder bis zum Wasser</div><div class="m">12,4 km · 10 Fotos · 12. Juli 2026</div></div>
+      <div class="rechts">
+        <span class="sichtpille" style="color:#9ff0c6;border-color:rgba(62,207,142,.35)">Öffentlich</span>
+        <button class="akt"><svg><use href="#i-play"/></svg>Abspielen</button>
+        <button class="akt"><svg><use href="#i-stift"/></svg></button>
+      </div>
+    </div>
+    <div class="zeile">
+      <div class="mini"><img src="/photos/kohphangan/09-ostkueste.jpg" alt="" style="filter:grayscale(.6) brightness(.6)" /></div>
+      <div class="txt"><div class="t">Ostküste bei Sonnenaufgang</div><div class="m">entsteht gerade …</div></div>
+      <div class="rechts"><span class="sichtpille" style="color:var(--akzent);border-color:rgba(245,165,36,.4)">entsteht</span></div>
+    </div>
+    <div class="zeile">
+      <div class="mini"><img src="/landing/card-oberland.jpg" alt="" /></div>
+      <div class="txt"><div class="t">Berner Oberland, Talstraße</div><div class="m">34,1 km · 9 Fotos · 4. Juli 2026</div></div>
+      <div class="rechts">
+        <span class="sichtpille" style="color:#9ff0c6;border-color:rgba(62,207,142,.35)">Öffentlich</span>
+        <button class="akt"><svg><use href="#i-play"/></svg>Abspielen</button>
+        <button class="akt"><svg><use href="#i-stift"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ————— Erstnutzung ————— -->
+  <div class="leer" id="leerzustand" hidden>
+    <svg class="route" viewBox="0 0 1200 320" preserveAspectRatio="none"><path d="M-20 250C160 232 190 96 380 84s250 128 420 62 280-168 440-176"/></svg>
+    <h2>Hier entsteht deine erste Tour</h2>
+    <p>Eine Aufzeichnung, ein paar Fotos — Luhambo benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
+    <button class="knopf-primaer" id="leer-waehlen"><svg><use href="#i-upload"/></svg>Dateien wählen</button>
+  </div>
+</main>
+
+<!-- ————— Drop-Overlay ————— -->
+<div class="drop-overlay" id="dropoverlay" hidden>
+  <div class="kasten">
+    <svg><use href="#i-upload"/></svg>
+    <div class="h">Loslassen</div>
+    <p>Aufzeichnung und Medien werden zu einer neuen Tour</p>
+  </div>
+</div>
+
+<script>
+  const raster = document.getElementById('raster')
+  const liste = document.getElementById('liste')
+  const leer = document.getElementById('leerzustand')
+  const filter = document.getElementById('filterleiste')
+  const overlay = document.getElementById('dropoverlay')
+
+  function setzeZustand(z) {
+    const leerAn = z === 'leer'
+    leer.hidden = !leerAn
+    raster.hidden = leerAn || istListe
+    liste.hidden = leerAn || !istListe
+    filter.hidden = leerAn
+    overlay.hidden = z !== 'drop'
+  }
+  let istListe = false
+
+  document.querySelectorAll('[data-zustand]').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('[data-zustand]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+      setzeZustand(b.dataset.zustand)
+    })
+  })
+  document.querySelectorAll('#ansicht button').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#ansicht button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+      istListe = b.dataset.ansicht === 'liste'
+      raster.hidden = istListe
+      liste.hidden = !istListe
+    })
+  })
+  // Zustand auch per Hash wählbar — praktisch für Screenshots
+  const ausHash = location.hash.slice(1)
+  if (["leer", "voll", "drop"].includes(ausHash)) {
+    document.querySelectorAll('[data-zustand]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.zustand === ausHash)))
+    setzeZustand(ausHash)
+  }
+
+  // „Neue Tour" ist eine eigene Ansicht, kein Dialog: sie braucht die ganze
+  // Fläche, und wer sie verlässt, soll die laufende Übertragung nicht abwürgen.
+  // ?ruhig=1 reicht weiter — sonst steht die Zeichenanimation im Screenshot
+  const oeffne = () => {
+    const ruhig = new URLSearchParams(location.search).has('ruhig')
+    location.href = 'studio-neue-tour.html' + (ruhig ? '?ruhig=1' : '')
+  }
+  document.getElementById('neu-knopf').addEventListener('click', oeffne)
+  document.getElementById('neu-kachel').addEventListener('click', oeffne)
+  document.getElementById('leer-waehlen').addEventListener('click', oeffne)
+  document.getElementById('dropoverlay').addEventListener('click', oeffne)
+
+  /* ————— Click-Dummy: Bibliothek → Neue Tour → Editor —————
+     Die KACHEL SPIELT AB — überall, nicht nur auf der Taste. Bearbeiten hat
+     seinen eigenen Griff, die Sichtbarkeit ist Anzeige und Umschalter in einem.
+     Ein ⋯-Menü gibt es nicht mehr: es enthielt nur Dinge, die woanders besser
+     aufgehoben sind (Bearbeiten am Griff, Link bei der Sichtbarkeit, Löschen
+     im Editor — destruktiv und selten, das gehört nicht in die Übersicht). */
+  const SICHT = {
+    privat: { icon: 'i-schloss', wort: 'Privat', hinweis: 'Nur du siehst sie' },
+    link: { icon: 'i-schloss-offen', wort: 'Per Link', hinweis: 'Wer die Adresse hat' },
+    oeffentlich: { icon: 'i-welt', wort: 'Öffentlich', hinweis: 'Steht in der Galerie' },
+  }
+  const stufeVon = (pille) => {
+    const w = pille.querySelector('span').textContent.trim()
+    return Object.keys(SICHT).find((k) => SICHT[k].wort === w) ?? 'privat'
+  }
+  const menueHtml = (aktuell) => `
+    <div class="menue" role="menu">
+      <div class="kopfzeile">Wer darf sie sehen?</div>
+      ${Object.entries(SICHT).map(([k, v]) => `
+        <button role="menuitemradio" data-sicht="${k}" aria-checked="${k === aktuell}">
+          <svg><use href="#${v.icon}"/></svg>
+          <span>${v.wort}<em>${v.hinweis}</em></span>
+          <svg class="haken"><use href="#i-haken"/></svg>
+        </button>`).join('')}
+      ${aktuell === 'privat' ? '' : `<hr />
+        <button data-tun="link"><svg><use href="#i-link"/></svg><span>Link kopieren</span></button>`}
+    </div>`
+
+  const menueZu = () => {
+    document.querySelector('.menue')?.remove()
+    document.querySelectorAll('.sicht').forEach((b) => b.setAttribute('aria-expanded', 'false'))
+    document.querySelectorAll('.karte').forEach((k) => k.classList.remove('menue-offen'))
+  }
+  const setzeSicht = (pille, stufe) => {
+    const v = SICHT[stufe]
+    pille.querySelector('use').setAttribute('href', '#' + v.icon)
+    pille.querySelector('span').textContent = v.wort
+    pille.classList.toggle('oeffentlich', stufe === 'oeffentlich')
+    pille.setAttribute('aria-label', 'Sichtbarkeit: ' + v.wort)
+  }
+
+  document.querySelectorAll('.karte').forEach((k) => {
+    k.addEventListener('click', (e) => {
+      if (k.classList.contains('arbeitet')) return // entsteht noch — nichts zu öffnen
+      const imMenue = e.target.closest('.menue')
+      if (imMenue) {
+        const knopf = e.target.closest('button')
+        const stufe = knopf?.dataset.sicht
+        menueZu()
+        if (stufe) setzeSicht(k.querySelector('.sicht'), stufe)
+        return
+      }
+      const pille = e.target.closest('.sicht')
+      if (pille) {
+        const offen = pille.getAttribute('aria-expanded') === 'true'
+        menueZu()
+        if (!offen) {
+          pille.setAttribute('aria-expanded', 'true')
+          k.classList.add('menue-offen')
+          k.insertAdjacentHTML('beforeend', menueHtml(stufeVon(pille)))
+        }
+        return
+      }
+      if (e.target.closest('.stift-knopf')) { location.href = 'studio-editor.html'; return }
+      // Eine kaputte Tour spielt man nicht ab — da will man sehen, was fehlt.
+      if (k.classList.contains('defekt')) { location.href = 'studio-editor.html'; return }
+      location.href = '/erlebnis.html?tour=kohphangan'
+    })
+  })
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') menueZu() })
+  document.addEventListener('click', (e) => { if (!e.target.closest('.karte')) menueZu() })
+  document.querySelectorAll('.zeile .akt').forEach((b) => {
+    const spielt = b.textContent.includes('Abspielen')
+    b.addEventListener('click', () => { location.href = spielt ? '/erlebnis.html?tour=kohphangan' : 'studio-editor.html' })
+  })
+
+  if (new URLSearchParams(location.search).has('hover')) document.querySelector('.karte')?.classList.add('hover-demo')
+  if (new URLSearchParams(location.search).has('neu')) {
+    const k = document.getElementById('karte-arbeitet')
+    // Hinter die „Neue Tour"-Kachel, nicht davor: die Upload-Kachel bleibt die
+    // erste Anlaufstelle, die frisch angelegte Tour ist die erste ECHTE Tour.
+    document.getElementById('neu-kachel').after(k)
+    k.querySelector('.t').textContent = 'Thong Sala → Haad Rin'
+    k.querySelector('.m').textContent = '13 Aufnahmen · gerade hochgeladen'
+    setTimeout(() => {
+      k.classList.remove('arbeitet')
+      k.querySelector('.lauf')?.remove()
+      k.querySelector('.m').textContent = '41,8 km · 13 Aufnahmen · heute'
+      const griffe = document.createElement('div')
+      griffe.className = 'griffe'
+      const pille = document.createElement('button')
+      pille.className = 'sicht'
+      pille.setAttribute('aria-haspopup', 'true')
+      pille.setAttribute('aria-expanded', 'false')
+      pille.setAttribute('aria-label', 'Sichtbarkeit: Privat')
+      pille.innerHTML = '<svg><use href="#i-schloss"/></svg><span>Privat</span>'
+      griffe.append(pille)
+      k.append(griffe)
+      // Signet und Aktionen bekommt die Kachel erst, wenn die Tour fertig ist
+      const vorlage = document.querySelector('.karte:not(#karte-arbeitet)')
+      const signet = vorlage?.querySelector('.spur')?.cloneNode(true)
+      if (signet) k.querySelector('.bild').append(signet)
+      for (const sel of ['.schleier', '.play']) {
+        const teil = vorlage?.querySelector(sel)?.cloneNode(true)
+        if (teil) k.append(teil)
+      }
+      const stift = vorlage?.querySelector('.stift-knopf')?.cloneNode(true)
+      if (stift) griffe.append(stift)
+    }, 3500)
+  }
+
+  // Tastatur: „/" springt in die Suche, „n" legt an, Esc schließt
+  addEventListener('keydown', (e) => {
+    if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) {
+      e.preventDefault()
+      document.querySelector('.suche input').focus()
+    }
+    if (e.key === 'n' && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) oeffne()
+    if (e.key === 'Escape') overlay.hidden = true
+  })
+</script>
+</body>
+</html>
