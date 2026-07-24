@@ -56,9 +56,13 @@ import {
   formatiereDauer,
   haltedauerS,
   kumMeter,
+  loeseFokusAuf as loeseFokusAufRein,
   meterZuOffset,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
+  uhrDiffZuOffset,
+  type Fokus,
+  type FokusZiel,
   type ZeitSkala,
 } from './zeitleiste.js'
 import { SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
@@ -139,33 +143,6 @@ const icon = (name: string): string => `<svg aria-hidden="true"><use href="#i-${
  * Getrennt von `auswahl` (der Einfügemarke für „ab hier"-Aktionen) — wie
  * Abspielkopf und Selektion in einem Schnittprogramm.
  */
-type Fokus =
-  | { art: 'modus'; bezugS: number }
-  | { art: 'kamera'; bezugS: number }
-  | { art: 'wetter'; bezugS: number }
-  | { art: 'moment'; ab: string }
-  | { art: 'audio'; index: number }
-  | { art: 'medium'; id: string }
-
-/** Aufgelöster Fokus: was im Inspector steht und auf der Karte leuchtet. */
-interface FokusInfo {
-  art: Fokus['art']
-  titel: string
-  vonS: number
-  bisS: number
-  /** Overlay-Grenze, die dieses Band eröffnet — null = aus der Aufzeichnung, nicht entfernbar */
-  ab: string | null
-  mode?: Modus
-  preset?: KameraPreset
-  wetterMode?: WetterModus
-  /** Wetter-Stärke k dieses Bands (nur bei eigener Grenze mit gesetzter staerke) */
-  staerke?: number
-  momentArt?: MomentArt
-  dauerS?: number
-  index?: number
-  id?: string
-}
-
 interface Zustand {
   tourId: string
   daten: api.EditorDaten
@@ -610,114 +587,34 @@ function zeitText(iso: string): string {
   }
 }
 
+/** Anzeigename des fokussierten Objekts — Darstellung, deshalb hier und nicht im Modell. */
+function fokusTitel(ziel: FokusZiel): string {
+  if (ziel.art === 'modus') return ziel.mode ? MODUS_NAMEN[ziel.mode] : 'Fortbewegung'
+  if (ziel.art === 'kamera') return ziel.preset ? `Kamera ${PRESET_NAMEN[ziel.preset]}` : 'Preset des Zuschauers'
+  if (ziel.art === 'wetter') return ziel.wetterMode ? `Wetter ${WETTER_NAMEN[ziel.wetterMode]}` : 'Automatisches Wetter'
+  if (ziel.art === 'moment') return ziel.momentArt ? MOMENT_NAMEN[ziel.momentArt] : 'Moment'
+  if (ziel.art === 'audio') {
+    const a = ziel.index !== undefined ? (z?.edits.audio ?? [])[ziel.index] : undefined
+    return a ? audioName(a) : 'Klang'
+  }
+  return medienAnzeige().find((m) => m.id === ziel.id)?.caption || (ziel.id ?? '')
+}
+
 /**
  * Fokus-Identität → konkretes Objekt mit Zeitspanne, gegen den AKTUELLEN
- * Overlay-Stand aufgelöst. Liefert null, wenn das Objekt weg ist (Grenze
- * entfernt, Audio gelöscht) — der Inspector zeigt dann wieder den Leerzustand.
+ * Overlay-Stand aufgelöst (die Logik liegt DOM-frei in zeitleiste.ts). Liefert
+ * null, wenn das Objekt weg ist — der Inspector zeigt dann den Leerzustand.
  */
-function loeseFokusAuf(): FokusInfo | null {
-  if (!z?.fokus) return null
-  const skala = baueSkala(z.track)
-  if (!skala) return null
-  const start = z.daten.time.start
-  const f = z.fokus
-
-  if (f.art === 'modus') {
-    // Aus den Anzeige-Abschnitten (haben echte Trackpunkte, also echte Zeiten)
-    const treffer = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start).find((a) => {
-      const von = (a.pts[0] as TrackPunkt)[3]
-      const bis = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
-      return f.bezugS >= von && f.bezugS <= bis
-    })
-    if (!treffer) return null
-    const vonS = (treffer.pts[0] as TrackPunkt)[3]
-    const bisS = (treffer.pts[treffer.pts.length - 1] as TrackPunkt)[3]
-    // Verantwortliche Overlay-Grenze: die letzte, die zu Bandbeginn schon gilt
-    // und denselben Modus setzt. Fehlt sie, stammt das Band aus der
-    // Aufzeichnung und lässt sich nicht entfernen — nur überschreiben.
-    let ab: string | null = null
-    for (const g of z.edits.modi ?? []) {
-      const gS = isoZuOffset(start, g.ab)
-      if (!Number.isFinite(gS) || gS > vonS + 1) break
-      if (g.mode === treffer.mode) ab = g.ab
-    }
-    return { art: 'modus', titel: MODUS_NAMEN[treffer.mode], vonS, bisS, ab, mode: treffer.mode }
-  }
-
-  if (f.art === 'kamera') {
-    const baender = baueZustandsBaender<KameraPreset | null>(
-      (z.edits.kamera ?? []).map((g) => ({ ab: g.ab, wert: g.preset })),
-      start,
-      skala,
-      null,
-    )
-    const treffer = baender.find(
-      (b) => f.bezugS >= anteilZuOffset(skala, b.von) && f.bezugS <= anteilZuOffset(skala, b.bis),
-    )
-    if (!treffer) return null
-    const basis = {
-      art: 'kamera' as const,
-      titel: treffer.wert ? `Kamera ${PRESET_NAMEN[treffer.wert]}` : 'Preset des Zuschauers',
-      vonS: anteilZuOffset(skala, treffer.von),
-      bisS: anteilZuOffset(skala, treffer.bis),
-      ab: treffer.ab,
-    }
-    return treffer.wert ? { ...basis, preset: treffer.wert } : basis
-  }
-
-  if (f.art === 'wetter') {
-    // Grund: klar (`off`), sobald IRGENDeine Wetter-Grenze existiert (dann
-    // ersetzt das Overlay das Auto-Wetter komplett); sonst „automatisch".
-    const hatOverride = (z.edits.wetter ?? []).length > 0
-    const baender = baueZustandsBaender<WetterModus | null>(
-      (z.edits.wetter ?? []).map((g) => ({ ab: g.ab, wert: g.mode })),
-      start,
-      skala,
-      hatOverride ? 'off' : null,
-    )
-    const treffer = baender.find(
-      (b) => f.bezugS >= anteilZuOffset(skala, b.von) && f.bezugS <= anteilZuOffset(skala, b.bis),
-    )
-    if (!treffer) return null
-    const staerke = treffer.ab !== null ? z.edits.wetter?.find((g) => g.ab === treffer.ab)?.staerke : undefined
-    return {
-      art: 'wetter',
-      titel: treffer.wert ? `Wetter ${WETTER_NAMEN[treffer.wert]}` : 'Automatisches Wetter',
-      vonS: anteilZuOffset(skala, treffer.von),
-      bisS: anteilZuOffset(skala, treffer.bis),
-      ab: treffer.ab,
-      ...(treffer.wert ? { wetterMode: treffer.wert } : {}),
-      ...(staerke !== undefined ? { staerke } : {}),
-    }
-  }
-
-  if (f.art === 'moment') {
-    const m = (z.edits.momente ?? []).find((x) => x.ab === f.ab)
-    if (!m) return null
-    const s = isoZuOffset(start, m.ab)
-    return {
-      art: 'moment',
-      titel: MOMENT_NAMEN[m.art],
-      vonS: s,
-      bisS: s,
-      ab: m.ab,
-      momentArt: m.art,
-      ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
-    }
-  }
-
-  if (f.art === 'audio') {
-    const a = (z.edits.audio ?? [])[f.index]
-    if (!a) return null
-    const vonS = isoZuOffset(start, a.ab)
-    const bisS = a.typ === 'sfx' ? vonS : a.bis !== undefined ? isoZuOffset(start, a.bis) : skala.bisS
-    return { art: 'audio', titel: a.datei, vonS, bisS, ab: a.ab, index: f.index }
-  }
-
-  const m = medienAnzeige().find((x) => x.id === f.id)
-  if (!m?.anchor) return null
-  const p = projiziereAufTrack(z.track, m.anchor[0], m.anchor[1])
-  return { art: 'medium', titel: m.caption || m.id, vonS: p.punkt[3], bisS: p.punkt[3], ab: null, id: m.id }
+function loeseFokusAuf(): FokusZiel | null {
+  if (!z) return null
+  return loeseFokusAufRein(
+    z.fokus,
+    z.edits,
+    zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start),
+    z.track,
+    z.daten.time.start,
+    medienAnzeige(),
+  )
 }
 
 function renderAuswahl(): void {
@@ -746,262 +643,595 @@ function uhrKurz(iso: string): string {
   }
 }
 
+// — Inspector-Bausteine —
+
+/** Beschriftetes Feld mit einem Bedienelement darin. */
+function feld(label: string, inhalt: HTMLElement): HTMLElement {
+  const d = document.createElement('div')
+  d.className = 'feld'
+  const l = document.createElement('label')
+  l.textContent = label
+  d.append(l, inhalt)
+  return d
+}
+
+/** Auswahl aus Wert→Name-Paaren; `leerText` ergänzt eine „noch nichts"-Option. */
+function auswahl(werte: Array<[string, string]>, aktuell: string | undefined, leerText?: string): HTMLSelectElement {
+  const s = document.createElement('select')
+  if (leerText !== undefined) {
+    const o = document.createElement('option')
+    o.value = ''
+    o.textContent = leerText
+    o.selected = aktuell === undefined
+    s.appendChild(o)
+  }
+  for (const [wert, name] of werte) {
+    const o = document.createElement('option')
+    o.value = wert
+    o.textContent = name
+    o.selected = wert === aktuell
+    s.appendChild(o)
+  }
+  return s
+}
+
+/** Regler mit Zahlenanzeige daneben (Stärke, Kamera-Feinjustierung). */
+function regler(
+  attr: { min: number; max: number; step: number; wert: number },
+  anzeige: (v: number) => string,
+  beiAenderung: (v: number) => void,
+): HTMLElement {
+  const huelle = document.createElement('div')
+  huelle.className = 'mit-wert'
+  const r = document.createElement('input')
+  r.type = 'range'
+  r.min = String(attr.min)
+  r.max = String(attr.max)
+  r.step = String(attr.step)
+  r.value = String(attr.wert)
+  const w = document.createElement('span')
+  w.className = 'wert'
+  w.textContent = anzeige(attr.wert)
+  r.addEventListener('input', () => { w.textContent = anzeige(Number(r.value)) })
+  r.addEventListener('change', () => beiAenderung(Number(r.value)))
+  huelle.append(r, w)
+  return huelle
+}
+
 /**
- * Inspector: zeigt das fokussierte Objekt mit Spanne UND Dauer und lässt es
- * dort ändern. Ersetzt die früheren Listen „Trim/Fortbewegungs-Grenzen/
- * Kamera-Verläufe", die jede Grenze ein zweites Mal aufzählten — ohne zu
- * sagen, wann sie endet.
+ * Zeitfeld: tippen, mit ▲▼ steppen ODER darüberziehen (5 px ≈ 1 Minute, wie in
+ * Final Cut). Gerechnet wird über die Differenz zur angezeigten Uhrzeit
+ * (uhrDiffZuOffset) — das ist DST-fest und übersteht Mitternacht.
+ *
+ * `beiAenderung` bekommt den neuen Offset in Sekunden und meldet zurück, welcher
+ * Offset tatsächlich gilt (geklemmt) — oder null, wenn nichts geschah.
+ */
+function baueZeitfeld(
+  offsetS: number,
+  beiAenderung: (neuOffsetS: number) => number | null,
+  beiZugEnde?: () => void,
+): HTMLElement {
+  const zf = document.createElement('div')
+  zf.className = 'zf'
+  const eingabe = document.createElement('input')
+  eingabe.className = 'zf-in'
+  eingabe.type = 'text'
+  eingabe.inputMode = 'numeric'
+  eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', offsetS))
+  let aktuellS = offsetS
+
+  /** Neuen Wert anwenden und das Feld auf den tatsächlich geltenden Stand ziehen. */
+  const anwenden = (neuOffsetS: number): void => {
+    const gilt = beiAenderung(neuOffsetS)
+    if (gilt !== null) aktuellS = gilt
+    eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', aktuellS))
+  }
+
+  eingabe.addEventListener('change', () => {
+    const neu = uhrDiffZuOffset(aktuellS, uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', aktuellS)), eingabe.value)
+    if (neu === null) eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', aktuellS))
+    else { anwenden(neu); beiZugEnde?.() }
+  })
+  eingabe.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { eingabe.blur(); return }
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    e.preventDefault()
+    anwenden(aktuellS + (e.key === 'ArrowUp' ? 60 : -60))
+    beiZugEnde?.()
+  })
+
+  const stepper = document.createElement('div')
+  stepper.className = 'zf-step'
+  for (const [zeichen, richtung] of [['▲', 60], ['▼', -60]] as const) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.textContent = zeichen
+    b.tabIndex = -1
+    b.addEventListener('click', () => { anwenden(aktuellS + richtung); beiZugEnde?.() })
+    stepper.appendChild(b)
+  }
+
+  // Scrubben über dem Feld: Fenster-Listener (Capture auf dem schmalen Feld
+  // verlöre schnelle Bewegungen), 5 px ≈ 1 Minute.
+  zf.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.zf-step')) return
+    const startX = e.clientX
+    const startS = aktuellS
+    let scrubt = false
+    const zieh = (ev: PointerEvent): void => {
+      if (!scrubt && Math.abs(ev.clientX - startX) < 3) return
+      scrubt = true
+      zf.classList.add('scrub')
+      ev.preventDefault()
+      anwenden(startS + Math.round((ev.clientX - startX) / 5) * 60)
+    }
+    const los = (): void => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+      zf.classList.remove('scrub')
+      if (scrubt) {
+        unterdrueckeKlick = true
+        beiZugEnde?.()
+      }
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
+  })
+
+  zf.append(eingabe, stepper)
+  return zf
+}
+
+/**
+ * Neu zeichnen OHNE den Inspector — während ein Zeitfeld gezogen wird, darf er
+ * nicht neu entstehen: das gezogene Feld verlöre seinen Cursor, und der ganze
+ * Zug soll außerdem EIN Undo-Schritt bleiben (renderAlles setzt je Aufruf einen).
+ */
+function renderOhneInspektor(): void {
+  zeichneTrack()
+  renderZeitleiste()
+  renderTrim()
+}
+
+/** Feste Grenze (Tourbeginn/-ende): kein Feld, sondern eine Aussage. */
+function zeitFest(text: string): HTMLElement {
+  const d = document.createElement('div')
+  d.className = 'zf ro'
+  d.textContent = text
+  return d
+}
+
+/**
+ * Inspector: zeigt das fokussierte Objekt mit seinen Werten und Zeiten und
+ * lässt es dort ändern. Beginn UND Ende eines Zustands sind bearbeitbar — sie
+ * sind dieselbe Kante wie der Anfang des Nachbarn.
  */
 function renderInspektor(): void {
   if (!z) return
-  const el = $('editor-inspektor')
-  el.innerHTML = ''
+  const inhalt = $('insp-inhalt')
+  const fuss = $('insp-fuss')
+  const leer = $('insp-leer')
+  inhalt.innerHTML = ''
+  fuss.innerHTML = ''
   const info = loeseFokusAuf()
   if (!info) {
-    const leer = document.createElement('div')
-    leer.className = 'leer'
-    leer.textContent = 'Nichts gewählt — auf ein Band, eine Marke oder die Karte klicken.'
-    el.appendChild(leer)
+    leer.hidden = false
+    inhalt.hidden = true
+    fuss.hidden = true
     return
   }
+  leer.hidden = true
+  inhalt.hidden = false
+  fuss.hidden = false
   const start = z.daten.time.start
+  const bezugS = (info.vonS + info.bisS) / 2
 
-  const kopf = document.createElement('div')
-  kopf.className = 'insp-kopf'
+  // — Kopf: Art (Kicker) und Name —
+  const kicker = document.createElement('div')
+  kicker.className = 'insp-art'
   if (info.mode) {
     const farbe = document.createElement('span')
     farbe.className = 'farbe'
     farbe.style.background = MODUS_FARBEN[info.mode]
-    kopf.appendChild(farbe)
+    kicker.appendChild(farbe)
   }
-  const titel = document.createElement('strong')
-  titel.textContent = info.titel
-  kopf.appendChild(titel)
-  el.appendChild(kopf)
+  kicker.append(ART_NAMEN[info.art])
+  const titel = document.createElement('h2')
+  titel.className = 'insp-titel'
+  titel.textContent = fokusTitel(info)
+  inhalt.append(kicker, titel)
 
-  // Die eigentliche Antwort auf „wann startet das, wo endet es"
-  const zeit = document.createElement('div')
-  zeit.className = 'insp-zeit'
-  zeit.textContent =
-    info.bisS > info.vonS
-      ? `${uhrKurz(offsetZuIso(start, info.vonS))} – ${uhrKurz(offsetZuIso(start, info.bisS))} Uhr · ${formatiereDauer(info.bisS - info.vonS)}`
-      : `${uhrKurz(offsetZuIso(start, info.vonS))} Uhr`
-  el.appendChild(zeit)
+  // — Werte je Art —
+  if (info.art === 'modus' || info.art === 'kamera') {
+    const istModus = info.art === 'modus'
+    const werte = istModus ? Object.entries(MODUS_NAMEN) : Object.entries(PRESET_NAMEN)
+    const aktuell = istModus ? (info.mode as string | undefined) : (info.preset as string | undefined)
+    const wahl = auswahl(werte, aktuell, aktuell === undefined ? 'Preset des Zuschauers' : undefined)
+    wahl.addEventListener('change', () => {
+      if (!z || !wahl.value) return
+      // Ohne eigene Grenze (Band aus der Aufzeichnung) wird am Bandanfang eine
+      // neue gesetzt — so lässt sich JEDER Abschnitt direkt umstellen.
+      const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      z.edits = istModus
+        ? mitModusGrenze(z.edits, ab, wahl.value as Modus)
+        : mitKameraGrenze(z.edits, ab, wahl.value as KameraPreset, info.staerke)
+      z.fokus = istModus ? { art: 'modus', bezugS } : { art: 'kamera', bezugS }
+      renderAlles()
+    })
+    inhalt.appendChild(feld(istModus ? 'Fortbewegung' : 'Kamera-Abstand', wahl))
 
-  const aktionen = document.createElement('div')
-  aktionen.className = 'insp-aktionen'
-
-  if (info.art === 'moment') {
-    const abFest = info.ab as string
-    // Art wählen (ersetzt den Moment am selben ab, Dauer bleibt erhalten)
-    const wahl = document.createElement('select')
-    wahl.setAttribute('aria-label', 'Art des Kamera-Moments')
-    for (const [wert, name] of Object.entries(MOMENT_NAMEN)) {
-      const opt = document.createElement('option')
-      opt.value = wert
-      opt.textContent = name
-      if (wert === info.momentArt) opt.selected = true
-      wahl.appendChild(opt)
+    if (!istModus && info.preset) {
+      const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      const preset = info.preset
+      inhalt.appendChild(
+        feld(
+          'Näher ↔ Weiter',
+          regler({ min: 50, max: 200, step: 5, wert: Math.round((info.staerke ?? 1) * 100) }, (v) => `${v} %`, (v) => {
+            if (!z) return
+            z.edits = mitKameraGrenze(z.edits, ab, preset, v / 100)
+            z.fokus = { art: 'kamera', bezugS }
+            renderAlles()
+          }),
+        ),
+      )
     }
+  } else if (info.art === 'wetter') {
+    const wahl = auswahl(Object.entries(WETTER_NAMEN), info.wetterMode, info.wetterMode ? undefined : 'Automatisch')
+    wahl.addEventListener('change', () => {
+      if (!z || !wahl.value) return
+      // Der erste gesetzte Modus schaltet das Overlay scharf und ersetzt damit
+      // das Auto-Wetter der ganzen Tour. Stärke bei „Klar" verwerfen.
+      const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      const neu = wahl.value as WetterModus
+      z.edits = mitWetterGrenze(z.edits, ab, neu, neu === 'off' ? undefined : info.staerke)
+      z.fokus = { art: 'wetter', bezugS }
+      renderAlles()
+    })
+    inhalt.appendChild(feld('Wetter', wahl))
+    if (info.wetterMode && info.wetterMode !== 'off') {
+      const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      const mode = info.wetterMode
+      inhalt.appendChild(
+        feld(
+          'Stärke',
+          regler(
+            { min: 0, max: 100, step: 10, wert: Math.round((info.staerke ?? WETTER_STANDARD_K) * 100) },
+            (v) => `${v} %`,
+            (v) => {
+              if (!z) return
+              z.edits = mitWetterGrenze(z.edits, ab, mode, v / 100)
+              z.fokus = { art: 'wetter', bezugS }
+              renderAlles()
+            },
+          ),
+        ),
+      )
+    }
+  } else if (info.art === 'moment') {
+    const abFest = info.ab as string
+    const wahl = auswahl(Object.entries(MOMENT_NAMEN), info.momentArt)
     wahl.addEventListener('change', () => {
       if (!z) return
       z.edits = mitMoment(z.edits, abFest, wahl.value as MomentArt, info.dauerS)
       renderAlles()
     })
-    aktionen.appendChild(wahl)
-    // Dauer in Sekunden (leer = Default der Art)
+    inhalt.appendChild(feld('Was die Kamera tut', wahl))
     const dauer = document.createElement('input')
     dauer.type = 'number'
     dauer.min = '1'
     dauer.max = '30'
-    dauer.className = 'insp-dauer'
     dauer.value = info.dauerS !== undefined ? String(info.dauerS) : ''
-    dauer.placeholder = `${MOMENT_DEFAULT_S[info.momentArt as MomentArt]}s`
-    dauer.title = 'Dauer in Sekunden (leer = Standard)'
+    dauer.placeholder = `${MOMENT_DEFAULT_S[info.momentArt as MomentArt]} (Standard)`
     dauer.addEventListener('change', () => {
       if (!z) return
       const v = dauer.value.trim() === '' ? undefined : Math.max(1, Math.min(30, Number(dauer.value)))
       z.edits = mitMoment(z.edits, abFest, info.momentArt as MomentArt, v)
       renderAlles()
     })
-    aktionen.appendChild(dauer)
-    const weg = document.createElement('button')
-    weg.textContent = 'Entfernen'
-    weg.addEventListener('click', () => {
-      if (!z) return
-      z.edits = ohneMoment(z.edits, abFest)
-      z.fokus = null
-      renderAlles()
-    })
-    aktionen.appendChild(weg)
-  } else if (info.art === 'wetter') {
-    const start = z.daten.time.start
-    const staerkeAlt = info.ab !== null ? z.edits.wetter?.find((g) => g.ab === info.ab)?.staerke : info.staerke
-    const wahl = document.createElement('select')
-    wahl.setAttribute('aria-label', 'Wetter dieses Abschnitts')
-    for (const [wert, name] of Object.entries(WETTER_NAMEN)) {
-      const opt = document.createElement('option')
-      opt.value = wert
-      opt.textContent = name
-      if (wert === info.wetterMode) opt.selected = true
-      wahl.appendChild(opt)
-    }
-    wahl.addEventListener('change', () => {
-      if (!z || !wahl.value) return
-      // Ohne eigene Grenze (Grundband „Automatisch") wird am Bandanfang eine neue
-      // gesetzt — der erste gesetzte Modus schaltet das Overlay scharf und ersetzt
-      // damit das Auto-Wetter. Stärke bei „Klar" verwerfen (dort ohne Wirkung).
-      const ab = info.ab ?? offsetZuIso(start, info.vonS)
-      const neuMode = wahl.value as WetterModus
-      z.edits = mitWetterGrenze(z.edits, ab, neuMode, neuMode === 'off' ? undefined : staerkeAlt)
-      z.fokus = { art: 'wetter', bezugS: (info.vonS + info.bisS) / 2 }
-      renderAlles()
-    })
-    aktionen.appendChild(wahl)
-
-    // Stärke-Regler (nicht bei „Klar" — dort gibt es keine Intensität)
-    if (info.wetterMode && info.wetterMode !== 'off') {
-      const ab = info.ab ?? offsetZuIso(start, info.vonS)
-      const mode = info.wetterMode
-      const regler = document.createElement('input')
-      regler.type = 'range'
-      regler.min = '0'
-      regler.max = '100'
-      regler.step = '10'
-      regler.className = 'insp-skala'
-      regler.value = String(Math.round((staerkeAlt ?? WETTER_STANDARD_K) * 100))
-      regler.title = 'Wetter-Stärke (leicht ↔ stark)'
-      regler.setAttribute('aria-label', 'Wetter-Stärke')
-      regler.addEventListener('change', () => {
-        if (!z) return
-        z.edits = mitWetterGrenze(z.edits, ab, mode, Number(regler.value) / 100)
-        z.fokus = { art: 'wetter', bezugS: (info.vonS + info.bisS) / 2 }
-        renderAlles()
-      })
-      aktionen.appendChild(regler)
-    }
-
-    if (info.ab !== null) {
-      const weg = document.createElement('button')
-      weg.textContent = 'Entfernen'
-      weg.title = 'Diese Wetter-Grenze aufheben — der vorherige Zustand gilt dann weiter'
-      const abFest = info.ab
-      weg.addEventListener('click', () => {
-        if (!z) return
-        z.edits = ohneWetterGrenze(z.edits, abFest)
-        z.fokus = null
-        renderAlles()
-      })
-      aktionen.appendChild(weg)
-    }
-    el.appendChild(aktionen)
-    // Hinweis: Overlay-Wetter ersetzt das automatische Wetter komplett
-    const hinweis = document.createElement('div')
-    hinweis.className = 'insp-hinweis'
-    hinweis.textContent =
-      (z.edits.wetter ?? []).length > 0
-        ? 'Eigenes Wetter ersetzt das automatische Wetter der ganzen Tour.'
-        : 'Ein Modus wählen ersetzt das automatische Wetter durch eigene Grenzen.'
-    el.appendChild(hinweis)
-    return
-  } else if (info.art === 'modus' || info.art === 'kamera') {
-    const werte: Array<[string, string]> =
-      info.art === 'modus' ? Object.entries(MODUS_NAMEN) : Object.entries(PRESET_NAMEN)
-    const aktuell = info.art === 'modus' ? (info.mode as string) : (info.preset as string | undefined)
-    const wahl = document.createElement('select')
-    wahl.setAttribute('aria-label', info.art === 'modus' ? 'Fortbewegung dieses Abschnitts' : 'Kamera dieses Abschnitts')
-    if (aktuell === undefined) {
-      const leer = document.createElement('option')
-      leer.textContent = 'Preset des Zuschauers'
-      leer.value = ''
-      wahl.appendChild(leer)
-    }
-    for (const [wert, name] of werte) {
-      const opt = document.createElement('option')
-      opt.value = wert
-      opt.textContent = name
-      if (wert === aktuell) opt.selected = true
-      wahl.appendChild(opt)
-    }
-    // Aktuelle Feinjustierung dieses Kamera-Bands (falls eigene Grenze)
-    const kamSkala = info.art === 'kamera' && info.ab !== null
-      ? z.edits.kamera?.find((g) => g.ab === info.ab)?.skala
-      : undefined
-    wahl.addEventListener('change', () => {
-      if (!z || !wahl.value) return
-      // Ohne eigene Grenze (Band aus der Aufzeichnung) wird am Bandanfang eine
-      // neue gesetzt — so lässt sich JEDER Abschnitt direkt umstellen.
-      const ab = info.ab ?? offsetZuIso(z.daten.time.start, info.vonS)
-      z.edits =
-        info.art === 'modus'
-          ? mitModusGrenze(z.edits, ab, wahl.value as Modus)
-          : mitKameraGrenze(z.edits, ab, wahl.value as KameraPreset, kamSkala) // Skala erhalten
-      // Bandmitte als Bezug: bleibt im Band, auch wenn die neue Grenze exakt
-      // auf dem alten Anfang liegt
-      const bezugS = (info.vonS + info.bisS) / 2
-      z.fokus = info.art === 'modus' ? { art: 'modus', bezugS } : { art: 'kamera', bezugS }
-      renderAlles()
-    })
-    aktionen.appendChild(wahl)
-
-    // Näher/Weiter-Regler: stufenlose Feinjustierung eines Kamera-Bands mit Preset
-    if (info.art === 'kamera' && info.preset) {
-      const ab = info.ab ?? offsetZuIso(z.daten.time.start, info.vonS)
-      const preset = info.preset
-      const regler = document.createElement('input')
-      regler.type = 'range'
-      regler.min = '50'
-      regler.max = '200'
-      regler.step = '5'
-      regler.className = 'insp-skala'
-      regler.value = String(Math.round((kamSkala ?? 1) * 100))
-      regler.title = 'Näher ↔ Weiter (Feinjustierung über das Preset hinaus)'
-      regler.setAttribute('aria-label', 'Kamera näher oder weiter')
-      regler.addEventListener('change', () => {
-        if (!z) return
-        const s = Number(regler.value) / 100
-        z.edits = mitKameraGrenze(z.edits, ab, preset, s)
-        z.fokus = { art: 'kamera', bezugS: (info.vonS + info.bisS) / 2 }
-        renderAlles()
-      })
-      aktionen.appendChild(regler)
-    }
-
-    if (info.ab !== null) {
-      const weg = document.createElement('button')
-      weg.textContent = 'Entfernen'
-      weg.title = 'Diese Grenze aufheben — der vorherige Zustand gilt dann weiter'
-      const abFest = info.ab
-      weg.addEventListener('click', () => {
-        if (!z) return
-        z.edits = info.art === 'modus' ? ohneModusGrenze(z.edits, abFest) : ohneKameraGrenze(z.edits, abFest)
-        z.fokus = null
-        renderAlles()
-      })
-      aktionen.appendChild(weg)
-    }
+    inhalt.appendChild(feld('Dauer in Sekunden', dauer))
+  } else if (info.art === 'audio') {
+    const index = info.index as number
+    const eintrag = (z.edits.audio ?? [])[index]
+    if (eintrag) inhalt.appendChild(baueAudioFelder(index, eintrag))
   } else {
-    // Audio/Medien werden weiterhin in ihren Panels bearbeitet — von hier aus
-    // wird nur dorthin gesprungen.
-    const hin = document.createElement('button')
-    hin.textContent = 'Im Panel bearbeiten'
-    hin.addEventListener('click', () => {
-      if (info.art === 'medium') {
-        blitzeZeile(info.id as string) // scrollt selbst
-        return
-      }
-      const zeile = document.querySelector<HTMLElement>(`#editor-audio .audio-zeile[data-index="${info.index}"]`)
-      zeile?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      zeile?.classList.remove('blitz')
-      void zeile?.offsetWidth
-      zeile?.classList.add('blitz')
-    })
-    aktionen.appendChild(hin)
+    const medium = medienAnzeige().find((m) => m.id === info.id)
+    if (medium) inhalt.appendChild(baueMediumFelder(medium))
   }
-  el.appendChild(aktionen)
+
+  // — Zeiten: Beginn und Ende, beides bearbeitbar, wo eine Grenze dahintersteht —
+  if (info.art !== 'medium') inhalt.appendChild(baueZeiten(info))
+
+  // — Fuß: Löschen (Backspace tut dasselbe) —
+  const { text, gesperrt, grund } = loeschInfo(info)
+  const weg = document.createElement('button')
+  weg.className = 'insp-loeschen'
+  weg.innerHTML = `${icon('muell')}<span>${text}</span>`
+  weg.disabled = gesperrt
+  if (grund) weg.title = grund
+  weg.addEventListener('click', () => loescheFokus())
+  fuss.appendChild(weg)
 }
 
-/** Trim-Status kompakt unter der Einfügemarke (früher eine eigene Gruppe). */
+/** Kicker-Text je Art. */
+const ART_NAMEN: Record<FokusZiel['art'], string> = {
+  modus: 'Fortbewegung',
+  kamera: 'Kamera',
+  wetter: 'Wetter',
+  moment: 'Moment',
+  audio: 'Musik & Sound',
+  medium: 'Aufnahme',
+}
+
+/**
+ * Beginn und Ende eines Zustands. „Endet um" verschiebt die Grenze des
+ * NACHFOLGERS — Ende des einen und Anfang des anderen sind dieselbe Kante.
+ * Wo keine Overlay-Grenze dahintersteht (Tourbeginn/-ende, Band aus der
+ * Aufzeichnung), steht statt des Feldes eine Aussage.
+ */
+function baueZeiten(info: FokusZiel): HTMLElement {
+  const paar = document.createElement('div')
+  paar.className = 'zeit-paar'
+  const punktEreignis = info.bisS <= info.vonS
+
+  const beginn =
+    info.ab && info.art !== 'audio' && info.art !== 'medium'
+      ? feld(punktEreignis ? 'Zeitpunkt' : 'Beginnt um', grenzZeitfeld(info.art as GrenzArt, info.ab, info.vonS, (neu) => (neu + info.bisS) / 2))
+      : feld('Beginnt', zeitFest(info.art === 'modus' ? 'aus der Aufzeichnung' : 'mit dem Tourbeginn'))
+
+  if (info.art === 'audio') {
+    const index = info.index as number
+    paar.append(
+      feld('Beginnt um', baueZeitfeld(info.vonS, (neu) => audioZeitSetzen(index, 'ab', neu))),
+      feld(
+        'Endet um',
+        (z?.edits.audio ?? [])[index]?.typ === 'sfx'
+          ? zeitFest('Klang, keine Dauer')
+          : baueZeitfeld(info.bisS, (neu) => audioZeitSetzen(index, 'bis', neu)),
+      ),
+    )
+    return paar
+  }
+
+  paar.appendChild(beginn)
+  if (!punktEreignis) {
+    paar.appendChild(
+      info.naechsteAb
+        ? feld('Endet um', grenzZeitfeld(info.art as GrenzArt, info.naechsteAb, info.bisS, (neu) => (info.vonS + neu) / 2))
+        : feld('Endet', zeitFest('am Tourende')),
+    )
+  }
+  return paar
+}
+
+type GrenzArt = 'modus' | 'kamera' | 'wetter' | 'moment'
+
+/**
+ * Zeitfeld, das eine Zustands-Grenze verschiebt.
+ *
+ * Der ISO-Anker wandert bei JEDER Änderung mit (`abAktuell`) — sonst suchte der
+ * zweite Zugschritt noch nach der ursprünglichen Grenze, fände sie nicht mehr
+ * und der Zug bliebe nach dem ersten Ruck stehen. Während des Zugs wird der
+ * Inspector NICHT neu gebaut (das Feld verlöre sich selbst); erst am Zugende
+ * macht ein voller Render daraus einen Undo-Schritt.
+ */
+function grenzZeitfeld(art: GrenzArt, ab: string, offsetS: number, bezug: (neuOffsetS: number) => number): HTMLElement {
+  let abAktuell = ab
+  return baueZeitfeld(
+    offsetS,
+    (neu) => {
+      if (!z) return null
+      const neuAb = verschiebeGrenze(art, abAktuell, neu)
+      if (!neuAb) return null
+      abAktuell = neuAb
+      if (art !== 'moment') z.fokus = { art, bezugS: bezug(neu) }
+      renderOhneInspektor()
+      return isoZuOffset(z.daten.time.start, neuAb)
+    },
+    () => renderAlles(),
+  )
+}
+
+/** Audio-Anfang/-Ende setzen (geklemmt gegen die eigene Spanne). */
+function audioZeitSetzen(index: number, teil: 'ab' | 'bis', neuOffsetS: number): number | null {
+  if (!z) return null
+  const skala = baueSkala(z.track)
+  const a = (z.edits.audio ?? [])[index]
+  if (!skala || !a) return null
+  const start = z.daten.time.start
+  const vonS = isoZuOffset(start, a.ab)
+  const bisS = a.bis !== undefined ? isoZuOffset(start, a.bis) : skala.bisS
+  const geklemmt =
+    teil === 'ab'
+      ? Math.max(skala.vonS, Math.min(neuOffsetS, bisS - 5))
+      : Math.max(vonS + 5, Math.min(neuOffsetS, skala.bisS))
+  if (teil === 'ab') {
+    const patch: { ab: string; bis?: string } = { ab: offsetZuIso(start, geklemmt) }
+    // Musik behält ihre Länge beim Verschieben des Anfangs
+    if (a.typ === 'musik' && a.bis !== undefined) patch.bis = offsetZuIso(start, geklemmt + (bisS - vonS))
+    z.edits = mitAudioPatch(z.edits, index, patch)
+  } else {
+    z.edits = mitAudioPatch(z.edits, index, { bis: geklemmt >= skala.bisS - 1 ? undefined : offsetZuIso(start, geklemmt) })
+  }
+  renderAlles()
+  return geklemmt
+}
+
+/** Felder eines Audio-Eintrags — früher nur über das Sidebar-Panel erreichbar. */
+function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
+  const huelle = document.createElement('div')
+  huelle.style.display = 'contents'
+
+  const typ = auswahl([['musik', 'Musik (über eine Strecke)'], ['sfx', 'Klang (ein Zeitpunkt)']], a.typ)
+  typ.addEventListener('change', () => {
+    if (!z) return
+    const neu = typ.value as 'musik' | 'sfx'
+    // Wechsel zu „Klang" wirft das Ende weg — ein Zeitpunkt hat keine Dauer
+    z.edits = mitAudioPatch(z.edits, index, neu === 'sfx' ? { typ: neu, bis: undefined } : { typ: neu })
+    renderAlles()
+  })
+  huelle.appendChild(feld('Art', typ))
+
+  huelle.appendChild(
+    feld(
+      'Lautstärke',
+      regler({ min: 0, max: 100, step: 5, wert: Math.round((a.lautstaerke ?? 0.8) * 100) }, (v) => `${v} %`, (v) => {
+        if (!z) return
+        z.edits = mitAudioPatch(z.edits, index, { lautstaerke: v / 100 })
+        renderAlles()
+      }),
+    ),
+  )
+
+  const knoepfe = document.createElement('div')
+  knoepfe.className = 'insp-knoepfe'
+  const hoeren = document.createElement('button')
+  const laeuft = vorschau?.datei === a.datei
+  hoeren.innerHTML = `${icon(laeuft ? 'stop' : 'play')}<span>${laeuft ? 'Stopp' : 'Vorhören'}</span>`
+  hoeren.addEventListener('click', () => {
+    if (laeuft) stoppeVorschau()
+    else starteVorschau(a)
+    renderInspektor()
+  })
+  knoepfe.appendChild(hoeren)
+  huelle.appendChild(knoepfe)
+
+  if (z && audioWirdVerworfen(a, z.edits, z.daten.time.start, baueSkala(z.track) ?? { vonS: 0, bisS: 0 })) {
+    const warn = document.createElement('p')
+    warn.className = 'insp-warnung'
+    warn.textContent = 'Liegt außerhalb der getrimmten Tour und wird beim Rendern verworfen.'
+    huelle.appendChild(warn)
+  }
+  return huelle
+}
+
+/** Felder einer Aufnahme — früher nur über die Medien-Liste erreichbar. */
+function baueMediumFelder(m: MediumAnzeige): HTMLElement {
+  const huelle = document.createElement('div')
+  huelle.style.display = 'contents'
+
+  const bild = document.createElement('img')
+  bild.className = 'insp-bild'
+  bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
+  bild.alt = ''
+  huelle.appendChild(bild)
+
+  // Der Nutzertext wird beim Rendern zur ÜBERSCHRIFT des Foto-Stopps, die
+  // Uhrzeit rutscht darunter — deshalb hier „Titel", nicht „Bildunterschrift".
+  const titel = document.createElement('input')
+  titel.type = 'text'
+  titel.value = m.caption
+  titel.placeholder = 'ohne Titel'
+  titel.addEventListener('change', () => {
+    if (!z) return
+    z.edits = mitMedienEdit(z.edits, m.id, { caption: titel.value.trim() })
+    renderAlles()
+  })
+  huelle.appendChild(feld('Titel — erscheint als Überschrift', titel))
+
+  if (m.type === 'photo') {
+    const halt = auswahl(
+      [['', 'Automatisch (5 s)'], ['3', '3 Sekunden'], ['5', '5 Sekunden'], ['8', '8 Sekunden'], ['12', '12 Sekunden'], ['20', '20 Sekunden']],
+      m.display?.holdS !== undefined ? String(m.display.holdS) : '',
+    )
+    halt.addEventListener('change', () => {
+      if (!z) return
+      const v = halt.value === '' ? undefined : Number(halt.value)
+      const d = { ...m.display }
+      if (v === undefined) delete d.holdS
+      else d.holdS = v
+      z.edits = mitMedienEdit(z.edits, m.id, { display: d })
+      renderAlles()
+    })
+    huelle.appendChild(feld('Standzeit', halt))
+
+    const kb = document.createElement('label')
+    kb.className = 'kb'
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.checked = m.display?.kenBurns !== false
+    box.addEventListener('change', () => {
+      if (!z) return
+      const d = { ...m.display }
+      if (box.checked) delete d.kenBurns
+      else d.kenBurns = false
+      z.edits = mitMedienEdit(z.edits, m.id, { display: d })
+      renderAlles()
+    })
+    kb.append(box, document.createTextNode('Langsam heranfahren (Ken Burns)'))
+    huelle.appendChild(kb)
+  }
+
+  const knoepfe = document.createElement('div')
+  knoepfe.className = 'insp-knoepfe'
+  const platzieren = document.createElement('button')
+  platzieren.textContent = z?.platzieren === m.id ? 'Platzieren abbrechen' : 'Auf der Karte platzieren'
+  if (z?.platzieren === m.id) platzieren.classList.add('aktiv')
+  platzieren.addEventListener('click', () => {
+    if (!z) return
+    z.platzieren = z.platzieren === m.id ? null : m.id
+    renderAlles()
+  })
+  knoepfe.appendChild(platzieren)
+  if (m.placement === 'manuell') {
+    const zurueck = document.createElement('button')
+    zurueck.textContent = 'Automatischen Ort zurückholen'
+    zurueck.addEventListener('click', () => {
+      if (!z) return
+      z.edits = mitMedienEdit(z.edits, m.id, { anchor: undefined })
+      renderAlles()
+    })
+    knoepfe.appendChild(zurueck)
+  }
+  huelle.appendChild(knoepfe)
+
+  const notiz = document.createElement('p')
+  notiz.className = 'insp-notiz'
+  notiz.textContent = `Aufgenommen ${zeitText(m.takenAt)} Uhr · verortet über ${PLACEMENT_NAMEN[m.placement] ?? m.placement}. Die Aufnahmezeit selbst lässt sich nicht ändern — verschiebe den Ort, um sie umzuhängen.`
+  huelle.appendChild(notiz)
+  return huelle
+}
+
+/** Was der Löschknopf tut — und wann er gesperrt ist. */
+function loeschInfo(info: FokusZiel): { text: string; gesperrt: boolean; grund?: string } {
+  if (info.art === 'medium') {
+    const m = medienAnzeige().find((x) => x.id === info.id)
+    return { text: m?.type === 'video' ? 'Video entfernen' : 'Foto entfernen', gesperrt: false }
+  }
+  if (info.art === 'audio') return { text: 'Aus der Tour nehmen', gesperrt: false }
+  if (info.art === 'moment') return { text: 'Moment entfernen', gesperrt: false }
+  if (info.ab === null) {
+    return {
+      text: 'Abschnitt entfernen',
+      gesperrt: true,
+      grund:
+        info.art === 'modus'
+          ? 'Dieser Abschnitt stammt aus der Aufzeichnung — er lässt sich überschreiben, aber nicht entfernen.'
+          : 'Der erste Zustand deckt die Tour von Anfang an — er lässt sich nur ändern.',
+    }
+  }
+  return { text: 'Abschnitt entfernen', gesperrt: false }
+}
+
+/**
+ * Das fokussierte Objekt löschen — Knopf im Fuß oder Backspace/Entf. Bei
+ * Zustands-Bändern verschwindet die GRENZE: der vorherige Zustand gilt dann
+ * weiter, die Tour bleibt lückenlos gedeckt.
+ */
+function loescheFokus(): void {
+  if (!z) return
+  const info = loeseFokusAuf()
+  if (!info || loeschInfo(info).gesperrt) return
+  if (info.art === 'modus' && info.ab) z.edits = ohneModusGrenze(z.edits, info.ab)
+  else if (info.art === 'kamera' && info.ab) z.edits = ohneKameraGrenze(z.edits, info.ab)
+  else if (info.art === 'wetter' && info.ab) z.edits = ohneWetterGrenze(z.edits, info.ab)
+  else if (info.art === 'moment' && info.ab) z.edits = ohneMoment(z.edits, info.ab)
+  else if (info.art === 'audio' && info.index !== undefined) z.edits = ohneAudioEintrag(z.edits, info.index)
+  else if (info.art === 'medium' && info.id) z.edits = mitMedienEdit(z.edits, info.id, { geloescht: true })
+  else return
+  z.fokus = null
+  renderAlles()
+}
+
 function renderTrim(): void {
   if (!z) return
   const trimEl = $('editor-trim')
@@ -1205,6 +1435,21 @@ function renderMedien(): void {
 }
 
 // — Musik & Sound (Audio-Assets + Overlay-Einträge) —
+
+/** Einen Audio-Eintrag vorhören (bricht ein laufendes Vorhören ab). */
+function starteVorschau(a: AudioEintrag): void {
+  if (!z) return
+  stoppeVorschau()
+  const audio = new Audio(audioUrl(a, z.tourId))
+  audio.volume = a.lautstaerke ?? 1
+  audio.addEventListener('ended', () => {
+    stoppeVorschau()
+    renderInspektor()
+    renderAudio()
+  })
+  void audio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
+  vorschau = { audio, datei: a.datei }
+}
 
 function stoppeVorschau(): void {
   if (!vorschau) return
@@ -2062,6 +2307,43 @@ function renderNachZug(): void {
   renderInspektor()
 }
 
+/**
+ * Eine Zustands-Grenze auf einen neuen Zeitpunkt setzen — von BEIDEN Wegen
+ * genutzt: Kante ziehen und Zeitfeld im Inspector. Der zugehörige Wert
+ * (Modus/Preset/Wetter/Moment-Art) sowie Feinjustierung, Stärke und Dauer
+ * bleiben erhalten; landet die Grenze exakt auf einer anderen, verschluckte die
+ * Ersetzen-Semantik der Mutatoren diese — deshalb der Kollisions-Schutz.
+ *
+ * Gibt den neuen ISO-Anker zurück oder null, wenn nichts geschah.
+ */
+function verschiebeGrenze(art: 'modus' | 'kamera' | 'wetter' | 'moment', altAb: string, neuOffsetS: number): string | null {
+  if (!z) return null
+  const skala = baueSkala(z.track)
+  if (!skala) return null
+  const geklemmt = Math.max(skala.vonS, Math.min(skala.bisS, neuOffsetS))
+  const neuAb = offsetZuIso(z.daten.time.start, geklemmt)
+  if (neuAb === altAb) return altAb
+  if (art === 'modus') {
+    const alt = z.edits.modi?.find((g) => g.ab === altAb)
+    if (!alt || z.edits.modi?.some((g) => g.ab === neuAb)) return null
+    z.edits = mitModusGrenze(ohneModusGrenze(z.edits, altAb), neuAb, alt.mode)
+  } else if (art === 'kamera') {
+    const alt = z.edits.kamera?.find((g) => g.ab === altAb)
+    if (!alt || z.edits.kamera?.some((g) => g.ab === neuAb)) return null
+    z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, altAb), neuAb, alt.preset, alt.skala)
+  } else if (art === 'wetter') {
+    const alt = z.edits.wetter?.find((g) => g.ab === altAb)
+    if (!alt || z.edits.wetter?.some((g) => g.ab === neuAb)) return null
+    z.edits = mitWetterGrenze(ohneWetterGrenze(z.edits, altAb), neuAb, alt.mode, alt.staerke)
+  } else {
+    const alt = z.edits.momente?.find((m) => m.ab === altAb)
+    if (!alt || z.edits.momente?.some((m) => m.ab === neuAb)) return null
+    z.edits = mitMoment(ohneMoment(z.edits, altAb), neuAb, alt.art, alt.dauerS)
+    if (z.fokus?.art === 'moment') z.fokus = { art: 'moment', ab: neuAb }
+  }
+  return neuAb
+}
+
 function zeitleisteZug(e: PointerEvent): void {
   if (!z || !zug) return
   const skala = baueSkala(z.track)
@@ -2084,45 +2366,16 @@ function zeitleisteZug(e: PointerEvent): void {
       z.edits = mitTrim(z.edits, 'ende', a >= 0.998 ? null : iso(a))
       break
     }
-    case 'grenze': {
-      if (zug.ab === undefined || !zug.mode) break
-      const neuAb = iso(anteil)
-      // Kollisions-Schutz: exakt auf einer ANDEREN Grenze würde die
-      // Ersetzen-Semantik von mitModusGrenze diese verschlucken → Zug auslassen
-      if (neuAb !== zug.ab && z.edits.modi?.some((g) => g.ab === neuAb)) break
-      z.edits = mitModusGrenze(ohneModusGrenze(z.edits, zug.ab), neuAb, zug.mode)
-      zug.ab = neuAb
-      break
-    }
-    case 'kamera': {
-      if (zug.ab === undefined || !zug.preset) break
-      const altAb = zug.ab
-      const neuAb = iso(anteil)
-      if (neuAb !== altAb && z.edits.kamera?.some((g) => g.ab === neuAb)) break
-      const altSkala = z.edits.kamera?.find((g) => g.ab === altAb)?.skala
-      z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, altAb), neuAb, zug.preset, altSkala)
-      zug.ab = neuAb
-      break
-    }
-    case 'wetter': {
-      if (zug.ab === undefined || !zug.wetterMode) break
-      const altAb = zug.ab
-      const neuAb = iso(anteil)
-      if (neuAb !== altAb && z.edits.wetter?.some((g) => g.ab === neuAb)) break
-      const altStaerke = z.edits.wetter?.find((g) => g.ab === altAb)?.staerke
-      z.edits = mitWetterGrenze(ohneWetterGrenze(z.edits, altAb), neuAb, zug.wetterMode, altStaerke)
-      zug.ab = neuAb
-      break
-    }
+    // Grenzen aller Art laufen über dieselbe Funktion wie die Zeitfelder im
+    // Inspector — eine Stelle, an der Kollision und Werterhalt geregelt sind.
+    case 'grenze':
+    case 'kamera':
+    case 'wetter':
     case 'moment': {
-      if (zug.ab === undefined || !zug.momentArt) break
-      const altAb = zug.ab
-      const neuAb = iso(anteil)
-      if (neuAb !== altAb && z.edits.momente?.some((m) => m.ab === neuAb)) break
-      const alt = z.edits.momente?.find((m) => m.ab === altAb)
-      z.edits = mitMoment(ohneMoment(z.edits, altAb), neuAb, zug.momentArt, alt?.dauerS)
-      zug.ab = neuAb
-      if (z.fokus?.art === 'moment') z.fokus = { art: 'moment', ab: neuAb } // Fokus mitziehen
+      if (zug.ab === undefined) break
+      const art = zug.rolle === 'grenze' ? 'modus' : (zug.rolle as 'kamera' | 'wetter' | 'moment')
+      const neuAb = verschiebeGrenze(art, zug.ab, anteilZuOffset(skala, anteil))
+      if (neuAb) zug.ab = neuAb
       break
     }
     case 'audio-balken': {
@@ -2508,6 +2761,10 @@ function verdrahteEinmal(): void {
     } else if (e.key === 'Escape' && z.platzieren) {
       z.platzieren = null
       renderAlles()
+    } else if ((e.key === 'Backspace' || e.key === 'Delete') && z.fokus) {
+      // Löscht dasselbe wie der Knopf im Inspector-Fuß
+      e.preventDefault()
+      loescheFokus()
     } else if (!meta && !e.altKey && !e.shiftKey) {
       const k = e.key.toLowerCase()
       if (k === 'a' || k === 'h' || k === 'z') {

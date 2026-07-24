@@ -11,9 +11,12 @@ import {
   type AnzeigeAbschnitt,
   type AudioEintrag,
   type EditOverlay,
+  type KameraPreset,
   type MediumAnzeige,
+  type MomentArt,
   type Modus,
   type TrackPunkt,
+  type WetterModus,
 } from './editmodell.js'
 
 /** Zeitspanne der Aufzeichnung: Offsets (s) des ersten/letzten Trackpunkts. */
@@ -178,6 +181,186 @@ export function baueAudioBalken(audio: readonly AudioEintrag[], startIso: string
     balken.push({ index, typ: a.typ, von: vonAnteil, bis: bisAnteil, datei: a.datei })
   })
   return balken
+}
+
+// — Zeit-Eingabe im Inspector —
+//
+// Ein Zeitfeld zeigt „14:03" und meint einen Offset in Sekunden seit Tourbeginn.
+// Die Rückrichtung läuft bewusst über die DIFFERENZ zur angezeigten Zeit statt
+// über eine echte Wanduhr→Zeitpunkt-Umkehrung: Letztere müsste die Zeitzone
+// invertieren und stolperte über Sommerzeit-Sprünge und über Touren, die über
+// Mitternacht laufen.
+
+/** „14:03", „1403", „14.3" → Minuten seit Mitternacht; null bei Unsinn. */
+export function parseUhrMinuten(text: string): number | null {
+  const roh = text.trim()
+  const treffer = /^(\d{1,2})\s*[:.\s]?\s*(\d{2})$/.exec(roh)
+  if (!treffer) return null
+  const std = Number(treffer[1])
+  const min = Number(treffer[2])
+  if (!(std >= 0 && std <= 23 && min >= 0 && min <= 59)) return null
+  return std * 60 + min
+}
+
+/**
+ * Neue Uhrzeit im Feld → neuer Zeit-Offset (s). Gerechnet wird die Differenz zur
+ * bisher angezeigten Zeit; „00:05" nach „23:50" heißt deshalb +15 Minuten und
+ * nicht ein Sprung um fast einen ganzen Tag zurück.
+ */
+export function uhrDiffZuOffset(altOffsetS: number, altText: string, neuText: string): number | null {
+  const alt = parseUhrMinuten(altText)
+  const neu = parseUhrMinuten(neuText)
+  if (alt === null || neu === null) return null
+  let diffMin = neu - alt
+  if (diffMin > 720) diffMin -= 1440
+  if (diffMin < -720) diffMin += 1440
+  return altOffsetS + diffMin * 60
+}
+
+// — Fokus: die gemeinsame Auswahl von Zeitleiste, Karte und Inspector —
+//
+// Gespeichert wird bewusst nur die IDENTITÄT. Bänder entstehen aus Overlay +
+// Track und würden als kopierte Spanne veralten, sobald man eine Grenze
+// verschiebt; `loeseFokusAuf` löst sie deshalb bei JEDEM Render neu auf.
+
+export type Fokus =
+  | { art: 'modus'; bezugS: number }
+  | { art: 'kamera'; bezugS: number }
+  | { art: 'wetter'; bezugS: number }
+  | { art: 'moment'; ab: string }
+  | { art: 'audio'; index: number }
+  | { art: 'medium'; id: string }
+
+/** Aufgelöster Fokus: was der Inspector zeigt und was auf der Karte leuchtet. */
+export interface FokusZiel {
+  art: Fokus['art']
+  vonS: number
+  bisS: number
+  /**
+   * Overlay-Grenze, die dieses Band ERÖFFNET — null heißt: das Band stammt aus
+   * der Aufzeichnung (oder ist das Grundband) und lässt sich nicht entfernen,
+   * nur überschreiben. Im Inspector ist „Beginnt um" dann fest.
+   */
+  ab: string | null
+  /**
+   * Grenze, die dieses Band SCHLIESST (= eröffnet das nächste). Anfang des
+   * einen und Ende des anderen Zustands sind dieselbe Kante — über dieses Feld
+   * kann der Inspector auch das Ende verschieben. null = Band endet am Tourende.
+   */
+  naechsteAb: string | null
+  mode?: Modus
+  preset?: KameraPreset
+  wetterMode?: WetterModus
+  staerke?: number
+  momentArt?: MomentArt
+  dauerS?: number
+  index?: number
+  id?: string
+}
+
+/** Liegt `offsetS` (etwa) auf der Grenze `ab`? Toleranz gegen Rundung. */
+const grenzeBei = (
+  grenzen: ReadonlyArray<{ ab: string }>,
+  startIso: string,
+  offsetS: number,
+): string | null => grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.ab) - offsetS) < 1)?.ab ?? null
+
+export function loeseFokusAuf(
+  fokus: Fokus | null,
+  edits: EditOverlay,
+  abschnitte: readonly AnzeigeAbschnitt[],
+  track: readonly TrackPunkt[],
+  startIso: string,
+  medien: readonly MediumAnzeige[],
+): FokusZiel | null {
+  if (!fokus) return null
+  const skala = baueSkala(track)
+  if (!skala) return null
+
+  if (fokus.art === 'modus') {
+    // Aus den Anzeige-Abschnitten: die tragen echte Trackpunkte, also echte Zeiten
+    const treffer = abschnitte.find((a) => {
+      const von = (a.pts[0] as TrackPunkt)[3]
+      const bis = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
+      return fokus.bezugS >= von && fokus.bezugS <= bis
+    })
+    if (!treffer) return null
+    const vonS = (treffer.pts[0] as TrackPunkt)[3]
+    const bisS = (treffer.pts[treffer.pts.length - 1] as TrackPunkt)[3]
+    // Verantwortliche Grenze: die letzte, die zu Bandbeginn schon gilt und
+    // denselben Modus setzt. Fehlt sie, stammt das Band aus der Aufzeichnung.
+    let ab: string | null = null
+    for (const g of edits.modi ?? []) {
+      const gS = isoZuOffset(startIso, g.ab)
+      if (!Number.isFinite(gS) || gS > vonS + 1) break
+      if (g.mode === treffer.mode) ab = g.ab
+    }
+    return { art: 'modus', vonS, bisS, ab, naechsteAb: grenzeBei(edits.modi ?? [], startIso, bisS), mode: treffer.mode }
+  }
+
+  if (fokus.art === 'kamera' || fokus.art === 'wetter') {
+    const istWetter = fokus.art === 'wetter'
+    // Wetter-Grund ist „klar" (off), sobald IRGENDeine Grenze existiert — dann
+    // ersetzt das Overlay das Auto-Wetter vollständig; sonst „automatisch".
+    const grenzen = istWetter
+      ? (edits.wetter ?? []).map((g) => ({ ab: g.ab, wert: g.mode as KameraPreset | WetterModus }))
+      : (edits.kamera ?? []).map((g) => ({ ab: g.ab, wert: g.preset as KameraPreset | WetterModus }))
+    const grund: KameraPreset | WetterModus | null = istWetter && grenzen.length > 0 ? 'off' : null
+    const baender = baueZustandsBaender(grenzen, startIso, skala, grund)
+    const i = baender.findIndex(
+      (b) => fokus.bezugS >= anteilZuOffset(skala, b.von) && fokus.bezugS <= anteilZuOffset(skala, b.bis),
+    )
+    const treffer = baender[i]
+    if (!treffer) return null
+    const ziel: FokusZiel = {
+      art: fokus.art,
+      vonS: anteilZuOffset(skala, treffer.von),
+      bisS: anteilZuOffset(skala, treffer.bis),
+      ab: treffer.ab,
+      naechsteAb: baender[i + 1]?.ab ?? null,
+    }
+    if (treffer.wert) {
+      if (istWetter) ziel.wetterMode = treffer.wert as WetterModus
+      else ziel.preset = treffer.wert as KameraPreset
+    }
+    if (istWetter && treffer.ab !== null) {
+      const staerke = edits.wetter?.find((g) => g.ab === treffer.ab)?.staerke
+      if (staerke !== undefined) ziel.staerke = staerke
+    }
+    if (!istWetter && treffer.ab !== null) {
+      const feinSkala = edits.kamera?.find((g) => g.ab === treffer.ab)?.skala
+      if (feinSkala !== undefined) ziel.staerke = feinSkala
+    }
+    return ziel
+  }
+
+  if (fokus.art === 'moment') {
+    const m = (edits.momente ?? []).find((x) => x.ab === fokus.ab)
+    if (!m) return null
+    const s = isoZuOffset(startIso, m.ab)
+    return {
+      art: 'moment',
+      vonS: s,
+      bisS: s,
+      ab: m.ab,
+      naechsteAb: null,
+      momentArt: m.art,
+      ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
+    }
+  }
+
+  if (fokus.art === 'audio') {
+    const a = (edits.audio ?? [])[fokus.index]
+    if (!a) return null
+    const vonS = isoZuOffset(startIso, a.ab)
+    const bisS = a.typ === 'sfx' ? vonS : a.bis !== undefined ? isoZuOffset(startIso, a.bis) : skala.bisS
+    return { art: 'audio', vonS, bisS, ab: a.ab, naechsteAb: null, index: fokus.index }
+  }
+
+  const m = medien.find((x) => x.id === fokus.id)
+  if (!m?.anchor) return null
+  const p = projiziereAufTrack(track, m.anchor[0], m.anchor[1])
+  return { art: 'medium', vonS: p.punkt[3], bisS: p.punkt[3], ab: null, naechsteAb: null, id: m.id }
 }
 
 /** Trim-Griffe als Anteile (Default 0/1, wenn kein Trim gesetzt). */
