@@ -299,8 +299,10 @@ function baueKarte(): maplibregl.Map {
       },
       layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
     },
+    // Die Quellenangabe steht als eigenes (i) unten rechts — die Pflichtnennung
+    // bleibt, braucht aber keine Dauerzeile über der Karte.
+    attributionControl: false,
   })
-  k.addControl(new maplibregl.NavigationControl({ showCompass: false }))
   k.on('click', (e) => klickAufKarte(e))
   return k
 }
@@ -502,15 +504,29 @@ function zeichneMarker(): void {
   marker = []
   medienMarker = new Map()
 
-  // Medien (nur verankerte, nicht gelöschte) — per Drag auf den Track schieben
+  // Ein Medium zeigt sich als das, was es IST: das Bild selbst, rund
+  // beschnitten. Auf einem Satellitenbild ist ein Punkt nur ein weiterer heller
+  // Fleck; die Miniatur sagt sofort, was dort wartet. Ziehen verankert es neu.
   for (const m of medienAnzeige()) {
     if (!m.anchor || m.geloescht) continue
     const el = document.createElement('div')
-    el.className = 'm-marker'
+    el.className = 'medien-punkt'
+    if (z.fokus?.art === 'medium' && z.fokus.id === m.id) el.classList.add('an')
+    const halo = document.createElement('span')
+    halo.className = 'halo'
+    const kern = document.createElement('span')
+    kern.className = 'kern'
     const thumb = m.type === 'photo' ? m.src : m.poster
-    if (thumb) el.style.backgroundImage = `url("${thumb}")`
-    else el.innerHTML = icon('film')
-    el.title = `${m.id} · ${PLACEMENT_NAMEN[m.placement] ?? m.placement}`
+    if (thumb) {
+      const bild = document.createElement('img')
+      bild.src = thumb
+      bild.alt = ''
+      kern.appendChild(bild)
+    } else {
+      kern.innerHTML = icon('film')
+    }
+    el.append(halo, kern)
+    el.title = `${m.caption || m.id} · ${PLACEMENT_NAMEN[m.placement] ?? m.placement} — ziehen verankert neu`
     const mk = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(m.anchor).addTo(karte)
     let gezogen = false
     mk.on('dragstart', () => {
@@ -523,7 +539,6 @@ function zeichneMarker(): void {
       z.edits = mitMedienEdit(z.edits, m.id, { anchor: [projektion.punkt[0], projektion.punkt[1]] })
       renderAlles()
     })
-    // Klick auf den Marker → zugehörige Zeile in der Liste aufblitzen lassen
     el.addEventListener('click', (ev) => {
       ev.stopPropagation()
       if (gezogen) {
@@ -538,34 +553,9 @@ function zeichneMarker(): void {
     marker.push(mk)
   }
 
-  // Modus-Grenzen + Trim-Kanten als beschriftete Pins am jeweiligen Trackpunkt
-  const pin = (klasse: string, text: string, iso: string): void => {
-    if (!karte || !z) return
-    const punkt = punktZurZeit(iso)
-    if (!punkt) return
-    const el = document.createElement('div')
-    el.className = klasse
-    el.textContent = text
-    marker.push(new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -6] }).setLngLat([punkt[0], punkt[1]]).addTo(karte))
-  }
-  for (const g of z.edits.modi ?? []) pin('g-marker', `${MODUS_NAMEN[g.mode]} ▸`, g.ab)
-  if (z.edits.trim?.start !== undefined) pin('t-marker', '⟦ Start', z.edits.trim.start)
-  if (z.edits.trim?.ende !== undefined) pin('t-marker', 'Ende ⟧', z.edits.trim.ende)
-
-  // Auswahl-Punkt zuletzt (oben)
-  if (z.auswahl) {
-    const el = document.createElement('div')
-    el.className = 'sel-marker'
-    marker.push(new maplibregl.Marker({ element: el }).setLngLat([z.auswahl[0], z.auswahl[1]]).addTo(karte))
-  }
-}
-
-/** Interpolierte Track-Position zu einem absoluten Zeitpunkt (Grenz-/Trim-Pins). */
-function punktZurZeit(iso: string): TrackPunkt | null {
-  if (!z) return null
-  const offset = isoZuOffset(z.daten.time.start, iso)
-  if (!Number.isFinite(offset)) return null
-  return punktZuOffset(z.track, offset)
+  // Grenz- und Trim-Pins gibt es nicht mehr: WO ein Zustand gilt, beantworten
+  // die Bänder der Zeitleiste und der leuchtende Fokus-Abschnitt auf der Karte.
+  // Wo der Abspielkopf steht, zeigt der Läufer (setzeLaeufer).
 }
 
 /** Uhrzeit in der Tour-Zone; Datum nur, wenn es vom Tour-Tag abweicht (mtime-Fallen!). */
@@ -2615,6 +2605,8 @@ function verdrahteEinmal(): void {
   $('editor-reprocess').addEventListener('click', () => void neuVerarbeiten())
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)
+  $('karte-plus').addEventListener('click', () => karte?.zoomIn())
+  $('karte-minus').addEventListener('click', () => karte?.zoomOut())
   // Eine neue Zeigergeste hebt die Klick-Sperre auf (Capture-Phase, vor allen
   // anderen Handlern) — s. Kommentar bei `unterdrueckeKlick`.
   document.addEventListener('pointerdown', () => { unterdrueckeKlick = false }, true)

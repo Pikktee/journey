@@ -567,13 +567,8 @@
     #editor-map { position: absolute; inset: 0; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }
     /* Beim Platzieren zählt nur der Track: Marker dürfen den Klick nicht schlucken */
-    #editor-map.platzieren .m-marker { pointer-events: none; }
-    .maplibregl-ctrl-attrib { font-size: 10px; background: rgba(6, 8, 12, 0.55) !important; color: var(--text-2); }
-    .maplibregl-ctrl-attrib a { color: var(--text-2); }
-    .maplibregl-ctrl-group { background: rgba(13, 17, 24, 0.9) !important; border: 1px solid var(--rand); border-radius: 10px !important; overflow: hidden; }
-    .maplibregl-ctrl-group button { border-radius: 0 !important; border: none !important; background: transparent !important; }
-    .maplibregl-ctrl-group button + button { border-top: 1px solid var(--rand) !important; }
-    .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(0.9); }
+    /* Beim Platzieren zählt nur der Track: Marker dürfen den Klick nicht schlucken */
+    #editor-map.platzieren .medien-punkt { pointer-events: none; }
 
     /* Schwebender Hinweis auf der Karte (Platzieren-Modus) */
     #editor-medien-hinweis {
@@ -604,35 +599,88 @@
       flex-direction: column;
       gap: 22px;
     }
-    /* — Karten-Marker — */
-    .sel-marker {
-      width: 14px; height: 14px; border-radius: 50%;
-      background: #fff;
-      border: 3px solid var(--akzent);
-      box-shadow: 0 0 0 3px rgba(6, 8, 12, 0.55), 0 0 18px rgba(245, 165, 36, 0.5);
+    /* — Karten-Marker —
+         Ein Medium ist auf der Karte das BILD selbst, rund beschnitten: auf
+         einem Satellitenbild wäre ein Punkt nur ein weiterer heller Fleck. */
+    .medien-punkt { width: 40px; height: 40px; display: grid; place-items: center; cursor: grab; position: relative; }
+    .medien-punkt:active { cursor: grabbing; }
+    .medien-punkt .kern {
+      position: relative; width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
+      background: var(--fl-3); border: 2px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 2px 7px rgba(2, 5, 10, 0.6);
+      display: grid; place-items: center; color: var(--text-2);
+      transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 160ms ease, box-shadow 160ms ease;
     }
-    .m-marker {
-      width: 36px; height: 36px; border-radius: 11px;
-      border: 2px solid rgba(255, 255, 255, 0.92);
-      background: var(--fl-3) center/cover no-repeat;
-      box-shadow: 0 2px 10px rgba(2, 5, 10, 0.6);
-      cursor: grab;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text);
-      transition: transform 140ms ease, box-shadow 140ms ease;
+    .medien-punkt .kern img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .medien-punkt .kern svg { width: 14px; height: 14px; }
+    .medien-punkt .halo {
+      position: absolute; width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(245, 165, 36, 0.3); opacity: 0; transition: opacity 160ms ease;
     }
-    .m-marker:hover { transform: scale(1.12); box-shadow: 0 4px 16px rgba(2, 5, 10, 0.75); }
-    .m-marker svg { width: 15px; height: 15px; }
-    .g-marker, .t-marker {
-      padding: 3px 9px; border-radius: 7px;
-      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-      background: rgba(13, 17, 24, 0.92);
+    .medien-punkt:hover .kern { transform: scale(1.07); border-color: #fff; }
+    .medien-punkt:hover .halo { opacity: 0.55; }
+    .medien-punkt.an .halo { opacity: 1; }
+    .medien-punkt.an .kern { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45), 0 3px 12px rgba(2, 5, 10, 0.65); }
+    @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
+    .medien-punkt.puls .kern { animation: markerPuls 700ms ease-out 2; }
+
+    /* Zoom-Steuerung der Karte (statt der MapLibre-Leiste) */
+    .karte-zoom {
+      position: absolute; top: 14px; right: 16px; z-index: 8;
+      display: flex; flex-direction: column; border-radius: 9px; overflow: hidden;
+      border: 1px solid var(--rand); box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
+    }
+    .karte-zoom button {
+      width: 32px; height: 32px; display: grid; place-items: center; padding: 0;
+      background: rgba(14, 19, 26, 0.92); border: none; color: var(--text-2); border-radius: 0;
+    }
+    .karte-zoom button + button { border-top: 1px solid var(--rand); }
+    .karte-zoom button:hover { background: rgba(28, 37, 48, 0.96); color: var(--text); }
+    .karte-zoom svg { width: 17px; height: 17px; }
+
+    /* Kartenquellen hinter einem (i): Esri/Maxar zu nennen ist Pflicht, sie darf
+       also nicht verschwinden — sie steckt im Knopf-Label und in der Blase, die
+       bei Hover UND Tastaturfokus aufgeht (wie MapLibres Kompakt-Attribution). */
+    .karte-info { position: absolute; right: 14px; bottom: 14px; z-index: 8; }
+    .karte-info .ki-knopf {
+      width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
+      border-radius: 50%; cursor: help;
+      background: rgba(14, 19, 26, 0.86); border: 1px solid var(--rand); color: var(--text-3);
+      box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
+    }
+    .karte-info .ki-knopf:hover, .karte-info .ki-knopf:focus-visible { background: rgba(28, 37, 48, 0.96); color: var(--akzent); border-color: rgba(245, 165, 36, 0.5); }
+    .karte-info .ki-knopf svg { width: 15px; height: 15px; }
+    .karte-info .ki-blase {
+      position: absolute; right: -3px; bottom: calc(100% + 11px);
+      width: max-content; max-width: 330px; padding: 12px 15px 13px; border-radius: 13px;
+      background:
+        radial-gradient(120% 150% at 100% 100%, rgba(245, 165, 36, 0.14), transparent 60%),
+        linear-gradient(165deg, rgba(26, 34, 45, 0.94), rgba(9, 12, 17, 0.96));
       border: 1px solid var(--rand-hell);
-      color: var(--text);
-      white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(2, 5, 10, 0.5);
+      box-shadow: 0 20px 44px rgba(2, 5, 10, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(14px) saturate(1.25);
+      opacity: 0; transform: translateY(6px) scale(0.95); transform-origin: 90% 100%;
+      pointer-events: none; transition: opacity 170ms ease, transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
     }
-    .t-marker { border-color: var(--akzent); color: var(--akzent); }
+    .karte-info .ki-blase::after {
+      content: ''; position: absolute; right: 15px; bottom: -5px; width: 9px; height: 9px;
+      background: rgb(38, 35, 31); transform: rotate(45deg); border-bottom-right-radius: 2px;
+      border-right: 1px solid var(--rand-hell); border-bottom: 1px solid var(--rand-hell);
+    }
+    .karte-info:hover .ki-blase, .karte-info .ki-knopf:focus-visible + .ki-blase { opacity: 1; transform: none; }
+    .ki-kicker {
+      display: block; margin-bottom: 9px;
+      font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--akzent); opacity: 0.9;
+    }
+    .ki-zeile { display: flex; align-items: flex-start; gap: 10px; }
+    .ki-zeile .ki-sym { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--text-3); }
+    .ki-zeile b {
+      display: block; margin-bottom: 1px; font-weight: 400;
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .ki-zeile .ki-wert { font-family: var(--font-display); font-size: 13.5px; line-height: 1.35; color: var(--text); }
 
     /* ————————————————— Zeitleiste —————————————————
        EINE BAHN JE EREIGNISTYP (Fotos, Fortbewegung, Kamera, Wetter, Momente,
@@ -1064,10 +1112,6 @@
     .sfx-eintrag button { padding: 5px 9px; font-size: 11.5px; flex: none; }
     .sfx-eintrag .sfx-hoeren { width: 30px; padding: 5px 0; }
 
-    /* — Karte↔Auswahl: der angeklickte Medien-Marker pulst kurz — */
-    @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
-    .m-marker.puls { animation: markerPuls 700ms ease-out 2; }
-
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
       body { overflow: auto; }
@@ -1214,6 +1258,9 @@
       <symbol id="i-anpassen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
       <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5.5 12h13"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2"/><path d="M12 7.7h.01"/></symbol>
+      <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></symbol>
       <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></symbol>
       <symbol id="i-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5 10.5 4.8h3L15 7.5"/><circle cx="12" cy="13.5" r="3.2"/>
@@ -1426,6 +1473,22 @@
         <div class="karten-buehne">
           <div id="editor-map"></div>
           <div id="editor-medien-hinweis"></div>
+          <!-- Zoom der Karte (die MapLibre-Leiste passte nicht zur Optik) -->
+          <div class="karte-zoom" role="group" aria-label="Karte zoomen">
+            <button id="karte-plus" title="Hineinzoomen" aria-label="Hineinzoomen"><svg><use href="#i-plus"/></svg></button>
+            <button id="karte-minus" title="Herauszoomen" aria-label="Herauszoomen"><svg><use href="#i-minus"/></svg></button>
+          </div>
+          <!-- Kartenquellen: Pflichtangabe, aber platzsparend hinter einem (i) -->
+          <div class="karte-info">
+            <button class="ki-knopf" type="button" aria-label="Kartenquellen: Esri, Maxar, Earthstar Geographics" aria-describedby="karte-quelle"><svg><use href="#i-info"/></svg></button>
+            <div class="ki-blase" id="karte-quelle" role="tooltip">
+              <span class="ki-kicker">Kartenquellen</span>
+              <div class="ki-zeile">
+                <svg class="ki-sym" aria-hidden="true"><use href="#i-welt"/></svg>
+                <div><b>Satellitenbild</b><span class="ki-wert">Esri · Maxar · Earthstar&nbsp;Geographics</span></div>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- Zeitleiste als EIGENE Zone unter der Karte. Das Gerüst (Maßband,
              Spur-Zeilen, Abspielkopf) steht statisch hier; editor.ts füllt nur
