@@ -1,19 +1,24 @@
-// Studio-UI (M6): Login, Tour-Liste und der Upload-Fluss (GPX + Medien →
-// Manifest → PUTs → Finalize → Status-Polling). Reine Logik liegt in upload.ts
-// (Manifest-Bau) und exif.ts (Foto-Metadaten); hier nur DOM + Ablaufsteuerung.
-// Eine Dropzone nimmt GPX und Medien gemeinsam an und sortiert nach Dateityp.
+// Studio-Schale: Login, Bibliothek und der Weg zu einer neuen Tour.
+//
+// Die Bibliothek ist die Bühne — Kacheln mit Titelbild und Routen-Signatur; der
+// Upload ist eine Kachel darin und ein Fenster, das ZUERST zeigt, was Luhambo
+// aus den abgelegten Dateien gelesen hat, und erst danach hochlädt.
+// Reine Logik liegt in pruefung.ts (Befund), upload.ts (Manifest) und exif.ts
+// (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
 
 import * as api from './api.js'
 import { liesExif } from './exif.js'
 import {
-  baueUploadManifest,
-  exifDatumZuMs,
-  gpxPunktAnzahl,
-  gpxZeitspanne,
-  isoMitZone,
-  medientyp,
-  type MediumEingabe,
-} from './upload.js'
+  baueFotoSegmente,
+  medienAusBefund,
+  projiziereVorschau,
+  pruefe,
+  punktZuZeit,
+  schaetzeFahrtS,
+  type AufnahmeBefund,
+  type Pruefbefund,
+} from './pruefung.js'
+import { baueUploadManifest, exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -49,28 +54,32 @@ const els = {
   kmBalkenFuell: $('km-balken-fuell'),
   kontoLoeschen: $<HTMLButtonElement>('konto-loeschen'),
   verifyBanner: $('verify-banner'),
-  dropzone: $('dropzone'),
   dateien: $<HTMLInputElement>('dateien'),
-  gpxChip: $('gpx-chip'),
-  medienRaster: $('medien-raster'),
-  medienInfo: $('medien-info'),
-  titel: $<HTMLInputElement>('titel'),
-  hochladen: $<HTMLButtonElement>('hochladen'),
-  fortschritt: $<HTMLProgressElement>('fortschritt'),
-  uploadStatus: $('upload-status'),
-  liste: $('liste'),
-  tourenAnzahl: $('touren-anzahl'),
+  neuOben: $<HTMLButtonElement>('neu-oben'),
+  // Bibliothek
+  bibKopf: $('bib-kopf'),
+  bibliothek: $('bibliothek'),
+  suche: $<HTMLInputElement>('suche'),
+  sortierung: $<HTMLSelectElement>('sortierung'),
+  ansicht: $('ansicht'),
+  dropOverlay: $('drop-overlay'),
+  // Neue Tour
+  neuHinter: $('neu-hinter'),
+  neuUnter: $('neu-unter'),
+  neuRumpf: $('neu-rumpf'),
+  neuStatus: $('neu-status'),
+  neuModusWrap: $('neu-modus-wrap'),
+  neuModus: $<HTMLSelectElement>('neu-modus'),
+  neuSicht: $<HTMLSelectElement>('neu-sicht'),
+  neuMehr: $<HTMLButtonElement>('neu-mehr'),
+  neuBauen: $<HTMLButtonElement>('neu-bauen'),
+  neuSchliessen: $<HTMLButtonElement>('neu-schliessen'),
+  neuFortschritt: $('neu-fortschritt'),
+  neuFortschrittText: $('neu-fortschritt-text'),
 }
 
 /** Statisches Icon aus dem Sprite in studio.html (nur für vertrauten Markup-Bau). */
 const icon = (name: string): string => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`
-
-// — Auswahl-Zustand des Uploads —
-
-let gpxDatei: File | null = null
-let gpxText: string | null = null
-let medienDateien: File[] = []
-const vorschauUrls = new Map<File, string>()
 
 // — Ansicht Login/App —
 
@@ -79,6 +88,7 @@ function zeige(angemeldet: boolean): void {
   els.appView.hidden = !angemeldet
   els.abmelden.hidden = !angemeldet
   els.benutzerChip.hidden = !angemeldet
+  els.neuOben.hidden = !angemeldet
 }
 
 function zeigeBenutzer(benutzer: api.Benutzer | null): void {
@@ -117,8 +127,7 @@ function zeigeSitzung(sitzung: api.Sitzung): void {
   const unbestaetigt = sitzung.benutzer !== null && sitzung.verifiziert === false
   els.verifyBanner.hidden = !unbestaetigt
   uploadGesperrt = unbestaetigt
-  els.hochladen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
-  aktualisiereUploadKnopf()
+  els.neuBauen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
   if (sitzung.quota) {
     const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
     const anteil = sitzung.quota.limit > 0 ? sitzung.quota.benutzt / sitzung.quota.limit : 0
@@ -249,139 +258,377 @@ els.kontoLoeschen.addEventListener('click', async () => {
   location.reload()
 })
 
+/** Kurze Rückmeldung im Fenster „Neue Tour" — der einzige Ort mit Statuszeile. */
 function hinweisToast(text: string, fehler = false): void {
-  els.uploadStatus.textContent = text
-  els.uploadStatus.className = fehler ? 'upload-status fehler' : 'upload-status ok'
+  setzeNeuStatus(text, fehler ? 'fehler' : '')
+  if (fehler) els.neuHinter.hidden = false
 }
 
-// — Tour-Liste —
+// — Bibliothek: die Touren sind die Seite —
+//
+// Kacheln statt Zeilen, weil eine Reise ein Bild hat. Die Form der Route liegt
+// als Signatur über dem Titelbild — Fotos sehen einander ähnlich, Routen nicht.
 
-function badge(status: string): string {
-  const klasse = ['bereit', 'verarbeitung', 'fehler', 'angelegt'].includes(status) ? status : 'angelegt'
-  return `<span class="badge ${klasse}">${status}</span>`
-}
+let touren: api.TourListe[] = []
+let ansicht: 'raster' | 'liste' = localStorage.getItem('luhambo.ansicht') === 'liste' ? 'liste' : 'raster'
+let sortierung: 'neu' | 'alt' | 'km' | 'az' = 'neu'
+let suchtext = ''
+/** Läuft, solange eine Tour noch entsteht — die Kachel soll nicht ewig schimmern. */
+let nachfassen: number | null = null
+
+const SICHT_NAMEN: Record<string, string> = { private: 'Privat', unlisted: 'Per Link', public: 'Öffentlich' }
+const SICHT_ICONS: Record<string, string> = { private: 'schloss', unlisted: 'schloss-offen', public: 'welt' }
 
 function datum(iso: string): string {
   const d = new Date(iso)
-  return Number.isFinite(d.getTime()) ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }) : ''
 }
 
-/** Sichtbarkeits-Auswahl je Tour (M9): privat / per Link / öffentlich. */
-function sichtbarkeitSelect(id: string, aktuell: string): string {
-  const opt = (wert: string, text: string): string =>
-    `<option value="${wert}"${wert === aktuell ? ' selected' : ''}>${text}</option>`
-  return `<select class="sicht-select" data-sicht="${id}" title="Sichtbarkeit" aria-label="Sichtbarkeit">
-    ${opt('private', 'Privat')}${opt('unlisted', 'Per Link')}${opt('public', 'Öffentlich')}
-  </select>`
+/** Zeile unter dem Titel: Strecke · Aufnahmen · Datum — nur, was es gibt. */
+function metaZeile(t: api.TourListe): string {
+  const teile: string[] = []
+  if (t.stats?.km) teile.push(`${String(t.stats.km).replace('.', ',')} km`)
+  if (t.stats?.fotos) teile.push(t.stats.fotos === 1 ? '1 Aufnahme' : `${t.stats.fotos} Aufnahmen`)
+  teile.push(datum(t.createdAt))
+  return teile.filter(Boolean).join(' · ')
+}
+
+function sichtbare(): api.TourListe[] {
+  const suche = suchtext.trim().toLowerCase()
+  const gefiltert = suche
+    ? touren.filter((t) => (t.title ?? '').toLowerCase().includes(suche) || t.no.toLowerCase().includes(suche))
+    : [...touren]
+  const nachDatum = (a: api.TourListe, b: api.TourListe): number => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+  if (sortierung === 'alt') return gefiltert.sort((a, b) => -nachDatum(a, b))
+  if (sortierung === 'km') return gefiltert.sort((a, b) => (b.stats?.km ?? 0) - (a.stats?.km ?? 0))
+  if (sortierung === 'az')
+    return gefiltert.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'de'))
+  return gefiltert.sort(nachDatum)
 }
 
 async function ladeListe(): Promise<void> {
-  els.liste.innerHTML = '<div class="skelett"><div class="zeile"></div><div class="zeile"></div><div class="zeile"></div></div>'
-  els.tourenAnzahl.textContent = ''
-  let touren: api.TourListe[]
+  if (!touren.length) {
+    els.bibliothek.innerHTML = '<div class="skelett"><div></div><div></div><div></div><div></div></div>'
+  }
   try {
     touren = await api.listeTouren()
   } catch {
-    els.liste.innerHTML = '<div class="leer-buehne"><div class="lb-titel">Touren konnten nicht geladen werden</div><p>Der Server hat nicht geantwortet — kurz warten und die Seite neu laden.</p></div>'
+    els.bibliothek.innerHTML =
+      '<div class="leer-buehne"><h2>Touren konnten nicht geladen werden</h2><p>Der Server hat nicht geantwortet — kurz warten und die Seite neu laden.</p></div>'
     return
   }
-  els.tourenAnzahl.textContent = touren.length === 1 ? '1 Tour' : `${touren.length} Touren`
+  renderBibliothek()
+  // Entsteht gerade eine Tour, kommt die Liste von selbst wieder — sonst bliebe
+  // die schimmernde Kachel stehen, bis jemand neu lädt.
+  const arbeitet = touren.some((t) => t.status !== 'bereit' && t.status !== 'fehler')
+  if (nachfassen !== null) clearTimeout(nachfassen)
+  nachfassen = arbeitet ? window.setTimeout(() => void ladeListe(), 3000) : null
+}
+
+function renderBibliothek(): void {
+  schliesseSichtMenue()
+  const liste = sichtbare()
+  els.bibKopf.hidden = touren.length === 0
+  els.bibliothek.innerHTML = ''
+
   if (!touren.length) {
-    els.liste.innerHTML = `<div class="leer-buehne">${icon('route')}<div class="lb-titel">Noch keine Touren</div><p>Zieh links eine GPX-Aufzeichnung mit Fotos und Videos hinein — daraus wird deine erste Kamerafahrt.</p></div>`
+    const leer = document.createElement('div')
+    leer.className = 'leer-buehne'
+    leer.innerHTML = `
+      <svg class="route" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true"><path d="M-20 250C160 232 190 96 380 84s250 128 420 62 280-168 440-176"/></svg>
+      <h2>Hier entsteht deine erste Tour</h2>
+      <p>Eine Aufzeichnung, ein paar Fotos — Luhambo benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
+      <button class="knopf-primaer" id="leer-waehlen">${icon('upload')}Dateien wählen</button>`
+    els.bibliothek.appendChild(leer)
+    leer.querySelector('#leer-waehlen')?.addEventListener('click', () => oeffneNeu())
     return
   }
-  els.liste.innerHTML = ''
-  for (const t of touren) {
-    const el = document.createElement('article')
-    el.className = 'tour'
-    const meta = [t.stats ? `${t.stats.km} km` : '', datum(t.createdAt), t.fehler ? escape(t.fehler) : '']
-      .filter(Boolean)
-      .join(' · ')
-    el.innerHTML = `
-      <span class="nummer">${escape(t.no)}</span>
-      <div class="titel"><div class="t-name">${escape(t.title ?? '(ohne Titel)')}</div><small>${meta}</small></div>
-      ${badge(t.status)}
-      <div class="tour-actions">
-        ${t.status === 'bereit' ? sichtbarkeitSelect(t.id, t.visibility) : ''}
-        ${t.status === 'bereit' ? `<a class="knopf" href="/erlebnis.html?tour=srv:${t.id}" target="_blank" rel="noopener">${icon('play')}Abspielen</a>` : ''}
-        ${t.status === 'bereit' || t.status === 'fehler' ? `<button data-bearbeiten="${t.id}">${icon('stift')}Bearbeiten</button>` : ''}
-        <button class="icon gefahr" data-loeschen="${t.id}" title="Tour löschen" aria-label="Tour löschen">${icon('muell')}</button>
-      </div>`
-    els.liste.appendChild(el)
+
+  // Suche ohne Treffer: das sagen, statt eine Seite mit nur der Upload-Kachel
+  // zu zeigen — die sieht aus wie „du hast keine Touren".
+  if (!liste.length) {
+    const nichts = document.createElement('div')
+    nichts.className = 'leer-buehne'
+    nichts.innerHTML = `<h2>Keine Tour passt dazu</h2><p>„${escape(suchtext.trim())}" kommt in keinem Titel vor.</p>`
+    els.bibliothek.appendChild(nichts)
+    return
   }
-  // Sichtbarkeit ändern → PATCH; „unlisted"/„public" = per Link teilbar
-  els.liste.querySelectorAll<HTMLSelectElement>('[data-sicht]').forEach((sel) => {
-    sel.addEventListener('change', async () => {
-      await api.patchTour(sel.dataset.sicht!, { visibility: sel.value as 'private' | 'unlisted' | 'public' })
+
+  if (ansicht === 'liste') {
+    const wirt = document.createElement('div')
+    wirt.className = 'liste'
+    for (const t of liste) wirt.appendChild(baueZeile(t))
+    els.bibliothek.appendChild(wirt)
+    return
+  }
+
+  const raster = document.createElement('div')
+  raster.className = 'raster'
+  const neu = document.createElement('button')
+  neu.className = 'neu-kachel'
+  neu.id = 'neu-kachel'
+  neu.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen — den Rest macht Luhambo</span>`
+  neu.addEventListener('click', () => oeffneNeu())
+  raster.appendChild(neu)
+  for (const t of liste) raster.appendChild(baueKarte(t))
+  els.bibliothek.appendChild(raster)
+}
+
+/** Die Form der Tour über dem Titelbild — nur, wenn der Server sie mitliefert. */
+function spurSignet(t: api.TourListe): string {
+  const s = t.stats?.spur
+  if (!s) return ''
+  return `<svg class="spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <path class="linie" d="${escape(s.d)}"/>
+    <circle class="start" cx="${s.start[0]}" cy="${s.start[1]}" r="3.2"/>
+    <circle class="ende" cx="${s.ende[0]}" cy="${s.ende[1]}" r="3.2"/></svg>`
+}
+
+function baueKarte(t: api.TourListe): HTMLElement {
+  const el = document.createElement('article')
+  const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
+  el.className = `karte${arbeitet ? ' arbeitet' : ''}${t.status === 'fehler' ? ' defekt' : ''}`
+  el.dataset['tour'] = t.id
+  const bild = t.cover
+    ? `<div class="bild"><img src="${escape(t.cover)}" alt="" loading="lazy" />${spurSignet(t)}</div>`
+    : `<div class="bild ohne">${icon('route')}${spurSignet(t)}</div>`
+
+  // Auf der Übersicht nur das Zeichen; was schiefging, steht in der geöffneten Tour.
+  const griffe = arbeitet
+    ? ''
+    : `<div class="griffe">
+        ${
+          t.status === 'fehler'
+            ? '<span class="fehler-punkt" title="Etwas ist schiefgelaufen — zum Öffnen klicken" aria-label="Fehler">!</span>'
+            : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-sicht aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${SICHT_NAMEN[t.visibility] ?? t.visibility}">${icon(SICHT_ICONS[t.visibility] ?? 'schloss')}<span>${SICHT_NAMEN[t.visibility] ?? t.visibility}</span></button>`
+        }
+        <button class="stift-knopf" data-bearbeiten="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
+      </div>`
+
+  el.innerHTML = `${bild}${griffe}
+    <div class="fuss">
+      <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
+      <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>
+    </div>
+    ${arbeitet ? '<div class="lauf"><span></span></div>' : '<div class="schleier"></div>'}
+    ${arbeitet || t.status === 'fehler' ? '' : `<button class="play" aria-label="Abspielen">${icon('play')}</button>`}`
+
+  if (!arbeitet) {
+    // Die GANZE Kachel spielt ab — die Taste in der Mitte ist die Ansage dafür,
+    // nicht das einzige Ziel. Nur die Griffe oben rechts machen etwas anderes.
+    el.addEventListener('click', (e) => {
+      const ziel = e.target as HTMLElement
+      if (ziel.closest('[data-sicht]') || ziel.closest('[data-bearbeiten]')) return
+      if (t.status === 'fehler') void oeffneEditorFuer(t.id)
+      else spielAb(t.id)
     })
-  })
-  els.liste.querySelectorAll<HTMLButtonElement>('[data-loeschen]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      // Zweistufig statt confirm(): erster Klick schärft, zweiter löscht.
-      if (!btn.dataset.scharf) {
-        btn.dataset.scharf = '1'
-        btn.classList.remove('icon')
-        btn.textContent = 'Wirklich löschen?'
-        setTimeout(() => {
-          if (!btn.isConnected || !btn.dataset.scharf) return
-          delete btn.dataset.scharf
-          btn.classList.add('icon')
-          btn.innerHTML = icon('muell')
-        }, 3500)
-        return
+    el.querySelector('[data-sicht]')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      oeffneSichtMenue(el, t)
+    })
+    el.querySelector('[data-bearbeiten]')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      void oeffneEditorFuer(t.id)
+    })
+  }
+  return el
+}
+
+function baueZeile(t: api.TourListe): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'zeile'
+  const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
+  el.innerHTML = `
+    <div class="mini">${t.cover ? `<img src="${escape(t.cover)}" alt="" loading="lazy" />` : icon('route')}</div>
+    <div class="txt">
+      <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
+      <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>
+    </div>
+    <div class="rechts">
+      ${
+        arbeitet
+          ? '<span class="sichtpille">entsteht</span>'
+          : `<span class="sichtpille${t.visibility === 'public' ? ' oeffentlich' : ''}">${SICHT_NAMEN[t.visibility] ?? t.visibility}</span>
+             ${t.status === 'bereit' ? `<button class="akt" data-spielen>${icon('play')}Abspielen</button>` : ''}
+             <button class="akt" data-bearbeiten aria-label="Bearbeiten">${icon('stift')}</button>
+             <button class="akt gefahr" data-loeschen aria-label="Tour löschen" title="Tour löschen">${icon('muell')}</button>`
       }
-      btn.disabled = true
-      await api.loescheTour(btn.dataset.loeschen!)
-      await ladeListe()
-    })
+    </div>`
+  el.querySelector('[data-spielen]')?.addEventListener('click', () => spielAb(t.id))
+  el.querySelector('[data-bearbeiten]')?.addEventListener('click', () => void oeffneEditorFuer(t.id))
+  el.querySelector<HTMLButtonElement>('[data-loeschen]')?.addEventListener('click', (e) => {
+    void loescheZweistufig(e.currentTarget as HTMLButtonElement, t.id)
   })
-  // Editor (M7) lazy laden — MapLibre kommt erst beim ersten Bearbeiten
-  els.liste.querySelectorAll<HTMLButtonElement>('[data-bearbeiten]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const { oeffneEditor } = await import('./editor.js')
-      els.appView.hidden = true
-      await oeffneEditor(btn.dataset.bearbeiten!, () => {
-        els.appView.hidden = false
-        void ladeListe()
-      })
-    })
+  return el
+}
+
+/** Erster Klick schärft, zweiter löscht — statt eines confirm()-Dialogs. */
+async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<void> {
+  if (!knopf.dataset['scharf']) {
+    knopf.dataset['scharf'] = '1'
+    knopf.innerHTML = `${icon('muell')}Wirklich löschen?`
+    setTimeout(() => {
+      if (!knopf.isConnected || !knopf.dataset['scharf']) return
+      delete knopf.dataset['scharf']
+      knopf.innerHTML = icon('muell')
+    }, 3500)
+    return
+  }
+  knopf.disabled = true
+  await api.loescheTour(id)
+  await ladeListe()
+}
+
+function spielAb(id: string): void {
+  window.open(`/erlebnis.html?tour=srv:${id}`, '_blank', 'noopener')
+}
+
+/** Editor (M7) lazy laden — MapLibre kommt erst beim ersten Bearbeiten. */
+async function oeffneEditorFuer(id: string): Promise<void> {
+  const { oeffneEditor } = await import('./editor.js')
+  els.appView.hidden = true
+  await oeffneEditor(id, () => {
+    els.appView.hidden = false
+    void ladeListe()
   })
 }
+
+// — Sichtbarkeit: Anzeige UND Umschalter an derselben Stelle —
+
+let offenesSichtMenue: HTMLElement | null = null
+
+function schliesseSichtMenue(): void {
+  offenesSichtMenue?.remove()
+  offenesSichtMenue = null
+  document.querySelectorAll('.karte.menue-offen').forEach((k) => k.classList.remove('menue-offen'))
+  document.querySelectorAll('[data-sicht][aria-expanded="true"]').forEach((k) => k.setAttribute('aria-expanded', 'false'))
+}
+
+function oeffneSichtMenue(karte: HTMLElement, t: api.TourListe): void {
+  const schonOffen = karte.classList.contains('menue-offen')
+  schliesseSichtMenue()
+  if (schonOffen) return
+  const menue = document.createElement('div')
+  menue.className = 'sicht-menue'
+  const stufe = (wert: string, titel: string, erklaerung: string): string => `
+    <button data-wert="${wert}" role="menuitemradio" aria-checked="${String(t.visibility === wert)}">
+      ${icon(SICHT_ICONS[wert] ?? 'schloss')}<span>${titel}<em>${erklaerung}</em></span>${icon('haken')}
+    </button>`
+  menue.innerHTML = `
+    <div class="kopfzeile">Wer darf mitfahren?</div>
+    ${stufe('private', 'Privat', 'Nur du siehst diese Reise.')}
+    ${stufe('unlisted', 'Per Link', 'Wer den Link hat, kann zusehen.')}
+    ${stufe('public', 'Öffentlich', 'Steht in deinem Profil und der Galerie.')}
+    ${t.visibility === 'private' ? '' : `<hr /><button data-link>${icon('link')}<span>Link kopieren</span></button>`}`
+  menue.querySelectorAll<HTMLButtonElement>('[data-wert]').forEach((b) => {
+    b.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const wert = b.dataset['wert'] as 'private' | 'unlisted' | 'public'
+      schliesseSichtMenue()
+      await api.patchTour(t.id, { visibility: wert })
+      const eintrag = touren.find((x) => x.id === t.id)
+      if (eintrag) eintrag.visibility = wert
+      renderBibliothek()
+    })
+  })
+  menue.querySelector('[data-link]')?.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    schliesseSichtMenue()
+    await navigator.clipboard?.writeText(`${location.origin}/erlebnis.html?tour=srv:${t.id}`)
+  })
+  menue.addEventListener('click', (e) => e.stopPropagation())
+  karte.appendChild(menue)
+  karte.classList.add('menue-offen')
+  karte.querySelector('[data-sicht]')?.setAttribute('aria-expanded', 'true')
+  offenesSichtMenue = menue
+}
+
+document.addEventListener('click', () => schliesseSichtMenue())
+
+// — Kopfzeile: Suche, Sortierung, Ansicht —
+
+els.suche.addEventListener('input', () => {
+  suchtext = els.suche.value
+  renderBibliothek()
+})
+els.sortierung.addEventListener('change', () => {
+  sortierung = els.sortierung.value as typeof sortierung
+  renderBibliothek()
+})
+els.ansicht.querySelectorAll<HTMLButtonElement>('[data-ansicht]').forEach((b) => {
+  b.addEventListener('click', () => {
+    ansicht = b.dataset['ansicht'] as 'raster' | 'liste'
+    localStorage.setItem('luhambo.ansicht', ansicht)
+    els.ansicht.querySelectorAll('[data-ansicht]').forEach((x) => {
+      x.setAttribute('aria-pressed', String((x as HTMLElement).dataset['ansicht'] === ansicht))
+    })
+    renderBibliothek()
+  })
+  if (b.dataset['ansicht'] === ansicht) b.setAttribute('aria-pressed', 'true')
+  else b.setAttribute('aria-pressed', 'false')
+})
+// „/" springt in die Suche — wie überall, wo man viel sucht
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && !els.appView.hidden && !(e.target as HTMLElement).closest('input, textarea, select')) {
+    e.preventDefault()
+    els.suche.focus()
+  }
+})
 
 function escape(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 }
 
-// — Dropzone: GPX + Medien gemeinsam annehmen, nach Typ sortieren —
+// ————————————————— Neue Tour —————————————————
+//
+// Erst zeigen, was ankam, dann hochladen. Eine Aufnahme ohne Ortsangabe, eine,
+// die Stunden neben der Aufzeichnung liegt — das will man VORHER wissen, nicht
+// hinterher an einer Tour, die anders aussieht als erwartet.
 
-els.dropzone.addEventListener('click', () => els.dateien.click())
-els.dropzone.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault()
-    els.dateien.click()
-  }
-})
-els.dropzone.addEventListener('dragover', (e) => {
-  e.preventDefault()
-  els.dropzone.classList.add('aktiv')
-})
-els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('aktiv'))
-els.dropzone.addEventListener('drop', (e) => {
-  e.preventDefault()
-  els.dropzone.classList.remove('aktiv')
-  if (e.dataTransfer?.files.length) void nimmDateienAn(e.dataTransfer.files)
-})
-// Daneben gezielte Dateien dürfen die Seite nicht ersetzen
-for (const ereignis of ['dragover', 'drop'] as const) {
-  document.addEventListener(ereignis, (e) => e.preventDefault())
+let gpxDatei: File | null = null
+let gpxText: string | null = null
+let medienDateien: File[] = []
+let befunde: AufnahmeBefund[] = []
+let befund: Pruefbefund | null = null
+let laeuftUpload = false
+const vorschauUrls = new Map<string, string>()
+
+function oeffneNeu(): void {
+  els.neuHinter.hidden = false
+  renderNeu()
+  if (!medienDateien.length && !gpxDatei) els.dateien.click()
 }
-els.dateien.addEventListener('change', () => {
-  if (els.dateien.files?.length) void nimmDateienAn(els.dateien.files)
-  els.dateien.value = ''
-})
 
-async function nimmDateienAn(liste: FileList): Promise<void> {
+function schliesseNeu(): void {
+  if (laeuftUpload) return
+  els.neuHinter.hidden = true
+  leereAuswahl()
+}
+
+function leereAuswahl(): void {
+  gpxDatei = null
+  gpxText = null
+  medienDateien = []
+  befunde = []
+  befund = null
+  for (const url of vorschauUrls.values()) URL.revokeObjectURL(url)
+  vorschauUrls.clear()
+  setzeNeuStatus('')
+}
+
+function vorschauUrl(datei: File): string {
+  const schluessel = `${datei.name}:${datei.size}:${datei.lastModified}`
+  let url = vorschauUrls.get(schluessel)
+  if (!url) {
+    url = URL.createObjectURL(datei)
+    vorschauUrls.set(schluessel, url)
+  }
+  return url
+}
+
+async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
   let ignoriert = 0
+  const neueMedien: File[] = []
   for (const datei of [...liste]) {
     if (datei.name.toLowerCase().endsWith('.gpx')) {
       gpxDatei = datei
@@ -390,128 +637,301 @@ async function nimmDateienAn(liste: FileList): Promise<void> {
       const doppelt = medienDateien.some(
         (m) => m.name === datei.name && m.size === datei.size && m.lastModified === datei.lastModified,
       )
-      if (!doppelt) medienDateien.push(datei)
+      if (!doppelt) {
+        medienDateien.push(datei)
+        neueMedien.push(datei)
+      }
     } else {
       ignoriert++
     }
   }
-  els.medienInfo.className = 'hinweis'
-  els.medienInfo.textContent = ignoriert ? `${ignoriert} Datei${ignoriert > 1 ? 'en' : ''} ignoriert (kein GPX/Foto/Video).` : ''
-  renderAuswahl()
-}
-
-function entferneMedium(datei: File): void {
-  medienDateien = medienDateien.filter((m) => m !== datei)
-  const url = vorschauUrls.get(datei)
-  if (url) URL.revokeObjectURL(url)
-  vorschauUrls.delete(datei)
-  renderAuswahl()
-}
-
-function leereAuswahl(): void {
-  gpxDatei = null
-  gpxText = null
-  medienDateien = []
-  for (const url of vorschauUrls.values()) URL.revokeObjectURL(url)
-  vorschauUrls.clear()
-  els.titel.value = ''
-  els.medienInfo.textContent = ''
-  renderAuswahl()
-}
-
-function renderAuswahl(): void {
-  // GPX-Chip: Name + Punkte/Dauer (oder warum es nicht reicht)
-  els.gpxChip.innerHTML = ''
-  if (gpxDatei && gpxText !== null) {
-    const spanne = gpxZeitspanne(gpxText)
-    const punkte = gpxPunktAnzahl(gpxText)
-    const chip = document.createElement('div')
-    chip.className = 'gpx-chip'
-    chip.innerHTML = `${icon('route')}<div class="gc-text"><div class="gc-name"></div><div class="gc-meta"></div></div>`
-    chip.querySelector('.gc-name')!.textContent = gpxDatei.name
-    const metaEl = chip.querySelector<HTMLElement>('.gc-meta')!
-    if (spanne) {
-      const dauerH = ((spanne.endMs - spanne.startMs) / 3600000).toFixed(1)
-      metaEl.textContent = `${punkte} Punkte · ${dauerH} h`
-    } else {
-      metaEl.className = 'gc-meta fehler'
-      metaEl.textContent = `${punkte} Punkte, keine Zeitstempel — für Auto-Wetter/Tag-Nacht werden <time>-Einträge gebraucht.`
-    }
-    const x = document.createElement('button')
-    x.type = 'button'
-    x.className = 'chip-x'
-    x.title = 'GPX entfernen'
-    x.setAttribute('aria-label', 'GPX entfernen')
-    x.textContent = '×'
-    x.addEventListener('click', () => {
-      gpxDatei = null
-      gpxText = null
-      renderAuswahl()
-    })
-    chip.appendChild(x)
-    els.gpxChip.appendChild(chip)
-  }
-
-  // Medien-Kacheln mit Vorschau (Fotos) bzw. Film-Symbol (Videos)
-  els.medienRaster.innerHTML = ''
-  for (const datei of medienDateien) {
-    const kachel = document.createElement('div')
-    kachel.className = 'medien-kachel'
-    kachel.title = datei.name
-    if (medientyp(datei.name) === 'photo') {
-      let url = vorschauUrls.get(datei)
-      if (!url) {
-        url = URL.createObjectURL(datei)
-        vorschauUrls.set(datei, url)
-      }
-      kachel.style.backgroundImage = `url("${url}")`
-    } else {
-      kachel.innerHTML = `<span class="mk-video">${icon('film')}</span>`
-    }
-    const x = document.createElement('button')
-    x.type = 'button'
-    x.className = 'chip-x'
-    x.title = `${datei.name} entfernen`
-    x.setAttribute('aria-label', `${datei.name} entfernen`)
-    x.textContent = '×'
-    x.addEventListener('click', () => entferneMedium(datei))
-    kachel.appendChild(x)
-    els.medienRaster.appendChild(kachel)
-  }
-
-  aktualisiereUploadKnopf()
-}
-
-// Upload nur bei gültigem GPX UND bestätigter E-Mail (M9). Beide Quellen
-// (Dateiwahl, Verifikations-Stand) rufen diesen einen Ort.
-function aktualisiereUploadKnopf(): void {
-  const bereit = gpxText !== null && !!gpxZeitspanne(gpxText ?? '')
-  els.hochladen.disabled = !bereit || uploadGesperrt
-}
-
-// — Upload —
-
-async function medienEingaben(dateien: File[]): Promise<{ eingaben: MediumEingabe[]; dateien: { mid: string; datei: File }[] }> {
-  const eingaben: MediumEingabe[] = []
-  const upload: { mid: string; datei: File }[] = []
-  for (const datei of dateien) {
+  els.neuHinter.hidden = false
+  setzeNeuStatus(ignoriert ? `${ignoriert} Datei${ignoriert > 1 ? 'en' : ''} ignoriert (kein GPX, Foto oder Video).` : '')
+  // EXIF nur für die NEUEN lesen — bei 50 Fotos ist das der Unterschied
+  // zwischen „gleich da" und einer Kaffeepause je Nachschlag.
+  for (const datei of neueMedien) {
     const typ = medientyp(datei.name)
     if (!typ) continue
-    const mid = `m${eingaben.length + 1}`
-    let takenAtMs = datei.lastModified
-    let anchor: [number, number] | undefined
+    let zeitMs = datei.lastModified
+    let zeitGeraten = true
+    let ort: [number, number] | null = null
     if (typ === 'photo') {
       const exif = liesExif(await datei.arrayBuffer())
-      if (exif.datum) takenAtMs = exifDatumZuMs(exif.datum, ZONE)
-      if (exif.gps) anchor = exif.gps
+      if (exif.datum) {
+        zeitMs = exifDatumZuMs(exif.datum, ZONE)
+        zeitGeraten = false
+      }
+      if (exif.gps) ort = exif.gps
     }
-    const eintrag: MediumEingabe = { id: mid, type: typ, file: datei.name, takenAt: isoMitZone(takenAtMs, ZONE) }
-    if (anchor) eintrag.anchor = anchor
-    eingaben.push(eintrag)
-    upload.push({ mid, datei })
+    befunde.push({ datei: datei.name, typ, zeitMs, zeitGeraten, ort })
   }
-  return { eingaben, dateien: upload }
+  renderNeu()
 }
+
+function entferneAufnahmen(dateien: readonly string[]): void {
+  const raus = new Set(dateien)
+  medienDateien = medienDateien.filter((d) => !raus.has(d.name))
+  befunde = befunde.filter((b) => !raus.has(b.datei))
+  renderNeu()
+}
+
+function setzeNeuStatus(text: string, klasse = ''): void {
+  els.neuStatus.className = `status ${klasse}`
+  els.neuStatus.textContent = text
+}
+
+const uhr = (ms: number): string =>
+  new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+function dauerText(ms: number): string {
+  const minuten = Math.round(ms / 60000)
+  const h = Math.floor(minuten / 60)
+  return h ? `${h} h ${minuten % 60} min` : `${minuten} min`
+}
+
+function renderNeu(): void {
+  befund = pruefe(gpxText, befunde)
+  const anzahl = befunde.length
+  els.neuUnter.textContent = anzahl
+    ? `${anzahl} Aufnahme${anzahl > 1 ? 'n' : ''}${gpxDatei ? ` · ${gpxDatei.name}` : ''}`
+    : ''
+  els.neuBauen.disabled = !befund.bereit || laeuftUpload
+  els.neuModusWrap.hidden = !befund.bereit
+  els.neuRumpf.innerHTML = ''
+
+  if (!anzahl && !gpxDatei) {
+    const leer = document.createElement('div')
+    leer.className = 'neu-leer'
+    // Vier leere Rahmen über einem Tag-Nacht-Verlauf: die Form der Sache,
+    // bevor es sie gibt.
+    leer.innerHTML = `
+      <div class="ahnung"><i></i><i></i><i></i><i></i></div>
+      <div class="achse"></div>
+      <h3>Hier beginnt deine <em>nächste Tour</em></h3>
+      <p>Aufzeichnung und Fotos hierher ziehen — Luhambo liest die Zeitstempel und ordnet alles selbst ein.</p>
+      <button class="knopf-primaer" id="neu-waehlen">${icon('upload')}Dateien wählen</button>
+      <p class="nachsatz">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>`
+    els.neuRumpf.appendChild(leer)
+    leer.querySelector('#neu-waehlen')?.addEventListener('click', () => els.dateien.click())
+    return
+  }
+
+  const raster = document.createElement('div')
+  raster.className = 'neu-raster'
+  raster.appendChild(baueVorschau(befund))
+  raster.appendChild(baueDaten(befund))
+  els.neuRumpf.appendChild(raster)
+  if (befund.aufnahmen.length) els.neuRumpf.appendChild(baueZeitband(befund))
+}
+
+/** Die Strecke als Form — eine Karte wäre gelogen, die Kartendaten holt erst der Player. */
+function baueVorschau(b: Pruefbefund): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'vorschau'
+  const punkte: Array<readonly [number, number]> =
+    b.track?.punkte.map((p) => [p[0], p[1]] as const) ??
+    b.aufnahmen.filter((a) => a.ort).map((a) => a.ort as [number, number])
+  const proj = projiziereVorschau(punkte)
+  if (!proj) {
+    el.innerHTML = `<div class="quelle">noch keine Strecke</div>`
+    return el
+  }
+  // Foto-Marken: mit Aufzeichnung am zeitlich nächsten Trackpunkt, ohne
+  // Aufzeichnung sind die Fotos selbst die Punkte.
+  const marken = b.aufnahmen
+    .map((a, i) => {
+      const index = b.track
+        ? punktZuZeit(b.track.punkte, a.zeitMs)
+        : b.aufnahmen.filter((x) => x.ort).findIndex((x) => x === a)
+      const p = proj.bild[index]
+      if (!p) return ''
+      const ohneOrt = !a.ort && !b.track
+      return `<circle class="marke${ohneOrt ? ' ohne-ort' : ''}" cx="${p[0]}" cy="${p[1]}" r="2.1"><title>Aufnahme ${i + 1}</title></circle>`
+    })
+    .join('')
+  const anfang = proj.bild[0] as [number, number]
+  const schluss = proj.bild[proj.bild.length - 1] as [number, number]
+  el.innerHTML = `<svg viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <path class="linie${b.track ? '' : ' geraten'}" d="${escape(proj.d)}"/>
+      ${marken}
+      <circle class="anfang" cx="${anfang[0]}" cy="${anfang[1]}" r="2.6"/>
+      <circle class="schluss" cx="${schluss[0]}" cy="${schluss[1]}" r="2.6"/>
+    </svg>
+    <div class="quelle">${b.track ? 'Aufgezeichnete Strecke' : 'Aus den Foto-Orten'}</div>`
+  return el
+}
+
+function baueDaten(b: Pruefbefund): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'neu-daten'
+  // Die Zahlen beschreiben die REISE, nicht die Zeitachse: die reicht bei einem
+  // Ausreißer über Tage, die Tour selbst dauerte drei Stunden.
+  const vonMs = b.track?.startMs ?? b.vonMs
+  const bisMs = b.track?.endMs ?? b.bisMs
+  const spanneMs = bisMs - vonMs
+  const km = b.track?.km ?? 0
+  const zahl = (symbol: string, kicker: string, wert: string): string =>
+    `<div class="z"><div class="k">${icon(symbol)}${kicker}</div><div class="w">${escape(wert)}</div></div>`
+  const tag = new Date(vonMs).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
+  el.innerHTML = `
+    <h3 class="geschaetzt">${b.track ? 'Die Orte benennt Luhambo beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
+    <div class="zahlen">
+      ${zahl('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '—')}
+      ${zahl('uhr', 'Unterwegs', spanneMs > 0 ? dauerText(spanneMs) : '—')}
+      ${zahl('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanneMs > 0 ? `${tag} · ${uhr(vonMs)}–${uhr(bisMs)}` : '—')}
+      ${zahl('kamera', 'Kamerafahrt', b.bereit ? `≈ ${dauerText(schaetzeFahrtS(km, b.aufnahmen.length) * 1000)}` : '—')}
+    </div>`
+  const meldungen = document.createElement('div')
+  meldungen.className = 'meldungen'
+  for (const m of b.meldungen) {
+    const zeile = document.createElement('div')
+    zeile.className = `meldung ${m.ton}`
+    zeile.innerHTML = `<span class="zeichen">${m.ton === 'warnung' ? '!' : '?'}</span><span>${escape(m.text)}</span>`
+    // Nur wo es etwas zu entscheiden gibt, steht ein Knopf — und er benennt,
+    // was er tut, statt „OK" zu sagen.
+    if (m.ton === 'warnung' && m.dateien.length) {
+      const knopf = document.createElement('button')
+      knopf.type = 'button'
+      knopf.textContent = m.dateien.length === 1 ? 'Weglassen' : 'Alle weglassen'
+      knopf.addEventListener('click', () => entferneAufnahmen(m.dateien))
+      zeile.appendChild(knopf)
+    }
+    meldungen.appendChild(zeile)
+  }
+  if (b.meldungen.length) el.appendChild(meldungen)
+  return el
+}
+
+/** Jede Aufnahme an ihrer Uhrzeit — das Zeitband zeigt Lücken und Ausreißer. */
+function baueZeitband(b: Pruefbefund): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'zeitband'
+  const spanne = Math.max(1, b.bisMs - b.vonMs)
+  const anteil = (ms: number): number => ((ms - b.vonMs) / spanne) * 100
+  const kopf = document.createElement('div')
+  kopf.className = 'kopf'
+  kopf.textContent = `${b.aufnahmen.length} Aufnahme${b.aufnahmen.length > 1 ? 'n' : ''} an ihrer Uhrzeit`
+  el.appendChild(kopf)
+
+  const innen = document.createElement('div')
+  innen.className = 'innen'
+  el.appendChild(innen)
+  const bahn = document.createElement('div')
+  bahn.className = 'bahn'
+  // Zu dicht beieinander liegende Aufnahmen zu einer Marke bündeln — sonst
+  // überdecken sich bei 50 Fotos die Bilder gegenseitig.
+  const gruppen: Array<{ anteil: number; items: AufnahmeBefund[] }> = []
+  for (const a of b.aufnahmen) {
+    const x = anteil(a.zeitMs)
+    const letzte = gruppen[gruppen.length - 1]
+    if (letzte && x - letzte.anteil < 3.6) letzte.items.push(a)
+    else gruppen.push({ anteil: x, items: [a] })
+  }
+  for (const g of gruppen) {
+    const erste = g.items[0] as AufnahmeBefund
+    const datei = medienDateien.find((d) => d.name === erste.datei)
+    const stiel = document.createElement('div')
+    stiel.className = 'stiel'
+    stiel.style.left = `${g.anteil.toFixed(2)}%`
+    bahn.appendChild(stiel)
+    const bild = document.createElement('div')
+    bild.className = 'bild'
+    bild.style.left = `${g.anteil.toFixed(2)}%`
+    bild.style.bottom = '18px'
+    if (!erste.ort) bild.classList.add('ohne-ort')
+    if (b.track && (erste.zeitMs < b.track.startMs - 20 * 60000 || erste.zeitMs > b.track.endMs + 20 * 60000)) {
+      bild.classList.add('ausserhalb')
+    }
+    if (erste.typ === 'photo' && datei) bild.style.backgroundImage = `url("${vorschauUrl(datei)}")`
+    else bild.innerHTML = `<span class="film">${icon('film')}</span>`
+    if (g.items.length > 1) {
+      const zahl = document.createElement('span')
+      zahl.className = 'zahl'
+      zahl.textContent = String(g.items.length)
+      bild.appendChild(zahl)
+    }
+    bild.title = g.items.map((i) => `${i.datei} · ${uhr(i.zeitMs)}`).join('\n')
+    bahn.appendChild(bild)
+  }
+  innen.appendChild(bahn)
+
+  const achse = document.createElement('div')
+  achse.className = 'achse'
+  if (b.track) {
+    // Zeit ohne Aufzeichnung gestreift: dort lief nichts mit.
+    const luecke = document.createElement('div')
+    luecke.className = 'luecke'
+    luecke.style.left = '0'
+    luecke.style.right = '0'
+    achse.appendChild(luecke)
+    const spannenEl = document.createElement('div')
+    spannenEl.className = 'spanne'
+    spannenEl.style.left = `${anteil(b.track.startMs).toFixed(2)}%`
+    spannenEl.style.width = `${(anteil(b.track.endMs) - anteil(b.track.startMs)).toFixed(2)}%`
+    achse.appendChild(spannenEl)
+  } else {
+    const spannenEl = document.createElement('div')
+    spannenEl.className = 'spanne'
+    spannenEl.style.left = '0'
+    spannenEl.style.right = '0'
+    achse.appendChild(spannenEl)
+  }
+  innen.appendChild(achse)
+
+  const stunden = document.createElement('div')
+  stunden.className = 'stunden'
+  const schrittH = Math.max(1, Math.ceil(spanne / 3600000 / 5))
+  const erste = new Date(b.vonMs)
+  erste.setMinutes(0, 0, 0)
+  for (let t = erste.getTime(); t <= b.bisMs; t += schrittH * 3600000) {
+    if (t < b.vonMs) continue
+    const marke = document.createElement('span')
+    marke.style.left = `${anteil(t).toFixed(2)}%`
+    marke.textContent = uhr(t)
+    stunden.appendChild(marke)
+  }
+  innen.appendChild(stunden)
+  return el
+}
+
+// — Dateien annehmen: Fenster-Knopf, Kachel, Dateidialog, ganze Seite als Ablage —
+
+els.dateien.addEventListener('change', () => {
+  if (els.dateien.files?.length) void nimmDateienAn(els.dateien.files)
+  els.dateien.value = ''
+})
+els.neuMehr.addEventListener('click', () => els.dateien.click())
+els.neuOben.addEventListener('click', () => oeffneNeu())
+els.neuSchliessen.addEventListener('click', () => schliesseNeu())
+els.neuHinter.addEventListener('click', (e) => {
+  if (e.target === els.neuHinter) schliesseNeu()
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !els.neuHinter.hidden) schliesseNeu()
+})
+
+let dropTiefe = 0
+document.addEventListener('dragenter', (e) => {
+  if (els.appView.hidden || !e.dataTransfer?.types.includes('Files')) return
+  dropTiefe++
+  els.dropOverlay.hidden = false
+})
+document.addEventListener('dragover', (e) => {
+  if (!els.dropOverlay.hidden) e.preventDefault()
+})
+document.addEventListener('dragleave', () => {
+  dropTiefe = Math.max(0, dropTiefe - 1)
+  if (!dropTiefe) els.dropOverlay.hidden = true
+})
+document.addEventListener('drop', (e) => {
+  if (els.appView.hidden) return
+  e.preventDefault()
+  dropTiefe = 0
+  els.dropOverlay.hidden = true
+  if (e.dataTransfer?.files.length) void nimmDateienAn(e.dataTransfer.files)
+})
+
+// — Bauen: Manifest → PUTs → Finalize —
 
 async function warteAufBereit(id: string): Promise<'bereit' | 'fehler' | 'verarbeitung'> {
   for (let i = 0; i < 60; i++) {
@@ -523,92 +943,89 @@ async function warteAufBereit(id: string): Promise<'bereit' | 'fehler' | 'verarb
   return 'verarbeitung'
 }
 
-function setzeStatus(text: string, klasse = ''): void {
-  els.uploadStatus.className = `hinweis ${klasse}`
-  els.uploadStatus.textContent = text
-}
+els.neuBauen.addEventListener('click', async () => {
+  if (!befund?.bereit || laeuftUpload) return
+  if (uploadGesperrt) {
+    setzeNeuStatus('Bitte zuerst die E-Mail-Adresse bestätigen.', 'fehler')
+    return
+  }
+  laeuftUpload = true
+  els.neuBauen.disabled = true
+  const modus = els.neuModus.value
+  const sicht = els.neuSicht.value as 'private' | 'unlisted' | 'public'
+  const medienUpload = medienDateien.filter((d) => befunde.some((b) => b.datei === d.name))
 
-els.hochladen.addEventListener('click', async () => {
-  if (!gpxText || !gpxDatei) return
-  const spanne = gpxZeitspanne(gpxText)
-  if (!spanne) return
-  const modus = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value ?? 'walk'
-
-  els.hochladen.disabled = true
   try {
-    setzeStatus('Medien werden vorbereitet …')
-    const { eingaben, dateien: medienUpload } = await medienEingaben(medienDateien)
-
+    const medien = medienAusBefund(befund, (ms) => isoMitZone(ms, ZONE))
+    const kennung = `studio:${(gpxDatei?.name ?? befund.aufnahmen[0]?.datei ?? 'tour').slice(0, 60)}:${befund.vonMs}`
     const manifest = baueUploadManifest({
-      // Dateinamen kappen: clientTourId hat serverseitig maxLength 100
-      clientTourId: `studio:${gpxDatei.name.slice(0, 60)}:${spanne.startMs}`,
-      title: els.titel.value.trim() || null,
-      zeitspanne: spanne,
+      clientTourId: kennung,
+      title: null,
+      zeitspanne: { startMs: befund.vonMs, endMs: befund.bisMs },
       zone: ZONE,
       trackMode: modus,
-      medien: eingaben,
+      medien,
     })
+    // Ohne Aufzeichnung sind die Foto-Orte die Strecke: das Manifest trägt dann
+    // `segments` statt `trackFile` (beides erlaubt das Schema, genau eines).
+    if (!befund.track) {
+      const segmente = baueFotoSegmente(befund.aufnahmen, modus)
+      if (!segmente.length) throw new Error('Zu wenige verortete Fotos für eine Strecke.')
+      delete (manifest as { trackFile?: string }).trackFile
+      ;(manifest as unknown as { segments: unknown }).segments = segmente
+    }
 
-    els.fortschritt.hidden = false
-    els.fortschritt.max = medienUpload.length + 2 // GPX + Medien + finalize
-    els.fortschritt.value = 0
-
+    zeigeFortschritt(0, medienUpload.length + 2)
     const { id, wiederverwendet } = await api.legeTourAn(manifest)
     if (wiederverwendet) {
       const vorhanden = await api.tour(id)
       if (vorhanden.schema === 'luhambo/tour@1' || vorhanden.status === 'bereit') {
-        fertig(id, 'Diese Tour gibt es bereits.')
+        setzeNeuStatus('Diese Tour gibt es bereits.', 'fehler')
         return
       }
     }
 
-    setzeStatus('GPX wird hochgeladen …')
-    await api.ladeTrack(id, gpxText)
-    els.fortschritt.value = 1
-
-    for (const { mid, datei } of medienUpload) {
-      setzeStatus(`Lade ${datei.name} …`)
-      await api.ladeMedium(id, mid, datei)
-      els.fortschritt.value += 1
+    let getan = 0
+    if (gpxText) {
+      await api.ladeTrack(id, gpxText)
+      zeigeFortschritt(++getan, medienUpload.length + 2)
     }
+    for (const eintrag of medien) {
+      const datei = medienUpload.find((d) => d.name === eintrag.file)
+      if (!datei) continue
+      await api.ladeMedium(id, eintrag.id, datei)
+      zeigeFortschritt(++getan, medienUpload.length + 2)
+    }
+    if (sicht !== 'private') await api.patchTour(id, { visibility: sicht })
 
-    setzeStatus('Verarbeitung läuft …')
+    setzeNeuStatus('Verarbeitung läuft …')
     await api.finalisiere(id)
+    // Das Fenster darf jetzt zu: die Kachel in der Bibliothek zeigt weiter an,
+    // dass die Tour entsteht — dafür muss niemand hier warten.
+    laeuftUpload = false
+    els.neuHinter.hidden = true
+    els.neuFortschritt.hidden = true
+    leereAuswahl()
+    await ladeListe()
     const status = await warteAufBereit(id)
-    els.fortschritt.value = els.fortschritt.max
-
     if (status === 'fehler') {
       const t = await api.tour(id)
-      setzeStatus(`Verarbeitung fehlgeschlagen: ${t.fehler ?? 'unbekannt'}`, 'fehler')
-    } else if (status === 'verarbeitung') {
-      setzeStatus('Tour ist hochgeladen und wird noch verarbeitet — sie erscheint gleich in der Liste.', 'ok')
-    } else {
-      const t = await api.tour(id)
-      const unplatziert = (t.media ?? []).filter((m) => m.placement === 'unplatziert').length
-      fertig(
-        id,
-        unplatziert
-          ? `Fertig — ${unplatziert === 1 ? 'ein Medium blieb' : `${unplatziert} Medien blieben`} unplatziert (im Editor platzierbar).`
-          : 'Fertig.',
-      )
+      hinweisToast(`Verarbeitung fehlgeschlagen: ${t.fehler ?? 'unbekannt'}`, true)
     }
     await ladeListe()
-    // Quota nach dem Upload nachziehen (Balken im Konto-Menü)
-    zeigeSitzung(await api.me())
+    zeigeSitzung(await api.me()) // Quota nachziehen
   } catch (fehler) {
-    setzeStatus((fehler as Error).message, 'fehler')
+    setzeNeuStatus((fehler as Error).message, 'fehler')
   } finally {
-    aktualisiereUploadKnopf()
-    els.fortschritt.hidden = true
-    renderAuswahl()
+    laeuftUpload = false
+    els.neuFortschritt.hidden = true
+    els.neuBauen.disabled = !befund?.bereit
   }
 })
 
-function fertig(id: string, text: string): void {
-  els.uploadStatus.className = 'hinweis ok'
-  els.uploadStatus.innerHTML = `${escape(text)} <a href="/erlebnis.html?tour=srv:${id}" target="_blank" rel="noopener">Abspielen ▸</a>`
-  leereAuswahl()
-  void ladeListe()
+function zeigeFortschritt(getan: number, gesamt: number): void {
+  els.neuFortschritt.hidden = false
+  els.neuFortschrittText.innerHTML = `<b>${getan}</b> von ${gesamt} übertragen`
 }
 
 // — Start —

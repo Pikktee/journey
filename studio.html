@@ -351,172 +351,385 @@
       display: flex;
       flex-direction: column;
     }
-    .app-rumpf {
-      flex: 1;
-      min-height: 0;
-      display: grid;
-      grid-template-columns: minmax(340px, 420px) 1fr;
+    /* — Bibliothek: die Touren SIND die Seite —
+       Der Upload war einmal ein festes Panel links. Er ist jetzt eine Kachel im
+       Raster und ein Fenster: Wer hier ankommt, sieht zuerst seine Reisen. */
+    .rumpf { flex: 1; min-height: 0; overflow-y: auto; }
+    .rumpf-innen { max-width: 1320px; margin: 0 auto; padding: 32px 26px 80px; }
+    .bib-kopf {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--rand);
     }
+    .bib-kopf h1 { font-family: var(--font-display); font-size: clamp(27px, 3.1vw, 36px); font-weight: 480; letter-spacing: -0.02em; margin: 0; }
+    .bib-kopf h1 em { font-style: italic; color: var(--akzent); }
+    .bib-kopf .sp { flex: 1; }
+    /* Die globale Formularregel setzt `width: 100%` — im Kopf stehen die
+       Bedienelemente nebeneinander, nicht untereinander. */
+    .sortier { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 6px 10px; font-size: 12.5px; color: var(--text-2); }
+    .ansicht-schalter { display: inline-flex; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 3px; gap: 3px; }
+    .ansicht-schalter button { border: none; background: transparent; border-radius: 6px; padding: 5px 8px; color: var(--text-3); display: grid; place-items: center; }
+    .ansicht-schalter button svg { width: 16px; height: 16px; }
+    .ansicht-schalter button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
 
-    /* — Upload-Panel (links) — */
-    .upload-panel {
-      border-right: 1px solid var(--rand);
-      overflow-y: auto;
-      padding: 26px 24px 34px;
-      background:
-        radial-gradient(90% 40% at 0% 0%, rgba(245, 165, 36, 0.045), transparent 70%),
-        var(--bg);
-    }
-    .panel-titel { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
-    .panel-titel h2 { font-size: 21px; font-weight: 520; letter-spacing: -0.01em; }
-    .panel-untertitel { color: var(--text-3); font-size: 12.5px; margin: 0 0 18px; }
+    .suche { position: relative; width: min(320px, 32vw); }
+    .suche input { width: 100%; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 999px; padding: 8px 14px 8px 36px; font-size: 13.5px; }
+    .suche input::placeholder { color: var(--text-3); }
+    .suche input:focus { outline: none; border-color: var(--akzent); background: var(--bg-tief); }
+    .suche svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; color: var(--text-3); }
+    .suche kbd { position: absolute; right: 10px; top: 50%; translate: 0 -50%; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
 
-    .dropzone {
-      border: 1.5px dashed var(--rand-hell);
-      border-radius: 14px;
-      padding: 26px 18px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
-      background: rgba(21, 28, 38, 0.4);
+    .knopf-primaer {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+      color: #241402; border: none; border-radius: 999px; padding: 8px 16px;
+      font-size: 13.5px; font-weight: 600; box-shadow: 0 6px 18px rgba(245, 165, 36, 0.22);
+      transition: transform 160ms ease, box-shadow 160ms ease;
     }
-    .dropzone:hover { border-color: var(--text-3); background: var(--fl-1); }
-    .dropzone.aktiv {
-      border-color: var(--akzent);
-      background: rgba(245, 165, 36, 0.07);
-      transform: scale(1.012);
-    }
-    .dropzone svg { width: 26px; height: 26px; color: var(--akzent); margin-bottom: 10px; }
-    .dropzone .dz-haupt { font-weight: 500; font-size: 14px; }
-    .dropzone .dz-neben { color: var(--text-3); font-size: 12.5px; margin-top: 3px; }
-    .dropzone .dz-neben u { text-decoration-color: var(--akzent); text-underline-offset: 3px; }
+    .knopf-primaer:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(245, 165, 36, 0.3); }
+    .knopf-primaer:disabled { opacity: 0.45; transform: none; box-shadow: none; cursor: not-allowed; }
+    .knopf-primaer svg { width: 16px; height: 16px; }
 
-    .datei-chips { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
-    .gpx-chip {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--fl-1);
-      border: 1px solid var(--rand);
-      border-radius: 11px;
-      padding: 9px 11px;
+    /* overflow SICHTBAR: das Sichtbarkeits-Menü klappt über den Kartenrand
+       hinaus. Gerundet wird am Bild, das die Kachel füllt. */
+    .raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; align-items: start; }
+    .karte {
+      position: relative; border-radius: 15px; cursor: pointer;
+      background: var(--fl-1); border: 1px solid var(--rand);
+      transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease;
+      animation: ansichtEin 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
     }
-    .gpx-chip svg { width: 17px; height: 17px; color: var(--akzent); flex: none; }
-    .gpx-chip .gc-name { font-family: var(--font-mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .gpx-chip .gc-meta { font-size: 11.5px; color: var(--text-2); font-family: var(--font-mono); margin-top: 1px; }
-    .gpx-chip .gc-meta.fehler { color: var(--rot); white-space: normal; }
-    .gpx-chip .gc-text { flex: 1; min-width: 0; }
-    .chip-x {
-      flex: none; width: 24px; height: 24px; border-radius: 7px; padding: 0;
-      display: grid; place-items: center; color: var(--text-3);
-      background: transparent; border: none; font-size: 15px; line-height: 1;
+    .karte.menue-offen { z-index: 10; }
+    .karte:nth-child(2) { animation-delay: 45ms; }
+    .karte:nth-child(3) { animation-delay: 90ms; }
+    .karte:nth-child(4) { animation-delay: 135ms; }
+    .karte:nth-child(5) { animation-delay: 180ms; }
+    .karte:nth-child(n + 6) { animation-delay: 225ms; }
+    .karte:hover { transform: translateY(-2px); border-color: var(--rand-hell); box-shadow: var(--schatten); }
+    .karte .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: 14px; }
+    /* Kein Bild-Zoom beim Überfahren: die Kachel IST das Foto. Bewegt es sich
+       unter dem Zeiger, wirkt jede Kachel wie ein Werbebanner. */
+    .karte .bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 300ms ease; }
+    .karte .bild::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(6, 8, 12, 0.05) 0%, rgba(6, 8, 12, 0.5) 72%, rgba(6, 8, 12, 0.86) 100%);
     }
-    .chip-x:hover { color: var(--rot); background: rgba(229, 72, 77, 0.12); }
+    .karte .bild.ohne { display: grid; place-items: center; color: var(--text-3); }
+    .karte .bild.ohne svg { width: 26px; height: 26px; }
 
-    .medien-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 7px; }
-    .medien-kachel {
-      position: relative;
-      aspect-ratio: 1;
-      border-radius: 9px;
-      overflow: hidden;
-      background: var(--fl-2) center/cover no-repeat;
-      border: 1px solid var(--rand);
+    /* Routen-Signet: die Form DIESER Tour aus den echten Wegpunkten. Eigene
+       Glasfläche, sonst verschwindet die Linie über hellem Fels oder Schnee. */
+    .karte .spur {
+      position: absolute; top: 9px; left: 11px; z-index: 2;
+      width: 64px; height: 50px; padding: 5px; pointer-events: none;
+      background: rgba(6, 8, 12, 0.45); backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 11px;
+      transition: width 250ms cubic-bezier(0.2, 0.7, 0.2, 1), height 250ms cubic-bezier(0.2, 0.7, 0.2, 1), background 250ms ease;
     }
-    .medien-kachel .mk-video {
-      position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2);
-      background: linear-gradient(160deg, var(--fl-2), var(--fl-3));
+    .karte:hover .spur { width: 80px; height: 62px; background: rgba(6, 8, 12, 0.6); }
+    .karte .spur .linie {
+      fill: none; stroke: rgba(255, 255, 255, 0.92); stroke-width: 2.6;
+      stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+      stroke-dasharray: 400; stroke-dashoffset: 0;
     }
-    .medien-kachel .mk-video svg { width: 18px; height: 18px; }
-    .medien-kachel .chip-x {
-      position: absolute; top: 2px; right: 2px;
-      background: rgba(6, 8, 12, 0.72);
-      color: var(--text);
-      width: 18px; height: 18px; border-radius: 6px; font-size: 12px;
-      opacity: 0;
-      transition: opacity 140ms ease;
+    .karte .spur .start { fill: var(--akzent); }
+    .karte .spur .ende { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .karte:hover .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3, 0.6, 0.2, 1); }
+    @keyframes spurZeichnen { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+
+    .karte .griffe { position: absolute; top: 9px; right: 11px; z-index: 4; display: flex; flex-direction: row-reverse; align-items: center; gap: 6px; }
+    /* Sichtbarkeit: im Ruhezustand nur das Zeichen; das Wort klappt auf, wenn der
+       Zeiger AUF DEM ZEICHEN steht — nicht schon beim Überfahren der Kachel,
+       sonst bewegt sich dort alles gleichzeitig. Zugleich der Umschalter: wer
+       den Zustand sieht, will ihn dort auch ändern. */
+    .karte .sicht, .stift-knopf {
+      display: inline-flex; align-items: center; gap: 0;
+      font-size: 11px; padding: 5px; border-radius: 999px;
+      background: rgba(6, 8, 12, 0.55); backdrop-filter: blur(7px);
+      border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.82);
+      transition: opacity 180ms ease, gap 220ms cubic-bezier(0.2, 0.7, 0.2, 1), padding 220ms cubic-bezier(0.2, 0.7, 0.2, 1), background 220ms ease;
     }
-    .medien-kachel:hover .chip-x { opacity: 1; }
+    .karte .sicht svg, .stift-knopf svg { width: 12px; height: 12px; flex: none; }
+    .karte .sicht span, .stift-knopf span { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width 220ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+    .karte .sicht:hover, .karte .sicht[aria-expanded='true'], .stift-knopf:hover { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6, 8, 12, 0.9); }
+    .karte .sicht:hover span, .karte .sicht[aria-expanded='true'] span, .stift-knopf:hover span { max-width: 96px; }
+    .karte .sicht[aria-expanded='true'] { border-color: var(--akzent); color: var(--akzent); }
+    .karte .sicht.oeffentlich { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.4); }
+    .stift-knopf { opacity: 0; }
+    .karte:hover .stift-knopf, .karte:focus-within .stift-knopf { opacity: 1; }
+    .stift-knopf:hover { color: #fff; }
 
-    .upload-felder { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .karte .fuss { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 14px 15px 13px; pointer-events: none; }
+    .karte .fuss .t { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .karte .fuss .m { font-family: var(--font-mono); font-size: 11.5px; color: rgba(242, 237, 227, 0.62); margin-top: 3px; }
 
-    .segmente { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 11px; padding: 4px; }
-    .segmente label {
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 4px 7px;
-      border-radius: 8px;
-      cursor: pointer;
-      color: var(--text-3);
-      font-size: 11.5px;
-      font-weight: 500;
-      transition: background 140ms ease, color 140ms ease;
-      text-align: center;
+    /* DIE GANZE KACHEL SPIELT AB. Die Taste in der Mitte ist die Ansage dafür,
+       nicht das einzige Ziel — deshalb Handzeiger auf der ganzen Fläche. */
+    .karte .play {
+      position: absolute; top: 50%; left: 50%; z-index: 3;
+      width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(10, 14, 20, 0.55); backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.28); color: #fff; padding: 0;
+      transform: translate(-50%, -50%) scale(0.82); opacity: 0;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), background 180ms ease;
     }
-    .segmente label:hover { color: var(--text-2); background: var(--fl-2); }
-    .segmente input { position: absolute; opacity: 0; pointer-events: none; }
-    .segmente svg { width: 17px; height: 17px; }
-    .segmente label:has(input:checked) { background: var(--fl-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--rand-hell); }
-    .segmente label:has(input:focus-visible) { outline: 2px solid var(--akzent); outline-offset: 1px; }
-
-    #hochladen { width: 100%; justify-content: center; font-size: 14.5px; }
-    progress {
-      appearance: none; width: 100%; height: 5px; border: none; margin-top: 12px;
-      border-radius: 999px; overflow: hidden; background: var(--fl-2); display: block;
+    .karte .play svg { width: 19px; height: 19px; margin-left: 2px; }
+    .karte:hover .play, .karte:focus-within .play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    /* Kein Amber unter dem Zeiger: die Taste liegt auf einem Foto und soll es
+       nicht überstrahlen — sie wird kontrastreicher, nicht bunt. */
+    .karte .play:hover { background: rgba(10, 14, 20, 0.8); border-color: rgba(255, 255, 255, 0.85); }
+    .karte .schleier {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(42% 42% at 50% 50%, rgba(6, 8, 12, 0.42), transparent 72%);
+      opacity: 0; transition: opacity 200ms ease;
     }
-    progress::-webkit-progress-bar { background: var(--fl-2); }
-    progress::-webkit-progress-value { background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); transition: width 300ms ease; }
-    progress::-moz-progress-bar { background: var(--akzent); }
-    #upload-status { margin-top: 9px; }
+    .karte:hover .schleier, .karte:focus-within .schleier { opacity: 1; }
 
-    /* — Bibliothek (rechts) — */
-    .bibliothek { overflow-y: auto; padding: 26px 30px 40px; min-width: 0; }
-    .bib-kopf { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
-    .bib-kopf h2 { font-size: 21px; font-weight: 520; letter-spacing: -0.01em; }
-    .bib-kopf .anzahl { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); }
-
-    #liste { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
-    .tour {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 18px;
-      background: var(--fl-1);
-      border: 1px solid var(--rand);
-      border-radius: 13px;
-      transition: background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-      animation: ansichtEin 360ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    /* Die entstehende Tour braucht keine Vokabel — sie schimmert und trägt einen
+       laufenden Balken; das liest sich schneller als jedes Wort. */
+    .karte.arbeitet { cursor: default; }
+    .karte.arbeitet .bild img { filter: grayscale(0.5) brightness(0.55); }
+    .karte.arbeitet::after {
+      content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: 14px;
+      background: linear-gradient(105deg, transparent 32%, rgba(245, 165, 36, 0.13) 46%, rgba(255, 240, 220, 0.16) 50%, rgba(245, 165, 36, 0.13) 54%, transparent 68%);
+      background-size: 260% 100%; animation: schimmerLauf 1.9s linear infinite;
     }
-    .tour:nth-child(2) { animation-delay: 40ms; }
-    .tour:nth-child(3) { animation-delay: 80ms; }
-    .tour:nth-child(4) { animation-delay: 120ms; }
-    .tour:nth-child(n + 5) { animation-delay: 160ms; }
-    .tour:hover { background: var(--fl-2); border-color: var(--rand-hell); transform: translateY(-1px); box-shadow: var(--schatten); }
-    .tour .nummer { font-family: var(--font-mono); font-size: 12px; color: var(--akzent); flex: none; width: 44px; }
-    .tour .titel { flex: 1; min-width: 0; }
-    .tour .titel .t-name { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tour .titel small { display: block; color: var(--text-3); font-size: 12px; font-family: var(--font-mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tour-actions { display: flex; gap: 7px; align-items: center; }
-    .tour-actions .knopf, .tour-actions button { font-size: 12.5px; padding: 7px 11px; }
-    .sicht-select { font-size: 12px; padding: 6px 24px 6px 9px; color: var(--text-2); }
+    @keyframes schimmerLauf { from { background-position: 180% 0; } to { background-position: -80% 0; } }
+    .karte .lauf { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0, 0, 0, 0.4); z-index: 4; border-radius: 0 0 14px 14px; overflow: hidden; }
+    .karte .lauf span { position: absolute; top: 0; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: wandern 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+    @keyframes wandern { from { left: -40%; } to { left: 100%; } }
+    /* Fehler auf der Übersicht: nur das Zeichen. Was schiefging, gehört dorthin,
+       wo man es beheben kann — in die geöffnete Tour. */
+    .fehler-punkt {
+      width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+      font-weight: 700; font-size: 13px; line-height: 1; background: rgba(229, 72, 77, 0.9); color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 2px 10px rgba(229, 72, 77, 0.35);
+    }
+    .karte.defekt .bild img { filter: grayscale(0.8) brightness(0.5); }
 
-    .leer { color: var(--text-3); }
+    /* Drei Stufen als Liste statt eines Rundlaufs: bei einer Einstellung, die
+       entscheidet, wer die Reise sehen darf, muss man vorher wissen, wohin man
+       kommt. Der Link steht dort, wo er entsteht. */
+    .sicht-menue {
+      position: absolute; top: 42px; right: 11px; z-index: 20; min-width: 232px;
+      background: rgba(14, 19, 26, 0.98); backdrop-filter: blur(14px);
+      border: 1px solid var(--rand-hell); border-radius: 13px; padding: 5px;
+      box-shadow: 0 22px 50px rgba(2, 5, 10, 0.7); animation: menueRein 140ms ease backwards;
+    }
+    @keyframes menueRein { from { opacity: 0; transform: translateY(-4px); } }
+    .sicht-menue button {
+      display: flex; align-items: flex-start; gap: 9px; width: 100%;
+      background: none; border: none; color: var(--text-2); text-align: left;
+      padding: 8px 10px; border-radius: 9px; font-size: 13px; line-height: 1.35;
+    }
+    .sicht-menue button:hover { background: var(--fl-3); color: var(--text); }
+    .sicht-menue button svg { width: 14px; height: 14px; opacity: 0.8; flex: none; margin-top: 2px; }
+    .sicht-menue button > span { flex: 1; min-width: 0; }
+    .sicht-menue button em { display: block; font-style: normal; font-size: 11.5px; color: var(--text-3); }
+    .sicht-menue button[aria-checked='true'] { color: var(--text); }
+    .sicht-menue .haken { display: none; width: 13px; height: 13px; color: var(--akzent); margin-left: auto; }
+    .sicht-menue button[aria-checked='true'] .haken { display: block; }
+    .sicht-menue hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+    .sicht-menue .kopfzeile { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); padding: 7px 10px 5px; }
+
+    /* — Neue-Tour-Kachel: dieselbe Höhe wie die Karten (16/10) — */
+    .neu-kachel {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 7px; aspect-ratio: 16/10; overflow: hidden;
+      border: 1.5px dashed var(--rand-hell); border-radius: 15px; text-align: center;
+      background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.06), transparent 70%), var(--fl-1);
+      color: var(--text-2); padding: 14px 18px;
+      transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+    .neu-kachel:hover { border-color: var(--akzent); background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.12), transparent 70%), var(--fl-1); transform: translateY(-2px); }
+    .neu-kachel svg { width: 23px; height: 23px; color: var(--akzent); }
+    .neu-kachel .h { font-family: var(--font-display); font-size: 16px; color: var(--text); }
+    /* Die globale Knopf-Regel setzt `nowrap` — hier soll der Satz umbrechen. */
+    .neu-kachel .n { font-size: 12px; color: var(--text-3); max-width: 30ch; line-height: 1.4; white-space: normal; text-wrap: balance; }
+
+    /* — Listenansicht: dieselben Daten, dichter — */
+    .liste { display: flex; flex-direction: column; gap: 8px; }
+    .zeile {
+      display: flex; align-items: center; gap: 15px; padding: 9px 14px 9px 9px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 13px;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+    .zeile:hover { background: var(--fl-2); border-color: var(--rand-hell); }
+    .zeile .mini { width: 74px; height: 48px; border-radius: 9px; overflow: hidden; flex: none; background: var(--fl-2); display: grid; place-items: center; color: var(--text-3); }
+    .zeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .zeile .mini svg { width: 18px; height: 18px; }
+    .zeile .txt { flex: 1; min-width: 0; }
+    .zeile .txt .t { font-family: var(--font-display); font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .zeile .txt .m { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+    .zeile .rechts { display: flex; align-items: center; gap: 8px; }
+    .zeile .sichtpille { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 999px; padding: 3px 10px; }
+    .zeile .sichtpille.oeffentlich { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.35); }
+    .akt {
+      display: inline-flex; align-items: center; gap: 7px;
+      border: 1px solid var(--rand); background: var(--fl-2);
+      border-radius: 999px; padding: 7px 12px; font-size: 12.5px; color: var(--text-2);
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+    .akt:hover { border-color: rgba(245, 165, 36, 0.6); color: var(--text); }
+    .akt svg { width: 15px; height: 15px; }
+    .akt.gefahr:hover { border-color: rgba(229, 72, 77, 0.6); color: var(--rot); }
+
+    /* — Erstnutzung — */
     .leer-buehne {
-      max-width: 980px;
-      border: 1.5px dashed var(--rand);
-      border-radius: 16px;
-      padding: 56px 24px;
-      text-align: center;
-      color: var(--text-2);
+      border: 1.5px dashed var(--rand); border-radius: 20px; padding: 74px 28px;
+      text-align: center; position: relative; overflow: hidden;
+      background: radial-gradient(80% 60% at 50% 0%, rgba(245, 165, 36, 0.05), transparent 70%);
     }
-    .leer-buehne svg { width: 30px; height: 30px; color: var(--akzent); margin-bottom: 12px; }
-    .leer-buehne .lb-titel { font-family: var(--font-display); font-size: 19px; color: var(--text); }
-    .leer-buehne p { font-size: 13px; color: var(--text-3); margin: 6px auto 0; max-width: 40ch; }
+    .leer-buehne .route { position: absolute; left: 0; right: 0; bottom: -10px; height: 62%; pointer-events: none; opacity: 0.38; }
+    .leer-buehne .route path { fill: none; stroke: rgba(245, 165, 36, 0.5); stroke-width: 2; stroke-dasharray: 6 10; stroke-linecap: round; animation: fluss 60s linear infinite; }
+    @keyframes fluss { to { stroke-dashoffset: -1600; } }
+    .leer-buehne h2 { font-family: var(--font-display); font-size: 25px; font-weight: 480; letter-spacing: -0.01em; position: relative; margin: 0; }
+    .leer-buehne p { color: var(--text-3); font-size: 13.5px; max-width: 44ch; margin: 10px auto 22px; position: relative; }
+    .leer-buehne .knopf-primaer { position: relative; }
 
-    .skelett { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
-    .skelett .zeile { height: 66px; border-radius: 13px; background: linear-gradient(100deg, var(--fl-1) 40%, var(--fl-2) 50%, var(--fl-1) 60%) 0 0 / 200% 100%; animation: schimmer 1.3s linear infinite; }
+    .skelett { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; }
+    .skelett div { aspect-ratio: 16/10; border-radius: 15px; background: linear-gradient(100deg, var(--fl-1) 40%, var(--fl-2) 50%, var(--fl-1) 60%) 0 0 / 200% 100%; animation: schimmer 1.3s linear infinite; }
+
+    /* — Dateien über dem Fenster: die ganze Seite ist die Ablage — */
+    .drop-overlay {
+      position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+      background: rgba(6, 8, 12, 0.82); backdrop-filter: blur(6px);
+      animation: ansichtEin 200ms ease backwards;
+    }
+    .drop-overlay .kasten { border: 2px dashed var(--akzent); border-radius: 22px; padding: 60px 74px; text-align: center; background: rgba(245, 165, 36, 0.06); }
+    .drop-overlay svg { width: 38px; height: 38px; color: var(--akzent); }
+    .drop-overlay .h { font-family: var(--font-display); font-size: 26px; margin-top: 14px; }
+    .drop-overlay p { color: var(--text-2); font-size: 13.5px; margin: 8px 0 0; }
+
+
+    /* ————————————————— Neue Tour: erst zeigen, dann hochladen —————————————————
+       Der Upload war ein Formular mit einem Knopf; was Luhambo aus den Dateien
+       gelesen hatte, erfuhr man erst an der fertigen Tour. Jetzt steht es davor:
+       Strecke, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was auffiel. */
+    .neu-hinter {
+      position: fixed; inset: 0; z-index: 70; display: grid; place-items: center;
+      background: rgba(6, 8, 12, 0.72); backdrop-filter: blur(8px);
+      animation: ansichtEin 180ms ease backwards; padding: 22px;
+    }
+    .neu-fenster {
+      width: min(1080px, 100%); max-height: min(92vh, 780px);
+      display: flex; flex-direction: column;
+      background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(2, 5, 10, 0.72); overflow: hidden;
+      animation: fensterRein 260ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    }
+    @keyframes fensterRein { from { opacity: 0; transform: translateY(14px) scale(0.985); } }
+    .neu-kopf { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--rand); }
+    .neu-kopf .titelblock { flex: 1; min-width: 0; }
+    .neu-kopf h2 { font-family: var(--font-display); font-size: 19px; font-weight: 520; margin: 0; }
+    .neu-kopf .unter { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+    .neu-kopf .schliessen { background: transparent; border: none; color: var(--text-3); font-size: 20px; line-height: 1; padding: 4px 8px; }
+    .neu-kopf .schliessen:hover { color: var(--text); }
+    .neu-fortschritt { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
+    .neu-fortschritt b { color: var(--akzent); font-weight: 600; }
+    .neu-fortschritt .kreisel { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--fl-3); border-top-color: var(--akzent); animation: dreht 700ms linear infinite; }
+    @keyframes dreht { to { transform: rotate(360deg); } }
+
+    .neu-rumpf { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
+    .neu-leer { border: 1.5px dashed var(--rand-hell); border-radius: 16px; padding: 54px 28px; text-align: center; background: rgba(21, 28, 38, 0.35); }
+    .neu-leer h3 { font-family: var(--font-display); font-size: 27px; font-weight: 480; margin: 0 0 8px; }
+    .neu-leer h3 em { font-style: italic; color: var(--akzent); }
+    .neu-leer p { color: var(--text-2); font-size: 13.5px; margin: 0 auto 20px; max-width: 42ch; text-wrap: balance; }
+    .neu-leer .nachsatz { color: var(--text-3); font-size: 12px; margin: 18px auto 0; max-width: 40ch; }
+    /* Vier leere Rahmen über einem Tag-Nacht-Verlauf: das ist die Zeitachse,
+       die gleich entsteht — die Form der Sache, bevor es sie gibt. */
+    .neu-leer .ahnung { display: flex; align-items: flex-end; justify-content: center; gap: 22px; margin-bottom: 20px; }
+    .neu-leer .ahnung i { width: 26px; height: 26px; border: 1.5px dashed var(--rand-hell); border-radius: 5px; }
+    .neu-leer .ahnung i:nth-child(2) { border-color: var(--akzent); }
+    .neu-leer .achse { height: 4px; border-radius: 999px; margin: 12px auto 0; max-width: 260px; background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, #ff6f52, #3a2a4a, #1d2740); }
+
+    .neu-raster { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+    .vorschau {
+      position: relative; aspect-ratio: 4/3; border-radius: 14px; overflow: hidden;
+      background: radial-gradient(120% 90% at 30% 0%, #101a26, #080b11 70%);
+      border: 1px solid var(--rand);
+    }
+    /* Punktraster: eine Karte, ohne eine Karte zu behaupten — Kartendaten holt
+       erst der Player. Hier zählt die Form, nicht der Ort. */
+    .vorschau::before {
+      content: ''; position: absolute; inset: 0; opacity: 0.5;
+      background-image: radial-gradient(rgba(103, 114, 127, 0.34) 1px, transparent 1px);
+      background-size: 26px 26px;
+    }
+    .vorschau svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .vorschau .linie { fill: none; stroke: rgba(242, 237, 227, 0.9); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    /* Gestrichelt heißt: geraten. Eine durchgezogene Linie ist die aufgezeichnete
+       Spur — dieser Unterschied soll etwas bedeuten. */
+    .vorschau .linie.geraten { stroke-dasharray: 3 4; stroke: rgba(242, 237, 227, 0.55); }
+    .vorschau .anfang { fill: var(--akzent); }
+    .vorschau .schluss { fill: none; stroke: var(--akzent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+    .vorschau .marke { fill: rgba(242, 237, 227, 0.92); }
+    .vorschau .marke.ohne-ort { fill: none; stroke: rgba(242, 237, 227, 0.6); stroke-width: 1.4; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+    .vorschau .quelle { position: absolute; left: 12px; bottom: 10px; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+
+    .neu-daten h3 { font-family: var(--font-display); font-size: clamp(21px, 2.4vw, 27px); font-weight: 480; letter-spacing: -0.01em; margin: 0 0 14px; }
+    .neu-daten h3.geschaetzt { color: var(--text-2); }
+    .zahlen { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 18px; padding: 14px 0 16px; border-top: 1px solid var(--rand); border-bottom: 1px solid var(--rand); }
+    .zahlen .z { min-width: 0; }
+    .zahlen .k { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
+    .zahlen .k svg { width: 13px; height: 13px; }
+    .zahlen .w { font-family: var(--font-mono); font-size: 14px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .meldungen { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .meldung {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 12.5px; line-height: 1.45; border-radius: 11px; padding: 10px 12px;
+      background: var(--fl-2); border: 1px solid var(--rand); color: var(--text-2);
+    }
+    .meldung .zeichen { width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--fl-3); color: var(--text-3); }
+    .meldung.warnung { background: rgba(245, 165, 36, 0.07); border-color: rgba(245, 165, 36, 0.24); }
+    .meldung.warnung .zeichen { background: var(--akzent); color: #241402; }
+    .meldung > span { flex: 1; min-width: 0; }
+    .meldung button { background: none; border: none; color: var(--akzent); font-size: 12.5px; padding: 0 2px; text-decoration: underline; text-underline-offset: 3px; }
+
+    /* — Zeitband: jede Aufnahme an ihrer Uhrzeit —
+       NICHT `.streifen` heißen: so heißt schon der Filmstreifen im Inspector des
+       Editors (display:flex) — bei gleicher Spezifität gewann der spätere Block
+       und die Bahn hatte Breite 0. */
+    .zeitband { margin-top: 20px; }
+    .zeitband .kopf { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+    /* Rand innen: die Aufnahme bei 0 % und die bei 100 % sind je zur Hälfte
+       breiter als ihr Punkt — ohne Luft ragte die letzte aus dem Fenster. */
+    .zeitband .innen { margin: 0 26px; }
+    .zeitband .bahn { position: relative; height: 92px; }
+    .zeitband .bild {
+      position: absolute; bottom: 0; width: 46px; height: 46px; margin-left: -23px;
+      border-radius: 7px; overflow: hidden; border: 1px solid var(--rand-hell);
+      background: var(--fl-2) center/cover no-repeat; cursor: pointer;
+    }
+    .zeitband .bild.ohne-ort { border-style: dashed; }
+    .zeitband .bild.ausserhalb { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.22); }
+    .zeitband .bild .zahl { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--fl-3); border: 1px solid var(--rand-hell); font-family: var(--font-mono); font-size: 9px; line-height: 13px; text-align: center; }
+    .zeitband .bild .film { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); background: linear-gradient(160deg, var(--fl-2), var(--fl-3)); }
+    .zeitband .bild .film svg { width: 16px; height: 16px; }
+    .zeitband .stiel { position: absolute; bottom: 0; width: 1px; height: 14px; background: var(--rand-hell); }
+    /* Tag-Nacht-Verlauf: die Achse sagt nebenbei, wann die Reise stattfand */
+    .zeitband .achse { position: relative; height: 7px; border-radius: 999px; margin-top: 8px; overflow: hidden; background: var(--fl-2); }
+    .zeitband .achse .spanne { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, #ff6f52, #3a2a4a, #1d2740); }
+    /* Zeit ohne Aufzeichnung — gestreift, damit man sieht: hier lief nichts mit */
+    .zeitband .achse .luecke { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.32) 0 4px, transparent 4px 8px); }
+    .zeitband .stunden { position: relative; height: 14px; margin-top: 4px; }
+    .zeitband .stunden span:first-child { transform: none; }
+    .zeitband .stunden span:last-child { transform: translateX(-100%); }
+    .zeitband .stunden span { position: absolute; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); transform: translateX(-50%); }
+
+    .neu-fuss { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--rand); background: var(--bg-tief); }
+    .neu-fuss .sp { flex: 1; }
+    .neu-fuss .status { font-size: 12.5px; color: var(--text-2); }
+    .neu-fuss .status.fehler { color: var(--rot); }
+    .neu-modus { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--text-3); }
+    .neu-modus .schloss { width: 14px; height: 14px; }
+    .neu-modus select, .neu-sicht { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 6px 26px 6px 10px; font-size: 12.5px; color: var(--text-2); }
+
+    @media (max-width: 820px) {
+      .neu-raster { grid-template-columns: 1fr; }
+      .neu-fenster { max-height: 94vh; }
+    }
+
     @keyframes schimmer { to { background-position: -200% 0; } }
 
     /* ————————————————— Editor ————————————————— */
@@ -899,6 +1112,14 @@
     /* Ablage: Medien, die (noch) nicht auf der Strecke liegen */
     .ablage-knopf { display: flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 5px 10px; }
     .ablage-knopf svg { width: 13px; height: 13px; }
+    /* Aufnahmen ohne Ort fehlen im Film, ohne dass jemand das entschieden hat —
+       das ist ein Fund und sieht auch so aus. Beim Öffnen meldet er sich einmal. */
+    .ablage-knopf.warnt { color: var(--rot); border-color: rgba(229, 72, 77, 0.42); background: rgba(229, 72, 77, 0.12); }
+    .ablage-knopf.meldet { animation: ablageMeldet 1.4s ease-out 3; }
+    @keyframes ablageMeldet {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+      35% { box-shadow: 0 0 0 5px rgba(229, 72, 77, 0.26); }
+    }
     .ablage-raster { display: grid; grid-template-columns: repeat(4, 54px); gap: 6px; padding: 6px; max-height: 220px; overflow-y: auto; }
     .ablage-raster button { width: 54px; height: 54px; padding: 0; border-radius: 7px; overflow: hidden; border: 1px solid var(--rand); background: var(--fl-2); cursor: grab; touch-action: none; }
     .ablage-raster img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -962,7 +1183,9 @@
       content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%, rgba(0, 0, 0, 0.11));
     }
-    .band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+    .band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: clip; pointer-events: none; }
+    /* Passt der Name nicht, trägt die Farbe allein — ein Rest-Wort trüge nichts. */
+    .band.ohne-text span { display: none; }
     .band.inaktiv { opacity: 0.28; }
     /* Auswahl: ein „aufgehobener" Zustand statt bloßer Umrandung — der helle
        warmweiße Ring kontrastiert auf JEDER Bandfarbe (auch Moped = amber). */
@@ -1274,10 +1497,11 @@
     @media (max-width: 960px) {
       body { overflow: auto; }
       #app-view { position: static; height: auto; min-height: 100dvh; }
-      .app-rumpf { grid-template-columns: 1fr; }
-      .upload-panel { border-right: none; border-bottom: 1px solid var(--rand); }
-      .tour { flex-wrap: wrap; row-gap: 10px; }
-      .tour-actions { width: 100%; justify-content: flex-end; }
+      .rumpf-innen { padding: 24px 16px 90px; }
+      .raster, .skelett { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+      .suche { display: none; }
+      .zeile { flex-wrap: wrap; row-gap: 10px; }
+      .zeile .rechts { width: 100%; justify-content: flex-end; }
       /* Karte / Zeitleiste / Inspector untereinander. Die Zeitleiste behält ihre
          eigene Zone (sie scrollt waagerecht selbst), der Inspector nimmt den Rest. */
       .editor-rumpf { grid-template-columns: 1fr; grid-template-rows: 40vh auto 1fr; }
@@ -1413,6 +1637,13 @@
       <symbol id="i-hand" viewBox="0 0 24 24" fill="currentColor">
         <path d="M10.4 2a1.45 1.45 0 00-1.45 1.45v5.9a.45.45 0 01-.9 0V5.55a1.4 1.4 0 10-2.8 0v8.2l-1.15-1.4a1.55 1.55 0 00-2.45 1.9l3.15 4.25A6.15 6.15 0 0011.75 21h1.6A6.15 6.15 0 0019.5 14.85V6.35a1.4 1.4 0 10-2.8 0v3.1a.45.45 0 01-.9 0V4.25a1.4 1.4 0 10-2.8 0v5.1a.45.45 0 01-.9 0V3.45A1.45 1.45 0 0010.4 2z"/>
       </symbol>
+      <symbol id="i-suche" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4"/></symbol>
+      <symbol id="i-raster" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></symbol>
+      <symbol id="i-zeilen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="i-schloss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+      <symbol id="i-schloss-offen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 017.5-2"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 14a4 4 0 006 .5l2-2a4 4 0 10-5.7-5.7L11 8"/><path d="M14 10a4 4 0 00-6-.5l-2 2A4 4 0 0011.7 17L13 16"/></symbol>
+      <symbol id="i-kalender" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14" rx="2.4"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
       <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
       <symbol id="i-lupe-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
       <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
@@ -1546,6 +1777,7 @@
     <header class="topbar">
       <div class="wortmarke"><a href="/" title="Zur Startseite">Luhambo <b>Studio</b></a></div>
       <div class="luecke"></div>
+      <button class="knopf-primaer" id="neu-oben" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button>
       <div class="konto-wrap">
         <button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false">
           <span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span>
@@ -1565,54 +1797,81 @@
       <svg><use href="#i-blitz"/></svg>
       <span>Bitte bestätige deine E-Mail-Adresse — der Link liegt in deinem Postfach. Hochladen ist erst danach möglich.</span>
     </div>
-    <div class="app-rumpf">
-      <aside class="upload-panel">
-        <div class="panel-titel"><h2>Neue Tour</h2></div>
-        <p class="panel-untertitel">GPX-Aufzeichnung plus Fotos und Videos — der Rest passiert automatisch.</p>
-
-        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Dateien wählen oder hierher ziehen">
-          <svg><use href="#i-upload"/></svg>
-          <div class="dz-haupt">Dateien hierher ziehen</div>
-          <div class="dz-neben">GPX, JPEG, PNG, MP4, MOV — oder <u>durchsuchen</u></div>
-        </div>
-        <input id="dateien" type="file" hidden multiple
-          accept=".gpx,application/gpx+xml,image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" />
-
-        <div class="datei-chips" id="gpx-chip"></div>
-        <div class="hinweis" id="gpx-info" hidden></div>
-        <div class="datei-chips"><div class="medien-raster" id="medien-raster"></div></div>
-        <div class="hinweis" id="medien-info"></div>
-
-        <div class="upload-felder">
-          <div>
-            <label for="titel">Titel <span class="zusatz">— leer lassen für automatische Benennung</span></label>
-            <input id="titel" type="text" placeholder="z. B. Sonntagsrunde am See" />
+    <div class="rumpf">
+      <div class="rumpf-innen">
+        <div class="bib-kopf" id="bib-kopf">
+          <h1>Meine <em>Touren</em></h1>
+          <span class="sp"></span>
+          <div class="suche">
+            <svg><use href="#i-suche"/></svg>
+            <input id="suche" type="search" placeholder="Touren durchsuchen …" aria-label="Touren durchsuchen" />
+            <kbd>/</kbd>
           </div>
-          <div>
-            <label id="mode-label">Fortbewegung</label>
-            <div class="segmente" role="radiogroup" aria-labelledby="mode-label">
-              <label><input type="radio" name="mode" value="walk" /><svg><use href="#i-walk"/></svg>Zu Fuß</label>
-              <label><input type="radio" name="mode" value="bike" checked /><svg><use href="#i-bike"/></svg>Rad</label>
-              <label><input type="radio" name="mode" value="tram" /><svg><use href="#i-tram"/></svg>Tram</label>
-              <label><input type="radio" name="mode" value="ferry" /><svg><use href="#i-ferry"/></svg>Fähre</label>
-            </div>
-          </div>
-          <div>
-            <button id="hochladen" class="primaer" disabled><svg><use href="#i-upload"/></svg>Hochladen</button>
-            <progress id="fortschritt" hidden></progress>
-            <div class="hinweis" id="upload-status" role="status"></div>
+          <select class="sortier" id="sortierung" aria-label="Sortierung">
+            <option value="neu">Neueste zuerst</option>
+            <option value="alt">Älteste zuerst</option>
+            <option value="km">Längste Strecke</option>
+            <option value="az">Titel A–Z</option>
+          </select>
+          <div class="ansicht-schalter" id="ansicht">
+            <button data-ansicht="raster" aria-pressed="true" title="Kacheln" aria-label="Kacheln"><svg><use href="#i-raster"/></svg></button>
+            <button data-ansicht="liste" aria-pressed="false" title="Liste" aria-label="Liste"><svg><use href="#i-zeilen"/></svg></button>
           </div>
         </div>
-      </aside>
-
-      <section class="bibliothek">
-        <div class="bib-kopf">
-          <h2>Meine Touren</h2>
-          <span class="anzahl" id="touren-anzahl"></span>
-        </div>
-        <div id="liste"></div>
-      </section>
+        <div id="bibliothek"></div>
+      </div>
     </div>
+
+    <!-- Dateien überm Fenster: die ganze Seite ist die Ablage -->
+    <div class="drop-overlay" id="drop-overlay" hidden>
+      <div class="kasten">
+        <svg><use href="#i-upload"/></svg>
+        <div class="h">Loslassen</div>
+        <p>Aufzeichnung und Aufnahmen werden zu einer neuen Tour</p>
+      </div>
+    </div>
+
+    <!-- ————— Neue Tour: erst zeigen, was ankam, dann hochladen ————— -->
+    <div class="neu-hinter" id="neu-hinter" hidden>
+      <div class="neu-fenster" role="dialog" aria-modal="true" aria-labelledby="neu-titel">
+        <div class="neu-kopf">
+          <div class="titelblock">
+            <h2 id="neu-titel">Neue Tour</h2>
+            <div class="unter" id="neu-unter"></div>
+          </div>
+          <div class="neu-fortschritt" id="neu-fortschritt" hidden><span class="kreisel"></span><span id="neu-fortschritt-text"></span></div>
+          <button class="schliessen" id="neu-schliessen" title="Schließen" aria-label="Schließen">×</button>
+        </div>
+        <div class="neu-rumpf" id="neu-rumpf"></div>
+        <div class="neu-fuss">
+          <label class="neu-modus" id="neu-modus-wrap" hidden>
+            Unterwegs per
+            <select id="neu-modus" aria-label="Fortbewegung">
+              <option value="walk">Zu Fuß</option>
+              <option value="bike" selected>Rad</option>
+              <option value="moped">Moped</option>
+              <option value="jeep">Jeep</option>
+              <option value="tram">Tram</option>
+              <option value="ferry">Fähre</option>
+            </select>
+          </label>
+          <label class="neu-modus">
+            <svg class="schloss"><use href="#i-schloss"/></svg>
+            <select class="neu-sicht" id="neu-sicht" aria-label="Sichtbarkeit">
+            <option value="private" selected>Privat</option>
+            <option value="unlisted">Per Link</option>
+            <option value="public">Öffentlich</option>
+            </select>
+          </label>
+          <div class="status" id="neu-status" role="status"></div>
+          <span class="sp"></span>
+          <button class="akt" id="neu-mehr"><svg><use href="#i-plus"/></svg>Aufnahmen hinzufügen</button>
+          <button class="knopf-primaer" id="neu-bauen" disabled><svg><use href="#i-blitz"/></svg>Tour bauen</button>
+        </div>
+      </div>
+    </div>
+    <input id="dateien" type="file" hidden multiple
+      accept=".gpx,application/gpx+xml,image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" />
   </main>
 
   <!-- Editor (M7) -->

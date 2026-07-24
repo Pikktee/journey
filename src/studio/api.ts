@@ -20,7 +20,15 @@ export interface TourListe {
   status: string
   visibility: string
   title: string | null
-  stats: { km: number; gainM: number } | null
+  /** `fotos` und `spur` entstehen beim Anreichern — ältere Touren haben sie erst
+   *  nach dem nächsten Rendern, die Kachel muss ohne sie auskommen. */
+  stats: {
+    km: number
+    gainM: number
+    fotos?: number
+    spur?: { d: string; start: [number, number]; ende: [number, number] }
+  } | null
+  cover: string | null
   fehler: string | null
   createdAt: string
 }

@@ -6,6 +6,7 @@ import {
   effektiveMedien,
   isoZuOffset,
   LEERES_OVERLAY,
+  materialisiereModi,
   mitMedienEdit,
   mitModusGrenze,
   mitTrim,
@@ -106,6 +107,58 @@ describe('zerlegeFuerAnzeige', () => {
     expect(out).toHaveLength(1)
     expect(out[0]).toMatchObject({ mode: 'walk', aktiv: true })
     expect(out[0]?.pts).toHaveLength(4)
+  })
+})
+
+describe('materialisiereModi', () => {
+  // Mehrere Segmente = die Aufteilung, die der Server aus dem Tempo erkannt hat.
+  const erkannt = (): EditorSegment[] => [
+    { mode: 'moped', pts: [[7.9, 46.5, 800, 0], [7.905, 46.505, 805, 300]] },
+    { mode: 'walk', pts: [[7.905, 46.505, 805, 300], [7.91, 46.51, 810, 600]] },
+    { mode: 'moped', pts: [[7.91, 46.51, 810, 600], [7.915, 46.515, 815, 900]] },
+  ]
+
+  it('schreibt die erkannte Aufteilung als Grenzen fest', () => {
+    const out = materialisiereModi(LEERES_OVERLAY, erkannt(), START)
+    expect(out.modi).toEqual([
+      { ab: iso(0), mode: 'moped' },
+      { ab: iso(300), mode: 'walk' },
+      { ab: iso(600), mode: 'moped' },
+    ])
+  })
+
+  it('ändert an der sichtbaren Aufteilung nichts', () => {
+    // Der Punkt der ganzen Übung: erst danach lässt sich EINE Kante bewegen,
+    // ohne dass die folgenden Abschnitte mitgerissen werden.
+    const vorher = zerlegeFuerAnzeige(erkannt(), LEERES_OVERLAY, START)
+    const nachher = zerlegeFuerAnzeige(erkannt(), materialisiereModi(LEERES_OVERLAY, erkannt(), START), START)
+    expect(nachher.map((a) => [a.mode, a.pts.map((p) => p[3])])).toEqual(
+      vorher.map((a) => [a.mode, a.pts.map((p) => p[3])]),
+    )
+  })
+
+  it('ist idempotent', () => {
+    const einmal = materialisiereModi(LEERES_OVERLAY, erkannt(), START)
+    expect(materialisiereModi(einmal, erkannt(), START).modi).toEqual(einmal.modi)
+  })
+
+  it('behält vorhandene Grenzen bei und ergänzt die erkannten', () => {
+    const mit = mitModusGrenze(LEERES_OVERLAY, iso(450), 'ferry')
+    const out = materialisiereModi(mit, erkannt(), START)
+    expect(out.modi).toEqual([
+      { ab: iso(0), mode: 'moped' },
+      { ab: iso(300), mode: 'walk' },
+      { ab: iso(600), mode: 'ferry' }, // ab 450 gilt ferry — beim nächsten Punkt sichtbar
+    ])
+  })
+
+  it('lässt andere Overlay-Teile unberührt', () => {
+    const mit = mitTrim(LEERES_OVERLAY, 'start', iso(300))
+    expect(materialisiereModi(mit, erkannt(), START).trim).toEqual({ start: iso(300) })
+  })
+
+  it('liefert bei leerer Aufzeichnung das Overlay unverändert', () => {
+    expect(materialisiereModi(LEERES_OVERLAY, [], START)).toBe(LEERES_OVERLAY)
   })
 })
 

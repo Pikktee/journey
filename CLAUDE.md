@@ -119,6 +119,13 @@ bekommen. Ein Drift-Wächter in [test/studio-baukasten.test.ts](test/studio-bauk
 vergleicht die Listen (und die Tempo-Faktoren) jetzt automatisch.
 Der Modus wird bei der Aufnahme EINMAL angegeben; wo jemand stattdessen zu Fuß war, trennt
 [server/src/pipeline/tempo.ts](server/src/pipeline/tempo.ts) beim Rendern selbst ab (s. unten).
+Im Editor ist **jeder Modus-Wechsel eine ziehbare Kante** — auch die von der Automatik
+erkannte. Beim ersten Zug schreibt `materialisiereModi` ([editmodell.ts](src/studio/editmodell.ts))
+die ganze erkannte Aufteilung als Grenzen fest: `edits.modi` ist eine Stufenfunktion, die AB
+ihrem Punkt alles Folgende übersteuert — eine einzelne neue Grenze mitten in der Automatik
+risse die späteren Abschnitte mit. `klemmeGrenze` hält jede Kante zwischen ihren Nachbarn UND
+lässt mindestens einen Trackpunkt im Abschnitt: sonst gälte der Zustand für keinen Punkt, das
+Band verschwände aus der Anzeige und wäre nicht mehr anzufassen.
 
 **Höhen zweistufig.** Wegpunkt-Höhen sind nur der Startwert. Nach dem Laden holt
 [src/elevation.js](src/elevation.js) echte DEM-Höhen aus AWS Terrarium-Tiles (async fetch +
@@ -176,6 +183,25 @@ Die Weboberfläche für aufgezeichnete Touren ([studio.html](studio.html), Vite-
 Logik in [src/studio/](src/studio/)). Kein Router — Login-, App- und Editor-Ansicht liegen
 gleichzeitig im DOM und werden per `hidden` umgeschaltet; der Editor wird lazy importiert,
 damit MapLibre nicht ins Basis-Bundle kommt.
+
+**Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
+**Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.
+Sie entsteht beim Anreichern ([server/src/pipeline/signatur.ts](server/src/pipeline/signatur.ts))
+und liegt als `stats.spur` neben `stats.fotos` in der Tour-Liste; ältere Touren haben beides
+erst nach dem nächsten Rendern, die Kachel muss ohne auskommen. Die ganze Kachel spielt ab —
+die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben genau zwei Griffe
+(Bearbeiten, Sichtbarkeit, letztere zugleich Anzeige UND Umschalter).
+
+**Neue Tour: erst zeigen, dann hochladen.** Der Upload ist kein Formular mehr, sondern ein
+Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](src/studio/pruefung.ts),
+DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was
+auffiel (ohne Ortsangabe, ohne Zeitstempel, außerhalb der Aufzeichnung). Nur wo es etwas zu
+entscheiden gibt, steht ein Knopf („Weglassen"). **Ohne GPX** werden die Foto-Orte zur Strecke:
+das Manifest trägt dann `segments` statt `trackFile` (`baueFotoSegmente`) — deshalb überspringt
+[tours.ts](server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die
+Gehabschnitts-Automatik: zwischen zwei Fotos liegt eine Luftlinie, jedes daraus gerechnete
+Tempo wäre Zufall. Die eigene Inszenierung dafür (gestrichelte Bodenlinie, fliegende statt
+fahrende Kamera) steht noch aus: [docs/foto-tour.md](docs/foto-tour.md).
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`luhambo/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):

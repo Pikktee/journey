@@ -7,6 +7,7 @@
 
 import {
   isoZuOffset,
+  offsetZuIso,
   projiziereAufTrack,
   type AnzeigeAbschnitt,
   type AudioEintrag,
@@ -265,6 +266,45 @@ const grenzeBei = (
   offsetS: number,
 ): string | null => grenzen.find((g) => Math.abs(isoZuOffset(startIso, g.ab) - offsetS) < 1)?.ab ?? null
 
+/**
+ * Eine Zustands-Grenze bleibt zwischen ihren Nachbarn. Ohne diese Klemme
+ * überholt ein schneller Zug die nächste Grenze: die Reihenfolge der Zustände
+ * wäre danach eine andere als die, die man beim Anfassen sah, und der gezogene
+ * Abschnitt selbst wäre verschwunden.
+ *
+ * `punkteS` (Trackzeiten) macht die Klemme sichtbar-treu: ein Zustand gilt für
+ * die Punkte, die in seiner Spanne liegen — schöbe man die Kante bis dicht an
+ * die nächste, bliebe kein Punkt übrig, das Band verschwände aus der Anzeige
+ * und wäre nicht mehr anzufassen (obwohl die Grenze im Overlay steht). Also
+ * bleibt immer mindestens ein Punkt drin. Ohne `punkteS` genügt eine Sekunde
+ * Abstand — zwei Grenzen auf derselben Sekunde verschlucken sich gegenseitig
+ * (Ersetzen-Semantik der Mutatoren).
+ */
+export function klemmeGrenze(
+  grenzen: ReadonlyArray<{ ab: string }>,
+  altAb: string,
+  startIso: string,
+  offsetS: number,
+  punkteS?: readonly number[],
+): number {
+  const zeiten = grenzen
+    .map((g) => isoZuOffset(startIso, g.ab))
+    .filter((s) => Number.isFinite(s))
+    .sort((a, b) => a - b)
+  const eigen = isoZuOffset(startIso, altAb)
+  const vorher = zeiten.filter((s) => s < eigen).pop()
+  const nachher = zeiten.find((s) => s > eigen)
+  /** Späteste Zeit, die den Abschnitt bis `grenzeS` noch mit einem Punkt füllt. */
+  const letzterPunktVor = (grenzeS: number): number =>
+    punkteS?.filter((p) => p < grenzeS).pop() ?? grenzeS - 1
+  const ersterPunktNach = (grenzeS: number): number => punkteS?.find((p) => p > grenzeS) ?? grenzeS + 1
+
+  let wert = offsetS
+  if (vorher !== undefined) wert = Math.max(wert, ersterPunktNach(vorher))
+  if (nachher !== undefined) wert = Math.min(wert, letzterPunktVor(nachher))
+  return wert
+}
+
 export function loeseFokusAuf(
   fokus: Fokus | null,
   edits: EditOverlay,
@@ -279,23 +319,39 @@ export function loeseFokusAuf(
 
   if (fokus.art === 'modus') {
     // Aus den Anzeige-Abschnitten: die tragen echte Trackpunkte, also echte Zeiten
-    const treffer = abschnitte.find((a) => {
+    const i = abschnitte.findIndex((a) => {
       const von = (a.pts[0] as TrackPunkt)[3]
       const bis = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
       return fokus.bezugS >= von && fokus.bezugS <= bis
     })
+    const treffer = abschnitte[i]
     if (!treffer) return null
     const vonS = (treffer.pts[0] as TrackPunkt)[3]
     const bisS = (treffer.pts[treffer.pts.length - 1] as TrackPunkt)[3]
     // Verantwortliche Grenze: die letzte, die zu Bandbeginn schon gilt und
-    // denselben Modus setzt. Fehlt sie, stammt das Band aus der Aufzeichnung.
+    // denselben Modus setzt.
     let ab: string | null = null
     for (const g of edits.modi ?? []) {
       const gS = isoZuOffset(startIso, g.ab)
       if (!Number.isFinite(gS) || gS > vonS + 1) break
       if (g.mode === treffer.mode) ab = g.ab
     }
-    return { art: 'modus', vonS, bisS, ab, naechsteAb: grenzeBei(edits.modi ?? [], startIso, bisS), mode: treffer.mode }
+    // Fehlt sie, stammt die Kante aus der Aufzeichnung — sie bekommt trotzdem
+    // eine Identität, damit sie sich anfassen lässt (`materialisiereModi`
+    // schreibt die erkannte Aufteilung beim ersten Zug fest). NUR echte
+    // Modus-Wechsel zählen: eine Trim-Kante teilt das Band ebenfalls, ist aber
+    // keine Grenze — würde man an ihr ziehen, entstünde ein Wechsel aus dem
+    // Nichts. Der Tour-Anfang bleibt fest.
+    const wechselBei = (nachbar: AnzeigeAbschnitt | undefined, offsetS: number): string | null =>
+      nachbar && nachbar.mode !== treffer.mode ? offsetZuIso(startIso, offsetS) : null
+    return {
+      art: 'modus',
+      vonS,
+      bisS,
+      ab: ab ?? wechselBei(abschnitte[i - 1], vonS),
+      naechsteAb: grenzeBei(edits.modi ?? [], startIso, bisS) ?? wechselBei(abschnitte[i + 1], bisS),
+      mode: treffer.mode,
+    }
   }
 
   if (fokus.art === 'kamera' || fokus.art === 'wetter') {

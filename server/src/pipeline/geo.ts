@@ -8,6 +8,7 @@
 // Bruchteil f (0..1), nie als absolute Meter.
 
 import type { UploadPunkt, UploadSegment } from '../schema/upload.js'
+import type { RoutenSignatur } from './signatur.js'
 
 const ERDRADIUS_M = 6371000
 const RAD = Math.PI / 180
@@ -76,6 +77,10 @@ export function vereinfacheSegment(pts: readonly UploadPunkt[], toleranzM = 5): 
 export interface TourStats {
   km: number
   gainM: number
+  /** Anzahl platzierter Aufnahmen — für die Kachel in der Bibliothek */
+  fotos?: number
+  /** Routen-Signatur (SVG-Pfad im 0..100-Kasten), s. pipeline/signatur.ts */
+  spur?: RoutenSignatur
 }
 
 // Anstiege zählen erst ab dieser Schwelle (m) — Standard-Hysterese gegen

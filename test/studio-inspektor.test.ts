@@ -14,7 +14,7 @@ import {
   type EditorSegment,
   type TrackPunkt,
 } from '../src/studio/editmodell'
-import { loeseFokusAuf, parseUhrMinuten, uhrDiffZuOffset } from '../src/studio/zeitleiste'
+import { klemmeGrenze, loeseFokusAuf, parseUhrMinuten, uhrDiffZuOffset } from '../src/studio/zeitleiste'
 
 const START = '2026-03-12T07:10:00Z'
 const iso = (s: number): string => offsetZuIso(START, s)
@@ -42,6 +42,29 @@ describe('loeseFokusAuf', () => {
     // Ohne eigene Grenze: aus der Aufzeichnung — weder entfernbar noch verschiebbar
     expect(ziel?.ab).toBeNull()
     expect(ziel?.naechsteAb).toBeNull()
+  })
+
+  it('gibt auch erkannten Modus-Kanten eine Identität', () => {
+    // Mehrere Segmente = die vom Server erkannte Aufteilung. Ihre Kanten stehen
+    // (noch) nicht im Overlay, müssen sich aber anfassen lassen.
+    const erkannt: EditorSegment[] = [
+      { mode: 'moped', pts: track.slice(0, 4) },
+      { mode: 'walk', pts: track.slice(3) },
+    ]
+    const a = zerlegeFuerAnzeige(erkannt, LEERES_OVERLAY, START)
+    const erstes = loeseFokusAuf({ art: 'modus', bezugS: 600 }, LEERES_OVERLAY, a, track, START, [])
+    expect(erstes?.ab).toBeNull() // Tour-Anfang bleibt fest
+    expect(erstes?.naechsteAb).toBe(iso(1800))
+    const zweites = loeseFokusAuf({ art: 'modus', bezugS: 2400 }, LEERES_OVERLAY, a, track, START, [])
+    expect(zweites).toMatchObject({ mode: 'walk', ab: iso(1800), naechsteAb: null })
+  })
+
+  it('hält eine Trim-Kante nicht für eine Modus-Grenze', () => {
+    // Trim teilt das Band ebenfalls — links und rechts derselbe Modus. Zöge man
+    // dort, entstünde ein Modus-Wechsel aus dem Nichts.
+    const e = { ...LEERES_OVERLAY, trim: { start: iso(1200) } }
+    const ziel = loeseFokusAuf({ art: 'modus', bezugS: 2400 }, e, abschnitte(e), track, START, [])
+    expect(ziel?.ab).toBeNull()
   })
 
   it('kennt die Grenze, die ein Band eröffnet UND die, die es schließt', () => {
@@ -144,5 +167,37 @@ describe('Zeit-Eingabe', () => {
   it('gibt bei unlesbarer Eingabe null zurück (Feld springt zurück)', () => {
     expect(uhrDiffZuOffset(3600, '14:03', 'morgen')).toBeNull()
     expect(uhrDiffZuOffset(3600, '', '14:20')).toBeNull()
+  })
+})
+
+describe('klemmeGrenze', () => {
+  const grenzen = [{ ab: iso(0) }, { ab: iso(1200) }, { ab: iso(2400) }]
+
+  it('lässt eine Grenze zwischen ihren Nachbarn frei laufen', () => {
+    expect(klemmeGrenze(grenzen, iso(1200), START, 1500)).toBe(1500)
+  })
+
+  it('lässt sie den Nachfolger nicht überholen', () => {
+    // Der eigentliche Fehler: ein schneller Zug schob die Kante über die
+    // nächste hinaus — der gezogene Abschnitt war danach verschwunden.
+    expect(klemmeGrenze(grenzen, iso(1200), START, 9000)).toBe(2399)
+  })
+
+  it('lässt sie nicht hinter den Vorgänger zurückfallen', () => {
+    expect(klemmeGrenze(grenzen, iso(1200), START, -500)).toBe(1)
+  })
+
+  it('klemmt nur an vorhandenen Seiten', () => {
+    expect(klemmeGrenze(grenzen, iso(2400), START, 9000)).toBe(9000)
+    expect(klemmeGrenze([{ ab: iso(600) }], iso(600), START, -900)).toBe(-900)
+  })
+
+  it('lässt mit Trackzeiten immer einen Punkt im Abschnitt', () => {
+    // Sonst gälte der Zustand für keinen einzigen Punkt: das Band verschwände
+    // aus der Anzeige, obwohl seine Grenze noch im Overlay steht — und wäre
+    // damit nicht mehr anzufassen.
+    const punkte = track.map((p) => p[3]) // 0, 600, …, 3600
+    expect(klemmeGrenze(grenzen, iso(1200), START, 9000, punkte)).toBe(1800)
+    expect(klemmeGrenze(grenzen, iso(1200), START, -500, punkte)).toBe(600)
   })
 })

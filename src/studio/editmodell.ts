@@ -279,6 +279,53 @@ export function ohneModusGrenze(edits: EditOverlay, ab: string): EditOverlay {
   return naechste
 }
 
+/**
+ * Die aktuell SICHTBARE Aufteilung als echte Grenzen ins Overlay schreiben.
+ *
+ * Die Fortbewegungs-Bänder kommen zum großen Teil nicht aus dem Overlay,
+ * sondern aus der Aufzeichnung (Segmente + die Gehabschnitts-Automatik des
+ * Servers). Solche Kanten ließen sich nicht anfassen: `edits.modi` ist eine
+ * Stufenfunktion, die AB ihrem Punkt alles Folgende übersteuert — eine einzelne
+ * neue Grenze mitten in der erkannten Aufteilung würde die späteren Abschnitte
+ * mitreißen. Erst wenn die ganze Aufteilung als Grenzen dasteht, verschiebt ein
+ * Zug genau eine Kante und sonst nichts.
+ *
+ * Bewusst verlustfrei und idempotent: erzeugt wird eine Grenze je Modus-Wechsel
+ * (die erste am Tour-Anfang), also genau die Stufenfunktion, die man ohnehin
+ * schon sieht. Zweimal angewandt kommt dasselbe heraus.
+ */
+export function materialisiereModi(
+  edits: EditOverlay,
+  segmente: readonly EditorSegment[],
+  startIso: string,
+): EditOverlay {
+  const startMs = Date.parse(startIso)
+  const grenzen = (edits.modi ?? [])
+    .map((g) => ({ abS: (Date.parse(g.ab) - startMs) / 1000, mode: g.mode }))
+    .filter((g) => Number.isFinite(g.abS))
+    .sort((a, b) => a.abS - b.abS)
+  const modusZu = (t: number, original: Modus): Modus => {
+    let m = original
+    for (const g of grenzen) {
+      if (g.abS <= t) m = g.mode
+      else break
+    }
+    return m
+  }
+
+  const modi: ModusGrenze[] = []
+  let letzter: Modus | null = null
+  for (const seg of segmente) {
+    for (const p of seg.pts) {
+      const mode = modusZu(p[3], seg.mode)
+      if (mode === letzter) continue
+      modi.push({ ab: offsetZuIso(startIso, p[3]), mode })
+      letzter = mode
+    }
+  }
+  return modi.length ? { ...edits, modi } : edits
+}
+
 export function mitTrim(edits: EditOverlay, teil: 'start' | 'ende', iso: string | null): EditOverlay {
   const trim = { ...(edits.trim ?? {}) }
   if (iso === null) delete trim[teil]

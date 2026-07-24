@@ -12,6 +12,7 @@ import {
   effektiveMedien,
   isoZuOffset,
   LEERES_OVERLAY,
+  materialisiereModi,
   mitAudioEintrag,
   mitAudioPatch,
   mitKameraGrenze,
@@ -55,6 +56,7 @@ import {
   baueZustandsBaender,
   formatiereDauer,
   haltedauerS,
+  klemmeGrenze,
   kumMeter,
   loeseFokusAuf as loeseFokusAufRein,
   meterZuOffset,
@@ -207,6 +209,7 @@ let letzterStand: EditOverlay | null = null
 export async function oeffneEditor(tourId: string, zurueck: () => void): Promise<void> {
   zurueckCb = zurueck
   verdrahteEinmal()
+  gemeldeteAblage = false
   $('editor-view').hidden = false
   status('Editor wird geladen …')
   try {
@@ -1034,11 +1037,30 @@ function ablageMedien(): MediumAnzeige[] {
   return medienAnzeige().filter((m) => m.geloescht || !m.anchor)
 }
 
+/** Einmal je geöffneter Tour meldet sich die Ablage von selbst. */
+let gemeldeteAblage = false
+
 function renderAblage(): void {
   const knopf = $('ablage-knopf')
   const medien = ablageMedien()
   knopf.hidden = medien.length === 0
-  $('ablage-anzahl').textContent = medien.length === 1 ? '1 Aufnahme wartet' : `${medien.length} Aufnahmen warten`
+  // Ohne Ort ≠ entfernt: Ersteres ist ein FUND (die Aufnahme fehlt im Film,
+  // ohne dass jemand das wollte), Letzteres eine Entscheidung. Nur der Fund
+  // meldet sich laut — sonst übersieht man ihn zwischen leeren Bahnen.
+  const ohneOrt = medien.filter((m) => !m.geloescht).length
+  knopf.classList.toggle('warnt', ohneOrt > 0)
+  $('ablage-anzahl').textContent = ohneOrt
+    ? ohneOrt === 1
+      ? '1 Aufnahme ohne Ort'
+      : `${ohneOrt} Aufnahmen ohne Ort`
+    : medien.length === 1
+      ? '1 entfernte Aufnahme'
+      : `${medien.length} entfernte Aufnahmen`
+  if (ohneOrt > 0 && !gemeldeteAblage) {
+    gemeldeteAblage = true
+    knopf.classList.add('meldet')
+    setTimeout(() => knopf.classList.remove('meldet'), 4200)
+  }
   if (offenesMenue?.dataset['ablage'] === '1') oeffneAblage() // offenes Fach mitziehen
 }
 
@@ -1717,10 +1739,7 @@ function loeschInfo(info: FokusZiel): { text: string; gesperrt: boolean; grund?:
     return {
       text: 'Abschnitt entfernen',
       gesperrt: true,
-      grund:
-        info.art === 'modus'
-          ? 'Dieser Abschnitt stammt aus der Aufzeichnung — er lässt sich überschreiben, aber nicht entfernen.'
-          : 'Der erste Zustand deckt die Tour von Anfang an — er lässt sich nur ändern.',
+      grund: 'Der erste Zustand deckt die Tour von Anfang an — er lässt sich nur ändern.',
     }
   }
   return { text: 'Abschnitt entfernen', gesperrt: false }
@@ -1735,7 +1754,13 @@ function loescheFokus(): void {
   if (!z) return
   const info = loeseFokusAuf()
   if (!info || loeschInfo(info).gesperrt) return
-  if (info.art === 'modus' && info.ab) z.edits = ohneModusGrenze(z.edits, info.ab)
+  // Beim Modus zählt die Kante, nicht das Band: fällt sie weg, gilt der Modus
+  // davor weiter. Für erkannte Kanten muss die Aufteilung erst festgeschrieben
+  // sein, sonst gäbe es gar nichts zu entfernen.
+  if (info.art === 'modus' && info.ab) {
+    if (!schreibeModiFest(info.ab)) return
+    z.edits = ohneModusGrenze(z.edits, info.ab)
+  }
   else if (info.art === 'kamera' && info.ab) z.edits = ohneKameraGrenze(z.edits, info.ab)
   else if (info.art === 'wetter' && info.ab) z.edits = ohneWetterGrenze(z.edits, info.ab)
   else if (info.art === 'moment' && info.ab) z.edits = ohneMoment(z.edits, info.ab)
@@ -2044,6 +2069,7 @@ function renderZeitleiste(): void {
     if (farbe) d.style.background = farbe
     d.dataset['fokus'] = art
     d.dataset['bezugs'] = String(anteilZuOffset(skala, (von + bis) / 2))
+    d.title = text
     const t = document.createElement('span')
     t.textContent = text
     d.appendChild(t)
@@ -2069,19 +2095,34 @@ function renderZeitleiste(): void {
   }
 
   // — Fortbewegung: Bänder aus der Anzeige-Zerlegung (Segment-Modi + Grenzen +
-  //   Trim-Graufärbung); ziehbar sind nur die ECHTEN Overlay-Grenzen —
+  //   Trim-Graufärbung) —
   const modusBahn = spur('spur-wege')
-  for (const b of baueBaender(zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start), skala)) {
+  const modusAbschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
+  for (const b of baueBaender(modusAbschnitte, skala)) {
     const d = band('modus', b.von, b.bis, MODUS_NAMEN[b.mode], MODUS_FARBEN[b.mode])
     if (!b.aktiv) d.classList.add('inaktiv')
     if (istFokus('modus', b.von, b.bis)) d.classList.add('fokus')
     modusBahn.appendChild(d)
   }
-  for (const g of z.edits.modi ?? []) {
-    const a = anteilVon(g.ab)
-    if (!Number.isFinite(a)) continue
+  // Jeder MODUS-Wechsel ist ein Griff — auch der von der Automatik erkannte.
+  // Beim ersten Zug schreibt `materialisiereModi` die Aufteilung fest; bis
+  // dahin ist die Kante nur eine Stelle auf der Achse. Trim-Kanten (gleicher
+  // Modus links und rechts) bekommen keinen Griff: dort ist nichts zu wechseln.
+  // Die Zeit kommt aus dem TRACKPUNKT, nicht aus dem Anteil zurückgerechnet —
+  // die ISO-Zeichenkette ist die Identität der Grenze und muss auf die Sekunde
+  // mit der von `materialisiereModi` erzeugten übereinstimmen.
+  for (const [i, a] of modusAbschnitte.entries()) {
+    const vorher = modusAbschnitte[i - 1]
+    if (!vorher || vorher.mode === a.mode) continue
+    const vonS = (a.pts[0] as TrackPunkt)[3]
+    const ab = offsetZuIso(start, vonS)
     modusBahn.appendChild(
-      kante(a, 'grenze', { ab: g.ab, mode: g.mode }, `${MODUS_NAMEN[g.mode]} ab ${zeitText(g.ab)} Uhr — ziehen zum Verschieben`),
+      kante(
+        offsetZuAnteil(skala, vonS),
+        'grenze',
+        { ab, mode: a.mode },
+        `${MODUS_NAMEN[a.mode]} ab ${zeitText(ab)} Uhr — ziehen zum Verschieben`,
+      ),
     )
   }
 
@@ -2266,12 +2307,28 @@ function renderZeitleiste(): void {
 
   renderTrimGriffe(skala)
   renderPlayhead()
+  kuerzeBeschriftungen()
 
   // — Geschätzte Laufzeit der fertigen Animation (eine Zahl, keine zweite Achse) —
   // Dieselben Halte, an denen auch das Abspielen ruht (halteDerTour).
   const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
   const halte = halteDerTour(skala).flatMap((h) => h.fotos.map((f) => f.dauerS))
   $('zl-dauer').textContent = `~ ${formatiereDauer(schaetzeAnimationsdauer(abschnitte, halte))} Laufzeit`
+}
+
+/**
+ * Beschriftungen, die nicht in ihr Band passen, ganz weglassen. Ein
+ * abgeschnittenes „Zu …" sagt weniger als nichts — die Farbe des Bandes trägt
+ * die Aussage ohnehin, und der volle Name steht im Tooltip. Erst NACH dem
+ * Aufbau messbar; ein Layout-Durchgang für die ganze Leiste ist dafür wenig.
+ */
+function kuerzeBeschriftungen(): void {
+  for (const b of document.querySelectorAll<HTMLElement>('#zeitleiste-zone .band')) {
+    const text = b.querySelector('span')
+    if (!text) continue
+    b.classList.remove('ohne-text')
+    if (text.scrollWidth > text.clientWidth + 1) b.classList.add('ohne-text')
+  }
 }
 
 // — Zoom, Abspielkopf und Läufer —
@@ -2480,11 +2537,44 @@ function renderNachZug(): void {
  *
  * Gibt den neuen ISO-Anker zurück oder null, wenn nichts geschah.
  */
+/**
+ * Sorgt dafür, dass `ab` als echte Grenze im Overlay steht. Die Kanten der
+ * Fortbewegungs-Spur kommen zum Teil aus der Aufzeichnung; wer eine davon
+ * anfasst, schreibt damit die ganze erkannte Aufteilung fest — sonst risse die
+ * neue Grenze alle folgenden Abschnitte mit sich (siehe `materialisiereModi`).
+ * Das geschieht erst beim tatsächlichen Verschieben, nicht schon beim Anfassen.
+ */
+function schreibeModiFest(ab: string): boolean {
+  if (!z) return false
+  if (z.edits.modi?.some((g) => g.ab === ab)) return true
+  const fest = materialisiereModi(z.edits, z.daten.segmente as EditorSegment[], z.daten.time.start)
+  if (!fest.modi?.some((g) => g.ab === ab)) return false
+  z.edits = fest
+  return true
+}
+
 function verschiebeGrenze(art: 'modus' | 'kamera' | 'wetter' | 'moment', altAb: string, neuOffsetS: number): string | null {
   if (!z) return null
   const skala = baueSkala(z.track)
   if (!skala) return null
-  const geklemmt = Math.max(skala.vonS, Math.min(skala.bisS, neuOffsetS))
+  // Modus-Kanten können aus der Aufzeichnung stammen — erst festschreiben,
+  // dann stehen auch die Nachbarn fest, zwischen die geklemmt wird.
+  if (art === 'modus' && !schreibeModiFest(altAb)) return null
+  const nachbarn =
+    art === 'modus'
+      ? (z.edits.modi ?? [])
+      : art === 'kamera'
+        ? (z.edits.kamera ?? [])
+        : art === 'wetter'
+          ? (z.edits.wetter ?? [])
+          : [] // Momente sind Punktereignisse — ihre Reihenfolge trägt nichts
+  const geklemmt = klemmeGrenze(
+    nachbarn,
+    altAb,
+    z.daten.time.start,
+    Math.max(skala.vonS, Math.min(skala.bisS, neuOffsetS)),
+    art === 'moment' ? undefined : z.track.map((p) => p[3]),
+  )
   const neuAb = offsetZuIso(z.daten.time.start, geklemmt)
   if (neuAb === altAb) return altAb
   if (art === 'modus') {

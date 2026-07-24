@@ -10,6 +10,7 @@ import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
+import { baueSignatur } from './signatur.js'
 import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
 import type { VideoMeta } from './video.js'
@@ -427,6 +428,16 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     ...(camera ? { camera } : {}),
     ...(moments ? { moments } : {}),
     ...(audio ? { audio } : {}),
-    stats,
+    // Die Bibliothek zeigt jede Tour als Kachel: Anzahl der Aufnahmen und die
+    // Form der Route stehen deshalb mit in der Statistik. Beides fällt hier
+    // ohnehin an — die Liste soll dafür keine Tour-Dateien öffnen müssen.
+    stats: {
+      ...stats,
+      fotos: media.filter((m) => m.anchor).length,
+      ...(() => {
+        const spur = baueSignatur(segments.flatMap((s) => s.pts.map((p) => [p[0], p[1]] as const)))
+        return spur ? { spur } : {}
+      })(),
+    },
   }
 }

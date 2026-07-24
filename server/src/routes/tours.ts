@@ -495,7 +495,11 @@ async function ladeOriginalSegmente(
   tourId: string,
   manifest: UploadManifest,
 ): Promise<UploadSegment[]> {
-  if (!manifest.trackFile) return trenneGehabschnitteInSegmenten(manifest.segments ?? [])
+  // Eingebettete Segmente OHNE GPX heißen: die Punkte sind keine Aufzeichnung,
+  // sondern gesetzte Wegpunkte (statische Tour oder eine Tour aus Foto-Orten).
+  // Zwischen zwei Fotos liegt eine Luftlinie — was die Tempo-Automatik daraus
+  // rechnet, ist Zufall. Hier gilt der angegebene Modus, ungeteilt.
+  if (!manifest.trackFile) return [...(manifest.segments ?? [])]
   const gpxText = (await app.deps.storage.lese(tourId, TRACK_PFAD)).toString()
   const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
     startMs: Date.parse(manifest.time.start),
