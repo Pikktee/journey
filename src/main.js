@@ -172,6 +172,36 @@ if (appModus) {
   kicker.removeAttribute('title')
 }
 
+// — Der Weg zurück führt DORTHIN, WO MAN HERKAM —
+// Wer aus dem Studio, der Galerie oder einem Profil kommt, will dorthin zurück
+// und nicht auf die Landing. Die Herkunft steht im Referrer; `history.back()`
+// statt einer Navigation, damit Scrollposition und Zustand der Liste erhalten
+// bleiben. Ohne Referrer (direkt geöffneter Link) bleibt es bei der Startseite.
+const HERKUNFT = { '/studio.html': 'Studio', '/galerie.html': 'Galerie', '/profil.html': 'Profil' }
+if (!appModus) {
+  let her = null
+  try {
+    const r = new URL(document.referrer)
+    // Nur echte Zwischenseiten übernehmen; die Landing „/" ist selbst die
+    // Startseite und bleibt beim Default-Knopf.
+    if (r.origin === location.origin && r.pathname !== location.pathname && r.pathname !== '/') her = r
+  } catch {}
+  if (her) {
+    const wort = HERKUNFT[her.pathname] ?? 'Zurück'
+    const zurueck = document.querySelector('.intro-back')
+    if (zurueck) {
+      zurueck.href = her.href
+      zurueck.setAttribute('aria-label', `Zurück zu: ${wort}`)
+      zurueck.querySelector('.ib-word').textContent = wort
+      zurueck.addEventListener('click', (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || history.length < 2) return
+        e.preventDefault()
+        history.back()
+      })
+    }
+  }
+}
+
 const map = createMap('map', [start[0], start[1]])
 window.__j = { map, route, tourAudio }
 
