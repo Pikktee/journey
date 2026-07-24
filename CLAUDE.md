@@ -222,6 +222,18 @@ Wie lang die fertige Animation läuft, ist eine andere Größe (die Engine fähr
 Tempo und hält an jedem Foto); sie steht als **eine geschätzte Zahl** links unter den Bahnen
 (`schaetzeAnimationsdauer`). Bewusst keine zweite Zeitachse.
 
+**Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](src/studio/abspielen.ts)
+(lazy beim ersten Play) lässt den Abspielkopf über die Achse laufen, spielt Musik und Klänge
+und blendet an jedem Halt die Foto-Karte auf — die 3D-Kamerafahrt bleibt dem echten Player
+vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das Tempo ist
+`1/schaetzeAnimationsdauer`, sodass der Halt an einem Foto hier so viel Zeit „kostet" wie
+später. Musik läuft über EIN `Audio`-Element mit **Eintritts-Seek** (wer mitten im Bereich
+startet, hört, was dort im Film liefe — `createAudioTracks` kann das nicht, deshalb eigener
+Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.js](src/audiotracks.js), damit im
+Studio nichts klingt, was der Film nicht spielt (Drift-Wächter + handgeschriebene
+`audiotracks.d.ts`, weil `allowJs` aus ist). Jede manuelle Geste ruft `halteAbspielen()` —
+der Spielplan ist ein Schnappschuss und liefe sonst gegen veraltete Halte.
+
 **Eine Auswahl über drei Ansichten.** `z.fokus` (ausgewähltes Objekt) ist getrennt von
 `z.auswahl` (Einfügemarke für „ab hier"-Aktionen) — wie Selektion und Abspielkopf in einem
 Schnittprogramm. Der Fokus speichert nur die **Identität**; die Spanne löst `loeseFokusAuf()`

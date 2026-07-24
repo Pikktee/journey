@@ -67,6 +67,8 @@ import {
 } from './zeitleiste.js'
 import { SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
 import { baueStopps, reiheVergeben, snapZiel, stoppVon, type Stopp } from './stopps.js'
+// Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
+import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
 
 /** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, sonst Dateiname. */
 function audioName(a: AudioEintrag): string {
@@ -268,6 +270,9 @@ async function ladeDaten(tourId: string): Promise<void> {
 function schliesse(): void {
   $('editor-view').hidden = true
   stoppeVorschau()
+  abspieler?.schliesse()
+  abspieler = null
+  verbergeFoto()
   karte?.remove()
   karte = null
   z = null
@@ -435,6 +440,9 @@ function klickAufKarte(e: maplibregl.MapMouseEvent): void {
 
 function renderAlles(): void {
   if (!karte || !z) return
+  // Jede Bearbeitung und jede Auswahl beendet die Wiedergabe: der Plan des
+  // Abspielers ist ein Schnappschuss, er liefe sonst gegen veraltete Halte.
+  halteAbspielen()
   // Undo-Punkt setzen, wenn sich das Overlay seit dem letzten Voll-Render
   // geändert hat (s. letzterStand). Undo/Redo selbst ziehen den Stand vorher
   // nach und lösen hier deshalb keinen neuen Eintrag aus.
@@ -515,6 +523,9 @@ function zeichneMarker(): void {
     const anzahl = stopp.items.length
     const el = document.createElement('div')
     el.className = 'medien-punkt'
+    // Wortliste aller Aufnahmen des Halts — beim Abspielen pulst der Punkt,
+    // zu dem die gerade eingeblendete Aufnahme gehört.
+    el.dataset['ids'] = stopp.items.map((m) => m.id).join(' ')
     const fokusId = z.fokus?.art === 'medium' ? z.fokus.id : null
     if (fokusId && stopp.items.some((m) => m.id === fokusId)) el.classList.add('an')
     const halo = document.createElement('span')
@@ -2257,8 +2268,9 @@ function renderZeitleiste(): void {
   renderPlayhead()
 
   // — Geschätzte Laufzeit der fertigen Animation (eine Zahl, keine zweite Achse) —
+  // Dieselben Halte, an denen auch das Abspielen ruht (halteDerTour).
   const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
-  const halte = medien.filter((m) => m.type === 'photo' && !m.geloescht && m.anchor).map((m) => haltedauerS(m.display))
+  const halte = halteDerTour(skala).flatMap((h) => h.fotos.map((f) => f.dauerS))
   $('zl-dauer').textContent = `~ ${formatiereDauer(schaetzeAnimationsdauer(abschnitte, halte))} Laufzeit`
 }
 
@@ -2658,6 +2670,7 @@ function verdrahteZeitleiste(): void {
     if (!z || e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
+    halteAbspielen()
     document.body.classList.add('scrubbt')
     const skala = baueSkala(z.track)
     const zieh = (ev: PointerEvent): void => {
@@ -2680,6 +2693,7 @@ function verdrahteZeitleiste(): void {
     e.preventDefault()
     const skala = baueSkala(z.track)
     if (!skala) return
+    halteAbspielen()
     setzeMarke(anteilZuOffset(skala, spurAnteil(e.clientX)))
     document.body.classList.add('scrubbt')
     const zieh = (ev: PointerEvent): void => setzeMarke(anteilZuOffset(skala, spurAnteil(ev.clientX)))
@@ -2826,6 +2840,205 @@ function status(text: string, klasse = ''): void {
   el.textContent = text
 }
 
+// — Abspielen —
+//
+// Der Abspielkopf läuft, Musik und Klänge erklingen, an jedem Halt blendet die
+// Aufnahme auf. Bewusst KEIN zweiter 3D-Player (dafür ist der Knopf „Vorschau"
+// da): Hier prüft man den SCHNITT — kommt die Musik zum Strandabschnitt, reißt
+// der Halt am Gipfel die Fahrt auseinander. Die Schrittlogik liegt in
+// abspielen.ts, das erst beim ersten Play geladen wird.
+
+let abspieler: Abspieler | null = null
+/** Timer, der die Foto-Einblendung wieder ausblendet. */
+let einblendUhr: number | null = null
+
+/**
+ * Halte der Tour: je Stopp seine Aufnahmen mit Standzeit.
+ *
+ * EINE Quelle für zwei Verbraucher — die geschätzte Laufzeit unter den Bahnen
+ * und die Wiedergabe. Rechneten beide getrennt, zeigte die Leiste „~ 4 Min" und
+ * das Abspielen bräuchte fünf.
+ */
+function halteDerTour(skala: ZeitSkala): Halt[] {
+  if (!z) return []
+  return baueStopps(medienAnzeige(), z.track, kumStrecke).map((s) => ({
+    anteil: offsetZuAnteil(skala, s.offsetS),
+    fotos: s.items.map((m) => ({ id: m.id, dauerS: haltedauerS(m.display) })),
+  }))
+}
+
+/** Schnappschuss für eine Wiedergabe — bei jedem Start neu eingesammelt. */
+function holeSpielplan(): Spielplan | null {
+  if (!z?.auswahl) return null
+  const skala = baueSkala(z.track)
+  if (!skala) return null
+  const start = z.daten.time.start
+  const halte = halteDerTour(skala)
+  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
+  const dauerS = schaetzeAnimationsdauer(abschnitte, halte.flatMap((h) => h.fotos.map((f) => f.dauerS)))
+
+  const eintraege = z.edits.audio ?? []
+  const musik: MusikKlip[] = []
+  const klaenge: KlangMarke[] = []
+  for (const b of baueAudioBalken(eintraege, start, skala)) {
+    const a = eintraege[b.index]
+    // Was beim Rendern herausfällt (ganz außerhalb des Trims), soll auch hier
+    // nicht klingen — sonst hörte man etwas, das im Film nicht vorkommt.
+    if (!a || audioWirdVerworfen(a, z.edits, start, skala)) continue
+    const url = audioUrl(a, z.tourId)
+    const lautstaerke = a.lautstaerke ?? 0.8
+    if (b.typ === 'musik') musik.push({ von: b.von, bis: b.bis, url, lautstaerke })
+    else klaenge.push({ index: b.index, anteil: b.von, url, lautstaerke })
+  }
+
+  return {
+    marke: offsetZuAnteil(skala, z.auswahl[3]),
+    rate: 1 / Math.max(1, dauerS),
+    halte,
+    musik,
+    klaenge,
+  }
+}
+
+/** Marke aus dem Abspieler setzen (Anteil statt Offset) — die Sicht folgt. */
+function setzeMarkeAnteil(anteil: number): void {
+  if (!z) return
+  const skala = baueSkala(z.track)
+  if (!skala) return
+  setzeMarke(anteilZuOffset(skala, anteil))
+  folgeKopf(anteil)
+}
+
+/** Läuft der Kopf aus dem Fenster, scrollt die Sicht mit (wie in Final Cut). */
+function folgeKopf(anteil: number): void {
+  const fenster = document.getElementById('spuren-fenster')
+  if (!fenster) return
+  const rand = 48
+  const x = spurXpx() + anteil * zeitBreitePx() - fenster.scrollLeft
+  if (x > fenster.clientWidth - rand) fenster.scrollLeft += x - (fenster.clientWidth - rand)
+  else if (x < spurXpx() + rand) fenster.scrollLeft -= spurXpx() + rand - x
+}
+
+/**
+ * Element, dessen `data-ids`-Wortliste diese Medien-ID enthält. Bewusst nicht
+ * per `[data-ids~="…"]`-Selektor: die IDs kommen aus einem hochgeladenen
+ * Manifest, und ein Anführungszeichen darin würde den Selektor zerlegen.
+ */
+function mitMedienId(auswahl: string, id: string): Element | null {
+  for (const el of document.querySelectorAll<HTMLElement>(auswahl)) {
+    if (el.dataset['ids']?.split(' ').includes(id)) return el
+  }
+  return null
+}
+
+/** Eine Klasse neu auslösen, auch wenn sie schon dran war. */
+function blinke(el: Element | null, klasse: string, ms: number): void {
+  if (!el) return
+  el.classList.remove(klasse)
+  void el.getBoundingClientRect() // Reflow erzwingen, sonst startet die Animation nicht neu
+  el.classList.add(klasse)
+  window.setTimeout(() => el.classList.remove(klasse), ms)
+}
+
+/**
+ * Die Aufnahme, die der Player an diesem Halt zeigt — als dieselbe Foto-Karte
+ * auf Papier. Sie steht genau so lange, wie im Inspector als Standzeit gewählt.
+ */
+function zeigeFoto(id: string, dauerS: number): void {
+  if (!z) return
+  const m = medienAnzeige().find((x) => x.id === id)
+  if (!m) return
+  blinke(mitMedienId('.f-mini', id), 'puls', 700)
+  blinke(mitMedienId('.medien-punkt', id), 'puls', 1400)
+
+  const karteEl = $('foto-einblendung')
+  const rahmen = document.createElement('div')
+  rahmen.className = 'fe-frame'
+  if (m.type === 'video') {
+    const video = document.createElement('video')
+    video.src = m.src
+    video.muted = true
+    video.loop = true
+    video.autoplay = true
+    video.playsInline = true
+    rahmen.appendChild(video)
+  } else {
+    const bild = document.createElement('img')
+    bild.src = m.src
+    bild.alt = ''
+    rahmen.appendChild(bild)
+  }
+
+  const fuss = document.createElement('div')
+  fuss.className = 'fe-cap'
+  const titel = document.createElement('div')
+  titel.className = 'fe-titel'
+  // Ohne eigenen Text steht dort, was auch der Player ohne Beschriftung zeigt:
+  // die Maschinenangabe. Mit Text wird DER zur Überschrift (s. enrich.ts).
+  titel.textContent = m.caption || (m.type === 'video' ? 'Video' : 'Foto')
+  const chip = document.createElement('div')
+  chip.className = 'fe-chip'
+  chip.textContent = m.type === 'video' ? 'VIDEO' : 'FOTO'
+  const unten = document.createElement('div')
+  unten.className = 'fe-sub'
+  const meter = m.anchor
+    ? meterZuOffset(kumStrecke, z.track, projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3])
+    : null
+  unten.textContent = `${uhrzeitKurz(m.takenAt)} Uhr${meter !== null ? ` · km ${kmText(meter)}` : ''}`
+  fuss.append(titel, chip, unten)
+
+  karteEl.replaceChildren(rahmen, fuss)
+  karteEl.classList.toggle('ruhig', m.display?.kenBurns === false)
+  karteEl.classList.add('an')
+  document.querySelector('.karten-buehne')?.classList.add('foto-an')
+  blinke($('foto-flash'), 'blitz', 750)
+
+  if (einblendUhr) window.clearTimeout(einblendUhr)
+  einblendUhr = window.setTimeout(() => verbergeFoto(), dauerS * 1000)
+}
+
+function verbergeFoto(): void {
+  if (einblendUhr) window.clearTimeout(einblendUhr)
+  einblendUhr = null
+  const karteEl = document.getElementById('foto-einblendung')
+  karteEl?.classList.remove('an')
+  document.querySelector('.karten-buehne')?.classList.remove('foto-an')
+  // Ein laufendes Video würde sonst unsichtbar weiterspielen
+  karteEl?.querySelector('video')?.pause()
+}
+
+function zeigeTempo(tempo: number): void {
+  const knopf = document.getElementById('tp-play')
+  if (!knopf) return
+  knopf.querySelector('use')?.setAttribute('href', tempo !== 0 ? '#i-pause' : '#i-play')
+  knopf.classList.toggle('spielt', tempo !== 0)
+  knopf.setAttribute('aria-label', tempo !== 0 ? 'Pause' : 'Abspielen')
+  const chip = document.getElementById('tempo-chip')
+  // Beim Schnelllauf Faktor und Richtung zeigen; bei Stopp und 1× nichts.
+  if (chip) chip.textContent = tempo === 0 || tempo === 1 ? '' : tempo < 0 ? `${-tempo}×◀` : `${tempo}×▶`
+  if (tempo === 0) verbergeFoto()
+}
+
+async function spielUmschalten(): Promise<void> {
+  if (!z) return
+  if (!abspieler) {
+    const modul = await import('./abspielen.js')
+    abspieler = modul.erzeugeAbspieler({
+      hole: holeSpielplan,
+      setzeMarke: setzeMarkeAnteil,
+      zeigeFoto,
+      zeigeTempo,
+      pulsKlang: (index) => blinke(document.querySelector(`.zl-sfx[data-index="${index}"]`), 'pling', 500),
+    })
+  }
+  abspieler.umschalten()
+}
+
+/** Jede manuelle Geste hält an — man scrubbt nicht gegen einen laufenden Kopf. */
+function halteAbspielen(): void {
+  abspieler?.halteAn()
+}
+
 // — Speichern / Neu verarbeiten —
 
 async function warteAufBereit(id: string): Promise<void> {
@@ -2908,11 +3121,20 @@ function verdrahteEinmal(): void {
   $('editor-redo').addEventListener('click', wiederherstellen)
   $('karte-plus').addEventListener('click', () => karte?.zoomIn())
   $('karte-minus').addEventListener('click', () => karte?.zoomOut())
+  $('tp-play').addEventListener('click', () => void spielUmschalten())
+  // Anfassen der Karte beendet die Wiedergabe (die Bahnen erledigt renderAlles
+  // bzw. der Kopf-Zug selbst).
+  $('editor-map').addEventListener('pointerdown', halteAbspielen)
   // Eine neue Zeigergeste hebt die Klick-Sperre auf (Capture-Phase, vor allen
   // anderen Handlern) — s. Kommentar bei `unterdrueckeKlick`.
   document.addEventListener('pointerdown', () => { unterdrueckeKlick = false }, true)
   window.addEventListener('resize', () => {
     if (!$('editor-view').hidden) passeZeitBreiteAn()
+  })
+  // Im Hintergrund drosselt der Browser rAF auf ~1 fps — der Kopf stünde, der
+  // Ton liefe weiter. Also anhalten, wenn der Tab verschwindet.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) halteAbspielen()
   })
   document.addEventListener('keydown', (e) => {
     if (!z || $('editor-view').hidden) return
@@ -2944,9 +3166,21 @@ function verdrahteEinmal(): void {
       if (k === 'a' || k === 'h' || k === 'z') {
         e.preventDefault()
         setzeWerkzeug(k === 'a' ? 'auswahl' : k === 'h' ? 'hand' : 'zoom')
+      } else if (e.code === 'Space') {
+        e.preventDefault()
+        void spielUmschalten()
+      } else if (k === 'l' || k === 'j' || k === 'k') {
+        // Shuttle wie in Final Cut: L vorwärts, J zurück (mehrfach = schneller),
+        // K hält an. Der Abspieler existiert erst nach dem ersten Play.
+        e.preventDefault()
+        const t = abspieler?.tempo() ?? 0
+        if (k === 'k') halteAbspielen()
+        else if (!abspieler) void spielUmschalten()
+        else abspieler.setzeTempo(k === 'l' ? (t < 1 ? 1 : Math.min(t * 2, 4)) : t > -1 ? -1 : Math.max(t * 2, -4))
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         // Feines Scrubben mit den Pfeiltasten: eine Minute je Tastendruck
         e.preventDefault()
+        halteAbspielen()
         if (z.auswahl) setzeMarke(z.auswahl[3] + (e.key === 'ArrowRight' ? 60 : -60))
       }
     }
@@ -2982,9 +3216,19 @@ function verdrahteEinmal(): void {
   zustand: () => z,
   /** Abspielkopf: Zeit-Offset (s) — setzen scrubbt wie ein Zug am Kopf. */
   marke: (tOffsetS?: number) => {
-    if (tOffsetS !== undefined) setzeMarke(tOffsetS)
+    if (tOffsetS !== undefined) {
+      halteAbspielen()
+      setzeMarke(tOffsetS)
+    }
     return z?.auswahl?.[3] ?? null
   },
+  /** Wiedergabe: Tempo (0 = angehalten); mit Argument umschalten/setzen. */
+  spielt: (tempo?: number) => {
+    if (tempo === 1) void spielUmschalten()
+    else if (tempo !== undefined) abspieler?.setzeTempo(tempo)
+    return abspieler?.tempo() ?? 0
+  },
+  ton: () => abspieler?.tonStand() ?? null,
   laeufer: () => laeufer?.getLngLat() ?? null,
   zoom: (neu?: number) => {
     if (neu !== undefined) wendeZoomAn(neu, 0, spurXpx())
