@@ -11,16 +11,16 @@
     })()
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Luhambo — deine Reisen als filmischer 3D-Flug</title>
+  <title>Luhambo · deine Reisen als filmischer 3D-Flug</title>
   <meta
     name="description"
-    content="Luhambo verwandelt deine aufgezeichneten Touren in kinematische 3D-Flüge über echtes Gelände — mit dem Wetter des Tages und deinen Fotos am Wegesrand."
+    content="Luhambo verwandelt deine aufgezeichneten Touren in kinematische 3D-Flüge über echtes Gelände, mit dem Wetter jenes Tages und deinen Fotos am Wegesrand."
   />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Luhambo — deine Reisen als filmischer 3D-Flug" />
+  <meta property="og:title" content="Luhambo · deine Reisen als filmischer 3D-Flug" />
   <meta
     property="og:description"
-    content="Zeichne deine Tour mit dem Handy auf — Luhambo macht daraus einen filmischen Flug über echtes Gelände, mit echtem Wetter und deinen Fotos."
+    content="Zeichne deine Tour mit dem Handy auf. Luhambo macht daraus einen filmischen Flug über echtes Gelände, mit echtem Wetter und deinen Fotos."
   />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⛰️</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -77,13 +77,28 @@
     }
 
     .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
+    /* Dachzeilen sind Wegmarken. Der Text steht in warmem Sand (Kartenpapier),
+       das Amber bleibt dem Zeichen davor vorbehalten. */
     .eyebrow {
-      display: inline-flex; align-items: center; gap: 11px;
-      font-family: var(--mono); font-size: 12.5px; font-weight: 500;
-      letter-spacing: 0.32em; text-indent: 0.32em; text-transform: uppercase; color: var(--amber);
+      display: inline-flex; align-items: center; gap: 13px;
+      font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+      letter-spacing: 0.24em; text-transform: uppercase;
+      color: rgba(248, 224, 190, 0.86);
+      text-shadow: 0 1px 14px rgba(0, 0, 0, 0.45);
     }
-    .eyebrow::before { content: ''; width: 24px; height: 1px; background: linear-gradient(90deg, var(--amber), transparent); text-indent: 0; }
+    /* Das Zeichen ist EIN Element: die gestrichelte Pfad-Signatur der
+       topografischen Karte (Fußweg). Sie läuft aus dem Nichts heran und
+       erreicht am Text ihre volle Kraft — kein Punkt, keine zweite Marke. */
+    .eyebrow::before,
+    .eyebrow.center::after {
+      content: ''; flex: none; width: 46px; height: 2px;
+      background: repeating-linear-gradient(to right, var(--amber) 0 5px, transparent 5px 10.5px);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 78%);
+      mask-image: linear-gradient(to right, transparent 0, #000 78%);
+    }
     .eyebrow.center { justify-content: center; }
+    /* Zentriert läuft der Pfad von beiden Seiten heran, die Zeile bleibt ruhig */
+    .eyebrow.center::after { transform: scaleX(-1); }
 
     /* ─── Kopfleiste ─────────────────────────────────────────────── */
     .nav {
@@ -136,7 +151,7 @@
     .cine.top { top: 0; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent); }
     .cine.bottom { bottom: 0; background: linear-gradient(to top, rgba(0, 0, 0, 0.4), transparent); }
 
-    .hero-inner { padding: 0 0 clamp(56px, 11vh, 118px); max-width: 46rem; }
+    .hero-inner { padding: 0 0 clamp(132px, 21vh, 235px); max-width: 46rem; }
     .hero h1 {
       font-family: var(--display); font-optical-sizing: auto; font-weight: 500;
       font-size: clamp(40px, 6.6vw, 82px); line-height: 1.0; letter-spacing: -0.018em;
@@ -183,12 +198,35 @@
     .tour-card:hover .card-go .arr { transform: translateX(4px); }
 
     /* ─── So funktioniert's ──────────────────────────────────────── */
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 46px; counter-reset: step; }
-    .step { position: relative; padding: 28px 26px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); overflow: hidden; }
-    .step::before { counter-increment: step; content: '0' counter(step); position: absolute; top: 14px; right: 20px; font-family: var(--display); font-size: 46px; font-weight: 500; color: rgba(255, 255, 255, 0.05); }
-    .step-ico { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 12px; border: 1px solid rgba(245, 165, 36, 0.28); background: rgba(245, 165, 36, 0.08); margin-bottom: 16px; }
-    .step-ico svg { width: 24px; height: 24px; fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-    .step h3 { font-family: var(--display); font-weight: 500; font-size: 22px; margin: 0 0 8px; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; margin-top: 52px; counter-reset: step; }
+    .step {
+      position: relative; padding: 32px 28px 30px; border-radius: 18px;
+      border: 1px solid var(--line); overflow: hidden;
+      background: linear-gradient(158deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014));
+      transition: transform 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
+    }
+    /* Feiner Lichtsaum oben, der beim Hover in Amber aufglüht */
+    .step::after {
+      content: ''; position: absolute; top: 0; left: 24px; right: 24px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+      transition: background 0.32s ease;
+    }
+    .step:hover { transform: translateY(-5px); border-color: rgba(245, 165, 36, 0.32); box-shadow: 0 26px 48px -30px rgba(0, 0, 0, 0.92); }
+    .step:hover::after { background: linear-gradient(90deg, transparent, rgba(245, 165, 36, 0.55), transparent); }
+    .step::before {
+      counter-increment: step; content: '0' counter(step);
+      position: absolute; top: 16px; right: 22px;
+      font-family: var(--display); font-size: 50px; font-weight: 500; line-height: 1;
+      color: rgba(245, 165, 36, 0.14);
+    }
+    .step-ico {
+      width: 50px; height: 50px; display: grid; place-items: center; border-radius: 14px;
+      border: 1px solid rgba(245, 165, 36, 0.3); background: rgba(245, 165, 36, 0.09);
+      margin-bottom: 18px; transition: background 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
+    }
+    .step:hover .step-ico { background: rgba(245, 165, 36, 0.16); border-color: rgba(245, 165, 36, 0.55); box-shadow: 0 0 26px -6px rgba(245, 165, 36, 0.6); }
+    .step-ico svg { width: 25px; height: 25px; fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .step h3 { font-family: var(--display); font-weight: 500; font-size: 23px; margin: 0 0 9px; }
     .step p { color: var(--muted); font-size: 15px; margin: 0; }
 
     /* ─── Schluss-CTA (photographisch) ───────────────────────────── */
@@ -213,11 +251,10 @@
     .foot-links a { text-decoration: none; color: var(--muted); font-size: 14px; }
     .foot-links a:hover { color: var(--ink); }
     .attribution { color: var(--faint); font-size: 12px; font-family: var(--mono); letter-spacing: 0.02em; margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
-    .attribution .copy { display: block; margin-top: 6px; }
 
-    /* ─── Android-App ────────────────────────────────────────────── */
+    /* ─── Android-App + App-Einblick (ein Abschnitt) ─────────────── */
     .app-band .inner {
-      position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center;
+      position: relative; display: grid; grid-template-columns: 1fr 0.82fr; gap: clamp(30px, 5vw, 58px); align-items: center;
       border-radius: 24px; border: 1px solid var(--line); overflow: hidden; padding: clamp(30px, 5vw, 56px);
       background: radial-gradient(85% 130% at 88% 6%, rgba(61, 220, 132, 0.13), transparent 56%), rgba(255, 255, 255, 0.025);
     }
@@ -227,15 +264,80 @@
     .btn-android { color: var(--ink); background: rgba(61, 220, 132, 0.08); border: 1px solid rgba(61, 220, 132, 0.42); }
     .btn-android:hover { background: rgba(61, 220, 132, 0.15); border-color: rgba(61, 220, 132, 0.72); transform: translateY(-1px); }
     .btn-android svg { width: 20px; height: 20px; }
-    .app-meta { font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: 0.02em; }
-    .app-visual { display: grid; place-items: center; }
-    .andi { width: min(210px, 62%); height: auto; filter: drop-shadow(0 22px 50px rgba(61, 220, 132, 0.3)); }
+    .app-meta { display: block; font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: 0.02em; margin-top: 16px; }
+
+    /* Prominentes Android-Logo + „Bald im Play Store“ in der linken Spalte */
+    .app-brandrow { display: flex; align-items: center; gap: 15px; }
+    .andi-mark { width: 54px; height: 54px; flex: none; filter: drop-shadow(0 12px 26px rgba(61, 220, 132, 0.4)); }
+    .playstore-soon {
+      display: inline-flex; align-items: center; gap: 11px;
+      padding: 8px 15px 8px 13px; border-radius: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.045);
+    }
+    .playstore-soon .ps-icon { width: 21px; height: 21px; flex: none; }
+    .playstore-soon .ps-text { display: flex; flex-direction: column; line-height: 1.12; text-align: left; }
+    .playstore-soon .ps-text small { font-family: var(--mono); font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); }
+    .playstore-soon .ps-text strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: rgba(242, 237, 227, 0.92); }
+
+    /* Showcase rechts: genau EIN Telefon, die Aufnahmen blenden ineinander. */
+    .app-showcase { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+    .phone-stage { position: relative; width: min(240px, 78%); }
+    .phone-slide { position: absolute; inset: 0; margin: 0; opacity: 0; transition: opacity 0.55s ease; pointer-events: none; }
+    .phone-slide.active { position: relative; opacity: 1; pointer-events: auto; }
+    @media (prefers-reduced-motion: reduce) { .phone-slide { transition: none; } }
+    .shot-caption {
+      min-height: 2.6em; margin: 0; text-align: center; text-wrap: balance; padding: 0 6px;
+      font-family: var(--display); font-weight: 500; font-size: 18px; line-height: 1.3;
+      color: rgba(242, 237, 227, 0.9);
+    }
+
+    /* Telefon-Attrappe: schmaler dunkler Rahmen, weiche Tiefe. */
+    .phone {
+      position: relative; border-radius: 40px; padding: 9px;
+      background: linear-gradient(155deg, #23262c, #0c0e13 46%, #16181d);
+      box-shadow: 0 30px 60px -26px rgba(0, 0, 0, 0.92), 0 3px 10px rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .phone-screen {
+      position: relative; overflow: hidden; border-radius: 32px;
+      /* etwas kürzer als 1080×2424 — schneidet die native Statusleiste sauber weg */
+      aspect-ratio: 1080 / 2298; background: #06090e;
+    }
+    .phone-screen img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; object-position: bottom center; display: block;
+    }
+    /* Kamera-Punkt (Pixel-Anmutung) statt echter Statusleiste */
+    .phone-screen::before {
+      content: ''; position: absolute; top: 13px; left: 50%; transform: translateX(-50%);
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #05070b; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); z-index: 2;
+    }
+
+    /* Blätter-Steuerung mit Positionsanzeige n / total */
+    .shot-controls { display: flex; align-items: center; justify-content: center; gap: 16px; }
+    .shot-counter { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: rgba(242, 237, 227, 0.66); min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
+    .shot-dots { display: flex; gap: 9px; justify-content: center; }
+    .shot-dot {
+      width: 7px; height: 7px; padding: 0; border: none; border-radius: 999px; cursor: pointer;
+      background: rgba(242, 237, 227, 0.24); transition: background 0.25s, width 0.25s;
+    }
+    .shot-dot.active { width: 22px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
+    .shot-arrows { display: flex; gap: 10px; }
+    .shot-nav {
+      width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
+      border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.04); color: var(--ink);
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .shot-nav:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.32); }
+    .shot-nav:active { transform: scale(0.94); }
+    .shot-nav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
     @media (max-width: 760px) {
-      .app-band .inner { grid-template-columns: 1fr; gap: 22px; text-align: center; }
+      .app-band .inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }
       .app-band .eyebrow, .app-cta { justify-content: center; }
       .app-band p { margin-inline: auto; }
-      .app-visual { order: -1; }
-      .andi { width: 132px; }
     }
 
     /* ─── Einblenden beim Scrollen ───────────────────────────────── */
@@ -274,11 +376,10 @@
 
     <div class="wrap">
       <div class="hero-inner">
-        <p class="eyebrow reveal">Siswati für „Reise"</p>
         <h1 class="reveal">Deine Reisen als <em>filmischer Flug</em> über echtes Gelände.</h1>
         <p class="lead reveal">
-          Zeichne deine Tour mit dem Handy auf — Luhambo macht daraus einen kinematischen
-          3D-Flug über die echte Landschaft, mit dem Wetter des Tages und deinen Fotos am
+          Zeichne deine Tour mit dem Handy auf. Luhambo macht daraus einen kinematischen
+          3D-Flug über die echte Landschaft, mit dem Wetter jenes Tages und deinen Fotos am
           Wegesrand.
         </p>
         <div class="cta-row reveal">
@@ -286,9 +387,9 @@
           <a class="btn btn-ghost" href="/studio.html">Eigene Reise aufzeichnen</a>
         </div>
         <div class="hero-meta reveal">
-          <span>Freie Kartendaten</span>
-          <span>Echtes Wetter des Tages</span>
           <span>Echtes 3D-Gelände</span>
+          <span>Wetter aus dem Archiv</span>
+          <span>Deine Fotos am Wegesrand</span>
         </div>
       </div>
     </div>
@@ -304,16 +405,16 @@
       <div class="sec-head reveal">
         <p class="eyebrow">Ausgewählte Touren</p>
         <h2>Drei Reisen zum Sofort-Erleben</h2>
-        <p>Kein Konto nötig — direkt im Browser abspielen, scrubben und die Fotostopps erkunden.</p>
+        <p>Kein Konto nötig: direkt im Browser abspielen, scrubben und die Fotostopps erkunden.</p>
       </div>
 
       <div class="tours">
         <a class="tour-card reveal" href="/erlebnis.html?tour=kohphangan">
           <img class="tc-img" src="/landing/card-phangan.jpg" alt="Koh Pha-ngan bei Dämmerung" loading="lazy" />
-          <span class="no-chip">N°03</span>
+          <span class="no-chip">N°01</span>
           <div class="tc-body">
             <h3>Koh Pha-ngan</h3>
-            <p class="card-sub">Palmen, Serpentinen und die blaue Stunde am Meer — Thailands Inselberge per Moped &amp; Jeep.</p>
+            <p class="card-sub">Palmen, Serpentinen und die blaue Stunde am Meer: Thailands Inselberge per Moped &amp; Jeep.</p>
             <div class="chips">
               <span class="chip">41,8 km</span>
               <span class="chip">Moped · Jeep · Fähre</span>
@@ -326,9 +427,10 @@
           <img class="tc-img" src="/landing/card-stockholm.jpg" alt="Stockholmer Schären im Regen" loading="lazy" />
           <span class="no-chip">N°02</span>
           <div class="tc-body">
-            <h3>Stockholm &amp; Schären</h3>
-            <p class="card-sub">Vom Stadtkern hinaus aufs Wasser — durch die Dämmerung in die Schärenwelt.</p>
+            <h3>Stockholm</h3>
+            <p class="card-sub">Vom Stadtkern hinaus aufs Wasser, durch die Dämmerung in die Schärenwelt.</p>
             <div class="chips">
+              <span class="chip">24,9 km</span>
               <span class="chip">Stadt &amp; Wasser</span>
               <span class="chip">Fähre</span>
             </div>
@@ -338,11 +440,12 @@
 
         <a class="tour-card reveal" href="/erlebnis.html?tour=oberland">
           <img class="tc-img" src="/landing/card-oberland.jpg" alt="Lauterbrunnental mit Wasserfall" loading="lazy" />
-          <span class="no-chip">N°01</span>
+          <span class="no-chip">N°03</span>
           <div class="tc-body">
             <h3>Berner Oberland</h3>
             <p class="card-sub">Lauterbrunnen → Wengen → Kleine Scheidegg → Grindelwald, mitten durch die Alpen.</p>
             <div class="chips">
+              <span class="chip">16,7 km</span>
               <span class="chip">Alpen</span>
               <span class="chip">Talfahrt</span>
             </div>
@@ -359,6 +462,7 @@
       <div class="sec-head center reveal">
         <p class="eyebrow center">So funktioniert's</p>
         <h2>Vom Handy-Track zum Reisefilm</h2>
+        <p>Drei Schritte trennen deine Route von einem fertigen Flug über die echte Landschaft.</p>
       </div>
       <div class="steps">
         <div class="step reveal">
@@ -366,36 +470,52 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
           </div>
           <h3>Aufzeichnen</h3>
-          <p>Die Android-App trackt deine Route per GPS und hält Fotos &amp; Videos am Wegesrand fest — oder du lädst einen GPX-Track hoch.</p>
+          <p>Die Android-App trackt deine Route per GPS und hält Fotos &amp; Videos am Wegesrand fest. Alternativ lädst du einen GPX-Track hoch.</p>
         </div>
         <div class="step reveal">
           <div class="step-ico">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v4M3 5h4M18 15v3M16.5 16.5h3" /><path d="M13 4l1.9 4.6L19.5 10.5 14.9 12.4 13 17l-1.9-4.6L6.5 10.5l4.6-1.9z" /></svg>
           </div>
           <h3>Anreichern</h3>
-          <p>Der Server benennt die Tour, rekonstruiert das echte Wetter des Tages und legt eine Zeitleiste mit komprimierten Pausen an.</p>
+          <p>Der Server benennt die Tour, rekonstruiert das echte Wetter jenes Tages und legt eine Zeitleiste mit komprimierten Pausen an.</p>
         </div>
         <div class="step reveal">
           <div class="step-ico">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M3 9h18M8 5v4M16 5v4" /><path d="M11 12.2v3.6l3-1.8z" fill="currentColor" stroke="none" /></svg>
           </div>
           <h3>Erleben</h3>
-          <p>Der Browser fliegt kinematisch über echtes 3D-Gelände — mit Tag/Nacht, Wettereffekten und deinen Fotos als Stopps.</p>
+          <p>Der Browser fliegt kinematisch über echtes 3D-Gelände, mit Tag/Nacht, Wettereffekten und deinen Fotos als Stopps.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Android-App -->
+  <!-- Android-App & Einblick -->
   <section class="band app-band" id="app">
     <div class="wrap">
       <div class="inner reveal">
         <div class="app-text">
-          <p class="eyebrow">Für Android</p>
+          <div class="app-brandrow">
+            <svg class="andi-mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <g fill="#3ddc84">
+                <rect x="7.4" y="20.8" width="3.7" height="12.4" rx="1.85" />
+                <rect x="36.9" y="20.8" width="3.7" height="12.4" rx="1.85" />
+                <path d="M13 19.4a11 11 0 0 1 22 0Z" />
+                <rect x="13" y="20.6" width="22" height="16.6" rx="2.4" />
+                <rect x="17.6" y="35.8" width="3.8" height="8.4" rx="1.9" />
+                <rect x="26.6" y="35.8" width="3.8" height="8.4" rx="1.9" />
+                <path d="M16.6 10.6 13.3 5.8" fill="none" stroke="#3ddc84" stroke-width="1.7" stroke-linecap="round" />
+                <path d="M31.4 10.6 34.7 5.8" fill="none" stroke="#3ddc84" stroke-width="1.7" stroke-linecap="round" />
+              </g>
+              <circle cx="19.4" cy="14" r="1.25" fill="#062616" />
+              <circle cx="28.6" cy="14" r="1.25" fill="#062616" />
+            </svg>
+            <p class="eyebrow">Für Android</p>
+          </div>
           <h2>Nimm Luhambo mit aufs Handy</h2>
           <p>
             Die Aufnahme-App trackt deine Tour per GPS, hält Fotos &amp; Videos am Wegesrand fest
-            und lädt alles hoch — angereichert wartet dein 3D-Reiseflug dann im Browser.
+            und lädt alles hoch. Angereichert wartet dein 3D-Reiseflug dann im Browser.
           </p>
           <div class="app-cta">
             <a class="btn btn-android" href="https://github.com/Pikktee/journey/releases/latest/download/luhambo-android.apk">
@@ -415,24 +535,75 @@
               </svg>
               Android-App laden
             </a>
-            <span class="app-meta">v0.1.0 · ~64 MB · ab Android 10 · Sideload</span>
+            <span class="playstore-soon">
+              <svg class="ps-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="gplay" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox">
+                    <stop offset="0" stop-color="#00c3ff" />
+                    <stop offset="0.4" stop-color="#00e676" />
+                    <stop offset="0.7" stop-color="#ffd500" />
+                    <stop offset="1" stop-color="#ff445e" />
+                  </linearGradient>
+                </defs>
+                <path fill="url(#gplay)" d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.844.03a1.49 1.49 0 0 0-.799 1.318v21.304c0 .578.328 1.079.799 1.318l12.234-12.97L1.844.03zM14.089 12l2.888-2.87L2.783.076 14.089 12zm0 0L2.783 23.924l14.194-9.054L14.089 12z" />
+              </svg>
+              <span class="ps-text"><small>Bald verfügbar im</small><strong>Google Play</strong></span>
+            </span>
           </div>
+          <span class="app-meta">v0.1.0 · ~64 MB · ab Android 10 · Sideload</span>
         </div>
-        <div class="app-visual">
-          <svg class="andi" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Android">
-            <g fill="#3ddc84">
-              <rect x="7.4" y="20.8" width="3.7" height="12.4" rx="1.85" />
-              <rect x="36.9" y="20.8" width="3.7" height="12.4" rx="1.85" />
-              <path d="M13 19.4a11 11 0 0 1 22 0Z" />
-              <rect x="13" y="20.6" width="22" height="16.6" rx="2.4" />
-              <rect x="17.6" y="35.8" width="3.8" height="8.4" rx="1.9" />
-              <rect x="26.6" y="35.8" width="3.8" height="8.4" rx="1.9" />
-              <path d="M16.6 10.6 13.3 5.8" fill="none" stroke="#3ddc84" stroke-width="1.7" stroke-linecap="round" />
-              <path d="M31.4 10.6 34.7 5.8" fill="none" stroke="#3ddc84" stroke-width="1.7" stroke-linecap="round" />
-            </g>
-            <circle cx="19.4" cy="14" r="1.25" fill="#062616" />
-            <circle cx="28.6" cy="14" r="1.25" fill="#062616" />
-          </svg>
+
+        <div class="app-showcase">
+          <div class="phone-stage" id="shotStage">
+            <figure class="phone-slide active" data-cap="Deine Tour als 3D-Flug">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-player.jpg" alt="Der Player fliegt kinematisch über die 3D-Landschaft der Tour" loading="lazy" />
+              </div></div>
+            </figure>
+            <figure class="phone-slide" data-cap="Alle Reisen an einem Ort">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-liste.jpg" alt="Tourenliste der Luhambo-App mit Reisen als große Bildkarten" loading="lazy" />
+              </div></div>
+            </figure>
+            <figure class="phone-slide" data-cap="Route, Stopps und Fotos">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-koh.jpg" alt="Detailansicht einer Tour mit Routenskizze und Fotogitter" loading="lazy" />
+              </div></div>
+            </figure>
+            <figure class="phone-slide" data-cap="Aufnahme starten, Modus wählen">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-aufnahme.jpg" alt="Neue Tour starten, Auswahl des Fortbewegungsmittels" loading="lazy" />
+              </div></div>
+            </figure>
+            <figure class="phone-slide" data-cap="Der Weg entsteht beim Aufnehmen">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-live.jpg" alt="Laufende Aufzeichnung mit entstehender Routenskizze auf der Karte" loading="lazy" />
+              </div></div>
+            </figure>
+            <figure class="phone-slide" data-cap="Alpentour im Detail">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-oberland.jpg" alt="Alpentour im Detail mit Radroute und Berg-Fotos" loading="lazy" />
+              </div></div>
+            </figure>
+            <figure class="phone-slide" data-cap="Schären-Tour im Detail">
+              <div class="phone"><div class="phone-screen">
+                <img src="/landing/app-stockholm.jpg" alt="Schären-Tour im Detail mit Fährroute und Fotos" loading="lazy" />
+              </div></div>
+            </figure>
+          </div>
+
+          <p class="shot-caption" id="shotCaption">Deine Tour als 3D-Flug</p>
+
+          <div class="shot-controls">
+            <button class="shot-nav" id="shotPrev" type="button" aria-label="Vorheriger Screenshot">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+            </button>
+            <span class="shot-counter" id="shotCounter" aria-live="polite">1 / 7</span>
+            <button class="shot-nav" id="shotNext" type="button" aria-label="Nächster Screenshot">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+          </div>
+          <div class="shot-dots" id="shotDots" role="tablist" aria-label="Screenshots"></div>
         </div>
       </div>
     </div>
@@ -473,10 +644,7 @@
       </nav>
     </div>
     <div class="wrap">
-      <p class="attribution">
-        Kartendaten: Esri/Maxar · AWS Terrain · OpenFreeMap · Wetter: Open-Meteo (CC-BY 4.0)
-        <span class="copy">© <span id="jahr">2026</span> Luhambo</span>
-      </p>
+      <p class="attribution">© <span id="jahr">2026</span> Luhambo</p>
     </div>
   </footer>
 
@@ -505,6 +673,56 @@
       )
       reveals.forEach(function (el) { io.observe(el) })
     }
+
+    // App-Slider: genau EIN Screen sichtbar, sanfter Crossfade. Blättern per Pfeil oder
+    // Punkt; ein dezentes Auto-Blättern läuft, bis der Nutzer selbst steuert.
+    ;(function () {
+      var stage = document.getElementById('shotStage')
+      if (!stage) return
+      var slides = Array.prototype.slice.call(stage.querySelectorAll('.phone-slide'))
+      if (!slides.length) return
+      var caps = slides.map(function (s) { return s.getAttribute('data-cap') || '' })
+      var capEl = document.getElementById('shotCaption')
+      var counterEl = document.getElementById('shotCounter')
+      var dotsBox = document.getElementById('shotDots')
+      var prev = document.getElementById('shotPrev')
+      var next = document.getElementById('shotNext')
+      var idx = 0
+      var timer = null
+
+      var dots = slides.map(function (s, i) {
+        var d = document.createElement('button')
+        d.className = 'shot-dot'
+        d.type = 'button'
+        d.setAttribute('role', 'tab')
+        d.setAttribute('aria-label', 'Screenshot ' + (i + 1))
+        d.addEventListener('click', function () { stop(); show(i) })
+        dotsBox.appendChild(d)
+        return d
+      })
+
+      function show(i) {
+        idx = (i + slides.length) % slides.length
+        slides.forEach(function (s, k) { s.classList.toggle('active', k === idx) })
+        dots.forEach(function (d, k) {
+          var on = k === idx
+          d.classList.toggle('active', on)
+          if (on) d.setAttribute('aria-selected', 'true')
+          else d.removeAttribute('aria-selected')
+        })
+        if (capEl) capEl.textContent = caps[idx]
+        if (counterEl) counterEl.textContent = (idx + 1) + ' / ' + slides.length
+      }
+      function stop() { if (timer) { clearInterval(timer); timer = null } }
+
+      if (prev) prev.addEventListener('click', function () { stop(); show(idx - 1) })
+      if (next) next.addEventListener('click', function () { stop(); show(idx + 1) })
+
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      if (!reduce && slides.length > 1) timer = setInterval(function () { show(idx + 1) }, 4600)
+
+      show(0)
+    })()
   </script>
 </body>
 </html>
