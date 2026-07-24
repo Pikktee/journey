@@ -604,79 +604,6 @@
       flex-direction: column;
       gap: 22px;
     }
-    .werkzeug-gruppe .gruppen-titel {
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      font-weight: 500;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-3);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .werkzeug-gruppe .gruppen-titel::after { content: ''; flex: 1; height: 1px; background: var(--rand); }
-    #editor-punkt-info { font-family: var(--font-mono); font-size: 12px; margin-bottom: 10px; }
-    .editor-aktionen { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
-    .editor-aktionen button { font-size: 12.5px; padding: 8px 11px; }
-    .editor-aktionen select { width: auto; font-size: 12.5px; padding: 8px 28px 8px 10px; }
-
-    .grenz-zeile {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 8px 11px;
-      font-size: 12.5px;
-      font-family: var(--font-mono);
-      background: var(--fl-1);
-      border: 1px solid var(--rand);
-      border-radius: 10px;
-      margin-top: 6px;
-    }
-    .grenz-zeile .farbe { width: 9px; height: 9px; border-radius: 3px; flex: none; }
-    .grenz-zeile span:not(.farbe) { flex: 1; }
-    .grenz-zeile button { padding: 3px 8px; font-size: 11.5px; margin-left: auto; }
-    #editor-trim:not(:empty) { margin-top: 9px; }
-
-    #editor-medien { display: flex; flex-direction: column; gap: 9px; }
-    .medien-zeile {
-      display: flex;
-      gap: 11px;
-      align-items: flex-start;
-      padding: 10px;
-      background: var(--fl-1);
-      border: 1px solid var(--rand);
-      border-radius: 12px;
-      transition: border-color 160ms ease, opacity 160ms ease;
-    }
-    .medien-zeile:hover { border-color: var(--rand-hell); }
-    .medien-zeile.geloescht { opacity: 0.45; }
-    .medien-zeile .thumb {
-      width: 62px;
-      height: 48px;
-      object-fit: cover;
-      border-radius: 8px;
-      background: var(--fl-2);
-      border: 1px solid var(--rand);
-      flex: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-2);
-    }
-    .medien-zeile .thumb svg { width: 18px; height: 18px; }
-    .medien-zeile .m-info { flex: 1; min-width: 0; font-size: 12px; color: var(--text-2); }
-    .medien-zeile .m-kopf { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 11.5px; min-width: 0; }
-    .medien-zeile .m-zeit { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .medien-zeile .m-kopf .badge { flex: none; }
-    .medien-zeile .m-info input { margin-top: 7px; font-size: 12.5px; padding: 6px 9px; background: transparent; border-color: transparent; border-bottom: 1px solid var(--rand); border-radius: 0; }
-    .medien-zeile .m-info input:hover { border-bottom-color: var(--rand-hell); }
-    .medien-zeile .m-info input:focus { border-bottom-color: var(--akzent); background: transparent; }
-    .medien-zeile .m-aktionen { display: flex; flex-direction: column; gap: 5px; flex: none; }
-    .medien-zeile .m-aktionen button { padding: 5px 9px; font-size: 11.5px; justify-content: center; }
-    .medien-zeile .m-aktionen button.aktiv { border-color: var(--akzent); color: var(--akzent); background: rgba(245, 165, 36, 0.08); }
-
     /* — Karten-Marker — */
     .sel-marker {
       width: 14px; height: 14px; border-radius: 50%;
@@ -796,6 +723,62 @@
     }
     .spur-icon { width: 15px; height: 15px; flex: none; color: var(--text-3); opacity: 0.9; }
     .spur:hover .spur-icon { color: var(--text-2); }
+    /* Ereignis anlegen — an JEDER Bahn, immer an der Einfügemarke. Der Knopf
+       hält sich zurück, bis man die Bahn ins Auge fasst. */
+    .spur-plus {
+      width: 19px; height: 19px; flex: none; margin-left: auto; display: grid; place-items: center; padding: 0;
+      border-radius: 50%; border: 1px dashed var(--rand-hell); background: transparent; color: var(--text-3);
+      opacity: 0; transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+    .spur:hover .spur-plus, .spur-plus[aria-expanded='true'], .spur-plus:focus-visible { opacity: 1; }
+    .spur-plus:hover, .spur-plus[aria-expanded='true'] { border-style: solid; border-color: var(--akzent); color: var(--akzent); }
+    .spur-plus svg { width: 11px; height: 11px; }
+    /* Menü + Ablage liegen als fixed-Overlay am Body — das overflow des
+       Leisten-Fensters würde sie sonst abschneiden. */
+    .schwebe-menue {
+      position: fixed; z-index: 60; min-width: 210px; padding: 5px;
+      background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: 11px;
+      box-shadow: var(--schatten);
+    }
+    .schwebe-menue .kopfzeile {
+      padding: 7px 9px 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--rand); margin-bottom: 4px;
+    }
+    .schwebe-menue button {
+      width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+      border: none; background: transparent; color: var(--text-2); border-radius: 7px;
+      font-size: 13px; text-align: left;
+    }
+    .schwebe-menue button:hover { background: var(--fl-3); color: var(--text); }
+    .schwebe-menue button i { width: 11px; height: 11px; border-radius: 3px; flex: none; display: block; }
+    .schwebe-menue button svg { width: 14px; height: 14px; flex: none; color: var(--text-3); }
+    .schwebe-menue .weg { margin-left: auto; width: auto; padding: 2px 6px; font-size: 11px; color: var(--text-3); }
+    .schwebe-menue .trenner { height: 1px; background: var(--rand); margin: 4px 0; }
+
+    /* Ablage: Medien, die (noch) nicht auf der Strecke liegen */
+    .ablage-knopf { display: flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 5px 10px; }
+    .ablage-knopf svg { width: 13px; height: 13px; }
+    .ablage-raster { display: grid; grid-template-columns: repeat(4, 54px); gap: 6px; padding: 6px; max-height: 220px; overflow-y: auto; }
+    .ablage-raster button { width: 54px; height: 54px; padding: 0; border-radius: 7px; overflow: hidden; border: 1px solid var(--rand); background: var(--fl-2); cursor: grab; touch-action: none; }
+    .ablage-raster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ablage-raster button.geloescht img { opacity: 0.35; }
+    .ablage-raster button:hover { border-color: var(--akzent); }
+    /* Was aus der Ablage gezogen wird, hängt am Zeiger; die Marke zeigt, wo es landet. */
+    .zieh-geist {
+      position: fixed; z-index: 95; width: 52px; height: 52px; pointer-events: none;
+      border-radius: 8px; overflow: hidden; transform: translate(-50%, -50%) rotate(-4deg);
+      border: 2px solid var(--akzent); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.62);
+    }
+    .zieh-geist img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ablege-marke {
+      position: absolute; top: 23px; bottom: 4px; width: 2px; margin-left: -1px;
+      background: var(--akzent); pointer-events: none; z-index: 12;
+      box-shadow: 0 0 10px rgba(245, 165, 36, 0.85);
+    }
+    .ablege-marke::before {
+      content: ''; position: absolute; left: 50%; top: -4px; width: 9px; height: 9px;
+      margin-left: -4.5px; border-radius: 50%; background: var(--akzent);
+    }
     .spur-feld { position: relative; height: 100%; }
     /* Bahnen als leichte Rillen, damit sich die erhabenen Bänder abheben. */
     .spur:not(.hoch) .spur-feld {
@@ -995,6 +978,8 @@
     .leer-grafik { width: 132px; height: auto; opacity: 0.9; }
     .leer-titel { font-family: var(--font-display); font-size: 18px; color: var(--text-2); }
     .leer-text { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-3); max-width: 26ch; }
+    .leer-tour { width: 100%; text-align: left; margin-top: 4px; }
+    .leer-tour textarea { width: 100%; font-size: 12.5px; resize: vertical; }
     .insp-inhalt { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
     .insp-inhalt::-webkit-scrollbar { width: 10px; }
     .insp-inhalt::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 3px solid var(--bg); }
@@ -1055,34 +1040,6 @@
     .insp-loeschen svg { width: 14px; height: 14px; }
     .insp-loeschen:disabled { opacity: 0.4; cursor: default; }
 
-    /* — Reste der alten Sidebar (Medien/Audio/Einfügemarke) — ziehen in Paket C
-         in Zeitleiste und Inspector um; bis dahin unter dem Inspector. — */
-    .uebergang-panels { flex: none; border-top: 1px solid var(--rand); padding: 16px 18px 26px; display: flex; flex-direction: column; gap: 20px; max-height: 46%; overflow-y: auto; }
-    /* — Audio-Panel (Sidebar) — */
-    .audio-zeile {
-      background: var(--fl-1);
-      border: 1px solid var(--rand);
-      border-radius: 12px;
-      padding: 10px 11px;
-      margin-bottom: 9px;
-      font-size: 12px;
-    }
-    .audio-zeile .a-kopf { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .audio-zeile .a-warnung { margin-top: 7px; padding: 6px 8px; border-radius: 7px; background: color-mix(in srgb, var(--warn, #e8a13c) 14%, transparent); color: var(--warn, #e8a13c); font-size: 11px; line-height: 1.35; }
-    .audio-zeile .a-kopf svg { width: 15px; height: 15px; color: var(--akzent); flex: none; }
-    .audio-zeile .a-name { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .audio-zeile select { width: auto; font-size: 11.5px; padding: 5px 26px 5px 8px; }
-    .audio-zeile .a-zeiten { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); flex-wrap: wrap; }
-    .audio-zeile .a-zeiten button { padding: 4px 8px; font-size: 11px; }
-    .audio-zeile .a-fuss { display: flex; align-items: center; gap: 9px; margin-top: 8px; }
-    .audio-zeile input[type='range'] { flex: 1; accent-color: var(--akzent); height: 4px; }
-    .audio-zeile .a-fuss button { padding: 4px 8px; font-size: 11px; }
-    .audio-zeile .a-fuss .laut { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); width: 38px; text-align: right; }
-
-    .audio-knoepfe { display: flex; gap: 7px; margin-top: 8px; }
-    .audio-knoepfe button { flex: 1; }
-    .a-quelle { font-size: 10px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; flex: none; }
-
     /* — Soundeffekt-Bibliothek (Dialog) — */
     .sfx-dialog {
       width: min(560px, 92vw);
@@ -1107,22 +1064,9 @@
     .sfx-eintrag button { padding: 5px 9px; font-size: 11.5px; flex: none; }
     .sfx-eintrag .sfx-hoeren { width: 30px; padding: 5px 0; }
 
-    /* — Foto-Optionen in der Medien-Zeile — */
-    .m-optionen { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
-    .m-optionen select { width: auto; font-size: 11.5px; padding: 4px 26px 4px 8px; }
-    .m-optionen label.kb {
-      display: inline-flex; align-items: center; gap: 5px; margin: 0;
-      font-size: 11.5px; color: var(--text-2); cursor: pointer;
-    }
-    .m-optionen label.kb input { width: auto; accent-color: var(--akzent); margin: 0; }
-    .m-gps-knopf { padding: 4px 8px; font-size: 11px; }
-
-    /* — Karte↔Liste-Synchronisation — */
+    /* — Karte↔Auswahl: der angeklickte Medien-Marker pulst kurz — */
     @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
     .m-marker.puls { animation: markerPuls 700ms ease-out 2; }
-    @keyframes zeileBlitz { 0% { border-color: var(--akzent); background: rgba(245, 165, 36, 0.1); } 100% { border-color: var(--rand); background: var(--fl-1); } }
-    .medien-zeile.blitz, .audio-zeile.blitz { animation: zeileBlitz 1.4s ease-out; }
-    .hover-marker { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); box-shadow: 0 0 8px rgba(242, 237, 227, 0.6); pointer-events: none; }
 
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
@@ -1269,6 +1213,8 @@
       <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
       <symbol id="i-anpassen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
       <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></symbol>
       <symbol id="i-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5 10.5 4.8h3L15 7.5"/><circle cx="12" cy="13.5" r="3.2"/>
       </symbol>
@@ -1492,6 +1438,7 @@
                 <button class="wkz" data-wkz="hand" title="Verschieben (H)" aria-label="Verschieben"><svg><use href="#i-hand"/></svg></button>
                 <button class="wkz" data-wkz="zoom" title="Zoom (Z)" aria-label="Zoom"><svg><use href="#i-lupe"/></svg></button>
               </div>
+              <button class="ablage-knopf" id="ablage-knopf" hidden title="Aufnahmen, die noch nicht auf der Strecke liegen"><svg><use href="#i-spur-foto"/></svg><span id="ablage-anzahl"></span></button>
               <div class="zl-dauer" id="zl-dauer" title="Geschätzte Laufzeit der fertigen Animation"></div>
             </div>
             <div class="kopf-uhr" title="Abspielkopf — Aufnahmezeit · zurückgelegte Strecke von gesamt">
@@ -1519,23 +1466,23 @@
                 <div class="spur-feld" data-rolle="spur"><div class="foto-spur" id="spur-fotos"></div></div>
               </div>
               <div class="spur">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-weg"/></svg>Fortbewegung</div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-weg"/></svg>Fortbewegung<button class="spur-plus" data-spur="wege" aria-expanded="false" title="Fortbewegung ab der Marke ändern" aria-label="Fortbewegung hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-wege"></div></div>
               </div>
               <div class="spur">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-kamera"/></svg>Kamera</div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-kamera"/></svg>Kamera<button class="spur-plus" data-spur="kamera" aria-expanded="false" title="Kamera ab der Marke ändern" aria-label="Kamera hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-kamera"></div></div>
               </div>
               <div class="spur">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-wetter"/></svg>Wetter</div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-wetter"/></svg>Wetter<button class="spur-plus" data-spur="wetter" aria-expanded="false" title="Wetter ab der Marke setzen" aria-label="Wetter hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-wetter"></div></div>
               </div>
               <div class="spur">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-moment"/></svg>Momente</div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-moment"/></svg>Momente<button class="spur-plus" data-spur="momente" aria-expanded="false" title="Kamera-Moment an der Marke setzen" aria-label="Moment hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-momente"></div></div>
               </div>
               <div class="spur musik">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Sound</div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Sound<button class="spur-plus" data-spur="musik" aria-expanded="false" title="Musik oder Klang ab der Marke einsetzen" aria-label="Musik hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-musik"></div></div>
               </div>
               <div id="zl-trim"></div>
@@ -1570,70 +1517,18 @@
             <div class="leer-titel">Noch nichts ausgewählt</div>
             <p class="leer-text">Tippe in der Zeitleiste auf ein Band, ein Foto oder einen Klang — seine Einstellungen erscheinen dann hier.</p>
           </div>
+          <!-- Die Beschreibung gehört der ganzen Tour, nicht einem Objekt —
+               deshalb steht sie hier, wo nichts ausgewählt ist. -->
+          <div class="feld leer-tour">
+            <label for="editor-beschreibung">Beschreibung der Tour</label>
+            <textarea id="editor-beschreibung" rows="4" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
+          </div>
         </div>
         <div class="insp-inhalt" id="insp-inhalt" hidden></div>
         <div class="insp-fuss" id="insp-fuss" hidden></div>
-        <div class="uebergang-panels">
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Einfügemarke</div>
-          <div class="hinweis" id="editor-punkt-info">Auf den Track oder die Zeitleiste klicken.</div>
-          <div class="editor-aktionen">
-            <button id="e-trim-start" disabled title="Alles vor diesem Punkt abschneiden">⟦ Start ab hier</button>
-            <button id="e-trim-ende" disabled title="Alles nach diesem Punkt abschneiden">Ende bis hier ⟧</button>
-          </div>
-          <div class="editor-aktionen" style="margin-top: 7px;">
-            <select id="e-grenze-mode" aria-label="Fortbewegung ab diesem Punkt">
-              <option value="walk">Zu Fuß</option>
-              <option value="bike">Rad</option>
-              <option value="moped">Moped</option>
-              <option value="jeep">Jeep</option>
-              <option value="tram">Tram</option>
-              <option value="ferry">Fähre</option>
-            </select>
-            <button id="e-grenze" disabled title="Fortbewegung ab diesem Punkt ändern">ab hier</button>
-            <select id="e-kamera-preset" aria-label="Kamera ab diesem Punkt">
-              <option value="nah">Kamera nah</option>
-              <option value="mittel" selected>Kamera mittel</option>
-              <option value="weit">Kamera weit</option>
-            </select>
-            <button id="e-kamera" disabled title="Kamera-Nähe ab diesem Punkt ändern">ab hier</button>
-            <select id="e-moment-art" aria-label="Kamera-Moment an diesem Punkt">
-              <option value="umkreisen">Umkreisen</option>
-              <option value="aufstieg">Aufstieg</option>
-              <option value="innehalten">Innehalten</option>
-            </select>
-            <button id="e-moment" disabled title="Kamera-Moment an diesem Punkt setzen — die Fahrt hält dort kurz an">Moment</button>
-            <select id="e-wetter-mode" aria-label="Wetter ab diesem Punkt">
-              <option value="off">Wetter klar</option>
-              <option value="clouds">Wolkig</option>
-              <option value="fog">Nebel</option>
-              <option value="rain">Regen</option>
-              <option value="snow">Schnee</option>
-              <option value="storm">Gewitter</option>
-            </select>
-            <button id="e-wetter" disabled title="Wetter ab diesem Punkt setzen — ersetzt das automatische Wetter">ab hier</button>
-          </div>
-          <div id="editor-trim"></div>
-        </div>
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Musik &amp; Sound</div>
-          <div id="editor-audio"></div>
-          <div class="audio-knoepfe">
-            <button id="e-audio-bibliothek"><svg aria-hidden="true"><use href="#i-note"/></svg>Aus Bibliothek</button>
-            <button id="e-audio-hinzu"><svg aria-hidden="true"><use href="#i-upload"/></svg>Hochladen</button>
-          </div>
-          <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
-          <div class="hinweis" id="editor-audio-status" role="status"></div>
-        </div>
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Beschreibung</div>
-          <textarea id="editor-beschreibung" placeholder="Beschreibung der Tour (optional)"></textarea>
-        </div>
-        <div class="werkzeug-gruppe">
-          <div class="gruppen-titel">Medien</div>
-          <div id="editor-medien"><div class="leer">Keine Medien.</div></div>
-        </div>
-        </div>
+        <!-- Datei-Auswahl für den Audio-Upload; ausgelöst aus dem „+"-Menü
+             der Musik-Spur. Kein sichtbares Panel mehr. -->
+        <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
       </aside>
     </div>
     <!-- Soundeffekt-Bibliothek: Inhalt wird aus SFX_BIBLIOTHEK gebaut -->

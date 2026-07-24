@@ -444,12 +444,9 @@ function renderAlles(): void {
   renderHistorieKnoepfe()
   zeichneTrack()
   zeichneMarker()
-  renderAuswahl()
-  renderTrim()
   renderInspektor()
-  renderAudio()
-  renderMedien()
   renderZeitleiste()
+  renderAblage()
   $('editor-map').classList.toggle('platzieren', z.platzieren !== null)
   $('editor-medien-hinweis').textContent = z.platzieren
     ? 'Auf den Track klicken, um das Medium dort zu verankern — erneut „Platzieren" drücken bricht ab.'
@@ -536,7 +533,6 @@ function zeichneMarker(): void {
       if (!z) return
       z.fokus = { art: 'medium', id: m.id }
       renderAlles()
-      blitzeZeile(m.id)
     })
     medienMarker.set(m.id, el)
     marker.push(mk)
@@ -617,20 +613,6 @@ function loeseFokusAuf(): FokusZiel | null {
   )
 }
 
-function renderAuswahl(): void {
-  if (!z) return
-  const aktivierbar = z.auswahl !== null
-  for (const id of ['e-trim-start', 'e-trim-ende', 'e-grenze', 'e-kamera', 'e-moment', 'e-wetter']) {
-    ;($(id) as HTMLButtonElement).disabled = !aktivierbar
-  }
-  const info = $('editor-punkt-info')
-  if (!z.auswahl) {
-    info.textContent = 'Auf den Track oder die Zeitleiste klicken, um einen Punkt zu wählen.'
-    return
-  }
-  info.textContent = `Punkt bei ${zeitText(offsetZuIso(z.daten.time.start, z.auswahl[3]))} Uhr`
-}
-
 /** Uhrzeit ohne Sekunden — Inspector-Zeiten sollen überfliegbar sein. */
 function uhrKurz(iso: string): string {
   if (!z) return iso
@@ -641,6 +623,263 @@ function uhrKurz(iso: string): string {
   } catch {
     return iso
   }
+}
+
+// — Ereignis anlegen: Spur-Menüs an der Einfügemarke —
+//
+// Jede Bahn trägt ein „+". Was dort entsteht, beginnt IMMER an der Marke — das
+// ist dieselbe Stelle, die der Abspielkopf zeigt. Früher lag dafür eine
+// Knopfleiste in der Sidebar, weit weg von der Bahn, die sie betraf.
+
+let offenesMenue: HTMLElement | null = null
+
+function schliesseSpurMenue(): void {
+  offenesMenue?.remove()
+  offenesMenue = null
+  document.querySelectorAll<HTMLElement>('.spur-plus[aria-expanded="true"]').forEach((b) => {
+    b.setAttribute('aria-expanded', 'false')
+  })
+}
+
+/** Menü über dem Knopf platzieren (fixed am Body — kein overflow schneidet es ab). */
+function zeigeSchwebeMenue(inhalt: HTMLElement, knopf: HTMLElement): void {
+  schliesseSpurMenue()
+  document.body.appendChild(inhalt)
+  const r = knopf.getBoundingClientRect()
+  const breite = inhalt.offsetWidth
+  const hoehe = inhalt.offsetHeight
+  inhalt.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - breite - 8)))}px`
+  // Nach oben aufklappen, wenn unten kein Platz ist (die Leiste sitzt unten)
+  const untenPlatz = window.innerHeight - r.bottom
+  inhalt.style.top = untenPlatz > hoehe + 12 ? `${Math.round(r.bottom + 6)}px` : `${Math.round(Math.max(8, r.top - hoehe - 6))}px`
+  offenesMenue = inhalt
+  knopf.setAttribute('aria-expanded', 'true')
+}
+
+/** Menü-Eintrag mit optionalem Farbtupfer. */
+function menueEintrag(text: string, beiKlick: () => void, farbe?: string): HTMLElement {
+  const b = document.createElement('button')
+  b.type = 'button'
+  if (farbe) {
+    const punkt = document.createElement('i')
+    punkt.style.background = farbe
+    b.appendChild(punkt)
+  }
+  b.append(text)
+  b.addEventListener('click', () => {
+    schliesseSpurMenue()
+    beiKlick()
+  })
+  return b
+}
+
+/** Zeit-Offset der Einfügemarke (Abspielkopf) — Ausgangspunkt jeder Neuanlage. */
+function markeOffset(): number {
+  if (!z) return 0
+  if (z.auswahl) return z.auswahl[3]
+  const skala = baueSkala(z.track)
+  return skala?.vonS ?? 0
+}
+
+function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
+  if (!z) return
+  const start = z.daten.time.start
+  const abS = markeOffset()
+  const ab = offsetZuIso(start, abS)
+  const menue = document.createElement('div')
+  menue.className = 'schwebe-menue'
+  const kopf = document.createElement('div')
+  kopf.className = 'kopfzeile'
+  kopf.textContent = `ab ${uhrzeitKurz(ab)} Uhr`
+  menue.appendChild(kopf)
+
+  if (spur === 'wege') {
+    for (const [wert, name] of Object.entries(MODUS_NAMEN)) {
+      menue.appendChild(
+        menueEintrag(name, () => {
+          if (!z) return
+          z.edits = mitModusGrenze(z.edits, ab, wert as Modus)
+          z.fokus = { art: 'modus', bezugS: abS + 1 }
+          renderAlles()
+        }, MODUS_FARBEN[wert as Modus]),
+      )
+    }
+  } else if (spur === 'kamera') {
+    for (const [wert, name] of Object.entries(PRESET_NAMEN)) {
+      menue.appendChild(
+        menueEintrag(`Kamera ${name}`, () => {
+          if (!z) return
+          z.edits = mitKameraGrenze(z.edits, ab, wert as KameraPreset)
+          z.fokus = { art: 'kamera', bezugS: abS + 1 }
+          renderAlles()
+        }, PRESET_FARBEN[wert as KameraPreset]),
+      )
+    }
+  } else if (spur === 'wetter') {
+    for (const [wert, name] of Object.entries(WETTER_NAMEN)) {
+      menue.appendChild(
+        menueEintrag(name, () => {
+          if (!z) return
+          z.edits = mitWetterGrenze(z.edits, ab, wert as WetterModus)
+          z.fokus = { art: 'wetter', bezugS: abS + 1 }
+          renderAlles()
+        }, WETTER_FARBEN[wert as WetterModus]),
+      )
+    }
+  } else if (spur === 'momente') {
+    for (const [wert, name] of Object.entries(MOMENT_NAMEN)) {
+      menue.appendChild(
+        menueEintrag(`${MOMENT_ZEICHEN[wert as MomentArt]}  ${name}`, () => {
+          if (!z) return
+          z.edits = mitMoment(z.edits, ab, wert as MomentArt)
+          z.fokus = { art: 'moment', ab }
+          renderAlles()
+        }),
+      )
+    }
+  } else if (spur === 'musik') {
+    menue.appendChild(menueEintrag('Datei hochladen …', () => $('e-audio-datei').click()))
+    menue.appendChild(menueEintrag('Aus der Klang-Bibliothek …', oeffneSfxDialog))
+    // Schon hochgeladene, aber nicht eingesetzte Dateien direkt anbieten
+    const benutzt = new Set((z.edits.audio ?? []).map((a) => a.datei))
+    const frei = (z.daten.audio ?? []).filter((d) => !benutzt.has(d.datei))
+    if (frei.length) {
+      const trenner = document.createElement('div')
+      trenner.className = 'trenner'
+      menue.appendChild(trenner)
+      for (const d of frei) {
+        const zeile = menueEintrag(d.datei, () => {
+          if (!z) return
+          z.edits = mitAudioEintrag(z.edits, { datei: d.datei, typ: 'musik', ab })
+          z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
+          renderAlles()
+        })
+        const weg = document.createElement('button')
+        weg.className = 'weg'
+        weg.type = 'button'
+        weg.textContent = 'löschen'
+        weg.title = `${d.datei} vom Server löschen (${(d.groesse / 1048576).toFixed(1)} MB)`
+        weg.addEventListener('click', (e) => {
+          e.stopPropagation()
+          schliesseSpurMenue()
+          void audioDateiLoeschen(d.datei)
+        })
+        zeile.appendChild(weg)
+        menue.appendChild(zeile)
+      }
+    }
+  }
+  zeigeSchwebeMenue(menue, knopf)
+}
+
+// — Ablage: Aufnahmen, die (noch) nicht auf der Strecke liegen —
+//
+// Unplatzierte (kein GPS, keine passende Zeit) UND gelöschte in einem Fach:
+// beides sind Bilder, die es gibt, die aber nicht mitspielen. Von hier zieht man
+// sie auf die Zeitleiste — dort, wo sie hingehören.
+
+function ablageMedien(): MediumAnzeige[] {
+  return medienAnzeige().filter((m) => m.geloescht || !m.anchor)
+}
+
+function renderAblage(): void {
+  const knopf = $('ablage-knopf')
+  const medien = ablageMedien()
+  knopf.hidden = medien.length === 0
+  $('ablage-anzahl').textContent = medien.length === 1 ? '1 Aufnahme wartet' : `${medien.length} Aufnahmen warten`
+  if (offenesMenue?.dataset['ablage'] === '1') oeffneAblage() // offenes Fach mitziehen
+}
+
+function oeffneAblage(): void {
+  const knopf = $('ablage-knopf')
+  const menue = document.createElement('div')
+  menue.className = 'schwebe-menue'
+  menue.dataset['ablage'] = '1'
+  const kopf = document.createElement('div')
+  kopf.className = 'kopfzeile'
+  kopf.textContent = 'auf die Zeitleiste ziehen'
+  menue.appendChild(kopf)
+  const raster = document.createElement('div')
+  raster.className = 'ablage-raster'
+  for (const m of ablageMedien()) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = m.geloescht ? 'geloescht' : ''
+    b.title = m.geloescht ? `${m.caption || m.id} — entfernt` : `${m.caption || m.id} — ohne Ort`
+    b.dataset['id'] = m.id
+    const bild = document.createElement('img')
+    bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
+    bild.alt = ''
+    b.appendChild(bild)
+    b.addEventListener('pointerdown', (e) => zieheAusAblage(e, m))
+    raster.appendChild(b)
+  }
+  menue.appendChild(raster)
+  zeigeSchwebeMenue(menue, knopf)
+}
+
+/**
+ * Eine Aufnahme aus der Ablage auf die Zeitleiste ziehen. Über Fenster-Listener
+ * (der 54-px-Knopf verlöre bei schnellen Bewegungen die Capture); losgelassen
+ * über der Foto-Bahn bekommt sie dort ihren Anker — und ist damit wieder dabei.
+ */
+function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
+  if (e.button !== 0 || !z) return
+  e.preventDefault()
+  const start = { x: e.clientX, y: e.clientY }
+  let geist: HTMLElement | null = null
+  let marke: HTMLElement | null = null
+  let zielOffsetS: number | null = null
+
+  const zieh = (ev: PointerEvent): void => {
+    if (!geist && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 5) return
+    if (!geist) {
+      geist = document.createElement('div')
+      geist.className = 'zieh-geist'
+      const bild = document.createElement('img')
+      bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
+      bild.alt = ''
+      geist.appendChild(bild)
+      document.body.appendChild(geist)
+    }
+    geist.style.left = `${ev.clientX}px`
+    geist.style.top = `${ev.clientY}px`
+    const bahn = document.getElementById('spur-fotos')?.getBoundingClientRect()
+    const skala = z ? baueSkala(z.track) : null
+    const ueberBahn =
+      bahn && skala && ev.clientX >= bahn.left && ev.clientX <= bahn.right && ev.clientY >= bahn.top - 20 && ev.clientY <= bahn.bottom + 20
+    if (ueberBahn) {
+      zielOffsetS = anteilZuOffset(skala, spurAnteil(ev.clientX))
+      if (!marke) {
+        marke = document.createElement('div')
+        marke.className = 'ablege-marke'
+        document.getElementById('spuren')?.appendChild(marke)
+      }
+      marke.style.left = zeitX(offsetZuAnteil(skala, zielOffsetS))
+    } else if (marke) {
+      marke.remove()
+      marke = null
+      zielOffsetS = null
+    }
+  }
+  const los = (): void => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    const abgelegtBei = zielOffsetS // VOR dem Aufräumen sichern
+    geist?.remove()
+    marke?.remove()
+    if (abgelegtBei === null || !z) return
+    unterdrueckeKlick = true
+    const punkt = punktZuOffset(z.track, abgelegtBei)
+    if (!punkt) return
+    // Wieder dabei: Anker setzen und, falls es entfernt war, zurückholen
+    z.edits = mitMedienEdit(z.edits, m.id, { anchor: [punkt[0], punkt[1]], geloescht: false })
+    z.fokus = { art: 'medium', id: m.id }
+    schliesseSpurMenue()
+    renderAlles()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
 }
 
 // — Inspector-Bausteine —
@@ -790,7 +1029,6 @@ function baueZeitfeld(
 function renderOhneInspektor(): void {
   zeichneTrack()
   renderZeitleiste()
-  renderTrim()
 }
 
 /** Feste Grenze (Tourbeginn/-ende): kein Feld, sondern eine Aussage. */
@@ -1232,24 +1470,6 @@ function loescheFokus(): void {
   renderAlles()
 }
 
-function renderTrim(): void {
-  if (!z) return
-  const trimEl = $('editor-trim')
-  trimEl.innerHTML = ''
-  const { start, ende } = z.edits.trim ?? {}
-  if (start === undefined && ende === undefined) return
-  for (const [teil, iso] of [['start', start], ['ende', ende]] as Array<['start' | 'ende', string | undefined]>) {
-    if (iso === undefined) continue
-    const zeile = document.createElement('div')
-    zeile.className = 'grenz-zeile'
-    const text = document.createElement('span')
-    text.textContent = `${teil === 'start' ? 'Start ab' : 'Ende bei'} ${zeitText(iso)} Uhr`
-    zeile.appendChild(text)
-    zeile.appendChild(entfernenKnopf(() => z && (z.edits = mitTrim(z.edits, teil, null))))
-    trimEl.appendChild(zeile)
-  }
-}
-
 function entfernenKnopf(aktion: () => void): HTMLButtonElement {
   const knopf = document.createElement('button')
   knopf.textContent = 'Entfernen'
@@ -1277,163 +1497,6 @@ function fliegeZuMedium(m: MediumAnzeige): void {
   }
 }
 
-/** Medien-Zeile in der Sidebar aufblitzen lassen (Karte→Liste-Sync). */
-function blitzeZeile(id: string): void {
-  const zeile = document.querySelector<HTMLElement>(`.medien-zeile[data-id="${id}"]`)
-  if (!zeile) return
-  zeile.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  zeile.classList.remove('blitz')
-  void zeile.offsetWidth
-  zeile.classList.add('blitz')
-}
-
-function renderMedien(): void {
-  if (!z) return
-  const container = $('editor-medien')
-  container.innerHTML = ''
-  const liste = medienAnzeige()
-  if (!liste.length) {
-    container.innerHTML = '<div class="leer">Keine Medien.</div>'
-    return
-  }
-  for (const m of liste) {
-    const zeile = document.createElement('div')
-    zeile.className = `medien-zeile${m.geloescht ? ' geloescht' : ''}`
-    zeile.dataset['id'] = m.id
-
-    const thumb = document.createElement(m.type === 'photo' || m.poster ? 'img' : 'div') as HTMLImageElement
-    thumb.className = 'thumb'
-    if (m.type === 'photo') thumb.src = m.src
-    else if (m.poster) thumb.src = m.poster
-    else thumb.innerHTML = icon('film')
-    thumb.style.cursor = m.anchor ? 'pointer' : ''
-    thumb.title = m.anchor ? 'Auf der Karte zeigen' : ''
-    thumb.addEventListener('click', () => fliegeZuMedium(m))
-    zeile.appendChild(thumb)
-
-    const info = document.createElement('div')
-    info.className = 'm-info'
-    // Kein innerHTML: zeitText() fällt bei kaputtem takenAt auf den ROHEN
-    // Manifest-String zurück — Nutzerdaten gehören nur in Textknoten.
-    const kopf = document.createElement('div')
-    kopf.className = 'm-kopf'
-    const zeit = document.createElement('span')
-    zeit.className = 'm-zeit'
-    zeit.textContent = `${zeitText(m.takenAt)} Uhr`
-    zeit.title = zeit.textContent
-    kopf.appendChild(zeit)
-    const badgeEl = document.createElement('span')
-    badgeEl.className = `badge ${m.geloescht ? 'geloescht' : m.placement}`
-    badgeEl.textContent = m.geloescht ? 'gelöscht' : (PLACEMENT_NAMEN[m.placement] ?? m.placement)
-    if (m.placement === 'zeit' && m.gpsAnker) {
-      badgeEl.title = 'GPS-Ort lag zu weit ab vom Track — über die Aufnahmezeit platziert.'
-    }
-    kopf.appendChild(badgeEl)
-    info.appendChild(kopf)
-    const caption = document.createElement('input')
-    caption.type = 'text'
-    // „Titel", nicht „Bildunterschrift": der Text steht im Player als
-    // Überschrift des Foto-Stopps, die Uhrzeit rutscht darunter.
-    caption.placeholder = 'Titel'
-    caption.value = m.caption
-    caption.addEventListener('change', () => {
-      if (!z) return
-      const basis = z.daten.medien.find((b) => b.id === m.id)
-      // Gleicht der Text wieder dem Original, fliegt der Override raus
-      z.edits = mitMedienEdit(z.edits, m.id, {
-        caption: caption.value === (basis?.caption ?? '') ? undefined : caption.value,
-      })
-    })
-    info.appendChild(caption)
-
-    // Anzeigeoptionen (nur Fotos: Videos halten so lange wie das Video läuft)
-    if (m.type === 'photo' && !m.geloescht) {
-      const optionen = document.createElement('div')
-      optionen.className = 'm-optionen'
-      const hold = document.createElement('select')
-      hold.title = 'Haltedauer des Foto-Stopps'
-      for (const [wert, text] of [['', 'Auto (5 s)'], ['3', '3 s'], ['5', '5 s'], ['8', '8 s'], ['12', '12 s'], ['20', '20 s']]) {
-        const opt = document.createElement('option')
-        opt.value = wert as string
-        opt.textContent = text as string
-        hold.appendChild(opt)
-      }
-      hold.value = m.display?.holdS !== undefined ? String(m.display.holdS) : ''
-      hold.addEventListener('change', () => {
-        if (!z) return
-        const display = { ...(z.edits.medien?.[m.id]?.display ?? {}) }
-        if (hold.value === '') delete display.holdS
-        else display.holdS = Number(hold.value)
-        z.edits = mitMedienEdit(z.edits, m.id, { display })
-      })
-      optionen.appendChild(hold)
-      const kb = document.createElement('label')
-      kb.className = 'kb'
-      const kbBox = document.createElement('input')
-      kbBox.type = 'checkbox'
-      kbBox.checked = m.display?.kenBurns !== false
-      kbBox.addEventListener('change', () => {
-        if (!z) return
-        const display = { ...(z.edits.medien?.[m.id]?.display ?? {}) }
-        if (kbBox.checked) delete display.kenBurns
-        else display.kenBurns = false
-        z.edits = mitMedienEdit(z.edits, m.id, { display })
-      })
-      kb.append(kbBox, 'Ken-Burns')
-      kb.title = 'Langsamer Bild-Drift während des Stopps'
-      optionen.appendChild(kb)
-      info.appendChild(optionen)
-    }
-    zeile.appendChild(info)
-
-    const aktionen = document.createElement('div')
-    aktionen.className = 'm-aktionen'
-    const platzieren = document.createElement('button')
-    platzieren.className = z.platzieren === m.id ? 'aktiv' : ''
-    platzieren.textContent = z.platzieren === m.id ? 'Abbrechen' : 'Platzieren'
-    platzieren.addEventListener('click', () => {
-      if (!z) return
-      z.platzieren = z.platzieren === m.id ? null : m.id
-      renderAlles()
-    })
-    aktionen.appendChild(platzieren)
-    if (m.gpsAnker && m.placement === 'zeit') {
-      const gps = document.createElement('button')
-      gps.className = 'm-gps-knopf'
-      gps.textContent = 'GPS-Ort'
-      gps.title = 'Den echten Aufnahmeort als Anker verwenden (Abstecher abseits des Tracks)'
-      gps.addEventListener('click', () => {
-        if (!z || !m.gpsAnker) return
-        z.edits = mitMedienEdit(z.edits, m.id, { anchor: m.gpsAnker })
-        renderAlles()
-      })
-      aktionen.appendChild(gps)
-    }
-    if (z.edits.medien?.[m.id]?.anchor) {
-      const auto = document.createElement('button')
-      auto.textContent = 'Auto-Anker'
-      auto.title = 'Manuellen Anker verwerfen, Auto-Platzierung gilt wieder'
-      auto.addEventListener('click', () => {
-        if (!z) return
-        z.edits = mitMedienEdit(z.edits, m.id, { anchor: undefined })
-        renderAlles()
-      })
-      aktionen.appendChild(auto)
-    }
-    const loeschen = document.createElement('button')
-    loeschen.textContent = m.geloescht ? 'Wiederherstellen' : 'Löschen'
-    loeschen.addEventListener('click', () => {
-      if (!z) return
-      z.edits = mitMedienEdit(z.edits, m.id, { geloescht: !m.geloescht })
-      renderAlles()
-    })
-    aktionen.appendChild(loeschen)
-    zeile.appendChild(aktionen)
-
-    container.appendChild(zeile)
-  }
-}
-
 // — Musik & Sound (Audio-Assets + Overlay-Einträge) —
 
 /** Einen Audio-Eintrag vorhören (bricht ein laufendes Vorhören ab). */
@@ -1445,7 +1508,6 @@ function starteVorschau(a: AudioEintrag): void {
   audio.addEventListener('ended', () => {
     stoppeVorschau()
     renderInspektor()
-    renderAudio()
   })
   void audio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
   vorschau = { audio, datei: a.datei }
@@ -1459,11 +1521,9 @@ function stoppeVorschau(): void {
   vorschau = null
 }
 
-function audioStatus(text: string, klasse = ''): void {
-  const el = $('editor-audio-status')
-  el.className = `hinweis ${klasse}`
-  el.textContent = text
-}
+/** Audio-Meldungen laufen über dieselbe Statuszeile wie alles andere — es gibt
+    kein eigenes Audio-Panel mehr, das eine zweite hätte tragen können. */
+const audioStatus = status
 
 async function audioHochladen(datei: File): Promise<void> {
   if (!z) return
@@ -1492,203 +1552,6 @@ async function audioHochladen(datei: File): Promise<void> {
   z.edits = mitAudioEintrag(z.edits, { datei: name, typ: 'musik', ab: offsetZuIso(start, abOffset) })
   audioStatus('Hochgeladen — Typ und Bereich unten anpassen, dann Speichern.', 'ok')
   renderAlles()
-}
-
-function renderAudio(): void {
-  const zz = z // Modul-let: Narrowing überlebt die Closures unten nicht
-  if (!zz) return
-  const container = $('editor-audio')
-  container.innerHTML = ''
-  const eintraege = zz.edits.audio ?? []
-  const dateien = zz.daten.audio ?? []
-  if (!eintraege.length && !dateien.length) {
-    container.innerHTML = '<div class="leer">Eigene Musik oder Soundeffekte für diese Tour hochladen (MP3, M4A, OGG, WAV).</div>'
-    return
-  }
-  const start = zz.daten.time.start
-  const trimSkala = baueSkala(zz.track)
-
-  eintraege.forEach((a, index) => {
-    const zeile = document.createElement('div')
-    zeile.className = 'audio-zeile'
-    zeile.dataset['index'] = String(index) // Sprungziel aus dem Inspector
-    // Liegt der Eintrag komplett im weggetrimmten Bereich, verwirft ihn die
-    // Pipeline still — hier sichtbar machen, statt den Nutzer rätseln zu lassen
-    const verworfen = trimSkala !== null && audioWirdVerworfen(a, zz.edits, start, trimSkala)
-
-    const kopf = document.createElement('div')
-    kopf.className = 'a-kopf'
-    kopf.innerHTML = icon(a.typ === 'musik' ? 'note' : 'blitz')
-    const name = document.createElement('span')
-    name.className = 'a-name'
-    name.textContent = audioName(a)
-    name.title = a.datei
-    kopf.appendChild(name)
-    if (a.quelle === 'bibliothek') {
-      const badge = document.createElement('span')
-      badge.className = 'a-quelle'
-      badge.textContent = 'Bibliothek'
-      kopf.appendChild(badge)
-    }
-    const typ = document.createElement('select')
-    for (const [wert, text] of [['musik', 'Musik'], ['sfx', 'Sound']]) {
-      const opt = document.createElement('option')
-      opt.value = wert as string
-      opt.textContent = text as string
-      typ.appendChild(opt)
-    }
-    typ.value = a.typ
-    typ.addEventListener('change', () => {
-      if (!z) return
-      z.edits = mitAudioPatch(z.edits, index, { typ: typ.value as 'musik' | 'sfx' })
-      renderAlles()
-    })
-    kopf.appendChild(typ)
-    const weg = document.createElement('button')
-    weg.className = 'chip-x'
-    weg.textContent = '×'
-    weg.title = 'Eintrag entfernen'
-    weg.setAttribute('aria-label', `${a.datei} entfernen`)
-    weg.addEventListener('click', () => void audioEintragEntfernen(index))
-    kopf.appendChild(weg)
-    zeile.appendChild(kopf)
-
-    if (verworfen) {
-      const warnung = document.createElement('div')
-      warnung.className = 'a-warnung'
-      warnung.textContent =
-        a.typ === 'sfx'
-          ? 'Liegt im weggetrimmten Bereich — wird nicht abgespielt.'
-          : 'Bereich liegt außerhalb des getrimmten Tracks — wird nicht abgespielt.'
-      zeile.appendChild(warnung)
-    }
-
-    const zeiten = document.createElement('div')
-    zeiten.className = 'a-zeiten'
-    const abText = document.createElement('span')
-    abText.textContent = `ab ${zeitText(a.ab)}`
-    zeiten.appendChild(abText)
-    const abKnopf = document.createElement('button')
-    abKnopf.textContent = '→ Punkt'
-    abKnopf.title = 'Beginn auf den gewählten Punkt setzen'
-    abKnopf.disabled = !zz.auswahl
-    abKnopf.addEventListener('click', () => {
-      if (!z || !z.auswahl) return
-      z.edits = mitAudioPatch(z.edits, index, { ab: offsetZuIso(start, z.auswahl[3]) })
-      renderAlles()
-    })
-    zeiten.appendChild(abKnopf)
-    if (a.typ === 'musik') {
-      const bisText = document.createElement('span')
-      bisText.textContent = a.bis !== undefined ? `bis ${zeitText(a.bis)}` : 'bis Ende'
-      zeiten.appendChild(bisText)
-      const bisKnopf = document.createElement('button')
-      bisKnopf.textContent = '→ Punkt'
-      bisKnopf.title = 'Ende auf den gewählten Punkt setzen'
-      bisKnopf.disabled = !zz.auswahl
-      bisKnopf.addEventListener('click', () => {
-        if (!z || !z.auswahl) return
-        z.edits = mitAudioPatch(z.edits, index, { bis: offsetZuIso(start, z.auswahl[3]) })
-        renderAlles()
-      })
-      zeiten.appendChild(bisKnopf)
-      if (a.bis !== undefined) {
-        const bisWeg = document.createElement('button')
-        bisWeg.textContent = '× Ende'
-        bisWeg.title = 'Wieder bis zum Tour-Ende spielen'
-        bisWeg.addEventListener('click', () => {
-          if (!z) return
-          z.edits = mitAudioPatch(z.edits, index, { bis: undefined })
-          renderAlles()
-        })
-        zeiten.appendChild(bisWeg)
-      }
-    }
-    zeile.appendChild(zeiten)
-
-    const fuss = document.createElement('div')
-    fuss.className = 'a-fuss'
-    const hoeren = document.createElement('button')
-    const spielt = vorschau?.datei === a.datei
-    hoeren.innerHTML = spielt ? '■' : icon('play')
-    hoeren.title = spielt ? 'Vorhören stoppen' : 'Vorhören'
-    hoeren.addEventListener('click', () => {
-      if (!z) return
-      if (vorschau?.datei === a.datei) {
-        stoppeVorschau()
-      } else {
-        stoppeVorschau()
-        const audio = new Audio(audioUrl(a, z.tourId))
-        audio.volume = a.lautstaerke ?? 1
-        audio.addEventListener('ended', () => {
-          stoppeVorschau()
-          renderAudio()
-        })
-        void audio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
-        vorschau = { audio, datei: a.datei }
-      }
-      renderAudio()
-    })
-    fuss.appendChild(hoeren)
-    const regler = document.createElement('input')
-    regler.type = 'range'
-    regler.min = '0'
-    regler.max = '100'
-    regler.value = String(Math.round((a.lautstaerke ?? 1) * 100))
-    regler.title = 'Lautstärke'
-    const lautText = document.createElement('span')
-    lautText.className = 'laut'
-    lautText.textContent = `${regler.value} %`
-    regler.addEventListener('input', () => {
-      lautText.textContent = `${regler.value} %`
-      if (vorschau?.datei === a.datei) vorschau.audio.volume = Number(regler.value) / 100
-    })
-    regler.addEventListener('change', () => {
-      if (!z) return
-      const wert = Number(regler.value) / 100
-      z.edits = mitAudioPatch(z.edits, index, { lautstaerke: wert === 1 ? undefined : wert })
-      renderZeitleiste()
-    })
-    fuss.appendChild(regler)
-    fuss.appendChild(lautText)
-    zeile.appendChild(fuss)
-
-    container.appendChild(zeile)
-  })
-
-  // Hochgeladene Dateien ohne Eintrag (nach „Eintrag entfernen" — Löschen ist
-  // hier ein bewusster zweiter Schritt; referenzierte Dateien lehnt der Server ab)
-  const benutzt = new Set(eintraege.map((a) => a.datei))
-  for (const d of dateien.filter((d) => !benutzt.has(d.datei))) {
-    const zeile = document.createElement('div')
-    zeile.className = 'audio-zeile'
-    const kopf = document.createElement('div')
-    kopf.className = 'a-kopf'
-    kopf.innerHTML = icon('note')
-    const name = document.createElement('span')
-    name.className = 'a-name'
-    name.textContent = d.datei
-    name.title = `${d.datei} · ${(d.groesse / 1048576).toFixed(1)} MB — nicht eingesetzt`
-    name.style.opacity = '0.6'
-    kopf.appendChild(name)
-    const nutzen = document.createElement('button')
-    nutzen.textContent = 'Einsetzen'
-    nutzen.addEventListener('click', () => {
-      if (!z) return
-      const skala = baueSkala(z.track)
-      z.edits = mitAudioEintrag(z.edits, { datei: d.datei, typ: 'musik', ab: offsetZuIso(z.daten.time.start, skala?.vonS ?? 0) })
-      renderAlles()
-    })
-    kopf.appendChild(nutzen)
-    const weg = document.createElement('button')
-    weg.className = 'chip-x'
-    weg.textContent = '×'
-    weg.title = 'Datei vom Server löschen'
-    weg.addEventListener('click', () => void audioDateiLoeschen(d.datei))
-    kopf.appendChild(weg)
-    zeile.appendChild(kopf)
-    container.appendChild(zeile)
-  }
 }
 
 // — Soundeffekt-Bibliothek (Dialog) —
@@ -2181,7 +2044,6 @@ function setzeMarke(tOffsetS: number): void {
   const punkt = punktZuOffset(z.track, geklemmt)
   if (punkt) z.auswahl = punkt
   renderPlayhead()
-  renderAuswahl()
 }
 
 /** Kopfstrich, Kopf-Uhr und Läufer auf die aktuelle Marke stellen. */
@@ -2303,7 +2165,6 @@ function renderTrimGriffe(skala: ZeitSkala): void {
 function renderNachZug(): void {
   zeichneTrack()
   renderZeitleiste()
-  renderTrim()
   renderInspektor()
 }
 
@@ -2491,8 +2352,7 @@ function verdrahteZeitleiste(): void {
       if (medium) {
         z.fokus = { art: 'medium', id: medium.id }
         fliegeZuMedium(medium)
-        renderAlles() // baut die Medienliste neu — erst danach blitzen lassen
-        blitzeZeile(medium.id)
+        renderAlles()
       }
     }
     zugEnde(e)
@@ -2540,6 +2400,27 @@ function verdrahteZeitleiste(): void {
     }
     window.addEventListener('pointermove', zieh)
     window.addEventListener('pointerup', los)
+  })
+
+  // — Ereignis anlegen: „+" an jeder Bahn, Ablage im Kopf —
+  zone.addEventListener('click', (e) => {
+    const plus = (e.target as HTMLElement).closest<HTMLElement>('.spur-plus')
+    if (!plus?.dataset['spur']) return
+    e.stopPropagation()
+    if (plus.getAttribute('aria-expanded') === 'true') schliesseSpurMenue()
+    else oeffneSpurMenue(plus.dataset['spur'], plus)
+  })
+  $('ablage-knopf').addEventListener('click', (e) => {
+    e.stopPropagation()
+    if (offenesMenue?.dataset['ablage'] === '1') schliesseSpurMenue()
+    else oeffneAblage()
+  })
+  // Klick daneben oder Esc schließt — ein Menü darf nie hängen bleiben
+  document.addEventListener('pointerdown', (e) => {
+    if (offenesMenue && !offenesMenue.contains(e.target as Node)) schliesseSpurMenue()
+  })
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && offenesMenue) schliesseSpurMenue()
   })
 
   // — Werkzeuge: Hand pannt, Zoom klickt/zieht. Der Abspielkopf bleibt in
@@ -2784,37 +2665,8 @@ function verdrahteEinmal(): void {
   window.addEventListener('keyup', (e) => {
     if (e.key === 'Alt') document.getElementById('spuren-fenster')?.classList.remove('alt')
   })
-  $('e-trim-start').addEventListener('click', () => trimSetzen('start'))
-  $('e-trim-ende').addEventListener('click', () => trimSetzen('ende'))
-  $('e-grenze').addEventListener('click', () => {
-    if (!z || !z.auswahl) return
-    const mode = ($('e-grenze-mode') as HTMLSelectElement).value as Modus
-    z.edits = mitModusGrenze(z.edits, offsetZuIso(z.daten.time.start, z.auswahl[3]), mode)
-    renderAlles()
-  })
-  $('e-kamera').addEventListener('click', () => {
-    if (!z || !z.auswahl) return
-    const preset = ($('e-kamera-preset') as HTMLSelectElement).value as KameraPreset
-    z.edits = mitKameraGrenze(z.edits, offsetZuIso(z.daten.time.start, z.auswahl[3]), preset)
-    renderAlles()
-  })
-  $('e-moment').addEventListener('click', () => {
-    if (!z || !z.auswahl) return
-    const art = ($('e-moment-art') as HTMLSelectElement).value as MomentArt
-    const ab = offsetZuIso(z.daten.time.start, z.auswahl[3])
-    z.edits = mitMoment(z.edits, ab, art)
-    z.fokus = { art: 'moment', ab } // gleich fokussieren → Inspector zeigt ihn
-    renderAlles()
-  })
-  $('e-wetter').addEventListener('click', () => {
-    if (!z || !z.auswahl) return
-    const mode = ($('e-wetter-mode') as HTMLSelectElement).value as WetterModus
-    z.edits = mitWetterGrenze(z.edits, offsetZuIso(z.daten.time.start, z.auswahl[3]), mode)
-    z.fokus = { art: 'wetter', bezugS: z.auswahl[3] } // gleich fokussieren → Inspector zeigt ihn
-    renderAlles()
-  })
-  $('e-audio-hinzu').addEventListener('click', () => $('e-audio-datei').click())
-  $('e-audio-bibliothek').addEventListener('click', oeffneSfxDialog)
+  // Trim setzt man an den Griffen der Zeitleiste; Ereignisse legt das „+"
+  // der jeweiligen Bahn an. Die frühere Knopfleiste in der Sidebar ist weg.
   $('sfx-schliessen').addEventListener('click', schliesseSfxDialog)
   $('sfx-dialog').addEventListener('close', stoppeDialogVorschau)
   // Klick aufs Backdrop (Ziel ist dann das dialog-Element selbst) schließt
@@ -2828,12 +2680,6 @@ function verdrahteEinmal(): void {
     eingabe.value = ''
   })
   verdrahteZeitleiste()
-}
-
-function trimSetzen(teil: 'start' | 'ende'): void {
-  if (!z || !z.auswahl) return
-  z.edits = mitTrim(z.edits, teil, offsetZuIso(z.daten.time.start, z.auswahl[3]))
-  renderAlles()
 }
 
 // Debug-Handle (Konvention wie window.__j im Player) — auch fürs Browser-E2E:
