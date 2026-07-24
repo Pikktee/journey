@@ -29,6 +29,50 @@ function track(abschnitte: Array<[number, number]>): UploadPunkt[] {
   return pts
 }
 
+// Echte Aufzeichnungen haben SEHR ungleiche Punktabstände: im Stand alle paar
+// Sekunden einer, auf der Landstraße alle paar hundert Meter. Genau daraus
+// entstehen die Fehler, die `track` (ein Punkt je 5 s) nie zeigen würde.
+
+/** Ein Streckenteil, der dort anschließt, wo der vorige endete. */
+type Teil = (lng: number, t: number) => UploadPunkt[]
+
+/** Stillstand mit GPS-Rauschen: Punkte im 10-s-Takt, ±3 m um denselben Ort. */
+const halt =
+  (dauerS: number): Teil =>
+  (lng, t0) => {
+    const pts: UploadPunkt[] = []
+    for (let t = 10; t <= dauerS; t += 10) {
+      pts.push([Number((lng + Math.sin(t) * 3 * GRAD_PRO_METER).toFixed(6)), 46.59, 800, t0 + t])
+    }
+    return pts
+  }
+
+/** Fahrt mit weit auseinanderliegenden Punkten (`taktS` Sekunden je Punkt). */
+const fahrt =
+  (kmh: number, dauerS: number, taktS: number): Teil =>
+  (lngStart, t0) => {
+    const pts: UploadPunkt[] = []
+    let lng = lngStart
+    for (let t = taktS; t <= dauerS; t += taktS) {
+      lng += (kmh / 3.6) * taktS * GRAD_PRO_METER
+      pts.push([Number(lng.toFixed(6)), 46.59, 800, t0 + t])
+    }
+    return pts
+  }
+
+/** Echtes Gehen: dichte Punkte, echte Strecke. */
+const gehen = (dauerS: number): Teil => fahrt(4.5, dauerS, 5)
+
+/** Teile aneinanderhängen; jeder beginnt an Ort und Zeit des vorigen. */
+function kette(...teile: Teil[]): UploadPunkt[] {
+  const pts: UploadPunkt[] = [[7.9, 46.59, 800, 0]]
+  for (const teil of teile) {
+    const letzter = pts[pts.length - 1]!
+    pts.push(...teil(letzter[0], letzter[3]))
+  }
+  return pts
+}
+
 const segment = (mode: Modus, pts: UploadPunkt[]): UploadSegment => ({ mode, pts })
 
 /** Modi und ihre Dauer in Sekunden — so lassen sich Ergebnisse knapp prüfen. */
@@ -85,6 +129,30 @@ describe('trenneGehabschnitte', () => {
     // Schwellen, die Hysterese hält den Abschnitt zusammen.
     const s = segment('bike', track([[5, 200], [7, 200], [5, 200], [7, 200]]))
     expect(trenneGehabschnitte(s)).toHaveLength(1)
+  })
+
+  it('ein Fotostopp ist kein Gehabschnitt', () => {
+    // Der Kernfall echter Aufnahmen: Wer zehn Minuten am Aussichtspunkt steht,
+    // legt nur GPS-Rauschen zurück. Ohne die Strecken-Schranke bekäme jedes
+    // Foto einer Mopedtour seinen eigenen „Zu Fuß"-Abschnitt.
+    const s = segment('moped', kette(fahrt(30, 600, 60), halt(600), fahrt(30, 600, 60)))
+    expect(trenneGehabschnitte(s).map((t) => t.mode)).toEqual(['moped'])
+  })
+
+  it('markiert keine Fahrt als Gehen, weil der Median nachhinkt', () => {
+    // Nach der Pause stehen die Punkte weit auseinander (Landstraße), der
+    // gleitende Median kippt deshalb erst nach etlichen hundert Metern Fahrt.
+    // Ohne geschärfte Grenze fiele diese Strecke in den Gehabschnitt.
+    const s = segment('moped', kette(gehen(300), halt(600), fahrt(30, 900, 60)))
+    for (const teil of trenneGehabschnitte(s)) {
+      if (teil.mode !== 'walk') continue
+      const dauerS = teil.pts[teil.pts.length - 1]![3] - teil.pts[0]![3]
+      let meter = 0
+      for (let i = 1; i < teil.pts.length; i++) {
+        meter += (teil.pts[i]![0] - teil.pts[i - 1]![0]) / GRAD_PRO_METER
+      }
+      expect((meter / dauerS) * 3.6, 'Gehabschnitt schneller als Gehtempo').toBeLessThanOrEqual(8.5)
+    }
   })
 
   it('behält den angegebenen Primärmodus bei', () => {

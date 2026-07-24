@@ -28,6 +28,22 @@ const GEHEN_AUS = 8
 const MIN_GEHEN_S = 120
 const MIN_FAHREN_S = 90
 
+/**
+ * Unter dieser VERDRÄNGUNG war es ein Halt, kein Gehen (m).
+ *
+ * Gemessen wird die Luftlinie zwischen Anfang und Ende, nicht die aufaddierte
+ * Weglänge: Im Stand zittert das GPS um ein paar Meter, und über eine
+ * Viertelstunde summiert sich dieses Zittern auf hunderte Meter „Strecke", die
+ * niemand gegangen ist. Wer steht, kommt nicht vom Fleck — das ist das
+ * belastbare Merkmal.
+ *
+ * Ohne diese Schranke bekäme jeder Fotostopp einer Mopedtour einen
+ * Gehabschnitt; bei zwölf Fotos zwölf falsche Wechsel. Wie lange die Pause im
+ * fertigen Film dauert, entscheidet die Zeitachse (zeit.ts), nicht die
+ * Fortbewegung.
+ */
+const MIN_GEH_VERDRAENGUNG_M = 60
+
 /** Ab diesem Median-Tempo gilt eine Tour ohne Angabe als Radfahrt (km/h). */
 const RAD_AB_KMH = 7
 
@@ -37,10 +53,8 @@ const RAD_AB_KMH = 7
  * Median statt Mittelwert, weil GPS-Ausreißer sonst einzelne Punkte auf
  * 80 km/h schleudern und dort einen Fahrabschnitt erfinden würden.
  */
-export function tempoVerlaufKmh(pts: readonly UploadPunkt[]): number[] {
-  if (pts.length < 2) return pts.map(() => 0)
-
-  // Momentantempo je Punkt aus dem Abstand zum Nachbarn
+/** Momentantempo je Punkt aus dem Abstand zu seinen Nachbarn (km/h). */
+function rohTempoKmh(pts: readonly UploadPunkt[]): number[] {
   const roh: number[] = []
   for (let i = 0; i < pts.length; i++) {
     const a = pts[Math.max(0, i - 1)]!
@@ -48,6 +62,13 @@ export function tempoVerlaufKmh(pts: readonly UploadPunkt[]): number[] {
     const dt = b[3] - a[3]
     roh.push(dt > 0 ? (distanzM([a[0], a[1]], [b[0], b[1]]) / dt) * 3.6 : 0)
   }
+  return roh
+}
+
+export function tempoVerlaufKmh(pts: readonly UploadPunkt[]): number[] {
+  if (pts.length < 2) return pts.map(() => 0)
+
+  const roh = rohTempoKmh(pts)
 
   return pts.map((p, i) => {
     const fenster: number[] = []
@@ -83,9 +104,65 @@ function teileNachTempo(tempo: readonly number[]): Abschnitt[] {
 }
 
 /**
- * Zu kurze Abschnitte im Nachbarn aufgehen lassen. Eine Ampel ist kein
- * Spaziergang, und ein Meter Rollen mitten im Wandern keine Radfahrt.
+ * Die Grenzen auf den tatsächlichen Bewegungswechsel ziehen.
+ *
+ * Der gleitende Median hinkt naturgemäß nach: Nach einer Fotopause zeigt er noch
+ * Stillstand an, während das Moped längst fährt. Weil GPS-Punkte im Stand dicht
+ * und auf der Landstraße weit auseinander liegen, sind das schnell einige
+ * hundert Meter Fahrt, die als Gehstrecke gälten. Das MOMENTANtempo weiß es
+ * genauer — es zittert nur zu sehr, um allein die Abschnitte zu setzen. Also:
+ * Abschnitte per Median finden, ihre Kanten per Momentantempo schärfen.
  */
+function schaerfeGrenzen(abschnitte: Abschnitt[], roh: readonly number[]): Abschnitt[] {
+  for (let i = 1; i < abschnitte.length; i++) {
+    const vor = abschnitte[i - 1]!
+    const nach = abschnitte[i]!
+    const gehoertSchonDazu = (tempo: number): boolean => (nach.gehen ? tempo < GEHEN_EIN : tempo > GEHEN_AUS)
+    let grenze = nach.vonIndex
+    while (grenze > vor.vonIndex + 1 && gehoertSchonDazu(roh[grenze - 1]!)) grenze--
+    vor.bisIndex = grenze
+    nach.vonIndex = grenze
+  }
+  return abschnitte
+}
+
+/**
+ * Hält dieser Abschnitt der Nachprüfung stand — oder soll er im Nachbarn
+ * aufgehen? Eine Ampel ist kein Spaziergang, und ein Meter Rollen mitten im
+ * Wandern keine Radfahrt.
+ *
+ * Für Gehabschnitte kommen zwei Proben am ERGEBNIS dazu, die das punktweise
+ * Tempo allein nicht leisten kann:
+ *
+ * 1. **Ohne Strecke kein Gehen.** Ein Halt sieht im Tempo aus wie Schritttempo,
+ *    kommt aber nicht vom Fleck.
+ * 2. **Wer im Schnitt fuhr, ging nicht.** Der gleitende Median hinkt nach, und
+ *    weil GPS-Punkte im Stand dicht und auf der Landstraße weit auseinander
+ *    liegen, kann ein einziger Punkt einen Kilometer Fahrt vertreten. Bis der
+ *    Median nach einer Pause kippt, ist die halbe Ausfahrt als „zu Fuß"
+ *    markiert — es sei denn, man misst am Ende nach.
+ */
+function istGlaubwuerdig(a: Abschnitt, pts: readonly UploadPunkt[]): boolean {
+  const dauerS = pts[a.bisIndex]![3] - pts[a.vonIndex]![3]
+  if (dauerS < (a.gehen ? MIN_GEHEN_S : MIN_FAHREN_S)) return false
+  if (!a.gehen) return true
+
+  const von = pts[a.vonIndex]!
+  const bis = pts[a.bisIndex]!
+  if (distanzM([von[0], von[1]], [bis[0], bis[1]]) < MIN_GEH_VERDRAENGUNG_M) return false
+
+  // Fürs Tempo zählt dagegen der zurückgelegte Weg — sonst spräche eine Kurve
+  // einen zu schnellen Abschnitt frei, nur weil sie zum Ausgangspunkt zurückführt.
+  let weg = 0
+  for (let i = a.vonIndex + 1; i <= a.bisIndex; i++) {
+    const v = pts[i - 1]!
+    const n = pts[i]!
+    weg += distanzM([v[0], v[1]], [n[0], n[1]])
+  }
+  return dauerS <= 0 || (weg / dauerS) * 3.6 <= GEHEN_AUS
+}
+
+/** Unglaubwürdige Abschnitte im (zeitlich) größeren Nachbarn aufgehen lassen. */
 function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPunkt[]): Abschnitt[] {
   const dauer = (a: Abschnitt): number => pts[a.bisIndex]![3] - pts[a.vonIndex]![3]
   let liste = abschnitte
@@ -94,8 +171,7 @@ function verschmelzeKurze(abschnitte: Abschnitt[], pts: readonly UploadPunkt[]):
     geaendert = false
     for (let i = 0; i < liste.length; i++) {
       const a = liste[i]!
-      const grenze = a.gehen ? MIN_GEHEN_S : MIN_FAHREN_S
-      if (dauer(a) >= grenze) continue
+      if (istGlaubwuerdig(a, pts)) continue
       // In den (zeitlich) größeren Nachbarn schlucken, damit kurze Stücke
       // nicht reihum die Richtung wechseln
       const vor = liste[i - 1]
@@ -149,7 +225,7 @@ export function trenneGehabschnitte(segment: UploadSegment): UploadSegment[] {
   // Ohne erkennbare Fahrt bleibt alles, wie es ist
   if (primaer === 'walk') return [segment]
 
-  const abschnitte = verschmelzeKurze(teileNachTempo(tempo), segment.pts)
+  const abschnitte = verschmelzeKurze(schaerfeGrenzen(teileNachTempo(tempo), rohTempoKmh(segment.pts)), segment.pts)
   if (abschnitte.length < 2) {
     // Ein einziger Abschnitt: nur der Modus kann sich noch geändert haben.
     // Das Label des Originals fällt dabei weg — es beschrieb den alten Modus.
