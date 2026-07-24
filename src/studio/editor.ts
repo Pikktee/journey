@@ -2063,8 +2063,13 @@ async function audioDateiLoeschen(datei: string, still = false): Promise<void> {
 
 // — Zeitleiste: Bänder, Pins, Medien-Dots, Audio-Spur —
 
+/** Rollen, bei denen ein Zug eine KANTE verschiebt (Cursor „Rand ziehen"). */
+const KANTEN_ROLLEN = new Set(['grenze', 'kamera', 'wetter', 'audio-von', 'audio-bis'])
+
 interface ZugZustand {
   rolle: string
+  /** Bildschirm-x beim Greifen — Bezug für die Zug-Schwelle. */
+  startX: number
   /** Overlay-Identität: ISO-`ab` bei Pins, Index bei Audio */
   ab?: string
   mode?: Modus
@@ -2528,7 +2533,15 @@ function renderPlayhead(): void {
   }
   strich.hidden = false
   const tOffsetS = z.auswahl[3]
-  strich.style.left = zeitX(offsetZuAnteil(skala, tOffsetS))
+  const anteil = offsetZuAnteil(skala, tOffsetS)
+  strich.style.left = zeitX(anteil)
+  // An den Achsenenden den Kopf so weit nach innen rücken, dass er ganz zu
+  // sehen ist: ganz links verschwände seine linke Hälfte hinter der klebenden
+  // Namensspalte, ganz rechts hinge sie über den Rand.
+  const halb = 7
+  const x = anteil * zeitBreitePx()
+  const versatz = Math.max(0, halb - x) + Math.min(0, zeitBreitePx() - x - halb)
+  strich.style.setProperty('--kopf-versatz', `${versatz.toFixed(1)}px`)
 
   const uhr = document.getElementById('kopf-uhr')
   // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
@@ -2725,14 +2738,31 @@ function verschiebeGrenze(art: 'modus' | 'kamera' | 'wetter' | 'moment', altAb: 
   return neuAb
 }
 
+/**
+ * Mindestweg, bevor aus einem Druck ein ZUG wird.
+ *
+ * Ohne diese Schwelle galt schon die erste `pointermove`-Meldung als Zug — und
+ * die kommt bei einem gewöhnlichen Klick fast immer (eine Maus wackelt um ein
+ * Pixel). Der Klick endete dann im „bewegt"-Zweig, der bewusst NICHT auswählt:
+ * Bänder ließen sich „manchmal" nicht markieren. Derselbe Wert wie beim
+ * Foto-Zug (`ziehStopp`).
+ */
+const ZUG_SCHWELLE_PX = 4
+
 function zeitleisteZug(e: PointerEvent): void {
   if (!z || !zug) return
   const skala = baueSkala(z.track)
   if (!skala) return
+  if (!zug.bewegt) {
+    if (Math.abs(e.clientX - zug.startX) < ZUG_SCHWELLE_PX) return
+    zug.bewegt = true
+    // Der Greif-Cursor gilt erst AB HIER: beim bloßen Draufdrücken sah man
+    // sonst „Rand ziehen", obwohl man nur etwas auswählen wollte.
+    $('zeitleiste-zone').classList.add(KANTEN_ROLLEN.has(zug.rolle) ? 'zieht' : 'schiebt')
+  }
   const start = z.daten.time.start
   const anteil = spurAnteil(e.clientX)
   const iso = (a: number): string => offsetZuIso(start, anteilZuOffset(skala, a))
-  zug.bewegt = true
 
   switch (zug.rolle) {
     // Grenzen aller Art laufen über dieselbe Funktion wie die Zeitfelder im
@@ -2798,8 +2828,9 @@ function verdrahteZeitleiste(): void {
     if (rolle === 'dot') return // Klick, kein Zug
     e.preventDefault()
     zone.setPointerCapture(e.pointerId)
-    zone.classList.add('zieht')
-    zug = { rolle, bewegt: false, fokus: bandUnterZeiger(e) }
+    // KEIN Greif-Cursor beim bloßen Drücken — den setzt erst der echte Zug
+    // (zeitleisteZug, ab ZUG_SCHWELLE_PX).
+    zug = { rolle, startX: e.clientX, bewegt: false, fokus: bandUnterZeiger(e) }
     if (ziel.dataset['ab'] !== undefined) zug.ab = ziel.dataset['ab']
     if (ziel.dataset['mode']) zug.mode = ziel.dataset['mode'] as Modus
     if (ziel.dataset['preset']) zug.preset = ziel.dataset['preset'] as KameraPreset
@@ -2826,7 +2857,7 @@ function verdrahteZeitleiste(): void {
     if (zug) {
       const war = zug
       zug = null
-      zone.classList.remove('zieht')
+      zone.classList.remove('zieht', 'schiebt')
       if (zone.hasPointerCapture(e.pointerId)) zone.releasePointerCapture(e.pointerId)
       if (war.bewegt) {
         unterdrueckeKlick = true
