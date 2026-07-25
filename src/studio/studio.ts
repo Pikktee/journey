@@ -593,10 +593,12 @@ let befund: Pruefbefund | null = null
 let laeuftUpload = false
 const vorschauUrls = new Map<string, string>()
 
+// Kein Dateiauswahl-Dialog von selbst: das Fenster erklärt erst, was hier
+// hineingehört (und dass Ziehen genügt). Zwei Dialoge übereinander verdecken
+// diese Ansage, und wer nur schauen wollte, muss erst einen davon wegklicken.
 function oeffneNeu(): void {
   els.neuHinter.hidden = false
   renderNeu()
-  if (!medienDateien.length && !gpxDatei) els.dateien.click()
 }
 
 function schliesseNeu(): void {
