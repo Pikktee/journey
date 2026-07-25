@@ -263,6 +263,7 @@ async function ladeDaten(tourId: string): Promise<void> {
   letzterStand = edits
   ;($('editor-titel') as HTMLInputElement).value = daten.title ?? ''
   ;($('editor-beschreibung') as HTMLTextAreaElement).value = daten.description ?? ''
+  zeigeTitelImKopf()
   ;($('editor-vorschau') as HTMLAnchorElement).href = `/erlebnis.html?tour=srv:${tourId}`
   ;($('editor-vorschau') as HTMLAnchorElement).style.display = daten.status === 'bereit' ? '' : 'none'
 
@@ -3504,9 +3505,27 @@ async function speichern(): Promise<void> {
   }
 }
 
+// — Angaben zur ganzen Tour —
+//
+// Titel und Beschreibung gehören keinem Objekt der Zeitleiste. Sie standen
+// deshalb früher im LEERZUSTAND des Inspectors — dort, wo nichts ausgewählt
+// ist, las sich das wie eine Einstellung des Nichts. Jetzt liegen sie in einem
+// eigenen Fenster, erreichbar über den Titel im Kopf und über das „…"-Menü.
+
+/** Den (ggf. im Dialog geänderten) Titel oben in der Leiste zeigen. */
+function zeigeTitelImKopf(): void {
+  const titel = ($('editor-titel') as HTMLInputElement).value.trim()
+  $('editor-titel-knopf').textContent = titel
+}
+
+function oeffneTourDialog(): void {
+  ;($('tour-dialog') as HTMLDialogElement).showModal()
+  ;($('editor-titel') as HTMLInputElement).focus()
+}
+
 async function neuVerarbeiten(): Promise<void> {
   if (!z) return
-  const knopf = $('editor-reprocess') as HTMLButtonElement
+  const knopf = $('editor-mehr') as HTMLButtonElement
   knopf.disabled = true
   try {
     status('Tour wird neu verarbeitet (Benennung/Wetter) …')
@@ -3528,7 +3547,27 @@ function verdrahteEinmal(): void {
   verdrahtet = true
   $('editor-zurueck').addEventListener('click', schliesse)
   $('editor-speichern').addEventListener('click', () => void speichern())
-  $('editor-reprocess').addEventListener('click', () => void neuVerarbeiten())
+  $('editor-titel-knopf').addEventListener('click', oeffneTourDialog)
+  // „…" — was die ganze Tour betrifft, nicht das gerade Ausgewählte.
+  $('editor-mehr').addEventListener('click', (e) => {
+    e.stopPropagation()
+    const knopf = $('editor-mehr')
+    if (offenesMenue) return schliesseSpurMenue()
+    const menue = document.createElement('div')
+    menue.className = 'schwebe-menue'
+    menue.append(
+      menueEintrag('Angaben zur Tour …', oeffneTourDialog),
+      menueEintrag('Neu verarbeiten', () => void neuVerarbeiten()),
+    )
+    zeigeSchwebeMenue(menue, knopf)
+  })
+  $('tour-schliessen').addEventListener('click', () => ($('tour-dialog') as HTMLDialogElement).close())
+  // Der Kopf zeigt den Titel — er muss dem Feld folgen, sonst steht dort der
+  // alte Name, bis die Tour neu geladen wird.
+  $('editor-titel').addEventListener('input', zeigeTitelImKopf)
+  $('tour-dialog').addEventListener('click', (e) => {
+    if (e.target === $('tour-dialog')) ($('tour-dialog') as HTMLDialogElement).close()
+  })
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)
   $('karte-plus').addEventListener('click', () => karte?.zoomIn())
@@ -3552,6 +3591,9 @@ function verdrahteEinmal(): void {
     if (!z || $('editor-view').hidden) return
     // In Eingabefeldern gilt das native Undo/Speichern des Browsers
     if ((e.target as HTMLElement).closest('input, textarea, select')) return
+    // Steht ein Fenster offen (Bibliothek, Angaben), gehört die Tastatur ihm —
+    // sonst spielte die Leertaste die Tour ab, während man Musik aussucht.
+    if (document.querySelector('dialog[open]')) return
     const meta = e.metaKey || e.ctrlKey
     if (meta && e.key.toLowerCase() === 'z') {
       e.preventDefault()

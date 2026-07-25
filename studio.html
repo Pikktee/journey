@@ -752,19 +752,47 @@
       backdrop-filter: blur(14px);
       z-index: 5;
     }
-    #editor-titel {
+    /* Der Titel liest sich als Überschrift, ist aber der Weg in die Angaben. */
+    .editor-titel {
       flex: 1;
       min-width: 140px;
       max-width: 460px;
+      justify-content: flex-start;
       font-family: var(--font-display);
       font-size: 17px;
+      font-weight: 550;
+      color: var(--text);
       background: transparent;
       border-color: transparent;
       padding: 8px 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+      text-align: left;
     }
-    #editor-titel:hover { border-color: var(--rand); background: var(--bg-tief); }
-    #editor-titel:focus { border-color: var(--akzent); background: var(--bg-tief); }
+    .editor-titel:hover { border-color: var(--rand); background: var(--bg-tief); }
+    .editor-titel:empty::before { content: 'Ohne Titel'; color: var(--text-3); }
     #editor-status { flex: 1; text-align: right; padding-right: 4px; }
+
+    /* — Angaben zur Tour (Dialog) — bewusst ohne eigene display-Regel, sonst
+         schlüge sie `dialog:not([open]) { display: none }` des Browsers. */
+    .tour-dialog {
+      width: min(460px, 92vw);
+      padding: 0;
+      border: 1px solid var(--rand-hell);
+      border-radius: 16px;
+      background: var(--fl-1);
+      color: var(--text);
+      box-shadow: var(--schatten);
+    }
+    .tour-dialog::backdrop { background: rgba(4, 6, 10, 0.62); backdrop-filter: blur(4px); }
+    .tour-kopf { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 0; }
+    .tour-kopf strong { font-family: var(--font-display); font-size: 19px; font-weight: 550; letter-spacing: -0.015em; }
+    .tour-inhalt { padding: 16px 18px 18px; display: grid; gap: 14px; }
+    .tour-inhalt input, .tour-inhalt textarea { width: 100%; }
+    .tour-inhalt textarea { resize: vertical; font-size: 13px; }
+    .tour-fuss { margin: 0; font-size: 12px; color: var(--text-3); }
 
     /* Karte oben, Zeitleiste als EIGENE Zone darunter, Inspector über die volle
        Höhe rechts — wie im Schnittprogramm. Vorher schwebte die Leiste als
@@ -1382,8 +1410,6 @@
     .leer-grafik { width: 132px; height: auto; opacity: 0.9; }
     .leer-titel { font-family: var(--font-display); font-size: 18px; color: var(--text-2); }
     .leer-text { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-3); max-width: 26ch; }
-    .leer-tour { width: 100%; text-align: left; margin-top: 4px; }
-    .leer-tour textarea { width: 100%; font-size: 12.5px; resize: vertical; }
     .insp-inhalt { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
     .insp-inhalt::-webkit-scrollbar { width: 10px; }
     .insp-inhalt::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 3px solid var(--bg); }
@@ -1745,6 +1771,8 @@
       <symbol id="i-anpassen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
       <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+      <symbol id="i-mehr" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="18.5" cy="12" r="1.75"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
       <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5.5 12h13"/></symbol>
       <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2"/><path d="M12 7.7h.01"/></symbol>
       <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></symbol>
@@ -1973,15 +2001,15 @@
   <section id="editor-view" hidden>
     <header class="editor-kopf">
       <button class="icon" id="editor-zurueck" title="Zurück zur Bibliothek" aria-label="Zurück"><svg><use href="#i-zurueck"/></svg></button>
-      <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
-           per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
-      <input id="editor-titel" type="text" placeholder="Titel der Tour" />
+      <!-- Der Titel ist der Name des Stücks, an dem man arbeitet: hier steht er,
+           geändert wird er in den Angaben zur Tour (Klick oder „…"-Menü). -->
+      <button class="editor-titel" id="editor-titel-knopf" title="Angaben zur Tour"></button>
       <div class="hinweis" id="editor-status" role="status"></div>
       <button class="icon" id="editor-undo" disabled title="Rückgängig (⌘Z)" aria-label="Rückgängig"><svg><use href="#i-undo"/></svg></button>
       <button class="icon" id="editor-redo" disabled title="Wiederherstellen (⇧⌘Z)" aria-label="Wiederherstellen"><svg><use href="#i-redo"/></svg></button>
       <a id="editor-vorschau" class="knopf" href="#" target="_blank" rel="noopener"><svg><use href="#i-play"/></svg>Vorschau</a>
-      <button id="editor-reprocess" title="Benennung/Wetter neu ableiten — Bearbeitungen bleiben erhalten"><svg><use href="#i-neu"/></svg>Neu verarbeiten</button>
       <button id="editor-speichern" class="primaer"><svg><use href="#i-haken"/></svg>Speichern</button>
+      <button class="icon" id="editor-mehr" aria-haspopup="menu" aria-expanded="false" title="Weitere Funktionen" aria-label="Weitere Funktionen"><svg><use href="#i-mehr"/></svg></button>
     </header>
     <div class="editor-rumpf">
       <div class="editor-links">
@@ -2104,12 +2132,6 @@
             <div class="leer-titel">Noch nichts ausgewählt</div>
             <p class="leer-text">Tippe in der Zeitleiste auf ein Band, ein Foto oder einen Klang — seine Einstellungen erscheinen dann hier.</p>
           </div>
-          <!-- Die Beschreibung gehört der ganzen Tour, nicht einem Objekt —
-               deshalb steht sie hier, wo nichts ausgewählt ist. -->
-          <div class="feld leer-tour">
-            <label for="editor-beschreibung">Beschreibung der Tour</label>
-            <textarea id="editor-beschreibung" rows="4" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
-          </div>
         </div>
         <div class="insp-inhalt" id="insp-inhalt" hidden></div>
         <div class="insp-fuss" id="insp-fuss" hidden></div>
@@ -2118,11 +2140,33 @@
         <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
       </aside>
     </div>
+    <!-- Angaben zur ganzen Tour. Sie gehören keinem Objekt der Zeitleiste und
+         standen deshalb früher im Leerzustand des Inspectors — dort las es sich
+         wie eine Einstellung des Nichts. Übernommen wird beim Speichern. -->
+    <dialog id="tour-dialog" class="tour-dialog">
+      <div class="tour-kopf">
+        <strong>Angaben zur Tour</strong>
+        <button class="icon" id="tour-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="tour-inhalt">
+        <div class="feld">
+          <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
+               per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
+          <label for="editor-titel">Titel</label>
+          <input id="editor-titel" type="text" placeholder="Titel der Tour" />
+        </div>
+        <div class="feld">
+          <label for="editor-beschreibung">Beschreibung</label>
+          <textarea id="editor-beschreibung" rows="5" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
+        </div>
+        <p class="tour-fuss">Beides wird mit „Speichern" übernommen.</p>
+      </div>
+    </dialog>
     <!-- Musik- & Klangbibliothek: Filter-Tabs + Suche + Kachelraster (aus SFX_BIBLIOTHEK) -->
     <dialog id="sfx-dialog" class="sfx-dialog">
       <div class="sfx-kopf">
         <div><strong>Musik &amp; Klang</strong><span class="sfx-unter">Vorhören, dann ab der Marke einsetzen</span></div>
-        <button class="icon" id="sfx-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-zurueck"/></svg></button>
+        <button class="icon" id="sfx-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
       </div>
       <div class="sfx-filter">
         <div class="sfx-tabs" id="sfx-tabs" role="tablist" aria-label="Nach Art filtern"></div>
