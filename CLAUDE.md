@@ -306,6 +306,13 @@ Kopfleiste und über den „…"-Knopf neben Speichern (dort auch „Neu verarbe
 die Beschreibung im LEERZUSTAND des Inspectors — dort, wo „Noch nichts ausgewählt" steht, las
 sich das wie eine Einstellung des Nichts.
 
+**Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover { background: … }` wiegt durch
+die Pseudoklasse mehr als `.knopf-primaer` oder `.kopf-griff` — wer einem Knopf eine eigene
+Fläche gibt, muss sie in der `:hover`-Regel WIEDERHOLEN, sonst wird er beim Zeigen grau (der
+orange Primärknopf und der Abspielkopf wurden so ausgerechnet dunkler). Dasselbe gilt für
+`:disabled:hover`. Ein Knopf, der gar keinen Hover haben soll, braucht trotzdem eine leere
+`:hover`-Regel, die seine Fläche hält.
+
 **Zwei CSS-Fallen derselben Sorte** (eine eigene Regel schlägt eine, die der Browser über einen
 anderen Selektor stellt): `display: flex` direkt auf `dialog` schlägt
 `dialog:not([open]) { display: none }` — der geschlossene Dialog hängt dann sichtbar über der
