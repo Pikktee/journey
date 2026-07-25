@@ -382,6 +382,22 @@ describe('Musik- und Klangbibliothek', () => {
       expect(existsSync(pfad), `${e.name}: ${e.datei} fehlt`).toBe(true)
     }
   })
+
+  // Drift-Wächter: Der Server vergibt beim ersten Verarbeiten selbst ein
+  // Musikstück und führt dafür eine eigene Dateiliste (er kann den Client-
+  // Katalog nicht importieren). Driftet sie ab, setzt die Automatik eine
+  // Referenz, die es nicht gibt — im Player bliebe es still.
+  it('die Auto-Musik des Servers steht wirklich im Katalog', () => {
+    const quelle = readFileSync(new URL('../server/src/pipeline/musikwahl.ts', import.meta.url), 'utf8')
+    const block = quelle.match(/AUTO_MUSIK = \{([\s\S]*?)\} as const/)
+    expect(block, 'AUTO_MUSIK in server/src/pipeline/musikwahl.ts nicht gefunden').not.toBeNull()
+    const dateien = [...(block?.[1] ?? '').matchAll(/'([^']+\.mp3)'/g)].map((m) => m[1] as string)
+    expect(dateien.length, 'AUTO_MUSIK ist leer').toBeGreaterThanOrEqual(5)
+    for (const datei of dateien) {
+      expect(SFX_DATEIEN.has(datei), `${datei} fehlt im Studio-Katalog`).toBe(true)
+      expect(sfxEffekt(datei)?.kategorie, `${datei} ist keine Musik`).toBe('musik')
+    }
+  })
 })
 
 describe('Zeitleiste', () => {

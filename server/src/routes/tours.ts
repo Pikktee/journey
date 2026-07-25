@@ -17,6 +17,7 @@ import { bestimmeCover, reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
 import { trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
+import { waehleMusik } from '../pipeline/musikwahl.js'
 import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import type { BildBefund } from '../pipeline/vision.js'
@@ -206,9 +207,14 @@ export function registriereTourRouten(app: FastifyInstance): void {
     }
 
     // Erst-Render: alle externen Schritte laufen und füllen den Anreicherungs-Cache.
+    // `erstmals` unterscheidet die allererste Verarbeitung von einem späteren
+    // reprocess (das ebenfalls frisch rendert) — nur beim ersten Mal schlägt die
+    // Pipeline ein Musikstück vor. `tour` hält noch den Status VOR dem Claim.
     app.verarbeitungen.set(
       tour.id,
-      verarbeite(app, tour.id, { frisch: true }).finally(() => app.verarbeitungen.delete(tour.id)),
+      verarbeite(app, tour.id, { frisch: true, erstmals: tour.status === 'angelegt' }).finally(() =>
+        app.verarbeitungen.delete(tour.id),
+      ),
     )
     return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
   })
@@ -568,8 +574,12 @@ async function ermittleAutoWetter(
  * soweit gültig — aus dem Cache übernommen, sodass nur das Overlay lokal
  * angewandt wird (Sekundenbruchteil statt zig Sekunden).
  */
-async function verarbeite(app: FastifyInstance, tourId: string, opts: { frisch?: boolean } = {}): Promise<void> {
-  const { frisch = false } = opts
+async function verarbeite(
+  app: FastifyInstance,
+  tourId: string,
+  opts: { frisch?: boolean; erstmals?: boolean } = {},
+): Promise<void> {
+  const { frisch = false, erstmals = false } = opts
   const { db, storage, geocoder, wetter, videoWerkzeug, bildKlassifikator } = app.deps
   const protokoll = (nachricht: string): void => app.log.warn(nachricht)
   try {
@@ -655,6 +665,26 @@ async function verarbeite(app: FastifyInstance, tourId: string, opts: { frisch?:
       wetterRoh = cache.wetterRoh
     } else {
       ;({ orte, wetterRoh } = await berechneRohAnreicherung({ manifest, edits, geocoder, wetter, protokoll }))
+    }
+
+    // Erste Verarbeitung: ein passendes Musikstück vorschlagen und ins Overlay
+    // schreiben — dort ist es im Studio sichtbar und austauschbar. Nur beim
+    // ersten Mal: wer es später entfernt, soll es nicht beim nächsten Render
+    // zurückbekommen. Ein bereits gesetztes `audio` bleibt unangetastet.
+    if (erstmals && !edits?.audio?.length) {
+      const datei = waehleMusik({
+        segmente: manifest.segments ?? [],
+        wetter: wetterRoh,
+        startIso: manifest.time.start,
+        endeIso: manifest.time.end,
+        zone: manifest.time.zone,
+      })
+      const mitMusik: EditOverlay = {
+        ...(edits ?? { schema: EDITS_SCHEMA_ID }),
+        audio: [{ datei, typ: 'musik', ab: manifest.time.start, quelle: 'bibliothek' }],
+      }
+      await storage.schreibe(tourId, EDITS_PFAD, JSON.stringify(mitMusik, null, 2))
+      edits = mitMusik
     }
 
     // Vorhandene Audio-Dateien an die Pipeline reichen (Baukasten) —
