@@ -813,21 +813,9 @@ function offsetVon(m: MediumAnzeige): number {
   return projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3]
 }
 
-/** Trackpunkt bei einem Aufnahmezeit-Offset (s), zwischen den Punkten interpoliert. */
+/** Trackpunkt bei einem Aufnahmezeit-Offset (s) — Umkehrung von offsetVon. */
 function punktBeiOffset(offsetS: number): TrackPunkt | null {
-  if (!z || z.track.length === 0) return null
-  const track = z.track
-  const erster = track[0] as TrackPunkt
-  const letzter = track[track.length - 1] as TrackPunkt
-  if (offsetS <= erster[3]) return erster
-  if (offsetS >= letzter[3]) return letzter
-  let i = 1
-  while (i < track.length - 1 && (track[i] as TrackPunkt)[3] < offsetS) i++
-  const a = track[i - 1] as TrackPunkt
-  const b = track[i] as TrackPunkt
-  const spanne = b[3] - a[3]
-  const f = spanne > 0 ? (offsetS - a[3]) / spanne : 0
-  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f]
+  return z ? punktZuOffset(z.track, offsetS) : null
 }
 
 /**
@@ -884,42 +872,74 @@ function ordneStreifen(e: PointerEvent, streifen: HTMLElement, stopp: Stopp, id:
   let nachIdx = vonIdx
   let gezogen = false
 
-  // Über der KARTE losgelassen verlässt die Aufnahme den Halt und bekommt dort
-  // ihren eigenen Ort — der Weg, einen Stapel wieder aufzulösen.
+  // Aus dem Streifen HERAUS gezogen verlässt die Aufnahme den Halt und bekommt
+  // einen eigenen Ort — der Weg, einen Stapel wieder aufzulösen. Zwei Ziele
+  // nehmen sie auf: die Karte (Ort zeigen) und die Foto-Spur der Zeitleiste
+  // (Zeitpunkt zeigen). Beide enden im selben Anker.
   let geist: HTMLElement | null = null
   let aufKarte: { lng: number; lat: number } | null = null
+  let aufZeit: number | null = null
+  let marke: HTMLElement | null = null
   const kartenRect = (): DOMRect | undefined => document.getElementById('editor-map')?.getBoundingClientRect()
+
+  /** Bild an den Zeiger hängen und den Streifen in Ruhe lassen. */
+  const zeigeGeist = (ev: PointerEvent): void => {
+    for (const kk of kinder) kk.style.transform = ''
+    knopf.classList.remove('zieht')
+    nachIdx = vonIdx
+    if (!geist) {
+      geist = document.createElement('div')
+      geist.className = 'zieh-geist'
+      const bild = document.createElement('img')
+      bild.src = (knopf.querySelector('img') as HTMLImageElement | null)?.src ?? ''
+      bild.alt = ''
+      geist.appendChild(bild)
+      document.body.appendChild(geist)
+    }
+    geist.style.left = `${ev.clientX}px`
+    geist.style.top = `${ev.clientY}px`
+  }
+  const raeumeGeist = (): void => {
+    geist?.remove()
+    geist = null
+    marke?.remove()
+    marke = null
+    aufKarte = null
+    aufZeit = null
+  }
 
   const zieh = (ev: PointerEvent): void => {
     if (!gezogen && Math.abs(ev.clientX - startX) < 5 && Math.abs(ev.clientY - startY) < 5) return
     gezogen = true
+    // Zuerst die Zeitleiste: sie liegt näher am Streifen als die Karte.
+    const bahn = document.getElementById('spur-fotos')?.getBoundingClientRect()
+    const skala = z ? baueSkala(z.track) : null
+    const ueberBahn =
+      !!bahn && !!skala && ev.clientX >= bahn.left && ev.clientX <= bahn.right && ev.clientY >= bahn.top - 20 && ev.clientY <= bahn.bottom + 20
+    if (ueberBahn && skala) {
+      zeigeGeist(ev)
+      aufKarte = null
+      aufZeit = anteilZuOffset(skala, spurAnteil(ev.clientX))
+      if (!marke) {
+        marke = document.createElement('div')
+        marke.className = 'ablege-marke'
+        document.getElementById('spuren')?.appendChild(marke)
+      }
+      marke.style.left = zeitX(offsetZuAnteil(skala, aufZeit))
+      return
+    }
     const k = kartenRect()
     const ueberKarte = !!k && ev.clientX >= k.left && ev.clientX <= k.right && ev.clientY >= k.top && ev.clientY <= k.bottom
     if (ueberKarte && karte) {
-      // Herauslösen: Bild hängt am Zeiger, der Streifen bleibt in Ruhe
-      for (const kk of kinder) kk.style.transform = ''
-      knopf.classList.remove('zieht')
-      nachIdx = vonIdx
-      if (!geist) {
-        geist = document.createElement('div')
-        geist.className = 'zieh-geist'
-        const bild = document.createElement('img')
-        bild.src = (knopf.querySelector('img') as HTMLImageElement | null)?.src ?? ''
-        bild.alt = ''
-        geist.appendChild(bild)
-        document.body.appendChild(geist)
-      }
-      geist.style.left = `${ev.clientX}px`
-      geist.style.top = `${ev.clientY}px`
+      zeigeGeist(ev)
+      marke?.remove()
+      marke = null
+      aufZeit = null
       const p = karte.unproject([ev.clientX - (k as DOMRect).left, ev.clientY - (k as DOMRect).top])
       aufKarte = { lng: p.lng, lat: p.lat }
       return
     }
-    if (geist) {
-      geist.remove()
-      geist = null
-      aufKarte = null
-    }
+    if (geist) raeumeGeist()
     const dx = ev.clientX - startX
     knopf.classList.add('zieht')
     knopf.style.transform = `translateX(${dx}px) scale(1.06)`
@@ -933,19 +953,33 @@ function ordneStreifen(e: PointerEvent, streifen: HTMLElement, stopp: Stopp, id:
   const los = (): void => {
     window.removeEventListener('pointermove', zieh)
     window.removeEventListener('pointerup', los)
-    const abgelegt = aufKarte // VOR dem Aufräumen sichern
+    // VOR dem Aufräumen sichern
+    const imOrt = aufKarte
+    const zurZeit = aufZeit
     geist?.remove()
+    marke?.remove()
     for (const k of kinder) {
       k.style.transform = ''
       k.classList.remove('zieht')
     }
     if (!gezogen || !z) return
-    if (abgelegt) {
+    // `reihe` fällt weg: die Aufnahme gehört zu keinem Stapel mehr, in dem eine
+    // Reihenfolge gälte.
+    const loeseHeraus = (lng: number, lat: number): void => {
+      if (!z) return
       unterdrueckeKlick = true
-      const p = projiziereAufTrack(z.track, abgelegt.lng, abgelegt.lat)
-      z.edits = mitMedienEdit(z.edits, id, { anchor: [p.punkt[0], p.punkt[1]], reihe: undefined })
+      z.edits = mitMedienEdit(z.edits, id, { anchor: [lng, lat], reihe: undefined })
       z.fokus = { art: 'medium', id }
       renderAlles()
+    }
+    if (zurZeit !== null) {
+      const p = punktBeiOffset(zurZeit)
+      if (p) loeseHeraus(p[0], p[1])
+      return
+    }
+    if (imOrt) {
+      const p = projiziereAufTrack(z.track, imOrt.lng, imOrt.lat)
+      loeseHeraus(p.punkt[0], p.punkt[1])
       return
     }
     if (nachIdx === vonIdx) return
