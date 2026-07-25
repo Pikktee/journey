@@ -231,6 +231,19 @@ ERSTEN Eingriff ins Overlay (`schreibeWetterFest`) — genau das Muster von `mat
 bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband heißt
 **„Standard"**, weil dort gilt, was der Zuschauer im Player einstellt (Nah/Mittel/Weit).
 
+**Eine neue Tour bekommt Musik, aber nur einmal.** Beim ERSTEN Verarbeiten (`finalize`, erkannt
+am Status VOR dem Claim → `erstmals` in `verarbeite`) wählt
+[musikwahl.ts](server/src/pipeline/musikwahl.ts) aus Uhrzeit, Wetter, Höhen, Fortbewegung und
+Breitengrad ein Stück der Bibliothek und schreibt es ins **Overlay** — nicht direkt ins
+Tour-JSON, denn dort wäre es im Studio unsichtbar und unabänderlich. Reihenfolge der Regeln
+(erste gewinnt): Nacht → Nachtfahrt, nasses Drittel → Regentag, Höhenmeter/Höhe → Bergpass,
+Fähre → Küstenstraße, Wendekreise → Tropen, Abendankunft → Goldene Stunde, ≥ 60 km → Fernweh,
+sonst Aufbruch. **Nur beim ersten Mal**: `reprocess` rendert ebenfalls `frisch`, rührt das
+Overlay aber nicht an — wer die Musik entfernt, bekommt sie nicht zurück, und eine selbst
+gesetzte Spur wird nie überschrieben (beides als Vertrag getestet). Der Server kann
+`sfxbibliothek.ts` nicht importieren (eigener `rootDir`) und führt die Dateinamen ein zweites
+Mal; ein Drift-Wächter prüft, dass jede davon im Katalog steht und Musik ist.
+
 **Zwei Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`
@@ -275,6 +288,29 @@ sonst wurden bei jedem Klick alle Fotos kurz zu leeren Kreisen.
 Wie lang die fertige Animation läuft, ist eine andere Größe (die Engine fährt mit eigenem
 Tempo und hält an jedem Foto); sie steht als **eine geschätzte Zahl** links unter den Bahnen
 (`schaetzeAnimationsdauer`). Bewusst keine zweite Zeitachse.
+
+**Deshalb rechnet auch der Foto-Zug in ZEIT, nicht in Metern.** `ziehStopp` setzte den
+Cursor-Weg lange in Streckenmeter um — die sind über die Achse ungleich verteilt (langsame
+Abschnitte breit, schnelle schmal), also sprang die Miniatur mal voraus, mal zurück und lag nie
+unter dem Zeiger. Jetzt ist die Ruhelage (`stopp.offsetS`) die Referenz, der Cursor-Weg zählt
+1:1 in Pixeln, und der ganze Stapel verschiebt sich um DENSELBEN Zeit-Versatz (die innere
+Ordnung bleibt). Einrasten auf fremde Aufnahmen misst ebenfalls in Pixeln. Ein Foto verlässt
+seinen Halt über zwei Wege: Karte (Ort zeigen) oder Foto-Spur (Zeit zeigen) — beide enden im
+selben Anker, `reihe` fällt dabei weg.
+
+**Was der ganzen Tour gehört, steht nicht im Inspector.** Titel und Beschreibung gehören keinem
+Objekt der Zeitleiste; sie liegen in „Angaben zur Tour", erreichbar über den Titel in der
+Kopfleiste und über den „…"-Knopf neben Speichern (dort auch „Neu verarbeiten"). Früher stand
+die Beschreibung im LEERZUSTAND des Inspectors — dort, wo „Noch nichts ausgewählt" steht, las
+sich das wie eine Einstellung des Nichts.
+
+**Zwei CSS-Fallen derselben Sorte** (eine eigene Regel schlägt eine, die der Browser über einen
+anderen Selektor stellt): `display: flex` direkt auf `dialog` schlägt
+`dialog:not([open]) { display: none }` — der geschlossene Dialog hängt dann sichtbar über der
+Seite; die Regel gehört an `dialog[open]`. Und die globale `button:active { transform: scale(…) }`
+ERSETZT die Zentrierung `translateX(-50%)`, statt sie zu ergänzen (CSS kennt nur *eine*
+`transform`-Eigenschaft) — Abspielkopf und Foto-Miniatur sprangen beim Drücken um ihre halbe
+Breite; beide brauchen eine eigene `:active`-Regel, die beides kombiniert.
 
 **Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](src/studio/abspielen.ts)
 (lazy beim ersten Play) lässt den Abspielkopf über die Achse laufen, spielt Musik und Klänge
@@ -380,6 +416,13 @@ für einen späteren „Öffnen mit"-Intent-Filter stehen.
   jede Katalogdatei wirklich existiert. Beide Skripte überspringen Vorhandenes — gezielt neu
   erzeugen heißt: Datei vorher löschen. Eigene Dateien bleiben daneben jederzeit möglich
   („Datei hochladen …" im „+"-Menü der Musikspur, landet unter `media/` der Tour).
+  Im Studio ist die Bibliothek ein **Katalog zum Durchhören**: Reiter nach Art (Alle · Musik ·
+  Atmosphäre · Klänge) plus Suche, dichte Zeilen, und die Gruppenüberschrift sagt, was die Art
+  im Film TUT (Loop über einen Bereich vs. einmal an der Marke) — das ist die Entscheidung, die
+  man beim Aussuchen trifft. Was läuft, zeigt eine mitlaufende Linie plus Zeit aus
+  `currentTime`/`duration`; die Dauer steht erst, wenn sie bekannt ist (kein Raten). Der
+  Fortschritt wird IN die Zeile geschrieben, nie durch Neubau der Liste — sonst entstünde sie
+  viermal je Sekunde neu.
   Loops laufen nahtlos über den Crossfade-Wrapper [src/audioloop.js](src/audioloop.js)
   (`SeamlessLoop`), die Hintergrundmusik über [src/music.js](src/music.js) (Dock-Toggle),
   die Motorloops über [src/vehicle.js](src/vehicle.js) (`MODE_SOUND` — `moped`/`jeep`/`ferry`;
