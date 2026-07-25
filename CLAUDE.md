@@ -19,7 +19,9 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   Pausen-Kompression, Medien-Platzierung, Edit-Overlay, Auto-Wetter via Open-Meteo, Wetter-
   Verfeinerung per Foto-Bildanalyse) → Tour-JSON. Dazu Mehrbenutzer-Betrieb: Konten mit
   Mail-Bestätigung, Passwort-Reset, Quota, Sichtbarkeit ([server/src/auth/](server/src/auth/),
-  `quota.ts`, `mail.ts`). Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md).
+  `quota.ts`, `mail.ts`). Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md);
+  wer wofür zuständig ist (Rohdaten / Overlay / Tour-JSON / Cache) und wohin ein neues Feld
+  gehört: [docs/overlay-und-tourjson.md](docs/overlay-und-tourjson.md).
 - **Studio** ([studio.html](studio.html) + [src/studio/](src/studio/)): Weboberfläche zum
   Hochladen und Bearbeiten aufgezeichneter Touren (s. eigener Abschnitt unten).
 - **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren)

@@ -1356,14 +1356,17 @@
     /* Abspielkopf: Pentagon-Kopf IM Maßband, Linie über alle Bahnen. Die Linie
        beginnt exakt an der Spitze des Kopfes (top = Maßbandhöhe), sonst ragt
        sie darüber hinaus. pointer-events:none, damit sie Band-Klicks durchlässt. */
-    .kopfstrich { position: absolute; top: 23px; bottom: 0; width: 1px; background: var(--akzent); z-index: 9; pointer-events: none; }
-    /* Der Kopf sitzt MITTIG auf der Linie. `--kopf-versatz` schiebt ihn an den
-       beiden Enden der Achse so weit nach innen, dass er ganz sichtbar bleibt:
-       ganz links steckte seine linke Hälfte sonst unter der klebenden
-       Namensspalte (die liegt mit z-index 11 darüber) und war abgeschnitten. */
+    /* z-index 12 = ÜBER der klebenden Namensspalte (11): an Position 0 steckte
+       die linke Hälfte des Kopfes sonst darunter. Ist er hinter die Spalte
+       gescrollt, blendet ihn `.verdeckt` aus (sonst klebte er auf den Namen). */
+    .kopfstrich { position: absolute; top: 23px; bottom: 0; width: 1px; background: var(--akzent); z-index: 12; pointer-events: none; }
+    .kopfstrich.verdeckt { visibility: hidden; }
+    /* Der Kopf sitzt MITTIG auf der Linie — immer, auch an den Achsenenden.
+       Ein Versatz nach innen machte ihn dort zwar ganz sichtbar, aber er stand
+       dann neben seiner eigenen Linie und zeigte auf die falsche Zeit. */
     .kopf-griff {
       position: absolute; left: 50%; top: -13px;
-      transform: translateX(calc(-50% + var(--kopf-versatz, 0px)));
+      transform: translateX(-50%);
       width: 13px; height: 14px; padding: 0; border: none; background: var(--akzent);
       clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);
       cursor: var(--scrub); pointer-events: auto; touch-action: none; z-index: 10;
@@ -1372,7 +1375,7 @@
     .kopf-griff:hover { filter: brightness(1.12); }
     /* Die globale `button:active`-Regel ERSETZT sonst die Zentrierung durch ein
        scale() — der Kopf sprang beim Anfassen um seine halbe Breite nach rechts. */
-    .kopf-griff:active { transform: translateX(calc(-50% + var(--kopf-versatz, 0px))) scale(0.94); }
+    .kopf-griff:active { transform: translateX(-50%) scale(0.94); }
     /* Beim Ziehen gilt der Scrub-Cursor global — der Zug läuft über Fenster-
        Listener, ohne Pointer-Capture am kleinen Kopf. */
     body.scrubbt, body.scrubbt * { cursor: var(--scrub) !important; }

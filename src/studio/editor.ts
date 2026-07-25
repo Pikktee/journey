@@ -2695,6 +2695,22 @@ function setzeMarke(tOffsetS: number): void {
   renderPlayhead()
 }
 
+/**
+ * Der Abspielkopf liegt ÜBER der klebenden Namensspalte — sonst steckte an
+ * Position 0 seine linke Hälfte darunter. Damit er beim Scrollen nicht auf den
+ * Spurnamen kleben bleibt, wird er ausgeblendet, sobald er hinter die Spalte
+ * gewandert ist. Am Achsenanfang (nichts gescrollt) darf er überstehen: dort
+ * gehört er hin, und die Spalte endet genau an seiner Mitte.
+ */
+function zeigeKopfWennImBlick(): void {
+  const strich = document.getElementById('kopfstrich')
+  const fenster = document.getElementById('spuren-fenster')
+  if (!strich || !fenster || strich.hidden) return
+  // Gemessen statt gerechnet: `left` steht als calc() aus CSS-Variablen da.
+  const x = strich.getBoundingClientRect().left - fenster.getBoundingClientRect().left
+  strich.classList.toggle('verdeckt', x < spurXpx() - 7)
+}
+
 /** Kopfstrich, Kopf-Uhr und Läufer auf die aktuelle Marke stellen. */
 function renderPlayhead(): void {
   if (!z) return
@@ -2709,13 +2725,7 @@ function renderPlayhead(): void {
   const tOffsetS = z.auswahl[3]
   const anteil = offsetZuAnteil(skala, tOffsetS)
   strich.style.left = zeitX(anteil)
-  // An den Achsenenden den Kopf so weit nach innen rücken, dass er ganz zu
-  // sehen ist: ganz links verschwände seine linke Hälfte hinter der klebenden
-  // Namensspalte, ganz rechts hinge sie über den Rand.
-  const halb = 7
-  const x = anteil * zeitBreitePx()
-  const versatz = Math.max(0, halb - x) + Math.min(0, zeitBreitePx() - x - halb)
-  strich.style.setProperty('--kopf-versatz', `${versatz.toFixed(1)}px`)
+  zeigeKopfWennImBlick()
 
   const uhr = document.getElementById('kopf-uhr')
   // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
@@ -2992,6 +3002,10 @@ function zeitleisteZug(e: PointerEvent): void {
 function verdrahteZeitleiste(): void {
   const zone = $('zeitleiste-zone')
   const fenster = $('spuren-fenster')
+
+  // Der Abspielkopf liegt über der Namensspalte — beim Scrollen muss er
+  // verschwinden, sobald er dahinter wandert.
+  fenster.addEventListener('scroll', zeigeKopfWennImBlick, { passive: true })
 
   // — Ziehen an Kanten, Griffen, Pins und Klips —
   zone.addEventListener('pointerdown', (e) => {

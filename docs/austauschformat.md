@@ -7,6 +7,11 @@ Backend und Player. Es hat zwei Gestalten desselben Schemas:
 2. **Tour-JSON `luhambo/tour@1`** — was das Backend daraus rendert und der
    Player abspielt (angereichert).
 
+Dazu tritt das **Edit-Overlay `luhambo/edits@1`** — die Bearbeitungen, aus denen
+zusammen mit den Rohdaten das Tour-JSON entsteht. Wer wissen will, welche der
+drei Dateien wofür zuständig ist und wohin ein neues Feld gehört:
+[overlay-und-tourjson.md](overlay-und-tourjson.md).
+
 Grundprinzipien:
 
 - **Rohdaten sind unantastbar.** Der Original-Upload bleibt unter `original/`
