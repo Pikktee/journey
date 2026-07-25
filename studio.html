@@ -1483,29 +1483,108 @@
     }
     .stopp-summe b { font-weight: 500; color: var(--text-2); }
 
-    /* — Musik- und Klangbibliothek (Dialog) — */
+    /* — Musik- & Klangbibliothek (Dialog) —
+       Ein Klangschrank, keine Kachelgalerie: dichte Zeilen, die man von oben
+       nach unten durchhört. Was gerade läuft, zeigt eine mitlaufende Linie
+       unter der Zeile — echter Abspielfortschritt, keine Zierde. */
     .sfx-dialog {
-      width: min(560px, 92vw);
-      max-height: 82vh;
+      width: min(620px, 94vw);
+      max-height: 84vh;
       padding: 0;
       border: 1px solid var(--rand-hell);
-      border-radius: 15px;
+      border-radius: 16px;
       background: var(--fl-1);
       color: var(--text);
       box-shadow: var(--schatten);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    .sfx-dialog::backdrop { background: rgba(4, 6, 10, 0.6); backdrop-filter: blur(3px); }
-    .sfx-kopf { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--rand); }
-    .sfx-kopf strong { font-size: 15px; font-weight: 500; }
-    .sfx-inhalt { padding: 8px 16px 16px; overflow-y: auto; max-height: calc(82vh - 56px); }
-    .sfx-gruppe { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin: 14px 0 7px; }
-    .sfx-eintrag { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--rand); }
-    .sfx-eintrag .sfx-text { flex: 1; min-width: 0; }
-    .sfx-eintrag .sfx-name { font-size: 13px; }
-    .sfx-eintrag .sfx-besch { font-size: 11.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sfx-eintrag button { padding: 5px 9px; font-size: 11.5px; flex: none; }
-    .sfx-eintrag .sfx-hoeren { width: 30px; padding: 5px 0; }
+    .sfx-dialog::backdrop { background: rgba(4, 6, 10, 0.62); backdrop-filter: blur(4px); }
+    .sfx-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 0; }
+    .sfx-kopf strong { font-family: var(--font-display); font-size: 21px; font-weight: 550; letter-spacing: -0.015em; }
+    .sfx-kopf .sfx-unter { display: block; font-size: 12.5px; color: var(--text-3); font-weight: 400; margin-top: 4px; }
+
+    /* Filterleiste: Textreiter mit Zähler (kein Pill-Segment), Suche rechts */
+    .sfx-filter { display: flex; align-items: center; gap: 4px; padding: 14px 20px 0; border-bottom: 1px solid var(--rand); flex-wrap: wrap; }
+    .sfx-tabs { display: flex; align-items: flex-end; }
+    .sfx-tab {
+      position: relative; display: inline-flex; align-items: baseline; gap: 6px;
+      padding: 7px 2px 10px; margin-right: 14px; font-size: 13px; font-family: var(--font-ui);
+      color: var(--text-3); background: none; border: none; border-radius: 0; cursor: pointer;
+      transition: color 140ms ease;
+    }
+    .sfx-tab:hover, .sfx-tab:focus-visible { background: none; color: var(--text-2); }
+    .sfx-tab[aria-selected="true"] { color: var(--text); }
+    /* Der Reiterstrich sitzt AUF der Trennlinie der Leiste (-1px). */
+    .sfx-tab[aria-selected="true"]::after {
+      content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+      background: var(--akzent); border-radius: 2px 2px 0 0;
+    }
+    .sfx-tab .z { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+    .sfx-suche-feld { position: relative; margin-left: auto; padding-bottom: 8px; }
+    .sfx-suche-feld svg { position: absolute; left: 10px; top: calc(50% - 4px); transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-3); pointer-events: none; }
+    .sfx-suche { width: 168px; padding: 6px 10px 6px 30px; font-size: 12.5px; border-radius: 8px; }
+
+    /* Liste: flex:1 + min-height:0 — ohne das staucht der Dialog die Zeilen,
+       statt sie scrollen zu lassen (die Inhalte werden dann abgeschnitten). */
+    .sfx-inhalt { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0 8px; }
+    .sfx-inhalt::-webkit-scrollbar { width: 10px; }
+    .sfx-inhalt::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 10px; border: 3px solid var(--fl-1); }
+    .sfx-leer { text-align: center; padding: 46px 16px; color: var(--text-3); font-size: 13px; }
+
+    /* Gruppenkopf: sagt, WIE die Art klingt — Loop über eine Spanne oder
+       einmaliger Klang an einem Punkt. Bleibt beim Scrollen oben stehen. */
+    .sfx-gruppe {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 15px 20px 7px;
+      background: linear-gradient(var(--fl-1) 76%, transparent);
+      font-family: var(--font-display); font-size: 13.5px; font-weight: 550;
+    }
+    .sfx-gruppe .wie { font-family: var(--font-ui); font-size: 11.5px; font-weight: 400; color: var(--text-3); }
+
+    .sfx-zeile {
+      position: relative;
+      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px;
+      padding: 9px 20px; border-top: 1px solid transparent;
+      transition: background 130ms ease;
+    }
+    .sfx-zeile + .sfx-zeile { border-top-color: var(--rand); }
+    .sfx-zeile:hover { background: var(--fl-2); }
+    .sfx-zeile.spielt { background: var(--fl-2); }
+    /* Mitlaufender Abspielfortschritt (0..1 aus currentTime/duration) */
+    .sfx-zeile.spielt::after {
+      content: ''; position: absolute; left: 0; bottom: 0; height: 2px;
+      width: calc(var(--fortschritt, 0) * 100%);
+      background: var(--akzent); border-radius: 0 2px 2px 0;
+    }
+    .sfx-hoeren {
+      flex: none; width: 32px; height: 32px; border-radius: 50%; padding: 0;
+      display: grid; place-items: center; cursor: pointer;
+      border: 1px solid var(--rand-hell); background: var(--fl-1); color: var(--text-2);
+      transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
+    }
+    .sfx-zeile:hover .sfx-hoeren { color: var(--text); border-color: #3d4a5c; }
+    .sfx-zeile.spielt .sfx-hoeren { color: var(--akzent); border-color: color-mix(in srgb, var(--akzent) 55%, var(--rand-hell)); background: rgba(245, 165, 36, 0.1); }
+    .sfx-hoeren svg { width: 13px; height: 13px; margin-left: 2px; }
+    .sfx-hoeren .halt { width: 9px; height: 9px; border-radius: 1.5px; background: currentColor; }
+    .sfx-text { min-width: 0; }
+    .sfx-name { font-size: 13.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sfx-besch { font-size: 12px; line-height: 1.35; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+    .sfx-rechts { display: flex; align-items: center; gap: 12px; }
+    .sfx-zeit { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    /* In Ruhe nur ein grauer Wortlaut — 28 gerahmte Knöpfe untereinander
+       erschlagen die Liste. Erst wo der Zeiger steht, wird daraus ein Knopf. */
+    .sfx-einsetzen {
+      padding: 5px 11px; font-size: 12px; flex: none;
+      color: var(--text-3); background: none; border-color: transparent;
+      transition: color 130ms ease, background 130ms ease, border-color 130ms ease;
+    }
+    .sfx-zeile:hover .sfx-einsetzen, .sfx-zeile.spielt .sfx-einsetzen, .sfx-einsetzen:focus-visible {
+      color: var(--text); background: var(--fl-3); border-color: var(--rand-hell);
+    }
+    .sfx-zeile .sfx-einsetzen:hover { color: #0f1319; background: var(--akzent); border-color: var(--akzent); }
 
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
@@ -2037,11 +2116,18 @@
         <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
       </aside>
     </div>
-    <!-- Musik- und Klangbibliothek: Inhalt wird aus SFX_BIBLIOTHEK gebaut -->
+    <!-- Musik- & Klangbibliothek: Filter-Tabs + Suche + Kachelraster (aus SFX_BIBLIOTHEK) -->
     <dialog id="sfx-dialog" class="sfx-dialog">
       <div class="sfx-kopf">
-        <strong>Musik &amp; Klang-Bibliothek</strong>
+        <div><strong>Musik &amp; Klang</strong><span class="sfx-unter">Vorhören, dann ab der Marke einsetzen</span></div>
         <button class="icon" id="sfx-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-zurueck"/></svg></button>
+      </div>
+      <div class="sfx-filter">
+        <div class="sfx-tabs" id="sfx-tabs" role="tablist" aria-label="Nach Art filtern"></div>
+        <div class="sfx-suche-feld">
+          <svg aria-hidden="true"><use href="#i-suche"/></svg>
+          <input type="search" class="sfx-suche" id="sfx-suche" placeholder="Suchen …" aria-label="Bibliothek durchsuchen" autocomplete="off">
+        </div>
       </div>
       <div class="sfx-inhalt" id="sfx-inhalt"></div>
     </dialog>

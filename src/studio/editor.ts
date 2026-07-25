@@ -66,7 +66,7 @@ import {
   type FokusZiel,
   type ZeitSkala,
 } from './zeitleiste.js'
-import { SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
+import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
 import { baueStopps, reiheVergeben, snapZiel, stoppVon, type Stopp } from './stopps.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
 import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
@@ -1984,63 +1984,188 @@ function sfxEinsetzen(eff: SfxEffekt): void {
   audioStatus(`„${eff.name}" eingesetzt — auf der Zeitleiste platzieren, dann Speichern.`, 'ok')
 }
 
-function baueSfxDialog(): void {
-  const inhalt = $('sfx-inhalt')
-  inhalt.innerHTML = ''
-  for (const [kat, titel] of [
-    ['musik', 'Musik — Stücke, die über einen Bereich laufen'],
-    ['umgebung', 'Atmosphäre — Klang eines Ortes, über einen Bereich'],
-    ['effekt', 'Klänge — einmalig an einem Punkt'],
-  ] as const) {
-    const gruppe = document.createElement('div')
-    gruppe.className = 'sfx-gruppe'
-    gruppe.textContent = titel
-    inhalt.appendChild(gruppe)
-    for (const eff of SFX_BIBLIOTHEK.filter((e) => e.kategorie === kat)) {
-      const zeile = document.createElement('div')
-      zeile.className = 'sfx-eintrag'
-      const spielt = dialogSpielt === eff.datei
-      const hoeren = document.createElement('button')
-      hoeren.className = 'sfx-hoeren'
-      hoeren.innerHTML = spielt ? '■' : icon('play')
-      hoeren.title = spielt ? 'Stoppen' : 'Vorhören'
-      hoeren.addEventListener('click', () => {
-        if (dialogSpielt === eff.datei) {
-          stoppeDialogVorschau()
-        } else {
-          stoppeDialogVorschau()
-          dialogAudio = new Audio(`/audio/sfx/${encodeURIComponent(eff.datei)}`)
-          dialogSpielt = eff.datei
-          dialogAudio.addEventListener('ended', () => {
-            stoppeDialogVorschau()
-            baueSfxDialog()
-          })
-          void dialogAudio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
-        }
-        baueSfxDialog()
-      })
-      zeile.appendChild(hoeren)
-      const text = document.createElement('div')
-      text.className = 'sfx-text'
-      const nm = document.createElement('div')
-      nm.className = 'sfx-name'
-      nm.textContent = eff.name
-      const be = document.createElement('div')
-      be.className = 'sfx-besch'
-      be.textContent = eff.beschreibung
-      text.append(nm, be)
-      zeile.appendChild(text)
-      const nutzen = document.createElement('button')
-      nutzen.textContent = 'Einsetzen'
-      nutzen.addEventListener('click', () => sfxEinsetzen(eff))
-      zeile.appendChild(nutzen)
-      inhalt.appendChild(zeile)
-    }
+// Filterzustand der Bibliothek (Art-Tab + Suche) — bleibt über das Öffnen hinweg.
+type SfxFilter = 'alle' | SfxEffekt['kategorie']
+let sfxFilter: SfxFilter = 'alle'
+let sfxSuche = ''
+
+// Was die Art im Film TUT — steht an der Gruppenüberschrift, nicht an jeder
+// Zeile: Musik und Atmosphäre schleifen über eine Spanne, ein Klang feuert
+// einmal an seiner Marke.
+const KAT_MODUS: Record<SfxEffekt['kategorie'], string> = {
+  musik: 'läuft über einen Bereich',
+  umgebung: 'läuft über einen Bereich',
+  effekt: 'klingt einmal an ihrer Marke',
+}
+
+function sfxGefiltert(): SfxEffekt[] {
+  const q = sfxSuche.trim().toLowerCase()
+  return SFX_BIBLIOTHEK.filter((e) => {
+    if (sfxFilter !== 'alle' && e.kategorie !== sfxFilter) return false
+    if (q && !`${e.name} ${e.beschreibung} ${KATEGORIE_NAMEN[e.kategorie]}`.toLowerCase().includes(q)) return false
+    return true
+  })
+}
+
+/** Sekunden als m:ss — für die mitlaufende Zeit beim Vorhören. */
+function mmss(s: number): string {
+  const ganz = Math.max(0, Math.floor(s))
+  return `${Math.floor(ganz / 60)}:${String(ganz % 60).padStart(2, '0')}`
+}
+
+/**
+ * Fortschritt der laufenden Vorschau in DIE gerade spielende Zeile schreiben —
+ * ohne Neubau: die Liste würde sonst viermal je Sekunde neu entstehen (Flackern,
+ * verlorener Hover). Gesucht wird jedes Mal frisch, damit auch nach einem
+ * Filterwechsel die richtige Zeile bedient wird.
+ */
+function zeichneSfxFortschritt(): void {
+  const zeile = document.querySelector<HTMLElement>('#sfx-inhalt .sfx-zeile.spielt')
+  if (!zeile || !dialogAudio) return
+  const dauer = Number.isFinite(dialogAudio.duration) ? dialogAudio.duration : 0
+  zeile.style.setProperty('--fortschritt', dauer > 0 ? String(dialogAudio.currentTime / dauer) : '0')
+  const zeit = zeile.querySelector<HTMLElement>('.sfx-zeit')
+  if (zeit) zeit.textContent = dauer > 0 ? `${mmss(dialogAudio.currentTime)} / ${mmss(dauer)}` : mmss(dialogAudio.currentTime)
+}
+
+/** Vorhören umschalten (immer nur eines) und die Liste neu zeichnen. */
+function sfxVorhoeren(eff: SfxEffekt): void {
+  if (dialogSpielt === eff.datei) {
+    stoppeDialogVorschau()
+  } else {
+    stoppeDialogVorschau()
+    dialogAudio = new Audio(`/audio/sfx/${encodeURIComponent(eff.datei)}`)
+    dialogSpielt = eff.datei
+    dialogAudio.addEventListener('timeupdate', zeichneSfxFortschritt)
+    dialogAudio.addEventListener('loadedmetadata', zeichneSfxFortschritt)
+    dialogAudio.addEventListener('ended', () => {
+      stoppeDialogVorschau()
+      baueSfxListe()
+    })
+    void dialogAudio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
+  }
+  baueSfxListe()
+}
+
+/** Die Art-Tabs (einmal aufgebaut) auf den aktiven Filter setzen. */
+function aktualisiereSfxTabs(): void {
+  for (const tab of $('sfx-tabs').querySelectorAll<HTMLElement>('.sfx-tab')) {
+    tab.setAttribute('aria-selected', String(tab.dataset['filter'] === sfxFilter))
   }
 }
 
+/** Filter-Tabs einmalig aufbauen (Kategorien ändern sich nie). */
+function baueSfxTabs(): void {
+  const tabs = $('sfx-tabs')
+  tabs.innerHTML = ''
+  const zahl = (f: SfxFilter): number =>
+    f === 'alle' ? SFX_BIBLIOTHEK.length : SFX_BIBLIOTHEK.filter((e) => e.kategorie === f).length
+  const eintraege: Array<{ f: SfxFilter; label: string }> = [
+    { f: 'alle', label: 'Alle' },
+    { f: 'musik', label: KATEGORIE_NAMEN.musik },
+    { f: 'umgebung', label: KATEGORIE_NAMEN.umgebung },
+    { f: 'effekt', label: KATEGORIE_NAMEN.effekt },
+  ]
+  for (const e of eintraege) {
+    const tab = document.createElement('button')
+    tab.className = 'sfx-tab'
+    tab.type = 'button'
+    tab.setAttribute('role', 'tab')
+    tab.dataset['filter'] = e.f
+    tab.append(document.createTextNode(e.label))
+    const z = document.createElement('span')
+    z.className = 'z'
+    z.textContent = String(zahl(e.f))
+    tab.appendChild(z)
+    tab.addEventListener('click', () => {
+      sfxFilter = e.f
+      aktualisiereSfxTabs()
+      baueSfxListe()
+    })
+    tabs.appendChild(tab)
+  }
+  aktualisiereSfxTabs()
+}
+
+/** Eine Zeile der Bibliothek: hören, lesen, einsetzen. */
+function baueSfxZeile(eff: SfxEffekt): HTMLElement {
+  const spielt = dialogSpielt === eff.datei
+  const zeile = document.createElement('div')
+  zeile.className = 'sfx-zeile' + (spielt ? ' spielt' : '')
+  zeile.dataset['datei'] = eff.datei
+
+  const hoeren = document.createElement('button')
+  hoeren.type = 'button'
+  hoeren.className = 'sfx-hoeren'
+  hoeren.innerHTML = spielt ? '<span class="halt"></span>' : icon('play')
+  hoeren.title = spielt ? 'Vorhören stoppen' : `„${eff.name}" vorhören`
+  hoeren.setAttribute('aria-label', hoeren.title)
+  hoeren.addEventListener('click', () => sfxVorhoeren(eff))
+
+  const text = document.createElement('div')
+  text.className = 'sfx-text'
+  const nm = document.createElement('div')
+  nm.className = 'sfx-name'
+  nm.textContent = eff.name
+  const be = document.createElement('div')
+  be.className = 'sfx-besch'
+  be.textContent = eff.beschreibung
+  text.append(nm, be)
+
+  const rechts = document.createElement('div')
+  rechts.className = 'sfx-rechts'
+  // Die Zeit steht erst, wenn wirklich etwas läuft — die Dauer einer Datei
+  // kennen wir nicht, ohne sie zu laden, und Geratenes gehört nicht ins Studio.
+  if (spielt) {
+    const zeit = document.createElement('span')
+    zeit.className = 'sfx-zeit'
+    zeit.textContent = '0:00'
+    rechts.appendChild(zeit)
+  }
+  const nutzen = document.createElement('button')
+  nutzen.type = 'button'
+  nutzen.className = 'sfx-einsetzen'
+  nutzen.textContent = 'Einsetzen'
+  nutzen.title = `„${eff.name}" ab der Marke einsetzen`
+  nutzen.addEventListener('click', () => sfxEinsetzen(eff))
+  rechts.appendChild(nutzen)
+
+  zeile.append(hoeren, text, rechts)
+  return zeile
+}
+
+/** Liste nach aktuellem Filter/Suche zeichnen, nach Art gruppiert. */
+function baueSfxListe(): void {
+  const inhalt = $('sfx-inhalt')
+  inhalt.innerHTML = ''
+  const treffer = sfxGefiltert()
+  if (treffer.length === 0) {
+    const leer = document.createElement('div')
+    leer.className = 'sfx-leer'
+    leer.textContent = sfxSuche ? `Nichts gefunden für „${sfxSuche}".` : 'Keine Einträge.'
+    inhalt.appendChild(leer)
+    return
+  }
+  // Reihenfolge der Gruppen wie im Katalog; leere überspringen.
+  for (const kat of ['musik', 'umgebung', 'effekt'] as const) {
+    const teil = treffer.filter((e) => e.kategorie === kat)
+    if (teil.length === 0) continue
+    const kopf = document.createElement('div')
+    kopf.className = 'sfx-gruppe'
+    kopf.append(document.createTextNode(KATEGORIE_NAMEN[kat]))
+    const wie = document.createElement('span')
+    wie.className = 'wie'
+    wie.textContent = KAT_MODUS[kat]
+    kopf.appendChild(wie)
+    inhalt.appendChild(kopf)
+    for (const eff of teil) inhalt.appendChild(baueSfxZeile(eff))
+  }
+  zeichneSfxFortschritt()
+}
+
 function oeffneSfxDialog(): void {
-  baueSfxDialog()
+  aktualisiereSfxTabs()
+  baueSfxListe()
   ;($('sfx-dialog') as HTMLDialogElement).showModal()
 }
 
@@ -3448,6 +3573,11 @@ function verdrahteEinmal(): void {
   // Ereignisse legt das „+"
   // der jeweiligen Bahn an. Die frühere Knopfleiste in der Sidebar ist weg.
   $('sfx-schliessen').addEventListener('click', schliesseSfxDialog)
+  baueSfxTabs()
+  $('sfx-suche').addEventListener('input', (e) => {
+    sfxSuche = (e.target as HTMLInputElement).value
+    baueSfxListe()
+  })
   $('sfx-dialog').addEventListener('close', stoppeDialogVorschau)
   // Klick aufs Backdrop (Ziel ist dann das dialog-Element selbst) schließt
   $('sfx-dialog').addEventListener('click', (e) => {
