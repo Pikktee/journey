@@ -1273,6 +1273,9 @@
       width: 40px; height: 40px; padding: 0; background: none; border: none;
       cursor: pointer; touch-action: none;
     }
+    /* Die globale `button:active`-Regel (scale) ERSETZT sonst die Zentrierung —
+       die Miniatur säße beim Ziehen eine halbe Breite zu weit rechts. */
+    .f-mini:active { transform: translateX(-50%) scale(0.975); }
     .f-mini img {
       width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
       border: 1px solid rgba(255, 255, 255, 0.16); display: block; background: var(--fl-2);

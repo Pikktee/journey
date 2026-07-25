@@ -735,47 +735,59 @@ function uhrKurz(iso: string): string {
  * stehen bleiben. Geschrieben wird das Overlay erst beim Loslassen — das ist
  * zugleich genau ein Undo-Schritt.
  */
+// Beim Einrasten auf eine fremde Aufnahme: Nähe in PIXELN, nicht in Metern —
+// die Zeitachse ist ungleichförmig in Metern, ein Meter-Fenster wäre mal breit,
+// mal unsichtbar schmal.
+const STOPP_SNAP_PX = 8
+
 function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
   e.preventDefault()
   const skala = baueSkala(z.track)
   if (!skala) return
+  const feldEl = document.getElementById('skala-feld')
   const startX = e.clientX
-  const gruppe = stopp.items.map((m) => ({ id: m.id, meter0: meterVon(m) }))
+  const spanneS = skala.bisS - skala.vonS
+  // Jede Aufnahme mit ihrem AUFNAHMEZEIT-Offset — die Achse zeigt Zeit, nicht
+  // Meter. Der ganze Stapel wird um DENSELBEN Zeit-Versatz verschoben; weil die
+  // Achse linear in der Zeit ist, folgt die Miniatur dem Cursor pixelgenau und
+  // die innere Ordnung des Stopps bleibt erhalten.
+  const gruppe = stopp.items.map((m) => ({ id: m.id, offset0: offsetVon(m) }))
   const eigene = new Set(gruppe.map((g) => g.id))
-  // Streckenmeter aller FREMDEN Aufnahmen — Ziele fürs Einrasten
-  const fremde = medienAnzeige()
+  // Anteile (0..1) aller FREMDEN Aufnahmen — Ziele fürs Einrasten.
+  const fremdeA = medienAnzeige()
     .filter((m) => m.anchor && !m.geloescht && !eigene.has(m.id))
-    .map((m) => ({ id: m.id, meter: meterVon(m) }))
-  const gesamtM = kumStrecke[kumStrecke.length - 1] ?? 0
-  const minM = Math.min(...gruppe.map((g) => g.meter0))
-  const maxM = Math.max(...gruppe.map((g) => g.meter0))
+    .map((m) => offsetZuAnteil(skala, offsetVon(m)))
+  // Ruhelage der Miniatur (stopp.offsetS) ist die Referenz — so springt beim
+  // Aufsetzen nichts, weil Ruhe- und Zugposition denselben Bezug haben.
+  const startAnteil = offsetZuAnteil(skala, stopp.offsetS)
   const mini = (e.currentTarget as HTMLElement).closest<HTMLElement>('.f-mini')
   const kartenPunkt = markerZuId.get(stopp.items[0]?.id ?? '')
-  const kopfMeter0 = gruppe[0]?.meter0 ?? 0
+  const kopfOffset0 = gruppe[0]?.offset0 ?? 0
   let gezogen = false
-  let letztesDM = 0
+  let letztesDOffset = 0
 
   const zieh = (ev: PointerEvent): void => {
     if (!z || !skala) return
-    if (!gezogen && Math.abs(ev.clientX - startX) < 4) return
+    if (!gezogen && Math.abs(ev.clientX - startX) < ZUG_SCHWELLE_PX) return
     gezogen = true
-    // Verschiebung, nicht Absolutposition: der Stapel behält seine innere
-    // Ordnung und staucht sich am Rand nicht zusammen.
-    const feld = document.getElementById('skala-feld')?.getBoundingClientRect()
+    const feld = feldEl?.getBoundingClientRect()
     if (!feld || feld.width <= 0) return
-    let dM = ((ev.clientX - startX) / feld.width) * gesamtM
-    dM = Math.max(-minM, Math.min(dM, gesamtM - maxM))
-    const zielMitte = (minM + maxM) / 2 + dM
-    const ziel = snapZiel(zielMitte, fremde)
-    if (ziel) dM += ziel.meter - zielMitte
-    letztesDM = dM
-    const kopf = punktZuMeter(kopfMeter0 + dM)
-    if (kopf) {
-      if (mini) mini.style.left = pos(offsetZuAnteil(skala, kopf[3]))
-      kartenPunkt?.setLngLat([kopf[0], kopf[1]])
+    // Anteil des Cursors, 1:1 in Pixeln — nicht über die Meter-Achse gerechnet.
+    let anteil = Math.max(0, Math.min(1, startAnteil + (ev.clientX - startX) / feld.width))
+    let schnappt = false
+    for (const aF of fremdeA) {
+      if (Math.abs(anteil - aF) * feld.width < STOPP_SNAP_PX) {
+        anteil = aF
+        schnappt = true
+        break
+      }
     }
-    mini?.classList.toggle('schnappt', !!ziel)
+    letztesDOffset = (anteil - startAnteil) * spanneS
+    if (mini) mini.style.left = pos(anteil)
+    const kopf = punktBeiOffset(kopfOffset0 + letztesDOffset)
+    if (kopf) kartenPunkt?.setLngLat([kopf[0], kopf[1]])
+    mini?.classList.toggle('schnappt', schnappt)
   }
   const los = (): void => {
     window.removeEventListener('pointermove', zieh)
@@ -784,7 +796,7 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
     if (!gezogen || !z) return
     let neu = z.edits
     for (const g of gruppe) {
-      const punkt = punktZuMeter(g.meter0 + letztesDM)
+      const punkt = punktBeiOffset(g.offset0 + letztesDOffset)
       if (punkt) neu = mitMedienEdit(neu, g.id, { anchor: [punkt[0], punkt[1]] })
     }
     z.edits = neu
@@ -795,24 +807,26 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   window.addEventListener('pointerup', los)
 }
 
-/** Streckenmeter einer Aufnahme (Anker auf die Linie projiziert). */
-function meterVon(m: MediumAnzeige): number {
+/** Aufnahmezeit-Offset (s) einer Aufnahme (Anker auf die Linie projiziert). */
+function offsetVon(m: MediumAnzeige): number {
   if (!z || !m.anchor) return 0
-  const p = projiziereAufTrack(z.track, m.anchor[0], m.anchor[1])
-  return meterZuOffset(kumStrecke, z.track, p.punkt[3])
+  return projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3]
 }
 
-/** Trackpunkt bei einem Streckenmeter (Umkehrung von meterVon). */
-function punktZuMeter(meter: number): TrackPunkt | null {
-  if (!z) return null
-  const gesamt = kumStrecke[kumStrecke.length - 1] ?? 0
-  const geklemmt = Math.max(0, Math.min(meter, gesamt))
+/** Trackpunkt bei einem Aufnahmezeit-Offset (s), zwischen den Punkten interpoliert. */
+function punktBeiOffset(offsetS: number): TrackPunkt | null {
+  if (!z || z.track.length === 0) return null
+  const track = z.track
+  const erster = track[0] as TrackPunkt
+  const letzter = track[track.length - 1] as TrackPunkt
+  if (offsetS <= erster[3]) return erster
+  if (offsetS >= letzter[3]) return letzter
   let i = 1
-  while (i < kumStrecke.length - 1 && (kumStrecke[i] as number) < geklemmt) i++
-  const a = z.track[i - 1] as TrackPunkt
-  const b = z.track[i] as TrackPunkt
-  const spanne = (kumStrecke[i] as number) - (kumStrecke[i - 1] as number)
-  const f = spanne > 0 ? (geklemmt - (kumStrecke[i - 1] as number)) / spanne : 0
+  while (i < track.length - 1 && (track[i] as TrackPunkt)[3] < offsetS) i++
+  const a = track[i - 1] as TrackPunkt
+  const b = track[i] as TrackPunkt
+  const spanne = b[3] - a[3]
+  const f = spanne > 0 ? (offsetS - a[3]) / spanne : 0
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f]
 }
 
