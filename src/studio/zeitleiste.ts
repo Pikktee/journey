@@ -649,6 +649,25 @@ export function meterZuOffset(kum: readonly number[], track: readonly TrackPunkt
   return (kum[i - 1] as number) + f * ((kum[i] as number) - (kum[i - 1] as number))
 }
 
+/** Zeit-Offset (s) zu zurückgelegten Metern — Umkehrung von `meterZuOffset`. */
+export function offsetBeiMeter(kum: readonly number[], track: readonly TrackPunkt[], meter: number): number {
+  if (track.length === 0) return 0
+  const erster = track[0] as TrackPunkt
+  const letzter = track[track.length - 1] as TrackPunkt
+  const max = (kum[kum.length - 1] as number) ?? 0
+  if (meter <= 0) return erster[3]
+  if (meter >= max) return letzter[3]
+  let i = 1
+  while (i < kum.length - 1 && (kum[i] as number) < meter) i++
+  const a = kum[i - 1] as number
+  const b = kum[i] as number
+  const spanne = b - a
+  const f = spanne > 0 ? (meter - a) / spanne : 0
+  const ta = (track[i - 1] as TrackPunkt)[3]
+  const tb = (track[i] as TrackPunkt)[3]
+  return ta + f * (tb - ta)
+}
+
 /**
  * Nach dem Zoomen die Ansicht so scrollen, dass der Anker (Anteil 0..1) wieder
  * an derselben Stelle im Fenster steht — sonst springt der Blick beim Zoomen

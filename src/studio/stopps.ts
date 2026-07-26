@@ -9,7 +9,7 @@
 // (Ziehen, Filmstreifen) liegt in editor.ts.
 
 import { mitMedienEdit, projiziereAufTrack, type EditOverlay, type MediumAnzeige, type TrackPunkt } from './editmodell.js'
-import { meterZuOffset } from './zeitleiste.js'
+import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
 
 /**
  * Abstand, unter dem zwei Aufnahmen als „am selben Ort" gelten (Streckenmeter).
@@ -109,6 +109,70 @@ export function snapZiel(
     }
   }
   return best && bestAb <= schwelleM ? best : null
+}
+
+/**
+ * Streckenmeter so verschieben, dass der Halt nicht unter `schwelleM` an eine
+ * fremde Aufnahme gerät. Ohne Kollision unverändert. Bewusst ≥ schwelleM:
+ * `baueStopps` gruppiert nur bei Abstand *strikt kleiner* als NAHE_M.
+ */
+export function meterOhneCluster(
+  zielMeter: number,
+  fremdeMeter: readonly number[],
+  schwelleM = NAHE_M,
+): number {
+  let m = zielMeter
+  for (let n = 0; n < fremdeMeter.length + 1; n++) {
+    let hit: { meter: number } | null = null
+    let bestAb = Infinity
+    for (const f of fremdeMeter) {
+      const ab = Math.abs(f - m)
+      if (ab < schwelleM && ab < bestAb) {
+        bestAb = ab
+        hit = { meter: f }
+      }
+    }
+    if (!hit) return m
+    m = hit.meter + (m >= hit.meter ? 1 : -1) * schwelleM
+  }
+  return m
+}
+
+/**
+ * Gemeinsamen Zeit-Versatz so wählen, dass KEIN Gruppenmitglied mit einer
+ * fremden Aufnahme unter NAHE_M fällt — nur wer beim Ziehen explizit einrastet,
+ * soll clustern. Ohne Kollision: `dOffset` unverändert.
+ */
+export function dOffsetOhneCluster(
+  gruppeOffset0: readonly number[],
+  dOffset: number,
+  fremdeMeter: readonly number[],
+  kum: readonly number[],
+  track: readonly TrackPunkt[],
+  schwelleM = NAHE_M,
+): number {
+  if (fremdeMeter.length === 0 || gruppeOffset0.length === 0) return dOffset
+  const kopf = gruppeOffset0[0]
+  if (kopf === undefined) return dOffset
+  let d = dOffset
+  for (let iter = 0; iter < fremdeMeter.length + 1; iter++) {
+    let deltaM: number | null = null
+    for (const o0 of gruppeOffset0) {
+      const m = meterZuOffset(kum, track, o0 + d)
+      for (const f of fremdeMeter) {
+        const ab = m - f
+        if (Math.abs(ab) < schwelleM) {
+          const zielM = ab >= 0 ? f + schwelleM : f - schwelleM
+          const braucht = zielM - m
+          if (deltaM === null || Math.abs(braucht) > Math.abs(deltaM)) deltaM = braucht
+        }
+      }
+    }
+    if (deltaM === null) return d
+    const mJetzt = meterZuOffset(kum, track, kopf + d)
+    d = offsetBeiMeter(kum, track, mJetzt + deltaM) - kopf
+  }
+  return d
 }
 
 /**

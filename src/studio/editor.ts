@@ -58,6 +58,7 @@ import {
   kumMeter,
   loeseFokusAuf as loeseFokusAufRein,
   meterZuOffset,
+  offsetBeiMeter,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
   uhrDiffZuOffset,
@@ -66,7 +67,7 @@ import {
   type ZeitSkala,
 } from './zeitleiste.js'
 import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
-import { baueStopps, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
+import { baueStopps, dOffsetOhneCluster, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
 import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
 
@@ -658,11 +659,23 @@ function baueMarkerEintrag(stopp: Stopp, _schluessel: string): MarkerEintrag | n
     const ankerKopf = aktuell.items[0]?.anchor
     if (!ankerKopf) return
     const ziel = mk.getLngLat()
+    // Karte hat kein Snap-Feedback → ungewolltes Cluster vermeiden.
+    const eigene = new Set(aktuell.items.map((m) => m.id))
+    const fremdeMeter = medienAnzeige()
+      .filter((m) => m.anchor && !m.geloescht && !eigene.has(m.id))
+      .map((m) => meterZuOffset(kumStrecke, z!.track, offsetVon(m)))
+    const roh = projiziereAufTrack(z.track, ziel.lng, ziel.lat)
+    const sicherMeter = meterOhneCluster(
+      meterZuOffset(kumStrecke, z.track, roh.punkt[3]),
+      fremdeMeter,
+    )
+    const sicher = punktZuOffset(z.track, offsetBeiMeter(kumStrecke, z.track, sicherMeter))
+    if (!sicher) return
     let neu = z.edits
     for (const m of aktuell.items) {
       const dLng = (m.anchor?.[0] ?? ankerKopf[0]) - ankerKopf[0]
       const dLat = (m.anchor?.[1] ?? ankerKopf[1]) - ankerKopf[1]
-      const p = projiziereAufTrack(z.track, ziel.lng + dLng, ziel.lat + dLat)
+      const p = projiziereAufTrack(z.track, sicher[0] + dLng, sicher[1] + dLat)
       neu = mitMedienEdit(neu, m.id, { anchor: [p.punkt[0], p.punkt[1]] })
     }
     z.edits = neu
@@ -824,11 +837,13 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   let gezogen = false
   let letztesDOffset = 0
   let zielMini: HTMLElement | null = null
+  let geschnappt = false
 
   const zieh = (ev: PointerEvent): void => {
     if (!z || !skala) return
     if (!gezogen && Math.abs(ev.clientX - startX) < ZUG_SCHWELLE_PX) return
     gezogen = true
+    mini?.classList.add('zieht')
     const feld = feldEl?.getBoundingClientRect()
     if (!feld || feld.width <= 0) return
     // Anteil des Cursors, 1:1 in Pixeln — nicht über die Meter-Achse gerechnet.
@@ -843,6 +858,7 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
       }
     }
     if (schnappt) anteil = schnappt.anteil
+    geschnappt = !!schnappt
     letztesDOffset = (anteil - startAnteil) * spanneS
     if (mini) mini.style.left = pos(anteil)
     const kopf = punktBeiOffset(kopfOffset0 + letztesDOffset)
@@ -858,13 +874,30 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   const los = (): void => {
     window.removeEventListener('pointermove', zieh)
     window.removeEventListener('pointerup', los)
-    mini?.classList.remove('schnappt')
+    mini?.classList.remove('schnappt', 'zieht')
     raeumeSnapZiel(zielMini)
     zielMini = null
     if (!gezogen || !z) return
+    // Ohne sichtbares Einrasten darf kein Cluster entstehen: der Drop kann in
+    // Streckenmetern nah genug sein, obwohl die Miniaturen auf der Achse weit
+    // auseinander wirken. Dann schieben wir knapp außerhalb von NAHE_M.
+    let dOffset = letztesDOffset
+    if (!geschnappt) {
+      const zz = z
+      const fremdeMeter = medienAnzeige()
+        .filter((m) => m.anchor && !m.geloescht && !eigene.has(m.id))
+        .map((m) => meterZuOffset(kumStrecke, zz.track, offsetVon(m)))
+      dOffset = dOffsetOhneCluster(
+        gruppe.map((g) => g.offset0),
+        dOffset,
+        fremdeMeter,
+        kumStrecke,
+        zz.track,
+      )
+    }
     let neu = z.edits
     for (const g of gruppe) {
-      const punkt = punktBeiOffset(g.offset0 + letztesDOffset)
+      const punkt = punktBeiOffset(g.offset0 + dOffset)
       if (punkt) neu = mitMedienEdit(neu, g.id, { anchor: [punkt[0], punkt[1]] })
     }
     z.edits = neu
@@ -1032,11 +1065,18 @@ function ordneStreifen(e: PointerEvent, streifen: HTMLElement, stopp: Stopp, id:
     }
     if (!gezogen || !z) return
     // `reihe` fällt weg: die Aufnahme gehört zu keinem Stapel mehr, in dem eine
-    // Reihenfolge gälte.
+    // Reihenfolge gälte. Ohne Snap-UI: nicht ungewollt mit einem Nachbarn clustern.
     const loeseHeraus = (lng: number, lat: number): void => {
       if (!z) return
       unterdrueckeKlick = true
-      z.edits = mitMedienEdit(z.edits, id, { anchor: [lng, lat], reihe: undefined })
+      const roh = projiziereAufTrack(z.track, lng, lat)
+      const fremdeMeter = medienAnzeige()
+        .filter((m) => m.anchor && !m.geloescht && m.id !== id)
+        .map((m) => meterZuOffset(kumStrecke, z!.track, offsetVon(m)))
+      const sicherMeter = meterOhneCluster(meterZuOffset(kumStrecke, z.track, roh.punkt[3]), fremdeMeter)
+      const sicher = punktZuOffset(z.track, offsetBeiMeter(kumStrecke, z.track, sicherMeter))
+      if (!sicher) return
+      z.edits = mitMedienEdit(z.edits, id, { anchor: [sicher[0], sicher[1]], reihe: undefined })
       z.fokus = { art: 'medium', id }
       renderAlles()
     }
@@ -1330,7 +1370,14 @@ function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
     marke?.remove()
     if (abgelegtBei === null || !z) return
     unterdrueckeKlick = true
-    const punkt = punktZuOffset(z.track, abgelegtBei)
+    const roh = punktZuOffset(z.track, abgelegtBei)
+    if (!roh) return
+    // Ablage hat kein Snap — nicht still mit einem Nachbarn clustern.
+    const fremdeMeter = medienAnzeige()
+      .filter((x) => x.anchor && !x.geloescht && x.id !== m.id)
+      .map((x) => meterZuOffset(kumStrecke, z!.track, offsetVon(x)))
+    const sicherMeter = meterOhneCluster(meterZuOffset(kumStrecke, z.track, roh[3]), fremdeMeter)
+    const punkt = punktZuOffset(z.track, offsetBeiMeter(kumStrecke, z.track, sicherMeter))
     if (!punkt) return
     // Wieder dabei: Anker setzen und, falls es entfernt war, zurückholen
     z.edits = mitMedienEdit(z.edits, m.id, { anchor: [punkt[0], punkt[1]], geloescht: false })

@@ -13,8 +13,8 @@ import {
   type MediumBasis,
   type TrackPunkt,
 } from '../src/studio/editmodell'
-import { baueStopps, NAHE_M, reiheVergeben, snapZiel, stoppSignatur, stoppVon } from '../src/studio/stopps'
-import { kumMeter } from '../src/studio/zeitleiste'
+import { baueStopps, dOffsetOhneCluster, meterOhneCluster, NAHE_M, reiheVergeben, snapZiel, stoppSignatur, stoppVon } from '../src/studio/stopps'
+import { kumMeter, meterZuOffset, offsetBeiMeter } from '../src/studio/zeitleiste'
 
 const START = '2026-03-12T07:10:00Z'
 const iso = (s: number): string => offsetZuIso(START, s)
@@ -120,6 +120,38 @@ describe('snapZiel', () => {
   it('rastet nicht, wenn nichts nah genug liegt', () => {
     expect(snapZiel(2500, fremde)).toBeNull()
     expect(snapZiel(1000, [])).toBeNull()
+  })
+})
+
+describe('meterOhneCluster / dOffsetOhneCluster', () => {
+  it('lässt weit genug entfernte Ziele unverändert', () => {
+    expect(meterOhneCluster(2000, [1000, 4000])).toBe(2000)
+  })
+
+  it('schiebt knapp benachbarte Ziele auf genau NAHE_M Abstand', () => {
+    expect(meterOhneCluster(1050, [1000])).toBe(1000 + NAHE_M)
+    expect(meterOhneCluster(980, [1000])).toBe(1000 - NAHE_M)
+  })
+
+  it('hält den Zeit-Versatz ohne Kollision', () => {
+    // 1000 m ≈ Offset 1000/7600*3600 ≈ 473 s; Fremder bei 3000 m ist weit weg
+    const d = dOffsetOhneCluster([500], 0, [3000], kum, track)
+    expect(d).toBe(0)
+  })
+
+  it('verschiebt den Versatz, wenn der Drop sonst clustern würde', () => {
+    // Kopf bei Offset 0 → Meter 0; Ziel-Versatz auf Meter ~50 (unter NAHE_M zu 0)
+    // Fremder bei Meter 0: nach dem Zug auf ~50 m müsste er auf 120 m rutschen
+    const fremdBei0 = 0
+    const zielOffset = offsetBeiMeter(kum, track, 50)
+    const d = dOffsetOhneCluster([0], zielOffset, [fremdBei0], kum, track)
+    const meter = meterZuOffset(kum, track, 0 + d)
+    expect(meter).toBeGreaterThanOrEqual(NAHE_M)
+    expect(baueStopps(
+      effektiveMedien([foto('a', meter), foto('b', 0)], LEERES_OVERLAY),
+      track,
+      kum,
+    )).toHaveLength(2)
   })
 })
 
