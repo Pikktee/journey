@@ -66,7 +66,7 @@ import {
   type ZeitSkala,
 } from './zeitleiste.js'
 import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
-import { baueStopps, reiheVergeben, snapZiel, stoppVon, type Stopp } from './stopps.js'
+import { baueStopps, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
 import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
 
@@ -699,19 +699,6 @@ function zeitText(iso: string): string {
   }
 }
 
-/** Anzeigename des fokussierten Objekts — Darstellung, deshalb hier und nicht im Modell. */
-function fokusTitel(ziel: FokusZiel): string {
-  if (ziel.art === 'modus') return ziel.mode ? MODUS_NAMEN[ziel.mode] : 'Fortbewegung'
-  if (ziel.art === 'kamera') return ziel.preset ? `Kamera ${PRESET_NAMEN[ziel.preset]}` : `Kamera ${KAMERA_STANDARD}`
-  if (ziel.art === 'wetter') return ziel.wetterMode ? `Wetter ${WETTER_NAMEN[ziel.wetterMode]}` : 'Automatisches Wetter'
-  if (ziel.art === 'moment') return ziel.momentArt ? MOMENT_NAMEN[ziel.momentArt] : 'Moment'
-  if (ziel.art === 'audio') {
-    const a = ziel.index !== undefined ? (z?.edits.audio ?? [])[ziel.index] : undefined
-    return a ? audioName(a) : 'Klang'
-  }
-  return medienAnzeige().find((m) => m.id === ziel.id)?.caption || (ziel.id ?? '')
-}
-
 /**
  * Fokus-Identität → konkretes Objekt mit Zeitspanne, gegen den AKTUELLEN
  * Overlay-Stand aufgelöst (die Logik liegt DOM-frei in zeitleiste.ts). Liefert
@@ -761,10 +748,44 @@ function uhrKurz(iso: string): string {
  * stehen bleiben. Geschrieben wird das Overlay erst beim Loslassen — das ist
  * zugleich genau ein Undo-Schritt.
  */
-// Beim Einrasten auf eine fremde Aufnahme: Nähe in PIXELN, nicht in Metern —
+// Beim Einrasten auf einen fremden Halt: Nähe in PIXELN, nicht in Metern —
 // die Zeitachse ist ungleichförmig in Metern, ein Meter-Fenster wäre mal breit,
-// mal unsichtbar schmal.
-const STOPP_SNAP_PX = 8
+// mal unsichtbar schmal. Eng gehalten, sonst rastet es schon ein, wenn die
+// Miniaturen sich kaum berühren.
+const STOPP_SNAP_PX = 4
+
+/** Ziel-Miniatur während eines Schnapp-Zugs: leuchten + Badge mit Zielanzahl. */
+function setzeSnapZiel(ziel: HTMLElement | null, neuAnzahl: number, vorher: HTMLElement | null): HTMLElement | null {
+  if (vorher && vorher !== ziel) raeumeSnapZiel(vorher)
+  if (!ziel) return null
+  ziel.classList.add('ziel')
+  let badge = ziel.querySelector<HTMLElement>('.anzahl')
+  if (!badge) {
+    badge = document.createElement('span')
+    badge.className = 'anzahl'
+    badge.dataset['vorschau'] = '1'
+    ziel.appendChild(badge)
+  } else if (badge.dataset['alt'] === undefined) {
+    badge.dataset['alt'] = badge.textContent ?? ''
+  }
+  badge.textContent = String(neuAnzahl)
+  return ziel
+}
+
+function raeumeSnapZiel(ziel: HTMLElement | null): void {
+  if (!ziel) return
+  ziel.classList.remove('ziel')
+  const badge = ziel.querySelector<HTMLElement>('.anzahl')
+  if (!badge) return
+  if (badge.dataset['vorschau'] === '1') {
+    badge.remove()
+    return
+  }
+  if (badge.dataset['alt'] !== undefined) {
+    badge.textContent = badge.dataset['alt']
+    delete badge.dataset['alt']
+  }
+}
 
 function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
@@ -780,10 +801,20 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   // die innere Ordnung des Stopps bleibt erhalten.
   const gruppe = stopp.items.map((m) => ({ id: m.id, offset0: offsetVon(m) }))
   const eigene = new Set(gruppe.map((g) => g.id))
-  // Anteile (0..1) aller FREMDEN Aufnahmen — Ziele fürs Einrasten.
-  const fremdeA = medienAnzeige()
-    .filter((m) => m.anchor && !m.geloescht && !eigene.has(m.id))
-    .map((m) => offsetZuAnteil(skala, offsetVon(m)))
+  // Einrasten auf fremde HALTE (Mitte), nicht auf jede einzelne Aufnahme —
+  // sonst würde ein Mehrfach-Stopp ein breites Schnapp-Fenster aufspannen.
+  const fremde = baueStopps(medienAnzeige(), z.track, kumStrecke)
+    .filter((s) => !s.items.some((m) => eigene.has(m.id)))
+    .map((s) => {
+      const kopfId = s.items[0]?.id
+      return {
+        anteil: offsetZuAnteil(skala, s.offsetS),
+        anzahl: s.items.length,
+        el: kopfId
+          ? document.querySelector<HTMLElement>(`.f-mini[data-ids~="${CSS.escape(kopfId)}"]`)
+          : null,
+      }
+    })
   // Ruhelage der Miniatur (stopp.offsetS) ist die Referenz — so springt beim
   // Aufsetzen nichts, weil Ruhe- und Zugposition denselben Bezug haben.
   const startAnteil = offsetZuAnteil(skala, stopp.offsetS)
@@ -792,6 +823,7 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   const kopfOffset0 = gruppe[0]?.offset0 ?? 0
   let gezogen = false
   let letztesDOffset = 0
+  let zielMini: HTMLElement | null = null
 
   const zieh = (ev: PointerEvent): void => {
     if (!z || !skala) return
@@ -801,24 +833,34 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
     if (!feld || feld.width <= 0) return
     // Anteil des Cursors, 1:1 in Pixeln — nicht über die Meter-Achse gerechnet.
     let anteil = Math.max(0, Math.min(1, startAnteil + (ev.clientX - startX) / feld.width))
-    let schnappt = false
-    for (const aF of fremdeA) {
-      if (Math.abs(anteil - aF) * feld.width < STOPP_SNAP_PX) {
-        anteil = aF
-        schnappt = true
-        break
+    let schnappt: (typeof fremde)[number] | null = null
+    let bestAb = Infinity
+    for (const f of fremde) {
+      const ab = Math.abs(anteil - f.anteil) * feld.width
+      if (ab < bestAb && ab <= STOPP_SNAP_PX) {
+        bestAb = ab
+        schnappt = f
       }
     }
+    if (schnappt) anteil = schnappt.anteil
     letztesDOffset = (anteil - startAnteil) * spanneS
     if (mini) mini.style.left = pos(anteil)
     const kopf = punktBeiOffset(kopfOffset0 + letztesDOffset)
     if (kopf) kartenPunkt?.setLngLat([kopf[0], kopf[1]])
-    mini?.classList.toggle('schnappt', schnappt)
+    mini?.classList.toggle('schnappt', !!schnappt)
+    // Zielstopp leuchtet; Badge zeigt die Anzahl NACH dem Ablegen.
+    zielMini = setzeSnapZiel(
+      schnappt?.el ?? null,
+      schnappt ? schnappt.anzahl + gruppe.length : 0,
+      zielMini,
+    )
   }
   const los = (): void => {
     window.removeEventListener('pointermove', zieh)
     window.removeEventListener('pointerup', los)
     mini?.classList.remove('schnappt')
+    raeumeSnapZiel(zielMini)
+    zielMini = null
     if (!gezogen || !z) return
     let neu = z.edits
     for (const g of gruppe) {
@@ -1512,7 +1554,8 @@ function renderInspektor(): void {
   const start = z.daten.time.start
   const bezugS = (info.vonS + info.bisS) / 2
 
-  // — Kopf: Art (Kicker) und Name —
+  // — Kopf: nur die Art (Kicker). Kein zweiter Titel wie „Wetter Klar" —
+  // die Einstellungen darunter legen das bereits fest.
   const kicker = document.createElement('div')
   kicker.className = 'insp-art'
   if (info.mode) {
@@ -1522,10 +1565,7 @@ function renderInspektor(): void {
     kicker.appendChild(farbe)
   }
   kicker.append(ART_NAMEN[info.art])
-  const titel = document.createElement('h2')
-  titel.className = 'insp-titel'
-  titel.textContent = fokusTitel(info)
-  inhalt.append(kicker, titel)
+  inhalt.append(kicker)
 
   // — Werte je Art —
   if (info.art === 'modus' || info.art === 'kamera') {
@@ -3701,6 +3741,42 @@ async function neuVerarbeiten(): Promise<void> {
   }
 }
 
+// — Inspector-Breite ziehen —
+//
+// Kein Einklappen (Mockup hat einen Tab dafür; hier reicht die Breite). Eng
+// begrenzt: schmal genug für die Karte, breit genug für die Felder — bewusst
+// schmaler als im Mockup.
+
+const INSP_BREITE_MIN = 280
+const INSP_BREITE_MAX = 460
+
+function verdrahteInspektorBreite(): void {
+  const griff = document.getElementById('insp-griff')
+  const rumpf = document.getElementById('editor-rumpf')
+  if (!griff || !rumpf) return
+  griff.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    griff.classList.add('zieht')
+    rumpf.classList.add('zieht-breite')
+    const zieh = (ev: PointerEvent): void => {
+      const b = rumpf.getBoundingClientRect()
+      const breite = Math.min(Math.max(b.right - ev.clientX, INSP_BREITE_MIN), INSP_BREITE_MAX)
+      document.documentElement.style.setProperty('--inspector-breite', `${breite}px`)
+      passeZeitBreiteAn()
+      karte?.resize()
+    }
+    const los = (): void => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+      griff.classList.remove('zieht')
+      rumpf.classList.remove('zieht-breite')
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
+  })
+}
+
 // — Einmalige Verdrahtung der statischen Editor-Elemente —
 
 function verdrahteEinmal(): void {
@@ -3759,6 +3835,7 @@ function verdrahteEinmal(): void {
   window.addEventListener('resize', () => {
     if (!$('editor-view').hidden) passeZeitBreiteAn()
   })
+  verdrahteInspektorBreite()
   // Im Hintergrund drosselt der Browser rAF auf ~1 fps — der Kopf stünde, der
   // Ton liefe weiter. Also anhalten, wenn der Tab verschwindet.
   document.addEventListener('visibilitychange', () => {

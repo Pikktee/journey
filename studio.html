@@ -951,9 +951,21 @@
       flex: 1;
       min-height: 0;
       display: grid;
+      position: relative;
       grid-template-columns: 1fr var(--inspector-breite);
     }
     .editor-links { min-width: 0; display: flex; flex-direction: column; }
+    /* Griff auf der linken Panel-Kante: Breite ziehen (kein Einklappen). */
+    .insp-griff {
+      position: absolute; top: 0; bottom: 0; right: var(--inspector-breite);
+      width: 10px; transform: translateX(5px); z-index: 6; cursor: col-resize;
+    }
+    .insp-griff::before {
+      content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 1px;
+      background: transparent; transition: background 0.15s ease;
+    }
+    .insp-griff:hover::before, .insp-griff.zieht::before { background: var(--akzent); }
+    .editor-rumpf.zieht-breite { user-select: none; }
     /* `perspective` lässt die Foto-Karte beim Erscheinen echt kippen, die
        Größen-Container-Query bemisst sie an der Kartenfläche (s. .fe-frame). */
     .karten-buehne {
@@ -1351,13 +1363,14 @@
     }
     .zieh-geist img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .ablege-marke {
-      position: absolute; top: 23px; bottom: 4px; width: 2px; margin-left: -1px;
-      background: var(--akzent); pointer-events: none; z-index: 12;
-      box-shadow: 0 0 10px rgba(245, 165, 36, 0.85);
+      position: absolute; top: 23px; bottom: 4px; width: 1px; margin-left: -0.5px;
+      background: rgba(245, 165, 36, 0.45); pointer-events: none; z-index: 12;
+      /* Bewusst ohne Glow und ohne dicken Kopf — sonst sähe sie aus wie der Abspielkopf. */
     }
     .ablege-marke::before {
-      content: ''; position: absolute; left: 50%; top: -4px; width: 9px; height: 9px;
-      margin-left: -4.5px; border-radius: 50%; background: var(--akzent);
+      content: ''; position: absolute; left: 50%; top: 0; width: 5px; height: 5px;
+      margin-left: -2.5px; border-radius: 1px; background: rgba(245, 165, 36, 0.7);
+      transform: rotate(45deg);
     }
     .spur-feld { position: relative; height: 100%; }
     /* Bahnen als leichte Rillen, damit sich die erhabenen Bänder abheben. */
@@ -1524,8 +1537,14 @@
       font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; line-height: 1;
       color: #1a1206; background: var(--akzent); border: 1.5px solid var(--bg-tief);
     }
-    /* Rastet der gezogene Halt auf einer fremden Aufnahme ein, zeigt er das an. */
+    /* Rastet der gezogene Halt auf einem fremden ein: eigener Amber-Rand, und
+       der Zielstopp leuchtet — dort steht schon die Zielanzahl im Badge. */
     .f-mini.schnappt img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.55), 0 10px 26px rgba(0, 0, 0, 0.6); }
+    .f-mini.ziel img, .f-mini.ziel .stapel { border-color: var(--akzent); }
+    .f-mini.ziel::before {
+      content: ''; position: absolute; inset: -5px; border-radius: 10px;
+      border: 1px dashed rgba(245, 165, 36, 0.75); pointer-events: none;
+    }
     /* Beim Abspielen springt die Miniatur des erreichten Halts kurz heraus —
        so sieht man auf der Leiste, welches Bild gerade auf der Karte steht. */
     .f-mini.puls img { animation: fotoPuls 700ms ease; }
@@ -1616,10 +1635,12 @@
        unter die Falz schieben. */
     .insp-fuss { flex: none; padding: 12px 18px; border-top: 1px solid var(--rand); }
     .insp-art {
-      font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--akzent); display: flex; align-items: center; gap: 7px;
+      padding-bottom: 13px; border-bottom: 1px solid var(--rand);
     }
     .insp-art .farbe { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+    /* Nur noch für Tour-Einstellungen — bei Zeitleisten-Objekten reicht der Kicker. */
     .insp-titel { font-family: var(--font-display); font-size: 19px; line-height: 1.25; margin: -6px 0 0; }
     /* Erklärung unter einem Feld — soll gelesen werden können, ohne zu drängen */
     .insp-hinweis { margin: -4px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-3); }
@@ -1863,6 +1884,7 @@
          eigene Zone (sie scrollt waagerecht selbst), der Inspector nimmt den Rest. */
       .editor-rumpf { grid-template-columns: 1fr; grid-template-rows: 40vh auto 1fr; }
       .editor-links { display: contents; }
+      .insp-griff { display: none; }
       .editor-seite { border-left: none; border-top: 1px solid var(--rand); }
       /* Status als Streifen UNTER den Kopf, statt ihn auszublenden — sonst sind
          Speicher- und Fehlermeldungen auf schmalen Viewports unsichtbar. */
@@ -2271,7 +2293,7 @@
       <button id="editor-speichern" class="primaer"><svg><use href="#i-haken"/></svg>Speichern</button>
       <button class="icon" id="editor-mehr" aria-haspopup="menu" aria-expanded="false" title="Weitere Funktionen" aria-label="Weitere Funktionen"><svg><use href="#i-mehr"/></svg></button>
     </header>
-    <div class="editor-rumpf">
+    <div class="editor-rumpf" id="editor-rumpf">
       <div class="editor-links">
         <div class="karten-buehne">
           <div id="editor-map"></div>
@@ -2368,6 +2390,7 @@
           </div>
         </section>
       </div>
+      <div class="insp-griff" id="insp-griff" title="Breite ändern" aria-hidden="true"></div>
       <aside class="editor-seite">
         <!-- Inspector: zeigt, was in Zeitleiste oder Karte gewählt ist, und
              lässt es dort ändern. Vier Teile: Leerzustand, Tour-Einstellungen,
@@ -2413,7 +2436,6 @@
               <input id="editor-finale" type="checkbox" />
               Endscreen „Ziel erreicht“ zeigen
             </label>
-            <p class="insp-hinweis">Aus (Standard): am Ende erscheint wieder der Startscreen. Ein konkretes Ziel braucht einen Endscreen.</p>
             <div class="feld" id="editor-finale-ziel-feld" hidden>
               <label for="editor-finale-ziel">Ziel</label>
               <input id="editor-finale-ziel" type="text" placeholder="z. B. Grindelwald" maxlength="200" />
