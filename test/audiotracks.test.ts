@@ -7,12 +7,74 @@ import { describe, expect, it } from 'vitest'
 // audiotracks.js ist BEWUSST JS im Stil der Nachbarn music.js/vehicle.js;
 // tsconfig (allowJs: false) kennt dafür keine Typen — Import daher ungeprüft.
 // @ts-ignore
-import { istAktiv, sfxSollFeuern, VIDEO_DUCK } from '../src/audiotracks.js'
+import {
+  istAktiv,
+  sfxSollFeuern,
+  VIDEO_DUCK,
+  VIDEO_FADE_S,
+  videoTonHuelle,
+  videoLautstaerke,
+  videoMusikDuck,
+} from '../src/audiotracks.js'
 
 describe('VIDEO_DUCK (Default-Ducking bei Video-Ton)', () => {
   it('liegt als hörbare Absenkung zwischen still und voll', () => {
     expect(VIDEO_DUCK).toBeGreaterThan(0)
     expect(VIDEO_DUCK).toBeLessThan(0.5)
+  })
+})
+
+describe('videoTonHuelle (Ein-/Ausblende über die Videodauer)', () => {
+  it('ist am Anfang 0 und steigt über die Fade-Dauer auf 1', () => {
+    expect(videoTonHuelle(0, 10, 2)).toBe(0)
+    expect(videoTonHuelle(1, 10, 2)).toBeCloseTo(0.5, 6)
+    expect(videoTonHuelle(2, 10, 2)).toBe(1)
+    expect(videoTonHuelle(5, 10, 2)).toBe(1)
+  })
+
+  it('fällt zum Ende über die Fade-Dauer auf 0', () => {
+    expect(videoTonHuelle(8, 10, 2)).toBe(1)
+    expect(videoTonHuelle(9, 10, 2)).toBeCloseTo(0.5, 6)
+    expect(videoTonHuelle(10, 10, 2)).toBe(0)
+  })
+
+  it('klemmt die Fade-Dauer auf höchstens die Hälfte bei kurzen Clips', () => {
+    // dauer=2, fadeS=2 → effektiv 1 s Ein und 1 s Aus, Plateau entfällt
+    expect(videoTonHuelle(0, 2, 2)).toBe(0)
+    expect(videoTonHuelle(1, 2, 2)).toBe(1)
+    expect(videoTonHuelle(2, 2, 2)).toBe(0)
+  })
+
+  it('liefert 0 ohne gültige Dauer oder außerhalb', () => {
+    expect(videoTonHuelle(1, 0)).toBe(0)
+    expect(videoTonHuelle(-0.1, 10)).toBe(0)
+    expect(videoTonHuelle(10.1, 10)).toBe(0)
+  })
+
+  it('nutzt VIDEO_FADE_S als Default', () => {
+    expect(VIDEO_FADE_S).toBeGreaterThan(0.5)
+    expect(videoTonHuelle(VIDEO_FADE_S, 30)).toBe(1)
+    expect(videoTonHuelle(VIDEO_FADE_S / 2, 30)).toBeCloseTo(0.5, 6)
+  })
+})
+
+describe('Equal-Power-Crossfade (Video ↔ Musik)', () => {
+  it('lässt Video bei Hülle 0 still und Musik voll', () => {
+    expect(videoLautstaerke(0)).toBeCloseTo(0, 6)
+    expect(videoMusikDuck(0)).toBeCloseTo(1, 6)
+  })
+
+  it('lässt Video bei Hülle 1 voll und Musik auf VIDEO_DUCK', () => {
+    expect(videoLautstaerke(1)).toBeCloseTo(1, 6)
+    expect(videoMusikDuck(1)).toBeCloseTo(VIDEO_DUCK, 6)
+  })
+
+  it('hält die Equal-Power-Summe bei mittlerer Hülle ungefähr konstant', () => {
+    // sin²+cos² = 1; Musik sitzt auf VIDEO_DUCK+(1-VIDEO_DUCK)*cos —
+    // die Video-Kurve allein ist sin; bei g=0.5 ist sin≈cos≈√2/2
+    const g = 0.5
+    expect(videoLautstaerke(g)).toBeCloseTo(Math.SQRT1_2, 6)
+    expect(videoMusikDuck(g)).toBeCloseTo(VIDEO_DUCK + (1 - VIDEO_DUCK) * Math.SQRT1_2, 6)
   })
 })
 

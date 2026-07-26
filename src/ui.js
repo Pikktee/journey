@@ -1,5 +1,6 @@
 // DOM-Schicht: Overlays, Steuerleiste, Höhenprofil, Telemetrie. Keine Map-Logik.
 import { pointAt } from './geo.js'
+import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
 
 const $ = (id) => document.getElementById(id)
 const fmtDE = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
@@ -61,15 +62,18 @@ export class UI {
     // Wo Unmuted-Play doch scheitert, schaltet der Fallback in setPhotoContent
     // stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
-    this._videoTonGemeldet = false
-    this.onVideoTon = null // (an: boolean) → Musik-Ducking in main.js
+    this._videoTonGemeldet = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
+    this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.js
     this._standbildTimer = 0
     this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel
     try {
       const gemerkt = sessionStorage.getItem('maptale:video-sound')
       if (gemerkt !== null) this._soundOn = gemerkt === '1'
     } catch { /* Storage kann in restriktiven Kontexten fehlen */ }
-    this.els.video.addEventListener('ended', () => this.onMediaEnded?.())
+    this.els.video.addEventListener('ended', () => {
+      this._aktualisiereVideoTon()
+      this.onMediaEnded?.()
+    })
     // Kann das Video nicht abspielen (Dekodierfehler, unspielbarer Codec), darf
     // die Tour nicht am Stopp hängen bleiben — weiter wie bei einem Video-Ende.
     this.els.video.addEventListener('error', () => this.onMediaEnded?.())
@@ -78,6 +82,7 @@ export class UI {
       // rührt den Balken bei Videos also nicht an)
       const v = this.els.video
       if (v.duration > 0) this.els.holdFill.style.transform = `scaleX(${(v.currentTime / v.duration).toFixed(3)})`
+      this._aktualisiereVideoTon()
     })
     this.els.sound.addEventListener('click', (e) => {
       e.stopPropagation() // nicht die Foto-Karte anhalten (deren Klick pausiert)
@@ -88,11 +93,11 @@ export class UI {
         sessionStorage.setItem('maptale:video-sound', this._soundOn ? '1' : '0')
       } catch { /* ignorieren */ }
       this._syncSoundBtn()
-      this._meldeVideoTon()
+      this._aktualisiereVideoTon()
     })
-    // Ducking-Signal: play/pause/mute ändern, ob Video-Ton wirklich läuft
-    for (const ev of ['play', 'pause', 'ended', 'volumechange']) {
-      this.els.video.addEventListener(ev, () => this._meldeVideoTon())
+    // play/pause: Hülle + Ducking nachziehen (timeupdate deckt den laufenden Clip ab)
+    for (const ev of ['play', 'pause']) {
+      this.els.video.addEventListener(ev, () => this._aktualisiereVideoTon())
     }
 
     // Solange das Intro offen ist, blendet die Brand oben links aus (sonst stehen
@@ -106,12 +111,25 @@ export class UI {
     return !v.hidden && !!v.getAttribute('src') && !v.muted && !v.paused
   }
 
-  // Musik-Ducking: nur melden, wenn sich der Zustand ändert (Callback in main.js).
-  _meldeVideoTon() {
-    const an = this._videoTonLaeuft()
-    if (an === this._videoTonGemeldet) return
-    this._videoTonGemeldet = an
-    this.onVideoTon?.(an)
+  /**
+   * Video-Lautstärke nach Hülle (Ein-/Ausblende) setzen und Musik-Ducking melden.
+   * Die Hülle steuert beides — so crossfadet Video-Ton mit der Hintergrundmusik.
+   */
+  _aktualisiereVideoTon() {
+    const v = this.els.video
+    let huelle = 0
+    if (this._videoTonLaeuft() && v.duration > 0 && Number.isFinite(v.duration)) {
+      huelle = videoTonHuelle(v.currentTime, v.duration)
+      const laut = videoLautstaerke(huelle)
+      // Nur setzen, wenn nötig — sonst feuert mancher Browser volumechange im Kreis
+      if (Math.abs(v.volume - laut) > 0.004) v.volume = laut
+    } else if (v.getAttribute('src') && v.volume !== 0) {
+      v.volume = 0
+    }
+    const gerundet = Math.round(huelle * 100) / 100
+    if (gerundet === this._videoTonGemeldet) return
+    this._videoTonGemeldet = gerundet
+    this.onVideoTon?.(gerundet)
   }
 
   _syncSoundBtn() {
@@ -130,14 +148,14 @@ export class UI {
     standbild.classList.remove('weg')
     standbild.removeAttribute('src')
     if (!v.getAttribute('src')) {
-      this._meldeVideoTon()
+      this._aktualisiereVideoTon()
       return
     }
     v.pause()
     v.removeAttribute('src')
     v.removeAttribute('poster')
     v.load()
-    this._meldeVideoTon()
+    this._aktualisiereVideoTon()
   }
 
   // Ersten Video-Frame abwarten, dann Standbild weich ausblenden — ohne das
@@ -304,8 +322,8 @@ export class UI {
       if (on) v.play().catch(() => {})
       else v.pause()
     }
-    // play/pause-Events melden Ducking; hier zusätzlich, falls play() synchron scheitert
-    this._meldeVideoTon()
+    // play/pause-Events aktualisieren die Hülle; hier zusätzlich, falls play() synchron scheitert
+    this._aktualisiereVideoTon()
   }
 
   setPhotoContent(photo, idx, count) {
@@ -332,6 +350,7 @@ export class UI {
       video.hidden = false
       sound.hidden = false
       video.muted = !this._soundOn
+      video.volume = 0 // Einblendung übernimmt _aktualisiereVideoTon ab dem ersten Frame
       this._syncSoundBtn()
       // Poster als eigenes Standbild (nicht video.poster): Rahmen-AR sofort aus dem
       // oft schon vorgeladenen JPEG, und weicher Übergang zum ersten Frame.
@@ -357,8 +376,9 @@ export class UI {
         this._soundOn = false
         this._syncSoundBtn()
         video.play().catch(() => {})
-        this._meldeVideoTon()
+        this._aktualisiereVideoTon()
       })
+      this._aktualisiereVideoTon()
     } else {
       this._stopVideo()
       video.hidden = true
@@ -430,7 +450,7 @@ export class UI {
     layer.classList.remove('show')
     layer.setAttribute('aria-hidden', 'true')
     document.body.classList.remove('cinema')
-    this._meldeVideoTon()
+    this._aktualisiereVideoTon()
   }
 
   showFinale() {

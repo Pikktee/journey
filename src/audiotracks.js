@@ -28,11 +28,44 @@ export function sfxSollFeuern(vorher, nachher, f0, istPlayback) {
   return vorher < f0 && nachher >= f0
 }
 
-// Ducking bei Video-Ton: Musik auf diesen Anteil (~−13 dB). Eigene Rampe, schneller
-// als die Bereichs-Blende — sonst käme das Duck zu spät und das Unduck zu träge.
-// Später im Editor pro Medium individualisierbar; bis dahin fester Default.
+// Ducking bei Video-Ton: volle Video-Lautstärke senkt die Musik auf diesen Anteil
+// (~−13 dB). Der tatsächliche Duck-Pegel folgt der Video-Ton-Hülle (Equal-Power-
+// Crossfade) — s. videoTonHuelle / videoMusikDuck. Später im Editor pro Medium
+// individualisierbar; bis dahin fester Default.
 export const VIDEO_DUCK = 0.22
 
+/** Dauer der Video-Ton-Ein-/Ausblendung (Sekunden); bei kurzen Clips max. Hälfte. */
+export const VIDEO_FADE_S = 1.4
+
+/**
+ * Lineare Ton-Hülle 0..1 über die Videodauer: Fade-in am Anfang, Fade-out am
+ * Ende. DOM-frei — steuert sowohl video.volume als auch den Musik-Duck.
+ */
+export function videoTonHuelle(t, dauer, fadeS = VIDEO_FADE_S) {
+  if (!(dauer > 0) || !(t >= 0) || t >= dauer) return 0
+  const fade = Math.min(Math.max(0, fadeS), dauer / 2)
+  if (fade <= 0) return 1
+  let x = 1
+  if (t < fade) x = t / fade
+  const rest = dauer - t
+  if (rest < fade) x = Math.min(x, rest / fade)
+  return x
+}
+
+/** Equal-Power-Kurve fürs Video (sin): konstante empfundene Lautheit im Crossfade. */
+export function videoLautstaerke(huelle) {
+  const g = Math.max(0, Math.min(1, huelle))
+  return Math.sin((g * Math.PI) / 2)
+}
+
+/**
+ * Musik-Multiplikator zum Video-Pegel: bei Hülle 0 → 1 (voll), bei 1 → VIDEO_DUCK.
+ * cos-Zweig zu videoLautstaerke — zusammen Equal-Power.
+ */
+export function videoMusikDuck(huelle) {
+  const g = Math.max(0, Math.min(1, Number(huelle) || 0))
+  return VIDEO_DUCK + (1 - VIDEO_DUCK) * Math.cos((g * Math.PI) / 2)
+}
 export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
   // Musik-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
   // geladen, preload='none'), eigener Blend-Level für die weiche Bereichsgrenze.
@@ -54,7 +87,7 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
   // Timer wie music.js, damit der Ton unabhängig von der Render-Schleife läuft.
   const timer = setInterval(() => {
     const offen = gate()
-    duck += (duckTgt - duck) * 0.22 // ~0,4 s Ducking-Rampe bei 60 ms Tick
+    duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s), ohne zu rattern
     for (const spur of musik) {
       const drin = istAktiv(spur, frac)
       const want = musikEnabled && offen && drin
@@ -116,8 +149,11 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
     setGate: (fn) => { gate = fn },
     setMusikEnabled: (on) => { musikEnabled = on },
     setSfxEnabled: (on) => { sfxEnabled = on },
-    // Video-Ton läuft → Musik ducken; SFX bleiben unberührt (One-Shots).
-    setDucking: (an) => { duckTgt = an ? VIDEO_DUCK : 1 },
+    // Video-Ton-Hülle 0..1 → Musik ducken (Equal-Power); true/false bleibt kompatibel.
+    setDucking: (pegel) => {
+      const g = pegel === true ? 1 : pegel === false ? 0 : Math.max(0, Math.min(1, Number(pegel) || 0))
+      duckTgt = videoMusikDuck(g)
+    },
     get level() { return musik.reduce((m, s) => Math.max(m, s.level), 0) }, // Debug/E2E
     get aktiveSpur() { return musik.find((s) => istAktiv(s, frac))?.src ?? null }, // Debug/E2E
     destroy: () => { clearInterval(timer); for (const s of musik) s.el?.pause() },

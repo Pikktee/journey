@@ -634,11 +634,11 @@ map.on('load', () => {
     () => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing || tour.phase === 'photo'),
   )
 
-  // Video mit Ton → laufende Musikspur ducken (Ambient und Tour-Musik).
-  // Stärke: VIDEO_DUCK in audiotracks.js; später im Editor individualisierbar.
-  ui.onVideoTon = (an) => {
-    music?.setDucking(an)
-    tourAudio?.setDucking(an)
+  // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).
+  // Pegel 0..1 aus der Video-Hülle; Stärke am Plateau: VIDEO_DUCK in audiotracks.js.
+  ui.onVideoTon = (huelle) => {
+    music?.setDucking(huelle)
+    tourAudio?.setDucking(huelle)
   }
 
   // — Optionen (Endnutzer): Ton (Master) · Musik · Wetter-Effekte —
