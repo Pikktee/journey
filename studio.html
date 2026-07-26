@@ -951,6 +951,8 @@
       perspective: 1300px; container-type: size;
     }
     #editor-map { position: absolute; inset: 0; }
+    #editor-map .maplibregl-canvas:focus,
+    #editor-map .maplibregl-canvas:focus-visible { outline: none; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }
     /* Beim Platzieren zählt nur der Track: Marker dürfen den Klick nicht schlucken */
     #editor-map.platzieren .medien-punkt { pointer-events: none; }
@@ -995,6 +997,17 @@
     .fe-frame img { object-fit: cover; transform: scale(1.12); }
     /* Video läuft UNGESCHNITTEN (contain) auf Schwarz — kein Anschnitt. */
     .fe-frame video { object-fit: contain; background: #000; }
+    /* Anzeige-Fortschritt am unteren Bildrand — wie `.photo-hold` im Player. */
+    .fe-hold {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
+      background: rgba(10, 8, 5, 0.3);
+    }
+    .fe-hold-fill {
+      height: 100%; transform: scaleX(0); transform-origin: left;
+      background: linear-gradient(90deg, #f5a524, #ff6f52);
+      animation: feHold linear forwards;
+    }
+    @keyframes feHold { from { transform: scaleX(0); } to { transform: scaleX(1); } }
     /* „Entwickeln" + Ken-Burns-Drift wie im Player; das Video bewegt sich selbst. */
     .foto-einblendung.an .fe-frame img { animation: feEntwickeln 1.6s ease-out both, feKenburns 6s ease-out both; }
     /* Wer Ken Burns für dieses Foto abgeschaltet hat, sieht es hier auch ruhig. */
@@ -1232,7 +1245,6 @@
       padding-left: 10px; border-left: 1px solid var(--rand); font-variant-numeric: tabular-nums;
     }
     .ku-km-cur { display: inline-block; min-width: 4ch; text-align: right; color: var(--text-2); }
-    .zl-dauer { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); white-space: nowrap; }
 
     /* Zoom — Lupen + Regler, Standard „an Fenster angepasst" (⌘+/⌘−/⇧Z). */
     .zoom { display: flex; align-items: center; gap: 7px; }
@@ -2292,7 +2304,6 @@
                 <button class="wkz" data-wkz="zoom" title="Zoom (Z)" aria-label="Zoom"><svg><use href="#i-lupe"/></svg></button>
               </div>
               <button class="ablage-knopf" id="ablage-knopf" hidden title="Aufnahmen, die noch nicht auf der Strecke liegen"><svg><use href="#i-spur-foto"/></svg><span id="ablage-anzahl"></span></button>
-              <div class="zl-dauer" id="zl-dauer" title="Geschätzte Laufzeit der fertigen Animation"></div>
             </div>
             <div class="kopf-uhr" title="Abspielkopf — Aufnahmezeit · zurückgelegte Strecke von gesamt">
               <svg class="ku-icon" aria-hidden="true"><use href="#i-uhr"/></svg>

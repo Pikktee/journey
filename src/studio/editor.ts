@@ -53,7 +53,6 @@ import {
   baueMedienDots,
   baueSkala,
   baueZustandsBaender,
-  formatiereDauer,
   haltedauerS,
   klemmeGrenze,
   kumMeter,
@@ -341,6 +340,12 @@ function baueKarte(): maplibregl.Map {
     attributionControl: false,
   })
   k.on('click', (e) => klickAufKarte(e))
+  // Follow und Zoom vertragen sich nicht gleichzeitig: jedes Follow-`jumpTo`
+  // bricht die Zoom-Animation ab. Bei Nutzer-Zoom Follow kurz pausieren.
+  k.on('wheel', () => pausiereKartenFolge())
+  k.on('zoomstart', (e) => {
+    if (e.originalEvent) pausiereKartenFolge()
+  })
   return k
 }
 
@@ -1013,9 +1018,11 @@ let offenesMenue: HTMLElement | null = null
 function schliesseSpurMenue(): void {
   offenesMenue?.remove()
   offenesMenue = null
-  document.querySelectorAll<HTMLElement>('.spur-plus[aria-expanded="true"]').forEach((b) => {
-    b.setAttribute('aria-expanded', 'false')
-  })
+  document
+    .querySelectorAll<HTMLElement>('.spur-plus[aria-expanded="true"], #ablage-knopf[aria-expanded="true"], #editor-mehr[aria-expanded="true"]')
+    .forEach((b) => {
+      b.setAttribute('aria-expanded', 'false')
+    })
 }
 
 /** Menü über dem Knopf platzieren (fixed am Body — kein overflow schneidet es ab). */
@@ -2618,12 +2625,6 @@ function renderZeitleiste(): void {
 
   renderPlayhead()
   kuerzeBeschriftungen()
-
-  // — Geschätzte Laufzeit der fertigen Animation (eine Zahl, keine zweite Achse) —
-  // Dieselben Halte, an denen auch das Abspielen ruht (halteDerTour).
-  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
-  const halte = halteDerTour(skala).flatMap((h) => h.fotos.map((f) => f.dauerS))
-  $('zl-dauer').textContent = `~ ${formatiereDauer(schaetzeAnimationsdauer(abschnitte, halte))} Laufzeit`
 }
 
 /**
@@ -3173,9 +3174,15 @@ function verdrahteZeitleiste(): void {
     if (offenesMenue?.dataset['ablage'] === '1') schliesseSpurMenue()
     else oeffneAblage()
   })
-  // Klick daneben oder Esc schließt — ein Menü darf nie hängen bleiben
+  // Klick daneben oder Esc schließt — ein Menü darf nie hängen bleiben.
+  // Der öffnende Knopf zählt nicht als „daneben": sonst schließt pointerdown
+  // zuerst, und der anschließende click öffnet sofort wieder (Toggle kaputt).
   document.addEventListener('pointerdown', (e) => {
-    if (offenesMenue && !offenesMenue.contains(e.target as Node)) schliesseSpurMenue()
+    if (!offenesMenue) return
+    const ziel = e.target as Node
+    if (offenesMenue.contains(ziel)) return
+    if ((ziel as HTMLElement).closest?.('#editor-mehr, #ablage-knopf, .spur-plus')) return
+    schliesseSpurMenue()
   })
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && offenesMenue) schliesseSpurMenue()
@@ -3375,13 +3382,59 @@ function folgeKopf(anteil: number): void {
   else if (x < spurXpx() + rand) fenster.scrollLeft -= spurXpx() + rand - x
 }
 
-/** Karte auf die aktuelle Marke halten — Zoom/Lagerwinkel bleiben.
- *  Nur `setCenter`: `jumpTo` mit Padding jedes Frame feuerte `moveend` und
- *  ließ DOM-Marker um ein Pixel hin- und herspringen (Integer-Rundung). */
+/** Karte weich auf die Marke ziehen — nicht jedes Frame hart setzen.
+ *  Hartes `setCenter` pro Abspiel-Tick ließ Track und Marker zittern. */
+let folgeZiel: [number, number] | null = null
+let folgeRaf = 0
+/** Bis wann Follow pausiert (Nutzer zoomt) — sonst bricht `jumpTo` die Zoom-Animation ab. */
+let folgePauseBis = 0
+
 function folgeKarte(): void {
   if (!karte || !z?.auswahl || !karteFolgt) return
-  const p = z.auswahl
-  karte.setCenter([p[0], p[1]])
+  folgeZiel = [z.auswahl[0], z.auswahl[1]]
+  if (!folgeRaf) folgeRaf = requestAnimationFrame(folgeKarteTick)
+}
+
+/** Follow kurz aussetzen, damit Rad/Pinch/±-Knöpfe ungestört zoomen können. */
+function pausiereKartenFolge(ms = 450): void {
+  folgePauseBis = performance.now() + ms
+}
+
+function folgeKarteTick(): void {
+  folgeRaf = 0
+  if (!karte || !karteFolgt || !folgeZiel) return
+  // Während Nutzer-Zoom nicht eingreifen — `jumpTo` würde den Zoom sonst nach
+  // wenigen Pixeln abwürgen (Around-Cursor-Animation wird abgebrochen).
+  if (performance.now() < folgePauseBis) {
+    folgeRaf = requestAnimationFrame(folgeKarteTick)
+    return
+  }
+  const c = karte.getCenter()
+  const von = karte.project(c)
+  const nach = karte.project(folgeZiel)
+  const dx = nach.x - von.x
+  const dy = nach.y - von.y
+  const dist2 = dx * dx + dy * dy
+  // Unter ~2 px stehen bleiben — sonst rauscht die Kamera am Zielpunkt.
+  if (dist2 < 4) {
+    folgeZiel = null
+    return
+  }
+  // Je weiter weg, desto beherzter; nah am Ziel weich (kein Überschwingen).
+  const alpha = Math.min(0.28, 0.08 + Math.sqrt(dist2) / 500)
+  const ziel = karte.unproject([von.x + dx * alpha, von.y + dy * alpha])
+  karte.jumpTo({ center: ziel })
+  folgeRaf = requestAnimationFrame(folgeKarteTick)
+}
+
+function halteKartenFolge(): void {
+  folgeZiel = null
+  folgePauseBis = 0
+  if (folgeRaf) {
+    cancelAnimationFrame(folgeRaf)
+    folgeRaf = 0
+  }
+  karte?.stop()
 }
 
 /**
@@ -3433,6 +3486,15 @@ function zeigeFoto(id: string, dauerS: number): void {
     bild.alt = ''
     rahmen.appendChild(bild)
   }
+  // Fortschrittsbalken wie im Player (`photo-hold`) — wie lange die Karte noch steht.
+  const hold = document.createElement('div')
+  hold.className = 'fe-hold'
+  hold.setAttribute('aria-hidden', 'true')
+  const holdFill = document.createElement('div')
+  holdFill.className = 'fe-hold-fill'
+  holdFill.style.animationDuration = `${Math.max(0.2, dauerS)}s`
+  hold.appendChild(holdFill)
+  rahmen.appendChild(hold)
 
   const fuss = document.createElement('div')
   fuss.className = 'fe-cap'
@@ -3481,7 +3543,10 @@ function zeigeTempo(tempo: number): void {
   const chip = document.getElementById('tempo-chip')
   // Beim Schnelllauf Faktor und Richtung zeigen; bei Stopp und 1× nichts.
   if (chip) chip.textContent = tempo === 0 || tempo === 1 ? '' : tempo < 0 ? `${-tempo}×◀` : `${tempo}×▶`
-  if (tempo === 0) verbergeFoto()
+  if (tempo === 0) {
+    halteKartenFolge()
+    verbergeFoto()
+  }
 }
 
 async function spielUmschalten(): Promise<void> {
@@ -3604,9 +3669,14 @@ function verdrahteEinmal(): void {
   $('editor-mehr').addEventListener('click', (e) => {
     e.stopPropagation()
     const knopf = $('editor-mehr')
-    if (offenesMenue) return schliesseSpurMenue()
+    // Erneuter Klick schließt — nicht erst zu und sofort wieder auf.
+    if (offenesMenue?.dataset['tour'] === '1') {
+      schliesseSpurMenue()
+      return
+    }
     const menue = document.createElement('div')
     menue.className = 'schwebe-menue'
+    menue.dataset['tour'] = '1'
     menue.append(
       menueEintrag('Angaben zur Tour …', oeffneTourDialog),
       menueEintrag('Neu verarbeiten', () => void neuVerarbeiten()),
@@ -3622,8 +3692,14 @@ function verdrahteEinmal(): void {
   })
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)
-  $('karte-plus').addEventListener('click', () => karte?.zoomIn())
-  $('karte-minus').addEventListener('click', () => karte?.zoomOut())
+  $('karte-plus').addEventListener('click', () => {
+    pausiereKartenFolge()
+    karte?.zoomIn()
+  })
+  $('karte-minus').addEventListener('click', () => {
+    pausiereKartenFolge()
+    karte?.zoomOut()
+  })
   $('tp-play').addEventListener('click', () => void spielUmschalten())
   $('tp-folge').addEventListener('click', () => {
     karteFolgt = !karteFolgt
@@ -3631,6 +3707,7 @@ function verdrahteEinmal(): void {
     knopf.classList.toggle('an', karteFolgt)
     knopf.setAttribute('aria-pressed', String(karteFolgt))
     if (karteFolgt) folgeKarte()
+    else halteKartenFolge()
   })
   // Anfassen der Karte beendet die Wiedergabe (die Bahnen erledigt renderAlles
   // bzw. der Kopf-Zug selbst).
