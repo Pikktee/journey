@@ -1,0 +1,262 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "93286fccfbb245b2e95f468989fdd9d8",
+    "entities": [
+      {
+        "tableName": "touren",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `titel` TEXT, `beschreibung` TEXT, `startMs` INTEGER NOT NULL, `endeMs` INTEGER, `zone` TEXT NOT NULL, `status` TEXT NOT NULL, `serverId` TEXT, `fehler` TEXT, `distanzM` REAL NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "titel",
+            "columnName": "titel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "beschreibung",
+            "columnName": "beschreibung",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "startMs",
+            "columnName": "startMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endeMs",
+            "columnName": "endeMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "zone",
+            "columnName": "zone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fehler",
+            "columnName": "fehler",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "distanzM",
+            "columnName": "distanzM",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "trackpunkte",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tourId` TEXT NOT NULL, `lng` REAL NOT NULL, `lat` REAL NOT NULL, `ele` REAL NOT NULL, `tOffsetS` REAL NOT NULL, `genauigkeitM` REAL NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tourId",
+            "columnName": "tourId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lng",
+            "columnName": "lng",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lat",
+            "columnName": "lat",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ele",
+            "columnName": "ele",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tOffsetS",
+            "columnName": "tOffsetS",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "genauigkeitM",
+            "columnName": "genauigkeitM",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_trackpunkte_tourId",
+            "unique": false,
+            "columnNames": [
+              "tourId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trackpunkte_tourId` ON `${TABLE_NAME}` (`tourId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "moduswechsel",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tourId` TEXT NOT NULL, `tOffsetS` REAL NOT NULL, `modus` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tourId",
+            "columnName": "tourId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tOffsetS",
+            "columnName": "tOffsetS",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modus",
+            "columnName": "modus",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_moduswechsel_tourId",
+            "unique": false,
+            "columnNames": [
+              "tourId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_moduswechsel_tourId` ON `${TABLE_NAME}` (`tourId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "medien",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `tourId` TEXT NOT NULL, `typ` TEXT NOT NULL, `datei` TEXT NOT NULL, `aufgenommenMs` INTEGER NOT NULL, `ankerLng` REAL, `ankerLat` REAL, `uploadStatus` TEXT NOT NULL, PRIMARY KEY(`tourId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tourId",
+            "columnName": "tourId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "typ",
+            "columnName": "typ",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "datei",
+            "columnName": "datei",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "aufgenommenMs",
+            "columnName": "aufgenommenMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ankerLng",
+            "columnName": "ankerLng",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "ankerLat",
+            "columnName": "ankerLat",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "uploadStatus",
+            "columnName": "uploadStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "tourId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_medien_tourId",
+            "unique": false,
+            "columnNames": [
+              "tourId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_medien_tourId` ON `${TABLE_NAME}` (`tourId`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '93286fccfbb245b2e95f468989fdd9d8')"
+    ]
+  }
+}
