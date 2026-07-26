@@ -7,6 +7,7 @@
 // (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
 
 import * as api from './api.js'
+import { fuelleTopNav } from '../app-nav.js'
 import { liesExif } from './exif.js'
 import {
   baueFotoSegmente,
@@ -1086,4 +1087,5 @@ function zeigeFortschritt(getan: number, gesamt: number): void {
 }
 
 // — Start —
+fuelleTopNav(document.querySelector('#app-view .top-nav'), 'studio')
 void pruefeAnmeldung()
