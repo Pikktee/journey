@@ -1,8 +1,8 @@
 {
-  "name": "luhambo-server",
+  "name": "maptale-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Luhambo-Backend: nimmt aufgezeichnete Touren entgegen, reichert sie an (Benennung, Wetter, Medien) und liefert sie an den Player aus.",
+  "description": "Maptale-Backend: nimmt aufgezeichnete Touren entgegen und reichert sie an (Benennung, Wetter, Medien) und liefert sie an den Player aus.",
   "type": "module",
   "engines": {
     "node": ">=22"

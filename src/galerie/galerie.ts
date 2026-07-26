@@ -127,7 +127,7 @@ export async function starteProfil(): Promise<void> {
     if (!antwort.ok) throw new Error(String(antwort.status))
     const daten = (await antwort.json()) as ProfilAntwort
     const { name, bio, bild } = profilKopf(daten)
-    document.title = `${name} · Luhambo`
+    document.title = `${name} · Maptale`
 
     if (bild) {
       const img = document.createElement('img')

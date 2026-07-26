@@ -111,8 +111,8 @@ describe('Kamera-Grenzen', () => {
     expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah', 1).kamera).toEqual([{ ab: iso(0), preset: 'nah' }])
     expect(mitKameraGrenze(LEERES_OVERLAY, iso(0), 'nah').kamera).toEqual([{ ab: iso(0), preset: 'nah' }])
     // pruefeOverlay: 0.5..2 erlaubt, außerhalb abgelehnt
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', kamera: [{ ab: iso(0), preset: 'nah', skala: 0.4 }] })).toMatch(/Feinjustierung/)
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', kamera: [{ ab: iso(0), preset: 'nah', skala: 1.5 }] })).toBeNull()
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', kamera: [{ ab: iso(0), preset: 'nah', skala: 0.4 }] })).toMatch(/Feinjustierung/)
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', kamera: [{ ab: iso(0), preset: 'nah', skala: 1.5 }] })).toBeNull()
   })
 })
 
@@ -131,9 +131,9 @@ describe('Kamera-Momente', () => {
   })
 
   it('pruefeOverlay lehnt unparsebare Zeit und Dauer außerhalb 1..30 ab', () => {
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', momente: [{ ab: 'quatsch', art: 'umkreisen' }] })).toMatch(/Moment/)
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 99 }] })).toMatch(/Dauer/)
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 6 }] })).toBeNull()
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', momente: [{ ab: 'quatsch', art: 'umkreisen' }] })).toMatch(/Moment/)
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 99 }] })).toMatch(/Dauer/)
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 6 }] })).toBeNull()
   })
 
   it('Default-Dauern decken sich mit der Engine (Drift-Wächter tour.js)', () => {
@@ -190,7 +190,7 @@ describe('Display-Optionen je Medium', () => {
 })
 
 describe('pruefeOverlay (Baukasten-Fälle)', () => {
-  const basis = (audio: NonNullable<EditOverlay['audio']>): EditOverlay => ({ schema: 'luhambo/edits@1', audio })
+  const basis = (audio: NonNullable<EditOverlay['audio']>): EditOverlay => ({ schema: 'maptale/edits@1', audio })
   it('lehnt Ende vor Beginn ab', () => {
     expect(pruefeOverlay(basis([{ datei: 'a.mp3', typ: 'musik', ab: iso(60), bis: iso(30) }]))).toMatch(/Ende/)
   })
@@ -206,7 +206,7 @@ describe('pruefeOverlay (Baukasten-Fälle)', () => {
     expect(pruefeOverlay(mitMedienEdit(LEERES_OVERLAY, 'm1', { display: { holdS: 8 } }))).toBeNull()
   })
   it('lehnt unparsebare Kamera-Grenzen ab', () => {
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', kamera: [{ ab: 'quatsch', preset: 'nah' }] })).toMatch(/Kamera/)
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', kamera: [{ ab: 'quatsch', preset: 'nah' }] })).toMatch(/Kamera/)
   })
   it('lehnt zu viele Audio-Einträge ab (Server-Limit 50 gespiegelt)', () => {
     const viele = Array.from({ length: 51 }, () => ({ datei: 'a.mp3', typ: 'musik' as const, ab: iso(0) }))
@@ -321,10 +321,10 @@ describe('Wetter-Grenzen', () => {
   })
 
   it('pruefeOverlay lehnt Stärke außerhalb [0,1] ab', () => {
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.4 }] })).toMatch(
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.4 }] })).toMatch(
       /Wetter-Stärke/,
     )
-    expect(pruefeOverlay({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.5 }] })).toBeNull()
+    expect(pruefeOverlay({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.5 }] })).toBeNull()
   })
 
   // Drift-Wächter: die Wetter-Modi müssen client- und serverseitig gleich sein

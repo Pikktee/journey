@@ -1,7 +1,7 @@
 // Studio-Schale: Login, Bibliothek und der Weg zu einer neuen Tour.
 //
 // Die Bibliothek ist die Bühne — Kacheln mit Titelbild und Routen-Signatur; der
-// Upload ist eine Kachel darin und ein Fenster, das ZUERST zeigt, was Luhambo
+// Upload ist eine Kachel darin und ein Fenster, das ZUERST zeigt, was Maptale
 // aus den abgelegten Dateien gelesen hat, und erst danach hochlädt.
 // Reine Logik liegt in pruefung.ts (Befund), upload.ts (Manifest) und exif.ts
 // (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
@@ -52,7 +52,6 @@ const els = {
   kmMail: $('km-mail'),
   kmQuotaText: $('km-quota-text'),
   kmBalkenFuell: $('km-balken-fuell'),
-  kontoLoeschen: $<HTMLButtonElement>('konto-loeschen'),
   verifyBanner: $('verify-banner'),
   dateien: $<HTMLInputElement>('dateien'),
   neuOben: $<HTMLButtonElement>('neu-oben'),
@@ -86,9 +85,21 @@ const icon = (name: string): string => `<svg aria-hidden="true"><use href="#i-${
 function zeige(angemeldet: boolean): void {
   els.loginView.hidden = angemeldet
   els.appView.hidden = !angemeldet
-  els.abmelden.hidden = !angemeldet
   els.benutzerChip.hidden = !angemeldet
   els.neuOben.hidden = !angemeldet
+  if (!angemeldet) {
+    els.kontoMenue.hidden = true
+    els.benutzerChip.setAttribute('aria-expanded', 'false')
+  }
+}
+
+/** Boot-Overlay ausblenden, sobald Login oder App sichtbar sind. */
+function versteckeBoot(): void {
+  const boot = document.getElementById('studio-boot')
+  if (!boot) return
+  boot.classList.add('gone')
+  boot.setAttribute('aria-busy', 'false')
+  setTimeout(() => boot.remove(), 500)
 }
 
 function zeigeBenutzer(benutzer: api.Benutzer | null): void {
@@ -150,8 +161,13 @@ async function ladeSitzung(): Promise<api.Sitzung> {
 
 async function pruefeAnmeldung(): Promise<void> {
   // Zuerst Mail-Links aus der URL abarbeiten (#verify=… / #reset=…)
-  await behandleAuthHash()
-  await ladeSitzung()
+  try {
+    await behandleAuthHash()
+    await ladeSitzung()
+  } finally {
+    // Auch bei Netzwerkfehlern den Boot weg — sonst hängt man ewig.
+    versteckeBoot()
+  }
 }
 
 /** E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln. */
@@ -224,6 +240,8 @@ els.resetSetzenForm.addEventListener('submit', async (e) => {
 })
 
 els.abmelden.addEventListener('click', async () => {
+  els.kontoMenue.hidden = true
+  els.benutzerChip.setAttribute('aria-expanded', 'false')
   await api.logout()
   zeige(false)
   zeigeAuthModus('login')
@@ -242,22 +260,6 @@ document.addEventListener('click', (e) => {
   }
 })
 
-els.kontoLoeschen.addEventListener('click', async () => {
-  // Zweistufig: erster Klick schärft, zweiter löscht endgültig.
-  if (!els.kontoLoeschen.dataset.scharf) {
-    els.kontoLoeschen.dataset.scharf = '1'
-    els.kontoLoeschen.textContent = 'Endgültig löschen — alle Touren!'
-    setTimeout(() => {
-      if (!els.kontoLoeschen.isConnected || !els.kontoLoeschen.dataset.scharf) return
-      delete els.kontoLoeschen.dataset.scharf
-      els.kontoLoeschen.textContent = 'Konto löschen …'
-    }, 4000)
-    return
-  }
-  await api.loescheKonto()
-  location.reload()
-})
-
 /** Kurze Rückmeldung im Fenster „Neue Tour" — der einzige Ort mit Statuszeile. */
 function hinweisToast(text: string, fehler = false): void {
   setzeNeuStatus(text, fehler ? 'fehler' : '')
@@ -270,7 +272,7 @@ function hinweisToast(text: string, fehler = false): void {
 // als Signatur über dem Titelbild — Fotos sehen einander ähnlich, Routen nicht.
 
 let touren: api.TourListe[] = []
-let ansicht: 'raster' | 'liste' = localStorage.getItem('luhambo.ansicht') === 'liste' ? 'liste' : 'raster'
+let ansicht: 'raster' | 'liste' = localStorage.getItem('maptale.ansicht') === 'liste' ? 'liste' : 'raster'
 let sortierung: 'neu' | 'alt' | 'km' | 'az' = 'neu'
 let suchtext = ''
 /** Läuft, solange eine Tour noch entsteht — die Kachel soll nicht ewig schimmern. */
@@ -337,7 +339,7 @@ function renderBibliothek(): void {
     leer.innerHTML = `
       <svg class="route" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true"><path d="M-20 250C160 232 190 96 380 84s250 128 420 62 280-168 440-176"/></svg>
       <h2>Hier entsteht deine erste Tour</h2>
-      <p>Eine Aufzeichnung, ein paar Fotos — Luhambo benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
+      <p>Eine Aufzeichnung, ein paar Fotos — Maptale benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
       <button class="knopf-primaer" id="leer-waehlen">${icon('upload')}Dateien wählen</button>`
     els.bibliothek.appendChild(leer)
     leer.querySelector('#leer-waehlen')?.addEventListener('click', () => oeffneNeu())
@@ -367,7 +369,7 @@ function renderBibliothek(): void {
   const neu = document.createElement('button')
   neu.className = 'neu-kachel'
   neu.id = 'neu-kachel'
-  neu.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen — den Rest macht Luhambo</span>`
+  neu.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen — den Rest macht Maptale</span>`
   neu.addEventListener('click', () => oeffneNeu())
   raster.appendChild(neu)
   for (const t of liste) raster.appendChild(baueKarte(t))
@@ -558,7 +560,7 @@ els.sortierung.addEventListener('change', () => {
 els.ansicht.querySelectorAll<HTMLButtonElement>('[data-ansicht]').forEach((b) => {
   b.addEventListener('click', () => {
     ansicht = b.dataset['ansicht'] as 'raster' | 'liste'
-    localStorage.setItem('luhambo.ansicht', ansicht)
+    localStorage.setItem('maptale.ansicht', ansicht)
     els.ansicht.querySelectorAll('[data-ansicht]').forEach((x) => {
       x.setAttribute('aria-pressed', String((x as HTMLElement).dataset['ansicht'] === ansicht))
     })
@@ -710,7 +712,7 @@ function renderNeu(): void {
       <div class="ahnung"><i></i><i></i><i></i><i></i></div>
       <div class="achse"></div>
       <h3>Hier beginnt deine <em>nächste Tour</em></h3>
-      <p>Aufzeichnung und Fotos hierher ziehen — Luhambo liest die Zeitstempel und ordnet alles selbst ein.</p>
+      <p>Aufzeichnung und Fotos hierher ziehen — Maptale liest die Zeitstempel und ordnet alles selbst ein.</p>
       <button class="knopf-primaer" id="neu-waehlen">${icon('upload')}Dateien wählen</button>
       <p class="nachsatz">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>`
     els.neuRumpf.appendChild(leer)
@@ -776,7 +778,7 @@ function baueDaten(b: Pruefbefund): HTMLElement {
     `<div class="z"><div class="k">${icon(symbol)}${kicker}</div><div class="w">${escape(wert)}</div></div>`
   const tag = new Date(vonMs).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
   el.innerHTML = `
-    <h3 class="geschaetzt">${b.track ? 'Die Orte benennt Luhambo beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
+    <h3 class="geschaetzt">${b.track ? 'Die Orte benennt Maptale beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
     <div class="zahlen">
       ${zahl('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '—')}
       ${zahl('uhr', 'Unterwegs', spanneMs > 0 ? dauerText(spanneMs) : '—')}
@@ -938,7 +940,7 @@ document.addEventListener('drop', (e) => {
 async function warteAufBereit(id: string): Promise<'bereit' | 'fehler' | 'verarbeitung'> {
   for (let i = 0; i < 60; i++) {
     const t = await api.tour(id)
-    if (t.schema === 'luhambo/tour@1' || t.status === 'bereit') return 'bereit'
+    if (t.schema === 'maptale/tour@1' || t.status === 'bereit') return 'bereit'
     if (t.status === 'fehler') return 'fehler'
     await new Promise((r) => setTimeout(r, 1000))
   }
@@ -981,7 +983,7 @@ els.neuBauen.addEventListener('click', async () => {
     const { id, wiederverwendet } = await api.legeTourAn(manifest)
     if (wiederverwendet) {
       const vorhanden = await api.tour(id)
-      if (vorhanden.schema === 'luhambo/tour@1' || vorhanden.status === 'bereit') {
+      if (vorhanden.schema === 'maptale/tour@1' || vorhanden.status === 'bereit') {
         setzeNeuStatus('Diese Tour gibt es bereits.', 'fehler')
         return
       }

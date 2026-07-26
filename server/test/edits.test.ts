@@ -132,7 +132,7 @@ describe('wendeMedienEditsAn', () => {
 
   it('entfernt gelöschte, übersteuert Caption und setzt manuelle Anker', () => {
     const edits: EditOverlay = {
-      schema: 'luhambo/edits@1',
+      schema: 'maptale/edits@1',
       medien: {
         m1: { caption: '' },
         m2: { anchor: [7.91, 46.51] },
@@ -145,7 +145,7 @@ describe('wendeMedienEditsAn', () => {
     expect(out[1]?.placement).toBe('manuell')
 
     const geloescht = wendeMedienEditsAn(platziert(), {
-      schema: 'luhambo/edits@1',
+      schema: 'maptale/edits@1',
       medien: { m1: { geloescht: true } },
     })
     expect(geloescht.map((p) => p.medium.id)).toEqual(['m2'])
@@ -158,93 +158,93 @@ describe('wendeMedienEditsAn', () => {
 
 describe('pruefeEditsSemantik', () => {
   it('akzeptiert Gültiges und meldet kaputte Zeiten/Spannen', () => {
-    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1' })).toBeNull()
+    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1' })).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', trim: { start: iso(0), ende: iso(600) } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', trim: { start: iso(0), ende: iso(600) } }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', trim: { start: iso(600), ende: iso(600) } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', trim: { start: iso(600), ende: iso(600) } }),
     ).toMatch(/Trim-Start/)
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', modi: [{ ab: '2026-13-99T99:99:99Z', mode: 'walk' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', modi: [{ ab: '2026-13-99T99:99:99Z', mode: 'walk' }] }),
     ).toMatch(/Modus-Grenze/)
     // JSON.parse('1e999') → Infinity rutscht am Ajv-Typ "number" vorbei
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { anchor: [Infinity, 46.5] } } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { anchor: [Infinity, 46.5] } } }),
     ).toMatch(/Anker/)
   })
 
   it('prüft Kamera-Grenzen (Baukasten)', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', kamera: [{ ab: iso(0), preset: 'nah' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', kamera: [{ ab: iso(0), preset: 'nah' }] }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] }),
     ).toMatch(/Kamera-Grenze/)
   })
 
   it('prüft Audio-Einträge: Zeiten, Spanne, bis nur bei Musik, Lautstärke endlich', () => {
     const basis = { datei: 'a1.mp3', ab: iso(0) } as const
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(600), lautstaerke: 0.5 }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(600), lautstaerke: 0.5 }] }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'sfx' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'sfx' }] }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-13-99T99:99:99Z' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-13-99T99:99:99Z' }] }),
     ).toMatch(/Audio-Start/)
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', bis: '2026-13-99T99:99:99Z' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', bis: '2026-13-99T99:99:99Z' }] }),
     ).toMatch(/Audio-Ende/)
     // bis <= ab: leere Spanne
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(0) }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', bis: iso(0) }] }),
     ).toMatch(/Audio-Ende muss nach/)
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'sfx', bis: iso(600) }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'sfx', bis: iso(600) }] }),
     ).toMatch(/nur bei Musik/)
     // JSON.parse('1e999') → Infinity: minimum/maximum fangen das im Schema,
     // die Semantik bleibt trotzdem wasserdicht (Number.isFinite)
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', audio: [{ ...basis, typ: 'musik', lautstaerke: Infinity }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', audio: [{ ...basis, typ: 'musik', lautstaerke: Infinity }] }),
     ).toMatch(/Lautstärke/)
   })
 
   it('lehnt einen nicht-ganzzahligen Platz im Stopp ab', () => {
-    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { reihe: 0 } } })).toBeNull()
-    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { reihe: 1.5 } } })).toMatch(/Platz im Stopp/)
-    expect(pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { reihe: Infinity } } })).toMatch(/Platz im Stopp/)
+    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 0 } } })).toBeNull()
+    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: 1.5 } } })).toMatch(/Platz im Stopp/)
+    expect(pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { reihe: Infinity } } })).toMatch(/Platz im Stopp/)
   })
 
   it('prüft display.holdS auf Endlichkeit (Baukasten)', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: 8, kenBurns: false } } } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 8, kenBurns: false } } } }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: Infinity } } } }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', medien: { m1: { display: { holdS: Infinity } } } }),
     ).toMatch(/Standzeit/)
   })
 
   it('prüft Wetter-Grenzen: Zeit parsebar, Stärke endlich und in [0,1]', () => {
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.6 }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 0.6 }] }),
     ).toBeNull()
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: '2026-13-99T99:99:99Z', mode: 'rain' }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: '2026-13-99T99:99:99Z', mode: 'rain' }] }),
     ).toMatch(/Wetter-Grenze/)
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: Infinity }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: Infinity }] }),
     ).toMatch(/Wetter-Stärke/)
     expect(
-      pruefeEditsSemantik({ schema: 'luhambo/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.5 }] }),
+      pruefeEditsSemantik({ schema: 'maptale/edits@1', wetter: [{ ab: iso(0), mode: 'rain', staerke: 1.5 }] }),
     ).toMatch(/Wetter-Stärke/)
   })
 })
 
 describe('reichereAn mit Edit-Overlay', () => {
   const manifest = (): UploadManifest => ({
-    schema: 'luhambo/upload@1',
+    schema: 'maptale/upload@1',
     title: null,
     description: null,
     time: { start: iso(0), end: iso(1800), zone: 'UTC' },
@@ -270,7 +270,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const ohne = await reichereAn(eingabe(null))
     const mit = await reichereAn(
       eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         trim: { start: iso(300) },
         modi: [{ ab: iso(900), mode: 'ferry' }],
         medien: { m1: { caption: 'Neu' }, m2: { geloescht: true } },
@@ -291,14 +291,14 @@ describe('reichereAn mit Edit-Overlay', () => {
 
   it('wirft, wenn der Trim den kompletten Track entfernt', async () => {
     await expect(
-      reichereAn(eingabe({ schema: 'luhambo/edits@1', trim: { start: iso(90000) } })),
+      reichereAn(eingabe({ schema: 'maptale/edits@1', trim: { start: iso(90000) } })),
     ).rejects.toThrow(/Kein Track/)
   })
 
   it('rendert Kamera-Keyframes: ab-Zeit → f, nach f sortiert (Baukasten)', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         // absichtlich unsortiert übergeben
         kamera: [
           { ab: iso(900), preset: 'nah' },
@@ -317,7 +317,7 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('klemmt Kamera-Grenzen vor dem Trim-Start auf f=0 — der spätere ab gewinnt', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         trim: { start: iso(300) },
         kamera: [
           { ab: iso(0), preset: 'nah' },
@@ -334,7 +334,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         kamera: [
           { ab: iso(600), preset: 'nah' },
           { ab: iso(3600), preset: 'weit' }, // weit hinter dem Track-Ende (t=1800)
@@ -351,7 +351,7 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('reicht die Kamera-Feinjustierung (skala) durch, lässt 1 weg', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         kamera: [
           { ab: iso(300), preset: 'nah', skala: 1.4 },
           { ab: iso(600), preset: 'weit', skala: 1 }, // skala 1 → kein Feld
@@ -366,7 +366,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         momente: [
           { ab: iso(600), art: 'umkreisen', dauerS: 8 },
           { ab: iso(300), art: 'innehalten' }, // Default-Dauer (kein dauerS)
@@ -388,7 +388,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         audio: [
           { datei: 'knall.wav', typ: 'sfx', ab: iso(900) },
           { datei: 'musik.mp3', typ: 'musik', ab: iso(0), lautstaerke: 0.7 },
@@ -411,7 +411,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         audio: [
           { datei: 'sfx-moewe.mp3', typ: 'sfx', ab: iso(900), quelle: 'bibliothek' },
           { datei: 'amb-hafen.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
@@ -430,7 +430,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         audio: [{ datei: 'fehlt.mp3', typ: 'musik', ab: iso(0) }],
       }),
       audioDateien: ['musik.mp3'],
@@ -444,7 +444,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     const meldungen: string[] = []
     const tour = await reichereAn({
       ...eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         trim: { start: iso(300) },
         audio: [
           // komplett vor dem Trim-Start: f0=f1=0 → verworfen
@@ -471,7 +471,7 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('reicht display aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         medien: { m1: { display: { holdS: 12, kenBurns: false } } },
       }),
     )
@@ -485,13 +485,13 @@ describe('reichereAn mit Edit-Overlay', () => {
   it('reicht reihe aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
     const tour = await reichereAn(
       eingabe({
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         medien: { m1: { reihe: 0 }, m2: { reihe: 1 } },
       }),
     )
     expect(tour.media.find((m) => m.id === 'm1')?.reihe).toBe(0)
     expect(tour.media.find((m) => m.id === 'm2')?.reihe).toBe(1)
-    const ohne = await reichereAn(eingabe({ schema: 'luhambo/edits@1' }))
+    const ohne = await reichereAn(eingabe({ schema: 'maptale/edits@1' }))
     expect('reihe' in (ohne.media[0] ?? {})).toBe(false)
   })
 })

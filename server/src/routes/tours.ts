@@ -403,7 +403,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
   // 401-Antwort als Konsole-Fehler. UNGÜLTIGE Anmeldedaten bleiben 401
   // (die App braucht das Signal, um den Login anzustoßen).
   app.get('/api/tours', async (request, reply) => {
-    if (!request.benutzer && !request.headers.authorization && !request.cookies['luhambo_session']) {
+    if (!request.benutzer && !request.headers.authorization && !request.cookies['maptale_session']) {
       return { tours: [] }
     }
     const benutzer = erfordereBenutzer(request, reply)

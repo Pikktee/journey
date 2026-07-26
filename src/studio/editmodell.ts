@@ -115,7 +115,7 @@ export interface AudioEintrag {
 }
 
 export interface EditOverlay {
-  schema: 'luhambo/edits@1'
+  schema: 'maptale/edits@1'
   medien?: Record<string, MediumEdit>
   modi?: ModusGrenze[]
   trim?: { start?: string; ende?: string }
@@ -130,7 +130,7 @@ export interface EditorSegment {
   pts: TrackPunkt[]
 }
 
-export const LEERES_OVERLAY: EditOverlay = { schema: 'luhambo/edits@1' }
+export const LEERES_OVERLAY: EditOverlay = { schema: 'maptale/edits@1' }
 
 // — Zeit-Umrechnung —
 

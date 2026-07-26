@@ -39,14 +39,14 @@ function ladeAudioHoch(u: TestUmgebung, tourId: string, datei = 'a1.mp3', inhalt
   })
 }
 
-async function fremdeCookies(u: TestUmgebung): Promise<{ luhambo_session: string }> {
+async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string }> {
   await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim456', 'Fremd')
   const login = await u.app.inject({
     method: 'POST',
     url: '/api/auth/login',
     payload: { email: 'fremd@example.com', passwort: 'geheim456' },
   })
-  return { luhambo_session: login.cookies.find((c) => c.name === 'luhambo_session')?.value ?? '' }
+  return { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 }
 
 describe('Audio-Upload (PUT /api/tours/:id/audio/:datei)', () => {
@@ -169,7 +169,7 @@ describe('Audio-Löschen (DELETE /api/tours/:id/audio/:datei)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'luhambo/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }] },
+      payload: { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }] },
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
@@ -210,7 +210,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         medien: { m1: { display: { holdS: 8, kenBurns: false } } },
         // Tour-Zeit: 08:12:31–14:03:10 +02:00
         kamera: [{ ab: '2026-07-04T09:00:00+02:00', preset: 'weit' }],
@@ -250,7 +250,7 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         audio: [{ datei: 'fehlt.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00' }],
       },
     })
@@ -265,16 +265,16 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const u = await baueTestApp()
     const id = await legeTourAn(u)
     const faelle = [
-      { schema: 'luhambo/edits@1', kamera: 'quatsch' },
-      { schema: 'luhambo/edits@1', kamera: [{ ab: '2026-07-04T09:00:00Z', preset: 'ultra' }] },
-      { schema: 'luhambo/edits@1', audio: [{ datei: 'boese.exe', typ: 'musik', ab: '2026-07-04T09:00:00Z' }] },
+      { schema: 'maptale/edits@1', kamera: 'quatsch' },
+      { schema: 'maptale/edits@1', kamera: [{ ab: '2026-07-04T09:00:00Z', preset: 'ultra' }] },
+      { schema: 'maptale/edits@1', audio: [{ datei: 'boese.exe', typ: 'musik', ab: '2026-07-04T09:00:00Z' }] },
       // Achtung: '1' würde Fastifys coerceTypes still zu 1 wandeln — der
       // Ablehnungs-Test braucht einen NICHT koerzierbaren Wert
-      { schema: 'luhambo/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 'laut' }] },
-      { schema: 'luhambo/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 2 }] },
-      { schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: 1 } } } },
-      { schema: 'luhambo/edits@1', medien: { m1: { display: { holdS: 90 } } } },
-      { schema: 'luhambo/edits@1', medien: { m1: { display: { kenBurns: 'nein' } } } },
+      { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 'laut' }] },
+      { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T09:00:00Z', lautstaerke: 2 }] },
+      { schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 1 } } } },
+      { schema: 'maptale/edits@1', medien: { m1: { display: { holdS: 90 } } } },
+      { schema: 'maptale/edits@1', medien: { m1: { display: { kenBurns: 'nein' } } } },
     ]
     for (const payload of faelle) {
       const antwort = await u.app.inject({ method: 'PUT', url: `/api/tours/${id}/edits`, cookies: u.cookies, payload })
@@ -287,25 +287,25 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     const id = await legeTourAn(u)
     const faelle: Array<{ payload: Record<string, unknown>; fehler: RegExp }> = [
       {
-        payload: { schema: 'luhambo/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] },
+        payload: { schema: 'maptale/edits@1', kamera: [{ ab: '2026-13-99T99:99:99Z', preset: 'nah' }] },
         fehler: /Kamera-Grenze/,
       },
       {
         payload: {
-          schema: 'luhambo/edits@1',
+          schema: 'maptale/edits@1',
           audio: [{ datei: 'a1.mp3', typ: 'musik', ab: '2026-07-04T10:00:00Z', bis: '2026-07-04T09:00:00Z' }],
         },
         fehler: /Audio-Ende/,
       },
       {
         payload: {
-          schema: 'luhambo/edits@1',
+          schema: 'maptale/edits@1',
           audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-07-04T09:00:00Z', bis: '2026-07-04T10:00:00Z' }],
         },
         fehler: /nur bei Musik/,
       },
       {
-        payload: { schema: 'luhambo/edits@1', audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-13-99T99:99:99Z' }] },
+        payload: { schema: 'maptale/edits@1', audio: [{ datei: 'a1.mp3', typ: 'sfx', ab: '2026-13-99T99:99:99Z' }] },
         fehler: /Audio-Start/,
       },
     ]

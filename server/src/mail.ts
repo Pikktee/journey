@@ -17,24 +17,24 @@ export interface MailVersand {
 /** Baut Betreff + Text der beiden System-Mails an einer Stelle (DRY, testbar). */
 export function baueVerifikationsMail(name: string, link: string): { betreff: string; text: string } {
   return {
-    betreff: 'Luhambo: Bitte bestätige deine E-Mail-Adresse',
+    betreff: 'Maptale: Bitte bestätige deine E-Mail-Adresse',
     text:
       `Hallo ${name},\n\n` +
-      `willkommen bei Luhambo! Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${link}\n\n` +
+      `willkommen bei Maptale! Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${link}\n\n` +
       `Der Link ist 24 Stunden gültig. Falls du dich nicht registriert hast, ignoriere diese Nachricht.\n\n` +
-      `— Luhambo`,
+      `— Maptale`,
   }
 }
 
 export function baueResetMail(name: string, link: string): { betreff: string; text: string } {
   return {
-    betreff: 'Luhambo: Passwort zurücksetzen',
+    betreff: 'Maptale: Passwort zurücksetzen',
     text:
       `Hallo ${name},\n\n` +
-      `du (oder jemand) hat ein neues Passwort für dein Luhambo-Konto angefordert. ` +
+      `du (oder jemand) hat ein neues Passwort für dein Maptale-Konto angefordert. ` +
       `Setze es über diesen Link neu:\n\n${link}\n\n` +
       `Der Link ist 1 Stunde gültig. Hast du das nicht angefordert, ist nichts passiert — ` +
-      `dein aktuelles Passwort bleibt gültig.\n\n— Luhambo`,
+      `dein aktuelles Passwort bleibt gültig.\n\n— Maptale`,
   }
 }
 

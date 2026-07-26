@@ -1,5 +1,5 @@
-// Remote-Touren: lädt aufgezeichnete Touren vom Luhambo-Backend (?tour=srv:<id>)
-// und adaptiert das Server-JSON (`luhambo/tour@1`) auf die cfg-Form der
+// Remote-Touren: lädt aufgezeichnete Touren vom Maptale-Backend (?tour=srv:<id>)
+// und adaptiert das Server-JSON (`maptale/tour@1`) auf die cfg-Form der
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
 // Neue Web-Module entstehen in TypeScript; der Bestand bleibt bewusst JS.
 
@@ -106,7 +106,7 @@ export class RemoteTourFehler extends Error {
  * Abweichung zum Client-Resampling ist bei Wetter-Grenzen bedeutungslos.
  */
 export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
-  if (tour.schema !== 'luhambo/tour@1') {
+  if (tour.schema !== 'maptale/tour@1' && tour.schema !== 'luhambo/tour@1') {
     throw new RemoteTourFehler(
       tour.status === 'verarbeitung'
         ? 'Die Tour wird noch verarbeitet — gleich noch einmal versuchen.'

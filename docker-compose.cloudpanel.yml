@@ -1,4 +1,4 @@
-# Luhambo auf einem Server MIT CloudPanel: Anders als docker-compose.yml läuft
+# Maptale auf einem Server MIT CloudPanel: Anders als docker-compose.yml läuft
 # hier NUR die API im Container — den Webserver, TLS und den /api-Reverse-Proxy
 # übernimmt CloudPanels Nginx (siehe deploy/cloudpanel-nginx.conf). Der Caddy-
 # „web"-Service entfällt, damit es keinen Konflikt um Port 80/443 gibt.
@@ -10,7 +10,7 @@
 # Erstbetrieb:
 #   1. In CloudPanel eine Site für die Domain anlegen, Reverse-Proxy-Block aus
 #      deploy/cloudpanel-nginx.conf in die Vhost eintragen, SSL aktivieren.
-#   2. /srv/luhambo/.env füllen (SITE-Angaben s. README-Tabelle).
+#   2. /srv/maptale/.env füllen (SITE-Angaben s. README-Tabelle).
 #   3. docker compose -f docker-compose.cloudpanel.yml up -d
 
 services:
@@ -24,21 +24,21 @@ services:
       # proxy_pass im CloudPanel-Vhost (deploy/cloudpanel-nginx.conf) passen.
       - '127.0.0.1:8790:8787'
     environment:
-      LUHAMBO_DATEN_DIR: /data
-      LUHAMBO_COOKIE_SECRET: ${LUHAMBO_COOKIE_SECRET:?LUHAMBO_COOKIE_SECRET in .env setzen}
-      LUHAMBO_ADMIN_EMAIL: ${LUHAMBO_ADMIN_EMAIL:-}
-      LUHAMBO_ADMIN_PASSWORT: ${LUHAMBO_ADMIN_PASSWORT:-}
+      MAPTALE_DATEN_DIR: /data
+      MAPTALE_COOKIE_SECRET: ${MAPTALE_COOKIE_SECRET:?MAPTALE_COOKIE_SECRET in .env setzen}
+      MAPTALE_ADMIN_EMAIL: ${MAPTALE_ADMIN_EMAIL:-}
+      MAPTALE_ADMIN_PASSWORT: ${MAPTALE_ADMIN_PASSWORT:-}
       # Hinter CloudPanels TLS-Nginx: Cookies bekommen `secure`.
-      LUHAMBO_HINTER_TLS: '1'
+      MAPTALE_HINTER_TLS: '1'
       # Mehrbenutzer-Betrieb (M9)
-      LUHAMBO_BASIS_URL: ${LUHAMBO_BASIS_URL:-}
+      MAPTALE_BASIS_URL: ${MAPTALE_BASIS_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      LUHAMBO_MAIL_ABSENDER: ${LUHAMBO_MAIL_ABSENDER:-}
-      LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: ${LUHAMBO_MAX_SPEICHER_PRO_BENUTZER:-}
-      LUHAMBO_REGISTRIERUNG_OFFEN: ${LUHAMBO_REGISTRIERUNG_OFFEN:-}
+      MAPTALE_MAIL_ABSENDER: ${MAPTALE_MAIL_ABSENDER:-}
+      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: ${MAPTALE_MAX_SPEICHER_PRO_BENUTZER:-}
+      MAPTALE_REGISTRIERUNG_OFFEN: ${MAPTALE_REGISTRIERUNG_OFFEN:-}
       # Wetter-Bildanalyse (M5) — optional: ohne Key ist das Feature aus (No-Op).
-      # Vision-Modell läuft über OpenRouter; LUHAMBO_VISION_MODELL überschreibt den Default.
+      # Vision-Modell läuft über OpenRouter; MAPTALE_VISION_MODELL überschreibt den Default.
       OPEN_ROUTER_KEY: ${OPEN_ROUTER_KEY:-}
-      LUHAMBO_VISION_MODELL: ${LUHAMBO_VISION_MODELL:-}
+      MAPTALE_VISION_MODELL: ${MAPTALE_VISION_MODELL:-}
     volumes:
-      - /srv/luhambo/daten:/data
+      - /srv/maptale/daten:/data

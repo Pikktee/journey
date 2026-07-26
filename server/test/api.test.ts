@@ -52,7 +52,7 @@ const BEISPIEL_GPX = `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><trkse
 
 function gpxManifest(): UploadManifest {
   return {
-    schema: 'luhambo/upload@1',
+    schema: 'maptale/upload@1',
     clientTourId: 'gpx-e2e-1',
     title: null,
     time: { start: '2026-07-04T08:00:00Z', end: '2026-07-04T08:30:00Z', zone: 'UTC' },
@@ -120,7 +120,7 @@ describe('Tour-Lebenszyklus', () => {
     const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
     expect(antwort.statusCode).toBe(200)
     const tour = antwort.json() as TourJson
-    expect(tour.schema).toBe('luhambo/tour@1')
+    expect(tour.schema).toBe('maptale/tour@1')
     expect(tour.brandTitle).toBe('Lauterbrunnen → Grindelwald')
     expect(tour.media[0]?.src).toBe(`/api/media/${id}/m1.jpg`)
   })
@@ -248,7 +248,7 @@ describe('Tour-Lebenszyklus', () => {
   it('weist ein Manifest OHNE Track-Quelle ab (weder segments noch trackFile)', async () => {
     const u = await baueTestApp()
     const { time, media } = beispielManifest()
-    const ohne = { schema: 'luhambo/upload@1', clientTourId: 'ohne-track', title: null, time, media }
+    const ohne = { schema: 'maptale/upload@1', clientTourId: 'ohne-track', title: null, time, media }
     const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: u.cookies, payload: ohne })
     expect(antwort.statusCode).toBe(400)
   })
@@ -375,7 +375,7 @@ describe('Titelbild', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'luhambo/edits@1', titelbild: 'm2' },
+      payload: { schema: 'maptale/edits@1', titelbild: 'm2' },
     })
     expect(put.statusCode).toBe(202)
     await u.app.verarbeitungen.get(id)
@@ -411,7 +411,7 @@ describe('Session aus API-Token (App-Player)', () => {
     const mitSitzung = await u.app.inject({
       method: 'GET',
       url: `/api/tours/${id}`,
-      cookies: { luhambo_session: sessionId },
+      cookies: { maptale_session: sessionId },
     })
     expect(mitSitzung.statusCode).toBe(200)
   })
@@ -484,7 +484,7 @@ describe('Sichtbarkeit', () => {
       url: '/api/auth/login',
       payload: { email: 'andere@example.com', passwort: 'geheim456' },
     })
-    const fremdeCookies = { luhambo_session: login.cookies.find((c) => c.name === 'luhambo_session')?.value ?? '' }
+    const fremdeCookies = { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 
     expect(
       (await u.app.inject({ method: 'PATCH', url: `/api/tours/${id}`, cookies: fremdeCookies, payload: { title: 'Gekapert' } }))
@@ -516,7 +516,7 @@ describe('Review-Fixes (Races, Header, Limits)', () => {
       url: '/api/auth/login',
       payload: { email: 'zweite@example.com', passwort: 'geheim456' },
     })
-    const cookies2 = { luhambo_session: login.cookies.find((c) => c.name === 'luhambo_session')?.value ?? '' }
+    const cookies2 = { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
     const manifest = beispielManifest()
     delete manifest.clientTourId
     const antwort = await u.app.inject({ method: 'POST', url: '/api/tours', cookies: cookies2, payload: manifest })
@@ -637,14 +637,14 @@ describe('Medien-Auslieferung', () => {
 })
 
 describe('Edit-Overlay + Editor (M7)', () => {
-  async function fremdeCookies(u: TestUmgebung): Promise<{ luhambo_session: string }> {
+  async function fremdeCookies(u: TestUmgebung): Promise<{ maptale_session: string }> {
     await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim456', 'Fremd')
     const login = await u.app.inject({
       method: 'POST',
       url: '/api/auth/login',
       payload: { email: 'fremd@example.com', passwort: 'geheim456' },
     })
-    return { luhambo_session: login.cookies.find((c) => c.name === 'luhambo_session')?.value ?? '' }
+    return { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
   }
 
   it('liefert ein leeres Overlay, solange keins gespeichert ist', async () => {
@@ -652,7 +652,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     const id = await legeTourAn(u)
     const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
     expect(antwort.statusCode).toBe(200)
-    expect(antwort.json()).toEqual({ schema: 'luhambo/edits@1' })
+    expect(antwort.json()).toEqual({ schema: 'maptale/edits@1' })
   })
 
   it('PUT speichert, rendert neu — Caption, Modus-Grenze, Trim und manueller Anker erreichen das Tour-JSON', async () => {
@@ -667,7 +667,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         medien: { m1: { caption: 'Handgeschrieben', anchor: [7.9184, 46.5891] } },
         // tOffset 1400 (Segmentwechsel walk→bike) — ab hier Fähre
         modi: [{ ab: '2026-07-04T08:35:51+02:00', mode: 'ferry' }],
@@ -702,7 +702,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'luhambo/edits@1', medien: { m1: { caption: 'Bleibt' } } },
+      payload: { schema: 'maptale/edits@1', medien: { m1: { caption: 'Bleibt' } } },
     })
     await u.app.verarbeitungen.get(id)
 
@@ -724,7 +724,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'luhambo/edits@1', modi: 'quatsch' },
+      payload: { schema: 'maptale/edits@1', modi: 'quatsch' },
     })
     expect(form.statusCode).toBe(400)
     const semantik = await u.app.inject({
@@ -732,7 +732,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         trim: { start: '2026-07-04T10:00:00Z', ende: '2026-07-04T09:00:00Z' },
       },
     })
@@ -753,7 +753,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         audio: [{ datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'bibliothek' }],
       },
     })
@@ -768,7 +768,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
       payload: {
-        schema: 'luhambo/edits@1',
+        schema: 'maptale/edits@1',
         audio: [{ datei: 'amb-hafen.mp3', typ: 'musik', ab: '2026-07-04T08:20:00Z', quelle: 'boese' }],
       },
     })
@@ -805,7 +805,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(daten.medien[0]?.gpsAnker).toEqual([7.9105, 46.59])
     // Ohne hochgeladene Audio-Dateien ist die Liste leer (Fotos zählen nicht)
     expect(daten.audio).toEqual([])
-    expect(daten.edits.schema).toBe('luhambo/edits@1')
+    expect(daten.edits.schema).toBe('maptale/edits@1')
   })
 
   it('Editor-Daten lassen gpsAnker weg, wenn das Manifest keinen Anker trägt', async () => {
@@ -864,7 +864,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
       method: 'PUT',
       url: `/api/tours/${id}/edits`,
       cookies: u.cookies,
-      payload: { schema: 'luhambo/edits@1', modi: [{ ab: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }] },
+      payload: { schema: 'maptale/edits@1', modi: [{ ab: '2026-07-04T09:00:00Z<b>x</b>', mode: 'walk' }] },
     })
     expect(edits.statusCode).toBe(400)
   })
@@ -881,7 +881,7 @@ describe('Edit-Overlay + Editor (M7)', () => {
           method: 'PUT',
           url: `/api/tours/${id}/edits`,
           cookies: fremd,
-          payload: { schema: 'luhambo/edits@1' },
+          payload: { schema: 'maptale/edits@1' },
         })
       ).statusCode,
     ).toBe(404)

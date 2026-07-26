@@ -23,7 +23,7 @@ const eingabe = (patch: Partial<Parameters<typeof reichereAn>[0]> = {}) => ({
 describe('reichereAn', () => {
   it('rendert ein abspielfertiges Tour-JSON', async () => {
     const tour = await reichereAn(eingabe())
-    expect(tour.schema).toBe('luhambo/tour@1')
+    expect(tour.schema).toBe('maptale/tour@1')
     expect(tour.no).toBe('N°07')
     expect(tour.brandTitle).toBe('Lauterbrunnen → Grindelwald')
     expect(tour.stops).toEqual(['Lauterbrunnen', 'Grindelwald'])
@@ -239,7 +239,7 @@ describe('reichereAn', () => {
   it('edits.wetter ersetzt das Auto-Wetter und ruft die Quelle gar nicht', async () => {
     const wetter = bewoelkt()
     const tour = await reichereAn(
-      eingabe({ wetter, edits: { schema: 'luhambo/edits@1', wetter: [{ ab: abZeit(0), mode: 'rain' }] } }),
+      eingabe({ wetter, edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(0), mode: 'rain' }] } }),
     )
     expect(tour.weather?.every((w) => w.source === 'studio')).toBe(true)
     expect(tour.weather?.every((w) => w.mode === 'rain')).toBe(true) // Grenze am Start → ganze Tour Regen
@@ -252,7 +252,7 @@ describe('reichereAn', () => {
       eingabe({
         wetter: bewoelkt(),
         bildBefunde,
-        edits: { schema: 'luhambo/edits@1', wetter: [{ ab: abZeit(0), mode: 'clouds' }] },
+        edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(0), mode: 'clouds' }] },
       }),
     )
     expect(tour.weather?.some((w) => w.source === 'photo')).toBeFalsy()
@@ -261,7 +261,7 @@ describe('reichereAn', () => {
 
   it('eine Wetter-Grenze in der Mitte schaltet exakt dort um', async () => {
     const tour = await reichereAn(
-      eingabe({ edits: { schema: 'luhambo/edits@1', wetter: [{ ab: abZeit(10500), mode: 'storm' }] } }),
+      eingabe({ edits: { schema: 'maptale/edits@1', wetter: [{ ab: abZeit(10500), mode: 'storm' }] } }),
     )
     const w = tour.weather ?? []
     expect(w[0]).toMatchObject({ f: 0, mode: 'off' }) // Grund vor der Grenze = klar

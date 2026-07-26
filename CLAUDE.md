@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Was das ist
 
-Luhambo (Siswati für „Reise“) ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
+Maptale (Siswati für „Reise“) ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
 automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vanilla JS + Vite
 (neue Module in TypeScript), gerendert mit MapLibre GL JS.
 
-**Luhambo wird von einem Prototyp zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
+**Maptale wird von einem Prototyp zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
 Meilensteine M1–M9): eigene Touren aufzeichnen (Android), hochladen, serverseitig anreichern
 und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 
@@ -66,7 +66,7 @@ wird aber von der Landing auf `/erlebnis.html` umgeleitet. `?app=1` markiert die
 CloudPanels Nginx serviert den statischen Build und proxyt `/api`; **nur die API läuft im
 Container** ([docker-compose.cloudpanel.yml](docker-compose.cloudpanel.yml) →
 [server/Dockerfile](server/Dockerfile), Host-Port `127.0.0.1:8790` → Container 8787,
-Daten-Bind-Mount `/srv/luhambo/daten`). Ein Version-Tag `vX.Y.Z` triggert
+Daten-Bind-Mount `/srv/maptale/daten`). Ein Version-Tag `vX.Y.Z` triggert
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml): Gate aus Web-Tests + Typecheck +
 Build, Backend-Tests mit Coverage-Gate und Android-Unit-Tests → API-Image nach GHCR → per SSH
 `docker compose -f docker-compose.cloudpanel.yml up -d` plus `rsync` des `dist/` in den
@@ -206,7 +206,7 @@ Tempo wäre Zufall. Die eigene Inszenierung dafür (gestrichelte Bodenlinie, fli
 fahrende Kamera) steht noch aus: [docs/foto-tour.md](docs/foto-tour.md).
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
-sondern schreibt ein **Edit-Overlay** (`luhambo/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
+sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
 `medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `kamera`, `audio`,
 `wetter`, `titelbild` (dazu `trim` — im Format erhalten und serverseitig angewandt, aber
 **nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour beginnt

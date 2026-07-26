@@ -252,8 +252,8 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
           authorization: `Bearer ${this.apiKey}`,
           'content-type': 'application/json',
           // Optionale OpenRouter-Attribution — taucht in der Nutzungsübersicht auf.
-          'http-referer': 'https://luhambo.henrikheil.net',
-          'x-title': 'Luhambo',
+          'http-referer': 'https://maptale.henrikheil.net',
+          'x-title': 'Maptale',
         },
         body: JSON.stringify({
           model: this.modell,

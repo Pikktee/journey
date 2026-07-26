@@ -5,14 +5,14 @@ import { baueResetMail, baueVerifikationsMail, KonsoleMail } from '../src/mail.j
 
 describe('Mail-Texte', () => {
   it('Bestätigungsmail enthält Namen und Link', () => {
-    const { betreff, text } = baueVerifikationsMail('Mira', 'https://luhambo.app/studio.html#verify=abc')
+    const { betreff, text } = baueVerifikationsMail('Mira', 'https://maptale.henrikheil.net/studio.html#verify=abc')
     expect(betreff).toMatch(/bestätige/i)
     expect(text).toContain('Mira')
-    expect(text).toContain('https://luhambo.app/studio.html#verify=abc')
+    expect(text).toContain('https://maptale.henrikheil.net/studio.html#verify=abc')
   })
 
   it('Reset-Mail enthält Link und Gültigkeitshinweis', () => {
-    const { betreff, text } = baueResetMail('du', 'https://luhambo.app/studio.html#reset=xyz')
+    const { betreff, text } = baueResetMail('du', 'https://maptale.henrikheil.net/studio.html#reset=xyz')
     expect(betreff).toMatch(/Passwort/i)
     expect(text).toContain('#reset=xyz')
     expect(text).toMatch(/1 Stunde/)

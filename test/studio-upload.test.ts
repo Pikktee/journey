@@ -81,7 +81,7 @@ describe('baueUploadManifest', () => {
       trackMode: 'bike',
       medien: [{ id: 'm1', type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T08:10:00+00:00', anchor: [7.9, 46.5] }],
     })
-    expect(m.schema).toBe('luhambo/upload@1')
+    expect(m.schema).toBe('maptale/upload@1')
     expect(m.trackFile).toBe('track.gpx')
     expect(m.trackMode).toBe('bike')
     expect(m.time.start).toBe('2026-07-04T08:00:00+00:00')

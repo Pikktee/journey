@@ -1,5 +1,5 @@
 // Anreicherungs-Pipeline: rendert aus dem unantastbaren Original-Upload
-// (Manifest + Medien) das abspielfertige Tour-JSON (`luhambo/tour@1`).
+// (Manifest + Medien) das abspielfertige Tour-JSON (`maptale/tour@1`).
 // Umfang: Benennung, Track-Vereinfachung, Statistik, Medien-URLs, Timeline
 // (nichtlineare Pseudo-Zeit, M2) und Auto-Wetter (Open-Meteo, M2).
 // Später ergänzt (gleiche Stelle, gleiche Signatur): Bildanalyse (M5),
@@ -19,7 +19,7 @@ import { verfeinereWetterMitFotos } from './vision.js'
 import { berechneWetter, wetterAusOverlay, type WetterKeyframe, type WetterQuelle } from './weather.js'
 import { baueZeitreihe, destilliereTimeline, positionZurZeit } from './zeit.js'
 
-export const TOUR_SCHEMA_ID = 'luhambo/tour@1'
+export const TOUR_SCHEMA_ID = 'maptale/tour@1'
 
 /** Abspielfertiges Tour-JSON — bewusst nah an der cfg-Form des Players. */
 export interface TourJson {

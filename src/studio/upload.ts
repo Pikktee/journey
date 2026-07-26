@@ -12,7 +12,7 @@ export interface MediumEingabe {
 }
 
 export interface UploadManifest {
-  schema: 'luhambo/upload@1'
+  schema: 'maptale/upload@1'
   clientTourId: string
   title: string | null
   description: null
@@ -110,7 +110,7 @@ export function baueUploadManifest(opts: {
   medien: MediumEingabe[]
 }): UploadManifest {
   return {
-    schema: 'luhambo/upload@1',
+    schema: 'maptale/upload@1',
     clientTourId: opts.clientTourId,
     title: opts.title,
     description: null,

@@ -4,6 +4,6 @@
          Muss zu `Nacht` in ui/Theme.kt passen — dieser Wert füllt das Fenster,
          bevor Compose zeichnet; eine Abweichung blitzt beim Start als Farbsprung
          auf. -->
-    <color name="luhambo_nacht">#06090E</color>
-    <color name="luhambo_sonne">#F5A623</color>
+    <color name="maptale_nacht">#06090E</color>
+    <color name="maptale_sonne">#F5A623</color>
 </resources>

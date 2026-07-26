@@ -1,5 +1,5 @@
 # ————————————————————————————————————————————
-#  Luhambo-API — Produktions-Image (Hetzner-VPS, Docker Compose)
+#  Maptale-API — Produktions-Image (Hetzner-VPS, Docker Compose)
 #  Zwei Stufen: TypeScript-Build → schlanke Runtime mit ffmpeg
 #  (Video-Transcode/Poster ab M4). Tour-Daten liegen im Bind-Mount /data.
 # ————————————————————————————————————————————

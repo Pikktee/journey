@@ -27,11 +27,11 @@ export default defineConfig({
   server: {
     port: Number(process.env.PORT) || 5173,
     strictPort: true,
-    // Luhambo-Backend (server/): im Dev denselben Origin sprechen wie in
+    // Maptale-Backend (server/): im Dev denselben Origin sprechen wie in
     // Produktion (Caddy proxyt /api) — kein CORS, keine Backend-URL im Code.
-    // LUHAMBO_API übersteuert das Ziel (z. B. wenn 8787 anderweitig belegt ist).
+    // MAPTALE_API übersteuert das Ziel (z. B. wenn 8787 anderweitig belegt ist).
     proxy: {
-      '/api': process.env.LUHAMBO_API || 'http://localhost:8787',
+      '/api': process.env.MAPTALE_API || 'http://localhost:8787',
     },
   },
 })

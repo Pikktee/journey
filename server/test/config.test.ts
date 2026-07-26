@@ -20,30 +20,30 @@ describe('konfigAusEnv', () => {
   it('behandelt LEERE Strings (docker-compose ${VAR:-}) wie „nicht gesetzt"', () => {
     const k = konfigAusEnv({
       PORT: '',
-      LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: '',
-      LUHAMBO_BASIS_URL: '',
-      LUHAMBO_MAIL_ABSENDER: '   ',
-      LUHAMBO_DATEN_DIR: '',
+      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: '',
+      MAPTALE_BASIS_URL: '',
+      MAPTALE_MAIL_ABSENDER: '   ',
+      MAPTALE_DATEN_DIR: '',
       OPEN_ROUTER_KEY: '   ',
     })
     expect(k.port).toBe(8787)
     expect(k.maxSpeicherProBenutzer).toBe(2 * 1024 * 1024 * 1024) // NICHT 0!
     expect(k.basisUrl).toBe('http://localhost:5173')
-    expect(k.mailAbsender).toContain('Luhambo')
+    expect(k.mailAbsender).toContain('Maptale')
     expect(k.datenDir).toBe('./daten')
     expect(k.openRouterKey).toBeNull() // leerer/whitespace Key = Feature aus
   })
 
   it('übernimmt gesetzte Werte', () => {
     const k = konfigAusEnv({
-      LUHAMBO_BASIS_URL: 'https://luhambo.app',
-      LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: '1048576',
-      LUHAMBO_REGISTRIERUNG_OFFEN: '0',
+      MAPTALE_BASIS_URL: 'https://maptale.henrikheil.net',
+      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: '1048576',
+      MAPTALE_REGISTRIERUNG_OFFEN: '0',
       RESEND_API_KEY: 're_test',
       OPEN_ROUTER_KEY: 'sk-or-test',
-      LUHAMBO_VISION_MODELL: 'openai/gpt-4o-mini',
+      MAPTALE_VISION_MODELL: 'openai/gpt-4o-mini',
     })
-    expect(k.basisUrl).toBe('https://luhambo.app')
+    expect(k.basisUrl).toBe('https://maptale.henrikheil.net')
     expect(k.maxSpeicherProBenutzer).toBe(1048576)
     expect(k.registrierungOffen).toBe(false)
     expect(k.openRouterKey).toBe('sk-or-test')

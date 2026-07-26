@@ -1,6 +1,6 @@
-# Luhambo — 3D-Reise-Visualisierung
+# Maptale — 3D-Reise-Visualisierung
 
-> **Luhambo** ist Siswati für „Reise“.
+> **Maptale** ist Siswati für „Reise“.
 
 Relive-artige 3D-Kamerafahrt über eine GPS-Route mit automatischen Foto-Stopps,
 komplett auf Basis kostenloser Kartendaten.
@@ -56,11 +56,11 @@ nötig — der Google-3D-Key wird nur im Dev genutzt.
 **Einmalige Einrichtung:**
 
 1. Hetzner-Cloud-Server (z. B. CAX11) mit Docker; DNS-A-Record auf die Server-IP.
-2. Auf dem Server `/srv/luhambo/` anlegen mit der [`docker-compose.yml`](docker-compose.yml)
+2. Auf dem Server `/srv/maptale/` anlegen mit der [`docker-compose.yml`](docker-compose.yml)
    aus dem Repo und einer `.env`:
-   `SITE_ADDRESS=deine-domain.tld`, `LUHAMBO_COOKIE_SECRET=<lang & zufällig>`,
-   `LUHAMBO_ADMIN_EMAIL`/`LUHAMBO_ADMIN_PASSWORT` (Seed-Benutzer). Tour-Daten
-   landen im Bind-Mount `/srv/luhambo/daten` (→ Backup einplanen!).
+   `SITE_ADDRESS=deine-domain.tld`, `MAPTALE_COOKIE_SECRET=<lang & zufällig>`,
+   `MAPTALE_ADMIN_EMAIL`/`MAPTALE_ADMIN_PASSWORT` (Seed-Benutzer). Tour-Daten
+   landen im Bind-Mount `/srv/maptale/daten` (→ Backup einplanen!).
 3. Im GitHub-Repo unter **Settings → Secrets and variables → Actions**:
    Secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (Deploy-Key des Servers).
 
@@ -68,18 +68,18 @@ nötig — der Google-3D-Key wird nur im Dev genutzt.
 
 | Variable | Zweck | Default |
 |---|---|---|
-| `LUHAMBO_BASIS_URL` | Öffentliche URL für die Links in System-Mails | `http://localhost:5173` |
+| `MAPTALE_BASIS_URL` | Öffentliche URL für die Links in System-Mails | `http://localhost:5173` |
 | `RESEND_API_KEY` | Aktiviert echten Mail-Versand (sonst landet der Bestätigungslink nur im Server-Log) | – |
-| `LUHAMBO_MAIL_ABSENDER` | Absender der System-Mails | `Luhambo <noreply@luhambo.app>` |
-| `LUHAMBO_MAX_SPEICHER_PRO_BENUTZER` | Speicher-Quota je Benutzer (Bytes) | 2 GiB |
-| `LUHAMBO_REGISTRIERUNG_OFFEN` | `0` schließt die Selbst-Registrierung (private Instanz) | offen |
+| `MAPTALE_MAIL_ABSENDER` | Absender der System-Mails | `Maptale <noreply@luhambo.app>` |
+| `MAPTALE_MAX_SPEICHER_PRO_BENUTZER` | Speicher-Quota je Benutzer (Bytes) | 2 GiB |
+| `MAPTALE_REGISTRIERUNG_OFFEN` | `0` schließt die Selbst-Registrierung (private Instanz) | offen |
 
 Vor dem öffentlichen Start ausfüllen: die Platzhalter in [`impressum.html`](impressum.html)
 und [`datenschutz.html`](datenschutz.html) (Betreiberangaben, Hosting-/Mail-Anbieter).
 
 **Backup (Pflicht — die einzigen Kopien der Touren liegen im Bind-Mount).**
 Täglicher Hetzner-Snapshot (~1 €/Monat) **oder** ein `rclone`-Cron von
-`/srv/luhambo/daten` zu einem Objektspeicher. Die SQLite läuft im WAL-Modus —
+`/srv/maptale/daten` zu einem Objektspeicher. Die SQLite läuft im WAL-Modus —
 für ein konsistentes Dateisystem-Backup entweder kurz stoppen oder
 `sqlite3 luhambo.db ".backup"` nutzen. Betrieb härten: `unattended-upgrades`,
 Firewall nur auf 80/443/22, SSH nur per Key.

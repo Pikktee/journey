@@ -3,25 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Galerie · Luhambo</title>
-  <meta name="description" content="Öffentlich geteilte Reisen — als 3D-Kamerafahrt über die echte Strecke." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰️</text></svg>" />
+  <title>Entdecken · Maptale</title>
+  <meta name="description" content="Öffentlich geteilte Reisen & Touren erkunden — als 3D-Kamerafahrt über die echte Strecke." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+    rel="stylesheet"
+  />
   <style>
-    /* Farben und Schriften wie auf der Landing — die Galerie ist derselbe Ort,
-       nur eine Seite weiter. */
+    /* Entdecken teilt Breite und Navigation mit Studio-Übersicht und Landing. */
     :root {
-      --bg: #0a0d12;
-      --bg-2: #06090e;
+      --bg: #0A0D14;
+      --bg-2: #06090E;
       --ink: #f2ede3;
       --muted: rgba(242, 237, 227, 0.64);
       --faint: rgba(242, 237, 227, 0.42);
-      --amber: #f5a524;
-      --line: rgba(255, 255, 255, 0.1);
+      --amber: #F59E0B;
+      --coral: #FF6F52;
+      --line: rgba(255, 255, 255, 0.08);
       --card: rgba(255, 255, 255, 0.035);
-      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      --display: 'Fraunces', Georgia, serif;
-      --mono: 'IBM Plex Mono', 'Courier New', monospace;
+      --sans: 'Outfit', system-ui, sans-serif;
+      --display: 'Outfit', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
       --wrap: 1160px;
+      --topbar-h: 58px;
     }
 
     * { box-sizing: border-box; }
@@ -35,23 +44,101 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 22px; }
+    .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
 
-    .nav { border-bottom: 1px solid var(--line); background: rgba(6, 9, 14, 0.86); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
-    .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
-    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-    .brand-word { font-family: var(--mono); letter-spacing: 0.34em; text-indent: 0.34em; font-size: 13px; text-transform: uppercase; }
-    .nav-links { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 12.5px; }
-    .nav-links a { color: var(--muted); text-decoration: none; }
-    .nav-links a:hover { color: var(--ink); }
-    .nav-cta { color: var(--ink) !important; border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px; }
+    nav.nav {
+      height: var(--topbar-h);
+      border-bottom: 1px solid #222b37;
+      background: rgba(13, 17, 24, 0.82);
+      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 60;
+      display: flex; align-items: center;
+    }
+    nav.nav .wrap {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      width: min(var(--wrap), 100% - 44px);
+      height: 100%;
+    }
+    .brand {
+      text-decoration: none; color: var(--ink);
+      display: inline-flex; align-items: center; gap: 0.45em; flex-shrink: 0;
+      font-family: var(--display); font-weight: 700; font-size: 17px;
+      letter-spacing: -0.02em; line-height: 1;
+      justify-self: start;
+    }
+    .brand img { display: block; height: 28px; width: auto; translate: 0 1px; }
+    .top-nav {
+      display: flex; align-items: center; gap: 2px; justify-self: center;
+    }
+    .top-nav a {
+      display: inline-flex; align-items: center; gap: 7px;
+      color: #a7b1bf; text-decoration: none;
+      font-family: var(--sans);
+      font-size: 13.5px; font-weight: 500; padding: 7px 12px; border-radius: 9px;
+      transition: color 0.18s ease, background 0.18s ease;
+    }
+    .top-nav a svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
+    .top-nav a:hover { color: var(--ink); background: rgba(255,255,255,0.06); }
+    .top-nav a.aktiv { color: var(--ink); background: rgba(255,255,255,0.07); }
+    .top-nav a.aktiv svg { opacity: 1; }
+    .nav-right { display: flex; align-items: center; gap: 10px; justify-self: end; }
+    .nav-right a.nav-cta {
+      color: #1a1206; font-weight: 600; font-size: 13.5px; text-decoration: none;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      padding: 8px 16px; border-radius: 999px;
+    }
+    .nav-right a.nav-cta:hover { filter: brightness(1.06); }
+    .konto-wrap { position: relative; }
+    .benutzer-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans); font-size: 13px; font-weight: 500;
+      color: #a7b1bf;
+      background: #10151d;
+      border: 1px solid #222b37; border-radius: 999px;
+      padding: 6px 12px 6px 7px; cursor: pointer;
+    }
+    .benutzer-chip:hover { background: #1c2530; color: var(--ink); border-color: #2e3a49; }
+    .benutzer-chip[aria-expanded='true'] { border-color: var(--amber); }
+    .benutzer-chip .punkt {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      color: #221302; display: grid; place-items: center;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; flex: none;
+    }
+    .benutzer-chip img.punkt { object-fit: cover; display: block; }
+    .konto-menue {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 80;
+      width: 250px; padding: 14px; border-radius: 12px;
+      background: #151c26; border: 1px solid #222b37;
+      box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .konto-menue[hidden] { display: none !important; }
+    .km-mail { font-family: var(--sans); font-size: 12.5px; font-weight: 500; color: #a7b1bf; word-break: break-all; }
+    .km-quota-kopf { display: flex; justify-content: space-between; font-size: 11.5px; color: #67727f; margin-bottom: 6px; }
+    .km-balken { height: 6px; border-radius: 3px; background: #10151d; overflow: hidden; }
+    .km-balken span { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
+    .km-balken span.voll { background: #e8a13c; }
+    .km-trenner { height: 1px; background: #222b37; margin: 2px 0; }
+    .km-eintrag {
+      display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start;
+      font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--ink);
+      background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer;
+    }
+    .km-eintrag:hover { background: rgba(255,255,255,0.06); }
+    .km-eintrag svg { width: 15px; height: 15px; flex: none; }
+    @media (max-width: 640px) {
+      .top-nav { display: none; }
+      nav.nav .wrap { grid-template-columns: 1fr auto; }
+    }
 
-    header.kopf { padding: 64px 0 30px; }
-    header.kopf h1 { font-family: var(--display); font-weight: 500; font-size: clamp(31px, 5vw, 52px); line-height: 1.06; letter-spacing: -0.015em; margin: 12px 0 0; }
-    .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); margin: 0; }
-    header.kopf p.lead { color: var(--muted); font-size: 17px; line-height: 1.6; max-width: 54ch; margin: 16px 0 0; }
+    header.kopf { padding: 48px 0 22px; }
+    header.kopf h1 { font-family: var(--display); font-weight: 700; font-size: clamp(31px, 5vw, 48px); line-height: 1.1; letter-spacing: -0.015em; margin: 0; }
+    header.kopf p.lead { color: var(--muted); font-size: 17px; line-height: 1.6; max-width: 54ch; margin: 14px 0 0; }
 
-    /* Karten-Gitter: fließend, ohne feste Spaltenzahl */
     .gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; padding: 22px 0 8px; }
 
     .karte { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); transition: transform 0.18s ease, border-color 0.18s ease; }
@@ -62,21 +149,19 @@
     .karte-bild { aspect-ratio: 3 / 2; background: rgba(255, 255, 255, 0.05); }
     .karte-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .karte-text { padding: 15px 17px 17px; }
-    .karte-text h3 { font-family: var(--display); font-weight: 500; font-size: 21px; line-height: 1.2; margin: 0; }
-    .karte-meta { font-family: var(--mono); font-size: 12px; color: var(--faint); margin: 7px 0 0; }
+    .karte-text h3 { font-family: var(--display); font-weight: 600; font-size: 21px; line-height: 1.2; margin: 0; }
+    .karte-meta { font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--faint); margin: 7px 0 0; }
     .karte-autor { display: flex; align-items: center; gap: 8px; padding: 0 17px 16px; font-size: 13.5px; color: var(--muted); text-decoration: none; }
     a.karte-autor:hover { color: var(--ink); }
     .karte-autor img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
 
     .mehr-zeile { display: flex; justify-content: center; padding: 26px 0 70px; }
-    button#mehr { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 11px 26px; cursor: pointer; }
+    button#mehr { font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 11px 26px; cursor: pointer; }
     button#mehr:hover { border-color: rgba(255, 255, 255, 0.28); }
     button#mehr:disabled { opacity: 0.5; cursor: default; }
 
-    .hinweis { color: var(--muted); font-size: 16px; padding: 30px 0 60px; grid-column: 1 / -1; }
-
     footer { border-top: 1px solid var(--line); padding: 26px 0 40px; }
-    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--sans); font-size: 13px; color: var(--faint); }
     footer a { color: var(--faint); text-decoration: none; }
     footer a:hover { color: var(--ink); }
 
@@ -86,21 +171,29 @@
 <body>
   <nav class="nav">
     <div class="wrap">
-      <a class="brand" href="/" aria-label="Luhambo — Startseite">
-        <span class="brand-mark">⛰️</span>
-        <span class="brand-word">Luhambo</span>
+      <a href="/" class="brand" title="Maptale — Startseite">
+        <img src="/logo-mark.svg" alt="" height="28" />
+        <span>Maptale</span>
       </a>
-      <div class="nav-links">
-        <a href="/">Start</a>
-        <a href="/studio.html" class="nav-cta">Anmelden</a>
+      <nav class="top-nav" aria-label="Hauptnavigation">
+        <a href="/studio.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>
+          Meine Touren
+        </a>
+        <a href="/galerie.html" class="aktiv">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>
+          Entdecken
+        </a>
+      </nav>
+      <div class="nav-right" id="nav-right">
+        <a href="/studio.html" class="nav-cta" data-gast>Anmelden</a>
       </div>
     </div>
   </nav>
 
   <header class="kopf">
     <div class="wrap">
-      <p class="eyebrow">Galerie</p>
-      <h1>Geteilte Reisen</h1>
+      <h1>Reisen &amp; Touren entdecken</h1>
       <p class="lead">
         Aufgezeichnete Touren, die ihre Urheber öffentlich gestellt haben — jede
         als Kamerafahrt über die echte Strecke, mit den Fotos an dem Ort, an dem
@@ -116,7 +209,7 @@
 
   <footer>
     <div class="wrap">
-      <span>Luhambo</span>
+      <span>Maptale</span>
       <span>
         <a href="/impressum.html">Impressum</a> ·
         <a href="/datenschutz.html">Datenschutz</a>
@@ -127,6 +220,68 @@
   <script type="module">
     import { starteGalerie } from '/src/galerie/galerie.ts'
     starteGalerie()
+
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((daten) => {
+        if (!daten?.benutzer) return
+        const rechts = document.getElementById('nav-right')
+        if (!rechts) return
+        const name = daten.profil?.anzeigename || daten.benutzer.name || 'Profil'
+        const initial = (name.trim().charAt(0) || '?').toUpperCase()
+        const avatar = daten.profil?.avatarUrl
+        const mail = daten.benutzer.email || ''
+        const quota = daten.quota
+        const avatarHtml = avatar
+          ? `<img class="punkt" src="${avatar}" alt="" width="20" height="20" />`
+          : `<span class="punkt">${initial}</span>`
+        const mb = (b) => (b / (1024 * 1024)).toFixed(0)
+        let quotaHtml = ''
+        if (quota?.limit > 0) {
+          const anteil = Math.min(100, (quota.benutzt / quota.limit) * 100)
+          quotaHtml = `<div class="km-quota">
+            <div class="km-quota-kopf"><span>Speicher</span><span>${mb(quota.benutzt)} / ${mb(quota.limit)} MB</span></div>
+            <div class="km-balken"><span style="width:${anteil.toFixed(0)}%"${anteil > 90 ? ' class="voll"' : ''}></span></div>
+          </div>`
+        }
+        rechts.innerHTML = `
+          <div class="konto-wrap">
+            <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
+              ${avatarHtml}<span class="nav-profil-name"></span>
+            </button>
+            <div class="konto-menue" id="nav-konto-menue" hidden>
+              ${mail ? '<div class="km-mail"></div>' : ''}
+              ${quotaHtml}
+              <div class="km-trenner" role="separator"></div>
+              <button type="button" class="km-eintrag" id="nav-abmelden">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Abmelden
+              </button>
+            </div>
+          </div>`
+        rechts.querySelector('.nav-profil-name').textContent = name
+        const mailEl = rechts.querySelector('.km-mail')
+        if (mailEl) mailEl.textContent = mail
+        const chip = document.getElementById('nav-profil')
+        const menue = document.getElementById('nav-konto-menue')
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const auf = menue.hidden
+          menue.hidden = !auf
+          chip.setAttribute('aria-expanded', String(auf))
+        })
+        document.addEventListener('click', (e) => {
+          if (!menue.hidden && !e.target.closest('.konto-wrap')) {
+            menue.hidden = true
+            chip.setAttribute('aria-expanded', 'false')
+          }
+        })
+        document.getElementById('nav-abmelden').addEventListener('click', () => {
+          fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+            .finally(() => location.reload())
+        })
+      })
+      .catch(() => {})
   </script>
 </body>
 </html>

@@ -53,7 +53,7 @@ wie es gerendert ankommt:
 ```jsonc
 // edits.json — 190 Bytes, die GANZE Datei
 {
-  "schema": "luhambo/edits@1",
+  "schema": "maptale/edits@1",
   "audio": [
     {
       "datei": "mus-regentag.mp3",

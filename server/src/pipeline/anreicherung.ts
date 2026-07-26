@@ -1,4 +1,4 @@
-// Anreicherungs-Cache (`luhambo/anreicherung@1`): die TEUREN, extern beschafften
+// Anreicherungs-Cache (`maptale/anreicherung@1`): die TEUREN, extern beschafften
 // Ergebnisse der Pipeline liegen als eigenes Artefakt neben tour.json — sie
 // hängen alle an den UNVERÄNDERLICHEN Rohdaten, nicht am Edit-Overlay. Dadurch
 // muss ein Edit-Speichern nur noch das Overlay lokal anwenden (Sekunden­bruchteil)
@@ -20,7 +20,7 @@ import type { BildBefund } from './vision.js'
 import { berechneWetter, type WetterKeyframe, type WetterQuelle } from './weather.js'
 import { baueZeitreihe } from './zeit.js'
 
-export const ANREICHERUNG_SCHEMA_ID = 'luhambo/anreicherung@1'
+export const ANREICHERUNG_SCHEMA_ID = 'maptale/anreicherung@1'
 
 export interface AnreicherungsCache {
   schema: typeof ANREICHERUNG_SCHEMA_ID

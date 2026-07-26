@@ -17,7 +17,7 @@ import { FsStorage } from './storage.js'
 const konfig = konfigAusEnv()
 await mkdir(konfig.datenDir, { recursive: true })
 
-const db = oeffneDb(join(konfig.datenDir, 'luhambo.db'))
+const db = oeffneDb(join(konfig.datenDir, 'maptale.db'))
 const storage = new FsStorage(join(konfig.datenDir, 'tours'))
 // Benutzerdateien (Avatare) liegen getrennt von den Touren, mit der Benutzer-ID
 // als Bereichsnamen — so räumt das Konto-Löschen sie mit einem Aufruf weg.
@@ -48,7 +48,7 @@ const app = baueApp({
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
 
 await app.listen({ port: konfig.port, host: '0.0.0.0' })
-app.log.info(`Luhambo-API läuft auf Port ${konfig.port}`)
+app.log.info(`Maptale-API läuft auf Port ${konfig.port}`)
 
 // Titelbilder der Bestandstouren nachtragen — nach dem listen, damit ein
 // langsamer Durchlauf die Bereitschaft der API nicht verzögert.

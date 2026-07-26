@@ -1,19 +1,12 @@
-// Edit-Overlay `luhambo/edits@1` (M7): alle Bearbeitungen einer Tour leben in
+// Edit-Overlay `maptale/edits@1` (auch `luhambo/edits@1` kompatibel): alle Bearbeitungen einer Tour leben in
 // EINER Datei (edits.json) neben den unantastbaren Rohdaten unter original/.
 // Die Pipeline rendert das Player-JSON stets aus Rohdaten + Overlay neu —
 // Wetter/Benennung lassen sich jederzeit neu ableiten, ohne Edits zu verlieren.
-//
-// Kern-Designentscheid (Plan): Edits referenzieren STABILE Anker — Medien-IDs,
-// Koordinaten und absolute Zeitstempel, nie den Streckenanteil f. Ein Trim
-// verschiebt so keine nachfolgenden Bearbeitungen.
-//
-// Titel/Beschreibung liegen bewusst NICHT hier, sondern in den DB-Spalten
-// (PATCH /api/tours/:id) — eine Quelle der Wahrheit pro Feld.
 
 import { WETTER_MODI, type WetterModus } from '../pipeline/weather.js'
 import { ISO_ZEIT_MAXLAENGE, ISO_ZEIT_PATTERN, MODI, type Modus } from './upload.js'
 
-export const EDITS_SCHEMA_ID = 'luhambo/edits@1'
+export const EDITS_SCHEMA_ID = 'maptale/edits@1'
 
 // Erlaubter Audio-Dateiname (Basisname + Audio-Endung) — geteilt vom
 // Overlay-Schema, den Audio-Routen (PUT/DELETE) und dem Editor-Filter.

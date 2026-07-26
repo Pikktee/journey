@@ -1,4 +1,4 @@
-# Statisches Ausliefern des Vite-Builds + Proxy zum Luhambo-Backend.
+# Statisches Ausliefern des Vite-Builds + Proxy zum Maptale-Backend.
 # Auf dem VPS setzt SITE_ADDRESS die Domain (Caddy übernimmt dann TLS via
 # Let's Encrypt automatisch); lokal (docker run/compose ohne Domain) fällt
 # es auf :8080 zurück — dort ohne TLS.

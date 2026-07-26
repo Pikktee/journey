@@ -188,7 +188,7 @@ async function bereiteEinVideoAuf(
   const webName = webVideoDateiname(mediumId)
   const endung = originalDatei.split('.').pop() ?? 'mp4'
 
-  const arbeitsdir = await mkdtemp(join(tmpdir(), 'luhambo-video-'))
+  const arbeitsdir = await mkdtemp(join(tmpdir(), 'maptale-video-'))
   const quellTemp = join(arbeitsdir, `quelle.${endung}`)
   try {
     await writeFile(quellTemp, await speicher.lese(`media/${originalDatei}`))

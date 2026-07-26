@@ -51,7 +51,7 @@ export interface TestUmgebung {
   benutzerStorage: MemStorage
   mail: SammelMail
   /** Session-Cookie des angemeldeten Testbenutzers, für inject() */
-  cookies: { luhambo_session: string }
+  cookies: { maptale_session: string }
   apiToken: string
 }
 
@@ -92,16 +92,16 @@ export async function baueTestApp(
     payload: { email: 'test@example.com', passwort: 'geheim123', tokenLabel: 'Testgerät' },
   })
   if (login.statusCode !== 200) throw new Error(`Test-Login fehlgeschlagen: ${login.body}`)
-  const sessionCookie = login.cookies.find((c) => c.name === 'luhambo_session')
+  const sessionCookie = login.cookies.find((c) => c.name === 'maptale_session')
   const apiToken = (login.json() as { apiToken: string }).apiToken
 
-  return { app, storage, benutzerStorage, mail, cookies: { luhambo_session: sessionCookie?.value ?? '' }, apiToken }
+  return { app, storage, benutzerStorage, mail, cookies: { maptale_session: sessionCookie?.value ?? '' }, apiToken }
 }
 
 /** Minimales, gültiges Upload-Manifest: 2 Segmente, 1 Foto (Berner Oberland). */
 export function beispielManifest(): UploadManifest {
   return {
-    schema: 'luhambo/upload@1',
+    schema: 'maptale/upload@1',
     clientTourId: 'client-tour-1',
     title: null,
     description: null,

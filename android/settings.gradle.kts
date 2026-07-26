@@ -1,4 +1,4 @@
-// Luhambo Android — eigenständiges Gradle-Projekt im Monorepo (Plan M3).
+// Maptale Android — eigenständiges Gradle-Projekt im Monorepo (Plan M3).
 // Ein Modul (:app); Schichten leben als Pakete, nicht als Gradle-Module.
 
 pluginManagement {
@@ -17,5 +17,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "luhambo"
+rootProject.name = "maptale"
 include(":app")

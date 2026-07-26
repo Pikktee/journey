@@ -10,7 +10,7 @@ import { readExifDate } from './exif.js'
 
 const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 
-// WMO-Wettercode + Stundenwerte → Luhambo-Modus + Stärke k (0..1, stufenlos —
+// WMO-Wettercode + Stundenwerte → Maptale-Modus + Stärke k (0..1, stufenlos —
 // genau dafür ist setIntensity stufenlos gebaut). Reihenfolge: Gewitter schlägt
 // Schnee schlägt Regen schlägt Nebel schlägt Bewölkung.
 export function wmoToWeather({ code, cloud, precip, snowfall }) {

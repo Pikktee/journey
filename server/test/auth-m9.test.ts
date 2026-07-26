@@ -16,8 +16,8 @@ async function registriere(u: TestUmgebung, email = 'neu@example.com', passwort 
 }
 
 /** Session-Cookie aus einer inject-Antwort (Register/Login setzen es). */
-function sessionAus(antwort: Awaited<ReturnType<TestUmgebung['app']['inject']>>): { luhambo_session: string } {
-  return { luhambo_session: antwort.cookies.find((c) => c.name === 'luhambo_session')?.value ?? '' }
+function sessionAus(antwort: Awaited<ReturnType<TestUmgebung['app']['inject']>>): { maptale_session: string } {
+  return { maptale_session: antwort.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 }
 
 describe('Registrierung + E-Mail-Bestätigung (M9)', () => {

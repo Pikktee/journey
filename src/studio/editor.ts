@@ -1355,6 +1355,9 @@ function baueZeitfeld(
   eingabe.className = 'zf-in'
   eingabe.type = 'text'
   eingabe.inputMode = 'numeric'
+  // Ohne size greift der Browser-Default (~20 Zeichen) als Mindestbreite —
+  // zwei Felder nebeneinander passen dann nicht in den Inspector.
+  eingabe.size = 5
   eingabe.value = uhrzeitKurz(offsetZuIso(z?.daten.time.start ?? '', offsetS))
   let aktuellS = offsetS
 
@@ -1380,33 +1383,40 @@ function baueZeitfeld(
 
   const stepper = document.createElement('div')
   stepper.className = 'zf-step'
-  for (const [zeichen, richtung] of [['▲', 60], ['▼', -60]] as const) {
+  for (const [label, richtung] of [['Eine Minute später', 60], ['Eine Minute früher', -60]] as const) {
     const b = document.createElement('button')
     b.type = 'button'
-    b.textContent = zeichen
+    b.setAttribute('aria-label', label)
     b.tabIndex = -1
     b.addEventListener('click', () => { anwenden(aktuellS + richtung); beiZugEnde?.() })
     stepper.appendChild(b)
   }
 
   // Scrubben über dem Feld: Fenster-Listener (Capture auf dem schmalen Feld
-  // verlöre schnelle Bewegungen), 5 px ≈ 1 Minute.
+  // verlöre schnelle Bewegungen), 5 px ≈ 1 Minute. Während des Zugs sofort
+  // user-select aus — sonst markiert der Browser den Text schon vor dem
+  // Scrub-Schwellwert. Erst ab 3 px Fokus weg und Minute mitlaufen lassen.
   zf.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest('.zf-step')) return
     const startX = e.clientX
     const startS = aktuellS
     let scrubt = false
+    zf.classList.add('zieht')
     const zieh = (ev: PointerEvent): void => {
       if (!scrubt && Math.abs(ev.clientX - startX) < 3) return
-      scrubt = true
-      zf.classList.add('scrub')
+      if (!scrubt) {
+        scrubt = true
+        zf.classList.add('scrub')
+        eingabe.blur()
+        window.getSelection()?.removeAllRanges()
+      }
       ev.preventDefault()
       anwenden(startS + Math.round((ev.clientX - startX) / 5) * 60)
     }
     const los = (): void => {
       window.removeEventListener('pointermove', zieh)
       window.removeEventListener('pointerup', los)
-      zf.classList.remove('scrub')
+      zf.classList.remove('scrub', 'zieht')
       if (scrubt) {
         unterdrueckeKlick = true
         beiZugEnde?.()
@@ -3471,7 +3481,7 @@ function halteAbspielen(): void {
 async function warteAufBereit(id: string): Promise<void> {
   for (let i = 0; i < 90; i++) {
     const t = await api.tour(id)
-    if (t.schema === 'luhambo/tour@1' || t.status === 'bereit') return
+    if (t.schema === 'maptale/tour@1' || t.status === 'bereit') return
     if (t.status === 'fehler') throw new Error(`Verarbeitung fehlgeschlagen: ${t.fehler ?? 'unbekannt'}`)
     await new Promise((weiter) => setTimeout(weiter, 900))
   }

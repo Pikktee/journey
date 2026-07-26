@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ————————————————————————————————————————————
-#  Luhambo — Release-Tool
+#  Maptale — Release-Tool
 #
 #  Hebt die Version an, erzeugt einen Git-Tag (vX.Y.Z) und pusht ihn.
 #  Der Tag-Push löst den Deploy-Workflow (.github/workflows/deploy.yml)
@@ -33,7 +33,7 @@ current="$(node -p "require('./package.json').version")"
 
 # — Interaktive Auswahl, wenn kein Argument —
 if [ -z "$level" ]; then
-  echo "${BOLD}Luhambo Release${OFF}  ${DIM}(aktuell v$current)${OFF}"
+  echo "${BOLD}Maptale Release${OFF}  ${DIM}(aktuell v$current)${OFF}"
   echo "  1) bugfix  — Patch"
   echo "  2) minor   — neue Features"
   echo "  3) major   — Breaking Changes"

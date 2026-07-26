@@ -1,5 +1,5 @@
 // Studio-API-Client (M6): dünne fetch-Hülle um das Backend. Origin-relativ mit
-// Session-Cookie (der Studio-Login setzt luhambo_session, httpOnly) — kein CORS,
+// Session-Cookie (der Studio-Login setzt maptale_session, httpOnly) — kein CORS,
 // kein Token im JS. Alle Aufrufe werfen ApiFehler mit der Server-Meldung.
 
 import type { UploadManifest } from './upload.js'

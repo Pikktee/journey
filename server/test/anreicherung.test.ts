@@ -83,7 +83,7 @@ describe('Anreicherungs-Cache', () => {
     expect(stand(u, wetter, klass)).toEqual({ geo: 2, wetter: 1, klass: 1 })
     // Cache-Artefakt liegt neben tour.json und hält die Roh-Ergebnisse
     const cache = JSON.parse((await u.storage.lese(id, 'anreicherung.json')).toString())
-    expect(cache.schema).toBe('luhambo/anreicherung@1')
+    expect(cache.schema).toBe('maptale/anreicherung@1')
     expect(cache.trimSignatur).toBe('null') // kein Trim
     expect(cache.befunde.m1).toBeTruthy()
     expect(cache.orte).toEqual({ startOrt: 'Lauterbrunnen', zielOrt: 'Grindelwald' })
@@ -93,7 +93,7 @@ describe('Anreicherungs-Cache', () => {
     const { u, wetter, klass, id } = await baueUndFinalisiere()
     const vor = stand(u, wetter, klass)
 
-    await speichereEdits(u, id, { schema: 'luhambo/edits@1', medien: { m1: { caption: 'Schön hier' } } })
+    await speichereEdits(u, id, { schema: 'maptale/edits@1', medien: { m1: { caption: 'Schön hier' } } })
 
     // Der teure Teil bleibt komplett aus (Cache trägt alles)
     expect(stand(u, wetter, klass)).toEqual(vor)
@@ -109,7 +109,7 @@ describe('Anreicherungs-Cache', () => {
     // Wetter-Grenze am Tour-Start → ganze Tour „storm". Rein render-seitig: der
     // Cache (Geocoding/Auto-Wetter/Bildanalyse) trägt weiter, nichts wird neu geholt.
     const start = new Date(Date.parse('2026-07-04T08:12:31+02:00')).toISOString()
-    await speichereEdits(u, id, { schema: 'luhambo/edits@1', wetter: [{ ab: start, mode: 'storm' }] })
+    await speichereEdits(u, id, { schema: 'maptale/edits@1', wetter: [{ ab: start, mode: 'storm' }] })
 
     expect(stand(u, wetter, klass)).toEqual(vor)
     const weather = (await tourJson(u, id)).weather ?? []
@@ -122,7 +122,7 @@ describe('Anreicherungs-Cache', () => {
     const vor = stand(u, wetter, klass)
 
     // Trim verschiebt den Startpunkt → Ortsnamen + Wetter (trim-abhängig) neu
-    await speichereEdits(u, id, { schema: 'luhambo/edits@1', trim: { start: '2026-07-04T08:13:00+02:00' } })
+    await speichereEdits(u, id, { schema: 'maptale/edits@1', trim: { start: '2026-07-04T08:13:00+02:00' } })
 
     const nach = stand(u, wetter, klass)
     expect(nach.geo - vor.geo).toBe(2) // Start + Ziel neu geocodiert

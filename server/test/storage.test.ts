@@ -12,7 +12,7 @@ let dir: string
 let storage: FsStorage
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'luhambo-storage-'))
+  dir = await mkdtemp(join(tmpdir(), 'maptale-storage-'))
   storage = new FsStorage(dir)
 })
 

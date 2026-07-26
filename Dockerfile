@@ -1,5 +1,5 @@
 # ————————————————————————————————————————————
-#  Luhambo — Web-Image (Hetzner-VPS, Docker Compose)
+#  Maptale — Web-Image (Hetzner-VPS, Docker Compose)
 #  Zwei Stufen: Vite-Build (Node) → statisches Ausliefern (Caddy).
 #  Caddy übernimmt zusätzlich TLS (SITE_ADDRESS) und den /api-Proxy
 #  zum Backend-Container — siehe Caddyfile + docker-compose.yml.

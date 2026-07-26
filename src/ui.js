@@ -60,7 +60,7 @@ export class UI {
     // zeigeFoto() stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
     try {
-      this._soundOn = sessionStorage.getItem('luhambo:video-sound') === '1'
+      this._soundOn = sessionStorage.getItem('maptale:video-sound') === '1'
     } catch { /* Storage kann in restriktiven Kontexten fehlen */ }
     this.els.video.addEventListener('ended', () => this.onMediaEnded?.())
     // Kann das Video nicht abspielen (Dekodierfehler, unspielbarer Codec), darf
@@ -78,7 +78,7 @@ export class UI {
       this.els.video.muted = !this._soundOn
       if (this._soundOn) this.els.video.play().catch(() => {})
       try {
-        sessionStorage.setItem('luhambo:video-sound', this._soundOn ? '1' : '0')
+        sessionStorage.setItem('maptale:video-sound', this._soundOn ? '1' : '0')
       } catch { /* ignorieren */ }
       this._syncSoundBtn()
     })

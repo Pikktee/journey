@@ -11,11 +11,11 @@ plugins {
 }
 
 android {
-    namespace = "app.luhambo"
+    namespace = "app.maptale"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "app.luhambo"
+        applicationId = "app.maptale"
         minSdk = 29
         targetSdk = 35
         versionCode = 1

@@ -207,7 +207,7 @@ describe('Musik beim ersten Verarbeiten', () => {
         method: 'PUT',
         url: `/api/tours/${id}/edits`,
         cookies: u.cookies,
-        payload: { schema: 'luhambo/edits@1', audio: [] },
+        payload: { schema: 'maptale/edits@1', audio: [] },
       })
       expect(weg.statusCode).toBe(202)
       await u.app.verarbeitungen.get(id)
@@ -240,7 +240,7 @@ describe('Musik beim ersten Verarbeiten', () => {
         url: `/api/tours/${id}/edits`,
         cookies: u.cookies,
         payload: {
-          schema: 'luhambo/edits@1',
+          schema: 'maptale/edits@1',
           audio: [{ datei: 'mus-tropen.mp3', typ: 'musik', ab: '2026-07-04T08:12:31+02:00', quelle: 'bibliothek' }],
         },
       })

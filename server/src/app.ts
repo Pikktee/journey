@@ -20,7 +20,7 @@ import { registriereTourRouten } from './routes/tours.js'
 import type { Storage } from './storage.js'
 import { ZuGrossFehler } from './storage.js'
 
-export const SESSION_COOKIE = 'luhambo_session'
+export const SESSION_COOKIE = 'maptale_session'
 
 export interface AppAbhaengigkeiten {
   konfig: Konfig

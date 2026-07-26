@@ -1,8 +1,8 @@
-// Austauschformat `luhambo/upload@1`: das Manifest, das App/Studio/CLI hochladen.
+// Austauschformat `maptale/upload@1` (auch `luhambo/upload@1` kompatibel): das Manifest, das App/Studio/CLI hochladen.
 // TypeScript-Typen + JSON-Schema (Fastify validiert Requests damit).
 // Dokumentation: docs/austauschformat.md im Repo-Root.
 
-export const UPLOAD_SCHEMA_ID = 'luhambo/upload@1'
+export const UPLOAD_SCHEMA_ID = 'maptale/upload@1'
 
 /**
  * Fortbewegungs-Modi — muss deckungsgleich mit der Player-Engine bleiben

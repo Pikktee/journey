@@ -1,4 +1,4 @@
-// Remote-Adapter (src/remote.ts): Server-JSON `luhambo/tour@1` → cfg-Form des
+// Remote-Adapter (src/remote.ts): Server-JSON `maptale/tour@1` → cfg-Form des
 // Players. Der Adapter ist die Naht zwischen Backend und Player — hier bricht
 // bei Schema-Drift zuerst etwas, deshalb eigene Tests.
 
@@ -7,7 +7,7 @@ import { adaptiereTour, createTimeAt, RemoteTourFehler, type TourJsonAntwort } f
 
 function beispielTour(): TourJsonAntwort {
   return {
-    schema: 'luhambo/tour@1',
+    schema: 'maptale/tour@1',
     id: 't_abc123',
     no: 'N°07',
     brandTitle: 'Lauterbrunnen → Grindelwald',

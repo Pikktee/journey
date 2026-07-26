@@ -1,11 +1,11 @@
-# Luhambo auf dem Hetzner-VPS: Caddy (web) serviert den Vite-Build und proxyt
+# Maptale auf dem Hetzner-VPS: Caddy (web) serviert den Vite-Build und proxyt
 # /api zum Backend (api). Tour-Daten liegen als Bind-Mount unter
-# /srv/luhambo/daten — DAS Verzeichnis fürs Backup (Hetzner-Snapshot/rclone).
+# /srv/maptale/daten — DAS Verzeichnis fürs Backup (Hetzner-Snapshot/rclone).
 #
 # Erstbetrieb auf dem VPS:
-#   /srv/luhambo/.env anlegen (SITE_ADDRESS, LUHAMBO_COOKIE_SECRET,
-#   LUHAMBO_ADMIN_EMAIL, LUHAMBO_ADMIN_PASSWORT; für den Mehrbenutzer-Betrieb
-#   zusätzlich LUHAMBO_BASIS_URL, RESEND_API_KEY, LUHAMBO_MAIL_ABSENDER) →
+#   /srv/maptale/.env anlegen (SITE_ADDRESS, MAPTALE_COOKIE_SECRET,
+#   MAPTALE_ADMIN_EMAIL, MAPTALE_ADMIN_PASSWORT; für den Mehrbenutzer-Betrieb
+#   zusätzlich MAPTALE_BASIS_URL, RESEND_API_KEY, MAPTALE_MAIL_ABSENDER) →
 #   docker compose up -d. Deploys übernimmt .github/workflows/deploy.yml.
 
 services:
@@ -17,7 +17,7 @@ services:
       - '80:80'
       - '443:443'
     environment:
-      # Domain des VPS (z. B. luhambo.example.de) → Caddy macht auto-TLS.
+      # Domain des VPS (z. B. maptale.henrikheil.net) → Caddy macht auto-TLS.
       # Ohne .env-Eintrag: lokaler Betrieb ohne TLS auf Port 8080.
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
       API_UPSTREAM: api:8787
@@ -31,21 +31,21 @@ services:
     build: ./server
     restart: unless-stopped
     environment:
-      LUHAMBO_DATEN_DIR: /data
-      LUHAMBO_COOKIE_SECRET: ${LUHAMBO_COOKIE_SECRET:?LUHAMBO_COOKIE_SECRET in .env setzen}
-      LUHAMBO_ADMIN_EMAIL: ${LUHAMBO_ADMIN_EMAIL:-}
-      LUHAMBO_ADMIN_PASSWORT: ${LUHAMBO_ADMIN_PASSWORT:-}
-      LUHAMBO_HINTER_TLS: '1'
+      MAPTALE_DATEN_DIR: /data
+      MAPTALE_COOKIE_SECRET: ${MAPTALE_COOKIE_SECRET:?MAPTALE_COOKIE_SECRET in .env setzen}
+      MAPTALE_ADMIN_EMAIL: ${MAPTALE_ADMIN_EMAIL:-}
+      MAPTALE_ADMIN_PASSWORT: ${MAPTALE_ADMIN_PASSWORT:-}
+      MAPTALE_HINTER_TLS: '1'
       # Mehrbenutzer-Betrieb (M9): öffentliche URL für Mail-Links, Mail-Versand,
       # Quota, Registrierungs-Schalter. Leere Werte fallen serverseitig auf die
       # Defaults zurück (ohne RESEND_API_KEY loggt der Server den Link nur).
-      LUHAMBO_BASIS_URL: ${LUHAMBO_BASIS_URL:-}
+      MAPTALE_BASIS_URL: ${MAPTALE_BASIS_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      LUHAMBO_MAIL_ABSENDER: ${LUHAMBO_MAIL_ABSENDER:-}
-      LUHAMBO_MAX_SPEICHER_PRO_BENUTZER: ${LUHAMBO_MAX_SPEICHER_PRO_BENUTZER:-}
-      LUHAMBO_REGISTRIERUNG_OFFEN: ${LUHAMBO_REGISTRIERUNG_OFFEN:-}
+      MAPTALE_MAIL_ABSENDER: ${MAPTALE_MAIL_ABSENDER:-}
+      MAPTALE_MAX_SPEICHER_PRO_BENUTZER: ${MAPTALE_MAX_SPEICHER_PRO_BENUTZER:-}
+      MAPTALE_REGISTRIERUNG_OFFEN: ${MAPTALE_REGISTRIERUNG_OFFEN:-}
     volumes:
-      - /srv/luhambo/daten:/data
+      - /srv/maptale/daten:/data
 
 volumes:
   caddy-daten:

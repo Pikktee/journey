@@ -1,13 +1,13 @@
-# Luhambo-Austauschformat
+# Maptale-Austauschformat
 
 Das Austauschformat ist die Achse zwischen Android-App, CLI-Importer, Web-Studio,
 Backend und Player. Es hat zwei Gestalten desselben Schemas:
 
-1. **Upload-Manifest `luhambo/upload@1`** — was Clients hochladen (Rohdaten).
-2. **Tour-JSON `luhambo/tour@1`** — was das Backend daraus rendert und der
+1. **Upload-Manifest `maptale/upload@1`** — was Clients hochladen (Rohdaten).
+2. **Tour-JSON `maptale/tour@1`** — was das Backend daraus rendert und der
    Player abspielt (angereichert).
 
-Dazu tritt das **Edit-Overlay `luhambo/edits@1`** — die Bearbeitungen, aus denen
+Dazu tritt das **Edit-Overlay `maptale/edits@1`** — die Bearbeitungen, aus denen
 zusammen mit den Rohdaten das Tour-JSON entsteht. Wer wissen will, welche der
 drei Dateien wofür zuständig ist und wohin ein neues Feld gehört:
 [overlay-und-tourjson.md](overlay-und-tourjson.md).
@@ -26,13 +26,13 @@ Grundprinzipien:
 - **Unbekannte Felder ignoriert der Player.** Baukasten-Felder (`camera`,
   `audio`, `media[].display`) sind reserviert und ab Tag 1 im Schema erlaubt.
 
-## Upload-Manifest `luhambo/upload@1`
+## Upload-Manifest `maptale/upload@1`
 
 `POST /api/tours` (Bearer-Token oder Session), Validierung: `server/src/schema/upload.ts`.
 
 ```json
 {
-  "schema": "luhambo/upload@1",
+  "schema": "maptale/upload@1",
   "clientTourId": "8f3e-…",
   "title": null,
   "description": null,
@@ -67,7 +67,7 @@ Medien-Binärdaten: `PUT /api/tours/:id/media/:mid` (roher Body, idempotent,
 wiederholbar). Danach `POST /api/tours/:id/finalize` → Anreicherung läuft
 asynchron (`status: angelegt → verarbeitung → bereit | fehler`).
 
-## Tour-JSON `luhambo/tour@1`
+## Tour-JSON `maptale/tour@1`
 
 `GET /api/tours/:id` (Sichtbarkeit: `private` nur Owner, `unlisted`/`public`
 per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
@@ -75,7 +75,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 
 ```json
 {
-  "schema": "luhambo/tour@1",
+  "schema": "maptale/tour@1",
   "id": "t_V1kQz9xY",
   "no": "N°07",
   "status": "bereit",
@@ -149,7 +149,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
     Sekunden (Default 5,2 s) und Ken-Burns-Drift an/aus (Default an);
     für Videos wirkungslos (Haltedauer = Videolänge).
 
-## Edit-Overlay `luhambo/edits@1` (M7)
+## Edit-Overlay `maptale/edits@1` (M7)
 
 Alle Bearbeitungen einer Tour leben in EINER Datei `edits.json` neben den
 unantastbaren Rohdaten unter `original/` — die Pipeline rendert das Tour-JSON
@@ -159,7 +159,7 @@ Auto-Wetter — die Edits bleiben dabei erhalten).
 
 ```jsonc
 {
-  "schema": "luhambo/edits@1",
+  "schema": "maptale/edits@1",
   "medien": {                          // Overrides je Medien-ID des Manifests
     "m3": { "caption": "Neuer Text" },
     "m5": { "anchor": [7.912, 46.51] },// manuell gesetzt → placement "manuell"

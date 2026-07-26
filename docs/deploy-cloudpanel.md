@@ -8,7 +8,7 @@ CloudPanels Nginx übernimmt Webserver, TLS und den `/api`-Reverse-Proxy — der
 ```
 Internet ──HTTPS──▶ CloudPanel-Nginx ──┬─▶ dist/ (statischer Web-Build)
    (Domain, LE-Cert)                    └─▶ /api ▶ 127.0.0.1:8790  (API-Container)
-                                                    └─ SQLite + Medien in /srv/luhambo/daten
+                                                    └─ SQLite + Medien in /srv/maptale/daten
 ```
 
 Die **Android-App** wird nicht hier gehostet — sie ist eine APK und zeigt mit
@@ -17,7 +17,7 @@ ihrer Server-URL auf dieselbe Domain.
 ## 0. Voraussetzungen
 
 - Eine **Domain oder Subdomain** mit A-Record auf die Server-IP:
-  `luhambo.henrikheil.net` → `178.104.147.230`. Für Let's-Encrypt-TLS Pflicht
+  `maptale.henrikheil.net` → `178.104.147.230`. Für Let's-Encrypt-TLS Pflicht
   — eine nackte IP bekommt kein öffentliches Zertifikat.
 - **Docker** auf dem Server (`docker --version`). Falls nicht vorhanden:
   `curl -fsSL https://get.docker.com | sh`. (Ohne Docker: siehe „Variante nativ"
@@ -27,22 +27,22 @@ ihrer Server-URL auf dieselbe Domain.
 ## 1. Datenverzeichnis + .env auf dem Server
 
 ```bash
-sudo mkdir -p /srv/luhambo/daten
-cd /srv/luhambo
+sudo mkdir -p /srv/maptale/daten
+cd /srv/maptale
 # docker-compose.cloudpanel.yml aus dem Repo hierher kopieren
 ```
 
-`/srv/luhambo/.env` anlegen:
+`/srv/maptale/.env` anlegen:
 
 ```
-LUHAMBO_COOKIE_SECRET=<z. B. `openssl rand -hex 32`>
-LUHAMBO_ADMIN_EMAIL=contact@henrikheil.net
-LUHAMBO_ADMIN_PASSWORT=<stark>
-LUHAMBO_BASIS_URL=https://luhambo.henrikheil.net
+MAPTALE_COOKIE_SECRET=<z. B. `openssl rand -hex 32`>
+MAPTALE_ADMIN_EMAIL=contact@henrikheil.net
+MAPTALE_ADMIN_PASSWORT=<stark>
+MAPTALE_BASIS_URL=https://maptale.henrikheil.net
 RESEND_API_KEY=re_…            # aus deiner lokalen .env
-LUHAMBO_MAIL_ABSENDER=Luhambo <noreply@henrikheil.net>   # Domain muss in Resend verifiziert sein
+MAPTALE_MAIL_ABSENDER=Luhambo <noreply@henrikheil.net>   # Domain muss in Resend verifiziert sein
 OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildanalyse (Vision-Modell via OpenRouter); fehlt er, bleibt das Auto-Wetter wie in M2
-# LUHAMBO_VISION_MODELL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
+# MAPTALE_VISION_MODELL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
 ```
 
 ## 2. CloudPanel-Site + Vhost + SSL
@@ -60,7 +60,7 @@ OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildan
 ## 3. API starten
 
 ```bash
-cd /srv/luhambo
+cd /srv/maptale
 # GHCR-Image ziehen (public oder mit `docker login ghcr.io`):
 docker compose -f docker-compose.cloudpanel.yml up -d
 docker compose -f docker-compose.cloudpanel.yml logs -f api   # „läuft auf Port 8787"
@@ -79,7 +79,7 @@ npm run build                                   # erzeugt dist/
 rsync -az --delete dist/ <site-user>@178.104.147.230:/home/<site-user>/htdocs/<domain>/
 ```
 
-Danach `https://luhambo.henrikheil.net` öffnen → das Studio erscheint,
+Danach `https://maptale.henrikheil.net` öffnen → das Studio erscheint,
 Registrierung + Bestätigungsmail funktionieren, ein Test-Upload spielt ab.
 
 ## 5. Automatischer Deploy (GitHub Actions)
@@ -90,7 +90,7 @@ nach GHCR → per SSH die **Compose-Datei** auf den Server spiegeln, den
 API-Container aktualisieren **und** `dist/` in den Site-Root synchronisieren
 (der `web`/Caddy-Image-Schritt entfällt). Weil die Compose-Datei mitgespiegelt
 wird, brauchen neue Env-Variablen (z. B. `OPEN_ROUTER_KEY`) künftig nur noch
-eine Zeile in `/srv/luhambo/.env` — die Durchreichung kommt aus dem Repo. Der
+eine Zeile in `/srv/maptale/.env` — die Durchreichung kommt aus dem Repo. Der
 Server-Deploy-Schritt ist an das Secret `CLOUDPANEL_DOCROOT` gekoppelt: solange
 es fehlt, **baut der Tag nur das API-Image** und überspringt das Ausrollen — der
 **erste** Deploy läuft also manuell (Schritte 1–4), danach setzt du die Secrets
@@ -102,7 +102,7 @@ und jeder weitere Tag rollt automatisch aus. Nötige GitHub-Secrets
 | `VPS_HOST` | `178.104.147.230` |
 | `VPS_USER` | Deploy-User: muss Docker ausführen (root **oder** in der `docker`-Gruppe) **und** Schreibrecht im htdocs haben |
 | `VPS_SSH_KEY` | privater Deploy-Key (öffentliches Gegenstück in `~/.ssh/authorized_keys` des Deploy-Users) |
-| `CLOUDPANEL_DOCROOT` | `/home/<site-user>/htdocs/luhambo.henrikheil.net` |
+| `CLOUDPANEL_DOCROOT` | `/home/<site-user>/htdocs/maptale.henrikheil.net` |
 
 Danach: `npm run release minor` → Tag → automatischer Deploy.
 
@@ -116,7 +116,7 @@ Danach: `npm run release minor` → Tag → automatischer Deploy.
 
 Falls kein Docker: Node 22 + ffmpeg auf den Host (`apt install ffmpeg`), die API
 als systemd-Dienst (`server/` bauen: `npm ci && npm run build`, dann
-`node dist/index.js` mit denselben Env-Variablen, `LUHAMBO_DATEN_DIR` auf ein
+`node dist/index.js` mit denselben Env-Variablen, `MAPTALE_DATEN_DIR` auf ein
 Verzeichnis mit Schreibrecht, `PORT=8790` da 8787 belegt ist). Der Nginx-Vhost
 bleibt identisch (proxyt weiter auf `127.0.0.1:8790`). Der Deploy zieht dann statt `docker compose` einen
-`git pull && npm ci && npm run build && systemctl restart luhambo-api`.
+`git pull && npm ci && npm run build && systemctl restart maptale-api`.

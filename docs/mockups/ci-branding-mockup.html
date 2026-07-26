@@ -1,0 +1,2345 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maptale · Ultimate Brand & Design Studio Customizer (V47 Unified App Navigation & Naming)</title>
+
+  <!-- Google Fonts: Complete Typography Suite -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,300..800;1,300..800&family=Bricolage+Grotesk:opsz,wght@12..96,400..700&family=Chivo:ital,wght@0,400..900;1,400..900&family=Cinzel:wght@400..900&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=DM+Serif+Display:ital@0;1&family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&family=Lexend:wght@300..800&family=Manrope:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400..800;1,6..72,400..800&family=Outfit:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,400..700;1,400..700&family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@400..800&family=Urbanist:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      /* Dynamic Theme Variables (Updated via JS) */
+      --bg: #0A1208;
+      --bg-2: #050904;
+      --ink: #f2ede3;
+      --muted: rgba(242, 237, 227, 0.64);
+      --faint: rgba(242, 237, 227, 0.42);
+
+      --amber: #4A8B3B; /* Primary Accent (Warmes Naturgrün) */
+      --coral: #2D5A27; /* Secondary Accent (Schattengrün) */
+      --tertiary: #78B159;
+
+      --line: rgba(255, 255, 255, 0.1);
+      --card: rgba(255, 255, 255, 0.035);
+
+      /* Active Typo */
+      --sans: 'Albert Sans', system-ui, -apple-system, sans-serif;
+      --display: 'Albert Sans', system-ui, -apple-system, sans-serif;
+      --mono: 'Albert Sans', system-ui, -apple-system, sans-serif;
+      --wrap: 1160px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-2);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.65;
+      padding-top: 0; /* Sticky toolbar handles flow naturally */
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    /* STICKY TOP CONTROL TOOLBAR (Harmonious Fit) */
+    .control-toolbar {
+      position: sticky; top: 0; left: 0; right: 0; z-index: 1000;
+      background: rgba(8, 11, 16, 0.96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+      padding: 0.5rem 1rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+    .toolbar-title {
+      display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.88rem; color: #FFF; flex-shrink: 0;
+    }
+    .controls-group {
+      display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;
+    }
+    .select-box { display: flex; flex-direction: column; gap: 0.08rem; }
+    .select-box label {
+      font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; white-space: nowrap;
+    }
+    .select-box select {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--line);
+      color: #FFF;
+      padding: 0.3rem 0.6rem;
+      border-radius: 7px;
+      font-size: 0.785rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      max-width: 195px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      transition: border-color 0.2s;
+    }
+    .select-box select option {
+      background: #0B0E14;
+      color: #FFF;
+    }
+    .select-box select:hover, .select-box select:focus {
+      border-color: var(--amber);
+    }
+
+    /* SCREEN FRAME */
+    .screen-container {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      margin: 1.5rem auto;
+      max-width: 1240px;
+    }
+    .screen-header-bar {
+      background: #080B10;
+      padding: 0.75rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .dots { display: flex; gap: 0.5rem; }
+    .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .dot.r { background: #EF4444; } .dot.y { background: #F59E0B; } .dot.g { background: #10B981; }
+    .window-title { font-size: 0.8rem; color: var(--muted); font-family: monospace; }
+
+    /* ==========================================================================
+       HARMONIZED NAVIGATION ARCHITECTURE (Clean & Uniform)
+       ========================================================================== */
+    .landing-nav-inner {
+      padding: 14px 2rem; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px;
+      border-bottom: 1px solid var(--line); background: rgba(8, 11, 16, 0.85); backdrop-filter: blur(14px);
+    }
+
+    .brand-logo-target {
+      display: inline-flex; align-items: center; cursor: pointer; text-decoration: none;
+    }
+    .brand-logo-target svg {
+      display: block; height: var(--logo-height, 38px); width: auto; overflow: visible; transition: height 0.2s ease;
+    }
+
+    .nav-anchors {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .nav-anchor-link {
+      color: rgba(242, 237, 227, 0.75); font-size: 13.5px; font-weight: 500;
+      padding: 6px 14px; border-radius: 99px; transition: all 0.2s ease;
+    }
+    .nav-anchor-link:hover { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
+    .nav-anchor-link.active { color: var(--amber); background: rgba(74, 139, 59, 0.15); font-weight: 600; }
+
+    .nav-actions-group { display: flex; align-items: center; gap: 12px; }
+    .nav-divider { width: 1px; height: 20px; background: rgba(255, 255, 255, 0.16); margin: 0 4px; }
+    .nav-app-link {
+      color: rgba(242, 237, 227, 0.88); font-size: 13.5px; font-weight: 600;
+      padding: 6px 12px; border-radius: 8px; transition: all 0.2s ease;
+    }
+    .nav-app-link:hover { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
+
+    .nav-cta-btn {
+      color: #FFF !important; font-weight: 700; font-size: 13.5px;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      padding: 8px 18px; border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+    }
+    .nav-cta-btn:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); }
+
+    /* ==========================================================================
+       18 CREATIVE DYNAMIC EYEBROW / DACHZEILEN STYLES
+       ========================================================================== */
+    .eyebrow-container { margin-bottom: 12px; }
+    
+    /* 1. Telemetrie Wegmarken */
+    .eyebrow-style-telemetry {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+      color: var(--amber); background: rgba(74, 139, 59, 0.12); border: 1px solid rgba(74, 139, 59, 0.3);
+      padding: 4px 12px; border-radius: 6px; text-transform: uppercase;
+    }
+
+    /* 2. Soft Glassmorphism Badge */
+    .eyebrow-style-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.8rem; font-weight: 700; color: #FFF;
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 14px; border-radius: 30px; backdrop-filter: blur(8px);
+    }
+
+    /* 3. Gradient Glow Accent Bar */
+    .eyebrow-style-glow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--ink);
+    }
+    .eyebrow-style-glow::before {
+      content: ''; width: 24px; height: 3px; border-radius: 2px;
+      background: linear-gradient(90deg, var(--amber), var(--coral));
+      box-shadow: 0 0 12px var(--amber);
+    }
+
+    /* 4. GPS Coordinates & Altitude */
+    .eyebrow-style-coords {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+      color: var(--tertiary); background: rgba(120, 177, 89, 0.12); border: 1px solid rgba(120, 177, 89, 0.3);
+      padding: 4px 12px; border-radius: 6px; font-variant-numeric: tabular-nums;
+    }
+
+    /* 5. Code Tag Brackets */
+    .eyebrow-style-codetag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.15em;
+      color: var(--tertiary); text-transform: uppercase;
+    }
+
+    /* 6. Alpine Peak Contour Icon */
+    .eyebrow-style-peakicon {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.775rem; font-weight: 700; color: #FFF;
+      background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
+      padding: 4px 12px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.08em;
+    }
+
+    /* 7. Live Pulse Status Dot */
+    .eyebrow-style-pulse {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      color: var(--ink); text-transform: uppercase;
+    }
+    .eyebrow-style-pulse::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--tertiary); box-shadow: 0 0 10px var(--tertiary);
+    }
+
+    /* 8. Topo Track Line (Original) */
+    .eyebrow-style-topo {
+      display: inline-flex; align-items: center; gap: 13px;
+      font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+      letter-spacing: 0.24em; text-transform: uppercase;
+      color: rgba(248, 224, 190, 0.86); text-shadow: 0 1px 14px rgba(0, 0, 0, 0.45);
+    }
+    .eyebrow-style-topo::before {
+      content: ''; flex: none; width: 46px; height: 2px;
+      background: repeating-linear-gradient(to right, var(--amber) 0 5px, transparent 5px 10.5px);
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 78%);
+      mask-image: linear-gradient(to right, transparent 0, #000 78%);
+    }
+
+    /* 10. Kompass-Peilung & Kurs */
+    .eyebrow-style-bearing {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+      color: var(--amber); background: rgba(74, 139, 59, 0.08); border-left: 3px solid var(--amber);
+      padding: 4px 10px; text-transform: uppercase; font-variant-numeric: tabular-nums;
+    }
+
+    /* 11. 3D Flight HUD Bracket */
+    .eyebrow-style-hud {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+      color: var(--tertiary); background: rgba(120, 177, 89, 0.1); border: 1px dashed rgba(120, 177, 89, 0.4);
+      padding: 3px 12px; border-radius: 4px; text-transform: uppercase;
+    }
+
+    /* 12. Poststempel & Pass-Siegel */
+    .eyebrow-style-stamp {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.775rem; font-weight: 700; letter-spacing: 0.18em;
+      color: #FFF; border: 1.5px double rgba(255, 255, 255, 0.25);
+      padding: 4px 14px; border-radius: 4px; text-transform: uppercase; background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* 13. Numeral Index Counter */
+    .eyebrow-style-numeral {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--display); font-size: 0.85rem; font-weight: 800; letter-spacing: 0.15em;
+      color: var(--amber); text-transform: uppercase;
+    }
+
+    /* 14. Micro-Gradients & Subtile Kapitälchen */
+    .eyebrow-style-gradcaps {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.25em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--amber), var(--coral));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    /* 15. Soft Mixed Pill (Natürliche Schreibweise) */
+    .eyebrow-style-softpill {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.825rem; font-weight: 600; color: #FFF;
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16);
+      padding: 5px 15px; border-radius: 30px; backdrop-filter: blur(8px); text-transform: none;
+    }
+
+    /* 16. Editorial Quote Accent (Zitat / Buch-Vorspann) */
+    .eyebrow-style-quote {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--display); font-size: 0.95rem; font-style: italic; font-weight: 500;
+      color: var(--amber); text-transform: none;
+    }
+
+    /* 17. Clean Minimal Subhead (Subtile Unterüberschrift) */
+    .eyebrow-style-subhead {
+      display: block; font-size: 0.95rem; font-weight: 600; color: var(--muted); text-transform: none;
+    }
+
+    /* 18. Bullet Dot Lead (Punkt & Natürlicher Text) */
+    .eyebrow-style-bullet {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 0.85rem; font-weight: 600; color: #FFF; text-transform: none;
+    }
+    .eyebrow-style-bullet::before {
+      content: '●'; color: var(--amber); font-size: 10px;
+    }
+
+    /* 9. Clean None */
+    .eyebrow-style-none { display: none; }
+
+    /* === NEUE DACHZEILEN (19–32) === */
+
+    /* 19. Reisetagebuch-Byline (Autor · Ort, Datum) */
+    .eyebrow-style-byline {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.85rem; font-weight: 500; color: var(--muted); text-transform: none;
+      font-style: italic;
+    }
+    .eyebrow-style-byline::before {
+      content: '—'; color: var(--amber); font-style: normal; font-weight: 700;
+    }
+
+    /* 20. Filmklappe / Szenenangabe */
+    .eyebrow-style-clapboard {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      color: #FFF; text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 14px; border-radius: 4px;
+    }
+    .eyebrow-style-clapboard::before {
+      content: '🎬'; font-size: 13px;
+    }
+
+    /* 21. Bordkarte / Ticket-Stub */
+    .eyebrow-style-ticket {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      color: var(--amber); text-transform: uppercase;
+      border: 1px dashed var(--amber); padding: 5px 14px; border-radius: 6px;
+      background: rgba(74, 139, 59, 0.06);
+    }
+
+    /* 22. Postkarte / Grüße-aus… */
+    .eyebrow-style-postcard {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--display); font-size: 0.9rem; font-weight: 600;
+      color: var(--coral); text-transform: none; font-style: italic;
+    }
+    .eyebrow-style-postcard::before {
+      content: '✉'; font-size: 14px; font-style: normal;
+    }
+
+    /* 23. Kapitelüberschrift (elegant, Buch) */
+    .eyebrow-style-chapter {
+      display: inline-flex; align-items: center; gap: 12px;
+      font-family: var(--display); font-size: 0.8rem; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.3em;
+    }
+    .eyebrow-style-chapter::before, .eyebrow-style-chapter::after {
+      content: ''; width: 20px; height: 1px; background: var(--amber);
+    }
+
+    /* 24. Breadcrumb-Navigation (Geographisch) */
+    .eyebrow-style-breadcrumb {
+      display: inline-flex; align-items: center; gap: 0;
+      font-size: 0.8rem; font-weight: 500; color: var(--muted); text-transform: none;
+    }
+
+    /* 25. Schreibmaschine (Monospace, leicht versetzt) */
+    .eyebrow-style-typewriter {
+      display: inline-block;
+      font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+      color: rgba(242, 237, 227, 0.7); text-transform: none;
+      border-bottom: 2px solid var(--amber); padding-bottom: 2px;
+    }
+
+    /* 26. Emoji-Storytelling-Kette */
+    .eyebrow-style-emojistory {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 1rem; letter-spacing: 0.15em;
+    }
+
+    /* 27. Höhenmeter-Ticker */
+    .eyebrow-style-elevation {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em;
+      color: var(--amber); font-variant-numeric: tabular-nums;
+    }
+    .eyebrow-style-elevation::before {
+      content: ''; width: 18px; height: 12px;
+      background: linear-gradient(135deg, var(--amber) 50%, transparent 50%);
+      clip-path: polygon(0 100%, 50% 0, 100% 100%);
+    }
+
+    /* 28. Handschrift-Unterstrich */
+    .eyebrow-style-handwritten {
+      display: inline-block;
+      font-family: var(--display); font-size: 0.95rem; font-weight: 500;
+      color: #FFF; text-transform: none; font-style: italic;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='8'%3E%3Cpath d='M 2 6 C 30 2, 60 6, 90 3 C 100 2, 110 4, 118 3' stroke='%234A8B3B' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: bottom left; background-size: 100% 8px;
+      padding-bottom: 6px;
+    }
+
+    /* 29. Filmuntertitel / Lower-Third */
+    .eyebrow-style-subtitle {
+      display: inline-flex; align-items: center;
+      font-size: 0.85rem; font-weight: 600; color: #FFF; text-transform: none;
+      background: rgba(0, 0, 0, 0.6); padding: 5px 16px; border-radius: 4px;
+      border-left: 3px solid var(--amber);
+    }
+
+    /* 30. Wanderwegschild (Pfeil + Ziel) */
+    .eyebrow-style-trailsign {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.8rem; font-weight: 700; color: #FFF; text-transform: none;
+      background: var(--amber); padding: 4px 16px 4px 12px; border-radius: 0 6px 6px 0;
+      clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
+      padding-left: 18px;
+    }
+
+    /* 31. Wetterbericht-Widget */
+    .eyebrow-style-weather {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans); font-size: 0.8rem; font-weight: 600; color: #FFF;
+      background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 4px 14px; border-radius: 20px; text-transform: none;
+    }
+
+    /* 32. Gedichtzeile / Poetischer Vers */
+    .eyebrow-style-verse {
+      display: block;
+      font-family: var(--display); font-size: 0.95rem; font-weight: 400;
+      color: var(--muted); text-transform: none; font-style: italic;
+      padding-left: 16px; border-left: 2px solid var(--coral);
+    }
+
+    /* ==========================================================================
+       FULL LANDING PAGE SECTIONS (1:1 with index.html & Original Graphics)
+       ========================================================================== */
+    .hero-orig {
+      position: relative; min-height: 540px; display: flex; align-items: flex-end; overflow: hidden; isolation: isolate;
+      padding: 0 2.5rem 4rem;
+    }
+    .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; z-index: -3; }
+    .hero-scrim {
+      position: absolute; inset: 0; z-index: -2;
+      background:
+        linear-gradient(to top, var(--bg-2) 1%, rgba(6, 9, 14, 0.45) 34%, rgba(6, 9, 14, 0.14) 60%, rgba(6, 9, 14, 0.62) 100%),
+        linear-gradient(to right, rgba(6, 9, 14, 0.86) 0%, rgba(6, 9, 14, 0.4) 46%, transparent 78%);
+    }
+    .hero-inner-orig { max-width: 48rem; z-index: 2; }
+    .hero-orig h1 {
+      font-family: var(--display); font-weight: 600;
+      font-size: clamp(36px, 5.2vw, 64px); line-height: 1.05; letter-spacing: -0.018em;
+      margin: 14px 0 0; text-shadow: 0 2px 40px rgba(0, 0, 0, 0.5);
+    }
+    .hero-orig .lead { margin: 20px 0 0; max-width: 52ch; color: rgba(242, 237, 227, 0.82); font-size: 18px; text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5); }
+    .cta-row-orig { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+    .btn-orig {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 13px 24px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+    }
+    .btn-primary-orig {
+      color: #FFF; background: linear-gradient(120deg, var(--amber), var(--coral));
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+      transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+    }
+    .btn-primary-orig:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+    .btn-ghost-orig { color: var(--ink); border-color: rgba(255, 255, 255, 0.22); background: rgba(10, 13, 18, 0.35); backdrop-filter: blur(4px); }
+
+    /* Section: Ausgewählte Touren */
+    .section-band { padding: 4rem 2.5rem; border-bottom: 1px solid var(--line); }
+    .sec-head { max-width: 62ch; margin-bottom: 2rem; }
+    .sec-head h2 { font-family: var(--display); font-weight: 600; font-size: 36px; line-height: 1.1; color: #FFF; }
+    .sec-head p { color: var(--muted); margin-top: 8px; font-size: 16px; }
+
+    .tours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .tour-card-orig {
+      position: relative; min-height: 400px; border-radius: 18px; overflow: hidden;
+      border: 1px solid var(--line); background: #0A0D14; display: flex; flex-direction: column; justify-content: flex-end; padding: 1.5rem;
+    }
+    .tc-img-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.85; transition: transform 0.4s ease; }
+    .tour-card-orig:hover .tc-img-bg { transform: scale(1.05); }
+    .tc-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(6,9,14,0.95) 20%, rgba(6,9,14,0.3) 60%, transparent 100%); z-index: 1; }
+    .tc-content { position: relative; z-index: 2; }
+    .no-chip-badge { position: absolute; top: 16px; left: 16px; z-index: 2; font-family: var(--mono); font-size: 11px; color: var(--amber); background: rgba(6,9,14,0.7); border: 1px solid var(--line); padding: 4px 10px; border-radius: 20px; }
+    .tc-content h3 { font-family: var(--display); font-size: 24px; color: #FFF; font-weight: 600; }
+    .tc-content p { font-size: 14px; color: var(--muted); margin: 6px 0 12px; }
+    .chips-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .chip-item { font-family: var(--mono); font-size: 11px; color: var(--ink); background: rgba(255,255,255,0.08); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; }
+
+    /* Steps Section: So funktioniert's */
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; counter-reset: step; }
+    .step-card {
+      position: relative; padding: 28px 24px; border-radius: 18px; border: 1px solid var(--line);
+      background: linear-gradient(158deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+    }
+    .step-card::before {
+      counter-increment: step; content: '0' counter(step); position: absolute; top: 16px; right: 20px;
+      font-family: var(--display); font-size: 42px; font-weight: 600; color: rgba(74, 139, 59, 0.25);
+    }
+    .step-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(74, 139, 59, 0.15); border: 1px solid rgba(74, 139, 59, 0.35); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px; }
+    .step-card h3 { font-family: var(--display); font-size: 20px; font-weight: 600; color: #FFF; margin-bottom: 8px; }
+    .step-card p { color: var(--muted); font-size: 14.5px; }
+
+    /* Section: Android App with Real Showcase Phone */
+    .app-section-inner {
+      display: grid; grid-template-columns: 1fr 340px; gap: 40px; align-items: center;
+      background: radial-gradient(circle at 80% 20%, rgba(74, 139, 59, 0.15), transparent 60%), rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line); border-radius: 24px; padding: 3rem 2.5rem;
+    }
+    .app-text h2 { font-family: var(--display); font-size: 32px; font-weight: 600; color: #FFF; margin: 12px 0; }
+    .app-text p { color: var(--muted); font-size: 16px; max-width: 48ch; }
+    .app-buttons { display: flex; gap: 14px; margin-top: 24px; flex-wrap: wrap; align-items: center; }
+    .btn-android-dl { background: rgba(74, 139, 59, 0.15); border: 1px solid rgba(74, 139, 59, 0.4); color: #FFF; padding: 10px 20px; border-radius: 12px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+
+    /* Real Android Phone Mockup Frame */
+    .phone-frame {
+      position: relative; border-radius: 36px; padding: 8px;
+      background: linear-gradient(155deg, #23262c, #0c0e13 46%, #16181d);
+      box-shadow: 0 24px 50px -20px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.1);
+    }
+    .phone-screen-inner {
+      position: relative; border-radius: 28px; overflow: hidden; aspect-ratio: 1080 / 2298; background: #000;
+    }
+    .phone-screen-inner img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* Section: CTA Band */
+    .cta-band-orig {
+      position: relative; border-radius: 24px; padding: 4rem 2.5rem; text-align: center; overflow: hidden;
+      border: 1px solid var(--line); margin: 3rem 2.5rem; background: #0A0E17;
+    }
+    .cta-band-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; z-index: 0; }
+    .cta-band-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(6,9,14,0.9), rgba(6,9,14,0.6)); z-index: 1; }
+    .cta-band-content { position: relative; z-index: 2; max-width: 600px; margin: 0 auto; }
+    .cta-band-content h2 { font-family: var(--display); font-size: 36px; color: #FFF; font-weight: 600; }
+    .cta-band-content p { color: var(--muted); margin: 12px 0 24px; }
+
+    /* Section: Footer */
+    .landing-footer { padding: 3rem 2.5rem 2rem; border-top: 1px solid var(--line); background: #06090e; }
+    .foot-grid { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 2rem; }
+    .foot-brand h4 { font-family: var(--display); font-size: 1.2rem; color: #FFF; font-weight: 700; margin-bottom: 6px; }
+    .foot-brand p { font-size: 13.5px; color: var(--faint); max-width: 32ch; }
+    .foot-nav { display: flex; gap: 1.5rem; font-size: 14px; color: var(--muted); }
+
+    /* 3D PLAYER VIEW */
+    .player-stage { position: relative; height: 620px; background: radial-gradient(circle at 60% 40%, #1E293B 0%, #090D16 80%); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+    .map-grid-bg { position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px); background-size: 40px 40px; transform: perspective(600px) rotateX(45deg) scale(1.4); transform-origin: center 70%; opacity: 0.7; }
+    .flight-path-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .player-brand-overlay { position: relative; z-index: 10; padding: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; background: linear-gradient(to bottom, rgba(7, 9, 14, 0.85), transparent); }
+    .player-brand-title h2 { font-family: var(--display); font-size: 1.5rem; font-weight: 700; color: #FFF; line-height: 1.2; }
+    .player-brand-title p { font-size: 0.85rem; color: var(--muted); margin-top: 0.2rem; }
+    .hud-badge { background: rgba(15, 20, 32, 0.85); border: 1px solid var(--line); backdrop-filter: blur(10px); padding: 0.5rem 1rem; border-radius: 30px; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--amber); }
+    .photo-stop-card { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); background: rgba(18, 24, 38, 0.92); border: 1px solid var(--tertiary); border-radius: 16px; padding: 1rem; width: min(340px, 90%); backdrop-filter: blur(16px); box-shadow: 0 20px 40px rgba(0,0,0,0.6); display: flex; gap: 1rem; align-items: center; z-index: 12; }
+    .photo-thumb { width: 80px; height: 80px; border-radius: 10px; background: #334155; background-image: url('landing/hero.jpg'), url('/landing/hero.jpg'); background-size: cover; flex-shrink: 0; }
+    .photo-info h4 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; color: #FFF; }
+    .photo-info p { font-size: 0.775rem; color: var(--muted); margin-top: 0.2rem; }
+    .photo-time { font-size: 0.725rem; color: var(--tertiary); font-variant-numeric: tabular-nums; margin-top: 0.4rem; }
+    .player-controls { position: relative; z-index: 10; padding: 1.5rem; background: linear-gradient(to top, rgba(7, 9, 14, 0.9), transparent); }
+    .timeline-track { height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; position: relative; margin-bottom: 1rem; }
+    .timeline-fill { width: 42%; height: 100%; background: linear-gradient(90deg, var(--amber), var(--coral)); border-radius: 3px; position: relative; }
+    .timeline-dot { position: absolute; right: -6px; top: -5px; width: 16px; height: 16px; background: #FFF; border-radius: 50%; box-shadow: 0 0 10px var(--tertiary); }
+    .telemetry-row { display: flex; justify-content: space-between; align-items: center; font-variant-numeric: tabular-nums; font-size: 0.875rem; color: var(--muted); }
+
+    /* STUDIO EDITOR */
+    .studio-stage { display: grid; grid-template-columns: 1fr 340px; height: 620px; background: #0A0E17; }
+    .editor-main { display: flex; flex-direction: column; border-right: 1px solid var(--line); }
+    .editor-topbar { padding: 0.85rem 1.25rem; background: rgba(15, 20, 32, 0.9); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+    .editor-viewport { flex: 1; background: #0E131F; position: relative; display: flex; align-items: center; justify-content: center; }
+    .editor-timeline-panel { height: 210px; background: #090D16; border-top: 1px solid var(--line); padding: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .tl-lane { height: 28px; background: rgba(255, 255, 255, 0.03); border-radius: 6px; display: flex; align-items: center; padding: 0 0.75rem; font-size: 0.775rem; position: relative; }
+    .tl-block { position: absolute; height: 20px; border-radius: 4px; font-size: 0.7rem; display: flex; align-items: center; padding: 0 0.5rem; font-weight: 600; color: #FFF; }
+    .tl-block.mode { left: 15%; width: 45%; background: var(--amber); }
+    .tl-block.weather { left: 30%; width: 35%; background: var(--coral); }
+    .tl-block.audio { left: 0%; width: 80%; background: var(--tertiary); color: #04120A; }
+    .inspector { background: rgba(15, 20, 32, 0.9); padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
+    .inspector h3 { font-family: var(--display); font-size: 1rem; color: #FFF; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
+    .field-group { display: flex; flex-direction: column; gap: 0.4rem; }
+    .field-group label { font-size: 0.8rem; color: var(--muted); }
+    .field-group input, .field-group select { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); color: #FFF; padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.875rem; font-family: inherit; }
+
+    /* TOUR LIBRARY GRID */
+    .library-stage { padding: 2rem; background: #0A0E17; min-height: 620px; }
+    .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+    .tour-card { background: rgba(15, 20, 32, 0.9); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+    .tour-thumb { height: 140px; background: #1E293B; position: relative; background-image: url('landing/hero.jpg'), url('/landing/hero.jpg'); background-size: cover; }
+    .tour-sig-svg { position: absolute; bottom: 8px; left: 8px; right: 8px; height: 35px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8)); }
+    .tour-body { padding: 1rem; }
+    .tour-body h4 { font-family: var(--display); font-size: 1.05rem; font-weight: 600; color: #FFF; }
+    .tour-meta { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+
+<!-- CONTROL TOOLBAR (TOP STICKY WITH 6 DROPDOWNS) -->
+<div class="control-toolbar">
+  <div class="toolbar-title">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+    Maptale Customizer V47
+  </div>
+
+  <div class="controls-group">
+    <!-- 1. ANSICHT SELECT -->
+    <div class="select-box">
+      <label>Ansicht</label>
+      <select id="sel-screen" onchange="updateCustomizer()">
+        <option value="landing">1. Landing Page (index)</option>
+        <option value="player">2. 3D Player (erlebnis)</option>
+        <option value="studio">3. Studio Editor</option>
+        <option value="library">4. Tour Bibliothek</option>
+      </select>
+    </div>
+
+    <!-- 2. BENUTZER-ZUSTAND SELECT -->
+    <div class="select-box">
+      <label>Benutzer-Zustand</label>
+      <select id="sel-auth" onchange="updateCustomizer()">
+        <option value="logged_out">1. Unangemeldet (Gast)</option>
+        <option value="logged_in">2. Eingeloggt (Henrik)</option>
+      </select>
+    </div>
+
+    <!-- 3. SCHRIFTART SELECT (20 TYPOGRAPHY SUITES) -->
+    <div class="select-box">
+      <label>Schriftart</label>
+      <select id="sel-font" onchange="updateCustomizer()">
+        <option value="outfit">🌟 FAVORIT: Outfit (Outdoor Tech)</option>
+        <option value="albert">2. Albert Sans (Exklusiv)</option>
+        <option value="dm_serif">3. DM Serif Display (Editorial)</option>
+        <option value="cinzel">4. Cinzel (Alpin Monumental)</option>
+        <option value="playfair">5. Playfair Display (Luxus Bildband)</option>
+        <option value="newsreader">6. Newsreader (Reisetagebuch)</option>
+        <option value="cormorant">7. Cormorant Garamond (Feine Serife)</option>
+        <option value="manrope">8. Manrope (Edel)</option>
+        <option value="urbanist">9. Urbanist (Clean)</option>
+        <option value="sora">10. Sora (Futuristisch)</option>
+        <option value="bricolage">11. Bricolage (Display)</option>
+        <option value="syne">12. Syne (Avantgarde Display)</option>
+        <option value="lexend">13. Lexend (Kartografie Grotesk)</option>
+        <option value="instrument">14. Instrument Sans (Schweizer)</option>
+        <option value="chivo">15. Chivo (Avionik Instrumente)</option>
+        <option value="jetbrains">16. JetBrains (Telemetrie Mono)</option>
+        <option value="space">17. Space Grotesk</option>
+        <option value="inter">18. Inter (Standard)</option>
+        <option value="jakarta">19. Plus Jakarta</option>
+        <option value="classic">20. Klassisch Original (Fraunces)</option>
+      </select>
+    </div>
+
+    <!-- 3b. LOGO-TEXTGRÖSSE SELECT -->
+    <div class="select-box">
+      <label>Logo-Größe</label>
+      <select id="sel-logosize" onchange="updateCustomizer()">
+        <option value="44px">🌟 FAVORIT: Präsent (44px Höhe · Optisch ~22px Wortmarke)</option>
+        <option value="38px">✨ Standard (38px Höhe · Optisch ~19px Wortmarke)</option>
+        <option value="48px">✨ Groß &amp; Selbstbewusst (48px Höhe · Optisch ~24px Wortmarke)</option>
+        <option value="34px">✨ Kompakt (34px Höhe · Optisch ~17px Wortmarke)</option>
+      </select>
+    </div>
+
+    <!-- 4. DACHZEILEN SELECT (18 CREATIVE STYLES) -->
+    <div class="select-box">
+      <label>Dachzeilen</label>
+      <select id="sel-eyebrow" onchange="updateCustomizer()">
+        <option value="none">🌟 FAVORIT: Ohne Dachzeilen (Maximal schlicht &amp; aufgeräumt)</option>
+        <option value="minimal_sub">✨ Subtil 1: Unterüberschrift (Schlanker Text, kein Pill/Rahmen)</option>
+        <option value="bullet_lead">✨ Subtil 2: Accent-Punkt &amp; Satzschreibung (Diskreter Farbpunkt ●)</option>
+        <option value="byline">✨ Subtil 3: Reisetagebuch-Gedankenstrich (Gedämpfter Strich —)</option>
+        <option value="glow">✨ Subtil 4: Zarter Gradient-Lichtstrich (Subtiler Unterstrich)</option>
+        <option value="editorial_quote">✨ Subtil 5: Zitat-Vorspann (Eleganter Buchstil »...«)</option>
+        <option value="softpill">6. Soft Mixed Pill (Transparente Kapsel)</option>
+        <option value="badge">7. Soft Badges (VERSALIEN Kapsel)</option>
+        <option value="telemetry">8. Telemetrie Wegmarken</option>
+        <option value="coords">9. GPS Coordinates</option>
+        <option value="codetag">10. Code Tag Brackets</option>
+        <option value="peakicon">11. Alpine Peak Icon</option>
+        <option value="pulse">12. Live Pulse Dot</option>
+        <option value="bearing">13. Kompass-Peilung &amp; Kurs</option>
+        <option value="hud">14. 3D Flight HUD Bracket</option>
+        <option value="stamp">15. Poststempel Pass-Siegel</option>
+        <option value="numeral">16. Numeral Index Counter</option>
+        <option value="gradcaps">17. Gradient Micro-Caps</option>
+        <option value="topo">18. Topo-Linie (Original)</option>
+        <option value="clapboard">19. Filmklappe &amp; Szene (KINO)</option>
+        <option value="ticket">20. Bordkarte / Ticket-Stub (REISE)</option>
+        <option value="postcard">21. Postkarte · Grüße aus… (BRIEFKASTEN)</option>
+        <option value="chapter">22. Kapitelüberschrift (BUCH)</option>
+        <option value="breadcrumb">23. Breadcrumb-Navigation (GEO-PFAD)</option>
+        <option value="typewriter">24. Schreibmaschine (RETRO)</option>
+        <option value="emojistory">25. Emoji-Storytelling (BILDKETTE)</option>
+        <option value="elevation">26. Höhenmeter-Ticker (PROFIL)</option>
+        <option value="handwritten">27. Handschrift-Unterstrich (PERSÖNLICH)</option>
+        <option value="subtitle">28. Filmuntertitel / Lower-Third (TV)</option>
+        <option value="trailsign">29. Wanderwegschild (OUTDOOR)</option>
+        <option value="weather">30. Wetterbericht-Widget (KLIMA)</option>
+        <option value="verse">31. Gedichtzeile / Poetischer Vers (LYRIK)</option>
+      </select>
+    </div>
+
+    <!-- 5. FARBSCHEMA SELECT (28 THEMED PALETTES) -->
+    <div class="select-box">
+      <label>Farbschema</label>
+      <select id="sel-color" onchange="updateCustomizer()">
+        <option value="orange_maptale_classic">🌟 FAVORIT: Maptale Sonnen-Orange (WARMES SUNSET-ORANGE)</option>
+        <option value="orange_amber_gold">✨ Orange-Variante 1: Bernstein &amp; Goldene Stunde (SATTER AMBER)</option>
+        <option value="orange_terracotta">✨ Orange-Variante 2: Alpin-Terrakotta &amp; Kupfer (NATUR-TERRAKOTTA)</option>
+        <option value="orange_burnt_coral">✨ Orange-Variante 3: Burnt Orange &amp; Koralle (LEUCHTENDES ORANGE)</option>
+        <option value="orange_warm_ochre">✨ Orange-Variante 4: Warmer Ocker &amp; Lagerfeuer (ERD-OCKER)</option>
+        <option value="warm_summer_meadow">1. Satte Sommerwiese (WARMES NATURGRÜN)</option>
+        <option value="warm_moss_ground">2. Frischer Wald- &amp; Moosboden (WARMES NATURGRÜN)</option>
+        <option value="warm_may_green">3. Saftiges Maigrün &amp; Farn (WARMES NATURGRÜN)</option>
+        <option value="warm_alpine_pine">4. Schweizer Almen &amp; Tannen (WARMES NATURGRÜN)</option>
+        <option value="warm_leaf_canopy">5. Bio-Natur &amp; Blätterdach (WARMES NATURGRÜN)</option>
+        <option value="warm_spruce_moss">6. Harzer Fichtennadel &amp; Moos (WARMES NATURGRÜN)</option>
+        <option value="pure_moss">7. Reines Moosgrün &amp; Farn (Kühles Grün)</option>
+        <option value="vibrant_grass">8. Saftiges Grasgrün &amp; Maitrieb</option>
+        <option value="deep_evergreen">9. Sattes Smaragd- &amp; Waldgrün</option>
+        <option value="lime_foliage">10. Limette &amp; Frisches Laub</option>
+        <option value="alpine_meadow_mint">11. Alpenwiese &amp; Minzgrün</option>
+        <option value="irish_clover">12. Irisches Kleeblatt &amp; Jade</option>
+        <option value="mossy_forest">13. Mooswald &amp; Eichenholz</option>
+        <option value="autumn_meadow">14. Herbstwiese &amp; Olivenlaub</option>
+        <option value="highland_fern">15. Highland Farn &amp; Terrakotta</option>
+        <option value="warm_olive">16. Warme Olive &amp; Sandstein</option>
+        <option value="pine_leaf">17. Kiefernwald &amp; Goldlaub</option>
+        <option value="sage_ochre">18. Salbei &amp; Erdochse</option>
+        <option value="alpen">19. Alpen Cyan &amp; Gold</option>
+        <option value="midnight">20. Nordic Midnight</option>
+        <option value="sunset">21. Sunset Trails</option>
+        <option value="titanium">22. Titanium Ice</option>
+        <option value="cyber">23. Cyber Neon</option>
+        <option value="sahara">24. Sahara Gold</option>
+        <option value="forest">25. Forest Moss</option>
+        <option value="volcano">26. Volcano Lava &amp; Flame</option>
+        <option value="arctic">27. Arctic Aurora &amp; Glacier</option>
+        <option value="dusk">28. Twilight Blue Hour</option>
+        <option value="classic">29. Klassisch Original</option>
+      </select>
+    </div>
+
+    <!-- 6. LOGOKONZEPT SELECT (32 CREATIVE CONCEPTS) -->
+    <div class="select-box">
+      <label>Logokonzept</label>
+      <select id="sel-logo" onchange="updateCustomizer()">
+        <option value="globe_anchored_1">🌟 FAVORIT: PERFEKT VERANKERT 1 (Sauberer Inset-Start West → Ost)</option>
+        <option value="globe_anchored_2">🎯 PERFEKT VERANKERT 2: Vollständig geschlossener 3D-Bogen</option>
+        <option value="globe_anchored_3">🎯 PERFEKT VERANKERT 3: Äquatoriales Horizont-Profil</option>
+        <option value="globe_anchored_4">🎯 PERFEKT VERANKERT 4: Meridian-Kontur (Südwest → Nordost)</option>
+        <option value="globe_anchored_5">🎯 PERFEKT VERANKERT 5: Filigraner 1.8px Inset-Schwung</option>
+        <option value="globe_anchored_6">🎯 PERFEKT VERANKERT 6: Symmetrischer Zentrierungs-Bogen</option>
+        <option value="globe_thread">🌟 FAVORIT: Konzept 44 (Weltkugel &amp; Routenfaden - Original)</option>
+        <option value="globe_tune_1">✨ 44-Tuned 1: Feine Linien &amp; Ausgewogene Proportionen</option>
+        <option value="globe_tune_2">✨ 44-Tuned 2: Zielpunkt-Glow &amp; Halo-Effekt</option>
+        <option value="globe_tune_3">✨ 44-Tuned 3: Natürliche Erdachsen-Neigung (-15°)</option>
+        <option value="globe_tune_4">✨ 44-Tuned 4: Äquator + Meridian Gitter-Kreuz</option>
+        <option value="globe_tune_5">✨ 44-Tuned 5: Gestrichelter Start &amp; Durchgehender Bogen</option>
+        <option value="globe_tune_6">✨ 44-Tuned 6: 3D-Höhenabstand (Sanfter Geländeflug)</option>
+        <option value="paper_plane_trail">1. Konzept 25: Papierflieger &amp; GPS-Kondensstreifen (POETISCH)</option>
+        <option value="north_star_journal">2. Konzept 26: Polarstern &amp; Reisetagebuch (POETISCH)</option>
+        <option value="heart_trail">3. Konzept 27: Herzschlag-Panorama &amp; Route (EMOTIONAL)</option>
+        <option value="balloon_valley">4. Konzept 28: Heißluftballon &amp; 3D-Blick (PANORAMA)</option>
+        <option value="footprint_wing">5. Konzept 29: Wanderschwinge &amp; Flug (POETISCH)</option>
+        <option value="sunrise_pass">6. Konzept 30: Sonnenaufgang am Pass (GOLDENE STUNDE)</option>
+        <option value="m_camera_shutter">7. Konzept 31: Monogramm 'M' mit Auslöser (MARKEN-ICON)</option>
+        <option value="flight_comet">8. Konzept 32: Sternschnuppe über dem Horizont (MAGISCH)</option>
+        <option value="compass_rose">9. Konzept P: Stylized Compass Rose &amp; Trail (WINDROSE)</option>
+        <option value="expedition_windrose">10. Konzept Q: Minimal Expedition Windrose (WINDROSE)</option>
+        <option value="topo_windrose">11. Konzept R: Topo Contour Windrose (WINDROSE)</option>
+        <option value="lens_compass">12. Konzept S: Lens &amp; Compass Hybrid (WINDROSE)</option>
+        <option value="peak_windrose">13. Konzept T: Geometric Peak &amp; Windrose Star (WINDROSE)</option>
+        <option value="origami_arc">14. Konzept U: Origami Flight Ribbon</option>
+        <option value="cardinal_radar">15. Konzept V: Minimalist Cardinal Radar</option>
+        <option value="alpine_horizon_windrose">16. Konzept W: Alpine Horizon Windrose (WINDROSE)</option>
+        <option value="story_lens_pin">17. Konzept J: Storyteller Lens Pin</option>
+        <option value="elevation_wave">18. Konzept K: Flight Elevation Wave</option>
+        <option value="topo_monogram_m">19. Konzept L: Topo Contour 'M'</option>
+        <option value="journey_horizon">20. Konzept M: Journey Arc &amp; Horizon</option>
+        <option value="playhead_trail">21. Konzept N: Playhead Trail</option>
+        <option value="alpine_beacon">22. Konzept O: Alpine Summit Beacon</option>
+        <option value="pin">23. Konzept D: Slender Pin</option>
+        <option value="peak">24. Konzept C: Minimal Peak</option>
+        <option value="ribbon">25. Konzept B: Dynamic Ribbon</option>
+        <option value="altitude">26. Konzept A: Altitude Ring</option>
+        <option value="compass">27. Konzept E: Flight Compass</option>
+        <option value="twin_peak">28. Konzept F: Twin Peak</option>
+        <option value="lens_horizon">29. Konzept G: Lens Horizon</option>
+        <option value="milestone_pin">30. Konzept H: Milestone Pin</option>
+        <option value="infinity_trail">31. Konzept I: Infinity Trail</option>
+        <option value="classic_emoji">32. Klassisch Original Emoji</option>
+        <option value="folded_map">33. Gefaltete Landkarte &amp; Route (KARTOGRAFIE)</option>
+        <option value="constellation">34. Sternbild-Route &amp; Nachthimmel (POETISCH)</option>
+        <option value="tree_rings">35. Baumringe &amp; Wanderpfad (NATUR)</option>
+        <option value="wave_mountain">36. Welle-Berg-Spiegelung (DUALITÄT)</option>
+        <option value="origami_crane">37. Origami-Kranich im Flug (POETISCH)</option>
+        <option value="cairn_stones">38. Steinmännchen / Cairn (WANDERN)</option>
+        <option value="spyglass">39. Fernrohr &amp; Fernsicht (ENTDECKER)</option>
+        <option value="filmstrip_trail">40. Filmstreifen &amp; GPS-Pfad (KINO)</option>
+        <option value="moon_silhouette">41. Mondsichel &amp; Bergsilhouette (NACHT)</option>
+        <option value="bookmark_trail">42. Lesezeichen mit Routenpfad (REISETAGEBUCH)</option>
+        <option value="campfire_star">43. Lagerfeuer unter Sternen (ABENTEUER)</option>
+        <option value="globe_thread">44. Weltkugel &amp; Routenfaden (GLOBAL · BASIS)</option>
+        <option value="globe_orbit_3d">44a. Weltkugel &amp; 3D-Orbit-Ring (GENEIGTE ERDACHSE)</option>
+        <option value="globe_parabola">44b. Weltkugel &amp; Parabel-Geländeflug (HOHER BOGEN)</option>
+        <option value="globe_topo_ribbon">44c. Weltkugel &amp; Topo-Höhenbänder (SCHICHTEN-GLOBUS)</option>
+        <option value="globe_m_arc">44d. Weltkugel &amp; Monogramm 'M'-Schwung (PROFIL-PFAD)</option>
+        <option value="globe_geo_nodes">44e. Weltkugel &amp; Punkt-Matrix (GEO-NODES &amp; KNOTEN)</option>
+        <option value="globe_viewfinder">44f. Weltkugel &amp; Kamera-Sucher / Linse (KAMERABLICT)</option>
+        <option value="globe_dual_track">44g. Weltkugel &amp; Doppelpfad (BODEN &amp; 3D-FLUG)</option>
+        <option value="globe_north_compass">44h. Weltkugel &amp; Nordstern-Kompassnadel (MARKEN-STERN)</option>
+        <option value="soundwave_terrain">45. Schallwelle als Geländeprofil (AUDIO)</option>
+        <option value="anchor_compass">46. Anker &amp; Kompassnadel (MARITIME)</option>
+        <option value="labyrinth_spiral">47. Labyrinth-Spirale &amp; Ziel (MYTHISCH)</option>
+        <option value="kite_flight">48. Drachen am Himmel &amp; Schnur (SPIELERISCH)</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="screen-container">
+    <div class="screen-header-bar">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <span class="window-title" id="screen-url-indicator">https://maptale.henrikheil.net/</span>
+      <div style="width: 50px;"></div>
+    </div>
+
+    <!-- SCREEN 0: FULL LANDING PAGE WITH 100% ORIGINAL GRAPHICS & DYNAMIC EYEBROWS -->
+    <div id="screen-landing" class="landing-stage">
+      <nav class="landing-nav-inner">
+        <!-- 1. LEFT: BRAND LOGO -->
+        <div class="brand-logo-target"></div>
+
+        <!-- 2. MIDDLE: CONTENT LINKS & IN-PAGE ANCHORS -->
+        <div class="nav-anchors" id="nav-middle-target">
+          <!-- Dynamisch renderbar -->
+        </div>
+
+        <!-- 3. RIGHT: ACCOUNT & ACTION BUTTON -->
+        <div class="nav-actions-group" id="nav-right-target">
+          <!-- Dynamisch renderbar -->
+        </div>
+      </nav>
+
+      <!-- SEKTION 1: HERO -->
+      <section class="hero-orig">
+        <!-- 100% Original Landing Hero Image -->
+        <img class="hero-img" id="hero-img-el" src="landing/hero.jpg" alt="Maptale 3D Flug" onerror="if(!this.dataset.tried){this.dataset.tried=1;this.src='/landing/hero.jpg';}else if(this.dataset.tried==1){this.dataset.tried=2;this.src='/public/landing/hero.jpg';}" />
+        <div class="hero-scrim"></div>
+
+        <div class="hero-inner-orig">
+          <div class="eyebrow-container">
+            <span class="eyebrow-target"
+                  data-softpill="✨ Kinematische 3D-Kamerafahrt"
+                  data-quote="»Deine Routen als filmischer 3D-Flug«"
+                  data-subhead="Kinematische 3D-Kamerafahrt über deine GPS-Route"
+                  data-bullet="3D-Geländeflug mit Fotos &amp; echtem Wetter"
+                  data-telemetry="📍 GPS-TRACKING · 3D TERRAIN · ECHTES WETTER"
+                  data-badge="✨ Kinematische 3D-Kamerafahrt"
+                  data-glow="3D-Kamerafahrt über deine GPS-Route"
+                  data-coords="N 46.5936° E 7.9074° · ELEV 1.420M"
+                  data-codetag="[ 3D TERRAIN SIMULATION ]"
+                  data-peakicon="▲ ALPINER REISEFLUG"
+                  data-pulse="LIVE TERRAIN ENGINE ACTIVE"
+                  data-bearing="🧭 N 46°35' | E 7°54' · 142° SE"
+                  data-hud="[ ALT: 1.420M // SPD: 14.8 KM/H // 3D-FLUG ]"
+                  data-stamp="✦ EXPEDITION MAPTALE · N°07 ✦"
+                  data-numeral="01 — KINEMATISCHER 3D-REISEFLUG"
+                  data-gradcaps="3D-KAMERAFART ÜBER DEINE GPS-ROUTE"
+                  data-topo="3D-Kamerafahrt über deine GPS-Route"
+                  data-byline="Von Henrik Heil · Berner Oberland, Juli 2026"
+                  data-clapboard="SZENE 1 · EINSTELLUNG 3 · ALPENFLUG"
+                  data-ticket="BCN → ZRH → GRINDELWALD · GATE M7"
+                  data-postcard="Grüße vom Gipfel des Berner Oberlandes"
+                  data-chapter="Kapitel I"
+                  data-breadcrumb="Europa › Schweiz › Berner Oberland › Grindelwald"
+                  data-typewriter="3D-Kamerafahrt über deine aufgezeichnete GPS-Route_"
+                  data-emojistory="🗺️ → 📍 → 🏔️ → 📸 → 🎬 → ✨"
+                  data-elevation="▲ 1.420 m ü.M. · +840 hm · 18,6 km"
+                  data-handwritten="Deine Routen als filmischer 3D-Flug"
+                  data-subtitle="Kinematische 3D-Kamerafahrt über echtes Gelände"
+                  data-trailsign="→ 3D-Reiseflug starten"
+                  data-weather_eb="☀️ 22 °C · Leicht bewölkt · SW 12 km/h"
+                  data-verse="Wo der Pfad sich in die Wolken windet…"
+                  >3D-Kamerafahrt über deine GPS-Route</span>
+          </div>
+          <h1>Deine Reisen als filmischer 3D-Flug.</h1>
+          <p class="lead">Maptale verwandelt deine aufgezeichneten Touren in kinematische 3D-Flüge über echtes Gelände, mit dem Wetter jenes Tages und deinen Fotos am Wegesrand.</p>
+
+          <div class="cta-row-orig">
+            <a href="#touren" class="btn-orig btn-primary-orig">Demo erleben <span class="arr">▸</span></a>
+            <a href="/studio.html" class="btn-orig btn-ghost-orig">Eigene Reise aufzeichnen</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEKTION 2: AUSGEWÄHLTE TOUREN (100% Original Card Images) -->
+      <section class="section-band" id="touren">
+        <div class="sec-head">
+          <div class="eyebrow-container">
+            <span class="eyebrow-target"
+                  data-softpill="🗺️ Sofort im Browser abspielen"
+                  data-quote="»Drei Reisen zum Sofort-Erleben«"
+                  data-subhead="Drei ausgewählte Reisen mit echtem 3D-Gelände"
+                  data-bullet="Drei Reisen zum Sofort-Erleben"
+                  data-telemetry="🗺️ 3 DEMO-TOUREN INKL. TERRAIN"
+                  data-badge="⛰️ Sofort im Browser abspielen"
+                  data-glow="Ausgewählte Touren"
+                  data-coords="N 9.7319° E 99.9831° · INSELBERGE"
+                  data-codetag="[ EXPLORE DEMO TOURS ]"
+                  data-peakicon="▲ SOFORT ERLEBEN"
+                  data-pulse="CURATED JOURNEY COLLECTION"
+                  data-bearing="🗺️ PEILUNG: 3 DEMO-TOUREN"
+                  data-hud="[ DEMO COLLECTION // 3D TERRAIN ]"
+                  data-stamp="✦ EXKLUSIVE DEMO TOUREN ✦"
+                  data-numeral="02 — AUSGEWÄHLTE REISEN"
+                  data-gradcaps="DREI REISEN ZUM SOFORT-ERLEBEN"
+                  data-topo="Ausgewählte Touren"
+                  data-byline="Kuratiert von Maptale · Sommer 2026"
+                  data-clapboard="AKT I · DREI SCHAUPLÄTZE"
+                  data-ticket="DEMO PASS · 3 TOUREN · SOFORT ABSPIELEN"
+                  data-postcard="Grüße aus drei Ecken der Welt"
+                  data-chapter="Prolog"
+                  data-breadcrumb="Maptale › Ausgewählte Touren › 3 Reisen"
+                  data-typewriter="Drei Reisen zum sofortigen Erleben_"
+                  data-emojistory="🌴 → 🚢 → 🏔️"
+                  data-elevation="▲ 3 Routen · 83 km · 1.560 hm gesamt"
+                  data-handwritten="Drei Reisen zum Sofort-Erleben"
+                  data-subtitle="Sofort im Browser abspielen — kein Konto nötig"
+                  data-trailsign="→ Demo-Touren erkunden"
+                  data-weather_eb="🌤️ Drei Klimazonen · Drei Geschichten"
+                  data-verse="Drei Wege, die sich im Licht verlieren…"
+                  >Ausgewählte Touren</span>
+          </div>
+          <h2>Drei Reisen zum Sofort-Erleben</h2>
+          <p>Kein Konto nötig: direkt im Browser abspielen, scrubben und die Fotostopps erkunden.</p>
+        </div>
+
+        <div class="tours-grid">
+          <div class="tour-card-orig">
+            <!-- Original Graphic: card-phangan.jpg -->
+            <img class="tc-img-bg" src="landing/card-phangan.jpg" alt="Koh Pha-ngan" onerror="this.src='/landing/card-phangan.jpg';" />
+            <div class="tc-scrim"></div>
+            <span class="no-chip-badge">N°01</span>
+            <div class="tc-content">
+              <h3>Koh Pha-ngan</h3>
+              <p>Palmen, Serpentinen und die blaue Stunde am Meer: Thailands Inselberge per Moped &amp; Jeep.</p>
+              <div class="chips-row">
+                <span class="chip-item">41,8 km</span>
+                <span class="chip-item">Moped · Jeep · Fähre</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tour-card-orig">
+            <!-- Original Graphic: card-stockholm.jpg -->
+            <img class="tc-img-bg" src="landing/card-stockholm.jpg" alt="Stockholm" onerror="this.src='/landing/card-stockholm.jpg';" />
+            <div class="tc-scrim"></div>
+            <span class="no-chip-badge">N°02</span>
+            <div class="tc-content">
+              <h3>Stockholm</h3>
+              <p>Vom Stadtkern hinaus aufs Wasser, durch die Dämmerung in die Schärenwelt.</p>
+              <div class="chips-row">
+                <span class="chip-item">24,9 km</span>
+                <span class="chip-item">Fähre · Wasser</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tour-card-orig">
+            <!-- Original Graphic: card-oberland.jpg -->
+            <img class="tc-img-bg" src="landing/card-oberland.jpg" alt="Berner Oberland" onerror="this.src='/landing/card-oberland.jpg';" />
+            <div class="tc-scrim"></div>
+            <span class="no-chip-badge">N°03</span>
+            <div class="tc-content">
+              <h3>Berner Oberland</h3>
+              <p>Lauterbrunnen → Wengen → Kleine Scheidegg → Grindelwald, mitten durch die Alpen.</p>
+              <div class="chips-row">
+                <span class="chip-item">16,7 km</span>
+                <span class="chip-item">Alpen Pass</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEKTION 3: SO FUNKTIONIERT'S -->
+      <section class="section-band" id="so-funktionierts">
+        <div class="sec-head">
+          <div class="eyebrow-container">
+            <span class="eyebrow-target"
+                  data-softpill="🚀 Vom GPS-Track zum 3D-Flug"
+                  data-quote="»In drei Schritten zum 3D-Reiseflug«"
+                  data-subhead="Das Maptale Prinzip: Aufzeichnen, Anreichern &amp; Erleben"
+                  data-bullet="Drei Schritte trennen deinen Track vom fertigen Flug"
+                  data-telemetry="⚡ PIPELINE IN 3 SCHRITTEN"
+                  data-badge="🚀 Vom GPS-Track zum 3D-Flug"
+                  data-glow="So funktioniert's"
+                  data-coords="PROCESS PIPELINE · STAGE 1-3"
+                  data-codetag="[ ENRICHMENT PIPELINE ]"
+                  data-peakicon="▲ AUTOMATISCHE ANREICHERUNG"
+                  data-pulse="GPX TO 3D RENDERING ACTIVE"
+                  data-bearing="⚡ PIPELINE PEILUNG: STAGE 1-3"
+                  data-hud="[ ENRICHMENT PIPELINE // 3 SCHRITTE ]"
+                  data-stamp="✦ AUTOMATISCHE ANREICHERUNG ✦"
+                  data-numeral="03 — DAS MAPTALE PRINZIP"
+                  data-gradcaps="DREI SCHRITTE ZU DEINER 3D-REISE"
+                  data-topo="So funktioniert's"
+                  data-byline="Das Maptale-Prinzip · In drei Akten"
+                  data-clapboard="AKT II · MAKING-OF"
+                  data-ticket="PIPELINE EXPRESS · 3 STOPS"
+                  data-postcard="So wird aus deiner Route ein Film"
+                  data-chapter="Kapitel II"
+                  data-breadcrumb="Aufzeichnen › Anreichern › Erleben"
+                  data-typewriter="Vom GPS-Track zum fertigen 3D-Flug_"
+                  data-emojistory="📍 → ⛅ → 🎬"
+                  data-elevation="▲ GPX → DEM → 3D Engine"
+                  data-handwritten="So funktioniert Maptale"
+                  data-subtitle="Drei Schritte vom Track zum fertigen Flug"
+                  data-trailsign="→ So funktioniert's"
+                  data-weather_eb="⚙️ Automatische Anreicherung · Pipeline"
+                  data-verse="Vom ersten Schritt zum weiten Blick…"
+                  >So funktioniert's</span>
+          </div>
+          <h2>Drei Schritte zu deiner 3D-Reise</h2>
+          <p>Drei Schritte trennen deine Route von einem fertigen Flug über die echte Landschaft.</p>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-icon">📍</div>
+            <h3>1. Aufzeichnen</h3>
+            <p>Die Android-App trackt deine Route per GPS und hält Fotos &amp; Videos am Wegesrand fest. Alternativ lädst du einen GPX-Track hoch.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-icon">⛅</div>
+            <h3>2. Anreichern</h3>
+            <p>Der Server benennt die Tour, rekonstruiert das echte Wetter jenes Tages und legt eine Zeitleiste mit komprimierten Pausen an.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-icon">🎬</div>
+            <h3>3. Erleben</h3>
+            <p>Der Browser fliegt kinematisch über echtes 3D-Gelände, mit Tag/Nacht, Wettereffekten und deinen Fotos als Stopps.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEKTION 4: ANDROID APP (100% Original Android SVG & Phone Mockup Image) -->
+      <section class="section-band" id="android">
+        <div class="app-section-inner">
+          <div class="app-text">
+            <div class="eyebrow-container">
+              <span class="eyebrow-target"
+                    data-softpill="📱 Native Android App (Min SDK 29)"
+                    data-quote="»Maptale direkt in deiner Hosentasche«"
+                    data-subhead="Native GPS-Aufnahme auf deinem Android-Smartphone"
+                    data-bullet="Handy-Aufnahme mit automatischer Synchronisation"
+                    data-telemetry="📱 NATIVE ANDROID APP (MIN SDK 29)"
+                    data-badge="🤖 Aufnahme direkt auf dem Smartphone"
+                    data-glow="Für Android"
+                    data-coords="ANDROID SDK 29+ · GPS TRACKER"
+                    data-codetag="[ MOBILE RECORDING PLATFORM ]"
+                    data-peakicon="▲ HANDY AUFZEICHNUNG"
+                    data-pulse="NATIVE BACKGROUND GPS TRACKING"
+                    data-bearing="📱 TRACKING RADAR: ANDROID SDK 29+"
+                    data-hud="[ NATIVE RECORDING // GPS TRACKER ]"
+                    data-stamp="✦ NATIVE HANDY AUFZEICHNUNG ✦"
+                    data-numeral="04 — MOBILE RECORDING PLATFORM"
+                    data-gradcaps="NIMM MAPTALE MIT AUFS HANDY"
+                    data-topo="Für Android"
+                    data-byline="Für unterwegs · Android ab Version 10"
+                    data-clapboard="AKT III · ON LOCATION"
+                    data-ticket="BOARDING · MAPTALE ANDROID · GATE 29"
+                    data-postcard="Grüße von unterwegs — direkt vom Handy"
+                    data-chapter="Kapitel III"
+                    data-breadcrumb="Maptale › Apps › Android"
+                    data-typewriter="Nimm Maptale mit auf jede Reise_"
+                    data-emojistory="📱 → 📍 → 📸 → ☁️ → 🎬"
+                    data-elevation="▲ GPS · Foto · Video · Auto-Upload"
+                    data-handwritten="Nimm Maptale mit aufs Handy"
+                    data-subtitle="Native GPS-Aufnahme für Android"
+                    data-trailsign="→ Android-App laden"
+                    data-weather_eb="📱 Aufnahme unterwegs · Sync automatisch"
+                    data-verse="Leg los — der Weg erzählt die Geschichte." 
+                    >Für Android</span>
+            </div>
+            <h2>Nimm Maptale mit aufs Handy</h2>
+            <p>Die Aufnahme-App trackt deine Tour per GPS, hält Fotos &amp; Videos am Wegesrand fest und lädt alles hoch. Angereichert wartet dein 3D-Reiseflug dann im Browser.</p>
+            <div class="app-buttons">
+              <a href="#" class="btn-android-dl">🤖 Android-App laden (.apk)</a>
+            </div>
+          </div>
+          <div>
+            <!-- Original Android Phone Mockup Frame with Real App Image app-player.jpg -->
+            <div class="phone-frame">
+              <div class="phone-screen-inner">
+                <img src="landing/app-player.jpg" alt="Maptale App Screenshot" onerror="this.src='/landing/app-player.jpg';" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEKTION 5: CTA BAND (100% Original Graphic: cta.jpg) -->
+      <section class="cta-band-orig">
+        <img class="cta-band-img" src="landing/cta.jpg" alt="CTA Hintergrund" onerror="this.src='/landing/cta.jpg';" />
+        <div class="cta-band-scrim"></div>
+        <div class="cta-band-content">
+          <h2>Bereit für deinen ersten Flug?</h2>
+          <p>Lade deine GPX-Route hoch oder nutze die Android-App, um deine Abenteuer in 3D zu verewigen.</p>
+          <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+            <a href="/studio.html" class="btn-orig btn-primary-orig">Jetzt im Studio starten →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEKTION 6: FOOTER -->
+      <footer class="landing-footer">
+        <div class="foot-grid">
+          <div class="foot-brand">
+            <div class="brand-logo-target"></div>
+            <p>Maptale · 3D-Kamerafahrten über freie Kartendaten &amp; GPS-Aufzeichnungen.</p>
+          </div>
+          <div class="foot-nav">
+            <a href="#">Galerie</a>
+            <a href="#">Studio</a>
+            <a href="#">Datenschutz</a>
+            <a href="#">Impressum</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- SCREEN 1: 3D PLAYER VIEW -->
+    <div id="screen-player" class="player-stage" style="display: none;">
+      <div class="map-grid-bg"></div>
+
+      <svg class="flight-path-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="p-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--amber)" stop-opacity="0.2"/>
+            <stop offset="50%" stop-color="var(--amber)"/>
+            <stop offset="100%" stop-color="var(--coral)"/>
+          </linearGradient>
+        </defs>
+        <path d="M 100 520 C 300 480, 250 280, 500 320 C 700 350, 750 180, 900 120" fill="none" stroke="url(#p-grad)" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="500" cy="320" r="8" fill="var(--tertiary)"/>
+        <circle cx="500" cy="320" r="16" fill="none" stroke="var(--tertiary)" stroke-width="2" opacity="0.6"/>
+      </svg>
+
+      <div class="player-brand-overlay">
+        <div class="player-brand-title">
+          <div class="brand-logo-target"></div>
+          <h2>Berner Oberland · N°07</h2>
+          <p>Lauterbrunnen → Wengen → Kleine Scheidegg → Grindelwald</p>
+        </div>
+        <div class="hud-badge">☀️ 22°C KLAR · 1.420 M</div>
+      </div>
+
+      <div class="photo-stop-card">
+        <div class="photo-thumb"></div>
+        <div class="photo-info">
+          <h4>Blick auf die Eiger Nordwand</h4>
+          <p>Fotostopp am Hang der Kleinen Scheidegg</p>
+          <div class="photo-time">FOTO · 14:32 UHR</div>
+        </div>
+      </div>
+
+      <div class="player-controls">
+        <div class="timeline-track">
+          <div class="timeline-fill"><div class="timeline-dot"></div></div>
+        </div>
+        <div class="telemetry-row">
+          <div><strong>14.2 km</strong> / 18.6 km</div>
+          <div class="telemetry-items">
+            <span>TEMPO: <strong>14.8 km/h</strong></span>
+            <span>HÖHE: <strong>1.420 m</strong></span>
+            <span>STEIGUNG: <strong>+840 m</strong></span>
+          </div>
+          <div><strong>00:42:15</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: STUDIO EDITOR -->
+    <div id="screen-studio" class="studio-stage" style="display: none;">
+      <div class="editor-main">
+        <div class="editor-topbar">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="brand-logo-target"></div>
+            <span style="font-size: 0.85rem; color: var(--tertiary); font-weight: 600;">Studio Editor</span>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); color: #FFF; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">Abspielen</button>
+            <button style="background: var(--amber); border: none; color: #FFF; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">Speichern</button>
+          </div>
+        </div>
+
+        <div class="editor-viewport">
+          <div style="text-align: center; color: var(--muted);">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 17 22 12"/></svg>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem;">3D Map Stage &amp; Track Waypoints</p>
+          </div>
+        </div>
+
+        <div class="editor-timeline-panel">
+          <div style="font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between;">
+            <span>ZEITLEISTE (Aufnahmezeit)</span>
+            <span style="font-variant-numeric: tabular-nums;">Dauer: ca. 02:45 Min Video</span>
+          </div>
+          <div class="tl-lane"><span style="color: var(--muted); width: 100px;">Fortbewegung</span> <div class="tl-block mode">Wandern (4.8 km/h)</div></div>
+          <div class="tl-lane"><span style="color: var(--muted); width: 100px;">Wetter</span> <div class="tl-block weather">Sonnig (22°C)</div></div>
+          <div class="tl-lane"><span style="color: var(--muted); width: 100px;">Musik &amp; SFX</span> <div class="tl-block audio">Aufbruch_Alpen.mp3</div></div>
+        </div>
+      </div>
+
+      <div class="inspector">
+        <h3>Angaben zur Tour</h3>
+        <div class="field-group">
+          <label>Titel der Reise</label>
+          <input type="text" value="Berner Oberland Pass" />
+        </div>
+        <div class="field-group">
+          <label>Fortbewegung</label>
+          <select><option>Wandern / Zu Fuß</option><option>Fahrrad</option><option>Moped</option></select>
+        </div>
+        <div class="field-group">
+          <label>Hintergrundmusik</label>
+          <select><option>Aufbruch Alpen (Bibliothek)</option><option>Goldene Stunde</option></select>
+        </div>
+        <div class="field-group">
+          <label>Sichtbarkeit</label>
+          <select><option>Privat (Nur ich)</option><option>Unlisted (Per Link)</option><option>Öffentlich (Galerie)</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: TOUR LIBRARY -->
+    <div id="screen-library" class="library-stage" style="display: none;">
+      <!-- GLOBALE APP NAVIGATION FÜR DIE BIBLIOTHEK -->
+      <nav class="landing-nav-inner" style="margin: -2rem -2rem 2rem; border-radius: 0;">
+        <div class="brand-logo-target"></div>
+        <div class="nav-anchors">
+          <a href="/studio.html" class="nav-anchor-link active">Meine Touren</a>
+          <a href="/galerie.html" class="nav-anchor-link">Galerie</a>
+        </div>
+        <div class="nav-actions-group">
+          <a href="/profil.html?id=henrik" class="nav-app-link" style="display: inline-flex; align-items: center; gap: 6px;">
+            <span style="width: 22px; height: 22px; border-radius: 50%; background: var(--amber); color: #FFF; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">H</span>
+            Henrik
+          </a>
+          <div class="nav-divider"></div>
+          <button style="background: linear-gradient(120deg, var(--amber), var(--coral)); color: #FFF; font-weight: 700; padding: 8px 18px; border-radius: 10px; border: none; font-size: 13.5px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">+ Neue Tour</button>
+        </div>
+      </nav>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 style="font-size: 1.4rem; font-weight: 700; color: #FFF;">Meine Reisen</h2>
+          <p style="font-size: 0.875rem; color: var(--muted);">3 aufgezeichnete Touren</p>
+        </div>
+      </div>
+
+      <div class="lib-grid">
+        <div class="tour-card">
+          <div class="tour-thumb">
+            <svg class="tour-sig-svg" viewBox="0 0 200 40">
+              <path d="M 10 30 Q 50 5, 100 25 T 190 10" fill="none" stroke="var(--tertiary)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="tour-body">
+            <h4>Lauterbrunnen → Grindelwald</h4>
+            <div class="tour-meta">
+              <span>⚡ 18.6 km</span>
+              <span>⛰️ 940 hm</span>
+              <span>📷 14 Fotos</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tour-card">
+          <div class="tour-thumb" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&auto=format&fit=crop&q=60');">
+            <svg class="tour-sig-svg" viewBox="0 0 200 40">
+              <path d="M 10 20 Q 60 35, 110 10 T 190 25" fill="none" stroke="var(--amber)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="tour-body">
+            <h4>Insel-Runde Koh Pha-ngan</h4>
+            <div class="tour-meta">
+              <span>⚡ 42.1 km</span>
+              <span>⛰️ 310 hm</span>
+              <span>📷 22 Fotos</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tour-card">
+          <div class="tour-thumb" style="background-image: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&auto=format&fit=crop&q=60');">
+            <svg class="tour-sig-svg" viewBox="0 0 200 40">
+              <path d="M 10 10 Q 50 30, 120 15 T 190 30" fill="none" stroke="var(--tertiary)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="tour-body">
+            <h4>Schwarzwald Passhöhe</h4>
+            <div class="tour-meta">
+              <span>⚡ 64.0 km</span>
+              <span>⛰️ 1.250 hm</span>
+              <span>📷 8 Fotos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // 32 SVG Logos Definitions
+  const logos = {
+    // 25. Konzept 25: Papierflieger & GPS-Kondensstreifen (Papierflieger + 3D Flugbahn)
+    paper_plane_trail: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 32 C 14 36, 22 22, 28 14" fill="none" stroke="var(--coral)" stroke-width="2" stroke-dasharray="3 3" stroke-linecap="round"/>
+        <polygon points="26,6 38,16 28,18 24,24 22,17 32,13" fill="var(--amber)"/>
+        <polyline points="26,6 28,18 38,16" fill="none" stroke="#FFF" stroke-width="1.2" stroke-linejoin="round"/>
+        <circle cx="4" cy="32" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 26. Konzept 26: Polarstern & Reisetagebuch (Magischer Stern + Buchrahmen)
+    north_star_journal: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 6 30 Q 20 24, 34 30 L 34 34 Q 20 28, 6 34 Z" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <path d="M 20 26 L 20 31" stroke="var(--amber)" stroke-width="1.5"/>
+        <polygon points="20,2 23,12 33,15 23,18 20,28 17,18 7,15 17,12" fill="none" stroke="var(--coral)" stroke-width="2"/>
+        <polygon points="20,2 23,12 20,15 17,12" fill="var(--coral)"/>
+        <circle cx="20" cy="15" r="2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 27. Konzept 27: Herzschlag-Panorama & Route (Bergkette in Herzform)
+    heart_trail: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 20 34 C 4 22, 2 10, 12 5 C 18 2, 20 8, 20 8 C 20 8, 22 2, 28 5 C 38 10, 36 22, 20 34 Z" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M 8 20 L 14 12 L 20 18 L 26 10 L 32 20" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="26" cy="10" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 28. Konzept 28: Heißluftballon & 3D-Blick (Heißluftballon mit GPS-Pin)
+    balloon_valley: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 20 2 C 10 2, 6 10, 6 18 C 6 24, 14 30, 16 34 L 24 34 C 26 30, 34 24, 34 18 C 34 10, 30 2, 20 2 Z" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <path d="M 12 10 C 14 18, 20 34, 20 34 C 20 34, 26 18, 28 10" fill="none" stroke="var(--coral)" stroke-width="1.5"/>
+        <rect x="17" y="34" width="6" height="4" rx="1" fill="var(--amber)"/>
+        <circle cx="20" cy="14" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 29. Konzept 29: Wanderschwinge & Flug (Fußpfad wird zum Vogel-Flügel)
+    footprint_wing: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 34 Q 16 34, 20 24 T 38 6" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M 16 26 C 24 24, 30 18, 34 12" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 12 30 C 18 29, 24 25, 28 20" fill="none" stroke="var(--coral)" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+        <circle cx="38" cy="6" r="2.8" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 30. Konzept 30: Sonnenaufgang am Pass (Goldene Sonne hinter Gebirgspass)
+    sunrise_pass: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="16" r="9" fill="var(--amber)" opacity="0.8"/>
+        <path d="M 2 34 L 14 16 L 20 24 L 26 16 L 38 34" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M 8 34 Q 20 20, 32 34" fill="none" stroke="#FFF" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="20" cy="16" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 31. Konzept 31: Monogramm 'M' mit Auslöser (Berg-M + Linsenblende)
+    m_camera_shutter: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 34 L 14 8 L 22 22 L 30 8 L 40 34" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="22" cy="22" r="7" fill="none" stroke="var(--coral)" stroke-width="1.8"/>
+        <circle cx="22" cy="22" r="2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 32. Konzept 32: Sternschnuppe über dem Horizont (Kometenflug & Schweif)
+    flight_comet: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 34 C 10 32, 20 26, 34 10" fill="none" stroke="var(--amber)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 8 36 C 14 34, 24 26, 34 10" fill="none" stroke="var(--coral)" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="34" cy="10" r="4" fill="#FFF"/>
+        <circle cx="34" cy="10" r="8" fill="none" stroke="var(--amber)" stroke-width="1.5" opacity="0.6"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 17. Konzept P: Stylized Compass Rose & 3D Trail (Windrose Stilisiert + Flugpfad)
+    compass_rose: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <polygon points="20,2 24,16 38,20 24,24 20,38 16,24 2,20 16,16" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <polygon points="20,2 24,16 20,20 16,16" fill="var(--amber)"/>
+        <polygon points="20,38 24,24 20,20 16,24" fill="var(--amber)" opacity="0.6"/>
+        <path d="M 20 2 C 30 2, 42 12, 40 26 C 39 34, 32 38, 26 38" fill="none" stroke="var(--coral)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="26" cy="38" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 18. Konzept Q: Minimal Expedition Windrose (Geometrische Kompassrose + Ticks)
+    expedition_windrose: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="17" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-dasharray="28 4 6 4 28 4 6 4"/>
+        <polygon points="20,4 23,17 36,20 23,23 20,36 17,23 4,20 17,17" fill="none" stroke="var(--coral)" stroke-width="2"/>
+        <polygon points="20,4 23,17 20,20" fill="var(--coral)"/>
+        <circle cx="20" cy="20" r="2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 19. Konzept R: Topo Contour Windrose (Höhenlinien Kompass-Blume)
+    topo_windrose: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 20 4 C 28 10, 36 20, 20 36 C 4 20, 12 10, 20 4 Z" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <path d="M 20 10 C 25 15, 30 20, 20 30 C 10 20, 15 15, 20 10 Z" fill="none" stroke="var(--coral)" stroke-width="1.8"/>
+        <line x1="20" y1="2" x2="20" y2="38" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="2 2"/>
+        <line x1="2" y1="20" x2="38" y2="20" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="2 2"/>
+        <circle cx="20" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 20. Konzept S: Lens & Compass Hybrid (Blenden-Kompass + Fokuspunkt)
+    lens_compass: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="17" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <path d="M 20 3 L 26 14 L 17 20 Z" fill="var(--amber)"/>
+        <path d="M 37 20 L 26 26 L 20 17 Z" fill="var(--amber)" opacity="0.8"/>
+        <path d="M 20 37 L 14 26 L 23 20 Z" fill="var(--coral)"/>
+        <path d="M 3 20 L 14 14 L 20 23 Z" fill="var(--coral)" opacity="0.8"/>
+        <circle cx="20" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 21. Konzept T: Geometric Peak & Windrose Star (Gipfel & Nordstern)
+    peak_windrose: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 34 L 20 4 L 36 34 Z" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M 20 4 L 20 34" stroke="var(--coral)" stroke-width="2"/>
+        <polygon points="20,4 23,12 20,10 17,12" fill="var(--coral)"/>
+        <path d="M 10 23 L 20 16 L 30 23" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 22. Konzept U: Origami Flight Ribbon (Geometrisches M-Flugband)
+    origami_arc: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <polygon points="4,32 14,10 22,24" fill="var(--amber)" opacity="0.9"/>
+        <polygon points="22,24 30,10 38,32" fill="var(--coral)"/>
+        <polyline points="4,32 14,10 22,24 30,10 38,32" fill="none" stroke="#FFF" stroke-width="1.8" stroke-linejoin="round"/>
+        <circle cx="30" cy="10" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 23. Konzept V: Minimalist Cardinal Radar (Koordinaten-Radar & Flugkreis)
+    cardinal_radar: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="17" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <line x1="20" y1="0" x2="20" y2="40" stroke="var(--coral)" stroke-width="1.2"/>
+        <line x1="0" y1="20" x2="40" y2="20" stroke="var(--coral)" stroke-width="1.2"/>
+        <path d="M 6 28 C 12 12, 28 12, 34 28" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="34" cy="28" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 24. Konzept W: Alpine Horizon Windrose (Horizont-Kamm & Nordnadel)
+    alpine_horizon_windrose: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <line x1="2" y1="26" x2="38" y2="26" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+        <path d="M 4 26 L 14 16 L 22 26 L 30 18 L 36 26" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <polygon points="22,2 25,12 22,10 19,12" fill="var(--coral)"/>
+        <line x1="22" y1="2" x2="22" y2="26" stroke="var(--coral)" stroke-width="1.5" stroke-dasharray="3 2"/>
+        <circle cx="22" cy="2" r="1.8" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 1. Konzept D: Slender Pin
+    pin: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 20 2 C 11 2, 4 9, 4 18 C 4 28, 20 40, 20 40 C 20 40, 36 28, 36 18 C 36 9, 29 2, 20 2 Z" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M 9 22 C 13 13, 23 26, 28 13" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="28" cy="13" r="2.2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 2. Konzept C: Minimal Peak Arc
+    peak: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 32 L 14 12 L 24 26 L 32 12 L 44 32" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M 8 30 C 18 30, 20 16, 36 10" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="36" cy="10" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 3. Konzept B: Dynamic M Ribbon
+    ribbon: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 32 C 12 10, 18 34, 24 12 C 30 34, 36 10, 44 32" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="36" cy="10" r="2.5" fill="var(--coral)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 4. Konzept A: Altitude Ring
+    altitude: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <circle cx="22" cy="22" r="18" fill="none" stroke="var(--amber)" stroke-width="2.2"/>
+        <path d="M 12 26 Q 22 14, 32 26" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 5. Konzept E: Flight Path Compass
+    compass: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="17" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <polygon points="20,5 24,14 20,11 16,14" fill="var(--amber)"/>
+        <path d="M 6 28 C 12 12, 26 28, 34 10" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="34" cy="10" r="2.2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 6. Konzept F: Twin Peak Elevation
+    twin_peak: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 34 L 16 12 L 26 28 L 36 16 L 44 34" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M 8 30 Q 24 6, 40 22" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="24" cy="6" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 7. Konzept G: Lens Horizon
+    lens_horizon: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <circle cx="20" cy="20" r="8" fill="none" stroke="var(--coral)" stroke-width="2.2"/>
+        <path d="M 4 28 Q 20 18, 36 28" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 8. Konzept H: Route Milestone Pin
+    milestone_pin: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 18 2 C 10 2, 4 8, 4 16 C 4 26, 18 38, 18 38 C 18 38, 32 26, 32 16 C 32 8, 26 2, 18 2 Z" fill="none" stroke="var(--amber)" stroke-width="2.2"/>
+        <circle cx="18" cy="14" r="5" fill="var(--coral)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 9. Konzept I: Infinity Trail
+    infinity_trail: `<svg width="150" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 8 20 C 8 10, 20 10, 20 20 C 20 30, 32 30, 32 20 C 32 10, 20 10, 20 20 C 20 30, 8 30, 8 20 Z" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="32" cy="20" r="3" fill="var(--coral)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 10. Konzept J: Storyteller Lens Pin (Map Pin + Camera Lens Aperture)
+    story_lens_pin: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 20 2 C 10 2, 3 9, 3 19 C 3 30, 20 41, 20 41 C 20 41, 37 30, 37 19 C 37 9, 30 2, 20 2 Z" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="20" cy="17" r="8" fill="none" stroke="var(--coral)" stroke-width="2"/>
+        <line x1="20" y1="9" x2="25" y2="15" stroke="var(--coral)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="28" y1="17" x2="22" y2="22" stroke="var(--coral)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="20" y1="25" x2="15" y2="19" stroke="var(--coral)" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="20" cy="17" r="2.2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 11. Konzept K: Flight Elevation Wave (3D Trajectory & Smooth Profile)
+    elevation_wave: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 32 Q 14 36, 22 20 T 40 10" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M 4 24 Q 16 12, 32 28" fill="none" stroke="var(--coral)" stroke-width="2" stroke-dasharray="2 3" stroke-linecap="round"/>
+        <circle cx="40" cy="10" r="3.5" fill="var(--amber)"/>
+        <circle cx="40" cy="10" r="7" fill="none" stroke="var(--coral)" stroke-width="1.5" opacity="0.7"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 12. Konzept L: Topo Contour Monogram 'M' (Layered Contour Lines)
+    topo_monogram_m: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 34 L 14 10 L 22 26 L 30 10 L 40 34" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 9 34 L 14 20 L 22 30 L 30 20 L 35 34" fill="none" stroke="var(--coral)" stroke-width="1.8" opacity="0.8" stroke-linecap="round"/>
+        <circle cx="22" cy="7" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 13. Konzept M: Journey Arc & Horizon (3D Perspective Horizon Ring)
+    journey_horizon: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <ellipse cx="22" cy="22" rx="18" ry="12" fill="none" stroke="var(--amber)" stroke-width="2" transform="rotate(-15 22 22)"/>
+        <path d="M 6 28 C 14 12, 28 32, 38 10" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="38" cy="10" r="2.8" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 14. Konzept N: Playhead Trail (Video Play Button + GPS Track)
+    playhead_trail: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <path d="M 6 10 L 22 20 L 6 30 Z" fill="var(--amber)" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M 22 20 C 28 20, 32 10, 40 12" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="40" cy="12" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 15. Konzept O: Alpine Summit Beacon (Geometric Diamond Summit Mark)
+    alpine_beacon: `<svg width="155" height="38" viewBox="0 0 220 46">
+      <g transform="translate(4, 3)">
+        <polygon points="20,4 34,20 20,36 6,20" fill="none" stroke="var(--amber)" stroke-width="2.2"/>
+        <line x1="20" y1="4" x2="20" y2="36" stroke="var(--coral)" stroke-width="1.8"/>
+        <line x1="6" y1="20" x2="34" y2="20" stroke="var(--coral)" stroke-width="1.8"/>
+        <circle cx="20" cy="20" r="3.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 16. Klassisch Original Emoji
+    classic_emoji: `<div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 24px;">⛰️</span>
+      <span style="font-family: var(--font-brand); font-weight: 700; font-size: 23px; color: #FFF;">Maptale</span>
+    </div>`,
+
+    // 33. Gefaltete Landkarte & Route (Aufgefaltete Karte mit diagonaler Routenlinie)
+    folded_map: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 6 L 14 4 L 26 8 L 38 4 L 38 36 L 26 32 L 14 36 L 4 34 Z" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="14" y1="4" x2="14" y2="36" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <line x1="26" y1="8" x2="26" y2="32" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <path d="M 8 28 C 14 22, 20 18, 26 14 C 30 12, 34 10, 36 8" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="8" cy="28" r="2.5" fill="var(--coral)"/>
+        <circle cx="36" cy="8" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 34. Sternbild-Route (Sterne als Wegpunkte, verbunden wie ein Sternbild)
+    constellation: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 6 30 L 14 12 L 24 28 L 34 8 L 38 18" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3"/>
+        <circle cx="6" cy="30" r="3" fill="var(--amber)"/>
+        <circle cx="14" cy="12" r="2.5" fill="var(--coral)"/>
+        <circle cx="24" cy="28" r="2" fill="var(--amber)"/>
+        <circle cx="34" cy="8" r="3.5" fill="#FFF"/>
+        <circle cx="38" cy="18" r="2" fill="var(--coral)"/>
+        <circle cx="34" cy="8" r="6" fill="none" stroke="var(--coral)" stroke-width="1" opacity="0.5"/>
+        <circle cx="10" cy="6" r="1" fill="rgba(255,255,255,0.4)"/>
+        <circle cx="30" cy="34" r="1" fill="rgba(255,255,255,0.4)"/>
+        <circle cx="40" cy="30" r="0.8" fill="rgba(255,255,255,0.3)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 35. Baumringe & Wanderpfad (Jahresringe eines Baumstamms, Pfad durch die Mitte)
+    tree_rings: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <ellipse cx="20" cy="20" rx="17" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <ellipse cx="20" cy="20" rx="12" ry="11" fill="none" stroke="var(--amber)" stroke-width="1.5" opacity="0.7"/>
+        <ellipse cx="20" cy="20" rx="7" ry="6.5" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <path d="M 4 28 C 12 16, 20 20, 20 20 C 20 20, 28 24, 36 12" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 36. Welle-Berg-Spiegelung (Berg oben, Wasserspiegelung unten)
+    wave_mountain: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 20 L 14 6 L 22 16 L 30 4 L 38 20" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linejoin="round"/>
+        <line x1="2" y1="20" x2="40" y2="20" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+        <path d="M 4 20 C 10 28, 16 22, 22 26 C 28 30, 32 24, 38 20" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+        <path d="M 6 24 C 12 30, 18 26, 24 28 C 30 30, 34 27, 36 24" fill="none" stroke="var(--coral)" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+        <circle cx="30" cy="4" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 37. Origami-Kranich im Flug (Papierkranich, geometrisch, leicht)
+    origami_crane: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <polygon points="20,4 36,20 28,22 38,34" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <polygon points="20,4 4,20 12,22 2,34" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <polygon points="20,4 16,18 20,28 24,18" fill="var(--coral)" opacity="0.6"/>
+        <line x1="20" y1="4" x2="20" y2="28" stroke="var(--coral)" stroke-width="1.5"/>
+        <circle cx="20" cy="4" r="2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 38. Steinmännchen / Cairn (Gestapelte Wandersteine)
+    cairn_stones: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <ellipse cx="20" cy="34" rx="14" ry="4" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="26" rx="10" ry="3.5" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="19" rx="7" ry="3" fill="none" stroke="var(--coral)" stroke-width="2"/>
+        <ellipse cx="20" cy="13" rx="5" ry="2.5" fill="none" stroke="var(--coral)" stroke-width="1.8"/>
+        <circle cx="20" cy="7" r="3.5" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <circle cx="20" cy="7" r="1.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 39. Fernrohr & Fernsicht (Teleskop auf Berge gerichtet)
+    spyglass: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="10" cy="20" r="8" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <circle cx="10" cy="20" r="4" fill="none" stroke="var(--coral)" stroke-width="1.5"/>
+        <rect x="18" y="17" width="18" height="6" rx="2" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <line x1="36" y1="20" x2="42" y2="20" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 28 10 L 32 6 L 36 10" fill="none" stroke="var(--coral)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="10" cy="20" r="1.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 40. Filmstreifen & GPS-Pfad (Filmrahmen mit Routenlinie durch die Kader)
+    filmstrip_trail: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <rect x="2" y="6" width="38" height="28" rx="3" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <rect x="5" y="6" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="12" y="6" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="26" y="6" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="33" y="6" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="5" y="30" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="12" y="30" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="26" y="30" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <rect x="33" y="30" width="4" height="4" rx="1" fill="var(--amber)" opacity="0.5"/>
+        <path d="M 6 26 C 12 16, 20 28, 28 14 L 36 18" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="36" cy="18" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 41. Mondsichel & Bergsilhouette (Halbmond rahmt eine Bergkette)
+    moon_silhouette: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 28 4 C 18 8, 12 18, 16 28 C 18 32, 22 36, 28 36 C 18 34, 14 24, 18 14 C 20 10, 24 6, 28 4 Z" fill="var(--amber)" opacity="0.8"/>
+        <path d="M 4 32 L 12 20 L 18 28 L 26 14 L 34 24 L 38 32" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="34" cy="8" r="1.5" fill="#FFF"/>
+        <circle cx="38" cy="14" r="1" fill="rgba(255,255,255,0.5)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 42. Lesezeichen mit Routenpfad (Buchzeichen mit integriertem Höhenprofil)
+    bookmark_trail: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 8 2 L 8 36 L 20 28 L 32 36 L 32 2 Z" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M 12 26 C 16 18, 20 22, 24 12 L 28 16" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="28" cy="16" r="2" fill="#FFF"/>
+        <circle cx="12" cy="26" r="2" fill="var(--coral)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 43. Lagerfeuer unter Sternen (Flamme + Funkensterne)
+    campfire_star: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 14 36 L 10 30 L 16 32 L 20 24 L 24 32 L 30 30 L 26 36" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M 20 24 C 16 16, 20 8, 20 4 C 20 8, 24 16, 20 24" fill="var(--coral)" opacity="0.8"/>
+        <path d="M 20 24 C 18 18, 20 12, 20 8 C 20 12, 22 18, 20 24" fill="var(--amber)"/>
+        <circle cx="10" cy="8" r="1.5" fill="#FFF"/>
+        <circle cx="32" cy="6" r="1" fill="rgba(255,255,255,0.6)"/>
+        <circle cx="34" cy="14" r="1.2" fill="rgba(255,255,255,0.5)"/>
+        <circle cx="6" cy="16" r="0.8" fill="rgba(255,255,255,0.4)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44. Weltkugel & Routenfaden (Globus mit einem Pfad als Äquator-Linie)
+    globe_thread: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <path d="M 4 20 C 10 14, 20 26, 30 16 C 34 14, 36 20, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="36" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="50" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Anchored 1: Sauberer Inset-Start (West -> Ost innerhalb der Globus-Silhouette)
+    globe_anchored_1: `<svg width="165" height="38" viewBox="0 0 235 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.45"/>
+        <path d="M 8 22 C 14 14, 26 26, 32 18" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="8" cy="22" r="2" fill="var(--coral)"/>
+        <circle cx="32" cy="18" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="53.5" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Anchored 2: Vollständig geschlossener 3D-Bogen (Bogen bleibt 100% in der Kugel)
+    globe_anchored_2: `<svg width="165" height="38" viewBox="0 0 235 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.4"/>
+        <path d="M 10 24 C 14 12, 26 12, 30 24" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="10" cy="24" r="2" fill="var(--coral)"/>
+        <circle cx="30" cy="24" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="53.5" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Anchored 3: Äquatoriales Horizont-Profil (Start/Ende exakt am Innen-Horizont)
+    globe_anchored_3: `<svg width="165" height="38" viewBox="0 0 235 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="15" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="7.5" ry="15" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.45"/>
+        <path d="M 8 20 C 14 8, 26 8, 32 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="8" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="32" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="53.5" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Anchored 4: Meridian-Kontur (Südwest nach Nordost, schmiegt sich an Meridian)
+    globe_anchored_4: `<svg width="165" height="38" viewBox="0 0 235 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.45"/>
+        <path d="M 11 26 C 14 16, 26 24, 29 14" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="11" cy="26" r="2" fill="var(--coral)"/>
+        <circle cx="29" cy="14" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="53.5" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Anchored 5: Filigraner 1.8px Inset-Schwung (Feine Kontur, 100% Inset)
+    globe_anchored_5: `<svg width="165" height="38" viewBox="0 0 235 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1" opacity="0.45"/>
+        <path d="M 9 21 C 15 13, 25 27, 31 16" fill="none" stroke="var(--coral)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="9" cy="21" r="1.8" fill="var(--coral)"/>
+        <circle cx="31" cy="16" r="2.2" fill="#FFF"/>
+      </g>
+      <text x="53.5" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Anchored 6: Symmetrischer Zentrierungs-Bogen (Äquatorialer S-Bogen perfekt zentriert)
+    globe_anchored_6: `<svg width="165" height="38" viewBox="0 0 235 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.45"/>
+        <path d="M 10 20 C 15 15, 25 25, 30 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="10" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="30" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="53.5" y="30.5" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFFFFF" letter-spacing="-0.01em">Maptale</text>
+    </svg>`,
+
+    // 44-Tuned 1: Feine Linien & Ausgewogene Proportionen (Filigran & edel)
+    globe_tune_1: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="1.6"/>
+        <ellipse cx="20" cy="20" rx="7.5" ry="16" fill="none" stroke="var(--amber)" stroke-width="1" opacity="0.45"/>
+        <path d="M 4 20 C 10 13.5, 20 26.5, 30 15.5 C 34 13.5, 36 20, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="4" cy="20" r="1.8" fill="var(--coral)"/>
+        <circle cx="36" cy="20" r="2.2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44-Tuned 2: Zielpunkt-Glow & Halo-Effekt (Fotostopp-Fokus am Ziel)
+    globe_tune_2: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <path d="M 4 20 C 10 14, 20 26, 30 16 C 34 14, 36 20, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="36" cy="20" r="5.5" fill="none" stroke="var(--coral)" stroke-width="1" opacity="0.5"/>
+        <circle cx="36" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44-Tuned 3: Natürliche Erdachsen-Neigung (-15° Dynamischer Tilt)
+    globe_tune_3: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)" transform-origin="20 20">
+        <g transform="rotate(-15 20 20)">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+          <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+          <path d="M 4 20 C 10 14, 20 26, 30 16 C 34 14, 36 20, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="4" cy="20" r="2" fill="var(--coral)"/>
+          <circle cx="36" cy="20" r="2.5" fill="#FFF"/>
+        </g>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44-Tuned 4: Äquator + Meridian Gitter-Kreuz (Dezentes Horizontgitter)
+    globe_tune_4: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.45"/>
+        <line x1="4" y1="20" x2="36" y2="20" stroke="var(--amber)" stroke-width="1" stroke-dasharray="2 2" opacity="0.4"/>
+        <path d="M 4 20 C 10 14, 20 26, 30 16 C 34 14, 36 20, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="36" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44-Tuned 5: Gestrichelter Start & Durchgehender Bogen (GPS Track-Metapher)
+    globe_tune_5: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <path d="M 4 20 C 10 14, 18 25, 22 23" fill="none" stroke="var(--coral)" stroke-width="2.2" stroke-dasharray="3 2" stroke-linecap="round"/>
+        <path d="M 22 23 C 26 21, 30 16, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="36" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44-Tuned 6: 3D-Höhenabstand (Sanfter Geländeflug leicht über der Oberfläche)
+    globe_tune_6: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.4"/>
+        <path d="M 4 20 C 10 11, 20 28, 30 13 C 34 11, 36 20, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="4" cy="20" r="2" fill="var(--coral)"/>
+        <circle cx="36" cy="20" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44a. Weltkugel & 3D-Orbit-Ring (Geneigte Erdachse mit schrägem 3D-Orbit)
+    globe_orbit_3d: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="15" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <ellipse cx="20" cy="20" rx="6" ry="15" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.4" transform="rotate(22 20 20)"/>
+        <line x1="14" y1="5" x2="26" y2="35" stroke="var(--amber)" stroke-width="1" stroke-dasharray="2 2" opacity="0.4"/>
+        <ellipse cx="20" cy="20" rx="19" ry="8" fill="none" stroke="var(--coral)" stroke-width="2.5" transform="rotate(-25 20 20)" stroke-dasharray="32 100"/>
+        <circle cx="34" cy="11" r="3" fill="#FFF"/>
+        <circle cx="34" cy="11" r="6" fill="none" stroke="var(--coral)" stroke-width="1" opacity="0.6"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44b. Weltkugel & Parabel-Geländeflug (Hohe parabolische Flugkurve über den Nordpol)
+    globe_parabola: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="22" r="14" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <ellipse cx="20" cy="22" rx="14" ry="5" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.5"/>
+        <line x1="20" y1="8" x2="20" y2="36" stroke="var(--amber)" stroke-width="1.2" opacity="0.4"/>
+        <path d="M 4 24 C 10 4, 30 4, 36 24" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="24" r="2" fill="var(--coral)"/>
+        <circle cx="20" cy="5" r="2.8" fill="#FFF"/>
+        <circle cx="36" cy="24" r="2" fill="var(--coral)"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44c. Weltkugel & Topo-Höhenbänder (Schichten-Globus aus geschwungenen Breitenlinien)
+    globe_topo_ribbon: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <ellipse cx="20" cy="10" rx="9" ry="3" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+        <ellipse cx="20" cy="17" rx="14" ry="4.5" fill="none" stroke="var(--amber)" stroke-width="1.6"/>
+        <ellipse cx="20" cy="24" rx="14" ry="4.5" fill="none" stroke="var(--amber)" stroke-width="1.6"/>
+        <ellipse cx="20" cy="30" rx="9" ry="3" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+        <path d="M 6 24 C 12 12, 28 28, 34 10" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="34" cy="10" r="2.8" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44d. Weltkugel & Monogramm 'M'-Schwung (Routenfaden formt ein M über der Erdkugel)
+    globe_m_arc: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <ellipse cx="20" cy="20" rx="7" ry="16" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.4"/>
+        <path d="M 6 28 C 12 10, 16 26, 20 16 C 24 26, 28 10, 34 28" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="20" cy="16" r="2" fill="var(--coral)"/>
+        <circle cx="28" cy="10" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44e. Weltkugel & Punkt-Matrix (Geo-Nodes mit leuchtenden Pfadknoten)
+    globe_geo_nodes: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-dasharray="2 4"/>
+        <circle cx="20" cy="20" r="10" fill="none" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.6"/>
+        <path d="M 6 24 L 16 12 L 28 26 L 36 14" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="6" cy="24" r="2.5" fill="var(--amber)"/>
+        <circle cx="16" cy="12" r="2.5" fill="var(--coral)"/>
+        <circle cx="28" cy="26" r="2.5" fill="var(--amber)"/>
+        <circle cx="36" cy="14" r="3.2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44f. Weltkugel & Kamera-Sucher / Linse (Linsen-Blende rahmt den Globus)
+    globe_viewfinder: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <path d="M 4 12 L 4 4 L 12 4" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 28 4 L 36 4 L 36 12" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 36 28 L 36 36 L 28 36" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 12 36 L 4 36 L 4 28" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 8 26 C 14 16, 26 28, 32 14" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="32" cy="14" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44g. Weltkugel & Doppelpfad (Bodenpfad an der Kugel + schwebende 3D-Flugkurve)
+    globe_dual_track: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="20" r="16" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <path d="M 6 26 C 14 28, 26 28, 34 26" fill="none" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path d="M 4 20 C 12 6, 28 6, 36 20" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="20" y1="8" x2="20" y2="27" stroke="var(--coral)" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>
+        <circle cx="20" cy="8" r="2.8" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 44h. Weltkugel & Nordstern-Kompassnadel (Globus mit Kompass-Nordstern am Pol)
+    globe_north_compass: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="22" r="14" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+        <ellipse cx="20" cy="22" rx="6" ry="14" fill="none" stroke="var(--amber)" stroke-width="1.2" opacity="0.4"/>
+        <polygon points="20,2 23,8 20,7 17,8" fill="var(--coral)"/>
+        <path d="M 6 22 C 12 16, 28 26, 34 18" fill="none" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="20" cy="2" r="1.8" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 45. Schallwelle als Geländeprofil (Audio-Wellenform, die ein Höhenprofil bildet)
+    soundwave_terrain: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 4 20 L 8 14 L 10 20 L 13 8 L 16 20 L 19 4 L 22 20 L 25 10 L 28 20 L 31 14 L 34 20 L 37 16 L 40 20" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M 4 20 L 8 24 L 10 20 L 13 28 L 16 20 L 19 32 L 22 20 L 25 26 L 28 20 L 31 24 L 34 20 L 37 22 L 40 20" fill="none" stroke="var(--coral)" stroke-width="1.8" stroke-linejoin="round" opacity="0.6"/>
+        <circle cx="19" cy="4" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 46. Anker & Kompassnadel (Maritimer Anker, verschmolzen mit Nordnadel)
+    anchor_compass: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <circle cx="20" cy="8" r="4" fill="none" stroke="var(--amber)" stroke-width="2"/>
+        <line x1="20" y1="12" x2="20" y2="34" stroke="var(--amber)" stroke-width="2"/>
+        <path d="M 8 28 C 8 36, 20 38, 20 34" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 32 28 C 32 36, 20 38, 20 34" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="10" y1="22" x2="30" y2="22" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>
+        <polygon points="20,2 22,6 20,5 18,6" fill="#FFF"/>
+        <circle cx="20" cy="8" r="1.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 47. Labyrinth-Spirale & Ziel (Spiralpfad zum Zentrum)
+    labyrinth_spiral: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <path d="M 20 20 C 20 16, 24 14, 26 16 C 28 18, 28 24, 24 26 C 20 28, 14 26, 12 22 C 10 16, 14 10, 20 8 C 28 6, 34 12, 34 20 C 34 28, 28 34, 20 34 C 10 34, 4 26, 4 18" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="2.5" fill="var(--coral)"/>
+        <circle cx="4" cy="18" r="2.5" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`,
+
+    // 48. Drachen am Himmel & Schnur (Spielerischer Drachen mit Leinenschweif)
+    kite_flight: `<svg width="160" height="38" viewBox="0 0 230 46">
+      <g transform="translate(4, 3)">
+        <polygon points="20,2 32,16 20,26 8,16" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="20" y1="2" x2="20" y2="26" stroke="var(--coral)" stroke-width="1.5"/>
+        <line x1="8" y1="16" x2="32" y2="16" stroke="var(--coral)" stroke-width="1.5"/>
+        <path d="M 20 26 C 22 30, 18 32, 20 36" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="16" cy="32" r="1.5" fill="var(--coral)"/>
+        <circle cx="24" cy="34" r="1.2" fill="var(--coral)" opacity="0.7"/>
+        <circle cx="20" cy="2" r="2" fill="#FFF"/>
+      </g>
+      <text x="52" y="29" font-family="var(--font-brand)" font-weight="700" font-size="23" fill="#FFF">Maptale</text>
+    </svg>`
+  };
+
+  const fonts = {
+    albert: { brand: "'Albert Sans', sans-serif", body: "'Albert Sans', sans-serif", mono: "'Albert Sans', sans-serif" },
+    outfit: { brand: "'Outfit', sans-serif", body: "'Outfit', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    dm_serif: { brand: "'DM Serif Display', serif", body: "'Inter', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    cinzel: { brand: "'Cinzel', serif", body: "'Inter', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    playfair: { brand: "'Playfair Display', serif", body: "'Inter', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    newsreader: { brand: "'Newsreader', serif", body: "'Newsreader', serif", mono: "'IBM Plex Mono', monospace" },
+    cormorant: { brand: "'Cormorant Garamond', serif", body: "'Inter', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    manrope: { brand: "'Manrope', sans-serif", body: "'Manrope', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    urbanist: { brand: "'Urbanist', sans-serif", body: "'Urbanist', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    sora: { brand: "'Sora', sans-serif", body: "'Sora', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    bricolage: { brand: "'Bricolage Grotesk', sans-serif", body: "'Bricolage Grotesk', sans-serif", mono: "'Space Grotesk', monospace" },
+    syne: { brand: "'Syne', sans-serif", body: "'Inter', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    lexend: { brand: "'Lexend', sans-serif", body: "'Lexend', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    instrument: { brand: "'Instrument Sans', sans-serif", body: "'Instrument Sans', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    chivo: { brand: "'Chivo', sans-serif", body: "'Chivo', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    jetbrains: { brand: "'Space Grotesk', sans-serif", body: "'Inter', sans-serif", mono: "'JetBrains Mono', monospace" },
+    space: { brand: "'Space Grotesk', sans-serif", body: "'Space Grotesk', sans-serif", mono: "'Space Grotesk', monospace" },
+    inter: { brand: "'Inter', sans-serif", body: "'Inter', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    jakarta: { brand: "'Plus Jakarta Sans', sans-serif", body: "'Plus Jakarta Sans', sans-serif", mono: "'IBM Plex Mono', monospace" },
+    classic: { brand: "'Fraunces', Georgia, serif", body: "system-ui, -apple-system, sans-serif", mono: "'IBM Plex Mono', monospace" }
+  };
+
+  const colorPalettes = {
+    orange_maptale_classic: { bg: '#0A0D14', bg2: '#06090E', pri: '#F59E0B', sec: '#FF6F52', ter: '#10B981' },
+    orange_amber_gold: { bg: '#0D0A06', bg2: '#080503', pri: '#D97706', sec: '#F59E0B', ter: '#059669' },
+    orange_terracotta: { bg: '#100B09', bg2: '#080504', pri: '#E05638', sec: '#F4A261', ter: '#3B7A57' },
+    orange_burnt_coral: { bg: '#110907', bg2: '#080403', pri: '#FF5722', sec: '#FF8A65', ter: '#26A69A' },
+    orange_warm_ochre: { bg: '#0E0C07', bg2: '#070603', pri: '#EA580C', sec: '#FBBF24', ter: '#65A30D' },
+    warm_summer_meadow: { bg: '#0A1208', bg2: '#050904', pri: '#4A8B3B', sec: '#6BB062', ter: '#2D5A27' },
+    warm_moss_ground: { bg: '#081208', bg2: '#040904', pri: '#3A7D44', sec: '#5EA367', ter: '#1C4E23' },
+    warm_may_green: { bg: '#0A1406', bg2: '#050A03', pri: '#5C9E36', sec: '#7EC155', ter: '#3B6B22' },
+    warm_alpine_pine: { bg: '#061307', bg2: '#030A03', pri: '#2E7D32', sec: '#4CAF50', ter: '#1B5E20' },
+    warm_leaf_canopy: { bg: '#071307', bg2: '#030903', pri: '#43A047', sec: '#66BB6A', ter: '#2E7D32' },
+    warm_spruce_moss: { bg: '#081408', bg2: '#040A04', pri: '#388E3C', sec: '#558B2F', ter: '#1B5E20' },
+    pure_moss: { bg: '#05140B', bg2: '#020A05', pri: '#2ECC71', sec: '#27AE60', ter: '#A3E4D7' },
+    vibrant_grass: { bg: '#07160D', bg2: '#030B06', pri: '#48BB78', sec: '#38A169', ter: '#68D391' },
+    deep_evergreen: { bg: '#04120A', bg2: '#020905', pri: '#10B981', sec: '#059669', ter: '#34D399' },
+    lime_foliage: { bg: '#0B1407', bg2: '#050B03', pri: '#84CC16', sec: '#65A30D', ter: '#A3E635' },
+    alpine_meadow_mint: { bg: '#06130D', bg2: '#030A06', pri: '#10B981', sec: '#047857', ter: '#6EE7B7' },
+    irish_clover: { bg: '#041308', bg2: '#020A04', pri: '#00C853', sec: '#009688', ter: '#B9F6CA' },
+    mossy_forest: { bg: '#0B110B', bg2: '#050805', pri: '#709775', sec: '#DDA15E', ter: '#A3B18A' },
+    autumn_meadow: { bg: '#0C0E0B', bg2: '#060705', pri: '#8A9A5B', sec: '#E9C46A', ter: '#556B2F' },
+    highland_fern: { bg: '#070F0B', bg2: '#030705', pri: '#70A485', sec: '#F4A261', ter: '#3B7A57' },
+    warm_olive: { bg: '#0C0F0A', bg2: '#060805', pri: '#8B9A47', sec: '#D4A373', ter: '#606C38' },
+    pine_leaf: { bg: '#090E08', bg2: '#040704', pri: '#90A955', sec: '#EE9B00', ter: '#4F772D' },
+    sage_ochre: { bg: '#0D0F08', bg2: '#060804', pri: '#849324', sec: '#FB8500', ter: '#6B8E23' },
+    alpen: { bg: '#0a0d12', bg2: '#06090e', pri: '#0EA5E9', sec: '#F59E0B', ter: '#10B981' },
+    midnight: { bg: '#060A12', bg2: '#030508', pri: '#10B981', sec: '#38BDF8', ter: '#A855F7' },
+    sunset: { bg: '#0A0A10', bg2: '#050508', pri: '#FF6F52', sec: '#F59E0B', ter: '#38BDF8' },
+    titanium: { bg: '#090B10', bg2: '#040508', pri: '#38BDF8', sec: '#E2E8F0', ter: '#10B981' },
+    cyber: { bg: '#080612', bg2: '#040308', pri: '#EC4899', sec: '#8B5CF6', ter: '#0EA5E9' },
+    sahara: { bg: '#0D0C09', bg2: '#060504', pri: '#EAB308', sec: '#F97316', ter: '#10B981' },
+    forest: { bg: '#080D09', bg2: '#040604', pri: '#84CC16', sec: '#10B981', ter: '#F59E0B' },
+    volcano: { bg: '#0E0909', bg2: '#070404', pri: '#FF4500', sec: '#FF9F1C', ter: '#E63946' },
+    arctic: { bg: '#060C14', bg2: '#03060B', pri: '#38BDF8', sec: '#34D399', ter: '#818CF8' },
+    dusk: { bg: '#090A16', bg2: '#04050C', pri: '#818CF8', sec: '#F472B6', ter: '#38BDF8' },
+    savannah: { bg: '#120E0A', bg2: '#090704', pri: '#F59E0B', sec: '#E05638', ter: '#10B981' },
+    emerald_valley: { bg: '#06100B', bg2: '#030805', pri: '#10B981', sec: '#A7F3D0', ter: '#F59E0B' },
+    topo_vintage: { bg: '#110F0B', bg2: '#080705', pri: '#D97706', sec: '#4ADE80', ter: '#F59E0B' },
+    pacific: { bg: '#050E17', bg2: '#02070D', pri: '#06B6D4', sec: '#FB7185', ter: '#38BDF8' },
+    monochrome: { bg: '#0D0D11', bg2: '#060608', pri: '#F8FAFC', sec: '#94A3B8', ter: '#38BDF8' },
+    golden_hour: { bg: '#140C07', bg2: '#0A0603', pri: '#F59E0B', sec: '#FB923C', ter: '#F43F5E' },
+    boreal: { bg: '#080E10', bg2: '#040708', pri: '#2DD4BF', sec: '#38BDF8', ter: '#A855F7' },
+    classic: { bg: '#0a0d12', bg2: '#06090e', pri: '#F5A524', sec: '#FF6F52', ter: '#3ECF8E' }
+  };
+
+  let isInitialCall = true;
+
+  function updateCustomizer() {
+    if (isInitialCall) {
+      isInitialCall = false;
+      try {
+        const sS = localStorage.getItem('maptale_customizer_screen');
+        const sA = localStorage.getItem('maptale_customizer_auth');
+        const sF = localStorage.getItem('maptale_customizer_font');
+        const sLS = localStorage.getItem('maptale_customizer_logosize');
+        const sE = localStorage.getItem('maptale_customizer_eyebrow');
+        const sC = localStorage.getItem('maptale_customizer_color');
+        const sL = localStorage.getItem('maptale_customizer_logo');
+
+        if (sS && document.querySelector(`#sel-screen option[value="${sS}"]`)) document.getElementById('sel-screen').value = sS;
+        if (sA && document.querySelector(`#sel-auth option[value="${sA}"]`)) document.getElementById('sel-auth').value = sA;
+        if (sF && document.querySelector(`#sel-font option[value="${sF}"]`)) document.getElementById('sel-font').value = sF;
+        if (sLS && document.querySelector(`#sel-logosize option[value="${sLS}"]`)) document.getElementById('sel-logosize').value = sLS;
+        if (sE && document.querySelector(`#sel-eyebrow option[value="${sE}"]`)) document.getElementById('sel-eyebrow').value = sE;
+        if (sC && document.querySelector(`#sel-color option[value="${sC}"]`)) document.getElementById('sel-color').value = sC;
+        if (sL && document.querySelector(`#sel-logo option[value="${sL}"]`)) document.getElementById('sel-logo').value = sL;
+      } catch (e) {}
+    }
+
+    const screen = document.getElementById('sel-screen').value;
+    const fontKey = document.getElementById('sel-font').value;
+    const logoSize = document.getElementById('sel-logosize').value;
+    const colorKey = document.getElementById('sel-color').value;
+    const logoKey = document.getElementById('sel-logo').value;
+    const eyebrowKey = document.getElementById('sel-eyebrow').value;
+    const authKey = document.getElementById('sel-auth').value;
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('maptale_customizer_screen', screen);
+      localStorage.setItem('maptale_customizer_auth', authKey);
+      localStorage.setItem('maptale_customizer_font', fontKey);
+      localStorage.setItem('maptale_customizer_logosize', logoSize);
+      localStorage.setItem('maptale_customizer_eyebrow', eyebrowKey);
+      localStorage.setItem('maptale_customizer_color', colorKey);
+      localStorage.setItem('maptale_customizer_logo', logoKey);
+    } catch (e) {}
+
+    // Toggle Screens
+    document.getElementById('screen-landing').style.display = screen === 'landing' ? 'block' : 'none';
+    document.getElementById('screen-player').style.display = screen === 'player' ? 'flex' : 'none';
+    document.getElementById('screen-studio').style.display = screen === 'studio' ? 'grid' : 'none';
+    document.getElementById('screen-library').style.display = screen === 'library' ? 'block' : 'none';
+
+    // Update URL Indicator
+    const urls = {
+      landing: 'https://maptale.henrikheil.net/',
+      player: 'https://maptale.henrikheil.net/erlebnis.html?tour=srv:104',
+      studio: 'https://maptale.henrikheil.net/studio.html#editor=t_V1kQz9xY',
+      library: 'https://maptale.henrikheil.net/studio.html'
+    };
+    document.getElementById('screen-url-indicator').textContent = urls[screen];
+
+    // Update Font & Logo Size
+    const root = document.documentElement;
+    const selectedFont = fonts[fontKey];
+    root.style.setProperty('--display', selectedFont.brand);
+    root.style.setProperty('--sans', selectedFont.body);
+    root.style.setProperty('--mono', selectedFont.mono);
+    root.style.setProperty('--font-brand', selectedFont.brand);
+    root.style.setProperty('--logo-height', logoSize);
+
+    // Update Colors
+    const pal = colorPalettes[colorKey];
+    root.style.setProperty('--bg', pal.bg);
+    root.style.setProperty('--bg-2', pal.bg2);
+    root.style.setProperty('--amber', pal.pri);
+    root.style.setProperty('--coral', pal.sec);
+    root.style.setProperty('--tertiary', pal.ter);
+
+    // Update Logo Targets
+    const selectedLogoSvg = logos[logoKey];
+    document.querySelectorAll('.brand-logo-target').forEach(el => {
+      el.innerHTML = selectedLogoSvg;
+    });
+
+    // Update Eyebrows Style — generisches Dataset-Lookup
+    const eyebrowDataMap = {
+      softpill: 'softpill', editorial_quote: 'quote', minimal_sub: 'subhead',
+      bullet_lead: 'bullet', telemetry: 'telemetry', badge: 'badge',
+      glow: 'glow', coords: 'coords', codetag: 'codetag', peakicon: 'peakicon',
+      pulse: 'pulse', bearing: 'bearing', hud: 'hud', stamp: 'stamp',
+      numeral: 'numeral', gradcaps: 'gradcaps', topo: 'topo',
+      byline: 'byline', clapboard: 'clapboard', ticket: 'ticket',
+      postcard: 'postcard', chapter: 'chapter', breadcrumb: 'breadcrumb',
+      typewriter: 'typewriter', emojistory: 'emojistory', elevation: 'elevation',
+      handwritten: 'handwritten', subtitle: 'subtitle', trailsign: 'trailsign',
+      weather: 'weather_eb', verse: 'verse'
+    };
+    document.querySelectorAll('.eyebrow-target').forEach(el => {
+      el.className = 'eyebrow-target eyebrow-style-' + eyebrowKey;
+      const dataKey = eyebrowDataMap[eyebrowKey];
+      if (dataKey && el.dataset[dataKey]) {
+        el.textContent = el.dataset[dataKey];
+      }
+    });
+
+    // Update Nav Layout based on Auth State
+    const navMiddle = document.getElementById('nav-middle-target');
+    const navRight = document.getElementById('nav-right-target');
+
+    if (authKey === 'logged_out') {
+      // Unangemeldet (Gast): Landing-Anchors oder öffentliche Galerie
+      if (screen === 'landing') {
+        navMiddle.innerHTML = `
+          <a href="#touren" class="nav-anchor-link active">Touren</a>
+          <a href="#so-funktionierts" class="nav-anchor-link">So funktioniert's</a>
+          <a href="#android" class="nav-anchor-link">Android App</a>
+        `;
+      } else {
+        navMiddle.innerHTML = `
+          <a href="/" class="nav-anchor-link">Startseite</a>
+          <a href="/galerie.html" class="nav-anchor-link ${screen === 'library' ? 'active' : ''}">Entdecken</a>
+        `;
+      }
+      navRight.innerHTML = `
+        <a href="/galerie.html" class="nav-app-link">Entdecken</a>
+        <a href="/studio.html" class="nav-app-link">Anmelden</a>
+        <div class="nav-divider"></div>
+        <a href="/studio.html" class="nav-cta-btn">Reise erstellen</a>
+      `;
+    } else {
+      // Eingeloggt (Henrik): Einheitliche App-Navigation (Meine Touren · Entdecken · Profil · + Neue Tour)
+      if (screen === 'landing') {
+        navMiddle.innerHTML = `
+          <a href="#touren" class="nav-anchor-link active">Touren</a>
+          <a href="#so-funktionierts" class="nav-anchor-link">So funktioniert's</a>
+          <a href="#android" class="nav-anchor-link">Android App</a>
+        `;
+      } else {
+        navMiddle.innerHTML = `
+          <a href="/studio.html" class="nav-anchor-link ${screen === 'library' || screen === 'studio' ? 'active' : ''}">Meine Touren</a>
+          <a href="/galerie.html" class="nav-anchor-link">Entdecken</a>
+        `;
+      }
+      navRight.innerHTML = `
+        <a href="/profil.html?id=henrik" class="nav-app-link" style="display: inline-flex; align-items: center; gap: 6px;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; background: var(--amber); color: #FFF; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">H</span>
+          Henrik
+        </a>
+        <div class="nav-divider"></div>
+        <a href="/studio.html" class="nav-cta-btn">+ Neue Tour</a>
+      `;
+    }
+  }
+
+  // Initial load
+  updateCustomizer();
+</script>
+</body>
+</html>

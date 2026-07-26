@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI-Importer: GPX-Track (mit Zeitstempeln) + optionaler Fotoordner →
-// Upload-Manifest (luhambo/upload@1, trackFile) → Backend-Upload → Finalize.
+// Upload-Manifest (maptale/upload@1, trackFile) → Backend-Upload → Finalize.
 // Ab M6 ein DÜNNER Wrapper um dieselbe API wie das Web-Studio: Der Server parst
 // das GPX (pipeline/gpx.ts) und verortet die Fotos (pipeline/placement.ts) —
 // das CLI liefert nur die Datei, die Zeitspanne und pro Foto EXIF-Zeit/-GPS.
@@ -104,10 +104,10 @@ if (!gpxPfad) {
   console.error('Aufruf: node scripts/import-gpx.mjs <track.gpx> [fotoOrdner] [--mode bike] [--zone Europe/Berlin] …')
   exit(1)
 }
-const email = args.email ?? process.env.LUHAMBO_EMAIL
-const passwort = args.passwort ?? process.env.LUHAMBO_PASSWORT
+const email = args.email ?? process.env.MAPTALE_EMAIL
+const passwort = args.passwort ?? process.env.MAPTALE_PASSWORT
 if (!email || !passwort) {
-  console.error('Zugangsdaten fehlen: --email/--passwort oder LUHAMBO_EMAIL/LUHAMBO_PASSWORT setzen.')
+  console.error('Zugangsdaten fehlen: --email/--passwort oder MAPTALE_EMAIL/MAPTALE_PASSWORT setzen.')
   exit(1)
 }
 
@@ -146,7 +146,7 @@ if (fotoOrdner) {
 }
 
 const manifest = {
-  schema: 'luhambo/upload@1',
+  schema: 'maptale/upload@1',
   clientTourId: `gpx:${basename(gpxPfad)}:${startMs}`,
   title: args.title ?? null,
   description: null,
@@ -171,7 +171,7 @@ const { id, wiederverwendet } = await api(args.server, '/api/tours', {
 })
 if (wiederverwendet) {
   const tour = await api(args.server, `/api/tours/${id}`)
-  if (tour.schema === 'luhambo/tour@1') {
+  if (tour.schema === 'maptale/tour@1') {
     console.log(`Tour ${id} existiert bereits („${tour.brandTitle}").`)
     console.log(`Abspielen: http://localhost:5173/?tour=srv:${id}`)
     process.exit(0)
@@ -207,7 +207,7 @@ for (;;) {
     console.error(`\nVerarbeitung fehlgeschlagen: ${tour.fehler}`)
     exit(1)
   }
-  if (tour.schema === 'luhambo/tour@1') {
+  if (tour.schema === 'maptale/tour@1') {
     console.log(`\nFertig: „${tour.brandTitle}" — ${tour.stats.km} km, ${tour.stats.gainM} hm, ${tour.media.length} Medien`)
     console.log(`Abspielen: http://localhost:5173/?tour=srv:${id}`)
     break

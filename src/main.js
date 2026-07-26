@@ -87,7 +87,7 @@ const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 // Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
 // Renderer-/Ansicht-Wechsel (Full-Reload) am selben Frame und im selben Wieder-
 // gabezustand weiterläuft. Modulweit, weil auch der Ansicht-Umschalter davor speichert.
-const POS_KEY = `luhambo:pos:${tourId}`
+const POS_KEY = `maptale:pos:${tourId}`
 const savePos = (tour) => {
   if (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment') {
     localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now(), playing: tour.playing }))
@@ -147,8 +147,8 @@ const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
 const setText = (id, text) => (document.getElementById(id).textContent = text)
-document.title = 'Luhambo — deine Reisen als kinematische 3D-Erlebnisse'
-setText('brand-kicker', `Luhambo · ${cfg.no}`)
+document.title = 'Maptale — deine Reisen als kinematische 3D-Erlebnisse'
+setText('brand-kicker', `Maptale · ${cfg.no}`)
 setText('brand-title', cfg.brandTitle)
 setText('brand-route', cfg.stops.join(' — '))
 setText('intro-kicker', cfg.kicker)
@@ -453,8 +453,8 @@ map.on('load', () => {
   // Motorloop nur während der eigentlichen Fahrt: nicht im Foto-Stopp, Intro/Finale,
   // beim Scrubben oder in Pause (dort geht der Motor weich aus wie an einer Ampel).
   vehicle.setGate(() => tour.playing && !tour.scrubbing && tour.phase === 'ride')
-  const WEATHER_KEY = 'luhambo:weather'
-  const WEATHER_INT_KEY = 'luhambo:weather-int'
+  const WEATHER_KEY = 'maptale:weather'
+  const WEATHER_INT_KEY = 'maptale:weather-int'
   // Wetter-Stärke: drei UI-Stufen auf einer stufenlosen Skala (die API nimmt jedes
   // 0..1 — ein späteres Echtwetter kann feiner dosieren). Default Mittel.
   const WEATHER_INT = { leicht: 0.4, mittel: 0.7, stark: 1 }
@@ -636,8 +636,8 @@ map.on('load', () => {
   // Switches im Optionen-Dialog, Zustände in localStorage. „Ton" ist der Master über
   // ALLE Klänge (Motor, Musik, Wetter-SFX); „Musik" schaltet nur den Ambient-Loop;
   // „Wetter-Effekte" schaltet global zwischen Auto-Wetter (echt) und Aus.
-  const MUSIC_KEY = 'luhambo:music'
-  const AUDIO_KEY = 'luhambo:audio'
+  const MUSIC_KEY = 'maptale:music'
+  const AUDIO_KEY = 'maptale:audio'
   let musicOn = true
   let audioOn = true
   try { musicOn = localStorage.getItem(MUSIC_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
@@ -691,7 +691,7 @@ map.on('load', () => {
   // — Entwicklermodus — blendet Dev-Regler (Render-Art, Wetter-Palette, Kamera-
   // distanz) ein. Aktivierung: ?dev=1 ODER Tippfolge „dev". Merker in localStorage,
   // damit ein Reload (z.B. Renderer-Wechsel) den Modus behält.
-  const DEV_KEY = 'luhambo:dev'
+  const DEV_KEY = 'maptale:dev'
   let devOn = params.get('dev') === '1'
   try { devOn = devOn || localStorage.getItem(DEV_KEY) === '1' } catch { /* Storage evtl. gesperrt */ }
   const setDev = (on) => {
@@ -936,7 +936,7 @@ map.on('load', () => {
   // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa
   // weil jemand ?app=1 im normalen Browser aufruft —, bleibt der History-Rückweg.
   document.getElementById('btn-app-zurueck').addEventListener('click', () => {
-    if (window.LuhamboApp?.verlassen) window.LuhamboApp.verlassen()
+    if (window.MaptaleApp?.verlassen) window.MaptaleApp.verlassen()
     else history.back()
   })
 
@@ -1003,10 +1003,10 @@ map.on('load', () => {
   })
 
   // — Bildraten-Protokoll (?app=1 oder ?fps=1) —
-  // In der App-WebView gibt es kein DevTools-Fenster; der WebChromeClient leitet
-  // console-Ausgaben aber ins Logcat (Tag „LuhamboPlayer"). So lässt sich die
-  // Flüssigkeit auf dem echten Gerät messen statt zu raten:
-  //   adb logcat -s LuhamboPlayer | grep fps
+  // Android-WebView: zeigt die HTML-Seite direkt an, leitet console.log/info/
+  // console-Ausgaben aber ins Logcat (Tag „MaptalePlayer"). So lässt sich die
+  // Framerate auch auf dem Gerät ohne Remote-Debugging prüfen:
+  //   adb logcat -s MaptalePlayer | grep fps
   if (appModus || params.get('fps') === '1') {
     let bilder = 0
     let fenster = performance.now()
@@ -1016,7 +1016,7 @@ map.on('load', () => {
       if (jetzt - fenster >= 3000) {
         const fps = (bilder * 1000) / (jetzt - fenster)
         console.info(
-          `[luhambo] fps ${fps.toFixed(1)} · ${innerWidth}×${innerHeight} @${devicePixelRatio} · Phase ${tour.phase}`,
+          `[maptale] fps ${fps.toFixed(1)} · ${innerWidth}×${innerHeight} @${devicePixelRatio} · Phase ${tour.phase}`,
         )
         bilder = 0
         fenster = jetzt

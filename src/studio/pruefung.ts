@@ -1,4 +1,4 @@
-// Was Luhambo aus den abgelegten Dateien gelesen hat — die Grundlage des
+// Was Maptale aus den abgelegten Dateien gelesen hat (Befund) — trackfreie Grundlage des
 // Prüf-Screens („Neue Tour"). DOM-frei und unter Vitest getestet; die Anzeige
 // liegt in studio.ts.
 //
