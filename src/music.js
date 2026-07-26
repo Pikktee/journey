@@ -2,13 +2,17 @@
 // (SeamlessLoop mit langem Crossfade), weich ein-/ausgeblendet, an-/abschaltbar.
 // Spielt nur, wenn das Gate wahr ist (z.B. „Tour läuft, nicht im Menü") UND die Musik
 // aktiviert ist — sonst blendet sie sanft aus und pausiert.
+// Ducking bei Video-Ton: s. VIDEO_DUCK in audiotracks.js (gleicher Default).
 import { SeamlessLoop } from './audioloop.js'
+import { VIDEO_DUCK } from './audiotracks.js'
 
 export function createMusic(url, { volume = 0.16 } = {}) {
   const loop = new SeamlessLoop(url, { xfade: 1.4 })
   let enabled = true
   let gate = () => false
   let master = 0
+  let duckTgt = 1
+  let duck = 1
 
   // Träge Blende + Play/Pause nach Ziel (aktiviert && Gate). Eigener Timer, damit die
   // Musik unabhängig von der Wetter-/Kamera-Schleife läuft.
@@ -16,8 +20,9 @@ export function createMusic(url, { volume = 0.16 } = {}) {
     const want = enabled && gate()
     const tgt = want ? volume : 0
     master += (tgt - master) * 0.06 // ~2,5 s Blende bei 60 ms Tick
+    duck += (duckTgt - duck) * 0.22 // ~0,4 s Ducking-Rampe
     if (want && loop.paused && !loop._blocked) loop.play().catch(() => {})
-    loop.volume = master
+    loop.volume = master * duck
     if (!want && !loop.paused && master < 0.004) loop.pause()
   }, 60)
 
@@ -27,6 +32,7 @@ export function createMusic(url, { volume = 0.16 } = {}) {
   return {
     setGate: (fn) => { gate = fn },
     setEnabled: (on) => { enabled = on },
+    setDucking: (an) => { duckTgt = an ? VIDEO_DUCK : 1 },
     get enabled() { return enabled },
     get playing() { return !loop.paused }, // Debug/Abnahme
     get level() { return master }, // Debug/Abnahme

@@ -22,6 +22,7 @@ export class UI {
       frame: $('photo-card').querySelector('.photo-frame'),
       img: $('photo-img'),
       video: $('photo-video'),
+      standbild: $('photo-video-standbild'),
       sound: $('photo-sound'),
       flash: $('photo-flash'),
       pTitle: $('photo-title'),
@@ -56,11 +57,17 @@ export class UI {
     // Foto-HOLD (main.js → tour.js).
     // Ton AN als Vorgabe: Der Player startet immer erst nach einem Klick auf
     // „Tour starten" — damit gilt die Nutzergeste, die Browser für Autoplay mit
-    // Ton verlangen. Wo das doch scheitert, schaltet der Fallback in
-    // zeigeFoto() stumm und spielt weiter, statt gar nichts zu zeigen.
+    // Ton verlangen. Nur ein explizites „aus" in der Session überschreibt das.
+    // Wo Unmuted-Play doch scheitert, schaltet der Fallback in setPhotoContent
+    // stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
+    this._videoTonGemeldet = false
+    this.onVideoTon = null // (an: boolean) → Musik-Ducking in main.js
+    this._standbildTimer = 0
+    this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel
     try {
-      this._soundOn = sessionStorage.getItem('maptale:video-sound') === '1'
+      const gemerkt = sessionStorage.getItem('maptale:video-sound')
+      if (gemerkt !== null) this._soundOn = gemerkt === '1'
     } catch { /* Storage kann in restriktiven Kontexten fehlen */ }
     this.els.video.addEventListener('ended', () => this.onMediaEnded?.())
     // Kann das Video nicht abspielen (Dekodierfehler, unspielbarer Codec), darf
@@ -81,11 +88,30 @@ export class UI {
         sessionStorage.setItem('maptale:video-sound', this._soundOn ? '1' : '0')
       } catch { /* ignorieren */ }
       this._syncSoundBtn()
+      this._meldeVideoTon()
     })
+    // Ducking-Signal: play/pause/mute ändern, ob Video-Ton wirklich läuft
+    for (const ev of ['play', 'pause', 'ended', 'volumechange']) {
+      this.els.video.addEventListener(ev, () => this._meldeVideoTon())
+    }
 
     // Solange das Intro offen ist, blendet die Brand oben links aus (sonst stehen
     // Ort + Route doppelt: groß im Hero UND oben links). Sie kommt mit dem Tour-Start.
     document.body.classList.add('intro-open')
+  }
+
+  // Läuft das sichtbare Video gerade mit Ton? (nicht stumm, nicht pausiert)
+  _videoTonLaeuft() {
+    const v = this.els.video
+    return !v.hidden && !!v.getAttribute('src') && !v.muted && !v.paused
+  }
+
+  // Musik-Ducking: nur melden, wenn sich der Zustand ändert (Callback in main.js).
+  _meldeVideoTon() {
+    const an = this._videoTonLaeuft()
+    if (an === this._videoTonGemeldet) return
+    this._videoTonGemeldet = an
+    this.onVideoTon?.(an)
   }
 
   _syncSoundBtn() {
@@ -97,11 +123,56 @@ export class UI {
 
   // Laufendes Video anhalten und die Ressource freigeben (Stopp-Wechsel/Ausblenden)
   _stopVideo() {
-    const v = this.els.video
-    if (!v.getAttribute('src')) return
+    this._standbildGen++ // ausstehende Frame-Callbacks verwerfen
+    clearTimeout(this._standbildTimer)
+    const { video: v, standbild } = this.els
+    standbild.hidden = true
+    standbild.classList.remove('weg')
+    standbild.removeAttribute('src')
+    if (!v.getAttribute('src')) {
+      this._meldeVideoTon()
+      return
+    }
     v.pause()
     v.removeAttribute('src')
+    v.removeAttribute('poster')
     v.load()
+    this._meldeVideoTon()
+  }
+
+  // Ersten Video-Frame abwarten, dann Standbild weich ausblenden — ohne das
+  // springt der Browser hart von Standbild/Poster auf den dekodierten Frame.
+  _warteAufErstenFrame(video, gen) {
+    let fertig = false
+    const weiter = () => {
+      if (fertig || gen !== this._standbildGen) return
+      fertig = true
+      this._videoStandbildWeg(gen)
+    }
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      video.requestVideoFrameCallback(() => weiter())
+    }
+    video.addEventListener('playing', () => {
+      // Fallback ohne rvfc: zwei rAFs ≈ Frame ist auf dem Screen
+      requestAnimationFrame(() => requestAnimationFrame(weiter))
+    }, { once: true })
+    // Notausgang: lieber Standbild weg als ewig darüber hängen
+    clearTimeout(this._standbildTimer)
+    this._standbildTimer = setTimeout(weiter, 1500)
+  }
+
+  _videoStandbildWeg(gen) {
+    if (gen !== this._standbildGen) return
+    const { standbild } = this.els
+    if (standbild.hidden) return
+    standbild.classList.add('weg')
+    clearTimeout(this._standbildTimer)
+    this._standbildTimer = setTimeout(() => {
+      if (gen !== this._standbildGen) return
+      standbild.hidden = true
+      standbild.classList.remove('weg')
+      standbild.removeAttribute('src')
+    }, 240)
   }
 
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
@@ -112,8 +183,8 @@ export class UI {
     if (!st || this._preloaded.has(i)) return
     this._preloaded.add(i)
     for (const p of st.items) {
-      // Video-Stopps laden ihr Poster vor (das Video selbst holt der <video>-Tag
-      // beim Anzeigen per preload="metadata" — ein Vollabruf wäre Verschwendung)
+      // Video-Stopps laden ihr Poster vor — daraus setzen wir beim Öffnen sofort
+      // das Seitenverhältnis und das Standbild (kein Sprung auf 3:2).
       const url = p.type === 'video' ? p.poster : p.src
       if (!url) continue
       const img = new Image()
@@ -233,20 +304,20 @@ export class UI {
       if (on) v.play().catch(() => {})
       else v.pause()
     }
+    // play/pause-Events melden Ducking; hier zusätzlich, falls play() synchron scheitert
+    this._meldeVideoTon()
   }
 
   setPhotoContent(photo, idx, count) {
-    const { frame, img, video, sound, pTitle, pSub, pChip, pCount } = this.els
+    const { frame, img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'
     // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar,
     // die Drift-Dauer folgt der Anzeigedauer (holdS + Ausblende) — der Drift
     // läuft so nie vor der Karte aus. Default (7 s) bleibt ohne display identisch.
     frame.classList.toggle('kein-kb', photo.display?.kenBurns === false)
     frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? 5.2) + 1.8}s`)
-    // Rahmen aufs echte Seitenverhältnis stellen (s. --photo-ar in style.css) —
-    // ohne das schneidet der starre 3:2-Rahmen aus einem Hochformat-Foto einen
-    // Mittelstreifen heraus. Zurück auf 3:2, bis das neue Medium vermessen ist.
-    frame.style.removeProperty('--photo-ar')
+    // Seitenverhältnis erst setzen, wenn das neue Medium vermessen ist — das alte
+    // --photo-ar belassen (kein Zwischen-Reset auf 3:2), sonst springt der Rahmen.
     const merkeSeitenverhaeltnis = (el) => {
       const b = el.naturalWidth || el.videoWidth
       const h = el.naturalHeight || el.videoHeight
@@ -260,17 +331,33 @@ export class UI {
       img.hidden = true
       video.hidden = false
       sound.hidden = false
-      if (photo.poster) video.poster = photo.poster
       video.muted = !this._soundOn
       this._syncSoundBtn()
+      // Poster als eigenes Standbild (nicht video.poster): Rahmen-AR sofort aus dem
+      // oft schon vorgeladenen JPEG, und weicher Übergang zum ersten Frame.
+      const gen = this._standbildGen
+      if (photo.poster) {
+        standbild.classList.remove('weg')
+        standbild.hidden = false
+        standbild.src = photo.poster
+        if (standbild.complete && standbild.naturalWidth) merkeSeitenverhaeltnis(standbild)
+        else standbild.addEventListener('load', () => merkeSeitenverhaeltnis(standbild), { once: true })
+      } else {
+        standbild.hidden = true
+      }
       video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video), { once: true })
+      this._warteAufErstenFrame(video, gen)
       video.src = photo.src
       video.play().catch(() => {
-        // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt (Ton-Opt-in aus
-        // der Session) → stumm erzwingen, damit das Video überhaupt läuft und
-        // 'ended' feuert; sonst bliebe die Tour am Video-Stopp stehen.
+        // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt → stumm
+        // erzwingen, damit das Video überhaupt läuft und 'ended' feuert; sonst
+        // bliebe die Tour am Video-Stopp stehen. Button zeigt „stumm", ein Klick
+        // schaltet den Ton dann nach der Gesten-Regel wieder ein.
         video.muted = true
+        this._soundOn = false
+        this._syncSoundBtn()
         video.play().catch(() => {})
+        this._meldeVideoTon()
       })
     } else {
       this._stopVideo()
@@ -335,7 +422,7 @@ export class UI {
 
   hidePhoto() {
     const { layer, card } = this.els
-    this._stopVideo() // Video anhalten + Ressource freigeben
+    this._stopVideo() // Video anhalten + Ressource freigeben (+ Ducking aus)
     this.els.video.hidden = true
     this.els.sound.hidden = true
     card.classList.remove('in')
@@ -343,6 +430,7 @@ export class UI {
     layer.classList.remove('show')
     layer.setAttribute('aria-hidden', 'true')
     document.body.classList.remove('cinema')
+    this._meldeVideoTon()
   }
 
   showFinale() {

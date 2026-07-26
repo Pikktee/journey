@@ -632,6 +632,13 @@ map.on('load', () => {
     () => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing || tour.phase === 'photo'),
   )
 
+  // Video mit Ton → laufende Musikspur ducken (Ambient und Tour-Musik).
+  // Stärke: VIDEO_DUCK in audiotracks.js; später im Editor individualisierbar.
+  ui.onVideoTon = (an) => {
+    music?.setDucking(an)
+    tourAudio?.setDucking(an)
+  }
+
   // — Optionen (Endnutzer): Ton (Master) · Musik · Wetter-Effekte —
   // Switches im Optionen-Dialog, Zustände in localStorage. „Ton" ist der Master über
   // ALLE Klänge (Motor, Musik, Wetter-SFX); „Musik" schaltet nur den Ambient-Loop;

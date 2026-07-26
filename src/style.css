@@ -546,7 +546,7 @@ a.brand-kicker:hover { opacity: 0.72; }
   background: #d8d2c4;
 }
 
-.photo-frame img {
+.photo-frame img:not(.video-standbild) {
   display: block;
   width: 100%;
   height: 100%;
@@ -558,7 +558,7 @@ a.brand-kicker:hover { opacity: 0.72; }
   filter: brightness(1) contrast(1.02) saturate(1.05);
 }
 
-.photo-card.in .photo-frame img {
+.photo-card.in .photo-frame img:not(.video-standbild) {
   transform: scale(1.01); /* Ken-Burns-Drift während der Anzeige */
   animation: develop 1.6s ease-out both; /* „Entwickeln“ wie ein Sofortbild */
 }
@@ -577,13 +577,15 @@ a.brand-kicker:hover { opacity: 0.72; }
    spezifischeren .photo-card.in-Regeln oben. */
 /* Ken-Burns abgeschaltet: nur der DRIFT entfällt — das „Entwickeln"
    (develop-Filterblende) gehört zur Foto-Signatur und bleibt. */
-.photo-frame.kein-kb img {
+.photo-frame.kein-kb img:not(.video-standbild) {
   transform: none !important;
   transition: none;
 }
 
 /* Video-Stopp (M4): nicht beschneiden (auch Hochformat-Handyvideos), schwarzer
-   Rahmen füllt das 3:2-Feld. Kein Ken-Burns/„Entwickeln“ wie beim Foto. */
+   Rahmen füllt das Feld. Kein Ken-Burns/„Entwickeln“ wie beim Foto.
+   Standbild liegt ÜBER dem <video>, bis der erste Frame da ist — sonst springt
+   der Browser hart vom Poster-Attribut auf Frame 0 (sichtbarer Bildwechsel). */
 .photo-frame video {
   display: block;
   width: 100%;
@@ -591,9 +593,26 @@ a.brand-kicker:hover { opacity: 0.72; }
   object-fit: contain;
   background: #000;
 }
-/* [hidden] muss das display:block von .photo-frame img/video schlagen */
+.photo-frame .video-standbild {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.22s ease;
+}
+.photo-frame .video-standbild.weg {
+  opacity: 0;
+}
+/* [hidden] muss display:block von img/video/standbild schlagen */
 .photo-frame img[hidden],
-.photo-frame video[hidden] {
+.photo-frame video[hidden],
+.photo-frame .video-standbild[hidden] {
   display: none;
 }
 
@@ -636,6 +655,7 @@ a.brand-kicker:hover { opacity: 0.72; }
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 2;
   height: 4px;
   background: rgba(10, 8, 5, 0.3);
 }
@@ -652,6 +672,7 @@ a.brand-kicker:hover { opacity: 0.72; }
   position: absolute;
   left: 50%;
   top: 18px;
+  z-index: 2;
   transform: translate(-50%, -8px);
   padding: 8px 16px;
   border-radius: 999px;
@@ -718,7 +739,7 @@ a.brand-kicker:hover { opacity: 0.72; }
 }
 
 /* Umblenden zwischen Fotos desselben Stopps */
-.photo-card.in.swapping .photo-frame img,
+.photo-card.in.swapping .photo-frame img:not(.video-standbild),
 .photo-card.in.swapping .photo-title,
 .photo-card.in.swapping .photo-sub,
 .photo-card.in.swapping .photo-badges {
@@ -1716,8 +1737,8 @@ body.app .app-exit {
     opacity: 1 !important;
     transform: none !important;
   }
-  .photo-frame img,
-  .photo-card.in .photo-frame img {
+  .photo-frame img:not(.video-standbild),
+  .photo-card.in .photo-frame img:not(.video-standbild) {
     transform: scale(1.02) !important;
     animation: none !important;
   }

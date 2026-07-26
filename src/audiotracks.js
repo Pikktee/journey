@@ -5,6 +5,7 @@
 // Vorwärts-Überfahren ihres f0 (nur echte Wiedergabe, keine Scrub-/Seek-Sprünge).
 // Läuft nur, wenn das Gate wahr ist (z.B. „Tour läuft/Foto/Scrub") — Pause friert
 // den Ton über die Level-Rampe ein, Menü/Finale blenden aus (Gate in main.js).
+// setDucking: Video-Ton senkt laufende Musik (nicht SFX) auf VIDEO_DUCK ab.
 
 // — Reine Helfer (DOM-frei) — direkt testbar (test/audiotracks.test.ts, Node ohne Audio) —
 
@@ -26,6 +27,11 @@ export function sfxSollFeuern(vorher, nachher, f0, istPlayback) {
   return vorher < f0 && nachher >= f0
 }
 
+// Ducking bei Video-Ton: Musik auf diesen Anteil (~−13 dB). Eigene Rampe, schneller
+// als die Bereichs-Blende — sonst käme das Duck zu spät und das Unduck zu träge.
+// Später im Editor pro Medium individualisierbar; bis dahin fester Default.
+export const VIDEO_DUCK = 0.22
+
 export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
   // Musik-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
   // geladen, preload='none'), eigener Blend-Level für die weiche Bereichsgrenze.
@@ -38,6 +44,8 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
   let gate = () => false
   let frac = 0
   let vorher = 0 // interne Vorher-Position für die SFX-Kantenerkennung
+  let duckTgt = 1
+  let duck = 1
 
   const vol = (t) => Math.max(0, Math.min(1, volume * (t.gain ?? 1)))
 
@@ -45,6 +53,7 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
   // Timer wie music.js, damit der Ton unabhängig von der Render-Schleife läuft.
   const timer = setInterval(() => {
     const offen = gate()
+    duck += (duckTgt - duck) * 0.22 // ~0,4 s Ducking-Rampe bei 60 ms Tick
     for (const spur of musik) {
       const drin = istAktiv(spur, frac)
       const want = musikEnabled && offen && drin
@@ -67,7 +76,7 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
       spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.js)
       const el = spur.el
       if (!el) continue
-      el.volume = Math.max(0, Math.min(1, spur.level))
+      el.volume = Math.max(0, Math.min(1, spur.level * duck))
       // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren; eine ausgelaufene
       // Datei (ended) bleibt still bis zum nächsten Bereichs-Eintritt (der resettet)
       if (want && el.paused && !spur.blocked && !el.ended) el.play().catch(() => { spur.blocked = true })
@@ -95,6 +104,8 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
     setGate: (fn) => { gate = fn },
     setMusikEnabled: (on) => { musikEnabled = on },
     setSfxEnabled: (on) => { sfxEnabled = on },
+    // Video-Ton läuft → Musik ducken; SFX bleiben unberührt (One-Shots).
+    setDucking: (an) => { duckTgt = an ? VIDEO_DUCK : 1 },
     get level() { return musik.reduce((m, s) => Math.max(m, s.level), 0) }, // Debug/E2E
     get aktiveSpur() { return musik.find((s) => istAktiv(s, frac))?.src ?? null }, // Debug/E2E
     destroy: () => { clearInterval(timer); for (const s of musik) s.el?.pause() },

@@ -7,7 +7,14 @@ import { describe, expect, it } from 'vitest'
 // audiotracks.js ist BEWUSST JS im Stil der Nachbarn music.js/vehicle.js;
 // tsconfig (allowJs: false) kennt dafür keine Typen — Import daher ungeprüft.
 // @ts-ignore
-import { istAktiv, sfxSollFeuern } from '../src/audiotracks.js'
+import { istAktiv, sfxSollFeuern, VIDEO_DUCK } from '../src/audiotracks.js'
+
+describe('VIDEO_DUCK (Default-Ducking bei Video-Ton)', () => {
+  it('liegt als hörbare Absenkung zwischen still und voll', () => {
+    expect(VIDEO_DUCK).toBeGreaterThan(0)
+    expect(VIDEO_DUCK).toBeLessThan(0.5)
+  })
+})
 
 describe('istAktiv (Musik-Bereich [f0,f1))', () => {
   const spur = { f0: 0.2, f1: 0.6 }
