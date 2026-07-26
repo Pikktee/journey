@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  NAV_DABEI_KLASSE,
   SESSION_HINWEIS_COOKIE,
   vermutlichAngemeldet,
 } from '../src/session-hinweis'
@@ -28,6 +29,18 @@ describe('session-hinweis', () => {
     // Editor-Deep-Link darf die Bibliothek nicht früh erzwingen
     expect(html).toMatch(/URLSearchParams\(location\.search\)\.get\('edit'\)/)
     expect(html).toMatch(/dabei && !\(edit && edit\.length > 0\)/)
+  })
+
+  it('blendet die Gast-Nav auf öffentlichen Seiten sofort aus', () => {
+    for (const datei of ['index.html', 'galerie.html', 'profil.html']) {
+      const html = readFileSync(join(wurzel, datei), 'utf8')
+      expect(html, datei).toContain(`${SESSION_HINWEIS_COOKIE}=`)
+      expect(html, datei).toContain(NAV_DABEI_KLASSE)
+      expect(html, datei).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
+      expect(html, datei).toContain(`html:not(.${NAV_DABEI_KLASSE}) [data-dabei]`)
+      expect(html, datei).toContain('data-gast')
+      expect(html, datei).toContain('data-dabei')
+    }
   })
 
   it('hält Frontend und Server auf demselben Hinweis-Cookie', () => {

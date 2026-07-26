@@ -10,6 +10,19 @@
       if (/[?&]tour=/.test(q)) window.location.replace('/erlebnis.html' + q + window.location.hash)
     })()
   </script>
+  <!-- Sitzungs-Hinweis (maptale_dabei): Gast-Nav sofort ausblenden, wenn eine
+       Sitzung wahrscheinlich steht — sonst blitzen „Anmelden"/„Entdecken" auf,
+       bevor /api/auth/me antwortet. Cookie-Name = SESSION_HINWEIS_COOKIE. -->
+  <script>
+    (function () {
+      try {
+        var dabei = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_dabei=') === 0
+        })
+        if (dabei) document.documentElement.classList.add('nav-dabei')
+      } catch (e) {}
+    })()
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Maptale · deine Reisen als filmischer 3D-Flug</title>
   <meta
@@ -107,6 +120,9 @@
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--amber), var(--coral)); }
     .nav-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.15); margin: 0 4px; }
+    /* Gast vs. angemeldet: ohne JS-Runde kein Aufblitzen der falschen Seite */
+    html:not(.nav-dabei) [data-dabei] { display: none !important; }
+    html.nav-dabei [data-gast] { display: none !important; }
 
     /* Profil-Chip + Dropdown — wie Studio-Hauptscreen */
     .konto-wrap { position: relative; }
@@ -432,6 +448,14 @@
         <a href="/studio.html" class="nav-hide-sm" data-gast>Anmelden</a>
         <div class="nav-divider nav-hide-sm" data-gast></div>
         <a href="/studio.html" class="nav-cta" data-gast>Reise erstellen</a>
+        <!-- Sofort sichtbar bei html.nav-dabei; Details füllt /api/auth/me nach. -->
+        <a href="/studio.html" class="nav-cta" data-dabei>Zum Studio</a>
+        <div class="konto-wrap nav-hide-sm" data-dabei>
+          <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">
+            <span class="punkt"></span>
+            <span class="nav-profil-name">&nbsp;</span>
+          </button>
+        </div>
       </div>
     </div>
   </nav>
@@ -740,13 +764,31 @@
     document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
     // Eingeloggt: „Zum Studio“ + Profil-Dropdown wie im Studio-Hauptscreen.
+    // Cookie-Name deckungsgleich mit src/session-hinweis.ts (maptale_dabei).
     ;(function () {
       var rechts = document.getElementById('nav-right')
       if (!rechts) return
+      var HINWEIS = 'maptale_dabei'
+      var MAX_AGE = 30 * 24 * 60 * 60
+      function cookieSuffix() {
+        return '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '')
+      }
+      function merke() {
+        document.cookie = HINWEIS + '=1; Max-Age=' + MAX_AGE + cookieSuffix()
+        document.documentElement.classList.add('nav-dabei')
+      }
+      function vergesse() {
+        document.cookie = HINWEIS + '=; Max-Age=0' + cookieSuffix()
+        document.documentElement.classList.remove('nav-dabei')
+      }
       fetch('/api/auth/me', { credentials: 'include' })
         .then(function (r) { return r.ok ? r.json() : null })
         .then(function (daten) {
-          if (!daten || !daten.benutzer) return
+          if (!daten || !daten.benutzer) {
+            vergesse()
+            return
+          }
+          merke()
           var name = (daten.profil && daten.profil.anzeigename) || daten.benutzer.name || 'Profil'
           var initial = (name.trim().charAt(0) || '?').toUpperCase()
           var avatar = daten.profil && daten.profil.avatarUrl
@@ -801,11 +843,12 @@
             if (!menue.hidden && !e.target.closest('.konto-wrap')) schliesse()
           })
           document.getElementById('nav-abmelden').addEventListener('click', function () {
+            vergesse()
             fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
               .finally(function () { location.reload() })
           })
         })
-        .catch(function () { /* Gast-Nav bleibt */ })
+        .catch(function () { vergesse() })
     })()
 
     // Sanftes Einblenden beim Scrollen (respektiert reduzierte Bewegung).

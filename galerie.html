@@ -14,6 +14,17 @@
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
     rel="stylesheet"
   />
+  <!-- Sitzungs-Hinweis: Gast-CTA ausblenden, bevor /api/auth/me antwortet. -->
+  <script>
+    (function () {
+      try {
+        var dabei = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_dabei=') === 0
+        })
+        if (dabei) document.documentElement.classList.add('nav-dabei')
+      } catch (e) {}
+    })()
+  </script>
   <style>
     /* Entdecken teilt Breite und Navigation mit Studio-Übersicht und Landing. */
     :root {
@@ -91,6 +102,8 @@
       padding: 8px 16px; border-radius: 999px;
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.06); }
+    html:not(.nav-dabei) [data-dabei] { display: none !important; }
+    html.nav-dabei [data-gast] { display: none !important; }
     .konto-wrap { position: relative; }
     .benutzer-chip {
       display: inline-flex; align-items: center; gap: 8px;
@@ -182,6 +195,12 @@
       </nav>
       <div class="nav-right" id="nav-right">
         <a href="/studio.html" class="nav-cta" data-gast>Anmelden</a>
+        <div class="konto-wrap" data-dabei>
+          <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">
+            <span class="punkt"></span>
+            <span class="nav-profil-name">&nbsp;</span>
+          </button>
+        </div>
       </div>
     </div>
   </nav>
