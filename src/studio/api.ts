@@ -36,8 +36,16 @@ export interface TourListe {
 export interface Benutzer {
   id: string
   email: string
-  /** Anzeigename (der Server leitet ihn beim Anlegen aus der E-Mail ab) */
+  /** Klarname aus der Registrierung — privat, nicht für die öffentliche UI. */
   name?: string
+}
+
+/** Öffentliches Profil — getrennt vom Konto (s. server/auth). */
+export interface Profil {
+  anzeigename: string | null
+  bio?: string | null
+  avatarUrl: string | null
+  sichtbarkeit?: string
 }
 
 export interface Quota {
@@ -49,6 +57,7 @@ export interface Quota {
 /** Antwort von GET /auth/me — angemeldet um Verifikation + Quota angereichert. */
 export interface Sitzung {
   benutzer: Benutzer | null
+  profil?: Profil | null
   verifiziert?: boolean
   quota?: Quota
   registrierungOffen?: boolean

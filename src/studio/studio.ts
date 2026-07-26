@@ -31,7 +31,6 @@ const els = {
   abmelden: $<HTMLButtonElement>('abmelden'),
   benutzerChip: $<HTMLButtonElement>('benutzer-chip'),
   benutzerName: $('benutzer-name'),
-  benutzerInitial: $('benutzer-initial'),
   loginForm: $<HTMLFormElement>('login-form'),
   email: $<HTMLInputElement>('email'),
   passwort: $<HTMLInputElement>('passwort'),
@@ -105,11 +104,45 @@ function versteckeBoot(): void {
   setTimeout(() => boot.remove(), 500)
 }
 
-function zeigeBenutzer(benutzer: api.Benutzer | null): void {
-  const anzeige = benutzer?.name || benutzer?.email || ''
+/**
+ * Konto-Chip wie auf Entdecken/Landing: Anzeigename und Avatar aus dem
+ * Profil, Klarname nur als Fallback. Sonst stünde „Henrik Heil" statt
+ * „Henrik", und das Profilbild fehlte ganz.
+ */
+function zeigeBenutzer(sitzung: api.Sitzung): void {
+  const benutzer = sitzung.benutzer
+  const anzeige =
+    sitzung.profil?.anzeigename?.trim() || benutzer?.name || benutzer?.email || ''
   els.benutzerName.textContent = anzeige
-  els.benutzerInitial.textContent = anzeige.slice(0, 1)
   els.kmMail.textContent = benutzer?.email ?? ''
+
+  const avatar = sitzung.profil?.avatarUrl
+  const punkt = els.benutzerChip.querySelector('.punkt')
+  if (!punkt) return
+  if (avatar) {
+    if (punkt instanceof HTMLImageElement) {
+      punkt.src = avatar
+    } else {
+      const img = document.createElement('img')
+      img.className = 'punkt'
+      img.src = avatar
+      img.alt = ''
+      img.width = 20
+      img.height = 20
+      punkt.replaceWith(img)
+    }
+  } else {
+    const initial = (anzeige.trim().charAt(0) || '?').toUpperCase()
+    if (punkt instanceof HTMLImageElement) {
+      const span = document.createElement('span')
+      span.className = 'punkt'
+      span.id = 'benutzer-initial'
+      span.textContent = initial
+      punkt.replaceWith(span)
+    } else {
+      punkt.textContent = initial
+    }
+  }
 }
 
 // — Auth-Modus umschalten (Anmelden / Registrieren / Reset) —
@@ -153,7 +186,7 @@ function zeigeSitzung(sitzung: api.Sitzung): void {
 
 async function ladeSitzung(): Promise<api.Sitzung> {
   const sitzung = await api.me()
-  zeigeBenutzer(sitzung.benutzer)
+  zeigeBenutzer(sitzung)
   zeige(!!sitzung.benutzer)
   if (sitzung.benutzer) {
     merkeAngemeldet()
