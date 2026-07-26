@@ -1,28 +1,41 @@
 /**
- * MAPTALE — ZENTRALES BRANDING & DESIGN SYSTEM (Single Source of Truth)
+ * Maptale — Brand-Tokens und Logo-Helper fürs Web.
  *
- * Dieses Modul definiert die zentralen Marken-Assets, Farben, Logo-SVGs und
- * Navigations-Helpers für das gesamte Maptale-Ökosystem.
+ * Kanonische Quelle (Do/Don’ts, Rationale, volle Palette): /DESIGN.md
+ * Dieses Modul hält die oft gebrauchten Hex-Werte und Font-Stacks für Code bereit.
  */
 
 export const BRAND_COLORS = {
-  amber: '#F59E0B',      // Primäres Maptale Sonnen-Orange
-  coral: '#FF6F52',      // Warmer Verlauf & Akzent
-  bg: '#0A0D14',         // Sehr dunkle Kachel-Fläche
-  bgDark: '#06090E',     // Tiefes Nachtschwarz für Body & Viewport
-  text: '#F2EDE3',       // Warmes Cremeweiß
+  /** Primäres Sonnen-Orange */
+  amber: '#F59E0B',
+  /** Warmer Verlauf & Zweitakzent */
+  coral: '#FF6F52',
+  /** Kachel- / Flächengrund */
+  bg: '#0A0D14',
+  /** Seiten- / Body-Grund */
+  bgDark: '#06090E',
+  /** Warmes Cremeweiß auf Dunkel */
+  text: '#F2EDE3',
   muted: 'rgba(242, 237, 227, 0.64)',
-  line: 'rgba(255, 255, 255, 0.08)'
+  line: 'rgba(255, 255, 255, 0.08)',
+  /** Text auf Amber/Coral-CTAs */
+  onCta: '#1a1206',
 } as const;
 
 export const BRAND_FONTS = {
-  /** Titel, Wortmarke, Display */
+  /** Titel, Wortmarke, Display, UI — eine Schrift */
   display: "'Outfit', system-ui, -apple-system, sans-serif",
-  /** UI, Fließtext, Navigation, Schaltflächen */
+  /** Alias von display (historisch getrennt) */
   sans: "'Outfit', system-ui, -apple-system, sans-serif",
-  /** Nur Kennzahlen, Attribution, Tabular-Nums — nicht für Labels/Navigation */
-  mono: "'IBM Plex Mono', monospace"
+  /**
+   * Optional: Karten-Attribution / Debug.
+   * Nicht für Kennzahlen — dort Outfit + `font-variant-numeric: tabular-nums`.
+   */
+  mono: "'IBM Plex Mono', monospace",
 } as const;
+
+/** CSS-Snippet für gleichbreite Ziffern in Outfit (Anti-Zucken ohne Mono). */
+export const BRAND_TABULAR_NUMS = 'font-variant-numeric: tabular-nums' as const;
 
 export interface LogoOptions {
   height?: number; // Standard 44px
@@ -31,14 +44,14 @@ export interface LogoOptions {
 }
 
 /**
- * Generiert das freigegebene Maptale Logo-SVG (Konzept 44: Perfekt Verankert 1)
+ * Generiert das freigegebene Maptale Logo-SVG (Mark + optional Wortmarke).
+ * In der Nav bevorzugt: `/logo-mark.svg` (28px) + Text „Maptale“ — siehe DESIGN.md.
  */
 export function getBrandLogoSvg(options: LogoOptions = {}): string {
   const height = options.height ?? 44;
   const showText = options.showText ?? true;
   const textColor = options.textColor ?? '#FFFFFF';
 
-  // Das 152x46 viewBox SVG skaliert sauber über Höhe (knapp um die Wortmarke)
   const viewBoxWidth = showText ? 152 : 44;
   const svgWidth = Math.round(height * (viewBoxWidth / 46));
 

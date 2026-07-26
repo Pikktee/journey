@@ -32,6 +32,12 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 Sprache im gesamten Projekt (Code-Kommentare, UI, Doku, Commit-Messages) ist **Deutsch** —
 auch in server/ und android/ (deutsche Bezeichner).
 
+**Design System.** Kanonische Quelle für Marke, Farben, Typografie und UI-Dos/Don’ts ist
+[`DESIGN.md`](DESIGN.md) (Google DESIGN.md-Format). Coding-Assistenten und UI-Arbeit folgen
+dieser Datei; CSS-Variablen, [`src/brand.ts`](src/brand.ts) und Android `Theme.kt` /
+`Typografie.kt` sind Ableitungen. Kurzregel: Outfit überall; Zahlen mit
+`font-variant-numeric: tabular-nums` (Compose: `fontFeatureSettings = "tnum"`), nicht Mono.
+
 ## Commands
 
 ```bash
@@ -394,6 +400,7 @@ für einen späteren „Öffnen mit"-Intent-Filter stehen.
 
 ## Konventionen
 
+- Design / Marke: [`DESIGN.md`](DESIGN.md) — Single Source of Truth für Assistenten und UI.
 - `window.__j` bündelt Debug-Handles des Players (`map`, `route`, `tour`, `rider`, `eleReady`
   u.a.); das Studio hat analog `window.__studio` mit den Accessoren `karte()` und `zustand()`.
 - Externe Datenquellen brauchen sichtbare Attribution (Esri/Maxar, AWS Terrain) — auch in

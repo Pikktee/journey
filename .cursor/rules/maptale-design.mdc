@@ -1,0 +1,17 @@
+---
+description: Maptale Design System — immer DESIGN.md beachten
+alwaysApply: true
+---
+
+# Maptale Design
+
+Kanonische Quelle: **[DESIGN.md](DESIGN.md)** (Repo-Root, Google DESIGN.md-Format).
+
+Bei UI-, CSS-, Branding- oder Android-Theme-Arbeit:
+
+1. Tokens und Do/Don’ts aus `DESIGN.md` lesen und einhalten.
+2. **Outfit** für UI; Zahlen mit **`tabular-nums` / `tnum`** — nicht Mono „wegen Alignment“.
+3. Mono nur optional für Karten-Attribution/Debug.
+4. Keine Dachzeilen/Eyebrows, kein Light Mode, keine Hero-Cards.
+5. Wortmarke: `logo-mark.svg` + „Maptale“; Brand-Link ohne Block-Wrapper.
+6. Code-Helper: `src/brand.ts`, Android `Theme.kt` / `Typografie.kt` — bei Drift `DESIGN.md` gewinnt.

@@ -241,7 +241,7 @@ private fun Zustandsmarke(pausiert: Boolean) {
 @Composable
 private fun Wert(wert: String, beschriftung: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(wert, style = MaterialTheme.typography.headlineMedium, fontFamily = Mono)
+        Text(wert, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(3.dp))
         Text(
             beschriftung.uppercase(Locale.GERMAN),
