@@ -25,6 +25,9 @@ describe('session-hinweis', () => {
     expect(html).toContain('studio-dabei')
     expect(html).toContain('html.studio-dabei #studio-boot')
     expect(html).toContain('html.studio-dabei #app-view')
+    // Editor-Deep-Link darf die Bibliothek nicht früh erzwingen
+    expect(html).toMatch(/URLSearchParams\(location\.search\)\.get\('edit'\)/)
+    expect(html).toMatch(/dabei && !\(edit && edit\.length > 0\)/)
   })
 
   it('hält Frontend und Server auf demselben Hinweis-Cookie', () => {

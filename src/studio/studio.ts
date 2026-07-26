@@ -158,11 +158,16 @@ async function ladeSitzung(): Promise<api.Sitzung> {
   if (sitzung.benutzer) {
     merkeAngemeldet()
     zeigeSitzung(sitzung)
-    await ladeListe()
-    // Deep-Link: /studio.html?edit=<tourId> — Reload und geteilte Links
-    // landen wieder im Editor, nicht in der Bibliothek.
+    // Deep-Link: /studio.html?edit=<tourId> — Editor ZUERST, Liste danach.
+    // Sonst rendert die Bibliothek unter dem Boot und blitzt beim Ausblenden
+    // kurz auf; außerdem spart der Editor-Chunk den Listen-Roundtrip.
     const editId = editIdAusUrl()
-    if (editId) await oeffneEditorFuer(editId, { geschichte: true })
+    if (editId) {
+      await oeffneEditorFuer(editId, { geschichte: true })
+      void ladeListe()
+    } else {
+      await ladeListe()
+    }
   } else {
     // Hinweis war gesetzt, Sitzung aber weg (abgelaufen) → zurück zum Login.
     vergesseAngemeldet()
@@ -1097,4 +1102,6 @@ function zeigeFortschritt(getan: number, gesamt: number): void {
 
 // — Start —
 fuelleTopNav(document.querySelector('#app-view .top-nav'), 'studio')
+// Editor-Chunk parallel zu Auth vorladen, wenn der Deep-Link ihn sowieso braucht.
+if (editIdAusUrl()) void import('./editor.js')
 void pruefeAnmeldung()
