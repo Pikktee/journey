@@ -1159,18 +1159,44 @@
     }
     .zl-kopf-links, .zl-kopf-rechts { display: flex; align-items: center; gap: 10px; }
 
-    /* Transport: ein Knopf für Abspielen und Pause (⎵), daneben der Faktor des
-       Schnelllaufs (J/K/L). Kein eigener Stopp-Knopf — „Stopp" und „Pause"
-       wären in einer Leiste, in der man ohnehin scrubbt, nicht zu unterscheiden. */
+    /* Transport: Play ist die Aktion, Werkzeuge daneben sind Modi.
+       Deshalb kein Voll-Amber im Ruhezustand (das ist `.wkz.an`) — Amber-
+       Rand/Icon markieren den Transport, gefüllt wird erst beim Abspielen. */
     .transport { display: flex; align-items: center; gap: 6px; }
     .tp-play {
       width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
-      border-radius: 8px; border: 1px solid transparent; color: #1a1206;
-      background: linear-gradient(135deg, var(--akzent), #f7b750);
+      border-radius: 8px; border: 1px solid rgba(245, 165, 36, 0.4);
+      color: var(--akzent); background: var(--fl-1);
     }
     .tp-play svg { width: 15px; height: 15px; }
-    .tp-play:hover { filter: brightness(1.06); }
-    .tp-play.spielt { background: var(--fl-3); color: var(--akzent); border-color: var(--akzent); }
+    /* Hintergrund in :hover wiederholen — sonst gewinnt `button:hover` und
+       der Knopf wird grau/schwarz (wie bei `.knopf-primaer`). */
+    .tp-play:hover {
+      color: var(--akzent); background: rgba(245, 165, 36, 0.12);
+      border-color: rgba(245, 165, 36, 0.6);
+    }
+    .tp-play.spielt {
+      color: #1a1206; border-color: transparent;
+      background: linear-gradient(135deg, var(--akzent), #f7b750);
+    }
+    .tp-play.spielt:hover {
+      color: #1a1206; border-color: transparent;
+      background: linear-gradient(135deg, var(--akzent), #f7b750);
+      filter: brightness(1.06);
+    }
+    /* Karte folgt dem Läufer — aktiv wie Werkzeug-Auswahl (Voll-Amber). */
+    .tp-folge {
+      width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+      border-radius: 8px; border: 1px solid var(--rand); color: var(--text-3);
+      background: var(--fl-1);
+    }
+    .tp-folge svg { width: 15px; height: 15px; }
+    .tp-folge:hover { color: var(--text-2); background: var(--fl-3); border-color: var(--rand-hell); }
+    .tp-folge.an { color: #1a1206; background: var(--akzent); border-color: transparent; }
+    .tp-folge.an:hover {
+      color: #1a1206; background: var(--akzent); border-color: transparent;
+      filter: brightness(1.06);
+    }
     .tempo-chip {
       font-family: var(--font-mono); font-size: 11px; color: var(--akzent);
       min-width: 30px; font-variant-numeric: tabular-nums;
@@ -1408,15 +1434,18 @@
     .zl-moment:hover { transform: scale(1.18); }
     .zl-moment.fokus { background: var(--akzent); color: #0b0f15; box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(245, 165, 36, 0.55); }
 
-    /* — Musik & Sound: Klips (Dauer) unten, Klang-Pins (Zeitpunkt) oben — */
+    /* — Musik & Sound: Klips (Dauer) unten, Klang-Pins (Zeitpunkt) oben —
+       Cursor wie bei den Zustandsbändern (Finger), nicht die Pan-Hand —
+       Greifen zeigt erst `.schiebt` / :active. */
     .zl-klip {
       position: absolute; top: 20px; height: 22px; border-radius: 5px;
       background: linear-gradient(180deg, rgba(245, 165, 36, 0.42), rgba(255, 111, 82, 0.42));
       border-left: 2.5px solid var(--akzent); border-right: 2.5px solid var(--akzent);
-      cursor: grab; touch-action: none; min-width: 10px;
+      cursor: pointer; touch-action: none; min-width: 10px;
       /* KEIN overflow:hidden — das clippt die überstehenden Kanten-Griffe weg
          und macht Anfang/Ende ungreifbar. Der Name clippt selbst. */
     }
+    .zl-klip:active { cursor: grabbing; }
     .zl-klip span {
       position: absolute; inset: 0; padding-left: 6px; line-height: 22px;
       font-family: var(--font-mono); font-size: 10px; color: var(--text);
@@ -1429,7 +1458,8 @@
     .zl-klip.fokus { box-shadow: 0 0 0 2px #fff5e4, 0 0 12px rgba(245, 165, 36, 0.45); }
     /* Ein Klang hat einen Zeitpunkt, keine Dauer: Raute in eigener Lane oben,
        ein Stiel zeigt auf die exakte Stelle. */
-    .zl-sfx { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; cursor: grab; touch-action: none; z-index: 8; }
+    .zl-sfx { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; cursor: pointer; touch-action: none; z-index: 8; }
+    .zl-sfx:active { cursor: grabbing; }
     .zl-sfx i { display: block; width: 100%; height: 100%; transform: rotate(45deg); background: var(--lila); border: 1.5px solid rgba(6, 8, 12, 0.8); border-radius: 2px; }
     .zl-sfx::after { content: ''; position: absolute; left: 50%; top: 11px; width: 1px; height: 9px; background: rgba(197, 139, 255, 0.5); }
     .zl-sfx.fokus i { box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(197, 139, 255, 0.6); }
@@ -1852,6 +1882,9 @@
       <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7 5.5v13l11-6.5z"/>
       </symbol>
+      <symbol id="i-folge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>
+      </symbol>
       <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9 5.5v13"/><path d="M15 5.5v13"/>
       </symbol>
@@ -2250,6 +2283,7 @@
                    Zeitleiste, nicht oben in der Kopfzeile. -->
               <div class="transport">
                 <button class="tp-play" id="tp-play" title="Abspielen / Pause (Leertaste) · J K L" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+                <button class="tp-folge an" id="tp-folge" title="Karte folgt der Position (beim Abspielen)" aria-label="Karte folgen" aria-pressed="true"><svg><use href="#i-folge"/></svg></button>
                 <span class="tempo-chip" id="tempo-chip" aria-hidden="true"></span>
               </div>
               <div class="werkzeuge" role="group" aria-label="Werkzeug">

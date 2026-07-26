@@ -491,6 +491,11 @@ export interface AnzeigeAbschnitt {
  * Für die Karten-Anzeige: Punkte nach effektivem Modus (Grenzen) und
  * Trim-Zustand gruppieren. Anders als serverseitig teilen benachbarte
  * Abschnitte ihren Randpunkt — die Linie bleibt optisch verbunden.
+ *
+ * Grenzen zwischen zwei Stützpunkten werden AUF die Linie interpoliert —
+ * sonst sprang Kante und farbiger Track nur von Punkt zu Punkt (auf dünnen
+ * Alpen-Tracks in großen Schritten; auf Hin-/Rückwegen wirkte der
+ * plötzliche Farbwechsel wie eine verdoppelte Spur neben der Gegenrichtung).
  */
 export function zerlegeFuerAnzeige(
   segmente: readonly EditorSegment[],
@@ -514,10 +519,29 @@ export function zerlegeFuerAnzeige(
     return m
   }
 
+  /** Zustandswechsel streng zwischen zwei Stützpunkt-Zeiten (Endpunkte zählen dort selbst). */
+  const spaltenZwischen = (vonS: number, bisS: number): number[] => {
+    if (!(bisS > vonS)) return []
+    const zeiten: number[] = []
+    for (const g of grenzen) {
+      if (g.abS > vonS && g.abS < bisS) zeiten.push(g.abS)
+    }
+    if (Number.isFinite(trimVon) && trimVon > vonS && trimVon < bisS) zeiten.push(trimVon)
+    if (Number.isFinite(trimBis) && trimBis > vonS && trimBis < bisS) zeiten.push(trimBis)
+    zeiten.sort((a, b) => a - b)
+    return zeiten.filter((t, i) => i === 0 || t !== zeiten[i - 1])
+  }
+
+  const punktBei = (a: TrackPunkt, b: TrackPunkt, t: number): TrackPunkt => {
+    const span = b[3] - a[3]
+    const f = span === 0 ? 0 : (t - a[3]) / span
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, t]
+  }
+
   const abschnitte: AnzeigeAbschnitt[] = []
   for (const seg of segmente) {
     let aktueller: AnzeigeAbschnitt | null = null
-    for (const p of seg.pts) {
+    const nimm = (p: TrackPunkt): void => {
       const mode = modusZu(p[3], seg.mode)
       const aktiv = p[3] >= trimVon && p[3] <= trimBis
       if (!aktueller || aktueller.mode !== mode || aktueller.aktiv !== aktiv) {
@@ -536,9 +560,34 @@ export function zerlegeFuerAnzeige(
         aktueller.pts.push(p)
       }
     }
+    for (let i = 0; i < seg.pts.length; i++) {
+      const p = seg.pts[i] as TrackPunkt
+      if (i > 0) {
+        const prev = seg.pts[i - 1] as TrackPunkt
+        for (const t of spaltenZwischen(prev[3], p[3])) nimm(punktBei(prev, p, t))
+      }
+      nimm(p)
+    }
   }
   // Ein-Punkt-Abschnitte zeichnen keine Linie — raus damit
-  return abschnitte.filter((a) => a.pts.length >= 2)
+  const roh = abschnitte.filter((a) => a.pts.length >= 2)
+  // Segmente der Tempo-Automatik werden einzeln durchlaufen. Verschiebt man eine
+  // Overlay-Grenze ÜBER eine alte Segmentnaht, liegen zwei Abschnitte desselben
+  // Modus nebeneinander — auf der Leiste zwei Bänder mit Radius-Naht dazwischen,
+  // ohne Kante (gleicher Modus) und nicht anfassbar. Für Karte und Leiste
+  // zusammenführen.
+  const gemerged: AnzeigeAbschnitt[] = []
+  for (const a of roh) {
+    const prev = gemerged[gemerged.length - 1]
+    if (prev && prev.mode === a.mode && prev.aktiv === a.aktiv) {
+      const erst = a.pts[0] as TrackPunkt
+      const last = prev.pts[prev.pts.length - 1] as TrackPunkt
+      prev.pts.push(...(erst[3] === last[3] ? a.pts.slice(1) : a.pts))
+    } else {
+      gemerged.push({ mode: a.mode, aktiv: a.aktiv, pts: a.pts.slice() })
+    }
+  }
+  return gemerged
 }
 
 // — Anzeige: effektiver Medien-Zustand (Basis + Overlay) —

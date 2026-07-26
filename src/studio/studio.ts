@@ -155,6 +155,10 @@ async function ladeSitzung(): Promise<api.Sitzung> {
   if (sitzung.benutzer) {
     zeigeSitzung(sitzung)
     await ladeListe()
+    // Deep-Link: /studio.html?edit=<tourId> — Reload und geteilte Links
+    // landen wieder im Editor, nicht in der Bibliothek.
+    const editId = editIdAusUrl()
+    if (editId) await oeffneEditorFuer(editId, { geschichte: true })
   }
   return sitzung
 }
@@ -242,6 +246,10 @@ els.resetSetzenForm.addEventListener('submit', async (e) => {
 els.abmelden.addEventListener('click', async () => {
   els.kontoMenue.hidden = true
   els.benutzerChip.setAttribute('aria-expanded', 'false')
+  if (editorTourId) {
+    const { schliesseEditor } = await import('./editor.js')
+    schliesseEditor()
+  }
   await api.logout()
   zeige(false)
   zeigeAuthModus('login')
@@ -485,15 +493,60 @@ function spielAb(id: string): void {
   window.open(`/erlebnis.html?tour=srv:${id}`, '_blank', 'noopener')
 }
 
-/** Editor (M7) lazy laden — MapLibre kommt erst beim ersten Bearbeiten. */
-async function oeffneEditorFuer(id: string): Promise<void> {
-  const { oeffneEditor } = await import('./editor.js')
+/** Tour-ID aus `?edit=` — Editor-Deep-Link. */
+function editIdAusUrl(): string | null {
+  const id = new URLSearchParams(location.search).get('edit')
+  return id && id.length > 0 ? id : null
+}
+
+/** Studio-URL mit oder ohne Editor-Parameter (Hash für Auth-Links bleibt). */
+function studioUrl(editId: string | null): string {
+  const u = new URL(location.href)
+  if (editId) u.searchParams.set('edit', editId)
+  else u.searchParams.delete('edit')
+  return u.pathname + u.search + u.hash
+}
+
+/** Welche Tour gerade im Editor liegt — null = Bibliothek. */
+let editorTourId: string | null = null
+
+/**
+ * Editor öffnen. `geschichte: true` = URL schon gesetzt (Reload/Zurück-Taste),
+ * sonst pushState, damit Zurück aus dem Editor wieder in die Bibliothek führt.
+ */
+async function oeffneEditorFuer(id: string, opts: { geschichte?: boolean } = {}): Promise<void> {
+  if (editorTourId === id) return
+  // Anderer Editor offen → zuerst zu, sonst blieben Karte/State der alten Tour
+  if (editorTourId) {
+    const { schliesseEditor } = await import('./editor.js')
+    schliesseEditor()
+  }
+  if (!opts.geschichte) history.pushState({ studio: 'edit', id }, '', studioUrl(id))
+  else history.replaceState({ studio: 'edit', id }, '', studioUrl(id))
+
   els.appView.hidden = true
+  editorTourId = id
+  const { oeffneEditor } = await import('./editor.js')
   await oeffneEditor(id, () => {
+    editorTourId = null
     els.appView.hidden = false
+    // Schließen per Knopf (nicht per Zurück): URL bereinigen, ohne Extra-Eintrag.
+    if (editIdAusUrl()) history.replaceState({ studio: 'liste' }, '', studioUrl(null))
     void ladeListe()
   })
 }
+
+// Browser-Zurück/Vor: URL ist die Quelle — Editor und Bibliothek folgen.
+window.addEventListener('popstate', () => {
+  const id = editIdAusUrl()
+  if (id) {
+    if (editorTourId !== id) void oeffneEditorFuer(id, { geschichte: true })
+    return
+  }
+  if (editorTourId) {
+    void import('./editor.js').then(({ schliesseEditor }) => schliesseEditor())
+  }
+})
 
 // — Sichtbarkeit: Anzeige UND Umschalter an derselben Stelle —
 

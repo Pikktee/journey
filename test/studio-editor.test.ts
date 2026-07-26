@@ -92,6 +92,18 @@ describe('zerlegeFuerAnzeige', () => {
     expect(out[1]?.pts.map((p) => p[3])).toEqual([600, 900])
   })
 
+  it('interpoliert Grenzen zwischen Stützpunkten auf die Linie', () => {
+    // Ohne Interpolation gehörte die ganze Kante 300→600 noch dem alten Modus —
+    // Ziehen rastete optisch nur an Punkten ein.
+    const out = zerlegeFuerAnzeige(segmente(), mitModusGrenze(LEERES_OVERLAY, iso(450), 'ferry'), START)
+    expect(out.map((a) => a.mode)).toEqual(['walk', 'ferry'])
+    expect(out[0]?.pts.map((p) => p[3])).toEqual([0, 300, 450])
+    expect(out[1]?.pts.map((p) => p[3])).toEqual([450, 600, 900])
+    const schnitt = out[0]?.pts[out[0].pts.length - 1]
+    expect(schnitt?.[0]).toBeCloseTo(7.905 + (7.91 - 7.905) * 0.5, 8)
+    expect(schnitt?.[1]).toBeCloseTo(46.505 + (46.51 - 46.505) * 0.5, 8)
+  })
+
   it('markiert getrimmte Bereiche als inaktiv (Verbinder wird grau)', () => {
     const edits = mitTrim(mitTrim(LEERES_OVERLAY, 'start', iso(300)), 'ende', iso(600))
     const out = zerlegeFuerAnzeige(segmente(), edits, START)
@@ -107,6 +119,28 @@ describe('zerlegeFuerAnzeige', () => {
     expect(out).toHaveLength(1)
     expect(out[0]).toMatchObject({ mode: 'walk', aktiv: true })
     expect(out[0]?.pts).toHaveLength(4)
+  })
+
+  it('führt gleiche Modi über Tempo-Segmentnähte zusammen (keine Doppel-Bänder)', () => {
+    // Tempo-Automatik liefert getrennte Segmente. Nach materialisiereModi die
+    // Walk-Grenze von 300 auf 450 schieben: ohne Merge lägen zwei Moped-Bänder
+    // an der alten Naht (t=300) — optisch verdoppelt, ohne Kante dazwischen.
+    const erkannt: EditorSegment[] = [
+      { mode: 'moped', pts: [[7.9, 46.5, 800, 0], [7.905, 46.505, 805, 300]] },
+      { mode: 'walk', pts: [[7.905, 46.505, 805, 300], [7.91, 46.51, 810, 600]] },
+      { mode: 'moped', pts: [[7.91, 46.51, 810, 600], [7.915, 46.515, 815, 900]] },
+    ]
+    const edits = mitModusGrenze(
+      mitModusGrenze(mitModusGrenze(LEERES_OVERLAY, iso(0), 'moped'), iso(450), 'walk'),
+      iso(600),
+      'moped',
+    )
+    const out = zerlegeFuerAnzeige(erkannt, edits, START)
+    expect(out.map((a) => [a.mode, a.pts.map((p) => p[3])])).toEqual([
+      ['moped', [0, 300, 450]],
+      ['walk', [450, 600]],
+      ['moped', [600, 900]],
+    ])
   })
 })
 

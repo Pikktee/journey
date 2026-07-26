@@ -272,13 +272,12 @@ const grenzeBei = (
  * wäre danach eine andere als die, die man beim Anfassen sah, und der gezogene
  * Abschnitt selbst wäre verschwunden.
  *
- * `punkteS` (Trackzeiten) macht die Klemme sichtbar-treu: ein Zustand gilt für
- * die Punkte, die in seiner Spanne liegen — schöbe man die Kante bis dicht an
- * die nächste, bliebe kein Punkt übrig, das Band verschwände aus der Anzeige
- * und wäre nicht mehr anzufassen (obwohl die Grenze im Overlay steht). Also
- * bleibt immer mindestens ein Punkt drin. Ohne `punkteS` genügt eine Sekunde
- * Abstand — zwei Grenzen auf derselben Sekunde verschlucken sich gegenseitig
- * (Ersetzen-Semantik der Mutatoren).
+ * `punkteS` (Trackzeiten) ist optional und nur noch für Spuren nötig, die
+ * Zustand ausschließlich an Stützpunkten auswerten. Fortbewegung interpoliert
+ * Zwischenzeiten auf die Linie (`zerlegeFuerAnzeige`) — dort reicht eine
+ * Sekunde Abstand, sonst rastete die Kante auf dünnen Tracks in großen
+ * Schritten. Ohne `punkteS` genügt diese Sekunde sowieso: zwei Grenzen auf
+ * derselben Sekunde verschlucken sich gegenseitig (Ersetzen-Semantik).
  */
 export function klemmeGrenze(
   grenzen: ReadonlyArray<{ ab: string }>,

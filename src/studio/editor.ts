@@ -310,6 +310,12 @@ function schliesse(): void {
   zurueckCb?.()
 }
 
+/** Von außen (Studio-URL / Zurück-Taste) — no-op, wenn der Editor schon zu ist. */
+export function schliesseEditor(): void {
+  if ($('editor-view').hidden) return
+  schliesse()
+}
+
 // — Karte —
 
 function baueKarte(): maplibregl.Map {
@@ -618,7 +624,9 @@ function baueMarkerEintrag(stopp: Stopp, _schluessel: string): MarkerEintrag | n
     el.appendChild(plakette)
   }
 
-  const mk = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(kopf.anchor).addTo(karte)
+  const mk = new maplibregl.Marker({ element: el, draggable: true, subpixelPositioning: true })
+    .setLngLat(kopf.anchor)
+    .addTo(karte)
   const eintrag: MarkerEintrag = { mk, el, stopp }
   let gezogen = false
   mk.on('dragstart', () => {
@@ -2397,14 +2405,17 @@ function renderZeitleiste(): void {
   // Beim ersten Zug schreibt `materialisiereModi` die Aufteilung fest; bis
   // dahin ist die Kante nur eine Stelle auf der Achse. Kanten mit gleichem
   // Modus links und rechts bekommen keinen Griff: dort ist nichts zu wechseln.
-  // Die Zeit kommt aus dem TRACKPUNKT, nicht aus dem Anteil zurückgerechnet —
-  // die ISO-Zeichenkette ist die Identität der Grenze und muss auf die Sekunde
-  // mit der von `materialisiereModi` erzeugten übereinstimmen.
+  // Position = erster Punkt des neuen Abschnitts (bei Overlay-Grenzen zwischen
+  // Stützpunkten der interpolierte Grenzpunkt). Identität: Overlay-`ab` mit
+  // Sekunden-Toleranz, sonst frisch aus der Zeit — muss zu `schreibeModiFest`
+  // / `materialisiereModi` passen.
   for (const [i, a] of modusAbschnitte.entries()) {
     const vorher = modusAbschnitte[i - 1]
     if (!vorher || vorher.mode === a.mode) continue
     const vonS = (a.pts[0] as TrackPunkt)[3]
-    const ab = offsetZuIso(start, vonS)
+    const ab =
+      (z.edits.modi ?? []).find((g) => Math.abs(isoZuOffset(start, g.ab) - vonS) < 1)?.ab
+      ?? offsetZuIso(start, vonS)
     modusBahn.appendChild(
       kante(
         offsetZuAnteil(skala, vonS),
@@ -2773,7 +2784,9 @@ function setzeLaeufer(tOffsetS: number): void {
     const el = document.createElement('div')
     el.className = 'laeufer'
     el.innerHTML = `<span class="puls"></span><span class="puck">${icon('m-walk')}</span>`
-    laeufer = new maplibregl.Marker({ element: el }).setLngLat([punkt[0], punkt[1]]).addTo(karte)
+    laeufer = new maplibregl.Marker({ element: el, subpixelPositioning: true })
+      .setLngLat([punkt[0], punkt[1]])
+      .addTo(karte)
   } else {
     laeufer.setLngLat([punkt[0], punkt[1]])
   }
@@ -2902,12 +2915,15 @@ function verschiebeGrenze(art: 'modus' | 'kamera' | 'wetter' | 'moment', altAb: 
         : art === 'wetter'
           ? (z.edits.wetter ?? [])
           : [] // Momente sind Punktereignisse — ihre Reihenfolge trägt nichts
+  // Fortbewegung interpoliert Grenzen auf die Linie — Trackpunkt-Raster würde
+  // die Kante wieder in großen Sprüngen einrasten lassen (Berner Oberland).
+  // Kamera/Wetter bleiben am Raster: ihre Bänder hängen nicht an Abschnitten.
   const geklemmt = klemmeGrenze(
     nachbarn,
     altAb,
     z.daten.time.start,
     Math.max(skala.vonS, Math.min(skala.bisS, neuOffsetS)),
-    art === 'moment' ? undefined : z.track.map((p) => p[3]),
+    art === 'modus' || art === 'moment' ? undefined : z.track.map((p) => p[3]),
   )
   const neuAb = offsetZuIso(z.daten.time.start, geklemmt)
   if (neuAb === altAb) return altAb
@@ -3286,6 +3302,8 @@ function status(text: string, klasse = ''): void {
 // abspielen.ts, das erst beim ersten Play geladen wird.
 
 let abspieler: Abspieler | null = null
+/** Karte zentriert beim Abspielen auf den Läufer — Standard an, Toggle neben Play. */
+let karteFolgt = true
 /** Timer, der die Foto-Einblendung wieder ausblendet. */
 let einblendUhr: number | null = null
 
@@ -3344,6 +3362,7 @@ function setzeMarkeAnteil(anteil: number): void {
   if (!skala) return
   setzeMarke(anteilZuOffset(skala, anteil))
   folgeKopf(anteil)
+  folgeKarte()
 }
 
 /** Läuft der Kopf aus dem Fenster, scrollt die Sicht mit (wie in Final Cut). */
@@ -3354,6 +3373,15 @@ function folgeKopf(anteil: number): void {
   const x = spurXpx() + anteil * zeitBreitePx() - fenster.scrollLeft
   if (x > fenster.clientWidth - rand) fenster.scrollLeft += x - (fenster.clientWidth - rand)
   else if (x < spurXpx() + rand) fenster.scrollLeft -= spurXpx() + rand - x
+}
+
+/** Karte auf die aktuelle Marke halten — Zoom/Lagerwinkel bleiben.
+ *  Nur `setCenter`: `jumpTo` mit Padding jedes Frame feuerte `moveend` und
+ *  ließ DOM-Marker um ein Pixel hin- und herspringen (Integer-Rundung). */
+function folgeKarte(): void {
+  if (!karte || !z?.auswahl || !karteFolgt) return
+  const p = z.auswahl
+  karte.setCenter([p[0], p[1]])
 }
 
 /**
@@ -3597,6 +3625,13 @@ function verdrahteEinmal(): void {
   $('karte-plus').addEventListener('click', () => karte?.zoomIn())
   $('karte-minus').addEventListener('click', () => karte?.zoomOut())
   $('tp-play').addEventListener('click', () => void spielUmschalten())
+  $('tp-folge').addEventListener('click', () => {
+    karteFolgt = !karteFolgt
+    const knopf = $('tp-folge')
+    knopf.classList.toggle('an', karteFolgt)
+    knopf.setAttribute('aria-pressed', String(karteFolgt))
+    if (karteFolgt) folgeKarte()
+  })
   // Anfassen der Karte beendet die Wiedergabe (die Bahnen erledigt renderAlles
   // bzw. der Kopf-Zug selbst).
   $('editor-map').addEventListener('pointerdown', halteAbspielen)
