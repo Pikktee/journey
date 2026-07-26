@@ -21,6 +21,8 @@ import type { Storage } from './storage.js'
 import { ZuGrossFehler } from './storage.js'
 
 export const SESSION_COOKIE = 'maptale_session'
+/** JS-lesbarer UX-Hinweis „Sitzung steht" — kein Geheimnis, parallel zur httpOnly-Session. */
+export const SESSION_HINWEIS_COOKIE = 'maptale_dabei'
 
 export interface AppAbhaengigkeiten {
   konfig: Konfig

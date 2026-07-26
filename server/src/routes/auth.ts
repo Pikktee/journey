@@ -5,7 +5,7 @@
 
 import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
-import { erfordereBenutzer, SESSION_COOKIE } from '../app.js'
+import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
 import type { ProfilAenderung } from '../auth/auth.js'
 import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
@@ -70,14 +70,21 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     userId: string,
   ): { id: string; ablauf: Date } => {
     const session = app.auth.erzeugeSession(userId)
-    reply.setCookie(SESSION_COOKIE, session.id, {
+    const cookieBasis = {
       path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       secure: konfig.hinterTls,
       expires: session.ablauf,
-    })
+    }
+    reply.setCookie(SESSION_COOKIE, session.id, { ...cookieBasis, httpOnly: true })
+    // Lesbar für studio.html: Boot-Splash überspringen, solange die Sitzung steht.
+    reply.setCookie(SESSION_HINWEIS_COOKIE, '1', { ...cookieBasis, httpOnly: false })
     return session
+  }
+
+  const loescheSessionCookies = (reply: import('fastify').FastifyReply): void => {
+    reply.clearCookie(SESSION_COOKIE, { path: '/' })
+    reply.clearCookie(SESSION_HINWEIS_COOKIE, { path: '/' })
   }
 
   // — Login —
@@ -218,7 +225,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   app.post('/api/auth/logout', async (request, reply) => {
     const sessionId = request.cookies[SESSION_COOKIE]
     if (sessionId) app.auth.beendeSession(sessionId)
-    reply.clearCookie(SESSION_COOKIE, { path: '/' })
+    loescheSessionCookies(reply)
     return { ok: true }
   })
 
@@ -232,14 +239,27 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     // überlebten den Cascade sonst als Waisen auf der Platte.
     await benutzerStorage.loescheTour(benutzer.id).catch(() => undefined)
     app.auth.loescheBenutzer(benutzer.id)
-    reply.clearCookie(SESSION_COOKIE, { path: '/' })
+    loescheSessionCookies(reply)
     return { ok: true }
   })
 
   // — Ich-Abfrage OHNE 401 (Studio pollt bei jedem Laden). Angemeldet: um
-  // Verifikations-Stand, Quota und Profil angereichert.
-  app.get('/api/auth/me', async (request) => {
+  // Verifikations-Stand, Quota und Profil angereichert. Zusätzlich den
+  // UX-Hinweis-Cookie auffrischen — ältere Sitzungen ohne maptale_dabei
+  // bekommen ihn so beim nächsten /me (z. B. Entdecken), bevor Studio lädt.
+  app.get('/api/auth/me', async (request, reply) => {
     if (!request.benutzer) return { benutzer: null }
+    const sessionId = request.cookies[SESSION_COOKIE]
+    if (sessionId && request.cookies[SESSION_HINWEIS_COOKIE] !== '1') {
+      // Ablauf kennen wir hier nicht exakt — Max-Age wie Session-Dauer reicht.
+      reply.setCookie(SESSION_HINWEIS_COOKIE, '1', {
+        path: '/',
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: konfig.hinterTls,
+        maxAge: 30 * 24 * 60 * 60,
+      })
+    }
     const quota = await quotaStand(db, storage, request.benutzer.id, konfig.maxSpeicherProBenutzer)
     const profil = app.auth.profil(request.benutzer.id)
     return {

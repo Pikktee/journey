@@ -14,6 +14,17 @@
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
     rel="stylesheet"
   />
+  <!-- Sitzungs-Hinweis (maptale_dabei): App-Shell sofort, Boot nur für Gäste.
+       Cookie-Name = SESSION_HINWEIS_COOKIE in src/session-hinweis.ts. -->
+  <script>
+    (function () {
+      try {
+        if (document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_dabei=') === 0;
+        })) document.documentElement.classList.add('studio-dabei');
+      } catch (e) {}
+    })();
+  </script>
   <style>
     /* ————————————————————————————————————————————————————————————
        Maptale Studio — App-Shell. Design-DNA des Players (Outfit +
@@ -176,7 +187,8 @@
     #app-view:not([hidden]), #editor-view:not([hidden]), #login-view:not([hidden]) { animation: ansichtEin 320ms cubic-bezier(0.2, 0.7, 0.2, 1); }
 
     /* Boot: verdeckt Login/App, bis /auth/me geklärt ist — sonst blitzt der
-       Login kurz auf, obwohl die Sitzung bereits steht. */
+       Login kurz auf, obwohl die Sitzung bereits steht. Mit Hinweis-Cookie
+       (html.studio-dabei) entfällt der Splash: Shell + Skelett sofort. */
     #studio-boot {
       position: fixed;
       inset: 0;
@@ -188,6 +200,9 @@
       transition: opacity 0.45s ease;
     }
     #studio-boot.gone { opacity: 0; pointer-events: none; }
+    html.studio-dabei #studio-boot { display: none !important; }
+    /* [hidden] hat display:none !important — Spezifität schlägt das hier. */
+    html.studio-dabei #app-view { display: flex !important; animation: none; }
     .studio-boot-inner {
       display: flex;
       flex-direction: column;
@@ -2188,7 +2203,11 @@
             <button data-ansicht="liste" aria-pressed="false" title="Liste" aria-label="Liste"><svg><use href="#i-zeilen"/></svg></button>
           </div>
         </div>
-        <div id="bibliothek"></div>
+        <div id="bibliothek">
+          <!-- Sofort sichtbar bei html.studio-dabei; sonst hinter Boot/Login.
+               ladeListe() ersetzt den Inhalt, sobald /api/tours antwortet. -->
+          <div class="skelett" aria-busy="true"><div></div><div></div><div></div><div></div></div>
+        </div>
       </div>
     </div>
 

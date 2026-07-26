@@ -6,6 +6,8 @@
  * (andere SVG-Pfade) und die rechte Seite (CTA vs. Chip) auseinander.
  */
 
+import { merkeAngemeldet, vergesseAngemeldet } from './session-hinweis.js'
+
 export type AppNavSeite = 'studio' | 'galerie' | 'profil'
 
 /** Wegpunkt-Route: aktive „Meine Touren"-Marke in der App-Nav. */
@@ -65,7 +67,11 @@ export async function montiereNavRechts(container: HTMLElement | null): Promise<
   try {
     const r = await fetch('/api/auth/me', { credentials: 'include' })
     const daten = (r.ok ? await r.json() : null) as MeAntwort | null
-    if (!daten?.benutzer) return
+    if (!daten?.benutzer) {
+      vergesseAngemeldet()
+      return
+    }
+    merkeAngemeldet()
 
     const name = daten.profil?.anzeigename || daten.benutzer.name || 'Profil'
     const initial = (name.trim().charAt(0) || '?').toUpperCase()
@@ -112,6 +118,7 @@ export async function montiereNavRechts(container: HTMLElement | null): Promise<
       }
     })
     container.querySelector('#nav-abmelden')?.addEventListener('click', () => {
+      vergesseAngemeldet()
       fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() =>
         location.reload(),
       )

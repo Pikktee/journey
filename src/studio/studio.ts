@@ -8,6 +8,7 @@
 
 import * as api from './api.js'
 import { fuelleTopNav } from '../app-nav.js'
+import { merkeAngemeldet, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
   baueFotoSegmente,
@@ -79,7 +80,8 @@ const els = {
 }
 
 /** Statisches Icon aus dem Sprite in studio.html (nur für vertrauten Markup-Bau). */
-const icon = (name: string): string => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`
+const icon = (name: string, klasse?: string): string =>
+  `<svg${klasse ? ` class="${klasse}"` : ''} aria-hidden="true"><use href="#i-${name}"/></svg>`
 
 // — Ansicht Login/App —
 
@@ -154,12 +156,17 @@ async function ladeSitzung(): Promise<api.Sitzung> {
   zeigeBenutzer(sitzung.benutzer)
   zeige(!!sitzung.benutzer)
   if (sitzung.benutzer) {
+    merkeAngemeldet()
     zeigeSitzung(sitzung)
     await ladeListe()
     // Deep-Link: /studio.html?edit=<tourId> — Reload und geteilte Links
     // landen wieder im Editor, nicht in der Bibliothek.
     const editId = editIdAusUrl()
     if (editId) await oeffneEditorFuer(editId, { geschichte: true })
+  } else {
+    // Hinweis war gesetzt, Sitzung aber weg (abgelaufen) → zurück zum Login.
+    vergesseAngemeldet()
+    document.documentElement.classList.remove('studio-dabei')
   }
   return sitzung
 }
@@ -252,6 +259,8 @@ els.abmelden.addEventListener('click', async () => {
     schliesseEditor()
   }
   await api.logout()
+  vergesseAngemeldet()
+  document.documentElement.classList.remove('studio-dabei')
   zeige(false)
   zeigeAuthModus('login')
 })
@@ -568,7 +577,7 @@ function oeffneSichtMenue(karte: HTMLElement, t: api.TourListe): void {
   menue.className = 'sicht-menue'
   const stufe = (wert: string, titel: string, erklaerung: string): string => `
     <button data-wert="${wert}" role="menuitemradio" aria-checked="${String(t.visibility === wert)}">
-      ${icon(SICHT_ICONS[wert] ?? 'schloss')}<span>${titel}<em>${erklaerung}</em></span>${icon('haken')}
+      ${icon(SICHT_ICONS[wert] ?? 'schloss')}<span>${titel}<em>${erklaerung}</em></span>${icon('haken', 'haken')}
     </button>`
   menue.innerHTML = `
     <div class="kopfzeile">Wer darf mitfahren?</div>
