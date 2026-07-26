@@ -1730,7 +1730,53 @@
       margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 11.5px; line-height: 1.4;
       background: color-mix(in srgb, var(--warn, #e8a13c) 14%, transparent); color: var(--warn, #e8a13c);
     }
-    .insp-bild { width: 100%; border-radius: 10px; border: 1px solid var(--rand); display: block; background: var(--fl-2); }
+    .insp-bild { width: 100%; border-radius: 10px; border: 1px solid var(--rand); display: block; background: var(--fl-2); cursor: zoom-in; }
+    .insp-bild-huelle { position: relative; }
+    .insp-bild-huelle .insp-bild { display: block; }
+    .insp-bild-badge {
+      position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: #fff; background: rgba(6, 8, 12, 0.72); border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px; padding: 3px 9px 3px 7px; pointer-events: none;
+    }
+    .insp-bild-badge svg { width: 9px; height: 9px; }
+
+    /* Groß ansehen (Lightbox) — wie im Mockup und Prüf-Blatt */
+    .gross {
+      position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+      background: rgba(4, 6, 10, 0.93); padding: 46px 76px;
+    }
+    .gross figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; max-height: 100%; }
+    .gross img, .gross video {
+      max-width: 100%; max-height: calc(100vh - 170px); border-radius: 10px; display: block;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+    }
+    .gross video { background: #000; }
+    .gross .gt-video {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--akzent); border: 1px solid rgba(245, 165, 36, 0.5); border-radius: 999px;
+      padding: 2px 9px; vertical-align: middle; margin-left: 10px;
+    }
+    .gross figcaption { text-align: center; }
+    .gross .gt { font-family: var(--font-display); font-size: 20px; }
+    .gross .gm { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-top: 3px; }
+    .gross .zu, .gross .blaettern {
+      position: absolute; display: grid; place-items: center; padding: 0;
+      background: rgba(255, 255, 255, 0.06); border: 1px solid var(--rand-hell); color: var(--text-2);
+      border-radius: 50%; width: 42px; height: 42px;
+    }
+    .gross .zu { top: 20px; right: 24px; width: 38px; height: 38px; }
+    .gross .zu:hover, .gross .blaettern:hover { background: rgba(255, 255, 255, 0.13); color: var(--text); border-color: var(--text-3); }
+    .gross .blaettern.links { left: 20px; top: 50%; transform: translateY(-50%); }
+    .gross .blaettern.rechts { right: 20px; top: 50%; transform: translateY(-50%); }
+    .gross .blaettern:disabled { opacity: 0.35; cursor: default; }
+    .gross .blaettern:disabled:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-2); border-color: var(--rand-hell); }
+    .gross .zu svg, .gross .blaettern svg { width: 17px; height: 17px; }
+    @media (max-width: 720px) {
+      .gross { padding: 56px 18px 24px; }
+      .gross .blaettern.links { left: 8px; }
+      .gross .blaettern.rechts { right: 8px; }
+    }
     .insp-knoepfe { display: flex; gap: 7px; flex-wrap: wrap; }
     .insp-knoepfe button { font-size: 12px; padding: 7px 10px; }
     .insp-knoepfe button.aktiv { border-color: var(--akzent); color: var(--akzent); background: rgba(245, 165, 36, 0.08); }
@@ -2045,6 +2091,8 @@
       <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
       <symbol id="i-mehr" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="18.5" cy="12" r="1.75"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-pfeil-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+      <symbol id="i-pfeil-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
       <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5.5 12h13"/></symbol>
       <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2"/><path d="M12 7.7h.01"/></symbol>
       <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></symbol>

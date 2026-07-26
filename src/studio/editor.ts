@@ -305,6 +305,7 @@ async function ladeDaten(tourId: string): Promise<void> {
 
 function schliesse(): void {
   $('editor-view').hidden = true
+  schliesseGross()
   stoppeVorschau()
   abspieler?.schliesse()
   abspieler = null
@@ -1894,11 +1895,22 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   const stopp = z ? stoppVon(baueStopps(medienAnzeige(), z.track, kumStrecke), m.id) : undefined
   if (stopp && stopp.items.length > 1) huelle.appendChild(baueStreifen(stopp, m.id))
 
+  const bildHuelle = document.createElement('div')
+  bildHuelle.className = 'insp-bild-huelle'
   const bild = document.createElement('img')
   bild.className = 'insp-bild'
   bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
   bild.alt = ''
-  huelle.appendChild(bild)
+  bild.title = m.type === 'video' ? 'Video groß ansehen' : 'Groß ansehen'
+  bild.addEventListener('click', () => zeigeGross(m.id))
+  bildHuelle.appendChild(bild)
+  if (m.type === 'video') {
+    const badge = document.createElement('span')
+    badge.className = 'insp-bild-badge'
+    badge.innerHTML = `${icon('play')}Video`
+    bildHuelle.appendChild(badge)
+  }
+  huelle.appendChild(bildHuelle)
 
   // Der Nutzertext wird beim Rendern zur ÜBERSCHRIFT des Foto-Stopps, die
   // Uhrzeit rutscht darunter — deshalb hier „Titel", nicht „Bildunterschrift".
@@ -1992,6 +2004,127 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
     huelle.appendChild(hinweis)
   }
   return huelle
+}
+
+/**
+ * Großansicht einer Aufnahme — wie im Mockup: dunkler Overlay, Blättern durch
+ * alle (nicht gelöschten) Aufnahmen der Tour, Esc / Klick auf den Grund schließt.
+ */
+function zeigeGross(id: string): void {
+  schliesseGross()
+  if (!z) return
+  const liste = grossListe()
+  const idx = liste.findIndex((m) => m.id === id)
+  const m = idx >= 0 ? liste[idx] : medienAnzeige().find((x) => x.id === id)
+  if (!m) return
+  const i = idx >= 0 ? idx : 0
+  const n = Math.max(liste.length, 1)
+
+  const el = document.createElement('div')
+  el.className = 'gross'
+  el.setAttribute('role', 'dialog')
+  el.setAttribute('aria-modal', 'true')
+  el.setAttribute('aria-label', 'Großansicht')
+
+  const zu = document.createElement('button')
+  zu.type = 'button'
+  zu.className = 'zu'
+  zu.setAttribute('aria-label', 'Schließen')
+  zu.innerHTML = icon('x')
+  zu.addEventListener('click', schliesseGross)
+
+  const links = document.createElement('button')
+  links.type = 'button'
+  links.className = 'blaettern links'
+  links.setAttribute('aria-label', 'Vorige')
+  links.innerHTML = icon('pfeil-l')
+  links.disabled = i <= 0
+  links.addEventListener('click', () => {
+    const vor = liste[i - 1]
+    if (vor) zeigeGross(vor.id)
+  })
+
+  const rechts = document.createElement('button')
+  rechts.type = 'button'
+  rechts.className = 'blaettern rechts'
+  rechts.setAttribute('aria-label', 'Nächste')
+  rechts.innerHTML = icon('pfeil-r')
+  rechts.disabled = i >= n - 1
+  rechts.addEventListener('click', () => {
+    const nach = liste[i + 1]
+    if (nach) zeigeGross(nach.id)
+  })
+
+  const figure = document.createElement('figure')
+  if (m.type === 'video') {
+    const video = document.createElement('video')
+    video.src = m.src
+    video.controls = true
+    video.autoplay = true
+    video.loop = true
+    video.playsInline = true
+    figure.appendChild(video)
+  } else {
+    const img = document.createElement('img')
+    img.src = m.src
+    img.alt = m.caption || ''
+    figure.appendChild(img)
+  }
+
+  const cap = document.createElement('figcaption')
+  const gt = document.createElement('div')
+  gt.className = 'gt'
+  gt.textContent = m.caption || (m.type === 'video' ? 'Video' : 'Aufnahme')
+  if (m.type === 'video') {
+    const chip = document.createElement('span')
+    chip.className = 'gt-video'
+    chip.textContent = 'Video'
+    gt.appendChild(chip)
+  }
+  const gm = document.createElement('div')
+  gm.className = 'gm'
+  const teile: string[] = [`${uhrzeitKurz(m.takenAt)} Uhr`]
+  if (m.anchor) {
+    const meter = meterZuOffset(kumStrecke, z.track, offsetVon(m))
+    teile.push(`km ${kmText(meter)}`)
+  } else {
+    teile.push('ohne Ort')
+  }
+  teile.push(`${i + 1} von ${n}`)
+  gm.textContent = teile.join(' · ')
+  cap.append(gt, gm)
+  figure.appendChild(cap)
+
+  el.append(zu, links, rechts, figure)
+  el.addEventListener('click', (ev) => {
+    if (ev.target === el) schliesseGross()
+  })
+  document.body.appendChild(el)
+  halteAbspielen()
+}
+
+/** Aufnahmen in Tour-Reihenfolge (Stopps entlang der Strecke, sonst Aufnahmezeit). */
+function grossListe(): MediumAnzeige[] {
+  if (!z) return []
+  const alle = medienAnzeige().filter((m) => !m.geloescht)
+  const stopps = baueStopps(alle, z.track, kumStrecke)
+  const gesehen = new Set<string>()
+  const liste: MediumAnzeige[] = []
+  for (const s of stopps) {
+    for (const m of s.items) {
+      liste.push(m)
+      gesehen.add(m.id)
+    }
+  }
+  // Unplatzierte (Ablage) ans Ende, nach Aufnahmezeit
+  const rest = alle
+    .filter((m) => !gesehen.has(m.id))
+    .sort((a, b) => Date.parse(a.takenAt) - Date.parse(b.takenAt))
+  return liste.concat(rest)
+}
+
+function schliesseGross(): void {
+  document.querySelector('.gross')?.remove()
 }
 
 /** Was der Löschknopf tut — und wann er gesperrt ist. */
@@ -3890,6 +4023,22 @@ function verdrahteEinmal(): void {
   })
   document.addEventListener('keydown', (e) => {
     if (!z || $('editor-view').hidden) return
+    // Großansicht fängt Esc und Pfeile ab — sonst würde die Tour scrubben
+    // oder der Platzieren-Modus enden, während man noch blättert.
+    const gross = document.querySelector('.gross')
+    if (gross) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        schliesseGross()
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        gross.querySelector<HTMLButtonElement>('.links')?.click()
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        gross.querySelector<HTMLButtonElement>('.rechts')?.click()
+      }
+      return
+    }
     // In Eingabefeldern gilt das native Undo/Speichern des Browsers
     if ((e.target as HTMLElement).closest('input, textarea, select')) return
     // Steht ein Fenster offen (Bibliothek, Angaben), gehört die Tastatur ihm —
