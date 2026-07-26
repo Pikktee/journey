@@ -231,6 +231,11 @@ export class Tour {
   // Fahrt, Foto, Finale) wird die Karte gesperrt — sonst kämpfen Nutzer-Geste und
   // Kamerafahrt gegeneinander. `cam-locked` unterdrückt zusätzlich den Greifhand-
   // Cursor, den MapLibre sonst über die interactive-Klasse dauerhaft zeigt.
+  //
+  // Free-Look deckelt minZoom: Weit-Rauszoomen bei Tour-Pitch (~50–86°) lässt
+  // MapLibre ein riesiges Terrain-Mesh zeichnen (gemessen: Terrain IST die Kosten,
+  // s. map.js). Global ginge das nicht — Intro/Finale brauchen niedrigere Zooms
+  // (Orbit bis ~17 km).
   updateMapLock() {
     const free = !this.playing && !this.scrubbing && this.phase === 'ride'
     const act = free ? 'enable' : 'disable'
@@ -238,6 +243,7 @@ export class Tour {
     this.map.scrollZoom[act]()
     this.map.touchZoomRotate[act]()
     this.map.touchPitch[act]()
+    this.map.setMinZoom(free ? 9 : 0)
     document.body.classList.toggle('cam-locked', !free)
     if (free) this.camSnap = this._camNow() // Referenzpose, um späteres Pannen zu erkennen
   }

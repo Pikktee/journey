@@ -171,6 +171,9 @@ export function createMap(container, center) {
     zoom: 11,
     pitch: 48,
     bearing: -35,
+    // Kein globales minZoom: Intro/Finale-Orbit geht bewusst tiefer (tour.js ovR/ovA).
+    // Freies Rauszoomen in der Fahrt-Pause deckelt updateMapLock auf 9 — sonst
+    // zeichnet MapLibre bei Tour-Pitch ein Terrain-Mesh, das die FPS killt.
     // 86 statt 72: die „Himmel-Momente" der Tour (tour.js skyLift) kippen die Kamera
     // zur Golden Hour/Nacht über den Horizont hinaus, damit ein echter Himmelsanteil
     // MIT Sonne/Sternen ins Bild kommt — dafür braucht die FreeCamera-Ableitung
