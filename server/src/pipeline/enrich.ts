@@ -31,6 +31,8 @@ export interface TourJson {
   kicker: string
   titleHtml: string
   stops: string[]
+  /** Ob der Player den „Ziel erreicht"-Screen zeigt (sonst zurück zum Start) */
+  showFinale: boolean
   finaleTitle: string
   description: string | null
   time: { start: string; end: string; zone: string }
@@ -113,6 +115,10 @@ export interface EnrichEingabe {
   /** Nutzer-Overrides aus der DB (PATCH); null = Auto-Benennung */
   titelOverride: string | null
   beschreibungOverride: string | null
+  /** Endscreen zeigen? Default false — die meisten Touren haben kein konkretes Ziel */
+  showFinale?: boolean
+  /** Zielname für den Endscreen; null/leer = geocodierter Ortsname */
+  finaleZielOverride?: string | null
   /** Edit-Overlay (M7): Trim/Modus-Grenzen/Medien-Overrides; null = keins */
   edits?: EditOverlay | null
   /** Vorhandene Audio-Dateinamen unter media/ (Baukasten) — edits.audio-Verweise ohne Datei werden übersprungen */
@@ -151,6 +157,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     manifest,
     titelOverride,
     beschreibungOverride,
+    showFinale = false,
+    finaleZielOverride = null,
     edits,
     audioDateien,
     geocoder,
@@ -418,7 +426,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     kicker: benennung.kicker,
     titleHtml: benennung.titleHtml,
     stops: benennung.stops,
-    finaleTitle: benennung.finaleTitle,
+    showFinale,
+    finaleTitle: (finaleZielOverride?.trim() || benennung.finaleTitle),
     description: beschreibungOverride ?? manifest.description ?? null,
     time: manifest.time,
     segments,

@@ -39,6 +39,7 @@ describe('adaptiereTour', () => {
   it('mappt das Server-JSON auf die cfg-Form (media → photos)', () => {
     const cfg = adaptiereTour(beispielTour())
     expect(cfg.brandTitle).toBe('Lauterbrunnen → Grindelwald')
+    expect(cfg.showFinale).toBe(false)
     expect(cfg.photos).toHaveLength(1)
     expect(cfg.photos[0]?.src).toBe('/api/media/t_abc123/m1.jpg')
     expect(cfg.photos[0]?.anchor).toEqual([7.9105, 46.59])
@@ -46,6 +47,14 @@ describe('adaptiereTour', () => {
     expect(cfg.segments[0]?.mode).toBe('walk')
     // Kein Server-Wetter → Feld bleibt weg (Client-Auto-Wetter greift als Fallback)
     expect(cfg.weather).toBeUndefined()
+  })
+
+  it('reicht showFinale nur bei true durch', () => {
+    const aus = adaptiereTour(beispielTour())
+    expect(aus.showFinale).toBe(false)
+    const an = beispielTour()
+    an.showFinale = true
+    expect(adaptiereTour(an).showFinale).toBe(true)
   })
 
   it('rechnet Wetter-Keyframes von f auf km um (Player-Format)', () => {

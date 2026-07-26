@@ -306,11 +306,12 @@ Ordnung bleibt). Einrasten auf fremde Aufnahmen misst ebenfalls in Pixeln. Ein F
 seinen Halt über zwei Wege: Karte (Ort zeigen) oder Foto-Spur (Zeit zeigen) — beide enden im
 selben Anker, `reihe` fällt dabei weg.
 
-**Was der ganzen Tour gehört, steht nicht im Inspector.** Titel und Beschreibung gehören keinem
-Objekt der Zeitleiste; sie liegen in „Angaben zur Tour", erreichbar über den Titel in der
-Kopfleiste und über den „…"-Knopf neben Speichern (dort auch „Neu verarbeiten"). Früher stand
-die Beschreibung im LEERZUSTAND des Inspectors — dort, wo „Noch nichts ausgewählt" steht, las
-sich das wie eine Einstellung des Nichts.
+**Was der ganzen Tour gehört, steht nicht im Inspector-Leerzustand.** Titel,
+Beschreibung und Endscreen gehören keinem Objekt der Zeitleiste; sie liegen in
+„Tour-Einstellungen", erreichbar über den Titel in der Kopfleiste und über den
+„…"-Knopf neben Speichern (dort auch „Neu verarbeiten") — als eigene Ansicht
+im rechten Panel, nicht als Modal und nicht als Leerzustand (der las sich
+früher wie eine Einstellung des Nichts).
 
 **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover { background: … }` wiegt durch
 die Pseudoklasse mehr als `.knopf-primaer` oder `.kopf-griff` — wer einem Knopf eine eigene

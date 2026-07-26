@@ -930,24 +930,19 @@
     .editor-titel:empty::before { content: 'Ohne Titel'; color: var(--text-3); }
     #editor-status { flex: 1; text-align: right; padding-right: 4px; }
 
-    /* — Angaben zur Tour (Dialog) — bewusst ohne eigene display-Regel, sonst
-         schlüge sie `dialog:not([open]) { display: none }` des Browsers. */
-    .tour-dialog {
-      width: min(460px, 92vw);
-      padding: 0;
-      border: 1px solid var(--rand-hell);
-      border-radius: 16px;
-      background: var(--fl-1);
-      color: var(--text);
-      box-shadow: var(--schatten);
+    /* — Tour-Einstellungen (Inspector-Panel) — */
+    .insp-tour {
+      flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
     }
-    .tour-dialog::backdrop { background: rgba(4, 6, 10, 0.62); backdrop-filter: blur(4px); }
-    .tour-kopf { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 0; }
-    .tour-kopf strong { font-family: var(--font-display); font-size: 19px; font-weight: 550; letter-spacing: -0.015em; }
-    .tour-inhalt { padding: 16px 18px 18px; display: grid; gap: 14px; }
-    .tour-inhalt input, .tour-inhalt textarea { width: 100%; }
-    .tour-inhalt textarea { resize: vertical; font-size: 13px; }
+    .insp-tour[hidden] { display: none !important; }
+    .insp-tour .insp-inhalt { flex: 1 1 auto; }
     .tour-fuss { margin: 0; font-size: 12px; color: var(--text-3); }
+    .kb {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-2); cursor: pointer; user-select: none;
+    }
+    .kb input { accent-color: var(--akzent); width: 15px; height: 15px; flex: none; }
+    #editor-finale-ziel-feld[hidden] { display: none !important; }
 
     /* Karte oben, Zeitleiste als EIGENE Zone darunter, Inspector über die volle
        Höhe rechts — wie im Schnittprogramm. Vorher schwebte die Leiste als
@@ -2268,8 +2263,8 @@
     <header class="editor-kopf">
       <button class="icon" id="editor-zurueck" title="Zurück zur Bibliothek" aria-label="Zurück"><svg><use href="#i-zurueck"/></svg></button>
       <!-- Der Titel ist der Name des Stücks, an dem man arbeitet: hier steht er,
-           geändert wird er in den Angaben zur Tour (Klick oder „…"-Menü). -->
-      <button class="editor-titel" id="editor-titel-knopf" title="Angaben zur Tour"></button>
+           geändert wird er in den Tour-Einstellungen (Klick oder „…"-Menü). -->
+      <button class="editor-titel" id="editor-titel-knopf" title="Tour-Einstellungen"></button>
       <div class="hinweis" id="editor-status" role="status"></div>
       <button class="icon" id="editor-undo" disabled title="Rückgängig (⌘Z)" aria-label="Rückgängig"><svg><use href="#i-undo"/></svg></button>
       <button class="icon" id="editor-redo" disabled title="Wiederherstellen (⇧⌘Z)" aria-label="Wiederherstellen"><svg><use href="#i-redo"/></svg></button>
@@ -2376,8 +2371,8 @@
       </div>
       <aside class="editor-seite">
         <!-- Inspector: zeigt, was in Zeitleiste oder Karte gewählt ist, und
-             lässt es dort ändern. Drei Teile: Leerzustand, scrollender Inhalt,
-             fester Fuß mit dem Löschen-Knopf. -->
+             lässt es dort ändern. Vier Teile: Leerzustand, Tour-Einstellungen,
+             scrollender Inhalt, fester Fuß mit dem Löschen-Knopf. -->
         <div class="insp-leer" id="insp-leer">
           <svg class="leer-grafik" viewBox="0 0 132 84" fill="none" aria-hidden="true">
             <rect x="1" y="1" width="130" height="82" rx="9" stroke="#222b37"/>
@@ -2399,6 +2394,36 @@
             <p class="leer-text">Tippe in der Zeitleiste auf ein Band, ein Foto oder einen Klang — seine Einstellungen erscheinen dann hier.</p>
           </div>
         </div>
+        <!-- Tour-weit (Titel, Beschreibung, Endscreen): bewusst eigene Ansicht,
+             nicht der Leerzustand — der las sich früher wie „Einstellung des Nichts".
+             Einstieg über den Titel in der Kopfleiste oder „…" → Tour-Einstellungen. -->
+        <div class="insp-tour" id="insp-tour" hidden>
+          <div class="insp-inhalt">
+            <div class="insp-art">Tour</div>
+            <h2 class="insp-titel">Tour-Einstellungen</h2>
+            <div class="feld">
+              <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
+                   per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
+              <label for="editor-titel">Titel</label>
+              <input id="editor-titel" type="text" placeholder="Titel der Tour" />
+            </div>
+            <div class="feld">
+              <label for="editor-beschreibung">Beschreibung</label>
+              <textarea id="editor-beschreibung" rows="4" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
+            </div>
+            <label class="kb" for="editor-finale">
+              <input id="editor-finale" type="checkbox" />
+              Endscreen „Ziel erreicht“ zeigen
+            </label>
+            <p class="insp-hinweis">Aus (Standard): am Ende erscheint wieder der Startscreen. Ein konkretes Ziel braucht einen Endscreen.</p>
+            <div class="feld" id="editor-finale-ziel-feld" hidden>
+              <label for="editor-finale-ziel">Ziel</label>
+              <input id="editor-finale-ziel" type="text" placeholder="z. B. Grindelwald" maxlength="200" />
+              <p class="insp-hinweis">Leer = Ortsname am Streckenende.</p>
+            </div>
+            <p class="tour-fuss">Wird mit „Speichern“ übernommen.</p>
+          </div>
+        </div>
         <div class="insp-inhalt" id="insp-inhalt" hidden></div>
         <div class="insp-fuss" id="insp-fuss" hidden></div>
         <!-- Datei-Auswahl für den Audio-Upload; ausgelöst aus dem „+"-Menü
@@ -2406,28 +2431,6 @@
         <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
       </aside>
     </div>
-    <!-- Angaben zur ganzen Tour. Sie gehören keinem Objekt der Zeitleiste und
-         standen deshalb früher im Leerzustand des Inspectors — dort las es sich
-         wie eine Einstellung des Nichts. Übernommen wird beim Speichern. -->
-    <dialog id="tour-dialog" class="tour-dialog">
-      <div class="tour-kopf">
-        <strong>Angaben zur Tour</strong>
-        <button class="icon" id="tour-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
-      </div>
-      <div class="tour-inhalt">
-        <div class="feld">
-          <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
-               per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
-          <label for="editor-titel">Titel</label>
-          <input id="editor-titel" type="text" placeholder="Titel der Tour" />
-        </div>
-        <div class="feld">
-          <label for="editor-beschreibung">Beschreibung</label>
-          <textarea id="editor-beschreibung" rows="5" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
-        </div>
-        <p class="tour-fuss">Beides wird mit „Speichern" übernommen.</p>
-      </div>
-    </dialog>
     <!-- Musik- & Klangbibliothek: Filter-Tabs + Suche + Kachelraster (aus SFX_BIBLIOTHEK) -->
     <dialog id="sfx-dialog" class="sfx-dialog">
       <div class="sfx-kopf">

@@ -85,6 +85,13 @@ const MIGRATIONEN: string[] = [
   ALTER TABLE users ADD COLUMN profil_sichtbarkeit TEXT NOT NULL DEFAULT 'private'
     CHECK (profil_sichtbarkeit IN ('private','public'));
   `,
+  // Optionaler Endscreen („Ziel erreicht"). Standard aus: die meisten Touren
+  // haben kein konkretes Ziel — der Player kehrt dann zum Startscreen zurück.
+  // `finale_ziel` ist der vom Autor gesetzte Zielname; leer = Ortsname am Ende.
+  `
+  ALTER TABLE tours ADD COLUMN finale INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE tours ADD COLUMN finale_ziel TEXT;
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

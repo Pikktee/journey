@@ -83,6 +83,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   "kicker": "Aufgezeichnet am 4. Juli 2026",
   "titleHtml": "Lauterbrunnen<br />→ Grindelwald",
   "stops": ["Lauterbrunnen", "Grindelwald"],
+  "showFinale": false,
   "finaleTitle": "Grindelwald",
   "description": null,
   "time": { "start": "…", "end": "…", "zone": "Europe/Zurich" },
@@ -100,6 +101,9 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 
 - Die Kopf-Felder (`no`…`finaleTitle`) sind bewusst deckungsgleich mit der
   statischen `TOURS`-Registry (`src/tours.js`) — der Adapter reicht sie durch.
+  `showFinale` steuert den Endscreen: `false` (Default bei aufgezeichneten
+  Touren) → Player kehrt zum Startscreen zurück; `true` → „Ziel erreicht" mit
+  `finaleTitle`. Kuratierte Demo-Touren setzen `showFinale: true`.
 - `media` wird im Player zu `cfg.photos`; die vorhandene Anker→`nearestS`→
   Stopp-Gruppierung greift unverändert. `type: video` (M4) zeigt im Foto-Overlay
   ein `<video>`: stumme Autoplay-Wiedergabe, Haltedauer = Videolänge (statt fester
@@ -178,9 +182,10 @@ Auto-Wetter — die Edits bleiben dabei erhalten).
 Kern-Designentscheid: Edits referenzieren **stabile Anker** — Medien-IDs,
 Koordinaten und absolute Zeitstempel, **nie den Streckenanteil `f`**. Ein Trim
 verschiebt so keine nachfolgenden Bearbeitungen (Anker hängen an Koordinaten,
-Grenzen an Uhrzeiten). Titel/Beschreibung liegen bewusst NICHT im Overlay,
-sondern in den DB-Spalten (`PATCH /api/tours/:id`) — eine Quelle der Wahrheit
-pro Feld. Anwendungsreihenfolge in der Pipeline (`pipeline/edits.ts`):
+Grenzen an Uhrzeiten). Titel, Beschreibung und Endscreen (`finale` /
+`finale_ziel`) liegen bewusst NICHT im Overlay, sondern in den DB-Spalten
+(`PATCH /api/tours/:id`) — eine Quelle der Wahrheit pro Feld.
+Anwendungsreihenfolge in der Pipeline (`pipeline/edits.ts`):
 Trim → Modus-Grenzen → Auto-Platzierung → Medien-Overrides; Benennung,
 Timeline und Wetter rechnen danach auf dem bearbeiteten Track.
 

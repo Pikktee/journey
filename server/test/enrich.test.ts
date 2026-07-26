@@ -27,6 +27,7 @@ describe('reichereAn', () => {
     expect(tour.no).toBe('N°07')
     expect(tour.brandTitle).toBe('Lauterbrunnen → Grindelwald')
     expect(tour.stops).toEqual(['Lauterbrunnen', 'Grindelwald'])
+    expect(tour.showFinale).toBe(false)
     expect(tour.finaleTitle).toBe('Grindelwald')
     expect(tour.time.zone).toBe('Europe/Zurich')
     // Segmente: Modus + Label + Punkte OHNE Zeit-Offset
@@ -160,6 +161,19 @@ describe('reichereAn', () => {
     const tour = await reichereAn(eingabe({ titelOverride: 'Mein Tag im Oberland' }))
     expect(tour.brandTitle).toBe('Mein Tag im Oberland')
     expect(tour.titleHtml).toContain('<br />')
+  })
+
+  it('Endscreen: Default aus, Zielname aus Override oder Geocoding', async () => {
+    const aus = await reichereAn(eingabe())
+    expect(aus.showFinale).toBe(false)
+    expect(aus.finaleTitle).toBe('Grindelwald')
+
+    const an = await reichereAn(eingabe({ showFinale: true, finaleZielOverride: 'Gletscherschlucht' }))
+    expect(an.showFinale).toBe(true)
+    expect(an.finaleTitle).toBe('Gletscherschlucht')
+
+    const leer = await reichereAn(eingabe({ showFinale: true, finaleZielOverride: '  ' }))
+    expect(leer.finaleTitle).toBe('Grindelwald')
   })
 
   it('rendert eine monotone timeline aus den Zeit-Offsets (M2)', async () => {

@@ -288,7 +288,11 @@ map.on('load', () => {
   map.touchZoomRotate.disable()
   map.touchPitch.disable()
 
-  const tour = new Tour(map, route, stops, ui, { modes, moments })
+  const tour = new Tour(map, route, stops, ui, {
+    modes,
+    moments,
+    showFinale: cfg.showFinale === true,
+  })
   Object.assign(window.__j, { tour, rider })
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
@@ -610,10 +614,7 @@ map.on('load', () => {
   document.getElementById('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
   document.getElementById('btn-replay').addEventListener('click', () => tour.restart())
   // Vom „Ziel erreicht“-Screen zurück ins Hauptmenü (wie der Dock-Menü-Knopf)
-  document.getElementById('btn-finale-menu').addEventListener('click', () => {
-    setClean(false)
-    tour.toMenu()
-  })
+  document.getElementById('btn-finale-menu').addEventListener('click', () => tour.toMenu())
 
   // — Hintergrundmusik (unaufdringlich, nahtlos geloopt) — läuft während der
   // Track-Animation (Fahrt/Foto), pausiert im Menü; per Dock-Knopf abschaltbar.
@@ -905,6 +906,9 @@ map.on('load', () => {
     uiBtn.setAttribute('aria-label', on ? 'UI einblenden' : 'UI ausblenden')
     uiBtn.setAttribute('aria-pressed', String(on))
   }
+  // Menü-Rücksprung (Dock, Finale-Button, Tourende ohne Endscreen) räumt den
+  // Kino-Modus auf — ein Hook am Tour-Objekt, weil setClean erst hier entsteht.
+  tour.onToMenu = () => setClean(false)
   uiBtn.addEventListener('click', () => setClean(!document.body.classList.contains('ui-clean')))
 
   // — Auto-Rückzug der Bedienelemente auf Touch —
@@ -933,11 +937,8 @@ map.on('load', () => {
     planeRueckzug()
   }
 
-  // Zurück ins Hauptmenü — ein evtl. aktiver Kino-Modus endet dabei mit
-  document.getElementById('btn-menu').addEventListener('click', () => {
-    setClean(false)
-    tour.toMenu()
-  })
+  // Zurück ins Hauptmenü — Kino-Modus räumt onToMenu auf
+  document.getElementById('btn-menu').addEventListener('click', () => tour.toMenu())
 
   // Player verlassen (nur im App-Modus sichtbar): die Android-App stellt dafür
   // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa

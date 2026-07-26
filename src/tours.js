@@ -9,6 +9,7 @@ export const TOURS = {
     kicker: 'Eine Reise durch das',
     titleHtml: 'Berner<br />Oberland',
     stops: ['Lauterbrunnen', 'Zweilütschinen', 'Lütschental', 'Grindelwald'],
+    showFinale: true,
     finaleTitle: 'Grindelwald',
     // Pseudo-Timestamps: Streckenanteil ↦ linear interpolierte Uhrzeit.
     // Mittsommer — Aufbruch in der Morgendämmerung, Ankunft zur goldenen Stunde
@@ -112,6 +113,7 @@ export const TOURS = {
     kicker: 'Ein Sommertag in',
     titleHtml: 'Stockholm<br />& Schären',
     stops: ['Gamla Stan', 'Djurgården', 'Fjäderholmarna', 'Vaxholm'],
+    showFinale: true,
     finaleTitle: 'Vaxholm',
     // Spätsommertag bis in die Nacht: Sonnenuntergang ~20:10, Finale im Dunkeln
     time: { start: '2025-08-24T09:30:00+02:00', end: '2025-08-24T23:00:00+02:00', zone: 'Europe/Stockholm' },
@@ -355,6 +357,7 @@ export const TOURS = {
     kicker: 'Von Mittag bis Mitternacht auf',
     titleHtml: 'Koh<br />Pha-ngan',
     stops: ['Thong Sala', 'Baan Tai', 'Phaeng', 'Thong Nai Pan', 'Haad Rin'],
+    showFinale: true,
     finaleTitle: 'Haad Rin',
     // Vollmond-Tag 2025-05-12 (laut Open-Meteo real verregnet). Nachmittag: schwül,
     // Regen, Gewitter über dem Inselinneren (kuratiert via `weather`), abends aufklarend.

@@ -108,6 +108,13 @@ Beim Erweitern hilft eine Frage: **Kann ein Mensch das entscheiden?**
 - **Nein, aber es kostet einen externen Aufruf** → zusätzlich in den
   Anreicherungs-Cache, damit das nächste Edit ihn nicht erneut auslöst.
 
+### Tour-weite Meta (Titel, Beschreibung, Endscreen)
+
+Titel, Beschreibung und der optionale Endscreen (`finale` / `finale_ziel`)
+liegen wie bisher in den **DB-Spalten** und werden per `PATCH /api/tours/:id`
+gesetzt — nicht im Overlay. Die Pipeline liest sie als Overrides und schreibt
+`showFinale` / `finaleTitle` ins Tour-JSON.
+
 ### Der Grenzfall: automatisch erzeugt, aber änderbar
 
 Auto-Wetter und Auto-Musik sind beides. Die Regel dafür: **Was jemand

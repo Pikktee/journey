@@ -163,6 +163,10 @@ export interface EditorDaten {
   status: string
   title: string | null
   description: string | null
+  /** Endscreen „Ziel erreicht" (Default false) */
+  finale: boolean
+  /** Zielname für den Endscreen; null/leer = Ortsname am Ende */
+  finaleZiel: string | null
   time: { start: string; end: string; zone: string }
   segmente: Array<{ mode: string; pts: Array<[number, number, number, number]> }>
   medien: EditorMedium[]
@@ -188,7 +192,13 @@ export function speichereEdits(id: string, edits: unknown): Promise<{ ok: boolea
 
 export function patchTour(
   id: string,
-  felder: { title?: string; description?: string; visibility?: 'private' | 'unlisted' | 'public' },
+  felder: {
+    title?: string
+    description?: string
+    finale?: boolean
+    finaleZiel?: string
+    visibility?: 'private' | 'unlisted' | 'public'
+  },
 ): Promise<unknown> {
   return anfrage(`/tours/${id}`, { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
 }

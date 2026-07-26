@@ -77,6 +77,11 @@ export class Tour {
     this.ui = ui
     this.moments = opts.moments ?? [] // [{ s, art, dauerS? }] Kamera-Momente, aufsteigend
     this.modes = opts.modes ?? [{ s: 0, mode: 'bike', label: 'Rad' }]
+    // Endscreen nur wenn ausdrücklich an (Studio) bzw. bei kuratierten Demo-Touren.
+    // Sonst zurück zum Startscreen — die meisten Touren haben kein konkretes Ziel.
+    this.showFinale = opts.showFinale === true
+    /** Optional: UI-Aufräumen beim Rücksprung ins Menü (Kino-Modus aus) */
+    this.onToMenu = opts.onToMenu ?? null
     const sc0 = MODE_SCALE[this.modes[0].mode] ?? MODE_SCALE.bike
     this.scaleSm = new Smooth(sc0.behind)
     this.hoverSm = new Smooth(sc0.hover)
@@ -425,6 +430,7 @@ export class Tour {
     // Orbit dort weiterdrehen, wo die Kamera gerade steht (kein Sprung)
     this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
     this.ui.syncDots(0)
+    this.onToMenu?.()
     this.ui.showMenu()
     this.updateMapLock() // Intro-Orbit: Karte gesperrt wie beim ersten Laden
   }
@@ -808,14 +814,19 @@ export class Tour {
     }
 
     if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && this.phase !== 'moment' && !this.scrubbing && this.playing) {
-      if (this.phase !== 'finale') {
+      // Ohne Endscreen: wieder der Startscreen — kein „Ziel erreicht" ohne Ziel.
+      if (!this.showFinale) {
+        this.toMenu()
+      } else if (this.phase !== 'finale') {
         this.phase = 'finale'
         this.glide = 2.2
         this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
         this.ui.showFinale()
       }
-      this.orbitA += 3 * dt
-      this.updateOrbitCamera(dt, this.mid, this.ovR * 0.78, this.ovA * 0.65)
+      if (this.phase === 'finale') {
+        this.orbitA += 3 * dt
+        this.updateOrbitCamera(dt, this.mid, this.ovR * 0.78, this.ovA * 0.65)
+      }
     } else {
       // Fahrt: Der Blickpunkt IST der Fahrer — er bleibt dadurch immer exakt in
       // der Bildmitte. Die Kamera hängt in festem Luftlinien-Abstand hinter einer

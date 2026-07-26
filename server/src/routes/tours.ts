@@ -47,6 +47,10 @@ export interface TourZeile {
   client_tour_id: string | null
   title: string | null
   description: string | null
+  /** 0/1: Endscreen „Ziel erreicht" zeigen (Default 0) */
+  finale: number
+  /** Zielname für den Endscreen; null/leer = geocodierter Ortsname am Ende */
+  finale_ziel: string | null
   stats_json: string | null
   /** Titelbild-Pfad (wie media[].src); beim Rendern gesetzt, NULL vor dem ersten Render */
   cover: string | null
@@ -219,8 +223,17 @@ export function registriereTourRouten(app: FastifyInstance): void {
     return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
   })
 
-  // — Metadaten ändern (Titel/Beschreibung/Sichtbarkeit) —
-  app.patch<{ Params: { id: string }; Body: { title?: string; description?: string; visibility?: TourZeile['visibility'] } }>(
+  // — Metadaten ändern (Titel/Beschreibung/Finale/Sichtbarkeit) —
+  app.patch<{
+    Params: { id: string }
+    Body: {
+      title?: string
+      description?: string
+      finale?: boolean
+      finaleZiel?: string
+      visibility?: TourZeile['visibility']
+    }
+  }>(
     '/api/tours/:id',
     {
       schema: {
@@ -230,6 +243,8 @@ export function registriereTourRouten(app: FastifyInstance): void {
           properties: {
             title: { type: 'string', minLength: 1, maxLength: 200 },
             description: { type: 'string', maxLength: 5000 },
+            finale: { type: 'boolean' },
+            finaleZiel: { type: 'string', maxLength: 200 },
             visibility: { enum: ['private', 'unlisted', 'public'] },
           },
         },
@@ -241,19 +256,35 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const tour = nurOwner(app, request.params.id, benutzer.id, reply)
       if (!tour) return
 
-      const { title, description, visibility } = request.body
+      const { title, description, finale, finaleZiel, visibility } = request.body
+      // finale: undefined → NULL → COALESCE behält den alten Wert; false → 0, true → 1.
+      const finaleWert = finale === undefined ? null : finale ? 1 : 0
       db.prepare(
         `UPDATE tours SET title = COALESCE(?, title), description = COALESCE(?, description),
+         finale = COALESCE(?, finale), finale_ziel = COALESCE(?, finale_ziel),
          visibility = COALESCE(?, visibility), updated_at = ? WHERE id = ?`,
-      ).run(title ?? null, description ?? null, visibility ?? null, new Date().toISOString(), tour.id)
+      ).run(
+        title ?? null,
+        description ?? null,
+        finaleWert,
+        finaleZiel ?? null,
+        visibility ?? null,
+        new Date().toISOString(),
+        tour.id,
+      )
 
       // Bereits gerenderte Tour: Texte im tour.json nachziehen — asynchron und
       // über denselben Status-Claim wie finalize (nie zwei Renderer parallel,
       // Antwort hängt nicht an Nominatim). Läuft gerade eine Verarbeitung,
       // ist nichts zu tun: sie liest die eben aktualisierte DB-Zeile.
-      // ACHTUNG: gegen undefined prüfen, nicht truthy — description '' ist
-      // ein legitimes Leeren und muss genauso neu rendern (Review-Fund M7).
-      if (tour.status === 'bereit' && (title !== undefined || description !== undefined)) {
+      // ACHTUNG: gegen undefined prüfen, nicht truthy — description '' / finale false
+      // sind legitime Werte und müssen genauso neu rendern (Review-Fund M7).
+      const textGeaendert =
+        title !== undefined ||
+        description !== undefined ||
+        finale !== undefined ||
+        finaleZiel !== undefined
+      if (tour.status === 'bereit' && textGeaendert) {
         const claim = db
           .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status = 'bereit'`)
           .run(new Date().toISOString(), tour.id)
@@ -387,6 +418,8 @@ export function registriereTourRouten(app: FastifyInstance): void {
       status: tour.status,
       title: tour.title,
       description: tour.description,
+      finale: !!tour.finale,
+      finaleZiel: tour.finale_ziel,
       time: manifest.time,
       // Original-Segmente, fürs Netz vereinfacht — behält [lng,lat,ele,tOffsetS]
       segmente: segmente.map((s) => ({ mode: s.mode, pts: vereinfacheSegment(s.pts) })),
@@ -698,6 +731,8 @@ async function verarbeite(
       manifest,
       titelOverride: tour.title,
       beschreibungOverride: tour.description,
+      showFinale: !!tour.finale,
+      finaleZielOverride: tour.finale_ziel,
       ...(edits ? { edits } : {}),
       audioDateien,
       orte,

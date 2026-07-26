@@ -845,6 +845,31 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(tour.description).toBe('')
   })
 
+  it('Endscreen ist standardmäßig aus und per PATCH einschaltbar', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id)
+    await finalisiere(u, id)
+    const editor = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    ).json() as { finale: boolean; finaleZiel: string | null }
+    expect(editor.finale).toBe(false)
+    expect(editor.finaleZiel).toBeNull()
+    const roh = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    expect(roh.showFinale).toBe(false)
+
+    await u.app.inject({
+      method: 'PATCH',
+      url: `/api/tours/${id}`,
+      cookies: u.cookies,
+      payload: { finale: true, finaleZiel: 'Gletscherschlucht' },
+    })
+    await u.app.verarbeitungen.get(id)
+    const an = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })).json() as TourJson
+    expect(an.showFinale).toBe(true)
+    expect(an.finaleTitle).toBe('Gletscherschlucht')
+  })
+
   it('Editor-Daten melden kaputtes GPX als 409 mit Ursache statt 500 (Review-Fund)', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u, gpxManifest())

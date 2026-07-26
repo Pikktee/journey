@@ -166,6 +166,12 @@ interface Zustand {
   auswahl: TrackPunkt | null
   /** fokussiertes Objekt (Band, Audio-Spur, Medium) — siehe Fokus */
   fokus: Fokus | null
+  /**
+   * Tour-Einstellungen im Inspector (Titel/Beschreibung/Endscreen).
+   * Bewusst getrennt vom Leerzustand und von `fokus`: Einstieg über Titel/„…",
+   * Auswahl eines Zeitleisten-Objekts schließt die Ansicht wieder.
+   */
+  tourEinstellungen: boolean
   /** Medien-ID im „auf den Track klicken"-Platzieren-Modus */
   platzieren: string | null
   /** frühere Overlay-Stände (Undo), ältester zuerst */
@@ -245,6 +251,7 @@ export async function oeffneEditor(tourId: string, zurueck: () => void): Promise
 async function ladeDaten(tourId: string): Promise<void> {
   const daten = await api.editorDaten(tourId)
   const edits = ((daten.edits as EditOverlay | null) ?? LEERES_OVERLAY)
+  const einstellungenOffen = z?.tourId === tourId && z.tourEinstellungen
   z = {
     tourId,
     daten,
@@ -255,6 +262,7 @@ async function ladeDaten(tourId: string): Promise<void> {
     // Sonderlage mehr, sondern die immer sichtbare Position auf der Achse.
     auswahl: null,
     fokus: null,
+    tourEinstellungen: !!einstellungenOffen,
     platzieren: null,
     historie: [],
     zukunft: [],
@@ -262,6 +270,10 @@ async function ladeDaten(tourId: string): Promise<void> {
   letzterStand = edits
   ;($('editor-titel') as HTMLInputElement).value = daten.title ?? ''
   ;($('editor-beschreibung') as HTMLTextAreaElement).value = daten.description ?? ''
+  const finaleAn = !!daten.finale
+  ;($('editor-finale') as HTMLInputElement).checked = finaleAn
+  ;($('editor-finale-ziel') as HTMLInputElement).value = daten.finaleZiel ?? ''
+  ;($('editor-finale-ziel-feld') as HTMLElement).hidden = !finaleAn
   zeigeTitelImKopf()
   ;($('editor-vorschau') as HTMLAnchorElement).href = `/erlebnis.html?tour=srv:${tourId}`
   ;($('editor-vorschau') as HTMLAnchorElement).style.display = daten.status === 'bereit' ? '' : 'none'
@@ -1466,16 +1478,28 @@ function zeitFest(text: string): HTMLElement {
 /**
  * Inspector: zeigt das fokussierte Objekt mit seinen Werten und Zeiten und
  * lässt es dort ändern. Beginn UND Ende eines Zustands sind bearbeitbar — sie
- * sind dieselbe Kante wie der Anfang des Nachbarn.
+ * sind dieselbe Kante wie der Anfang des Nachbarn. Tour-Einstellungen sind
+ * eine eigene Ansicht (nicht der Leerzustand).
  */
 function renderInspektor(): void {
   if (!z) return
   const inhalt = $('insp-inhalt')
   const fuss = $('insp-fuss')
   const leer = $('insp-leer')
+  const tourPanel = $('insp-tour')
   inhalt.innerHTML = ''
   fuss.innerHTML = ''
   const info = loeseFokusAuf()
+  // Zeitleisten-Auswahl verdrängt die Tour-Einstellungen
+  if (info) z.tourEinstellungen = false
+  if (z.tourEinstellungen) {
+    leer.hidden = true
+    tourPanel.hidden = false
+    inhalt.hidden = true
+    fuss.hidden = true
+    return
+  }
+  tourPanel.hidden = true
   if (!info) {
     leer.hidden = false
     inhalt.hidden = true
@@ -3597,15 +3621,24 @@ async function speichern(): Promise<void> {
       const antwort = await api.speichereEdits(z.tourId, z.edits)
       if (antwort.status === 'verarbeitung') await warteAufBereit(z.tourId)
     }
-    // 2. Titel/Beschreibung (falls geändert) — eigener Endpunkt, eigener Re-Render;
+    // 2. Titel/Beschreibung/Finale (falls geändert) — eigener Endpunkt, eigener Re-Render;
     //    bewusst NACH dem Overlay, damit sich die Renderer nie überlappen
     const titel = ($('editor-titel') as HTMLInputElement).value.trim()
     const beschreibung = ($('editor-beschreibung') as HTMLTextAreaElement).value.trim()
-    const felder: { title?: string; description?: string } = {}
+    const finale = ($('editor-finale') as HTMLInputElement).checked
+    const finaleZiel = ($('editor-finale-ziel') as HTMLInputElement).value.trim()
+    const felder: {
+      title?: string
+      description?: string
+      finale?: boolean
+      finaleZiel?: string
+    } = {}
     if (titel && titel !== (z.daten.title ?? '')) felder.title = titel
     if (beschreibung !== (z.daten.description ?? '')) felder.description = beschreibung
+    if (finale !== !!z.daten.finale) felder.finale = finale
+    if (finaleZiel !== (z.daten.finaleZiel ?? '')) felder.finaleZiel = finaleZiel
     if (Object.keys(felder).length) {
-      status('Titel/Beschreibung werden gespeichert …')
+      status('Tour-Einstellungen werden gespeichert …')
       await api.patchTour(z.tourId, felder)
       // Nur warten, wenn PATCH wirklich einen Re-Render gestartet hat — auf
       // einer fehler-Tour würde warteAufBereit sonst den ALTEN Pipeline-
@@ -3622,22 +3655,33 @@ async function speichern(): Promise<void> {
   }
 }
 
-// — Angaben zur ganzen Tour —
+// — Tour-Einstellungen —
 //
-// Titel und Beschreibung gehören keinem Objekt der Zeitleiste. Sie standen
-// deshalb früher im LEERZUSTAND des Inspectors — dort, wo nichts ausgewählt
-// ist, las sich das wie eine Einstellung des Nichts. Jetzt liegen sie in einem
-// eigenen Fenster, erreichbar über den Titel im Kopf und über das „…"-Menü.
+// Titel, Beschreibung und Endscreen gehören keinem Objekt der Zeitleiste. Sie
+// standen deshalb früher im LEERZUSTAND des Inspectors — dort, wo nichts
+// ausgewählt ist, las sich das wie eine Einstellung des Nichts. Jetzt liegen
+// sie als eigene Ansicht im rechten Panel, erreichbar über den Titel im Kopf
+// und über das „…"-Menü.
 
-/** Den (ggf. im Dialog geänderten) Titel oben in der Leiste zeigen. */
+/** Den (ggf. geänderten) Titel oben in der Leiste zeigen. */
 function zeigeTitelImKopf(): void {
   const titel = ($('editor-titel') as HTMLInputElement).value.trim()
   $('editor-titel-knopf').textContent = titel
 }
 
-function oeffneTourDialog(): void {
-  ;($('tour-dialog') as HTMLDialogElement).showModal()
+/** Tour-Einstellungen im Inspector öffnen (nicht Modal). */
+function oeffneTourEinstellungen(): void {
+  if (!z) return
+  halteAbspielen()
+  z.fokus = null
+  z.tourEinstellungen = true
+  renderAlles()
   ;($('editor-titel') as HTMLInputElement).focus()
+}
+
+function syncFinaleZielFeld(): void {
+  const an = ($('editor-finale') as HTMLInputElement).checked
+  ;($('editor-finale-ziel-feld') as HTMLElement).hidden = !an
 }
 
 async function neuVerarbeiten(): Promise<void> {
@@ -3664,7 +3708,7 @@ function verdrahteEinmal(): void {
   verdrahtet = true
   $('editor-zurueck').addEventListener('click', schliesse)
   $('editor-speichern').addEventListener('click', () => void speichern())
-  $('editor-titel-knopf').addEventListener('click', oeffneTourDialog)
+  $('editor-titel-knopf').addEventListener('click', oeffneTourEinstellungen)
   // „…" — was die ganze Tour betrifft, nicht das gerade Ausgewählte.
   $('editor-mehr').addEventListener('click', (e) => {
     e.stopPropagation()
@@ -3678,18 +3722,15 @@ function verdrahteEinmal(): void {
     menue.className = 'schwebe-menue'
     menue.dataset['tour'] = '1'
     menue.append(
-      menueEintrag('Angaben zur Tour …', oeffneTourDialog),
+      menueEintrag('Tour-Einstellungen', oeffneTourEinstellungen),
       menueEintrag('Neu verarbeiten', () => void neuVerarbeiten()),
     )
     zeigeSchwebeMenue(menue, knopf)
   })
-  $('tour-schliessen').addEventListener('click', () => ($('tour-dialog') as HTMLDialogElement).close())
   // Der Kopf zeigt den Titel — er muss dem Feld folgen, sonst steht dort der
   // alte Name, bis die Tour neu geladen wird.
   $('editor-titel').addEventListener('input', zeigeTitelImKopf)
-  $('tour-dialog').addEventListener('click', (e) => {
-    if (e.target === $('tour-dialog')) ($('tour-dialog') as HTMLDialogElement).close()
-  })
+  $('editor-finale').addEventListener('change', syncFinaleZielFeld)
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)
   $('karte-plus').addEventListener('click', () => {

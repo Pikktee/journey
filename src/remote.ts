@@ -34,6 +34,8 @@ export interface TourJsonAntwort {
   kicker: string
   titleHtml: string
   stops: string[]
+  /** Ob der Player den „Ziel erreicht"-Screen zeigt */
+  showFinale?: boolean
   finaleTitle: string
   description: string | null
   time: { start: string; end: string; zone: string }
@@ -59,6 +61,8 @@ export interface RemoteTourCfg {
   kicker: string
   titleHtml: string
   stops: string[]
+  /** true = Endscreen; fehlt/false = zurück zum Startscreen */
+  showFinale?: boolean
   finaleTitle: string
   time: { start: string; end: string; zone: string }
   segments: Array<{ mode: string; label: string; pts: Array<[number, number, number]> }>
@@ -121,6 +125,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     kicker: tour.kicker,
     titleHtml: tour.titleHtml,
     stops: tour.stops,
+    showFinale: tour.showFinale === true,
     finaleTitle: tour.finaleTitle,
     time: tour.time,
     segments: tour.segments,
