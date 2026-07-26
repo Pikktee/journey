@@ -1,11 +1,12 @@
 // Tour-eigene Audio-Spuren (Kreativbaukasten): vom Autor im Studio hinterlegte
 // Musik-Bereiche und SFX-One-Shots, verankert am Streckenanteil f (cfg.audio aus
-// remote.ts). Musik läuft, solange der Playhead im Bereich [f0,f1) steht — mit
-// träger Blende an den Grenzen (wie music.js); SFX feuern einmalig beim
+// remote.ts). Musik läuft geloopt, solange der Playhead im Bereich [f0,f1) steht —
+// mit träger Blende an den Grenzen (wie music.js); SFX feuern einmalig beim
 // Vorwärts-Überfahren ihres f0 (nur echte Wiedergabe, keine Scrub-/Seek-Sprünge).
-// Läuft nur, wenn das Gate wahr ist (z.B. „Tour läuft/Foto/Scrub") — Pause friert
-// den Ton über die Level-Rampe ein, Menü/Finale blenden aus (Gate in main.js).
-// setDucking: Video-Ton senkt laufende Musik (nicht SFX) auf VIDEO_DUCK ab.
+// Läuft nur, wenn das Gate wahr ist (z.B. „Tour läuft/Foto/Scrub"). Pause INNERHALB
+// des Bereichs stoppt den Ton SOFORT und hält die Position — Weiterlaufen setzt
+// genau dort fort (wie im Studio-Abspieler). Bereich verlassen / Musik aus: weiche
+// Blende. setDucking: Video-Ton senkt laufende Musik (nicht SFX) auf VIDEO_DUCK ab.
 
 // — Reine Helfer (DOM-frei) — direkt testbar (test/audiotracks.test.ts, Node ohne Audio) —
 
@@ -65,21 +66,32 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
           // src, sonst lädt der Browser schon beim Anlegen (erst play() lädt)
           spur.el = new Audio()
           spur.el.preload = 'none'
-          spur.el.loop = false
+          // Loop bis zur Bereichsgrenze — wie im Studio (abspielen.ts); ohne Loop
+          // verstummte die Spur, sobald die Datei einmal durchgelaufen war.
+          spur.el.loop = true
           spur.el.src = spur.src
         }
         spur.el.currentTime = 0
         if (want) spur.el.play().catch(() => { spur.blocked = true })
       }
       spur.drin = drin
-      const tgt = want ? vol(spur) : 0
-      spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.js)
       const el = spur.el
       if (!el) continue
+
+      // Pause innerhalb des Bereichs (Gate zu, Playhead noch drin): Ton SOFORT
+      // stoppen, Position und Level halten — Weiterlaufen setzt genau dort fort.
+      // Bereich verlassen / Musik aus: unten die weiche Blende.
+      if (drin && !offen) {
+        if (!el.paused) el.pause()
+        el.volume = Math.max(0, Math.min(1, spur.level * duck))
+        continue
+      }
+
+      const tgt = want ? vol(spur) : 0
+      spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.js)
       el.volume = Math.max(0, Math.min(1, spur.level * duck))
-      // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren; eine ausgelaufene
-      // Datei (ended) bleibt still bis zum nächsten Bereichs-Eintritt (der resettet)
-      if (want && el.paused && !spur.blocked && !el.ended) el.play().catch(() => { spur.blocked = true })
+      // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren
+      if (want && el.paused && !spur.blocked) el.play().catch(() => { spur.blocked = true })
       if (!want && !el.paused && spur.level < 0.004) el.pause()
     }
   }, 60)

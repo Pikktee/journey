@@ -626,9 +626,10 @@ map.on('load', () => {
   music?.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
 
-  // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub und friert bei Pause
-  // ein (Level-Rampe) — bewusst anders als music.js, denn die eigene Musik gehört
-  // zur SZENE, nicht zur App. Menü (intro) und Finale blenden aus.
+  // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub. Pause stoppt sie
+  // sofort und hält die Abspielposition (audiotracks.js); Bereichsgrenzen und
+  // Menü/Finale blenden weich aus. Bewusst anders als music.js — die eigene
+  // Musik gehört zur SZENE, nicht zur App.
   tourAudio?.setGate(
     () => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing || tour.phase === 'photo'),
   )
