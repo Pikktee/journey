@@ -50,7 +50,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -199,12 +198,12 @@ fun TourScreen(
                     Spacer(Modifier.height(30.dp))
                     Abschnittstitel("Beschreibung")
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
+                    MarkenFeld(
                         value = beschreibung ?: "",
                         onValueChange = { beschreibung = it },
                         placeholder = { Text("Was war das für ein Tag?") },
                         modifier = Modifier.fillMaxWidth().height(104.dp),
-                        textStyle = MaterialTheme.typography.bodyMedium,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = Tinte),
                     )
                     Spacer(Modifier.height(26.dp))
                     // Löschen steht unten, nicht in der Kopfleiste: Es ist der

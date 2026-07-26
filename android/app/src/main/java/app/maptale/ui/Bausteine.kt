@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,7 +28,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +58,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -63,8 +69,102 @@ import app.maptale.aufzeichnung.Projektion
 import app.maptale.aufzeichnung.Spurpunkt
 import app.maptale.aufzeichnung.aufLinie
 import app.maptale.aufzeichnung.balleFotos
-import java.util.Locale
 import kotlin.math.hypot
+
+/** Pill-Radius für Primär-CTAs (DESIGN.md `rounded.full`). */
+val Pill = RoundedCornerShape(50)
+
+/**
+ * Explizite Eingabefarben — Creme auf bg-deep, nie System-Schwarz auf Grau.
+ * Material3 kann ohne das je nach Geräte-Theme die Default-Palette durchreichen.
+ */
+@Composable
+fun markenEingabeFarben(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Tinte,
+    unfocusedTextColor = Tinte,
+    disabledTextColor = Tinte.copy(alpha = 0.38f),
+    errorTextColor = Tinte,
+    focusedContainerColor = Nacht,
+    unfocusedContainerColor = Nacht,
+    disabledContainerColor = Nacht.copy(alpha = 0.6f),
+    errorContainerColor = Nacht,
+    cursorColor = Sonne,
+    focusedBorderColor = Sonne,
+    unfocusedBorderColor = Color(0xFF3C4650),
+    disabledBorderColor = Color(0xFF3C4650).copy(alpha = 0.4f),
+    errorBorderColor = Alarm,
+    focusedLabelColor = Sonne,
+    unfocusedLabelColor = Gedaempft,
+    disabledLabelColor = Gedaempft.copy(alpha = 0.5f),
+    errorLabelColor = Alarm,
+    focusedPlaceholderColor = Gedaempft,
+    unfocusedPlaceholderColor = Gedaempft,
+)
+
+/** OutlinedTextField mit Markenfarben — Standard für Anmeldung und Formulare. */
+@Composable
+fun MarkenFeld(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: @Composable (() -> Unit)? = null,
+    placeholder: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
+    singleLine: Boolean = false,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(color = Tinte),
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = label,
+        placeholder = placeholder,
+        enabled = enabled,
+        singleLine = singleLine,
+        visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions,
+        textStyle = textStyle,
+        shape = MaterialTheme.shapes.small,
+        colors = markenEingabeFarben(),
+    )
+}
+
+/**
+ * Primär-CTA: Amber→Coral-Verlauf, Pill, Text auf dunklem Braun.
+ */
+@Composable
+fun PrimaerKnopf(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    inhalt: @Composable () -> Unit,
+) {
+    val interaktion = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .height(52.dp)
+            .clip(Pill)
+            .background(VerlaufPrimaer, Pill)
+            .then(
+                if (!enabled) Modifier.background(Color(0x9906090E), Pill)
+                else Modifier,
+            )
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaktion,
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) { inhalt() }
+    }
+}
 
 /**
  * Runder Knopf, der über einem Bild schwebt.
@@ -288,13 +388,16 @@ fun Routenskizze(
 /** Was die Skizze zeichnet und was ein Tipp trifft — dieselben Koordinaten. */
 private data class Skizzengeometrie(val linie: List<Bildpunkt>, val fotos: List<Fotopunkt>)
 
-/** Kleine gesperrte Versal-Überschrift — die Gliederung der Website. */
+/**
+ * Abschnittsüberschrift — Titelstil, keine Versal-Dachzeile.
+ * DESIGN.md: keine Eyebrows; Gliederung über Gewicht und Farbe, nicht Tracking.
+ */
 @Composable
 fun Abschnittstitel(text: String, modifier: Modifier = Modifier) {
     Text(
-        text.uppercase(Locale.GERMAN),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = Gedaempft,
         modifier = modifier,
     )
 }

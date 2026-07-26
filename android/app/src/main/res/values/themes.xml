@@ -4,5 +4,8 @@
     <style name="Theme.Maptale" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/maptale_nacht</item>
         <item name="android:statusBarColor">@color/maptale_nacht</item>
+        <item name="android:navigationBarColor">@color/maptale_nacht</item>
+        <item name="android:colorBackground">@color/maptale_nacht</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

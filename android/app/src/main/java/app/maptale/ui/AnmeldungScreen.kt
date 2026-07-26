@@ -4,18 +4,22 @@
 // Konto anlegen läuft über die Website (Registrierung/Verifikation im Studio).
 package app.maptale.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -37,25 +40,26 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
     val laedt = zustand is EinstellungenViewModel.Zustand.Laedt
 
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 28.dp),
+        Modifier
+            .fillMaxSize()
+            .background(Nacht)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 28.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        // Erst der Markenschriftzug, dann der Satz von der Website — das ist
-        // die erste Ansicht der App und die einzige Stelle, an der sie sich
-        // vorstellen kann.
-        Text(
-            "MAPTALE",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(32.dp))
+        Wortmarke(markenGroesse = 32.dp)
+        Spacer(Modifier.height(22.dp))
         Text(
             "Deine Reisen als filmischer Flug über echtes Gelände.",
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.headlineSmall,
+            color = Tinte,
         )
         Spacer(Modifier.height(34.dp))
 
-        OutlinedTextField(
+        MarkenFeld(
             value = email,
             onValueChange = { email = it },
             label = { Text("E-Mail") },
@@ -65,7 +69,7 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
             enabled = !laedt,
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
+        MarkenFeld(
             value = passwort,
             onValueChange = { passwort = it },
             label = { Text("Passwort") },
@@ -76,31 +80,36 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
             enabled = !laedt,
         )
         Spacer(Modifier.height(20.dp))
-        Button(
+        PrimaerKnopf(
             onClick = { viewModel.anmelden(email.trim(), passwort) },
             enabled = !laedt && email.isNotBlank() && passwort.isNotBlank(),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             if (laedt) {
                 CircularProgressIndicator(
                     Modifier.size(16.dp).padding(end = 8.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = AufCta,
                 )
             }
-            Text("Anmelden")
+            Text(
+                "Anmelden",
+                style = MaterialTheme.typography.labelLarge,
+                color = AufCta,
+            )
         }
 
         (zustand as? EinstellungenViewModel.Zustand.Fehler)?.let {
             Spacer(Modifier.height(12.dp))
-            Text(it.nachricht, color = MaterialTheme.colorScheme.error)
+            Text(it.nachricht, color = Alarm, style = MaterialTheme.typography.bodyMedium)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
         Text(
             "Noch kein Konto? Registriere dich auf maptale.henrikheil.net.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Gedaempft,
         )
+        Spacer(Modifier.height(32.dp))
     }
 }

@@ -22,40 +22,49 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** Der Akzent der Marke — Maptale Sonnen-Orange. */
+/** Der Akzent der Marke — Amber (DESIGN.md `primary` / `amber`). */
 val Sonne = Color(0xFFF59E0B)
 
-/** Warmer Verlauf- & Akzent-Farbton. */
+/** Warmer Verlauf- & Zweitakzent (DESIGN.md `coral`). */
 val Koralle = Color(0xFFFF6F52)
 
-/** Warmes Cremeweiß statt reinem Weiß: ruhiger auf großen dunklen Flächen. */
+/** Warmes Cremeweiß auf Dunkel (DESIGN.md `text` / `on-surface`). */
 val Tinte = Color(0xFFF2EDE3)
 
-/** Der Grund, auf dem alles liegt. */
+/** Seitengrund — bg-deep. */
 val Nacht = Color(0xFF06090E)
 
-/** Erhobene Flächen: Leisten, Blätter, Eingaben. */
+/** Kachel- / Flächengrund — bg. */
+val NachtBg = Color(0xFF0A0D14)
+
+/** Erhobene Flächen: Leisten, Blätter. */
 val NachtFlaeche = Color(0xFF10151C)
 
-/** Gedämpfte Schrift — warmes Grau, damit es zur Tinte gehört. */
-val Gedaempft = Color(0xFF9C978E)
+/** Gedämpfte Schrift ≈ muted (Tinte @ 64 %). */
+val Gedaempft = Color(0xA3F2EDE3)
 
-/** Aufnahme und Fehler. */
+/** Text auf Amber/Coral-CTAs (DESIGN.md `on-cta`). */
+val AufCta = Color(0xFF1A1206)
+
+/** Aufnahme und Fehler — bewusst nicht Koralle. */
 val Alarm = Color(0xFFE5484D)
+
+/** Amber → Coral, Primär-CTAs. */
+val VerlaufPrimaer = Brush.linearGradient(listOf(Sonne, Koralle))
 
 private val DunklesSchema = darkColorScheme(
     primary = Sonne,
-    onPrimary = Color(0xFF1B1206),
+    onPrimary = AufCta,
     primaryContainer = Color(0xFF3B2A0F),
     onPrimaryContainer = Color(0xFFFFD9A0),
 
-    // Ausgewählte Chips und Ähnliches: warmer Grund, goldene Schrift — kein
-    // zweiter Farbklang, der mit der Sonne konkurriert.
+    // Ausgewählte Chips: warmer Grund, goldene Schrift — kein zweiter Klang.
     secondary = Color(0xFFCBB893),
-    onSecondary = Color(0xFF1B1206),
+    onSecondary = AufCta,
     secondaryContainer = Color(0xFF2A2118),
     onSecondaryContainer = Sonne,
 
@@ -66,22 +75,21 @@ private val DunklesSchema = darkColorScheme(
 
     background = Nacht,
     onBackground = Tinte,
-    surface = Nacht,
+    surface = NachtBg,
     onSurface = Tinte,
     surfaceVariant = Color(0xFF1A212A),
     onSurfaceVariant = Gedaempft,
     surfaceTint = Color.Transparent,
 
-    // Die Abstufungen, aus denen Material Blätter, Menüs und Dialoge baut
     surfaceContainerLowest = Color(0xFF03060A),
     surfaceContainerLow = Color(0xFF0B0F15),
     surfaceContainer = NachtFlaeche,
     surfaceContainerHigh = Color(0xFF161C25),
     surfaceContainerHighest = Color(0xFF1E252F),
 
-    // Ränder von Eingabefeldern (outline) sichtbar, Trennlinien (Variant) leise
+    // line ≈ rgba(255,255,255,0.08); Outline etwas kräftiger für Eingaben
     outline = Color(0xFF3C4650),
-    outlineVariant = Color(0xFF232B35),
+    outlineVariant = Color(0x14FFFFFF),
 
     error = Alarm,
     onError = Color(0xFF2A0A0C),
@@ -94,14 +102,13 @@ private val DunklesSchema = darkColorScheme(
     scrim = Color(0xFF000000),
 )
 
-// Etwas straffer als Materials Vorgabe: stark gerundete Ecken lassen jede
-// Fläche nach Knopf aussehen. Chips und Marken-Plaketten runden separat voll.
+// DESIGN.md: Cards ≈ 12–16 px; CTAs sind separat Pill (PrimaerKnopf).
 private val Formen = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraSmall = RoundedCornerShape(7.dp),
+    small = RoundedCornerShape(9.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(24.dp),
 )
 
 @Composable

@@ -94,8 +94,11 @@ fun MaptaleNavigation() {
     val konto by app.einstellungen.konto.collectAsState(initial = null)
 
     when {
-        konto == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+        konto == null -> Box(
+            Modifier.fillMaxSize().background(Nacht),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(color = Sonne)
         }
         konto?.angemeldet != true -> AnmeldungScreen(
             viewModel = viewModel(factory = MaptaleViewModelFactory(app)),

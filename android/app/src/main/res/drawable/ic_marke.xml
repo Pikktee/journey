@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- In-App-Marke — deckungsgleich mit public/logo-mark.svg. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+
+    <path
+        android:pathData="M20,4 a16,16 0 1,1 0,32 a16,16 0 1,1 0,-32"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M20,4 a8,16 0 1,1 0,32 a8,16 0 1,1 0,-32"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="1.2"
+        android:strokeAlpha="0.45"
+        android:fillColor="#00000000" />
+
+    <path
+        android:pathData="M8,22 C14,14 26,26 32,18"
+        android:strokeColor="#FF6F52"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <path
+        android:pathData="M8,22 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0"
+        android:fillColor="#FF6F52" />
+
+    <path
+        android:pathData="M32,18 m-2.5,0 a2.5,2.5 0 1,1 5,0 a2.5,2.5 0 1,1 -5,0"
+        android:fillColor="#FFFFFF" />
+</vector>

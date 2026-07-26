@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -169,12 +168,22 @@ fun AufzeichnungScreen(
         }
 
         // — Bedienung —
-        Button(
+        PrimaerKnopf(
             onClick = { kameraLauncher.launch(Manifest.permission.CAMERA) },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text("Foto aufnehmen", Modifier.padding(start = 10.dp))
+            Icon(
+                Icons.Default.PhotoCamera,
+                contentDescription = null,
+                tint = AufCta,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                "Foto aufnehmen",
+                Modifier.padding(start = 10.dp),
+                color = AufCta,
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
         Spacer(Modifier.height(10.dp))
         Row(
@@ -230,8 +239,8 @@ private fun Zustandsmarke(pausiert: Boolean) {
                 .background(if (pausiert) MaterialTheme.colorScheme.onSurfaceVariant else Alarm),
         )
         Text(
-            if (pausiert) "PAUSIERT" else "AUFZEICHNUNG",
-            style = MaterialTheme.typography.labelSmall,
+            if (pausiert) "Pausiert" else "Aufzeichnung",
+            style = MaterialTheme.typography.labelMedium,
             color = if (pausiert) MaterialTheme.colorScheme.onSurfaceVariant else Tinte,
         )
     }
@@ -244,8 +253,8 @@ private fun Wert(wert: String, beschriftung: String) {
         Text(wert, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(3.dp))
         Text(
-            beschriftung.uppercase(Locale.GERMAN),
-            style = MaterialTheme.typography.labelSmall,
+            beschriftung,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

@@ -210,14 +210,14 @@ private fun LeereListe(modifier: Modifier = Modifier) {
             modifier = Modifier.size(44.dp),
         )
         Spacer(Modifier.height(20.dp))
-        Text("Noch keine Tour", style = MaterialTheme.typography.headlineMedium)
+        Text("Noch keine Tour", style = MaterialTheme.typography.headlineMedium, color = Tinte)
         Spacer(Modifier.height(10.dp))
         Text(
             // Der Knopf ist gelb, nicht rot — er wird es erst, während
             // aufgezeichnet wird.
             "Tippe unten auf den gelben Knopf, und Maptale zeichnet deinen Weg auf.",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Gedaempft,
             textAlign = TextAlign.Center,
         )
     }

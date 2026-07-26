@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Markenfarben des Web-Players: fast schwarze Nacht + Sonnen-Akzent.
-         Muss zu `Nacht` in ui/Theme.kt passen — dieser Wert füllt das Fenster,
-         bevor Compose zeichnet; eine Abweichung blitzt beim Start als Farbsprung
-         auf. -->
+    <!-- Markenfarben — deckungsgleich mit DESIGN.md / Theme.kt.
+         windowBackground muss zu `Nacht` passen, sonst Farbsprung beim Start. -->
     <color name="maptale_nacht">#06090E</color>
-    <color name="maptale_sonne">#F5A623</color>
+    <color name="maptale_bg">#0A0D14</color>
+    <color name="maptale_sonne">#F59E0B</color>
+    <color name="maptale_koralle">#FF6F52</color>
+    <color name="maptale_tinte">#F2EDE3</color>
 </resources>

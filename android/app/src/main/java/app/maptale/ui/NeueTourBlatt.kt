@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -87,12 +86,22 @@ fun NeueTourBlatt(
                 }
             }
 
-            Button(
+            PrimaerKnopf(
                 onClick = { starten(modus) },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Aufzeichnen", Modifier.padding(start = 10.dp))
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = AufCta,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    "Aufzeichnen",
+                    Modifier.padding(start = 10.dp),
+                    color = AufCta,
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
             Spacer(Modifier.height(8.dp))
         }

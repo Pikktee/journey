@@ -51,7 +51,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -216,22 +215,21 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
         Spacer(Modifier.height(26.dp))
         Abschnittstitel("Öffentliches Profil")
         Spacer(Modifier.height(14.dp))
-        OutlinedTextField(
+        MarkenFeld(
             value = anzeigename.orEmpty(),
             onValueChange = { anzeigename = it },
             label = { Text("Anzeigename") },
             placeholder = { Text("Wie du in der Galerie erscheinst") },
             singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
+        MarkenFeld(
             value = bio.orEmpty(),
             onValueChange = { bio = it },
             label = { Text("Über dich") },
             placeholder = { Text("Ein, zwei Sätze") },
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Tinte),
             modifier = Modifier.fillMaxWidth().height(104.dp),
         )
 
@@ -406,8 +404,8 @@ private fun Kennzahl(wert: String, beschriftung: String, modifier: Modifier = Mo
         Text(wert, style = MaterialTheme.typography.displayMedium.copy(fontSize = 30.sp))
         Spacer(Modifier.height(4.dp))
         Text(
-            beschriftung.uppercase(Locale.GERMAN),
-            style = MaterialTheme.typography.labelSmall,
+            beschriftung,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
