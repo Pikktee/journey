@@ -170,9 +170,20 @@ export function musikVersatzS(anteil: number, klipVon: number, rate: number, dau
   return dauerS > 0 ? seit % dauerS : seit
 }
 
-/** Musik-Bereich an einer Position (halboffen [von, bis) wie im Player). */
-export function klipBei(musik: readonly MusikKlip[], anteil: number): MusikKlip | null {
-  return musik.find((k) => anteil >= k.von && anteil < k.bis) ?? null
+/**
+ * ALLE Musik-Bereiche an einer Position (halboffen [von, bis) wie im Player),
+ * als Indizes in den Plan. Überlappende Bereiche mischen sich im fertigen Film
+ * (audiotracks.js spielt je Spur ein eigenes Element) — die Schnittprüfung
+ * muss dasselbe hören, sonst prüft sie einen anderen Film. Indizes statt
+ * Klips, weil zwei Bereiche dieselbe Datei tragen können: die Identität ist
+ * der Platz im Plan, nicht die URL.
+ */
+export function klipsBei(musik: readonly MusikKlip[], anteil: number): number[] {
+  const indizes: number[] = []
+  musik.forEach((k, i) => {
+    if (anteil >= k.von && anteil < k.bis) indizes.push(i)
+  })
+  return indizes
 }
 
 // — Der Abspieler: rAF-Schleife, Ton und Rückrufe in den Editor —
@@ -197,8 +208,9 @@ export interface Abspieler {
   halteAn: () => void
   laeuft: () => boolean
   tempo: () => number
-  /** Debug/E2E: welche Musik gerade läuft (das Element hängt nicht im DOM). */
-  tonStand: () => { url: string | null; laeuft: boolean }
+  /** Debug/E2E: welche Musik gerade läuft (die Elemente hängen nicht im DOM).
+   *  `urls` listet ALLE laufenden Spuren — bei Überlappung mehr als eine. */
+  tonStand: () => { url: string | null; laeuft: boolean; urls: string[] }
   /** Alles verstummen und Elemente freigeben (Editor verlassen) */
   schliesse: () => void
 }
@@ -209,27 +221,18 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
   let af: number | null = null
   let letzteTs = 0
 
-  // Das Audio-Element entsteht erst, wenn wirklich Musik gebraucht wird — eine
-  // Tour ohne Musikspur soll keins anlegen (und die reine Logik bleibt damit
-  // auch ohne Browser prüfbar).
-  let musik: HTMLAudioElement | null = null
-  let musikUrl: string | null = null
+  // Je Musik-Klip (Index im Plan) ein EIGENES Element — überlappende Bereiche
+  // mischen sich damit wie im fertigen Film, statt einander zu verdrängen.
+  // Elemente entstehen erst beim ersten Eintritt in ihren Bereich; eine Tour
+  // ohne Musikspur legt keins an (die reine Logik bleibt ohne Browser prüfbar).
+  let musikElemente = new Map<number, HTMLAudioElement>()
 
-  function holeMusik(): HTMLAudioElement {
-    if (!musik) {
-      musik = new Audio()
-      musik.loop = true
-      musik.preload = 'none'
-    }
-    return musik
-  }
   // Laufende Klänge merken, damit Pause sie WIRKLICH verstummen lässt — ein
   // angestoßener Donner klänge sonst nach dem Anhalten sekundenlang weiter.
   let aktiveKlaenge: HTMLAudioElement[] = []
 
   function stoppeKlaenge(): void {
-    musik?.pause()
-    musikUrl = null
+    for (const el of musikElemente.values()) el.pause()
     for (const a of aktiveKlaenge) {
       a.pause()
       try {
@@ -245,32 +248,55 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     // Nur bei normaler Vorwärtsfahrt: im Schnelllauf oder rückwärts klänge sie
     // wie ein durchgedrehter Kassettenrekorder. Der Foto-Halt behält Tempo 1,
     // die Musik trägt also durch ihn hindurch.
-    const klip = plan && stand.tempo === 1 ? klipBei(plan.musik, anteil) : null
-    if ((klip?.url ?? null) === musikUrl) return
-    musikUrl = klip?.url ?? null
-    if (!klip || !plan) {
-      musik?.pause()
-      return
+    const aktiv = plan && stand.tempo === 1 ? klipsBei(plan.musik, anteil) : []
+    const aktivSet = new Set(aktiv)
+    // Verlassene Bereiche verstummen; die Position bleibt stehen (Weiterlaufen
+    // im Bereich seekt unten ohnehin auf die Film-Position).
+    for (const [i, el] of musikElemente) {
+      if (!aktivSet.has(i) && !el.paused) el.pause()
     }
-    const el = holeMusik()
-    el.src = klip.url
-    el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
-    const rate = plan.rate
-    el.addEventListener(
-      'loadedmetadata',
-      () => {
-        if (!el.duration) return
-        try {
-          el.currentTime = musikVersatzS(anteil, klip.von, rate, el.duration)
-        } catch {
-          /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
+    if (!plan) return
+    for (const i of aktiv) {
+      const klip = plan.musik[i]
+      if (!klip) continue
+      let el = musikElemente.get(i)
+      if (!el) {
+        el = new Audio()
+        el.loop = true
+        el.preload = 'none'
+        el.src = klip.url
+        el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
+        const rate = plan.rate
+        const beiEintritt = anteil
+        el.addEventListener(
+          'loadedmetadata',
+          () => {
+            if (!el || !el.duration) return
+            try {
+              el.currentTime = musikVersatzS(beiEintritt, klip.von, rate, el.duration)
+            } catch {
+              /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
+            }
+          },
+          { once: true },
+        )
+        musikElemente.set(i, el)
+        void el.play().catch(() => {
+          /* Autoplay-Sperre: der Play-Knopf ist eine Geste, danach greift es */
+        })
+      } else if (el.paused) {
+        // Wiedereintritt oder Weiterlaufen nach Pause: auf die Stelle seeken,
+        // die im Film JETZT liefe — ohne die Datei neu zu laden.
+        if (el.duration) {
+          try {
+            el.currentTime = musikVersatzS(anteil, klip.von, plan.rate, el.duration)
+          } catch {
+            /* s. o. */
+          }
         }
-      },
-      { once: true },
-    )
-    void el.play().catch(() => {
-      /* Autoplay-Sperre: der Play-Knopf ist eine Geste, danach greift es */
-    })
+        void el.play().catch(() => {})
+      }
+    }
   }
 
   function pruefeKlaenge(vorher: number, nachher: number): void {
@@ -354,11 +380,14 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     halteAn,
     laeuft: () => stand.tempo !== 0,
     tempo: () => stand.tempo,
-    tonStand: () => ({ url: musikUrl, laeuft: !!musik && !musik.paused }),
+    tonStand: () => {
+      const laufende = [...musikElemente.values()].filter((el) => !el.paused)
+      return { url: laufende[0]?.src ?? null, laeuft: laufende.length > 0, urls: laufende.map((el) => el.src) }
+    },
     schliesse: () => {
       halteAn()
-      musik?.removeAttribute('src')
-      musik = null
+      for (const el of musikElemente.values()) el.removeAttribute('src')
+      musikElemente = new Map()
       plan = null
     },
   }

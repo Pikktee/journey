@@ -92,6 +92,10 @@ components:
     backgroundColor: "{colors.bg-deep}"
     textColor: "{colors.text}"
     rounded: "{rounded.md}"
+  flash-message:
+    backgroundColor: "linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96))"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
 ---
 
 # Design System: Maptale
@@ -172,6 +176,15 @@ Primär-CTAs dürfen einen warmen Amber-Glow tragen. Player: dezentes Grain + Vi
 - **Tour cards:** erlaubt — sie sind die Interaktion (Abspielen/Öffnen). Titelbild + optional
   Routen-Signatur.
 - **Profil-Chip:** Pill mit Initialen-Punkt im Amber→Coral-Verlauf.
+- **Flash Messages (Statusmeldungen):** Erfolgs-, Fehler- und Laufmeldungen erscheinen als
+  schwebende dunkle Kapsel mittig unter der Kopfleiste — nie als Textzeile im Header.
+  Fläche `linear-gradient(165deg, rgba(26,34,45,.95), rgba(9,12,17,.96))` mit Rand `line`,
+  Radius `lg`, weichem Schatten und Backdrop-Blur; Text Outfit, ein konkreter Satz.
+  Drei Arten: **Erfolg** (Haken in Grün, blendet nach ~4 s aus), **Fehler** (× in Rot, ~7 s),
+  **laufend** („wird gespeichert …", Amber-Kreisel, bleibt bis zur Ablösung). Eine Meldung
+  zur Zeit — eine neue ersetzt die alte mit kurzem Puls, kein Stapel. Ausnahme modale
+  Dialoge: der Browser-Top-Layer liegt über allem, dort meldet eine Fußzeile IM Dialog
+  (s. Bibliothek im Studio), kein Toast dahinter. Referenz: `.editor-flash` in `studio.html`.
 - **Assets:** Favicon, Apple-Touch und Logo unter `public/` / `public/branding/` — nicht neu erfinden.
 
 ## Do's and Don'ts

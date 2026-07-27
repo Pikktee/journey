@@ -937,7 +937,41 @@
     }
     .editor-titel:hover { border-color: var(--rand); background: var(--bg-tief); }
     .editor-titel:empty::before { content: 'Ohne Titel'; color: var(--text-3); }
-    #editor-status { flex: 1; text-align: right; padding-right: 4px; }
+    .kopf-luft { flex: 1; }
+    /* — Flash-Meldung: Rückmeldungen schweben als dunkle Kapsel mittig unter
+       der Kopfleiste ein, statt als Textzeile im Header zu kleben (DESIGN.md
+       → Flash Messages). EIN Element; eine neue Meldung ersetzt die alte. */
+    .editor-flash {
+      position: absolute; left: 50%; top: 66px; transform: translate(-50%, -8px);
+      display: flex; align-items: center; gap: 10px;
+      max-width: min(560px, calc(100vw - 32px));
+      padding: 10px 16px 11px; border-radius: 12px;
+      font-size: 13px; line-height: 1.45; color: var(--text);
+      background: linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96));
+      border: 1px solid var(--rand-hell);
+      box-shadow: 0 16px 38px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(10px) saturate(1.15);
+      opacity: 0; pointer-events: none; z-index: 40;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+    }
+    .editor-flash.zeigt { opacity: 1; transform: translate(-50%, 0); }
+    .editor-flash svg { width: 15px; height: 15px; flex: none; }
+    .editor-flash.ok svg { color: var(--gruen); }
+    .editor-flash.fehler svg { color: var(--rot); }
+    /* Laufende Meldung („wird gespeichert …"): Amber-Kreisel statt Symbol. */
+    .editor-flash .kreisel {
+      width: 13px; height: 13px; flex: none; border-radius: 50%;
+      border: 2px solid var(--rand-hell); border-top-color: var(--akzent);
+      animation: flashKreisel 800ms linear infinite;
+    }
+    @keyframes flashKreisel { to { transform: rotate(360deg); } }
+    /* Ersetzt eine sichtbare Meldung die andere, pulst die Kapsel kurz — das
+       translate steckt MIT in der Animation (transform ist EINE Eigenschaft). */
+    .editor-flash.pop { animation: flashPop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+    @keyframes flashPop {
+      0% { transform: translate(-50%, 0) scale(0.96); }
+      100% { transform: translate(-50%, 0) scale(1); }
+    }
 
     /* — Tour-Einstellungen (Inspector-Panel) — */
     .insp-tour {
@@ -1492,9 +1526,11 @@
          und macht Anfang/Ende ungreifbar. Der Name clippt selbst. */
     }
     .zl-klip:active { cursor: grabbing; }
+    /* Klip-Titel in Outfit wie die Zustandsbänder — Mono ist bei Maptale den
+       Zahlen (tabular-nums) vorbehalten, nicht den Namen. */
     .zl-klip span {
-      position: absolute; inset: 0; padding-left: 6px; line-height: 22px;
-      font-family: var(--font-mono); font-size: 10px; color: var(--text);
+      position: absolute; inset: 0; padding-left: 7px; line-height: 22px;
+      font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
     }
     .zl-klip .kante { position: absolute; top: -2px; bottom: -2px; width: 14px; transform: none; cursor: ew-resize; }
@@ -1651,18 +1687,84 @@
        in einem überlaufenden Flex-Container auf 0 kollabieren und den Knopf
        unter die Falz schieben. */
     .insp-fuss { flex: none; padding: 12px 18px; border-top: 1px solid var(--rand); }
+    /* Die Objektart ist die ÜBERSCHRIFT des Panels — eine kleine Outfit-Headline
+       statt der alten Versal-Mono-Dachzeile (die ist aus der Marke verschwunden).
+       Kein Farbchip: die Spur-Farbe trägt schon das fokussierte Band selbst. */
     .insp-art {
-      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--akzent); display: flex; align-items: center; gap: 7px;
-      padding-bottom: 13px; border-bottom: 1px solid var(--rand);
+      font-family: var(--font-display); font-size: 16px; font-weight: 600;
+      letter-spacing: -0.015em; color: var(--text);
+      padding-bottom: 12px; border-bottom: 1px solid var(--rand);
     }
-    .insp-art .farbe { width: 9px; height: 9px; border-radius: 3px; flex: none; }
     /* Nur noch für Tour-Einstellungen — bei Zeitleisten-Objekten reicht der Kicker. */
     .insp-titel { font-family: var(--font-display); font-size: 19px; line-height: 1.25; margin: -6px 0 0; }
     /* Erklärung unter einem Feld — soll gelesen werden können, ohne zu drängen */
     .insp-hinweis { margin: -4px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-3); }
+
+    /* — Aufnahme-Details: ausklappbarer Block über <details>. Geschlossen ist er
+       eine ruhige Zeile, offen ein Angaben-Raster; das Pfeil-Icon dreht sich. */
+    /* flex: none ist PFLICHT: der Inspector-Inhalt ist eine Flex-Spalte, und ein
+       Item mit viel Inhalt wird darin gestaucht statt den Container scrollen zu
+       lassen — der aufgeklappte Block war so 2 px hoch (Zeilen im DOM, nichts zu
+       sehen). Gleiche Sorte Falle wie „margin-top: auto kollabiert im Overflow". */
+    .insp-info { flex: none; border: 1px solid var(--rand); border-radius: 10px; background: var(--fl-2); overflow: hidden; }
+    .insp-info summary {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; cursor: pointer; list-style: none;
+      font-size: 12.5px; color: var(--text-2);
+      transition: color 130ms ease, background 130ms ease;
+    }
+    .insp-info summary::-webkit-details-marker { display: none; }
+    .insp-info summary:hover { color: var(--text); background: var(--fl-3); }
+    .insp-info summary svg { width: 14px; height: 14px; flex: none; color: var(--text-3); }
+    /* Erstes Icon = ⓘ, letztes = der Pfeil ganz rechts (dreht beim Öffnen). */
+    .insp-info summary svg:last-child { margin-left: auto; transition: transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+    .insp-info[open] summary { color: var(--text); border-bottom: 1px solid var(--rand); }
+    .insp-info[open] summary svg:last-child { transform: rotate(90deg); }
+    .insp-info summary:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.55); }
+    .insp-info-raster { margin: 0; padding: 4px 12px 10px; }
+    /* Beschriftung links, Wert rechts — Zahlen mit tabular-nums, damit
+       Auflösungen und Zeiten untereinander stehen (DESIGN.md). */
+    .insp-info-zeile {
+      display: grid; grid-template-columns: 88px 1fr; gap: 10px; align-items: baseline;
+      padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .insp-info-zeile:last-of-type { border-bottom: none; }
+    .insp-info-zeile dt { font-size: 11.5px; color: var(--text-3); }
+    .insp-info-zeile dd {
+      margin: 0; font-size: 12.5px; color: var(--text);
+      font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+    }
+    .insp-info-fuss { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: var(--text-3); }
     .feld { display: flex; flex-direction: column; gap: 5px; }
-    .feld > label { font-size: 11.5px; color: var(--text-3); }
+    .feld > label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
+    /* Erklärung zu einem Feld hinter einem ⓘ statt als Nachsatz in der
+       Beschriftung (gleiches Muster wie .sfx-wie in der Bibliothek). */
+    .feld-wie {
+      position: relative; display: inline-grid; place-items: center;
+      width: 15px; height: 15px; border-radius: 50%;
+      color: var(--text-3); cursor: help; outline: none;
+    }
+    .feld-wie svg { width: 12.5px; height: 12.5px; }
+    .feld-wie:hover, .feld-wie:focus { color: var(--text-2); }
+    .feld-wie:focus-visible { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55); }
+    .feld-wie-blase {
+      position: absolute; left: -8px; top: calc(100% + 8px);
+      width: max-content; max-width: 250px; padding: 8px 11px 9px; border-radius: 10px;
+      font-size: 11.5px; line-height: 1.45; color: var(--text-2); white-space: normal;
+      background: linear-gradient(165deg, rgba(26, 34, 45, 0.96), rgba(9, 12, 17, 0.97));
+      border: 1px solid var(--rand-hell);
+      box-shadow: 0 14px 30px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      opacity: 0; transform: translateY(4px);
+      pointer-events: none; transition: opacity 150ms ease, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+      z-index: 6;
+    }
+    .feld-wie-blase::after {
+      content: ''; position: absolute; left: 11px; top: -5px; width: 9px; height: 9px;
+      background: rgb(24, 31, 41); transform: rotate(45deg); border-top-left-radius: 2px;
+      border-left: 1px solid var(--rand-hell); border-top: 1px solid var(--rand-hell);
+    }
+    /* :focus statt :focus-visible — Touch hat kein Hover (s. .sfx-wie). */
+    .feld-wie:hover .feld-wie-blase, .feld-wie:focus .feld-wie-blase { opacity: 1; transform: none; }
     .feld select, .feld input[type='text'], .feld input[type='number'] { width: 100%; font-size: 13px; }
     .feld input[type='range'] { width: 100%; accent-color: var(--akzent); }
     .feld .mit-wert { display: flex; align-items: center; gap: 9px; }
@@ -1763,7 +1865,12 @@
     }
     .gross figcaption { text-align: center; }
     .gross .gt { font-family: var(--font-display); font-size: 20px; }
-    .gross .gm { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-top: 3px; }
+    /* Outfit mit tabular-nums statt Mono: Zahlen bleiben ruhig ausgerichtet,
+       die Schrift ist die der Marke (DESIGN.md — kein Mono „weil Zahlen"). */
+    .gross .gm {
+      font-family: var(--font-ui); font-size: 12.5px; color: var(--text-3);
+      margin-top: 4px; font-variant-numeric: tabular-nums;
+    }
     .gross .zu, .gross .blaettern {
       position: absolute; display: grid; place-items: center; padding: 0;
       background: rgba(255, 255, 255, 0.06); border: 1px solid var(--rand-hell); color: var(--text-2);
@@ -2059,21 +2166,8 @@
       .editor-links { display: contents; }
       .insp-griff { display: none; }
       .editor-seite { border-left: none; border-top: 1px solid var(--rand); }
-      /* Status als Streifen UNTER den Kopf, statt ihn auszublenden — sonst sind
-         Speicher- und Fehlermeldungen auf schmalen Viewports unsichtbar. */
-      .editor-kopf { position: relative; }
-      #editor-status {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        margin: 0;
-        padding: 7px 14px;
-        background: rgba(13, 17, 24, 0.94);
-        border-bottom: 1px solid var(--rand);
-        z-index: 6;
-      }
-      #editor-status:empty { display: none; }
+      /* Die Flash-Meldung schwebt auch hier unter dem Kopf — nur schmaler. */
+      .editor-flash { max-width: calc(100vw - 24px); top: 62px; }
       /* Kopf-Aktionen icon-only, damit Speichern nie aus dem Bild läuft */
       .editor-kopf :is(button:not(.icon), .knopf) { font-size: 0; gap: 0; padding: 10px; }
       /* Schmalere Namenspalte der Zeitleiste; der Kopf darf umbrechen */
@@ -2461,13 +2555,16 @@
       <!-- Der Titel ist der Name des Stücks, an dem man arbeitet: hier steht er,
            geändert wird er in den Tour-Einstellungen (Klick oder „…"-Menü). -->
       <button class="editor-titel" id="editor-titel-knopf" title="Tour-Einstellungen"></button>
-      <div class="hinweis" id="editor-status" role="status"></div>
+      <div class="kopf-luft" aria-hidden="true"></div>
       <button class="icon" id="editor-undo" disabled title="Rückgängig (⌘Z)" aria-label="Rückgängig"><svg><use href="#i-undo"/></svg></button>
       <button class="icon" id="editor-redo" disabled title="Wiederherstellen (⇧⌘Z)" aria-label="Wiederherstellen"><svg><use href="#i-redo"/></svg></button>
       <a id="editor-vorschau" class="knopf" href="#" target="_blank" rel="noopener"><svg><use href="#i-play"/></svg>Vorschau</a>
       <button id="editor-speichern" class="primaer"><svg><use href="#i-haken"/></svg>Speichern</button>
       <button class="icon" id="editor-mehr" aria-haspopup="menu" aria-expanded="false" title="Weitere Funktionen" aria-label="Weitere Funktionen"><svg><use href="#i-mehr"/></svg></button>
     </header>
+    <!-- Flash-Meldung: Erfolg/Fehler/laufender Vorgang, schwebt unter dem
+         Kopf ein (status() in editor.ts; Gestaltung s. DESIGN.md). -->
+    <div class="editor-flash" id="editor-flash" role="status" aria-live="polite"></div>
     <div class="editor-rumpf" id="editor-rumpf">
       <div class="editor-links">
         <div class="karten-buehne">
@@ -2595,7 +2692,8 @@
              Einstieg über den Titel in der Kopfleiste oder „…" → Tour-Einstellungen. -->
         <div class="insp-tour" id="insp-tour" hidden>
           <div class="insp-inhalt">
-            <div class="insp-art">Tour</div>
+            <!-- Keine Art-Zeile „Tour" über dem Titel: seit die Art die
+                 Panel-Überschrift ist, wären das zwei Überschriften. -->
             <h2 class="insp-titel">Tour-Einstellungen</h2>
             <div class="feld">
               <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich

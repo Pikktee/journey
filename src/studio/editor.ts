@@ -69,6 +69,7 @@ import {
 } from './zeitleiste.js'
 import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt, type SfxTyp } from './sfxbibliothek.js'
 import { baueStopps, dOffsetOhneCluster, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
+import { beschreibeAufnahme, liesAufnahme, type ExifAufnahme } from './exif.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
 import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
 
@@ -1410,11 +1411,26 @@ function hinweis(text: string): HTMLElement {
 }
 
 /** Beschriftetes Feld mit einem Bedienelement darin. */
-function feld(label: string, inhalt: HTMLElement): HTMLElement {
+/** Feld mit Beschriftung; `erklaerung` hängt als ⓘ-Tooltip an der Beschriftung,
+ *  statt sie mit einem Nachsatz zu verlängern (Muster wie in der Bibliothek). */
+function feld(label: string, inhalt: HTMLElement, erklaerung?: string): HTMLElement {
   const d = document.createElement('div')
   d.className = 'feld'
   const l = document.createElement('label')
   l.textContent = label
+  if (erklaerung) {
+    const wie = document.createElement('span')
+    wie.className = 'feld-wie'
+    wie.tabIndex = 0
+    wie.setAttribute('aria-label', erklaerung)
+    wie.innerHTML = icon('info')
+    const blase = document.createElement('span')
+    blase.className = 'feld-wie-blase'
+    blase.setAttribute('role', 'tooltip')
+    blase.textContent = erklaerung
+    wie.appendChild(blase)
+    l.appendChild(wie)
+  }
   d.append(l, inhalt)
   return d
 }
@@ -1622,12 +1638,6 @@ function renderInspektor(): void {
   // die Einstellungen darunter legen das bereits fest.
   const kicker = document.createElement('div')
   kicker.className = 'insp-art'
-  if (info.mode) {
-    const farbe = document.createElement('span')
-    farbe.className = 'farbe'
-    farbe.style.background = MODUS_FARBEN[info.mode]
-    kicker.appendChild(farbe)
-  }
   kicker.append(ART_NAMEN[info.art])
   inhalt.append(kicker)
 
@@ -1648,7 +1658,8 @@ function renderInspektor(): void {
       z.fokus = istModus ? { art: 'modus', bezugS } : { art: 'kamera', bezugS }
       renderAlles()
     })
-    inhalt.appendChild(feld(istModus ? 'Fortbewegung' : 'Kamera-Abstand', wahl))
+    // „Art" statt einer Wiederholung des Panel-Titels — der sagt schon, worum es geht.
+    inhalt.appendChild(feld(istModus ? 'Art' : 'Kamera-Abstand', wahl))
 
     if (!istModus && info.preset) {
       const ab = info.ab ?? offsetZuIso(start, info.vonS)
@@ -1678,7 +1689,7 @@ function renderInspektor(): void {
       z.fokus = { art: 'wetter', bezugS }
       renderAlles()
     })
-    inhalt.appendChild(feld('Wetter', wahl))
+    inhalt.appendChild(feld('Wetterlage', wahl))
     if (!(z.edits.wetter ?? []).length && info.wetterMode) {
       inhalt.appendChild(
         hinweis('Automatisch ermittelt aus dem Wetterarchiv, an den Fotos nachgeschärft. Die erste Änderung übernimmt die ganze Einteilung zur Bearbeitung.'),
@@ -1852,6 +1863,100 @@ function audioZeitSetzen(index: number, teil: 'ab' | 'bis', neuOffsetS: number):
   return geklemmt
 }
 
+// — Aufnahme-Details (ausklappbar): was in der Datei über die Aufnahme steht —
+//
+// Die Kameradaten stehen im EXIF-Block der JPEG-Datei, also am DATEIANFANG:
+// geholt werden per Range-Request nur die ersten 256 KB, und das auch erst beim
+// ersten Aufklappen. Das Panel bleibt dadurch so schnell wie zuvor, und wer die
+// Details nie öffnet, lädt nie ein Byte extra.
+
+/** Aufgeklappt? Modulweit, damit ein Render den Bereich nicht wieder zuklappt. */
+let infoOffen = false
+/** EXIF je Medien-ID; null = geladen, aber ohne Kameradaten (oder Fehler). */
+const exifCache = new Map<string, ExifAufnahme | null>()
+/** Erste Bytes einer Datei — mehr braucht der EXIF-Block nie. */
+const EXIF_BYTES = 262_144
+
+async function ladeAufnahmeDaten(m: MediumAnzeige): Promise<ExifAufnahme | null> {
+  try {
+    const antwort = await fetch(m.src, { credentials: 'same-origin', headers: { range: `bytes=0-${EXIF_BYTES - 1}` } })
+    if (!antwort.ok) return null
+    const daten = liesAufnahme(await antwort.arrayBuffer())
+    return Object.keys(daten).length ? daten : null
+  } catch {
+    return null // offline o. Ä. — der Bereich zeigt dann nur die bekannten Angaben
+  }
+}
+
+/** Zeilen-Paar für das Angaben-Raster. */
+function infoZeile(beschriftung: string, wert: string): HTMLElement {
+  const z = document.createElement('div')
+  z.className = 'insp-info-zeile'
+  const b = document.createElement('dt')
+  b.textContent = beschriftung
+  const w = document.createElement('dd')
+  w.textContent = wert
+  z.append(b, w)
+  return z
+}
+
+/** Raster füllen: erst die Angaben aus der Aufzeichnung, dann die aus der Datei. */
+function fuelleInfoRaster(raster: HTMLElement, m: MediumAnzeige, exif: ExifAufnahme | null | undefined): void {
+  raster.innerHTML = ''
+  raster.appendChild(infoZeile('Aufgenommen', `${zeitText(m.takenAt)} Uhr`))
+  raster.appendChild(infoZeile('Verortet über', PLACEMENT_NAMEN[m.placement] ?? m.placement))
+  if (m.anchor) {
+    raster.appendChild(infoZeile('Koordinaten', `${m.anchor[1].toFixed(5)}, ${m.anchor[0].toFixed(5)}`))
+  }
+  for (const [beschriftung, wert] of exif ? beschreibeAufnahme(exif) : []) {
+    raster.appendChild(infoZeile(beschriftung, wert))
+  }
+  const fuss = document.createElement('p')
+  fuss.className = 'insp-info-fuss'
+  fuss.textContent =
+    exif === undefined
+      ? 'Kameradaten werden gelesen …'
+      : exif === null
+        ? m.type === 'video'
+          ? 'Die Videodatei trägt keine auslesbaren Kameradaten.'
+          : 'Das Foto trägt keine Kameradaten — viele Dienste entfernen sie beim Export.'
+        : 'Aus der Datei gelesen. Die Aufnahmezeit selbst lässt sich nicht ändern — verschiebe den Ort, um sie umzuhängen.'
+  raster.appendChild(fuss)
+}
+
+/** Ausklappbarer Info-Bereich einer Aufnahme (nativ über <details>). */
+function baueInfoBereich(m: MediumAnzeige): HTMLElement {
+  const block = document.createElement('details')
+  block.className = 'insp-info'
+  block.open = infoOffen
+  const kopf = document.createElement('summary')
+  kopf.innerHTML = `${icon('info')}<span>Aufnahme-Details</span>${icon('pfeil-r')}`
+  block.appendChild(kopf)
+  const raster = document.createElement('dl')
+  raster.className = 'insp-info-raster'
+  block.appendChild(raster)
+
+  const gecacht = exifCache.get(m.id)
+  fuelleInfoRaster(raster, m, gecacht)
+
+  const holen = (): void => {
+    if (exifCache.has(m.id)) return
+    fuelleInfoRaster(raster, m, undefined) // „wird gelesen …"
+    void ladeAufnahmeDaten(m).then((daten) => {
+      exifCache.set(m.id, daten)
+      // Nur DIESES Raster nachziehen — ein voller Render risse den Fokus und
+      // die Scroll-Position des Panels weg.
+      if (raster.isConnected) fuelleInfoRaster(raster, m, daten)
+    })
+  }
+  block.addEventListener('toggle', () => {
+    infoOffen = block.open
+    if (block.open) holen()
+  })
+  if (block.open) holen()
+  return block
+}
+
 /** Herkunfts-/Beschreibungszeile eines Audio-Eintrags für die Stück-Karte. */
 function audioHerkunft(a: AudioEintrag): string {
   if (a.quelle === 'bibliothek') {
@@ -1983,7 +2088,9 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
     z.edits = mitMedienEdit(z.edits, m.id, { caption: titel.value.trim() })
     renderAlles()
   })
-  huelle.appendChild(feld('Titel — erscheint als Überschrift', titel))
+  huelle.appendChild(
+    feld('Titel', titel, 'Erscheint im Film als Überschrift des Foto-Stopps; die Uhrzeit rutscht darunter.'),
+  )
 
   if (m.type === 'photo') {
     const halt = auswahl(
@@ -2020,15 +2127,22 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
 
   const knoepfe = document.createElement('div')
   knoepfe.className = 'insp-knoepfe'
-  const platzieren = document.createElement('button')
-  platzieren.textContent = z?.platzieren === m.id ? 'Platzieren abbrechen' : 'Auf der Karte platzieren'
-  if (z?.platzieren === m.id) platzieren.classList.add('aktiv')
-  platzieren.addEventListener('click', () => {
-    if (!z) return
-    z.platzieren = z.platzieren === m.id ? null : m.id
-    renderAlles()
-  })
-  knoepfe.appendChild(platzieren)
+  // „Auf der Karte platzieren" NUR für Aufnahmen ohne Ort: liegt eine erst
+  // einmal auf der Strecke, verschiebt man sie direkt — Punkt auf der Karte
+  // ziehen (Ort zeigen) oder Miniatur in der Zeitleiste (Zeit zeigen). Ein
+  // Knopf, der denselben Zug über einen Modus nachbaut, wäre ein dritter Weg
+  // zum selben Anker. Ohne Anker gibt es dagegen keinen Punkt zum Anfassen.
+  if (!m.anchor) {
+    const platzieren = document.createElement('button')
+    platzieren.textContent = z?.platzieren === m.id ? 'Platzieren abbrechen' : 'Auf der Karte platzieren'
+    if (z?.platzieren === m.id) platzieren.classList.add('aktiv')
+    platzieren.addEventListener('click', () => {
+      if (!z) return
+      z.platzieren = z.platzieren === m.id ? null : m.id
+      renderAlles()
+    })
+    knoepfe.appendChild(platzieren)
+  }
   if (m.placement === 'manuell') {
     const zurueck = document.createElement('button')
     zurueck.textContent = 'Automatischen Ort zurückholen'
@@ -2039,12 +2153,9 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
     })
     knoepfe.appendChild(zurueck)
   }
-  huelle.appendChild(knoepfe)
+  if (knoepfe.childElementCount) huelle.appendChild(knoepfe)
 
-  const notiz = document.createElement('p')
-  notiz.className = 'insp-notiz'
-  notiz.textContent = `Aufgenommen ${zeitText(m.takenAt)} Uhr · verortet über ${PLACEMENT_NAMEN[m.placement] ?? m.placement}. Die Aufnahmezeit selbst lässt sich nicht ändern — verschiebe den Ort, um sie umzuhängen.`
-  huelle.appendChild(notiz)
+  huelle.appendChild(baueInfoBereich(m))
 
   if (stopp && stopp.items.length > 1) {
     // Was der Halt im fertigen Film wirklich kostet: die Summe seiner Bilder.
@@ -3927,10 +4038,43 @@ function setzeWerkzeug(w: typeof werkzeug): void {
   if (fenster) fenster.dataset['wkz'] = w
 }
 
+/**
+ * Flash-Meldung unter der Kopfleiste (DESIGN.md → Flash Messages). EIN Element,
+ * eine neue Meldung ersetzt die alte — die Semantik der früheren Statuszeile.
+ * 'ok' blendet nach ~4 s aus, 'fehler' nach ~7 s; eine neutrale Meldung
+ * („… wird geladen") trägt einen Kreisel und bleibt, bis sie abgelöst oder mit
+ * status('') aufgeräumt wird.
+ */
+let flashUhr: number | null = null
 function status(text: string, klasse = ''): void {
-  const el = $('editor-status')
-  el.className = `hinweis ${klasse}`
-  el.textContent = text
+  const el = $('editor-flash')
+  if (flashUhr !== null) {
+    clearTimeout(flashUhr)
+    flashUhr = null
+  }
+  const warSichtbar = el.classList.contains('zeigt')
+  if (!text) {
+    el.classList.remove('zeigt', 'pop')
+    return
+  }
+  el.className = `editor-flash zeigt ${klasse}`
+  // Symbol statisch, der TEXT über textContent — Meldungen tragen Dateinamen.
+  el.innerHTML = klasse === 'ok' ? icon('haken') : klasse === 'fehler' ? icon('x') : '<span class="kreisel"></span>'
+  const span = document.createElement('span')
+  span.textContent = text
+  el.appendChild(span)
+  if (warSichtbar) {
+    // Ersetzen pulst kurz — Animation neu anstoßen (Reflow-Trick wie .puls).
+    el.classList.remove('pop')
+    void el.offsetWidth
+    el.classList.add('pop')
+  }
+  if (klasse) {
+    flashUhr = window.setTimeout(() => {
+      el.classList.remove('zeigt', 'pop')
+      flashUhr = null
+    }, klasse === 'fehler' ? 7000 : 4000)
+  }
 }
 
 // — Abspielen —

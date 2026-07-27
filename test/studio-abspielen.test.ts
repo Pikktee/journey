@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   erzeugeAbspieler,
-  klipBei,
+  klipsBei,
   musikVersatzS,
   tick,
   ueberquert,
@@ -144,12 +144,25 @@ describe('Musik', () => {
     { von: 0.6, bis: 1, url: '/b.mp3', lautstaerke: 0.5 },
   ]
 
-  it('findet den Bereich halboffen [von, bis)', () => {
-    expect(klipBei(musik, 0.1)?.url).toBe('/a.mp3')
-    expect(klipBei(musik, 0.39)?.url).toBe('/a.mp3')
-    expect(klipBei(musik, 0.4)).toBeNull() // Endgrenze gehört nicht mehr dazu
-    expect(klipBei(musik, 0.5)).toBeNull()
-    expect(klipBei(musik, 0.9)?.url).toBe('/b.mp3')
+  it('findet Bereiche halboffen [von, bis)', () => {
+    expect(klipsBei(musik, 0.1)).toEqual([0])
+    expect(klipsBei(musik, 0.39)).toEqual([0])
+    expect(klipsBei(musik, 0.4)).toEqual([]) // Endgrenze gehört nicht mehr dazu
+    expect(klipsBei(musik, 0.5)).toEqual([])
+    expect(klipsBei(musik, 0.9)).toEqual([1])
+  })
+
+  it('liefert bei Überlappung ALLE Bereiche — sie mischen sich wie im Film', () => {
+    const ueberlappend = [
+      { von: 0, bis: 1, url: '/musik.mp3', lautstaerke: 0.8 },
+      { von: 0.2, bis: 0.7, url: '/atmo.mp3', lautstaerke: 0.6 },
+      // Dieselbe Datei ein zweites Mal: die Identität ist der Platz im Plan
+      { von: 0.5, bis: 0.9, url: '/musik.mp3', lautstaerke: 0.4 },
+    ]
+    expect(klipsBei(ueberlappend, 0.1)).toEqual([0])
+    expect(klipsBei(ueberlappend, 0.3)).toEqual([0, 1])
+    expect(klipsBei(ueberlappend, 0.6)).toEqual([0, 1, 2])
+    expect(klipsBei(ueberlappend, 0.8)).toEqual([0, 2])
   })
 
   it('setzt an der Stelle ein, die im fertigen Film liefe', () => {
