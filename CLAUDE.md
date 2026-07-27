@@ -252,6 +252,29 @@ gesetzte Spur wird nie überschrieben (beides als Vertrag getestet). Der Server 
 `sfxbibliothek.ts` nicht importieren (eigener `rootDir`) und führt die Dateinamen ein zweites
 Mal; ein Drift-Wächter prüft, dass jede davon im Katalog steht und Musik ist.
 
+**Die Audio-Bibliothek „Musik & Effekte" ist benutzerweit.** Eigene Dateien landen NICHT
+mehr tour-lokal, sondern in der Bibliothek des Kontos (`<userId>/audio/` im benutzerStorage,
+[server/src/routes/bibliothek.ts](server/src/routes/bibliothek.ts)): einmal hochgeladen, in
+jeder Tour einsetzbar (`quelle: 'benutzer'` im Overlay), zur Quota zählend, löschbar nur
+solange KEINE Tour sie referenziert (edits.json ODER gerendertes tour.json). Ausgeliefert
+wird über die Tour (`/api/tours/:id/bibliothek-audio/:datei`, Sichtbarkeit + Referenz-Check
+— sonst wäre die Route ein Orakel über fremde Bibliotheken); das Studio hört über die
+Owner-Route `/api/audio-bibliothek/:datei` vor. Tour-lokale `media/`-Audios bleiben als
+Altbestand unterstützt (Verweis ohne `quelle`). Im Studio ist die Bibliothek ein **Katalog
+zum Durchhören** in einem Dialog mit FESTEM Format (springt beim Filtern nicht): Suche über
+die GANZE Bibliothek (Reiter treten zurück), Reiter nach Art (Musik · Atmosphäre · Effekte ·
+Eigene, bewusst kein „Alle"), dichte Zeilen; was die Art im Film TUT (Loop über einen
+Bereich vs. einmal an der Marke), steckt hinter dem ⓘ der Gruppenüberschrift. Was läuft,
+zeigt eine mitlaufende Linie plus Zeit aus `currentTime`/`duration`; der Fortschritt wird IN
+die Zeile geschrieben, nie durch Neubau der Liste. Der Dialog kennt zwei Ziele: EINSETZEN
+(neuer Eintrag ab der Marke) und ERSETZEN („Ändern …" in der Stück-Karte des Panels —
+tauscht nur die Datei, Platzierung und Lautstärke bleiben; das aktuelle Stück trägt ein
+„Aktuell"-Badge). Beim Aussuchen klingt immer nur EINE Quelle (Bibliotheks- und
+Panel-Vorhören stoppen einander; das Panel-Vorhören folgt der Eintrags-Lautstärke live am
+Regler). ÜBERLAPPENDE Musik-Klips sind erlaubt und MISCHEN sich — im Player (je Spur ein
+Element, audiotracks.js) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
+Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn wächst mit.
+
 **Zwei Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`
@@ -306,6 +329,15 @@ Ordnung bleibt). Einrasten auf fremde Aufnahmen misst ebenfalls in Pixeln. Ein F
 seinen Halt über zwei Wege: Karte (Ort zeigen) oder Foto-Spur (Zeit zeigen) — beide enden im
 selben Anker, `reihe` fällt dabei weg.
 
+**Was in der Datei steht, liest der Editor selbst.** Der Block „Aufnahme-Details" unter einer
+Aufnahme zeigt Aufnahmezeit, Verortung und die Kameradaten aus dem EXIF (Kamera, Objektiv,
+Belichtung, Auflösung, Höhe). Gelesen wird clientseitig aus der ausgelieferten Datei —
+`liesAufnahme`/`beschreibeAufnahme` in [src/studio/exif.ts](src/studio/exif.ts), beide DOM-frei
+und an echten Beispiel-JPEGs getestet (`test/fixtures/`). Der EXIF-Block steht am DATEIANFANG,
+deshalb holt der Editor per Range-Request nur die ersten 256 KB — und das erst beim ersten
+Aufklappen (Ergebnis je Medium gecacht, der Auf-/Zu-Zustand überlebt den Render). Kein
+Server-Feld, keine Pipeline-Änderung: was das Foto trägt, trägt es schon.
+
 **Was der ganzen Tour gehört, steht nicht im Inspector-Leerzustand.** Titel,
 Beschreibung und Endscreen gehören keinem Objekt der Zeitleiste; sie liegen in
 „Tour-Einstellungen", erreichbar über den Titel in der Kopfleiste und über den
@@ -319,6 +351,11 @@ Fläche gibt, muss sie in der `:hover`-Regel WIEDERHOLEN, sonst wird er beim Zei
 orange Primärknopf und der Abspielkopf wurden so ausgerechnet dunkler). Dasselbe gilt für
 `:disabled:hover`. Ein Knopf, der gar keinen Hover haben soll, braucht trotzdem eine leere
 `:hover`-Regel, die seine Fläche hält.
+
+**Der Inspector-Inhalt ist eine Flex-SPALTE — hohe Blöcke brauchen `flex: none`.** Ein
+Flex-Item schrumpft (Default `flex-shrink: 1`), statt den Container scrollen zu lassen: der
+aufgeklappte Block „Aufnahme-Details" war dadurch **2 px hoch**, seine acht Zeilen standen im
+DOM und waren unsichtbar. Gleiche Sorte Falle wie „`margin-top: auto` kollabiert im Overflow".
 
 **Zwei CSS-Fallen derselben Sorte** (eine eigene Regel schlägt eine, die der Browser über einen
 anderen Selektor stellt): `display: flex` direkt auf `dialog` schlägt
@@ -358,46 +395,10 @@ muss im `pointerdown` gemerkt werden.
 
 ## Android-App
 
-Aufnahme-App unter [android/](android/) (Kotlin, Compose, minSdk 29). Aufgezeichnet wird in
-einem **Foreground-Service**; der Live-Zustand liegt als Prozess-Singleton
-(`AufzeichnungsZustand`, StateFlow), damit die Aufnahme das Verlassen des Screens überlebt.
-Alles landet zuerst in Room, der Upload ist entkoppelt (WorkManager, pro Datei
-wiederaufnehmbar).
-
-**Hülle.** Zwei Reiter (Touren · Profil) mit dem Aufnahme-Knopf dazwischen — er ist KEIN
-dritter Reiter: er wechselt nicht die Ansicht, sondern startet etwas, und während einer
-laufenden Aufnahme führt er zu ihr zurück. Vollbild ohne Leiste laufen Aufzeichnung, Kamera,
-Foto-Vollansicht, Tour-Detail und Player.
-
-**Eine Tourenliste.** Lokale Entwürfe und Server-Touren werden verschmolzen
-(`ui/Listenverschmelzung.kt`, DOM-frei getestet): Solange hochgeladen wird, gewinnt die lokale
-Karte (nur sie kennt Fortschritt und Fehler), danach die vom Server (nur sie kennt Titelbild
-und Kilometer). Der Upload startet automatisch beim Beenden der Aufnahme; der Nachzügler beim
-App-Start reiht mit **`ExistingWorkPolicy.KEEP`** ein, sonst setzt er einen wartenden Backoff
-zurück und startet doppelt.
-
-**Medien-IDs** (`m1`, `m2`, …) werden aus der HÖCHSTEN vergebenen Nummer plus eins gebildet,
-nicht aus der Anzahl — sonst kollidiert nach dem Löschen eines Fotos die nächste ID im
-Verbund-Primärschlüssel `(tourId, id)`.
-
-**Nach dem Upload ist das Manifest unveränderlich.** Foto-Titel und Titelbild laufen dann über
-das Edit-Overlay: lesen, EINEN Schlüssel ergänzen, zurückschreiben — als **rohes JsonObject**
-(`upload/EditsFortschreibung.kt`). Würde die App es in ein eigenes Modell parsen, fielen im
-Studio gesetzte Kamerafahrten, Musik und Wetterkorrekturen still unter den Tisch.
-
-**Der WebView-Player kann kein Bearer-Token schicken.** Er lädt `erlebnis.html` vom Web-Origin
-und kennt nur Cookies; das Token steckt im OkHttp-Client. Vor dem Abspielen tauscht die App es
-deshalb über `POST /api/auth/session-aus-token` gegen eine Sitzung — ohne das wären private
-Touren (der Default für neue Touren) in der eigenen App unabspielbar.
-
-**Room-Migrationen sind Pflicht**, kein `fallbackToDestructiveMigration`: auf dem Gerät liegen
-echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`
-exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und
-validieren.
-
-**Nicht erreichbar, aber vorhanden:** `ui/ImportScreen.kt` (GPX-Import) hat keinen Einstieg
-mehr — auf dem Telefon liegen selten GPX-Dateien, das ist eine Studio-Aufgabe. Der Code bleibt
-für einen späteren „Öffnen mit"-Intent-Filter stehen.
+Aufnahme-App unter [android/](android/) (Kotlin, Compose, minSdk 29) — Architektur,
+Upload-Fluss und die Fallen (Medien-IDs, Manifest-Unveränderlichkeit, WebView-Session,
+Room-Migrationen) stehen in [android/CLAUDE.md](android/CLAUDE.md); die Datei lädt
+automatisch, sobald unter `android/` gearbeitet wird.
 
 ## Konventionen
 
@@ -410,54 +411,10 @@ für einen späteren „Öffnen mit"-Intent-Filter stehen.
 
 ## Medien-Generierung
 
-**Medien werden AUSSCHLIESSLICH über zwei Dienste generiert — keine anderen:**
-
-- **Bilder** (Foto-Stopps etc.): **fal.ai**. HTTP-API `https://fal.run/<model>` mit
-  Header `Authorization: Key $FAL_KEY`; Standardmodell `fal-ai/flux/dev`, Seitenverhältnis
-  3:2 (`image_size` `{width:1344,height:896}`), `output_format: 'jpeg'`. Fotorealistische,
-  auf Ort/Uhrzeit/Wetter des jeweiligen Anker-Punktes abgestimmte Prompts.
-- **Audio** (TTS, Wetter-Sounds, Fahrgeräusche, Hintergrundmusik): **ElevenLabs**.
-  Wetter-SFX via Sound-Generation-API ([scripts/gen-weather-audio.mjs](scripts/gen-weather-audio.mjs)),
-  Fahrzeug-Motorloops ebenso via Sound-Generation
-  ([scripts/gen-vehicle-audio.mjs](scripts/gen-vehicle-audio.mjs) — Moped, Jeep und Boot als
-  `eng-moped/eng-jeep/eng-boat.mp3`; das Auto ist auskommentiert), Ambient-Musik via Music-API
-  `POST /v1/music` `{prompt, music_length_ms}`
-  ([scripts/gen-music.mjs](scripts/gen-music.mjs) → `public/audio/ambient.mp3`).
-  Die **Studio-Bibliothek** (Musik & Effekte) kommt aus denselben zwei APIs und liegt komplett
-  unter `public/audio/sfx/`: zehn Musikstücke à 100 s via Music-API
-  ([scripts/gen-music-library.mjs](scripts/gen-music-library.mjs), `mus-*.mp3`), zehn
-  Atmosphären-Loops und acht Einzeleffekte via Sound-Generation
-  ([scripts/gen-sfx-library.mjs](scripts/gen-sfx-library.mjs), `amb-*`/`sfx-*`). Katalog
-  (Anzeige + Dateinamen) ist [src/studio/sfxbibliothek.ts](src/studio/sfxbibliothek.ts), die
-  Prompts stehen in den Skripten; ein Drift-Wächter hält beide Seiten synchron und prüft, dass
-  jede Katalogdatei wirklich existiert. Beide Skripte überspringen Vorhandenes — gezielt neu
-  erzeugen heißt: Datei vorher löschen. **Eigene Dateien** landen seit dem Bibliotheks-Umbau
-  NICHT mehr tour-lokal, sondern in der **benutzerweiten Audio-Bibliothek**
-  (`<userId>/audio/` im benutzerStorage, [server/src/routes/bibliothek.ts](server/src/routes/bibliothek.ts)):
-  einmal hochgeladen, in jeder Tour einsetzbar (`quelle: 'benutzer'` im Overlay), zur Quota
-  zählend, löschbar nur solange KEINE Tour sie referenziert (edits.json ODER gerendertes
-  tour.json). Ausgeliefert wird über die Tour (`/api/tours/:id/bibliothek-audio/:datei`,
-  Sichtbarkeit + Referenz-Check — sonst wäre die Route ein Orakel über fremde Bibliotheken);
-  das Studio hört über die Owner-Route `/api/audio-bibliothek/:datei` vor. Tour-lokale
-  `media/`-Audios bleiben als Altbestand unterstützt (Verweis ohne `quelle`).
-  Im Studio ist die Bibliothek ein **Katalog zum Durchhören** in einem Dialog mit FESTEM
-  Format (springt beim Filtern nicht): Suche über die GANZE Bibliothek (Reiter treten zurück),
-  Reiter nach Art (Musik · Atmosphäre · Effekte · Eigene, bewusst kein „Alle"), dichte Zeilen,
-  und die Gruppenüberschrift sagt, was die Art im Film TUT (Loop über einen Bereich vs. einmal
-  an der Marke) — das ist die Entscheidung, die man beim Aussuchen trifft. Was läuft, zeigt
-  eine mitlaufende Linie plus Zeit aus `currentTime`/`duration`; die Dauer steht erst, wenn sie
-  bekannt ist (kein Raten). Der Fortschritt wird IN die Zeile geschrieben, nie durch Neubau der
-  Liste — sonst entstünde sie viermal je Sekunde neu. Der Dialog kennt zwei Ziele: EINSETZEN
-  (neuer Eintrag ab der Marke) und ERSETZEN („Ändern …" in der Stück-Karte des Panels — tauscht
-  nur die Datei, Platzierung und Lautstärke bleiben; das aktuelle Stück trägt ein
-  „Aktuell"-Badge). Es klingt immer nur EINE Quelle: Bibliotheks-Vorhören stoppt das
-  Panel-Vorhören und umgekehrt; das Panel-Vorhören folgt der Eintrags-Lautstärke live am
-  Regler (input-Hook ohne Overlay-Patch je Pixel).
-  Loops laufen nahtlos über den Crossfade-Wrapper [src/audioloop.js](src/audioloop.js)
-  (`SeamlessLoop`), die Hintergrundmusik über [src/music.js](src/music.js) (Dock-Toggle),
-  die Motorloops über [src/vehicle.js](src/vehicle.js) (`MODE_SOUND` — `moped`/`jeep`/`ferry`;
-  `walk`/`bike`/`tram` sind lautlos) — folgt `ui.onModeChange`, läuft nur während der Fahrt
-  (Gate in main.js).
-
-Keine anderen Bild-/Audio-/Video-Generatoren verwenden. Beide Keys liegen in `.env`
-(`FAL_KEY`, `ELEVEN_LABS_KEY`) — nur lokal/Dev, nicht in den Build/das Repo.
+**Medien werden AUSSCHLIESSLICH über zwei Dienste generiert — keine anderen: Bilder über
+fal.ai, Audio über ElevenLabs.** Keine anderen Bild-/Audio-/Video-Generatoren verwenden.
+Beide Keys liegen in `.env` (`FAL_KEY`, `ELEVEN_LABS_KEY`) — nur lokal/Dev, nicht in den
+Build/das Repo. API-Formen, Generier-Skripte, die kuratierte Studio-Bibliothek
+(`public/audio/sfx/`) und die Wiedergabe-Wege im Player beschreibt der Skill
+`medien-generierung` ([.claude/skills/medien-generierung/SKILL.md](.claude/skills/medien-generierung/SKILL.md))
+— er lädt, sobald Medien erzeugt oder neu generiert werden sollen.
