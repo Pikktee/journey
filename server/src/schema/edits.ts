@@ -71,8 +71,11 @@ export interface AudioEdit {
    * Herkunft. Fehlt = tour-lokal hochgeladen (Datei muss unter media/ liegen).
    * 'bibliothek' = kuratierter, global ausgelieferter Effekt; die Datei wird
    * NICHT gegen media/ geprüft und über /audio/sfx/ statt /api/media/ geladen.
+   * 'benutzer' = eigener Upload in der benutzerweiten Audio-Bibliothek
+   * (projektübergreifend, liegt unter <userId>/audio/ und wird über
+   * /api/tours/:id/bibliothek-audio/ im Sichtbarkeits-Kontext der Tour geladen).
    */
-  quelle?: 'bibliothek'
+  quelle?: 'bibliothek' | 'benutzer'
 }
 
 /** Fortbewegung ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
@@ -231,7 +234,7 @@ export const editsJsonSchema = {
           ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           bis: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           lautstaerke: { type: 'number', minimum: 0, maximum: 1 },
-          quelle: { enum: ['bibliothek'] },
+          quelle: { enum: ['bibliothek', 'benutzer'] },
         },
       },
     },

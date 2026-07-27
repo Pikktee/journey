@@ -166,6 +166,15 @@ export interface AudioBalken {
   /** bei sfx gleich `von` */
   bis: number
   datei: string
+  /**
+   * Unterzeile innerhalb der Musik-Bahn (0-basiert). Der Player MISCHT
+   * überlappende Musik-Bereiche (je Spur ein eigenes Element — Musik plus
+   * Atmosphäre gleichzeitig ist gewollt); deckungsgleich übereinander
+   * gezeichnet wäre der untere Klip aber unsichtbar und ungreifbar. Wie in
+   * einem Schnittprogramm rückt ein überlappender Klip deshalb eine Zeile
+   * tiefer. Effekt-Pins haben ihre eigene Lane oben und bleiben bei 0.
+   */
+  lane: number
 }
 
 export function baueAudioBalken(audio: readonly AudioEintrag[], startIso: string, skala: ZeitSkala): AudioBalken[] {
@@ -179,9 +188,29 @@ export function baueAudioBalken(audio: readonly AudioEintrag[], startIso: string
       const bis = a.bis !== undefined ? isoZuOffset(startIso, a.bis) : skala.bisS
       bisAnteil = Number.isFinite(bis) ? offsetZuAnteil(skala, bis) : 1
     }
-    balken.push({ index, typ: a.typ, von: vonAnteil, bis: bisAnteil, datei: a.datei })
+    balken.push({ index, typ: a.typ, von: vonAnteil, bis: bisAnteil, datei: a.datei, lane: 0 })
   })
+  // Unterzeilen für überlappende Musik-Klips: klassische Intervall-Färbung —
+  // nach Beginn sortiert bekommt jeder Klip die oberste Zeile, deren letzter
+  // Klip vor ihm endet. Die Zuordnung ist stabil gegenüber dem Overlay-Index
+  // (Sortierung nur fürs Färben; zurück kommt die Original-Reihenfolge).
+  const musik = balken.filter((b) => b.typ === 'musik').sort((a, b) => a.von - b.von || a.index - b.index)
+  const laneEnden: number[] = []
+  for (const b of musik) {
+    let lane = laneEnden.findIndex((ende) => ende <= b.von)
+    if (lane === -1) {
+      lane = laneEnden.length
+      laneEnden.push(0)
+    }
+    laneEnden[lane] = b.bis
+    b.lane = lane
+  }
   return balken
+}
+
+/** Zahl der Unterzeilen der Musik-Bahn (mindestens 1) — für ihre Höhe. */
+export function musikLanes(balken: readonly AudioBalken[]): number {
+  return balken.reduce((max, b) => (b.typ === 'musik' ? Math.max(max, b.lane + 1) : max), 1)
 }
 
 // — Zeit-Eingabe im Inspector —

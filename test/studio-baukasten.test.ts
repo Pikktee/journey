@@ -43,6 +43,7 @@ import {
   haltedauerS,
   kumMeter,
   meterZuOffset,
+  musikLanes,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
   waehleStufe,
@@ -165,6 +166,40 @@ describe('Audio-Einträge', () => {
     let e = mitAudioEintrag(LEERES_OVERLAY, { datei: 'a.mp3', typ: 'musik', ab: iso(0), bis: iso(60) })
     e = mitAudioPatch(e, 0, { typ: 'sfx' })
     expect(e.audio?.[0]).toEqual({ datei: 'a.mp3', typ: 'sfx', ab: iso(0) })
+  })
+
+  it('Stück tauschen: datei+quelle ersetzen, die Platzierung bleibt', () => {
+    // Ausgangslage: Bibliotheks-Musik mit gesetztem Bereich und Lautstärke
+    let e = mitAudioEintrag(LEERES_OVERLAY, {
+      datei: 'mus-aufbruch.mp3',
+      typ: 'musik',
+      ab: iso(0),
+      bis: iso(600),
+      lautstaerke: 0.5,
+      quelle: 'bibliothek',
+    })
+    // „Ändern …": eigener Upload übernimmt — ab/bis/lautstaerke unangetastet
+    e = mitAudioPatch(e, 0, { datei: 'meine-musik.mp3', quelle: 'benutzer' })
+    expect(e.audio?.[0]).toEqual({
+      datei: 'meine-musik.mp3',
+      typ: 'musik',
+      ab: iso(0),
+      bis: iso(600),
+      lautstaerke: 0.5,
+      quelle: 'benutzer',
+    })
+    // Tausch gegen einen Katalog-Effekt wechselt die Art mit → Ende fällt weg
+    e = mitAudioPatch(e, 0, { datei: 'sfx-moewe.mp3', quelle: 'bibliothek', typ: 'sfx' })
+    expect(e.audio?.[0]).toEqual({
+      datei: 'sfx-moewe.mp3',
+      typ: 'sfx',
+      ab: iso(0),
+      lautstaerke: 0.5,
+      quelle: 'bibliothek',
+    })
+    // quelle: undefined heißt ausdrücklich „tour-lokal" — der Schlüssel verschwindet
+    e = mitAudioPatch(e, 0, { datei: 'lokal.mp3', quelle: undefined })
+    expect(e.audio?.[0]).toEqual({ datei: 'lokal.mp3', typ: 'sfx', ab: iso(0), lautstaerke: 0.5 })
   })
 })
 
@@ -436,8 +471,42 @@ describe('Zeitleiste', () => {
       START,
       skala,
     )
-    expect(balken[0]).toMatchObject({ index: 0, von: 0.25, bis: 1 })
-    expect(balken[1]).toMatchObject({ index: 1, von: 0.5, bis: 0.5 })
+    expect(balken[0]).toMatchObject({ index: 0, von: 0.25, bis: 1, lane: 0 })
+    expect(balken[1]).toMatchObject({ index: 1, von: 0.5, bis: 0.5, lane: 0 })
+  })
+
+  it('stapelt überlappende Musik-Klips in Unterzeilen — Nachbarn teilen die Zeile', () => {
+    // Zwei vollflächige Klips (der Bug-Fall: Auto-Musik + nachträglich
+    // Eingesetztes ab Tour-Beginn) dürfen sich nicht verdecken.
+    const voll = baueAudioBalken(
+      [
+        { datei: 'mus-regentag.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
+        { datei: 'amb-hafen.mp3', typ: 'musik', ab: iso(0), quelle: 'bibliothek' },
+      ],
+      START,
+      skala,
+    )
+    expect(voll.map((b) => b.lane)).toEqual([0, 1])
+    expect(musikLanes(voll)).toBe(2)
+
+    // Aneinandergrenzende Klips (bis = ab des nächsten) bleiben in EINER Zeile;
+    // ein dritter, der beide überspannt, rückt in die zweite. Effekt-Pins haben
+    // ihre eigene Lane oben und zählen nicht mit.
+    const gemischt = baueAudioBalken(
+      [
+        { datei: 'a.mp3', typ: 'musik', ab: iso(0), bis: iso(600) },
+        { datei: 'b.mp3', typ: 'musik', ab: iso(600), bis: iso(1200) },
+        { datei: 'c.mp3', typ: 'musik', ab: iso(300), bis: iso(900) },
+        { datei: 'd.mp3', typ: 'sfx', ab: iso(300) },
+      ],
+      START,
+      skala,
+    )
+    expect(gemischt.map((b) => b.lane)).toEqual([0, 0, 1, 0])
+    expect(musikLanes(gemischt)).toBe(2)
+
+    // Leere Bahn: mindestens eine Zeile (die Bahnhöhe rechnet damit)
+    expect(musikLanes([])).toBe(1)
   })
 
   it('Trim-Griffe: Default 0/1, sonst Anteil der Trim-Zeiten', () => {

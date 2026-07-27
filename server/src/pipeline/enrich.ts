@@ -123,6 +123,9 @@ export interface EnrichEingabe {
   edits?: EditOverlay | null
   /** Vorhandene Audio-Dateinamen unter media/ (Baukasten) — edits.audio-Verweise ohne Datei werden übersprungen */
   audioDateien?: readonly string[]
+  /** Dateinamen der benutzerweiten Audio-Bibliothek des Tour-Eigentümers
+   *  (quelle 'benutzer') — Verweise ohne Datei werden ebenso übersprungen */
+  benutzerAudioDateien?: readonly string[]
   /** Geocoder für die Auto-Benennung. Optional: ist `orte` vorgegeben (Cache),
    *  wird NICHT geocodiert und der Geocoder nicht gebraucht. */
   geocoder?: Geocoder
@@ -161,6 +164,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     finaleZielOverride = null,
     edits,
     audioDateien,
+    benutzerAudioDateien,
     geocoder,
     orte,
     wetter,
@@ -331,15 +335,22 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   let audio: TourJson['audio']
   if (edits?.audio?.length) {
     const vorhandene = new Set(audioDateien ?? [])
+    const benutzerVorhandene = new Set(benutzerAudioDateien ?? [])
     const ersterPunkt = reihe.punkte[0]
     const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
     const spuren: NonNullable<TourJson['audio']> = []
     for (const spur of edits.audio) {
       const ausBibliothek = spur.quelle === 'bibliothek'
-      // Hochgeladene Dateien müssen unter media/ liegen; Bibliothekseffekte sind
-      // global (public/audio/sfx/) und werden hier nicht geprüft.
-      if (!ausBibliothek && !vorhandene.has(spur.datei)) {
+      const ausBenutzer = spur.quelle === 'benutzer'
+      // Tour-lokale Dateien müssen unter media/ liegen, Benutzer-Uploads in der
+      // Bibliothek des Eigentümers; kuratierte Effekte sind global
+      // (public/audio/sfx/) und werden hier nicht geprüft.
+      if (!ausBibliothek && !ausBenutzer && !vorhandene.has(spur.datei)) {
         protokoll?.(`Audio-Datei fehlt: ${spur.datei}`)
+        continue
+      }
+      if (ausBenutzer && !benutzerVorhandene.has(spur.datei)) {
+        protokoll?.(`Bibliotheks-Audio fehlt: ${spur.datei}`)
         continue
       }
       const tAb = (Date.parse(spur.ab) - startMs) / 1000
@@ -364,8 +375,13 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       }
       spuren.push({
         type: spur.typ === 'musik' ? 'music' : 'sfx',
-        // Bibliothek: statisch ausgeliefert (wie ambient.mp3); sonst tour-lokal.
-        src: ausBibliothek ? `/audio/sfx/${spur.datei}` : `/api/media/${tourId}/${spur.datei}`,
+        // Bibliothek: statisch ausgeliefert (wie ambient.mp3). Benutzer-Upload:
+        // über die Tour ausgeliefert, damit deren Sichtbarkeit den Zugriff regelt.
+        src: ausBibliothek
+          ? `/audio/sfx/${spur.datei}`
+          : ausBenutzer
+            ? `/api/tours/${tourId}/bibliothek-audio/${spur.datei}`
+            : `/api/media/${tourId}/${spur.datei}`,
         f0,
         f1,
         ...(spur.lautstaerke !== undefined ? { gain: spur.lautstaerke } : {}),

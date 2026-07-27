@@ -13,16 +13,33 @@ export interface QuotaStand {
   frei: number
 }
 
-/** Summiert die Bytes aller Touren eines Benutzers über den Storage. */
-export async function benutzteBytes(db: Db, storage: Storage, userId: string): Promise<number> {
+/**
+ * Summiert die Bytes aller Touren eines Benutzers über den Storage — plus die
+ * benutzerweite Audio-Bibliothek (`<userId>/audio/` im benutzerStorage): auch
+ * sie belegt VPS-Platz, sonst wäre sie ein Quota-Schlupfloch. Der Avatar bleibt
+ * bewusst außen vor (fixe Obergrenze, kein nennenswerter Platz).
+ */
+export async function benutzteBytes(
+  db: Db,
+  storage: Storage,
+  benutzerStorage: Storage,
+  userId: string,
+): Promise<number> {
   const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{ id: string }>
   let summe = 0
   for (const { id } of zeilen) summe += await storage.gesamtGroesse(id)
+  for (const datei of await benutzerStorage.listeDateien(userId, 'audio')) summe += datei.groesse
   return summe
 }
 
-export async function quotaStand(db: Db, storage: Storage, userId: string, limit: number): Promise<QuotaStand> {
-  const benutzt = await benutzteBytes(db, storage, userId)
+export async function quotaStand(
+  db: Db,
+  storage: Storage,
+  benutzerStorage: Storage,
+  userId: string,
+  limit: number,
+): Promise<QuotaStand> {
+  const benutzt = await benutzteBytes(db, storage, benutzerStorage, userId)
   return { benutzt, limit, frei: Math.max(0, limit - benutzt) }
 }
 
@@ -35,11 +52,12 @@ export async function quotaStand(db: Db, storage: Storage, userId: string, limit
 export async function pruefeQuota(
   db: Db,
   storage: Storage,
+  benutzerStorage: Storage,
   userId: string,
   limit: number,
   zusatzBytes: number,
 ): Promise<string | null> {
-  const benutzt = await benutzteBytes(db, storage, userId)
+  const benutzt = await benutzteBytes(db, storage, benutzerStorage, userId)
   if (benutzt + zusatzBytes > limit) {
     const mb = (b: number): string => (b / (1024 * 1024)).toFixed(0)
     return `Speicherplatz erschöpft: ${mb(benutzt)} von ${mb(limit)} MB belegt`

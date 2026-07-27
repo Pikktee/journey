@@ -58,6 +58,7 @@ import {
   kumMeter,
   loeseFokusAuf as loeseFokusAufRein,
   meterZuOffset,
+  musikLanes,
   offsetBeiMeter,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
@@ -66,21 +67,25 @@ import {
   type FokusZiel,
   type ZeitSkala,
 } from './zeitleiste.js'
-import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt } from './sfxbibliothek.js'
+import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt, type SfxTyp } from './sfxbibliothek.js'
 import { baueStopps, dOffsetOhneCluster, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
 import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
 
-/** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, sonst Dateiname. */
+/** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, eigener
+ *  Upload ohne Datei-Endung, sonst der rohe Dateiname (tour-lokaler Altbestand). */
 function audioName(a: AudioEintrag): string {
-  return (a.quelle === 'bibliothek' ? sfxEffekt(a.datei)?.name : undefined) ?? a.datei
+  if (a.quelle === 'bibliothek') return sfxEffekt(a.datei)?.name ?? a.datei
+  if (a.quelle === 'benutzer') return a.datei.replace(/\.[^.]+$/, '')
+  return a.datei
 }
 
-/** Abspiel-URL eines Audio-Eintrags — Bibliothek statisch, sonst tour-lokal. */
+/** Abspiel-URL eines Audio-Eintrags — Bibliothek statisch, eigener Upload über
+ *  die Konto-Route (der Player nutzt später die tour-gebundene), sonst tour-lokal. */
 function audioUrl(a: AudioEintrag, tourId: string): string {
-  return a.quelle === 'bibliothek'
-    ? `/audio/sfx/${encodeURIComponent(a.datei)}`
-    : `/api/media/${tourId}/${encodeURIComponent(a.datei)}`
+  if (a.quelle === 'bibliothek') return `/audio/sfx/${encodeURIComponent(a.datei)}`
+  if (a.quelle === 'benutzer') return `/api/audio-bibliothek/${encodeURIComponent(a.datei)}`
+  return `/api/media/${tourId}/${encodeURIComponent(a.datei)}`
 }
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -241,6 +246,9 @@ export async function oeffneEditor(tourId: string, zurueck: () => void): Promise
   gemeldeteAblage = false
   $('editor-view').hidden = false
   status('Editor wird geladen …')
+  // Benutzerweite Audio-Bibliothek nebenher holen — der Dialog und die
+  // Herkunftszeile im Panel greifen darauf zu, blockieren soll sie nichts.
+  void ladeBibliothek()
   try {
     await ladeDaten(tourId)
     status('')
@@ -405,7 +413,7 @@ function baueTrackLayer(k: maplibregl.Map): void {
     paint: { 'line-color': '#ffd27a', 'line-width': 5 },
     layout: { 'line-cap': 'round', 'line-join': 'round' },
   })
-  // Punktförmiger Fokus (Foto, Einzel-Sound) hat keine Ausdehnung
+  // Punktförmiger Fokus (Foto, Einzel-Effekt) hat keine Ausdehnung
   k.addLayer({
     id: 'fokus-punkt',
     type: 'circle',
@@ -1220,9 +1228,10 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
       )
     }
   } else if (spur === 'musik') {
+    menue.appendChild(menueEintrag('Aus der Bibliothek …', () => oeffneSfxDialog()))
     menue.appendChild(menueEintrag('Datei hochladen …', () => $('e-audio-datei').click()))
-    menue.appendChild(menueEintrag('Aus der Musik- & Klang-Bibliothek …', oeffneSfxDialog))
-    // Schon hochgeladene, aber nicht eingesetzte Dateien direkt anbieten
+    // Tour-lokal hochgeladene, aber nicht eingesetzte Dateien direkt anbieten
+    // (Altbestand — neue Uploads landen in der benutzerweiten Bibliothek)
     const benutzt = new Set((z.edits.audio ?? []).map((a) => a.datei))
     const frei = (z.daten.audio ?? []).filter((d) => !benutzt.has(d.datei))
     if (frei.length) {
@@ -1435,6 +1444,9 @@ function regler(
   attr: { min: number; max: number; step: number; wert: number },
   anzeige: (v: number) => string,
   beiAenderung: (v: number) => void,
+  // Feuert bei JEDER Bewegung (input), nicht erst beim Loslassen — für Live-
+  // Wirkung ohne Overlay-Patch je Pixel (der bliebe ein einziger Undo-Schritt).
+  beiLive?: (v: number) => void,
 ): HTMLElement {
   const huelle = document.createElement('div')
   huelle.className = 'mit-wert'
@@ -1447,7 +1459,11 @@ function regler(
   const w = document.createElement('span')
   w.className = 'wert'
   w.textContent = anzeige(attr.wert)
-  r.addEventListener('input', () => { w.textContent = anzeige(Number(r.value)) })
+  r.addEventListener('input', () => {
+    const v = Number(r.value)
+    w.textContent = anzeige(v)
+    beiLive?.(v)
+  })
   r.addEventListener('change', () => beiAenderung(Number(r.value)))
   huelle.append(r, w)
   return huelle
@@ -1738,7 +1754,7 @@ const ART_NAMEN: Record<FokusZiel['art'], string> = {
   kamera: 'Kamera',
   wetter: 'Wetter',
   moment: 'Moment',
-  audio: 'Musik & Sound',
+  audio: 'Musik & Effekte',
   medium: 'Aufnahme',
 }
 
@@ -1765,7 +1781,7 @@ function baueZeiten(info: FokusZiel): HTMLElement {
       feld(
         'Endet um',
         (z?.edits.audio ?? [])[index]?.typ === 'sfx'
-          ? zeitFest('Klang, keine Dauer')
+          ? zeitFest('Effekt, keine Dauer')
           : baueZeitfeld(info.bisS, (neu) => audioZeitSetzen(index, 'bis', neu)),
       ),
     )
@@ -1836,16 +1852,64 @@ function audioZeitSetzen(index: number, teil: 'ab' | 'bis', neuOffsetS: number):
   return geklemmt
 }
 
+/** Herkunfts-/Beschreibungszeile eines Audio-Eintrags für die Stück-Karte. */
+function audioHerkunft(a: AudioEintrag): string {
+  if (a.quelle === 'bibliothek') {
+    const eff = sfxEffekt(a.datei)
+    return eff ? `${KATEGORIE_NAMEN[eff.kategorie]} · ${eff.beschreibung}` : 'Bibliothek'
+  }
+  if (a.quelle === 'benutzer') {
+    const eintrag = bibliothek?.find((d) => d.datei === a.datei)
+    return eintrag ? `Eigener Upload · ${(eintrag.groesse / 1048576).toFixed(1)} MB` : 'Eigener Upload'
+  }
+  return 'In dieser Tour hochgeladen'
+}
+
 /** Felder eines Audio-Eintrags — früher nur über das Sidebar-Panel erreichbar. */
 function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
   const huelle = document.createElement('div')
   huelle.style.display = 'contents'
 
-  const typ = auswahl([['musik', 'Musik (über eine Strecke)'], ['sfx', 'Klang (ein Zeitpunkt)']], a.typ)
+  // — Das Stück selbst: was läuft, woher es kommt — und der Griff zum Tausch.
+  // „Ändern …" öffnet die Bibliothek im Ersetzen-Modus: die Platzierung
+  // (ab/bis/Lautstärke) bleibt, nur die Datei wird ausgetauscht.
+  const stueck = document.createElement('div')
+  stueck.className = 'insp-stueck'
+  const laeuft = vorschau?.datei === a.datei
+  const hoeren = document.createElement('button')
+  hoeren.type = 'button'
+  hoeren.className = 'insp-stueck-hoeren'
+  hoeren.innerHTML = laeuft ? '<span class="halt"></span>' : icon('play')
+  hoeren.title = laeuft ? 'Vorhören stoppen' : 'Vorhören'
+  hoeren.setAttribute('aria-label', hoeren.title)
+  hoeren.addEventListener('click', () => {
+    if (laeuft) stoppeVorschau()
+    else starteVorschau(a)
+    renderInspektor()
+  })
+  const text = document.createElement('div')
+  text.className = 'insp-stueck-text'
+  const nm = document.createElement('div')
+  nm.className = 'insp-stueck-name'
+  nm.textContent = audioName(a)
+  const her = document.createElement('div')
+  her.className = 'insp-stueck-her'
+  her.textContent = audioHerkunft(a)
+  text.append(nm, her)
+  const wechseln = document.createElement('button')
+  wechseln.type = 'button'
+  wechseln.className = 'insp-stueck-wechseln'
+  wechseln.textContent = 'Ändern …'
+  wechseln.title = 'Anderes Stück aus der Bibliothek wählen — die Platzierung bleibt'
+  wechseln.addEventListener('click', () => oeffneSfxDialog({ modus: 'ersetzen', index }))
+  stueck.append(hoeren, text, wechseln)
+  huelle.appendChild(stueck)
+
+  const typ = auswahl([['musik', 'Musik (über eine Strecke)'], ['sfx', 'Effekt (ein Zeitpunkt)']], a.typ)
   typ.addEventListener('change', () => {
     if (!z) return
     const neu = typ.value as 'musik' | 'sfx'
-    // Wechsel zu „Klang" wirft das Ende weg — ein Zeitpunkt hat keine Dauer
+    // Wechsel zu „Effekt" wirft das Ende weg — ein Zeitpunkt hat keine Dauer
     z.edits = mitAudioPatch(z.edits, index, neu === 'sfx' ? { typ: neu, bis: undefined } : { typ: neu })
     renderAlles()
   })
@@ -1854,26 +1918,22 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
   huelle.appendChild(
     feld(
       'Lautstärke',
-      regler({ min: 0, max: 100, step: 5, wert: Math.round((a.lautstaerke ?? 0.8) * 100) }, (v) => `${v} %`, (v) => {
-        if (!z) return
-        z.edits = mitAudioPatch(z.edits, index, { lautstaerke: v / 100 })
-        renderAlles()
-      }),
+      regler(
+        { min: 0, max: 100, step: 5, wert: Math.round((a.lautstaerke ?? 0.8) * 100) },
+        (v) => `${v} %`,
+        (v) => {
+          if (!z) return
+          z.edits = mitAudioPatch(z.edits, index, { lautstaerke: v / 100 })
+          renderAlles()
+        },
+        // Läuft gerade das Vorhören dieses Eintrags, folgt es dem Zug sofort —
+        // so stellt man die Lautstärke nach Gehör ein, nicht nach Zahl.
+        (v) => {
+          if (vorschau?.datei === a.datei) vorschau.audio.volume = v / 100
+        },
+      ),
     ),
   )
-
-  const knoepfe = document.createElement('div')
-  knoepfe.className = 'insp-knoepfe'
-  const hoeren = document.createElement('button')
-  const laeuft = vorschau?.datei === a.datei
-  hoeren.innerHTML = `${icon(laeuft ? 'stop' : 'play')}<span>${laeuft ? 'Stopp' : 'Vorhören'}</span>`
-  hoeren.addEventListener('click', () => {
-    if (laeuft) stoppeVorschau()
-    else starteVorschau(a)
-    renderInspektor()
-  })
-  knoepfe.appendChild(hoeren)
-  huelle.appendChild(knoepfe)
 
   if (z && audioWirdVerworfen(a, z.edits, z.daten.time.start, baueSkala(z.track) ?? { vonS: 0, bisS: 0 })) {
     const warn = document.createElement('p')
@@ -2203,14 +2263,21 @@ function fliegeZuMedium(m: MediumAnzeige): void {
   }
 }
 
-// — Musik & Sound (Audio-Assets + Overlay-Einträge) —
+// — Musik & Effekte (Audio-Assets + Overlay-Einträge) —
 
 /** Einen Audio-Eintrag vorhören (bricht ein laufendes Vorhören ab). */
 function starteVorschau(a: AudioEintrag): void {
   if (!z) return
   stoppeVorschau()
+  // Nie zwei Quellen gleichzeitig: auch ein laufendes Bibliotheks-Vorhören endet.
+  if (dialogSpielt) {
+    stoppeDialogVorschau()
+    baueSfxListe()
+  }
   const audio = new Audio(audioUrl(a, z.tourId))
-  audio.volume = a.lautstaerke ?? 1
+  // Mit der eingestellten Lautstärke des Eintrags — 0.8 ist der Standard, den
+  // auch der Regler anzeigt; der Zug am Regler passt sie live an (beiLive).
+  audio.volume = a.lautstaerke ?? 0.8
   audio.addEventListener('ended', () => {
     stoppeVorschau()
     renderInspektor()
@@ -2231,7 +2298,14 @@ function stoppeVorschau(): void {
     kein eigenes Audio-Panel mehr, das eine zweite hätte tragen können. */
 const audioStatus = status
 
-async function audioHochladen(datei: File): Promise<void> {
+/**
+ * Upload in die BENUTZERWEITE Bibliothek (nicht mehr tour-lokal): die Datei
+ * liegt einmal beim Konto und ist danach in jeder Tour einsetzbar. Aus dem
+ * Spur-Menü heißt Hochladen weiterhin auch Einsetzen (Musik ab der Marke);
+ * im offenen Dialog landet die Datei nur in „Eigene" — dort entscheidet der
+ * nächste Klick, ob sie eingesetzt oder ein Stück damit ersetzt wird.
+ */
+async function bibliothekHochladen(datei: File): Promise<void> {
   if (!z) return
   const endung = datei.name.toLowerCase().split('.').pop() ?? ''
   if (!AUDIO_ENDUNGEN.includes(endung)) {
@@ -2240,30 +2314,49 @@ async function audioHochladen(datei: File): Promise<void> {
   }
   // Dateiname säubern + eindeutig machen (Server verbietet Überschreiben)
   const basis = (datei.name.replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'audio').slice(0, 40)
-  const vorhandene = new Set((z.daten.audio ?? []).map((a) => a.datei))
+  const vorhandene = new Set((bibliothek ?? []).map((d) => d.datei))
   let name = `${basis}.${endung}`
   for (let n = 2; vorhandene.has(name); n++) name = `${basis}-${n}.${endung}`
   audioStatus(`${datei.name} wird hochgeladen …`)
   try {
-    await api.ladeAudio(z.tourId, name, datei)
+    await api.ladeBibliotheksAudio(name, datei)
   } catch (fehler) {
     audioStatus((fehler as Error).message, 'fehler')
     return
   }
-  z.daten.audio = [...(z.daten.audio ?? []), { datei: name, groesse: datei.size }]
-  // Standard-Eintrag: Musik ab Tour-Beginn bis zum Ende
+  bibliothek = [...(bibliothek ?? []), { datei: name, groesse: datei.size, verwendetVon: [] }]
+  const dialog = $('sfx-dialog') as HTMLDialogElement
+  if (dialog.open) {
+    // Im Dialog hochgeladen: in „Eigene" zeigen — einsetzen ist der nächste Klick.
+    sfxFilter = 'eigene'
+    sfxSuche = ''
+    ;($('sfx-suche') as HTMLInputElement).value = ''
+    baueSfxTabs()
+    baueSfxListe()
+    audioStatus(`„${name}" liegt jetzt in deiner Bibliothek.`, 'ok')
+    return
+  }
+  // Aus dem Spur-Menü: direkt als Musik ab der Marke einsetzen (wie bisher).
   const start = z.daten.time.start
   const skala = baueSkala(z.track)
-  const abOffset = skala?.vonS ?? 0
-  z.edits = mitAudioEintrag(z.edits, { datei: name, typ: 'musik', ab: offsetZuIso(start, abOffset) })
-  audioStatus('Hochgeladen — Typ und Bereich unten anpassen, dann Speichern.', 'ok')
+  const abOffset = z.auswahl ? z.auswahl[3] : (skala?.vonS ?? 0)
+  const parallel = ueberlappteMusik(abOffset, skala?.bisS ?? abOffset)
+  z.edits = mitAudioEintrag(z.edits, { datei: name, typ: 'musik', ab: offsetZuIso(start, abOffset), quelle: 'benutzer' })
+  z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
+  audioStatus(
+    parallel.length
+      ? `Hochgeladen und eingesetzt — läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
+      : 'Hochgeladen und eingesetzt — Art und Bereich im Panel anpassen, dann Speichern.',
+    'ok',
+  )
   renderAlles()
 }
 
-// — Musik- und Klangbibliothek (Dialog) —
+// — Bibliothek „Musik & Effekte" (Dialog) —
 
 let dialogAudio: HTMLAudioElement | null = null
-let dialogSpielt: string | null = null // Datei des gerade vorgehörten Effekts
+/** Zeilen-ID des gerade vorgehörten Eintrags ('bib:…' | 'eigen:…'). */
+let dialogSpielt: string | null = null
 
 function stoppeDialogVorschau(): void {
   dialogAudio?.pause()
@@ -2271,44 +2364,130 @@ function stoppeDialogVorschau(): void {
   dialogSpielt = null
 }
 
-/** Effekt aus der Bibliothek in die Tour übernehmen (ab gewähltem Punkt bzw. Beginn). */
-function sfxEinsetzen(eff: SfxEffekt): void {
+/**
+ * Benutzerweite Bibliothek (eigene Uploads, Kategorie „Eigene") — einmal je
+ * Editor-Sitzung geladen, nach Upload/Löschen lokal fortgeschrieben und beim
+ * Dialog-Öffnen im Hintergrund aufgefrischt: die Verwendungs-Info (welche Tour
+ * nutzt die Datei?) kann sich in anderen Touren geändert haben.
+ */
+let bibliothek: api.BibliotheksDatei[] | null = null
+let bibliothekLaedt = false
+
+async function ladeBibliothek(): Promise<void> {
+  if (bibliothekLaedt) return
+  bibliothekLaedt = true
+  try {
+    bibliothek = await api.listeBibliothek()
+  } catch {
+    // Kein Netz o. Ä.: „Eigene" zeigt den Leerzustand — die kuratierten
+    // Kategorien funktionieren unabhängig davon.
+  } finally {
+    bibliothekLaedt = false
+  }
+  if (($('sfx-dialog') as HTMLDialogElement).open) {
+    baueSfxTabs()
+    baueSfxListe()
+  }
+}
+
+/**
+ * Was ein Klick in der Bibliothek bewirkt: einen NEUEN Eintrag ab der Marke
+ * anlegen — oder das STÜCK des fokussierten Eintrags tauschen („Ändern …" im
+ * Panel), wobei Platzierung und Lautstärke unangetastet bleiben.
+ */
+type SfxZiel = { modus: 'einsetzen' } | { modus: 'ersetzen'; index: number }
+let sfxZiel: SfxZiel = { modus: 'einsetzen' }
+
+/** Meldungen zum Dialog-Geschehen: solange er offen ist, in seine eigene
+ *  Fußzeile — die Editor-Statuszeile läge unsichtbar hinter dem Backdrop. */
+function sfxStatus(text: string, art?: 'ok' | 'fehler'): void {
+  const dialog = $('sfx-dialog') as HTMLDialogElement
+  if (!dialog.open) {
+    audioStatus(text, art)
+    return
+  }
+  const el = $('sfx-status')
+  el.textContent = text
+  el.className = 'sfx-status' + (art ? ` ${art}` : '')
+}
+
+/**
+ * Namen bestehender Musik-Bereiche, die [vonS, bisS) überlappen. Überlappung
+ * ist ERLAUBT (der Player mischt — Musik plus Atmosphäre ist ein gewollter
+ * Fall), aber sie soll beim Einsetzen nie stillschweigend entstehen: die
+ * Statusmeldung spricht sie aus, die Zeitleiste stapelt die Klips.
+ */
+function ueberlappteMusik(vonS: number, bisS: number): string[] {
+  if (!z) return []
+  const start = z.daten.time.start
+  const endeS = baueSkala(z.track)?.bisS ?? Infinity
+  return (z.edits.audio ?? [])
+    .filter((a) => {
+      if (a.typ !== 'musik') return false
+      const von = isoZuOffset(start, a.ab)
+      const bis = a.bis !== undefined ? isoZuOffset(start, a.bis) : endeS
+      return von < bisS && vonS < bis
+    })
+    .map((a) => `„${audioName(a)}"`)
+}
+
+/** Stück übernehmen: einsetzen oder ersetzen (je nach sfxZiel).
+ *  `typ` null = Art des bestehenden Eintrags behalten (eigene Dateien legen
+ *  sich nicht fest); beim Neu-Einsetzen wird daraus Musik. */
+function sfxUebernehmen(datei: string, quelle: 'bibliothek' | 'benutzer', typ: SfxTyp | null, name: string): void {
   if (!z) return
+  if (sfxZiel.modus === 'ersetzen') {
+    const index = sfxZiel.index
+    if (!(z.edits.audio ?? [])[index]) return
+    z.edits = mitAudioPatch(z.edits, index, typ ? { datei, quelle, typ } : { datei, quelle })
+    z.fokus = { art: 'audio', index }
+    schliesseSfxDialog()
+    renderAlles()
+    audioStatus(`„${name}" übernommen — Platzierung und Lautstärke bleiben.`, 'ok')
+    return
+  }
   const start = z.daten.time.start
   const skala = baueSkala(z.track)
   // Ist ein Punkt gewählt, dort einsetzen (v. a. für One-Shots gemeint) — sonst
   // ab Tour-Beginn, wie beim Upload.
   const abOffset = z.auswahl ? z.auswahl[3] : (skala?.vonS ?? 0)
-  z.edits = mitAudioEintrag(z.edits, { datei: eff.datei, typ: eff.typ, ab: offsetZuIso(start, abOffset), quelle: 'bibliothek' })
+  // VOR dem Einfügen prüfen — sonst zählte der neue Eintrag sich selbst.
+  const parallel = typ !== 'sfx' ? ueberlappteMusik(abOffset, skala?.bisS ?? abOffset) : []
+  z.edits = mitAudioEintrag(z.edits, { datei, typ: typ ?? 'musik', ab: offsetZuIso(start, abOffset), quelle })
   // Auf das Eingesetzte springen — der Inspector zeigt sonst weiter, was vorher
   // ausgewählt war, und man sucht das gerade Hinzugefügte auf der Spur.
   z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
   schliesseSfxDialog()
   renderAlles()
-  audioStatus(`„${eff.name}" eingesetzt — auf der Zeitleiste platzieren, dann Speichern.`, 'ok')
+  audioStatus(
+    parallel.length
+      ? `„${name}" eingesetzt — läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
+      : `„${name}" eingesetzt — auf der Zeitleiste platzieren, dann Speichern.`,
+    'ok',
+  )
 }
 
-// Filterzustand der Bibliothek (Art-Tab + Suche) — bleibt über das Öffnen hinweg.
-type SfxFilter = 'alle' | SfxEffekt['kategorie']
-let sfxFilter: SfxFilter = 'alle'
+// Filterzustand der Bibliothek (Art-Tab + Suche) — bleibt über das Öffnen
+// hinweg. Kein „Alle"-Tab: ohne Suche zeigt der aktive Reiter seine Art,
+// eine Suche geht immer über die GANZE Bibliothek (die Reiter treten zurück).
+type SfxFilter = SfxEffekt['kategorie'] | 'eigene'
+let sfxFilter: SfxFilter = 'musik'
 let sfxSuche = ''
 
 // Was die Art im Film TUT — steht an der Gruppenüberschrift, nicht an jeder
-// Zeile: Musik und Atmosphäre schleifen über eine Spanne, ein Klang feuert
+// Zeile: Musik und Atmosphäre schleifen über eine Spanne, ein Effekt spielt
 // einmal an seiner Marke.
-const KAT_MODUS: Record<SfxEffekt['kategorie'], string> = {
+const KAT_MODUS: Record<SfxFilter, string> = {
   musik: 'läuft über einen Bereich',
   umgebung: 'läuft über einen Bereich',
-  effekt: 'klingt einmal an ihrer Marke',
+  effekt: 'spielt einmal an seiner Marke',
+  eigene: 'einmal hochgeladen, in jeder deiner Touren einsetzbar',
 }
-
-function sfxGefiltert(): SfxEffekt[] {
-  const q = sfxSuche.trim().toLowerCase()
-  return SFX_BIBLIOTHEK.filter((e) => {
-    if (sfxFilter !== 'alle' && e.kategorie !== sfxFilter) return false
-    if (q && !`${e.name} ${e.beschreibung} ${KATEGORIE_NAMEN[e.kategorie]}`.toLowerCase().includes(q)) return false
-    return true
-  })
+const KAT_LABEL: Record<SfxFilter, string> = {
+  musik: KATEGORIE_NAMEN.musik,
+  umgebung: KATEGORIE_NAMEN.umgebung,
+  effekt: KATEGORIE_NAMEN.effekt,
+  eigene: 'Eigene',
 }
 
 /** Sekunden als m:ss — für die mitlaufende Zeit beim Vorhören. */
@@ -2333,56 +2512,69 @@ function zeichneSfxFortschritt(): void {
 }
 
 /** Vorhören umschalten (immer nur eines) und die Liste neu zeichnen. */
-function sfxVorhoeren(eff: SfxEffekt): void {
-  if (dialogSpielt === eff.datei) {
+function sfxVorhoeren(id: string, url: string): void {
+  if (dialogSpielt === id) {
     stoppeDialogVorschau()
   } else {
     stoppeDialogVorschau()
-    dialogAudio = new Audio(`/audio/sfx/${encodeURIComponent(eff.datei)}`)
-    dialogSpielt = eff.datei
+    // Läuft hinter dem Dialog noch das Panel-Vorhören, endet es jetzt — zwei
+    // Tonquellen übereinander machen das Aussuchen unmöglich.
+    if (vorschau) {
+      stoppeVorschau()
+      renderInspektor()
+    }
+    dialogAudio = new Audio(url)
+    dialogSpielt = id
     dialogAudio.addEventListener('timeupdate', zeichneSfxFortschritt)
     dialogAudio.addEventListener('loadedmetadata', zeichneSfxFortschritt)
     dialogAudio.addEventListener('ended', () => {
       stoppeDialogVorschau()
       baueSfxListe()
     })
-    void dialogAudio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
+    void dialogAudio.play().catch(() => sfxStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
   }
   baueSfxListe()
 }
 
-/** Die Art-Tabs (einmal aufgebaut) auf den aktiven Filter setzen. */
+/** Aktiven Reiter markieren; bei laufender Suche treten alle zurück
+ *  (gesucht wird über die ganze Bibliothek, nicht im Reiter). */
 function aktualisiereSfxTabs(): void {
+  const sucht = !!sfxSuche.trim()
+  $('sfx-tabs').classList.toggle('sucht', sucht)
   for (const tab of $('sfx-tabs').querySelectorAll<HTMLElement>('.sfx-tab')) {
-    tab.setAttribute('aria-selected', String(tab.dataset['filter'] === sfxFilter))
+    tab.setAttribute('aria-selected', String(!sucht && tab.dataset['filter'] === sfxFilter))
   }
 }
 
-/** Filter-Tabs einmalig aufbauen (Kategorien ändern sich nie). */
+/** Filter-Tabs aufbauen — neu bei jedem Öffnen und nach dem Laden der eigenen
+ *  Bibliothek (deren Zähler hängt an der Antwort des Servers). */
 function baueSfxTabs(): void {
   const tabs = $('sfx-tabs')
   tabs.innerHTML = ''
-  const zahl = (f: SfxFilter): number =>
-    f === 'alle' ? SFX_BIBLIOTHEK.length : SFX_BIBLIOTHEK.filter((e) => e.kategorie === f).length
-  const eintraege: Array<{ f: SfxFilter; label: string }> = [
-    { f: 'alle', label: 'Alle' },
-    { f: 'musik', label: KATEGORIE_NAMEN.musik },
-    { f: 'umgebung', label: KATEGORIE_NAMEN.umgebung },
-    { f: 'effekt', label: KATEGORIE_NAMEN.effekt },
-  ]
-  for (const e of eintraege) {
+  const zahl = (f: SfxFilter): string =>
+    f === 'eigene'
+      ? bibliothek
+        ? String(bibliothek.length)
+        : '…'
+      : String(SFX_BIBLIOTHEK.filter((e) => e.kategorie === f).length)
+  for (const f of ['musik', 'umgebung', 'effekt', 'eigene'] as const) {
     const tab = document.createElement('button')
     tab.className = 'sfx-tab'
     tab.type = 'button'
     tab.setAttribute('role', 'tab')
-    tab.dataset['filter'] = e.f
-    tab.append(document.createTextNode(e.label))
-    const z = document.createElement('span')
-    z.className = 'z'
-    z.textContent = String(zahl(e.f))
-    tab.appendChild(z)
+    tab.dataset['filter'] = f
+    tab.append(document.createTextNode(KAT_LABEL[f]))
+    const anzahl = document.createElement('span')
+    anzahl.className = 'z'
+    anzahl.textContent = zahl(f)
+    tab.appendChild(anzahl)
     tab.addEventListener('click', () => {
-      sfxFilter = e.f
+      sfxFilter = f
+      // Ein Reiter-Klick beendet die Suche — er sagt „zeig mir diese Art".
+      if (sfxSuche) {
+        sfxSuche = ''
+        ;($('sfx-suche') as HTMLInputElement).value = ''
+      }
       aktualisiereSfxTabs()
       baueSfxListe()
     })
@@ -2391,29 +2583,64 @@ function baueSfxTabs(): void {
   aktualisiereSfxTabs()
 }
 
-/** Eine Zeile der Bibliothek: hören, lesen, einsetzen. */
-function baueSfxZeile(eff: SfxEffekt): HTMLElement {
-  const spielt = dialogSpielt === eff.datei
+/** Ist diese Datei das Stück, das der Ersetzen-Modus gerade tauschen würde? */
+function istAktuellesStueck(datei: string, quelle: 'bibliothek' | 'benutzer'): boolean {
+  if (sfxZiel.modus !== 'ersetzen' || !z) return false
+  const eintrag = (z.edits.audio ?? [])[sfxZiel.index]
+  return !!eintrag && eintrag.datei === datei && eintrag.quelle === quelle
+}
+
+/** Nutzt die AKTUELLE (evtl. ungespeicherte) Sitzung diese eigene Datei? */
+function inSitzungEingesetzt(datei: string): boolean {
+  return (z?.edits.audio ?? []).some((a) => a.quelle === 'benutzer' && a.datei === datei)
+}
+
+interface SfxZeileDef {
+  /** eindeutig über beide Quellen: 'bib:…' bzw. 'eigen:…' */
+  id: string
+  name: string
+  besch: string
+  url: string
+  datei: string
+  quelle: 'bibliothek' | 'benutzer'
+  /** Katalog-Art; null bei eigenen Dateien (die Art bestimmt der Eintrag) */
+  typ: SfxTyp | null
+  /** rechte Zusatzangabe (Dateigröße eigener Uploads) */
+  meta?: string
+  /** nur eigene: löschbar — oder der Grund, warum nicht */
+  loeschen?: { gesperrtWeil: string | null }
+}
+
+/** Eine Zeile der Bibliothek: hören, lesen, übernehmen — eigene auch löschen. */
+function baueSfxZeile(def: SfxZeileDef): HTMLElement {
+  const spielt = dialogSpielt === def.id
+  const aktuell = istAktuellesStueck(def.datei, def.quelle)
   const zeile = document.createElement('div')
-  zeile.className = 'sfx-zeile' + (spielt ? ' spielt' : '')
-  zeile.dataset['datei'] = eff.datei
+  zeile.className = 'sfx-zeile' + (spielt ? ' spielt' : '') + (aktuell ? ' aktuell' : '')
+  zeile.dataset['datei'] = def.datei
 
   const hoeren = document.createElement('button')
   hoeren.type = 'button'
   hoeren.className = 'sfx-hoeren'
   hoeren.innerHTML = spielt ? '<span class="halt"></span>' : icon('play')
-  hoeren.title = spielt ? 'Vorhören stoppen' : `„${eff.name}" vorhören`
+  hoeren.title = spielt ? 'Vorhören stoppen' : `„${def.name}" vorhören`
   hoeren.setAttribute('aria-label', hoeren.title)
-  hoeren.addEventListener('click', () => sfxVorhoeren(eff))
+  hoeren.addEventListener('click', () => sfxVorhoeren(def.id, def.url))
 
   const text = document.createElement('div')
   text.className = 'sfx-text'
   const nm = document.createElement('div')
   nm.className = 'sfx-name'
-  nm.textContent = eff.name
+  nm.textContent = def.name
+  if (aktuell) {
+    const badge = document.createElement('span')
+    badge.className = 'sfx-badge'
+    badge.textContent = 'Aktuell'
+    nm.appendChild(badge)
+  }
   const be = document.createElement('div')
   be.className = 'sfx-besch'
-  be.textContent = eff.beschreibung
+  be.textContent = def.besch
   text.append(nm, be)
 
   const rechts = document.createElement('div')
@@ -2426,49 +2653,199 @@ function baueSfxZeile(eff: SfxEffekt): HTMLElement {
     zeit.textContent = '0:00'
     rechts.appendChild(zeit)
   }
-  const nutzen = document.createElement('button')
-  nutzen.type = 'button'
-  nutzen.className = 'sfx-einsetzen'
-  nutzen.textContent = 'Einsetzen'
-  nutzen.title = `„${eff.name}" ab der Marke einsetzen`
-  nutzen.addEventListener('click', () => sfxEinsetzen(eff))
-  rechts.appendChild(nutzen)
+  if (def.meta && !spielt) {
+    const meta = document.createElement('span')
+    meta.className = 'sfx-meta'
+    meta.textContent = def.meta
+    rechts.appendChild(meta)
+  }
+  if (!aktuell) {
+    const nutzen = document.createElement('button')
+    nutzen.type = 'button'
+    nutzen.className = 'sfx-einsetzen'
+    nutzen.textContent = sfxZiel.modus === 'ersetzen' ? 'Übernehmen' : 'Einsetzen'
+    nutzen.title =
+      sfxZiel.modus === 'ersetzen'
+        ? `Das Stück durch „${def.name}" ersetzen — die Platzierung bleibt`
+        : `„${def.name}" ab der Marke einsetzen`
+    nutzen.addEventListener('click', () => sfxUebernehmen(def.datei, def.quelle, def.typ, def.name))
+    rechts.appendChild(nutzen)
+  }
+  if (def.loeschen) {
+    const { gesperrtWeil } = def.loeschen
+    const weg = document.createElement('button')
+    weg.type = 'button'
+    weg.className = 'sfx-loeschen'
+    weg.innerHTML = icon('muell')
+    if (gesperrtWeil) {
+      weg.disabled = true
+      weg.title = gesperrtWeil
+    } else {
+      weg.title = `„${def.name}" endgültig aus der Bibliothek löschen`
+      // Zwei-Klick-Schutz: der erste Klick fragt („Löschen?"), erst der zweite
+      // löscht wirklich — ein Dialog im Dialog wäre schwerer als die Sache selbst.
+      weg.addEventListener('click', () => {
+        if (weg.classList.contains('sicher')) {
+          void bibliothekLoeschen(def.datei)
+          return
+        }
+        weg.classList.add('sicher')
+        weg.innerHTML = '<span>Löschen?</span>'
+        setTimeout(() => {
+          weg.classList.remove('sicher')
+          weg.innerHTML = icon('muell')
+        }, 3000)
+      })
+    }
+    weg.setAttribute('aria-label', weg.title)
+    rechts.appendChild(weg)
+  }
 
   zeile.append(hoeren, text, rechts)
   return zeile
 }
 
-/** Liste nach aktuellem Filter/Suche zeichnen, nach Art gruppiert. */
+async function bibliothekLoeschen(datei: string): Promise<void> {
+  try {
+    await api.loescheBibliotheksAudio(datei)
+    bibliothek = (bibliothek ?? []).filter((d) => d.datei !== datei)
+    sfxStatus(`${datei} gelöscht.`, 'ok')
+  } catch (fehler) {
+    sfxStatus((fehler as Error).message, 'fehler')
+    // Der Server kennt die Wahrheit (z. B. inzwischen in einer Tour verwendet) —
+    // die Verwendungs-Info auffrischen, damit die Sperre sichtbar wird.
+    void ladeBibliothek()
+  }
+  baueSfxTabs()
+  baueSfxListe()
+}
+
+/** Katalog-Zeilen einer Art, optional nach Suchtext gefiltert. */
+function katalogZeilen(kat: SfxEffekt['kategorie'], q: string): SfxZeileDef[] {
+  return SFX_BIBLIOTHEK.filter(
+    (e) => e.kategorie === kat && (!q || `${e.name} ${e.beschreibung}`.toLowerCase().includes(q)),
+  ).map((e) => ({
+    id: `bib:${e.datei}`,
+    name: e.name,
+    besch: e.beschreibung,
+    url: `/audio/sfx/${encodeURIComponent(e.datei)}`,
+    datei: e.datei,
+    quelle: 'bibliothek',
+    typ: e.typ,
+  }))
+}
+
+/** Zeilen der eigenen Uploads, optional nach Suchtext gefiltert. */
+function eigeneZeilen(q: string): SfxZeileDef[] {
+  return (bibliothek ?? [])
+    .filter((d) => !q || d.datei.toLowerCase().includes(q))
+    .map((d) => {
+      const inTouren = d.verwendetVon.map((t) => `„${t.titel}"`).join(', ')
+      const ungespeichert = inSitzungEingesetzt(d.datei)
+      return {
+        id: `eigen:${d.datei}`,
+        name: d.datei.replace(/\.[^.]+$/, ''),
+        besch: [
+          d.datei.split('.').pop()?.toUpperCase() ?? '',
+          inTouren ? `wird verwendet in ${inTouren}` : ungespeichert ? 'in dieser Tour eingesetzt (ungespeichert)' : 'noch in keiner Tour im Einsatz',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        url: `/api/audio-bibliothek/${encodeURIComponent(d.datei)}`,
+        datei: d.datei,
+        quelle: 'benutzer',
+        typ: null,
+        meta: `${(d.groesse / 1048576).toFixed(1)} MB`,
+        loeschen: {
+          gesperrtWeil: inTouren
+            ? `Wird noch verwendet in ${inTouren} — dort erst den Eintrag entfernen`
+            : ungespeichert
+              ? 'In dieser Tour eingesetzt — erst den Eintrag entfernen'
+              : null,
+        },
+      }
+    })
+}
+
+/** Gestrichelte Kopfzeile der „Eigene"-Kategorie: neue Datei hochladen. */
+function baueUploadZeile(): HTMLElement {
+  const knopf = document.createElement('button')
+  knopf.type = 'button'
+  knopf.className = 'sfx-upload'
+  knopf.innerHTML = `${icon('upload')}<span>Audio-Datei hochladen</span><span class="formate">MP3 · M4A · OGG · WAV</span>`
+  knopf.addEventListener('click', () => $('e-audio-datei').click())
+  return knopf
+}
+
+/** Liste nach aktivem Reiter zeichnen — bzw. bei Suche über die ganze Bibliothek. */
 function baueSfxListe(): void {
   const inhalt = $('sfx-inhalt')
   inhalt.innerHTML = ''
-  const treffer = sfxGefiltert()
-  if (treffer.length === 0) {
-    const leer = document.createElement('div')
-    leer.className = 'sfx-leer'
-    leer.textContent = sfxSuche ? `Nichts gefunden für „${sfxSuche}".` : 'Keine Einträge.'
-    inhalt.appendChild(leer)
-    return
-  }
-  // Reihenfolge der Gruppen wie im Katalog; leere überspringen.
-  for (const kat of ['musik', 'umgebung', 'effekt'] as const) {
-    const teil = treffer.filter((e) => e.kategorie === kat)
-    if (teil.length === 0) continue
+  const q = sfxSuche.trim().toLowerCase()
+  const kategorien: SfxFilter[] = q ? ['musik', 'umgebung', 'effekt', 'eigene'] : [sfxFilter]
+  let etwasGezeigt = false
+
+  for (const kat of kategorien) {
+    const zeilen = kat === 'eigene' ? eigeneZeilen(q) : katalogZeilen(kat, q)
+    const eigeneOhneSuche = kat === 'eigene' && !q
+    if (!zeilen.length && !eigeneOhneSuche) continue
+    etwasGezeigt = true
+
     const kopf = document.createElement('div')
     kopf.className = 'sfx-gruppe'
-    kopf.append(document.createTextNode(KATEGORIE_NAMEN[kat]))
+    kopf.append(document.createTextNode(kat === 'eigene' ? 'Eigene Uploads' : KATEGORIE_NAMEN[kat]))
+    // Was die Art im Film TUT, steckt hinter einem kleinen ⓘ (Hover UND
+    // Tastaturfokus) — als Dauertext neben jeder Überschrift war es Rauschen.
     const wie = document.createElement('span')
-    wie.className = 'wie'
-    wie.textContent = KAT_MODUS[kat]
+    wie.className = 'sfx-wie'
+    wie.tabIndex = 0
+    wie.setAttribute('aria-label', KAT_MODUS[kat])
+    wie.innerHTML = `${icon('info')}<span class="sfx-wie-blase" role="tooltip">${KAT_MODUS[kat]}</span>`
     kopf.appendChild(wie)
     inhalt.appendChild(kopf)
-    for (const eff of teil) inhalt.appendChild(baueSfxZeile(eff))
+
+    // Der Upload gehört zur Kategorie, nicht in eine Ecke: immer die erste
+    // Zeile von „Eigene" — auch (gerade) wenn noch nichts hochgeladen ist.
+    if (eigeneOhneSuche) inhalt.appendChild(baueUploadZeile())
+    for (const def of zeilen) inhalt.appendChild(baueSfxZeile(def))
+    if (eigeneOhneSuche && !zeilen.length) {
+      const leer = document.createElement('div')
+      leer.className = 'sfx-leer'
+      leer.textContent =
+        bibliothek === null && bibliothekLaedt
+          ? 'Bibliothek wird geladen …'
+          : 'Noch keine eigenen Dateien. Was du hochlädst, liegt in deinem Konto und lässt sich in jeder Tour einsetzen.'
+      inhalt.appendChild(leer)
+    }
+  }
+
+  if (!etwasGezeigt) {
+    const leer = document.createElement('div')
+    leer.className = 'sfx-leer'
+    leer.textContent = q ? `Nichts gefunden für „${sfxSuche.trim()}".` : 'Keine Einträge.'
+    inhalt.appendChild(leer)
   }
   zeichneSfxFortschritt()
 }
 
-function oeffneSfxDialog(): void {
-  aktualisiereSfxTabs()
+function oeffneSfxDialog(ziel: SfxZiel = { modus: 'einsetzen' }): void {
+  sfxZiel = ziel
+  // Verwendungs-Info kann sich (auch in anderen Touren) geändert haben.
+  void ladeBibliothek()
+  const unter = $('sfx-unter')
+  if (ziel.modus === 'ersetzen' && z) {
+    const eintrag = (z.edits.audio ?? [])[ziel.index]
+    unter.textContent = eintrag ? `Ersetzt „${audioName(eintrag)}" — Platzierung und Lautstärke bleiben.` : ''
+    // Den Reiter dorthin stellen, wo das aktuelle Stück wohnt.
+    if (eintrag?.quelle === 'benutzer') sfxFilter = 'eigene'
+    else if (eintrag?.quelle === 'bibliothek') sfxFilter = sfxEffekt(eintrag.datei)?.kategorie ?? sfxFilter
+  } else {
+    unter.textContent = 'Vorhören, dann ab der Marke einsetzen'
+  }
+  const status = $('sfx-status')
+  status.textContent = ''
+  status.className = 'sfx-status'
+  baueSfxTabs()
   baueSfxListe()
   ;($('sfx-dialog') as HTMLDialogElement).showModal()
 }
@@ -2486,9 +2863,16 @@ function audioEintragEntfernen(index: number): void {
   z.edits = ohneAudioEintrag(z.edits, index)
   // Die Datei bleibt BEWUSST auf dem Server: das Overlay ist erst beim
   // Speichern persistiert, und ein evtl. schon gerendertes tour.json
-  // referenziert sie ggf. noch. Sie erscheint unten als „nicht eingesetzt"
-  // und ist dort explizit löschbar (der Server schützt referenzierte Dateien).
-  audioStatus(`Eintrag entfernt — ${eintrag.datei} bleibt gespeichert.`, 'ok')
+  // referenziert sie ggf. noch. Eigene Uploads bleiben ohnehin in der
+  // Bibliothek liegen und sind dort löschbar, sobald keine Tour sie nutzt.
+  audioStatus(
+    eintrag.quelle === 'benutzer'
+      ? 'Eintrag entfernt — die Datei bleibt in deiner Bibliothek.'
+      : eintrag.quelle === 'bibliothek'
+        ? 'Eintrag entfernt.'
+        : `Eintrag entfernt — ${eintrag.datei} bleibt gespeichert.`,
+    'ok',
+  )
   renderAlles()
 }
 
@@ -2773,15 +3157,20 @@ function renderZeitleiste(): void {
     momentBahn.appendChild(marke)
   }
 
-  // — Musik & Sound: Klips (Dauer) unten, Klang-Pins (Zeitpunkt) oben —
+  // — Musik & Effekte: Klips (Dauer) unten, Effekt-Pins (Zeitpunkt) oben —
   const audioBahn = spur('spur-musik')
-  for (const b of baueAudioBalken(z.edits.audio ?? [], start, skala)) {
+  const audioBalken = baueAudioBalken(z.edits.audio ?? [], start, skala)
+  // Überlappende Klips stapeln sich in Unterzeilen (b.lane) — die Bahn wächst
+  // mit, damit jeder Klip lesbar und greifbar bleibt (der Player mischt sie).
+  audioBahn.closest('.spur')?.setAttribute('style', `--musik-lanes: ${musikLanes(audioBalken)}`)
+  for (const b of audioBalken) {
     // Bibliotheks-Einträge tragen ihren KATALOGNAMEN, nicht den Dateinamen:
     // „Aufbruch" sagt, was man hört — „mus-aufbruch.mp3" nur, wo es liegt.
     const anzeige = audioName((z.edits.audio ?? [])[b.index] ?? { datei: b.datei, typ: b.typ, ab: start })
     if (b.typ === 'musik') {
       const klip = document.createElement('div')
       klip.className = 'zl-klip'
+      klip.style.top = `${20 + b.lane * 24}px`
       klip.style.left = pos(b.von)
       klip.style.width = pos(Math.max(0.004, b.bis - b.von))
       klip.dataset['rolle'] = 'audio-balken'
@@ -2805,7 +3194,7 @@ function renderZeitleiste(): void {
       pin.style.left = pos(b.von)
       pin.dataset['rolle'] = 'sfx'
       pin.dataset['index'] = String(b.index)
-      pin.title = `${anzeige} (Einzel-Sound) — ziehen zum Verschieben`
+      pin.title = `${anzeige} (Effekt) — ziehen zum Verschieben`
       if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) pin.classList.add('fokus')
       pin.appendChild(document.createElement('i'))
       audioBahn.appendChild(pin)
@@ -4099,12 +4488,17 @@ function verdrahteEinmal(): void {
   // Ereignisse legt das „+"
   // der jeweiligen Bahn an. Die frühere Knopfleiste in der Sidebar ist weg.
   $('sfx-schliessen').addEventListener('click', schliesseSfxDialog)
-  baueSfxTabs()
   $('sfx-suche').addEventListener('input', (e) => {
     sfxSuche = (e.target as HTMLInputElement).value
+    aktualisiereSfxTabs()
     baueSfxListe()
   })
-  $('sfx-dialog').addEventListener('close', stoppeDialogVorschau)
+  $('sfx-dialog').addEventListener('close', () => {
+    stoppeDialogVorschau()
+    // Auch bei ESC (natives close ohne schliesseSfxDialog): der nächste
+    // Aufruf aus dem Spur-Menü darf nicht im Ersetzen-Modus hängen bleiben.
+    sfxZiel = { modus: 'einsetzen' }
+  })
   // Klick aufs Backdrop (Ziel ist dann das dialog-Element selbst) schließt
   $('sfx-dialog').addEventListener('click', (e) => {
     if (e.target === $('sfx-dialog')) schliesseSfxDialog()
@@ -4112,7 +4506,7 @@ function verdrahteEinmal(): void {
   $('e-audio-datei').addEventListener('change', () => {
     const eingabe = $('e-audio-datei') as HTMLInputElement
     const datei = eingabe.files?.[0]
-    if (datei) void audioHochladen(datei)
+    if (datei) void bibliothekHochladen(datei)
     eingabe.value = ''
   })
   verdrahteZeitleiste()
@@ -4138,6 +4532,9 @@ function verdrahteEinmal(): void {
     return abspieler?.tempo() ?? 0
   },
   ton: () => abspieler?.tonStand() ?? null,
+  /** Laufendes Panel-Vorhören (Datei, Lautstärke) — fürs Browser-E2E. */
+  vorschau: () =>
+    vorschau ? { datei: vorschau.datei, volume: vorschau.audio.volume, pausiert: vorschau.audio.paused } : null,
   laeufer: () => laeufer?.getLngLat() ?? null,
   zoom: (neu?: number) => {
     if (neu !== undefined) wendeZoomAn(neu, 0, spurXpx())

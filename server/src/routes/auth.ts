@@ -260,7 +260,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
         maxAge: 30 * 24 * 60 * 60,
       })
     }
-    const quota = await quotaStand(db, storage, request.benutzer.id, konfig.maxSpeicherProBenutzer)
+    const quota = await quotaStand(db, storage, benutzerStorage, request.benutzer.id, konfig.maxSpeicherProBenutzer)
     const profil = app.auth.profil(request.benutzer.id)
     return {
       benutzer: request.benutzer,

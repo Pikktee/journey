@@ -35,7 +35,7 @@ const audioParamsSchema = {
 } as const
 
 export function registriereMediaRouten(app: FastifyInstance): void {
-  const { storage, konfig, db } = app.deps
+  const { storage, benutzerStorage, konfig, db } = app.deps
 
   // Quota-Vorabprüfung anhand von Content-Length (M9): fängt den Regelfall ab,
   // bevor Bytes fließen. Ohne Header greift weiterhin die harte Pro-Datei-Grenze
@@ -44,7 +44,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
   const quotaVorabPruefung = async (request: import('fastify').FastifyRequest): Promise<string | null> => {
     const laenge = Number(request.headers['content-length'] ?? 0)
     if (!Number.isFinite(laenge) || laenge <= 0 || !request.benutzer) return null
-    return pruefeQuota(db, storage, request.benutzer.id, konfig.maxSpeicherProBenutzer, laenge)
+    return pruefeQuota(db, storage, benutzerStorage, request.benutzer.id, konfig.maxSpeicherProBenutzer, laenge)
   }
 
   // — Upload: rohes Binär in den Body, Dateiname kommt aus dem Manifest —

@@ -110,8 +110,10 @@ export interface AudioEintrag {
    * Herkunft der Datei. Fehlt = tour-lokal hochgeladen (→ /api/media/…).
    * 'bibliothek' = kuratierter Effekt aus [[sfxbibliothek]] (→ /audio/sfx/…),
    * liegt global und wird nicht mit der Tour hochgeladen.
+   * 'benutzer' = eigener Upload in der benutzerweiten Bibliothek — liegt einmal
+   * beim Konto und ist in jeder Tour einsetzbar (→ /api/audio-bibliothek/…).
    */
-  quelle?: 'bibliothek'
+  quelle?: 'bibliothek' | 'benutzer'
 }
 
 export interface EditOverlay {
@@ -392,19 +394,24 @@ export function mitAudioEintrag(edits: EditOverlay, eintrag: AudioEintrag): Edit
   return { ...edits, audio: [...(edits.audio ?? []), eintrag] }
 }
 
-/** Patch-Semantik wie MediumEditPatch: Schlüssel vorhanden + undefined = entfernen. */
+/** Patch-Semantik wie MediumEditPatch: Schlüssel vorhanden + undefined = entfernen.
+ *  `datei`+`quelle` zusammen ersetzen das STÜCK eines Eintrags, ohne seine
+ *  Platzierung (ab/bis/Lautstärke) anzufassen — `quelle: undefined` heißt dabei
+ *  ausdrücklich „tour-lokal" (Schlüssel wird entfernt). */
 export interface AudioPatch {
   typ?: 'musik' | 'sfx'
   ab?: string
   bis?: string | undefined
   lautstaerke?: number | undefined
+  datei?: string
+  quelle?: 'bibliothek' | 'benutzer' | undefined
 }
 
 export function mitAudioPatch(edits: EditOverlay, index: number, patch: AudioPatch): EditOverlay {
   const audio = (edits.audio ?? []).map((e, i) => {
     if (i !== index) return e
     const neu: AudioEintrag = { ...e }
-    for (const key of ['typ', 'ab', 'bis', 'lautstaerke'] as const) {
+    for (const key of ['typ', 'ab', 'bis', 'lautstaerke', 'datei', 'quelle'] as const) {
       if (!(key in patch)) continue
       const wert = patch[key]
       if (wert === undefined) delete neu[key]

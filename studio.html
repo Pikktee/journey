@@ -1185,7 +1185,7 @@
 
     /* ————————————————— Zeitleiste —————————————————
        EINE BAHN JE EREIGNISTYP (Fotos, Fortbewegung, Kamera, Wetter, Momente,
-       Musik & Sound) auf gemeinsamer Zeitachse. Zustände sind lückenlose,
+       Musik & Effekte) auf gemeinsamer Zeitachse. Zustände sind lückenlose,
        beschriftete Bänder — Anfang und Ende eines Zustands sind dieselbe Kante.
        Die Achse zeigt AUFNAHMEZEIT; sie scrollt waagerecht und zoomt, die
        Namenspalte klebt links. Trim-Griffe, Abspielkopf und Auswahl liegen als
@@ -1305,7 +1305,10 @@
     .spuren { position: relative; width: calc(var(--spur-x) + var(--zeit-breite) + 26px); padding: 6px 0 4px; }
     .spur { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); align-items: stretch; height: 30px; }
     .spur.hoch { height: 62px; }
-    .spur.musik { height: 48px; }  /* Pin-Lane oben + Klips darunter */
+    /* Pin-Lane oben + Klips darunter. Überlappende Klips stapeln sich in
+       Unterzeilen (--musik-lanes, gesetzt vom Render) — die Bahn wächst mit,
+       damit kein Klip einen anderen verdeckt (der Player mischt sie ja). */
+    .spur.musik { height: calc(48px + (var(--musik-lanes, 1) - 1) * 24px); }
     .spur-name {
       font-size: 12px; color: var(--text-3); padding: 0 12px 0 16px;
       display: flex; align-items: center; gap: 6px; white-space: nowrap;
@@ -1478,7 +1481,7 @@
     .zl-moment:hover { transform: scale(1.18); }
     .zl-moment.fokus { background: var(--akzent); color: #0b0f15; box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(245, 165, 36, 0.55); }
 
-    /* — Musik & Sound: Klips (Dauer) unten, Klang-Pins (Zeitpunkt) oben —
+    /* — Musik & Effekte: Klips (Dauer) unten, Effekt-Pins (Zeitpunkt) oben —
        Cursor wie bei den Zustandsbändern (Finger), nicht die Pan-Hand —
        Greifen zeigt erst `.schiebt` / :active. */
     .zl-klip {
@@ -1499,7 +1502,7 @@
     .zl-klip .kante.bis { right: -7px; }
     .zl-klip .kante::before { display: none; }
     .zl-klip.fokus { box-shadow: 0 0 0 2px #fff5e4, 0 0 12px rgba(245, 165, 36, 0.45); }
-    /* Ein Klang hat einen Zeitpunkt, keine Dauer: Raute in eigener Lane oben,
+    /* Ein Effekt hat einen Zeitpunkt, keine Dauer: Raute in eigener Lane oben,
        ein Stiel zeigt auf die exakte Stelle. */
     .zl-sfx { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; cursor: pointer; touch-action: none; z-index: 8; }
     .zl-sfx:active { cursor: grabbing; }
@@ -1566,7 +1569,7 @@
       0%, 100% { transform: none; }
       28% { transform: translateY(-6px) scale(1.4); border-color: var(--akzent); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6); }
     }
-    /* Ein Klang, der gerade ausgelöst hat. */
+    /* Ein Effekt, der gerade ausgelöst hat. */
     .zl-sfx.pling i { animation: sfxPling 500ms ease; }
     @keyframes sfxPling {
       0%, 100% { transform: rotate(45deg) scale(1); }
@@ -1781,6 +1784,27 @@
     .insp-knoepfe { display: flex; gap: 7px; flex-wrap: wrap; }
     .insp-knoepfe button { font-size: 12px; padding: 7px 10px; }
     .insp-knoepfe button.aktiv { border-color: var(--akzent); color: var(--akzent); background: rgba(245, 165, 36, 0.08); }
+
+    /* Stück-Karte eines Audio-Eintrags: was läuft, woher es kommt — und der
+       Griff zum Tausch („Ändern …" öffnet die Bibliothek im Ersetzen-Modus). */
+    .insp-stueck {
+      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px;
+      padding: 10px 12px;
+      background: var(--fl-2); border: 1px solid var(--rand); border-radius: 10px;
+    }
+    .insp-stueck-hoeren {
+      flex: none; width: 32px; height: 32px; border-radius: 50%; padding: 0;
+      display: grid; place-items: center;
+      border: 1px solid var(--rand-hell); background: var(--fl-1); color: var(--text-2);
+      transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
+    }
+    .insp-stueck-hoeren:hover { color: var(--akzent); background: var(--fl-1); border-color: color-mix(in srgb, var(--akzent) 55%, var(--rand-hell)); }
+    .insp-stueck-hoeren svg { width: 13px; height: 13px; margin-left: 2px; }
+    .insp-stueck-hoeren .halt { width: 9px; height: 9px; border-radius: 1.5px; background: currentColor; }
+    .insp-stueck-text { min-width: 0; }
+    .insp-stueck-name { font-size: 13px; font-weight: 550; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .insp-stueck-her { font-size: 11.5px; line-height: 1.35; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+    .insp-stueck-wechseln { flex: none; font-size: 12px; padding: 6px 10px; }
     .insp-loeschen {
       width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
       font-size: 12.5px; padding: 9px; color: var(--text-2);
@@ -1826,13 +1850,15 @@
     }
     .stopp-summe b { font-weight: 500; color: var(--text-2); }
 
-    /* — Musik- & Klangbibliothek (Dialog) —
+    /* — Bibliothek „Musik & Effekte" (Dialog) —
        Ein Klangschrank, keine Kachelgalerie: dichte Zeilen, die man von oben
-       nach unten durchhört. Was gerade läuft, zeigt eine mitlaufende Linie
-       unter der Zeile — echter Abspielfortschritt, keine Zierde. */
+       nach unten durchhört. FESTES Format (Desktop 680×680, kleiner nur wenn
+       der Viewport es erzwingt) — der Dialog springt beim Filtern nicht.
+       Was gerade läuft, zeigt eine mitlaufende Linie unter der Zeile —
+       echter Abspielfortschritt, keine Zierde. */
     .sfx-dialog {
-      width: min(620px, 94vw);
-      max-height: 84vh;
+      width: min(680px, calc(100vw - 32px));
+      height: min(680px, calc(100dvh - 48px));
       padding: 0;
       border: 1px solid var(--rand-hell);
       border-radius: 16px;
@@ -1850,14 +1876,34 @@
     .sfx-kopf strong { font-family: var(--font-display); font-size: 21px; font-weight: 550; letter-spacing: -0.015em; }
     .sfx-kopf .sfx-unter { display: block; font-size: 12.5px; color: var(--text-3); font-weight: 400; margin-top: 4px; }
 
-    /* Filterleiste: Textreiter mit Zähler (kein Pill-Segment), Suche rechts */
-    .sfx-filter { display: flex; align-items: center; gap: 4px; padding: 14px 20px 0; border-bottom: 1px solid var(--rand); flex-wrap: wrap; }
-    .sfx-tabs { display: flex; align-items: flex-end; }
+    /* Suche: das erste Werkzeug beim Stöbern — ein ruhiges, breites Feld.
+       Gesucht wird immer über die GANZE Bibliothek, die Reiter treten zurück. */
+    .sfx-suche-feld { position: relative; display: block; margin: 14px 20px 2px; }
+    .sfx-suche-feld svg {
+      position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+      width: 15px; height: 15px; color: var(--text-3); pointer-events: none;
+      transition: color 140ms ease;
+    }
+    .sfx-suche-feld:focus-within svg { color: var(--akzent); }
+    .sfx-suche {
+      width: 100%; padding: 9px 14px 9px 38px; font-size: 13.5px;
+      font-family: var(--font-ui); color: var(--text);
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 10px;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+    .sfx-suche::placeholder { color: var(--text-3); }
+    .sfx-suche:hover { border-color: var(--rand-hell); }
+    .sfx-suche:focus { outline: none; border-color: var(--akzent); }
+    .sfx-suche::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+    /* Art-Reiter: Textreiter mit Zähler (kein Pill-Segment). Bei laufender
+       Suche treten alle zurück — die Treffer kommen aus allen Kategorien. */
+    .sfx-tabs { display: flex; align-items: flex-end; gap: 18px; padding: 8px 20px 0; border-bottom: 1px solid var(--rand); }
     .sfx-tab {
       position: relative; display: inline-flex; align-items: baseline; gap: 6px;
-      padding: 7px 2px 10px; margin-right: 14px; font-size: 13px; font-family: var(--font-ui);
+      padding: 7px 2px 10px; font-size: 13px; font-family: var(--font-ui);
       color: var(--text-3); background: none; border: none; border-radius: 0; cursor: pointer;
-      transition: color 140ms ease;
+      transition: color 140ms ease, opacity 140ms ease;
     }
     .sfx-tab:hover, .sfx-tab:focus-visible { background: none; color: var(--text-2); }
     .sfx-tab[aria-selected="true"] { color: var(--text); }
@@ -1867,27 +1913,55 @@
       background: var(--akzent); border-radius: 2px 2px 0 0;
     }
     .sfx-tab .z { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
-    .sfx-suche-feld { position: relative; margin-left: auto; padding-bottom: 8px; }
-    .sfx-suche-feld svg { position: absolute; left: 10px; top: calc(50% - 4px); transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-3); pointer-events: none; }
-    .sfx-suche { width: 168px; padding: 6px 10px 6px 30px; font-size: 12.5px; border-radius: 8px; }
+    .sfx-tabs.sucht .sfx-tab { opacity: 0.55; }
 
     /* Liste: flex:1 + min-height:0 — ohne das staucht der Dialog die Zeilen,
        statt sie scrollen zu lassen (die Inhalte werden dann abgeschnitten). */
     .sfx-inhalt { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0 8px; }
     .sfx-inhalt::-webkit-scrollbar { width: 10px; }
     .sfx-inhalt::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 10px; border: 3px solid var(--fl-1); }
-    .sfx-leer { text-align: center; padding: 46px 16px; color: var(--text-3); font-size: 13px; }
+    .sfx-leer { text-align: center; padding: 40px 40px; color: var(--text-3); font-size: 13px; line-height: 1.5; }
 
-    /* Gruppenkopf: sagt, WIE die Art klingt — Loop über eine Spanne oder
-       einmaliger Klang an einem Punkt. Bleibt beim Scrollen oben stehen. */
+    /* Gruppenkopf: bleibt beim Scrollen oben stehen. WIE die Art im Film wirkt
+       (Loop über eine Spanne vs. einmaliger Effekt), steckt hinter dem ⓘ. */
     .sfx-gruppe {
-      position: sticky; top: 0; z-index: 1;
-      display: flex; align-items: baseline; gap: 8px;
+      position: sticky; top: 0; z-index: 2;
+      display: flex; align-items: center; gap: 7px;
       padding: 15px 20px 7px;
       background: linear-gradient(var(--fl-1) 76%, transparent);
       font-family: var(--font-display); font-size: 13.5px; font-weight: 550;
     }
-    .sfx-gruppe .wie { font-family: var(--font-ui); font-size: 11.5px; font-weight: 400; color: var(--text-3); }
+    /* Kleines ⓘ mit Blase — Hover UND Tastaturfokus (Muster wie .karte-info).
+       Die Blase öffnet nach UNTEN: der Kopf klebt am oberen Rand des
+       Scrollbereichs, nach oben schnitte overflow sie ab. */
+    .sfx-wie {
+      position: relative; display: inline-grid; place-items: center;
+      width: 17px; height: 17px; border-radius: 50%;
+      color: var(--text-3); cursor: help; outline: none;
+    }
+    .sfx-wie svg { width: 13.5px; height: 13.5px; }
+    .sfx-wie:hover, .sfx-wie:focus { color: var(--text-2); }
+    .sfx-wie:focus-visible { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55); }
+    .sfx-wie-blase {
+      position: absolute; left: -8px; top: calc(100% + 9px);
+      width: max-content; max-width: 280px; padding: 8px 12px 9px; border-radius: 10px;
+      font-family: var(--font-ui); font-size: 11.5px; font-weight: 400;
+      line-height: 1.45; color: var(--text-2); text-align: left; white-space: normal;
+      background: linear-gradient(165deg, rgba(26, 34, 45, 0.96), rgba(9, 12, 17, 0.97));
+      border: 1px solid var(--rand-hell);
+      box-shadow: 0 14px 30px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      opacity: 0; transform: translateY(4px); transform-origin: 12px 0;
+      pointer-events: none; transition: opacity 150ms ease, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+      z-index: 6;
+    }
+    .sfx-wie-blase::after {
+      content: ''; position: absolute; left: 12px; top: -5px; width: 9px; height: 9px;
+      background: rgb(24, 31, 41); transform: rotate(45deg); border-top-left-radius: 2px;
+      border-left: 1px solid var(--rand-hell); border-top: 1px solid var(--rand-hell);
+    }
+    /* :focus statt :focus-visible — Touch hat kein Hover: ein Tipp aufs ⓘ
+       fokussiert es und zeigt die Blase; der RING bleibt Tastatur-exklusiv. */
+    .sfx-wie:hover .sfx-wie-blase, .sfx-wie:focus .sfx-wie-blase { opacity: 1; transform: none; }
 
     .sfx-zeile {
       position: relative;
@@ -1915,10 +1989,18 @@
     .sfx-hoeren svg { width: 13px; height: 13px; margin-left: 2px; }
     .sfx-hoeren .halt { width: 9px; height: 9px; border-radius: 1.5px; background: currentColor; }
     .sfx-text { min-width: 0; }
-    .sfx-name { font-size: 13.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sfx-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sfx-besch { font-size: 12px; line-height: 1.35; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+    /* Das im Ersetzen-Modus aktuell gesetzte Stück: markiert statt klickbar. */
+    .sfx-badge {
+      flex: none; padding: 2px 7px; border-radius: 99px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--akzent); border: 1px solid color-mix(in srgb, var(--akzent) 45%, transparent);
+      background: rgba(245, 158, 11, 0.09);
+    }
     .sfx-rechts { display: flex; align-items: center; gap: 12px; }
     .sfx-zeit { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .sfx-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
     /* In Ruhe nur ein grauer Wortlaut — 28 gerahmte Knöpfe untereinander
        erschlagen die Liste. Erst wo der Zeiger steht, wird daraus ein Knopf. */
     .sfx-einsetzen {
@@ -1930,6 +2012,37 @@
       color: var(--text); background: var(--fl-3); border-color: var(--rand-hell);
     }
     .sfx-zeile .sfx-einsetzen:hover { color: #0f1319; background: var(--akzent); border-color: var(--akzent); }
+    /* Löschen eigener Dateien: unsichtbar bis zum Hover der Zeile; der erste
+       Klick fragt („Löschen?"), erst der zweite löscht wirklich. */
+    .sfx-loeschen {
+      flex: none; padding: 5px 7px; font-size: 11.5px;
+      color: var(--text-3); background: none; border-color: transparent;
+      opacity: 0; transition: color 130ms ease, background 130ms ease, border-color 130ms ease, opacity 130ms ease;
+    }
+    .sfx-zeile:hover .sfx-loeschen, .sfx-loeschen:focus-visible, .sfx-loeschen.sicher { opacity: 1; }
+    .sfx-loeschen svg { width: 14px; height: 14px; }
+    .sfx-loeschen:hover { color: var(--rot); background: rgba(229, 72, 77, 0.1); border-color: transparent; }
+    .sfx-loeschen:disabled { opacity: 0; }
+    .sfx-zeile:hover .sfx-loeschen:disabled { opacity: 0.35; }
+    .sfx-loeschen:disabled:hover { color: var(--text-3); background: none; border-color: transparent; }
+    .sfx-loeschen.sicher, .sfx-loeschen.sicher:hover { color: #fff; background: var(--rot); border-color: var(--rot); }
+    /* Upload als erste Zeile von „Eigene": gestrichelt, volle Breite. */
+    .sfx-upload {
+      display: flex; align-items: center; gap: 9px;
+      width: calc(100% - 40px); margin: 2px 20px 8px; padding: 11px 14px;
+      font-size: 12.5px; color: var(--text-2);
+      background: none; border: 1px dashed var(--rand-hell); border-radius: 10px;
+      transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
+    }
+    .sfx-upload:hover { color: var(--text); border-color: var(--akzent); background: rgba(245, 158, 11, 0.05); border-style: dashed; }
+    .sfx-upload svg { width: 15px; height: 15px; color: var(--akzent); }
+    .sfx-upload .formate { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+    /* Meldungen zum Dialog-Geschehen (Upload/Löschen) — die Editor-Statuszeile
+       läge unsichtbar hinter dem Backdrop. Leer = keine Höhe. */
+    .sfx-status { flex: none; padding: 0 20px; font-size: 12px; color: var(--text-2); }
+    .sfx-status:not(:empty) { padding: 9px 20px; border-top: 1px solid var(--rand); }
+    .sfx-status.ok { color: var(--gruen); }
+    .sfx-status.fehler { color: var(--rot); }
 
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
@@ -2442,7 +2555,7 @@
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-momente"></div></div>
               </div>
               <div class="spur musik">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Sound<button class="spur-plus" data-spur="musik" aria-expanded="false" title="Musik oder Klang ab der Marke einsetzen" aria-label="Musik hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Effekte<button class="spur-plus" data-spur="musik" aria-expanded="false" title="Musik oder Effekt ab der Marke einsetzen" aria-label="Musik hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-musik"></div></div>
               </div>
               <div class="kopfstrich" id="kopfstrich" hidden>
@@ -2513,20 +2626,21 @@
         <input id="e-audio-datei" type="file" hidden accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav" />
       </aside>
     </div>
-    <!-- Musik- & Klangbibliothek: Filter-Tabs + Suche + Kachelraster (aus SFX_BIBLIOTHEK) -->
+    <!-- Bibliothek „Musik & Effekte": Suche über alles, Art-Reiter (Musik ·
+         Atmosphäre · Effekte · Eigene), dichte Zeilen zum Durchhören. Eigene
+         Uploads liegen beim Konto und sind in jeder Tour einsetzbar. -->
     <dialog id="sfx-dialog" class="sfx-dialog">
       <div class="sfx-kopf">
-        <div><strong>Musik &amp; Klang</strong><span class="sfx-unter">Vorhören, dann ab der Marke einsetzen</span></div>
+        <div><strong>Musik &amp; Effekte</strong><span class="sfx-unter" id="sfx-unter">Vorhören, dann ab der Marke einsetzen</span></div>
         <button class="icon" id="sfx-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
       </div>
-      <div class="sfx-filter">
-        <div class="sfx-tabs" id="sfx-tabs" role="tablist" aria-label="Nach Art filtern"></div>
-        <div class="sfx-suche-feld">
-          <svg aria-hidden="true"><use href="#i-suche"/></svg>
-          <input type="search" class="sfx-suche" id="sfx-suche" placeholder="Suchen …" aria-label="Bibliothek durchsuchen" autocomplete="off">
-        </div>
-      </div>
+      <label class="sfx-suche-feld">
+        <svg aria-hidden="true"><use href="#i-suche"/></svg>
+        <input type="search" class="sfx-suche" id="sfx-suche" placeholder="Bibliothek durchsuchen …" aria-label="Bibliothek durchsuchen" autocomplete="off">
+      </label>
+      <div class="sfx-tabs" id="sfx-tabs" role="tablist" aria-label="Nach Art filtern"></div>
       <div class="sfx-inhalt" id="sfx-inhalt"></div>
+      <div class="sfx-status" id="sfx-status" role="status"></div>
     </dialog>
     <!-- Aufziehrahmen des Zoom-Werkzeugs (fixed, damit ihn kein overflow klippt) -->
     <div class="zoom-box" id="zoom-box"></div>

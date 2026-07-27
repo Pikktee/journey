@@ -272,7 +272,7 @@ immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/st
 [src/studio/editor.ts](src/studio/editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
 Neue Editor-Logik gehört in die beiden ersten Module, sonst ist sie nicht testbar.
 
-**Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Wetter, Momente, Musik & Sound, Fotos) auf
+**Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Wetter, Momente, Musik & Effekte, Fotos) auf
 gemeinsamer Zeitachse. Zustände sind **lückenlose, beschriftete Bänder** — Anfang und Ende
 eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Der Abspielkopf liegt als
 Overlay über allen Bahnen (absolut positioniert, **nicht** als Grid-Item: ein Item mit
@@ -423,23 +423,36 @@ für einen späteren „Öffnen mit"-Intent-Filter stehen.
   `eng-moped/eng-jeep/eng-boat.mp3`; das Auto ist auskommentiert), Ambient-Musik via Music-API
   `POST /v1/music` `{prompt, music_length_ms}`
   ([scripts/gen-music.mjs](scripts/gen-music.mjs) → `public/audio/ambient.mp3`).
-  Die **Studio-Bibliothek** (Musik & Sound) kommt aus denselben zwei APIs und liegt komplett
+  Die **Studio-Bibliothek** (Musik & Effekte) kommt aus denselben zwei APIs und liegt komplett
   unter `public/audio/sfx/`: zehn Musikstücke à 100 s via Music-API
   ([scripts/gen-music-library.mjs](scripts/gen-music-library.mjs), `mus-*.mp3`), zehn
-  Atmosphären-Loops und acht Einzelklänge via Sound-Generation
+  Atmosphären-Loops und acht Einzeleffekte via Sound-Generation
   ([scripts/gen-sfx-library.mjs](scripts/gen-sfx-library.mjs), `amb-*`/`sfx-*`). Katalog
   (Anzeige + Dateinamen) ist [src/studio/sfxbibliothek.ts](src/studio/sfxbibliothek.ts), die
   Prompts stehen in den Skripten; ein Drift-Wächter hält beide Seiten synchron und prüft, dass
   jede Katalogdatei wirklich existiert. Beide Skripte überspringen Vorhandenes — gezielt neu
-  erzeugen heißt: Datei vorher löschen. Eigene Dateien bleiben daneben jederzeit möglich
-  („Datei hochladen …" im „+"-Menü der Musikspur, landet unter `media/` der Tour).
-  Im Studio ist die Bibliothek ein **Katalog zum Durchhören**: Reiter nach Art (Alle · Musik ·
-  Atmosphäre · Klänge) plus Suche, dichte Zeilen, und die Gruppenüberschrift sagt, was die Art
-  im Film TUT (Loop über einen Bereich vs. einmal an der Marke) — das ist die Entscheidung, die
-  man beim Aussuchen trifft. Was läuft, zeigt eine mitlaufende Linie plus Zeit aus
-  `currentTime`/`duration`; die Dauer steht erst, wenn sie bekannt ist (kein Raten). Der
-  Fortschritt wird IN die Zeile geschrieben, nie durch Neubau der Liste — sonst entstünde sie
-  viermal je Sekunde neu.
+  erzeugen heißt: Datei vorher löschen. **Eigene Dateien** landen seit dem Bibliotheks-Umbau
+  NICHT mehr tour-lokal, sondern in der **benutzerweiten Audio-Bibliothek**
+  (`<userId>/audio/` im benutzerStorage, [server/src/routes/bibliothek.ts](server/src/routes/bibliothek.ts)):
+  einmal hochgeladen, in jeder Tour einsetzbar (`quelle: 'benutzer'` im Overlay), zur Quota
+  zählend, löschbar nur solange KEINE Tour sie referenziert (edits.json ODER gerendertes
+  tour.json). Ausgeliefert wird über die Tour (`/api/tours/:id/bibliothek-audio/:datei`,
+  Sichtbarkeit + Referenz-Check — sonst wäre die Route ein Orakel über fremde Bibliotheken);
+  das Studio hört über die Owner-Route `/api/audio-bibliothek/:datei` vor. Tour-lokale
+  `media/`-Audios bleiben als Altbestand unterstützt (Verweis ohne `quelle`).
+  Im Studio ist die Bibliothek ein **Katalog zum Durchhören** in einem Dialog mit FESTEM
+  Format (springt beim Filtern nicht): Suche über die GANZE Bibliothek (Reiter treten zurück),
+  Reiter nach Art (Musik · Atmosphäre · Effekte · Eigene, bewusst kein „Alle"), dichte Zeilen,
+  und die Gruppenüberschrift sagt, was die Art im Film TUT (Loop über einen Bereich vs. einmal
+  an der Marke) — das ist die Entscheidung, die man beim Aussuchen trifft. Was läuft, zeigt
+  eine mitlaufende Linie plus Zeit aus `currentTime`/`duration`; die Dauer steht erst, wenn sie
+  bekannt ist (kein Raten). Der Fortschritt wird IN die Zeile geschrieben, nie durch Neubau der
+  Liste — sonst entstünde sie viermal je Sekunde neu. Der Dialog kennt zwei Ziele: EINSETZEN
+  (neuer Eintrag ab der Marke) und ERSETZEN („Ändern …" in der Stück-Karte des Panels — tauscht
+  nur die Datei, Platzierung und Lautstärke bleiben; das aktuelle Stück trägt ein
+  „Aktuell"-Badge). Es klingt immer nur EINE Quelle: Bibliotheks-Vorhören stoppt das
+  Panel-Vorhören und umgekehrt; das Panel-Vorhören folgt der Eintrags-Lautstärke live am
+  Regler (input-Hook ohne Overlay-Patch je Pixel).
   Loops laufen nahtlos über den Crossfade-Wrapper [src/audioloop.js](src/audioloop.js)
   (`SeamlessLoop`), die Hintergrundmusik über [src/music.js](src/music.js) (Dock-Toggle),
   die Motorloops über [src/vehicle.js](src/vehicle.js) (`MODE_SOUND` — `moped`/`jeep`/`ferry`;

@@ -613,7 +613,7 @@ async function verarbeite(
   opts: { frisch?: boolean; erstmals?: boolean } = {},
 ): Promise<void> {
   const { frisch = false, erstmals = false } = opts
-  const { db, storage, geocoder, wetter, videoWerkzeug, bildKlassifikator } = app.deps
+  const { db, storage, benutzerStorage, geocoder, wetter, videoWerkzeug, bildKlassifikator } = app.deps
   const protokoll = (nachricht: string): void => app.log.warn(nachricht)
   try {
     const tour = ladeTour(app, tourId)
@@ -723,6 +723,8 @@ async function verarbeite(
     // Vorhandene Audio-Dateien an die Pipeline reichen (Baukasten) —
     // edits.audio-Einträge ohne Datei überspringt sie dort mit Warnung.
     const audioDateien = (await storage.listeDateien(tourId, 'media')).map((d) => d.name).filter(istAudioDatei)
+    // Dazu die benutzerweite Bibliothek des Eigentümers (quelle 'benutzer').
+    const benutzerAudioDateien = (await benutzerStorage.listeDateien(tour.owner_id, 'audio')).map((d) => d.name)
 
     // Render ist jetzt rein lokal: alle externen Ergebnisse liegen als Eingabe vor.
     const tourJson = await reichereAn({
@@ -735,6 +737,7 @@ async function verarbeite(
       finaleZielOverride: tour.finale_ziel,
       ...(edits ? { edits } : {}),
       audioDateien,
+      benutzerAudioDateien,
       orte,
       wetterRoh,
       ...(videoMeta.size ? { videoMeta } : {}),

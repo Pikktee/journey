@@ -229,3 +229,28 @@ export function ladeAudio(id: string, datei: string, daten: Blob): Promise<{ dat
 export function loescheAudio(id: string, datei: string): Promise<unknown> {
   return anfrage(`/tours/${id}/audio/${encodeURIComponent(datei)}`, { method: 'DELETE' })
 }
+
+// — Benutzerweite Audio-Bibliothek: eigene Uploads, in jeder Tour einsetzbar —
+
+export interface BibliotheksDatei {
+  datei: string
+  groesse: number
+  /** Touren, die die Datei (noch) verwenden — solange nicht leer, ist Löschen gesperrt. */
+  verwendetVon: Array<{ id: string; titel: string }>
+}
+
+export async function listeBibliothek(): Promise<BibliotheksDatei[]> {
+  return (await anfrage<{ dateien: BibliotheksDatei[] }>('/audio-bibliothek')).dateien
+}
+
+export function ladeBibliotheksAudio(datei: string, daten: Blob): Promise<{ datei: string; bytes: number }> {
+  return anfrage(`/audio-bibliothek/${encodeURIComponent(datei)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: daten,
+  })
+}
+
+export function loescheBibliotheksAudio(datei: string): Promise<unknown> {
+  return anfrage(`/audio-bibliothek/${encodeURIComponent(datei)}`, { method: 'DELETE' })
+}

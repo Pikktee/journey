@@ -1,4 +1,4 @@
-// Kuratierte Klang- und Musikbibliothek: ein fester Satz, den wir EINMAL über
+// Kuratierte Musik- und Effektbibliothek: ein fester Satz, den wir EINMAL über
 // ElevenLabs erzeugen (scripts/gen-music-library.mjs für die Musik,
 // scripts/gen-sfx-library.mjs für Atmosphären und Effekte) und statisch unter
 // public/audio/sfx/ ausliefern. Anders als hochgeladene Tour-Audios sind diese
@@ -78,7 +78,7 @@ export const SFX_BIBLIOTHEK: readonly SfxEffekt[] = [...MUSIK, ...UMGEBUNG, ...E
 export const KATEGORIE_NAMEN: Record<SfxEffekt['kategorie'], string> = {
   musik: 'Musik',
   umgebung: 'Atmosphäre',
-  effekt: 'Klänge',
+  effekt: 'Effekte',
 }
 
 /** Menge der Bibliotheks-Dateinamen — für die Validierung (Server/Player-Referenz). */
