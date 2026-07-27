@@ -385,6 +385,11 @@ export const TOURS = {
       { km: 23, mode: 'clouds', k: 0.18 },
       { km: 28, mode: 'off', k: 0.15 },
     ],
+    // Eigene Musik statt des Ambient-Loops (main.js lässt ihn dann weg, der
+    // Musik-Schalter steuert diese Spur): „Nachtfahrt" aus der Studio-Bibliothek —
+    // pulsierender Synthwave, passend zur Fahrt in die Vollmondnacht.
+    // gain 0.8 ≈ der bisherige Ambient-Pegel (0.22 × 0.8 ≈ 0.16).
+    audio: [{ type: 'music', src: '/audio/sfx/mus-nachtfahrt.mp3', f0: 0, f1: 1, gain: 0.8 }],
     segments: [
       { mode: 'walk', label: 'Zu Fuß',  // Ankunft in Thong Sala, Bummel durch den Ort
         pts: [
