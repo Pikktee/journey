@@ -342,7 +342,11 @@
     /* ─── So funktioniert's ──────────────────────────────────────── */
     .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: var(--luft-gitter); margin-top: var(--luft-kopf); counter-reset: step; }
     .step {
-      position: relative; padding: clamp(26px, 6vw, 32px) clamp(22px, 5.4vw, 28px) clamp(24px, 5.6vw, 30px); border-radius: 18px;
+      --step-luft-x: clamp(16px, 4vw, 20px);
+      --step-luft-o: clamp(16px, 4vw, 20px);
+      position: relative;
+      padding: var(--step-luft-o) var(--step-luft-x) clamp(24px, 5.6vw, 30px);
+      border-radius: 18px;
       border: 1px solid var(--line); overflow: hidden;
       background: linear-gradient(158deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014));
       transition: transform 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
@@ -357,18 +361,67 @@
     .step:hover::after { background: linear-gradient(90deg, transparent, rgba(245, 165, 36, 0.55), transparent); }
     .step::before {
       counter-increment: step; content: '0' counter(step);
-      position: absolute; top: 16px; right: 22px;
-      font-family: var(--display); font-size: 50px; font-weight: 500; line-height: 1;
-      color: rgba(245, 165, 36, 0.14);
+      position: absolute; top: calc(var(--step-luft-o) + 8px); right: calc(var(--step-luft-x) + 14px); z-index: 2;
+      font-family: var(--display); font-size: 40px; font-weight: 500; line-height: 1;
+      color: rgba(245, 165, 36, 0.2); font-variant-numeric: tabular-nums;
+      transition: color 0.32s ease;
     }
-    .step-ico {
-      width: 50px; height: 50px; display: grid; place-items: center; border-radius: 14px;
-      border: 1px solid rgba(245, 165, 36, 0.3); background: rgba(245, 165, 36, 0.09);
-      margin-bottom: 18px; transition: background 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
+    .step:hover::before { color: rgba(245, 165, 36, 0.34); }
+
+    /* Illustrationsbühne: statt eines Strich-Icons trägt jede Karte eine eigene
+       kleine Szene. Das Raster darunter zitiert die Karte, auf der alles fußt;
+       die Maske lässt es zu den Rändern hin auslaufen, damit die Kachelkanten
+       nicht als harte Linien anschlagen. */
+    .step-buehne {
+      position: relative; aspect-ratio: 300 / 140; margin-bottom: clamp(18px, 4vw, 22px);
+      border-radius: 13px; overflow: hidden; border: 1px solid var(--line);
+      /* DUNKLER als die Karte: die Szene liegt wie ein eingelassenes Fenster darin.
+         Mit demselben hellen Verlauf wie die Karte verschwamm sie mit ihr. */
+      background:
+        radial-gradient(120% 96% at 50% 2%, rgba(245, 158, 11, 0.13), transparent 60%),
+        linear-gradient(180deg, rgba(6, 9, 14, 0.5), rgba(6, 9, 14, 0.82));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: border-color 0.32s ease;
     }
-    .step:hover .step-ico { background: rgba(245, 165, 36, 0.16); border-color: rgba(245, 165, 36, 0.55); box-shadow: 0 0 26px -6px rgba(245, 165, 36, 0.6); }
-    .step-ico svg { width: 25px; height: 25px; fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-    .step h3 { font-family: var(--display); font-weight: 600; font-size: 23px; margin: 0 0 9px; }
+    .step:hover .step-buehne { border-color: rgba(245, 165, 36, 0.26); }
+    .step-buehne::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 25px 25px;
+      -webkit-mask-image: radial-gradient(115% 96% at 50% 44%, #000 34%, transparent 80%);
+      mask-image: radial-gradient(115% 96% at 50% 44%, #000 34%, transparent 80%);
+    }
+    .step-bild { position: relative; display: block; width: 100%; height: 100%; }
+
+    /* Gemeinsame Strichsprache aller drei Szenen — eine Illustration, dreimal erzählt. */
+    .sb-linie { fill: none; stroke: rgba(242, 237, 227, 0.3); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+    .sb-zart { fill: none; stroke: rgba(242, 237, 227, 0.16); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+    .sb-flaeche { fill: rgba(255, 255, 255, 0.05); stroke: rgba(242, 237, 227, 0.22); stroke-width: 1.3; }
+    .sb-berg-fern { fill: rgba(242, 237, 227, 0.07); }
+    .sb-berg-nah { fill: rgba(10, 13, 20, 0.72); stroke: rgba(242, 237, 227, 0.2); stroke-width: 1.2; stroke-linejoin: round; }
+    .sb-route {
+      fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+      stroke-dasharray: 460; stroke-dashoffset: 0;
+    }
+    .sb-marke { fill: var(--amber); }
+    .sb-marke-ring { fill: none; stroke: var(--amber); stroke-width: 1.5; opacity: 0.55; }
+    .sb-glut { fill: var(--amber); }
+    /* Die Route zeichnet sich beim Zeigen — dasselbe Motiv wie die Routen-Signatur
+       auf den Tourkacheln, damit beide Abschnitte zusammengehören. */
+    .step:hover .sb-route { animation: sbZeichnen 1.25s cubic-bezier(0.3, 0.6, 0.2, 1); }
+    @keyframes sbZeichnen { from { stroke-dashoffset: 460; } to { stroke-dashoffset: 0; } }
+    /* Die dritte Karte zeigt keine Route, sondern den fertigen Film — dort läuft
+       beim Zeigen die Fortschrittsleiste an, statt dass sich etwas zeichnet. */
+    .sb-fortschritt { stroke-dasharray: 84; stroke-dashoffset: 0; }
+    .step:hover .sb-fortschritt { animation: sbSpielen 1.25s cubic-bezier(0.3, 0.6, 0.2, 1); }
+    @keyframes sbSpielen { from { stroke-dashoffset: 84; } to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .step:hover .sb-route, .step:hover .sb-fortschritt { animation: none; }
+    }
+
+    .step h3 { font-family: var(--display); font-weight: 600; font-size: 23px; margin: 0 0 9px; text-wrap: balance; }
     .step p { color: var(--muted); font-size: 15px; margin: 0; }
 
     /* ─── Schluss-CTA (photographisch) ───────────────────────────── */
@@ -657,25 +710,142 @@
       </div>
       <div class="steps">
         <div class="step reveal">
-          <div class="step-ico">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
+          <!-- 01: Aus dem Handy läuft die Spur heraus, die Fotos sitzen darauf. -->
+          <div class="step-buehne">
+            <svg class="step-bild" viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <defs>
+                <linearGradient id="sbRoute1" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0" stop-color="#F59E0B" /><stop offset="1" stop-color="#FF6F52" />
+                </linearGradient>
+              </defs>
+              <!-- Empfang -->
+              <path class="sb-zart" d="M42 30a24 24 0 0 1 30 0" />
+              <path class="sb-zart" d="M49 39a13 13 0 0 1 16 0" />
+              <!-- Handy -->
+              <rect class="sb-flaeche" x="37" y="48" width="38" height="70" rx="9" />
+              <rect x="42" y="53" width="28" height="55" rx="5" fill="rgba(6,9,14,.75)" />
+              <path class="sb-zart" d="M47 99c4-8 9-5 11-14s6-7 8-15" />
+              <circle cx="47" cy="99" r="2.3" class="sb-marke" />
+              <rect x="50" y="112" width="12" height="2.6" rx="1.3" fill="rgba(242,237,227,.24)" />
+              <!-- Die aufgezeichnete Spur verlässt das Gerät -->
+              <path class="sb-route" stroke="url(#sbRoute1)"
+                    d="M75 80c19 1 21-25 41-27s25 27 48 25 31-30 55-32" />
+              <!-- Aufnahmen am Wegesrand -->
+              <circle class="sb-marke-ring" cx="116" cy="53" r="7.5" />
+              <circle class="sb-marke" cx="116" cy="53" r="3.4" />
+              <circle class="sb-marke-ring" cx="164" cy="78" r="7.5" />
+              <circle class="sb-marke" cx="164" cy="78" r="3.4" />
+              <circle class="sb-marke-ring" cx="219" cy="46" r="7.5" />
+              <circle class="sb-marke" cx="219" cy="46" r="3.4" />
+            </svg>
           </div>
           <h3>Aufzeichnen</h3>
-          <p>Die Android-App trackt deine Route per GPS und hält Fotos &amp; Videos am Wegesrand fest. Alternativ lädst du einen GPX-Track hoch.</p>
+          <p>Die App zeichnet deine Route auf und merkt sich, wo unterwegs deine Fotos entstanden sind. Kein Handy dabei? Dann lädst du einen GPX-Track hoch.</p>
         </div>
+
         <div class="step reveal">
-          <div class="step-ico">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v4M3 5h4M18 15v3M16.5 16.5h3" /><path d="M13 4l1.9 4.6L19.5 10.5 14.9 12.4 13 17l-1.9-4.6L6.5 10.5l4.6-1.9z" /></svg>
+          <!-- 02: Aus der flachen Linie wird Gelände, Licht und Wetter jenes Tages. -->
+          <div class="step-buehne">
+            <svg class="step-bild" viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <defs>
+                <linearGradient id="sbRoute2" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0" stop-color="#F59E0B" /><stop offset="1" stop-color="#FF6F52" />
+                </linearGradient>
+                <radialGradient id="sbSonne2" cx="0.5" cy="0.5" r="0.5">
+                  <stop offset="0" stop-color="#FFD79A" /><stop offset="0.55" stop-color="#F59E0B" />
+                  <stop offset="1" stop-color="#F59E0B" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <!-- LINKS die nackte Aufzeichnung: eine flache Reihe Messpunkte … -->
+              <path class="sb-zart" d="M12 116h86" stroke-dasharray="2 5" />
+              <circle cx="20" cy="116" r="1.9" fill="rgba(242,237,227,.34)" />
+              <circle cx="42" cy="116" r="1.9" fill="rgba(242,237,227,.34)" />
+              <circle cx="64" cy="116" r="1.9" fill="rgba(242,237,227,.34)" />
+              <circle cx="86" cy="116" r="1.9" fill="rgba(242,237,227,.34)" />
+              <!-- … RECHTS wird daraus Gelände mit Licht und Wetter jenes Tages -->
+              <circle cx="152" cy="40" r="26" fill="url(#sbSonne2)" opacity="0.6" />
+              <circle cx="152" cy="40" r="9.5" fill="#FFC466" />
+              <path d="M198 38a13 13 0 0 1 25-4 11 11 0 0 1 3 21h-26a9 9 0 0 1-2-17z"
+                    fill="rgba(255,255,255,.1)" stroke="rgba(242,237,227,.36)" stroke-width="1.3" stroke-linejoin="round" />
+              <!-- Der Regen endet über der Route — sonst kreuzten die Striche sie
+                   und die Fotomarke sah durchgestrichen aus. -->
+              <path d="M205 60l-3 8M217 60l-3 8M229 60l-3 8"
+                    stroke="rgba(190,214,235,.5)" stroke-width="1.5" stroke-linecap="round" fill="none" />
+              <!-- Beide Kämme steigen AUS der Grundlinie an: mit einem Startpunkt
+                   auf halber Höhe stand dort eine senkrechte Schnittkante im Bild. -->
+              <path class="sb-berg-fern" d="M104 140l32-68 30 22 34-30 38 32 32-24 30 22v46z" />
+              <path class="sb-berg-nah" d="M104 140l30-36 34 16 36-22 40 22 32-18 24 14v24z" />
+              <!-- Die Route erhebt sich genau dort, wo die Welt entsteht -->
+              <path class="sb-route" stroke="url(#sbRoute2)"
+                    d="M98 116c14 0 20-10 36-19s28 8 44-2 24-24 42-22 30 16 56 8" />
+              <circle class="sb-marke-ring" cx="134" cy="97" r="7" />
+              <circle class="sb-marke" cx="134" cy="97" r="3.2" />
+              <circle class="sb-marke-ring" cx="220" cy="73" r="7" />
+              <circle class="sb-marke" cx="220" cy="73" r="3.2" />
+            </svg>
           </div>
-          <h3>Anreichern</h3>
-          <p>Der Server benennt die Tour, rekonstruiert das echte Wetter jenes Tages und legt eine Zeitleiste mit komprimierten Pausen an.</p>
+          <h3>Verwandeln</h3>
+          <p>Maptale erkennt, wo du warst, holt das Wetter jenes Tages zurück und kürzt lange Pausen weg. Deine Fotos rücken an ihren Platz an der Strecke.</p>
         </div>
+
         <div class="step reveal">
-          <div class="step-ico">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M3 9h18M8 5v4M16 5v4" /><path d="M11 12.2v3.6l3-1.8z" fill="currentColor" stroke="none" /></svg>
+          <!-- 03: Der fertige Film — Gelände in Perspektive, Fahrer, Fotostopps auf der Leiste. -->
+          <div class="step-buehne">
+            <svg class="step-bild" viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <defs>
+                <linearGradient id="sbRoute3" x1="0" y1="1" x2="0.7" y2="0">
+                  <stop offset="0" stop-color="#FF6F52" /><stop offset="1" stop-color="#F59E0B" />
+                </linearGradient>
+                <!-- Luftperspektive: was weiter weg ist, verblasst — dadurch wirkt
+                     das Band, als führe es wirklich in die Tiefe. -->
+                <linearGradient id="sbFerne3" x1="0" y1="1" x2="0.6" y2="0">
+                  <stop offset="0" stop-color="#FF6F52" /><stop offset="0.55" stop-color="#F59E0B" />
+                  <stop offset="1" stop-color="#F59E0B" stop-opacity="0.18" />
+                </linearGradient>
+                <linearGradient id="sbHimmel3" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#F59E0B" stop-opacity="0.26" />
+                  <stop offset="1" stop-color="#F59E0B" stop-opacity="0" />
+                </linearGradient>
+                <radialGradient id="sbSonne3" cx="0.5" cy="0.5" r="0.5">
+                  <stop offset="0" stop-color="#FFD79A" /><stop offset="0.5" stop-color="#F59E0B" stop-opacity="0.7" />
+                  <stop offset="1" stop-color="#F59E0B" stop-opacity="0" />
+                </radialGradient>
+                <clipPath id="sbRahmen3"><rect x="31" y="19" width="238" height="94" rx="9" /></clipPath>
+              </defs>
+              <g clip-path="url(#sbRahmen3)">
+                <rect x="31" y="19" width="238" height="50" fill="url(#sbHimmel3)" />
+                <!-- Die Sonne steht VOR den Bergen im Markup, damit der Kamm sie halb verdeckt. -->
+                <circle cx="204" cy="60" r="17" fill="url(#sbSonne3)" opacity="0.8" />
+                <circle cx="204" cy="60" r="6.5" fill="#FFC466" opacity="0.9" />
+                <!-- Gelände hinter dem Horizont -->
+                <path class="sb-berg-fern" d="M31 69l32-15 28 10 34-16 32 14 30-11 40 16 42-13v42H31z" />
+                <!-- Fluchtlinien auf den Horizont: der Blick GEHT irgendwo hin -->
+                <g class="sb-zart" opacity="0.55">
+                  <path d="M-14 116L142 68M46 116L152 68M104 116L162 68M166 116L172 68M228 116L182 68M292 116L192 68" />
+                  <path d="M31 78h238M31 88h238M31 101h238" opacity="0.7" />
+                </g>
+                <!-- Die Fahrt als BAND: vorn breit, hinten schmal — dadurch fliegt
+                     die Kamera sichtbar hinein, statt nur eine Linie zu zeigen. -->
+                <path fill="url(#sbFerne3)"
+                      d="M96 118c6-16 14-22 26-30s24-10 30-20l4 1c-5 12-16 16-27 25s-18 14-23 24z" />
+                <path fill="none" stroke="url(#sbFerne3)" stroke-width="0.9" opacity="0.45"
+                      d="M92 118c6-17 15-24 27-32s25-10 31-20" />
+                <!-- Der Fahrer auf der Strecke -->
+                <circle cx="122" cy="88" r="7" fill="#0A0D14" stroke="url(#sbRoute3)" stroke-width="2.4" />
+                <circle cx="122" cy="88" r="2.4" class="sb-marke" />
+              </g>
+              <rect x="31" y="19" width="238" height="94" rx="9" fill="none" stroke="rgba(242,237,227,.24)" stroke-width="1.4" />
+              <!-- Fortschrittsleiste mit Fotostopps, wie im Player -->
+              <path d="M43 125h214" stroke="rgba(242,237,227,.18)" stroke-width="3" stroke-linecap="round" />
+              <path class="sb-fortschritt" d="M43 125h84" stroke="url(#sbRoute3)" stroke-width="3" stroke-linecap="round" />
+              <circle class="sb-marke" cx="77" cy="125" r="3.4" />
+              <circle class="sb-marke" cx="127" cy="125" r="3.4" />
+              <circle cx="186" cy="125" r="3.4" fill="rgba(242,237,227,.34)" />
+              <circle cx="232" cy="125" r="3.4" fill="rgba(242,237,227,.34)" />
+            </svg>
           </div>
           <h3>Erleben</h3>
-          <p>Der Browser fliegt kinematisch über echtes 3D-Gelände, mit Tag/Nacht, Wettereffekten und deinen Fotos als Stopps.</p>
+          <p>Die Kamera fliegt über das echte Gelände deiner Strecke — durch Licht und Wetter jenes Tages, mit einem Halt an jedem Foto.</p>
         </div>
       </div>
     </div>
