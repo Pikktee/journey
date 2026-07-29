@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Was das ist
 
-Maptale (Siswati für „Reise“) ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
+Maptale ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
 automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vanilla JS + Vite
 (neue Module in TypeScript), gerendert mit MapLibre GL JS.
 
@@ -146,6 +146,18 @@ AWS-Terrain-DEM (`EXAGGERATION`-Konstante), Atmosphäre, Routen-Layer, Foto-Wegp
 (`addSpotLayers`), Fahrer-Marker (`createRider`/`setRiderIcon` mit `MODE_ICONS`).
 [src/daynight.js](src/daynight.js) + [src/sun.js](src/sun.js) mappen Streckenanteil → Pseudo-Uhrzeit
 → Sonnenstand → Szenenstimmung (nur wenn `cfg.time` gesetzt ist).
+**Foto-Stopps sind 3D-PINS** ([src/photopins.js](src/photopins.js), Standard;
+`?pins3d=0` = alte flache Kreise, `?pins3d=foto` = Bild im Kopf): Fußring am Boden, Mast,
+Kopfscheibe mit Nummer. Eigener Three.js-Custom-Layer, weil MapLibre 5 Symbole/Kreise nicht
+über Grund heben kann (`symbol-z-offset` gibt es dort nicht). Die Größe kommt aus der
+KAMERADISTANZ, nicht als feste Meterhöhe — sonst wäre der Pin im Intro-Anflug ein Zahnstocher
+und am Foto-Orbit ein Sendemast. Voll dargestellt wird nur ein FENSTER um die aktuelle
+Position (nächster Stopp, zuletzt besuchter, am Desktop der zweite kommende), alles andere
+bleibt ein flacher Bodenpunkt: am Pixel 9 kostete das Querformat mit vier Pins doppelt so
+viel CPU wie das Hochformat mit einem (7 % Bildrate → mit Detailstufe unter der Messschwelle).
+Rechenregeln DOM-frei und getestet in [src/pinmodell.ts](src/pinmodell.ts); Machbarkeit,
+Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
+[docs/foto-pins-3d.md](docs/foto-pins-3d.md).
 
 **Gebäude sind ein einzelner fill-extrusion-Layer** (`buildings-3d`; MapLibre kann kein
 AO/Schatten/Fenster). [src/buildings.js](src/buildings.js) sampelt beim Kachel-Laden die echte

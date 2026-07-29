@@ -581,16 +581,40 @@ map.on('load', () => {
   } catch { syncWeatherUI('off') }
 
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
+  const spotPunkte = stops.map((st) => {
+    const pos = pointAt(route, st.s)
+    return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: st.items[0]?.src }
+  })
   const syncSpots = addSpotLayers(
     map,
-    stops.map((st) => {
-      const pos = pointAt(route, st.s)
-      return { lnglat: [pos[0], pos[1]], s: st.s }
-    }),
+    spotPunkte,
     [start[0], start[1]],
     (s) => tour.jumpToPhoto(s) // Wegpunkt-Klick öffnet das Foto direkt
   )
-  ui.registerSpots(syncSpots)
+
+  // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.js) — das ist der
+  // Normalfall; die flachen Kreise klebten im Bergland am Hang und verschwanden hinter
+  // jedem Grat. `?pins3d=0` schaltet auf sie zurück (A/B-Vergleich, wie bei den
+  // Renderer-Flags), `?pins3d=foto` zeigt das Bild im Kopf statt der Nummer.
+  // Der Startpunkt-Dot bleibt in beiden Fällen flach — er ist kein Halt.
+  const pinsParam = params.get('pins3d')
+  if (pinsParam === '0') {
+    ui.registerSpots(syncSpots)
+  } else {
+    for (const l of ['spots-circle', 'spots-num']) map.setLayoutProperty(l, 'visibility', 'none')
+    // Der Sync-Callback steht sofort, der Renderer kommt lazy nach (Three.js gehört
+    // nicht ins Basis-Bundle) — bis dahin läuft er ins Leere.
+    let pins = null
+    ui.registerSpots((s) => pins?.sync(s))
+    import('./photopins.js').then(({ installPhotoPins }) => {
+      pins = installPhotoPins(map, spotPunkte, {
+        onSelect: (s) => tour.jumpToPhoto(s),
+        variante: pinsParam === 'foto' ? 'foto' : 'nummer',
+      })
+      window.__j.pins = pins
+      pins.sync(tour.s ?? 0)
+    })
+  }
   ui.syncDots(0)
 
   // Position über Reloads hinweg merken (z.B. beim Umschalten von Query-Parametern
@@ -796,6 +820,7 @@ map.on('load', () => {
       (p, sun) => {
         scene?.applyDayNight(p, sun)
         window.__j.buildings3d?.applyDayNight(p, sun)
+        window.__j.pins?.applyDayNight(p) // 3D-Pins (?pins3d=1) nachts zurücknehmen
         tiles3d?.applyDayNight(p, sun)
         atmo.setSky(p.hor, p.sky, p.fog) // Dunst an Horizont/Himmel/Fog der Tageszeit koppeln
       },
