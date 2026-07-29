@@ -61,6 +61,17 @@
       --display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'IBM Plex Mono', monospace;
       --wrap: 1160px;
+
+      /* Abstands-Skala — EIN Rhythmus für die ganze Seite.
+         Die Stufen wachsen aus Breite UND Höhe (vw + vh), damit sie auf dem
+         Handy gemeinsam schrumpfen: reine vh-Werte blieben dort fast so groß
+         wie am Desktop, und die Abschnitte trieben mit ~180 px Leere
+         auseinander, während die Karten mit 22 px aneinanderklebten. */
+      --luft-band: clamp(54px, 7.5vw + 3vh, 118px);    /* Abschnitt oben/unten */
+      --luft-kopf: clamp(28px, 4vw + 1vh, 52px);       /* Abschnittskopf → Inhalt */
+      --luft-gitter: clamp(18px, 1.4vw + 0.8vh, 22px); /* zwischen Karten */
+      /* Seitenrand: nie unter die Notch (Landscape auf iPhone). */
+      --rand: max(clamp(18px, 5.6vw, 22px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
     }
 
     * { box-sizing: border-box; }
@@ -91,7 +102,13 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
-    .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
+    .wrap { width: min(var(--wrap), 100% - var(--rand) * 2); margin-inline: auto; }
+
+    /* Auf dem Handy stehen Zeilen enger zusammen als am Desktop — 1.65 zog
+       jeden Absatz über fünf weit auseinanderliegende Zeilen. */
+    @media (max-width: 560px) {
+      body { line-height: 1.56; }
+    }
 
     /* ─── Kopfleiste (3-Zonen Navigationskonzept: Logo | One-Pager Anchors | App & Anmelden) ─ */
     .nav {
@@ -180,6 +197,13 @@
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
 
     @media (max-width: 720px) { .nav-hide-sm { display: none; } }
+    /* Ohne die mittleren Links trägt die Kopfleiste nur noch Logo + Knopf —
+       dann darf sie schmaler sein und mehr vom Hero-Bild stehen lassen. */
+    @media (max-width: 560px) {
+      .nav { padding: 11px 0; }
+      .brand img { height: 36px; }
+      .nav-right a.nav-cta { padding: 9px 16px; font-size: 14px; }
+    }
 
     /* ─── Buttons ────────────────────────────────────────────────── */
     .btn {
@@ -199,8 +223,11 @@
     /* ─── Hero (photographisch & zoom-sicher) ───────────────────────── */
     .hero {
       position: relative; min-height: min(94vh, 900px); display: flex; align-items: center;
-      overflow: hidden; isolation: isolate; padding-top: clamp(70px, 10vh, 100px);
+      overflow: hidden; isolation: isolate; padding-top: clamp(64px, 9vh, 100px);
     }
+    /* svh statt vh: Mobil-Browser rechnen vh mit EINGEKLAPPTER Adressleiste —
+       der Hero sprang beim ersten Scrollen um deren Höhe. */
+    @supports (height: 100svh) { .hero { min-height: min(94svh, 900px); } }
     .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; z-index: -3; }
     /* Verlaufe: unten weich in den Seitengrund, links dunkler für den Text, oben Nav-Lesbarkeit */
     .hero-scrim {
@@ -214,7 +241,7 @@
     .cine.top { top: 0; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent); }
     .cine.bottom { bottom: 0; background: linear-gradient(to top, rgba(0, 0, 0, 0.4), transparent); }
 
-    .hero-inner { padding: 0 0 clamp(60px, 10vh, 140px); max-width: 52rem; }
+    .hero-inner { padding: 0 0 clamp(44px, 4vw + 4vh, 140px); max-width: 52rem; }
     .hero h1 {
       font-family: var(--display); font-weight: 700;
       font-size: clamp(38px, 6.2vw, 76px); line-height: 1.05; letter-spacing: -0.02em;
@@ -223,22 +250,55 @@
     .hero h1 em { font-style: italic; color: transparent; background: linear-gradient(120deg, #ffce7a, var(--amber) 45%, var(--coral)); -webkit-background-clip: text; background-clip: text; }
     .hero .lead { margin: 20px 0 0; max-width: 52ch; color: rgba(242, 237, 227, 0.86); font-size: clamp(16.5px, 1.9vw, 19.5px); text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5); }
     .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
-    .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; font-family: var(--sans); font-size: 14px; font-weight: 500; color: rgba(242, 237, 227, 0.75); }
+    .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 26px; font-family: var(--sans); font-size: 14px; font-weight: 500; color: rgba(242, 237, 227, 0.75); }
+    /* Der Trenner klebt am NACHFOLGENDEN Begriff (im Markup mit ihm in einem
+       span), sonst blieb er beim Umbruch als einzelnes „·“ am Zeilenende hängen. */
+    .hero-meta .teil { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
     .hero-meta .sep { color: var(--amber); opacity: 0.8; font-weight: 700; }
+
+    /* Schmaler Schirm: gestapelte Knöpfe gleich breit — nebeneinander
+       unterschiedlich lange Kanten lesen sich als Unordnung. */
+    @media (max-width: 560px) {
+      .cta-row { flex-direction: column; align-items: stretch; gap: 11px; margin-top: 28px; }
+      .cta-row .btn { width: 100%; justify-content: center; padding: 14px 20px; }
+      /* Untereinander trägt JEDER Eintrag seinen Punkt vorn — als Fließzeile
+         stand er nur zwischen den Einträgen und landete beim Umbruch mal am
+         Zeilenende, mal vor dem zweiten und nie vor dem ersten. */
+      .hero-meta { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .hero-meta .sep { display: none; }
+      .hero-meta > span, .hero-meta > span.teil { display: flex; align-items: baseline; gap: 9px; }
+      .hero-meta > span::before { content: '·'; color: var(--amber); opacity: 0.8; font-weight: 700; }
+    }
     .scroll-cue { position: absolute; left: 50%; bottom: 20px; z-index: 1; transform: translateX(-50%); color: rgba(242, 237, 227, 0.5); animation: bob 2.2s ease-in-out infinite; }
     @keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
     @media (prefers-reduced-motion: reduce) { .scroll-cue { animation: none; } }
 
+    /* Handy im Querformat: breit genug für die Anker-Links (720-px-Grenze greift
+       bei 844 px nicht), aber viel zu flach — die Kopfleiste brach zweizeilig um
+       und schob sich über die Überschrift. Hier zählt die HÖHE, nicht die Breite. */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .nav-hide-sm { display: none; }
+      .hero { min-height: min(100svh, 520px); padding-top: 74px; }
+      .hero-inner { padding-bottom: 26px; }
+      .hero h1 { font-size: clamp(30px, 4.4vw, 46px); }
+      .hero .lead { font-size: 16px; margin-top: 14px; }
+      .hero-meta { margin-top: 16px; }
+      .cta-row { margin-top: 22px; }
+      .scroll-cue { display: none; }
+    }
+
     /* ─── Abschnitte ─────────────────────────────────────────────── */
-    section.band { position: relative; padding: clamp(66px, 11vh, 118px) 0; }
+    section.band { position: relative; padding: var(--luft-band) 0; }
     .sec-head { max-width: 62ch; }
     .sec-head.center { margin-inline: auto; text-align: center; }
-    .sec-head h2 { font-family: var(--display); font-weight: 700; font-size: clamp(29px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -0.012em; margin: 0; }
+    .sec-head h2 { font-family: var(--display); font-weight: 700; font-size: clamp(29px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -0.012em; margin: 0; text-wrap: balance; }
     .sec-head p { color: var(--muted); margin: 14px 0 0; }
 
     /* ─── Touren ─────────────────────────────────────────────────── */
     #touren { background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.016)); }
-    .tours { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 22px; margin-top: 46px; }
+    /* min(290px, 100%): auf Schirmen unter ~330 px war die Spalten-MINDESTbreite
+       breiter als der Container — das Gitter lief seitlich aus dem Bild. */
+    .tours { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: var(--luft-gitter); margin-top: var(--luft-kopf); }
     .tour-card {
       position: relative; display: block; min-height: 440px; border-radius: 18px; overflow: hidden;
       text-decoration: none; color: var(--ink); border: 1px solid var(--line);
@@ -250,8 +310,8 @@
     .tour-card:hover { transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.26); box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.9); }
     .tour-card:hover .tc-img { transform: scale(1.06); }
     .no-chip { position: absolute; top: 18px; left: 18px; z-index: 2; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--ink); background: rgba(6, 9, 14, 0.55); border: 1px solid rgba(255, 255, 255, 0.24); padding: 5px 11px; border-radius: 999px; backdrop-filter: blur(6px); }
-    .tc-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 22px; }
-    .tour-card h3 { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.1; margin: 0; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6); }
+    .tc-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: clamp(18px, 4.6vw, 22px); }
+    .tour-card h3 { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.1; margin: 0; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6); text-wrap: balance; }
     .card-sub { color: rgba(242, 237, 227, 0.86); font-size: 14.5px; margin: 8px 0 14px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6); }
     .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 15px; }
     .chip { font-family: var(--sans); font-size: 12px; font-weight: 500; color: rgba(242, 237, 227, 0.9); background: rgba(10, 13, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.16); padding: 4px 10px; border-radius: 7px; backdrop-filter: blur(4px); }
@@ -280,9 +340,9 @@
     @media (prefers-reduced-motion: reduce) { .tour-card:hover .tc-spur .tc-linie { animation: none; } }
 
     /* ─── So funktioniert's ──────────────────────────────────────── */
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; margin-top: 52px; counter-reset: step; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: var(--luft-gitter); margin-top: var(--luft-kopf); counter-reset: step; }
     .step {
-      position: relative; padding: 32px 28px 30px; border-radius: 18px;
+      position: relative; padding: clamp(26px, 6vw, 32px) clamp(22px, 5.4vw, 28px) clamp(24px, 5.6vw, 30px); border-radius: 18px;
       border: 1px solid var(--line); overflow: hidden;
       background: linear-gradient(158deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014));
       transition: transform 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
@@ -314,22 +374,28 @@
     /* ─── Schluss-CTA (photographisch) ───────────────────────────── */
     .cta-band { position: relative; }
     .cta-band .inner {
-      position: relative; overflow: hidden; border-radius: 24px; padding: clamp(48px, 9vw, 92px) 28px; text-align: center;
+      position: relative; overflow: hidden; border-radius: 24px;
+      padding: clamp(44px, 9vw, 92px) clamp(20px, 6vw, 28px); text-align: center;
       border: 1px solid var(--line);
     }
     .cta-band .inner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
     .cta-band .inner::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgba(6, 9, 14, 0.82), rgba(6, 9, 14, 0.62)), radial-gradient(90% 130% at 50% 120%, rgba(245, 165, 36, 0.22), transparent 60%); }
     .cta-band .inner > *:not(img) { position: relative; z-index: 2; }
-    .cta-band h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 4vw, 44px); margin: 0 auto; max-width: none; white-space: nowrap; text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6); }
+    /* Einzeilig NUR, wo die Zeile auch hinpasst: mit nowrap als Grundregel lief
+       „Bereit für deine eigene Reise?“ auf dem Handy rechts aus dem Bild. */
+    .cta-band h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 4vw, 44px); line-height: 1.12; margin: 0 auto; max-width: none; text-wrap: balance; text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6); }
+    @media (min-width: 721px) { .cta-band h2 { white-space: nowrap; } }
     .cta-band p { color: rgba(242, 237, 227, 0.82); margin: 16px auto 0; max-width: 48ch; }
     .cta-band .cta-row { margin-top: 30px; justify-content: center; }
 
     /* ─── Fuß ────────────────────────────────────────────────────── */
-    footer { border-top: 1px solid var(--line); padding: 48px 0 42px; background: var(--bg-2); }
-    footer > .wrap { display: flex; flex-wrap: wrap; gap: 26px 40px; justify-content: space-between; align-items: flex-start; }
+    footer { border-top: 1px solid var(--line); padding: clamp(38px, 8vw, 48px) 0 clamp(34px, 7vw, 42px); background: var(--bg-2); }
+    /* Nur die OBERE Reihe ist flex — galt die Regel für beide .wrap, schrumpfte
+       das Fuß-<p> auf seine Textbreite und die Trennlinie darüber war 94 px kurz. */
+    footer > .wrap:first-of-type { display: flex; flex-wrap: wrap; gap: 26px 40px; justify-content: space-between; align-items: flex-start; }
     .foot-brand { display: flex; flex-direction: column; gap: 10px; max-width: 34ch; }
     .foot-brand p { color: var(--faint); font-size: 13.5px; margin: 0; }
-    .foot-links { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+    .foot-links { display: flex; flex-wrap: wrap; gap: 10px 22px; }
     .foot-links a { text-decoration: none; color: var(--muted); font-size: 14px; }
     .foot-links a:hover { color: var(--ink); }
     .attribution { color: var(--faint); font-size: 13px; font-family: var(--sans); margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
@@ -337,10 +403,10 @@
     /* ─── Android-App + App-Einblick (ein Abschnitt) ─────────────── */
     .app-band .inner {
       position: relative; display: grid; grid-template-columns: 1fr 0.82fr; gap: clamp(30px, 5vw, 58px); align-items: center;
-      border-radius: 24px; border: 1px solid var(--line); overflow: hidden; padding: clamp(30px, 5vw, 56px);
+      border-radius: 24px; border: 1px solid var(--line); overflow: hidden; padding: clamp(24px, 5vw, 56px);
       background: radial-gradient(85% 130% at 88% 6%, rgba(61, 220, 132, 0.13), transparent 56%), rgba(255, 255, 255, 0.025);
     }
-    .app-band h2 { font-family: var(--display); font-weight: 500; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; letter-spacing: -0.012em; margin: 14px 0 0; }
+    .app-band h2 { font-family: var(--display); font-weight: 500; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; letter-spacing: -0.012em; margin: 14px 0 0; text-wrap: balance; }
     .app-band p { color: var(--muted); margin: 14px 0 0; max-width: 46ch; }
     .app-cta { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
     .btn-android { color: var(--ink); background: rgba(61, 220, 132, 0.08); border: 1px solid rgba(61, 220, 132, 0.42); }
@@ -363,7 +429,9 @@
 
     /* Showcase rechts: genau EIN Telefon, die Aufnahmen blenden ineinander. */
     .app-showcase { display: flex; flex-direction: column; align-items: center; gap: 18px; }
-    .phone-stage { position: relative; width: min(240px, 78%); }
+    /* touch-action: pan-y — die Wisch-Geste darf blättern, ohne dass der
+       Browser den senkrechten Seiten-Scroll verliert. */
+    .phone-stage { position: relative; width: min(240px, 78%); touch-action: pan-y; }
     .phone-slide { position: absolute; inset: 0; margin: 0; opacity: 0; transition: opacity 0.55s ease; pointer-events: none; }
     .phone-slide.active { position: relative; opacity: 1; pointer-events: auto; }
     @media (prefers-reduced-motion: reduce) { .phone-slide { transition: none; } }
@@ -399,12 +467,20 @@
     /* Blätter-Steuerung mit Positionsanzeige n / total */
     .shot-controls { display: flex; align-items: center; justify-content: center; gap: 16px; }
     .shot-counter { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: rgba(242, 237, 227, 0.66); min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
-    .shot-dots { display: flex; gap: 9px; justify-content: center; }
+    /* Der Punkt ist 7 px SICHTBAR, der Knopf darum 24 px groß — sonst wäre
+       die Trefferfläche am Finger genau so klein wie die Grafik. */
+    .shot-dots { display: flex; gap: 2px; justify-content: center; }
     .shot-dot {
-      width: 7px; height: 7px; padding: 0; border: none; border-radius: 999px; cursor: pointer;
+      width: 24px; height: 26px; padding: 0; border: none; background: none; cursor: pointer;
+      display: grid; place-items: center; transition: width 0.25s;
+    }
+    .shot-dot::before {
+      content: ''; width: 7px; height: 7px; border-radius: 999px;
       background: rgba(242, 237, 227, 0.24); transition: background 0.25s, width 0.25s;
     }
-    .shot-dot.active { width: 22px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
+    .shot-dot:hover::before { background: rgba(242, 237, 227, 0.45); }
+    .shot-dot.active { width: 36px; }
+    .shot-dot.active::before { width: 22px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
     .shot-arrows { display: flex; gap: 10px; }
     .shot-nav {
       width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
@@ -417,9 +493,18 @@
     .shot-nav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 
     @media (max-width: 760px) {
-      .app-band .inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }
-      .app-band .eyebrow, .app-cta { justify-content: center; }
+      .app-band .inner { grid-template-columns: 1fr; gap: clamp(26px, 6vw, 32px); text-align: center; }
+      .app-band .eyebrow, .app-cta, .app-brandrow { justify-content: center; }
       .app-band p { margin-inline: auto; }
+    }
+    @media (max-width: 560px) {
+      /* Gestapelt gilt dieselbe Regel wie im Hero: gleich breite Knöpfe. */
+      .app-cta { flex-direction: column; align-items: stretch; gap: 13px; }
+      .app-cta .btn-android { justify-content: center; }
+      /* Die Play-Store-Plakette ist ein HINWEIS, kein Knopf — auf voller Breite
+         neben dem Ladeknopf sähe sie aus wie einer und liefe ins Leere. */
+      .playstore-soon { align-self: center; }
+      .shot-nav { width: 44px; height: 44px; }
     }
 
     /* ─── Einblenden beim Scrollen ───────────────────────────────── */
@@ -481,10 +566,8 @@
         </div>
         <div class="hero-meta reveal">
           <span>Echtes 3D-Gelände</span>
-          <span class="sep" aria-hidden="true">·</span>
-          <span>Wetter aus dem Archiv</span>
-          <span class="sep" aria-hidden="true">·</span>
-          <span>Deine Fotos am Wegesrand</span>
+          <span class="teil"><span class="sep" aria-hidden="true">·</span>Wetter aus dem Archiv</span>
+          <span class="teil"><span class="sep" aria-hidden="true">·</span>Deine Fotos am Wegesrand</span>
         </div>
       </div>
     </div>
@@ -911,6 +994,29 @@
 
       if (prev) prev.addEventListener('click', function () { stop(); show(idx - 1) })
       if (next) next.addEventListener('click', function () { stop(); show(idx + 1) })
+
+      // Wischen am Telefon: auf dem Handy ist das die erwartete Geste — die
+      // Pfeile sind dort nur die Ansage, dass es weitergeht. Waagerechte Züge
+      // ab 40 px blättern; senkrechte bleiben beim Seiten-Scrollen.
+      var zugX = 0
+      var zugY = 0
+      var zieht = false
+      stage.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse') return
+        zieht = true
+        zugX = e.clientX
+        zugY = e.clientY
+      })
+      stage.addEventListener('pointerup', function (e) {
+        if (!zieht) return
+        zieht = false
+        var dx = e.clientX - zugX
+        var dy = e.clientY - zugY
+        if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
+        stop()
+        show(dx < 0 ? idx + 1 : idx - 1)
+      })
+      stage.addEventListener('pointercancel', function () { zieht = false })
 
       var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       if (!reduce && slides.length > 1) timer = setInterval(function () { show(idx + 1) }, 4600)
