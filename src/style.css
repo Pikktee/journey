@@ -171,12 +171,14 @@ body.cinema .cine {
   text-shadow: 0 2px 20px rgba(0, 0, 0, 0.55);
 }
 
+/* Marken-Zeile in Satzschrift — kein Versalien-Tracking (s. DESIGN.md:
+   „Keine Dachzeilen / Eyebrows", kein Mono „weil Zahlen"). Sie liest sich
+   wie der Intro-Kicker: eine Zeile Text, kein Etikett. */
 .brand-kicker {
   font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--amber);
 }
 
@@ -224,10 +226,9 @@ a.brand-kicker:hover { opacity: 0.72; }
 }
 
 .next-stop-kicker {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--amber);
   margin-bottom: 3px;
 }
@@ -239,11 +240,14 @@ a.brand-kicker:hover { opacity: 0.72; }
   letter-spacing: -0.01em;
 }
 
+/* Kilometer in Outfit mit Tabellenziffern — Mono ist laut DESIGN.md nur für
+   Karten-Attribution und Debug da, nicht für Kennzahlen. tabular-nums hält
+   die tickende Zahl trotzdem ruhig. */
 .next-stop-km {
   margin-left: 10px;
-  font-family: var(--font-mono);
-  font-style: normal;
-  font-size: 10.5px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
@@ -680,10 +684,9 @@ a.brand-kicker:hover { opacity: 0.72; }
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--text);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
@@ -715,10 +718,9 @@ a.brand-kicker:hover { opacity: 0.72; }
 
 .photo-next {
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: #171106;
   background: linear-gradient(135deg, #f8bb4b, #ef8c37);
   border: none;
@@ -784,9 +786,10 @@ a.brand-kicker:hover { opacity: 0.72; }
 
 .photo-chip {
   justify-self: end;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
   color: #8a7a63;
   border: 1px solid rgba(28, 23, 18, 0.2);
   border-radius: 999px;
@@ -829,11 +832,11 @@ a.brand-kicker:hover { opacity: 0.72; }
   box-shadow: 0 34px 100px rgba(0, 0, 0, 0.55);
 }
 
+/* Wie der Intro-Kicker eine gelesene Zeile, keine gesperrte Dachzeile */
 .finale-kicker {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--amber);
 }
 
@@ -860,16 +863,17 @@ a.brand-kicker:hover { opacity: 0.72; }
 }
 
 .stat-label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--muted);
 }
 
 .stat-value {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -884,10 +888,9 @@ a.brand-kicker:hover { opacity: 0.72; }
 .btn-replay,
 .btn-finale-menu {
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   background: transparent;
   border-radius: 999px;
   padding: 14px 36px;
@@ -1024,9 +1027,9 @@ a.brand-kicker:hover { opacity: 0.72; }
 }
 
 .preset-btn {
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
   padding: 8px 11px;
   border: none;
   border-radius: 9px;
@@ -1062,16 +1065,19 @@ a.brand-kicker:hover { opacity: 0.72; }
 }
 
 .tele-label {
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--muted);
 }
 
+/* Live tickende Werte: Outfit + tabular-nums statt Mono — gleich breite
+   Ziffern ohne Schriftwechsel (DESIGN.md, „Zahlen ausrichten") */
 .tele-value {
-  font-family: var(--font-mono);
-  font-size: 13.5px;
-  font-weight: 500;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1243,42 +1249,10 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   height: 21px;
 }
 
-/* — UI-Toggle & Kino-Modus (UI ausgeblendet) — */
-
-/* Kleiner Icon-Knopf unter dem „Nächster Halt“-Chip — unten rechts saß er auf
-   schmalen Screens im Dock. Das Icon wechselt mit dem Zustand, Rest im Tooltip. */
-.ui-toggle {
-  position: fixed;
-  right: 26px;
-  top: 106px;
-  z-index: 22;
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--glass);
-  border: 1px solid var(--glass-brd);
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  color: var(--text);
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.3s ease;
-}
-
-.ui-toggle svg {
-  width: 18px;
-  height: 18px;
-}
-
-.ui-toggle:hover {
-  color: var(--amber);
-  border-color: rgba(245, 165, 36, 0.5);
-}
-
-.ui-toggle:active {
-  transform: scale(0.95);
-}
+/* — Kino-Modus: die UI zieht sich von selbst zurück —
+   Es gibt keinen Knopf dafür (mehr). Während der Fahrt blenden Marke, Halt-Chip
+   und Steuerleiste nach kurzer Ruhe aus, die nächste Regung holt sie zurück
+   (planeRueckzug/weckeUi in main.js). */
 
 /* Marke, Halt-Chip und Steuerleiste weich ausblenden; Attribution bleibt (Pflicht) */
 .brand,
@@ -1304,11 +1278,15 @@ body.ui-clean .dock {
   pointer-events: none;
 }
 
-/* Im Kino-Modus ist die Pill der einzige Rückweg — deutlich hervorheben */
-body.ui-clean .ui-toggle {
-  color: var(--amber);
-  border-color: rgba(245, 165, 36, 0.55);
-  box-shadow: 0 0 26px rgba(245, 165, 36, 0.28);
+/* Der Mauszeiger geht mit — wie im Videoplayer. Ein Pfeil mitten im Bild wäre
+   der letzte Rest UI; die nächste Bewegung holt Zeiger UND Bedienelemente
+   zurück. `!important` + `*`, weil MapLibre der Leinwand über
+   .maplibregl-canvas-container.maplibregl-interactive einen eigenen Cursor
+   setzt und der sonst gewinnt. Beim Scrubben ist der Kino-Modus immer aus
+   (jeder pointerdown weckt), die beiden Regeln kommen sich also nicht ins Gehege. */
+body.ui-clean,
+body.ui-clean * {
+  cursor: none !important;
 }
 
 /* — Google Photorealistic 3D (Testmodus) — */
@@ -1361,9 +1339,9 @@ body.ui-clean .ui-toggle {
   display: none;
 }
 .lm-group-label {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--muted);
   padding: 6px 10px 4px;
 }
@@ -1415,9 +1393,8 @@ body.ui-clean .ui-toggle {
   gap: 6px;
 }
 .lm-tag {
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0;
   color: var(--muted);
   border: 1px solid var(--glass-brd);
   border-radius: 6px;
@@ -1515,6 +1492,9 @@ body.ui-clean .ui-toggle {
   font-size: 11px;
 }
 
+/* Einer der zwei laut DESIGN.md erlaubten Mono-Plätze (Debug): ein API-Schlüssel
+   wird Zeichen für Zeichen geprüft — dort ist 0/O und 1/l unterscheidbar zu
+   halten wichtiger als Markenschrift. Der andere ist die Karten-Attribution. */
 .g3d-card input {
   width: 100%;
   margin: 6px 0 14px;
@@ -1539,10 +1519,9 @@ body.ui-clean .ui-toggle {
 }
 
 .g3d-actions button {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   padding: 11px 18px;
   border-radius: 999px;
   cursor: pointer;
@@ -1687,10 +1666,9 @@ body:not(.dev) .dev-only {
 }
 
 #opt-close {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   padding: 11px 24px;
   border-radius: 999px;
   border: none;
@@ -1785,8 +1763,7 @@ body.app .app-exit {
 
 /* — Responsive: kompakter, aber nichts verstecken —
    Brand und Nächster-Halt teilen sich die obere Zeile (je ~halbe Breite,
-   Ellipsis statt Überlappung), das Dock wird zu drei schmalen Zeilen,
-   der UI-Toggle wandert nach oben (unten sitzt das Dock) und die
+   Ellipsis statt Überlappung), das Dock wird zu drei schmalen Zeilen und die
    Attribution wird per --dock-h über die Steuerleiste gehoben. */
 
 @media (max-width: 700px) {
@@ -1797,8 +1774,7 @@ body.app .app-exit {
   }
 
   .brand-kicker {
-    font-size: 9px;
-    letter-spacing: 0.2em;
+    font-size: 11px;
   }
 
   .brand-title {
@@ -1824,7 +1800,7 @@ body.app .app-exit {
   }
 
   .next-stop-kicker {
-    font-size: 9px;
+    font-size: 10.5px;
     margin-bottom: 2px;
   }
 
@@ -1838,7 +1814,7 @@ body.app .app-exit {
   .next-stop-km {
     display: block;
     margin: 2px 0 0;
-    font-size: 9.5px;
+    font-size: 10.5px;
   }
 
   .intro-inner {
@@ -1850,8 +1826,8 @@ body.app .app-exit {
   }
 
   .intro-route {
-    font-size: 9px;
-    letter-spacing: 0.12em;
+    font-size: 11px;
+    letter-spacing: 0.02em;
   }
 
   .chip {
@@ -1877,13 +1853,13 @@ body.app .app-exit {
   }
 
   .stat-value {
-    font-size: 17px;
+    font-size: 19px;
   }
 
   .btn-replay,
   .btn-finale-menu {
     padding: 13px 26px;
-    font-size: 11px;
+    font-size: 13px;
   }
 
   /* Foto-Karte: Caption zweizeilig — Titel oben, Badges links + Weiter rechts.
@@ -2027,19 +2003,6 @@ body.app .app-exit {
     width: 2.5px;
   }
 
-  /* Toggle unter dem „Nächster Halt“-Chip, ≥44px Touch-Ziel */
-  .ui-toggle {
-    right: 12px;
-    top: calc(max(14px, env(safe-area-inset-top)) + 66px);
-    width: 44px;
-    height: 44px;
-  }
-
-  .ui-toggle svg {
-    width: 18px;
-    height: 18px;
-  }
-
   /* Attribution bleibt Pflicht und sichtbar: über die Steuerleiste heben */
   .maplibregl-ctrl-bottom-right {
     bottom: calc(var(--dock-h, 0px) + 12px);
@@ -2062,8 +2025,8 @@ body.app .app-exit {
      (~56 px): Tasten links, Timeline dehnt sich in der Mitte, Werte rechts.
      Die Bühne verliert nur die Höhe, die die Timeline ohnehin gekostet hätte,
      und bekommt die volle Breite zurück.
-   · Auf Touch blendet dieser Streifen während der Fahrt selbsttätig aus
-     (body.ui-clean, Auto-Hide in main.js) — dann gehört der Schirm der Szene.
+   · Während der Fahrt blendet dieser Streifen selbsttätig aus
+     (body.ui-clean, Auto-Rückzug in main.js) — dann gehört der Schirm der Szene.
    · Die Foto-Karte legt sich quer: Bild links, Text rechts. Und das Intro wird
      zweispaltig, sonst liegt „Tour starten" unterhalb der Bildkante.
    Bewusst nur an Höhe + Ausrichtung geknüpft (kein max-width): die knappe
@@ -2080,8 +2043,7 @@ body.kompakt-quer .brand {
 }
 
 body.kompakt-quer .brand-kicker {
-  font-size: 9px;
-  letter-spacing: 0.2em;
+  font-size: 10.5px;
 }
 
 body.kompakt-quer .brand-title {
@@ -2322,8 +2284,8 @@ body.kompakt-quer .intro-rule {
 body.kompakt-quer .intro-route {
   grid-area: 3 / 1;
   margin-top: 6px;
-  font-size: 9px;
-  letter-spacing: 0.1em;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
 }
 
 body.kompakt-quer .intro-meta {
@@ -2361,19 +2323,15 @@ body.kompakt-quer .finale-stats {
   margin: 14px 0 16px;
 }
 
-body.kompakt-quer .ui-toggle {
-  right: 12px;
-  top: calc(max(8px, env(safe-area-inset-top)) + 58px);
-  width: 40px;
-  height: 40px;
-}
-
 body.kompakt-quer /* Attribution über den Steuerstreifen heben (Pflicht: Esri/AWS) */
 .maplibregl-ctrl-bottom-right {
   bottom: calc(var(--dock-h, 56px) + 10px);
 }
 
-body.kompakt-quer body.ui-clean .maplibregl-ctrl-bottom-right {
+/* Zieht sich der Steuerstreifen zurück, sinkt die Attribution mit — sonst
+   schwebte sie frei im Bild. `body.kompakt-quer body.ui-clean` (zwei body!)
+   konnte nie greifen: dieselbe Klasse liegt auf DEMSELBEN Element. */
+body.kompakt-quer.ui-clean .maplibregl-ctrl-bottom-right {
   bottom: 0;
 }
 

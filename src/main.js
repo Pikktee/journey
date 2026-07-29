@@ -918,50 +918,59 @@ map.on('load', () => {
   // Video-Stopp durchgelaufen: weiter wie nach einem abgelaufenen Foto-HOLD (M4)
   ui.onMediaEnded = () => tour.onMediaEnded()
 
-  // UI ein-/ausblenden (Kino-Modus) — das Icon zeigt immer die AKTION:
-  // durchgestrichenes Auge = ausblenden, offenes Auge = wieder einblenden
-  const uiBtn = document.getElementById('btn-ui')
-  const iconEye = document.getElementById('icon-eye')
-  const iconEyeOff = document.getElementById('icon-eye-off')
-  const setClean = (on) => {
-    document.body.classList.toggle('ui-clean', on)
-    // toggleAttribute statt .hidden: SVGs haben keine hidden-Property
-    iconEyeOff.toggleAttribute('hidden', on)
-    iconEye.toggleAttribute('hidden', !on)
-    uiBtn.title = on ? 'UI einblenden (H)' : 'UI ausblenden (H)'
-    uiBtn.setAttribute('aria-label', on ? 'UI einblenden' : 'UI ausblenden')
-    uiBtn.setAttribute('aria-pressed', String(on))
-  }
+  // Kino-Modus: Marke, Halt-Chip, Steuerleiste und Mauszeiger aus dem Bild (CSS: body.ui-clean)
+  const setClean = (on) => document.body.classList.toggle('ui-clean', on)
   // Menü-Rücksprung (Dock, Finale-Button, Tourende ohne Endscreen) räumt den
   // Kino-Modus auf — ein Hook am Tour-Objekt, weil setClean erst hier entsteht.
   tour.onToMenu = () => setClean(false)
-  uiBtn.addEventListener('click', () => setClean(!document.body.classList.contains('ui-clean')))
 
-  // — Auto-Rückzug der Bedienelemente auf Touch —
-  // Auf Handy-Schirmen (quer erst recht) ist Fläche die knappste Ressource:
-  // während der FAHRT zieht sich die UI nach kurzer Ruhe zurück und ist bei der
-  // nächsten Berührung sofort wieder da. Nur mit Touch — bei Maus/Trackpad wäre
-  // verschwindende UI irritierend, und dort fehlt der Platz auch nicht.
-  if (window.matchMedia('(pointer: coarse)').matches) {
-    let ruheTimer = 0
-    const planeRueckzug = () => {
-      clearTimeout(ruheTimer)
-      ruheTimer = setTimeout(() => {
-        // Bei Pause, Foto-Stopp, Intro und Finale gehören die Bedienelemente auf
-        // den Schirm — dann später erneut prüfen statt den Rückzug zu vergessen
-        // (die Fahrt läuft nach einem Foto-Stopp ohne Zutun weiter).
-        if (tour.phase === 'ride' && tour.playing) setClean(true)
-        else planeRueckzug()
-      }, 4000)
-    }
-    const weckeUi = () => {
-      if (document.body.classList.contains('ui-clean')) setClean(false)
-      planeRueckzug()
-    }
-    document.addEventListener('pointerdown', weckeUi, { passive: true })
-    document.addEventListener('keydown', weckeUi, { passive: true })
+  // — Auto-Rückzug der Bedienelemente (jede Zeigerart) —
+  // Wie in einem Videoplayer: während der FAHRT zieht sich die UI nach kurzer Ruhe
+  // zurück und ist bei der nächsten Regung — Mausbewegung, Tipp, Tastendruck —
+  // sofort wieder da. Deshalb braucht es keinen Knopf zum Ein-/Ausblenden: er war
+  // ein Griff für etwas, das ohne Zutun passiert (und selbst ein Element im Bild).
+  const RUHE_MS = 3200
+  // `:hover` nur dort befragen, wo es einen echten Zeiger gibt: auf Touch bleibt die
+  // Pseudoklasse nach einem Tipp am getippten Element HÄNGEN — die Steuerleiste zöge
+  // sich nach dem ersten Tipp auf Play dann nie mehr zurück.
+  const hatZeiger = window.matchMedia('(hover: hover)').matches
+  let ruheTimer = 0
+  const planeRueckzug = () => {
+    clearTimeout(ruheTimer)
+    ruheTimer = setTimeout(() => {
+      // Bei Pause, Foto-Stopp, Intro und Finale gehören die Bedienelemente auf
+      // den Schirm — dann später erneut prüfen statt den Rückzug zu vergessen
+      // (die Fahrt läuft nach einem Foto-Stopp ohne Zutun weiter). Ebenso, solange
+      // die Maus auf der Steuerleiste liegt: was man gerade anvisiert (Timeline,
+      // Tempo, Optionen), darf nicht unter dem Zeiger wegblenden.
+      const ruht = tour.phase === 'ride' && tour.playing
+      if (ruht && !(hatZeiger && dockEl.matches(':hover'))) setClean(true)
+      else planeRueckzug()
+    }, RUHE_MS)
+  }
+  const weckeUi = () => {
+    if (document.body.classList.contains('ui-clean')) setClean(false)
     planeRueckzug()
   }
+  // Nur ECHTE Zeigerbewegung weckt: Browser schicken pointermove auch ohne
+  // Handbewegung, wenn sich der Inhalt unter dem stehenden Zeiger ändert — und das
+  // tut er hier pro Frame. Ohne den Koordinaten-Vergleich käme die UI nie zur Ruhe.
+  // Die 6-px-Schwelle schluckt zusätzlich das Zittern auf dem Trackpad.
+  let zx = -1
+  let zy = -1
+  document.addEventListener(
+    'pointermove',
+    (e) => {
+      if (Math.abs(e.clientX - zx) + Math.abs(e.clientY - zy) < 6) return
+      zx = e.clientX
+      zy = e.clientY
+      weckeUi()
+    },
+    { passive: true },
+  )
+  document.addEventListener('pointerdown', weckeUi, { passive: true })
+  document.addEventListener('keydown', weckeUi, { passive: true })
+  planeRueckzug()
 
   // Zurück ins Hauptmenü — Kino-Modus räumt onToMenu auf
   document.getElementById('btn-menu').addEventListener('click', () => tour.toMenu())
@@ -1071,9 +1080,9 @@ map.on('load', () => {
         e.preventDefault()
         tour.setPlaying(!tour.playing)
         break
-      case 'KeyH': // UI ein-/ausblenden
-        setClean(!document.body.classList.contains('ui-clean'))
-        break
+      // Kein 'KeyH' mehr: die UI blendet selbst aus, und JEDER Tastendruck weckt
+      // sie (weckeUi hängt am keydown) — ein Umschalter hätte sich sofort selbst
+      // widerrufen.
       case 'ArrowRight': // ein Bild vor (Shift: 12 Bilder)
         e.preventDefault()
         tour.nudge(e.shiftKey ? 12 : 1)

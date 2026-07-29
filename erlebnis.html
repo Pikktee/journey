@@ -216,11 +216,10 @@
   <!-- Kurzmeldungen (z.B. Fehler des Google-3D-Testmodus) -->
   <div class="toast" id="toast" hidden></div>
 
-  <!-- UI ein-/ausblenden — das Icon zeigt immer die Aktion, Details im Tooltip -->
-  <button class="ui-toggle" id="btn-ui" title="UI ausblenden (H)" aria-label="UI ausblenden" aria-pressed="false" hidden>
-    <svg id="icon-eye-off" viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5c2 0 3.7.6 5.1 1.4M22 12s-3.5 6.5-10 6.5c-2 0-3.7-.6-5.1-1.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-    <svg id="icon-eye" viewBox="0 0 24 24" hidden><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-  </button>
+  <!-- Kein Knopf zum Ein-/Ausblenden: die Bedienelemente ziehen sich während der
+       Fahrt von selbst zurück und kommen bei der nächsten Regung wieder
+       (Auto-Rückzug in main.js). Ein Griff für etwas, das ohne Zutun passiert,
+       wäre nur noch ein Element mehr auf dem Schirm. -->
 
   <!-- Steuerleiste -->
   <footer class="dock" id="dock" hidden>

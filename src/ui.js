@@ -289,7 +289,6 @@ export class UI {
   hideIntro() {
     this.els.intro.classList.add('gone')
     document.body.classList.remove('intro-open') // Brand oben links jetzt einblenden
-    $('btn-ui').hidden = false // der UI-Toggle gehört zur Tour, nicht zum Intro
     this.els.dock.hidden = false
     void this.els.dock.offsetWidth // Reflow, damit die Einblende-Transition greift
     this.els.dock.classList.add('up')
@@ -305,7 +304,6 @@ export class UI {
   showMenu() {
     this.els.dock.classList.remove('up')
     this.els.dock.hidden = true
-    $('btn-ui').hidden = true
     this.showIntro()
   }
 
@@ -392,7 +390,9 @@ export class UI {
     }
     pTitle.textContent = photo.title
     pSub.textContent = photo.caption
-    pChip.textContent = `KM ${(photo.s / 1000).toFixed(1)}`
+    // „12.3 km" statt „KM 12.3": Die Chips stehen jetzt in Satzschrift, das
+    // vorangestellte Versal-Kürzel war Teil des alten Sperrsatz-Etiketts.
+    pChip.textContent = `${(photo.s / 1000).toFixed(1)} km`
     pCount.hidden = count < 2
     pCount.textContent = `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
   }

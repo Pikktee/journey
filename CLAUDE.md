@@ -178,7 +178,19 @@ Begründung und Vergleich: [docs/renderer-plan.md](docs/renderer-plan.md).
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in
 main.js über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
 `tour.jumpToPhoto`. Der Player-DOM liegt statisch in [erlebnis.html](erlebnis.html); JS greift
-per `id` zu.
+per `id` zu. **Die UI zieht sich während der Fahrt selbst zurück** (`body.ui-clean`, nach 3,2 s
+Ruhe; Marke, Halt-Chip, Steuerleiste UND Mauszeiger) und kommt bei der nächsten Regung wieder —
+auf jeder Zeigerart, deshalb gibt es keinen Knopf und keine Taste dafür mehr. Zwei Fallen:
+`pointermove` feuert auch ohne Handbewegung, sobald sich der Inhalt unter dem stehenden Zeiger
+ändert (also pro Frame) — ohne Koordinaten-Vergleich käme die UI nie zur Ruhe; und `:hover` (die
+Ausnahme „Maus liegt auf der Steuerleiste") darf nur bei `(hover: hover)` zählen, weil die
+Pseudoklasse auf Touch nach einem Tipp am getippten Element hängen bleibt.
+
+**Typografie im Player folgt [`DESIGN.md`](DESIGN.md):** Outfit überall, Kennzahlen mit
+`font-variant-numeric: tabular-nums` — **kein Mono und kein Versalien-Sperrsatz**. Die einzigen
+zwei erlaubten Mono-Plätze sind die Karten-Attribution und das API-Schlüssel-Feld des
+Google-3D-Testmodus (Debug). Die kleinen gesperrten Etiketten („NÄCHSTER HALT", „DISTANZ",
+„KM 12.3") waren die alte Sprache; Label sind jetzt Satzschrift.
 
 **Atmosphäre und Wetter.** [src/atmosphere.js](src/atmosphere.js) (Horizont-Dunst, Wolken,
 Sterne, Sonne) und [src/weather.js](src/weather.js) (Regen/Schnee/Nebel/Gewitter als
