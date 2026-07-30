@@ -162,10 +162,12 @@ body.cinema .cine {
 
 /* — Marke — */
 
+/* Sitzt UNTER dem Weg zurück (.zurueck) und teilt sich dessen linke Kante —
+   deshalb dieselbe clamp-Formel plus dessen Höhe (≈38 px) und Abstand. */
 .brand {
   position: fixed;
-  top: 24px;
-  left: 30px;
+  top: calc(clamp(20px, 3.4vh, 36px) + 52px);
+  left: clamp(20px, 3.4vw, 44px);
   z-index: 10;
   pointer-events: none;
   text-shadow: 0 2px 20px rgba(0, 0, 0, 0.55);
@@ -182,15 +184,10 @@ body.cinema .cine {
   color: var(--amber);
 }
 
-/* Der Marken-Kicker ist ein Home-Link zur Landing — .brand ist sonst pointer-events:none,
-   darum hier explizit klickbar (nur der Kicker, nicht der ganze Overlay). */
-a.brand-kicker {
-  display: inline-block;
-  pointer-events: auto;
-  text-decoration: none;
-  transition: opacity 0.2s ease;
-}
-a.brand-kicker:hover { opacity: 0.72; }
+/* Der Kicker war einmal ein Home-Link zur Landing. Er ist keiner mehr: der Weg
+   hinaus steht als eigener Knopf darüber und führt dorthin, wo man herkam —
+   zwei Ausgänge nebeneinander, von denen einer immer zur Startseite sprang,
+   waren die Falle, aus der dieser Umbau entstand. */
 
 .brand-title {
   margin: 4px 0 6px;
@@ -372,14 +369,17 @@ a.brand-kicker:hover { opacity: 0.72; }
 }
 
 
-/* „Zurück …" — oben links im Intro. Nur Chevron + Zielort: die Marke gehört
-   nicht in eine Navigations-Pille (sie steht woanders als Wortmarke). Text in
-   Outfit, Satzschrift — kein Mono-Versalien-Tracking wie früher. */
-.intro-back {
-  position: absolute;
+/* „Zurück …" — oben links, die GANZE Zeit. Nur Chevron + Zielort: die Marke
+   gehört nicht in eine Navigations-Pille (sie steht woanders als Wortmarke).
+   Text in Outfit, Satzschrift — kein Mono-Versalien-Tracking wie früher.
+   `fixed` und über dem Intro (z 30), damit derselbe Knopf im Startscreen wie
+   während der Fahrt an genau derselben Stelle steht — kein zweites Element,
+   das beim Start durch ein anderes ersetzt wird. Unter den Dialogen (45+). */
+.zurueck {
+  position: fixed;
   top: clamp(20px, 3.4vh, 36px);
   left: clamp(20px, 3.4vw, 44px);
-  z-index: 2;
+  z-index: 31;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -391,22 +391,23 @@ a.brand-kicker:hover { opacity: 0.72; }
   backdrop-filter: blur(7px) saturate(1.1);
   color: var(--muted);
   text-decoration: none;
-  transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease,
+    opacity 0.5s ease, transform 0.5s ease;
 }
-.intro-back:hover {
+.zurueck:hover {
   color: var(--text);
   border-color: rgba(245, 165, 36, 0.5);
   background: rgba(8, 11, 16, 0.62);
 }
-.intro-back .ib-chevron {
+.zurueck .zurueck-chevron {
   font-size: 18px;
   line-height: 0;
   margin-top: -1px;
   opacity: 0.85;
   transition: transform 0.22s ease;
 }
-.intro-back:hover .ib-chevron { transform: translateX(-3px); }
-.intro-back .ib-word {
+.zurueck:hover .zurueck-chevron { transform: translateX(-3px); }
+.zurueck .zurueck-wort {
   font-family: var(--font-ui);
   font-size: 13.5px;
   font-weight: 500;
@@ -1260,7 +1261,8 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-body.ui-clean .brand {
+body.ui-clean .brand,
+body.ui-clean .zurueck {
   opacity: 0;
   transform: translateY(-12px);
   pointer-events: none;
@@ -1690,8 +1692,14 @@ body.intro-open .brand {
    wäre eine Sackgasse. Statt dessen steht in der Steuerleiste ein sichtbarer
    Weg zurück in die Tourliste (.app-exit): im Vollbild-Player wäre sonst die
    System-Geste der einzige Ausweg, und den findet nur, wer ihn kennt. */
-body.app .intro-back {
+body.app .zurueck {
   display: none;
+}
+
+/* Ohne den Knopf darüber rückt die Marke wieder nach oben — sonst bliebe seine
+   Lücke als Loch stehen. */
+body.app .brand {
+  top: clamp(20px, 3.4vh, 36px);
 }
 
 .app-exit {
@@ -1767,10 +1775,26 @@ body.app .app-exit {
    Attribution wird per --dock-h über die Steuerleiste gehoben. */
 
 @media (max-width: 700px) {
-  .brand {
+  /* Der Weg zurück behält die obere Kante, die Marke rückt darunter — nebenein-
+     ander passten beide nicht neben den Halt-Chip auf der rechten Seite. */
+  .zurueck {
     top: max(14px, env(safe-area-inset-top));
     left: 14px;
+    padding: 7px 13px 7px 10px;
+  }
+
+  .zurueck .zurueck-wort {
+    font-size: 12.5px;
+  }
+
+  .brand {
+    top: calc(max(14px, env(safe-area-inset-top)) + 44px);
+    left: 14px;
     max-width: 50vw;
+  }
+
+  body.app .brand {
+    top: max(14px, env(safe-area-inset-top));
   }
 
   .brand-kicker {
@@ -2036,10 +2060,16 @@ body.app .app-exit {
  Features sind in der Android-WebView der App FALSCH — bei 375×843 meldet sie
  `orientation: landscape` und `max-height: 500px` als zutreffend, wodurch
  dieses kompakte Layout im Hochformat zuschlug. */
+/* Quer ist die Höhe knapp: der Weg zurück schrumpft auf den Chevron, die Marke
+   steht daneben statt darunter — beide bleiben in derselben oberen Zeile. */
 body.kompakt-quer .brand {
   top: max(8px, env(safe-area-inset-top));
+  left: 56px;
+  max-width: 40vw;
+}
+
+body.app.kompakt-quer .brand {
   left: 12px;
-  max-width: 46vw;
 }
 
 body.kompakt-quer .brand-kicker {
@@ -2308,9 +2338,17 @@ body.kompakt-quer .btn-start {
 }
 
 
-body.kompakt-quer .intro-back {
+body.kompakt-quer .zurueck {
   top: max(8px, env(safe-area-inset-top));
   left: 12px;
+  /* Ohne Wort trägt die Pille nur den Chevron (line-height 0) — ohne feste Höhe
+     bliebe ein 18 px flacher Streifen, den man quer kaum trifft. */
+  height: 30px;
+  padding: 0 13px;
+}
+
+body.kompakt-quer .zurueck .zurueck-wort {
+  display: none;
 }
 
 body.kompakt-quer .finale-card {

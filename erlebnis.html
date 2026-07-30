@@ -86,9 +86,21 @@
   <!-- Atmosphäre: Horizont-Dunst, Sterne, Sonne + Lens-Flare, unabhängig vom aktiven Renderer (atmosphere.js) -->
   <div class="blink" id="blink" aria-hidden="true"></div>
 
-  <!-- Marke / Titel oben links -->
+  <!-- Weg zurück — dorthin, wo man herkam (Ziel setzt main.js aus dem Referrer).
+       Steht ÜBER allem und bleibt die ganze Fahrt über sichtbar: er ist der
+       einzige Ausweg aus dem Player, deshalb darf er nicht mit dem Intro
+       verschwinden. Im Kino-Modus zieht er sich mit der übrigen UI zurück und
+       kommt bei der nächsten Regung wieder. -->
+  <a class="zurueck reveal" id="zurueck" style="--d: 0.05s" href="/" aria-label="Zurück zur Startseite">
+    <span class="zurueck-chevron" aria-hidden="true">‹</span>
+    <span class="zurueck-wort">Startseite</span>
+  </a>
+
+  <!-- Marke / Titel oben links, unter dem Weg zurück. Der Kicker ist bewusst
+       KEIN Link mehr: neben einem Zurück-Knopf wäre ein zweiter Ausgang direkt
+       daneben (der auf die Landing führt) nur eine Falle. -->
   <header class="brand">
-    <a class="brand-kicker" id="brand-kicker" href="/" title="Zur Startseite">Maptale · N°01</a>
+    <div class="brand-kicker" id="brand-kicker">Maptale · N°01</div>
     <h1 class="brand-title" id="brand-title">Berner Oberland</h1>
     <div class="brand-route" id="brand-route">Lauterbrunnen — Wengen — Kleine Scheidegg — Grindelwald</div>
   </header>
@@ -101,10 +113,6 @@
 
   <!-- Intro -->
   <section class="intro" id="intro">
-    <a class="intro-back reveal" style="--d: 0.05s" href="/" aria-label="Zurück zur Startseite">
-      <span class="ib-chevron" aria-hidden="true">‹</span>
-      <span class="ib-word">Startseite</span>
-    </a>
     <div class="intro-inner">
       <div class="intro-kicker reveal" style="--d: 0.1s" id="intro-kicker">Eine Reise durch das</div>
       <h2 class="intro-title reveal" style="--d: 0.25s" id="intro-title">Berner<br />Oberland</h2>
@@ -230,9 +238,10 @@
       <button class="icon-btn app-exit" id="btn-app-zurueck" title="Player verlassen" aria-label="Player verlassen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.5 7.5 12l6.5 6.5"/></svg>
       </button>
-      <button class="icon-btn" id="btn-menu" title="Zum Hauptmenü" aria-label="Zum Hauptmenü">
-        <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 9.5V19a1 1 0 0 0 1 1h3.4v-4.6h3.2V20H17a1 1 0 0 0 1-1V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+      <!-- Kein „Zum Hauptmenü"-Knopf mehr: der Weg hinaus steht dauerhaft oben
+           links (.zurueck) und führt dorthin, wo man herkam. Ein zweiter Ausgang
+           in der Steuerleiste, der nur zum Startscreen DIESER Tour führte, war
+           daneben ein Griff zu viel. -->
       <button class="play-btn" id="btn-play" title="Abspielen / Pause" aria-label="Abspielen / Pause">
         <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>
         <svg id="icon-pause" viewBox="0 0 24 24" hidden><rect x="6.5" y="5" width="3.6" height="14" rx="1"/><rect x="13.9" y="5" width="3.6" height="14" rx="1"/></svg>

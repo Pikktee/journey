@@ -547,8 +547,13 @@ async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<
   await ladeListe()
 }
 
+/**
+ * Abspielen im SELBEN Tab. Ein zweites Fenster wäre ein zweiter Ort, an dem
+ * dieselbe Bibliothek offen steht; der Player führt oben links von selbst
+ * dorthin zurück, wo man herkam (Referrer + history.back(), src/main.js).
+ */
 function spielAb(id: string): void {
-  window.open(`/erlebnis.html?tour=srv:${id}`, '_blank', 'noopener')
+  location.href = `/erlebnis.html?tour=srv:${id}`
 }
 
 /** Tour-ID aus `?edit=` — Editor-Deep-Link. */

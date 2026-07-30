@@ -158,21 +158,14 @@ setText('finale-title', cfg.finaleTitle)
 setText('chip-photos', `${photos.length} Fotos`)
 setText('final-photos', String(photos.length))
 
-// Im App-Modus zeigt der Kicker sonst auf die Landing — dort führt er ins Leere.
-// Der Titel muss mit weg, sonst kündigen Tooltip und Screenreader weiterhin eine
-// „Startseite" an, die es in der App nicht gibt.
-if (appModus) {
-  const kicker = document.getElementById('brand-kicker')
-  kicker.removeAttribute('href')
-  kicker.removeAttribute('title')
-}
-
 // — Der Weg zurück führt DORTHIN, WO MAN HERKAM —
-// Wer aus dem Studio, der Galerie oder einem Profil kommt, will dorthin zurück
-// und nicht auf die Landing. Die Herkunft steht im Referrer; `history.back()`
+// Wer aus dem Studio, dem Entdecken-Bereich oder einem Profil kommt, will dorthin
+// zurück und nicht auf die Landing. Die Herkunft steht im Referrer; `history.back()`
 // statt einer Navigation, damit Scrollposition und Zustand der Liste erhalten
 // bleiben. Ohne Referrer (direkt geöffneter Link) bleibt es bei der Startseite.
-const HERKUNFT = { '/studio.html': 'Studio', '/galerie.html': 'Galerie', '/profil.html': 'Profil' }
+// Die Wörter sind die der Navigation, nicht die der Dateinamen: galerie.html
+// heißt für Besucher überall „Entdecken".
+const HERKUNFT = { '/studio.html': 'Studio', '/galerie.html': 'Entdecken', '/profil.html': 'Profil' }
 if (!appModus) {
   let her = null
   try {
@@ -183,11 +176,11 @@ if (!appModus) {
   } catch {}
   if (her) {
     const wort = HERKUNFT[her.pathname] ?? 'Zurück'
-    const zurueck = document.querySelector('.intro-back')
+    const zurueck = document.querySelector('.zurueck')
     if (zurueck) {
       zurueck.href = her.href
       zurueck.setAttribute('aria-label', `Zurück zu: ${wort}`)
-      zurueck.querySelector('.ib-word').textContent = wort
+      zurueck.querySelector('.zurueck-wort').textContent = wort
       zurueck.addEventListener('click', (e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || history.length < 2) return
         e.preventDefault()
@@ -972,8 +965,9 @@ map.on('load', () => {
   document.addEventListener('keydown', weckeUi, { passive: true })
   planeRueckzug()
 
-  // Zurück ins Hauptmenü — Kino-Modus räumt onToMenu auf
-  document.getElementById('btn-menu').addEventListener('click', () => tour.toMenu())
+  // Kein Menü-Knopf mehr in der Steuerleiste: der Weg hinaus steht dauerhaft oben
+  // links und führt dorthin, wo man herkam. Zum Startscreen DIESER Tour führt
+  // weiterhin das Finale („Zum Hauptmenü") — tour.toMenu() bleibt.
 
   // Player verlassen (nur im App-Modus sichtbar): die Android-App stellt dafür
   // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa
