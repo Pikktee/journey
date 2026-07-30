@@ -220,11 +220,21 @@ async function pruefeAnmeldung(): Promise<void> {
   }
 }
 
-/** E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln. */
+/**
+ * E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln — dazu
+ * `#registrieren`, der Direkteinstieg der Landing („Registrieren" im Header):
+ * ohne ihn landete der Knopf im Login-Formular, also dort, wo direkt daneben
+ * schon „Anmelden" hinführt.
+ */
 async function behandleAuthHash(): Promise<void> {
   const hash = location.hash.slice(1)
   const verify = hash.match(/(?:^|&)verify=([^&]+)/)?.[1]
   const reset = hash.match(/(?:^|&)reset=([^&]+)/)?.[1]
+  if (hash === 'registrieren') {
+    history.replaceState(null, '', location.pathname + location.search)
+    zeigeAuthModus('register')
+    return
+  }
   if (verify) {
     history.replaceState(null, '', location.pathname + location.search)
     try {
