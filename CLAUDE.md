@@ -258,9 +258,11 @@ die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben ge
 Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](src/studio/pruefung.ts),
 DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was
 auffiel (ohne Ortsangabe, ohne Zeitstempel, außerhalb der Aufzeichnung). Nur wo es etwas zu
-entscheiden gibt, steht ein Knopf („Weglassen"). Im Leerzustand fehlt „Aufnahmen hinzufügen" in
-der Fußzeile — dort sagt „Dateien wählen" mitten im Fenster dasselbe; der Fuß-Knopf heißt
-NACHLEGEN und erscheint erst, wenn etwas da ist (`renderNeu`).
+entscheiden gibt, steht ein Knopf („Weglassen"). Im Leerzustand ist die Fußzeile **leer** bis auf
+das (noch gesperrte) „Tour bauen": „Aufnahmen hinzufügen" heißt NACHLEGEN — dort sagt „Dateien
+wählen" mitten im Fenster dasselbe größer —, und die Sichtbarkeit entscheidet über eine Tour, die
+es noch nicht gibt. Beides erscheint mit den ersten Dateien (`leerzustand` in `renderNeu`); der
+Vorgabewert bleibt „Privat", auch solange das Feld aus ist.
 **Ohne GPX** werden die Foto-Orte zur Strecke:
 das Manifest trägt dann `segments` statt `trackFile` (`baueFotoSegmente`) — deshalb überspringt
 [tours.ts](server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die

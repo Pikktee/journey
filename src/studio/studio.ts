@@ -71,6 +71,7 @@ const els = {
   neuModusWrap: $('neu-modus-wrap'),
   neuModus: $<HTMLSelectElement>('neu-modus'),
   neuSicht: $<HTMLSelectElement>('neu-sicht'),
+  neuSichtWrap: $('neu-sicht-wrap'),
   neuMehr: $<HTMLButtonElement>('neu-mehr'),
   neuBauen: $<HTMLButtonElement>('neu-bauen'),
   neuSchliessen: $<HTMLButtonElement>('neu-schliessen'),
@@ -817,10 +818,13 @@ function renderNeu(): void {
     : ''
   els.neuBauen.disabled = !befund.bereit || laeuftUpload
   els.neuModusWrap.hidden = !befund.bereit
-  // „Aufnahmen hinzufügen" heißt NACHLEGEN — solange nichts da ist, sagt der
-  // Leerzustand dasselbe größer und besser („Dateien wählen"). Zwei Knöpfe für
-  // denselben Griff im selben Fenster machen den Anfang nur unklar.
-  els.neuMehr.hidden = !befunde.length && !gpxDatei
+  // Der Fuß bleibt leer, solange nichts abgelegt ist: „Aufnahmen hinzufügen"
+  // heißt NACHLEGEN (der Leerzustand sagt dasselbe größer und besser mit
+  // „Dateien wählen"), und die Sichtbarkeit entscheidet über eine Tour, die es
+  // noch nicht gibt. Beides kommt mit den ersten Dateien.
+  const leerzustand = !befunde.length && !gpxDatei
+  els.neuMehr.hidden = leerzustand
+  els.neuSichtWrap.hidden = leerzustand
   els.neuRumpf.innerHTML = ''
 
   if (!anzahl && !gpxDatei) {

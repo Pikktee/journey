@@ -2531,7 +2531,10 @@
               <option value="ferry">Fähre</option>
             </select>
           </label>
-          <label class="neu-modus">
+          <!-- Wie „Aufnahmen hinzufügen": eine Entscheidung ÜBER etwas, das es
+               noch nicht gibt. Erscheint mit den ersten Dateien (renderNeu);
+               der Vorgabewert bleibt „Privat", auch solange das Feld aus ist. -->
+          <label class="neu-modus" id="neu-sicht-wrap" hidden>
             <svg class="schloss"><use href="#i-schloss"/></svg>
             <select class="neu-sicht" id="neu-sicht" aria-label="Sichtbarkeit">
             <option value="private" selected>Privat</option>
