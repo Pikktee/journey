@@ -4282,7 +4282,7 @@ function zeigeFoto(id: string, dauerS: number): void {
   titel.textContent = m.caption || (m.type === 'video' ? 'Video' : 'Foto')
   const chip = document.createElement('div')
   chip.className = 'fe-chip'
-  chip.textContent = m.type === 'video' ? 'VIDEO' : 'FOTO'
+  chip.textContent = m.type === 'video' ? 'Video' : 'Foto'
   const unten = document.createElement('div')
   unten.className = 'fe-sub'
   const meter = m.anchor

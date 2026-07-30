@@ -319,6 +319,13 @@ immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/st
 [src/studio/editor.ts](src/studio/editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
 Neue Editor-Logik gehört in die beiden ersten Module, sonst ist sie nicht testbar.
 
+**Im Studio gibt es kein Mono.** Zeiten, Kilometer, Zähler und Skalenmarken laufen in Outfit mit
+`font-variant-numeric: tabular-nums` (DESIGN.md). Die Variable `--font-mono` ist **entfernt** —
+wer sie aus Gewohnheit wieder schreibt, bekommt keinen Fehler, sondern still die geerbte
+Schrift; und der IBM-Plex-Mono-Webfont wird von [studio.html](studio.html) nicht mehr geladen.
+Versalien sind nur da richtig, wo sie die Sache selbst sind (Initialen im Profil-Chip,
+Datei-Endung „MP3") — nicht als gesperrtes Etikett über einer Zeile.
+
 **Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Wetter, Momente, Musik & Effekte, Fotos) auf
 gemeinsamer Zeitachse. Zustände sind **lückenlose, beschriftete Bänder** — Anfang und Ende
 eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Der Abspielkopf liegt als

@@ -42,7 +42,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preload" as="image" href="/landing/hero.jpg" fetchpriority="high" />
   <link
-    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
 
@@ -59,7 +59,6 @@
       --card: rgba(255, 255, 255, 0.035);
       --sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       --display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-      --mono: 'IBM Plex Mono', monospace;
       --wrap: 1160px;
 
       /* Abstands-Skala — EIN Rhythmus für die ganze Seite.
@@ -477,7 +476,7 @@
     }
     .playstore-soon .ps-icon { width: 21px; height: 21px; flex: none; }
     .playstore-soon .ps-text { display: flex; flex-direction: column; line-height: 1.12; text-align: left; }
-    .playstore-soon .ps-text small { font-family: var(--mono); font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); }
+    .playstore-soon .ps-text small { font-family: var(--sans); font-size: 11.5px; font-weight: 500; color: var(--faint); }
     .playstore-soon .ps-text strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: rgba(242, 237, 227, 0.92); }
 
     /* Showcase rechts: genau EIN Telefon, die Aufnahmen blenden ineinander. */
@@ -519,7 +518,7 @@
 
     /* Blätter-Steuerung mit Positionsanzeige n / total */
     .shot-controls { display: flex; align-items: center; justify-content: center; gap: 16px; }
-    .shot-counter { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: rgba(242, 237, 227, 0.66); min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
+    .shot-counter { font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: rgba(242, 237, 227, 0.66); min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
     /* Der Punkt ist 7 px SICHTBAR, der Knopf darum 24 px groß — sonst wäre
        die Trefferfläche am Finger genau so klein wie die Grafik. */
     .shot-dots { display: flex; gap: 2px; justify-content: center; }

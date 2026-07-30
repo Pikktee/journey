@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
   <!-- Sitzungs-Hinweis (maptale_dabei): App-Shell sofort, Boot nur für Gäste.
@@ -57,7 +57,9 @@
       --schatten: 0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
       --font-display: 'Outfit', system-ui, sans-serif;
       --font-ui: 'Outfit', system-ui, sans-serif;
-      --font-mono: 'IBM Plex Mono', monospace;
+      /* Kein --font-mono mehr: DESIGN.md kennt EINE UI-Schrift, Zahlen richtet
+         `font-variant-numeric: tabular-nums` aus. Die zwei erlaubten Mono-Plätze
+         (Karten-Attribution, Debug) gibt es im Studio nicht. */
       --topbar-h: 58px;
       --wrap: 1160px;
       --spur-x: 168px;           /* feste Namenspalte der Zeitleiste — klebt beim Scrollen links */
@@ -84,7 +86,6 @@
     ::selection { background: rgba(245, 165, 36, 0.3); }
     a { color: var(--akzent); text-decoration: none; }
     h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
-    .mono { font-family: var(--font-mono); }
 
     /* Feiner Filmkorn-Schleier gegen digitale Flachheit */
     body::after {
@@ -171,8 +172,7 @@
     .hinweis.ok { color: var(--gruen); }
 
     .badge {
-      font-family: var(--font-mono);
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 500;
       padding: 3px 8px;
       border-radius: 6px;
@@ -467,7 +467,7 @@
       font-family: var(--font-ui);
       font-size: 11px;
       font-weight: 700;
-      text-transform: uppercase;
+      text-transform: uppercase; /* Initialen — Versalien sind hier die Sache selbst, keine Etikett-Sperrung */
     }
     .benutzer-chip img.punkt { object-fit: cover; display: block; background: none; }
 
@@ -532,7 +532,7 @@
     .suche input::placeholder { color: var(--text-3); }
     .suche input:focus { outline: none; border-color: var(--akzent); background: var(--bg-tief); }
     .suche svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; color: var(--text-3); }
-    .suche kbd { position: absolute; right: 10px; top: 50%; translate: 0 -50%; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
+    .suche kbd { position: absolute; right: 10px; top: 50%; translate: 0 -50%; font-family: var(--font-ui); font-size: 11px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
 
     .knopf-primaer {
       --fl-primaer: linear-gradient(120deg, var(--akzent), var(--akzent-2));
@@ -693,7 +693,7 @@
     .sicht-menue .haken { display: none; width: 13px; height: 13px; color: var(--akzent); margin-left: auto; }
     .sicht-menue button[aria-checked='true'] .haken { display: block; }
     .sicht-menue hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
-    .sicht-menue .kopfzeile { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); padding: 7px 10px 5px; }
+    .sicht-menue .kopfzeile { font-family: var(--font-ui); font-size: 12px; font-weight: 500; color: var(--text-3); padding: 7px 10px 5px; }
 
     /* — Neue-Tour-Kachel: dieselbe Höhe wie die Karten (16/10) — */
     .neu-kachel {
@@ -785,10 +785,10 @@
     .neu-kopf { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--rand); }
     .neu-kopf .titelblock { flex: 1; min-width: 0; }
     .neu-kopf h2 { font-family: var(--font-display); font-size: 19px; font-weight: 520; margin: 0; }
-    .neu-kopf .unter { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+    .neu-kopf .unter { font-size: 12px; color: var(--text-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
     .neu-kopf .schliessen { background: transparent; border: none; color: var(--text-3); font-size: 20px; line-height: 1; padding: 4px 8px; }
     .neu-kopf .schliessen:hover { color: var(--text); }
-    .neu-fortschritt { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
+    .neu-fortschritt { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
     .neu-fortschritt b { color: var(--akzent); font-weight: 600; }
     .neu-fortschritt .kreisel { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--fl-3); border-top-color: var(--akzent); animation: dreht 700ms linear infinite; }
     @keyframes dreht { to { transform: rotate(360deg); } }
@@ -828,7 +828,7 @@
     .vorschau .schluss { fill: none; stroke: var(--akzent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
     .vorschau .marke { fill: rgba(242, 237, 227, 0.92); }
     .vorschau .marke.ohne-ort { fill: none; stroke: rgba(242, 237, 227, 0.6); stroke-width: 1.4; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
-    .vorschau .quelle { position: absolute; left: 12px; bottom: 10px; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+    .vorschau .quelle { position: absolute; left: 12px; bottom: 10px; font-size: 11.5px; color: var(--text-3); }
 
     .neu-daten h3 { font-family: var(--font-display); font-size: clamp(21px, 2.4vw, 27px); font-weight: 480; letter-spacing: -0.01em; margin: 0 0 14px; }
     .neu-daten h3.geschaetzt { color: var(--text-2); }
@@ -836,7 +836,7 @@
     .zahlen .z { min-width: 0; }
     .zahlen .k { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
     .zahlen .k svg { width: 13px; height: 13px; }
-    .zahlen .w { font-family: var(--font-mono); font-size: 14px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .zahlen .w { font-size: 15px; font-weight: 500; margin-top: 3px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .meldungen { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
     .meldung {
@@ -867,7 +867,7 @@
     }
     .zeitband .bild.ohne-ort { border-style: dashed; }
     .zeitband .bild.ausserhalb { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.22); }
-    .zeitband .bild .zahl { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--fl-3); border: 1px solid var(--rand-hell); font-family: var(--font-mono); font-size: 9px; line-height: 13px; text-align: center; }
+    .zeitband .bild .zahl { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--fl-3); border: 1px solid var(--rand-hell); font-size: 9.5px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 13px; text-align: center; }
     .zeitband .bild .film { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); background: linear-gradient(160deg, var(--fl-2), var(--fl-3)); }
     .zeitband .bild .film svg { width: 16px; height: 16px; }
     .zeitband .stiel { position: absolute; bottom: 0; width: 1px; height: 14px; background: var(--rand-hell); }
@@ -879,7 +879,7 @@
     .zeitband .stunden { position: relative; height: 14px; margin-top: 4px; }
     .zeitband .stunden span:first-child { transform: none; }
     .zeitband .stunden span:last-child { transform: translateX(-100%); }
-    .zeitband .stunden span { position: absolute; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); transform: translateX(-50%); }
+    .zeitband .stunden span { position: absolute; font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; transform: translateX(-50%); }
 
     .neu-fuss { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--rand); background: var(--bg-tief); }
     .neu-fuss .sp { flex: 1; }
@@ -1085,9 +1085,9 @@
       font-size: clamp(18px, 2.2vw, 28px); line-height: 1.1; letter-spacing: -0.02em; color: #1c1712;
     }
     .fe-chip {
-      justify-self: end; font-family: var(--font-ui); font-size: 10.5px; font-weight: 600;
-      letter-spacing: 0.06em; color: #8a7a63; border: 1px solid rgba(28, 23, 18, 0.22);
-      border-radius: 999px; padding: 4px 10px; text-transform: uppercase;
+      justify-self: end; font-family: var(--font-ui); font-size: 11.5px; font-weight: 500;
+      color: #8a7a63; border: 1px solid rgba(28, 23, 18, 0.22);
+      border-radius: 999px; padding: 4px 10px;
     }
     .fe-sub { grid-column: 1 / -1; font-family: var(--font-ui); font-size: 12.5px; color: rgba(28, 23, 18, 0.6); }
     /* Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist (Player-Backdrop) */
@@ -1153,7 +1153,7 @@
       position: absolute; right: 0; bottom: 0; z-index: 3;
       min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
       display: grid; place-items: center;
-      font-family: var(--font-mono); font-size: 10px; font-weight: 600; line-height: 1;
+      font-size: 10.5px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
       color: #1a1206; background: var(--akzent); border: 1.5px solid rgba(9, 12, 17, 0.8);
     }
     @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
@@ -1205,14 +1205,14 @@
     .karte-info:hover .ki-blase, .karte-info .ki-knopf:focus-visible + .ki-blase { opacity: 1; transform: none; }
     .ki-kicker {
       display: block; margin-bottom: 9px;
-      font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase;
+      font-size: 11.5px; font-weight: 500;
       color: var(--akzent); opacity: 0.9;
     }
     .ki-zeile { display: flex; align-items: flex-start; gap: 10px; }
     .ki-zeile .ki-sym { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--text-3); }
     .ki-zeile b {
-      display: block; margin-bottom: 1px; font-weight: 400;
-      font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+      display: block; margin-bottom: 1px; font-weight: 500;
+      font-size: 11px;
       color: var(--text-3);
     }
     .ki-zeile .ki-wert { font-family: var(--font-display); font-size: 13.5px; line-height: 1.35; color: var(--text); }
@@ -1276,7 +1276,7 @@
       filter: brightness(1.06);
     }
     .tempo-chip {
-      font-family: var(--font-mono); font-size: 11px; color: var(--akzent);
+      font-size: 12px; font-weight: 500; color: var(--akzent);
       min-width: 30px; font-variant-numeric: tabular-nums;
     }
 
@@ -1296,17 +1296,18 @@
     .zoom-box { position: fixed; z-index: 55; display: none; background: rgba(245, 165, 36, 0.14); border: 1px solid var(--akzent); border-radius: 4px; pointer-events: none; }
 
     /* Abspielkopf-Anzeige: Uhrzeit der Aufnahme + zurückgelegte Strecke. Die
-       Breite darf NICHT mit den Werten zappeln — Mono heißt nicht gleiche
-       Zeichen-ANZAHL („0,8" vs. „41,4"), deshalb ein Slot fester Mindestbreite. */
+       Breite darf NICHT mit den Werten zappeln — gleich breite ZIFFERN
+       (tabular-nums) heißen nicht gleiche Zeichen-ANZAHL („0,8" vs. „41,4"),
+       deshalb zusätzlich ein Slot fester Mindestbreite. */
     .kopf-uhr {
       display: flex; align-items: center; gap: 9px;
       padding: 5px 12px; border-radius: 10px;
       background: var(--fl-1); border: 1px solid var(--rand);
     }
     .ku-icon { width: 14px; height: 14px; flex: none; color: var(--text-3); }
-    .ku-zeit { font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+    .ku-zeit { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
     .ku-km {
-      font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+      font-size: 12px; color: var(--text-3);
       padding-left: 10px; border-left: 1px solid var(--rand); font-variant-numeric: tabular-nums;
     }
     .ku-km-cur { display: inline-block; min-width: 4ch; text-align: right; color: var(--text-2); }
@@ -1322,7 +1323,7 @@
     .zoom-b:disabled { opacity: 0.4; cursor: default; }
     .zoom-b:disabled:hover { border-color: var(--rand); color: var(--text-2); }
     .zoom input[type='range'] { width: 110px; accent-color: var(--akzent); cursor: pointer; }
-    .zoom-wert { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); min-width: 4ch; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; }
+    .zoom-wert { font-family: var(--font-ui); font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: 4ch; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; }
     .zoom-wert:enabled:hover { border-color: var(--rand-hell); color: var(--text-2); }
 
     /* Das Fenster scrollt waagerecht; die Namenspalte klebt darin links.
@@ -1371,8 +1372,8 @@
       box-shadow: var(--schatten);
     }
     .schwebe-menue .kopfzeile {
-      padding: 7px 9px 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--rand); margin-bottom: 4px;
+      padding: 7px 9px 8px; font-size: 12px; font-weight: 500;
+      color: var(--text-3); border-bottom: 1px solid var(--rand); margin-bottom: 4px;
     }
     .schwebe-menue button {
       width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 9px;
@@ -1433,7 +1434,7 @@
     .skala-marke {
       position: absolute; top: 1px; transform: translateX(-50%);
       display: flex; flex-direction: column; align-items: center;
-      font-family: var(--font-mono); font-size: 9.5px; color: var(--text-3);
+      font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums;
       white-space: nowrap; pointer-events: none;
     }
     .skala-marke i { display: block; width: 1px; margin-top: 2px; background: rgba(255, 255, 255, 0.22); }
@@ -1582,7 +1583,7 @@
       position: absolute; left: -6px; top: -6px; z-index: 3;
       min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
       display: grid; place-items: center;
-      font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; line-height: 1;
+      font-size: 11px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
       color: #1a1206; background: var(--akzent); border: 1.5px solid var(--bg-tief);
     }
     /* Rastet der gezogene Halt auf einem fremden ein: eigener Amber-Rand, und
@@ -1769,7 +1770,7 @@
     .feld input[type='range'] { width: 100%; accent-color: var(--akzent); }
     .feld .mit-wert { display: flex; align-items: center; gap: 9px; }
     .feld .mit-wert input[type='range'] { flex: 1; }
-    .feld .wert { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); width: 42px; text-align: right; }
+    .feld .wert { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; width: 42px; text-align: right; }
 
     /* Zeitfeld: tippen, mit ▲▼ steppen ODER darüberziehen (5 px ≈ 1 Minute,
        wie in Final Cut). Ein festes Band-Ende gibt es nicht — Ende des einen
@@ -1796,8 +1797,8 @@
     .zf.zieht, .zf.zieht * { user-select: none; }
     input.zf-in[type='text'] {
       flex: 1 1 0; min-width: 0; width: 0; border: none; background: transparent;
-      border-radius: 0; padding: 8px 8px 8px 10px; font-family: var(--font-mono);
-      font-size: 13px; letter-spacing: 0.04em; color: var(--text);
+      border-radius: 0; padding: 8px 8px 8px 10px; font-family: var(--font-ui);
+      font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em; color: var(--text);
       font-variant-numeric: tabular-nums; transition: none;
     }
     input.zf-in[type='text']:hover,
@@ -1829,7 +1830,7 @@
     /* Feste Grenze (Tourbeginn/-ende): kein Feld, sondern eine Aussage. */
     .zf.ro {
       cursor: default; align-items: center; padding: 8px 10px; border-style: dashed;
-      color: var(--text-3); font-family: var(--font-mono); font-size: 12.5px;
+      color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums;
     }
     .insp-notiz { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--text-3); }
     .insp-warnung {
@@ -1841,7 +1842,7 @@
     .insp-bild-huelle .insp-bild { display: block; }
     .insp-bild-badge {
       position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 5px;
-      font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      font-size: 11px; font-weight: 500;
       color: #fff; background: rgba(6, 8, 12, 0.72); border: 1px solid rgba(255, 255, 255, 0.28);
       border-radius: 999px; padding: 3px 9px 3px 7px; pointer-events: none;
     }
@@ -1859,14 +1860,14 @@
     }
     .gross video { background: #000; }
     .gross .gt-video {
-      font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      font-size: 11.5px; font-weight: 500;
       color: var(--akzent); border: 1px solid rgba(245, 165, 36, 0.5); border-radius: 999px;
       padding: 2px 9px; vertical-align: middle; margin-left: 10px;
     }
     .gross figcaption { text-align: center; }
     .gross .gt { font-family: var(--font-display); font-size: 20px; }
-    /* Outfit mit tabular-nums statt Mono: Zahlen bleiben ruhig ausgerichtet,
-       die Schrift ist die der Marke (DESIGN.md — kein Mono „weil Zahlen"). */
+    /* Outfit mit tabular-nums: Zahlen bleiben ruhig ausgerichtet, die Schrift ist
+       die der Marke (DESIGN.md — kein Mono „weil Zahlen"). Gilt im ganzen Studio. */
     .gross .gm {
       font-family: var(--font-ui); font-size: 12.5px; color: var(--text-3);
       margin-top: 4px; font-variant-numeric: tabular-nums;
@@ -1946,13 +1947,14 @@
     .streifen button.zieht img { border-color: var(--akzent); box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6); }
     .streifen .st-nr {
       position: absolute; left: 3px; top: 3px;
-      font-family: var(--font-mono); font-size: 9px; line-height: 1; padding: 2px 4px;
+      font-size: 9.5px; font-weight: 500; line-height: 1; padding: 2px 4px;
+      font-variant-numeric: tabular-nums;
       color: #fff; background: rgba(6, 8, 12, 0.7); border-radius: 4px;
     }
     /* Was der Halt im fertigen Film wirklich kostet */
     .stopp-summe {
       display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-      font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+      font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums;
       border-top: 1px dashed var(--rand); padding-top: 9px;
     }
     .stopp-summe b { font-weight: 500; color: var(--text-2); }
@@ -2019,7 +2021,7 @@
       content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
       background: var(--akzent); border-radius: 2px 2px 0 0;
     }
-    .sfx-tab .z { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+    .sfx-tab .z { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
     .sfx-tabs.sucht .sfx-tab { opacity: 0.55; }
 
     /* Liste: flex:1 + min-height:0 — ohne das staucht der Dialog die Zeilen,
@@ -2101,13 +2103,13 @@
     /* Das im Ersetzen-Modus aktuell gesetzte Stück: markiert statt klickbar. */
     .sfx-badge {
       flex: none; padding: 2px 7px; border-radius: 99px;
-      font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      font-size: 11px; font-weight: 500;
       color: var(--akzent); border: 1px solid color-mix(in srgb, var(--akzent) 45%, transparent);
       background: rgba(245, 158, 11, 0.09);
     }
     .sfx-rechts { display: flex; align-items: center; gap: 12px; }
-    .sfx-zeit { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-    .sfx-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .sfx-zeit { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .sfx-meta { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
     /* In Ruhe nur ein grauer Wortlaut — 28 gerahmte Knöpfe untereinander
        erschlagen die Liste. Erst wo der Zeiger steht, wird daraus ein Knopf. */
     .sfx-einsetzen {
@@ -2143,7 +2145,7 @@
     }
     .sfx-upload:hover { color: var(--text); border-color: var(--akzent); background: rgba(245, 158, 11, 0.05); border-style: dashed; }
     .sfx-upload svg { width: 15px; height: 15px; color: var(--akzent); }
-    .sfx-upload .formate { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+    .sfx-upload .formate { margin-left: auto; font-size: 11.5px; color: var(--text-3); }
     /* Meldungen zum Dialog-Geschehen (Upload/Löschen) — die Editor-Statuszeile
        läge unsichtbar hinter dem Backdrop. Leer = keine Höhe. */
     .sfx-status { flex: none; padding: 0 20px; font-size: 12px; color: var(--text-2); }
