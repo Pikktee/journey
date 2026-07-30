@@ -817,6 +817,10 @@ function renderNeu(): void {
     : ''
   els.neuBauen.disabled = !befund.bereit || laeuftUpload
   els.neuModusWrap.hidden = !befund.bereit
+  // „Aufnahmen hinzufügen" heißt NACHLEGEN — solange nichts da ist, sagt der
+  // Leerzustand dasselbe größer und besser („Dateien wählen"). Zwei Knöpfe für
+  // denselben Griff im selben Fenster machen den Anfang nur unklar.
+  els.neuMehr.hidden = !befunde.length && !gpxDatei
   els.neuRumpf.innerHTML = ''
 
   if (!anzahl && !gpxDatei) {

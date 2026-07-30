@@ -201,10 +201,26 @@ bleibt die Pille aus — dort führt `.app-exit` in der Steuerleiste in die Tour
 Die einzige `h1` des Players ist seither der Intro-Titel.
 
 **Typografie im Player folgt [`DESIGN.md`](DESIGN.md):** Outfit überall, Kennzahlen mit
-`font-variant-numeric: tabular-nums` — **kein Mono und kein Versalien-Sperrsatz**. Die einzigen
-zwei erlaubten Mono-Plätze sind die Karten-Attribution und das API-Schlüssel-Feld des
-Google-3D-Testmodus (Debug). Die kleinen gesperrten Etiketten („NÄCHSTER HALT", „DISTANZ",
-„KM 12.3") waren die alte Sprache; Label sind jetzt Satzschrift.
+`font-variant-numeric: tabular-nums` — **kein Mono und kein Versalien-Sperrsatz**. Der einzige
+verbleibende Mono-Platz ist das API-Schlüssel-Feld des Google-3D-Testmodus (Debug); die
+Karten-Attribution läuft seit dem Kartendaten-Popup ebenfalls in Outfit. Die kleinen gesperrten
+Etiketten („NÄCHSTER HALT", „DISTANZ", „KM 12.3") waren die alte Sprache; Label sind jetzt
+Satzschrift.
+
+**Die Pflicht-Attribution ist ein ⓘ-Knopf mit Popup** ([src/karteninfo.ts](src/karteninfo.ts)),
+nicht MapLibres compact-Control (`attributionControl: false`): eine Glaskarte, die pro Quelle
+nennt, WAS man ihr ansieht (Satellitenbild · Gelände · Gebäude · Wetter). Zwei Punkte, die man
+leicht „aufräumt": Der Inhalt wird aus den `attribution`-Feldern der Stil-Quellen gebaut — eine
+neue Kachelquelle erscheint dadurch von selbst, ohne Rollen-Eintrag als „Kartendaten", aber
+niemals ungenannt. Und das Element hängt am **body**, nicht im Kartencontainer: dessen `z-index`
+gilt nur innerhalb des Karten-Stacking-Contexts, das Popup verschwand dort hinter der
+Steuerleiste (Nebeneffekt: der Knopf bleibt im Google-3D-Modus sichtbar, wo MapLibres Canvas
+ausgeblendet ist). Solange es offen steht, hält `body.info-offen` den Auto-Rückzug der UI an.
+
+**Das Fortbewegungsmittel steht NICHT in der Telemetrie.** Der Marker auf der Karte zeigt es,
+der Motorloop lässt es hören — ein Wort „Unterwegs mit · Jeep 4×4" in der Steuerleiste
+wiederholte das nur. Der Modus wird weiter pro Frame verfolgt (`modeKey` in `ui.stats`), denn an
+seiner Kante hängen Marker-Icon und Motorsound.
 
 **Atmosphäre und Wetter.** [src/atmosphere.js](src/atmosphere.js) (Horizont-Dunst, Wolken,
 Sterne, Sonne) und [src/weather.js](src/weather.js) (Regen/Schnee/Nebel/Gewitter als
@@ -242,7 +258,10 @@ die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben ge
 Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](src/studio/pruefung.ts),
 DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was
 auffiel (ohne Ortsangabe, ohne Zeitstempel, außerhalb der Aufzeichnung). Nur wo es etwas zu
-entscheiden gibt, steht ein Knopf („Weglassen"). **Ohne GPX** werden die Foto-Orte zur Strecke:
+entscheiden gibt, steht ein Knopf („Weglassen"). Im Leerzustand fehlt „Aufnahmen hinzufügen" in
+der Fußzeile — dort sagt „Dateien wählen" mitten im Fenster dasselbe; der Fuß-Knopf heißt
+NACHLEGEN und erscheint erst, wenn etwas da ist (`renderNeu`).
+**Ohne GPX** werden die Foto-Orte zur Strecke:
 das Manifest trägt dann `segments` statt `trackFile` (`baueFotoSegmente`) — deshalb überspringt
 [tours.ts](server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die
 Gehabschnitts-Automatik: zwischen zwei Fotos liegt eine Luftlinie, jedes daraus gerechnete

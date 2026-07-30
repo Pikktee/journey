@@ -39,7 +39,6 @@ export class UI {
       dots: $('progress-dots'),
       teleKm: $('tele-km'),
       teleEle: $('tele-ele'),
-      teleMode: $('tele-mode'),
       nextStop: $('next-stop'),
       nextName: $('next-stop-name'),
       nextKm: $('next-stop-km'),
@@ -464,13 +463,14 @@ export class UI {
     setTimeout(() => this.els.blink.classList.remove('on'), 650)
   }
 
-  stats({ km, ele, frac, next, modeKey, modeLabel, holdFrac }) {
+  stats({ km, ele, frac, next, modeKey, holdFrac }) {
     this.els.teleKm.textContent = `${km.toFixed(1)} km`
     this.els.teleEle.textContent = `${fmtDE.format(ele)} m`
     if (holdFrac != null) this.els.holdFill.style.transform = `scaleX(${holdFrac.toFixed(3)})`
+    // Der Modus wird nicht mehr angezeigt, aber weiter verfolgt: an der Kante
+    // hängen Marker-Icon und Motorloop (onModeChange in main.js).
     if (modeKey && modeKey !== this._mode) {
       this._mode = modeKey
-      this.els.teleMode.textContent = modeLabel
       this.onModeChange?.(modeKey)
     }
     this.els.progRect.setAttribute('width', (frac * 100).toFixed(2))

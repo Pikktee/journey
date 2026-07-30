@@ -290,10 +290,12 @@
       <button class="preset-btn" data-preset="weit" title="Kamera weit">Weit</button>
     </div>
 
+    <!-- Das Fortbewegungsmittel steht NICHT hier: es fährt als Marker auf der
+         Karte mit und ist am Motorloop zu hören. Ein Wort dafür in der Leiste
+         wiederholte nur, was die Szene schon zeigt. -->
     <div class="dock-cluster telemetry">
-      <div class="tele"><span class="tele-label">Unterwegs mit</span><span class="tele-value" id="tele-mode">—</span></div>
       <div class="tele"><span class="tele-label">Distanz</span><span class="tele-value" id="tele-km">0.0 km</span></div>
-      <div class="tele"><span class="tele-label">Höhe</span><span class="tele-value" id="tele-ele">— m</span></div>
+      <div class="tele" id="tele-ele-wrap"><span class="tele-label">Höhe</span><span class="tele-value" id="tele-ele">— m</span></div>
       <div class="tele" id="tele-time-wrap" hidden><span class="tele-label">Uhrzeit</span><span class="tele-value" id="tele-time">—</span></div>
     </div>
 

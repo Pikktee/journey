@@ -2541,7 +2541,9 @@
           </label>
           <div class="status" id="neu-status" role="status"></div>
           <span class="sp"></span>
-          <button class="akt" id="neu-mehr"><svg><use href="#i-plus"/></svg>Aufnahmen hinzufügen</button>
+          <!-- Erscheint erst, wenn schon etwas da ist (renderNeu): im Leerzustand
+               sagt „Dateien wählen" mitten im Fenster dasselbe. -->
+          <button class="akt" id="neu-mehr" hidden><svg><use href="#i-plus"/></svg>Aufnahmen hinzufügen</button>
           <button class="knopf-primaer" id="neu-bauen" disabled><svg><use href="#i-blitz"/></svg>Tour bauen</button>
         </div>
       </div>

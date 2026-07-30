@@ -235,7 +235,6 @@ map.on('load', () => {
   vehicle.setMode(modes[0].mode)
   window.__j.vehicle = vehicle
   ui.onModeChange = (mode) => { setRiderIcon(rider, mode); vehicle.setMode(mode) }
-  document.getElementById('tele-mode').textContent = modes[0].label
 
   const km = `${(route.total / 1000).toFixed(1)} km`
   const setGain = (hm) => {
@@ -933,8 +932,12 @@ map.on('load', () => {
       // (die Fahrt läuft nach einem Foto-Stopp ohne Zutun weiter). Ebenso, solange
       // die Maus auf der Steuerleiste liegt: was man gerade anvisiert (Timeline,
       // Tempo, Optionen), darf nicht unter dem Zeiger wegblenden.
+      // Ebenso, solange das Kartendaten-Popup offen steht (body.info-offen,
+      // karteninfo.ts): der Text blendete sonst weg, während man ihn liest.
       const ruht = tour.phase === 'ride' && tour.playing
-      if (ruht && !(hatZeiger && dockEl.matches(':hover'))) setClean(true)
+      const festgehalten =
+        (hatZeiger && dockEl.matches(':hover')) || document.body.classList.contains('info-offen')
+      if (ruht && !festgehalten) setClean(true)
       else planeRueckzug()
     }, RUHE_MS)
   }

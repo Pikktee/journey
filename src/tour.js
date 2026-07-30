@@ -932,7 +932,6 @@ export class Tour {
       ele: p[2],
       frac: this.s / this.route.total,
       modeKey: mo.mode,
-      modeLabel: mo.label,
       next: next ? { title: next.items[0].title, km: (next.s - this.s) / 1000 } : null,
       // Füllstand des Anzeige-Balkens auf der Foto-Karte (steht bei Pause).
       // Bei Videos null → ui.js füllt ihn selbst aus der Videozeit (timeupdate).

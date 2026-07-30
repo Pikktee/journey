@@ -1,7 +1,7 @@
 /* ————————————————————————————————————————————
    MAPTALE — Filmische 3D-Reise-Ästhetik
    Outfit (UI & Display) · Zahlen: tabular-nums · siehe /DESIGN.md
-   IBM Plex Mono nur optional für Karten-Attribution/Debug
+   IBM Plex Mono nur noch im Debug-Feld des Google-3D-Testmodus
    ———————————————————————————————————————————— */
 
 :root {
@@ -1678,39 +1678,115 @@ body.app .app-exit {
   }
 }
 
-/* — MapLibre-Anpassungen — */
+/* — Kartendaten-Popup (karteninfo.ts) —
+   Die Pflicht-Attribution ist ein runder ⓘ-Knopf; das Popup darüber ist eine
+   Karte im Glas-Look des Players. Es liegt ABSOLUT über dem Knopf (nicht als
+   Geschwister im Fluss), damit sich die Bildecke beim Öffnen nicht verschiebt. */
 
-.maplibregl-ctrl-bottom-right {
-  z-index: 30; /* Attribution bleibt über der Steuerleiste sichtbar */
+/* Am BODY verankert, nicht in MapLibres Control-Ecke (siehe karteninfo.ts):
+   z-index 22 liegt über der Steuerleiste (20) und unter Foto-Karte (25),
+   Finale (26) und Startscreen (30) — dort gehört die Bühne der Szene. */
+.karten-info {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  z-index: 22;
 }
 
-.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+.karten-info-knopf {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--glass-brd);
+  border-radius: 999px;
   background: rgba(10, 13, 18, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-radius: 12px;
-  margin: 0 8px 8px 0;
-  font-family: var(--font-mono);
-  font-size: 9px;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.karten-info-knopf:hover,
+.karten-info-knopf[aria-expanded='true'] {
+  color: var(--text);
+  background: rgba(12, 15, 20, 0.78);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.karten-info-popup {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  width: max-content;
+  max-width: min(320px, calc(100vw - 30px));
+  padding: 13px 15px 14px;
+  border: 1px solid var(--glass-brd);
+  border-radius: 15px;
+  background: rgba(12, 15, 20, 0.82);
+  backdrop-filter: blur(20px) saturate(1.25);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  box-shadow: 0 22px 48px -18px rgba(0, 0, 0, 0.75);
+  color: var(--text);
+  text-align: left;
+  opacity: 0;
+  transform: translateY(7px) scale(0.97);
+  transform-origin: bottom right;
+  transition:
+    opacity 0.19s ease,
+    transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.karten-info-popup.offen {
+  opacity: 1;
+  transform: none;
+}
+
+.ki-titel {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Feine Linie zwischen den Quellen statt Kästchen — Rolle über Rechtezeile */
+.ki-zeile + .ki-zeile {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.ki-rolle,
+.ki-quelle {
+  display: block;
+}
+
+.ki-rolle {
+  font-size: 10.5px;
+  color: rgba(242, 237, 227, 0.5);
+}
+
+.ki-quelle {
+  margin-top: 1px;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--muted);
 }
 
-/* Eingeklappt (Standard) ist die Pflicht-Attribution nur ein runder ⓘ-Knopf,
-   Klick darauf klappt die Quellenliste aus */
-.maplibregl-ctrl-attrib.maplibregl-compact {
-  border-radius: 999px;
+.karten-info-popup a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.5);
 }
 
-.maplibregl-ctrl-attrib.maplibregl-compact-show {
-  border-radius: 12px;
-}
-
-.maplibregl-ctrl-attrib-button {
-  filter: invert(0.85); /* dunkles ⓘ-Icon auf dunklem Glas aufhellen */
-}
-
-.maplibregl-ctrl-attrib a {
-  color: var(--muted);
+.karten-info-popup a:hover {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
 }
 
 /* — Responsive: kompakter, aber nichts verstecken —
@@ -1894,12 +1970,7 @@ body.app .app-exit {
     justify-content: space-between;
     margin-left: 0;
     gap: 8px;
-    flex-wrap: wrap; /* vier Werte + schmaler Screen: lieber umbrechen als abschneiden */
-  }
-
-  /* „Zu Fuß“ erklärt sich ohne das lange „Unterwegs mit“-Label */
-  .telemetry .tele:first-child .tele-label {
-    display: none;
+    flex-wrap: wrap; /* mehrere Werte + schmaler Screen: lieber umbrechen als abschneiden */
   }
 
   .tele {
@@ -1945,12 +2016,12 @@ body.app .app-exit {
   }
 
   /* Attribution bleibt Pflicht und sichtbar: über die Steuerleiste heben */
-  .maplibregl-ctrl-bottom-right {
+  .karten-info {
     bottom: calc(var(--dock-h, 0px) + 12px);
   }
 
-  body.ui-clean .maplibregl-ctrl-bottom-right {
-    bottom: 0;
+  body.ui-clean .karten-info {
+    bottom: 10px;
   }
 }
 
@@ -2072,14 +2143,12 @@ body.kompakt-quer .speed-btn {
   font-size: 10.5px;
 }
 
-body.kompakt-quer .telemetry .tele:first-child .tele-label {
-  display: none; /* „Jeep 4×4" erklärt sich ohne „Unterwegs mit" */
-}
-
-body.kompakt-quer /* Höhe und Uhrzeit sind quer Luxus — Fortbewegungsmittel und Distanz tragen
-   die Information,
-body.kompakt-quer der Rest würde die Timeline zusammendrücken. */
-.telemetry .tele:nth-child(3),
+/* Höhe und Uhrzeit sind quer Luxus — die Distanz trägt die Information, der
+   Rest würde die Timeline zusammendrücken. Angesprochen wird über die IDs,
+   nicht über nth-child: die Reihenfolge der Felder hat sich schon einmal
+   verschoben (das Feld „Unterwegs mit" ist entfallen), und ein Index zeigt
+   danach still auf das falsche Feld. */
+body.kompakt-quer #tele-ele-wrap,
 body.kompakt-quer #tele-time-wrap {
   display: none;
 }
@@ -2251,16 +2320,16 @@ body.kompakt-quer .finale-stats {
   margin: 14px 0 16px;
 }
 
-body.kompakt-quer /* Attribution über den Steuerstreifen heben (Pflicht: Esri/AWS) */
-.maplibregl-ctrl-bottom-right {
+/* Attribution über den Steuerstreifen heben (Pflicht: Esri/AWS) */
+body.kompakt-quer .karten-info {
   bottom: calc(var(--dock-h, 56px) + 10px);
 }
 
 /* Zieht sich der Steuerstreifen zurück, sinkt die Attribution mit — sonst
    schwebte sie frei im Bild. `body.kompakt-quer body.ui-clean` (zwei body!)
    konnte nie greifen: dieselbe Klasse liegt auf DEMSELBEN Element. */
-body.kompakt-quer.ui-clean .maplibregl-ctrl-bottom-right {
-  bottom: 0;
+body.kompakt-quer.ui-clean .karten-info {
+  bottom: 10px;
 }
 
 

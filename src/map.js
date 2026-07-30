@@ -3,6 +3,7 @@
 import maplibregl from 'maplibre-gl'
 import { indexAt } from './geo.js'
 import { registerDemClean } from './demclean.js'
+import { createKartenInfo } from './karteninfo'
 
 export const EXAGGERATION = 1.35
 
@@ -188,9 +189,10 @@ export function createMap(container, center) {
     // Mehr Zoomstufen im Tile-Cache halten: bei schnellen Zooms (Preset-Wechsel,
     // Foto-Sprünge) sind Eltern-/Kind-Tiles dann oft noch da statt neu zu laden
     maxTileCacheZoomLevels: 7,
-    // Open-Meteo: Quelle des Auto-Wetters (autoweather.js), CC-BY 4.0 — Attribution
-    // ist Lizenzbedingung, daher fest im Control (auch in spätere Video-Exporte einbrennen)
-    attributionControl: { compact: true, customAttribution: 'Wetter: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>' },
+    // Eigenes Attributions-Control (karteninfo.ts): ⓘ-Knopf mit Popup statt
+    // MapLibres grauem Kleingedruckt-Balken. Der Inhalt kommt aus den
+    // `attribution`-Feldern der Quellen unten — die bleiben die Quelle der Wahrheit.
+    attributionControl: false,
     style: {
       version: 8,
       // Schriftglyphen für Symbol-Layer (nummerierte Foto-Wegpunkte)
@@ -201,7 +203,7 @@ export function createMap(container, center) {
           tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
           tileSize: 256,
           maxzoom: 18,
-          attribution: '© Esri, Maxar, Earthstar Geographics',
+          attribution: '© <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
         },
         dem: {
           type: 'raster-dem',
@@ -213,14 +215,15 @@ export function createMap(container, center) {
           // maxzoom bleibt 13: eine Senkung auf 11 wurde auf dem Pixel 9 gemessen
           // und war LANGSAMER (Overzoom spart keine Meshes, kostet aber Skalierung).
           maxzoom: 13,
-          attribution: 'Terrain: Mapzen / AWS Open Data',
+          // Ohne „Terrain:"-Präfix — die Rolle steht im Popup schon in der Zeile
+          attribution: 'Mapzen / <a href="https://registry.opendata.aws/terrain-tiles/">AWS Open Data</a>',
         },
         // OpenFreeMap-Vektortiles (OpenMapTiles-Schema) — liefern OSM-Gebäude
         // mit Höhen, damit Städte nicht flach wirken
         buildings: {
           type: 'vector',
           url: 'https://tiles.openfreemap.org/planet',
-          attribution: '© OpenStreetMap',
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
         },
       },
       layers: [
@@ -278,20 +281,13 @@ export function createMap(container, center) {
   // MapLibres eigene Tastensteuerung abschalten: Pfeiltasten steuern den Player
   // (Einzelbild vor/zurück), nicht das Verschieben/Zoomen der Karte.
   map.keyboard.disable()
-  // Pflicht-Attribution (Esri/OSM/Mapzen) hinter dem ⓘ-Knopf: MapLibre startet
-  // compact ausgeklappt und klappt erst bei Klick ein — Zustand selbst setzen
-  // (gleiche Klassen-/Attribut-Kombination wie der eingebaute Toggle-Klick).
-  // Erst nach 'load': beim Init ist die Attribution noch leer, die compact-
-  // Klassen kommen erst, wenn die Quellen ihre Attributionstexte liefern.
-  const collapseAttrib = () => {
-    const attrib = map.getContainer().querySelector('.maplibregl-ctrl-attrib')
-    if (attrib?.classList.contains('maplibregl-compact-show')) {
-      attrib.setAttribute('open', '')
-      attrib.classList.remove('maplibregl-compact-show')
-    }
-  }
-  map.once('load', collapseAttrib)
-  map.once('idle', collapseAttrib) // falls eine Quelle erst nach 'load' meldet
+  // Pflicht-Attribution (Esri/OSM/Mapzen/Open-Meteo) hinter dem ⓘ-Knopf unten
+  // rechts — siehe karteninfo.ts. Open-Meteo (Auto-Wetter, autoweather.js) hat
+  // keine Kachelquelle im Stil und wird hier ergänzt; die Nennung ist
+  // Lizenzbedingung (CC BY 4.0) und muss auch in spätere Video-Exporte.
+  createKartenInfo(map, [
+    { rolle: 'Wetter', html: '<a href="https://open-meteo.com/">Open-Meteo</a> · CC BY 4.0' },
+  ])
   // Pixelbudget beim Fenster-Resize neu einregeln: Aufziehen von klein → 4K-Vollbild
   // würde sonst die Zeichenfläche über die Füllraten-Klippe treiben (pixelRatio bleibt
   // bei MapLibre über Resizes konstant). Gedrosselt + Schwellwert, damit das Ziehen am
