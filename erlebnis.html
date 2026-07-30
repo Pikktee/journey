@@ -96,14 +96,10 @@
     <span class="zurueck-wort">Startseite</span>
   </a>
 
-  <!-- Marke / Titel oben links, unter dem Weg zurück. Der Kicker ist bewusst
-       KEIN Link mehr: neben einem Zurück-Knopf wäre ein zweiter Ausgang direkt
-       daneben (der auf die Landing führt) nur eine Falle. -->
-  <header class="brand">
-    <div class="brand-kicker" id="brand-kicker">Maptale · N°01</div>
-    <h1 class="brand-title" id="brand-title">Berner Oberland</h1>
-    <div class="brand-route" id="brand-route">Lauterbrunnen — Wengen — Kleine Scheidegg — Grindelwald</div>
-  </header>
+  <!-- Kein Marken-/Titelblock oben links mehr: Ort und Route stehen formatfüllend
+       im Startscreen, unterwegs nennt der Halt-Chip den nächsten Ort und die
+       Telemetrie den Rest. Während der Fahrt war es dieselbe Zeile ein zweites
+       Mal — jetzt gehört die Ecke dem einen Weg zurück. -->
 
   <!-- Nächster Halt oben rechts -->
   <aside class="next-stop" id="next-stop" hidden>
@@ -115,7 +111,8 @@
   <section class="intro" id="intro">
     <div class="intro-inner">
       <div class="intro-kicker reveal" style="--d: 0.1s" id="intro-kicker">Eine Reise durch das</div>
-      <h2 class="intro-title reveal" style="--d: 0.25s" id="intro-title">Berner<br />Oberland</h2>
+      <!-- Die Überschrift der Seite: der Tour-Titel steht nur noch hier -->
+      <h1 class="intro-title reveal" style="--d: 0.25s" id="intro-title">Berner<br />Oberland</h1>
       <div class="intro-rule reveal" style="--d: 0.45s"></div>
       <div class="intro-route reveal" style="--d: 0.55s" id="intro-route">
         Lauterbrunnen&ensp;→&ensp;Wengen&ensp;→&ensp;Kleine Scheidegg&ensp;→&ensp;Grindelwald

@@ -179,23 +179,26 @@ die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Fot
 main.js über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
 `tour.jumpToPhoto`. Der Player-DOM liegt statisch in [erlebnis.html](erlebnis.html); JS greift
 per `id` zu. **Die UI zieht sich während der Fahrt selbst zurück** (`body.ui-clean`, nach 3,2 s
-Ruhe; Marke, Halt-Chip, Steuerleiste UND Mauszeiger) und kommt bei der nächsten Regung wieder —
+Ruhe; Weg zurück, Halt-Chip, Steuerleiste UND Mauszeiger) und kommt bei der nächsten Regung wieder —
 auf jeder Zeigerart, deshalb gibt es keinen Knopf und keine Taste dafür mehr. Zwei Fallen:
 `pointermove` feuert auch ohne Handbewegung, sobald sich der Inhalt unter dem stehenden Zeiger
 ändert (also pro Frame) — ohne Koordinaten-Vergleich käme die UI nie zur Ruhe; und `:hover` (die
 Ausnahme „Maus liegt auf der Steuerleiste") darf nur bei `(hover: hover)` zählen, weil die
 Pseudoklasse auf Touch nach einem Tipp am getippten Element hängen bleibt.
 
-**Aus dem Player führt genau EIN Weg hinaus:** die Pille oben links (`.zurueck`, fest
-positioniert über dem Intro). Sie steht die ganze Fahrt über da — nicht nur im Startscreen —,
-trägt das Wort der Herkunft (Studio · Entdecken · Profil aus dem Referrer, sonst „Startseite")
-und geht per `history.back()`, damit Scrollposition und Zustand der Liste erhalten bleiben; die
-Marke rückt darunter. Deshalb ist der Marken-Kicker **kein Home-Link** mehr und die Steuerleiste
-hat **keinen Menü-Knopf**: das waren zwei weitere Ausgänge, von denen einer immer zur Landing
-sprang, statt dorthin zurück, wo man herkam. Im Kino-Modus zieht sich die Pille mit der übrigen
-UI zurück, im App-Modus (`body.app`) bleibt sie ganz aus — dort führt `.app-exit` in der
-Steuerleiste in die Tourliste. Aus demselben Grund öffnet das Studio den Player im **selben
-Tab** (`spielAb`): ein zweites Fenster hätte keinen Weg zurück, nur ein Schließkreuz.
+**Oben links steht genau EIN Element: der Weg hinaus** — die Pille `.zurueck`, fest positioniert
+über dem Intro. Sie steht die ganze Fahrt über da (nicht nur im Startscreen), trägt das Wort der
+Herkunft (Studio · Entdecken · Profil aus dem Referrer, sonst „Startseite") und geht per
+`history.back()`, damit Scrollposition und Zustand der Liste erhalten bleiben. Der frühere
+Marken-/Titelblock daneben ist **ersatzlos weg** (samt `body.intro-open`): er war nur während
+der Fahrt sichtbar und wiederholte dort Ort und Route, die im Startscreen formatfüllend stehen
+und unterwegs im Halt-Chip und in der Telemetrie weiterlaufen. Sein Kicker war zugleich ein
+Home-Link auf die Landing — genau der Griff, über den man aus „Entdecken" heraus auf der
+Startseite landete. Aus demselben Grund hat die Steuerleiste **keinen Menü-Knopf** mehr (zum
+Startscreen einer Tour führt das Finale) und das Studio spielt im **selben Tab** ab (`spielAb`):
+ein zweites Fenster hätte keinen Weg zurück, nur ein Schließkreuz. Im App-Modus (`body.app`)
+bleibt die Pille aus — dort führt `.app-exit` in der Steuerleiste in die Tourliste.
+Die einzige `h1` des Players ist seither der Intro-Titel.
 
 **Typografie im Player folgt [`DESIGN.md`](DESIGN.md):** Outfit überall, Kennzahlen mit
 `font-variant-numeric: tabular-nums` — **kein Mono und kein Versalien-Sperrsatz**. Die einzigen

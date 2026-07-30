@@ -160,51 +160,11 @@ body.cinema .cine {
   opacity: 1;
 }
 
-/* — Marke — */
-
-/* Sitzt UNTER dem Weg zurück (.zurueck) und teilt sich dessen linke Kante —
-   deshalb dieselbe clamp-Formel plus dessen Höhe (≈38 px) und Abstand. */
-.brand {
-  position: fixed;
-  top: calc(clamp(20px, 3.4vh, 36px) + 52px);
-  left: clamp(20px, 3.4vw, 44px);
-  z-index: 10;
-  pointer-events: none;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.55);
-}
-
-/* Marken-Zeile in Satzschrift — kein Versalien-Tracking (s. DESIGN.md:
-   „Keine Dachzeilen / Eyebrows", kein Mono „weil Zahlen"). Sie liest sich
-   wie der Intro-Kicker: eine Zeile Text, kein Etikett. */
-.brand-kicker {
-  font-family: var(--font-ui);
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--amber);
-}
-
-/* Der Kicker war einmal ein Home-Link zur Landing. Er ist keiner mehr: der Weg
-   hinaus steht als eigener Knopf darüber und führt dorthin, wo man herkam —
-   zwei Ausgänge nebeneinander, von denen einer immer zur Startseite sprang,
-   waren die Falle, aus der dieser Umbau entstand. */
-
-.brand-title {
-  margin: 4px 0 6px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 28px;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-.brand-route {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-}
+/* — Kein Marken-/Titelblock oben links —
+   Er war nur während der Fahrt zu sehen (im Startscreen blendete er aus, weil
+   Ort und Route dort formatfüllend stehen) und wiederholte dann genau das, was
+   der Halt-Chip rechts und die Telemetrie unten ohnehin sagen. Die obere linke
+   Ecke gehört jetzt allein dem Weg zurück (.zurueck). */
 
 /* — Nächster Halt — */
 
@@ -1251,17 +1211,15 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
 }
 
 /* — Kino-Modus: die UI zieht sich von selbst zurück —
-   Es gibt keinen Knopf dafür (mehr). Während der Fahrt blenden Marke, Halt-Chip
-   und Steuerleiste nach kurzer Ruhe aus, die nächste Regung holt sie zurück
-   (planeRueckzug/weckeUi in main.js). */
+   Es gibt keinen Knopf dafür (mehr). Während der Fahrt blenden Weg zurück,
+   Halt-Chip und Steuerleiste nach kurzer Ruhe aus, die nächste Regung holt sie
+   zurück (planeRueckzug/weckeUi in main.js). */
 
-/* Marke, Halt-Chip und Steuerleiste weich ausblenden; Attribution bleibt (Pflicht) */
-.brand,
+/* Weg zurück, Halt-Chip und Steuerleiste weich ausblenden; Attribution bleibt (Pflicht) */
 .next-stop {
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-body.ui-clean .brand,
 body.ui-clean .zurueck {
   opacity: 0;
   transform: translateY(-12px);
@@ -1679,14 +1637,6 @@ body:not(.dev) .dev-only {
   background: linear-gradient(135deg, #f8bb4b, #ef8c37);
 }
 
-/* Brand oben links im Intro ausblenden — Ort + Route stehen dort groß im Hero;
-   sie kommt weich mit dem Tour-Start (Transition liegt auf .brand). */
-body.intro-open .brand {
-  opacity: 0;
-  transform: translateY(-8px);
-  pointer-events: none;
-}
-
 /* — App-Modus (?app=1, WebView der Android-App) —
    In der App gibt es keine Landing-Seite, aus der man käme — ein Link dorthin
    wäre eine Sackgasse. Statt dessen steht in der Steuerleiste ein sichtbarer
@@ -1694,12 +1644,6 @@ body.intro-open .brand {
    System-Geste der einzige Ausweg, und den findet nur, wer ihn kennt. */
 body.app .zurueck {
   display: none;
-}
-
-/* Ohne den Knopf darüber rückt die Marke wieder nach oben — sonst bliebe seine
-   Lücke als Loch stehen. */
-body.app .brand {
-  top: clamp(20px, 3.4vh, 36px);
 }
 
 .app-exit {
@@ -1770,13 +1714,11 @@ body.app .app-exit {
 }
 
 /* — Responsive: kompakter, aber nichts verstecken —
-   Brand und Nächster-Halt teilen sich die obere Zeile (je ~halbe Breite,
-   Ellipsis statt Überlappung), das Dock wird zu drei schmalen Zeilen und die
-   Attribution wird per --dock-h über die Steuerleiste gehoben. */
+   Weg zurück und Nächster-Halt teilen sich die obere Zeile, das Dock wird zu
+   drei schmalen Zeilen und die Attribution wird per --dock-h über die
+   Steuerleiste gehoben. */
 
 @media (max-width: 700px) {
-  /* Der Weg zurück behält die obere Kante, die Marke rückt darunter — nebenein-
-     ander passten beide nicht neben den Halt-Chip auf der rechten Seite. */
   .zurueck {
     top: max(14px, env(safe-area-inset-top));
     left: 14px;
@@ -1785,31 +1727,6 @@ body.app .app-exit {
 
   .zurueck .zurueck-wort {
     font-size: 12.5px;
-  }
-
-  .brand {
-    top: calc(max(14px, env(safe-area-inset-top)) + 44px);
-    left: 14px;
-    max-width: 50vw;
-  }
-
-  body.app .brand {
-    top: max(14px, env(safe-area-inset-top));
-  }
-
-  .brand-kicker {
-    font-size: 11px;
-  }
-
-  .brand-title {
-    font-size: 20px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .brand-route {
-    display: none;
   }
 
   .next-stop {
@@ -2060,33 +1977,6 @@ body.app .app-exit {
  Features sind in der Android-WebView der App FALSCH — bei 375×843 meldet sie
  `orientation: landscape` und `max-height: 500px` als zutreffend, wodurch
  dieses kompakte Layout im Hochformat zuschlug. */
-/* Quer ist die Höhe knapp: der Weg zurück schrumpft auf den Chevron, die Marke
-   steht daneben statt darunter — beide bleiben in derselben oberen Zeile. */
-body.kompakt-quer .brand {
-  top: max(8px, env(safe-area-inset-top));
-  left: 56px;
-  max-width: 40vw;
-}
-
-body.app.kompakt-quer .brand {
-  left: 12px;
-}
-
-body.kompakt-quer .brand-kicker {
-  font-size: 10.5px;
-}
-
-body.kompakt-quer .brand-title {
-  font-size: 17px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-body.kompakt-quer .brand-route {
-  display: none;
-}
-
 body.kompakt-quer .next-stop {
   top: max(8px, env(safe-area-inset-top));
   right: 12px;
@@ -2338,17 +2228,17 @@ body.kompakt-quer .btn-start {
 }
 
 
+/* Quer ist nur die HÖHE knapp — die Pille wird flacher, das Ziel bleibt lesbar
+   (neben dem früheren Titelblock hatte sie hier keinen Platz dafür). */
 body.kompakt-quer .zurueck {
   top: max(8px, env(safe-area-inset-top));
   left: 12px;
-  /* Ohne Wort trägt die Pille nur den Chevron (line-height 0) — ohne feste Höhe
-     bliebe ein 18 px flacher Streifen, den man quer kaum trifft. */
   height: 30px;
-  padding: 0 13px;
+  padding: 0 14px 0 10px;
 }
 
 body.kompakt-quer .zurueck .zurueck-wort {
-  display: none;
+  font-size: 12px;
 }
 
 body.kompakt-quer .finale-card {

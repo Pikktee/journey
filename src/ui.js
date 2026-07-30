@@ -99,10 +99,6 @@ export class UI {
     for (const ev of ['play', 'pause']) {
       this.els.video.addEventListener(ev, () => this._aktualisiereVideoTon())
     }
-
-    // Solange das Intro offen ist, blendet die Brand oben links aus (sonst stehen
-    // Ort + Route doppelt: groß im Hero UND oben links). Sie kommt mit dem Tour-Start.
-    document.body.classList.add('intro-open')
   }
 
   // Läuft das sichtbare Video gerade mit Ton? (nicht stumm, nicht pausiert)
@@ -288,7 +284,6 @@ export class UI {
 
   hideIntro() {
     this.els.intro.classList.add('gone')
-    document.body.classList.remove('intro-open') // Brand oben links jetzt einblenden
     this.els.dock.hidden = false
     void this.els.dock.offsetWidth // Reflow, damit die Einblende-Transition greift
     this.els.dock.classList.add('up')
@@ -297,7 +292,6 @@ export class UI {
 
   showIntro() {
     this.els.intro.classList.remove('gone')
-    document.body.classList.add('intro-open') // im Menü wieder die Brand-Dopplung vermeiden
   }
 
   // Zurück ins Hauptmenü: Intro wieder zeigen, Tour-UI komplett einziehen
