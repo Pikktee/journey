@@ -1,45 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive-Icon-Vordergrund: dieselbe Globe-Marke wie public/logo-mark.svg.
-  Zentriert in 108×108; wichtige Linien liegen in der Safe-Zone (~66 dp).
+  ERZEUGT von scripts/gen-logo.mjs — nicht von Hand pflegen, sonst driftet die Marke
+  von public/logo-mark.svg weg. Änderungen dort im Skript machen und neu erzeugen.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Äußerer Ring (Amber) — r=28 um (54,54) -->
+    <!-- Umriss, aufgerissen an den Durchstoßpunkten der Route -->
     <path
-        android:pathData="M54,26 a28,28 0 1,1 0,56 a28,28 0 1,1 0,-56"
-        android:strokeColor="#F59E0B"
-        android:strokeWidth="3.5"
-        android:fillColor="#00000000"
-        android:strokeLineCap="round" />
-
-    <!-- Meridian (Amber, gedämpft) -->
-    <path
-        android:pathData="M54,26 a14,28 0 1,1 0,56 a14,28 0 1,1 0,-56"
+        android:pathData="M76.59,41.95 A25.6,25.6 0 0 0 28.4,53.69"
         android:strokeColor="#F59E0B"
         android:strokeWidth="2.1"
-        android:strokeAlpha="0.45"
+        android:strokeAlpha="0.78"
+        android:strokeLineCap="round"
         android:fillColor="#00000000" />
-
-    <!-- Flugbahn (Koralle) -->
     <path
-        android:pathData="M33,57.5 C43.5,43.5 64.5,64.5 75,50.5"
-        android:strokeColor="#FF6F52"
-        android:strokeWidth="4.4"
+        android:pathData="M30.85,64.94 A25.6,25.6 0 0 0 79.58,53.08"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2.1"
+        android:strokeAlpha="0.78"
         android:strokeLineCap="round"
         android:fillColor="#00000000" />
 
-    <!-- Startpunkt -->
-    <path
-        android:pathData="M33,57.5 m-3.5,0 a3.5,3.5 0 1,1 7,0 a3.5,3.5 0 1,1 -7,0"
-        android:fillColor="#FF6F52" />
+    <!-- Gitter: gekippte Kugel (Meridian + Breitenkreise) -->
+    <group
+        android:rotation="-17"
+        android:pivotX="54"
+        android:pivotY="54">
+        <path
+            android:pathData="M28.4,54 L79.6,54"
+            android:strokeColor="#F59E0B"
+            android:strokeWidth="1.35"
+            android:strokeAlpha="0.3"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M32.29,40.43 L75.71,40.43"
+            android:strokeColor="#F59E0B"
+            android:strokeWidth="1.35"
+            android:strokeAlpha="0.3"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M32.29,67.57 L75.71,67.57"
+            android:strokeColor="#F59E0B"
+            android:strokeWidth="1.35"
+            android:strokeAlpha="0.3"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M54,28.4 A14.32,25.6 0 1 1 54,79.6 A14.32,25.6 0 1 1 54,28.4"
+            android:strokeColor="#F59E0B"
+            android:strokeWidth="1.35"
+            android:strokeAlpha="0.3"
+            android:fillColor="#00000000" />
+    </group>
 
-    <!-- Zielpunkt -->
+    <!-- Route -->
     <path
-        android:pathData="M75,50.5 m-4.4,0 a4.4,4.4 0 1,1 8.8,0 a4.4,4.4 0 1,1 -8.8,0"
-        android:fillColor="#FFFFFF" />
+        android:pathData="M27.73,59.73 C41.2,42.88 66.13,65.12 80.27,46.93"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="27.73"
+                android:startY="59.73"
+                android:endX="80.27"
+                android:endY="46.93">
+                <item android:offset="0" android:color="#F0940A" />
+                <item android:offset="1" android:color="#FF8A5C" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Start -->
+    <path
+        android:pathData="M27.73,59.73 m-2.7,0 a2.7,2.7 0 1,1 5.4,0 a2.7,2.7 0 1,1 -5.4,0"
+        android:fillColor="#F59E0B" />
+
+    <!-- Ziel -->
+    <path
+        android:pathData="M80.27,46.93 m-3.2,0 a3.2,3.2 0 1,1 6.4,0 a3.2,3.2 0 1,1 -6.4,0"
+        android:fillColor="#F2EDE3" />
 </vector>

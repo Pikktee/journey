@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <defs><linearGradient id="maptale-route" gradientUnits="userSpaceOnUse"
+    x1="6.45" y1="22.95" x2="33.55" y2="16.35">
+    <stop offset="0" stop-color="#F0940A"/><stop offset="1" stop-color="#FF8A5C"/>
+  </linearGradient></defs>
+  <rect width="40" height="40" rx="9" fill="#0D1117"/>
+  <g fill="none" stroke="#F59E0B" stroke-width="1.25" opacity="0.78"
+    stroke-linecap="round"><path d="M 31.65 13.79 A 13.2 13.2 0 0 0 6.8 19.84"/><path d="M 8.07 25.64 A 13.2 13.2 0 0 0 33.19 19.52"/></g>
+  <g transform="rotate(-17 20 20)" fill="none" stroke="#F59E0B"
+    stroke-width="0.8" opacity="0.3"><line x1="6.8" y1="20" x2="33.2" y2="20"/><line x1="8.81" y1="13.01" x2="31.19" y2="13.01"/><line x1="8.81" y1="26.99" x2="31.19" y2="26.99"/><ellipse cx="20" cy="20" rx="7.38" ry="13.2"/></g>
+  <path d="M 6.45 22.95 C 13.4 14.27, 26.25 25.73, 33.55 16.35"
+    fill="none" stroke="url(#maptale-route)" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="6.45" cy="22.95" r="1.6" fill="#F59E0B"/>
+  <circle cx="33.55" cy="16.35" r="1.9" fill="#F2EDE3"/>
+</svg>

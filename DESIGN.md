@@ -187,6 +187,34 @@ Primär-CTAs dürfen einen warmen Amber-Glow tragen. Player: dezentes Grain + Vi
   (s. Bibliothek im Studio), kein Toast dahinter. Referenz: `.editor-flash` in `studio.html`.
 - **Assets:** Favicon, Apple-Touch und Logo unter `public/` / `public/branding/` — nicht neu erfinden.
 
+## Das Zeichen: Offener Globus
+
+Ein Globus, dessen Umriss **genau dort aufreißt, wo die Route ihn kreuzt** — die Reise verlässt
+die Welt. Das Gitter (Äquator, zwei Breitenkreise, ein Meridian) ist eine frontal projizierte,
+um die Blickachse gekippte Kugel: Meridiane werden zu Ellipsen, Breitenkreise zu Sehnen.
+
+Alle Ableitungen entstehen aus **einer** Geometrie in [`scripts/gen-logo.mjs`](scripts/gen-logo.mjs)
+(`node scripts/gen-logo.mjs`) — `logo-mark.svg`, `logo.svg`, `favicon.svg`, `branding/kachel-180.svg`
+und die beiden Android-Vektoren. Von Hand gepflegt wird nur das Skript. Der String in
+[`src/brand.ts`](src/brand.ts) ist die einzige Kopie; ein Drift-Wächter in `test/brand.test.ts`
+hält ihn deckungsgleich mit `logo-mark.svg`.
+
+Drei Regeln, die das Zeichen tragen — sie waren vorher verletzt und sind der Grund für den Umbau:
+
+- **Der Umriss ist Rahmen, nicht Hauptsache.** 1,25 px bei 78 % Deckkraft auf Radius 15,2; die
+  Route ist mit 2,5 px die lauteste Linie. Vorher waren beide gleich stark, das Zeichen wirkte fett.
+- **Ein Globus braucht ein Netz, keinen Einzelstrich.** Vier Gitterlinien bei 30 % lesen als
+  Kugel; eine einzelne Ellipse bei 45 % liest als Zufallsstrich.
+- **Zwei Stufen, nicht eine.** Ab etwa 20 px wird das volle Gitter Grauschleier. `favicon.svg`
+  ist deshalb die reduzierte Fassung: weniger Linien, dafür kräftigere. Strichstärken skalieren
+  **nicht** mit dem Radius, sie werden pro Stufe gesetzt.
+
+Der Zielpunkt am Routenende ist Creme (`#F2EDE3`) und klein (r 1,9). Weiß und r 2,5 machten ihn
+zum stärksten Kontrast im Zeichen — am äußersten Rand, wo er den Blick aus der Mitte zog.
+
+Auf hellem Grund (Presse, Fremd-Einbettung) gilt die **Kachel** (`apple-touch-icon.png` /
+`branding/kachel-180.svg`), nicht das nackte Zeichen: dessen Cremepunkt verschwindet dort.
+
 ## Do's and Don'ts
 
 **Do**

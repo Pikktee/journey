@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Maptale — Logo-Varianten</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+  <style>
+    :root {
+      --amber: #F59E0B;
+      --coral: #FF6F52;
+      --bg: #0A0D14;
+      --bg-deep: #06090E;
+      --ink: #F2EDE3;
+      --muted: rgba(242, 237, 227, .62);
+      --faint: rgba(242, 237, 227, .40);
+      --line: rgba(255, 255, 255, .08);
+      --sans: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 34px 26px 70px;
+      background: var(--bg-deep); color: var(--ink);
+      font-family: var(--sans); -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 1160px; margin: 0 auto; }
+    h1 { font-size: 27px; font-weight: 700; margin: 0 0 6px; letter-spacing: -.02em; }
+    h2 {
+      font-size: 17px; font-weight: 600; margin: 40px 0 4px;
+      padding-top: 22px; border-top: 1px solid var(--line);
+    }
+    .sub { color: var(--muted); font-size: 14.5px; margin: 0 0 22px; max-width: 74ch; line-height: 1.55; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+    .karte {
+      background: var(--bg); border: 1px solid var(--line);
+      border-radius: 14px; padding: 18px 18px 16px;
+    }
+    .karte.ist { border-color: rgba(245, 158, 11, .30); }
+    .kopf { display: flex; align-items: baseline; gap: 8px; }
+    .nr { font-size: 12px; font-weight: 600; color: var(--amber); font-variant-numeric: tabular-nums; }
+    .name { font-size: 15.5px; font-weight: 600; }
+    .hinweis {
+      color: var(--muted); font-size: 12.8px; line-height: 1.48;
+      margin: 5px 0 14px; min-height: 4.4em;
+    }
+    .buehne {
+      display: flex; align-items: center; gap: 20px;
+      padding: 12px 6px 14px; border-bottom: 1px solid var(--line); margin-bottom: 13px;
+    }
+    .klein { display: flex; align-items: flex-end; gap: 15px; }
+    .klein figure { margin: 0; text-align: center; }
+    .klein figcaption {
+      font-size: 10px; color: var(--faint); margin-top: 6px; font-variant-numeric: tabular-nums;
+    }
+    .zeilen { display: flex; flex-direction: column; gap: 11px; }
+    .marke { display: inline-flex; align-items: center; gap: .45em; }
+    .marke svg { translate: 0 1px; }
+    .marke span { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+    .fav {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 8px;
+      background: #0D1117; border: 1px solid var(--line);
+    }
+    .fav.hell { background: #F2EDE3; border-color: rgba(0,0,0,.10); }
+    .reihe { display: flex; align-items: center; gap: 12px; }
+    .reihe .etikett { font-size: 11px; color: var(--faint); width: 96px; flex: none; }
+
+    /* Pixel-Lupe: echtes Rendern bei 16/20/28 px, dann hart hochskaliert */
+    .lupen { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .lupe { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .lupe h3 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+    .lupe .paare { display: flex; gap: 14px; }
+    .lupe figure { margin: 0; text-align: center; }
+    .lupe canvas {
+      image-rendering: pixelated; background: #0D1117;
+      border: 1px solid var(--line); border-radius: 6px; display: block;
+    }
+    .lupe figcaption { font-size: 10px; color: var(--faint); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+    /* Nav-Kontext */
+    .topbar {
+      height: 58px; display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 16px; padding: 0 18px;
+      background: rgba(13, 17, 24, .82); border: 1px solid #222b37;
+      border-radius: 12px; margin-bottom: 12px;
+    }
+    .topbar .mitte { display: flex; gap: 6px; justify-self: center; }
+    .pill {
+      font-size: 13.5px; padding: 7px 13px; border-radius: 9px; color: var(--muted);
+    }
+    .pill.an { background: rgba(255,255,255,.07); color: var(--ink); }
+    .topbar .rechts { justify-self: end; display: flex; align-items: center; gap: 10px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 7px; font-size: 13px;
+      padding: 6px 12px 6px 7px; border-radius: 999px; border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .chip i {
+      width: 20px; height: 20px; border-radius: 999px; display: inline-block;
+      background: linear-gradient(135deg, var(--amber), var(--coral));
+    }
+    .cta {
+      font-size: 13.5px; font-weight: 600; color: #1a1206; padding: 8px 15px;
+      border-radius: 999px; background: linear-gradient(135deg, var(--amber), var(--coral));
+    }
+    .navlabel { font-size: 11px; color: var(--faint); margin: 16px 0 6px; }
+  </style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" id="defsHost"></svg>
+
+<div class="wrap">
+  <h1>Maptale — Logo-Varianten</h1>
+  <p class="sub" style="color: var(--amber)">
+    Entschieden: <b>03 Offener Globus</b> — seit 2026-07-30 die Marke. Erzeugt wird sie aus
+    <code>scripts/gen-logo.mjs</code>, beschrieben in DESIGN.md. Dieses Blatt bleibt als
+    Entscheidungsgrundlage stehen; die Zeichen hier sind Entwürfe, nicht die Quelle.
+  </p>
+  <p class="sub">
+    Alle Zeichen im gleichen 40×40-Raster, also 1:1 austauschbar. Karte 00 ist der Ist-Zustand.
+    Jede Karte zeigt das Zeichen groß, dann in den Größen, die real vorkommen (28 px Nav,
+    20/16 px Favicon), dazu Wortmarke und Kachel auf Dunkel und auf Creme.
+  </p>
+
+  <h2>Varianten</h2>
+  <p class="sub">
+    Gemeinsam verändert gegenüber heute: Umriss dünner und leiser, Gitter als lesbares Netz statt
+    einer einzelnen Linie, Route im Verlauf nach vorne geholt, Zielpunkt von 2,5 auf 1,8 klein —
+    der große weiße Punkt war der stärkste Kontrast im ganzen Zeichen.
+  </p>
+  <div class="grid" id="grid"></div>
+
+  <h2>Pixel-Lupe — was bei 28, 20 und 16 px wirklich ankommt</h2>
+  <p class="sub">
+    Echt bei dieser Pixelzahl gerastert und dann hart hochskaliert. Hier entscheidet sich, ob ein
+    Gitter noch Netz ist oder nur Grauschleier — und ob die Kachel eine Reduktionsstufe braucht.
+  </p>
+  <div class="lupen" id="lupen"></div>
+
+  <h2>Zielpunkt am Routenende</h2>
+  <p class="sub">
+    Derselbe Globus, drei Abschlüsse. Der dicke Punkt macht aus der Route eine Kaulquappe,
+    der Ring verschwindet klein zu einem Fleck, der kleine Cremepunkt bleibt in jeder Größe ein Ziel.
+  </p>
+  <div class="lupen" id="ziele"></div>
+
+  <h2>Im Kontext: App-Topbar</h2>
+  <p class="sub">Wie die Marke in der echten Kopfleiste sitzt — die Größe, in der sie 99 % der Zeit gesehen wird.</p>
+  <div id="navs"></div>
+</div>
+
+<script>
+const R = 15.2;
+const P = (g) => [20 + R * Math.cos(g * Math.PI / 180), 20 - R * Math.sin(g * Math.PI / 180)];
+const f = (n) => n.toFixed(2);
+const bogen = (a, b) => {
+  const [x1, y1] = P(a), [x2, y2] = P(b);
+  return `M ${f(x1)} ${f(y1)} A ${R} ${R} 0 ${Math.abs(b - a) > 180 ? 1 : 0} 0 ${f(x2)} ${f(y2)}`;
+};
+
+const DEFS = `<defs>
+  <linearGradient id="route" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#F0940A"/><stop offset="1" stop-color="#FF8A5C"/>
+  </linearGradient>
+  <linearGradient id="routeUm" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#FF7A57"/><stop offset="1" stop-color="#FFA83F"/>
+  </linearGradient>
+  <linearGradient id="terminator" x1="0" y1="1" x2=".9" y2="0">
+    <stop offset="0" stop-color="#F59E0B" stop-opacity="0"/>
+    <stop offset=".5" stop-color="#F59E0B" stop-opacity=".5"/>
+    <stop offset="1" stop-color="#FFB245" stop-opacity="1"/>
+  </linearGradient>
+  <radialGradient id="kugel" cx=".72" cy=".26" r=".95">
+    <stop offset="0" stop-color="#243141"/><stop offset="1" stop-color="#0C1119"/>
+  </radialGradient>
+  <radialGradient id="sonne" cx=".5" cy=".5" r=".5">
+    <stop offset="0" stop-color="#FFC46B" stop-opacity=".5"/>
+    <stop offset="1" stop-color="#F59E0B" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="scheibe"><circle cx="20" cy="20" r="15.2"/></clipPath>
+</defs>`;
+document.getElementById('defsHost').innerHTML = DEFS;
+
+/* Globus-Gitter: frontal projiziert (Meridiane = Ellipsen, Breitenkreise = Sehnen),
+   die ganze Gruppe um die Blickachse gedreht — das ist exakt die Projektion einer Kugel
+   mit geneigter Achse und braucht nur SVG-Primitive. */
+function gitter({ op = .34, sw = .8, dreh = -17, breiten = [0, 30, -30], meridiane = [30, 60] } = {}) {
+  const teile = [];
+  for (const phi of breiten) {
+    const y = 20 - R * Math.sin(phi * Math.PI / 180);
+    const halb = R * Math.cos(phi * Math.PI / 180);
+    teile.push(`<line x1="${f(20 - halb)}" y1="${f(y)}" x2="${f(20 + halb)}" y2="${f(y)}"/>`);
+  }
+  for (const lam of meridiane) {
+    teile.push(`<ellipse cx="20" cy="20" rx="${f(R * Math.sin(lam * Math.PI / 180))}" ry="${R}"/>`);
+  }
+  return `<g transform="rotate(${dreh} 20 20)" fill="none" stroke="#F59E0B"
+    stroke-width="${sw}" opacity="${op}">${teile.join('')}</g>`;
+}
+
+const ROUTE = 'M 7.6 22.4 C 13.6 14.2, 26.4 26, 32.4 17.6';
+const ROUTE_LANG = 'M 4.4 23.4 C 12.4 13.4, 27.2 26.6, 35.6 15.8';
+const start = (x, y, r = 1.5) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#F59E0B"/>`;
+const ziel = (x, y, r = 1.8) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#F2EDE3"/>`;
+
+const V = [
+  {
+    id: '00', ist: true, name: 'Ist-Zustand',
+    hinweis: 'Umriss 2 px — genauso laut wie die Route, obwohl er nur Rahmen ist. Der einzelne Meridian bei 45 % liest nicht als Welt, sondern als Zufallsstrich. Der weiße Punkt (r 2,5) ist der stärkste Kontrast im Zeichen und zieht den Blick nach außen.',
+    mark: `
+      <circle cx="20" cy="20" r="16" fill="none" stroke="#F59E0B" stroke-width="2"/>
+      <ellipse cx="20" cy="20" rx="8" ry="16" fill="none" stroke="#F59E0B" stroke-width="1.2" opacity="0.45"/>
+      <path d="M 8 22 C 14 14, 26 26, 32 18" fill="none" stroke="#FF6F52" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="8" cy="22" r="2" fill="#FF6F52"/>
+      <circle cx="32" cy="18" r="2.5" fill="#FFF"/>`
+  },
+  {
+    id: '01', name: 'Feinschliff',
+    hinweis: 'Dieselbe Idee, nur richtig gewichtet: Umriss 1,2 px bei 80 %, das Gitter ein Paar (Meridian + Äquator) bei 40 %, Route im Verlauf klar vorne, Zielpunkt klein. Der risikoloseste Schritt — niemand merkt einen Markenwechsel, alle merken, dass es sauberer ist.',
+    mark: `
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="#F59E0B" stroke-width="1.2" opacity=".8"/>
+      ${gitter({ breiten: [0], meridiane: [34], op: .4, sw: .85 })}
+      <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="2.5" stroke-linecap="round"/>
+      ${start(7.6, 22.4)}${ziel(32.4, 17.6)}`
+  },
+  {
+    id: '02', name: 'Gitter-Globus',
+    hinweis: 'Die Welt wird wirklich lesbar: Äquator, zwei Breitenkreise, zwei Meridiane — leise (34 %), aber als Netz. Weil das Gitter die Fläche trägt, darf der Umriss dünn sein. Ab 20 px braucht es die Reduktionsstufe unten.',
+    mark: `
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="#F59E0B" stroke-width="1.15" opacity=".75"/>
+      ${gitter()}
+      <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="2.5" stroke-linecap="round"/>
+      ${start(7.6, 22.4)}${ziel(32.4, 17.6)}`
+  },
+  {
+    id: '03', name: 'Offener Globus',
+    hinweis: 'Der Umriss reißt genau dort auf, wo die Route ihn kreuzt — die Reise verlässt die Welt. Das löst das Gedrängel am Rand, und der Kreis wirkt leichter, weil er nicht schließt. Kostet ein wenig Ruhe in der Silhouette.',
+    mark: `
+      <g fill="none" stroke="#F59E0B" stroke-width="1.25" opacity=".78" stroke-linecap="round">
+        <path d="${bogen(22, 176)}"/><path d="${bogen(202, 356)}"/>
+      </g>
+      ${gitter({ op: .3, breiten: [0, 32, -32], meridiane: [34] })}
+      <path d="${ROUTE_LANG}" fill="none" stroke="url(#route)" stroke-width="2.5" stroke-linecap="round"/>
+      ${start(4.4, 23.4, 1.6)}${ziel(35.6, 15.8, 1.9)}`
+  },
+  {
+    id: '04', name: 'Tag & Nacht',
+    hinweis: 'Die Kugel als Fläche: Nachtseite dunkel, Sonnenkante als Amber-Sichel — genau das, was der Player mit Tag/Nacht tut. Stärkster App-Icon-Kandidat, aber als 16-px-Strichmarke der schwächste: die Fläche wird ein Klecks.',
+    mark: `
+      <circle cx="20" cy="20" r="${R}" fill="url(#kugel)"/>
+      <g clip-path="url(#scheibe)">${gitter({ op: .22, sw: .75 })}</g>
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="url(#terminator)" stroke-width="1.7"/>
+      <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="2.5" stroke-linecap="round"/>
+      ${start(7.6, 22.4, 1.4)}${ziel(32.4, 17.6, 1.7)}`
+  },
+  {
+    id: '05', name: 'Horizont & Sonne',
+    hinweis: 'Kein Globus-Klischee: eine Planetenkante unten, die Route zieht darüber weg, Amber ist die Sonne — die Marken-Erzählung wörtlich. Am eigenständigsten, aber die „Welt“ ist nur angedeutet, und die Kante liest leicht als Schale.',
+    mark: `
+      <path d="${bogen(206, 334)}" fill="none" stroke="#F59E0B" stroke-width="1.45"
+        opacity=".72" stroke-linecap="round"/>
+      <path d="M 9.4 26.6 Q 20 32.2 30.6 26.6" fill="none" stroke="#F59E0B" stroke-width=".8"
+        opacity=".28" stroke-linecap="round"/>
+      <circle cx="29.8" cy="10.4" r="6" fill="url(#sonne)"/>
+      <circle cx="29.8" cy="10.4" r="2.5" fill="#F59E0B"/>
+      <path d="M 7 27 C 13.6 21.4, 20.4 25, 26.2 16.6" fill="none"
+        stroke="url(#routeUm)" stroke-width="2.5" stroke-linecap="round"/>
+      ${start(7, 27, 1.5)}`
+  },
+  {
+    id: '06', name: 'Route ist der Held',
+    hinweis: 'Umgekehrte Hierarchie: der Kreis nur noch ein leiser Horizont-Ring (1 px, 38 %), die Route trägt alles. Skaliert am besten nach unten, weil es fast nur zwei Formen sind — verliert dafür die Welt als Motiv.',
+    mark: `
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="#F59E0B" stroke-width="1" opacity=".38"/>
+      <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="2.9" stroke-linecap="round"/>
+      ${start(7.6, 22.4, 1.7)}${ziel(32.4, 17.6, 2)}`
+  },
+  {
+    id: '07', name: 'Gelände im Kreis',
+    hinweis: 'Statt Globus-Gitter drei Höhenlinien: ein Gipfel in der Scheibe, die Route zieht darüber. Erzählt Maptale über das Gelände (DEM, Höhenprofil) statt über die Erdkugel — nah am Produkt, aber leicht mit Wasserwellen zu verwechseln.',
+    mark: `
+      <circle cx="20" cy="20" r="${R}" fill="none" stroke="#F59E0B" stroke-width="1.2" opacity=".78"/>
+      <g clip-path="url(#scheibe)" fill="none" stroke="#F59E0B" stroke-linecap="round">
+        <path d="M 2 34 C 9.6 34, 12.8 17.6, 20.4 17.6 C 28 17.6, 30.8 34, 38 34"
+          stroke-width=".9" opacity=".36"/>
+        <path d="M 6.6 34.8 C 12 34.8, 14.8 22.4, 20.4 22.4 C 26 22.4, 28.6 34.8, 34.2 34.8"
+          stroke-width=".9" opacity=".26"/>
+        <path d="M 11.6 35.6 C 15.4 35.6, 17.2 27.4, 20.4 27.4 C 23.6 27.4, 25.4 35.6, 29.2 35.6"
+          stroke-width=".9" opacity=".18"/>
+      </g>
+      <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="2.5" stroke-linecap="round"/>
+      ${start(7.6, 22.4)}${ziel(32.4, 17.6)}`
+  },
+  {
+    id: '08', name: 'Halt auf der Welt',
+    hinweis: 'Nimmt den 3D-Foto-Pin aus dem Player als Marken-Motiv: Route über die Planetenkante, ein Halt steht darauf. Erzählt das Produkt (Route + Foto-Stopps) am direktesten — braucht aber drei Formen und wird klein am schnellsten unruhig.',
+    mark: `
+      <path d="${bogen(200, 340)}" fill="none" stroke="#F59E0B" stroke-width="1.3"
+        opacity=".7" stroke-linecap="round"/>
+      <path d="M 7.2 26.2 C 13.6 21.2, 22 27.4, 32.4 19.4" fill="none"
+        stroke="url(#routeUm)" stroke-width="2.4" stroke-linecap="round"/>
+      <ellipse cx="21.6" cy="25" rx="2.4" ry=".95" fill="none" stroke="#F59E0B"
+        stroke-width=".85" opacity=".5"/>
+      <path d="M 21.6 25 V 14.6" stroke="#F2EDE3" stroke-width="1.05" opacity=".55"/>
+      <circle cx="21.6" cy="12.4" r="2.7" fill="#F59E0B"/>
+      <circle cx="21.6" cy="12.4" r="1" fill="#0A0D14"/>`
+  },
+];
+
+const svg = (mark, px) => `<svg viewBox="0 0 40 40" width="${px}" height="${px}"
+  aria-hidden="true">${mark}</svg>`;
+const svgVoll = (mark) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"
+  width="40" height="40">${DEFS}${mark}</svg>`;
+
+document.getElementById('grid').innerHTML = V.map(v => `
+  <div class="karte${v.ist ? ' ist' : ''}">
+    <div class="kopf"><span class="nr">${v.id}</span><span class="name">${v.name}</span></div>
+    <p class="hinweis">${v.hinweis}</p>
+    <div class="buehne">
+      ${svg(v.mark, 96)}
+      <div class="klein">${[48, 28, 20, 16].map(px =>
+        `<figure>${svg(v.mark, px)}<figcaption>${px}</figcaption></figure>`).join('')}</div>
+    </div>
+    <div class="zeilen">
+      <div class="reihe"><span class="etikett">Nav-Wortmarke</span>
+        <span class="marke">${svg(v.mark, 28)}<span>Maptale</span></span></div>
+      <div class="reihe"><span class="etikett">Kachel / App</span>
+        <span class="fav">${svg(v.mark, 22)}</span>
+        <span class="fav hell">${svg(v.mark, 22)}</span>
+        <span class="marke" style="margin-left:6px">${svg(v.mark, 20)}<span
+          style="font-size:14px">Maptale</span></span></div>
+    </div>
+  </div>`).join('');
+
+/* --- Pixel-Lupe ---------------------------------------------------------- */
+const GROESSEN = [28, 20, 16];
+const LUPE_FAKTOR = 4;
+
+function lupe(mark, px) {
+  const c = document.createElement('canvas');
+  c.width = px; c.height = px;
+  c.style.width = (px * LUPE_FAKTOR) + 'px';
+  c.style.height = (px * LUPE_FAKTOR) + 'px';
+  const bild = new Image();
+  bild.onload = () => c.getContext('2d').drawImage(bild, 0, 0, px, px);
+  bild.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgVoll(mark));
+  return c;
+}
+
+function lupenBlock(ziel, eintraege) {
+  const host = document.getElementById(ziel);
+  for (const e of eintraege) {
+    const box = document.createElement('div');
+    box.className = 'lupe';
+    box.innerHTML = `<h3>${e.titel}</h3><div class="paare"></div>`;
+    const paare = box.querySelector('.paare');
+    for (const px of GROESSEN) {
+      const fig = document.createElement('figure');
+      fig.appendChild(lupe(e.mark, px));
+      const cap = document.createElement('figcaption');
+      cap.textContent = px + ' px';
+      fig.appendChild(cap);
+      paare.appendChild(fig);
+    }
+    host.appendChild(box);
+  }
+}
+
+const nach = (id) => V.find(v => v.id === id);
+
+/* Reduktionsstufe: derselbe Globus mit weniger Gitter für Favicon-Größen */
+const REDUZIERT = `
+  <circle cx="20" cy="20" r="${R}" fill="none" stroke="#F59E0B" stroke-width="1.5" opacity=".9"/>
+  ${gitter({ breiten: [0], meridiane: [38], op: .5, sw: 1.1 })}
+  <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="3" stroke-linecap="round"/>
+  ${ziel(32.4, 17.6, 2)}`;
+
+lupenBlock('lupen', [
+  { titel: '00 Ist-Zustand', mark: nach('00').mark },
+  { titel: '01 Feinschliff', mark: nach('01').mark },
+  { titel: '02 Gitter-Globus', mark: nach('02').mark },
+  { titel: '02 R — Reduktionsstufe', mark: REDUZIERT },
+  { titel: '03 Offener Globus', mark: nach('03').mark },
+  { titel: '06 Route ist der Held', mark: nach('06').mark },
+]);
+
+/* --- Zielpunkt-Vergleich ------------------------------------------------- */
+const basis = `<circle cx="20" cy="20" r="${R}" fill="none" stroke="#F59E0B"
+    stroke-width="1.15" opacity=".75"/>${gitter()}
+  <path d="${ROUTE}" fill="none" stroke="url(#route)" stroke-width="2.5" stroke-linecap="round"/>
+  ${start(7.6, 22.4)}`;
+lupenBlock('ziele', [
+  { titel: 'Heute: weiß, r 2,5', mark: basis + `<circle cx="32.4" cy="17.6" r="2.5" fill="#FFF"/>` },
+  { titel: 'Koralle-Ring', mark: basis + `<circle cx="32.4" cy="17.6" r="2.1" fill="none"
+      stroke="#FF6F52" stroke-width="1.15"/>` },
+  { titel: 'Creme-Punkt, r 1,8', mark: basis + ziel(32.4, 17.6) },
+  { titel: 'ohne Punkt', mark: basis },
+]);
+
+/* --- Nav-Kontext -------------------------------------------------------- */
+document.getElementById('navs').innerHTML = ['00', '01', '02', '03', '06'].map(id => {
+  const v = nach(id);
+  return `<p class="navlabel">${v.id} ${v.name}</p>
+  <div class="topbar">
+    <span class="marke">${svg(v.mark, 28)}<span>Maptale</span></span>
+    <span class="mitte"><span class="pill an">Meine Touren</span><span class="pill">Entdecken</span></span>
+    <span class="rechts"><span class="cta">Neue Tour</span><span class="chip"><i></i>Henrik</span></span>
+  </div>`;
+}).join('');
+</script>
+</body>
+</html>
