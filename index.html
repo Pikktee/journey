@@ -1058,8 +1058,16 @@
       document.documentElement.style.setProperty('--navh', nav.offsetHeight + 'px')
     }
     missNav()
-    if ('ResizeObserver' in window) new ResizeObserver(missNav).observe(nav)
-    else window.addEventListener('resize', missNav)
+    // Der Beobachter braucht eine eigene Referenz: als Wegwerf-Ausdruck
+    // (new ResizeObserver(…).observe(nav)) meldete er nach dem ersten Mal
+    // nichts mehr, und die Seite rechnete am Desktop mit der 10 px niedrigeren
+    // Handy-Leiste weiter. resize/orientationchange und die geladene Schrift
+    // decken die Wege ab, auf denen die Leiste sonst noch wächst.
+    var navBeobachter = 'ResizeObserver' in window ? new ResizeObserver(missNav) : null
+    if (navBeobachter) navBeobachter.observe(nav)
+    window.addEventListener('resize', missNav)
+    window.addEventListener('orientationchange', missNav)
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(missNav)
 
     document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
