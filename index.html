@@ -71,10 +71,18 @@
       --luft-gitter: clamp(18px, 1.4vw + 0.8vh, 22px); /* zwischen Karten */
       /* Seitenrand: nie unter die Notch (Landscape auf iPhone). */
       --rand: max(clamp(18px, 5.6vw, 22px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+      /* Höhe der fixen Kopfleiste — Startwert, den das Skript unten durch die
+         GEMESSENE ersetzt (sie hängt an Logo, Knopf-Polstern und Schriftgröße,
+         ist also nicht sauber vorauszurechnen). */
+      --navh: 72px;
     }
 
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    /* Die Kopfleiste ist fixiert: ohne scroll-padding landet jedes Anker-Ziel
+       (#touren, #app …) mit seiner Überschrift UNTER ihr. Der Abschnitts-Luft
+       oben reicht dafür nicht — auf breiteren Handys ist sie kleiner als die
+       Leiste, dort war die erste Zeile angeschnitten. */
+    html { scroll-behavior: smooth; scroll-padding-top: calc(var(--navh) + 14px); }
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
     body {
@@ -271,6 +279,33 @@
     .scroll-cue { position: absolute; left: 50%; bottom: 20px; z-index: 1; transform: translateX(-50%); color: rgba(242, 237, 227, 0.5); animation: bob 2.2s ease-in-out infinite; }
     @keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
     @media (prefers-reduced-motion: reduce) { .scroll-cue { animation: none; } }
+
+    /* Hochkant (Handy/Tablet): das Bild füllt den Schirm GANZ. Die 94-svh-Marke
+       ließ darunter einen Streifen Seitengrund stehen — im Querformat ist das
+       ein Hinweis „hier geht es weiter“, hochkant sah es aus wie ein zu kurz
+       geratenes Bild. Und der Inhalt steht wirklich mittig: das padding-bottom
+       von .hero-inner (Abstand zum Scroll-Pfeil) schob ihn nach oben; hochkant
+       hält diesen Abstand der Hero selbst, symmetrisch zur Kopfleiste oben. */
+    @media (orientation: portrait) and (max-width: 900px) {
+      /* Gleich viel Polster oben wie unten — nur oben zusätzlich um die Leiste
+         versetzt: dadurch sitzt der Block mittig zwischen Leisten-Unterkante
+         und Bildschirmboden, und der Scroll-Pfeil (46 px hoch) behält Platz.
+         Das Polster wächst mit der Höhe: fest 46 px schoben den Hero auf
+         kurzen Schirmen (640 px) über den Bildrand hinaus. */
+      .hero {
+        --hero-luft: clamp(28px, 4.5vh, 46px);
+        min-height: 100vh;
+        padding-top: calc(var(--navh) + var(--hero-luft)); padding-bottom: var(--hero-luft);
+      }
+      @supports (height: 100svh) { .hero { min-height: 100svh; } }
+      .hero-inner { padding-bottom: 0; }
+    }
+    /* Kurzer Hochkant-Schirm (alte Androids ~640 px): Kopfleiste, Text und
+       Pfeil teilen sich den Platz nicht mehr — der Pfeil saß auf der letzten
+       Zeile. Er tritt zurück, wie im Querformat auch. */
+    @media (orientation: portrait) and (max-height: 660px) {
+      .scroll-cue { display: none; }
+    }
 
     /* Handy im Querformat: breit genug für die Anker-Links (720-px-Grenze greift
        bei 844 px nicht), aber viel zu flach — die Kopfleiste brach zweizeilig um
@@ -1015,6 +1050,16 @@
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 12) }
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
+
+    // --navh trägt die ECHTE Höhe der Leiste: daran hängen der Anker-Versatz
+    // (scroll-padding-top) und der obere Rand des Hero. Sie wächst mit dem
+    // Profil-Chip und der Schriftgröße des Systems, ist also nicht zu raten.
+    var missNav = function () {
+      document.documentElement.style.setProperty('--navh', nav.offsetHeight + 'px')
+    }
+    missNav()
+    if ('ResizeObserver' in window) new ResizeObserver(missNav).observe(nav)
+    else window.addEventListener('resize', missNav)
 
     document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
