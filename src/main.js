@@ -84,15 +84,32 @@ const tourAudio = cfg.audio?.length ? createAudioTracks(cfg.audio) : null
 // sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
 const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 
-// Position (und Play/Pause-Zustand) über Reloads hinweg merken — u.a. damit ein
-// Renderer-/Ansicht-Wechsel (Full-Reload) am selben Frame und im selben Wieder-
-// gabezustand weiterläuft. Modulweit, weil auch der Ansicht-Umschalter davor speichert.
+// Position (und Play/Pause-Zustand) über EINEN selbst ausgelösten Reload hinweg
+// merken: Der Renderer-/Ansicht-Wechsel lädt die Seite neu und soll am selben
+// Frame im selben Wiedergabezustand weiterlaufen.
+//
+// Die Übergabe ist ein EINMAL-TICKET im sessionStorage: der Umschalter legt es,
+// der nächste Start verbraucht es. Ohne Ticket beginnt die Tour vorn — wer sie
+// verlässt und später erneut startet (Bibliothek, Entdecken, Landing), will den
+// Startscreen und nicht Kilometer 14 von gestern. Vorher hing die Wiederaufnahme
+// allein an einem 30-Minuten-Zeitfenster im localStorage und griff deshalb bei
+// JEDEM erneuten Aufruf derselben Tour.
 const POS_KEY = `maptale:pos:${tourId}`
+const WEITER_KEY = `maptale:weiter:${tourId}`
 const savePos = (tour) => {
   if (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment') {
     localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now(), playing: tour.playing }))
   } else {
     localStorage.removeItem(POS_KEY)
+  }
+}
+/** Position sichern UND das Ticket für den kommenden Reload legen. */
+const uebergebePosition = (tour) => {
+  savePos(tour)
+  try {
+    sessionStorage.setItem(WEITER_KEY, '1')
+  } catch {
+    /* Storage evtl. gesperrt: dann startet der Reload eben vorn */
   }
 }
 
@@ -422,7 +439,7 @@ map.on('load', () => {
       else if (m === 'google') u.searchParams.set('tiles3d', '1')
       else if (m === 'maplibre') u.searchParams.set('buildings', 'on')
       else if (m === 'hidden') u.searchParams.set('buildings', 'off')
-      savePos(tour) // Position + Play/Pause-Zustand sichern → Reload läuft nahtlos weiter
+      uebergebePosition(tour) // Position + Ticket → dieser Reload läuft nahtlos weiter
       location.href = u.toString() // Reload in den gewählten Modus
     })
   })
@@ -606,21 +623,21 @@ map.on('load', () => {
   }
   ui.syncDots(0)
 
-  // Position über Reloads hinweg merken (z.B. beim Umschalten von Query-Parametern
-  // für A/B-Vergleiche): Die eine Zustandsgröße `s` reicht. Nur während der Fahrt/
-  // Foto-Phase sichern; im Menü/Finale wird der Merker gelöscht, damit ein Reload
-  // dort normal ins Intro startet. Wiederhergestellt wird pausiert am selben Frame.
+  // Fortsetzen nur mit Ticket (s. oben beim POS_KEY): Der Renderer-Wechsel legt es
+  // unmittelbar vor seinem Reload, hier wird es SOFORT verbraucht — jeder normale
+  // Aufruf der Tour beginnt damit im Startscreen. Die eine Zustandsgröße `s` reicht.
   try {
-    const saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null')
+    const weiter = sessionStorage.getItem(WEITER_KEY) === '1'
+    sessionStorage.removeItem(WEITER_KEY)
+    const saved = weiter ? JSON.parse(localStorage.getItem(POS_KEY) || 'null') : null
     if (saved && Date.now() - saved.ts < 30 * 60 * 1000 && saved.s > 5) {
-      // War die Tour beim Reload am Abspielen, läuft sie danach direkt weiter;
-      // war sie pausiert, bleibt sie pausiert (z.B. A/B-Vergleich am selben Frame).
+      // War die Tour beim Umschalten am Abspielen, läuft sie danach direkt weiter;
+      // war sie pausiert, bleibt sie pausiert (A/B-Vergleich am selben Frame).
       tour.resumeAt(saved.s, saved.playing === true)
     }
   } catch {
-    /* defekter Merker: ignorieren, normal ins Intro starten */
+    /* defekter Merker oder gesperrter Storage: normal ins Intro starten */
   }
-  setInterval(() => savePos(tour), 600)
 
   // — Steuerung —
   document.getElementById('btn-start').addEventListener('click', () => tour.begin())

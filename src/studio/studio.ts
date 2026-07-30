@@ -72,6 +72,7 @@ const els = {
   neuModus: $<HTMLSelectElement>('neu-modus'),
   neuSicht: $<HTMLSelectElement>('neu-sicht'),
   neuSichtWrap: $('neu-sicht-wrap'),
+  neuFenster: $('neu-fenster'),
   neuMehr: $<HTMLButtonElement>('neu-mehr'),
   neuBauen: $<HTMLButtonElement>('neu-bauen'),
   neuSchliessen: $<HTMLButtonElement>('neu-schliessen'),
@@ -748,9 +749,19 @@ function vorschauUrl(datei: File): string {
 }
 
 async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
+  const dateien = [...liste]
+  // Der Zustand VOR dem Annehmen entscheidet über die Inszenierung: nur beim
+  // ersten Ablegen gibt es das Lesen und das Wachsen des Fensters.
+  const warLeer = !befunde.length && !gpxDatei
+  if (warLeer) {
+    els.neuHinter.hidden = false
+    setzeFenstergroesse(true)
+    const kandidaten = dateien.filter((d) => medientyp(d.name)).length
+    if (kandidaten) zeigeLesen(0, kandidaten)
+  }
   let ignoriert = 0
   const neueMedien: File[] = []
-  for (const datei of [...liste]) {
+  for (const datei of dateien) {
     if (datei.name.toLowerCase().endsWith('.gpx')) {
       gpxDatei = datei
       gpxText = await datei.text()
@@ -770,6 +781,7 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
   setzeNeuStatus(ignoriert ? `${ignoriert} Datei${ignoriert > 1 ? 'en' : ''} ignoriert (kein GPX, Foto oder Video).` : '')
   // EXIF nur für die NEUEN lesen — bei 50 Fotos ist das der Unterschied
   // zwischen „gleich da" und einer Kaffeepause je Nachschlag.
+  let gelesen = 0
   for (const datei of neueMedien) {
     const typ = medientyp(datei.name)
     if (!typ) continue
@@ -785,8 +797,54 @@ async function nimmDateienAn(liste: FileList | File[]): Promise<void> {
       if (exif.gps) ort = exif.gps
     }
     befunde.push({ datei: datei.name, typ, zeitMs, zeitGeraten, ort })
+    if (warLeer) zeigeLesen(++gelesen, neueMedien.length)
   }
   renderNeu()
+}
+
+/**
+ * Zwischenzustand beim ersten Ablegen: der Ring füllt sich, während die
+ * EXIF-Blöcke gelesen werden. Wird FORTGESCHRIEBEN statt neu gebaut — sonst
+ * fing die Ring-Animation bei jeder Datei von vorn an.
+ */
+function zeigeLesen(gelesen: number, gesamt: number): void {
+  const U = 2 * Math.PI * 34 // Umfang des Rings (r = 34 im 78er-Viewport)
+  let el = els.neuRumpf.querySelector<HTMLElement>('.neu-lesen')
+  if (!el) {
+    els.neuRumpf.classList.remove('wachst')
+    els.neuRumpf.innerHTML = `
+      <div class="neu-lesen" role="status" aria-live="polite">
+        <div class="ring">
+          <svg viewBox="0 0 78 78" aria-hidden="true">
+            <circle class="bahn" cx="39" cy="39" r="34" />
+            <circle class="voll" cx="39" cy="39" r="34"
+              stroke-dasharray="${U.toFixed(1)}" stroke-dashoffset="${U.toFixed(1)}" />
+          </svg>
+          <span class="zahl"></span>
+        </div>
+        <h3>Liest die Aufnahmen</h3>
+        <p>Aufnahmezeit und Ort stehen in den Dateien selbst — Maptale liest sie und ordnet alles ein.</p>
+      </div>`
+    el = els.neuRumpf.querySelector<HTMLElement>('.neu-lesen')
+  }
+  if (!el) return
+  const anteil = gesamt ? gelesen / gesamt : 0
+  el.querySelector<SVGCircleElement>('.voll')?.setAttribute('stroke-dashoffset', (U * (1 - anteil)).toFixed(1))
+  const zahl = el.querySelector<HTMLElement>('.zahl')
+  if (zahl) zahl.textContent = `${gelesen}/${gesamt}`
+}
+
+/**
+ * Die Statuszeile im Leerzustand: dort gibt es keine Fußzeile, die sie tragen
+ * könnte — „3 Dateien ignoriert" wäre sonst unsichtbar.
+ */
+function zeigeLeerHinweis(): void {
+  const el = document.getElementById('neu-leer-hinweis')
+  if (!el) return
+  const text = els.neuStatus.textContent ?? ''
+  el.textContent = text
+  el.hidden = !text
+  el.classList.toggle('fehler', els.neuStatus.classList.contains('fehler'))
 }
 
 function entferneAufnahmen(dateien: readonly string[]): void {
@@ -799,6 +857,7 @@ function entferneAufnahmen(dateien: readonly string[]): void {
 function setzeNeuStatus(text: string, klasse = ''): void {
   els.neuStatus.className = `status ${klasse}`
   els.neuStatus.textContent = text
+  zeigeLeerHinweis() // no-op, solange der Leerzustand nicht auf dem Schirm ist
 }
 
 const uhr = (ms: number): string =>
@@ -827,29 +886,50 @@ function renderNeu(): void {
   els.neuSichtWrap.hidden = leerzustand
   els.neuRumpf.innerHTML = ''
 
-  if (!anzahl && !gpxDatei) {
+  if (leerzustand) {
+    setzeFenstergroesse(true)
     const leer = document.createElement('div')
     leer.className = 'neu-leer'
-    // Vier leere Rahmen über einem Tag-Nacht-Verlauf: die Form der Sache,
+    // Vier leere Plätze über einem Tag-Nacht-Verlauf: die Form der Sache,
     // bevor es sie gibt.
     leer.innerHTML = `
-      <div class="ahnung"><i></i><i></i><i></i><i></i></div>
-      <div class="achse"></div>
+      <div class="ahnung"><i></i><i></i><i></i><i></i><div class="achse"></div></div>
       <h3>Hier beginnt deine <em>nächste Tour</em></h3>
       <p>Aufzeichnung und Fotos hierher ziehen — Maptale liest die Zeitstempel und ordnet alles selbst ein.</p>
       <button class="knopf-primaer" id="neu-waehlen">${icon('upload')}Dateien wählen</button>
-      <p class="nachsatz">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>`
+      <p class="nachsatz">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>
+      <p class="hinweis" id="neu-leer-hinweis" hidden></p>`
     els.neuRumpf.appendChild(leer)
-    leer.querySelector('#neu-waehlen')?.addEventListener('click', () => els.dateien.click())
+    // Die ganze Fläche ist der Griff — „Dateien wählen" ist die Ansage dafür,
+    // nicht das einzige Ziel. Der Knopf trägt die Semantik (Tastatur, Vorlese-
+    // programme), deshalb bekommt die Fläche KEIN role="button": ein Knopf im
+    // Knopf wäre für Hilfsmittel zwei Griffe für einen Weg. Der Klick auf den
+    // Knopf steigt hierher auf — ein Aufruf, kein zweiter.
+    leer.addEventListener('click', () => els.dateien.click())
+    zeigeLeerHinweis()
     return
   }
 
+  // Erst der Inhalt, dann das Wachsen: die Klasse `wachst` lässt den Befund
+  // EINMAL mit dem Fenster aufsteigen (siehe setzeFenstergroesse).
   const raster = document.createElement('div')
   raster.className = 'neu-raster'
   raster.appendChild(baueVorschau(befund))
   raster.appendChild(baueDaten(befund))
   els.neuRumpf.appendChild(raster)
   if (befund.aufnahmen.length) els.neuRumpf.appendChild(baueZeitband(befund))
+  setzeFenstergroesse(false)
+}
+
+/**
+ * Größe des Fensters an den Zustand binden — klein für die Einladung, groß für
+ * die Arbeitsfläche. Beim Wechsel ins Große steigt der Inhalt einmal mit auf;
+ * bei jedem weiteren Neuzeichnen (Weglassen, Anker ändern) bleibt er ruhig.
+ */
+function setzeFenstergroesse(klein: boolean): void {
+  const war = els.neuFenster.classList.contains('klein')
+  els.neuFenster.classList.toggle('klein', klein)
+  els.neuRumpf.classList.toggle('wachst', war && !klein)
 }
 
 /** Die Strecke als Form — eine Karte wäre gelogen, die Kartendaten holt erst der Player. */

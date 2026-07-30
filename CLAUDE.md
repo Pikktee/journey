@@ -217,6 +217,13 @@ gilt nur innerhalb des Karten-Stacking-Contexts, das Popup verschwand dort hinte
 Steuerleiste (Nebeneffekt: der Knopf bleibt im Google-3D-Modus sichtbar, wo MapLibres Canvas
 ausgeblendet ist). Solange es offen steht, hält `body.info-offen` den Auto-Rückzug der UI an.
 
+**Eine Tour beginnt am Anfang.** Der Player merkt sich Position und Wiedergabezustand
+(`maptale:pos:<id>`), aber die Wiederaufnahme hängt an einem **Einmal-Ticket** im sessionStorage
+(`maptale:weiter:<id>`): Nur der Renderer-/Ansicht-Umschalter legt es unmittelbar vor seinem
+eigenen Reload, der nächste Start verbraucht es sofort. Vorher genügte ein 30-Minuten-Fenster im
+localStorage — wer eine Tour verließ und erneut startete, landete bei Kilometer 14 statt im
+Startscreen. Ohne Ticket wird der Merker nicht einmal gelesen.
+
 **Das Fortbewegungsmittel steht NICHT in der Telemetrie.** Der Marker auf der Karte zeigt es,
 der Motorloop lässt es hören — ein Wort „Unterwegs mit · Jeep 4×4" in der Steuerleiste
 wiederholte das nur. Der Modus wird weiter pro Frame verfolgt (`modeKey` in `ui.stats`), denn an
@@ -258,11 +265,21 @@ die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben ge
 Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](src/studio/pruefung.ts),
 DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was
 auffiel (ohne Ortsangabe, ohne Zeitstempel, außerhalb der Aufzeichnung). Nur wo es etwas zu
-entscheiden gibt, steht ein Knopf („Weglassen"). Im Leerzustand ist die Fußzeile **leer** bis auf
-das (noch gesperrte) „Tour bauen": „Aufnahmen hinzufügen" heißt NACHLEGEN — dort sagt „Dateien
-wählen" mitten im Fenster dasselbe größer —, und die Sichtbarkeit entscheidet über eine Tour, die
-es noch nicht gibt. Beides erscheint mit den ersten Dateien (`leerzustand` in `renderNeu`); der
-Vorgabewert bleibt „Privat", auch solange das Feld aus ist.
+entscheiden gibt, steht ein Knopf („Weglassen").
+
+**Das Fenster ist erst ein Dialog und wird dann eine Arbeitsfläche.** Im Leerzustand trägt es NUR
+die Einladung: keine Fußzeile (`.neu-fenster.klein`), also weder „Aufnahmen hinzufügen" (heißt
+NACHLEGEN — „Dateien wählen" mitten im Fenster sagt dasselbe größer) noch Sichtbarkeit (entscheidet
+über eine Tour, die es noch nicht gibt) noch „Tour bauen" (der Weg dorthin führt ohnehin über den
+Befund), und kein gestrichelter Kasten im Kasten — die ganze Fläche IST die Ablage. Mit den ersten
+Dateien wächst das Fenster in einem Zug von 560×452 auf 1080×780 (`transition` auf `width`/`height`,
+gesteuert von `setzeFenstergroesse`), und der Befund steigt dabei EINMAL mit auf (`.neu-rumpf.wachst`,
+Klasse räumt sich beim nächsten Render selbst weg — sonst zuckte die Fläche unter jedem
+„Weglassen"). Dazwischen liegt der Zustand „Liest die Aufnahmen" mit füllendem Ring: das Lesen der
+EXIF-Blöcke dauert bei dreißig Fotos merkbar, und ohne ihn stand die Einladung still und sprang
+dann ohne Ansage. Weil es im Leerzustand keine Fußzeile gibt, trägt `zeigeLeerHinweis` die
+Statuszeile („3 Dateien ignoriert") in die Einladung — sonst wäre sie unsichtbar. Der Vorgabewert
+der Sichtbarkeit bleibt „Privat", auch solange das Feld aus ist.
 **Ohne GPX** werden die Foto-Orte zur Strecke:
 das Manifest trägt dann `segments` statt `trackFile` (`baueFotoSegmente`) — deshalb überspringt
 [tours.ts](server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die
