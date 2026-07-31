@@ -15,13 +15,23 @@ import {
   type SpielStand,
   type Spielplan,
 } from '../src/studio/abspielen'
+import type { Filmkurve } from '../src/studio/zeitleiste'
 
-/** Tour, die bei 1× in 100 Sekunden durchläuft. */
-const plan = (halte: Halt[] = []): Spielplan => ({ marke: 0, rate: 1 / 100, halte, musik: [], klaenge: [] })
+/** Tour, die bei 1× in 100 Sekunden durchläuft (lineare Kurve). */
+const LINEAR_100: Filmkurve = { anteile: [0, 1], filmS: [0, 100], gesamtS: 100 }
+/** Achse mit realer Pause: Fahrt (50 s Film) — Pause (0 s) — Fahrt (50 s). */
+const MIT_PAUSE: Filmkurve = { anteile: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], gesamtS: 100 }
+const plan = (halte: Halt[] = [], kurve: Filmkurve = LINEAR_100): Spielplan => ({
+  marke: 0,
+  kurve,
+  halte,
+  musik: [],
+  klaenge: [],
+})
 const stand = (teil: Partial<SpielStand> = {}): SpielStand => ({ marke: 0, tempo: 1, restS: 0, folge: [], ...teil })
 
 describe('tick — Fahrt', () => {
-  it('bewegt die Marke mit Tempo × Rate', () => {
+  it('bewegt die Marke im Filmtempo der Kurve', () => {
     const s = tick(stand(), 1, plan())
     expect(s.stand.marke).toBeCloseTo(0.01, 6)
     expect(s.vorher).toBe(0)
@@ -46,6 +56,33 @@ describe('tick — Fahrt', () => {
     expect(tick(stand({ marke: 0.01, tempo: -1 }), 5, plan()).ende).toBe(true)
     // rückwärts am ENDE ist kein Ende
     expect(tick(stand({ marke: 1, tempo: -1 }), 1, plan()).ende).toBe(false)
+  })
+
+  it('überspringt eine reale Pause in einem Wimpernschlag', () => {
+    // Bei Marke 0,2 sind 40 Filmsekunden vergangen; 11 s später steckt die
+    // Marke nicht in der Pause (0,25–0,75), sondern ist schon dahinter.
+    const s = tick(stand({ marke: 0.2 }), 11, plan([], MIT_PAUSE))
+    expect(s.stand.marke).toBeCloseTo(0.755, 6)
+  })
+
+  it('springt aus der Mitte einer Pause nie rückwärts (Richtungsklemme)', () => {
+    // Dorthin kommt man nur per Scrub. Der Kurven-Roundtrip lieferte den
+    // Pausen-ANFANG — vorwärts darf die Marke davon nichts merken.
+    const ruhend = tick(stand({ marke: 0.5 }), 0, plan([], MIT_PAUSE))
+    expect(ruhend.stand.marke).toBe(0.5)
+    const weiter = tick(stand({ marke: 0.5 }), 1, plan([], MIT_PAUSE))
+    expect(weiter.stand.marke).toBeCloseTo(0.755, 6)
+    // Rückwärts verlässt sie die Pause nach hinten
+    const zurueck = tick(stand({ marke: 0.5, tempo: -1 }), 1, plan([], MIT_PAUSE))
+    expect(zurueck.stand.marke).toBeCloseTo(0.245, 6)
+  })
+
+  it('läuft auf einer nichtlinearen Kurve je Achsenstück verschieden schnell', () => {
+    // Erste Achsenhälfte 20 Filmsekunden, zweite 80: nach 20 s steht die
+    // Marke bei 0,5, nach weiteren 40 s bei 0,75.
+    const kurve: Filmkurve = { anteile: [0, 0.5, 1], filmS: [0, 20, 100], gesamtS: 100 }
+    expect(tick(stand(), 20, plan([], kurve)).stand.marke).toBeCloseTo(0.5, 6)
+    expect(tick(stand({ marke: 0.5 }), 40, plan([], kurve)).stand.marke).toBeCloseTo(0.75, 6)
   })
 })
 
@@ -122,6 +159,19 @@ describe('tick — Halte an den Aufnahmen', () => {
     s = tick(s.stand, 1, p)
     expect(s.zeige).toBeNull()
   })
+
+  it('ein Halt MITTEN in einer Pause wird genau einmal gemacht', () => {
+    // Ein Foto während der Mittagspause: sein Anker liegt im Plateau. Der
+    // Übersprung überquert ihn — angehalten wird AUF ihm, danach geht es ohne
+    // zweite Einblendung hinter die Pause.
+    const p = plan([halt(0.5, 5)], MIT_PAUSE)
+    let s = tick(stand({ marke: 0.2 }), 11, p)
+    expect(s.stand.marke).toBe(0.5)
+    expect(s.zeige?.id).toBe('m1')
+    s = tick(s.stand, 6, p) // 5 s Standzeit + 1 s Fahrt
+    expect(s.stand.marke).toBeCloseTo(0.755, 6)
+    expect(s.zeige).toBeNull()
+  })
 })
 
 describe('ueberquert', () => {
@@ -167,12 +217,19 @@ describe('Musik', () => {
 
   it('setzt an der Stelle ein, die im fertigen Film liefe', () => {
     // Bereich beginnt bei 0,1; Einstieg bei 0,3 → 0,2 × 100 s Animationszeit
-    expect(musikVersatzS(0.3, 0.1, 1 / 100)).toBeCloseTo(20, 6)
+    expect(musikVersatzS(0.3, 0.1, LINEAR_100)).toBeCloseTo(20, 6)
     // Kürzere Datei läuft im Loop: 20 s in einer 8-s-Datei = 4 s
-    expect(musikVersatzS(0.3, 0.1, 1 / 100, 8)).toBeCloseTo(4, 6)
+    expect(musikVersatzS(0.3, 0.1, LINEAR_100, 8)).toBeCloseTo(4, 6)
     // Am Anfang des Bereichs (und davor) von vorn
-    expect(musikVersatzS(0.1, 0.1, 1 / 100, 8)).toBe(0)
-    expect(musikVersatzS(0.05, 0.1, 1 / 100, 8)).toBe(0)
+    expect(musikVersatzS(0.1, 0.1, LINEAR_100, 8)).toBe(0)
+    expect(musikVersatzS(0.05, 0.1, LINEAR_100, 8)).toBe(0)
+  })
+
+  it('zählt eine reale Pause im Bereich nicht als Spielzeit', () => {
+    // Klip ab 0,2, Einstieg bei 0,8 — dazwischen liegt die Pause (0,25–0,75).
+    // Im Film sind seit Klipbeginn 20 FAHR-Sekunden vergangen, nicht 60 % der
+    // Achse: die alte lineare Rechnung lag hier um Minuten daneben.
+    expect(musikVersatzS(0.8, 0.2, MIT_PAUSE)).toBeCloseTo(20, 6)
   })
 })
 

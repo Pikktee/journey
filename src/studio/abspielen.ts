@@ -7,16 +7,19 @@
 // Fahrt auseinander? Dafür genügen Kopf, Ton und Bild.
 //
 // Gerechnet wird in ANTEILEN 0..1 der Aufnahme-Zeitachse — derselben Größe, in
-// der die ganze Leiste denkt. Wie schnell die Marke darüberläuft, sagt `rate`:
-// der Kehrwert der geschätzten Animationsdauer (zeitleiste.ts). Damit dauert das
-// Abspielen hier ungefähr so lang wie der fertige Film, und der Halt an einem
-// Foto „kostet" sichtbar Zeit — genau wie später.
+// der die ganze Leiste denkt. Wie schnell die Marke darüberläuft, sagt die
+// FILMZEIT-KURVE (zeitleiste.ts): je Achsenstück so viel Zeit, wie der fertige
+// Film dort braucht. Eine konstante Rate hing hier minutenlang in realen
+// Pausen — die haben viel Aufnahmezeit, aber keine Strecke, und der Film
+// fährt nach Strecke. Der Halt an einem Foto „kostet" weiterhin sichtbar
+// Zeit — genau wie später.
 //
 // Reine Logik (tick, musikVersatzS) ist DOM-frei und unter Vitest getestet; das
 // Modul wird erst beim ersten Play geladen (editor.ts), damit die Audio-Elemente
 // niemanden belasten, der nur schneidet.
 
 import { sfxSollFeuern } from '../audiotracks.js'
+import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
 
 /** Eine Aufnahme, an der die Wiedergabe ruht. */
 export interface HaltFoto {
@@ -56,8 +59,8 @@ export interface KlangMarke {
 export interface Spielplan {
   /** Startposition (Anteil 0..1) */
   marke: number
-  /** Anteil je Sekunde bei 1× — Kehrwert der geschätzten Animationsdauer */
-  rate: number
+  /** Achsen-Anteil ↔ Fahr-Filmsekunden (zeitleiste.ts, baueFilmzeitKurve) */
+  kurve: Filmkurve
   halte: Halt[]
   musik: MusikKlip[]
   klaenge: KlangMarke[]
@@ -123,7 +126,12 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
   }
 
   const alt = stand.marke
-  let m = alt + stand.tempo * plan.rate * uebrigS
+  let m = anteilBei(plan.kurve, filmBei(plan.kurve, alt) + stand.tempo * uebrigS)
+  // Richtungsklemme: Steht die Marke MITTEN in einem Plateau (dorthin
+  // gescrubbt), liefert der Roundtrip den Plateau-Anfang — vorwärts darf sie
+  // dadurch nie zurückspringen (erster Frame hat dt = 0), rückwärts nie vor.
+  if (stand.tempo > 0) m = Math.max(alt, m)
+  else if (stand.tempo < 0) m = Math.min(alt, m)
   let ende = false
   if (stand.tempo > 0 && m >= 1) {
     m = 1
@@ -161,12 +169,13 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
  * Wo in der Datei setzt ein Musik-Bereich ein, wenn man mitten in ihm startet?
  *
  * Nicht bei 0: Wer bei der Hälfte des Bereichs einsteigt, soll hören, was dort
- * im fertigen Film liefe. Die Animationszeit seit Bereichsbeginn ist der
- * Versatz; kürzere Dateien laufen im Loop, deshalb der Umbruch. `dauerS` ist
- * erst nach `loadedmetadata` bekannt — ohne sie kommt der rohe Versatz zurück.
+ * im fertigen Film liefe. Die FILMzeit seit Bereichsbeginn ist der Versatz
+ * (über die Kurve — eine reale Pause im Bereich zählt nicht als Spielzeit);
+ * kürzere Dateien laufen im Loop, deshalb der Umbruch. `dauerS` ist erst nach
+ * `loadedmetadata` bekannt — ohne sie kommt der rohe Versatz zurück.
  */
-export function musikVersatzS(anteil: number, klipVon: number, rate: number, dauerS = 0): number {
-  const seit = Math.max(0, (anteil - klipVon) / rate)
+export function musikVersatzS(anteil: number, klipVon: number, kurve: Filmkurve, dauerS = 0): number {
+  const seit = Math.max(0, filmBei(kurve, anteil) - filmBei(kurve, klipVon))
   return dauerS > 0 ? seit % dauerS : seit
 }
 
@@ -266,14 +275,14 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         el.preload = 'none'
         el.src = klip.url
         el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
-        const rate = plan.rate
+        const kurve = plan.kurve
         const beiEintritt = anteil
         el.addEventListener(
           'loadedmetadata',
           () => {
             if (!el || !el.duration) return
             try {
-              el.currentTime = musikVersatzS(beiEintritt, klip.von, rate, el.duration)
+              el.currentTime = musikVersatzS(beiEintritt, klip.von, kurve, el.duration)
             } catch {
               /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
             }
@@ -289,7 +298,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         // die im Film JETZT liefe — ohne die Datei neu zu laden.
         if (el.duration) {
           try {
-            el.currentTime = musikVersatzS(anteil, klip.von, plan.rate, el.duration)
+            el.currentTime = musikVersatzS(anteil, klip.von, plan.kurve, el.duration)
           } catch {
             /* s. o. */
           }

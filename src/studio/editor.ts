@@ -52,6 +52,7 @@ import {
   baueMassband,
   baueMedienDots,
   baueSkala,
+  baueFilmzeitKurve,
   baueZustandsBaender,
   haltedauerS,
   klemmeGrenze,
@@ -61,7 +62,6 @@ import {
   musikLanes,
   offsetBeiMeter,
   offsetZuAnteil,
-  schaetzeAnimationsdauer,
   uhrDiffZuOffset,
   type Fokus,
   type FokusZiel,
@@ -4114,7 +4114,6 @@ function holeSpielplan(): Spielplan | null {
   const start = z.daten.time.start
   const halte = halteDerTour(skala)
   const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
-  const dauerS = schaetzeAnimationsdauer(abschnitte, halte.flatMap((h) => h.fotos.map((f) => f.dauerS)))
 
   const eintraege = z.edits.audio ?? []
   const musik: MusikKlip[] = []
@@ -4132,7 +4131,7 @@ function holeSpielplan(): Spielplan | null {
 
   return {
     marke: offsetZuAnteil(skala, z.auswahl[3]),
-    rate: 1 / Math.max(1, dauerS),
+    kurve: baueFilmzeitKurve(abschnitte, skala),
     halte,
     musik,
     klaenge,
