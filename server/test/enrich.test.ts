@@ -3,7 +3,8 @@ import { bestimmeCover, reichereAn } from '../src/pipeline/enrich.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { BildBefund } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
-import { mediumDateiname } from '../src/schema/upload.js'
+import { kollabierePausen } from '../src/pipeline/zeit.js'
+import { mediumDateiname, type UploadManifest, type UploadPunkt } from '../src/schema/upload.js'
 import { beispielManifest } from './helfer.js'
 
 const bewoelkt = () => new FesteWetterQuelle(testRaster('2026-07-04T06', Array.from({ length: 7 }, () => ({ wolken: 80 }))))
@@ -343,5 +344,70 @@ describe('mediumDateiname', () => {
   it('verweigert unzulässige Endungen', () => {
     expect(() => mediumDateiname({ id: 'abc', type: 'photo', file: 'boese.exe', takenAt: '' })).toThrow(/Unzulässige/)
     expect(() => mediumDateiname({ id: 'abc', type: 'video', file: 'clip.jpg', takenAt: '' })).toThrow(/Unzulässige/)
+  })
+})
+
+describe('Pausen-Kollaps in der Pipeline (Kette wie in verarbeite)', () => {
+  const GRAD_PRO_M = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
+
+  /** Marsch mit 25-min-Drift-Pause (GPS-Zickzack ±60 m) und Foto mittendrin. */
+  function manifestMitPause(): UploadManifest {
+    const pts: UploadPunkt[] = []
+    let strecke = 0
+    for (let t = 0; t <= 5400; t += 30) {
+      if (t >= 1800 && t < 3300) {
+        pts.push([
+          7.9 + (strecke + Math.sin(t / 90) * 60) * GRAD_PRO_M,
+          46.59 + Math.cos(t / 70) * 30 * GRAD_PRO_M,
+          800,
+          t,
+        ])
+      } else {
+        pts.push([7.9 + strecke * GRAD_PRO_M, 46.59, 800, t])
+        strecke += 1.5 * 30
+      }
+    }
+    return {
+      schema: 'maptale/upload@1',
+      clientTourId: 'pause-e2e-1',
+      title: null,
+      description: null,
+      time: { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T09:30:00+02:00', zone: 'Europe/Zurich' },
+      segments: [{ mode: 'walk', pts }],
+      media: [
+        // Mitten in der Pause aufgenommen, OHNE GPS-Anker → Zeit-Mapping
+        { id: 'mp1', type: 'photo', file: 'IMG_1.JPG', takenAt: '2026-07-04T08:40:00+02:00', caption: null },
+      ],
+    }
+  }
+
+  it('Drift wird keine Strecke; das Pausen-Foto ankert am Schwerpunkt', async () => {
+    const roh = manifestMitPause()
+    // verarbeite() setzt manifest.segments = ladeOriginalSegmente(...) — hier
+    // dieselbe Kette ohne HTTP: kollabieren, dann rendern.
+    const kollabiert = { ...roh, segments: kollabierePausen(roh.segments ?? []) }
+
+    const mitKollaps = await reichereAn(eingabe({ manifest: kollabiert }))
+    const ohneKollaps = await reichereAn(eingabe({ manifest: roh }))
+
+    // Das GPS-Zickzack der Pause (≈ 1 km Fake-Strecke) verschwindet
+    expect(ohneKollaps.stats.km - mitKollaps.stats.km).toBeGreaterThan(0.5)
+    expect(mitKollaps.stats.km).toBeGreaterThan(5.5)
+    expect(mitKollaps.stats.km).toBeLessThan(6.2)
+
+    // Zeit-gemapptes Foto liegt exakt auf dem Kollaps-Ort
+    const seg = kollabiert.segments?.[0]
+    const punktInPause = seg?.pts.find((p) => p[3] >= 2300 && p[3] <= 2500)
+    const anker = mitKollaps.media[0]?.anchor
+    expect(punktInPause).toBeDefined()
+    expect(anker?.[0]).toBeCloseTo(punktInPause?.[0] ?? 0, 6)
+    expect(anker?.[1]).toBeCloseTo(punktInPause?.[1] ?? 0, 6)
+
+    // Timeline bleibt monoton (die Pause ist dort ein senkrechter f-Sprung)
+    const tl = mitKollaps.timeline ?? []
+    expect(tl.length).toBeGreaterThanOrEqual(2)
+    for (let i = 1; i < tl.length; i++) {
+      expect(tl[i]?.f).toBeGreaterThanOrEqual(tl[i - 1]?.f ?? 0)
+    }
   })
 })

@@ -2,6 +2,7 @@
 // die Punkte im gewünschten Tempo gesetzt.
 import { describe, expect, it } from 'vitest'
 import { wendeModiAn } from '../src/pipeline/edits.js'
+import { kollabierePausen } from '../src/pipeline/zeit.js'
 import { tempoVerlaufKmh, trenneGehabschnitte, trenneGehabschnitteInSegmenten } from '../src/pipeline/tempo.js'
 import type { Modus, UploadPunkt, UploadSegment } from '../src/schema/upload.js'
 
@@ -212,6 +213,25 @@ describe('trenneGehabschnitteInSegmenten', () => {
 
   it('verträgt eine leere Liste', () => {
     expect(trenneGehabschnitteInSegmenten([])).toEqual([])
+  })
+})
+
+describe('Zusammenspiel mit dem Pausen-Kollaps (ladeOriginalSegmente-Reihenfolge)', () => {
+  it('nach dem Kollaps entsteht aus einer langen Fotopause weiter kein Gehabschnitt', () => {
+    // Die Pipeline kollabiert Pausen VOR der Gehabschnitts-Erkennung: das
+    // Momentantempo in der Pause ist danach exakt 0 (statt GPS-Zittern), die
+    // Verdrängung bleibt unter der Schranke — die Erkennung darf sich davon
+    // nicht anders verhalten als vorher.
+    const s = segment('moped', kette(fahrt(30, 600, 10), halt(1200), fahrt(30, 600, 10)))
+    const erg = trenneGehabschnitteInSegmenten(kollabierePausen([s]))
+    expect(erg.map((t) => t.mode)).toEqual(['moped'])
+  })
+
+  it('der Kollaps nimmt der Median-Nachhinker-Falle die Nahrung, ändert aber nichts am Ergebnis', () => {
+    const s = segment('moped', kette(gehen(300), halt(1200), fahrt(30, 900, 60)))
+    const mit = verlauf(trenneGehabschnitteInSegmenten(kollabierePausen([s])))
+    const ohne = verlauf(trenneGehabschnitteInSegmenten([s]))
+    expect(mit.map((v) => v[0])).toEqual(ohne.map((v) => v[0]))
   })
 })
 

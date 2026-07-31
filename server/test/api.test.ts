@@ -832,6 +832,41 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(daten.segmente[0]?.pts).toHaveLength(3)
   })
 
+  it('Editor-Daten: GPS-Drift einer Pause kommt kollabiert an (ladeOriginalSegmente)', async () => {
+    const u = await baueTestApp()
+    const gradProM = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
+    const manifest = beispielManifest()
+    const pts: [number, number, number, number][] = []
+    let strecke = 0
+    for (let t = 0; t <= 5400; t += 30) {
+      if (t >= 1800 && t < 3300) {
+        pts.push([7.9 + (strecke + Math.sin(t / 90) * 60) * gradProM, 46.59, 800, t])
+      } else {
+        pts.push([7.9 + strecke * gradProM, 46.59, 800, t])
+        strecke += 1.5 * 30
+      }
+    }
+    manifest.segments = [{ mode: 'walk', pts }]
+    manifest.time = { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T09:30:00+02:00', zone: 'Europe/Zurich' }
+
+    const id = await legeTourAn(u, manifest)
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const daten = antwort.json() as { segmente: Array<{ pts: number[][] }> }
+    // Streckensumme der gelieferten Punkte: ohne Kollaps steckte ~1 km
+    // GPS-Zickzack darin (≈ 6,9 km), mit Kollaps bleibt der Marsch (≈ 5,9 km)
+    let meter = 0
+    for (const s of daten.segmente) {
+      for (let i = 1; i < s.pts.length; i++) {
+        const dx = ((s.pts[i]?.[0] ?? 0) - (s.pts[i - 1]?.[0] ?? 0)) / gradProM
+        const dy = ((s.pts[i]?.[1] ?? 0) - (s.pts[i - 1]?.[1] ?? 0)) * 111_320
+        meter += Math.sqrt(dx * dx + dy * dy)
+      }
+    }
+    expect(meter).toBeGreaterThan(5500)
+    expect(meter).toBeLessThan(6300)
+  })
+
   it('Beschreibung leeren erreicht das Tour-JSON (Review-Fund)', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)

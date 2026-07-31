@@ -15,9 +15,11 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 - **Root**: Web-Player (Vite). Spielt statische `TOURS` und aufgezeichnete Touren
   (`?tour=srv:<id>` → [src/remote.ts](src/remote.ts) gegen das Backend).
 - **[server/](server/)**: Backend (Node 22 + Fastify + better-sqlite3, TypeScript strict).
-  Upload → Anreicherungs-Pipeline (Benennung via Nominatim, Track-Vereinfachung, Timeline mit
-  Pausen-Kompression, Medien-Platzierung, Edit-Overlay, Auto-Wetter via Open-Meteo, Wetter-
-  Verfeinerung per Foto-Bildanalyse) → Tour-JSON. Dazu Mehrbenutzer-Betrieb: Konten mit
+  Upload → Anreicherungs-Pipeline (Benennung via Nominatim, Pausen-Kollaps — GPS-Drift im
+  Stand wird auf den Schwerpunkt gezogen, sonst zittert die Kamera und die km-Statistik lügt;
+  läuft in `ladeOriginalSegmente`, der von Editor UND Render geteilten Stelle —, Track-
+  Vereinfachung, Timeline mit Pausen-Kompression, Medien-Platzierung, Edit-Overlay,
+  Auto-Wetter via Open-Meteo, Wetter-Verfeinerung per Foto-Bildanalyse) → Tour-JSON. Dazu Mehrbenutzer-Betrieb: Konten mit
   Mail-Bestätigung, Passwort-Reset, Quota, Sichtbarkeit ([server/src/auth/](server/src/auth/),
   `quota.ts`, `mail.ts`). Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md);
   wer wofür zuständig ist (Rohdaten / Overlay / Tour-JSON / Cache) und wohin ein neues Feld

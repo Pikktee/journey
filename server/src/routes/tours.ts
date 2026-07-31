@@ -22,7 +22,7 @@ import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
 import type { BildBefund } from '../pipeline/vision.js'
 import { wendeTrimAn } from '../pipeline/edits.js'
-import { baueZeitreihe } from '../pipeline/zeit.js'
+import { baueZeitreihe, kollabierePausen } from '../pipeline/zeit.js'
 import { wetterZuGrenzen, type WetterKeyframe } from '../pipeline/weather.js'
 import {
   EDITS_SCHEMA_ID,
@@ -527,11 +527,14 @@ function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch = false
 /**
  * Die Segmente der Aufzeichnung, wie sie ohne Bearbeitung aussehen.
  *
- * Hier läuft auch die Gehabschnitts-Erkennung: Sie gehört zur ROHEN Tour, nicht
- * zum Overlay — deshalb steht sie an dieser einen Stelle, die sich Editor und
- * Render teilen. Liefe sie nur beim Rendern, zeigte der Editor eine andere
- * Aufteilung als das fertige Video. Modus-Grenzen aus dem Overlay werden später
- * darübergelegt und behalten Vorrang (wendeModiAn).
+ * Hier laufen auch Pausen-Kollaps und Gehabschnitts-Erkennung: Beide gehören
+ * zur ROHEN Tour, nicht zum Overlay — deshalb stehen sie an dieser einen
+ * Stelle, die sich Editor und Render teilen. Liefe das nur beim Rendern,
+ * zeigte der Editor eine andere Strecke und Aufteilung als das fertige Video.
+ * Modus-Grenzen aus dem Overlay werden später darübergelegt und behalten
+ * Vorrang (wendeModiAn). Der Kollaps läuft VOR der Gehabschnitts-Erkennung:
+ * danach ist das Momentantempo in der Pause exakt 0, und eine Pause kann
+ * nicht mehr von einer Segmentteilung zerschnitten werden.
  */
 async function ladeOriginalSegmente(
   app: FastifyInstance,
@@ -539,17 +542,21 @@ async function ladeOriginalSegmente(
   manifest: UploadManifest,
 ): Promise<UploadSegment[]> {
   // Eingebettete Segmente OHNE GPX heißen: die Punkte sind keine Aufzeichnung,
-  // sondern gesetzte Wegpunkte (statische Tour oder eine Tour aus Foto-Orten).
+  // sondern gesetzte Wegpunkte (statische Tour oder eine Tour aus Foto-Orten)
+  // — oder eine Aufzeichnung älterer App-Versionen (vor dem GPX-Fluss M8).
   // Zwischen zwei Fotos liegt eine Luftlinie — was die Tempo-Automatik daraus
-  // rechnet, ist Zufall. Hier gilt der angegebene Modus, ungeteilt.
-  if (!manifest.trackFile) return [...(manifest.segments ?? [])]
+  // rechnet, ist Zufall. Hier gilt der angegebene Modus, ungeteilt. Der
+  // Pausen-Kollaps läuft trotzdem: „≥ 15 min im 150-m-Radius" ist auch bei
+  // gesetzten Wegpunkten ein Aufenthalt, und Alt-App-Touren tragen genau hier
+  // ihre Drift-Wolken.
+  if (!manifest.trackFile) return kollabierePausen(manifest.segments ?? [])
   const gpxText = (await app.deps.storage.lese(tourId, TRACK_PFAD)).toString()
   const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
     startMs: Date.parse(manifest.time.start),
     endMs: Date.parse(manifest.time.end),
     ...(manifest.trackMode ? { modus: manifest.trackMode } : {}),
   })
-  return trenneGehabschnitteInSegmenten([segment])
+  return trenneGehabschnitteInSegmenten(kollabierePausen([segment]))
 }
 
 /**
