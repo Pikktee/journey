@@ -8,7 +8,7 @@
 // Preis der Kompression: nach jeder Pause läuft die Pseudo-Uhr der echten Zeit
 // hinterher; das ist gewollt (weiche Sonne schlägt exakte Uhrzeit).
 
-import type { UploadSegment } from '../schema/upload.js'
+import type { UploadPunkt, UploadSegment } from '../schema/upload.js'
 import { distanzM } from './geo.js'
 
 /** Punkt der verketteten Zeitreihe. */
@@ -123,6 +123,81 @@ export function komprimiereZeiten(reihe: Zeitreihe, pausen: readonly Pause[]): n
     out[i] = (out[i - 1] as number) + dt
   }
   return out
+}
+
+/** Unter dieser Rest-Strecke bleibt der Kollaps aus — eine Tour, die fast nur
+ *  aus Pause besteht, würde sonst zur punktförmigen Route (Player: NaN). */
+export const KOLLAPS_MIN_REST_M = 30
+
+/**
+ * GPS-Drift in Pausen geometrisch stilllegen: Wer steht, kommt nicht vom
+ * Fleck — das GPS schon (200 m in 23 min sind normal). Diese Drift wurde zu
+ * echter Strecke: die Kamera zitterte im Film minutenlang auf der Stelle, die
+ * km-Statistik zählte Meter, die niemand gegangen ist.
+ *
+ * Alle Punkte einer erkannten Pause (findePausen: ≥ 15 min im 150-m-Radius)
+ * rücken auf ihren Schwerpunkt; die ZEITEN bleiben unangetastet — jeder
+ * Overlay-Anker (ISO-Zeitstempel) und die Pseudo-Zeit-Kompression gelten
+ * weiter. An Segment-Nähten liegt der Grenzpunkt als Kopie in beiden
+ * Segmenten; ragt eine Pause bis an die Naht, werden zeit- und ortsgleiche
+ * Duplikate mitgezogen, sonst bliebe eine Kopie stehen und risse einen
+ * künstlichen Sprung in die Route.
+ */
+export function kollabierePausen(segmente: readonly UploadSegment[]): UploadSegment[] {
+  const reihe = baueZeitreihe(segmente)
+  const pausen = findePausen(reihe)
+  if (!pausen.length) return [...segmente]
+
+  // Flach-Index → (Segment, Punkt), in der Verkettungsreihenfolge der Zeitreihe
+  const karte: Array<{ seg: number; pt: number }> = []
+  segmente.forEach((s, seg) => s.pts.forEach((_, pt) => karte.push({ seg, pt })))
+
+  const punktZu = (i: number): ZeitPunkt => reihe.punkte[i] as ZeitPunkt
+  const duplikat = (a: ZeitPunkt, b: ZeitPunkt): boolean =>
+    a.tSek === b.tSek && a.lng === b.lng && a.lat === b.lat
+
+  // Ziel-Koordinate je betroffenem Flach-Index
+  const ziel = new Map<number, [number, number, number]>()
+  for (const pause of pausen) {
+    let von = pause.vonIdx
+    let bis = pause.bisIdx
+    while (von > 0 && duplikat(punktZu(von - 1), punktZu(von))) von--
+    while (bis < reihe.punkte.length - 1 && duplikat(punktZu(bis + 1), punktZu(bis))) bis++
+
+    let sLng = 0
+    let sLat = 0
+    let sEle = 0
+    const n = bis - von + 1
+    for (let i = von; i <= bis; i++) {
+      const { seg, pt } = karte[i] as { seg: number; pt: number }
+      const [lng = 0, lat = 0, ele = 0] = (segmente[seg] as UploadSegment).pts[pt] as UploadPunkt
+      sLng += lng
+      sLat += lat
+      sEle += ele
+    }
+    for (let i = von; i <= bis; i++) ziel.set(i, [sLng / n, sLat / n, sEle / n])
+  }
+
+  // Nur betroffene Segmente kopieren; die Zeiten (Index 3) bleiben byte-gleich
+  const segStart: number[] = []
+  let lauf = 0
+  for (const s of segmente) {
+    segStart.push(lauf)
+    lauf += s.pts.length
+  }
+  const neu = segmente.map((s, seg) => {
+    const start = segStart[seg] as number
+    if (!s.pts.some((_, pt) => ziel.has(start + pt))) return s
+    return {
+      ...s,
+      pts: s.pts.map((p, pt): UploadPunkt => {
+        const z = ziel.get(start + pt)
+        return z ? [z[0], z[1], z[2], p[3]] : p
+      }),
+    }
+  })
+
+  return baueZeitreihe(neu).gesamtM < KOLLAPS_MIN_REST_M ? [...segmente] : neu
 }
 
 /**

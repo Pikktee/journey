@@ -3,10 +3,12 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  KOLLAPS_MIN_REST_M,
   PAUSE_ERSATZ_S,
   baueZeitreihe,
   destilliereTimeline,
   findePausen,
+  kollabierePausen,
   komprimiereZeiten,
   positionZurZeit,
   zeitZurPosition,
@@ -127,6 +129,105 @@ describe('komprimiereZeiten', () => {
   it('lässt Touren ohne Pausen unverändert', () => {
     const reihe = baueZeitreihe([marsch()])
     expect(komprimiereZeiten(reihe, [])).toEqual(reihe.punkte.map((p) => p.tSek))
+  })
+})
+
+describe('kollabierePausen', () => {
+  /**
+   * Marsch mit DRIFTENDER Pause: im Stand pendelt das GPS deterministisch
+   * (±50 m Sinus-Zickzack) um den Pausenort — die Erscheinungsform, die als
+   * Fake-Strecke in Route und Statistik landete.
+   */
+  function marschMitDrift({ dauerS = 5400, abS = 1800, pauseS = 1500 } = {}): UploadSegment {
+    const pts: UploadSegment['pts'] = []
+    let strecke = 0
+    for (let t = 0; t <= dauerS; t += 30) {
+      if (t >= abS && t < abS + pauseS) {
+        const zickzack = Math.sin(t / 90) * 50
+        pts.push([8.0 + (strecke + zickzack) * GRAD_PRO_M, LAT + Math.cos(t / 70) * 30 * GRAD_PRO_M, 500, t])
+      } else {
+        pts.push([8.0 + strecke * GRAD_PRO_M, LAT, 500, t])
+        if (!(t >= abS && t < abS + pauseS)) strecke += 1.4 * 30
+      }
+    }
+    return { mode: 'walk', pts }
+  }
+
+  it('zieht die Drift-Wolke auf einen Ort — die Fake-Strecke verschwindet', () => {
+    const roh = [marschMitDrift()]
+    const vorher = baueZeitreihe(roh).gesamtM
+    const erg = kollabierePausen(roh)
+    const nachher = baueZeitreihe(erg).gesamtM
+    // Die Drift summierte hunderte Meter; übrig bleibt die Marschstrecke
+    expect(vorher - nachher).toBeGreaterThan(300)
+
+    // Alle Pausen-Punkte liegen jetzt exakt auf EINEM Ort im Drift-Gebiet
+    const pause = (erg[0] as UploadSegment).pts.filter((p) => p[3] >= 1800 && p[3] < 3300)
+    const orte = new Set(pause.map((p) => `${p[0]},${p[1]}`))
+    expect(pause.length).toBeGreaterThan(10)
+    expect(orte.size).toBe(1)
+  })
+
+  it('lässt Zeiten und Außenpunkte unangetastet und mutiert die Eingabe nicht', () => {
+    const roh = [marschMitDrift()]
+    const kopie = JSON.parse(JSON.stringify(roh)) as UploadSegment[]
+    const erg = kollabierePausen(roh)
+    // Eingabe byte-gleich geblieben
+    expect(roh).toEqual(kopie)
+    // Zeiten des Ergebnisses identisch zur Eingabe
+    expect((erg[0] as UploadSegment).pts.map((p) => p[3])).toEqual(roh[0]?.pts.map((p) => p[3]))
+    // Punkte klar außerhalb der Pause unverändert — die Erkennung verwischt
+    // die Ränder um wenige Rasterpunkte (s. findePausen-Test: < +240 s)
+    const aussen = (p: readonly number[]): boolean => p[3]! < 1800 - 240 || p[3]! >= 3300 + 240
+    const aussenRoh = roh[0]?.pts.filter(aussen)
+    const aussenErg = (erg[0] as UploadSegment).pts.filter(aussen)
+    expect(aussenErg?.length).toBeGreaterThan(50)
+    expect(aussenErg).toEqual(aussenRoh)
+  })
+
+  it('zieht das Naht-Duplikat an der Segmentgrenze mit — kein künstlicher Sprung', () => {
+    // Segmentwechsel MITTEN in der Pause: der Grenzpunkt liegt als Kopie in
+    // beiden Segmenten (Server-Konvention). Bliebe eine Kopie stehen, hätte
+    // die Route dort einen Sprung vom Schwerpunkt zum alten Drift-Ort.
+    const ganz = marschMitDrift()
+    const naht = ganz.pts.findIndex((p) => p[3] >= 2400)
+    const segmente: UploadSegment[] = [
+      { mode: 'walk', pts: ganz.pts.slice(0, naht + 1) },
+      { mode: 'bike', pts: ganz.pts.slice(naht) },
+    ]
+    const erg = kollabierePausen(segmente)
+    const endeA = (erg[0] as UploadSegment).pts.at(-1)
+    const anfangB = (erg[1] as UploadSegment).pts[0]
+    expect(endeA).toEqual(anfangB)
+    // Beide Kopien liegen auf dem Schwerpunkt, nicht auf dem alten Drift-Ort
+    const mitte = (erg[0] as UploadSegment).pts.find((p) => p[3] >= 1800 && p[3] < 3300)
+    expect(endeA?.[0]).toBeCloseTo(mitte?.[0] ?? 0, 10)
+  })
+
+  it('bleibt aus, wenn danach fast keine Strecke übrig wäre (Player-Schutz)', () => {
+    // 20 m Marsch + 25 min Drift-Pause: ohne Wächter kollabierte die Tour zur
+    // punktförmigen Route (route.total = 0 → NaN im Player).
+    const kurz = marschMitDrift({ dauerS: 1560, abS: 30, pauseS: 1500 })
+    const erg = kollabierePausen([kurz])
+    expect(baueZeitreihe(erg).gesamtM).toBe(baueZeitreihe([kurz]).gesamtM)
+    expect(erg[0]).toBe(kurz)
+    expect(KOLLAPS_MIN_REST_M).toBeGreaterThan(10) // Destillat-Schwelle bleibt darunter
+  })
+
+  it('reicht Touren ohne Pause identisch durch', () => {
+    const seg = marsch()
+    const erg = kollabierePausen([seg])
+    expect(erg[0]).toBe(seg)
+  })
+
+  it('Timeline-Destillat bleibt nach dem Kollaps monoton (senkrechter f-Sprung)', () => {
+    const erg = kollabierePausen([marschMitDrift({ dauerS: 7200 })])
+    const timeline = destilliereTimeline(baueZeitreihe(erg), '2026-07-04T06:00:00Z')
+    if (!timeline) throw new Error('Timeline erwartet')
+    for (let i = 1; i < timeline.length; i++) {
+      expect(timeline[i]?.f).toBeGreaterThanOrEqual(timeline[i - 1]?.f ?? 0)
+      expect(Date.parse(timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(Date.parse(timeline[i - 1]?.t ?? ''))
+    }
   })
 })
 
