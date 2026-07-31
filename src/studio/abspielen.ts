@@ -6,13 +6,18 @@
 // prüfen: Kommt die Musik zum Strandabschnitt? Reißt der Halt am Gipfel die
 // Fahrt auseinander? Dafür genügen Kopf, Ton und Bild.
 //
-// Gerechnet wird in ANTEILEN 0..1 der Aufnahme-Zeitachse — derselben Größe, in
+// Gerechnet wird in ANTEILEN 0..1 der Zeitleisten-Achse — derselben Größe, in
 // der die ganze Leiste denkt. Wie schnell die Marke darüberläuft, sagt die
-// FILMZEIT-KURVE (zeitleiste.ts): je Achsenstück so viel Zeit, wie der fertige
+// FILMKURVE (zeitleiste.ts): je Achsenstück so viel Zeit, wie der fertige
 // Film dort braucht. Eine konstante Rate hing hier minutenlang in realen
 // Pausen — die haben viel Aufnahmezeit, aber keine Strecke, und der Film
-// fährt nach Strecke. Der Halt an einem Foto „kostet" weiterhin sichtbar
-// Zeit — genau wie später.
+// fährt nach Strecke.
+//
+// Foto-Halte sind seit der Filmzeit-Achse ACHSENBREITE (die Standzeit steckt
+// als Sprung in der Achse): die Marke läuft gleichmäßig durch den Halt
+// hindurch, und die Aufnahmen sind ÜBERFAHR-MARKEN (`zeigen`) — je Foto eine,
+// im Film-Takt hintereinander. Ein eingefrorener Kopf mit eigener Restzeit
+// widerspräche dem film-linearen Maßband (und die Musik trüge sowieso durch).
 //
 // Reine Logik (tick, musikVersatzS) ist DOM-frei und unter Vitest getestet; das
 // Modul wird erst beim ersten Play geladen (editor.ts), damit die Audio-Elemente
@@ -21,21 +26,16 @@
 import { sfxSollFeuern } from '../audiotracks.js'
 import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
 
-/** Eine Aufnahme, an der die Wiedergabe ruht. */
-export interface HaltFoto {
+/**
+ * Eine Aufnahme als Überfahr-Marke: beim Passieren wird sie eingeblendet.
+ * Mehrere Aufnahmen eines Stopps liegen als Kette im Halt-Sprung der Achse —
+ * jede an dem Punkt, an dem ihre Standzeit im Film beginnt.
+ */
+export interface ZeigeMarke {
+  anteil: number
   id: string
   /** Standzeit der Einblendung in Sekunden (display.holdS oder Default) */
   dauerS: number
-}
-
-/**
- * Ein Halt auf der Zeitachse — alle Aufnahmen desselben Ortes. Gehalten wird am
- * STOPP, nicht am einzelnen Bild: mehrere Aufnahmen am selben Ort liegen auf
- * (fast) derselben Zeit, nacheinander gezeigt käme sonst nur die erste je vor.
- */
-export interface Halt {
-  anteil: number
-  fotos: HaltFoto[]
 }
 
 /** Musik-Bereich auf der Zeitachse. */
@@ -59,9 +59,9 @@ export interface KlangMarke {
 export interface Spielplan {
   /** Startposition (Anteil 0..1) */
   marke: number
-  /** Achsen-Anteil ↔ Fahr-Filmsekunden (zeitleiste.ts, baueFilmzeitKurve) */
+  /** Achsen-Anteil ↔ Filmsekunden der Wiedergabe (zeitleiste.ts, baueSpielKurve) */
   kurve: Filmkurve
-  halte: Halt[]
+  zeigen: ZeigeMarke[]
   musik: MusikKlip[]
   klaenge: KlangMarke[]
 }
@@ -71,10 +71,6 @@ export interface SpielStand {
   marke: number
   /** 0 = angehalten, 1 = normal, ±2/±4 = Schnelllauf (J/L wie in Final Cut) */
   tempo: number
-  /** Restzeit des laufenden Halts in Sekunden; 0 = es wird gefahren */
-  restS: number
-  /** noch nicht gezeigte Aufnahmen des laufenden Halts */
-  folge: HaltFoto[]
 }
 
 /** Ergebnis eines Schritts. */
@@ -83,7 +79,7 @@ export interface Schritt {
   /** Marke VOR dem Schritt — die Kante, an der Klänge auslösen */
   vorher: number
   /** Aufnahme, die jetzt einzublenden ist */
-  zeige: HaltFoto | null
+  zeige: ZeigeMarke | null
   /** Streckenende in Laufrichtung erreicht */
   ende: boolean
 }
@@ -91,42 +87,24 @@ export interface Schritt {
 /** Liegt `t` zwischen `a` und `b` (in beide Richtungen)? */
 export const ueberquert = (t: number, a: number, b: number): boolean => (a < t && t <= b) || (b <= t && t < a)
 
-export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0, restS: 0, folge: [] }
+export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
 
 /**
  * Ein Zeitschritt der Wiedergabe — rein, ohne Uhr und ohne DOM.
  *
- * Zwei Feinheiten, die sich im Mockup erst nach Fehlern ergaben:
+ * Eine Feinheit, die sich im Mockup erst nach Fehlern ergab: Das Ende gilt
+ * RICHTUNGSABHÄNGIG. Prüfte man beide Ränder, hielte ein Start bei Marke 0
+ * sofort wieder an — der erste Frame hat dt = 0, die Marke bleibt 0 und träfe
+ * die Bedingung „≤ 0".
  *
- * 1. Das Ende gilt RICHTUNGSABHÄNGIG. Prüfte man beide Ränder, hielte ein Start
- *    bei Marke 0 sofort wieder an: der erste Frame hat dt = 0, die Marke bleibt
- *    0 und träfe die Bedingung „≤ 0".
- * 2. Am Halt springt die Marke exakt AUF den Halt. Sonst stünde sie ein Stück
- *    dahinter, und beim Weiterfahren gälte der Halt als noch nicht passiert.
+ * Eingeblendet wird die LETZTE überfahrene Marke (nur bei normaler
+ * Vorwärtsfahrt — im Schnelllauf und rückwärts will man die Strecke
+ * überfliegen). Zwei Marken in einem Frame hieße Standzeiten unter 0,1 s Film
+ * — praktisch unmöglich, und dann zählt die spätere.
  */
 export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
-  let uebrigS = dtS
-
-  // — An einer Aufnahme ruhen: die Zeit läuft, die Position nicht —
-  if (stand.restS > 0) {
-    const rest = stand.restS - dtS
-    if (rest > 0) return { stand: { ...stand, restS: rest }, vorher: stand.marke, zeige: null, ende: false }
-    const naechste = stand.folge[0]
-    if (naechste) {
-      // Noch eine Aufnahme an diesem Ort: der Halt bleibt stehen und zeigt sie.
-      // Die überzählige Zeit (rest ist negativ) zählt bereits für sie.
-      return {
-        stand: { ...stand, restS: naechste.dauerS + rest, folge: stand.folge.slice(1) },
-        vorher: stand.marke,
-        zeige: naechste,
-        ende: false,
-      }
-    }
-    uebrigS = -rest // Halt zu Ende — mit dem Rest des Schritts weiterfahren
-  }
-
   const alt = stand.marke
-  let m = anteilBei(plan.kurve, filmBei(plan.kurve, alt) + stand.tempo * uebrigS)
+  let m = anteilBei(plan.kurve, filmBei(plan.kurve, alt) + stand.tempo * dtS)
   // Richtungsklemme: Steht die Marke MITTEN in einem Plateau (dorthin
   // gescrubbt), liefert der Roundtrip den Plateau-Anfang — vorwärts darf sie
   // dadurch nie zurückspringen (erster Frame hat dt = 0), rückwärts nie vor.
@@ -141,28 +119,14 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
     ende = true
   }
 
-  // — Am nächsten erreichten Halt anhalten —
-  //
-  // Nur bei normaler Vorwärtsfahrt: im Schnelllauf und rückwärts will man die
-  // Strecke überfliegen, nicht an jedem Bild warten.
-  let zeige: HaltFoto | null = null
-  let restS = 0
-  let folge: HaltFoto[] = []
+  let zeige: ZeigeMarke | null = null
   if (stand.tempo === 1) {
-    const halt = plan.halte
-      .filter((h) => ueberquert(h.anteil, alt, m) && h.fotos.length > 0)
-      .sort((a, b) => a.anteil - b.anteil)[0]
-    const erste = halt?.fotos[0]
-    if (halt && erste) {
-      m = halt.anteil
-      ende = false
-      zeige = erste
-      restS = erste.dauerS
-      folge = halt.fotos.slice(1)
+    for (const marke of plan.zeigen) {
+      if (ueberquert(marke.anteil, alt, m) && (!zeige || marke.anteil > zeige.anteil)) zeige = marke
     }
   }
 
-  return { stand: { marke: m, tempo: stand.tempo, restS, folge }, vorher: alt, zeige, ende }
+  return { stand: { marke: m, tempo: stand.tempo }, vorher: alt, zeige, ende }
 }
 
 /**
@@ -350,7 +314,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
   function halteAn(): void {
     if (af !== null) cancelAnimationFrame(af)
     af = null
-    stand = { ...stand, tempo: 0, restS: 0, folge: [] }
+    stand = { ...stand, tempo: 0 }
     stoppeKlaenge()
     optionen.zeigeTempo(0)
   }
@@ -363,9 +327,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     const frisch = optionen.hole()
     if (!frisch) return
     plan = frisch
-    // Ein Tempowechsel bricht den laufenden Halt ab — wer auf 4× schaltet, will
-    // nicht erst das Bild zu Ende betrachten.
-    stand = { marke: frisch.marke, tempo: t, restS: 0, folge: [] }
+    stand = { marke: frisch.marke, tempo: t }
     optionen.zeigeTempo(t)
     if (af === null) {
       letzteTs = 0

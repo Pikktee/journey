@@ -47,13 +47,18 @@ import {
   ankerScroll,
   anteilZuOffset,
   audioWirdVerworfen,
+  baueAchse,
   baueAudioBalken,
   baueBaender,
-  baueMassband,
+  baueFilmMassband,
   baueMedienDots,
   baueSkala,
-  baueFilmzeitKurve,
+  baueSpielKurve,
   baueZustandsBaender,
+  filmBei,
+  filmZuOffset,
+  formatiereFilmzeit,
+  HALT_AUSBLEND_S,
   haltedauerS,
   klemmeGrenze,
   kumMeter,
@@ -63,6 +68,8 @@ import {
   offsetBeiMeter,
   offsetZuAnteil,
   uhrDiffZuOffset,
+  type Achse,
+  type Filmkurve,
   type Fokus,
   type FokusZiel,
   type ZeitSkala,
@@ -71,7 +78,7 @@ import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt, type SfxTyp
 import { baueStopps, dOffsetOhneCluster, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 import { beschreibeAufnahme, liesAufnahme, type ExifAufnahme } from './exif.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
-import type { Abspieler, Halt, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
+import type { Abspieler, KlangMarke, MusikKlip, Spielplan, ZeigeMarke } from './abspielen.js'
 
 /** Anzeigename eines Audio-Eintrags: Katalogname bei Bibliothek, eigener
  *  Upload ohne Datei-Endung, sonst der rohe Dateiname (tour-lokaler Altbestand). */
@@ -813,34 +820,48 @@ function raeumeSnapZiel(ziel: HTMLElement | null): void {
 function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
   e.preventDefault()
+  halteAbspielen()
+  const achse = aktuelleAchse()
   const skala = baueSkala(z.track)
-  if (!skala) return
+  if (!achse || !skala) return
   const feldEl = document.getElementById('skala-feld')
   const startX = e.clientX
-  const spanneS = skala.bisS - skala.vonS
-  // Jede Aufnahme mit ihrem AUFNAHMEZEIT-Offset — die Achse zeigt Zeit, nicht
-  // Meter. Der ganze Stapel wird um DENSELBEN Zeit-Versatz verschoben; weil die
-  // Achse linear in der Zeit ist, folgt die Miniatur dem Cursor pixelgenau und
-  // die innere Ordnung des Stopps bleibt erhalten.
+  // Jede Aufnahme mit ihrem AUFNAHMEZEIT-Offset — Anker bleiben Zeit, nur die
+  // ANZEIGE ist film-proportional. Der ganze Stapel wird um DENSELBEN
+  // Zeit-Versatz verschoben; die innere Ordnung des Stopps bleibt erhalten.
   const gruppe = stopp.items.map((m) => ({ id: m.id, offset0: offsetVon(m) }))
   const eigene = new Set(gruppe.map((g) => g.id))
+  const stoppBreiteS = (s: Stopp): number =>
+    s.items.reduce((summe, m) => summe + haltedauerS(m.display) + HALT_AUSBLEND_S, 0)
   // Einrasten auf fremde HALTE (Mitte), nicht auf jede einzelne Aufnahme —
   // sonst würde ein Mehrfach-Stopp ein breites Schnapp-Fenster aufspannen.
-  const fremde = baueStopps(medienAnzeige(), z.track, kumStrecke)
-    .filter((s) => !s.items.some((m) => eigene.has(m.id)))
-    .map((s) => {
-      const kopfId = s.items[0]?.id
-      return {
-        anteil: offsetZuAnteil(skala, s.offsetS),
-        anzahl: s.items.length,
-        el: kopfId
-          ? document.querySelector<HTMLElement>(`.f-mini[data-ids~="${CSS.escape(kopfId)}"]`)
-          : null,
-      }
-    })
-  // Ruhelage der Miniatur (stopp.offsetS) ist die Referenz — so springt beim
-  // Aufsetzen nichts, weil Ruhe- und Zugposition denselben Bezug haben.
-  const startAnteil = offsetZuAnteil(skala, stopp.offsetS)
+  const fremdeStopps = baueStopps(medienAnzeige(), z.track, kumStrecke).filter(
+    (s) => !s.items.some((m) => eigene.has(m.id)),
+  )
+  const fremde = fremdeStopps.map((s) => {
+    const kopfId = s.items[0]?.id
+    return {
+      anteil: offsetZuAnteil(achse, s.offsetS),
+      offsetS: s.offsetS,
+      anzahl: s.items.length,
+      el: kopfId
+        ? document.querySelector<HTMLElement>(`.f-mini[data-ids~="${CSS.escape(kopfId)}"]`)
+        : null,
+    }
+  })
+  // Für die px→Zeit-Rückrechnung eine ZIEH-Achse ohne die eigenen Halte: auf
+  // der Filmzeit-Achse hat der gezogene Stopp selbst Breite (sein Sprung) —
+  // auf der echten Achse gerechnet, läge um die Ruhelage eine tote Zone von
+  // Sprungbreite, in der der Cursor die Zeit nicht bewegte.
+  const zieh = baueAchse(
+    zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start),
+    fremdeStopps.map((s) => ({ offsetS: s.offsetS, breiteS: stoppBreiteS(s) })),
+    skala,
+  )
+  // Ruhelage der Miniatur ist die OPTISCHE Referenz (echte Achse) — so springt
+  // beim Aufsetzen nichts; die Zeitrechnung referenziert die Zieh-Achse.
+  const startAnteil = offsetZuAnteil(achse, stopp.offsetS)
+  const startAnteilZieh = offsetZuAnteil(zieh, stopp.offsetS)
   const mini = (e.currentTarget as HTMLElement).closest<HTMLElement>('.f-mini')
   const kartenPunkt = markerZuId.get(stopp.items[0]?.id ?? '')
   const kopfOffset0 = gruppe[0]?.offset0 ?? 0
@@ -849,14 +870,14 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   let zielMini: HTMLElement | null = null
   let geschnappt = false
 
-  const zieh = (ev: PointerEvent): void => {
-    if (!z || !skala) return
+  const bewege = (ev: PointerEvent): void => {
+    if (!z) return
     if (!gezogen && Math.abs(ev.clientX - startX) < ZUG_SCHWELLE_PX) return
     gezogen = true
     mini?.classList.add('zieht')
     const feld = feldEl?.getBoundingClientRect()
     if (!feld || feld.width <= 0) return
-    // Anteil des Cursors, 1:1 in Pixeln — nicht über die Meter-Achse gerechnet.
+    // Anteil des Cursors, 1:1 in Pixeln — die Miniatur klebt unterm Finger.
     let anteil = Math.max(0, Math.min(1, startAnteil + (ev.clientX - startX) / feld.width))
     let schnappt: (typeof fremde)[number] | null = null
     let bestAb = Infinity
@@ -869,7 +890,11 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
     }
     if (schnappt) anteil = schnappt.anteil
     geschnappt = !!schnappt
-    letztesDOffset = (anteil - startAnteil) * spanneS
+    // Eingerastet zählt der fremde Halt SELBST — px-genau statt über Achsen
+    // gerechnet; frei übersetzt die Zieh-Achse den px-Weg in Zeit.
+    letztesDOffset = schnappt
+      ? schnappt.offsetS - stopp.offsetS
+      : anteilZuOffset(zieh, startAnteilZieh + (anteil - startAnteil)) - stopp.offsetS
     if (mini) mini.style.left = pos(anteil)
     const kopf = punktBeiOffset(kopfOffset0 + letztesDOffset)
     if (kopf) kartenPunkt?.setLngLat([kopf[0], kopf[1]])
@@ -882,7 +907,7 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
     )
   }
   const los = (): void => {
-    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointermove', bewege)
     window.removeEventListener('pointerup', los)
     mini?.classList.remove('schnappt', 'zieht')
     raeumeSnapZiel(zielMini)
@@ -914,7 +939,7 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
     unterdrueckeKlick = true
     renderAlles()
   }
-  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointermove', bewege)
   window.addEventListener('pointerup', los)
 }
 
@@ -1024,7 +1049,7 @@ function ordneStreifen(e: PointerEvent, streifen: HTMLElement, stopp: Stopp, id:
     gezogen = true
     // Zuerst die Zeitleiste: sie liegt näher am Streifen als die Karte.
     const bahn = document.getElementById('spur-fotos')?.getBoundingClientRect()
-    const skala = z ? baueSkala(z.track) : null
+    const skala = aktuelleAchse()
     const ueberBahn =
       !!bahn && !!skala && ev.clientX >= bahn.left && ev.clientX <= bahn.right && ev.clientY >= bahn.top - 20 && ev.clientY <= bahn.bottom + 20
     if (ueberBahn && skala) {
@@ -1356,7 +1381,7 @@ function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
     geist.style.left = `${ev.clientX}px`
     geist.style.top = `${ev.clientY}px`
     const bahn = document.getElementById('spur-fotos')?.getBoundingClientRect()
-    const skala = z ? baueSkala(z.track) : null
+    const skala = aktuelleAchse()
     const ueberBahn =
       bahn && skala && ev.clientX >= bahn.left && ev.clientX <= bahn.right && ev.clientY >= bahn.top - 20 && ev.clientY <= bahn.bottom + 20
     if (ueberBahn) {
@@ -3085,10 +3110,44 @@ function bandUnterZeiger(e: PointerEvent): Fokus | null {
   return null
 }
 
+// — Filmzeit-Achse: EINE Quelle für alle Leisten-Abbildungen —
+//
+// Position auf der Leiste ∝ Filmzeit (baueAchse in zeitleiste.ts). Die Achse
+// hängt an Overlay und Tourdaten; das Overlay wird immutabel fortgeschrieben,
+// deshalb genügt ein Referenzvergleich als Cache-Schlüssel. Der Cache ist
+// nötig: renderPlayhead läuft bei jedem Scrub-Frame und darf nicht jedes Mal
+// die ganze Zerlegung rechnen. Während eines Foto-Zugs (Overlay bis zum
+// Loslassen unverändert) bleibt er warm; Kanten-Züge schreiben das Overlay je
+// Move fort und bauen neu — das tat renderZeitleiste vorher genauso.
+let achseMemo: { edits: EditOverlay; tourId: string; achse: Achse | null; spiel: Filmkurve | null } | null = null
+
+function aktuelleAchse(): Achse | null {
+  if (!z) return null
+  if (achseMemo && achseMemo.edits === z.edits && achseMemo.tourId === z.tourId) return achseMemo.achse
+  const skala = baueSkala(z.track)
+  if (!skala) return null
+  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start)
+  // Halt-Breite = Standzeit aller Aufnahmen des Stopps (Videos wie Fotos mit
+  // ihrer holdS bzw. dem Default — die echte Videolänge kennt erst der Server).
+  const halte = baueStopps(medienAnzeige(), z.track, kumStrecke).map((s) => ({
+    offsetS: s.offsetS,
+    breiteS: s.items.reduce((summe, m) => summe + haltedauerS(m.display) + HALT_AUSBLEND_S, 0),
+  }))
+  const achse = baueAchse(abschnitte, halte, skala)
+  achseMemo = { edits: z.edits, tourId: z.tourId, achse, spiel: baueSpielKurve(achse, abschnitte) }
+  return achse
+}
+
+/** Abspiel-Filmkurve zur aktuellen Achse (Trim-Plateaus) — aus demselben Cache. */
+function aktuelleSpielKurve(): Filmkurve | null {
+  if (!aktuelleAchse()) return null
+  return achseMemo?.spiel ?? null
+}
+
 function renderZeitleiste(): void {
   if (!z) return
   const zone = $('zeitleiste-zone')
-  const skala = baueSkala(z.track)
+  const skala = aktuelleAchse()
   if (!skala) {
     zone.hidden = true
     return
@@ -3477,25 +3536,41 @@ function zeigeKopfWennImBlick(): void {
   strich.classList.toggle('verdeckt', x < spurXpx() - 7)
 }
 
-/** Kopfstrich, Kopf-Uhr und Läufer auf die aktuelle Marke stellen. */
-function renderPlayhead(): void {
+/**
+ * Kopfstrich, Kopf-Uhr und Läufer auf die aktuelle Marke stellen.
+ *
+ * `anteilDirekt` kommt vom Abspieler: WÄHREND eines Foto-Halts wandert die
+ * Marke durch den Halt-Sprung der Achse — dort ist die Aufnahmezeit konstant,
+ * und der Rundweg Anteil → Zeit → Anteil fiele auf den Sprunganfang zurück
+ * (der Strich klebte die ganze Standzeit fest). Uhr, km und Läufer dürfen
+ * dagegen ruhig auf der Halt-Zeit stehen: Die Zeit STEHT dort wirklich.
+ */
+function renderPlayhead(anteilDirekt?: number): void {
   if (!z) return
   const strich = document.getElementById('kopfstrich')
-  const skala = baueSkala(z.track)
-  if (!strich || !skala) return
+  const achse = aktuelleAchse()
+  if (!strich || !achse) return
   if (!z.auswahl) {
     strich.hidden = true
     return
   }
   strich.hidden = false
   const tOffsetS = z.auswahl[3]
-  const anteil = offsetZuAnteil(skala, tOffsetS)
+  const anteil = anteilDirekt ?? offsetZuAnteil(achse, tOffsetS)
   strich.style.left = zeitX(anteil)
   zeigeKopfWennImBlick()
 
+  // Filmzeit prominent: wo im FILM steht die Marke, und wie lang ist er? Die
+  // Spielkurve respektiert Trim — bei getrimmten Alt-Touren weicht die Summe
+  // deshalb vom Maßband-Ende ab (das die ganze Achse beschriftet).
+  const film = document.getElementById('kopf-film')
+  const spiel = aktuelleSpielKurve()
+  if (film && spiel) {
+    film.textContent = `${formatiereFilmzeit(filmBei(spiel, anteil))} / ~${formatiereFilmzeit(spiel.gesamtS)}`
+  }
   const uhr = document.getElementById('kopf-uhr')
   // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
-  // Sekundenstelle nur — und die Achse ist ohnehin minutengenau beschriftet.
+  // Sekundenstelle nur.
   if (uhr) uhr.textContent = uhrzeitKurz(offsetZuIso(z.daten.time.start, tOffsetS))
   const km = document.getElementById('kopf-km')
   if (km) km.textContent = kmText(meterZuOffset(kumStrecke, z.track, tOffsetS))
@@ -3547,17 +3622,17 @@ function setzeLaeufer(tOffsetS: number): void {
   if (use && use.getAttribute('href') !== zeichen) use.setAttribute('href', zeichen)
 }
 
-/** Maßband: Stufe folgt dem Zoom, damit die Achse immer lesbar bleibt. */
+/** Maßband: Filmminuten, Stufe folgt dem Zoom, damit die Achse lesbar bleibt. */
 function renderSkala(): void {
   if (!z) return
   const feld = document.getElementById('skala-feld')
-  const skala = baueSkala(z.track)
-  if (!feld || !skala) return
+  const achse = aktuelleAchse()
+  if (!feld || !achse) return
   feld.innerHTML = ''
   const breitePx = zeitBreitePx()
-  const spanneMin = (skala.bisS - skala.vonS) / 60
-  if (breitePx <= 0 || spanneMin <= 0) return
-  for (const m of baueMassband(z.daten.time.start, skala, z.daten.time.zone, breitePx / spanneMin)) {
+  const gesamtS = achse.kurve?.gesamtS
+  if (breitePx <= 0 || !gesamtS) return
+  for (const m of baueFilmMassband(achse, breitePx / gesamtS)) {
     const d = document.createElement('div')
     d.className = 'skala-marke' + (m.voll ? ' voll' : '') + (m.rand ? ` am-${m.rand}` : '')
     d.style.left = pos(m.anteil)
@@ -3706,7 +3781,7 @@ const ZUG_SCHWELLE_PX = 4
 
 function zeitleisteZug(e: PointerEvent): void {
   if (!z || !zug) return
-  const skala = baueSkala(z.track)
+  const skala = aktuelleAchse()
   if (!skala) return
   if (!zug.bewegt) {
     if (Math.abs(e.clientX - zug.startX) < ZUG_SCHWELLE_PX) return
@@ -3740,6 +3815,8 @@ function zeitleisteZug(e: PointerEvent): void {
       const laenge = a.bis !== undefined ? offsetZuAnteil(skala, isoZuOffset(start, a.bis)) - von : null
       const neuVon = Math.max(0, Math.min(anteil - (zug.griffVersatz ?? 0), laenge !== null ? 1 - laenge : 1))
       const patch: { ab: string; bis?: string } = { ab: iso(neuVon) }
+      // Anteilslänge konstant halten heißt auf der Filmzeit-Achse: die
+      // FILMDAUER des Klips bleibt beim Verschieben gleich — genau richtig.
       if (laenge !== null) patch.bis = iso(neuVon + laenge)
       z.edits = mitAudioPatch(z.edits, zug.index, patch)
       break
@@ -3748,17 +3825,23 @@ function zeitleisteZug(e: PointerEvent): void {
       if (zug.index === undefined) break
       const a = (z.edits.audio ?? [])[zug.index]
       if (!a) break
-      const bisA = a.bis !== undefined ? offsetZuAnteil(skala, isoZuOffset(start, a.bis)) : 1
-      z.edits = mitAudioPatch(z.edits, zug.index, { ab: iso(Math.min(anteil, bisA - 0.005)) })
+      const bisA = a.bis !== undefined ? isoZuOffset(start, a.bis) : skala.bisS
+      // In ZEIT klemmen, nicht in Anteilen: innerhalb eines Halt-Sprungs
+      // kollabieren 0,005 Anteil auf 0 Sekunden — der Klip würde zeitlos und
+      // beim Rendern verworfen. Mindestens 1 s Abstand bleibt.
+      const neuS = Math.min(anteilZuOffset(skala, anteil), bisA - 1)
+      z.edits = mitAudioPatch(z.edits, zug.index, { ab: offsetZuIso(start, neuS) })
       break
     }
     case 'audio-bis': {
       if (zug.index === undefined) break
       const a = (z.edits.audio ?? [])[zug.index]
       if (!a) break
-      const vonA = offsetZuAnteil(skala, isoZuOffset(start, a.ab))
-      const b = Math.max(anteil, vonA + 0.005)
-      z.edits = mitAudioPatch(z.edits, zug.index, { bis: b >= 0.998 ? undefined : iso(b) })
+      const vonS = isoZuOffset(start, a.ab)
+      const neuS = Math.max(anteilZuOffset(skala, anteil), vonS + 1)
+      z.edits = mitAudioPatch(z.edits, zug.index, {
+        bis: anteil >= 0.998 ? undefined : offsetZuIso(start, neuS),
+      })
       break
     }
     case 'sfx': {
@@ -3786,6 +3869,10 @@ function verdrahteZeitleiste(): void {
     const rolle = ziel.dataset['rolle']!
     if (rolle === 'dot') return // Klick, kein Zug
     e.preventDefault()
+    // Ein beginnender Zug hält das Abspielen an: Züge rendern über
+    // renderNachZug (ohne halteAbspielen) — der Abspieler liefe sonst auf
+    // einem veralteten Plan weiter.
+    halteAbspielen()
     zone.setPointerCapture(e.pointerId)
     // KEIN Greif-Cursor beim bloßen Drücken — den setzt erst der echte Zug
     // (zeitleisteZug, ab ZUG_SCHWELLE_PX).
@@ -3798,7 +3885,7 @@ function verdrahteZeitleiste(): void {
     if (ziel.dataset['index'] !== undefined) zug.index = Number(ziel.dataset['index'])
     if (rolle === 'audio-balken') {
       // Versatz zwischen Cursor und Klipanfang merken → ruckfreies Schieben
-      const skala = baueSkala(z.track)
+      const skala = aktuelleAchse()
       const a = (z.edits.audio ?? [])[zug.index ?? -1]
       if (skala && a) {
         zug.griffVersatz = spurAnteil(e.clientX) - offsetZuAnteil(skala, isoZuOffset(z.daten.time.start, a.ab))
@@ -3836,7 +3923,7 @@ function verdrahteZeitleiste(): void {
       } else {
         // Spur, Maßband UND Bandkante: alle drei meinen beim bloßen Antippen
         // die Stelle und das Band darunter.
-        const skala = baueSkala(zz.track)
+        const skala = aktuelleAchse()
         if (skala) {
           zz.auswahl = punktZuOffset(zz.track, anteilZuOffset(skala, spurAnteil(e.clientX)))
           zz.fokus = war.fokus ?? null
@@ -3870,7 +3957,7 @@ function verdrahteZeitleiste(): void {
     e.stopPropagation()
     halteAbspielen()
     document.body.classList.add('scrubbt')
-    const skala = baueSkala(z.track)
+    const skala = aktuelleAchse()
     const zieh = (ev: PointerEvent): void => {
       if (!skala) return
       setzeMarke(anteilZuOffset(skala, spurAnteil(ev.clientX)))
@@ -3889,7 +3976,7 @@ function verdrahteZeitleiste(): void {
   $('skala-feld').addEventListener('pointerdown', (e) => {
     if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
     e.preventDefault()
-    const skala = baueSkala(z.track)
+    const skala = aktuelleAchse()
     if (!skala) return
     halteAbspielen()
     setzeMarke(anteilZuOffset(skala, spurAnteil(e.clientX)))
@@ -3992,7 +4079,7 @@ function verdrahteZeitleiste(): void {
 
   // — Zoom-Bedienung im Kopf —
   const zoomAnker = (): { anteil: number; vx: number } => {
-    const skala = z ? baueSkala(z.track) : null
+    const skala = aktuelleAchse()
     // Um den Abspielkopf zoomen, wenn er sichtbar ist — sonst um die Fenstermitte
     if (z?.auswahl && skala) {
       const anteil = offsetZuAnteil(skala, z.auswahl[3])
@@ -4092,37 +4179,50 @@ let karteFolgt = true
 let einblendUhr: number | null = null
 
 /**
- * Halte der Tour: je Stopp seine Aufnahmen mit Standzeit.
+ * Überfahr-Marken der Aufnahmen: je Foto eine, im Halt-Sprung der Achse an
+ * dem Punkt, an dem seine Standzeit im Film beginnt — Foto i startet nach den
+ * Standzeiten seiner Vorgänger im selben Stopp.
  *
- * EINE Quelle für zwei Verbraucher — die geschätzte Laufzeit unter den Bahnen
- * und die Wiedergabe. Rechneten beide getrennt, zeigte die Leiste „~ 4 Min" und
- * das Abspielen bräuchte fünf.
+ * EINE Quelle mit der Achse (beide über `haltedauerS` + HALT_AUSBLEND_S) —
+ * rechneten Achse und Wiedergabe getrennt, zeigte die Leiste andere Halte als
+ * das Abspielen macht.
  */
-function halteDerTour(skala: ZeitSkala): Halt[] {
+function zeigenDerTour(achse: Achse): ZeigeMarke[] {
   if (!z) return []
-  return baueStopps(medienAnzeige(), z.track, kumStrecke).map((s) => ({
-    anteil: offsetZuAnteil(skala, s.offsetS),
-    fotos: s.items.map((m) => ({ id: m.id, dauerS: haltedauerS(m.display) })),
-  }))
+  const gesamtS = achse.kurve?.gesamtS
+  const marken: ZeigeMarke[] = []
+  for (const s of baueStopps(medienAnzeige(), z.track, kumStrecke)) {
+    let filmS = filmZuOffset(achse, s.offsetS)
+    for (const m of s.items) {
+      marken.push({
+        // Ohne Kurve (degenerierte Tour) fallen die Marken eines Stopps auf
+        // denselben Anteil — die letzte gewinnt. Randfall ohne Fahrstrecke.
+        anteil: gesamtS ? filmS / gesamtS : offsetZuAnteil(achse, s.offsetS),
+        id: m.id,
+        dauerS: haltedauerS(m.display),
+      })
+      filmS += haltedauerS(m.display) + HALT_AUSBLEND_S
+    }
+  }
+  return marken.sort((a, b) => a.anteil - b.anteil)
 }
 
 /** Schnappschuss für eine Wiedergabe — bei jedem Start neu eingesammelt. */
 function holeSpielplan(): Spielplan | null {
   if (!z?.auswahl) return null
-  const skala = baueSkala(z.track)
-  if (!skala) return null
+  const achse = aktuelleAchse()
+  const spiel = aktuelleSpielKurve()
+  if (!achse || !spiel) return null
   const start = z.daten.time.start
-  const halte = halteDerTour(skala)
-  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, start)
 
   const eintraege = z.edits.audio ?? []
   const musik: MusikKlip[] = []
   const klaenge: KlangMarke[] = []
-  for (const b of baueAudioBalken(eintraege, start, skala)) {
+  for (const b of baueAudioBalken(eintraege, start, achse)) {
     const a = eintraege[b.index]
     // Was beim Rendern herausfällt (ganz außerhalb der Tour), soll auch hier
     // nicht klingen — sonst hörte man etwas, das im Film nicht vorkommt.
-    if (!a || audioWirdVerworfen(a, z.edits, start, skala)) continue
+    if (!a || audioWirdVerworfen(a, z.edits, start, achse)) continue
     const url = audioUrl(a, z.tourId)
     const lautstaerke = a.lautstaerke ?? 0.8
     if (b.typ === 'musik') musik.push({ von: b.von, bis: b.bis, url, lautstaerke })
@@ -4130,9 +4230,9 @@ function holeSpielplan(): Spielplan | null {
   }
 
   return {
-    marke: offsetZuAnteil(skala, z.auswahl[3]),
-    kurve: baueFilmzeitKurve(abschnitte, skala),
-    halte,
+    marke: offsetZuAnteil(achse, z.auswahl[3]),
+    kurve: spiel,
+    zeigen: zeigenDerTour(achse),
     musik,
     klaenge,
   }
@@ -4141,9 +4241,14 @@ function holeSpielplan(): Spielplan | null {
 /** Marke aus dem Abspieler setzen (Anteil statt Offset) — die Sicht folgt. */
 function setzeMarkeAnteil(anteil: number): void {
   if (!z) return
-  const skala = baueSkala(z.track)
+  const skala = aktuelleAchse()
   if (!skala) return
-  setzeMarke(anteilZuOffset(skala, anteil))
+  const geklemmt = Math.max(skala.vonS, Math.min(skala.bisS, anteilZuOffset(skala, anteil)))
+  const punkt = punktZuOffset(z.track, geklemmt)
+  if (punkt) z.auswahl = punkt
+  // Anteil DIREKT durchreichen — nicht über setzeMarke (Zeit): im Halt-Sprung
+  // wäre die Rückübersetzung der Sprunganfang und der Strich stünde still.
+  renderPlayhead(anteil)
   folgeKopf(anteil)
   folgeKarte()
 }
@@ -4614,10 +4719,19 @@ function verdrahteEinmal(): void {
         else if (!abspieler) void spielUmschalten()
         else abspieler.setzeTempo(k === 'l' ? (t < 1 ? 1 : Math.min(t * 2, 4)) : t > -1 ? -1 : Math.max(t * 2, -4))
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        // Feines Scrubben mit den Pfeiltasten: eine Minute je Tastendruck
+        // Feines Scrubben mit den Pfeiltasten: fünf FILM-Sekunden je Druck
+        // (≈ eine Foto-Haltebreite) — eine Minute Aufnahmezeit war auf der
+        // Filmzeit-Achse mal ein Pixel, mal die halbe Leiste. Landet der
+        // Schritt in einem Halt-Sprung, steht der Kopf auf dem Halt.
         e.preventDefault()
         halteAbspielen()
-        if (z.auswahl) setzeMarke(z.auswahl[3] + (e.key === 'ArrowRight' ? 60 : -60))
+        const achse = aktuelleAchse()
+        if (z.auswahl && achse?.kurve) {
+          const anteil = offsetZuAnteil(achse, z.auswahl[3]) + (e.key === 'ArrowRight' ? 5 : -5) / achse.kurve.gesamtS
+          setzeMarke(anteilZuOffset(achse, Math.max(0, Math.min(1, anteil))))
+        } else if (z.auswahl) {
+          setzeMarke(z.auswahl[3] + (e.key === 'ArrowRight' ? 60 : -60))
+        }
       }
     }
   })

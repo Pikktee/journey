@@ -1373,18 +1373,22 @@
     .spuren-fenster[data-wkz='zoom'].alt, .spuren-fenster[data-wkz='zoom'].alt *:not(.kopf-griff) { cursor: zoom-out; }
     .zoom-box { position: fixed; z-index: 55; display: none; background: rgba(245, 165, 36, 0.14); border: 1px solid var(--akzent); border-radius: 4px; pointer-events: none; }
 
-    /* Abspielkopf-Anzeige: Uhrzeit der Aufnahme + zurückgelegte Strecke. Die
-       Breite darf NICHT mit den Werten zappeln — gleich breite ZIFFERN
-       (tabular-nums) heißen nicht gleiche Zeichen-ANZAHL („0,8" vs. „41,4"),
-       deshalb zusätzlich ein Slot fester Mindestbreite. */
+    /* Abspielkopf-Anzeige: FILMZEIT prominent (wo im Film steht die Marke, wie
+       lang ist er), Uhrzeit der Aufnahme + Strecke als Nebengrößen. Die Breite
+       darf NICHT mit den Werten zappeln — gleich breite ZIFFERN (tabular-nums)
+       heißen nicht gleiche Zeichen-ANZAHL („0,8" vs. „41,4"), deshalb
+       zusätzlich Slots fester Mindestbreite. */
     .kopf-uhr {
       display: flex; align-items: center; gap: 9px;
       padding: 5px 12px; border-radius: 10px;
       background: var(--fl-1); border: 1px solid var(--rand);
     }
     .ku-icon { width: 14px; height: 14px; flex: none; color: var(--text-3); }
-    .ku-zeit { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-    .ku-km {
+    .ku-film {
+      font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
+      display: inline-block; min-width: 11ch; text-align: center;
+    }
+    .ku-neben {
       font-size: 12px; color: var(--text-3);
       padding-left: 10px; border-left: 1px solid var(--rand); font-variant-numeric: tabular-nums;
     }
@@ -2696,10 +2700,11 @@
               </div>
               <button class="ablage-knopf" id="ablage-knopf" hidden title="Aufnahmen, die noch nicht auf der Strecke liegen"><svg><use href="#i-spur-foto"/></svg><span id="ablage-anzahl"></span></button>
             </div>
-            <div class="kopf-uhr" title="Abspielkopf — Aufnahmezeit · zurückgelegte Strecke von gesamt">
+            <div class="kopf-uhr" title="Abspielkopf — Filmzeit von gesamt · Uhrzeit der Aufnahme · zurückgelegte Strecke von gesamt">
               <svg class="ku-icon" aria-hidden="true"><use href="#i-uhr"/></svg>
-              <span class="ku-zeit" id="kopf-uhr">--:--</span>
-              <span class="ku-km"><span class="ku-km-cur" id="kopf-km">0,0</span> km / <span id="kopf-km-ges">0,0</span> km</span>
+              <span class="ku-film" id="kopf-film">0:00 / ~0:00</span>
+              <span class="ku-neben"><span id="kopf-uhr">--:--</span></span>
+              <span class="ku-neben"><span class="ku-km-cur" id="kopf-km">0,0</span> km / <span id="kopf-km-ges">0,0</span> km</span>
             </div>
             <div class="zl-kopf-rechts">
               <div class="zoom">

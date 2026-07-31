@@ -11,24 +11,24 @@ import {
   musikVersatzS,
   tick,
   ueberquert,
-  type Halt,
   type SpielStand,
   type Spielplan,
+  type ZeigeMarke,
 } from '../src/studio/abspielen'
 import type { Filmkurve } from '../src/studio/zeitleiste'
 
 /** Tour, die bei 1× in 100 Sekunden durchläuft (lineare Kurve). */
 const LINEAR_100: Filmkurve = { anteile: [0, 1], filmS: [0, 100], gesamtS: 100 }
-/** Achse mit realer Pause: Fahrt (50 s Film) — Pause (0 s) — Fahrt (50 s). */
+/** Spielkurve mit Trim-Plateau: 50 s Film — Plateau — 50 s Film. */
 const MIT_PAUSE: Filmkurve = { anteile: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], gesamtS: 100 }
-const plan = (halte: Halt[] = [], kurve: Filmkurve = LINEAR_100): Spielplan => ({
+const plan = (zeigen: ZeigeMarke[] = [], kurve: Filmkurve = LINEAR_100): Spielplan => ({
   marke: 0,
   kurve,
-  halte,
+  zeigen,
   musik: [],
   klaenge: [],
 })
-const stand = (teil: Partial<SpielStand> = {}): SpielStand => ({ marke: 0, tempo: 1, restS: 0, folge: [], ...teil })
+const stand = (teil: Partial<SpielStand> = {}): SpielStand => ({ marke: 0, tempo: 1, ...teil })
 
 describe('tick — Fahrt', () => {
   it('bewegt die Marke im Filmtempo der Kurve', () => {
@@ -86,90 +86,49 @@ describe('tick — Fahrt', () => {
   })
 })
 
-describe('tick — Halte an den Aufnahmen', () => {
-  const halt = (anteil: number, ...dauern: number[]): Halt => ({
-    anteil,
-    fotos: dauern.map((dauerS, i) => ({ id: `m${i + 1}`, dauerS })),
-  })
+describe('tick — Überfahr-Marken der Aufnahmen', () => {
+  const marke = (anteil: number, id = 'm1', dauerS = 5): ZeigeMarke => ({ anteil, id, dauerS })
 
-  it('hält AM Halt an und blendet die erste Aufnahme ein', () => {
-    const s = tick(stand(), 1, plan([halt(0.005, 5)]))
-    // Die Marke springt exakt auf den Halt — stünde sie dahinter, gälte er beim
-    // Weiterfahren als noch nicht passiert.
-    expect(s.stand.marke).toBe(0.005)
+  it('blendet die Aufnahme beim Überfahren ein — die Marke läuft durch', () => {
+    // Der Halt ist Achsenbreite (Sprung in der Achse): kein Anhalten mehr,
+    // die Einblendung feuert im Vorbeigehen und läuft über die Editor-Uhr ab.
+    const s = tick(stand(), 1, plan([marke(0.005)]))
     expect(s.zeige?.id).toBe('m1')
-    expect(s.stand.restS).toBe(5)
+    expect(s.zeige?.dauerS).toBe(5)
+    expect(s.stand.marke).toBeCloseTo(0.01, 6)
     expect(s.ende).toBe(false)
   })
 
-  it('ruht, bis die Standzeit um ist, und fährt dann weiter', () => {
-    let s = tick(stand(), 1, plan([halt(0.005, 5)]))
-    const beiHalt = s.stand.marke
-    s = tick(s.stand, 3, plan([halt(0.005, 5)]))
-    expect(s.stand.marke).toBe(beiHalt) // Position gehalten
-    expect(s.stand.restS).toBeCloseTo(2, 6)
-    expect(s.zeige).toBeNull()
-    // Der Rest des Schritts fährt schon wieder: 2 s Halt + 1 s Fahrt
-    s = tick(s.stand, 3, plan([halt(0.005, 5)]))
-    expect(s.stand.restS).toBe(0)
-    expect(s.stand.marke).toBeCloseTo(0.005 + 0.01, 6)
+  it('zeigt die LETZTE überfahrene Marke, wenn ein Schritt mehrere trifft', () => {
+    // Marken eines Stopps liegen als Kette im Halt-Sprung; überspringt ein
+    // großer Schritt mehrere, zählt die späteste (Standzeiten < Schrittweite
+    // sind der einzige Weg dorthin).
+    const s = tick(stand(), 10, plan([marke(0.02, 'a'), marke(0.08, 'b')]))
+    expect(s.zeige?.id).toBe('b')
   })
 
-  it('zeigt die Aufnahmen eines Halts NACHEINANDER', () => {
-    // Drei Bilder am selben Ort liegen auf derselben Zeit — nur die erste würde
-    // je „überquert", die anderen kämen ohne Warteschlange nie vor.
-    const p = plan([halt(0.005, 4, 3, 2)])
-    let s = tick(stand(), 1, p)
-    expect(s.zeige?.id).toBe('m1')
-    expect(s.stand.folge.map((f) => f.id)).toEqual(['m2', 'm3'])
-    s = tick(s.stand, 4, p)
-    expect(s.zeige?.id).toBe('m2')
-    expect(s.stand.restS).toBeCloseTo(3, 6)
-    s = tick(s.stand, 3, p)
-    expect(s.zeige?.id).toBe('m3')
-    s = tick(s.stand, 3, p) // 2 s Standzeit + 1 s Fahrt
-    expect(s.zeige).toBeNull()
-    expect(s.stand.restS).toBe(0)
-    expect(s.stand.marke).toBeGreaterThan(0.005) // fährt wieder
-  })
-
-  it('nimmt den ERSTEN überfahrenen Halt, auch wenn ein Schritt zwei trifft', () => {
-    const s = tick(stand(), 10, plan([halt(0.08, 5), halt(0.02, 5)]))
-    expect(s.stand.marke).toBe(0.02)
-    expect(s.zeige?.id).toBe('m1')
-  })
-
-  it('hält nur bei normaler Vorwärtsfahrt — nicht im Schnelllauf, nicht rückwärts', () => {
-    const p = plan([halt(0.02, 5)])
+  it('feuert nur bei normaler Vorwärtsfahrt — nicht im Schnelllauf, nicht rückwärts', () => {
+    const p = plan([marke(0.02)])
     expect(tick(stand({ tempo: 2 }), 10, p).zeige).toBeNull()
     expect(tick(stand({ marke: 0.5, tempo: -1 }), 100, p).zeige).toBeNull()
   })
 
-  it('überspringt einen Halt ohne Aufnahmen (leere Gruppe)', () => {
-    const s = tick(stand(), 1, plan([{ anteil: 0.005, fotos: [] }]))
-    expect(s.zeige).toBeNull()
-    expect(s.stand.marke).toBeCloseTo(0.01, 6)
-  })
-
-  it('macht denselben Halt nicht zweimal', () => {
-    const p = plan([halt(0.005, 1)])
+  it('zeigt dieselbe Marke nicht zweimal', () => {
+    const p = plan([marke(0.005)])
     let s = tick(stand(), 1, p)
-    s = tick(s.stand, 2, p) // Standzeit vorbei, fährt weiter
-    expect(s.stand.marke).toBeGreaterThan(0.005)
+    expect(s.zeige?.id).toBe('m1')
     s = tick(s.stand, 1, p)
     expect(s.zeige).toBeNull()
   })
 
-  it('ein Halt MITTEN in einer Pause wird genau einmal gemacht', () => {
-    // Ein Foto während der Mittagspause: sein Anker liegt im Plateau. Der
-    // Übersprung überquert ihn — angehalten wird AUF ihm, danach geht es ohne
-    // zweite Einblendung hinter die Pause.
-    const p = plan([halt(0.5, 5)], MIT_PAUSE)
+  it('eine Marke MITTEN in einem Plateau feuert genau einmal', () => {
+    // Foto im weggetrimmten Bereich (Altbestand): der Plateau-Übersprung
+    // überquert seine Marke — einmal zeigen, nicht wieder.
+    const p = plan([marke(0.5)], MIT_PAUSE)
     let s = tick(stand({ marke: 0.2 }), 11, p)
-    expect(s.stand.marke).toBe(0.5)
-    expect(s.zeige?.id).toBe('m1')
-    s = tick(s.stand, 6, p) // 5 s Standzeit + 1 s Fahrt
     expect(s.stand.marke).toBeCloseTo(0.755, 6)
+    expect(s.zeige?.id).toBe('m1')
+    s = tick(s.stand, 1, p)
     expect(s.zeige).toBeNull()
   })
 })

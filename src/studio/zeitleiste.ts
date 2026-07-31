@@ -576,26 +576,23 @@ export function formatiereDauer(sekunden: number): string {
   return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')} Std`
 }
 
-// — Filmzeit-Kurve —
+// — Filmkurve (Wiedergabe) —
 //
-// Die Achse zeigt Aufnahmezeit, der Film fährt nach Strecke: eine reale Pause
-// (viel Zeit, keine Meter) ist auf der Achse breit und im Film nichts; eine
-// Fähre umgekehrt. Damit das Abspielen (abspielen.ts) trotzdem im Tempo des
-// fertigen Films läuft, übersetzt diese Kurve zwischen Achsen-ANTEIL und
-// Fahr-FILMSEKUNDE — Stützstelle je Trackpunkt, dazwischen linear. Foto-Halte
-// stecken NICHT in der Kurve: die legt `tick` selbst ein (restS), sonst
-// zählten sie doppelt.
+// Übersetzt zwischen Achsen-ANTEIL und FILMSEKUNDE der Wiedergabe — das
+// Tempo-Gesetz des Abspielens (abspielen.ts). Auf der film-proportionalen
+// Achse ist sie die Identität; Plateaus entstehen über weggetrimmten
+// Bereichen (`baueSpielKurve`), die der Kopf überfliegt.
 //
 // Beide Richtungen laufen über dieselbe lower_bound-Interpolation. Deren eine
-// Konvention trägt alle Sonderfälle: Über einer Pause ist `filmS` konstant
-// (Plateau) — die Umkehrung liefert dort die FRÜHESTE Stützstelle, also den
-// Moment des Ankommens (dieselbe Wahl wie `zeitZurPosition` im Server).
+// Konvention trägt alle Sonderfälle: Über einem Plateau ist `filmS` konstant
+// — die Umkehrung liefert dort die FRÜHESTE Stützstelle, also den Moment des
+// Ankommens (dieselbe Wahl wie `zeitZurPosition` im Server).
 
-/** Achsen-Anteil ↔ Fahr-Filmsekunden, beide Arrays monoton nicht-fallend. */
+/** Achsen-Anteil ↔ Filmsekunden, beide Arrays monoton nicht-fallend. */
 export interface Filmkurve {
   anteile: number[]
   filmS: number[]
-  /** Fahr-Filmzeit der ganzen Achse (letzter filmS-Wert) */
+  /** Filmzeit der ganzen Wiedergabe (letzter filmS-Wert) */
   gesamtS: number
 }
 
@@ -634,45 +631,6 @@ export function anteilBei(kurve: Filmkurve, filmS: number): number {
   return interpoliere(kurve.filmS, kurve.anteile, filmS)
 }
 
-/**
- * Kurve aus den Anzeige-Abschnitten (gleiche Quelle wie Bänder und Dauer-
- * Schätzung; `fahrzeitS`/`tempoMs` teilen sich die Formel, damit Schätzung und
- * Kurve nicht driften können). Weggetrimmte Abschnitte (`aktiv: false`) laufen
- * im Film nicht mit und werden zum Plateau — der Kopf fliegt darüber hinweg.
- *
- * Degeneriert-Wächter: Ohne nennenswerte Fahrzeit (reine Foto-Tour am selben
- * Fleck, leerer Track) kommt eine lineare 1-Sekunden-Kurve zurück — das
- * Abspielen durchquert die Achse dann in einer Sekunde und ruht wie gehabt an
- * jedem Halt (Ersatz für das frühere `rate: 1/max(1, dauerS)`).
- */
-export function baueFilmzeitKurve(
-  abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
-  skala: ZeitSkala,
-): Filmkurve {
-  const anteile: number[] = []
-  const filmS: number[] = []
-  let film = 0
-  for (const a of abschnitte) {
-    const tempo = tempoMs(a.mode)
-    for (let i = 0; i < a.pts.length; i++) {
-      const p = a.pts[i] as TrackPunkt
-      if (i > 0 && a.aktiv) {
-        film += meterZwischen(a.pts[i - 1] as TrackPunkt, p) / tempo
-      }
-      const anteil = offsetZuAnteil(skala, p[3])
-      const letzter = anteile.length - 1
-      // Naht-Duplikat (Grenzpunkt liegt in beiden Abschnitten): überspringen.
-      if (letzter >= 0 && anteile[letzter] === anteil && filmS[letzter] === film) continue
-      anteile.push(anteil)
-      filmS.push(film)
-    }
-  }
-  if (anteile.length < 2 || film < 1) {
-    return { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
-  }
-  return { anteile, filmS, gesamtS: film }
-}
-
 // — Filmzeit-ACHSE —
 //
 // Ab hier wird die Kurve zur Leiste selbst: Position ∝ Filmzeit. Anders als
@@ -695,10 +653,11 @@ export interface AchsenHalt {
  * anfassbar. Wie lang der Film WIRKLICH läuft, sagt die Spielkurve
  * (`baueSpielKurve`), die über getrimmte Bereiche hinwegfliegt.
  *
- * Degeneriert-Wächter wie bei `baueFilmzeitKurve`: ohne nennenswerte
- * Fahrzeit kommt die Achse OHNE Kurve zurück (linearer Fallback) — sonst
- * bestünde die Leiste nur noch aus Halt-Sprüngen und alles andere wäre
- * unbedienbare 0-Breite.
+ * Degeneriert-Wächter: erst NACH dem Einweben der Halte — eine Foto-Tour ohne
+ * nennenswerte Fahrstrecke hat trotzdem einen echten Film (fast nur
+ * Standzeiten; 8 Fotos ≈ 48 s), und genau dort wäre eine lineare
+ * Aufnahmezeit-Achse am falschesten. Ohne Fahrzeit UND ohne Halte kommt die
+ * Achse OHNE Kurve zurück (linearer Fallback).
  */
 export function baueAchse(
   abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
@@ -719,7 +678,7 @@ export function baueAchse(
       filmS.push(film)
     }
   }
-  if (tS.length < 2 || film < 1) return { ...skala }
+  if (tS.length < 2) return { ...skala }
 
   // Halte als Sprünge einweben: an der Halt-Zeit zwei Stützstellen (Film vor
   // und nach der Standzeit), alle späteren Werte heben sich um die Breite.
@@ -735,6 +694,7 @@ export function baueAchse(
     film += h.breiteS
   }
 
+  if (film < 1) return { ...skala }
   return { ...skala, kurve: { tS, filmS, gesamtS: film } }
 }
 
@@ -835,112 +795,6 @@ export function baueFilmMassband(achse: Achse, pxProS: number): Massbandmarke[] 
   return marken
 }
 
-// — Wanduhr-Maßband (Altbestand) —
-//
-// Fliegt mit der Editor-Umstellung auf die Filmzeit-Achse raus; bis dahin
-// beschriftet es die lineare Aufnahmezeit-Achse.
-
-/** Stufen in Minuten, aufsteigend — von der Minute bis zum Tag. */
-const STUFEN_MIN = [1, 2, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
-
-/** Feinste Stufe (Minuten), die bei diesem Maßstab noch lesbar bleibt. */
-export function waehleStufe(pxProMin: number): number {
-  for (const s of STUFEN_MIN) {
-    if (s * pxProMin >= MARKE_MIN_PX) return s
-  }
-  return STUFEN_MIN[STUFEN_MIN.length - 1] as number
-}
-
-function zeitFormat(zone: string): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zone })
-  } catch {
-    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' })
-  }
-}
-
-/**
- * Versatz der Zone zu UTC in Minuten, zum Zeitpunkt `ms`. Über formatToParts,
- * weil `Date` selbst nur die Zone des Browsers kennt — die Tour kann in einer
- * anderen liegen (Koh Pha-ngan: +07).
- */
-function zonenVersatzMin(ms: number, zone: string): number {
-  let teile: Intl.DateTimeFormatPart[]
-  try {
-    teile = new Intl.DateTimeFormat('en-US', {
-      timeZone: zone, hour12: false,
-      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-    }).formatToParts(new Date(ms))
-  } catch {
-    return -new Date(ms).getTimezoneOffset()
-  }
-  const w = (typ: string) => Number(teile.find((t) => t.type === typ)?.value ?? '0')
-  // Stunde 24 kommt bei hour12:false für Mitternacht vor — Date.UTC verkraftet das.
-  const alsUtc = Date.UTC(w('year'), w('month') - 1, w('day'), w('hour'), w('minute'), w('second'))
-  return Math.round((alsUtc - ms) / 60000)
-}
-
-/**
- * Wanduhrzeit (als wäre sie UTC) → echter Zeitpunkt. Zwei Durchgänge, weil der
- * Versatz selbst vom Zeitpunkt abhängt: die erste Schätzung kann bei einer
- * Sommerzeit-Umstellung eine Stunde danebenliegen.
- */
-function lokalZuAbsolut(lokalMs: number, zone: string): number {
-  const ersterVersuch = lokalMs - zonenVersatzMin(lokalMs, zone) * 60000
-  return lokalMs - zonenVersatzMin(ersterVersuch, zone) * 60000
-}
-
-/**
- * Beschriftete Marken der Aufnahmezeit-Achse. Das Raster liegt auf der
- * LOKALEN Uhrzeit der Tour (also „15:00", nicht „15:07 = Tourbeginn + 2 h") —
- * sonst liest sich die Achse wie eine Stoppuhr statt wie eine Uhr.
- */
-export function baueMassband(
-  startIso: string,
-  skala: ZeitSkala,
-  zone: string,
-  pxProMin: number,
-): Massbandmarke[] {
-  const startMs = Date.parse(startIso)
-  if (!Number.isFinite(startMs)) return []
-  const vonMs = startMs + skala.vonS * 1000
-  const bisMs = startMs + skala.bisS * 1000
-  const spanneMin = (bisMs - vonMs) / 60000
-  if (!(spanneMin > 0)) return []
-
-  const stufeMin = waehleStufe(pxProMin)
-  const rasterMs = stufeMin * 60000
-  const breitePx = spanneMin * pxProMin
-  const fmt = zeitFormat(zone)
-
-  const versatz = zonenVersatzMin(vonMs, zone) * 60000
-  let lokal = Math.ceil((vonMs + versatz) / rasterMs) * rasterMs
-
-  const marken: Massbandmarke[] = []
-  // In der Sommerzeit-LÜCKE gibt es Wanduhrzeiten, die nie stattfinden (02:30
-  // am Umstellungstag). Die Rückrechnung liefert dann denselben Zeitpunkt wie
-  // eine spätere Marke — ohne diese Sperre stünde die Stunde doppelt und die
-  // Achse liefe rückwärts.
-  let letztesMs = -Infinity
-  // Deckel gegen Endlosschleifen bei absurden Eingaben (pxProMin ~ 0).
-  for (let i = 0; i < 5000; i++) {
-    const ms = lokalZuAbsolut(lokal, zone)
-    if (ms > bisMs) break
-    if (ms >= vonMs && ms > letztesMs) {
-      letztesMs = ms
-      const anteil = offsetZuAnteil(skala, (ms - startMs) / 1000)
-      const x = anteil * breitePx
-      marken.push({
-        anteil,
-        text: fmt.format(new Date(ms)),
-        voll: lokal % 3_600_000 === 0,
-        rand: x < MARKE_HALB_PX ? 'anfang' : x > breitePx - MARKE_HALB_PX ? 'ende' : null,
-      })
-    }
-    lokal += rasterMs
-  }
-  return marken
-}
 
 // — Streckenmeter —
 //

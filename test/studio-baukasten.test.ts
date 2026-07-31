@@ -37,8 +37,6 @@ import {
   baueAchse,
   baueAudioBalken,
   baueFilmMassband,
-  baueFilmzeitKurve,
-  baueMassband,
   baueMedienDots,
   baueSkala,
   baueSpielKurve,
@@ -57,7 +55,6 @@ import {
   offsetZuAnteil,
   schaetzeAnimationsdauer,
   waehleFilmStufe,
-  waehleStufe,
 } from '../src/studio/zeitleiste'
 
 const START = '2026-07-12T17:45:00Z'
@@ -596,82 +593,6 @@ describe('Zeitleiste', () => {
     expect(haltedauerS({ holdS: 20 })).toBe(20)
   })
 
-  describe('Filmzeit-Kurve', () => {
-    /** 6 km östlich bei 47° Breite als Längengrad-Differenz. */
-    const dLng6km = 6000 / (111_320 * Math.cos((47 * Math.PI) / 180))
-    // Fahrt (600 s, 6 km) → Pause (1380 s, 0 m) → Fahrt (600 s, 6 km)
-    const pausenTrack: TrackPunkt[] = [
-      [9, 47, 0, 0],
-      [9 + dLng6km, 47, 0, 600],
-      [9 + dLng6km, 47, 0, 1980],
-      [9 + 2 * dLng6km, 47, 0, 2580],
-    ]
-    const pSkala = baueSkala(pausenTrack)!
-    const kurve = baueFilmzeitKurve([{ mode: 'bike', aktiv: true, pts: pausenTrack }], pSkala)
-
-    it('kumuliert Fahr-Filmzeit; die Pause wird zum Plateau', () => {
-      // 6 km bike = 50 s Film je Hälfte, die Pause trägt nichts bei
-      expect(kurve.gesamtS).toBeCloseTo(100, 1)
-      expect(filmBei(kurve, 0)).toBe(0)
-      expect(filmBei(kurve, 1)).toBeCloseTo(100, 1)
-      // Mitten in der Pause (Anteil 0,5 ≙ 1290 s): Filmzeit steht bei 50 s
-      expect(filmBei(kurve, 0.5)).toBeCloseTo(50, 1)
-      // Außerhalb geklemmt
-      expect(filmBei(kurve, -1)).toBe(0)
-      expect(filmBei(kurve, 2)).toBeCloseTo(100, 1)
-    })
-
-    it('Umkehrung: exakt der Plateau-Wert liefert die ANKUNFT, knapp darüber die Abfahrt', () => {
-      // Den exakten Plateau-Float aus der Kurve selbst holen — handgerechnete
-      // „50" liegen ein Epsilon daneben und fielen auf die falsche Seite.
-      const plateau = filmBei(kurve, 0.5)
-      expect(anteilBei(kurve, plateau)).toBeCloseTo(600 / 2580, 4)
-      expect(anteilBei(kurve, plateau + 0.01)).toBeCloseTo(1980 / 2580, 2)
-      // Roundtrip außerhalb der Pause
-      expect(anteilBei(kurve, filmBei(kurve, 0.1))).toBeCloseTo(0.1, 6)
-    })
-
-    it('weggetrimmte Abschnitte werden zum Plateau', () => {
-      const kurve2 = baueFilmzeitKurve(
-        [
-          { mode: 'bike', aktiv: true, pts: [pausenTrack[0]!, pausenTrack[1]!] },
-          { mode: 'bike', aktiv: false, pts: [pausenTrack[1]!, pausenTrack[3]!] },
-        ],
-        pSkala,
-      )
-      expect(kurve2.gesamtS).toBeCloseTo(50, 1)
-      expect(filmBei(kurve2, 1)).toBeCloseTo(50, 1)
-    })
-
-    it('verschmilzt den doppelten Grenzpunkt an der Abschnitts-Naht', () => {
-      const kurve2 = baueFilmzeitKurve(
-        [
-          { mode: 'bike', aktiv: true, pts: [pausenTrack[0]!, pausenTrack[1]!] },
-          { mode: 'walk', aktiv: true, pts: [pausenTrack[1]!, pausenTrack[2]!] },
-        ],
-        pSkala,
-      )
-      expect(kurve2.anteile.length).toBe(3)
-    })
-
-    it('fällt ohne nennenswerte Fahrzeit auf die lineare 1-Sekunden-Kurve zurück', () => {
-      const stand: TrackPunkt[] = [
-        [9, 47, 0, 0],
-        [9, 47, 0, 3000],
-      ]
-      const kurve2 = baueFilmzeitKurve([{ mode: 'walk', aktiv: true, pts: stand }], baueSkala(stand)!)
-      expect(kurve2).toEqual({ anteile: [0, 1], filmS: [0, 1], gesamtS: 1 })
-      expect(baueFilmzeitKurve([], pSkala).gesamtS).toBe(1)
-    })
-
-    // Gleiche Formel wie die Dauer-Schätzung — die Engine-Treue der Kurve
-    // deckt der Tempo-Wächter unter „Fortbewegungs-Modi" mit ab.
-    it('stimmt mit der Dauer-Schätzung überein (gemeinsame Formel)', () => {
-      const geschaetzt = schaetzeAnimationsdauer([{ mode: 'bike', aktiv: true, pts: pausenTrack }], [])
-      expect(kurve.gesamtS).toBeCloseTo(geschaetzt, 6)
-    })
-  })
-
   describe('Filmzeit-Achse', () => {
     const dLng6km = 6000 / (111_320 * Math.cos((47 * Math.PI) / 180))
     // Zwei Fahr-Hälften à 6 km bike (je 50 s Film), Halt bei t=600 (20 s Film)
@@ -714,19 +635,46 @@ describe('Zeitleiste', () => {
       expect(a2.kurve?.gesamtS).toBeCloseTo(100, 1)
     })
 
-    it('degeneriert (keine Fahrzeit) kommt eine Achse OHNE Kurve zurück', () => {
+    it('ohne Fahrstrecke tragen die HALTE die Achse — der Film ist ja fast nur Standzeit', () => {
       const stand: TrackPunkt[] = [
         [9, 47, 0, 0],
         [9, 47, 0, 3000],
       ]
-      const a2 = baueAchse([{ mode: 'walk', aktiv: true, pts: stand }], [{ offsetS: 100, breiteS: 6 }], baueSkala(stand)!)
-      expect(a2.kurve).toBeUndefined()
+      const nurFotos = baueAchse(
+        [{ mode: 'walk', aktiv: true, pts: stand }],
+        [{ offsetS: 100, breiteS: 6 }],
+        baueSkala(stand)!,
+      )
+      expect(nurFotos.kurve?.gesamtS).toBeCloseTo(6, 3)
+      // Erst ohne Fahrzeit UND ohne Halte ist nichts zu zeigen: linearer Fallback
+      const leer = baueAchse([{ mode: 'walk', aktiv: true, pts: stand }], [], baueSkala(stand)!)
+      expect(leer.kurve).toBeUndefined()
     })
 
     it('filmZuOffset liefert die Film-Sekunde der Achse (Kopf-Uhr)', () => {
       expect(filmZuOffset(achse, 300)).toBeCloseTo(25, 1)
       expect(filmZuOffset(achse, 600)).toBeCloseTo(50, 1) // Sprunganfang
       expect(filmZuOffset(achse, 1200)).toBeCloseTo(120, 1)
+    })
+
+    it('eine reale Pause fällt zum Plateau zusammen — Umkehrung liefert die Ankunft', () => {
+      // Fahrt (6 km) → Pause (1380 s, 0 m) → Fahrt (6 km), keine Halte
+      const pausenTrack: TrackPunkt[] = [
+        [9, 47, 0, 0],
+        [9 + dLng6km, 47, 0, 600],
+        [9 + dLng6km, 47, 0, 1980],
+        [9 + 2 * dLng6km, 47, 0, 2580],
+      ]
+      const a2 = baueAchse([{ mode: 'bike', aktiv: true, pts: pausenTrack }], [], baueSkala(pausenTrack)!)
+      // Beide Pausen-Ränder liegen auf demselben Anteil (0 Filmzeit dazwischen)
+      expect(offsetZuAnteil(a2, 1980)).toBeCloseTo(offsetZuAnteil(a2, 600.01), 4)
+      // Ein Anteil exakt auf der Plateau-Kante übersetzt zur ANKUNFT
+      expect(anteilZuOffset(a2, offsetZuAnteil(a2, 600))).toBeCloseTo(600, 2)
+    })
+
+    it('Fahranteil der Achse stimmt mit der Dauer-Schätzung überein (eine Formel)', () => {
+      const gesamtOhneHalt = baueAchse(abschnitte, [], fSkala).kurve?.gesamtS
+      expect(gesamtOhneHalt).toBeCloseTo(schaetzeAnimationsdauer(abschnitte, []), 6)
     })
 
     it('Spielkurve: Identität ohne Trim, Plateau über weggetrimmten Bereichen', () => {
@@ -798,50 +746,6 @@ describe('Zeitleiste', () => {
     expect(formatiereDauer(3600)).toBe('1:00 Std')
     expect(formatiereDauer(7500)).toBe('2:05 Std')
     expect(formatiereDauer(-5)).toBe('0 Sek')
-  })
-
-  it('Maßband-Stufe ist die feinste, die noch lesbar bleibt', () => {
-    expect(waehleStufe(60)).toBe(1) // 1 Min ≙ 60 px
-    expect(waehleStufe(30)).toBe(2) // 1 Min nur 30 px → nächstgröbere
-    expect(waehleStufe(12)).toBe(5)
-    expect(waehleStufe(0.5)).toBe(120)
-    // Selbst die gröbste Stufe reicht nicht mehr → sie wird trotzdem genommen
-    expect(waehleStufe(0.0001)).toBe(1440)
-  })
-
-  it('Maßband: Marken auf dem lokalen Raster, innerhalb der Skala', () => {
-    const marken = baueMassband(START, skala, 'UTC', 12) // → 5-Minuten-Stufe
-    expect(marken.length).toBe(5) // 17:45 … 18:05
-    for (const m of marken) {
-      expect(m.anteil).toBeGreaterThanOrEqual(0)
-      expect(m.anteil).toBeLessThanOrEqual(1)
-      expect(m.text).toMatch(/^\d{2}:(00|05|10|15|20|25|30|35|40|45|50|55)$/)
-    }
-    expect(marken[0]!.text).toBe('17:45')
-    expect(marken[0]!.rand).toBe('anfang') // liegt genau auf der Kante
-    expect(marken[marken.length - 1]!.rand).toBe('ende')
-    // Nur die volle Stunde bekommt den kräftigen Teilstrich
-    expect(marken.filter((m) => m.voll).map((m) => m.text)).toEqual(['18:00'])
-  })
-
-  it('Maßband rastet auf die ZONE der Tour, nicht auf UTC', () => {
-    const marken = baueMassband(START, skala, 'Asia/Bangkok', 12)
-    // 17:45 UTC = 00:45 in Bangkok — das Raster liegt trotzdem auf glatten Minuten
-    expect(marken[0]!.text).toBe('00:45')
-    expect(marken.map((m) => m.text)).toEqual(['00:45', '00:50', '00:55', '01:00', '01:05'])
-  })
-
-  it('Maßband übersteht die Sommerzeit-Umstellung', () => {
-    // 2026-03-29: Berlin springt um 01:00 UTC von 02:00 auf 03:00 Ortszeit
-    const start = '2026-03-29T00:30:00Z'
-    const marken = baueMassband(start, { vonS: 0, bisS: 7200 }, 'Europe/Berlin', 2) // 30-Min-Stufe
-    // 02:00 und 02:30 Ortszeit gibt es an diesem Tag nicht — sie fehlen, statt
-    // als Dubletten der Folgestunde aufzutauchen.
-    expect(marken.map((m) => m.text)).toEqual(['01:30', '03:00', '03:30', '04:00', '04:30'])
-    // Anteile bleiben streng steigend — kein Rückwärtssprung durch den Versatz
-    for (let i = 1; i < marken.length; i++) {
-      expect(marken[i]!.anteil).toBeGreaterThan(marken[i - 1]!.anteil)
-    }
   })
 
   it('Streckenmeter: kumuliert je Punkt, dazwischen interpoliert', () => {

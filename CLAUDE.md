@@ -400,19 +400,31 @@ Loslassen einmal geschrieben (= genau ein Undo-Schritt). Analog schreibt `zeichn
 Kartenpunkte **fort** statt sie abzureißen (geschlüsselt nach der Zusammensetzung des Halts) —
 sonst wurden bei jedem Klick alle Fotos kurz zu leeren Kreisen.
 
-**Die Achse zeigt Aufnahmezeit**, nicht Wiedergabezeit — daran hängen alle Overlay-Anker.
-Wie lang die fertige Animation läuft, ist eine andere Größe (die Engine fährt mit eigenem
-Tempo und hält an jedem Foto); sie steht als **eine geschätzte Zahl** links unter den Bahnen
-(`schaetzeAnimationsdauer`). Bewusst keine zweite Zeitachse.
+**Die Achse zeigt FILMZEIT, die Anker bleiben Aufnahmezeit.** Position auf der Leiste ∝
+Filmzeit (`baueAchse` in [zeitleiste.ts](src/studio/zeitleiste.ts)): gleich breit heißt gleich
+lang im fertigen Film — eine Fähre schrumpft auf ihren Filmanteil, ein Foto-Halt bekommt seine
+Standzeit als Achsenbreite (Sprung: Zeit steht, Film läuft; bei foto-lastigen Kurztouren IST
+der Film überwiegend Standzeit), eine reale Pause fällt fast auf einen Strich zusammen
+(Plateau; die GPS-Drift kollabiert zusätzlich serverseitig, s. o.). Das Maßband zählt
+Filmminuten („0:30", `baueFilmMassband`, film-linear ⇒ äquidistant); die Kopf-Uhr zeigt
+„Filmzeit / Gesamt" prominent, Uhrzeit und km als Nebengrößen. ALLE Overlay-Anker bleiben
+absolute Aufnahme-Zeitstempel — nur die Abbildung Zeit ↔ Leistenposition
+(`offsetZuAnteil`/`anteilZuOffset` über `Achse`) ist nichtlinear; ohne Kurve (degenerierte
+Tour) fällt sie auf linear zurück. Das Abspielen läuft über `baueSpielKurve` (Identität; bei
+Alt-Trim Plateaus) und zeigt Aufnahmen als Überfahr-MARKEN im Halt-Sprung (`zeigen`, kein
+restS mehr); der Abspieler meldet ANTEILE, und `renderPlayhead(anteilDirekt)` nimmt sie
+direkt — der Rundweg Anteil → Zeit → Anteil fiele im Halt-Sprung auf den Sprunganfang zurück
+und der Strich stünde die ganze Standzeit still. Zwei Kanten: Ereignisse, die ganz in einer
+Ex-Pause liegen, drängen auf einen Pixel (Ausweg: Zeitfelder im Inspector); Videos zählen mit
+der Foto-Standzeit (echte Videolänge kennt erst die Pipeline).
 
-**Deshalb rechnet auch der Foto-Zug in ZEIT, nicht in Metern.** `ziehStopp` setzte den
-Cursor-Weg lange in Streckenmeter um — die sind über die Achse ungleich verteilt (langsame
-Abschnitte breit, schnelle schmal), also sprang die Miniatur mal voraus, mal zurück und lag nie
-unter dem Zeiger. Jetzt ist die Ruhelage (`stopp.offsetS`) die Referenz, der Cursor-Weg zählt
-1:1 in Pixeln, und der ganze Stapel verschiebt sich um DENSELBEN Zeit-Versatz (die innere
-Ordnung bleibt). Einrasten auf fremde Aufnahmen misst ebenfalls in Pixeln. Ein Foto verlässt
-seinen Halt über zwei Wege: Karte (Ort zeigen) oder Foto-Spur (Zeit zeigen) — beide enden im
-selben Anker, `reihe` fällt dabei weg.
+**Der Foto-Zug rechnet px-treu unterm Finger, die Zeit über eine ZIEH-Achse.** Die Miniatur
+folgt dem Cursor 1:1 in Pixeln (Ruhelage `stopp.offsetS` als optische Referenz, Einrasten in
+Pixeln); die Rückübersetzung px → Zeit läuft über eine Achse OHNE die eigenen Halte — auf der
+echten Achse hätte der gezogene Stopp selbst Breite, und um die Ruhelage läge eine tote Zone
+von Sprungbreite, in der der Cursor die Zeit nicht bewegte. Ein Foto verlässt seinen Halt über
+zwei Wege: Karte (Ort zeigen) oder Foto-Spur (Zeit zeigen) — beide enden im selben Anker,
+`reihe` fällt dabei weg.
 
 **Was in der Datei steht, liest der Editor selbst.** Der Block „Aufnahme-Details" unter einer
 Aufnahme zeigt Aufnahmezeit, Verortung und die Kameradaten aus dem EXIF (Kamera, Objektiv,

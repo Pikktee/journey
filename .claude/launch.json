@@ -9,6 +9,12 @@
       "autoPort": true
     },
     {
+      "name": "smoke",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["MAPTALE_API=http://localhost:8791", "npm", "run", "dev", "--", "--port", "5217", "--strictPort"],
+      "port": 5217
+    },
+    {
       "name": "api",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "server", "run", "dev"],
