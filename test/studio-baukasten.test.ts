@@ -31,15 +31,20 @@ import {
 import { SFX_BIBLIOTHEK, SFX_DATEIEN, sfxEffekt } from '../src/studio/sfxbibliothek'
 import {
   ankerScroll,
+  anteilBei,
   anteilZuOffset,
   audioWirdVerworfen,
   baueAudioBalken,
+  baueFilmzeitKurve,
   baueMassband,
   baueMedienDots,
   baueSkala,
   baueTrimGriffe,
   baueZustandsBaender,
+  filmBei,
   formatiereDauer,
+  HALT_AUSBLEND_S,
+  HALT_ENGINE_S,
   haltedauerS,
   kumMeter,
   meterZuOffset,
@@ -297,6 +302,19 @@ describe('Fortbewegungs-Modi', () => {
       const sek = schaetzeAnimationsdauer([{ mode: modus as never, aktiv: true, pts: strecke }], [])
       expect(sek, `Tempo für ${modus}`).toBeCloseTo(12000 / (120 * faktor), 1)
     }
+  })
+
+  // Die Haltezeit-Spiegel (HALT_ENGINE_S/HALT_AUSBLEND_S) hatten als einzige
+  // KEINEN Wächter — eine Engine-Änderung wäre in Dauer-Schätzung und
+  // Filmzeit-Kurve unbemerkt verhallt.
+  it('Haltezeiten decken sich mit HOLD_HIDE/HOLD_AUSBLEND der Engine', () => {
+    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const hide = quelle.match(/const HOLD_HIDE = ([\d.]+)/)
+    const ausblend = quelle.match(/const HOLD_AUSBLEND = ([\d.]+)/)
+    expect(hide, 'HOLD_HIDE in src/tour.js nicht gefunden').not.toBeNull()
+    expect(ausblend, 'HOLD_AUSBLEND in src/tour.js nicht gefunden').not.toBeNull()
+    expect(Number(hide?.[1])).toBe(HALT_ENGINE_S)
+    expect(Number(ausblend?.[1])).toBe(HALT_AUSBLEND_S)
   })
 
   it('haben in der Engine auch eine Kamera-Skala', () => {
@@ -570,6 +588,82 @@ describe('Zeitleiste', () => {
     // Default-Haltedauer entspricht HOLD_HIDE der Engine, nicht dem UI-Label „5 s"
     expect(haltedauerS()).toBe(5.2)
     expect(haltedauerS({ holdS: 20 })).toBe(20)
+  })
+
+  describe('Filmzeit-Kurve', () => {
+    /** 6 km östlich bei 47° Breite als Längengrad-Differenz. */
+    const dLng6km = 6000 / (111_320 * Math.cos((47 * Math.PI) / 180))
+    // Fahrt (600 s, 6 km) → Pause (1380 s, 0 m) → Fahrt (600 s, 6 km)
+    const pausenTrack: TrackPunkt[] = [
+      [9, 47, 0, 0],
+      [9 + dLng6km, 47, 0, 600],
+      [9 + dLng6km, 47, 0, 1980],
+      [9 + 2 * dLng6km, 47, 0, 2580],
+    ]
+    const pSkala = baueSkala(pausenTrack)!
+    const kurve = baueFilmzeitKurve([{ mode: 'bike', aktiv: true, pts: pausenTrack }], pSkala)
+
+    it('kumuliert Fahr-Filmzeit; die Pause wird zum Plateau', () => {
+      // 6 km bike = 50 s Film je Hälfte, die Pause trägt nichts bei
+      expect(kurve.gesamtS).toBeCloseTo(100, 1)
+      expect(filmBei(kurve, 0)).toBe(0)
+      expect(filmBei(kurve, 1)).toBeCloseTo(100, 1)
+      // Mitten in der Pause (Anteil 0,5 ≙ 1290 s): Filmzeit steht bei 50 s
+      expect(filmBei(kurve, 0.5)).toBeCloseTo(50, 1)
+      // Außerhalb geklemmt
+      expect(filmBei(kurve, -1)).toBe(0)
+      expect(filmBei(kurve, 2)).toBeCloseTo(100, 1)
+    })
+
+    it('Umkehrung: exakt der Plateau-Wert liefert die ANKUNFT, knapp darüber die Abfahrt', () => {
+      // Den exakten Plateau-Float aus der Kurve selbst holen — handgerechnete
+      // „50" liegen ein Epsilon daneben und fielen auf die falsche Seite.
+      const plateau = filmBei(kurve, 0.5)
+      expect(anteilBei(kurve, plateau)).toBeCloseTo(600 / 2580, 4)
+      expect(anteilBei(kurve, plateau + 0.01)).toBeCloseTo(1980 / 2580, 2)
+      // Roundtrip außerhalb der Pause
+      expect(anteilBei(kurve, filmBei(kurve, 0.1))).toBeCloseTo(0.1, 6)
+    })
+
+    it('weggetrimmte Abschnitte werden zum Plateau', () => {
+      const kurve2 = baueFilmzeitKurve(
+        [
+          { mode: 'bike', aktiv: true, pts: [pausenTrack[0]!, pausenTrack[1]!] },
+          { mode: 'bike', aktiv: false, pts: [pausenTrack[1]!, pausenTrack[3]!] },
+        ],
+        pSkala,
+      )
+      expect(kurve2.gesamtS).toBeCloseTo(50, 1)
+      expect(filmBei(kurve2, 1)).toBeCloseTo(50, 1)
+    })
+
+    it('verschmilzt den doppelten Grenzpunkt an der Abschnitts-Naht', () => {
+      const kurve2 = baueFilmzeitKurve(
+        [
+          { mode: 'bike', aktiv: true, pts: [pausenTrack[0]!, pausenTrack[1]!] },
+          { mode: 'walk', aktiv: true, pts: [pausenTrack[1]!, pausenTrack[2]!] },
+        ],
+        pSkala,
+      )
+      expect(kurve2.anteile.length).toBe(3)
+    })
+
+    it('fällt ohne nennenswerte Fahrzeit auf die lineare 1-Sekunden-Kurve zurück', () => {
+      const stand: TrackPunkt[] = [
+        [9, 47, 0, 0],
+        [9, 47, 0, 3000],
+      ]
+      const kurve2 = baueFilmzeitKurve([{ mode: 'walk', aktiv: true, pts: stand }], baueSkala(stand)!)
+      expect(kurve2).toEqual({ anteile: [0, 1], filmS: [0, 1], gesamtS: 1 })
+      expect(baueFilmzeitKurve([], pSkala).gesamtS).toBe(1)
+    })
+
+    // Gleiche Formel wie die Dauer-Schätzung — die Engine-Treue der Kurve
+    // deckt der Tempo-Wächter unter „Fortbewegungs-Modi" mit ab.
+    it('stimmt mit der Dauer-Schätzung überein (gemeinsame Formel)', () => {
+      const geschaetzt = schaetzeAnimationsdauer([{ mode: 'bike', aktiv: true, pts: pausenTrack }], [])
+      expect(kurve.gesamtS).toBeCloseTo(geschaetzt, 6)
+    })
   })
 
   it('formatiert Dauern je nach Größenordnung', () => {

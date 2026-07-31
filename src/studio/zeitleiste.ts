@@ -469,8 +469,11 @@ const BASIS_TEMPO_MS = 120
 /** Spiegel von MODE_SPEED (src/tour.js). */
 const TEMPO: Record<Modus, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
 /** `HOLD_HIDE` (5,2 s Anzeige) + `HOLD_AUSBLEND` (0,8 s) in src/tour.js. */
-const HALT_ENGINE_S = 5.2
-const HALT_AUSBLEND_S = 0.8
+export const HALT_ENGINE_S = 5.2
+export const HALT_AUSBLEND_S = 0.8
+
+/** Film-Tempo eines Modus in m/s — die EINE Formel für Schätzung und Kurve. */
+const tempoMs = (mode: Modus): number => BASIS_TEMPO_MS * (TEMPO[mode] ?? 1)
 
 /** Meter zwischen zwei Trackpunkten (lokale Plattkarte — auf Segmentlänge genau genug). */
 function meterZwischen(a: TrackPunkt, b: TrackPunkt): number {
@@ -496,14 +499,19 @@ export function schaetzeAnimationsdauer(
   let sekunden = 0
   for (const a of abschnitte) {
     if (!a.aktiv) continue // weggetrimmt: läuft nicht mit
-    let meter = 0
-    for (let i = 1; i < a.pts.length; i++) {
-      meter += meterZwischen(a.pts[i - 1] as TrackPunkt, a.pts[i] as TrackPunkt)
-    }
-    sekunden += meter / (BASIS_TEMPO_MS * (TEMPO[a.mode] ?? 1))
+    sekunden += fahrzeitS(a)
   }
   for (const halt of haltedauernS) sekunden += halt + HALT_AUSBLEND_S
   return sekunden
+}
+
+/** Fahr-Filmzeit eines Abschnitts (s): Länge ÷ modusabhängiges Tempo. */
+function fahrzeitS(a: { mode: Modus; pts: readonly TrackPunkt[] }): number {
+  let meter = 0
+  for (let i = 1; i < a.pts.length; i++) {
+    meter += meterZwischen(a.pts[i - 1] as TrackPunkt, a.pts[i] as TrackPunkt)
+  }
+  return meter / tempoMs(a.mode)
 }
 
 /** Haltedauer eines Fotos, wie die Engine sie anwendet (display.holdS oder Default). */
@@ -522,6 +530,103 @@ export function formatiereDauer(sekunden: number): string {
   const min = Math.round(s / 60)
   if (min < 60) return `${min} Min`
   return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')} Std`
+}
+
+// — Filmzeit-Kurve —
+//
+// Die Achse zeigt Aufnahmezeit, der Film fährt nach Strecke: eine reale Pause
+// (viel Zeit, keine Meter) ist auf der Achse breit und im Film nichts; eine
+// Fähre umgekehrt. Damit das Abspielen (abspielen.ts) trotzdem im Tempo des
+// fertigen Films läuft, übersetzt diese Kurve zwischen Achsen-ANTEIL und
+// Fahr-FILMSEKUNDE — Stützstelle je Trackpunkt, dazwischen linear. Foto-Halte
+// stecken NICHT in der Kurve: die legt `tick` selbst ein (restS), sonst
+// zählten sie doppelt.
+//
+// Beide Richtungen laufen über dieselbe lower_bound-Interpolation. Deren eine
+// Konvention trägt alle Sonderfälle: Über einer Pause ist `filmS` konstant
+// (Plateau) — die Umkehrung liefert dort die FRÜHESTE Stützstelle, also den
+// Moment des Ankommens (dieselbe Wahl wie `zeitZurPosition` im Server).
+
+/** Achsen-Anteil ↔ Fahr-Filmsekunden, beide Arrays monoton nicht-fallend. */
+export interface Filmkurve {
+  anteile: number[]
+  filmS: number[]
+  /** Fahr-Filmzeit der ganzen Achse (letzter filmS-Wert) */
+  gesamtS: number
+}
+
+/**
+ * Stückweise lineare Auswertung ys(x) über monoton nicht-fallendem xs.
+ * lower_bound: erster Index mit xs[i] ≥ x — bei Duplikat-Stufen in xs landet
+ * ein exakter Treffer damit auf der ERSTEN Stützstelle der Stufe, knapp
+ * darüber hinter der letzten. Außerhalb wird geklemmt.
+ */
+function interpoliere(xs: readonly number[], ys: readonly number[], x: number): number {
+  const n = xs.length
+  if (n === 0) return 0
+  if (x <= (xs[0] as number)) return ys[0] as number
+  if (x >= (xs[n - 1] as number)) return ys[n - 1] as number
+  let lo = 0
+  let hi = n - 1
+  while (lo < hi) {
+    const mitte = (lo + hi) >> 1
+    if ((xs[mitte] as number) < x) lo = mitte + 1
+    else hi = mitte
+  }
+  const a = xs[lo - 1] as number
+  const b = xs[lo] as number
+  const spanne = b - a
+  const u = spanne > 0 ? (x - a) / spanne : 1
+  return (ys[lo - 1] as number) + u * ((ys[lo] as number) - (ys[lo - 1] as number))
+}
+
+/** Fahr-Filmsekunde an einem Achsen-Anteil. */
+export function filmBei(kurve: Filmkurve, anteil: number): number {
+  return interpoliere(kurve.anteile, kurve.filmS, anteil)
+}
+
+/** Achsen-Anteil zu einer Fahr-Filmsekunde (Umkehrung; Plateau → Ankunft). */
+export function anteilBei(kurve: Filmkurve, filmS: number): number {
+  return interpoliere(kurve.filmS, kurve.anteile, filmS)
+}
+
+/**
+ * Kurve aus den Anzeige-Abschnitten (gleiche Quelle wie Bänder und Dauer-
+ * Schätzung; `fahrzeitS`/`tempoMs` teilen sich die Formel, damit Schätzung und
+ * Kurve nicht driften können). Weggetrimmte Abschnitte (`aktiv: false`) laufen
+ * im Film nicht mit und werden zum Plateau — der Kopf fliegt darüber hinweg.
+ *
+ * Degeneriert-Wächter: Ohne nennenswerte Fahrzeit (reine Foto-Tour am selben
+ * Fleck, leerer Track) kommt eine lineare 1-Sekunden-Kurve zurück — das
+ * Abspielen durchquert die Achse dann in einer Sekunde und ruht wie gehabt an
+ * jedem Halt (Ersatz für das frühere `rate: 1/max(1, dauerS)`).
+ */
+export function baueFilmzeitKurve(
+  abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
+  skala: ZeitSkala,
+): Filmkurve {
+  const anteile: number[] = []
+  const filmS: number[] = []
+  let film = 0
+  for (const a of abschnitte) {
+    const tempo = tempoMs(a.mode)
+    for (let i = 0; i < a.pts.length; i++) {
+      const p = a.pts[i] as TrackPunkt
+      if (i > 0 && a.aktiv) {
+        film += meterZwischen(a.pts[i - 1] as TrackPunkt, p) / tempo
+      }
+      const anteil = offsetZuAnteil(skala, p[3])
+      const letzter = anteile.length - 1
+      // Naht-Duplikat (Grenzpunkt liegt in beiden Abschnitten): überspringen.
+      if (letzter >= 0 && anteile[letzter] === anteil && filmS[letzter] === film) continue
+      anteile.push(anteil)
+      filmS.push(film)
+    }
+  }
+  if (anteile.length < 2 || film < 1) {
+    return { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
+  }
+  return { anteile, filmS, gesamtS: film }
 }
 
 // — Maßband —
