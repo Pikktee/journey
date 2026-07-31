@@ -34,15 +34,20 @@ import {
   anteilBei,
   anteilZuOffset,
   audioWirdVerworfen,
+  baueAchse,
   baueAudioBalken,
+  baueFilmMassband,
   baueFilmzeitKurve,
   baueMassband,
   baueMedienDots,
   baueSkala,
+  baueSpielKurve,
   baueTrimGriffe,
   baueZustandsBaender,
   filmBei,
+  filmZuOffset,
   formatiereDauer,
+  formatiereFilmzeit,
   HALT_AUSBLEND_S,
   HALT_ENGINE_S,
   haltedauerS,
@@ -51,6 +56,7 @@ import {
   musikLanes,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
+  waehleFilmStufe,
   waehleStufe,
 } from '../src/studio/zeitleiste'
 
@@ -664,6 +670,124 @@ describe('Zeitleiste', () => {
       const geschaetzt = schaetzeAnimationsdauer([{ mode: 'bike', aktiv: true, pts: pausenTrack }], [])
       expect(kurve.gesamtS).toBeCloseTo(geschaetzt, 6)
     })
+  })
+
+  describe('Filmzeit-Achse', () => {
+    const dLng6km = 6000 / (111_320 * Math.cos((47 * Math.PI) / 180))
+    // Zwei Fahr-Hälften à 6 km bike (je 50 s Film), Halt bei t=600 (20 s Film)
+    const fahrTrack: TrackPunkt[] = [
+      [9, 47, 0, 0],
+      [9 + dLng6km, 47, 0, 600],
+      [9 + 2 * dLng6km, 47, 0, 1200],
+    ]
+    const fSkala = baueSkala(fahrTrack)!
+    const abschnitte = [{ mode: 'bike' as const, aktiv: true, pts: fahrTrack }]
+    const achse = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 20 }], fSkala)
+    const gesamt = achse.kurve?.gesamtS ?? 0
+
+    it('Halte bekommen ihre Standzeit als Achsenbreite', () => {
+      expect(gesamt).toBeCloseTo(120, 1) // 100 s Fahrt + 20 s Halt
+      // Der Halt belegt (50..70)/120 der Achse
+      expect(offsetZuAnteil(achse, 599)).toBeLessThan(50 / 120)
+      expect(offsetZuAnteil(achse, 601)).toBeGreaterThan(70 / 120 - 0.01)
+    })
+
+    it('Sprung-Konventionen: Halt-Zeit → Sprunganfang, Anteil im Sprung → Halt-Zeit', () => {
+      expect(offsetZuAnteil(achse, 600)).toBeCloseTo(50 / 120, 4)
+      // Mitten im Halt-Sprung (Filmzeit 60 von 120) steht die Aufnahmezeit still
+      expect(anteilZuOffset(achse, 60 / 120)).toBeCloseTo(600, 4)
+      // Außerhalb des Sprungs normale Umkehrung
+      expect(anteilZuOffset(achse, offsetZuAnteil(achse, 300))).toBeCloseTo(300, 4)
+    })
+
+    it('ohne Kurve fällt die Abbildung auf die lineare Aufnahmezeit zurück', () => {
+      expect(offsetZuAnteil(fSkala, 600)).toBeCloseTo(0.5, 6)
+      expect(anteilZuOffset(fSkala, 0.25)).toBeCloseTo(300, 6)
+    })
+
+    it('Trim wird für die ACHSE ignoriert — weggetrimmte Ränder bleiben anfassbar', () => {
+      const mitTrim = [
+        { mode: 'bike' as const, aktiv: true, pts: [fahrTrack[0]!, fahrTrack[1]!] },
+        { mode: 'bike' as const, aktiv: false, pts: [fahrTrack[1]!, fahrTrack[2]!] },
+      ]
+      const a2 = baueAchse(mitTrim, [], fSkala)
+      expect(a2.kurve?.gesamtS).toBeCloseTo(100, 1)
+    })
+
+    it('degeneriert (keine Fahrzeit) kommt eine Achse OHNE Kurve zurück', () => {
+      const stand: TrackPunkt[] = [
+        [9, 47, 0, 0],
+        [9, 47, 0, 3000],
+      ]
+      const a2 = baueAchse([{ mode: 'walk', aktiv: true, pts: stand }], [{ offsetS: 100, breiteS: 6 }], baueSkala(stand)!)
+      expect(a2.kurve).toBeUndefined()
+    })
+
+    it('filmZuOffset liefert die Film-Sekunde der Achse (Kopf-Uhr)', () => {
+      expect(filmZuOffset(achse, 300)).toBeCloseTo(25, 1)
+      expect(filmZuOffset(achse, 600)).toBeCloseTo(50, 1) // Sprunganfang
+      expect(filmZuOffset(achse, 1200)).toBeCloseTo(120, 1)
+    })
+
+    it('Spielkurve: Identität ohne Trim, Plateau über weggetrimmten Bereichen', () => {
+      const identitaet = baueSpielKurve(achse, abschnitte)
+      expect(identitaet).toEqual({ anteile: [0, 1], filmS: [0, gesamt], gesamtS: gesamt })
+
+      const mitTrim = [
+        { mode: 'bike' as const, aktiv: true, pts: [fahrTrack[0]!, fahrTrack[1]!] },
+        { mode: 'bike' as const, aktiv: false, pts: [fahrTrack[1]!, fahrTrack[2]!] },
+      ]
+      const a2 = baueAchse(mitTrim, [{ offsetS: 300, breiteS: 20 }], fSkala)
+      const spiel = baueSpielKurve(a2, mitTrim)
+      // Erster Abschnitt (50 s Fahrt + 20 s Halt) spielt, der getrimmte nicht
+      expect(spiel.gesamtS).toBeCloseTo(70, 1)
+      expect(filmBei(spiel, 1)).toBeCloseTo(70, 1)
+      // Hinter der Trim-Grenze wächst die Spielzeit nicht mehr (Plateau)
+      const grenzAnteil = offsetZuAnteil(a2, 600)
+      expect(filmBei(spiel, grenzAnteil + 0.1)).toBeCloseTo(70, 1)
+    })
+  })
+
+  it('formatiert Filmzeit als m:ss bzw. h:mm:ss', () => {
+    expect(formatiereFilmzeit(0)).toBe('0:00')
+    expect(formatiereFilmzeit(38)).toBe('0:38')
+    expect(formatiereFilmzeit(90)).toBe('1:30')
+    expect(formatiereFilmzeit(3600)).toBe('1:00:00')
+    expect(formatiereFilmzeit(3725)).toBe('1:02:05')
+    expect(formatiereFilmzeit(-5)).toBe('0:00')
+  })
+
+  it('Film-Maßband-Stufe ist die feinste, die noch lesbar bleibt', () => {
+    expect(waehleFilmStufe(60)).toBe(1)
+    expect(waehleFilmStufe(30)).toBe(2)
+    expect(waehleFilmStufe(12)).toBe(5)
+    expect(waehleFilmStufe(1)).toBe(60)
+    expect(waehleFilmStufe(0.001)).toBe(3600)
+  })
+
+  it('Film-Maßband: äquidistante Marken, volle Minuten kräftig, Ränder markiert', () => {
+    const dLng6km = 6000 / (111_320 * Math.cos((47 * Math.PI) / 180))
+    const track2: TrackPunkt[] = [
+      [9, 47, 0, 0],
+      [9 + dLng6km, 47, 0, 600],
+      [9 + 2 * dLng6km, 47, 0, 1200],
+    ]
+    const achse = baueAchse(
+      [{ mode: 'bike', aktiv: true, pts: track2 }],
+      [{ offsetS: 600, breiteS: 20 }],
+      baueSkala(track2)!,
+    )
+    const marken = baueFilmMassband(achse, 5) // 120 s × 5 px/s → 15-s-Stufe
+    expect(marken.map((m) => m.text)).toEqual(['0:00', '0:15', '0:30', '0:45', '1:00', '1:15', '1:30', '1:45', '2:00'])
+    // film-linear ⇒ äquidistant
+    for (let i = 1; i < marken.length; i++) {
+      expect((marken[i]?.anteil ?? 0) - (marken[i - 1]?.anteil ?? 0)).toBeCloseTo(15 / 120, 6)
+    }
+    expect(marken.filter((m) => m.voll).map((m) => m.text)).toEqual(['0:00', '1:00', '2:00'])
+    expect(marken[0]?.rand).toBe('anfang')
+    expect(marken[marken.length - 1]?.rand).toBe('ende')
+    // Degeneriert: nichts zu beschriften
+    expect(baueFilmMassband({ vonS: 0, bisS: 100 }, 5)).toEqual([])
   })
 
   it('formatiert Dauern je nach Größenordnung', () => {

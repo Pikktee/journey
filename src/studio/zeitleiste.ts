@@ -26,6 +26,30 @@ export interface ZeitSkala {
   bisS: number
 }
 
+/**
+ * Aufnahmezeit ↔ Fahr- und Haltezeit des FILMS, beide Arrays monoton
+ * nicht-fallend. Duplikate in `tS` sind Foto-Halte (Zeit steht, Film läuft) —
+ * ein „Sprung"; konstante `filmS` über wachsendem `tS` sind reale Pausen —
+ * ein „Plateau".
+ */
+export interface AchsenKurve {
+  tS: number[]
+  filmS: number[]
+  /** Filmzeit der ganzen Achse inkl. Halte (letzter filmS-Wert) */
+  gesamtS: number
+}
+
+/**
+ * Die Achse der Zeitleiste. Mit `kurve` ist die Leiste FILM-proportional:
+ * gleich breit heißt gleich lang im fertigen Film (eine Fähre schrumpft, ein
+ * Foto-Halt bekommt seine Standzeit als Breite, eine reale Pause verschwindet
+ * fast). Ohne `kurve` bleibt sie linear über der Aufnahmezeit — der Fallback
+ * für degenerierte Touren und der Not-Schalter des Umbaus.
+ */
+export interface Achse extends ZeitSkala {
+  kurve?: AchsenKurve
+}
+
 export function baueSkala(track: readonly TrackPunkt[]): ZeitSkala | null {
   const erster = track[0]
   const letzter = track[track.length - 1]
@@ -33,14 +57,34 @@ export function baueSkala(track: readonly TrackPunkt[]): ZeitSkala | null {
   return { vonS: erster[3], bisS: letzter[3] }
 }
 
-/** Zeit-Offset (s) → Anteil 0..1 auf der Leiste (geklemmt). */
-export function anteilZuOffset(skala: ZeitSkala, anteil: number): number {
+/**
+ * Anteil 0..1 auf der Leiste → Zeit-Offset (s), geklemmt. Auf der Filmzeit-
+ * Achse liefert ein Anteil INNERHALB eines Halt-Sprungs die Halt-Zeit —
+ * die Interpolation zwischen zwei gleichen `tS`-Stützstellen ist konstant.
+ */
+export function anteilZuOffset(skala: ZeitSkala | Achse, anteil: number): number {
   const a = Math.max(0, Math.min(1, anteil))
+  const kurve = (skala as Achse).kurve
+  if (kurve) return interpoliere(kurve.filmS, kurve.tS, a * kurve.gesamtS)
   return skala.vonS + a * (skala.bisS - skala.vonS)
 }
 
-export function offsetZuAnteil(skala: ZeitSkala, tOffsetS: number): number {
+/**
+ * Zeit-Offset (s) → Anteil 0..1, geklemmt. Auf der Filmzeit-Achse landet die
+ * Halt-Zeit selbst am Sprung-ANFANG (lower_bound trifft die erste Stützstelle
+ * der Stufe); knapp danach liegt hinter dem Sprung.
+ */
+export function offsetZuAnteil(skala: ZeitSkala | Achse, tOffsetS: number): number {
+  const kurve = (skala as Achse).kurve
+  if (kurve) return interpoliere(kurve.tS, kurve.filmS, tOffsetS) / kurve.gesamtS
   return Math.max(0, Math.min(1, (tOffsetS - skala.vonS) / (skala.bisS - skala.vonS)))
+}
+
+/** Film-Sekunde der ACHSE (inkl. Halte) zu einem Zeit-Offset — für Kopf-Uhr
+ *  und Spielkurve. Ohne Kurve linear auf [0, 1] skaliert (degenerierter Fall). */
+export function filmZuOffset(achse: Achse, tOffsetS: number): number {
+  if (achse.kurve) return interpoliere(achse.kurve.tS, achse.kurve.filmS, tOffsetS)
+  return offsetZuAnteil(achse, tOffsetS)
 }
 
 /**
@@ -629,19 +673,175 @@ export function baueFilmzeitKurve(
   return { anteile, filmS, gesamtS: film }
 }
 
+// — Filmzeit-ACHSE —
+//
+// Ab hier wird die Kurve zur Leiste selbst: Position ∝ Filmzeit. Anders als
+// die Spielplan-Kurve (oben) rechnet die Achsen-Kurve in ZEIT-OFFSETS und
+// enthält die Foto-Halte als Sprünge — bei foto-lastigen Kurztouren IST der
+// Film überwiegend Standzeit (56-min-Beispiel: ~48 s Halte vs. ~8 s Fahrt);
+// ohne die Halte fände der Großteil des Films auf null Breite statt.
+
+/** Ein Halt für die Achse: wo er liegt und wie viel Filmzeit er kostet. */
+export interface AchsenHalt {
+  offsetS: number
+  breiteS: number
+}
+
+/**
+ * Die Filmzeit-Achse aus Anzeige-Abschnitten und Foto-Halten.
+ *
+ * Trim wird bewusst IGNORIERT (alle Abschnitte zählen voll): die Achse ist
+ * Bearbeitungsfläche — ein weggetrimmter Rand mit Breite 0 wäre nicht mehr
+ * anfassbar. Wie lang der Film WIRKLICH läuft, sagt die Spielkurve
+ * (`baueSpielKurve`), die über getrimmte Bereiche hinwegfliegt.
+ *
+ * Degeneriert-Wächter wie bei `baueFilmzeitKurve`: ohne nennenswerte
+ * Fahrzeit kommt die Achse OHNE Kurve zurück (linearer Fallback) — sonst
+ * bestünde die Leiste nur noch aus Halt-Sprüngen und alles andere wäre
+ * unbedienbare 0-Breite.
+ */
+export function baueAchse(
+  abschnitte: ReadonlyArray<{ mode: Modus; aktiv: boolean; pts: readonly TrackPunkt[] }>,
+  halte: readonly AchsenHalt[],
+  skala: ZeitSkala,
+): Achse {
+  const tS: number[] = []
+  const filmS: number[] = []
+  let film = 0
+  for (const a of abschnitte) {
+    const tempo = tempoMs(a.mode)
+    for (let i = 0; i < a.pts.length; i++) {
+      const p = a.pts[i] as TrackPunkt
+      if (i > 0) film += meterZwischen(a.pts[i - 1] as TrackPunkt, p) / tempo
+      const letzter = tS.length - 1
+      if (letzter >= 0 && tS[letzter] === p[3] && filmS[letzter] === film) continue
+      tS.push(p[3])
+      filmS.push(film)
+    }
+  }
+  if (tS.length < 2 || film < 1) return { ...skala }
+
+  // Halte als Sprünge einweben: an der Halt-Zeit zwei Stützstellen (Film vor
+  // und nach der Standzeit), alle späteren Werte heben sich um die Breite.
+  for (const h of [...halte].sort((a, b) => a.offsetS - b.offsetS)) {
+    if (!(h.breiteS > 0)) continue
+    const filmAmHalt = interpoliere(tS, filmS, h.offsetS)
+    // Einfügeposition: hinter alle Stützstellen ≤ Halt-Zeit
+    let i = tS.length
+    while (i > 0 && (tS[i - 1] as number) > h.offsetS) i--
+    for (let j = i; j < tS.length; j++) filmS[j] = (filmS[j] as number) + h.breiteS
+    tS.splice(i, 0, h.offsetS, h.offsetS)
+    filmS.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
+    film += h.breiteS
+  }
+
+  return { ...skala, kurve: { tS, filmS, gesamtS: film } }
+}
+
+/**
+ * Abspiel-Kurve über der Achse: Achsen-Anteil → Filmsekunden der WIEDERGABE.
+ * Ohne Trim die Identität (die Achse ist ja schon film-proportional); mit
+ * Trim Plateaus über den inaktiven Bereichen — der Kopf fliegt darüber
+ * hinweg, statt hypothetische Randbereiche abzuspielen.
+ */
+export function baueSpielKurve(
+  achse: Achse,
+  abschnitte: ReadonlyArray<{ aktiv: boolean; pts: readonly TrackPunkt[] }>,
+): Filmkurve {
+  const kurve = achse.kurve
+  if (!kurve) return { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
+  if (abschnitte.every((a) => a.aktiv)) {
+    return { anteile: [0, 1], filmS: [0, kurve.gesamtS], gesamtS: kurve.gesamtS }
+  }
+  const anteile: number[] = [0]
+  const filmS: number[] = [0]
+  let film = 0
+  for (const a of abschnitte) {
+    const vonT = (a.pts[0] as TrackPunkt)[3]
+    const bisT = (a.pts[a.pts.length - 1] as TrackPunkt)[3]
+    if (a.aktiv) film += filmZuOffset(achse, bisT) - filmZuOffset(achse, vonT)
+    anteile.push(offsetZuAnteil(achse, bisT))
+    filmS.push(film)
+  }
+  anteile.push(1)
+  filmS.push(film)
+  return film >= 1 ? { anteile, filmS, gesamtS: film } : { anteile: [0, 1], filmS: [0, 1], gesamtS: 1 }
+}
+
 // — Maßband —
 //
-// Beim Hineinzoomen wird Platz frei, also darf die Skala feiner werden. Die
-// Stufe ist die FEINSTE, bei der zwei Beschriftungen noch `MARKE_MIN_PX`
-// auseinanderliegen; reicht selbst die gröbste nicht (sehr lange Tour, ganz
-// herausgezoomt), wird sie genommen und die Beschriftungen rücken zusammen.
+// Die Achse ist film-proportional, das Maßband zählt deshalb FILMZEIT („0:30",
+// „1:00") — gleichmäßige Marken statt des alten Wanduhr-Rasters (die Uhrzeit
+// der Aufnahme steht weiter in Kopf-Uhr und Inspector). Beim Hineinzoomen wird
+// Platz frei, also darf die Skala feiner werden: die Stufe ist die FEINSTE,
+// bei der zwei Beschriftungen noch `MARKE_MIN_PX` auseinanderliegen.
 
-/** Stufen in Minuten, aufsteigend — von der Minute bis zum Tag. */
-const STUFEN_MIN = [1, 2, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
-/** Mindestabstand zweier Beschriftungen in px (eine „HH:MM" ist ~34 px breit). */
+/** Stufen in Film-Sekunden, aufsteigend — von der Sekunde bis zur Stunde. */
+const STUFEN_S = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600] as const
+/** Mindestabstand zweier Beschriftungen in px (eine „m:ss" ist ~34 px breit). */
 const MARKE_MIN_PX = 58
 /** Halbe Beschriftungsbreite — darunter würde die Marke am Rand angeschnitten. */
 const MARKE_HALB_PX = 20
+
+/** Feinste Stufe (Film-Sekunden), die bei diesem Maßstab noch lesbar bleibt. */
+export function waehleFilmStufe(pxProS: number): number {
+  for (const s of STUFEN_S) {
+    if (s * pxProS >= MARKE_MIN_PX) return s
+  }
+  return STUFEN_S[STUFEN_S.length - 1] as number
+}
+
+/** Filmzeit als „m:ss", ab einer Stunde „h:mm:ss". */
+export function formatiereFilmzeit(sekunden: number): string {
+  const s = Math.max(0, Math.round(sekunden))
+  const mm = Math.floor(s / 60)
+  const ss = String(s % 60).padStart(2, '0')
+  if (mm < 60) return `${mm}:${ss}`
+  return `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}:${ss}`
+}
+
+export interface Massbandmarke {
+  anteil: number
+  text: string
+  /** volle Minute — kräftigerer Teilstrich als die Zwischenstufen */
+  voll: boolean
+  /** am Rand angeschnitten? Dann links- statt mittenbündig ausrichten. */
+  rand: 'anfang' | 'ende' | null
+}
+
+/**
+ * Beschriftete Marken der Filmzeit-Achse. Weil die Achse film-linear ist,
+ * liegen die Marken äquidistant — auch mitten in einem Foto-Halt vergeht
+ * Filmzeit, dort stehen sie genauso. Ohne Kurve (degenerierte Tour) gibt es
+ * nichts Sinnvolles zu beschriften: leeres Band.
+ */
+export function baueFilmMassband(achse: Achse, pxProS: number): Massbandmarke[] {
+  const gesamtS = achse.kurve?.gesamtS
+  if (!gesamtS || !(pxProS > 0)) return []
+
+  const stufeS = waehleFilmStufe(pxProS)
+  const breitePx = gesamtS * pxProS
+  const marken: Massbandmarke[] = []
+  for (let filmT = 0; filmT <= gesamtS; filmT += stufeS) {
+    const anteil = filmT / gesamtS
+    const x = anteil * breitePx
+    marken.push({
+      anteil,
+      text: formatiereFilmzeit(filmT),
+      voll: filmT % 60 === 0,
+      rand: x < MARKE_HALB_PX ? 'anfang' : x > breitePx - MARKE_HALB_PX ? 'ende' : null,
+    })
+  }
+  return marken
+}
+
+// — Wanduhr-Maßband (Altbestand) —
+//
+// Fliegt mit der Editor-Umstellung auf die Filmzeit-Achse raus; bis dahin
+// beschriftet es die lineare Aufnahmezeit-Achse.
+
+/** Stufen in Minuten, aufsteigend — von der Minute bis zum Tag. */
+const STUFEN_MIN = [1, 2, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
 
 /** Feinste Stufe (Minuten), die bei diesem Maßstab noch lesbar bleibt. */
 export function waehleStufe(pxProMin: number): number {
@@ -690,19 +890,10 @@ function lokalZuAbsolut(lokalMs: number, zone: string): number {
   return lokalMs - zonenVersatzMin(ersterVersuch, zone) * 60000
 }
 
-export interface Massbandmarke {
-  anteil: number
-  text: string
-  /** volle Stunde — kräftigerer Teilstrich als die Zwischenstufen */
-  voll: boolean
-  /** am Rand angeschnitten? Dann links- statt mittenbündig ausrichten. */
-  rand: 'anfang' | 'ende' | null
-}
-
 /**
- * Beschriftete Marken der Zeitachse. Das Raster liegt auf der LOKALEN Uhrzeit
- * der Tour (also „15:00", nicht „15:07 = Tourbeginn + 2 h") — sonst liest sich
- * die Achse wie eine Stoppuhr statt wie eine Uhr.
+ * Beschriftete Marken der Aufnahmezeit-Achse. Das Raster liegt auf der
+ * LOKALEN Uhrzeit der Tour (also „15:00", nicht „15:07 = Tourbeginn + 2 h") —
+ * sonst liest sich die Achse wie eine Stoppuhr statt wie eine Uhr.
  */
 export function baueMassband(
   startIso: string,
