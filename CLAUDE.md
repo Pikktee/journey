@@ -569,9 +569,34 @@ Klartext: Er ist ein Türöffner zur Registrierung, kein Kontogeheimnis, und der
 weitergeben können. Geprüft wird ZWEIMAL — vorab für eine brauchbare Fehlermeldung, und beim
 Einlösen nach dem Anlegen über ein bedingtes UPDATE, denn nur dort ist es atomar. Scheitert das
 zweite (zwei Anmeldungen mit demselben Code in derselben Sekunde), wird das eben angelegte
-Konto wieder zurückgenommen. Der Link aus der Verwaltung führt auf
-`/studio.html#einladung=CODE` und trägt den Code ins Formular ein; wie bei `#verify=`/`#reset=`
-wirkt er nur beim Laden der Seite, nicht bei einem Hash-Wechsel in einem offenen Tab.
+Konto wieder zurückgenommen.
+
+**Die Registrierung ist zweistufig: erst die Einladung, dann die Person.** Schritt 1 fragt nur
+den Code und prüft ihn über `POST /api/auth/einladung-pruefen` — rein lesend, eigene Bremse
+(12 Versuche je 10 min), verbraucht nichts. Erst danach kommt das Formular mit Name, Adresse
+und Passwort; der bestätigte Code steht dort als grüner Chip mit „Ändern", sonst wüsste niemand,
+ob die Einladung angekommen ist. Ohne Einladungspflicht entfällt Schritt 1 ersatzlos.
+`formatiereEinladungscode` ([src/einladungscode.ts](src/einladungscode.ts)) räumt beim TIPPEN
+auf (Versalien, Bindestrich von selbst), statt hinterher zu meckern. Zwei Kanten: Der Einstieg
+`#registrieren` von der Landing fällt VOR der `/auth/me`-Antwort an und kennt die Pflicht noch
+nicht — `zeigeRegistrierungsmodus` stellt ihn nachträglich gerade. Und ein zwischen Schritt 1
+und 2 verbrauchter Code wirft zurück auf Schritt 1, weil nur dort das Feld steht, in dem sich
+das beheben lässt. Der Link aus der Verwaltung (`/studio.html#einladung=CODE`) prüft den Code
+sofort und überspringt Schritt 1; wie `#verify=`/`#reset=` wirkt er nur beim Laden der Seite,
+nicht bei einem Hash-Wechsel in einem offenen Tab.
+
+**Passwörter werden bewertet, nicht reglementiert.** [passwortstaerke.ts](src/passwortstaerke.ts)
+(DOM-frei, getestet) folgt der NIST-Linie: **Länge ist der Hebel**, erzwungene Zeichenklassen
+sind es nicht — „Hund!2026" erfüllt jede klassische Regel und ist trotzdem schlecht,
+„lampe wolke treppe" erfüllt keine und ist gut. Abzüge gibt es für bekannte Muster,
+Tastaturwege, Wiederholungen und alles, was in Name oder E-Mail steht (deshalb bekommt die
+Bewertung diese Felder als FUNKTION — sie ändern sich, während das Passwort schon getippt ist).
+Bewusst kein zxcvbn: dessen Wörterbücher lägen im Basis-Bundle jeder Anmeldeseite.
+[passwortfeld.ts](src/passwortfeld.ts) hängt Balken, Rat und Sichtbarkeits-Schalter an ein
+vorhandenes Input (Studio-Registrierung, Passwort-Reset, Admin-Dialog) und bringt sein CSS
+selbst mit — sonst stünde derselbe Block in zwei HTML-Dateien und liefe auseinander. Der
+Absende-Knopf sperrt erst, wenn tatsächlich etwas Schwaches im Feld steht: Ein von Anfang an
+grauer Knopf sähe aus, als wäre das Formular kaputt.
 
 ## Android-App
 

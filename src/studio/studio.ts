@@ -8,6 +8,8 @@
 
 import * as api from './api.js'
 import { fuelleTopNav } from '../app-nav.js'
+import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
+import { haengePasswortfeld } from '../passwortfeld.js'
 import { merkeAngemeldet, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
@@ -37,12 +39,20 @@ const els = {
   loginFehler: $('login-fehler'),
   // M9: Registrierung / Passwort-Reset
   authBox: $('auth-box'),
+  // Schritt 1 der Registrierung: die Einladung
+  codeForm: $<HTMLFormElement>('code-form'),
+  regCode: $<HTMLInputElement>('reg-code'),
+  codeFehler: $('code-fehler'),
+  codeWeiter: $<HTMLButtonElement>('code-weiter'),
+  // Schritt 2: die eigenen Daten
   registerForm: $<HTMLFormElement>('register-form'),
   regName: $<HTMLInputElement>('reg-name'),
   regEmail: $<HTMLInputElement>('reg-email'),
   regPasswort: $<HTMLInputElement>('reg-passwort'),
-  regCodeFeld: $('reg-code-feld'),
-  regCode: $<HTMLInputElement>('reg-code'),
+  regCodeChip: $('reg-code-chip'),
+  regCodeWert: $('reg-code-wert'),
+  regCodeAendern: $<HTMLButtonElement>('reg-code-aendern'),
+  regAbsenden: $<HTMLButtonElement>('reg-absenden'),
   regUnterzeile: $('reg-unterzeile'),
   registerFehler: $('register-fehler'),
   resetAnfordernForm: $<HTMLFormElement>('reset-anfordern-form'),
@@ -50,6 +60,7 @@ const els = {
   resetAnfordernStatus: $('reset-anfordern-status'),
   resetSetzenForm: $<HTMLFormElement>('reset-setzen-form'),
   resetPasswort: $<HTMLInputElement>('reset-passwort'),
+  resetAbsenden: $<HTMLButtonElement>('reset-absenden'),
   resetSetzenFehler: $('reset-setzen-fehler'),
   // M9: Konto-Menü + Verifikations-Banner
   kontoMenue: $('konto-menue'),
@@ -151,10 +162,11 @@ function zeigeBenutzer(sitzung: api.Sitzung): void {
   }
 }
 
-// — Auth-Modus umschalten (Anmelden / Registrieren / Reset) —
-type AuthModus = 'login' | 'register' | 'reset-anfordern' | 'reset-setzen'
+// — Auth-Modus umschalten (Anmelden / Einladung / Registrieren / Reset) —
+type AuthModus = 'login' | 'code' | 'register' | 'reset-anfordern' | 'reset-setzen'
 const authFormen: Record<AuthModus, HTMLFormElement> = {
   login: els.loginForm,
+  code: els.codeForm,
   register: els.registerForm,
   'reset-anfordern': els.resetAnfordernForm,
   'reset-setzen': els.resetSetzenForm,
@@ -164,12 +176,27 @@ function zeigeAuthModus(modus: AuthModus): void {
   for (const [name, form] of Object.entries(authFormen)) form.hidden = name !== modus
 }
 
+/**
+ * Der Weg zur Registrierung — er beginnt bei der Einladung, wenn eine
+ * gebraucht wird und noch keine bestätigt ist.
+ *
+ * Alle Wege dorthin laufen hier durch (Knopf im Login, `#registrieren` von der
+ * Landing), damit die Reihenfolge an EINER Stelle steht: Wer keinen gültigen
+ * Code hat, soll das erfahren, bevor er ein Formular ausfüllt.
+ */
+function starteRegistrierung(): void {
+  zeigeAuthModus(einladungPflicht && !bestaetigterCode ? 'code' : 'register')
+}
+
 // Modus-Wechsel-Links (data-modus) in allen Auth-Formularen
 els.authBox.querySelectorAll<HTMLButtonElement>('[data-modus]').forEach((btn) => {
   btn.addEventListener('click', () => {
     els.loginFehler.textContent = ''
     els.registerFehler.textContent = ''
-    zeigeAuthModus(btn.dataset.modus as AuthModus)
+    els.codeFehler.textContent = ''
+    const ziel = btn.dataset.modus as AuthModus
+    if (ziel === 'register') starteRegistrierung()
+    else zeigeAuthModus(ziel)
   })
 })
 
@@ -191,20 +218,34 @@ function zeigeSitzung(sitzung: api.Sitzung): void {
   }
 }
 
+/** Verlangt diese Instanz eine Einladung? (Aus /auth/me, auch ohne Anmeldung.) */
+let einladungPflicht = false
+/** Der in Schritt 1 vom Server bestätigte Code — leer, solange keiner steht. */
+let bestaetigterCode = ''
+
 /**
- * Fragt die Anmeldung nach einem Einladungscode?
+ * Den bestätigten Code merken und in Schritt 2 als Beleg zeigen.
  *
- * Das Feld steht nur, wenn die Instanz Einladungen verlangt — oder wenn ohnehin
- * schon ein Code aus dem Link darin liegt. Ein Code aus einer Einladung, den ein
- * verstecktes Feld schluckt, wäre der schlimmere Fehler als ein Feld zu viel.
+ * Der Chip ist kein Schmuck: Ohne ihn wüsste in Schritt 2 niemand, ob die
+ * Einladung angekommen ist — und ob ein Tippfehler noch zu korrigieren wäre.
  */
+function setzeBestaetigtenCode(code: string): void {
+  bestaetigterCode = code
+  els.regCodeChip.hidden = !code
+  els.regCodeWert.textContent = code
+}
+
 function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
-  const pflicht = sitzung.registrierung?.einladungPflicht ?? false
-  els.regCodeFeld.hidden = !pflicht && !els.regCode.value.trim()
-  els.regCode.required = pflicht
-  els.regUnterzeile.textContent = pflicht
-    ? 'Für die Anmeldung brauchst du eine Einladung.'
+  einladungPflicht = sitzung.registrierung?.einladungPflicht ?? false
+  // Steht die Tür wieder offen, ist ein bestätigter Code gegenstandslos —
+  // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
+  if (!einladungPflicht) setzeBestaetigtenCode('')
+  els.regUnterzeile.textContent = einladungPflicht
+    ? 'Nur noch dein Name, deine Adresse und ein Passwort.'
     : 'Kostenlos — du bekommst gleich eine Bestätigungsmail.'
+  // `#registrieren` von der Landing fällt vor dieser Antwort an und kannte die
+  // Pflicht noch nicht — hier steht der Einstieg gerade, falls nötig.
+  if (!els.registerForm.hidden && einladungPflicht && !bestaetigterCode) zeigeAuthModus('code')
 }
 
 async function ladeSitzung(): Promise<api.Sitzung> {
@@ -263,9 +304,20 @@ async function behandleAuthHash(): Promise<void> {
   }
   if (einladung) {
     history.replaceState(null, '', location.pathname + location.search)
-    els.regCode.value = decodeURIComponent(einladung)
-    els.regCodeFeld.hidden = false
-    zeigeAuthModus('register')
+    const code = formatiereEinladungscode(decodeURIComponent(einladung))
+    els.regCode.value = code
+    // Den Code gleich prüfen: Wer einem Einladungslink folgt, hat Schritt 1
+    // bereits hinter sich — außer der Code taugt nicht, dann landet er dort und
+    // sieht, warum.
+    try {
+      await api.pruefeEinladung(code)
+      setzeBestaetigtenCode(code)
+      zeigeAuthModus('register')
+      els.regName.focus()
+    } catch (fehler) {
+      els.codeFehler.textContent = (fehler as Error).message
+      zeigeAuthModus('code')
+    }
     return
   }
   if (verify) {
@@ -287,6 +339,28 @@ async function behandleAuthHash(): Promise<void> {
 
 let resetToken: string | null = null
 
+// — Passwortfelder: Stärke anzeigen und schwache Wahl abfangen —
+//
+// Der Absende-Knopf sperrt erst, wenn tatsächlich etwas Schwaches im Feld
+// steht: Ein von Anfang an grauer Knopf sähe aus, als wäre das Formular kaputt,
+// und beim leeren Feld greift ohnehin `required`.
+const bindeAbsenden = (feld: HTMLInputElement, knopf: HTMLButtonElement) => (befund: { reicht: boolean }) => {
+  knopf.disabled = feld.value.length > 0 && !befund.reicht
+}
+
+const regPasswortfeld = haengePasswortfeld(els.regPasswort, {
+  // Name und Adresse stehen im selben Formular und ändern sich noch, während
+  // das Passwort schon getippt ist — deshalb als Funktion, nicht als Wert.
+  persoenlich: () => [els.regName.value, els.regEmail.value],
+  beiAenderung: bindeAbsenden(els.regPasswort, els.regAbsenden),
+})
+
+haengePasswortfeld(els.resetPasswort, {
+  // Beim Reset kennen wir nur die Adresse aus dem Anmeldefeld — besser als nichts.
+  persoenlich: () => [els.email.value],
+  beiAenderung: bindeAbsenden(els.resetPasswort, els.resetAbsenden),
+})
+
 els.loginForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   els.loginFehler.textContent = ''
@@ -299,20 +373,72 @@ els.loginForm.addEventListener('submit', async (e) => {
   }
 })
 
+// — Schritt 1: die Einladung —
+
+// Unter dem Finger aufräumen: Versalien, Bindestrich von selbst, Unerlaubtes
+// fällt weg. Die Schreibmarke ans Ende zu setzen genügt, weil nur vorwärts
+// getippt wird — beim Einfügen ist das Ende ohnehin die richtige Stelle.
+els.regCode.addEventListener('input', () => {
+  els.regCode.value = formatiereEinladungscode(els.regCode.value)
+  els.codeFehler.textContent = ''
+})
+
+els.codeForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  els.codeFehler.textContent = ''
+  const code = formatiereEinladungscode(els.regCode.value)
+  if (!codeVollstaendig(code)) {
+    els.codeFehler.textContent = 'Ein Code hat acht Zeichen — bitte vollständig eingeben'
+    return
+  }
+  els.codeWeiter.disabled = true
+  els.codeWeiter.textContent = 'Wird geprüft …'
+  try {
+    await api.pruefeEinladung(code)
+    setzeBestaetigtenCode(code)
+    zeigeAuthModus('register')
+    els.regName.focus()
+  } catch (fehler) {
+    els.codeFehler.textContent = (fehler as Error).message
+    els.regCode.select()
+  } finally {
+    els.codeWeiter.disabled = false
+    els.codeWeiter.textContent = 'Weiter'
+  }
+})
+
+els.regCodeAendern.addEventListener('click', () => {
+  els.registerFehler.textContent = ''
+  zeigeAuthModus('code')
+  els.regCode.select()
+})
+
+// — Schritt 2: die eigenen Daten —
+
 els.registerForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   els.registerFehler.textContent = ''
+  els.regAbsenden.disabled = true
   try {
     await api.registriere(
       els.regEmail.value.trim(),
       els.regPasswort.value,
       els.regName.value.trim(),
-      els.regCode.value.trim() || undefined,
+      bestaetigterCode || undefined,
     )
-    els.regPasswort.value = ''
+    regPasswortfeld.leere()
     await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
   } catch (fehler) {
     els.registerFehler.textContent = (fehler as Error).message
+    // Ein zwischenzeitlich verbrauchter Code führt zurück in Schritt 1 — dort
+    // steht das Feld, in dem sich das beheben lässt.
+    if (einladungPflicht && /Einladungscode/i.test((fehler as Error).message)) {
+      setzeBestaetigtenCode('')
+      els.codeFehler.textContent = (fehler as Error).message
+      zeigeAuthModus('code')
+    }
+  } finally {
+    els.regAbsenden.disabled = false
   }
 })
 

@@ -120,6 +120,16 @@ export function registriere(
   })
 }
 
+/**
+ * Schritt 1 der Registrierung: Ist dieser Einladungscode gültig?
+ *
+ * Verbraucht ihn NICHT — das passiert erst beim Anlegen des Kontos. Wirft mit
+ * der Begründung des Servers (unbekannt / verbraucht / abgelaufen).
+ */
+export function pruefeEinladung(code: string): Promise<{ ok: boolean; pflicht: boolean }> {
+  return anfrage('/auth/einladung-pruefen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ code }) })
+}
+
 export function verifiziereEmail(token: string): Promise<{ ok: boolean }> {
   return anfrage('/auth/verifiziere', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
 }

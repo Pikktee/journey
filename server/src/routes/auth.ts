@@ -76,6 +76,10 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   const loginGebremst = baueBremse(10)
   const registrierGebremst = baueBremse(5, 10 * 60_000) // 5 pro 10 min je IP
   const resetGebremst = baueBremse(5, 10 * 60_000)
+  // Großzügiger als die Registrierung: Diese Route wird beim Abtippen eines
+  // Codes mehrfach getroffen. Gegen Raten reicht es trotzdem — bei 25^8
+  // Möglichkeiten sind zwölf Versuche je zehn Minuten kein Angriffsweg.
+  const codeGebremst = baueBremse(12, 10 * 60_000)
 
   const setzeSessionCookie = (
     reply: import('fastify').FastifyReply,
@@ -187,6 +191,41 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       // Hinweis „E-Mail bestätigen", statt nach der Registrierung ausgesperrt zu sein.
       setzeSessionCookie(reply, benutzer.id)
       return reply.code(201).send({ benutzer, verifiziert: false })
+    },
+  )
+
+  // — Einladungscode prüfen, OHNE ihn zu verbrauchen —
+  //
+  // Der erste Schritt der Registrierung: Wer keine gültige Einladung hat, soll
+  // das erfahren, bevor er Name, Adresse und Passwort eintippt. Verbraucht wird
+  // der Code erst beim Anlegen des Kontos (dort atomar) — diese Route ist rein
+  // lesend und darf deshalb auch mehrfach gefragt werden.
+  //
+  // Sie verrät nichts über die Einladung außer „geht / geht nicht (warum)":
+  // Die Notiz („Anna vom Radclub") ist eine Verwaltungsangabe und bleibt drin.
+  app.post<{ Body: { code: string } }>(
+    '/api/auth/einladung-pruefen',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['code'],
+          properties: { code: { type: 'string', maxLength: 40 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Registrierung ist geschlossen' })
+      if (codeGebremst(`ip:${request.ip}`)) {
+        return reply.code(429).send({ fehler: 'Zu viele Versuche — bitte später erneut versuchen' })
+      }
+      // Ohne Einladungspflicht ist jeder Code müßig — die Antwort ist trotzdem
+      // „geht", damit ein Formular, das noch fragt, niemanden aussperrt.
+      if (!app.einladungen.pflicht()) return { ok: true, pflicht: false }
+      const grund = app.einladungen.pruefe(request.body.code)
+      if (grund) return reply.code(403).send({ fehler: CODE_FEHLER[grund] })
+      return { ok: true, pflicht: true }
     },
   )
 

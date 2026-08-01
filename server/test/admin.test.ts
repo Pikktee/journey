@@ -365,6 +365,78 @@ describe('Registrierung mit Einladung', () => {
     expect((await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code })).statusCode).toBe(403)
   })
 
+  it('prüft einen Code, ohne ihn zu verbrauchen — Schritt 1 der Registrierung', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const code = await ladeEin(u, admin.cookies)
+    const pruefen = (wert: string) =>
+      u.app.inject({ method: 'POST', url: '/api/auth/einladung-pruefen', payload: { code: wert } })
+
+    const gut = await pruefen(code)
+    expect(gut.statusCode).toBe(200)
+    expect(gut.json()).toMatchObject({ ok: true, pflicht: true })
+    // Zweimal prüfen ändert nichts — verbraucht wird erst beim Anlegen
+    expect((await pruefen(code)).statusCode).toBe(200)
+    const liste = await u.app.inject({ method: 'GET', url: '/api/admin/einladungen', cookies: admin.cookies })
+    expect((liste.json() as { einladungen: Array<{ zustand: string }> }).einladungen[0]?.zustand).toBe('offen')
+    // … und danach lässt er sich noch einlösen
+    expect((await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code })).statusCode).toBe(201)
+  })
+
+  it('nennt beim Prüfen denselben Grund wie beim Registrieren', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const unbekannt = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/einladung-pruefen',
+      payload: { code: 'XXXX-XXXX' },
+    })
+    expect(unbekannt.statusCode).toBe(403)
+    expect(unbekannt.json()).toMatchObject({ fehler: expect.stringContaining('gibt es nicht') })
+
+    const code = await ladeEin(u, admin.cookies)
+    await registriere(u, { email: 'a@example.com', passwort: 'geheim12345', name: 'A', code })
+    const verbraucht = await u.app.inject({ method: 'POST', url: '/api/auth/einladung-pruefen', payload: { code } })
+    expect(verbraucht.statusCode).toBe(403)
+    expect(verbraucht.json()).toMatchObject({ fehler: expect.stringContaining('eingelöst') })
+  })
+
+  it('winkt ohne Einladungspflicht jeden Code durch, statt auszusperren', async () => {
+    const u = await baueTestApp()
+    oeffneRegistrierung(u)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/einladung-pruefen',
+      payload: { code: 'EGAL-EGAL' },
+    })
+    expect(antwort.statusCode).toBe(200)
+    expect(antwort.json()).toMatchObject({ ok: true, pflicht: false })
+  })
+
+  it('prüft gar nicht erst, wenn die Umgebung die Registrierung abschaltet', async () => {
+    const u = await baueTestApp(undefined, undefined, undefined, { registrierungOffen: false })
+    const admin = await legeAdminAn(u)
+    const code = await ladeEin(u, admin.cookies)
+    const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/einladung-pruefen', payload: { code } })
+    expect(antwort.statusCode).toBe(403)
+    expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('geschlossen') })
+  })
+
+  it('bremst das Durchprobieren von Codes', async () => {
+    const u = await baueTestApp()
+    let letzte = 0
+    // Die Bremse steht bei 12 je Fenster — der 13. Versuch muss abprallen.
+    for (let i = 0; i < 14; i++) {
+      const antwort = await u.app.inject({
+        method: 'POST',
+        url: '/api/auth/einladung-pruefen',
+        payload: { code: `AAAA-${String(i).padStart(4, '0')}` },
+      })
+      letzte = antwort.statusCode
+    }
+    expect(letzte).toBe(429)
+  })
+
   it('meldet den Registrierungsmodus auch ohne Anmeldung — das Formular fragt danach', async () => {
     const u = await baueTestApp()
     const zu = await u.app.inject({ method: 'GET', url: '/api/auth/me' })

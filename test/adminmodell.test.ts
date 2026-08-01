@@ -2,6 +2,7 @@
 // die Sperr-Regeln, die entscheiden, welche Knöpfe überhaupt anfassbar sind.
 
 import { describe, expect, it } from 'vitest'
+import { codeVollstaendig, formatiereEinladungscode } from '../src/einladungscode.js'
 import {
   beschreibeEinladung,
   einladungsLink,
@@ -131,6 +132,32 @@ describe('einladungsLink', () => {
 
   it('verträgt einen Schrägstrich am Ende der Basis-URL', () => {
     expect(einladungsLink('https://maptale.example/', 'AB-CD')).toBe('https://maptale.example/studio.html#einladung=AB-CD')
+  })
+})
+
+describe('formatiereEinladungscode', () => {
+  // Räumt beim TIPPEN auf, statt hinterher zu meckern.
+  it('macht Versalien und setzt den Bindestrich von selbst', () => {
+    expect(formatiereEinladungscode('abcd')).toBe('ABCD')
+    expect(formatiereEinladungscode('abcd2')).toBe('ABCD-2')
+    expect(formatiereEinladungscode('abcd2345')).toBe('ABCD-2345')
+  })
+
+  it('nimmt einen schon formatierten Code unverändert an', () => {
+    expect(formatiereEinladungscode('ABCD-2345')).toBe('ABCD-2345')
+  })
+
+  it('wirft weg, was nicht in einen Code gehört, und kappt Überlänge', () => {
+    expect(formatiereEinladungscode(' ab cd-23 45 ')).toBe('ABCD-2345')
+    expect(formatiereEinladungscode('abcd2345xyz')).toBe('ABCD-2345')
+    expect(formatiereEinladungscode('!!!')).toBe('')
+  })
+
+  it('erkennt einen vollständigen Code an seiner Form', () => {
+    expect(codeVollstaendig('abcd2345')).toBe(true)
+    expect(codeVollstaendig('ABCD-2345')).toBe(true)
+    expect(codeVollstaendig('ABCD-234')).toBe(false)
+    expect(codeVollstaendig('')).toBe(false)
   })
 })
 

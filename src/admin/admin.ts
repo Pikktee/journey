@@ -6,6 +6,7 @@
 // `hidden` umgeschaltet — dasselbe Muster wie im Studio.
 
 import { fuelleTopNav, montiereNavRechts } from '../app-nav.js'
+import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
   beschreibeEinladung,
@@ -88,6 +89,16 @@ const z: Zustand = {
 
 /** Welches Konto der Dialog gerade bearbeitet; null = ein neues anlegen. */
 let bearbeitet: AdminBenutzer | null = null
+
+// Auch ein vom Admin gesetztes Passwort wird bewertet — es schützt dasselbe
+// Konto wie ein selbst gewähltes. Beim Bearbeiten darf das Feld leer bleiben
+// („nicht ändern"), deshalb sperrt der Knopf nur bei tatsächlich schwacher Wahl.
+const kdPasswortfeld = haengePasswortfeld(els.kdPasswort, {
+  persoenlich: () => [els.kdName.value, els.kdEmail.value],
+  beiAenderung: (befund) => {
+    els.kdSpeichern.disabled = els.kdPasswort.value.length > 0 && !befund.reicht
+  },
+})
 
 // — Rückmeldung —
 
@@ -383,7 +394,9 @@ function oeffneKonto(b: AdminBenutzer | null): void {
     : 'Das Konto ist sofort nutzbar — ohne Bestätigungsmail.'
   els.kdName.value = b?.name ?? ''
   els.kdEmail.value = b?.email ?? ''
-  els.kdPasswort.value = ''
+  // Über `leere()`, nicht über `value = ''`: sonst bliebe die Stärkeanzeige des
+  // vorigen Aufrufs stehen und der Speichern-Knopf womöglich gesperrt.
+  kdPasswortfeld.leere()
   els.kdPasswort.required = !b
   els.kdPwZusatz.textContent = b ? '— leer lassen, um es nicht zu ändern' : '— mindestens 8 Zeichen'
   els.kdRolle.value = b?.rolle ?? 'nutzer'
