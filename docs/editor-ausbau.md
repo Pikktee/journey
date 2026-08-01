@@ -345,6 +345,43 @@ nicht zwei Achsen.
 
 ---
 
+## 11. Die Pause als erzähltes Ereignis
+
+**Neu am 2026-08-01**, aus dem Befund einer Testtour: drei Stunden Aufnahme, davon zwei
+im Kino. Seit dem Zeitraffer-Umbau ([zeit.ts](../server/src/pipeline/zeit.ts),
+`raffePausen`) läuft die Uhr über die Pause ehrlich weiter, und der Himmel dreht auf
+dem Rampenfenster sichtbar von Dämmerung auf Nacht. Das ist die halbe Miete: Der
+Zuschauer *sieht*, dass Zeit vergangen ist. Er erfährt aber nicht, **wie viel** und
+**warum** — nur, dass es plötzlich dunkel wurde.
+
+Die Pause ist heute ein Nebenprodukt der Zeitrechnung, kein Objekt. Sie könnte eines
+werden: ein **Moment** an der Rampenmitte, mit einer Beschriftung wie „2 Stunden
+später" oder „Kino". Momente gibt es bereits als Punkt-Ereignis
+([edits.ts:107](../server/src/schema/edits.ts#L107), eigene Engine-Phase in
+[tour.js:793](../src/tour.js#L793)), und `findePausen` liefert Ort und Dauer frei Haus
+— beides steckt schon in der Pipeline, nichts davon müsste erfunden werden.
+
+Drei Fragen, die vor dem Bauen zu klären sind:
+
+1. **Automatisch anlegen oder nur anbieten?** Die Auto-Musikwahl schreibt beim ersten
+   Verarbeiten ins Overlay und rührt es danach nie wieder an — dasselbe Muster würde
+   hier passen (eine Pause ab, sagen wir, 45 Minuten bekommt einen Moment; wer ihn
+   löscht, bekommt ihn nicht zurück). Die Gegenposition: Nicht jede Pause ist eine
+   Geschichte. Eine Stunde Stau will niemand betont sehen.
+2. **Hält der Film an?** Ein Moment ist in der Engine ein **Halt** — die Fahrt bremst,
+   die Kamera agiert. Für eine Mittagspause ist das vielleicht richtig, für den Zeitraffer
+   eher nicht: Dort ist die Bewegung durchs Rampenfenster ja gerade die Aussage. Denkbar
+   wäre eine eigene Ausprägung „Zeitsprung", die den Text einblendet, ohne zu bremsen.
+3. **Woher kommt der Text?** „2 Stunden später" kann die Pipeline rechnen. „Kino" nicht —
+   das wäre ein Feld im Studio, und damit die erste Stelle, an der jemand einen Ort
+   benennt, den die Tour selbst nicht kennt. Ein Foto aus der Pause (die es oft gibt,
+   siehe die Testtour) wäre die schönere Antwort: Es steht ohnehin an dieser Zeit.
+
+Passt zur Leitregel: „Pause zeigen" ist eine Entscheidung über die **Erzählung**, und die
+Ausprägungen wären benannte Zustände (kein Text-Editor mit freier Positionierung).
+
+---
+
 ## Was bewusst NICHT kommt
 
 - **Linienstil frei wählbar** — gestrichelt trägt Bedeutung (s. Abschnitt 6).
