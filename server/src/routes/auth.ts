@@ -7,6 +7,7 @@ import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
 import type { ProfilAenderung } from '../auth/auth.js'
+import type { EinladungsFehler } from '../auth/einladungen.js'
 import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
 
@@ -58,6 +59,17 @@ function baueBremse(maxVersuche: number, fensterMs = 60_000) {
 
 const emailSchema = { type: 'string', maxLength: 254 } as const
 const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as const
+
+/**
+ * Warum ein Einladungscode nicht zieht — in Worten, die dem Eingeladenen sagen,
+ * was er tun kann. „Ungültig" allein ließe ihn zwischen Tippfehler und
+ * abgelaufener Einladung raten.
+ */
+const CODE_FEHLER: Record<EinladungsFehler, string> = {
+  unbekannt: 'Diesen Einladungscode gibt es nicht — bitte prüfe die Schreibweise',
+  verbraucht: 'Dieser Einladungscode wurde bereits eingelöst',
+  abgelaufen: 'Dieser Einladungscode ist abgelaufen',
+}
 
 export function registriereAuthRouten(app: FastifyInstance): void {
   const { konfig, mail, storage, benutzerStorage, db } = app.deps
@@ -117,7 +129,14 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // — Selbst-Registrierung (M9) — legt einen UNbestätigten Benutzer an und
   // verschickt den Bestätigungslink. Anmelden geht sofort, Hochladen erst nach
   // Bestätigung (Gate in POST /api/tours).
-  app.post<{ Body: { email: string; passwort: string; name: string } }>(
+  //
+  // Steht die Instanz auf „nur mit Einladung", ist `code` Pflicht. Geprüft wird
+  // ZWEIMAL: einmal vorab für eine brauchbare Fehlermeldung, und einmal beim
+  // Einlösen nach dem Anlegen — nur dort ist es atomar. Scheitert das Einlösen
+  // (zwei Anmeldungen mit demselben Code in derselben Sekunde), wird das eben
+  // angelegte Konto wieder zurückgenommen; ein halb registrierter Benutzer wäre
+  // schlimmer als ein abgewiesener.
+  app.post<{ Body: { email: string; passwort: string; name: string; code?: string } }>(
     '/api/auth/register',
     {
       schema: {
@@ -125,7 +144,12 @@ export function registriereAuthRouten(app: FastifyInstance): void {
           type: 'object',
           additionalProperties: false,
           required: ['email', 'passwort', 'name'],
-          properties: { email: emailSchema, passwort: passwortSchema, name: { type: 'string', minLength: 1, maxLength: 80 } },
+          properties: {
+            email: emailSchema,
+            passwort: passwortSchema,
+            name: { type: 'string', minLength: 1, maxLength: 80 },
+            code: { type: 'string', maxLength: 40 },
+          },
         },
       },
     },
@@ -136,9 +160,21 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       }
       const email = request.body.email.toLowerCase().trim()
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply.code(400).send({ fehler: 'Ungültige E-Mail-Adresse' })
+
+      const codePflicht = app.einladungen.pflicht()
+      const code = request.body.code?.trim() ?? ''
+      if (codePflicht) {
+        if (!code) return reply.code(403).send({ fehler: 'Für die Anmeldung wird ein Einladungscode gebraucht' })
+        const grund = app.einladungen.pruefe(code)
+        if (grund) return reply.code(403).send({ fehler: CODE_FEHLER[grund] })
+      }
       if (app.auth.emailVergeben(email)) return reply.code(409).send({ fehler: 'Diese E-Mail ist bereits registriert' })
 
       const benutzer = await app.auth.legeBenutzerAn(email, request.body.passwort, request.body.name.trim(), false)
+      if (codePflicht && !app.einladungen.loeseEin(code, benutzer.id)) {
+        app.auth.loescheBenutzer(benutzer.id)
+        return reply.code(403).send({ fehler: CODE_FEHLER.verbraucht })
+      }
       const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
       const link = `${konfig.basisUrl}/studio.html#verify=${token}`
       const { betreff, text } = baueVerifikationsMail(benutzer.name, link)
@@ -248,7 +284,13 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // UX-Hinweis-Cookie auffrischen — ältere Sitzungen ohne maptale_dabei
   // bekommen ihn so beim nächsten /me (z. B. Entdecken), bevor Studio lädt.
   app.get('/api/auth/me', async (request, reply) => {
-    if (!request.benutzer) return { benutzer: null }
+    // Auch ohne Anmeldung: Das Registrierungsformular muss wissen, ob es nach
+    // einem Einladungscode fragen soll — und genau dort ist niemand angemeldet.
+    const registrierung = {
+      offen: konfig.registrierungOffen,
+      einladungPflicht: app.einladungen.pflicht(),
+    }
+    if (!request.benutzer) return { benutzer: null, registrierung }
     const sessionId = request.cookies[SESSION_COOKIE]
     if (sessionId && request.cookies[SESSION_HINWEIS_COOKIE] !== '1') {
       // Ablauf kennen wir hier nicht exakt — Max-Age wie Session-Dauer reicht.
@@ -266,7 +308,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       benutzer: request.benutzer,
       verifiziert: app.auth.istVerifiziert(request.benutzer.id),
       quota,
-      registrierungOffen: konfig.registrierungOffen,
+      registrierung,
       profil: {
         anzeigename: profil?.anzeigename ?? null,
         bio: profil?.bio ?? null,

@@ -6,6 +6,7 @@
 import fastifyCookie from '@fastify/cookie'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 import { AuthDienst, type Benutzer } from './auth/auth.js'
+import { EinladungsDienst } from './auth/einladungen.js'
 import type { Konfig } from './config.js'
 import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
@@ -14,6 +15,7 @@ import type { SchienenQuelle } from './pipeline/schienen.js'
 import type { VideoWerkzeug } from './pipeline/video.js'
 import type { BildKlassifikator } from './pipeline/vision.js'
 import type { WetterQuelle } from './pipeline/weather.js'
+import { registriereAdminRouten } from './routes/admin.js'
 import { registriereAuthRouten } from './routes/auth.js'
 import { registriereBibliotheksRouten } from './routes/bibliothek.js'
 import { registriereGalerieRouten } from './routes/galerie.js'
@@ -58,6 +60,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     deps: AppAbhaengigkeiten
     auth: AuthDienst
+    einladungen: EinladungsDienst
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
   }
@@ -80,6 +83,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
 
   app.decorate('deps', deps)
   app.decorate('auth', new AuthDienst(deps.db))
+  app.decorate('einladungen', new EinladungsDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorateRequest('benutzer', null)
 
@@ -120,6 +124,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
     .run()
 
   registriereAuthRouten(app)
+  registriereAdminRouten(app)
   registriereTourRouten(app)
   registriereMediaRouten(app)
   registriereBibliotheksRouten(app)
@@ -137,4 +142,22 @@ export function erfordereBenutzer(request: FastifyRequest, reply: FastifyReply):
     return null
   }
   return request.benutzer
+}
+
+/**
+ * Guard der Verwaltung: 401 ohne Anmeldung, 403 ohne Admin-Rolle.
+ *
+ * Die Unterscheidung ist Absicht: Ein 404 („die Route gibt es nicht") würde
+ * nichts verbergen, denn die Verwaltungsseite liegt im ausgelieferten Build und
+ * ist für jeden aufrufbar. Das 403 sagt dem Angemeldeten stattdessen klar, dass
+ * er an der richtigen Stelle, aber nicht berechtigt ist.
+ */
+export function erfordereAdmin(request: FastifyRequest, reply: FastifyReply): Benutzer | null {
+  const benutzer = erfordereBenutzer(request, reply)
+  if (!benutzer) return null
+  if (benutzer.rolle !== 'admin') {
+    reply.code(403).send({ fehler: 'Nur für Administratoren' })
+    return null
+  }
+  return benutzer
 }

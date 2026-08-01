@@ -8,7 +8,11 @@
 
 import { merkeAngemeldet, vergesseAngemeldet } from './session-hinweis.js'
 
-export type AppNavSeite = 'studio' | 'galerie' | 'profil'
+/**
+ * Auf welcher Seite die Nav steht. 'profil' und 'admin' tauchen selbst NICHT in
+ * der Nav auf — sie markieren nur, dass keiner der beiden Einträge aktiv ist.
+ */
+export type AppNavSeite = 'studio' | 'galerie' | 'profil' | 'admin'
 
 /** Wegpunkt-Route: aktive „Meine Touren"-Marke in der App-Nav. */
 export const ICON_TOUREN =

@@ -21,6 +21,7 @@ export const TEST_KONFIG: Konfig = {
   cookieSecret: 'test',
   adminEmail: null,
   adminPasswort: null,
+  adminEmails: [],
   maxMediumBytes: 1024 * 1024,
   maxAudioBytes: 1024 * 1024,
   maxSpeicherProBenutzer: 50 * 1024 * 1024,
@@ -101,6 +102,31 @@ export async function baueTestApp(
   const apiToken = (login.json() as { apiToken: string }).apiToken
 
   return { app, storage, benutzerStorage, mail, cookies: { maptale_session: sessionCookie?.value ?? '' }, apiToken }
+}
+
+/**
+ * Registrierung ohne Einladungscode erlauben.
+ *
+ * Die Vorgabe einer frischen Instanz ist „nur mit Code" (s. EinladungsDienst) —
+ * Tests, die den offenen Fluss prüfen, machen die Tür hier ausdrücklich auf.
+ */
+export function oeffneRegistrierung(u: TestUmgebung): void {
+  u.app.einladungen.setzePflicht(false)
+}
+
+/** Zweiter Benutzer mit Admin-Rolle, samt Session-Cookie für inject(). */
+export async function legeAdminAn(
+  u: TestUmgebung,
+  email = 'chefin@example.com',
+  passwort = 'adminadmin',
+): Promise<{ id: string; cookies: { maptale_session: string } }> {
+  const benutzer = await u.app.auth.legeBenutzerAn(email, passwort, 'Chefin', true, 'admin')
+  const login = await u.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, passwort } })
+  if (login.statusCode !== 200) throw new Error(`Admin-Login fehlgeschlagen: ${login.body}`)
+  return {
+    id: benutzer.id,
+    cookies: { maptale_session: login.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' },
+  }
 }
 
 /** Minimales, gültiges Upload-Manifest: 2 Segmente, 1 Foto (Berner Oberland). */

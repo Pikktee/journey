@@ -3,7 +3,7 @@
 // gegen Temp-SQLite + Fake-Storage + Fake-Mail.
 
 import { describe, expect, it } from 'vitest'
-import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
+import { baueTestApp, beispielManifest, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
 
 // Token aus dem letzten Mail-Link ziehen (…#verify=<token> / …#reset=<token>)
 function tokenAusMail(u: TestUmgebung): string {
@@ -12,6 +12,9 @@ function tokenAusMail(u: TestUmgebung): string {
 }
 
 async function registriere(u: TestUmgebung, email = 'neu@example.com', passwort = 'geheim12345', name = 'Neu') {
+  // Diese Tests prüfen den OFFENEN Fluss; die Einladungspflicht hat eigene
+  // Tests in admin.test.ts.
+  oeffneRegistrierung(u)
   return u.app.inject({ method: 'POST', url: '/api/auth/register', payload: { email, passwort, name } })
 }
 

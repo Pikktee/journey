@@ -92,6 +92,35 @@ const MIGRATIONEN: string[] = [
   ALTER TABLE tours ADD COLUMN finale INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE tours ADD COLUMN finale_ziel TEXT;
   `,
+  // Benutzerverwaltung: Rollen, Einladungen, umschaltbare Registrierung.
+  //
+  // `rolle` ist bewusst ein Textfeld mit zwei Werten und keine eigene Tabelle —
+  // es gibt genau zwei Rollen, und ein Rechtesystem für zwei Rollen wäre
+  // Beiwerk. Bestandskonten werden 'nutzer'; wer Admin ist, entscheidet beim
+  // Start die Konfiguration (s. AuthDienst.hebeAdmins).
+  //
+  // Einladungen sind EINMAL einlösbar: eine Einladung gilt einer Person. Der
+  // Code steht im Klartext, weil der Admin ihn weitergeben können muss — er ist
+  // ein Türöffner zur Registrierung, kein Geheimnis eines Kontos. Eingelöste
+  // Einladungen bleiben als Herkunftsnachweis stehen ('wer kam über welchen
+  // Code'), deshalb kein DELETE beim Einlösen.
+  `
+  ALTER TABLE users ADD COLUMN rolle TEXT NOT NULL DEFAULT 'nutzer'
+    CHECK (rolle IN ('nutzer','admin'));
+  CREATE TABLE einladungen (
+    code TEXT PRIMARY KEY,
+    notiz TEXT,
+    erstellt_von TEXT REFERENCES users(id) ON DELETE SET NULL,
+    erstellt_am TEXT NOT NULL,
+    ablauf TEXT,
+    eingeloest_von TEXT REFERENCES users(id) ON DELETE SET NULL,
+    eingeloest_am TEXT
+  );
+  CREATE TABLE einstellungen (
+    schluessel TEXT PRIMARY KEY,
+    wert TEXT NOT NULL
+  );
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

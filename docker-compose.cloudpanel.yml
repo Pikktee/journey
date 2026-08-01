@@ -28,6 +28,10 @@ services:
       MAPTALE_COOKIE_SECRET: ${MAPTALE_COOKIE_SECRET:?MAPTALE_COOKIE_SECRET in .env setzen}
       MAPTALE_ADMIN_EMAIL: ${MAPTALE_ADMIN_EMAIL:-}
       MAPTALE_ADMIN_PASSWORT: ${MAPTALE_ADMIN_PASSWORT:-}
+      # Adressen, die bei jedem Start die Admin-Rolle bekommen (kommagetrennt).
+      # Ungesetzt greift der Default aus server/src/config.ts — leer lassen
+      # bedeutet also NICHT „keine Admins", sondern „die eingebauten".
+      MAPTALE_ADMINS: ${MAPTALE_ADMINS:-}
       # Hinter CloudPanels TLS-Nginx: Cookies bekommen `secure`.
       MAPTALE_HINTER_TLS: '1'
       # Mehrbenutzer-Betrieb (M9)

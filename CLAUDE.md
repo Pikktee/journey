@@ -20,8 +20,9 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   läuft in `ladeOriginalSegmente`, der von Editor UND Render geteilten Stelle —, Track-
   Vereinfachung, Timeline mit Pausen-Zeitraffer, Medien-Platzierung, Edit-Overlay,
   Auto-Wetter via Open-Meteo, Wetter-Verfeinerung per Foto-Bildanalyse) → Tour-JSON. Dazu Mehrbenutzer-Betrieb: Konten mit
-  Mail-Bestätigung, Passwort-Reset, Quota, Sichtbarkeit ([server/src/auth/](server/src/auth/),
-  `quota.ts`, `mail.ts`). Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md);
+  Mail-Bestätigung, Passwort-Reset, Quota, Sichtbarkeit, Rollen und Einladungen
+  ([server/src/auth/](server/src/auth/), `quota.ts`, `mail.ts`).
+  Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md);
   wer wofür zuständig ist (Rohdaten / Overlay / Tour-JSON / Cache) und wohin ein neues Feld
   gehört: [docs/overlay-und-tourjson.md](docs/overlay-und-tourjson.md).
 - **Studio** ([studio.html](studio.html) + [src/studio/](src/studio/)): Weboberfläche zum
@@ -29,6 +30,8 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 - **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren)
   und [profil.html](profil.html) (`?id=…`, die Reisen einer Person). Beide ohne Anmeldung,
   Logik DOM-frei in [src/galerie/galeriemodell.ts](src/galerie/galeriemodell.ts).
+- **Benutzerverwaltung** ([admin.html](admin.html) + [src/admin/](src/admin/)): Konten,
+  Rollen und Einladungen (s. eigener Abschnitt unten).
 - **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — s. eigener Abschnitt.
 
 Sprache im gesamten Projekt (Code-Kommentare, UI, Doku, Commit-Messages) ist **Deutsch** —
@@ -529,6 +532,46 @@ wird dadurch zu genau einem Undo-Schritt.
 **Falle bei Zeitleisten-Interaktion:** Nach `setPointerCapture` zeigt `e.target` im `pointerup`
 auf das Capture-Element, nicht mehr auf das Element unter dem Finger. Was angeklickt wurde,
 muss im `pointerdown` gemerkt werden.
+
+## Benutzerverwaltung
+
+Eigene Seite ([admin.html](admin.html) + [src/admin/](src/admin/)), nicht Teil des Studios:
+Das Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung. Erreichbar über das
+Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile liegen DOM-frei in
+[adminmodell.ts](src/admin/adminmodell.ts), Server-Seite in
+[server/src/routes/admin.ts](server/src/routes/admin.ts) hinter `erfordereAdmin`.
+
+**Es gibt zwei Rollen** (`users.rolle`), keine Rechtematrix: wer verwalten darf und wer seine
+eigenen Touren hat. `Benutzer.rolle` hängt an jeder aufgelösten Sitzung und kommt über
+`/auth/me` bis in die Oberfläche.
+
+**Wer Admin ist, entscheidet zuerst die Konfiguration.** `MAPTALE_ADMINS` (Default:
+Henriks beide Adressen) wird bei JEDEM Start auf die Admin-Rolle gehoben — `hebeAdmins` in
+[auth.ts](server/src/auth/auth.ts). Das ist bewusst eine Boot-Garantie und keine einmalige
+Migration: So kann sich niemand aussperren, und ein Konto, das es beim Umstellen noch gar nicht
+gab, wird Admin, sobald es angelegt ist. Die Kehrseite: Diese Konten lassen sich in der
+Oberfläche NICHT herabstufen oder löschen — die Route lehnt es mit 409 ab, statt es beim
+nächsten Neustart still rückgängig zu machen. Dieselbe Sorge deckt zwei weitere Riegel: die
+eigene Admin-Rolle ist nicht ablegbar, und der letzte Admin bleibt Admin. Alle drei Regeln
+stehen doppelt (Server + `rolleGesperrt`/`loeschenGesperrt` im Modell): Der Server MUSS sie
+durchsetzen, die Oberfläche SOLL den Knopf gar nicht erst anbieten.
+
+**Registrierung: ein Schalter, zwei Ebenen.** Die DB-Einstellung `einladung_pflicht`
+(Vorgabe AN, [einladungen.ts](server/src/auth/einladungen.ts)) entscheidet, ob ein Code nötig
+ist — sie liegt in der Datenbank und nicht in der Umgebung, weil sie zur Laufzeit umgelegt wird.
+Darüber steht weiterhin der harte Env-Riegel `MAPTALE_REGISTRIERUNG_OFFEN`: Ist der zu, hilft
+auch ein gültiger Code nicht. `/auth/me` meldet beides AUCH ohne Anmeldung — genau dort, wo das
+Registrierungsformular danach fragt, ist niemand angemeldet.
+
+**Eine Einladung ist einmal einlösbar** und bleibt nach dem Einlösen stehen (sie ist die
+einzige Stelle, an der später noch steht, wer wen hereingeholt hat). Der Code steht im
+Klartext: Er ist ein Türöffner zur Registrierung, kein Kontogeheimnis, und der Admin muss ihn
+weitergeben können. Geprüft wird ZWEIMAL — vorab für eine brauchbare Fehlermeldung, und beim
+Einlösen nach dem Anlegen über ein bedingtes UPDATE, denn nur dort ist es atomar. Scheitert das
+zweite (zwei Anmeldungen mit demselben Code in derselben Sekunde), wird das eben angelegte
+Konto wieder zurückgenommen. Der Link aus der Verwaltung führt auf
+`/studio.html#einladung=CODE` und trägt den Code ins Formular ein; wie bei `#verify=`/`#reset=`
+wirkt er nur beim Laden der Seite, nicht bei einem Hash-Wechsel in einem offenen Tab.
 
 ## Android-App
 

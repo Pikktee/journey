@@ -2460,7 +2460,15 @@
         <!-- Registrieren -->
         <form id="register-form" class="auth-form" hidden>
           <h2>Konto erstellen</h2>
-          <p class="unterzeile">Kostenlos — du bekommst gleich eine Bestätigungsmail.</p>
+          <p class="unterzeile" id="reg-unterzeile">Kostenlos — du bekommst gleich eine Bestätigungsmail.</p>
+          <!-- Nur sichtbar, solange die Instanz auf „nur mit Einladung" steht
+               (registrierung.einladungPflicht aus /auth/me). Ein Feld, das
+               niemand braucht, wäre eine Hürde ohne Zweck. -->
+          <div class="feld" id="reg-code-feld" hidden>
+            <label for="reg-code">Einladungscode</label>
+            <input id="reg-code" type="text" maxlength="40" autocomplete="off" spellcheck="false"
+                   placeholder="ABCD-2345" style="font-variant-numeric: tabular-nums; letter-spacing: 0.06em" />
+          </div>
           <div class="feld">
             <label for="reg-name">Name</label>
             <input id="reg-name" type="text" autocomplete="name" maxlength="80" required />
@@ -2541,6 +2549,13 @@
                 <div class="km-balken"><span id="km-balken-fuell"></span></div>
               </div>
               <div class="km-trenner" role="separator"></div>
+              <!-- Nur für Admins (benutzer.rolle) — der Server prüft es ohnehin,
+                   aber ein Eintrag, der zur Absage führt, ist kein Angebot. -->
+              <a class="km-eintrag knopf" id="km-verwaltung" href="/admin.html" hidden>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>Benutzerverwaltung
+              </a>
               <button class="km-eintrag" id="abmelden"><svg aria-hidden="true"><use href="#i-abmelden"/></svg>Abmelden</button>
             </div>
           </div>

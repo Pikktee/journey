@@ -38,6 +38,8 @@ export interface Benutzer {
   email: string
   /** Klarname aus der Registrierung — privat, nicht für die öffentliche UI. */
   name?: string
+  /** 'admin' schaltet den Weg zur Benutzerverwaltung frei (admin.html). */
+  rolle?: 'nutzer' | 'admin'
 }
 
 /** Öffentliches Profil — getrennt vom Konto (s. server/auth). */
@@ -60,7 +62,11 @@ export interface Sitzung {
   profil?: Profil | null
   verifiziert?: boolean
   quota?: Quota
-  registrierungOffen?: boolean
+  /**
+   * Wie neue Konten entstehen — kommt AUCH ohne Anmeldung, denn genau das
+   * braucht das Registrierungsformular (fragt es nach einem Code?).
+   */
+  registrierung?: { offen: boolean; einladungPflicht: boolean }
 }
 
 async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
@@ -100,8 +106,18 @@ export function logout(): Promise<unknown> {
 
 // — Selbst-Registrierung & Passwort-Reset (M9) —
 
-export function registriere(email: string, passwort: string, name: string): Promise<{ benutzer: Benutzer; verifiziert: boolean }> {
-  return anfrage('/auth/register', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ email, passwort, name }) })
+/** `code` ist die Einladung — Pflicht, solange die Instanz auf „nur mit Code" steht. */
+export function registriere(
+  email: string,
+  passwort: string,
+  name: string,
+  code?: string,
+): Promise<{ benutzer: Benutzer; verifiziert: boolean }> {
+  return anfrage('/auth/register', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify(code ? { email, passwort, name, code } : { email, passwort, name }),
+  })
 }
 
 export function verifiziereEmail(token: string): Promise<{ ok: boolean }> {

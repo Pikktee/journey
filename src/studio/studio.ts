@@ -41,6 +41,9 @@ const els = {
   regName: $<HTMLInputElement>('reg-name'),
   regEmail: $<HTMLInputElement>('reg-email'),
   regPasswort: $<HTMLInputElement>('reg-passwort'),
+  regCodeFeld: $('reg-code-feld'),
+  regCode: $<HTMLInputElement>('reg-code'),
+  regUnterzeile: $('reg-unterzeile'),
   registerFehler: $('register-fehler'),
   resetAnfordernForm: $<HTMLFormElement>('reset-anfordern-form'),
   resetEmail: $<HTMLInputElement>('reset-email'),
@@ -51,6 +54,7 @@ const els = {
   // M9: Konto-Menü + Verifikations-Banner
   kontoMenue: $('konto-menue'),
   kmMail: $('km-mail'),
+  kmVerwaltung: $('km-verwaltung'),
   kmQuotaText: $('km-quota-text'),
   kmBalkenFuell: $('km-balken-fuell'),
   verifyBanner: $('verify-banner'),
@@ -175,6 +179,7 @@ let uploadGesperrt = false
 function zeigeSitzung(sitzung: api.Sitzung): void {
   const unbestaetigt = sitzung.benutzer !== null && sitzung.verifiziert === false
   els.verifyBanner.hidden = !unbestaetigt
+  els.kmVerwaltung.hidden = sitzung.benutzer?.rolle !== 'admin'
   uploadGesperrt = unbestaetigt
   els.neuBauen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
   if (sitzung.quota) {
@@ -186,10 +191,27 @@ function zeigeSitzung(sitzung: api.Sitzung): void {
   }
 }
 
+/**
+ * Fragt die Anmeldung nach einem Einladungscode?
+ *
+ * Das Feld steht nur, wenn die Instanz Einladungen verlangt — oder wenn ohnehin
+ * schon ein Code aus dem Link darin liegt. Ein Code aus einer Einladung, den ein
+ * verstecktes Feld schluckt, wäre der schlimmere Fehler als ein Feld zu viel.
+ */
+function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
+  const pflicht = sitzung.registrierung?.einladungPflicht ?? false
+  els.regCodeFeld.hidden = !pflicht && !els.regCode.value.trim()
+  els.regCode.required = pflicht
+  els.regUnterzeile.textContent = pflicht
+    ? 'Für die Anmeldung brauchst du eine Einladung.'
+    : 'Kostenlos — du bekommst gleich eine Bestätigungsmail.'
+}
+
 async function ladeSitzung(): Promise<api.Sitzung> {
   const sitzung = await api.me()
   zeigeBenutzer(sitzung)
   zeige(!!sitzung.benutzer)
+  zeigeRegistrierungsmodus(sitzung)
   if (sitzung.benutzer) {
     merkeAngemeldet()
     zeigeSitzung(sitzung)
@@ -226,14 +248,23 @@ async function pruefeAnmeldung(): Promise<void> {
  * E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln — dazu
  * `#registrieren`, der Direkteinstieg der Landing („Registrieren" im Header):
  * ohne ihn landete der Knopf im Login-Formular, also dort, wo direkt daneben
- * schon „Anmelden" hinführt.
+ * schon „Anmelden" hinführt. Und `#einladung=CODE`, der Link aus der
+ * Verwaltung: Er trägt den Code gleich ein, damit niemand ihn abtippt.
  */
 async function behandleAuthHash(): Promise<void> {
   const hash = location.hash.slice(1)
   const verify = hash.match(/(?:^|&)verify=([^&]+)/)?.[1]
   const reset = hash.match(/(?:^|&)reset=([^&]+)/)?.[1]
+  const einladung = hash.match(/(?:^|&)einladung=([^&]+)/)?.[1]
   if (hash === 'registrieren') {
     history.replaceState(null, '', location.pathname + location.search)
+    zeigeAuthModus('register')
+    return
+  }
+  if (einladung) {
+    history.replaceState(null, '', location.pathname + location.search)
+    els.regCode.value = decodeURIComponent(einladung)
+    els.regCodeFeld.hidden = false
     zeigeAuthModus('register')
     return
   }
@@ -272,7 +303,12 @@ els.registerForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   els.registerFehler.textContent = ''
   try {
-    await api.registriere(els.regEmail.value.trim(), els.regPasswort.value, els.regName.value.trim())
+    await api.registriere(
+      els.regEmail.value.trim(),
+      els.regPasswort.value,
+      els.regName.value.trim(),
+      els.regCode.value.trim() || undefined,
+    )
     els.regPasswort.value = ''
     await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
   } catch (fehler) {

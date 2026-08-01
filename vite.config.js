@@ -19,6 +19,7 @@ export default defineConfig({
         studio: 'studio.html',
         galerie: 'galerie.html',
         profil: 'profil.html',
+        admin: 'admin.html',
         impressum: 'impressum.html',
         datenschutz: 'datenschutz.html',
       },

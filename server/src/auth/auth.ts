@@ -9,11 +9,41 @@ import type { Db } from '../db.js'
 import { neueSessionId, neuesTokenSecret, neueUserId } from '../ids.js'
 import { hashePasswort, pruefePasswort } from './passwort.js'
 
+/** Zwei Rollen genügen: wer verwalten darf, und wer seine eigenen Touren hat. */
+export type Rolle = 'nutzer' | 'admin'
+
 export interface Benutzer {
   id: string
   email: string
   name: string
+  rolle: Rolle
 }
+
+/** Eine Zeile der Benutzerverwaltung — Konto plus das, was daran hängt. */
+export interface BenutzerZeile extends Benutzer {
+  verifiziert: boolean
+  angelegtAm: string
+  anzeigename: string | null
+  touren: number
+}
+
+/** Änderungswunsch am Konto; fehlende Felder bleiben, wie sie sind. */
+export interface KontoAenderung {
+  email?: string
+  name?: string
+  rolle?: Rolle
+  verifiziert?: boolean
+}
+
+/** Doppelte E-Mail — vom Aufrufer in eine 409-Antwort übersetzt. */
+export class EmailVergebenFehler extends Error {
+  constructor() {
+    super('Diese E-Mail ist bereits registriert')
+    this.name = 'EmailVergebenFehler'
+  }
+}
+
+const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'nutzer')
 
 /**
  * Das öffentliche Profil — bewusst getrennt vom Konto.
@@ -58,7 +88,24 @@ export class AuthDienst {
   async seedeAdmin(email: string | null, passwort: string | null): Promise<void> {
     const anzahl = (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n
     if (anzahl > 0 || !email || !passwort) return
-    await this.legeBenutzerAn(email, passwort, email.split('@')[0] ?? 'admin')
+    await this.legeBenutzerAn(email, passwort, email.split('@')[0] ?? 'admin', true, 'admin')
+  }
+
+  /**
+   * Hebt die konfigurierten Adressen auf die Admin-Rolle — bei JEDEM Start.
+   *
+   * Damit kann sich niemand über die Verwaltung selbst aussperren, und ein
+   * Konto, das beim Umstellen noch nicht existierte, wird Admin, sobald es
+   * angelegt ist. Gibt zurück, wie viele Zeilen tatsächlich gehoben wurden
+   * (für die Start-Meldung — im Normalfall 0).
+   */
+  hebeAdmins(emails: readonly string[]): number {
+    if (!emails.length) return 0
+    const platzhalter = emails.map(() => '?').join(', ')
+    const erg = this.db
+      .prepare(`UPDATE users SET rolle = 'admin' WHERE rolle != 'admin' AND email IN (${platzhalter})`)
+      .run(...emails.map((e) => e.toLowerCase().trim()))
+    return erg.changes
   }
 
   /**
@@ -66,12 +113,27 @@ export class AuthDienst {
    * (Seed-Admin, Tests, Direktanlage) — die Selbst-Registrierung (M9) setzt es
    * explizit auf false und schaltet erst nach E-Mail-Bestätigung frei.
    */
-  async legeBenutzerAn(email: string, passwort: string, name: string, verifiziert = true): Promise<Benutzer> {
-    const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name }
+  async legeBenutzerAn(
+    email: string,
+    passwort: string,
+    name: string,
+    verifiziert = true,
+    rolle: Rolle = 'nutzer',
+  ): Promise<Benutzer> {
+    const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name, rolle }
     const pwHash = await hashePasswort(passwort)
-    this.db
-      .prepare('INSERT INTO users (id, email, pw_hash, name, created_at, email_verified) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString(), verifiziert ? 1 : 0)
+    try {
+      this.db
+        .prepare(
+          'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, rolle) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        )
+        .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString(), verifiziert ? 1 : 0, rolle)
+    } catch (fehler) {
+      // Die UNIQUE-Verletzung ist der einzige erwartbare Fall — als eigener
+      // Fehlertyp, damit die Route 409 statt 500 antworten kann.
+      if (String(fehler).includes('UNIQUE')) throw new EmailVergebenFehler()
+      throw fehler
+    }
     return benutzer
   }
 
@@ -90,15 +152,17 @@ export class AuthDienst {
   /** E-Mail + Passwort prüfen; null bei Fehlschlag (bewusst ohne Grund-Detail). */
   async login(email: string, passwort: string): Promise<Benutzer | null> {
     const zeile = this.db
-      .prepare('SELECT id, email, pw_hash, name FROM users WHERE email = ?')
-      .get(email.toLowerCase().trim()) as { id: string; email: string; pw_hash: string; name: string } | undefined
+      .prepare('SELECT id, email, pw_hash, name, rolle FROM users WHERE email = ?')
+      .get(email.toLowerCase().trim()) as
+      | { id: string; email: string; pw_hash: string; name: string; rolle: string }
+      | undefined
     if (!zeile) {
       // Dummy-Prüfung gegen Timing-Unterschied „Benutzer existiert (nicht)"
       await pruefePasswort('$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', passwort)
       return null
     }
     const ok = await pruefePasswort(zeile.pw_hash, passwort)
-    return ok ? { id: zeile.id, email: zeile.email, name: zeile.name } : null
+    return ok ? { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) } : null
   }
 
   // — Sessions (Web) —
@@ -116,16 +180,18 @@ export class AuthDienst {
   benutzerAusSession(sessionId: string): Benutzer | null {
     const zeile = this.db
       .prepare(
-        `SELECT u.id, u.email, u.name, s.expires_at FROM sessions s
+        `SELECT u.id, u.email, u.name, u.rolle, s.expires_at FROM sessions s
          JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
       )
-      .get(sessionId) as { id: string; email: string; name: string; expires_at: string } | undefined
+      .get(sessionId) as
+      | { id: string; email: string; name: string; rolle: string; expires_at: string }
+      | undefined
     if (!zeile) return null
     if (Date.parse(zeile.expires_at) < Date.now()) {
       this.beendeSession(sessionId)
       return null
     }
-    return { id: zeile.id, email: zeile.email, name: zeile.name }
+    return { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
   }
 
   beendeSession(sessionId: string): void {
@@ -147,15 +213,17 @@ export class AuthDienst {
     const hash = sha256(klartext)
     const zeile = this.db
       .prepare(
-        `SELECT u.id, u.email, u.name, t.id AS token_id, t.hash FROM tokens t
+        `SELECT u.id, u.email, u.name, u.rolle, t.id AS token_id, t.hash FROM tokens t
          JOIN users u ON u.id = t.user_id WHERE t.hash = ?`,
       )
-      .get(hash) as { id: string; email: string; name: string; token_id: string; hash: string } | undefined
+      .get(hash) as
+      | { id: string; email: string; name: string; rolle: string; token_id: string; hash: string }
+      | undefined
     if (!zeile) return null
     // Vergleich in konstanter Zeit (Hash-Lookup wäre theoretisch genug, kostet nichts)
     if (!timingSafeEqual(Buffer.from(zeile.hash), Buffer.from(hash))) return null
     this.db.prepare('UPDATE tokens SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), zeile.token_id)
-    return { id: zeile.id, email: zeile.email, name: zeile.name }
+    return { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
   }
 
   widerrufeTokens(userId: string): void {
@@ -271,6 +339,93 @@ export class AuthDienst {
   /** Avatar-Dateiname vermerken (die Datei selbst legt der Aufrufer ab). */
   setzeAvatar(userId: string, datei: string | null): void {
     this.db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(datei, userId)
+  }
+
+  // — Benutzerverwaltung (Admin) —
+
+  /**
+   * Alle Konten mit dem, was daran hängt.
+   *
+   * Die Tourenzahl kommt als Unterabfrage statt als JOIN mit GROUP BY: bei
+   * einem JOIN müsste jede weitere Kennzahl in dieselbe Gruppierung, und
+   * schon die zweite (Medien) würde die erste vervielfachen. Der belegte
+   * Speicher steht bewusst NICHT hier — er liegt im Storage, nicht in der DB,
+   * und wird von der Route nachgereicht.
+   */
+  alleBenutzer(): BenutzerZeile[] {
+    const zeilen = this.db
+      .prepare(
+        `SELECT id, email, name, rolle, email_verified, created_at, anzeigename,
+                (SELECT COUNT(*) FROM tours WHERE tours.owner_id = users.id) AS touren
+         FROM users ORDER BY created_at ASC`,
+      )
+      .all() as Array<{
+      id: string
+      email: string
+      name: string
+      rolle: string
+      email_verified: number
+      created_at: string
+      anzeigename: string | null
+      touren: number
+    }>
+    return zeilen.map((z) => ({
+      id: z.id,
+      email: z.email,
+      name: z.name,
+      rolle: alsRolle(z.rolle),
+      verifiziert: !!z.email_verified,
+      angelegtAm: z.created_at,
+      anzeigename: z.anzeigename,
+      touren: z.touren,
+    }))
+  }
+
+  /** Ein Konto der Verwaltung; null, wenn es die ID nicht gibt. */
+  benutzerNachId(userId: string): BenutzerZeile | null {
+    return this.alleBenutzer().find((b) => b.id === userId) ?? null
+  }
+
+  /** Wie viele Konten haben die Admin-Rolle? (Schutz vor dem letzten Abgang.) */
+  anzahlAdmins(): number {
+    return (this.db.prepare(`SELECT COUNT(*) AS n FROM users WHERE rolle = 'admin'`).get() as { n: number }).n
+  }
+
+  /**
+   * Kontofelder ändern. Nur übergebene Felder werden angefasst — dieselbe
+   * Bauweise wie `setzeProfil`, aus demselben Grund (COALESCE könnte „leeren"
+   * nicht von „nicht angefasst" unterscheiden).
+   *
+   * Eine geänderte E-Mail gilt als unbestätigt weiter: `verifiziert` wird
+   * NICHT automatisch zurückgesetzt, weil ein Admin die Adresse gerade
+   * bewusst korrigiert hat — er kann den Haken selbst setzen.
+   */
+  aendereKonto(userId: string, aenderung: KontoAenderung): void {
+    const zuweisungen: string[] = []
+    const werte: Array<string | number> = []
+    if (aenderung.email !== undefined) {
+      zuweisungen.push('email = ?')
+      werte.push(aenderung.email.toLowerCase().trim())
+    }
+    if (aenderung.name !== undefined) {
+      zuweisungen.push('name = ?')
+      werte.push(aenderung.name.trim())
+    }
+    if (aenderung.rolle !== undefined) {
+      zuweisungen.push('rolle = ?')
+      werte.push(aenderung.rolle)
+    }
+    if (aenderung.verifiziert !== undefined) {
+      zuweisungen.push('email_verified = ?')
+      werte.push(aenderung.verifiziert ? 1 : 0)
+    }
+    if (!zuweisungen.length) return
+    try {
+      this.db.prepare(`UPDATE users SET ${zuweisungen.join(', ')} WHERE id = ?`).run(...werte, userId)
+    } catch (fehler) {
+      if (String(fehler).includes('UNIQUE')) throw new EmailVergebenFehler()
+      throw fehler
+    }
   }
 
   /** IDs aller Touren des Benutzers (für die Storage-Aufräumung vor dem Löschen). */

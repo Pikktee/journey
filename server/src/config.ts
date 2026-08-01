@@ -13,6 +13,17 @@ export interface Konfig {
   /** Seed-Admin: wird beim Start angelegt, falls noch kein Benutzer existiert */
   adminEmail: string | null
   adminPasswort: string | null
+  /**
+   * Adressen, die bei jedem Start auf die Admin-Rolle gehoben werden.
+   *
+   * Bewusst eine Boot-Garantie und keine einmalige Migration: Wer hier steht,
+   * kann sich aus der Benutzerverwaltung nicht aussperren, und ein Konto, das
+   * es beim Umstellen noch gar nicht gab, wird Admin, sobald es angelegt ist.
+   * Die Kehrseite: Diese Konten lassen sich in der Oberfläche nicht
+   * herabstufen — die Route lehnt das ab, statt es beim nächsten Neustart
+   * still rückgängig zu machen.
+   */
+  adminEmails: string[]
   /** Maximale Größe einer einzelnen Mediendatei (Bytes) */
   maxMediumBytes: number
   /** Maximale Größe einer Audio-Datei (Bytes, Baukasten) — deutlich unter Video */
@@ -21,7 +32,14 @@ export interface Konfig {
   maxSpeicherProBenutzer: number
   /** true hinter TLS (Prod): Cookies bekommen `secure` */
   hinterTls: boolean
-  /** M9: Selbst-Registrierung offen? (Default an; für private Instanzen abschaltbar) */
+  /**
+   * Harter Riegel: Registrierung überhaupt möglich? (Default an)
+   *
+   * Steht ÜBER dem umschaltbaren Einladungs-Schalter aus der Datenbank — ist
+   * dieser Riegel zu, hilft auch kein gültiger Code. Gedacht für Instanzen,
+   * die gar keine neuen Konten wollen; der Alltagsfall („nur mit Einladung")
+   * läuft über die Verwaltung, nicht über die Umgebung.
+   */
   registrierungOffen: boolean
   /** Öffentliche Basis-URL (für Links in Bestätigungs-/Reset-Mails), z. B. https://luhambo.app */
   basisUrl: string
@@ -42,6 +60,12 @@ const zahl = (wert: string | undefined, standard: number): number => {
   const n = Number(wert)
   return wert && wert.trim() && Number.isFinite(n) ? n : standard
 }
+/** Kommagetrennte Adressliste, normalisiert wie in der users-Tabelle (lowercase). */
+const adressen = (wert: string | undefined, standard: string): string[] =>
+  text(wert, standard)
+    .split(',')
+    .map((a) => a.trim().toLowerCase())
+    .filter(Boolean)
 
 export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
   return {
@@ -50,6 +74,7 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     cookieSecret: text(env.MAPTALE_COOKIE_SECRET, 'dev-geheimnis-nicht-fuer-prod'),
     adminEmail: env.MAPTALE_ADMIN_EMAIL || null,
     adminPasswort: env.MAPTALE_ADMIN_PASSWORT || null,
+    adminEmails: adressen(env.MAPTALE_ADMINS, 'contact@henrikheil.net,henrik.heil@gmail.com'),
     maxMediumBytes: zahl(env.MAPTALE_MAX_MEDIUM_BYTES, 500 * 1024 * 1024),
     maxAudioBytes: zahl(env.MAPTALE_MAX_AUDIO_BYTES, 25 * 1024 * 1024),
     maxSpeicherProBenutzer: zahl(env.MAPTALE_MAX_SPEICHER_PRO_BENUTZER, 2 * 1024 * 1024 * 1024),

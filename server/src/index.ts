@@ -49,6 +49,10 @@ const app = baueApp({
   mail,
 })
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
+// Boot-Garantie: Die konfigurierten Adressen sind Admin — auch wenn das Konto
+// erst nach dem letzten Start entstanden ist. Damit sperrt sich niemand aus.
+const gehoben = app.auth.hebeAdmins(konfig.adminEmails)
+if (gehoben > 0) app.log.info(`${gehoben} Konto/Konten auf die Admin-Rolle gehoben`)
 
 await app.listen({ port: konfig.port, host: '0.0.0.0' })
 app.log.info(`Maptale-API läuft auf Port ${konfig.port}`)
