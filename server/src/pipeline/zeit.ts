@@ -2,13 +2,27 @@
 // Zeitreihe (Position + kumulierte Distanz + Zeit-Offset je Punkt) und
 // destilliert daraus die `timeline`-Stützstellen f→Pseudo-Zeit fürs Tour-JSON.
 //
-// Kern-Designentscheid (Plan M2): Pausen > 15 min werden auf 2 min komprimiert.
-// Eine Mittagspause hat keine Streckenausdehnung — beim Abspielen würde die
-// Pseudo-Uhr (und damit die Sonne) an dieser Stelle sonst um Stunden springen.
-// Preis der Kompression: nach jeder Pause läuft die Pseudo-Uhr der echten Zeit
-// hinterher; das ist gewollt (weiche Sonne schlägt exakte Uhrzeit).
+// Kern-Designentscheid: Eine Pause hat keine Streckenausdehnung — der Film
+// fährt nach Strecke, die Uhr läuft nach Zeit. Zwei Stunden Kino wären an
+// dieser Stelle also ein SPRUNG der Pseudo-Uhr (und damit der Sonne) von hell
+// auf dunkel, mitten in der Fahrt.
+//
+// Bis Juli 2026 wurde die Pause deshalb auf zwei Minuten gestaucht. Das nahm
+// den Ruck, verschob aber alles Folgende: Nach zwei Stunden Pause zeigte die
+// Telemetrie bis zum Tourende gut zwei Stunden zu früh an — an einer echten
+// Tour endete die Anzeige um 20:51, während die Fotos derselben Minuten schon
+// „22:48" untertitelt waren und es draußen längst dunkel war.
+//
+// Stattdessen läuft die Pause jetzt als ZEITRAFFER ab: außerhalb eines kurzen
+// Streckenfensters um die Pause gilt überall die echte Aufnahmezeit, im Fenster
+// vergeht sie im Schnelldurchlauf. Der Himmel dreht dort sichtbar von Dämmerung
+// auf Nacht — ein etabliertes filmisches Mittel, das die Pause miterzählt,
+// statt sie zu verschlucken. Bemessen wird das Fenster in FILMsekunden
+// (filmtempo.ts), nicht in Metern: 200 m sind zu Fuß vier Sekunden und auf der
+// Fähre eine halbe.
 
-import type { UploadPunkt, UploadSegment } from '../schema/upload.js'
+import type { Modus, UploadPunkt, UploadSegment } from '../schema/upload.js'
+import { meterFuerFilmsekunden } from './filmtempo.js'
 import { distanzM } from './geo.js'
 
 /** Punkt der verketteten Zeitreihe. */
@@ -19,6 +33,8 @@ export interface ZeitPunkt {
   dist: number
   /** Sekunden ab time.start — monoton nicht-fallend erzwungen */
   tSek: number
+  /** Fortbewegung des Segments, aus dem der Punkt stammt */
+  mode: Modus
 }
 
 export interface Zeitreihe {
@@ -34,10 +50,20 @@ export interface Pause {
   dauerS: number
 }
 
-/** Pausen ab dieser Dauer werden komprimiert … */
+/** Pausen ab dieser Dauer laufen als Zeitraffer ab. */
 export const PAUSE_MIN_S = 15 * 60
-/** … auf diese Ersatzdauer. */
-export const PAUSE_ERSATZ_S = 120
+
+/**
+ * Filmdauer des Zeitraffers — kurze Pause / sehr lange Pause.
+ *
+ * Die Rampe wächst mit der übersprungenen Dauer: Zwanzig Minuten sind ein
+ * Wimpernschlag Dämmerung, zwei Stunden ein halber Sonnenuntergang. Bekäme
+ * beides dieselben drei Sekunden, zuckte das Licht bei der langen Pause.
+ */
+export const RAMPE_MIN_FILM_S = 3
+export const RAMPE_MAX_FILM_S = 7
+/** Ab dieser Pausendauer ist die Rampe voll ausgefahren. */
+const RAMPE_VOLL_S = 4 * 3600
 // Aufenthaltsradius: GPS rauscht im Stand (Accuracy-Filter der App lässt bis
 // 30 m durch) und eine „Pause" darf ein kurzer Gang zum Kiosk sein.
 const PAUSE_RADIUS_M = 150
@@ -57,7 +83,7 @@ export function baueZeitreihe(segments: readonly UploadSegment[]): Zeitreihe {
       const vorher = punkte[punkte.length - 1]
       if (vorher) dist += distanzM([vorher.lng, vorher.lat], [lng, lat])
       tSek = Math.max(tSek, t)
-      punkte.push({ lng, lat, dist, tSek })
+      punkte.push({ lng, lat, dist, tSek, mode: seg.mode })
     }
   }
   const erster = punkte[0]
@@ -106,22 +132,63 @@ export function findePausen(reihe: Zeitreihe): Pause[] {
   return pausen
 }
 
-/** Zeit-Offsets mit komprimierten Pausen: je Punkt der Pseudo-Zeit-Offset (s). */
-export function komprimiereZeiten(reihe: Zeitreihe, pausen: readonly Pause[]): number[] {
+/** Filmdauer des Zeitraffers für eine Pause dieser Länge (s). */
+function rampeFilmS(dauerS: number): number {
+  const u = Math.min(1, Math.max(0, dauerS) / RAMPE_VOLL_S)
+  return RAMPE_MIN_FILM_S + u * (RAMPE_MAX_FILM_S - RAMPE_MIN_FILM_S)
+}
+
+/**
+ * Pseudo-Zeit je Punkt (s ab time.start): überall die ECHTE Aufnahmezeit, nur
+ * um jede Pause herum ein Zeitraffer.
+ *
+ * Das Fenster reicht eine halbe Rampenlänge vor die Pause und ebenso weit
+ * dahinter; innerhalb läuft die Zeit linear mit der STRECKE, außerhalb bleibt
+ * sie unangetastet. Am Fensterrand stimmen beide überein — nach der Pause geht
+ * die Uhr also wieder richtig, und das Tourende trägt die Uhrzeit, zu der es
+ * wirklich stattfand.
+ *
+ * Die Pausenpunkte selbst liegen (nach `kollabierePausen`) alle auf demselben
+ * Ort und bekommen deshalb dieselbe Pseudo-Zeit — im Film ist die Pause ein
+ * Augenblick, kein Halt. Erzählt wird sie von der Rampe drumherum.
+ */
+export function raffePausen(reihe: Zeitreihe, pausen: readonly Pause[]): number[] {
   const { punkte } = reihe
-  if (!punkte.length) return []
-  const out = new Array<number>(punkte.length)
-  out[0] = (punkte[0] as ZeitPunkt).tSek
-  let pauseIdx = 0
-  for (let i = 1; i < punkte.length; i++) {
-    let dt = (punkte[i] as ZeitPunkt).tSek - (punkte[i - 1] as ZeitPunkt).tSek
-    while (pauseIdx < pausen.length && (pausen[pauseIdx] as Pause).bisIdx <= i - 1) pauseIdx++
-    const pause = pausen[pauseIdx]
-    if (pause && i - 1 >= pause.vonIdx && i <= pause.bisIdx && pause.dauerS > 0) {
-      dt *= PAUSE_ERSATZ_S / pause.dauerS
-    }
-    out[i] = (out[i - 1] as number) + dt
+  const out = punkte.map((p) => p.tSek)
+  if (punkte.length < 2 || !pausen.length) return out
+
+  // Fenster in Indizes: letzte Stützstelle vor der Rampe → erste dahinter.
+  // Überlappende Fenster (zwei Pausen dicht beieinander) werden verschmolzen —
+  // sonst überschriebe die zweite Rampe den vorgezogenen Rand der ersten und
+  // die Uhr liefe an der Nahtstelle rückwärts.
+  const fenster: Array<{ a: number; b: number }> = []
+  for (const pause of pausen) {
+    const halbeM = meterFuerFilmsekunden(rampeFilmS(pause.dauerS), (punkte[pause.vonIdx] as ZeitPunkt).mode) / 2
+    const vonM = (punkte[pause.vonIdx] as ZeitPunkt).dist - halbeM
+    const bisM = (punkte[pause.bisIdx] as ZeitPunkt).dist + halbeM
+    let a = pause.vonIdx
+    while (a > 0 && (punkte[a - 1] as ZeitPunkt).dist >= vonM) a--
+    let b = pause.bisIdx
+    while (b < punkte.length - 1 && (punkte[b + 1] as ZeitPunkt).dist <= bisM) b++
+    const letztes = fenster[fenster.length - 1]
+    if (letztes && a <= letztes.b) letztes.b = Math.max(letztes.b, b)
+    else fenster.push({ a, b })
   }
+
+  for (const { a, b } of fenster) {
+    const von = punkte[a] as ZeitPunkt
+    const bis = punkte[b] as ZeitPunkt
+    const spanneM = bis.dist - von.dist
+    for (let i = a + 1; i < b; i++) {
+      const p = punkte[i] as ZeitPunkt
+      const u = spanneM > 0 ? (p.dist - von.dist) / spanneM : 0
+      out[i] = von.tSek + u * (bis.tSek - von.tSek)
+    }
+  }
+
+  // Netz gegen Rundungsreste: die Pseudo-Zeit muss monoton bleiben, sonst
+  // liefe die Sonne stellenweise rückwärts.
+  for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i] as number, out[i - 1] as number)
   return out
 }
 
@@ -202,9 +269,14 @@ export function kollabierePausen(segmente: readonly UploadSegment[]): UploadSegm
 
 /**
  * Timeline-Destillat: wenige Stützstellen [{f, t}] (stückweise linear), die die
- * komprimierte Zeitkurve bis auf DESTILLAT_TOLERANZ_S treffen. `undefined` bei
+ * gerafften Zeitkurve bis auf DESTILLAT_TOLERANZ_S treffen. `undefined` bei
  * degenerierten Touren (keine Strecke / keine Zeitspanne / kaputter Start) —
  * der Player fällt dann auf die lineare Pseudo-Zeit zurück.
+ *
+ * Die Zeitraffer-Rampe übersteht das Destillat unbeschadet: Sie ist linear in
+ * der Strecke und damit durch ihre beiden Endpunkte exakt beschrieben, und ihre
+ * Knicke sind die Stellen mit der größten Abweichung — genau das, was
+ * Douglas-Peucker als Erstes behält.
  */
 export function destilliereTimeline(
   reihe: Zeitreihe,
@@ -214,7 +286,7 @@ export function destilliereTimeline(
   if (!Number.isFinite(startMs)) return undefined
   if (reihe.punkte.length < 2 || reihe.gesamtM < 10 || reihe.dauerS <= 0) return undefined
 
-  const tKomp = komprimiereZeiten(reihe, findePausen(reihe))
+  const tKomp = raffePausen(reihe, findePausen(reihe))
   const f = reihe.punkte.map((p) => p.dist / reihe.gesamtM)
 
   let toleranz = DESTILLAT_TOLERANZ_S

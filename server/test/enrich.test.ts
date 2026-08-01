@@ -403,11 +403,49 @@ describe('Pausen-Kollaps in der Pipeline (Kette wie in verarbeite)', () => {
     expect(anker?.[0]).toBeCloseTo(punktInPause?.[0] ?? 0, 6)
     expect(anker?.[1]).toBeCloseTo(punktInPause?.[1] ?? 0, 6)
 
-    // Timeline bleibt monoton (die Pause ist dort ein senkrechter f-Sprung)
+    // Timeline bleibt monoton (die Pause ist dort eine sehr steile Rampe)
     const tl = mitKollaps.timeline ?? []
     expect(tl.length).toBeGreaterThanOrEqual(2)
     for (let i = 1; i < tl.length; i++) {
       expect(tl[i]?.f).toBeGreaterThanOrEqual(tl[i - 1]?.f ?? 0)
     }
+  })
+
+  it('die Uhr am Tourende zeigt die echte Endzeit, nicht Stunden zu früh', async () => {
+    // Der Fehler, der das ausgelöst hat: Nach zwei Stunden Kino-Pause endete die
+    // Anzeige um 20:51, während die Fotos derselben Minuten mit „22:48"
+    // untertitelt waren. Die Pause wurde aus der Uhr herausgekürzt, statt
+    // gerafft zu werden.
+    const roh = manifestMitPause()
+    const kollabiert = { ...roh, segments: kollabierePausen(roh.segments ?? []) }
+    const tour = await reichereAn(eingabe({ manifest: kollabiert }))
+
+    const tl = tour.timeline ?? []
+    const letzterPunkt = kollabiert.segments?.[0]?.pts.at(-1)
+    const echtesEndeMs = Date.parse(roh.time.start) + (letzterPunkt?.[3] ?? 0) * 1000
+    expect(Date.parse(tl.at(-1)?.t ?? '')).toBe(echtesEndeMs)
+    expect(tl.at(-1)?.f).toBe(1)
+    expect(Date.parse(tl[0]?.t ?? '')).toBe(Date.parse(roh.time.start))
+  })
+
+  it('die Pausendauer vergeht auf einem schmalen Stück Strecke (Zeitraffer)', async () => {
+    const roh = manifestMitPause()
+    const kollabiert = { ...roh, segments: kollabierePausen(roh.segments ?? []) }
+    const tl = (await reichereAn(eingabe({ manifest: kollabiert }))).timeline ?? []
+
+    let steilstesDt = 0
+    let steilstesDf = 1
+    for (let i = 1; i < tl.length; i++) {
+      const dt = (Date.parse(tl[i]!.t) - Date.parse(tl[i - 1]!.t)) / 1000
+      const df = tl[i]!.f - tl[i - 1]!.f
+      if (df > 0 && dt / df > steilstesDt / steilstesDf) {
+        steilstesDt = dt
+        steilstesDf = df
+      }
+    }
+    // Die 25-min-Pause steckt im steilsten Abschnitt, der nur wenige Prozent
+    // der Strecke breit ist — dort dreht der Himmel im Schnelldurchlauf.
+    expect(steilstesDt).toBeGreaterThan(1200)
+    expect(steilstesDf).toBeLessThan(0.06)
   })
 })

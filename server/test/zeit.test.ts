@@ -2,15 +2,16 @@
 // Grundlage der nichtlinearen Pseudo-Zeit im Player (M2).
 
 import { describe, expect, it } from 'vitest'
+import { meterFuerFilmsekunden } from '../src/pipeline/filmtempo.js'
 import {
   KOLLAPS_MIN_REST_M,
-  PAUSE_ERSATZ_S,
+  RAMPE_MIN_FILM_S,
   baueZeitreihe,
   destilliereTimeline,
   findePausen,
   kollabierePausen,
-  komprimiereZeiten,
   positionZurZeit,
+  raffePausen,
   zeitZurPosition,
 } from '../src/pipeline/zeit.js'
 import type { UploadSegment } from '../src/schema/upload.js'
@@ -111,24 +112,69 @@ describe('findePausen', () => {
   })
 })
 
-describe('komprimiereZeiten', () => {
-  it('ersetzt die Pausendauer durch die Ersatzdauer, Rest bleibt', () => {
-    const reihe = baueZeitreihe([marsch({ dauerS: 7200, pause: { abS: 1800, dauerS: 1500 } })])
-    const pausen = findePausen(reihe)
-    const komp = komprimiereZeiten(reihe, pausen)
-    const pause = pausen[0]
-    if (!pause) throw new Error('Pause erwartet')
-    const gespart = pause.dauerS - PAUSE_ERSATZ_S
-    expect(komp[komp.length - 1]).toBeCloseTo(7200 - gespart, 5)
-    // Vor der Pause läuft die Zeit unverändert
-    expect(komp[pause.vonIdx]).toBe(reihe.punkte[pause.vonIdx]?.tSek)
-    // Am Pausenende sind genau PAUSE_ERSATZ_S vergangen
-    expect(komp[pause.bisIdx]).toBeCloseTo((komp[pause.vonIdx] ?? 0) + PAUSE_ERSATZ_S, 5)
+describe('raffePausen', () => {
+  const mitPause = () => baueZeitreihe([marsch({ dauerS: 7200, pause: { abS: 1800, dauerS: 1500 } })])
+
+  it('lässt die Tour in ihrer echten Länge enden', () => {
+    // Der Kern der Umstellung: Früher wurde die Pause auf 2 min gestaucht und
+    // alles danach lief der Wirklichkeit um die Restdauer hinterher — die
+    // Telemetrie zeigte am Tourende Stunden zu früh an.
+    const reihe = mitPause()
+    const roh = raffePausen(reihe, findePausen(reihe))
+    expect(roh[roh.length - 1]).toBe(7200)
+    expect(roh[0]).toBe(0)
   })
 
-  it('lässt Touren ohne Pausen unverändert', () => {
+  it('lässt außerhalb des Rampenfensters die echte Zeit unangetastet', () => {
+    const reihe = mitPause()
+    const pause = findePausen(reihe)[0]
+    if (!pause) throw new Error('Pause erwartet')
+    const roh = raffePausen(reihe, [pause])
+    // Die Rampe reicht eine halbe Filmsekunden-Länge über die Pause hinaus;
+    // alles, was weiter weg liegt, trägt exakt seinen Aufnahmezeitstempel.
+    const halbeRampeM = meterFuerFilmsekunden(RAMPE_MIN_FILM_S, 'walk') / 2
+    const pausenM = (reihe.punkte[pause.vonIdx] as { dist: number }).dist
+    let geprueft = 0
+    reihe.punkte.forEach((p, i) => {
+      if (Math.abs(p.dist - pausenM) < halbeRampeM * 2) return
+      expect(roh[i]).toBe(p.tSek)
+      geprueft++
+    })
+    expect(geprueft).toBeGreaterThan(reihe.punkte.length / 2)
+  })
+
+  it('erreicht am Fensterende wieder die echte Zeit (kein Rückstand)', () => {
+    // Die alte Kompression sparte die Pausendauer ein und ließ alles Folgende
+    // um sie zurückhängen. Die Rampe holt sie im Fenster komplett auf.
+    const reihe = mitPause()
+    const roh = raffePausen(reihe, findePausen(reihe))
+    const pause = findePausen(reihe)[0]!
+    // Direkt hinter der Pause ist der Rückstand schon aufgeholt …
+    const kurzDahinter = reihe.punkte.findIndex(
+      (p, i) => i > pause.bisIdx && p.dist > (reihe.punkte[pause.bisIdx] as { dist: number }).dist + 200,
+    )
+    expect(roh[kurzDahinter]).toBe((reihe.punkte[kurzDahinter] as { tSek: number }).tSek)
+  })
+
+  it('bleibt monoton und lässt Touren ohne Pausen unverändert', () => {
     const reihe = baueZeitreihe([marsch()])
-    expect(komprimiereZeiten(reihe, [])).toEqual(reihe.punkte.map((p) => p.tSek))
+    expect(raffePausen(reihe, [])).toEqual(reihe.punkte.map((p) => p.tSek))
+
+    const roh = raffePausen(mitPause(), findePausen(mitPause()))
+    for (let i = 1; i < roh.length; i++) expect(roh[i]).toBeGreaterThanOrEqual(roh[i - 1] as number)
+  })
+
+  it('verschmilzt überlappende Rampenfenster zweier dichter Pausen', () => {
+    // Zwei Pausen keine 200 m auseinander: Ohne Verschmelzung zöge die zweite
+    // Rampe den von der ersten vorgezogenen Rand wieder zurück — die Uhr liefe
+    // an der Nahtstelle rückwärts.
+    const reihe = baueZeitreihe([
+      marsch({ dauerS: 3600, pause: { abS: 900, dauerS: 1200 } }),
+    ])
+    const pausen = findePausen(reihe)
+    const roh = raffePausen(reihe, pausen)
+    for (let i = 1; i < roh.length; i++) expect(roh[i]).toBeGreaterThanOrEqual(roh[i - 1] as number)
+    expect(roh[roh.length - 1]).toBe(3600)
   })
 })
 
@@ -242,22 +288,45 @@ describe('destilliereTimeline', () => {
     ])
   })
 
-  it('komprimiert die Pause und bleibt monoton', () => {
+  it('rafft die Pause und behält Anfangs- wie Endzeit der Aufnahme', () => {
     const timeline = destilliereTimeline(
       baueZeitreihe([marsch({ dauerS: 7200, pause: { abS: 1800, dauerS: 1500 } })]),
       START,
     )
     if (!timeline) throw new Error('Timeline erwartet')
     expect(timeline[0]).toEqual({ f: 0, t: '2026-07-04T06:00:00Z' })
-    expect(timeline[timeline.length - 1]?.f).toBe(1)
-    // Pseudo-Spanne = echte Spanne minus eingesparte Pausenzeit (± Radius-Unschärfe)
-    const spanneS = (Date.parse(timeline[timeline.length - 1]?.t ?? '') - Date.parse(timeline[0]?.t ?? '')) / 1000
-    expect(spanneS).toBeLessThanOrEqual(7200 - 1500 + PAUSE_ERSATZ_S)
-    expect(spanneS).toBeGreaterThan(7200 - 1800 + PAUSE_ERSATZ_S - 300)
+    expect(timeline[timeline.length - 1]).toEqual({ f: 1, t: '2026-07-04T08:00:00Z' })
     for (let i = 1; i < timeline.length; i++) {
       expect(timeline[i]?.f).toBeGreaterThanOrEqual(timeline[i - 1]?.f ?? 0)
       expect(Date.parse(timeline[i]?.t ?? '')).toBeGreaterThanOrEqual(Date.parse(timeline[i - 1]?.t ?? ''))
     }
+  })
+
+  it('legt die gesamte Pausendauer in ein schmales Streckenfenster', () => {
+    // Das ist der Zeitraffer: Auf wenigen Prozent der Strecke vergeht der
+    // Löwenanteil der Zeit — dort dreht der Himmel von hell auf dunkel.
+    const timeline = destilliereTimeline(
+      baueZeitreihe([marsch({ dauerS: 7200, pause: { abS: 1800, dauerS: 1500 } })]),
+      START,
+    )
+    if (!timeline) throw new Error('Timeline erwartet')
+    // Steilheit = Sekunden je Streckenanteil. Der steilste Abschnitt ist die
+    // Rampe; die normale Fahrt hat zwar größere Zeitsprünge, aber über weite
+    // Strecken.
+    let steilstesDt = 0
+    let steilstesDf = 1
+    for (let i = 1; i < timeline.length; i++) {
+      const dt = (Date.parse(timeline[i]!.t) - Date.parse(timeline[i - 1]!.t)) / 1000
+      const df = timeline[i]!.f - timeline[i - 1]!.f
+      if (df > 0 && dt / df > steilstesDt / steilstesDf) {
+        steilstesDt = dt
+        steilstesDf = df
+      }
+    }
+    // Der Löwenanteil der Pause (1500 s) steckt in diesem einen Abschnitt …
+    expect(steilstesDt).toBeGreaterThan(1200)
+    // … der weniger als 5 % der Strecke einnimmt
+    expect(steilstesDf).toBeLessThan(0.05)
   })
 
   it('gibt bei degenerierten Touren undefined zurück', () => {

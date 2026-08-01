@@ -18,7 +18,7 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   Upload → Anreicherungs-Pipeline (Benennung via Nominatim, Pausen-Kollaps — GPS-Drift im
   Stand wird auf den Schwerpunkt gezogen, sonst zittert die Kamera und die km-Statistik lügt;
   läuft in `ladeOriginalSegmente`, der von Editor UND Render geteilten Stelle —, Track-
-  Vereinfachung, Timeline mit Pausen-Kompression, Medien-Platzierung, Edit-Overlay,
+  Vereinfachung, Timeline mit Pausen-Zeitraffer, Medien-Platzierung, Edit-Overlay,
   Auto-Wetter via Open-Meteo, Wetter-Verfeinerung per Foto-Bildanalyse) → Tour-JSON. Dazu Mehrbenutzer-Betrieb: Konten mit
   Mail-Bestätigung, Passwort-Reset, Quota, Sichtbarkeit ([server/src/auth/](server/src/auth/),
   `quota.ts`, `mail.ts`). Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md);
@@ -353,7 +353,7 @@ Regler). ÜBERLAPPENDE Musik-Klips sind erlaubt und MISCHEN sich — im Player (
 Element, audiotracks.js) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn wächst mit.
 
-**Zwei Feinheiten der Pipeline, die man leicht „repariert":**
+**Drei Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`
    (Oberfläche: „Titel") landet im Tour-JSON als `title`, die Uhrzeit rutscht als „Foto ·
@@ -366,6 +366,20 @@ Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn w
    nur beim Rendern angewandt, zeigte der Editor eine andere Aufteilung als das Video.
    `edits.modi` wird darübergelegt und behält Vorrang; mehrere Segmente im Manifest bleiben
    unangetastet (jemand hat dann selbst umgeschaltet).
+3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](server/src/pipeline/zeit.ts),
+   `raffePausen`): Überall gilt die echte Aufnahmezeit, nur um die Pause herum liegt ein
+   schmales Streckenfenster, in dem die Zeit im Schnelldurchlauf vergeht — der Himmel dreht
+   dort sichtbar von Dämmerung auf Nacht. Bis Juli 2026 wurde die Pause stattdessen auf zwei
+   Minuten gestaucht; das nahm den Ruck, ließ aber ALLES Folgende um die Restdauer
+   zurückhängen. An einer echten Tour endete die Telemetrie deshalb um 20:51, während die
+   Fotos derselben Minuten schon „22:48" untertitelt waren. Das Fenster wird in FILMsekunden
+   bemessen ([filmtempo.ts](server/src/pipeline/filmtempo.ts) — der Server kennt seit dem
+   die Tempo-Tabelle der Engine, mit Drift-Wächter), nicht in Metern: 200 m sind zu Fuß vier
+   Sekunden und auf der Fähre eine halbe. Und es wächst mit der Pausendauer, sonst zuckte
+   das Licht bei zwei Stunden genauso schnell wie bei zwanzig Minuten. Der Player braucht
+   dafür nichts: `createTimeAt` interpoliert linear in `f`, eine steile Stützstellen-Flanke
+   IST der Zeitraffer — und weil der Sonnenstand pro Frame aus der Pseudo-Zeit gerechnet
+   wird, ist er auch beim Scrubben deterministisch.
 
 **Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
 immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
