@@ -34,17 +34,25 @@ export interface SchienenQuelle {
  */
 const KORRIDOR_M = 30
 
-/** So viel eines Abschnitts muss im Korridor liegen. */
-const ANTEIL = 0.75
+/**
+ * So viel eines Abschnitts muss im Korridor liegen.
+ *
+ * Hoch angesetzt, weil die Länge allein nicht trägt (s. u.): Eine Straßenbahn
+ * ist IMMER auf den Gleisen, ein Auto nur stückweise und zufällig. Die Deckung
+ * unterscheidet beide besser als jede Streckenschranke.
+ */
+const ANTEIL = 0.85
 
 /**
  * So lang muss ein Abschnitt sein, damit er als Bahnfahrt zählt (m).
  *
- * Kurze Stücke laufen Gefahr, ein Auto auf einer Straße MIT Gleisen zu sein —
- * in Innenstädten teilen sich beide oft die Spur. Über anderthalb Kilometer
- * hält das kaum eine Autofahrt durch, ohne einmal abzubiegen.
+ * An einer echten Tour nachgemessen (Frankfurt, Juli 2026): Zwei Fahrten von
+ * zwei und vier Minuten — in der Stadt sind das ein paar hundert Meter. Eine
+ * Schranke von anderthalb Kilometern, wie sie für Überlandfahrten naheliegt,
+ * hätte beide verworfen. Zwei Haltestellen sind die kürzeste Fahrt, die man
+ * überhaupt als solche erzählt.
  */
-const MIN_STRECKE_M = 1500
+const MIN_STRECKE_M = 500
 
 /** Rand um die Tour für die Abfrage (Grad, ~1 km). */
 const BOX_RAND = 0.01

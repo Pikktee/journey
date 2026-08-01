@@ -50,16 +50,30 @@ describe('hebeSchienenAbschnitte', () => {
     expect(erg[0]?.mode).toBe('bike')
   })
 
-  it('braucht eine Mindeststrecke — kurz auf Gleisen ist noch keine Bahnfahrt', () => {
-    // In Innenstädten teilen sich Auto und Bahn oft die Spur; über anderthalb
-    // Kilometer hält das kaum eine Autofahrt durch.
-    const erg = hebeSchienenAbschnitte([segment('bike', fahrt(600))], [gleisGerade()])
+  it('braucht eine Mindeststrecke — ein Stück Gleis ist noch keine Bahnfahrt', () => {
+    // Ein paar Meter auf der Trasse hat jeder mal; unter zwei Haltestellen
+    // erzählt niemand von einer Fahrt.
+    const erg = hebeSchienenAbschnitte([segment('bike', fahrt(300))], [gleisGerade()])
     expect(erg[0]?.mode).toBe('bike')
   })
 
-  it('verlangt, dass der Abschnitt ÜBERWIEGEND auf der Trasse liegt', () => {
-    // Gleis endet nach 900 m, die Fahrt geht 3 km weiter → 30 % Deckung
+  it('erkennt die kurze Stadtfahrt über zwei Haltestellen', () => {
+    // An einer echten Frankfurter Tour nachgemessen: Die Fahrten dauerten zwei
+    // und vier Minuten — eine 1,5-km-Schranke hätte beide verworfen.
+    const erg = hebeSchienenAbschnitte([segment('bike', fahrt(700))], [gleisGerade()])
+    expect(erg[0]?.mode).toBe('tram')
+  })
+
+  it('verlangt, dass der Abschnitt fast GANZ auf der Trasse liegt', () => {
+    // Gleis endet nach 900 m, die Fahrt geht 3 km weiter → 30 % Deckung.
+    // Eine Straßenbahn ist immer auf den Gleisen, ein Auto nur stückweise.
     const erg = hebeSchienenAbschnitte([segment('bike', fahrt(3000))], [gleisGerade(-100, 900)])
+    expect(erg[0]?.mode).toBe('bike')
+  })
+
+  it('verwirft ein Auto, das nur zeitweise der Gleisstraße folgt', () => {
+    // 2 km auf der Trasse, dann 1 km abseits = 66 % — zu wenig
+    const erg = hebeSchienenAbschnitte([segment('bike', fahrt(3000))], [gleisGerade(-100, 2000)])
     expect(erg[0]?.mode).toBe('bike')
   })
 
