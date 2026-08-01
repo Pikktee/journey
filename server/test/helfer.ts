@@ -9,6 +9,7 @@ import { oeffneDb } from '../src/db.js'
 import type { MailNachricht, MailVersand } from '../src/mail.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { VideoWerkzeug } from '../src/pipeline/video.js'
+import type { SchienenQuelle } from '../src/pipeline/schienen.js'
 import type { BildKlassifikator } from '../src/pipeline/vision.js'
 import type { WetterQuelle } from '../src/pipeline/weather.js'
 import { MemStorage } from '../src/storage.js'
@@ -68,6 +69,9 @@ export async function baueTestApp(
   // Default null: keine Bildanalyse (M5) — Vision-Tests geben einen
   // FesterKlassifikator herein (Spiegelbild des OpenRouterKlassifikator in index.ts)
   bildKlassifikator: BildKlassifikator | null = null,
+  // Default null: kein Schienen-Abgleich — Tram-Tests geben FesteSchienen
+  // herein (Spiegelbild der OverpassSchienen in index.ts)
+  schienen: SchienenQuelle | null = null,
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
@@ -82,6 +86,7 @@ export async function baueTestApp(
     wetter,
     videoWerkzeug,
     bildKlassifikator,
+    schienen,
     mail,
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')

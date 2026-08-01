@@ -8,6 +8,7 @@ import { oeffneDb } from './db.js'
 import { KonsoleMail, ResendMail, type MailVersand } from './mail.js'
 import { trageTitelbilderNach } from './pipeline/cover.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
+import { OverpassSchienen } from './pipeline/schienen.js'
 import { FfmpegWerkzeug } from './pipeline/video.js'
 import { OpenRouterKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
 import { OpenMeteoQuelle } from './pipeline/weather.js'
@@ -25,6 +26,7 @@ const benutzerStorage = new FsStorage(join(konfig.datenDir, 'benutzer'))
 const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
 const videoWerkzeug = new FfmpegWerkzeug()
+const schienen = new OverpassSchienen()
 // Bildanalyse (M5) nur mit Key — sonst null (No-Op, Wetter exakt wie M2).
 const bildKlassifikator: BildKlassifikator | null = konfig.openRouterKey
   ? new OpenRouterKlassifikator(konfig.openRouterKey, undefined, konfig.visionModell)
@@ -43,6 +45,7 @@ const app = baueApp({
   wetter,
   videoWerkzeug,
   bildKlassifikator,
+  schienen,
   mail,
 })
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)

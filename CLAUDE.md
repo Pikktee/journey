@@ -374,6 +374,18 @@ Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn w
    Track als eingebettete `segments` schickt: Bei JEDER App-Aufnahme lief dadurch gar keine
    Erkennung, und weil „Automatisch" in der App als `walk` übertragen wird, blieb eine
    Straßenbahnfahrt mit Fußwegen ein einziges „zu Fuß" über die ganze Tour.
+
+   **Welches Fahrzeug es war, entscheidet die Trasse, nicht das Tempo**
+   ([schienen.ts](server/src/pipeline/schienen.ts)): Moped, Jeep und Tram sind am Tempo nicht
+   auseinanderzuhalten, die Automatik hebt eine Aufnahme ohne Angabe deshalb höchstens auf
+   „Rad". Wer über ≥ 1,5 km zu ≥ 75 % im 30-m-Korridor um `railway=tram/light_rail` bleibt,
+   saß in der Straßenbahn — abgefragt per Overpass (OSM). Drei Schutzregeln: Das läuft nur bei
+   `frisch` (finalize/„Neu verarbeiten", also nie bei einem Edit-Speichern), nur wenn die
+   Fortbewegung überhaupt GERATEN wurde (`trackMode` leer und alles `walk`), und nur solange
+   `edits.modi` leer ist — eine im Studio gezogene Kante wird nie überstimmt. Das Ergebnis geht
+   als Modus-Grenzen ins **Overlay**, nicht ins Tour-JSON: dort ist es sichtbar und
+   korrigierbar (dasselbe Muster wie die Auto-Musikwahl). Fällt OSM aus, bleibt es bei „Rad" —
+   eine Anreicherung, kein Muss.
 3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](server/src/pipeline/zeit.ts),
    `raffePausen`): Überall gilt die echte Aufnahmezeit, nur um die Pause herum liegt ein
    schmales Streckenfenster, in dem die Zeit im Schnelldurchlauf vergeht — der Himmel dreht

@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { TourJson } from '../src/pipeline/enrich.js'
+import { FesteSchienen } from '../src/pipeline/schienen.js'
 import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
 import { FesterKlassifikator } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
@@ -988,5 +989,104 @@ describe('Edit-Overlay + Editor (M7)', () => {
       ).statusCode,
     ).toBe(404)
     expect((await u.app.inject({ method: 'POST', url: `/api/tours/${id}/reprocess`, cookies: fremd })).statusCode).toBe(404)
+  })
+})
+
+describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
+  const LAT = 50.1
+  const gradProM = 1 / (111_320 * Math.cos((LAT * Math.PI) / 180))
+
+  /** Bahn – Fußweg – Bahn entlang derselben Linie nach Osten. */
+  function tramManifest(): UploadManifest {
+    const manifest = beispielManifest()
+    const pts: [number, number, number, number][] = []
+    let strecke = 0
+    for (let t = 0; t <= 2700; t += 15) {
+      pts.push([8.68 + strecke * gradProM, LAT, 110, t])
+      const kmh = t < 420 || t >= 1320 ? 22 : 4.5
+      strecke += (kmh / 3.6) * 15
+    }
+    manifest.segments = [{ mode: 'walk', pts }]
+    manifest.media = []
+    manifest.time = { start: '2026-07-31T20:09:00+02:00', end: '2026-07-31T20:54:00+02:00', zone: 'Europe/Berlin' }
+    return manifest
+  }
+
+  /** Gleis über die ganze Strecke. */
+  const gleis = (): Array<Array<readonly [number, number]>> => [
+    [
+      [8.68 - 500 * gradProM, LAT],
+      [8.68 + 20000 * gradProM, LAT],
+    ],
+  ]
+
+  async function ediereOverlay(u: TestUmgebung, id: string): Promise<{ modi?: Array<{ mode: string }> }> {
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/edits`, cookies: u.cookies })
+    return antwort.statusCode === 200 ? (antwort.json() as { modi?: Array<{ mode: string }> }) : {}
+  }
+
+  it('macht aus der geratenen Radfahrt eine Straßenbahn — als Grenze im Overlay', async () => {
+    const schienen = new FesteSchienen(gleis())
+    const u = await baueTestApp(undefined, null, null, {}, null, schienen)
+    const id = await legeTourAn(u, tramManifest())
+    await finalisiere(u, id)
+
+    // Das Ergebnis steht im Overlay: dort ist es im Studio sichtbar und
+    // korrigierbar (dasselbe Muster wie die Musikwahl)
+    const overlay = await ediereOverlay(u, id)
+    expect(overlay.modi?.map((m) => m.mode)).toEqual(['tram', 'walk', 'tram'])
+    expect(schienen.abfragen).toHaveLength(1)
+
+    // … und wirkt bis ins gerenderte Tour-JSON
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as { segments: Array<{ mode: string }> }
+    expect(tour.segments.map((s) => s.mode)).toEqual(['tram', 'walk', 'tram'])
+  })
+
+  it('überstimmt keine eigene Angabe des Nutzers', async () => {
+    const schienen = new FesteSchienen(gleis())
+    const u = await baueTestApp(undefined, null, null, {}, null, schienen)
+    const manifest = tramManifest()
+    // Wer „Moped" gewählt hat, ist Moped gefahren — auch auf Gleisen
+    manifest.segments = [{ ...manifest.segments![0]!, mode: 'moped' }]
+    const id = await legeTourAn(u, manifest)
+    await finalisiere(u, id)
+
+    expect((await ediereOverlay(u, id)).modi).toBeUndefined()
+    expect(schienen.abfragen).toHaveLength(0)
+  })
+
+  it('rührt eine im Studio gezogene Modus-Kante nicht an', async () => {
+    const schienen = new FesteSchienen(gleis())
+    const u = await baueTestApp(undefined, null, null, {}, null, schienen)
+    const id = await legeTourAn(u, tramManifest())
+    await u.app.inject({
+      method: 'PUT',
+      url: `/api/tours/${id}/edits`,
+      cookies: u.cookies,
+      payload: { schema: 'maptale/edits@1', modi: [{ ab: '2026-07-31T18:09:00Z', mode: 'jeep' }] },
+    })
+    await finalisiere(u, id)
+
+    expect((await ediereOverlay(u, id)).modi?.map((m) => m.mode)).toEqual(['jeep'])
+    expect(schienen.abfragen).toHaveLength(0)
+  })
+
+  it('bleibt bei Rad, wenn OSM ausfällt', async () => {
+    const kaputt = {
+      gleise: async () => {
+        throw new Error('Overpass 504')
+      },
+    }
+    const u = await baueTestApp(undefined, null, null, {}, null, kaputt)
+    const id = await legeTourAn(u, tramManifest())
+    await finalisiere(u, id)
+
+    expect((await ediereOverlay(u, id)).modi).toBeUndefined()
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as { segments: Array<{ mode: string }> }
+    expect(tour.segments.map((s) => s.mode)).toEqual(['bike', 'walk', 'bike'])
   })
 })

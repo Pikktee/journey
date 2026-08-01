@@ -16,6 +16,7 @@ import {
 import { bestimmeCover, reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
+import { hebeSchienenAbschnitte, umgebungsBox } from '../pipeline/schienen.js'
 import { istAufzeichnung, trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
 import { waehleMusik } from '../pipeline/musikwahl.js'
 import { platziereMedien } from '../pipeline/placement.js'
@@ -632,12 +633,16 @@ async function verarbeite(
   opts: { frisch?: boolean; erstmals?: boolean } = {},
 ): Promise<void> {
   const { frisch = false, erstmals = false } = opts
-  const { db, storage, benutzerStorage, geocoder, wetter, videoWerkzeug, bildKlassifikator } = app.deps
+  const { db, storage, benutzerStorage, geocoder, wetter, videoWerkzeug, bildKlassifikator, schienen } = app.deps
   const protokoll = (nachricht: string): void => app.log.warn(nachricht)
   try {
     const tour = ladeTour(app, tourId)
     if (!tour) return
     let manifest = JSON.parse((await storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
+
+    // Hat der Nutzer die Fortbewegung selbst angegeben? „walk" ohne alles heißt
+    // in der App „Automatisch" (Navigation.kt) und ist damit KEINE Angabe.
+    const modusGeraten = !manifest.trackMode && (manifest.segments ?? []).every((s) => s.mode === 'walk')
 
     // GPX-Quelle (M6): das hochgeladene trackFile serverseitig zu einem Segment
     // parsen und ins Manifest einsetzen — ab hier ist die Pipeline quellenblind.
@@ -648,6 +653,40 @@ async function verarbeite(
     let edits: EditOverlay | null = null
     if (await storage.info(tourId, EDITS_PFAD)) {
       edits = JSON.parse((await storage.lese(tourId, EDITS_PFAD)).toString()) as EditOverlay
+    }
+
+    // Straßenbahn erkennen: Am Tempo sind Moped, Jeep und Tram nicht zu
+    // unterscheiden — an der Trasse schon. Läuft nur bei `frisch` (also
+    // finalize/„Neu verarbeiten"), nur wenn die Fortbewegung überhaupt geraten
+    // wurde, und nur solange niemand im Studio eine Modus-Kante gezogen hat:
+    // Eine Nutzer-Entscheidung wird nicht überstimmt. Das Ergebnis geht als
+    // Grenzen ins OVERLAY — dort ist es sichtbar und korrigierbar, statt als
+    // unerklärlicher Automatik-Effekt im fertigen Tour-JSON zu stecken (dasselbe
+    // Muster wie die Musikwahl unten).
+    if (frisch && modusGeraten && schienen && !edits?.modi?.length) {
+      const segmente = manifest.segments ?? []
+      const box = istAufzeichnung(segmente) ? umgebungsBox(segmente) : null
+      if (box) {
+        try {
+          const gehoben = hebeSchienenAbschnitte(segmente, await schienen.gleise(box))
+          if (gehoben.some((s, i) => s.mode !== segmente[i]?.mode)) {
+            const startMs = Date.parse(manifest.time.start)
+            const mitModi: EditOverlay = {
+              ...(edits ?? { schema: EDITS_SCHEMA_ID }),
+              modi: gehoben.map((s) => ({
+                ab: new Date(startMs + (s.pts[0]?.[3] ?? 0) * 1000).toISOString(),
+                mode: s.mode,
+              })),
+            }
+            await storage.schreibe(tourId, EDITS_PFAD, JSON.stringify(mitModi, null, 2))
+            edits = mitModi
+          }
+        } catch (fehler) {
+          // OSM ist eine Anreicherung, kein Muss — fällt sie aus, bleibt es bei
+          // der Tempo-Automatik (Rad statt Bahn).
+          protokoll(`Schienen-Abgleich übersprungen: ${(fehler as Error).message}`)
+        }
+      }
     }
 
     // Anreicherungs-Cache: die teuren extern beschafften Ergebnisse. `frisch`
