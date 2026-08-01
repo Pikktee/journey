@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Maptale Studio, Anmeldung (linke Bühne)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — nicht die echte App. Gegenstand: die LINKE BÜHNE der
+   Anmeldeseite (studio.html #login-view).
+
+   Zwei Änderungen gegenüber heute:
+   1. Die Wortmarke „Maptale Studio" steht nicht mehr oben links unter
+      dem Zurück-Knopf, sondern gehört zum zentrierten Titelblock in der
+      optischen Mitte. Oben links bleibt damit genau EIN Element — der
+      Weg hinaus. (Dieselbe Regel wie im Player.)
+   2. Statt der statisch gestrichelten Route drei Vorschläge für eine
+      Animation, die etwas erzählt. Umschalter oben rechts oder 1/2/3.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #10151d;
+  --fl-2: #151c26;
+  --fl-3: #1c2530;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+  --akzent: #F59E0B;
+  --akzent-2: #ff6f52;
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14.5px; line-height: 1.5;
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+}
+h1, h2 { font-family: var(--font-display); font-weight: 550; margin: 0; }
+/* Filmkorn wie in der App */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 200; pointer-events: none; opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ————————————————— Grundgerüst der Anmeldung ————————————————— */
+#login-view {
+  position: fixed; inset: 0;
+  display: grid; grid-template-columns: 1.15fr 1fr;
+  background: var(--bg);
+}
+.login-buehne {
+  position: relative; overflow: hidden;
+  border-right: 1px solid var(--rand);
+  display: grid; place-items: center;
+  padding: 64px 48px;
+  background: linear-gradient(160deg, #0b0f16, var(--bg-tief));
+}
+/* Die Szene liegt hinter allem, der Titelblock darüber. */
+.szene { position: absolute; inset: 0; pointer-events: none; }
+.szene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Scrim: hält den Satz lesbar, egal was dahinter passiert. Die Szenen
+   halten die Mitte ohnehin frei — das hier ist der zweite Riegel. */
+.buehne-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(62% 50% at 50% 50%, rgba(6, 8, 12, 0.86), rgba(6, 8, 12, 0.45) 58%, transparent 82%);
+}
+
+/* ————————————————— Titelblock (mittig) ————————————————— */
+.login-titel {
+  position: relative; z-index: 2; text-align: center;
+  max-width: 560px; display: grid; justify-items: center; gap: 22px;
+}
+.wortmarke {
+  display: inline-flex; align-items: center; gap: 0.45em;
+  font-family: var(--font-display); font-size: 20px; letter-spacing: -0.01em;
+  font-weight: 500; color: var(--text);
+}
+.wortmarke svg { width: 26px; height: 26px; translate: 0 1px; flex: none; }
+.wortmarke b { color: var(--akzent); font-weight: 600; }
+.login-titel h1 {
+  font-size: clamp(32px, 3.6vw, 46px); line-height: 1.08;
+  letter-spacing: -0.015em; font-weight: 480; text-wrap: balance; margin: 0;
+}
+.login-titel h1 em { font-style: italic; color: var(--akzent); }
+.login-titel p {
+  color: var(--text-2); max-width: 40ch; margin: 0; font-size: 15px; text-wrap: balance;
+}
+.login-fuss {
+  color: var(--text-3); font-size: 12.5px; letter-spacing: -0.01em;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.login-fuss i { color: var(--akzent); font-style: normal; opacity: 0.85; }
+
+/* Sanftes Aufziehen beim Öffnen — einmal, nicht in Schleife */
+.login-titel > * { animation: titelEin 900ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.login-titel > *:nth-child(1) { animation-delay: 120ms; }
+.login-titel > *:nth-child(2) { animation-delay: 240ms; }
+.login-titel > *:nth-child(3) { animation-delay: 380ms; }
+.login-titel > *:nth-child(4) { animation-delay: 520ms; }
+@keyframes titelEin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* ————————————————— Zurück-Pille (unverändert) ————————————————— */
+.login-zurueck {
+  position: fixed; top: 30px; left: 48px; z-index: 40;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px 9px 12px;
+  border: 1px solid var(--rand); border-radius: 999px;
+  background: rgba(9, 13, 20, 0.55);
+  backdrop-filter: blur(8px) saturate(1.1); -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  color: var(--text-2); text-decoration: none;
+  transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+.login-zurueck:hover { color: var(--text); border-color: rgba(245, 158, 11, 0.55); background: rgba(9, 13, 20, 0.8); }
+.login-zurueck .lz-chevron { font-size: 18px; line-height: 0; margin-top: -1px; opacity: 0.85; transition: transform 0.22s ease; }
+.login-zurueck:hover .lz-chevron { transform: translateX(-3px); }
+.login-zurueck .lz-word { font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em; }
+
+/* ————————————————— Formularseite (Kontext, vereinfacht) ————————————————— */
+.login-formseite { display: grid; place-items: center; padding: 32px; overflow: auto; }
+.login-box { width: min(360px, 100%); }
+.login-box h2 { font-size: 26px; font-weight: 520; letter-spacing: -0.01em; }
+.login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; }
+.feld { margin-bottom: 16px; }
+.feld label { display: block; font-size: 12.5px; color: var(--text-2); margin-bottom: 6px; }
+.feld input {
+  width: 100%; padding: 11px 13px; border-radius: 9px;
+  background: var(--bg-tief); border: 1px solid var(--rand); color: var(--text);
+  font-family: var(--font-ui); font-size: 14px;
+}
+.feld input:focus { outline: 2px solid var(--akzent); outline-offset: 2px; border-color: transparent; }
+.knopf-primaer {
+  width: 100%; justify-content: center; margin-top: 8px;
+  font-family: var(--font-ui); font-size: 14.5px; font-weight: 600;
+  display: inline-flex; align-items: center; padding: 12px 18px;
+  border: none; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(120deg, #F59E0B, #FF6F52); color: #1a1206;
+}
+.auth-wechsel { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.auth-wechsel .link { background: none; border: none; padding: 0; color: var(--akzent); font: inherit; font-size: 13px; cursor: pointer; }
+
+/* ————————————————— Mockup-Umschalter (gehört NICHT ins Produkt) ————————————————— */
+.mock-schalter {
+  position: fixed; top: 22px; right: 22px; z-index: 300;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px; border-radius: 999px;
+  background: rgba(9, 13, 20, 0.82); border: 1px dashed var(--rand-hell);
+  backdrop-filter: blur(8px);
+}
+.mock-schalter b { font-size: 11px; font-weight: 500; color: var(--text-3); padding: 0 8px 0 6px; letter-spacing: 0.01em; }
+.mock-schalter button {
+  font-family: var(--font-ui); font-size: 12.5px; font-weight: 500;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--text-2);
+}
+.mock-schalter button:hover { background: var(--fl-2); color: var(--text); }
+.mock-schalter button[aria-pressed='true'] { background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.5); color: var(--text); }
+.mock-notiz {
+  position: fixed; bottom: 18px; right: 22px; z-index: 300;
+  max-width: 300px; text-align: right;
+  font-size: 12px; line-height: 1.45; color: var(--text-3);
+}
+.mock-notiz b { color: var(--text-2); font-weight: 600; }
+
+@media (max-width: 980px) {
+  #login-view { grid-template-columns: 1fr; }
+  .login-buehne { display: none; }
+}
+
+/* ═══════════════════ Variante A — „Die Route zeichnet sich" ═══════════════════
+   Die Strecke entsteht EINMAL beim Öffnen (der Punkt zieht sie hinter sich her),
+   die Foto-Stopps ploppen auf, wenn er vorbeikommt. Danach bleibt die Route
+   stehen; nur ein Lichtpunkt fährt sie in Ruhe immer wieder ab. Kein
+   wiederholtes Neuzeichnen — eine Login-Seite darf nicht blinken. */
+.a-kontur { fill: none; stroke: rgba(167, 177, 191, 0.085); stroke-width: 1; }
+.a-kontur-feld { animation: aDrift 90s ease-in-out infinite alternate; }
+@keyframes aDrift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-26px, 14px, 0); } }
+
+.a-route {
+  fill: none; stroke: url(#aVerlauf); stroke-width: 2.6; stroke-linecap: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: aZeichnen 5.4s cubic-bezier(0.45, 0, 0.25, 1) 0.5s forwards;
+}
+@keyframes aZeichnen { to { stroke-dashoffset: 0; } }
+/* Der Fluss legt sich NACH dem Zeichnen darüber — dieselbe Linie, gestrichelt */
+.a-fluss {
+  fill: none; stroke: rgba(245, 158, 11, 0.55); stroke-width: 2.6; stroke-linecap: round;
+  stroke-dasharray: 5 11; opacity: 0;
+  animation: aFlussEin 1.8s ease 6.0s forwards, aFliessen 34s linear 6.0s infinite;
+}
+@keyframes aFlussEin { to { opacity: 1; } }
+@keyframes aFliessen { to { stroke-dashoffset: -900; } }
+/* Der Kopf der Linie: erst Zeichner, dann Dauergast */
+.a-kopf { opacity: 0; animation: aKopf 5.9s ease-out 0.5s forwards; }
+@keyframes aKopf { 0% { opacity: 0; } 8% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+.a-laeufer { opacity: 0; animation: aLaeufer 11s linear 7.8s infinite; }
+@keyframes aLaeufer { 0%, 100% { opacity: 0; } 6%, 94% { opacity: 0.95; } }
+
+/* Foto-Stopps: Fußring, Mast, Kopfscheibe — die Sprache der 3D-Pins im Player.
+   Sie setzen sich ERST, wenn die Strecke ganz gefahren ist: erst die Reise,
+   dann die Erinnerungen daran. Kurz gestaffelt, damit es eine Geste bleibt. */
+.a-pin { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: aPin 780ms cubic-bezier(0.2, 1.5, 0.35, 1) forwards; }
+@keyframes aPin { from { opacity: 0; transform: scale(0.4) translateY(9px); } to { opacity: 1; transform: none; } }
+.a-pin .ring { fill: none; stroke: rgba(245, 158, 11, 0.5); stroke-width: 1.4; }
+.a-pin .mast { stroke: rgba(245, 158, 11, 0.65); stroke-width: 1.6; }
+.a-pin .scheibe { fill: #0b0f16; stroke: var(--akzent); stroke-width: 2; }
+.a-pin text { fill: var(--text); font-family: var(--font-ui); font-size: 13px; font-weight: 600; text-anchor: middle; font-variant-numeric: tabular-nums; }
+/* Der Puls läuft im Takt des Läufers: er quittiert dessen Halt am Stopp,
+   nicht das Erscheinen des Pins (das erledigt der Overshoot oben). */
+.a-pin .puls { fill: none; stroke: rgba(245, 158, 11, 0.55); stroke-width: 1.6; opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: aPuls 11s ease-out infinite; }
+@keyframes aPuls {
+  0%  { opacity: 0.55; transform: scale(1); }
+  16% { opacity: 0; transform: scale(2.6); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+
+/* ═══════════════════ Variante B — „Der Himmel dreht" ═══════════════════
+   Erzählt, was die App wirklich kann: echte Tageszeit. Die Sonne sinkt hinter
+   den Kamm, der Himmel geht von Nachmittag über Abendrot in die Nacht und
+   zurück — 80 Sekunden für einen Tag. Sehr langsam, kein Blickfang. */
+.b-himmel { position: absolute; inset: 0; }
+.b-himmel > div { position: absolute; inset: 0; }
+/* Auch der „Tag" bleibt spätnachmittäglich dunkel — Maptale kennt keinen Light Mode. */
+.b-tag   { background: linear-gradient(180deg, #0a1220 0%, #12233a 46%, #1b3348 100%); animation: bTag 80s ease-in-out infinite; }
+.b-abend { background: linear-gradient(180deg, #120f22 0%, #35202c 48%, #6b3520 100%); opacity: 0; animation: bAbend 80s ease-in-out infinite; }
+.b-nacht { background: linear-gradient(180deg, #05070c 0%, #080d16 55%, #0d141f 100%); opacity: 0; animation: bNacht 80s ease-in-out infinite; }
+@keyframes bTag   { 0%, 8% { opacity: 1; } 26%, 74% { opacity: 0; } 92%, 100% { opacity: 1; } }
+@keyframes bAbend { 0%, 8% { opacity: 0; } 22%, 30% { opacity: 1; } 44%, 66% { opacity: 0; } 78%, 86% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes bNacht { 0%, 34% { opacity: 0; } 46%, 62% { opacity: 1; } 74%, 100% { opacity: 0; } }
+
+.b-sonne { animation: bSonne 80s ease-in-out infinite; }
+@keyframes bSonne {
+  0%   { transform: translate(0, -40px); opacity: 1; }
+  28%  { transform: translate(-40px, 150px); opacity: 1; }
+  40%  { transform: translate(-58px, 240px); opacity: 0; }
+  60%  { transform: translate(58px, 240px); opacity: 0; }
+  74%  { transform: translate(40px, 150px); opacity: 1; }
+  100% { transform: translate(0, -40px); opacity: 1; }
+}
+.b-sterne { opacity: 0; animation: bSterne 80s ease-in-out infinite; }
+@keyframes bSterne { 0%, 32% { opacity: 0; } 46%, 62% { opacity: 0.9; } 74%, 100% { opacity: 0; } }
+.b-sterne circle { fill: #f2ede3; animation: bFunkeln 5s ease-in-out infinite; }
+@keyframes bFunkeln { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.b-kamm-fern { fill: #101826; animation: bParallaxFern 120s ease-in-out infinite alternate; }
+.b-kamm-mitte { fill: #0a1019; animation: bParallaxMitte 120s ease-in-out infinite alternate; }
+.b-kamm-nah { fill: #06090e; }
+@keyframes bParallaxFern { to { transform: translateX(-18px); } }
+@keyframes bParallaxMitte { to { transform: translateX(-34px); } }
+.b-route {
+  fill: none; stroke: rgba(245, 158, 11, 0.7); stroke-width: 2.2; stroke-linecap: round;
+  stroke-dasharray: 5 11; animation: bFliessen 40s linear infinite;
+}
+@keyframes bFliessen { to { stroke-dashoffset: -1000; } }
+.b-punkt { fill: #0b0f16; stroke: var(--akzent); stroke-width: 2; }
+
+/* ═══════════════════ Variante C — „Feld aus Signaturen" ═══════════════════
+   Jede aufgezeichnete Tour hat im Studio eine Routen-Signatur — die Form
+   DIESER Reise. Hier ist die Bühne ein Feld davon: alle sehr leise, und
+   reihum wird eine für ein paar Sekunden gezeichnet, als käme sie gerade an. */
+.c-feld { animation: cAtmen 60s ease-in-out infinite alternate; }
+@keyframes cAtmen { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-14px, -10px, 0) scale(1.03); } }
+.c-sig { fill: none; stroke: rgba(167, 177, 191, 0.22); stroke-width: 1.7; stroke-linecap: round; }
+.c-sig, .c-hell { vector-effect: non-scaling-stroke; }
+.c-hell {
+  fill: none; stroke: var(--akzent); stroke-width: 2; stroke-linecap: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0;
+  animation: cZeichnen 30s linear infinite;
+}
+/* 12 Formen teilen sich einen 30-s-Takt: jede ist 2,5 s lang „die neue Tour" */
+@keyframes cZeichnen {
+  0%   { stroke-dashoffset: 1; opacity: 0; }
+  1%   { stroke-dashoffset: 1; opacity: 0.95; }
+  5.5% { stroke-dashoffset: 0; opacity: 0.95; }
+  8.3% { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.c-punkt { fill: #0b0f16; stroke: var(--akzent); stroke-width: 1.8; opacity: 0; animation: cPunkt 30s linear infinite; }
+@keyframes cPunkt { 0%, 5% { opacity: 0; } 6% { opacity: 1; } 8.3% { opacity: 0; } 100% { opacity: 0; } }
+
+/* Motion ist Präsenz, kein Lärm — wer sie abbestellt, bekommt das Standbild. */
+@media (prefers-reduced-motion: reduce) {
+  .szene *, .b-himmel > div, .login-titel > * { animation: none !important; }
+  .a-route, .c-hell { stroke-dashoffset: 0; }
+  .a-fluss, .a-laeufer, .b-sterne { opacity: 1; }
+  .c-hell { opacity: 0.9; }
+}
+</style>
+</head>
+<body>
+
+<section id="login-view">
+  <a class="login-zurueck" href="#" aria-label="Zurück zur Startseite">
+    <span class="lz-chevron" aria-hidden="true">‹</span>
+    <span class="lz-word">Startseite</span>
+  </a>
+
+  <div class="login-buehne">
+
+    <!-- ══════════ Variante A ══════════ -->
+    <div class="szene" data-variante="a" aria-hidden="true">
+      <svg viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="aVerlauf" gradientUnits="userSpaceOnUse" x1="0" y1="820" x2="760" y2="120">
+            <stop offset="0" stop-color="#F59E0B" stop-opacity="0.35"/>
+            <stop offset="0.5" stop-color="#F59E0B"/>
+            <stop offset="1" stop-color="#FF6F52"/>
+          </linearGradient>
+          <radialGradient id="aGlanz">
+            <stop offset="0" stop-color="#FFD79A" stop-opacity="0.9"/>
+            <stop offset="0.35" stop-color="#F59E0B" stop-opacity="0.45"/>
+            <stop offset="1" stop-color="#F59E0B" stop-opacity="0"/>
+          </radialGradient>
+          <!-- Ein Pfad, drei Verwendungen: zeichnen, fließen, abfahren.
+               Er umrundet die Textzone (x 230–535, y 280–690) — die Bühne
+               trägt einen Satz, die Linie darf ihn nicht kreuzen. -->
+          <path id="aWeg" d="M-40 424 C 30 598, 176 762, 358 800 C 520 834, 648 760, 676 626 C 702 504, 648 392, 692 300 C 730 220, 812 166, 900 134"/>
+        </defs>
+
+        <!-- Höhenlinien: das Gelände, sehr leise -->
+        <g class="a-kontur-feld">
+          <path class="a-kontur" d="M-60 118 C 150 40, 268 180, 470 106 S 820 158, 860 62"/>
+          <path class="a-kontur" d="M-60 196 C 158 116, 276 258, 478 184 S 820 240, 860 142"/>
+          <path class="a-kontur" d="M-60 274 C 166 192, 286 336, 488 262 S 820 320, 860 222"/>
+          <path class="a-kontur" d="M-60 352 C 174 268, 296 414, 498 340 S 820 400, 860 302"/>
+          <path class="a-kontur" d="M-60 640 C 130 726, 350 578, 508 682 S 792 768, 860 682"/>
+          <path class="a-kontur" d="M-60 722 C 142 808, 362 660, 520 764 S 792 850, 860 764"/>
+          <path class="a-kontur" d="M-60 804 C 154 890, 374 742, 532 846 S 792 928, 860 842"/>
+        </g>
+
+        <use class="a-route" href="#aWeg" pathLength="1"/>
+        <use class="a-fluss" href="#aWeg"/>
+
+        <!-- Foto-Stopps, in der Reihenfolge, in der der Kopf vorbeikommt -->
+        <g class="a-pin" style="animation-delay: 6.0s">
+          <ellipse class="ring" cx="358" cy="800" rx="15" ry="5.5"/>
+          <line class="mast" x1="358" y1="800" x2="358" y2="754"/>
+          <circle class="puls" cx="358" cy="746" r="13" style="animation-delay: 11.1s"/>
+          <circle class="scheibe" cx="358" cy="746" r="13"/>
+          <text x="358" y="751">1</text>
+        </g>
+        <g class="a-pin" style="animation-delay: 6.2s">
+          <ellipse class="ring" cx="676" cy="626" rx="15" ry="5.5"/>
+          <line class="mast" x1="676" y1="626" x2="676" y2="580"/>
+          <circle class="puls" cx="676" cy="572" r="13" style="animation-delay: 13.85s"/>
+          <circle class="scheibe" cx="676" cy="572" r="13"/>
+          <text x="676" y="577">2</text>
+        </g>
+        <g class="a-pin" style="animation-delay: 6.4s">
+          <ellipse class="ring" cx="692" cy="300" rx="15" ry="5.5"/>
+          <line class="mast" x1="692" y1="300" x2="692" y2="254"/>
+          <circle class="puls" cx="692" cy="246" r="13" style="animation-delay: 16.38s"/>
+          <circle class="scheibe" cx="692" cy="246" r="13"/>
+          <text x="692" y="251">3</text>
+        </g>
+
+        <!-- Der Kopf zieht die Linie … -->
+        <g class="a-kopf">
+          <circle r="26" fill="url(#aGlanz)"/>
+          <circle r="4.5" fill="#FFE2B4"/>
+          <animateMotion dur="5.4s" begin="0.5s" fill="freeze" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.45 0 0.25 1">
+            <mpath href="#aWeg"/>
+          </animateMotion>
+        </g>
+        <!-- … und danach fährt sie in Ruhe jemand ab — mit HALT an jedem
+             Foto-Stopp (die Knicke in keyTimes), so wie es der Player tut.
+             keyPoints sind die Pin-Positionen als Anteil der Streckenlänge. -->
+        <g class="a-laeufer">
+          <circle r="20" fill="url(#aGlanz)"/>
+          <circle r="3.6" fill="#FFE2B4"/>
+          <animateMotion dur="11s" begin="7.8s" repeatCount="indefinite" calcMode="linear"
+            keyPoints="0;0.366;0.366;0.614;0.614;0.836;0.836;1"
+            keyTimes="0;0.3;0.37;0.55;0.62;0.78;0.85;1">
+            <mpath href="#aWeg"/>
+          </animateMotion>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ══════════ Variante B ══════════ -->
+    <div class="szene" data-variante="b" hidden aria-hidden="true">
+      <div class="b-himmel">
+        <div class="b-tag"></div>
+        <div class="b-abend"></div>
+        <div class="b-nacht"></div>
+      </div>
+      <svg viewBox="0 0 700 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <radialGradient id="bSonnenGlanz">
+            <stop offset="0" stop-color="#FFE7B8" stop-opacity="1"/>
+            <stop offset="0.18" stop-color="#FFC062" stop-opacity="0.8"/>
+            <stop offset="0.5" stop-color="#FF8A3C" stop-opacity="0.28"/>
+            <stop offset="1" stop-color="#FF6F52" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <g class="b-sterne">
+          <circle cx="86" cy="96" r="1.5"/><circle cx="168" cy="182" r="1.1" style="animation-delay: 1.2s"/>
+          <circle cx="248" cy="72" r="1.6" style="animation-delay: 2.4s"/><circle cx="332" cy="164" r="1.2" style="animation-delay: 0.6s"/>
+          <circle cx="416" cy="58" r="1.4" style="animation-delay: 3.1s"/><circle cx="502" cy="142" r="1.7" style="animation-delay: 1.8s"/>
+          <circle cx="584" cy="88" r="1.2" style="animation-delay: 2.9s"/><circle cx="646" cy="196" r="1.5" style="animation-delay: 0.9s"/>
+          <circle cx="122" cy="256" r="1.3" style="animation-delay: 3.6s"/><circle cx="292" cy="288" r="1.1" style="animation-delay: 2.1s"/>
+          <circle cx="466" cy="252" r="1.4" style="animation-delay: 1.5s"/><circle cx="618" cy="316" r="1.2" style="animation-delay: 4.2s"/>
+          <circle cx="52" cy="188" r="1.1" style="animation-delay: 2.7s"/><circle cx="378" cy="212" r="1.5" style="animation-delay: 3.9s"/>
+          <circle cx="546" cy="42" r="1.3" style="animation-delay: 0.3s"/>
+        </g>
+
+        <!-- Sonne: Glanzhof + Scheibe, zusammen bewegt. Sie steht rechts —
+             hinter dem Satz wäre sie Gegenlicht auf der Schrift. -->
+        <g class="b-sonne">
+          <circle cx="556" cy="318" r="170" fill="url(#bSonnenGlanz)"/>
+          <circle cx="556" cy="318" r="21" fill="#FFDFA8"/>
+        </g>
+
+        <!-- Drei Kammlagen, minimaler Parallax. Fern weich (Dunst frisst die
+             Grate), nah kantig — sonst sieht es nach Papierschnitt aus. -->
+        <path class="b-kamm-fern" d="M-60 566 C 30 500, 96 528, 178 486 C 258 446, 322 508, 408 476 C 490 446, 556 512, 646 484 C 716 462, 760 502, 800 486 L 800 920 L -60 920 Z"/>
+        <path class="b-kamm-mitte" d="M-60 656 C 40 590, 128 636, 214 588 C 300 540, 358 622, 448 596 C 532 572, 596 620, 682 580 C 736 554, 770 586, 800 572 L 800 920 L -60 920 Z"/>
+
+        <!-- Die Route liegt über dem mittleren Kamm, unterhalb des Satzes -->
+        <path class="b-route" d="M-20 806 C 120 762, 214 800, 316 744 S 486 712, 566 668 S 682 640, 740 616"/>
+        <circle class="b-punkt" cx="316" cy="744" r="5"/>
+        <circle class="b-punkt" cx="566" cy="668" r="5"/>
+
+        <path class="b-kamm-nah" d="M-60 780 L 108 716 L 232 764 L 352 700 L 470 758 L 596 704 L 780 762 L 780 920 L -60 920 Z"/>
+      </svg>
+    </div>
+
+    <!-- ══════════ Variante C ══════════ -->
+    <div class="szene" data-variante="c" hidden aria-hidden="true">
+      <svg viewBox="0 0 700 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <!-- Fünf Grundformen, mehrfach verwendet: ein Feld aus Reisen.
+               pathLength am Original macht das Zeichnen der Kopien maßhaltig. -->
+          <path id="sigA" d="M0 60 C 26 12, 58 92, 92 40 S 140 8, 168 56" pathLength="1"/>
+          <path id="sigB" d="M0 20 C 44 44, 22 108, 74 112 S 150 78, 172 24" pathLength="1"/>
+          <path id="sigC" d="M0 96 C 40 96, 34 26, 78 30 S 132 84, 176 44" pathLength="1"/>
+          <path id="sigD" d="M0 100 C 52 84, 30 20, 88 16 S 148 70, 180 26" pathLength="1"/>
+          <path id="sigE" d="M0 40 C 44 100, 76 16, 118 62 S 152 106, 178 62" pathLength="1"/>
+        </defs>
+        <g class="c-feld">
+          <!-- Band über dem Satz -->
+          <g transform="translate(-14 26) scale(0.82)">
+            <use class="c-sig" href="#sigA"/><use class="c-hell" href="#sigA" style="animation-delay: 0s"/>
+            <circle class="c-punkt" cx="168" cy="56" r="4.5" style="animation-delay: 0s"/>
+          </g>
+          <g transform="translate(160 66) scale(0.82)">
+            <use class="c-sig" href="#sigB"/><use class="c-hell" href="#sigB" style="animation-delay: 2.5s"/>
+            <circle class="c-punkt" cx="172" cy="24" r="4.5" style="animation-delay: 2.5s"/>
+          </g>
+          <g transform="translate(336 22) scale(0.82)">
+            <use class="c-sig" href="#sigC"/><use class="c-hell" href="#sigC" style="animation-delay: 5s"/>
+            <circle class="c-punkt" cx="176" cy="44" r="4.5" style="animation-delay: 5s"/>
+          </g>
+          <g transform="translate(516 72) scale(0.82)">
+            <use class="c-sig" href="#sigD"/><use class="c-hell" href="#sigD" style="animation-delay: 7.5s"/>
+            <circle class="c-punkt" cx="180" cy="26" r="4.5" style="animation-delay: 7.5s"/>
+          </g>
+          <g transform="translate(58 146) scale(0.82)">
+            <use class="c-sig" href="#sigE"/><use class="c-hell" href="#sigE" style="animation-delay: 10s"/>
+            <circle class="c-punkt" cx="178" cy="62" r="4.5" style="animation-delay: 10s"/>
+          </g>
+          <g transform="translate(252 170) scale(0.82)">
+            <use class="c-sig" href="#sigC"/><use class="c-hell" href="#sigC" style="animation-delay: 12.5s"/>
+            <circle class="c-punkt" cx="176" cy="44" r="4.5" style="animation-delay: 12.5s"/>
+          </g>
+          <g transform="translate(446 142) scale(0.82)">
+            <use class="c-sig" href="#sigA"/><use class="c-hell" href="#sigA" style="animation-delay: 15s"/>
+            <circle class="c-punkt" cx="168" cy="56" r="4.5" style="animation-delay: 15s"/>
+          </g>
+          <!-- Band unter dem Satz -->
+          <g transform="translate(0 632) scale(0.82)">
+            <use class="c-sig" href="#sigD"/><use class="c-hell" href="#sigD" style="animation-delay: 17.5s"/>
+            <circle class="c-punkt" cx="180" cy="26" r="4.5" style="animation-delay: 17.5s"/>
+          </g>
+          <g transform="translate(188 684) scale(0.82)">
+            <use class="c-sig" href="#sigE"/><use class="c-hell" href="#sigE" style="animation-delay: 20s"/>
+            <circle class="c-punkt" cx="178" cy="62" r="4.5" style="animation-delay: 20s"/>
+          </g>
+          <g transform="translate(376 640) scale(0.82)">
+            <use class="c-sig" href="#sigB"/><use class="c-hell" href="#sigB" style="animation-delay: 22.5s"/>
+            <circle class="c-punkt" cx="172" cy="24" r="4.5" style="animation-delay: 22.5s"/>
+          </g>
+          <g transform="translate(546 692) scale(0.82)">
+            <use class="c-sig" href="#sigC"/><use class="c-hell" href="#sigC" style="animation-delay: 25s"/>
+            <circle class="c-punkt" cx="176" cy="44" r="4.5" style="animation-delay: 25s"/>
+          </g>
+          <g transform="translate(96 776) scale(0.82)">
+            <use class="c-sig" href="#sigA"/><use class="c-hell" href="#sigA" style="animation-delay: 27.5s"/>
+            <circle class="c-punkt" cx="168" cy="56" r="4.5" style="animation-delay: 27.5s"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="buehne-scrim" aria-hidden="true"></div>
+
+    <!-- ══════════ Der Titelblock — jetzt in der Mitte ══════════ -->
+    <div class="login-titel">
+      <div class="wortmarke">
+        <svg viewBox="2.4 2.4 35.2 35.2" aria-hidden="true">
+          <defs><linearGradient id="mk-route" gradientUnits="userSpaceOnUse" x1="4.4" y1="23.4" x2="35.6" y2="15.8">
+            <stop offset="0" stop-color="#F0940A"/><stop offset="1" stop-color="#FF8A5C"/>
+          </linearGradient></defs>
+          <g fill="none" stroke="#F59E0B" stroke-width="1.25" opacity="0.78" stroke-linecap="round">
+            <path d="M 33.41 12.85 A 15.2 15.2 0 0 0 4.8 19.81"/><path d="M 6.26 26.49 A 15.2 15.2 0 0 0 35.19 19.45"/>
+          </g>
+          <g transform="rotate(-17 20 20)" fill="none" stroke="#F59E0B" stroke-width="0.8" opacity="0.3">
+            <line x1="4.8" y1="20" x2="35.2" y2="20"/><line x1="7.11" y1="11.95" x2="32.89" y2="11.95"/>
+            <line x1="7.11" y1="28.05" x2="32.89" y2="28.05"/><ellipse cx="20" cy="20" rx="8.5" ry="15.2"/>
+          </g>
+          <path d="M 4.4 23.4 C 12.4 13.4, 27.2 26.6, 35.6 15.8" fill="none" stroke="url(#mk-route)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="4.4" cy="23.4" r="1.6" fill="#F59E0B"/><circle cx="35.6" cy="15.8" r="1.9" fill="#F2EDE3"/>
+        </svg>
+        Maptale <b>Studio</b>
+      </div>
+      <h1>Der Schneideraum für deine <em>Reisen</em>.</h1>
+      <p>Aufzeichnen, hochladen, verfeinern: aus GPS-Track, Fotos und Videos wird eine abspielbare 3D-Kamerafahrt — mit echtem Wetter und echter Tageszeit.</p>
+      <div class="login-fuss">GPX · Fotos · Videos <i>→</i> Tour</div>
+    </div>
+  </div>
+
+  <!-- Rechte Seite nur als Kontext, unverändert gegenüber heute -->
+  <div class="login-formseite">
+    <div class="login-box">
+      <h2>Anmelden</h2>
+      <p class="unterzeile">Weiter zu deinen Touren.</p>
+      <div class="feld">
+        <label for="m">E-Mail</label>
+        <input id="m" type="email" placeholder="du@beispiel.de" />
+      </div>
+      <div class="feld">
+        <label for="p">Passwort</label>
+        <input id="p" type="password" placeholder="••••••••" />
+      </div>
+      <button class="knopf-primaer">Anmelden</button>
+      <div class="auth-wechsel">
+        <button class="link">Neues Konto</button>
+        <button class="link">Passwort vergessen?</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="mock-schalter" role="group" aria-label="Variante der Bühne">
+  <b>Bühne</b>
+  <button data-w="a" aria-pressed="true">A · Route</button>
+  <button data-w="b" aria-pressed="false">B · Himmel</button>
+  <button data-w="c" aria-pressed="false">C · Signaturen</button>
+</div>
+<div class="mock-notiz" id="mock-notiz"></div>
+
+<script>
+  const NOTIZ = {
+    a: '<b>A — Erst die Fahrt, dann die Stopps.</b> Der Lichtpunkt zieht die ganze Strecke hinter sich her; ist sie gefahren, setzen sich die Foto-Stopps in schneller Folge. Danach fährt ein ruhiger Läufer sie alle 11 s ab und hält an jedem Stopp. R lädt die Szene neu.',
+    b: '<b>B — Der Himmel dreht.</b> Ein Tag in 80 s: die Sonne sinkt hinter den Kamm, Abendrot, Nacht mit Sternen, zurück. Erzählt „echte Tageszeit" statt sie zu behaupten.',
+    c: '<b>C — Feld aus Signaturen.</b> Neun Routen-Signaturen liegen leise da; reihum wird eine gezeichnet, als käme die Tour gerade an. Nutzt ein Element, das es im Studio schon gibt.',
+  };
+  const schalter = document.querySelectorAll('.mock-schalter button');
+  const notiz = document.getElementById('mock-notiz');
+
+  function zeige(w) {
+    document.querySelectorAll('.szene').forEach((s) => { s.hidden = s.dataset.variante !== w; });
+    schalter.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.w === w)));
+    notiz.innerHTML = NOTIZ[w];
+    // Szene frisch starten, damit die Einmal-Animationen wieder von vorn laufen
+    const aktiv = document.querySelector('.szene[data-variante="' + w + '"]');
+    const kopie = aktiv.cloneNode(true);
+    aktiv.replaceWith(kopie);
+  }
+  schalter.forEach((b) => b.addEventListener('click', () => zeige(b.dataset.w)));
+  addEventListener('keydown', (e) => {
+    if (e.key === '1') zeige('a');
+    if (e.key === '2') zeige('b');
+    if (e.key === '3') zeige('c');
+    if (e.key.toLowerCase() === 'r') zeige(document.querySelector('.szene:not([hidden])').dataset.variante);
+  });
+  // #a / #b / #c wählt die Variante direkt — praktisch zum Verlinken und für Screenshots
+  const ausHash = () => {
+    const w = (location.hash || '#a').slice(1);
+    zeige(NOTIZ[w] ? w : 'a');
+  };
+  addEventListener('hashchange', ausHash);
+  ausHash();
+</script>
+</body>
+</html>

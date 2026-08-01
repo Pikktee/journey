@@ -262,6 +262,10 @@
       background: var(--bg);
       z-index: 10;
     }
+    /* Die Bühne trägt EINEN zentrierten Block: Marke, Satz, Fußzeile. Die
+       Wortmarke stand früher oben links unter dem Zurück-Knopf und machte die
+       Ecke zweistimmig — oben links gehört allein der Weg hinaus (wie im
+       Player). Die Szene dahinter hält die Textzone frei. */
     .login-buehne {
       position: relative;
       overflow: hidden;
@@ -270,45 +274,100 @@
         radial-gradient(100% 100% at 85% 95%, rgba(255, 111, 82, 0.06), transparent 60%),
         linear-gradient(160deg, #0b0f16, var(--bg-tief));
       border-right: 1px solid var(--rand);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 78px 48px 44px;
+      display: grid;
+      place-items: center;
+      padding: 64px 48px;
     }
-    .login-buehne .wortmarke {
-      font-family: var(--font-display);
-      font-size: 21px;
-      letter-spacing: -0.01em;
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.35em;
+    .login-szene { position: absolute; inset: 0; pointer-events: none; }
+    .login-szene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    /* Zweiter Riegel für die Lesbarkeit — die Szene meidet die Mitte ohnehin */
+    .login-scrim {
+      position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(62% 50% at 50% 50%, rgba(6, 8, 12, 0.86), rgba(6, 8, 12, 0.45) 58%, transparent 82%);
     }
-    .login-buehne .wortmarke b { color: var(--akzent); font-weight: 600; }
-    .wortmarke a { color: inherit; text-decoration: none; transition: opacity 0.2s ease; }
-    .wortmarke a:hover { opacity: 0.8; }
-    .login-claim h1 {
-      font-size: clamp(34px, 4.2vw, 52px);
+    .login-titel {
+      position: relative; z-index: 2; text-align: center;
+      max-width: 560px; display: grid; justify-items: center; gap: 22px;
+    }
+    .login-marke {
+      display: inline-flex; align-items: center; gap: 0.45em;
+      font-family: var(--font-display); font-size: 20px; font-weight: 500;
+      letter-spacing: -0.01em; color: var(--text);
+    }
+    .login-marke svg { width: 26px; height: 26px; translate: 0 1px; flex: none; }
+    .login-marke b { color: var(--akzent); font-weight: 600; }
+    .login-titel h1 {
+      font-size: clamp(32px, 3.6vw, 46px);
       line-height: 1.08;
       letter-spacing: -0.015em;
       font-weight: 480;
-      max-width: 11em;
       text-wrap: balance;
+      margin: 0;
     }
-    .login-claim h1 em { font-style: italic; color: var(--akzent); }
-    .login-claim p { color: var(--text-2); max-width: 42ch; margin: 18px 0 0; font-size: 15px; }
-    .login-fuss { color: var(--text-3); font-size: 12.5px; font-family: var(--font-ui); letter-spacing: -0.01em; }
-    .login-route { position: absolute; inset: 0; pointer-events: none; }
-    .login-route path {
-      fill: none;
-      stroke: rgba(245, 165, 36, 0.55);
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-dasharray: 6 10;
-      animation: routeFluss 60s linear infinite;
+    .login-titel h1 em { font-style: italic; color: var(--akzent); }
+    .login-titel p { color: var(--text-2); max-width: 40ch; margin: 0; font-size: 15px; text-wrap: balance; }
+    .login-fuss { color: var(--text-3); font-size: 12.5px; letter-spacing: -0.01em; }
+    .login-fuss i { color: var(--akzent); font-style: normal; opacity: 0.85; }
+    /* Einmal beim Öffnen aufziehen — nicht in Schleife */
+    .login-titel > * { animation: bueTitelEin 900ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+    .login-titel > *:nth-child(1) { animation-delay: 120ms; }
+    .login-titel > *:nth-child(2) { animation-delay: 240ms; }
+    .login-titel > *:nth-child(3) { animation-delay: 380ms; }
+    .login-titel > *:nth-child(4) { animation-delay: 520ms; }
+    @keyframes bueTitelEin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* — Die Szene: erst die Fahrt, dann die Stopps —
+       Der Lichtpunkt zieht die Strecke hinter sich her (5,4 s); ist sie
+       gefahren, SETZEN sich die Foto-Stopps in schneller Folge. Danach bleibt
+       die Route stehen und ein ruhiger Läufer fährt sie alle 11 s ab, mit Halt
+       an jedem Stopp — dieselbe Dramaturgie wie im Player. Kein wiederholtes
+       Neuzeichnen: eine Anmeldeseite darf nicht blinken. */
+    .szene-kontur { fill: none; stroke: rgba(167, 177, 191, 0.085); stroke-width: 1; }
+    .szene-kontur-feld { animation: bueKonturDrift 90s ease-in-out infinite alternate; }
+    @keyframes bueKonturDrift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-26px, 14px, 0); } }
+    .szene-weg {
+      fill: none; stroke: url(#szeneVerlauf); stroke-width: 2.6; stroke-linecap: round;
+      stroke-dasharray: 1; stroke-dashoffset: 1;
+      animation: bueWegZeichnen 5.4s cubic-bezier(0.45, 0, 0.25, 1) 0.5s forwards;
     }
-    .login-route .kontur { stroke: rgba(167, 177, 191, 0.1); stroke-width: 1; stroke-dasharray: none; animation: none; }
-    .login-route circle { fill: var(--bg); stroke: var(--akzent); stroke-width: 2; }
-    @keyframes routeFluss { to { stroke-dashoffset: -1600; } }
+    @keyframes bueWegZeichnen { to { stroke-dashoffset: 0; } }
+    /* Der Fluss legt sich NACH dem Zeichnen über dieselbe Linie */
+    .szene-fluss {
+      fill: none; stroke: rgba(245, 158, 11, 0.55); stroke-width: 2.6; stroke-linecap: round;
+      stroke-dasharray: 5 11; opacity: 0;
+      animation: bueFlussEin 1.8s ease 6s forwards, bueFliessen 34s linear 6s infinite;
+    }
+    @keyframes bueFlussEin { to { opacity: 1; } }
+    @keyframes bueFliessen { to { stroke-dashoffset: -900; } }
+    .szene-kopf { opacity: 0; animation: bueKopf 5.9s ease-out 0.5s forwards; }
+    @keyframes bueKopf { 0% { opacity: 0; } 8% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+    .szene-laeufer { opacity: 0; animation: bueLaeufer 11s linear 7.8s infinite; }
+    @keyframes bueLaeufer { 0%, 100% { opacity: 0; } 6%, 94% { opacity: 0.95; } }
+    /* Foto-Stopps in der Sprache der 3D-Pins: Fußring, Mast, Kopfscheibe */
+    .szene-pin { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: buePinSetzen 780ms cubic-bezier(0.2, 1.5, 0.35, 1) forwards; }
+    @keyframes buePinSetzen { from { opacity: 0; transform: scale(0.4) translateY(9px); } to { opacity: 1; transform: none; } }
+    .szene-pin .ring { fill: none; stroke: rgba(245, 158, 11, 0.5); stroke-width: 1.4; }
+    .szene-pin .mast { stroke: rgba(245, 158, 11, 0.65); stroke-width: 1.6; }
+    .szene-pin .scheibe { fill: #0b0f16; stroke: var(--akzent); stroke-width: 2; }
+    .szene-pin text { fill: var(--text); font-family: var(--font-ui); font-size: 13px; font-weight: 600; text-anchor: middle; font-variant-numeric: tabular-nums; }
+    /* Der Puls quittiert den HALT des Läufers — sein Takt ist dessen Takt,
+       die Verzögerung seine Ankunftszeit an diesem Stopp. */
+    .szene-pin .puls {
+      fill: none; stroke: rgba(245, 158, 11, 0.55); stroke-width: 1.6; opacity: 0;
+      transform-box: fill-box; transform-origin: 50% 50%;
+      animation: buePinPuls 11s ease-out infinite;
+    }
+    @keyframes buePinPuls {
+      0% { opacity: 0.55; transform: scale(1); }
+      16%, 100% { opacity: 0; transform: scale(2.6); }
+    }
+    /* Motion für Präsenz, nicht für Lärm: abbestellt = fertiges Standbild */
+    @media (prefers-reduced-motion: reduce) {
+      .login-szene *, .login-titel > * { animation: none !important; }
+      .szene-weg { stroke-dashoffset: 0; }
+      .szene-fluss, .szene-pin { opacity: 1; }
+      .szene-kopf, .szene-laeufer { opacity: 0; }
+    }
     .login-formseite { display: grid; place-items: center; padding: 32px; overflow: auto; }
     .login-box { width: min(360px, 100%); }
     .login-box h2 { font-size: 26px; font-weight: 520; letter-spacing: -0.01em; }
@@ -2441,24 +2500,109 @@
       <span class="lz-chevron" aria-hidden="true">‹</span>
       <span class="lz-word">Startseite</span>
     </a>
-    <div class="login-buehne" aria-hidden="true">
-      <svg class="login-route" viewBox="0 0 700 900" preserveAspectRatio="xMidYMid slice">
-        <path class="kontur" d="M-40 260 C 140 180, 240 320, 430 250 S 760 300, 790 210" />
-        <path class="kontur" d="M-40 330 C 150 250, 250 390, 440 320 S 760 380, 790 290" />
-        <path class="kontur" d="M-40 620 C 120 700, 320 560, 470 660 S 720 740, 790 660" />
-        <path class="kontur" d="M-40 700 C 130 780, 330 640, 480 740 S 720 820, 790 740" />
-        <path d="M60 810 C 180 700, 90 590, 210 500 S 420 430, 430 320 S 560 170, 660 120" />
-        <circle cx="60" cy="810" r="5"/>
-        <circle cx="235" cy="480" r="5"/>
-        <circle cx="435" cy="300" r="5"/>
-        <circle cx="660" cy="120" r="5"/>
-      </svg>
-      <div class="wortmarke">Maptale <b>Studio</b></div>
-      <div class="login-claim">
+    <div class="login-buehne">
+      <div class="login-szene" aria-hidden="true">
+        <svg viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="szeneVerlauf" gradientUnits="userSpaceOnUse" x1="0" y1="820" x2="760" y2="120">
+              <stop offset="0" stop-color="#F59E0B" stop-opacity="0.35"/>
+              <stop offset="0.5" stop-color="#F59E0B"/>
+              <stop offset="1" stop-color="#FF6F52"/>
+            </linearGradient>
+            <radialGradient id="szeneGlanz">
+              <stop offset="0" stop-color="#FFD79A" stop-opacity="0.9"/>
+              <stop offset="0.35" stop-color="#F59E0B" stop-opacity="0.45"/>
+              <stop offset="1" stop-color="#F59E0B" stop-opacity="0"/>
+            </radialGradient>
+            <!-- Ein Pfad, drei Verwendungen: zeichnen, fließen, abfahren. Er
+                 umrundet die Textzone — die Bühne trägt einen Satz, die Linie
+                 darf ihn nicht kreuzen. -->
+            <path id="szeneWeg" d="M-40 424 C 30 598, 176 762, 358 800 C 520 834, 648 760, 676 626 C 702 504, 648 392, 692 300 C 730 220, 812 166, 900 134"/>
+          </defs>
+
+          <!-- Höhenlinien: das Gelände, sehr leise -->
+          <g class="szene-kontur-feld">
+            <path class="szene-kontur" d="M-60 118 C 150 40, 268 180, 470 106 S 820 158, 860 62"/>
+            <path class="szene-kontur" d="M-60 196 C 158 116, 276 258, 478 184 S 820 240, 860 142"/>
+            <path class="szene-kontur" d="M-60 274 C 166 192, 286 336, 488 262 S 820 320, 860 222"/>
+            <path class="szene-kontur" d="M-60 352 C 174 268, 296 414, 498 340 S 820 400, 860 302"/>
+            <path class="szene-kontur" d="M-60 640 C 130 726, 350 578, 508 682 S 792 768, 860 682"/>
+            <path class="szene-kontur" d="M-60 722 C 142 808, 362 660, 520 764 S 792 850, 860 764"/>
+            <path class="szene-kontur" d="M-60 804 C 154 890, 374 742, 532 846 S 792 928, 860 842"/>
+          </g>
+
+          <use class="szene-weg" href="#szeneWeg" pathLength="1"/>
+          <use class="szene-fluss" href="#szeneWeg"/>
+
+          <!-- Die Stopps setzen sich erst, wenn die Strecke gefahren ist -->
+          <g class="szene-pin" style="animation-delay: 6s">
+            <ellipse class="ring" cx="358" cy="800" rx="15" ry="5.5"/>
+            <line class="mast" x1="358" y1="800" x2="358" y2="754"/>
+            <circle class="puls" cx="358" cy="746" r="13" style="animation-delay: 11.1s"/>
+            <circle class="scheibe" cx="358" cy="746" r="13"/>
+            <text x="358" y="751">1</text>
+          </g>
+          <g class="szene-pin" style="animation-delay: 6.2s">
+            <ellipse class="ring" cx="676" cy="626" rx="15" ry="5.5"/>
+            <line class="mast" x1="676" y1="626" x2="676" y2="580"/>
+            <circle class="puls" cx="676" cy="572" r="13" style="animation-delay: 13.85s"/>
+            <circle class="scheibe" cx="676" cy="572" r="13"/>
+            <text x="676" y="577">2</text>
+          </g>
+          <g class="szene-pin" style="animation-delay: 6.4s">
+            <ellipse class="ring" cx="692" cy="300" rx="15" ry="5.5"/>
+            <line class="mast" x1="692" y1="300" x2="692" y2="254"/>
+            <circle class="puls" cx="692" cy="246" r="13" style="animation-delay: 16.38s"/>
+            <circle class="scheibe" cx="692" cy="246" r="13"/>
+            <text x="692" y="251">3</text>
+          </g>
+
+          <!-- Der Kopf zieht die Linie … -->
+          <g class="szene-kopf">
+            <circle r="26" fill="url(#szeneGlanz)"/>
+            <circle r="4.5" fill="#FFE2B4"/>
+            <animateMotion dur="5.4s" begin="0.5s" fill="freeze" calcMode="spline"
+              keyPoints="0;1" keyTimes="0;1" keySplines="0.45 0 0.25 1">
+              <mpath href="#szeneWeg"/>
+            </animateMotion>
+          </g>
+          <!-- … und danach fährt sie jemand in Ruhe ab, mit HALT an jedem
+               Stopp (die Knicke in keyTimes; keyPoints sind die Pin-Positionen
+               als Anteil der Streckenlänge). -->
+          <g class="szene-laeufer">
+            <circle r="20" fill="url(#szeneGlanz)"/>
+            <circle r="3.6" fill="#FFE2B4"/>
+            <animateMotion dur="11s" begin="7.8s" repeatCount="indefinite" calcMode="linear"
+              keyPoints="0;0.366;0.366;0.614;0.614;0.836;0.836;1"
+              keyTimes="0;0.3;0.37;0.55;0.62;0.78;0.85;1">
+              <mpath href="#szeneWeg"/>
+            </animateMotion>
+          </g>
+        </svg>
+      </div>
+      <div class="login-scrim" aria-hidden="true"></div>
+      <div class="login-titel">
+        <div class="login-marke">
+          <svg viewBox="2.4 2.4 35.2 35.2" aria-hidden="true">
+            <defs><linearGradient id="markeRoute" gradientUnits="userSpaceOnUse" x1="4.4" y1="23.4" x2="35.6" y2="15.8">
+              <stop offset="0" stop-color="#F0940A"/><stop offset="1" stop-color="#FF8A5C"/>
+            </linearGradient></defs>
+            <g fill="none" stroke="#F59E0B" stroke-width="1.25" opacity="0.78" stroke-linecap="round">
+              <path d="M 33.41 12.85 A 15.2 15.2 0 0 0 4.8 19.81"/><path d="M 6.26 26.49 A 15.2 15.2 0 0 0 35.19 19.45"/>
+            </g>
+            <g transform="rotate(-17 20 20)" fill="none" stroke="#F59E0B" stroke-width="0.8" opacity="0.3">
+              <line x1="4.8" y1="20" x2="35.2" y2="20"/><line x1="7.11" y1="11.95" x2="32.89" y2="11.95"/>
+              <line x1="7.11" y1="28.05" x2="32.89" y2="28.05"/><ellipse cx="20" cy="20" rx="8.5" ry="15.2"/>
+            </g>
+            <path d="M 4.4 23.4 C 12.4 13.4, 27.2 26.6, 35.6 15.8" fill="none" stroke="url(#markeRoute)" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="4.4" cy="23.4" r="1.6" fill="#F59E0B"/><circle cx="35.6" cy="15.8" r="1.9" fill="#F2EDE3"/>
+          </svg>
+          Maptale <b>Studio</b>
+        </div>
         <h1>Der Schneideraum für deine <em>Reisen</em>.</h1>
         <p>Aufzeichnen, hochladen, verfeinern: aus GPS-Track, Fotos und Videos wird eine abspielbare 3D-Kamerafahrt — mit echtem Wetter und echter Tageszeit.</p>
+        <div class="login-fuss">GPX · Fotos · Videos <i>→</i> Tour</div>
       </div>
-      <div class="login-fuss">GPX · Fotos · Videos → Tour</div>
     </div>
     <div class="login-formseite">
       <div class="login-box" id="auth-box">

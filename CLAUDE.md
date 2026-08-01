@@ -258,6 +258,19 @@ Logik in [src/studio/](src/studio/)). Kein Router — Login-, App- und Editor-An
 gleichzeitig im DOM und werden per `hidden` umgeschaltet; der Editor wird lazy importiert,
 damit MapLibre nicht ins Basis-Bundle kommt.
 
+**Die Anmeldebühne fährt erst die Strecke, dann setzt sie die Stopps.** Links neben dem
+Formular (Anmelden, Registrieren, Reset — alle drei teilen sie) läuft eine reine SVG/CSS-Szene:
+Ein Lichtpunkt zieht die Route hinter sich her (5,4 s), erst danach **setzen** sich die drei
+Foto-Stopps als Pins, und dauerhaft fährt ein zweiter Läufer die fertige Strecke alle 11 s ab —
+mit HALT an jedem Stopp (`keyPoints`/`keyTimes` des `animateMotion`; die Pin-Pulse hängen im
+selben 11-s-Takt an ihrer Ankunftszeit). Kein wiederholtes Neuzeichnen: eine Anmeldeseite darf
+nicht blinken. Zwei Regeln halten das zusammen: Der Pfad **umrundet die Textzone** (er steht
+einmal in `<defs>` und wird dreimal benutzt — zeichnen, fließen, abfahren), und die Wortmarke
+gehört in den **zentrierten Titelblock**, nicht nach oben links — dort steht wie im Player
+genau EIN Element, der Weg hinaus. Bei `prefers-reduced-motion` bleibt das fertige Standbild.
+Entwurf und die beiden verworfenen Varianten (Tag/Nacht-Himmel, Feld aus Routen-Signaturen):
+[docs/mockups/studio-login.html](docs/mockups/studio-login.html).
+
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
 **Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.
 Sie entsteht beim Anreichern ([server/src/pipeline/signatur.ts](server/src/pipeline/signatur.ts))
