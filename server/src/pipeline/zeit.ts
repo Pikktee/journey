@@ -267,6 +267,44 @@ export function kollabierePausen(segmente: readonly UploadSegment[]): UploadSegm
   return baueZeitreihe(neu).gesamtM < KOLLAPS_MIN_REST_M ? [...segmente] : neu
 }
 
+/** Pseudo-Zeit der ganzen Tour je Punkt (echte Zeit + Zeitraffer an den Pausen). */
+export function pseudoZeiten(reihe: Zeitreihe): number[] {
+  return raffePausen(reihe, findePausen(reihe))
+}
+
+/**
+ * Streckenanteil, an dem die Pseudo-Uhr die Aufnahmezeit `tSek` ZEIGT.
+ *
+ * Die Umkehrung von `raffePausen` und damit das Gegenstück zu
+ * `positionZurZeit`: Jene beantwortet „wo war die Tour um 21 Uhr?" (der Ort,
+ * für den das Wetter gilt), diese „an welcher Stelle des Films steht 21 Uhr
+ * auf der Uhr?". In einer Pause fallen alle Stunden auf denselben ORT — aber
+ * auf verschiedene Stellen der Zeitraffer-Rampe. Ohne diese Unterscheidung
+ * landeten alle Wetter-Samples einer Pause auf demselben f und nur der letzte
+ * überlebte: Ein Regen, der während der Pause einsetzte und wieder aufhörte,
+ * verschwand spurlos.
+ */
+export function anteilZurUhrzeit(reihe: Zeitreihe, pseudo: readonly number[], tSek: number): number {
+  const { punkte, gesamtM } = reihe
+  if (punkte.length < 2 || gesamtM <= 0) return 0
+  const anteil = (i: number): number => (punkte[i] as ZeitPunkt).dist / gesamtM
+  if (tSek <= (pseudo[0] as number)) return anteil(0)
+  const letzter = pseudo.length - 1
+  if (tSek >= (pseudo[letzter] as number)) return anteil(letzter)
+
+  // Binärsuche: erster Index mit pseudo >= gesucht (pseudo ist monoton)
+  let lo = 0
+  let hi = letzter
+  while (lo < hi) {
+    const mitte = (lo + hi) >> 1
+    if ((pseudo[mitte] as number) < tSek) lo = mitte + 1
+    else hi = mitte
+  }
+  const spanne = (pseudo[lo] as number) - (pseudo[lo - 1] as number)
+  const u = spanne > 0 ? (tSek - (pseudo[lo - 1] as number)) / spanne : 0
+  return anteil(lo - 1) + u * (anteil(lo) - anteil(lo - 1))
+}
+
 /**
  * Timeline-Destillat: wenige Stützstellen [{f, t}] (stückweise linear), die die
  * gerafften Zeitkurve bis auf DESTILLAT_TOLERANZ_S treffen. `undefined` bei
@@ -286,7 +324,7 @@ export function destilliereTimeline(
   if (!Number.isFinite(startMs)) return undefined
   if (reihe.punkte.length < 2 || reihe.gesamtM < 10 || reihe.dauerS <= 0) return undefined
 
-  const tKomp = raffePausen(reihe, findePausen(reihe))
+  const tKomp = pseudoZeiten(reihe)
   const f = reihe.punkte.map((p) => p.dist / reihe.gesamtM)
 
   let toleranz = DESTILLAT_TOLERANZ_S

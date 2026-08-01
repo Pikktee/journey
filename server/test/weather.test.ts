@@ -122,6 +122,37 @@ describe('berechneWetter', () => {
     expect(keyframes[1]?.f).toBe(0.5)
   })
 
+  it('verteilt die Stunden einer Pause über die Zeitraffer-Rampe', async () => {
+    // Vier Stunden Marsch, in der Mitte zwei Stunden Aufenthalt am selben Ort.
+    // Alle Pausen-Stunden haben dieselbe KOORDINATE (dafür ist positionZurZeit
+    // zuständig), aber verschiedene Stellen im Film — sonst fiele der Regen,
+    // der während der Pause kam und ging, auf ein einziges f und verschwände.
+    const pts: UploadSegment['pts'] = []
+    let strecke = 0
+    for (let t = 0; t <= 4 * 3600; t += 60) {
+      pts.push([8.0 + strecke * GRAD_PRO_M, LAT, 500, t])
+      if (t < 3600 || t >= 3 * 3600) strecke += 1.4 * 60
+    }
+    const quelle = new FesteWetterQuelle(
+      testRaster('2026-07-04T06', [
+        { wolken: 5 }, // 06 klar (vor der Pause)
+        { wolken: 5 }, // 07 klar
+        { code: 61, regenMm: 1, wolken: 95 }, // 08 Regen — mitten in der Pause
+        { code: 61, regenMm: 1, wolken: 95 }, // 09 Regen
+        { wolken: 5 }, // 10 klar (nach der Pause)
+      ]),
+    )
+    const keyframes = await berechneWetter({ reihe: baueZeitreihe([{ mode: 'walk', pts }]), startIso: START, quelle })
+
+    // Der Regen ist da — mit Anfang UND Ende, nicht auf einen Punkt geschrumpft
+    expect(keyframes.map((k) => k.mode)).toEqual(['off', 'off', 'rain', 'rain', 'off'])
+    // … und alle Marken liegen auf verschiedenen Stellen der Strecke
+    const fs = keyframes.map((k) => k.f)
+    expect(new Set(fs).size).toBe(fs.length)
+    // Die drei mittleren Marken drängen sich im schmalen Rampenfenster
+    expect((fs[3] as number) - (fs[1] as number)).toBeLessThan(0.1)
+  })
+
   it('wirft bei leerer Quelle (enrich lässt weather dann weg)', async () => {
     const quelle = new FesteWetterQuelle({ zeiten: [], code: [], wolken: [], regen: [], schnee: [] })
     await expect(

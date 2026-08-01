@@ -8,7 +8,7 @@
 // Das WMO-Mapping ist der Zwilling von wmoToWeather in src/autoweather.js —
 // Server-Keyframes und Client-Fallback müssen dieselbe Wetterwelt erzählen.
 
-import { positionZurZeit, zeitZurPosition, type Zeitreihe } from './zeit.js'
+import { anteilZurUhrzeit, positionZurZeit, pseudoZeiten, zeitZurPosition, type Zeitreihe } from './zeit.js'
 
 /**
  * Die Wetterwelt des Players (src/weather.js) als Liste — Einzelquelle für den
@@ -137,7 +137,15 @@ export async function berechneWetter(eingabe: {
   }
   if (bisMs > vonMs) zeiten.push(bisMs)
 
+  // Der ORT eines Samples folgt der echten Zeit („wo war die Tour um 21 Uhr?"),
+  // seine Stelle im Film aber der PSEUDO-Uhr: In einer Pause liegen alle
+  // Stunden am selben Ort, verteilen sich im Film jedoch über die
+  // Zeitraffer-Rampe. Ohne diese Trennung fielen sie auf ein einziges f und nur
+  // die letzte überlebte die Dedup unten — ein Regen, der während der Pause kam
+  // und ging, verschwand spurlos.
   const orte = zeiten.map((ms) => positionZurZeit(reihe, (ms - startMs) / 1000))
+  const pseudo = pseudoZeiten(reihe)
+  const anteile = zeiten.map((ms) => anteilZurUhrzeit(reihe, pseudo, (ms - startMs) / 1000))
   const raster = await quelle.stunden(orte, isoTag(vonMs), isoTag(bisMs))
 
   const samples = zeiten.map((ms, i) => {
@@ -152,7 +160,7 @@ export async function berechneWetter(eingabe: {
       regenMm: r.regen[hi] ?? 0,
       schneeCm: r.schnee[hi] ?? 0,
     })
-    return { f: (orte[i] as { f: number }).f, mode: wx.mode, k: wx.k }
+    return { f: anteile[i] as number, mode: wx.mode, k: wx.k }
   })
 
   const geglaettet = glaetteSamples(samples)
