@@ -228,13 +228,18 @@
     .btn:hover .arr { transform: translateX(3px); }
 
     /* ─── Hero (photographisch & zoom-sicher) ───────────────────────── */
+    /* Der Hero füllt den Schirm GANZ — auf jedem Format. Die frühere Marke
+       min(94vh, 900px) war als Hinweis „hier geht es weiter“ gedacht, sah aber
+       wie ein Fehler aus: unter dem Bild stand ein schwarzer Streifen (bei
+       720 px Fensterhöhe 43 px, bei hohen Fenstern durch den 900-px-Deckel
+       beliebig viel). Den Hinweis trägt der Scroll-Pfeil. */
     .hero {
-      position: relative; min-height: min(94vh, 900px); display: flex; align-items: center;
+      position: relative; min-height: 100vh; display: flex; align-items: center;
       overflow: hidden; isolation: isolate; padding-top: clamp(64px, 9vh, 100px);
     }
     /* svh statt vh: Mobil-Browser rechnen vh mit EINGEKLAPPTER Adressleiste —
        der Hero sprang beim ersten Scrollen um deren Höhe. */
-    @supports (height: 100svh) { .hero { min-height: min(94svh, 900px); } }
+    @supports (height: 100svh) { .hero { min-height: 100svh; } }
     .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; z-index: -3; }
     /* Verlaufe: unten weich in den Seitengrund, links dunkler für den Text, oben Nav-Lesbarkeit */
     .hero-scrim {
@@ -280,12 +285,10 @@
     @keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
     @media (prefers-reduced-motion: reduce) { .scroll-cue { animation: none; } }
 
-    /* Hochkant (Handy/Tablet): das Bild füllt den Schirm GANZ. Die 94-svh-Marke
-       ließ darunter einen Streifen Seitengrund stehen — im Querformat ist das
-       ein Hinweis „hier geht es weiter“, hochkant sah es aus wie ein zu kurz
-       geratenes Bild. Und der Inhalt steht wirklich mittig: das padding-bottom
-       von .hero-inner (Abstand zum Scroll-Pfeil) schob ihn nach oben; hochkant
-       hält diesen Abstand der Hero selbst, symmetrisch zur Kopfleiste oben. */
+    /* Hochkant (Handy/Tablet): der Inhalt steht wirklich mittig — das
+       padding-bottom von .hero-inner (Abstand zum Scroll-Pfeil) schob ihn nach
+       oben; hochkant hält diesen Abstand der Hero selbst, symmetrisch zur
+       Kopfleiste oben. Die Höhe kommt aus der Grundregel (100svh). */
     @media (orientation: portrait) and (max-width: 900px) {
       /* Gleich viel Polster oben wie unten — nur oben zusätzlich um die Leiste
          versetzt: dadurch sitzt der Block mittig zwischen Leisten-Unterkante
@@ -294,10 +297,8 @@
          kurzen Schirmen (640 px) über den Bildrand hinaus. */
       .hero {
         --hero-luft: clamp(28px, 4.5vh, 46px);
-        min-height: 100vh;
         padding-top: calc(var(--navh) + var(--hero-luft)); padding-bottom: var(--hero-luft);
       }
-      @supports (height: 100svh) { .hero { min-height: 100svh; } }
       .hero-inner { padding-bottom: 0; }
     }
     /* Kurzer Hochkant-Schirm (alte Androids ~640 px): Kopfleiste, Text und
@@ -312,7 +313,7 @@
        und schob sich über die Überschrift. Hier zählt die HÖHE, nicht die Breite. */
     @media (max-height: 500px) and (orientation: landscape) {
       .nav-hide-sm { display: none; }
-      .hero { min-height: min(100svh, 520px); padding-top: 74px; }
+      .hero { padding-top: 74px; }
       .hero-inner { padding-bottom: 26px; }
       .hero h1 { font-size: clamp(30px, 4.4vw, 46px); }
       .hero .lead { font-size: 16px; margin-top: 14px; }
