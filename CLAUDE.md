@@ -365,7 +365,15 @@ Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn w
    läuft in `ladeOriginalSegmente` — der einen Stelle, die sich Editor und Render teilen;
    nur beim Rendern angewandt, zeigte der Editor eine andere Aufteilung als das Video.
    `edits.modi` wird darübergelegt und behält Vorrang; mehrere Segmente im Manifest bleiben
-   unangetastet (jemand hat dann selbst umgeschaltet).
+   unangetastet (jemand hat dann selbst umgeschaltet). **Sie gilt für echte Aufzeichnungen,
+   nicht für gesetzte Wegpunkte** — zwischen zwei Foto-Orten liegt eine Luftlinie, jedes
+   daraus gerechnete Tempo wäre Zufall. Die Unterscheidung trifft `istAufzeichnung` an der
+   FORM der Daten (dichtes Zeitraster; die App legt spätestens alle 30 s einen Punkt ab), denn
+   ein Manifest-Feld dafür gibt es nicht und Bestandstouren hätten es ohnehin nicht. Sie hing
+   lange stattdessen an `trackFile` — das aber nur der GPX-Import setzt, während die App ihren
+   Track als eingebettete `segments` schickt: Bei JEDER App-Aufnahme lief dadurch gar keine
+   Erkennung, und weil „Automatisch" in der App als `walk` übertragen wird, blieb eine
+   Straßenbahnfahrt mit Fußwegen ein einziges „zu Fuß" über die ganze Tour.
 3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](server/src/pipeline/zeit.ts),
    `raffePausen`): Überall gilt die echte Aufnahmezeit, nur um die Pause herum liegt ein
    schmales Streckenfenster, in dem die Zeit im Schnelldurchlauf vergeht — der Himmel dreht

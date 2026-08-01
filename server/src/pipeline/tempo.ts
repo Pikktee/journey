@@ -47,6 +47,39 @@ const MIN_GEH_VERDRAENGUNG_M = 60
 /** Ab diesem Median-Tempo gilt eine Tour ohne Angabe als Radfahrt (km/h). */
 const RAD_AB_KMH = 7
 
+/** So dicht liegen die Punkte einer echten Aufzeichnung mindestens (s). */
+const AUFNAHME_TAKT_S = 35
+/** So viele Punkte braucht es, damit der Takt überhaupt etwas aussagt. */
+const AUFNAHME_MIN_PUNKTE = 30
+/** So viele Abstände müssen im Takt liegen. */
+const AUFNAHME_ANTEIL = 0.8
+
+/**
+ * Sind diese Segmente eine AUFZEICHNUNG — oder gesetzte Wegpunkte?
+ *
+ * Die Unterscheidung entscheidet, ob die Tempo-Automatik überhaupt laufen darf:
+ * Zwischen zwei Foto-Orten liegt eine Luftlinie, und jedes daraus gerechnete
+ * Tempo wäre Zufall. Ein Manifest-Feld dafür gibt es nicht (und Bestandstouren
+ * hätten es ohnehin nicht), aber die Form der Daten verrät es: Die App legt im
+ * Stand wie in Fahrt spätestens alle 30 s einen Punkt ab (PunktFilter), eine
+ * Aufzeichnung hat also ein dichtes, regelmäßiges Zeitraster. Foto-Zeiten sind
+ * unregelmäßig und Minuten bis Stunden auseinander.
+ *
+ * Verlangt wird der Takt für die MEHRHEIT der Abstände, nicht für alle: Ein
+ * Tunnel ohne Empfang oder ein kurz pausierter Track reißt sonst jede
+ * Aufzeichnung aus der Wertung.
+ */
+export function istAufzeichnung(segmente: readonly UploadSegment[]): boolean {
+  const zeiten = segmente.flatMap((s) => s.pts.map((p) => p[3]))
+  if (zeiten.length < AUFNAHME_MIN_PUNKTE) return false
+  let imTakt = 0
+  for (let i = 1; i < zeiten.length; i++) {
+    const dt = (zeiten[i] as number) - (zeiten[i - 1] as number)
+    if (dt >= 0 && dt <= AUFNAHME_TAKT_S) imTakt++
+  }
+  return imTakt / (zeiten.length - 1) >= AUFNAHME_ANTEIL
+}
+
 /**
  * Tempo je Punkt als gleitender Median über ±FENSTER_S.
  *

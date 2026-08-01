@@ -16,7 +16,7 @@ import {
 import { bestimmeCover, reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
-import { trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
+import { istAufzeichnung, trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
 import { waehleMusik } from '../pipeline/musikwahl.js'
 import { platziereMedien } from '../pipeline/placement.js'
 import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
@@ -541,15 +541,27 @@ async function ladeOriginalSegmente(
   tourId: string,
   manifest: UploadManifest,
 ): Promise<UploadSegment[]> {
-  // Eingebettete Segmente OHNE GPX heißen: die Punkte sind keine Aufzeichnung,
-  // sondern gesetzte Wegpunkte (statische Tour oder eine Tour aus Foto-Orten)
-  // — oder eine Aufzeichnung älterer App-Versionen (vor dem GPX-Fluss M8).
-  // Zwischen zwei Fotos liegt eine Luftlinie — was die Tempo-Automatik daraus
-  // rechnet, ist Zufall. Hier gilt der angegebene Modus, ungeteilt. Der
-  // Pausen-Kollaps läuft trotzdem: „≥ 15 min im 150-m-Radius" ist auch bei
-  // gesetzten Wegpunkten ein Aufenthalt, und Alt-App-Touren tragen genau hier
-  // ihre Drift-Wolken.
-  if (!manifest.trackFile) return kollabierePausen(manifest.segments ?? [])
+  // Eingebettete Segmente OHNE GPX sind ZWEIERLEI, und der Unterschied
+  // entscheidet über die Tempo-Automatik:
+  //
+  //   • Gesetzte Wegpunkte (Tour aus Foto-Orten). Zwischen zwei Fotos liegt
+  //     eine Luftlinie — was die Automatik daraus rechnet, ist Zufall.
+  //   • Eine echte Aufzeichnung. Die App schickt ihren Track NICHT als GPX,
+  //     sondern als eingebettete Segmente (upload/Manifest.kt `baueSegmente`);
+  //     `trackFile` gibt es nur beim GPX-Import.
+  //
+  // Weil hier lange nur der erste Fall bedacht war, lief bei App-Aufnahmen
+  // überhaupt keine Erkennung: Eine Straßenbahnfahrt mit Fußwegen blieb ein
+  // einziges „zu Fuß" über die ganze Tour. `istAufzeichnung` trennt die Fälle
+  // an der Form der Daten (dichtes Zeitraster), denn ein Manifest-Feld dafür
+  // gibt es nicht — und Bestandstouren hätten es ohnehin nicht.
+  //
+  // Der Pausen-Kollaps läuft in beiden Fällen: „≥ 15 min im 150-m-Radius" ist
+  // auch bei gesetzten Wegpunkten ein Aufenthalt.
+  if (!manifest.trackFile) {
+    const segmente = kollabierePausen(manifest.segments ?? [])
+    return istAufzeichnung(segmente) ? trenneGehabschnitteInSegmenten(segmente) : segmente
+  }
   const gpxText = (await app.deps.storage.lese(tourId, TRACK_PFAD)).toString()
   const { segment } = baueSegmentAusGpx(parseGpx(gpxText), {
     startMs: Date.parse(manifest.time.start),

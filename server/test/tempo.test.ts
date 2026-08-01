@@ -3,7 +3,12 @@
 import { describe, expect, it } from 'vitest'
 import { wendeModiAn } from '../src/pipeline/edits.js'
 import { kollabierePausen } from '../src/pipeline/zeit.js'
-import { tempoVerlaufKmh, trenneGehabschnitte, trenneGehabschnitteInSegmenten } from '../src/pipeline/tempo.js'
+import {
+  istAufzeichnung,
+  tempoVerlaufKmh,
+  trenneGehabschnitte,
+  trenneGehabschnitteInSegmenten,
+} from '../src/pipeline/tempo.js'
 import type { Modus, UploadPunkt, UploadSegment } from '../src/schema/upload.js'
 
 /** Grad Länge je Meter auf ~46,6° Nord (Berner Oberland). */
@@ -252,5 +257,51 @@ describe('Zusammenspiel mit den Modus-Grenzen des Editors', () => {
     const startMs = Date.parse('2026-07-04T08:00:00Z')
     const roh = trenneGehabschnitteInSegmenten([segment('bike', track([[20, 600], [4, 600]]))])
     expect(wendeModiAn(roh, [], startMs).map((s) => s.mode)).toEqual(['bike', 'walk'])
+  })
+})
+
+describe('istAufzeichnung', () => {
+  it('erkennt einen aufgezeichneten Track am dichten Zeitraster', () => {
+    // `track` legt einen Punkt je 5 s — genau die Form, die die App liefert
+    expect(istAufzeichnung([segment('walk', track([[5, 900]]))])).toBe(true)
+  })
+
+  it('verwirft gesetzte Wegpunkte einer Foto-Tour', () => {
+    // Foto-Orte liegen Minuten auseinander; jedes Tempo dazwischen ist Zufall
+    const pts: UploadPunkt[] = []
+    for (let i = 0; i < 40; i++) pts.push([7.9 + i * 300 * GRAD_PRO_METER, 46.59, 800, i * 420])
+    expect(istAufzeichnung([{ mode: 'walk', pts }])).toBe(false)
+  })
+
+  it('verwirft zu kurze Spuren, deren Takt nichts aussagt', () => {
+    expect(istAufzeichnung([segment('walk', track([[5, 60]]))])).toBe(false)
+    expect(istAufzeichnung([])).toBe(false)
+  })
+
+  it('erträgt Lücken (Tunnel, kurz pausierter Track)', () => {
+    const pts = kette(fahrt(20, 600, 10), fahrt(20, 600, 10))
+    // Eine 4-min-Lücke mittendrin darf die Aufzeichnung nicht disqualifizieren
+    const mitLuecke: UploadPunkt[] = pts.map((p, i) =>
+      i > pts.length / 2 ? [p[0], p[1], p[2], p[3] + 240] : p,
+    )
+    expect(istAufzeichnung([{ mode: 'walk', pts: mitLuecke }])).toBe(true)
+  })
+})
+
+describe('Aufnahme ohne Modus-Angabe (der Tram-Fall)', () => {
+  // Die App schickt „Automatisch" als `walk` — vom echten Zu-Fuß nicht
+  // unterscheidbar. Bis Juli 2026 lief bei App-Aufnahmen zudem gar keine
+  // Erkennung (die Automatik hing an `trackFile`, das nur der GPX-Import
+  // setzt). Eine Straßenbahnfahrt mit Fußwegen blieb dadurch ein einziges
+  // „zu Fuß" über die ganze Tour.
+  it('trennt Fahrt und Fußweg, obwohl „zu Fuß" angegeben war', () => {
+    const s = segment('walk', kette(fahrt(22, 420, 10), gehen(600), fahrt(22, 420, 10)))
+    const erg = trenneGehabschnitteInSegmenten([s])
+    expect(erg.map((t) => t.mode)).toEqual(['bike', 'walk', 'bike'])
+  })
+
+  it('lässt eine echte Wanderung in Ruhe', () => {
+    const erg = trenneGehabschnitteInSegmenten([segment('walk', kette(gehen(1800)))])
+    expect(erg.map((t) => t.mode)).toEqual(['walk'])
   })
 })

@@ -867,6 +867,48 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(meter).toBeLessThan(6300)
   })
 
+  it('Editor-Daten: eine App-Aufnahme wird in Fahrt und Fußweg getrennt', async () => {
+    // Die App schickt ihren Track als eingebettete Segmente, nicht als GPX —
+    // und die Automatik hing an `trackFile`. Dadurch blieb jede App-Aufnahme
+    // ein einziger Modus: eine Straßenbahnfahrt mit Fußwegen war „zu Fuß"
+    // über die ganze Tour.
+    const u = await baueTestApp()
+    const gradProM = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
+    const manifest = beispielManifest()
+    const pts: [number, number, number, number][] = []
+    let strecke = 0
+    for (let t = 0; t <= 2700; t += 15) {
+      pts.push([7.9 + strecke * gradProM, 46.59, 800, t])
+      // 7 min Bahn (22 km/h), 15 min zu Fuß (4,5 km/h), 7 min Bahn
+      const kmh = t < 420 || t >= 1320 ? 22 : 4.5
+      strecke += (kmh / 3.6) * 15
+    }
+    manifest.segments = [{ mode: 'walk', pts }]
+    manifest.time = { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T08:45:00+02:00', zone: 'Europe/Zurich' }
+
+    const id = await legeTourAn(u, manifest)
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const daten = antwort.json() as { segmente: Array<{ mode: string }> }
+    expect(daten.segmente.map((s) => s.mode)).toEqual(['bike', 'walk', 'bike'])
+  })
+
+  it('Editor-Daten: eine Foto-Tour bleibt ungeteilt (Luftlinien sind kein Tempo)', async () => {
+    const u = await baueTestApp()
+    const gradProM = 1 / (111_320 * Math.cos((46.59 * Math.PI) / 180))
+    const manifest = beispielManifest()
+    // 40 Foto-Orte im 7-Minuten-Abstand: jedes daraus gerechnete Tempo wäre Zufall
+    const pts: [number, number, number, number][] = []
+    for (let i = 0; i < 40; i++) pts.push([7.9 + i * 300 * gradProM, 46.59, 800, i * 420])
+    manifest.segments = [{ mode: 'walk', pts }]
+    manifest.time = { start: '2026-07-04T08:00:00+02:00', end: '2026-07-04T12:40:00+02:00', zone: 'Europe/Zurich' }
+
+    const id = await legeTourAn(u, manifest)
+    const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })
+    const daten = antwort.json() as { segmente: Array<{ mode: string }> }
+    expect(daten.segmente.map((s) => s.mode)).toEqual(['walk'])
+  })
+
   it('Beschreibung leeren erreicht das Tour-JSON (Review-Fund)', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u)
