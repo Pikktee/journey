@@ -143,9 +143,11 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
         val wahl = wunsch
         wunsch = null
         if (ergebnis[Manifest.permission.ACCESS_FINE_LOCATION] == true && wahl != null) {
-            // Ohne Angabe geht `walk` zum Server — der Wert, bei dem er das
-            // Fortbewegungsmittel aus dem Tempo ableitet.
-            AufzeichnungsService.starte(context, wahl.modus ?: Modus.WALK, null)
+            // `null` heißt „Automatisch": Der Service erkennt das Mittel dann
+            // unterwegs selbst — sofern die Bewegungs-Erlaubnis erteilt wurde,
+            // sonst leitet es der Server aus dem Tempo ab. Eine Absage dort darf
+            // die Aufnahme nicht verhindern, sie kostet nur die Automatik.
+            AufzeichnungsService.starte(context, wahl.modus, null)
             navController.navigate("aufzeichnung")
         }
     }
@@ -265,6 +267,9 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                     buildList {
                         add(Manifest.permission.ACCESS_FINE_LOCATION)
                         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+                        // Nur bei „Automatisch" gefragt — wer sein Mittel selbst
+                        // gewählt hat, braucht keine Bewegungserkennung.
+                        if (modus == null) add(Manifest.permission.ACTIVITY_RECOGNITION)
                     }.toTypedArray(),
                 )
             },

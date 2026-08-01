@@ -1090,3 +1090,74 @@ describe('Straßenbahn-Erkennung (OSM-Schienen)', () => {
     expect(tour.segments.map((s) => s.mode)).toEqual(['bike', 'walk', 'bike'])
   })
 })
+
+describe('App-erkannte Fortbewegung (modiAutomatisch)', () => {
+  const LAT = 50.1
+  const gradProM = 1 / (111_320 * Math.cos((LAT * Math.PI) / 180))
+
+  /** Was die App bei „Automatisch" schickt: erkannte Abschnitte, Fahrzeug als jeep. */
+  function appManifest(): UploadManifest {
+    const manifest = beispielManifest()
+    const fahrt: [number, number, number, number][] = []
+    let strecke = 0
+    for (let t = 0; t <= 2700; t += 15) {
+      fahrt.push([8.68 + strecke * gradProM, LAT, 110, t])
+      strecke += (t < 420 || t >= 1320 ? 22 : 4.5) / 3.6 * 15
+    }
+    const bis = (vonS: number, bisS: number) => fahrt.filter((p) => p[3] >= vonS && p[3] <= bisS)
+    manifest.segments = [
+      { mode: 'jeep', pts: bis(0, 420) },
+      { mode: 'walk', pts: bis(420, 1320) },
+      { mode: 'jeep', pts: bis(1320, 2700) },
+    ]
+    manifest.modiAutomatisch = true
+    manifest.media = []
+    manifest.time = { start: '2026-07-31T20:09:00+02:00', end: '2026-07-31T20:54:00+02:00', zone: 'Europe/Berlin' }
+    return manifest
+  }
+
+  const gleis = (): Array<Array<readonly [number, number]>> => [
+    [[8.68 - 500 * gradProM, LAT], [8.68 + 20000 * gradProM, LAT]],
+  ]
+
+  it('verfeinert ein erkanntes Fahrzeug auf der Trasse zur Straßenbahn', async () => {
+    // Welches Fahrzeug es war, weiß kein Sensor — die App schickt „jeep" als
+    // generisches Kraftfahrzeug und überlässt dem Server die Verfeinerung.
+    const schienen = new FesteSchienen(gleis())
+    const u = await baueTestApp(undefined, null, null, {}, null, schienen)
+    const id = await legeTourAn(u, appManifest())
+    await finalisiere(u, id)
+
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as { segments: Array<{ mode: string }> }
+    expect(tour.segments.map((s) => s.mode)).toEqual(['tram', 'walk', 'tram'])
+  })
+
+  it('lässt die erkannte Aufteilung stehen, wo keine Gleise liegen', async () => {
+    const u = await baueTestApp(undefined, null, null, {}, null, new FesteSchienen([]))
+    const id = await legeTourAn(u, appManifest())
+    await finalisiere(u, id)
+
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as { segments: Array<{ mode: string }> }
+    // Die App hat drei Abschnitte erkannt; ohne Gleise bleibt es beim Fahrzeug
+    expect(tour.segments.map((s) => s.mode)).toEqual(['jeep', 'walk', 'jeep'])
+  })
+
+  it('überstimmt dieselben Segmente NICHT, wenn sie vom Nutzer stammen', async () => {
+    const schienen = new FesteSchienen(gleis())
+    const u = await baueTestApp(undefined, null, null, {}, null, schienen)
+    const manifest = appManifest()
+    delete manifest.modiAutomatisch // = jemand hat die Modi selbst gesetzt
+    const id = await legeTourAn(u, manifest)
+    await finalisiere(u, id)
+
+    expect(schienen.abfragen).toHaveLength(0)
+    const tour = (
+      await u.app.inject({ method: 'GET', url: `/api/tours/${id}`, cookies: u.cookies })
+    ).json() as { segments: Array<{ mode: string }> }
+    expect(tour.segments.map((s) => s.mode)).toEqual(['jeep', 'walk', 'jeep'])
+  })
+})

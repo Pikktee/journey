@@ -50,6 +50,15 @@ export interface UploadManifest {
   trackFile?: string
   /** Gewünschter Modus fürs GPX-Segment; fehlt er, rät der Server aus dem Tempo */
   trackMode?: Modus
+  /**
+   * Wurde die Aufteilung von der App ERKANNT statt vom Nutzer angegeben?
+   *
+   * Nur dann darf der Server sie verfeinern (etwa ein Fahrzeug an seiner Trasse
+   * als Straßenbahn). Ohne das Feld sähe er nur Modi und könnte eine Angabe
+   * nicht von einer Vorgabe unterscheiden — „walk" heißt in der App zugleich
+   * „zu Fuß" und „Automatisch".
+   */
+  modiAutomatisch?: boolean
   media: UploadMedium[]
 }
 
@@ -77,6 +86,7 @@ export const uploadManifestJsonSchema = {
     description: { type: ['string', 'null'], maxLength: 5000 },
     trackFile: { type: 'string', minLength: 1, maxLength: 255 },
     trackMode: { enum: [...MODI] },
+    modiAutomatisch: { type: 'boolean' },
     time: {
       type: 'object',
       additionalProperties: false,

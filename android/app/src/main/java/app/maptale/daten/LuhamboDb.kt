@@ -26,9 +26,22 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/**
+ * 2→3: Wurde die Fortbewegung erkannt statt gewählt?
+ *
+ * Bestandsaufnahmen bekommen 0 — sie entstanden, als jede Tour genau einen
+ * angegebenen Modus hatte. Das ist die richtige Vorgabe: „nicht automatisch"
+ * heißt für den Server „nicht überstimmen", und damit bleibt alles, wie es war.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE touren ADD COLUMN modusAutomatisch INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Database(
     entities = [TourEntity::class, TrackpunktEntity::class, ModuswechselEntity::class, MediumEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(EnumKonverter::class)
@@ -41,7 +54,7 @@ abstract class MaptaleDb : RoomDatabase() {
         // wegwerfen. Jede neue Version braucht hier ihre Migration.
         fun baue(context: Context): MaptaleDb =
             Room.databaseBuilder(context, MaptaleDb::class.java, "maptale.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

@@ -32,6 +32,8 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
         modus: Modus,
         jetztMs: Long = System.currentTimeMillis(),
         titel: String? = null,
+        /** true = „Automatisch": das Fortbewegungsmittel wird unterwegs erkannt */
+        modusAutomatisch: Boolean = false,
     ): TourEntity {
         val tour = TourEntity(
             id = "lokal-${UUID.randomUUID()}",
@@ -41,6 +43,7 @@ class TourRepository(private val db: MaptaleDb, private val filesDir: File) {
             endeMs = null,
             zone = ZoneId.systemDefault().id,
             status = TourStatus.AUFNAHME,
+            modusAutomatisch = modusAutomatisch,
         )
         dao.legeTourAn(tour)
         dao.fuegeModuswechselEin(ModuswechselEntity(tourId = tour.id, tOffsetS = 0.0, modus = modus))

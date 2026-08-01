@@ -129,4 +129,38 @@ class ManifestTest {
         assertEquals(null, manifest.media[1].caption)
         assertFalse(ManifestBau.alsJson(manifest).contains("\"caption\":null"))
     }
+
+    // — Glättung der erkannten Fortbewegung —
+    //
+    // Sie liegt bewusst VOR dem Zerschneiden: `baueSegmente` bleibt mechanisch,
+    // was ein belastbarer Abschnitt ist, entscheidet die Bewegungsdeutung.
+
+    @Test
+    fun `glaetteWechsel wirft das Flackern beim Umsteigen weg`() {
+        val roh = listOf(
+            wechsel(0.0, Modus.JEEP),
+            wechsel(600.0, Modus.WALK),
+            wechsel(620.0, Modus.JEEP),
+        )
+        val erg = ManifestBau.glaetteWechsel(roh, endeS = 1800.0)
+        assertEquals(1, erg.size)
+        assertEquals(Modus.JEEP, erg[0].modus)
+        assertEquals(0.0, erg[0].tOffsetS, 1e-9)
+    }
+
+    @Test
+    fun `glaetteWechsel behaelt einen echten Fussweg`() {
+        val roh = listOf(
+            wechsel(0.0, Modus.JEEP),
+            wechsel(420.0, Modus.WALK),
+            wechsel(1320.0, Modus.JEEP),
+        )
+        assertEquals(3, ManifestBau.glaetteWechsel(roh, endeS = 2700.0).size)
+    }
+
+    @Test
+    fun `glaetteWechsel laesst die einzelne Angabe des Nutzers unberuehrt`() {
+        val roh = listOf(wechsel(0.0, Modus.TRAM))
+        assertEquals(roh, ManifestBau.glaetteWechsel(roh, endeS = 1800.0))
+    }
 }

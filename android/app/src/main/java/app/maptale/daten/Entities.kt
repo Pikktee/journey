@@ -42,6 +42,16 @@ data class TourEntity(
     val fehler: String? = null,
     /** Distanz in Metern (laufend gepflegt, für die Liste ohne Punkt-Query) */
     val distanzM: Double = 0.0,
+    /**
+     * Wurde die Fortbewegung erkannt statt gewählt? („Automatisch" im Startblatt)
+     *
+     * Geht als `modiAutomatisch` ins Upload-Manifest und erlaubt dem Server, die
+     * Aufteilung zu verfeinern — etwa ein Fahrzeug an seiner Trasse als
+     * Straßenbahn zu erkennen. Wer den Modus selbst gewählt hat, wird nie
+     * überstimmt, deshalb muss der Unterschied mitreisen: Der Server sieht sonst
+     * nur „walk" und kann eine Angabe nicht von einer Vorgabe unterscheiden.
+     */
+    val modusAutomatisch: Boolean = false,
 )
 
 @Entity(

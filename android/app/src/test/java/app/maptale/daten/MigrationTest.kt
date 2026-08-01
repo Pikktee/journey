@@ -74,7 +74,7 @@ class MigrationTest {
     /** Öffnet die Datenbank auf aktuellem Stand — hier läuft die Migration. */
     private fun oeffneAktuell(): MaptaleDb =
         Room.databaseBuilder(context, MaptaleDb::class.java, datenbankName)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
             .also { db = it }
@@ -115,7 +115,7 @@ class MigrationTest {
             override fun migrate(db: SupportSQLiteDatabase) = Unit
         }
         val kaputt = Room.databaseBuilder(context, MaptaleDb::class.java, datenbankName)
-            .addMigrations(untaetig)
+            .addMigrations(untaetig, MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
             .also { db = it }
@@ -126,6 +126,32 @@ class MigrationTest {
             "Unerwartete Meldung: ${fehler.message}",
             fehler.message.orEmpty().contains("Migration didn't properly handle"),
         )
+    }
+
+    @Test
+    fun `2 nach 3 behaelt die Tour, Bestandsaufnahmen gelten als nicht automatisch`() = runTest {
+        // „Nicht automatisch" ist die richtige Vorgabe für Bestandsaufnahmen:
+        // Der Server überstimmt eine Angabe nie — damit bleibt alles, wie es war.
+        legeAltesSchemaAn(2).use { alt ->
+            alt.execSQL(
+                "INSERT INTO touren (id, titel, beschreibung, startMs, endeMs, zone, status, serverId, fehler, distanzM) " +
+                    "VALUES ('lokal-2', 'Uferweg', NULL, 1000, 2000, 'Europe/Berlin', 'ENTWURF', NULL, NULL, 900.0)",
+            )
+        }
+
+        val tour = oeffneAktuell().tourDao().tour("lokal-2")!!
+        assertEquals("Uferweg", tour.titel)
+        assertEquals(900.0, tour.distanzM, 1e-9)
+        assertEquals(false, tour.modusAutomatisch)
+    }
+
+    @Test
+    fun `eine neue Aufnahme merkt sich, dass sie automatisch erkannt wird`() = runTest {
+        legeAltesSchemaAn(2).close()
+        val repo = TourRepository(oeffneAktuell(), File(context.cacheDir, "migrationstest-auto"))
+
+        val tour = repo.starteAufnahme(Modus.WALK, modusAutomatisch = true)
+        assertEquals(true, repo.tour(tour.id)!!.modusAutomatisch)
     }
 
     @Test

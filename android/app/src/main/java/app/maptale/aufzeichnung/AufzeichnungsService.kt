@@ -44,6 +44,8 @@ class AufzeichnungsService : LifecycleService() {
     private var tourId: String? = null
     private var startMs = 0L
     private var pausiert = false
+    /** Nur bei „Automatisch" erkennt die App das Fortbewegungsmittel selbst. */
+    private var modusAutomatisch = false
 
     private val locationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
 
@@ -91,10 +93,13 @@ class AufzeichnungsService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             AKTION_START -> starteAufzeichnung(
-                Modus.vonSchluessel(intent.getStringExtra(EXTRA_MODUS) ?: "walk"),
+                // Ohne EXTRA_MODUS heißt „Automatisch": walk als Startwert, aber
+                // die Erkennung übernimmt.
+                intent.getStringExtra(EXTRA_MODUS)?.let(Modus::vonSchluessel),
                 intent.getStringExtra(EXTRA_TITEL),
             )
             AKTION_MODUS -> wechsleModus(Modus.vonSchluessel(intent.getStringExtra(EXTRA_MODUS) ?: "walk"))
+            AKTION_BEWEGUNG -> Bewegungserkennung.artAus(intent)?.let(::deuteBewegung)
             AKTION_PAUSE -> setzePause(true)
             AKTION_WEITER -> setzePause(false)
             AKTION_STOPP -> beendeAufzeichnung()
@@ -102,7 +107,22 @@ class AufzeichnungsService : LifecycleService() {
         return START_STICKY
     }
 
-    private fun starteAufzeichnung(modus: Modus, titel: String?) {
+    /**
+     * Erkannte Bewegung übernehmen.
+     *
+     * Roh mitgeschrieben, nicht hier geglättet: Was zu kurz war, fällt beim Bau
+     * des Manifests heraus (Bewegungsdeutung.glaette). Ein Zustandsautomat mit
+     * Timern im Service wäre die zweite Stelle, die dieselbe Entscheidung trifft
+     * — und die schwerer zu testende.
+     */
+    private fun deuteBewegung(art: Bewegungsart) {
+        if (!modusAutomatisch || pausiert) return
+        val neu = Bewegungsdeutung.modus(art)
+        if (neu == AufzeichnungsZustand.aktuell.value?.modus) return
+        wechsleModus(neu)
+    }
+
+    private fun starteAufzeichnung(gewaehlt: Modus?, titel: String?) {
         if (tourId != null) return // läuft schon
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
@@ -110,13 +130,20 @@ class AufzeichnungsService : LifecycleService() {
             stopSelf()
             return
         }
+        // „Automatisch" (kein gewählter Modus) heißt: Die Erkennung entscheidet.
+        // Ohne die Berechtigung dafür bliebe sie stumm — dann ist es keine
+        // Automatik mehr, und der Server soll seine Tempo-Erkennung anwenden.
+        val automatik = gewaehlt == null && Bewegungserkennung.darfErkennen(this)
+        modusAutomatisch = automatik
+        val modus = gewaehlt ?: Modus.WALK
         startForeground(
             NOTIFICATION_ID,
             baueNotification(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
         )
+        if (automatik) Bewegungserkennung.starte(this)
         lifecycleScope.launch {
-            val tour = app.repository.starteAufnahme(modus, titel = titel)
+            val tour = app.repository.starteAufnahme(modus, titel = titel, modusAutomatisch = automatik)
             tourId = tour.id
             startMs = tour.startMs
             AufzeichnungsZustand.starte(tour.id, tour.startMs, modus)
@@ -149,6 +176,10 @@ class AufzeichnungsService : LifecycleService() {
 
     private fun beendeAufzeichnung() {
         val id = tourId ?: return
+        // Vor allem anderen abbestellen: Ein liegen gebliebener PendingIntent
+        // weckt die App noch tagelang bei jedem Übergang.
+        Bewegungserkennung.stoppe(this)
+        modusAutomatisch = false
         lifecycleScope.launch {
             // FusedLocation batcht bis 10 s — erst die einbehaltenen Fixe
             // ausliefern lassen (Callback nimmt noch an), DANN abklemmen.
@@ -196,6 +227,7 @@ class AufzeichnungsService : LifecycleService() {
 
     override fun onDestroy() {
         locationClient.removeLocationUpdates(callback)
+        Bewegungserkennung.stoppe(this)
         // Beendet das SYSTEM den Service (nicht der Stopp-Knopf), hängen bis zu
         // 30 s Punkte im Puffer — kurz und blockierend retten (kleiner Insert;
         // lifecycleScope ist hier bereits beendet). Die Tour selbst räumt der
@@ -215,12 +247,15 @@ class AufzeichnungsService : LifecycleService() {
         const val AKTION_PAUSE = "app.maptale.PAUSE"
         const val AKTION_WEITER = "app.maptale.WEITER"
         const val AKTION_MODUS = "app.maptale.MODUS"
+        /** Übergang der Aktivitätserkennung (PendingIntent aus Bewegungserkennung) */
+        const val AKTION_BEWEGUNG = "app.maptale.BEWEGUNG"
         const val EXTRA_MODUS = "modus"
         const val EXTRA_TITEL = "titel"
 
-        fun starte(context: Context, modus: Modus, titel: String? = null) =
+        /** `modus = null` heißt „Automatisch": die Erkennung entscheidet unterwegs. */
+        fun starte(context: Context, modus: Modus?, titel: String? = null) =
             sende(context, AKTION_START, vordergrund = true) {
-                putExtra(EXTRA_MODUS, modus.schluessel)
+                modus?.let { putExtra(EXTRA_MODUS, it.schluessel) }
                 titel?.ifBlank { null }?.let { putExtra(EXTRA_TITEL, it) }
             }
 

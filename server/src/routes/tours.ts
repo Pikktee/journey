@@ -640,9 +640,15 @@ async function verarbeite(
     if (!tour) return
     let manifest = JSON.parse((await storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
 
-    // Hat der Nutzer die Fortbewegung selbst angegeben? „walk" ohne alles heißt
-    // in der App „Automatisch" (Navigation.kt) und ist damit KEINE Angabe.
-    const modusGeraten = !manifest.trackMode && (manifest.segments ?? []).every((s) => s.mode === 'walk')
+    // Hat der Nutzer die Fortbewegung selbst angegeben?
+    //
+    // Zwei Wege, das zu verneinen: Die App sagt es ausdrücklich
+    // (`modiAutomatisch`, seit sie die Bewegung selbst erkennt), oder es steht
+    // durchgehend „walk" — was in der App zugleich „zu Fuß" und „Automatisch"
+    // bedeutet und deshalb als Vorgabe gilt, nicht als Angabe.
+    const modusGeraten =
+      !manifest.trackMode &&
+      (manifest.modiAutomatisch === true || (manifest.segments ?? []).every((s) => s.mode === 'walk'))
 
     // GPX-Quelle (M6): das hochgeladene trackFile serverseitig zu einem Segment
     // parsen und ins Manifest einsetzen — ab hier ist die Pipeline quellenblind.

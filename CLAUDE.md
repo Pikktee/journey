@@ -386,6 +386,12 @@ Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn w
    als Modus-Grenzen ins **Overlay**, nicht ins Tour-JSON: dort ist es sichtbar und
    korrigierbar (dasselbe Muster wie die Auto-Musikwahl). Fällt OSM aus, bleibt es bei „Rad" —
    eine Anreicherung, kein Muss.
+
+   Erkennt die **App** die Fortbewegung selbst (Activity Recognition, s.
+   [android/CLAUDE.md](android/CLAUDE.md)), schickt sie fertige Abschnitte und setzt
+   `modiAutomatisch` im Manifest. Nur dieses Feld unterscheidet „erkannt" von „angegeben" —
+   `walk` heißt in der App beides. Ein Fahrzeug schickt sie als `jeep`; welches es war, klärt
+   auch dort erst der Schienenabgleich.
 3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](server/src/pipeline/zeit.ts),
    `raffePausen`): Überall gilt die echte Aufnahmezeit, nur um die Pause herum liegt ein
    schmales Streckenfenster, in dem die Zeit im Schnelldurchlauf vergeht — der Himmel dreht

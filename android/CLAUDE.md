@@ -32,6 +32,22 @@ und kennt nur Cookies; das Token steckt im OkHttp-Client. Vor dem Abspielen taus
 deshalb über `POST /api/auth/session-aus-token` gegen eine Sitzung — ohne das wären private
 Touren (der Default für neue Touren) in der eigenen App unabspielbar.
 
+**Die Fortbewegung wird bei „Automatisch" unterwegs erkannt** (Play Services Activity
+Recognition, in `play-services-location` schon enthalten). `AufzeichnungsService.starte` bekommt
+dafür `modus = null`; der Service registriert dann Übergänge (`Bewegungserkennung`, ENTER-only,
+PendingIntent auf den Service statt eigenem Receiver) und schreibt jede Meldung roh als
+Moduswechsel mit. **Geglättet wird erst beim Manifest-Bau** (`ManifestBau.glaetteWechsel` →
+`Bewegungsdeutung.glaette`, pure und getestet): Die Erkennung meldet an Ampeln und beim
+Umsteigen mehrfach in Sekunden, und ungefiltert entstünden dutzende Segmente — die der Server
+als bewusste Umschaltung nimmt und deshalb nicht mehr korrigiert. Aus der Verbesserung würde
+eine Verschlechterung. Das Zerschneiden in `baueSegmente` bleibt davon unberührt mechanisch.
+Welches Fahrzeug es war, weiß kein Sensor: `IN_VEHICLE` wird `jeep`, und der Server hebt
+Abschnitte auf einer Straßenbahntrasse anschließend auf `tram`. Damit er das darf, trägt das
+Manifest `modiAutomatisch` — ohne dieses Feld sähe er nur `walk` und könnte eine Angabe nicht
+von der Vorgabe unterscheiden. Die Berechtigung wird nur bei „Automatisch" erfragt und darf den
+Start **nie** blockieren: Ohne sie zeichnet die App ohne Automatik auf, und der Server leitet
+die Aufteilung wie bisher aus dem Tempo ab.
+
 **Room-Migrationen sind Pflicht**, kein `fallbackToDestructiveMigration`: auf dem Gerät liegen
 echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`
 exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und

@@ -10,6 +10,9 @@
     <!-- Video-Ton (M4); ohne die Erlaubnis wird stumm aufgenommen -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Fortbewegung erkennen (Play Services Activity Recognition). Ab API 29
+         eine Runtime-Berechtigung; ohne sie zeichnet die App ohne Automatik auf. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />

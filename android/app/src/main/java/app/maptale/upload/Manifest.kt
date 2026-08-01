@@ -3,6 +3,8 @@
 // vollständig unit-getestet (Segmentierung, Zeit-Offsets, Anker).
 package app.maptale.upload
 
+import app.maptale.aufzeichnung.Bewegungsdeutung
+import app.maptale.aufzeichnung.Modusabschnitt
 import app.maptale.daten.MediumEntity
 import app.maptale.daten.ModuswechselEntity
 import app.maptale.daten.TourEntity
@@ -46,6 +48,14 @@ data class UploadManifest(
     // die Segmentierung/Platzierung macht dann der Server.
     val segments: List<ManifestSegment>? = null,
     val trackFile: String? = null,
+    /**
+     * Wurde die Aufteilung erkannt statt angegeben? („Automatisch" im Startblatt)
+     *
+     * Nur dann darf der Server sie verfeinern — etwa ein Fahrzeug an seiner
+     * Trasse als Straßenbahn erkennen. Ohne dieses Feld sähe er nur Modi und
+     * könnte eine Angabe des Nutzers nicht von einer Vorgabe unterscheiden.
+     */
+    val modiAutomatisch: Boolean? = null,
     val media: List<ManifestMedium>,
 )
 
@@ -100,6 +110,28 @@ object ManifestBau {
         // Alle Wechsel ohne brauchbare Punkte (z. B. Wechsel nach dem letzten
         // Punkt) → wenigstens ein Gesamtsegment im Modus des ersten Wechsels
         return segmente.ifEmpty { listOf(segment(sortiert.first().modus.schluessel, punkte)) }
+    }
+
+    /**
+     * Die zu kurzen Abschnitte herauswerfen, bevor zerschnitten wird.
+     *
+     * Die Aktivitätserkennung meldet an Ampeln und beim Umsteigen mehrfach in
+     * Sekunden; ungefiltert entstünden dutzende Segmente. Der Server nimmt
+     * mehrere Segmente als bewusste Umschaltung und korrigiert sie nicht mehr —
+     * aus der Verbesserung würde eine Verschlechterung.
+     *
+     * Bewusst NICHT in `baueSegmente`: Das Zerschneiden ist mechanisch und soll
+     * es bleiben; was ein belastbarer Abschnitt ist, entscheidet
+     * `Bewegungsdeutung` (pure, getestet).
+     */
+    fun glaetteWechsel(wechsel: List<ModuswechselEntity>, endeS: Double): List<ModuswechselEntity> {
+        if (wechsel.size < 2) return wechsel.sortedBy { it.tOffsetS }
+        val behalten = Bewegungsdeutung.glaette(wechsel.map { Modusabschnitt(it.tOffsetS, it.modus) }, endeS)
+        val vorlage = wechsel.minByOrNull { it.tOffsetS } ?: return wechsel
+        return behalten.map { a ->
+            wechsel.firstOrNull { it.tOffsetS == a.tOffsetS && it.modus == a.modus }
+                ?: vorlage.copy(tOffsetS = a.tOffsetS, modus = a.modus)
+        }
     }
 
     private fun segment(mode: String, punkte: List<TrackpunktEntity>) = ManifestSegment(
@@ -157,7 +189,10 @@ object ManifestBau {
             end = iso(tour.endeMs ?: (tour.startMs + ((punkte.lastOrNull()?.tOffsetS ?: 1.0) * 1000).toLong())),
             zone = tour.zone,
         ),
-        segments = baueSegmente(punkte, wechsel),
+        segments = baueSegmente(punkte, glaetteWechsel(wechsel, punkte.lastOrNull()?.tOffsetS ?: 0.0)),
+        // Nur wenn die App das Mittel selbst erkannt hat, darf der Server die
+        // Aufteilung verfeinern (Fahrzeug auf Schienen → Straßenbahn).
+        modiAutomatisch = if (tour.modusAutomatisch) true else null,
         media = medien.map { m ->
             ManifestMedium(
                 id = m.id,
