@@ -442,6 +442,9 @@ private fun Fotoschau(
             Videoflaeche(
                 quelle = Uri.parse(videoUrl),
                 kopfzeilen = sitzung?.let { mapOf("Cookie" to "maptale_session=$it") }.orEmpty(),
+                // `bildUrl` ist bei einem Video das Poster — dasselbe Bild, das
+                // schon die Kachel zeigte. Es steht, bis das erste Videobild da ist.
+                standbild = bildUrl,
                 modifier = Modifier.fillMaxSize(),
             )
         } else {

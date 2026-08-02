@@ -103,9 +103,12 @@ fun FotoVollansicht(viewModel: FotoViewModel, zurueck: () -> Unit) {
             ) {
                 medium?.let { m ->
                     if (m.typ == "video") {
-                        // Lokale Datei — hier braucht es keine Anmeldung
+                        // Lokale Datei — hier braucht es keine Anmeldung. Als
+                        // Standbild dient sie selbst: Coil zieht daraus (mit dem
+                        // VideoFrameDecoder) denselben Frame wie für die Kachel.
                         Videoflaeche(
                             quelle = Uri.fromFile(viewModel.datei(m)),
+                            standbild = viewModel.datei(m),
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {

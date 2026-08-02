@@ -2,6 +2,7 @@
 // verschieden aussehen.
 package app.maptale.ui
 
+import android.media.MediaPlayer
 import android.net.Uri
 import android.widget.MediaController
 import android.widget.VideoView
@@ -13,9 +14,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -53,6 +57,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -69,6 +74,7 @@ import app.maptale.aufzeichnung.Projektion
 import app.maptale.aufzeichnung.Spurpunkt
 import app.maptale.aufzeichnung.aufLinie
 import app.maptale.aufzeichnung.balleFotos
+import coil.compose.AsyncImage
 import kotlin.math.hypot
 
 /** Pill-Radius für Primär-CTAs (DESIGN.md `rounded.full`). */
@@ -223,30 +229,105 @@ fun Videoabzeichen(modifier: Modifier = Modifier) {
  * und Netz-Quellen und bringt die gewohnte Leiste mit. Die Kopfzeilen sind der
  * Grund für die zweite Signatur — Medien beim Server hängen hinter der
  * Anmeldung, und ohne sie käme nur ein Ladefehler.
+ *
+ * **Bis das erste Bild da ist, steht [standbild] im Weg — nicht Schwarz.** Ein
+ * VideoView zeigt vor dem ersten dekodierten Frame nichts, und „nichts" heißt
+ * auf einer dunklen Bühne: eine leere schwarze Fläche ohne Ladehinweis, ohne
+ * Abspielzeichen, ohne Fehler. Über Mobilfunk dauerte das bei einer Aufnahme
+ * vom Telefon mehrere Sekunden (gemessen ~5 s) — lange genug, dass jeder
+ * vernünftige Mensch das Video für kaputt hält und zurückgeht. Gezeigt wird
+ * dasselbe Bild wie auf der Kachel, damit der Wechsel zur Wiedergabe nicht
+ * springt.
+ *
+ * Und **ein Fehler wird gesagt**: Ohne `setOnErrorListener` verschwand ein
+ * gescheiterter Start spurlos in der schwarzen Fläche.
  */
 @Composable
 fun Videoflaeche(
     quelle: Uri,
     modifier: Modifier = Modifier,
     kopfzeilen: Map<String, String> = emptyMap(),
+    /** Standbild für die Wartezeit: Poster-URL (Server) oder Videodatei (lokal). */
+    standbild: Any? = null,
 ) {
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            VideoView(ctx).apply {
-                setMediaController(MediaController(ctx).also { it.setAnchorView(this) })
-                setVideoURI(quelle, kopfzeilen)
-                setOnPreparedListener { spieler ->
-                    spieler.isLooping = false
-                    start()
+    // Auf `quelle` geschlüsselt: ein anderes Video fängt wieder beim Warten an.
+    var laeuft by remember(quelle) { mutableStateOf(false) }
+    var fehler by remember(quelle) { mutableStateOf(false) }
+    var gesetzt by remember { mutableStateOf<Pair<Uri, Map<String, String>>?>(null) }
+
+    Box(modifier, contentAlignment = Alignment.Center) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    setMediaController(MediaController(ctx).also { it.setAnchorView(this) })
+                    setOnPreparedListener { spieler ->
+                        spieler.isLooping = false
+                        start()
+                    }
+                    // Das erste GERENDERTE Bild, nicht `onPrepared`: Zwischen
+                    // „bereit" und „sichtbar" liegt noch der erste Frame.
+                    setOnInfoListener { _, was, _ ->
+                        if (was == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) laeuft = true
+                        false
+                    }
+                    // `true` = wir haben den Fehler behandelt; sonst schöbe
+                    // VideoView seinen eigenen Systemdialog darüber.
+                    setOnErrorListener { _, _, _ ->
+                        fehler = true
+                        true
+                    }
                 }
+            },
+            // Die Quelle gehört in den update-Block, nicht in die factory: Die
+            // läuft genau einmal, und beim Server kommt die Sitzung für die
+            // Kopfzeilen erst aus dem Netz. Wer sie dort setzt, spielt ein
+            // privates Video ohne Anmeldung an — und bekommt nie eine zweite
+            // Chance. Der Vergleich mit dem zuletzt Gesetzten verhindert, dass
+            // jede Recomposition die Wiedergabe von vorn beginnen lässt.
+            update = { ansicht ->
+                val jetzt = quelle to kopfzeilen
+                if (gesetzt != jetzt) {
+                    gesetzt = jetzt
+                    laeuft = false
+                    fehler = false
+                    ansicht.setVideoURI(quelle, kopfzeilen)
+                }
+            },
+            onRelease = { ansicht ->
+                // Ohne das läuft der Ton weiter, wenn die Ansicht verschwindet
+                ansicht.stopPlayback()
+            },
+        )
+
+        if (!laeuft) {
+            if (standbild != null) {
+                AsyncImage(
+                    model = standbild,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
-        },
-        onRelease = { ansicht ->
-            // Ohne das läuft der Ton weiter, wenn die Ansicht verschwindet
-            ansicht.stopPlayback()
-        },
-    )
+            if (fehler) {
+                Text(
+                    "Video lässt sich nicht abspielen",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Tinte,
+                    modifier = Modifier
+                        .clip(Pill)
+                        .background(Color(0xB306090E))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            } else {
+                CircularProgressIndicator(
+                    color = Tinte,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+    }
 }
 
 /**

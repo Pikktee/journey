@@ -48,6 +48,20 @@ von der Vorgabe unterscheiden. Die Berechtigung wird nur bei „Automatisch" erf
 Start **nie** blockieren: Ohne sie zeichnet die App ohne Automatik auf, und der Server leitet
 die Aufteilung wie bisher aus dem Tempo ab.
 
+**Eine wartende Videofläche zeigt das Standbild, nicht Schwarz** (`Videoflaeche` in
+`ui/Bausteine.kt`). Ein `VideoView` zeigt vor dem ersten dekodierten Frame nichts, und auf
+dunklem Grund heißt „nichts" eine leere schwarze Fläche — ohne Ladehinweis, ohne Fehler. Über
+Mobilfunk dauerte das mehrere Sekunden, und wer so lange auf Schwarz sieht, hält das Video für
+kaputt und geht zurück (genau so gemeldet). Gezeigt wird deshalb, bis
+`MEDIA_INFO_VIDEO_RENDERING_START` kommt, dasselbe Bild wie auf der Kachel: bei Server-Touren
+das Poster, lokal die Videodatei selbst (Coils `VideoFrameDecoder`). Dazu ein
+`setOnErrorListener` — ohne ihn verschwand ein gescheiterter Start spurlos. Die Ursache der
+Wartezeit lag serverseitig (`moov` am Dateiende, s. Root-`CLAUDE.md`); das Standbild deckt den
+Rest ab, den kein Server wegnehmen kann: das Netz.
+**Die Quelle gehört in den `update`-Block**, nicht in die `factory`: Die läuft genau einmal, und
+die Sitzung für die Kopfzeilen (private Medien) kommt erst aus dem Netz — wer dort setzt, spielt
+ohne Anmeldung an und bekommt nie eine zweite Chance.
+
 **Room-Migrationen sind Pflicht**, kein `fallbackToDestructiveMigration`: auf dem Gerät liegen
 echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`
 exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und

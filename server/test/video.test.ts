@@ -8,6 +8,7 @@ import {
   bereiteVideosAuf,
   brauchtTranskodierung,
   FakeVideoWerkzeug,
+  hatFaststart,
   mussWebKonvertiert,
   posterDateiname,
   posterZeitpunkt,
@@ -15,6 +16,14 @@ import {
   type VideoInfo,
   type VideoSpeicher,
 } from '../src/pipeline/video.js'
+
+/** Ein Atom aus Typ und Nutzlast-Länge (der 8-Byte-Kopf zählt mit). */
+function atom(typ: string, nutzlast = 0): Buffer {
+  const kopf = Buffer.alloc(8)
+  kopf.writeUInt32BE(8 + nutzlast, 0)
+  kopf.write(typ, 4, 'latin1')
+  return Buffer.concat([kopf, Buffer.alloc(nutzlast)])
+}
 
 const info = (patch: Partial<VideoInfo> = {}): VideoInfo => ({
   codecVideo: 'h264',
@@ -75,6 +84,37 @@ describe('mussWebKonvertiert', () => {
   })
 })
 
+describe('hatFaststart', () => {
+  it('erkennt den Index vorn (so schreibt ffmpeg mit +faststart)', () => {
+    expect(hatFaststart(Buffer.concat([atom('ftyp', 16), atom('moov', 200), atom('mdat', 4000)]))).toBe(true)
+  })
+
+  it('erkennt den Index hinten — so schreibt Android jede Aufnahme', () => {
+    // Genau die Form, die vom Pixel hochgeladen wird: ftyp, ein leerer
+    // free-Platzhalter, die Mediendaten, und der Index erst dahinter.
+    expect(hatFaststart(Buffer.concat([atom('ftyp', 16), atom('free', 3184), atom('mdat', 4000)]))).toBe(false)
+  })
+
+  it('gibt bei einem 64-Bit-mdat auf, statt in die Nutzlast zu laufen', () => {
+    // Länge 1 heißt: die echte Größe steht in den 8 Byte dahinter. Große
+    // Aufnahmen (> 4 GB) nutzen das; der Index kann dort nur hinten liegen.
+    const grossesMdat = Buffer.alloc(16)
+    grossesMdat.writeUInt32BE(1, 0)
+    grossesMdat.write('mdat', 4, 'latin1')
+    grossesMdat.writeBigUInt64BE(8n * 1024n * 1024n * 1024n, 8)
+    expect(hatFaststart(Buffer.concat([atom('ftyp', 16), grossesMdat]))).toBe(false)
+  })
+
+  it('sagt bei unlesbarem Kopf „nein" — umschreiben ist der harmlose Ausgang', () => {
+    expect(hatFaststart(Buffer.alloc(0))).toBe(false)
+    expect(hatFaststart(Buffer.from('kein mp4'))).toBe(false)
+    // Längenfeld 0 („bis Dateiende"): danach kommt nichts, worauf zu springen wäre
+    const endlos = Buffer.alloc(8)
+    endlos.write('mdat', 4, 'latin1')
+    expect(hatFaststart(endlos)).toBe(false)
+  })
+})
+
 describe('abgeleitete Namen + Poster-Zeitpunkt', () => {
   it('vergibt Namen mit zwei Punkt-Segmenten (kollidieren nie mit Upload-Medien)', () => {
     expect(posterDateiname('m2')).toBe('m2.poster.jpg')
@@ -93,9 +133,9 @@ describe('abgeleitete Namen + Poster-Zeitpunkt', () => {
 })
 
 describe('bereiteVideosAuf', () => {
-  it('erzeugt nur ein Poster, wenn das Video schon web-tauglich ist', async () => {
+  it('erzeugt nur ein Poster, wenn das Video web-tauglich ist UND den Index vorn hat', async () => {
     const sp = memSpeicher()
-    sp.dateien.set('media/m1.mp4', Buffer.from('ORIGINAL'))
+    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]))
     const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 8.4 }))
 
     const meta = await bereiteVideosAuf({
@@ -104,10 +144,47 @@ describe('bereiteVideosAuf', () => {
       werkzeug,
     })
 
-    expect(werkzeug.aufrufe).toEqual(['probe', 'poster']) // kein Transcode
+    expect(werkzeug.aufrufe).toEqual(['probe', 'poster']) // weder Transcode noch Remux
     expect(meta.get('m1')).toEqual({ dauerS: 8.4, videoDatei: 'm1.mp4', posterDatei: 'm1.poster.jpg' })
     expect(sp.dateien.has('media/m1.poster.jpg')).toBe(true)
     expect(sp.dateien.has('media/m1.web.mp4')).toBe(false)
+  })
+
+  it('schreibt eine web-taugliche .mp4 mit hinten liegendem Index um — ohne neu zu codieren', async () => {
+    // Der Alltagsfall der App: H.264/AAC in .mp4, aber vom MediaMuxer mit
+    // `moov` am Ende geschrieben. Ohne diesen Schritt lud der Player erst die
+    // ganze Datei durch, bevor das erste Bild kam.
+    const sp = memSpeicher()
+    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]))
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 12.7 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe).toEqual(['probe', 'poster', 'remux']) // kein Transcode!
+    expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4')
+    expect(sp.dateien.get('media/m1.web.mp4')?.toString()).toBe('FAKE-FASTSTART-MP4')
+  })
+
+  it('remuxt nicht doppelt: liegt die web.mp4 schon, bleibt es bei der Probe', async () => {
+    const sp = memSpeicher()
+    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('mdat', 512), atom('moov', 64)]))
+    sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALT-POSTER'))
+    sp.dateien.set('media/m1.web.mp4', Buffer.from('ALT-WEB'))
+    const werkzeug = new FakeVideoWerkzeug(info())
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe).toEqual(['probe'])
+    expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4')
+    expect(sp.dateien.get('media/m1.web.mp4')?.toString()).toBe('ALT-WEB')
   })
 
   it('transkodiert HEVC und liefert danach die web.mp4 aus', async () => {

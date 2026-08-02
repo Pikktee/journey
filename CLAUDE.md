@@ -369,7 +369,7 @@ Regler). ÜBERLAPPENDE Musik-Klips sind erlaubt und MISCHEN sich — im Player (
 Element, audiotracks.js) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn wächst mit.
 
-**Drei Feinheiten der Pipeline, die man leicht „repariert":**
+**Vier Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`
    (Oberfläche: „Titel") landet im Tour-JSON als `title`, die Uhrzeit rutscht als „Foto ·
@@ -422,6 +422,18 @@ Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn w
    dafür nichts: `createTimeAt` interpoliert linear in `f`, eine steile Stützstellen-Flanke
    IST der Zeitraffer — und weil der Sonnenstand pro Frame aus der Pseudo-Zeit gerechnet
    wird, ist er auch beim Scrubben deterministisch.
+4. **Ein Video wird neu geschrieben, sobald sein Index hinten liegt**
+   ([video.ts](server/src/pipeline/video.ts)): Android schreibt jede Aufnahme über den
+   MediaMuxer, und der setzt das `moov`-Atom ans Dateiende — bei 26 MB also 26 MB hinter den
+   Anfang. Wer so etwas streamt, sieht erst einmal gar nichts: Der Player liest den Kopf,
+   findet keinen Index, springt ans Dateiende, holt ihn dort und beginnt erst dann zu laden.
+   Auf dem Pixel waren das ~5 s pro Video, in denen die Fläche schwarz blieb. `+faststart`
+   setzte lange nur der Transcode — und eine H.264/AAC-`.mp4` vom Telefon ist web-tauglich,
+   wurde also unangetastet durchgereicht. Jetzt prüft `hatFaststart` die Atom-Reihenfolge und
+   lässt sonst `remuxeFaststart` laufen: `-c copy`, nur der Container neu, 0,2 s für 26 MB,
+   kein Qualitätsverlust. Heraus kommt dieselbe `m1.web.mp4` wie beim Transcode — aus einem
+   anderen Grund. **Bestandstouren brauchen einmal „Neu verarbeiten"**, sonst bleibt es beim
+   alten Auslieferungspfad.
 
 **Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
 immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)

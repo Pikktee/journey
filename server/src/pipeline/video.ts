@@ -31,6 +31,8 @@ export interface VideoWerkzeug {
   probe(pfad: string): Promise<VideoInfo>
   /** Nach H.264/AAC, max. 1080p, faststart transkodieren (Web-Kompatibilität). */
   transkodiere(quellPfad: string, zielPfad: string): Promise<void>
+  /** Nur den Container neu schreiben (`-c copy`), damit `moov` vorn liegt. */
+  remuxeFaststart(quellPfad: string, zielPfad: string): Promise<void>
   /** Einzelbild bei zeitpunktS als JPEG (Poster fürs Foto-Overlay). */
   erzeugePoster(quellPfad: string, zielPfad: string, zeitpunktS: number): Promise<void>
 }
@@ -55,6 +57,46 @@ export function brauchtTranskodierung(info: VideoInfo): boolean {
  */
 export function mussWebKonvertiert(info: VideoInfo, originalDatei: string): boolean {
   return brauchtTranskodierung(info) || !originalDatei.toLowerCase().endsWith('.mp4')
+}
+
+/**
+ * Liegt der Index (`moov`) VOR den Mediendaten (`mdat`)?
+ *
+ * Android schreibt Aufnahmen über den MediaMuxer, und der setzt `moov` ans
+ * ENDE der Datei — bei einer 26-MB-Aufnahme also 26 MB hinter den Anfang. Wer
+ * so eine Datei streamt, bekommt erst gar nichts zu sehen: Der Player liest
+ * den Kopf, findet keinen Index, springt ans Dateiende, holt ihn dort und
+ * beginnt erst dann zu laden. Über Mobilfunk sind das mehrere Sekunden, in
+ * denen die Fläche schwarz bleibt — auf dem Pixel gemessen ~5 s pro Video.
+ *
+ * Genau dieser Fall fiel bisher durchs Raster: `+faststart` setzt nur der
+ * Transcode, und eine H.264/AAC-`.mp4` vom Telefon wird nicht transkodiert.
+ *
+ * Gelesen wird die Atom-Kette an der Oberfläche (Länge + Typ, je 4 Byte).
+ * Abbruch beim ersten `moov` (gut) oder `mdat` (schlecht); reicht der Puffer
+ * für keins von beidem, lautet die Antwort „nein" — dann wird umgeschrieben,
+ * und das ist der harmlose Ausgang.
+ */
+export function hatFaststart(daten: Buffer): boolean {
+  let pos = 0
+  // 8 Byte Kopf: 4 Länge + 4 Typ. Weniger ist kein Atom mehr.
+  while (pos + 8 <= daten.length) {
+    let groesse = daten.readUInt32BE(pos)
+    const typ = daten.toString('latin1', pos + 4, pos + 8)
+    if (typ === 'moov') return true
+    if (typ === 'mdat') return false
+    // Länge 1 = 64-Bit-Größe im Feld dahinter (große mdat-Boxen); Länge 0 =
+    // „bis Dateiende", danach kommt nichts mehr, worauf zu springen wäre.
+    if (groesse === 1) {
+      if (pos + 16 > daten.length) return false
+      const gross = daten.readBigUInt64BE(pos + 8)
+      if (gross > BigInt(Number.MAX_SAFE_INTEGER)) return false
+      groesse = Number(gross)
+    }
+    if (groesse < 8) return false
+    pos += groesse
+  }
+  return false
 }
 
 /** Ablage-Name des Posters (zwei Punkt-Segmente → nie ein Upload-Medienname). */
@@ -143,6 +185,17 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
     )
   }
 
+  async remuxeFaststart(quellPfad: string, zielPfad: string): Promise<void> {
+    // `-c copy`: Bild und Ton werden NICHT neu codiert, nur der Container wird
+    // neu geschrieben. Das dauert Sekundenbruchteile statt Minuten und kostet
+    // keine Qualität — es verschiebt allein den Index nach vorn.
+    await execFileP(
+      this.ffmpeg,
+      ['-y', '-i', quellPfad, '-c', 'copy', '-movflags', '+faststart', zielPfad],
+      { maxBuffer: 8 * 1024 * 1024 },
+    )
+  }
+
   async erzeugePoster(quellPfad: string, zielPfad: string, zeitpunktS: number): Promise<void> {
     await execFileP(
       this.ffmpeg,
@@ -171,6 +224,11 @@ export class FakeVideoWerkzeug implements VideoWerkzeug {
     await writeFile(zielPfad, Buffer.from('FAKE-WEB-MP4'))
   }
 
+  async remuxeFaststart(_quellPfad: string, zielPfad: string): Promise<void> {
+    this.aufrufe.push('remux')
+    await writeFile(zielPfad, Buffer.from('FAKE-FASTSTART-MP4'))
+  }
+
   async erzeugePoster(_quellPfad: string, zielPfad: string): Promise<void> {
     this.aufrufe.push('poster')
     await writeFile(zielPfad, Buffer.from('FAKE-POSTER-JPEG'))
@@ -191,7 +249,8 @@ async function bereiteEinVideoAuf(
   const arbeitsdir = await mkdtemp(join(tmpdir(), 'maptale-video-'))
   const quellTemp = join(arbeitsdir, `quelle.${endung}`)
   try {
-    await writeFile(quellTemp, await speicher.lese(`media/${originalDatei}`))
+    const rohdaten = await speicher.lese(`media/${originalDatei}`)
+    await writeFile(quellTemp, rohdaten)
     const info = await werkzeug.probe(quellTemp)
 
     // Poster nur erzeugen, wenn es noch nicht liegt (Re-Render nach PATCH soll
@@ -202,12 +261,26 @@ async function bereiteEinVideoAuf(
       await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
     }
 
+    // Zwei Gründe, eine eigene Auslieferungsdatei zu erzeugen — und beide
+    // enden in derselben `m1.web.mp4`:
+    //   1. Der Inhalt ist nicht web-tauglich (HEVC, .mov …) → neu codieren.
+    //   2. Er ist tauglich, aber der Index liegt hinten → nur umschreiben.
+    // Fall 2 ist der Alltagsfall der App: Ein Pixel liefert H.264/AAC in .mp4
+    // und wurde deshalb unangetastet durchgereicht — samt `moov` am Ende, das
+    // jede Wiedergabe um Sekunden verzögerte (s. hatFaststart).
     let videoDatei = originalDatei
     if (mussWebKonvertiert(info, originalDatei)) {
       videoDatei = webName
       if (!(await speicher.info(`media/${webName}`))) {
         const webTemp = join(arbeitsdir, 'web.mp4')
         await werkzeug.transkodiere(quellTemp, webTemp)
+        await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
+      }
+    } else if (!hatFaststart(rohdaten)) {
+      videoDatei = webName
+      if (!(await speicher.info(`media/${webName}`))) {
+        const webTemp = join(arbeitsdir, 'web.mp4')
+        await werkzeug.remuxeFaststart(quellTemp, webTemp)
         await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
       }
     }
