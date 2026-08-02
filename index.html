@@ -330,7 +330,15 @@
     .sec-head p { color: var(--muted); margin: 14px 0 0; }
 
     /* ─── Touren ─────────────────────────────────────────────────── */
-    #touren { background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.016)); }
+    /* Der Scroll-Pfeil setzt die Hero-Unterkante bündig an den oberen Rand —
+       die fixierte Leiste liegt dann über der Kopfluft DIESES Abschnitts. Auf
+       schmalen Schirmen ist --luft-band (54 px) niedriger als die Leiste
+       (63 px), die Überschrift steckte dahinter. Deshalb hier eine Kopfluft,
+       die die Leiste einschließt; auf breiten Schirmen bleibt --luft-band. */
+    #touren {
+      background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.016));
+      padding-top: max(var(--luft-band), calc(var(--navh) + 22px));
+    }
     /* min(290px, 100%): auf Schirmen unter ~330 px war die Spalten-MINDESTbreite
        breiter als der Container — das Gitter lief seitlich aus dem Bild. */
     .tours { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: var(--luft-gitter); margin-top: var(--luft-kopf); }
@@ -1069,6 +1077,21 @@
     window.addEventListener('resize', missNav)
     window.addEventListener('orientationchange', missNav)
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(missNav)
+
+    // Der Pfeil führt aus dem Hero HERAUS — er scrollt auf dessen Unterkante,
+    // nicht auf das Anker-Ziel. Der generische Versatz für die fixierte Leiste
+    // (scroll-padding-top, hier 87 px) ließ oben einen Streifen Hero stehen:
+    // genau das Bild, von dem der Pfeil wegführen soll. Der href bleibt als
+    // Weg ohne Skript. Ohne `behavior` gilt das scroll-behavior des Dokuments,
+    // also auch dessen prefers-reduced-motion-Regel.
+    var heroEl = document.querySelector('.hero')
+    var pfeil = document.querySelector('.scroll-cue')
+    if (heroEl && pfeil) {
+      pfeil.addEventListener('click', function (e) {
+        e.preventDefault()
+        window.scrollTo({ top: Math.round(heroEl.getBoundingClientRect().bottom + window.scrollY) })
+      })
+    }
 
     document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
