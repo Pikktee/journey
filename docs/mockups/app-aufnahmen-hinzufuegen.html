@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Maptale App, vorhandene Bilder hinzufügen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — nicht die echte App. Gegenstand: BILDER, DIE NICHT MIT DER
+   MAPTALE-KAMERA ENTSTANDEN SIND, in eine Tour bekommen.
+
+   Warum das fehlt: Medien entstehen heute an genau einer Stelle — dem
+   Auslöser in `kamera/KameraScreen.kt`. Wer unterwegs mit der System-
+   kamera fotografiert (Burst, Nachtmodus, HDR), mit einer richtigen
+   Kamera oder wem jemand ein Bild schickt, hat keinen Weg hinein.
+   Der Nutzer sagt, er wechselt genau deshalb aus der App heraus.
+
+   Drei Fälle, und nur der erste ist neu erfunden:
+     1. Bild hat EXIF-GPS            → Anker steht, fertig.
+     2. Bild hat nur eine Uhrzeit    → Ort kommt aus der Spur
+                                       (dieselbe Zeit-Platzierung, die
+                                       der Server für GPX-Uploads längst
+                                       macht).
+     3. Weder noch / weit daneben    → braucht einen Menschen. Landeplatz
+                                       ist die ABLAGE, die es im Studio-
+                                       Editor schon gibt (`#ablage-knopf`).
+
+   Was der Server dafür braucht, steht am Fuß der Seite. Kurz: das
+   Manifest ist nach dem Upload unveränderlich — Nachreichen geht nur
+   additiv, mit anschließendem Neu-Rendern.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --nacht: #06090E;
+  --nacht-bg: #0A0D14;
+  --fl-1: #10151C;
+  --fl-2: #161c25;
+  --fl-3: #1e252f;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: rgba(242, 237, 227, 0.64);
+  --text-3: rgba(242, 237, 227, 0.42);
+  --akzent: #F59E0B;
+  --akzent-2: #FF6F52;
+  --auf-cta: #1a1206;
+  --alarm: #E5484D;
+  --gruen: #38b676;
+  --font: 'Outfit', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg-tief); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.02em; }
+p { margin: 0; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ————————————————— Seitengerüst ————————————————— */
+.seite { max-width: 1440px; margin: 0 auto; padding: 54px 40px 120px; }
+header.kopf { max-width: 780px; margin-bottom: 12px; }
+.kopf .marke {
+  display: inline-flex; align-items: center; gap: 0.45em;
+  font-size: 13px; color: var(--text-3); letter-spacing: 0.01em; margin-bottom: 18px;
+}
+.kopf .marke svg { width: 20px; height: 20px; translate: 0 1px; }
+.kopf h1 { font-size: 40px; line-height: 1.1; margin-bottom: 14px; }
+.kopf .lead { font-size: 17px; color: var(--text-2); line-height: 1.6; }
+.kopf .lead b { color: var(--text); font-weight: 500; }
+
+.merke {
+  margin: 30px 0 0; padding: 16px 20px; max-width: 900px;
+  border: 1px solid var(--rand); border-left: 2px solid var(--akzent);
+  border-radius: 12px; background: linear-gradient(165deg, rgba(26,34,45,.55), rgba(9,12,17,.6));
+  font-size: 14.5px; color: var(--text-2);
+}
+.merke b { color: var(--text); font-weight: 600; }
+
+section.akt { margin-top: 74px; }
+.akt-kopf { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+.akt-nr {
+  font-size: 12px; font-weight: 600; color: var(--akzent);
+  border: 1px solid rgba(245,158,11,.4); border-radius: 999px;
+  padding: 2px 10px; letter-spacing: 0.02em;
+}
+.akt h2 { font-size: 25px; }
+.akt .leit { max-width: 760px; color: var(--text-2); font-size: 15.5px; margin-top: 8px; }
+
+.reihe { display: flex; gap: 34px; margin-top: 34px; flex-wrap: wrap; align-items: flex-start; }
+figure.tafel { margin: 0; width: 372px; }
+figure.tafel.breit { width: 372px; }
+figcaption { margin-top: 18px; }
+.cap-kopf { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+.cap-brief {
+  width: 21px; height: 21px; flex: none; border-radius: 6px;
+  display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
+  background: var(--fl-3); color: var(--text-2);
+}
+.tafel.empfohlen .cap-brief { background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-cta); }
+.cap-titel { font-size: 15.5px; font-weight: 600; }
+.cap-text { font-size: 13.8px; color: var(--text-2); line-height: 1.6; }
+.cap-text + .cap-text { margin-top: 7px; }
+.cap-text b { color: var(--text); font-weight: 500; }
+.urteil {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+  font-size: 12.5px; padding: 3px 10px 3px 8px; border-radius: 999px;
+  border: 1px solid var(--rand); color: var(--text-2);
+}
+.urteil::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.urteil.ja { color: var(--gruen); border-color: rgba(56,182,118,.35); }
+.urteil.ja::before { background: var(--gruen); }
+.urteil.nein { color: var(--alarm); border-color: rgba(229,72,77,.33); }
+.urteil.nein::before { background: var(--alarm); }
+
+/* ————————————————— Telefon ————————————————— */
+.phone {
+  width: 372px; height: 806px; border-radius: 46px; padding: 8px;
+  background: linear-gradient(160deg, #232a34, #10141a 60%);
+  box-shadow: 0 40px 80px -30px #000, 0 0 0 1px rgba(255,255,255,.04);
+  position: relative;
+}
+.schirm {
+  position: relative; width: 100%; height: 100%; border-radius: 38px; overflow: hidden;
+  background: var(--nacht); display: flex; flex-direction: column;
+  font-size: 14px;
+}
+.statusleiste {
+  height: 34px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px; font-size: 12.5px; color: var(--text); font-weight: 500;
+}
+.sl-rechts { display: flex; gap: 5px; align-items: center; opacity: .85; }
+.sl-rechts svg { width: 14px; height: 14px; }
+.gestenbalken {
+  position: absolute; left: 50%; translate: -50% 0; bottom: 7px;
+  width: 116px; height: 4px; border-radius: 2px; background: rgba(242,237,227,.28);
+}
+
+/* — Aufzeichnungs-Screen — */
+.auf { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 24px 26px; }
+.zustandsmarke {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--fl-1); border: 1px solid rgba(255,255,255,.08); border-radius: 999px;
+  padding: 7px 15px 7px 12px; font-size: 12.5px; font-weight: 500;
+}
+.zustandsmarke i { width: 8px; height: 8px; border-radius: 50%; background: var(--alarm); display: block; }
+.uhr { font-size: 51px; font-weight: 600; letter-spacing: -0.03em; margin-top: 26px; line-height: 1; }
+.km-wert { font-size: 28px; font-weight: 600; margin-top: 20px; line-height: 1.1; }
+.km-label { font-size: 12.5px; color: var(--text-2); margin-top: 3px; }
+.skizze { flex: 1; width: 100%; display: grid; place-items: center; padding: 12px 0; min-height: 0; }
+.skizze svg { width: 100%; height: 100%; }
+/* Ein SVG mit viewBox bringt seine eigene Höhe mit — `flex: 1` allein schrumpft
+   es nicht, und der Screen läuft unten aus dem Telefon. Wo unter der Skizze
+   viel steht (Phone F), wird sie deshalb gedeckelt. */
+.auf.eng .skizze { max-height: 178px; padding: 8px 0; }
+
+.streifen { display: flex; gap: 8px; width: 100%; margin-bottom: 20px; }
+.streifen .kachel {
+  width: 64px; height: 64px; flex: none; border-radius: 9px; overflow: hidden;
+  background: var(--fl-1); position: relative;
+}
+.streifen .kachel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.streifen .kachel.neu::after {
+  content: ''; position: absolute; inset: 0; border-radius: 9px;
+  box-shadow: inset 0 0 0 2px var(--akzent);
+}
+.kachel .marke-neu {
+  position: absolute; top: 4px; right: 4px; background: var(--akzent); color: var(--auf-cta);
+  font-size: 9.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; letter-spacing: .01em;
+}
+.streifen .plus {
+  width: 64px; height: 64px; flex: none; border-radius: 9px;
+  border: 1px dashed var(--rand-hell); background: rgba(255,255,255,.02);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--text-2);
+}
+.streifen .plus svg { width: 19px; height: 19px; }
+.streifen .plus span { font-size: 9.5px; letter-spacing: .01em; }
+.streifen .plus.betont { border-color: rgba(245,158,11,.55); color: var(--akzent); background: rgba(245,158,11,.07); }
+
+.cta {
+  width: 100%; height: 52px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-cta);
+  font-size: 14.5px; font-weight: 600;
+}
+.cta svg { width: 18px; height: 18px; }
+.cta-geteilt { width: 100%; display: flex; gap: 2px; }
+.cta-geteilt .haupt {
+  flex: 1; height: 52px; border-radius: 999px 0 0 999px;
+  background: linear-gradient(120deg, var(--akzent), #f9843a); color: var(--auf-cta);
+  display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 14.5px; font-weight: 600;
+}
+.cta-geteilt .neben {
+  width: 62px; height: 52px; border-radius: 0 999px 999px 0;
+  background: linear-gradient(120deg, #f9843a, var(--akzent-2)); color: var(--auf-cta);
+  display: grid; place-items: center; position: relative;
+}
+.cta-geteilt .neben::before {
+  content: ''; position: absolute; left: 0; top: 11px; bottom: 11px; width: 1px; background: rgba(26,18,6,.28);
+}
+.cta-geteilt svg { width: 18px; height: 18px; }
+.zweitreihe { display: flex; gap: 10px; width: 100%; margin-top: 10px; }
+.zweitreihe button {
+  flex: 1; height: 52px; border-radius: 999px; background: transparent; cursor: default;
+  border: 1px solid var(--rand-hell); color: var(--text);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font); font-size: 14px; font-weight: 500;
+}
+.zweitreihe button.warn { color: var(--alarm); border-color: rgba(229,72,77,.4); }
+.zweitreihe svg { width: 17px; height: 17px; }
+
+/* — Kamera-Screen — */
+.kam { flex: 1; position: relative; display: flex; flex-direction: column; }
+.kam-sucher { position: absolute; inset: 0; }
+.kam-sucher img { width: 100%; height: 100%; object-fit: cover; }
+.kam-oben {
+  position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px;
+}
+.kam-rund {
+  width: 38px; height: 38px; border-radius: 50%; background: rgba(6,9,14,.55);
+  display: grid; place-items: center; backdrop-filter: blur(8px);
+}
+.kam-rund svg { width: 18px; height: 18px; }
+.kam-modi {
+  position: relative; z-index: 2; margin-top: auto; display: flex; justify-content: center; gap: 26px;
+  font-size: 12.5px; color: var(--text-2); padding-bottom: 14px; font-weight: 500;
+}
+.kam-modi .an { color: var(--akzent); }
+.kam-leiste {
+  position: relative; z-index: 2; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 0 26px 34px; background: linear-gradient(to top, rgba(6,9,14,.86), transparent);
+}
+.ausloeser {
+  width: 72px; height: 72px; border-radius: 50%; border: 4px solid rgba(242,237,227,.9);
+  padding: 4px; justify-self: center;
+}
+.ausloeser i { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--text); }
+.galerie-auge {
+  width: 46px; height: 46px; border-radius: 12px; overflow: hidden; position: relative;
+  box-shadow: 0 0 0 1.5px rgba(242,237,227,.55);
+}
+.galerie-auge img { width: 100%; height: 100%; object-fit: cover; }
+.galerie-auge.betont { box-shadow: 0 0 0 2px var(--akzent), 0 0 22px -4px rgba(245,158,11,.8); }
+.galerie-auge .zahl {
+  position: absolute; inset: 0; background: rgba(6,9,14,.35); display: grid; place-items: center;
+  font-size: 12px; font-weight: 600;
+}
+.kam-leiste .rechts { justify-self: end; }
+
+/* — Bottom Sheet (Befund) — */
+.dimmer { position: absolute; inset: 0; background: rgba(3,5,9,.62); z-index: 5; }
+.blatt {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+  background: var(--fl-1); border-radius: 24px 24px 0 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding: 10px 20px 26px; box-shadow: 0 -24px 50px -20px #000;
+}
+.blatt-griff { width: 34px; height: 4px; border-radius: 2px; background: var(--rand-hell); margin: 0 auto 16px; }
+.blatt h3 { font-size: 19px; margin-bottom: 5px; }
+.blatt .unter { font-size: 13px; color: var(--text-2); }
+.befund-band { display: flex; gap: 6px; margin: 18px 0 4px; }
+.befund-band .b {
+  flex: 1; border-radius: 8px; overflow: hidden; position: relative; aspect-ratio: 3/4;
+}
+.befund-band .b img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.befund-band .b .zeit {
+  position: absolute; left: 0; right: 0; bottom: 0; font-size: 9px; text-align: center;
+  background: linear-gradient(to top, rgba(6,9,14,.92), transparent); padding: 9px 0 3px; letter-spacing: .01em;
+}
+.befund-band .b.grau img { filter: grayscale(1) brightness(.55); }
+.befund-band .b.grau .zeit { color: var(--text-3); }
+.befund-band .b.grau::after {
+  content: '?'; position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 17px; font-weight: 600; color: var(--text-2);
+}
+.zeile {
+  display: flex; gap: 10px; align-items: flex-start; padding: 11px 0;
+  border-top: 1px solid rgba(255,255,255,.06); font-size: 13.2px; line-height: 1.5;
+}
+.zeile:first-of-type { border-top: none; }
+.zeile svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.zeile .gut { color: var(--gruen); }
+.zeile b { font-weight: 600; }
+.zeile .neben { color: var(--text-2); }
+.zeile.warnt svg { color: var(--akzent); }
+.blatt .fuss { display: flex; gap: 10px; margin-top: 16px; }
+.blatt .fuss .weiter {
+  flex: 1; height: 48px; border-radius: 999px;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-cta);
+  display: grid; place-items: center; font-size: 14.5px; font-weight: 600;
+}
+.blatt .fuss .weg {
+  height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--rand-hell);
+  display: grid; place-items: center; font-size: 14px; color: var(--text-2);
+}
+
+/* — System-Picker (angedeutet) — */
+.picker { position: absolute; inset: 0; z-index: 6; background: #101318; display: flex; flex-direction: column; }
+.picker-kopf { padding: 16px 18px 10px; }
+.picker-kopf .t { font-size: 17px; font-weight: 600; }
+.picker-kopf .u { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+.picker-reiter { display: flex; gap: 20px; padding: 12px 18px 10px; font-size: 13.5px; color: var(--text-2); }
+.picker-reiter .an { color: var(--text); border-bottom: 2px solid var(--text); padding-bottom: 4px; }
+.picker-raster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 0 2px; overflow: hidden; }
+.picker-raster div { aspect-ratio: 1; position: relative; }
+.picker-raster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.picker-raster .wahl::after {
+  content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 3px #7cb3f5; background: rgba(124,179,245,.16);
+}
+.picker-raster .wahl .h {
+  position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%;
+  background: #7cb3f5; color: #0b1420; display: grid; place-items: center; font-size: 11px; font-weight: 700;
+}
+.picker-fuss {
+  margin-top: auto; padding: 14px 18px 26px; display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.picker-fuss .n { font-size: 13px; color: var(--text-2); }
+.picker-fuss .ok {
+  height: 40px; padding: 0 22px; border-radius: 999px; background: #7cb3f5; color: #0b1420;
+  display: grid; place-items: center; font-size: 14px; font-weight: 600;
+}
+.system-marke {
+  position: absolute; top: 46px; right: 14px; z-index: 7;
+  font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3);
+  border: 1px dashed var(--rand-hell); border-radius: 6px; padding: 2px 7px; background: rgba(6,9,14,.7);
+}
+
+/* — Tour-Detailscreen — */
+.tour-kopf { position: relative; height: 250px; flex: none; }
+.tour-kopf > img { width: 100%; height: 100%; object-fit: cover; }
+.tour-kopf .schleier {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.4) 0%, rgba(0,0,0,.1) 32%, #0A0D12 100%);
+}
+.tour-kopf .rund {
+  position: absolute; top: 12px; width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(6,9,14,.55); display: grid; place-items: center; backdrop-filter: blur(8px);
+}
+.tour-kopf .rund svg { width: 18px; height: 18px; }
+.tour-kopf .rund.l { left: 12px; } .tour-kopf .rund.r { right: 12px; }
+.tour-kopf .spielen {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: 66px; height: 66px; border-radius: 50%; background: rgba(6,9,14,.54); display: grid; place-items: center;
+}
+.tour-kopf .spielen svg { width: 34px; height: 34px; }
+.tour-kopf h3 { position: absolute; left: 18px; bottom: 10px; font-size: 25px; }
+.tour-rumpf { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.tour-zahlen { padding: 16px 20px 0; font-size: 12.5px; color: var(--text-2); }
+.tour-hinweis {
+  display: flex; align-items: center; gap: 8px; padding: 10px 20px 0; font-size: 12.5px; color: var(--text-2);
+}
+.tour-hinweis svg { width: 15px; height: 15px; flex: none; }
+.kreisel {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  border: 2px solid rgba(245,158,11,.28); border-top-color: var(--akzent);
+}
+.tour-abschnitt { padding: 20px 20px 8px; font-size: 12.5px; color: var(--text-2); font-weight: 500; }
+.foto-gitter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+.foto-gitter > div { aspect-ratio: 1; position: relative; background: var(--fl-1); }
+.foto-gitter img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-gitter .hinzu {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  background: rgba(245,158,11,.06); box-shadow: inset 0 0 0 1px rgba(245,158,11,.3); color: var(--akzent);
+}
+.foto-gitter .hinzu svg { width: 21px; height: 21px; }
+.foto-gitter .hinzu span { font-size: 10.5px; font-weight: 500; }
+.foto-gitter .laedt::after {
+  content: ''; position: absolute; inset: 0; background: rgba(6,9,14,.55);
+}
+.foto-gitter .laedt .ring {
+  position: absolute; z-index: 2; left: 50%; top: 50%; translate: -50% -50%;
+  width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(242,237,227,.25); border-top-color: var(--akzent);
+}
+.foto-gitter .neu-marke {
+  position: absolute; z-index: 2; left: 5px; top: 5px; background: var(--akzent); color: var(--auf-cta);
+  font-size: 9px; font-weight: 700; border-radius: 999px; padding: 1px 6px;
+}
+
+/* — Ablage-Hinweiskarte — */
+.karte-hinweis {
+  margin: 14px 20px 0; border: 1px solid var(--rand); border-radius: 12px; padding: 13px 14px;
+  background: linear-gradient(165deg, rgba(26,34,45,.72), rgba(9,12,17,.8));
+}
+.karte-hinweis .kh-kopf { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
+.karte-hinweis .kh-kopf svg { width: 16px; height: 16px; color: var(--akzent); }
+.karte-hinweis p { font-size: 12.5px; color: var(--text-2); margin-top: 6px; line-height: 1.5; }
+.karte-hinweis .mini { display: flex; gap: 6px; margin-top: 11px; }
+.karte-hinweis .mini img { width: 42px; height: 42px; border-radius: 7px; object-fit: cover; filter: grayscale(.5) brightness(.8); }
+
+/* ————————————————— Fuß: was der Server braucht ————————————————— */
+.fuss {
+  margin-top: 96px; padding-top: 40px; border-top: 1px solid var(--rand);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 30px;
+}
+.fuss h2 { grid-column: 1 / -1; font-size: 23px; margin-bottom: 4px; }
+.fuss .lead { grid-column: 1 / -1; color: var(--text-2); max-width: 820px; margin-bottom: 14px; font-size: 15.5px; }
+.karte {
+  border: 1px solid var(--rand); border-radius: 12px; padding: 18px 20px;
+  background: linear-gradient(165deg, rgba(22,28,37,.55), rgba(9,12,17,.6));
+}
+.karte h3 { font-size: 15.5px; margin-bottom: 8px; }
+.karte p { font-size: 13.8px; color: var(--text-2); line-height: 1.6; }
+.karte p + p { margin-top: 8px; }
+.karte code {
+  font-family: var(--font); font-weight: 500; color: var(--text);
+  background: rgba(255,255,255,.06); border-radius: 5px; padding: 1px 6px; font-size: 13px;
+}
+</style>
+</head>
+<body>
+<div class="seite">
+
+  <header class="kopf">
+    <div class="marke">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="15.2" stroke="#f2ede3" stroke-opacity=".78" stroke-width="1.25"/>
+        <ellipse cx="20" cy="20" rx="6.4" ry="15.2" stroke="#f2ede3" stroke-opacity=".3"/>
+        <path d="M5 20h30M8 12.5h24M8 27.5h24" stroke="#f2ede3" stroke-opacity=".3"/>
+        <path d="M4.4 23.4C12 21 24 13 35.6 15.8" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="35.6" cy="15.8" r="1.9" fill="#F2EDE3"/>
+        <defs><linearGradient id="g" x1="4" y1="23" x2="36" y2="16" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#F59E0B"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+      </svg>
+      Mockup · Android-App
+    </div>
+    <h1>Bilder hinzufügen, die nicht aus der Maptale-Kamera kommen</h1>
+    <p class="lead">
+      Heute entsteht jedes Medium an genau einer Stelle: dem Auslöser in der App. Wer unterwegs mit der
+      Systemkamera fotografiert, eine richtige Kamera dabei hat oder ein Bild geschickt bekommt, hat
+      keinen Weg hinein. <b>Diese Seite zeigt drei Einstiege während der Aufnahme, was danach passiert,
+      und den Nachtrag an einer fertigen Tour.</b>
+    </p>
+    <div class="merke">
+      <b>Der eigentliche Entwurf ist nicht der Knopf, sondern die Verankerung.</b> Ein hinzugefügtes Bild
+      braucht einen Platz auf der Strecke. Drei Fälle: Es hat <b>EXIF-GPS</b> → fertig. Es hat nur eine
+      <b>Uhrzeit</b>, die in der Aufzeichnung liegt → der Ort kommt aus der Spur (dieselbe Zeit-Platzierung,
+      die der Server für GPX-Uploads längst macht). Es hat <b>keines von beidem</b> → ein Mensch muss es
+      setzen; Landeplatz ist die Ablage im Studio-Editor, die es bereits gibt.
+      Während einer laufenden Aufnahme trifft fast immer Fall 1 oder 2 zu — deshalb ist genau dort der
+      beste Ort für diese Funktion.
+    </div>
+  </header>
+
+  <!-- ═══════════════ 1 · Während der Aufnahme ═══════════════ -->
+  <section class="akt">
+    <div class="akt-kopf"><span class="akt-nr">1</span><h2>Während der Aufnahme — drei Wege zum selben Ziel</h2></div>
+    <p class="leit">
+      Der Aufzeichnungs-Screen ist eng: Uhr, Kilometer, Skizze, Streifen, drei Knöpfe. Ein vierter Knopf
+      passt nicht mehr rein, ohne dass etwas anderes leiser wird. Die Frage ist also nicht „wo ist Platz",
+      sondern „wem gehört diese Handlung".
+    </p>
+
+    <div class="reihe">
+
+      <!-- A · +-Kachel im Streifen -->
+      <figure class="tafel empfohlen">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">14:38</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="auf">
+            <div class="zustandsmarke"><i></i>Aufzeichnung</div>
+            <div class="uhr tnum">1:12:04</div>
+            <div class="km-wert tnum">8,41</div>
+            <div class="km-label">Kilometer</div>
+            <div class="skizze">
+              <svg viewBox="0 0 300 200" fill="none">
+                <path d="M22 176C46 132 74 150 96 122S128 58 158 54s44 34 70 30 40-34 48-52"
+                      stroke="url(#rg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="22" cy="176" r="4.5" fill="#f2ede3" fill-opacity=".55"/>
+                <circle cx="96" cy="122" r="3.5" fill="#F59E0B"/><circle cx="158" cy="54" r="3.5" fill="#F59E0B"/>
+                <circle cx="228" cy="84" r="3.5" fill="#F59E0B"/>
+                <circle cx="276" cy="32" r="7" fill="#FF6F52"/><circle cx="276" cy="32" r="13" fill="#FF6F52" fill-opacity=".18"/>
+                <defs><linearGradient id="rg" x1="22" y1="176" x2="276" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#F59E0B" stop-opacity=".55"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+              </svg>
+            </div>
+            <div class="streifen">
+              <div class="plus betont">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 15l4.5-4 3.5 3 4-4.5 5 5.5"/>
+                  <circle cx="18.5" cy="6.5" r="4.4" fill="#0A0D14"/><path d="M18.5 4.4v4.2M16.4 6.5h4.2"/>
+                </svg>
+                <span>Galerie</span>
+              </div>
+              <div class="kachel"><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/03-phaeng.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/02-baan-tai.jpg" alt="" /></div>
+            </div>
+            <div class="cta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8.5h3.2l1.6-2.4h6.4L16.8 8.5H20a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-8a1 1 0 011-1z"/>
+                <circle cx="12" cy="13.5" r="3.4"/>
+              </svg>
+              Foto aufnehmen
+            </div>
+            <div class="zweitreihe">
+              <button><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Pause</button>
+              <button class="warn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Beenden</button>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">A</span><span class="cap-titel">Die Kachel im Streifen</span></div>
+          <p class="cap-text">
+            Der Streifen zeigt schon heute, <b>was bisher aufgenommen wurde</b>. Genau dort gehört auch
+            das Hinzufügen hin — die Handlung sitzt bei ihrem Gegenstand, nicht in einer eigenen Zone.
+          </p>
+          <p class="cap-text">
+            Eine Änderung nötig: Der Streifen muss <b>immer</b> stehen, auch wenn noch kein Foto da ist
+            (heute wird er ausgeblendet). Sonst fehlt die Einladung genau am Anfang der Tour.
+          </p>
+          <span class="urteil ja">Empfehlung</span>
+        </figcaption>
+      </figure>
+
+      <!-- B · geteilter Knopf -->
+      <figure class="tafel">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">14:38</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="auf">
+            <div class="zustandsmarke"><i></i>Aufzeichnung</div>
+            <div class="uhr tnum">1:12:04</div>
+            <div class="km-wert tnum">8,41</div>
+            <div class="km-label">Kilometer</div>
+            <div class="skizze">
+              <svg viewBox="0 0 300 200" fill="none">
+                <path d="M22 176C46 132 74 150 96 122S128 58 158 54s44 34 70 30 40-34 48-52"
+                      stroke="url(#rg2)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="22" cy="176" r="4.5" fill="#f2ede3" fill-opacity=".55"/>
+                <circle cx="96" cy="122" r="3.5" fill="#F59E0B"/><circle cx="158" cy="54" r="3.5" fill="#F59E0B"/>
+                <circle cx="228" cy="84" r="3.5" fill="#F59E0B"/>
+                <circle cx="276" cy="32" r="7" fill="#FF6F52"/><circle cx="276" cy="32" r="13" fill="#FF6F52" fill-opacity=".18"/>
+                <defs><linearGradient id="rg2" x1="22" y1="176" x2="276" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#F59E0B" stop-opacity=".55"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+              </svg>
+            </div>
+            <div class="streifen">
+              <div class="kachel"><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/03-phaeng.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/02-baan-tai.jpg" alt="" /></div>
+            </div>
+            <div class="cta-geteilt">
+              <div class="haupt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 8.5h3.2l1.6-2.4h6.4L16.8 8.5H20a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-8a1 1 0 011-1z"/>
+                  <circle cx="12" cy="13.5" r="3.4"/>
+                </svg>
+                Foto aufnehmen
+              </div>
+              <div class="neben">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 15.5l5-4.5 4 3.5 4.5-5 4.5 6"/>
+                </svg>
+              </div>
+            </div>
+            <div class="zweitreihe">
+              <button><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Pause</button>
+              <button class="warn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Beenden</button>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">B</span><span class="cap-titel">Der geteilte Knopf</span></div>
+          <p class="cap-text">
+            Ein Griff, zwei Ziele: links auslösen, rechts aus der Galerie holen. Braucht keinen neuen
+            Platz und liest sich als „ein Bild dazutun, auf zwei Arten".
+          </p>
+          <p class="cap-text">
+            Dagegen spricht die Hand: Das Nebenfeld ist <b>62 dp breit und klebt am Auslöser</b>, den man
+            im Fahren blind trifft. Wer daneben greift, öffnet die Galerie — und wer die Galerie wollte,
+            hat schon ausgelöst. Zwei Handlungen, deren Verwechslung teuer ist, gehören nicht aneinander.
+          </p>
+          <span class="urteil nein">Nicht empfohlen</span>
+        </figcaption>
+      </figure>
+
+      <!-- C · Galerie-Auge in der Kamera -->
+      <figure class="tafel empfohlen">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">14:38</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="kam">
+            <div class="kam-sucher"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+            <div class="kam-oben">
+              <div class="kam-rund"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+              <div class="kam-rund"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg></div>
+            </div>
+            <div class="kam-modi"><span class="an">FOTO</span><span>VIDEO</span></div>
+            <div class="kam-leiste">
+              <div class="galerie-auge betont">
+                <img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" />
+              </div>
+              <div class="ausloeser"><i></i></div>
+              <div class="rechts kam-rund"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 012-2h2M20 8V6a2 2 0 00-2-2h-2M4 16v2a2 2 0 002 2h2M20 16v2a2 2 0 01-2 2h-2"/><circle cx="12" cy="12" r="3"/></svg></div>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">C</span><span class="cap-titel">Das Galerie-Auge in der Kamera</span></div>
+          <p class="cap-text">
+            Unten links, wo in <b>jeder</b> Kamera-App die zuletzt aufgenommene Miniatur sitzt. Hier
+            führt sie in die Galerie-Auswahl. Am Aufzeichnungs-Screen ändert sich nichts.
+          </p>
+          <p class="cap-text">
+            Zwei Dinge muss die Kachel unterscheidbar halten: Sie zeigt das Bild aus der <b>Tour</b>
+            (nicht aus der Galerie), und der Amber-Ring sagt, dass sie hier etwas <b>hinein</b>holt
+            statt etwas anzuzeigen. Ergänzt A, ersetzt es nicht — A ist auch ohne Kamerastart erreichbar.
+          </p>
+          <span class="urteil ja">Zusätzlich empfohlen</span>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════ 2 · Was nach der Auswahl passiert ═══════════════ -->
+  <section class="akt">
+    <div class="akt-kopf"><span class="akt-nr">2</span><h2>Was nach der Auswahl passiert</h2></div>
+    <p class="leit">
+      Die Auswahl selbst gehört Android. Uns gehört, was danach kommt: dieselbe Haltung wie beim
+      Studio-Upload — <b>erst zeigen, was ankam, dann übernehmen</b>. Das ist keine Bestätigungsfrage,
+      sondern die einzige Stelle, an der ein Bild ohne Zeit oder Ort auffällt, solange man noch dort ist.
+    </p>
+
+    <div class="reihe">
+
+      <!-- D · System-Picker -->
+      <figure class="tafel">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">14:38</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="system-marke">System</div>
+          <div class="picker">
+            <div class="picker-kopf">
+              <div class="t">Fotos auswählen</div>
+              <div class="u">Maptale erhält nur die ausgewählten Bilder</div>
+            </div>
+            <div class="picker-reiter"><span class="an">Fotos</span><span>Alben</span></div>
+            <div class="picker-raster">
+              <div class="wahl"><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /><span class="h">1</span></div>
+              <div class="wahl"><img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" /><span class="h">2</span></div>
+              <div><img src="/photos/stockholm/prastgatan.jpg" alt="" /></div>
+              <div class="wahl"><img src="/photos/kohphangan/09-ostkueste.jpg" alt="" /><span class="h">3</span></div>
+              <div><img src="/photos/stockholm/kastell.jpg" alt="" /></div>
+              <div class="wahl"><img src="/photos/kohphangan/10-longtail.jpg" alt="" /><span class="h">4</span></div>
+              <div><img src="/photos/oberland/03-zweiluetschinen.jpg" alt="" /></div>
+              <div><img src="/photos/stockholm/saltsjon.jpg" alt="" /></div>
+              <div><img src="/photos/oberland/06-grindelwald.jpg" alt="" /></div>
+              <div><img src="/photos/stockholm/strandvagen.jpg" alt="" /></div>
+              <div><img src="/photos/oberland/01-lauterbrunnen.jpg" alt="" /></div>
+              <div><img src="/photos/stockholm/grona-lund.jpg" alt="" /></div>
+            </div>
+            <div class="picker-fuss">
+              <span class="n tnum">4 ausgewählt</span>
+              <span class="ok">Hinzufügen</span>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">D</span><span class="cap-titel">Der Photo Picker gehört Android</span></div>
+          <p class="cap-text">
+            Nicht gestaltbar und auch nicht nachzubauen — und das ist gut so: Er läuft <b>ohne
+            Galerie-Berechtigung</b>, die App bekommt nur die gewählten Dateien. Eine eigene Galerie-Ansicht
+            würde <code>READ_MEDIA_IMAGES</code> verlangen, also Zugriff auf alles.
+          </p>
+          <p class="cap-text">
+            Hier steht er nur, damit die Kette vollständig ist. Der Entwurf beginnt beim nächsten Bild.
+          </p>
+        </figcaption>
+      </figure>
+
+      <!-- E · Befund-Blatt -->
+      <figure class="tafel empfohlen">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">14:39</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="auf" style="opacity:.32">
+            <div class="zustandsmarke"><i></i>Aufzeichnung</div>
+            <div class="uhr tnum">1:12:38</div>
+            <div class="km-wert tnum">8,52</div>
+            <div class="km-label">Kilometer</div>
+            <div class="skizze"></div>
+          </div>
+          <div class="dimmer"></div>
+          <div class="blatt">
+            <div class="blatt-griff"></div>
+            <h3>4 Bilder übernehmen</h3>
+            <p class="unter">Sie werden Teil dieser Tour und mit ihr hochgeladen.</p>
+            <div class="befund-band">
+              <div class="b"><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /><span class="zeit tnum">13:51</span></div>
+              <div class="b"><img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" /><span class="zeit tnum">14:06</span></div>
+              <div class="b"><img src="/photos/kohphangan/09-ostkueste.jpg" alt="" /><span class="zeit tnum">14:22</span></div>
+              <div class="b grau"><img src="/photos/kohphangan/10-longtail.jpg" alt="" /><span class="zeit">ohne Zeit</span></div>
+            </div>
+            <div style="margin-top:14px">
+              <div class="zeile">
+                <svg class="gut" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5L9.5 17 4 11.5"/></svg>
+                <span><b>2 Bilder mit Ortsangabe</b> <span class="neben">— sitzen sofort auf der Strecke.</span></span>
+              </div>
+              <div class="zeile">
+                <svg class="gut" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5L9.5 17 4 11.5"/></svg>
+                <span><b>1 Bild nur mit Uhrzeit</b> <span class="neben">— 14:06, der Ort kommt aus der Aufzeichnung.</span></span>
+              </div>
+              <div class="zeile warnt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 17h.01"/></svg>
+                <span><b>1 Bild ohne Zeit und Ort</b> <span class="neben">— bekommt später im Studio einen Platz.</span></span>
+              </div>
+            </div>
+            <div class="fuss">
+              <div class="weiter">4 übernehmen</div>
+              <div class="weg">Zurück</div>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">E</span><span class="cap-titel">Der Befund — dieselbe Sprache wie im Studio</span></div>
+          <p class="cap-text">
+            Das Blatt sagt nicht „bist du sicher", sondern <b>was mit jedem Bild geschieht</b>: verortet,
+            nach Uhrzeit eingeordnet, oder ohne Platz. Genau die drei Fälle, die der Studio-Upload heute
+            schon meldet (<code>pruefung.ts</code>) — dieselben Sätze, dieselbe Reihenfolge.
+          </p>
+          <p class="cap-text">
+            Der graue Streifen mit „?" ist wichtig: Ein Bild, das nirgends hinpasst, wird nicht
+            weggeworfen und nicht geraten. Es wird <b>benannt</b> — und der Rest geht trotzdem durch.
+          </p>
+          <span class="urteil ja">Kernstück</span>
+        </figcaption>
+      </figure>
+
+      <!-- F · danach -->
+      <figure class="tafel">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">14:39</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="auf eng">
+            <div class="zustandsmarke"><i></i>Aufzeichnung</div>
+            <div class="uhr tnum">1:12:41</div>
+            <div class="km-wert tnum">8,52</div>
+            <div class="km-label">Kilometer</div>
+            <div class="skizze">
+              <svg viewBox="0 0 300 200" fill="none">
+                <path d="M22 176C46 132 74 150 96 122S128 58 158 54s44 34 70 30 40-34 48-52"
+                      stroke="url(#rg3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="22" cy="176" r="4.5" fill="#f2ede3" fill-opacity=".55"/>
+                <circle cx="96" cy="122" r="3.5" fill="#F59E0B"/><circle cx="158" cy="54" r="3.5" fill="#F59E0B"/>
+                <circle cx="196" cy="72" r="5" fill="#FF6F52"/><circle cx="196" cy="72" r="10" fill="#FF6F52" fill-opacity=".2"/>
+                <circle cx="228" cy="84" r="5" fill="#FF6F52"/><circle cx="228" cy="84" r="10" fill="#FF6F52" fill-opacity=".2"/>
+                <circle cx="252" cy="60" r="5" fill="#FF6F52"/><circle cx="252" cy="60" r="10" fill="#FF6F52" fill-opacity=".2"/>
+                <circle cx="276" cy="32" r="7" fill="#FF6F52"/>
+                <defs><linearGradient id="rg3" x1="22" y1="176" x2="276" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#F59E0B" stop-opacity=".55"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+              </svg>
+            </div>
+            <div class="streifen">
+              <div class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 15l4.5-4 3.5 3 4-4.5 5 5.5"/><circle cx="18.5" cy="6.5" r="4.4" fill="#0A0D14"/><path d="M18.5 4.4v4.2M16.4 6.5h4.2"/></svg><span>Galerie</span></div>
+              <div class="kachel neu"><img src="/photos/kohphangan/09-ostkueste.jpg" alt="" /><span class="marke-neu">NEU</span></div>
+              <div class="kachel neu"><img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" /></div>
+              <div class="kachel neu"><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /></div>
+              <div class="kachel"><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+            </div>
+            <div class="karte-hinweis" style="margin:0 0 14px; width:100%; padding:11px 12px">
+              <div class="kh-kopf">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 17h.01"/></svg>
+                1 Bild ohne Platz
+              </div>
+              <p>Es fährt mit hoch und wartet im Studio in der Ablage.</p>
+            </div>
+            <div class="cta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8.5h3.2l1.6-2.4h6.4L16.8 8.5H20a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-8a1 1 0 011-1z"/>
+                <circle cx="12" cy="13.5" r="3.4"/>
+              </svg>
+              Foto aufnehmen
+            </div>
+            <div class="zweitreihe">
+              <button><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Pause</button>
+              <button class="warn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Beenden</button>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">F</span><span class="cap-titel">Danach: die Tour hat sie</span></div>
+          <p class="cap-text">
+            Die neuen Bilder stehen im Streifen wie eigene Aufnahmen — mit Amber-Ring, solange man noch
+            auf dem Screen ist. Auf der Skizze erscheinen ihre Punkte an <b>ihrer Uhrzeit</b>, nicht am
+            Ende der Spur.
+          </p>
+          <p class="cap-text">
+            Die Warnkarte steht nur, solange etwas offen ist, und verlangt hier bewusst <b>nichts</b>:
+            Auf einer laufenden Fahrt soll niemand ein Foto von Hand auf einer Karte platzieren.
+          </p>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════ 3 · Nachträglich ═══════════════ -->
+  <section class="akt">
+    <div class="akt-kopf"><span class="akt-nr">3</span><h2>Nachträglich, an einer Tour, die es schon gibt</h2></div>
+    <p class="leit">
+      Der häufigere Fall: Die Fahrt ist zu Ende, die Bilder der richtigen Kamera sind abends auf dem
+      Telefon. Der Tour-Screen zeigt die Aufnahmen bereits als randloses Gitter — die erste Kachel wird
+      der Einstieg.
+    </p>
+
+    <div class="reihe">
+
+      <!-- G · Tour-Detail mit + -->
+      <figure class="tafel empfohlen">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">21:04</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="tour-kopf">
+            <img src="/photos/kohphangan/12-haad-rin.jpg" alt="" />
+            <div class="schleier"></div>
+            <div class="rund l"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div>
+            <div class="rund r"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4M8.2 13.2l7.6 4"/></svg></div>
+            <div class="spielen"><svg viewBox="0 0 24 24" fill="#f2ede3"><path d="M8 5.5v13l11-6.5z"/></svg></div>
+            <h3>Inselrunde Koh Pha-ngan</h3>
+          </div>
+          <div class="tour-rumpf">
+            <div class="tour-zahlen tnum">41,8 km · 4 h 12 min · 12 Fotos</div>
+            <div class="tour-abschnitt">Aufnahmen</div>
+            <div class="foto-gitter">
+              <div class="hinzu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 15l4.5-4 3.5 3 4-4.5 5 5.5"/><circle cx="18.5" cy="6.5" r="4.4" fill="#0A0D12"/><path d="M18.5 4.4v4.2M16.4 6.5h4.2"/></svg>
+                <span>Hinzufügen</span>
+              </div>
+              <div><img src="/photos/kohphangan/01-thong-sala.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/02-baan-tai.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/03-phaeng.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" /></div>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">G</span><span class="cap-titel">Die erste Kachel im Gitter</span></div>
+          <p class="cap-text">
+            Kein Knopf in der Kopfleiste: Oben liegen <b>Zurück</b> und <b>Teilen</b>, und der Kopf soll
+            randlos bleiben. Die Kachel steht dagegen genau da, wo man hinsieht, wenn man an die Fotos
+            denkt — und sie skaliert mit: bei 40 Bildern bleibt sie die erste.
+          </p>
+          <p class="cap-text">
+            Sie führt in denselben Photo Picker und dasselbe Befund-Blatt wie während der Aufnahme.
+            <b>Ein Weg, zwei Einstiege.</b>
+          </p>
+          <span class="urteil ja">Empfehlung</span>
+        </figcaption>
+      </figure>
+
+      <!-- H · Nachreichen läuft -->
+      <figure class="tafel">
+        <div class="phone"><div class="schirm">
+          <div class="statusleiste"><span class="tnum">21:05</span>
+            <span class="sl-rechts">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+            </span>
+          </div>
+          <div class="tour-kopf">
+            <img src="/photos/kohphangan/12-haad-rin.jpg" alt="" />
+            <div class="schleier"></div>
+            <div class="rund l"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div>
+            <div class="rund r"><svg viewBox="0 0 24 24" fill="none" stroke="#f2ede3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4M8.2 13.2l7.6 4"/></svg></div>
+            <h3>Inselrunde Koh Pha-ngan</h3>
+          </div>
+          <div class="tour-rumpf">
+            <div class="tour-zahlen tnum">41,8 km · 4 h 12 min · 15 Fotos</div>
+            <div class="tour-hinweis">
+              <span class="kreisel"></span>
+              <span>3 Aufnahmen werden nachgereicht — 1 von 3</span>
+            </div>
+            <div class="tour-hinweis" style="padding-top:6px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 11-2.6-6.1"/><path d="M20.5 4v4.5H16"/></svg>
+              <span>Danach baut Maptale die Tour neu — der Film wird länger.</span>
+            </div>
+            <div class="tour-abschnitt">Aufnahmen</div>
+            <div class="foto-gitter">
+              <div class="hinzu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 15l4.5-4 3.5 3 4-4.5 5 5.5"/><circle cx="18.5" cy="6.5" r="4.4" fill="#0A0D12"/><path d="M18.5 4.4v4.2M16.4 6.5h4.2"/></svg>
+                <span>Hinzufügen</span>
+              </div>
+              <div><img src="/photos/kohphangan/01-thong-sala.jpg" alt="" /><span class="neu-marke">NEU</span></div>
+              <div class="laedt"><img src="/photos/stockholm/prastgatan.jpg" alt="" /><span class="ring"></span><span class="neu-marke">NEU</span></div>
+              <div class="laedt"><img src="/photos/kohphangan/02-baan-tai.jpg" alt="" /><span class="ring"></span><span class="neu-marke">NEU</span></div>
+              <div><img src="/photos/kohphangan/03-phaeng.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+              <div><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /></div>
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-kopf"><span class="cap-brief">H</span><span class="cap-titel">Während es läuft — und was es kostet</span></div>
+          <p class="cap-text">
+            Die Bilder erscheinen sofort im Gitter, an ihrer Uhrzeit einsortiert, und laden im
+            Hintergrund hoch (derselbe WorkManager-Weg wie beim Erst-Upload, pro Datei wiederaufnehmbar).
+          </p>
+          <p class="cap-text">
+            Der zweite Satz ist Pflicht und keine Höflichkeit: Eine hochgeladene Tour wird durch den
+            Nachtrag <b>neu gerendert</b>. Sie ist danach ein anderer Film — länger, mit neuen Halten.
+            Wer das nicht liest, hält die Tour für kaputt.
+          </p>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════ Fuß ═══════════════ -->
+  <div class="fuss">
+    <h2>Was darunter liegt</h2>
+    <p class="lead">
+      Der Knopf ist der kleine Teil. Drei Dinge müssen mitkommen — der erste ist eine echte
+      Format-Entscheidung. Der Weg im Studio steht auf der Schwesterseite
+      <a href="studio-aufnahmen-nachreichen.html" style="color:var(--akzent)">Aufnahmen nachreichen</a>.
+    </p>
+
+    <div class="karte">
+      <h3>Das Manifest ist heute unveränderlich</h3>
+      <p>
+        Nach dem Upload wird <code>manifest.json</code> nicht mehr angefasst; Änderungen laufen über das
+        Edit-Overlay. Ein Bild ist aber <b>keine Änderung, sondern eine Ergänzung der Rohdaten</b> — es
+        gehört ins Manifest, nicht ins Overlay.
+      </p>
+      <p>
+        Vorschlag: eine <b>additive</b> Route <code>POST /api/tours/:id/media</code>, die ausschließlich
+        Einträge anhängt (Medien-ID aus der höchsten vergebenen plus eins — dieselbe Regel wie in der App),
+        danach die Dateien per PUT, dann <code>reprocess</code>. Nichts wird ersetzt, nichts gelöscht;
+        vorhandene Edits behalten ihre Anker, weil die auf Medien-IDs und Zeitstempeln sitzen.
+      </p>
+    </div>
+
+    <div class="karte">
+      <h3>Die Zeit-Platzierung gibt es schon</h3>
+      <p>
+        Ein Medium ohne <code>anchor</code> ist im Austauschformat vorgesehen — der Server ordnet es
+        über <code>takenAt</code> in die Strecke ein. Für Fall 2 ist also nichts Neues zu bauen:
+        Die App schickt einfach kein <code>anchor</code>-Feld mit.
+      </p>
+      <p>
+        Während der Aufnahme könnte die App den Ort sogar selbst setzen (sie hat die Spur im Speicher).
+        Besser nicht: Zwei Stellen, die dasselbe rechnen, laufen auseinander. <b>Der Server
+        platziert, die App meldet nur die Zeit.</b>
+      </p>
+    </div>
+
+    <div class="karte">
+      <h3>Die Ablage ist der Landeplatz</h3>
+      <p>
+        Für Fall 3 muss nichts erfunden werden: Der Editor hat den Ablage-Knopf samt Fach schon
+        (Aufnahmen, die noch nicht auf der Strecke liegen). Ein Bild ohne Zeit und Ort landet dort und
+        wird per Zug auf die Karte gesetzt.
+      </p>
+      <p>
+        Offen bleibt der Grenzfall <b>„Zeit da, aber weit außerhalb der Aufzeichnung"</b> — das Studio
+        meldet ihn heute beim Upload als Warnung. Vorschlag: gleiche Behandlung, also Ablage statt
+        stiller Einordnung an den Rand der Tour.
+      </p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

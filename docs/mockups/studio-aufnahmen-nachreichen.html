@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Maptale Studio, Aufnahmen nachreichen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — nicht das echte Studio. Gegenstand: AUFNAHMEN ZU EINER TOUR
+   HINZUFÜGEN, DIE ES SCHON GIBT.
+
+   Heute gibt es Medien nur beim Anlegen: Das „Neue Tour"-Fenster nimmt
+   Dateien, baut daraus ein Manifest, lädt hoch. Danach ist die Menge
+   der Aufnahmen fest — der Editor kann Bilder benennen, verschieben,
+   löschen, aber keines dazutun. Wer die Bilder der richtigen Kamera erst
+   abends am Rechner hat, muss die ganze Tour neu hochladen.
+
+   Der Entwurf hier ist bewusst KEINE neue Oberfläche: Der Befund-Screen
+   („erst zeigen, dann hochladen") existiert, die Zeitleiste existiert,
+   die Ablage für ortlose Aufnahmen existiert. Neu ist nur der Einstieg
+   und die Frage, was mit einem Bild geschieht, das keinen Platz findet.
+
+   Schwesterseite (Android): app-aufnahmen-hinzufuegen.html — dort
+   stehen die drei Verankerungsfälle und was der Server dafür braucht.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #10151d;
+  --fl-2: #151c26;
+  --fl-3: #1c2530;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+  --akzent: #F59E0B;
+  --akzent-2: #FF6F52;
+  --auf-cta: #1a1206;
+  --rot: #E5484D;
+  --gruen: #38b676;
+  --font: 'Outfit', system-ui, sans-serif;
+  --spur-x: 148px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg-tief); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.02em; }
+p { margin: 0; }
+button { font-family: var(--font); cursor: default; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.seite { max-width: 1400px; margin: 0 auto; padding: 54px 36px 120px; }
+header.kopf { max-width: 800px; }
+.kopf .marke { display: inline-flex; align-items: center; gap: .45em; font-size: 13px; color: var(--text-3); margin-bottom: 18px; }
+.kopf .marke svg { width: 20px; height: 20px; translate: 0 1px; }
+.kopf h1 { font-size: 40px; line-height: 1.1; margin-bottom: 14px; }
+.kopf .lead { font-size: 17px; color: var(--text-2); line-height: 1.6; }
+.kopf .lead b { color: var(--text); font-weight: 500; }
+.merke {
+  margin-top: 28px; padding: 16px 20px; max-width: 940px;
+  border: 1px solid var(--rand); border-left: 2px solid var(--akzent); border-radius: 12px;
+  background: linear-gradient(165deg, rgba(26,34,45,.55), rgba(9,12,17,.6));
+  font-size: 14.5px; color: var(--text-2);
+}
+.merke b { color: var(--text); font-weight: 600; }
+
+section.akt { margin-top: 76px; }
+.akt-kopf { display: flex; align-items: baseline; gap: 14px; }
+.akt-nr {
+  font-size: 12px; font-weight: 600; color: var(--akzent); letter-spacing: .02em;
+  border: 1px solid rgba(245,158,11,.4); border-radius: 999px; padding: 2px 10px;
+}
+.akt h2 { font-size: 25px; }
+.akt .leit { max-width: 820px; color: var(--text-2); font-size: 15.5px; margin-top: 9px; }
+.notiz {
+  margin-top: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 22px;
+}
+.notiz .n { border-top: 1px solid var(--rand); padding-top: 13px; }
+.notiz .n h4 { font-size: 14.5px; margin-bottom: 6px; }
+.notiz .n p { font-size: 13.8px; color: var(--text-2); line-height: 1.6; }
+.notiz .n p + p { margin-top: 7px; }
+.notiz .n b { color: var(--text); font-weight: 500; }
+code {
+  font-family: var(--font); font-weight: 500; color: var(--text);
+  background: rgba(255,255,255,.06); border-radius: 5px; padding: 1px 6px; font-size: .93em;
+}
+
+/* ————————————————— Editor-Nachbau ————————————————— */
+.editor {
+  margin-top: 30px; border: 1px solid var(--rand); border-radius: 14px; overflow: hidden;
+  background: var(--bg); box-shadow: 0 40px 80px -40px #000;
+}
+.editor-kopf {
+  height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  background: rgba(13,17,24,.92); border-bottom: 1px solid var(--rand);
+}
+.ico {
+  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; color: var(--text-2);
+}
+.ico svg { width: 16px; height: 16px; }
+.ico.aus { opacity: .35; }
+.editor-titel { font-size: 14.5px; font-weight: 500; padding: 5px 10px; border-radius: 8px; background: transparent; border: none; color: var(--text); }
+.kopf-luft { flex: 1; }
+.knopf {
+  height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--rand-hell);
+  background: transparent; color: var(--text); font-size: 13px; display: inline-flex; align-items: center; gap: 7px;
+}
+.knopf svg { width: 14px; height: 14px; }
+.knopf.primaer {
+  border: none; background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-cta); font-weight: 600;
+}
+.editor-rumpf { display: grid; grid-template-columns: 1fr 316px; }
+.editor-links { display: flex; flex-direction: column; min-width: 0; }
+.karten-buehne {
+  height: 268px; position: relative; overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 30% 15%, rgba(60,80,104,.26), transparent 62%),
+    radial-gradient(80% 80% at 88% 92%, rgba(245,158,11,.07), transparent 60%),
+    #070b11;
+}
+.karten-buehne svg.karte { position: absolute; inset: 0; width: 100%; height: 100%; }
+.karte-zoom {
+  position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column;
+  border: 1px solid var(--rand); border-radius: 8px; overflow: hidden; background: rgba(14,19,26,.86);
+}
+.karte-zoom span { width: 26px; height: 26px; display: grid; place-items: center; color: var(--text-2); }
+.karte-zoom span + span { border-top: 1px solid var(--rand); }
+.karte-zoom svg { width: 13px; height: 13px; }
+.karte-info-knopf {
+  position: absolute; right: 12px; bottom: 12px; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(14,19,26,.86); border: 1px solid var(--rand); color: var(--text-3);
+}
+.karte-info-knopf svg { width: 14px; height: 14px; }
+
+/* — Zeitleiste — */
+.zl { border-top: 1px solid var(--rand); background: var(--bg-tief); }
+.zl-kopf {
+  height: 42px; display: flex; align-items: center; gap: 14px; padding: 0 12px;
+  border-bottom: 1px solid var(--rand);
+}
+.transport { display: flex; align-items: center; gap: 6px; }
+.tp {
+  width: 27px; height: 27px; border-radius: 7px; display: grid; place-items: center;
+  border: 1px solid var(--rand-hell); background: transparent; color: var(--text-2);
+}
+.tp svg { width: 13px; height: 13px; }
+.tp.an { color: var(--akzent); border-color: rgba(245,158,11,.45); }
+.werkzeuge { display: flex; gap: 3px; }
+.wkz {
+  width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+  border: 1px solid transparent; background: transparent; color: var(--text-3);
+}
+.wkz.an { color: var(--text); background: var(--fl-2); border-color: var(--rand); }
+.wkz svg { width: 13px; height: 13px; }
+.ablage-knopf {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 5px 10px;
+  border-radius: 7px; border: 1px solid var(--rand-hell); background: transparent; color: var(--text-2);
+}
+.ablage-knopf svg { width: 13px; height: 13px; }
+.ablage-knopf.warnt { color: var(--rot); border-color: rgba(229,72,77,.42); background: rgba(229,72,77,.12); }
+.kopf-uhr {
+  margin: 0 auto; display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text-3);
+}
+.kopf-uhr svg { width: 14px; height: 14px; }
+.kopf-uhr .film { color: var(--text); font-weight: 500; font-size: 13.5px; }
+.zl-rechts { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.zoomleiste { display: flex; align-items: center; gap: 7px; }
+.zoomleiste .bahn { width: 88px; height: 3px; border-radius: 2px; background: var(--fl-3); position: relative; }
+.zoomleiste .bahn::after { content: ''; position: absolute; left: 22%; top: 50%; translate: -50% -50%; width: 11px; height: 11px; border-radius: 50%; background: var(--text-2); }
+.zoomleiste .wert { font-size: 11.5px; color: var(--text-3); }
+
+.spuren { position: relative; padding: 6px 0 10px; }
+.spur { display: grid; grid-template-columns: var(--spur-x) 1fr; align-items: stretch; height: 30px; }
+.spur.hoch { height: 62px; }
+.spur-name {
+  display: flex; align-items: center; gap: 7px; padding: 0 10px;
+  font-size: 11.8px; color: var(--text-2); background: var(--bg-tief);
+  border-right: 1px solid var(--rand); position: relative;
+}
+.spur-icon { width: 14px; height: 14px; color: var(--text-3); flex: none; }
+.spur-plus {
+  margin-left: auto; width: 17px; height: 17px; border-radius: 5px; display: grid; place-items: center;
+  border: 1px dashed var(--rand-hell); background: transparent; color: var(--text-3); opacity: .55;
+}
+.spur-plus svg { width: 11px; height: 11px; }
+.spur-plus.leuchtet {
+  opacity: 1; border-style: solid; border-color: var(--akzent); color: var(--akzent);
+  background: rgba(245,158,11,.12); box-shadow: 0 0 0 4px rgba(245,158,11,.1);
+}
+.spur-feld { position: relative; }
+.spur:not(.hoch) .spur-feld { border-bottom: 1px solid rgba(255,255,255,.04); }
+.skala { display: grid; grid-template-columns: var(--spur-x) 1fr; height: 23px; border-bottom: 1px solid var(--rand); }
+.skala-name { background: var(--bg-tief); border-right: 1px solid var(--rand); }
+.skala-feld { position: relative; }
+.skala-marke {
+  position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.09);
+  font-size: 10px; color: var(--text-3); padding-left: 5px; display: flex; align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.band {
+  position: absolute; top: 4px; bottom: 4px; border-radius: 5px;
+  display: flex; align-items: center; padding: 0 9px; font-size: 11.3px; color: var(--text-2);
+  background: var(--fl-2); border: 1px solid var(--rand);
+  overflow: hidden; white-space: nowrap;
+}
+.band.warm { background: rgba(245,158,11,.13); border-color: rgba(245,158,11,.3); color: #f4c98a; }
+.band.kalt { background: rgba(96,140,180,.14); border-color: rgba(96,140,180,.3); color: #a8c6e0; }
+.band svg { width: 12px; height: 12px; margin-right: 6px; flex: none; }
+.klip {
+  position: absolute; top: 5px; bottom: 5px; border-radius: 5px; padding: 0 9px;
+  display: flex; align-items: center; font-size: 11.3px;
+  background: linear-gradient(180deg, rgba(126,96,180,.3), rgba(126,96,180,.16));
+  border: 1px solid rgba(150,120,205,.4); color: #cbb8f0;
+}
+.fotomarke {
+  position: absolute; top: 5px; width: 40px; height: 52px; border-radius: 6px; overflow: hidden;
+  translate: -50% 0; box-shadow: 0 0 0 1px var(--rand);
+}
+.fotomarke img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fotomarke .nr {
+  position: absolute; left: 0; right: 0; bottom: 0; font-size: 8.5px; text-align: center;
+  background: linear-gradient(to top, rgba(6,9,14,.94), transparent); padding: 7px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+.fotomarke.neu { box-shadow: 0 0 0 2px var(--akzent), 0 6px 16px -6px rgba(245,158,11,.7); }
+.fotomarke.neu .nr { color: var(--akzent); }
+.kopfstrich {
+  position: absolute; top: 0; bottom: 8px; width: 1px; background: var(--akzent); z-index: 5;
+}
+.kopfstrich::before {
+  content: ''; position: absolute; top: -1px; left: 50%; translate: -50% 0;
+  border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--akzent);
+}
+
+/* Ziehen-Überlagerung über der Zeitleiste */
+.zieh-overlay {
+  position: absolute; inset: 0; z-index: 8; border-radius: 10px; margin: 4px;
+  background: rgba(245,158,11,.09); border: 2px dashed rgba(245,158,11,.6);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  backdrop-filter: blur(1.5px);
+}
+.zieh-overlay .t { font-size: 15px; font-weight: 600; color: var(--text); }
+.zieh-overlay .u { font-size: 12.5px; color: var(--text-2); }
+.zieh-overlay svg { width: 22px; height: 22px; color: var(--akzent); }
+.zieh-cursor {
+  position: absolute; z-index: 9; display: flex; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.zieh-cursor .stapel { position: relative; width: 46px; height: 46px; }
+.zieh-cursor .stapel img {
+  position: absolute; width: 40px; height: 40px; object-fit: cover; border-radius: 6px;
+  box-shadow: 0 6px 16px -6px #000, 0 0 0 1px rgba(255,255,255,.14);
+}
+.zieh-cursor .stapel img:nth-child(1) { left: 0; top: 0; rotate: -6deg; }
+.zieh-cursor .stapel img:nth-child(2) { left: 4px; top: 3px; rotate: 3deg; }
+.zieh-cursor .stapel img:nth-child(3) { left: 7px; top: 6px; }
+.zieh-cursor .zahl {
+  background: var(--akzent); color: var(--auf-cta); border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; padding: 2px 8px;
+}
+
+/* — Inspector — */
+.editor-seite { border-left: 1px solid var(--rand); background: var(--bg); display: flex; flex-direction: column; }
+.insp-inhalt { padding: 18px 16px; display: flex; flex-direction: column; gap: 14px; }
+.insp-art { font-size: 11px; letter-spacing: .01em; color: var(--text-3); }
+.insp-titel { font-size: 18px; }
+.insp-bild { width: 100%; aspect-ratio: 4/3; border-radius: 9px; overflow: hidden; background: var(--fl-1); }
+.insp-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.feld label { display: block; font-size: 11.5px; color: var(--text-2); margin-bottom: 5px; }
+.feld .eingabe {
+  width: 100%; border: 1px solid var(--rand); border-radius: 8px; background: var(--bg-tief);
+  padding: 8px 10px; font-size: 13.2px; color: var(--text); min-height: 34px;
+}
+.feld .eingabe.leer { color: var(--text-3); }
+.datenzeile { display: flex; justify-content: space-between; font-size: 12.5px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.datenzeile:first-child { border-top: none; }
+.datenzeile span:first-child { color: var(--text-3); }
+.datenzeile .tnum { color: var(--text-2); }
+.insp-leer { padding: 40px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.insp-leer .leer-titel { font-size: 14.5px; font-weight: 600; }
+.insp-leer .leer-text { font-size: 13px; color: var(--text-2); }
+
+/* — Flash — */
+.flash {
+  position: absolute; left: 50%; translate: -50% 0; top: 62px; z-index: 12;
+  display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 12px;
+  background: linear-gradient(165deg, rgba(26,34,45,.95), rgba(9,12,17,.96));
+  border: 1px solid var(--rand); box-shadow: 0 18px 40px -18px #000; font-size: 13.5px;
+  backdrop-filter: blur(10px);
+}
+.flash .kreisel {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(245,158,11,.28); border-top-color: var(--akzent);
+}
+
+/* ————————————————— Nachreich-Fenster ————————————————— */
+.fenster-buehne {
+  margin-top: 30px; border-radius: 14px; padding: 44px;
+  background: radial-gradient(90% 80% at 50% 0%, rgba(30,40,54,.5), rgba(6,8,12,.9));
+  border: 1px solid var(--rand); display: grid; place-items: center;
+}
+.fenster {
+  width: 1000px; max-width: 100%; border-radius: 16px; overflow: hidden;
+  background: var(--fl-1); border: 1px solid var(--rand-hell);
+  box-shadow: 0 50px 100px -40px #000;
+}
+.f-kopf {
+  display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--rand);
+}
+.f-kopf .titel { font-size: 17px; font-weight: 600; }
+.f-kopf .unter { font-size: 12.5px; color: var(--text-2); margin-top: 1px; }
+.f-kopf .x {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+  color: var(--text-3); border: 1px solid transparent; background: transparent; font-size: 17px;
+}
+.f-rumpf { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+/* Zeitachse mit alt + neu */
+.achse-block { border: 1px solid var(--rand); border-radius: 12px; padding: 15px 16px 12px; background: rgba(6,8,12,.45); }
+.achse-kopf { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.achse-kopf .t { font-size: 13.5px; font-weight: 600; }
+.achse-kopf .legende { display: flex; gap: 14px; font-size: 11.5px; color: var(--text-3); }
+.achse-kopf .legende i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; translate: 0 0; }
+.achse-kopf .legende .alt i { background: var(--rand-hell); }
+.achse-kopf .legende .neu i { background: var(--akzent); }
+/* Zwei Bahnen um eine Linie: oben die neuen, unten die vorhandenen.
+   Ein Bild OHNE Zeitstempel steht bewusst NICHT auf der Achse — es hat
+   keinen Platz darauf, und ihn zu erfinden wäre die Lüge, die der ganze
+   Befund vermeiden soll. Es sitzt rechts daneben, hinter einem Trenner. */
+.achse-zeile { display: flex; align-items: stretch; gap: 16px; }
+.achse { position: relative; height: 132px; flex: 1; min-width: 0; }
+.achse .linie { position: absolute; left: 0; right: 0; top: 68px; height: 2px; background: var(--fl-3); border-radius: 1px; }
+.achse .strich { position: absolute; top: 70px; width: 1px; height: 6px; background: rgba(255,255,255,.14); }
+.achse .stunde {
+  position: absolute; top: 116px; font-size: 10px; color: var(--text-3); translate: -50% 0;
+  font-variant-numeric: tabular-nums;
+}
+.a-foto {
+  position: absolute; translate: -50% 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.a-foto img { border-radius: 5px; object-fit: cover; display: block; }
+.a-foto .zeit { font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.a-foto .stiel { background: var(--rand-hell); width: 1px; }
+/* neu: über der Linie */
+.a-foto.neu { top: 4px; }
+.a-foto.neu img { width: 40px; height: 40px; box-shadow: 0 0 0 2px var(--akzent); }
+.a-foto.neu .zeit { color: var(--akzent); }
+.a-foto.neu .stiel { height: 12px; background: var(--akzent); }
+/* alt: unter der Linie, klein und grau — die Legende erklärt sie, ihre
+   Uhrzeit steht in der Zeitleiste dahinter und muss hier nicht doppelt. */
+.a-foto.alt { top: 72px; }
+.a-foto.alt img { width: 26px; height: 26px; filter: grayscale(.8) brightness(.78); box-shadow: 0 0 0 1px var(--rand-hell); }
+.a-foto.alt .stiel { height: 7px; }
+.ohne-zeit {
+  width: 96px; flex: none; border-left: 1px dashed var(--rand-hell); padding-left: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+}
+.ohne-zeit img {
+  width: 42px; height: 42px; border-radius: 5px; object-fit: cover; display: block;
+  filter: grayscale(1) brightness(.8); box-shadow: 0 0 0 2px var(--rot);
+}
+.ohne-zeit .t { font-size: 10.5px; color: var(--rot); font-weight: 500; }
+.ohne-zeit .u { font-size: 10px; color: var(--text-3); line-height: 1.3; }
+
+/* Befund-Liste */
+.befunde { display: flex; flex-direction: column; }
+.b-zeile {
+  display: flex; align-items: center; gap: 11px; padding: 11px 2px; font-size: 13.5px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.b-zeile:first-child { border-top: none; }
+.b-zeile svg { width: 16px; height: 16px; flex: none; }
+.b-zeile .gut { color: var(--gruen); }
+.b-zeile .warn { color: var(--akzent); }
+.b-zeile .schlecht { color: var(--rot); }
+.b-zeile .neben { color: var(--text-2); }
+.b-zeile b { font-weight: 600; }
+.b-zeile .aktion {
+  margin-left: auto; height: 27px; padding: 0 11px; border-radius: 7px; font-size: 12.2px;
+  border: 1px solid var(--rand-hell); background: transparent; color: var(--text-2);
+}
+
+/* Raster der neuen Aufnahmen */
+.neu-raster { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.na { border-radius: 9px; overflow: hidden; border: 1px solid var(--rand); background: var(--bg-tief); }
+.na .bild { aspect-ratio: 1; position: relative; }
+.na img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.na .fuss { padding: 6px 7px 7px; }
+.na .zeit { font-size: 11px; font-variant-numeric: tabular-nums; }
+.na .art { font-size: 9.5px; color: var(--text-3); margin-top: 1px; }
+.na .chip {
+  position: absolute; left: 5px; top: 5px; width: 17px; height: 17px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(6,9,14,.78);
+}
+.na .chip svg { width: 11px; height: 11px; }
+.na.ort .chip svg { color: var(--gruen); }
+.na.zeitig .chip svg { color: var(--akzent); }
+.na.ohne { opacity: .78; }
+.na.ohne img { filter: grayscale(1) brightness(.6); }
+.na.ohne .chip svg { color: var(--rot); }
+.na.ohne .zeit { color: var(--text-3); }
+
+.f-fuss {
+  display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+  border-top: 1px solid var(--rand); background: rgba(6,8,12,.5);
+}
+.f-fuss .hinweis { font-size: 12.5px; color: var(--text-2); display: flex; align-items: center; gap: 8px; }
+.f-fuss .hinweis svg { width: 15px; height: 15px; color: var(--text-3); flex: none; }
+.f-fuss .rechts { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.f-fuss .weg { height: 36px; padding: 0 15px; border-radius: 9px; border: 1px solid var(--rand-hell); background: transparent; color: var(--text-2); font-size: 13.5px; }
+.f-fuss .gross {
+  height: 36px; padding: 0 18px; border-radius: 9px; border: none; font-size: 13.8px; font-weight: 600;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-cta);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.f-fuss .gross svg { width: 15px; height: 15px; }
+
+/* Ablage-Fach */
+.fach-buehne { margin-top: 30px; display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
+.fach {
+  width: 330px; border: 1px solid var(--rand-hell); border-radius: 12px; overflow: hidden;
+  background: var(--fl-1); box-shadow: 0 30px 60px -30px #000;
+}
+.fach-kopf { padding: 12px 14px 10px; border-bottom: 1px solid var(--rand); }
+.fach-kopf .t { font-size: 13.5px; font-weight: 600; }
+.fach-kopf .u { font-size: 11.8px; color: var(--text-2); margin-top: 3px; line-height: 1.45; }
+.fach-raster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 12px 14px 14px; }
+.fach-raster div { aspect-ratio: 1; border-radius: 7px; overflow: hidden; position: relative; border: 1px solid var(--rand); }
+.fach-raster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fach-raster .zieh {
+  position: absolute; inset: 0; background: rgba(6,9,14,.4); display: grid; place-items: center;
+}
+.fach-raster .zieh svg { width: 15px; height: 15px; color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- Kartengrund einmal definiert, dreimal benutzt: Inseln in Wasser, wie
+     Stockholm sie hat. Kulisse — die echte Karte ist MapLibre + Esri-Satellit;
+     hier zählt nur, dass die Zeitleiste auf etwas liegt, das nach Karte aussieht. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="kartengrund" viewBox="0 0 900 268" preserveAspectRatio="xMidYMid slice">
+      <rect width="900" height="268" fill="#070b11"/>
+      <!-- Wasserflächen -->
+      <path d="M0 96C130 78 210 122 300 110s160-44 260-32 210 66 340 40v154H0z" fill="#0a121a"/>
+      <path d="M0 168C150 150 220 186 340 176s180-38 300-24 190 54 260 34v82H0z" fill="#0c1620"/>
+      <!-- Landmassen -->
+      <path d="M-20 42C90 22 210 34 306 62c72 21 66 62 8 78-84 23-214 18-292-6-40-13-46-42-42-92z" fill="#141d27"/>
+      <path d="M330 8c120-16 250-6 330 26 52 21 44 58-14 72-96 23-244 14-318-16-46-19-42-70 2-82z" fill="#16202b"/>
+      <path d="M470 148c78-14 168 4 196 30 20 19 2 42-48 50-84 13-176 2-206-22-20-16-6-50 58-58z" fill="#131c26"/>
+      <path d="M60 196c66-12 152 2 176 24 16 15 0 34-42 40-72 11-152 0-176-20-16-13-4-38 42-44z" fill="#121b24"/>
+      <!-- Uferkanten -->
+      <g stroke="#1d2a36" stroke-width="1.1" fill="none">
+        <path d="M-20 42C90 22 210 34 306 62c72 21 66 62 8 78-84 23-214 18-292-6"/>
+        <path d="M330 8c120-16 250-6 330 26 52 21 44 58-14 72-96 23-244 14-318-16"/>
+        <path d="M470 148c78-14 168 4 196 30 20 19 2 42-48 50-84 13-176 2-206-22"/>
+      </g>
+      <!-- Wege auf dem Land -->
+      <g stroke="#1b2632" stroke-width="1.5" fill="none" stroke-linecap="round">
+        <path d="M30 96h250M110 40v78M196 44l14 74M420 30l40 66M520 18l-6 78M600 34l52 58M508 176l150 22M120 208l124 16"/>
+      </g>
+      <!-- Bebauung, nur angedeutet -->
+      <g fill="#1a242f">
+        <rect x="86" y="60" width="13" height="9" rx="1.5"/><rect x="106" y="56" width="9" height="13" rx="1.5"/>
+        <rect x="132" y="66" width="15" height="8" rx="1.5"/><rect x="168" y="58" width="10" height="11" rx="1.5"/>
+        <rect x="438" y="42" width="14" height="9" rx="1.5"/><rect x="462" y="36" width="9" height="14" rx="1.5"/>
+        <rect x="486" y="48" width="16" height="8" rx="1.5"/><rect x="556" y="40" width="11" height="12" rx="1.5"/>
+        <rect x="592" y="54" width="13" height="9" rx="1.5"/><rect x="628" y="44" width="9" height="13" rx="1.5"/>
+        <rect x="540" y="182" width="14" height="9" rx="1.5"/><rect x="574" y="188" width="10" height="11" rx="1.5"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="seite">
+
+  <header class="kopf">
+    <div class="marke">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="15.2" stroke="#f2ede3" stroke-opacity=".78" stroke-width="1.25"/>
+        <ellipse cx="20" cy="20" rx="6.4" ry="15.2" stroke="#f2ede3" stroke-opacity=".3"/>
+        <path d="M5 20h30M8 12.5h24M8 27.5h24" stroke="#f2ede3" stroke-opacity=".3"/>
+        <path d="M4.4 23.4C12 21 24 13 35.6 15.8" stroke="url(#gg)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="35.6" cy="15.8" r="1.9" fill="#F2EDE3"/>
+        <defs><linearGradient id="gg" x1="4" y1="23" x2="36" y2="16" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#F59E0B"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+      </svg>
+      Mockup · Studio
+    </div>
+    <h1>Aufnahmen zu einer Tour hinzufügen, die es schon gibt</h1>
+    <p class="lead">
+      Bilder kommen heute nur beim Anlegen herein. Danach ist die Menge fest — der Editor kann benennen,
+      verschieben und löschen, aber nichts dazutun. Wer abends die Bilder der richtigen Kamera einliest,
+      muss die ganze Tour neu hochladen und verliert dabei jeden Schnitt.
+      <b>Das hier ist kein neuer Screen, sondern ein zweiter Einstieg in einen, den es schon gibt.</b>
+    </p>
+    <div class="merke">
+      <b>Drei Bausteine liegen bereit.</b> Der Befund-Screen des Uploads („erst zeigen, dann hochladen",
+      <code>pruefung.ts</code>) sagt schon heute, welche Datei ohne Ort, ohne Zeit oder außerhalb der
+      Aufzeichnung liegt. Die Zeitleiste hat eine Foto-Spur — als einzige Spur ohne <code>+</code>.
+      Und die <b>Ablage</b> gibt es samt Fach: Aufnahmen, die noch nicht auf der Strecke liegen.
+      Zu bauen ist der Weg dazwischen.
+    </div>
+  </header>
+
+  <!-- ═══════════════ 1 · Einstieg ═══════════════ -->
+  <section class="akt">
+    <div class="akt-kopf"><span class="akt-nr">1</span><h2>Der Einstieg: das Plus, das in der Foto-Spur fehlt</h2></div>
+    <p class="leit">
+      Fünf der sechs Spuren haben ein <code>+</code> im Namensfeld — Fortbewegung, Kamera, Wetter,
+      Momente, Musik. Nur die Foto-Spur hat keins, weil es dort bisher nichts hinzuzufügen gab. Genau
+      das ist die Lücke, und sie hat schon einen Platz.
+    </p>
+
+    <div class="editor">
+      <div class="editor-kopf">
+        <button class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <button class="editor-titel">Stockholm im Oktober</button>
+        <div class="kopf-luft"></div>
+        <button class="ico aus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h9a7 7 0 010 14H8"/></svg></button>
+        <button class="ico aus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9h-9a7 7 0 000 14h5"/></svg></button>
+        <button class="knopf"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>Vorschau</button>
+        <button class="knopf primaer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5L9.5 17 4 11.5"/></svg>Speichern</button>
+        <button class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="18.5" cy="12" r="1.75"/></svg></button>
+      </div>
+      <div class="editor-rumpf">
+        <div class="editor-links">
+          <div class="karten-buehne">
+            <svg class="karte" viewBox="0 0 900 268" preserveAspectRatio="xMidYMid slice" fill="none">
+              <use href="#kartengrund" width="900" height="268"/>
+              <path d="M64 214C140 196 176 156 262 148s124 22 196-4 128-70 214-72 156 26 210 8"
+                    stroke="url(#route)" stroke-width="3.4" stroke-linecap="round"/>
+              <g fill="#F59E0B">
+                <circle cx="118" cy="204" r="5"/><circle cx="300" cy="146" r="5"/>
+                <circle cx="560" cy="118" r="5"/><circle cx="742" cy="72" r="5"/>
+              </g>
+              <circle cx="560" cy="118" r="12" fill="#F59E0B" fill-opacity=".2"/>
+              <defs><linearGradient id="route" x1="64" y1="214" x2="880" y2="80" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#F59E0B"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+            </svg>
+            <div class="karte-zoom">
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5.5 12h13"/></svg></span>
+            </div>
+            <div class="karte-info-knopf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.7h.01"/></svg></div>
+          </div>
+
+          <div class="zl">
+            <div class="zl-kopf">
+              <div class="transport">
+                <button class="tp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+                <button class="tp an"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="9" r="2.4"/></svg></button>
+              </div>
+              <div class="werkzeuge">
+                <button class="wkz an"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.4L6 18.6 9.9 14.9 12.3 20.4 14.5 19.4 12.1 14 17.2 14z"/></svg></button>
+                <button class="wkz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 013 0V11m0-1.5a1.5 1.5 0 013 0V12m0-1a1.5 1.5 0 013 0v4.5a5.5 5.5 0 01-5.5 5.5H11a5 5 0 01-5-5v-5a1.5 1.5 0 013 0"/></svg></button>
+                <button class="wkz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4"/></svg></button>
+              </div>
+              <div class="kopf-uhr">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></svg>
+                <span class="film tnum">1:12 / ~4:38</span>
+                <span class="tnum">11:04</span>
+                <span class="tnum">3,2 km / 18,6 km</span>
+              </div>
+              <div class="zl-rechts">
+                <div class="zoomleiste">
+                  <span class="bahn"></span><span class="wert tnum">1,0×</span>
+                </div>
+              </div>
+            </div>
+            <div class="spuren">
+              <div class="skala">
+                <div class="skala-name"></div>
+                <div class="skala-feld">
+                  <div class="skala-marke" style="left:0">0:00</div>
+                  <div class="skala-marke" style="left:18%">1:00</div>
+                  <div class="skala-marke" style="left:36%">2:00</div>
+                  <div class="skala-marke" style="left:54%">3:00</div>
+                  <div class="skala-marke" style="left:72%">4:00</div>
+                  <div class="skala-marke" style="left:90%">5:00</div>
+                </div>
+              </div>
+
+              <div class="spur hoch">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.4"/><circle cx="12" cy="12" r="3.4"/></svg>
+                  Fotos/Videos
+                  <button class="spur-plus leuchtet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                </div>
+                <div class="spur-feld">
+                  <div class="fotomarke" style="left:8%"><img src="/photos/stockholm/01-gamla-stan.jpg" alt="" /><span class="nr tnum">09:52</span></div>
+                  <div class="fotomarke" style="left:34%"><img src="/photos/stockholm/02-vasa.jpg" alt="" /><span class="nr tnum">12:30</span></div>
+                  <div class="fotomarke" style="left:63%"><img src="/photos/stockholm/03-schaeren.jpg" alt="" /><span class="nr tnum">16:10</span></div>
+                  <div class="fotomarke" style="left:79%"><img src="/photos/stockholm/04-vaxholm.jpg" alt="" /><span class="nr tnum">17:20</span></div>
+                </div>
+              </div>
+
+              <div class="spur">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c3-1 3-6 6-6s3 5 6 5 4-4 4-4"/><circle cx="4" cy="18" r="1.4"/></svg>
+                  Fortbewegung
+                  <button class="spur-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                </div>
+                <div class="spur-feld">
+                  <div class="band" style="left:0; width:46%">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.6" r="1.9"/><path d="M11 21l1.5-5.5-3-2.6.8-4.4 3.2 1.6 2.5 2.4M9 12.2L6.5 14M13 15.5L15 21"/></svg>
+                    Zu Fuß
+                  </div>
+                  <div class="band kalt" style="left:46%; width:26%">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17.5c1.6 0 1.6 1.2 3.2 1.2s1.6-1.2 3.2-1.2 1.6 1.2 3.2 1.2 1.6-1.2 3.2-1.2 1.6 1.2 3.2 1.2"/><path d="M5.5 14.5L7 9h10l1.5 5.5M12 9V5.5"/></svg>
+                    Fähre
+                  </div>
+                  <div class="band" style="left:72%; width:28%">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.6" r="1.9"/><path d="M11 21l1.5-5.5-3-2.6.8-4.4 3.2 1.6 2.5 2.4M9 12.2L6.5 14M13 15.5L15 21"/></svg>
+                    Zu Fuß
+                  </div>
+                </div>
+              </div>
+
+              <div class="spur">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l11-3.5 2.6 4.4M3 8.5v8l13 3.5V13"/><path d="M16 13l5-2.6v6.2L16 19"/></svg>
+                  Kamera
+                  <button class="spur-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                </div>
+                <div class="spur-feld"><div class="band" style="left:0; width:100%">Standard</div></div>
+              </div>
+
+              <div class="spur">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17.5a4 4 0 01.4-8A5.5 5.5 0 0118 10.8a3.4 3.4 0 01-.4 6.7z"/></svg>
+                  Wetter
+                  <button class="spur-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                </div>
+                <div class="spur-feld">
+                  <div class="band" style="left:0; width:54%">Bedeckt</div>
+                  <div class="band kalt" style="left:54%; width:46%">Leichter Regen</div>
+                </div>
+              </div>
+
+              <div class="spur">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v3M12 17v3M4 12h3M17 12h3"/><circle cx="12" cy="12" r="3.6"/></svg>
+                  Momente
+                  <button class="spur-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                </div>
+                <div class="spur-feld"></div>
+              </div>
+
+              <div class="spur">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+                  Musik &amp; Effekte
+                  <button class="spur-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                </div>
+                <div class="spur-feld"><div class="klip" style="left:2%; width:74%">Nordlicht · Musik</div></div>
+              </div>
+
+              <div class="kopfstrich" style="left:calc(var(--spur-x) + (100% - var(--spur-x)) * 0.26)"></div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="editor-seite">
+          <div class="insp-leer">
+            <svg viewBox="0 0 132 84" fill="none" style="width:132px">
+              <rect x="1" y="1" width="130" height="82" rx="9" stroke="#222b37"/>
+              <path d="M1 19h130" stroke="#222b37"/>
+              <rect x="10" y="28" width="44" height="10" rx="3" fill="#1c2530"/>
+              <rect x="58" y="28" width="34" height="10" rx="3" fill="#F59E0B" fill-opacity=".85"/>
+              <rect x="56.5" y="26.5" width="37" height="13" rx="4.5" stroke="#fff5e4"/>
+              <rect x="96" y="28" width="26" height="10" rx="3" fill="#1c2530"/>
+              <rect x="10" y="44" width="70" height="10" rx="3" fill="#151c26"/>
+              <rect x="84" y="44" width="38" height="10" rx="3" fill="#151c26"/>
+              <rect x="10" y="60" width="30" height="10" rx="3" fill="#151c26"/>
+              <rect x="44" y="60" width="78" height="10" rx="3" fill="#151c26"/>
+              <path d="M75 12v64" stroke="#F59E0B" stroke-width="1.5"/>
+              <path d="M71.5 8h7l-3.5 5z" fill="#F59E0B"/>
+            </svg>
+            <div>
+              <div class="leer-titel">Noch nichts ausgewählt</div>
+              <p class="leer-text">Tippe in der Zeitleiste auf ein Foto oder einen Abschnitt.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="notiz">
+      <div class="n">
+        <h4>Warum das Plus und nicht die Kopfleiste</h4>
+        <p>
+          Oben rechts stehen <b>Vorschau</b> und <b>Speichern</b> — Handlungen, die die ganze Tour
+          betreffen. Aufnahmen betreffen eine Spur, und jede andere Spur nimmt Neues genau an dieser
+          Stelle entgegen. Ein Knopf woanders wäre eine zweite Grammatik für dieselbe Sache.
+        </p>
+      </div>
+      <div class="n">
+        <h4>„ab der Marke" gilt hier nicht</h4>
+        <p>
+          Bei Fortbewegung, Kamera und Wetter setzt das Plus einen Zustand <b>ab dem Abspielkopf</b>.
+          Ein Foto dagegen bringt seine eigene Zeit mit — es landet an seiner Aufnahmezeit, nicht an
+          der Marke. Der Tooltip muss das sagen: <b>„Aufnahmen hinzufügen"</b>, nicht „ab hier".
+        </p>
+      </div>
+      <div class="n">
+        <h4>Videos ebenso</h4>
+        <p>
+          Die Spur heißt Fotos/Videos, und der Weg ist derselbe. Ein nachgereichtes Video durchläuft
+          dieselbe Aufbereitung wie beim Erst-Upload (Faststart-Remux, Web-Fassung) — nur später.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 2 · Ziehen ═══════════════ -->
+  <section class="akt">
+    <div class="akt-kopf"><span class="akt-nr">2</span><h2>Der zweite Einstieg: Dateien auf die Leiste ziehen</h2></div>
+    <p class="leit">
+      Die Bibliothek nimmt eine neue Tour per Ablegen entgegen — dieselbe Geste muss hier
+      funktionieren, sonst lernt man sie einmal und verliert sie beim zweiten Mal. Die ganze Zeitleiste
+      ist die Ablagefläche, nicht ein Kästchen darin.
+    </p>
+
+    <div class="editor">
+      <div class="editor-kopf">
+        <button class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <button class="editor-titel">Stockholm im Oktober</button>
+        <div class="kopf-luft"></div>
+        <button class="knopf"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>Vorschau</button>
+        <button class="knopf primaer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5L9.5 17 4 11.5"/></svg>Speichern</button>
+      </div>
+      <div class="editor-rumpf">
+        <div class="editor-links">
+          <div class="karten-buehne" style="height:196px">
+            <svg class="karte" viewBox="0 0 900 196" preserveAspectRatio="xMidYMid slice" fill="none">
+              <use href="#kartengrund" y="-36" width="900" height="268"/>
+              <path d="M64 164C140 146 176 106 262 98s124 22 196-4 128-70 214-72 156 26 210 8"
+                    stroke="url(#route2)" stroke-width="3.4" stroke-linecap="round"/>
+              <g fill="#F59E0B"><circle cx="118" cy="154" r="5"/><circle cx="300" cy="96" r="5"/><circle cx="560" cy="68" r="5"/><circle cx="742" cy="26" r="5"/></g>
+              <defs><linearGradient id="route2" x1="64" y1="164" x2="880" y2="30" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#F59E0B"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+            </svg>
+          </div>
+
+          <div class="zl" style="position:relative">
+            <div class="zl-kopf">
+              <div class="transport">
+                <button class="tp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+              </div>
+              <div class="kopf-uhr">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></svg>
+                <span class="film tnum">1:12 / ~4:38</span>
+              </div>
+            </div>
+            <div class="spuren" style="position:relative">
+              <div class="skala">
+                <div class="skala-name"></div>
+                <div class="skala-feld">
+                  <div class="skala-marke" style="left:0">0:00</div>
+                  <div class="skala-marke" style="left:18%">1:00</div>
+                  <div class="skala-marke" style="left:36%">2:00</div>
+                  <div class="skala-marke" style="left:54%">3:00</div>
+                  <div class="skala-marke" style="left:72%">4:00</div>
+                  <div class="skala-marke" style="left:90%">5:00</div>
+                </div>
+              </div>
+              <div class="spur hoch">
+                <div class="spur-name">
+                  <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5.5" width="18" height="13" rx="2.4"/><circle cx="12" cy="12" r="3.4"/></svg>
+                  Fotos/Videos
+                </div>
+                <div class="spur-feld">
+                  <div class="fotomarke" style="left:8%"><img src="/photos/stockholm/01-gamla-stan.jpg" alt="" /><span class="nr tnum">09:52</span></div>
+                  <div class="fotomarke" style="left:34%"><img src="/photos/stockholm/02-vasa.jpg" alt="" /><span class="nr tnum">12:30</span></div>
+                  <div class="fotomarke" style="left:63%"><img src="/photos/stockholm/03-schaeren.jpg" alt="" /><span class="nr tnum">16:10</span></div>
+                  <div class="fotomarke" style="left:79%"><img src="/photos/stockholm/04-vaxholm.jpg" alt="" /><span class="nr tnum">17:20</span></div>
+                </div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 18c3-1 3-6 6-6s3 5 6 5 4-4 4-4"/></svg>Fortbewegung</div>
+                <div class="spur-feld">
+                  <div class="band" style="left:0; width:46%">Zu Fuß</div>
+                  <div class="band kalt" style="left:46%; width:26%">Fähre</div>
+                  <div class="band" style="left:72%; width:28%">Zu Fuß</div>
+                </div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8.5l11-3.5 2.6 4.4M3 8.5v8l13 3.5V13"/></svg>Kamera</div>
+                <div class="spur-feld"><div class="band" style="left:0; width:100%">Standard</div></div>
+              </div>
+              <div class="spur">
+                <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 17.5a4 4 0 01.4-8A5.5 5.5 0 0118 10.8a3.4 3.4 0 01-.4 6.7z"/></svg>Wetter</div>
+                <div class="spur-feld">
+                  <div class="band" style="left:0; width:54%">Bedeckt</div>
+                  <div class="band kalt" style="left:54%; width:46%">Leichter Regen</div>
+                </div>
+              </div>
+
+              <!-- Ablage-Überlagerung -->
+              <div class="zieh-overlay">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 16V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3.5a1.5 1.5 0 001.5 1.5h13a1.5 1.5 0 001.5-1.5V15"/>
+                </svg>
+                <span class="t">8 Aufnahmen hier ablegen</span>
+                <span class="u">Jede landet an ihrer eigenen Aufnahmezeit — nicht dort, wo du loslässt.</span>
+              </div>
+              <div class="zieh-cursor" style="left:52%; top:14px">
+                <div class="stapel">
+                  <img src="/photos/stockholm/prastgatan.jpg" alt="" />
+                  <img src="/photos/stockholm/strandvagen.jpg" alt="" />
+                  <img src="/photos/stockholm/grona-lund.jpg" alt="" />
+                </div>
+                <span class="zahl tnum">8</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="editor-seite">
+          <div class="insp-leer">
+            <div>
+              <div class="leer-titel">Noch nichts ausgewählt</div>
+              <p class="leer-text">Tippe in der Zeitleiste auf ein Foto oder einen Abschnitt.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="notiz">
+      <div class="n">
+        <h4>Der zweite Satz ist der wichtige</h4>
+        <p>
+          „Nicht dort, wo du loslässt." Eine Zeitleiste lädt dazu ein, die Ablagestelle für eine
+          Zeitangabe zu halten — sie ist es hier nicht. Ohne den Satz zieht jemand acht Bilder
+          absichtlich auf 14:00 und wundert sich, warum sie über den ganzen Tag verteilt landen.
+        </p>
+      </div>
+      <div class="n">
+        <h4>Die ganze Leiste, nicht die Foto-Spur</h4>
+        <p>
+          Auf 62 px Höhe zielen zu müssen wäre eine Strafe für eine Geste, die Bequemlichkeit sein soll.
+          Die Spuren darunter nehmen keine Dateien an, also kostet die großzügige Fläche nichts.
+        </p>
+      </div>
+      <div class="n">
+        <h4>Und die Karte?</h4>
+        <p>
+          Sie bleibt außen vor. Ein Bild auf die Karte zu ziehen hieße „hier war das" — eine
+          <b>Ortsangabe</b>, und die ist genau der Griff, den die Ablage später anbietet. Beim Import
+          wäre sie eine Behauptung über acht Dateien auf einmal.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 3 · Das Fenster ═══════════════ -->
+  <section class="akt" id="fenster">
+    <div class="akt-kopf"><span class="akt-nr">3</span><h2>Das Fenster: erst der Befund, dann das Hinzufügen</h2></div>
+    <p class="leit">
+      Dasselbe Versprechen wie beim Anlegen einer Tour — nur dass die Zeitachse hier schon existiert.
+      Deshalb zeigt der Streifen <b>beides</b>: was die Tour hat (grau, klein) und was dazukommt (hell,
+      an seiner Uhrzeit). Man sieht in einem Blick, ob die neuen Bilder die Lücken füllen oder daneben
+      liegen.
+    </p>
+
+    <div class="fenster-buehne">
+      <div class="fenster">
+        <div class="f-kopf">
+          <div>
+            <div class="titel">Aufnahmen hinzufügen</div>
+            <div class="unter">Stockholm im Oktober · 8 Dateien gelesen · 46,2 MB</div>
+          </div>
+          <button class="x">×</button>
+        </div>
+
+        <div class="f-rumpf">
+          <div class="achse-block">
+            <div class="achse-kopf">
+              <span class="t">Wohin sie fallen</span>
+              <span class="legende">
+                <span class="alt"><i></i>in der Tour (4)</span>
+                <span class="neu"><i></i>neu (8)</span>
+              </span>
+            </div>
+            <div class="achse-zeile">
+              <div class="achse">
+                <div class="linie"></div>
+
+                <!-- neu: über der Linie, an ihrer Aufnahmezeit -->
+                <div class="a-foto neu" style="left:9%"><img src="/photos/stockholm/prastgatan.jpg" alt="" /><span class="zeit">10:12</span><span class="stiel"></span></div>
+                <div class="a-foto neu" style="left:18%"><img src="/photos/stockholm/kungstradgarden.jpg" alt="" /><span class="zeit">11:05</span><span class="stiel"></span></div>
+                <div class="a-foto neu" style="left:32%"><img src="/photos/stockholm/vasa-heck.jpg" alt="" /><span class="zeit">12:40</span><span class="stiel"></span></div>
+                <div class="a-foto neu" style="left:46%"><img src="/photos/stockholm/strandvagen.jpg" alt="" /><span class="zeit">14:18</span><span class="stiel"></span></div>
+                <div class="a-foto neu" style="left:57%"><img src="/photos/stockholm/saltsjon.jpg" alt="" /><span class="zeit">15:02</span><span class="stiel"></span></div>
+                <div class="a-foto neu" style="left:70%"><img src="/photos/stockholm/hoggarnsfjarden.jpg" alt="" /><span class="zeit">16:30</span><span class="stiel"></span></div>
+                <div class="a-foto neu" style="left:91%"><img src="/photos/stockholm/grona-lund.jpg" alt="" /><span class="zeit">18:44</span><span class="stiel"></span></div>
+
+                <!-- vorhanden: unter der Linie, klein und grau -->
+                <div class="a-foto alt" style="left:5%"><span class="stiel"></span><img src="/photos/stockholm/01-gamla-stan.jpg" alt="" /></div>
+                <div class="a-foto alt" style="left:29%"><span class="stiel"></span><img src="/photos/stockholm/02-vasa.jpg" alt="" /></div>
+                <div class="a-foto alt" style="left:64%"><span class="stiel"></span><img src="/photos/stockholm/03-schaeren.jpg" alt="" /></div>
+                <div class="a-foto alt" style="left:75%"><span class="stiel"></span><img src="/photos/stockholm/04-vaxholm.jpg" alt="" /></div>
+
+                <div class="strich" style="left:0"></div>
+                <div class="strich" style="left:18%"></div>
+                <div class="strich" style="left:36%"></div>
+                <div class="strich" style="left:54%"></div>
+                <div class="strich" style="left:72%"></div>
+                <div class="strich" style="left:90%"></div>
+                <span class="stunde" style="left:1.4%">09:30</span>
+                <span class="stunde" style="left:18%">11:30</span>
+                <span class="stunde" style="left:36%">13:30</span>
+                <span class="stunde" style="left:54%">15:30</span>
+                <span class="stunde" style="left:72%">17:30</span>
+                <span class="stunde" style="left:88.6%">19:30</span>
+              </div>
+              <div class="ohne-zeit">
+                <img src="/photos/stockholm/kastell.jpg" alt="" />
+                <span class="t">ohne Zeit</span>
+                <span class="u">gehört auf keine Achse</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="befunde">
+            <div class="b-zeile">
+              <svg class="gut" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5L9.5 17 4 11.5"/></svg>
+              <span><b>5 Aufnahmen mit Ortsangabe</b> <span class="neben">— sie sitzen sofort auf der Strecke.</span></span>
+            </div>
+            <div class="b-zeile">
+              <svg class="warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></svg>
+              <span><b>2 Aufnahmen ohne Ortsangabe</b> <span class="neben">— eingeordnet nach ihrer Uhrzeit (12:40 im Vasa-Museum, 16:30 auf der Fähre).</span></span>
+            </div>
+            <div class="b-zeile">
+              <svg class="schlecht" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 17h.01"/></svg>
+              <span><b>1 Aufnahme ohne Zeit und Ort</b> <span class="neben">— sie geht in die Ablage und bekommt dort von Hand einen Platz.</span></span>
+              <button class="aktion">Weglassen</button>
+            </div>
+          </div>
+
+          <div class="neu-raster">
+            <div class="na ort">
+              <div class="bild"><img src="/photos/stockholm/prastgatan.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">10:12</div><div class="art">Ort</div></div>
+            </div>
+            <div class="na ort">
+              <div class="bild"><img src="/photos/stockholm/kungstradgarden.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">11:05</div><div class="art">Ort</div></div>
+            </div>
+            <div class="na zeitig">
+              <div class="bild"><img src="/photos/stockholm/vasa-heck.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">12:40</div><div class="art">nach Uhrzeit</div></div>
+            </div>
+            <div class="na ort">
+              <div class="bild"><img src="/photos/stockholm/strandvagen.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">14:18</div><div class="art">Ort</div></div>
+            </div>
+            <div class="na ort">
+              <div class="bild"><img src="/photos/stockholm/saltsjon.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">15:02</div><div class="art">Ort</div></div>
+            </div>
+            <div class="na zeitig">
+              <div class="bild"><img src="/photos/stockholm/hoggarnsfjarden.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">16:30</div><div class="art">nach Uhrzeit</div></div>
+            </div>
+            <div class="na ort">
+              <div class="bild"><img src="/photos/stockholm/grona-lund.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">18:44</div><div class="art">Ort</div></div>
+            </div>
+            <div class="na ohne">
+              <div class="bild"><img src="/photos/stockholm/kastell.jpg" alt="" />
+                <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 17h.01"/></svg></span>
+              </div>
+              <div class="fuss"><div class="zeit">—</div><div class="art">in die Ablage</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="f-fuss">
+          <span class="hinweis">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 11-2.6-6.1"/><path d="M20.5 4v4.5H16"/></svg>
+            Die Tour wird danach neu gebaut — der Film wird länger. Deine Schnitte bleiben.
+          </span>
+          <span class="rechts">
+            <button class="weg">Abbrechen</button>
+            <button class="gross">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>
+              8 Aufnahmen hinzufügen
+            </button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notiz">
+      <div class="n">
+        <h4>Der Streifen zeigt Aufnahmezeit, nicht Filmzeit</h4>
+        <p>
+          Bewusst anders als die Zeitleiste dahinter. Hier geht es um die Frage „wann war das", und die
+          beantwortet die Uhr, nicht der Schnitt. Die Übersetzung in Filmzeit macht der Server beim
+          Neubau — <b>vorher zu zeigen, wie lang der Film dadurch wird, wäre geraten</b>.
+        </p>
+      </div>
+      <div class="n">
+        <h4>Der Satz über das Neu-Bauen ist keine Höflichkeit</h4>
+        <p>
+          Eine bestehende Tour wird durch den Nachtrag ein anderer Film: neue Halte, andere Länge,
+          verschobene Musik-Enden. Was <b>bleibt</b>, sind die Edits — sie hängen an Medien-IDs und
+          Zeitstempeln, nicht am Streckenanteil. Genau darum muss beides im selben Satz stehen.
+        </p>
+      </div>
+      <div class="n">
+        <h4>„Weglassen" gibt es nur, wo es etwas zu entscheiden gibt</h4>
+        <p>
+          Dieselbe Regel wie im Prüf-Screen: Die beiden guten Zeilen tragen keinen Knopf. Nur die
+          Aufnahme ohne Zeit und Ort stellt eine Frage — und selbst die hat eine brauchbare Vorgabe
+          (Ablage), damit man sie ignorieren kann.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 4 · Danach ═══════════════ -->
+  <section class="akt">
+    <div class="akt-kopf"><span class="akt-nr">4</span><h2>Danach: die Leiste ist voller, eines wartet</h2></div>
+    <p class="leit">
+      Die neuen Aufnahmen stehen sofort in der Spur, an ihrer Zeit; das Neu-Bauen läuft im Hintergrund
+      und meldet sich als Flash. Die eine Aufnahme ohne Platz sitzt in der Ablage — sichtbar am Zähler,
+      der jetzt warnt.
+    </p>
+
+    <div class="editor">
+      <div class="editor-kopf">
+        <button class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <button class="editor-titel">Stockholm im Oktober</button>
+        <div class="kopf-luft"></div>
+        <button class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h9a7 7 0 010 14H8"/></svg></button>
+        <button class="ico aus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9h-9a7 7 0 000 14h5"/></svg></button>
+        <button class="knopf"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>Vorschau</button>
+        <button class="knopf primaer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6.5L9.5 17 4 11.5"/></svg>Speichern</button>
+      </div>
+      <div style="position:relative">
+        <div class="flash">
+          <span class="kreisel"></span>
+          <span>7 Aufnahmen hinzugefügt — die Tour wird neu gebaut …</span>
+        </div>
+        <div class="editor-rumpf">
+          <div class="editor-links">
+            <div class="karten-buehne" style="height:214px">
+              <svg class="karte" viewBox="0 0 900 214" preserveAspectRatio="xMidYMid slice" fill="none">
+                <use href="#kartengrund" y="-28" width="900" height="268"/>
+                <path d="M64 178C140 160 176 120 262 112s124 22 196-4 128-70 214-72 156 26 210 8"
+                      stroke="url(#route3)" stroke-width="3.4" stroke-linecap="round"/>
+                <g fill="#F59E0B" fill-opacity=".55">
+                  <circle cx="118" cy="168" r="4.5"/><circle cx="300" cy="110" r="4.5"/>
+                  <circle cx="560" cy="82" r="4.5"/><circle cx="742" cy="40" r="4.5"/>
+                </g>
+                <g fill="#FF6F52">
+                  <circle cx="166" cy="152" r="5.5"/><circle cx="166" cy="152" r="11" fill-opacity=".2"/>
+                  <circle cx="234" cy="128" r="5.5"/><circle cx="234" cy="128" r="11" fill-opacity=".2"/>
+                  <circle cx="392" cy="98" r="5.5"/><circle cx="392" cy="98" r="11" fill-opacity=".2"/>
+                  <circle cx="470" cy="90" r="5.5"/><circle cx="470" cy="90" r="11" fill-opacity=".2"/>
+                  <circle cx="640" cy="62" r="5.5"/><circle cx="640" cy="62" r="11" fill-opacity=".2"/>
+                  <circle cx="820" cy="34" r="5.5"/><circle cx="820" cy="34" r="11" fill-opacity=".2"/>
+                </g>
+                <defs><linearGradient id="route3" x1="64" y1="178" x2="880" y2="44" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#F59E0B"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+              </svg>
+            </div>
+
+            <div class="zl">
+              <div class="zl-kopf">
+                <div class="transport">
+                  <button class="tp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+                </div>
+                <button class="ablage-knopf warnt">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5.5" width="18" height="13" rx="2.4"/><circle cx="12" cy="12" r="3.4"/></svg>
+                  <span class="tnum">1</span>
+                </button>
+                <div class="kopf-uhr">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></svg>
+                  <span class="film tnum">1:12 / ~5:26</span>
+                  <span class="tnum">11:04</span>
+                  <span class="tnum">3,2 km / 18,6 km</span>
+                </div>
+              </div>
+              <div class="spuren">
+                <div class="skala">
+                  <div class="skala-name"></div>
+                  <div class="skala-feld">
+                    <div class="skala-marke" style="left:0">0:00</div>
+                    <div class="skala-marke" style="left:16%">1:00</div>
+                    <div class="skala-marke" style="left:32%">2:00</div>
+                    <div class="skala-marke" style="left:48%">3:00</div>
+                    <div class="skala-marke" style="left:64%">4:00</div>
+                    <div class="skala-marke" style="left:80%">5:00</div>
+                  </div>
+                </div>
+                <div class="spur hoch">
+                  <div class="spur-name">
+                    <svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5.5" width="18" height="13" rx="2.4"/><circle cx="12" cy="12" r="3.4"/></svg>
+                    Fotos/Videos
+                    <button class="spur-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+                  </div>
+                  <div class="spur-feld">
+                    <div class="fotomarke" style="left:5%"><img src="/photos/stockholm/01-gamla-stan.jpg" alt="" /><span class="nr tnum">09:52</span></div>
+                    <div class="fotomarke neu" style="left:14%"><img src="/photos/stockholm/prastgatan.jpg" alt="" /><span class="nr tnum">10:12</span></div>
+                    <div class="fotomarke neu" style="left:23%"><img src="/photos/stockholm/kungstradgarden.jpg" alt="" /><span class="nr tnum">11:05</span></div>
+                    <div class="fotomarke" style="left:33%"><img src="/photos/stockholm/02-vasa.jpg" alt="" /><span class="nr tnum">12:30</span></div>
+                    <div class="fotomarke neu" style="left:41%"><img src="/photos/stockholm/vasa-heck.jpg" alt="" /><span class="nr tnum">12:40</span></div>
+                    <div class="fotomarke neu" style="left:52%"><img src="/photos/stockholm/strandvagen.jpg" alt="" /><span class="nr tnum">14:18</span></div>
+                    <div class="fotomarke neu" style="left:61%"><img src="/photos/stockholm/saltsjon.jpg" alt="" /><span class="nr tnum">15:02</span></div>
+                    <div class="fotomarke" style="left:70%"><img src="/photos/stockholm/03-schaeren.jpg" alt="" /><span class="nr tnum">16:10</span></div>
+                    <div class="fotomarke neu" style="left:78%"><img src="/photos/stockholm/hoggarnsfjarden.jpg" alt="" /><span class="nr tnum">16:30</span></div>
+                    <div class="fotomarke" style="left:86%"><img src="/photos/stockholm/04-vaxholm.jpg" alt="" /><span class="nr tnum">17:20</span></div>
+                    <div class="fotomarke neu" style="left:95%"><img src="/photos/stockholm/grona-lund.jpg" alt="" /><span class="nr tnum">18:44</span></div>
+                  </div>
+                </div>
+                <div class="spur">
+                  <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 18c3-1 3-6 6-6s3 5 6 5 4-4 4-4"/></svg>Fortbewegung</div>
+                  <div class="spur-feld">
+                    <div class="band" style="left:0; width:44%">Zu Fuß</div>
+                    <div class="band kalt" style="left:44%; width:28%">Fähre</div>
+                    <div class="band" style="left:72%; width:28%">Zu Fuß</div>
+                  </div>
+                </div>
+                <div class="spur">
+                  <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8.5l11-3.5 2.6 4.4M3 8.5v8l13 3.5V13"/></svg>Kamera</div>
+                  <div class="spur-feld"><div class="band" style="left:0; width:100%">Standard</div></div>
+                </div>
+                <div class="spur">
+                  <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 17.5a4 4 0 01.4-8A5.5 5.5 0 0118 10.8a3.4 3.4 0 01-.4 6.7z"/></svg>Wetter</div>
+                  <div class="spur-feld">
+                    <div class="band" style="left:0; width:54%">Bedeckt</div>
+                    <div class="band kalt" style="left:54%; width:46%">Leichter Regen</div>
+                  </div>
+                </div>
+                <div class="spur">
+                  <div class="spur-name"><svg class="spur-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>Musik &amp; Effekte</div>
+                  <div class="spur-feld"><div class="klip" style="left:2%; width:64%">Nordlicht · Musik</div></div>
+                </div>
+                <div class="kopfstrich" style="left:calc(var(--spur-x) + (100% - var(--spur-x)) * 0.23)"></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="editor-seite">
+            <div class="insp-inhalt">
+              <div>
+                <div class="insp-art">Aufnahme · neu</div>
+                <h3 class="insp-titel">Strandvägen</h3>
+              </div>
+              <div class="insp-bild"><img src="/photos/stockholm/strandvagen.jpg" alt="" /></div>
+              <div class="feld">
+                <label>Titel</label>
+                <div class="eingabe leer">Ohne Titel</div>
+              </div>
+              <div>
+                <div class="datenzeile"><span>Aufnahmezeit</span><span class="tnum">14:18:22</span></div>
+                <div class="datenzeile"><span>Verortung</span><span class="tnum">59,3324 · 18,0851</span></div>
+                <div class="datenzeile"><span>Quelle</span><span>Nachgereicht</span></div>
+                <div class="datenzeile"><span>Kamera</span><span>RICOH GR IIIx</span></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <div class="fach-buehne">
+      <div class="fach">
+        <div class="fach-kopf">
+          <div class="t">Ablage · 1 Aufnahme</div>
+          <div class="u">Liegt noch nicht auf der Strecke. Auf die Karte ziehen, um sie zu setzen — oder löschen.</div>
+        </div>
+        <div class="fach-raster">
+          <div>
+            <img src="/photos/stockholm/kastell.jpg" alt="" />
+            <span class="zieh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="notiz" style="flex:1; min-width:380px; margin-top:0">
+        <div class="n">
+          <h4>Der Ablage-Zähler warnt, sobald etwas darin liegt</h4>
+          <p>
+            Den Knopf und den roten Zustand gibt es bereits (<code>.ablage-knopf.warnt</code>) — er war
+            bisher nur für Uploads ohne Ort erreichbar. Nach dem Nachreichen ist er der einzige Ort, an
+            dem eine übersehene Aufnahme noch auffällt, deshalb <b>meldet</b> er sich kurz statt still
+            hochzuzählen.
+          </p>
+        </div>
+        <div class="n">
+          <h4>„Nachgereicht" steht im Inspector</h4>
+          <p>
+            Eine kleine Zeile, die viel spart: Wenn ein Bild an einer merkwürdigen Stelle hängt, ist die
+            erste Frage, <b>woher es kam</b> — aus der Aufzeichnung, aus der Galerie, aus einem späteren
+            Nachtrag. Der Amber-Ring in der Spur verschwindet nach dem Speichern, diese Zeile bleibt.
+          </p>
+        </div>
+        <div class="n">
+          <h4>Was der Server dafür braucht</h4>
+          <p>
+            Steht auf der Schwesterseite
+            <a href="app-aufnahmen-hinzufuegen.html" style="color:var(--akzent)">Bilder in der App hinzufügen</a>:
+            Das Manifest ist heute
+            unveränderlich, Nachreichen geht nur <b>additiv</b> (<code>POST /api/tours/:id/media</code>,
+            IDs aus der höchsten plus eins), danach Dateien per PUT und <code>reprocess</code>.
+            Vorhandene Edits überleben, weil ihre Anker auf Medien-IDs und Zeitstempeln sitzen.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
