@@ -4,6 +4,8 @@
 // Karte welchen Text trägt, wann ein Urheber genannt wird und wohin ein Klick
 // führt. Die HTML-Seiten sind nur die Hülle darum.
 
+import { pfad } from '../routen.js'
+
 /** Eine Tour, wie der Server sie für die öffentlichen Seiten ausliefert. */
 export interface GalerieTour {
   id: string
@@ -60,8 +62,8 @@ export function alsKarte(tour: GalerieTour): Karte {
     unterzeile: [entfernung(tour.km), monat(tour.erstelltAm)].filter(Boolean).join(' · '),
     autorName: tour.autor?.anzeigename ?? null,
     autorBild: tour.autor?.avatarUrl ?? null,
-    autorLink: tour.autor?.id ? `/profil.html?id=${encodeURIComponent(tour.autor.id)}` : null,
-    spielLink: `/erlebnis.html?tour=srv:${encodeURIComponent(tour.id)}`,
+    autorLink: tour.autor?.id ? pfad('profil', `?id=${encodeURIComponent(tour.autor.id)}`) : null,
+    spielLink: pfad('player', `?tour=srv:${encodeURIComponent(tour.id)}`),
   }
 }
 

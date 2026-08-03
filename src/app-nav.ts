@@ -6,6 +6,7 @@
  * (andere SVG-Pfade) und die rechte Seite (CTA vs. Chip) auseinander.
  */
 
+import { pfad } from './routen.js'
 import { merkeAngemeldet, vergesseAngemeldet } from './session-hinweis.js'
 
 /**
@@ -30,8 +31,8 @@ export function topNavHtml(aktiv: AppNavSeite): string {
   const touren = aktiv === 'studio' ? ' class="aktiv"' : ''
   const entdecken = aktiv === 'galerie' ? ' class="aktiv"' : ''
   return (
-    `<a href="/studio.html"${touren}>${ICON_TOUREN}Meine Touren</a>` +
-    `<a href="/galerie.html"${entdecken}>${ICON_ENTDECKEN}Entdecken</a>`
+    `<a href="${pfad('app')}"${touren}>${ICON_TOUREN}Meine Touren</a>` +
+    `<a href="${pfad('galerie')}"${entdecken}>${ICON_ENTDECKEN}Entdecken</a>`
   )
 }
 

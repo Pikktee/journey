@@ -33,9 +33,15 @@ enum class Sichtbarkeit(val schluessel: String, val anzeige: String, val erklaer
     }
 }
 
-/** Gibt es die öffentliche Galerie? Seit /galerie.html steht: ja. */
+/** Gibt es die öffentliche Galerie? Seit /galerie steht: ja. */
 const val GALERIE_VERFUEGBAR = true
 
-/** Öffentlicher Link auf den Web-Player einer Tour. */
+/**
+ * Öffentlicher Link auf den Web-Player einer Tour.
+ *
+ * Ohne `.html` — der URL-Raum steht in `src/routen.ts` im Repo, aufgelöst vom
+ * Nginx-Vhost. Dieser Link wird verschickt und vorgelesen; die kurze Form ist
+ * die einzige, die jemand zu sehen bekommt.
+ */
 fun teilenLink(serverTourId: String, basis: String = Einstellungen.STANDARD_SERVER): String =
-    "${basis.trimEnd('/')}/erlebnis.html?tour=srv:$serverTourId"
+    "${basis.trimEnd('/')}/erlebnis?tour=srv:$serverTourId"

@@ -10,6 +10,7 @@ import * as api from './api.js'
 import { fuelleTopNav } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
+import { ROUTEN, pfad } from '../routen.js'
 import { merkeAngemeldet, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
@@ -101,6 +102,35 @@ const icon = (name: string, klasse?: string): string =>
 
 // — Ansicht Login/App —
 
+/**
+ * Der Pfad folgt der Ansicht.
+ *
+ * Dieselbe Datei liegt unter drei Adressen (`/anmelden`, `/registrieren`,
+ * `/app` — s. [routen.ts](../routen.ts)), weil sie drei Dinge ist: die Tür und
+ * der Raum dahinter. Welche gerade gilt, weiß nur der Anmeldezustand, nicht der
+ * Server — also schreibt die Seite den Pfad nach. `replaceState`, nicht
+ * `pushState`: Anmelden ist kein Ort, an den die Zurück-Taste führen sollte.
+ */
+const TITEL = {
+  app: 'Maptale Studio',
+  anmelden: 'Anmelden · Maptale',
+  registrieren: 'Konto erstellen · Maptale',
+} as const
+
+function setzePfad(seite: 'app' | 'anmelden' | 'registrieren'): void {
+  // Der Titel läuft mit, aber VOR dem Abbruch: Beim ersten Laden stimmt der
+  // Pfad schon, der Titel („Maptale" aus dem Boot) noch nicht.
+  document.title = TITEL[seite]
+  const ziel = ROUTEN[seite].pfad
+  if (location.pathname === ziel) return
+  history.replaceState(history.state, '', ziel + location.search + location.hash)
+}
+
+/** Für Gäste entscheidet das sichtbare Formular, ob die Adresse Tür oder Aufnahme heißt. */
+function setzeGastPfad(): void {
+  setzePfad(!els.registerForm.hidden || !els.codeForm.hidden ? 'registrieren' : 'anmelden')
+}
+
 function zeige(angemeldet: boolean): void {
   els.loginView.hidden = angemeldet
   els.appView.hidden = !angemeldet
@@ -110,6 +140,8 @@ function zeige(angemeldet: boolean): void {
     els.kontoMenue.hidden = true
     els.benutzerChip.setAttribute('aria-expanded', 'false')
   }
+  if (angemeldet) setzePfad('app')
+  else setzeGastPfad()
 }
 
 /** Boot-Overlay ausblenden, sobald Login oder App sichtbar sind. */
@@ -174,6 +206,7 @@ const authFormen: Record<AuthModus, HTMLFormElement> = {
 
 function zeigeAuthModus(modus: AuthModus): void {
   for (const [name, form] of Object.entries(authFormen)) form.hidden = name !== modus
+  setzeGastPfad()
 }
 
 /**
@@ -286,18 +319,27 @@ async function pruefeAnmeldung(): Promise<void> {
 }
 
 /**
- * E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln — dazu
- * `#registrieren`, der Direkteinstieg der Landing („Registrieren" im Header):
- * ohne ihn landete der Knopf im Login-Formular, also dort, wo direkt daneben
- * schon „Anmelden" hinführt. Und `#einladung=CODE`, der Link aus der
- * Verwaltung: Er trägt den Code gleich ein, damit niemand ihn abtippt.
+ * E-Mail-Bestätigung / Reset-Link aus dem URL-Fragment behandeln — dazu der
+ * Direkteinstieg in die Registrierung: ohne ihn landete „Registrieren" im
+ * Login-Formular, also dort, wo direkt daneben schon „Anmelden" hinführt. Und
+ * `#einladung=CODE`, der Link aus der Verwaltung: Er trägt den Code gleich
+ * ein, damit niemand ihn abtippt.
+ *
+ * Der Einstieg kommt heute als PFAD (`/registrieren`); das alte
+ * `#registrieren` bleibt gültig, weil es in Lesezeichen und in verschickten
+ * Links steht.
  */
 async function behandleAuthHash(): Promise<void> {
   const hash = location.hash.slice(1)
   const verify = hash.match(/(?:^|&)verify=([^&]+)/)?.[1]
   const reset = hash.match(/(?:^|&)reset=([^&]+)/)?.[1]
   const einladung = hash.match(/(?:^|&)einladung=([^&]+)/)?.[1]
-  if (hash === 'registrieren') {
+  // Der bloße Einstieg — er darf keinen Token-Hash überholen: Der Link aus der
+  // Verwaltung heißt seit den sauberen URLs `/registrieren#einladung=CODE` und
+  // erfüllt die Pfad-Bedingung selbst.
+  const direktZurRegistrierung =
+    !verify && !reset && !einladung && (hash === 'registrieren' || location.pathname === ROUTEN.registrieren.pfad)
+  if (direktZurRegistrierung) {
     history.replaceState(null, '', location.pathname + location.search)
     zeigeAuthModus('register')
     return
@@ -720,7 +762,7 @@ async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<
  * dorthin zurück, wo man herkam (Referrer + history.back(), src/main.js).
  */
 function spielAb(id: string): void {
-  location.href = `/erlebnis.html?tour=srv:${id}`
+  location.href = pfad('player', `?tour=srv:${id}`)
 }
 
 /** Tour-ID aus `?edit=` — Editor-Deep-Link. */
@@ -819,7 +861,7 @@ function oeffneSichtMenue(karte: HTMLElement, t: api.TourListe): void {
   menue.querySelector('[data-link]')?.addEventListener('click', async (e) => {
     e.stopPropagation()
     schliesseSichtMenue()
-    await navigator.clipboard?.writeText(`${location.origin}/erlebnis.html?tour=srv:${t.id}`)
+    await navigator.clipboard?.writeText(`${location.origin}${pfad('player', `?tour=srv:${t.id}`)}`)
   })
   menue.addEventListener('click', (e) => e.stopPropagation())
   karte.appendChild(menue)

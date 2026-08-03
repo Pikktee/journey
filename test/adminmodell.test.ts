@@ -126,12 +126,12 @@ describe('zaehleEinladungen', () => {
 describe('einladungsLink', () => {
   it('führt ins Registrierungsformular und trägt den Code mit', () => {
     expect(einladungsLink('https://maptale.example', 'ABCD-2345')).toBe(
-      'https://maptale.example/studio.html#einladung=ABCD-2345',
+      'https://maptale.example/registrieren#einladung=ABCD-2345',
     )
   })
 
   it('verträgt einen Schrägstrich am Ende der Basis-URL', () => {
-    expect(einladungsLink('https://maptale.example/', 'AB-CD')).toBe('https://maptale.example/studio.html#einladung=AB-CD')
+    expect(einladungsLink('https://maptale.example/', 'AB-CD')).toBe('https://maptale.example/registrieren#einladung=AB-CD')
   })
 })
 

@@ -11,7 +11,7 @@ class TeilenLinkTest {
     @Test
     fun `Link zeigt auf den Web-Player der Tour`() {
         assertEquals(
-            "https://maptale.example/erlebnis.html?tour=srv:t_abc",
+            "https://maptale.example/erlebnis?tour=srv:t_abc",
             teilenLink("t_abc", basis = "https://maptale.example"),
         )
     }

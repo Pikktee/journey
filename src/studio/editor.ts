@@ -7,6 +7,7 @@
 
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { pfad } from '../routen.js'
 import * as api from './api.js'
 import {
   effektiveMedien,
@@ -293,7 +294,7 @@ async function ladeDaten(tourId: string): Promise<void> {
   ;($('editor-finale-ziel') as HTMLInputElement).value = daten.finaleZiel ?? ''
   ;($('editor-finale-ziel-feld') as HTMLElement).hidden = !finaleAn
   zeigeTitelImKopf()
-  ;($('editor-vorschau') as HTMLAnchorElement).href = `/erlebnis.html?tour=srv:${tourId}`
+  ;($('editor-vorschau') as HTMLAnchorElement).href = pfad('player', `?tour=srv:${tourId}`)
   ;($('editor-vorschau') as HTMLAnchorElement).style.display = daten.status === 'bereit' ? '' : 'none'
 
   // Streckenmeter einmal je Tour vorrechnen — die km-Anzeige am Abspielkopf

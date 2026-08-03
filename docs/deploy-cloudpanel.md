@@ -57,6 +57,41 @@ OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildan
    ohne die scheitern große Uploads bzw. die API ist nicht erreichbar).
 3. **SSL** in CloudPanel für die Site aktivieren (Let's Encrypt, ein Klick).
 
+> **Der Vhost ist Handarbeit und wird beim Deploy NICHT mitgezogen.** Ändert
+> sich [`deploy/cloudpanel-nginx.conf`](../deploy/cloudpanel-nginx.conf), muss
+> derselbe Stand vor dem nächsten `npm run release` in den CloudPanel-Editor —
+> sonst rollt der Deploy einen Build aus, den der Server nicht bedienen kann.
+>
+> Und: **auf dem Server steht CloudPanels eigenes Gerüst, nicht diese Datei.**
+> Sie ist die Sammlung der Blöcke, die von Hand hineingehören — plus (unten in
+> der Datei) der Nachtrag an CloudPanels eigenen Locations. Wer den Vhost neu
+> aufsetzt oder CloudPanel ihn zurücksetzt, braucht beides.
+>
+> Stand 2026-08-03 eingesetzt: die **URLs ohne `.html`** (`try_files $uri
+> $uri.html $uri/ =404;` plus je ein `location =`-Block für `/app`, `/anmelden`
+> und `/registrieren`), der **`include /etc/nginx/global_settings;`** in allen
+> vier Blöcken mit eigenem `add_header` und **`error_page 404 /404.html;`**.
+> Die Fehlerseite selbst braucht keinen Handgriff: Sie liegt in
+> [`public/404.html`](../public/404.html), und Vite kopiert `public/`
+> unverändert nach `dist/` — der normale Rollout bringt sie mit.
+
+**Gegenprobe nach jedem Vhost-Eingriff** (drei Zeilen, alle drei müssen stimmen):
+
+```bash
+H=https://maptale.henrikheil.net
+for p in /app /anmelden /registrieren /erlebnis /galerie /profil /admin; do printf '%-16s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' $H$p)"; done
+printf 'unbekannt        %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/gibtsnicht)" "$(curl -s $H/gibtsnicht | grep -o '<title>[^<]*</title>')"
+printf 'api/unbekannt    %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/api/tours/gibtsnicht)" "$(curl -s $H/api/tours/gibtsnicht | head -c 40)"
+for u in /app /assets/ /api/auth/me; do printf '%-16s %s/3 Header\n' "$u" "$(curl -sI $H$u | grep -icE 'x-frame-options|x-content-type-options|referrer-policy')"; done
+```
+
+Erwartet: alle echten Pfade **200**; ein unbekannter **404 mit „Seite nicht
+gefunden · Maptale"** (kein Soft-404 auf die Landing, aber auch nicht Nginx'
+nackter Standardtext); ein unbekannter API-Pfad **404 mit JSON** (nicht mit der
+HTML-Seite — sonst steht `proxy_intercept_errors` an); und **3/3**
+Sicherheits-Header auf jeder Antwort. Antwortet ein echter Pfad mit 404, fehlen
+die `location`-Blöcke; meldet eine Antwort 0/3, fehlt irgendwo der `include`.
+
 ## 3. API starten
 
 ```bash

@@ -2,12 +2,16 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <!-- Alt-Deeplinks & App-WebView: /?tour=… gehört dem Player (jetzt /erlebnis.html).
-       Läuft VOR allem anderen, damit die Landing für Tour-Aufrufe nie aufblitzt. -->
+  <!-- Alt-Deeplinks & App-WebView: /?tour=… gehört dem Player (jetzt /erlebnis).
+       Läuft VOR allem anderen, damit die Landing für Tour-Aufrufe nie aufblitzt.
+       Die Pfad-Prüfung ist die Bremse: Liefe der Server /erlebnis versehentlich
+       als index.html aus (Vhost ohne `try_files $uri.html`), leitete diese Zeile
+       sich sonst endlos selbst weiter. -->
   <script>
     (function () {
       var q = window.location.search
-      if (/[?&]tour=/.test(q)) window.location.replace('/erlebnis.html' + q + window.location.hash)
+      if (window.location.pathname === '/' && /[?&]tour=/.test(q))
+        window.location.replace('/erlebnis' + q + window.location.hash)
     })()
   </script>
   <!-- Sitzungs-Hinweis (maptale_dabei): Gast-Nav sofort ausblenden, wenn eine
@@ -632,12 +636,12 @@
         <a href="#app">Android App</a>
       </div>
       <div class="nav-right" id="nav-right">
-        <a href="/galerie.html" class="nav-hide-sm" data-gast>Entdecken</a>
-        <a href="/studio.html" class="nav-hide-sm" data-gast>Anmelden</a>
+        <a href="/galerie" class="nav-hide-sm" data-gast>Entdecken</a>
+        <a href="/app" class="nav-hide-sm" data-gast>Anmelden</a>
         <div class="nav-divider nav-hide-sm" data-gast></div>
-        <a href="/studio.html#registrieren" class="nav-cta" data-gast>Registrieren</a>
+        <a href="/registrieren" class="nav-cta" data-gast>Registrieren</a>
         <!-- Sofort sichtbar bei html.nav-dabei; Details füllt /api/auth/me nach. -->
-        <a href="/studio.html" class="nav-cta" data-dabei>Zum Studio</a>
+        <a href="/app" class="nav-cta" data-dabei>Zum Studio</a>
         <div class="konto-wrap nav-hide-sm" data-dabei>
           <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">
             <span class="punkt"></span>
@@ -692,7 +696,7 @@
       </div>
 
       <div class="tours">
-        <a class="tour-card reveal" href="/erlebnis.html?tour=kohphangan">
+        <a class="tour-card reveal" href="/erlebnis?tour=kohphangan">
           <img class="tc-img" src="/landing/card-phangan.jpg" alt="Koh Pha-ngan bei Dämmerung" loading="lazy" />
           <span class="no-chip">N°01</span>
           <svg class="tc-spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -711,7 +715,7 @@
           </div>
         </a>
 
-        <a class="tour-card reveal" href="/erlebnis.html?tour=stockholm">
+        <a class="tour-card reveal" href="/erlebnis?tour=stockholm">
           <img class="tc-img" src="/landing/card-stockholm.jpg" alt="Stockholmer Schären im Regen" loading="lazy" />
           <span class="no-chip">N°02</span>
           <svg class="tc-spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -731,7 +735,7 @@
           </div>
         </a>
 
-        <a class="tour-card reveal" href="/erlebnis.html?tour=oberland">
+        <a class="tour-card reveal" href="/erlebnis?tour=oberland">
           <img class="tc-img" src="/landing/card-oberland.jpg" alt="Lauterbrunnental mit Wasserfall" loading="lazy" />
           <span class="no-chip">N°03</span>
           <svg class="tc-spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -1030,8 +1034,8 @@
         <h2>Bereit für deine eigene Reise?</h2>
         <p>Im Studio lädst du deine Tracks &amp; Fotos hoch, gestaltest den Film im Editor und teilst das Ergebnis.</p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="/studio.html">Studio öffnen <span class="arr">▸</span></a>
-          <a class="btn btn-ghost" href="/studio.html#registrieren">Konto anlegen</a>
+          <a class="btn btn-primary" href="/app">Studio öffnen <span class="arr">▸</span></a>
+          <a class="btn btn-ghost" href="/registrieren">Konto anlegen</a>
         </div>
       </div>
     </div>
@@ -1053,10 +1057,10 @@
       <nav class="foot-links" aria-label="Fußzeile">
         <a href="#touren">Touren</a>
         <a href="#app">App</a>
-        <a href="/studio.html">Studio</a>
-        <a href="/studio.html">Anmelden</a>
-        <a href="/impressum.html">Impressum</a>
-        <a href="/datenschutz.html">Datenschutz</a>
+        <a href="/app">Studio</a>
+        <a href="/app">Anmelden</a>
+        <a href="/impressum">Impressum</a>
+        <a href="/datenschutz">Datenschutz</a>
       </nav>
     </div>
     <div class="wrap">
@@ -1136,7 +1140,7 @@
               '</div>'
           }
           rechts.innerHTML =
-            '<a href="/studio.html" class="nav-cta">Zum Studio</a>' +
+            '<a href="/app" class="nav-cta">Zum Studio</a>' +
             '<div class="konto-wrap nav-hide-sm">' +
               '<button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">' +
                 avatarHtml + '<span class="nav-profil-name"></span>' +

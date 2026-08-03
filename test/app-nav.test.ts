@@ -12,12 +12,12 @@ describe('app-nav', () => {
     const studio = topNavHtml('studio')
     expect(studio).toContain('class="aktiv"')
     expect(studio.indexOf('Meine Touren')).toBeLessThan(studio.indexOf('Entdecken'))
-    expect(studio).toMatch(/studio\.html"[^>]*class="aktiv"/)
-    expect(studio).not.toMatch(/galerie\.html"[^>]*class="aktiv"/)
+    expect(studio).toMatch(/"\/app"[^>]*class="aktiv"/)
+    expect(studio).not.toMatch(/"\/galerie"[^>]*class="aktiv"/)
 
     const galerie = topNavHtml('galerie')
-    expect(galerie).toMatch(/galerie\.html"[^>]*class="aktiv"/)
-    expect(galerie).not.toMatch(/studio\.html"[^>]*class="aktiv"/)
+    expect(galerie).toMatch(/"\/galerie"[^>]*class="aktiv"/)
+    expect(galerie).not.toMatch(/"\/app"[^>]*class="aktiv"/)
 
     const profil = topNavHtml('profil')
     expect(profil).not.toContain('class="aktiv"')

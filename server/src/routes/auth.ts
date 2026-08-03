@@ -10,6 +10,7 @@ import type { ProfilAenderung } from '../auth/auth.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
 import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
+import { WEB_PFADE } from '../webpfade.js'
 
 interface LoginBody {
   email: string
@@ -180,7 +181,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
         return reply.code(403).send({ fehler: CODE_FEHLER.verbraucht })
       }
       const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
-      const link = `${konfig.basisUrl}/studio.html#verify=${token}`
+      const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#verify=${token}`
       const { betreff, text } = baueVerifikationsMail(benutzer.name, link)
       try {
         await mail.sende({ an: benutzer.email, betreff, text })
@@ -255,7 +256,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const userId = app.auth.benutzerIdFuerEmail(email)
       if (userId) {
         const token = app.auth.erzeugeMailToken(userId, 'reset')
-        const link = `${konfig.basisUrl}/studio.html#reset=${token}`
+        const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#reset=${token}`
         const { betreff, text } = baueResetMail(email.split('@')[0] ?? 'du', link)
         try {
           await mail.sende({ an: email, betreff, text })

@@ -100,6 +100,27 @@ Es gibt drei unabhängige Frontends: den **Player** ([erlebnis.html](erlebnis.ht
 [src/studio/](src/studio/)) und eine schlanke **Landing** ([index.html](index.html), kein
 MapLibre). Alle sind eigene Vite-Einstiege ([vite.config.js](vite.config.js)).
 
+**Der URL-Raum steht in [src/routen.ts](src/routen.ts) — und nur dort.** Kein Router: Nginx
+liefert die Seiten statisch aus, nur `/api` geht in den Container. Aus der Tabelle leiten sich
+die Vite-Eingänge, alle Links (`pfad('player', '?tour=…')`), die Dev-Middleware in
+[vite.config.js](vite.config.js) und die `location`-Blöcke des Vhosts ab; ein Drift-Wächter
+([test/routen.test.ts](test/routen.test.ts)) hält Vhost und die Server-Kopie
+([server/src/webpfade.ts](server/src/webpfade.ts), Mail-Links — eigener `rootDir`, kann nicht
+importieren) dagegen. **URLs tragen kein `.html`**; die `…​.html`-Adressen antworten zwar
+weiterhin (die Dateien liegen im Build), aber nichts im Code zeigt mehr dorthin — Nebeneffekt,
+keine Zusage. Drei Pfade zeigen auf `studio.html`, weil dieselbe Seite drei Dinge ist: die Tür
+(`/anmelden`, `/registrieren`) und der Raum dahinter (`/app`); welcher gilt, weiß nur der
+Anmeldezustand, also schreibt `setzePfad` ihn per `replaceState` nach (samt Tab-Titel). Der
+Pfad heißt **nicht** `/studio`: Ein Konto braucht auch, wer nur mit der App aufzeichnet.
+**Beim Rollout muss der Vhost mitgehen** — ohne `try_files $uri $uri.html …` und die drei
+`location =`-Blöcke landet jeder Anmelde- und Bestätigungslink still auf der Landing.
+[deploy/cloudpanel-nginx.conf](deploy/cloudpanel-nginx.conf) ist die Vorlage; sie wird von
+Hand in CloudPanel eingesetzt und **wird vom Deploy nicht mitgezogen** (auf dem Server steht
+CloudPanels eigenes Gerüst, nicht diese Datei — Handgriff und Gegenprobe:
+[docs/deploy-cloudpanel.md](docs/deploy-cloudpanel.md), Abschnitt 2). Bei Mehrsprachigkeit
+wird aus `pfad: '/anmelden'` ein Eintrag je Sprache samt `/en/`-Präfix — die Aufrufer nennen
+den sprachneutralen Namen, nicht den Pfad, und ändern sich nicht.
+
 Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.js](src/main.js),
 der die Module verdrahtet. Der zentrale Datenfluss:
 
@@ -265,18 +286,38 @@ Logik in [src/studio/](src/studio/)). Kein Router — Login-, App- und Editor-An
 gleichzeitig im DOM und werden per `hidden` umgeschaltet; der Editor wird lazy importiert,
 damit MapLibre nicht ins Basis-Bundle kommt.
 
-**Die Anmeldebühne fährt erst die Strecke, dann setzt sie die Stopps.** Links neben dem
+**Die Anmeldebühne setzt erst die Stopps, dann zieht sie den Weg.** Links neben dem
 Formular (Anmelden, Registrieren, Reset — alle drei teilen sie) läuft eine reine SVG/CSS-Szene:
-Ein Lichtpunkt zieht die Route hinter sich her (5,4 s), erst danach **setzen** sich die drei
-Foto-Stopps als Pins, und dauerhaft fährt ein zweiter Läufer die fertige Strecke alle 11 s ab —
-mit HALT an jedem Stopp (`keyPoints`/`keyTimes` des `animateMotion`; die Pin-Pulse hängen im
-selben 11-s-Takt an ihrer Ankunftszeit). Kein wiederholtes Neuzeichnen: eine Anmeldeseite darf
-nicht blinken. Zwei Regeln halten das zusammen: Der Pfad **umrundet die Textzone** (er steht
-einmal in `<defs>` und wird dreimal benutzt — zeichnen, fließen, abfahren), und die Wortmarke
-gehört in den **zentrierten Titelblock**, nicht nach oben links — dort steht wie im Player
-genau EIN Element, der Weg hinaus. Bei `prefers-reduced-motion` bleibt das fertige Standbild.
-Entwurf und die beiden verworfenen Varianten (Tag/Nacht-Himmel, Feld aus Routen-Signaturen):
-[docs/mockups/studio-login.html](docs/mockups/studio-login.html).
+Zuerst **setzen** sich die drei Foto-Stopps als Pins (0,3 s versetzt), danach zeichnet sich die
+Route zwischen ihnen (3,4 s), ab 4,6 s fährt ein Läufer sie alle 11 s ab — mit HALT an jedem
+Stopp (`keyPoints`/`keyTimes` des `animateMotion`; die Pin-Pulse hängen im selben 11-s-Takt an
+ihrer Ankunftszeit). Der Lichtpunkt, der die Strecke früher VORWEG einmal abfuhr, ist
+gestrichen: dieselbe Fahrt zweimal, und die Stopps kamen erst danach. Kein wiederholtes
+Neuzeichnen: eine Anmeldeseite darf nicht blinken. Bei `prefers-reduced-motion` bleibt das
+fertige Standbild. Vier Regeln halten das zusammen:
+
+1. **Die Pin-Koordinaten kommen AUS der Kurve**, nicht umgekehrt (`getPointAtLength` bei den
+   `keyPoints` 0,36 / 0,62 / 0,84). Hingestellte Pins mit geschätzten Bruchteilen ließen den
+   Läufer 8, 7 und 14 Einheiten daneben halten — bei einem Fußring von 15 × 5,5 sichtbar
+   neben dem Pin.
+2. **`calcMode="spline"`, nicht `linear`** — je Fahrt-Etappe eine eigene Ease-in-out-Kurve,
+   sonst schießt der Läufer bis auf den Pin und steht aus voller Fahrt.
+3. **`pathLength="1"` gehört an den `<path>` in `<defs>`, nicht an das `<use>`** — dort ist es
+   wirkungslos (der Schattenbaum übernimmt es nicht), und genau deshalb zeichnete sich die
+   Route jahrelang gar nicht: `stroke-dasharray: 1` war auf 1517 echten Einheiten nur ein
+   Punktmuster. Aufgefallen ist es erst, als der vortäuschende Lichtpunkt wegfiel. Alle
+   Strichmaße (auch der Fluss) rechnen seither in Anteilen der Streckenlänge.
+4. Der Pfad **umrundet die Textzone** (Mindestabstand 43 Einheiten, gemessen) und bleibt vom
+   unteren Rand weg — tiefster Punkt y 738 von 900. Bei y 808 stand er auf der Kante:
+   `preserveAspectRatio="slice"` beschneidet an breiten Fenstern die HÖHE, dort fiel der
+   Bogen ganz heraus.
+
+Er steht einmal in `<defs>` und wird dreimal benutzt — zeichnen, fließen, abfahren. Die
+Wortmarke gehört in den **zentrierten Titelblock**, nicht nach oben links: dort steht wie im
+Player genau EIN Element, der Weg hinaus. Ihr Text spricht von **Maptale**, nicht vom Studio —
+ein Konto braucht auch, wer nur mit der App aufzeichnet (die App verweist zum Registrieren
+ausdrücklich auf die Website). Entwurf und die beiden verworfenen Varianten (Tag/Nacht-Himmel,
+Feld aus Routen-Signaturen): [docs/mockups/studio-login.html](docs/mockups/studio-login.html).
 
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
 **Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.

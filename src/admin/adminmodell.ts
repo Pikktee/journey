@@ -1,6 +1,8 @@
 // Rechnende Teile der Benutzerverwaltung — ohne DOM, damit sie prüfbar sind.
 // Die Oberfläche (admin.ts) baut daraus nur noch Elemente.
 
+import { pfad } from '../routen.js'
+
 export type Rolle = 'nutzer' | 'admin'
 export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
 
@@ -85,7 +87,7 @@ export function beschreibeEinladung(e: AdminEinladung): string {
  * vorher raten, wo.
  */
 export function einladungsLink(basisUrl: string, code: string): string {
-  return `${basisUrl.replace(/\/+$/, '')}/studio.html#einladung=${encodeURIComponent(code)}`
+  return `${basisUrl.replace(/\/+$/, '')}${pfad('registrieren', `#einladung=${encodeURIComponent(code)}`)}`
 }
 
 /**

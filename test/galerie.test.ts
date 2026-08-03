@@ -25,7 +25,7 @@ describe('alsKarte', () => {
     const karte = alsKarte(tour())
     expect(karte.titel).toBe('Lauterbrunnen → Grindelwald')
     expect(karte.unterzeile).toBe('12,4 km · Juli 2026')
-    expect(karte.spielLink).toBe('/erlebnis.html?tour=srv:t_abc')
+    expect(karte.spielLink).toBe('/erlebnis?tour=srv:t_abc')
   })
 
   it('bleibt ohne Titel nicht namenlos', () => {
@@ -45,13 +45,13 @@ describe('alsKarte', () => {
     expect(ohneSeite.autorLink).toBeNull()
 
     const mitSeite = alsKarte(tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1' } }))
-    expect(mitSeite.autorLink).toBe('/profil.html?id=u_1')
+    expect(mitSeite.autorLink).toBe('/profil?id=u_1')
   })
 
   it('kodiert Kennungen für die Adresse', () => {
     const karte = alsKarte(tour({ id: 't a/b', autor: { anzeigename: 'X', avatarUrl: null, id: 'u/1' } }))
-    expect(karte.spielLink).toBe('/erlebnis.html?tour=srv:t%20a%2Fb')
-    expect(karte.autorLink).toBe('/profil.html?id=u%2F1')
+    expect(karte.spielLink).toBe('/erlebnis?tour=srv:t%20a%2Fb')
+    expect(karte.autorLink).toBe('/profil?id=u%2F1')
   })
 
   it('kommt ohne Bild und ohne Zahlen aus', () => {

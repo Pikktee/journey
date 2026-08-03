@@ -1,29 +1,55 @@
 import { defineConfig } from 'vite'
 
+import { EINSTIEGE, PFAD_ZU_DATEI } from './src/routen.ts'
+
+/**
+ * URLs ohne `.html` — im Dev und in der Vorschau.
+ *
+ * In Produktion macht das Nginx (`try_files $uri $uri.html …` plus die drei
+ * `location =`-Blöcke für /app, /anmelden, /registrieren, s.
+ * deploy/cloudpanel-nginx.conf). Ohne dieses Gegenstück liefe der Dev-Server
+ * auf einem anderen URL-Raum als die Produktion — und genau das würde erst
+ * nach dem Deploy auffallen.
+ */
+function saubereUrls() {
+  const umschreiben = (req) => {
+    const schnitt = req.url.search(/[?#]/)
+    const pfad = (schnitt === -1 ? req.url : req.url.slice(0, schnitt)).replace(/(.)\/+$/, '$1')
+    const rest = schnitt === -1 ? '' : req.url.slice(schnitt)
+    // `/` liefert Vite selbst; `/erlebnis.html` steht gar nicht in der Tabelle.
+    const datei = pfad === '/' ? null : PFAD_ZU_DATEI[pfad]
+    if (datei) req.url = `/${datei}${rest}`
+  }
+  // Bewusst kein Ausdrucks-Body: `middlewares.use()` gibt die Connect-App
+  // zurück, und die IST eine Funktion — Vite hielte sie für den Post-Hook von
+  // `configureServer` und riefe sie ohne Request auf (`req.url` von undefined).
+  const middleware = (server) => {
+    server.middlewares.use((req, _res, next) => {
+      umschreiben(req)
+      next()
+    })
+  }
+  return {
+    name: 'maptale-saubere-urls',
+    configureServer: middleware,
+    configurePreviewServer: middleware,
+  }
+}
+
 export default defineConfig({
+  plugins: [saubereUrls()],
   build: {
     // main.js lädt Remote-Touren per Top-Level-Await (Boot-Screen überbrückt).
     // Vites Default-Target (u. a. Chrome 87/Safari 14) kann kein TLA — diese
     // Targets (TLA: Chrome 89+/Firefox 89+/Safari 15+) kann die App ohnehin
     // voraussetzen, MapLibre GL verlangt moderne Browser.
     target: ['es2022', 'chrome107', 'edge107', 'firefox104', 'safari16'],
-    // Einstiegsseiten: Landing (index.html), Player (erlebnis.html), Studio
-    // (studio.html) und die statischen Rechtstexte (M9), damit sie im
-    // dist/-Build landen. `/` ist die schlanke Landing (kein MapLibre), der
-    // Player liegt unter /erlebnis.html — Alt-Deeplinks `/?tour=…` (und die
-    // App-WebView) fängt ein Redirect in index.html ab.
-    rollupOptions: {
-      input: {
-        main: 'index.html',
-        erlebnis: 'erlebnis.html',
-        studio: 'studio.html',
-        galerie: 'galerie.html',
-        profil: 'profil.html',
-        admin: 'admin.html',
-        impressum: 'impressum.html',
-        datenschutz: 'datenschutz.html',
-      },
-    },
+    // Einstiegsseiten kommen aus src/routen.ts — derselben Tabelle, aus der
+    // sich Links, Dev-Middleware und der Nginx-Block ableiten. `/` ist die
+    // schlanke Landing (kein MapLibre), der Player liegt unter /erlebnis —
+    // Alt-Deeplinks `/?tour=…` (und die App-WebView) fängt ein Redirect in
+    // index.html ab.
+    rollupOptions: { input: EINSTIEGE },
   },
   server: {
     port: Number(process.env.PORT) || 5173,

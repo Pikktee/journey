@@ -177,9 +177,9 @@ setText('final-photos', String(photos.length))
 // zurück und nicht auf die Landing. Die Herkunft steht im Referrer; `history.back()`
 // statt einer Navigation, damit Scrollposition und Zustand der Liste erhalten
 // bleiben. Ohne Referrer (direkt geöffneter Link) bleibt es bei der Startseite.
-// Die Wörter sind die der Navigation, nicht die der Dateinamen: galerie.html
-// heißt für Besucher überall „Entdecken".
-const HERKUNFT = { '/studio.html': 'Studio', '/galerie.html': 'Entdecken', '/profil.html': 'Profil' }
+// Die Wörter sind die der Navigation, nicht die der Pfade: /galerie heißt für
+// Besucher überall „Entdecken".
+const HERKUNFT = { '/app': 'Studio', '/galerie': 'Entdecken', '/profil': 'Profil' }
 if (!appModus) {
   let her = null
   try {
