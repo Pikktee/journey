@@ -4,6 +4,13 @@
 // der letzte akzeptierte Trackpunkt (robuster als EXIF-GPS, Plan M3/M4); Dauer
 // und Poster des Videos ermittelt das Backend beim Anreichern.
 //
+// Preview und VideoCapture entstehen PRO BINDUNG, nicht einmal beim Start: ob
+// stabilisiert werden darf, hängt am Objektiv und gilt nach einem Kamerawechsel
+// neu, und beides ist nur im Builder setzbar (s. Stabilisierung.kt). Die
+// Aufnahme-Rotation liegt deshalb als Zustand vor und wird jeder frischen
+// Instanz mitgegeben — sonst stünde sie zwischen Bindung und der nächsten
+// Sensormeldung auf dem Standardwert und das Video käme gedreht heraus.
+//
 // Bedienung wie in einer gewohnten Kamera-App: Kneifen zoomt stufenlos, die
 // Pille springt auf feste Stufen, ein Tippen setzt Fokus und Belichtung. Alles,
 // was die Hand bedient — Zoom, Foto/Video, Auslöser, Kamerawechsel — liegt
@@ -122,6 +129,10 @@ fun KameraScreen(zurueck: () -> Unit) {
     var vorschau by remember { mutableStateOf<PreviewView?>(null) }
     var provider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var kamera by remember { mutableStateOf<Camera?>(null) }
+    // Steht nur im Video-Modus, weil es dort gebunden wird — im Foto-Modus ist es null.
+    var videoCapture by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
+    // Aufnahme-Rotation: Zustand statt Feld, weil die Video-Instanz pro Bindung wechselt.
+    var rotation by remember { mutableStateOf(Surface.ROTATION_0) }
     var vorne by remember { mutableStateOf(false) }
     var blitz by remember { mutableStateOf(BlitzModus.AUS) }
     // Zoom-Grenzen und -Stand kommen vom gebundenen Objektiv; beim Kamerawechsel
@@ -143,13 +154,6 @@ fun KameraScreen(zurueck: () -> Unit) {
     val zurueckEinmal = { if (!fertig) { fertig = true; zurueck() } }
 
     val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build() }
-    val videoCapture = remember {
-        // FHD bevorzugt, notfalls die nächstniedrige verfügbare Qualität
-        val recorder = Recorder.Builder()
-            .setQualitySelector(QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
-            .build()
-        VideoCapture.withOutput(recorder)
-    }
 
     // Der Blitz sitzt an der Rückseite — vorne gibt es keinen, also gilt dort „aus".
     val blitzNutzbar = modus == AufnahmeModus.FOTO && !vorne
@@ -160,30 +164,38 @@ fun KameraScreen(zurueck: () -> Unit) {
     // Geräteausrichtung nachführen: die Compose-UI ist nicht rotationsgebunden,
     // also muss die Aufnahme-Rotation aktiv gesetzt werden, sonst schreibt CameraX
     // die EXIF-Orientation nur für die beim Binden gültige Displaylage korrekt.
-    DisposableEffect(imageCapture, videoCapture) {
+    DisposableEffect(Unit) {
         val lauscher = object : OrientationEventListener(context) {
             override fun onOrientationChanged(grad: Int) {
                 if (grad == OrientationEventListener.ORIENTATION_UNKNOWN) return
-                val rotation = when {
+                rotation = when {
                     grad >= 315 || grad < 45 -> Surface.ROTATION_0
                     grad < 135 -> Surface.ROTATION_270
                     grad < 225 -> Surface.ROTATION_180
                     else -> Surface.ROTATION_90
                 }
-                imageCapture.targetRotation = rotation
-                videoCapture.targetRotation = rotation
             }
         }
         if (lauscher.canDetectOrientation()) lauscher.enable()
         onDispose { lauscher.disable() }
     }
 
+    // Die Rotation an den STEHENDEN Instanzen nachziehen. Beim Bauen bekommt sie
+    // jede Instanz schon über ihren Builder mit; dieser Effekt deckt das Drehen
+    // danach ab, solange dieselbe Instanz gebunden bleibt.
+    LaunchedEffect(rotation, videoCapture) {
+        imageCapture.targetRotation = rotation
+        videoCapture?.targetRotation = rotation
+    }
+
     // Video im App-Speicher ablegen und im App-Scope registrieren — das Finalize
     // kommt asynchron NACH dem Stopp, muss also den Screen-Wechsel überleben.
     fun starteVideoAufnahme() {
         val aufnahme = AufzeichnungsZustand.aktuell.value ?: return
+        // Steht erst nach der Bindung im Video-Modus — bis dahin gibt es nichts aufzunehmen.
+        val aufnehmer = videoCapture ?: return
         val (relativ, datei) = app.repository.neueMediumDatei(aufnahme.tourId, "mp4")
-        var vorbereitung = videoCapture.output.prepareRecording(context, FileOutputOptions.Builder(datei).build())
+        var vorbereitung = aufnehmer.output.prepareRecording(context, FileOutputOptions.Builder(datei).build())
         if (tonErlaubt) vorbereitung = vorbereitung.withAudioEnabled()
         aufnahmeLaeuft = vorbereitung.start(ContextCompat.getMainExecutor(context)) { ereignis ->
             if (ereignis is VideoRecordEvent.Finalize) {
@@ -209,14 +221,43 @@ fun KameraScreen(zurueck: () -> Unit) {
     LaunchedEffect(modus, provider, vorschau, vorne) {
         val p = provider ?: return@LaunchedEffect
         val view = vorschau ?: return@LaunchedEffect
-        val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
-        p.unbindAll()
-        val gebunden = p.bindToLifecycle(
-            lifecycleOwner,
-            if (vorne) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA,
-            preview,
-            if (modus == AufnahmeModus.FOTO) imageCapture else videoCapture,
+        val waehler = if (vorne) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+
+        // Erst fragen, dann einschalten: ungeprüft gesetzt quittiert die HAL die
+        // Stabilisierung mit einem Fehler, sie wird nicht still übergangen. Im
+        // Foto-Modus bleibt das Kamera-Handle bewusst null und es wird gar nicht
+        // gefragt — die Video-Fähigkeit liest Camcorder-Profile, und dieser
+        // Effekt läuft auf dem Hauptthread bei JEDEM Öffnen der Kamera.
+        val fuerVideo = modus == AufnahmeModus.VIDEO
+        val info = if (fuerVideo) runCatching { p.getCameraInfo(waehler) }.getOrNull() else null
+        val stabil = waehleStabilisierung(
+            fuerVideo = fuerVideo,
+            vorschauMoeglich = info != null && Preview.getPreviewCapabilities(info).isStabilizationSupported(),
+            videoMoeglich = info != null && Recorder.getVideoCapabilities(info).isStabilizationSupported(),
         )
+
+        val preview = Preview.Builder()
+            .apply { if (stabil == Stabilisierung.VORSCHAU) setPreviewStabilizationEnabled(true) }
+            .build()
+            .also { it.surfaceProvider = view.surfaceProvider }
+
+        val aufnehmer = if (!fuerVideo) {
+            videoCapture = null
+            imageCapture
+        } else {
+            // FHD bevorzugt, notfalls die nächstniedrige verfügbare Qualität
+            val recorder = Recorder.Builder()
+                .setQualitySelector(QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+                .build()
+            VideoCapture.Builder(recorder)
+                .setTargetRotation(rotation)
+                .apply { if (stabil == Stabilisierung.NUR_VIDEO) setVideoStabilizationEnabled(true) }
+                .build()
+                .also { videoCapture = it }
+        }
+
+        p.unbindAll()
+        val gebunden = p.bindToLifecycle(lifecycleOwner, waehler, preview, aufnehmer)
         kamera = gebunden
         // Der Zoom-Stand gehört zum Objektiv: nach dem Wechsel gelten die Grenzen
         // der neuen Kamera, ein übernommener Wert wäre schlicht falsch.

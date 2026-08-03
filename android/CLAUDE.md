@@ -48,6 +48,26 @@ von der Vorgabe unterscheiden. Die Berechtigung wird nur bei „Automatisch" erf
 Start **nie** blockieren: Ohne sie zeichnet die App ohne Automatik auf, und der Server leitet
 die Aufteilung wie bisher aus dem Tempo ab.
 
+**Video wird stabilisiert, Foto nicht** (`kamera/Stabilisierung.kt`, gebunden in
+`KameraScreen.kt`). CameraX schaltet von sich aus **nichts** ein: `VideoCapture.withOutput(…)`
+nahm mit dem rohen Sensorbild auf, und auf dem Pixel 9 sah man jeden Schritt. Es gibt zwei Wege,
+und sie sind nicht austauschbar — `setPreviewStabilizationEnabled` am Preview stabilisiert
+Vorschau UND Aufnahme (Android 13+), `setVideoStabilizationEnabled` am VideoCapture nur die
+Aufnahme; beim zweiten ist der Bildausschnitt des Videos enger als der der Vorschau, man rahmt
+also etwas anderes, als man aufnimmt. Deshalb Vorschau-Weg zuerst, Video-Weg nur als Rückfall.
+Drei Fallen: **Ungeprüft einschalten wirft** — die HAL quittiert eine nicht unterstützte
+Stabilisierung mit einem Fehler, statt sie still zu übergehen, also erst
+`Preview.getPreviewCapabilities(info)` / `Recorder.getVideoCapabilities(info)` fragen (in
+CameraX 1.4.2 der einzige Weg; `CameraInfo.isVideoStabilizationSupported` kam erst mit 1.5).
+**Im FOTO-Modus bleibt beides aus**, denn eine stabilisierte Vorschau ist beschnitten, das Foto
+aus dem `ImageCapture` aber nicht — das Bild zeigte sonst mehr, als im Sucher stand; gefragt
+wird dort gar nicht erst, die Video-Abfrage liest Camcorder-Profile auf dem Hauptthread. Und
+weil beides nur im **Builder** setzbar ist und am Objektiv hängt, entstehen Preview und
+VideoCapture **pro Bindung** neu statt einmal im `remember` — die Aufnahme-Rotation liegt
+seitdem als Zustand vor und wird jeder frischen Instanz mitgegeben, sonst käme ein Video
+gedreht heraus, das zwischen Bindung und nächster Sensormeldung startet. Googles eigene
+Fused-/Cinematic-Stabilisierung der Pixel-Kamera-App ist proprietär und bleibt unerreichbar.
+
 **Eine wartende Videofläche zeigt das Standbild, nicht Schwarz** (`Videoflaeche` in
 `ui/Bausteine.kt`). Ein `VideoView` zeigt vor dem ersten dekodierten Frame nichts, und auf
 dunklem Grund heißt „nichts" eine leere schwarze Fläche — ohne Ladehinweis, ohne Fehler. Über
