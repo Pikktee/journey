@@ -1,0 +1,289 @@
+/*
+ * Impressum und Datenschutzerklärung — zwei Seiten, die dieselbe Sache sind:
+ * Fließtext unter der Marke. Deshalb EIN Blatt statt zweier Inline-Blöcke;
+ * die standen bis hierher doppelt und wären beim nächsten Handgriff
+ * auseinandergelaufen.
+ *
+ * Beide Seiten sind eigene Vite-Einstiege (`src/routen.ts`) und binden diese
+ * Datei per `<link rel="stylesheet">` ein — kein JS. Eine Seite, auf der die
+ * Pflichtangaben stehen, darf nicht von einem Bundle abhängen.
+ *
+ * Maße und Farben folgen der Galerie (DESIGN.md): Topbar 58 px, Wortmarke
+ * `logo-mark.svg` 28 px + „Maptale", Outfit überall, kein Mono.
+ */
+
+:root {
+  --bg: #0a0d14;
+  --bg-2: #06090e;
+  --ink: #f2ede3;
+  --muted: rgba(242, 237, 227, 0.72);
+  --faint: rgba(242, 237, 227, 0.42);
+  --amber: #f59e0b;
+  --coral: #ff6f52;
+  --line: rgba(255, 255, 255, 0.08);
+  --sans: 'Outfit', system-ui, -apple-system, sans-serif;
+  --wrap: 1160px;
+  /* Lesebreite. Der Fließtext hört bei ~72 Zeichen auf, die Kopfleiste nicht —
+     sonst klebte die Marke bei 1440 px in der Bildmitte. */
+  --lesebreite: 760px;
+  --topbar-h: 58px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-2);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: min(var(--wrap), 100% - 44px);
+  margin-inline: auto;
+}
+
+/* Alles Geschriebene fluchtet links mit der Marke und endet auf Lesebreite.
+   Deshalb liegt `.spalte` IM `.wrap` und nicht auf demselben Element: `.wrap`
+   zentriert sich per `margin-inline: auto`, und beides an einem Element hieße
+   einen 760-px-Block in der Fenstermitte — die Marke stünde 200 px weiter
+   links als der Titel darunter. */
+.wrap > .spalte {
+  max-width: var(--lesebreite);
+}
+
+/* — Kopfleiste: links die Marke, rechts der Weg zum Gegenstück — */
+
+nav.nav {
+  height: var(--topbar-h);
+  border-bottom: 1px solid #222b37;
+  background: rgba(13, 17, 24, 0.82);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+}
+nav.nav .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 100%;
+}
+.brand {
+  text-decoration: none;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.brand img {
+  display: block;
+  height: 28px;
+  width: auto;
+  translate: 0 1px;
+}
+.brand:focus-visible,
+.nav-gegen:focus-visible,
+footer a:focus-visible,
+.prosa a:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.nav-gegen {
+  color: #a7b1bf;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 9px;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.nav-gegen:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* — Seitenkopf: der Titel steht ganz oben, direkt unter der Marke — */
+
+header.kopf {
+  padding: 52px 0 6px;
+  background:
+    radial-gradient(90% 120% at 0% 0%, rgba(245, 158, 11, 0.07), transparent 60%),
+    linear-gradient(180deg, var(--bg), transparent 70%);
+}
+header.kopf h1 {
+  font-size: clamp(31px, 5vw, 46px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+header.kopf p.lead {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.6;
+  margin: 14px 0 0;
+}
+header.kopf .stand {
+  margin: 18px 0 0;
+  font-size: 13.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* — Der Text — */
+
+.prosa {
+  padding: 26px 0 20px;
+}
+.prosa h2 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 42px 0 0;
+  scroll-margin-top: calc(var(--topbar-h) + 18px);
+}
+.prosa h2:first-child {
+  margin-top: 0;
+}
+.prosa h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 26px 0 0;
+  color: var(--ink);
+}
+.prosa p,
+.prosa ul {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+.prosa strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.prosa ul {
+  padding-left: 20px;
+}
+.prosa li {
+  margin: 7px 0;
+}
+.prosa li::marker {
+  color: rgba(245, 158, 11, 0.65);
+}
+.prosa a {
+  color: var(--amber);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+}
+.prosa a:hover {
+  border-bottom-color: var(--amber);
+}
+.prosa .anschrift {
+  font-style: normal;
+  color: var(--ink);
+}
+.prosa code {
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+/* Herausgehobener Merksatz — für das, was jemand wirklich wissen muss
+   (was öffentlich wird, wohin Fotos gehen). Kein Kasten, nur eine Kante. */
+.merk {
+  margin: 22px 0 0;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid rgba(245, 158, 11, 0.55);
+  color: var(--ink);
+}
+
+/* Sprungliste der Abschnitte (nur Datenschutz — beim Impressum wäre sie
+   länger als der Text). */
+.inhalt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 30px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.inhalt a {
+  display: inline-block;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #a7b1bf;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 13px;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.inhalt a:hover {
+  color: var(--ink);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+/* — Fuß — */
+
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 56px;
+  padding: 26px 0 44px;
+}
+footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--faint);
+}
+footer a {
+  color: var(--faint);
+  text-decoration: none;
+}
+footer a:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    width: calc(100% - 40px);
+  }
+  header.kopf {
+    padding-top: 36px;
+  }
+  .prosa h2 {
+    margin-top: 34px;
+  }
+  /* Elf Sprungmarken sind am Telefon vier Zeilen — kompakter, sonst steht das
+     Verzeichnis länger auf dem Schirm als der erste Abschnitt. */
+  .inhalt {
+    gap: 6px;
+    margin-top: 24px;
+  }
+  .inhalt a {
+    font-size: 12.5px;
+    padding: 5px 11px;
+  }
+}

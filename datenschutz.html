@@ -2,9 +2,10 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Datenschutzerklärung · Maptale</title>
-    <meta name="robots" content="noindex" />
+    <meta name="description" content="Welche Daten Maptale verarbeitet, welche Dienste beteiligt sind, wie lange gespeichert wird und welche Rechte du hast." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,87 +14,316 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <style>
-      :root { color-scheme: dark; --akzent: #F59E0B; }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0; background: #0d1118; color: #e7e2d6;
-        font: 16px/1.65 'Outfit', system-ui, -apple-system, sans-serif;
-        padding: 48px 22px 80px;
-      }
-      main { max-width: 720px; margin: 0 auto; }
-      a { color: var(--akzent); }
-      h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
-      h2 { font-size: 18px; font-weight: 600; margin-top: 34px; }
-      ul { padding-left: 20px; }
-      li { margin: 4px 0; }
-      .platzhalter { background: rgba(245, 165, 36, 0.12); color: var(--akzent); border-radius: 4px; padding: 0 5px; font-weight: 600; }
-      .zurueck {
-        display: inline-flex; align-items: center; gap: 6px;
-        margin-bottom: 26px; color: #a7b1bf; text-decoration: none;
-        font-size: 14px; font-weight: 500;
-      }
-      .zurueck:hover { color: #e7e2d6; }
-      .hinweis { margin-top: 46px; padding: 14px 16px; border-left: 3px solid var(--akzent); background: #131922; font-size: 14px; color: #a7b1bf; }
-      footer { margin-top: 40px; font-size: 13px; color: #6b7683; }
-    </style>
+    <!-- Gemeinsames Blatt mit dem Impressum: src/rechtstext.css -->
+    <link rel="stylesheet" href="/src/rechtstext.css" />
   </head>
   <body>
-    <main>
-      <a class="zurueck" href="/app"><span aria-hidden="true">‹</span> Studio</a>
-      <h1>Datenschutzerklärung</h1>
+    <nav class="nav">
+      <div class="wrap">
+        <a class="brand" href="/" title="Maptale — Startseite">
+          <img src="/logo-mark.svg" alt="" />
+          <span>Maptale</span>
+        </a>
+        <a class="nav-gegen" href="/impressum">Impressum</a>
+      </div>
+    </nav>
 
-      <p>
-        Diese Erklärung informiert über die Verarbeitung personenbezogener Daten bei der Nutzung
-        von Maptale. Verantwortlich im Sinne der DSGVO ist der im
-        <a href="/impressum">Impressum</a> genannte Anbieter.
-      </p>
+    <header class="kopf">
+      <div class="wrap">
+        <div class="spalte">
+          <h1>Datenschutzerklärung</h1>
+          <p class="lead">
+            Eine Tour besteht aus Orten, Zeiten und Bildern — also aus Daten, die etwas über dich
+            erzählen. Hier steht, was davon wohin geht, warum, und wie lange es bleibt.
+          </p>
+          <ul class="inhalt">
+            <li><a href="#verantwortlich">Verantwortlicher</a></li>
+            <li><a href="#daten">Welche Daten</a></li>
+            <li><a href="#zwecke">Zwecke</a></li>
+            <li><a href="#anreicherung">Anreicherung</a></li>
+            <li><a href="#sichtbarkeit">Sichtbarkeit</a></li>
+            <li><a href="#karten">Karten &amp; Schriften</a></li>
+            <li><a href="#app">Android-App</a></li>
+            <li><a href="#cookies">Cookies</a></li>
+            <li><a href="#empfaenger">Empfänger</a></li>
+            <li><a href="#dauer">Speicherdauer</a></li>
+            <li><a href="#rechte">Deine Rechte</a></li>
+          </ul>
+          <p class="stand">Stand: 3. August 2026</p>
+        </div>
+      </div>
+    </header>
 
-      <h2>1. Welche Daten wir verarbeiten</h2>
-      <ul>
-        <li><strong>Kontodaten:</strong> E-Mail-Adresse, Anzeigename und ein Passwort-Hash (argon2id) — zur Anmeldung und Zuordnung deiner Touren.</li>
-        <li><strong>Tour-Inhalte:</strong> hochgeladene GPS-Tracks, Fotos und Videos samt Aufnahmezeit und -ort. Aus den Koordinaten und Zeitstempeln leiten wir Wetter (über Open-Meteo) und Ortsnamen (über OpenStreetMap/Nominatim) ab.</li>
-        <li><strong>Server-Logs:</strong> beim Zugriff technisch notwendige Daten (IP-Adresse, Zeitpunkt, angefragte Ressource) zur Auslieferung und Missbrauchsabwehr.</li>
-      </ul>
+    <main class="wrap">
+      <div class="spalte prosa">
+        <h2 id="verantwortlich">1. Verantwortlicher</h2>
+        <p>
+          Verantwortlich im Sinne der DSGVO ist der im <a href="/impressum">Impressum</a> genannte
+          Anbieter:
+        </p>
+        <p class="anschrift">
+          Henrik Heil<br />
+          Westendstraße 100, 60325 Frankfurt am Main, Deutschland<br />
+          <a href="mailto:contact@henrikheil.net">contact@henrikheil.net</a>
+        </p>
+        <p>
+          Eine Datenschutzbeauftragte oder einen Datenschutzbeauftragten müssen wir nicht benennen;
+          Anfragen beantwortet die oben genannte Adresse.
+        </p>
 
-      <h2>2. Zwecke und Rechtsgrundlagen</h2>
-      <p>
-        Die Verarbeitung erfolgt zur Erfüllung des Nutzungsvertrags (Art. 6 Abs. 1 lit. b DSGVO)
-        sowie zur Wahrung berechtigter Interessen an einem sicheren, missbrauchsfreien Betrieb
-        (Art. 6 Abs. 1 lit. f DSGVO).
-      </p>
+        <h2 id="daten">2. Welche Daten wir verarbeiten</h2>
+        <h3>Konto</h3>
+        <ul>
+          <li>
+            <strong>E-Mail-Adresse und Passwort.</strong> Das Passwort speichern wir nur als Hash
+            (argon2id) — im Klartext liegt es nirgends.
+          </li>
+          <li>
+            <strong>Anzeigename.</strong> Bei der Registrierung schlagen wir ihn aus dem vorderen
+            Teil deiner E-Mail-Adresse vor; im Profil kannst du ihn jederzeit ändern.
+          </li>
+          <li>
+            <strong>Profilbild</strong>, sofern du eines hochlädst, sowie der Belegungsstand deines
+            Speicherkontingents und deine Rolle (Konto oder Verwaltung).
+          </li>
+          <li>
+            <strong>Einladungscode</strong>, mit dem du dich registriert hast — er bleibt der
+            Einladung zugeordnet, solange sie besteht.
+          </li>
+        </ul>
 
-      <h2>3. Empfänger und Drittdienste</h2>
-      <ul>
-        <li><strong>Hosting:</strong> Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Deutschland. Die Daten liegen auf Servern in der EU.</li>
-        <li><strong>E-Mail-Versand:</strong> Resend (Plus Five Five, Inc.) zum Versand von Bestätigungs- und Passwort-Reset-Mails.</li>
-        <li><strong>Wetter/Geokodierung:</strong> Open-Meteo und OpenStreetMap/Nominatim erhalten Koordinaten und Zeitpunkte, aber keine Kontodaten.</li>
-      </ul>
-      <p>Mit Auftragsverarbeitern bestehen Verträge nach Art. 28 DSGVO.</p>
+        <h3>Touren</h3>
+        <ul>
+          <li>
+            <strong>GPS-Aufzeichnung:</strong> Koordinaten, Höhen und Zeitstempel entlang deiner
+            Strecke; bei App-Aufnahmen zusätzlich die erkannte Fortbewegungsart.
+          </li>
+          <li>
+            <strong>Fotos und Videos</strong> samt der Metadaten in der Datei (Aufnahmezeit,
+            Aufnahmeort, Kamera- und Objektivangaben). Ausgeliefert werden verkleinerte Fassungen;
+            das Original verwerfen wir nach der Aufbereitung.
+          </li>
+          <li>
+            <strong>Deine Bearbeitungen:</strong> Titel, Beschreibung, Bildunterschriften,
+            Kamera- und Wetter-Einstellungen, ausgewählte Musik sowie selbst hochgeladene
+            Audiodateien.
+          </li>
+        </ul>
 
-      <h2>4. Speicherdauer</h2>
-      <p>
-        Kontodaten und Touren speichern wir, bis du sie löschst oder dein Konto entfernst.
-        Über die Konto-Löschung im Studio werden dein Benutzerkonto und alle zugehörigen Touren
-        samt Medien unwiderruflich gelöscht. Server-Logs werden nach kurzer Frist gelöscht oder
-        anonymisiert.
-      </p>
+        <h3>Technische Daten beim Zugriff</h3>
+        <p>
+          Beim Aufruf der Website und der API fallen die technisch notwendigen Zugriffsdaten an:
+          IP-Adresse, Zeitpunkt, angefragte Ressource, Statuscode und übermittelte Datenmenge.
+          Sie dienen der Auslieferung, der Fehlersuche und der Missbrauchsabwehr. Eine
+          Reichweitenmessung, ein Analysewerkzeug oder Werbe-Tracking setzen wir nicht ein.
+        </p>
 
-      <h2>5. Deine Rechte</h2>
-      <p>
-        Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
-        Datenübertragbarkeit und Widerspruch. Wende dich dazu an die im Impressum genannte
-        Adresse. Außerdem besteht ein Beschwerderecht bei einer Datenschutz-Aufsichtsbehörde.
-      </p>
+        <h2 id="zwecke">3. Zwecke und Rechtsgrundlagen</h2>
+        <ul>
+          <li>
+            <strong>Konto und Tourverarbeitung</strong> — Erfüllung des Nutzungsvertrags,
+            Art. 6 Abs. 1 lit. b DSGVO.
+          </li>
+          <li>
+            <strong>Bestätigungs- und Passwort-Mails</strong> — ebenfalls lit. b; sie sind Teil der
+            Anmeldung.
+          </li>
+          <li>
+            <strong>Zugriffsprotokolle, Rate-Limits, Einladungspflicht</strong> — berechtigtes
+            Interesse an einem sicheren, missbrauchsfreien Betrieb, Art. 6 Abs. 1 lit. f DSGVO.
+          </li>
+          <li>
+            <strong>Veröffentlichung einer Tour</strong> — deine Entscheidung, Art. 6 Abs. 1
+            lit. a DSGVO. Sie ist jederzeit widerrufbar, indem du die Tour wieder auf privat
+            stellst.
+          </li>
+        </ul>
+        <p>
+          Enthalten deine Fotos oder Tracks besondere Kategorien personenbezogener Daten (etwa
+          Gesundheits- oder religiöse Bezüge), verarbeiten wir sie ausschließlich, weil du sie
+          selbst hochgeladen hast — bei einer Veröffentlichung auf Grundlage deiner Einwilligung
+          nach Art. 9 Abs. 2 lit. a DSGVO.
+        </p>
 
-      <h2>6. Cookies</h2>
-      <p>
-        Wir setzen ein einziges, technisch notwendiges Cookie (<code>maptale_session</code>) zur
-        Aufrechterhaltung deiner Anmeldung. Es ist httpOnly und dient keiner Analyse oder Werbung
-        — daher ist keine Einwilligung erforderlich.
-      </p>
+        <h2 id="anreicherung">4. Was beim Verarbeiten einer Tour passiert</h2>
+        <p>
+          Nach dem Hochladen reichert der Server die Tour an. Dabei fragt er einige externe Dienste
+          ab. Übermittelt werden dafür Koordinaten und Zeitpunkte deiner Strecke — nie deine
+          E-Mail-Adresse, dein Name oder eine Konto-Kennung:
+        </p>
+        <ul>
+          <li>
+            <strong>Ortsnamen:</strong> OpenStreetMap/Nominatim erhält einzelne Koordinaten, um
+            Orte und Regionen zu benennen.
+          </li>
+          <li>
+            <strong>Wetter:</strong> Open-Meteo erhält Koordinaten und Zeitpunkte, um das damalige
+            Wetter zu rekonstruieren.
+          </li>
+          <li>
+            <strong>Verkehrsmittel:</strong> Für die Straßenbahn-Erkennung fragen wir bei der
+            OpenStreetMap-Overpass-API den Schienenverlauf im Umkreis deiner Strecke ab.
+          </li>
+        </ul>
+        <p class="merk">
+          <strong>Bildanalyse.</strong> Um das rekonstruierte Wetter zu korrigieren, kann eine
+          verkleinerte Fassung einzelner Fotos deiner Tour an OpenRouter (OpenRouter, Inc., USA)
+          übermittelt und dort von einem Bildmodell ausgewertet werden. Gefragt wird ausschließlich
+          nach der Wetterlage am Himmel; das Ergebnis ist eine knappe Klassifikation
+          („bedeckt", „Regen"). Mitgeschickt werden nur das Bild und diese Frage, keine Konto- oder
+          Standortdaten. Diese Verarbeitung ist Teil der Tour-Erstellung
+          (Art. 6 Abs. 1 lit. b DSGVO); willst du sie nicht, lade keine Fotos hoch.
+        </p>
 
-      <footer>Stand: Juli 2026 · Maptale</footer>
+        <h2 id="sichtbarkeit">5. Wer deine Touren sieht</h2>
+        <p>
+          Jede Tour ist zunächst <strong>privat</strong> und nur für dich sichtbar. Stellst du sie
+          im Studio auf <strong>öffentlich</strong>, erscheint sie unter
+          <a href="/galerie">Entdecken</a> und auf deiner Profilseite — für alle, auch ohne Konto,
+          und auffindbar über Suchmaschinen.
+        </p>
+        <p class="merk">
+          Öffentlich sind dann: Strecke, Fotos und Videos, Titel, Beschreibungen, Zeiten sowie dein
+          Anzeigename und dein Profilbild. Eine Strecke beginnt oft an der eigenen Haustür — prüfe
+          vor dem Veröffentlichen, ob das so gewollt ist. Zurückstellen auf privat wirkt sofort für
+          neue Zugriffe; bereits geteilte Links, Kopien und Suchmaschinen-Zwischenspeicher können
+          wir nicht zurückholen.
+        </p>
+
+        <h2 id="karten">6. Karten, Gelände und Schriften</h2>
+        <p>
+          Die Kamerafahrt entsteht im Browser. Dein Gerät lädt die Karten- und Geländedaten daher
+          direkt bei den jeweiligen Anbietern; diese erhalten dabei deine IP-Adresse und die
+          angefragten Kachelkoordinaten:
+        </p>
+        <ul>
+          <li>Satellitenbilder von Esri (ArcGIS Online, Esri Inc., USA)</li>
+          <li>Geländehöhen aus den Terrain Tiles auf Amazon Web Services (USA)</li>
+          <li>Gebäude- und Vektordaten von OpenFreeMap (OpenStreetMap-Daten)</li>
+          <li>
+            die Schriftart Outfit von Google Fonts (Google Ireland Ltd.) — die Einbindung erfolgt
+            über Googles Server, wodurch deine IP-Adresse dorthin übertragen wird
+          </li>
+        </ul>
+        <p>
+          Grundlage ist unser berechtigtes Interesse an einer funktionsfähigen, ansehnlichen
+          Darstellung (Art. 6 Abs. 1 lit. f DSGVO).
+        </p>
+
+        <h2 id="app">7. Android-App</h2>
+        <p>
+          Die Aufnahme-App zeichnet deine Strecke auf und braucht dafür die Berechtigung für den
+          <strong>Standort</strong> — auch im Hintergrund, weil eine Tour weiterläuft, während das
+          Display aus ist — sowie Zugriff auf <strong>Kamera</strong> und Medien, wenn du
+          unterwegs fotografierst.
+        </p>
+        <p>
+          Aufzeichnungen bleiben zunächst <strong>auf dem Gerät</strong>. Erst beim Hochladen gehen
+          sie an unseren Server; bis dahin kannst du sie im Gerät löschen. Die App enthält keine
+          Werbe-SDKs und kein Analysewerkzeug, überträgt keine Gerätekennungen zu Werbezwecken und
+          spricht ausschließlich mit unserem eigenen Server.
+        </p>
+
+        <h2 id="cookies">8. Cookies und lokale Speicherung</h2>
+        <p>Wir setzen zwei technisch notwendige Cookies, beide ohne Analyse- oder Werbezweck:</p>
+        <ul>
+          <li>
+            <code>maptale_session</code> — hält deine Anmeldung aufrecht. HttpOnly, Laufzeit
+            30 Tage.
+          </li>
+          <li>
+            <code>maptale_dabei</code> — merkt nur, <em>dass</em> eine Sitzung besteht, damit die
+            Kopfleiste nicht kurz „Anmelden" zeigt, obwohl du angemeldet bist. Er enthält keine
+            Kennung.
+          </li>
+        </ul>
+        <p>
+          Zusätzlich legt der Player Einstellungen (Ton, Musik, Wetterdarstellung, Ansicht) und die
+          zuletzt erreichte Stelle einer Tour im lokalen Speicher deines Browsers ab. Diese Werte
+          verlassen dein Gerät nicht und lassen sich über die Browser-Einstellungen löschen. Eine
+          Einwilligung ist für all das nicht erforderlich (§ 25 Abs. 2 TDDDG), weshalb Maptale
+          ohne Cookie-Banner auskommt.
+        </p>
+
+        <h2 id="empfaenger">9. Empfänger und Auftragsverarbeiter</h2>
+        <ul>
+          <li>
+            <strong>Hosting:</strong> Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen,
+            Deutschland. Konten, Touren und Medien liegen auf Servern in der EU.
+          </li>
+          <li>
+            <strong>E-Mail-Versand:</strong> Resend (Plus Five Five, Inc., USA) für Bestätigungs-
+            und Passwort-Reset-Mails. Übermittelt werden E-Mail-Adresse, Anrede und Link.
+          </li>
+          <li>
+            <strong>Bildanalyse:</strong> OpenRouter, Inc. (USA) und der jeweils dahinterstehende
+            Modellanbieter — siehe Abschnitt 4.
+          </li>
+          <li>
+            <strong>Karten- und Wetterdienste:</strong> Esri, Amazon Web Services, OpenFreeMap,
+            OpenStreetMap-Foundation, Open-Meteo, Google (Schriften) — siehe Abschnitte 4 und 6.
+          </li>
+        </ul>
+        <p>
+          Mit Auftragsverarbeitern bestehen Verträge nach Art. 28 DSGVO. Soweit Daten an Dienste in
+          den USA gehen, stützen wir das auf die Standardvertragsklauseln der EU-Kommission
+          (Art. 46 Abs. 2 lit. c DSGVO) bzw. auf die Zertifizierung nach dem
+          EU-US Data Privacy Framework. Trotz dieser Garantien lässt sich ein Zugriff
+          US-amerikanischer Behörden nicht vollständig ausschließen.
+        </p>
+
+        <h2 id="dauer">10. Speicherdauer</h2>
+        <ul>
+          <li>
+            <strong>Konto und Touren:</strong> bis du sie löschst. Die Konto-Löschung im Studio
+            entfernt dein Benutzerkonto und alle zugehörigen Touren samt Medien unwiderruflich.
+          </li>
+          <li>
+            <strong>Sitzungen:</strong> 30 Tage ab Anmeldung, beim Abmelden sofort.
+          </li>
+          <li>
+            <strong>Bestätigungs- und Reset-Links:</strong> nur bis zum Ablauf bzw. zur Einlösung.
+          </li>
+          <li>
+            <strong>Zugriffsprotokolle:</strong> werden nach kurzer Frist gelöscht oder
+            anonymisiert.
+          </li>
+        </ul>
+
+        <h2 id="rechte">11. Deine Rechte</h2>
+        <p>
+          Du hast das Recht auf <strong>Auskunft</strong> (Art. 15), <strong>Berichtigung</strong>
+          (Art. 16), <strong>Löschung</strong> (Art. 17), <strong>Einschränkung</strong> (Art. 18),
+          <strong>Datenübertragbarkeit</strong> (Art. 20) und <strong>Widerspruch</strong>
+          (Art. 21 DSGVO). Erteilte Einwilligungen — etwa die Veröffentlichung einer Tour — kannst
+          du jederzeit mit Wirkung für die Zukunft widerrufen.
+        </p>
+        <p>
+          Wende dich dafür an <a href="mailto:contact@henrikheil.net">contact@henrikheil.net</a>.
+          Außerdem steht dir ein Beschwerderecht bei einer Datenschutz-Aufsichtsbehörde zu, für
+          uns zuständig ist
+          <a href="https://datenschutz.hessen.de/">
+            Der Hessische Beauftragte für Datenschutz und Informationsfreiheit</a
+          >.
+        </p>
+
+        <h2>12. Änderungen dieser Erklärung</h2>
+        <p>
+          Entwickelt sich Maptale weiter, passen wir diese Erklärung an. Es gilt jeweils die hier
+          veröffentlichte Fassung; das Datum oben nennt ihren Stand.
+        </p>
+      </div>
     </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Maptale — aus deiner Route wird ein Film über die echte Landschaft.</span>
+        <span>
+          <a href="/">Startseite</a> ·
+          <a href="/impressum">Impressum</a> ·
+          <a href="/datenschutz">Datenschutz</a>
+        </span>
+      </div>
+    </footer>
   </body>
 </html>
