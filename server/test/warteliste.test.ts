@@ -260,11 +260,21 @@ describe('Warteliste — freischalten', () => {
     const token = await trageEin(u, 'anna@example.com')
     await bestaetige(u, token)
     const id = u.app.warteliste.alle()[0]?.id as string
-    const einladen = (): ReturnType<typeof u.app.inject> =>
-      u.app.inject({ method: 'POST', url: `/api/admin/warteliste/${id}/einladen`, cookies: admin.cookies, payload: {} })
+    // Kein `ReturnType<typeof inject>`: `inject` ist überladen und liefert ohne
+    // Callback die thenable `Chain` — der Rückgabetyp der Signatur passt nicht
+    // auf das Promise, das hier tatsächlich herauskommt.
+    const einladen = async (): Promise<number> => {
+      const antwort = await u.app.inject({
+        method: 'POST',
+        url: `/api/admin/warteliste/${id}/einladen`,
+        cookies: admin.cookies,
+        payload: {},
+      })
+      return antwort.statusCode
+    }
 
-    expect((await einladen()).statusCode).toBe(200)
-    expect((await einladen()).statusCode).toBe(409)
+    expect(await einladen()).toBe(200)
+    expect(await einladen()).toBe(409)
     expect(u.app.einladungen.alle()).toHaveLength(1)
   })
 
