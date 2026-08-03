@@ -12,6 +12,7 @@ import app.maptale.MaptaleApp
 import app.maptale.importieren.GpxImport
 import app.maptale.importieren.ImportLogik
 import app.maptale.importieren.MedienMetadatenLeser
+import app.maptale.kamera.bereiteFotoFuerUpload
 import app.maptale.upload.ImportMedium
 import app.maptale.upload.ManifestBau
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +74,11 @@ class ImportViewModel(private val app: MaptaleApp) : ViewModel() {
                         cr.openInputStream(uri)?.use { ein -> temp.outputStream().use { ein.copyTo(it) } }
                             ?: return@mapIndexedNotNull null
                         tempDateien.add(temp)
+                        // Ein Foto aus der Galerie ist so groß wie das der Kamera —
+                        // vor dem Upload auf dasselbe Maß bringen. Danach lesen: Die
+                        // Aufbereitung übernimmt Zeit und Ort, aber gelesen wird, was
+                        // TATSÄCHLICH hochgeht.
+                        if (typ == "photo") bereiteFotoFuerUpload(temp)
                         val meta = if (typ == "photo") temp.inputStream().use { MedienMetadatenLeser.lies(it) } else null
                         Vorbereitet(
                             ImportMedium(

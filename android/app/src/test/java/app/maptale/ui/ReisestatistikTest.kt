@@ -32,6 +32,7 @@ class ReisestatistikTest {
             hoehenmeter = hoehe,
             visibility = "unlisted",
             cover = null,
+            coverThumb = null,
             erstelltAm = "2026-07-04T08:00:00Z",
         ),
     )

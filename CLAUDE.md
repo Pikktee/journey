@@ -369,6 +369,27 @@ Regler). ÜBERLAPPENDE Musik-Klips sind erlaubt und MISCHEN sich — im Player (
 Element, audiotracks.js) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn wächst mit.
 
+**Ausgeliefert werden ABGELEITETE Fassungen, nicht das Hochgeladene**
+([bild.ts](server/src/pipeline/bild.ts)). Aus jedem Foto entstehen beim Rendern zwei Dateien —
+`m1.w1920.jpg` (Anzeige, längste Kante 1920) und `m1.t480.jpg` (Kachel für Listen, Zeitleiste,
+Pin-Köpfe) —, danach wird das **Original verworfen**; bei Video ebenso, sobald `m1.web.mp4`
+steht. An einer echten Tour: 26,5 MB Originale → 3,1 MB Fassungen, ohne sichtbaren Unterschied
+in der Wiedergabe. Vier Dinge, die man dabei leicht zerstört:
+*Die Reihenfolge* — erst schreiben, dann löschen; wer die Quelle vorher wegnimmt, verliert bei
+einem Abbruch beides. *Der Wiedereintritt* — jeder Re-Render läuft ohne Original, `bereiteFotosAuf`
+und `bereiteVideosAuf` müssen die vorhandene Fassung als Quelle nehmen statt zu scheitern. *Der
+Vollständigkeits-Check* im finalize ([tours.ts](server/src/routes/tours.ts)) zählt Original ODER
+Fassung, sonst meldet jeder App-Retry „Medien fehlen". Und *das EXIF*: ffmpeg wirft es beim
+Skalieren weg, der Studio-Editor liest die Aufnahme-Details aber aus der ausgelieferten Datei —
+deshalb wird der Exif-APP1-Block von Hand übertragen und seine Drehung dabei auf 1 gesetzt (die
+steckt jetzt in den Pixeln; bliebe die Angabe stehen, drehte der Browser ein zweites Mal). Die
+Kachel bekommt bewusst kein EXIF: der Block eines Testfotos war 42 KB, mehr als das Bild selbst.
+Bestandstouren stellt ein Start-Durchlauf um ([bildnachtrag.ts](server/src/pipeline/bildnachtrag.ts),
+ohne Re-Render, also ohne neue Wetter-/Vision-Aufrufe). **`thumb` kann fehlen** — jede Anzeige
+braucht den Rückfall auf `src`. Die App verkleinert schon vor dem Upload auf 2560 px
+([Fotoaufbereitung.kt](android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt)) — bewusst
+größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
+
 **Vier Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`

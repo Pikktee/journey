@@ -37,6 +37,7 @@ import {
   type EditorSegment,
   type KameraPreset,
   type MediumAnzeige,
+  miniaturQuelle,
   type MediumBasis,
   type Modus,
   type MomentArt,
@@ -642,7 +643,7 @@ function baueMarkerEintrag(stopp: Stopp, _schluessel: string): MarkerEintrag | n
   }
   const kern = document.createElement('span')
   kern.className = 'kern'
-  const thumb = kopf.type === 'photo' ? kopf.src : kopf.poster
+  const thumb = kopf.type === 'photo' || kopf.poster ? miniaturQuelle(kopf) : undefined
   if (thumb) {
     const bild = document.createElement('img')
     bild.src = thumb
@@ -969,7 +970,7 @@ function baueStreifen(stopp: Stopp, aktuellId: string): HTMLElement {
     b.setAttribute('aria-current', String(m.id === aktuellId))
     b.title = m.caption || m.id
     const bild = document.createElement('img')
-    bild.src = (m.type === 'video' ? m.poster : m.src) ?? m.src
+    bild.src = miniaturQuelle(m)
     bild.alt = ''
     const nr = document.createElement('span')
     nr.className = 'st-nr'
@@ -1344,7 +1345,7 @@ function oeffneAblage(): void {
     b.title = m.geloescht ? `${m.caption || m.id} — entfernt` : `${m.caption || m.id} — ohne Ort`
     b.dataset['id'] = m.id
     const bild = document.createElement('img')
-    bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
+    bild.src = miniaturQuelle(m)
     bild.alt = ''
     b.appendChild(bild)
     b.addEventListener('pointerdown', (e) => zieheAusAblage(e, m))
@@ -1373,7 +1374,7 @@ function zieheAusAblage(e: PointerEvent, m: MediumAnzeige): void {
       geist = document.createElement('div')
       geist.className = 'zieh-geist'
       const bild = document.createElement('img')
-      bild.src = m.type === 'video' ? (m.poster ?? m.src) : m.src
+      bild.src = miniaturQuelle(m)
       bild.alt = ''
       geist.appendChild(bild)
       document.body.appendChild(geist)
@@ -3404,7 +3405,7 @@ function renderZeitleiste(): void {
       }
     }
     const bild = document.createElement('img')
-    bild.src = (kopf.type === 'video' ? kopf.poster : kopf.src) ?? kopf.src
+    bild.src = miniaturQuelle(kopf)
     bild.alt = ''
     bild.loading = 'lazy'
     mini.appendChild(bild)

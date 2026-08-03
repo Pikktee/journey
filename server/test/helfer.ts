@@ -8,6 +8,7 @@ import type { Konfig } from '../src/config.js'
 import { oeffneDb } from '../src/db.js'
 import type { MailNachricht, MailVersand } from '../src/mail.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
+import type { BildWerkzeug } from '../src/pipeline/bild.js'
 import type { VideoWerkzeug } from '../src/pipeline/video.js'
 import type { SchienenQuelle } from '../src/pipeline/schienen.js'
 import type { BildKlassifikator } from '../src/pipeline/vision.js'
@@ -73,6 +74,10 @@ export async function baueTestApp(
   // Default null: kein Schienen-Abgleich — Tram-Tests geben FesteSchienen
   // herein (Spiegelbild der OverpassSchienen in index.ts)
   schienen: SchienenQuelle | null = null,
+  // Default null: keine Bild-Aufbereitung — Medien bleiben Originale. Tests zu
+  // den Fassungen geben ein FakeBildWerkzeug herein (Spiegelbild des
+  // FfmpegBildWerkzeug in index.ts)
+  bildWerkzeug: BildWerkzeug | null = null,
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
@@ -86,6 +91,7 @@ export async function baueTestApp(
     geocoder: new FesterGeocoder(geocoderAntworten),
     wetter,
     videoWerkzeug,
+    bildWerkzeug,
     bildKlassifikator,
     schienen,
     mail,

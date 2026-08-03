@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   effektiveMedien,
+  miniaturQuelle,
   isoZuOffset,
   LEERES_OVERLAY,
   materialisiereModi,
@@ -228,5 +229,31 @@ describe('Trim-Kanten-Semantik (inklusiv, wie serverseitig)', () => {
     const out = zerlegeFuerAnzeige(segmente(), edits, START)
     expect(out).toHaveLength(1)
     expect(out[0]?.aktiv).toBe(true)
+  })
+})
+
+describe('miniaturQuelle', () => {
+  const foto = { type: 'photo' as const, src: '/api/media/t1/m1.w1920.jpg', thumb: '/api/media/t1/m1.t480.jpg' }
+  const video = {
+    type: 'video' as const,
+    src: '/api/media/t1/m2.web.mp4',
+    poster: '/api/media/t1/m2.poster.jpg',
+    thumb: '/api/media/t1/m2.t480.jpg',
+  }
+
+  it('nimmt die Kachel-Fassung, wo es sie gibt', () => {
+    expect(miniaturQuelle(foto)).toBe('/api/media/t1/m1.t480.jpg')
+    expect(miniaturQuelle(video)).toBe('/api/media/t1/m2.t480.jpg')
+  })
+
+  it('fällt bei Altbestand auf das vorhandene Bild zurück — lieber groß als gar nicht', () => {
+    const { thumb: _f, ...fotoAlt } = foto
+    const { thumb: _v, ...videoAlt } = video
+    expect(miniaturQuelle(fotoAlt)).toBe('/api/media/t1/m1.w1920.jpg')
+    expect(miniaturQuelle(videoAlt)).toBe('/api/media/t1/m2.poster.jpg')
+  })
+
+  it('nimmt für ein Video ohne Standbild die Videodatei — nie ein leeres src', () => {
+    expect(miniaturQuelle({ type: 'video', src: '/api/media/t1/m3.mp4' })).toBe('/api/media/t1/m3.mp4')
   })
 })

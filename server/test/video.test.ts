@@ -50,6 +50,9 @@ function memSpeicher(): VideoSpeicher & { dateien: Map<string, Buffer> } {
       const b = dateien.get(relPfad)
       return b ? { groesse: b.length } : null
     },
+    async loesche(relPfad) {
+      dateien.delete(relPfad)
+    },
   }
 }
 
@@ -148,6 +151,8 @@ describe('bereiteVideosAuf', () => {
     expect(meta.get('m1')).toEqual({ dauerS: 8.4, videoDatei: 'm1.mp4', posterDatei: 'm1.poster.jpg' })
     expect(sp.dateien.has('media/m1.poster.jpg')).toBe(true)
     expect(sp.dateien.has('media/m1.web.mp4')).toBe(false)
+    // Hier IST das Original die Auslieferungsdatei — es darf nicht weg
+    expect(sp.dateien.has('media/m1.mp4')).toBe(true)
   })
 
   it('schreibt eine web-taugliche .mp4 mit hinten liegendem Index um — ohne neu zu codieren', async () => {
@@ -167,6 +172,9 @@ describe('bereiteVideosAuf', () => {
     expect(werkzeug.aufrufe).toEqual(['probe', 'poster', 'remux']) // kein Transcode!
     expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4')
     expect(sp.dateien.get('media/m1.web.mp4')?.toString()).toBe('FAKE-FASTSTART-MP4')
+    // Dieselben Bilder und Töne, nur der Index sitzt vorn: das Original wäre
+    // eine zweite Kopie derselben Aufnahme, die nie jemand ausliefert
+    expect(sp.dateien.has('media/m1.mp4')).toBe(false)
   })
 
   it('remuxt nicht doppelt: liegt die web.mp4 schon, bleibt es bei der Probe', async () => {
@@ -185,6 +193,9 @@ describe('bereiteVideosAuf', () => {
     expect(werkzeug.aufrufe).toEqual(['probe'])
     expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4')
     expect(sp.dateien.get('media/m1.web.mp4')?.toString()).toBe('ALT-WEB')
+    // Bestandsaufräumen: die fertige web.mp4 macht das Original entbehrlich,
+    // auch wenn in diesem Durchlauf nichts neu erzeugt wurde
+    expect(sp.dateien.has('media/m1.mp4')).toBe(false)
   })
 
   it('transkodiert HEVC und liefert danach die web.mp4 aus', async () => {
@@ -201,6 +212,57 @@ describe('bereiteVideosAuf', () => {
     expect(werkzeug.aufrufe).toEqual(['probe', 'poster', 'transkodiere'])
     expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4')
     expect(sp.dateien.has('media/m1.web.mp4')).toBe(true)
+    expect(sp.dateien.has('media/m1.mov')).toBe(false) // Original verworfen
+  })
+
+  it('nimmt beim Wiedereintritt die web.mp4 als Quelle — das Original ist längst weg', async () => {
+    // Der Normalfall bei jedem Re-Render: verworfenes Original, fertige
+    // Auslieferungsdatei. Ohne diesen Weg fiele die Aufbereitung auf einen
+    // Lesefehler und das Video verlöre Poster und Dauer im tour.json.
+    const sp = memSpeicher()
+    sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
+    sp.dateien.set('media/m1.poster.jpg', Buffer.from('POSTER'))
+    const werkzeug = new FakeVideoWerkzeug(info({ codecVideo: 'h264', dauerS: 9.5 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe).toEqual(['probe']) // nichts neu erzeugt
+    expect(meta.get('m1')).toEqual({ dauerS: 9.5, videoDatei: 'm1.web.mp4', posterDatei: 'm1.poster.jpg' })
+  })
+
+  it('erzeugt beim Wiedereintritt ein fehlendes Poster aus der web.mp4', async () => {
+    const sp = memSpeicher()
+    sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 4 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe).toEqual(['probe', 'poster'])
+    expect(sp.dateien.has('media/m1.poster.jpg')).toBe(true)
+    expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4')
+  })
+
+  it('meldet ein Video, von dem weder Original noch web.mp4 da ist', async () => {
+    const sp = memSpeicher()
+    const nachrichten: string[] = []
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mov' }],
+      speicher: sp,
+      werkzeug: new FakeVideoWerkzeug(info()),
+      protokoll: (n) => nachrichten.push(n),
+    })
+
+    expect(meta.has('m1')).toBe(false)
+    expect(nachrichten[0]).toContain('Videodatei fehlt')
   })
 
   it('konvertiert h264 im .mov-Container in eine web.mp4 (nur wegen des Containers)', async () => {
@@ -234,6 +296,7 @@ describe('bereiteVideosAuf', () => {
     expect(werkzeug.aufrufe).toEqual(['probe']) // nichts neu erzeugt
     expect(meta.get('m1')?.videoDatei).toBe('m1.web.mp4') // Pfad trotzdem korrekt abgeleitet
     expect(sp.dateien.get('media/m1.poster.jpg')?.toString()).toBe('ALT-POSTER') // nicht überschrieben
+    expect(sp.dateien.has('media/m1.mov')).toBe(false) // Original verworfen
   })
 
   it('überspringt ein kaputtes Video, ohne die Tour scheitern zu lassen', async () => {

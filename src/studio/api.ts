@@ -29,6 +29,8 @@ export interface TourListe {
     spur?: { d: string; start: [number, number]; ende: [number, number] }
   } | null
   cover: string | null
+  /** Kachel-Fassung des Titelbilds; fehlt bei Touren ohne aufbereitete Fassungen */
+  coverThumb?: string | null
   fehler: string | null
   createdAt: string
 }
@@ -185,6 +187,8 @@ export interface EditorMedium {
   type: 'photo' | 'video'
   src: string
   poster?: string
+  /** Kachel-Fassung für Miniaturen; fehlt bei unaufbereitetem Altbestand */
+  thumb?: string
   takenAt: string
   caption: string
   anchor: [number, number] | null

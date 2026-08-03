@@ -9,6 +9,8 @@ export interface GalerieTour {
   id: string
   titel: string | null
   cover: string | null
+  /** Kachel-Fassung des Titelbilds; fehlt bei Touren ohne aufbereitete Fassungen */
+  coverThumb?: string | null
   km: number | null
   erstelltAm: string
   autor: { anzeigename: string; avatarUrl: string | null; id?: string } | null
@@ -30,7 +32,13 @@ export interface ProfilAntwort {
 export interface Karte {
   id: string
   titel: string
-  /** Bild-URL oder null — die Hülle zeigt dann eine ruhige Fläche */
+  /**
+   * Bild-URL oder null — die Hülle zeigt dann eine ruhige Fläche.
+   *
+   * Eine Karte ist ein paar hundert Pixel breit: Hier gehört die Kachel-Fassung
+   * hin, nicht das Foto in Anzeigegröße. Fehlt sie (Tour von vor der
+   * Aufbereitung), bleibt es beim großen Bild — sonst hätte die Karte gar keins.
+   */
   cover: string | null
   /** „12,4 km · Juli 2026" — leer, wenn nichts davon bekannt ist */
   unterzeile: string
@@ -48,7 +56,7 @@ export function alsKarte(tour: GalerieTour): Karte {
   return {
     id: tour.id,
     titel: tour.titel?.trim() || ERSATZTITEL,
-    cover: tour.cover,
+    cover: tour.coverThumb ?? tour.cover,
     unterzeile: [entfernung(tour.km), monat(tour.erstelltAm)].filter(Boolean).join(' · '),
     autorName: tour.autor?.anzeigename ?? null,
     autorBild: tour.autor?.avatarUrl ?? null,

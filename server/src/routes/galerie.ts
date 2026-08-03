@@ -18,6 +18,7 @@ interface GalerieZeile {
   id: string
   title: string | null
   cover: string | null
+  cover_thumb: string | null
   stats_json: string | null
   created_at: string
   autor_id: string
@@ -44,6 +45,8 @@ function alsKarte(z: GalerieZeile) {
     id: z.id,
     titel: z.title,
     cover: z.cover,
+    // Kachel-Fassung; fehlt sie (Altbestand), fällt die Anzeige auf `cover` zurück
+    coverThumb: z.cover_thumb,
     km: stats?.km ?? null,
     erstelltAm: z.created_at,
     autor,
@@ -61,7 +64,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
     // dafür ein zweites COUNT über die ganze Tabelle zu rechnen.
     const zeilen = db
       .prepare(
-        `SELECT t.id, t.title, t.cover, t.stats_json, t.created_at,
+        `SELECT t.id, t.title, t.cover, t.cover_thumb, t.stats_json, t.created_at,
                 u.id AS autor_id, u.anzeigename, u.avatar, u.profil_sichtbarkeit
          FROM tours t JOIN users u ON u.id = t.owner_id
          WHERE t.visibility = 'public' AND t.status = 'bereit'
@@ -91,7 +94,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
 
     const zeilen = db
       .prepare(
-        `SELECT t.id, t.title, t.cover, t.stats_json, t.created_at,
+        `SELECT t.id, t.title, t.cover, t.cover_thumb, t.stats_json, t.created_at,
                 u.id AS autor_id, u.anzeigename, u.avatar, u.profil_sichtbarkeit
          FROM tours t JOIN users u ON u.id = t.owner_id
          WHERE t.owner_id = ? AND t.visibility = 'public' AND t.status = 'bereit'

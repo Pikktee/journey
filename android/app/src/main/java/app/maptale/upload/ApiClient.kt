@@ -39,6 +39,8 @@ data class ServerTour(
     val visibility: String,
     /** Titelbild-Pfad relativ zum Server (/api/media/…); null vor dem ersten Render */
     val cover: String?,
+    /** Kachel-Fassung des Titelbilds; null bei Touren ohne aufbereitete Fassungen */
+    val coverThumb: String?,
     /** ISO-Zeitstempel des Anlegens — sortiert die verschmolzene Liste */
     val erstelltAm: String,
 ) {
@@ -61,6 +63,8 @@ data class Serverfoto(
     val id: String,
     /** Serverpfad des anzeigbaren Bildes (/api/media/…) */
     val pfad: String,
+    /** Kachel-Fassung für das Raster; null bei unaufbereitetem Altbestand */
+    val thumb: String?,
     /** Was im Player als Überschrift steht — Nutzertext oder „Foto · 14:32“. */
     val titel: String?,
     /**
@@ -227,6 +231,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
                 hoehenmeter = stats?.get("gainM")?.jsonPrimitive?.doubleOrNull,
                 visibility = obj["visibility"]?.jsonPrimitive?.contentOrNull ?: "unlisted",
                 cover = obj["cover"]?.jsonPrimitive?.contentOrNull,
+                coverThumb = obj["coverThumb"]?.jsonPrimitive?.contentOrNull,
                 erstelltAm = obj["createdAt"]?.jsonPrimitive?.contentOrNull ?: "",
             )
         }
@@ -331,6 +336,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
                     // Bei Videos zeigt das Standbild, was zu sehen ist — die
                     // Datei selbst kann kein Bildbetrachter darstellen.
                     pfad = obj["poster"]?.jsonPrimitive?.contentOrNull ?: src,
+                    thumb = obj["thumb"]?.jsonPrimitive?.contentOrNull,
                     titel = titel,
                     nutzertext = if (zeitzeile.isNotBlank()) titel.orEmpty() else "",
                     zeitzeile = if (zeitzeile.isNotBlank()) zeitzeile else titel,

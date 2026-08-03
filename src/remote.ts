@@ -17,6 +17,8 @@ export interface RemoteMedium {
   takenAt: string
   durationS?: number
   poster?: string
+  /** Kachel-Fassung (Listen, Pin-Köpfe); fehlt bei unaufbereitetem Altbestand */
+  thumb?: string
   /** Anzeige-Optionen aus dem Studio (Kreativbaukasten): Haltedauer + Ken-Burns */
   display?: { holdS?: number; kenBurns?: boolean }
   /** Platz im Foto-Stopp (0-basiert) — greift in gruppiereStopps (src/geo.js) */
@@ -75,6 +77,7 @@ export interface RemoteTourCfg {
     type: 'photo' | 'video'
     durationS?: number
     poster?: string
+    thumb?: string
     display?: { holdS?: number; kenBurns?: boolean }
   }>
   /** Kuratierte Wetter-Timeline im Player-Format (km entlang der Route) */
@@ -143,6 +146,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
         type: m.type,
         ...(m.durationS !== undefined ? { durationS: m.durationS } : {}),
         ...(m.poster !== undefined ? { poster: m.poster } : {}),
+        ...(m.thumb !== undefined ? { thumb: m.thumb } : {}),
         ...(m.display !== undefined ? { display: m.display } : {}),
         ...(m.reihe !== undefined ? { reihe: m.reihe } : {}),
       })),

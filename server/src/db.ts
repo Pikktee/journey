@@ -121,6 +121,13 @@ const MIGRATIONEN: string[] = [
     wert TEXT NOT NULL
   );
   `,
+  // Kachel-Fassung des Titelbilds. Neben `cover` und nicht statt dessen: Listen
+  // zeigen 300 px, Detailansichten formatfüllend — mit nur einem Pfad wäre das
+  // eine von beiden Größen falsch. NULL bei Touren, die noch keine aufbereiteten
+  // Fassungen haben (der Bild-Nachtrag beim Start füllt sie).
+  `
+  ALTER TABLE tours ADD COLUMN cover_thumb TEXT;
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

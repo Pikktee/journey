@@ -90,7 +90,8 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   "timeline": [{ "f": 0.0, "t": "…" }, { "f": 1.0, "t": "…" }],
   "segments": [{ "mode": "walk", "label": "Zu Fuß", "pts": [[7.9086, 46.5934, 802.1]] }],
   "media": [
-    { "id": "m1", "type": "photo", "src": "/api/media/t_V1kQz9xY/m1.jpg",
+    { "id": "m1", "type": "photo", "src": "/api/media/t_V1kQz9xY/m1.w1920.jpg",
+      "thumb": "/api/media/t_V1kQz9xY/m1.t480.jpg",
       "title": "Foto · 09:01", "caption": "", "anchor": [7.9105, 46.59],
       "takenAt": "2026-07-04T09:01:12+02:00" }
   ],
@@ -110,8 +111,18 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   Foto-Zeit), Ton per Opt-in. `poster` (Standbild) und `durationS` erzeugt die
   Pipeline serverseitig (`server/src/pipeline/video.ts`: ffprobe → Poster; nicht
   web-taugliche Codecs wie HEVC werden nach H.264/AAC 1080p transkodiert und unter
-  `src` als `<id>.web.mp4` ausgeliefert, das Original bleibt unangetastet). Die
-  Medien-Route liefert Videos mit HTTP-Range-Support (Seeking).
+  `src` als `<id>.web.mp4` ausgeliefert — das Original wird danach VERWORFEN, s.
+  „Abgeleitete Fassungen"). Die Medien-Route liefert Videos mit
+  HTTP-Range-Support (Seeking).
+- **Abgeleitete Fassungen** (`server/src/pipeline/bild.ts`): `src` zeigt bei
+  Fotos auf die Anzeige-Fassung `<id>.w1920.jpg` (längste Kante 1920), `thumb`
+  auf die Kachel-Fassung `<id>.t480.jpg` für Listen, Zeitleiste und Pin-Köpfe.
+  Das hochgeladene Original wird nach dem Erzeugen verworfen — es kostete an
+  einer echten Tour das Neunfache dessen, was je ausgeliefert wurde. Videos
+  bekommen nur `thumb` (aus dem Poster). `thumb` FEHLT bei Touren, die vor der
+  Umstellung gerendert wurden und den Start-Nachtrag noch nicht durchlaufen
+  haben (`server/src/pipeline/bildnachtrag.ts`) — jede Anzeige braucht deshalb
+  einen Rückfall auf `src`.
 - `timeline` (M2, `server/src/pipeline/zeit.ts`): destillierte Stützstellen
   Streckenanteil→Pseudo-Zeit (stückweise linear, ±45 s genau); Pausen > 15 min
   sind serverseitig auf 2 min komprimiert (sonst springt die Pseudo-Sonne beim

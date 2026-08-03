@@ -439,9 +439,9 @@ fun KameraScreen(zurueck: () -> Unit) {
                                 object : ImageCapture.OnImageSavedCallback {
                                     override fun onImageSaved(ergebnis: ImageCapture.OutputFileResults) {
                                         app.appScope.launch {
-                                            // Vor dem Registrieren physisch aufrecht drehen (EXIF → Pixel),
-                                            // damit das Foto in Player UND Studio richtig herum erscheint.
-                                            withContext(Dispatchers.IO) { richteFotoAuf(datei) }
+                                            // Vor dem Registrieren aufrecht drehen (EXIF → Pixel) und auf
+                                            // Uploadgröße bringen — danach ist die Datei das, was hochgeht.
+                                            withContext(Dispatchers.IO) { bereiteFotoFuerUpload(datei) }
                                             val anker = aufnahme.letzterPunkt?.let { it.lng to it.lat }
                                             app.repository.registriereFoto(aufnahme.tourId, relativ, System.currentTimeMillis(), anker)
                                             speichert = false

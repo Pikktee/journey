@@ -53,7 +53,7 @@ internal fun probenFaktor(breite: Int, hoehe: Int, zielKante: Int): Int {
 }
 
 /** Auf die Zielkante bringen; kleinere Bilder bleiben, wie sie sind. */
-private fun aufKante(bild: Bitmap, zielKante: Int): Bitmap {
+internal fun aufKante(bild: Bitmap, zielKante: Int): Bitmap {
     val laengste = max(bild.width, bild.height)
     if (laengste <= zielKante) return bild
     val faktor = zielKante.toDouble() / laengste

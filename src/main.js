@@ -589,7 +589,10 @@ map.on('load', () => {
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
   const spotPunkte = stops.map((st) => {
     const pos = pointAt(route, st.s)
-    return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: st.items[0]?.src }
+    // Für den Pin-Kopf (?pins3d=foto) reicht die Kachel-Fassung: Die Scheibe
+    // ist gut hundert Pixel groß, das Foto in Anzeigegröße wäre reine Last.
+    const kopf = st.items[0]
+    return { lnglat: [pos[0], pos[1]], s: st.s, ele: pos[2], src: kopf?.thumb ?? kopf?.src }
   })
   const syncSpots = addSpotLayers(
     map,

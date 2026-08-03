@@ -35,6 +35,7 @@ class ListenverschmelzungTest {
         hoehenmeter = 300.0,
         visibility = "unlisted",
         cover = null,
+        coverThumb = null,
         erstelltAm = erstelltAm,
     )
 

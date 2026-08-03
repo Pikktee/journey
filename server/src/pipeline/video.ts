@@ -135,6 +135,7 @@ export interface VideoSpeicher {
   lese(relPfad: string): Promise<Buffer>
   schreibe(relPfad: string, inhalt: Buffer): Promise<void>
   info(relPfad: string): Promise<{ groesse: number } | null>
+  loesche(relPfad: string): Promise<void>
 }
 
 /** Die echte ffmpeg/ffprobe-Anbindung (nur in Produktion; Tests nutzen den Fake). */
@@ -235,7 +236,17 @@ export class FakeVideoWerkzeug implements VideoWerkzeug {
   }
 }
 
-/** Ein einzelnes Video aufbereiten: Poster immer, Transcode nur bei Bedarf. */
+/**
+ * Ein einzelnes Video aufbereiten: Poster immer, Transcode nur bei Bedarf.
+ *
+ * Entsteht dabei eine eigene Auslieferungsdatei (`m1.web.mp4`), wird das
+ * ORIGINAL VERWORFEN — sonst läge dieselbe Aufnahme zweimal auf der Platte,
+ * und die zweite Fassung liest nie jemand: Ausgeliefert wird immer die
+ * web.mp4, und ein erneuter Transcode aus dem Original würde nur dasselbe
+ * Ergebnis noch einmal erzeugen. Deshalb ist ein Wiedereintritt OHNE Original
+ * der Normalfall, kein Fehler: Liegt nur noch die web.mp4, ist sie die Quelle
+ * für Probe und Poster.
+ */
 async function bereiteEinVideoAuf(
   mediumId: string,
   originalDatei: string,
@@ -244,12 +255,17 @@ async function bereiteEinVideoAuf(
 ): Promise<VideoMeta> {
   const posterName = posterDateiname(mediumId)
   const webName = webVideoDateiname(mediumId)
-  const endung = originalDatei.split('.').pop() ?? 'mp4'
+  const originalDa = !!(await speicher.info(`media/${originalDatei}`))
+  if (!originalDa && !(await speicher.info(`media/${webName}`))) {
+    throw new Error(`Videodatei fehlt: ${originalDatei}`)
+  }
+  const quellDatei = originalDa ? originalDatei : webName
+  const endung = quellDatei.split('.').pop() ?? 'mp4'
 
   const arbeitsdir = await mkdtemp(join(tmpdir(), 'maptale-video-'))
   const quellTemp = join(arbeitsdir, `quelle.${endung}`)
   try {
-    const rohdaten = await speicher.lese(`media/${originalDatei}`)
+    const rohdaten = await speicher.lese(`media/${quellDatei}`)
     await writeFile(quellTemp, rohdaten)
     const info = await werkzeug.probe(quellTemp)
 
@@ -268,21 +284,29 @@ async function bereiteEinVideoAuf(
     // Fall 2 ist der Alltagsfall der App: Ein Pixel liefert H.264/AAC in .mp4
     // und wurde deshalb unangetastet durchgereicht — samt `moov` am Ende, das
     // jede Wiedergabe um Sekunden verzögerte (s. hatFaststart).
-    let videoDatei = originalDatei
-    if (mussWebKonvertiert(info, originalDatei)) {
+    let videoDatei = quellDatei
+    if (originalDa && mussWebKonvertiert(info, originalDatei)) {
       videoDatei = webName
       if (!(await speicher.info(`media/${webName}`))) {
         const webTemp = join(arbeitsdir, 'web.mp4')
         await werkzeug.transkodiere(quellTemp, webTemp)
         await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
       }
-    } else if (!hatFaststart(rohdaten)) {
+    } else if (originalDa && !hatFaststart(rohdaten)) {
       videoDatei = webName
       if (!(await speicher.info(`media/${webName}`))) {
         const webTemp = join(arbeitsdir, 'web.mp4')
         await werkzeug.remuxeFaststart(quellTemp, webTemp)
         await speicher.schreibe(`media/${webName}`, await readFile(webTemp))
       }
+    }
+
+    // Erst hier, mit der fertigen web.mp4 im Storage: das Original ist ab jetzt
+    // totes Gewicht. Die Reihenfolge ist die ganze Sicherung — vor dem
+    // erfolgreichen Schreiben zu löschen, hieße bei einem Abbruch beides zu
+    // verlieren.
+    if (videoDatei !== originalDatei && originalDa) {
+      await speicher.loesche(`media/${originalDatei}`)
     }
 
     return { dauerS: info.dauerS, videoDatei, posterDatei: posterName }

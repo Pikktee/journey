@@ -306,28 +306,28 @@ describe('bestimmeCover', () => {
   })
 
   it('nimmt ohne Wahl das erste platzierte Foto', () => {
-    expect(bestimmeCover([foto('m1'), foto('m2')])).toBe('/api/media/t1/m1.jpg')
+    expect(bestimmeCover([foto('m1'), foto('m2')])?.cover).toBe('/api/media/t1/m1.jpg')
   })
 
   it('die Wahl des Nutzers gewinnt', () => {
-    expect(bestimmeCover([foto('m1'), foto('m2')], 'm2')).toBe('/api/media/t1/m2.jpg')
+    expect(bestimmeCover([foto('m1'), foto('m2')], 'm2')?.cover).toBe('/api/media/t1/m2.jpg')
   })
 
   it('gewähltes Video liefert sein Standbild', () => {
-    expect(bestimmeCover([foto('m1'), video('m2', '/api/media/t1/m2.poster.jpg')], 'm2')).toBe(
+    expect(bestimmeCover([foto('m1'), video('m2', '/api/media/t1/m2.poster.jpg')], 'm2')?.cover).toBe(
       '/api/media/t1/m2.poster.jpg',
     )
   })
 
   it('zeigt die Wahl ins Leere, wird still das erste Foto genommen', () => {
     // z. B. weil das gewählte Medium inzwischen aus der Tour genommen wurde
-    expect(bestimmeCover([foto('m1')], 'geloescht')).toBe('/api/media/t1/m1.jpg')
+    expect(bestimmeCover([foto('m1')], 'geloescht')?.cover).toBe('/api/media/t1/m1.jpg')
     // Video ohne Standbild taugt nicht als Titelbild
-    expect(bestimmeCover([video('m1'), foto('m2')], 'm1')).toBe('/api/media/t1/m2.jpg')
+    expect(bestimmeCover([video('m1'), foto('m2')], 'm1')?.cover).toBe('/api/media/t1/m2.jpg')
   })
 
   it('unplatziertes Foto ist besser als gar keins', () => {
-    expect(bestimmeCover([foto('m1', null)])).toBe('/api/media/t1/m1.jpg')
+    expect(bestimmeCover([foto('m1', null)])?.cover).toBe('/api/media/t1/m1.jpg')
   })
 
   it('ohne brauchbares Medium bleibt es leer', () => {

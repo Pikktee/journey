@@ -604,12 +604,26 @@ export interface MediumBasis {
   type: 'photo' | 'video'
   src: string
   poster?: string
+  /** Kachel-Fassung für Miniaturen; fehlt bei unaufbereitetem Altbestand */
+  thumb?: string
   takenAt: string
   caption: string
   anchor: [number, number] | null
   placement: string
   /** roher GPS-Anker aus dem Manifest (auch wenn die Auto-Platzierung ihn verwarf) */
   gpsAnker?: [number, number]
+}
+
+/**
+ * Bildquelle für eine MINIATUR (Zeitleiste, Ablage, Streifen, Zieh-Geist).
+ *
+ * Ohne diese Wahl zieht jede Miniatur das Foto in Anzeigegröße — bei zwanzig
+ * Aufnahmen lädt der Editor dann beim Öffnen ein Vielfaches dessen, was er
+ * zeigt. Fehlt die Kachel-Fassung (Tour von vor der Aufbereitung), bleibt es
+ * beim bisherigen Bild: lieber groß als gar nicht.
+ */
+export function miniaturQuelle(m: Pick<MediumBasis, 'type' | 'src' | 'poster' | 'thumb'>): string {
+  return m.thumb ?? (m.type === 'video' ? (m.poster ?? m.src) : m.src)
 }
 
 export interface MediumAnzeige extends MediumBasis {

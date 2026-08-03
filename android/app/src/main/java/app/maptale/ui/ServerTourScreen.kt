@@ -223,7 +223,9 @@ fun ServerTourScreen(
                         .clickable { grossesFoto = foto },
                 ) {
                     AsyncImage(
-                        model = app.serverUrl() + foto.pfad,
+                        // Das Raster zeigt Drittelbreiten — dafür genügt die
+                        // Kachel-Fassung. Die Vollansicht holt das große Bild.
+                        model = app.serverUrl() + (foto.thumb ?: foto.pfad),
                         contentDescription = foto.titel,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),

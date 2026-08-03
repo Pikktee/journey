@@ -157,7 +157,11 @@ fun TourenScreen(
                         )
                         is Toureintrag.Server -> ServerKarte(
                             tour = eintrag.tour,
-                            bildUrl = eintrag.tour.cover?.let { app.serverUrl() + it },
+                            // Kachel-Fassung, wo es sie gibt: Die Karte ist eine
+                            // Bildschirmbreite groß, das Titelfoto in Anzeigegröße
+                            // wäre ein Vielfaches davon — über Mobilfunk je Zeile.
+                            bildUrl = (eintrag.tour.coverThumb ?: eintrag.tour.cover)
+                                ?.let { app.serverUrl() + it },
                             // Tippen öffnet die Reise, nicht den Player: Fotos,
                             // Umbenennen und Löschen gäbe es sonst nirgends, und
                             // der Abspielen-Knopf steht dort groß im Titelbild.

@@ -13,6 +13,7 @@ import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { baueSignatur } from './signatur.js'
 import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
+import type { FotoMeta } from './bild.js'
 import type { VideoMeta } from './video.js'
 import type { BildBefund } from './vision.js'
 import { verfeinereWetterMitFotos } from './vision.js'
@@ -51,6 +52,8 @@ export interface TourJson {
     durationS?: number
     /** Video-Standbild fürs Foto-Overlay (M4) */
     poster?: string
+    /** Kachel-Fassung für Listen und Zeitleiste (bild.ts); fehlt bei Altbestand */
+    thumb?: string
     /** Anzeige-Optionen des Foto-Stopps aus dem Edit-Overlay (Baukasten) */
     display?: { holdS?: number; kenBurns?: boolean }
     /** Platz innerhalb des Foto-Stopps (0-basiert, aus dem Edit-Overlay) */
@@ -77,24 +80,38 @@ const MODE_LABELS: Record<string, string> = {
   ferry: 'Fähre',
 }
 
+/** Titelbild in zwei Größen: groß für Detailansichten, Kachel für Listen. */
+export interface Titelbild {
+  /** Anzeigegröße (Foto-Fassung bzw. Video-Standbild) */
+  cover: string
+  /** Kachel-Fassung; null bei Altbestand ohne aufbereitete Fassungen */
+  thumb: string | null
+}
+
 /**
- * Titelbild einer fertig gerenderten Tour — der Pfad, den Listen und Galerie
- * anzeigen. Die Wahl des Nutzers (`edits.titelbild`) gewinnt; zeigt sie ins
- * Leere (gelöschtes oder unbekanntes Medium), wird still das erste platzierte
- * Foto genommen. Ein Video taugt nur mit Standbild.
+ * Titelbild einer fertig gerenderten Tour. Die Wahl des Nutzers
+ * (`edits.titelbild`) gewinnt; zeigt sie ins Leere (gelöschtes oder unbekanntes
+ * Medium), wird still das erste platzierte Foto genommen. Ein Video taugt nur
+ * mit Standbild.
+ *
+ * Beide Größen kommen aus DERSELBEN Wahl — eine zweite Funktion mit eigener
+ * Reihenfolge liefe irgendwann auseinander und zeigte in der Liste ein anderes
+ * Bild als in der Ansicht.
  */
-export function bestimmeCover(media: TourJson['media'], titelbild?: string): string | null {
+export function bestimmeCover(media: TourJson['media'], titelbild?: string): Titelbild | null {
   const gewaehlt = titelbild ? media.find((m) => m.id === titelbild) : undefined
-  if (gewaehlt) {
-    if (gewaehlt.type === 'photo') return gewaehlt.src
-    if (gewaehlt.poster) return gewaehlt.poster
+  const alsTitel = (m: TourJson['media'][number] | undefined): Titelbild | null => {
+    if (!m) return null
+    const gross = m.type === 'photo' ? m.src : m.poster
+    return gross ? { cover: gross, thumb: m.thumb ?? null } : null
   }
-  const ersteFotoAmTrack = media.find((m) => m.type === 'photo' && m.anchor)
-  if (ersteFotoAmTrack) return ersteFotoAmTrack.src
-  const erstesVideoAmTrack = media.find((m) => m.type === 'video' && m.anchor && m.poster)
-  if (erstesVideoAmTrack?.poster) return erstesVideoAmTrack.poster
-  // Auch ein unplatziertes Foto ist ein besseres Titelbild als gar keins
-  return media.find((m) => m.type === 'photo')?.src ?? null
+  return (
+    alsTitel(gewaehlt) ??
+    alsTitel(media.find((m) => m.type === 'photo' && m.anchor)) ??
+    alsTitel(media.find((m) => m.type === 'video' && m.anchor && m.poster)) ??
+    // Auch ein unplatziertes Foto ist ein besseres Titelbild als gar keins
+    alsTitel(media.find((m) => m.type === 'photo'))
+  )
 }
 
 const uhrzeit = (iso: string, zone: string): string => {
@@ -140,6 +157,9 @@ export interface EnrichEingabe {
   wetterRoh?: WetterKeyframe[] | null
   /** Aufbereitete Video-Metadaten je Medien-ID (M4; Dauer/Poster/Auslieferungspfad) */
   videoMeta?: Map<string, VideoMeta>
+  /** Aufbereitete Bild-Fassungen je Medien-ID (bild.ts; Anzeige + Kachel).
+   *  Fehlt der Eintrag, bleibt es beim Original — so bleibt Altbestand spielbar. */
+  fotoMeta?: Map<string, FotoMeta>
   /** Bild-Befunde je Medien-ID (M5; vom Aufrufer per Klassifikator vorbereitet) —
    *  verfeinern das Auto-Wetter lokal am Foto-Anker. Fehlt die Map, bleibt das
    *  Wetter exakt wie in M2 (No-Op ohne konfigurierten Klassifikator). */
@@ -170,6 +190,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     wetter,
     wetterRoh,
     videoMeta,
+    fotoMeta,
     bildBefunde,
     protokoll,
   } = eingabe
@@ -228,7 +249,11 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // (transkodiert oder Original). Fehlt sie (Foto, oder Aufbereitung fiel
       // aus), bleibt es beim Original ohne Poster.
       const meta = videoMeta?.get(m.id)
-      const datei = meta?.videoDatei ?? mediumDateiname(m)
+      // Fotos werden in einer Anzeige-Fassung ausgeliefert (bild.ts); das
+      // Original ist danach verworfen. Ohne Fassung — Altbestand oder
+      // fehlgeschlagene Aufbereitung — bleibt der Originalname stehen.
+      const fassungen = fotoMeta?.get(m.id)
+      const datei = meta?.videoDatei ?? fassungen?.anzeigeDatei ?? mediumDateiname(m)
       // Uhrzeit NUR, wenn takenAt in der Tour-Zeitspanne liegt — mtime-Fallback-
       // Zeiten tourfremder Dateien sind Unsinn (Bughunt-Befund).
       const takenMs = Date.parse(m.takenAt)
@@ -253,6 +278,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       const dauer = meta?.dauerS ?? m.durationS
       if (dauer !== undefined) eintrag.durationS = dauer
       if (meta?.posterDatei) eintrag.poster = `/api/media/${tourId}/${meta.posterDatei}`
+      if (fassungen?.thumbDatei) eintrag.thumb = `/api/media/${tourId}/${fassungen.thumbDatei}`
       // Anzeige-Optionen aus dem Overlay (Baukasten) — nur wenn dort gesetzt
       const display = edits?.medien?.[m.id]?.display
       if (display) eintrag.display = display

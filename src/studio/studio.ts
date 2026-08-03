@@ -621,8 +621,11 @@ function baueKarte(t: api.TourListe): HTMLElement {
   const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
   el.className = `karte${arbeitet ? ' arbeitet' : ''}${t.status === 'fehler' ? ' defekt' : ''}`
   el.dataset['tour'] = t.id
-  const bild = t.cover
-    ? `<div class="bild"><img src="${escape(t.cover)}" alt="" loading="lazy" />${spurSignet(t)}</div>`
+  // Kachel-Fassung, wo es sie gibt: die Bibliothek zog bisher je Kachel das
+  // volle Titelfoto (mehrere MB) für ein Bild von wenigen hundert Pixeln.
+  const titelbild = t.coverThumb ?? t.cover
+  const bild = titelbild
+    ? `<div class="bild"><img src="${escape(titelbild)}" alt="" loading="lazy" />${spurSignet(t)}</div>`
     : `<div class="bild ohne">${icon('route')}${spurSignet(t)}</div>`
 
   // Auf der Übersicht nur das Zeichen; was schiefging, steht in der geöffneten Tour.
@@ -671,7 +674,7 @@ function baueZeile(t: api.TourListe): HTMLElement {
   el.className = 'zeile'
   const arbeitet = t.status !== 'bereit' && t.status !== 'fehler'
   el.innerHTML = `
-    <div class="mini">${t.cover ? `<img src="${escape(t.cover)}" alt="" loading="lazy" />` : icon('route')}</div>
+    <div class="mini">${t.coverThumb ?? t.cover ? `<img src="${escape((t.coverThumb ?? t.cover) as string)}" alt="" loading="lazy" />` : icon('route')}</div>
     <div class="txt">
       <div class="t">${escape(t.title ?? '(ohne Titel)')}</div>
       <div class="m">${arbeitet ? 'entsteht gerade …' : escape(metaZeile(t))}</div>

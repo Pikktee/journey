@@ -13,6 +13,13 @@ import {
   trimSignatur,
   type AnreicherungsCache,
 } from '../pipeline/anreicherung.js'
+import {
+  anzeigeDateiname,
+  bereiteFotosAuf,
+  thumbDateiname,
+  type FotoEingabe,
+  type FotoMeta,
+} from '../pipeline/bild.js'
 import { bestimmeCover, reichereAn } from '../pipeline/enrich.js'
 import { vereinfacheSegment } from '../pipeline/geo.js'
 import { baueSegmentAusGpx, parseGpx } from '../pipeline/gpx.js'
@@ -20,7 +27,7 @@ import { hebeSchienenAbschnitte, umgebungsBox } from '../pipeline/schienen.js'
 import { istAufzeichnung, trenneGehabschnitteInSegmenten } from '../pipeline/tempo.js'
 import { waehleMusik } from '../pipeline/musikwahl.js'
 import { platziereMedien } from '../pipeline/placement.js'
-import { bereiteVideosAuf, type VideoMeta } from '../pipeline/video.js'
+import { bereiteVideosAuf, webVideoDateiname, type VideoMeta } from '../pipeline/video.js'
 import type { BildBefund } from '../pipeline/vision.js'
 import { wendeTrimAn } from '../pipeline/edits.js'
 import { baueZeitreihe, kollabierePausen } from '../pipeline/zeit.js'
@@ -55,6 +62,8 @@ export interface TourZeile {
   stats_json: string | null
   /** Titelbild-Pfad (wie media[].src); beim Rendern gesetzt, NULL vor dem ersten Render */
   cover: string | null
+  /** Kachel-Fassung des Titelbilds; NULL ohne aufbereitete Fassungen */
+  cover_thumb: string | null
   fehler: string | null
   created_at: string
   updated_at: string
@@ -201,10 +210,24 @@ export function registriereTourRouten(app: FastifyInstance): void {
       setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
       return reply.code(409).send({ fehler: 'Track (GPX) fehlt', fehlend: ['track.gpx'] })
     }
+    // Ein Medium gilt als da, wenn das Original ODER eine daraus abgeleitete
+    // Fassung liegt: Nach dem ersten Render ist das Original verworfen, und ein
+    // wiederholtes finalize (der App-Upload versucht es bei jedem Retry) darf
+    // deshalb nicht „Medien fehlen" melden.
     const fehlend: string[] = []
     for (const medium of manifest.media) {
-      const info = await storage.info(tour.id, `media/${mediumDateiname(medium)}`)
-      if (!info) fehlend.push(medium.id)
+      const kandidaten =
+        medium.type === 'photo'
+          ? [mediumDateiname(medium), anzeigeDateiname(medium.id)]
+          : [mediumDateiname(medium), webVideoDateiname(medium.id)]
+      let da = false
+      for (const datei of kandidaten) {
+        if (await storage.info(tour.id, `media/${datei}`)) {
+          da = true
+          break
+        }
+      }
+      if (!da) fehlend.push(medium.id)
     }
     if (fehlend.length) {
       setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
@@ -382,10 +405,17 @@ export function registriereTourRouten(app: FastifyInstance): void {
     const platziert = platziereMedien(manifest.media, segmente.flatMap((s) => s.pts), startMs)
     const medien: Array<Record<string, unknown>> = []
     for (const { medium, anchor, placement } of platziert) {
+      // Die Anzeige-Fassung ist nach dem ersten Render die einzige noch
+      // vorhandene Datei; nur bei unverarbeitetem Altbestand liegt das Original.
+      const anzeige = anzeigeDateiname(medium.id)
+      const bildDatei =
+        medium.type === 'photo' && (await storage.info(tour.id, `media/${anzeige}`))
+          ? anzeige
+          : mediumDateiname(medium)
       const eintrag: Record<string, unknown> = {
         id: medium.id,
         type: medium.type,
-        src: `/api/media/${tour.id}/${mediumDateiname(medium)}`,
+        src: `/api/media/${tour.id}/${bildDatei}`,
         takenAt: medium.takenAt,
         caption: medium.caption ?? '',
         anchor,
@@ -399,6 +429,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
         const poster = `${medium.id}.poster.jpg`
         if (await storage.info(tour.id, `media/${poster}`)) eintrag['poster'] = `/api/media/${tour.id}/${poster}`
       }
+      // Kachel für Zeitleiste und Inspector — die Miniatur zog bisher das volle
+      // Foto (mehrere MB je Aufnahme, bei jedem Öffnen des Editors)
+      const thumb = thumbDateiname(medium.id)
+      if (await storage.info(tour.id, `media/${thumb}`)) eintrag['thumb'] = `/api/media/${tour.id}/${thumb}`
       medien.push(eintrag)
     }
     medien.sort((a, b) => (Date.parse(a['takenAt'] as string) || 0) - (Date.parse(b['takenAt'] as string) || 0))
@@ -444,13 +478,22 @@ export function registriereTourRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const zeilen = db
       .prepare(
-        `SELECT id, no, status, visibility, title, stats_json, cover, fehler, created_at
+        `SELECT id, no, status, visibility, title, stats_json, cover, cover_thumb, fehler, created_at
          FROM tours WHERE owner_id = ? ORDER BY created_at DESC`,
       )
       .all(benutzer.id) as Array<
       Pick<
         TourZeile,
-        'id' | 'no' | 'status' | 'visibility' | 'title' | 'stats_json' | 'cover' | 'fehler' | 'created_at'
+        | 'id'
+        | 'no'
+        | 'status'
+        | 'visibility'
+        | 'title'
+        | 'stats_json'
+        | 'cover'
+        | 'cover_thumb'
+        | 'fehler'
+        | 'created_at'
       >
     >
     return {
@@ -462,6 +505,8 @@ export function registriereTourRouten(app: FastifyInstance): void {
         title: z.title,
         stats: z.stats_json ? (JSON.parse(z.stats_json) as unknown) : null,
         cover: z.cover,
+        // Kachel-Fassung; fehlt sie (Altbestand), fällt die Anzeige auf `cover` zurück
+        coverThumb: z.cover_thumb,
         fehler: z.fehler,
         createdAt: z.created_at,
       })),
@@ -633,7 +678,8 @@ async function verarbeite(
   opts: { frisch?: boolean; erstmals?: boolean } = {},
 ): Promise<void> {
   const { frisch = false, erstmals = false } = opts
-  const { db, storage, benutzerStorage, geocoder, wetter, videoWerkzeug, bildKlassifikator, schienen } = app.deps
+  const { db, storage, benutzerStorage, geocoder, wetter, videoWerkzeug, bildWerkzeug, bildKlassifikator, schienen } =
+    app.deps
   const protokoll = (nachricht: string): void => app.log.warn(nachricht)
   try {
     const tour = ladeTour(app, tourId)
@@ -714,34 +760,61 @@ async function verarbeite(
     //     Cache übernehmen; nur ohne Cache neu berechnen. Das erspart dem
     //     Edit-Speichern ffprobe/Transcode UND die teure, sequenzielle
     //     Foto-Bildanalyse (1 Vision-Call je Foto) — der Löwenanteil der Zeit.
+    const medienSpeicher = {
+      lese: (relPfad: string) => storage.lese(tourId, relPfad),
+      schreibe: (relPfad: string, inhalt: Buffer) => storage.schreibe(tourId, relPfad, inhalt),
+      info: (relPfad: string) => storage.info(tourId, relPfad),
+      loesche: (relPfad: string) => storage.loesche(tourId, relPfad),
+    }
+
     let videoMeta: Map<string, VideoMeta>
-    let bildBefunde: Map<string, BildBefund>
     if (cache) {
       videoMeta = recordZuMap(cache.videoMeta)
-      bildBefunde = recordZuMap(cache.befunde)
     } else {
       videoMeta = new Map<string, VideoMeta>()
       const videoMedien = manifest.media.filter((m) => m.type === 'video')
       if (videoWerkzeug && videoMedien.length) {
         videoMeta = await bereiteVideosAuf({
           medien: videoMedien.map((m) => ({ id: m.id, originalDatei: mediumDateiname(m) })),
-          speicher: {
-            lese: (relPfad) => storage.lese(tourId, relPfad),
-            schreibe: (relPfad, inhalt) => storage.schreibe(tourId, relPfad, inhalt),
-            info: (relPfad) => storage.info(tourId, relPfad),
-          },
+          speicher: medienSpeicher,
           werkzeug: videoWerkzeug,
           protokoll,
         })
       }
-      // Bildanalyse (M5): nur mit konfiguriertem Klassifikator (OpenRouter-Key).
-      // Ein einzelnes scheiterndes Bild darf die Anreicherung nie kippen. Welche
-      // Fotos tatsächlich verwertet werden (platziert), entscheidet reichereAn.
+    }
+
+    // Bild-Fassungen (bild.ts) — anders als die Blöcke darüber IMMER, auch mit
+    // gültigem Cache: Sie sind keine berechneten Metadaten, sondern DATEIEN, und
+    // welche liegen, weiß nur der Storage. Teuer ist das nicht — liegen beide
+    // Fassungen, bleibt es bei zwei stat-Aufrufen je Medium.
+    const fotoMeta = bildWerkzeug
+      ? await bereiteFotosAuf({
+          medien: manifest.media.flatMap((m): FotoEingabe[] => {
+            if (m.type === 'photo') return [{ id: m.id, quellDatei: mediumDateiname(m), anzeige: true }]
+            // Videos: Kachel aus dem Standbild — das Poster selbst bleibt
+            const poster = videoMeta.get(m.id)?.posterDatei
+            return poster ? [{ id: m.id, quellDatei: poster, anzeige: false }] : []
+          }),
+          speicher: medienSpeicher,
+          werkzeug: bildWerkzeug,
+          protokoll,
+        })
+      : new Map<string, FotoMeta>()
+
+    // Bildanalyse (M5): nur mit konfiguriertem Klassifikator (OpenRouter-Key).
+    // Ein einzelnes scheiterndes Bild darf die Anreicherung nie kippen. Welche
+    // Fotos tatsächlich verwertet werden (platziert), entscheidet reichereAn.
+    // Gelesen wird die ANZEIGE-Fassung: Das Modell rechnet ohnehin auf ~1000 px
+    // herunter, und das Original ist zu diesem Zeitpunkt bereits verworfen.
+    let bildBefunde: Map<string, BildBefund>
+    if (cache) {
+      bildBefunde = recordZuMap(cache.befunde)
+    } else {
       bildBefunde = new Map<string, BildBefund>()
       if (bildKlassifikator) {
         for (const m of manifest.media.filter((x) => x.type === 'photo')) {
           try {
-            const datei = mediumDateiname(m)
+            const datei = fotoMeta.get(m.id)?.anzeigeDatei ?? mediumDateiname(m)
             if (!(await storage.info(tourId, `media/${datei}`))) continue
             const daten = await storage.lese(tourId, `media/${datei}`)
             bildBefunde.set(m.id, await bildKlassifikator.klassifiziere({ daten, medientyp: bildMedientyp(datei) }))
@@ -805,6 +878,7 @@ async function verarbeite(
       orte,
       wetterRoh,
       ...(videoMeta.size ? { videoMeta } : {}),
+      ...(fotoMeta.size ? { fotoMeta } : {}),
       ...(bildBefunde.size ? { bildBefunde } : {}),
       protokoll,
     })
@@ -823,14 +897,16 @@ async function verarbeite(
     // title nur setzen, wenn noch keiner existiert (Auto-Benennung persistieren) —
     // ein während der Verarbeitung per PATCH gesetzter Nutzer-Titel darf nicht
     // rückwirkend überschrieben werden (Lost Update).
+    const titelbild = bestimmeCover(tourJson.media, edits?.titelbild)
     db.prepare(
-      `UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, cover = ?,
+      `UPDATE tours SET status = ?, title = COALESCE(title, ?), stats_json = ?, cover = ?, cover_thumb = ?,
        fehler = NULL, updated_at = ? WHERE id = ?`,
     ).run(
       'bereit',
       tourJson.brandTitle,
       JSON.stringify(tourJson.stats),
-      bestimmeCover(tourJson.media, edits?.titelbild),
+      titelbild?.cover ?? null,
+      titelbild?.thumb ?? null,
       new Date().toISOString(),
       tourId,
     )

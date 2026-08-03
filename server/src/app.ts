@@ -12,6 +12,7 @@ import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
 import type { Geocoder } from './pipeline/naming.js'
 import type { SchienenQuelle } from './pipeline/schienen.js'
+import type { BildWerkzeug } from './pipeline/bild.js'
 import type { VideoWerkzeug } from './pipeline/video.js'
 import type { BildKlassifikator } from './pipeline/vision.js'
 import type { WetterQuelle } from './pipeline/weather.js'
@@ -47,6 +48,8 @@ export interface AppAbhaengigkeiten {
   wetter: WetterQuelle | null
   /** Video-Aufbereitung (M4); null = keine Videos verarbeiten (Original ohne Poster) */
   videoWerkzeug: VideoWerkzeug | null
+  /** Bild-Aufbereitung (Anzeige- und Kachel-Fassung); null = Originale ausliefern */
+  bildWerkzeug: BildWerkzeug | null
   /** Bild-Klassifikator für die Wetter-Verfeinerung (M5); null = Feature aus */
   bildKlassifikator: BildKlassifikator | null
   /** OSM-Schienen für die Straßenbahn-Erkennung; null = Feature aus (bleibt bei Rad) */

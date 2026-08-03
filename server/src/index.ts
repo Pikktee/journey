@@ -7,6 +7,8 @@ import { konfigAusEnv } from './config.js'
 import { oeffneDb } from './db.js'
 import { KonsoleMail, ResendMail, type MailVersand } from './mail.js'
 import { trageTitelbilderNach } from './pipeline/cover.js'
+import { FfmpegBildWerkzeug } from './pipeline/bild.js'
+import { trageBildfassungenNach } from './pipeline/bildnachtrag.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
 import { OverpassSchienen } from './pipeline/schienen.js'
 import { FfmpegWerkzeug } from './pipeline/video.js'
@@ -26,6 +28,7 @@ const benutzerStorage = new FsStorage(join(konfig.datenDir, 'benutzer'))
 const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
 const videoWerkzeug = new FfmpegWerkzeug()
+const bildWerkzeug = new FfmpegBildWerkzeug()
 const schienen = new OverpassSchienen()
 // Bildanalyse (M5) nur mit Key — sonst null (No-Op, Wetter exakt wie M2).
 const bildKlassifikator: BildKlassifikator | null = konfig.openRouterKey
@@ -44,6 +47,7 @@ const app = baueApp({
   geocoder,
   wetter,
   videoWerkzeug,
+  bildWerkzeug,
   bildKlassifikator,
   schienen,
   mail,
@@ -64,3 +68,12 @@ void trageTitelbilderNach(db, storage, TOURJSON_PFAD, (n) => app.log.warn(n))
     if (anzahl > 0) app.log.info(`Titelbild nachgetragen für ${anzahl} Tour(en)`)
   })
   .catch((fehler: unknown) => app.log.error(fehler, 'Titelbild-Nachtrag fehlgeschlagen'))
+  // Danach, nicht daneben: Der Bild-Nachtrag liest das Titelbild aus der
+  // Datenbank — läuft er zeitgleich, greift er bei Bestandstouren ins Leere.
+  .then(() => trageBildfassungenNach(db, storage, TOURJSON_PFAD, bildWerkzeug, (n) => app.log.warn(n)))
+  .then(({ touren, gespart }) => {
+    if (touren > 0) {
+      app.log.info(`Bild-Fassungen nachgetragen für ${touren} Tour(en), ${(gespart / 1048576).toFixed(1)} MB frei`)
+    }
+  })
+  .catch((fehler: unknown) => app.log.error(fehler, 'Bild-Nachtrag fehlgeschlagen'))
