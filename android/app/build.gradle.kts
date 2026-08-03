@@ -10,6 +10,36 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/**
+ * Die Version des Repos — DIE eine Nummer, die auch `npm run release` anhebt.
+ *
+ * Sie stand hier lange ein zweites Mal und wurde von Hand gepflegt; genau das
+ * lief auseinander: Der App-Code änderte sich zweimal, die Nummer blieb stehen,
+ * und am Gerät war nicht mehr zu erkennen, welcher Stand installiert ist. Wer
+ * die Zahl hier wieder fest einträgt, holt sich das zurück.
+ */
+val repoVersion: String = run {
+    val datei = rootProject.file("../package.json")
+    val treffer = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(datei.readText())
+    treffer?.groupValues?.get(1) ?: error("Keine version in ${datei.path} gefunden")
+}
+
+/**
+ * `versionCode` aus der Version: 0.33.0 → 3300.
+ *
+ * Android verlangt eine ganze Zahl, die NIE kleiner wird — sonst verweigert das
+ * Gerät das Update. Die Rechnung hält die Reihenfolge von semver ein, solange
+ * Minor und Patch unter 100 bleiben; darüber würde 0.100.0 hinter 1.0.0 fallen,
+ * deshalb bricht der Build dort lieber ab.
+ */
+fun versionsZahl(version: String): Int {
+    val teile = version.split(".").map { it.toIntOrNull() ?: error("Unlesbare Version: $version") }
+    require(teile.size == 3) { "Version braucht drei Teile: $version" }
+    val (major, minor, patch) = teile
+    require(minor < 100 && patch < 100) { "Minor/Patch ab 100 kippen die Reihenfolge: $version" }
+    return major * 10000 + minor * 100 + patch
+}
+
 android {
     namespace = "app.maptale"
     compileSdk = 35
@@ -18,8 +48,8 @@ android {
         applicationId = "app.maptale"
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionName = repoVersion
+        versionCode = versionsZahl(repoVersion)
     }
 
     buildTypes {
@@ -38,6 +68,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Ohne das gäbe es kein BuildConfig.VERSION_NAME — und die App könnte
+        // nicht sagen, welcher Stand sie ist (AGP 8 schaltet es standardmäßig ab).
+        buildConfig = true
     }
 
     // Room legt je Schema-Version eine JSON-Datei ab. Sie ist die Vergleichsbasis

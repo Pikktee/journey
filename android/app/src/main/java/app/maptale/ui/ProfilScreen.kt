@@ -70,6 +70,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.maptale.BuildConfig
 import app.maptale.MaptaleApp
 import coil.compose.AsyncImage
 import java.util.Locale
@@ -338,6 +339,17 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             ),
             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
         ) { Text("Konto löschen") }
+
+        // Welcher Stand ist installiert? Ohne diese Zeile ist das am Gerät
+        // nicht zu beantworten — und zwei Builds mit derselben Nummer sahen
+        // von außen identisch aus. Leise ganz unten: gesucht wird sie nur,
+        // wenn etwas nicht stimmt.
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "Maptale ${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        )
         Spacer(Modifier.height(56.dp))
     }
 
