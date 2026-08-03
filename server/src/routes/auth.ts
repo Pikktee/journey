@@ -6,7 +6,7 @@
 import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
-import type { ProfilAenderung } from '../auth/auth.js'
+import { nameAusEmail, type ProfilAenderung } from '../auth/auth.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
 import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
@@ -141,14 +141,17 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // (zwei Anmeldungen mit demselben Code in derselben Sekunde), wird das eben
   // angelegte Konto wieder zurückgenommen; ein halb registrierter Benutzer wäre
   // schlimmer als ein abgewiesener.
-  app.post<{ Body: { email: string; passwort: string; name: string; code?: string } }>(
+  // `name` ist OPTIONAL: Das Formular fragt nur noch E-Mail und Passwort ab —
+  // je weniger Felder, desto mehr Leute kommen an. Fehlt er, wird er aus der
+  // Adresse abgeleitet (nameAusEmail); wer ihn mitschickt, behält ihn.
+  app.post<{ Body: { email: string; passwort: string; name?: string; code?: string } }>(
     '/api/auth/register',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['email', 'passwort', 'name'],
+          required: ['email', 'passwort'],
           properties: {
             email: emailSchema,
             passwort: passwortSchema,
@@ -175,7 +178,8 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       }
       if (app.auth.emailVergeben(email)) return reply.code(409).send({ fehler: 'Diese E-Mail ist bereits registriert' })
 
-      const benutzer = await app.auth.legeBenutzerAn(email, request.body.passwort, request.body.name.trim(), false)
+      const name = request.body.name?.trim() || nameAusEmail(email)
+      const benutzer = await app.auth.legeBenutzerAn(email, request.body.passwort, name, false)
       if (codePflicht && !app.einladungen.loeseEin(code, benutzer.id)) {
         app.auth.loescheBenutzer(benutzer.id)
         return reply.code(403).send({ fehler: CODE_FEHLER.verbraucht })

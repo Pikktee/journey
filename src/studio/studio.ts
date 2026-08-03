@@ -47,7 +47,6 @@ const els = {
   codeWeiter: $<HTMLButtonElement>('code-weiter'),
   // Schritt 2: die eigenen Daten
   registerForm: $<HTMLFormElement>('register-form'),
-  regName: $<HTMLInputElement>('reg-name'),
   regEmail: $<HTMLInputElement>('reg-email'),
   regPasswort: $<HTMLInputElement>('reg-passwort'),
   regCodeChip: $('reg-code-chip'),
@@ -274,7 +273,7 @@ function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
   // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
   if (!einladungPflicht) setzeBestaetigtenCode('')
   els.regUnterzeile.textContent = einladungPflicht
-    ? 'Nur noch dein Name, deine Adresse und ein Passwort.'
+    ? 'Nur noch deine Adresse und ein Passwort.'
     : 'Kostenlos — du bekommst gleich eine Bestätigungsmail.'
   // `#registrieren` von der Landing fällt vor dieser Antwort an und kannte die
   // Pflicht noch nicht — hier steht der Einstieg gerade, falls nötig.
@@ -355,7 +354,7 @@ async function behandleAuthHash(): Promise<void> {
       await api.pruefeEinladung(code)
       setzeBestaetigtenCode(code)
       zeigeAuthModus('register')
-      els.regName.focus()
+      els.regEmail.focus()
     } catch (fehler) {
       els.codeFehler.textContent = (fehler as Error).message
       zeigeAuthModus('code')
@@ -393,7 +392,7 @@ const bindeAbsenden = (feld: HTMLInputElement, knopf: HTMLButtonElement) => (bef
 const regPasswortfeld = haengePasswortfeld(els.regPasswort, {
   // Name und Adresse stehen im selben Formular und ändern sich noch, während
   // das Passwort schon getippt ist — deshalb als Funktion, nicht als Wert.
-  persoenlich: () => [els.regName.value, els.regEmail.value],
+  persoenlich: () => [els.regEmail.value],
   beiAenderung: bindeAbsenden(els.regPasswort, els.regAbsenden),
 })
 
@@ -439,7 +438,7 @@ els.codeForm.addEventListener('submit', async (e) => {
     await api.pruefeEinladung(code)
     setzeBestaetigtenCode(code)
     zeigeAuthModus('register')
-    els.regName.focus()
+    els.regEmail.focus()
   } catch (fehler) {
     els.codeFehler.textContent = (fehler as Error).message
     els.regCode.select()
@@ -462,12 +461,7 @@ els.registerForm.addEventListener('submit', async (e) => {
   els.registerFehler.textContent = ''
   els.regAbsenden.disabled = true
   try {
-    await api.registriere(
-      els.regEmail.value.trim(),
-      els.regPasswort.value,
-      els.regName.value.trim(),
-      bestaetigterCode || undefined,
-    )
+    await api.registriere(els.regEmail.value.trim(), els.regPasswort.value, bestaetigterCode || undefined)
     regPasswortfeld.leere()
     await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
   } catch (fehler) {

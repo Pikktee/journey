@@ -112,13 +112,14 @@ export function logout(): Promise<unknown> {
 export function registriere(
   email: string,
   passwort: string,
-  name: string,
   code?: string,
 ): Promise<{ benutzer: Benutzer; verifiziert: boolean }> {
+  // Kein `name`: Das Formular fragt nur E-Mail und Passwort ab, den
+  // Anzeigenamen leitet der Server aus der Adresse ab (nameAusEmail).
   return anfrage('/auth/register', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify(code ? { email, passwort, name, code } : { email, passwort, name }),
+    body: JSON.stringify(code ? { email, passwort, code } : { email, passwort }),
   })
 }
 

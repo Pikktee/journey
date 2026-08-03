@@ -375,7 +375,10 @@
     .login-formseite { display: grid; place-items: center; padding: 32px; overflow: auto; }
     .login-box { width: min(360px, 100%); }
     .login-box h2 { font-size: 26px; font-weight: 520; letter-spacing: -0.01em; }
-    .login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; }
+    /* text-wrap: balance — die Unterzeilen sind zwei kurze Sätze; ohne Ausgleich
+       rutscht das erste Wort des zweiten ans Ende der ersten Zeile und steht
+       dort allein. */
+    .login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; text-wrap: balance; }
     .login-box .feld { margin-bottom: 16px; }
     .login-box button[type='submit'] { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
     .auth-wechsel { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
@@ -2655,7 +2658,7 @@
              erfahren, bevor er Name, Adresse und Passwort eintippt. -->
         <form id="code-form" class="auth-form" hidden>
           <h2>Du bist eingeladen?</h2>
-          <p class="unterzeile">Maptale ist gerade nur auf Einladung offen. Gib den Code aus deiner Einladung ein.</p>
+          <p class="unterzeile">Maptale wächst gerade von Einladung zu Einladung. Mit deinem Code bist du dabei.</p>
           <div class="feld">
             <label for="reg-code">Einladungscode</label>
             <input id="reg-code" class="code-eingabe" type="text" maxlength="9" autocomplete="off"
@@ -2679,10 +2682,10 @@
             <span>Einladung <b id="reg-code-wert"></b></span>
             <button type="button" class="link" id="reg-code-aendern">Ändern</button>
           </div>
-          <div class="feld">
-            <label for="reg-name">Name</label>
-            <input id="reg-name" type="text" autocomplete="name" maxlength="80" required />
-          </div>
+          <!-- Zwei Felder, nicht drei. Der Name war nie nötig, um ein Konto zu
+               führen: Der Server leitet einen aus der Adresse ab, und im Profil
+               steht ohnehin ein eigener Anzeigename. Jedes Pflichtfeld kostet
+               Anmeldungen. -->
           <div class="feld">
             <label for="reg-email">E-Mail</label>
             <input id="reg-email" type="email" autocomplete="username" required />

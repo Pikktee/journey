@@ -667,9 +667,17 @@ Konto wieder zurückgenommen.
 
 **Die Registrierung ist zweistufig: erst die Einladung, dann die Person.** Schritt 1 fragt nur
 den Code und prüft ihn über `POST /api/auth/einladung-pruefen` — rein lesend, eigene Bremse
-(12 Versuche je 10 min), verbraucht nichts. Erst danach kommt das Formular mit Name, Adresse
-und Passwort; der bestätigte Code steht dort als grüner Chip mit „Ändern", sonst wüsste niemand,
-ob die Einladung angekommen ist. Ohne Einladungspflicht entfällt Schritt 1 ersatzlos.
+(12 Versuche je 10 min), verbraucht nichts. Erst danach kommt das Formular — und das fragt
+**nur E-Mail und Passwort**: Jedes weitere Pflichtfeld kostet Anmeldungen, und für ein Konto
+gebraucht wurde der Name nie. `users.name` ist trotzdem NOT NULL und trägt zwei sichtbare
+Dinge (Mail-Anrede „Hallo Mira," und den Konto-Chip, solange im Profil kein Anzeigename
+steht) — deshalb leitet `nameAusEmail` ([server/src/auth/auth.ts](server/src/auth/auth.ts))
+ihn aus dem lokalen Teil der Adresse ab: Plus-Zusatz weg, Trennzeichen zu Leerraum, jedes
+Wort groß (`mira.wolf@…` → „Mira Wolf"). Eine VORGABE, keine Behauptung — im Profil ist der
+Anzeigename jederzeit überschreibbar. Das Feld `name` bleibt in der Route optional: Wer ihn
+mitschickt, behält ihn. Der bestätigte Code steht im Formular als grüner Chip mit „Ändern",
+sonst wüsste niemand, ob die Einladung angekommen ist. Ohne Einladungspflicht entfällt
+Schritt 1 ersatzlos.
 `formatiereEinladungscode` ([src/einladungscode.ts](src/einladungscode.ts)) räumt beim TIPPEN
 auf (Versalien, Bindestrich von selbst), statt hinterher zu meckern. Zwei Kanten: Der Einstieg
 `#registrieren` von der Landing fällt VOR der `/auth/me`-Antwort an und kennt die Pflicht noch

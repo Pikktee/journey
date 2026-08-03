@@ -81,6 +81,33 @@ const MAIL_TOKEN_DAUER_MS: Record<MailZweck, number> = {
 
 const sha256 = (wert: string): string => createHash('sha256').update(wert).digest('hex')
 
+/**
+ * Ein Anzeigename aus der Adresse — die Registrierung fragt nur noch nach
+ * E-Mail und Passwort.
+ *
+ * `users.name` ist NOT NULL und trägt zwei sichtbare Dinge: die Mail-Anrede
+ * („Hallo Mira,") und den Konto-Chip, solange im Profil kein Anzeigename
+ * gesetzt ist. Leer hieße also „Hallo ,". Deshalb wird der lokale Teil der
+ * Adresse aufbereitet: Plus-Zusatz weg (`mira+maptale@` → `mira`),
+ * Trennzeichen zu Leerraum, jedes Wort groß.
+ *
+ * Das ist eine VORGABE, keine Behauptung über den Menschen — im Profil lässt
+ * sich der Anzeigename jederzeit überschreiben. Und es ist der Grund, warum
+ * das Feld nicht einfach leer bleibt: Ein Pflichtfeld weniger im Formular darf
+ * nicht als „Hallo ," in der Bestätigungsmail wieder auftauchen.
+ */
+export function nameAusEmail(email: string): string {
+  const lokal = email.split('@')[0] ?? ''
+  const ohneZusatz = lokal.split('+')[0] ?? lokal
+  const worte = ohneZusatz
+    .split(/[._-]+/)
+    .filter((wort) => wort.length > 0)
+    .map((wort) => wort.charAt(0).toUpperCase() + wort.slice(1))
+  // Die Rückfallkette greift nur bei Adressen, die die Prüfung davor gar nicht
+  // durchlassen würde („...@x.de"). Erfunden wird nichts.
+  return (worte.join(' ') || ohneZusatz || lokal || email).slice(0, 80)
+}
+
 export class AuthDienst {
   constructor(private readonly db: Db) {}
 

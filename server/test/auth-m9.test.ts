@@ -3,6 +3,7 @@
 // gegen Temp-SQLite + Fake-Storage + Fake-Mail.
 
 import { describe, expect, it } from 'vitest'
+import { nameAusEmail } from '../src/auth/auth.js'
 import { baueTestApp, beispielManifest, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
 
 // Token aus dem letzten Mail-Link ziehen (…#verify=<token> / …#reset=<token>)
@@ -22,6 +23,64 @@ async function registriere(u: TestUmgebung, email = 'neu@example.com', passwort 
 function sessionAus(antwort: Awaited<ReturnType<TestUmgebung['app']['inject']>>): { maptale_session: string } {
   return { maptale_session: antwort.cookies.find((c) => c.name === 'maptale_session')?.value ?? '' }
 }
+
+describe('Registrierung ohne Namensfeld', () => {
+  // Das Formular fragt nur E-Mail und Passwort ab. `users.name` ist aber NOT
+  // NULL und trägt die Mail-Anrede — fiele die Ableitung aus, stünde dort
+  // „Hallo ,", und zwar erst in der verschickten Mail sichtbar.
+  it('legt ein Konto ohne `name` an und leitet den Anzeigenamen aus der Adresse ab', async () => {
+    const u = await baueTestApp()
+    oeffneRegistrierung(u)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'mira.wolf@example.com', passwort: 'lampe wolke treppe' },
+    })
+    expect(antwort.statusCode).toBe(201)
+    expect(antwort.json().benutzer).toMatchObject({ name: 'Mira Wolf' })
+    expect(u.mail.nachrichten[0]?.text).toContain('Hallo Mira Wolf,')
+  })
+
+  it('lässt den Plus-Zusatz weg', async () => {
+    const u = await baueTestApp()
+    oeffneRegistrierung(u)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'mira+maptale@example.com', passwort: 'lampe wolke treppe' },
+    })
+    expect(antwort.json().benutzer).toMatchObject({ name: 'Mira' })
+  })
+
+  it('behält einen mitgeschickten Namen', async () => {
+    const u = await baueTestApp()
+    oeffneRegistrierung(u)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'mira.wolf@example.com', passwort: 'lampe wolke treppe', name: 'Mira W.' },
+    })
+    expect(antwort.json().benutzer).toMatchObject({ name: 'Mira W.' })
+  })
+})
+
+describe('nameAusEmail', () => {
+  it('macht aus dem lokalen Teil einen lesbaren Namen', () => {
+    expect(nameAusEmail('mira.wolf@example.com')).toBe('Mira Wolf')
+    expect(nameAusEmail('mira_wolf@example.com')).toBe('Mira Wolf')
+    expect(nameAusEmail('mira-wolf@example.com')).toBe('Mira Wolf')
+    expect(nameAusEmail('mira@example.com')).toBe('Mira')
+    expect(nameAusEmail('mira+maptale@example.com')).toBe('Mira')
+  })
+
+  it('erfindet nichts, wo nichts zu holen ist, und bleibt im Spaltenmaß', () => {
+    // Solche Adressen kommen an der Prüfung davor gar nicht vorbei — die
+    // Funktion darf trotzdem nichts Leeres liefern, die Spalte ist NOT NULL.
+    expect(nameAusEmail('...@example.com')).toBe('...')
+    expect(nameAusEmail('@example.com')).toBe('@example.com')
+    expect(nameAusEmail(`${'a'.repeat(200)}@example.com`).length).toBe(80)
+  })
+})
 
 describe('Registrierung + E-Mail-Bestätigung (M9)', () => {
   it('registriert unbestätigt, verschickt Bestätigungsmail und loggt direkt ein', async () => {
