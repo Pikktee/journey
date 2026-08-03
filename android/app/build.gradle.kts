@@ -66,6 +66,26 @@ android {
         jvmTarget = "17"
     }
 
+    // Welcher Schlüssel den Debug-Build signiert, entscheidet, ob ein neuer APK
+    // eine vorhandene Installation AKTUALISIEREN kann: Android verlangt dieselbe
+    // Signatur, sonst bleibt nur Deinstallieren. Lokal ist das der Schlüssel aus
+    // ~/.android — auf einem CI-Läufer entstünde bei jedem Lauf ein neuer, und
+    // jedes Release wäre für Bestandsinstallationen unbrauchbar. Deshalb lässt
+    // er sich über die Umgebung hereinreichen (Workflow: deploy.yml).
+    signingConfigs {
+        getByName("debug") {
+            val hinterlegt = System.getenv("MAPTALE_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }
+            if (hinterlegt != null) {
+                storeFile = file(hinterlegt)
+                // Die Vorgaben sind die von Android selbst vergebenen — ein
+                // Debug-Keystore ist kein Geheimnis, sondern eine Identität.
+                storePassword = System.getenv("MAPTALE_DEBUG_KEYSTORE_PASSWORT") ?: "android"
+                keyAlias = System.getenv("MAPTALE_DEBUG_KEY_ALIAS") ?: "androiddebugkey"
+                keyPassword = System.getenv("MAPTALE_DEBUG_KEY_PASSWORT") ?: "android"
+            }
+        }
+    }
+
     buildFeatures {
         compose = true
         // Ohne das gäbe es kein BuildConfig.VERSION_NAME — und die App könnte

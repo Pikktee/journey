@@ -62,6 +62,13 @@ Rest ab, den kein Server wegnehmen kann: das Netz.
 die Sitzung für die Kopfzeilen (private Medien) kommt erst aus dem Netz — wer dort setzt, spielt
 ohne Anmeldung an und bekommt nie eine zweite Chance.
 
+**Die Versionsnummer wird nicht hier gepflegt.** `build.gradle.kts` liest sie aus der
+`package.json` des Repos und rechnet den `versionCode` daraus (`0.34.0` → `3400`); ein
+Drift-Wächter in `test/versionen.test.ts` verhindert den Rückfall auf eine fest eingetragene
+Zahl. Sie stand einmal an zwei Stellen — gepflegt wurde nur eine, und auf dem Testgerät lag
+dadurch monatelang eine Nummer, die nichts mehr über den Stand sagte. Den APK baut der
+Deploy-Workflow bei jedem Version-Tag: [docs/android-release.md](../docs/android-release.md).
+
 **Room-Migrationen sind Pflicht**, kein `fallbackToDestructiveMigration`: auf dem Gerät liegen
 echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`
 exportiert; der Migrationstest baut daraus die alte Datenbank und lässt Room migrieren und

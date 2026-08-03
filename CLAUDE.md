@@ -84,6 +84,13 @@ Build, Backend-Tests mit Coverage-Gate und Android-Unit-Tests → API-Image nach
 Site-Docroot. Tags erzeugt [scripts/release.sh](scripts/release.sh) (`npm run release`). Nötige
 Secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `CLOUDPANEL_DOCROOT` (fehlt letzteres, wird der
 Rollout still übersprungen). Runbook: [docs/deploy-cloudpanel.md](docs/deploy-cloudpanel.md).
+**Derselbe Tag baut die Android-App** und hängt den APK ans Release
+`android-X.Y.Z` — der Download-Knopf der Landing zeigt fest auf
+`releases/latest/download/maptale-android.apk` und lief, solange das von Hand geschah,
+regelmäßig dem Code hinterher. Die App-Version kommt aus derselben `package.json`
+(`versionCode` = `major*10000 + minor*100 + patch`); ohne hinterlegten Debug-Keystore
+(`ANDROID_DEBUG_KEYSTORE_BASE64`) signiert jeder Lauf anders und der APK kann eine vorhandene
+Installation nicht aktualisieren: [docs/android-release.md](docs/android-release.md).
 `docker-compose.yml` + [Caddyfile](Caddyfile) bleiben als Alt-Weg für Server ohne CloudPanel.
 
 ## Architektur
