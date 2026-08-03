@@ -23,8 +23,16 @@
  *
  * Die PNGs sind Renderings der SVGs und liegen daneben im Repo; erneuern (Playwright oder ein
  * anderer Renderer, Hauptsache exakte Pixelmaße und transparenter Rand):
- *   favicon-32.png       ← public/favicon.svg              bei 32 × 32
- *   apple-touch-icon.png ← public/branding/kachel-180.svg  bei 180 × 180
+ *   favicon-32.png                ← public/favicon.svg              bei 32 × 32
+ *   apple-touch-icon.png          ← public/branding/kachel-180.svg  bei 180 × 180
+ *   public/branding/mail-logo.png ← public/logo.svg                 bei 456 × 138 (3 ×)
+ *
+ * Das Mail-Logo MUSS ein PNG sein: Mail-Programme rendern kein SVG, und die HTML-Mails
+ * (server/src/maillayout.ts) laden es über die öffentliche Basis-URL. Es ist die einzige
+ * Ableitung mit CREMEFARBENER Wortmarke statt Weiß (#F2EDE3 wie der Fließtext daneben) —
+ * die Mail ist durchgehend warm-dunkel, ein weißes Wort stäche heraus. Beim Rendern muss die
+ * Outfit-Schrift wirklich geladen sein (android/app/src/main/res/font/outfit.ttf reicht),
+ * sonst steht dort die Systemschrift und das Logo ist unbrauchbar.
  */
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

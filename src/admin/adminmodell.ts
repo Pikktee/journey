@@ -172,3 +172,47 @@ export function loeschenGesperrt(ziel: AdminBenutzer, ichId: string, adminZahl: 
 /** Wie viele Konten die Admin-Rolle tragen. */
 export const zaehleAdmins = (liste: readonly AdminBenutzer[]): number =>
   liste.filter((b) => b.rolle === 'admin').length
+
+// — System-Mails —
+
+/** Die bearbeitbaren Teile einer Mail; Layout und HTML kommen vom Server. */
+export interface MailBausteine {
+  betreff: string
+  titel: string
+  text: string
+  knopf: string
+  fuss: string
+}
+
+export interface MailPlatzhalter {
+  name: string
+  beschreibung: string
+  beispiel: string
+}
+
+export interface MailVorlage {
+  schluessel: string
+  name: string
+  anlass: string
+  platzhalter: MailPlatzhalter[]
+  hatLink: boolean
+  standard: MailBausteine
+  /** Was tatsächlich verschickt wird: die Anpassung, sonst der Standard. */
+  bausteine: MailBausteine
+  angepasst: boolean
+  geaendertAm: string | null
+  geaendertVon: string | null
+}
+
+/**
+ * Der Satz unter dem Namen — steht die Vorlage im Code oder ist sie angefasst?
+ *
+ * Eine unveränderte Vorlage erzählt lieber, WANN sie rausgeht: Das ist die
+ * Frage, die man vor dem Bearbeiten hat. Bei einer angepassten ist die
+ * dringendere, wer sie zuletzt angefasst hat.
+ */
+export function beschreibeVorlage(v: MailVorlage): string {
+  if (!v.angepasst) return v.anlass
+  const wer = v.geaendertVon ? ` von ${v.geaendertVon}` : ''
+  return `Angepasst am ${formatiereDatum(v.geaendertAm)}${wer}`
+}

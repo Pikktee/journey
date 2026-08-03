@@ -14,4 +14,7 @@
 export const WEB_PFADE = {
   anmelden: '/anmelden',
   registrieren: '/registrieren',
+  /** Beide stehen in der Fußzeile jeder System-Mail (maillayout.ts). */
+  impressum: '/impressum',
+  datenschutz: '/datenschutz',
 } as const

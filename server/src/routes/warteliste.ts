@@ -17,7 +17,6 @@ import { erfordereAdmin } from '../app.js'
 import { GUELTIG_TAGE_STANDARD } from '../auth/einladungen.js'
 import { wartelisteAngeboten } from '../auth/warteliste.js'
 import { baueBremse } from '../bremse.js'
-import { baueWartelisteEinladungsMail, baueWartelisteMail } from '../mail.js'
 import { WEB_PFADE } from '../webpfade.js'
 
 const emailSchema = { type: 'string', maxLength: 254 } as const
@@ -80,9 +79,13 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
       if (!app.auth.emailVergeben(email)) {
         const { token } = app.warteliste.trageEin(email, request.body.notiz ?? null, request.ip || null)
         if (token) {
-          const { betreff, text } = baueWartelisteMail(bestaetigungsLink(token))
+          const { betreff, text, html } = app.mailvorlagen.rendere(
+            'warteliste',
+            {},
+            { basisUrl: konfig.basisUrl, link: bestaetigungsLink(token) },
+          )
           try {
-            await mail.sende({ an: email, betreff, text })
+            await mail.sende({ an: email, betreff, text, html })
           } catch (fehler) {
             app.log.error({ fehler }, 'Warteliste-Bestätigungsmail konnte nicht versendet werden')
           }
@@ -181,13 +184,16 @@ export function registriereWartelistenRouten(app: FastifyInstance): void {
       // kennt der Server nur als Hash. Die jüngste Mail trägt damit immer den
       // gültigen Weg hinaus — die ältere wird still stumpf.
       const austragToken = app.warteliste.erneuereToken(eintrag.id)
-      const { betreff, text } = baueWartelisteEinladungsMail(
-        einladung.code,
-        `${konfig.basisUrl}${WEB_PFADE.registrieren}#einladung=${encodeURIComponent(einladung.code)}`,
-        austragenLink(austragToken),
+      const { betreff, text, html } = app.mailvorlagen.rendere(
+        'warteliste-einladung',
+        { code: einladung.code, austragenLink: austragenLink(austragToken) },
+        {
+          basisUrl: konfig.basisUrl,
+          link: `${konfig.basisUrl}${WEB_PFADE.registrieren}#einladung=${encodeURIComponent(einladung.code)}`,
+        },
       )
       try {
-        await mail.sende({ an: eintrag.email, betreff, text })
+        await mail.sende({ an: eintrag.email, betreff, text, html })
       } catch (fehler) {
         app.einladungen.widerrufe(einladung.code)
         app.log.error({ fehler }, 'Warteliste-Einladungsmail konnte nicht versendet werden')

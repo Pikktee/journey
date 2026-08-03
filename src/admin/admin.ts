@@ -10,6 +10,7 @@ import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
   beschreibeEinladung,
+  beschreibeVorlage,
   beschreibeWartenden,
   einladenGesperrt,
   einladungsLink,
@@ -24,6 +25,8 @@ import {
   type AdminBenutzer,
   type AdminEinladung,
   type AdminWartender,
+  type MailBausteine,
+  type MailVorlage,
   type Rolle,
 } from './adminmodell.js'
 
@@ -73,6 +76,27 @@ const els = {
   edGueltig: $<HTMLSelectElement>('ed-gueltig'),
   edFehler: $('ed-fehler'),
   edAbbrechen: $<HTMLButtonElement>('ed-abbrechen'),
+  // System-Mails
+  mailListe: $('mail-liste'),
+  mailZusammenfassung: $('mail-zusammenfassung'),
+  mailDialog: $<HTMLDialogElement>('mail-dialog'),
+  mailForm: $<HTMLFormElement>('mail-form'),
+  mdTitel: $('md-titel'),
+  mdAnlass: $('md-anlass'),
+  mdPlatzhalter: $('md-platzhalter'),
+  mdBetreff: $<HTMLInputElement>('md-betreff'),
+  mdMtitel: $<HTMLInputElement>('md-mtitel'),
+  mdText: $<HTMLTextAreaElement>('md-text'),
+  mdKnopf: $<HTMLInputElement>('md-knopf'),
+  mdFuss: $<HTMLTextAreaElement>('md-fuss'),
+  mdVbetreff: $('md-vbetreff'),
+  mdVorschau: $<HTMLIFrameElement>('md-vorschau'),
+  mdProbleme: $('md-probleme'),
+  mdFehler: $('md-fehler'),
+  mdTest: $<HTMLButtonElement>('md-test'),
+  mdZuruecksetzen: $<HTMLButtonElement>('md-zuruecksetzen'),
+  mdAbbrechen: $<HTMLButtonElement>('md-abbrechen'),
+  mdSpeichern: $<HTMLButtonElement>('md-speichern'),
 }
 
 interface Zustand {
@@ -80,6 +104,7 @@ interface Zustand {
   benutzer: AdminBenutzer[]
   einladungen: AdminEinladung[]
   warteliste: AdminWartender[]
+  mailvorlagen: MailVorlage[]
   einladungPflicht: boolean
   wartelisteOffen: boolean
   registrierungOffen: boolean
@@ -92,6 +117,7 @@ const z: Zustand = {
   benutzer: [],
   einladungen: [],
   warteliste: [],
+  mailvorlagen: [],
   einladungPflicht: true,
   wartelisteOffen: true,
   registrierungOffen: true,
@@ -132,7 +158,12 @@ const fehlerText = (fehler: unknown): string =>
 // — Laden —
 
 async function lade(): Promise<void> {
-  const [konten, einladungen, warteliste] = await Promise.all([api.benutzer(), api.einladungen(), api.warteliste()])
+  const [konten, einladungen, warteliste, mails] = await Promise.all([
+    api.benutzer(),
+    api.einladungen(),
+    api.warteliste(),
+    api.mailvorlagen(),
+  ])
   z.benutzer = konten.benutzer
   z.einladungen = einladungen.einladungen
   z.einladungPflicht = einladungen.einladungPflicht
@@ -140,6 +171,7 @@ async function lade(): Promise<void> {
   z.basisUrl = einladungen.basisUrl || location.origin
   z.warteliste = warteliste.eintraege
   z.wartelisteOffen = warteliste.wartelisteOffen
+  z.mailvorlagen = mails.vorlagen
   render()
 }
 
@@ -173,6 +205,7 @@ function render(): void {
   rendereRegistrierung()
   rendereWarteliste()
   rendereEinladungen()
+  rendereMailvorlagen()
   rendereKonten()
 }
 
@@ -331,6 +364,63 @@ function rendereEinladungen(): void {
     leer.textContent = 'Wer eingeladen wird, bekommt einen Code und einen Link dazu.'
     els.einladungenListe.append(leer)
   }
+}
+
+/**
+ * Die vier System-Mails.
+ *
+ * Was in der Zeile steht, ist genau das, was man von außen sieht: der Name der
+ * Mail und ihr Betreff. Der Rest (Anlass, letzte Änderung) ist die Unterzeile —
+ * eine Vorlage, die niemand angefasst hat, erzählt lieber, wann sie rausgeht.
+ */
+function rendereMailvorlagen(): void {
+  const angepasst = z.mailvorlagen.filter((v) => v.angepasst).length
+  els.mailZusammenfassung.textContent = angepasst
+    ? `${z.mailvorlagen.length} Vorlagen · ${angepasst} angepasst`
+    : `${z.mailvorlagen.length} Vorlagen · alle im Auslieferungszustand`
+
+  els.mailListe.replaceChildren(
+    ...z.mailvorlagen.map((v) => {
+      const zeile = document.createElement('div')
+      zeile.className = 'zeile zeile-mail'
+
+      const haupt = document.createElement('div')
+      haupt.className = 'haupt'
+      const oben = document.createElement('div')
+      oben.className = 'oben'
+      const name = document.createElement('span')
+      name.className = 'name'
+      name.textContent = v.name
+      const zustand = document.createElement('span')
+      zustand.className = `badge ${v.angepasst ? 'angepasst' : 'standard'}`
+      zustand.textContent = v.angepasst ? 'Angepasst' : 'Standard'
+      oben.append(name, zustand)
+      const betreff = document.createElement('div')
+      betreff.className = 'betreff'
+      betreff.textContent = v.bausteine.betreff
+      const unten = document.createElement('div')
+      unten.className = 'unten'
+      unten.textContent = beschreibeVorlage(v)
+      haupt.append(oben, betreff, unten)
+
+      const griffe = document.createElement('div')
+      griffe.className = 'griffe'
+      const bearbeiten = document.createElement('button')
+      bearbeiten.type = 'button'
+      bearbeiten.className = 'still'
+      bearbeiten.textContent = 'Bearbeiten'
+      bearbeiten.addEventListener('click', () => oeffneMail(v))
+      const test = document.createElement('button')
+      test.type = 'button'
+      test.className = 'still'
+      test.textContent = 'Testmail'
+      test.addEventListener('click', () => void schickeTestmail(v.schluessel, undefined, test))
+      griffe.append(bearbeiten, test)
+
+      zeile.append(haupt, griffe)
+      return zeile
+    }),
+  )
 }
 
 function rendereKonten(): void {
@@ -599,6 +689,162 @@ els.einladungNeu.addEventListener('click', () => {
   els.einladungDialog.showModal()
   els.edNotiz.focus()
 })
+
+// — Mail-Dialog —
+//
+// Zwei Dinge halten ihn zusammen: Die Vorschau kommt vom SERVER (dasselbe
+// Layout, das später verschickt wird — ein zweiter Renderer im Browser wäre
+// genau die Kopie, die auseinanderläuft), und sie wird gebremst nachgezogen,
+// nicht bei jedem Tastendruck.
+
+let mailVorlage: MailVorlage | null = null
+let vorschauTimer = 0
+/** Zuletzt angefasstes Textfeld — dorthin fügen die Platzhalter-Chips ein. */
+let letztesFeld: HTMLInputElement | HTMLTextAreaElement = els.mdText
+
+const mailFelder = [els.mdBetreff, els.mdMtitel, els.mdText, els.mdKnopf, els.mdFuss]
+
+const bausteineAusFeldern = (): MailBausteine => ({
+  betreff: els.mdBetreff.value,
+  titel: els.mdMtitel.value,
+  text: els.mdText.value,
+  knopf: els.mdKnopf.value,
+  fuss: els.mdFuss.value,
+})
+
+function oeffneMail(v: MailVorlage): void {
+  mailVorlage = v
+  els.mdFehler.textContent = ''
+  els.mdTitel.textContent = v.name
+  els.mdAnlass.textContent = v.anlass
+  els.mdBetreff.value = v.bausteine.betreff
+  els.mdMtitel.value = v.bausteine.titel
+  els.mdText.value = v.bausteine.text
+  els.mdKnopf.value = v.bausteine.knopf
+  els.mdFuss.value = v.bausteine.fuss
+  els.mdZuruecksetzen.hidden = !v.angepasst
+  letztesFeld = els.mdText
+
+  // Die Chips tragen die Erklärung im `title`: Was `{{code}}` einsetzt, sieht
+  // man am Namen nicht — und eine Legende darunter läse niemand.
+  els.mdPlatzhalter.replaceChildren(
+    ...v.platzhalter.map((p) => {
+      const chip = document.createElement('button')
+      chip.type = 'button'
+      chip.textContent = `{{${p.name}}}`
+      chip.title = p.beschreibung
+      chip.setAttribute('aria-label', `${p.name} einfügen — ${p.beschreibung}`)
+      chip.addEventListener('click', () => fuegeEin(`{{${p.name}}}`))
+      return chip
+    }),
+  )
+
+  els.mailDialog.showModal()
+  els.mdBetreff.focus()
+  void zieheVorschau()
+}
+
+/** Platzhalter an der Einfügemarke des zuletzt benutzten Feldes einsetzen. */
+function fuegeEin(text: string): void {
+  const feld = letztesFeld
+  const start = feld.selectionStart ?? feld.value.length
+  const ende = feld.selectionEnd ?? feld.value.length
+  feld.value = feld.value.slice(0, start) + text + feld.value.slice(ende)
+  feld.focus()
+  feld.setSelectionRange(start + text.length, start + text.length)
+  planeVorschau()
+}
+
+function planeVorschau(): void {
+  clearTimeout(vorschauTimer)
+  vorschauTimer = window.setTimeout(() => void zieheVorschau(), 400)
+}
+
+async function zieheVorschau(): Promise<void> {
+  if (!mailVorlage) return
+  const schluessel = mailVorlage.schluessel
+  try {
+    const antwort = await api.vorschau(schluessel, bausteineAusFeldern())
+    // Zwischenzeitlich einen anderen Dialog geöffnet? Dann ist diese Antwort alt.
+    if (mailVorlage?.schluessel !== schluessel) return
+    els.mdVbetreff.textContent = antwort.betreff || '—'
+    els.mdVorschau.srcdoc = antwort.html
+    els.mdProbleme.textContent = antwort.probleme.join(' ')
+    els.mdProbleme.hidden = antwort.probleme.length === 0
+    els.mdSpeichern.disabled = antwort.probleme.length > 0
+  } catch (fehler) {
+    els.mdFehler.textContent = fehlerText(fehler)
+  }
+}
+
+for (const feld of mailFelder) {
+  feld.addEventListener('input', planeVorschau)
+  feld.addEventListener('focus', () => {
+    letztesFeld = feld
+  })
+}
+
+els.mdAbbrechen.addEventListener('click', () => els.mailDialog.close())
+els.mailDialog.addEventListener('close', () => {
+  mailVorlage = null
+  clearTimeout(vorschauTimer)
+})
+
+els.mailForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  if (!mailVorlage) return
+  els.mdFehler.textContent = ''
+  els.mdSpeichern.disabled = true
+  try {
+    await api.speichereVorlage(mailVorlage.schluessel, bausteineAusFeldern())
+    els.mailDialog.close()
+    await lade()
+    flash('Mail-Text gespeichert')
+  } catch (fehler) {
+    els.mdFehler.textContent = fehlerText(fehler)
+  } finally {
+    els.mdSpeichern.disabled = false
+  }
+})
+
+els.mdZuruecksetzen.addEventListener('click', async () => {
+  if (!mailVorlage) return
+  const v = mailVorlage
+  // Die Rückfrage nennt den Grund: Nach dem Zurücksetzen hängt die Vorlage
+  // wieder am Code — spätere Textverbesserungen kommen dann von allein mit.
+  if (!window.confirm(`„${v.name}" auf den Auslieferungstext zurücksetzen? Deine Fassung geht dabei verloren.`)) return
+  try {
+    await api.setzeVorlageZurueck(v.schluessel)
+    els.mailDialog.close()
+    await lade()
+    flash('Auf den Standardtext zurückgesetzt')
+  } catch (fehler) {
+    els.mdFehler.textContent = fehlerText(fehler)
+  }
+})
+
+els.mdTest.addEventListener('click', () => {
+  if (!mailVorlage) return
+  // Aus dem offenen Dialog geht die Fassung raus, die gerade in den Feldern
+  // steht — sonst prüfte die Testmail den alten Stand.
+  void schickeTestmail(mailVorlage.schluessel, bausteineAusFeldern(), els.mdTest)
+})
+
+async function schickeTestmail(
+  schluessel: string,
+  bausteine: MailBausteine | undefined,
+  knopf: HTMLButtonElement,
+): Promise<void> {
+  knopf.disabled = true
+  try {
+    const { an } = await api.testeVorlage(schluessel, bausteine)
+    flash(`Testmail an ${an} verschickt`)
+  } catch (fehler) {
+    flash(fehlerText(fehler), 'fehler')
+  } finally {
+    knopf.disabled = false
+  }
+}
 
 els.einladungForm.addEventListener('submit', async (e) => {
   e.preventDefault()

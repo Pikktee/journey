@@ -5,6 +5,7 @@
 // einmal mit ihm angeklopft, damit die Rechteprüfung nicht nur behauptet wird.
 
 import { describe, expect, it } from 'vitest'
+import { vorlage } from '../src/mailvorlagen.js'
 import { baueTestApp, beispielManifest, legeAdminAn, oeffneRegistrierung, type TestUmgebung } from './helfer.js'
 
 const registriere = (u: TestUmgebung, payload: Record<string, unknown>) =>
@@ -444,5 +445,183 @@ describe('Registrierung mit Einladung', () => {
     oeffneRegistrierung(u)
     const offen = await u.app.inject({ method: 'GET', url: '/api/auth/me' })
     expect(offen.json()).toMatchObject({ registrierung: { einladungPflicht: false } })
+  })
+})
+
+describe('System-Mails verwalten', () => {
+  const standard = () => vorlage('verifikation').standard
+
+  it('verwehrt gewöhnlichen Konten jeden Zugriff (403)', async () => {
+    const u = await baueTestApp()
+    const c = u.cookies
+    expect((await u.app.inject({ method: 'GET', url: '/api/admin/mailvorlagen', cookies: c })).statusCode).toBe(403)
+    expect(
+      (await u.app.inject({ method: 'PATCH', url: '/api/admin/mailvorlagen/reset', cookies: c, payload: standard() }))
+        .statusCode,
+    ).toBe(403)
+    expect(
+      (await u.app.inject({ method: 'POST', url: '/api/admin/mailvorlagen/reset/test', cookies: c, payload: {} }))
+        .statusCode,
+    ).toBe(403)
+    expect((await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/reset', cookies: c })).statusCode).toBe(403)
+  })
+
+  it('listet alle Vorlagen mit Standardtext, Platzhaltern und Anpassungsstand', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/mailvorlagen', cookies: admin.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const { vorlagen } = antwort.json() as { vorlagen: Array<Record<string, unknown>> }
+    expect(vorlagen).toHaveLength(4)
+    expect(vorlagen[0]).toMatchObject({ schluessel: 'verifikation', angepasst: false })
+    expect(vorlagen[0]?.platzhalter).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'link' })]))
+  })
+
+  it('speichert einen angepassten Text und verschickt ihn danach', async () => {
+    const u = await baueTestApp()
+    oeffneRegistrierung(u)
+    const admin = await legeAdminAn(u)
+    const antwort = await u.app.inject({
+      method: 'PATCH',
+      url: '/api/admin/mailvorlagen/verifikation',
+      cookies: admin.cookies,
+      payload: { ...standard(), titel: 'Servus {{name}}', knopf: 'Jetzt bestätigen' },
+    })
+    expect(antwort.statusCode).toBe(200)
+
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'neu@example.com', passwort: 'geheim12345', name: 'Mira' },
+    })
+    const mail = u.mail.nachrichten.at(-1)
+    expect(mail?.text).toContain('Servus Mira')
+    expect(mail?.html).toContain('Jetzt bestätigen')
+    // Beide Fassungen gehen raus — der Text-Teil bleibt Pflicht.
+    expect(mail?.text).toContain('#verify=')
+  })
+
+  it('lehnt eine Fassung ab, die den Empfänger nirgendwohin führt', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const antwort = await u.app.inject({
+      method: 'PATCH',
+      url: '/api/admin/mailvorlagen/verifikation',
+      cookies: admin.cookies,
+      payload: { ...standard(), knopf: '' },
+    })
+    expect(antwort.statusCode).toBe(400)
+    expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('{{link}}') })
+    // Nichts gespeichert: Die Vorlage hängt weiter am Code.
+    expect(u.app.mailvorlagen.bausteine('verifikation')).toEqual(standard())
+  })
+
+  it('kennt keine erfundenen Vorlagen', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    expect(
+      (await u.app.inject({ method: 'PATCH', url: '/api/admin/mailvorlagen/rechnung', cookies: admin.cookies, payload: standard() }))
+        .statusCode,
+    ).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/rechnung', cookies: admin.cookies })).statusCode,
+    ).toBe(404)
+    expect(
+      (await u.app.inject({ method: 'POST', url: '/api/admin/mailvorlagen/rechnung/vorschau', cookies: admin.cookies, payload: standard() }))
+        .statusCode,
+    ).toBe(404)
+  })
+
+  it('setzt auf den Auslieferungstext zurück', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    await u.app.inject({
+      method: 'PATCH',
+      url: '/api/admin/mailvorlagen/reset',
+      cookies: admin.cookies,
+      payload: { ...vorlage('reset').standard, titel: 'Anders' },
+    })
+    const antwort = await u.app.inject({ method: 'DELETE', url: '/api/admin/mailvorlagen/reset', cookies: admin.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const { vorlagen } = antwort.json() as { vorlagen: Array<{ schluessel: string; angepasst: boolean }> }
+    expect(vorlagen.find((v) => v.schluessel === 'reset')?.angepasst).toBe(false)
+  })
+
+  it('rendert die Vorschau mit Beispielwerten, ohne etwas zu speichern', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/admin/mailvorlagen/warteliste-einladung/vorschau',
+      cookies: admin.cookies,
+      payload: vorlage('warteliste-einladung').standard,
+    })
+    expect(antwort.statusCode).toBe(200)
+    const erg = antwort.json() as { html: string; betreff: string; probleme: string[] }
+    expect(erg.html).toContain('MAPT-4F7K')
+    expect(erg.html).not.toContain('{{')
+    expect(erg.probleme).toEqual([])
+    expect(u.app.mailvorlagen.alle().every((v) => !v.angepasst)).toBe(true)
+  })
+
+  it('meldet in der Vorschau dieselben Probleme, an denen das Speichern scheitert', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/admin/mailvorlagen/reset/vorschau',
+      cookies: admin.cookies,
+      payload: { ...vorlage('reset').standard, betreff: '' },
+    })
+    expect(antwort.statusCode).toBe(200)
+    expect((antwort.json() as { probleme: string[] }).probleme.join(' ')).toContain('Betreff')
+  })
+
+  it('schickt die Testmail an die eigene Adresse — und an keine andere', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    const vorher = u.mail.nachrichten.length
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/admin/mailvorlagen/verifikation/test',
+      cookies: admin.cookies,
+      payload: { bausteine: { ...standard(), titel: 'Probe' } },
+    })
+    expect(antwort.statusCode).toBe(200)
+    expect(antwort.json()).toMatchObject({ ok: true, an: 'chefin@example.com' })
+    expect(u.mail.nachrichten.length).toBe(vorher + 1)
+    const mail = u.mail.nachrichten.at(-1)
+    expect(mail?.an).toBe('chefin@example.com')
+    // Als Test erkennbar, damit niemand sie für die echte Mail hält.
+    expect(mail?.betreff.startsWith('[Test] ')).toBe(true)
+    expect(mail?.html).toContain('Probe')
+  })
+
+  it('nimmt für die Testmail ohne mitgeschickte Fassung den gespeicherten Stand', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    await u.app.inject({
+      method: 'PATCH',
+      url: '/api/admin/mailvorlagen/reset',
+      cookies: admin.cookies,
+      payload: { ...vorlage('reset').standard, titel: 'Gespeichert' },
+    })
+    await u.app.inject({ method: 'POST', url: '/api/admin/mailvorlagen/reset/test', cookies: admin.cookies, payload: {} })
+    expect(u.mail.nachrichten.at(-1)?.html).toContain('Gespeichert')
+  })
+
+  it('meldet einen gescheiterten Versand, statt Erfolg zu behaupten', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    u.mail.sende = async () => {
+      throw new Error('SMTP tot')
+    }
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/admin/mailvorlagen/reset/test',
+      cookies: admin.cookies,
+      payload: {},
+    })
+    expect(antwort.statusCode).toBe(502)
   })
 })

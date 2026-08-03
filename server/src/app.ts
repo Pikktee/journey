@@ -11,6 +11,7 @@ import { WartelistenDienst } from './auth/warteliste.js'
 import type { Konfig } from './config.js'
 import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
+import { MailVorlagenDienst } from './mailvorlagen.js'
 import type { Geocoder } from './pipeline/naming.js'
 import type { SchienenQuelle } from './pipeline/schienen.js'
 import type { BildWerkzeug } from './pipeline/bild.js'
@@ -67,6 +68,8 @@ declare module 'fastify' {
     auth: AuthDienst
     einladungen: EinladungsDienst
     warteliste: WartelistenDienst
+    /** Texte der System-Mails — Katalog im Code, Anpassungen in der DB. */
+    mailvorlagen: MailVorlagenDienst
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
   }
@@ -91,6 +94,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('auth', new AuthDienst(deps.db))
   app.decorate('einladungen', new EinladungsDienst(deps.db))
   app.decorate('warteliste', new WartelistenDienst(deps.db))
+  app.decorate('mailvorlagen', new MailVorlagenDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorateRequest('benutzer', null)
 

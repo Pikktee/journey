@@ -8,82 +8,23 @@ export interface MailNachricht {
   an: string
   betreff: string
   text: string
+  /**
+   * HTML-Fassung (Maptale-Layout, s. maillayout.ts). Optional, und beide
+   * Fassungen gehen IMMER zusammen raus: Der Text-Teil ist nicht nur für
+   * Mail-Programme ohne HTML da — eine Mail ohne ihn landet bei vielen Filtern
+   * schneller im Spam, und Vorlesewerkzeuge nehmen ihn lieber.
+   */
+  html?: string
 }
 
 export interface MailVersand {
   sende(nachricht: MailNachricht): Promise<void>
 }
 
-/** Baut Betreff + Text der beiden System-Mails an einer Stelle (DRY, testbar). */
-export function baueVerifikationsMail(name: string, link: string): { betreff: string; text: string } {
-  return {
-    betreff: 'Maptale: Bitte bestätige deine E-Mail-Adresse',
-    text:
-      `Hallo ${name},\n\n` +
-      `willkommen bei Maptale! Bitte bestätige deine E-Mail-Adresse über diesen Link:\n\n${link}\n\n` +
-      `Der Link ist 24 Stunden gültig. Falls du dich nicht registriert hast, ignoriere diese Nachricht.\n\n` +
-      `— Maptale`,
-  }
-}
-
-export function baueResetMail(name: string, link: string): { betreff: string; text: string } {
-  return {
-    betreff: 'Maptale: Passwort zurücksetzen',
-    text:
-      `Hallo ${name},\n\n` +
-      `du (oder jemand) hat ein neues Passwort für dein Maptale-Konto angefordert. ` +
-      `Setze es über diesen Link neu:\n\n${link}\n\n` +
-      `Der Link ist 1 Stunde gültig. Hast du das nicht angefordert, ist nichts passiert — ` +
-      `dein aktuelles Passwort bleibt gültig.\n\n— Maptale`,
-  }
-}
-
-/**
- * Warteliste, Schritt 1: der Bestätigungslink (Double-Opt-in).
- *
- * Ohne Anrede — wir kennen nur die Adresse, und ein aus ihr abgeleiteter Name
- * wäre hier eine Behauptung über jemanden, der noch gar kein Konto hat. Der
- * letzte Absatz ist der wichtigste: Wer nicht geklickt hat, steht auf keiner
- * Liste, also muss auch niemand widersprechen.
- */
-export function baueWartelisteMail(link: string): { betreff: string; text: string } {
-  return {
-    betreff: 'Maptale: Bitte bestätige deinen Platz auf der Warteliste',
-    text:
-      `Hallo,\n\n` +
-      `du möchtest Maptale ausprobieren — schön!\n\n` +
-      `Maptale wächst gerade von Einladung zu Einladung. Bestätige über diesen Link, ` +
-      `dass wir dich vormerken dürfen:\n\n${link}\n\n` +
-      `Sobald ein Platz frei wird, schicken wir dir einen Einladungscode an diese Adresse. ` +
-      `Sonst bekommst du keine Post von uns.\n\n` +
-      `Hast du dich nicht eingetragen, ignoriere diese Nachricht einfach: Ohne den Klick ` +
-      `wird deine Adresse nicht gespeichert und nach kurzer Zeit gelöscht.\n\n— Maptale`,
-  }
-}
-
-/**
- * Warteliste, Schritt 2: der Platz ist frei.
- *
- * Der Austragen-Link steht mit in der Mail und nicht nur in der Bestätigung:
- * Zwischen beiden können Monate liegen, und wer die erste Mail gelöscht hat,
- * hätte sonst keinen Weg mehr aus der Liste heraus.
- */
-export function baueWartelisteEinladungsMail(
-  code: string,
-  link: string,
-  austragenLink: string,
-): { betreff: string; text: string } {
-  return {
-    betreff: 'Maptale: Dein Platz ist frei',
-    text:
-      `Hallo,\n\n` +
-      `es ist so weit — du kannst dir jetzt ein Maptale-Konto anlegen.\n\n` +
-      `Dein Einladungscode: ${code}\n\n` +
-      `Am schnellsten geht es über diesen Link, er trägt den Code schon ein:\n\n${link}\n\n` +
-      `Der Code gilt für eine Anmeldung. Magst du doch nicht mehr? ` +
-      `Dann trag dich hier aus, wir löschen deine Adresse sofort:\n\n${austragenLink}\n\n— Maptale`,
-  }
-}
+// Die TEXTE der System-Mails stehen nicht mehr hier, sondern im Katalog
+// mailvorlagen.ts — sie sind seit v0.42 in der Verwaltung anpassbar, und ein
+// zweiter Satz Texte im Code wäre genau die Sorte Liste, die auseinanderläuft.
+// Gebaut werden die Mails über `app.mailvorlagen.rendere(...)`.
 
 /**
  * Dev-Versand: schreibt die Mail (inkl. Link) ins Log, statt sie zu verschicken.
@@ -113,7 +54,15 @@ export class ResendMail implements MailVersand {
     const antwort = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: this.absender, to: nachricht.an, subject: nachricht.betreff, text: nachricht.text }),
+      // `text` geht IMMER mit: Resend baut daraus multipart/alternative, und der
+      // Text-Teil ist die Fassung, die jedes Programm anzeigen kann.
+      body: JSON.stringify({
+        from: this.absender,
+        to: nachricht.an,
+        subject: nachricht.betreff,
+        text: nachricht.text,
+        ...(nachricht.html ? { html: nachricht.html } : {}),
+      }),
     })
     if (!antwort.ok) {
       throw new Error(`Mail-Versand fehlgeschlagen (${antwort.status}): ${await antwort.text()}`)

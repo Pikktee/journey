@@ -162,6 +162,22 @@ const MIGRATIONEN: string[] = [
   );
   CREATE INDEX idx_warteliste_reihe ON warteliste(bestaetigt_am);
   `,
+  // Angepasste Texte der System-Mails. Die Tabelle hält nur ABWEICHUNGEN vom
+  // Katalog in mailvorlagen.ts — eine leere Tabelle ist der Normalfall, und
+  // eine bessere Formulierung im Code erreicht dann alle. Deshalb auch kein
+  // Vorbefüllen beim Anlegen: Wer nichts geändert hat, hängt am Code.
+  `
+  CREATE TABLE mailvorlagen (
+    schluessel TEXT PRIMARY KEY,
+    betreff TEXT NOT NULL,
+    titel TEXT NOT NULL,
+    text TEXT NOT NULL,
+    knopf TEXT NOT NULL,
+    fuss TEXT NOT NULL,
+    geaendert_am TEXT NOT NULL,
+    geaendert_von TEXT REFERENCES users(id) ON DELETE SET NULL
+  );
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

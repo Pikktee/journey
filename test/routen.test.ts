@@ -99,7 +99,7 @@ describe('routen', () => {
     const auth = lies('server/src/routes/auth.ts')
 
     it('nennt dieselben Pfade wie die Tabelle', () => {
-      for (const seite of ['anmelden', 'registrieren'] as const) {
+      for (const seite of ['anmelden', 'registrieren', 'impressum', 'datenschutz'] as const) {
         expect(quelle, seite).toContain(`${seite}: '${ROUTEN[seite].pfad}'`)
       }
     })

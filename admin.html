@@ -99,7 +99,7 @@
     button svg, .knopf svg { width: 16px; height: 16px; flex: none; }
     :is(button, input, select, textarea, a):focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; border-radius: 10px; }
 
-    input[type='text'], input[type='email'], input[type='password'], input[type='search'], select {
+    input[type='text'], input[type='email'], input[type='password'], input[type='search'], select, textarea {
       font-family: var(--font-ui);
       font-size: 14px;
       color: var(--text);
@@ -110,8 +110,9 @@
       width: 100%;
       transition: border-color 160ms ease, background 160ms ease;
     }
-    :is(input, select):hover { border-color: var(--rand-hell); }
-    :is(input, select):focus { border-color: var(--akzent); outline: none; background: #0a0e15; }
+    textarea { line-height: 1.6; resize: vertical; min-height: 90px; }
+    :is(input, select, textarea):hover { border-color: var(--rand-hell); }
+    :is(input, select, textarea):focus { border-color: var(--akzent); outline: none; background: #0a0e15; }
     /* Ein gesperrtes Feld muss man SEHEN — sonst wirkt der Hinweis darunter wie
        eine Meinung und nicht wie der Grund, warum hier nichts passiert. */
     :is(input, select):disabled { opacity: 0.5; cursor: default; }
@@ -307,6 +308,83 @@
     .schalter-feld label { margin: 0; color: var(--text); font-size: 13.5px; }
     .schalter-feld input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--akzent); flex: none; }
 
+    /* — System-Mails —
+       Der Dialog ist breiter als die anderen, weil er zwei Dinge nebeneinander
+       zeigen muss: die Wörter und ihr Ergebnis. Ein Vorschau-Knopf, der zwischen
+       beiden hin- und herschaltet, hieße bei jeder Formulierung zweimal klicken. */
+    .zeile-mail { grid-template-columns: minmax(0, 1fr) 210px; }
+    .zeile-mail .betreff { color: var(--text-2); font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge.standard { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
+    .badge.angepasst { background: rgba(91, 157, 255, 0.14); color: var(--blau); }
+
+    dialog.breit { max-width: min(1120px, calc(100vw - 28px)); }
+    /* Der Dialog muss selbst scrollen können: Fällt das Raster auf eine Spalte
+       (schmales Fenster), steht der Rumpf höher als der Bildschirm — und ohne
+       diese Zeile läge „Speichern" außerhalb, unerreichbar. Ein `dialog`
+       scrollt von sich aus nicht. */
+    dialog.breit .dialog-inner {
+      width: 1120px; max-width: 100%; padding: 20px 22px 18px;
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .mail-raster {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 20px;
+      align-items: start;
+    }
+    /* Die Felderspalte scrollt für sich: Die Vorschau soll stehen bleiben,
+       während man unten am Kleingedruckten schreibt. */
+    .mail-felder { max-height: min(60vh, 560px); overflow-y: auto; padding-right: 8px; }
+    /* Wie im Studio: der Griff in Randfarbe, die Bahn unsichtbar. Die
+       Browser-Vorgabe wäre hier ein heller Balken mitten im dunklen Dialog. */
+    .mail-felder::-webkit-scrollbar { width: 10px; }
+    .mail-felder::-webkit-scrollbar-track { background: transparent; }
+    .mail-felder::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 3px solid var(--fl-2); }
+    .mail-felder .feld:last-child { margin-bottom: 2px; }
+    .mail-spalte-kopf { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+    .mail-spalte-kopf b { font-size: 13px; font-weight: 550; }
+    .mail-spalte-kopf span { color: var(--text-3); font-size: 12px; }
+
+    .ph-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 14px; }
+    .ph-chips button {
+      font-size: 12px; padding: 4px 9px; border-radius: 999px;
+      background: rgba(245, 165, 36, 0.1); border-color: rgba(245, 165, 36, 0.28); color: var(--akzent);
+    }
+    .ph-chips button:hover { background: rgba(245, 165, 36, 0.18); border-color: var(--akzent); }
+
+    .vorschau-betreff {
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 10px;
+      padding: 9px 12px; margin-bottom: 10px; font-size: 13.5px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .vorschau-betreff span { color: var(--text-3); }
+    /* Der Rahmen trägt die Farbe der Mail, damit während des Ladens nicht kurz
+       eine weiße Fläche steht. */
+    .vorschau-rahmen {
+      background: #06090E; border: 1px solid var(--rand); border-radius: 12px; overflow: hidden;
+      height: min(52vh, 480px);
+    }
+    .vorschau-rahmen iframe { display: block; width: 100%; height: 100%; border: 0; }
+    .mail-probleme {
+      margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+      background: rgba(229, 72, 77, 0.1); color: #ffb4b6; font-size: 12.5px;
+    }
+    /* Klebt am unteren Rand des scrollenden Dialogs: „Speichern" darf nie
+       außerhalb des Bildes liegen. Das negative margin-bottom hebt das
+       Innenpolster des Dialogs auf, sonst bliebe darunter ein Streifen, durch
+       den der Inhalt durchläuft. */
+    .mail-fuss {
+      display: flex; align-items: center; gap: 8px;
+      position: sticky; bottom: -18px; z-index: 2;
+      margin: 16px 0 -18px; padding: 12px 0 18px;
+      background: var(--fl-2);
+    }
+    .mail-fuss .sp { flex: 1; }
+
+    @media (max-width: 900px) {
+      .mail-raster { grid-template-columns: minmax(0, 1fr); }
+      .mail-felder { max-height: none; overflow: visible; }
+      .vorschau-rahmen { height: 380px; }
+    }
+
     /* Sperrseite für alle, die hier nicht hingehören */
     .sperre { text-align: center; padding: 90px 0; }
     .sperre h1 { font-size: 26px; font-weight: 480; margin-bottom: 10px; }
@@ -404,6 +482,18 @@
       <div class="liste" id="einladungen-liste"></div>
     </section>
 
+    <!-- System-Mails -->
+    <section class="karte">
+      <div class="karte-kopf">
+        <div>
+          <h2>System-Mails</h2>
+          <p id="mail-zusammenfassung"></p>
+        </div>
+        <span class="sp"></span>
+      </div>
+      <div class="liste" id="mail-liste"></div>
+    </section>
+
     <!-- Konten -->
     <section class="karte">
       <div class="karte-kopf">
@@ -478,6 +568,68 @@
       <div class="dialog-fuss">
         <button type="button" id="ed-abbrechen">Abbrechen</button>
         <button type="submit" class="primaer">Erstellen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Mail-Vorlage bearbeiten -->
+  <dialog id="mail-dialog" class="breit">
+    <form class="dialog-inner" id="mail-form" method="dialog">
+      <h2 id="md-titel">Mail bearbeiten</h2>
+      <p class="unterzeile" id="md-anlass"></p>
+
+      <div class="mail-raster">
+        <div>
+          <div class="mail-spalte-kopf">
+            <b>Text</b>
+            <span>Layout und Logo stehen fest</span>
+          </div>
+          <div class="ph-chips" id="md-platzhalter"></div>
+          <div class="mail-felder">
+            <div class="feld">
+              <label for="md-betreff">Betreff</label>
+              <input id="md-betreff" type="text" maxlength="200" required />
+            </div>
+            <div class="feld">
+              <label for="md-mtitel">Überschrift <span class="zusatz">— die erste Zeile in der Mail</span></label>
+              <input id="md-mtitel" type="text" maxlength="200" required />
+            </div>
+            <div class="feld">
+              <label for="md-text">Text <span class="zusatz">— Leerzeile trennt Absätze</span></label>
+              <textarea id="md-text" maxlength="4000" rows="7"></textarea>
+            </div>
+            <div class="feld">
+              <label for="md-knopf">Knopf <span class="zusatz">— leer lassen, dann muss der Link im Text stehen</span></label>
+              <input id="md-knopf" type="text" maxlength="60" />
+            </div>
+            <div class="feld">
+              <label for="md-fuss">Kleingedrucktes <span class="zusatz">— Gültigkeit, Widerspruch, „war ich das nicht?"</span></label>
+              <textarea id="md-fuss" maxlength="2000" rows="5"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="mail-spalte-kopf">
+            <b>Vorschau</b>
+            <span>mit Beispielwerten</span>
+          </div>
+          <div class="vorschau-betreff"><span>Betreff:</span> <b id="md-vbetreff">…</b></div>
+          <div class="vorschau-rahmen">
+            <iframe id="md-vorschau" title="Vorschau der Mail" sandbox=""></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div class="mail-probleme" id="md-probleme" role="alert" hidden></div>
+      <div class="hinweis fehler" id="md-fehler" role="alert"></div>
+
+      <div class="mail-fuss">
+        <button type="button" id="md-test">Testmail an mich</button>
+        <button type="button" class="still" id="md-zuruecksetzen" hidden>Auf Standard zurücksetzen</button>
+        <span class="sp"></span>
+        <button type="button" id="md-abbrechen">Abbrechen</button>
+        <button type="submit" class="primaer" id="md-speichern">Speichern</button>
       </div>
     </form>
   </dialog>

@@ -1,7 +1,7 @@
 // API-Hülle der Benutzerverwaltung — gleiche Bauart wie src/studio/api.ts:
 // origin-relativ, Session-Cookie, Fehler als Ausnahme mit der Server-Meldung.
 
-import type { AdminBenutzer, AdminEinladung, AdminWartender, Rolle } from './adminmodell.js'
+import type { AdminBenutzer, AdminEinladung, AdminWartender, MailBausteine, MailVorlage, Rolle } from './adminmodell.js'
 
 export class ApiFehler extends Error {
   constructor(
@@ -111,4 +111,53 @@ export function ladeWartendenEin(id: string): Promise<{ eintrag: AdminWartender;
 
 export function loescheWartenden(id: string): Promise<unknown> {
   return anfrage(`/admin/warteliste/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+// — System-Mails —
+
+export interface VorlagenStand {
+  vorlagen: MailVorlage[]
+  basisUrl: string
+}
+
+export function mailvorlagen(): Promise<VorlagenStand> {
+  return anfrage('/admin/mailvorlagen')
+}
+
+export function speichereVorlage(schluessel: string, bausteine: MailBausteine): Promise<{ vorlagen: MailVorlage[] }> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}`, {
+    method: 'PATCH',
+    headers: jsonKopf,
+    body: JSON.stringify(bausteine),
+  })
+}
+
+export function setzeVorlageZurueck(schluessel: string): Promise<{ vorlagen: MailVorlage[] }> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}`, { method: 'DELETE' })
+}
+
+export interface VorschauAntwort {
+  betreff: string
+  html: string
+  text: string
+  /** Was den Versand verhindern würde — dieselbe Prüfung wie beim Speichern. */
+  probleme: string[]
+}
+
+/** Rendert die noch nicht gespeicherte Fassung — das Layout kommt vom Server. */
+export function vorschau(schluessel: string, bausteine: MailBausteine): Promise<VorschauAntwort> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}/vorschau`, {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify(bausteine),
+  })
+}
+
+/** Testmail an die eigene Adresse; ohne Bausteine geht die gespeicherte Fassung raus. */
+export function testeVorlage(schluessel: string, bausteine?: MailBausteine): Promise<{ an: string }> {
+  return anfrage(`/admin/mailvorlagen/${encodeURIComponent(schluessel)}/test`, {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify(bausteine ? { bausteine } : {}),
+  })
 }

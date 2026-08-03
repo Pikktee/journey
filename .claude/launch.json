@@ -15,10 +15,33 @@
       "port": 5217
     },
     {
+      "name": "smoke2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["MAPTALE_API=http://localhost:8791", "npm", "run", "dev", "--", "--port", "5218", "--strictPort"],
+      "port": 5218
+    },
+    {
       "name": "api",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "server", "run", "dev"],
       "port": 8787
+    },
+    {
+      "name": "api-smoke",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=8791",
+        "MAPTALE_DATEN_DIR=/private/tmp/maptale-smoke",
+        "MAPTALE_ADMIN_EMAIL=henrik.heil@gmail.com",
+        "MAPTALE_ADMIN_PASSWORT=smoke12345",
+        "MAPTALE_BASIS_URL=http://localhost:5218",
+        "npm",
+        "--prefix",
+        "server",
+        "run",
+        "dev"
+      ],
+      "port": 8791
     }
   ]
 }

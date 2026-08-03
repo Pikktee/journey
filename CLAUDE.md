@@ -737,6 +737,39 @@ selbst mit — sonst stünde derselbe Block in zwei HTML-Dateien und liefe ausei
 Absende-Knopf sperrt erst, wenn tatsächlich etwas Schwaches im Feld steht: Ein von Anfang an
 grauer Knopf sähe aus, als wäre das Formular kaputt.
 
+**System-Mails: HTML im Maptale-Look, Texte in der Verwaltung.** Die vier Mails (Bestätigung,
+Passwort-Reset, Warteliste bestätigen, Warteliste einladen) gehen als **multipart** raus —
+HTML UND Text, immer beide aus DERSELBEN Quelle
+([maillayout.ts](server/src/maillayout.ts) `rendereMail`). Der Text-Teil ist keine Beigabe:
+Ohne ihn steigt die Spam-Wahrscheinlichkeit, und die halbe Testsuite zieht ihren Link daraus
+(`letzterLink()`). Deshalb steht der Haupt-Link im Text auf einer EIGENEN Zeile — Programme,
+die selbst verlinken, schneiden sonst am nächsten Satzzeichen ab, und ein Token mit
+angehängtem Punkt löst nichts ein.
+Das HTML ist tabellenbasiert mit Inline-Styles, weil Outlook mit Word rendert und Gmail
+`<style>`-Blöcke teils verwirft. Drei Dinge, die man dabei „aufräumt" und damit zerstört: Die
+Flächenfarbe muss **doppelt** stehen (`bgcolor`-Attribut UND Inline-Style), der Knopf ist eine
+Tabelle mit `bgcolor` (der Verlauf ist nur Zugabe — Outlook sieht ihn nie), und das Logo ist
+ein **PNG** mit `alt="Maptale"` (`public/branding/mail-logo.png`, Rendering von `logo.svg`,
+s. [scripts/gen-logo.mjs](scripts/gen-logo.mjs)): SVG zeigt kein Mail-Programm, und weil
+Bilder oft erst auf Klick geladen werden, ist der Alt-Text so gesetzt, dass an seiner Stelle
+die Wortmarke steht.
+**Die Texte stehen im Katalog** [mailvorlagen.ts](server/src/mailvorlagen.ts) — die Tabelle
+`mailvorlagen` hält nur ABWEICHUNGEN. Eine bessere Formulierung im Code erreicht damit alle,
+die nichts angepasst haben; „Zurücksetzen" ist folgerichtig ein DELETE, und wer den Standard
+von Hand zurücktippt, bekommt ebenfalls die Zeile gelöscht (sonst hinge die Vorlage still vom
+Code ab). Bearbeitbar sind die WORTE (Betreff, Überschrift, Absätze, Knopf, Kleingedrucktes),
+nicht das HTML: Freies Markup wäre erst im Postfach als kaputt zu sehen, ginge an jeder
+Layout-Verbesserung vorbei und wäre ein Eingabefeld, aus dem HTML in fremde Mails fließt.
+Platzhalter (`{{name}}`, `{{link}}`, `{{code}}`, `{{austragenLink}}`) sind pro Vorlage
+deklariert; `pruefeBausteine` lehnt eine Fassung ab, in der eine Angabe fehlt — eine Mail
+ohne ihren Link ist keine Geschmacksfrage, sondern eine Sackgasse. Ein Absatz, der NUR aus
+`{{code}}` besteht, wird zur hervorgehobenen Code-Box (ein Feld „Code hervorheben" wäre ein
+Formularfeld für etwas, das man am Text schon sieht).
+In der Verwaltung (Karte „System-Mails") liegen Felder und **Live-Vorschau** nebeneinander;
+gerendert wird die Vorschau vom SERVER (`POST …/vorschau`) — ein zweiter Renderer im Browser
+wäre genau die Kopie, die auseinanderläuft. „Testmail" geht **nur an die eigene Adresse** und
+trägt `[Test]` im Betreff; ein Empfängerfeld machte aus der Verwaltung ein Versandwerkzeug.
+
 ## Android-App
 
 Aufnahme-App unter [android/](android/) (Kotlin, Compose, minSdk 29) — Architektur,

@@ -10,7 +10,6 @@ import { nameAusEmail, type ProfilAenderung } from '../auth/auth.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
 import { wartelisteAngeboten } from '../auth/warteliste.js'
 import { baueBremse } from '../bremse.js'
-import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
 import { WEB_PFADE } from '../webpfade.js'
 
@@ -169,9 +168,13 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       }
       const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
       const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#verify=${token}`
-      const { betreff, text } = baueVerifikationsMail(benutzer.name, link)
+      const { betreff, text, html } = app.mailvorlagen.rendere(
+        'verifikation',
+        { name: benutzer.name },
+        { basisUrl: konfig.basisUrl, link },
+      )
       try {
-        await mail.sende({ an: benutzer.email, betreff, text })
+        await mail.sende({ an: benutzer.email, betreff, text, html })
       } catch (fehler) {
         app.log.error({ fehler }, 'Bestätigungsmail konnte nicht versendet werden')
       }
@@ -244,9 +247,17 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       if (userId) {
         const token = app.auth.erzeugeMailToken(userId, 'reset')
         const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#reset=${token}`
-        const { betreff, text } = baueResetMail(email.split('@')[0] ?? 'du', link)
+        // Der Name des KONTOS, nicht der Adress-Anfang: Die Mail geht ohnehin
+        // nur an die eigene Adresse, und „Hallo mira.wolf," liest sich wie ein
+        // Datenbankfeld.
+        const name = app.auth.benutzerNachId(userId)?.name || 'du'
+        const { betreff, text, html } = app.mailvorlagen.rendere(
+          'reset',
+          { name },
+          { basisUrl: konfig.basisUrl, link },
+        )
         try {
-          await mail.sende({ an: email, betreff, text })
+          await mail.sende({ an: email, betreff, text, html })
         } catch (fehler) {
           app.log.error({ fehler }, 'Reset-Mail konnte nicht versendet werden')
         }

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { codeVollstaendig, formatiereEinladungscode } from '../src/einladungscode.js'
 import {
   beschreibeEinladung,
+  beschreibeVorlage,
   beschreibeWartenden,
   einladenGesperrt,
   einladungsLink,
@@ -19,6 +20,7 @@ import {
   type AdminBenutzer,
   type AdminEinladung,
   type AdminWartender,
+  type MailVorlage,
 } from '../src/admin/adminmodell.js'
 
 const konto = (teil: Partial<AdminBenutzer> = {}): AdminBenutzer => ({
@@ -241,5 +243,39 @@ describe('Warteliste', () => {
     expect(einladenGesperrt(wartender())).toContain('nicht bestätigt')
     expect(einladenGesperrt(wartender({ zustand: 'eingeladen' }))).toContain('Schon eingeladen')
     expect(einladenGesperrt(wartender({ zustand: 'wartend' }))).toBe('')
+  })
+})
+
+describe('System-Mails', () => {
+  const vorlage = (teil: Partial<MailVorlage> = {}): MailVorlage => ({
+    schluessel: 'verifikation',
+    name: 'E-Mail bestätigen',
+    anlass: 'Geht nach der Registrierung raus.',
+    platzhalter: [{ name: 'link', beschreibung: 'Bestätigungslink', beispiel: 'https://…' }],
+    hatLink: true,
+    standard: { betreff: 'Bestätige', titel: 'Willkommen', text: 'Hallo', knopf: 'Los', fuss: '24 Stunden' },
+    bausteine: { betreff: 'Bestätige', titel: 'Willkommen', text: 'Hallo', knopf: 'Los', fuss: '24 Stunden' },
+    angepasst: false,
+    geaendertAm: null,
+    geaendertVon: null,
+    ...teil,
+  })
+
+  // Eine unangetastete Vorlage soll erzählen, WANN sie rausgeht — das ist die
+  // Frage vor dem Bearbeiten. Bei einer angepassten zählt, wer sie angefasst hat.
+  it('erzählt bei unangetasteten Vorlagen vom Anlass', () => {
+    expect(beschreibeVorlage(vorlage())).toBe('Geht nach der Registrierung raus.')
+  })
+
+  it('nennt bei angepassten Vorlagen Zeitpunkt und Person', () => {
+    expect(
+      beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z', geaendertVon: 'chefin@example.com' })),
+    ).toBe('Angepasst am 05.03.2026 von chefin@example.com')
+  })
+
+  it('kommt ohne bekannte Person aus — das Konto kann gelöscht sein', () => {
+    expect(beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z' }))).toBe(
+      'Angepasst am 05.03.2026',
+    )
   })
 })

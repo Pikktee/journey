@@ -15,6 +15,8 @@
 import { erfordereAdmin } from '../app.js'
 import { EmailVergebenFehler, type KontoAenderung, type Rolle } from '../auth/auth.js'
 import { GUELTIG_TAGE_STANDARD } from '../auth/einladungen.js'
+import { rendereMail, type MailBausteine } from '../maillayout.js'
+import { beispielWerte, istVorlagenSchluessel, pruefeBausteine, vorlage } from '../mailvorlagen.js'
 import { benutzteBytes } from '../quota.js'
 import type { FastifyInstance } from 'fastify'
 
@@ -231,4 +233,106 @@ export function registriereAdminRouten(app: FastifyInstance): void {
       return { einladungPflicht: app.einladungen.pflicht(), wartelisteOffen: app.warteliste.offen() }
     },
   )
+
+  // — System-Mails —
+  //
+  // Bearbeitet werden die WORTE, nicht das HTML (Begründung in mailvorlagen.ts).
+  // Deshalb nimmt die Route fünf Textfelder und rendert selbst — die Oberfläche
+  // schickt niemals Markup, und die Vorschau zeigt garantiert dasselbe Layout,
+  // das später im Postfach steht.
+
+  const bausteinSchema = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['betreff', 'titel', 'text', 'knopf', 'fuss'],
+    properties: {
+      betreff: { type: 'string', maxLength: 200 },
+      titel: { type: 'string', maxLength: 200 },
+      text: { type: 'string', maxLength: 4000 },
+      knopf: { type: 'string', maxLength: 60 },
+      fuss: { type: 'string', maxLength: 2000 },
+    },
+  } as const
+
+  app.get('/api/admin/mailvorlagen', async (request, reply) => {
+    if (!erfordereAdmin(request, reply)) return
+    return { vorlagen: app.mailvorlagen.alle(), basisUrl: konfig.basisUrl }
+  })
+
+  app.patch<{ Params: { schluessel: string }; Body: MailBausteine }>(
+    '/api/admin/mailvorlagen/:schluessel',
+    { schema: { body: bausteinSchema } },
+    async (request, reply) => {
+      const admin = erfordereAdmin(request, reply)
+      if (!admin) return
+      const schluessel = request.params.schluessel
+      if (!istVorlagenSchluessel(schluessel)) return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+      // Die Prüfung ist keine Formsache: Eine Mail ohne ihren Link ist für den
+      // Empfänger eine Sackgasse — und auffallen würde das erst im Postfach.
+      const probleme = pruefeBausteine(vorlage(schluessel), request.body)
+      if (probleme.length) return reply.code(400).send({ fehler: probleme.join(' '), probleme })
+      app.mailvorlagen.setze(schluessel, request.body, admin.id)
+      return { vorlagen: app.mailvorlagen.alle() }
+    },
+  )
+
+  app.delete<{ Params: { schluessel: string } }>('/api/admin/mailvorlagen/:schluessel', async (request, reply) => {
+    if (!erfordereAdmin(request, reply)) return
+    const schluessel = request.params.schluessel
+    if (!istVorlagenSchluessel(schluessel)) return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+    app.mailvorlagen.setzeZurueck(schluessel)
+    return { vorlagen: app.mailvorlagen.alle() }
+  })
+
+  // Vorschau der NOCH NICHT gespeicherten Fassung: Der Dialog schickt, was
+  // gerade in den Feldern steht, und bekommt gerendertes HTML zurück. Serverseitig,
+  // weil es sonst zwei Layouts gäbe — und das im Postfach wäre das andere.
+  app.post<{ Params: { schluessel: string }; Body: MailBausteine }>(
+    '/api/admin/mailvorlagen/:schluessel/vorschau',
+    { schema: { body: bausteinSchema } },
+    async (request, reply) => {
+      if (!erfordereAdmin(request, reply)) return
+      const schluessel = request.params.schluessel
+      if (!istVorlagenSchluessel(schluessel)) return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+      const eintrag = vorlage(schluessel)
+      const werte = beispielWerte(eintrag)
+      const { betreff, text, html } = rendereVorschau(request.body, werte)
+      return { betreff, text, html, probleme: pruefeBausteine(eintrag, request.body) }
+    },
+  )
+
+  // Testmail an die eigene Adresse — der einzige Weg, das Ergebnis dort zu
+  // sehen, wo es ankommt. Bewusst NUR an das eigene Konto: Ein Formularfeld für
+  // den Empfänger machte aus der Verwaltung ein Versandwerkzeug.
+  app.post<{ Params: { schluessel: string }; Body: { bausteine?: MailBausteine } }>(
+    '/api/admin/mailvorlagen/:schluessel/test',
+    {
+      schema: {
+        body: { type: 'object', additionalProperties: false, properties: { bausteine: bausteinSchema } },
+      },
+    },
+    async (request, reply) => {
+      const admin = erfordereAdmin(request, reply)
+      if (!admin) return
+      const schluessel = request.params.schluessel
+      if (!istVorlagenSchluessel(schluessel)) return reply.code(404).send({ fehler: 'Unbekannte Vorlage' })
+      const eintrag = vorlage(schluessel)
+      // Ohne mitgeschickte Fassung die gespeicherte: So lässt sich auch aus der
+      // Liste heraus testen, nicht nur aus dem offenen Dialog.
+      const bausteine = request.body?.bausteine ?? app.mailvorlagen.bausteine(schluessel)
+      const { betreff, text, html } = rendereVorschau(bausteine, beispielWerte(eintrag))
+      try {
+        await app.deps.mail.sende({ an: admin.email, betreff: `[Test] ${betreff}`, text, html })
+      } catch (fehler) {
+        app.log.error({ fehler }, 'Test-Mail konnte nicht versendet werden')
+        return reply.code(502).send({ fehler: 'Die Testmail konnte nicht versendet werden' })
+      }
+      return { ok: true, an: admin.email }
+    },
+  )
+
+  /** Beispielwerte einsetzen und rendern, ohne den gespeicherten Stand anzufassen. */
+  function rendereVorschau(bausteine: MailBausteine, werte: Record<string, string>) {
+    return rendereMail(bausteine, werte, { basisUrl: konfig.basisUrl, link: werte.link ?? `${konfig.basisUrl}/` })
+  }
 }
