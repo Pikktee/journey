@@ -3,7 +3,9 @@
 // auf einen Klick passiert.
 //
 // Kein Router: Sperrseite und Verwaltung liegen beide im DOM und werden per
-// `hidden` umgeschaltet — dasselbe Muster wie im Studio.
+// `hidden` umgeschaltet — dasselbe Muster wie im Studio. Innerhalb der
+// Verwaltung gilt es ein zweites Mal: Die vier Bereiche sind Reiter, alle vier
+// Panels liegen im DOM, sichtbar ist eins.
 
 import { fuelleTopNav, montiereNavRechts } from '../app-nav.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
@@ -15,19 +17,29 @@ import {
   einladenGesperrt,
   einladungsLink,
   filtereBenutzer,
+  filtereEinladungen,
+  filtereWarteliste,
   formatiereBytes,
   formatiereDatum,
+  initiale,
   loeschenGesperrt,
   rolleGesperrt,
+  tabAusHash,
+  wartelisteAngeboten,
   zaehleAdmins,
   zaehleEinladungen,
   zaehleWarteliste,
+  TABS,
   type AdminBenutzer,
   type AdminEinladung,
   type AdminWartender,
+  type EinladungsFilter,
+  type KontenFilter,
   type MailBausteine,
   type MailVorlage,
   type Rolle,
+  type TabId,
+  type WartelistenFilter,
 } from './adminmodell.js'
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -40,20 +52,34 @@ const els = {
   sperreText: $('sperre-text'),
   sperreWeg: $<HTMLAnchorElement>('sperre-weg'),
   admin: $('admin-view'),
+  reiter: $('reiter'),
+  // Konten
+  kontenListe: $('konten-liste'),
+  kontenFilter: $('konten-filter'),
+  kontenSuche: $<HTMLInputElement>('konten-suche'),
+  kontoNeu: $<HTMLButtonElement>('konto-neu'),
+  // Einladungen
   pflichtSchalter: $<HTMLButtonElement>('pflicht-schalter'),
   pflichtText: $('pflicht-text'),
   zuWarnung: $('zu-warnung'),
+  einladungenListe: $('einladungen-liste'),
+  einladungenFilter: $('einladungen-filter'),
+  einladungenSuche: $<HTMLInputElement>('einladungen-suche'),
+  einladungNeu: $<HTMLButtonElement>('einladung-neu'),
+  // Warteliste
   wlSchalter: $<HTMLButtonElement>('wl-schalter'),
   wlSchalterText: $('wl-schalter-text'),
+  wlZurPflicht: $<HTMLButtonElement>('wl-zur-pflicht'),
   wartelisteListe: $('warteliste-liste'),
-  wartelisteZusammenfassung: $('warteliste-zusammenfassung'),
-  einladungenListe: $('einladungen-liste'),
-  einladungenZusammenfassung: $('einladungen-zusammenfassung'),
-  einladungNeu: $<HTMLButtonElement>('einladung-neu'),
-  kontenListe: $('konten-liste'),
-  kontenZusammenfassung: $('konten-zusammenfassung'),
-  kontenSuche: $<HTMLInputElement>('konten-suche'),
-  kontoNeu: $<HTMLButtonElement>('konto-neu'),
+  wartelisteFilter: $('warteliste-filter'),
+  wartelisteSuche: $<HTMLInputElement>('warteliste-suche'),
+  // Rückfrage
+  frageDialog: $<HTMLDialogElement>('frage-dialog'),
+  frageForm: $<HTMLFormElement>('frage-form'),
+  fdTitel: $('fd-titel'),
+  fdText: $('fd-text'),
+  fdJa: $<HTMLButtonElement>('fd-ja'),
+  fdNein: $<HTMLButtonElement>('fd-nein'),
   // Konto-Dialog
   kontoDialog: $<HTMLDialogElement>('konto-dialog'),
   kontoForm: $<HTMLFormElement>('konto-form'),
@@ -93,6 +119,7 @@ const els = {
   mdVorschau: $<HTMLIFrameElement>('md-vorschau'),
   mdProbleme: $('md-probleme'),
   mdFehler: $('md-fehler'),
+  mdStand: $('md-stand'),
   mdTest: $<HTMLButtonElement>('md-test'),
   mdZuruecksetzen: $<HTMLButtonElement>('md-zuruecksetzen'),
   mdAbbrechen: $<HTMLButtonElement>('md-abbrechen'),
@@ -101,6 +128,11 @@ const els = {
 
 interface Zustand {
   ichId: string
+  tab: TabId
+  /** Solange die vier Anfragen laufen, zeigen die Listen ein Skelett. */
+  laedt: boolean
+  /** Ist das Laden gescheitert, steht der Grund IN der Liste — samt zweitem Versuch. */
+  fehler: string
   benutzer: AdminBenutzer[]
   einladungen: AdminEinladung[]
   warteliste: AdminWartender[]
@@ -109,11 +141,19 @@ interface Zustand {
   wartelisteOffen: boolean
   registrierungOffen: boolean
   basisUrl: string
-  suche: string
+  kontenSuche: string
+  kontenFilter: KontenFilter
+  einladungenSuche: string
+  einladungenFilter: EinladungsFilter
+  wartelisteSuche: string
+  wartelisteFilter: WartelistenFilter
 }
 
 const z: Zustand = {
   ichId: '',
+  tab: tabAusHash(location.hash),
+  laedt: true,
+  fehler: '',
   benutzer: [],
   einladungen: [],
   warteliste: [],
@@ -122,7 +162,12 @@ const z: Zustand = {
   wartelisteOffen: true,
   registrierungOffen: true,
   basisUrl: location.origin,
-  suche: '',
+  kontenSuche: '',
+  kontenFilter: 'alle',
+  einladungenSuche: '',
+  einladungenFilter: 'alle',
+  wartelisteSuche: '',
+  wartelisteFilter: 'alle',
 }
 
 /** Welches Konto der Dialog gerade bearbeitet; null = ein neues anlegen. */
@@ -140,39 +185,125 @@ const kdPasswortfeld = haengePasswortfeld(els.kdPasswort, {
 
 // — Rückmeldung —
 
+const ICON_OK =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
+const ICON_FEHLER =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+
+let flashEl: HTMLElement | null = null
 let flashTimer = 0
+
+/**
+ * Eine Meldung zur Zeit, mittig unter der Kopfleiste (DESIGN.md).
+ *
+ * Ein Fehler steht länger als ein Erfolg: Bei „gespeichert" reicht der Blick,
+ * bei „ging nicht" will man den Satz lesen.
+ */
 function flash(text: string, art: 'ok' | 'fehler' = 'ok'): void {
-  document.querySelector('.flash')?.remove()
+  flashEl?.remove()
   const el = document.createElement('div')
-  el.className = art === 'fehler' ? 'flash fehler' : 'flash'
-  el.textContent = text
+  el.className = `flash ${art}`
   el.setAttribute('role', 'status')
+  el.innerHTML = art === 'fehler' ? ICON_FEHLER : ICON_OK
+  const wort = document.createElement('span')
+  wort.textContent = text
+  el.append(wort)
   document.body.appendChild(el)
+  flashEl = el
+  requestAnimationFrame(() => el.classList.add('zeigt'))
   clearTimeout(flashTimer)
-  flashTimer = window.setTimeout(() => el.remove(), 4200)
+  flashTimer = window.setTimeout(() => {
+    el.classList.remove('zeigt')
+    window.setTimeout(() => el.remove(), 240)
+  }, art === 'fehler' ? 7000 : 4200)
 }
 
 const fehlerText = (fehler: unknown): string =>
   fehler instanceof Error ? fehler.message : 'Unbekannter Fehler'
 
+/**
+ * Rückfrage vor allem, was sich nicht zurücknehmen lässt.
+ *
+ * `window.confirm` sah aus wie ein Browser-Alarm, nannte oben die Domain und
+ * gab dem gefährlichen Knopf dieselbe Gestalt wie dem harmlosen. Hier trägt
+ * der Titel die Frage, der Text die Folge — und der bestätigende Knopf ist
+ * rot, wenn etwas verloren geht.
+ */
+interface Rueckfrage {
+  titel: string
+  text: string
+  ja?: string
+  gefahr?: boolean
+}
+
+/**
+ * Die offene Frage. Sie wird von den Knöpfen aufgelöst, NICHT vom
+ * `close`-Ereignis des Dialogs: Das kam in der Abnahme nicht an, und ein
+ * Versprechen, das an einem Ereignis hängt, das ausbleibt, hängt für immer —
+ * der Löschen-Knopf tat dann schlicht nichts. `close`/`cancel` bleiben als
+ * Auffangnetz für die Esc-Taste und den Rücken-Knopf.
+ */
+let frageAufloesen: ((ja: boolean) => void) | null = null
+
+function beendeFrage(ja: boolean): void {
+  const aufloesen = frageAufloesen
+  frageAufloesen = null
+  if (els.frageDialog.open) els.frageDialog.close()
+  aufloesen?.(ja)
+}
+
+function frage(o: Rueckfrage): Promise<boolean> {
+  // Eine zweite Frage über der ersten kann es nicht geben — käme sie doch,
+  // gilt die alte als verneint, statt still liegen zu bleiben.
+  frageAufloesen?.(false)
+  els.fdTitel.textContent = o.titel
+  els.fdText.textContent = o.text
+  els.fdJa.textContent = o.ja ?? 'Bestätigen'
+  els.fdJa.className = o.gefahr ? 'zerstoerend' : 'primaer'
+  // Kein Fokus auf den bestätigenden Knopf: `showModal` fokussiert das erste
+  // Element im Formular — „Abbrechen". Bei einer Löschung ist das die richtige
+  // Vorbelegung für ein gedankenloses Enter.
+  els.frageDialog.showModal()
+  return new Promise((aufloesen) => {
+    frageAufloesen = aufloesen
+  })
+}
+
+els.frageForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  beendeFrage(true)
+})
+els.fdNein.addEventListener('click', () => beendeFrage(false))
+for (const art of ['close', 'cancel']) {
+  els.frageDialog.addEventListener(art, () => beendeFrage(false))
+}
+
 // — Laden —
 
 async function lade(): Promise<void> {
-  const [konten, einladungen, warteliste, mails] = await Promise.all([
-    api.benutzer(),
-    api.einladungen(),
-    api.warteliste(),
-    api.mailvorlagen(),
-  ])
-  z.benutzer = konten.benutzer
-  z.einladungen = einladungen.einladungen
-  z.einladungPflicht = einladungen.einladungPflicht
-  z.registrierungOffen = einladungen.registrierungOffen
-  z.basisUrl = einladungen.basisUrl || location.origin
-  z.warteliste = warteliste.eintraege
-  z.wartelisteOffen = warteliste.wartelisteOffen
-  z.mailvorlagen = mails.vorlagen
-  render()
+  z.fehler = ''
+  try {
+    const [konten, einladungen, warteliste, mails] = await Promise.all([
+      api.benutzer(),
+      api.einladungen(),
+      api.warteliste(),
+      api.mailvorlagen(),
+    ])
+    z.benutzer = konten.benutzer
+    z.einladungen = einladungen.einladungen
+    z.einladungPflicht = einladungen.einladungPflicht
+    z.registrierungOffen = einladungen.registrierungOffen
+    z.basisUrl = einladungen.basisUrl || location.origin
+    z.warteliste = warteliste.eintraege
+    z.wartelisteOffen = warteliste.wartelisteOffen
+    z.mailvorlagen = mails.vorlagen
+  } catch (fehler) {
+    z.fehler = fehlerText(fehler)
+    throw fehler
+  } finally {
+    z.laedt = false
+    render()
+  }
 }
 
 async function start(): Promise<void> {
@@ -192,6 +323,8 @@ async function start(): Promise<void> {
   }
   z.ichId = sitzung.benutzer.id
   els.admin.hidden = false
+  zeigeTab(z.tab)
+  render()
   try {
     await lade()
   } catch (fehler) {
@@ -199,14 +332,276 @@ async function start(): Promise<void> {
   }
 }
 
+// — Reiter —
+
+/**
+ * Was am Reiter steht. Die Zahl ist nicht überall dieselbe Sorte: Bei den
+ * Konten sind es alle, bei Einladungen und Warteliste nur die, auf die man
+ * handeln kann — sonst wäre der Zähler eine Statistik statt eines Hinweises.
+ */
+function reiterZahl(id: TabId): { wert: number; wichtig: boolean } {
+  if (id === 'konten') return { wert: z.benutzer.length, wichtig: false }
+  if (id === 'einladungen') return { wert: zaehleEinladungen(z.einladungen).offen, wichtig: false }
+  if (id === 'warteliste') {
+    const wartend = zaehleWarteliste(z.warteliste).wartend
+    return { wert: wartend, wichtig: wartend > 0 }
+  }
+  return { wert: z.mailvorlagen.length, wichtig: false }
+}
+
+function rendereReiter(): void {
+  els.reiter.replaceChildren(
+    ...TABS.map((t) => {
+      const aktiv = t.id === z.tab
+      const knopf = document.createElement('button')
+      knopf.type = 'button'
+      knopf.id = `reiter-${t.id}`
+      knopf.setAttribute('role', 'tab')
+      knopf.setAttribute('aria-selected', String(aktiv))
+      knopf.setAttribute('aria-controls', `panel-${t.id}`)
+      // Rollender Tabindex: Aus der Leiste führt EIN Tabstopp heraus, zwischen
+      // den Reitern bewegt man sich mit den Pfeiltasten (ARIA-Muster „tabs").
+      knopf.tabIndex = aktiv ? 0 : -1
+      const name = document.createElement('span')
+      name.textContent = t.name
+      knopf.append(name)
+      if (!z.laedt) {
+        const { wert, wichtig } = reiterZahl(t.id)
+        const zahl = document.createElement('span')
+        zahl.className = wichtig ? 'z wichtig' : 'z'
+        zahl.textContent = String(wert)
+        knopf.append(zahl)
+        knopf.setAttribute('aria-label', `${t.name} — ${wert} ${t.zaehlt}`)
+        knopf.title = `${wert} ${t.zaehlt}`
+      }
+      knopf.addEventListener('click', () => setzeTab(t.id))
+      return knopf
+    }),
+  )
+}
+
+/** Nur die Sichtbarkeit umlegen — ohne die Adresszeile anzufassen. */
+function zeigeTab(id: TabId): void {
+  for (const t of TABS) {
+    const panel = document.getElementById(`panel-${t.id}`)
+    if (panel) panel.hidden = t.id !== id
+  }
+}
+
+/**
+ * Reiter wechseln. Der Anhang wird per `replaceState` nachgeschrieben, nicht
+ * per `pushState`: Sonst führte der Zurück-Knopf durch die zuletzt besuchten
+ * Reiter, statt die Seite zu verlassen — und die Verwaltung ist eine Station,
+ * kein Verlauf.
+ */
+function setzeTab(id: TabId, opt: { fokus?: boolean } = {}): void {
+  z.tab = id
+  zeigeTab(id)
+  rendereReiter()
+  const knopf = document.getElementById(`reiter-${id}`)
+  // Am Telefon passen nicht alle vier in die Leiste. `block: 'nearest'` hält
+  // die Seite dabei senkrecht in Ruhe — sonst spränge sie bei jedem Wechsel.
+  knopf?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  if (opt.fokus) knopf?.focus()
+  const anhang = `#${id}`
+  if (location.hash !== anhang) history.replaceState(null, '', anhang)
+}
+
+els.reiter.addEventListener('keydown', (e) => {
+  const jetzt = TABS.findIndex((t) => t.id === z.tab)
+  let ziel = -1
+  if (e.key === 'ArrowRight') ziel = (jetzt + 1) % TABS.length
+  else if (e.key === 'ArrowLeft') ziel = (jetzt - 1 + TABS.length) % TABS.length
+  else if (e.key === 'Home') ziel = 0
+  else if (e.key === 'End') ziel = TABS.length - 1
+  else return
+  e.preventDefault()
+  const tab = TABS[ziel]
+  if (tab) setzeTab(tab.id, { fokus: true })
+})
+
+// Von Hand geänderter Anhang (oder ein Sprung aus dem Verlauf).
+window.addEventListener('hashchange', () => {
+  const id = tabAusHash(location.hash)
+  if (id === z.tab) return
+  z.tab = id
+  zeigeTab(id)
+  rendereReiter()
+})
+
+// — Bausteine der Listen —
+
+interface Chip<T extends string> {
+  wert: T
+  name: string
+  zahl: number
+}
+
+/**
+ * Filter-Segmente. Die Zahlen zählen INNERHALB der laufenden Suche — dadurch
+ * beantwortet die Leiste zwei Fragen auf einmal: wie viele passen, und wie sie
+ * sich auf die Zustände verteilen.
+ */
+function rendereFilter<T extends string>(
+  el: HTMLElement,
+  chips: readonly Chip<T>[],
+  aktiv: T,
+  waehle: (wert: T) => void,
+): void {
+  el.replaceChildren(
+    ...chips.map((c) => {
+      const knopf = document.createElement('button')
+      knopf.type = 'button'
+      knopf.setAttribute('aria-pressed', String(c.wert === aktiv))
+      const name = document.createElement('span')
+      name.textContent = c.name
+      const zahl = document.createElement('span')
+      zahl.className = 'z'
+      zahl.textContent = String(c.zahl)
+      knopf.append(name, zahl)
+      // Aus dem Inhalt gelesen ergäbe der Name „Alle3" — zwei aneinander
+      // stoßende Inline-Elemente bekommen keinen Zwischenraum.
+      knopf.setAttribute('aria-label', `${c.name} — ${c.zahl}`)
+      knopf.addEventListener('click', () => waehle(c.wert))
+      return knopf
+    }),
+  )
+}
+
+function skelett(anzahl: number): HTMLElement[] {
+  return Array.from({ length: anzahl }, () => {
+    const zeile = document.createElement('div')
+    zeile.className = 'skelett'
+    zeile.append(document.createElement('span'), document.createElement('span'))
+    return zeile
+  })
+}
+
+function leerZustand(titel: string, text: string, aktion?: { name: string; tu: () => void }): HTMLElement {
+  const leer = document.createElement('div')
+  leer.className = 'leer'
+  const b = document.createElement('b')
+  b.textContent = titel
+  const p = document.createElement('p')
+  p.textContent = text
+  leer.append(b, p)
+  if (aktion) {
+    const knopf = document.createElement('button')
+    knopf.type = 'button'
+    knopf.textContent = aktion.name
+    knopf.addEventListener('click', aktion.tu)
+    leer.append(knopf)
+  }
+  return leer
+}
+
+/**
+ * Gemeinsamer Rahmen jeder Liste: Skelett beim Laden, Grund samt zweitem
+ * Versuch beim Scheitern, sonst die Zeilen. Ohne das stünde nach einem
+ * abgerissenen Netz überall „Noch keine Konten" — eine Behauptung, die keiner
+ * geprüft hat.
+ */
+function fuelleListe(el: HTMLElement, zeilen: HTMLElement[], leer: () => HTMLElement): void {
+  if (z.laedt) {
+    el.replaceChildren(...skelett(4))
+    return
+  }
+  if (z.fehler) {
+    el.replaceChildren(
+      leerZustand('Konnte nicht geladen werden', z.fehler, {
+        name: 'Erneut versuchen',
+        tu: () => {
+          z.laedt = true
+          render()
+          void lade().catch((f) => flash(fehlerText(f), 'fehler'))
+        },
+      }),
+    )
+    return
+  }
+  el.replaceChildren(...(zeilen.length ? zeilen : [leer()]))
+}
+
+/** Kopf einer Zeile: Punkt, fette Zeile mit Plaketten, graue Zeile darunter. */
+function haupt(punkt: string | null): { wurzel: HTMLElement; oben: HTMLElement; text: HTMLElement } {
+  const wurzel = document.createElement('div')
+  wurzel.className = 'haupt'
+  if (punkt !== null) {
+    const kreis = document.createElement('span')
+    kreis.className = 'punkt-gross'
+    kreis.setAttribute('aria-hidden', 'true')
+    kreis.textContent = punkt
+    wurzel.append(kreis)
+  }
+  const text = document.createElement('div')
+  text.className = 'haupt-text'
+  const oben = document.createElement('div')
+  oben.className = 'oben'
+  text.append(oben)
+  wurzel.append(text)
+  return { wurzel, oben, text }
+}
+
+function plakette(art: string, wort: string, erklaerung?: string): HTMLElement {
+  const el = document.createElement('span')
+  el.className = `badge ${art}`
+  el.textContent = wort
+  if (erklaerung) el.title = erklaerung
+  return el
+}
+
+function kennzahl(wert: string, wort: string): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'kennzahl'
+  const b = document.createElement('b')
+  b.textContent = wert
+  const span = document.createElement('span')
+  span.textContent = wort
+  el.append(b, span)
+  return el
+}
+
+/**
+ * Ein Griff am rechten Rand. `gesperrt` ist der GRUND, nicht ein Wahrheitswert:
+ * Er landet im Tooltip UND im `aria-label`, denn ein `title` allein verdrängt
+ * je nach Vorlese-Werkzeug das Wort „Löschen" — und ein gesperrter Knopf ohne
+ * Begründung ist eine Sackgasse.
+ */
+function griff(
+  wort: string,
+  tu: () => void,
+  opt: { gefahr?: boolean; gesperrt?: string } = {},
+): HTMLButtonElement {
+  const knopf = document.createElement('button')
+  knopf.type = 'button'
+  knopf.className = opt.gefahr ? 'still gefahr' : 'still'
+  knopf.textContent = wort
+  if (opt.gesperrt) {
+    knopf.disabled = true
+    knopf.title = opt.gesperrt
+    knopf.setAttribute('aria-label', `${wort} — ${opt.gesperrt}`)
+  } else {
+    knopf.addEventListener('click', tu)
+  }
+  return knopf
+}
+
+function griffe(...knoepfe: HTMLElement[]): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'griffe'
+  el.append(...knoepfe)
+  return el
+}
+
 // — Rendern —
 
 function render(): void {
+  rendereReiter()
   rendereRegistrierung()
-  rendereWarteliste()
-  rendereEinladungen()
-  rendereMailvorlagen()
   rendereKonten()
+  rendereEinladungen()
+  rendereWarteliste()
+  rendereMailvorlagen()
 }
 
 function rendereRegistrierung(): void {
@@ -219,294 +614,298 @@ function rendereRegistrierung(): void {
   els.wlSchalter.setAttribute('aria-pressed', String(z.wartelisteOffen))
   // Der Schalter ist eingeschaltet und trotzdem wirkungslos, solange sich jeder
   // anmelden kann — das gehört dazugesagt, sonst sucht man den Eintrag
-  // vergeblich vor der Tür.
-  const wirkungslos = z.wartelisteOffen && z.einladungPflicht === false && z.registrierungOffen
+  // vergeblich vor der Tür. Und weil die Ursache im anderen Reiter liegt,
+  // steht daneben der Weg dorthin.
+  const wirkungslos =
+    z.wartelisteOffen && !wartelisteAngeboten(z.wartelisteOffen, z.einladungPflicht, z.registrierungOffen)
   els.wlSchalterText.textContent = wirkungslos
     ? 'Angeschaltet, aber ohne Wirkung: Solange sich jeder selbst anmelden kann, braucht niemand eine Warteliste.'
     : z.wartelisteOffen
       ? 'Wer keinen Code hat, kann seine Adresse hinterlassen und wird per Mail eingeladen.'
       : 'Ohne Code endet der Weg vor der Tür. Schalte es ein, um Adressen zu sammeln.'
+  els.wlZurPflicht.hidden = !wirkungslos
 }
 
-function rendereWarteliste(): void {
-  const zahl = zaehleWarteliste(z.warteliste)
-  els.wartelisteZusammenfassung.textContent = z.warteliste.length
-    ? `${zahl.wartend} ${zahl.wartend === 1 ? 'wartet' : 'warten'} · ${zahl.unbestaetigt} unbestätigt · ${zahl.eingeladen} eingeladen`
-    : 'Noch niemand hat sich eingetragen.'
-
-  els.wartelisteListe.replaceChildren(
-    ...z.warteliste.map((e) => {
-      const zeile = document.createElement('div')
-      zeile.className = 'zeile zeile-warteliste'
-
-      const haupt = document.createElement('div')
-      haupt.className = 'haupt'
-      const oben = document.createElement('div')
-      oben.className = 'oben'
-      const adresse = document.createElement('span')
-      adresse.className = 'name'
-      adresse.textContent = e.email
-      const zustand = document.createElement('span')
-      zustand.className = `badge ${{ unbestaetigt: 'unbestaetigt', wartend: 'offen', eingeladen: 'eingeloest' }[e.zustand]}`
-      zustand.textContent = { unbestaetigt: 'Unbestätigt', wartend: 'Wartet', eingeladen: 'Eingeladen' }[e.zustand]
-      oben.append(adresse, zustand)
-      const unten = document.createElement('div')
-      unten.className = 'unten'
-      unten.textContent = beschreibeWartenden(e)
-      haupt.append(oben, unten)
-      if (e.notiz) {
-        const zitat = document.createElement('div')
-        zitat.className = 'zitat'
-        zitat.textContent = `„${e.notiz}"`
-        zitat.title = e.notiz
-        haupt.append(zitat)
-      }
-
-      const datum = document.createElement('div')
-      datum.className = 'kennzahl'
-      datum.innerHTML = `<b>${formatiereDatum(e.eingetragenAm)}</b><span>eingetragen</span>`
-
-      const griffe = document.createElement('div')
-      griffe.className = 'griffe'
-      const einladen = document.createElement('button')
-      einladen.type = 'button'
-      einladen.className = 'still'
-      einladen.textContent = 'Einladen'
-      const gesperrt = einladenGesperrt(e)
-      if (gesperrt) {
-        einladen.disabled = true
-        einladen.title = gesperrt
-        einladen.setAttribute('aria-label', `Einladen — ${gesperrt}`)
-      } else {
-        einladen.addEventListener('click', () => void ladeEinAusWarteliste(e, einladen))
-      }
-      const weg = document.createElement('button')
-      weg.type = 'button'
-      weg.className = 'still gefahr'
-      weg.textContent = 'Entfernen'
-      weg.addEventListener('click', () => void entferneWartenden(e))
-      griffe.append(einladen, weg)
-
-      zeile.append(haupt, datum, griffe)
-      return zeile
-    }),
+function rendereKonten(): void {
+  const gesucht = filtereBenutzer(z.benutzer, z.kontenSuche)
+  // Die Sperr-Regeln zählen über ALLE Konten, nicht über die sichtbaren: Ein
+  // Filter darf nicht darüber entscheiden, ob der letzte Admin löschbar wird.
+  const admins = zaehleAdmins(z.benutzer)
+  rendereFilter(
+    els.kontenFilter,
+    [
+      { wert: 'alle', name: 'Alle', zahl: gesucht.length },
+      { wert: 'admins', name: 'Administratoren', zahl: gesucht.filter((b) => b.rolle === 'admin').length },
+      { wert: 'unbestaetigt', name: 'Unbestätigt', zahl: gesucht.filter((b) => !b.verifiziert).length },
+    ] satisfies Chip<KontenFilter>[],
+    z.kontenFilter,
+    (wert) => {
+      z.kontenFilter = wert
+      rendereKonten()
+    },
   )
-  if (!z.warteliste.length) {
-    const leer = document.createElement('div')
-    leer.className = 'leer'
-    leer.textContent = 'Wer keinen Code hat, trägt sich hier ein — nach der Bestätigung per Mail steht er in dieser Liste.'
-    els.wartelisteListe.append(leer)
-  }
+
+  const sichtbar = filtereBenutzer(gesucht, '', z.kontenFilter)
+  const zeilen = sichtbar.map((b) => {
+    const zeile = document.createElement('div')
+    zeile.className = 'zeile zeile-konto'
+
+    const kopf = haupt(initiale(b.name || b.email))
+    const name = document.createElement('span')
+    name.className = 'name'
+    name.textContent = b.name || b.email
+    kopf.oben.append(name, plakette(b.rolle, b.rolle === 'admin' ? 'Administrator' : 'Nutzer'))
+    if (b.fest) {
+      kopf.oben.append(
+        plakette('nutzer', 'Fest', 'Steht in der Konfiguration — Rolle und Konto sind unantastbar'),
+      )
+    }
+    if (!b.verifiziert) {
+      kopf.oben.append(
+        plakette('unbestaetigt', 'Unbestätigt', 'E-Mail noch nicht bestätigt — Hochladen ist gesperrt'),
+      )
+    }
+    const unten = document.createElement('div')
+    unten.className = 'unten'
+    unten.textContent = `${b.email} · seit ${formatiereDatum(b.angelegtAm)}`
+    kopf.text.append(unten)
+
+    zeile.append(
+      kopf.wurzel,
+      kennzahl(String(b.touren), b.touren === 1 ? 'Tour' : 'Touren'),
+      kennzahl(formatiereBytes(b.speicher), 'belegt'),
+      griffe(
+        griff('Bearbeiten', () => oeffneKonto(b)),
+        griff('Löschen', () => void loescheKonto(b), {
+          gefahr: true,
+          gesperrt: loeschenGesperrt(b, z.ichId, admins),
+        }),
+      ),
+    )
+    return zeile
+  })
+
+  fuelleListe(els.kontenListe, zeilen, () =>
+    z.benutzer.length
+      ? leerZustand('Kein Konto passt', 'Weder Name noch E-Mail treffen die Suche — oder der Filter blendet sie aus.', {
+          name: 'Suche und Filter zurücksetzen',
+          tu: () => {
+            z.kontenSuche = ''
+            z.kontenFilter = 'alle'
+            els.kontenSuche.value = ''
+            rendereKonten()
+          },
+        })
+      : leerZustand('Noch keine Konten', 'Hier stehen alle, die sich angemeldet haben — samt Touren und belegtem Speicher.', {
+          name: 'Konto anlegen',
+          tu: () => oeffneKonto(null),
+        }),
+  )
 }
 
 function rendereEinladungen(): void {
-  const zahl = zaehleEinladungen(z.einladungen)
-  els.einladungenZusammenfassung.textContent = z.einladungen.length
-    ? `${zahl.offen} offen · ${zahl.eingeloest} eingelöst · ${zahl.abgelaufen} abgelaufen`
-    : 'Noch keine Einladung erstellt.'
-
-  els.einladungenListe.replaceChildren(
-    ...z.einladungen.map((e) => {
-      const zeile = document.createElement('div')
-      zeile.className = 'zeile zeile-einladung'
-
-      const haupt = document.createElement('div')
-      haupt.className = 'haupt'
-      const oben = document.createElement('div')
-      oben.className = 'oben'
-      const code = document.createElement('span')
-      code.className = 'code'
-      code.textContent = e.code
-      const zustand = document.createElement('span')
-      zustand.className = `badge ${e.zustand}`
-      zustand.textContent = { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.zustand]
-      oben.append(code, zustand)
-      if (e.notiz) {
-        const notiz = document.createElement('span')
-        notiz.style.color = 'var(--text-2)'
-        notiz.style.fontSize = '13px'
-        notiz.textContent = e.notiz
-        oben.append(notiz)
-      }
-      const unten = document.createElement('div')
-      unten.className = 'unten'
-      unten.textContent = beschreibeEinladung(e)
-      haupt.append(oben, unten)
-
-      const griffe = document.createElement('div')
-      griffe.className = 'griffe'
-      if (e.zustand === 'offen') {
-        const kopieren = document.createElement('button')
-        kopieren.type = 'button'
-        kopieren.className = 'still'
-        kopieren.textContent = 'Link kopieren'
-        kopieren.addEventListener('click', () => void kopiereLink(e.code))
-        griffe.append(kopieren)
-      }
-      const weg = document.createElement('button')
-      weg.type = 'button'
-      weg.className = 'still gefahr'
-      weg.textContent = e.zustand === 'offen' ? 'Widerrufen' : 'Entfernen'
-      weg.addEventListener('click', () => void widerrufe(e))
-      griffe.append(weg)
-
-      const datum = document.createElement('div')
-      datum.className = 'kennzahl'
-      datum.innerHTML = `<b>${formatiereDatum(e.erstelltAm)}</b><span>erstellt</span>`
-
-      zeile.append(haupt, datum, griffe)
-      return zeile
-    }),
+  const gesucht = filtereEinladungen(z.einladungen, z.einladungenSuche)
+  const zahl = zaehleEinladungen(gesucht)
+  rendereFilter(
+    els.einladungenFilter,
+    [
+      { wert: 'alle', name: 'Alle', zahl: gesucht.length },
+      { wert: 'offen', name: 'Offen', zahl: zahl.offen },
+      { wert: 'eingeloest', name: 'Eingelöst', zahl: zahl.eingeloest },
+      { wert: 'abgelaufen', name: 'Abgelaufen', zahl: zahl.abgelaufen },
+    ] satisfies Chip<EinladungsFilter>[],
+    z.einladungenFilter,
+    (wert) => {
+      z.einladungenFilter = wert
+      rendereEinladungen()
+    },
   )
-  if (!z.einladungen.length) {
-    const leer = document.createElement('div')
-    leer.className = 'leer'
-    leer.textContent = 'Wer eingeladen wird, bekommt einen Code und einen Link dazu.'
-    els.einladungenListe.append(leer)
-  }
+
+  const sichtbar = filtereEinladungen(gesucht, '', z.einladungenFilter)
+  const zeilen = sichtbar.map((e) => {
+    const zeile = document.createElement('div')
+    zeile.className = 'zeile zeile-einladung'
+
+    const kopf = haupt(null)
+    const code = document.createElement('span')
+    code.className = 'code'
+    code.textContent = e.code
+    kopf.oben.append(
+      code,
+      plakette(e.zustand, { offen: 'Offen', eingeloest: 'Eingelöst', abgelaufen: 'Abgelaufen' }[e.zustand]),
+    )
+    if (e.notiz) {
+      const notiz = document.createElement('span')
+      notiz.className = 'notiz'
+      notiz.textContent = e.notiz
+      notiz.title = e.notiz
+      kopf.oben.append(notiz)
+    }
+    const unten = document.createElement('div')
+    unten.className = 'unten'
+    unten.textContent = beschreibeEinladung(e)
+    kopf.text.append(unten)
+
+    const knoepfe: HTMLElement[] = []
+    if (e.zustand === 'offen') knoepfe.push(griff('Link kopieren', () => void kopiereLink(e.code)))
+    knoepfe.push(
+      griff(e.zustand === 'offen' ? 'Widerrufen' : 'Entfernen', () => void widerrufe(e), { gefahr: true }),
+    )
+
+    zeile.append(kopf.wurzel, kennzahl(formatiereDatum(e.erstelltAm), 'erstellt'), griffe(...knoepfe))
+    return zeile
+  })
+
+  fuelleListe(els.einladungenListe, zeilen, () =>
+    z.einladungen.length
+      ? leerZustand('Keine passende Einladung', 'Kein Code und keine Notiz trifft die Suche — oder der Filter blendet sie aus.', {
+          name: 'Suche und Filter zurücksetzen',
+          tu: () => {
+            z.einladungenSuche = ''
+            z.einladungenFilter = 'alle'
+            els.einladungenSuche.value = ''
+            rendereEinladungen()
+          },
+        })
+      : leerZustand('Noch keine Einladung', 'Wer eingeladen wird, bekommt einen Code und einen Link dazu — einmal einlösbar.', {
+          name: 'Einladung erstellen',
+          tu: () => oeffneEinladung(),
+        }),
+  )
+}
+
+function rendereWarteliste(): void {
+  const gesucht = filtereWarteliste(z.warteliste, z.wartelisteSuche)
+  const zahl = zaehleWarteliste(gesucht)
+  rendereFilter(
+    els.wartelisteFilter,
+    [
+      { wert: 'alle', name: 'Alle', zahl: gesucht.length },
+      { wert: 'wartend', name: 'Wartet', zahl: zahl.wartend },
+      { wert: 'unbestaetigt', name: 'Unbestätigt', zahl: zahl.unbestaetigt },
+      { wert: 'eingeladen', name: 'Eingeladen', zahl: zahl.eingeladen },
+    ] satisfies Chip<WartelistenFilter>[],
+    z.wartelisteFilter,
+    (wert) => {
+      z.wartelisteFilter = wert
+      rendereWarteliste()
+    },
+  )
+
+  const sichtbar = filtereWarteliste(gesucht, '', z.wartelisteFilter)
+  const zeilen = sichtbar.map((e) => {
+    const zeile = document.createElement('div')
+    zeile.className = 'zeile zeile-warteliste'
+
+    const kopf = haupt(initiale(e.email))
+    const adresse = document.createElement('span')
+    adresse.className = 'name'
+    adresse.textContent = e.email
+    kopf.oben.append(
+      adresse,
+      plakette(
+        { unbestaetigt: 'unbestaetigt', wartend: 'offen', eingeladen: 'eingeloest' }[e.zustand],
+        { unbestaetigt: 'Unbestätigt', wartend: 'Wartet', eingeladen: 'Eingeladen' }[e.zustand],
+      ),
+    )
+    const unten = document.createElement('div')
+    unten.className = 'unten'
+    unten.textContent = beschreibeWartenden(e)
+    kopf.text.append(unten)
+    // Was jemand freiwillig geschrieben hat, ist das Kriterium fürs
+    // Freischalten — eigene Zeile, nicht hinter zwei Daten gequetscht.
+    if (e.notiz) {
+      const zitat = document.createElement('div')
+      zitat.className = 'zitat'
+      zitat.textContent = `„${e.notiz}"`
+      zitat.title = e.notiz
+      kopf.text.append(zitat)
+    }
+
+    // Der Knopf bezieht sich auf sich selbst (er sperrt sich für die Dauer des
+    // Versands) — die Pfeilfunktion läuft erst beim Klick, da steht er längst.
+    const einladen: HTMLButtonElement = griff(
+      'Einladen',
+      () => void ladeEinAusWarteliste(e, einladen),
+      { gesperrt: einladenGesperrt(e) },
+    )
+
+    zeile.append(
+      kopf.wurzel,
+      kennzahl(formatiereDatum(e.eingetragenAm), 'eingetragen'),
+      griffe(einladen, griff('Entfernen', () => void entferneWartenden(e), { gefahr: true })),
+    )
+    return zeile
+  })
+
+  fuelleListe(els.wartelisteListe, zeilen, () =>
+    z.warteliste.length
+      ? leerZustand('Kein passender Eintrag', 'Weder Adresse noch Notiz trifft die Suche — oder der Filter blendet sie aus.', {
+          name: 'Suche und Filter zurücksetzen',
+          tu: () => {
+            z.wartelisteSuche = ''
+            z.wartelisteFilter = 'alle'
+            els.wartelisteSuche.value = ''
+            rendereWarteliste()
+          },
+        })
+      : leerZustand(
+          'Noch niemand trägt sich ein',
+          'Wer keinen Code hat, hinterlässt hier seine Adresse — nach der Bestätigung per Mail steht sie in dieser Liste.',
+        ),
+  )
 }
 
 /**
  * Die vier System-Mails.
  *
- * Was in der Zeile steht, ist genau das, was man von außen sieht: der Name der
- * Mail und ihr Betreff. Der Rest (Anlass, letzte Änderung) ist die Unterzeile —
- * eine Vorlage, die niemand angefasst hat, erzählt lieber, wann sie rausgeht.
+ * Als Karten, nicht als Liste: Es sind vier feste Stücke, und sie wachsen
+ * nicht. Was in der Karte steht, ist genau das, was von außen ankommt — Name
+ * und Betreff. Der Rest (Anlass, letzte Änderung) ist die Unterzeile: Eine
+ * Vorlage, die niemand angefasst hat, erzählt lieber, wann sie rausgeht.
  */
 function rendereMailvorlagen(): void {
+  if (z.laedt || z.fehler) {
+    els.mailZusammenfassung.textContent = z.fehler || 'Wird geladen …'
+    els.mailListe.replaceChildren()
+    return
+  }
   const angepasst = z.mailvorlagen.filter((v) => v.angepasst).length
   els.mailZusammenfassung.textContent = angepasst
-    ? `${z.mailvorlagen.length} Vorlagen · ${angepasst} angepasst`
-    : `${z.mailvorlagen.length} Vorlagen · alle im Auslieferungszustand`
+    ? `${z.mailvorlagen.length} Vorlagen · ${angepasst} angepasst. Bearbeitbar sind die Worte; Layout und Logo stehen fest.`
+    : `${z.mailvorlagen.length} Vorlagen im Auslieferungszustand. Bearbeitbar sind die Worte; Layout und Logo stehen fest.`
 
   els.mailListe.replaceChildren(
     ...z.mailvorlagen.map((v) => {
-      const zeile = document.createElement('div')
-      zeile.className = 'zeile zeile-mail'
+      const karte = document.createElement('div')
+      karte.className = 'mail-karte'
 
-      const haupt = document.createElement('div')
-      haupt.className = 'haupt'
       const oben = document.createElement('div')
       oben.className = 'oben'
       const name = document.createElement('span')
       name.className = 'name'
       name.textContent = v.name
-      const zustand = document.createElement('span')
-      zustand.className = `badge ${v.angepasst ? 'angepasst' : 'standard'}`
-      zustand.textContent = v.angepasst ? 'Angepasst' : 'Standard'
-      oben.append(name, zustand)
+      oben.append(name, plakette(v.angepasst ? 'angepasst' : 'standard', v.angepasst ? 'Angepasst' : 'Standard'))
+
       const betreff = document.createElement('div')
       betreff.className = 'betreff'
       betreff.textContent = v.bausteine.betreff
+      betreff.title = v.bausteine.betreff
+
       const unten = document.createElement('div')
       unten.className = 'unten'
       unten.textContent = beschreibeVorlage(v)
-      haupt.append(oben, betreff, unten)
 
-      const griffe = document.createElement('div')
-      griffe.className = 'griffe'
-      const bearbeiten = document.createElement('button')
-      bearbeiten.type = 'button'
-      bearbeiten.className = 'still'
-      bearbeiten.textContent = 'Bearbeiten'
-      bearbeiten.addEventListener('click', () => oeffneMail(v))
-      const test = document.createElement('button')
-      test.type = 'button'
-      test.className = 'still'
-      test.textContent = 'Testmail'
-      test.addEventListener('click', () => void schickeTestmail(v.schluessel, undefined, test))
-      griffe.append(bearbeiten, test)
-
-      zeile.append(haupt, griffe)
-      return zeile
+      const test = griff('Testmail', () => void schickeTestmail(v.schluessel, undefined, test))
+      karte.append(
+        oben,
+        betreff,
+        unten,
+        griffe(griff('Bearbeiten', () => oeffneMail(v)), test),
+      )
+      return karte
     }),
   )
-}
-
-function rendereKonten(): void {
-  const sichtbar = filtereBenutzer(z.benutzer, z.suche)
-  const admins = zaehleAdmins(z.benutzer)
-  els.kontenZusammenfassung.textContent =
-    `${z.benutzer.length} ${z.benutzer.length === 1 ? 'Konto' : 'Konten'} · ${admins} mit Verwaltungsrecht` +
-    (z.suche.trim() ? ` · ${sichtbar.length} passend` : '')
-
-  els.kontenListe.replaceChildren(
-    ...sichtbar.map((b) => {
-      const zeile = document.createElement('div')
-      zeile.className = 'zeile zeile-konto'
-
-      const haupt = document.createElement('div')
-      haupt.className = 'haupt'
-      const oben = document.createElement('div')
-      oben.className = 'oben'
-      const name = document.createElement('span')
-      name.className = 'name'
-      name.textContent = b.name || b.email
-      const rolle = document.createElement('span')
-      rolle.className = `badge ${b.rolle}`
-      rolle.textContent = b.rolle === 'admin' ? 'Administrator' : 'Nutzer'
-      oben.append(name, rolle)
-      if (b.fest) {
-        const fest = document.createElement('span')
-        fest.className = 'badge nutzer'
-        fest.title = 'Steht in der Konfiguration — Rolle und Konto sind unantastbar'
-        fest.textContent = 'Fest'
-        oben.append(fest)
-      }
-      if (!b.verifiziert) {
-        const offen = document.createElement('span')
-        offen.className = 'badge unbestaetigt'
-        offen.title = 'E-Mail noch nicht bestätigt — Hochladen ist gesperrt'
-        offen.textContent = 'Unbestätigt'
-        oben.append(offen)
-      }
-      const unten = document.createElement('div')
-      unten.className = 'unten'
-      unten.textContent = `${b.email} · seit ${formatiereDatum(b.angelegtAm)}`
-      haupt.append(oben, unten)
-
-      const touren = document.createElement('div')
-      touren.className = 'kennzahl'
-      touren.innerHTML = `<b>${b.touren}</b><span>${b.touren === 1 ? 'Tour' : 'Touren'}</span>`
-
-      const speicher = document.createElement('div')
-      speicher.className = 'kennzahl'
-      speicher.innerHTML = `<b>${formatiereBytes(b.speicher)}</b><span>belegt</span>`
-
-      const griffe = document.createElement('div')
-      griffe.className = 'griffe'
-      const bearbeiten = document.createElement('button')
-      bearbeiten.type = 'button'
-      bearbeiten.className = 'still'
-      bearbeiten.textContent = 'Bearbeiten'
-      bearbeiten.addEventListener('click', () => oeffneKonto(b))
-      const weg = document.createElement('button')
-      weg.type = 'button'
-      weg.className = 'still gefahr'
-      weg.textContent = 'Löschen'
-      const gesperrt = loeschenGesperrt(b, z.ichId, admins)
-      if (gesperrt) {
-        weg.disabled = true
-        weg.title = gesperrt
-        // Der Grund gehört IN den Namen, nicht nur in den Tooltip: Ein `title`
-        // allein verdrängt je nach Vorlese-Werkzeug das Wort „Löschen", und ein
-        // gesperrter Knopf ohne Begründung ist eine Sackgasse.
-        weg.setAttribute('aria-label', `Löschen — ${gesperrt}`)
-      } else {
-        weg.addEventListener('click', () => void loescheKonto(b))
-      }
-      griffe.append(bearbeiten, weg)
-
-      zeile.append(haupt, touren, speicher, griffe)
-      return zeile
-    }),
-  )
-  if (!sichtbar.length) {
-    const leer = document.createElement('div')
-    leer.className = 'leer'
-    leer.textContent = z.suche.trim() ? 'Kein Konto passt zur Suche.' : 'Noch keine Konten.'
-    els.kontenListe.append(leer)
-  }
 }
 
 // — Aktionen —
@@ -524,11 +923,16 @@ async function kopiereLink(code: string): Promise<void> {
 }
 
 async function widerrufe(e: AdminEinladung): Promise<void> {
-  const frage =
-    e.zustand === 'offen'
-      ? `Einladung ${e.code} widerrufen? Wer sie noch nicht eingelöst hat, kommt damit nicht mehr herein.`
-      : `Einladung ${e.code} aus der Liste entfernen?`
-  if (!window.confirm(frage)) return
+  const offen = e.zustand === 'offen'
+  const ja = await frage({
+    titel: offen ? `Einladung ${e.code} widerrufen?` : `Einladung ${e.code} entfernen?`,
+    text: offen
+      ? 'Wer sie noch nicht eingelöst hat, kommt damit nicht mehr herein.'
+      : 'Sie verschwindet aus der Liste — damit auch der Nachweis, wer über sie hereingekommen ist.',
+    ja: offen ? 'Widerrufen' : 'Entfernen',
+    gefahr: true,
+  })
+  if (!ja) return
   try {
     await api.widerrufe(e.code)
     await lade()
@@ -547,7 +951,12 @@ async function widerrufe(e: AdminEinladung): Promise<void> {
  * sonst zwei Codes für dieselbe Zeile.
  */
 async function ladeEinAusWarteliste(e: AdminWartender, knopf: HTMLButtonElement): Promise<void> {
-  if (!window.confirm(`Einladung an ${e.email} schicken? Der Code geht sofort per Mail raus.`)) return
+  const ja = await frage({
+    titel: `Einladung an ${e.email} schicken?`,
+    text: 'Der Code geht sofort per Mail raus.',
+    ja: 'Einladung schicken',
+  })
+  if (!ja) return
   knopf.disabled = true
   try {
     const { einladung } = await api.ladeWartendenEin(e.id)
@@ -560,7 +969,13 @@ async function ladeEinAusWarteliste(e: AdminWartender, knopf: HTMLButtonElement)
 }
 
 async function entferneWartenden(e: AdminWartender): Promise<void> {
-  if (!window.confirm(`${e.email} von der Warteliste entfernen? Die Adresse wird gelöscht.`)) return
+  const ja = await frage({
+    titel: `${e.email} von der Warteliste entfernen?`,
+    text: 'Die Adresse wird gelöscht. Eine noch offene Einladung an sie wird dabei widerrufen.',
+    ja: 'Entfernen',
+    gefahr: true,
+  })
+  if (!ja) return
   try {
     await api.loescheWartenden(e.id)
     await lade()
@@ -571,8 +986,17 @@ async function entferneWartenden(e: AdminWartender): Promise<void> {
 }
 
 async function loescheKonto(b: AdminBenutzer): Promise<void> {
-  const was = b.touren > 0 ? ` Damit gehen ${b.touren} ${b.touren === 1 ? 'Tour' : 'Touren'} samt Fotos verloren.` : ''
-  if (!window.confirm(`Konto „${b.name || b.email}" endgültig löschen?${was}`)) return
+  const was =
+    b.touren > 0
+      ? `Damit gehen ${b.touren} ${b.touren === 1 ? 'Tour' : 'Touren'} samt Fotos verloren.`
+      : 'Das Konto hat noch keine Touren.'
+  const ja = await frage({
+    titel: `Konto „${b.name || b.email}" endgültig löschen?`,
+    text: `${was} Das lässt sich nicht rückgängig machen.`,
+    ja: 'Endgültig löschen',
+    gefahr: true,
+  })
+  if (!ja) return
   try {
     await api.loesche(b.id)
     await lade()
@@ -614,9 +1038,19 @@ els.wlSchalter.addEventListener('click', async () => {
   }
 })
 
+els.wlZurPflicht.addEventListener('click', () => setzeTab('einladungen', { fokus: true }))
+
 els.kontenSuche.addEventListener('input', () => {
-  z.suche = els.kontenSuche.value
+  z.kontenSuche = els.kontenSuche.value
   rendereKonten()
+})
+els.einladungenSuche.addEventListener('input', () => {
+  z.einladungenSuche = els.einladungenSuche.value
+  rendereEinladungen()
+})
+els.wartelisteSuche.addEventListener('input', () => {
+  z.wartelisteSuche = els.wartelisteSuche.value
+  rendereWarteliste()
 })
 
 // — Konto-Dialog —
@@ -683,11 +1117,28 @@ els.kontoForm.addEventListener('submit', async (e) => {
 
 // — Einladungs-Dialog —
 
-els.einladungNeu.addEventListener('click', () => {
+function oeffneEinladung(): void {
   els.edFehler.textContent = ''
   els.edNotiz.value = ''
   els.einladungDialog.showModal()
   els.edNotiz.focus()
+}
+
+els.einladungNeu.addEventListener('click', oeffneEinladung)
+
+els.einladungForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  els.edFehler.textContent = ''
+  try {
+    const { einladung } = await api.ladeEin(els.edNotiz.value.trim(), Number(els.edGueltig.value))
+    els.einladungDialog.close()
+    await lade()
+    // Direkt in die Zwischenablage: Der Code ist genau dann nützlich, wenn er
+    // beim Empfänger ankommt — ein Extra-Klick dazwischen ist nur Wartezeit.
+    await kopiereLink(einladung.code)
+  } catch (fehler) {
+    els.edFehler.textContent = fehlerText(fehler)
+  }
 })
 
 // — Mail-Dialog —
@@ -712,9 +1163,15 @@ const bausteineAusFeldern = (): MailBausteine => ({
   fuss: els.mdFuss.value,
 })
 
+function setzeMailStand(text: string, art: 'ok' | 'fehler' = 'ok'): void {
+  els.mdStand.textContent = text
+  els.mdStand.classList.toggle('fehler', art === 'fehler')
+}
+
 function oeffneMail(v: MailVorlage): void {
   mailVorlage = v
   els.mdFehler.textContent = ''
+  setzeMailStand('')
   els.mdTitel.textContent = v.name
   els.mdAnlass.textContent = v.anlass
   els.mdBetreff.value = v.bausteine.betreff
@@ -778,17 +1235,28 @@ async function zieheVorschau(): Promise<void> {
 }
 
 for (const feld of mailFelder) {
-  feld.addEventListener('input', planeVorschau)
+  feld.addEventListener('input', () => {
+    setzeMailStand('')
+    planeVorschau()
+  })
   feld.addEventListener('focus', () => {
     letztesFeld = feld
   })
 }
 
-els.mdAbbrechen.addEventListener('click', () => els.mailDialog.close())
-els.mailDialog.addEventListener('close', () => {
+/**
+ * Zumachen und aufräumen in einem Zug. Nicht nur am `close`-Ereignis hängend:
+ * Das kam in der Abnahme nicht an — sonst bliebe die Vorlage gesetzt und eine
+ * unterwegs befindliche Vorschau schriebe in einen geschlossenen Dialog.
+ */
+function schliesseMail(): void {
   mailVorlage = null
   clearTimeout(vorschauTimer)
-})
+  if (els.mailDialog.open) els.mailDialog.close()
+}
+
+els.mdAbbrechen.addEventListener('click', schliesseMail)
+els.mailDialog.addEventListener('close', schliesseMail)
 
 els.mailForm.addEventListener('submit', async (e) => {
   e.preventDefault()
@@ -797,7 +1265,7 @@ els.mailForm.addEventListener('submit', async (e) => {
   els.mdSpeichern.disabled = true
   try {
     await api.speichereVorlage(mailVorlage.schluessel, bausteineAusFeldern())
-    els.mailDialog.close()
+    schliesseMail()
     await lade()
     flash('Mail-Text gespeichert')
   } catch (fehler) {
@@ -812,10 +1280,16 @@ els.mdZuruecksetzen.addEventListener('click', async () => {
   const v = mailVorlage
   // Die Rückfrage nennt den Grund: Nach dem Zurücksetzen hängt die Vorlage
   // wieder am Code — spätere Textverbesserungen kommen dann von allein mit.
-  if (!window.confirm(`„${v.name}" auf den Auslieferungstext zurücksetzen? Deine Fassung geht dabei verloren.`)) return
+  const ja = await frage({
+    titel: `„${v.name}" auf den Auslieferungstext zurücksetzen?`,
+    text: 'Deine Fassung geht dabei verloren. Dafür kommen spätere Textverbesserungen wieder von allein mit.',
+    ja: 'Zurücksetzen',
+    gefahr: true,
+  })
+  if (!ja) return
   try {
     await api.setzeVorlageZurueck(v.schluessel)
-    els.mailDialog.close()
+    schliesseMail()
     await lade()
     flash('Auf den Standardtext zurückgesetzt')
   } catch (fehler) {
@@ -830,35 +1304,31 @@ els.mdTest.addEventListener('click', () => {
   void schickeTestmail(mailVorlage.schluessel, bausteineAusFeldern(), els.mdTest)
 })
 
+/**
+ * Testmail an die eigene Adresse.
+ *
+ * Wo die Antwort erscheint, hängt daran, ob ein Dialog offen steht: Ein
+ * modaler Dialog liegt im Top-Layer über allem, ein Toast dahinter läge unter
+ * dessen Backdrop. Aus dem Dialog heraus meldet deshalb seine Fußzeile.
+ */
 async function schickeTestmail(
   schluessel: string,
   bausteine: MailBausteine | undefined,
   knopf: HTMLButtonElement,
 ): Promise<void> {
+  const imDialog = els.mailDialog.open
   knopf.disabled = true
+  if (imDialog) setzeMailStand('Wird verschickt …')
   try {
     const { an } = await api.testeVorlage(schluessel, bausteine)
-    flash(`Testmail an ${an} verschickt`)
+    if (imDialog) setzeMailStand(`Testmail an ${an} verschickt`)
+    else flash(`Testmail an ${an} verschickt`)
   } catch (fehler) {
-    flash(fehlerText(fehler), 'fehler')
+    if (imDialog) setzeMailStand(fehlerText(fehler), 'fehler')
+    else flash(fehlerText(fehler), 'fehler')
   } finally {
     knopf.disabled = false
   }
 }
-
-els.einladungForm.addEventListener('submit', async (e) => {
-  e.preventDefault()
-  els.edFehler.textContent = ''
-  try {
-    const { einladung } = await api.ladeEin(els.edNotiz.value.trim(), Number(els.edGueltig.value))
-    els.einladungDialog.close()
-    await lade()
-    // Direkt in die Zwischenablage: Der Code ist genau dann nützlich, wenn er
-    // beim Empfänger ankommt — ein Extra-Klick dazwischen ist nur Wartezeit.
-    await kopiereLink(einladung.code)
-  } catch (fehler) {
-    els.edFehler.textContent = fehlerText(fehler)
-  }
-})
 
 void start()

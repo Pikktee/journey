@@ -1,6 +1,9 @@
 // Rechnende Teile der Benutzerverwaltung — Formatierung, Suche und vor allem
 // die Sperr-Regeln, die entscheiden, welche Knöpfe überhaupt anfassbar sind.
 
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { codeVollstaendig, formatiereEinladungscode } from '../src/einladungscode.js'
 import {
@@ -10,13 +13,20 @@ import {
   einladenGesperrt,
   einladungsLink,
   filtereBenutzer,
+  filtereEinladungen,
+  filtereWarteliste,
   formatiereBytes,
   formatiereDatum,
+  initiale,
   loeschenGesperrt,
   rolleGesperrt,
+  tabAusHash,
+  wartelisteAngeboten,
   zaehleAdmins,
   zaehleEinladungen,
   zaehleWarteliste,
+  TABS,
+  TAB_STANDARD,
   type AdminBenutzer,
   type AdminEinladung,
   type AdminWartender,
@@ -47,6 +57,39 @@ const einladung = (teil: Partial<AdminEinladung> = {}): AdminEinladung => ({
   eingeloestVon: null,
   zustand: 'offen',
   ...teil,
+})
+
+// Die Reiterleiste hat drei Abnehmer, die nicht voneinander wissen: die
+// Leiste selbst, der URL-Anhang und die vier Abschnitte in admin.html. Wer
+// einen Bereich ergänzt und das Panel vergisst, sieht einen Reiter, der auf
+// nichts zeigt — und merkt es erst beim Klicken.
+describe('Reiter', () => {
+  const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const html = readFileSync(join(wurzel, 'admin.html'), 'utf8')
+
+  it('trägt eindeutige Namen und beginnt beim Standard', () => {
+    const ids = TABS.map((t) => t.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toContain(TAB_STANDARD)
+  })
+
+  it('hat zu jedem Reiter einen Abschnitt in admin.html', () => {
+    for (const t of TABS) {
+      expect(html, t.id).toContain(`id="panel-${t.id}"`)
+      expect(html, t.id).toContain(`aria-labelledby="reiter-${t.id}"`)
+    }
+  })
+
+  it('liest den Bereich aus dem Anhang — auch ohne Raute und in Versalien', () => {
+    expect(tabAusHash('#einladungen')).toBe('einladungen')
+    expect(tabAusHash('warteliste')).toBe('warteliste')
+    expect(tabAusHash('#MAILS')).toBe('mails')
+  })
+
+  it('fällt bei unbekanntem Anhang auf den Standard zurück', () => {
+    expect(tabAusHash('')).toBe(TAB_STANDARD)
+    expect(tabAusHash('#einladung=ABCD-2345')).toBe(TAB_STANDARD)
+  })
 })
 
 describe('formatiereBytes', () => {
@@ -95,6 +138,39 @@ describe('filtereBenutzer', () => {
     erg.pop()
     expect(liste).toHaveLength(2)
   })
+
+  it('filtert nach Rolle und offener Bestätigung', () => {
+    const gemischt = [
+      konto({ id: 'u_1', rolle: 'admin' }),
+      konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', verifiziert: false }),
+      konto({ id: 'u_3', email: 'cara@example.com', name: 'Cara' }),
+    ]
+    expect(filtereBenutzer(gemischt, '', 'admins').map((b) => b.id)).toEqual(['u_1'])
+    expect(filtereBenutzer(gemischt, '', 'unbestaetigt').map((b) => b.id)).toEqual(['u_2'])
+    expect(filtereBenutzer(gemischt, '', 'alle')).toHaveLength(3)
+  })
+
+  // Suche und Filter greifen zusammen, nicht nacheinander: Die Zahlen an den
+  // Filter-Segmenten zählen innerhalb der laufenden Suche.
+  it('verbindet Suche und Filter mit UND', () => {
+    const gemischt = [
+      konto({ id: 'u_1', email: 'anna@example.com', rolle: 'admin' }),
+      konto({ id: 'u_2', email: 'bert@example.com', name: 'Bert', rolle: 'admin' }),
+    ]
+    expect(filtereBenutzer(gemischt, 'anna', 'admins').map((b) => b.id)).toEqual(['u_1'])
+    expect(filtereBenutzer(gemischt, 'anna', 'unbestaetigt')).toHaveLength(0)
+  })
+})
+
+describe('initiale', () => {
+  it('nimmt den ersten Buchstaben — auch aus einer Adresse', () => {
+    expect(initiale('Anna Berg')).toBe('A')
+    expect(initiale('bert@example.com')).toBe('B')
+  })
+
+  it('fällt bei leerem Namen nicht auf einen leeren Kreis zurück', () => {
+    expect(initiale('   ')).toBe('?')
+  })
 })
 
 describe('beschreibeEinladung', () => {
@@ -126,6 +202,35 @@ describe('zaehleEinladungen', () => {
     expect(
       zaehleEinladungen([einladung(), einladung({ zustand: 'eingeloest' }), einladung({ zustand: 'eingeloest' })]),
     ).toEqual({ offen: 1, eingeloest: 2, abgelaufen: 0 })
+  })
+})
+
+describe('filtereEinladungen', () => {
+  const liste = [
+    einladung({ code: 'ABCD-2345', notiz: 'Anna vom Radclub' }),
+    einladung({ code: 'WXYZ-9876', zustand: 'eingeloest' }),
+    einladung({ code: 'QRST-1111', zustand: 'abgelaufen', notiz: 'Messe' }),
+  ]
+
+  it('filtert nach Zustand', () => {
+    expect(filtereEinladungen(liste, '', 'offen').map((e) => e.code)).toEqual(['ABCD-2345'])
+    expect(filtereEinladungen(liste, '', 'abgelaufen').map((e) => e.code)).toEqual(['QRST-1111'])
+    expect(filtereEinladungen(liste, '', 'alle')).toHaveLength(3)
+  })
+
+  it('sucht in der Notiz', () => {
+    expect(filtereEinladungen(liste, 'radclub').map((e) => e.code)).toEqual(['ABCD-2345'])
+  })
+
+  // Wer den Code aus einer Mail kopiert oder aus dem Kopf tippt, schreibt ihn
+  // ohne Bindestrich. Daran darf die Suche nicht scheitern.
+  it('findet den Code auch ohne Trennzeichen', () => {
+    expect(filtereEinladungen(liste, 'abcd2345').map((e) => e.code)).toEqual(['ABCD-2345'])
+    expect(filtereEinladungen(liste, 'ABCD-23').map((e) => e.code)).toEqual(['ABCD-2345'])
+  })
+
+  it('lässt eine Einladung ohne Notiz nicht auf jede Suche antworten', () => {
+    expect(filtereEinladungen(liste, 'messe').map((e) => e.code)).toEqual(['QRST-1111'])
   })
 })
 
@@ -243,6 +348,35 @@ describe('Warteliste', () => {
     expect(einladenGesperrt(wartender())).toContain('nicht bestätigt')
     expect(einladenGesperrt(wartender({ zustand: 'eingeladen' }))).toContain('Schon eingeladen')
     expect(einladenGesperrt(wartender({ zustand: 'wartend' }))).toBe('')
+  })
+
+  it('filtert nach Zustand und sucht in Adresse und Notiz', () => {
+    const liste = [
+      wartender({ id: 'w_1', zustand: 'wartend', notiz: 'Radtour durch Island' }),
+      wartender({ id: 'w_2', email: 'bert@example.com' }),
+      wartender({ id: 'w_3', email: 'cara@example.com', zustand: 'eingeladen' }),
+    ]
+    expect(filtereWarteliste(liste, '', 'wartend').map((e) => e.id)).toEqual(['w_1'])
+    expect(filtereWarteliste(liste, 'bert').map((e) => e.id)).toEqual(['w_2'])
+    expect(filtereWarteliste(liste, 'island').map((e) => e.id)).toEqual(['w_1'])
+    expect(filtereWarteliste(liste, 'island', 'eingeladen')).toHaveLength(0)
+  })
+
+  // Spiegel von `wartelisteAngeboten` in server/src/auth/warteliste.ts — die
+  // Wahrheitstabelle steht doppelt (der Server kann hier nicht importiert
+  // werden, eigener rootDir). Hier hängt nur ein Satz daran: „angeschaltet,
+  // aber ohne Wirkung".
+  it('bietet die Warteliste nur an, wenn die Tür nicht ohnehin offen steht', () => {
+    // Schalter aus: nie.
+    expect(wartelisteAngeboten(false, true, true)).toBe(false)
+    expect(wartelisteAngeboten(false, false, false)).toBe(false)
+    // Schalter an + Einladungspflicht: ja.
+    expect(wartelisteAngeboten(true, true, true)).toBe(true)
+    // Schalter an, keine Pflicht, Registrierung offen: wirkungslos — man kann
+    // sich ja anmelden.
+    expect(wartelisteAngeboten(true, false, true)).toBe(false)
+    // Registrierung per Umgebung zu: dann ist die Warteliste der einzige Weg.
+    expect(wartelisteAngeboten(true, false, false)).toBe(true)
   })
 })
 

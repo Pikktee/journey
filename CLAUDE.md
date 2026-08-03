@@ -649,6 +649,36 @@ Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile
 [adminmodell.ts](src/admin/adminmodell.ts), Server-Seite in
 [server/src/routes/admin.ts](server/src/routes/admin.ts) hinter `erfordereAdmin`.
 
+**Vier Reiter, und die Regel steht bei dem, was sie regelt.** Konten · Einladungen ·
+Warteliste · System-Mails; alle vier Panels liegen im DOM, sichtbar ist eins (dasselbe
+`hidden`-Muster wie im Studio). Die Liste `TABS` in [adminmodell.ts](src/admin/adminmodell.ts)
+ist die einzige Quelle für Leiste, Zähler und URL-Anhang (`/admin#einladungen`, per
+`replaceState` — mit `pushState` führte der Zurück-Knopf durch die zuletzt besuchten Reiter,
+statt die Seite zu verlassen); ein Drift-Wächter prüft, dass zu jedem Reiter ein
+`panel-<id>` in [admin.html](admin.html) steht. Die beiden Schalter der Registrierung liegen
+NICHT mehr zusammen in einer Karte, sondern je im Reiter, den sie betreffen — die
+Einladungspflicht bei den Einladungen, das Wartelisten-Angebot bei der Warteliste. Weil die
+Warteliste dadurch „angeschaltet, aber ohne Wirkung" sein kann, ohne dass die Ursache
+sichtbar wäre, steht dort ein Knopf zum anderen Reiter; ob sie wirkt, rechnet
+`wartelisteAngeboten` nach (Spiegel der Server-Regel, Wahrheitstabelle doppelt getestet).
+**Der Zähler am Reiter ist ein Hinweis, keine Statistik:** bei den Konten sind es alle, bei
+Einladungen die OFFENEN, bei der Warteliste die WARTENDEN — und nur die färbt sich amber,
+denn nur dort wartet Arbeit. Was die Zahl zählt, steht im `aria-label`.
+
+**Suche und Filter greifen mit UND, und die Segmente zählen INNERHALB der Suche.** Dadurch
+beantwortet die Filterleiste zwei Fragen auf einmal (wie viele passen, wie sie sich
+verteilen) und eine Zeile „3 von 12" erübrigt sich. Die Sperr-Regeln zählen dagegen über
+ALLE Konten: Ein Filter darf nicht darüber entscheiden, ob der letzte Admin löschbar wird.
+
+**Zwei Fallen, die diese Seite gekostet hat:** Das `close`-Ereignis eines `<dialog>` kam in
+der Abnahme nicht an — eine Rückfrage, deren Versprechen daran hängt, hängt für immer, und
+der Löschen-Knopf tat schlicht nichts. Deshalb lösen die KNÖPFE die Frage auf
+(`beendeFrage`), `close`/`cancel` sind nur das Auffangnetz für Esc. Und ein modaler Dialog
+liegt im Browser-Top-Layer über allem: Der Flash zur Testmail lag unter dessen Backdrop,
+also meldet aus dem Mail-Dialog heraus seine eigene Fußzeile (DESIGN.md sagt dasselbe).
+Rückfragen laufen nicht mehr über `window.confirm` — das kam in Systemoptik, nannte oben die
+Domain und gab dem gefährlichen Knopf dieselbe Gestalt wie dem harmlosen.
+
 **Es gibt zwei Rollen** (`users.rolle`), keine Rechtematrix: wer verwalten darf und wer seine
 eigenen Touren hat. `Benutzer.rolle` hängt an jeder aufgelösten Sitzung und kommt über
 `/auth/me` bis in die Oberfläche.

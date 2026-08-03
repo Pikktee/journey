@@ -6,6 +6,51 @@ import { pfad } from '../routen.js'
 export type Rolle = 'nutzer' | 'admin'
 export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
 
+// — Bereiche —
+//
+// Die Verwaltung hatte fünf Karten untereinander auf einer Seite; wer eine
+// Einladung erstellen wollte, scrollte an Wartenden und Mail-Vorlagen vorbei.
+// Jetzt ist jeder Bereich ein Reiter — und weil die Liste den URL-Anhang, die
+// Reiterleiste UND die Zähler speist, steht sie EINMAL hier.
+
+export type TabId = 'konten' | 'einladungen' | 'warteliste' | 'mails'
+
+export interface Tab {
+  id: TabId
+  name: string
+  /**
+   * Was die Zahl am Reiter zählt. Sie ist NICHT überall dasselbe — bei den
+   * Konten sind es alle, bei Einladungen und Warteliste nur die, auf die man
+   * handeln kann. Der Zähler allein sagt das nicht, deshalb geht dieses Wort
+   * ins `aria-label` und in den Tooltip.
+   */
+  zaehlt: string
+}
+
+export const TABS: readonly Tab[] = [
+  { id: 'konten', name: 'Konten', zaehlt: 'Konten' },
+  { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
+  { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
+  { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
+]
+
+/** Womit die Seite aufmacht: die Konten sind der Grund, warum es sie gibt. */
+export const TAB_STANDARD: TabId = 'konten'
+
+/**
+ * Welcher Reiter zu `#einladungen` gehört — unbekanntes fällt auf den Standard.
+ *
+ * Der Anhang ist die einzige Adresse eines Reiters: Ein Neuladen (und jeder
+ * Link, den sich jemand ablegt) landet wieder dort, wo er war. Ein eigener
+ * Pfad je Bereich wäre die Alternative, hieße aber vier Einträge in
+ * `routen.ts` und vier `location`-Blöcke im Vhost für eine Seite, die ohnehin
+ * nur Admins sehen.
+ */
+export function tabAusHash(hash: string): TabId {
+  const name = hash.replace(/^#/, '').trim().toLowerCase()
+  return TABS.find((t) => t.id === name)?.id ?? TAB_STANDARD
+}
+
 export interface AdminBenutzer {
   id: string
   email: string
@@ -62,17 +107,76 @@ export function formatiereDatum(iso: string | null): string {
   return `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}.${d.getFullYear()}`
 }
 
+/** Erster Buchstabe für den Punkt vor dem Namen — wie der Konto-Chip der Topbar. */
+export function initiale(name: string): string {
+  return (name.trim().charAt(0) || '?').toUpperCase()
+}
+
+const enthaelt = (feld: string, suche: string): boolean => feld.toLowerCase().includes(suche)
+
+export type KontenFilter = 'alle' | 'admins' | 'unbestaetigt'
+
 /**
  * Suche über alles, was jemanden identifiziert: Adresse, Klarname und
  * öffentlicher Anzeigename. Wer nach „anna" sucht, meint die Person — nicht
  * eine bestimmte Spalte.
+ *
+ * Der Filter beantwortet die zwei Fragen, die man an eine Kontenliste hat:
+ * Wer darf verwalten, und wer hängt noch an seiner Bestätigung (und kann
+ * deshalb nicht hochladen).
  */
-export function filtereBenutzer(liste: readonly AdminBenutzer[], suche: string): AdminBenutzer[] {
+export function filtereBenutzer(
+  liste: readonly AdminBenutzer[],
+  suche: string,
+  filter: KontenFilter = 'alle',
+): AdminBenutzer[] {
   const s = suche.trim().toLowerCase()
-  if (!s) return [...liste]
-  return liste.filter((b) =>
-    [b.email, b.name, b.anzeigename ?? ''].some((feld) => feld.toLowerCase().includes(s)),
-  )
+  return liste.filter((b) => {
+    if (filter === 'admins' && b.rolle !== 'admin') return false
+    if (filter === 'unbestaetigt' && b.verifiziert) return false
+    if (!s) return true
+    return [b.email, b.name, b.anzeigename ?? ''].some((feld) => enthaelt(feld, s))
+  })
+}
+
+export type EinladungsFilter = 'alle' | EinladungsZustand
+
+/**
+ * Suche über Code und Notiz.
+ *
+ * Der Code wird ohne Trennzeichen verglichen: Wer ihn aus einer Mail kopiert
+ * oder aus dem Gedächtnis tippt, schreibt „abcd2345" — an einem Bindestrich
+ * darf die Suche nicht scheitern.
+ */
+export function filtereEinladungen(
+  liste: readonly AdminEinladung[],
+  suche: string,
+  filter: EinladungsFilter = 'alle',
+): AdminEinladung[] {
+  const s = suche.trim().toLowerCase()
+  const blank = s.replace(/[^a-z0-9]/g, '')
+  return liste.filter((e) => {
+    if (filter !== 'alle' && e.zustand !== filter) return false
+    if (!s) return true
+    if (blank && e.code.toLowerCase().replace(/[^a-z0-9]/g, '').includes(blank)) return true
+    return enthaelt(e.notiz ?? '', s)
+  })
+}
+
+export type WartelistenFilter = 'alle' | WartelistenZustand
+
+/** Suche über Adresse und die freiwillige Angabe — das Kriterium fürs Freischalten. */
+export function filtereWarteliste(
+  liste: readonly AdminWartender[],
+  suche: string,
+  filter: WartelistenFilter = 'alle',
+): AdminWartender[] {
+  const s = suche.trim().toLowerCase()
+  return liste.filter((e) => {
+    if (filter !== 'alle' && e.zustand !== filter) return false
+    if (!s) return true
+    return [e.email, e.notiz ?? ''].some((feld) => enthaelt(feld, s))
+  })
 }
 
 /** Wie viele Einladungen in welchem Zustand — für die Zeile über der Liste. */
@@ -108,6 +212,22 @@ export function zaehleWarteliste(
   for (const e of liste) zaehler[e.zustand]++
   return zaehler
 }
+
+/**
+ * Steht das Wartelisten-Formular gerade wirklich vor der Tür?
+ *
+ * Spiegel von `wartelisteAngeboten` in server/src/auth/warteliste.ts — dritte
+ * Regel dieser Art, die doppelt steht (wie `rolleGesperrt`). Der Server MUSS
+ * sie durchsetzen; hier hängt an ihr nur ein Satz. Die Antwort per API zu
+ * holen ginge auch, aber die Schalter ändern sich im Sekundentakt, während die
+ * Liste stehen bleibt: Ohne eigene Rechnung stünde nach jedem Umlegen ein
+ * überholter Hinweis da.
+ */
+export const wartelisteAngeboten = (
+  offen: boolean,
+  einladungPflicht: boolean,
+  registrierungOffen: boolean,
+): boolean => offen && (einladungPflicht || !registrierungOffen)
 
 /** Der Satz unter der Adresse — wo im Ablauf dieser Eintrag gerade steht. */
 export function beschreibeWartenden(e: AdminWartender): string {

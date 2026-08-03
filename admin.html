@@ -207,25 +207,98 @@
     .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; }
 
     /* — Seite — */
-    .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 90px; }
-    .kopf { padding-bottom: 18px; margin-bottom: 26px; border-bottom: 1px solid var(--rand); }
-    .kopf h1 { font-size: clamp(27px, 3.1vw, 34px); font-weight: 480; letter-spacing: -0.02em; }
+    .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 90px; }
+    .kopf { margin-bottom: 18px; }
+    .kopf h1 { font-size: clamp(25px, 2.8vw, 31px); font-weight: 480; letter-spacing: -0.02em; }
     .kopf h1 em { font-style: normal; color: var(--akzent); }
-    .kopf p { margin: 8px 0 0; color: var(--text-2); font-size: 14px; max-width: 62ch; }
+    .kopf p { margin: 7px 0 0; color: var(--text-2); font-size: 14px; max-width: 62ch; }
 
-    .karte {
-      background: var(--fl-1);
-      border: 1px solid var(--rand);
-      border-radius: 14px;
-      padding: 20px 22px;
-      margin-bottom: 22px;
+    /* — Reiter —
+       Fünf Karten untereinander waren ein Stapel, durch den man scrollte;
+       jetzt ist jeder Bereich ein Reiter. Die Leiste klebt unter der Topbar,
+       damit der Wechsel auch am Ende einer langen Liste einen Klick weit ist. */
+    .reiter {
+      position: sticky; top: var(--topbar-h); z-index: 20;
+      display: flex; align-items: flex-end; gap: 22px;
+      margin-bottom: 22px; padding-top: 2px;
+      border-bottom: 1px solid var(--rand);
+      background: rgba(9, 12, 17, 0.92);
+      backdrop-filter: blur(12px);
+      overflow-x: auto; scrollbar-width: none;
     }
-    .karte > h2 { font-size: 17px; font-weight: 550; }
-    .karte-kopf { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
-    .karte-kopf .sp { flex: 1; }
-    .karte-kopf p { margin: 4px 0 0; color: var(--text-2); font-size: 13px; }
+    .reiter::-webkit-scrollbar { display: none; }
+    .reiter button {
+      position: relative; flex: none;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 2px 13px;
+      background: none; border: none; border-radius: 0;
+      color: var(--text-3); font-size: 14.5px; font-weight: 500;
+    }
+    /* Die globale :hover-Regel gäbe dem Reiter eine Fläche — hier trägt nur die
+       Schriftfarbe den Zustand, sonst kämpfen Fläche und Strich um dieselbe
+       Aussage. Und `transform` beim Drücken ließe den Strich verrutschen. */
+    .reiter button:hover { background: none; border-color: transparent; color: var(--text-2); }
+    .reiter button:active { transform: none; }
+    .reiter button[aria-selected='true'] { color: var(--text); }
+    /* Der Reiterstrich sitzt AUF der Trennlinie der Leiste (-1px). */
+    .reiter button[aria-selected='true']::after {
+      content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+      background: var(--akzent); border-radius: 2px 2px 0 0;
+    }
+    .reiter .z {
+      font-size: 11.5px; font-weight: 550; padding: 2px 8px; border-radius: 999px;
+      background: var(--fl-2); color: var(--text-2); font-variant-numeric: tabular-nums;
+      transition: background 160ms ease, color 160ms ease;
+    }
+    .reiter button[aria-selected='true'] .z { background: var(--fl-3); color: var(--text); }
+    /* Amber heißt: hier wartet Arbeit (bestätigte Adressen ohne Einladung).
+       Der Reiter soll das sagen, ohne dass man ihn öffnet. */
+    .reiter .z.wichtig,
+    .reiter button[aria-selected='true'] .z.wichtig {
+      background: rgba(245, 165, 36, 0.16); color: var(--akzent);
+    }
 
-    /* Schalter: die Fläche IST der Zustand — links aus, rechts an */
+    .panel[hidden] { display: none; }
+    .panel-text { margin: 0 0 14px; color: var(--text-2); font-size: 13.5px; }
+
+    /* — Werkzeugleiste über der Liste: suchen, filtern, anlegen — */
+    .werkzeuge { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .werkzeuge .sp { flex: 1; }
+    .suchfeld { position: relative; display: block; width: 250px; margin: 0; }
+    .suchfeld svg {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 15px; height: 15px; color: var(--text-3); pointer-events: none;
+      transition: color 140ms ease;
+    }
+    .suchfeld:focus-within svg { color: var(--akzent); }
+    .suchfeld input { padding-left: 36px; }
+    input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+    /* Filter als Segment-Leiste. Die Zahlen zählen INNERHALB der laufenden
+       Suche — so beantwortet die Leiste beides: wie viele passen, und wie sie
+       sich verteilen. Eine zweite Zeile „3 von 12" bräuchte es dann nicht. */
+    .filter {
+      display: inline-flex; gap: 3px; padding: 3px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 999px;
+    }
+    .filter button {
+      background: none; border: none; border-radius: 999px;
+      padding: 6px 12px; font-size: 13px; color: var(--text-2);
+    }
+    .filter button:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
+    .filter button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
+    .filter button[aria-pressed='true']:hover { background: var(--fl-3); }
+    .filter .z { margin-left: 6px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .filter button[aria-pressed='true'] .z { color: var(--akzent); }
+
+    /* — Regel-Zeile: der Schalter steht bei dem, was er regelt —
+       Schalter: die Fläche IST der Zustand — links aus, rechts an */
+    .regel {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px;
+      padding: 14px 18px; margin-bottom: 14px;
+    }
+    .regel .sp { flex: 1; }
     .schalter { display: flex; align-items: center; gap: 14px; }
     .schalter-knopf {
       position: relative; flex: none;
@@ -246,19 +319,28 @@
 
     .warnzeile {
       display: flex; align-items: center; gap: 10px;
-      margin-top: 14px; padding: 10px 14px; border-radius: 10px;
+      margin: 0 0 14px; padding: 10px 14px; border-radius: 10px;
       background: color-mix(in srgb, var(--warn) 14%, transparent);
       color: var(--warn); font-size: 12.5px;
     }
 
-    /* — Listen — */
-    .liste { display: flex; flex-direction: column; }
+    /* — Listen —
+       Die Liste ist selbst die Karte: ein Rahmen um alle Zeilen, Trenner
+       dazwischen. Vorher lag sie in einer Karte MIT Überschrift — die
+       Überschrift steht jetzt im Reiter. */
+    .liste {
+      display: flex; flex-direction: column;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px;
+      overflow: hidden;
+    }
     .zeile {
       display: grid; align-items: center; gap: 14px;
-      padding: 12px 2px;
+      padding: 12px 16px;
       border-top: 1px solid var(--rand);
+      transition: background 140ms ease;
     }
     .zeile:first-child { border-top: none; }
+    .zeile:hover { background: var(--fl-2); }
     /* Feste Spaltenbreiten statt `auto`: Sonst wandern Datum und Kennzahlen von
        Zeile zu Zeile, weil mal zwei und mal ein Knopf rechts steht — und eine
        Liste, deren Spalten nicht fluchten, liest sich als Unordnung. */
@@ -272,11 +354,20 @@
       margin-top: 3px; color: var(--text-2); font-size: 12.5px; font-style: italic;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .schalter-zweiter { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--rand); }
     .zeile .griffe { justify-content: flex-end; }
-    .haupt { min-width: 0; }
+    .haupt { min-width: 0; display: flex; align-items: center; gap: 12px; }
+    .haupt-text { min-width: 0; }
+    /* Derselbe Punkt wie im Konto-Chip der Topbar — er macht aus einer Zeile
+       eine Person. */
+    .punkt-gross {
+      flex: none; width: 34px; height: 34px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: linear-gradient(130deg, var(--akzent), var(--akzent-2));
+      color: #221302; font-size: 14px; font-weight: 700;
+    }
     .haupt .oben { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .haupt .name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .haupt .notiz { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .haupt .unten { color: var(--text-3); font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
     .kennzahl { text-align: right; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
     .kennzahl b { display: block; color: var(--text); font-weight: 550; }
@@ -286,7 +377,27 @@
       font-size: 15px; font-weight: 600; letter-spacing: 0.06em;
       font-variant-numeric: tabular-nums;
     }
-    .leer { padding: 26px 2px; color: var(--text-3); font-size: 13.5px; }
+
+    /* Leerzustand: sagt, was hier stünde — und bietet den Weg dorthin an. */
+    .leer { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13.5px; }
+    .leer b { display: block; color: var(--text-2); font-weight: 550; font-size: 14.5px; margin-bottom: 5px; }
+    .leer p { margin: 0 auto; max-width: 46ch; line-height: 1.55; }
+    .leer button { margin-top: 14px; }
+
+    /* Skelett, solange die vier Anfragen laufen — eine leere Fläche sähe aus
+       wie „nichts da", und genau das ist die eine Aussage, die noch nicht
+       feststeht. */
+    .skelett { padding: 14px 16px; border-top: 1px solid var(--rand); }
+    .skelett:first-child { border-top: none; }
+    .skelett span {
+      display: block; height: 11px; border-radius: 6px;
+      background: linear-gradient(90deg, var(--fl-2), var(--fl-3), var(--fl-2));
+      background-size: 220% 100%;
+      animation: skelett 1.4s ease-in-out infinite;
+    }
+    .skelett span + span { margin-top: 8px; width: 42%; height: 9px; opacity: 0.7; }
+    @keyframes skelett { 0% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
+    @media (prefers-reduced-motion: reduce) { .skelett span { animation: none; } }
 
     /* — Dialog —
        display gehört an dialog[open]: eine Regel am nackten `dialog` schlüge
@@ -304,16 +415,43 @@
     .dialog-inner h2 { font-size: 18px; margin-bottom: 4px; }
     .dialog-inner > p.unterzeile { margin: 0 0 18px; color: var(--text-2); font-size: 13px; }
     .dialog-fuss { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    /* Der bestätigende Knopf einer Löschung darf nicht der Marken-Amber sein:
+       Amber heißt hier überall „weiter", Rot heißt „und zwar endgültig". */
+    button.zerstoerend, button.zerstoerend:hover {
+      background: var(--rot); border-color: var(--rot); color: #fff; font-weight: 600;
+    }
+    button.zerstoerend:hover { filter: brightness(1.1); }
     .schalter-feld { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
     .schalter-feld label { margin: 0; color: var(--text); font-size: 13.5px; }
     .schalter-feld input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--akzent); flex: none; }
 
     /* — System-Mails —
+       Vier Stück, kein Wachstum: als Karten nebeneinander lesbar statt als
+       vier Zeilen in einer Liste, die auf hundert ausgelegt wäre. Jede zeigt,
+       was von außen ankommt — Name und Betreff.
+
        Der Dialog ist breiter als die anderen, weil er zwei Dinge nebeneinander
        zeigen muss: die Wörter und ihr Ergebnis. Ein Vorschau-Knopf, der zwischen
        beiden hin- und herschaltet, hieße bei jeder Formulierung zweimal klicken. */
-    .zeile-mail { grid-template-columns: minmax(0, 1fr) 210px; }
-    .zeile-mail .betreff { color: var(--text-2); font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mail-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+    .mail-karte {
+      display: flex; flex-direction: column; gap: 7px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px;
+      padding: 16px 18px 14px;
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .mail-karte:hover { border-color: var(--rand-hell); background: var(--fl-2); }
+    .mail-karte .oben { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mail-karte .name { font-weight: 550; font-size: 15px; }
+    .mail-karte .betreff {
+      color: var(--text); font-size: 13px;
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 9px;
+      padding: 7px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .mail-karte .unten { color: var(--text-3); font-size: 12.5px; }
+    /* Die Griffe kleben am Fuß der Karte, damit sie in einer Reihe fluchten,
+       auch wenn ein Anlass zwei Zeilen braucht. */
+    .mail-karte .griffe { margin-top: auto; padding-top: 8px; }
     .badge.standard { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
     .badge.angepasst { background: rgba(91, 157, 255, 0.14); color: var(--blau); }
 
@@ -378,6 +516,8 @@
       background: var(--fl-2);
     }
     .mail-fuss .sp { flex: 1; }
+    .mail-stand { font-size: 12.5px; color: var(--text-2); }
+    .mail-stand.fehler { color: #ffb4b6; }
 
     @media (max-width: 900px) {
       .mail-raster { grid-template-columns: minmax(0, 1fr); }
@@ -390,20 +530,55 @@
     .sperre h1 { font-size: 26px; font-weight: 480; margin-bottom: 10px; }
     .sperre p { color: var(--text-2); margin: 0 0 22px; }
 
+    /* Flash nach DESIGN.md: dunkle Kapsel MITTIG UNTER DER KOPFLEISTE (nicht am
+       unteren Rand — dort las man sie erst, nachdem der Blick sie gesucht
+       hatte), mit Haken oder Kreuz. Eine Meldung zur Zeit.
+       Achtung: Ein modaler Dialog liegt im Top-Layer über allem — was während
+       eines offenen Dialogs zu sagen ist, sagt dessen eigene Fußzeile. */
     .flash {
-      position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
-      z-index: 60; padding: 11px 18px; border-radius: 11px;
-      background: var(--fl-3); border: 1px solid var(--rand-hell);
-      box-shadow: 0 14px 34px rgba(2, 5, 10, 0.5); font-size: 13.5px;
+      position: fixed; left: 50%; top: calc(var(--topbar-h) + 14px); transform: translate(-50%, -8px);
+      z-index: 60; display: flex; align-items: center; gap: 10px;
+      max-width: min(560px, calc(100vw - 32px));
+      padding: 10px 16px 11px; border-radius: 12px;
+      font-size: 13px; line-height: 1.45; color: var(--text);
+      background: linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96));
+      border: 1px solid var(--rand-hell);
+      box-shadow: 0 16px 38px rgba(2, 5, 10, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(10px) saturate(1.15);
+      opacity: 0; pointer-events: none;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
     }
-    .flash.fehler { border-color: rgba(229, 72, 77, 0.5); color: #ffb4b6; }
+    .flash.zeigt { opacity: 1; transform: translate(-50%, 0); }
+    .flash svg { width: 15px; height: 15px; flex: none; }
+    .flash.ok svg { color: var(--gruen); }
+    .flash.fehler svg { color: var(--rot); }
 
+    @media (max-width: 900px) {
+      .werkzeuge .sp { display: none; }
+      .suchfeld { width: 100%; }
+    }
+    /* Schmal: Die Zeile bricht in Stockwerke — Person, Kennzahlen, Griffe.
+       Ein bloßes Zusammenschieben der Spalten reichte nicht: Der Name floss
+       dann neben „0 Touren", und „0 MB belegt" landete allein in der nächsten
+       Zeile links. Deshalb spannt `.haupt` über die volle Breite, die
+       Kennzahlen teilen sich die Zeile darunter, die Griffe stehen für sich. */
     @media (max-width: 720px) {
       .top-nav { display: none; }
       .topbar .wrap { grid-template-columns: 1fr auto; }
-      .zeile-konto, .zeile-einladung { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; }
+      .reiter { gap: 16px; }
+      /* Vier Segmente passen nicht in 375 px. Umbrechen statt seitwärts
+         scrollen: Ein waagerecht schiebbares Pillen-Band versteckt die letzte
+         Möglichkeit hinter einer Geste, die niemand vermutet. */
+      .filter { flex-wrap: wrap; border-radius: 14px; max-width: 100%; }
+      .zeile { row-gap: 10px; padding: 14px 16px; }
+      .zeile-konto { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .zeile-einladung, .zeile-warteliste { grid-template-columns: minmax(0, 1fr) auto; }
+      .zeile .haupt, .zeile .griffe { grid-column: 1 / -1; }
+      /* Umbrechende Plaketten schieben den Text nach unten — der Punkt bleibt
+         oben, sonst schwebt er neben der zweiten Zeile. */
+      .haupt { align-items: flex-start; }
       .kennzahl { text-align: left; }
-      .griffe { grid-column: 1 / -1; }
+      .mail-karten { grid-template-columns: minmax(0, 1fr); }
     }
   </style>
 </head>
@@ -434,80 +609,102 @@
       <p>Wer hier mitfährt, wer verwalten darf — und wie neue Leute hereinkommen.</p>
     </div>
 
-    <!-- Registrierung -->
-    <section class="karte">
-      <div class="schalter">
-        <button type="button" class="schalter-knopf" id="pflicht-schalter" aria-pressed="true" aria-label="Registrierung nur mit Einladung"></button>
-        <div class="schalter-text">
-          <b id="pflicht-titel">Registrierung nur mit Einladung</b>
-          <p id="pflicht-text"></p>
+    <!-- Reiterleiste; Einträge und Zähler baut admin.ts aus TABS -->
+    <div class="reiter" role="tablist" id="reiter" aria-label="Bereiche der Verwaltung"></div>
+
+    <!-- Konten -->
+    <section class="panel" id="panel-konten" role="tabpanel" aria-labelledby="reiter-konten" hidden>
+      <div class="werkzeuge">
+        <label class="suchfeld">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
+          <input type="search" id="konten-suche" placeholder="Name oder E-Mail …" aria-label="Konten durchsuchen" />
+        </label>
+        <div class="filter" id="konten-filter" role="group" aria-label="Konten filtern"></div>
+        <span class="sp"></span>
+        <button type="button" class="primaer" id="konto-neu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Konto anlegen
+        </button>
+      </div>
+      <div class="liste" id="konten-liste"></div>
+    </section>
+
+    <!-- Einladungen — mit der Regel, die über sie entscheidet -->
+    <section class="panel" id="panel-einladungen" role="tabpanel" aria-labelledby="reiter-einladungen" hidden>
+      <div class="regel">
+        <div class="schalter">
+          <button type="button" class="schalter-knopf" id="pflicht-schalter" aria-pressed="true" aria-label="Registrierung nur mit Einladung"></button>
+          <div class="schalter-text">
+            <b id="pflicht-titel">Registrierung nur mit Einladung</b>
+            <p id="pflicht-text"></p>
+          </div>
         </div>
       </div>
       <div class="warnzeile" id="zu-warnung" hidden>
         <span>Die Registrierung ist in der Umgebung ganz abgeschaltet (<span class="zahl">MAPTALE_REGISTRIERUNG_OFFEN=0</span>). Solange das so ist, kommt auch mit gültigem Code niemand herein.</span>
       </div>
-      <!-- Zweiter Schalter, gleiche Karte: Beides sind Regeln derselben Tür —
-           wer nicht hereinkommt, und was er stattdessen tun kann. -->
-      <div class="schalter schalter-zweiter">
-        <button type="button" class="schalter-knopf" id="wl-schalter" aria-pressed="true" aria-label="Warteliste anbieten"></button>
-        <div class="schalter-text">
-          <b>Warteliste anbieten</b>
-          <p id="wl-schalter-text"></p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Warteliste -->
-    <section class="karte">
-      <div class="karte-kopf">
-        <div>
-          <h2>Warteliste</h2>
-          <p id="warteliste-zusammenfassung"></p>
-        </div>
+      <div class="werkzeuge">
+        <label class="suchfeld">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
+          <input type="search" id="einladungen-suche" placeholder="Code oder Notiz …" aria-label="Einladungen durchsuchen" />
+        </label>
+        <div class="filter" id="einladungen-filter" role="group" aria-label="Einladungen filtern"></div>
         <span class="sp"></span>
-      </div>
-      <div class="liste" id="warteliste-liste"></div>
-    </section>
-
-    <!-- Einladungen -->
-    <section class="karte">
-      <div class="karte-kopf">
-        <div>
-          <h2>Einladungen</h2>
-          <p id="einladungen-zusammenfassung"></p>
-        </div>
-        <span class="sp"></span>
-        <button type="button" class="primaer" id="einladung-neu">Einladung erstellen</button>
+        <button type="button" class="primaer" id="einladung-neu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Einladung erstellen
+        </button>
       </div>
       <div class="liste" id="einladungen-liste"></div>
     </section>
 
-    <!-- System-Mails -->
-    <section class="karte">
-      <div class="karte-kopf">
-        <div>
-          <h2>System-Mails</h2>
-          <p id="mail-zusammenfassung"></p>
+    <!-- Warteliste — die Kehrseite der Einladungspflicht -->
+    <section class="panel" id="panel-warteliste" role="tabpanel" aria-labelledby="reiter-warteliste" hidden>
+      <div class="regel">
+        <div class="schalter">
+          <button type="button" class="schalter-knopf" id="wl-schalter" aria-pressed="true" aria-label="Warteliste anbieten"></button>
+          <div class="schalter-text">
+            <b>Warteliste anbieten</b>
+            <p id="wl-schalter-text"></p>
+          </div>
         </div>
         <span class="sp"></span>
+        <!-- Der Schalter kann eingeschaltet und trotzdem wirkungslos sein. Die
+             Ursache liegt im anderen Reiter — also führt hier ein Weg hin. -->
+        <button type="button" id="wl-zur-pflicht" hidden>Zur Einladungspflicht</button>
       </div>
-      <div class="liste" id="mail-liste"></div>
+      <div class="werkzeuge">
+        <label class="suchfeld">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
+          <input type="search" id="warteliste-suche" placeholder="E-Mail oder Notiz …" aria-label="Warteliste durchsuchen" />
+        </label>
+        <div class="filter" id="warteliste-filter" role="group" aria-label="Warteliste filtern"></div>
+      </div>
+      <div class="liste" id="warteliste-liste"></div>
     </section>
 
-    <!-- Konten -->
-    <section class="karte">
-      <div class="karte-kopf">
-        <div>
-          <h2>Konten</h2>
-          <p id="konten-zusammenfassung"></p>
-        </div>
-        <span class="sp"></span>
-        <input type="search" id="konten-suche" placeholder="Name oder E-Mail …" aria-label="Konten durchsuchen" style="width: 220px" />
-        <button type="button" id="konto-neu">Konto anlegen</button>
-      </div>
-      <div class="liste" id="konten-liste"></div>
+    <!-- System-Mails -->
+    <section class="panel" id="panel-mails" role="tabpanel" aria-labelledby="reiter-mails" hidden>
+      <p class="panel-text" id="mail-zusammenfassung"></p>
+      <div class="mail-karten" id="mail-liste"></div>
     </section>
   </main>
+
+  <!-- Rückfrage vor allem, was sich nicht zurücknehmen lässt.
+       Statt window.confirm: Das native Fenster kommt in der Systemoptik, nennt
+       oben die Domain und lässt den gefährlichen Knopf so aussehen wie den
+       harmlosen. Hier trägt der Titel die Frage, der Text die Folge, und der
+       bestätigende Knopf die Farbe der Folge. -->
+  <dialog id="frage-dialog">
+    <form class="dialog-inner" id="frage-form" method="dialog">
+      <h2 id="fd-titel"></h2>
+      <p class="unterzeile" id="fd-text"></p>
+      <div class="dialog-fuss">
+        <button type="button" id="fd-nein">Abbrechen</button>
+        <button type="submit" class="primaer" id="fd-ja">Bestätigen</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Konto anlegen / bearbeiten -->
   <dialog id="konto-dialog">
@@ -627,6 +824,9 @@
       <div class="mail-fuss">
         <button type="button" id="md-test">Testmail an mich</button>
         <button type="button" class="still" id="md-zuruecksetzen" hidden>Auf Standard zurücksetzen</button>
+        <!-- Was die Testmail gemeldet hat, gehört IN den Dialog: Ein Toast
+             dahinter läge unter dem Backdrop des Top-Layers. -->
+        <span class="mail-stand" id="md-stand" role="status"></span>
         <span class="sp"></span>
         <button type="button" id="md-abbrechen">Abbrechen</button>
         <button type="submit" class="primaer" id="md-speichern">Speichern</button>
