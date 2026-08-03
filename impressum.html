@@ -31,6 +31,7 @@
     <header class="kopf">
       <div class="wrap">
         <div class="spalte">
+          <a class="zurueck" href="/" data-zurueck><span aria-hidden="true">‹</span> Zurück</a>
           <h1>Impressum</h1>
           <p class="lead">
             Wer diesen Dienst betreibt, unter welcher Anschrift er erreichbar ist und wer für
@@ -122,5 +123,16 @@
         </span>
       </div>
     </footer>
+    <!-- Der Weg zurück: die Geschichte, wenn es eine gibt. Wer die Seite in
+         einem neuen Tab öffnet (aus der Anmeldung heraus etwa), hat keine —
+         dann bleibt der Link auf der Startseite, wie im Markup notiert. -->
+    <script>
+      document.querySelector('[data-zurueck]')?.addEventListener('click', (e) => {
+        if (history.length > 1) {
+          e.preventDefault()
+          history.back()
+        }
+      })
+    </script>
   </body>
 </html>

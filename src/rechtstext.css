@@ -118,10 +118,41 @@ footer a:focus-visible,
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* — Der Weg zurück —
+   Die Marke daneben führt IMMER auf die Startseite; hierher kommt man aber
+   meistens aus einer Anmeldung, einem Studio oder einem Player, und dorthin
+   will man auch wieder. Deshalb ein eigener Griff, der die Geschichte nutzt
+   (das Skript in den beiden Seiten); ohne Verlauf bleibt es beim href. */
+
+.zurueck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: color 0.18s ease;
+}
+.zurueck:hover {
+  color: var(--ink);
+}
+.zurueck:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.zurueck span {
+  font-size: 15px;
+  line-height: 1;
+  translate: 0 -1px;
+}
+
 /* — Seitenkopf: der Titel steht ganz oben, direkt unter der Marke — */
 
 header.kopf {
-  padding: 52px 0 6px;
+  padding: 40px 0 6px;
   background:
     radial-gradient(90% 120% at 0% 0%, rgba(245, 158, 11, 0.07), transparent 60%),
     linear-gradient(180deg, var(--bg), transparent 70%);
