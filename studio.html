@@ -412,6 +412,13 @@
     .code-chip svg { width: 15px; height: 15px; flex: none; color: var(--gruen); }
     .code-chip span { flex: 1; min-width: 0; }
     .code-chip b { color: var(--text); font-weight: 600; letter-spacing: 0.05em; font-variant-numeric: tabular-nums; }
+    /* Warteliste: das freiwillige Feld sagt es im Label, nicht in einem
+       Sternchen mit Fußnote — und der Pflichttext steht als Fließtext über dem
+       Knopf, klein, aber lesbar (kein 10-px-Kleingedrucktes). */
+    .feld-frei { color: var(--text-3); font-weight: 400; }
+    .wl-recht { font-size: 12px; line-height: 1.6; color: var(--text-3); margin: -2px 0 14px; }
+    .wl-recht a { color: var(--text-2); }
+    .login-box .wl-aktion { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
     .auth-rechtstexte { margin-top: 28px; text-align: center; font-size: 12px; color: var(--text-3); }
     .auth-rechtstexte a { color: var(--text-3); }
     .hinweis.ok { color: var(--ok, #56c271); }
@@ -2668,8 +2675,54 @@
           <button type="submit" class="primaer" id="code-weiter">Weiter</button>
           <div class="auth-wechsel">
             <button type="button" class="link" data-modus="login">Ich habe schon ein Konto</button>
+            <!-- Der Weg für alle ohne Code. Steht nur da, wenn die Warteliste
+                 auch angeboten wird (s. /auth/me → registrierung.warteliste). -->
+            <button type="button" class="link" data-modus="warteliste" id="zur-warteliste" hidden>Ich habe keinen Code</button>
           </div>
         </form>
+
+        <!-- Warteliste: die Alternative zum Code.
+             Zwei Felder, davon eines freiwillig — mehr braucht es nicht, um
+             jemanden später einzuladen. Der Satz über dem Knopf ist Pflicht
+             (Art. 13 DSGVO) und gehört genau hierhin: vor die Eingabe, nicht
+             in eine Erklärung, die man erst suchen muss. -->
+        <form id="warteliste-form" class="auth-form" hidden>
+          <h2>Auf die Warteliste</h2>
+          <p class="unterzeile">Wir laden nach und nach ein. Trag dich ein — dein Code kommt per Mail.</p>
+          <div class="feld">
+            <label for="wl-email">E-Mail</label>
+            <input id="wl-email" type="email" autocomplete="email" required />
+          </div>
+          <div class="feld">
+            <label for="wl-notiz">Was möchtest du aufnehmen? <span class="feld-frei">freiwillig</span></label>
+            <textarea id="wl-notiz" rows="3" maxlength="300" placeholder="z. B. Radtouren in den Alpen"></textarea>
+          </div>
+          <p class="wl-recht">
+            Deine Adresse nutzen wir nur, um dich einzuladen. Gleich kommt eine Mail, in der du
+            den Eintrag bestätigst — ohne diesen Klick speichern wir sie nicht dauerhaft.
+            Austragen kannst du dich jederzeit über den Link in jeder Mail.
+            <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
+          </p>
+          <div class="hinweis fehler" id="wl-fehler" role="alert"></div>
+          <button type="submit" class="primaer" id="wl-absenden">Eintragen</button>
+          <div class="auth-wechsel">
+            <button type="button" class="link" data-modus="code">Ich habe doch einen Code</button>
+            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+          </div>
+        </form>
+
+        <!-- Was die Warteliste zu sagen hat: nach dem Eintragen, nach dem Klick
+             aus der Mail und beim Austragen. Eine Ansicht für alle drei — es ist
+             jedes Mal dasselbe: ein Satz und höchstens ein Griff. -->
+        <div id="warteliste-info" class="auth-form" hidden>
+          <h2 id="wl-info-titel"></h2>
+          <p class="unterzeile" id="wl-info-text"></p>
+          <div class="hinweis fehler" id="wl-info-fehler" role="alert"></div>
+          <button type="button" class="wl-aktion" id="wl-info-aktion" hidden></button>
+          <div class="auth-wechsel">
+            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+          </div>
+        </div>
 
         <!-- Registrieren, Schritt 2: die eigenen Daten -->
         <form id="register-form" class="auth-form" hidden>

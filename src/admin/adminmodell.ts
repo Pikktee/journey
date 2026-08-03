@@ -31,6 +31,20 @@ export interface AdminEinladung {
   zustand: EinladungsZustand
 }
 
+export type WartelistenZustand = 'unbestaetigt' | 'wartend' | 'eingeladen'
+
+export interface AdminWartender {
+  id: string
+  email: string
+  /** Freiwillige Angabe des Anmelders — das Kriterium fürs gezielte Freischalten. */
+  notiz: string | null
+  eingetragenAm: string
+  bestaetigtAm: string | null
+  eingeladenAm: string | null
+  eingeladenCode: string | null
+  zustand: WartelistenZustand
+}
+
 /** Megabyte mit einer Nachkommastelle, Gigabyte ab 1024 MB. */
 export function formatiereBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024)
@@ -79,6 +93,44 @@ export function beschreibeEinladung(e: AdminEinladung): string {
   }
   if (e.zustand === 'abgelaufen') return `Abgelaufen am ${formatiereDatum(e.ablauf)}`
   return e.ablauf ? `Offen · gültig bis ${formatiereDatum(e.ablauf)}` : 'Offen · ohne Ablaufdatum'
+}
+
+/**
+ * Wie viele warten, wie viele hängen noch an ihrer Bestätigung.
+ *
+ * `wartend` steht vorn, weil es die einzige Zahl ist, auf die jemand handeln
+ * kann: Nur bestätigte Adressen dürfen eine Einladung bekommen.
+ */
+export function zaehleWarteliste(
+  liste: readonly AdminWartender[],
+): Record<WartelistenZustand, number> {
+  const zaehler: Record<WartelistenZustand, number> = { unbestaetigt: 0, wartend: 0, eingeladen: 0 }
+  for (const e of liste) zaehler[e.zustand]++
+  return zaehler
+}
+
+/** Der Satz unter der Adresse — wo im Ablauf dieser Eintrag gerade steht. */
+export function beschreibeWartenden(e: AdminWartender): string {
+  if (e.zustand === 'eingeladen') {
+    const code = e.eingeladenCode ? ` mit Code ${e.eingeladenCode}` : ''
+    return `Eingeladen am ${formatiereDatum(e.eingeladenAm)}${code}`
+  }
+  if (e.zustand === 'wartend') return `Bestätigt am ${formatiereDatum(e.bestaetigtAm)} · wartet`
+  return `Eingetragen am ${formatiereDatum(e.eingetragenAm)} · Bestätigung steht aus`
+}
+
+/**
+ * Warum sich jemand nicht einladen lässt — leer heißt: Knopf anbieten.
+ *
+ * Wie bei den Rollen stehen die Regeln doppelt (hier und in
+ * server/src/routes/warteliste.ts). Die wichtigste ist die erste: Eine Mail an
+ * eine unbestätigte Adresse wäre genau die ungefragte Nachricht, gegen die das
+ * Double-Opt-in gebaut ist.
+ */
+export function einladenGesperrt(e: AdminWartender): string {
+  if (e.zustand === 'unbestaetigt') return 'Diese Adresse ist noch nicht bestätigt'
+  if (e.zustand === 'eingeladen') return 'Schon eingeladen — der Code steht in der Liste darunter'
+  return ''
 }
 
 /**

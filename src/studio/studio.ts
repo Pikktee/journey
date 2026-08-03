@@ -55,6 +55,18 @@ const els = {
   regAbsenden: $<HTMLButtonElement>('reg-absenden'),
   regUnterzeile: $('reg-unterzeile'),
   registerFehler: $('register-fehler'),
+  // Warteliste: der Weg herein für alle ohne Code
+  zurWarteliste: $<HTMLButtonElement>('zur-warteliste'),
+  wartelisteForm: $<HTMLFormElement>('warteliste-form'),
+  wlEmail: $<HTMLInputElement>('wl-email'),
+  wlNotiz: $<HTMLTextAreaElement>('wl-notiz'),
+  wlFehler: $('wl-fehler'),
+  wlAbsenden: $<HTMLButtonElement>('wl-absenden'),
+  wartelisteInfo: $('warteliste-info'),
+  wlInfoTitel: $('wl-info-titel'),
+  wlInfoText: $('wl-info-text'),
+  wlInfoFehler: $('wl-info-fehler'),
+  wlInfoAktion: $<HTMLButtonElement>('wl-info-aktion'),
   resetAnfordernForm: $<HTMLFormElement>('reset-anfordern-form'),
   resetEmail: $<HTMLInputElement>('reset-email'),
   resetAnfordernStatus: $('reset-anfordern-status'),
@@ -127,7 +139,9 @@ function setzePfad(seite: 'app' | 'anmelden' | 'registrieren'): void {
 
 /** Für Gäste entscheidet das sichtbare Formular, ob die Adresse Tür oder Aufnahme heißt. */
 function setzeGastPfad(): void {
-  setzePfad(!els.registerForm.hidden || !els.codeForm.hidden ? 'registrieren' : 'anmelden')
+  const aufDemWegHinein =
+    !els.registerForm.hidden || !els.codeForm.hidden || !els.wartelisteForm.hidden || !els.wartelisteInfo.hidden
+  setzePfad(aufDemWegHinein ? 'registrieren' : 'anmelden')
 }
 
 function zeige(angemeldet: boolean): void {
@@ -193,14 +207,25 @@ function zeigeBenutzer(sitzung: api.Sitzung): void {
   }
 }
 
-// — Auth-Modus umschalten (Anmelden / Einladung / Registrieren / Reset) —
-type AuthModus = 'login' | 'code' | 'register' | 'reset-anfordern' | 'reset-setzen'
-const authFormen: Record<AuthModus, HTMLFormElement> = {
+// — Auth-Modus umschalten (Anmelden / Einladung / Registrieren / Reset / Warteliste) —
+type AuthModus =
+  | 'login'
+  | 'code'
+  | 'register'
+  | 'reset-anfordern'
+  | 'reset-setzen'
+  | 'warteliste'
+  | 'warteliste-info'
+// HTMLElement, nicht HTMLFormElement: Die Wartelisten-Meldung ist kein
+// Formular, sondern ein Satz mit höchstens einem Griff.
+const authFormen: Record<AuthModus, HTMLElement> = {
   login: els.loginForm,
   code: els.codeForm,
   register: els.registerForm,
   'reset-anfordern': els.resetAnfordernForm,
   'reset-setzen': els.resetSetzenForm,
+  warteliste: els.wartelisteForm,
+  'warteliste-info': els.wartelisteInfo,
 }
 
 function zeigeAuthModus(modus: AuthModus): void {
@@ -226,6 +251,7 @@ els.authBox.querySelectorAll<HTMLButtonElement>('[data-modus]').forEach((btn) =>
     els.loginFehler.textContent = ''
     els.registerFehler.textContent = ''
     els.codeFehler.textContent = ''
+    els.wlFehler.textContent = ''
     const ziel = btn.dataset.modus as AuthModus
     if (ziel === 'register') starteRegistrierung()
     else zeigeAuthModus(ziel)
@@ -269,6 +295,9 @@ function setzeBestaetigtenCode(code: string): void {
 
 function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
   einladungPflicht = sitzung.registrierung?.einladungPflicht ?? false
+  // Der Weg zur Warteliste steht nur da, wo der Server ihn anbietet — sonst
+  // führte ein Link auf ein Formular, dessen Route mit 403 antwortet.
+  els.zurWarteliste.hidden = !sitzung.registrierung?.warteliste
   // Steht die Tür wieder offen, ist ein bestätigter Code gegenstandslos —
   // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
   if (!einladungPflicht) setzeBestaetigtenCode('')
@@ -309,7 +338,11 @@ async function ladeSitzung(): Promise<api.Sitzung> {
 async function pruefeAnmeldung(): Promise<void> {
   // Zuerst Mail-Links aus der URL abarbeiten (#verify=… / #reset=…)
   try {
-    await behandleAuthHash()
+    // Ein Wartelisten-Link gilt AUCH für Angemeldete: Er beantwortet eine Frage
+    // der Adresse, nicht des Kontos. Ohne diesen Abbruch schöbe `ladeSitzung`
+    // die Bibliothek darüber, und der Austragen-Link liefe für jeden mit
+    // offener Sitzung ins Leere.
+    if (await behandleAuthHash()) return
     await ladeSitzung()
   } finally {
     // Auch bei Netzwerkfehlern den Boot weg — sonst hängt man ewig.
@@ -328,20 +361,27 @@ async function pruefeAnmeldung(): Promise<void> {
  * `#registrieren` bleibt gültig, weil es in Lesezeichen und in verschickten
  * Links steht.
  */
-async function behandleAuthHash(): Promise<void> {
+async function behandleAuthHash(): Promise<boolean> {
   const hash = location.hash.slice(1)
   const verify = hash.match(/(?:^|&)verify=([^&]+)/)?.[1]
   const reset = hash.match(/(?:^|&)reset=([^&]+)/)?.[1]
   const einladung = hash.match(/(?:^|&)einladung=([^&]+)/)?.[1]
+  const wlBestaetigen = hash.match(/(?:^|&)warteliste=([^&]+)/)?.[1]
+  const wlAustragen = hash.match(/(?:^|&)warteliste-austragen=([^&]+)/)?.[1]
   // Der bloße Einstieg — er darf keinen Token-Hash überholen: Der Link aus der
   // Verwaltung heißt seit den sauberen URLs `/registrieren#einladung=CODE` und
   // erfüllt die Pfad-Bedingung selbst.
   const direktZurRegistrierung =
-    !verify && !reset && !einladung && (hash === 'registrieren' || location.pathname === ROUTEN.registrieren.pfad)
+    !verify &&
+    !reset &&
+    !einladung &&
+    !wlBestaetigen &&
+    !wlAustragen &&
+    (hash === 'registrieren' || location.pathname === ROUTEN.registrieren.pfad)
   if (direktZurRegistrierung) {
     history.replaceState(null, '', location.pathname + location.search)
     zeigeAuthModus('register')
-    return
+    return false
   }
   if (einladung) {
     history.replaceState(null, '', location.pathname + location.search)
@@ -359,7 +399,35 @@ async function behandleAuthHash(): Promise<void> {
       els.codeFehler.textContent = (fehler as Error).message
       zeigeAuthModus('code')
     }
-    return
+    return false
+  }
+  // Der Klick aus der Wartelisten-Mail. Er ist die Einwilligung — deshalb löst
+  // ihn erst diese Seite ein und nicht schon der Link selbst (ein GET, den
+  // jeder Scanner mitnimmt, wäre keine Handlung des Menschen).
+  if (wlBestaetigen) {
+    history.replaceState(null, '', location.pathname + location.search)
+    const token = decodeURIComponent(wlBestaetigen)
+    try {
+      const { email } = await api.bestaetigeWarteliste(token)
+      zeigeWartelistenInfo(
+        'Du stehst auf der Liste',
+        `${email} ist vorgemerkt. Sobald ein Platz frei wird, kommt dein Einladungscode per Mail.`,
+        { wort: 'Doch nicht — austragen', tun: () => trageAusWarteliste(token) },
+      )
+    } catch (fehler) {
+      zeigeWartelistenInfo('Dieser Link geht nicht mehr', (fehler as Error).message)
+    }
+    return true
+  }
+  if (wlAustragen) {
+    history.replaceState(null, '', location.pathname + location.search)
+    const token = decodeURIComponent(wlAustragen)
+    zeigeWartelistenInfo(
+      'Aus der Warteliste austragen?',
+      'Wir löschen deine Adresse dann sofort und schicken dir keine Einladung mehr.',
+      { wort: 'Ja, austragen', tun: () => trageAusWarteliste(token) },
+    )
+    return true
   }
   if (verify) {
     history.replaceState(null, '', location.pathname + location.search)
@@ -376,6 +444,7 @@ async function behandleAuthHash(): Promise<void> {
     resetToken = decodeURIComponent(reset)
     zeigeAuthModus('reset-setzen')
   }
+  return false
 }
 
 let resetToken: string | null = null
@@ -475,6 +544,81 @@ els.registerForm.addEventListener('submit', async (e) => {
     }
   } finally {
     els.regAbsenden.disabled = false
+  }
+})
+
+// — Warteliste —
+//
+// Drei Wege enden in derselben Ansicht: eingetragen, bestätigt, ausgetragen.
+// Sie trägt einen Satz und höchstens einen Griff — mehr hat die Warteliste
+// nicht zu sagen, und ein Formular, das nach dem Absenden stehen bleibt, sähe
+// aus, als wäre nichts passiert.
+
+/** Was der Knopf der Info-Ansicht gerade tut; null = kein Knopf. */
+let wlAktion: (() => void | Promise<void>) | null = null
+
+function zeigeWartelistenInfo(
+  titel: string,
+  text: string,
+  aktion?: { wort: string; tun: () => void | Promise<void> },
+): void {
+  els.wlInfoTitel.textContent = titel
+  els.wlInfoText.textContent = text
+  els.wlInfoFehler.textContent = ''
+  els.wlInfoAktion.hidden = !aktion
+  els.wlInfoAktion.textContent = aktion?.wort ?? ''
+  wlAktion = aktion?.tun ?? null
+  // Die Bühne gehört jetzt dieser Meldung — auch bei bestehender Sitzung. Der
+  // Boot-Vorgriff (Cookie `maptale_dabei`) hat die Bibliothek sonst schon
+  // eingeblendet, bevor der Link überhaupt gelesen wurde, und der Austragen-Weg
+  // endete für jeden Angemeldeten in seiner Tourliste.
+  zeige(false)
+  document.documentElement.classList.remove('studio-dabei')
+  zeigeAuthModus('warteliste-info')
+}
+
+els.wlInfoAktion.addEventListener('click', () => void wlAktion?.())
+
+/**
+ * Austragen — der Weg hinaus ohne Konto.
+ *
+ * Er läuft nie auf einen bloßen Link-Aufruf hin, sondern immer über einen
+ * Knopf: Mail-Programme und Virenscanner öffnen Links vorab, und eine Löschung
+ * durch einen Scanner wäre eine, die niemand wollte.
+ */
+async function trageAusWarteliste(token: string): Promise<void> {
+  els.wlInfoFehler.textContent = ''
+  els.wlInfoAktion.disabled = true
+  try {
+    await api.trageAusWarteliste(token)
+    zeigeWartelistenInfo('Ausgetragen', 'Deine Adresse ist gelöscht — du bekommst keine Post mehr von uns.')
+  } catch (fehler) {
+    els.wlInfoFehler.textContent = (fehler as Error).message
+  } finally {
+    els.wlInfoAktion.disabled = false
+  }
+}
+
+els.wartelisteForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  els.wlFehler.textContent = ''
+  els.wlAbsenden.disabled = true
+  const adresse = els.wlEmail.value.trim()
+  try {
+    await api.trageInWarteliste(adresse, els.wlNotiz.value.trim() || undefined)
+    els.wlEmail.value = ''
+    els.wlNotiz.value = ''
+    // Bewusst dieselbe Antwort für jede Lage (neu, schon eingetragen, schon
+    // Konto) — die Route verrät nicht, wer auf der Liste steht, und die
+    // Oberfläche soll es auch nicht.
+    zeigeWartelistenInfo(
+      'Schau in dein Postfach',
+      `Wenn alles passt, ist eine Mail an ${adresse} unterwegs. Erst dein Klick darin macht den Eintrag gültig — sonst löschen wir die Adresse wieder.`,
+    )
+  } catch (fehler) {
+    els.wlFehler.textContent = (fehler as Error).message
+  } finally {
+    els.wlAbsenden.disabled = false
   }
 })
 

@@ -68,7 +68,12 @@ export interface Sitzung {
    * Wie neue Konten entstehen — kommt AUCH ohne Anmeldung, denn genau das
    * braucht das Registrierungsformular (fragt es nach einem Code?).
    */
-  registrierung?: { offen: boolean; einladungPflicht: boolean }
+  registrierung?: {
+    offen: boolean
+    einladungPflicht: boolean
+    /** Steht die Warteliste vor der Tür? (Schalter UND Lage — s. Server.) */
+    warteliste?: boolean
+  }
 }
 
 async function anfrage<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
@@ -131,6 +136,29 @@ export function registriere(
  */
 export function pruefeEinladung(code: string): Promise<{ ok: boolean; pflicht: boolean }> {
   return anfrage('/auth/einladung-pruefen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ code }) })
+}
+
+// — Warteliste —
+//
+// Alle drei Aufrufe antworten absichtlich karg: Die Route sagt weder, ob eine
+// Adresse schon eingetragen ist, noch ob es zu ihr ein Konto gibt. Die
+// Oberfläche zeigt darum immer denselben Satz.
+
+export function trageInWarteliste(email: string, notiz?: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/warteliste', {
+    method: 'POST',
+    headers: jsonKopf,
+    body: JSON.stringify(notiz ? { email, notiz } : { email }),
+  })
+}
+
+/** Der Klick aus der Bestätigungsmail; gibt die eingetragene Adresse zurück. */
+export function bestaetigeWarteliste(token: string): Promise<{ ok: boolean; email: string }> {
+  return anfrage('/auth/warteliste/bestaetigen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
+}
+
+export function trageAusWarteliste(token: string): Promise<{ ok: boolean }> {
+  return anfrage('/auth/warteliste/austragen', { method: 'POST', headers: jsonKopf, body: JSON.stringify({ token }) })
 }
 
 export function verifiziereEmail(token: string): Promise<{ ok: boolean }> {

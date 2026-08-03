@@ -39,6 +39,53 @@ export function baueResetMail(name: string, link: string): { betreff: string; te
 }
 
 /**
+ * Warteliste, Schritt 1: der Bestätigungslink (Double-Opt-in).
+ *
+ * Ohne Anrede — wir kennen nur die Adresse, und ein aus ihr abgeleiteter Name
+ * wäre hier eine Behauptung über jemanden, der noch gar kein Konto hat. Der
+ * letzte Absatz ist der wichtigste: Wer nicht geklickt hat, steht auf keiner
+ * Liste, also muss auch niemand widersprechen.
+ */
+export function baueWartelisteMail(link: string): { betreff: string; text: string } {
+  return {
+    betreff: 'Maptale: Bitte bestätige deinen Platz auf der Warteliste',
+    text:
+      `Hallo,\n\n` +
+      `du möchtest Maptale ausprobieren — schön!\n\n` +
+      `Maptale wächst gerade von Einladung zu Einladung. Bestätige über diesen Link, ` +
+      `dass wir dich vormerken dürfen:\n\n${link}\n\n` +
+      `Sobald ein Platz frei wird, schicken wir dir einen Einladungscode an diese Adresse. ` +
+      `Sonst bekommst du keine Post von uns.\n\n` +
+      `Hast du dich nicht eingetragen, ignoriere diese Nachricht einfach: Ohne den Klick ` +
+      `wird deine Adresse nicht gespeichert und nach kurzer Zeit gelöscht.\n\n— Maptale`,
+  }
+}
+
+/**
+ * Warteliste, Schritt 2: der Platz ist frei.
+ *
+ * Der Austragen-Link steht mit in der Mail und nicht nur in der Bestätigung:
+ * Zwischen beiden können Monate liegen, und wer die erste Mail gelöscht hat,
+ * hätte sonst keinen Weg mehr aus der Liste heraus.
+ */
+export function baueWartelisteEinladungsMail(
+  code: string,
+  link: string,
+  austragenLink: string,
+): { betreff: string; text: string } {
+  return {
+    betreff: 'Maptale: Dein Platz ist frei',
+    text:
+      `Hallo,\n\n` +
+      `es ist so weit — du kannst dir jetzt ein Maptale-Konto anlegen.\n\n` +
+      `Dein Einladungscode: ${code}\n\n` +
+      `Am schnellsten geht es über diesen Link, er trägt den Code schon ein:\n\n${link}\n\n` +
+      `Der Code gilt für eine Anmeldung. Magst du doch nicht mehr? ` +
+      `Dann trag dich hier aus, wir löschen deine Adresse sofort:\n\n${austragenLink}\n\n— Maptale`,
+  }
+}
+
+/**
  * Dev-Versand: schreibt die Mail (inkl. Link) ins Log, statt sie zu verschicken.
  * So lässt sich der komplette Registrierungs-/Reset-Fluss lokal ohne Mailserver
  * durchspielen — der Bestätigungslink steht im Server-Terminal.

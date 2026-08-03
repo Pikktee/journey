@@ -10,6 +10,8 @@ import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
   beschreibeEinladung,
+  beschreibeWartenden,
+  einladenGesperrt,
   einladungsLink,
   filtereBenutzer,
   formatiereBytes,
@@ -18,8 +20,10 @@ import {
   rolleGesperrt,
   zaehleAdmins,
   zaehleEinladungen,
+  zaehleWarteliste,
   type AdminBenutzer,
   type AdminEinladung,
+  type AdminWartender,
   type Rolle,
 } from './adminmodell.js'
 
@@ -36,6 +40,10 @@ const els = {
   pflichtSchalter: $<HTMLButtonElement>('pflicht-schalter'),
   pflichtText: $('pflicht-text'),
   zuWarnung: $('zu-warnung'),
+  wlSchalter: $<HTMLButtonElement>('wl-schalter'),
+  wlSchalterText: $('wl-schalter-text'),
+  wartelisteListe: $('warteliste-liste'),
+  wartelisteZusammenfassung: $('warteliste-zusammenfassung'),
   einladungenListe: $('einladungen-liste'),
   einladungenZusammenfassung: $('einladungen-zusammenfassung'),
   einladungNeu: $<HTMLButtonElement>('einladung-neu'),
@@ -71,7 +79,9 @@ interface Zustand {
   ichId: string
   benutzer: AdminBenutzer[]
   einladungen: AdminEinladung[]
+  warteliste: AdminWartender[]
   einladungPflicht: boolean
+  wartelisteOffen: boolean
   registrierungOffen: boolean
   basisUrl: string
   suche: string
@@ -81,7 +91,9 @@ const z: Zustand = {
   ichId: '',
   benutzer: [],
   einladungen: [],
+  warteliste: [],
   einladungPflicht: true,
+  wartelisteOffen: true,
   registrierungOffen: true,
   basisUrl: location.origin,
   suche: '',
@@ -120,12 +132,14 @@ const fehlerText = (fehler: unknown): string =>
 // — Laden —
 
 async function lade(): Promise<void> {
-  const [konten, einladungen] = await Promise.all([api.benutzer(), api.einladungen()])
+  const [konten, einladungen, warteliste] = await Promise.all([api.benutzer(), api.einladungen(), api.warteliste()])
   z.benutzer = konten.benutzer
   z.einladungen = einladungen.einladungen
   z.einladungPflicht = einladungen.einladungPflicht
   z.registrierungOffen = einladungen.registrierungOffen
   z.basisUrl = einladungen.basisUrl || location.origin
+  z.warteliste = warteliste.eintraege
+  z.wartelisteOffen = warteliste.wartelisteOffen
   render()
 }
 
@@ -157,6 +171,7 @@ async function start(): Promise<void> {
 
 function render(): void {
   rendereRegistrierung()
+  rendereWarteliste()
   rendereEinladungen()
   rendereKonten()
 }
@@ -167,6 +182,88 @@ function rendereRegistrierung(): void {
     ? 'Neue Konten entstehen nur über einen Einladungscode. Schalte es aus, damit sich jeder selbst anmelden kann.'
     : 'Jeder kann sich selbst anmelden — die Bestätigungsmail bleibt Pflicht. Schalte es ein, um wieder nur Eingeladene hereinzulassen.'
   els.zuWarnung.hidden = z.registrierungOffen
+
+  els.wlSchalter.setAttribute('aria-pressed', String(z.wartelisteOffen))
+  // Der Schalter ist eingeschaltet und trotzdem wirkungslos, solange sich jeder
+  // anmelden kann — das gehört dazugesagt, sonst sucht man den Eintrag
+  // vergeblich vor der Tür.
+  const wirkungslos = z.wartelisteOffen && z.einladungPflicht === false && z.registrierungOffen
+  els.wlSchalterText.textContent = wirkungslos
+    ? 'Angeschaltet, aber ohne Wirkung: Solange sich jeder selbst anmelden kann, braucht niemand eine Warteliste.'
+    : z.wartelisteOffen
+      ? 'Wer keinen Code hat, kann seine Adresse hinterlassen und wird per Mail eingeladen.'
+      : 'Ohne Code endet der Weg vor der Tür. Schalte es ein, um Adressen zu sammeln.'
+}
+
+function rendereWarteliste(): void {
+  const zahl = zaehleWarteliste(z.warteliste)
+  els.wartelisteZusammenfassung.textContent = z.warteliste.length
+    ? `${zahl.wartend} ${zahl.wartend === 1 ? 'wartet' : 'warten'} · ${zahl.unbestaetigt} unbestätigt · ${zahl.eingeladen} eingeladen`
+    : 'Noch niemand hat sich eingetragen.'
+
+  els.wartelisteListe.replaceChildren(
+    ...z.warteliste.map((e) => {
+      const zeile = document.createElement('div')
+      zeile.className = 'zeile zeile-warteliste'
+
+      const haupt = document.createElement('div')
+      haupt.className = 'haupt'
+      const oben = document.createElement('div')
+      oben.className = 'oben'
+      const adresse = document.createElement('span')
+      adresse.className = 'name'
+      adresse.textContent = e.email
+      const zustand = document.createElement('span')
+      zustand.className = `badge ${{ unbestaetigt: 'unbestaetigt', wartend: 'offen', eingeladen: 'eingeloest' }[e.zustand]}`
+      zustand.textContent = { unbestaetigt: 'Unbestätigt', wartend: 'Wartet', eingeladen: 'Eingeladen' }[e.zustand]
+      oben.append(adresse, zustand)
+      const unten = document.createElement('div')
+      unten.className = 'unten'
+      unten.textContent = beschreibeWartenden(e)
+      haupt.append(oben, unten)
+      if (e.notiz) {
+        const zitat = document.createElement('div')
+        zitat.className = 'zitat'
+        zitat.textContent = `„${e.notiz}"`
+        zitat.title = e.notiz
+        haupt.append(zitat)
+      }
+
+      const datum = document.createElement('div')
+      datum.className = 'kennzahl'
+      datum.innerHTML = `<b>${formatiereDatum(e.eingetragenAm)}</b><span>eingetragen</span>`
+
+      const griffe = document.createElement('div')
+      griffe.className = 'griffe'
+      const einladen = document.createElement('button')
+      einladen.type = 'button'
+      einladen.className = 'still'
+      einladen.textContent = 'Einladen'
+      const gesperrt = einladenGesperrt(e)
+      if (gesperrt) {
+        einladen.disabled = true
+        einladen.title = gesperrt
+        einladen.setAttribute('aria-label', `Einladen — ${gesperrt}`)
+      } else {
+        einladen.addEventListener('click', () => void ladeEinAusWarteliste(e, einladen))
+      }
+      const weg = document.createElement('button')
+      weg.type = 'button'
+      weg.className = 'still gefahr'
+      weg.textContent = 'Entfernen'
+      weg.addEventListener('click', () => void entferneWartenden(e))
+      griffe.append(einladen, weg)
+
+      zeile.append(haupt, datum, griffe)
+      return zeile
+    }),
+  )
+  if (!z.warteliste.length) {
+    const leer = document.createElement('div')
+    leer.className = 'leer'
+    leer.textContent = 'Wer keinen Code hat, trägt sich hier ein — nach der Bestätigung per Mail steht er in dieser Liste.'
+    els.wartelisteListe.append(leer)
+  }
 }
 
 function rendereEinladungen(): void {
@@ -351,6 +448,38 @@ async function widerrufe(e: AdminEinladung): Promise<void> {
   }
 }
 
+/**
+ * Einladen: Code erzeugen und verschicken — ein Klick, der eine Mail auslöst.
+ *
+ * Deshalb die Rückfrage mit der Adresse darin: Die Liste ist nach Datum
+ * sortiert und rückt bei jedem Neuladen nach, ein Fehlgriff wäre eine Nachricht
+ * an die falsche Person. Der Knopf sperrt währenddessen — der Server erzeugt
+ * sonst zwei Codes für dieselbe Zeile.
+ */
+async function ladeEinAusWarteliste(e: AdminWartender, knopf: HTMLButtonElement): Promise<void> {
+  if (!window.confirm(`Einladung an ${e.email} schicken? Der Code geht sofort per Mail raus.`)) return
+  knopf.disabled = true
+  try {
+    const { einladung } = await api.ladeWartendenEin(e.id)
+    await lade()
+    flash(`Einladung ${einladung.code} an ${e.email} verschickt`)
+  } catch (fehler) {
+    flash(fehlerText(fehler), 'fehler')
+    knopf.disabled = false
+  }
+}
+
+async function entferneWartenden(e: AdminWartender): Promise<void> {
+  if (!window.confirm(`${e.email} von der Warteliste entfernen? Die Adresse wird gelöscht.`)) return
+  try {
+    await api.loescheWartenden(e.id)
+    await lade()
+    flash('Von der Warteliste entfernt')
+  } catch (fehler) {
+    flash(fehlerText(fehler), 'fehler')
+  }
+}
+
 async function loescheKonto(b: AdminBenutzer): Promise<void> {
   const was = b.touren > 0 ? ` Damit gehen ${b.touren} ${b.touren === 1 ? 'Tour' : 'Touren'} samt Fotos verloren.` : ''
   if (!window.confirm(`Konto „${b.name || b.email}" endgültig löschen?${was}`)) return
@@ -367,14 +496,31 @@ els.pflichtSchalter.addEventListener('click', async () => {
   const neu = !z.einladungPflicht
   els.pflichtSchalter.disabled = true
   try {
-    const antwort = await api.setzeEinladungPflicht(neu)
+    const antwort = await api.setzeEinstellungen({ einladungPflicht: neu })
     z.einladungPflicht = antwort.einladungPflicht
+    z.wartelisteOffen = antwort.wartelisteOffen
     rendereRegistrierung()
     flash(neu ? 'Registrierung nur noch mit Einladung' : 'Registrierung steht allen offen')
   } catch (fehler) {
     flash(fehlerText(fehler), 'fehler')
   } finally {
     els.pflichtSchalter.disabled = false
+  }
+})
+
+els.wlSchalter.addEventListener('click', async () => {
+  const neu = !z.wartelisteOffen
+  els.wlSchalter.disabled = true
+  try {
+    const antwort = await api.setzeEinstellungen({ wartelisteOffen: neu })
+    z.einladungPflicht = antwort.einladungPflicht
+    z.wartelisteOffen = antwort.wartelisteOffen
+    rendereRegistrierung()
+    flash(neu ? 'Die Warteliste steht wieder vor der Tür' : 'Die Warteliste wird nicht mehr angeboten')
+  } catch (fehler) {
+    flash(fehlerText(fehler), 'fehler')
+  } finally {
+    els.wlSchalter.disabled = false
   }
 })
 

@@ -8,6 +8,8 @@ import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
 import { nameAusEmail, type ProfilAenderung } from '../auth/auth.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
+import { wartelisteAngeboten } from '../auth/warteliste.js'
+import { baueBremse } from '../bremse.js'
 import { baueResetMail, baueVerifikationsMail } from '../mail.js'
 import { quotaStand } from '../quota.js'
 import { WEB_PFADE } from '../webpfade.js'
@@ -38,25 +40,6 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024
  */
 const avatarUrl = (userId: string, datei: string): string =>
   `/api/benutzer/${userId}/avatar?v=${encodeURIComponent(datei)}`
-
-// Einfache In-Memory-Bremse pro Schlüssel (IP und/oder E-Mail): max. N Ereignisse
-// je Fenster. Bewusst schlank — hinter Caddy zählt die Proxy-Quelle, daher
-// zusätzlich je Adresse bremsen. Zustand PRO App-Instanz (Closure), damit
-// parallele Instanzen (v. a. Tests) sich nicht gegenseitig blockieren.
-function baueBremse(maxVersuche: number, fensterMs = 60_000) {
-  const versuche = new Map<string, { n: number; reset: number }>()
-  return (...schluessel: string[]): boolean => {
-    const jetzt = Date.now()
-    if (versuche.size > 10_000) versuche.clear() // Speicher-Backstop
-    let gebremst = false
-    for (const key of schluessel) {
-      const e = versuche.get(key)
-      if (!e || e.reset < jetzt) versuche.set(key, { n: 1, reset: jetzt + fensterMs })
-      else if (++e.n > maxVersuche) gebremst = true
-    }
-    return gebremst
-  }
-}
 
 const emailSchema = { type: 'string', maxLength: 254 } as const
 const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as const
@@ -330,9 +313,16 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   app.get('/api/auth/me', async (request, reply) => {
     // Auch ohne Anmeldung: Das Registrierungsformular muss wissen, ob es nach
     // einem Einladungscode fragen soll — und genau dort ist niemand angemeldet.
+    // Dasselbe gilt für die Warteliste: Ob sie überhaupt angeboten wird, hängt
+    // an zwei Schaltern und einem Riegel; die Seite soll das nicht nachrechnen.
     const registrierung = {
       offen: konfig.registrierungOffen,
       einladungPflicht: app.einladungen.pflicht(),
+      warteliste: wartelisteAngeboten(
+        app.warteliste.offen(),
+        app.einladungen.pflicht(),
+        konfig.registrierungOffen,
+      ),
     }
     if (!request.benutzer) return { benutzer: null, registrierung }
     const sessionId = request.cookies[SESSION_COOKIE]

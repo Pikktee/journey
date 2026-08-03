@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { codeVollstaendig, formatiereEinladungscode } from '../src/einladungscode.js'
 import {
   beschreibeEinladung,
+  beschreibeWartenden,
+  einladenGesperrt,
   einladungsLink,
   filtereBenutzer,
   formatiereBytes,
@@ -13,8 +15,10 @@ import {
   rolleGesperrt,
   zaehleAdmins,
   zaehleEinladungen,
+  zaehleWarteliste,
   type AdminBenutzer,
   type AdminEinladung,
+  type AdminWartender,
 } from '../src/admin/adminmodell.js'
 
 const konto = (teil: Partial<AdminBenutzer> = {}): AdminBenutzer => ({
@@ -192,5 +196,50 @@ describe('Sperr-Regeln', () => {
 
   it('zählt die Administratoren einer Liste', () => {
     expect(zaehleAdmins([konto(), konto({ rolle: 'admin' }), konto({ rolle: 'admin' })])).toBe(2)
+  })
+})
+
+describe('Warteliste', () => {
+  const wartender = (teil: Partial<AdminWartender> = {}): AdminWartender => ({
+    id: 'w_1',
+    email: 'anna@example.com',
+    notiz: null,
+    eingetragenAm: '2026-03-04T10:00:00.000Z',
+    bestaetigtAm: null,
+    eingeladenAm: null,
+    eingeladenCode: null,
+    zustand: 'unbestaetigt',
+    ...teil,
+  })
+
+  it('zählt jeden Zustand einzeln', () => {
+    const zahl = zaehleWarteliste([
+      wartender(),
+      wartender({ zustand: 'wartend' }),
+      wartender({ zustand: 'wartend' }),
+      wartender({ zustand: 'eingeladen' }),
+    ])
+    expect(zahl).toEqual({ unbestaetigt: 1, wartend: 2, eingeladen: 1 })
+  })
+
+  it('sagt zu jedem Eintrag, wo er gerade steht', () => {
+    expect(beschreibeWartenden(wartender())).toContain('Bestätigung steht aus')
+    expect(beschreibeWartenden(wartender({ zustand: 'wartend', bestaetigtAm: '2026-03-05T08:00:00.000Z' }))).toBe(
+      'Bestätigt am 05.03.2026 · wartet',
+    )
+    expect(
+      beschreibeWartenden(
+        wartender({ zustand: 'eingeladen', eingeladenAm: '2026-03-06T08:00:00.000Z', eingeladenCode: 'ABCD-2345' }),
+      ),
+    ).toBe('Eingeladen am 06.03.2026 mit Code ABCD-2345')
+  })
+
+  // Die wichtigste Sperre des ganzen Features: Eine Mail an eine unbestätigte
+  // Adresse wäre genau die ungefragte Nachricht, gegen die das Double-Opt-in
+  // gebaut ist. Der Server lehnt sie ab — der Knopf soll sie nicht anbieten.
+  it('bietet das Einladen nur bestätigten Adressen an', () => {
+    expect(einladenGesperrt(wartender())).toContain('nicht bestätigt')
+    expect(einladenGesperrt(wartender({ zustand: 'eingeladen' }))).toContain('Schon eingeladen')
+    expect(einladenGesperrt(wartender({ zustand: 'wartend' }))).toBe('')
   })
 })

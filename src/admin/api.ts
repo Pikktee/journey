@@ -1,7 +1,7 @@
 // API-Hülle der Benutzerverwaltung — gleiche Bauart wie src/studio/api.ts:
 // origin-relativ, Session-Cookie, Fehler als Ausnahme mit der Server-Meldung.
 
-import type { AdminBenutzer, AdminEinladung, Rolle } from './adminmodell.js'
+import type { AdminBenutzer, AdminEinladung, AdminWartender, Rolle } from './adminmodell.js'
 
 export class ApiFehler extends Error {
   constructor(
@@ -84,6 +84,31 @@ export function widerrufe(code: string): Promise<unknown> {
   return anfrage(`/admin/einladungen/${encodeURIComponent(code)}`, { method: 'DELETE' })
 }
 
-export function setzeEinladungPflicht(einladungPflicht: boolean): Promise<{ einladungPflicht: boolean }> {
-  return anfrage('/admin/einstellungen', { method: 'PATCH', headers: jsonKopf, body: JSON.stringify({ einladungPflicht }) })
+export interface Einstellungen {
+  einladungPflicht: boolean
+  wartelisteOffen: boolean
+}
+
+export function setzeEinstellungen(felder: Partial<Einstellungen>): Promise<Einstellungen> {
+  return anfrage('/admin/einstellungen', { method: 'PATCH', headers: jsonKopf, body: JSON.stringify(felder) })
+}
+
+export interface WartelistenStand {
+  eintraege: AdminWartender[]
+  wartelisteOffen: boolean
+  /** Steht das Formular gerade wirklich vor der Tür? Der Schalter allein sagt das nicht. */
+  angeboten: boolean
+}
+
+export function warteliste(): Promise<WartelistenStand> {
+  return anfrage('/admin/warteliste')
+}
+
+/** Erzeugt einen Code und schickt ihn — schlägt der Versand fehl, wirft der Aufruf. */
+export function ladeWartendenEin(id: string): Promise<{ eintrag: AdminWartender; einladung: AdminEinladung }> {
+  return anfrage(`/admin/warteliste/${encodeURIComponent(id)}/einladen`, { method: 'POST', headers: jsonKopf, body: '{}' })
+}
+
+export function loescheWartenden(id: string): Promise<unknown> {
+  return anfrage(`/admin/warteliste/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

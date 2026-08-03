@@ -7,6 +7,7 @@ import fastifyCookie from '@fastify/cookie'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 import { AuthDienst, type Benutzer } from './auth/auth.js'
 import { EinladungsDienst } from './auth/einladungen.js'
+import { WartelistenDienst } from './auth/warteliste.js'
 import type { Konfig } from './config.js'
 import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
@@ -22,6 +23,7 @@ import { registriereBibliotheksRouten } from './routes/bibliothek.js'
 import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
 import { registriereTourRouten } from './routes/tours.js'
+import { registriereWartelistenRouten } from './routes/warteliste.js'
 import type { Storage } from './storage.js'
 import { ZuGrossFehler } from './storage.js'
 
@@ -64,6 +66,7 @@ declare module 'fastify' {
     deps: AppAbhaengigkeiten
     auth: AuthDienst
     einladungen: EinladungsDienst
+    warteliste: WartelistenDienst
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
   }
@@ -87,6 +90,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('deps', deps)
   app.decorate('auth', new AuthDienst(deps.db))
   app.decorate('einladungen', new EinladungsDienst(deps.db))
+  app.decorate('warteliste', new WartelistenDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorateRequest('benutzer', null)
 
@@ -132,6 +136,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereMediaRouten(app)
   registriereBibliotheksRouten(app)
   registriereGalerieRouten(app)
+  registriereWartelistenRouten(app)
 
   app.get('/api/gesundheit', async () => ({ ok: true }))
 

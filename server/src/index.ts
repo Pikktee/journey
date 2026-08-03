@@ -58,6 +58,16 @@ await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)
 const gehoben = app.auth.hebeAdmins(konfig.adminEmails)
 if (gehoben > 0) app.log.info(`${gehoben} Konto/Konten auf die Admin-Rolle gehoben`)
 
+// Abgelaufene Wartelisten-Einträge löschen: einmal beim Start und danach
+// täglich. `unref` hält den Prozess nicht wach — die Aufräumerei ist nichts,
+// worauf ein Herunterfahren warten müsste.
+const raeumeWarteliste = (): void => {
+  const weg = app.warteliste.raeumeAuf()
+  if (weg > 0) app.log.info(`${weg} abgelaufene Wartelisten-Einträge gelöscht`)
+}
+raeumeWarteliste()
+setInterval(raeumeWarteliste, 24 * 60 * 60 * 1000).unref()
+
 await app.listen({ port: konfig.port, host: '0.0.0.0' })
 app.log.info(`Maptale-API läuft auf Port ${konfig.port}`)
 

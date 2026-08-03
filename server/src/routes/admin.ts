@@ -210,22 +210,25 @@ export function registriereAdminRouten(app: FastifyInstance): void {
     return { ok: true }
   })
 
-  app.patch<{ Body: { einladungPflicht: boolean } }>(
+  // Beide Schalter über eine Route, beide optional: Der Aufrufer schickt, was
+  // er umlegen will, und bekommt den ganzen Stand zurück — so kann die
+  // Oberfläche nach jeder Änderung dasselbe rendern.
+  app.patch<{ Body: { einladungPflicht?: boolean; wartelisteOffen?: boolean } }>(
     '/api/admin/einstellungen',
     {
       schema: {
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['einladungPflicht'],
-          properties: { einladungPflicht: { type: 'boolean' } },
+          properties: { einladungPflicht: { type: 'boolean' }, wartelisteOffen: { type: 'boolean' } },
         },
       },
     },
     async (request, reply) => {
       if (!erfordereAdmin(request, reply)) return
-      app.einladungen.setzePflicht(request.body.einladungPflicht)
-      return { einladungPflicht: app.einladungen.pflicht() }
+      if (request.body.einladungPflicht !== undefined) app.einladungen.setzePflicht(request.body.einladungPflicht)
+      if (request.body.wartelisteOffen !== undefined) app.warteliste.setzeOffen(request.body.wartelisteOffen)
+      return { einladungPflicht: app.einladungen.pflicht(), wartelisteOffen: app.warteliste.offen() }
     },
   )
 }

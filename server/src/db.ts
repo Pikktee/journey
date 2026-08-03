@@ -128,6 +128,40 @@ const MIGRATIONEN: string[] = [
   `
   ALTER TABLE tours ADD COLUMN cover_thumb TEXT;
   `,
+  // Warteliste für Einladungen: Wer keinen Code hat, hinterlässt seine Adresse,
+  // der Betreiber lädt gezielt nach.
+  //
+  // Der Eintrag entsteht im DOUBLE-OPT-IN: erst der Klick auf den Link in der
+  // Bestätigungsmail macht ihn zu einem Platz in der Schlange. Ohne das könnte
+  // jeder fremde Adressen eintragen, und dem Betreiber fehlte der Nachweis der
+  // Einwilligung (Art. 7 Abs. 1 DSGVO) — deshalb stehen Zeitpunkt UND Quelle
+  // beider Schritte in der Zeile.
+  //
+  // `token_hash` trägt BEIDE Wege aus der Mail: bestätigen und wieder
+  // austragen. Er überlebt die Bestätigung, denn sonst liefe der
+  // Austragen-Link ins Leere und die Löschung wäre nur über eine Mail an den
+  // Betreiber zu haben. Gespeichert wird nur der Hash — wer die Datenbank
+  // liest, kann damit niemanden austragen; die Kehrseite ist, dass die
+  // Einladungsmail einen FRISCHEN Token braucht (der alte lässt sich nicht
+  // wieder herstellen), es also immer der Link aus der jüngsten Mail gilt.
+  //
+  // Die Adresse steht dagegen im Klartext — sie IST der Zweck der Tabelle, an
+  // sie geht die Einladung.
+  `
+  CREATE TABLE warteliste (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    notiz TEXT,
+    token_hash TEXT NOT NULL UNIQUE,
+    eingetragen_am TEXT NOT NULL,
+    eingetragen_ip TEXT,
+    bestaetigt_am TEXT,
+    bestaetigt_ip TEXT,
+    eingeladen_am TEXT,
+    eingeladen_code TEXT
+  );
+  CREATE INDEX idx_warteliste_reihe ON warteliste(bestaetigt_am);
+  `,
 ]
 
 export function oeffneDb(pfad: string): Db {

@@ -263,6 +263,15 @@
        Liste, deren Spalten nicht fluchten, liest sich als Unordnung. */
     .zeile-konto { grid-template-columns: minmax(0, 1fr) 76px 92px 186px; }
     .zeile-einladung { grid-template-columns: minmax(0, 1fr) 96px 210px; }
+    .zeile-warteliste { grid-template-columns: minmax(0, 1fr) 96px 186px; }
+    /* Was jemand freiwillig geschrieben hat — das Kriterium fürs Freischalten.
+       Eigene Zeile, nicht in die Beschreibung gequetscht: Sonst steht die
+       einzige inhaltliche Angabe klein hinter zwei Daten. */
+    .haupt .zitat {
+      margin-top: 3px; color: var(--text-2); font-size: 12.5px; font-style: italic;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .schalter-zweiter { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--rand); }
     .zeile .griffe { justify-content: flex-end; }
     .haupt { min-width: 0; }
     .haupt .oben { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -359,6 +368,27 @@
       <div class="warnzeile" id="zu-warnung" hidden>
         <span>Die Registrierung ist in der Umgebung ganz abgeschaltet (<span class="zahl">MAPTALE_REGISTRIERUNG_OFFEN=0</span>). Solange das so ist, kommt auch mit gültigem Code niemand herein.</span>
       </div>
+      <!-- Zweiter Schalter, gleiche Karte: Beides sind Regeln derselben Tür —
+           wer nicht hereinkommt, und was er stattdessen tun kann. -->
+      <div class="schalter schalter-zweiter">
+        <button type="button" class="schalter-knopf" id="wl-schalter" aria-pressed="true" aria-label="Warteliste anbieten"></button>
+        <div class="schalter-text">
+          <b>Warteliste anbieten</b>
+          <p id="wl-schalter-text"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Warteliste -->
+    <section class="karte">
+      <div class="karte-kopf">
+        <div>
+          <h2>Warteliste</h2>
+          <p id="warteliste-zusammenfassung"></p>
+        </div>
+        <span class="sp"></span>
+      </div>
+      <div class="liste" id="warteliste-liste"></div>
     </section>
 
     <!-- Einladungen -->
