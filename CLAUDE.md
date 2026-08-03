@@ -287,37 +287,51 @@ gleichzeitig im DOM und werden per `hidden` umgeschaltet; der Editor wird lazy i
 damit MapLibre nicht ins Basis-Bundle kommt.
 
 **Die Anmeldebühne setzt erst die Stopps, dann zieht sie den Weg.** Links neben dem
-Formular (Anmelden, Registrieren, Reset — alle drei teilen sie) läuft eine reine SVG/CSS-Szene:
-Zuerst **setzen** sich die drei Foto-Stopps als Pins (0,3 s versetzt), danach zeichnet sich die
-Route zwischen ihnen (3,4 s), ab 4,6 s fährt ein Läufer sie alle 11 s ab — mit HALT an jedem
-Stopp (`keyPoints`/`keyTimes` des `animateMotion`; die Pin-Pulse hängen im selben 11-s-Takt an
-ihrer Ankunftszeit). Der Lichtpunkt, der die Strecke früher VORWEG einmal abfuhr, ist
-gestrichen: dieselbe Fahrt zweimal, und die Stopps kamen erst danach. Kein wiederholtes
-Neuzeichnen: eine Anmeldeseite darf nicht blinken. Bei `prefers-reduced-motion` bleibt das
-fertige Standbild. Vier Regeln halten das zusammen:
+Formular (Anmelden, Registrieren, Reset, Warteliste — alle teilen sie) läuft eine reine
+SVG/CSS-Szene: Zuerst **setzen** sich die drei Foto-Stopps als Pins (0,3 s versetzt), danach
+zeichnet sich die Route zwischen ihnen (3,4 s), ab 4,6 s fährt ein Läufer sie alle 11 s ab —
+mit HALT an jedem Stopp (`keyPoints`/`keyTimes` des `animateMotion`; die Pin-Pulse hängen im
+selben 11-s-Takt an ihrer Ankunftszeit). **Auf der Linie bewegt sich sonst nichts:** Der
+Lichtpunkt, der die Strecke früher VORWEG abfuhr, und das dauernde Fließen IN der Linie sind
+beide gestrichen — zwei Bewegungen auf derselben Spur lesen sich als Unruhe, und die eine, auf
+die es ankommt, ist der Läufer. Kein wiederholtes Neuzeichnen: eine Anmeldeseite darf nicht
+blinken. Bei `prefers-reduced-motion` bleibt das fertige Standbild. Vier Regeln halten das
+zusammen:
 
 1. **Die Pin-Koordinaten kommen AUS der Kurve**, nicht umgekehrt (`getPointAtLength` bei den
-   `keyPoints` 0,36 / 0,62 / 0,84). Hingestellte Pins mit geschätzten Bruchteilen ließen den
-   Läufer 8, 7 und 14 Einheiten daneben halten — bei einem Fußring von 15 × 5,5 sichtbar
-   neben dem Pin.
+   `keyPoints` 0,30 / 0,56 / 0,84). Hingestellte Pins mit geschätzten Bruchteilen ließen den
+   Läufer zweistellig daneben halten. Wer die Bruchteile verschiebt, rechnet BEIDES neu: die
+   Punkte im Markup und die `keyTimes` (Fahrzeit je Etappe ∝ Streckenanteil, dazu 0,09 Halt)
+   samt den Puls-Verzögerungen (4,6 s + Ankunftszeit).
 2. **`calcMode="spline"`, nicht `linear`** — je Fahrt-Etappe eine eigene Ease-in-out-Kurve,
    sonst schießt der Läufer bis auf den Pin und steht aus voller Fahrt.
 3. **`pathLength="1"` gehört an den `<path>` in `<defs>`, nicht an das `<use>`** — dort ist es
    wirkungslos (der Schattenbaum übernimmt es nicht), und genau deshalb zeichnete sich die
    Route jahrelang gar nicht: `stroke-dasharray: 1` war auf 1517 echten Einheiten nur ein
    Punktmuster. Aufgefallen ist es erst, als der vortäuschende Lichtpunkt wegfiel. Alle
-   Strichmaße (auch der Fluss) rechnen seither in Anteilen der Streckenlänge.
+   Strichmaße rechnen seither in Anteilen der Streckenlänge.
 4. Der Pfad **umrundet die Textzone** (Mindestabstand 43 Einheiten, gemessen) und bleibt vom
    unteren Rand weg — tiefster Punkt y 738 von 900. Bei y 808 stand er auf der Kante:
    `preserveAspectRatio="slice"` beschneidet an breiten Fenstern die HÖHE, dort fiel der
    Bogen ganz heraus.
 
-Er steht einmal in `<defs>` und wird dreimal benutzt — zeichnen, fließen, abfahren. Die
+Er steht einmal in `<defs>` und wird zweimal benutzt — zeichnen und abfahren. Die
 Wortmarke gehört in den **zentrierten Titelblock**, nicht nach oben links: dort steht wie im
 Player genau EIN Element, der Weg hinaus. Ihr Text spricht von **Maptale**, nicht vom Studio —
 ein Konto braucht auch, wer nur mit der App aufzeichnet (die App verweist zum Registrieren
 ausdrücklich auf die Website). Entwurf und die beiden verworfenen Varianten (Tag/Nacht-Himmel,
 Feld aus Routen-Signaturen): [docs/mockups/studio-login.html](docs/mockups/studio-login.html).
+
+**Jedes Feld sagt, ob es sein muss.** In den vier Auth-Formularen (Anmelden, Registrieren,
+Passwort, Warteliste) trägt jedes Label ein Wort: „Pflicht" oder „optional". Sternchen mit
+Legende darunter wären kürzer, aber man muss sie erst entschlüsseln; das Wort steht da, wo die
+Frage aufkommt. **Beide** Sorten sind markiert, nicht nur die optionale — sonst muss man aus dem
+Fehlen schließen, und genau dieses Schließen kostet den Moment Unsicherheit, der Formulare zäh
+macht. Die Texte dieser Bereiche kommen ohne Gedankenstrich aus (zwei Sätze statt einem mit
+Einschub) und ohne Sätze, die nur die Überschrift wiederholen; die Fehlermeldungen des Servers
+gehören dazu, sie erscheinen in denselben Formularen. Beim ANMELDEN hängt am Passwortfeld nur
+der Sichtbarkeits-Schalter, keine Stärkeanzeige (`haengePasswortfeld(el, { bewertung: false })`):
+Ein bestehendes Passwort zu benoten ändert nichts mehr.
 
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
 **Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.

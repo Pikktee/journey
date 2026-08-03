@@ -124,20 +124,20 @@ export function bewertePasswort(pw: string, persoenlich: readonly string[] = [])
   }
 
   if (HAEUFIG.some((h) => klein === h || (h.length >= 6 && klein.includes(h)))) {
-    deckel(0, 'Das kennt jede Rateliste — lieber etwas Eigenes')
+    deckel(0, 'Das kennt jede Rateliste. Nimm lieber etwas Eigenes.')
   } else if (istWiederholung(klein)) {
-    deckel(0, 'Das wiederholt sich nur — ein paar echte Wörter halten länger')
+    deckel(0, 'Das wiederholt sich nur. Ein paar echte Wörter halten länger.')
   } else if (enthaeltReihe(klein)) {
-    deckel(1, 'Tastaturwege wie „qwertz" werden zuerst probiert')
+    deckel(1, 'Tastaturwege wie „qwertz" werden zuerst probiert.')
   } else if (enthaeltPersoenliches(klein, persoenlich)) {
-    deckel(1, 'Nimm nichts, was in deinem Namen oder deiner Adresse steht')
+    deckel(1, 'Nimm nichts, was in deinem Namen oder deiner Adresse steht.')
   }
 
   score = Math.max(0, Math.min(4, score)) as 0 | 1 | 2 | 3 | 4
 
   if (!tipp) {
-    if (score < MIN_SCORE) tipp = 'Länger hilft mehr als komplizierter — drei Wörter genügen'
-    else if (score < 4) tipp = 'Noch ein paar Zeichen, dann ist es richtig stark'
+    if (score < MIN_SCORE) tipp = 'Länger hilft mehr als komplizierter. Drei Wörter genügen.'
+    else if (score < 4) tipp = 'Noch ein paar Zeichen, dann ist es richtig stark.'
   }
 
   return {

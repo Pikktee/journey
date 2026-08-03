@@ -419,7 +419,7 @@ describe('Registrierung mit Einladung', () => {
     const code = await ladeEin(u, admin.cookies)
     const antwort = await u.app.inject({ method: 'POST', url: '/api/auth/einladung-pruefen', payload: { code } })
     expect(antwort.statusCode).toBe(403)
-    expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('geschlossen') })
+    expect(antwort.json()).toMatchObject({ fehler: expect.stringContaining('keine neuen Konten') })
   })
 
   it('bremst das Durchprobieren von Codes', async () => {

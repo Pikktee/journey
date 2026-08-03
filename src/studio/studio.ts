@@ -234,6 +234,18 @@ function zeigeAuthModus(modus: AuthModus): void {
 }
 
 /**
+ * Nach einem Wechsel steht die Schreibmarke im ersten Feld.
+ *
+ * Nur nach einem KLICK, nicht beim Laden der Seite: Ein Autofokus beim
+ * Seitenaufbau schiebt auf kleinen Geräten die Bühne aus dem Bild und öffnet
+ * ungefragt die Tastatur.
+ */
+function fokussiereErstesFeld(): void {
+  const sichtbar = Object.values(authFormen).find((form) => !form.hidden)
+  sichtbar?.querySelector<HTMLElement>('input:not([type="hidden"]), textarea')?.focus()
+}
+
+/**
  * Der Weg zur Registrierung — er beginnt bei der Einladung, wenn eine
  * gebraucht wird und noch keine bestätigt ist.
  *
@@ -255,6 +267,7 @@ els.authBox.querySelectorAll<HTMLButtonElement>('[data-modus]').forEach((btn) =>
     const ziel = btn.dataset.modus as AuthModus
     if (ziel === 'register') starteRegistrierung()
     else zeigeAuthModus(ziel)
+    fokussiereErstesFeld()
   })
 })
 
@@ -302,8 +315,8 @@ function zeigeRegistrierungsmodus(sitzung: api.Sitzung): void {
   // sonst hinge der Chip über einem Formular, das gar nichts mehr fragt.
   if (!einladungPflicht) setzeBestaetigtenCode('')
   els.regUnterzeile.textContent = einladungPflicht
-    ? 'Nur noch deine Adresse und ein Passwort.'
-    : 'Kostenlos — du bekommst gleich eine Bestätigungsmail.'
+    ? 'Noch deine Adresse und ein Passwort, dann bist du drin.'
+    : 'Kostenlos. Du bekommst gleich eine Bestätigungsmail.'
   // `#registrieren` von der Landing fällt vor dieser Antwort an und kannte die
   // Pflicht noch nicht — hier steht der Einstieg gerade, falls nötig.
   if (!els.registerForm.hidden && einladungPflicht && !bestaetigterCode) zeigeAuthModus('code')
@@ -411,8 +424,8 @@ async function behandleAuthHash(): Promise<boolean> {
       const { email } = await api.bestaetigeWarteliste(token)
       zeigeWartelistenInfo(
         'Du stehst auf der Liste',
-        `${email} ist vorgemerkt. Sobald ein Platz frei wird, kommt dein Einladungscode per Mail.`,
-        { wort: 'Doch nicht — austragen', tun: () => trageAusWarteliste(token) },
+        `${email} ist vorgemerkt. Sobald ein Platz frei wird, kommt dein Einladungscode per E-Mail.`,
+        { wort: 'Wieder austragen', tun: () => trageAusWarteliste(token) },
       )
     } catch (fehler) {
       zeigeWartelistenInfo('Dieser Link geht nicht mehr', (fehler as Error).message)
@@ -424,7 +437,7 @@ async function behandleAuthHash(): Promise<boolean> {
     const token = decodeURIComponent(wlAustragen)
     zeigeWartelistenInfo(
       'Aus der Warteliste austragen?',
-      'Wir löschen deine Adresse dann sofort und schicken dir keine Einladung mehr.',
+      'Wir löschen deine Adresse sofort und schicken dir keine Einladung mehr.',
       { wort: 'Ja, austragen', tun: () => trageAusWarteliste(token) },
     )
     return true
@@ -433,7 +446,7 @@ async function behandleAuthHash(): Promise<boolean> {
     history.replaceState(null, '', location.pathname + location.search)
     try {
       await api.verifiziereEmail(decodeURIComponent(verify))
-      hinweisToast('E-Mail bestätigt — du kannst jetzt hochladen.') // danach eingeloggt → App-View sichtbar
+      hinweisToast('E-Mail bestätigt. Du kannst jetzt hochladen.') // danach eingeloggt → App-View sichtbar
     } catch (fehler) {
       // Fehlschlag heißt: nicht eingeloggt → App-View bleibt verborgen. Die
       // Meldung gehört daher ins (sichtbare) Login-Fehlerfeld.
@@ -464,6 +477,11 @@ const regPasswortfeld = haengePasswortfeld(els.regPasswort, {
   persoenlich: () => [els.regEmail.value],
   beiAenderung: bindeAbsenden(els.regPasswort, els.regAbsenden),
 })
+
+// Beim Anmelden nur der Sichtbarkeits-Schalter: Ein bestehendes Passwort zu
+// bewerten hilft niemandem, aber ein Tippfehler im verdeckten Feld ist der
+// häufigste Grund, warum eine Anmeldung scheitert.
+haengePasswortfeld(els.passwort, { bewertung: false })
 
 haengePasswortfeld(els.resetPasswort, {
   // Beim Reset kennen wir nur die Adresse aus dem Anmeldefeld — besser als nichts.
@@ -498,7 +516,7 @@ els.codeForm.addEventListener('submit', async (e) => {
   els.codeFehler.textContent = ''
   const code = formatiereEinladungscode(els.regCode.value)
   if (!codeVollstaendig(code)) {
-    els.codeFehler.textContent = 'Ein Code hat acht Zeichen — bitte vollständig eingeben'
+    els.codeFehler.textContent = 'Ein Code hat acht Zeichen. Bitte gib ihn vollständig ein.'
     return
   }
   els.codeWeiter.disabled = true
@@ -591,7 +609,7 @@ async function trageAusWarteliste(token: string): Promise<void> {
   els.wlInfoAktion.disabled = true
   try {
     await api.trageAusWarteliste(token)
-    zeigeWartelistenInfo('Ausgetragen', 'Deine Adresse ist gelöscht — du bekommst keine Post mehr von uns.')
+    zeigeWartelistenInfo('Ausgetragen', 'Deine Adresse ist gelöscht. Du bekommst keine Post mehr von uns.')
   } catch (fehler) {
     els.wlInfoFehler.textContent = (fehler as Error).message
   } finally {
@@ -613,7 +631,7 @@ els.wartelisteForm.addEventListener('submit', async (e) => {
     // Oberfläche soll es auch nicht.
     zeigeWartelistenInfo(
       'Schau in dein Postfach',
-      `Wenn alles passt, ist eine Mail an ${adresse} unterwegs. Erst dein Klick darin macht den Eintrag gültig — sonst löschen wir die Adresse wieder.`,
+      `Wenn alles passt, ist eine E-Mail an ${adresse} unterwegs. Erst dein Klick darin macht den Eintrag gültig. Ohne ihn löschen wir die Adresse wieder.`,
     )
   } catch (fehler) {
     els.wlFehler.textContent = (fehler as Error).message
@@ -626,7 +644,7 @@ els.resetAnfordernForm.addEventListener('submit', async (e) => {
   e.preventDefault()
   await api.passwortResetAnfordern(els.resetEmail.value.trim())
   // Bewusst neutrale Rückmeldung (keine Existenz-Auskunft)
-  els.resetAnfordernStatus.textContent = 'Falls ein Konto existiert, ist eine E-Mail unterwegs.'
+  els.resetAnfordernStatus.textContent = 'Wenn es ein Konto mit dieser Adresse gibt, ist die E-Mail unterwegs.'
   els.resetAnfordernStatus.className = 'hinweis ok'
 })
 

@@ -50,9 +50,9 @@ const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as cons
  * abgelaufener Einladung raten.
  */
 const CODE_FEHLER: Record<EinladungsFehler, string> = {
-  unbekannt: 'Diesen Einladungscode gibt es nicht — bitte prüfe die Schreibweise',
-  verbraucht: 'Dieser Einladungscode wurde bereits eingelöst',
-  abgelaufen: 'Dieser Einladungscode ist abgelaufen',
+  unbekannt: 'Diesen Einladungscode gibt es nicht. Bitte prüfe die Schreibweise.',
+  verbraucht: 'Dieser Einladungscode wurde bereits eingelöst.',
+  abgelaufen: 'Dieser Einladungscode ist abgelaufen.',
 }
 
 export function registriereAuthRouten(app: FastifyInstance): void {
@@ -102,10 +102,10 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     },
     async (request, reply) => {
       if (loginGebremst(`ip:${request.ip}`, `mail:${request.body.email.toLowerCase().trim()}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Anmeldeversuche — bitte kurz warten' })
+        return reply.code(429).send({ fehler: 'Zu viele Anmeldeversuche. Bitte warte einen Moment.' })
       }
       const benutzer = await app.auth.login(request.body.email, request.body.passwort)
-      if (!benutzer) return reply.code(401).send({ fehler: 'E-Mail oder Passwort falsch' })
+      if (!benutzer) return reply.code(401).send({ fehler: 'E-Mail oder Passwort stimmt nicht.' })
 
       setzeSessionCookie(reply, benutzer.id)
       const antwort: { benutzer: typeof benutzer; apiToken?: string } = { benutzer }
@@ -145,21 +145,21 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Registrierung ist geschlossen' })
+      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Zurzeit sind keine neuen Konten möglich.' })
       if (registrierGebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Registrierungen — bitte später erneut versuchen' })
+        return reply.code(429).send({ fehler: 'Zu viele Registrierungen. Bitte versuche es später erneut.' })
       }
       const email = request.body.email.toLowerCase().trim()
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply.code(400).send({ fehler: 'Ungültige E-Mail-Adresse' })
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply.code(400).send({ fehler: 'Diese E-Mail-Adresse stimmt nicht.' })
 
       const codePflicht = app.einladungen.pflicht()
       const code = request.body.code?.trim() ?? ''
       if (codePflicht) {
-        if (!code) return reply.code(403).send({ fehler: 'Für die Anmeldung wird ein Einladungscode gebraucht' })
+        if (!code) return reply.code(403).send({ fehler: 'Für ein neues Konto brauchst du einen Einladungscode.' })
         const grund = app.einladungen.pruefe(code)
         if (grund) return reply.code(403).send({ fehler: CODE_FEHLER[grund] })
       }
-      if (app.auth.emailVergeben(email)) return reply.code(409).send({ fehler: 'Diese E-Mail ist bereits registriert' })
+      if (app.auth.emailVergeben(email)) return reply.code(409).send({ fehler: 'Für diese E-Mail gibt es schon ein Konto.' })
 
       const name = request.body.name?.trim() || nameAusEmail(email)
       const benutzer = await app.auth.legeBenutzerAn(email, request.body.passwort, name, false)
@@ -204,9 +204,9 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Registrierung ist geschlossen' })
+      if (!konfig.registrierungOffen) return reply.code(403).send({ fehler: 'Zurzeit sind keine neuen Konten möglich.' })
       if (codeGebremst(`ip:${request.ip}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Versuche — bitte später erneut versuchen' })
+        return reply.code(429).send({ fehler: 'Zu viele Versuche. Bitte versuche es später erneut.' })
       }
       // Ohne Einladungspflicht ist jeder Code müßig — die Antwort ist trotzdem
       // „geht", damit ein Formular, das noch fragt, niemanden aussperrt.
@@ -223,7 +223,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     { schema: { body: { type: 'object', additionalProperties: false, required: ['token'], properties: { token: { type: 'string', maxLength: 200 } } } } },
     async (request, reply) => {
       const userId = app.auth.loeseMailToken(request.body.token, 'verify')
-      if (!userId) return reply.code(400).send({ fehler: 'Bestätigungslink ungültig oder abgelaufen' })
+      if (!userId) return reply.code(400).send({ fehler: 'Dieser Bestätigungslink gilt nicht mehr.' })
       app.auth.verifiziereEmail(userId)
       setzeSessionCookie(reply, userId)
       return { ok: true }
@@ -238,7 +238,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const email = request.body.email.toLowerCase().trim()
       if (resetGebremst(`ip:${request.ip}`, `mail:${email}`)) {
-        return reply.code(429).send({ fehler: 'Zu viele Anfragen — bitte später erneut versuchen' })
+        return reply.code(429).send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
       }
       const userId = app.auth.benutzerIdFuerEmail(email)
       if (userId) {
@@ -262,7 +262,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     { schema: { body: { type: 'object', additionalProperties: false, required: ['token', 'passwort'], properties: { token: { type: 'string', maxLength: 200 }, passwort: passwortSchema } } } },
     async (request, reply) => {
       const userId = app.auth.loeseMailToken(request.body.token, 'reset')
-      if (!userId) return reply.code(400).send({ fehler: 'Reset-Link ungültig oder abgelaufen' })
+      if (!userId) return reply.code(400).send({ fehler: 'Dieser Link gilt nicht mehr. Fordere einen neuen an.' })
       await app.auth.setzePasswort(userId, request.body.passwort)
       setzeSessionCookie(reply, userId)
       return { ok: true }

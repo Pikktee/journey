@@ -82,6 +82,15 @@ export interface PasswortfeldOptionen {
   persoenlich?: () => string[]
   /** Wird nach jeder Bewertung gerufen (z. B. um den Absenden-Knopf zu schalten). */
   beiAenderung?: (befund: Passwortbefund) => void
+  /**
+   * Stärkeanzeige mitliefern? Vorgabe ja.
+   *
+   * Beim ANMELDEN nicht: Dort gibt jemand ein Passwort ein, das längst gewählt
+   * ist — eine Note dafür ändert nichts mehr und liest sich wie ein Vorwurf.
+   * Der Sichtbarkeits-Schalter gehört trotzdem hin; er rettet jeden Tippfehler,
+   * ohne dass man das Feld leeren muss.
+   */
+  bewertung?: boolean
 }
 
 /**
@@ -105,13 +114,15 @@ export function haengePasswortfeld(input: HTMLInputElement, optionen: Passwortfe
   auge.setAttribute('aria-label', 'Passwort anzeigen')
   huelle.appendChild(auge)
 
+  const mitBewertung = optionen.bewertung !== false
+
   const anzeige = document.createElement('div')
   anzeige.className = 'pw-staerke'
   anzeige.hidden = true
   anzeige.innerHTML =
     '<div class="pw-balken" aria-hidden="true"><i></i><i></i><i></i><i></i></div>' +
     '<div class="pw-zeile"><span class="pw-tipp"></span><span class="pw-wort"></span></div>'
-  huelle.parentNode?.insertBefore(anzeige, huelle.nextSibling)
+  if (mitBewertung) huelle.parentNode?.insertBefore(anzeige, huelle.nextSibling)
   const tippEl = anzeige.querySelector('.pw-tipp') as HTMLElement
   const wortEl = anzeige.querySelector('.pw-wort') as HTMLElement
 
@@ -122,6 +133,7 @@ export function haengePasswortfeld(input: HTMLInputElement, optionen: Passwortfe
   let letzter: Passwortbefund = bewertePasswort('')
 
   const aktualisiere = (): void => {
+    if (!mitBewertung) return
     letzter = bewertePasswort(input.value, optionen.persoenlich?.() ?? [])
     anzeige.hidden = !input.value
     anzeige.className = `pw-staerke pw-s${letzter.score}`

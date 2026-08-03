@@ -325,6 +325,9 @@
        ab, mit Halt an jedem Stopp — dieselbe Dramaturgie wie im Player. Der
        Lichtpunkt, der die Linie früher VORWEG einmal abfuhr, ist gestrichen:
        er zeigte dieselbe Fahrt zweimal, und die Stopps kamen erst danach.
+       Ebenso das dauernde Fließen IN der Linie: Zwei Bewegungen auf derselben
+       Spur lesen sich als Unruhe, und die eine, auf die es ankommt, ist der
+       Läufer. Die gezeichnete Route liegt seither still.
        Kein wiederholtes Neuzeichnen: eine Anmeldeseite darf nicht blinken. */
     .szene-kontur { fill: none; stroke: rgba(167, 177, 191, 0.085); stroke-width: 1; }
     .szene-kontur-feld { animation: bueKonturDrift 90s ease-in-out infinite alternate; }
@@ -335,22 +338,11 @@
       animation: bueWegZeichnen 3.4s cubic-bezier(0.45, 0, 0.25, 1) 1s forwards;
     }
     @keyframes bueWegZeichnen { to { stroke-dashoffset: 0; } }
-    /* Der Fluss legt sich NACH dem Zeichnen über dieselbe Linie. Seine
-       Strichmaße sind ANTEILE der Strecke (pathLength=1 am Pfad, s. dort):
-       0.0033 ≈ 5 Einheiten Strich, 0.0072 ≈ 11 Einheiten Lücke. */
-    .szene-fluss {
-      fill: none; stroke: rgba(245, 158, 11, 0.55); stroke-width: 2.6; stroke-linecap: round;
-      stroke-dasharray: 0.0033 0.0072; opacity: 0;
-      animation: bueFlussEin 1.4s ease 4.1s forwards, bueFliessen 34s linear 4.1s infinite;
-    }
-    @keyframes bueFlussEin { to { opacity: 1; } }
-    @keyframes bueFliessen { to { stroke-dashoffset: -0.593; } }
     .szene-laeufer { opacity: 0; animation: bueLaeufer 11s linear 4.6s infinite; }
     @keyframes bueLaeufer { 0%, 100% { opacity: 0; } 6%, 94% { opacity: 0.95; } }
     /* Foto-Stopps in der Sprache der 3D-Pins: Fußring, Mast, Kopfscheibe */
     .szene-pin { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: buePinSetzen 780ms cubic-bezier(0.2, 1.5, 0.35, 1) forwards; }
     @keyframes buePinSetzen { from { opacity: 0; transform: scale(0.4) translateY(9px); } to { opacity: 1; transform: none; } }
-    .szene-pin .ring { fill: none; stroke: rgba(245, 158, 11, 0.5); stroke-width: 1.4; }
     .szene-pin .mast { stroke: rgba(245, 158, 11, 0.65); stroke-width: 1.6; }
     .szene-pin .scheibe { fill: #0b0f16; stroke: var(--akzent); stroke-width: 2; }
     .szene-pin text { fill: var(--text); font-family: var(--font-ui); font-size: 13px; font-weight: 600; text-anchor: middle; font-variant-numeric: tabular-nums; }
@@ -369,16 +361,23 @@
     @media (prefers-reduced-motion: reduce) {
       .login-szene *, .login-titel > * { animation: none !important; }
       .szene-weg { stroke-dashoffset: 0; }
-      .szene-fluss, .szene-pin { opacity: 1; }
+      .szene-pin { opacity: 1; }
       .szene-laeufer { opacity: 0; }
     }
     .login-formseite { display: grid; place-items: center; padding: 32px; overflow: auto; }
-    .login-box { width: min(360px, 100%); }
+    .login-box { width: min(384px, 100%); }
     .login-box h2 { font-size: 26px; font-weight: 520; letter-spacing: -0.01em; }
     /* text-wrap: balance — die Unterzeilen sind zwei kurze Sätze; ohne Ausgleich
        rutscht das erste Wort des zweiten ans Ende der ersten Zeile und steht
        dort allein. */
     .login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; text-wrap: balance; }
+    /* Wo zwei Sätze stehen, bricht es zwischen ihnen um — nicht mittendrin.
+       `balance` allein macht daraus zwei gleich LANGE Zeilen und zerteilt
+       dabei den ersten Satz („… von Einladung zu / Einladung."); Breite hilft
+       dagegen nicht, weil der Ausgleich mitwächst. Als Blöcke behält jeder
+       Satz seine Zeile, und `balance` wirkt nur noch innerhalb eines Satzes —
+       dort, wo es hingehört. */
+    .login-box .unterzeile .satz { display: block; }
     .login-box .feld { margin-bottom: 16px; }
     .login-box button[type='submit'] { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
     .auth-wechsel { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
@@ -412,10 +411,19 @@
     .code-chip svg { width: 15px; height: 15px; flex: none; color: var(--gruen); }
     .code-chip span { flex: 1; min-width: 0; }
     .code-chip b { color: var(--text); font-weight: 600; letter-spacing: 0.05em; font-variant-numeric: tabular-nums; }
-    /* Warteliste: das freiwillige Feld sagt es im Label, nicht in einem
-       Sternchen mit Fußnote — und der Pflichttext steht als Fließtext über dem
-       Knopf, klein, aber lesbar (kein 10-px-Kleingedrucktes). */
-    .feld-frei { color: var(--text-3); font-weight: 400; }
+    /* Pflicht oder nicht: Das Wort steht im Label, dezent abgesetzt. Beide
+       Sorten sind markiert, nicht nur eine — sonst muss man aus dem Fehlen
+       schließen, und genau dieses Schließen kostet den Moment Unsicherheit,
+       der Formulare zäh macht. */
+    .login-box .feld-art { color: var(--text-3); font-weight: 400; font-size: 0.92em; letter-spacing: 0; }
+    /* 11,5 px waren für das einzige erklärende Element über einem Eingabefeld
+       zu klein, und #67727f auf dem dunklen Grund liegt unter 4,5:1. Beides
+       eine Stufe heller und größer: Labels liest man beim Ausfüllen, nicht beim
+       Studieren. */
+    .login-box .feld > label {
+      display: flex; align-items: baseline; gap: 6px;
+      font-size: 12.5px; color: var(--text-2);
+    }
     .wl-recht { font-size: 12px; line-height: 1.6; color: var(--text-3); margin: -2px 0 14px; }
     .wl-recht a { color: var(--text-2); }
     .login-box .wl-aktion { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
@@ -2557,32 +2565,31 @@
           </g>
 
           <use class="szene-weg" href="#szeneWeg"/>
-          <use class="szene-fluss" href="#szeneWeg"/>
 
           <!-- Die Stopps stehen ZUERST — der Weg zieht sich danach zwischen
                ihnen durch.
 
                Ihre Koordinaten sind nicht gesetzt, sondern AUS der Kurve
-               gerechnet: `getPointAtLength` bei den Bruchteilen 0,36 / 0,62 /
+               gerechnet: `getPointAtLength` bei den Bruchteilen 0,30 / 0,56 /
                0,84, genau den keyPoints des Läufers. Umgekehrt (Pin hinstellen,
-               Bruchteil dazu schätzen) hielt er 8, 7 und 14 Einheiten daneben —
-               bei einem Fußring von 15 × 5,5 also sichtbar neben dem Pin. -->
+               Bruchteil dazu schätzen) hielt er zweistellig daneben — sichtbar,
+               sobald Mast und Halt am selben Punkt liegen sollen. Wer die
+               Bruchteile ändert, rechnet BEIDES neu: die Punkte hier und die
+               keyTimes unten (Fahrzeit je Etappe ∝ Streckenanteil, dazu 0,09
+               Halt), sonst hält der Läufer neben dem Pin. -->
           <g class="szene-pin" style="animation-delay: 0.3s">
-            <ellipse class="ring" cx="364" cy="731.4" rx="15" ry="5.5"/>
-            <line class="mast" x1="364" y1="731.4" x2="364" y2="685.4"/>
-            <circle class="puls" cx="364" cy="677.4" r="13" style="animation-delay: 7.49s"/>
-            <circle class="scheibe" cx="364" cy="677.4" r="13"/>
-            <text x="364" y="682.4">1</text>
+            <line class="mast" x1="275.9" y1="709.2" x2="275.9" y2="663.2"/>
+            <circle class="puls" cx="275.9" cy="655.2" r="13" style="animation-delay: 7.01s"/>
+            <circle class="scheibe" cx="275.9" cy="655.2" r="13"/>
+            <text x="275.9" y="660.2">1</text>
           </g>
           <g class="szene-pin" style="animation-delay: 0.45s">
-            <ellipse class="ring" cx="691.2" cy="579.3" rx="15" ry="5.5"/>
-            <line class="mast" x1="691.2" y1="579.3" x2="691.2" y2="533.3"/>
-            <circle class="puls" cx="691.2" cy="525.3" r="13" style="animation-delay: 10.57s"/>
-            <circle class="scheibe" cx="691.2" cy="525.3" r="13"/>
-            <text x="691.2" y="530.3">2</text>
+            <line class="mast" x1="645.7" y1="657.3" x2="645.7" y2="611.3"/>
+            <circle class="puls" cx="645.7" cy="603.3" r="13" style="animation-delay: 10.09s"/>
+            <circle class="scheibe" cx="645.7" cy="603.3" r="13"/>
+            <text x="645.7" y="608.3">2</text>
           </g>
           <g class="szene-pin" style="animation-delay: 0.6s">
-            <ellipse class="ring" cx="709.4" cy="248.2" rx="15" ry="5.5"/>
             <line class="mast" x1="709.4" y1="248.2" x2="709.4" y2="202.2"/>
             <circle class="puls" cx="709.4" cy="194.2" r="13" style="animation-delay: 13.33s"/>
             <circle class="scheibe" cx="709.4" cy="194.2" r="13"/>
@@ -2604,8 +2611,8 @@
             <circle r="20" fill="url(#szeneGlanz)"/>
             <circle r="3.6" fill="#FFE2B4"/>
             <animateMotion dur="11s" begin="4.6s" repeatCount="indefinite" calcMode="spline"
-              keyPoints="0;0.36;0.36;0.62;0.62;0.84;0.84;1"
-              keyTimes="0;0.2628;0.3528;0.5426;0.6326;0.7932;0.8832;1"
+              keyPoints="0;0.3;0.3;0.56;0.56;0.84;0.84;1"
+              keyTimes="0;0.219;0.309;0.4988;0.5888;0.7932;0.8832;1"
               keySplines="0.42 0 0.58 1; 0 0 1 1; 0.42 0 0.58 1; 0 0 1 1; 0.42 0 0.58 1; 0 0 1 1; 0.42 0 1 1">
               <mpath href="#szeneWeg"/>
             </animateMotion>
@@ -2638,16 +2645,18 @@
     </div>
     <div class="login-formseite">
       <div class="login-box" id="auth-box">
+        <!-- Jedes Feld sagt im Label, ob es sein muss (`.feld-art`). Sternchen
+             mit Legende darunter wären kürzer, aber man muss sie erst
+             entschlüsseln; das Wort steht da, wo die Frage aufkommt. -->
         <!-- Anmelden -->
         <form id="login-form" class="auth-form">
           <h2>Anmelden</h2>
-          <p class="unterzeile">Weiter zu deinen Touren.</p>
           <div class="feld">
-            <label for="email">E-Mail</label>
+            <label for="email">E-Mail <span class="feld-art">Pflicht</span></label>
             <input id="email" type="email" autocomplete="username" required />
           </div>
           <div class="feld">
-            <label for="passwort">Passwort</label>
+            <label for="passwort">Passwort <span class="feld-art">Pflicht</span></label>
             <input id="passwort" type="password" autocomplete="current-password" required />
           </div>
           <div class="hinweis fehler" id="login-fehler" role="alert"></div>
@@ -2658,23 +2667,22 @@
           </div>
         </form>
 
-        <!-- Registrieren -->
         <!-- Registrieren, Schritt 1: die Einladung.
              Eigener Schritt, weil die Einladung eine ANDERE Frage ist als die
              nach den eigenen Daten: Wer keinen gültigen Code hat, soll das
-             erfahren, bevor er Name, Adresse und Passwort eintippt. -->
+             erfahren, bevor er Adresse und Passwort eintippt. -->
         <form id="code-form" class="auth-form" hidden>
-          <h2>Du bist eingeladen?</h2>
-          <p class="unterzeile">Maptale wächst gerade von Einladung zu Einladung. Mit deinem Code bist du dabei.</p>
+          <h2>Einladungscode</h2>
+          <p class="unterzeile">Neue Konten gibt es zurzeit nur mit Einladung.</p>
           <div class="feld">
-            <label for="reg-code">Einladungscode</label>
+            <label for="reg-code">Dein Code <span class="feld-art">Pflicht</span></label>
             <input id="reg-code" class="code-eingabe" type="text" maxlength="9" autocomplete="off"
                    spellcheck="false" autocapitalize="characters" placeholder="ABCD-2345" required />
           </div>
           <div class="hinweis fehler" id="code-fehler" role="alert"></div>
           <button type="submit" class="primaer" id="code-weiter">Weiter</button>
           <div class="auth-wechsel">
-            <button type="button" class="link" data-modus="login">Ich habe schon ein Konto</button>
+            <button type="button" class="link" data-modus="login">Ich habe ein Konto</button>
             <!-- Der Weg für alle ohne Code. Steht nur da, wenn die Warteliste
                  auch angeboten wird (s. /auth/me → registrierung.warteliste). -->
             <button type="button" class="link" data-modus="warteliste" id="zur-warteliste" hidden>Ich habe keinen Code</button>
@@ -2682,52 +2690,56 @@
         </form>
 
         <!-- Warteliste: die Alternative zum Code.
-             Zwei Felder, davon eines freiwillig — mehr braucht es nicht, um
+             Zwei Felder, davon eines optional; mehr braucht es nicht, um
              jemanden später einzuladen. Der Satz über dem Knopf ist Pflicht
              (Art. 13 DSGVO) und gehört genau hierhin: vor die Eingabe, nicht
-             in eine Erklärung, die man erst suchen muss. -->
+             in eine Erklärung, die man erst suchen muss.
+             Nur EIN Wechsel-Link: Von der Einladung führt der Weg weiter zur
+             Anmeldung, ein zweiter Rückweg hier wäre eine Kreuzung zu viel. -->
         <form id="warteliste-form" class="auth-form" hidden>
           <h2>Auf die Warteliste</h2>
-          <p class="unterzeile">Wir laden nach und nach ein. Trag dich ein — dein Code kommt per Mail.</p>
+          <p class="unterzeile">
+            <span class="satz">Wir laden nach und nach ein.</span>
+            <span class="satz">Deinen Code bekommst du per E-Mail.</span>
+          </p>
           <div class="feld">
-            <label for="wl-email">E-Mail</label>
+            <label for="wl-email">E-Mail <span class="feld-art">Pflicht</span></label>
             <input id="wl-email" type="email" autocomplete="email" required />
           </div>
           <div class="feld">
-            <label for="wl-notiz">Was möchtest du aufnehmen? <span class="feld-frei">freiwillig</span></label>
+            <label for="wl-notiz">Was du aufnehmen willst <span class="feld-art">optional</span></label>
             <textarea id="wl-notiz" rows="3" maxlength="300" placeholder="z. B. Radtouren in den Alpen"></textarea>
           </div>
           <p class="wl-recht">
-            Deine Adresse nutzen wir nur, um dich einzuladen. Gleich kommt eine Mail, in der du
-            den Eintrag bestätigst — ohne diesen Klick speichern wir sie nicht dauerhaft.
-            Austragen kannst du dich jederzeit über den Link in jeder Mail.
+            Wir speichern deine Adresse nur, um dich einzuladen. Gleich kommt eine E-Mail, in der
+            du den Eintrag bestätigst. Ohne diese Bestätigung löschen wir die Adresse wieder.
+            Austragen kannst du dich jederzeit über den Link in jeder E-Mail.
             <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
           </p>
           <div class="hinweis fehler" id="wl-fehler" role="alert"></div>
           <button type="submit" class="primaer" id="wl-absenden">Eintragen</button>
           <div class="auth-wechsel">
-            <button type="button" class="link" data-modus="code">Ich habe doch einen Code</button>
-            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+            <button type="button" class="link" data-modus="code">Ich habe einen Code</button>
           </div>
         </form>
 
         <!-- Was die Warteliste zu sagen hat: nach dem Eintragen, nach dem Klick
-             aus der Mail und beim Austragen. Eine Ansicht für alle drei — es ist
-             jedes Mal dasselbe: ein Satz und höchstens ein Griff. -->
+             aus der Mail und beim Austragen. Eine Ansicht für alle drei, denn es
+             ist jedes Mal dasselbe: ein Satz und höchstens ein Griff. -->
         <div id="warteliste-info" class="auth-form" hidden>
           <h2 id="wl-info-titel"></h2>
           <p class="unterzeile" id="wl-info-text"></p>
           <div class="hinweis fehler" id="wl-info-fehler" role="alert"></div>
           <button type="button" class="wl-aktion" id="wl-info-aktion" hidden></button>
           <div class="auth-wechsel">
-            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+            <button type="button" class="link" data-modus="login">Zur Anmeldung</button>
           </div>
         </div>
 
         <!-- Registrieren, Schritt 2: die eigenen Daten -->
         <form id="register-form" class="auth-form" hidden>
           <h2>Konto erstellen</h2>
-          <p class="unterzeile" id="reg-unterzeile">Kostenlos — du bekommst gleich eine Bestätigungsmail.</p>
+          <p class="unterzeile" id="reg-unterzeile">Kostenlos. Du bekommst gleich eine Bestätigungsmail.</p>
           <!-- Nur nach Schritt 1: der bestätigte Code, samt Weg zurück. Er
                steht hier, damit niemand rätselt, ob die Einladung angekommen ist. -->
           <div class="code-chip" id="reg-code-chip" hidden>
@@ -2740,30 +2752,30 @@
                steht ohnehin ein eigener Anzeigename. Jedes Pflichtfeld kostet
                Anmeldungen. -->
           <div class="feld">
-            <label for="reg-email">E-Mail</label>
+            <label for="reg-email">E-Mail <span class="feld-art">Pflicht</span></label>
             <input id="reg-email" type="email" autocomplete="username" required />
           </div>
           <div class="feld">
-            <label for="reg-passwort">Passwort</label>
+            <label for="reg-passwort">Passwort <span class="feld-art">Pflicht, mindestens 8 Zeichen</span></label>
             <input id="reg-passwort" type="password" autocomplete="new-password" minlength="8" required />
           </div>
           <div class="hinweis fehler" id="register-fehler" role="alert"></div>
           <button type="submit" class="primaer" id="reg-absenden">Konto erstellen</button>
           <div class="auth-wechsel">
-            <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
+            <button type="button" class="link" data-modus="login">Ich habe ein Konto</button>
           </div>
         </form>
 
         <!-- Passwort-Reset anfordern -->
         <form id="reset-anfordern-form" class="auth-form" hidden>
           <h2>Passwort zurücksetzen</h2>
-          <p class="unterzeile">Wir schicken dir einen Link zum Neu-Setzen.</p>
+          <p class="unterzeile">Wir schicken dir einen Link an deine E-Mail-Adresse.</p>
           <div class="feld">
-            <label for="reset-email">E-Mail</label>
+            <label for="reset-email">E-Mail <span class="feld-art">Pflicht</span></label>
             <input id="reset-email" type="email" autocomplete="username" required />
           </div>
           <div class="hinweis" id="reset-anfordern-status" role="status"></div>
-          <button type="submit" class="primaer">Link anfordern</button>
+          <button type="submit" class="primaer">Link schicken</button>
           <div class="auth-wechsel">
             <button type="button" class="link" data-modus="login">Zurück zur Anmeldung</button>
           </div>
@@ -2772,9 +2784,8 @@
         <!-- Neues Passwort setzen (aus dem Mail-Link, #reset=…) -->
         <form id="reset-setzen-form" class="auth-form" hidden>
           <h2>Neues Passwort</h2>
-          <p class="unterzeile">Wähle ein neues Passwort für dein Konto.</p>
           <div class="feld">
-            <label for="reset-passwort">Neues Passwort</label>
+            <label for="reset-passwort">Neues Passwort <span class="feld-art">Pflicht, mindestens 8 Zeichen</span></label>
             <input id="reset-passwort" type="password" autocomplete="new-password" minlength="8" required />
           </div>
           <div class="hinweis fehler" id="reset-setzen-fehler" role="alert"></div>
