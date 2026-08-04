@@ -335,4 +335,25 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   function rendereVorschau(bausteine: MailBausteine, werte: Record<string, string>) {
     return rendereMail(bausteine, werte, { basisUrl: konfig.basisUrl, link: werte.link ?? `${konfig.basisUrl}/` })
   }
+
+  // — Betriebsprotokoll —
+  //
+  // Nur lesen: Es gibt kein „Löschen", denn der Puffer ist ohnehin flüchtig
+  // (s. protokoll.ts) — ein Knopf, der Spuren beseitigt, wäre die einzige
+  // Wirkung. `seit` liefert nur das Neue: Die Ansicht fragt im Sekundentakt
+  // nach, solange sie offen ist, und soll dabei nicht 500 Zeilen wiederholen.
+  app.get<{ Querystring: { stufe?: string; seit?: string } }>('/api/admin/protokoll', async (request, reply) => {
+    if (!erfordereAdmin(request, reply)) return
+    const stufe = request.query.stufe === 'fehler' || request.query.stufe === 'warnung' ? request.query.stufe : undefined
+    const seit = Number(request.query.seit)
+    const alle = app.protokoll.liste({ ...(stufe ? { stufe } : {}) })
+    const eintraege = Number.isFinite(seit) && seit > 0 ? alle.filter((e) => e.nr > seit) : alle
+    return { eintraege, ...app.protokoll.zaehle(), gestartet: START_ZEIT }
+  })
 }
+
+/**
+ * Wann dieser Prozess hochkam — die Ansicht sagt damit „seit dem Neustart um
+ * 14:02", statt einen leeren Puffer als „alles in Ordnung" auszugeben.
+ */
+const START_ZEIT = new Date().toISOString()

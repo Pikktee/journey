@@ -25,6 +25,7 @@ import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
 import { registriereTourRouten } from './routes/tours.js'
 import { registriereWartelistenRouten } from './routes/warteliste.js'
+import { Protokoll, protokollZiel } from './protokoll.js'
 import type { Storage } from './storage.js'
 import { ZuGrossFehler } from './storage.js'
 
@@ -72,6 +73,8 @@ declare module 'fastify' {
     mailvorlagen: MailVorlagenDienst
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
+    /** Die letzten Warnungen und Fehler für die Verwaltung (s. protokoll.ts). */
+    protokoll: Protokoll
   }
   interface FastifyRequest {
     benutzer: Benutzer | null
@@ -79,8 +82,13 @@ declare module 'fastify' {
 }
 
 export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
+  // Mitschrift der Warnungen und Fehler für die Verwaltung. Sie hängt am
+  // Logger-Ziel, nicht an einzelnen Aufrufstellen: Sonst gäbe es zwei Wege,
+  // etwas zu melden, und der zweite bliebe irgendwann liegen. Im Test ist der
+  // Logger aus — dort füllt sich der Puffer nicht von selbst.
+  const protokoll = new Protokoll()
   const app = Fastify({
-    logger: process.env.NODE_ENV !== 'test' && { level: 'info' },
+    logger: process.env.NODE_ENV !== 'test' && { level: 'info', stream: protokollZiel(protokoll) },
     // Manifeste langer Aufzeichnungen können mehrere MB JSON sein
     bodyLimit: 64 * 1024 * 1024,
     // Hinter Caddy (Prod): request.ip aus X-Forwarded-For nehmen, damit die
@@ -96,6 +104,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('warteliste', new WartelistenDienst(deps.db))
   app.decorate('mailvorlagen', new MailVorlagenDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
+  app.decorate('protokoll', protokoll)
   app.decorateRequest('benutzer', null)
 
   app.register(fastifyCookie, { secret: deps.konfig.cookieSecret })

@@ -8,6 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { codeVollstaendig, formatiereEinladungscode } from '../src/einladungscode.js'
 import {
   beschreibeEinladung,
+  beschreibeProtokoll,
+  filtereProtokoll,
+  formatiereZeitpunkt,
+  zaehleProtokoll,
+  type ProtokollEintrag,
   beschreibeVorlage,
   beschreibeWartenden,
   einladenGesperrt,
@@ -411,5 +416,45 @@ describe('System-Mails', () => {
     expect(beschreibeVorlage(vorlage({ angepasst: true, geaendertAm: '2026-03-05T08:00:00.000Z' }))).toBe(
       'Angepasst am 05.03.2026',
     )
+  })
+})
+
+describe('Protokoll', () => {
+  const e = (patch: Partial<ProtokollEintrag> = {}): ProtokollEintrag => ({
+    nr: 1,
+    zeit: '2026-08-04T12:30:05.000Z',
+    stufe: 'warnung',
+    text: 'Bildanalyse: HTTP 429 (Rate-Limit)',
+    ...patch,
+  })
+
+  it('sucht auch im Detail — die Tour-ID steht oft nur dort', () => {
+    const liste = [e(), e({ nr: 2, text: 'Anreicherung fehlgeschlagen', detail: 'Tour t_abc123 · Track nicht lesbar' })]
+    expect(filtereProtokoll(liste, 't_abc123').map((x) => x.nr)).toEqual([2])
+  })
+
+  it('filtert nach Stufe', () => {
+    const liste = [e(), e({ nr: 2, stufe: 'fehler' })]
+    expect(filtereProtokoll(liste, '', 'fehler').map((x) => x.nr)).toEqual([2])
+    expect(zaehleProtokoll(liste)).toEqual({ warnung: 1, fehler: 1 })
+  })
+
+  it('zeigt bei Meldungen von heute nur die Uhrzeit, sonst auch den Tag', () => {
+    // Innerhalb einer Minute entscheidet die Sekunde über die Reihenfolge —
+    // deshalb steht sie in der Zeile, das Datum aber nur, wenn es abweicht.
+    const zeit = new Date('2026-08-04T12:30:05')
+    expect(formatiereZeitpunkt(zeit.toISOString(), new Date('2026-08-04T18:00:00'))).toBe('12:30:05')
+    expect(formatiereZeitpunkt(zeit.toISOString(), new Date('2026-08-05T09:00:00'))).toBe('04.08. 12:30:05')
+  })
+
+  // Ein leerer Puffer ist die gute Nachricht. Er darf nicht wie ein Ausfall
+  // klingen („keine Daten"), sondern sagt, seit wann nichts vorgefallen ist.
+  it('macht aus Leere eine Aussage statt eines Mangels', () => {
+    expect(beschreibeProtokoll(0, 0, '2026-08-04T09:15:00')).toMatch(/^Nichts vorgefallen seit dem Start der API am 04\.08\.2026 um 09:15:00\.$/)
+  })
+
+  it('nennt die Fehler gesondert, wenn es welche gibt', () => {
+    expect(beschreibeProtokoll(12, 3, null)).toBe('12 Meldungen, davon 3 Fehler.')
+    expect(beschreibeProtokoll(1, 0, null)).toBe('1 Meldung.')
   })
 })

@@ -12,15 +12,18 @@ import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
   beschreibeEinladung,
+  beschreibeProtokoll,
   beschreibeVorlage,
   beschreibeWartenden,
   einladenGesperrt,
   einladungsLink,
   filtereBenutzer,
   filtereEinladungen,
+  filtereProtokoll,
   filtereWarteliste,
   formatiereBytes,
   formatiereDatum,
+  formatiereZeitpunkt,
   initiale,
   loeschenGesperrt,
   rolleGesperrt,
@@ -28,6 +31,7 @@ import {
   wartelisteAngeboten,
   zaehleAdmins,
   zaehleEinladungen,
+  zaehleProtokoll,
   zaehleWarteliste,
   TABS,
   type AdminBenutzer,
@@ -37,6 +41,8 @@ import {
   type KontenFilter,
   type MailBausteine,
   type MailVorlage,
+  type ProtokollEintrag,
+  type ProtokollFilter,
   type Rolle,
   type TabId,
   type WartelistenFilter,
@@ -73,6 +79,11 @@ const els = {
   wartelisteListe: $('warteliste-liste'),
   wartelisteFilter: $('warteliste-filter'),
   wartelisteSuche: $<HTMLInputElement>('warteliste-suche'),
+  // Protokoll
+  protokollZusammenfassung: $('protokoll-zusammenfassung'),
+  protokollListe: $('protokoll-liste'),
+  protokollFilter: $('protokoll-filter'),
+  protokollSuche: $<HTMLInputElement>('protokoll-suche'),
   // Rückfrage
   frageDialog: $<HTMLDialogElement>('frage-dialog'),
   frageForm: $<HTMLFormElement>('frage-form'),
@@ -147,6 +158,12 @@ interface Zustand {
   einladungenFilter: EinladungsFilter
   wartelisteSuche: string
   wartelisteFilter: WartelistenFilter
+  protokoll: ProtokollEintrag[]
+  /** Meldungen, die eintrafen, während jemand liest — sie warten hinter dem Streifen. */
+  protokollWartend: ProtokollEintrag[]
+  protokollGestartet: string | null
+  protokollSuche: string
+  protokollFilter: ProtokollFilter
 }
 
 const z: Zustand = {
@@ -168,6 +185,11 @@ const z: Zustand = {
   einladungenFilter: 'alle',
   wartelisteSuche: '',
   wartelisteFilter: 'alle',
+  protokoll: [],
+  protokollWartend: [],
+  protokollGestartet: null,
+  protokollSuche: '',
+  protokollFilter: 'alle',
 }
 
 /** Welches Konto der Dialog gerade bearbeitet; null = ein neues anlegen. */
@@ -283,11 +305,12 @@ for (const art of ['close', 'cancel']) {
 async function lade(): Promise<void> {
   z.fehler = ''
   try {
-    const [konten, einladungen, warteliste, mails] = await Promise.all([
+    const [konten, einladungen, warteliste, mails, protokoll] = await Promise.all([
       api.benutzer(),
       api.einladungen(),
       api.warteliste(),
       api.mailvorlagen(),
+      api.protokoll(),
     ])
     z.benutzer = konten.benutzer
     z.einladungen = einladungen.einladungen
@@ -296,6 +319,9 @@ async function lade(): Promise<void> {
     z.basisUrl = einladungen.basisUrl || location.origin
     z.warteliste = warteliste.eintraege
     z.wartelisteOffen = warteliste.wartelisteOffen
+    z.protokoll = protokoll.eintraege
+    z.protokollWartend = []
+    z.protokollGestartet = protokoll.gestartet
     z.mailvorlagen = mails.vorlagen
   } catch (fehler) {
     z.fehler = fehlerText(fehler)
@@ -345,6 +371,13 @@ function reiterZahl(id: TabId): { wert: number; wichtig: boolean } {
   if (id === 'warteliste') {
     const wartend = zaehleWarteliste(z.warteliste).wartend
     return { wert: wartend, wichtig: wartend > 0 }
+  }
+  // Beim Protokoll zählen die FEHLER, nicht alle Meldungen: Eine Warnung ist
+  // Betrieb, ein Fehler ist etwas, das jemand ansehen sollte — und nur das
+  // gehört als amberne Zahl an einen Reiter.
+  if (id === 'protokoll') {
+    const fehler = zaehleProtokoll([...z.protokoll, ...z.protokollWartend]).fehler
+    return { wert: fehler, wichtig: fehler > 0 }
   }
   return { wert: z.mailvorlagen.length, wichtig: false }
 }
@@ -602,6 +635,7 @@ function render(): void {
   rendereEinladungen()
   rendereWarteliste()
   rendereMailvorlagen()
+  rendereProtokoll()
 }
 
 function rendereRegistrierung(): void {
@@ -908,6 +942,136 @@ function rendereMailvorlagen(): void {
   )
 }
 
+// — Protokoll —
+//
+// Was die API zuletzt gemeldet hat. Der Puffer liegt dort im Arbeitsspeicher,
+// diese Ansicht ist also immer „seit dem letzten Neustart" — der Satz darüber
+// sagt das, damit Leere nicht als „alles gut" gelesen wird.
+
+function rendereProtokoll(): void {
+  const gesucht = filtereProtokoll(z.protokoll, z.protokollSuche)
+  const zahl = zaehleProtokoll(gesucht)
+  rendereFilter(
+    els.protokollFilter,
+    [
+      { wert: 'alle', name: 'Alle', zahl: gesucht.length },
+      { wert: 'fehler', name: 'Fehler', zahl: zahl.fehler },
+      { wert: 'warnung', name: 'Warnungen', zahl: zahl.warnung },
+    ] satisfies Chip<ProtokollFilter>[],
+    z.protokollFilter,
+    (wert) => {
+      z.protokollFilter = wert
+      rendereProtokoll()
+    },
+  )
+
+  // Der Satz beschreibt den PUFFER, nicht die Liste — also zählt er auch, was
+  // noch hinter dem Streifen wartet. Sonst widerspräche er dem Reiter (der aus
+  // demselben Grund alles zählt), und zwei Zahlen für dieselbe Sache, die
+  // nebeneinander stehen und nicht übereinstimmen, liest man als Fehler.
+  const gesamt = [...z.protokollWartend, ...z.protokoll]
+  els.protokollZusammenfassung.textContent = z.laedt
+    ? 'Wird geladen …'
+    : beschreibeProtokoll(gesamt.length, zaehleProtokoll(gesamt).fehler, z.protokollGestartet)
+
+  const sichtbar = filtereProtokoll(gesucht, '', z.protokollFilter)
+  const gefiltert = !!z.protokollSuche.trim() || z.protokollFilter !== 'alle'
+  fuelleListe(
+    els.protokollListe,
+    sichtbar.map((e) => {
+      const zeile = document.createElement('div')
+      zeile.className = 'zeile zeile-protokoll'
+
+      const zeit = document.createElement('div')
+      zeit.className = 'zeit'
+      zeit.textContent = formatiereZeitpunkt(e.zeit)
+      zeit.title = new Date(e.zeit).toLocaleString('de-DE')
+
+      const meldung = document.createElement('div')
+      meldung.className = 'meldung'
+      const text = document.createElement('div')
+      text.className = 'text'
+      text.textContent = e.text
+      meldung.append(text)
+      if (e.detail) {
+        const detail = document.createElement('div')
+        detail.className = 'detail'
+        detail.textContent = e.detail
+        meldung.append(detail)
+      }
+
+      zeile.append(zeit, plakette(e.stufe, e.stufe === 'fehler' ? 'Fehler' : 'Warnung'), meldung)
+      return zeile
+    }),
+    () =>
+      gefiltert
+        ? leerZustand('Keine passende Meldung', 'Andere Suche oder anderer Filter.', {
+            name: 'Filter zurücksetzen',
+            tu: () => {
+              z.protokollSuche = ''
+              z.protokollFilter = 'alle'
+              els.protokollSuche.value = ''
+              rendereProtokoll()
+            },
+          })
+        : leerZustand('Nichts vorgefallen', 'Seit dem Start der API gab es weder Warnung noch Fehler.'),
+  )
+
+  // Was WÄHREND des Lesens eintraf, rutscht nicht von selbst in die Liste —
+  // es wartet hinter einem Streifen, bis jemand ihn antippt.
+  if (z.protokollWartend.length) {
+    const anzahl = z.protokollWartend.length
+    const streifen = document.createElement('button')
+    streifen.type = 'button'
+    streifen.className = 'protokoll-neu'
+    streifen.textContent = `${anzahl} neue ${anzahl === 1 ? 'Meldung' : 'Meldungen'} anzeigen`
+    streifen.addEventListener('click', () => {
+      z.protokoll = [...z.protokollWartend, ...z.protokoll]
+      z.protokollWartend = []
+      rendereProtokoll()
+    })
+    els.protokollListe.prepend(streifen)
+  }
+}
+
+/**
+ * Nachfragen, solange der Reiter offen und der Tab im Vordergrund ist. `seit`
+ * holt nur das Neue.
+ *
+ * Der Neustart-Fall ist der Grund für den `gestartet`-Vergleich: Nach einem
+ * Deploy beginnen die Nummern wieder bei 1, und `seit=412` fände nie wieder
+ * etwas — die Ansicht bliebe für immer still und sähe dabei gesund aus.
+ */
+async function holeNeueMeldungen(): Promise<void> {
+  if (z.tab !== 'protokoll' || document.hidden || z.laedt || z.fehler) return
+  const hoechste = Math.max(0, ...z.protokoll.map((e) => e.nr), ...z.protokollWartend.map((e) => e.nr))
+  try {
+    const antwort = await api.protokoll(hoechste)
+    if (antwort.gestartet !== z.protokollGestartet) {
+      const frisch = await api.protokoll()
+      z.protokoll = frisch.eintraege
+      z.protokollWartend = []
+      z.protokollGestartet = frisch.gestartet
+    } else if (antwort.eintraege.length) {
+      z.protokollWartend = [...antwort.eintraege, ...z.protokollWartend]
+    } else {
+      return
+    }
+    rendereProtokoll()
+    rendereReiter()
+  } catch {
+    // Still: Ein Protokoll, das sich über sich selbst beschwert, ist Lärm.
+    // Beim nächsten Reiterwechsel lädt `lade()` ohnehin neu.
+  }
+}
+
+window.setInterval(() => void holeNeueMeldungen(), 5000)
+// Wer den Tab wieder nach vorn holt, will den aktuellen Stand sehen und nicht
+// bis zum nächsten Intervall warten.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) void holeNeueMeldungen()
+})
+
 // — Aktionen —
 
 async function kopiereLink(code: string): Promise<void> {
@@ -1051,6 +1215,10 @@ els.einladungenSuche.addEventListener('input', () => {
 els.wartelisteSuche.addEventListener('input', () => {
   z.wartelisteSuche = els.wartelisteSuche.value
   rendereWarteliste()
+})
+els.protokollSuche.addEventListener('input', () => {
+  z.protokollSuche = els.protokollSuche.value
+  rendereProtokoll()
 })
 
 // — Konto-Dialog —

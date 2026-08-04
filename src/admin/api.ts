@@ -1,7 +1,15 @@
 // API-Hülle der Benutzerverwaltung — gleiche Bauart wie src/studio/api.ts:
 // origin-relativ, Session-Cookie, Fehler als Ausnahme mit der Server-Meldung.
 
-import type { AdminBenutzer, AdminEinladung, AdminWartender, MailBausteine, MailVorlage, Rolle } from './adminmodell.js'
+import type {
+  AdminBenutzer,
+  AdminEinladung,
+  AdminWartender,
+  MailBausteine,
+  MailVorlage,
+  ProtokollEintrag,
+  Rolle,
+} from './adminmodell.js'
 
 export class ApiFehler extends Error {
   constructor(
@@ -160,4 +168,21 @@ export function testeVorlage(schluessel: string, bausteine?: MailBausteine): Pro
     headers: jsonKopf,
     body: JSON.stringify(bausteine ? { bausteine } : {}),
   })
+}
+
+export interface ProtokollAntwort {
+  eintraege: ProtokollEintrag[]
+  gesamt: number
+  fehler: number
+  /** Start der API — der Puffer reicht nie weiter zurück. */
+  gestartet: string
+}
+
+/**
+ * Die letzten Warnungen und Fehler. Mit `seit` (höchste bekannte Nummer) kommt
+ * nur das Neue — die offene Ansicht fragt regelmäßig nach und soll dabei nicht
+ * jedes Mal den ganzen Puffer über die Leitung ziehen.
+ */
+export function protokoll(seit?: number): Promise<ProtokollAntwort> {
+  return anfrage(`/admin/protokoll${seit ? `?seit=${seit}` : ''}`)
 }

@@ -13,7 +13,7 @@ export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
 // Jetzt ist jeder Bereich ein Reiter — und weil die Liste den URL-Anhang, die
 // Reiterleiste UND die Zähler speist, steht sie EINMAL hier.
 
-export type TabId = 'konten' | 'einladungen' | 'warteliste' | 'mails'
+export type TabId = 'konten' | 'einladungen' | 'warteliste' | 'mails' | 'protokoll'
 
 export interface Tab {
   id: TabId
@@ -32,6 +32,7 @@ export const TABS: readonly Tab[] = [
   { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
   { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
   { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
+  { id: 'protokoll', name: 'Protokoll', zaehlt: 'Fehler' },
 ]
 
 /** Womit die Seite aufmacht: die Konten sind der Grund, warum es sie gibt. */
@@ -335,4 +336,71 @@ export function beschreibeVorlage(v: MailVorlage): string {
   if (!v.angepasst) return v.anlass
   const wer = v.geaendertVon ? ` von ${v.geaendertVon}` : ''
   return `Angepasst am ${formatiereDatum(v.geaendertAm)}${wer}`
+}
+
+// — Betriebsprotokoll —
+//
+// Die letzten Warnungen und Fehler der API. Sie liegen dort in einem Ringpuffer
+// im Arbeitsspeicher (server/src/protokoll.ts) — was diese Ansicht zeigt, ist
+// also immer „seit dem letzten Neustart", und genau das sagt sie auch.
+
+export type ProtokollStufe = 'warnung' | 'fehler'
+
+export interface ProtokollEintrag {
+  nr: number
+  zeit: string
+  stufe: ProtokollStufe
+  text: string
+  detail?: string
+}
+
+export type ProtokollFilter = 'alle' | ProtokollStufe
+
+/** Suche über Meldung UND Detail — die Tour-ID steht oft nur im Detail. */
+export function filtereProtokoll(
+  liste: readonly ProtokollEintrag[],
+  suche: string,
+  filter: ProtokollFilter = 'alle',
+): ProtokollEintrag[] {
+  const s = suche.trim().toLowerCase()
+  return liste.filter((e) => {
+    if (filter !== 'alle' && e.stufe !== filter) return false
+    if (!s) return true
+    return [e.text, e.detail ?? ''].some((feld) => enthaelt(feld, s))
+  })
+}
+
+export function zaehleProtokoll(liste: readonly ProtokollEintrag[]): Record<ProtokollStufe, number> {
+  const zaehler: Record<ProtokollStufe, number> = { warnung: 0, fehler: 0 }
+  for (const e of liste) zaehler[e.stufe]++
+  return zaehler
+}
+
+/**
+ * Uhrzeit mit Sekunde — bei einem Protokoll ist die Reihenfolge innerhalb einer
+ * Minute die eigentliche Information („kam der Fehler VOR oder NACH dem Retry?").
+ * Das Datum steht nur dabei, wenn die Meldung nicht von heute ist: Bei einem
+ * Puffer, der meist Minuten alt ist, wäre es sonst in jeder Zeile Ballast.
+ */
+export function formatiereZeitpunkt(iso: string, jetzt: Date = new Date()): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const zwei = (n: number): string => String(n).padStart(2, '0')
+  const uhr = `${zwei(d.getHours())}:${zwei(d.getMinutes())}:${zwei(d.getSeconds())}`
+  const gleicherTag =
+    d.getDate() === jetzt.getDate() && d.getMonth() === jetzt.getMonth() && d.getFullYear() === jetzt.getFullYear()
+  return gleicherTag ? uhr : `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}. ${uhr}`
+}
+
+/**
+ * Was über der Liste steht. Ein leerer Puffer ist die GUTE Nachricht — er darf
+ * nicht wie ein Fehler aussehen („keine Daten"), sondern sagt, seit wann nichts
+ * vorgefallen ist.
+ */
+export function beschreibeProtokoll(anzahl: number, fehler: number, gestartet: string | null): string {
+  const seit = gestartet ? ` seit dem Start der API am ${formatiereDatum(gestartet)} um ${formatiereZeitpunkt(gestartet)}` : ''
+  if (anzahl === 0) return `Nichts vorgefallen${seit}.`
+  const teile = [`${anzahl} ${anzahl === 1 ? 'Meldung' : 'Meldungen'}`]
+  if (fehler > 0) teile.push(`davon ${fehler} ${fehler === 1 ? 'Fehler' : 'Fehler'}`)
+  return `${teile.join(', ')}${seit}.`
 }

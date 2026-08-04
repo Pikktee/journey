@@ -625,3 +625,53 @@ describe('System-Mails verwalten', () => {
     expect(antwort.statusCode).toBe(502)
   })
 })
+
+describe('Betriebsprotokoll', () => {
+  it('liegt hinter der Admin-Schranke', async () => {
+    const u = await baueTestApp()
+    const ohne = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll' })
+    expect(ohne.statusCode).toBe(401)
+    const alsNutzer = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll', cookies: u.cookies })
+    expect(alsNutzer.statusCode).toBe(403)
+  })
+
+  it('gibt die Meldungen neueste-zuerst aus, mit Zähler und Startzeit', async () => {
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    u.app.protokoll.schreibe('warnung', 'Bildanalyse: HTTP 429 (Rate-Limit)')
+    u.app.protokoll.schreibe('fehler', 'Anreicherung fehlgeschlagen', 'Track nicht lesbar')
+
+    const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll', cookies: admin.cookies })
+    expect(antwort.statusCode).toBe(200)
+    const koerper = antwort.json() as {
+      eintraege: Array<{ nr: number; stufe: string; text: string; detail?: string }>
+      gesamt: number
+      fehler: number
+      gestartet: string
+    }
+    expect(koerper.eintraege.map((e) => e.stufe)).toEqual(['fehler', 'warnung'])
+    expect(koerper.eintraege[0]?.detail).toBe('Track nicht lesbar')
+    expect(koerper).toMatchObject({ gesamt: 2, fehler: 1 })
+    expect(Number.isFinite(Date.parse(koerper.gestartet))).toBe(true)
+  })
+
+  it('filtert nach Stufe und liefert mit `seit` nur das Neue', async () => {
+    // Die offene Ansicht fragt im Sekundentakt nach — ohne `seit` wäre jede
+    // Antwort eine Wiederholung der ganzen Liste.
+    const u = await baueTestApp()
+    const admin = await legeAdminAn(u)
+    u.app.protokoll.schreibe('warnung', 'alt')
+    u.app.protokoll.schreibe('fehler', 'schlimm')
+    u.app.protokoll.schreibe('warnung', 'neu')
+
+    const nurFehler = await u.app.inject({
+      method: 'GET',
+      url: '/api/admin/protokoll?stufe=fehler',
+      cookies: admin.cookies,
+    })
+    expect((nurFehler.json() as { eintraege: unknown[] }).eintraege).toHaveLength(1)
+
+    const seit = await u.app.inject({ method: 'GET', url: '/api/admin/protokoll?seit=2', cookies: admin.cookies })
+    expect((seit.json() as { eintraege: Array<{ text: string }> }).eintraege.map((e) => e.text)).toEqual(['neu'])
+  })
+})

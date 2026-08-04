@@ -454,6 +454,31 @@
     .mail-karte .griffe { margin-top: auto; padding-top: 8px; }
     .badge.standard { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
     .badge.angepasst { background: rgba(91, 157, 255, 0.14); color: var(--blau); }
+    .badge.warnung { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
+    .badge.fehler { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
+
+    /* — Protokoll —
+       Zeit ganz links in fester Breite: Man liest ein Protokoll an der Kante
+       entlang („was war um 14:03?"), und eine Spalte, die je nach Textlänge
+       wandert, macht genau das unmöglich. Ziffern in Outfit mit tabular-nums,
+       kein Mono (DESIGN.md). */
+    .zeile-protokoll { grid-template-columns: 74px 82px minmax(0, 1fr); align-items: start; }
+    .zeile-protokoll .zeit { color: var(--text-3); font-size: 12.5px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+    .zeile-protokoll .meldung { min-width: 0; }
+    /* Umbrechen statt kürzen: Die Meldung IST der Inhalt dieser Zeile — ein
+       abgeschnittener Fehlertext zwingt zum Aufklappen, das es hier nicht gibt. */
+    .zeile-protokoll .meldung .text { font-size: 13.5px; overflow-wrap: anywhere; }
+    .zeile-protokoll .meldung .detail { color: var(--text-3); font-size: 12.5px; margin-top: 3px; overflow-wrap: anywhere; }
+    /* Der Streifen für Meldungen, die eintrafen, WÄHREND jemand liest. Sie
+       rutschen nicht von selbst in die Liste — eine Liste, die unter dem Auge
+       springt, ist beim Nachlesen eines Fehlers das Gegenteil von hilfreich. */
+    .protokoll-neu {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 10px 16px; border: none; width: 100%;
+      background: rgba(245, 165, 36, 0.1); color: var(--akzent);
+      font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
+    }
+    .protokoll-neu:hover { background: rgba(245, 165, 36, 0.16); }
 
     dialog.breit { max-width: min(1120px, calc(100vw - 28px)); }
     /* Der Dialog muss selbst scrollen können: Fällt das Raster auf eine Spalte
@@ -687,6 +712,22 @@
     <section class="panel" id="panel-mails" role="tabpanel" aria-labelledby="reiter-mails" hidden>
       <p class="panel-text" id="mail-zusammenfassung"></p>
       <div class="mail-karten" id="mail-liste"></div>
+    </section>
+
+    <!-- Protokoll: die letzten Warnungen und Fehler der API. Sie liegen dort in
+         einem Ringpuffer im Arbeitsspeicher — nach einem Neustart ist er leer,
+         und die Zeile über der Liste sagt genau das, statt Leere als „alles in
+         Ordnung" auszugeben. -->
+    <section class="panel" id="panel-protokoll" role="tabpanel" aria-labelledby="reiter-protokoll" hidden>
+      <p class="panel-text" id="protokoll-zusammenfassung"></p>
+      <div class="werkzeuge">
+        <label class="suchfeld">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></svg>
+          <input type="search" id="protokoll-suche" placeholder="Meldung oder Tour-ID …" aria-label="Protokoll durchsuchen" />
+        </label>
+        <div class="filter" id="protokoll-filter" role="group" aria-label="Protokoll filtern"></div>
+      </div>
+      <div class="liste" id="protokoll-liste"></div>
     </section>
   </main>
 
