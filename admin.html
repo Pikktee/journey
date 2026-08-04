@@ -203,8 +203,9 @@
     .km-balken { height: 6px; border-radius: 3px; background: var(--fl-1); overflow: hidden; }
     .km-balken span { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
     .km-trenner { height: 1px; background: var(--rand); margin: 2px 0; }
-    .km-eintrag { width: 100%; justify-content: flex-start; font-size: 13px; background: transparent; border-color: transparent; padding: 8px 10px; }
-    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; }
+    .km-eintrag { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start; font-size: 13px; color: var(--text); text-decoration: none; background: transparent; border-color: transparent; padding: 8px 10px; }
+    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
+    .km-eintrag svg { width: 15px; height: 15px; flex: none; }
 
     /* — Seite — */
     .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 90px; }
