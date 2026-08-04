@@ -1,0 +1,3114 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Halt als Objekt, Spuren nach Anker getrennt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Foto-Halt und Spur-Trennung im Studio-Editor.
+
+   Zweck: die drei Vorschläge ANFASSBAR machen, bevor irgendetwas am echten
+   Editor geändert wird.
+
+     A  Der Abspielkopf rechnet in FILMZEIT (heute: Aufnahmezeit).
+     B  Der Halt bekommt einen KÖRPER (heute: Punkt an der linken Kante).
+     C  Zustands-Kanten RASTEN an Haltgrenzen ein (heute: sie landen still
+        auf der Haltzeit und springen beim Zeichnen an den Sprunganfang).
+     D  Kein Stapel: jede Aufnahme ist ein Klip, mehrere am selben Ort
+        bilden eine Kette.
+
+   VERWORFEN (Runde 1): eine Gruppierung der Bahnen in „Im Film" und „Auf der
+   Strecke". Sie beschriftete einen Unterschied, den das Format gar nicht
+   kennt — Musik landet beim Rendern genauso auf dem Streckenanteil f wie
+   Wetter. Und selbst mit filmzeitlichen Ankern (Vorschlag C aus der Analyse)
+   wäre eine einrastende Kante die bessere Erklärung als eine Überschrift.
+
+   Die Achsen-Mathematik ist aus src/studio/zeitleiste.ts portiert (dieselbe
+   `interpoliere`-Konvention mit lower_bound, dieselben Tempo-Konstanten,
+   dasselbe Einweben der Halt-Sprünge) — sonst würde man hier ein anderes
+   Verhalten testen als das echte.
+
+   Der Schalter „Heute / Vorschlag" oben rechts schaltet NUR den Abspielkopf
+   und die Halt-Darstellung um. Die Achse ist in beiden Fällen dieselbe: das
+   Problem liegt nicht in der Achse, sondern darin, dass der Kopf in einer
+   Größe rechnet, die im Halt stillsteht.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #10151d;
+  --fl-2: #151c26;
+  --fl-3: #1c2530;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+  --akzent: #F59E0B;
+  --akzent-2: #ff6f52;
+  --gruen: #3ecf8e;
+  --rot: #e5484d;
+  --blau: #5b9dff;
+  --lila: #c58bff;
+  --schatten: 0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
+  --font-ui: 'Outfit', system-ui, sans-serif;
+  --spur-x: 186px;
+  --zeit-breite: 1000px;
+  --scrub: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='28'%20height='14'%3E%3Cg%20fill='none'%20stroke='%23000'%20stroke-width='3.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%203L3%207L8%2011M20%203L25%207L20%2011M3%207H25'/%3E%3C/g%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='1.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%203L3%207L8%2011M20%203L25%207L20%2011M3%207H25'/%3E%3C/g%3E%3C/svg%3E") 14 7, ew-resize;
+}
+/* Wird das Fenster schmal, gibt zuerst die NAMENSSPALTE nach — sie trägt sechs
+   kurze Wörter, die Zeitachse trägt den Inhalt. Ohne das lief die Leiste bei
+   einem 1024er Fenster in ihre Mindestbreite und bekam einen Scrollbalken. */
+@media (max-width: 1180px) { :root { --spur-x: 118px; } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14.5px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-weight: 600; margin: 0; letter-spacing: -0.02em; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* — Kopf der Seite — */
+/* Der Kopf ist eine ZEILE, keine Seite: das Mockup soll aussehen wie der
+   Editor, nicht wie ein Artikel darüber. Die Begründungen stecken hinter den
+   Buchstaben-Chips. */
+.seitenkopf {
+  padding: 12px 18px; display: flex; align-items: center; gap: 16px;
+  border-bottom: 1px solid var(--rand); background: var(--fl-1);
+}
+.seitenkopf h1 { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.seitenkopf .lead-hinweis { font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+.belege { display: flex; gap: 5px; flex-wrap: wrap; }
+.belege b {
+  width: 21px; height: 21px; display: grid; place-items: center; cursor: help;
+  border-radius: 6px; background: var(--fl-3); border: 1px solid var(--rand);
+  font-size: 11px; font-weight: 600; color: var(--akzent);
+}
+.belege b:hover { border-color: var(--akzent); }
+
+/* Der Schalter, um den es geht: heutiges Verhalten gegen Vorschlag */
+.umschalter { display: flex; flex-direction: column; gap: 7px; flex: none; }
+.umschalter .kopfzeile { font-size: 12px; color: var(--text-3); }
+.segmente { display: inline-flex; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 999px; padding: 3px; }
+.segmente button {
+  border: none; background: transparent; color: var(--text-3);
+  padding: 7px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 500;
+  transition: background 140ms ease, color 140ms ease;
+}
+.segmente button[aria-pressed='true'] { background: var(--akzent); color: #1a1206; }
+.segmente button:hover { color: var(--text); }
+.segmente button[aria-pressed='true']:hover { background: var(--akzent); color: #1a1206; }
+
+/* — Bühne — volle Breite, wie der echte Editor (voller Viewport, kein Blatt) */
+.buehne { padding: 0; }
+.leiste {
+  background: var(--bg-tief); border: none; border-radius: 0;
+  overflow: hidden; display: flex; align-items: stretch;
+}
+.haupt { flex: 1; min-width: 0; }
+
+/* — Inspector —
+   Einstellungen gehören an EINEN Ort, nicht an das Objekt. Ein Loop-Knopf auf
+   dem Klip war eine Ausnahme, die nicht durchzuhalten ist: Lautstärke, Blende
+   oder ein Dateiwechsel passen dort nicht mehr hin. */
+.inspector {
+  width: 268px; flex: none; border-left: 1px solid var(--rand);
+  background: var(--fl-1); padding: 14px; overflow-y: auto;
+}
+.insp-leer { color: var(--text-3); font-size: 12.5px; line-height: 1.5; }
+.insp-kopf { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.insp-bild { width: 46px; height: 34px; border-radius: 6px; flex: none; background-size: cover; background-position: center; border: 1px solid var(--rand-hell); }
+.insp-kopf h3 { font-size: 14px; line-height: 1.25; }
+.insp-kopf small { display: block; font-size: 11px; color: var(--text-3); font-weight: 400; }
+.insp-feld { margin-bottom: 11px; }
+.insp-feld > label { display: block; font-size: 11.5px; color: var(--text-3); margin-bottom: 4px; }
+.insp-feld input[type='range'] { width: 100%; accent-color: var(--akzent); }
+.insp-wert { font-size: 13px; font-variant-numeric: tabular-nums; }
+.insp-schalter { display: flex; align-items: flex-start; gap: 9px; padding: 9px; border-radius: 9px; background: var(--fl-2); border: 1px solid var(--rand); }
+.insp-schalter input { margin: 2px 0 0; accent-color: var(--akzent); flex: none; }
+.insp-schalter b { display: block; font-size: 12.5px; font-weight: 500; }
+.insp-schalter span { font-size: 11.5px; color: var(--text-3); line-height: 1.4; }
+.insp-fest { font-size: 12px; color: var(--text-3); background: var(--fl-2); border: 1px solid var(--rand); border-radius: 8px; padding: 8px 10px; line-height: 1.45; }
+.segmente.klein { display: flex; width: 100%; }
+.segmente.klein button { flex: 1; padding: 6px 8px; font-size: 12.5px; }
+
+/* Kopfleiste der Zeitleiste: Transport links, Uhr rechts */
+.zl-kopf {
+  display: flex; align-items: center; gap: 14px; padding: 11px 14px;
+  border-bottom: 1px solid var(--rand); background: var(--fl-1);
+}
+.transport { display: flex; align-items: center; gap: 7px; }
+.transport button {
+  width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+  background: var(--fl-2); border: 1px solid var(--rand); border-radius: 9px; color: var(--text-2);
+}
+.transport button:hover { background: var(--fl-3); color: var(--text); border-color: var(--rand-hell); }
+.transport button.spielt { background: var(--akzent); border-color: var(--akzent); color: #1a1206; }
+.transport button.spielt:hover { background: var(--akzent); color: #1a1206; }
+.transport svg { width: 15px; height: 15px; }
+
+/* Maßstab. Drei kleine Knöpfe, keine Beschriftung: „⤢" heißt einpassen und ist
+   gedrückt, solange die Leiste am Fenster hängt — sobald man zoomt oder eine
+   Fortbewegungs-Grenze zieht, geht er auf und der Maßstab steht fest. */
+.zoom { display: flex; align-items: center; gap: 2px; flex: none; }
+.zoom button {
+  width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; border-radius: 7px;
+  color: var(--text-3); font-size: 14px; line-height: 1;
+}
+.zoom button:hover { background: var(--fl-3); color: var(--text); border-color: var(--rand); }
+.zoom button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); border-color: var(--rand-hell); }
+.zoom button[aria-pressed='true']:hover { background: var(--fl-3); color: var(--text); }
+
+/* Die Statuszeile ist der eigentliche Beweis: sie kann sagen, wo der Kopf
+   steht — auch INNERHALB eines Halts. Im Modus „Heute" kann sie das nicht. */
+.status {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
+  font-size: 13px; color: var(--text-2);
+}
+.status .marke {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  background: var(--fl-3); color: var(--text-2); border: 1px solid var(--rand);
+}
+.status .marke i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.status .marke.im-halt { background: rgba(197, 139, 255, 0.14); border-color: rgba(197, 139, 255, 0.4); color: var(--lila); }
+.status .marke.in-pause { background: rgba(91, 157, 255, 0.13); border-color: rgba(91, 157, 255, 0.36); color: var(--blau); }
+.status .detail { color: var(--text-3); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status .warnung { color: var(--rot); font-size: 12.5px; font-weight: 500; opacity: 0; transition: opacity 200ms ease; white-space: nowrap; }
+.status .warnung.an { opacity: 1; }
+
+.uhr { display: flex; align-items: baseline; gap: 10px; flex: none; }
+.uhr .film { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.uhr .neben { font-size: 12.5px; color: var(--text-3); }
+
+/* — Karte —
+   Schematisch, kein MapLibre: es geht um die Arbeitsteilung, nicht um Kacheln.
+   Die Route ist derselbe Track, aus dem die Zeitachse gerechnet wird. */
+.karte-zone {
+  position: relative; height: 236px; border-bottom: 1px solid var(--rand);
+  background: radial-gradient(120% 90% at 30% 20%, #121a24, #080b11 70%);
+}
+#karte { width: 100%; height: 100%; display: block; touch-action: none; }
+.k-route { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.k-route.unten { stroke: rgba(0,0,0,0.55); stroke-width: 5; }
+.k-punkt { cursor: grab; }
+.k-punkt.zieht { cursor: grabbing; }
+.k-punkt circle.kern { stroke: rgba(255,255,255,0.55); stroke-width: 1.4; }
+.k-punkt.an circle.kern, .k-punkt.ziel circle.kern { stroke: var(--akzent); stroke-width: 2.2; }
+.k-punkt.ziel circle.halo { fill: rgba(245,165,36,0.22); }
+.k-punkt circle.halo { fill: rgba(197,139,255,0.14); }
+.k-punkt.an circle.halo { fill: rgba(245,165,36,0.2); }
+.k-punkt text { fill: #fff; font-size: 7px; font-weight: 600; text-anchor: middle; pointer-events: none; }
+.k-punkt .plakette { fill: var(--lila); stroke: var(--bg-tief); stroke-width: 1; }
+.k-laeufer circle { fill: var(--akzent); stroke: var(--bg-tief); stroke-width: 1.5; }
+.karte-notiz {
+  position: absolute; right: 12px; bottom: 12px; max-width: 268px;
+  background: rgba(9,12,17,0.86); border: 1px solid var(--rand); border-radius: 10px;
+  padding: 8px 11px; font-size: 11.5px; color: var(--text-3); line-height: 1.45;
+}
+.karte-notiz b { display: block; color: var(--text-2); font-size: 12px; margin-bottom: 2px; }
+
+/* — Das Feld mit Maßband und Bahnen — */
+.zl-feld { position: relative; overflow-x: auto; overflow-y: hidden; padding-top: 6px; }
+.zl-feld::-webkit-scrollbar { height: 10px; }
+.zl-feld::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 8px; border: 2px solid var(--bg-tief); }
+.spuren { position: relative; width: calc(var(--spur-x) + var(--zeit-breite) + 26px); padding: 0 0 10px; }
+
+.skala { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); height: 24px; border-bottom: 1px solid var(--rand); }
+.skala-name { position: sticky; left: 0; z-index: 11; background: var(--bg-tief); display: flex; align-items: center; padding-left: 16px; font-size: 11px; color: var(--text-3); }
+.skala-feld { position: relative; cursor: var(--scrub); }
+.skala-marke { position: absolute; top: 2px; font-size: 10.5px; color: var(--text-3); transform: translateX(-50%); pointer-events: none; }
+.skala-marke i { position: absolute; left: 50%; top: 15px; width: 1px; height: 6px; background: var(--rand-hell); }
+.skala-marke.voll { color: var(--text-2); }
+.skala-marke.voll i { background: var(--text-3); height: 8px; }
+
+/* Die Gruppierung „Im Film / Auf der Strecke" ist WIEDER RAUS. Sie hat einen
+   Unterschied beschriftet, den das Format gar nicht kennt: Musik landet beim
+   Rendern genauso auf dem Streckenanteil f wie Wetter, im Halt steht f still —
+   also kann dort beides nicht beginnen. Statt den Sonderfall zu erklären,
+   rastet die Kante jetzt an der Haltgrenze ein (siehe `rasteAnHalt`). */
+
+.spur { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); align-items: stretch; height: 30px; }
+/* Die Foto-Bahn trägt über den Klips die Halt-Klammer — ohne den Zuschlag
+   drängte deren Beschriftung ins Maßband. */
+.spur.hoch { height: 80px; }
+/* Die Musikbahn trägt Wellenformen — in 30 px wären sie ein Strich. Sie wächst
+   mit der Zahl der Zeilen, damit überlappende Klips nebeneinander Platz haben
+   statt einander zu verdecken (der Player mischt sie ja). */
+.spur.ton { height: calc(10px + var(--lanes, 1) * 26px); }
+.spur-name {
+  font-size: 12px; color: var(--text-3); padding: 0 12px 0 16px;
+  display: flex; align-items: center; gap: 7px; white-space: nowrap;
+  position: sticky; left: 0; z-index: 11; background: var(--bg-tief);
+}
+/* Die drei Zustandsbahnen: kompakt, aber BESCHRIFTET.
+   Der Wert gehört auf das Band — dort steht er, wo er gilt. In der
+   Namensspalte war er eine zweite Stelle, an der man nachsehen muss.
+
+   Und: ein Band ist KEIN Klip. Klips sind Objekte mit Rand, Rundung und
+   Lücken dazwischen; ein Zustand ist lückenlos, es gibt kein „dazwischen".
+   Deshalb hier keine Rundung, kein eigener Rahmen, keine Rille in der Bahn —
+   ein durchgehender Streifen, der an den Grenzen die Farbe wechselt. */
+.spur.schmal { height: 19px; }
+.spur.schmal .spur-feld { background: none; box-shadow: none; }
+/* Links mehr Luft als rechts: an der linken Kante sitzt der Griff, und der
+   Text darf ihm nicht ins Gehege kommen. */
+.spur.schmal .band {
+  top: 0; bottom: 0; border-radius: 0; padding: 0 7px 0 11px; font-size: 10.5px;
+  border-width: 0; border-left: 1px solid rgba(6,9,14,0.6);
+  color: rgba(255,255,255,0.92);
+}
+.spur.schmal .band:first-child { border-left: none; }
+.spur.schmal .band span { text-shadow: 0 1px 2px rgba(0,0,0,0.55); }
+.spur.schmal .kante { top: 0; bottom: 0; }
+.spur.schmal .spur-name { font-size: 11px; }
+.spur.schmal .spur-plus { width: 15px; height: 15px; font-size: 12px; }
+
+/* — Zustände als Marken (Alternative zu den Bändern) —
+   Nur die WECHSEL stehen auf der Bahn; was gerade gilt, sagt der Chip in der
+   Namensspalte. Die Fahne öffnet nach rechts: Ein Zustand gilt AB hier. */
+.z-marke { position: absolute; top: 0; bottom: 0; z-index: 4; display: flex; align-items: center; cursor: ew-resize; }
+.z-marke::before { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.45); }
+.z-marke .fahne {
+  margin-left: 3px; padding: 1px 7px 1px 6px; border-radius: 0 4px 4px 0;
+  font-size: 10.5px; color: #fff; white-space: nowrap; pointer-events: none;
+  border: 1px solid rgba(255,255,255,0.14); border-left: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.z-marke:hover::before { background: var(--akzent); }
+.spur-feld { position: relative; height: 100%; }
+.spur:not(.hoch) .spur-feld {
+  background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.05));
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.25), inset 0 -1px 0 rgba(255,255,255,0.02);
+}
+
+/* — Zustandsbänder (Strecken-Gruppe) — */
+.band {
+  position: absolute; top: 3px; bottom: 3px; border-radius: 5px;
+  display: flex; align-items: center; padding: 0 8px; overflow: hidden;
+  font-size: 11.5px; color: rgba(255,255,255,0.9); white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.09);
+}
+/* Die Beschriftung steht ÜBER der Halt-Schraffur: sonst verschluckt ein Halt,
+   der zufällig über einer Bandkante liegt, den Namen des Zustands. */
+.band span { overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 5; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+/* Die Bandgrenze ist ein GRIFF und muss als solcher zu sehen sein — als
+   Haarstrich fand man sie erst beim Darüberfahren. Es ist aber genau EIN
+   Riegel auf der Fuge, keine zwei Backen: Backen oben und unten lasen sich
+   auf einer 19-px-Bahn als Bildfehler und standen dem Bandtext im Weg.
+   Der dunkle Ring hebt den Riegel von der Bandfarbe ab, ohne ihn zu
+   überstrahlen — er muss auf Grün wie auf Grau lesbar sein. */
+/* `left: 0` ist nicht kosmetisch, sondern der Grund, warum der Griff jahrelang
+   auf dem ersten Buchstaben saß: Ohne `left` nimmt ein absolut positioniertes
+   Kind seine STATISCHE Stelle ein — und die liegt hinter der Polsterung, also
+   genau dort, wo der Text anfängt. Mehr Polsterung half nicht, sie schob
+   beides gemeinsam weiter. */
+.kante { position: absolute; left: 0; top: -3px; bottom: -3px; width: 13px; margin-left: -6.5px; cursor: ew-resize; z-index: 6; display: grid; place-items: center; }
+.kante::after {
+  content: ''; width: 3px; height: calc(100% - 6px); min-height: 9px; border-radius: 2px;
+  background: rgba(255,255,255,0.62); box-shadow: 0 0 0 1px rgba(6,9,14,0.5);
+  transition: background-color 120ms ease, width 120ms ease;
+}
+.kante:hover::after, .kante.zieht::after { background: var(--akzent); width: 5px; }
+
+/* Halt-Zonen über ALLE Bahnen.
+   Sie waren schon einmal da — als Schraffur, die sagen sollte „hier ist für
+   diese Bahnsorte nichts möglich". Diese Aussage war falsch und flog mit der
+   Gruppierung raus; die ORIENTIERUNG, die dabei mit verschwand, ist es nicht:
+   In einem Schnittprogramm muss man sehen, was zeitlich übereinanderliegt.
+   Deshalb jetzt nur die Kanten, keine Fläche über den Bändern. */
+.halt-zone {
+  position: absolute; top: 25px; bottom: 12px; z-index: 6; pointer-events: none;
+  /* Durchgezogen statt gestrichelt: als EINZELNE Zone darf sie ruhig klar
+     sein — gestrichelt war der Versuch, zwölf davon erträglich zu machen. */
+  border-left: 1px solid rgba(197, 139, 255, 0.45);
+  border-right: 1px solid rgba(197, 139, 255, 0.45);
+  background: rgba(197, 139, 255, 0.05);
+}
+
+/* Wohin fällt der gezogene Klip in seiner Kette? */
+.zl-einfuege {
+  position: absolute; top: 25px; height: 82px; width: 2px; margin-left: -1px;
+  background: var(--akzent); z-index: 22; pointer-events: none; border-radius: 2px;
+}
+
+/* Beim Ziehen einer Kante zeigt der Halt, an den sie rastet, kurz seine
+   Flanken — die Erklärung passiert in der Bewegung, nicht in einer Legende. */
+.halt-klip.rastet { border-color: var(--akzent); box-shadow: 0 0 0 1px rgba(245,165,36,0.5); }
+/* Zeigt, wo die Grenze beim Loslassen liegen wird. Der STRICH erscheint nur,
+   wenn das woanders ist als die Kante — also beim Einrasten an einem Halt;
+   sonst läge er deckungsgleich auf ihr und wäre ein Doppelbild. Das Etikett
+   steht immer, es trägt Uhrzeit und (bei der Fortbewegung) die neue Filmlänge.
+   Nicht amber: das ist der Abspielkopf. */
+.ziel-linie {
+  position: absolute; top: 25px; bottom: 12px; width: 2px; margin-left: -1px;
+  z-index: 16; pointer-events: none; background: rgba(255,255,255,0.85);
+}
+.ziel-linie.nur-etikett { background: none; }
+.ziel-linie.rastet { background: var(--lila); box-shadow: 0 0 0 3px rgba(197,139,255,0.2); }
+.ziel-linie b {
+  position: absolute; top: -19px; left: 50%; transform: translateX(-50%);
+  font-size: 10.5px; font-weight: 500; white-space: nowrap; padding: 1px 6px;
+  border-radius: 5px; background: rgba(9,12,17,0.95); border: 1px solid var(--rand-hell);
+  color: var(--text-2);
+}
+.ziel-linie.rastet b { border-color: var(--lila); color: #e2d0ff; }
+
+/* Beim Klip-Zug: was bedeutet diese Bewegung gerade? Die Farbe unterscheidet
+   die harmlose Anordnung von dem Eingriff, der ein Foto über die Strecke
+   verschiebt. */
+.zug-etikett {
+  position: fixed; z-index: 90; transform: translate(-50%, -230%); pointer-events: none;
+  padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+  white-space: nowrap; box-shadow: var(--schatten);
+}
+.zug-etikett[data-art='reihe'] { background: var(--fl-3); color: var(--text-2); border: 1px solid var(--rand-hell); }
+.zug-etikett[data-art='ort'] { background: var(--akzent); color: #1a1206; }
+
+/* — Foto-Halte (Film-Gruppe) — Vorschlag B: der Halt hat einen Körper — */
+/* `overflow: visible` — sonst schnitte der Klip seinen eigenen Kantengriff ab,
+   der bewusst über den Rand in den Nachbarn ragt. Das Bild wird stattdessen
+   von `.bild` beschnitten. */
+.halt-klip {
+  position: absolute; top: 18px; bottom: 5px; border-radius: 7px; overflow: visible;
+  border: 1px solid var(--rand-hell); background: var(--fl-2);
+  display: flex; align-items: stretch; cursor: pointer; padding: 0;
+  transition: border-color 140ms ease; container-type: inline-size;
+}
+.halt-klip:hover { border-color: rgba(197,139,255,0.7); }
+.halt-klip.fokus { border-color: var(--lila); box-shadow: 0 0 0 1px rgba(197,139,255,0.45); }
+/* Das Bild steht EINMAL am Anfang und — wenn Platz ist — einmal am Ende.
+   Es lag vorher als Filmstreifen über die ganze Breite und WIEDERHOLTE sich
+   (`repeat-x`): beim Aufziehen der Standzeit schob sich dasselbe Foto immer
+   wieder ins Bild, als wären es mehrere. Ein Foto hat aber nur ein Einzelbild;
+   es zu kacheln behauptet einen Verlauf, den es nicht gibt. Kopf- und
+   Fußminiatur ist die Konvention aus Premiere: die Kanten tragen Bild, die
+   Mitte trägt den Namen — und die wächst, statt sich zu wiederholen.
+   `cover` über die ganze Breite war der andere verworfene Weg: bei 34 px
+   quetschte es ein Foto zu einem unlesbaren Streifen. */
+.halt-klip .inhalt {
+  position: absolute; inset: 0; display: flex; align-items: stretch;
+  overflow: hidden; border-radius: 6px; background: var(--fl-2);
+}
+.halt-klip .bild {
+  flex: none; aspect-ratio: 3 / 2; background-size: cover; background-position: center;
+}
+.halt-klip .info {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+  padding: 0 8px; text-align: left; overflow: hidden; gap: 1px;
+}
+.halt-klip .info b { font-size: 11px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.halt-klip .info small { font-size: 10px; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Drei Ausbaustufen nach der Breite des Klips, alle als CONTAINER-Abfrage und
+   nicht als JS-Klasse: `kuerzeBeschriftungen` läuft während eines Zugs bewusst
+   nicht (sie erzwingt ein Layout), die Stufen kämen sonst erst beim Loslassen
+   — mitten in der Bewegung ein Sprung.
+   Schmal: nur das Bild, formatfüllend beschnitten. Ab 150 px ist neben der
+   Miniatur Platz für den Namen. Ab 232 px passt hinter den Namen eine zweite
+   Miniatur (2 × 85 px Bild + 46 px Text).
+   Dieser Block steht mit Absicht NACH `.halt-klip .info` — bei gleicher
+   Spezifität gewinnt die spätere Regel, und davor gestellt hob die
+   Basisregel das `display: none` sofort wieder auf. */
+.halt-klip .bild.ende { display: none; }
+.halt-klip .info { display: none; }
+.halt-klip .bild.anfang { flex: 1; aspect-ratio: auto; min-width: 0; }
+@container (min-width: 150px) {
+  .halt-klip .info { display: flex; }
+  .halt-klip .bild.anfang { flex: none; aspect-ratio: 3 / 2; }
+}
+@container (min-width: 232px) { .halt-klip .bild.ende { display: block; } }
+
+/* Ein Moment ist ein Halt ohne Bild: die Kamera hält an und agiert. Statt
+   einer Miniatur trägt er ein Muster in Koralle — auf einen Blick als „hier
+   passiert etwas, aber es liegt kein Medium dahinter" lesbar. */
+.halt-klip.moment-klip { border-color: rgba(255,111,82,0.55); }
+/* Beiläufig: läuft NEBENHER, hält den Film nicht an. Es bleibt in derselben
+   Spur — den Unterschied sagt die Breite (keine Standzeit) und die flachere
+   Lage. Ein Spurwechsel beim Umstellen wäre eine Regel zum Lernen. */
+.halt-klip.beilaeufig {
+  top: 40px; bottom: 5px; border-style: dashed; border-color: rgba(255,255,255,0.3);
+  opacity: 0.92;
+}
+.halt-klip.beilaeufig .info { display: none; }
+/* Ein Moment hat kein Bild — das Muster füllt statt seiner die ganze Fläche. */
+.halt-klip.moment-klip .inhalt {
+  background: repeating-linear-gradient(-52deg,
+    rgba(255,111,82,0.28) 0 8px, rgba(255,111,82,0.13) 8px 17px), rgba(24,16,14,0.9);
+}
+
+/* Ein Video trägt seine Länge, kein Griff — sie steht nicht zur Wahl. Der
+   Streifen am oberen Rand unterscheidet es auf einen Blick vom Foto. */
+.halt-klip.video { border-color: rgba(91,157,255,0.5); }
+.halt-klip.video::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 3;
+  background: repeating-linear-gradient(90deg, rgba(91,157,255,0.85) 0 5px, transparent 5px 10px);
+}
+.halt-klip .v-play {
+  position: absolute; left: 15px; top: 50%; width: 17px; height: 17px; margin-top: -8.5px; z-index: 2;
+  border-radius: 50%; background: rgba(6,9,14,0.72); border: 1px solid rgba(255,255,255,0.35);
+  display: grid; place-items: center;
+}
+.halt-klip .v-play::after {
+  content: ''; width: 0; height: 0; margin-left: 2px;
+  border-left: 6px solid #fff; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+}
+/* Mehrere Aufnahmen am selben Ort sind EIN Halt. Die Klammer sagt das, ohne
+   die Klips wieder in einen Stapel zu sperren — sie ist Beschriftung, kein
+   Behälter (deshalb pointer-events: none). */
+.halt-klammer {
+  position: absolute; top: 8px; height: 9px; pointer-events: none; z-index: 2;
+  border: 1px solid rgba(197,139,255,0.4); border-bottom: none;
+  border-radius: 4px 4px 0 0; display: flex; justify-content: center;
+}
+.halt-klammer b {
+  position: relative; top: -7px; font-size: 9.5px; font-weight: 500; white-space: nowrap;
+  color: rgba(197,139,255,0.9); background: var(--bg-tief); padding: 0 5px;
+}
+/* Die Standzeit-Kante. Sie sitzt rechts — und weil das ENDE eines Bildes der
+   ANFANG des nächsten ist, ragt sie in den Nachbarn hinein: eine Kette wird so
+   von beiden Seiten greifbar, ohne dass zwei Bedienelemente dasselbe tun.
+   Nur die linke Kante des ERSTEN Bildes bleibt ohne Griff — dort ist die
+   Ankunft der Kamera, und die gehört dem Ort. */
+.halt-klip .griff { position: absolute; top: 0; bottom: 0; right: -5px; width: 13px; cursor: ew-resize; z-index: 7; display: grid; place-items: center; }
+.halt-klip .griff::before {
+  content: ''; width: 2px; height: 60%; border-radius: 2px;
+  background: rgba(255,255,255,0.22); transition: background 120ms ease;
+}
+.halt-klip .griff:hover::before, .halt-klip.zieht .griff::before { background: var(--akzent); }
+/* Beim Ziehen die Sekundenzahl direkt am Griff — sonst muss man raten. */
+.halt-klip .dauer-blase {
+  position: absolute; right: 0; top: -21px; transform: translateX(50%);
+  background: var(--akzent); color: #1a1206; font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity 120ms ease;
+  white-space: nowrap;
+}
+.halt-klip.zieht .dauer-blase { opacity: 1; }
+
+/* Der Halt, wie er HEUTE aussieht: ein Punkt an der linken Kante. Die Breite
+   ist trotzdem reserviert — genau das ist die tote Zone. */
+.halt-punkt {
+  position: absolute; top: 18px; width: 44px; height: 44px; margin-left: -22px;
+  border-radius: 7px; overflow: hidden; border: 1px solid var(--rand-hell);
+  background-size: cover; padding: 0; cursor: pointer;
+}
+.halt-punkt:hover { border-color: var(--akzent); }
+.tote-zone {
+  position: absolute; top: 19px; bottom: 6px; border-radius: 6px; pointer-events: none;
+  border: 1px dashed rgba(229,72,77,0.42); background: rgba(229,72,77,0.05);
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;
+}
+/* Rechtsbündig: die Miniatur sitzt mittig auf der LINKEN Kante und verdeckte
+   eine zentrierte Beschriftung. */
+.tote-zone span { font-size: 10px; color: rgba(229,72,77,0.78); letter-spacing: 0.02em; white-space: nowrap; }
+
+/* — Musik/Klänge (Film-Gruppe) — */
+/* Der Rahmen ist ein INNERER Schatten, kein `border`. Ein echter Rand liegt
+   außerhalb der Polsterbox, und `overflow: hidden` schneidet dort alles ab —
+   das äußerste Pixel gehörte damit dem Klip-Körper und nicht dem Trimm-Griff.
+   Genau dort zielt man aber, und statt zu trimmen wanderte der ganze Klip. */
+.klip {
+  position: absolute; top: 5px; bottom: 5px; border-radius: 6px; padding: 0 12px;
+  display: flex; align-items: center; font-size: 11.5px; overflow: hidden; white-space: nowrap;
+  background: linear-gradient(180deg, rgba(91,157,255,0.3), rgba(91,157,255,0.16));
+  box-shadow: inset 0 0 0 1px rgba(91,157,255,0.45); color: #cfe1ff;
+}
+/* Effekte sind dieselbe Sorte Klip wie Musik — nur eine andere Farbe. Als
+   rautenförmige Marke ohne Länge verschwieg die Leiste, wie lange sie klingen. */
+.klip.sfx {
+  background: linear-gradient(180deg, rgba(197,139,255,0.3), rgba(197,139,255,0.16));
+  box-shadow: inset 0 0 0 1px rgba(197,139,255,0.5); color: #e6d5ff;
+}
+.klip .welle {
+  position: absolute; inset: 3px 0; pointer-events: none; opacity: 0.75;
+  background-repeat: repeat-x;
+}
+.klip span { position: relative; z-index: 2; text-shadow: 0 1px 3px rgba(0,0,0,0.75); }
+.klip.fokus { box-shadow: inset 0 0 0 1px var(--akzent), 0 0 0 1px var(--akzent); }
+/* Beide Kanten trimmen — so viele Griffe, wie es freie Größen gibt.
+   Sie liegen VOLLSTÄNDIG im Klip (`left: 0` statt `-1px`): der Klip hat
+   `overflow: hidden`, also schnitt er das überstehende Pixel weg — und genau
+   dort, am äußersten Rand, zielt man. Der Griff verlor die Kante an den
+   Klip-Körper, und statt zu trimmen wanderte das ganze Stück.
+   `min(11px, 33%)` hält beide Griffe auch bei einem kurzen Klip
+   auseinander; ohne das überlappten sie, und der Körper gewann wieder. */
+.a-kante { position: absolute; top: 0; bottom: 0; width: min(11px, 33%); z-index: 5; cursor: ew-resize; display: grid; place-items: center; }
+.a-kante.von { left: 0; }
+.a-kante.bis { right: 0; }
+.a-kante::before {
+  content: ''; width: 3px; height: calc(100% - 8px); border-radius: 2px;
+  background: rgba(255,255,255,0.42); box-shadow: 0 0 0 1px rgba(6,9,14,0.45);
+  transition: background-color 120ms ease, width 120ms ease;
+}
+.a-kante:hover::before, .a-kante.zieht::before { background: var(--akzent); width: 5px; }
+/* Am Video-Klip dürfen sie über den Rand ragen — er hat `overflow: visible`,
+   und so gehört auch das äußerste Pixel dem Griff statt dem Rahmen. */
+.halt-klip .a-kante.von { left: -1px; }
+.halt-klip .a-kante.bis { right: -1px; }
+/* Nur noch ANZEIGE, kein Knopf: geschaltet wird im Inspector. */
+.klip .loop-zeichen {
+  position: absolute; right: 14px; top: 2px; z-index: 6; font-size: 12px;
+  color: rgba(255,255,255,0.55); pointer-events: none;
+}
+/* Ereignis an dieser Bahn anlegen — an der Marke, wie im echten Editor. */
+.spur-plus {
+  width: 18px; height: 18px; flex: none; margin-left: auto; padding: 0; line-height: 1;
+  display: grid; place-items: center; border-radius: 50%; font-size: 13px;
+  border: 1px dashed var(--rand-hell); background: transparent; color: var(--text-3); opacity: 0.5;
+}
+.spur:hover .spur-plus { opacity: 1; }
+.spur-plus:hover { border-style: solid; border-color: var(--akzent); color: var(--akzent); background: transparent; }
+.moment { position: absolute; top: 4px; bottom: 4px; border-radius: 5px; background: rgba(255,111,82,0.2); border: 1px solid rgba(255,111,82,0.5); display: flex; align-items: center; padding: 0 7px; font-size: 11px; color: #ffd0c3; white-space: nowrap; overflow: hidden; }
+/* Passt der Name nicht, bleibt das Objekt — aber ohne angeschnittenes Wort. */
+.moment.ohne-text, .klip.ohne-text { font-size: 0; padding: 0; }
+
+/* Die geraffte Pause — die Kehrseite des Halts: viel Aufnahmezeit, fast keine
+   Filmbreite. Sie bekommt hier eine Mindestbreite, damit sie überhaupt
+   sichtbar ist, und sagt dazu, was sie ist. */
+.pause-marke {
+  position: absolute; top: 0; bottom: 0; z-index: 6; pointer-events: none;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+.pause-marke i { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: repeating-linear-gradient(180deg, rgba(91,157,255,0.7) 0 3px, transparent 3px 6px); }
+.pause-marke b {
+  position: relative; top: -1px; font-size: 10px; font-weight: 500; white-space: nowrap;
+  background: rgba(9,12,17,0.92); border: 1px solid rgba(91,157,255,0.4); color: #9dc3ff;
+  padding: 1px 6px; border-radius: 5px;
+}
+
+/* — Abspielkopf — */
+.kopfstrich {
+  position: absolute; top: 0; bottom: 6px; width: 1px; margin-left: -0.5px;
+  background: var(--akzent); z-index: 20; pointer-events: none;
+  box-shadow: 0 0 8px rgba(245,165,36,0.5);
+}
+.kopfstrich .griff {
+  position: absolute; top: -1px; left: 50%; width: 13px; height: 15px; margin-left: -6.5px;
+  background: var(--akzent); border-radius: 3px 3px 6px 6px; pointer-events: auto; cursor: ew-resize;
+}
+.kopfstrich .griff::after { content: ''; position: absolute; inset: 4px 5px; border-left: 1px solid rgba(26,18,6,0.5); border-right: 1px solid rgba(26,18,6,0.5); }
+/* Der Kopf bleibt IMMER orange. Er wechselte im Halt auf Lila („er ist dann in
+   einem Objekt, nicht auf der Strecke") — eine Auskunft, die man beim Fahren
+   gar nicht sucht, während das Einzige, was man sucht, wandert: die Stelle.
+   Farbe bezeichnet hier Identität, nicht Zustand; ein Ortsanzeiger, der auf
+   halber Strecke die Farbe wechselt, wirkt wie ein zweiter Kopf. Dass der Film
+   gerade in einem Halt steht, sagt die Statuszeile in Worten („Halt ·
+   Dschungelbach · 2,1 s von 8,0 s") — und ihre Marke darf lila bleiben, denn
+   ein Etikett ist genau der Ort für einen Zustand. */
+/* Sichtbares Zucken, wenn der Kopf gesnappt ist (nur im Modus „Heute") */
+.kopfstrich.gesprungen { animation: zuck 260ms ease-out; }
+@keyframes zuck { 0% { transform: scaleX(6); opacity: 0.5; } 100% { transform: scaleX(1); opacity: 1; } }
+
+/* — Fußbereich: was es zu testen gibt — */
+.notizen { max-width: 1260px; margin: 22px auto 0; padding: 0 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 14px; }
+.karte { background: var(--fl-1); border: 1px solid var(--rand); border-radius: 12px; padding: 15px 17px; }
+.karte h3 { font-size: 13.5px; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
+.karte h3 em { font-style: normal; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--fl-3); color: var(--akzent); flex: none; }
+.karte p, .karte li { font-size: 13px; color: var(--text-2); margin: 0 0 6px; }
+.karte ul { margin: 0; padding-left: 17px; }
+.karte li { margin-bottom: 5px; }
+.karte kbd {
+  font-family: inherit; font-size: 11.5px; background: var(--fl-3); border: 1px solid var(--rand-hell);
+  border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; color: var(--text);
+}
+.karte .offen { color: var(--akzent); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="seitenkopf">
+  <h1>Zeitleiste — Entwurf</h1>
+  <span class="lead-hinweis">Mockup · Achse rechnet wie src/studio/zeitleiste.ts</span>
+  <div class="belege" aria-label="Belege und Begründungen">
+    <b title="Abspielkopf in Filmzeit — Heute klebt er an der linken Haltkante und springt dann um die volle Standzeit; mit den Pfeiltasten kommt er an einem 6,0-s-Halt gar nicht vorbei (5 &lt; 6). Im Vorschlag läuft er durch, die Kopfzeile sagt, wo im Halt er steht.">A</b>
+    <b title="Der Halt als Objekt — Jede Aufnahme füllt ihre Breite. Kante ziehen = Standzeit (2–20 s), die Leiste rechnet live mit. Das Feld gibt es schon (display.holdS im Overlay), es war nur ein Auswahlfeld im Inspector. Die Kante ragt in den Nachbarn: In einer Kette IST das Ende eines Bildes der Anfang des nächsten.">B</b>
+    <b title="Einrasten statt erklären — Kante in Kamera oder Wetter über einen Halt schieben: sie rastet davor oder dahinter ein. Falle: „dahinter“ braucht einen Zeitstempel STRIKT nach der Haltzeit, sonst schnappt sie beim nächsten Zeichnen davor zurück.">C</b>
+    <b title="Kein Stapel — Jede Aufnahme ist ein eigener Klip; Aufnahmen am selben Ort liegen als Kette hintereinander. Ziehen innerhalb der Kette = Reihenfolge, darüber hinaus = Ort auf der Route.">D</b>
+    <b title="Videos tragen ihre echte Länge — Der Player hält bei einem Video bis zum Ende (holdS ist dort wirkungslos), die Zeitleiste rechnete es aber mit 5,2 s. Ein 34-s-Video ist jetzt 200 px breit statt 34. durationS steht bereits im Tour-JSON und fehlt nur in der Editor-Route.">E</b>
+    <b title="Warum es vorher ruckelte — Karte: der Anker rastete auf Trackpunkte (Tram: 75 m Abstand), 28 von 39 Frames Stillstand. Jetzt Projektion auf die Linie. Leiste: px→Zeit läuft über eine Achse ohne Halt-Sprünge. Beides: Klips und Kartenpunkte werden fortgeschrieben statt neu gebaut — 0,4 ms je Frame statt 2,34.">F</b>
+    <b title="Ton ist Material wie Bild — Musik und Effekte sind dieselbe Sorte Klip. Kante ziehen = trimmen (FCPX): links wandert der Versatz mit, der Inhalt bleibt stehen. Grenzen liegen in FILMSEKUNDEN — in Aufnahmezeit ließe sich „mitten in einer Standzeit“ gar nicht ausdrücken, deshalb sprang der Klip vorher an die Haltkante.">G</b>
+    <b title="Momente sind Halte — In der Engine bremst die Fahrt ~160 m vorher ab, hält an, die Kamera agiert. Die Achse rechnete nur Foto-Standzeiten ein: 13,6 Sekunden Film waren an dieser Tour unsichtbar. Dritter Fall desselben Fehlers nach Videolänge und Effektlänge.">H</b>
+    <b title="Beiläufige Bilder bleiben in ihrer Spur — „Nebenher“ hält den Film nicht an; den Unterschied sagt die Breite, nicht die Bahn. Umstellen auf „Halt“ verlängert den Film sichtbar um die Standzeit.">I</b>
+  </div>
+  <div class="umschalter">
+    <div class="segmente" role="group" aria-label="Verhalten umschalten">
+      <button type="button" id="m-heute" aria-pressed="true">Heute</button>
+      <button type="button" id="m-neu" aria-pressed="false">Vorschlag</button>
+    </div>
+  </div>
+</div>
+
+<div class="buehne">
+  <div class="leiste">
+   <div class="haupt">
+    <div class="zl-kopf">
+      <div class="transport">
+        <button type="button" id="knopf-play" aria-label="Abspielen">
+          <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+      <div class="status">
+        <span class="marke" id="status-marke"><i></i><span id="status-text">Fahrt</span></span>
+        <span class="detail" id="status-detail"></span>
+        <span class="warnung" id="status-warnung">Kopf gesprungen — 6,0 s übersprungen</span>
+      </div>
+      <!-- Maßstab. Ohne ihn hängt die Breite der Leiste am GANZEN Film, und
+           jede Längenänderung verschiebt auch das, was davor liegt. -->
+      <div class="zoom">
+        <button type="button" id="zoom-raus" title="Auszoomen (⌘−)">−</button>
+        <button type="button" id="zoom-fit" title="Ganzen Film einpassen (⇧Z)" aria-pressed="true">⤢</button>
+        <button type="button" id="zoom-rein" title="Einzoomen (⌘+)">+</button>
+      </div>
+      <div class="uhr">
+        <span class="film num" id="uhr-film">0:00</span>
+        <span class="neben num" id="uhr-neben">/ ~2:01</span>
+      </div>
+    </div>
+
+    <!-- Die Karte: dieselben Halte, andere Frage. Hier zählt der ORT. -->
+    <div class="karte-zone">
+      <svg id="karte" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-label="Route mit Halten"></svg>
+      <div class="karte-notiz">
+        <b>Karte = Orte</b>
+        Ein Punkt je Halt, egal wie viele Aufnahmen. Punkt ziehen verschiebt den
+        ganzen Halt; nah an einem fremden Halt legen sie sich zusammen.
+      </div>
+    </div>
+
+    <div class="zl-feld" id="zl-feld">
+      <div class="spuren" id="spuren">
+        <div class="skala">
+          <div class="skala-name">Filmzeit</div>
+          <div class="skala-feld" id="skala-feld"></div>
+        </div>
+        <!-- Bahnen werden von JS erzeugt -->
+        <div id="bahnen"></div>
+        <div class="kopfstrich" id="kopfstrich"><div class="griff" id="kopf-griff"></div></div>
+      </div>
+    </div>
+   </div>
+   <!-- Was ausgewählt ist, wird HIER eingestellt — nicht am Objekt selbst. -->
+   <aside class="inspector" id="inspector"></aside>
+  </div>
+</div>
+
+<script>
+/* ————————————————————————————————————————————————————————————————
+   1) Achsen-Mathematik — portiert aus src/studio/zeitleiste.ts
+   ———————————————————————————————————————————————————————————————— */
+
+/** Spiegel von BASIS_TEMPO_MS / MODE_SPEED (src/tour.js über zeitleiste.ts). */
+const BASIS_TEMPO_MS = 120
+const TEMPO = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
+const HALT_ENGINE_S = 5.2
+const HALT_AUSBLEND_S = 0.8
+const tempoMs = (mode) => BASIS_TEMPO_MS * (TEMPO[mode] ?? 1)
+
+/**
+ * Stückweise lineare Auswertung ys(x). lower_bound: bei Duplikat-Stufen in xs
+ * landet ein exakter Treffer auf der ERSTEN Stützstelle der Stufe. Genau diese
+ * Konvention erzeugt das Kleben an der linken Haltkante — sie bleibt deshalb
+ * unverändert übernommen.
+ */
+function interpoliere(xs, ys, x) {
+  const n = xs.length
+  if (n === 0) return 0
+  if (x <= xs[0]) return ys[0]
+  if (x >= xs[n - 1]) return ys[n - 1]
+  let lo = 0, hi = n - 1
+  while (lo < hi) {
+    const mitte = (lo + hi) >> 1
+    if (xs[mitte] < x) lo = mitte + 1
+    else hi = mitte
+  }
+  const a = xs[lo - 1], b = xs[lo]
+  const spanne = b - a
+  const u = spanne > 0 ? (x - a) / spanne : 1
+  return ys[lo - 1] + u * (ys[lo] - ys[lo - 1])
+}
+
+/**
+ * Die Filmzeit-Achse: Fahrzeit je Abschnitt plus die Halte als Sprünge.
+ *
+ * Zusatz gegenüber dem Original: die Halte werden mit ihrem FILM-Intervall
+ * zurückgegeben ({filmVon, filmBis}). Ohne das kann niemand sagen, ob der Kopf
+ * gerade in einem Halt steht — und genau diese Auskunft fehlt heute.
+ */
+function baueAchse(abschnitte, halte, skala) {
+  const tS = [], filmS = []
+  let film = 0
+  for (const a of abschnitte) {
+    const tempo = tempoMs(a.mode)
+    for (let i = 0; i < a.pts.length; i++) {
+      const p = a.pts[i]
+      if (i > 0) film += meterZwischen(a.pts[i - 1], p) / tempo
+      const letzter = tS.length - 1
+      if (letzter >= 0 && tS[letzter] === p[3] && filmS[letzter] === film) continue
+      tS.push(p[3]); filmS.push(film)
+    }
+  }
+  if (tS.length < 2) return { ...skala, halte: [] }
+
+  const haltInfo = []
+  for (const h of [...halte].sort((a, b) => a.offsetS - b.offsetS)) {
+    if (!(h.breiteS > 0)) continue
+    const filmAmHalt = interpoliere(tS, filmS, h.offsetS)
+    let i = tS.length
+    while (i > 0 && tS[i - 1] > h.offsetS) i--
+    for (let j = i; j < tS.length; j++) filmS[j] = filmS[j] + h.breiteS
+    tS.splice(i, 0, h.offsetS, h.offsetS)
+    filmS.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
+    film += h.breiteS
+    haltInfo.push({ ...h, filmVon: filmAmHalt, filmBis: filmAmHalt + h.breiteS })
+  }
+  if (film < 1) return { ...skala, halte: [] }
+  return { ...skala, kurve: { tS, filmS, gesamtS: film }, halte: haltInfo }
+}
+
+function meterZwischen(a, b) {
+  const kx = 111320 * Math.cos((a[1] * Math.PI) / 180)
+  const dx = (b[0] - a[0]) * kx
+  const dy = (b[1] - a[1]) * 110540
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+const anteilZuOffset = (achse, anteil) => {
+  const a = Math.max(0, Math.min(1, anteil))
+  return achse.kurve ? interpoliere(achse.kurve.filmS, achse.kurve.tS, a * achse.kurve.gesamtS)
+                     : achse.vonS + a * (achse.bisS - achse.vonS)
+}
+const offsetZuAnteil = (achse, t) => achse.kurve
+  ? interpoliere(achse.kurve.tS, achse.kurve.filmS, t) / achse.kurve.gesamtS
+  : Math.max(0, Math.min(1, (t - achse.vonS) / (achse.bisS - achse.vonS)))
+const filmZuOffset = (achse, t) => achse.kurve ? interpoliere(achse.kurve.tS, achse.kurve.filmS, t) : 0
+
+const formatiereFilmzeit = (s) => {
+  const g = Math.max(0, Math.round(s))
+  return `${Math.floor(g / 60)}:${String(g % 60).padStart(2, '0')}`
+}
+
+/* ————————————————————————————————————————————————————————————————
+   2) Beispieldaten — eine plausible kurze Tour
+
+   Bewusst so gewählt, dass die Halte spürbar sind: ~85 s Fahrt gegen 36 s
+   Standzeit. Genau die Proportion, bei der die tote Zone im Editor auffällt.
+   ———————————————————————————————————————————————————————————————— */
+
+const START_UHR = 15 * 3600 + 20 * 60 // 15:20 Ortszeit — die Tour läuft in die Dämmerung
+const LAT = 9.73, LNG = 100.0         // Koh Pha-ngan, damit die Meter stimmen
+
+/**
+ * Segmente: Modus, Dauer in s, Tempo in m/s (0 = Pause, GPS steht), dazu
+ * Anfangskurs und Krümmung je 10 s — eine schnurgerade Route sähe auf der
+ * Karte nicht wie eine Reise aus. Die METER bleiben davon unberührt
+ * (Schrittweite ist immer v·10), also auch die Filmzeit.
+ */
+// `dreh` ist Grad je Sekunde und wird pro 10-s-Schritt zehnfach wirksam — mit
+// 0,55 drehte sich das erste Segment um 297° und die Route lief als Schleife
+// in sich zurück. Die Kurse schließen jetzt aneinander an (kein Knick an der
+// Segmentgrenze) und drehen um 20–30° je Abschnitt: ein Mäander, keine Spirale.
+const SEGMENTE = [
+  { mode: 'walk',  dauer: 540,  v: 1.25, kurs: 70, dreh: 0.05 },   // Hafen zu Fuß  → 97°
+  { mode: 'moped', dauer: 660,  v: 7.5,  kurs: 97, dreh: -0.045 }, // Küstenstraße  → 67°
+  { mode: 'walk',  dauer: 300,  v: 0,    kurs: 67, dreh: 0 },      // Pause → Plateau
+  { mode: 'walk',  dauer: 420,  v: 1.2,  kurs: 67, dreh: 0.055 },  // Dschungel     → 90°
+  { mode: 'ferry', dauer: 720,  v: 5.5,  kurs: 90, dreh: -0.03 },  // Longtail      → 68°
+  { mode: 'walk',  dauer: 480,  v: 1.15, kurs: 68, dreh: 0.05 },   // Haad Rin      → 92°
+]
+
+/**
+ * Track erzeugen: alle 10 s ein Punkt entlang des laufenden Kurses.
+ *
+ * Heraus kommt EINE Punktliste plus die Modus-GRENZEN — nicht mehr fertige
+ * Abschnitte. Das ist der Unterschied zwischen „die Fortbewegung ist, wie sie
+ * aufgezeichnet wurde" und „die Fortbewegung ist eine Stufenfunktion, die man
+ * verschieben kann": genau das macht `materialisiereModi` im echten Editor
+ * beim ersten Eingriff. Die Abschnitte fallen daraus jederzeit neu heraus
+ * (`baueAbschnitte`), und weil in der Filmzeit-Achse das Tempo je Modus
+ * steckt, dehnt sich die ganze Leiste beim Ziehen mit.
+ *
+ * Das fünfte Feld eines Punktes sagt, ob DANACH gestanden wird — die Pause
+ * hängt an den Daten, nicht am Modus. Sonst zerrisse eine Modus-Grenze
+ * mitten in einer Pause deren Raffung.
+ */
+function baueTrack() {
+  const punkte = [], modi = []
+  const kx = 111320 * Math.cos((LAT * Math.PI) / 180)
+  let t = 0, mx = 0, my = 0
+  for (const seg of SEGMENTE) {
+    // Zwei gleiche Modi hintereinander sind EIN Zustand: die Grenze liegt, wo
+    // sich die Fortbewegung ändert, nicht wo die Testdaten enden.
+    if (!modi.length || modi[modi.length - 1].wert !== seg.mode) modi.push({ ab: t, wert: seg.mode })
+    let kurs = seg.kurs
+    for (let dt = 0; dt <= seg.dauer; dt += 10) {
+      if (dt > 0) {
+        kurs += seg.dreh * 10
+        const schritt = seg.v * 10
+        mx += Math.sin((kurs * Math.PI) / 180) * schritt
+        my += Math.cos((kurs * Math.PI) / 180) * schritt
+      }
+      // Der letzte Punkt des Vorgängers und der erste hier liegen auf derselben
+      // Sekunde am selben Ort. Einmal reicht — das Steh-Flag gilt für das
+      // Intervall NACH dem Punkt, also gewinnt das neue Segment.
+      const vorher = punkte[punkte.length - 1]
+      if (vorher && vorher[3] === t + dt) { vorher[4] = seg.v === 0; continue }
+      punkte.push([LNG + mx / kx, LAT + my / 110540, 100, t + dt, seg.v === 0])
+    }
+    t += seg.dauer
+  }
+  return { punkte, modi }
+}
+
+/** Wert einer „gilt ab"-Stufenfunktion an einer Aufnahmesekunde. */
+function grenzWert(liste, t) {
+  let w = liste[0].wert
+  for (const g of liste) if (g.ab <= t) w = g.wert
+  return w
+}
+
+/**
+ * Punkte + Modus-Grenzen → Abschnitte, wie der Rest des Mockups sie erwartet.
+ *
+ * Geschnitten wird an zwei Kanten: am Modus-Wechsel und am Pausen-Wechsel. Der
+ * neue Abschnitt beginnt auf dem LETZTEN Punkt des alten, sonst klaffte in der
+ * Strecke eine Lücke von einem Punktabstand — auf der Karte ein sichtbarer Riss.
+ */
+function baueAbschnitte() {
+  const raus = []
+  for (const p of TRACK_PUNKTE) {
+    const mode = grenzWert(MODI, p[3])
+    const pause = !!p[4]
+    const letzt = raus[raus.length - 1]
+    if (!letzt || letzt.mode !== mode || letzt.pause !== pause) {
+      raus.push({ mode, pause, aktiv: true, pts: letzt ? [letzt.pts[letzt.pts.length - 1]] : [] })
+    }
+    raus[raus.length - 1].pts.push(p)
+  }
+  return raus.filter((a) => a.pts.length > 1)
+}
+
+/**
+ * Jede Aufnahme steht EINZELN — es gibt keinen Stapel mehr.
+ *
+ * Mehrere Aufnahmen mit demselben `offsetS` liegen am selben Ort; die Kamera
+ * hält dort einmal und zeigt sie nacheinander. Genau so sehen sie auch aus:
+ * als Kette aneinanderliegender Klips. Der „Cluster" war nie ein eigenes
+ * Ding, sondern die Folge zusammenfallender Anker — als Stapel dargestellt,
+ * weil Punkte an derselben Stelle sonst übereinander lägen. Klips mit Breite
+ * haben dieses Problem nicht.
+ */
+const FOTO = '../../public/photos/kohphangan/'
+const AUFNAHMEN = [
+  { offsetS: 320,  titel: 'Hafen Thong Sala', bild: '01-thong-sala.jpg' },
+  { offsetS: 900,  titel: 'Baan Tai',         bild: '02-baan-tai.jpg' },
+  { offsetS: 900,  titel: 'Phaeng',           bild: '03-phaeng.jpg' },
+  { offsetS: 1560, titel: 'Dschungelbach',    bild: '04-dschungelbach.jpg', holdS: 8 },
+  { offsetS: 2100, titel: 'Dschungelpiste',   bild: '05-dschungelpiste.jpg' },
+  // Das Video ist der Grund für die Video-Runde: der Player hält BIS ZUM ENDE
+  // (tour.js: auf Videos ist holdS wirkungslos), die Zeitleiste rechnete es
+  // aber wie ein Foto mit 5,2 s. Hier zählt seine echte Länge.
+  // `dateiS` ist die Aufnahme, `dauerS` das, was davon im Film läuft: Ein Video
+  // hat MATERIAL und lässt sich deshalb trimmen wie ein Ton-Klip — an beiden
+  // Kanten, begrenzt von der Datei. Ein Foto hat kein Material; dort ist die
+  // rechte Kante die Standzeit und die linke gäbe es nicht.
+  { offsetS: 2100, titel: 'Bergpiste',        bild: '06-bergpiste.jpg', typ: 'video', dauerS: 34, dateiS: 34, versatzS: 0 },
+  { offsetS: 2620, titel: 'Dämmerung',        bild: '07-daemmerung.jpg' },
+  { offsetS: 2620, titel: 'Thong Nai Pan',    bild: '08-thong-nai-pan.jpg' },
+  { offsetS: 2620, titel: 'Ostküste',         bild: '09-ostkueste.jpg' },
+  { offsetS: 3020, titel: 'Haad Rin',         bild: '12-haad-rin.jpg' },
+]
+for (const a of AUFNAHMEN) a.url = FOTO + a.bild
+const istVideo = (a) => a.typ === 'video'
+const istMoment = (a) => a.typ === 'moment'
+
+/** Zustands-Grenzen (gilt ab Offset) — die Kanten sind ziehbar, s. u. */
+const KAMERA  = [{ ab: 0, wert: 'Standard' }, { ab: 1200, wert: 'Weit' }, { ab: 2100, wert: 'Nah' }]
+const WETTER  = [{ ab: 0, wert: 'Bewölkt' }, { ab: 1500, wert: 'Regen' }, { ab: 2400, wert: 'Klar' }]
+/**
+ * Musik UND Effekte sind dieselbe Sorte Objekt: ein Klip mit Anfang, Ende und
+ * einem Stück Datei dahinter. `dateiS` ist die Länge der Datei, `versatzS` der
+ * Punkt darin, an dem der Klip einsetzt — beim Trimmen der linken Kante
+ * wandert er mit, damit der INHALT stehen bleibt (FCPX-Verhalten).
+ *
+ * Der Effekt war vorher eine Marke ohne Länge. Er hat aber eine — die seiner
+ * Datei; die Zeitleiste kannte sie nur nicht. Derselbe Befund wie beim Video.
+ */
+/**
+ * `loop` entscheidet, ob ein Klip über sein Dateiende hinaus gezogen werden
+ * darf. Bei Musik ist das keine neue Idee, sondern schon die Wahrheit des
+ * Players: `el.loop = true` in audiotracks.js und abspielen.ts — ein
+ * Drei-Minuten-Stück trägt so eine Zehn-Minuten-Tour. Neu ist nur, dass man es
+ * SIEHT (die Wellenform wiederholt sich) und für Effekte wählen kann.
+ *
+ * Nur nach RECHTS: `el.loop` springt am Dateiende zurück auf den Anfang, es
+ * gibt keine Wiederholung VOR dem Anfang. Die linke Kante hat deshalb auch bei
+ * einem Loop denselben Anschlag wie sonst — den Dateianfang.
+ */
+/**
+ * Grenzen in FILMSEKUNDEN, nicht in Aufnahmezeit.
+ *
+ * Ein Musikklip darf mitten in einer Foto-Standzeit enden — die Musik läuft ja
+ * weiter, während das Bild steht. In Aufnahmezeit ist dieser Moment gar nicht
+ * ausdrückbar: Ein Halt verbraucht keine Aufnahmezeit, dort gibt es keinen
+ * Wert für „mitten drin". Deshalb sprang der Klip vorher an die Haltkante.
+ *
+ * Im Overlay stehen Audio-Anker heute als ISO-Zeitstempel (`ab`/`bis`) — für
+ * Ton ist das die falsche Größe. Dieselbe Wurzel wie beim Abspielkopf, nur an
+ * einer Stelle, die niemand auf dem Zettel hatte.
+ */
+const MUSIK = [
+  { vonF: 0,    bisF: 96,  name: 'Aufbruch',     dateiS: 90,  versatzS: 0,  art: 'musik', loop: true },
+  { vonF: 104,  bisF: 178, name: 'Küstenstraße', dateiS: 120, versatzS: 12, art: 'musik', loop: true },
+  { vonF: 52,   bisF: 66,  name: 'Zikaden',      dateiS: 22,  versatzS: 0,  art: 'sfx',   loop: false },
+  { vonF: 128,  bisF: 149, name: 'Brandung',     dateiS: 30,  versatzS: 0,  art: 'sfx',   loop: true },
+]
+/**
+ * Momente stehen in AUFNAHMEN — sie sind HALTE, keine eigene Spursorte.
+ *
+ * docs/editor-ausbau.md hat das schon hergeleitet: In der Engine ist ein
+ * Moment eine eigene Phase — die Fahrt bremst ~160 m vorher ab, hält an, die
+ * Kamera agiert (tour.js). Grammatikalisch ist er damit ein Foto-Stopp ohne
+ * Bild, kein Kamera-Attribut. Die dortige Ordnung sortiert nach WIRKUNG:
+ * „gilt" (Bänder) · „hält an" (Foto-Halte, Momente) · „klingt".
+ *
+ * Konsequenz, die noch niemand gezogen hat: Wer anhält, braucht ACHSENBREITE.
+ * Die Zeitleiste rechnet heute nur Foto-Standzeiten ein — ein Moment ist dort
+ * null Sekunden breit, obwohl der Film mehrere Sekunden steht.
+ */
+const MOMENTE_IN_AUFNAHMEN = [
+  { offsetS: 1200, titel: 'Rundflug',   typ: 'moment', dauerS: 5 },
+  { offsetS: 2400, titel: 'Zeitraffer', typ: 'moment', dauerS: 7 },
+]
+
+const MODUS_NAMEN = { walk: 'Zu Fuß', bike: 'Rad', moped: 'Moped', jeep: 'Jeep', tram: 'Tram', ferry: 'Fähre' }
+const MODUS_FARBEN = {
+  walk: 'linear-gradient(180deg,#3f8f6a,#2f6f52)', tram: 'linear-gradient(180deg,#4a7fbf,#39619b)',
+  ferry: 'linear-gradient(180deg,#3f7f9f,#2f6178)', bike: 'linear-gradient(180deg,#7f8f3f,#63702f)',
+  moped: 'linear-gradient(180deg,#9f7f3f,#7d632f)', jeep: 'linear-gradient(180deg,#9f5f3f,#7d492f)',
+}
+const WETTER_FARBEN = {
+  'Bewölkt': 'linear-gradient(180deg,#5a6470,#464e58)', 'Regen': 'linear-gradient(180deg,#4a6a8a,#39536d)',
+  'Klar': 'linear-gradient(180deg,#8a7a4a,#6d5f39)',
+}
+const KAMERA_FARBE = 'linear-gradient(180deg,#5f5a7a,#494560)'
+
+/* ————————————————————————————————————————————————————————————————
+   3) Zustand
+   ———————————————————————————————————————————————————————————————— */
+
+const roh = baueTrack()
+const TRACK_PUNKTE = roh.punkte
+/** Fortbewegung als Stufenfunktion — dieselbe Sorte Liste wie KAMERA/WETTER. */
+const MODI = roh.modi
+let abschnitte = baueAbschnitte()
+const track = TRACK_PUNKTE
+const skala = { vonS: track[0][3], bisS: track[track.length - 1][3] }
+/**
+ * Standzeit je AUFNAHME.
+ *
+ * Beim Foto ist sie eine Entscheidung des Autors (display.holdS, vom Griff
+ * verändert). Beim Video ist sie eine TATSACHE der Datei — der Player läuft
+ * bis zum Ende, holdS ist dort wirkungslos. Deshalb hat ein Video-Klip keinen
+ * Griff: ein Griff, der nichts bewirkt, ist schlimmer als keiner.
+ */
+// Momente reihen sich unter die Aufnahmen — ab hier sind sie Halte wie jeder
+// andere: sie gruppieren sich nach Ort, bekommen Achsenbreite und einen Klip.
+AUFNAHMEN.push(...MOMENTE_IN_AUFNAHMEN)
+AUFNAHMEN.sort((a, b) => a.offsetS - b.offsetS)
+for (const a of AUFNAHMEN) a.s = istVideo(a) || istMoment(a) ? a.dauerS : a.holdS ?? HALT_ENGINE_S
+
+/**
+ * Betonung eines Fotos (docs/editor-ausbau.md): `beilaeufig` blendet ein,
+ * während die Fahrt WEITERLÄUFT — `karte` hält an.
+ *
+ * Beide bleiben in derselben Spur; den Unterschied sagt die BREITE, nicht die
+ * Bahn. Ein Klip, der beim Umstellen einer Einstellung die Spur wechselt,
+ * wäre eine Regel, die man erst lernen muss — die Filmzeit-Achse zeigt es
+ * ohnehin von selbst: kein Halt, keine Standzeit, der Film wird kürzer.
+ */
+const istBeilaeufig = (a) => a.betonung === 'beilaeufig'
+/** Wie lange ein beiläufiges Bild sichtbar ist (Filmsekunden, ohne Halt). */
+const EINBLENDUNG_S = 2.5
+// Zwei Beispiele: Bilder, die keinen eigenen Halt verdienen. „Ostküste" ist
+// das dritte einer Kette — man sieht die Kette schrumpfen, wenn es nebenherläuft.
+for (const t of ['Baan Tai', 'Ostküste']) {
+  const a = AUFNAHMEN.find((x) => x.titel === t)
+  if (a) a.betonung = 'beilaeufig'
+}
+
+let modus = 'heute'      // 'heute' | 'neu'
+let kopfOffsetS = skala.vonS  // kanonisch im Modus „Heute": Aufnahmezeit
+let kopfFilmS = 0             // kanonisch im Modus „Vorschlag": Filmsekunde
+let fokusAufnahme = null
+let fokusKlip = null
+let spielt = false
+let letzteZeit = 0
+let achse = null
+
+/**
+ * Halte für den Achsenbau: Aufnahmen am selben Ort teilen sich EINEN Halt,
+ * seine Breite ist die Summe ihrer Standzeiten. Das Gruppieren nach `offsetS`
+ * ist alles, was vom Cluster übrig bleibt — eine Rechnung, keine Darstellung.
+ */
+function halteFuerAchse() {
+  const nach = new Map()
+  AUFNAHMEN.forEach((a, i) => {
+    if (istBeilaeufig(a)) return // läuft nebenher: kostet keine Standzeit
+    const e = nach.get(a.offsetS) ?? { offsetS: a.offsetS, breiteS: 0, indizes: [] }
+    e.breiteS += AUFNAHMEN[i].s + HALT_AUSBLEND_S
+    e.indizes.push(i)
+    nach.set(a.offsetS, e)
+  })
+  return [...nach.values()].map((h, index) => ({ ...h, index }))
+}
+
+function baueNeu() {
+  // Erst die Abschnitte aus den Modus-Grenzen, dann die Achse: im Tempo je
+  // Modus steckt die Filmzeit, eine gezogene Modus-Grenze verschiebt also
+  // alles Spätere. Genau das soll man sehen.
+  abschnitte = baueAbschnitte()
+  achse = baueAchse(abschnitte, halteFuerAchse(), skala)
+  loeseAudioAnker()
+}
+
+/**
+ * Ton hängt an der STRECKE, nicht an einer festen Filmsekunde.
+ *
+ * Vorher standen `vonF`/`bisF` in absoluten Filmsekunden. Das war richtig
+ * gegen die alte Falle (ein Musikklip darf mitten in einer Foto-Standzeit
+ * enden — in reiner Aufnahmezeit ist dieser Moment gar nicht ausdrückbar),
+ * aber es machte den Ton zum einzigen Element, das NICHT nachrückt: Wer ein
+ * Foto vorne länger stehen ließ, verschob damit alles Spätere — nur die
+ * Brandung blieb liegen, obwohl sie zur Fähre gehört, die inzwischen woanders
+ * war.
+ *
+ * Ein Klip merkt sich deshalb beides: einen ANKER in Aufnahmezeit (wo auf der
+ * Reise er hingehört) und einen Versatz in FILMsekunden (wo genau, auch
+ * innerhalb einer Standzeit). Das ist FCPX' „connected clip": er hängt an
+ * einer Stelle der Erzählung und wandert mit ihr. Die LÄNGE bleibt Filmzeit —
+ * Musik läuft in Echtzeit, sie dehnt sich nicht mit der Kamera.
+ */
+function loeseAudioAnker() {
+  if (!achse.kurve) return
+  for (const m of MUSIK) {
+    if (m.ankerS == null) continue
+    m.vonF = Math.max(0, filmZuOffset(achse, m.ankerS) + m.versatzFilmS)
+    m.bisF = m.vonF + m.laengeF
+  }
+}
+
+/** Aus der aktuellen Filmlage einen Anker machen — nach jedem Zug einmal. */
+function setzeAudioAnker(m) {
+  if (!achse.kurve) return
+  m.ankerS = anteilZuOffset(achse, m.vonF / achse.kurve.gesamtS)
+  m.versatzFilmS = m.vonF - filmZuOffset(achse, m.ankerS)
+  m.laengeF = m.bisF - m.vonF
+}
+
+/* ————————————————————————————————————————————————————————————————
+   4) Ableitungen — die Auskunft, die dem echten Editor heute fehlt
+   ———————————————————————————————————————————————————————————————— */
+
+/** Aktuelle Filmsekunde des Kopfes, egal in welchem Modus. */
+function kopfFilm() {
+  return modus === 'neu' ? kopfFilmS : filmZuOffset(achse, kopfOffsetS)
+}
+const kopfAnteil = () => (achse.kurve ? kopfFilm() / achse.kurve.gesamtS : 0)
+
+/**
+ * Steht der Kopf in einem Halt — und wo genau? Das kann nur beantworten, wer
+ * eine Filmposition hat: in Aufnahmezeit ist der ganze Halt EIN Zeitpunkt.
+ */
+function haltUnterKopf() {
+  const f = kopfFilm()
+  for (const h of achse.halte) {
+    if (f <= h.filmVon + 0.001 || f >= h.filmBis - 0.001) continue
+    // Innerhalb des Halts die Kette durchlaufen: welche Aufnahme läuft gerade?
+    let start = h.filmVon
+    for (let n = 0; n < h.indizes.length; n++) {
+      const i = h.indizes[n]
+      const dauer = AUFNAHMEN[i].s + HALT_AUSBLEND_S
+      if (f < start + dauer || n === h.indizes.length - 1) {
+        return { halt: h, aufnahme: i, nr: n + 1, vonWieVielen: h.indizes.length, imBildS: f - start }
+      }
+      start += dauer
+    }
+  }
+  return null
+}
+
+/**
+ * Rastet eine Filmposition an der nächsten Haltkante ein. Das ist der Ersatz
+ * für die verworfene Gruppen-Erklärung: statt zu SAGEN, dass im Halt nichts
+ * anfangen kann, führt die Kante von selbst dorthin, wo sie hingehört.
+ */
+function rasteAnHalt(filmS) {
+  for (const h of achse.halte) {
+    if (filmS > h.filmVon && filmS < h.filmBis) {
+      const ansEnde = filmS - h.filmVon > h.filmBis - filmS
+      return { filmS: ansEnde ? h.filmBis : h.filmVon, halt: h, ansEnde }
+    }
+  }
+  return { filmS, halt: null, ansEnde: false }
+}
+
+/** Liegt die abgeleitete Aufnahmezeit in einer geraften Pause? */
+function pauseUnterKopf() {
+  const t = anteilZuOffset(achse, kopfAnteil())
+  for (const a of abschnitte) {
+    if (!a.pause) continue
+    if (t >= a.pts[0][3] && t <= a.pts[a.pts.length - 1][3]) return a
+  }
+  return null
+}
+
+const uhrzeit = (offsetS) => {
+  const g = Math.round(START_UHR + offsetS)
+  return `${String(Math.floor(g / 3600) % 24).padStart(2, '0')}:${String(Math.floor(g / 60) % 60).padStart(2, '0')}`
+}
+
+/**
+ * Fußpunkt auf der Route zu einer Karten-Position (viewBox-Koordinaten).
+ *
+ * Projiziert auf die LINIE, nicht auf den nächsten Punkt — das ist der
+ * Unterschied zwischen stufenlos und ruckelig: Trackpunkte liegen alle 10 s,
+ * in der Tram sind das 75 m (6,5 px auf der Karte), auf der Fähre 55 m. Wer
+ * den nächsten PUNKT nimmt, kann nichts dazwischen treffen; gemessen stand
+ * der Kartenpunkt in 28 von 39 Zieh-Frames still und sprang dann.
+ *
+ * `letzterIndex` hält die Suche lokal: eine globale Nächster-Treffer-Suche
+ * springt über den Bogen, wenn die Route sich krümmt oder sich selbst nahe
+ * kommt. Beim ersten Frame gibt es keinen Vorgänger, dann wird global gesucht.
+ */
+function routeBeiKarte(vx, vy, letzterIndex) {
+  const p = kartenProjektion()
+  const fenster = 50
+  const von = letzterIndex == null ? 1 : Math.max(1, letzterIndex - fenster)
+  const bis = letzterIndex == null ? track.length : Math.min(track.length, letzterIndex + fenster)
+  let best = null
+  for (let i = von; i < bis; i++) {
+    const a = track[i - 1], b = track[i]
+    const [ax, ay] = p(a[0], a[1])
+    const [bx, by] = p(b[0], b[1])
+    const dx = bx - ax, dy = by - ay
+    const len2 = dx * dx + dy * dy
+    const t = len2 > 0 ? Math.max(0, Math.min(1, ((vx - ax) * dx + (vy - ay) * dy) / len2)) : 0
+    const fx = ax + dx * t, fy = ay + dy * t
+    const d = (fx - vx) ** 2 + (fy - vy) ** 2
+    if (!best || d < best.d) best = { d, index: i, zeit: a[3] + (b[3] - a[3]) * t, x: fx, y: fy }
+  }
+  return best
+}
+
+/**
+ * Achse ohne den EIGENEN Halt — die „Welt ohne mich".
+ *
+ * Für jede Rückrechnung px → Zeit während eines Zugs. Auf der echten Achse
+ * liefert ein Sprung über seine ganze Breite dieselbe Zeit: um die Ruhelage
+ * läge eine tote Zone von Sprungbreite, in der der Zeiger die Zeit nicht
+ * bewegt (am Video-Halt 202 px). Dieselbe Wurzel wie beim Abspielkopf — die
+ * Filmzeit-Achse ist an Halten nicht invertierbar.
+ *
+ * Die FREMDEN Halte bleiben aber drin: ohne sie wäre die Achse insgesamt
+ * kürzer, und der Klip bliebe hinter dem Zeiger zurück (gemessen: 96 px
+ * Weg bei 200 px Zeigerbewegung).
+ */
+function ziehAchse(ohneTitel) {
+  // Nur die EINE Aufnahme fällt weg, nicht ihr ganzer Halt: zieht man ein Bild
+  // aus einer Dreierkette, stehen die beiden anderen ja weiter dort.
+  const halte = halteFuerAchse()
+    .map((h) => {
+      const bleibt = h.indizes.filter((i) => AUFNAHMEN[i].titel !== ohneTitel)
+      return { ...h, indizes: bleibt, breiteS: bleibt.reduce((s, i) => s + AUFNAHMEN[i].s + HALT_AUSBLEND_S, 0) }
+    })
+    .filter((h) => h.breiteS > 0)
+  return baueAchse(abschnitte, halte, skala)
+}
+
+/** Trackpunkt zu einem Zeit-Offset (Portierung aus editmodell.ts). */
+function punktZuOffset(punkte, tOffsetS) {
+  const erster = punkte[0], letzter = punkte[punkte.length - 1]
+  if (!erster || !letzter) return null
+  if (tOffsetS <= erster[3]) return erster
+  if (tOffsetS >= letzter[3]) return letzter
+  for (let i = 1; i < punkte.length; i++) {
+    const a = punkte[i - 1], b = punkte[i]
+    if (tOffsetS <= b[3]) {
+      const t = b[3] === a[3] ? 0 : (tOffsetS - a[3]) / (b[3] - a[3])
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2], tOffsetS]
+    }
+  }
+  return letzter
+}
+
+function modusBei(offsetS) {
+  const a = abschnitte.find((x) => offsetS >= x.pts[0][3] && offsetS <= x.pts[x.pts.length - 1][3])
+  return a ? a.mode : 'walk'
+}
+
+function kmBei(offsetS) {
+  let meter = 0
+  for (const a of abschnitte) {
+    for (let i = 1; i < a.pts.length; i++) {
+      const p = a.pts[i], q = a.pts[i - 1]
+      if (q[3] >= offsetS) return meter / 1000
+      meter += meterZwischen(q, p)
+    }
+  }
+  return meter / 1000
+}
+
+/* ————————————————————————————————————————————————————————————————
+   5) Rendern
+   ———————————————————————————————————————————————————————————————— */
+
+const $ = (id) => document.getElementById(id)
+const pos = (anteil) => `${(anteil * 100).toFixed(3)}%`
+const breite = (a, b) => `${Math.max(0, (b - a) * 100).toFixed(3)}%`
+const anteilVon = (offsetS) => offsetZuAnteil(achse, offsetS)
+
+/** Echte Tour-Fotos (Koh Pha-ngan) statt Platzhaltern — nur an ihnen zeigt
+ *  sich, ob eine Miniatur in einem 34-px-Klip noch etwas erkennen lässt. */
+const fotoBild = (a) => `url("${a.url}")`
+
+/**
+ * Die Bahnen — MATERIAL zuerst, KONTEXT zuletzt.
+ *
+ * Fotos, Videos, Musik und Effekte sind das Material: Dinge, die man setzt,
+ * verschiebt, kürzt. Fortbewegung, Kamera und Wetter beschreiben, wie das
+ * Dazwischen aussieht — bei einer typischen Tour zwei bis drei Entscheidungen,
+ * die aber drei randvolle Bahnen belegten und mit den Fotos um Fläche
+ * konkurrierten. Material verdient Fläche, Kontext verdient eine Zeile:
+ * deshalb sind die drei zu „Reise" zusammengefasst und klappen zum Bearbeiten
+ * auf.
+ */
+const bahnenListe = () => [
+  // „Szenen": alles, was den Film ANHÄLT und etwas zeigt — Fotos, Videos,
+  // Momente. „Halte" beschrieb die Mechanik statt der Sache; wer schneidet,
+  // denkt in Szenen, nicht in Halten.
+  { id: 'fotos', name: 'Szenen', hoch: true, plus: 'Moment einfügen' },
+  { id: 'musik', name: 'Musik & Effekte', ton: true, plus: 'Ton einfügen' },
+  // Fortbewegung, Kamera und Wetter sind GLEICHRANGIG — drei Zustände über
+  // derselben Strecke. Sie waren zwischenzeitlich als „Reise" zusammengefasst
+  // und dann als Unterspuren der Fortbewegung geführt; beides war nur ein
+  // Trick gegen Platzmangel und behauptete eine Hierarchie, die es nicht gibt.
+  // Statt sie zu verschachteln, sind die drei Bahnen jetzt schmaler.
+  { id: 'wege', name: 'Fortbewegung', schmal: true, plus: 'Fortbewegung ab hier' },
+  { id: 'kamera', name: 'Kamera', schmal: true, plus: 'Kamera ab hier' },
+  { id: 'wetter', name: 'Wetter', schmal: true, plus: 'Wetter ab hier' },
+]
+
+/**
+ * Das Bahnen-GERÜST entsteht einmal, danach werden nur die Felder gefüllt.
+ *
+ * Früher setzte jeder Aufruf `innerHTML = ''` — bei 60 Zieh-Frames pro Sekunde
+ * also 180 Knoten neu, samt aller <img>-Dekodierung und samt des Elements, das
+ * gerade am Finger hing. Nicht die 2,3 ms Rechenzeit waren das Problem,
+ * sondern der Verlust: darum schreibt die Foto-Bahn ihre Klips jetzt FORT
+ * (s. fuelleFotos) statt sie abzureißen.
+ */
+function renderBahnen() {
+  const wurzel = $('bahnen')
+  const bahnen = bahnenListe()
+  // Gerüst neu, wenn sich die Bahnen-MENGE ändert (Reise auf-/zugeklappt).
+  if (wurzel.children.length !== bahnen.length) {
+    wurzel.innerHTML = ''
+    for (const b of bahnen) {
+      const spur = document.createElement('div')
+      spur.className = 'spur' + (b.hoch ? ' hoch' : '') + (b.ton ? ' ton' : '') + (b.schmal ? ' schmal' : '')
+      const name = document.createElement('div')
+      name.className = 'spur-name'
+      name.append(b.name)
+      if (b.plus) {
+        const plus = document.createElement('button')
+        plus.className = 'spur-plus'
+        plus.type = 'button'
+        plus.title = b.plus
+        plus.textContent = '+'
+        plus.dataset.plus = b.id
+        name.appendChild(plus)
+      }
+      const feld = document.createElement('div')
+      feld.className = 'spur-feld'
+      feld.dataset.bahn = b.id
+      spur.append(name, feld)
+      wurzel.appendChild(spur)
+    }
+  }
+  for (const b of bahnen) fuelle(b, wurzel.querySelector(`[data-bahn="${b.id}"]`))
+  renderHaltZonen()
+  if (!zugLaeuft) kuerzeBeschriftungen()
+  renderKopf()
+}
+
+/** Während eines Zugs: kein erzwungenes Layout, keine Kürzungs-Messung. */
+let zugLaeuft = false
+
+/**
+ * Die Halt-Zone führt durch alle Bahnen — aber nur für den AUSGEWÄHLTEN Halt.
+ *
+ * Über alle Halte gleichzeitig gelegt waren es zwölf gestrichelte Linien über
+ * die volle Höhe: dauerhafte Unruhe für eine Frage, die man punktuell hat.
+ * Als Teil der Auswahl beantwortet sie dieselbe Frage genau dann, wenn sie
+ * gestellt wird — dasselbe Muster wie der leuchtende Streckenabschnitt auf
+ * der Karte. Beim Ziehen übernehmen Rast- und Einfügelinie.
+ */
+function renderHaltZonen() {
+  verstecke('.halt-zone')
+  if (modus !== 'neu' || !achse.kurve || fokusAufnahme === null) return
+  const h = achse.halte.find((x) => x.indizes.includes(fokusAufnahme))
+  if (!h) return
+  const von = h.filmVon / achse.kurve.gesamtS
+  const bis = h.filmBis / achse.kurve.gesamtS
+  const el = document.createElement('div')
+  el.className = 'halt-zone'
+  el.style.left = `calc(var(--spur-x) + ${von.toFixed(5)} * var(--zeit-breite))`
+  el.style.width = `calc(${(bis - von).toFixed(5)} * var(--zeit-breite))`
+  $('spuren').appendChild(el)
+}
+
+/**
+ * Ein Klip der Szenen-Bahn, von Filmsekunde bis Filmsekunde.
+ *
+ * EINE Funktion für alle vier Sorten — Foto, Video, Moment und beiläufiges
+ * Bild. Sie unterscheiden sich in Randfarbe und Breite, nicht in der Bauart;
+ * deshalb liegen sie auch alle in derselben Spur.
+ */
+function zeichneKlip(feld, i, vonFilmS, bisFilmS, gesehen) {
+  const a = AUFNAHMEN[i]
+  const g = achse.kurve.gesamtS
+  gesehen.add(a.titel)
+  // Vorhandenen Klip wiederverwenden — geschlüsselt am Titel. Nur so bleibt
+  // das <img> dekodiert und das gezogene Element am Finger.
+  let klip = feld.querySelector(`.halt-klip[data-key="${CSS.escape(a.titel)}"]`)
+  if (!klip) {
+    klip = document.createElement('button')
+    klip.type = 'button'
+    klip.dataset.key = a.titel
+    const inhalt = document.createElement('div')
+    inhalt.className = 'inhalt'
+    const info = document.createElement('div')
+    info.className = 'info'
+    info.append(document.createElement('b'), document.createElement('small'))
+    info.lastChild.className = 'num'
+    // Ein Moment hält den Film an wie ein Foto — er hat nur kein Bild; dort
+    // trägt die Fläche selbst das Muster (s. CSS).
+    if (istMoment(a)) inhalt.append(info)
+    else {
+      const anfang = document.createElement('div')
+      anfang.className = 'bild anfang'
+      const ende = document.createElement('div')
+      ende.className = 'bild ende'
+      anfang.style.backgroundImage = ende.style.backgroundImage = fotoBild(a)
+      inhalt.append(anfang, info, ende)
+    }
+    klip.append(inhalt)
+    if (istVideo(a)) {
+      const p = document.createElement('span')
+      p.className = 'v-play'
+      klip.appendChild(p)
+      // Zwei Kanten wie beim Ton-Klip: ein Video HAT Material, also lässt es
+      // sich vorne und hinten beschneiden. Es hatte lange gar keinen Griff,
+      // weil seine Länge „nicht zur Wahl steht" — das stimmt für die STANDZEIT
+      // (der Player läuft bis zum Ende), aber nicht für den Schnitt.
+      for (const seite of ['von', 'bis']) {
+        const g = document.createElement('div')
+        g.className = `a-kante ${seite}`
+        g.dataset.vKante = seite
+        g.dataset.index = String(i)
+        klip.appendChild(g)
+      }
+      const blase = document.createElement('div')
+      blase.className = 'dauer-blase num'
+      klip.appendChild(blase)
+    } else {
+      const griff = document.createElement('div')
+      griff.className = 'griff'
+      const blase = document.createElement('div')
+      blase.className = 'dauer-blase num'
+      klip.append(griff, blase)
+    }
+    feld.appendChild(klip)
+  }
+  klip.className = 'halt-klip'
+    + (fokusAufnahme === i ? ' fokus' : '')
+    + (istVideo(a) ? ' video' : '')
+    + (istMoment(a) ? ' moment-klip' : '')
+    + (istBeilaeufig(a) ? ' beilaeufig' : '')
+  klip.style.left = pos(vonFilmS / g)
+  klip.style.width = breite(vonFilmS / g, bisFilmS / g)
+  klip.dataset.aufnahme = String(i)
+  const dauerText = istBeilaeufig(a)
+    ? 'läuft nebenher'
+    // Beim Video steht der ANTEIL da: getrimmt sagt „0:22 von 0:34" mehr als
+    // eine nackte Zahl, ungetrimmt wäre die Wiederholung nur Lärm.
+    : istVideo(a) ? (a.s < a.dateiS - 0.05
+        ? `${formatiereFilmzeit(a.s)} von ${formatiereFilmzeit(a.dateiS)}`
+        : `${formatiereFilmzeit(a.s)} Video`)
+    : istMoment(a) ? `${a.s.toFixed(1).replace('.', ',')} s Moment`
+    : `${a.s.toFixed(1).replace('.', ',')} s`
+  klip.querySelector('.info b').textContent = a.titel
+  klip.querySelector('.info small').textContent = dauerText
+  const griff = klip.querySelector('.griff')
+  if (griff) {
+    griff.hidden = istBeilaeufig(a) // keine Standzeit, also nichts zu ziehen
+    griff.dataset.griff = String(i)
+  }
+  const blase = klip.querySelector('.dauer-blase')
+  if (blase) blase.textContent = dauerText
+  for (const k of klip.querySelectorAll('[data-v-kante]')) k.dataset.index = String(i)
+}
+
+/**
+ * Beschriftungen, die nicht in ihr Objekt passen, ganz weglassen — dieselbe
+ * Regel wie im echten Editor. Ein angeschnittenes Wort ist schlechter als
+ * keines: bei 2 s Standzeit steht sonst „Skyl…" im Bild.
+ */
+function kuerzeBeschriftungen() {
+  // Die Halt-Klips regeln ihre Ausbaustufe selbst (Container-Abfragen, s. CSS)
+  // — das spart hier das erzwungene Layout und wirkt auch während eines Zugs.
+  for (const el of document.querySelectorAll('.moment, .klip')) {
+    el.classList.remove('ohne-text')
+    if (el.scrollWidth > el.clientWidth + 1) el.classList.add('ohne-text')
+  }
+}
+
+function fuelle(b, feld) {
+  // Die Foto-Bahn räumt selbst auf (Reconcile); die übrigen tragen keine
+  // Bilder, dort ist ein Neubau billig und flackert nicht sichtbar.
+  if (b.id === 'fotos') return fuelleFotos(feld)
+  feld.innerHTML = ''
+  if (b.id === 'musik') return fuelleMusik(feld)
+  const baender = baenderFuer(b.id)
+  if (!baender) return
+  return fuelleBaender(feld, baender)
+}
+
+/** Welcher Zustand gilt an einem Zeit-Offset? Für den Chip in der Namensspalte. */
+function wertBei(baender, offsetS) {
+  let treffer = baender[0]
+  for (const b of baender) if (b.vonS <= offsetS) treffer = b
+  return treffer
+}
+
+/** Die Bänder einer Zustandsbahn — eine Quelle für Darstellung UND Chip. */
+function baenderFuer(id) {
+  // Die Bänder zeigen die MODUS-Grenzen, nicht die Abschnitte: eine Pause
+  // zerteilt zwar den Track, ist aber kein Wechsel der Fortbewegung.
+  if (id === 'wege') return ausGrenzen(MODI, (m) => MODUS_FARBEN[m], 'wege', (m) => MODUS_NAMEN[m])
+  if (id === 'kamera') return ausGrenzen(KAMERA, () => KAMERA_FARBE, 'kamera')
+  if (id === 'wetter') return ausGrenzen(WETTER, (w) => WETTER_FARBEN[w], 'wetter')
+  return null
+}
+
+/** „gilt ab"-Grenzen → lückenlose Bänder (wie baueZustandsBaender). */
+function ausGrenzen(grenzen, farbe, quelle, name = (w) => w) {
+  return grenzen.map((g, i) => ({
+    vonS: g.ab, bisS: grenzen[i + 1] ? grenzen[i + 1].ab : skala.bisS,
+    text: name(g.wert), farbe: farbe(g.wert), quelle, grenzIndex: i,
+  }))
+}
+
+/** Zu welcher Grenzliste gehört eine Bahn? Eine Stelle für alle drei. */
+const GRENZLISTEN = { wege: () => MODI, kamera: () => KAMERA, wetter: () => WETTER }
+
+function fuelleBaender(feld, baender) {
+  for (const b of baender) {
+    let von = anteilVon(b.vonS), bis = anteilVon(b.bisS)
+    // Die gezogene Kante steht am ZEIGER, nicht an ihrem Modellwert — beide
+    // Nachbarbänder enden bzw. beginnen dort. Nur so wandert die Fläche samt
+    // Beschriftung lückenlos mit, auch über einen Halt hinweg (dort gäbe es
+    // im Modell gar keine Zwischenposition, s. ziehGrenze).
+    if (zieheGrenze && zieheGrenze.quelle === b.quelle) {
+      const a = zieheGrenze.filmS / (achse.kurve ? achse.kurve.gesamtS : 1)
+      if (b.grenzIndex === zieheGrenze.index) von = a
+      if (b.grenzIndex === zieheGrenze.index - 1) bis = a
+    }
+    if (bis <= von) continue
+    const el = document.createElement('div')
+    el.className = 'band'
+    el.style.left = pos(von)
+    el.style.width = breite(von, bis)
+    el.style.background = b.farbe
+    const s = document.createElement('span')
+    s.textContent = b.text
+    el.appendChild(s)
+    if (b.vonS > skala.vonS && b.quelle) {
+      const k = document.createElement('div')
+      k.className = 'kante'
+        + (zieheGrenze && zieheGrenze.quelle === b.quelle && zieheGrenze.index === b.grenzIndex ? ' zieht' : '')
+      k.dataset.grenze = b.quelle
+      k.dataset.index = String(b.grenzIndex)
+      el.appendChild(k)
+    }
+    feld.appendChild(el)
+  }
+  markierePause(feld)
+}
+
+/**
+ * Die geraffte Pause: fast keine Filmbreite, aber viel Aufnahmezeit — die
+ * Kehrseite des Halts. Ohne Etikett ist sie nur ein Strich, den niemand
+ * deuten kann; `beschriftet` setzt es genau einmal (auf der obersten Bahn),
+ * sonst stünde derselbe Text sechsmal übereinander.
+ */
+function markierePause(feld, beschriftet) {
+  for (const a of abschnitte) {
+    if (!a.pause) continue
+    const m = document.createElement('div')
+    m.className = 'pause-marke'
+    m.style.left = pos(anteilVon(a.pts[0][3]))
+    m.style.width = '0'
+    m.appendChild(document.createElement('i'))
+    // Ohne Etikett: „5 Min gerafft" war eine Erklärung fürs Mockup. Dass hier
+    // Zeit gerafft wird, sagt der Strich; wie viel, sagt die Kopfzeile.
+    m.title = `${Math.round((a.pts[a.pts.length - 1][3] - a.pts[0][3]) / 60)} Min Aufnahme, im Film gerafft`
+    feld.appendChild(m)
+  }
+}
+
+/**
+ * Die Foto-Bahn. Jede Aufnahme ist ein eigener Klip; Aufnahmen am selben Ort
+ * liegen als KETTE hintereinander, weil die Kamera dort einmal hält und sie
+ * nacheinander zeigt. Kein Stapel, keine Zahl-Plakette, kein Streifen im
+ * Inspector — was der Film tut, steht auf der Leiste.
+ */
+function fuelleFotos(feld) {
+  // Alles OHNE Bild wird neu gebaut (billig); die Klips werden fortgeschrieben.
+  feld.querySelectorAll('.halt-klammer, .pause-marke, .tote-zone, .halt-punkt').forEach((e) => e.remove())
+  const gesehen = new Set()
+
+  for (const h of achse.halte) {
+    const von = h.filmVon / achse.kurve.gesamtS, bis = h.filmBis / achse.kurve.gesamtS
+    if (modus === 'heute') {
+      // Heute: EIN Punkt für den ganzen Stopp, an der linken Kante. Die
+      // Breite ist trotzdem belegt — genau das ist die tote Zone.
+      const erste = AUFNAHMEN[h.indizes[0]]
+      const tot = document.createElement('div')
+      tot.className = 'tote-zone'
+      tot.style.left = pos(von)
+      tot.style.width = breite(von, bis)
+      const t = document.createElement('span')
+      t.textContent = `${h.breiteS.toFixed(1).replace('.', ',')} s`
+      tot.appendChild(t)
+      feld.appendChild(tot)
+      const p = document.createElement('button')
+      p.type = 'button'
+      p.className = 'halt-punkt'
+      p.style.left = pos(von)
+      p.style.backgroundImage = fotoBild(erste)
+      p.title = h.indizes.length > 1
+        ? `Stopp mit ${h.indizes.length} Aufnahmen — ${uhrzeit(erste.offsetS)} Uhr`
+        : `${erste.titel} — ${uhrzeit(erste.offsetS)} Uhr`
+      feld.appendChild(p)
+      continue
+    }
+    // Vorschlag: je Aufnahme ein Klip, aneinandergereiht.
+    let filmS = h.filmVon
+    for (const i of h.indizes) {
+      const dauer = AUFNAHMEN[i].s + HALT_AUSBLEND_S
+      zeichneKlip(feld, i, filmS, filmS + dauer, gesehen)
+      filmS += dauer
+    }
+    // Keine Klammer mehr: „Ein Halt · 2 Aufnahmen" war eine Beschriftung für
+    // das Mockup. Dass die Klips zusammengehören, sieht man daran, dass sie
+    // ohne Lücke aneinanderliegen — und auf der Karte an EINEM Punkt.
+  }
+  // Beiläufige Bilder: dieselbe Spur, aber ohne Halt — sie liegen an ihrer
+  // Ankunft und sind nur so lange sichtbar, wie sie eingeblendet werden.
+  if (modus === 'neu') {
+    AUFNAHMEN.forEach((a, i) => {
+      if (!istBeilaeufig(a)) return
+      const start = filmZuOffset(achse, a.offsetS)
+      zeichneKlip(feld, i, start, start + EINBLENDUNG_S, gesehen)
+    })
+  }
+  // Was es nicht mehr gibt (Modus gewechselt, Aufnahme entfernt), verschwindet.
+  feld.querySelectorAll('.halt-klip').forEach((k) => {
+    if (!gesehen.has(k.dataset.key)) k.remove()
+  })
+  markierePause(feld, true)
+}
+
+/**
+ * Musik und Effekte als gleichartige Klips — mit Wellenform und zwei Kanten.
+ *
+ * Die Wellenform gehört zur DATEI, nicht zum Klip: sie wird als Hintergrundbild
+ * in Dateibreite gelegt und um den Versatz verschoben. Beim Trimmen wandert
+ * dadurch der Ausschnitt, nicht der Inhalt — man sieht, WAS man wegschneidet.
+ * Gestaucht (Wellenform = Klipbreite) sähe jeder Trim wie ein Tempowechsel aus.
+ */
+/**
+ * Überlappende Klips bekommen eigene ZEILEN (greedy: die erste, die frei ist).
+ * Übereinander gelegt verdeckten sie einander, obwohl der Player sie mischt —
+ * man sah nicht, dass an dieser Stelle zwei Dinge klingen.
+ */
+function baueLanes() {
+  const enden = []
+  const lane = new Map()
+  for (const { m, i } of MUSIK.map((m, i) => ({ m, i })).sort((a, b) => a.m.vonF - b.m.vonF)) {
+    let l = enden.findIndex((e) => e <= m.vonF + 0.001)
+    if (l === -1) { l = enden.length; enden.push(0) }
+    enden[l] = m.bisF
+    lane.set(i, l)
+  }
+  return { lane, anzahl: Math.max(1, enden.length) }
+}
+
+function fuelleMusik(feld) {
+  const g = achse.kurve ? achse.kurve.gesamtS : 1
+  const feldPx = $('skala-feld').getBoundingClientRect().width || 1000
+  const { lane, anzahl } = baueLanes()
+  feld.closest('.spur')?.style.setProperty('--lanes', String(anzahl))
+  for (const [i, m] of MUSIK.entries()) {
+    // Direkt aus Filmsekunden — keine Rückrechnung, keine Sprünge.
+    // Auf den Film GEKLEMMT: die Filmdauer hängt jetzt an den Modus-Grenzen,
+    // eine gezogene Grenze kann den Film also kürzer machen als einen Klip.
+    // Ungeklemmt ragte er aus der Leiste und erzeugte einen waagerechten
+    // Scrollbalken — der bei einer Zeitleiste immer nach einem Fehler aussieht.
+    const von = Math.max(0, m.vonF / g), bis = Math.min(1, m.bisF / g)
+    if (bis <= von) continue
+    const el = document.createElement('div')
+    el.className = `klip ${m.art}` + (fokusKlip === i ? ' fokus' : '')
+    el.style.left = pos(von)
+    el.style.width = breite(von, bis)
+    el.style.top = `${5 + lane.get(i) * 26}px`
+    el.style.height = '24px'
+    el.dataset.klip = String(i)
+
+    // Die Wellenform liegt in FILMzeit — so lang klingt das Stück im Film,
+    // und die Achse ist ja film-proportional. Eine Dateisekunde ist eine
+    // Filmsekunde (Musik läuft in Echtzeit).
+    const pxProFilmS = feldPx / g
+    const welle = document.createElement('div')
+    welle.className = 'welle'
+    welle.style.backgroundImage = wellenBild(m.name)
+    welle.style.backgroundSize = `${(m.dateiS * pxProFilmS).toFixed(1)}px 100%`
+    welle.style.backgroundPosition = `${(-m.versatzS * pxProFilmS).toFixed(1)}px center`
+    // Ohne Loop endet das Material — dahinter bleibt die Fläche leer, und
+    // genau das soll man sehen, statt es aus einer Zahl zu erschließen.
+    welle.style.backgroundRepeat = m.loop ? 'repeat-x' : 'no-repeat'
+    el.appendChild(welle)
+
+    const name = document.createElement('span')
+    name.textContent = m.name
+    el.appendChild(name)
+    // Loop ist eine EINSTELLUNG, kein Werkzeug am Objekt — sie steht im
+    // Inspector. Auf dem Klip war sie eine Ausnahme, die man nicht durchhält:
+    // Lautstärke, Blende und Dateiwechsel könnten dort nicht auch hin.
+    if (m.loop) {
+      const zeichen = document.createElement('span')
+      zeichen.className = 'loop-zeichen'
+      zeichen.textContent = '⟲'
+      zeichen.title = 'Loop an'
+      el.appendChild(zeichen)
+    }
+    for (const seite of ['von', 'bis']) {
+      const griff = document.createElement('div')
+      griff.className = `a-kante ${seite}`
+      griff.dataset.aKante = seite
+      griff.dataset.index = String(i)
+      el.appendChild(griff)
+    }
+    feld.appendChild(el)
+  }
+  markierePause(feld)
+}
+
+/**
+ * Deterministische Pseudo-Wellenform als data-URI. Kein echtes Audio-Decoding:
+ * es geht darum, dass man das Stück SIEHT und einen Trim beurteilen kann.
+ * Der Name ist der Startwert, damit dasselbe Stück immer gleich aussieht.
+ */
+const wellenCache = new Map()
+function wellenBild(name) {
+  if (wellenCache.has(name)) return wellenCache.get(name)
+  let z = [...name].reduce((s, c) => (s * 31 + c.charCodeAt(0)) >>> 0, 7)
+  const zufall = () => ((z = (z * 1664525 + 1013904223) >>> 0) / 4294967296)
+  const n = 220
+  let d = ''
+  for (let i = 0; i < n; i++) {
+    // Zwei überlagerte Schwingungen plus Rauschen — sieht nach Musik aus,
+    // nicht nach Zufallszacken.
+    const h = Math.max(0.08, Math.abs(Math.sin(i / 9) * 0.5 + Math.sin(i / 3.3) * 0.28) * (0.55 + zufall() * 0.45))
+    d += `M${i} ${(20 - h * 20).toFixed(1)}V${(20 + h * 20).toFixed(1)}`
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${n}' height='40' preserveAspectRatio='none' viewBox='0 0 ${n} 40'><path d='${d}' stroke='rgba(255,255,255,0.5)' stroke-width='0.7'/></svg>`
+  const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+  wellenCache.set(name, url)
+  return url
+}
+
+function renderSkala() {
+  const feld = $('skala-feld')
+  feld.innerHTML = ''
+  if (!achse.kurve) return
+  const gesamt = achse.kurve.gesamtS
+  // Die Schrittweite hängt am MASSSTAB, nicht an der Filmdauer: Seit die
+  // Leiste zoomt, sagt die Gesamtlänge nichts mehr darüber, wie weit zwei
+  // Marken auseinanderliegen. Gewählt wird die feinste Stufe, die noch
+  // mindestens 90 px Abstand lässt — sonst standen die Beschriftungen bei
+  // starkem Zoom entweder ineinander oder 900 px weit auseinander.
+  const stufe = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600].find((s) => s * zoomPxProS >= 90) ?? 600
+  for (let s = 0; s <= gesamt; s += stufe) {
+    const d = document.createElement('div')
+    d.className = 'skala-marke num' + (s % (stufe * 2) === 0 ? ' voll' : '')
+    d.style.left = pos(s / gesamt)
+    d.append(formatiereFilmzeit(s), document.createElement('i'))
+    feld.appendChild(d)
+  }
+}
+
+/** Der Kopf plus die Statuszeile — hier zahlt sich die Filmposition aus. */
+function renderKopf(gesprungen) {
+  const strich = $('kopfstrich')
+  const anteil = kopfAnteil()
+  strich.style.left = `calc(var(--spur-x) + ${anteil.toFixed(5)} * var(--zeit-breite))`
+
+  const imHalt = modus === 'neu' ? haltUnterKopf() : null
+  if (gesprungen) {
+    strich.classList.remove('gesprungen')
+    void strich.offsetWidth
+    strich.classList.add('gesprungen')
+  }
+
+  const tOffset = anteilZuOffset(achse, anteil)
+  $('uhr-film').textContent = formatiereFilmzeit(kopfFilm())
+  $('uhr-neben').textContent = `/ ~${formatiereFilmzeit(achse.kurve ? achse.kurve.gesamtS : 0)}`
+
+  const marke = $('status-marke'), text = $('status-text'), detail = $('status-detail')
+  marke.classList.remove('im-halt', 'in-pause')
+  const pause = pauseUnterKopf()
+  if (imHalt) {
+    const a = AUFNAHMEN[imHalt.aufnahme]
+    marke.classList.add('im-halt')
+    text.textContent = 'Halt'
+    const lauf = `${imHalt.imBildS.toFixed(1).replace('.', ',')} s von ${AUFNAHMEN[imHalt.aufnahme].s.toFixed(1).replace('.', ',')} s`
+    detail.textContent = imHalt.vonWieVielen > 1
+      ? `${a.titel} · Aufnahme ${imHalt.nr} von ${imHalt.vonWieVielen} · ${lauf} — die Uhr steht bei ${uhrzeit(a.offsetS)}`
+      : `${a.titel} · ${lauf} — die Uhr steht bei ${uhrzeit(a.offsetS)}`
+  } else if (pause) {
+    marke.classList.add('in-pause')
+    text.textContent = 'Pause'
+    detail.textContent = `${Math.round((pause.pts[pause.pts.length - 1][3] - pause.pts[0][3]) / 60)} Min Aufnahme, im Film gerafft — ${uhrzeit(pause.pts[0][3])} bis ${uhrzeit(pause.pts[pause.pts.length - 1][3])} Uhr`
+  } else {
+    text.textContent = 'Fahrt'
+    detail.textContent = `${MODUS_NAMEN[modusBei(tOffset)]} · km ${kmBei(tOffset).toFixed(1).replace('.', ',')} · ${uhrzeit(tOffset)} Uhr`
+  }
+
+  setzeKartenLaeufer()
+}
+
+// — Karte —
+//
+// Die Arbeitsteilung, die den ganzen Umbau trägt:
+//
+//   KARTE zeigt ORTE  — ein Punkt je Halt, egal wie viele Aufnahmen. Drei
+//     Bilder vom selben Ort sind EIN Ort; als drei Kreise übereinander sähe
+//     man ohnehin nur einen. Hier verschiebt man, WO etwas gezeigt wird.
+//   LEISTE zeigt ZEIT — ein Klip je Aufnahme, als Kette. Hier bestimmt man,
+//     WIE LANGE und in welcher Reihenfolge.
+//
+// Beide zeigen dieselben Halte und dieselbe Auswahl; keine Fläche kann, was
+// die andere kann. Das ist der Grund, warum die Kette die Karte nicht
+// überflüssig macht — und umgekehrt.
+
+/**
+ * Route → SVG-Fläche. Die viewBox folgt dem Seitenverhältnis des Containers
+ * (`kartenMass`), sonst nutzte eine quadratische Box in einem breiten Feld nur
+ * ein Quadrat davon und die halbe Karte bliebe leer. Die Geo-Proportion bleibt
+ * gewahrt: EIN Maßstab für beide Achsen, der Rest ist Zentrierung.
+ */
+let kartenMass = { w: 100, h: 100 }
+
+function kartenProjektion() {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const p of track) {
+    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0])
+    minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1])
+  }
+  const kx = Math.cos((LAT * Math.PI) / 180)
+  const bx = (maxX - minX) * kx || 1
+  const by = maxY - minY || 1
+  const { w, h } = kartenMass
+  const rand = 15
+  const sk = Math.min((w - 2 * rand) / bx, (h - 2 * rand) / by)
+  const ox = (w - bx * sk) / 2
+  const oy = (h - by * sk) / 2
+  // y gespiegelt: auf der Karte ist Norden oben, in SVG wächst y nach unten.
+  return (lng, lat) => [ox + (lng - minX) * kx * sk, h - oy - (lat - minY) * sk]
+}
+
+function renderKarte() {
+  const svg = $('karte')
+  if (!svg || !achse.kurve) return
+  // Die Messung nur außerhalb eines Zugs — sie erzwingt ein Layout, und die
+  // Fenstergröße ändert sich beim Ziehen ohnehin nicht.
+  if (!zugLaeuft || !svg.getAttribute('viewBox')) {
+    const r = svg.getBoundingClientRect()
+    kartenMass = { w: Math.max(100, Math.round((r.width / Math.max(1, r.height)) * 100)), h: 100 }
+    svg.setAttribute('viewBox', `0 0 ${kartenMass.w} ${kartenMass.h}`)
+  }
+  const p = kartenProjektion()
+  const ns = 'http://www.w3.org/2000/svg'
+  // Route und Läufer neu (keine Bilder), Punkte werden fortgeschrieben.
+  svg.querySelectorAll('.k-route, #k-laeufer').forEach((e) => e.remove())
+  const gesehen = new Set()
+  const el = (name, attrs, klasse) => {
+    const e = document.createElementNS(ns, name)
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v))
+    if (klasse) e.setAttribute('class', klasse)
+    return e
+  }
+
+  // Die Route je Abschnitt in seiner Modus-Farbe — dieselbe Sprache wie die
+  // Bahn „Fortbewegung" darunter. Als erstes Kind, damit sie unter den
+  // fortgeschriebenen Punkten liegt (SVG kennt kein z-index).
+  for (const durchgang of ['farbe', 'unten']) {
+    for (const a of [...abschnitte].reverse()) {
+      const linie = el('path', { d: glatterPfad(a.pts.map((q) => p(q[0], q[1]))) },
+        `k-route ${durchgang === 'unten' ? 'unten' : ''}`)
+      if (durchgang === 'farbe') linie.style.stroke = MODUS_LINIE[a.mode]
+      svg.prepend(linie)
+    }
+  }
+
+  for (const h of achse.halte) {
+    const erste = AUFNAHMEN[h.indizes[0]]
+    const punkt = punktZuOffset(track, h.offsetS)
+    if (!punkt) continue
+    const [x, y] = p(punkt[0], punkt[1])
+    // Geschlüsselt an der Zusammensetzung des Halts — wie `zeichneMarker` im
+    // echten Editor: derselbe Punkt bleibt derselbe Knoten, sein Bild bleibt
+    // dekodiert und er springt beim Ziehen nicht.
+    const schluessel = h.indizes.map((i) => AUFNAHMEN[i].titel).join('|')
+    gesehen.add(schluessel)
+    let g = svg.querySelector(`.k-punkt[data-key="${CSS.escape(schluessel)}"]`)
+    if (g) {
+      g.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)})`)
+      g.dataset.halt = String(h.offsetS)
+      g.classList.toggle('an', fokusAufnahme !== null && h.indizes.includes(fokusAufnahme))
+      continue
+    }
+    g = el('g', { transform: `translate(${x.toFixed(2)} ${y.toFixed(2)})` }, 'k-punkt')
+    g.dataset.key = schluessel
+    g.dataset.halt = String(h.offsetS)
+    const fokusDrin = fokusAufnahme !== null && h.indizes.includes(fokusAufnahme)
+    if (fokusDrin) g.classList.add('an')
+    g.appendChild(el('circle', { r: 8.5, cx: 0, cy: 0 }, 'halo'))
+    // Angedeutete Karten hinter dem Kern — wie im echten Editor.
+    for (const nr of [2, 1]) {
+      if (h.indizes.length > nr) {
+        g.appendChild(el('rect', { x: -4 + nr, y: -4.6 - nr * 0.8, width: 8, height: 8, rx: 1.6,
+          fill: 'rgba(255,255,255,0.16)', stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 0.5 }))
+      }
+    }
+    // Die Miniatur im Kern — wie im echten Editor. In SVG braucht das einen
+    // clipPath je Punkt (eine Kreis-Füllung kann kein Bild beschneiden).
+    const clipId = `k-clip-${h.offsetS}`
+    const clip = el('clipPath', { id: clipId })
+    clip.appendChild(el('circle', { r: 5, cx: 0, cy: 0 }))
+    g.appendChild(clip)
+    g.appendChild(el('image', {
+      href: erste.url, x: -5, y: -5, width: 10, height: 10,
+      preserveAspectRatio: 'xMidYMid slice', 'clip-path': `url(#${clipId})`,
+    }))
+    g.appendChild(el('circle', { r: 5, cx: 0, cy: 0, fill: 'none' }, 'kern'))
+    if (h.indizes.length > 1) {
+      g.appendChild(el('circle', { r: 3.4, cx: 5, cy: -5 }, 'plakette'))
+      const t = el('text', { x: 5, y: -3.6 })
+      t.textContent = String(h.indizes.length)
+      t.setAttribute('font-size', '4.4')
+      g.appendChild(t)
+    }
+    svg.appendChild(g)
+  }
+  svg.querySelectorAll('.k-punkt').forEach((el) => {
+    if (!gesehen.has(el.dataset.key)) el.remove()
+  })
+
+  // Der Läufer zeigt, wo der Abspielkopf steht — die Klammer zwischen beiden
+  // Flächen. Er wird beim Scrubben nur FORTGESCHRIEBEN (setzeKartenLaeufer),
+  // nicht neu gebaut: ein Neubau pro Frame ließe die ganze Karte flackern.
+  const lg = el('g', { id: 'k-laeufer' }, 'k-laeufer')
+  lg.appendChild(el('circle', { r: 3.2, cx: 0, cy: 0 }))
+  svg.appendChild(lg)
+  setzeKartenLaeufer()
+}
+
+function setzeKartenLaeufer() {
+  const g = document.getElementById('k-laeufer')
+  if (!g || !achse.kurve) return
+  const lp = punktZuOffset(track, anteilZuOffset(achse, kopfAnteil()))
+  if (!lp) return
+  const [lx, ly] = kartenProjektion()(lp[0], lp[1])
+  g.setAttribute('transform', `translate(${lx.toFixed(2)} ${ly.toFixed(2)})`)
+}
+
+const MODUS_LINIE = { walk: '#3f8f6a', tram: '#4a7fbf', ferry: '#3f7f9f', bike: '#7f8f3f', moped: '#9f7f3f', jeep: '#9f5f3f' }
+
+/**
+ * Punktfolge → weiche Linie: quadratische Béziers DURCH die Mittelpunkte, die
+ * Stützpunkte werden zu Kontrollpunkten. Als Polygonzug gezeichnet knickt die
+ * Route sichtbar — die Trackpunkte liegen alle 10 s, in der Tram also 75 m
+ * auseinander. Der Player glättet aus demselben Grund mit Catmull-Rom
+ * (buildRoute in src/geo.js); hier genügt die Darstellung.
+ */
+function glatterPfad(pkt) {
+  if (pkt.length < 3) return pkt.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(2)} ${q[1].toFixed(2)}`).join('')
+  const mitte = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  let d = `M${pkt[0][0].toFixed(2)} ${pkt[0][1].toFixed(2)}`
+  for (let i = 1; i < pkt.length - 1; i++) {
+    const m = mitte(pkt[i], pkt[i + 1])
+    d += `Q${pkt[i][0].toFixed(2)} ${pkt[i][1].toFixed(2)} ${m[0].toFixed(2)} ${m[1].toFixed(2)}`
+  }
+  const l = pkt[pkt.length - 1]
+  return `${d}L${l[0].toFixed(2)} ${l[1].toFixed(2)}`
+}
+
+/**
+ * Einen Halt auf der Karte ziehen. Es wandert der GANZE Halt — ein einzelnes
+ * Bild löst man in der Zeitleiste heraus, nicht hier: auf der Karte lägen die
+ * Geschwister deckungsgleich untereinander.
+ *
+ * Der echte Editor hält beim Ziehen absichtlich Abstand zu fremden Halten
+ * („Karte hat kein Snap-Feedback → ungewolltes Cluster vermeiden"). Hier gibt
+ * es das Feedback: der fremde Punkt leuchtet auf, und beim Loslassen liegen
+ * beide zusammen. Ein Schutz, der nur fehlendes Feedback ersetzt, wird damit
+ * überflüssig.
+ */
+$('karte').addEventListener('pointerdown', (e) => {
+  const g = e.target.closest('.k-punkt')
+  if (!g || !achse.kurve) return
+  e.preventDefault()
+  halteAn()
+  const svg = $('karte')
+  const zeit = Number(g.dataset.halt)
+  const mitglieder = AUFNAHMEN.filter((a) => a.offsetS === zeit)
+  g.classList.add('zieht')
+
+  // Während des Zugs wird NICHTS neu gebaut: es bewegt sich der eine Punkt.
+  // Ein renderAlles() pro pointermove warf 180 DOM-Knoten weg und erzeugte sie
+  // neu — samt des Elements, das gerade am Finger hing.
+  let letzterIndex = null
+  let zielZeit = zeit
+  let zielHalt = null
+
+  const zieh = (ev) => {
+    const r = svg.getBoundingClientRect()
+    // Bildschirm → viewBox. Die Box folgt dem Container-Verhältnis, „meet"
+    // lässt deshalb höchstens einen Rundungsrand — der wird mitgerechnet.
+    const sk = Math.min(r.width / kartenMass.w, r.height / kartenMass.h)
+    const vx = (ev.clientX - r.left - (r.width - sk * kartenMass.w) / 2) / sk
+    const vy = (ev.clientY - r.top - (r.height - sk * kartenMass.h) / 2) / sk
+    const treffer = routeBeiKarte(vx, vy, letzterIndex)
+    if (!treffer) return
+    letzterIndex = treffer.index
+
+    // Zusammenlegen nur in echter NÄHE — gemessen in Kartenpixeln, nicht in
+    // Sekunden: 45 s sind zu Fuß 55 m und in der Tram 340 m.
+    zielHalt = null
+    let bestD = 11 / sk
+    for (const h of achse.halte) {
+      if (h.offsetS === zeit) continue
+      const hp = punktZuOffset(track, h.offsetS)
+      if (!hp) continue
+      const [hx, hy] = kartenProjektion()(hp[0], hp[1])
+      const d = Math.hypot(hx - treffer.x, hy - treffer.y)
+      if (d < bestD) { bestD = d; zielHalt = h }
+    }
+    zielZeit = zielHalt ? zielHalt.offsetS : treffer.zeit
+
+    // Live übernehmen: die Zeitleiste rechnet beim Ziehen mit — der Klip
+    // wandert, die Achse baut sich um. Der Punkt selbst wird direkt gesetzt,
+    // damit er stufenlos am Zeiger bleibt (das Render würde ihn auf den
+    // Anker-Trackpunkt runden).
+    for (const m of mitglieder) m.offsetS = zielZeit
+    AUFNAHMEN.sort((x, y) => x.offsetS - y.offsetS)
+    renderImZug()
+    const [px, py] = zielHalt
+      ? kartenProjektion()(...punktZuOffset(track, zielHalt.offsetS).slice(0, 2))
+      : [treffer.x, treffer.y]
+    g.setAttribute('transform', `translate(${px.toFixed(2)} ${py.toFixed(2)})`)
+
+    svg.querySelectorAll('.k-punkt.ziel').forEach((el) => el.classList.remove('ziel'))
+    if (zielHalt) {
+      const ziel = svg.querySelector(`.k-punkt[data-halt="${zielHalt.offsetS}"]`)
+      if (ziel) ziel.classList.add('ziel')
+      zeigeZugEtikett(ev, 'ort', `Mit „${AUFNAHMEN[zielHalt.indizes[0]].titel}" zu einem Halt zusammenlegen`)
+    } else {
+      zeigeZugEtikett(ev, 'reihe', `km ${kmBei(zielZeit).toFixed(1).replace('.', ',')} · ${uhrzeit(zielZeit)} Uhr`)
+    }
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    beendeZug()
+    document.querySelectorAll('.zug-etikett').forEach((el) => el.remove())
+    g.classList.remove('zieht')
+    renderAlles()
+    renderKopf()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+})
+
+/**
+ * Das „+" der Szenen-Bahn legt einen MOMENT an der Marke an — Fotos kommen
+ * aus dem Upload oder der Ablage, die legt man nicht per Knopf an. Damit ist
+ * beantwortet, wie Momente ohne eigene Bahn hinzukommen.
+ */
+$('bahnen').addEventListener('click', (e) => {
+  const plus = e.target.closest('[data-plus]')
+  if (!plus) return
+  e.stopPropagation()
+  if (plus.dataset.plus !== 'fotos') return // die anderen Bahnen: nur angedeutet
+  const zeit = anteilZuOffset(achse, kopfAnteil())
+  const nr = AUFNAHMEN.filter(istMoment).length + 1
+  const neu = { offsetS: zeit, titel: `Moment ${nr}`, typ: 'moment', dauerS: 5, s: 5 }
+  AUFNAHMEN.push(neu)
+  AUFNAHMEN.sort((a, b) => a.offsetS - b.offsetS)
+  fokusAufnahme = AUFNAHMEN.indexOf(neu)
+  fokusKlip = null
+  renderAlles(); renderKopf()
+})
+
+/** Klick auf einen Kartenpunkt wählt seine erste Aufnahme — wie ein Klip-Klick. */
+$('karte').addEventListener('click', (e) => {
+  const g = e.target.closest('.k-punkt')
+  if (!g) return
+  const h = achse.halte.find((x) => x.offsetS === Number(g.dataset.halt))
+  if (!h) return
+  fokusAufnahme = h.indizes[0]
+  kopfFilmS = h.filmVon + 0.2
+  kopfOffsetS = h.offsetS
+  renderAlles()
+  renderKopf()
+})
+
+function renderAlles() {
+  baueNeu()
+  // Erst die Breite, dann zeichnen: sie hängt an der Filmdauer, und die kann
+  // sich beim letzten Schritt geändert haben (Fortbewegung, Standzeit).
+  aktualisiereBreite()
+  renderSkala()
+  renderBahnen()
+  renderKarte()
+  if (!zugLaeuft) renderInspektor()
+}
+
+/**
+ * Der Inspector zeigt, was ausgewählt ist — und ist der EINZIGE Ort für
+ * Einstellungen. Die Zeitleiste bleibt damit eine Fläche zum Anordnen.
+ */
+function renderInspektor() {
+  const el = $('inspector')
+  if (!el) return
+  el.innerHTML = ''
+  const kopf = (bild, titel, unter) => {
+    const k = document.createElement('div')
+    k.className = 'insp-kopf'
+    if (bild) {
+      const b = document.createElement('div')
+      b.className = 'insp-bild'
+      if (bild === 'moment') b.style.background = 'repeating-linear-gradient(-52deg, rgba(255,111,82,0.35) 0 7px, rgba(255,111,82,0.15) 7px 15px)'
+      else b.style.backgroundImage = bild
+      k.appendChild(b)
+    }
+    const t = document.createElement('div')
+    const h = document.createElement('h3')
+    h.append(titel)
+    const s = document.createElement('small')
+    s.textContent = unter
+    h.appendChild(s)
+    t.appendChild(h)
+    k.appendChild(t)
+    return k
+  }
+  const feld = (label, inhalt) => {
+    const f = document.createElement('div')
+    f.className = 'insp-feld'
+    const l = document.createElement('label')
+    l.textContent = label
+    f.append(l, inhalt)
+    return f
+  }
+
+  // — Ton-Klip —
+  if (fokusKlip !== null && MUSIK[fokusKlip]) {
+    const m = MUSIK[fokusKlip]
+    const dauer = m.bisF - m.vonF
+    el.appendChild(kopf(null, m.name, m.art === 'sfx' ? 'Effekt' : 'Musik'))
+    const laenge = document.createElement('div')
+    laenge.className = 'insp-wert'
+    laenge.textContent = `${formatiereFilmzeit(dauer)} im Film · Datei ${formatiereFilmzeit(m.dateiS)}`
+    el.appendChild(feld('Länge', laenge))
+
+    const schalter = document.createElement('label')
+    schalter.className = 'insp-schalter'
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.checked = m.loop
+    box.addEventListener('change', () => {
+      m.loop = box.checked
+      // Beim Ausschalten das Material begrenzen — sonst behauptete der Klip
+      // Länge, die es nicht gibt.
+      if (!m.loop) m.bisF = Math.min(m.bisF, m.vonF + (m.dateiS - m.versatzS))
+      setzeAudioAnker(m)
+      renderAlles(); renderKopf()
+    })
+    const txt = document.createElement('div')
+    const b = document.createElement('b')
+    b.textContent = 'Loop'
+    const s = document.createElement('span')
+    s.textContent = m.loop
+      ? 'Der Klip darf länger sein als die Datei — das Stück wiederholt sich.'
+      : `Höchstens ${formatiereFilmzeit(m.dateiS - m.versatzS)} ab dieser Stelle.`
+    txt.append(b, s)
+    schalter.append(box, txt)
+    el.appendChild(schalter)
+    return
+  }
+
+  // — Szene (Foto, Video, Moment) —
+  if (fokusAufnahme !== null && AUFNAHMEN[fokusAufnahme]) {
+    const a = AUFNAHMEN[fokusAufnahme]
+    const art = istVideo(a) ? 'Video' : istMoment(a) ? 'Moment' : 'Foto'
+    el.appendChild(kopf(istMoment(a) ? 'moment' : fotoBild(a), a.titel, `${art} · ${uhrzeit(a.offsetS)} Uhr`))
+
+    if (istVideo(a)) {
+      const fest = document.createElement('div')
+      fest.className = 'insp-fest'
+      fest.textContent = `Das Video läuft ${formatiereFilmzeit(a.s)} — bis zum Ende. Seine Länge gehört der Datei, nicht dem Schnitt.`
+      el.appendChild(fest)
+      return
+    }
+    // Betonung: hält der Film an, oder läuft er weiter? EINE Einstellung, und
+    // ihre Folge sieht man sofort — der Film wird kürzer, der Klip schmaler.
+    // Er bleibt dabei in seiner Spur.
+    if (!istMoment(a)) {
+      const wahl = document.createElement('div')
+      wahl.className = 'segmente klein'
+      for (const [wert, name, hilfe] of [
+        ['karte', 'Halt', 'Der Film hält an und zeigt das Bild.'],
+        ['beilaeufig', 'Nebenher', 'Die Fahrt läuft weiter, das Bild wird kurz eingeblendet.'],
+      ]) {
+        const knopf = document.createElement('button')
+        knopf.type = 'button'
+        knopf.textContent = name
+        knopf.title = hilfe
+        knopf.setAttribute('aria-pressed', String((a.betonung ?? 'karte') === wert))
+        knopf.addEventListener('click', () => {
+          a.betonung = wert
+          renderAlles(); renderKopf()
+        })
+        wahl.appendChild(knopf)
+      }
+      el.appendChild(feld('Betonung', wahl))
+      if (istBeilaeufig(a)) {
+        const fest = document.createElement('div')
+        fest.className = 'insp-fest'
+        fest.textContent = `Läuft ${EINBLENDUNG_S.toFixed(1).replace('.', ',')} s nebenher, ohne den Film anzuhalten — kostet also keine Standzeit.`
+        el.appendChild(fest)
+        return
+      }
+    }
+    const regler = document.createElement('input')
+    regler.type = 'range'
+    regler.min = '2'; regler.max = '20'; regler.step = '0.5'
+    regler.value = String(a.s)
+    const wert = document.createElement('div')
+    wert.className = 'insp-wert'
+    wert.textContent = `${a.s.toFixed(1).replace('.', ',')} s`
+    regler.addEventListener('input', () => {
+      a.s = Number(regler.value)
+      wert.textContent = `${a.s.toFixed(1).replace('.', ',')} s`
+      baueNeu(); renderSkala(); renderBahnen(); renderKarte(); renderKopf()
+    })
+    const huelle = document.createElement('div')
+    huelle.append(wert, regler)
+    el.appendChild(feld(istMoment(a) ? 'Dauer des Moments' : 'Standzeit', huelle))
+    return
+  }
+
+  const leer = document.createElement('div')
+  leer.className = 'insp-leer'
+  leer.textContent = 'Nichts ausgewählt. Klick auf eine Szene oder einen Ton-Klip zeigt hier seine Einstellungen.'
+  el.appendChild(leer)
+}
+
+/* ————————————————————————————————————————————————————————————————
+   6) Interaktion
+   ———————————————————————————————————————————————————————————————— */
+
+function spurAnteil(clientX) {
+  const r = $('skala-feld').getBoundingClientRect()
+  return r.width > 0 ? Math.max(0, Math.min(1, (clientX - r.left) / r.width)) : 0
+}
+
+/**
+ * Der Kern des Unterschieds — beide Wege stehen bewusst nebeneinander:
+ *
+ *  heute: Anteil → Aufnahmezeit (im Halt konstant) → gespeichert. Beim
+ *         Zeichnen zurück auf den Anteil: der ganze Halt fällt auf seine
+ *         linke Kante. Das ist der Sprung.
+ *  neu:   Anteil → Filmsekunde → gespeichert. Verlustfrei.
+ */
+function setzeKopfAusAnteil(anteil) {
+  if (modus === 'neu') {
+    kopfFilmS = Math.max(0, Math.min(achse.kurve ? achse.kurve.gesamtS : 0, anteil * (achse.kurve ? achse.kurve.gesamtS : 0)))
+    renderKopf()
+    return
+  }
+  const vorher = kopfOffsetS
+  kopfOffsetS = anteilZuOffset(achse, anteil)
+  const sprung = Math.abs(filmZuOffset(achse, kopfOffsetS) - filmZuOffset(achse, vorher)) > 3
+  renderKopf(sprung)
+  if (sprung) zeigeWarnung()
+}
+
+let warnungTimer = null
+function zeigeWarnung() {
+  const w = $('status-warnung')
+  w.classList.add('an')
+  clearTimeout(warnungTimer)
+  warnungTimer = setTimeout(() => w.classList.remove('an'), 1400)
+}
+
+/** Scrubben über Maßband und Kopfgriff. */
+function scrubVerdrahten(el) {
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    halteAn()
+    setzeKopfAusAnteil(spurAnteil(e.clientX))
+    const zieh = (ev) => setzeKopfAusAnteil(spurAnteil(ev.clientX))
+    const los = () => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
+  })
+}
+scrubVerdrahten($('skala-feld'))
+scrubVerdrahten($('kopf-griff'))
+
+/**
+ * Die Halt-Kante ziehen = Standzeit. Während des Zugs wird die Achse bei jedem
+ * Frame neu gebaut — deshalb bleibt der Kopf auf seiner FILMSEKUNDE stehen und
+ * nicht auf seinem Anteil: sonst wanderte er unter der Hand weg, während man
+ * nur den Halt verlängert.
+ */
+$('bahnen').addEventListener('pointerdown', (e) => {
+  // VOR dem Klip-Zug: die Kante liegt im Klip, `closest('[data-aufnahme]')`
+  // fände von dort aus den Klip und verschöbe ihn statt zu trimmen.
+  const vKante = e.target.closest('[data-v-kante]')
+  if (vKante) return ziehVideoKante(e, vKante)
+
+  const griff = e.target.closest('[data-griff]')
+  if (griff) {
+    e.preventDefault()
+    e.stopPropagation()
+    halteAn()
+    // Auch hier: während des Zugs wächst nur DIESER Klip. Die Achse dehnt sich
+    // dadurch zwar, aber ein Neuaufbau je Frame kostete das gezogene Element —
+    // und der ganze Zug soll ein Schritt bleiben.
+    const index = Number(griff.dataset.griff)
+    const klip = griff.closest('.halt-klip')
+    klip.classList.add('zieht')
+    const startX = e.clientX
+    const startBreite = klip.getBoundingClientRect().width
+    const startDauer = AUFNAHMEN[index].s
+    const pxProS = $('skala-feld').getBoundingClientRect().width / (achse.kurve ? achse.kurve.gesamtS : 1)
+    const blase = klip.querySelector('.dauer-blase')
+    let dauer = startDauer
+    // Live: die Standzeit wird sofort übernommen, die ganze Leiste rechnet
+    // mit — man SIEHT den Film wachsen und alles Spätere nachrücken. Das
+    // gezogene Element überlebt, weil die Klips fortgeschrieben werden.
+    const zieh = (ev) => {
+      const d = (ev.clientX - startX) / pxProS
+      dauer = Math.max(2, Math.min(20, Math.round((startDauer + d) * 10) / 10))
+      AUFNAHMEN[index].s = dauer
+      if (blase) blase.textContent = `${dauer.toFixed(1).replace('.', ',')} s`
+      renderImZug()
+    }
+    const los = () => {
+      window.removeEventListener('pointermove', zieh)
+      window.removeEventListener('pointerup', los)
+      beendeZug()
+      AUFNAHMEN[index].s = dauer
+      renderAlles()
+      renderKopf()
+    }
+    window.addEventListener('pointermove', zieh)
+    window.addEventListener('pointerup', los)
+    return
+  }
+
+  const kartenPunkt = e.target.closest('.k-punkt')
+  if (kartenPunkt) return // die Karte hat einen eigenen Handler
+
+  const aKante = e.target.closest('[data-a-kante]')
+  if (aKante) return ziehAudioKante(e, aKante)
+
+  const audioKlip = e.target.closest('[data-klip]')
+  if (audioKlip) return ziehAudioKlip(e, audioKlip)
+
+  const kante = e.target.closest('[data-grenze]')
+  if (kante) return ziehGrenze(e, kante)
+
+  const klip = e.target.closest('[data-aufnahme]')
+  if (klip) return ziehKlip(e, klip)
+})
+
+/**
+ * Einen Klip ziehen. EINE Geste, zwei Bedeutungen — die Schwelle ist der
+ * eigene Halt:
+ *
+ *   INNERHALB der Kette → Reihenfolge (`reihe` im Overlay). Reine Anordnung,
+ *     der Ort bleibt. Das ist der häufige Fall („die drei Skyline-Bilder
+ *     andersherum") und muss risikolos sein.
+ *   DARÜBER HINAUS → Ort auf der Route. Das ist ein echter Eingriff: die
+ *     Achse ist film-proportional, 30 px sind schnell mehrere hundert Meter.
+ *     Deshalb sagt das Etikett am Zeiger jederzeit, was gerade passiert.
+ *
+ * Landet der Klip in einem ANDEREN Halt, schließt er sich diesem an — so
+ * entsteht ein gemeinsamer Halt, ohne dass man von „Gruppieren" wissen muss.
+ */
+function ziehKlip(e, klipEl) {
+  e.preventDefault()
+  halteAn()
+  // Objektreferenz statt Index: beim Umsortieren wandern die Indizes.
+  const aufnahme = AUFNAHMEN[Number(klipEl.dataset.aufnahme)]
+  const startX = e.clientX
+  const startCursor = spurAnteil(e.clientX)
+  // Rückrechnung px → Zeit über eine Achse OHNE Halt-Sprünge (s. ziehAchse).
+  const zieh0 = ziehAchse(aufnahme.titel)
+  const startAnteilZieh = offsetZuAnteil(zieh0, aufnahme.offsetS)
+  const feldBreite = () => $('skala-feld').getBoundingClientRect().width
+  // Die Kette, in der der Zug begann — der Reihenfolge-Modus hängt daran.
+  const startKette = aufnahme.offsetS
+  let bewegt = false
+  let ziel = { art: null, zeit: aufnahme.offsetS, platz: null }
+
+  const zieh = (ev) => {
+    if (!bewegt && Math.abs(ev.clientX - startX) < 4) return
+    if (!bewegt) { bewegt = true; klipEl.classList.add('zieht') }
+    if (!achse.kurve) return
+    const g = achse.kurve.gesamtS
+    const px = feldBreite()
+    const anteil = spurAnteil(ev.clientX)
+    // Der Klip folgt dem Zeiger PIXELGENAU — nicht der zurückgerechneten Zeit.
+    klipEl.style.transform = `translateX(${(ev.clientX - startX).toFixed(1)}px)`
+
+    // Der Reihenfolge-Fall gilt nur für die Kette, in der der Zug BEGANN —
+    // sonst kippte der Modus mitten im Ziehen, sobald der Klip an einem
+    // fremden Halt andockt, und die Geste wechselte unter der Hand.
+    const eigener = startKette && achse.halte.find((h) => h.offsetS === startKette)
+    const cursorFilm = anteil * g
+
+    if (eigener && eigener.indizes.length > 1 && cursorFilm >= eigener.filmVon && cursorFilm <= eigener.filmBis) {
+      // — Reihenfolge — der Klip folgt dem Finger, eine Linie zeigt den Platz.
+      // Live umzusortieren würde oszillieren: nach dem Tausch läge der Cursor
+      // wieder jenseits der Schwelle und der Klip sprünge zurück.
+      klipEl.style.transform = `translateX(${(ev.clientX - startX).toFixed(1)}px)`
+      let start = eigener.filmVon
+      let platz = 0
+      for (let n = 0; n < eigener.indizes.length; n++) {
+        const dauer = AUFNAHMEN[eigener.indizes[n]].s + HALT_AUSBLEND_S
+        if (cursorFilm < start + dauer / 2) break
+        platz = n + 1
+        start += dauer
+      }
+      ziel = { art: 'reihe', zeit: aufnahme.offsetS, platz }
+      zeigeEinfuegemarke(start / g)
+      zeigeZugEtikett(ev, 'reihe', `Reihenfolge · Platz ${platz + 1} von ${eigener.indizes.length}`)
+      return
+    }
+
+    // — Ort — Zeit über die Zieh-Achse, Magnet nur nahe einer KANTE (10 px).
+    // Über die volle Haltbreite gemessen klebte der Klip am Video-Halt 202 px.
+    // Über einem FREMDEN Halt dockt der Klip an — über dessen volle Breite.
+    //
+    // Ich hatte das als Fehler gelesen („202 px Klebezone") und den Magneten
+    // auf die Kanten verengt. Die Messung zeigte danach dieselben vier Frames
+    // Stillstand: Der Grund ist nicht der Magnet, sondern die Achse selbst.
+    // Ein fremder Halt belegt Pixel, denen KEINE Fahrzeit entspricht — dort
+    // gibt es keine Position „zwischen". Andocken ist der einzige sinnvolle
+    // Zustand, und mit dem Etikett am Zeiger ist er auch erklärt.
+    let magnet = null
+    for (const h of achse.halte) {
+      if (AUFNAHMEN[h.indizes[0]].offsetS === aufnahme.offsetS) continue
+      const cf = anteil * g
+      if (cf > h.filmVon && cf < h.filmBis) { magnet = h; break }
+    }
+    const frei = anteilZuOffset(zieh0, startAnteilZieh + (anteil - startCursor))
+    const zeit = magnet ? AUFNAHMEN[magnet.indizes[0]].offsetS : Math.max(skala.vonS, Math.min(skala.bisS, frei))
+    ziel = { art: 'ort', zeit, platz: null }
+    verstecke('.zl-einfuege')
+    // Live: der Ort wird sofort übernommen, die Leiste rechnet mit. Kein
+    // transform mehr — die Position kommt jetzt aus dem Render, und weil die
+    // Rückrechnung über die sprungfreie Zieh-Achse läuft, ist sie stetig.
+    klipEl.style.transform = ''
+    aufnahme.offsetS = zeit
+    AUFNAHMEN.sort((x, y) => x.offsetS - y.offsetS) // Ketten zusammenhalten (stabil)
+    renderImZug()
+    zeigeZugEtikett(ev, 'ort', magnet
+      ? `An den Halt „${AUFNAHMEN[magnet.indizes[0]].titel}" anschließen`
+      : `Ort · km ${kmBei(zeit).toFixed(1).replace('.', ',')} · ${uhrzeit(zeit)} Uhr`)
+  }
+
+  const los = (ev) => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    beendeZug()
+    document.querySelectorAll('.zug-etikett').forEach((el) => el.remove())
+    verstecke('.zl-einfuege')
+    klipEl.style.transform = ''
+    klipEl.classList.remove('zieht')
+    if (!bewegt) {
+      // Kein Zug = Klick: auswählen und den Kopf an die getroffene Stelle stellen.
+      fokusAufnahme = AUFNAHMEN.indexOf(aufnahme)
+      fokusKlip = null
+      const anteil = spurAnteil(ev.clientX)
+      kopfFilmS = anteil * (achse.kurve ? achse.kurve.gesamtS : 0)
+      kopfOffsetS = anteilZuOffset(achse, anteil)
+    } else if (ziel.art === 'reihe') {
+      // Der Ort ist live schon gesetzt; die Reihenfolge erst jetzt (s. o.).
+      setzeReihe(aufnahme, ziel.platz)
+    }
+    renderAlles()
+    renderKopf()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+/**
+ * Audio-Klip trimmen (FCPX-Verhalten).
+ *
+ * Linke Kante: Anfang UND Versatz wandern gemeinsam — der Inhalt bleibt an
+ * seinem Platz im Film, vorne fällt etwas weg. Rechte Kante: nur das Ende.
+ * Beides in ECHTZEIT-Sekunden gerechnet und über die sprungfreie Zieh-Achse
+ * zurückübersetzt, damit ein Foto-Halt dazwischen den Trim nicht verschluckt.
+ *
+ * Beide Kanten haben denselben Anschlag: das MATERIAL. Nach rechts reicht der
+ * Klip bis zum Dateiende, nach links bis zum Dateianfang — Trimmen legt frei,
+ * was da ist, und erfindet nichts. Stille entsteht durch eine Lücke ZWISCHEN
+ * Klips, nicht in einem.
+ * Ein Loop hebt nur den RECHTEN Anschlag auf: er wiederholt sich nach hinten.
+ * Nach vorne gibt es nichts zu wiederholen — der Dateianfang bleibt der
+ * Dateianfang, auch für ihn.
+ */
+function ziehAudioKante(e, griff) {
+  e.preventDefault()
+  e.stopPropagation()
+  halteAn()
+  const m = MUSIK[Number(griff.dataset.index)]
+  const seite = griff.dataset.aKante
+  const g = achse.kurve ? achse.kurve.gesamtS : 1
+  const startAnteil = spurAnteil(e.clientX)
+  const startVon = m.vonF, startBis = m.bisF, startVersatz = m.versatzS
+  fokusKlip = Number(griff.dataset.index)
+  fokusAufnahme = null
+  griff.classList.add('zieht')
+  // Erst ab 3 px wird geschnitten. Ohne das schnitt schon ein Klick um ein
+  // paar Zehntelsekunden — man wollte den Klip nur auswählen.
+  let schneidet = false
+
+  const zieh = (ev) => {
+    if (!schneidet && Math.abs(ev.clientX - e.clientX) < 3) return
+    schneidet = true
+    // Filmsekunden direkt aus dem Anteil — kein Halt kann das verschlucken,
+    // und der Klip darf mitten in einer Standzeit anfangen oder enden.
+    const d = (spurAnteil(ev.clientX) - startAnteil) * g
+    let amAnschlag = false
+    if (seite === 'von') {
+      // Nach links reicht der Klip nur so weit, wie vor dem Einstiegspunkt noch
+      // Material liegt (`versatzS`) — und zwar AUCH beim Loop. Der wiederholt
+      // sich nach hinten; vor dem Dateianfang gibt es nichts zu wiederholen.
+      // Vorher durfte ein Loop-Klip beliebig weit nach links, der Versatz lief
+      // dabei modulo in die Datei zurück: das Stück setzte dann mitten drin
+      // ein, obwohl man „mehr vom Anfang" gezogen hatte.
+      const anschlag = Math.max(0, startVon - startVersatz)
+      const neu = Math.max(anschlag, Math.min(startBis - 1, startVon + d))
+      amAnschlag = neu <= anschlag + 0.001 && d < 0
+      m.vonF = neu
+      // Versatz mitziehen: sonst rutschte das Stück im Film nach vorne, statt
+      // vorne beschnitten zu werden.
+      m.versatzS = Math.max(0, startVersatz + (neu - startVon))
+    } else {
+      let ende = Math.max(startVon + 1, Math.min(g, startBis + d))
+      // Ohne Loop ist bei der Dateilänge Schluss.
+      if (!m.loop) {
+        const anschlag = m.vonF + (m.dateiS - m.versatzS)
+        amAnschlag = ende >= anschlag - 0.001 && d > 0
+        ende = Math.min(ende, anschlag)
+      }
+      m.bisF = ende
+    }
+    // Anker sofort nachziehen: `baueNeu` löst ihn beim nächsten Zeichnen
+    // wieder auf, und ein alter Anker zöge den Klip unter dem Finger zurück.
+    setzeAudioAnker(m)
+    renderImZug()
+    // Am Anschlag steht da, WARUM sich nichts mehr bewegt. Ohne das Wort wirkt
+    // eine Kante, die stehen bleibt, wie ein hakender Griff.
+    zeigeZugEtikett(ev, 'reihe', amAnschlag
+      ? `${m.name} · kein Material mehr`
+      : `${m.name} · ${formatiereFilmzeit(m.bisF - m.vonF)} im Film`)
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    griff.classList.remove('zieht')
+    beendeZug()
+    verstecke('.zug-etikett')
+    renderAlles(); renderKopf()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+/**
+ * Ein Video trimmen — dieselbe Geste wie beim Ton-Klip.
+ *
+ * Der Unterschied zum Ton: Ein Video liegt in einer KETTE. Schneidet man vorne
+ * weg, rückt alles Folgende vor, statt dass eine Lücke bleibt — ein Ripple-
+ * Trim. Das ist keine Vereinfachung, sondern die Wahrheit der Halt-Kette: Sie
+ * hat keine Lücken, die Aufnahmen laufen nacheinander.
+ *
+ * Der Anschlag ist die Datei (`dateiS`), an beiden Kanten — ein Video kann
+ * nicht länger werden als seine Aufnahme, und ein Loop wäre hier Unsinn.
+ */
+function ziehVideoKante(e, griff) {
+  e.preventDefault()
+  e.stopPropagation()
+  halteAn()
+  const index = Number(griff.dataset.index)
+  const a = AUFNAHMEN[index]
+  const seite = griff.dataset.vKante
+  const klip = griff.closest('.halt-klip')
+  klip.classList.add('zieht')
+  griff.classList.add('zieht')
+  fokusAufnahme = index
+  fokusKlip = null
+  const startS = a.s, startVersatz = a.versatzS
+  let schneidet = false
+
+  const zieh = (ev) => {
+    if (!schneidet && Math.abs(ev.clientX - e.clientX) < 3) return
+    schneidet = true
+    // In Filmsekunden — bei festem Maßstab schlicht Pixel ÷ Maßstab.
+    const d = (ev.clientX - e.clientX) / zoomPxProS
+    if (seite === 'von') {
+      const neu = Math.max(0, Math.min(startVersatz + startS - 1, startVersatz + d))
+      a.versatzS = neu
+      a.s = startS - (neu - startVersatz)
+    } else {
+      a.s = Math.max(1, Math.min(a.dateiS - a.versatzS, startS + d))
+    }
+    const blase = klip.querySelector('.dauer-blase')
+    if (blase) blase.textContent = `${formatiereFilmzeit(a.s)} von ${formatiereFilmzeit(a.dateiS)}`
+    renderImZug()
+    const amAnschlag = seite === 'von' ? a.versatzS <= 0.001 && d < 0
+                                       : a.s >= a.dateiS - a.versatzS - 0.001 && d > 0
+    zeigeZugEtikett(ev, 'reihe', amAnschlag
+      ? `${a.titel} · kein Material mehr`
+      : `${a.titel} · ${formatiereFilmzeit(a.s)} von ${formatiereFilmzeit(a.dateiS)}`)
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    klip.classList.remove('zieht')
+    griff.classList.remove('zieht')
+    beendeZug()
+    verstecke('.zug-etikett')
+    renderAlles(); renderKopf()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+/** Ganzen Audio-Klip verschieben — Länge und Inhalt bleiben. */
+function ziehAudioKlip(e, el) {
+  e.preventDefault()
+  halteAn()
+  const m = MUSIK[Number(el.dataset.klip)]
+  const g = achse.kurve ? achse.kurve.gesamtS : 1
+  const startAnteil = spurAnteil(e.clientX)
+  const startVon = m.vonF
+  const laenge = m.bisF - m.vonF
+  let bewegt = false
+  fokusKlip = Number(el.dataset.klip)
+  fokusAufnahme = null
+
+  const zieh = (ev) => {
+    if (!bewegt && Math.abs(ev.clientX - e.clientX) < 4) return
+    bewegt = true
+    const neu = startVon + (spurAnteil(ev.clientX) - startAnteil) * g
+    m.vonF = Math.max(0, Math.min(g - laenge, neu))
+    m.bisF = m.vonF + laenge
+    setzeAudioAnker(m)
+    renderImZug()
+    zeigeZugEtikett(ev, 'reihe', `${m.name} · ab ${formatiereFilmzeit(m.vonF)}`)
+  }
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    beendeZug()
+    verstecke('.zug-etikett')
+    renderAlles(); renderKopf()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+const verstecke = (sel) => document.querySelectorAll(sel).forEach((el) => el.remove())
+
+/**
+ * Live-Aktualisierung während eines Zugs, auf einen Frame gedrosselt.
+ *
+ * `pointermove` feuert öfter als der Bildschirm zeichnet (bei 120-Hz-Zeigern
+ * doppelt so oft) — ohne Drosselung liefe der Aufbau zweimal für dasselbe
+ * Bild. Und `zugLaeuft` spart die zwei erzwungenen Layouts (Kürzungsmessung,
+ * Karten-viewBox), die pro Frame sonst mitliefen.
+ */
+let zugFrame = null
+function renderImZug() {
+  if (zugFrame !== null) return
+  zugLaeuft = true
+  zugFrame = requestAnimationFrame(() => {
+    zugFrame = null
+    renderAlles()
+    renderKopf()
+  })
+}
+function beendeZug() {
+  if (zugFrame !== null) cancelAnimationFrame(zugFrame)
+  zugFrame = null
+  zugLaeuft = false
+}
+
+/** Wohin fällt der Klip in der Kette? Eine Linie statt eines Neuaufbaus. */
+function zeigeEinfuegemarke(anteil) {
+  let el = document.querySelector('.zl-einfuege')
+  if (!el) {
+    el = document.createElement('div')
+    el.className = 'zl-einfuege'
+    $('spuren').appendChild(el)
+  }
+  el.style.left = `calc(var(--spur-x) + ${anteil.toFixed(5)} * var(--zeit-breite))`
+}
+
+/** Eine Aufnahme an Platz `ziel` ihrer eigenen Kette schieben. */
+function setzeReihe(aufnahme, ziel) {
+  const plaetze = []
+  AUFNAHMEN.forEach((x, i) => { if (x.offsetS === aufnahme.offsetS) plaetze.push(i) })
+  const kette = plaetze.map((i) => AUFNAHMEN[i])
+  const von = kette.indexOf(aufnahme)
+  const nach = ziel > von ? ziel - 1 : ziel
+  if (von === nach) return
+  kette.splice(von, 1)
+  kette.splice(Math.max(0, Math.min(kette.length, nach)), 0, aufnahme)
+  plaetze.forEach((p, k) => { AUFNAHMEN[p] = kette[k] })
+}
+
+/** Sagt am Zeiger, WAS der Zug gerade bedeutet — nicht erst beim Loslassen. */
+function zeigeZugEtikett(ev, art, text) {
+  let el = document.querySelector('.zug-etikett')
+  if (!el) {
+    el = document.createElement('div')
+    el.className = 'zug-etikett'
+    document.body.appendChild(el)
+  }
+  el.dataset.art = art
+  el.textContent = text
+  el.style.left = `${ev.clientX}px`
+  el.style.top = `${ev.clientY}px`
+}
+
+/**
+ * Eine Zustands-Grenze ziehen — der Ersatz für die verworfene Gruppierung.
+ *
+ * Während des Zugs ist die Kante eine reine ANZEIGEGRÖSSE: sie liegt in Pixeln
+ * dort, wo der Zeiger ist, und das Datenmodell bleibt unberührt. Band, Griff
+ * und Beschriftung wandern also lückenlos mit, auch über einen Halt hinweg.
+ *
+ * Zwei Anläufe davor gingen den umgekehrten Weg — die Grenze wurde live ins
+ * Modell geschrieben und die Anzeige daraus abgeleitet. Beides ging schief,
+ * und aus demselben Grund: Die Abbildung Zeigerposition → Aufnahmezeit ist
+ * nicht überall umkehrbar. In einem Halt verbraucht der Film Zeit, die
+ * Aufnahme aber nicht — dort stand die Kante über 135 px reglos still. Und
+ * bei der Fortbewegung hängt die Abbildung von der Kante selbst ab (im Tempo
+ * je Modus steckt die Filmzeit), sodass der Griff dem Zeiger davonlief.
+ * Beides verschwindet, sobald die Anzeige während des Zugs nicht mehr durch
+ * das Modell muss.
+ *
+ * Erst beim Loslassen wird gerechnet: die Grenze rastet, wenn sie in einem
+ * Halt liegt, an dessen Kante ein (VOR das Foto oder DAHINTER, je nachdem,
+ * wohin man näher gezogen hat), und die Leiste rechnet einmal neu. Wohin es
+ * geht, sagt schon während des Zugs die Ziellinie.
+ *
+ * Die Falle dabei: „dahinter" braucht einen Zeitstempel STRIKT nach der
+ * Haltzeit. Nimmt man die Haltzeit selbst, landet die Grenze beim nächsten
+ * Zeichnen wieder vor dem Sprung (lower_bound trifft die erste Stützstelle
+ * der Stufe) — die Kante schnappt dann sichtbar zurück.
+ */
+let zieheGrenze = null // {quelle, index, filmS} — die Kante am Zeiger
+function ziehGrenze(e, kante) {
+  e.preventDefault()
+  e.stopPropagation()
+  halteAn()
+  const quelle = kante.dataset.grenze
+  const liste = GRENZLISTEN[quelle]()
+  const index = Number(kante.dataset.index)
+  // Den MASSSTAB einfrieren. Solange die Leiste den ganzen Film auf die
+  // Fensterbreite passte, skalierte jede Längenänderung auch das, was VOR der
+  // Kante liegt — und die konnte dann entweder ihre Pixelstelle behalten oder
+  // ihre Filmsekunde, nie beides. Mit festem Maßstab steht links alles still.
+  zoomFit = false
+  // Über das ELEMENT ginge das nicht: die Bänder werden pro Frame neu gebaut,
+  // die Referenz ist nach dem ersten Zieh-Frame ein Waisenknoten. Deshalb
+  // merkt sich der Zug seine Identität, und `fuelleBaender` liest sie.
+  zieheGrenze = { quelle, index, filmS: filmZuOffset(achse, liste[index].ab) }
+  // Die Nachbarn begrenzen — und zwar in PIXELN, nicht in Sekunden. Mit ±1 s
+  // konnten zwei Grenzen bis auf eine Sekunde zusammenrücken: das Band
+  // dazwischen war dann einen halben Pixel breit, unsichtbar und nicht mehr
+  // anzufassen. Dieselbe Sorge wie `klemmeGrenze` im echten Editor, die
+  // mindestens einen Trackpunkt im Abschnitt lässt.
+  const vorS = liste[index - 1] ? liste[index - 1].ab : skala.vonS
+  const nachS = liste[index + 1] ? liste[index + 1].ab : skala.bisS
+  let ziel = null
+
+  const klemme = (t) => Math.max(vorS + 1, Math.min(nachS - 1, t))
+
+  const zieh = (ev) => {
+    if (!achse.kurve) return
+    // Die Zielgröße ist eine FILMSEKUNDE, kein Anteil: bei festem Maßstab ist
+    // sie schlicht Pixel ÷ Maßstab und ändert sich nicht mehr, wenn der Film
+    // länger wird. Genau das macht Pixel- und Zeittreue gleichzeitig möglich.
+    const feldL = $('skala-feld').getBoundingClientRect().left
+    const minF = filmZuOffset(achse, vorS) + 14 / zoomPxProS
+    const maxF = filmZuOffset(achse, nachS) - 14 / zoomPxProS
+    const filmS = Math.max(minF, Math.min(maxF, (ev.clientX - feldL) / zoomPxProS))
+    zieheGrenze.filmS = filmS
+    const rast = rasteAnHalt(filmS)
+    if (rast.halt) {
+      // Am Halt ist die Zielzeit die HALTZEIT — die steht fest, egal wie sich
+      // die Filmdauer danach ändert. Nur die Reihenfolge zählt: davor oder
+      // dahinter. Und die kommt DIREKT aus dem Halt, nicht über die Achse
+      // zurückgerechnet: der Halt ist dort eine Stufe (zwei Stützstellen auf
+      // derselben Aufnahmesekunde), und die 0,01 Filmsekunden, mit denen ich
+      // „dahinter" ausdrücken wollte, schmolzen beim Rückweg auf ein halbes
+      // Tausendstel — zu wenig, um die lower_bound-Konvention zu überstimmen.
+      // Die Kante landete dann VOR dem Halt, bis zu 71 px neben der Ziellinie.
+      // Eine halbe Sekunde ist eindeutig und auf der Leiste 0,0002 px breit.
+      //
+      ziel = { zeit: klemme(rast.halt.offsetS + (rast.ansEnde ? 0.5 : -0.5)),
+               filmS: rast.filmS, rastet: true, halt: rast.halt }
+    } else {
+      ziel = { zeit: zeitFuerFilmsekunde(quelle, liste, index, filmS, klemme), filmS, rastet: false, halt: null }
+      // LIVE übernehmen: die Leiste wächst dann schon während des Zugs nach
+      // RECHTS, links bleibt alles stehen — und beim Loslassen passiert nichts
+      // mehr, weil der Wert schon steht. Genau das war der Sprung.
+      liste[index].ab = ziel.zeit
+    }
+    renderImZug()
+    zeigeZielLinie(ziel, quelle === 'wege' ? filmDauerBei(liste, index, ziel.zeit) : null)
+  }
+
+  const los = () => {
+    window.removeEventListener('pointermove', zieh)
+    window.removeEventListener('pointerup', los)
+    beendeZug()
+    verstecke('.ziel-linie')
+    zieheGrenze = null
+    document.querySelectorAll('.halt-klip.rastet').forEach((k) => k.classList.remove('rastet'))
+    // Im freien Fall steht der Wert schon (s. o.) — hier wirkt nur noch die
+    // Rastung, und die soll man springen sehen.
+    if (ziel) liste[index].ab = ziel.zeit
+    renderAlles()
+    renderKopf()
+  }
+  window.addEventListener('pointermove', zieh)
+  window.addEventListener('pointerup', los)
+}
+
+/**
+ * Aufnahmezeit zu einer FILMSEKUNDE — bei der Fortbewegung eine Suche.
+ *
+ * `anteilZuOffset` rechnet mit der Achse, die gerade gilt. Für Kamera und
+ * Wetter ist das schon die Antwort: Ihre Grenze lässt die Achse unberührt.
+ * Die Fortbewegung ändert sie aber — mit ihr steht und fällt die Filmdauer —,
+ * und wo eine Aufnahmezeit im Film liegt, hängt dann von der Grenze selbst ab:
+ * Zieht man sie nach rechts, wird das Stück davor schneller oder langsamer,
+ * und die Grenze verschiebt sich dadurch noch einmal von allein.
+ *
+ * Gesucht ist also die Zeit t, deren Filmposition IN DER ACHSE, DIE t ERZEUGT,
+ * die gewünschte ist. Diese Abbildung ist monoton steigend (je später die
+ * Grenze, desto mehr Film liegt davor), deshalb Bisektion statt Iteration:
+ * sie kann nicht schwingen. 14 Halbierungen einer 52-Minuten-Tour treffen auf
+ * 0,2 s genau; jeder weitere Schritt kostet einen ganzen Achsenaufbau und
+ * bringt nichts Sichtbares.
+ */
+function zeitFuerFilmsekunde(quelle, liste, index, zielFilmS, klemme) {
+  if (!achse.kurve) return klemme(liste[index].ab)
+  const direkt = klemme(anteilZuOffset(achse, zielFilmS / achse.kurve.gesamtS))
+  if (quelle !== 'wege') return direkt
+  const zurueck = liste[index].ab
+  let lo = klemme(skala.vonS), hi = klemme(skala.bisS)
+  for (let n = 0; n < 14; n++) {
+    const mitte = (lo + hi) / 2
+    liste[index].ab = mitte
+    const probe = baueAchse(baueAbschnitte(), halteFuerAchse(), skala)
+    if (!probe.kurve) break
+    if (interpoliere(probe.kurve.tS, probe.kurve.filmS, mitte) < zielFilmS) lo = mitte
+    else hi = mitte
+  }
+  liste[index].ab = zurueck
+  return klemme((lo + hi) / 2)
+}
+
+/**
+ * Wie lang wäre der Film, wenn diese Fortbewegungs-Grenze dort läge?
+ *
+ * Nur die Fortbewegung hat diese Wirkung: Im Tempo je Modus steckt die
+ * Filmzeit — dieselbe Strecke ist zu Fuß ein Vielfaches der Fährfahrt. Kamera
+ * und Wetter ändern daran nichts. Statt die Leiste während des Zugs atmen zu
+ * lassen, steht die Folge als Zahl an der Ziellinie.
+ */
+function filmDauerBei(liste, index, zeit) {
+  const zurueck = liste[index].ab
+  liste[index].ab = zeit
+  const probe = baueAchse(baueAbschnitte(), halteFuerAchse(), skala)
+  liste[index].ab = zurueck
+  return probe.kurve ? probe.kurve.gesamtS : null
+}
+
+/** Wo landet die Grenze beim Loslassen? Eine Linie, ein Wort. */
+function zeigeZielLinie(ziel, neueFilmdauer) {
+  let el = document.querySelector('.ziel-linie')
+  if (!el) {
+    el = document.createElement('div')
+    el.className = 'ziel-linie'
+    el.appendChild(document.createElement('b'))
+    $('spuren').appendChild(el)
+  }
+  // Die Linie steht auf der LEISTE, nicht auf der Zeit: bei der Fortbewegung
+  // ist die Zielzeit für eine Achse gerechnet, die es noch nicht gibt (s.
+  // zeitFuerFilmsekunde) — zurückgerechnet läge die Linie neben dem Zeiger.
+  const anteil = ziel.filmS / (achse.kurve ? achse.kurve.gesamtS : 1)
+  el.style.left = `calc(var(--spur-x) + ${anteil.toFixed(5)} * var(--zeit-breite))`
+  el.classList.toggle('rastet', ziel.rastet)
+  // Ohne Rastung liegt das Ziel auf der Kante — dann wäre der Strich ein
+  // zweiter, deckungsgleicher Strich. Es bleibt nur das Etikett.
+  el.classList.toggle('nur-etikett', !ziel.rastet)
+  let text = ziel.rastet
+    ? `rastet ${ziel.halt && ziel.filmS > ziel.halt.filmVon ? 'hinter' : 'vor'} den Halt`
+    : `${formatiereFilmzeit(ziel.filmS)} · ${uhrzeit(ziel.zeit)} Uhr`
+  // Bei der Fortbewegung steht dazu, was es den Film kostet — die Leiste
+  // rechnet erst beim Loslassen neu, sonst atmete sie unter dem Finger.
+  if (neueFilmdauer && achse.kurve && Math.abs(neueFilmdauer - achse.kurve.gesamtS) > 0.5) {
+    text += ` · Film ${formatiereFilmzeit(achse.kurve.gesamtS)} → ${formatiereFilmzeit(neueFilmdauer)}`
+  }
+  el.querySelector('b').textContent = text
+  // Der betroffene Halt leuchtet mit — so sieht man, WORAN es rastet.
+  document.querySelectorAll('.halt-klip.rastet').forEach((k) => k.classList.remove('rastet'))
+  if (ziel.halt) for (const i of ziel.halt.indizes) {
+    document.querySelector(`.halt-klip[data-aufnahme="${i}"]`)?.classList.add('rastet')
+  }
+}
+
+/** Zeigt beim Einrasten, WOHIN die Kante gesprungen ist und zu welchem Halt. */
+
+/* Pfeiltasten: 5 Filmsekunden je Druck — im Modus „Heute" der Steckenbleiber. */
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  e.preventDefault()
+  halteAn()
+  const schritt = e.key === 'ArrowRight' ? 5 : -5
+  if (modus === 'neu') {
+    kopfFilmS = Math.max(0, Math.min(achse.kurve.gesamtS, kopfFilmS + schritt))
+    renderKopf()
+  } else {
+    // Exakt der Weg aus editor.ts: Offset → Anteil → +5 s → zurück auf Offset.
+    const vorher = kopfOffsetS
+    const anteil = offsetZuAnteil(achse, kopfOffsetS) + schritt / achse.kurve.gesamtS
+    kopfOffsetS = anteilZuOffset(achse, Math.max(0, Math.min(1, anteil)))
+    renderKopf(Math.abs(filmZuOffset(achse, kopfOffsetS) - filmZuOffset(achse, vorher)) > 3)
+    if (kopfOffsetS === vorher) zeigeSteckt()
+  }
+})
+
+function zeigeSteckt() {
+  const w = $('status-warnung')
+  w.textContent = 'Der Kopf kommt nicht weiter — 5 s Schritt gegen 6,0 s Halt'
+  w.classList.add('an')
+  clearTimeout(warnungTimer)
+  warnungTimer = setTimeout(() => {
+    w.classList.remove('an')
+    w.textContent = 'Kopf gesprungen — Standzeit übersprungen'
+  }, 1800)
+}
+
+/* Wiedergabe: läuft in Filmzeit — im Modus „Heute" wird daraus beim Zeichnen
+   wieder Aufnahmezeit, und der Kopf hakt an jedem Halt. */
+function halteAn() {
+  if (!spielt) return
+  spielt = false
+  $('knopf-play').classList.remove('spielt')
+  $('play-icon').innerHTML = '<path d="M8 5v14l11-7z"/>'
+}
+
+$('knopf-play').addEventListener('click', () => {
+  spielt = !spielt
+  $('knopf-play').classList.toggle('spielt', spielt)
+  $('play-icon').innerHTML = spielt ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M8 5v14l11-7z"/>'
+  letzteZeit = performance.now()
+  if (spielt) requestAnimationFrame(frame)
+})
+
+function frame(jetzt) {
+  if (!spielt) return
+  const dt = Math.min(0.1, (jetzt - letzteZeit) / 1000)
+  letzteZeit = jetzt
+  const ziel = kopfFilm() + dt
+  if (ziel >= achse.kurve.gesamtS) { halteAn(); return }
+  if (modus === 'neu') kopfFilmS = ziel
+  else kopfOffsetS = anteilZuOffset(achse, ziel / achse.kurve.gesamtS)
+  renderKopf()
+  requestAnimationFrame(frame)
+}
+
+/* Modus-Schalter: die Filmposition wird übernommen, damit man denselben Ort
+   in beiden Verhalten vergleicht. */
+function setzeModus(neu) {
+  const film = kopfFilm()
+  modus = neu
+  $('m-heute').setAttribute('aria-pressed', String(neu === 'heute'))
+  $('m-neu').setAttribute('aria-pressed', String(neu === 'neu'))
+  kopfFilmS = film
+  kopfOffsetS = anteilZuOffset(achse, achse.kurve ? film / achse.kurve.gesamtS : 0)
+  renderAlles()
+  renderKopf()
+}
+$('m-heute').addEventListener('click', () => setzeModus('heute'))
+$('m-neu').addEventListener('click', () => setzeModus('neu'))
+
+
+/**
+ * Der Maßstab der Leiste: PIXEL JE FILMSEKUNDE.
+ *
+ * Vorher passte sie immer den ganzen Film in die Fensterbreite. Das klingt
+ * bequem und ist die Wurzel eines Fehlers, der drei Runden gekostet hat: Wird
+ * der Film länger — und das tut er, sobald man eine Fortbewegungs-Grenze zieht,
+ * denn im Tempo je Modus steckt die Filmzeit —, dann skaliert sich die ganze
+ * Achse neu. Auch alles VOR der gezogenen Kante, das mit ihr nichts zu tun hat.
+ * Die Kante konnte danach entweder auf ihrer Pixelstelle bleiben (dann stand
+ * eine andere Filmsekunde darunter: 0:36 statt 0:30) oder auf ihrer Filmsekunde
+ * (dann sprang sie 16 px von der Maus weg). Beides falsch, und beides
+ * unvermeidbar, solange die Breite am Ganzen hängt.
+ *
+ * Mit festem Maßstab gibt es den Konflikt nicht: Vor der Kante bleibt alles
+ * stehen, die Kante liegt bei 0:30 UND unter der Maus, und nur was dahinter
+ * liegt, rückt. Beim Laden wird einmal eingepasst (`zoomFit`), es gibt also
+ * keinen Scrollbalken beim Öffnen; er entsteht nur, wenn man den Film selbst
+ * länger macht als das Fenster.
+ */
+let zoomPxProS = 4     // px je Filmsekunde
+let zoomFit = true     // true = auf die Fensterbreite einpassen
+const ZOOM_MIN = 0.4, ZOOM_MAX = 60
+
+function verfuegbareBreite() {
+  const feld = $('zl-feld')
+  const spurX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--spur-x')) || 186
+  // Die Untergrenze lag bei 700 px und war ein Grund für den waagerechten
+  // Balken beim Laden: bei einem 1024er Fenster passten nur 630 px in die
+  // Leiste. Sie greift jetzt erst, wenn die Leiste ohnehin nicht mehr zu
+  // gebrauchen ist — die Namensspalte schrumpft vorher mit (s. CSS).
+  return Math.max(320, feld.clientWidth - spurX - 26)
+}
+
+/** Breite der Zeitspalte neu setzen — aus Maßstab × Filmdauer. */
+function aktualisiereBreite() {
+  const g = achse.kurve ? achse.kurve.gesamtS : 1
+  const verf = verfuegbareBreite()
+  if (zoomFit) zoomPxProS = verf / g
+  zoomPxProS = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomPxProS))
+  const breite = Math.max(120, Math.round(zoomPxProS * g))
+  document.documentElement.style.setProperty('--zeit-breite', `${breite}px`)
+  const knopf = $('zoom-fit')
+  if (knopf) knopf.setAttribute('aria-pressed', String(zoomFit))
+}
+
+/**
+ * `renderAlles` ruft das mit; hier hängt nur der Rahmen daran.
+ *
+ * Über einen ResizeObserver, nicht über `resize`: Beim Laden ist die Seite
+ * noch kurz, weil die Fotos fehlen. Sobald sie da sind, wächst sie über die
+ * Fensterhöhe, die vertikale Scrollleiste erscheint — und nimmt dem Feld rund
+ * 15 px Breite weg, die eine einmalige Messung nicht kennt. Genau um diesen
+ * Betrag stand danach ein waagerechter Balken darunter.
+ */
+let letzteVerf = -1
+function passeBreiteAn() {
+  // Der Vergleich ist kein Sparsamkeitstrick, sondern nötig: der Callback
+  // zeichnet neu, das Neuzeichnen ändert die Breite, das weckt den Observer.
+  // Ohne ihn bricht Chrome die Schleife ab („undelivered notifications") — und
+  // die Leiste blieb auf ihrer allerersten Messung stehen, im Preview-Pane
+  // also auf 0 px Fensterbreite und damit auf der Mindestbreite.
+  const v = verfuegbareBreite()
+  if (v === letzteVerf) return
+  letzteVerf = v
+  renderAlles()
+  renderKopf()
+}
+window.addEventListener('resize', passeBreiteAn)
+new ResizeObserver(passeBreiteAn).observe($('zl-feld'))
+
+/** Zoomen um die Mitte des SICHTBAREN Ausschnitts, nicht um den Anfang. */
+function zoome(faktor) {
+  const feld = $('zl-feld')
+  const spurX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--spur-x')) || 186
+  const mitteS = (feld.scrollLeft + Math.max(0, feld.clientWidth - spurX) / 2) / zoomPxProS
+  zoomFit = false
+  // Kleiner als „alles im Blick" gibt es nicht — darunter entstünde weißer
+  // Rand statt Übersicht (dasselbe Verhalten wie in FCPX).
+  const minFit = verfuegbareBreite() / (achse.kurve ? achse.kurve.gesamtS : 1)
+  zoomPxProS = Math.max(Math.max(ZOOM_MIN, minFit), Math.min(ZOOM_MAX, zoomPxProS * faktor))
+  renderAlles(); renderKopf()
+  feld.scrollLeft = Math.max(0, mitteS * zoomPxProS - Math.max(0, feld.clientWidth - spurX) / 2)
+}
+function passeEin() { zoomFit = true; renderAlles(); renderKopf(); $('zl-feld').scrollLeft = 0 }
+$('zoom-raus')?.addEventListener('click', () => zoome(1 / 1.4))
+$('zoom-rein')?.addEventListener('click', () => zoome(1.4))
+$('zoom-fit')?.addEventListener('click', passeEin)
+// FCPX-Kürzel: ⌘+ / ⌘− zoomen, ⇧Z passt ein.
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === '+' || e.key === '=')) { e.preventDefault(); zoome(1.4) }
+  else if ((e.metaKey || e.ctrlKey) && e.key === '-') { e.preventDefault(); zoome(1 / 1.4) }
+  else if (e.shiftKey && (e.key === 'Z' || e.key === 'z')) { e.preventDefault(); passeEin() }
+})
+
+baueNeu()
+// Die Beispieldaten stehen in Filmsekunden; ab hier hängen sie an der Strecke.
+MUSIK.forEach(setzeAudioAnker)
+kopfFilmS = 0
+passeBreiteAn()
+// Deeplink auf die Vorschlags-Ansicht — man verlinkt sonst immer die Ansicht,
+// über die man gar nicht reden will.
+if (location.hash === '#vorschlag') setzeModus('neu')
+</script>
+</body>
+</html>
