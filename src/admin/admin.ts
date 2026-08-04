@@ -367,6 +367,7 @@ async function start(): Promise<void> {
  */
 function reiterZahl(id: TabId): { wert: number; wichtig: boolean } {
   if (id === 'konten') return { wert: z.benutzer.length, wichtig: false }
+  if (id === 'statistiken') return { wert: 0, wichtig: false }
   if (id === 'einladungen') return { wert: zaehleEinladungen(z.einladungen).offen, wichtig: false }
   if (id === 'warteliste') {
     const wartend = zaehleWarteliste(z.warteliste).wartend

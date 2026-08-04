@@ -13,7 +13,7 @@ export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
 // Jetzt ist jeder Bereich ein Reiter — und weil die Liste den URL-Anhang, die
 // Reiterleiste UND die Zähler speist, steht sie EINMAL hier.
 
-export type TabId = 'konten' | 'einladungen' | 'warteliste' | 'mails' | 'protokoll'
+export type TabId = 'konten' | 'statistiken' | 'einladungen' | 'warteliste' | 'mails' | 'protokoll'
 
 export interface Tab {
   id: TabId
@@ -29,6 +29,7 @@ export interface Tab {
 
 export const TABS: readonly Tab[] = [
   { id: 'konten', name: 'Konten', zaehlt: 'Konten' },
+  { id: 'statistiken', name: 'Statistiken', zaehlt: 'Live' },
   { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
   { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
   { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
