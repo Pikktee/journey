@@ -169,7 +169,7 @@ export function hebeSchienenAbschnitte(
 export class OverpassSchienen implements SchienenQuelle {
   constructor(
     private readonly basisUrl = 'https://overpass-api.de/api/interpreter',
-    private readonly userAgent = 'Maptale/0.1 (https://maptale.henrikheil.net)',
+    private readonly userAgent = 'Maptale/0.1 (https://maptale.io)',
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 

@@ -12,7 +12,7 @@ export interface Geocoder {
 export class NominatimGeocoder implements Geocoder {
   constructor(
     private readonly basisUrl = 'https://nominatim.openstreetmap.org',
-    private readonly userAgent = 'Maptale/0.1 (https://maptale.henrikheil.net)',
+    private readonly userAgent = 'Maptale/0.1 (https://maptale.io)',
   ) {}
 
   async ortsname(lng: number, lat: number): Promise<string | null> {

@@ -17,7 +17,7 @@ ihrer Server-URL auf dieselbe Domain.
 ## 0. Voraussetzungen
 
 - Eine **Domain oder Subdomain** mit A-Record auf die Server-IP:
-  `maptale.henrikheil.net` → `178.104.147.230`. Für Let's-Encrypt-TLS Pflicht
+  `maptale.io` → `178.104.147.230`. Für Let's-Encrypt-TLS Pflicht
   — eine nackte IP bekommt kein öffentliches Zertifikat.
 - **Docker** auf dem Server (`docker --version`). Falls nicht vorhanden:
   `curl -fsSL https://get.docker.com | sh`. (Ohne Docker: siehe „Variante nativ"
@@ -38,9 +38,9 @@ cd /srv/maptale
 MAPTALE_COOKIE_SECRET=<z. B. `openssl rand -hex 32`>
 MAPTALE_ADMIN_EMAIL=contact@henrikheil.net
 MAPTALE_ADMIN_PASSWORT=<stark>
-MAPTALE_BASIS_URL=https://maptale.henrikheil.net
+MAPTALE_BASIS_URL=https://maptale.io
 RESEND_API_KEY=re_…            # aus deiner lokalen .env
-MAPTALE_MAIL_ABSENDER=Luhambo <noreply@henrikheil.net>   # Domain muss in Resend verifiziert sein
+MAPTALE_MAIL_ABSENDER=Maptale <noreply@maptale.io>   # Domain muss in Resend verifiziert sein
 OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildanalyse (Vision-Modell via OpenRouter); fehlt er, bleibt das Auto-Wetter wie in M2
 # MAPTALE_VISION_MODELL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
 ```
@@ -78,7 +78,7 @@ OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildan
 **Gegenprobe nach jedem Vhost-Eingriff** (drei Zeilen, alle drei müssen stimmen):
 
 ```bash
-H=https://maptale.henrikheil.net
+H=https://maptale.io
 for p in /app /anmelden /registrieren /erlebnis /galerie /profil /admin; do printf '%-16s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' $H$p)"; done
 printf 'unbekannt        %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/gibtsnicht)" "$(curl -s $H/gibtsnicht | grep -o '<title>[^<]*</title>')"
 printf 'api/unbekannt    %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/api/tours/gibtsnicht)" "$(curl -s $H/api/tours/gibtsnicht | head -c 40)"
@@ -114,7 +114,7 @@ npm run build                                   # erzeugt dist/
 rsync -az --delete dist/ <site-user>@178.104.147.230:/home/<site-user>/htdocs/<domain>/
 ```
 
-Danach `https://maptale.henrikheil.net` öffnen → das Studio erscheint,
+Danach `https://maptale.io` öffnen → das Studio erscheint,
 Registrierung + Bestätigungsmail funktionieren, ein Test-Upload spielt ab.
 
 ## 5. Automatischer Deploy (GitHub Actions)
@@ -137,7 +137,7 @@ und jeder weitere Tag rollt automatisch aus. Nötige GitHub-Secrets
 | `VPS_HOST` | `178.104.147.230` |
 | `VPS_USER` | Deploy-User: muss Docker ausführen (root **oder** in der `docker`-Gruppe) **und** Schreibrecht im htdocs haben |
 | `VPS_SSH_KEY` | privater Deploy-Key (öffentliches Gegenstück in `~/.ssh/authorized_keys` des Deploy-Users) |
-| `CLOUDPANEL_DOCROOT` | `/home/<site-user>/htdocs/maptale.henrikheil.net` |
+| `CLOUDPANEL_DOCROOT` | `/home/maptale-io/htdocs/maptale.io` |
 
 Danach: `npm run release minor` → Tag → automatischer Deploy.
 
@@ -146,6 +146,42 @@ Danach: `npm run release minor` → Tag → automatischer Deploy.
 > der beides kann — entweder `root` (dann `CLOUDPANEL_DOCROOT` mit root-rsync,
 > Dateien sind für Nginx lesbar) oder der CloudPanel-Site-User, den du einmalig
 > mit `usermod -aG docker <site-user>` in die docker-Gruppe aufnimmst.
+
+## 6. Alt-Domains (maptale.henrikheil.net, maptale.de)
+
+Die Site lief bis zum 2026-08-04 unter `maptale.henrikheil.net`. Beide Domains
+zeigen weiter auf denselben Server, sind in CloudPanel aber **eigene Sites mit
+eigenem Docroot** — und der Deploy befüllt nur einen (`CLOUDPANEL_DOCROOT`).
+Eine Alt-Domain, die man einfach stehen lässt, serviert deshalb still einen
+**eingefrorenen Altstand**: `maptale.henrikheil.net` lag drei Tage hinter
+`maptale.io`, ohne dass irgendetwas kaputt aussah. Also gilt: jede Domain, die
+nicht der Docroot des Deploys ist, ist eine **Weiterleitung**.
+
+Der Vhost der Alt-Domain besteht dann nur noch aus drei Blöcken (`.well-known`
+für die Zertifikatserneuerung, `/api/`, `location /` → 301) — Muster:
+`maptale.de.conf` und `maptale.henrikheil.net.conf` auf dem Server.
+
+> **`/api/` wird NICHT mitumgeleitet.** Android-Installationen aus der Zeit vor
+> der Umstellung haben die alte Domain als Server gespeichert
+> ([`Einstellungen.kt`](../../android/app/src/main/java/app/maptale/upload/Einstellungen.kt)
+> `STANDARD_SERVER`); OkHttp macht aus einem POST hinter 301/302 ein GET und
+> wirft dabei den `Authorization`-Header ab — jeder Upload einer Alt-Installation
+> schlüge still fehl. Der `location ^~ /api/`-Block bleibt daher unverändert
+> stehen und proxyt weiter auf `127.0.0.1:8790`: dieselbe API, dieselbe DB.
+
+Gegenprobe (Web leitet um, API antwortet, Query bleibt erhalten):
+
+```bash
+A=https://maptale.henrikheil.net
+for p in / /app '/erlebnis?tour=kohphangan'; do curl -sI "$A$p" | grep -iE '^(HTTP|location)'; done
+curl -s $A/api/auth/me | head -c 40
+```
+
+Nicht vergessen, wenn die Hauptdomain wechselt: `MAPTALE_BASIS_URL` und
+`MAPTALE_MAIL_ABSENDER` in `/srv/maptale/.env` (sonst tragen Bestätigungs- und
+Reset-Mails weiter die alte Adresse — der Link funktioniert über den Redirect
+zwar, steht aber falsch da), das Secret `CLOUDPANEL_DOCROOT`, die Absender-Domain
+in Resend und `STANDARD_SERVER` in der Android-App.
 
 ## Variante ohne Docker (nativ)
 
