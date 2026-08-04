@@ -19,6 +19,7 @@ docs/
 Anleitungen für den Betrieb, Deployment auf Servern und App-Releases.
 * [`deploy-cloudpanel.md`](ops/deploy-cloudpanel.md) — VPS-Deployment mit Hetzner & CloudPanel.
 * [`android-release.md`](ops/android-release.md) — Bauen, Signieren und Veröffentlichen der Android-APK.
+* [`tools-monitoring-agents.md`](ops/tools-monitoring-agents.md) — Empfohlene Monitoring-Tools & automatisierte Agenten.
 
 ### 2. `specs/` (Spezifikationen)
 Kanonische Dokumentation der Datenstrukturen und Formate.
