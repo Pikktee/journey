@@ -29,11 +29,11 @@ export interface Tab {
 
 export const TABS: readonly Tab[] = [
   { id: 'konten', name: 'Konten', zaehlt: 'Konten' },
-  { id: 'statistiken', name: 'Statistiken', zaehlt: 'Live' },
   { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
   { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
-  { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
+  { id: 'statistiken', name: 'Statistiken', zaehlt: 'Live' },
   { id: 'protokoll', name: 'Protokoll', zaehlt: 'Fehler' },
+  { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
 ]
 
 /** Womit die Seite aufmacht: die Konten sind der Grund, warum es sie gibt. */
@@ -399,7 +399,7 @@ export function formatiereZeitpunkt(iso: string, jetzt: Date = new Date()): stri
  * vorgefallen ist.
  */
 export function beschreibeProtokoll(anzahl: number, fehler: number, gestartet: string | null): string {
-  const seit = gestartet ? ` seit dem Start der API am ${formatiereDatum(gestartet)} um ${formatiereZeitpunkt(gestartet)}` : ''
+  const seit = gestartet ? ` seit dem Start der API am ${formatiereDatum(gestartet)} um ${formatiereZeitpunkt(gestartet, new Date(gestartet))}` : ''
   if (anzahl === 0) return `Nichts vorgefallen${seit}.`
   const teile = [`${anzahl} ${anzahl === 1 ? 'Meldung' : 'Meldungen'}`]
   if (fehler > 0) teile.push(`davon ${fehler} ${fehler === 1 ? 'Fehler' : 'Fehler'}`)

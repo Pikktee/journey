@@ -44,10 +44,13 @@ export function fuelleTopNav(el: Element | null, aktiv: AppNavSeite): void {
 type Quota = { benutzt: number; limit: number }
 
 type MeAntwort = {
-  benutzer?: { name?: string; email?: string }
+  benutzer?: { name?: string; email?: string; rolle?: string }
   profil?: { anzeigename?: string; avatarUrl?: string }
   quota?: Quota
 }
+
+const ICON_ADMIN =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>'
 
 function mb(b: number): string {
   return (b / (1024 * 1024)).toFixed(0)
@@ -86,6 +89,10 @@ export async function montiereNavRechts(container: HTMLElement | null): Promise<
       ? `<img class="punkt" src="${avatar}" alt="" width="20" height="20" />`
       : `<span class="punkt">${initial}</span>`
 
+    const adminLink = daten.benutzer.rolle === 'admin'
+      ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
+      : ''
+
     container.innerHTML = `
       <div class="konto-wrap">
         <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
@@ -95,6 +102,7 @@ export async function montiereNavRechts(container: HTMLElement | null): Promise<
           ${mail ? '<div class="km-mail"></div>' : ''}
           ${quotaHtml(daten.quota)}
           <div class="km-trenner" role="separator"></div>
+          ${adminLink}
           <button type="button" class="km-eintrag" id="nav-abmelden">
             ${ICON_ABMELDEN}Abmelden
           </button>
