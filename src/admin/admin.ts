@@ -305,12 +305,20 @@ for (const art of ['close', 'cancel']) {
 async function lade(): Promise<void> {
   z.fehler = ''
   try {
-    const [konten, einladungen, warteliste, mails, protokoll] = await Promise.all([
+    const [konten, einladungen, warteliste, mails, protokoll, stats] = await Promise.all([
       api.benutzer(),
       api.einladungen(),
       api.warteliste(),
       api.mailvorlagen(),
       api.protokoll(),
+      api.statistiken().catch(() => ({
+        echtzeit: 0,
+        heute: { aufrufe: 0, besucher: 0 },
+        letzte7Tage: { aufrufe: 0, besucher: 0 },
+        gesamt: 0,
+        referrer: [],
+        seiten: [],
+      })),
     ])
     z.benutzer = konten.benutzer
     z.einladungen = einladungen.einladungen
@@ -323,12 +331,51 @@ async function lade(): Promise<void> {
     z.protokollWartend = []
     z.protokollGestartet = protokoll.gestartet
     z.mailvorlagen = mails.vorlagen
+    rendereStatistiken(stats)
   } catch (fehler) {
     z.fehler = fehlerText(fehler)
     throw fehler
   } finally {
     z.laedt = false
     render()
+  }
+}
+
+function rendereStatistiken(s: api.AdminStatistiken): void {
+  const format = (n: number) => n.toLocaleString('de-DE')
+  const echtzeit = $('stat-echtzeit')
+  if (echtzeit) echtzeit.textContent = format(s.echtzeit)
+  const heuteAufrufe = $('stat-heute-aufrufe')
+  if (heuteAufrufe) heuteAufrufe.textContent = format(s.heute.aufrufe)
+  const heuteBesucher = $('stat-heute-besucher')
+  if (heuteBesucher) heuteBesucher.textContent = `${format(s.heute.besucher)} Besucher`
+  const tage7Aufrufe = $('stat-7d-aufrufe')
+  if (tage7Aufrufe) tage7Aufrufe.textContent = format(s.letzte7Tage.aufrufe)
+  const tage7Besucher = $('stat-7d-besucher')
+  if (tage7Besucher) tage7Besucher.textContent = `${format(s.letzte7Tage.besucher)} Besucher`
+  const gesamt = $('stat-gesamt')
+  if (gesamt) gesamt.textContent = format(s.gesamt)
+
+  const refListe = $('stat-referrer-liste')
+  if (refListe) {
+    if (!s.referrer.length) {
+      refListe.innerHTML = '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
+    } else {
+      refListe.innerHTML = s.referrer
+        .map((r) => `<div class="stat-zeile"><span class="name">${r.quelle}</span><span class="anzahl">${format(r.anzahl)}</span></div>`)
+        .join('')
+    }
+  }
+
+  const seitenListe = $('stat-seiten-liste')
+  if (seitenListe) {
+    if (!s.seiten.length) {
+      seitenListe.innerHTML = '<div style="color: var(--text-3); font-size: 13px; padding: 6px 0;">Noch keine Daten erfasst.</div>'
+    } else {
+      seitenListe.innerHTML = s.seiten
+        .map((p) => `<div class="stat-zeile"><span class="name">${p.pfad}</span><span class="anzahl">${format(p.anzahl)}</span></div>`)
+        .join('')
+    }
   }
 }
 

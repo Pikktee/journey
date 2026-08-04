@@ -425,6 +425,25 @@
     .schalter-feld label { margin: 0; color: var(--text); font-size: 13.5px; }
     .schalter-feld input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--akzent); flex: none; }
 
+    /* — Statistiken — */
+    .statistiken-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px;
+    }
+    .kpi-karte {
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px; padding: 18px 20px;
+    }
+    .kpi-label { font-size: 12px; font-weight: 550; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi-wert { display: block; font-size: 32px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+    .kpi-wert.echtzeit { color: var(--gruen); }
+    .kpi-hinweis { font-size: 12.5px; color: var(--text-2); }
+    .statistiken-spalten { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+    .karte-block { background: var(--fl-1); border: 1px solid var(--rand); border-radius: 16px; padding: 20px; }
+    .karte-block h3 { font-size: 15px; font-weight: 550; margin: 0 0 14px; color: var(--text); }
+    .stat-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 9px; font-size: 13.5px; }
+    .stat-zeile:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+    .stat-zeile .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+    .stat-zeile .anzahl { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); flex: none; }
+
     /* — System-Mails —
        Vier Stück, kein Wachstum: als Karten nebeneinander lesbar statt als
        vier Zeilen in einer Liste, die auf hundert ausgelegt wäre. Jede zeigt,
@@ -630,7 +649,7 @@
 
   <main class="rumpf" id="admin-view" hidden>
     <div class="kopf">
-      <h1>Admini<em>stration</em></h1>
+      <h1>Administration</h1>
     </div>
 
     <!-- Reiterleiste; Einträge und Zähler baut admin.ts aus TABS -->
@@ -707,10 +726,48 @@
       <div class="liste" id="warteliste-liste"></div>
     </section>
 
-    <!-- Statistiken (Umami Analytics Dashboard) -->
+    <!-- Statistiken (Natives Dashboard + Link zu Umami) -->
     <section class="panel" id="panel-statistiken" role="tabpanel" aria-labelledby="reiter-statistiken" hidden>
-      <div style="background: var(--fl-1); border: 1px solid var(--rand); border-radius: 16px; overflow: hidden; height: clamp(650px, 78vh, 900px);">
-        <iframe src="https://analytics.maptale.io/share/J7eYv4t9aZ1x8qWp/maptale.io" style="width: 100%; height: 100%; border: none;" title="Umami Analytics Dashboard"></iframe>
+      <div class="werkzeuge" style="margin-bottom: 20px;">
+        <span class="sp"></span>
+        <a class="knopf" href="https://analytics.maptale.io" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Umami Dashboard öffnen
+        </a>
+      </div>
+
+      <div class="statistiken-grid">
+        <div class="kpi-karte">
+          <span class="kpi-label">Echtzeit</span>
+          <b class="kpi-wert echtzeit" id="stat-echtzeit">0</b>
+          <span class="kpi-hinweis">Aktive Nutzer (letzte 5 Min)</span>
+        </div>
+        <div class="kpi-karte">
+          <span class="kpi-label">Heute</span>
+          <b class="kpi-wert" id="stat-heute-aufrufe">0</b>
+          <span class="kpi-hinweis" id="stat-heute-besucher">0 Besucher</span>
+        </div>
+        <div class="kpi-karte">
+          <span class="kpi-label">Letzte 7 Tage</span>
+          <b class="kpi-wert" id="stat-7d-aufrufe">0</b>
+          <span class="kpi-hinweis" id="stat-7d-besucher">0 Besucher</span>
+        </div>
+        <div class="kpi-karte">
+          <span class="kpi-label">Gesamt</span>
+          <b class="kpi-wert" id="stat-gesamt">0</b>
+          <span class="kpi-hinweis">Seitenaufrufe gesamt</span>
+        </div>
+      </div>
+
+      <div class="statistiken-spalten">
+        <div class="karte-block">
+          <h3>Top-Quellen (Referrer)</h3>
+          <div id="stat-referrer-liste"></div>
+        </div>
+        <div class="karte-block">
+          <h3>Meistgesehene Seiten</h3>
+          <div id="stat-seiten-liste"></div>
+        </div>
       </div>
     </section>
 

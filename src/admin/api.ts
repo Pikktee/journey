@@ -52,6 +52,19 @@ export async function benutzer(): Promise<{ benutzer: AdminBenutzer[]; quotaLimi
   return anfrage('/admin/benutzer')
 }
 
+export interface AdminStatistiken {
+  echtzeit: number
+  heute: { aufrufe: number; besucher: number }
+  letzte7Tage: { aufrufe: number; besucher: number }
+  gesamt: number
+  referrer: Array<{ quelle: string; anzahl: number }>
+  seiten: Array<{ pfad: string; anzahl: number }>
+}
+
+export async function statistiken(): Promise<AdminStatistiken> {
+  return anfrage('/admin/statistiken')
+}
+
 export interface KontoFelder {
   email?: string
   name?: string

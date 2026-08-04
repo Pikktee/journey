@@ -23,11 +23,102 @@ import type { FastifyInstance } from 'fastify'
 const emailSchema = { type: 'string', maxLength: 254 } as const
 const EMAIL_FORM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
+
+export type AdminStatistiken = {
+  echtzeit: number
+  heute: { aufrufe: number; besucher: number }
+  letzte7Tage: { aufrufe: number; besucher: number }
+  gesamt: number
+  referrer: Array<{ quelle: string; anzahl: number }>
+  seiten: Array<{ pfad: string; anzahl: number }>
+}
+
+async function holeUmamiStatistiken(): Promise<AdminStatistiken> {
+  const leeresErgebnis: AdminStatistiken = {
+    echtzeit: 0,
+    heute: { aufrufe: 0, besucher: 0 },
+    letzte7Tage: { aufrufe: 0, besucher: 0 },
+    gesamt: 0,
+    referrer: [],
+    seiten: [],
+  }
+  try {
+    const cmd = `
+      SELECT COUNT(DISTINCT session_id) FROM website_event WHERE created_at >= NOW() - INTERVAL '5 minutes';
+      SELECT COUNT(*), COUNT(DISTINCT session_id) FROM website_event WHERE created_at >= CURRENT_DATE;
+      SELECT COUNT(*), COUNT(DISTINCT session_id) FROM website_event WHERE created_at >= NOW() - INTERVAL '7 days';
+      SELECT COUNT(*) FROM website_event;
+      SELECT referrer_domain, COUNT(*) as anzahl FROM website_event WHERE referrer_domain IS NOT NULL AND referrer_domain != '' GROUP BY referrer_domain ORDER BY anzahl DESC LIMIT 5;
+      SELECT url_path, COUNT(*) as anzahl FROM website_event GROUP BY url_path ORDER BY anzahl DESC LIMIT 5;
+    `
+    const { stdout } = await execFileAsync('docker', [
+      'exec',
+      '-i',
+      'umami-db-1',
+      'psql',
+      '-U',
+      'umami',
+      '-d',
+      'umami',
+      '-t',
+      '-A',
+      '-F',
+      '|',
+      '-c',
+      cmd,
+    ], { timeout: 3000, env: { ...process.env, PGPASSWORD: 'UmamiSecurePGPass2026!' } })
+
+    const zeilen = stdout.trim().split('\n').map((z) => z.trim()).filter(Boolean)
+    if (zeilen.length < 4) return leeresErgebnis
+
+    const echtzeit = parseInt(zeilen[0] || '0', 10) || 0
+
+    const heuteTeile = (zeilen[1] || '').split('|')
+    const heute = { aufrufe: parseInt(heuteTeile[0] || '0', 10) || 0, besucher: parseInt(heuteTeile[1] || '0', 10) || 0 }
+
+    const tage7Teile = (zeilen[2] || '').split('|')
+    const letzte7Tage = { aufrufe: parseInt(tage7Teile[0] || '0', 10) || 0, besucher: parseInt(tage7Teile[1] || '0', 10) || 0 }
+
+    const gesamt = parseInt(zeilen[3] || '0', 10) || 0
+
+    const referrer: Array<{ quelle: string; anzahl: number }> = []
+    const seiten: Array<{ pfad: string; anzahl: number }> = []
+
+    for (let i = 4; i < zeilen.length; i++) {
+      const z = zeilen[i]
+      if (!z) continue
+      const teile = z.split('|')
+      if (teile.length < 2) continue
+      const name = teile[0] || ''
+      const anzahl = parseInt(teile[1] || '0', 10) || 0
+      if (name.startsWith('/')) {
+        seiten.push({ pfad: name, anzahl })
+      } else {
+        referrer.push({ quelle: name, anzahl })
+      }
+    }
+
+    return { echtzeit, heute, letzte7Tage, gesamt, referrer, seiten }
+  } catch {
+    return leeresErgebnis
+  }
+}
+
 export function registriereAdminRouten(app: FastifyInstance): void {
   const { konfig, storage, benutzerStorage, db } = app.deps
 
   /** Steht die Adresse in der Konfiguration? Dann ist die Rolle unantastbar. */
   const festerAdmin = (email: string): boolean => konfig.adminEmails.includes(email.toLowerCase().trim())
+
+  // — Statistiken —
+  app.get('/api/admin/statistiken', async (request, reply) => {
+    if (!erfordereAdmin(request, reply)) return
+    return holeUmamiStatistiken()
+  })
 
   // — Benutzer —
 
