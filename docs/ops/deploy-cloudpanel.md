@@ -1,6 +1,6 @@
 # Deployment auf Hetzner mit CloudPanel
 
-Alternative zum reinen Docker-Compose-Setup ([README](../README.md)): Luhambo
+Alternative zum reinen Docker-Compose-Setup ([README](../../README.md)): Luhambo
 läuft auf einem Server, auf dem bereits **CloudPanel** installiert ist.
 CloudPanels Nginx übernimmt Webserver, TLS und den `/api`-Reverse-Proxy — der
 `web`/Caddy-Container entfällt, nur die **API** läuft im Container.
@@ -52,13 +52,13 @@ OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildan
    CloudPanel legt sie unter `/home/<site-user>/htdocs/<domain>/` an — **diesen
    Pfad + den Site-User notieren**, beides braucht der Deploy (Schritt 5).
 2. **Vhost editieren** (Sites → Site → Vhost): die location-Blöcke aus
-   [`deploy/cloudpanel-nginx.conf`](../deploy/cloudpanel-nginx.conf) in den
+   [`deploy/cloudpanel-nginx.conf`](../../deploy/cloudpanel-nginx.conf) in den
    `server { … }`-Block einfügen (v. a. `client_max_body_size` und `/api/` —
    ohne die scheitern große Uploads bzw. die API ist nicht erreichbar).
 3. **SSL** in CloudPanel für die Site aktivieren (Let's Encrypt, ein Klick).
 
 > **Der Vhost ist Handarbeit und wird beim Deploy NICHT mitgezogen.** Ändert
-> sich [`deploy/cloudpanel-nginx.conf`](../deploy/cloudpanel-nginx.conf), muss
+> sich [`deploy/cloudpanel-nginx.conf`](../../deploy/cloudpanel-nginx.conf), muss
 > derselbe Stand vor dem nächsten `npm run release` in den CloudPanel-Editor —
 > sonst rollt der Deploy einen Build aus, den der Server nicht bedienen kann.
 >

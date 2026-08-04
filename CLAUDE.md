@@ -22,9 +22,9 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   Auto-Wetter via Open-Meteo, Wetter-Verfeinerung per Foto-Bildanalyse) → Tour-JSON. Dazu Mehrbenutzer-Betrieb: Konten mit
   Mail-Bestätigung, Passwort-Reset, Quota, Sichtbarkeit, Rollen und Einladungen
   ([server/src/auth/](server/src/auth/), `quota.ts`, `mail.ts`).
-  Schema-Doku: [docs/austauschformat.md](docs/austauschformat.md);
+  Schema-Doku: [docs/specs/austauschformat.md](docs/specs/austauschformat.md);
   wer wofür zuständig ist (Rohdaten / Overlay / Tour-JSON / Cache) und wohin ein neues Feld
-  gehört: [docs/overlay-und-tourjson.md](docs/overlay-und-tourjson.md).
+  gehört: [docs/specs/overlay-und-tourjson.md](docs/specs/overlay-und-tourjson.md).
 - **Studio** ([studio.html](studio.html) + [src/studio/](src/studio/)): Weboberfläche zum
   Hochladen und Bearbeiten aufgezeichneter Touren (s. eigener Abschnitt unten).
 - **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren)
@@ -83,14 +83,14 @@ Build, Backend-Tests mit Coverage-Gate und Android-Unit-Tests → API-Image nach
 `docker compose -f docker-compose.cloudpanel.yml up -d` plus `rsync` des `dist/` in den
 Site-Docroot. Tags erzeugt [scripts/release.sh](scripts/release.sh) (`npm run release`). Nötige
 Secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `CLOUDPANEL_DOCROOT` (fehlt letzteres, wird der
-Rollout still übersprungen). Runbook: [docs/deploy-cloudpanel.md](docs/deploy-cloudpanel.md).
+Rollout still übersprungen). Runbook: [docs/ops/deploy-cloudpanel.md](docs/ops/deploy-cloudpanel.md).
 **Derselbe Tag baut die Android-App** und hängt den APK ans Release
 `android-X.Y.Z` — der Download-Knopf der Landing zeigt fest auf
 `releases/latest/download/maptale-android.apk` und lief, solange das von Hand geschah,
 regelmäßig dem Code hinterher. Die App-Version kommt aus derselben `package.json`
 (`versionCode` = `major*10000 + minor*100 + patch`); ohne hinterlegten Debug-Keystore
 (`ANDROID_DEBUG_KEYSTORE_BASE64`) signiert jeder Lauf anders und der APK kann eine vorhandene
-Installation nicht aktualisieren: [docs/android-release.md](docs/android-release.md).
+Installation nicht aktualisieren: [docs/ops/android-release.md](docs/ops/android-release.md).
 `docker-compose.yml` + [Caddyfile](Caddyfile) bleiben als Alt-Weg für Server ohne CloudPanel.
 
 ## Architektur
@@ -117,7 +117,7 @@ Pfad heißt **nicht** `/studio`: Ein Konto braucht auch, wer nur mit der App auf
 [deploy/cloudpanel-nginx.conf](deploy/cloudpanel-nginx.conf) ist die Vorlage; sie wird von
 Hand in CloudPanel eingesetzt und **wird vom Deploy nicht mitgezogen** (auf dem Server steht
 CloudPanels eigenes Gerüst, nicht diese Datei — Handgriff und Gegenprobe:
-[docs/deploy-cloudpanel.md](docs/deploy-cloudpanel.md), Abschnitt 2). Bei Mehrsprachigkeit
+[docs/ops/deploy-cloudpanel.md](docs/ops/deploy-cloudpanel.md), Abschnitt 2). Bei Mehrsprachigkeit
 wird aus `pfad: '/anmelden'` ein Eintrag je Sprache samt `/en/`-Präfix — die Aufrufer nennen
 den sprachneutralen Namen, nicht den Pfad, und ändern sich nicht.
 
@@ -190,7 +190,7 @@ bleibt ein flacher Bodenpunkt: am Pixel 9 kostete das Querformat mit vier Pins d
 viel CPU wie das Hochformat mit einem (7 % Bildrate → mit Detailstufe unter der Messschwelle).
 Rechenregeln DOM-frei und getestet in [src/pinmodell.ts](src/pinmodell.ts); Machbarkeit,
 Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
-[docs/foto-pins-3d.md](docs/foto-pins-3d.md).
+[docs/architecture/foto-pins-3d.md](docs/architecture/foto-pins-3d.md).
 
 **Gebäude sind ein einzelner fill-extrusion-Layer** (`buildings-3d`; MapLibre kann kein
 AO/Schatten/Fenster). [src/buildings.js](src/buildings.js) sampelt beim Kachel-Laden die echte
@@ -205,7 +205,7 @@ brauchen einen zweiten Renderer; drei Wege sind gebaut und per Query-Flag wählb
 (eigenständige deck.gl-Szene, [src/deckscene.js](src/deckscene.js)) und `?roofs=1` (leichter
 Three.js-Dächer-Renderer, [src/buildings3d.js](src/buildings3d.js)). Geerdete Wurf-Schatten
 ([src/shadows.js](src/shadows.js)) laufen im Default-Pfad mit (`?noshadows=1` schaltet sie aus).
-Begründung und Vergleich: [docs/renderer-plan.md](docs/renderer-plan.md).
+Begründung und Vergleich: [docs/architecture/renderer-plan.md](docs/architecture/renderer-plan.md).
 
 **UI.** [src/ui.js](src/ui.js) `UI` verwaltet Overlays, Steuerleiste, Telemetrie, Höhenprofil und
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in
@@ -277,7 +277,7 @@ Abfragen); die Kamera wird pro Frame in ECEF gespiegelt (`extCamera`, `WGS84_ELL
 Route/Fahrer/Tag-Nacht sind integriert. Aktivierung über einen Google-Map-Tiles-API-Key
 (`VITE_GOOGLE_MAP_TILES_API_KEY` im Dev bzw. `localStorage`). Grenze: Google deckt nur ~2.500
 Städte ab (nicht alpin) → für unabgedeckte Regionen bleibt der MapLibre-Boden der Fallback.
-Renderer-Landschaft & Begründung: [docs/renderer-plan.md](docs/renderer-plan.md).
+Renderer-Landschaft & Begründung: [docs/architecture/renderer-plan.md](docs/architecture/renderer-plan.md).
 
 ## Studio
 
@@ -365,7 +365,7 @@ das Manifest trägt dann `segments` statt `trackFile` (`baueFotoSegmente`) — d
 [tours.ts](server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die
 Gehabschnitts-Automatik: zwischen zwei Fotos liegt eine Luftlinie, jedes daraus gerechnete
 Tempo wäre Zufall. Die eigene Inszenierung dafür (gestrichelte Bodenlinie, fliegende statt
-fahrende Kamera) steht noch aus: [docs/foto-tour.md](docs/foto-tour.md).
+fahrende Kamera) steht noch aus: [docs/concepts/foto-tour.md](docs/concepts/foto-tour.md).
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):

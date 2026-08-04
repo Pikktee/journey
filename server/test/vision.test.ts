@@ -177,6 +177,54 @@ describe('OpenRouterKlassifikator', () => {
     })) as unknown as typeof fetch)
     expect((await k.klassifiziere(bild)).konfidenz).toBe(0)
   })
+
+  // Der neutrale Befund ist die richtige Reaktion, aber er sieht von außen aus
+  // wie „das Foto zeigte eben kein Wetter". Ohne Meldung liefe eine Instanz mit
+  // leerem Guthaben oder falsch gesetztem Modell dauerhaft ohne Verfeinerung —
+  // und niemand wüsste warum. Deshalb sagt JEDER Fehlerzweig Bescheid.
+  it('meldet, warum ein Bild nichts beigetragen hat', async () => {
+    const meldungen: string[] = []
+    const melde = (n: string): void => void meldungen.push(n)
+
+    const guthaben = new OpenRouterKlassifikator('sk', (async () => ({ ok: false, status: 402 })) as unknown as typeof fetch)
+    await guthaben.klassifiziere(bild, melde)
+    expect(meldungen[0]).toMatch(/HTTP 402.*Guthaben/)
+
+    const limit = new OpenRouterKlassifikator('sk', (async () => ({ ok: false, status: 429 })) as unknown as typeof fetch)
+    await limit.klassifiziere(bild, melde)
+    expect(meldungen[1]).toMatch(/Rate-Limit/)
+
+    // Reasoning-Modelle verbrauchen max_tokens mit Denk-Tokens und antworten leer
+    const leer = new OpenRouterKlassifikator('sk', (async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '' } }] }),
+    })) as unknown as typeof fetch, 'openai/gpt-5-nano')
+    await leer.klassifiziere(bild, melde)
+    expect(meldungen[2]).toMatch(/gpt-5-nano.*Antwort war leer/)
+
+    const prosa = new OpenRouterKlassifikator('sk', (async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Das Bild zeigt einen Wasserfall.' } }] }),
+    })) as unknown as typeof fetch)
+    await prosa.klassifiziere(bild, melde)
+    expect(meldungen[3]).toMatch(/Antwort begann mit .Das Bild zeigt/)
+
+    const netz = new OpenRouterKlassifikator('sk', (async () => {
+      throw new Error('offline')
+    }) as unknown as typeof fetch)
+    await netz.klassifiziere(bild, melde)
+    expect(meldungen[4]).toMatch(/fehlgeschlagen: offline/)
+  })
+
+  it('schweigt, wenn der Befund verwertbar ist', async () => {
+    const meldungen: string[] = []
+    const k = new OpenRouterKlassifikator('sk', (async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"himmel":"klar","niederschlag":"kein","himmelSichtbar":true,"konfidenz":0.9}' } }] }),
+    })) as unknown as typeof fetch)
+    await k.klassifiziere(bild, (n) => void meldungen.push(n))
+    expect(meldungen).toEqual([])
+  })
 })
 
 describe('FesterKlassifikator', () => {

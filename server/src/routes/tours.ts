@@ -78,6 +78,22 @@ export const EDITS_PFAD = 'edits.json'
  *  Geocoding, Video) — beim Finalize/Reprocess erzeugt, von Edit-Saves genutzt */
 export const ANREICHERUNG_PFAD = 'anreicherung.json'
 
+/**
+ * Gleichzeitige Bildanalyse-Aufrufe.
+ *
+ * Der Aufruf ist reine Wartezeit auf einen fremden Dienst (~1,5–2,6 s je Foto).
+ * Die Zahl ist gemessen, nicht geraten — 30 Fotos, ganze Verarbeitung: 66 s bei
+ * 1, 25 s bei 5, **11 s bei 10**. Darüber kippt es (20 Testaufrufe bei 15
+ * gleichzeitig waren langsamer als bei 10, die Einzel-Latenz stieg von 1,2 auf
+ * 2,2 s) — der Anbieter drosselt dann, und mehr offene Verbindungen bringen
+ * nichts mehr. Deshalb hier ein Deckel und kein `Promise.all` über alles: eine
+ * Tour mit 60 Fotos soll den Prozess nicht mit 60 Verbindungen zustellen.
+ *
+ * Vorsicht beim Erhöhen: Ein abgelehnter Aufruf (429) endet im Klassifikator
+ * als neutraler Befund — die Tour wird dann still ohne Foto-Verfeinerung fertig.
+ */
+const BILDANALYSE_PARALLEL = 10
+
 export function ladeTour(app: FastifyInstance, id: string): TourZeile | null {
   return (app.deps.db.prepare('SELECT * FROM tours WHERE id = ?').get(id) as TourZeile | undefined) ?? null
 }
@@ -804,23 +820,55 @@ async function verarbeite(
     // Bildanalyse (M5): nur mit konfiguriertem Klassifikator (OpenRouter-Key).
     // Ein einzelnes scheiterndes Bild darf die Anreicherung nie kippen. Welche
     // Fotos tatsächlich verwertet werden (platziert), entscheidet reichereAn.
-    // Gelesen wird die ANZEIGE-Fassung: Das Modell rechnet ohnehin auf ~1000 px
-    // herunter, und das Original ist zu diesem Zeitpunkt bereits verworfen.
+    //
+    // Gelesen wird die KACHEL-Fassung (480 px), nicht die Anzeige-Fassung. Die
+    // Frage lautet „welches Wetter zeigt der Himmel", und die beantwortet das
+    // Modell auf der Kachel genauso — an fünf Fotos mit bekanntem Wetter
+    // gegengeprüft, gleiche Befunde. Es spart aber ein Viertel der Kosten und
+    // ein Fünftel der Zeit, weil das Bild als base64 IM Request steckt: 55 KB
+    // statt 940 KB je Aufruf. Fällt die Kachel aus (Aufbereitung gescheitert),
+    // bleibt der Weg über Anzeige-Fassung bzw. Original.
+    //
+    // Und der eigentliche Hebel: NEBENLÄUFIG (s. BILDANALYSE_PARALLEL).
+    // Sequenziell war dieser Block über 90 % der Verarbeitungszeit — 30 Fotos
+    // brauchten 66 s, davon 62 s hier; alles andere zusammen (ffmpeg,
+    // Geocoding, Wetter, Track, Render) 4 s. Jetzt sind es 11 s.
+    //
+    // Die Ergebnisse werden anschließend in MANIFEST-Reihenfolge einsortiert:
+    // Der Cache (anreicherung.json) soll nicht je nach Antwortzeiten anders
+    // herum stehen, sonst ist jeder Re-Render ein Diff ohne Unterschied.
     let bildBefunde: Map<string, BildBefund>
     if (cache) {
       bildBefunde = recordZuMap(cache.befunde)
     } else {
       bildBefunde = new Map<string, BildBefund>()
       if (bildKlassifikator) {
-        for (const m of manifest.media.filter((x) => x.type === 'photo')) {
-          try {
-            const datei = fotoMeta.get(m.id)?.anzeigeDatei ?? mediumDateiname(m)
-            if (!(await storage.info(tourId, `media/${datei}`))) continue
-            const daten = await storage.lese(tourId, `media/${datei}`)
-            bildBefunde.set(m.id, await bildKlassifikator.klassifiziere({ daten, medientyp: bildMedientyp(datei) }))
-          } catch (fehler) {
-            app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+        const fotos = manifest.media.filter((x) => x.type === 'photo')
+        const ergebnisse = new Array<BildBefund | null>(fotos.length).fill(null)
+        let naechstes = 0
+        const arbeiter = async (): Promise<void> => {
+          // Kein Zuteilungs-Race: zwischen Lesen und Erhöhen von `naechstes`
+          // liegt kein await, und JS führt bis dahin ununterbrochen aus.
+          for (let i = naechstes++; i < fotos.length; i = naechstes++) {
+            const m = fotos[i] as UploadManifest['media'][number]
+            try {
+              const meta = fotoMeta.get(m.id)
+              const datei = meta?.thumbDatei ?? meta?.anzeigeDatei ?? mediumDateiname(m)
+              if (!(await storage.info(tourId, `media/${datei}`))) continue
+              ergebnisse[i] = await bildKlassifikator.klassifiziere(
+                { daten: await storage.lese(tourId, `media/${datei}`), medientyp: bildMedientyp(datei) },
+                (nachricht) => protokoll(`${nachricht} (${m.id})`),
+              )
+            } catch (fehler) {
+              app.log.warn(`Bildanalyse fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
+            }
           }
+        }
+        await Promise.all(
+          Array.from({ length: Math.min(BILDANALYSE_PARALLEL, fotos.length) }, () => arbeiter()),
+        )
+        for (const [i, befund] of ergebnisse.entries()) {
+          if (befund) bildBefunde.set((fotos[i] as UploadManifest['media'][number]).id, befund)
         }
       }
     }

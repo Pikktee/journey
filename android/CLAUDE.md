@@ -87,7 +87,7 @@ ohne Anmeldung an und bekommt nie eine zweite Chance.
 Drift-Wächter in `test/versionen.test.ts` verhindert den Rückfall auf eine fest eingetragene
 Zahl. Sie stand einmal an zwei Stellen — gepflegt wurde nur eine, und auf dem Testgerät lag
 dadurch monatelang eine Nummer, die nichts mehr über den Stand sagte. Den APK baut der
-Deploy-Workflow bei jedem Version-Tag: [docs/android-release.md](../docs/android-release.md).
+Deploy-Workflow bei jedem Version-Tag: [docs/ops/android-release.md](../docs/ops/android-release.md).
 
 **Room-Migrationen sind Pflicht**, kein `fallbackToDestructiveMigration`: auf dem Gerät liegen
 echte, noch nicht hochgeladene Aufnahmen. Schemata werden nach `android/app/schemas/`

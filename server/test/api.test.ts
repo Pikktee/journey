@@ -2,11 +2,13 @@
 // Lebenszyklus Upload → Finalize → Auslieferung, plus Auth-, Sichtbarkeits-
 // und Range-Verhalten.
 
+import { readFile, writeFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
+import type { BildWerkzeug } from '../src/pipeline/bild.js'
 import type { TourJson } from '../src/pipeline/enrich.js'
 import { FesteSchienen } from '../src/pipeline/schienen.js'
 import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
-import { FesterKlassifikator } from '../src/pipeline/vision.js'
+import { FesterKlassifikator, type BildKlassifikator } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
 import type { UploadManifest } from '../src/schema/upload.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
@@ -155,6 +157,64 @@ describe('Tour-Lebenszyklus', () => {
     expect(tour.weather?.some((w) => w.source === 'photo' && w.mode === 'storm')).toBe(true)
     expect(klass.aufrufe).toHaveLength(1) // genau das eine Foto klassifiziert
     expect(klass.aufrufe[0]?.medientyp).toBe('image/jpeg')
+  })
+
+  it('analysiert die Fotos nebenläufig, ordnet die Befunde aber am Manifest aus (M5)', async () => {
+    // Der Aufruf ist reine Wartezeit auf einen fremden Dienst — sequenziell war
+    // er über 90 % der Verarbeitungszeit. Hier steht der Vertrag dahinter: Es
+    // laufen mehrere gleichzeitig, UND jeder Befund landet trotzdem an seinem
+    // Foto. Der Fake antwortet dafür in UMGEKEHRTER Reihenfolge: m4 zuerst, m1
+    // zuletzt — vertauschte Zuordnung fiele sofort auf.
+    let offen = 0
+    let maxGleichzeitig = 0
+    const gelesen: string[] = []
+    const klass: BildKlassifikator = {
+      async klassifiziere({ daten }) {
+        // Marke aus dem Bild-Fake: „<Kante>#<Bildnummer>" hinter dem JPEG-Gerüst
+        const [, kante, roh] = /(\d+)#(\d)/.exec(Buffer.from(daten).toString('latin1')) ?? []
+        gelesen.push(kante ?? '?')
+        const nummer = Number(roh)
+        offen++
+        maxGleichzeitig = Math.max(maxGleichzeitig, offen)
+        await new Promise((r) => setTimeout(r, (5 - nummer) * 12))
+        offen--
+        return { himmel: 'bedeckt', niederschlag: 'kein', himmelSichtbar: true, konfidenz: nummer / 10 }
+      },
+    }
+    // Bild-Fake, der Fassung UND Bildnummer in die Zieldatei schreibt: nur so
+    // ist nachprüfbar, welche der beiden Fassungen bei der Analyse ankommt.
+    const bildWerkzeug: BildWerkzeug = {
+      async skaliere(quellPfad, zielPfad, { kante }) {
+        const quelle = await readFile(quellPfad, 'latin1')
+        const nummer = quelle.slice(-1)
+        await writeFile(zielPfad, Buffer.from(`\xff\xd8\xff\xda\x00\x02${kante}#${nummer}`, 'latin1'))
+      },
+    }
+
+    const manifest = beispielManifest()
+    manifest.media = [1, 2, 3, 4].map((i) => ({
+      id: `m${i}`,
+      type: 'photo' as const,
+      file: `IMG_000${i}.JPG`,
+      takenAt: `2026-07-04T09:0${i}:12+02:00`,
+      anchor: [7.9105, 46.59] as [number, number],
+      caption: null,
+    }))
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, null, {}, klass, null, bildWerkzeug)
+    const id = await legeTourAn(u, manifest)
+    for (const i of [1, 2, 3, 4]) await ladeMediumHoch(u, id, `m${i}`, `foto-${i}`)
+    await finalisiere(u, id)
+
+    expect(maxGleichzeitig).toBeGreaterThan(1) // lief nicht nacheinander
+    expect(gelesen).toHaveLength(4)
+    expect(new Set(gelesen)).toEqual(new Set(['480'])) // die Kachel, nicht die Anzeige-Fassung
+    const cache = JSON.parse((await u.storage.lese(id, 'anreicherung.json')).toString()) as {
+      befunde: Record<string, { konfidenz: number }>
+    }
+    // Jeder Befund an seinem Foto — und in Manifest-Reihenfolge abgelegt, damit
+    // der Cache nicht je nach Antwortzeiten anders herum steht.
+    expect(Object.keys(cache.befunde)).toEqual(['m1', 'm2', 'm3', 'm4'])
+    expect(Object.values(cache.befunde).map((b) => b.konfidenz)).toEqual([0.1, 0.2, 0.3, 0.4])
   })
 
   it('lässt das Wetter ohne konfigurierten Klassifikator unberührt (M5 No-Op)', async () => {

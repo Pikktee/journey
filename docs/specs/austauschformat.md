@@ -147,6 +147,10 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   ein „klar"-Foto stehen. Solche Stellen erscheinen als Keyframe-Fenster
   (±0.03 f um den Anker) mit `source: 'photo'`. Ohne Key ist M5 ein No-Op — das
   Wetter ist dann exakt das aus Open-Meteo (M2).
+  Geschickt wird die **Kachel-Fassung** (480 px) und in bis zu
+  `BILDANALYSE_PARALLEL` gleichzeitigen Aufrufen: Der Block war sequenziell über
+  90 % der Verarbeitungszeit (30 Fotos: 66 s → 11 s). Kosten sind kein Faktor —
+  gemessen $0,0002 je Foto, also rund 0,4 Cent für eine Tour mit 20 Fotos.
 - Fehlt `weather`, greift im Player das Client-Auto-Wetter
   (`src/autoweather.js`) als Fallback — echte `takenAt`/`time`-Werte machen es
   bei aufgezeichneten Touren sofort sinnvoll.

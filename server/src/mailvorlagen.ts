@@ -59,7 +59,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     hatLink: true,
     platzhalter: [
       { name: 'name', beschreibung: 'Name des Kontos (aus der Registrierung oder der Adresse abgeleitet)', beispiel: 'Mira Wolf' },
-      LINK_INFO('Bestätigungslink', 'https://maptale.henrikheil.net/anmelden#verify=beispiel'),
+      LINK_INFO('Bestätigungslink', 'https://maptale.io/anmelden#verify=beispiel'),
     ],
     standard: {
       betreff: 'Bestätige deine E-Mail-Adresse',
@@ -81,7 +81,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     hatLink: true,
     platzhalter: [
       { name: 'name', beschreibung: 'Name des Kontos, zu dem die Adresse gehört', beispiel: 'Mira Wolf' },
-      LINK_INFO('Link zum neuen Passwort', 'https://maptale.henrikheil.net/anmelden#reset=beispiel'),
+      LINK_INFO('Link zum neuen Passwort', 'https://maptale.io/anmelden#reset=beispiel'),
     ],
     standard: {
       betreff: 'Passwort zurücksetzen',
@@ -102,7 +102,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     anlass:
       'Geht raus, sobald sich jemand ohne Einladungscode einträgt. Erst der Klick macht daraus einen Platz in der Schlange (Double-Opt-in).',
     hatLink: true,
-    platzhalter: [LINK_INFO('Bestätigungslink', 'https://maptale.henrikheil.net/registrieren#warteliste=beispiel')],
+    platzhalter: [LINK_INFO('Bestätigungslink', 'https://maptale.io/registrieren#warteliste=beispiel')],
     standard: {
       betreff: 'Bitte bestätige deinen Platz auf der Warteliste',
       titel: 'Fast auf der Liste',
@@ -124,11 +124,11 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     hatLink: true,
     platzhalter: [
       { name: 'code', beschreibung: 'Der Einladungscode. Steht er allein in einem Absatz, wird er hervorgehoben.', beispiel: 'MAPT-4F7K' },
-      LINK_INFO('Registrierung mit eingetragenem Code', 'https://maptale.henrikheil.net/registrieren#einladung=MAPT-4F7K'),
+      LINK_INFO('Registrierung mit eingetragenem Code', 'https://maptale.io/registrieren#einladung=MAPT-4F7K'),
       {
         name: 'austragenLink',
         beschreibung: 'Weg aus der Warteliste — muss in der Mail stehen (Löschung ohne Umweg über uns)',
-        beispiel: 'https://maptale.henrikheil.net/registrieren#warteliste-austragen=beispiel',
+        beispiel: 'https://maptale.io/registrieren#warteliste-austragen=beispiel',
       },
     ],
     standard: {

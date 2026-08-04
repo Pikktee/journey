@@ -73,6 +73,6 @@ class Einstellungen(private val context: Context) {
         // mehr ein). Für Emulator-Dev kann ein Test den Wert per setzeServer() auf
         // http://10.0.2.2:8787 ziehen (netz_sicherheit.xml erlaubt dort Cleartext);
         // der ApiClientTest nutzt genau das gegen den MockWebServer.
-        const val STANDARD_SERVER = "https://maptale.henrikheil.net"
+        const val STANDARD_SERVER = "https://maptale.io"
     }
 }

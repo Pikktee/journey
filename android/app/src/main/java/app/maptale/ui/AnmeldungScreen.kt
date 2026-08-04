@@ -106,7 +106,7 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
 
         Spacer(Modifier.height(28.dp))
         Text(
-            "Noch kein Konto? Registriere dich auf maptale.henrikheil.net.",
+            "Noch kein Konto? Registriere dich auf maptale.io.",
             style = MaterialTheme.typography.bodySmall,
             color = Gedaempft,
         )

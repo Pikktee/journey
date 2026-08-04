@@ -81,7 +81,7 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     hinterTls: env.MAPTALE_HINTER_TLS === '1',
     registrierungOffen: env.MAPTALE_REGISTRIERUNG_OFFEN !== '0',
     basisUrl: text(env.MAPTALE_BASIS_URL, 'http://localhost:5173'),
-    mailAbsender: text(env.MAPTALE_MAIL_ABSENDER, 'Maptale <noreply@maptale.henrikheil.net>'),
+    mailAbsender: text(env.MAPTALE_MAIL_ABSENDER, 'Maptale <noreply@maptale.io>'),
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
     visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODELL_DEFAULT),

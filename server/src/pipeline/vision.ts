@@ -30,7 +30,16 @@ export interface BildBefund {
 
 /** Klassifikator hinter Interface (DI) — Tests nutzen FesterKlassifikator. */
 export interface BildKlassifikator {
-  klassifiziere(bild: { daten: Uint8Array; medientyp: string }): Promise<BildBefund>
+  /**
+   * `protokoll` meldet, WARUM ein Bild nichts beigetragen hat. Ohne das sind
+   * „ein Foto zeigte keinen Himmel" und „der Dienst antwortet gar nicht mehr"
+   * von außen dasselbe: eine Tour, die fertig wird und deren Wetter allein aus
+   * Open-Meteo kommt (s. Fehlerzweige im OpenRouterKlassifikator).
+   */
+  klassifiziere(
+    bild: { daten: Uint8Array; medientyp: string },
+    protokoll?: (nachricht: string) => void,
+  ): Promise<BildBefund>
 }
 
 // Schweregrad-Rangfolge (Plan M5): „mehr Wetter" = höherer Rang. off < clouds <
@@ -205,20 +214,26 @@ const NEUTRAL: BildBefund = { himmel: 'wolkig', niederschlag: 'kein', himmelSich
 const HIMMEL = new Set<BildBefund['himmel']>(['klar', 'wolkig', 'bedeckt'])
 const NIEDERSCHLAG = new Set<BildBefund['niederschlag']>(['kein', 'regen', 'schnee', 'gewitter', 'nebel'])
 
-/** JSON aus einem (evtl. mit Prosa/Code-Zaun umrahmten) Text robust herausziehen. */
-function parseBefund(text: string): BildBefund {
+/**
+ * JSON aus einem (evtl. mit Prosa/Code-Zaun umrahmten) Text robust herausziehen.
+ * `null` heißt „nicht verwertbar" — der Aufrufer macht daraus NEUTRAL und sagt
+ * es im Protokoll; ohne diese Unterscheidung wäre eine Modell-Antwort, die gar
+ * kein JSON enthält, nicht von einem ehrlichen „kein Wetter erkennbar" zu
+ * trennen.
+ */
+function parseBefund(text: string): BildBefund | null {
   const von = text.indexOf('{')
   const bis = text.lastIndexOf('}')
-  if (von < 0 || bis <= von) return NEUTRAL
+  if (von < 0 || bis <= von) return null
   let obj: Record<string, unknown>
   try {
     obj = JSON.parse(text.slice(von, bis + 1)) as Record<string, unknown>
   } catch {
-    return NEUTRAL
+    return null
   }
   const himmel = obj['himmel'] as BildBefund['himmel']
   const niederschlag = obj['niederschlag'] as BildBefund['niederschlag']
-  if (!HIMMEL.has(himmel) || !NIEDERSCHLAG.has(niederschlag)) return NEUTRAL
+  if (!HIMMEL.has(himmel) || !NIEDERSCHLAG.has(niederschlag)) return null
   const konfidenz = typeof obj['konfidenz'] === 'number' ? clamp01(obj['konfidenz']) : 0
   return { himmel, niederschlag, himmelSichtbar: obj['himmelSichtbar'] === true, konfidenz }
 }
@@ -244,7 +259,10 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
     private readonly modell: string = VISION_MODELL_DEFAULT,
   ) {}
 
-  async klassifiziere(bild: { daten: Uint8Array; medientyp: string }): Promise<BildBefund> {
+  async klassifiziere(
+    bild: { daten: Uint8Array; medientyp: string },
+    protokoll?: (nachricht: string) => void,
+  ): Promise<BildBefund> {
     try {
       const antwort = await this.fetchFn(OPENROUTER_URL, {
         method: 'POST',
@@ -269,11 +287,30 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
           ],
         }),
       })
-      if (!antwort.ok) return NEUTRAL
+      // Die drei Fehlerzweige enden alle im neutralen Befund — richtig so, ein
+      // einzelnes Bild darf die Anreicherung nie kippen. Aber sie MELDEN sich:
+      // 402 (Guthaben leer) und 429 (Rate-Limit) treffen sonst jede Tour
+      // gleichzeitig und lautlos, und ein per Env umgestelltes Modell, das kein
+      // JSON liefert (Reasoning-Modelle verbrauchen max_tokens mit Denk-Tokens),
+      // kostet Geld, ohne je etwas zu bewirken.
+      if (!antwort.ok) {
+        const grund = antwort.status === 402 ? ' (Guthaben aufgebraucht?)' : antwort.status === 429 ? ' (Rate-Limit)' : ''
+        protokoll?.(`Bildanalyse: ${this.modell} antwortete mit HTTP ${antwort.status}${grund} — Foto ohne Wirkung`)
+        return NEUTRAL
+      }
       const json = (await antwort.json()) as { choices?: Array<{ message?: { content?: string } }> }
       const text = json.choices?.[0]?.message?.content ?? ''
-      return parseBefund(text)
-    } catch {
+      const befund = parseBefund(text)
+      if (!befund) {
+        protokoll?.(
+          `Bildanalyse: ${this.modell} lieferte keinen verwertbaren Befund — ` +
+            (text ? `Antwort begann mit „${text.slice(0, 80)}"` : 'die Antwort war leer'),
+        )
+        return NEUTRAL
+      }
+      return befund
+    } catch (fehler) {
+      protokoll?.(`Bildanalyse: Aufruf an ${this.modell} fehlgeschlagen: ${(fehler as Error).message}`)
       return NEUTRAL
     }
   }
