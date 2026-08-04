@@ -161,6 +161,19 @@ Der Vhost der Alt-Domain besteht dann nur noch aus drei Blöcken (`.well-known`
 für die Zertifikatserneuerung, `/api/`, `location /` → 301) — Muster:
 `maptale.de.conf` und `maptale.henrikheil.net.conf` auf dem Server.
 
+> **Stand 2026-08-05 eingesetzt:** `maptale.henrikheil.net` leitet auf
+> `maptale.io` um (`/etc/nginx/sites-enabled/maptale.henrikheil.net.conf`,
+> Vorzustand als Backup unter `/root/maptale.henrikheil.net.conf.vor-redirect-20260805`).
+> Wie jeder Vhost ist das **Handarbeit auf dem Server** — CloudPanel überschreibt
+> die Datei, sobald jemand die Site im UI speichert; derselbe Stand gehört dann
+> einmal in den Vhost-Editor. Im selben Zug ging die alte Domain aus den drei
+> Stellen, an denen wir uns gegenüber fremden Diensten ausweisen: den
+> User-Agents für Nominatim ([`naming.ts`](../../server/src/pipeline/naming.ts))
+> und Overpass ([`schienen.ts`](../../server/src/pipeline/schienen.ts)) sowie dem
+> `http-referer` an OpenRouter ([`vision.ts`](../../server/src/pipeline/vision.ts)).
+> Sie stecken in Commit `1d16d8e`, dessen Betreff von der Umami-Umstellung
+> spricht — im `git log` ist diese Änderung deshalb nicht zu finden.
+
 > **`/api/` wird NICHT mitumgeleitet.** Android-Installationen aus der Zeit vor
 > der Umstellung haben die alte Domain als Server gespeichert
 > ([`Einstellungen.kt`](../../android/app/src/main/java/app/maptale/upload/Einstellungen.kt)
