@@ -595,11 +595,11 @@
     .km-balken span.voll { background: var(--warn, #e8a13c); }
     .km-trenner { height: 1px; background: var(--rand); margin: 2px 0; }
     .km-eintrag {
-      width: 100%; justify-content: flex-start; font-size: 13px;
-      background: transparent; border-color: transparent; padding: 8px 10px;
+      display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start; font-size: 13px;
+      color: var(--text, #f0f4f8); text-decoration: none; background: transparent; border-color: transparent; padding: 8px 10px;
     }
-    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); }
-    .km-eintrag svg { width: 15px; height: 15px; }
+    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; color: var(--text, #f0f4f8); }
+    .km-eintrag svg { width: 15px; height: 15px; flex: none; }
     .verify-banner {
       flex: none; display: flex; align-items: center; gap: 10px;
       padding: 9px 18px; font-size: 12.5px;
