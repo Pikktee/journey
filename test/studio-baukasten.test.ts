@@ -5,11 +5,15 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   effektiveMedien,
+  erfasseUndo,
+  isoZuOffset,
+  HISTORIE_MAX,
   LEERES_OVERLAY,
   mitAudioEintrag,
   mitAudioPatch,
   mitKameraGrenze,
   mitMedienEdit,
+  mitModusGrenze,
   mitMoment,
   mitTrim,
   mitWetterGrenze,
@@ -18,6 +22,7 @@ import {
   offsetZuIso,
   ohneAudioEintrag,
   ohneKameraGrenze,
+  ohneModusGrenze,
   ohneMoment,
   ohneWetterGrenze,
   projiziereAufTrack,
@@ -27,6 +32,7 @@ import {
   zerlegeFuerAnzeige,
   type EditOverlay,
   type MediumBasis,
+  type Modus,
   type TrackPunkt,
 } from '../src/studio/editmodell'
 import { SFX_BIBLIOTHEK, SFX_DATEIEN, sfxEffekt } from '../src/studio/sfxbibliothek'
@@ -60,7 +66,10 @@ import {
   haltedauerS,
   haltInnenBei,
   klemmeFilmS,
+  klemmeGrenze,
   klemmeStandzeit,
+  klemmeVideoTrim,
+  loeseFokusAuf,
   kumMeter,
   meterZuOffset,
   musikLanes,
@@ -77,6 +86,8 @@ import {
   STANDZEIT_MIN_S,
   schrittFilmS,
   waehleFilmStufe,
+  videoFilmS,
+  VIDEO_TRIM_MIN_S,
 } from '../src/studio/zeitleiste'
 
 const START = '2026-07-12T17:45:00Z'
@@ -1025,6 +1036,220 @@ describe('Zeitleiste', () => {
       expect(klemmeFilmS(41, 40, 42, px)).toBe(41)
     })
 
+    // — Der ganze Loslass-Weg, DOM-frei nachgebaut —
+    //
+    // Die Bausteine sind einzeln geprüft (Grenzkurve, Rasten, Klemmen). Was
+    // schiefging, war ihr ZUSAMMENSPIEL: gemischte Koordinatensysteme, die
+    // Sekundenrundung des ISO-Ankers, die Klemme gegen den Nachbarn. Deshalb
+    // fahren die folgenden Tests die Kette so ab, wie `kantenZugBewegen` sie
+    // fährt — klemmen → rasten → schreiben → Achse NEU bauen — und messen am
+    // Ende dort, wo der Nutzer hinsieht: an der fertigen Leiste.
+    describe('Kantenzug: wo die Grenze landet', () => {
+      const halte = [{ offsetS: 600, breiteS: 20 }]
+      /** Achse aus einem Overlay — genau das, was der Editor je Frame neu baut. */
+      const achseVon = (edits: EditOverlay): Achse =>
+        baueAchse(zerlegeFuerAnzeige([{ mode: 'bike', pts: fahrTrack }], edits, START), halte, fSkala)
+
+      /** `verschiebeGrenze('modus', …)` aus editor.ts, ohne Zustand. */
+      function schreibeGrenze(edits: EditOverlay, altAb: string, zielS: number): { edits: EditOverlay; ab: string } {
+        const geklemmt = klemmeGrenze(
+          edits.modi ?? [],
+          altAb,
+          START,
+          Math.max(fSkala.vonS, Math.min(fSkala.bisS, zielS)),
+        )
+        const neuAb = iso(geklemmt)
+        if (neuAb === altAb) return { edits, ab: altAb }
+        const alt = edits.modi?.find((g) => g.ab === altAb)
+        if (!alt || edits.modi?.some((g) => g.ab === neuAb)) return { edits, ab: altAb }
+        return { edits: mitModusGrenze(ohneModusGrenze(edits, altAb), neuAb, alt.mode), ab: neuAb }
+      }
+
+      /** Ein Zieh-Frame: Zeiger zeigt auf `zielFilmS`. */
+      function ziehFrame(
+        edits: EditOverlay,
+        ab: string,
+        zielFilmS: number,
+        zug: { vonS: number; bisS: number; minFilmS: number; maxFilmS: number; zeitBei: (f: number) => number },
+        pxProFilmS: number,
+      ): { edits: EditOverlay; ab: string; gerastet: boolean; hinter: boolean } {
+        const achse = achseVon(edits)
+        const filmS = klemmeFilmS(zielFilmS, zug.minFilmS, zug.maxFilmS, pxProFilmS)
+        // Gerastet wird an den Halten, wie sie JETZT auf der Leiste stehen
+        const sichtbar = (achse.halte ?? []).filter((h) => h.offsetS > zug.vonS && h.offsetS <= zug.bisS)
+        const rast = rasteAnHalt(sichtbar, anteilZuOffset(achse, filmZuAnteil(achse, filmS)), filmS)
+        const ziel = rast.halt ? rast.tOffsetS : zug.zeitBei(filmS)
+        return { ...schreibeGrenze(edits, ab, ziel), gerastet: !!rast.halt, hinter: rast.hinter }
+      }
+
+      /** Zug-Start für eine Fortbewegungs-Kante bei `kanteS` (Vorgänger bei `vonS`). */
+      function starte(edits: EditOverlay, kanteS: number, vonS: number, links: Modus) {
+        const achse = achseVon(edits)
+        const kurve = baueGrenzKurve(fahrTrack, vonS, fSkala.bisS, links, filmZuOffset(achse, vonS), achse.halte ?? [])!
+        return {
+          vonS,
+          bisS: fSkala.bisS,
+          minFilmS: filmZuOffset(achse, vonS),
+          maxFilmS: kurve.gesamtS,
+          zeitBei: (f: number): number => zeitBeiFilm(kurve, f),
+        }
+      }
+
+      /** Filmsekunde, auf der die Kante nach dem Loslassen steht. */
+      const landung = (edits: EditOverlay, ab: string): number =>
+        filmZuOffset(achseVon(edits), isoZuOffset(START, ab))
+
+      // Eine Aufnahme-Sekunde ist die feinste Auflösung, die ein Overlay-Anker
+      // hat (`offsetZuIso` schneidet die Millisekunden ab) — mehr Genauigkeit
+      // ist gar nicht speicherbar. In Filmsekunden hängt sie am Tempo: der
+      // Track läuft mit 10 m/s, zu Fuß sind das 0,21 Filmsekunden je
+      // Aufnahmesekunde (≈ 2 px), mit dem Rad 0,08.
+      const RUNDUNG_WALK_S = 10 / (120 * 0.4)
+      const RUNDUNG_BIKE_S = 10 / 120
+
+      it('(a) Fortbewegung: die Kante landet auf der Filmsekunde, auf die gezogen wurde', () => {
+        // Die Fortbewegung ist der harte Fall: ihr Tempo ändert die Achse, auf
+        // der sie selbst liegt. Gemessen wird deshalb NICHT die Zwischenrechnung,
+        // sondern die fertige Leiste — dieselbe Probe, die der Nutzer macht.
+        const start: EditOverlay = {
+          schema: 'maptale/edits@1',
+          modi: [
+            { ab: iso(0), mode: 'walk' },
+            { ab: iso(600), mode: 'bike' },
+          ],
+        }
+        const zug = starte(start, 600, 0, 'walk')
+
+        for (const ziel of [20, 40, 100, 200]) {
+          const f = ziehFrame(start, iso(600), ziel, zug, 10)
+          expect(f.gerastet).toBe(false) // fern jedes Halts — hier gilt der Fixpunkt
+          expect(Math.abs(landung(f.edits, f.ab) - ziel)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
+        }
+
+        // Und über viele Frames hinweg: der Zug schreibt live, jeder Frame baut
+        // auf dem vorigen auf — die Kante darf dabei nicht davonwandern.
+        let stand = { edits: start, ab: iso(600) }
+        for (const ziel of [200, 150, 100, 60, 100, 150, 200]) {
+          const f = ziehFrame(stand.edits, stand.ab, ziel, zug, 10)
+          stand = { edits: f.edits, ab: f.ab }
+          if (f.gerastet) continue // Rasten ist die eine gewollte Ausnahme (s. u.)
+          expect(Math.abs(landung(stand.edits, stand.ab) - ziel)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
+        }
+        // Am Ende der Bewegung steht die Kante wieder genau unter dem Zeiger
+        expect(Math.abs(landung(stand.edits, stand.ab) - 200)).toBeLessThan(RUNDUNG_WALK_S + 0.01)
+      })
+
+      it('(a) Ausnahme: in einen Halt VOR sich kann die Fortbewegungs-Kante nicht landen', () => {
+        // Der einzige Fall, in dem die Kante nicht unter dem Zeiger bleibt —
+        // und er ist keine Rechenschwäche, sondern die Sache selbst: Ein Halt
+        // RECHTS der Kante liegt auf einer Filmposition, die von der Filmzeit
+        // VOR ihm abhängt — also von der Kante. Zieht man die Kante in ihn
+        // hinein, rutscht er im selben Zug nach hinten weg. Einen Fixpunkt
+        // gibt es dafür nicht: „vor dem Halt" und „auf dem Pixel, wo der Halt
+        // gerade gezeichnet ist" sind hier zwei verschiedene Orte.
+        const start: EditOverlay = {
+          schema: 'maptale/edits@1',
+          modi: [
+            { ab: iso(0), mode: 'walk' },
+            { ab: iso(288), mode: 'bike' },
+          ],
+        }
+        const zug = starte(start, 288, 0, 'walk')
+        const halt = achseVon(start).halte![0]!
+        expect(halt.filmVon).toBeCloseTo(86, 6) // rechts der Kante (die steht auf Film 60)
+        expect(halt.filmBis).toBeCloseTo(106, 6)
+
+        const f = ziehFrame(start, iso(288), halt.filmVon + 10, zug, 10)
+        expect(f.gerastet).toBe(true)
+        expect(isoZuOffset(START, f.ab)).toBe(600 + RAST_HINTER_S)
+        // Der Halt ist mitgewandert (mehr Fußweg davor) — die Kante steht
+        // dahinter, nicht mehr auf dem angepeilten Pixel.
+        expect(achseVon(f.edits).halte![0]!.filmVon).toBeCloseTo(125, 6)
+
+        // Wichtig ist nur, dass sich das im nächsten Frame FÄNGT: der Zeiger
+        // liegt jetzt links des Halts, also gilt wieder der Fixpunkt. Es
+        // pendelt nicht — ein Halt liegt in ruhiger Lage stets RECHTS der
+        // Kante, ein Dauerflackern ist damit ausgeschlossen.
+        const f2 = ziehFrame(f.edits, f.ab, halt.filmVon + 10, zug, 10)
+        expect(f2.gerastet).toBe(false)
+        expect(Math.abs(landung(f2.edits, f2.ab) - (halt.filmVon + 10))).toBeLessThan(RUNDUNG_WALK_S + 0.01)
+      })
+
+      it('(a) Kamera: ohne Rückwirkung auf die Achse landet die Kante exakt', () => {
+        // Kamera und Wetter ändern die Filmdauer nicht — hier ist `zeitBei` die
+        // Achse selbst, und die Landung muss auf das Tausendstel stimmen.
+        const achse = achseVon(LEERES_OVERLAY)
+        for (const ziel of [10, 35, 90, 115]) {
+          const t = anteilZuOffset(achse, filmZuAnteil(achse, ziel))
+          // außerhalb der Halt-Sprungs bleibt die Umkehrung exakt
+          if (haltInnenBei(achse, ziel)) continue
+          expect(filmZuOffset(achse, t)).toBeCloseTo(ziel, 3)
+        }
+      })
+
+      it('(b) Einrasten trifft die Seite, auf die gezeigt wird', () => {
+        const start: EditOverlay = {
+          schema: 'maptale/edits@1',
+          modi: [
+            { ab: iso(0), mode: 'walk' },
+            { ab: iso(300), mode: 'bike' },
+          ],
+        }
+        const zug = starte(start, 300, 0, 'walk')
+        const halt = achseVon(start).halte!.find((h) => h.offsetS === 600)!
+
+        // Vordere Hälfte des Halts → die Grenze landet VOR ihm: er läuft
+        // vollständig im neuen Zustand ab.
+        const vorne = ziehFrame(start, iso(300), halt.filmVon + 1, zug, 10)
+        expect(vorne).toMatchObject({ gerastet: true, hinter: false })
+        expect(isoZuOffset(START, vorne.ab)).toBe(600)
+        const aVorne = achseVon(vorne.edits)
+        expect(landung(vorne.edits, vorne.ab)).toBeCloseTo(aVorne.halte![0]!.filmVon, 6)
+
+        // Hintere Hälfte → dahinter, und zwar eine GANZE Sekunde: ein Epsilon
+        // fiele durch die Sekundenrundung des Ankers wieder davor.
+        const hinten = ziehFrame(start, iso(300), halt.filmBis - 1, zug, 10)
+        expect(hinten).toMatchObject({ gerastet: true, hinter: true })
+        expect(isoZuOffset(START, hinten.ab)).toBe(600 + RAST_HINTER_S)
+        const aHinten = achseVon(hinten.edits)
+        expect(landung(hinten.edits, hinten.ab)).toBeGreaterThanOrEqual(aHinten.halte![0]!.filmBis)
+
+        // Der Halt bleibt dabei ein Halt — er wird nicht zerschnitten
+        expect(aHinten.halte![0]!.filmBis - aHinten.halte![0]!.filmVon).toBeCloseTo(20, 6)
+      })
+
+      it('(c) zwei Grenzen können nicht unter die Mindestbreite zusammenrücken', () => {
+        const px = 10
+        const start: EditOverlay = {
+          schema: 'maptale/edits@1',
+          modi: [
+            { ab: iso(0), mode: 'walk' },
+            { ab: iso(300), mode: 'bike' },
+            { ab: iso(900), mode: 'jeep' },
+          ],
+        }
+        // Die hintere Kante ganz nach links gezogen — auf ihren Vorgänger
+        const zug = starte(start, 900, 300, 'bike')
+        const gezogen = ziehFrame(start, iso(900), -1000, zug, px)
+        const neu = achseVon(gezogen.edits)
+        const breitePx = (landung(gezogen.edits, gezogen.ab) - filmZuOffset(neu, 300)) * px
+        // Mindestens ein greifbares Band — bis auf die Sekundenrundung des Ankers
+        expect(breitePx).toBeGreaterThan(BAND_MIN_PX - RUNDUNG_BIKE_S * px - 0.01)
+        expect(breitePx).toBeLessThan(BAND_MIN_PX + 1)
+
+        // Ohne die Pixel-Klemme wäre das Band verschwunden — unsichtbar UND
+        // nicht mehr anzufassen (das war der Bug, den BAND_MIN_PX behebt).
+        const ohneKlemme = schreibeGrenze(start, iso(900), zug.zeitBei(zug.minFilmS))
+        const aOhne = achseVon(ohneKlemme.edits)
+        const engPx = (filmZuOffset(aOhne, isoZuOffset(START, ohneKlemme.ab)) - filmZuOffset(aOhne, 300)) * px
+        expect(engPx).toBeLessThan(2)
+
+        // Und die vordere Grenze steht danach unverändert da: was VOR der
+        // gezogenen Kante liegt, rührt der Zug nicht an.
+        expect(filmZuOffset(neu, 300)).toBeCloseTo(filmZuOffset(achseVon(start), 300), 6)
+      })
+    })
+
     it('Spielkurve: Identität ohne Trim, Plateau über weggetrimmten Bereichen', () => {
       const identitaet = baueSpielKurve(achse, abschnitte)
       expect(identitaet).toEqual({ anteile: [0, 1], filmS: [0, gesamt], gesamtS: gesamt })
@@ -1041,6 +1266,84 @@ describe('Zeitleiste', () => {
       // Hinter der Trim-Grenze wächst die Spielzeit nicht mehr (Plateau)
       const grenzAnteil = offsetZuAnteil(a2, 600)
       expect(filmBei(spiel, grenzAnteil + 0.1)).toBeCloseTo(70, 1)
+    })
+  })
+
+  describe('Undo: ein Zug ist ein Schritt', () => {
+    // Der Editor setzt Undo-Punkte per REFERENZvergleich beim Voll-Render
+    // (`letzterStand`). Ein Zeitleisten-Zug schreibt je Frame ein neues
+    // Overlay, ruft dazwischen aber nur `renderNachZug()` — der Stand wird
+    // dort nicht fortgeschrieben. Genau dieses Zusammenspiel ist hier
+    // nachgebaut: `rendere()` steht für `renderAlles`, alles andere für die
+    // Frames dazwischen.
+    const start = () => {
+      const stapel = { historie: [] as EditOverlay[], zukunft: [] as EditOverlay[] }
+      let letzterStand: EditOverlay | null = null
+      let edits: EditOverlay = LEERES_OVERLAY
+      const rendere = (): void => {
+        erfasseUndo(stapel, letzterStand, edits)
+        letzterStand = edits
+      }
+      rendere() // Editor geöffnet
+      return {
+        stapel,
+        rendere,
+        get edits() {
+          return edits
+        },
+        set edits(e: EditOverlay) {
+          edits = e
+        },
+      }
+    }
+
+    it('ein Klip-Zug über viele Frames erzeugt genau EINEN Undo-Schritt', () => {
+      const e = start()
+      const vorher = e.edits
+      // 12 Zieh-Frames: jeder schreibt live ins Overlay (die Leiste wird ja in
+      // den Zielzustand gesetzt), aber KEIN Voll-Render dazwischen.
+      for (let i = 0; i < 12; i++) e.edits = mitMedienEdit(e.edits, 'm1', { anchor: [9 + i / 1000, 47] })
+      expect(e.stapel.historie).toHaveLength(0)
+      e.rendere() // Loslassen
+      expect(e.stapel.historie).toHaveLength(1)
+      // Und der eine Schritt führt genau vor den Zug zurück
+      expect(e.stapel.historie[0]).toBe(vorher)
+
+      // Ein zweiter Zug legt genau einen weiteren Schritt ab
+      const zwischen = e.edits
+      for (let i = 0; i < 5; i++) e.edits = mitMedienEdit(e.edits, 'm1', { display: { holdS: 6 + i } })
+      e.rendere()
+      expect(e.stapel.historie).toHaveLength(2)
+      expect(e.stapel.historie[1]).toBe(zwischen)
+    })
+
+    it('ein Zug, der nichts ändert, ist auch kein Schritt', () => {
+      // `reiheVergeben` schriebe auch für eine unveränderte Reihenfolge ein
+      // neues Overlay — und das wäre ein Undo-Schritt, den man später einmal
+      // umsonst rückgängig macht. Der Editor schreibt deshalb gar nicht erst.
+      const e = start()
+      e.rendere()
+      e.rendere()
+      expect(e.stapel.historie).toHaveLength(0)
+    })
+
+    it('eine neue Änderung verwirft die Redo-Zukunft', () => {
+      const e = start()
+      e.stapel.zukunft.push(LEERES_OVERLAY)
+      e.edits = mitMedienEdit(e.edits, 'm1', { caption: 'Hafen' })
+      e.rendere()
+      expect(e.stapel.historie).toHaveLength(1)
+      expect(e.stapel.zukunft).toHaveLength(0)
+    })
+
+    it('die Historie wächst nicht über HISTORIE_MAX, der jüngste Stand bleibt', () => {
+      const e = start()
+      for (let i = 0; i < HISTORIE_MAX + 5; i++) {
+        e.edits = mitMedienEdit(e.edits, 'm1', { caption: `s${i}` })
+        e.rendere()
+      }
+      expect(e.stapel.historie).toHaveLength(HISTORIE_MAX)
+      expect(e.stapel.historie[HISTORIE_MAX - 1]?.medien?.['m1']?.caption).toBe(`s${HISTORIE_MAX + 3}`)
     })
   })
 
@@ -1113,5 +1416,73 @@ describe('Zeitleiste', () => {
     expect(ankerScroll(0.5, 1000, 300, 168)).toBe(368)
     // Nie negativ scrollen: am Anfang klebt die Achse links
     expect(ankerScroll(0, 1000, 500, 168)).toBe(0)
+  })
+})
+
+// — Video-Schnitt: die Leiste zeigt, was der Server schneidet (Etappe 4, §2F) —
+
+describe('klemmeVideoTrim (Drift-Wächter gegen video.ts)', () => {
+  it('hat an BEIDEN Kanten das Material als Anschlag', () => {
+    expect(klemmeVideoTrim({ vonS: 2, bisS: 100 }, 30)).toEqual({ vonS: 2, bisS: 30 })
+    expect(klemmeVideoTrim({ vonS: -5, bisS: 100 }, 30)).toBeNull() // = ganze Datei
+    expect(klemmeVideoTrim({ vonS: 50, bisS: 60 }, 30)).toBeNull()
+    expect(klemmeVideoTrim({ vonS: 4 }, 30)).toEqual({ vonS: 4, bisS: 30 })
+    expect(klemmeVideoTrim(undefined, 30)).toBeNull()
+  })
+
+  it('deckt sich mit der Klemmung, die der Server anwendet', () => {
+    // Die Regeln stehen zweimal: Der Server MUSS klemmen (er schneidet), die
+    // Leiste SOLL dieselbe Breite zeigen. Laufen sie auseinander, plant man
+    // einen Schnitt und sieht später einen anderen.
+    const quelle = readFileSync(new URL('../server/src/pipeline/video.ts', import.meta.url), 'utf8')
+    expect(quelle).toMatch(/if \(!\(bisS - vonS > 0\.05\)\) return null/)
+    expect(VIDEO_TRIM_MIN_S).toBe(0.05)
+    // Der Vollschnitt gilt auf beiden Seiten als „kein Schnitt"
+    expect(quelle).toMatch(/if \(vonS <= 0 && bisS >= dauerS\) return null/)
+  })
+
+  it('macht den Ripple zur Folge der Breite, nicht zu eigenem Code', () => {
+    // Ein Video liegt in einer Halt-Kette ohne Lücken: wird es kürzer, wird sein
+    // Halt schmaler und alles Folgende rückt vor. Es gibt keinen Ripple-Zweig.
+    const ganz = aufnahmeHaltS({ type: 'video', dauerS: 34 })
+    const geschnitten = aufnahmeHaltS({ type: 'video', dauerS: 34, trim: { vonS: 6, bisS: 20 } })
+    expect(ganz).toBe(34)
+    expect(geschnitten).toBe(14)
+    expect(videoFilmS(34, { vonS: 0, bisS: 34 })).toBe(34) // Vollschnitt ändert nichts
+  })
+
+  it('lässt einen Foto-Halt unberührt — dort gibt es nichts zu schneiden', () => {
+    expect(aufnahmeHaltS({ type: 'photo', trim: { vonS: 2, bisS: 3 } })).toBe(HALT_ENGINE_S)
+  })
+})
+
+describe('loeseFokusAuf: Ton-Spanne kommt aus der FILM-Achse (Etappe 4)', () => {
+  const AUDIO_EDITS = {
+    schema: 'maptale/edits@1' as const,
+    audio: [
+      // Aufgewertet: anker/versatz/dauer gelten, `ab`/`bis` sind nur noch Fallback
+      { datei: 'a.mp3', typ: 'musik' as const, ab: iso(60), bis: iso(300), anker: iso(600), versatzFilmS: 0, dauerFilmS: 12 },
+    ],
+  }
+  const track = [
+    [7.9, 46.6, 800, 0],
+    [7.91, 46.6, 800, 600],
+    [7.92, 46.6, 800, 1200],
+  ] as TrackPunkt[]
+  const abschnitte = [{ mode: 'walk' as const, aktiv: true, pts: track }]
+
+  it('nimmt die gelieferte Spanne, nicht ab/bis', () => {
+    const info = loeseFokusAuf({ art: 'audio', index: 0 }, AUDIO_EDITS, abschnitte, track, START, [], () => ({
+      vonS: 600,
+      bisS: 660,
+    }))
+    expect(info?.vonS).toBe(600)
+    expect(info?.bisS).toBe(660)
+  })
+
+  it('fällt ohne Achse auf ab/bis zurück — Bestandsdaten bleiben lesbar', () => {
+    const info = loeseFokusAuf({ art: 'audio', index: 0 }, AUDIO_EDITS, abschnitte, track, START, [])
+    expect(info?.vonS).toBe(60)
+    expect(info?.bisS).toBe(300)
   })
 })

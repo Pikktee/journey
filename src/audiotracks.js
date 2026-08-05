@@ -16,6 +16,22 @@ export function istAktiv(spur, frac) {
   return spur.f0 <= frac && frac < spur.f1
 }
 
+// Wiederholt diese Spur? Ohne Angabe gilt, was der Player immer getan hat:
+// Musik lief geloopt (`el.loop = true`), ein Effekt war ein One-Shot. Deshalb
+// verhält sich ein Tour-JSON von vor Etappe 4 exakt wie vorher.
+// Spiegel von `loopAktiv` in server/src/schema/edits.ts.
+export function loopAktiv(spur) {
+  return spur.loop ?? spur.type === 'music'
+}
+
+// Hat diese Spur eine Ausdehnung — oder ist sie eine Marke ohne Länge?
+// Musik hatte immer einen Bereich, ein Effekt war immer ein Punkt. Seit Etappe 4
+// darf auch ein Effekt eine Länge haben (die seiner Datei); WAS er ist,
+// entscheidet damit die Spur selbst und nicht mehr ihr Typ.
+export function hatBereich(spur) {
+  return spur.f1 > spur.f0
+}
+
 // Soll ein SFX-One-Shot feuern? Nur beim VORWÄRTS-Überfahren von f0, nur bei
 // echter Wiedergabe (istPlayback) und nur bei Frame-kleiner Sprungweite — ein
 // Scrub/Seek quer über die Marke soll nicht knallen. Nach jedem Aufruf zieht
@@ -67,12 +83,12 @@ export function videoMusikDuck(huelle) {
   return VIDEO_DUCK + (1 - VIDEO_DUCK) * Math.cos((g * Math.PI) / 2)
 }
 export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
-  // Musik-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
+  // Bereichs-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
   // geladen, preload='none'), eigener Blend-Level für die weiche Bereichsgrenze.
-  const musik = tracks
-    .filter((t) => t.type === 'music')
-    .map((t) => ({ ...t, el: null, level: 0, drin: false, blocked: false }))
-  const sfx = tracks.filter((t) => t.type === 'sfx')
+  // Getrennt wird nach AUSDEHNUNG, nicht nach Typ — ein Effekt mit Länge klingt
+  // wie ein Bereich, einer ohne wie eh und je einmal (docs §2E).
+  const musik = tracks.filter(hatBereich).map((t) => ({ ...t, el: null, level: 0, drin: false, blocked: false }))
+  const sfx = tracks.filter((t) => !hatBereich(t))
   let musikEnabled = true
   let sfxEnabled = true
   let gate = () => false
@@ -90,7 +106,10 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s), ohne zu rattern
     for (const spur of musik) {
       const drin = istAktiv(spur, frac)
-      const want = musikEnabled && offen && drin
+      // Welcher Schalter zuständig ist, sagt der TYP — auch ein Effekt mit
+      // Bereich bleibt ein Effekt und geht mit „Klänge aus" mit.
+      const anBleibt = spur.type === 'music' ? musikEnabled : sfxEnabled
+      const want = anBleibt && offen && drin
       // Eintritt in den Bereich (auch nach Scrub/Jump): von vorn starten —
       // Pause/Weiter INNERHALB des Bereichs setzt dagegen nicht zurück (Einfrieren)
       if (drin && !spur.drin) {
@@ -99,12 +118,16 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
           // src, sonst lädt der Browser schon beim Anlegen (erst play() lädt)
           spur.el = new Audio()
           spur.el.preload = 'none'
-          // Loop bis zur Bereichsgrenze — wie im Studio (abspielen.ts); ohne Loop
-          // verstummte die Spur, sobald die Datei einmal durchgelaufen war.
-          spur.el.loop = true
+          // Loop bis zur Bereichsgrenze — ohne ihn verstummt die Spur, sobald
+          // die Datei einmal durchgelaufen ist. Genau das ist bei einem Effekt
+          // erwünscht (Zikaden nein, Brandung ja), deshalb kommt die Entscheidung
+          // seit Etappe 4 aus dem Overlay statt pauschal aus dem Typ.
+          spur.el.loop = loopAktiv(spur)
           spur.el.src = spur.src
         }
-        spur.el.currentTime = 0
+        // Einstieg in die DATEI (linker Trim): der Klip beginnt dort, wo der
+        // Autor die Kante gezogen hat, nicht am Dateianfang.
+        spur.el.currentTime = spur.startS ?? 0
         if (want) spur.el.play().catch(() => { spur.blocked = true })
       }
       spur.drin = drin
@@ -114,17 +137,23 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
       // Pause innerhalb des Bereichs (Gate zu, Playhead noch drin): Ton SOFORT
       // stoppen, Position und Level halten — Weiterlaufen setzt genau dort fort.
       // Bereich verlassen / Musik aus: unten die weiche Blende.
+      // Ducking gilt der MUSIK: Ein Effekt, der zum Video gehört (Brandung unter
+      // einer Strandaufnahme), soll nicht unter dessen eigenem Ton wegtauchen.
+      const pegelDuck = spur.type === 'music' ? duck : 1
       if (drin && !offen) {
         if (!el.paused) el.pause()
-        el.volume = Math.max(0, Math.min(1, spur.level * duck))
+        el.volume = Math.max(0, Math.min(1, spur.level * pegelDuck))
         continue
       }
 
       const tgt = want ? vol(spur) : 0
       spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.js)
-      el.volume = Math.max(0, Math.min(1, spur.level * duck))
-      // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren
-      if (want && el.paused && !spur.blocked) el.play().catch(() => { spur.blocked = true })
+      el.volume = Math.max(0, Math.min(1, spur.level * pegelDuck))
+      // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren. `ended` schließt
+      // den Fall aus, den es ohne Loop jetzt gibt: eine durchgelaufene Datei
+      // würde von play() wieder bei 0 anfangen — der Klip klänge endlos, obwohl
+      // gerade das abgeschaltet wurde.
+      if (want && el.paused && !el.ended && !spur.blocked) el.play().catch(() => { spur.blocked = true })
       if (!want && !el.paused && spur.level < 0.004) el.pause()
     }
   }, 60)
@@ -141,6 +170,7 @@ export function createAudioTracks(tracks, { volume = 0.22 } = {}) {
         if (sfxEnabled && sfxSollFeuern(vorher, f, s.f0, istPlayback)) {
           const el = new Audio(s.src) // One-Shot: eigenes Element, spielt aus und verfällt
           el.volume = vol(s)
+          if (s.startS) el.currentTime = s.startS // linker Trim gilt auch hier
           el.play().catch(() => {}) // Autoplay-Block: One-Shot verfällt (kein Nachholen)
         }
       }

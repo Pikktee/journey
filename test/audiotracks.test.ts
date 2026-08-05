@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest'
 // tsconfig (allowJs: false) kennt dafür keine Typen — Import daher ungeprüft.
 // @ts-ignore
 import {
+  hatBereich,
   istAktiv,
+  loopAktiv,
   sfxSollFeuern,
   VIDEO_DUCK,
   VIDEO_FADE_S,
@@ -140,5 +142,28 @@ describe('sfxSollFeuern (One-Shot-Kante über f0)', () => {
   it('feuert bei f0=0 NICHT im Stillstand auf der Null und nicht ohne Wiedergabe', () => {
     expect(sfxSollFeuern(0, 0, 0, true)).toBe(false)
     expect(sfxSollFeuern(0, 0.001, 0, false)).toBe(false)
+  })
+})
+
+describe('loopAktiv (Etappe 4: Wiederholung aus dem Overlay)', () => {
+  it('bildet ohne Angabe das bisherige Verhalten ab', () => {
+    // Musik lief immer geloopt (`el.loop = true`), ein Effekt war ein One-Shot.
+    // Ein Tour-JSON von vor Etappe 4 klingt dadurch exakt wie vorher.
+    expect(loopAktiv({ type: 'music' })).toBe(true)
+    expect(loopAktiv({ type: 'sfx' })).toBe(false)
+  })
+
+  it('lässt sich in beide Richtungen übersteuern', () => {
+    expect(loopAktiv({ type: 'music', loop: false })).toBe(false) // Musik, die einmal läuft
+    expect(loopAktiv({ type: 'sfx', loop: true })).toBe(true) // Brandung statt Zikaden
+  })
+})
+
+describe('hatBereich (Klip oder Marke?)', () => {
+  it('entscheidet an der Ausdehnung, nicht am Typ', () => {
+    // Seit Etappe 4 darf auch ein Effekt eine Länge haben; ein One-Shot bleibt
+    // ein Punkt (f0 === f1) und läuft weiter über die Kantenerkennung.
+    expect(hatBereich({ f0: 0.2, f1: 0.6 })).toBe(true)
+    expect(hatBereich({ f0: 0.4, f1: 0.4 })).toBe(false)
   })
 })

@@ -51,7 +51,7 @@ export interface TourJsonAntwort {
   /** Kamera-Momente über den Streckenanteil f: Punkt-Ereignisse (Umkreisen/…) */
   moments?: Array<{ f: number; art: string; dauerS?: number }>
   /** Audio-Spuren über den Streckenanteil f: Musik-Bereiche [f0,f1) + SFX (f0=f1) */
-  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
+  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number; loop?: boolean; startS?: number }>
   stats: { km: number; gainM: number }
 }
 
@@ -88,7 +88,7 @@ export interface RemoteTourCfg {
   /** Kamera-Momente (roh, f-basiert — main.js verankert sie an s) */
   moments?: Array<{ f: number; art: string; dauerS?: number }>
   /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.js spielt sie ab) */
-  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
+  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number; loop?: boolean; startS?: number }>
   stats: { km: number; gainM: number }
 }
 
@@ -172,8 +172,14 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
   if (tour.audio?.length) {
     // gain ist optional — aber wenn gesetzt, muss er endlich sein: NaN liefe
     // sonst bis in el.volume und würfe dort im Abspiel-Timer Exceptions.
+    // `startS` ist der Einstieg in die Datei (Etappe 4) — ein NaN darüber
+    // landete in el.currentTime und riss dort die Wiedergabe ab.
     const spuren = tour.audio.filter(
-      (a) => Number.isFinite(a.f0) && Number.isFinite(a.f1) && (a.gain === undefined || Number.isFinite(a.gain)),
+      (a) =>
+        Number.isFinite(a.f0) &&
+        Number.isFinite(a.f1) &&
+        (a.gain === undefined || Number.isFinite(a.gain)) &&
+        (a.startS === undefined || (Number.isFinite(a.startS) && a.startS >= 0)),
     )
     if (spuren.length) cfg.audio = spuren
   }

@@ -369,12 +369,20 @@ fahrende Kamera) steht noch aus: [docs/concepts/foto-tour.md](docs/concepts/foto
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
 sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
-`medien` (Caption, Anker, gelöscht, Anzeigeoptionen), `modi`, `kamera`, `audio`,
-`wetter`, `titelbild` (dazu `trim` — im Format erhalten und serverseitig angewandt, aber
-**nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour beginnt
-und endet, wo sie aufgezeichnet wurde).
+`medien` (Caption, Anker, gelöscht, Anzeigeoptionen, Video-Schnitt), `modi`, `kamera`, `audio`,
+`wetter`, `titelbild` (dazu das TOUR-`trim` — im Format erhalten und serverseitig angewandt,
+aber **nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour
+beginnt und endet, wo sie aufgezeichnet wurde; nicht zu verwechseln mit `medien[].trim`, dem
+Video-Schnitt aus Etappe 4).
 Beim Speichern rendert der Server die Tour aus Rohdaten + Overlay neu. Edits referenzieren
 **stabile Anker** — Medien-IDs, Koordinaten, absolute ISO-Zeitstempel, nie den Streckenanteil `f`.
+**Die Schema-ID bleibt `maptale/edits@1`, auch wenn Felder dazukommen:** Erweiterungen sind
+strikt additiv, alle neuen Felder optional, ihre Vorgaben bilden das bisherige Verhalten ab.
+Bewacht wird das von einem **Vertragstest**
+([server/test/vertrag-tourjson.test.ts](server/test/vertrag-tourjson.test.ts)), der das
+gerenderte `tour.json` für elf echte Overlay-Formen als Schnappschuss festhält — samt einer
+Probe, dass die Fälle sich überhaupt UNTERSCHEIDEN (ohne sie könnten elf identische Ergebnisse
+grün sein und der Vertrag bewachte nichts).
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
 gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
 vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `wetterAusOverlay`
@@ -419,17 +427,87 @@ Owner-Route `/api/audio-bibliothek/:datei` vor. Tour-lokale `media/`-Audios blei
 Altbestand unterstützt (Verweis ohne `quelle`). Im Studio ist die Bibliothek ein **Katalog
 zum Durchhören** in einem Dialog mit FESTEM Format (springt beim Filtern nicht): Suche über
 die GANZE Bibliothek (Reiter treten zurück), Reiter nach Art (Musik · Atmosphäre · Effekte ·
-Eigene, bewusst kein „Alle"), dichte Zeilen; was die Art im Film TUT (Loop über einen
-Bereich vs. einmal an der Marke), steckt hinter dem ⓘ der Gruppenüberschrift. Was läuft,
+Eigene, bewusst kein „Alle"), dichte Zeilen; die Kategorie bestimmt beim Einsetzen die
+ROLLE (Musik/Atmosphäre → Filmmusik, Effekte → Ton der Szene) und mit ihr die Loop-Vorgabe.
+Was läuft,
 zeigt eine mitlaufende Linie plus Zeit aus `currentTime`/`duration`; der Fortschritt wird IN
 die Zeile geschrieben, nie durch Neubau der Liste. Der Dialog kennt zwei Ziele: EINSETZEN
 (neuer Eintrag ab der Marke) und ERSETZEN („Ändern …" in der Stück-Karte des Panels —
 tauscht nur die Datei, Platzierung und Lautstärke bleiben; das aktuelle Stück trägt ein
 „Aktuell"-Badge). Beim Aussuchen klingt immer nur EINE Quelle (Bibliotheks- und
 Panel-Vorhören stoppen einander; das Panel-Vorhören folgt der Eintrags-Lautstärke live am
-Regler). ÜBERLAPPENDE Musik-Klips sind erlaubt und MISCHEN sich — im Player (je Spur ein
+Regler). ÜBERLAPPENDE Klips sind erlaubt und MISCHEN sich — im Player (je Spur ein
 Element, audiotracks.js) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
-Zeitleiste stapelt sie in Unterzeilen (`lane` aus `baueAudioBalken`), die Bahn wächst mit.
+Zeitleiste stapelt sie in Unterzeilen (`lane` aus `loeseTonKlips`), die Bahn wächst mit.
+
+**Ein Ton-Klip hängt an der REISE, nicht an einer Filmsekunde** (Etappe 4, rechnende Teile
+DOM-frei in [src/studio/tonklip.ts](src/studio/tonklip.ts)). Er merkt sich `anker`
+(Aufnahmezeit — wo auf der Reise), `versatzFilmS` (die Feinlage in FILMsekunden, darf mitten
+in einer Standzeit liegen — was reine Aufnahmezeit nicht ausdrücken kann), `dauerFilmS`,
+`einstiegS` (Einstieg in die Datei) und `loop`. Dadurch rückt Ton mit, wenn Standzeiten oder
+die Fortbewegung sich ändern — vorher war er das einzige Element, das liegen blieb (gemessen:
+Standzeit +24,5 s → der Klip dahinter +116,0 px, der davor exakt 0 px). Alle Felder sind
+optional und `ab`/`bis` bleiben als Fallback lesbar; **aufgewertet wird nur der Klip, den man
+ANFASST** — anders als bei `materialisiereModi`, wo die ganze Stufenfunktion auf einmal fest
+werden MUSS, sind Ton-Klips unabhängige Objekte. **Zwei Trimm-Regeln gehen leicht verloren:**
+Der Anschlag ist an BEIDEN Kanten das MATERIAL (Trimmen legt frei, was da ist, und erfindet
+nichts; Stille gehört ZWISCHEN die Klips, nie in einen), und **Loop hebt nur den RECHTEN
+Anschlag auf** — `el.loop` springt am Dateiende auf den DATEIANFANG, eine Wiederholung davor
+gibt es nicht. Die linke Kante bewegt Anfang UND Einstieg gemeinsam (FCPX): der Inhalt bleibt
+an seinem Platz im Film, vorne fällt etwas weg. Am Anschlag sagt das Etikett „kein Material
+mehr" — eine Kante, die kommentarlos stehen bleibt, liest sich als hakender Griff.
+Loop ist eine **Einstellung im Inspector**, auf dem Klip nur das ⟲-Zeichen: als Schalter dort
+wäre sie eine Ausnahme, die Lautstärke und Dateiwechsel nicht auch bekommen könnten. **Loop
+AUSschalten holt den Klip ans Material zurück** (`setzeLoop`) — sonst hinge hinter der
+Wellenform ein stummer Rest, und man müsste ihn von Hand zurechtziehen, um überhaupt zu sehen,
+wo sein Material endet.
+
+**Ein EINGESETZTES Stück klingt einmal, so lang wie es ist** (`setzeTonEin`): kein Loop, Länge
+= Dateilänge. Beides gehört zusammen — „nicht wiederholen" allein ließe einen Musik-Klip
+entstehen, der bis zum Tour-Ende reicht und nur seine Dateilänge klingt, also genau den stummen
+Rest, den `setzeLoop` behebt. Ein EFFEKT braucht dafür kein einziges Feld (er wiederholt von
+Haus aus nicht und ist ohnehin so lang wie seine Datei); geschrieben wird nur, was von der
+Vorgabe der Rolle abweicht. Gemessen wird VOR dem Einfügen — so entsteht genau EIN
+Overlay-Stand (ein Undo-Schritt) und der Klip steht sofort in seiner endgültigen Form da,
+statt nach dem Erscheinen zu zucken. Ohne messbare Länge bleibt es bei der Vorgabe: `loop:
+false` ohne bekanntes Ende erzeugte wieder den stummen Rest. **Die Auto-Musikwahl des Servers
+([musikwahl.ts](server/src/pipeline/musikwahl.ts)) ist davon nicht betroffen** — sie schlägt
+ein Stück vor, das die GANZE Tour tragen soll, und schreibt weiter nur `datei`/`typ`/`ab`.
+
+**`musik` vs. `sfx` beschreibt seit Etappe 4 die ROLLE, nicht die Form.** Beide sind Klips mit
+Länge, beide können wiederholen, beide mischen sich — die Beschriftung „Musik (über eine
+Strecke) / Effekt (ein Zeitpunkt)" war eine Aussage über eine Form, die es nicht mehr gibt.
+Was der Unterschied noch bewirkt, sind genau zwei Dinge im Player, und beide fragen dasselbe
+(„Score oder Ort?"): Der Zuschauer-Schalter **„Musik"** nimmt `type: 'music'` weg und lässt
+den Ton der Szene stehen (`main.js`, `setMusikEnabled`/`setSfxEnabled`), und unter dem eigenen
+Ton eines Videos **duckt** nur die Musik. Deshalb heißt das Feld in der Oberfläche „Rolle"
+(Filmmusik · Ton der Szene). Beim Umschalten kippen zwei Dinge leicht still: `bis` fiel früher
+ersatzlos weg (die Länge geht jetzt vorher nach `dauerFilmS`), und die Loop-VORGABE hängt an
+der Rolle — `loopNachRollenwechsel` schreibt den bisherigen Wert fest, wo die neue Vorgabe ihn
+umdrehen würde.
+
+**Die Zeitfelder des Ton-Inspectors gehen über die FILM-Achse**, nicht über `ab`/`bis`. Nach
+der Aufwertung haben die keinen Vorrang mehr: Ein Feld, das dorthin schriebe, wäre ab dem
+ersten Kantenzug still wirkungslos, und ein Feld, das von dort läse, zeigte eine Zeit, die im
+Film nichts mehr bedeutet (an der Probetour 08:37 statt 08:32). Deshalb bekommt
+`loeseFokusAuf` die Ton-Spanne als Rückruf herein (das Modul kennt die Achse nicht) und
+`audioZeitSetzen` ruft dieselben `verschiebeTon`/`trimmeRechts` wie der Zug an der Kante —
+samt Materialanschlag.
+
+**Ein Effekt war nie eine Marke — die LEISTE hat ihn nur so gezeichnet.** Der Player spielt
+einen One-Shot bis zum Dateiende aus; als Punkt gezeichnet verschwieg die Zeitleiste bloß, wie
+lange er klingt. Er ist deshalb derselbe Klip wie Musik, nur in seiner Farbe. Die Dateilängen
+stehen NIRGENDS im Datenmodell (der Katalog führt Namen und Charakter, keine Sekunden) — der
+Editor misst sie clientseitig per `loadedmetadata` (`preload='metadata'`, höchstens ein
+Versuch je Datei). Bis ein Wert da ist, bleibt der Klip ein Pin und die Kante ohne Anschlag:
+lieber ziehen lassen als grundlos klemmen. Die **Wellenform** gehört ebenfalls zur DATEI, nicht
+zum Klip: voller Datei-Streifen dahinter, um den Einstieg nach links geschoben, Wiederholung
+nur bei Loop — beim Trimmen wandert dadurch der AUSSCHNITT und man sieht, was wegfällt
+(gestaucht sähe jeder Trim wie ein Tempowechsel aus). Gezeichnet wird sie aus ECHTEN
+Ausschlägen (`decodeAudioData`, Spitze je Balken statt Mittel), nicht aus einem Muster: eine
+erfundene Wellenform sähe aus wie eine Aussage über den Inhalt und wäre keine. Ihr Fenster
+braucht ein eigenes `overflow: hidden` — am Klip selbst schnitte es die überstehenden
+Kanten-Griffe weg und Anfang/Ende wären nicht mehr zu greifen.
 
 **Ausgeliefert werden ABGELEITETE Fassungen, nicht das Hochgeladene**
 ([bild.ts](server/src/pipeline/bild.ts)). Aus jedem Foto entstehen beim Rendern zwei Dateien —
@@ -519,10 +597,12 @@ größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
    alten Auslieferungspfad.
 
 **Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
-immutabel fortschreiben, Track-Projektion) und [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
-(Skalen, Bänder, Marken, Dauerschätzung) sind **DOM-frei und unter Vitest getestet**;
+immutabel fortschreiben, Track-Projektion), [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
+(Skalen, Bänder, Marken, Dauerschätzung), [src/studio/stopps.ts](src/studio/stopps.ts)
+(Halt-Gruppierung) und [src/studio/tonklip.ts](src/studio/tonklip.ts) (Ton-Klips auf der
+Filmachse: auflösen, verschieben, trimmen) sind **DOM-frei und unter Vitest getestet**;
 [src/studio/editor.ts](src/studio/editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
-Neue Editor-Logik gehört in die beiden ersten Module, sonst ist sie nicht testbar.
+Neue Editor-Logik gehört in diese Module, sonst ist sie nicht testbar.
 
 **Im Studio gibt es kein Mono.** Zeiten, Kilometer, Zähler und Skalenmarken laufen in Outfit mit
 `font-variant-numeric: tabular-nums` (DESIGN.md). Die Variable `--font-mono` ist **entfernt** —
@@ -639,7 +719,8 @@ Video wirkungslos, der Player läuft bis zum Dateiende. `dauerS` liefert die Edi
 drei Quellen (Manifest → Anreicherungs-Cache → tour.json), rein lesend; fehlt alles
 (unverarbeiteter Altbestand), bleibt es bei der Foto-Annahme. Vorher bekam ein 34-s-Video
 ~34 px statt ~200 px, und Momente hatten gar keine Breite — an der Beispieltour 13,6
-unsichtbare Filmsekunden.
+unsichtbare Filmsekunden. Gemeint ist dabei die Länge des MATERIALS, nicht die des
+Ausschnitts (`quellDauerS` vor `dauerS`): daran schlagen die Schnitt-Kanten an.
 
 **Der Maßstab ist px je FILMSEKUNDE** (`pxProFilmS` + `einpassen`), kein Faktor auf die
 Fensterbreite. Der Unterschied zählt, weil die Fortbewegung die Filmdauer bestimmt: Im
@@ -667,7 +748,17 @@ Bild+Name+Bild — gemessene JS-Klassen schalteten erst beim Loslassen, weil
 
 **Die rechte Kante eines Fotos ist seine Standzeit** (`display.holdS`, Blase am Griff). Ein
 Video hat diesen Griff NICHT — der Player läuft bis zum Dateiende, `holdS` ist dort wirkungslos
-(src/tour.js), ein Griff dafür wäre eine Lüge. **Der Zug friert den Maßstab ein und lässt ihn
+(src/tour.js), ein Griff dafür wäre eine Lüge. Es hat stattdessen **zwei SCHNITT-Kanten**
+(`edits.medien[].trim` in DATEI-Sekunden, Etappe 4): Der alte Satz „ein Video trägt seine
+Länge, sie steht nicht zur Wahl" stimmt für die Standzeit, nicht für den Schnitt. Anschlag
+ist an beiden Kanten die Datei, Loop gibt es hier nicht. Der **Ripple kostet keine Zeile
+Code** — ein Video liegt in einer Halt-Kette ohne Lücken, ein kürzerer Ausschnitt macht
+seinen Halt schmaler, die Achse baut sich neu und alles Folgende rückt vor. Angewandt wird
+der Schnitt in der Pipeline ([video.ts](server/src/pipeline/video.ts)), und zwar **immer per
+Transcode**: `-c copy` schnitte nur an Keyframes und träfe den Punkt um Sekunden. Die
+geschnittene Fassung (`m1.cut.mp4`) entsteht NEBEN dem Master, nie an seiner Stelle — sonst
+wäre der zweite Schnitt einer in den ersten, und „Trim zurücknehmen" fände das Weggeschnittene
+nirgends wieder. **Der Zug friert den Maßstab ein und lässt ihn
 eingefroren:** eingepasst folgte er sonst der wachsenden Filmdauer — die Leiste schrumpfte
 unter der Hand, der Griff bliebe hinter dem Zeiger zurück, und beim Loslassen sprang alles noch
 einmal auf „ganzer Film im Fenster". Genau diese Skalierung soll der feste Maßstab verhindern:
@@ -731,6 +822,17 @@ Seite; die Regel gehört an `dialog[open]`. Und die globale `button:active { tra
 ERSETZT die Zentrierung `translateX(-50%)`, statt sie zu ergänzen (CSS kennt nur *eine*
 `transform`-Eigenschaft) — Abspielkopf und Foto-Miniatur sprangen beim Drücken um ihre halbe
 Breite; beide brauchen eine eigene `:active`-Regel, die beides kombiniert.
+
+**Ein Auswahl-Rahmen gehört nach INNEN.** Ein `box-shadow` ohne `inset` liegt AUSSERHALB der
+Box — bei einem Element am Rand seines Containers schneidet ihn dessen `overflow` weg. Auf der
+Zeitleiste war das an `.spuren-fenster { overflow-x: scroll }` zu sehen: Ein Ton-Klip, der bei
+0:00 beginnt, hatte oben, unten und rechts einen Rahmen und links keinen. Die Zustandsbänder
+lösen es längst mit `inset` (`.band.fokus`); bei den Klips musste es ein eigenes
+`::after`-Pseudo-Element werden, weil die Wellenform (`inset: 0`) einen Inset-Schatten am Klip
+selbst wieder zudeckte — mit `pointer-events: none`, sonst schluckt der Ring die überstehenden
+Kanten-Griffe. Der weiche SCHEIN darf außen bleiben: dass er an einer Kante fehlt, sieht man
+nicht. Dieselbe Familie wie „`border` + `overflow: hidden` frisst das Randpixel"
+(docs/concepts/zeitleiste-umbau.md §5).
 
 **Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](src/studio/abspielen.ts)
 (lazy beim ersten Play) lässt den Abspielkopf über die Achse laufen, spielt Musik und Klänge

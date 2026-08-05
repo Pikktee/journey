@@ -1805,16 +1805,45 @@
     .zl-klip:active { cursor: grabbing; }
     /* Klip-Titel in Outfit wie die Zustandsbänder — Mono ist bei Maptale den
        Zahlen (tabular-nums) vorbehalten, nicht den Namen. */
-    .zl-klip span {
+    .zl-klip-name {
       position: absolute; inset: 0; padding-left: 7px; line-height: 22px;
       font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+    }
+    /* Ein Effekt ist dieselbe Sorte Klip wie Musik — nur in seiner Farbe (lila
+       wie die Raute, die er vorher war). Als Marke ohne Länge verschwieg die
+       Leiste, wie lange er klingt; der Player spielt die Datei ohnehin aus. */
+    .zl-klip.effekt {
+      background: linear-gradient(180deg, rgba(197, 139, 255, 0.42), rgba(150, 110, 220, 0.42));
+    }
+    .zl-klip.effekt.fokus { box-shadow: 0 0 12px rgba(197, 139, 255, 0.5); }
+    /* Wellenform: Fenster clippt, der Klip selbst NICHT — sonst schnitte er die
+       überstehenden Kanten-Griffe weg und Anfang/Ende wären ungreifbar. */
+    .welle-fenster { position: absolute; inset: 0; overflow: hidden; border-radius: 5px; pointer-events: none; }
+    .welle { position: absolute; top: 0; bottom: 0; background-repeat: repeat-x; opacity: 0.55; }
+    /* Loop ist eine EINSTELLUNG (Inspector) — hier steht nur ihr Zeichen. */
+    .zl-klip-loop {
+      position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; line-height: 1; color: var(--text-schwach); pointer-events: none;
     }
     .zl-klip .kante { position: absolute; top: -2px; bottom: -2px; width: 14px; transform: none; cursor: ew-resize; }
     .zl-klip .kante.von { left: -7px; }
     .zl-klip .kante.bis { right: -7px; }
     .zl-klip .kante::before { display: none; }
-    .zl-klip.fokus { box-shadow: 0 0 0 2px #fff5e4, 0 0 12px rgba(245, 165, 36, 0.45); }
+    /* Auswahl-Rahmen NACH INNEN — genau wie bei den Zustandsbändern.
+       Außen liegend fraß ihn `.spuren-fenster { overflow-x: scroll }` an der
+       linken Kante weg, sobald ein Klip bei 0:00 beginnt: der Ring war oben,
+       unten und rechts da und links abgeschnitten. Als eigenes Pseudo-Element
+       über dem Klip, nicht als `inset` am Klip selbst — sonst läge die
+       Wellenform (`inset: 0`) darüber und deckte ihn wieder zu. `pointer-events:
+       none`, damit die überstehenden Kanten-Griffe greifbar bleiben.
+       Der weiche Schein darf außen bleiben: dass er an einer Kante fehlt,
+       sieht man nicht. */
+    .zl-klip.fokus { box-shadow: 0 0 12px rgba(245, 165, 36, 0.45); }
+    .zl-klip.fokus::after {
+      content: ''; position: absolute; inset: 0; border-radius: 5px; z-index: 3;
+      box-shadow: inset 0 0 0 2px #fff5e4; pointer-events: none;
+    }
     /* Ein Effekt hat einen Zeitpunkt, keine Dauer: Raute in eigener Lane oben,
        ein Stiel zeigt auf die exakte Stelle. */
     .zl-sfx { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; cursor: pointer; touch-action: none; z-index: 8; }
@@ -1884,6 +1913,22 @@
       border: 1px solid rgba(255, 255, 255, 0.3); display: grid; place-items: center; pointer-events: none;
     }
     .halt-klip .v-play svg { width: 7px; height: 7px; color: #fff; margin-left: 1px; }
+    /* Video-SCHNITT (docs §2F): zwei Kanten wie beim Ton, Anschlag ist die
+       Datei. Sie liegen INNEN — anders als der Standzeit-Griff, der bewusst in
+       den Nachbarn ragt: Ein Schnitt gehört zu DIESEM Video, und die Kette
+       daneben soll er nicht mitgreifen. */
+    .halt-klip .v-trim {
+      position: absolute; top: 0; bottom: 0; width: min(11px, 30%);
+      z-index: 8; cursor: ew-resize; display: grid; place-items: center;
+    }
+    .halt-klip .v-trim.von { left: 0; }
+    .halt-klip .v-trim.bis { right: 0; }
+    .halt-klip .v-trim::before {
+      content: ''; width: 2px; height: 52%; border-radius: 2px;
+      background: rgba(255, 255, 255, 0.22); transition: background 120ms ease;
+    }
+    .halt-klip .v-trim:hover::before, .halt-klip.zieht-dauer .v-trim::before { background: var(--akzent); }
+    @media (pointer: coarse) { .halt-klip .v-trim { width: min(22px, 35%); } }
     /* Die Standzeit-Kante sitzt RECHTS — und weil das ENDE einer Aufnahme der
        ANFANG der nächsten ist, ragt sie in den Nachbarn hinein: eine Kette wird
        so von beiden Seiten greifbar, ohne dass zwei Bedienelemente dasselbe tun.
@@ -1909,6 +1954,9 @@
       opacity: 0; pointer-events: none; transition: opacity 120ms ease; white-space: nowrap;
     }
     .halt-klip.zieht-dauer .dauer-blase { opacity: 1; }
+    /* Beim Video hängt die Blase nicht am rechten Griff (dort ist keiner),
+       sondern über der Mitte: geschnitten wird an beiden Kanten. */
+    .halt-klip.video .dauer-blase { right: 50%; transform: translateX(50%); }
     /* Beim Abspielen leuchtet der Klip der Aufnahme, die gerade auf der Karte steht. */
     .halt-klip.puls { animation: klipPuls 700ms ease; }
     @keyframes klipPuls {

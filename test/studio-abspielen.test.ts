@@ -115,6 +115,41 @@ describe('Musik', () => {
     expect(musikVersatzS(0.05, 0.1, LINEAR_100, 8)).toBe(0)
   })
 
+  it('setzt am EINSTIEG an — der linke Trim verschiebt den Nullpunkt in der Datei', () => {
+    // Wer die linke Kante 3 s nach innen zieht, will den Anfang loswerden: die
+    // Datei beginnt hier bei 3, nicht bei 0.
+    expect(musikVersatzS(0.1, 0.1, LINEAR_100, 30, 3)).toBeCloseTo(3, 6)
+    expect(musikVersatzS(0.2, 0.1, LINEAR_100, 30, 3)).toBeCloseTo(13, 6)
+  })
+
+  it('Loop hebt nur den RECHTEN Anschlag auf — er springt auf den DATEIanfang', () => {
+    // `el.loop` springt am Dateiende auf 0 zurück, nicht auf den Einstieg. Wer
+    // hier stattdessen im Rest hinter dem Einstieg rechnet, lässt das Stück nach
+    // dem ersten Durchlauf mitten drin einsetzen — vom Nutzer gefunden (docs §2E).
+    // Einstieg 8 in einer 10-s-Datei: nach 2 Filmsekunden ist das Ende erreicht,
+    // danach läuft die Datei von vorn.
+    expect(musikVersatzS(0.02, 0, LINEAR_100, 10, 8)).toBeCloseTo(0, 6) // 8 + 2 = 10 → 0
+    expect(musikVersatzS(0.05, 0, LINEAR_100, 10, 8)).toBeCloseTo(3, 6) // 8 + 5 = 13 → 3
+  })
+
+  it('ohne Loop bleibt die Position am Material stehen, statt vorn neu zu beginnen', () => {
+    // Ein Effekt ohne Wiederholung (Zikaden) ist nach seiner Länge fertig. Das
+    // Element ist dann `ended` und schweigt — es fängt nicht wieder an.
+    expect(musikVersatzS(0.05, 0, LINEAR_100, 10, 0, false)).toBeCloseTo(5, 6)
+    expect(musikVersatzS(0.3, 0, LINEAR_100, 10, 0, false)).toBe(10)
+    expect(musikVersatzS(0.3, 0, LINEAR_100, 10, 4, false)).toBe(10)
+  })
+
+  it('bleibt für Bestandsdaten bei genau der alten Rechnung', () => {
+    // Ohne Einstieg und mit Loop ist der neue Weg Zeichen für Zeichen der alte.
+    for (const [anteil, dauer] of [[0.3, 8], [0.5, 30], [0.9, 12]] as const) {
+      expect(musikVersatzS(anteil, 0.1, LINEAR_100, dauer)).toBeCloseTo(
+        musikVersatzS(anteil, 0.1, LINEAR_100, dauer, 0, true),
+        9,
+      )
+    }
+  })
+
   it('zählt eine reale Pause im Bereich nicht als Spielzeit', () => {
     // Klip ab 0,2, Einstieg bei 0,8 — dazwischen liegt die Pause (0,25–0,75).
     // Im Film sind seit Klipbeginn 20 FAHR-Sekunden vergangen, nicht 60 % der

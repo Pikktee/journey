@@ -47,6 +47,55 @@ das Datenmodell**. Gespeichert wird weiterhin Aufnahmezeit (stabile Anker, wie
 
 ## 2. Die Entscheidungen
 
+### 0. So sieht die Leiste danach aus
+
+Dieser Abschnitt fehlte in der ersten Fassung — und genau das hat gekostet: Die
+Umsetzung folgte der Mechanik unten Punkt für Punkt und baute sie in die alte
+Hülle. Name, Reihenfolge und Wegfall einer Spur standen nirgends, also blieben
+sie, wie sie waren (Nachtrag 2026-08-05, s. §4 „Nachtrag zu Etappe 2").
+
+**Die Bahnen von oben nach unten:**
+
+| # | Bahn | Höhe | Inhalt |
+|---|---|---|---|
+| 1 | **Szenen** | hoch (~80 px) | Fotos · Videos · **Momente** · beiläufige Bilder |
+| 2 | **Musik & Effekte** | wächst mit den Lanes | Ton-Klips, überlappende gestapelt |
+| 3 | **Fortbewegung** | 19 px | Zustandsbänder |
+| 4 | **Kamera** | 19 px | Zustandsbänder |
+| 5 | **Wetter** | 19 px | Zustandsbänder |
+
+**Die Spur „Momente" entfällt.** Ein Moment hält den Film an wie ein Foto — er
+hat nur kein Bild (Muster in Koralle statt Miniatur). Er gehört damit in die
+Szenen-Bahn und nirgendwo sonst; eine eigene Spur für „Halt ohne Medium" wäre
+eine Unterscheidung nach Herkunft statt nach Wirkung.
+
+**Die Bahn heißt „Szenen", nicht „Fotos/Videos".** Das ist keine Kosmetik,
+sondern die Voraussetzung für den Punkt davor: Solange die Bahn ihre
+Dateitypen aufzählt, kann ein Moment dort nicht hinein, ohne dass die
+Beschriftung lügt. „Szenen" benennt, was die Dinge im Film SIND. („Halte" war
+der erste Vorschlag und wurde verworfen — zu technisch für das, was man dort
+sieht.)
+
+**Warum Ton oben und der Kontext unten** — und nicht die Ordnung „nach
+Wirkung" aus [editor-ausbau.md](editor-ausbau.md) §1, die „klingt" zuletzt
+führt: Jene Tabelle ordnet die begriffliche FAMILIE und stammt aus einer
+Zeitleiste, in der alle Bahnen gleich hoch waren. Seit die drei
+Zustandsbahnen 19-px-Zeilen sind — mit der Begründung „Material verdient
+Fläche, Kontext verdient eine Zeile" (§2D) —, gehören sie an den Rand. Dazu
+kommen zwei Dinge, die zusammenfallen:
+
+- **Bild oben, Ton darunter** ist die stärkste Konvention in Schnittprogrammen
+  (Premiere, Final Cut, Resolve, Avid). Wer je geschnitten hat, sucht den Ton
+  unter dem Bild, nicht unter den Metadaten.
+- **Die Sorten trennen sich sauber:** Szenen und Ton sind *Material* — Klips
+  mit Anfang, Ende, Trimm-Kanten, Material-Anschlag. Die drei unteren sind
+  *Zustände* — lückenlose Bänder, deren Kante ein Griff ist. Zwei Sorten, zwei
+  Blöcke, unten ein ruhiger Sockel.
+
+Praktisch zählt außerdem: Musik auf einen Schnitt auszurichten ist die
+häufigste Feinarbeit. Liegen drei Bahnen dazwischen, springt der Blick jedes
+Mal darüber.
+
 ### A. Szenen-Bahn: jede Aufnahme ist ein Klip
 
 - **Halt = Kette aneinanderliegender Klips**, kein Cluster, kein Stapel, keine
@@ -371,11 +420,11 @@ bewegt, statt an dessen Kante zu kleben.
 
 Abweichungen von der Planung, gemessen am echten Editor:
 
-- **Momente bleiben in ihrer eigenen Bahn.** Achsenbreite haben sie seit
-  Etappe 1; sie in die Szenen-Bahn zu heben ist eine Umbau-Entscheidung über
-  ihre Bedienung (Zug, Inspector, „+"-Menü der Bahn) und nicht Teil der
-  Klip-Kette. Dasselbe gilt für „beiläufige Bilder" — die gibt es im Editor
-  noch gar nicht.
+- **Momente blieben in ihrer eigenen Bahn** — die Begründung war, dass ihr
+  Umzug eine Entscheidung über ihre BEDIENUNG ist (Zug, Inspector, „+"-Menü)
+  und nicht zur Klip-Kette gehört. Sie hielt nur, weil §2 die Zielgestalt
+  nicht beschrieb; **überholt durch den Nachtrag unten.** Für „beiläufige
+  Bilder" bleibt sie gültig: die gibt es im Editor noch gar nicht.
 - **Der Filmstreifen im Inspector ist ersatzlos entfallen.** Er war der einzige
   Weg, die Aufnahmen eines Halts umzuordnen oder eine davon herauszulösen —
   beides tut jetzt der Klip-Zug an der Stelle, an der man es sieht. Zwei Wege
@@ -574,7 +623,7 @@ Undo-Schritt.
 **Fertig, wenn:** „Moped-Kante auf 0:30 ziehen" bei 0:30 landet, ohne Sprung,
 und links davon nichts wandert.
 
-### Etappe 4 — Ton & Video-Trim *(Schema-Ergänzung, §3)*
+### Etappe 4 — Ton & Video-Trim *(Schema-Ergänzung, §3)* — **UMGESETZT 2026-08-05**
 
 1. Schema-Felder + Validierung (`pruefeEdits`), Render-Vorrangregeln,
    Vertragstests: Alt-Overlay ohne neue Felder rendert unverändert.
@@ -591,6 +640,97 @@ und links davon nichts wandert.
 **Fertig, wenn:** ein geloopter Musik-Klip links am Dateianfang stoppt, rechts
 beliebig wächst, bei Standzeit-Änderung mitrückt — und ein getrimmtes Video im
 gerenderten Film an der richtigen Stelle schneidet.
+
+**Umgesetzt so — und das kam beim Bauen dazu:**
+
+- **Der Vertragstest kam VOR der Erweiterung**
+  ([server/test/vertrag-tourjson.test.ts](../../server/test/vertrag-tourjson.test.ts)):
+  Schnappschüsse des gerenderten `tour.json` für elf echte Overlay-Formen. Er
+  ist bewusst grob — er prüft nicht eine Regel, sondern das ganze Ergebnis.
+  Dazu eine Probe, dass sich die Fälle überhaupt UNTERSCHEIDEN: ohne sie könnten
+  elf identische Ergebnisse „grün" sein und der Vertrag bewachte nichts. Genau
+  die schlug beim ersten Lauf an — der Video-Schnitt wirkt in `bereiteVideosAuf`,
+  nicht in `reichereAn`, im reinen Enrich-Harnisch war der Fall also wirkungslos.
+- **Der alte Pfad bleibt buchstäblich der alte.** `enrich.ts` nimmt die
+  Film-Verankerung nur, wenn eines der neuen Felder GESETZT ist; sonst läuft der
+  Code von vorher Zeichen für Zeichen durch. Ein Roundtrip Zeit → Film → Zeit
+  wäre auf dem Papier identisch, in Gleitkomma aber nicht — und hätte die
+  Schnappschüsse aller Bestandsformen verschoben.
+- **Die Pipeline braucht eine eigene Film-Achse**
+  ([server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts)):
+  Ein Versatz in Filmsekunden ist ohne die Halte nicht auffindbar. Sie ist der
+  Spiegel von `baueAchse` — gleiche Gruppierung (120 m), gleiche Halt-Dauern,
+  gleiche lower_bound-Konvention; Drift-Wächter halten beides zusammen.
+- **`videoMeta` musste cachefähig BLEIBEN und trotzdem auf den Schnitt hören.**
+  Sie hing bis dahin nur an den Rohdaten und überlebte jedes Edit-Speichern im
+  Anreicherungs-Cache — ein Schnitt ist aber ein Edit. Dafür gibt es jetzt eine
+  `videoSchnittSignatur` neben der `trimSignatur`.
+- **Der Schnitt entsteht NEBEN dem Master, nie an seiner Stelle** (`m1.cut.mp4`).
+  Würde in die Auslieferungsdatei geschnitten, wäre der zweite Schnitt einer in
+  den ersten — das Overlay rechnet aber in Dateisekunden des Originals, und
+  „Trim zurücknehmen" fände das Weggeschnittene nirgends wieder. Deshalb trägt
+  `VideoMeta` zusätzlich `quellDauerS`: die Länge des MATERIALS, an der die
+  Trimm-Kanten im Studio anschlagen.
+- **Ein Effekt war nie eine Marke — die LEISTE hat ihn nur so gezeichnet.** Der
+  Player spielt einen One-Shot bis zum Dateiende aus. Der Klip mit Dateibreite
+  zeigt also, was ohnehin passiert; `dauerFilmS` braucht es erst, wenn jemand
+  kürzer schneidet. Dateilängen stehen nirgends im Datenmodell (der Katalog
+  führt Namen, keine Sekunden) — der Editor misst sie per `loadedmetadata`.
+- **Aufgewertet wird nur der Klip, den man ANFASST.** Anders als bei
+  `materialisiereModi`: Dort MUSS die ganze Stufenfunktion fest werden, weil
+  eine einzelne neue Grenze die späteren Abschnitte mitrisse. Ton-Klips sind
+  unabhängige Objekte.
+- **Der Ripple kostet keine Zeile.** Ein Video liegt in einer Halt-Kette ohne
+  Lücken; wird sein Ausschnitt kürzer, wird sein Halt schmaler, die Achse baut
+  sich neu, alles Folgende rückt vor. Es gibt keinen Ripple-Zweig.
+- **`musik`/`sfx` beschreibt jetzt die ROLLE, nicht die Form** (Nutzer-Rückfrage:
+  „wo ist hier noch der Unterschied?"). Antwort: an genau zwei Stellen im
+  Player, und beide fragen dasselbe — der Zuschauer-Schalter „Musik" nimmt den
+  Score weg und lässt den Ton des Ortes stehen, und unter dem eigenen Ton eines
+  Videos duckt nur die Musik. Die alte Beschriftung („über eine Strecke" / „ein
+  Zeitpunkt") beschrieb eine Form, die es nicht mehr gibt → „Rolle: Filmmusik ·
+  Ton der Szene". Der Umschalter verlor dabei zwei Dinge still: `bis` fiel weg
+  (Länge geht jetzt vorher nach `dauerFilmS`) und die Loop-Vorgabe hängt an der
+  Rolle (`loopNachRollenwechsel`).
+- **Loop AUS holt den Klip ans Material zurück** (`setzeLoop`, ebenfalls
+  Nutzer-Befund). Vorher blieb die überschüssige Länge stehen und füllte sich
+  hinter der Wellenform mit Stille — man musste von Hand nachziehen, um zu
+  sehen, wo das Material endet. Gemessen: 113,3 s → 100,08 s = exakt die Datei.
+- **Die Zeitfelder des Inspectors waren ein toter Bedienpfad.** Sie schrieben
+  `ab`/`bis`, die seit der Aufwertung keinen Vorrang mehr haben — ab dem ersten
+  Kantenzug wirkungslos, und beim LESEN zeigten sie eine Zeit, die im Film
+  nichts bedeutet (08:37 statt 08:32). Sie gehen jetzt durch dieselben
+  `verschiebeTon`/`trimmeRechts` wie der Zug; `loeseFokusAuf` bekommt die
+  Ton-Spanne als Rückruf herein, weil das Modul die Achse nicht kennt.
+- **Gemessen an der Probetour** (34-s-Video, 3 Aufnahmen, 3 Ton-Klips): linke
+  Kante +80 px → „1:03 · ab 0:17 der Datei" (Anfang und Einstieg wandern
+  gemeinsam); weit nach links → „1:20 · kein Material mehr", und zwar bei
+  `loop: true` — Loop hebt nur den RECHTEN Anschlag auf. Standzeit +24,5 s →
+  der Ton-Klip dahinter rückt +116,0 px, der davor exakt 0 px. Video-Schnitt
+  13,9 s → Filmdauer 2:29 → 2:15, `m2.cut.mp4` misst 20,08 s, der Master
+  `m2.web.mp4` weiterhin 34 s.
+
+### Nachtrag zu Etappe 2 — die Gestalt der Leiste *(offen, 2026-08-05)*
+
+Nach den Etappen 1–4 stimmt die Mechanik, aber die Leiste sieht anders aus als
+in §2.0 beschrieben — weil §2.0 damals fehlte. Drei Punkte, ein Zusammenhang:
+
+1. **„Fotos/Videos" → „Szenen"** ([studio.html](../../studio.html), Spurname).
+   Die Voraussetzung für Punkt 2: Solange die Bahn ihre Dateitypen aufzählt,
+   passt ein Moment dort nicht hinein.
+2. **Die Spur „Momente" entfällt**; Momente werden Klips der Szenen-Bahn —
+   Muster in Koralle statt Miniatur, Achsenbreite haben sie seit Etappe 1.
+   Das ist die eigentliche Arbeit: Zug, Auswahl, Inspector und das
+   „+"-Menü müssen von der alten Bahn auf die Szenen-Bahn wechseln.
+3. **„Musik & Effekte" rückt nach oben**, direkt unter die Szenen — die drei
+   Zustandsbahnen bilden den Sockel (Begründung in §2.0).
+
+Kein Schema-Bruch, keine Berührung mit Etappe 4. Punkt 1 und 3 sind je eine
+Zeile, Punkt 2 ist ein echter Umbau.
+
+**Fertig, wenn:** die Leiste von oben nach unten Szenen · Musik & Effekte ·
+Fortbewegung · Kamera · Wetter zeigt, ein Moment als Klip in der Szenen-Bahn
+liegt und sich dort auswählen, verschieben und in der Dauer ändern lässt.
 
 ---
 
@@ -652,7 +792,19 @@ Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
     Wer ihn nach einem Zug wiederherstellt, skaliert die ganze Leiste — auch
     alles VOR der geänderten Stelle. Ein waagerechter Scrollbalken ist dann kein
     Fehler, sondern die Folge einer Nutzerhandlung.
-14. **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover` gibt dem
+14. **In einen Halt VOR sich kann die Fortbewegungs-Kante nicht landen** — und
+    das ist keine Rechenschwäche, sondern die Sache selbst. Ein Halt RECHTS der
+    Kante steht auf einer Filmposition, die von der Filmzeit VOR ihm abhängt,
+    also von der Kante; zieht man die Kante in ihn hinein, rutscht er im selben
+    Zug nach hinten weg (gemessen: Halt bei Film 86–106, Kante rastet auf seine
+    Rückseite, Halt steht danach bei 125–145). Einen Fixpunkt gibt es dafür
+    nicht: „hinter dem Halt" und „auf dem Pixel, wo der Halt gerade gezeichnet
+    ist", sind hier zwei verschiedene Orte. Wichtig ist nur, dass es sich im
+    nächsten Frame fängt — und das tut es, weil ein Halt in ruhiger Lage stets
+    RECHTS der Kante liegt; ein Dauerflackern ist damit ausgeschlossen. Als
+    Vertrag festgehalten in `test/studio-baukasten.test.ts` („Ausnahme: in einen
+    Halt VOR sich …").
+15. **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover` gibt dem
     Klip eine graue Fläche, `button:active { transform: scale(…) }` ERSETZT sein
     `translateX` beim Ziehen. Beides in einer eigenen Regel zurücknehmen.
 
@@ -710,3 +862,30 @@ Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
 - **Titel-Spur** und die weiteren Bausteine aus
   [editor-ausbau.md](editor-ausbau.md) — die Szenen-Bahn ist dafür der Platz,
   aber nichts davon ist hier verplant.
+- **Die Ordnungstabelle in [editor-ausbau.md](editor-ausbau.md) §1** („gilt ·
+  hält an · läuft nebenher · klingt") widerspricht der Reihenfolge in §2.0.
+  Sie ordnet die begriffliche Familie, nicht die Bahnen auf dem Schirm — das
+  sollte dort dazugeschrieben werden, sonst kollidieren die beiden Dokumente
+  beim nächsten Mal wieder.
+
+---
+
+## 8. Lehre fürs nächste Konzeptpapier
+
+Drei der vier Nachbesserungen dieser Runde gingen nicht auf einen Denkfehler
+zurück, sondern auf eine **Auslassung derselben Sorte**: Das Papier war als
+Begründungssammlung geschrieben — warum etwas so und nicht anders gerechnet
+wird —, nicht als Beschreibung des Zielzustands.
+
+- Die **Statuszeile** wurde gebaut, weil ihre Begründung dastand; dass sie
+  gegenstandslos wird, sobald der Halt Breite hat, stand nicht da.
+- **Name, Reihenfolge und Wegfall der Momente-Spur** standen nirgends. Eine
+  Umsetzung, die dem Papier exakt folgt, baut korrekte Mechanik in die alte
+  Hülle — genau das ist passiert.
+
+Für die Mechanik hat die Form funktioniert (Fallen, Messwerte, verworfene
+Alternativen haben mehrfach getragen). Für die Gestalt braucht es einen
+eigenen Abschnitt, der schlicht sagt, wie es hinterher aussieht — §2.0 ist
+zwölf Zeilen lang und hätte drei Runden gespart. **Was nicht im Dokument
+steht, existiert für die nächste Session nicht**, egal wie oft es besprochen
+oder wie sichtbar es im Mockup war.

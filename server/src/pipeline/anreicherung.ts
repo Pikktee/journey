@@ -26,8 +26,18 @@ export interface AnreicherungsCache {
   schema: typeof ANREICHERUNG_SCHEMA_ID
   /** Foto-Befunde je Medien-ID (M5) — hängen NUR an den Rohfotos (nie Trim/Titel) */
   befunde: Record<string, BildBefund>
-  /** Video-Metadaten je Medien-ID (M4) — hängen NUR an den Roh-Videos */
+  /** Video-Metadaten je Medien-ID (M4) — hängen an den Roh-Videos UND am Schnitt */
   videoMeta: Record<string, VideoMeta>
+  /**
+   * Video-Schnitt-Zustand, unter dem `videoMeta` galt (Etappe 4).
+   *
+   * Die Video-Aufbereitung war bis dahin rein von den Rohdaten abhängig und
+   * überlebte deshalb jedes Edit-Speichern im Cache. Ein Schnitt ist aber ein
+   * EDIT, der die ausgelieferte Datei und ihre Länge verändert — ohne diese
+   * Signatur bliebe er bis zum nächsten „Neu verarbeiten" folgenlos.
+   * Fehlt das Feld (Cache von vor Etappe 4), zählt das wie „kein Schnitt".
+   */
+  videoSchnittSignatur?: string
   /** Trim-Zustand, unter dem `orte`+`wetterRoh` galten (JSON von edits.trim) */
   trimSignatur: string
   /** Reverse-Geocoding der Endpunkte (Ortsnamen) — trim-abhängig */
@@ -42,6 +52,22 @@ export interface AnreicherungsCache {
  * (Caption, Modus, Kamera, Audio, Momente, Titel) lassen sie unberührt.
  */
 export const trimSignatur = (edits?: EditOverlay | null): string => JSON.stringify(edits?.trim ?? null)
+
+/**
+ * Signatur der Video-Schnitte: nur sie machen `videoMeta` ungültig.
+ *
+ * Sortiert nach Medien-ID, damit die Reihenfolge im Overlay keinen Unterschied
+ * macht — sonst löste eine Umsortierung ohne inhaltliche Änderung einen
+ * Transcode aus. Ohne jeden Schnitt ist die Signatur `'[]'` und deckt sich mit
+ * dem Zustand eines Caches von vor Etappe 4 (Feld fehlt → Default).
+ */
+export const videoSchnittSignatur = (edits?: EditOverlay | null): string =>
+  JSON.stringify(
+    Object.entries(edits?.medien ?? {})
+      .filter(([, m]) => m?.trim)
+      .map(([id, m]) => [id, m.trim?.vonS ?? 0, m.trim?.bisS ?? null])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+  )
 
 /** Map → JSON-serialisierbares Record (Cache schreiben). */
 export const mapZuRecord = <V>(m: Map<string, V> | undefined): Record<string, V> => Object.fromEntries(m ?? [])

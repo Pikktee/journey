@@ -27,6 +27,13 @@ export const MODUS_TEMPO: Record<Modus, number> = {
   ferry: 2.5,
 }
 
+/** `HOLD_HIDE` in src/tour.js: sichtbare Foto-Karte (Default, `display.holdS` übersteuert). */
+export const HALT_ENGINE_S = 5.2
+/** `HOLD_AUSBLEND` in src/tour.js: Ausblendung nach der Anzeige, bevor es weitergeht. */
+export const HALT_AUSBLEND_S = 0.8
+/** `NAHE_M` in src/geo.js: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
+export const NAHE_M = 120
+
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */
 export function tempoMs(mode: Modus): number {
   return BASIS_TEMPO_MS * (MODUS_TEMPO[mode] ?? 1)
@@ -40,4 +47,17 @@ export function meterFuerFilmsekunden(sekunden: number, mode: Modus): number {
 /** Filmdauer (s) eines Streckenstücks. */
 export function filmsekunden(meter: number, mode: Modus): number {
   return meter / tempoMs(mode)
+}
+
+/**
+ * Filmzeit, die EINE Aufnahme am Halt belegt (ohne Ausblendung).
+ *
+ * Ein Video zählt mit seiner echten Länge — der Player läuft bis zum Dateiende,
+ * `display.holdS` ist dort wirkungslos (src/tour.js). Spiegel von
+ * `aufnahmeHaltS` in src/studio/zeitleiste.ts; laufen die beiden auseinander,
+ * zeigt die Zeitleiste eine andere Filmdauer, als der Film hat.
+ */
+export function aufnahmeHaltS(m: { type: 'photo' | 'video'; dauerS?: number; display?: { holdS?: number } }): number {
+  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
+  return m.display?.holdS ?? HALT_ENGINE_S
 }

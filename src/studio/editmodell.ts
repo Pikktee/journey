@@ -46,6 +46,13 @@ export interface MediumEdit {
    * Spiegel von MediumEdit.reihe in server/src/schema/edits.ts.
    */
   reihe?: number
+  /**
+   * Schnitt eines Videos in DATEI-Sekunden (Etappe 4, docs §2F). Anschlag ist
+   * an beiden Kanten das Material; Loop gibt es hier nicht — bei einem Video
+   * wäre er Unsinn. Angewandt wird der Schnitt in der Pipeline (video.ts).
+   * Spiegel von MediumEdit.trim in server/src/schema/edits.ts.
+   */
+  trim?: { vonS: number; bisS?: number }
 }
 
 export interface ModusGrenze {
@@ -114,6 +121,21 @@ export interface AudioEintrag {
    * beim Konto und ist in jeder Tour einsetzbar (→ /api/audio-bibliothek/…).
    */
   quelle?: 'bibliothek' | 'benutzer'
+  /**
+   * Verankerung an der REISE statt an einer Filmsekunde (Etappe 4, docs §2E) —
+   * der „connected clip". `anker` ist die Stelle der Reise (Aufnahmezeit),
+   * `versatzFilmS` die Feinlage in FILMsekunden (darf in einer Standzeit
+   * liegen), `dauerFilmS` die Länge im Film. Alle drei haben Vorrang vor
+   * `ab`/`bis`; fehlen sie, gilt die alte Verankerung unverändert weiter.
+   * Rechnende Teile in [[tonklip]].
+   */
+  anker?: string
+  versatzFilmS?: number
+  dauerFilmS?: number
+  /** Einstieg in die DATEI (s) — der linke Trim. Anschlag: der Dateianfang. */
+  einstiegS?: number
+  /** Wiederholung über das Dateiende hinaus; fehlt = Musik ja, Effekt nein. */
+  loop?: boolean
 }
 
 export interface EditOverlay {
@@ -133,6 +155,36 @@ export interface EditorSegment {
 }
 
 export const LEERES_OVERLAY: EditOverlay = { schema: 'maptale/edits@1' }
+
+// — Undo: das Overlay ist immutabel, ein Stapel von Ständen genügt —
+
+/** Maximale Undo-Tiefe — Overlays sind klein, aber unbegrenzt wächst unschön. */
+export const HISTORIE_MAX = 100
+
+export interface UndoStapel {
+  /** frühere Stände, ältester zuerst */
+  historie: EditOverlay[]
+  /** zurückgenommene Stände (Redo), jüngster zuletzt */
+  zukunft: EditOverlay[]
+}
+
+/**
+ * Undo-Punkt setzen, wenn sich das Overlay seit dem letzten VOLL-Render
+ * geändert hat — Referenzvergleich, kein Vergleich der Inhalte: das Overlay
+ * wird immutabel fortgeschrieben, also ist eine neue Referenz genau eine
+ * Änderung, egal aus welchem Handler sie kam.
+ *
+ * Daran hängt der Vertrag „ein Zug = ein Undo-Schritt": Ein Zeitleisten-Zug
+ * schreibt je Frame ein neues Overlay, ruft dazwischen aber nur
+ * `renderNachZug()` (das den Stand NICHT fortschreibt). Erst das abschließende
+ * `renderAlles` kommt hier vorbei und legt den EINEN Stand von vor dem Zug ab.
+ */
+export function erfasseUndo(stapel: UndoStapel, letzterStand: EditOverlay | null, edits: EditOverlay): void {
+  if (!letzterStand || letzterStand === edits) return
+  stapel.historie.push(letzterStand)
+  if (stapel.historie.length > HISTORIE_MAX) stapel.historie.shift()
+  stapel.zukunft.length = 0
+}
 
 // — Zeit-Umrechnung —
 
@@ -242,6 +294,7 @@ export function naechsterPunktIndex(punkte: readonly TrackPunkt[], lng: number, 
 export interface MediumEditPatch {
   caption?: string | undefined
   anchor?: [number, number] | undefined
+  trim?: { vonS: number; bisS?: number } | undefined
   geloescht?: boolean | undefined
   display?: DisplayEdit | undefined
   reihe?: number | undefined
@@ -249,7 +302,7 @@ export interface MediumEditPatch {
 
 export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditPatch): EditOverlay {
   const eintrag: MediumEdit = { ...(edits.medien?.[id] ?? {}) }
-  for (const key of ['caption', 'anchor', 'geloescht', 'display', 'reihe'] as const) {
+  for (const key of ['caption', 'anchor', 'geloescht', 'display', 'reihe', 'trim'] as const) {
     if (!(key in patch)) continue
     const wert = patch[key]
     const leeresDisplay = key === 'display' && wert !== undefined && !Object.keys(wert).length
@@ -405,19 +458,45 @@ export interface AudioPatch {
   lautstaerke?: number | undefined
   datei?: string
   quelle?: 'bibliothek' | 'benutzer' | undefined
+  anker?: string | undefined
+  versatzFilmS?: number | undefined
+  dauerFilmS?: number | undefined
+  einstiegS?: number | undefined
+  loop?: boolean | undefined
 }
+
+/**
+ * Felder, die `mitAudioPatch` durchreicht. `undefined` im Patch LÖSCHT das Feld
+ * — so nimmt ein Trim auf Null-Einstieg den `einstiegS` wieder heraus, statt
+ * eine 0 zu hinterlassen, die niemand mehr los wird.
+ */
+const AUDIO_FELDER = [
+  'typ',
+  'ab',
+  'bis',
+  'lautstaerke',
+  'datei',
+  'quelle',
+  'anker',
+  'versatzFilmS',
+  'dauerFilmS',
+  'einstiegS',
+  'loop',
+] as const
 
 export function mitAudioPatch(edits: EditOverlay, index: number, patch: AudioPatch): EditOverlay {
   const audio = (edits.audio ?? []).map((e, i) => {
     if (i !== index) return e
     const neu: AudioEintrag = { ...e }
-    for (const key of ['typ', 'ab', 'bis', 'lautstaerke', 'datei', 'quelle'] as const) {
+    for (const key of AUDIO_FELDER) {
       if (!(key in patch)) continue
       const wert = patch[key]
       if (wert === undefined) delete neu[key]
       else (neu as unknown as Record<string, unknown>)[key] = wert
     }
-    if (neu.typ === 'sfx') delete neu.bis // Einzelschuss hat kein Ende
+    // `bis` ist die ALTE Endmarke in Aufnahmezeit — ein Effekt hatte nie eine.
+    // Seine Länge (falls getrimmt) steht seit Etappe 4 in `dauerFilmS`.
+    if (neu.typ === 'sfx') delete neu.bis
     return neu
   })
   return { ...edits, audio }
@@ -637,6 +716,8 @@ export interface MediumAnzeige extends MediumBasis {
   display?: DisplayEdit
   /** Platz im Stopp, falls gesetzt (s. MediumEdit.reihe) */
   reihe?: number
+  /** Video-Schnitt aus dem Overlay (s. MediumEdit.trim) */
+  trim?: { vonS: number; bisS?: number }
 }
 
 /** Overlay auf die Auto-Platzierung legen; Gelöschte bleiben (markiert) drin. */
@@ -651,6 +732,7 @@ export function effektiveMedien(basis: readonly MediumBasis[], edits: EditOverla
       geloescht: e?.geloescht === true,
       ...(e?.display ? { display: e.display } : {}),
       ...(e?.reihe !== undefined ? { reihe: e.reihe } : {}),
+      ...(e?.trim ? { trim: e.trim } : {}),
     }
   })
 }

@@ -393,6 +393,15 @@ export function loeseFokusAuf(
   track: readonly TrackPunkt[],
   startIso: string,
   medien: readonly MediumAnzeige[],
+  /**
+   * Spanne eines Ton-Klips in AUFNAHMEZEIT-Offsets, aufgelöst über die
+   * Film-Achse (der Aufrufer kennt sie, dieses Modul nicht).
+   *
+   * Ohne sie fiele die Auflösung auf `ab`/`bis` zurück — und die haben seit
+   * Etappe 4 keinen Vorrang mehr: Der Inspector zeigte dann die ALTE Lage,
+   * während die Leiste daneben die neue zeichnet.
+   */
+  tonSpanne?: (index: number) => { vonS: number; bisS: number } | null,
 ): FokusZiel | null {
   if (!fokus) return null
   const skala = baueSkala(track)
@@ -489,8 +498,15 @@ export function loeseFokusAuf(
   if (fokus.art === 'audio') {
     const a = (edits.audio ?? [])[fokus.index]
     if (!a) return null
-    const vonS = isoZuOffset(startIso, a.ab)
-    const bisS = a.typ === 'sfx' ? vonS : a.bis !== undefined ? isoZuOffset(startIso, a.bis) : skala.bisS
+    const ausAchse = tonSpanne?.(fokus.index)
+    const vonS = ausAchse ? ausAchse.vonS : isoZuOffset(startIso, a.ab)
+    const bisS = ausAchse
+      ? ausAchse.bisS
+      : a.typ === 'sfx'
+        ? vonS
+        : a.bis !== undefined
+          ? isoZuOffset(startIso, a.bis)
+          : skala.bisS
     return { art: 'audio', vonS, bisS, ab: a.ab, naechsteAb: null, index: fokus.index }
   }
 
@@ -581,9 +597,52 @@ export function haltedauerS(display?: { holdS?: number }): number {
  * (unverarbeiteter Altbestand, `dauerS` fehlt), bleibt es bei der Foto-Annahme;
  * die Leiste zeigt dann zu wenig, aber nichts bricht.
  */
-export function aufnahmeHaltS(m: { type: 'photo' | 'video'; dauerS?: number; display?: { holdS?: number } }): number {
-  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
+export function aufnahmeHaltS(m: {
+  type: 'photo' | 'video'
+  dauerS?: number
+  display?: { holdS?: number }
+  trim?: { vonS: number; bisS?: number }
+}): number {
+  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return videoFilmS(m.dauerS, m.trim)
   return haltedauerS(m.display)
+}
+
+/**
+ * Video-Schnitt auf das MATERIAL klemmen — Spiegel von `klemmeSchnitt`
+ * (server/src/pipeline/video.ts), wo er tatsächlich angewandt wird.
+ *
+ * `null` heißt „kein wirksamer Schnitt" = ganze Datei. Die Regeln stehen
+ * zweimal, weil sie an zwei Orten gebraucht werden: Der Server MUSS klemmen
+ * (er schneidet), die Leiste SOLL dieselbe Breite zeigen — sonst plant man
+ * einen Schnitt und sieht später einen anderen. Ein Drift-Wächter in
+ * test/studio-baukasten.test.ts hält beide zusammen.
+ */
+export function klemmeVideoTrim(
+  trim: { vonS: number; bisS?: number } | undefined,
+  dateiS: number,
+): { vonS: number; bisS: number } | null {
+  if (!trim || !(dateiS > 0)) return null
+  const vonS = Math.min(Math.max(0, trim.vonS), dateiS)
+  const bisS = trim.bisS === undefined ? dateiS : Math.min(Math.max(0, trim.bisS), dateiS)
+  if (!(bisS - vonS > VIDEO_TRIM_MIN_S)) return null
+  if (vonS <= 0 && bisS >= dateiS) return null // Vollschnitt ist kein Schnitt
+  return { vonS, bisS }
+}
+
+/** Kürzester Video-Ausschnitt (s) — Spiegel der Schranke in video.ts. */
+export const VIDEO_TRIM_MIN_S = 0.05
+
+/**
+ * Filmzeit eines Videos: die getrimmte Länge, sonst die ganze Datei.
+ *
+ * Hier entsteht der RIPPLE aus §2F, ohne dass ihn jemand programmiert:
+ * Ein Video liegt in einer Halt-Kette, die keine Lücken kennt. Wird es kürzer,
+ * wird sein Halt schmaler, die Achse baut sich neu — und alles Folgende rückt
+ * vor. Eine Lücke kann gar nicht entstehen.
+ */
+export function videoFilmS(dateiS: number, trim?: { vonS: number; bisS?: number }): number {
+  const geklemmt = klemmeVideoTrim(trim, dateiS)
+  return geklemmt ? geklemmt.bisS - geklemmt.vonS : dateiS
 }
 
 /**

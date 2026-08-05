@@ -33,6 +33,16 @@ export interface VideoWerkzeug {
   transkodiere(quellPfad: string, zielPfad: string): Promise<void>
   /** Nur den Container neu schreiben (`-c copy`), damit `moov` vorn liegt. */
   remuxeFaststart(quellPfad: string, zielPfad: string): Promise<void>
+  /**
+   * Ausschnitt [vonS, bisS) neu codieren.
+   *
+   * IMMER Transcode, nie `-c copy`: Ein Stream-Copy kann nur an Keyframes
+   * schneiden und träfe den gewünschten Punkt um Sekunden — bei einer
+   * Handyaufnahme mit 2-s-GOP liegt der Schnitt dann sichtbar daneben. Das
+   * kostet Rechenzeit, aber ein Schnitt, der nicht dort sitzt, wo man ihn
+   * gesetzt hat, ist kein Schnitt.
+   */
+  schneide(quellPfad: string, zielPfad: string, vonS: number, bisS?: number): Promise<void>
   /** Einzelbild bei zeitpunktS als JPEG (Poster fürs Foto-Overlay). */
   erzeugePoster(quellPfad: string, zielPfad: string, zeitpunktS: number): Promise<void>
 }
@@ -110,6 +120,43 @@ export function webVideoDateiname(mediumId: string): string {
 }
 
 /**
+ * Ablage-Name des geschnittenen Videos (nur bei gesetztem `edits.medien[].trim`).
+ *
+ * Eine EIGENE Datei neben dem Master, nicht an seiner Stelle: Der Schnitt ist
+ * ein Edit und damit jederzeit widerrufbar oder verschiebbar. Würde in die
+ * Auslieferungsdatei hineingeschnitten, wäre der zweite Schnitt ein Schnitt in
+ * den ersten — das Overlay rechnet aber in DATEI-Sekunden des Originals, und
+ * „Trim zurücknehmen" fände das Weggeschnittene nirgends wieder.
+ */
+export function schnittVideoDateiname(mediumId: string): string {
+  return `${mediumId}.cut.mp4`
+}
+
+/** Video-Schnitt in Dateisekunden, wie er aus dem Edit-Overlay kommt. */
+export interface VideoSchnitt {
+  vonS: number
+  bisS?: number
+}
+
+/**
+ * Schnitt auf das MATERIAL klemmen — der Anschlag an beiden Kanten (docs §2F).
+ *
+ * Trimmen legt frei, was da ist, und erfindet nichts: `vonS` kann nicht vor den
+ * Dateianfang, `bisS` nicht hinter das Dateiende. Bleibt danach keine echte
+ * Spanne übrig (oder war gar keine gefordert), ist die Antwort `null` = ganze
+ * Datei — ein leerer Schnitt darf kein Video von null Sekunden erzeugen.
+ */
+export function klemmeSchnitt(schnitt: VideoSchnitt | undefined, dauerS: number): VideoSchnitt | null {
+  if (!schnitt || !(dauerS > 0)) return null
+  const vonS = Math.min(Math.max(0, schnitt.vonS), dauerS)
+  const bisS = schnitt.bisS === undefined ? dauerS : Math.min(Math.max(0, schnitt.bisS), dauerS)
+  if (!(bisS - vonS > 0.05)) return null
+  // Der Vollschnitt ist kein Schnitt: er erzwänge einen Transcode ohne Wirkung.
+  if (vonS <= 0 && bisS >= dauerS) return null
+  return { vonS, bisS }
+}
+
+/**
  * Poster-Zeitpunkt: der ERSTE Frame.
  *
  * Vorher lag er eine Sekunde später — ein besseres Standbild, aber der Player
@@ -123,11 +170,18 @@ export function posterZeitpunkt(_dauerS: number): number {
 
 /** Ergebnis der Aufbereitung eines Videos — fließt in enrich.ts ins tour.json. */
 export interface VideoMeta {
+  /** Länge der AUSGELIEFERTEN Datei (bei gesetztem Schnitt die getrimmte) */
   dauerS: number
-  /** Auszuliefernde Videodatei (transkodiert, sonst Original) */
+  /** Auszuliefernde Videodatei (geschnitten, sonst transkodiert, sonst Original) */
   videoDatei: string
   /** Poster-JPEG */
   posterDatei: string
+  /**
+   * Länge der QUELLE in Sekunden — das Material, gegen das der Editor seine
+   * Trimm-Kanten anschlägt. Ohne Schnitt gleich `dauerS`; fehlt das Feld
+   * (Cache-Eintrag von vor Etappe 4), gilt `dauerS` als Quelle.
+   */
+  quellDauerS?: number
 }
 
 /** Schmaler Storage-Ausschnitt, den die Aufbereitung braucht (Storage erfüllt ihn). */
@@ -197,6 +251,28 @@ export class FfmpegWerkzeug implements VideoWerkzeug {
     )
   }
 
+  async schneide(quellPfad: string, zielPfad: string, vonS: number, bisS?: number): Promise<void> {
+    // `-ss` steht HINTER `-i`: davor sucht ffmpeg zum nächsten Keyframe und
+    // schneidet dort — genau der Fehler, den dieser Weg vermeiden soll. Dahinter
+    // wird bis zum exakten Zeitpunkt decodiert und ab da geschrieben. Langsamer,
+    // aber bildgenau.
+    await execFileP(
+      this.ffmpeg,
+      [
+        '-y',
+        '-i', quellPfad,
+        '-ss', String(vonS),
+        ...(bisS !== undefined ? ['-to', String(bisS)] : []),
+        '-vf', "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-movflags', '+faststart',
+        zielPfad,
+      ],
+      { maxBuffer: 8 * 1024 * 1024 },
+    )
+  }
+
   async erzeugePoster(quellPfad: string, zielPfad: string, zeitpunktS: number): Promise<void> {
     await execFileP(
       this.ffmpeg,
@@ -230,6 +306,11 @@ export class FakeVideoWerkzeug implements VideoWerkzeug {
     await writeFile(zielPfad, Buffer.from('FAKE-FASTSTART-MP4'))
   }
 
+  async schneide(_quellPfad: string, zielPfad: string, vonS: number, bisS?: number): Promise<void> {
+    this.aufrufe.push(`schneide:${vonS}-${bisS ?? ''}`)
+    await writeFile(zielPfad, Buffer.from('FAKE-CUT-MP4'))
+  }
+
   async erzeugePoster(_quellPfad: string, zielPfad: string): Promise<void> {
     this.aufrufe.push('poster')
     await writeFile(zielPfad, Buffer.from('FAKE-POSTER-JPEG'))
@@ -252,9 +333,11 @@ async function bereiteEinVideoAuf(
   originalDatei: string,
   speicher: VideoSpeicher,
   werkzeug: VideoWerkzeug,
+  schnitt?: VideoSchnitt,
 ): Promise<VideoMeta> {
   const posterName = posterDateiname(mediumId)
   const webName = webVideoDateiname(mediumId)
+  const schnittName = schnittVideoDateiname(mediumId)
   const originalDa = !!(await speicher.info(`media/${originalDatei}`))
   if (!originalDa && !(await speicher.info(`media/${webName}`))) {
     throw new Error(`Videodatei fehlt: ${originalDatei}`)
@@ -305,11 +388,46 @@ async function bereiteEinVideoAuf(
     // totes Gewicht. Die Reihenfolge ist die ganze Sicherung — vor dem
     // erfolgreichen Schreiben zu löschen, hieße bei einem Abbruch beides zu
     // verlieren.
+    //
+    // Gemessen wird gegen den MASTER, nicht gegen die ausgelieferte Datei: Ein
+    // Schnitt (unten) erzeugt eine weitere Fassung, aber er darf das Material
+    // nicht verbrauchen — sonst wäre „Trim zurücknehmen" ein Datenverlust.
     if (videoDatei !== originalDatei && originalDa) {
       await speicher.loesche(`media/${originalDatei}`)
     }
+    const masterDatei = videoDatei
 
-    return { dauerS: info.dauerS, videoDatei, posterDatei: posterName }
+    // Video-Schnitt (Etappe 4): eine eigene Auslieferungsdatei aus dem Master.
+    // Geklemmt wird auf das Material — Trimmen legt frei, was da ist. Ohne
+    // wirksamen Schnitt bleibt alles, wie es war (kein Transcode, keine Datei).
+    const wirksam = klemmeSchnitt(schnitt, info.dauerS)
+    if (wirksam) {
+      const schnittTemp = join(arbeitsdir, 'schnitt.mp4')
+      await werkzeug.schneide(quellTemp, schnittTemp, wirksam.vonS, wirksam.bisS)
+      await speicher.schreibe(`media/${schnittName}`, await readFile(schnittTemp))
+      // Das Poster zeigt den ersten Frame der AUSGELIEFERTEN Fassung — sonst
+      // stünde dort ein Bild, das im Film gar nicht mehr vorkommt.
+      const posterTemp = join(arbeitsdir, 'poster-schnitt.jpg')
+      await werkzeug.erzeugePoster(schnittTemp, posterTemp, posterZeitpunkt(0))
+      await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
+      return {
+        dauerS: (wirksam.bisS ?? info.dauerS) - wirksam.vonS,
+        videoDatei: schnittName,
+        posterDatei: posterName,
+        quellDauerS: info.dauerS,
+      }
+    }
+    // Kein (wirksamer) Schnitt mehr: eine frühere Schnittfassung ist jetzt
+    // totes Gewicht — der Master liegt ja noch. Das Poster zeigt dann noch den
+    // ersten Frame des ALTEN Ausschnitts und muss mit zurück.
+    if (await speicher.info(`media/${schnittName}`)) {
+      await speicher.loesche(`media/${schnittName}`)
+      const posterTemp = join(arbeitsdir, 'poster-ganz.jpg')
+      await werkzeug.erzeugePoster(quellTemp, posterTemp, posterZeitpunkt(info.dauerS))
+      await speicher.schreibe(`media/${posterName}`, await readFile(posterTemp))
+    }
+
+    return { dauerS: info.dauerS, videoDatei: masterDatei, posterDatei: posterName, quellDauerS: info.dauerS }
   } finally {
     await rm(arbeitsdir, { recursive: true, force: true })
   }
@@ -321,7 +439,7 @@ async function bereiteEinVideoAuf(
  * Map → enrich.ts liefert dann das Original ohne Poster aus).
  */
 export async function bereiteVideosAuf(eingabe: {
-  medien: Array<{ id: string; originalDatei: string }>
+  medien: Array<{ id: string; originalDatei: string; schnitt?: VideoSchnitt }>
   speicher: VideoSpeicher
   werkzeug: VideoWerkzeug
   protokoll?: (nachricht: string) => void
@@ -330,7 +448,7 @@ export async function bereiteVideosAuf(eingabe: {
   const meta = new Map<string, VideoMeta>()
   for (const m of medien) {
     try {
-      meta.set(m.id, await bereiteEinVideoAuf(m.id, m.originalDatei, speicher, werkzeug))
+      meta.set(m.id, await bereiteEinVideoAuf(m.id, m.originalDatei, speicher, werkzeug, m.schnitt))
     } catch (fehler) {
       protokoll?.(`Video-Aufbereitung fehlgeschlagen (${m.id}): ${(fehler as Error).message}`)
     }

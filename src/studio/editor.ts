@@ -11,6 +11,7 @@ import { pfad } from '../routen.js'
 import * as api from './api.js'
 import {
   effektiveMedien,
+  erfasseUndo,
   isoZuOffset,
   LEERES_OVERLAY,
   materialisiereModi,
@@ -52,7 +53,6 @@ import {
   audioWirdVerworfen,
   aufnahmeHaltS,
   baueAchse,
-  baueAudioBalken,
   baueBaender,
   baueFilmMassband,
   baueMedienDots,
@@ -75,10 +75,11 @@ import {
   klemmeFilmS,
   klemmeGrenze,
   klemmeStandzeit,
+  klemmeVideoTrim,
+  VIDEO_TRIM_MIN_S,
   kumMeter,
   loeseFokusAuf as loeseFokusAufRein,
   meterZuOffset,
-  musikLanes,
   offsetBeiMeter,
   offsetZuAnteil,
   ordneEin,
@@ -96,6 +97,19 @@ import {
   type ZeitSkala,
 } from './zeitleiste.js'
 import { KATEGORIE_NAMEN, SFX_BIBLIOTHEK, sfxEffekt, type SfxEffekt, type SfxTyp } from './sfxbibliothek.js'
+import {
+  loeseTonKlips,
+  loopNachRollenwechsel,
+  schreibeTonFest,
+  setzeLoop,
+  tonLanes,
+  trimmeLinks,
+  trimmeRechts,
+  verschiebeTon,
+  wellenLage,
+  type TonKlip,
+  type TonPatch,
+} from './tonklip.js'
 import { baueStopps, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 import { beschreibeAufnahme, liesAufnahme, type ExifAufnahme } from './exif.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
@@ -215,9 +229,6 @@ interface Zustand {
   zukunft: EditOverlay[]
 }
 
-/** Maximale Undo-Tiefe — Overlays sind klein, aber unbegrenzt wächst unschön. */
-const HISTORIE_MAX = 100
-
 let karte: maplibregl.Map | null = null
 let z: Zustand | null = null
 /**
@@ -254,6 +265,21 @@ let kumStrecke: number[] = []
  * dahinter liegt, rückt. 0 = noch nicht gemessen.
  */
 let pxProFilmS = 0
+
+/**
+ * Gemessene Länge je Ton-DATEI (s) — der Materialanschlag beider Trimm-Kanten.
+ *
+ * Sie steht nirgends im Datenmodell: Die kuratierte Bibliothek führt Namen und
+ * Charakter, nicht Sekunden, und ein eigener Upload erst recht nicht. Gemessen
+ * wird deshalb im Browser über `loadedmetadata` — das lädt nur den Dateikopf.
+ * Bis ein Wert da ist, hat die Kante keinen Anschlag (lieber ziehen lassen als
+ * grundlos klemmen) und ein Effekt keine Breite; danach rendert die Leiste
+ * einmal neu und beides steht.
+ */
+const tonDauern = new Map<string, number>()
+/** Läuft/lief bereits eine Messung? Verhindert Messschleifen bei Fehlern. */
+const tonGemessen = new Set<string>()
+
 /**
  * Solange wahr, folgt der Maßstab der Fensterbreite („eingepasst") — der
  * Startzustand und die Untergrenze des Zoomens. Erst eine Nutzerhandlung
@@ -551,11 +577,7 @@ function renderAlles(): void {
   // Undo-Punkt setzen, wenn sich das Overlay seit dem letzten Voll-Render
   // geändert hat (s. letzterStand). Undo/Redo selbst ziehen den Stand vorher
   // nach und lösen hier deshalb keinen neuen Eintrag aus.
-  if (letzterStand && letzterStand !== z.edits) {
-    z.historie.push(letzterStand)
-    if (z.historie.length > HISTORIE_MAX) z.historie.shift()
-    z.zukunft = []
-  }
+  erfasseUndo(z, letzterStand, z.edits)
   letzterStand = z.edits
   renderHistorieKnoepfe()
   zeichneTrack()
@@ -784,6 +806,14 @@ function loeseFokusAuf(): FokusZiel | null {
     z.track,
     z.daten.time.start,
     medienAnzeige(),
+    // Ton-Spannen über die FILM-Achse: `ab`/`bis` sind seit Etappe 4 nur noch
+    // Fallback, und der Inspector muss dasselbe zeigen wie die Leiste.
+    (index) => {
+      const klip = tonKlipVon(index)
+      const kurve = aktuelleAchse()?.kurve
+      if (!klip || !kurve) return null
+      return { vonS: zeitBeiFilm(kurve, klip.filmVon), bisS: zeitBeiFilm(kurve, klip.filmBis) }
+    },
   )
 }
 
@@ -941,9 +971,7 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
       for (const d of frei) {
         const zeile = menueEintrag(d.datei, () => {
           if (!z) return
-          z.edits = mitAudioEintrag(z.edits, { datei: d.datei, typ: 'musik', ab })
-          z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
-          renderAlles()
+          void setzeTonEin({ datei: d.datei, typ: 'musik', ab })
         })
         const weg = document.createElement('button')
         weg.className = 'weg'
@@ -1490,9 +1518,12 @@ function baueZeiten(info: FokusZiel): HTMLElement {
       feld('Beginnt um', baueZeitfeld(info.vonS, (neu) => audioZeitSetzen(index, 'ab', neu))),
       feld(
         'Endet um',
-        (z?.edits.audio ?? [])[index]?.typ === 'sfx'
-          ? zeitFest('Effekt, keine Dauer')
-          : baueZeitfeld(info.bisS, (neu) => audioZeitSetzen(index, 'bis', neu)),
+        // „Effekt, keine Dauer" stimmt seit Etappe 4 nicht mehr — auch ein Ton
+        // der Szene hat eine Länge. Ohne gemessene Datei kennt die Leiste sie
+        // nur noch nicht.
+        info.bisS > info.vonS
+          ? baueZeitfeld(info.bisS, (neu) => audioZeitSetzen(index, 'bis', neu))
+          : zeitFest('Länge noch unbekannt'),
       ),
     )
     return paar
@@ -1538,28 +1569,43 @@ function grenzZeitfeld(art: GrenzArt, ab: string, offsetS: number, bezug: (neuOf
 }
 
 /** Audio-Anfang/-Ende setzen (geklemmt gegen die eigene Spanne). */
+/**
+ * Zeitfeld eines Ton-Klips („Beginnt um" / „Endet um").
+ *
+ * Es geht über DIESELBEN Funktionen wie der Zug an der Kante — nicht über
+ * `ab`/`bis`. Seit Etappe 4 haben die keinen Vorrang mehr: Nach dem ersten
+ * Kantenzug ist der Klip film-verankert, ein Schreiben auf `ab` wäre dann still
+ * wirkungslos. Genau die Sorte zweiter Weg, der liegen bleibt.
+ *
+ * Damit gelten hier auch die Trimm-Regeln: „Endet um" schlägt am Material an
+ * (außer bei Loop), „Beginnt um" verschiebt den ganzen Klip und lässt Länge und
+ * Datei-Einstieg unberührt.
+ */
 function audioZeitSetzen(index: number, teil: 'ab' | 'bis', neuOffsetS: number): number | null {
   if (!z) return null
-  const skala = baueSkala(z.track)
-  const a = (z.edits.audio ?? [])[index]
-  if (!skala || !a) return null
+  const achse = aktuelleAchse()
+  const klip = tonKlipVon(index)
+  if (!achse?.kurve || !klip) return null
   const start = z.daten.time.start
-  const vonS = isoZuOffset(start, a.ab)
-  const bisS = a.bis !== undefined ? isoZuOffset(start, a.bis) : skala.bisS
-  const geklemmt =
+  const zielFilmS = filmZuOffset(achse, neuOffsetS)
+  const patch =
     teil === 'ab'
-      ? Math.max(skala.vonS, Math.min(neuOffsetS, bisS - 5))
-      : Math.max(vonS + 5, Math.min(neuOffsetS, skala.bisS))
-  if (teil === 'ab') {
-    const patch: { ab: string; bis?: string } = { ab: offsetZuIso(start, geklemmt) }
-    // Musik behält ihre Länge beim Verschieben des Anfangs
-    if (a.typ === 'musik' && a.bis !== undefined) patch.bis = offsetZuIso(start, geklemmt + (bisS - vonS))
-    z.edits = mitAudioPatch(z.edits, index, patch)
-  } else {
-    z.edits = mitAudioPatch(z.edits, index, { bis: geklemmt >= skala.bisS - 1 ? undefined : offsetZuIso(start, geklemmt) })
-  }
+      ? verschiebeTon(achse, start, klip, zielFilmS)
+      : trimmeRechts(achse, start, klip, zielFilmS).patch
+  z.edits = mitAudioPatch(z.edits, index, {
+    ...patch,
+    einstiegS: patch.einstiegS && patch.einstiegS > 0 ? patch.einstiegS : undefined,
+    // `bis` ist die alte Endmarke; die Länge steht jetzt in `dauerFilmS`. Zwei
+    // Quellen für dasselbe Ende wären eine Einladung zum Auseinanderlaufen.
+    bis: undefined,
+  })
   renderAlles()
-  return geklemmt
+  // Was tatsächlich herauskam, zurück in Aufnahmezeit — das Feld soll den
+  // geklemmten Wert zeigen, nicht den getippten.
+  const neu = tonKlipVon(index)
+  const kurve = aktuelleAchse()?.kurve
+  if (!neu || !kurve) return neuOffsetS
+  return Math.round(zeitBeiFilm(kurve, teil === 'ab' ? neu.filmVon : neu.filmBis))
 }
 
 // — Aufnahme-Details (ausklappbar): was in der Datei über die Aufnahme steht —
@@ -1709,15 +1755,48 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
   stueck.append(hoeren, text, wechseln)
   huelle.appendChild(stueck)
 
-  const typ = auswahl([['musik', 'Musik (über eine Strecke)'], ['sfx', 'Effekt (ein Zeitpunkt)']], a.typ)
+  // — Rolle, nicht Form.
+  //
+  // Bis Etappe 4 hieß das hier „Art: Musik (über eine Strecke) / Effekt (ein
+  // Zeitpunkt)" — eine Aussage über die FORM. Die stimmt nicht mehr: Beide sind
+  // Klips mit Länge, beide können wiederholen, beide mischen sich. Was
+  // tatsächlich unterschiedlich bleibt, ist die ROLLE im Film, und die zeigt
+  // sich an zwei Stellen im Player: Der Zuschauer-Schalter „Musik" nimmt die
+  // Filmmusik weg und lässt den Ton des Ortes stehen, und unter dem eigenen Ton
+  // eines Videos taucht die Musik ab, die Umgebung nicht.
+  const typ = auswahl(
+    [
+      ['musik', 'Filmmusik'],
+      ['sfx', 'Ton der Szene'],
+    ],
+    a.typ,
+  )
   typ.addEventListener('change', () => {
     if (!z) return
     const neu = typ.value as 'musik' | 'sfx'
-    // Wechsel zu „Effekt" wirft das Ende weg — ein Zeitpunkt hat keine Dauer
-    z.edits = mitAudioPatch(z.edits, index, neu === 'sfx' ? { typ: neu, bis: undefined } : { typ: neu })
+    const k = tonKlipVon(index)
+    const achse = aktuelleAchse()
+    // Die Rolle ändert die LÄNGE nicht. Zwei Dinge kippten hier früher still:
+    // `bis` (nur bei Musik erlaubt) fiel beim Wechsel ersatzlos weg, und die
+    // Loop-Vorgabe hängt an der Rolle — ein Klip ohne eigenes `loop` hätte sein
+    // Verhalten gewechselt, ohne dass jemand etwas dazu gesagt hat.
+    const laenge =
+      k && achse ? schreibeTonFest(achse, z.daten.time.start, { ...k, laengeGesetzt: k.filmBis > k.filmVon }) : null
+    z.edits = mitAudioPatch(z.edits, index, {
+      typ: neu,
+      ...(laenge ?? {}),
+      ...(k ? { loop: loopNachRollenwechsel(k, neu) } : {}),
+      bis: undefined,
+    })
     renderAlles()
   })
-  huelle.appendChild(feld('Art', typ))
+  huelle.appendChild(
+    feld(
+      'Rolle',
+      typ,
+      'Filmmusik verstummt mit dem Musik-Schalter des Zuschauers und taucht unter dem Ton eines Videos ab. Der Ton der Szene bleibt beides Mal stehen.',
+    ),
+  )
 
   huelle.appendChild(
     feld(
@@ -1738,6 +1817,48 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
       ),
     ),
   )
+
+  // — Wiederholung: eine EINSTELLUNG, kein Griff am Klip (docs §2E).
+  //
+  // Auf dem Klip wäre sie eine Ausnahme, die Lautstärke, Blende und
+  // Dateiwechsel nicht auch bekommen könnten; dort steht nur das ⟲-Zeichen.
+  const klip = tonKlipVon(index)
+  const wdh = document.createElement('label')
+  wdh.className = 'kb'
+  const wdhBox = document.createElement('input')
+  wdhBox.type = 'checkbox'
+  wdhBox.checked = a.loop ?? a.typ === 'musik'
+  wdhBox.addEventListener('change', () => {
+    if (!z) return
+    const achse = aktuelleAchse()
+    // Loop AUS heißt: der rechte Materialanschlag gilt wieder — der Klip kommt
+    // ans Dateiende zurück, statt mit einem stummen Rest dazustehen. Stille
+    // gehört ZWISCHEN die Klips, nie in einen (docs §2E).
+    const zurueck = klip && achse ? setzeLoop(achse, z.daten.time.start, klip, wdhBox.checked) : null
+    // `loop` nur schreiben, wenn es von der Vorgabe der Rolle abweicht — sonst
+    // trüge jedes angefasste Overlay ein Feld, das nichts sagt.
+    const vorgabe = a.typ === 'musik'
+    z.edits = mitAudioPatch(z.edits, index, {
+      ...(zurueck ?? {}),
+      loop: wdhBox.checked === vorgabe ? undefined : wdhBox.checked,
+    })
+    renderAlles()
+  })
+  wdh.append(wdhBox, document.createTextNode('Wiederholen, wenn die Datei zu Ende ist'))
+  huelle.appendChild(wdh)
+
+  // Was von der Datei zu hören ist — die Auskunft zu den beiden Trimm-Kanten.
+  if (klip?.dateiS) {
+    const laenge = klip.filmBis - klip.filmVon
+    const getrimmt = klip.einstiegS > 0 || laenge < klip.dateiS - 0.05
+    const info = document.createElement('p')
+    info.className = 'insp-hinweis'
+    info.textContent = getrimmt
+      ? `${formatiereFilmzeit(laenge)} von ${formatiereFilmzeit(klip.dateiS)}`
+        + (klip.einstiegS > 0 ? ` · ab ${formatiereFilmzeit(klip.einstiegS)} der Datei` : '')
+      : `${formatiereFilmzeit(klip.dateiS)} — die ganze Datei`
+    huelle.appendChild(info)
+  }
 
   if (z && audioWirdVerworfen(a, z.edits, z.daten.time.start, baueSkala(z.track) ?? { vonS: 0, bisS: 0 })) {
     const warn = document.createElement('p')
@@ -2076,6 +2197,169 @@ function fliegeZuMedium(m: MediumAnzeige): void {
 
 // — Musik & Effekte (Audio-Assets + Overlay-Einträge) —
 
+/**
+ * Länge aller Ton-Dateien der Tour messen, die noch keine hat.
+ *
+ * `preload='metadata'` holt nur den Kopf der Datei, nicht die Audiodaten. Jede
+ * Datei wird höchstens EINMAL angefasst (auch bei Fehlschlag) — sonst zöge ein
+ * kaputter Verweis bei jedem Render eine neue Anfrage nach sich.
+ */
+function messeTonDauern(): void {
+  if (!z) return
+  const tourId = z.tourId
+  let offen = 0
+  for (const a of z.edits.audio ?? []) {
+    if (tonGemessen.has(a.datei)) continue
+    tonGemessen.add(a.datei)
+    offen++
+    const el = new Audio()
+    el.preload = 'metadata'
+    const fertig = (dauer: number | null): void => {
+      if (dauer !== null && Number.isFinite(dauer) && dauer > 0) tonDauern.set(a.datei, dauer)
+      el.removeAttribute('src')
+      // Erst wenn ALLE offenen Messungen durch sind, einmal neu zeichnen —
+      // je Datei zu rendern hieße bei zehn Klips zehn Neuaufbauten.
+      if (--offen === 0 && z) renderZeitleiste()
+    }
+    el.addEventListener('loadedmetadata', () => fertig(el.duration), { once: true })
+    el.addEventListener('error', () => fertig(null), { once: true })
+    el.src = audioUrl(a, tourId)
+  }
+}
+
+// — Wellenform —
+//
+// Sie zeigt die DATEI, nicht den Klip: hinter dem Klip liegt der volle
+// Datei-Streifen, um den Einstieg nach links geschoben. Beim Trimmen wandert
+// dadurch der AUSSCHNITT — man sieht, was man wegschneidet. Auf Klipbreite
+// gestaucht sähe jeder Trim wie ein Tempowechsel aus.
+//
+// Gezeichnet wird aus ECHTEN Ausschlägen (`decodeAudioData`), nicht aus einem
+// Muster: Eine erfundene Wellenform sähe aus wie eine Aussage über den Inhalt
+// und wäre keine. Der Preis ist ein Decode je Datei — einmalig, lazy, und das
+// Ergebnis ist ein kleines PNG, das als Hintergrundbild kachelt.
+
+/** Fertige Wellenform-Bilder je Datei (data-URL) bzw. `null` = geht nicht. */
+const wellenBilder = new Map<string, string | null>()
+
+/** Auflösung des Streifens — 900 Balken reichen für jede Zoomstufe der Leiste. */
+const WELLE_BALKEN = 900
+
+/**
+ * Wellenform einer Datei besorgen und beim Eintreffen einmal neu zeichnen.
+ *
+ * Höchstens EIN Versuch je Datei (auch bei Fehlschlag): Ein nicht dekodierbares
+ * Format zöge sonst bei jedem Render einen neuen Download nach sich.
+ */
+function holeWelle(datei: string, url: string): string | null {
+  const fertig = wellenBilder.get(datei)
+  if (fertig !== undefined) return fertig
+  wellenBilder.set(datei, null) // Platzhalter: markiert „läuft/erledigt"
+  void (async () => {
+    try {
+      const roh = await (await fetch(url)).arrayBuffer()
+      const ctx = new AudioContext()
+      const puffer = await ctx.decodeAudioData(roh)
+      void ctx.close()
+      wellenBilder.set(datei, zeichneWelle(puffer))
+    } catch {
+      // Kein Web-Audio, kein Netz, unbekanntes Format: der Klip bleibt schlicht.
+      wellenBilder.set(datei, null)
+    }
+    if (z) renderZeitleiste()
+  })()
+  return null
+}
+
+/** Spitzenwerte je Balken zu einem PNG-Streifen (transparent + helle Balken). */
+function zeichneWelle(puffer: AudioBuffer): string | null {
+  const leinwand = document.createElement('canvas')
+  leinwand.width = WELLE_BALKEN
+  leinwand.height = 44
+  const g = leinwand.getContext('2d')
+  if (!g) return null
+  const daten = puffer.getChannelData(0)
+  const proBalken = Math.max(1, Math.floor(daten.length / WELLE_BALKEN))
+  g.fillStyle = 'rgba(255, 255, 255, 0.5)'
+  for (let i = 0; i < WELLE_BALKEN; i++) {
+    let spitze = 0
+    const von = i * proBalken
+    // Nicht mitteln, sondern die SPITZE nehmen: gemittelt sieht jede Musik aus
+    // wie derselbe flache Balken, und man erkennt keinen Einsatz mehr.
+    for (let j = von; j < von + proBalken && j < daten.length; j++) {
+      const wert = Math.abs(daten[j] as number)
+      if (wert > spitze) spitze = wert
+    }
+    const h = Math.max(1, spitze * leinwand.height)
+    g.fillRect(i, (leinwand.height - h) / 2, 1, h)
+  }
+  return leinwand.toDataURL('image/png')
+}
+
+/**
+ * Länge einer Ton-Datei besorgen — aus dem Cache oder frisch gemessen.
+ *
+ * Dieselbe Technik wie `messeTonDauern` (nur der Dateikopf), aber wartend:
+ * Beim EINSETZEN muss die Länge vorliegen, bevor der Klip entsteht — sonst
+ * müsste er nachträglich zucken.
+ */
+async function holeTonDauer(a: AudioEintrag): Promise<number | null> {
+  const bekannt = tonDauern.get(a.datei)
+  if (bekannt !== undefined) return bekannt
+  if (!z) return null
+  const url = audioUrl(a, z.tourId)
+  return new Promise<number | null>((fertig) => {
+    const el = new Audio()
+    el.preload = 'metadata'
+    const antworte = (dauer: number | null): void => {
+      el.removeAttribute('src')
+      if (dauer !== null && Number.isFinite(dauer) && dauer > 0) {
+        tonDauern.set(a.datei, dauer)
+        fertig(dauer)
+      } else fertig(null)
+    }
+    el.addEventListener('loadedmetadata', () => antworte(el.duration), { once: true })
+    el.addEventListener('error', () => antworte(null), { once: true })
+    tonGemessen.add(a.datei)
+    el.src = url
+  })
+}
+
+/**
+ * Einen neuen Ton-Klip einsetzen — mit der Länge seines MATERIALS und ohne
+ * Wiederholung.
+ *
+ * Beides gehört zusammen: „nicht wiederholen" allein ließe einen Musik-Klip
+ * entstehen, der bis zum Tour-Ende reicht, aber nur seine Dateilänge klingt —
+ * ein stummer Rest hinter der Wellenform, genau das, was Loop-AUS an einem
+ * bestehenden Klip behebt. Ein frisch eingesetztes Stück klingt einmal, so lang
+ * wie es ist; alles Weitere (länger ziehen, wiederholen) ist eine Entscheidung.
+ *
+ * Ein EFFEKT braucht dafür kein einziges Feld: Er wiederholt von Haus aus nicht
+ * und ist ohnehin so lang wie seine Datei. Geschrieben wird nur, was von der
+ * Vorgabe der Rolle abweicht — sonst trüge jedes Overlay Felder ohne Aussage.
+ *
+ * Ohne messbare Länge (fehlende Datei, unbekanntes Format) bleibt es bei der
+ * Vorgabe: `loop: false` ohne bekanntes Ende erzeugte gerade den stummen Rest,
+ * den es zu vermeiden gilt.
+ */
+async function setzeTonEin(eintrag: AudioEintrag): Promise<void> {
+  if (!z) return
+  // Gemessen wird VOR dem Einfügen: so entsteht genau EIN Overlay-Stand — also
+  // ein Undo-Schritt — und der Klip steht sofort in seiner endgültigen Form da,
+  // statt kurz nach dem Erscheinen zu zucken.
+  const dateiS = eintrag.typ === 'musik' ? await holeTonDauer(eintrag) : null
+  if (!z) return
+  const voll: AudioEintrag = dateiS
+    ? { ...eintrag, loop: false, dauerFilmS: Math.round(dateiS * 1000) / 1000 }
+    : eintrag
+  z.edits = mitAudioEintrag(z.edits, voll)
+  // Auf das Eingesetzte springen — der Inspector zeigte sonst weiter, was vorher
+  // ausgewählt war, und man sucht das gerade Hinzugefügte auf der Spur.
+  z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
+  renderAlles()
+}
+
 /** Einen Audio-Eintrag vorhören (bricht ein laufendes Vorhören ab). */
 function starteVorschau(a: AudioEintrag): void {
   if (!z) return
@@ -2152,8 +2436,7 @@ async function bibliothekHochladen(datei: File): Promise<void> {
   const skala = baueSkala(z.track)
   const abOffset = z.auswahl ? z.auswahl[3] : (skala?.vonS ?? 0)
   const parallel = ueberlappteMusik(abOffset, skala?.bisS ?? abOffset)
-  z.edits = mitAudioEintrag(z.edits, { datei: name, typ: 'musik', ab: offsetZuIso(start, abOffset), quelle: 'benutzer' })
-  z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
+  void setzeTonEin({ datei: name, typ: 'musik', ab: offsetZuIso(start, abOffset), quelle: 'benutzer' })
   audioStatus(
     parallel.length
       ? `Hochgeladen und eingesetzt — läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
@@ -2264,12 +2547,9 @@ function sfxUebernehmen(datei: string, quelle: 'bibliothek' | 'benutzer', typ: S
   const abOffset = z.auswahl ? z.auswahl[3] : (skala?.vonS ?? 0)
   // VOR dem Einfügen prüfen — sonst zählte der neue Eintrag sich selbst.
   const parallel = typ !== 'sfx' ? ueberlappteMusik(abOffset, skala?.bisS ?? abOffset) : []
-  z.edits = mitAudioEintrag(z.edits, { datei, typ: typ ?? 'musik', ab: offsetZuIso(start, abOffset), quelle })
-  // Auf das Eingesetzte springen — der Inspector zeigt sonst weiter, was vorher
-  // ausgewählt war, und man sucht das gerade Hinzugefügte auf der Spur.
-  z.fokus = { art: 'audio', index: (z.edits.audio ?? []).length - 1 }
+  // Der Dialog geht SOFORT zu — die Längenmessung darf ihn nicht offen halten.
   schliesseSfxDialog()
-  renderAlles()
+  void setzeTonEin({ datei, typ: typ ?? 'musik', ab: offsetZuIso(start, abOffset), quelle })
   audioStatus(
     parallel.length
       ? `„${name}" eingesetzt — läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
@@ -2719,6 +2999,10 @@ interface ZugZustand {
   index?: number
   /** Abstand Cursor↔Balkenanfang beim Greifen (Anteil), für ruckfreies Schieben */
   griffVersatz?: number
+  /** Dasselbe in FILMsekunden — Ton-Klips rechnen seit Etappe 4 darin. */
+  griffVersatzFilmS?: number
+  /** Steht die gezogene Trimm-Kante am Material? Fürs Etikett am Zeiger. */
+  amAnschlag?: boolean
   /**
    * Beim pointerdown getroffenes Band. Muss HIER gemerkt werden: nach
    * setPointerCapture zeigt e.target im pointerup auf das Capture-Element
@@ -3051,48 +3335,97 @@ function renderZeitleiste(): void {
     momentBahn.appendChild(marke)
   }
 
-  // — Musik & Effekte: Klips (Dauer) unten, Effekt-Pins (Zeitpunkt) oben —
+  // — Musik & Effekte: Klips mit zwei Trimm-Kanten (docs §2E) —
+  //
+  // Ein Effekt ist hier dieselbe Sorte Klip wie Musik, nur in anderer Farbe.
+  // Als Marke ohne Länge verschwieg die Leiste, wie lange er klingt — dabei
+  // spielt der Player die Datei ohnehin aus. Erst wenn die Datei noch nicht
+  // gemessen ist, bleibt er der Pin, der er war.
   const audioBahn = spur('spur-musik')
-  const audioBalken = baueAudioBalken(z.edits.audio ?? [], start, skala)
-  // Überlappende Klips stapeln sich in Unterzeilen (b.lane) — die Bahn wächst
-  // mit, damit jeder Klip lesbar und greifbar bleibt (der Player mischt sie).
-  audioBahn.closest('.spur')?.setAttribute('style', `--musik-lanes: ${musikLanes(audioBalken)}`)
-  for (const b of audioBalken) {
+  messeTonDauern()
+  const tonKlips = loeseTonKlips(z.edits.audio ?? [], start, skala, tonDauern)
+  // Überlappende Klips stapeln sich in Unterzeilen — die Bahn wächst mit,
+  // damit jeder lesbar und greifbar bleibt (der Player mischt sie).
+  audioBahn.closest('.spur')?.setAttribute('style', `--musik-lanes: ${tonLanes(tonKlips)}`)
+  const gesamtFilmS = skala.kurve?.gesamtS ?? 0
+  for (const k of tonKlips) {
     // Bibliotheks-Einträge tragen ihren KATALOGNAMEN, nicht den Dateinamen:
     // „Aufbruch" sagt, was man hört — „mus-aufbruch.mp3" nur, wo es liegt.
-    const anzeige = audioName((z.edits.audio ?? [])[b.index] ?? { datei: b.datei, typ: b.typ, ab: start })
-    if (b.typ === 'musik') {
-      const klip = document.createElement('div')
-      klip.className = 'zl-klip'
-      klip.style.top = `${20 + b.lane * 24}px`
-      klip.style.left = pos(b.von)
-      klip.style.width = pos(Math.max(0.004, b.bis - b.von))
-      klip.dataset['rolle'] = 'audio-balken'
-      klip.dataset['index'] = String(b.index)
-      klip.title = `${anzeige} — ziehen zum Verschieben, Kanten für Anfang und Ende`
-      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) klip.classList.add('fokus')
-      const name = document.createElement('span')
-      name.textContent = anzeige
-      klip.appendChild(name)
-      for (const seite of ['von', 'bis'] as const) {
-        const griff = document.createElement('div')
-        griff.className = `kante ${seite}`
-        griff.dataset['rolle'] = `audio-${seite}`
-        griff.dataset['index'] = String(b.index)
-        klip.appendChild(griff)
-      }
-      audioBahn.appendChild(klip)
-    } else {
+    const eintrag = (z.edits.audio ?? [])[k.index]
+    const anzeige = audioName(eintrag ?? { datei: k.datei, typ: k.typ, ab: start })
+    const fokussiert = fokusInfo?.art === 'audio' && fokusInfo.index === k.index
+    const punktfoermig = !(k.filmBis > k.filmVon) || !(gesamtFilmS > 0)
+    if (punktfoermig) {
       const pin = document.createElement('div')
       pin.className = 'zl-sfx'
-      pin.style.left = pos(b.von)
+      pin.style.left = pos(filmZuAnteil(skala, k.filmVon))
       pin.dataset['rolle'] = 'sfx'
-      pin.dataset['index'] = String(b.index)
-      pin.title = `${anzeige} (Effekt) — ziehen zum Verschieben`
-      if (fokusInfo?.art === 'audio' && fokusInfo.index === b.index) pin.classList.add('fokus')
+      pin.dataset['index'] = String(k.index)
+      // Ohne gemessene Datei kennt die Leiste die Länge nicht — deshalb (noch)
+      // ein Punkt statt eines Klips, und das sagt der Tooltip auch.
+      pin.title = `${anzeige} — Länge noch unbekannt; ziehen zum Verschieben`
+      if (fokussiert) pin.classList.add('fokus')
       pin.appendChild(document.createElement('i'))
       audioBahn.appendChild(pin)
+      continue
     }
+    const klip = document.createElement('div')
+    klip.className = k.typ === 'sfx' ? 'zl-klip effekt' : 'zl-klip'
+    klip.style.top = `${20 + k.lane * 24}px`
+    klip.style.left = pos(filmZuAnteil(skala, k.filmVon))
+    klip.style.width = pos(Math.max(0.002, filmZuAnteil(skala, k.filmBis) - filmZuAnteil(skala, k.filmVon)))
+    klip.dataset['rolle'] = 'audio-balken'
+    klip.dataset['index'] = String(k.index)
+    klip.title =
+      `${anzeige} · ${formatiereFilmzeit(k.filmBis - k.filmVon)}`
+      + (k.einstiegS > 0 ? ` (ab ${formatiereFilmzeit(k.einstiegS)} der Datei)` : '')
+      + ' — ziehen zum Verschieben, Kanten zum Trimmen'
+    if (fokussiert) klip.classList.add('fokus')
+
+    // Wellenform: der DATEI-Streifen hinter dem Klip, um den Einstieg nach
+    // links geschoben. Beim Trimmen wandert dadurch der Ausschnitt — man sieht,
+    // was man wegschneidet. Auf Klipbreite gestaucht sähe jeder Trim wie ein
+    // Tempowechsel aus.
+    const welle = wellenLage(k, pxProFilmS)
+    const bild = eintrag ? holeWelle(k.datei, audioUrl(eintrag, z.tourId)) : null
+    if (welle && bild) {
+      // Eigenes Fenster mit `overflow: hidden`: Der Klip selbst darf nicht
+      // clippen, sonst verschwänden die überstehenden Kanten-Griffe und
+      // Anfang/Ende wären nicht mehr zu greifen.
+      const fenster = document.createElement('span')
+      fenster.className = 'welle-fenster'
+      const spurEl = document.createElement('span')
+      spurEl.className = 'welle'
+      spurEl.style.left = `${welle.versatzPx}px`
+      spurEl.style.width = `${welle.breitePx * welle.wiederholungen}px`
+      spurEl.style.backgroundImage = `url(${bild})`
+      spurEl.style.backgroundSize = `${welle.breitePx}px 100%`
+      fenster.appendChild(spurEl)
+      klip.appendChild(fenster)
+    }
+
+    const name = document.createElement('span')
+    name.className = 'zl-klip-name'
+    name.textContent = anzeige
+    klip.appendChild(name)
+    if (k.loop) {
+      // Loop ist eine EINSTELLUNG im Inspector, auf dem Klip nur ein Zeichen —
+      // als Schalter wäre sie eine Ausnahme, die Lautstärke und Dateiwechsel
+      // nicht auch bekommen könnten.
+      const zeichen = document.createElement('span')
+      zeichen.className = 'zl-klip-loop'
+      zeichen.textContent = '⟲'
+      zeichen.title = 'Wiederholt sich'
+      klip.appendChild(zeichen)
+    }
+    for (const seite of ['von', 'bis'] as const) {
+      const griff = document.createElement('div')
+      griff.className = `kante ${seite}`
+      griff.dataset['rolle'] = `audio-${seite}`
+      griff.dataset['index'] = String(k.index)
+      klip.appendChild(griff)
+    }
+    audioBahn.appendChild(klip)
   }
 
   // — Szenen: je Aufnahme EIN Klip, ein Halt ist ihre Kette —
@@ -3169,13 +3502,28 @@ function baueKlip(m: MediumAnzeige): HTMLElement {
   klip.appendChild(inhalt)
 
   if (m.type === 'video') {
-    // Ein Video trägt seine Länge, keinen Standzeit-Griff: der Player läuft bis
-    // zum Dateiende, `display.holdS` ist dort wirkungslos (src/tour.js) — ein
-    // Griff dafür wäre eine Lüge.
+    // Ein Video hat keinen STANDZEIT-Griff: der Player läuft bis zum Dateiende,
+    // `display.holdS` ist dort wirkungslos (src/tour.js) — ein Griff dafür wäre
+    // eine Lüge. Seit Etappe 4 hat es aber zwei SCHNITT-Kanten (docs §2F): Der
+    // alte Satz „ein Video trägt seine Länge, sie steht nicht zur Wahl" stimmt
+    // für die Standzeit, nicht für den Schnitt. Anschlag ist die Datei; Loop
+    // gibt es hier nicht, der wäre bei einem Video Unsinn.
     const play = document.createElement('span')
     play.className = 'v-play'
     play.innerHTML = icon('play')
     klip.appendChild(play)
+    for (const seite of ['von', 'bis'] as const) {
+      const kante = document.createElement('span')
+      kante.className = `v-trim ${seite}`
+      kante.dataset['rolle'] = 'videotrim'
+      kante.dataset['seite'] = seite
+      kante.dataset['id'] = m.id
+      kante.title = seite === 'von' ? 'Anfang des Videos schneiden' : 'Ende des Videos schneiden'
+      klip.appendChild(kante)
+    }
+    const blase = document.createElement('span')
+    blase.className = 'dauer-blase'
+    klip.appendChild(blase)
   } else {
     const griff = document.createElement('span')
     griff.className = 'griff'
@@ -3212,7 +3560,14 @@ function schreibeKlip(el: HTMLElement, m: MediumAnzeige, k: SzenenKlip, gesamtS:
   el.classList.toggle('fokus', fokus)
   el.classList.toggle('video', m.type === 'video')
   const dauerS = aufnahmeHaltS(m)
-  const dauerText = m.type === 'video' ? `${formatiereFilmzeit(dauerS)} Video` : formatiereSekunden(dauerS)
+  // Getrimmt sagt der ANTEIL mehr als die nackte Zahl (docs §2F).
+  const geschnitten = m.type === 'video' ? klemmeVideoTrim(m.trim, m.dauerS ?? 0) : null
+  const dauerText =
+    m.type === 'video'
+      ? geschnitten
+        ? `${formatiereFilmzeit(dauerS)} von ${formatiereFilmzeit(m.dauerS ?? 0)}`
+        : `${formatiereFilmzeit(dauerS)} Video`
+      : formatiereSekunden(dauerS)
   const name = m.caption || (m.type === 'video' ? 'Video' : 'Foto')
   const titel = el.querySelector('.info b')
   const unten = el.querySelector('.info small')
@@ -3223,7 +3578,7 @@ function schreibeKlip(el: HTMLElement, m: MediumAnzeige, k: SzenenKlip, gesamtS:
   const kette = k.anzahl > 1 ? ` · Aufnahme ${k.platz + 1} von ${k.anzahl}` : ''
   el.title =
     `${name} — ${uhrzeitKurz(m.takenAt)} Uhr · ${dauerText}${kette}`
-    + (m.type === 'video' ? '' : ' — die rechte Kante zieht die Standzeit')
+    + (m.type === 'video' ? ' — die Kanten schneiden das Video' : ' — die rechte Kante zieht die Standzeit')
 }
 
 /**
@@ -3250,8 +3605,68 @@ function renderHaltZone(achse: Achse, fokusId: string | null): void {
 /** Die Kante liegt IM Klip — ohne diese Weiche verschöbe man, statt zu ziehen. */
 function klipZeiger(e: PointerEvent, id: string): void {
   if (!z || e.button !== 0 || werkzeug !== 'auswahl') return
-  if ((e.target as HTMLElement).closest('.griff')) ziehStandzeit(e, id)
+  const trim = (e.target as HTMLElement).closest<HTMLElement>('.v-trim')
+  if (trim) ziehVideoTrim(e, id, trim.dataset['seite'] === 'bis' ? 'bis' : 'von')
+  else if ((e.target as HTMLElement).closest('.griff')) ziehStandzeit(e, id)
   else ziehKlip(e, id)
+}
+
+/**
+ * Video schneiden (docs §2F) — dieselbe Geste wie beim Ton, andere Größe:
+ * gerechnet wird in DATEI-Sekunden, denn der Schnitt gilt der Datei.
+ *
+ * Der RIPPLE kostet keine Zeile Code: Ein Video liegt in einer Halt-Kette, die
+ * keine Lücken kennt. Wird sein Ausschnitt kürzer, wird sein Halt schmaler, die
+ * Achse baut sich neu — und alles Folgende rückt vor. Eine Lücke kann gar nicht
+ * entstehen.
+ *
+ * Wie bei der Standzeit wird LIVE geschrieben (man soll den Film schrumpfen
+ * sehen) und der Maßstab eingefroren — sonst schrumpfte die Leiste unter der
+ * Hand und der Griff bliebe hinter dem Zeiger zurück.
+ */
+function ziehVideoTrim(e: PointerEvent, id: string, seite: 'von' | 'bis'): void {
+  if (!z) return
+  const m = medienAnzeige().find((x) => x.id === id)
+  const dateiS = m?.dauerS
+  if (!m || m.type !== 'video' || !dateiS || !(dateiS > 0)) return
+  e.preventDefault()
+  e.stopPropagation()
+  halteAbspielen()
+  const klip = klipEls.get(id)
+  klip?.classList.add('zieht', 'zieht-dauer')
+  const start = klemmeVideoTrim(m.trim, dateiS) ?? { vonS: 0, bisS: dateiS }
+  const massstab = pxProFilmS > 0 ? pxProFilmS : 1
+  const startX = e.clientX
+  let basisX = 0
+
+  const bewege = (ev: PointerEvent): void => {
+    if (!z) return
+    if (!basisX) {
+      if (Math.abs(ev.clientX - startX) < ZUG_SCHWELLE_PX) return
+      basisX = ev.clientX
+      einpassen = false
+    }
+    const delta = (ev.clientX - basisX) / massstab
+    // Der Anschlag ist an BEIDEN Kanten das Material: vor den Dateianfang und
+    // hinter das Dateiende geht nichts, und zwischen den Kanten bleibt ein Rest.
+    const trim =
+      seite === 'von'
+        ? { vonS: Math.max(0, Math.min(start.vonS + delta, start.bisS - VIDEO_TRIM_MIN_S)), bisS: start.bisS }
+        : { vonS: start.vonS, bisS: Math.min(dateiS, Math.max(start.bisS + delta, start.vonS + VIDEO_TRIM_MIN_S)) }
+    const wirksam = klemmeVideoTrim(trim, dateiS)
+    z.edits = mitMedienEdit(z.edits, id, { trim: wirksam ?? undefined })
+    renderNachZug()
+  }
+  const los = (): void => {
+    window.removeEventListener('pointermove', bewege)
+    window.removeEventListener('pointerup', los)
+    klip?.classList.remove('zieht', 'zieht-dauer')
+    if (!basisX) return
+    unterdrueckeKlick = true
+    renderAlles()
+  }
+  window.addEventListener('pointermove', bewege)
+  window.addEventListener('pointerup', los)
 }
 
 /**
@@ -4037,46 +4452,40 @@ function zeitleisteZug(e: PointerEvent): void {
       if (neuAb) zug.ab = neuAb
       break
     }
-    case 'audio-balken': {
-      if (zug.index === undefined) break
-      const a = (z.edits.audio ?? [])[zug.index]
-      if (!a) break
-      const von = offsetZuAnteil(skala, isoZuOffset(start, a.ab))
-      const laenge = a.bis !== undefined ? offsetZuAnteil(skala, isoZuOffset(start, a.bis)) - von : null
-      const neuVon = Math.max(0, Math.min(anteil - (zug.griffVersatz ?? 0), laenge !== null ? 1 - laenge : 1))
-      const patch: { ab: string; bis?: string } = { ab: iso(neuVon) }
-      // Anteilslänge konstant halten heißt auf der Filmzeit-Achse: die
-      // FILMDAUER des Klips bleibt beim Verschieben gleich — genau richtig.
-      if (laenge !== null) patch.bis = iso(neuVon + laenge)
-      z.edits = mitAudioPatch(z.edits, zug.index, patch)
-      break
-    }
-    case 'audio-von': {
-      if (zug.index === undefined) break
-      const a = (z.edits.audio ?? [])[zug.index]
-      if (!a) break
-      const bisA = a.bis !== undefined ? isoZuOffset(start, a.bis) : skala.bisS
-      // In ZEIT klemmen, nicht in Anteilen: innerhalb eines Halt-Sprungs
-      // kollabieren 0,005 Anteil auf 0 Sekunden — der Klip würde zeitlos und
-      // beim Rendern verworfen. Mindestens 1 s Abstand bleibt.
-      const neuS = Math.min(anteilZuOffset(skala, anteil), bisA - 1)
-      z.edits = mitAudioPatch(z.edits, zug.index, { ab: offsetZuIso(start, neuS) })
-      break
-    }
-    case 'audio-bis': {
-      if (zug.index === undefined) break
-      const a = (z.edits.audio ?? [])[zug.index]
-      if (!a) break
-      const vonS = isoZuOffset(start, a.ab)
-      const neuS = Math.max(anteilZuOffset(skala, anteil), vonS + 1)
-      z.edits = mitAudioPatch(z.edits, zug.index, {
-        bis: anteil >= 0.998 ? undefined : offsetZuIso(start, neuS),
-      })
-      break
-    }
+    // Ton-Klips rechnen seit Etappe 4 in FILMsekunden (docs §2E). Jede Geste
+    // schreibt den Anker mit — dadurch wird ein Klip in alter `ab`/`bis`-Form
+    // beim ersten Anfassen festgeschrieben, und nur dieser eine (anders als bei
+    // den Modus-Grenzen sind Ton-Klips unabhängige Objekte).
+    case 'audio-balken':
+    case 'audio-von':
+    case 'audio-bis':
     case 'sfx': {
       if (zug.index === undefined) break
-      z.edits = mitAudioPatch(z.edits, zug.index, { ab: iso(anteil) })
+      const klip = tonKlipVon(zug.index)
+      if (!klip) break
+      const zielFilmS = anteilZuFilm(skala, anteil)
+      let patch: TonPatch
+      if (zug.rolle === 'audio-von') {
+        const erg = trimmeLinks(skala, start, klip, zielFilmS)
+        patch = erg.patch
+        zug.amAnschlag = erg.amAnschlag
+      } else if (zug.rolle === 'audio-bis') {
+        const erg = trimmeRechts(skala, start, klip, zielFilmS)
+        patch = erg.patch
+        zug.amAnschlag = erg.amAnschlag
+      } else {
+        // Verschieben: der Griffversatz hält den Klip unter dem Zeiger, statt
+        // ihn mit seinem Anfang dorthin springen zu lassen.
+        patch = verschiebeTon(skala, start, klip, zielFilmS - (zug.griffVersatzFilmS ?? 0))
+        zug.amAnschlag = false
+      }
+      z.edits = mitAudioPatch(z.edits, zug.index, {
+        ...patch,
+        // Der Einstieg wird beim Verschieben nicht angefasst; steht er auf 0,
+        // gehört das Feld gelöscht statt als Null hinterlassen.
+        einstiegS: patch.einstiegS && patch.einstiegS > 0 ? patch.einstiegS : undefined,
+      })
+      zeigeTonEtikett(klip, patch, zug.amAnschlag === true)
       break
     }
   }
@@ -4311,6 +4720,31 @@ function verbergeZielLinie(): void {
   document.querySelector('.ziel-linie')?.remove()
 }
 
+/** Den Ton-Klip an einem Overlay-Index in seiner AKTUELLEN Filmlage auflösen. */
+function tonKlipVon(index: number): TonKlip | null {
+  const skala = aktuelleAchse()
+  if (!z || !skala) return null
+  return loeseTonKlips(z.edits.audio ?? [], z.daten.time.start, skala, tonDauern).find((k) => k.index === index) ?? null
+}
+
+/**
+ * Etikett am Zeiger während einer Ton-Geste.
+ *
+ * Am Materialanschlag sagt es das AUSDRÜCKLICH: Eine Kante, die kommentarlos
+ * stehen bleibt, liest sich als hakender Griff — man zieht weiter und wundert
+ * sich, statt zu verstehen, dass die Datei zu Ende ist.
+ */
+function zeigeTonEtikett(klip: TonKlip, patch: TonPatch, amAnschlag: boolean): void {
+  const skala = aktuelleAchse()
+  if (!skala) return
+  const filmVon = patch.versatzFilmS + filmZuOffset(skala, isoZuOffset(z?.daten.time.start ?? '', patch.anker))
+  const laenge = patch.dauerFilmS ?? klip.filmBis - klip.filmVon
+  const teile = [formatiereFilmzeit(laenge)]
+  if (patch.einstiegS) teile.push(`ab ${formatiereFilmzeit(patch.einstiegS)} der Datei`)
+  if (amAnschlag) teile.push('kein Material mehr')
+  zeigeZielLinie(filmVon * pxProFilmS, teile.join(' · '), amAnschlag)
+}
+
 function verdrahteZeitleiste(): void {
   const zone = $('zeitleiste-zone')
   const fenster = $('spuren-fenster')
@@ -4346,12 +4780,13 @@ function verdrahteZeitleiste(): void {
     if (ziel.dataset['index'] !== undefined) zug.index = Number(ziel.dataset['index'])
     if (ZUSTANDS_KANTEN.has(rolle)) starteKantenZug(ziel, rolle)
     if (rolle === 'audio-balken') {
-      // Versatz zwischen Cursor und Klipanfang merken → ruckfreies Schieben
+      // Versatz zwischen Cursor und Klipanfang merken → ruckfreies Schieben.
+      // In FILMsekunden, nicht in Anteilen: Der Klip behält beim Verschieben
+      // seine Filmdauer, und in Anteilen gerechnet wäre der Versatz an einer
+      // Halt-Flanke ein anderer als daneben.
       const skala = aktuelleAchse()
-      const a = (z.edits.audio ?? [])[zug.index ?? -1]
-      if (skala && a) {
-        zug.griffVersatz = spurAnteil(e.clientX) - offsetZuAnteil(skala, isoZuOffset(z.daten.time.start, a.ab))
-      }
+      const klip = skala ? tonKlipVon(zug.index ?? -1) : null
+      if (skala && klip) zug.griffVersatzFilmS = anteilZuFilm(skala, spurAnteil(e.clientX)) - klip.filmVon
     }
   })
 
@@ -4644,15 +5079,31 @@ function holeSpielplan(): Spielplan | null {
   const eintraege = z.edits.audio ?? []
   const musik: MusikKlip[] = []
   const klaenge: KlangMarke[] = []
-  for (const b of baueAudioBalken(eintraege, start, achse)) {
-    const a = eintraege[b.index]
+  // Dieselben Klips, die die Leiste zeigt — samt Einstieg und Loop. Ein zweiter
+  // Weg zur Filmlage liefe hier auseinander, und die Schnittprüfung prüfte
+  // einen anderen Film.
+  for (const k of loeseTonKlips(eintraege, start, achse, tonDauern)) {
+    const a = eintraege[k.index]
     // Was beim Rendern herausfällt (ganz außerhalb der Tour), soll auch hier
     // nicht klingen — sonst hörte man etwas, das im Film nicht vorkommt.
     if (!a || audioWirdVerworfen(a, z.edits, start, achse)) continue
     const url = audioUrl(a, z.tourId)
     const lautstaerke = a.lautstaerke ?? 0.8
-    if (b.typ === 'musik') musik.push({ von: b.von, bis: b.bis, url, lautstaerke })
-    else klaenge.push({ index: b.index, anteil: b.von, url, lautstaerke })
+    const von = filmZuAnteil(achse, k.filmVon)
+    // Ein Klip MIT Ausdehnung läuft als Bereich (auch ein Effekt — der Player
+    // tut seit Etappe 4 dasselbe); einer ohne bleibt die Überfahr-Marke.
+    if (k.filmBis > k.filmVon) {
+      musik.push({
+        von,
+        bis: filmZuAnteil(achse, k.filmBis),
+        url,
+        lautstaerke,
+        loop: k.loop,
+        ...(k.einstiegS > 0 ? { einstiegS: k.einstiegS } : {}),
+      })
+    } else {
+      klaenge.push({ index: k.index, anteil: von, url, lautstaerke, ...(k.einstiegS > 0 ? { einstiegS: k.einstiegS } : {}) })
+    }
   }
 
   return {

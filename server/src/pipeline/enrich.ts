@@ -9,6 +9,7 @@ import type { EditOverlay } from '../schema/edits.js'
 import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
+import { baueAchsenHalte, baueFilmAchse, filmBeiZeit, projiziereAufReihe, zeitBeiFilm } from './filmachse.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { baueSignatur } from './signatur.js'
 import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
@@ -65,7 +66,17 @@ export interface TourJson {
   weather?: Array<{ f: number; mode: string; k: number; source: string }>
   camera?: Array<{ f: number; preset: string; skala?: number }>
   moments?: Array<{ f: number; art: string; dauerS?: number }>
-  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number }>
+  audio?: Array<{
+    type: string
+    src: string
+    f0: number
+    f1: number
+    gain?: number
+    /** Wiederholung; fehlt = Vorgabe des Players (Musik loopt, SFX nicht) */
+    loop?: boolean
+    /** Einstieg in die Datei (s) — Start-Seek beim Eintritt in den Bereich */
+    startS?: number
+  }>
   stats: TourStats
 }
 
@@ -364,6 +375,36 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     const benutzerVorhandene = new Set(benutzerAudioDateien ?? [])
     const ersterPunkt = reihe.punkte[0]
     const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
+    // Film-Achse für die NEUE Verankerung (Etappe 4): Ein Klip hängt an einem
+    // Anker in Aufnahmezeit plus einem Versatz in FILMsekunden — der darf
+    // mitten in einer Standzeit liegen, wo die Aufnahmeuhr steht. Gebaut wird
+    // sie nur, wenn wirklich jemand die neuen Felder benutzt; ohne sie bleibt
+    // unten der alte Weg Zeichen für Zeichen erhalten (Vertragstest).
+    const brauchtAchse = edits.audio.some(
+      (s) => s.anker !== undefined || s.versatzFilmS !== undefined || s.dauerFilmS !== undefined,
+    )
+    const achse = brauchtAchse
+      ? baueFilmAchse(
+          reihe,
+          baueAchsenHalte(
+            media
+              .filter((m) => m.anchor)
+              .map((m) => {
+                const ort = projiziereAufReihe(reihe, (m.anchor as [number, number])[0], (m.anchor as [number, number])[1])
+                return {
+                  type: m.type,
+                  meter: ort.meter,
+                  offsetS: ort.offsetS,
+                  ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}),
+                  ...(m.display ? { display: m.display } : {}),
+                }
+              }),
+          ),
+        )
+      : null
+    /** Streckenanteil zu einer Filmsekunde (über die Achse zurück in die Zeit). */
+    const fBeiFilm = (filmS: number): number =>
+      positionZurZeit(reihe, zeitBeiFilm(achse as NonNullable<typeof achse>, filmS)).f
     const spuren: NonNullable<TourJson['audio']> = []
     for (const spur of edits.audio) {
       const ausBibliothek = spur.quelle === 'bibliothek'
@@ -379,25 +420,54 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         protokoll?.(`Bibliotheks-Audio fehlt: ${spur.datei}`)
         continue
       }
-      const tAb = (Date.parse(spur.ab) - startMs) / 1000
-      const f0 = positionZurZeit(reihe, tAb).f
+      // Die Film-Verankerung gilt nur, wenn sie auch benutzt wird UND die Achse
+      // steht (eine degenerierte Tour hat keine). Sonst der Weg von vorher —
+      // Bestands-Overlays laufen dadurch buchstäblich durch denselben Code.
+      const filmVerankert =
+        achse !== null && (spur.anker !== undefined || spur.versatzFilmS !== undefined || spur.dauerFilmS !== undefined)
+      const tAb = (Date.parse(spur.anker ?? spur.ab) - startMs) / 1000
+      let f0: number
       let f1: number
-      if (spur.typ === 'musik') {
-        f1 = spur.bis !== undefined ? positionZurZeit(reihe, (Date.parse(spur.bis) - startMs) / 1000).f : 1
-        // Leere Spanne (z. B. komplett vor den Trim-Start geklemmt) → weg damit
-        if (f1 <= f0) {
-          protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
+      if (filmVerankert) {
+        // Anker → Filmsekunde → Versatz drauf → zurück in Zeit und Anteil.
+        const filmVon = filmBeiZeit(achse, tAb) + (spur.versatzFilmS ?? 0)
+        f0 = fBeiFilm(filmVon)
+        if (spur.dauerFilmS !== undefined) {
+          f1 = fBeiFilm(filmVon + spur.dauerFilmS)
+        } else if (spur.typ === 'musik') {
+          f1 = spur.bis !== undefined ? positionZurZeit(reihe, (Date.parse(spur.bis) - startMs) / 1000).f : 1
+        } else {
+          f1 = f0
+        }
+        // Ein Musik-Klip, dessen Spanne im f-Raum auf einen Punkt zusammenfällt,
+        // wäre stumm (`istAktiv` prüft f0 ≤ f < f1). Das passiert, wenn er ganz
+        // in einer Standzeit oder einer Ex-Pause liegt: Dort läuft der Film,
+        // aber die STRECKE steht — und das Tour-JSON kennt nur Streckenanteile.
+        // Lieber laut überspringen als still nichts abspielen. Ein One-Shot lebt
+        // dagegen genau von diesem Punkt.
+        if (f1 < f0 || (f1 === f0 && spur.typ === 'musik')) {
+          protokoll?.(`Audio ohne Streckenanteil übersprungen (liegt ganz in einer Standzeit?): ${spur.datei}`)
           continue
         }
       } else {
-        // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
-        // Tracks, würde die Klemmung den Knall an den Tour-Start/-Ende legen,
-        // wo er nie gemeint war → überspringen.
-        if (ersterPunkt && letzterPunkt && (tAb < ersterPunkt.tSek || tAb > letzterPunkt.tSek)) {
-          protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
-          continue
+        f0 = positionZurZeit(reihe, tAb).f
+        if (spur.typ === 'musik') {
+          f1 = spur.bis !== undefined ? positionZurZeit(reihe, (Date.parse(spur.bis) - startMs) / 1000).f : 1
+          // Leere Spanne (z. B. komplett vor den Trim-Start geklemmt) → weg damit
+          if (f1 <= f0) {
+            protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
+            continue
+          }
+        } else {
+          // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
+          // Tracks, würde die Klemmung den Knall an den Tour-Start/-Ende legen,
+          // wo er nie gemeint war → überspringen.
+          if (ersterPunkt && letzterPunkt && (tAb < ersterPunkt.tSek || tAb > letzterPunkt.tSek)) {
+            protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
+            continue
+          }
+          f1 = f0
         }
-        f1 = f0
       }
       spuren.push({
         type: spur.typ === 'musik' ? 'music' : 'sfx',
@@ -411,6 +481,12 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         f0,
         f1,
         ...(spur.lautstaerke !== undefined ? { gain: spur.lautstaerke } : {}),
+        // Nur mitschreiben, was ausdrücklich gesetzt ist: Der Player kennt
+        // dieselben Vorgaben (Musik loopt, SFX nicht) und würde sie sonst aus
+        // einem geschriebenen Wert lesen statt aus der Regel — Bestandsdaten
+        // bekämen ein Feld, das sie nie hatten.
+        ...(spur.loop !== undefined ? { loop: spur.loop } : {}),
+        ...(spur.einstiegS ? { startS: spur.einstiegS } : {}),
       })
     }
     spuren.sort((a, b) => a.f0 - b.f0)

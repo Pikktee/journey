@@ -11,6 +11,7 @@ import {
   mapZuRecord,
   recordZuMap,
   trimSignatur,
+  videoSchnittSignatur,
   type AnreicherungsCache,
 } from '../pipeline/anreicherung.js'
 import {
@@ -661,6 +662,10 @@ async function ladeOriginalSegmente(
  * gerenderte tour.json. Fehlt alles — unverarbeiteter Altbestand —, bleibt das
  * Feld weg und die Zeitleiste rechnet weiter mit ihrer Foto-Annahme.
  * Rein lesend: kein ffprobe, kein Re-Render, keine externen Aufrufe.
+ *
+ * Gemeint ist die Länge des MATERIALS, nicht die des Ausschnitts: Daran schlagen
+ * die Trimm-Kanten im Editor an. Deshalb gilt aus dem Cache `quellDauerS` vor
+ * `dauerS`, und das (getrimmte) tour.json kommt zuletzt.
  */
 async function ermittleVideoDauern(
   app: FastifyInstance,
@@ -678,7 +683,7 @@ async function ermittleVideoDauern(
   try {
     if (await storage.info(tourId, ANREICHERUNG_PFAD)) {
       const cache = JSON.parse((await storage.lese(tourId, ANREICHERUNG_PFAD)).toString()) as AnreicherungsCache
-      for (const [id, meta] of Object.entries(cache.videoMeta ?? {})) setze(id, meta?.dauerS)
+      for (const [id, meta] of Object.entries(cache.videoMeta ?? {})) setze(id, meta?.quellDauerS ?? meta?.dauerS)
     }
     if (await storage.info(tourId, TOURJSON_PFAD)) {
       const tourJson = JSON.parse((await storage.lese(tourId, TOURJSON_PFAD)).toString()) as {
@@ -827,15 +832,22 @@ async function verarbeite(
       loesche: (relPfad: string) => storage.loesche(tourId, relPfad),
     }
 
+    // Der Video-Schnitt (Etappe 4) ist der EINE Edit, der die ausgelieferte
+    // Datei verändert — er muss die gecachte Video-Aufbereitung verwerfen,
+    // sonst bliebe er bis zum nächsten „Neu verarbeiten" folgenlos.
+    const schnittSig = videoSchnittSignatur(edits)
     let videoMeta: Map<string, VideoMeta>
-    if (cache) {
+    if (cache && (cache.videoSchnittSignatur ?? '[]') === schnittSig) {
       videoMeta = recordZuMap(cache.videoMeta)
     } else {
       videoMeta = new Map<string, VideoMeta>()
       const videoMedien = manifest.media.filter((m) => m.type === 'video')
       if (videoWerkzeug && videoMedien.length) {
         videoMeta = await bereiteVideosAuf({
-          medien: videoMedien.map((m) => ({ id: m.id, originalDatei: mediumDateiname(m) })),
+          medien: videoMedien.map((m) => {
+            const schnitt = edits?.medien?.[m.id]?.trim
+            return { id: m.id, originalDatei: mediumDateiname(m), ...(schnitt ? { schnitt } : {}) }
+          }),
           speicher: medienSpeicher,
           werkzeug: videoWerkzeug,
           protokoll,
@@ -981,6 +993,7 @@ async function verarbeite(
       schema: ANREICHERUNG_SCHEMA_ID,
       befunde: mapZuRecord(bildBefunde),
       videoMeta: mapZuRecord(videoMeta),
+      videoSchnittSignatur: schnittSig,
       trimSignatur: sig,
       orte,
       wetterRoh,

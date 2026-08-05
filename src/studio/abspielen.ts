@@ -37,6 +37,10 @@ export interface MusikKlip {
   bis: number
   url: string
   lautstaerke: number
+  /** Einstieg in die DATEI (s, linker Trim); fehlt = Dateianfang */
+  einstiegS?: number
+  /** Wiederholung über das Dateiende hinaus; fehlt = ja (das alte Verhalten) */
+  loop?: boolean
 }
 
 /** Klang, der beim Überfahren einmal auslöst. */
@@ -46,6 +50,8 @@ export interface KlangMarke {
   anteil: number
   url: string
   lautstaerke: number
+  /** Einstieg in die DATEI (s, linker Trim); fehlt = Dateianfang */
+  einstiegS?: number
 }
 
 /** Alles, was eine Wiedergabe braucht — beim Start einmal eingesammelt. */
@@ -112,10 +118,28 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
  * (über die Kurve — eine reale Pause im Bereich zählt nicht als Spielzeit);
  * kürzere Dateien laufen im Loop, deshalb der Umbruch. `dauerS` ist erst nach
  * `loadedmetadata` bekannt — ohne sie kommt der rohe Versatz zurück.
+ *
+ * `einstiegS` (linker Trim) verschiebt den Nullpunkt IN der Datei. Der Modulo
+ * läuft danach über die GANZE Datei, nicht über den Rest hinter dem Einstieg —
+ * denn genau das tut `el.loop`: Es springt am Dateiende auf Position 0 zurück.
+ * Loop hebt nur den RECHTEN Anschlag auf; eine Wiederholung VOR dem Dateianfang
+ * gibt es nicht (docs §2E — der erste Wurf ließ den Versatz modulo in die Datei
+ * wandern, das Stück setzte dann mitten drin ein).
  */
-export function musikVersatzS(anteil: number, klipVon: number, kurve: Filmkurve, dauerS = 0): number {
+export function musikVersatzS(
+  anteil: number,
+  klipVon: number,
+  kurve: Filmkurve,
+  dauerS = 0,
+  einstiegS = 0,
+  loop = true,
+): number {
   const seit = Math.max(0, filmBei(kurve, anteil) - filmBei(kurve, klipVon))
-  return dauerS > 0 ? seit % dauerS : seit
+  const roh = Math.max(0, einstiegS) + seit
+  if (!(dauerS > 0)) return roh
+  // Ohne Loop endet der Klip am Material: die Position bleibt am Dateiende
+  // stehen (das Element ist dann `ended` und schweigt), statt vorn neu zu beginnen.
+  return loop ? roh % dauerS : Math.min(roh, dauerS)
 }
 
 /**
@@ -209,7 +233,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
       let el = musikElemente.get(i)
       if (!el) {
         el = new Audio()
-        el.loop = true
+        el.loop = klip.loop ?? true
         el.preload = 'none'
         el.src = klip.url
         el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
@@ -220,7 +244,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
           () => {
             if (!el || !el.duration) return
             try {
-              el.currentTime = musikVersatzS(beiEintritt, klip.von, kurve, el.duration)
+              el.currentTime = musikVersatzS(beiEintritt, klip.von, kurve, el.duration, klip.einstiegS, el.loop)
             } catch {
               /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
             }
@@ -236,12 +260,14 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         // die im Film JETZT liefe — ohne die Datei neu zu laden.
         if (el.duration) {
           try {
-            el.currentTime = musikVersatzS(anteil, klip.von, plan.kurve, el.duration)
+            el.currentTime = musikVersatzS(anteil, klip.von, plan.kurve, el.duration, klip.einstiegS, el.loop)
           } catch {
             /* s. o. */
           }
         }
-        void el.play().catch(() => {})
+        // Ohne Loop ist eine durchgelaufene Datei fertig — play() finge sonst
+        // wieder bei 0 an und der Klip klänge endlos.
+        if (!el.ended) void el.play().catch(() => {})
       }
     }
   }
@@ -253,6 +279,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
       if (!sfxSollFeuern(vorher, nachher, k.anteil, true)) continue
       const a = new Audio(k.url)
       a.volume = Math.max(0, Math.min(1, k.lautstaerke))
+      if (k.einstiegS) a.currentTime = k.einstiegS // linker Trim gilt auch beim One-Shot
       aktiveKlaenge.push(a)
       a.addEventListener('ended', () => {
         aktiveKlaenge = aktiveKlaenge.filter((x) => x !== a)

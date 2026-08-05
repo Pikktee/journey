@@ -46,6 +46,18 @@ export interface MediumEdit {
    * bleibt die Strecke (gruppiereStopps in src/geo.js).
    */
   reihe?: number
+  /**
+   * Schnitt eines Videos in DATEI-Sekunden (nur `type: 'video'`).
+   *
+   * Der Anschlag ist an beiden Kanten das MATERIAL: `vonS` ≥ 0, `bisS` ≤ Länge
+   * der Datei — Trimmen legt frei, was da ist, und erfindet nichts. Fehlt
+   * `bisS`, läuft das Video bis zum Dateiende.
+   *
+   * Rein additiv: ohne dieses Feld bleibt alles wie bisher (ganze Datei). Der
+   * Schnitt wird in der Pipeline ANGEWANDT (video.ts erzeugt eine geschnittene
+   * Auslieferungsdatei) — nicht im Player, der nur `durationS` sieht.
+   */
+  trim?: { vonS: number; bisS?: number }
 }
 
 /** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze (wie modi). */
@@ -57,7 +69,25 @@ export interface KameraGrenze {
   skala?: number
 }
 
-/** Audio-Spur (Musik) oder One-Shot (SFX), verankert an absoluten Zeitpunkten. */
+/**
+ * Audio-Spur (Musik) oder One-Shot (SFX), verankert an absoluten Zeitpunkten.
+ *
+ * ZWEI Verankerungen liegen hier nebeneinander, und das ist Absicht:
+ *
+ * - ALT (`ab`/`bis`): reine Aufnahmezeit. Sie kann nicht ausdrücken, wo in
+ *   einer Standzeit ein Klip einsetzt — dort steht die Aufnahmeuhr still,
+ *   während der Film weiterläuft (docs/concepts/zeitleiste-umbau.md §1).
+ * - NEU (`anker` + `versatzFilmS` + `dauerFilmS`): der FCPX-„connected clip".
+ *   Der Anker sagt, WO AUF DER REISE der Klip hängt, der Versatz in
+ *   FILMsekunden sagt, wo genau — auch mitten in einem Halt. Dadurch rückt Ton
+ *   mit, wenn sich Standzeiten oder die Fortbewegung ändern; vorher war er das
+ *   einzige Element, das liegen blieb.
+ *
+ * Aufwertung nach dem Muster von `materialisiereModi`/`schreibeWetterFest`:
+ * Das Studio schreibt die neuen Felder beim ersten Eingriff fest, der Render
+ * bevorzugt sie, `ab`/`bis` bleiben als Fallback lesbar. Bestands-Overlays
+ * ohne die neuen Felder rendern unverändert (Vertragstest).
+ */
 export interface AudioEdit {
   /** Dateiname unter media/ (hochgeladen) bzw. unter public/audio/sfx/ (Bibliothek) */
   datei: string
@@ -65,6 +95,41 @@ export interface AudioEdit {
   ab: string
   /** Ende (nur bei typ musik erlaubt); fehlt = bis zum Tour-Ende */
   bis?: string
+  /**
+   * NEU: Anker in Aufnahmezeit (ISO) — die Stelle der REISE, an der der Klip
+   * hängt. Vorrang vor `ab`; fehlt er, gilt `ab` wie bisher.
+   */
+  anker?: string
+  /**
+   * NEU: Feinlage relativ zum Anker in FILMsekunden (darf in einer Standzeit
+   * liegen, negativ = davor). Ohne `anker` wirkungslos.
+   */
+  versatzFilmS?: number
+  /**
+   * NEU: Länge im Film in Sekunden. Vorrang vor `bis`. Auch für SFX erlaubt —
+   * ein Effekt hat eine Länge (die seiner Datei), er ist nur bisher als Marke
+   * ohne Ausdehnung gezeichnet worden. Fehlt beides, läuft Musik bis zum
+   * Tour-Ende und ein Effekt bleibt der One-Shot, der er heute ist.
+   */
+  dauerFilmS?: number
+  /**
+   * NEU: Einstieg in die DATEI in Sekunden (linker Trim). Default 0.
+   *
+   * Linke Kante heißt in FCPX: Anfang UND Datei-Einstieg wandern gemeinsam —
+   * der Inhalt bleibt an seinem Platz im Film, vorne fällt etwas weg. Anschlag
+   * ist der Dateianfang; auch mit `loop` gibt es davor nichts zu wiederholen.
+   */
+  einstiegS?: number
+  /**
+   * NEU: Wiederholung über das Dateiende hinaus.
+   *
+   * Default (fehlt) = `typ === 'musik'` — exakt das heutige Player-Verhalten
+   * (`el.loop = true` für Musik, One-Shot für SFX), also kein Verhaltensbruch
+   * für Bestandsdaten. Loop hebt NUR den RECHTEN Materialanschlag auf: `el.loop`
+   * springt am Dateiende auf den Anfang, eine Wiederholung VOR dem Anfang gibt
+   * es nicht.
+   */
+  loop?: boolean
   /** 0..1; fehlt = Standard-Lautstärke des Players */
   lautstaerke?: number
   /**
@@ -76,6 +141,18 @@ export interface AudioEdit {
    * /api/tours/:id/bibliothek-audio/ im Sichtbarkeits-Kontext der Tour geladen).
    */
   quelle?: 'bibliothek' | 'benutzer'
+}
+
+/**
+ * Wiederholt dieser Klip? DIE eine Stelle für den Default.
+ *
+ * Musik lief im Player immer geloopt (`el.loop = true`), ein Effekt war immer
+ * ein One-Shot. Genau das steht hier als Vorgabe — ein Bestands-Overlay ohne
+ * `loop` verhält sich dadurch exakt wie vorher. Editor, Render, Player und
+ * Studio-Abspieler fragen alle hier, sonst driftete der Default auseinander.
+ */
+export function loopAktiv(spur: Pick<AudioEdit, 'typ' | 'loop'>): boolean {
+  return spur.loop ?? spur.typ === 'musik'
 }
 
 /** Fortbewegung ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
@@ -169,6 +246,18 @@ export const editsJsonSchema = {
             },
           },
           reihe: { type: 'integer', minimum: 0, maximum: 499 },
+          // Video-Schnitt in Dateisekunden. Keine Obergrenze im Schema — der
+          // Anschlag ist die Länge DIESER Datei, die nur die Pipeline kennt
+          // (video.ts klemmt darauf).
+          trim: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['vonS'],
+            properties: {
+              vonS: { type: 'number', minimum: 0 },
+              bisS: { type: 'number', minimum: 0 },
+            },
+          },
         },
       },
     },
@@ -235,6 +324,13 @@ export const editsJsonSchema = {
           bis: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
           lautstaerke: { type: 'number', minimum: 0, maximum: 1 },
           quelle: { enum: ['bibliothek', 'benutzer'] },
+          anker: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+          // Versatz darf negativ sein (Klip liegt VOR seinem Anker); die
+          // Schranken sind großzügig — geklemmt wird beim Rendern an der Achse.
+          versatzFilmS: { type: 'number', minimum: -86400, maximum: 86400 },
+          dauerFilmS: { type: 'number', exclusiveMinimum: 0, maximum: 86400 },
+          einstiegS: { type: 'number', minimum: 0, maximum: 86400 },
+          loop: { type: 'boolean' },
         },
       },
     },
@@ -275,6 +371,16 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
     if (medium.reihe !== undefined && !Number.isInteger(medium.reihe)) {
       return `Ungültiger Platz im Stopp für Medium ${id}`
     }
+    if (medium.trim) {
+      const { vonS, bisS } = medium.trim
+      if (!(Number.isFinite(vonS) && vonS >= 0)) return `Ungültiger Video-Schnitt für Medium ${id}`
+      if (bisS !== undefined) {
+        if (!Number.isFinite(bisS)) return `Ungültiger Video-Schnitt für Medium ${id}`
+        // Ein Schnitt ohne Inhalt ist keine Geschmacksfrage: er ließe ein
+        // Medium zurück, das im Film null Sekunden dauert.
+        if (bisS <= vonS) return `Video-Schnittende muss hinter dem Anfang liegen (${id})`
+      }
+    }
   }
   for (const grenze of edits.kamera ?? []) {
     if (!Number.isFinite(Date.parse(grenze.ab))) return `Unparsebare Kamera-Grenze: ${grenze.ab}`
@@ -300,6 +406,24 @@ export function pruefeEditsSemantik(edits: EditOverlay): string | null {
       !(Number.isFinite(spur.lautstaerke) && spur.lautstaerke >= 0 && spur.lautstaerke <= 1)
     ) {
       return `Ungültige Lautstärke (${spur.datei})`
+    }
+    // Die neue (Film-)Verankerung. `anker` ist die Stelle der Reise, alles
+    // andere hängt an ihr — deshalb wird jedes Feld einzeln auf Endlichkeit
+    // geprüft (JSON.parse('1e999') ist Infinity und käme durch Ajv „number").
+    if (spur.anker !== undefined && !Number.isFinite(Date.parse(spur.anker))) {
+      return `Unparsebarer Audio-Anker: ${spur.anker}`
+    }
+    if (spur.versatzFilmS !== undefined && !Number.isFinite(spur.versatzFilmS)) {
+      return `Ungültiger Audio-Versatz (${spur.datei})`
+    }
+    if (spur.dauerFilmS !== undefined && !(Number.isFinite(spur.dauerFilmS) && spur.dauerFilmS > 0)) {
+      return `Ungültige Audio-Länge (${spur.datei})`
+    }
+    // Der linke Trim hat den Dateianfang als Anschlag — auch mit Loop, denn vor
+    // dem Anfang gibt es nichts zu wiederholen. Die Obergrenze (Dateilänge)
+    // kennt nur der Editor; hier steht die Hälfte, die immer gilt.
+    if (spur.einstiegS !== undefined && !(Number.isFinite(spur.einstiegS) && spur.einstiegS >= 0)) {
+      return `Ungültiger Datei-Einstieg (${spur.datei})`
     }
   }
   for (const grenze of edits.wetter ?? []) {

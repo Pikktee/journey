@@ -8,6 +8,12 @@
 
 export function istAktiv(spur: { f0: number; f1: number }, frac: number): boolean
 
+/** Wiederholt die Spur? Ohne Angabe: Musik ja, Effekt nein (das alte Verhalten). */
+export function loopAktiv(spur: { type: string; loop?: boolean }): boolean
+
+/** Hat die Spur eine Ausdehnung — oder ist sie eine Marke ohne Länge? */
+export function hatBereich(spur: { f0: number; f1: number }): boolean
+
 export function sfxSollFeuern(vorher: number, nachher: number, f0: number, istPlayback: boolean): boolean
 
 /** Default-Ducking-Faktor (0..1) bei voller Video-Lautstärke — später im Editor individualisierbar. */

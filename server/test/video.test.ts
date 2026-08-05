@@ -9,6 +9,7 @@ import {
   brauchtTranskodierung,
   FakeVideoWerkzeug,
   hatFaststart,
+  klemmeSchnitt,
   mussWebKonvertiert,
   posterDateiname,
   posterZeitpunkt,
@@ -148,7 +149,7 @@ describe('bereiteVideosAuf', () => {
     })
 
     expect(werkzeug.aufrufe).toEqual(['probe', 'poster']) // weder Transcode noch Remux
-    expect(meta.get('m1')).toEqual({ dauerS: 8.4, videoDatei: 'm1.mp4', posterDatei: 'm1.poster.jpg' })
+    expect(meta.get('m1')).toEqual({ dauerS: 8.4, videoDatei: 'm1.mp4', posterDatei: 'm1.poster.jpg', quellDauerS: 8.4 })
     expect(sp.dateien.has('media/m1.poster.jpg')).toBe(true)
     expect(sp.dateien.has('media/m1.web.mp4')).toBe(false)
     // Hier IST das Original die Auslieferungsdatei — es darf nicht weg
@@ -231,7 +232,7 @@ describe('bereiteVideosAuf', () => {
     })
 
     expect(werkzeug.aufrufe).toEqual(['probe']) // nichts neu erzeugt
-    expect(meta.get('m1')).toEqual({ dauerS: 9.5, videoDatei: 'm1.web.mp4', posterDatei: 'm1.poster.jpg' })
+    expect(meta.get('m1')).toEqual({ dauerS: 9.5, videoDatei: 'm1.web.mp4', posterDatei: 'm1.poster.jpg', quellDauerS: 9.5 })
   })
 
   it('erzeugt beim Wiedereintritt ein fehlendes Poster aus der web.mp4', async () => {
@@ -318,5 +319,130 @@ describe('bereiteVideosAuf', () => {
 
     expect(meta.has('m1')).toBe(false)
     expect(nachrichten[0]).toContain('Keine Videospur')
+  })
+})
+
+// — Video-Schnitt (Etappe 4, docs §2F) —
+
+describe('klemmeSchnitt', () => {
+  it('hat an BEIDEN Kanten das Material als Anschlag', () => {
+    // Trimmen legt frei, was da ist, und erfindet nichts.
+    expect(klemmeSchnitt({ vonS: -5, bisS: 100 }, 30)).toBeNull() // = ganze Datei
+    expect(klemmeSchnitt({ vonS: 2, bisS: 100 }, 30)).toEqual({ vonS: 2, bisS: 30 })
+    expect(klemmeSchnitt({ vonS: 50, bisS: 60 }, 30)).toBeNull() // ganz hinter dem Ende
+  })
+
+  it('ohne Ende läuft der Schnitt bis zum Dateiende', () => {
+    expect(klemmeSchnitt({ vonS: 4 }, 30)).toEqual({ vonS: 4, bisS: 30 })
+  })
+
+  it('nimmt den Vollschnitt als „kein Schnitt" — er erzwänge einen Transcode ohne Wirkung', () => {
+    expect(klemmeSchnitt({ vonS: 0, bisS: 30 }, 30)).toBeNull()
+    expect(klemmeSchnitt(undefined, 30)).toBeNull()
+  })
+
+  it('lehnt eine Spanne ohne Inhalt ab', () => {
+    expect(klemmeSchnitt({ vonS: 10, bisS: 10.01 }, 30)).toBeNull()
+    expect(klemmeSchnitt({ vonS: 10, bisS: 5 }, 30)).toBeNull()
+  })
+})
+
+describe('bereiteVideosAuf mit Schnitt', () => {
+  const ganzesVideo = (): ReturnType<typeof memSpeicher> => {
+    const sp = memSpeicher()
+    sp.dateien.set('media/m1.mp4', Buffer.concat([atom('ftyp', 16), atom('moov', 64), atom('mdat', 512)]))
+    return sp
+  }
+
+  it('schneidet IMMER per Transcode — nie per Stream-Copy', async () => {
+    // Ein `-c copy` schneidet nur an Keyframes und träfe den Punkt um Sekunden.
+    const sp = ganzesVideo()
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 6, bisS: 28 } }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe).toContain('schneide:6-28')
+    expect(werkzeug.aufrufe).not.toContain('remux')
+    expect(meta.get('m1')?.videoDatei).toBe('m1.cut.mp4')
+    expect(meta.get('m1')?.dauerS).toBe(22) // die getrimmte Länge …
+    expect(meta.get('m1')?.quellDauerS).toBe(34) // … und der Anschlag fürs Studio
+  })
+
+  it('lässt das Material stehen — der Schnitt ist ein Edit, kein Verbrauch', async () => {
+    const sp = ganzesVideo()
+    await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 6, bisS: 28 } }],
+      speicher: sp,
+      werkzeug: new FakeVideoWerkzeug(info({ dauerS: 34 })),
+    })
+    // Ohne die Quelle wäre „Trim zurücknehmen" ein Datenverlust
+    expect(sp.dateien.has('media/m1.mp4')).toBe(true)
+    expect(sp.dateien.get('media/m1.cut.mp4')?.toString()).toBe('FAKE-CUT-MP4')
+  })
+
+  it('zieht das Poster mit — sonst zeigt es einen Frame, den es nicht mehr gibt', async () => {
+    const sp = ganzesVideo()
+    sp.dateien.set('media/m1.poster.jpg', Buffer.from('ALTES-POSTER'))
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+
+    await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 6, bisS: 28 } }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe).toContain('poster')
+    expect(sp.dateien.get('media/m1.poster.jpg')?.toString()).toBe('FAKE-POSTER-JPEG')
+  })
+
+  it('nimmt den Schnitt zurück, wenn er aus dem Overlay verschwindet', async () => {
+    const sp = ganzesVideo()
+    sp.dateien.set('media/m1.cut.mp4', Buffer.from('ALTER-SCHNITT'))
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4' }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(sp.dateien.has('media/m1.cut.mp4')).toBe(false)
+    expect(meta.get('m1')?.videoDatei).toBe('m1.mp4')
+    expect(meta.get('m1')?.dauerS).toBe(34)
+    expect(werkzeug.aufrufe).toContain('poster') // Poster wieder vom ganzen Video
+  })
+
+  it('schneidet auch aus der web.mp4, wenn das Original längst verworfen ist', async () => {
+    const sp = memSpeicher()
+    sp.dateien.set('media/m1.web.mp4', Buffer.from('WEB-MP4'))
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 20 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mov', schnitt: { vonS: 3 } }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(meta.get('m1')?.videoDatei).toBe('m1.cut.mp4')
+    expect(meta.get('m1')?.dauerS).toBe(17)
+    expect(sp.dateien.has('media/m1.web.mp4')).toBe(true) // Master bleibt
+  })
+
+  it('ignoriert einen Schnitt, der das ganze Material meint', async () => {
+    const sp = ganzesVideo()
+    const werkzeug = new FakeVideoWerkzeug(info({ dauerS: 34 }))
+
+    const meta = await bereiteVideosAuf({
+      medien: [{ id: 'm1', originalDatei: 'm1.mp4', schnitt: { vonS: 0, bisS: 34 } }],
+      speicher: sp,
+      werkzeug,
+    })
+
+    expect(werkzeug.aufrufe.some((a) => a.startsWith('schneide'))).toBe(false)
+    expect(meta.get('m1')?.videoDatei).toBe('m1.mp4')
   })
 })
