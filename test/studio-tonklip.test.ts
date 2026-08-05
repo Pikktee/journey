@@ -280,6 +280,78 @@ describe('schreibeTonFest — die Aufwertung ändert die Lage nicht', () => {
   })
 })
 
+describe('Ton-Magnetik — eine geänderte Standzeit nimmt den Ton mit', () => {
+  // Der Grund für die ganze Aufwertung: Ton war das einzige Element, das liegen
+  // blieb, wenn sich eine Standzeit änderte. Der Anker in Aufnahmezeit macht ihn
+  // magnetisch — was VOR der Standzeit liegt, bleibt exakt stehen, was dahinter
+  // liegt, rückt um genau ihren Zuwachs mit.
+  const HALT_S = 600 // Aufnahmesekunde des Halts → Filmsekunde 20
+  const BASIS_BREITE = 12
+
+  /** Dieselbe Achse, nur mit anderer Haltbreite. 30 Aufnahmesekunden = 1 Filmsekunde. */
+  const achseMitBreite = (breiteS: number): Achse =>
+    baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [{ offsetS: HALT_S, breiteS }], { vonS: 0, bisS: 1800 })
+
+  /** Ein filmverankerter Klip fester Länge an der Filmstelle `filmS` der Basis-Achse. */
+  function verankerterKlip(filmS: number): AudioEintrag {
+    const { anker, versatzFilmS } = verankere(achseMitBreite(BASIS_BREITE), START, filmS)
+    return { datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS, dauerFilmS: 8 }
+  }
+
+  const lageBei = (eintrag: AudioEintrag, breiteS: number): TonKlip =>
+    klipVon(loeseTonKlips([eintrag], START, achseMitBreite(breiteS)))
+
+  it('lässt einen Klip VOR der Standzeit exakt stehen', () => {
+    const klip = verankerterKlip(10)
+    for (const breiteS of [BASIS_BREITE + 10, BASIS_BREITE - 10]) {
+      expect(lageBei(klip, breiteS).filmVon).toBeCloseTo(10, 3)
+    }
+  })
+
+  it('rückt einen Klip DAHINTER um genau den Zuwachs mit', () => {
+    const klip = verankerterKlip(40)
+    expect(lageBei(klip, BASIS_BREITE).filmVon).toBeCloseTo(40, 3)
+    expect(lageBei(klip, BASIS_BREITE + 10).filmVon).toBeCloseTo(50, 3)
+    expect(lageBei(klip, BASIS_BREITE - 10).filmVon).toBeCloseTo(30, 3)
+  })
+
+  it('hält die Feinlage INNERHALB der Standzeit, auch wenn diese wächst', () => {
+    // Der Versatz misst ab dem Beginn des Halts — der Klip behält seinen Platz
+    // darin, statt an die Kante zu rutschen oder mit der Breite zu skalieren.
+    const klip = verankerterKlip(23) // 3 Filmsekunden nach Haltbeginn (Filmsekunde 20)
+    for (const breiteS of [BASIS_BREITE + 10, BASIS_BREITE - 10]) {
+      expect(lageBei(klip, breiteS).filmVon).toBeCloseTo(23, 3)
+    }
+  })
+
+  it('lässt die LÄNGE unangetastet — sie steht in Filmsekunden', () => {
+    for (const filmS of [10, 23, 40]) {
+      const klip = verankerterKlip(filmS)
+      for (const breiteS of [BASIS_BREITE, BASIS_BREITE + 10, BASIS_BREITE - 10]) {
+        const k = lageBei(klip, breiteS)
+        expect(k.filmBis - k.filmVon).toBeCloseTo(8, 3)
+      }
+    }
+  })
+
+  it('zum Vergleich: ein alt verankerter Klip DEHNT sich über der Standzeit', () => {
+    // Genau das ist der Unterschied: `ab`/`bis` sind zwei Aufnahmezeiten, und die
+    // Standzeit dazwischen zählt in beide hinein. Der Klip wird länger, statt
+    // mitzurücken — ein Musikstück, das plötzlich 10 Filmsekunden mehr füllen soll.
+    const alt: AudioEintrag = {
+      datei: 'a.mp3',
+      typ: 'musik',
+      ab: '2026-07-04T08:05:00.000Z', // Aufnahmesekunde 300, vor dem Halt
+      bis: '2026-07-04T08:20:00.000Z', // Aufnahmesekunde 1200, dahinter
+    }
+    const basis = lageBei(alt, BASIS_BREITE)
+    const breiter = lageBei(alt, BASIS_BREITE + 10)
+    expect(basis.altVerankert).toBe(true)
+    expect(breiter.filmVon).toBeCloseTo(basis.filmVon, 3) // der Anfang bleibt
+    expect(breiter.filmBis - breiter.filmVon).toBeCloseTo(basis.filmBis - basis.filmVon + 10, 3)
+  })
+})
+
 describe('wellenLage — die Wellenform gehört zur DATEI, nicht zum Klip', () => {
   const basis: TonKlip = {
     index: 0,
