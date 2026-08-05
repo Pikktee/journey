@@ -64,7 +64,12 @@ export interface MediumEdit {
 export interface KameraGrenze {
   /** ISO 8601, absolut (stabil gegenüber Trim) */
   ab: string
-  preset: 'nah' | 'mittel' | 'weit'
+  /**
+   * `standard` ist ein Wert wie die anderen drei: „hier gilt, was der Zuschauer
+   * im Player eingestellt hat". Additive Erweiterung des Enums — ältere
+   * Overlays kennen ihn schlicht nicht, ihr Verhalten ändert sich nicht.
+   */
+  preset: 'nah' | 'mittel' | 'weit' | 'standard'
   /** Stufenlose Feinjustierung Abstand+Höhe (0.5..2); fehlt/1 = Preset unverändert */
   skala?: number
 }
@@ -291,7 +296,7 @@ export const editsJsonSchema = {
         required: ['ab', 'preset'],
         properties: {
           ab: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          preset: { enum: ['nah', 'mittel', 'weit'] },
+          preset: { enum: ['nah', 'mittel', 'weit', 'standard'] },
           skala: { type: 'number', minimum: 0.5, maximum: 2 },
         },
       },

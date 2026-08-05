@@ -156,10 +156,14 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   bei aufgezeichneten Touren sofort sinnvoll.
 - **Kreativbaukasten-Felder** (aus dem Edit-Overlay gerendert, s. u.; der
   Player ignoriert sie, wenn sie fehlen):
-  - `camera: [{f, preset}]` — Kamera-Preset-Keyframes (nah|mittel|weit),
+  - `camera: [{f, preset}]` — Kamera-Preset-Keyframes (nah|mittel|weit|standard),
     sortiert nach `f`; gilt ab `f` bis zum nächsten Keyframe. Der Player
     (main.js-Folger) wendet sie über `tour.setPreset` an; ein manueller
-    Preset-Klick des Zuschauers übersteuert den Verlauf.
+    Preset-Klick des Zuschauers übersteuert den Verlauf. `standard` ist der
+    Wert für „keine Vorgabe": Der Folger setzt dort den Abstand zurück, den der
+    Zuschauer eingestellt hat (dasselbe wie vor dem ersten Keyframe), und eine
+    `skala` bleibt dabei außen vor — sie gehört zu einem gewählten Abstand.
+    `PRESETS` in src/tour.js kennt ihn NICHT; er wird im Folger übersetzt.
   - `audio: [{type, src, f0, f1, gain?}]` — `music` spielt im Streckenbereich
     [f0, f1) mit weichen Blenden (src/audiotracks.js; ersetzt die statische
     Hintergrundmusik der Tour komplett), `sfx` feuert einmal beim

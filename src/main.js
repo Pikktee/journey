@@ -319,8 +319,14 @@ map.on('load', () => {
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
       let k = null
       for (const kf of keyframes) if (kf.f <= frac) k = kf
-      const preset = k ? k.preset : kamAktiv === null ? null : defaultPreset
-      const skala = k ? (k.skala ?? 1) : 1
+      // `standard` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
+      // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
+      // diese Zeile fiele er in setPreset auf „mittel" (PRESETS['standard']
+      // gibt es nicht) und überschriebe genau die Wahl, die er meint.
+      const preset = k ? (k.preset === 'standard' ? defaultPreset : k.preset) : kamAktiv === null ? null : defaultPreset
+      // Eine Feinjustierung gehört zu einem gewählten Abstand — auf „standard"
+      // angewandt verböge sie die Einstellung des Zuschauers.
+      const skala = k && k.preset !== 'standard' ? (k.skala ?? 1) : 1
       // Kennung aus Preset+Skala: eine reine Feinjustierung (gleiches Preset,
       // andere Skala) muss ebenfalls neu angewendet werden.
       const kennung = preset === null ? null : `${preset}:${skala}`

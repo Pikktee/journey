@@ -73,7 +73,14 @@ export interface WetterGrenze {
   staerke?: number
 }
 
-export type KameraPreset = 'nah' | 'mittel' | 'weit'
+/**
+ * Kamera-Abstand einer Grenze. `standard` ist ein WERT wie die anderen drei und
+ * nicht die Abwesenheit eines Werts: Er sagt „hier gilt, was der Zuschauer im
+ * Player eingestellt hat". Ohne ihn war Standard nur der Zustand VOR der ersten
+ * Grenze — man kam nicht dorthin zurück, ohne das Band zu löschen, und ein
+ * gelöschtes Band nahm die Stelle mit, an der es stand.
+ */
+export type KameraPreset = 'nah' | 'mittel' | 'weit' | 'standard'
 
 /** Kamera-Preset ab einem absoluten Zeitpunkt — gilt bis zur nächsten Grenze. */
 export interface KameraGrenze {

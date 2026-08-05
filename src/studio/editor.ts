@@ -154,15 +154,22 @@ const MODUS_FARBEN: Record<Modus, string> = {
   tram: '#f5a524',
   ferry: '#c58bff',
 }
-const PRESET_NAMEN: Record<KameraPreset, string> = { nah: 'Nah', mittel: 'Mittel', weit: 'Weit' }
 /**
- * Kamera-Grundzustand: KEINE Vorgabe. Wer zuschaut, kann den Abstand im Player
- * selbst umstellen (Nah · Mittel · Weit) — solange hier nichts steht, gilt seine
- * Wahl. Eine Kamera-Grenze übersteuert sie ab ihrer Stelle.
+ * Kamera-Abstände zur Auswahl — `standard` ist einer davon und steht bewusst
+ * VORNE: Er bedeutet „hier gilt, was der Zuschauer im Player einstellt", und
+ * genau das ist der Ausgangszustand jeder Tour. Als bloße Abwesenheit eines
+ * Werts war er eine Sackgasse — einmal auf Nah gestellt, kam man nur über
+ * „Abschnitt entfernen" zurück, und das nahm die Stelle gleich mit.
  */
-const KAMERA_STANDARD = 'Standard'
+const PRESET_NAMEN: Record<KameraPreset, string> = {
+  standard: 'Standard',
+  nah: 'Nah',
+  mittel: 'Mittel',
+  weit: 'Weit',
+}
+const KAMERA_STANDARD = PRESET_NAMEN.standard
 const KAMERA_STANDARD_ERKLAERT =
-  'Standard — keine Vorgabe: Es gilt der Abstand, den der Zuschauer im Player einstellt (Nah, Mittel oder Weit).'
+  'Standard: Es gilt der Abstand, den der Zuschauer im Player einstellt (Nah, Mittel oder Weit).'
 /** Anzeigenamen der Wetter-Modi (Reihenfolge = Auswahl-Liste). */
 const WETTER_NAMEN: Record<WetterModus, string> = {
   off: 'Klar',
@@ -188,6 +195,9 @@ const MOMENT_NAMEN: Record<MomentArt, string> = { umkreisen: 'Umkreisen', aufsti
 const MOMENT_ZEICHEN: Record<MomentArt, string> = { umkreisen: '↻', aufstieg: '↑', innehalten: '⏸' }
 /** Kamera-Bänder: ein Farbton, Deckkraft = Nähe (nah kräftig, weit zurückhaltend). */
 const PRESET_FARBEN: Record<KameraPreset, string> = {
+  // Standard ist keine Distanz, also auch nicht im Distanz-Farbton: dieselbe
+  // ruhige Fläche wie das Grundband (.band.grund), damit beide dasselbe sagen.
+  standard: 'rgba(103, 114, 127, 0.22)',
   nah: 'rgba(91, 157, 255, 0.72)',
   mittel: 'rgba(91, 157, 255, 0.46)',
   weit: 'rgba(91, 157, 255, 0.24)',
@@ -603,7 +613,7 @@ function rueckgaengig(): void {
   zz.edits = zz.historie.pop() as EditOverlay
   letzterStand = zz.edits // der Rücksprung selbst ist kein neuer Undo-Punkt
   renderAlles()
-  status('Rückgängig gemacht.')
+  status('Rückgängig gemacht.', 'ok')
 }
 
 function wiederherstellen(): void {
@@ -613,7 +623,7 @@ function wiederherstellen(): void {
   zz.edits = zz.zukunft.pop() as EditOverlay
   letzterStand = zz.edits
   renderAlles()
-  status('Wiederhergestellt.')
+  status('Wiederhergestellt.', 'ok')
 }
 
 function renderHistorieKnoepfe(): void {
@@ -855,7 +865,7 @@ function schliesseSpurMenue(): void {
   offenesMenue?.remove()
   offenesMenue = null
   document
-    .querySelectorAll<HTMLElement>('.spur-plus[aria-expanded="true"], #ablage-knopf[aria-expanded="true"], #editor-mehr[aria-expanded="true"]')
+    .querySelectorAll<HTMLElement>('.spur-plus[aria-expanded="true"], #ablage-knopf[aria-expanded="true"]')
     .forEach((b) => {
       b.setAttribute('aria-expanded', 'false')
     })
@@ -1375,23 +1385,29 @@ function renderInspektor(): void {
   if (info.art === 'modus' || info.art === 'kamera') {
     const istModus = info.art === 'modus'
     const werte = istModus ? Object.entries(MODUS_NAMEN) : Object.entries(PRESET_NAMEN)
-    const aktuell = istModus ? (info.mode as string | undefined) : (info.preset as string | undefined)
-    const wahl = auswahl(werte, aktuell, aktuell === undefined ? `${KAMERA_STANDARD} — Zuschauer entscheidet` : undefined)
+    // Das Grundband trägt keinen eigenen Wert — es IST „Standard", also steht
+    // das auch in der Liste ausgewählt da. Ein Platzhalter über der Auswahl
+    // machte daraus einen vierten, unerreichbaren Zustand.
+    const aktuell = istModus ? (info.mode as string | undefined) : ((info.preset as string | undefined) ?? 'standard')
+    const wahl = auswahl(werte, aktuell)
     wahl.addEventListener('change', () => {
       if (!z || !wahl.value) return
       // Ohne eigene Grenze (Band aus der Aufzeichnung) wird am Bandanfang eine
       // neue gesetzt — so lässt sich JEDER Abschnitt direkt umstellen.
       const ab = info.ab ?? offsetZuIso(start, info.vonS)
+      const preset = wahl.value as KameraPreset
       z.edits = istModus
         ? mitModusGrenze(z.edits, ab, wahl.value as Modus)
-        : mitKameraGrenze(z.edits, ab, wahl.value as KameraPreset, info.staerke)
+        // Die Feinjustierung gehört zu einem gewählten Abstand: „Standard"
+        // reicht sie an die Einstellung des Zuschauers weiter und verböge sie.
+        : mitKameraGrenze(z.edits, ab, preset, preset === 'standard' ? undefined : info.staerke)
       z.fokus = istModus ? { art: 'modus', bezugS } : { art: 'kamera', bezugS }
       renderAlles()
     })
     // „Art" statt einer Wiederholung des Panel-Titels — der sagt schon, worum es geht.
     inhalt.appendChild(feld(istModus ? 'Art' : 'Kamera-Abstand', wahl))
 
-    if (!istModus && info.preset) {
+    if (!istModus && info.preset && info.preset !== 'standard') {
       const ab = info.ab ?? offsetZuIso(start, info.vonS)
       const preset = info.preset
       inhalt.appendChild(
@@ -1505,6 +1521,21 @@ const ART_NAMEN: Record<FokusZiel['art'], string> = {
  * Wo keine Overlay-Grenze dahintersteht (Tourbeginn/-ende, Band aus der
  * Aufzeichnung), steht statt des Feldes eine Aussage.
  */
+/**
+ * Steht dieses Band ganz am Anfang der Tour?
+ *
+ * Ein Band ohne eigene Grenze beginnt fast immer dort — und dann heißt es für
+ * ALLE drei Bahnen dasselbe. Die Fortbewegung sagte hier „aus der Aufzeichnung"
+ * und meinte damit die Herkunft ihres WERTES, nicht ihren Beginn; neben Kamera
+ * und Wetter („mit dem Tourbeginn") las sich das wie ein Unterschied, den es
+ * nicht gibt. Übrig bleibt der eine Fall, in dem es wirklich stimmt: ein Band,
+ * das eine Trim-Kante mitten in der Tour anschneidet.
+ */
+function beginntAmTourAnfang(info: FokusZiel): boolean {
+  const skala = z ? baueSkala(z.track) : null
+  return !skala || info.vonS <= skala.vonS + 1
+}
+
 function baueZeiten(info: FokusZiel): HTMLElement {
   const paar = document.createElement('div')
   paar.className = 'zeit-paar'
@@ -1513,7 +1544,7 @@ function baueZeiten(info: FokusZiel): HTMLElement {
   const beginn =
     info.ab && info.art !== 'audio' && info.art !== 'medium'
       ? feld(punktEreignis ? 'Zeitpunkt' : 'Beginnt um', grenzZeitfeld(info.art as GrenzArt, info.ab, info.vonS, (neu) => (neu + info.bisS) / 2))
-      : feld('Beginnt', zeitFest(info.art === 'modus' ? 'aus der Aufzeichnung' : 'mit dem Tourbeginn'))
+      : feld('Beginnt', zeitFest(beginntAmTourAnfang(info) ? 'mit dem Tourbeginn' : 'aus der Aufzeichnung'))
 
   if (info.art === 'audio') {
     const index = info.index as number
@@ -2130,11 +2161,16 @@ function loeschInfo(info: FokusZiel): { text: string; gesperrt: boolean; grund?:
   }
   if (info.art === 'audio') return { text: 'Aus der Tour nehmen', gesperrt: false }
   if (info.art === 'moment') return { text: 'Moment entfernen', gesperrt: false }
-  if (info.ab === null) {
+  // Das ERSTE Band hat keine eigene Grenze (es gilt von Anfang an). Entfernen
+  // heißt hier: die Grenze an seinem ENDE rutscht an den Tour-Anfang, das
+  // zweite Band nimmt seinen Platz ein. Das geht nur, wenn es ein zweites gibt
+  // — sonst wäre die Bahn danach leer, und eine lückenlose Bahn ist die ganze
+  // Idee der Zustandsbänder.
+  if (beginntAmTourAnfang(info) && !info.naechsteAb) {
     return {
       text: 'Abschnitt entfernen',
       gesperrt: true,
-      grund: 'Der erste Zustand deckt die Tour von Anfang an — er lässt sich nur ändern.',
+      grund: 'Dieser Zustand deckt die ganze Tour — es gibt keinen zweiten, der seinen Platz einnehmen könnte.',
     }
   }
   return { text: 'Abschnitt entfernen', gesperrt: false }
@@ -2149,6 +2185,15 @@ function loescheFokus(): void {
   if (!z) return
   const info = loeseFokusAuf()
   if (!info || loeschInfo(info).gesperrt) return
+  // Das vorderste Band geht einen eigenen Weg (s. loescheErstesBand) — und
+  // zwar an seiner LAGE erkannt, nicht daran, ob es eine eigene Grenze hat.
+  // Nach dem ersten Löschen hat es eine: Sie zu entfernen machte das Band
+  // wieder implizit, ohne dass sich sichtbar etwas änderte — man musste
+  // zweimal löschen, und der erste Klick sah wie ein Fehlschlag aus.
+  if (ZUSTANDS_ARTEN.has(info.art) && beginntAmTourAnfang(info) && info.naechsteAb) {
+    loescheErstesBand(info)
+    return
+  }
   // Beim Modus zählt die Kante, nicht das Band: fällt sie weg, gilt der Modus
   // davor weiter. Für erkannte Kanten muss die Aufteilung erst festgeschrieben
   // sein, sonst gäbe es gar nichts zu entfernen.
@@ -2167,6 +2212,53 @@ function loescheFokus(): void {
   else if (info.art === 'audio' && info.index !== undefined) z.edits = ohneAudioEintrag(z.edits, info.index)
   else if (info.art === 'medium' && info.id) z.edits = mitMedienEdit(z.edits, info.id, { geloescht: true })
   else return
+  z.fokus = null
+  renderAlles()
+}
+
+/**
+ * Das erste Band einer Zustandsbahn entfernen.
+ *
+ * Bei jedem anderen Band fällt seine eigene Grenze weg und der Zustand DAVOR
+ * gilt weiter. Das erste hat keine solche Grenze — davor liegt nichts. Es
+ * verschwindet stattdessen dadurch, dass die Grenze an seinem ENDE an den
+ * Tour-Anfang rutscht: Das zweite Band deckt dann von Sekunde 0, die Bahn
+ * bleibt lückenlos, und keine spätere Grenze verschiebt sich.
+ *
+ * Modus und Wetter müssen vorher festgeschrieben werden (`schreibeModiFest` /
+ * `schreibeWetterFest`) — was die Automatik erkannt hat, steht bis dahin gar
+ * nicht im Overlay und ließe sich weder verschieben noch entfernen.
+ */
+function loescheErstesBand(info: FokusZiel): void {
+  if (!z) return
+  const alt = info.naechsteAb
+  if (!alt) return
+  const skala = baueSkala(z.track)
+  if (!skala) return
+  // Hat das Band bereits eine eigene Grenze, wird GENAU die überschrieben —
+  // sonst bliebe sie als haarfeines Band davor stehen.
+  const anfang = info.ab ?? offsetZuIso(z.daten.time.start, skala.vonS)
+  if (info.art === 'modus') {
+    if (!schreibeModiFest(alt)) return
+    const mode = z.edits.modi?.find((g) => g.ab === alt)?.mode
+    if (!mode) return
+    // `mitModusGrenze` ersetzt eine Grenze auf demselben Zeitpunkt — nach dem
+    // Festschreiben liegt am Tour-Anfang bereits eine.
+    z.edits = mitModusGrenze(ohneModusGrenze(z.edits, alt), anfang, mode)
+  } else if (info.art === 'kamera') {
+    const g = z.edits.kamera?.find((x) => x.ab === alt)
+    if (!g) return
+    z.edits = mitKameraGrenze(ohneKameraGrenze(z.edits, alt), anfang, g.preset, g.skala)
+  } else if (info.art === 'wetter') {
+    if (!schreibeWetterFest()) return
+    const g = z.edits.wetter?.find((x) => x.ab === alt)
+    if (!g) return
+    z.edits = mitWetterGrenze(ohneWetterGrenze(z.edits, alt), anfang, g.mode, g.staerke)
+  } else return
+  // Nach dem Löschen ist NICHTS ausgewählt — wie bei jedem anderen Objekt.
+  // Den Fokus auf das nachrückende Band zu setzen sähe aus, als hätte man
+  // etwas ausgewählt, und das Band unter dem Zeiger ist ein anderes als das,
+  // das man eben noch anfasste.
   z.fokus = null
   renderAlles()
 }
@@ -2988,6 +3080,8 @@ async function audioDateiLoeschen(datei: string, still = false): Promise<void> {
 const KANTEN_ROLLEN = new Set(['grenze', 'kamera', 'wetter', 'audio-von', 'audio-bis'])
 /** Die drei Zustandsbahnen — nur ihre Kanten laufen entkoppelt (s. starteKantenZug). */
 const ZUSTANDS_KANTEN = new Set(['grenze', 'kamera', 'wetter'])
+/** Die drei Bahnen mit lückenlosen Zustandsbändern (nicht: Klips und Punkte). */
+const ZUSTANDS_ARTEN = new Set<FokusZiel['art']>(['modus', 'kamera', 'wetter'])
 
 interface ZugZustand {
   rolle: string
@@ -3274,6 +3368,9 @@ function renderZeitleiste(): void {
     // Feinjustierung (falls ≠ 1) an die Beschriftung hängen: „Nah ×1.3"
     const feinSkala = b.ab !== null ? z.edits.kamera?.find((g) => g.ab === b.ab)?.skala : undefined
     const skalaTxt = feinSkala !== undefined && feinSkala !== 1 ? ` ×${String(+feinSkala.toFixed(2))}` : ''
+    // Das Grundband (ohne Grenze) und ein gesetztes „Standard" sind derselbe
+    // Zustand und sehen deshalb gleich aus — nur der eine hat eine Kante.
+    const istStandard = !b.wert || b.wert === 'standard'
     const d = band(
       'kamera',
       b.von,
@@ -3282,9 +3379,11 @@ function renderZeitleiste(): void {
       b.wert ? PRESET_FARBEN[b.wert] : undefined,
       skalaTxt,
     )
-    if (!b.wert) d.title = KAMERA_STANDARD_ERKLAERT
-    if (!b.wert) d.classList.add('leise')
-    else d.classList.add('hell')
+    // „Standard" ist kein Leerzustand, sondern eine Aussage: hier gilt, was der
+    // Zuschauer wählt. Deshalb eine ruhige eigene Fläche statt der Riffelung,
+    // die beim Wetter das ehrliche „noch gar nichts ermittelt" bezeichnet.
+    if (istStandard) d.title = KAMERA_STANDARD_ERKLAERT
+    d.classList.add(istStandard ? 'grund' : 'hell')
     if (istFokus('kamera', b.von, b.bis)) d.classList.add('fokus')
     kameraBahn.appendChild(d)
     if (b.ab !== null && b.wert) {
@@ -4441,19 +4540,53 @@ function renderPlayhead(): void {
   // Spielkurve respektiert Trim — bei getrimmten Alt-Touren weicht die Summe
   // deshalb vom Maßband-Ende ab (das die ganze Achse beschriftet).
   const film = document.getElementById('kopf-film')
+  const filmGes = document.getElementById('kopf-film-ges')
   const spiel = aktuelleSpielKurve()
-  if (film && spiel) {
-    film.textContent = `${formatiereFilmzeit(filmBei(spiel, anteil))} / ~${formatiereFilmzeit(spiel.gesamtS)}`
-  }
+  if (film && spiel) film.textContent = formatiereFilmzeit(filmBei(spiel, anteil))
+  // Kein „~" mehr vor der Gesamtdauer: Es stand an genau EINER Stelle, während
+  // dieselbe Zahl im Maßband, in der Dauer-Vorschau eines Zugs und in jedem
+  // Klip ohne Vorbehalt auftritt. Ein Zeichen, das nur hier zweifelt, wirkt
+  // wie ein Fehler und nicht wie eine Angabe zur Genauigkeit — die steht im
+  // Titel der Gruppe, wo man sie liest, wenn man sie braucht.
+  if (filmGes && spiel) filmGes.textContent = formatiereFilmzeit(spiel.gesamtS)
   const uhr = document.getElementById('kopf-uhr')
   // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
   // Sekundenstelle nur.
-  if (uhr) uhr.textContent = uhrzeitKurz(offsetZuIso(z.daten.time.start, tOffsetS))
+  const zeitIso = offsetZuIso(z.daten.time.start, tOffsetS)
+  if (uhr) uhr.textContent = uhrzeitKurz(zeitIso)
+  zeigeTageszeit(zeitIso)
   const km = document.getElementById('kopf-km')
   if (km) km.textContent = kmText(meterZuOffset(kumStrecke, z.track, tOffsetS))
 
   setzeLaeufer(tOffsetS)
   synchronisiereFoto()
+}
+
+/**
+ * Sonne · Dämmerung · Mond an der Uhrzeit des Abspielkopfs.
+ *
+ * Eine Andeutung, keine Astronomie: Grenzen nach Stunden statt nach echtem
+ * Sonnenstand — der hinge an Datum UND Breitengrad, und für ein 14-px-Symbol
+ * neben einer Uhrzeit wäre das eine Genauigkeit, die niemand abliest. Was es
+ * leistet, ist der schnelle Blick: „diese Aufnahme war nachts".
+ */
+function zeigeTageszeit(iso: string): void {
+  const el = document.getElementById('kopf-uhr-icon')
+  if (!el) return
+  const stunde = Number(uhrzeitKurz(iso).slice(0, 2))
+  const [klasse, symbol] = !Number.isFinite(stunde)
+    ? ['', '#i-uhr']
+    : stunde >= 8 && stunde < 18
+      ? ['tag', '#i-sonne']
+      : stunde >= 6 && stunde < 21
+        ? ['daemmerung', '#i-daemmerung']
+        : ['nacht', '#i-mond']
+  // classList, NICHT className: Letzteres nimmt `ku-icon` mit weg — und mit ihr
+  // Größe und Grundfarbe des Symbols.
+  el.classList.remove('tag', 'daemmerung', 'nacht')
+  if (klasse) el.classList.add(klasse)
+  const use = el.querySelector('use')
+  if (use && use.getAttribute('href') !== symbol) use.setAttribute('href', symbol)
 }
 
 const kmText = (meter: number): string => (meter / 1000).toFixed(1).replace('.', ',')
@@ -5140,7 +5273,7 @@ function verdrahteZeitleiste(): void {
     if (!offenesMenue) return
     const ziel = e.target as Node
     if (offenesMenue.contains(ziel)) return
-    if ((ziel as HTMLElement).closest?.('#editor-mehr, #ablage-knopf, .spur-plus')) return
+    if ((ziel as HTMLElement).closest?.('#ablage-knopf, .spur-plus')) return
     schliesseSpurMenue()
   })
   window.addEventListener('keydown', (e) => {
@@ -5259,6 +5392,11 @@ function setzeWerkzeug(w: typeof werkzeug): void {
  * 'ok' blendet nach ~4 s aus, 'fehler' nach ~7 s; eine neutrale Meldung
  * („… wird geladen") trägt einen Kreisel und bleibt, bis sie abgelöst oder mit
  * status('') aufgeräumt wird.
+ *
+ * Das Bleiben ist deshalb ein VERSPRECHEN, kein Nebeneffekt: Wer eine fertige
+ * Handlung ohne Klasse meldet, bekommt einen Kreisel, der ewig dreht —
+ * „Rückgängig gemacht." stand so dauerhaft unter dem Kopf, weil danach nichts
+ * mehr kam, das sie ablöste. Eine abgeschlossene Handlung ist 'ok'.
  */
 let flashUhr: number | null = null
 function status(text: string, klasse = ''): void {
@@ -5749,7 +5887,7 @@ function syncFinaleZielFeld(): void {
 
 async function neuVerarbeiten(): Promise<void> {
   if (!z) return
-  const knopf = $('editor-mehr') as HTMLButtonElement
+  const knopf = $('editor-neu-verarbeiten') as HTMLButtonElement
   knopf.disabled = true
   try {
     status('Tour wird neu verarbeitet (Benennung/Wetter) …')
@@ -5808,24 +5946,11 @@ function verdrahteEinmal(): void {
   $('editor-zurueck').addEventListener('click', schliesse)
   $('editor-speichern').addEventListener('click', () => void speichern())
   $('editor-titel-knopf').addEventListener('click', oeffneTourEinstellungen)
-  // „…" — was die ganze Tour betrifft, nicht das gerade Ausgewählte.
-  $('editor-mehr').addEventListener('click', (e) => {
-    e.stopPropagation()
-    const knopf = $('editor-mehr')
-    // Erneuter Klick schließt — nicht erst zu und sofort wieder auf.
-    if (offenesMenue?.dataset['tour'] === '1') {
-      schliesseSpurMenue()
-      return
-    }
-    const menue = document.createElement('div')
-    menue.className = 'schwebe-menue'
-    menue.dataset['tour'] = '1'
-    menue.append(
-      menueEintrag('Tour-Einstellungen', oeffneTourEinstellungen),
-      menueEintrag('Neu verarbeiten', () => void neuVerarbeiten()),
-    )
-    zeigeSchwebeMenue(menue, knopf)
-  })
+  // Was die ganze TOUR betrifft, steht im Kopf und nicht in einem „…"-Menü:
+  // Zwei Einträge hinter einem Knopf, der nicht sagt, was er verbirgt, sind
+  // zwei Klicks für etwas, das man auch zeigen kann.
+  $('editor-einstellungen').addEventListener('click', oeffneTourEinstellungen)
+  $('editor-neu-verarbeiten').addEventListener('click', () => void neuVerarbeiten())
   // Der Kopf zeigt den Titel — er muss dem Feld folgen, sonst steht dort der
   // alte Name, bis die Tour neu geladen wird.
   $('editor-titel').addEventListener('input', zeigeTitelImKopf)
