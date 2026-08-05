@@ -419,6 +419,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
     // Auto-Platzierung auf dem ORIGINAL-Track (ohne Overlay): die Basis, auf
     // die der Editor seine Overrides live legt. Gelöschte bleiben sichtbar.
     const platziert = platziereMedien(manifest.media, segmente.flatMap((s) => s.pts), startMs)
+    const videoDauern = await ermittleVideoDauern(app, tour.id, manifest)
     const medien: Array<Record<string, unknown>> = []
     for (const { medium, anchor, placement } of platziert) {
       // Die Anzeige-Fassung ist nach dem ersten Render die einzige noch
@@ -444,6 +445,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
       if (medium.type === 'video') {
         const poster = `${medium.id}.poster.jpg`
         if (await storage.info(tour.id, `media/${poster}`)) eintrag['poster'] = `/api/media/${tour.id}/${poster}`
+        // Die echte Länge: ohne sie rechnet die Zeitleiste ein 34-s-Video wie
+        // ein Foto mit 5,2 s und zeigt ~34 px statt ~200 px Achsenbreite.
+        const dauerS = videoDauern.get(medium.id)
+        if (dauerS !== undefined) eintrag['dauerS'] = dauerS
       }
       // Kachel für Zeitleiste und Inspector — die Miniatur zog bisher das volle
       // Foto (mehrere MB je Aufnahme, bei jedem Öffnen des Editors)
@@ -648,6 +653,45 @@ async function ladeOriginalSegmente(
  * Anreicherungs-Cache an seine Stelle, der immer das Rohergebnis der Automatik
  * hält. Fehlt beides (noch nie gerendert), bleibt die Liste leer.
  */
+/**
+ * Echte Länge je Video (s) für den Editor.
+ *
+ * Drei Quellen, in dieser Reihenfolge: das Manifest (die App misst beim
+ * Aufnehmen), der Anreicherungs-Cache (`videoMeta`, von ffprobe) und das
+ * gerenderte tour.json. Fehlt alles — unverarbeiteter Altbestand —, bleibt das
+ * Feld weg und die Zeitleiste rechnet weiter mit ihrer Foto-Annahme.
+ * Rein lesend: kein ffprobe, kein Re-Render, keine externen Aufrufe.
+ */
+async function ermittleVideoDauern(
+  app: FastifyInstance,
+  tourId: string,
+  manifest: UploadManifest,
+): Promise<Map<string, number>> {
+  const { storage } = app.deps
+  const dauern = new Map<string, number>()
+  const setze = (id: string, wert: unknown): void => {
+    if (typeof wert === 'number' && Number.isFinite(wert) && wert > 0 && !dauern.has(id)) dauern.set(id, wert)
+  }
+  for (const m of manifest.media) {
+    if (m.type === 'video') setze(m.id, m.durationS)
+  }
+  try {
+    if (await storage.info(tourId, ANREICHERUNG_PFAD)) {
+      const cache = JSON.parse((await storage.lese(tourId, ANREICHERUNG_PFAD)).toString()) as AnreicherungsCache
+      for (const [id, meta] of Object.entries(cache.videoMeta ?? {})) setze(id, meta?.dauerS)
+    }
+    if (await storage.info(tourId, TOURJSON_PFAD)) {
+      const tourJson = JSON.parse((await storage.lese(tourId, TOURJSON_PFAD)).toString()) as {
+        media?: Array<{ id: string; durationS?: number }>
+      }
+      for (const m of tourJson.media ?? []) setze(m.id, m.durationS)
+    }
+  } catch {
+    // Kaputtes/altes Artefakt darf den Editor nicht am Öffnen hindern
+  }
+  return dauern
+}
+
 async function ermittleAutoWetter(
   app: FastifyInstance,
   tourId: string,

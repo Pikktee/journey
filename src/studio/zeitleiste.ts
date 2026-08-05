@@ -48,6 +48,14 @@ export interface AchsenKurve {
  */
 export interface Achse extends ZeitSkala {
   kurve?: AchsenKurve
+  /**
+   * Die eingewebten Halte als INTERVALLE (Filmsekunden). Die Achse weiß als
+   * Einzige, wie viel Filmzeit jeder Halt belegt — ohne diese Liste gibt es die
+   * Auskunft „steht der Kopf in einem Halt, und wo darin?" nicht: in
+   * AUFNAHMEzeit hat ein Halt keine Ausdehnung (zwei Stützstellen auf derselben
+   * Sekunde), jede Rückrechnung fällt auf seine linke Kante.
+   */
+  halte?: readonly HaltIntervall[]
 }
 
 export function baueSkala(track: readonly TrackPunkt[]): ZeitSkala | null {
@@ -564,6 +572,20 @@ export function haltedauerS(display?: { holdS?: number }): number {
 }
 
 /**
+ * Filmzeit, die EINE Aufnahme im Halt belegt (ohne Ausblendung).
+ *
+ * Für ein Video ist das seine echte Länge und sonst nichts: Der Player läuft
+ * bis zum Ende der Datei, `display.holdS` ist dort wirkungslos (src/tour.js) —
+ * ein Griff dafür wäre eine Lüge. Kennt der Server die Länge noch nicht
+ * (unverarbeiteter Altbestand, `dauerS` fehlt), bleibt es bei der Foto-Annahme;
+ * die Leiste zeigt dann zu wenig, aber nichts bricht.
+ */
+export function aufnahmeHaltS(m: { type: 'photo' | 'video'; dauerS?: number; display?: { holdS?: number } }): number {
+  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
+  return haltedauerS(m.display)
+}
+
+/**
  * Dauer in Sekunden → kurze Anzeige („2:05 Std", „14 Min", „38 Sek").
  * Für den Inspector: Zu einem Band gehört nicht nur „ab wann", sondern auch,
  * wie lange es gilt.
@@ -639,10 +661,151 @@ export function anteilBei(kurve: Filmkurve, filmS: number): number {
 // Film überwiegend Standzeit (56-min-Beispiel: ~48 s Halte vs. ~8 s Fahrt);
 // ohne die Halte fände der Großteil des Films auf null Breite statt.
 
+/** Eine Aufnahme innerhalb eines Halts — Kette statt Stapel (docs §2A). */
+export interface HaltStueck {
+  id: string
+  /** Filmzeit dieser Aufnahme inkl. ihrer Ausblendung */
+  dauerS: number
+}
+
 /** Ein Halt für die Achse: wo er liegt und wie viel Filmzeit er kostet. */
 export interface AchsenHalt {
   offsetS: number
   breiteS: number
+  /**
+   * Was für ein Halt das ist (im Editor: Aufnahmen oder Kamera-Moment). Für die
+   * Achse sind alle Halte gleich — sie kosten Filmzeit und kosten keine
+   * Aufnahmezeit; das Wort braucht nur, wer den Stand benennen will.
+   */
+  art?: string
+  /**
+   * Wer diesen Halt bildet — Indizes in der Liste des Aufrufers (im Editor die
+   * Stopps). Die Achse rechnet damit nicht, sie reicht sie durch: Wer beim
+   * Kopfstand „Halt · ‹Titel›" schreiben will, braucht den Rückweg zum Objekt.
+   */
+  indizes?: readonly number[]
+  /**
+   * Die Aufnahmen des Halts in Abspielreihenfolge. Erst damit lässt sich sagen,
+   * WELCHE Aufnahme gerade steht — ein Halt mit drei Fotos ist im Film eine
+   * Folge von dreien, kein einzelner Block.
+   */
+  stuecke?: readonly HaltStueck[]
+}
+
+/** Ein eingewebter Halt: dazu, wo er im FILM liegt. */
+export interface HaltIntervall extends AchsenHalt {
+  filmVon: number
+  filmBis: number
+}
+
+/** Wo der Kopf in einem Halt steht — die Auskunft für die Statuszeile. */
+export interface HaltStand {
+  /** Index in `achse.halte` */
+  index: number
+  halt: HaltIntervall
+  /** verstrichene Standzeit (s) */
+  imHaltS: number
+  /** verbleibende Standzeit (s) */
+  restS: number
+  /** Welche Aufnahme des Halts gerade steht — fehlt, wenn keine bekannt sind. */
+  stueck?: {
+    /** 1-basiert, wie es in der Statuszeile steht */
+    nr: number
+    anzahl: number
+    id: string
+    /** verstrichene Zeit IN dieser Aufnahme */
+    imS: number
+    dauerS: number
+  }
+}
+
+/**
+ * Steht die Filmsekunde `filmS` in einem Halt — und wo darin?
+ *
+ * Die Ankunft (`filmVon`) zählt dazu, die Abfahrt (`filmBis`) nicht: dort läuft
+ * die Fahrt schon wieder. Ausnahme ist das Ende der Achse — endet der Film in
+ * einem Halt, steht der Kopf dort bis zur letzten Sekunde in ihm und nicht im
+ * Nichts dahinter.
+ */
+export function haltBeiFilmS(achse: Achse, filmS: number): HaltStand | null {
+  const halte = achse.halte
+  if (!halte?.length) return null
+  const ende = achse.kurve?.gesamtS ?? 0
+  for (const [index, halt] of halte.entries()) {
+    if (filmS < halt.filmVon) return null // Halte sind sortiert — ab hier kommt nur Späteres
+    // Toleranz gegen die Rundung der Achsen-Summe: der letzte Halt endet
+    // rechnerisch selten exakt auf `gesamtS`.
+    const amEnde = halt.filmBis >= ende - 1e-6
+    const drin = filmS < halt.filmBis || (amEnde && filmS <= ende + 1e-6)
+    if (drin) {
+      const imHaltS = Math.min(Math.max(filmS - halt.filmVon, 0), halt.breiteS)
+      const stueck = stueckBei(halt.stuecke, imHaltS)
+      return { index, halt, imHaltS, restS: halt.breiteS - imHaltS, ...(stueck ? { stueck } : {}) }
+    }
+  }
+  return null
+}
+
+/** Welche Aufnahme der Kette bei `imHaltS` läuft (letzte gewinnt am Ende). */
+function stueckBei(
+  stuecke: readonly HaltStueck[] | undefined,
+  imHaltS: number,
+): HaltStand['stueck'] | null {
+  if (!stuecke?.length) return null
+  let gelaufen = 0
+  for (const [i, s] of stuecke.entries()) {
+    const letzte = i === stuecke.length - 1
+    if (imHaltS < gelaufen + s.dauerS || letzte) {
+      return {
+        nr: i + 1,
+        anzahl: stuecke.length,
+        id: s.id,
+        imS: Math.min(Math.max(imHaltS - gelaufen, 0), s.dauerS),
+        dauerS: s.dauerS,
+      }
+    }
+    gelaufen += s.dauerS
+  }
+  return null
+}
+
+/** Filmsekunde → Anteil 0..1 auf der Leiste (die Achse IST film-proportional). */
+export function filmZuAnteil(achse: Achse, filmS: number): number {
+  const gesamt = achse.kurve?.gesamtS ?? 0
+  return gesamt > 0 ? Math.max(0, Math.min(1, filmS / gesamt)) : 0
+}
+
+/** Anteil 0..1 → Filmsekunde. */
+export function anteilZuFilm(achse: Achse, anteil: number): number {
+  return Math.max(0, Math.min(1, anteil)) * (achse.kurve?.gesamtS ?? 0)
+}
+
+/** Sekunden für die Statuszeile: „2,1" — eine Nachkommastelle, deutsches Komma. */
+const sekText = (s: number): string => s.toFixed(1).replace('.', ',')
+
+/**
+ * Der Halt-Stand als Satzteil: „Aufnahme 2 von 3 · 2,1 s von 6,0 s".
+ *
+ * Bei einer einzigen Aufnahme bleibt das Zählwerk weg — „Aufnahme 1 von 1"
+ * sagt nichts, was man nicht sieht. Ohne bekannte Stücke zählt die Zeit im
+ * ganzen Halt.
+ */
+export function beschreibeHaltStand(stand: HaltStand): string {
+  const s = stand.stueck
+  if (!s) return `${sekText(stand.imHaltS)} s von ${sekText(stand.halt.breiteS)} s`
+  const zeit = `${sekText(s.imS)} s von ${sekText(s.dauerS)} s`
+  return s.anzahl > 1 ? `Aufnahme ${s.nr} von ${s.anzahl} · ${zeit}` : zeit
+}
+
+/**
+ * Kopfposition um `deltaFilmS` verschieben (Pfeiltasten), geklemmt auf die
+ * Achse. Führende Größe ist die FILMsekunde — genau deshalb überspringt der
+ * Schritt keinen Halt mehr: in Aufnahmezeit gerechnet fiel er auf die linke
+ * Haltkante zurück und kam an einem 6-s-Halt nie vorbei (docs §1).
+ */
+export function schrittFilmS(achse: Achse, filmS: number, deltaFilmS: number): number {
+  const gesamt = achse.kurve?.gesamtS ?? 0
+  return Math.max(0, Math.min(gesamt, filmS + deltaFilmS))
 }
 
 /**
@@ -678,10 +841,13 @@ export function baueAchse(
       filmS.push(film)
     }
   }
-  if (tS.length < 2) return { ...skala }
+  if (tS.length < 2) return { ...skala, halte: [] }
 
   // Halte als Sprünge einweben: an der Halt-Zeit zwei Stützstellen (Film vor
   // und nach der Standzeit), alle späteren Werte heben sich um die Breite.
+  // Weil aufsteigend gewebt wird, trägt `filmAmHalt` die früheren Halte schon
+  // — die Intervalle stimmen also ohne Nachrechnen.
+  const intervalle: HaltIntervall[] = []
   for (const h of [...halte].sort((a, b) => a.offsetS - b.offsetS)) {
     if (!(h.breiteS > 0)) continue
     const filmAmHalt = interpoliere(tS, filmS, h.offsetS)
@@ -692,10 +858,11 @@ export function baueAchse(
     tS.splice(i, 0, h.offsetS, h.offsetS)
     filmS.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
     film += h.breiteS
+    intervalle.push({ ...h, filmVon: filmAmHalt, filmBis: filmAmHalt + h.breiteS })
   }
 
-  if (film < 1) return { ...skala }
-  return { ...skala, kurve: { tS, filmS, gesamtS: film } }
+  if (film < 1) return { ...skala, halte: [] }
+  return { ...skala, kurve: { tS, filmS, gesamtS: film }, halte: intervalle }
 }
 
 /**

@@ -606,6 +606,12 @@ export interface MediumBasis {
   poster?: string
   /** Kachel-Fassung für Miniaturen; fehlt bei unaufbereitetem Altbestand */
   thumb?: string
+  /**
+   * Echte Länge eines Videos in Sekunden (nur type=video). Fehlt bei
+   * unverarbeitetem Altbestand — dann rechnet die Zeitleiste mit der
+   * Foto-Standzeit weiter, was für ein langes Video sichtbar zu wenig ist.
+   */
+  dauerS?: number
   takenAt: string
   caption: string
   anchor: [number, number] | null

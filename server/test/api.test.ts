@@ -881,6 +881,58 @@ describe('Edit-Overlay + Editor (M7)', () => {
     expect(m2 && 'gpsAnker' in m2).toBe(false)
   })
 
+  it('Editor-Daten: ein Video bringt seine echte Länge mit (dauerS)', async () => {
+    // Ohne sie rechnet die Zeitleiste ein 34-s-Video wie ein Foto mit 5,2 s.
+    const werkzeug = new FakeVideoWerkzeug({ codecVideo: 'h264', codecAudio: 'aac', dauerS: 34, breite: 1920, hoehe: 1080 })
+    const u = await baueTestApp(['Lauterbrunnen', 'Grindelwald'], null, werkzeug)
+    const manifest = beispielManifest()
+    manifest.media.push({
+      id: 'm2',
+      type: 'video',
+      file: 'VID_0009.mp4',
+      takenAt: '2026-07-04T10:15:00+02:00',
+      anchor: [7.9142, 46.5872],
+      caption: null,
+    })
+    const id = await legeTourAn(u, manifest)
+    await ladeMediumHoch(u, id, 'm1')
+    await ladeMediumHoch(u, id, 'm2', 'fake-video-bytes')
+    await finalisiere(u, id)
+
+    const daten = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+      medien: Array<{ id: string; type: string; dauerS?: number }>
+    }
+    expect(daten.medien.find((m) => m.id === 'm2')?.dauerS).toBe(34)
+    // Ein Foto bekommt das Feld nicht — es hat keine Laufzeit
+    expect(daten.medien.find((m) => m.id === 'm1')).not.toHaveProperty('dauerS')
+  })
+
+  it('Editor-Daten: ohne bekannte Länge bleibt dauerS weg (unverarbeiteter Altbestand)', async () => {
+    const u = await baueTestApp()
+    const manifest = beispielManifest()
+    manifest.media.push({ id: 'm2', type: 'video', file: 'clip.mp4', takenAt: '2026-07-04T10:15:00+02:00' })
+    const id = await legeTourAn(u, manifest)
+    const daten = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+      medien: Array<{ id: string }>
+    }
+    const v = daten.medien.find((m) => m.id === 'm2')
+    expect(v).toBeDefined()
+    expect(v && 'dauerS' in v).toBe(false)
+  })
+
+  it('Editor-Daten: die Länge aus dem Manifest gilt auch vor dem ersten Rendern', async () => {
+    // Die App misst beim Aufnehmen — dann steht die Länge schon im Manifest,
+    // lange bevor ffprobe gelaufen ist.
+    const u = await baueTestApp()
+    const manifest = beispielManifest()
+    manifest.media.push({ id: 'm2', type: 'video', file: 'clip.mp4', takenAt: '2026-07-04T10:15:00+02:00', durationS: 21.5 })
+    const id = await legeTourAn(u, manifest)
+    const daten = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+      medien: Array<{ id: string; dauerS?: number }>
+    }
+    expect(daten.medien.find((m) => m.id === 'm2')?.dauerS).toBe(21.5)
+  })
+
   it('Editor-Daten funktionieren auch für GPX-Quellen', async () => {
     const u = await baueTestApp()
     const id = await legeTourAn(u, gpxManifest())

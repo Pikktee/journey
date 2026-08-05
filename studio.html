@@ -1500,6 +1500,11 @@
       padding-left: 10px; border-left: 1px solid var(--rand); font-variant-numeric: tabular-nums;
     }
     .ku-km-cur { display: inline-block; min-width: 4ch; text-align: right; color: var(--text-2); }
+    /* Hier stand kurzzeitig eine Zustands-Pille („Halt · … · 2,1 s von 6,0 s").
+       Sie ist wieder weg: Sie erschien und verschwand beim Scrubben und ließ
+       damit die GANZE Kopfleiste springen — eine Anzeige, die die Bedienelemente
+       daneben verschiebt, kostet mehr, als sie sagt. Dass ein Halt läuft, zeigt
+       ohnehin das eingeblendete Bild auf der Karte. */
 
     /* Zoom — Lupen + Regler, Standard „an Fenster angepasst" (⌘+/⌘−/⇧Z). */
     .zoom { display: flex; align-items: center; gap: 7px; }
@@ -1650,9 +1655,20 @@
       content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 46%, rgba(0, 0, 0, 0.11));
     }
-    .band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: clip; pointer-events: none; }
-    /* Passt der Name nicht, trägt die Farbe allein — ein Rest-Wort trüge nichts. */
-    .band.ohne-text span { display: none; }
+    /* Auslassungspunkte statt hartem Schnitt: Ein angeschnittenes Wort sagt
+       „hier steht mehr" — ein sauber abgeschnittenes sähe aus wie die ganze
+       Angabe. Die WAHL zwischen „Wolkig 52%" und „Wolkig …" trifft
+       `kuerzeBeschriftungen` (CSS kann keine Textvariante wählen), das letzte
+       Beschneiden macht der Browser. */
+    .band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+    /* Auf einem schmalen Band ist die Polsterung (2×9 px) der größte Posten:
+       bei 30 px Bandbreite bleiben 12 px für den Text. Dort rückt die
+       Beschriftung an den Rand — als CONTAINER-Query, denn nur die kennt die
+       Breite DIESES Bandes; `kuerzeBeschriftungen` misst bewusst nicht in jedem
+       Zieh-Frame nach. (Ein Element kann sich nicht selbst abfragen, deshalb
+       liegt der Container auf dem Band und die Regel auf seinem span.) */
+    .band { container-type: inline-size; }
+    @container (max-width: 74px) { .band > span { margin-inline: -6px; } }
     .band.inaktiv { opacity: 0.28; }
     /* Auswahl: ein „aufgehobener" Zustand statt bloßer Umrandung — der helle
        warmweiße Ring kontrastiert auf JEDER Bandfarbe (auch Moped = amber). */

@@ -563,11 +563,42 @@ absolute Aufnahme-Zeitstempel — nur die Abbildung Zeit ↔ Leistenposition
 (`offsetZuAnteil`/`anteilZuOffset` über `Achse`) ist nichtlinear; ohne Kurve (degenerierte
 Tour) fällt sie auf linear zurück. Das Abspielen läuft über `baueSpielKurve` (Identität; bei
 Alt-Trim Plateaus) und zeigt Aufnahmen als Überfahr-MARKEN im Halt-Sprung (`zeigen`, kein
-restS mehr); der Abspieler meldet ANTEILE, und `renderPlayhead(anteilDirekt)` nimmt sie
-direkt — der Rundweg Anteil → Zeit → Anteil fiele im Halt-Sprung auf den Sprunganfang zurück
-und der Strich stünde die ganze Standzeit still. Zwei Kanten: Ereignisse, die ganz in einer
-Ex-Pause liegen, drängen auf einen Pixel (Ausweg: Zeitfelder im Inspector); Videos zählen mit
-der Foto-Standzeit (echte Videolänge kennt erst die Pipeline).
+restS mehr). Eine Kante bleibt: Ereignisse, die ganz in einer Ex-Pause liegen, drängen auf
+einen Pixel (Ausweg: Zeitfelder im Inspector).
+
+**Der Abspielkopf steht in FILMsekunden** (`kopfFilmS`, Etappe 1 des
+[Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
+Pfeiltasten und Abspielen; die Aufnahmezeit (`z.auswahl`, zugleich Einfügemarke) wird daraus
+ABGELEITET, nie umgekehrt. Der Grund ist die Umkehrbarkeit: In Aufnahmezeit gibt es keinen
+Wert für „mitten im Halt" (zwei Stützstellen auf derselben Sekunde), jede Rückrechnung fällt
+auf die linke Haltkante. Genau daran klebte der Kopf — 28 von 39 Frames Stillstand, und mit
+Pfeiltasten (5 Filmsekunden) kam man an einem 6-s-Halt NIE vorbei. Deshalb gibt `baueAchse`
+die Halte als **Intervalle** zurück (`filmVon`/`filmBis`, dazu `stuecke` je Aufnahme und
+`indizes` als Rückweg zum Stopp), und `haltBeiFilmS` beantwortet „steht der Kopf in einem
+Halt, und wo darin?" (`beschreibeHaltStand`: „Aufnahme 2 von 3 · 2,1 s von 6,0 s") — die
+Grundlage der Klip-Kette aus Etappe 2. **In der Kopfleiste steht diese Auskunft NICHT**: Eine
+Pille, die beim Scrubben erscheint und verschwindet, verschiebt Uhr, Werkzeuge und
+Zoom-Regler daneben — eine Anzeige, die die Bedienelemente springen lässt, kostet mehr, als
+sie sagt; dass ein Halt läuft, zeigt ohnehin das eingeblendete Bild auf der Karte. Der
+Kopfstrich bleibt immer orange: Farbe bezeichnet auf der Leiste Identität, nicht Zustand.
+
+**Ein Video zählt mit seiner echten Länge, ein Moment mit seiner Dauer.** `aufnahmeHaltS`
+ist die eine Formel dafür (Video → `dauerS`, sonst `haltedauerS`); `display.holdS` ist bei
+Video wirkungslos, der Player läuft bis zum Dateiende. `dauerS` liefert die Editor-Route aus
+drei Quellen (Manifest → Anreicherungs-Cache → tour.json), rein lesend; fehlt alles
+(unverarbeiteter Altbestand), bleibt es bei der Foto-Annahme. Vorher bekam ein 34-s-Video
+~34 px statt ~200 px, und Momente hatten gar keine Breite — an der Beispieltour 13,6
+unsichtbare Filmsekunden.
+
+**Der Maßstab ist px je FILMSEKUNDE** (`pxProFilmS` + `einpassen`), kein Faktor auf die
+Fensterbreite. Der Unterschied zählt, weil die Fortbewegung die Filmdauer bestimmt: Im
+Faktor-Modell skalierte jede Modus- oder Standzeit-Änderung die GANZE Leiste, auch alles vor
+der geänderten Stelle. Jetzt wächst die Achse hinten und links bleibt jedes Pixel stehen
+(gemessen: Standzeit +14,8 s ⇒ +82,9 px am Ende, Maßstab unverändert). Beim Öffnen wird
+einmal eingepasst (`passeEin`), danach ändert nur Zoomen den Maßstab — waagerechter Scroll
+entsteht nie beim Öffnen. Weil die Breite jetzt an den DATEN hängt, schreibt
+`renderZeitleiste` sie mit (`schreibeZeitBreite`, mit Letzter-Wert-Vergleich: die Funktion
+läuft in jedem Zug-Frame).
 
 **Der Foto-Zug rechnet px-treu unterm Finger, die Zeit über eine ZIEH-Achse.** Die Miniatur
 folgt dem Cursor 1:1 in Pixeln (Ruhelage `stopp.offsetS` als optische Referenz, Einrasten in

@@ -3,9 +3,9 @@
 Ergebnis der Mockup-Session vom **2026-08-04**. Ausgangspunkt war ein Fehlerbericht
 („nach Fotos snappt der Playhead hart ein, davor lässt sich nichts bearbeiten");
 herausgekommen ist ein durchgespielter Entwurf für die nächste Ausbaustufe der
-Studio-Zeitleiste. **Alles hier ist am Mockup verifiziert, nichts davon ist im
-echten Editor umgesetzt.** Das Mockup ist
-[docs/mockups/studio-halt-und-spuren.html](mockups/studio-halt-und-spuren.html)
+Studio-Zeitleiste. Alles hier ist am Mockup verifiziert; **Etappe 1 ist seit
+2026-08-05 im echten Editor umgesetzt** (§4), die Etappen 2–4 stehen aus. Das Mockup ist
+[docs/mockups/studio-halt-und-spuren.html](../mockups/studio-halt-und-spuren.html)
 (Ansicht „Vorschlag", Deeplink `#vorschlag`; „Heute" stellt das Ist-Verhalten
 daneben) — es gehört mit ins Repo, die Begründungen unten verweisen auf seine
 Kommentare.
@@ -18,7 +18,7 @@ mit Messwerten, verworfenen Alternativen und einem Umsetzungsplan in vier Etappe
 
 ## 1. Der Kernbefund: die Achse ist an Halten nicht umkehrbar
 
-Die Filmzeit-Achse ([zeitleiste.ts `baueAchse`](../src/studio/zeitleiste.ts)) webt
+Die Filmzeit-Achse ([zeitleiste.ts `baueAchse`](../../src/studio/zeitleiste.ts)) webt
 jeden Foto-Halt als **Sprung** ein: zwei Stützstellen auf derselben Aufnahmesekunde,
 `filmS` davor und danach. Ein Halt verbraucht Filmzeit, aber keine Aufnahmezeit —
 deshalb gibt es in Aufnahmezeit **keinen Wert für „mitten im Halt"**.
@@ -55,11 +55,11 @@ das Datenmodell**. Gespeichert wird weiterhin Aufnahmezeit (stabile Anker, wie
 - **Standzeit am rechten Griff** des Klips (Foto: `display.holdS`), live während
   des Zugs, Dauer-Blase am Griff. **Videos haben diesen Griff nicht** — ihre
   Standzeit ist eine Tatsache der Datei (der Player läuft bis zum Ende, `holdS`
-  ist wirkungslos, [tour.js](../src/tour.js)).
+  ist wirkungslos, [tour.js](../../src/tour.js)).
 - **Videos zählen mit ihrer echten Länge.** Heute rechnet die Achse jedes Video
   wie ein Foto mit 5,2 s: ein 34-s-Video bekommt ~34 px statt ~200 px. `durationS`
   steht bereits im Tour-JSON — **es fehlt nur in der Editor-Route**
-  ([tours.ts `/editor`](../server/src/routes/tours.ts): liefert für Videos nur
+  ([tours.ts `/editor`](../../server/src/routes/tours.ts): liefert für Videos nur
   `poster`).
 - **Momente sind Halte** und gehören mit Achsenbreite in dieselbe Bahn (Muster in
   Koralle statt Bild). Heute haben sie null Breite — an der Beispieltour waren
@@ -92,25 +92,37 @@ das Datenmodell**. Gespeichert wird weiterhin Aufnahmezeit (stabile Anker, wie
 ### B. Playhead: läuft durch, bleibt orange
 
 - **Führende Größe ist die Filmsekunde** (`kopfFilmS`), nicht die Aufnahmezeit.
-  Damit läuft der Kopf durch Halte hindurch, Pfeiltasten (5 Filmsekunden)
-  funktionieren überall, und die Statuszeile kann sagen, *wo im Halt* er steht:
-  „Halt · Dschungelbach · 2,1 s von 8,0 s — die Uhr steht bei 18:42". Beim
-  Abspielen existiert das Muster schon (`renderPlayhead(anteilDirekt)`,
-  [CLAUDE.md](../CLAUDE.md)) — es muss die *eine* Wahrheit für Scrubben, Klick
-  und Tasten werden.
+  Damit läuft der Kopf durch Halte hindurch und Pfeiltasten (5 Filmsekunden)
+  funktionieren überall. Beim Abspielen existiert das Muster schon
+  (`renderPlayhead(anteilDirekt)`, [CLAUDE.md](../../CLAUDE.md)) — es muss die
+  *eine* Wahrheit für Scrubben, Klick und Tasten werden.
+- **Wo im Halt der Kopf steht, sagt der KLIP — keine zweite Anzeige.** Der
+  Kopf steht sichtbar in einem Klip mit Breite: dass ein Halt läuft, wo darin,
+  und wie viel Rest rechts davon bleibt, liest man an einer Stelle ab; bei
+  einer Kette ist zusätzlich der aktive der hervorgehobene („Aufnahme 2 von 3"
+  ohne ein Wort). Eine Statuszeile in der Kopfleiste, die dasselbe in Worten
+  wiederholt, war eine **Krücke für eine Leiste, die den Halt nicht zeigen
+  konnte** — sie ist mit dem Halt-als-Objekt gegenstandslos geworden und
+  wieder gestrichen (Chronik in §4, Etappe 1). Merkregel für alles Weitere:
+  Eine Anzeige, die einen Mangel kompensiert, muss verschwinden, wenn der
+  Mangel behoben ist — sonst wird sie später mit einer Begründung
+  verteidigt, die es nicht mehr gibt.
 - **Der Kopf bleibt immer orange.** Er wechselte im Halt auf Lila — Farbe
-  bezeichnet hier aber Identität, nicht Zustand; ein Ortsanzeiger, der auf halber
-  Strecke die Farbe wechselt, liest sich als zweiter Kopf. Der Zustand steht als
-  Wort in der Statuszeile; deren kleine **Marke** darf lila sein (ein Etikett ist
-  genau der Ort für einen Zustand).
+  bezeichnet hier aber Identität, nicht Zustand; ein Ortsanzeiger, der auf
+  halber Strecke die Farbe wechselt, liest sich als zweiter Kopf. Der Zustand
+  steht ohnehin im Klip, in dem der Kopf steht.
+- **Offen bleibt allein die PAUSE.** Sie fällt im Film fast auf einen Strich
+  zusammen — dort war „Pause · 22 Min Aufnahme, im Film gerafft" kein
+  Duplikat, sondern die einzige Auskunft. Ob sie einen eigenen Platz braucht
+  oder als Tooltip an der Pausenmarke genügt, ist nicht entschieden.
 
 ### C. Fester Maßstab: der Schlüssel zur Fortbewegung
 
 **Das Problem.** Die Fortbewegung bestimmt die Filmdauer (`MODE_SPEED` in
-[tour.js](../src/tour.js), gespiegelt in `tempoMs`): dieselbe Strecke ist zu Fuß
+[tour.js](../../src/tour.js), gespiegelt in `tempoMs`): dieselbe Strecke ist zu Fuß
 ein Vielfaches der Fährfahrt. Eine gezogene Modus-Grenze ändert also die Achse, auf
 der sie selbst liegt. Solange die Leiste den **ganzen Film auf die Fensterbreite**
-passt (heutiges Zoom-Modell: Faktor auf Basisbreite, [editor.ts](../src/studio/editor.ts)
+passt (heutiges Zoom-Modell: Faktor auf Basisbreite, [editor.ts](../../src/studio/editor.ts)
 `zoom = 1` = eingepasst), skaliert jede Längenänderung **alles** — auch das, was vor
 der Kante liegt und mit ihr nichts zu tun hat. Gemessen: Die Kante konnte beim
 Loslassen entweder ihre Pixelstelle behalten (dann stand eine andere Filmsekunde
@@ -121,7 +133,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
 
 - Beim Öffnen wird einmal **eingepasst** (fit); der Maßstab steht danach fest.
 - Zoomen ändert den Maßstab (Knöpfe − ⤢ +, ⌘+/⌘−, ⇧Z = einpassen — die
-  FCPX-Kürzel aus [mockups/studio-editor-mockups](../docs/mockups); Zoomen um die
+  FCPX-Kürzel aus [studio-editor.html](../mockups/studio-editor.html); Zoomen um die
   Mitte des sichtbaren Ausschnitts; Untergrenze ist „alles im Blick", darunter
   entstünde nur Leerrand).
 - **Beim Ziehen einer Fortbewegungs-Grenze wird der Maßstab eingefroren** (fit
@@ -265,21 +277,21 @@ interface MedienEdit {
 
 Folgen außerhalb des Schemas:
 
-- **Editor-Route** ([tours.ts `/editor`](../server/src/routes/tours.ts)): je Video
+- **Editor-Route** ([tours.ts `/editor`](../../server/src/routes/tours.ts)): je Video
   `dauerS` mitliefern — Quelle ist das gerenderte `tour.json` (`durationS` steht
   dort schon) bzw. der Anreicherungs-Cache; fehlt beides (unverarbeiteter
   Altbestand), lässt der Editor die 5,2-s-Annahme stehen und zeigt es an
   („Länge nach ‚Neu verarbeiten' bekannt").
-- **Pipeline** ([video.ts](../server/src/pipeline/video.ts)): bei gesetztem
+- **Pipeline** ([video.ts](../../server/src/pipeline/video.ts)): bei gesetztem
   `trim` **immer Transcode** — der Remux-Pfad (`-c copy`) schneidet nur an
   Keyframes und träfe den Schnittpunkt um Sekunden. `durationS` im Tour-JSON ist
   danach die getrimmte Länge.
-- **Enrich** ([enrich.ts](../server/src/pipeline/enrich.ts)): Audio-Anker
+- **Enrich** ([enrich.ts](../../server/src/pipeline/enrich.ts)): Audio-Anker
   `anker + versatzFilmS + dauerFilmS` beim Rendern über die Film-Achse in die
   `f0/f1`-Anteile des Tour-JSON übersetzen (die Achse steht der Pipeline über
-  [filmtempo.ts](../server/src/pipeline/filmtempo.ts) zur Verfügung).
-- **Player** ([audiotracks.js](../src/audiotracks.js),
-  [abspielen.ts](../src/studio/abspielen.ts)): `loop` aus dem Overlay statt
+  [filmtempo.ts](../../server/src/pipeline/filmtempo.ts) zur Verfügung).
+- **Player** ([audiotracks.js](../../src/audiotracks.js),
+  [abspielen.ts](../../src/studio/abspielen.ts)): `loop` aus dem Overlay statt
   pauschal `el.loop = true` für Musik; SFX mit `loop: true` brauchen ein
   Bereichsende (heute one-shot). `einstiegS` = Start-Seek (das Eintritts-Seek-
   Muster existiert in abspielen.ts bereits).
@@ -291,17 +303,53 @@ Folgen außerhalb des Schemas:
 Vier Etappen, jede einzeln releasebar. Reihenfolge nach Nutzen ÷ Risiko; die
 Schema-Änderung kommt bewusst zuletzt.
 
-### Etappe 1 — Playhead, Halt-Intervalle, Videolänge, Maßstab *(kein Schema-Bruch)*
+### Etappe 1 — Playhead, Halt-Intervalle, Videolänge, Maßstab *(kein Schema-Bruch)* — **UMGESETZT 2026-08-05**
 
 Das Ausgangsproblem, plus das Fundament für alles Weitere.
+
+Abweichungen von der Planung, gemessen am echten Editor:
+
+- Den **Lila-Wechsel des Kopfes** gab es nur im Mockup — im Editor war der
+  Kopfstrich immer orange. Nichts zu entfernen.
+- **Die Statuszeile in der Kopfleiste ist wieder gestrichen** (Nutzer-Befund):
+  Als Pille, die nur bei Halten erscheint, verschob sie beim Scrubben Uhr,
+  Werkzeuge und Zoom-Regler daneben — die ganze Leiste sprang. Eine Anzeige, die
+  die Bedienelemente bewegt, kostet mehr, als sie sagt — und sie sagte nichts
+  Neues: Seit der Halt ein Klip mit Breite ist, steht der Kopf sichtbar
+  darin, und Restdauer wie Stelle in der Kette liest man dort ab (dazu zeigt
+  die Karte das eingeblendete Bild). Die AUSKUNFT bleibt
+  (`haltBeiFilmS`/`beschreibeHaltStand`, getestet) — sie gehört ab Etappe 2 auf
+  den Klip selbst, wo sie nichts verschiebt. Mit ihr ist auch die
+  Zeitraffer-Erkennung wieder raus.
+- **Bandbeschriftungen kürzen in Stufen und SAGEN es.** Passt „Wolkig 52%"
+  nicht, steht dort „Wolkig …"; reicht auch das nicht, schneidet CSS mit
+  `text-overflow: ellipsis` ab. Der alte Alles-oder-nichts-Schnitt ließ ein
+  56-px-Band unbeschriftet, obwohl das Wort 45 px braucht (Berner Oberland bei
+  2:09) — und ein bloßes „Wolkig" ohne Auslassungspunkte sähe aus, als WÄRE das
+  die Angabe. Man sucht einen fehlenden Wert nicht, wenn man nicht weiß, dass er
+  existiert. Zwei Dinge gehören dazu: `kuerzeBeschriftungen` läuft auch nach
+  jeder **Maßstabsänderung** (rAF-gebündelt) — beim Hineinzoomen wird das Band
+  breit, dann gehört der volle Text wieder hinein; und unter 74 px Bandbreite
+  rückt der Text per **Container-Query** an den Rand, weil dort die Polsterung
+  (2×9 px) der größte Posten ist.
+- **`aufnahmeHaltS`** (neu) ersetzt `haltedauerS` überall dort, wo es um die
+  Filmzeit EINER Aufnahme geht — Achse, Halt-Breite, Überfahr-Marken der
+  Wiedergabe, Inspector-Summe. `haltedauerS` bleibt für die Foto-Standzeit.
+- Die **Editor-Route** nimmt `dauerS` aus drei Quellen (Manifest → Anreicherungs-
+  Cache → tour.json), nicht nur aus dem tour.json: die App misst schon beim
+  Aufnehmen, und dann steht die Länge vor dem ersten Rendern zur Verfügung.
+- `aktuelleStopps()` fällt aus dem Achsen-Cache mit ab — die Halt-Auskunft darf
+  `baueStopps` (Projektion jeder Aufnahme auf den ganzen Track) nicht je
+  Scrub-Frame rechnen. Gilt weiter, auch ohne die gestrichene Anzeige: ab
+  Etappe 2 fragt der Klip dieselbe Funktion.
 
 1. `baueAchse` gibt die Halte als **Intervalle** zurück (`{offsetS, breiteS,
    filmVon, filmBis, indizes}` statt nur `{offsetS, breiteS}`) — die Auskunft
    „steht der Kopf in einem Halt, und wo darin?" gibt es heute nicht.
 2. **Playhead führend in Filmsekunden** (Scrubben, Klick, Pfeiltasten,
-   Abspielen aus einer Quelle); Statuszeile „Halt · ‹Titel› · x s von y s — die
-   Uhr steht bei ‹Zeit›" bzw. „Pause · gerafft". Lila-Wechsel des Kopfes
-   entfernen (Statuszeilen-Marke behält die Farbe).
+   Abspielen aus einer Quelle). Die Auskunft „wo im Halt" entsteht als
+   Funktion (`haltBeiFilmS`/`beschreibeHaltStand`) und wird getestet — sie
+   bekommt aber KEINE eigene Anzeige in der Kopfleiste, s. Abweichungen oben.
 3. **Videolänge**: Editor-Route liefert `dauerS`; Achse und Szenen-Breite nutzen
    sie. **Momente** bekommen Achsenbreite (als Halte).
 4. **Zoom-Modell auf px/Filmsekunde umstellen** — das bestehende Faktor-Modell
@@ -310,11 +358,12 @@ Das Ausgangsproblem, plus das Fundament für alles Weitere.
    Fortbewegungs-Grenze (Etappe 3) wird er eingefroren; hier reicht: Maßstab
    ändert sich nur durch Zoomen/Einpassen, nie durch Datenänderung.
    `waehleFilmStufe(pxProS)` ist schon maßstabsfähig.
-5. Tests in [test/](../test/): Halt-Intervalle, Kopf-in-Halt-Auskunft,
+5. Tests in [test/](../../test/): Halt-Intervalle, Kopf-in-Halt-Auskunft,
    Pfeiltasten über einen Halt, Achse mit Videolänge, Stufenwahl.
 
 **Fertig, wenn:** der Kopf an einer Tour mit 6-s-Halt per Pfeiltaste und Scrub
-durch den Halt läuft und die Statuszeile die Position im Halt nennt.
+durch den Halt läuft — sichtbar daran, dass er sich innerhalb des Halt-Klips
+bewegt, statt an dessen Kante zu kleben.
 
 ### Etappe 2 — Szenen-Bahn *(kein Schema-Bruch)*
 

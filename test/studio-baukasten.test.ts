@@ -34,6 +34,7 @@ import {
   anteilBei,
   anteilZuOffset,
   audioWirdVerworfen,
+  aufnahmeHaltS,
   baueAchse,
   baueAudioBalken,
   baueFilmMassband,
@@ -42,18 +43,22 @@ import {
   baueSpielKurve,
   baueTrimGriffe,
   baueZustandsBaender,
+  beschreibeHaltStand,
   filmBei,
+  filmZuAnteil,
   filmZuOffset,
   formatiereDauer,
   formatiereFilmzeit,
   HALT_AUSBLEND_S,
   HALT_ENGINE_S,
+  haltBeiFilmS,
   haltedauerS,
   kumMeter,
   meterZuOffset,
   musikLanes,
   offsetZuAnteil,
   schaetzeAnimationsdauer,
+  schrittFilmS,
   waehleFilmStufe,
 } from '../src/studio/zeitleiste'
 
@@ -675,6 +680,120 @@ describe('Zeitleiste', () => {
     it('Fahranteil der Achse stimmt mit der Dauer-Schätzung überein (eine Formel)', () => {
       const gesamtOhneHalt = baueAchse(abschnitte, [], fSkala).kurve?.gesamtS
       expect(gesamtOhneHalt).toBeCloseTo(schaetzeAnimationsdauer(abschnitte, []), 6)
+    })
+
+    it('Halte kommen als INTERVALLE zurück — in Aufnahmezeit gibt es sie nicht', () => {
+      const gerundet = (a: typeof achse): number[][] =>
+        (a.halte ?? []).map((h) => [h.offsetS, h.breiteS, +h.filmVon.toFixed(3), +h.filmBis.toFixed(3)])
+      expect(gerundet(achse)).toEqual([[600, 20, 50, 70]])
+      // `indizes` reicht die Achse unverändert durch (Rückweg zum Stopp)
+      const mitId = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 20, indizes: [3] }], fSkala)
+      expect(mitId.halte?.[0]?.indizes).toEqual([3])
+      // Zwei Halte: der spätere kennt die Filmzeit des früheren schon
+      const zwei = baueAchse(
+        abschnitte,
+        [
+          { offsetS: 900, breiteS: 6 },
+          { offsetS: 600, breiteS: 20 },
+        ],
+        fSkala,
+      )
+      expect(gerundet(zwei)).toEqual([
+        [600, 20, 50, 70],
+        [900, 6, 95, 101],
+      ])
+      // Halte ohne Breite werden nicht eingewebt und tauchen nicht auf
+      expect(baueAchse(abschnitte, [{ offsetS: 600, breiteS: 0 }], fSkala).halte).toEqual([])
+    })
+
+    it('haltBeiFilmS sagt, WO im Halt der Kopf steht', () => {
+      expect(haltBeiFilmS(achse, 49.9)).toBeNull()
+      const ankunft = haltBeiFilmS(achse, 50)
+      expect(ankunft?.index).toBe(0)
+      expect(ankunft?.imHaltS).toBeCloseTo(0, 6)
+      expect(ankunft?.restS).toBeCloseTo(20, 6)
+      expect(haltBeiFilmS(achse, 62.1)?.imHaltS).toBeCloseTo(12.1, 6)
+      expect(haltBeiFilmS(achse, 62.1)?.restS).toBeCloseTo(7.9, 6)
+      // Die Abfahrt gehört schon zur Weiterfahrt
+      expect(haltBeiFilmS(achse, 70.1)).toBeNull()
+      // … außer der Film endet im Halt: dann steht der Kopf bis zuletzt darin
+      const amEnde = baueAchse(abschnitte, [{ offsetS: 1200, breiteS: 8 }], fSkala)
+      expect(haltBeiFilmS(amEnde, amEnde.kurve!.gesamtS)?.imHaltS).toBeCloseTo(8, 6)
+      // Ohne Halte gibt es nichts zu melden
+      expect(haltBeiFilmS(baueAchse(abschnitte, [], fSkala), 10)).toBeNull()
+    })
+
+    it('ein Halt aus drei Aufnahmen löst sich zu „Aufnahme n von m" auf', () => {
+      // Drei Fotos à 5,2 s + 0,8 s Ausblendung = 6 s je Aufnahme, 18 s Halt
+      const stuecke = ['m1', 'm2', 'm3'].map((id) => ({ id, dauerS: 6 }))
+      const drei = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 18, stuecke }], fSkala)
+      const halt = drei.halte?.[0]
+      expect(halt?.filmBis! - halt!.filmVon).toBeCloseTo(18, 6)
+
+      // Kopf 8 Filmsekunden nach der Ankunft: zweite Aufnahme, 2 s in ihr drin
+      const mitten = haltBeiFilmS(drei, halt!.filmVon + 8)
+      expect(mitten?.stueck).toMatchObject({ nr: 2, anzahl: 3, id: 'm2' })
+      expect(mitten?.stueck?.imS).toBeCloseTo(2, 6)
+      expect(beschreibeHaltStand(mitten!)).toBe('Aufnahme 2 von 3 · 2,0 s von 6,0 s')
+
+      // Kanten: Ankunft ist die erste, kurz vor der Abfahrt die letzte
+      expect(haltBeiFilmS(drei, halt!.filmVon)?.stueck?.nr).toBe(1)
+      expect(haltBeiFilmS(drei, halt!.filmVon + 17.9)?.stueck?.nr).toBe(3)
+      // Eine einzelne Aufnahme braucht kein Zählwerk („Aufnahme 1 von 1")
+      const eine = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 6, stuecke: [{ id: 'm1', dauerS: 6 }] }], fSkala)
+      expect(beschreibeHaltStand(haltBeiFilmS(eine, eine.halte![0]!.filmVon + 2.5)!)).toBe('2,5 s von 6,0 s')
+      // Ohne bekannte Stücke zählt die Zeit im ganzen Halt
+      expect(beschreibeHaltStand(haltBeiFilmS(achse, 62.1)!)).toBe('12,1 s von 20,0 s')
+    })
+
+    it('5-Filmsekunden-Schritte überspringen keinen Halt', () => {
+      // Der alte Weg rechnete in AUFNAHMEzeit: an einem 6-s-Halt kam man nie
+      // vorbei, weil die Rückrechnung immer auf die linke Haltkante fiel.
+      const halte = [
+        { offsetS: 300, breiteS: 6 },
+        { offsetS: 600, breiteS: 6 },
+        { offsetS: 900, breiteS: 5.2 },
+      ]
+      const a = baueAchse(abschnitte, halte, fSkala)
+      const besucht = new Set<number>()
+      for (let f = 0; f <= a.kurve!.gesamtS; f = schrittFilmS(a, f, 5)) {
+        const stand = haltBeiFilmS(a, f)
+        if (stand) besucht.add(stand.index)
+        if (f >= a.kurve!.gesamtS) break
+      }
+      expect([...besucht].sort()).toEqual([0, 1, 2])
+
+      // Der Schritt klemmt an den Enden der Achse und geht auch rückwärts
+      expect(schrittFilmS(a, 0, -5)).toBe(0)
+      expect(schrittFilmS(a, a.kurve!.gesamtS, 5)).toBeCloseTo(a.kurve!.gesamtS, 6)
+      expect(schrittFilmS(a, 20, -5)).toBeCloseTo(15, 6)
+
+      // Zum Vergleich der ALTE Weg (Aufnahmezeit als führende Größe): er bleibt
+      // an der Haltkante hängen, ein Schritt bringt keine Filmsekunde Gewinn.
+      const kante = a.halte![0]!
+      const zeitImHalt = anteilZuOffset(a, filmZuAnteil(a, kante.filmVon + 3))
+      expect(filmZuAnteil(a, filmZuOffset(a, zeitImHalt))).toBeCloseTo(filmZuAnteil(a, kante.filmVon), 6)
+    })
+
+    it('die Achse rechnet ein Video mit seiner echten Länge', () => {
+      // Ein 34-s-Video bekam als „Foto" 5,2 s — an einer 293-s-Tour ~34 px
+      // statt ~200 px Achsenbreite (docs/concepts/zeitleiste-umbau.md §6).
+      expect(aufnahmeHaltS({ type: 'video', dauerS: 34 })).toBe(34)
+      // holdS ist bei Video wirkungslos: der Player läuft bis zum Dateiende
+      expect(aufnahmeHaltS({ type: 'video', dauerS: 34, display: { holdS: 8 } })).toBe(34)
+      // Ohne bekannte Länge (unverarbeiteter Altbestand) bleibt die Annahme
+      expect(aufnahmeHaltS({ type: 'video' })).toBe(HALT_ENGINE_S)
+      // Fotos bleiben, wie sie waren
+      expect(aufnahmeHaltS({ type: 'photo' })).toBe(HALT_ENGINE_S)
+      expect(aufnahmeHaltS({ type: 'photo', display: { holdS: 12 } })).toBe(12)
+
+      const video = { id: 'v1', dauerS: aufnahmeHaltS({ type: 'video', dauerS: 34 }) + HALT_AUSBLEND_S }
+      const mitVideo = baueAchse(abschnitte, [{ offsetS: 600, breiteS: video.dauerS, stuecke: [video] }], fSkala)
+      // 100 s Fahrt + 34,8 s Video statt 100 + 6
+      expect(mitVideo.kurve?.gesamtS).toBeCloseTo(134.8, 1)
+      expect(mitVideo.halte?.[0]?.breiteS).toBeCloseTo(34.8, 6)
+      // … und der Kopf steht mitten im Video, nicht in einer 6-s-Annahme
+      expect(haltBeiFilmS(mitVideo, mitVideo.halte![0]!.filmVon + 20)?.stueck?.imS).toBeCloseTo(20, 6)
     })
 
     it('Spielkurve: Identität ohne Trim, Plateau über weggetrimmten Bereichen', () => {

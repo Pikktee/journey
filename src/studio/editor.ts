@@ -47,8 +47,10 @@ import {
 } from './editmodell.js'
 import {
   ankerScroll,
+  anteilZuFilm,
   anteilZuOffset,
   audioWirdVerworfen,
+  aufnahmeHaltS,
   baueAchse,
   baueAudioBalken,
   baueBaender,
@@ -58,6 +60,7 @@ import {
   baueSpielKurve,
   baueZustandsBaender,
   filmBei,
+  filmZuAnteil,
   filmZuOffset,
   formatiereFilmzeit,
   HALT_AUSBLEND_S,
@@ -69,6 +72,7 @@ import {
   musikLanes,
   offsetBeiMeter,
   offsetZuAnteil,
+  schrittFilmS,
   uhrDiffZuOffset,
   type Achse,
   type Filmkurve,
@@ -225,8 +229,22 @@ let zurueckCb: (() => void) | null = null
 let verdrahtet = false
 /** Kumulierte Streckenmeter je Trackpunkt — für die km-Anzeige am Abspielkopf. */
 let kumStrecke: number[] = []
-/** Zoomfaktor der Zeitachse; 1 = ganze Tour im Fenster („angepasst"). */
-let zoom = 1
+/**
+ * Maßstab der Zeitachse in PIXELN JE FILMSEKUNDE — die gespeicherte Zoomgröße.
+ *
+ * Nicht ein Faktor auf die Fensterbreite: die Fortbewegung bestimmt die
+ * Filmdauer, ein Faktor-Modell skalierte deshalb bei jeder Modus-Änderung die
+ * ganze Leiste — auch alles VOR der geänderten Stelle, das damit nichts zu tun
+ * hat. Mit festem Maßstab bleibt links der Änderung jedes Pixel stehen; nur was
+ * dahinter liegt, rückt. 0 = noch nicht gemessen.
+ */
+let pxProFilmS = 0
+/**
+ * Solange wahr, folgt der Maßstab der Fensterbreite („eingepasst") — der
+ * Startzustand und die Untergrenze des Zoomens. Erst eine Nutzerhandlung
+ * (Hineinzoomen) friert ihn ein, waagerechter Scroll entsteht nie beim Öffnen.
+ */
+let einpassen = true
 /** Aktives Werkzeug der Zeitleiste (Auswahl · Hand · Zoom), wie in Final Cut. */
 let werkzeug: 'auswahl' | 'hand' | 'zoom' = 'auswahl'
 /**
@@ -313,12 +331,14 @@ async function ladeDaten(tourId: string): Promise<void> {
   // sichtbar, nicht mehr eine Sonderlage nach dem ersten Klick.
   const skalaInit = baueSkala(z.track)
   if (skalaInit) z.auswahl = punktZuOffset(z.track, skalaInit.vonS)
+  kopfFilmS = 0
   renderAlles()
   // Die Achsenbreite ERST danach setzen: `renderZeitleiste` blendet die Leisten-
   // Zone ein, und solange sie `hidden` ist, misst sich ihr Fenster als 0 breit —
-  // der Zoom-Fit hätte auf die Notbreite gerechnet und die Achse gestaucht.
-  zoom = 1
-  wendeZoomAn(1, 0, spurXpx())
+  // der Fit hätte auf die Notbreite gerechnet und die Achse gestaucht.
+  einpassen = true
+  pxProFilmS = 0
+  passeEin()
 }
 
 function schliesse(): void {
@@ -337,7 +357,9 @@ function schliesse(): void {
   markerZuId = new Map()
   laeufer = null
   kumStrecke = []
-  zoom = 1
+  pxProFilmS = 0
+  einpassen = true
+  kopfFilmS = null
   zurueckCb?.()
 }
 
@@ -834,7 +856,7 @@ function ziehStopp(e: PointerEvent, stopp: Stopp): void {
   const gruppe = stopp.items.map((m) => ({ id: m.id, offset0: offsetVon(m) }))
   const eigene = new Set(gruppe.map((g) => g.id))
   const stoppBreiteS = (s: Stopp): number =>
-    s.items.reduce((summe, m) => summe + haltedauerS(m.display) + HALT_AUSBLEND_S, 0)
+    s.items.reduce((summe, m) => summe + aufnahmeHaltS(m) + HALT_AUSBLEND_S, 0)
   // Einrasten auf fremde HALTE (Mitte), nicht auf jede einzelne Aufnahme —
   // sonst würde ein Mehrfach-Stopp ein breites Schnapp-Fenster aufspannen.
   const fremdeStopps = baueStopps(medienAnzeige(), z.track, kumStrecke).filter(
@@ -2185,8 +2207,9 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   huelle.appendChild(baueInfoBereich(m))
 
   if (stopp && stopp.items.length > 1) {
-    // Was der Halt im fertigen Film wirklich kostet: die Summe seiner Bilder.
-    const summe = stopp.items.reduce((sum, x) => sum + (x.type === 'photo' ? haltedauerS(x.display) : 0), 0)
+    // Was der Halt im fertigen Film wirklich kostet: die Summe seiner
+    // Aufnahmen — ein Video mit seiner Laufzeit, ein Foto mit seiner Standzeit.
+    const summe = stopp.items.reduce((sum, x) => sum + aufnahmeHaltS(x), 0)
     const zeile = document.createElement('div')
     zeile.className = 'stopp-summe'
     const links = document.createElement('span')
@@ -3121,7 +3144,12 @@ function bandUnterZeiger(e: PointerEvent): Fokus | null {
 // die ganze Zerlegung rechnen. Während eines Foto-Zugs (Overlay bis zum
 // Loslassen unverändert) bleibt er warm; Kanten-Züge schreiben das Overlay je
 // Move fort und bauen neu — das tat renderZeitleiste vorher genauso.
-let achseMemo: { edits: EditOverlay; tourId: string; achse: Achse | null; spiel: Filmkurve | null } | null = null
+let achseMemo: {
+  edits: EditOverlay
+  tourId: string
+  achse: Achse | null
+  spiel: Filmkurve | null
+} | null = null
 
 function aktuelleAchse(): Achse | null {
   if (!z) return null
@@ -3129,13 +3157,33 @@ function aktuelleAchse(): Achse | null {
   const skala = baueSkala(z.track)
   if (!skala) return null
   const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start)
-  // Halt-Breite = Standzeit aller Aufnahmen des Stopps (Videos wie Fotos mit
-  // ihrer holdS bzw. dem Default — die echte Videolänge kennt erst der Server).
-  const halte = baueStopps(medienAnzeige(), z.track, kumStrecke).map((s) => ({
-    offsetS: s.offsetS,
-    breiteS: s.items.reduce((summe, m) => summe + haltedauerS(m.display) + HALT_AUSBLEND_S, 0),
+  // Halt-Breite = Standzeit aller Aufnahmen des Stopps.
+  // `indizes` trägt den Weg zurück zum Stopp: die Achse sortiert nach Zeit und
+  // lässt Halte ohne Breite weg, ihr Index ist also nicht der der Stopp-Liste.
+  const stopps = baueStopps(medienAnzeige(), z.track, kumStrecke)
+  const halte = stopps.map((s, i) => {
+    // Ein Halt ist die KETTE seiner Aufnahmen, kein Block: nur so lässt sich
+    // sagen, welche davon gerade steht. Videos zählen mit ihrer echten Länge
+    // (`dauerS` aus der Editor-Route), Fotos mit ihrer Standzeit.
+    const stuecke = s.items.map((m) => ({ id: m.id, dauerS: aufnahmeHaltS(m) + HALT_AUSBLEND_S }))
+    return {
+      offsetS: s.offsetS,
+      breiteS: stuecke.reduce((summe, st) => summe + st.dauerS, 0),
+      art: 'aufnahmen',
+      indizes: [i],
+      stuecke,
+    }
+  })
+  // Ein Moment ist grammatikalisch ein HALT: die Kamera bleibt stehen und tut
+  // etwas, Filmzeit vergeht. Ohne Achsenbreite fehlten sie in der Leiste
+  // vollständig — an der Beispieltour 13,6 unsichtbare Filmsekunden.
+  const momente = (z.edits.momente ?? []).map((m, i) => ({
+    offsetS: isoZuOffset(z!.daten.time.start, m.ab),
+    breiteS: m.dauerS ?? MOMENT_DEFAULT_S[m.art],
+    art: 'moment',
+    indizes: [i],
   }))
-  const achse = baueAchse(abschnitte, halte, skala)
+  const achse = baueAchse(abschnitte, [...halte, ...momente], skala)
   achseMemo = { edits: z.edits, tourId: z.tourId, achse, spiel: baueSpielKurve(achse, abschnitte) }
   return achse
 }
@@ -3159,6 +3207,9 @@ function renderZeitleiste(): void {
   const anteilVon = (iso: string): number => offsetZuAnteil(skala, isoZuOffset(start, iso))
   const fokusInfo = loeseFokusAuf()
 
+  // Die Achsenbreite hängt an den DATEN (Filmdauer × Maßstab): eine geänderte
+  // Standzeit oder Fortbewegung verlängert den Film und damit die Leiste.
+  schreibeZeitBreite()
   renderSkala()
 
   /**
@@ -3166,7 +3217,20 @@ function renderZeitleiste(): void {
    * `art` macht das Band anklickbar: die Bandmitte dient als Fokus-Bezug
    * (überlebt das Verschieben von Grenzen besser als der Bandanfang).
    */
-  const band = (art: 'modus' | 'kamera' | 'wetter', von: number, bis: number, text: string, farbe?: string): HTMLElement => {
+  const band = (
+    art: 'modus' | 'kamera' | 'wetter',
+    von: number,
+    bis: number,
+    text: string,
+    farbe?: string,
+    /**
+     * Beiwert („ 52%", „ ×1.3"): fällt als Erstes weg, wenn das Band eng wird.
+     * „Wolkig" allein sagt fast alles — gar nichts zu sagen (der frühere
+     * Alles-oder-nichts-Schnitt) ließ Bänder unbeschriftet, obwohl der Name
+     * bequem hineingepasst hätte.
+     */
+    zusatz = '',
+  ): HTMLElement => {
     const d = document.createElement('div')
     d.className = 'band'
     d.style.left = pos(von)
@@ -3174,9 +3238,13 @@ function renderZeitleiste(): void {
     if (farbe) d.style.background = farbe
     d.dataset['fokus'] = art
     d.dataset['bezugs'] = String(anteilZuOffset(skala, (von + bis) / 2))
-    d.title = text
+    d.title = text + zusatz
+    // Die Beschriftung als EIGENES Feld: `title` tragen manche Bänder als
+    // Erklärung („… — automatisch ermittelt"), die nie auf dem Band stehen darf.
+    d.dataset['voll'] = text + zusatz
+    if (zusatz) d.dataset['kurz'] = text
     const t = document.createElement('span')
-    t.textContent = text
+    t.textContent = text + zusatz
     d.appendChild(t)
     return d
   }
@@ -3249,8 +3317,9 @@ function renderZeitleiste(): void {
       'kamera',
       b.von,
       b.bis,
-      (b.wert ? PRESET_NAMEN[b.wert] : KAMERA_STANDARD) + skalaTxt,
+      b.wert ? PRESET_NAMEN[b.wert] : KAMERA_STANDARD,
       b.wert ? PRESET_FARBEN[b.wert] : undefined,
+      skalaTxt,
     )
     if (!b.wert) d.title = KAMERA_STANDARD_ERKLAERT
     if (!b.wert) d.classList.add('leise')
@@ -3290,8 +3359,9 @@ function renderZeitleiste(): void {
       'wetter',
       b.von,
       b.bis,
-      (b.wert ? WETTER_NAMEN[b.wert] : 'Automatisch') + staerkeTxt,
+      b.wert ? WETTER_NAMEN[b.wert] : 'Automatisch',
       b.wert ? WETTER_FARBEN[b.wert] : undefined,
+      staerkeTxt,
     )
     if (!b.wert) d.classList.add('leise')
     else d.classList.add('hell')
@@ -3391,11 +3461,11 @@ function renderZeitleiste(): void {
     mini.dataset['rolle'] = 'dot'
     mini.dataset['id'] = kopf.id
     mini.dataset['ids'] = stopp.items.map((m) => m.id).join(' ')
-    const halt = stopp.items.reduce((sum, m) => sum + (m.type === 'photo' ? haltedauerS(m.display) : 0), 0)
+    const halt = stopp.items.reduce((sum, m) => sum + aufnahmeHaltS(m), 0)
     mini.title =
       anzahl > 1
         ? `Stopp mit ${anzahl} Aufnahmen — ${Math.round(halt)} s Halt`
-        : `${kopf.caption || kopf.id} — ${uhrzeitKurz(kopf.takenAt)} Uhr, ${haltedauerS(kopf.display)} s Halt`
+        : `${kopf.caption || kopf.id} — ${uhrzeitKurz(kopf.takenAt)} Uhr, ${Math.round(aufnahmeHaltS(kopf))} s Halt`
     // Angedeutete Karten HINTER dem Kopfbild, nach rechts/oben versetzt: die
     // vordere Karte bleibt damit genau auf der Zeit des Halts.
     for (const nr of [2, 1]) {
@@ -3433,29 +3503,59 @@ function renderZeitleiste(): void {
 }
 
 /**
- * Beschriftungen, die nicht in ihr Band passen, ganz weglassen. Ein
- * abgeschnittenes „Zu …" sagt weniger als nichts — die Farbe des Bandes trägt
- * die Aussage ohnehin, und der volle Name steht im Tooltip. Erst NACH dem
- * Aufbau messbar; ein Layout-Durchgang für die ganze Leiste ist dafür wenig.
+ * Beschriftungen an die Bandbreite anpassen — und dabei SAGEN, dass gekürzt ist.
+ *
+ * Zwei Stufen: Passt „Wolkig 52%" nicht, bleibt „Wolkig …"; reicht auch das
+ * nicht, schneidet CSS mit `text-overflow: ellipsis` ab. Die Auslassungspunkte
+ * sind der Punkt der Übung — ein Band, das nur „Wolkig" zeigt, sieht aus, als
+ * WÄRE das die Angabe; eines ganz ohne Text (der frühere Alles-oder-nichts-
+ * Schnitt) sieht aus, als gäbe es keine. Beide Male sucht man den fehlenden
+ * Wert nicht, weil man nicht weiß, dass er existiert.
+ *
+ * Läuft bei jedem Voll-Render UND nach jeder Maßstabsänderung: Beim Hineinzoomen
+ * wird das Band breit, und dann gehört der volle Text wieder hinein. Während
+ * eines Zugs läuft die Funktion bewusst NICHT (renderNachZug) — das erzwungene
+ * Layout gehört nicht in einen Zieh-Frame.
  */
 function kuerzeBeschriftungen(): void {
   for (const b of document.querySelectorAll<HTMLElement>('#zeitleiste-zone .band')) {
     const text = b.querySelector('span')
     if (!text) continue
-    b.classList.remove('ohne-text')
-    if (text.scrollWidth > text.clientWidth + 1) b.classList.add('ohne-text')
+    const voll = b.dataset['voll'] ?? text.textContent ?? ''
+    const kurz = b.dataset['kurz']
+    if (text.textContent !== voll) text.textContent = voll
+    // Ein Pixel Toleranz: Sub-Pixel-Breiten runden sonst grundlos zur Kurzform.
+    if (text.scrollWidth <= text.clientWidth + 1) continue
+    if (kurz) text.textContent = `${kurz} …`
   }
+}
+
+/**
+ * Nachmessen, sobald der Maßstab steht — aber höchstens einmal je Bild.
+ * Rad- und Pinch-Zoom feuern pro Frame; ein erzwungenes Layout je Ereignis
+ * wäre genau die Arbeit, die aus einer flüssigen Geste eine zähe macht.
+ */
+let kuerzenRaf = 0
+function kuerzeBeschriftungenBald(): void {
+  if (kuerzenRaf) return
+  kuerzenRaf = requestAnimationFrame(() => {
+    kuerzenRaf = 0
+    kuerzeBeschriftungen()
+  })
 }
 
 // — Zoom, Abspielkopf und Läufer —
 //
 // Die Zeitachse ist so breit wie `--zeit-breite` (Pixel, nicht Prozent): nur so
-// kann sie über das Fenster hinauswachsen und waagerecht scrollen. Bei Zoom 1
-// füllt sie das Fenster genau — das ist der Standard „an Fenster angepasst".
+// kann sie über das Fenster hinauswachsen und waagerecht scrollen. Ihre Breite
+// ist FILMDAUER × MASSSTAB (`pxProFilmS`) — die gespeicherte Größe ist der
+// Maßstab, nicht ein Faktor auf die Fensterbreite. Eingepasst heißt: der
+// Maßstab wird aus der Fensterbreite gerechnet; er folgt ihr, bis jemand zoomt.
 
+/** Größter Maßstab, ausgedrückt als Vielfaches des eingepassten. */
 const ZOOM_MAX = 40
 
-/** Breite der Zeitachse bei Zoom 1: Fensterbreite minus Namenspalte und Auslauf. */
+/** Breite der Zeitachse im eingepassten Zustand: Fenster minus Namenspalte und Auslauf. */
 function basisBreitePx(): number {
   const fenster = document.getElementById('spuren-fenster')
   if (!fenster) return 0
@@ -3467,59 +3567,170 @@ function spurXpx(): number {
   return parseFloat(wert) || 168
 }
 
+/** Filmdauer der ganzen Achse (s) — 0, solange es keine Kurve gibt. */
+function filmGesamtS(): number {
+  return aktuelleAchse()?.kurve?.gesamtS ?? 0
+}
+
+/** Maßstab, bei dem der ganze Film genau ins Fenster passt (px je Filmsekunde). */
+function passMassstab(): number {
+  const gesamt = filmGesamtS()
+  return gesamt > 0 ? basisBreitePx() / gesamt : 0
+}
+
 function zeitBreitePx(): number {
-  return basisBreitePx() * zoom
+  const gesamt = filmGesamtS()
+  // Ohne Kurve (degenerierte Tour) bleibt es bei der Fensterbreite: dort ist die
+  // Leiste linear über der Aufnahmezeit, eine Filmsekunde gibt es gar nicht.
+  if (!(gesamt > 0) || !(pxProFilmS > 0)) return basisBreitePx()
+  return gesamt * pxProFilmS
+}
+
+/** Aktueller Maßstab als Vielfaches des eingepassten — nur noch für die Anzeige. */
+function zoomFaktor(): number {
+  const pass = passMassstab()
+  return pass > 0 && pxProFilmS > 0 ? pxProFilmS / pass : 1
 }
 
 /**
- * Zoom setzen und die Ansicht so scrollen, dass `ankerAnteil` an der Fenster-x
- * `zielVx` stehen bleibt — sonst springt der Blick beim Zoomen irgendwohin.
+ * Maßstab setzen und die Ansicht so scrollen, dass `ankerAnteil` an der
+ * Fenster-x `zielVx` stehen bleibt — sonst springt der Blick beim Zoomen
+ * irgendwohin. Untergrenze ist „alles im Blick": darunter entstünde nur
+ * Leerrand, und genau dort gilt wieder `einpassen`.
  */
-function wendeZoomAn(neu: number, ankerAnteil: number, zielVx: number): void {
-  zoom = Math.max(1, Math.min(ZOOM_MAX, neu))
+function setzeMassstab(neuPxProS: number, ankerAnteil: number, zielVx: number): void {
+  const pass = passMassstab()
+  if (pass <= 0) {
+    schreibeZeitBreite()
+    return
+  }
+  pxProFilmS = Math.max(pass, Math.min(pass * ZOOM_MAX, neuPxProS))
+  einpassen = pxProFilmS <= pass * 1.001
   const breite = zeitBreitePx()
+  letzteZeitBreite = breite
   $('editor-view').style.setProperty('--zeit-breite', `${breite}px`)
   renderSkala()
   renderPlayhead()
   const fenster = document.getElementById('spuren-fenster')
   if (fenster) fenster.scrollLeft = ankerScroll(ankerAnteil, breite, zielVx, spurXpx())
   zoomAnzeigen()
+  // Breitere Bänder tragen wieder mehr Text — sonst bliebe „Wolkig …" stehen,
+  // obwohl nach dem Hineinzoomen längst „Wolkig 52%" hineinpasst.
+  kuerzeBeschriftungenBald()
+}
+
+/**
+ * Breite und Zoomanzeige an den aktuellen Stand angleichen — ohne zu scrollen.
+ *
+ * Nötig, weil die Achsenbreite jetzt von den DATEN abhängt (Filmdauer × Maßstab):
+ * wird eine Standzeit oder ein Modus geändert, wächst die Leiste. Im
+ * eingepassten Zustand wird der Maßstab dabei neu gerechnet, sonst bleibt er
+ * stehen — das ist die ganze Pointe des festen Maßstabs.
+ */
+let letzteZeitBreite = -1
+function schreibeZeitBreite(): void {
+  const pass = passMassstab()
+  if (pass > 0 && (einpassen || !(pxProFilmS > 0))) pxProFilmS = pass
+  const breite = zeitBreitePx()
+  // Letzter-Wert-Vergleich: Die Funktion läuft in JEDEM Zug-Frame (über
+  // renderZeitleiste). Ohne ihn schriebe sie pro Frame CSS-Variable, Regler und
+  // Knopfbeschriftung neu — Arbeit, die während eines Zugs bewusst unterbleibt.
+  if (Math.abs(breite - letzteZeitBreite) < 0.01) return
+  letzteZeitBreite = breite
+  $('editor-view').style.setProperty('--zeit-breite', `${breite}px`)
+  zoomAnzeigen()
 }
 
 function zoomAnzeigen(): void {
+  const faktor = zoomFaktor()
   const regler = document.getElementById('zoom-regler') as HTMLInputElement | null
-  if (regler) regler.value = String(Math.round((Math.log(zoom) / Math.log(ZOOM_MAX)) * 100))
+  if (regler) regler.value = String(Math.round((Math.log(faktor) / Math.log(ZOOM_MAX)) * 100))
   const wert = document.getElementById('zoom-wert') as HTMLButtonElement | null
   if (wert) {
-    wert.textContent = `${zoom.toFixed(1).replace('.', ',')}×`
-    wert.disabled = zoom <= 1.001
+    wert.textContent = `${faktor.toFixed(1).replace('.', ',')}×`
+    wert.disabled = einpassen
   }
   const raus = document.getElementById('zoom-raus') as HTMLButtonElement | null
-  if (raus) raus.disabled = zoom <= 1.001
+  if (raus) raus.disabled = einpassen
   const rein = document.getElementById('zoom-rein') as HTMLButtonElement | null
-  if (rein) rein.disabled = zoom >= ZOOM_MAX - 0.001
+  if (rein) rein.disabled = faktor >= ZOOM_MAX - 0.001
 }
 
-/** Nach Größenänderungen die Achse an die neue Fensterbreite anpassen. */
+/**
+ * Nach Größenänderungen des Fensters. Eingepasst folgt der Maßstab der neuen
+ * Breite; ist er eingefroren, bleibt er — dann wandert nur der Ausschnitt, und
+ * die Filmsekunde unter einer Pixelstelle ändert sich nicht.
+ */
+/** Ganzen Film ins Fenster holen (⇧Z, „×"-Knopf, Start) — der Grundzustand. */
+function passeEin(): void {
+  einpassen = true
+  setzeMassstab(passMassstab(), 0, spurXpx())
+}
+
 function passeZeitBreiteAn(): void {
   if (!z) return
   const fenster = document.getElementById('spuren-fenster')
   const anker = fenster && fenster.clientWidth > 0 ? (fenster.scrollLeft + spurXpx()) / Math.max(1, zeitBreitePx()) : 0
-  wendeZoomAn(zoom, Math.max(0, Math.min(1, anker)), spurXpx())
+  if (einpassen) {
+    setzeMassstab(passMassstab(), 0, spurXpx())
+    return
+  }
+  setzeMassstab(pxProFilmS, Math.max(0, Math.min(1, anker)), spurXpx())
 }
+
+// — Der Abspielkopf steht in FILMsekunden —
+//
+// `kopfFilmS` ist die eine Wahrheit für Scrubben, Klick, Pfeiltasten und
+// Abspielen. Die Aufnahmezeit (`z.auswahl`, zugleich Einfügemarke für „ab
+// hier"-Aktionen) wird daraus ABGELEITET, nie umgekehrt: In Aufnahmezeit gibt
+// es keinen Wert für „mitten im Halt" (zwei Stützstellen auf derselben
+// Sekunde), die Rückrechnung fällt dort immer auf die linke Haltkante. Genau
+// daran klebte der Kopf — 28 von 39 Frames Stillstand, und mit Pfeiltasten kam
+// man an einem 6-s-Halt nie vorbei (docs/concepts/zeitleiste-umbau.md §1).
+
+/** Position des Abspielkopfs in Filmsekunden; null = noch keine. */
+let kopfFilmS: number | null = null
 
 /**
  * Der Abspielkopf ist die Einfügemarke `z.auswahl` — eine Größe, nicht zwei:
  * was man anpeilt, ist auch die Stelle, ab der „ab hier"-Aktionen greifen.
+ *
+ * Diesen Weg nehmen die Gesten, die einen ORT meinen (Klick auf die Karte, ein
+ * Zeitfeld): eine Aufnahmezeit trifft den ANFANG eines Halts, was dort richtig
+ * ist. Alles, was eine Stelle auf der LEISTE meint, geht über `setzeKopfFilm`.
  */
 function setzeMarke(tOffsetS: number): void {
   if (!z) return
   const skala = baueSkala(z.track)
   if (!skala) return
   const geklemmt = Math.max(skala.vonS, Math.min(skala.bisS, tOffsetS))
+  const achse = aktuelleAchse()
+  kopfFilmS = achse?.kurve ? filmZuOffset(achse, geklemmt) : null
   const punkt = punktZuOffset(z.track, geklemmt)
   if (punkt) z.auswahl = punkt
   renderPlayhead()
+}
+
+/** Den Kopf auf eine FILMsekunde stellen — der führende Weg. */
+function setzeKopfFilm(filmS: number): void {
+  if (!z) return
+  const achse = aktuelleAchse()
+  if (!achse?.kurve) return
+  kopfFilmS = Math.max(0, Math.min(achse.kurve.gesamtS, filmS))
+  leiteMarkeAusKopfAb(achse)
+  renderPlayhead()
+}
+
+/** Aufnahmezeit (und damit `z.auswahl`) aus der Kopf-Filmsekunde nachziehen. */
+function leiteMarkeAusKopfAb(achse: Achse): void {
+  if (!z || kopfFilmS === null) return
+  const punkt = punktZuOffset(z.track, anteilZuOffset(achse, filmZuAnteil(achse, kopfFilmS)))
+  if (punkt) z.auswahl = punkt
+}
+
+/** Aktuelle Kopf-Filmsekunde (0, solange keine gesetzt ist). */
+function kopfFilm(): number {
+  return kopfFilmS ?? 0
 }
 
 /**
@@ -3541,24 +3752,29 @@ function zeigeKopfWennImBlick(): void {
 /**
  * Kopfstrich, Kopf-Uhr und Läufer auf die aktuelle Marke stellen.
  *
- * `anteilDirekt` kommt vom Abspieler: WÄHREND eines Foto-Halts wandert die
- * Marke durch den Halt-Sprung der Achse — dort ist die Aufnahmezeit konstant,
- * und der Rundweg Anteil → Zeit → Anteil fiele auf den Sprunganfang zurück
- * (der Strich klebte die ganze Standzeit fest). Uhr, km und Läufer dürfen
- * dagegen ruhig auf der Halt-Zeit stehen: Die Zeit STEHT dort wirklich.
+ * Gezeichnet wird aus `kopfFilmS` — nicht aus der Aufnahmezeit. Nur so wandert
+ * der Strich durch einen Halt-Sprung: dort steht die Aufnahmezeit still, und
+ * der Rundweg Zeit → Anteil fiele die ganze Standzeit auf den Sprunganfang
+ * zurück. Uhr, km und Läufer dürfen dagegen auf der Halt-Zeit stehen — die Zeit
+ * STEHT dort wirklich.
  */
-function renderPlayhead(anteilDirekt?: number): void {
+function renderPlayhead(): void {
   if (!z) return
   const strich = document.getElementById('kopfstrich')
   const achse = aktuelleAchse()
   if (!strich || !achse) return
-  if (!z.auswahl) {
+  if (kopfFilmS === null && z.auswahl) kopfFilmS = achse.kurve ? filmZuOffset(achse, z.auswahl[3]) : 0
+  if (kopfFilmS === null) {
     strich.hidden = true
     return
   }
   strich.hidden = false
-  const tOffsetS = z.auswahl[3]
-  const anteil = anteilDirekt ?? offsetZuAnteil(achse, tOffsetS)
+  // Die Achse kann sich geändert haben (Standzeit, Fortbewegung) — die
+  // Filmsekunde bleibt, die Aufnahmezeit darunter wird nachgezogen.
+  if (achse.kurve) kopfFilmS = Math.min(kopfFilmS, achse.kurve.gesamtS)
+  leiteMarkeAusKopfAb(achse)
+  const anteil = achse.kurve ? filmZuAnteil(achse, kopfFilmS) : offsetZuAnteil(achse, z.auswahl?.[3] ?? 0)
+  const tOffsetS = z.auswahl?.[3] ?? achse.vonS
   strich.style.left = zeitX(anteil)
   zeigeKopfWennImBlick()
 
@@ -3927,7 +4143,7 @@ function verdrahteZeitleiste(): void {
         // die Stelle und das Band darunter.
         const skala = aktuelleAchse()
         if (skala) {
-          zz.auswahl = punktZuOffset(zz.track, anteilZuOffset(skala, spurAnteil(e.clientX)))
+          setzeKopfFilm(anteilZuFilm(skala, spurAnteil(e.clientX)))
           zz.fokus = war.fokus ?? null
           renderAlles()
         }
@@ -3960,9 +4176,11 @@ function verdrahteZeitleiste(): void {
     halteAbspielen()
     document.body.classList.add('scrubbt')
     const skala = aktuelleAchse()
+    // Scrubben meint eine Stelle auf der LEISTE, also eine Filmsekunde — in
+    // Aufnahmezeit übersetzt bliebe der Kopf an jeder Haltkante kleben.
     const zieh = (ev: PointerEvent): void => {
       if (!skala) return
-      setzeMarke(anteilZuOffset(skala, spurAnteil(ev.clientX)))
+      setzeKopfFilm(anteilZuFilm(skala, spurAnteil(ev.clientX)))
     }
     const los = (): void => {
       window.removeEventListener('pointermove', zieh)
@@ -3981,9 +4199,9 @@ function verdrahteZeitleiste(): void {
     const skala = aktuelleAchse()
     if (!skala) return
     halteAbspielen()
-    setzeMarke(anteilZuOffset(skala, spurAnteil(e.clientX)))
+    setzeKopfFilm(anteilZuFilm(skala, spurAnteil(e.clientX)))
     document.body.classList.add('scrubbt')
-    const zieh = (ev: PointerEvent): void => setzeMarke(anteilZuOffset(skala, spurAnteil(ev.clientX)))
+    const zieh = (ev: PointerEvent): void => setzeKopfFilm(anteilZuFilm(skala, spurAnteil(ev.clientX)))
     const los = (): void => {
       window.removeEventListener('pointermove', zieh)
       window.removeEventListener('pointerup', los)
@@ -4070,9 +4288,9 @@ function verdrahteZeitleiste(): void {
         // Auf den aufgezogenen Bereich zoomen — er füllt danach die Breite
         const a = anteilBei(Math.min(startX, ev.clientX))
         const b = anteilBei(Math.max(startX, ev.clientX))
-        wendeZoomAn(1 / Math.max(b - a, 0.02), (a + b) / 2, fenster.clientWidth / 2)
+        setzeMassstab(passMassstab() / Math.max(b - a, 0.02), (a + b) / 2, fenster.clientWidth / 2)
       } else {
-        wendeZoomAn(zoom * (ev.altKey ? 1 / 1.6 : 1.6), anteilBei(ev.clientX), ev.clientX - fr.left)
+        setzeMassstab(pxProFilmS * (ev.altKey ? 1 / 1.6 : 1.6), anteilBei(ev.clientX), ev.clientX - fr.left)
       }
     }
     window.addEventListener('pointermove', zieh)
@@ -4093,17 +4311,17 @@ function verdrahteZeitleiste(): void {
   }
   $('zoom-rein').addEventListener('click', () => {
     const a = zoomAnker()
-    wendeZoomAn(zoom * 1.6, a.anteil, a.vx)
+    setzeMassstab(pxProFilmS * 1.6, a.anteil, a.vx)
   })
   $('zoom-raus').addEventListener('click', () => {
     const a = zoomAnker()
-    wendeZoomAn(zoom / 1.6, a.anteil, a.vx)
+    setzeMassstab(pxProFilmS / 1.6, a.anteil, a.vx)
   })
-  $('zoom-wert').addEventListener('click', () => wendeZoomAn(1, 0, spurXpx()))
+  $('zoom-wert').addEventListener('click', passeEin)
   $('zoom-regler').addEventListener('input', (e) => {
     const v = Number((e.target as HTMLInputElement).value) / 100
     const a = zoomAnker()
-    wendeZoomAn(Math.pow(ZOOM_MAX, v), a.anteil, a.vx)
+    setzeMassstab(passMassstab() * Math.pow(ZOOM_MAX, v), a.anteil, a.vx)
   })
   // Pinch/⌘-Rad zoomt um den Cursor (wie im Schnittprogramm)
   fenster.addEventListener(
@@ -4113,7 +4331,7 @@ function verdrahteZeitleiste(): void {
       e.preventDefault()
       const fr = fenster.getBoundingClientRect()
       const anteil = (fenster.scrollLeft + (e.clientX - fr.left) - spurXpx()) / Math.max(1, zeitBreitePx())
-      wendeZoomAn(zoom * Math.exp(-e.deltaY / 220), Math.max(0, Math.min(1, anteil)), e.clientX - fr.left)
+      setzeMassstab(pxProFilmS * Math.exp(-e.deltaY / 220), Math.max(0, Math.min(1, anteil)), e.clientX - fr.left)
     },
     { passive: false },
   )
@@ -4185,9 +4403,9 @@ let einblendUhr: number | null = null
  * dem Punkt, an dem seine Standzeit im Film beginnt — Foto i startet nach den
  * Standzeiten seiner Vorgänger im selben Stopp.
  *
- * EINE Quelle mit der Achse (beide über `haltedauerS` + HALT_AUSBLEND_S) —
+ * EINE Quelle mit der Achse (beide über `aufnahmeHaltS` + HALT_AUSBLEND_S) —
  * rechneten Achse und Wiedergabe getrennt, zeigte die Leiste andere Halte als
- * das Abspielen macht.
+ * das Abspielen macht. Ein Video steht dabei so lange, wie es läuft.
  */
 function zeigenDerTour(achse: Achse): ZeigeMarke[] {
   if (!z) return []
@@ -4201,9 +4419,9 @@ function zeigenDerTour(achse: Achse): ZeigeMarke[] {
         // denselben Anteil — die letzte gewinnt. Randfall ohne Fahrstrecke.
         anteil: gesamtS ? filmS / gesamtS : offsetZuAnteil(achse, s.offsetS),
         id: m.id,
-        dauerS: haltedauerS(m.display),
+        dauerS: aufnahmeHaltS(m),
       })
-      filmS += haltedauerS(m.display) + HALT_AUSBLEND_S
+      filmS += aufnahmeHaltS(m) + HALT_AUSBLEND_S
     }
   }
   return marken.sort((a, b) => a.anteil - b.anteil)
@@ -4232,7 +4450,10 @@ function holeSpielplan(): Spielplan | null {
   }
 
   return {
-    marke: offsetZuAnteil(achse, z.auswahl[3]),
+    // Aus der Kopf-FILMsekunde, nicht aus der Aufnahmezeit: wer mitten in einem
+    // Halt auf Play drückt, soll dort weiterlaufen und nicht an dessen Anfang
+    // zurückspringen.
+    marke: filmZuAnteil(achse, kopfFilm()),
     kurve: spiel,
     zeigen: zeigenDerTour(achse),
     musik,
@@ -4240,17 +4461,19 @@ function holeSpielplan(): Spielplan | null {
   }
 }
 
-/** Marke aus dem Abspieler setzen (Anteil statt Offset) — die Sicht folgt. */
+/**
+ * Marke aus dem Abspieler setzen (Anteil statt Offset) — die Sicht folgt.
+ *
+ * Derselbe Weg wie Scrubben und Pfeiltasten: der Anteil ist eine Stelle auf der
+ * Leiste, also eine Filmsekunde. Früher war das ein Sonderpfad
+ * (`renderPlayhead(anteilDirekt)`), weil nur der Abspieler durch Halte lief —
+ * jetzt tun es alle vier Wege, und es gibt nur noch die eine Quelle.
+ */
 function setzeMarkeAnteil(anteil: number): void {
   if (!z) return
   const skala = aktuelleAchse()
   if (!skala) return
-  const geklemmt = Math.max(skala.vonS, Math.min(skala.bisS, anteilZuOffset(skala, anteil)))
-  const punkt = punktZuOffset(z.track, geklemmt)
-  if (punkt) z.auswahl = punkt
-  // Anteil DIREKT durchreichen — nicht über setzeMarke (Zeit): im Halt-Sprung
-  // wäre die Rückübersetzung der Sprunganfang und der Strich stünde still.
-  renderPlayhead(anteil)
+  setzeKopfFilm(anteilZuFilm(skala, anteil))
   folgeKopf(anteil)
   folgeKarte()
 }
@@ -4696,7 +4919,7 @@ function verdrahteEinmal(): void {
       ;(e.key === '-' ? $('zoom-raus') : $('zoom-rein')).click()
     } else if (e.shiftKey && e.key.toLowerCase() === 'z') {
       e.preventDefault()
-      wendeZoomAn(1, 0, spurXpx()) // ⇧Z = an Fenster anpassen (wie in Final Cut)
+      passeEin() // ⇧Z = an Fenster anpassen (wie in Final Cut)
     } else if (e.key === 'Escape' && z.platzieren) {
       z.platzieren = null
       renderAlles()
@@ -4728,9 +4951,8 @@ function verdrahteEinmal(): void {
         e.preventDefault()
         halteAbspielen()
         const achse = aktuelleAchse()
-        if (z.auswahl && achse?.kurve) {
-          const anteil = offsetZuAnteil(achse, z.auswahl[3]) + (e.key === 'ArrowRight' ? 5 : -5) / achse.kurve.gesamtS
-          setzeMarke(anteilZuOffset(achse, Math.max(0, Math.min(1, anteil))))
+        if (achse?.kurve) {
+          setzeKopfFilm(schrittFilmS(achse, kopfFilm(), e.key === 'ArrowRight' ? 5 : -5))
         } else if (z.auswahl) {
           setzeMarke(z.auswahl[3] + (e.key === 'ArrowRight' ? 60 : -60))
         }
@@ -4784,6 +5006,14 @@ function verdrahteEinmal(): void {
     }
     return z?.auswahl?.[3] ?? null
   },
+  /** Abspielkopf in FILMsekunden — die führende Größe (fürs Browser-E2E). */
+  kopfFilm: (filmS?: number) => {
+    if (filmS !== undefined) {
+      halteAbspielen()
+      setzeKopfFilm(filmS)
+    }
+    return kopfFilm()
+  },
   /** Wiedergabe: Tempo (0 = angehalten); mit Argument umschalten/setzen. */
   spielt: (tempo?: number) => {
     if (tempo === 1) void spielUmschalten()
@@ -4795,10 +5025,15 @@ function verdrahteEinmal(): void {
   vorschau: () =>
     vorschau ? { datei: vorschau.datei, volume: vorschau.audio.volume, pausiert: vorschau.audio.paused } : null,
   laeufer: () => laeufer?.getLngLat() ?? null,
+  /** Zoom als Vielfaches des eingepassten Maßstabs (1 = ganze Tour im Fenster). */
   zoom: (neu?: number) => {
-    if (neu !== undefined) wendeZoomAn(neu, 0, spurXpx())
-    return zoom
+    if (neu !== undefined) setzeMassstab(passMassstab() * neu, 0, spurXpx())
+    return zoomFaktor()
   },
+  /** Maßstab in px je Filmsekunde — die gespeicherte Zoomgröße. */
+  massstab: () => pxProFilmS,
+  /** Die Filmzeit-Achse samt Halt-Intervallen (fürs Browser-E2E). */
+  achse: () => aktuelleAchse(),
   werkzeug: (w?: 'auswahl' | 'hand' | 'zoom') => {
     if (w) setzeWerkzeug(w)
     return werkzeug
