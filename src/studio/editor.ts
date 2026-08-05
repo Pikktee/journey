@@ -5074,13 +5074,19 @@ function verdrahteZeitleiste(): void {
     const skala = aktuelleAchse()
     // Scrubben meint eine Stelle auf der LEISTE, also eine Filmsekunde — in
     // Aufnahmezeit übersetzt bliebe der Kopf an jeder Haltkante kleben.
-    const zieh = (ev: PointerEvent): void => {
+    const setze = (clientX: number): void => {
       if (!skala) return
-      setzeKopfFilm(anteilZuFilm(skala, spurAnteil(ev.clientX)))
+      setzeKopfFilm(anteilZuFilm(skala, spurAnteil(clientX)))
+    }
+    const rand = randScroller(setze)
+    const zieh = (ev: PointerEvent): void => {
+      setze(ev.clientX)
+      rand.bewege(ev.clientX)
     }
     const los = (): void => {
       window.removeEventListener('pointermove', zieh)
       window.removeEventListener('pointerup', los)
+      rand.stop()
       document.body.classList.remove('scrubbt')
       unterdrueckeKlick = true
     }
@@ -5097,10 +5103,16 @@ function verdrahteZeitleiste(): void {
     halteAbspielen()
     setzeKopfFilm(anteilZuFilm(skala, spurAnteil(e.clientX)))
     document.body.classList.add('scrubbt')
-    const zieh = (ev: PointerEvent): void => setzeKopfFilm(anteilZuFilm(skala, spurAnteil(ev.clientX)))
+    const setze = (clientX: number): void => setzeKopfFilm(anteilZuFilm(skala, spurAnteil(clientX)))
+    const rand = randScroller(setze)
+    const zieh = (ev: PointerEvent): void => {
+      setze(ev.clientX)
+      rand.bewege(ev.clientX)
+    }
     const los = (): void => {
       window.removeEventListener('pointermove', zieh)
       window.removeEventListener('pointerup', los)
+      rand.stop()
       document.body.classList.remove('scrubbt')
       renderAlles()
     }
@@ -5358,6 +5370,60 @@ function setzeMarkeAnteil(anteil: number): void {
   setzeKopfFilm(anteilZuFilm(skala, anteil))
   folgeKopf(anteil)
   folgeKarte()
+}
+
+// — Rand-Scroll: am Fensterrand geht es weiter —
+//
+// Eingezoomt reicht die Leiste über das Fenster hinaus. Wer den Kopf an den
+// Rand zieht, ist dort am Ende der SICHT, nicht am Ende des Films: Der Kopf
+// verschwand hinter der Kante und der Rest der Tour war beim Scrubben
+// unerreichbar (erst loslassen, scrollen, wieder greifen). Jetzt scrollt die
+// Sicht selbst weiter, solange der Zeiger in der Randzone steht.
+//
+// Zwei Dinge, die man leicht wegoptimiert: Es MUSS je Frame neu angewandt
+// werden — der Inhalt wandert unter dem stehenden Zeiger, also meint dieselbe
+// Zeigerstelle eine andere Filmsekunde. Und der Lauf endet, sobald `scrollLeft`
+// sich nicht mehr ändert (Anfang/Ende erreicht): sonst drehte die rAF-Schleife
+// am Anschlag weiter, ohne dass etwas geschieht.
+
+/** Breite der Randzone und Tempo (px je Frame bei voller Auslenkung). */
+const RAND_ZONE_PX = 40
+const RAND_TEMPO_MAX_PX = 24
+
+function randScroller(anwenden: (clientX: number) => void): {
+  bewege: (clientX: number) => void
+  stop: () => void
+} {
+  let zeigerX = 0
+  let raf = 0
+  const schritt = (): void => {
+    raf = 0
+    const fenster = document.getElementById('spuren-fenster')
+    if (!fenster) return
+    const r = fenster.getBoundingClientRect()
+    // Links beginnt die Zeitachse erst hinter der klebenden Namenspalte.
+    const links = r.left + spurXpx()
+    let weg = 0
+    if (zeigerX < links + RAND_ZONE_PX) weg = zeigerX - (links + RAND_ZONE_PX)
+    else if (zeigerX > r.right - RAND_ZONE_PX) weg = zeigerX - (r.right - RAND_ZONE_PX)
+    if (weg === 0) return
+    const tempo = Math.max(-RAND_TEMPO_MAX_PX, Math.min(RAND_TEMPO_MAX_PX, weg * 0.4))
+    const vorher = fenster.scrollLeft
+    fenster.scrollLeft = vorher + tempo
+    if (fenster.scrollLeft === vorher) return
+    anwenden(zeigerX)
+    raf = requestAnimationFrame(schritt)
+  }
+  return {
+    bewege: (clientX: number): void => {
+      zeigerX = clientX
+      if (!raf) raf = requestAnimationFrame(schritt)
+    },
+    stop: (): void => {
+      if (raf) cancelAnimationFrame(raf)
+      raf = 0
+    },
+  }
 }
 
 /** Läuft der Kopf aus dem Fenster, scrollt die Sicht mit (wie in Final Cut). */
