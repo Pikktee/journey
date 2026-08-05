@@ -1035,9 +1035,9 @@
     .meldung button { background: none; border: none; color: var(--akzent); font-size: 12.5px; padding: 0 2px; text-decoration: underline; text-underline-offset: 3px; }
 
     /* — Zeitband: jede Aufnahme an ihrer Uhrzeit —
-       NICHT `.streifen` heißen: so heißt schon der Filmstreifen im Inspector des
-       Editors (display:flex) — bei gleicher Spezifität gewann der spätere Block
-       und die Bahn hatte Breite 0. */
+       Bewusst ein eigener Name: er hat schon einmal mit einer Regel des Editors
+       kollidiert (gleiche Spezifität, der spätere Block gewann — die Bahn hatte
+       danach Breite 0). */
     .zeitband { margin-top: 20px; }
     .zeitband .kopf { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
     /* Rand innen: die Aufnahme bei 0 % und die bei 100 % sind je zur Hälfte
@@ -1252,12 +1252,13 @@
       position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
       background: rgba(10, 8, 5, 0.3);
     }
+    /* Der Balken wird bei JEDEM Kopfschritt gesetzt (synchronisiereFoto), nicht
+       über eine Dauer animiert: eine Animation kennt nur „seit dem Start" und
+       stünde beim Scrubben und nach jeder Pause neben der Wahrheit. */
     .fe-hold-fill {
       height: 100%; transform: scaleX(0); transform-origin: left;
       background: linear-gradient(90deg, #f5a524, #ff6f52);
-      animation: feHold linear forwards;
     }
-    @keyframes feHold { from { transform: scaleX(0); } to { transform: scaleX(1); } }
     /* „Entwickeln" + Ken-Burns-Drift wie im Player; das Video bewegt sich selbst. */
     .foto-einblendung.an .fe-frame img { animation: feEntwickeln 1.6s ease-out both, feKenburns 6s ease-out both; }
     /* Wer Ken Burns für dieses Foto abgeschaltet hat, sieht es hier auch ruhig. */
@@ -1683,6 +1684,42 @@
     /* Dunkel gefüllte Bänder (Wetter) brauchen helle Schrift */
     .band.hell { color: var(--text); }
 
+    /* — Fortbewegung · Kamera · Wetter: drei GLEICHRANGIGE schmale Bahnen —
+       Sie beschreiben, wie das Dazwischen aussieht: bei einer typischen Tour
+       zwei bis drei Entscheidungen, die aber drei randvolle Bahnen belegten und
+       mit den Szenen um Fläche konkurrierten. Material verdient Fläche, Kontext
+       verdient eine Zeile. Verworfen (mit Nutzer-Feedback): sie unter „Reise"
+       zusammenzuklappen oder Kamera/Wetter zu Unterspuren der Fortbewegung zu
+       machen — beides behauptete eine Hierarchie, die es nicht gibt.
+
+       Und: ein Band ist KEIN Klip. Klips sind Objekte mit Rand, Rundung und
+       Lücken dazwischen; ein Zustand ist lückenlos, es gibt kein „dazwischen".
+       Deshalb hier keine Rundung, kein eigener Rahmen, keine Rille in der Bahn
+       — ein durchgehender Streifen, der an den Grenzen die Farbe wechselt. */
+    .spur.schmal { height: 19px; }
+    .spur.schmal .spur-feld { background: none; box-shadow: none; }
+    .spur.schmal .band-reihe { inset: 0; }
+    /* Links mehr Luft als rechts: an der linken Kante sitzt der Griff, und der
+       Text darf ihm nicht ins Gehege kommen (11 px, gemessen). */
+    .spur.schmal .band {
+      top: 0; bottom: 0; border-radius: 0; padding: 0 7px 0 11px; font-size: 10.5px;
+      border-width: 0; border-left: 1px solid rgba(6, 9, 14, 0.6);
+      box-shadow: none; color: rgba(255, 255, 255, 0.92);
+    }
+    .spur.schmal .band:first-child { border-left: none; }
+    .spur.schmal .band::after { display: none; }
+    .spur.schmal .band span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); }
+    /* Der Fokus hebt sich hier NICHT an: auf 19 px ohne Rundung läse sich ein
+       verschobenes Band als Bildfehler. Der Ring allein genügt. */
+    .spur.schmal .band.fokus { transform: none; box-shadow: inset 0 0 0 2px #fff5e4, 0 0 12px rgba(245, 165, 36, 0.3); }
+    .spur.schmal .band.leise { background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.13) 0 6px, transparent 6px 12px); }
+    .spur.schmal .spur-name { font-size: 11px; }
+    .spur.schmal .spur-plus { width: 15px; height: 15px; }
+    .spur.schmal .spur-plus svg { width: 9px; height: 9px; }
+    /* Auf 19 px ist die Polsterung der größte Posten — dort rückt der Text an
+       den Rand (Container-Query, s. u. beim Band). */
+    @container (max-width: 74px) { .spur.schmal .band > span { margin-inline: -8px -5px; } }
+
     /* DIE KANTE IST DER GRIFF — Anfang des einen und Ende des anderen Zustands
        sind dieselbe Stelle, also gibt es dafür auch nur einen Anfasser. */
     /* Schmal (9 px): der Griff liegt ÜBER dem Band, jeder Pixel mehr ist ein
@@ -1692,12 +1729,21 @@
       position: absolute; top: 0; bottom: 0; width: 9px; transform: translateX(-50%);
       z-index: 5; cursor: col-resize; touch-action: none;
     }
+    /* EIN Riegel auf der Fuge, keine zwei Backen: Backen oben und unten lasen
+       sich auf einer 19-px-Bahn als Bildfehler und standen dem Bandtext im Weg.
+       Er ist IMMER zu sehen — als Haarstrich, der erst beim Darüberfahren
+       erschien, fand man ihn nicht. Der dunkle Ring hebt ihn von der Bandfarbe
+       ab, ohne ihn zu überstrahlen: er muss auf Grün wie auf Grau lesbar sein. */
     .kante::before {
-      content: ''; position: absolute; left: 50%; top: 2px; bottom: 2px; width: 2px;
-      transform: translateX(-50%); border-radius: 2px; background: var(--akzent);
-      opacity: 0; transition: opacity 140ms ease;
+      content: ''; position: absolute; left: 50%; top: 3px; bottom: 3px; width: 3px; min-height: 9px;
+      transform: translateX(-50%); border-radius: 2px;
+      background: rgba(255, 255, 255, 0.62); box-shadow: 0 0 0 1px rgba(6, 9, 14, 0.5);
+      transition: background-color 120ms ease, width 120ms ease;
     }
-    .kante:hover::before, .kante.zieht::before { opacity: 1; }
+    .kante:hover::before, .kante.zieht::before { background: var(--akzent); width: 5px; }
+    /* 9 px sind ein Maus-Maß — auf Touch braucht der Riegel eine größere
+       Trefferzone, die Optik bleibt schmal. */
+    @media (pointer: coarse) { .kante { width: 24px; } }
     /* Während eines Zugs gilt der Greif-Cursor überall — die Leiste wird pro
        pointermove neu gebaut, eine Klasse am gezogenen Element überlebt das
        nicht. Gesetzt wird die Klasse ERST, wenn wirklich gezogen wird
@@ -1707,6 +1753,31 @@
        Rand zu ziehen. */
     #zeitleiste-zone.zieht, #zeitleiste-zone.zieht * { cursor: col-resize !important; }
     #zeitleiste-zone.schiebt, #zeitleiste-zone.schiebt * { cursor: grabbing !important; }
+
+    /* Zeigt, wo die Grenze beim Loslassen liegen wird. Der STRICH erscheint nur
+       beim Einrasten — sonst läge er deckungsgleich auf der Kante und wäre ein
+       Doppelbild. Das ETIKETT steht immer: es trägt Filmzeit, Uhrzeit und bei
+       der Fortbewegung die Folge für die Filmlänge. Bewusst nicht amber: das
+       ist der Abspielkopf. */
+    /* Orientierung durch alle Bahnen: Wo steht die Kante, und was liegt dort
+       zeitlich übereinander? Sie ist den ganzen Zug über da — nur beim
+       Einrasten tritt sie hervor. Schmal und halbtransparent, damit sie den
+       orangen Riegel der Kante nicht überdeckt, auf dem sie liegt. */
+    .ziel-linie {
+      position: absolute; top: 23px; bottom: 4px; width: 1px; margin-left: -0.5px;
+      z-index: 16; pointer-events: none; background: rgba(255, 255, 255, 0.3);
+    }
+    .ziel-linie.rastet { width: 2px; margin-left: -1px; background: var(--lila); box-shadow: 0 0 0 3px rgba(197, 139, 255, 0.18); }
+    .ziel-linie b {
+      position: absolute; top: -19px; left: 50%; transform: translateX(-50%);
+      font-size: 10.5px; font-weight: 500; white-space: nowrap; padding: 1px 6px;
+      border-radius: 5px; background: rgba(9, 12, 17, 0.95); border: 1px solid var(--rand-hell);
+      color: var(--text-2); font-variant-numeric: tabular-nums;
+    }
+    .ziel-linie.rastet b { border-color: var(--lila); color: #e2d0ff; }
+    /* Der Halt, an dem die Kante rastet, zeigt kurz seine Flanken — die
+       Erklärung passiert in der Bewegung, nicht in einer Legende. */
+    .halt-klip.rastet { border-color: var(--lila); box-shadow: 0 0 0 2px rgba(197, 139, 255, 0.45); }
 
     /* — Kamera-Momente: Punktereignisse mit Art-Symbol — */
     .zl-moment {
@@ -1752,65 +1823,123 @@
     .zl-sfx::after { content: ''; position: absolute; left: 50%; top: 11px; width: 1px; height: 9px; background: rgba(197, 139, 255, 0.5); }
     .zl-sfx.fokus i { box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(197, 139, 255, 0.6); }
 
-    /* — Foto-Bahn: Miniaturen an ihrer Aufnahmezeit — */
+    /* — Szenen-Bahn: je Aufnahme ein Klip, ein Halt ist ihre Kette —
+       Der Stapel mit Zahl-Plakette ist entfallen: er saß an der LINKEN Kante
+       einer Breite, die der Halt trotzdem belegte — eine tote Zone, in der
+       nichts anzufassen war, obwohl dort der halbe Film liegt. */
     .foto-spur { position: relative; height: 100%; }
-    .f-mini {
-      position: absolute; top: 12px; transform: translateX(-50%);
-      width: 40px; height: 40px; padding: 0; background: none; border: none;
-      cursor: pointer; touch-action: none;
+    /* `overflow: visible` — sonst schnitte der Klip seinen eigenen Standzeit-
+       Griff ab, der bewusst über den Rand in den Nachbarn ragt. Beschnitten
+       wird stattdessen `.inhalt`. Der Rahmen darf deshalb ein echter `border`
+       bleiben (die Falle „border + overflow:hidden frisst das Randpixel"
+       greift nur, wo geclippt wird). */
+    .halt-klip {
+      position: absolute; top: 8px; bottom: 4px; min-width: 4px; padding: 0;
+      border-radius: 7px; overflow: visible; container-type: inline-size;
+      border: 1px solid var(--rand-hell); background: var(--fl-2);
+      cursor: pointer; touch-action: none; transition: border-color 140ms ease;
     }
-    /* Die globale `button:active`-Regel (scale) ERSETZT sonst die Zentrierung —
-       die Miniatur säße beim Ziehen eine halbe Breite zu weit rechts. */
-    .f-mini:active { transform: translateX(-50%) scale(0.975); }
-    .f-mini img {
-      width: 100%; height: 100%; object-fit: cover; border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.16); display: block; background: var(--fl-2);
-      transition: border-color 180ms ease;
+    /* Die globalen Knopf-Regeln schlagen jede Klasse: `button:hover` setzt eine
+       eigene Fläche (der Klip würde grau), und `button:active { transform }`
+       ERSETZT unser translateX beim Ziehen — beides hier zurücknehmen. */
+    .halt-klip:hover { background: var(--fl-2); border-color: rgba(197, 139, 255, 0.7); }
+    .halt-klip:active { transform: none; }
+    .halt-klip.fokus { border-color: #fff5e4; box-shadow: 0 0 0 2px rgba(255, 245, 228, 0.55), 0 0 12px rgba(245, 165, 36, 0.35); }
+    .halt-klip.video { border-color: rgba(91, 157, 255, 0.5); }
+    .halt-klip.zieht { z-index: 8; border-color: var(--akzent); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6); }
+    .halt-klip .inhalt {
+      position: absolute; inset: 0; display: flex; align-items: stretch;
+      overflow: hidden; border-radius: 6px; background: var(--fl-2);
     }
-    .f-mini:hover img { border-color: var(--akzent); }
-    .f-mini.fokus img { border-color: #fff5e4; box-shadow: 0 0 0 2px rgba(255, 245, 228, 0.9), 0 0 12px rgba(245, 165, 36, 0.45); }
-    .f-mini.geloescht img { opacity: 0.32; }
-    .f-mini .v-badge {
-      position: absolute; right: 3px; bottom: 3px; z-index: 2;
-      width: 15px; height: 15px; display: grid; place-items: center;
-      background: rgba(6, 8, 12, 0.72); border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 5px;
+    /* Das Bild steht EINMAL am Anfang und — wenn Platz ist — einmal am Ende
+       (Premieres Konvention). Als Filmstreifen über die ganze Breite wiederholte
+       sich beim Aufziehen dasselbe Foto: ein Foto hat aber nur ein Einzelbild,
+       es zu kacheln behauptet einen Verlauf, den es nicht gibt. */
+    .halt-klip .bild { flex: none; aspect-ratio: 3 / 2; overflow: hidden; background: var(--fl-3); }
+    .halt-klip .bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .halt-klip .info {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+      gap: 1px; padding: 0 8px; text-align: left; overflow: hidden;
     }
-    .f-mini .v-badge svg { width: 8px; height: 8px; color: #fff; margin-left: 1px; }
-    /* Stiel zur exakten Zeit — die Miniatur ist breiter als der Zeitpunkt. */
-    .f-mini::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 1px; height: 8px; background: rgba(255, 255, 255, 0.2); }
-    /* Ein HALT mit mehreren Aufnahmen: angedeutete Karten dahinter, nach
-       rechts/oben versetzt — die vordere Karte bleibt genau auf der Zeit. */
-    .f-mini .stapel { position: absolute; inset: 0; border-radius: 6px; background: #1c2530; border: 1px solid rgba(255, 255, 255, 0.45); }
-    .f-mini .stapel.s1 { transform: translate(5px, -4px); }
-    .f-mini .stapel.s2 { transform: translate(10px, -8px); opacity: 0.7; }
-    .f-mini img { position: relative; z-index: 1; }
-    .f-mini .anzahl {
-      position: absolute; left: -6px; top: -6px; z-index: 3;
-      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
-      display: grid; place-items: center;
-      font-size: 11px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
-      color: #1a1206; background: var(--akzent); border: 1.5px solid var(--bg-tief);
+    .halt-klip .info b { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .halt-klip .info small { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Drei Ausbaustufen nach der Breite des Klips — als CONTAINER-Abfrage und
+       nicht als gemessene JS-Klasse: `kuerzeBeschriftungen` erzwingt ein Layout
+       und läuft im Zug bewusst nicht, die Stufen kämen sonst erst beim
+       Loslassen (mitten in der Bewegung ein Sprung).
+       Dieser Block steht mit ABSICHT nach den Basisregeln: bei gleicher
+       Spezifität gewinnt die spätere, davor gestellt hübe die Basisregel das
+       `display: none` sofort wieder auf. */
+    .halt-klip .bild.ende { display: none; }
+    .halt-klip .info { display: none; }
+    .halt-klip .bild.anfang { flex: 1; aspect-ratio: auto; min-width: 0; }
+    @container (min-width: 150px) {
+      .halt-klip .info { display: flex; }
+      .halt-klip .bild.anfang { flex: none; aspect-ratio: 3 / 2; }
     }
-    /* Rastet der gezogene Halt auf einem fremden ein: eigener Amber-Rand, und
-       der Zielstopp leuchtet — dort steht schon die Zielanzahl im Badge.
-       z-index hoch: Badge ragt über die Miniatur hinaus und läge sonst unter
-       Nachbar-Minis / der gezogenen Karte. */
-    .f-mini.zieht, .f-mini.schnappt { z-index: 6; }
-    .f-mini.ziel { z-index: 7; }
-    .f-mini.schnappt img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.55), 0 10px 26px rgba(0, 0, 0, 0.6); }
-    .f-mini.ziel img, .f-mini.ziel .stapel { border-color: var(--akzent); }
-    .f-mini.ziel::before {
-      content: ''; position: absolute; inset: -5px; border-radius: 10px;
-      border: 1px dashed rgba(245, 165, 36, 0.75); pointer-events: none;
+    @container (min-width: 232px) { .halt-klip .bild.ende { display: block; } }
+    .halt-klip .v-play {
+      position: absolute; left: 5px; top: 50%; width: 15px; height: 15px; margin-top: -7.5px;
+      z-index: 2; border-radius: 50%; background: rgba(6, 8, 12, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.3); display: grid; place-items: center; pointer-events: none;
     }
-    .f-mini.ziel .anzahl { z-index: 4; }
-    /* Beim Abspielen springt die Miniatur des erreichten Halts kurz heraus —
-       so sieht man auf der Leiste, welches Bild gerade auf der Karte steht. */
-    .f-mini.puls img { animation: fotoPuls 700ms ease; }
-    @keyframes fotoPuls {
-      0%, 100% { transform: none; }
-      28% { transform: translateY(-6px) scale(1.4); border-color: var(--akzent); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6); }
+    .halt-klip .v-play svg { width: 7px; height: 7px; color: #fff; margin-left: 1px; }
+    /* Die Standzeit-Kante sitzt RECHTS — und weil das ENDE einer Aufnahme der
+       ANFANG der nächsten ist, ragt sie in den Nachbarn hinein: eine Kette wird
+       so von beiden Seiten greifbar, ohne dass zwei Bedienelemente dasselbe tun.
+       Breite als `min(…)`: feste Maße überlappten sich auf kurzen Klips, der
+       Körper gewann, und aus Ziehen wurde Verschieben. */
+    .halt-klip .griff {
+      position: absolute; top: 0; bottom: 0; right: -5px; width: min(13px, 40%);
+      z-index: 7; cursor: ew-resize; display: grid; place-items: center;
     }
+    .halt-klip .griff::before {
+      content: ''; width: 2px; height: 60%; border-radius: 2px;
+      background: rgba(255, 255, 255, 0.22); transition: background 120ms ease;
+    }
+    .halt-klip .griff:hover::before, .halt-klip.zieht-dauer .griff::before { background: var(--akzent); }
+    /* 13 px sind ein MAUS-Maß; auf Touch muss die Trefferzone größer sein
+       (die Optik bleibt schmal). */
+    @media (pointer: coarse) { .halt-klip .griff { width: min(26px, 45%); right: -13px; } }
+    /* Beim Ziehen die Sekundenzahl direkt am Griff — sonst muss man raten. */
+    .halt-klip .dauer-blase {
+      position: absolute; right: 0; top: -19px; transform: translateX(50%); z-index: 9;
+      background: var(--akzent); color: #1a1206; font-size: 11px; font-weight: 600;
+      font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 6px;
+      opacity: 0; pointer-events: none; transition: opacity 120ms ease; white-space: nowrap;
+    }
+    .halt-klip.zieht-dauer .dauer-blase { opacity: 1; }
+    /* Beim Abspielen leuchtet der Klip der Aufnahme, die gerade auf der Karte steht. */
+    .halt-klip.puls { animation: klipPuls 700ms ease; }
+    @keyframes klipPuls {
+      0%, 100% { border-color: var(--rand-hell); }
+      30% { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45); }
+    }
+
+    /* Die Halt-Zone führt durch ALLE Bahnen — aber nur für den AUSGEWÄHLTEN
+       Halt: über alle gelegt waren es zwölf Linien Dauerunruhe für eine Frage,
+       die man punktuell hat. Nur die Kanten, keine Fläche über den Bändern. */
+    .halt-zone {
+      position: absolute; top: 23px; bottom: 4px; z-index: 6; pointer-events: none;
+      border-left: 1px solid rgba(197, 139, 255, 0.45);
+      border-right: 1px solid rgba(197, 139, 255, 0.45);
+      background: rgba(197, 139, 255, 0.05);
+    }
+    /* Wohin fällt der gezogene Klip in seiner Kette? */
+    .zl-einfuege {
+      position: absolute; top: 23px; height: 62px; width: 2px; margin-left: -1px;
+      border-radius: 2px; background: var(--akzent); z-index: 22; pointer-events: none;
+    }
+    /* Was bedeutet dieser Zug gerade? Die Farbe unterscheidet die harmlose
+       Anordnung von dem Eingriff, der eine Aufnahme über die Strecke verschiebt. */
+    .zug-etikett {
+      position: fixed; z-index: 90; transform: translate(-50%, -230%); pointer-events: none;
+      padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+      white-space: nowrap; box-shadow: var(--schatten);
+    }
+    .zug-etikett[data-art='reihe'] { background: var(--fl-3); color: var(--text-2); border: 1px solid var(--rand-hell); }
+    .zug-etikett[data-art='ort'] { background: var(--akzent); color: #1a1206; }
+
     /* Ein Effekt, der gerade ausgelöst hat. */
     .zl-sfx.pling i { animation: sfxPling 500ms ease; }
     @keyframes sfxPling {
@@ -2126,36 +2255,6 @@
     .insp-loeschen svg { width: 14px; height: 14px; }
     .insp-loeschen:disabled { opacity: 0.4; cursor: default; }
 
-    /* — Filmstreifen eines Halts: umschalten und umordnen —
-         Jede Aufnahme behält ihre EIGENEN Einstellungen (auch die Standzeit);
-         der Streifen wählt nur aus, welche gerade im Inspector liegt. */
-    /* `flex: none` ist PFLICHT: `overflow-x` setzt die automatische Mindesthöhe
-       eines Flex-Items auf 0, und sobald der Inspector-Inhalt überläuft, würde
-       der Streifen auf seine Polsterung zusammengedrückt — die Bilder lägen
-       dann unsichtbar hinter dem großen Vorschaubild. */
-    .streifen { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 5px 4px 8px; margin: -5px -4px -4px; scrollbar-width: thin; }
-    .streifen button {
-      position: relative; flex: none; width: 46px; height: 46px; padding: 0;
-      background: none; border: none; cursor: grab; border-radius: 6px; touch-action: none;
-      transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-    .streifen button:active { cursor: grabbing; }
-    .streifen img {
-      width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block;
-      border: 1px solid var(--rand); transition: border-color 150ms ease;
-    }
-    .streifen button:hover img { border-color: var(--text-3); }
-    .streifen button[aria-current='true'] img { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.45); }
-    /* Das gezogene Bild folgt dem Finger OHNE Übergang (sonst hinkt es hinterher)
-       und liegt über den Nachbarn, die weich ausweichen. */
-    .streifen button.zieht { transition: none; z-index: 4; cursor: grabbing; }
-    .streifen button.zieht img { border-color: var(--akzent); box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6); }
-    .streifen .st-nr {
-      position: absolute; left: 3px; top: 3px;
-      font-size: 9.5px; font-weight: 500; line-height: 1; padding: 2px 4px;
-      font-variant-numeric: tabular-nums;
-      color: #fff; background: rgba(6, 8, 12, 0.7); border-radius: 4px;
-    }
     /* Was der Halt im fertigen Film wirklich kostet */
     .stopp-summe {
       display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -3034,15 +3133,15 @@
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-foto"/></svg>Fotos/Videos</div>
                 <div class="spur-feld" data-rolle="spur"><div class="foto-spur" id="spur-fotos"></div></div>
               </div>
-              <div class="spur">
+              <div class="spur schmal">
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-weg"/></svg>Fortbewegung<button class="spur-plus" data-spur="wege" aria-expanded="false" title="Fortbewegung ab der Marke ändern" aria-label="Fortbewegung hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-wege"></div></div>
               </div>
-              <div class="spur">
+              <div class="spur schmal">
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-kamera"/></svg>Kamera<button class="spur-plus" data-spur="kamera" aria-expanded="false" title="Kamera ab der Marke ändern" aria-label="Kamera hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-kamera"></div></div>
               </div>
-              <div class="spur">
+              <div class="spur schmal">
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-wetter"/></svg>Wetter<button class="spur-plus" data-spur="wetter" aria-expanded="false" title="Wetter ab der Marke setzen" aria-label="Wetter hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-wetter"></div></div>
               </div>

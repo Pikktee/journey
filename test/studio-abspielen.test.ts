@@ -10,10 +10,8 @@ import {
   klipsBei,
   musikVersatzS,
   tick,
-  ueberquert,
   type SpielStand,
   type Spielplan,
-  type ZeigeMarke,
 } from '../src/studio/abspielen'
 import type { Filmkurve } from '../src/studio/zeitleiste'
 
@@ -21,13 +19,7 @@ import type { Filmkurve } from '../src/studio/zeitleiste'
 const LINEAR_100: Filmkurve = { anteile: [0, 1], filmS: [0, 100], gesamtS: 100 }
 /** Spielkurve mit Trim-Plateau: 50 s Film — Plateau — 50 s Film. */
 const MIT_PAUSE: Filmkurve = { anteile: [0, 0.25, 0.75, 1], filmS: [0, 50, 50, 100], gesamtS: 100 }
-const plan = (zeigen: ZeigeMarke[] = [], kurve: Filmkurve = LINEAR_100): Spielplan => ({
-  marke: 0,
-  kurve,
-  zeigen,
-  musik: [],
-  klaenge: [],
-})
+const plan = (kurve: Filmkurve = LINEAR_100): Spielplan => ({ marke: 0, kurve, musik: [], klaenge: [] })
 const stand = (teil: Partial<SpielStand> = {}): SpielStand => ({ marke: 0, tempo: 1, ...teil })
 
 describe('tick — Fahrt', () => {
@@ -61,19 +53,19 @@ describe('tick — Fahrt', () => {
   it('überspringt eine reale Pause in einem Wimpernschlag', () => {
     // Bei Marke 0,2 sind 40 Filmsekunden vergangen; 11 s später steckt die
     // Marke nicht in der Pause (0,25–0,75), sondern ist schon dahinter.
-    const s = tick(stand({ marke: 0.2 }), 11, plan([], MIT_PAUSE))
+    const s = tick(stand({ marke: 0.2 }), 11, plan(MIT_PAUSE))
     expect(s.stand.marke).toBeCloseTo(0.755, 6)
   })
 
   it('springt aus der Mitte einer Pause nie rückwärts (Richtungsklemme)', () => {
     // Dorthin kommt man nur per Scrub. Der Kurven-Roundtrip lieferte den
     // Pausen-ANFANG — vorwärts darf die Marke davon nichts merken.
-    const ruhend = tick(stand({ marke: 0.5 }), 0, plan([], MIT_PAUSE))
+    const ruhend = tick(stand({ marke: 0.5 }), 0, plan(MIT_PAUSE))
     expect(ruhend.stand.marke).toBe(0.5)
-    const weiter = tick(stand({ marke: 0.5 }), 1, plan([], MIT_PAUSE))
+    const weiter = tick(stand({ marke: 0.5 }), 1, plan(MIT_PAUSE))
     expect(weiter.stand.marke).toBeCloseTo(0.755, 6)
     // Rückwärts verlässt sie die Pause nach hinten
-    const zurueck = tick(stand({ marke: 0.5, tempo: -1 }), 1, plan([], MIT_PAUSE))
+    const zurueck = tick(stand({ marke: 0.5, tempo: -1 }), 1, plan(MIT_PAUSE))
     expect(zurueck.stand.marke).toBeCloseTo(0.245, 6)
   })
 
@@ -81,69 +73,8 @@ describe('tick — Fahrt', () => {
     // Erste Achsenhälfte 20 Filmsekunden, zweite 80: nach 20 s steht die
     // Marke bei 0,5, nach weiteren 40 s bei 0,75.
     const kurve: Filmkurve = { anteile: [0, 0.5, 1], filmS: [0, 20, 100], gesamtS: 100 }
-    expect(tick(stand(), 20, plan([], kurve)).stand.marke).toBeCloseTo(0.5, 6)
-    expect(tick(stand({ marke: 0.5 }), 40, plan([], kurve)).stand.marke).toBeCloseTo(0.75, 6)
-  })
-})
-
-describe('tick — Überfahr-Marken der Aufnahmen', () => {
-  const marke = (anteil: number, id = 'm1', dauerS = 5): ZeigeMarke => ({ anteil, id, dauerS })
-
-  it('blendet die Aufnahme beim Überfahren ein — die Marke läuft durch', () => {
-    // Der Halt ist Achsenbreite (Sprung in der Achse): kein Anhalten mehr,
-    // die Einblendung feuert im Vorbeigehen und läuft über die Editor-Uhr ab.
-    const s = tick(stand(), 1, plan([marke(0.005)]))
-    expect(s.zeige?.id).toBe('m1')
-    expect(s.zeige?.dauerS).toBe(5)
-    expect(s.stand.marke).toBeCloseTo(0.01, 6)
-    expect(s.ende).toBe(false)
-  })
-
-  it('zeigt die LETZTE überfahrene Marke, wenn ein Schritt mehrere trifft', () => {
-    // Marken eines Stopps liegen als Kette im Halt-Sprung; überspringt ein
-    // großer Schritt mehrere, zählt die späteste (Standzeiten < Schrittweite
-    // sind der einzige Weg dorthin).
-    const s = tick(stand(), 10, plan([marke(0.02, 'a'), marke(0.08, 'b')]))
-    expect(s.zeige?.id).toBe('b')
-  })
-
-  it('feuert nur bei normaler Vorwärtsfahrt — nicht im Schnelllauf, nicht rückwärts', () => {
-    const p = plan([marke(0.02)])
-    expect(tick(stand({ tempo: 2 }), 10, p).zeige).toBeNull()
-    expect(tick(stand({ marke: 0.5, tempo: -1 }), 100, p).zeige).toBeNull()
-  })
-
-  it('zeigt dieselbe Marke nicht zweimal', () => {
-    const p = plan([marke(0.005)])
-    let s = tick(stand(), 1, p)
-    expect(s.zeige?.id).toBe('m1')
-    s = tick(s.stand, 1, p)
-    expect(s.zeige).toBeNull()
-  })
-
-  it('eine Marke MITTEN in einem Plateau feuert genau einmal', () => {
-    // Foto im weggetrimmten Bereich (Altbestand): der Plateau-Übersprung
-    // überquert seine Marke — einmal zeigen, nicht wieder.
-    const p = plan([marke(0.5)], MIT_PAUSE)
-    let s = tick(stand({ marke: 0.2 }), 11, p)
-    expect(s.stand.marke).toBeCloseTo(0.755, 6)
-    expect(s.zeige?.id).toBe('m1')
-    s = tick(s.stand, 1, p)
-    expect(s.zeige).toBeNull()
-  })
-})
-
-describe('ueberquert', () => {
-  it('erkennt die Kante in beide Richtungen, aber nicht im Stillstand', () => {
-    expect(ueberquert(0.5, 0.4, 0.6)).toBe(true)
-    expect(ueberquert(0.5, 0.6, 0.4)).toBe(true)
-    expect(ueberquert(0.5, 0.5, 0.5)).toBe(false)
-    expect(ueberquert(0.5, 0.1, 0.2)).toBe(false)
-    // Halboffen, damit dieselbe Marke nicht zweimal auslöst: erreicht zählt,
-    // verlassen nicht. Wer schon auf ihr stand, überquert sie nicht noch einmal.
-    expect(ueberquert(0.5, 0.4, 0.5)).toBe(true)
-    expect(ueberquert(0.5, 0.5, 0.4)).toBe(false)
-    expect(ueberquert(0.5, 0.6, 0.5)).toBe(true)
+    expect(tick(stand(), 20, plan(kurve)).stand.marke).toBeCloseTo(0.5, 6)
+    expect(tick(stand({ marke: 0.5 }), 40, plan(kurve)).stand.marke).toBeCloseTo(0.75, 6)
   })
 })
 
@@ -229,7 +160,6 @@ describe('erzeugeAbspieler', () => {
     const a = erzeugeAbspieler({
       hole: () => null,
       setzeMarke: () => {},
-      zeigeFoto: () => {},
       zeigeTempo: (t) => {
         tempoAnzeige = t
       },

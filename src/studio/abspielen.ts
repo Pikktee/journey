@@ -15,9 +15,14 @@
 //
 // Foto-Halte sind seit der Filmzeit-Achse ACHSENBREITE (die Standzeit steckt
 // als Sprung in der Achse): die Marke läuft gleichmäßig durch den Halt
-// hindurch, und die Aufnahmen sind ÜBERFAHR-MARKEN (`zeigen`) — je Foto eine,
-// im Film-Takt hintereinander. Ein eingefrorener Kopf mit eigener Restzeit
-// widerspräche dem film-linearen Maßband (und die Musik trüge sowieso durch).
+// hindurch. WELCHE Aufnahme dabei zu sehen ist, entscheidet dieses Modul NICHT
+// mehr — das ist eine Funktion der Kopfposition (`haltBeiFilmS`), und der
+// Editor wertet sie bei jeder Kopfbewegung aus. Als Überfahr-MARKE gedacht
+// (der Abspieler stieß die Einblendung an, ein Timer nahm sie zurück) hatte sie
+// zwei Fehler, die derselbe Satz erklärt: Sie hing nicht am Kopf, sondern an
+// einer Uhr — beim Scrubben erschien gar kein Bild, und beim Abspielen ging es
+// 0,8 s zu früh (der Timer lief über die Standzeit, der Klip aber über
+// Standzeit + Ausblendung).
 //
 // Reine Logik (tick, musikVersatzS) ist DOM-frei und unter Vitest getestet; das
 // Modul wird erst beim ersten Play geladen (editor.ts), damit die Audio-Elemente
@@ -25,18 +30,6 @@
 
 import { sfxSollFeuern } from '../audiotracks.js'
 import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
-
-/**
- * Eine Aufnahme als Überfahr-Marke: beim Passieren wird sie eingeblendet.
- * Mehrere Aufnahmen eines Stopps liegen als Kette im Halt-Sprung der Achse —
- * jede an dem Punkt, an dem ihre Standzeit im Film beginnt.
- */
-export interface ZeigeMarke {
-  anteil: number
-  id: string
-  /** Standzeit der Einblendung in Sekunden (display.holdS oder Default) */
-  dauerS: number
-}
 
 /** Musik-Bereich auf der Zeitachse. */
 export interface MusikKlip {
@@ -61,7 +54,6 @@ export interface Spielplan {
   marke: number
   /** Achsen-Anteil ↔ Filmsekunden der Wiedergabe (zeitleiste.ts, baueSpielKurve) */
   kurve: Filmkurve
-  zeigen: ZeigeMarke[]
   musik: MusikKlip[]
   klaenge: KlangMarke[]
 }
@@ -78,14 +70,9 @@ export interface Schritt {
   stand: SpielStand
   /** Marke VOR dem Schritt — die Kante, an der Klänge auslösen */
   vorher: number
-  /** Aufnahme, die jetzt einzublenden ist */
-  zeige: ZeigeMarke | null
   /** Streckenende in Laufrichtung erreicht */
   ende: boolean
 }
-
-/** Liegt `t` zwischen `a` und `b` (in beide Richtungen)? */
-export const ueberquert = (t: number, a: number, b: number): boolean => (a < t && t <= b) || (b <= t && t < a)
 
 export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
 
@@ -96,11 +83,6 @@ export const LEERER_STAND: SpielStand = { marke: 0, tempo: 0 }
  * RICHTUNGSABHÄNGIG. Prüfte man beide Ränder, hielte ein Start bei Marke 0
  * sofort wieder an — der erste Frame hat dt = 0, die Marke bleibt 0 und träfe
  * die Bedingung „≤ 0".
- *
- * Eingeblendet wird die LETZTE überfahrene Marke (nur bei normaler
- * Vorwärtsfahrt — im Schnelllauf und rückwärts will man die Strecke
- * überfliegen). Zwei Marken in einem Frame hieße Standzeiten unter 0,1 s Film
- * — praktisch unmöglich, und dann zählt die spätere.
  */
 export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
   const alt = stand.marke
@@ -119,14 +101,7 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
     ende = true
   }
 
-  let zeige: ZeigeMarke | null = null
-  if (stand.tempo === 1) {
-    for (const marke of plan.zeigen) {
-      if (ueberquert(marke.anteil, alt, m) && (!zeige || marke.anteil > zeige.anteil)) zeige = marke
-    }
-  }
-
-  return { stand: { marke: m, tempo: stand.tempo }, vorher: alt, zeige, ende }
+  return { stand: { marke: m, tempo: stand.tempo }, vorher: alt, ende }
 }
 
 /**
@@ -164,10 +139,9 @@ export function klipsBei(musik: readonly MusikKlip[], anteil: number): number[] 
 export interface AbspielerOptionen {
   /** Plan einsammeln — bei jedem Start neu, das Overlay kann sich geändert haben */
   hole: () => Spielplan | null
-  /** Marke setzen (Anteil 0..1): bewegt Kopfstrich, Kopf-Uhr und Läufer */
+  /** Marke setzen (Anteil 0..1): bewegt Kopfstrich, Kopf-Uhr und Läufer — und
+   *  damit auch die Foto-Einblendung, die an der Kopfposition hängt. */
   setzeMarke: (anteil: number) => void
-  /** Aufnahme einblenden */
-  zeigeFoto: (id: string, dauerS: number) => void
   /** Transportanzeige (Knopf-Symbol, Tempo-Chip) */
   zeigeTempo: (tempo: number) => void
   /** Klang-Marke in der Leiste pulsen lassen */
@@ -298,7 +272,6 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     if (stand.marke !== erg.vorher) optionen.setzeMarke(stand.marke)
     spieleMusik(stand.marke)
     pruefeKlaenge(erg.vorher, stand.marke)
-    if (erg.zeige) optionen.zeigeFoto(erg.zeige.id, erg.zeige.dauerS)
     if (erg.ende) {
       halteAn()
       return

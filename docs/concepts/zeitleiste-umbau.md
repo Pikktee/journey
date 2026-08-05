@@ -3,12 +3,14 @@
 Ergebnis der Mockup-Session vom **2026-08-04**. Ausgangspunkt war ein Fehlerbericht
 („nach Fotos snappt der Playhead hart ein, davor lässt sich nichts bearbeiten");
 herausgekommen ist ein durchgespielter Entwurf für die nächste Ausbaustufe der
-Studio-Zeitleiste. Alles hier ist am Mockup verifiziert; **Etappe 1 ist seit
-2026-08-05 im echten Editor umgesetzt** (§4), die Etappen 2–4 stehen aus. Das Mockup ist
+Studio-Zeitleiste. Alles hier ist am Mockup verifiziert; **die Etappen 1 bis 3
+sind seit 2026-08-05 im echten Editor umgesetzt** (§4), Etappe 4 steht aus. Das Mockup ist
 [docs/mockups/studio-halt-und-spuren.html](../mockups/studio-halt-und-spuren.html)
 (Ansicht „Vorschlag", Deeplink `#vorschlag`; „Heute" stellt das Ist-Verhalten
 daneben) — es gehört mit ins Repo, die Begründungen unten verweisen auf seine
-Kommentare.
+Kommentare. Was die Umsetzung am ECHTEN Editor anders ergeben hat, steht je
+Etappe unter „Abweichungen von der Planung" (§4) und in der zweiten Messtabelle
+(§6) — mehrere Entscheidungen des Entwurfs haben dort nicht getragen.
 
 Dieses Dokument ergänzt [editor-ausbau.md](editor-ausbau.md) (erzählerische
 Werkzeuge, 2026-07-27): dort steht das *Was*, hier steht das *Wie* der Zeitleiste —
@@ -365,7 +367,73 @@ Abweichungen von der Planung, gemessen am echten Editor:
 durch den Halt läuft — sichtbar daran, dass er sich innerhalb des Halt-Klips
 bewegt, statt an dessen Kante zu kleben.
 
-### Etappe 2 — Szenen-Bahn *(kein Schema-Bruch)*
+### Etappe 2 — Szenen-Bahn *(kein Schema-Bruch)* — **UMGESETZT 2026-08-05**
+
+Abweichungen von der Planung, gemessen am echten Editor:
+
+- **Momente bleiben in ihrer eigenen Bahn.** Achsenbreite haben sie seit
+  Etappe 1; sie in die Szenen-Bahn zu heben ist eine Umbau-Entscheidung über
+  ihre Bedienung (Zug, Inspector, „+"-Menü der Bahn) und nicht Teil der
+  Klip-Kette. Dasselbe gilt für „beiläufige Bilder" — die gibt es im Editor
+  noch gar nicht.
+- **Der Filmstreifen im Inspector ist ersatzlos entfallen.** Er war der einzige
+  Weg, die Aufnahmen eines Halts umzuordnen oder eine davon herauszulösen —
+  beides tut jetzt der Klip-Zug an der Stelle, an der man es sieht. Zwei Wege
+  zur selben Sache, einer davon ohne Zeitbezug, wären eine Verdopplung.
+- **Der ganze Halt wandert nur noch über die KARTE.** Auf der Leiste zieht man
+  einen Klip; der Kartenpunkt bewegt weiter alle Aufnahmen des Halts gemeinsam.
+  Damit sind auch Schnapp-Ziel, Vorschau-Plakette und `dOffsetOhneCluster`
+  aus dem Leisten-Zug verschwunden.
+- **Zwei Züge, zwei Schreibweisen.** Die Standzeit wird LIVE ins Overlay
+  geschrieben (man soll den Film wachsen und alles Spätere nachrücken sehen),
+  der Klip-Zug erst beim Loslassen (dort bewegt sich nur das gezogene Element).
+  Beide bleiben genau ein Undo-Schritt — `renderNachZug` schreibt `letzterStand`
+  nicht fort. Ein Zug, der auf seinem eigenen Platz endet, schreibt gar nichts:
+  `reiheVergeben` erzeugte sonst ein neues Overlay und damit einen LEEREN
+  Undo-Schritt, den man später einmal umsonst rückgängig macht.
+- **Beim Standzeit-Zug wird der Maßstab eingefroren — und bleibt es** (§2C,
+  eigentlich für Etappe 3 vorgesehen): eingepasst folgt er sonst der wachsenden
+  Filmdauer, die Leiste schrumpft unter der Hand und der Griff bleibt hinter dem
+  Zeiger zurück. Ihn nach dem Loslassen wiederherzustellen war der erste Wurf
+  und ein Nutzer-Befund: die Leiste sprang dann auf „alles im Fenster" zurück —
+  also genau die Skalierung, gegen die der feste Maßstab gebaut ist, denn sie
+  verschiebt auch alles VOR der geänderten Stelle. Der Fit gehört zum Öffnen und
+  zum Zoomen, nicht zu einer Datenänderung; „×" und ⇧Z werden danach sichtbar
+  aktiv. Gemessen: Zug +200 px ⇒ Film 2:46 → 3:17, Maßstab 1,0× → 1,2× (ehrlich
+  angezeigt), erster Klip pixelidentisch bei x = 178.
+- **Die Foto-Einblendung hängt jetzt am KOPF, nicht an einer Uhr.** Zwei
+  Fehlerberichte hatten dieselbe Wurzel: Beim Scrubben kam gar kein Bild (die
+  Einblendung war eine Überfahr-Marke des Abspielers), und beim Abspielen ging
+  es 0,8 s vor seinem Klip aus (der Timer lief über die reine Standzeit, der
+  Klip über Standzeit + Ausblendung). `synchronisiereFoto` liest bei jeder
+  Kopfbewegung `haltBeiFilmS` — dieselbe Kette, aus der die Klips entstehen.
+  `ZeigeMarke`/`Schritt.zeige` sind entfallen; das ist wieder die Merkregel aus
+  §2B: eine Anzeige, die einen Mangel kompensiert, verschwindet mit ihm.
+- **Die Dauer-Blase hängt an einer EIGENEN Klasse** (`zieht-dauer`), nicht an
+  `zieht`: sonst schwebte beim Verschieben eines Klips eine Standzeit-Angabe
+  über dem Bild — eine Antwort auf eine Frage, die gerade niemand stellt.
+- **Der Standzeit-Griff bekam eine Zug-Schwelle** (4 px, wie der Klip-Zug) —
+  vorher schrieb schon ein Pixel Mauswackeln beim Klick eine Standzeit ins
+  Overlay. Die Rechnung setzt AN der Schwelle an, nicht am Druckpunkt: sonst
+  spränge die Dauer beim Losfahren um die Schwellenbreite, und eingepasst sind
+  4 px schnell eine ganze Sekunde.
+- **Ein Video bekommt keinen Standzeit-Griff** (der Player läuft bis zum
+  Dateiende, `holdS` ist dort wirkungslos) und **kein `img`, wenn weder Kachel
+  noch Poster da sind** — eine `.mp4` als Bildquelle zeigt nur das Symbol für
+  „kaputt".
+- **Die Klip-Beschriftung wird von Container-Queries geschaltet, nicht von
+  `kuerzeBeschriftungen`.** Die Schwellen aus §2A (150 / 232 px) haben sich
+  unverändert bewährt; gemessen schalten die Stufen bei 34 / 156 / 525 px
+  Klipbreite.
+
+Gemessen am Editor (Koh-Pha-ngan-Seed, 12 Aufnahmen, 1600 px Fenster):
+Standzeit +21,8 s ⇒ Film 4:53 → 5:15, Maßstab unverändert 1,7×, links der
+Kante pixelidentisch; Andocken, Umordnen und Standzeit je genau ein
+Undo-Schritt; Leerzug null; alle drei Ausbaustufen schalten bei 34 / 156 /
+525 px wie vorgesehen; Speichern nimmt `holdS` und `reihe` an. Foto-Einblendung
+am Klip m3 (78,80–84,79 s): beim Abspielen sichtbar 79,0–84,7 s (Messraster
+0,2 s), beim Scrubben an ab Ankunft +0,1 s, Balken 0,01 / 0,50 / 0,98 an
+Anfang / Mitte / Ende, dahinter aus.
 
 1. Foto-Dots + Cluster-Streifen → **Klip-Kette** je Halt (§2A): Reconcile an
    `medium.id`, Kopf/Fuß-Miniatur (`thumb` mit `src`-Fallback!),
@@ -379,7 +447,117 @@ bewegt, statt an dessen Kante zu kleben.
 **Fertig, wenn:** die Foto-Bahn ohne Cluster auskommt und ein Halt mit drei
 Aufnahmen als drei anfassbare Klips liegt.
 
-### Etappe 3 — Zustandsbahnen *(kein Schema-Bruch)*
+### Etappe 3 — Zustandsbahnen *(kein Schema-Bruch)* — **UMGESETZT 2026-08-05**
+
+Abweichungen von der Planung, gemessen am echten Editor:
+
+- **Die Bisektion ist NICHT eingebaut** — die geforderte Messung hat sie
+  erledigt. Ein Zieh-Frame kostet 14 Achsenbauten (`zerlegeFuerAnzeige` +
+  `baueAchse`), gemessen in Node auf einem M4, **ohne** den Rest des Frames
+  (Ø / max über 40 Läufe):
+
+  | Trackpunkte | Bisektion, voll | Bisektion, Halte vorgerechnet | `baueGrenzKurve` |
+  |---|---|---|---|
+  | 335 (Koh Pha-ngan, echt) | 0,62 / 1,04 ms | 0,29 / 0,33 ms | 0,017 ms **einmal** |
+  | 993 | 1,39 / 1,46 ms | 0,73 / 0,78 ms | 0,041 ms einmal |
+  | 2 967 (≈52 min bei 1 Hz) | 4,06 / 4,90 ms | 2,07 / 2,18 ms | 0,080 ms einmal |
+  | 9 876 (≈2,7 h bei 1 Hz) | **12,51 / 15,09 ms** | 6,64 / 7,17 ms | 0,205 ms einmal |
+
+  Der Mockup-Wert (Ø 1,4 ms, §6) galt für einen dünnen Track. An 10 000 Punkten
+  reißt die naive Variante das 8-ms-Budget, und selbst mit vorgerechneten Halten
+  bleiben 6,6 ms — kein Puffer, wenn Render und Karte noch dazukommen. Die
+  Auswertung der Kurve liegt je Frame unter der Messschwelle (< 0,005 ms).
+
+  **Warum `baueGrenzKurve` sie ersetzt — und dabei einfacher ist.** Die
+  Filmposition der Grenze hängt NUR von dem ab, was VOR ihr liegt: Bis zur
+  vorigen Grenze ändert sich beim Ziehen gar nichts, und dazwischen gilt das
+  Tempo des LINKEN Bands, egal wohin man zieht. Also ist F(t) eine feste,
+  stückweise lineare, monotone Funktion über dem Fenster [vorige Grenze,
+  nächste Grenze]. Sie entsteht EINMAL beim Zug-Start (Fahrzeit über die
+  Trackpunkte des Fensters, Halte als Sprünge eingewebt — dieselbe Stelle wie
+  die Achse, `webeHalte`) und wird danach in beide Richtungen ausgewertet. Die
+  Bisektion suchte iterativ, was hier direkt dasteht; und sie war auf 0,2 s
+  genau, während die Kurve exakt ist. Nachträglich zeigte sich die Messreihe
+  ohnehin als hypothetisch: Der Editor-Track ist serverseitig auf 5 m
+  vereinfacht ([tours.ts](../../server/src/routes/tours.ts)) — aus einem GPX mit
+  9 000 Punkten kommen im Editor **541** an.
+- **Dieselbe Rechnung trägt die Filmdauer-Vorschau** (`filmDauerBeiGrenze`):
+  Verschiebt man die Kante, wechselt genau die Strecke zwischen alter und neuer
+  Lage den Modus; ihre Filmzeit ändert sich um die Differenz der Kehrwerte der
+  Tempi. Keine zweite Achse nötig.
+- **Die eigene Kante wird über den INDEX gefunden, nicht über eine
+  Zeit-Toleranz.** Der Overlay-Anker ist sekundengenau (`offsetZuIso` schneidet
+  die Millisekunden ab), die Wechselzeit im Track ist es nicht — 7839,1 gegen
+  7840. Mit „alles vor mir / alles nach mir" wurde die eigene Kante zum rechten
+  Nachbarn, das Zug-Fenster war der Abschnitt DAVOR, und die Kante klemmte nach
+  7 px fest. Kostete eine Runde.
+- **Der Rast-Bug beim Rechtsziehen: drei Fassungen, eine Ursache.** Meldung des
+  Nutzers nach der ersten Fassung: „`rasteAnHalt` mischt Filmsekunden aus der
+  Grenzkurve mit Halt-Positionen aus der Achse — die beiden laufen rechts der
+  ursprünglichen Kante auseinander." Genau so war es, und die zwei Anläufe
+  danach haben gezeigt, dass die Ursache tiefer liegt als das Mischen:
+
+  1. **Fassung 1 (gemischt).** `filmS` ist die Zeigerstelle, aus der die
+     Grenzkurve die Landezeit macht; `halt.filmVon/filmBis` kamen dagegen aus
+     der Achse. Links der ursprünglichen Kante sind beide identisch, rechts
+     davon nicht — dort gilt in der Kurve der linke Modus, in der Achse der
+     rechte. Damit prüfte die Zeit-Toleranz (`|halt.offsetS − t| ≤ 0,5 s`) einen
+     anderen Halt als der Intervall-Test, und „davor/dahinter" wurde an einem
+     Intervall entschieden, das zu einer fremden Aufnahme gehörte.
+  2. **Fassung 2 (alles in Kurven-Koordinaten).** Rechnerisch sauber und an der
+     echten Tour belegt: Der Halt wandert beim Loslassen um 41 px nach, die
+     Kante landet exakt auf seiner Flanke. Trotzdem falsch — der hervorgehobene
+     Halt stand **159 px neben der Ziellinie**, weil er auf der Leiste noch an
+     seinem alten Platz gezeichnet war. Man rastet an etwas ein, das man dort
+     nicht sieht (Screenshot des Nutzers).
+  3. **Fassung 3 (Achsen-Koordinaten, kein Rasten bei der Fortbewegung).** Jetzt
+     stimmte das Zielen mit dem Bild überein, aber der Zug lief in die
+     eigentliche Wurzel: Zeigt der Zeiger auf eine Filmsekunde INNERHALB eines
+     Halts, liefert die Umkehrung dessen Zeit — und die Hin-Richtung fällt per
+     lower_bound auf seine LINKE Flanke (§1). Gemessen sprang die Kante beim
+     Loslassen um 5,4 s / 17,6 px zurück. Zudem war die Bedienung inkonsistent:
+     Ziellinie bei Kamera und Wetter, keine bei der Fortbewegung.
+
+  **Die Ursache** ist keine Rechenfrage, sondern eine der Darstellung: Die
+  Leiste zeigte während des Zugs die ALTE Anordnung, gelandet wurde in der
+  NEUEN. Eine Vorschau kann dann zeigen, worauf man zielt, ODER wo es landet —
+  nie beides. Also geht die Leiste mit (Nutzer-Vorschlag): Jeder Zieh-Frame
+  schreibt die Grenze und baut neu auf (`renderNachZug`, ein Undo-Schritt),
+  Klips, Bänder, Marken und die Filmdauer rücken live nach. Damit fallen Zielen
+  und Landen wieder zusammen, alle drei Bahnen rasten an dem Halt, den man
+  sieht, und §7 ist entschieden.
+- **Möglich ist das erst durch die exakte Umrechnung.** Der ursprüngliche Grund
+  für die Entkopplung war, dass die Kante dem Zeiger davonlief (116 px) — das
+  lag an der Achse des Vorframes, nicht am Live-Schreiben. Mit `baueGrenzKurve`
+  steht die Kante nach jedem Neuaufbau wieder unter dem Zeiger (gemessen
+  0,1 px; Restabweichung ist die Sekundenrundung des ISO-Ankers).
+- **Kosten gemessen**: 5,5 ms je Zieh-Frame im Median (Koh Pha-ngan, 335
+  Trackpunkte, 12 Klips), 4,0 ms bei 541 Punkten ohne Medien. Die Klips kosten
+  mehr als die Trackpunkte. Und die 10 000-Punkte-Sorge aus der
+  Bisektions-Messung ist unbegründet: Der Editor-Track ist serverseitig auf 5 m
+  vereinfacht — aus einem GPX mit 9 000 Punkten werden 541.
+- **Die Ziellinie ist eine Orientierung durch alle Bahnen**, nicht nur eine
+  Rast-Vorschau: den ganzen Zug über sichtbar (Haarstrich), beim Einrasten
+  hervortretend (lila). Wer eine Grenze setzt, will sehen, was dort zeitlich
+  übereinanderliegt — dieselbe Frage, die die Halt-Zone bei der Auswahl
+  beantwortet.
+- **Am Ende schreiben ALLE Züge live** — Kanten wie Momente. Die in §2D
+  vorgesehene Entkopplung („Modell erst beim Loslassen") war die Antwort auf ein
+  Problem, das die Grenzkurve gelöst hat; sie hat sich damit selbst erledigt.
+  Was bleibt, ist ihr eigentlicher Kern: Während eines Zugs wird `letzterStand`
+  nicht fortgeschrieben, also ist der ganze Zug genau ein Undo-Schritt.
+- **Kamera und Wetter hätten die Entkopplung nicht gebraucht.** Dort ändert der
+  Zug die Achse nicht — Zielen und Landen fallen ohnehin zusammen. Die
+  Schwierigkeit war von Anfang an nur die der Fortbewegung; das war beim
+  Schreiben von §2D nicht zu sehen.
+
+Gemessen am Editor (Koh Pha-ngan, 1600 px Fenster, Maßstab 1,0×):
+freier Fortbewegungs-Zug ⇒ Kante folgt dem Zeiger auf 0,1 px, links davon alles
+pixelidentisch, Film 4:53 → 4:56; Zug über einen Halt ⇒ der Halt wandert
+sichtbar mit (644,8 → 686,3 px), Etikett „2:34 · 18:06 Uhr · rastet hinter den
+Halt · Film 4:53 → 5:05", Ziellinie deckungsgleich mit der Kante; Wetter-Kante
+auf einen Halt ⇒ Ziellinie exakt auf dessen Flanke (0,0 px). Je Zug ein
+Undo-Schritt.
 
 1. Drei schmale Bahnen (19 px), Bänder mit Text, Riegel-Griffe (§2D; CSS-Fallen
    in §5 beachten).
@@ -447,9 +625,42 @@ Für die Umsetzung — jede davon hat im Mockup mindestens eine Runde gekostet:
 8. **Touch:** 11–13-px-Griffe sind Maus-Maße. Im echten Editor bei
    `(pointer: coarse)` Trefferzonen ≥ 24 px vorsehen (Optik darf schmal bleiben).
 
+Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
+
+9. **Zwei Film-Koordinatensysteme in einer Geste sind immer ein Bug.** Beim
+   Fortbewegungs-Zug gibt es die Achse (was gezeichnet ist) und die Grenzkurve
+   (wo die Kante landet); rechts der Kante laufen sie auseinander. Jede Größe,
+   die man vergleicht — Zeigerstelle, Halt-Intervall, Ziellinie —, muss aus
+   DERSELBEN stammen. Der einzige saubere Übergabepunkt zwischen beiden ist die
+   AUFNAHMEZEIT. Sauber wird es aber erst, wenn die Leiste im Zug mitgeht (§4,
+   Etappe 3).
+10. **Overlay-Anker sind SEKUNDENgenau** (`offsetZuIso` schneidet die
+    Millisekunden ab), Track-Zeiten sind es nicht. Zeit-Toleranzen unter einer
+    Sekunde unterscheiden deshalb nichts Verlässliches: Die eigene Kante eines
+    Zugs findet man über den INDEX in der Kantenliste, nicht über „alles vor
+    mir / alles nach mir" (sonst wird sie ihr eigener Nachbar). Und „strikt
+    hinter dem Halt" ist eine ganze Sekunde, kein Epsilon.
+11. **Eine Anzeige, die an einer UHR hängt statt an der Position, driftet.** Die
+    Foto-Einblendung lief über einen Timer und war deshalb beim Scrubben gar
+    nicht da und beim Abspielen 0,8 s zu kurz. Alles, was „gerade gilt", ist
+    eine Funktion der Kopfposition.
+12. **Ein Zug, der nichts ändert, darf nichts schreiben.** Die Overlay-Mutatoren
+    liefern immer ein neues Objekt — der Referenzvergleich in `renderAlles`
+    macht daraus einen LEEREN Undo-Schritt, den man später einmal umsonst
+    rückgängig macht.
+13. **Der Fit gehört zum Öffnen und zum Zoomen, nicht zu einer Datenänderung.**
+    Wer ihn nach einem Zug wiederherstellt, skaliert die ganze Leiste — auch
+    alles VOR der geänderten Stelle. Ein waagerechter Scrollbalken ist dann kein
+    Fehler, sondern die Folge einer Nutzerhandlung.
+14. **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover` gibt dem
+    Klip eine graue Fläche, `button:active { transform: scale(…) }` ERSETZT sein
+    `translateX` beim Ziehen. Beides in einer eigenen Regel zurücknehmen.
+
 ---
 
-## 6. Messwerte (Mockup, Koh-Pha-ngan-Beispieltour: 52 min Aufnahme → 3:00 Film)
+## 6. Messwerte
+
+### Am MOCKUP (Koh-Pha-ngan-Beispieltour: 52 min Aufnahme → 3:00 Film)
 
 | Befund | Wert |
 |---|---|
@@ -461,18 +672,38 @@ Für die Umsetzung — jede davon hat im Mockup mindestens eine Runde gekostet:
 | Szenen-Anteil am Film (Standzeiten) | 52 % — Argument gegen Aufnahmezeit-Achse |
 | Fortbewegungs-Zug, Achse des Vorframes | 116-px-Sprung beim Loslassen |
 | dito, mit festem Maßstab + Fixpunkt | 0-px-Sprung, Ziel exakt getroffen |
-| Bisektion (14 Schritte) | Ø 1,4 ms, max 4,6 ms je Zieh-Frame |
+| Bisektion (14 Schritte) | Ø 1,4 ms, max 4,6 ms je Zieh-Frame — **trägt am echten Track nicht**, s. §4 Etappe 3 |
 | Rastung mit 0,01-Filmsekunden-Epsilon | bis 71 px neben der Ziellinie (lower_bound) |
 | Ton-Magnetik: Standzeit +10 s | alle späteren Klips exakt +10 s |
 
 ---
 
+### Am ECHTEN Editor (Koh-Pha-ngan-Seed: 41 km, 12 Aufnahmen, 335 Trackpunkte, 4:53 Film, 1600 px Fenster)
+
+| Befund | Wert |
+|---|---|
+| Klip-Zug: Andocken / Umordnen / Standzeit | je genau EIN Undo-Schritt; Zug auf den eigenen Platz: null |
+| Ausbaustufen der Klips (Container-Query) | schalten bei 34 / 156 / 525 px Klipbreite |
+| Standzeit-Zug +200 px | Film 2:46 → 3:17, Maßstab 1,0× → 1,2×, erster Klip pixelidentisch (x = 178) |
+| Foto-Einblendung, Klip m3 (78,80–84,79 s) | Abspielen sichtbar 79,0–84,7 s (Raster 0,2 s); Scrubben an ab Ankunft + 0,1 s |
+| Fortbewegungs-Zug, frei | Kante landet 0,1 px neben der Zieh-Stelle, links davon pixelidentisch |
+| dito, Fassung 2 (Kurven-Koordinaten) | Ziellinie 0,0 px exakt — aber 159 px neben dem hervorgehobenen Halt |
+| dito, Fassung 3 (kein Rasten, Zeiger im Halt) | Rücksprung 5,4 s / 17,6 px (lower_bound, §1) |
+| Halt beim Rechtsziehen | wandert 41 px nach (644,8 → 686,3 px), weil der Film wächst |
+| Zieh-Frame mit Live-Aufbau | Median 5,5 ms / p95 6,7 (335 Punkte, 12 Klips) · 4,0 / 4,9 ms (541 Punkte, 0 Medien) |
+| `baueGrenzKurve` statt Bisektion | 0,205 ms EINMAL bei 10 000 Punkten statt 12,5 ms je Frame |
+| Editor-Track nach Server-Vereinfachung (5 m) | GPX mit 9 000 Punkten → **541** im Editor |
+
+---
+
 ## 7. Offen (bewusst nicht entschieden)
 
-- **Rastet die Fortbewegungs-Grenze an Halten?** Konzeptbedingt wandert der Halt
-  beim Einrasten mit (Filmdauer ändert sich; im Mockup bis 42 px neben der
-  Vorschau — korrekt, aber sichtbar). Alternative: für die Fortbewegung gar
-  nicht einrasten. Am echten Editor mit echten Touren entscheiden.
+- ~~**Rastet die Fortbewegungs-Grenze an Halten?**~~ ENTSCHIEDEN (Etappe 3):
+  Ja — aber erst, seit die Leiste im Zug mitgeht. Der beschriebene Versatz war
+  keine Konzeptschwäche, sondern die Folge davon, dass die Leiste die alte
+  Anordnung zeigte, während die Kante in der neuen landete. Wird sie
+  fortwährend in den Zielzustand gesetzt, fällt der Versatz weg und der Halt
+  wandert sichtbar mit (s. §4, Etappe 3).
 - **Dauerhafte Kennzeichnung der Halt-Zonen in den Zustandsbahnen** — fünf
   Varianten diskutiert, Empfehlung „nur beim Ziehen sichtbar" (ggf. + feine
   Trennstriche). Offen gelassen.

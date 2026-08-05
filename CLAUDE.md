@@ -537,6 +537,57 @@ eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Der Abspielko
 Overlay über allen Bahnen (absolut positioniert, **nicht** als Grid-Item: ein Item mit
 `grid-row: 1/-1` belegt die ganze Spalte und drängt die Bahnen weg).
 
+**Fortbewegung · Kamera · Wetter sind drei GLEICHRANGIGE schmale Bahnen** (19 px, Etappe 3
+des [Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)). Sie beschreiben, wie das
+Dazwischen aussieht — bei einer typischen Tour zwei bis drei Entscheidungen, die vorher drei
+randvolle Bahnen belegten und mit den Szenen um Fläche konkurrierten: Material verdient Fläche,
+Kontext verdient eine Zeile. Verworfen (mit Nutzer-Feedback): sie unter „Reise"
+zusammenzuklappen, Kamera/Wetter als Unterspuren zu führen, Wechsel-Marken statt Bändern und
+eine blass/kräftig-Unterscheidung Automatik vs. Entscheidung. **Ein Band ist KEIN Klip:** keine
+Rundung, kein eigener Rahmen, keine Rille in der Bahn — ein durchgehender Streifen, der an den
+Grenzen die Farbe wechselt (Klips haben Lücken dazwischen, ein Zustand hat kein „dazwischen").
+Der Griff ist EIN Riegel auf der Fuge (3 px, dunkler Ring, hover/Zug orange) und **immer
+sichtbar** — als Haarstrich fand man ihn erst beim Darüberfahren; zwei Backen oben und unten
+lasen sich auf 19 px als Bildfehler.
+
+**Im Zug wird die Leiste fortwährend in den ZIELZUSTAND gesetzt.** Jeder Zieh-Frame schreibt
+die Grenze und baut die Leiste neu auf: Klips, Bänder und Marken rücken mit, die Filmdauer in
+der Kopf-Uhr wächst mit. Das ist nicht Kosmetik, sondern die Bedingung dafür, dass Zielen und
+Landen im selben Bild stattfinden. Zeigte die Leiste während des Zugs die ALTE Anordnung, konnte
+eine Rast-Vorschau nur eines von beidem sein — den Halt, auf den man zeigt, oder die Stelle, an
+der die Kante landet (sie liegen bis zu 159 px auseinander). Beide Fassungen wurden gebaut und
+beide waren falsch. Möglich ist der Live-Aufbau erst durch die EXAKTE Umrechnung (s. u.): Die
+Kante steht nach jedem Neuaufbau wieder unter dem Zeiger (gemessen 0,1 px); mit der Achse des
+Vorframes sprang sie um 116 px, und genau deshalb war der Zug zwischenzeitlich entkoppelt.
+Gemessen kostet ein Zieh-Frame 5,5 ms im Median (335 Trackpunkte, 12 Klips) bzw. 4,0 ms
+(541 Punkte ohne Medien) — der Editor-Track ist serverseitig auf 5 m vereinfacht
+([tours.ts](server/src/routes/tours.ts)), aus 9 000 Rohpunkten werden 541.
+Ein Undo-Schritt bleibt es: `renderNachZug` schreibt `letzterStand` nicht fort.
+
+**Die Ziellinie ist eine Orientierung durch alle Bahnen** — den ganzen Zug über sichtbar, weil
+man beim Setzen einer Grenze wissen will, was dort zeitlich übereinanderliegt. Beim Einrasten
+tritt sie hervor (lila) und das Etikett nennt den Grund; sonst bleibt sie ein Haarstrich, der
+den orangen Riegel nicht überdeckt. Das Etikett steht immer und trägt Filmzeit, Uhrzeit und bei
+der Fortbewegung die Folge für die Filmlänge („Film 4:53 → 5:05").
+**Eingerastet wird über ±0,5 s AUFNAHMEzeit**, nicht über Filmsekunden — 0,01 Filmsekunden
+schmolzen auf dem Rückweg durch die Achse auf ein halbes Tausendstel und verloren gegen die
+lower_bound-Konvention (bis 71 px daneben); „dahinter" braucht dabei einen Zeitstempel STRIKT
+nach der Haltzeit, und weil Overlay-Anker sekundengenau sind, ist das eine ganze Sekunde. In
+einem Halt ist das Rasten keine Bequemlichkeit, sondern die einzige Art, eine Position zu
+benennen: Dort gibt es keine Aufnahmezeit, die Rückrechnung fiele auf die linke Flanke.
+**Geklemmt wird in PIXELN** (14 px Mindestbreite), nicht in Sekunden: mit ±1 s konnten zwei
+Grenzen so nah zusammenrücken, dass das Band dazwischen unsichtbar und unanfassbar wurde.
+
+**Die Fortbewegungs-Grenze liegt auf der Achse, die sie selbst verändert** — im Tempo je Modus
+steckt die Filmzeit. Gelöst wird das ANALYTISCH, nicht per Bisektion: Die Filmposition der
+Kante hängt nur von dem ab, was VOR ihr liegt (bis zur vorigen Grenze ändert sich nichts,
+dazwischen gilt das Tempo des linken Bands — egal wohin man zieht). Also ist die Abbildung eine
+feste, stückweise lineare, monotone Funktion, die `baueGrenzKurve` EINMAL beim Zug-Start
+aufbaut. Die im Konzept vorgesehene Bisektion (14 Achsenbauten je Frame) wurde vorher gemessen
+und verworfen: 0,62 ms bei 335 Trackpunkten, aber **12,5 ms bei 10 000** — über dem 8-ms-Budget;
+die Kurve kostet dort 0,2 ms einmal. Dieselbe Rechnung trägt die Filmdauer-Vorschau
+(`filmDauerBeiGrenze`): es wechselt nur die Strecke zwischen alter und neuer Lage den Modus.
+
 **Die Kante ist ein Griff, kein eigenes Objekt.** Sie liegt (9 px) ÜBER dem Band und ist dessen
 Geschwister, kein Vorfahr — `closest('[data-fokus]')` findet von dort aus nichts, und ein Klick
 auf die Kante wählte deshalb gar nichts aus (der Cursor sprang auf „Rand ziehen", und nichts
@@ -600,13 +651,50 @@ entsteht nie beim Öffnen. Weil die Breite jetzt an den DATEN hängt, schreibt
 `renderZeitleiste` sie mit (`schreibeZeitBreite`, mit Letzter-Wert-Vergleich: die Funktion
 läuft in jedem Zug-Frame).
 
-**Der Foto-Zug rechnet px-treu unterm Finger, die Zeit über eine ZIEH-Achse.** Die Miniatur
-folgt dem Cursor 1:1 in Pixeln (Ruhelage `stopp.offsetS` als optische Referenz, Einrasten in
-Pixeln); die Rückübersetzung px → Zeit läuft über eine Achse OHNE die eigenen Halte — auf der
-echten Achse hätte der gezogene Stopp selbst Breite, und um die Ruhelage läge eine tote Zone
-von Sprungbreite, in der der Cursor die Zeit nicht bewegte. Ein Foto verlässt seinen Halt über
-zwei Wege: Karte (Ort zeigen) oder Foto-Spur (Zeit zeigen) — beide enden im selben Anker,
-`reihe` fällt dabei weg.
+**Ein Halt ist eine KETTE von Klips, kein Stapel** (Etappe 2 des
+[Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)). Der „Cluster" war nie ein eigenes
+Ding, sondern die Folge zusammenfallender Anker — als Stapel mit Zahl-Plakette gezeichnet,
+weil PUNKTE an derselben Stelle übereinanderlägen. Er saß an der LINKEN Kante einer Breite,
+die der Halt trotzdem belegte: eine tote Zone, in der nichts anzufassen war, obwohl dort der
+halbe Film liegt (52 % der Beispieltour sind Standzeit). Jetzt hat jede Aufnahme ihren eigenen
+Klip mit Anfang und Ende, und die Kette liegt lückenlos hintereinander. Drei Regeln tragen das:
+**Reconcile an `medium.id`** (nicht am Titel — der ist weder eindeutig noch stabil; und nie per
+Neubau: der kostete 2,34 ms je Zieh-Frame und das gezogene Element samt dekodiertem `img`),
+**Container-Queries** für die drei Ausbaustufen (nur Bild < 150 px < Bild+Name < 232 px <
+Bild+Name+Bild — gemessene JS-Klassen schalteten erst beim Loslassen, weil
+`kuerzeBeschriftungen` im Zug bewusst nicht läuft) und die **Miniatur aus `miniaturQuelle`**
+(thumb → src; ohne den Rückfall bliebe jede Tour von vor der Bildaufbereitung ohne Bild).
+
+**Die rechte Kante eines Fotos ist seine Standzeit** (`display.holdS`, Blase am Griff). Ein
+Video hat diesen Griff NICHT — der Player läuft bis zum Dateiende, `holdS` ist dort wirkungslos
+(src/tour.js), ein Griff dafür wäre eine Lüge. **Der Zug friert den Maßstab ein und lässt ihn
+eingefroren:** eingepasst folgte er sonst der wachsenden Filmdauer — die Leiste schrumpfte
+unter der Hand, der Griff bliebe hinter dem Zeiger zurück, und beim Loslassen sprang alles noch
+einmal auf „ganzer Film im Fenster". Genau diese Skalierung soll der feste Maßstab verhindern:
+sie verschiebt AUCH alles vor der geänderten Stelle. Der Fit gehört zum Öffnen und zum Zoomen,
+nicht zu einer Datenänderung; zurück führen der „×"-Knopf und ⇧Z, die danach sichtbar aktiv
+werden. Ein waagerechter Scrollbalken ist dann kein Fehler, sondern die Folge einer
+Nutzerhandlung.
+
+**Der Klip-Zug ist EINE Geste mit zwei Bedeutungen.** Innerhalb der eigenen Kette ordnet er um
+(`reihe`, risikofrei), darüber hinaus setzt er den ORT auf der Route — was gerade gilt, sagt
+das Etikett am Zeiger, nicht erst das Ergebnis. Über einem FREMDEN Halt dockt der Klip an
+(über dessen volle Breite: dort gibt es keine Zwischenposition, die Pixel gehören einer
+Standzeit und keiner Fahrzeit) und übernimmt dessen Anker — über die Zeit gerechnet läge er
+knapp daneben und der Halt zerfiele wieder. Die Rückübersetzung px → Zeit läuft über eine
+Achse OHNE die Halte DIESER Aufnahme: auf der echten Achse hat der gezogene Klip selbst
+Breite, um die Ruhelage läge also eine tote Zone von Sprungbreite. Welche Bedeutung gilt,
+entscheidet die Kette, in der der Zug BEGANN — sonst kippte sie mitten in der Bewegung. Ein
+Zug, der auf seinem eigenen Platz endet, schreibt nichts: `reiheVergeben` erzeugte sonst ein
+neues Overlay und damit einen leeren Undo-Schritt.
+Den ganzen Halt bewegt seither nur noch der Punkt auf der KARTE; den Filmstreifen im Inspector
+gibt es nicht mehr (er war der einzige Weg zum Umordnen und Herauslösen — beides tut jetzt der
+Klip-Zug dort, wo man es sieht).
+
+**Die Halt-Zone gilt nur dem AUSGEWÄHLTEN Halt** — die gestrichelte Führung durch alle Bahnen
+beantwortet „was liegt zeitlich darüber?" genau dann, wenn die Frage gestellt wird. Über alle
+Halte gelegt waren es zwölf Linien Dauerunruhe (dasselbe Muster wie der leuchtende
+Streckenabschnitt auf der Karte).
 
 **Was in der Datei steht, liest der Editor selbst.** Der Block „Aufnahme-Details" unter einer
 Aufnahme zeigt Aufnahmezeit, Verortung und die Kameradaten aus dem EXIF (Kamera, Objektiv,
@@ -655,6 +743,17 @@ Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.js](src/audiotracks.js
 Studio nichts klingt, was der Film nicht spielt (Drift-Wächter + handgeschriebene
 `audiotracks.d.ts`, weil `allowJs` aus ist). Jede manuelle Geste ruft `halteAbspielen()` —
 der Spielplan ist ein Schnappschuss und liefe sonst gegen veraltete Halte.
+
+**Welches Bild auf der Karte liegt, ist eine FUNKTION der Kopfposition** — keine Uhr und keine
+Überfahr-Marke. `synchronisiereFoto` (aufgerufen aus `renderPlayhead`, also bei jeder
+Kopfbewegung) fragt `haltBeiFilmS`: steht der Kopf in einem Klip, liegt dessen Bild auf der
+Karte; verlässt er ihn, verschwindet es. Der Fortschrittsbalken wird dabei gesetzt statt
+animiert. Vorher stieß der Abspieler die Einblendung als Marke an und ein Timer nahm sie
+zurück — daran hingen ZWEI Fehler, die derselbe Satz erklärt: Beim Scrubben erschien gar kein
+Bild (der Abspieler lief ja nicht), und beim Abspielen ging es 0,8 s zu früh aus, weil der
+Timer über die reine Standzeit lief, der Klip aber über Standzeit + Ausblendung. Im
+Schnelllauf (J/L) bleibt die Karte aus — dort will man die Strecke überfliegen. `ZeigeMarke`
+und `Schritt.zeige` sind damit ersatzlos entfallen.
 
 **Eine Auswahl über drei Ansichten.** `z.fokus` (ausgewähltes Objekt) ist getrennt von
 `z.auswahl` (Einfügemarke für „ab hier"-Aktionen) — wie Selektion und Abspielkopf in einem

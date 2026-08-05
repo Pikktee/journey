@@ -24,6 +24,7 @@ import {
   pruefeOverlay,
   punktZuOffset,
   WETTER_MODI,
+  zerlegeFuerAnzeige,
   type EditOverlay,
   type MediumBasis,
   type TrackPunkt,
@@ -39,25 +40,41 @@ import {
   baueAudioBalken,
   baueFilmMassband,
   baueMedienDots,
+  baueGrenzKurve,
   baueSkala,
   baueSpielKurve,
+  baueSzenenKlips,
   baueTrimGriffe,
   baueZustandsBaender,
   beschreibeHaltStand,
   filmBei,
+  filmDauerBeiGrenze,
   filmZuAnteil,
   filmZuOffset,
   formatiereDauer,
   formatiereFilmzeit,
+  formatiereSekunden,
   HALT_AUSBLEND_S,
   HALT_ENGINE_S,
   haltBeiFilmS,
   haltedauerS,
+  haltInnenBei,
+  klemmeFilmS,
+  klemmeStandzeit,
   kumMeter,
   meterZuOffset,
   musikLanes,
   offsetZuAnteil,
+  ordneEin,
+  platzInKette,
+  rasteAnHalt,
+  RAST_HINTER_S,
   schaetzeAnimationsdauer,
+  zeitBeiFilm,
+  type Achse,
+  BAND_MIN_PX,
+  STANDZEIT_MAX_S,
+  STANDZEIT_MIN_S,
   schrittFilmS,
   waehleFilmStufe,
 } from '../src/studio/zeitleiste'
@@ -794,6 +811,218 @@ describe('Zeitleiste', () => {
       expect(mitVideo.halte?.[0]?.breiteS).toBeCloseTo(34.8, 6)
       // … und der Kopf steht mitten im Video, nicht in einer 6-s-Annahme
       expect(haltBeiFilmS(mitVideo, mitVideo.halte![0]!.filmVon + 20)?.stueck?.imS).toBeCloseTo(20, 6)
+    })
+
+    it('Szenen-Klips: ein Halt ist eine Kette, jede Aufnahme mit eigener Breite', () => {
+      // Drei Aufnahmen am selben Ort: 6 s + 34,8 s Video + 6 s = 46,8 s Halt
+      const stuecke = [
+        { id: 'm1', dauerS: 6 },
+        { id: 'v1', dauerS: 34.8 },
+        { id: 'm2', dauerS: 6 },
+      ]
+      const kette = baueAchse(
+        abschnitte,
+        [
+          { offsetS: 600, breiteS: 46.8, stuecke },
+          { offsetS: 900, breiteS: 6, stuecke: [{ id: 'm3', dauerS: 6 }] },
+        ],
+        fSkala,
+      )
+      const klips = baueSzenenKlips(kette)
+      expect(klips.map((k) => k.id)).toEqual(['m1', 'v1', 'm2', 'm3'])
+      // Lückenlos aneinander, jeder mit seiner eigenen Filmbreite
+      const halt = kette.halte![0]!
+      expect(klips[0]!.filmVon).toBeCloseTo(halt.filmVon, 6)
+      expect(klips[0]!.filmBis).toBeCloseTo(klips[1]!.filmVon, 6)
+      expect(klips[1]!.filmBis - klips[1]!.filmVon).toBeCloseTo(34.8, 6)
+      expect(klips[2]!.filmBis).toBeCloseTo(halt.filmBis, 6)
+      // Der Platz in der Kette ist der Rückweg zum Halt
+      expect(klips.map((k) => [k.haltIndex, k.platz, k.anzahl])).toEqual([
+        [0, 0, 3],
+        [0, 1, 3],
+        [0, 2, 3],
+        [1, 0, 1],
+      ])
+      // Halte ohne bekannte Stücke (Kamera-Momente) haben keine Klips
+      expect(baueSzenenKlips(baueAchse(abschnitte, [{ offsetS: 600, breiteS: 6 }], fSkala))).toEqual([])
+    })
+
+    it('die Karte steht so lange wie ihr Klip — dieselbe Größe, nicht zwei', () => {
+      // Die Foto-Einblendung hängt an der Kopfposition (`haltBeiFilmS`), die
+      // Klips an `baueSzenenKlips` — beide lesen dieselben Stücke der Achse.
+      // Vorher lief ein Timer über die reine STANDZEIT, der Klip aber über
+      // Standzeit + Ausblendung: das Bild ging 0,8 s vor seinem Klip aus.
+      const stuecke = [
+        { id: 'm1', dauerS: HALT_ENGINE_S + HALT_AUSBLEND_S },
+        { id: 'm2', dauerS: 12 + HALT_AUSBLEND_S },
+      ]
+      const breite = stuecke.reduce((s2, x) => s2 + x.dauerS, 0)
+      const a = baueAchse(abschnitte, [{ offsetS: 600, breiteS: breite, stuecke }], fSkala)
+      for (const k of baueSzenenKlips(a)) {
+        // Kurz vor der rechten Kante läuft die Karte noch …
+        const drin = haltBeiFilmS(a, k.filmBis - 0.01)
+        expect(drin?.stueck?.id).toBe(k.id)
+        expect(drin!.stueck!.dauerS).toBeCloseTo(k.filmBis - k.filmVon, 6)
+        // … und an der Ankunft gehört sie schon dem Klip selbst
+        expect(haltBeiFilmS(a, k.filmVon + 0.01)?.stueck?.id).toBe(k.id)
+      }
+      // Hinter dem letzten Klip ist die Karte weg — nicht davor
+      expect(haltBeiFilmS(a, a.halte![0]!.filmBis)).toBeNull()
+    })
+
+    it('Klip-Zug in der Kette: der Platz entscheidet sich an der MITTE', () => {
+      const stuecke = ['a', 'b', 'c'].map((id) => ({ id, dauerS: 6 }))
+      const kette = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 18, stuecke }], fSkala)
+      const halt = kette.halte![0]!
+      // Vor der Mitte des ersten Klips: Platz 0, die Marke steht an der Ankunft
+      expect(platzInKette(halt, halt.filmVon + 1)).toEqual({ platz: 0, filmS: halt.filmVon })
+      // Über die Mitte hinaus rutscht sie eine Fuge weiter
+      expect(platzInKette(halt, halt.filmVon + 4)).toEqual({ platz: 1, filmS: halt.filmVon + 6 })
+      expect(platzInKette(halt, halt.filmVon + 10)).toEqual({ platz: 2, filmS: halt.filmVon + 12 })
+      // Ganz hinten: Platz 3 von 3 (die Fuge hinter dem letzten Klip)
+      expect(platzInKette(halt, halt.filmBis)).toEqual({ platz: 3, filmS: halt.filmBis })
+
+      // … und daraus wird die neue Reihenfolge. Nach hinten geschoben rückt
+      // alles dazwischen um eins vor — ohne das landete a immer zu weit rechts.
+      expect(ordneEin(['a', 'b', 'c'], 'a', 0)).toEqual(['a', 'b', 'c'])
+      expect(ordneEin(['a', 'b', 'c'], 'a', 1)).toEqual(['a', 'b', 'c'])
+      expect(ordneEin(['a', 'b', 'c'], 'a', 2)).toEqual(['b', 'a', 'c'])
+      expect(ordneEin(['a', 'b', 'c'], 'a', 3)).toEqual(['b', 'c', 'a'])
+      expect(ordneEin(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b'])
+      // Unbekannte ID lässt die Liste in Ruhe
+      expect(ordneEin(['a', 'b'], 'x', 0)).toEqual(['a', 'b'])
+    })
+
+    it('Andocken: nur das INNERE eines fremden Halts zählt', () => {
+      const halt = achse.halte![0]!
+      expect(haltInnenBei(achse, halt.filmVon - 0.1)).toBeNull()
+      // Die Ankunft gehört noch der Fahrt: dort setzt man eine Aufnahme davor ab
+      expect(haltInnenBei(achse, halt.filmVon)).toBeNull()
+      expect(haltInnenBei(achse, halt.filmVon + 0.1)?.offsetS).toBe(600)
+      expect(haltInnenBei(achse, halt.filmBis - 0.1)?.offsetS).toBe(600)
+      // Die Abfahrt ebenso — sonst käme man hinter dem Halt nie zum Stehen
+      expect(haltInnenBei(achse, halt.filmBis)).toBeNull()
+      expect(haltInnenBei(baueAchse(abschnitte, [], fSkala), 10)).toBeNull()
+    })
+
+    it('Standzeit am Griff: Zehntel und die Grenzen des Server-Schemas', () => {
+      expect(klemmeStandzeit(7.34)).toBe(7.3)
+      expect(klemmeStandzeit(7.36)).toBe(7.4)
+      // Ohne Klemme liefe der Griff in einen Wert, den das Speichern ablehnt
+      expect(klemmeStandzeit(-40)).toBe(STANDZEIT_MIN_S)
+      expect(klemmeStandzeit(999)).toBe(STANDZEIT_MAX_S)
+      expect(formatiereSekunden(5.2)).toBe('5,2 s')
+    })
+
+    it('Fortbewegungs-Zug: die Grenze landet, wo sie losgelassen wurde (Fixpunkt)', () => {
+      // Die Grenze beeinflusst die Abbildung, auf der sie liegt — mit der Achse
+      // des Vorframes gerechnet sprang sie beim Loslassen 116 px (docs §6).
+      // Die Zug-Kurve rechnet stattdessen, was VOR der Kante liegt: das ändert
+      // sich beim Ziehen nicht, also ist sie exakt umkehrbar. Erst dadurch darf
+      // der Zug live ins Modell schreiben — die Kante steht nach jedem
+      // Neuaufbau wieder unter dem Zeiger.
+      const halte = [{ offsetS: 300, breiteS: 12 }]
+      const a = baueAchse(abschnitte, halte, fSkala)
+      const kurve = baueGrenzKurve(fahrTrack, fSkala.vonS, fSkala.bisS, 'walk', 0, a.halte ?? [])!
+
+      // Die PROBE, die der Live-Zug macht: Zeit aus der Kurve holen, damit die
+      // Achse NEU bauen — und die Kante muss wieder auf derselben Filmsekunde
+      // stehen. (Ohne die Kurve wich das um bis zu 5,4 s ab.)
+      const achseMitGrenze = (t: number): Achse =>
+        baueAchse(
+          zerlegeFuerAnzeige(
+            [{ mode: 'bike', pts: fahrTrack }],
+            { schema: 'maptale/edits@1', modi: [{ ab: iso(fSkala.vonS), mode: 'walk' }, { ab: iso(t), mode: 'bike' }] },
+            START,
+          ),
+          halte,
+          fSkala,
+        )
+      // Die Restabweichung ist die SEKUNDENRUNDUNG des Ankers: `offsetZuIso`
+      // schneidet die Millisekunden ab, eine Sekunde Aufnahmezeit sind hier
+      // 0,05 Filmsekunden (zu Fuß ≈ 0,2 px). Darunter geht es nicht, und mehr
+      // braucht es nicht.
+      for (const ziel of [30, 90, 180, 250]) {
+        const t = zeitBeiFilm(kurve, ziel)
+        expect(Math.abs(filmZuOffset(achseMitGrenze(t), t) - ziel)).toBeLessThan(0.1)
+      }
+
+      // Monoton und im Fenster geklemmt
+      expect(zeitBeiFilm(kurve, -50)).toBeCloseTo(fSkala.vonS, 6)
+      expect(zeitBeiFilm(kurve, 1e6)).toBeCloseTo(fSkala.bisS, 6)
+      // Der Halt im Fenster kostet Filmzeit, ohne von der Grenze abzuhängen
+      expect(kurve.gesamtS).toBeCloseTo(12 + 12000 / (120 * 0.4), 1)
+      expect(baueGrenzKurve([], 0, 10, 'walk', 0, [])).toBeNull()
+    })
+
+    it('Filmdauer-Vorschau: nur die umgewidmete Strecke ändert sich', () => {
+      // Moped (1,15) → Fähre (2,5): dieselbe Strecke braucht weniger Film.
+      const meterAlt = 0
+      const meterNeu = 12000
+      const laenger = filmDauerBeiGrenze(200, meterAlt, meterNeu, 'walk', 'bike')
+      // 12 km wechseln von Rad auf zu Fuß: +12000/48 − 12000/120 = +150 s
+      expect(laenger).toBeCloseTo(200 + 12000 / 48 - 12000 / 120, 3)
+      // Zurückgezogen kehrt sich das Vorzeichen um
+      expect(filmDauerBeiGrenze(200, meterNeu, meterAlt, 'walk', 'bike')).toBeCloseTo(200 - (12000 / 48 - 12000 / 120), 3)
+      // Gleicher Modus links wie rechts ändert nichts
+      expect(filmDauerBeiGrenze(200, 0, 5000, 'bike', 'bike')).toBeCloseTo(200, 6)
+    })
+
+    it('Einrasten an Haltkanten: ±0,5 s Aufnahmezeit, „dahinter" strikt danach', () => {
+      const a = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 20 }], fSkala)
+      const halte = a.halte!
+      const halt = halte[0]!
+      // Knapp davor: rastet auf die Halt-Zeit selbst (= vor dem Sprung)
+      expect(rasteAnHalt(halte, 599.7, halt.filmVon - 0.3)).toMatchObject({ tOffsetS: 600, hinter: false })
+      // Knapp dahinter: STRIKT nach der Haltzeit — ein Epsilon fiele auf
+      // dieselbe Sekunde zurück (ISO-Anker sind sekundengenau).
+      expect(rasteAnHalt(halte, 600.3, halt.filmBis + 0.3)).toMatchObject({ tOffsetS: 600 + RAST_HINTER_S, hinter: true })
+      // Außerhalb der Toleranz bleibt die Zeit, wie sie ist
+      expect(rasteAnHalt(halte, 597, halt.filmVon - 40)).toEqual({ tOffsetS: 597, halt: null, hinter: false })
+      // MITTEN im Halt gibt es keine Zwischenposition — die Zeigerhälfte entscheidet
+      expect(rasteAnHalt(halte, 600, halt.filmVon + 1).hinter).toBe(false)
+      expect(rasteAnHalt(halte, 600, halt.filmBis - 1).hinter).toBe(true)
+    })
+
+    it('Mitten in einem Halt gibt es keine Zeit — dort MUSS gerastet werden', () => {
+      // Zeigt der Zeiger auf eine Filmsekunde INNERHALB eines Halts, liefert die
+      // Umkehrung dessen Zeit — und die Hin-Richtung fällt per lower_bound auf
+      // seine LINKE Flanke zurück. Ohne Rasten spränge die Kante beim Loslassen
+      // um bis zu eine ganze Standzeit (gemessen 5,4 s / 17,6 px); genau
+      // deshalb ist das Einrasten hier keine Bequemlichkeit, sondern die
+      // einzige Art, in einem Halt überhaupt eine Position zu benennen.
+      const a = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 12 }], fSkala)
+      const halte = a.halte!
+      const halt = halte[0]!
+      const mitten = halt.filmVon + 6
+
+      // Roh: nicht umkehrbar
+      const roh = anteilZuOffset(a, filmZuAnteil(a, mitten))
+      expect(filmZuOffset(a, roh)).toBeCloseTo(halt.filmVon, 6)
+      // Gerastet: die rechte Flanke, und die ist umkehrbar
+      const kur = rasteAnHalt(halte, roh, mitten)
+      expect(kur.hinter).toBe(true)
+      expect(kur.tOffsetS).toBe(600 + RAST_HINTER_S)
+      expect(filmZuOffset(a, kur.tOffsetS)).toBeGreaterThanOrEqual(halt.filmBis)
+
+      // Außerhalb jedes Halts bleibt die Zeit unangetastet — der Fixpunkt
+      const frei = halt.filmVon - 20
+      const freiT = anteilZuOffset(a, filmZuAnteil(a, frei))
+      expect(rasteAnHalt(halte, freiT, frei).tOffsetS).toBeCloseTo(freiT, 6)
+      expect(filmZuOffset(a, freiT)).toBeCloseTo(frei, 6)
+    })
+
+    it('Klemmen in PIXELN hält das Band greifbar', () => {
+      // Mit ±1 s konnten zwei Grenzen so nah zusammenrücken, dass das Band
+      // dazwischen unsichtbar und unanfassbar wurde.
+      const px = 10 // 10 px je Filmsekunde → 14 px = 1,4 s Mindestabstand
+      expect(klemmeFilmS(50, 40, 100, px)).toBe(50)
+      expect(klemmeFilmS(40, 40, 100, px)).toBeCloseTo(40 + BAND_MIN_PX / px, 6)
+      expect(klemmeFilmS(1000, 40, 100, px)).toBeCloseTo(100 - BAND_MIN_PX / px, 6)
+      // Stark gezoomt schrumpft die Luft in Sekunden — die Pixel bleiben gleich
+      expect(klemmeFilmS(40, 40, 100, 100)).toBeCloseTo(40.14, 6)
+      // Fenster schmaler als zweimal Luft: nur die Mitte bleibt übrig
+      expect(klemmeFilmS(41, 40, 42, px)).toBe(41)
     })
 
     it('Spielkurve: Identität ohne Trim, Plateau über weggetrimmten Bereichen', () => {

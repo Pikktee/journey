@@ -9,6 +9,7 @@ import {
   isoZuOffset,
   offsetZuIso,
   projiziereAufTrack,
+  punktZuOffset,
   type AnzeigeAbschnitt,
   type AudioEintrag,
   type EditOverlay,
@@ -769,6 +770,115 @@ function stueckBei(
   return null
 }
 
+// — Szenen-Bahn: ein Halt ist eine KETTE, kein Stapel —
+//
+// Der „Cluster" war nie ein eigenes Ding, sondern die Folge zusammenfallender
+// Anker — als Stapel gezeichnet, weil PUNKTE an derselben Stelle
+// übereinanderlägen. Klips mit Breite haben das Problem nicht: jede Aufnahme
+// belegt ihre eigene Filmzeit (Standzeit bzw. Videolänge, je plus Ausblendung),
+// und die Kette liegt lückenlos hintereinander.
+
+/** Eine Aufnahme als Klip der Szenen-Bahn — von Filmsekunde bis Filmsekunde. */
+export interface SzenenKlip {
+  id: string
+  /** Index des Halts in `achse.halte` — der Rückweg zur Kette */
+  haltIndex: number
+  /** Platz in der Kette (0-basiert) und deren Länge */
+  platz: number
+  anzahl: number
+  filmVon: number
+  filmBis: number
+}
+
+/**
+ * Die Klips aller Halte, in Abspielreihenfolge. Halte ohne bekannte Stücke
+ * (Kamera-Momente: sie halten den Film an, aber keine Aufnahme steht dahinter)
+ * bleiben außen vor — sie haben ihre eigene Bahn.
+ */
+export function baueSzenenKlips(achse: Achse): SzenenKlip[] {
+  const klips: SzenenKlip[] = []
+  for (const [haltIndex, halt] of (achse.halte ?? []).entries()) {
+    const stuecke = halt.stuecke
+    if (!stuecke?.length) continue
+    let film = halt.filmVon
+    for (const [platz, s] of stuecke.entries()) {
+      klips.push({ id: s.id, haltIndex, platz, anzahl: stuecke.length, filmVon: film, filmBis: film + s.dauerS })
+      film += s.dauerS
+    }
+  }
+  return klips
+}
+
+/** Einfüge-Platz in einer Kette samt der Filmsekunde, an der die Marke steht. */
+export interface KettenPlatz {
+  /** 0..n — vor dem ersten Klip bis hinter den letzten */
+  platz: number
+  /** Filmsekunde der Fuge (dort steht die Einfügemarke) */
+  filmS: number
+}
+
+/**
+ * Wohin fällt ein Klip, der bei `filmS` losgelassen wird? Entschieden wird an
+ * der MITTE jedes Klips: bis dahin gehört der Zeiger noch davor. Ein Vergleich
+ * gegen die Kanten ließe die Marke erst umspringen, wenn man den Nachbarn
+ * schon ganz überfahren hat.
+ */
+export function platzInKette(halt: HaltIntervall, filmS: number): KettenPlatz {
+  let fuge = halt.filmVon
+  let platz = 0
+  for (const s of halt.stuecke ?? []) {
+    if (filmS < fuge + s.dauerS / 2) break
+    platz += 1
+    fuge += s.dauerS
+  }
+  return { platz, filmS: fuge }
+}
+
+/**
+ * `id` an Platz `platz` der Liste schieben (Platz zählt die FUGEN, 0..n).
+ * Wandert der Eintrag nach hinten, rückt alles dazwischen um eins vor —
+ * deshalb `platz - 1`, sonst landete er immer eine Stelle zu weit rechts.
+ */
+export function ordneEin(ids: readonly string[], id: string, platz: number): string[] {
+  const von = ids.indexOf(id)
+  if (von < 0) return [...ids]
+  const nach = Math.max(0, Math.min(ids.length - 1, platz > von ? platz - 1 : platz))
+  if (nach === von) return [...ids]
+  const folge = [...ids]
+  folge.splice(von, 1)
+  folge.splice(nach, 0, id)
+  return folge
+}
+
+/**
+ * Halt, in dessen INNEREM `filmS` liegt — das Andockziel eines Klip-Zugs.
+ *
+ * Anders als `haltBeiFilmS` zählen die Kanten NICHT dazu: genau dort beginnt
+ * bzw. endet die Fahrt, und ein Klip, der an der Ankunft schon andockte,
+ * ließe sich nicht mehr davor absetzen.
+ */
+export function haltInnenBei(achse: Achse, filmS: number): HaltIntervall | null {
+  for (const halt of achse.halte ?? []) {
+    if (filmS <= halt.filmVon) break // Halte sind sortiert
+    if (filmS < halt.filmBis) return halt
+  }
+  return null
+}
+
+/** Grenzen der Standzeit (s) — Spiegel des Server-Schemas (schema/edits.ts). */
+export const STANDZEIT_MIN_S = 2
+export const STANDZEIT_MAX_S = 60
+
+/**
+ * Standzeit auf gültige Grenzen und Zehntelsekunden bringen. Ohne die Rundung
+ * schriebe jeder Zieh-Frame eine neue Nachkommastelle ins Overlay; ohne die
+ * Klemme liefe der Griff in einen Wert, den der Server beim Speichern ablehnt.
+ */
+export function klemmeStandzeit(sekunden: number): number {
+  const s = Math.round(sekunden * 10) / 10
+  return Math.max(STANDZEIT_MIN_S, Math.min(STANDZEIT_MAX_S, s))
+}
+
 /** Filmsekunde → Anteil 0..1 auf der Leiste (die Achse IST film-proportional). */
 export function filmZuAnteil(achse: Achse, filmS: number): number {
   const gesamt = achse.kurve?.gesamtS ?? 0
@@ -782,6 +892,11 @@ export function anteilZuFilm(achse: Achse, anteil: number): number {
 
 /** Sekunden für die Statuszeile: „2,1" — eine Nachkommastelle, deutsches Komma. */
 const sekText = (s: number): string => s.toFixed(1).replace('.', ',')
+
+/** Sekunden mit Einheit („5,2 s") — für Klip-Beschriftung und Dauer-Blase. */
+export function formatiereSekunden(sekunden: number): string {
+  return `${sekText(sekunden)} s`
+}
 
 /**
  * Der Halt-Stand als Satzteil: „Aufnahme 2 von 3 · 2,1 s von 6,0 s".
@@ -843,10 +958,25 @@ export function baueAchse(
   }
   if (tS.length < 2) return { ...skala, halte: [] }
 
-  // Halte als Sprünge einweben: an der Halt-Zeit zwei Stützstellen (Film vor
-  // und nach der Standzeit), alle späteren Werte heben sich um die Breite.
-  // Weil aufsteigend gewebt wird, trägt `filmAmHalt` die früheren Halte schon
-  // — die Intervalle stimmen also ohne Nachrechnen.
+  const intervalle = webeHalte(tS, filmS, halte)
+  film = filmS[filmS.length - 1] as number
+
+  if (film < 1) return { ...skala, halte: [] }
+  return { ...skala, kurve: { tS, filmS, gesamtS: film }, halte: intervalle }
+}
+
+/**
+ * Halte als Sprünge in eine (tS, filmS)-Kurve einweben — an der Halt-Zeit zwei
+ * Stützstellen (Film vor und nach der Standzeit), alle späteren Werte heben
+ * sich um die Breite. Weil aufsteigend gewebt wird, trägt `filmAmHalt` die
+ * früheren Halte schon — die Intervalle stimmen ohne Nachrechnen.
+ *
+ * Beide Kurven mit Halten teilen sich diese Stelle: die ganze Achse
+ * (`baueAchse`) und das Zug-Fenster einer Fortbewegungs-Grenze
+ * (`baueGrenzKurve`). Zwei Fassungen liefen an den Rundungen auseinander, und
+ * die Grenze landete beim Loslassen neben der Ziellinie.
+ */
+function webeHalte(tS: number[], filmS: number[], halte: readonly AchsenHalt[]): HaltIntervall[] {
   const intervalle: HaltIntervall[] = []
   for (const h of [...halte].sort((a, b) => a.offsetS - b.offsetS)) {
     if (!(h.breiteS > 0)) continue
@@ -857,12 +987,190 @@ export function baueAchse(
     for (let j = i; j < tS.length; j++) filmS[j] = (filmS[j] as number) + h.breiteS
     tS.splice(i, 0, h.offsetS, h.offsetS)
     filmS.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
-    film += h.breiteS
     intervalle.push({ ...h, filmVon: filmAmHalt, filmBis: filmAmHalt + h.breiteS })
   }
+  return intervalle
+}
 
-  if (film < 1) return { ...skala, halte: [] }
-  return { ...skala, kurve: { tS, filmS, gesamtS: film }, halte: intervalle }
+// — Der Zug einer FORTBEWEGUNGS-Grenze: analytisch, nicht per Bisektion —
+//
+// Die Grenze beeinflusst die Abbildung, auf der sie selbst liegt: im Tempo je
+// Modus steckt die Filmzeit, eine verschobene Kante dehnt oder staucht also die
+// Achse. Mit der Achse des letzten Frames gerechnet sprang die Kante beim
+// Loslassen um 116 px (docs §2D).
+//
+// Der Ausweg im Konzept war eine Bisektion (14 Achsenbauten je Zieh-Frame). An
+// echten Tracks gemessen trägt die nicht: 335 Punkte kosten 0,6 ms, aber 10 000
+// Punkte 12,5 ms — über dem 8-ms-Budget, und das ohne den Rest des Frames.
+//
+// Sie ist auch unnötig. Die Filmposition der Grenze hängt NUR von dem ab, was
+// VOR ihr liegt: bis zur vorigen Grenze ändert sich gar nichts, und dazwischen
+// gilt das Tempo des LINKEN Bands — unabhängig davon, wohin man zieht. Also ist
+// F(t) eine feste, stückweise lineare, monotone Funktion, die man EINMAL beim
+// Zug-Start aufbaut und danach in beide Richtungen auswertet. Exakt statt auf
+// 0,2 s genau, und je Frame nur eine Interpolation.
+
+/**
+ * Film ↔ Aufnahmezeit im Zug-Fenster einer Fortbewegungs-Grenze.
+ *
+ * `vonS`/`bisS` sind die Nachbargrenzen (oder die Enden der Tour), `mode` der
+ * Modus LINKS der gezogenen Kante, `filmBeiVon` ihre Filmsekunde in der
+ * aktuellen Achse. Halte im Fenster kosten Filmzeit, ohne von der Grenze
+ * abzuhängen — sie werden als dieselben Sprünge eingewebt wie in der Achse.
+ *
+ * Null, wenn im Fenster keine zwei Trackpunkte liegen: dann gibt es nichts zu
+ * ziehen.
+ */
+export function baueGrenzKurve(
+  track: readonly TrackPunkt[],
+  vonS: number,
+  bisS: number,
+  mode: Modus,
+  filmBeiVon: number,
+  halte: readonly AchsenHalt[],
+): AchsenKurve | null {
+  const pts = punkteZwischen(track, vonS, bisS)
+  if (pts.length < 2) return null
+  const tempo = tempoMs(mode)
+  const tS: number[] = []
+  const filmS: number[] = []
+  let film = filmBeiVon
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i] as TrackPunkt
+    if (i > 0) film += meterZwischen(pts[i - 1] as TrackPunkt, p) / tempo
+    tS.push(p[3])
+    filmS.push(film)
+  }
+  // Ein Halt GENAU auf der linken Fensterkante zählt schon zu `filmBeiVon`
+  // (lower_bound trifft die Stützstelle vor dem Sprung) — sonst zählte er
+  // doppelt und die Kante liefe um seine Standzeit davon.
+  webeHalte(tS, filmS, halte.filter((h) => h.offsetS > vonS && h.offsetS <= bisS))
+  return { tS, filmS, gesamtS: filmS[filmS.length - 1] as number }
+}
+
+/** Trackpunkte im Zeitfenster, mit interpolierten Rändern (nie leer bei Bedarf). */
+function punkteZwischen(track: readonly TrackPunkt[], vonS: number, bisS: number): TrackPunkt[] {
+  const rand = (t: number): TrackPunkt | null => punktZuOffset(track, t)
+  const links = rand(vonS)
+  const rechts = rand(bisS)
+  if (!links || !rechts) return []
+  const mitte = track.filter((p) => p[3] > vonS && p[3] < bisS)
+  return [links, ...mitte, rechts]
+}
+
+/** Aufnahmezeit zu einer Filmsekunde (Umkehrung; außerhalb geklemmt). */
+export function zeitBeiFilm(kurve: AchsenKurve, filmS: number): number {
+  return interpoliere(kurve.filmS, kurve.tS, filmS)
+}
+
+/** Filmsekunde zu einer Aufnahmezeit. */
+export function filmBeiZeit(kurve: AchsenKurve, tOffsetS: number): number {
+  return interpoliere(kurve.tS, kurve.filmS, tOffsetS)
+}
+
+/**
+ * Filmdauer der GANZEN Tour, wenn die Grenze bei `tOffsetS` läge.
+ *
+ * Auch das braucht keine zweite Achse: Verschiebt man die Kante, wechselt
+ * genau die Strecke zwischen alter und neuer Lage den Modus. Ihre Filmzeit
+ * ändert sich um die Differenz der Kehrwerte der Tempi — alles andere bleibt.
+ * (Für die Vorschau „Film 3:00 → 3:29" im Zug-Etikett.)
+ */
+export function filmDauerBeiGrenze(
+  gesamtS: number,
+  meterAlt: number,
+  meterNeu: number,
+  links: Modus,
+  rechts: Modus,
+): number {
+  return gesamtS + (meterNeu - meterAlt) * (1 / tempoMs(links) - 1 / tempoMs(rechts))
+}
+
+// — Einrasten an Haltkanten —
+//
+// Toleranz in AUFNAHMEzeit, nicht in Filmsekunden: 0,01 Filmsekunden schmolzen
+// auf dem Rückweg durch die Achse auf ein halbes Tausendstel und verloren gegen
+// die lower_bound-Konvention — die Kante landete bis 71 px neben der Ziellinie
+// (docs §5.6). Eine halbe Sekunde Aufnahmezeit ist eindeutig und auf der Leiste
+// unsichtbar schmal.
+
+/** Wie nah an einer Haltkante gerastet wird (Aufnahme-Sekunden). */
+export const RAST_TOLERANZ_S = 0.5
+/**
+ * Abstand für „hinter dem Halt". Nicht kleiner: Overlay-Anker sind ISO-Zeiten
+ * mit SEKUNDEN-Auflösung (`offsetZuIso` schneidet die Millisekunden ab) — ein
+ * Epsilon fiele auf dieselbe Sekunde zurück und die Kante schnappte sichtbar
+ * vor den Halt.
+ */
+export const RAST_HINTER_S = 1
+
+export interface Rastung {
+  tOffsetS: number
+  /** Halt, an dem gerastet wurde — null heißt: freie Lage */
+  halt: HaltIntervall | null
+  /** true = hinter dem Halt (er läuft davor ab) */
+  hinter: boolean
+}
+
+/**
+ * Eine Loslass-Zeit an eine Haltkante rasten.
+ *
+ * Zwei Wege führen hin: Die Zeit liegt in Toleranz-Nähe einer Halt-Zeit, ODER
+ * die Filmsekunde liegt IM Halt — dort gibt es in Aufnahmezeit gar keine
+ * Zwischenposition, jede Rückrechnung fällt ohnehin auf seine linke Kante. Auf
+ * welcher Seite die Grenze landet, entscheidet die Zeigerhälfte des Halts.
+ *
+ * `halte`, `filmS` und `tOffsetS` müssen aus DERSELBEN Abbildung stammen — und
+ * das ist die, die der Nutzer SIEHT: die Achse. Beim Zug einer
+ * Fortbewegungs-Grenze ist die Versuchung groß, hier die Grenzkurve zu nehmen
+ * (in ihr rechnet der Zug ja seine Landezeit). Das geht zweimal schief: mit
+ * gemischten Systemen rastet der Zug am falschen Halt, und mit durchgehend
+ * Kurven-Koordinaten rastet er an einem Halt, der 159 px neben dem Zeiger
+ * gezeichnet ist — richtig gerechnet, aber unbedienbar. Wo der Halt beim
+ * Loslassen LANDET, ist eine andere Frage; sie hat mit dem Zielen nichts zu tun.
+ *
+ * Zurück kommt die Landezeit als AUFNAHMEzeit — die ist in beiden Systemen
+ * dieselbe Größe und deshalb der einzige saubere Übergabepunkt.
+ */
+export function rasteAnHalt(
+  halte: readonly HaltIntervall[],
+  tOffsetS: number,
+  filmS: number,
+): Rastung {
+  let treffer: HaltIntervall | null = null
+  let bestAb = Infinity
+  for (const h of halte) {
+    const drin = filmS > h.filmVon && filmS < h.filmBis
+    const ab = Math.abs(h.offsetS - tOffsetS)
+    if (!drin && ab > RAST_TOLERANZ_S) continue
+    if (drin || ab < bestAb) {
+      bestAb = drin ? -1 : ab
+      treffer = h
+    }
+  }
+  if (!treffer) return { tOffsetS, halt: null, hinter: false }
+  const hinter = filmS >= (treffer.filmVon + treffer.filmBis) / 2
+  return { tOffsetS: treffer.offsetS + (hinter ? RAST_HINTER_S : 0), halt: treffer, hinter }
+}
+
+/**
+ * Die Zug-Filmsekunde in ihr Fenster klemmen — in PIXELN, nicht in Sekunden.
+ *
+ * Mit ±1 s konnten zwei Grenzen so nah zusammenrücken, dass das Band dazwischen
+ * unsichtbar und unanfassbar wurde (dieselbe Sorge wie `klemmeGrenze`, die
+ * mindestens einen Trackpunkt im Abschnitt lässt). Ein Mindestabstand in
+ * Pixeln hält das Band greifbar, egal wie die Achse dort gestaucht ist.
+ */
+export const BAND_MIN_PX = 14
+
+export function klemmeFilmS(filmS: number, minFilmS: number, maxFilmS: number, pxProFilmS: number): number {
+  const luft = pxProFilmS > 0 ? BAND_MIN_PX / pxProFilmS : 0
+  const min = minFilmS + luft
+  const max = maxFilmS - luft
+  // Ist das Fenster schmaler als zweimal Luft, bleibt nur seine Mitte übrig —
+  // besser als eine Klemme, die sich selbst überkreuzt.
+  if (max <= min) return (minFilmS + maxFilmS) / 2
+  return Math.max(min, Math.min(max, filmS))
 }
 
 /**
