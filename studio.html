@@ -1535,10 +1535,12 @@
     .spuren { position: relative; width: calc(var(--spur-x) + var(--zeit-breite) + 26px); padding: 6px 0 4px; }
     .spur { display: grid; grid-template-columns: var(--spur-x) var(--zeit-breite); align-items: stretch; height: 30px; }
     .spur.hoch { height: 62px; }
-    /* Pin-Lane oben + Klips darunter. Überlappende Klips stapeln sich in
-       Unterzeilen (--musik-lanes, gesetzt vom Render) — die Bahn wächst mit,
-       damit kein Klip einen anderen verdeckt (der Player mischt sie ja). */
-    .spur.musik { height: calc(48px + (var(--musik-lanes, 1) - 1) * 24px); }
+    /* Überlappende Klips stapeln sich in Unterzeilen (--musik-lanes, gesetzt
+       vom Render) — die Bahn wächst mit, damit kein Klip einen anderen
+       verdeckt (der Player mischt sie ja). 28 px = Klip (22) + 2×3 Luft; die
+       frühere Pin-Zeile darüber ist mit Etappe 4 entfallen (ein Effekt ist
+       derselbe Klip wie Musik), sie schob die Bahn nur noch nach unten. */
+    .spur.musik { height: calc(28px + (var(--musik-lanes, 1) - 1) * 24px); }
     .spur-name {
       font-size: 12px; color: var(--text-3); padding: 0 12px 0 16px;
       display: flex; align-items: center; gap: 6px; white-space: nowrap;
@@ -1646,7 +1648,7 @@
     .band-reihe { position: absolute; inset: 3px 0; }
     .band {
       position: absolute; top: 0; bottom: 0; border-radius: 5px;
-      display: flex; align-items: center; padding: 0 9px;
+      display: flex; align-items: center; padding: 0 7px;
       font-size: 11.5px; color: #10141b; overflow: hidden;
       cursor: pointer; border: 1px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.17), 0 1px 2px rgba(0, 0, 0, 0.32);
@@ -1662,14 +1664,13 @@
        `kuerzeBeschriftungen` (CSS kann keine Textvariante wählen), das letzte
        Beschneiden macht der Browser. */
     .band span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-    /* Auf einem schmalen Band ist die Polsterung (2×9 px) der größte Posten:
-       bei 30 px Bandbreite bleiben 12 px für den Text. Dort rückt die
-       Beschriftung an den Rand — als CONTAINER-Query, denn nur die kennt die
-       Breite DIESES Bandes; `kuerzeBeschriftungen` misst bewusst nicht in jedem
-       Zieh-Frame nach. (Ein Element kann sich nicht selbst abfragen, deshalb
-       liegt der Container auf dem Band und die Regel auf seinem span.) */
+    /* Der Abstand des Bandtexts zur Kante ist KONSTANT — auch auf schmalen
+       Bändern. Er wanderte dort früher per Container-Query nach außen (mehr
+       Platz für den Text), aber nebeneinander liegende Bänder bekamen damit
+       verschiedene Einzüge: die Beschriftungen standen auf keiner Linie mehr,
+       und auf dem schmalen Band rückte der Text unter seinen eigenen Griff.
+       Wird es eng, kürzt lieber der Text (ellipsis). */
     .band { container-type: inline-size; }
-    @container (max-width: 74px) { .band > span { margin-inline: -6px; } }
     .band.inaktiv { opacity: 0.28; }
     /* Auswahl: ein „aufgehobener" Zustand statt bloßer Umrandung — der helle
        warmweiße Ring kontrastiert auf JEDER Bandfarbe (auch Moped = amber). */
@@ -1696,13 +1697,25 @@
        Lücken dazwischen; ein Zustand ist lückenlos, es gibt kein „dazwischen".
        Deshalb hier keine Rundung, kein eigener Rahmen, keine Rille in der Bahn
        — ein durchgehender Streifen, der an den Grenzen die Farbe wechselt. */
-    .spur.schmal { height: 19px; }
+    /* 21 px statt 19: zwei Pixel Luft zwischen den drei Bahnen. Ohne sie
+       standen die Bänder als EIN Block übereinander und lasen sich als
+       dreizeiliges Gitter statt als drei Aussagen — der Sockel darf ruhig
+       sein, aber nicht verschmelzen. Die Luft steckt im Zeilenmaß, nicht in
+       einer Lücke der Bahn: `.band-reihe` bleibt lückenlos (ein Zustand hat
+       kein „dazwischen"), nur die Reihe selbst rückt ein. */
+    .spur.schmal { height: 21px; }
+    /* Ein Block endet, der nächste beginnt: derselbe Abstand, der Szenen und
+       Ton trennt, trennt auch das MATERIAL vom Sockel. Er sitzt als Rand an
+       der ersten schmalen Bahn statt in deren Höhe — sonst stünde ihr Band
+       nicht mehr mittig zu seinem Spurnamen. Innerhalb des Sockels bleiben es
+       2 px: die drei gehören zusammen. */
+    .spur.musik + .spur.schmal { margin-top: 3px; }
     .spur.schmal .spur-feld { background: none; box-shadow: none; }
-    .spur.schmal .band-reihe { inset: 0; }
+    .spur.schmal .band-reihe { inset: 1px 0; }
     /* Links mehr Luft als rechts: an der linken Kante sitzt der Griff, und der
        Text darf ihm nicht ins Gehege kommen (11 px, gemessen). */
     .spur.schmal .band {
-      top: 0; bottom: 0; border-radius: 0; padding: 0 7px 0 11px; font-size: 10.5px;
+      top: 0; bottom: 0; border-radius: 0; padding: 0 5px 0 9px; font-size: 10.5px;
       border-width: 0; border-left: 1px solid rgba(6, 9, 14, 0.6);
       box-shadow: none; color: rgba(255, 255, 255, 0.92);
     }
@@ -1716,9 +1729,6 @@
     .spur.schmal .spur-name { font-size: 11px; }
     .spur.schmal .spur-plus { width: 15px; height: 15px; }
     .spur.schmal .spur-plus svg { width: 9px; height: 9px; }
-    /* Auf 19 px ist die Polsterung der größte Posten — dort rückt der Text an
-       den Rand (Container-Query, s. u. beim Band). */
-    @container (max-width: 74px) { .spur.schmal .band > span { margin-inline: -8px -5px; } }
 
     /* DIE KANTE IST DER GRIFF — Anfang des einen und Ende des anderen Zustands
        sind dieselbe Stelle, also gibt es dafür auch nur einen Anfasser. */
@@ -1779,24 +1789,34 @@
        Erklärung passiert in der Bewegung, nicht in einer Legende. */
     .halt-klip.rastet { border-color: var(--lila); box-shadow: 0 0 0 2px rgba(197, 139, 255, 0.45); }
 
-    /* — Kamera-Momente: Punktereignisse mit Art-Symbol — */
-    .zl-moment {
-      position: absolute; top: 50%; width: 17px; height: 17px;
-      margin: -8.5px 0 0 -8.5px; border-radius: 50%;
-      background: var(--fl-3); border: 1.5px solid var(--akzent); color: var(--akzent);
-      font-size: 10px; line-height: 14px; text-align: center;
-      cursor: grab; touch-action: none; z-index: 3;
-      box-shadow: 0 0 0 1.5px rgba(6, 8, 12, 0.7);
-      transition: transform 120ms ease;
+    /* — Kamera-Momente: Klips der Szenen-Bahn, nur ohne Bild —
+       Ein Moment hält den Film an wie ein Foto; eine eigene Spur unterschiede
+       nach HERKUNFT statt nach Wirkung (docs §2.0). An der Stelle der Miniatur
+       steht das Muster in Koralle — es sagt „hier ist kein Material", ohne die
+       Fläche leer zu lassen. */
+    .halt-klip.moment { border-color: rgba(255, 138, 101, 0.55); }
+    .halt-klip.moment:hover { border-color: rgba(255, 138, 101, 0.9); }
+    .halt-klip.moment .inhalt {
+      background:
+        repeating-linear-gradient(-45deg, rgba(255, 138, 101, 0.22) 0 5px, transparent 5px 10px),
+        var(--fl-2);
     }
-    .zl-moment:hover { transform: scale(1.18); }
-    .zl-moment.fokus { background: var(--akzent); color: #0b0f15; box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(245, 165, 36, 0.55); }
+    /* Wie die Kopfminiatur eines Fotos: Solange kein Name danebensteht, füllt
+       das Zeichen den Klip und steht mittig — links geklebt sähe es aus, als
+       fehlte rechts etwas. Ab derselben Schwelle (150 px) rückt es an den
+       Anfang und macht dem Namen Platz. */
+    .halt-klip.moment .m-zeichen {
+      flex: 1; min-width: 0; display: grid; place-items: center;
+      color: #ffb59b; font-size: 12px;
+    }
+    @container (min-width: 150px) { .halt-klip.moment .m-zeichen { flex: none; width: 22px; } }
+    .halt-klip.moment .info b { color: #ffd9cc; }
 
     /* — Musik & Effekte: Klips (Dauer) unten, Effekt-Pins (Zeitpunkt) oben —
        Cursor wie bei den Zustandsbändern (Finger), nicht die Pan-Hand —
        Greifen zeigt erst `.schiebt` / :active. */
     .zl-klip {
-      position: absolute; top: 20px; height: 22px; border-radius: 5px;
+      position: absolute; top: 3px; height: 22px; border-radius: 5px;
       background: linear-gradient(180deg, rgba(245, 165, 36, 0.42), rgba(255, 111, 82, 0.42));
       cursor: pointer; touch-action: none; min-width: 10px;
       /* KEIN overflow:hidden — das clippt die überstehenden Kanten-Griffe weg
@@ -1846,10 +1866,13 @@
     }
     /* Ein Effekt hat einen Zeitpunkt, keine Dauer: Raute in eigener Lane oben,
        ein Stiel zeigt auf die exakte Stelle. */
-    .zl-sfx { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; cursor: pointer; touch-action: none; z-index: 8; }
+    /* Mittig in der Klip-Zeile, ohne Stiel: Der Stiel zeigte hinunter auf die
+       Klip-Zeile, als die Pins noch eine eigene Zeile darüber hatten. Jetzt
+       steht der Pin an der Stelle, an der der Klip stünde — wüsste die Leiste
+       schon, wie lang die Datei ist. */
+    .zl-sfx { position: absolute; top: 8px; width: 11px; height: 11px; margin-left: -5.5px; cursor: pointer; touch-action: none; z-index: 8; }
     .zl-sfx:active { cursor: grabbing; }
     .zl-sfx i { display: block; width: 100%; height: 100%; transform: rotate(45deg); background: var(--lila); border: 1.5px solid rgba(6, 8, 12, 0.8); border-radius: 2px; }
-    .zl-sfx::after { content: ''; position: absolute; left: 50%; top: 11px; width: 1px; height: 9px; background: rgba(197, 139, 255, 0.5); }
     .zl-sfx.fokus i { box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(197, 139, 255, 0.6); }
 
     /* — Szenen-Bahn: je Aufnahme ein Klip, ein Halt ist ihre Kette —
@@ -1863,7 +1886,7 @@
        bleiben (die Falle „border + overflow:hidden frisst das Randpixel"
        greift nur, wo geclippt wird). */
     .halt-klip {
-      position: absolute; top: 8px; bottom: 4px; min-width: 4px; padding: 0;
+      position: absolute; top: 7px; bottom: 4px; min-width: 4px; padding: 0;
       border-radius: 7px; overflow: visible; container-type: inline-size;
       border: 1px solid var(--rand-hell); background: var(--fl-2);
       cursor: pointer; touch-action: none; transition: border-color 140ms ease;
@@ -2627,9 +2650,6 @@
       <symbol id="i-spur-wetter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7.5 17.5a3.7 3.7 0 01-.5-7.4 5.2 5.2 0 0110.1 1.4A3.3 3.3 0 0116.6 18z"/><path d="M9 20.5l-.8 1.4M13 20.5l-.8 1.4"/>
       </symbol>
-      <symbol id="i-spur-moment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/>
-      </symbol>
       <symbol id="i-spur-musik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="7" cy="17.5" r="2.4"/><circle cx="17.3" cy="15" r="2.4"/><path d="M9.4 17.5V6.2l10.3-2v10.8"/>
       </symbol>
@@ -3178,8 +3198,12 @@
                 <div id="skala-feld"></div>
               </div>
               <div class="spur hoch">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-foto"/></svg>Fotos/Videos</div>
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-foto"/></svg>Szenen<button class="spur-plus" data-spur="momente" aria-expanded="false" title="Kamera-Moment an der Marke setzen" aria-label="Moment hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="foto-spur" id="spur-fotos"></div></div>
+              </div>
+              <div class="spur musik">
+                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Effekte<button class="spur-plus" data-spur="musik" aria-expanded="false" title="Musik oder Effekt ab der Marke einsetzen" aria-label="Musik hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
+                <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-musik"></div></div>
               </div>
               <div class="spur schmal">
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-weg"/></svg>Fortbewegung<button class="spur-plus" data-spur="wege" aria-expanded="false" title="Fortbewegung ab der Marke ändern" aria-label="Fortbewegung hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
@@ -3192,14 +3216,6 @@
               <div class="spur schmal">
                 <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-wetter"/></svg>Wetter<button class="spur-plus" data-spur="wetter" aria-expanded="false" title="Wetter ab der Marke setzen" aria-label="Wetter hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
                 <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-wetter"></div></div>
-              </div>
-              <div class="spur">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-moment"/></svg>Momente<button class="spur-plus" data-spur="momente" aria-expanded="false" title="Kamera-Moment an der Marke setzen" aria-label="Moment hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
-                <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-momente"></div></div>
-              </div>
-              <div class="spur musik">
-                <div class="spur-name"><svg class="spur-icon"><use href="#i-spur-musik"/></svg>Musik &amp; Effekte<button class="spur-plus" data-spur="musik" aria-expanded="false" title="Musik oder Effekt ab der Marke einsetzen" aria-label="Musik hinzufügen"><svg><use href="#i-plus"/></svg></button></div>
-                <div class="spur-feld" data-rolle="spur"><div class="band-reihe" id="spur-musik"></div></div>
               </div>
               <div class="kopfstrich" id="kopfstrich" hidden>
                 <button class="kopf-griff" id="kopf-griff" title="Abspielkopf ziehen" aria-label="Abspielkopf"></button>

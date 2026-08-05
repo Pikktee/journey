@@ -67,6 +67,7 @@ import {
   haltInnenBei,
   klemmeFilmS,
   klemmeGrenze,
+  klemmeMomentDauer,
   klemmeStandzeit,
   klemmeVideoTrim,
   loeseFokusAuf,
@@ -82,6 +83,8 @@ import {
   zeitBeiFilm,
   type Achse,
   BAND_MIN_PX,
+  MOMENT_MAX_S,
+  MOMENT_MIN_S,
   STANDZEIT_MAX_S,
   STANDZEIT_MIN_S,
   schrittFilmS,
@@ -923,6 +926,15 @@ describe('Zeitleiste', () => {
       expect(klemmeStandzeit(-40)).toBe(STANDZEIT_MIN_S)
       expect(klemmeStandzeit(999)).toBe(STANDZEIT_MAX_S)
       expect(formatiereSekunden(5.2)).toBe('5,2 s')
+    })
+
+    it('Moment-Dauer am Griff: dieselbe Geste, die Grenzen des Moment-Schemas', () => {
+      // Ein Moment ist seit dem Nachtrag zu Etappe 2 ein Klip der Szenen-Bahn
+      // und hat damit denselben rechten Griff wie ein Foto — nur andere
+      // Grenzen (schema/edits.ts: 1..30 statt 2..60).
+      expect(klemmeMomentDauer(6.34)).toBe(6.3)
+      expect(klemmeMomentDauer(0)).toBe(MOMENT_MIN_S)
+      expect(klemmeMomentDauer(999)).toBe(MOMENT_MAX_S)
     })
 
     it('Fortbewegungs-Zug: die Grenze landet, wo sie losgelassen wurde (Fixpunkt)', () => {

@@ -745,6 +745,13 @@ export interface AchsenHalt {
    */
   indizes?: readonly number[]
   /**
+   * Stabile Identität des Halts (im Editor: `ab` eines Moments). Anders als
+   * `indizes` übersteht sie das Weglassen eines Halts — und genau das braucht
+   * jeder Zug: Er rechnet px → Zeit auf einer Achse OHNE das gezogene Objekt,
+   * sonst läge um dessen Ruhelage eine tote Zone von seiner eigenen Breite.
+   */
+  schluessel?: string
+  /**
    * Die Aufnahmen des Halts in Abspielreihenfolge. Erst damit lässt sich sagen,
    * WELCHE Aufnahme gerade steht — ein Halt mit drei Fotos ist im Film eine
    * Folge von dreien, kein einzelner Block.
@@ -936,6 +943,16 @@ export const STANDZEIT_MAX_S = 60
 export function klemmeStandzeit(sekunden: number): number {
   const s = Math.round(sekunden * 10) / 10
   return Math.max(STANDZEIT_MIN_S, Math.min(STANDZEIT_MAX_S, s))
+}
+
+/** Grenzen der Moment-Dauer (s) — Spiegel des Server-Schemas (schema/edits.ts). */
+export const MOMENT_MIN_S = 1
+export const MOMENT_MAX_S = 30
+
+/** Wie `klemmeStandzeit`, nur für die Dauer eines Kamera-Moments. */
+export function klemmeMomentDauer(sekunden: number): number {
+  const s = Math.round(sekunden * 10) / 10
+  return Math.max(MOMENT_MIN_S, Math.min(MOMENT_MAX_S, s))
 }
 
 /** Filmsekunde → Anteil 0..1 auf der Leiste (die Achse IST film-proportional). */

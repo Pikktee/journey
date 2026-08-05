@@ -611,11 +611,25 @@ Schrift; und der IBM-Plex-Mono-Webfont wird von [studio.html](studio.html) nicht
 Versalien sind nur da richtig, wo sie die Sache selbst sind (Initialen im Profil-Chip,
 Datei-Endung „MP3") — nicht als gesperrtes Etikett über einer Zeile.
 
-**Zeitleiste: eine Bahn je Ereignistyp** (Fortbewegung, Kamera, Wetter, Momente, Musik & Effekte, Fotos) auf
-gemeinsamer Zeitachse. Zustände sind **lückenlose, beschriftete Bänder** — Anfang und Ende
-eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst. Der Abspielkopf liegt als
-Overlay über allen Bahnen (absolut positioniert, **nicht** als Grid-Item: ein Item mit
-`grid-row: 1/-1` belegt die ganze Spalte und drängt die Bahnen weg).
+**Zeitleiste: fünf Bahnen, von oben nach unten Szenen · Musik & Effekte · Fortbewegung ·
+Kamera · Wetter** auf gemeinsamer Zeitachse. Oben das MATERIAL (Klips mit Anfang, Ende und
+Trimm-Kanten), unten der KONTEXT als ruhiger Sockel (lückenlose, beschriftete Bänder — Anfang
+und Ende eines Zustands sind dieselbe Kante, gezogen wird die Kante selbst). Bild oben, Ton
+darunter ist die stärkste Konvention in Schnittprogrammen; Musik auf einen Schnitt
+auszurichten ist die häufigste Feinarbeit und darf nicht über drei Bahnen springen. Der
+Abspielkopf liegt als Overlay über allen Bahnen (absolut positioniert, **nicht** als
+Grid-Item: ein Item mit `grid-row: 1/-1` belegt die ganze Spalte und drängt die Bahnen weg).
+
+**Die Bahn heißt „Szenen" und trägt auch die Momente** — eine eigene Spur „Momente" gibt es
+nicht mehr (Nachtrag zu Etappe 2). Ein Moment hält den Film an wie ein Foto, er hat nur kein
+Bild: derselbe Klip, an der Stelle der Miniatur ein Muster in Koralle. Eine eigene Bahn dafür
+unterschiede nach HERKUNFT statt nach Wirkung — und eine Bahn, die ihre Dateitypen aufzählt
+(„Fotos/Videos"), kann einen Moment gar nicht aufnehmen, ohne dass die Beschriftung lügt.
+Sein rechter Griff zieht die Dauer (wie die Standzeit eines Fotos, Grenzen 1–30 s). Anders
+als früher schreibt sein Zug NICHT mehr live: Seit er Achsenbreite hat, läge um seine
+Ruhelage sonst eine tote Zone von seiner eigenen Breite — er zieht über eine Achse ohne sich
+selbst und schreibt einmal beim Loslassen. Alle Achsen-Halte (Aufnahmen-Ketten UND Momente)
+baut `achsenHalte()` an einer Stelle.
 
 **Fortbewegung · Kamera · Wetter sind drei GLEICHRANGIGE schmale Bahnen** (19 px, Etappe 3
 des [Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)). Sie beschreiben, wie das

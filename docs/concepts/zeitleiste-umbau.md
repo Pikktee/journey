@@ -710,7 +710,7 @@ gerenderten Film an der richtigen Stelle schneidet.
   13,9 s → Filmdauer 2:29 → 2:15, `m2.cut.mp4` misst 20,08 s, der Master
   `m2.web.mp4` weiterhin 34 s.
 
-### Nachtrag zu Etappe 2 — die Gestalt der Leiste *(offen, 2026-08-05)*
+### Nachtrag zu Etappe 2 — die Gestalt der Leiste — **UMGESETZT 2026-08-05**
 
 Nach den Etappen 1–4 stimmt die Mechanik, aber die Leiste sieht anders aus als
 in §2.0 beschrieben — weil §2.0 damals fehlte. Drei Punkte, ein Zusammenhang:
@@ -731,6 +731,25 @@ Zeile, Punkt 2 ist ein echter Umbau.
 **Fertig, wenn:** die Leiste von oben nach unten Szenen · Musik & Effekte ·
 Fortbewegung · Kamera · Wetter zeigt, ein Moment als Klip in der Szenen-Bahn
 liegt und sich dort auswählen, verschieben und in der Dauer ändern lässt.
+
+**Wie es gebaut ist.** Der Moment-Klip ist derselbe `.halt-klip` wie eine
+Aufnahme (eigene Reconcile-Karte `momentEls`, geschlüsselt an `ab`), nur ohne
+Miniatur: an ihrer Stelle das Muster in Koralle. Sein rechter Griff zieht
+`momente[].dauerS` — dieselbe Geste wie die Standzeit eines Fotos, andere
+Grenzen (`klemmeMomentDauer`, 1–30 s aus schema/edits.ts). Zwei Dinge sind
+dabei UMGEBAUT worden, nicht nur umgehängt:
+
+- **Der Zug schreibt nicht mehr live.** Als Punkt ohne Breite durfte er das
+  (§2 „Momente sind Punktereignisse"); mit Achsenbreite läge um seine
+  Ruhelage eine tote Zone von seiner eigenen Breite, weil die Rückrechnung
+  px → Zeit über sein eigenes Plateau geht. Er folgt jetzt wie der
+  Aufnahme-Klip dem Zeiger und schreibt einmal beim Loslassen — über eine
+  Zug-Achse OHNE diesen Moment. Dafür trägt ein `AchsenHalt` seit hier einen
+  `schluessel`: `indizes` überlebt das Weglassen eines Halts nicht.
+- **Die Halte für die Achse baut `achsenHalte()`**, eine Stelle statt drei
+  Kopien (Achse, Klip-Zug, Moment-Zug). Nebenbei behoben: die Zug-Achse des
+  Aufnahme-Klips ließ bis dahin ALLE Momente weg und rechnete dadurch um
+  deren Filmzeit daneben.
 
 ---
 

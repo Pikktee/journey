@@ -37,6 +37,7 @@ import {
   type AudioEintrag,
   type EditOverlay,
   type EditorSegment,
+  type KameraMoment,
   type KameraPreset,
   type MediumAnzeige,
   miniaturQuelle,
@@ -74,6 +75,7 @@ import {
   haltInnenBei,
   klemmeFilmS,
   klemmeGrenze,
+  klemmeMomentDauer,
   klemmeStandzeit,
   klemmeVideoTrim,
   VIDEO_TRIM_MIN_S,
@@ -89,6 +91,7 @@ import {
   uhrDiffZuOffset,
   zeitBeiFilm,
   type Achse,
+  type AchsenHalt,
   type Filmkurve,
   type Fokus,
   type FokusZiel,
@@ -3080,6 +3083,10 @@ function bandUnterZeiger(e: PointerEvent): Fokus | null {
 // die ganze Zerlegung rechnen. Während eines Foto-Zugs (Overlay bis zum
 // Loslassen unverändert) bleibt er warm; Kanten-Züge schreiben das Overlay je
 // Move fort und bauen neu — das tat renderZeitleiste vorher genauso.
+/** Ton-Klips: Abstand von oben und Höhe einer Unterzeile (Spiegel des CSS). */
+const TON_LANE_TOP_PX = 3
+const TON_LANE_PX = 24
+
 let achseMemo: {
   edits: EditOverlay
   tourId: string
@@ -3087,17 +3094,20 @@ let achseMemo: {
   spiel: Filmkurve | null
 } | null = null
 
-function aktuelleAchse(): Achse | null {
-  if (!z) return null
-  if (achseMemo && achseMemo.edits === z.edits && achseMemo.tourId === z.tourId) return achseMemo.achse
-  const skala = baueSkala(z.track)
-  if (!skala) return null
-  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start)
+/**
+ * Alle Halte für die Achse — Aufnahmen-Ketten UND Momente.
+ *
+ * Bewusst eine Funktion mit Auslass-Parameter: Jeder Zug braucht dieselbe Liste
+ * ohne das Objekt, das gerade in der Hand liegt (s. `schluessel` in
+ * zeitleiste.ts), und drei Kopien dieser Rechnung liefen garantiert auseinander.
+ */
+function achsenHalte(medien: MediumAnzeige[], momente: readonly KameraMoment[]): AchsenHalt[] {
+  if (!z) return []
+  const start = z.daten.time.start
   // Halt-Breite = Standzeit aller Aufnahmen des Stopps.
   // `indizes` trägt den Weg zurück zum Stopp: die Achse sortiert nach Zeit und
   // lässt Halte ohne Breite weg, ihr Index ist also nicht der der Stopp-Liste.
-  const stopps = baueStopps(medienAnzeige(), z.track, kumStrecke)
-  const halte = stopps.map((s, i) => {
+  const halte: AchsenHalt[] = baueStopps(medien, z.track, kumStrecke).map((s, i) => {
     // Ein Halt ist die KETTE seiner Aufnahmen, kein Block: nur so lässt sich
     // sagen, welche davon gerade steht. Videos zählen mit ihrer echten Länge
     // (`dauerS` aus der Editor-Route), Fotos mit ihrer Standzeit.
@@ -3113,13 +3123,29 @@ function aktuelleAchse(): Achse | null {
   // Ein Moment ist grammatikalisch ein HALT: die Kamera bleibt stehen und tut
   // etwas, Filmzeit vergeht. Ohne Achsenbreite fehlten sie in der Leiste
   // vollständig — an der Beispieltour 13,6 unsichtbare Filmsekunden.
-  const momente = (z.edits.momente ?? []).map((m, i) => ({
-    offsetS: isoZuOffset(z!.daten.time.start, m.ab),
-    breiteS: m.dauerS ?? MOMENT_DEFAULT_S[m.art],
-    art: 'moment',
-    indizes: [i],
-  }))
-  const achse = baueAchse(abschnitte, [...halte, ...momente], skala)
+  for (const m of momente) {
+    halte.push({
+      offsetS: isoZuOffset(start, m.ab),
+      breiteS: momentDauerS(m),
+      art: 'moment',
+      schluessel: m.ab,
+    })
+  }
+  return halte
+}
+
+/** Filmzeit eines Moments — ohne eigene Angabe die Vorgabe seiner Art. */
+function momentDauerS(m: KameraMoment): number {
+  return m.dauerS ?? MOMENT_DEFAULT_S[m.art]
+}
+
+function aktuelleAchse(): Achse | null {
+  if (!z) return null
+  if (achseMemo && achseMemo.edits === z.edits && achseMemo.tourId === z.tourId) return achseMemo.achse
+  const skala = baueSkala(z.track)
+  if (!skala) return null
+  const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start)
+  const achse = baueAchse(abschnitte, achsenHalte(medienAnzeige(), z.edits.momente ?? []), skala)
   achseMemo = { edits: z.edits, tourId: z.tourId, achse, spiel: baueSpielKurve(achse, abschnitte) }
   return achse
 }
@@ -3140,7 +3166,6 @@ function renderZeitleiste(): void {
   }
   zone.hidden = false
   const start = z.daten.time.start
-  const anteilVon = (iso: string): number => offsetZuAnteil(skala, isoZuOffset(start, iso))
   const fokusInfo = loeseFokusAuf()
 
   // Die Achsenbreite hängt an den DATEN (Filmdauer × Maßstab): eine geänderte
@@ -3318,24 +3343,12 @@ function renderZeitleiste(): void {
     }
   }
 
-  // — Kamera-Momente: Punkt-Marken (ziehbar), je Art ein Symbol —
-  const momentBahn = spur('spur-momente')
-  for (const m of z.edits.momente ?? []) {
-    const a = anteilVon(m.ab)
-    if (!Number.isFinite(a)) continue
-    const marke = document.createElement('div')
-    marke.className = 'zl-moment'
-    marke.style.left = pos(a)
-    marke.textContent = MOMENT_ZEICHEN[m.art]
-    marke.dataset['rolle'] = 'moment'
-    marke.dataset['ab'] = m.ab
-    marke.dataset['art'] = m.art
-    marke.title = `${MOMENT_NAMEN[m.art]} bei ${zeitText(m.ab)} Uhr — ziehen zum Verschieben`
-    if (fokusInfo?.art === 'moment' && fokusInfo.ab === m.ab) marke.classList.add('fokus')
-    momentBahn.appendChild(marke)
-  }
-
   // — Musik & Effekte: Klips mit zwei Trimm-Kanten (docs §2E) —
+  //
+  // Die Bahn hatte oben eine eigene Zeile für Effekt-PINS und die Klips
+  // darunter — seit Etappe 4 ist ein Effekt aber derselbe Klip wie Musik. Die
+  // leere Zeile blieb stehen und schob alles um 20 px nach unten: die Klips
+  // standen sichtbar tiefer als ihr Spurname daneben.
   //
   // Ein Effekt ist hier dieselbe Sorte Klip wie Musik, nur in anderer Farbe.
   // Als Marke ohne Länge verschwieg die Leiste, wie lange er klingt — dabei
@@ -3371,7 +3384,7 @@ function renderZeitleiste(): void {
     }
     const klip = document.createElement('div')
     klip.className = k.typ === 'sfx' ? 'zl-klip effekt' : 'zl-klip'
-    klip.style.top = `${20 + k.lane * 24}px`
+    klip.style.top = `${TON_LANE_TOP_PX + k.lane * TON_LANE_PX}px`
     klip.style.left = pos(filmZuAnteil(skala, k.filmVon))
     klip.style.width = pos(Math.max(0.002, filmZuAnteil(skala, k.filmBis) - filmZuAnteil(skala, k.filmVon)))
     klip.dataset['rolle'] = 'audio-balken'
@@ -3429,7 +3442,11 @@ function renderZeitleiste(): void {
   }
 
   // — Szenen: je Aufnahme EIN Klip, ein Halt ist ihre Kette —
-  renderSzenen(skala, fokusInfo?.art === 'medium' ? (fokusInfo.id ?? null) : null)
+  renderSzenen(
+    skala,
+    fokusInfo?.art === 'medium' ? (fokusInfo.id ?? null) : null,
+    fokusInfo?.art === 'moment' ? (fokusInfo.ab ?? null) : null,
+  )
 
   renderPlayhead()
   kuerzeBeschriftungen()
@@ -3457,12 +3474,15 @@ function renderZeitleiste(): void {
 
 /** Klip-Elemente je Medien-ID — die Grundlage des Reconcile. */
 let klipEls = new Map<string, HTMLElement>()
+/** Dasselbe für Momente, geschlüsselt an ihrem `ab`. */
+let momentEls = new Map<string, HTMLElement>()
 
-function renderSzenen(achse: Achse, fokusId: string | null): void {
+function renderSzenen(achse: Achse, fokusId: string | null, fokusMoment: string | null): void {
   const bahn = $('spur-fotos')
   const medien = new Map(medienAnzeige().map((m) => [m.id, m] as const))
   const gesamt = achse.kurve?.gesamtS ?? 0
   const naechste = new Map<string, HTMLElement>()
+  const naechsteMomente = new Map<string, HTMLElement>()
   if (gesamt > 0) {
     for (const k of baueSzenenKlips(achse)) {
       const m = medien.get(k.id)
@@ -3472,14 +3492,93 @@ function renderSzenen(achse: Achse, fokusId: string | null): void {
       schreibeKlip(el, m, k, gesamt, fokusId === m.id)
       naechste.set(k.id, el)
     }
+    // Momente liegen in DERSELBEN Bahn: Ein Moment hält den Film an wie ein
+    // Foto — er hat nur kein Bild. Eine eigene Spur dafür unterschiede nach
+    // Herkunft statt nach Wirkung (docs §2.0).
+    const momente = new Map((z?.edits.momente ?? []).map((m) => [m.ab, m] as const))
+    for (const halt of achse.halte ?? []) {
+      if (halt.art !== 'moment' || halt.schluessel === undefined) continue
+      const m = momente.get(halt.schluessel)
+      if (!m) continue
+      const el = momentEls.get(m.ab) ?? baueMomentKlip(m.ab)
+      if (el.parentElement !== bahn) bahn.appendChild(el)
+      schreibeMomentKlip(el, m, halt, gesamt, fokusMoment === m.ab)
+      naechsteMomente.set(m.ab, el)
+    }
   }
   // Was es nicht mehr gibt (Aufnahme gelöscht, Ort entfernt), verschwindet.
-  const behalten = new Set(naechste.values())
+  const behalten = new Set<HTMLElement>([...naechste.values(), ...naechsteMomente.values()])
   for (const el of [...bahn.children]) {
     if (!behalten.has(el as HTMLElement)) el.remove()
   }
   klipEls = naechste
+  momentEls = naechsteMomente
   renderHaltZone(achse, fokusId)
+}
+
+/**
+ * Klip-Gerüst eines Moments — dieselbe Bauart wie eine Aufnahme, nur ohne
+ * Miniatur: An ihrer Stelle steht ein Muster in Koralle (docs §2.0). Der
+ * rechte Griff zieht seine DAUER — bei einer Aufnahme ist das die Standzeit,
+ * hier die Zeit, die die Kamera bei ihrer Bewegung verweilt; dieselbe Frage.
+ */
+function baueMomentKlip(ab: string): HTMLElement {
+  const klip = document.createElement('button')
+  klip.type = 'button'
+  klip.className = 'halt-klip moment'
+  klip.dataset['rolle'] = 'momentklip'
+  klip.dataset['ab'] = ab
+
+  const inhalt = document.createElement('span')
+  inhalt.className = 'inhalt'
+  const zeichen = document.createElement('span')
+  zeichen.className = 'm-zeichen'
+  const info = document.createElement('span')
+  info.className = 'info'
+  info.append(document.createElement('b'), document.createElement('small'))
+  inhalt.append(zeichen, info)
+  klip.appendChild(inhalt)
+
+  const griff = document.createElement('span')
+  griff.className = 'griff'
+  griff.dataset['rolle'] = 'momentdauer'
+  griff.title = 'Dauer ziehen'
+  const blase = document.createElement('span')
+  blase.className = 'dauer-blase'
+  klip.append(griff, blase)
+  // Eigene Zeiger-Handler über Fenster-Listener (wie beim Aufnahme-Klip): ein
+  // schneller Zug verlöre den schmalen Griff sonst an das Element darunter.
+  klip.addEventListener('pointerdown', (ev) => {
+    if (!z || ev.button !== 0 || werkzeug !== 'auswahl') return
+    const jetzt = klip.dataset['ab'] ?? ab
+    if ((ev.target as HTMLElement).closest('.griff')) ziehMomentDauer(ev, jetzt)
+    else ziehMoment(ev, jetzt)
+  })
+  return klip
+}
+
+/** Lage, Beschriftung und Zustand eines Moment-Klips fortschreiben. */
+function schreibeMomentKlip(
+  el: HTMLElement,
+  m: KameraMoment,
+  halt: HaltIntervall,
+  gesamtS: number,
+  fokus: boolean,
+): void {
+  el.dataset['ab'] = m.ab
+  el.style.left = pos(halt.filmVon / gesamtS)
+  el.style.width = pos((halt.filmBis - halt.filmVon) / gesamtS)
+  el.classList.toggle('fokus', fokus)
+  const dauerText = formatiereSekunden(momentDauerS(m))
+  const zeichen = el.querySelector('.m-zeichen')
+  const titel = el.querySelector('.info b')
+  const unten = el.querySelector('.info small')
+  if (zeichen && zeichen.textContent !== MOMENT_ZEICHEN[m.art]) zeichen.textContent = MOMENT_ZEICHEN[m.art]
+  if (titel && titel.textContent !== MOMENT_NAMEN[m.art]) titel.textContent = MOMENT_NAMEN[m.art]
+  if (unten && unten.textContent !== dauerText) unten.textContent = dauerText
+  const blase = el.querySelector('.dauer-blase')
+  if (blase && blase.textContent !== dauerText) blase.textContent = dauerText
+  el.title = `${MOMENT_NAMEN[m.art]} bei ${zeitText(m.ab)} Uhr · ${dauerText} — die rechte Kante zieht die Dauer`
 }
 
 /** Klip-Gerüst einer Aufnahme — einmalig; danach nur noch fortgeschrieben. */
@@ -3731,6 +3830,145 @@ function ziehStandzeit(e: PointerEvent, id: string): void {
 }
 
 /**
+ * Wohin fällt ein gezogenes Objekt? Zeigerweg → Zeit, gerechnet auf einer
+ * Zug-Achse OHNE dieses Objekt (sonst tote Zone, s. `schluessel`).
+ *
+ * Gerechnet wird in FILMSEKUNDEN, nicht in Anteilen: Die Zug-Achse ist um die
+ * Breite des ausgelassenen Objekts kürzer, derselbe ANTEIL ist auf ihr also
+ * eine andere Zeit — ein 340-px-Zug landete dadurch 11 px neben dem Zeiger.
+ * In Filmsekunden stimmt es exakt, denn links des Objekts sind beide Achsen
+ * identisch und px sind film-proportional: `filmZug(zielZeit) =
+ * filmZug(startZeit) + Zeigerweg`.
+ */
+function zugZielZeit(ziehAchse: Achse, startS: number, anteilWeg: number, gesamtEchtS: number): number {
+  const zugGesamt = ziehAchse.kurve?.gesamtS ?? 0
+  if (!(zugGesamt > 0)) return startS
+  const startFilm = anteilZuFilm(ziehAchse, offsetZuAnteil(ziehAchse, startS))
+  return anteilZuOffset(ziehAchse, (startFilm + anteilWeg * gesamtEchtS) / zugGesamt)
+}
+
+/**
+ * Die Dauer eines Moments an seiner rechten Kante ziehen — dieselbe Geste wie
+ * die Standzeit einer Aufnahme, nur schreibt sie `momente[].dauerS`.
+ *
+ * Live geschrieben (renderNachZug): Der Klip behält dabei seine Identität —
+ * `ab` ändert sich nicht —, das Element überlebt den Render, und die Achse
+ * hinter ihm soll ja mitwachsen (die Filmdauer wird länger).
+ */
+function ziehMomentDauer(e: PointerEvent, ab: string): void {
+  if (!z) return
+  const m = (z.edits.momente ?? []).find((x) => x.ab === ab)
+  if (!m) return
+  e.preventDefault()
+  e.stopPropagation()
+  halteAbspielen()
+  const klip = momentEls.get(ab)
+  klip?.classList.add('zieht', 'zieht-dauer')
+  const startDauer = momentDauerS(m)
+  const massstab = pxProFilmS > 0 ? pxProFilmS : 1
+  const startX = e.clientX
+  // Erst ab der Schwelle wird aus dem Drücken ein Zug — und die Rechnung setzt
+  // DORT an, sonst spränge die Dauer beim Losfahren um die Schwellenbreite.
+  let basisX = 0
+
+  const bewege = (ev: PointerEvent): void => {
+    if (!z) return
+    if (!basisX) {
+      if (Math.abs(ev.clientX - startX) < ZUG_SCHWELLE_PX) return
+      basisX = ev.clientX
+      einpassen = false
+    }
+    z.edits = mitMoment(z.edits, ab, m.art, klemmeMomentDauer(startDauer + (ev.clientX - basisX) / massstab))
+    renderNachZug()
+  }
+  const los = (): void => {
+    window.removeEventListener('pointermove', bewege)
+    window.removeEventListener('pointerup', los)
+    klip?.classList.remove('zieht', 'zieht-dauer')
+    if (!basisX) return
+    unterdrueckeKlick = true
+    renderAlles()
+  }
+  window.addEventListener('pointermove', bewege)
+  window.addEventListener('pointerup', los)
+}
+
+/**
+ * Einen Moment verschieben — sein ORT auf der Reise, nichts weiter: Ein Moment
+ * gehört zu keiner Kette, es gibt bei ihm keine „Reihenfolge"-Bedeutung.
+ *
+ * Wie beim Aufnahme-Klip wird während der Bewegung NICHTS geschrieben (der Klip
+ * folgt dem Zeiger als Anzeigegröße, das Overlay einmal beim Loslassen = ein
+ * Undo-Schritt) und px → Zeit läuft über eine Achse OHNE DIESEN Moment: auf der
+ * echten Achse belegt er selbst Breite, um seine Ruhelage läge also eine tote
+ * Zone, in der der Zeiger die Zeit nicht bewegt. Vorher schrieb er live und war
+ * ein Punkt ohne Breite — da fiel beides nicht auf.
+ */
+function ziehMoment(e: PointerEvent, ab: string): void {
+  if (!z) return
+  const achse = aktuelleAchse()
+  const skala = baueSkala(z.track)
+  if (!achse?.kurve || !skala) return
+  const m = (z.edits.momente ?? []).find((x) => x.ab === ab)
+  if (!m) return
+  e.preventDefault()
+  halteAbspielen()
+  const zz = z
+  const start = zz.daten.time.start
+  const klip = momentEls.get(ab)
+  const ziehAchse = baueAchse(
+    zerlegeFuerAnzeige(zz.daten.segmente as EditorSegment[], zz.edits, start),
+    achsenHalte(medienAnzeige(), (zz.edits.momente ?? []).filter((x) => x.ab !== ab)),
+    skala,
+  )
+  const gesamt = achse.kurve.gesamtS
+  const startS = isoZuOffset(start, ab)
+  const startX = e.clientX
+  const startAnteil = spurAnteil(e.clientX)
+  let bewegt = false
+  let zielS: number | null = null
+
+  const bewege = (ev: PointerEvent): void => {
+    if (!bewegt && Math.abs(ev.clientX - startX) < ZUG_SCHWELLE_PX) return
+    if (!bewegt) {
+      bewegt = true
+      klip?.classList.add('zieht')
+    }
+    const frei = zugZielZeit(ziehAchse, startS, spurAnteil(ev.clientX) - startAnteil, gesamt)
+    zielS = Math.max(skala.vonS, Math.min(skala.bisS, frei))
+    if (klip) klip.style.transform = `translateX(${(ev.clientX - startX).toFixed(1)}px)`
+    zeigeZugEtikett(
+      ev,
+      'ort',
+      `${MOMENT_NAMEN[m.art]} · km ${kmText(meterZuOffset(kumStrecke, zz.track, zielS))} · ${uhrzeitKurz(offsetZuIso(start, zielS))} Uhr`,
+    )
+  }
+
+  const los = (): void => {
+    window.removeEventListener('pointermove', bewege)
+    window.removeEventListener('pointerup', los)
+    verbergeZugEtikett()
+    if (klip) {
+      klip.style.transform = ''
+      klip.classList.remove('zieht')
+    }
+    if (!z) return
+    if (!bewegt || zielS === null) {
+      // Kein Zug = Klick: auswählen (der Inspector beschreibt den Moment).
+      z.fokus = { art: 'moment', ab }
+      renderAlles()
+      return
+    }
+    unterdrueckeKlick = true
+    const neuAb = verschiebeGrenze('moment', ab, zielS)
+    z.fokus = { art: 'moment', ab: neuAb ?? ab }
+    renderAlles()
+  }
+  window.addEventListener('pointermove', bewege)
+  window.addEventListener('pointerup', los)
+}
+
+/**
  * Einen Klip ziehen — EINE Geste, zwei Bedeutungen (docs §2A):
  *
  *   INNERHALB der eigenen Kette → REIHENFOLGE (`reihe` im Overlay). Reine
@@ -3770,17 +4008,16 @@ function ziehKlip(e: PointerEvent, id: string): void {
   // der echten Achse hat der gezogene Klip selbst Breite, um die Ruhelage läge
   // also eine tote Zone von Sprungbreite, in der der Zeiger die Zeit nicht
   // bewegte. Die Kette der Geschwister bleibt drin — sie steht ja weiter da.
+  // Die MOMENTE bleiben drin (sie stehen ja weiter da) — sie fehlten hier, und
+  // damit rechnete die Zug-Achse um deren Filmzeit daneben.
   const ziehAchse = baueAchse(
     zerlegeFuerAnzeige(zz.daten.segmente as EditorSegment[], zz.edits, zz.daten.time.start),
-    baueStopps(alle.filter((x) => x.id !== id), zz.track, kumStrecke).map((s) => ({
-      offsetS: s.offsetS,
-      breiteS: s.items.reduce((summe, x) => summe + aufnahmeHaltS(x) + HALT_AUSBLEND_S, 0),
-    })),
+    achsenHalte(alle.filter((x) => x.id !== id), zz.edits.momente ?? []),
     skala,
   )
   const startX = e.clientX
   const startAnteil = spurAnteil(e.clientX)
-  const startZieh = offsetZuAnteil(ziehAchse, offsetVon(m))
+  const startS = offsetVon(m)
   let bewegt = false
   let ziel:
     | { art: 'reihe'; platz: number }
@@ -3811,7 +4048,7 @@ function ziehKlip(e: PointerEvent, id: string): void {
     const treffer = haltInnenBei(achse, cursorFilm)
     const fremd = treffer && !treffer.stuecke?.some((s) => s.id === id) ? treffer : null
     const andocken = fremd?.stuecke?.[0] ? (stoppVon(stopps, fremd.stuecke[0].id) ?? null) : null
-    const frei = anteilZuOffset(ziehAchse, startZieh + (anteil - startAnteil))
+    const frei = zugZielZeit(ziehAchse, startS, anteil - startAnteil, gesamt)
     const offsetS = andocken ? andocken.offsetS : Math.max(skala.vonS, Math.min(skala.bisS, frei))
     ziel = { art: 'ort', offsetS, andocken }
     if (klip) {
@@ -4444,14 +4681,6 @@ function zeitleisteZug(e: PointerEvent): void {
     case 'wetter':
       kantenZugBewegen(e)
       return
-    // Ein Moment ist ein Punktereignis ohne Nachbarn und ohne Band, das
-    // mitwandern müsste — er darf weiter live schreiben.
-    case 'moment': {
-      if (zug.ab === undefined) break
-      const neuAb = verschiebeGrenze('moment', zug.ab, anteilZuOffset(skala, anteil))
-      if (neuAb) zug.ab = neuAb
-      break
-    }
     // Ton-Klips rechnen seit Etappe 4 in FILMsekunden (docs §2E). Jede Geste
     // schreibt den Anker mit — dadurch wird ein Klip in alter `ab`/`bis`-Form
     // beim ersten Anfassen festgeschrieben, und nur dieser eine (anders als bei
@@ -4762,7 +4991,7 @@ function verdrahteZeitleiste(): void {
     // Klips und ihr Standzeit-Griff bringen ihre eigenen Zug-Handler mit
     // (klipZeiger) — sie laufen über Fenster-Listener, damit ein schneller Zug
     // die schmalen Griffe nicht verliert.
-    if (rolle === 'klip' || rolle === 'standzeit') return
+    if (rolle === 'klip' || rolle === 'standzeit' || rolle === 'momentklip' || rolle === 'momentdauer') return
     e.preventDefault()
     // Ein beginnender Zug hält das Abspielen an: Züge rendern über
     // renderNachZug (ohne halteAbspielen) — der Abspieler liefe sonst auf
@@ -4812,10 +5041,7 @@ function verdrahteZeitleiste(): void {
       // fokussieren — ein Klick, beide sinnvollen Wirkungen. Traf er nichts,
       // wird die Auswahl aufgehoben (wie im Schnittprogramm).
       const audioRollen = ['audio-balken', 'audio-von', 'audio-bis', 'sfx']
-      if (war.rolle === 'moment' && war.ab !== undefined) {
-        zz.fokus = { art: 'moment', ab: war.ab }
-        renderAlles()
-      } else if (audioRollen.includes(war.rolle) && war.index !== undefined) {
+      if (audioRollen.includes(war.rolle) && war.index !== undefined) {
         zz.fokus = { art: 'audio', index: war.index }
         renderAlles()
       } else {
