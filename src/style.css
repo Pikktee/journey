@@ -587,7 +587,7 @@ body.cinema .cine {
   border: none;
   border-radius: 50%;
   background: rgba(10, 8, 5, 0.55);
-  color: #f2ede3;
+  color: var(--text);
   cursor: pointer;
   backdrop-filter: blur(4px);
   transition: background 0.2s ease, transform 0.15s ease;
@@ -604,7 +604,7 @@ body.cinema .cine {
 }
 .photo-sound[aria-pressed='true'] {
   background: rgba(245, 165, 36, 0.9);
-  color: #1a1206;
+  color: var(--auf-akzent);
 }
 
 /* Anzeige-Fortschritt am unteren Bildrand — steht, wenn angehalten */
@@ -622,7 +622,7 @@ body.cinema .cine {
   height: 100%;
   transform: scaleX(0);
   transform-origin: left;
-  background: linear-gradient(90deg, #f5a524, #ff6f52);
+  background: linear-gradient(90deg, #f5a524, var(--akzent-2));
 }
 
 /* Badge, solange die Anzeige angehalten ist */
@@ -1121,7 +1121,7 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   padding: 0;
   border-radius: 50%;
   border: 1.5px solid rgba(23, 17, 6, 0.35);
-  background: #f6f1e7;
+  background: var(--papier);
   cursor: pointer;
   transition: background 0.3s ease, border-color 0.3s ease, border-width 0.2s ease, transform 0.2s ease;
   z-index: 3;

@@ -56,7 +56,7 @@ body {
 
 nav.nav {
   height: var(--topbar-h);
-  border-bottom: 1px solid #222b37;
+  border-bottom: 1px solid var(--rand);
   background: rgba(13, 17, 24, 0.82);
   backdrop-filter: blur(14px);
   position: sticky;
@@ -98,7 +98,7 @@ footer a:focus-visible,
   border-radius: 4px;
 }
 .nav-gegen {
-  color: #a7b1bf;
+  color: var(--text-2);
   text-decoration: none;
   font-size: 13.5px;
   font-weight: 500;
@@ -255,7 +255,7 @@ header.kopf .stand {
   display: inline-block;
   font-size: 13.5px;
   font-weight: 500;
-  color: #a7b1bf;
+  color: var(--text-2);
   text-decoration: none;
   border: 1px solid var(--linie);
   border-radius: var(--radius-full);

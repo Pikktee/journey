@@ -151,7 +151,7 @@
     }
     button.still:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
     button.primaer {
-      font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: #1a1206;
+      font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: var(--auf-akzent);
       background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       border: 1px solid transparent; border-radius: var(--radius-full); padding: 8px 18px; cursor: pointer;
     }
@@ -159,7 +159,7 @@
     button.primaer:disabled, button.still:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
     :is(button, input, a):focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
 
-    .schalter { appearance: none; width: 44px; height: 26px; border-radius: var(--radius-full); background: #222b37; border: 1px solid #2e3a49; position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
+    .schalter { appearance: none; width: 44px; height: 26px; border-radius: var(--radius-full); background: var(--rand); border: 1px solid var(--rand-hell); position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
     .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-zart); transition: translate 0.18s, background 0.18s; }
     .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
     .schalter:checked::after { translate: 18px 0; background: var(--akzent); }

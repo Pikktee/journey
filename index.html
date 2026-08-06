@@ -159,7 +159,7 @@
     }
     .nav-right a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
     .nav-right a.nav-cta {
-      color: #1a1206; font-weight: 600; background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+      color: var(--auf-akzent); font-weight: 600; background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       padding: 8px 18px; border-radius: var(--radius-full);
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
@@ -193,7 +193,7 @@
     .konto-menue {
       position: absolute; right: 0; top: calc(100% + 8px); z-index: 80;
       width: 250px; padding: 14px; border-radius: var(--radius-lg);
-      background: #151c26; border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--fl-2); border: 1px solid rgba(255, 255, 255, 0.1);
       box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
       display: flex; flex-direction: column; gap: 10px;
     }
@@ -211,7 +211,7 @@
       display: block; height: 100%; width: 0; border-radius: 3px;
       background: linear-gradient(90deg, var(--akzent), var(--akzent-2));
     }
-    .km-balken span.voll { background: #e8a13c; }
+    .km-balken span.voll { background: var(--warn); }
     .km-trenner { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 2px 0; }
     .km-eintrag {
       display: inline-flex; align-items: center; gap: 8px;
@@ -240,7 +240,7 @@
       transition: transform 0.18s ease, filter 0.18s ease, background 0.18s ease, border-color 0.18s ease;
     }
     .btn:active { transform: translateY(1px); }
-    .btn-primary { color: #1a1206; background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); box-shadow: 0 12px 34px -12px rgba(245, 165, 36, 0.6); }
+    .btn-primary { color: var(--auf-akzent); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); box-shadow: 0 12px 34px -12px rgba(245, 165, 36, 0.6); }
     .btn-primary:hover { filter: brightness(1.07); transform: translateY(-1px); }
     .btn-ghost { color: var(--text); border-color: rgba(255, 255, 255, 0.22); background: rgba(10, 13, 18, 0.35); backdrop-filter: blur(4px); }
     .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
@@ -574,7 +574,7 @@
     .phone-screen {
       position: relative; overflow: hidden; border-radius: 32px;
       /* etwas kürzer als 1080×2424 — schneidet die native Statusleiste sauber weg */
-      aspect-ratio: 1080 / 2298; background: #06090e;
+      aspect-ratio: 1080 / 2298; background: var(--bg-tief);
     }
     .phone-screen img {
       position: absolute; inset: 0; width: 100%; height: 100%;
