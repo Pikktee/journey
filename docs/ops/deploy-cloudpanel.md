@@ -85,17 +85,32 @@ MAPTALE_UMAMI_DB_PASSWORT=<Postgres-Passwort des Umami-Containers>   # optional:
 > unverändert nach `dist/` — der normale Rollout bringt sie mit.
 >
 > Stand 2026-08-06 nachgezogen: der **Profil-Namensraum**
-> `location ~ ^/@ { rewrite ^ /profil.html last; }` (Etappe 1 aus
-> [konzept_profil_konto.md](../concepts/konzept_profil_konto.md)). Er darf VOR
-> dem Code ausgerollt werden — `/@…` antwortet dann mit der Profilseite, die den
-> unbekannten Handle als „nicht gefunden" zeigt. Umgekehrt wäre die Adresse für
-> die Dauer eines Deploys tot.
+> `location ~ ^/@` (Etappe 1 aus
+> [konzept_profil_konto.md](../concepts/konzept_profil_konto.md)), der
+> **Tour-Namensraum** `location ^~ /tour/` (Etappe 5.5) und der Block für die
+> beiden dynamischen **Sitemaps**.
+>
+> **Die Reihenfolge hat sich mit Etappe 6 UMGEDREHT.** Solange die beiden
+> Namensräume `rewrite` waren, durfte der Vhost vor dem Code raus: `/@…`
+> antwortete dann mit der statischen Seite, die den unbekannten Handle als
+> „nicht gefunden" zeigte. Seit sie `proxy_pass` sind, gilt das Gegenteil —
+> **erst der Code, dann der Vhost**. Eine API, die `/@handle` noch nicht kennt,
+> antwortet dort mit JSON-404: Jede Profil- und Tour-Adresse wäre sofort tot.
+>
+> Der Container holt sich das gebaute `profil.html`/`erlebnis.html` zur Laufzeit
+> über `MAPTALE_WEB_URL` (leer = `MAPTALE_BASIS_URL`, in `/srv/maptale/.env`
+> auf `https://maptale.io` gesetzt). Ist die Variable falsch, antwortet jede
+> dieser Seiten mit 502 — die Gegenprobe unten fängt das ab.
 
-**Gegenprobe nach jedem Vhost-Eingriff** (drei Zeilen, alle drei müssen stimmen):
+**Gegenprobe nach jedem Vhost-Eingriff** (alle Zeilen müssen stimmen — kein 404 auf einer
+Adresse, die es geben soll, und kein 502 auf `/@…` oder `/tour/…`):
 
 ```bash
 H=https://maptale.io
-for p in /app /anmelden /registrieren /erlebnis /galerie /profil /admin '/@henrik'; do printf '%-16s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' $H$p)"; done
+for p in /app /anmelden /registrieren /erlebnis /galerie /profil /admin '/@henrik' /tour/kohphangan /sitemap.xml /sitemap-profile.xml /sitemap-touren.xml /robots.txt; do printf '%-22s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' $H$p)"; done
+# Die vom Server gesetzten Köpfe: beide müssen den eigenen Titel tragen, nicht den aus dem Build.
+printf 'profil-titel     %s\n' "$(curl -s $H/@henrik | grep -o '<title>[^<]*</title>')"
+printf 'tour-titel       %s\n' "$(curl -s $H/tour/kohphangan | grep -o '<title>[^<]*</title>')"
 printf 'unbekannt        %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/gibtsnicht)" "$(curl -s $H/gibtsnicht | grep -o '<title>[^<]*</title>')"
 printf 'api/unbekannt    %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/api/tours/gibtsnicht)" "$(curl -s $H/api/tours/gibtsnicht | head -c 40)"
 for u in /app /assets/ /api/auth/me; do printf '%-16s %s/3 Header\n' "$u" "$(curl -sI $H$u | grep -icE 'x-frame-options|x-content-type-options|referrer-policy')"; done
