@@ -27,10 +27,16 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   gehört: [docs/specs/overlay-und-tourjson.md](docs/specs/overlay-und-tourjson.md).
 - **Studio** ([studio.html](studio.html) + [src/studio/](src/studio/)): Weboberfläche zum
   Hochladen und Bearbeiten aufgezeichneter Touren (s. eigener Abschnitt unten).
-- **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren)
-  und [profil.html](profil.html) (`/@henrik`, die Reisen einer Person; `?id=…` bleibt als
-  Alias). Beide ohne Anmeldung, Logik DOM-frei in
-  [src/galerie/galeriemodell.ts](src/galerie/galeriemodell.ts).
+- **Öffentliche Seiten**: [galerie.html](galerie.html) (alle auf `public` gestellten Touren,
+  Logik in [src/galerie/](src/galerie/)) und [profil.html](profil.html) (`/@henrik`, die
+  Reisen einer Person; `?id=…` bleibt als Alias, Logik in [src/profil/](src/profil/)). Beide
+  ohne Anmeldung; die Kartendaten teilen sie sich
+  ([galeriemodell.ts](src/galerie/galeriemodell.ts)), alles Übrige der Profilseite —
+  Kennzahlen, Link-Chips, „gehört mir?" — steht DOM-frei in
+  [profilmodell.ts](src/profil/profilmodell.ts). **Kennzahlen summiert der SERVER und nur
+  über öffentliche Touren**: „12 Touren" neben drei sichtbaren Karten wäre eine Auskunft über
+  die anderen neun. Das Bearbeiten-Modal wird erst für den Besitzer nachgeladen
+  ([profilbearbeiten.ts](src/profil/profilbearbeiten.ts)).
 - **Benutzerverwaltung** ([admin.html](admin.html) + [src/admin/](src/admin/)): Konten,
   Rollen und Einladungen (s. eigener Abschnitt unten).
 - **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — s. eigener Abschnitt.

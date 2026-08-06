@@ -23,15 +23,6 @@ export interface GalerieAntwort {
   mehr: boolean
 }
 
-export interface ProfilAntwort {
-  /** Die Adresse der Person; fehlt nur bei Antworten aus der Zeit vor den Handles. */
-  handle?: string | null
-  anzeigename: string | null
-  bio: string | null
-  avatarUrl: string | null
-  touren: GalerieTour[]
-}
-
 /** Anzeigefertige Karte. */
 export interface Karte {
   id: string
@@ -115,16 +106,4 @@ export function idAusAdresse(suchteil: string): string | null {
  */
 export function wenAusAdresse(pfadteil: string, suchteil: string): string | null {
   return handleAusPfad(pfadteil) ?? idAusAdresse(suchteil)
-}
-
-/**
- * Kopfzeile eines Profils. Ohne Anzeigenamen bleibt die Seite bewusst
- * unpersönlich, statt Klarnamen oder E-Mail zu erfinden.
- */
-export function profilKopf(profil: ProfilAntwort): { name: string; bio: string | null; bild: string | null } {
-  return {
-    name: profil.anzeigename?.trim() || 'Ohne Namen',
-    bio: profil.bio?.trim() || null,
-    bild: profil.avatarUrl,
-  }
 }

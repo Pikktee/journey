@@ -218,23 +218,58 @@ const MIGRATIONEN: Migration[] = [
   // Anlegedatum, aus der E-Mail abgeleitet, bei Kollision mit Zähler — wer
   // zuerst da war, bekommt den kurzen Namen. Einmal vergeben ist er in der
   // Welt, deshalb läuft das hier und nicht beim nächsten Login.
-  (db) => {
-    const zeilen = db
-      .prepare('SELECT id, email FROM users WHERE handle IS NULL ORDER BY created_at ASC, id ASC')
-      .all() as Array<{ id: string; email: string }>
-    const belegt = new Set(
-      (db.prepare('SELECT handle FROM users WHERE handle IS NOT NULL').all() as Array<{ handle: string }>).map((z) =>
-        z.handle.toLowerCase(),
-      ),
-    )
-    const setze = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
-    for (const zeile of zeilen) {
-      const handle = freierHandle(handleAusEmail(zeile.email), (h) => belegt.has(h))
-      belegt.add(handle)
-      setze.run(handle, zeile.id)
-    }
-  },
+  vergibFehlendeHandles,
+  // Die übrigen Profilfelder (Etappe 2). Alle optional und alle NULL by default:
+  // Ein Profil ist eine Einladung, kein Formular — wer nichts einträgt, hat
+  // trotzdem eine vollständige Seite.
+  //
+  // `website` und `instagram` stehen als getrennte Spalten und nicht als Liste
+  // von Links: Es sind genau zwei, jeder mit eigener Darstellung, und eine
+  // Tabelle für zwei Zeilen wäre Beiwerk. Gespeichert wird jeweils die NACKTE
+  // Form (`henrikheil.net`, `henrik.unterwegs`) — das Schema bzw. das `@` gehört
+  // zur Anzeige, nicht zum Wert, sonst stünde dieselbe Adresse in drei
+  // Schreibweisen in der Spalte.
+  //
+  // `titelbild` trägt entweder den Namen eines mitgelieferten Bildes
+  // (`serpentinen.jpg`, s. public/titelbilder/) oder einen Pfad im
+  // Benutzer-Storage (`titelbild/<zeitstempel>.jpg`). Die beiden lassen sich am
+  // Schrägstrich unterscheiden — ein Vorschlag hat keinen.
+  `
+  ALTER TABLE users ADD COLUMN ort TEXT;
+  ALTER TABLE users ADD COLUMN website TEXT;
+  ALTER TABLE users ADD COLUMN instagram TEXT;
+  ALTER TABLE users ADD COLUMN titelbild TEXT;
+  `,
 ]
+
+/**
+ * Vergibt jedem Konto ohne Handle einen — der Backfill aus Migration 12.
+ *
+ * Als benannte Funktion und nicht als anonymer Schritt in der Liste, damit sie
+ * für sich prüfbar ist: Ein Test, der stattdessen `user_version` zurückdreht,
+ * ließe die FOLGENDEN Migrationen ein zweites Mal laufen und scheiterte an der
+ * ersten doppelten Spalte.
+ *
+ * Deterministisch nach Anlegedatum: Wer zuerst da war, bekommt den kurzen
+ * Namen. Wiederholbar ist sie auch (`WHERE handle IS NULL`) — einmal Vergebenes
+ * fasst sie nie wieder an, denn der Name ist dann in der Welt.
+ */
+export function vergibFehlendeHandles(db: Db): void {
+  const zeilen = db
+    .prepare('SELECT id, email FROM users WHERE handle IS NULL ORDER BY created_at ASC, id ASC')
+    .all() as Array<{ id: string; email: string }>
+  const belegt = new Set(
+    (db.prepare('SELECT handle FROM users WHERE handle IS NOT NULL').all() as Array<{ handle: string }>).map((z) =>
+      z.handle.toLowerCase(),
+    ),
+  )
+  const setze = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
+  for (const zeile of zeilen) {
+    const handle = freierHandle(handleAusEmail(zeile.email), (h) => belegt.has(h))
+    belegt.add(handle)
+    setze.run(handle, zeile.id)
+  }
+}
 
 export function oeffneDb(pfad: string): Db {
   const db = new Database(pfad)

@@ -140,26 +140,180 @@
       .nav .wrap { grid-template-columns: 1fr auto; }
     }
 
-    /* Der Kopf ist eine Vorstellung, kein Titelbild: Bild, Name, ein paar Sätze. */
-    header.profil { padding: 60px 0 26px; text-align: center; }
-    .profil-bild { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
-    header.profil h1 { font-family: var(--display); font-weight: 500; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.08; margin: 16px 0 0; }
-    .profil-bio { color: var(--muted); font-size: 16.5px; line-height: 1.62; max-width: 52ch; margin: 14px auto 0; }
+    /* ————— Titelbild —————
+       Zwei Schleier: unten läuft das Foto in den Seitengrund aus (darauf sitzen
+       Avatar und Name), oben nimmt ein leichter Schatten dem Knopf den Kampf
+       gegen einen hellen Himmel ab. Ohne Bild bleibt eine ruhige Fläche — ein
+       leeres Banner ist kein Fehler, sondern ein Profil, das noch keins hat. */
+    .banner {
+      position: relative; height: clamp(150px, 26vw, 230px); margin-top: 24px;
+      border-radius: 16px; overflow: hidden;
+      background-size: cover; background-position: center;
+    }
+    .banner.leer { background: linear-gradient(150deg, #121a25, #0b1119 62%, #0c1520); }
+    .banner .schleier { position: absolute; inset: auto 0 0 0; height: 76%; background: linear-gradient(transparent, rgba(6, 9, 14, 0.75) 55%, var(--bg-2)); }
+    .banner .schleier-oben { position: absolute; inset: 0 0 auto 0; height: 38%; background: linear-gradient(rgba(4, 7, 11, 0.45), transparent); }
 
-    .gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; padding: 26px 0 70px; }
+    /* ————— Kopf ————— */
+    .profilkopf { display: flex; gap: 22px; align-items: flex-end; margin-top: -54px; padding: 0 8px; position: relative; z-index: 2; }
+    .avatar {
+      width: clamp(84px, 13vw, 112px); aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--bg-2);
+      background: linear-gradient(120deg, var(--amber), var(--coral)); color: #221302;
+      display: grid; place-items: center; font-size: clamp(32px, 5vw, 42px); font-weight: 700;
+      overflow: hidden; flex: none;
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kopftext { flex: 1; min-width: 0; padding-bottom: 6px; }
+    .kopftext h1 { font-family: var(--display); font-size: clamp(24px, 3.6vw, 32px); font-weight: 600; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
+    .beiwerk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: var(--faint); font-size: 13.5px; margin-top: 5px; }
+    .beiwerk > span { display: inline-flex; align-items: center; gap: 6px; }
+    .beiwerk .handle { color: var(--muted); font-weight: 500; }
+    .beiwerk svg { width: 14px; height: 14px; flex: none; }
+    .kopf-aktionen { display: flex; gap: 9px; align-items: center; padding-bottom: 8px; flex-wrap: wrap; }
 
-    .karte { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); transition: transform 0.18s ease, border-color 0.18s ease; }
-    .karte:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.2); }
-    .karte:focus-within { border-color: rgba(255, 255, 255, 0.2); }
-    .karte-haupt { display: block; text-decoration: none; color: inherit; }
-    .karte-haupt:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-    .karte-bild { aspect-ratio: 3 / 2; background: rgba(255, 255, 255, 0.05); }
-    .karte-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .karte-text { padding: 15px 17px 17px; }
-    .karte-text h3 { font-family: var(--display); font-weight: 500; font-size: 21px; line-height: 1.2; margin: 0; }
-    .karte-meta { font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--faint); margin: 7px 0 0; }
+    /* ————— Knöpfe ————— */
+    button.knopf, .banner-knopf {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--muted);
+      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--line); border-radius: 999px;
+      padding: 8px 15px; cursor: pointer; transition: background 0.16s, color 0.16s, border-color 0.16s;
+    }
+    button.knopf:hover, .banner-knopf:hover { background: rgba(255, 255, 255, 0.09); color: var(--ink); }
+    button.knopf svg, .banner-knopf svg { width: 15px; height: 15px; flex: none; }
+    button.knopf.primaer {
+      color: #1a1206; font-weight: 600; border-color: transparent;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+    }
+    button.knopf.primaer:hover { filter: brightness(1.06); }
+    button.knopf[hidden], .banner-knopf[hidden] { display: none !important; }
+    .banner-knopf { position: absolute; right: 14px; top: 14px; z-index: 3; background: rgba(6, 8, 12, 0.55); backdrop-filter: blur(8px); }
+    /* Kein Knopf, sondern eine Auskunft: Bei privatem Profil gibt es nichts zu
+       teilen — statt eines toten Knopfes steht hier, warum. */
+    #privat-chip { cursor: default; }
+    #privat-chip:hover { background: rgba(255, 255, 255, 0.045); color: var(--muted); }
 
-    .hinweis { color: var(--muted); font-size: 16px; padding: 20px 0 60px; grid-column: 1 / -1; text-align: center; }
+    .bio { margin: 16px 8px 0; max-width: 68ch; color: var(--muted); font-size: 15.5px; line-height: 1.6; }
+    .bio[hidden] { display: none; }
+
+    .links { display: flex; flex-wrap: wrap; gap: 18px; margin: 14px 8px 0; }
+    .link-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13.5px; text-decoration: none; transition: color 0.16s; }
+    .link-chip:hover { color: var(--amber); text-decoration: underline; text-underline-offset: 3px; }
+    .link-chip svg { width: 15px; height: 15px; flex: none; opacity: 0.85; }
+
+    /* Kennzahlen als Chips — der Mittelweg aus drei Anläufen (Kacheln waren ein
+       Dashboard, Sparklines Dekor mit Datenanspruch). Zahlen mit tabular-nums,
+       wie DESIGN.md es für Kennzahlen vorsieht. */
+    .kennzahlen { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 8px 0; }
+    .kz {
+      display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+      border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+      font-size: 13.5px; color: var(--faint);
+    }
+    .kz svg { width: 15px; height: 15px; flex: none; color: var(--amber); }
+    .kz b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .touren-kopf { margin: 32px 8px 14px; }
+    .touren-kopf h2 { font-family: var(--display); font-size: 19px; font-weight: 600; margin: 0; }
+
+    .touren { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 0 8px 70px; }
+    .tour {
+      border-radius: 14px; overflow: hidden; background: var(--card); border: 1px solid var(--line);
+      text-decoration: none; color: inherit; display: block;
+      transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+    .tour:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.2); }
+    .tour:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+    .tour .bild { height: 118px; position: relative; background-size: cover; background-position: center; background-color: rgba(255, 255, 255, 0.05); }
+    .tour .bild::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(6, 8, 12, 0.75)); }
+    .tour .txt { padding: 12px 14px 14px; }
+    .tour .titel { font-weight: 550; }
+    .tour .meta { font-size: 12.5px; color: var(--faint); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+    .hinweis { color: var(--muted); font-size: 16px; padding: 40px 0 60px; text-align: center; }
+
+    /* ————— Dialoge (nur für den Besitzer, s. src/profil/profilbearbeiten.ts) ————— */
+    body.dialog-offen { overflow: hidden; }
+    .dialogschicht {
+      position: fixed; inset: 0; z-index: 100; background: rgba(4, 7, 11, 0.72);
+      backdrop-filter: blur(3px); display: grid; place-items: center; padding: 20px;
+    }
+    .dialog {
+      width: min(560px, 100%); max-height: min(88vh, 780px); display: flex; flex-direction: column;
+      background: #151c26; border: 1px solid #222b37; border-radius: 16px;
+      box-shadow: 0 24px 70px rgba(2, 5, 10, 0.7);
+    }
+    .sp-kopf { padding: 18px 22px 14px; border-bottom: 1px solid var(--line); }
+    .sp-kopf h2 { font-family: var(--display); font-size: 18px; font-weight: 600; margin: 0; }
+    /* Der Körper scrollt, nicht der Dialog: Sonst wandert die Fußzeile mit den
+       Knöpfen aus dem Bild, und „Speichern" ist nicht mehr zu finden. */
+    .sp-koerper { padding: 18px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+    .sp-fuss { padding: 14px 22px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 9px; }
+    .sp-hinweis { margin: 0; color: var(--muted); font-size: 14px; }
+    .sp-reihe { display: flex; gap: 13px; flex-wrap: wrap; }
+    .sp-reihe > * { flex: 1 1 200px; min-width: 0; }
+    .sp-nebenzeile { display: flex; gap: 9px; flex-wrap: wrap; }
+    .sp-fehler { margin: 0; color: #ff9ea0; font-size: 13.5px; }
+    .sp-fehler[hidden] { display: none; }
+
+    .sp-feld { display: flex; flex-direction: column; gap: 6px; }
+    .sp-feld label { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .sp-feld .zaehler { color: var(--faint); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .sp-feld .zaehler.knapp { color: var(--amber); }
+    .sp-feld input, .sp-feld textarea, .vorsatz-feld {
+      font-family: var(--sans); font-size: 14.5px; color: var(--ink);
+      background: #0d131b; border: 1px solid #222b37; border-radius: 10px;
+      padding: 9px 12px; width: 100%; box-sizing: border-box;
+    }
+    .sp-feld textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
+    .sp-feld input:focus-visible, .sp-feld textarea:focus-visible { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+    /* Feld mit feststehendem Vorsatz („maptale.io/@"). Der Rahmen sitzt auf der
+       Hülle, das Eingabefeld darin ist nackt — zwei Rahmen nebeneinander sähen
+       aus wie zwei Felder. */
+    .vorsatz-feld { display: flex; align-items: center; gap: 0; padding: 0 0 0 12px; }
+    .vorsatz-feld:focus-within { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+    .vorsatz-feld .fest { color: var(--faint); white-space: nowrap; flex: none; font-size: 14.5px; }
+    .vorsatz-feld input { border: none; background: transparent; padding-left: 1px; }
+    .vorsatz-feld input:focus-visible { box-shadow: none; border-color: transparent; }
+
+    .handle-stand { font-size: 12.5px; color: var(--faint); min-height: 17px; }
+    .handle-stand.frei { color: #7ddba2; }
+    .handle-stand.belegt { color: #ff9ea0; }
+
+    .sp-schalterzeile { display: flex; align-items: center; gap: 16px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
+    .sp-schalterzeile .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+    .sp-schalterzeile .t { font-size: 14px; font-weight: 500; color: var(--ink); }
+    .sp-schalterzeile .b { font-size: 12.5px; color: var(--faint); line-height: 1.45; }
+    .schalter { appearance: none; width: 44px; height: 26px; border-radius: 999px; background: #222b37; border: 1px solid #2e3a49; position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
+    .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--faint); transition: translate 0.18s, background 0.18s; }
+    .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
+    .schalter:checked::after { translate: 18px 0; background: var(--amber); }
+
+    .stile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stil { height: 74px; border-radius: 12px; border: 1px solid var(--line); background-size: cover; background-position: center; cursor: pointer; padding: 0; }
+    .stil:hover { border-color: rgba(255, 255, 255, 0.28); }
+    .stil.gewaehlt { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3); }
+
+    button.still {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--muted);
+      background: transparent; border: 1px solid var(--line); border-radius: 999px;
+      padding: 8px 15px; cursor: pointer;
+    }
+    button.still:hover { background: rgba(255, 255, 255, 0.06); color: var(--ink); }
+    button.still svg { width: 15px; height: 15px; flex: none; }
+    button.primaer {
+      font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: #1a1206;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      border: 1px solid transparent; border-radius: 999px; padding: 8px 18px; cursor: pointer;
+    }
+    button.primaer:hover { filter: brightness(1.06); }
+    button.primaer:disabled, button.still:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+
+    @media (max-width: 620px) {
+      .profilkopf { flex-wrap: wrap; gap: 14px; margin-top: -42px; }
+      .kopf-aktionen { width: 100%; padding-bottom: 0; }
+      .stile { grid-template-columns: 1fr; }
+    }
 
     footer { border-top: 1px solid var(--line); padding: 26px 0 40px; }
     footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--sans); font-size: 13px; color: var(--faint); }
@@ -193,10 +347,51 @@
     </div>
   </nav>
 
-  <header class="profil wrap" id="kopf"></header>
-
   <main class="wrap">
-    <div class="gitter" id="gitter"></div>
+    <!-- Die Bühne bleibt verborgen, bis die Daten da sind: Ein leerer Banner mit
+         einem leeren Namenskreis, der sich erst danach füllt, sieht nach
+         kaputter Seite aus. Fehler landen stattdessen in #meldung. -->
+    <div id="buehne" hidden>
+      <div class="banner leer" id="p-banner">
+        <div class="schleier-oben"></div>
+        <div class="schleier"></div>
+        <button type="button" class="banner-knopf" id="btn-titelbild" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M4 18l5-6 4 4.5 3-3.5 4 5z"/><circle cx="15.5" cy="8" r="1.6"/></svg>
+          Titelbild
+        </button>
+      </div>
+
+      <div class="profilkopf">
+        <div class="avatar" id="avatar"></div>
+        <div class="kopftext">
+          <h1 id="p-name"></h1>
+          <div class="beiwerk" id="p-beiwerk"></div>
+        </div>
+        <div class="kopf-aktionen">
+          <button type="button" class="knopf" id="btn-teilen" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 13.4l6.6 3.9M15.3 6.7L8.7 10.6"/><circle cx="4" cy="12" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/></svg>
+            <span id="teilen-text">Link kopieren</span>
+          </button>
+          <button type="button" class="knopf" id="privat-chip" hidden disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+            Nur für dich sichtbar
+          </button>
+          <button type="button" class="knopf primaer" id="btn-bearbeiten" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
+            Profil bearbeiten
+          </button>
+        </div>
+      </div>
+
+      <p class="bio" id="p-bio" hidden></p>
+      <div class="links" id="p-links"></div>
+      <!-- Zählt nur die öffentlichen Touren — die Summe entsteht im Server. -->
+      <div class="kennzahlen" id="p-kennzahlen"></div>
+
+      <div class="touren-kopf"><h2>Touren</h2></div>
+      <div class="touren" id="touren"></div>
+    </div>
+    <div id="meldung"></div>
   </main>
 
   <footer>
@@ -210,11 +405,11 @@
   </footer>
 
   <script type="module">
-    import { starteProfil } from '/src/galerie/galerie.ts'
+    import { starteProfil } from '/src/profil/profil.ts'
     import { fuelleTopNav, montiereNavRechts } from '/src/app-nav.ts'
 
     fuelleTopNav(document.querySelector('.top-nav'), 'profil')
-    starteProfil()
+    void starteProfil()
     void montiereNavRechts(document.getElementById('nav-right'))
   </script>
 </body>

@@ -73,7 +73,18 @@ Ohne jede sichtbare Änderung an der Oberfläche.
 
 ---
 
-## Etappe 2 — Die Profilseite
+## Etappe 2 — Die Profilseite ✅
+
+**Umgesetzt am 6. August 2026.** Titelbild, Avatar, Handle, Ort, Links,
+Kennzahl-Chips, Tourenraster und das Bearbeiten-Modal stehen; die vier
+Vorschlagsbilder liegen in `public/titelbilder/`.
+Nicht gebaut: die **Ortssuche**. Sie ist im Mockup ausdrücklich „eine Attrappe
+derselben Idee" — echt wäre sie ein Nominatim-Aufruf an jedem Tastendruck, also
+eine ratenbegrenzte Fremdquelle im Tippweg. Das Ortsfeld ist Freitext; wenn die
+Vorschläge kommen sollen, ist das ein eigener Schritt (Proxy-Route + Zwischenspeicher).
+Ebenfalls bewusst offen: der **Zuschnitt** hochgeladener Titelbilder — das Banner
+ist ein fester Ausschnitt (`object-fit: cover`), was bei querformatigen Bildern
+dasselbe Ergebnis liefert.
 
 **Ziel:** [profil.html](../../profil.html) wird zu dem, was das Mockup zeigt —
 für Fremde wie für den Besitzer, mit Bearbeiten-Modal.
@@ -141,8 +152,7 @@ Konto-Angaben bauen, irgendwo ablegen, Link mit 48-Stunden-Frist per Mail.
 Braucht eine kleine Job-Verwaltung (Status, Aufräumen alter Archive) — deshalb
 zuletzt, obwohl es im Mockup nur eine Zeile ist.
 
-**Bewusst später:** Passkeys (WebAuthn, eigener Fluss samt Wiederherstellung),
-die automatische Newsletter-Erzeugung, Mehrsprachigkeit.
+**Bewusst später:** die automatische Newsletter-Erzeugung, Mehrsprachigkeit.
 
 ---
 
@@ -180,6 +190,7 @@ Damit nicht wieder vorgeschlagen wird, was schon abgeräumt ist:
 | „Öffentliche Ansicht" (Vorschau-Modus) | seit die Seite nur öffentliche Touren zeigt, verschwinden darin bloß drei Knöpfe |
 | Privatzone / Start und Ziel verbergen | fachlich sinnvoll (ein GPS-Track verrät die Wohnadresse), aber bewusst gestrichen — wenn öffentliche Profile live gehen, gehört das Thema wenigstens in die Datenschutzerklärung |
 | Zwei-Faktor-Bestätigung | vorerst nicht; ohne Wiederherstellungscodes sperrt sich der erste Nutzer mit verlorenem Telefon aus |
+| Passkeys (WebAuthn) | kein Knopf, sondern ein zweiter kompletter Anmeldeweg: Challenge-Fluss, Credential-ID/Public Key/Signaturzähler, Geräteverwaltung, Wiederherstellung bei Geräteverlust. Der Gewinn ist Phishing-Resistenz — die zählt, wo Geld oder Identität hängen. Hier hängen Reisefotos daran, und angemeldet bleibt man 30 Tage: Die Anmeldung erlebt ein Nutzer vielleicht viermal im Jahr. Falls doch, dann als **Ergänzung** zum Passwort, nie als Ersatz |
 | Drittes freies Link-Feld | „Weiteres Profil" mit Platzhalter stellt eine Frage, auf die die meisten keine Antwort haben; kommt als „Link hinzufügen" wieder, wenn es Bedarf gibt |
 | „Alle anderen Geräte abmelden" | einzelnes Abmelden genügt |
 | Kennzahlen als Kacheln oder Sparklines | drei Anläufe; Chips mit einem Zeichen sind der Kompromiss zwischen Dashboard-Optik und Fließtext |

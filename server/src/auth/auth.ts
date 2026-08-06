@@ -8,6 +8,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Db } from '../db.js'
 import { freierHandle, handleAusEmail, pruefeHandleForm, type HandleFehler } from '../handle.js'
 import { neueSessionId, neuesTokenSecret, neueUserId } from '../ids.js'
+import { nacktesInstagram, nacktesWeb } from '../profilfelder.js'
 import { hashePasswort, pruefePasswort } from './passwort.js'
 
 /** Zwei Rollen genügen: wer verwalten darf, und wer seine eigenen Touren hat. */
@@ -58,8 +59,15 @@ export interface Profil {
   handle: string | null
   anzeigename: string | null
   bio: string | null
+  /** Freitext („Frankfurt am Main"), keine Koordinate — er wird gelesen, nicht gerechnet. */
+  ort: string | null
+  /** NACKTE Formen ohne Schema bzw. ohne `@` — s. Migration 13. */
+  website: string | null
+  instagram: string | null
   /** Dateiname im Benutzer-Storage; null = kein Bild */
   avatar: string | null
+  /** Vorschlag (`serpentinen.jpg`) oder eigener Pfad (`titelbild/…`) — s. Migration 13. */
+  titelbild: string | null
   sichtbarkeit: 'private' | 'public'
 }
 
@@ -67,6 +75,9 @@ export interface Profil {
 export interface ProfilAenderung {
   anzeigename?: string
   bio?: string
+  ort?: string
+  website?: string
+  instagram?: string
   sichtbarkeit?: 'private' | 'public'
 }
 
@@ -419,13 +430,20 @@ export class AuthDienst {
   /** Öffentliches Profil eines Benutzers; null, wenn es ihn nicht gibt. */
   profil(userId: string): Profil | null {
     const zeile = this.db
-      .prepare('SELECT handle, anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
+      .prepare(
+        `SELECT handle, anzeigename, bio, ort, website, instagram, avatar, titelbild, profil_sichtbarkeit
+         FROM users WHERE id = ?`,
+      )
       .get(userId) as
       | {
           handle: string | null
           anzeigename: string | null
           bio: string | null
+          ort: string | null
+          website: string | null
+          instagram: string | null
           avatar: string | null
+          titelbild: string | null
           profil_sichtbarkeit: string
         }
       | undefined
@@ -434,7 +452,11 @@ export class AuthDienst {
       handle: zeile.handle,
       anzeigename: zeile.anzeigename,
       bio: zeile.bio,
+      ort: zeile.ort,
+      website: zeile.website,
+      instagram: zeile.instagram,
       avatar: zeile.avatar,
+      titelbild: zeile.titelbild,
       sichtbarkeit: zeile.profil_sichtbarkeit === 'public' ? 'public' : 'private',
     }
   }
@@ -459,6 +481,21 @@ export class AuthDienst {
       zuweisungen.push('bio = ?')
       werte.push(leerAlsNull(aenderung.bio))
     }
+    if (aenderung.ort !== undefined) {
+      zuweisungen.push('ort = ?')
+      werte.push(leerAlsNull(aenderung.ort))
+    }
+    // Website und Instagram werden auf die nackte Form gebracht; was keine
+    // Adresse ist, wird zu NULL statt geraten (s. profilfelder.ts). Ein leeres
+    // Feld heißt hier wie überall „löschen".
+    if (aenderung.website !== undefined) {
+      zuweisungen.push('website = ?')
+      werte.push(nacktesWeb(aenderung.website))
+    }
+    if (aenderung.instagram !== undefined) {
+      zuweisungen.push('instagram = ?')
+      werte.push(nacktesInstagram(aenderung.instagram))
+    }
     if (aenderung.sichtbarkeit !== undefined) {
       zuweisungen.push('profil_sichtbarkeit = ?')
       werte.push(aenderung.sichtbarkeit)
@@ -470,6 +507,37 @@ export class AuthDienst {
   /** Avatar-Dateiname vermerken (die Datei selbst legt der Aufrufer ab). */
   setzeAvatar(userId: string, datei: string | null): void {
     this.db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(datei, userId)
+  }
+
+  /** Titelbild vermerken — Name eines Vorschlags ODER Pfad im Benutzer-Storage. */
+  setzeTitelbild(userId: string, wert: string | null): void {
+    this.db.prepare('UPDATE users SET titelbild = ? WHERE id = ?').run(wert, userId)
+  }
+
+  /**
+   * Kennzahlen einer Person: Touren, Kilometer, Höhenmeter.
+   *
+   * **Nur über öffentliche, fertige Touren.** Das ist kein Anzeige-Detail,
+   * sondern der Grund, warum die Summe hier und nicht im Browser entsteht: Eine
+   * Zahl, die private Fahrten mitzählt, verrät sie — „12 Touren" neben drei
+   * sichtbaren Karten ist eine Auskunft über die anderen neun.
+   *
+   * Gerechnet wird über `json_extract` auf `stats_json` statt in JS über alle
+   * Zeilen: Die Werte stehen ohnehin dort (`km`, `gainM`, s. pipeline/geo.ts),
+   * und so bleibt es eine Abfrage. Touren ohne Statistik zählen als Tour, aber
+   * mit 0 km — `SUM` überspringt NULL von selbst.
+   */
+  kennzahlen(userId: string): { touren: number; km: number; hm: number } {
+    const zeile = this.db
+      .prepare(
+        `SELECT COUNT(*) AS touren,
+                COALESCE(SUM(json_extract(stats_json, '$.km')), 0) AS km,
+                COALESCE(SUM(json_extract(stats_json, '$.gainM')), 0) AS hm
+         FROM tours
+         WHERE owner_id = ? AND visibility = 'public' AND status = 'bereit'`,
+      )
+      .get(userId) as { touren: number; km: number; hm: number }
+    return { touren: zeile.touren, km: zeile.km, hm: Math.round(zeile.hm) }
   }
 
   // — Benutzerverwaltung (Admin) —

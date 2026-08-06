@@ -1,4 +1,7 @@
-// Datenmodell der öffentlichen Seiten (DOM-frei, wie die Studio-Module).
+// Datenmodell der Galerie (DOM-frei, wie die Studio-Module).
+//
+// Der Profilkopf ist mit Etappe 2 nach test/profilmodell.test.ts umgezogen —
+// die Profilseite hat seither ihr eigenes Modell.
 import { describe, expect, it } from 'vitest'
 import {
   alsKarte,
@@ -6,7 +9,6 @@ import {
   entfernung,
   idAusAdresse,
   monat,
-  profilKopf,
   wenAusAdresse,
   type GalerieTour,
 } from '../src/galerie/galeriemodell'
@@ -127,18 +129,3 @@ describe('wenAusAdresse', () => {
   })
 })
 
-describe('profilKopf', () => {
-  it('nimmt Anzeigename und Bio', () => {
-    expect(profilKopf({ anzeigename: 'Reisende', bio: 'Unterwegs', avatarUrl: '/a.jpg', touren: [] })).toEqual({
-      name: 'Reisende',
-      bio: 'Unterwegs',
-      bild: '/a.jpg',
-    })
-  })
-
-  it('bleibt ohne Anzeigenamen unpersönlich, statt etwas zu erfinden', () => {
-    const kopf = profilKopf({ anzeigename: null, bio: '  ', avatarUrl: null, touren: [] })
-    expect(kopf.name).toBe('Ohne Namen')
-    expect(kopf.bio).toBeNull()
-  })
-})

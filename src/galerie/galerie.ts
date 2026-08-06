@@ -1,7 +1,11 @@
-// Hülle der öffentlichen Seiten: holt die Daten und hängt die Karten in den
-// DOM. Alles, was entschieden werden muss, steht in galeriemodell.ts.
-import { profilPfad } from '../routen.js'
-import { alsKarte, profilKopf, wenAusAdresse, type GalerieAntwort, type Karte, type ProfilAntwort } from './galeriemodell'
+// Hülle der Galerie: holt die Daten und hängt die Karten in den DOM. Alles, was
+// entschieden werden muss, steht in galeriemodell.ts.
+//
+// Die Profilseite hatte hier lange ihren zweiten Einstieg — sie hat seit
+// Etappe 2 ihre eigene Hülle (src/profil/), weil sie inzwischen mehr ist als
+// dieselben Karten unter einer Überschrift: Titelbild, Kennzahlen, Bearbeiten.
+// Geblieben ist die gemeinsame Quelle der Kartendaten (galeriemodell.ts).
+import { alsKarte, type GalerieAntwort, type Karte } from './galeriemodell'
 
 const SEITE = 24
 
@@ -11,7 +15,7 @@ const SEITE = 24
  * daneben. Ein Link im Link ist ungültiges HTML — Browser brechen den äußeren
  * dort auf, und welcher Klick wohin führt, wird zur Glückssache.
  */
-function karteElement(karte: Karte, mitAutor = true): HTMLElement {
+function karteElement(karte: Karte): HTMLElement {
   const karten = document.createElement('article')
   karten.className = 'karte'
 
@@ -44,7 +48,7 @@ function karteElement(karte: Karte, mitAutor = true): HTMLElement {
   a.appendChild(text)
   karten.appendChild(a)
 
-  if (mitAutor && karte.autorName) karten.appendChild(autorZeile(karte))
+  if (karte.autorName) karten.appendChild(autorZeile(karte))
   return karten
 }
 
@@ -105,64 +109,4 @@ export async function starteGalerie(): Promise<void> {
 
   mehrKnopf.addEventListener('click', () => void ladeSeite())
   await ladeSeite()
-}
-
-/** Profilseite: Kopf + die öffentlichen Touren dieser Person. */
-export async function starteProfil(): Promise<void> {
-  const kopf = document.getElementById('kopf')
-  const gitter = document.getElementById('gitter')
-  if (!kopf || !gitter) return
-
-  // Handle aus dem Pfad (/@henrik) oder ID aus der Query (?id=…) — die alte
-  // Form bleibt bedienbar, weil solche Links längst geteilt sind.
-  const wen = wenAusAdresse(window.location.pathname, window.location.search)
-  if (!wen) {
-    zeigeFehler(kopf, 'Kein Profil angegeben.')
-    return
-  }
-
-  try {
-    const antwort = await fetch(`/api/benutzer/${encodeURIComponent(wen)}/profil`)
-    if (antwort.status === 404) {
-      zeigeFehler(kopf, 'Dieses Profil gibt es nicht (mehr).')
-      return
-    }
-    if (!antwort.ok) throw new Error(String(antwort.status))
-    const daten = (await antwort.json()) as ProfilAntwort
-    const { name, bio, bild } = profilKopf(daten)
-    document.title = `${name} · Maptale`
-    // Auf die kanonische Adresse umschreiben, wenn der Aufruf über die alte
-    // Form kam (?id=… oder ein aufgegebener Handle). Kein Redirect, sondern
-    // replaceState: Die Seite steht schon, und ein zweiter Ladevorgang für
-    // dieselbe Antwort wäre nur Wartezeit — der Verlauf bleibt sauber.
-    if (daten.handle && window.location.pathname !== profilPfad(daten.handle)) {
-      window.history.replaceState(null, '', profilPfad(daten.handle))
-    }
-
-    if (bild) {
-      const img = document.createElement('img')
-      img.className = 'profil-bild'
-      img.src = bild
-      img.alt = ''
-      kopf.appendChild(img)
-    }
-    const h1 = document.createElement('h1')
-    h1.textContent = name
-    kopf.appendChild(h1)
-    if (bio) {
-      const p = document.createElement('p')
-      p.className = 'profil-bio'
-      p.textContent = bio
-      kopf.appendChild(p)
-    }
-
-    if (daten.touren.length === 0) {
-      zeigeFehler(gitter, 'Noch keine öffentlichen Reisen.')
-      return
-    }
-    // Ohne Urheber-Zeile: der Name steht schon im Kopf der Seite
-    for (const tour of daten.touren) gitter.appendChild(karteElement(alsKarte(tour), false))
-  } catch {
-    zeigeFehler(kopf, 'Das Profil ließ sich gerade nicht laden.')
-  }
 }

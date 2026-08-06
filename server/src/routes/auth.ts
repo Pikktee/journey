@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
 import { nameAusEmail, type ProfilAenderung } from '../auth/auth.js'
 import { HANDLE_TEXTE } from '../handle.js'
+import { istTitelbildVorschlag, titelbildUrl } from '../profilfelder.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
 import { wartelisteAngeboten } from '../auth/warteliste.js'
 import { baueBremse } from '../bremse.js'
@@ -21,8 +22,12 @@ interface LoginBody {
   tokenLabel?: string
 }
 
-/** Der Handle steht neben den Profilfeldern, aber nicht in `ProfilAenderung` — s. Route. */
-type ProfilBody = ProfilAenderung & { handle?: string }
+/**
+ * Handle und Titelbild stehen neben den Profilfeldern, aber nicht in
+ * `ProfilAenderung`: Beide können scheitern bzw. brauchen eine eigene Behandlung
+ * (Aufräumen der alten Datei) und laufen deshalb an `setzeProfil` vorbei — s. Route.
+ */
+type ProfilBody = ProfilAenderung & { handle?: string; titelbild?: string }
 
 /**
  * Ein Profilbild ist ein Vorschaubild, kein Foto-Upload — die App skaliert vor
@@ -30,6 +35,14 @@ type ProfilBody = ProfilAenderung & { handle?: string }
  * vorbei ein Rohfoto schickt.
  */
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+/**
+ * Das Titelbild läuft über die ganze Seitenbreite — hier ist ein Foto in
+ * Bildschirmgröße die Regel und nicht der Ausreißer. Trotzdem gedeckelt: Ein
+ * Banner ist kein Medien-Upload, und die Quota fasst es (wie den Avatar) nicht
+ * an.
+ */
+const MAX_TITELBILD_BYTES = 8 * 1024 * 1024
 
 /**
  * Öffentlicher Pfad eines Avatars.
@@ -49,7 +62,12 @@ function alsProfilAntwort(app: FastifyInstance, userId: string) {
     handle: profil?.handle ?? null,
     anzeigename: profil?.anzeigename ?? null,
     bio: profil?.bio ?? null,
+    ort: profil?.ort ?? null,
+    website: profil?.website ?? null,
+    instagram: profil?.instagram ?? null,
     avatarUrl: profil?.avatar ? avatarUrl(userId, profil.avatar) : null,
+    titelbild: profil?.titelbild ?? null,
+    titelbildUrl: titelbildUrl(userId, profil?.titelbild ?? null),
     sichtbarkeit: profil?.sichtbarkeit ?? 'private',
   }
 }
@@ -388,8 +406,17 @@ export function registriereAuthRouten(app: FastifyInstance): void {
             // '' leert das Feld; fehlt es, bleibt es unverändert
             anzeigename: { type: 'string', maxLength: 80 },
             bio: { type: 'string', maxLength: 500 },
+            ort: { type: 'string', maxLength: 80 },
+            // Großzügig bemessen: Was keine Adresse ist, verwirft die
+            // Normalisierung ohnehin (profilfelder.ts) — die Länge ist hier nur
+            // der Riegel gegen ein hingeschicktes Megabyte.
+            website: { type: 'string', maxLength: 300 },
+            instagram: { type: 'string', maxLength: 300 },
             sichtbarkeit: { enum: ['private', 'public'] },
             handle: { type: 'string', maxLength: 30 },
+            // Nur ein mitgelieferter Vorschlag; eigene Bilder gehen den Weg des
+            // Avatars (PUT …/titelbild). '' entfernt das Bild.
+            titelbild: { type: 'string', maxLength: 60 },
           },
         },
       },
@@ -397,10 +424,22 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-      const { handle, ...rest } = request.body
+      const { handle, titelbild, ...rest } = request.body
       if (handle !== undefined) {
         const fehler = app.auth.setzeHandle(benutzer.id, handle)
         if (fehler) return reply.code(fehler === 'vergeben' ? 409 : 400).send({ fehler: HANDLE_TEXTE[fehler] })
+      }
+      if (titelbild !== undefined) {
+        const wert = titelbild.trim()
+        if (wert && !istTitelbildVorschlag(wert)) {
+          return reply.code(400).send({ fehler: 'Dieses Titelbild gibt es nicht.' })
+        }
+        // Der Wechsel auf einen Vorschlag räumt ein vorher hochgeladenes Bild
+        // weg — sonst bliebe es als Waise im Storage liegen, unerreichbar und
+        // trotzdem auf der Platte.
+        const alt = app.auth.profil(benutzer.id)?.titelbild ?? null
+        app.auth.setzeTitelbild(benutzer.id, wert || null)
+        if (alt?.includes('/')) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
       }
       app.auth.setzeProfil(benutzer.id, rest)
       return alsProfilAntwort(app, benutzer.id)
@@ -432,6 +471,54 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     if (alt) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
     app.auth.setzeAvatar(benutzer.id, null)
     return { ok: true }
+  })
+
+  // — Eigenes Titelbild hochladen —
+  //
+  // Derselbe Weg wie beim Avatar (Zeitstempel im Namen gegen den Cache, altes
+  // Bild erst nach erfolgreichem Schreiben weg), nur großzügiger bemessen: Das
+  // Banner ist 230 px hoch, aber über die ganze Seitenbreite — ein Bild, das
+  // dort scharf sein soll, ist ein anderes Kaliber als ein 112-px-Kreis.
+  //
+  // Kein Zuschnitt: Das Banner ist ein fester Ausschnitt (`object-fit: cover`,
+  // Mitte). Eine Zuschnitt-Oberfläche wäre ein eigenes Stück Arbeit, und ohne
+  // sie ist das Ergebnis bei einem querformatigen Bild dasselbe.
+  app.put('/api/auth/me/titelbild', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const alt = app.auth.profil(benutzer.id)?.titelbild ?? null
+    const datei = `titelbild/${Date.now()}.jpg`
+    await benutzerStorage.schreibeStream(benutzer.id, datei, request.body as Readable, MAX_TITELBILD_BYTES)
+    app.auth.setzeTitelbild(benutzer.id, datei)
+    // Nur eigene Dateien aufräumen — ein Vorschlag liegt im Build und gehört
+    // allen (er hat keinen Schrägstrich, s. profilfelder.ts).
+    if (alt?.includes('/') && alt !== datei) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    return { titelbildUrl: titelbildUrl(benutzer.id, datei) }
+  })
+
+  app.delete('/api/auth/me/titelbild', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const alt = app.auth.profil(benutzer.id)?.titelbild
+    if (alt?.includes('/')) await benutzerStorage.loesche(benutzer.id, alt).catch(() => undefined)
+    app.auth.setzeTitelbild(benutzer.id, null)
+    return { ok: true }
+  })
+
+  // — Titelbild ausliefern (öffentlich, wie der Avatar) —
+  app.get<{ Params: { id: string } }>('/api/benutzer/:id/titelbild', async (request, reply) => {
+    const titelbild = app.auth.profil(request.params.id)?.titelbild
+    // Ein Vorschlag wird hier NICHT ausgeliefert: Er liegt als statische Datei
+    // im Build und geht nie durch die API.
+    if (!titelbild?.includes('/')) return reply.code(404).send({ fehler: 'Kein Titelbild' })
+    const info = await benutzerStorage.info(request.params.id, titelbild)
+    if (!info) return reply.code(404).send({ fehler: 'Kein Titelbild' })
+    return reply
+      .header('content-type', 'image/jpeg')
+      .header('x-content-type-options', 'nosniff')
+      .header('cache-control', 'public, max-age=31536000, immutable')
+      .header('content-length', String(info.groesse))
+      .send(benutzerStorage.leseStream(request.params.id, titelbild))
   })
 
   // — Avatar ausliefern (öffentlich) —

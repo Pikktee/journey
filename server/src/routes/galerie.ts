@@ -9,6 +9,7 @@
 // kann das.
 
 import type { FastifyInstance } from 'fastify'
+import { titelbildUrl } from '../profilfelder.js'
 
 /** Wie viele Touren eine Seite der Galerie zeigt. */
 const SEITE_STANDARD = 24
@@ -105,22 +106,18 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
     const wen = request.params.id
     const userId = wen.startsWith('u_') ? wen : app.auth.benutzerIdFuerHandle(wen)
     const person = userId
-      ? (db
-          .prepare('SELECT id, handle, anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
-          .get(userId) as
-          | {
-              id: string
-              handle: string | null
-              anzeigename: string | null
-              bio: string | null
-              avatar: string | null
-              profil_sichtbarkeit: string
-            }
+      ? (db.prepare('SELECT id, created_at FROM users WHERE id = ?').get(userId) as
+          | { id: string; created_at: string }
           | undefined)
       : undefined
-    // 404 statt 403: ein nicht freigegebenes Profil verrät nicht, dass es
-    // existiert (dieselbe Linie wie bei privaten Touren).
-    if (!person || person.profil_sichtbarkeit !== 'public') {
+    const profil = person ? app.auth.profil(person.id) : null
+    // Der Besitzer sieht sein eigenes Profil auch, solange es privat ist —
+    // sonst führte der Weg zum Sichtbarkeits-Schalter durch eine 404-Seite.
+    // Für alle anderen gilt 404 statt 403: Ein nicht freigegebenes Profil
+    // verrät nicht einmal, dass es existiert (dieselbe Linie wie bei privaten
+    // Touren).
+    const istBesitzer = !!person && request.benutzer?.id === person.id
+    if (!person || !profil || (profil.sichtbarkeit !== 'public' && !istBesitzer)) {
       return reply.code(404).send({ fehler: 'Profil nicht gefunden' })
     }
 
@@ -134,12 +131,25 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
       .all(person.id) as GalerieZeile[]
 
     return {
-      handle: person.handle,
-      anzeigename: person.anzeigename,
-      bio: person.bio,
-      avatarUrl: person.avatar
-        ? `/api/benutzer/${person.id}/avatar?v=${encodeURIComponent(person.avatar)}`
+      handle: profil.handle,
+      anzeigename: profil.anzeigename,
+      bio: profil.bio,
+      ort: profil.ort,
+      website: profil.website,
+      instagram: profil.instagram,
+      avatarUrl: profil.avatar
+        ? `/api/benutzer/${person.id}/avatar?v=${encodeURIComponent(profil.avatar)}`
         : null,
+      titelbildUrl: titelbildUrl(person.id, profil.titelbild),
+      /** Monatsgenau — auf den Tag genau wäre es eine Angabe über die Person, die niemand braucht. */
+      dabeiSeit: person.created_at,
+      kennzahlen: app.auth.kennzahlen(person.id),
+      /**
+       * Nur für den Besitzer und nur, wenn sein Profil privat steht: Die Seite
+       * zeigt dann statt des Teilen-Knopfes, dass hier gerade niemand sonst
+       * hineinsieht.
+       */
+      nurFuerDich: profil.sichtbarkeit !== 'public',
       touren: zeilen.map(alsKarte),
     }
   })

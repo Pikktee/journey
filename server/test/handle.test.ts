@@ -5,11 +5,8 @@
 // alter Adressen. Form und reservierte Wörter liegen in src/handle.ts und
 // werden im Web-Projekt geprüft (test/handle.test.ts) — der Drift-Wächter in
 // test/routen.test.ts hält beide Kopien zusammen.
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { oeffneDb } from '../src/db.js'
+import { oeffneDb, vergibFehlendeHandles } from '../src/db.js'
 import { freierHandle, handleAusEmail } from '../src/handle.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
@@ -197,37 +194,36 @@ describe('Profil unter der Adresse', () => {
 })
 
 describe('Migration für Bestandskonten', () => {
-  it('vergibt Handles deterministisch nach Anlegedatum', async () => {
-    // Der Zustand vor der Migration wird nachgestellt: Handles weg,
-    // user_version zurück — beim nächsten Öffnen läuft Schritt 11 erneut.
-    const verzeichnis = mkdtempSync(join(tmpdir(), 'maptale-handle-'))
-    const pfad = join(verzeichnis, 'test.db')
-    try {
-      const vorbereitung = oeffneDb(pfad)
-      const stand = vorbereitung.pragma('user_version', { simple: true }) as number
-      const anlegen = vorbereitung.prepare(
-        "INSERT INTO users (id, email, pw_hash, name, created_at) VALUES (?, ?, 'x', ?, ?)",
-      )
-      anlegen.run('u_alt1', 'mira.wolf@example.com', 'Mira', '2026-01-01T00:00:00.000Z')
-      anlegen.run('u_alt2', 'mira.wolf@anders.example', 'Mira Zwei', '2026-02-01T00:00:00.000Z')
-      anlegen.run('u_alt3', 'admin@example.com', 'Chef', '2026-03-01T00:00:00.000Z')
-      vorbereitung.exec('UPDATE users SET handle = NULL')
-      vorbereitung.pragma(`user_version = ${stand - 1}`)
-      vorbereitung.close()
+  it('vergibt Handles deterministisch nach Anlegedatum', () => {
+    // Der Zustand vor der Migration: Konten ohne Handle. Geprüft wird die
+    // Funktion, die der Migrationsschritt aufruft — `user_version`
+    // zurückzudrehen ließe die FOLGENDEN Migrationen ein zweites Mal laufen.
+    const db = oeffneDb(':memory:')
+    const anlegen = db.prepare("INSERT INTO users (id, email, pw_hash, name, created_at) VALUES (?, ?, 'x', ?, ?)")
+    anlegen.run('u_alt1', 'mira.wolf@example.com', 'Mira', '2026-01-01T00:00:00.000Z')
+    anlegen.run('u_alt2', 'mira.wolf@anders.example', 'Mira Zwei', '2026-02-01T00:00:00.000Z')
+    anlegen.run('u_alt3', 'admin@example.com', 'Chef', '2026-03-01T00:00:00.000Z')
+    db.exec('UPDATE users SET handle = NULL')
 
-      const db = oeffneDb(pfad)
-      const handles = Object.fromEntries(
-        (db.prepare('SELECT id, handle FROM users').all() as Array<{ id: string; handle: string }>).map((z) => [
-          z.id,
-          z.handle,
-        ]),
-      )
-      // Wer zuerst da war, bekommt den kurzen Namen; reservierte Wörter fallen aus
-      expect(handles).toEqual({ u_alt1: 'mira.wolf', u_alt2: 'mira.wolf2', u_alt3: 'admin2' })
-      db.close()
-    } finally {
-      rmSync(verzeichnis, { recursive: true, force: true })
-    }
+    vergibFehlendeHandles(db)
+    const handles = Object.fromEntries(
+      (db.prepare('SELECT id, handle FROM users').all() as Array<{ id: string; handle: string }>).map((z) => [
+        z.id,
+        z.handle,
+      ]),
+    )
+    // Wer zuerst da war, bekommt den kurzen Namen; reservierte Wörter fallen aus
+    expect(handles).toEqual({ u_alt1: 'mira.wolf', u_alt2: 'mira.wolf2', u_alt3: 'admin2' })
+    db.close()
+  })
+
+  it('fasst einen einmal vergebenen Handle nie wieder an', () => {
+    // Er ist dann in der Welt — ein zweiter Lauf darf ihn nicht umbenennen.
+    const db = oeffneDb(':memory:')
+    db.prepare("INSERT INTO users (id, email, pw_hash, name, created_at, handle) VALUES ('u_1','mira@x.de','x','M','2026-01-01','eigenwahl')").run()
+    vergibFehlendeHandles(db)
+    expect((db.prepare("SELECT handle FROM users WHERE id = 'u_1'").get() as { handle: string }).handle).toBe('eigenwahl')
+    db.close()
   })
 
   it('legt den UNIQUE-Index ohne Rücksicht auf Groß/Klein an', () => {

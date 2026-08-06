@@ -6,7 +6,12 @@ interface ProfilAntwort {
   handle: string | null
   anzeigename: string | null
   bio: string | null
+  ort: string | null
+  website: string | null
+  instagram: string | null
   avatarUrl: string | null
+  titelbild: string | null
+  titelbildUrl: string | null
   sichtbarkeit: 'private' | 'public'
 }
 
@@ -40,7 +45,12 @@ describe('Profil', () => {
       handle: 'test',
       anzeigename: null,
       bio: null,
+      ort: null,
+      website: null,
+      instagram: null,
       avatarUrl: null,
+      titelbild: null,
+      titelbildUrl: null,
       sichtbarkeit: 'private',
     })
   })
