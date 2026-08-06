@@ -120,13 +120,23 @@ export function registriere(
   email: string,
   passwort: string,
   code?: string,
+  wahl: { newsletter?: boolean } = {},
 ): Promise<{ benutzer: Benutzer; verifiziert: boolean }> {
   // Kein `name`: Das Formular fragt nur E-Mail und Passwort ab, den
   // Anzeigenamen leitet der Server aus der Adresse ab (nameAusEmail).
+  //
+  // `newsletter` geht nur mit, wenn der Haken steht: Ein `false` im Körper
+  // wäre eine Aussage über eine Frage, die niemand beantwortet hat — der
+  // Server protokolliert deshalb auch nichts, wo das Feld fehlt.
   return anfrage('/auth/register', {
     method: 'POST',
     headers: jsonKopf,
-    body: JSON.stringify(code ? { email, passwort, code } : { email, passwort }),
+    body: JSON.stringify({
+      email,
+      passwort,
+      ...(code ? { code } : {}),
+      ...(wahl.newsletter ? { newsletter: true } : {}),
+    }),
   })
 }
 

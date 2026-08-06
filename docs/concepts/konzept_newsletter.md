@@ -1,6 +1,10 @@
 # Konzept: Newsletter — Einwilligung, Erzeugung, Versand
 
-**Stand:** 6. August 2026 · Entwurf, noch nicht umgesetzt.
+**Stand:** 6. August 2026 · **Teil A (Einwilligung) ist umgesetzt**, Teil B (Erzeugung
+und Versand) nicht. Was gebaut wurde und wo es steht:
+[konzept_profil_konto.md](konzept_profil_konto.md), Etappe 4 — samt der drei Stellen, an
+denen die Umsetzung dieses Papier schärft (Schalter statt Sperre bei unbestätigter
+Adresse, Label statt Wortlaut in der Historie, Aufräum-Lauf für die drei Jahre).
 **Betrifft:** Registrierung ([studio.html](../../studio.html)), Kontoeinstellungen
 ([docs/mockups/studio-konto.html](../mockups/studio-konto.html)), Mail-Schicht
 ([server/src/mail.ts](../../server/src/mail.ts), `mailvorlagen.ts`), Verwaltung
@@ -176,10 +180,10 @@ und nicht, weil es etwas zu erzählen gibt.
 
 ## D. Offene Punkte
 
-- Die Datenschutzerklärung ([datenschutz.html](../../datenschutz.html)) erwähnt
-  den Newsletter bisher nicht. Sie braucht einen Abschnitt: Zweck,
-  Rechtsgrundlage (Einwilligung, Art. 6 Abs. 1 lit. a), Empfänger (Resend als
-  Auftragsverarbeiter), Speicherdauer, Widerruf.
+- ~~Die Datenschutzerklärung erwähnt den Newsletter nicht.~~ **Erledigt mit Teil A:**
+  [datenschutz.html](../../datenschutz.html) Abschnitt 2 (Zweck und was protokolliert
+  wird), 3 (Art. 6 Abs. 1 lit. a, Widerruf), 9 (Resend) und 10 (drei Jahre für den
+  Nachweis). Wer den Umfang ändert, ändert dort eine Zusage.
 - Auftragsverarbeitungsvertrag mit Resend prüfen — für transaktionale Mails
   besteht er hoffentlich schon, für Werbung gilt derselbe.
 - Vor dem ersten echten Versand: anwaltliche Gegenprüfung der beiden

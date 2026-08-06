@@ -164,12 +164,32 @@ bewusst nicht — [CLAUDE.md](../../CLAUDE.md) beschreibt die Entscheidung.
 
 ---
 
-## Etappe 4 — Newsletter-Einwilligung
+## Etappe 4 — Newsletter-Einwilligung ✅
 
-Klein, aber Voraussetzung für alles Weitere im
-[Newsletter-Konzept](konzept_newsletter.md): Kästchen bei der Registrierung,
-Schalter im Konto, Einwilligungs-Historie, Abmeldelink ohne Anmeldung,
-`List-Unsubscribe`-Header. Ein Nachmittag, wenn Etappe 3 steht.
+**Umgesetzt am 6. August 2026.** Migration 16 (`users.newsletter` +
+`newsletter_einwilligungen`), [server/src/newsletter.ts](../../server/src/newsletter.ts) +
+[routes/newsletter.ts](../../server/src/routes/newsletter.ts); Routen
+`POST /api/auth/me/newsletter`, `POST /api/newsletter/abmelden`,
+`POST /api/newsletter/ein-klick/:token`, dazu `newsletter` in `/auth/me` und im
+Registrierungs-Körper. Oberfläche: Kästchen in der Registrierung
+([studio.html](../../studio.html)), Block „Benachrichtigungen" in
+[konto.html](../../konto.html), Abmeldelink über `/konto#newsletter-aus=<token>`.
+Datenschutzerklärung um Zweck, Rechtsgrundlage, Empfänger und Frist ergänzt.
+
+Drei Entscheidungen, die vom Konzept abweichen oder es schärfen:
+
+- **Der Schalter ist auch bei unbestätigter Adresse bedienbar.** Das Konzept sagt
+  „bleibt gesperrt"; gesperrt ist jetzt der VERSAND. Ein toter Schalter ließe rätseln,
+  ob die Einwilligung angekommen ist — und eine Einwilligung darf man geben, bevor man
+  sie einlösen kann. Der Riegel sitzt dort, wo er wirkt: in `empfaenger()`.
+- **Gespeichert wird ein Label, nicht der Wortlaut** (sonst stünde derselbe Satz
+  tausendfach in der Tabelle). Damit das Label etwas beweist, hält ein Drift-Wächter
+  die Sätze in der Oberfläche gegen `EINWILLIGUNGSTEXTE`.
+- **Die drei Jahre Aufbewahrung sind gebaut**, nicht nur zugesagt: `raeumeAuf()` läuft
+  täglich neben der Warteliste und lässt die jüngste Zeile immer stehen.
+
+Was Teil B mitbekommt (Versand, noch nicht gebaut): `NewsletterDienst.empfaenger()` und
+`newsletterKopfzeilen()` samt `MailNachricht.kopfzeilen` bis zu Resend.
 
 ---
 

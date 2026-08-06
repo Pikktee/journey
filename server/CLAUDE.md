@@ -174,6 +174,52 @@ nicht nach. Die Fristen stehen auch in [datenschutz.html](datenschutz.html); wer
 ändert, ändert dort eine Zusage.
 
 
+## Newsletter-Einwilligung
+
+Teil A des [Newsletter-Konzepts](docs/concepts/konzept_newsletter.md) —
+[newsletter.ts](server/src/newsletter.ts) + [routes/newsletter.ts](server/src/routes/newsletter.ts),
+Migration 16. Der Versand selbst (Teil B) ist noch nicht gebaut; was er braucht, liegt
+bereit: `empfaenger()` und `newsletterKopfzeilen()`.
+
+**Ein Boolean allein wäre kein Nachweis.** `users.newsletter` trägt den aktuellen Zustand
+(der Versand fragt ihn je Empfänger), daneben steht die Historie
+`newsletter_einwilligungen` mit Zeitpunkt, Zustand, Quelle (`registrierung` · `konto` ·
+`abmeldelink`) und Textfassung — Art. 7 Abs. 1 DSGVO. Gespeichert wird ein LABEL
+(`konto-2026-08-06`), nicht der Satz; **wer den Wortlaut ändert, hebt das Datum im
+Label**, sonst behauptet die Zeile eine Zustimmung zu einem Text, den niemand gelesen hat.
+Ein Drift-Wächter ([test/newsletter-einwilligung.test.ts](test/newsletter-einwilligung.test.ts))
+hält die Sätze in `studio.html` und `konto.html` gegen `EINWILLIGUNGSTEXTE` und prüft
+zugleich, dass das Kästchen der Registrierung kein `checked` trägt (EuGH C-673/17).
+
+**Der Riegel steht im VERSAND, nicht am Schalter** (`empfaenger()`: `newsletter = 1 AND
+email_verified = 1`). Zwischen Registrierung und Klick auf den Bestätigungslink ist die
+Adresse nur eine Behauptung — damit ist genau dieser Klick das Double-Opt-in für den
+Newsletter gleich mit, und ein Adresswechsel kann keine unbestätigte Adresse beliefern
+(die neue landet erst nach dem Klick in `users`, dann schon mit `email_verified = 1`).
+**Die Verifikationsmail bleibt werbefrei** — kein Newsletter-Satz, keine
+`List-Unsubscribe`-Kopfzeile; ein „Übrigens, unser Newsletter …" machte die
+transaktionale Mail selbst zur Werbemail (im Test festgehalten).
+
+**Der Weg hinaus geht ohne Anmeldung** — ein Widerruf muss so einfach sein wie die
+Einwilligung (Art. 7 Abs. 3). Der Token ist SIGNIERT (HMAC über die Benutzer-ID mit dem
+Cookie-Geheimnis), steht in keiner Tabelle und läuft nicht ab: Eine Frist wäre in der Mail,
+die jemand ein Jahr später aus dem Archiv holt, genau dort tot, wo sie gebraucht wird.
+Zwei Eingänge — die Seite (`/konto#newsletter-aus=…`, POST auf `/api/newsletter/abmelden`)
+und der Ein-Klick-Widerruf der Mail-Programme (`/api/newsletter/ein-klick/:token`,
+RFC 8058). `newsletterKopfzeilen` liefert beide Kopfzeilen zusammen: Ohne
+`List-Unsubscribe-Post` ist die URL nur ein Link, den der Client öffnet. Seit 2024
+verlangen Gmail und Yahoo das von Massenversendern — fehlt es, leidet die Zustellbarkeit
+ALLER Mails der Domain. `MailNachricht.kopfzeilen` reicht sie bis zu Resend durch, und sie
+gehören nur an Werbemails.
+
+**Aufbewahrung: drei Jahre, aber nie die jüngste Zeile.** `raeumeAuf()` (täglich neben der
+Warteliste, s. index.ts) löscht überholte Protokollzeilen nach drei Jahren — so lange kann
+jemand vorhalten, ohne Einwilligung angeschrieben worden zu sein (§§ 195, 199 BGB). Die
+jüngste bleibt immer: Sonst stünde in `users` ein Zustand ohne Herkunft. Mit dem Konto geht
+alles (Art. 17). Die Fristen und der Umfang stehen in
+[datenschutz.html](datenschutz.html) (Abschnitte 2, 3, 9, 10) — wer sie im Code ändert,
+ändert dort eine Zusage.
+
 ## System-Mails
 
 **System-Mails: HTML im Maptale-Look, Texte in der Verwaltung.** Die vier Mails (Bestätigung,

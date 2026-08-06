@@ -281,6 +281,39 @@ const MIGRATIONEN: Migration[] = [
   ALTER TABLE mail_tokens_neu RENAME TO mail_tokens;
   CREATE INDEX idx_mail_tokens_user ON mail_tokens(user_id, zweck);
   `,
+  // Newsletter-Einwilligung (Etappe 4).
+  //
+  // **Ein Boolean allein reicht nicht.** Im Streitfall stünde dort „an", und
+  // niemand wüsste seit wann, woher und wozu. Art. 7 Abs. 1 DSGVO verlangt, dass
+  // der Verantwortliche die Einwilligung NACHWEISEN kann — deshalb die Historie
+  // daneben: Zeitpunkt, Zustand, Quelle und der Wortlaut, dem zugestimmt wurde.
+  // Der aktuelle Zustand bleibt trotzdem als Spalte an `users`: Der Versand
+  // fragt ihn für jeden Empfänger, und „letzte Zeile der Historie" wäre dafür
+  // eine Unterabfrage je Konto.
+  //
+  // `textfassung` trägt eine LABEL-Fassung (`registrierung-2026-08-06`), nicht
+  // den Wortlaut selbst — sonst stünde derselbe Satz tausendfach in der
+  // Tabelle. Die Zuordnung Label → Wortlaut steht in newsletter.ts, und ein
+  // Drift-Wächter hält sie gegen die Sätze in der Oberfläche: Wer den Text
+  // ändert, ohne das Label zu heben, würde sonst still eine Zustimmung zu
+  // etwas anderem behaupten.
+  //
+  // ON DELETE CASCADE ist Absicht: Mit dem Konto geht die Adresse, und ohne
+  // Adresse gibt es nichts mehr zu belegen. Die drei Jahre Aufbewahrung gelten
+  // der ABMELDUNG (die Zeile bleibt, wenn jemand den Schalter umlegt), nicht
+  // dem gelöschten Konto — dort schlägt Art. 17 durch.
+  `
+  ALTER TABLE users ADD COLUMN newsletter INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE newsletter_einwilligungen (
+    id TEXT PRIMARY KEY,
+    benutzer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    zeitpunkt TEXT NOT NULL,
+    zustand TEXT NOT NULL CHECK (zustand IN ('an','aus')),
+    quelle TEXT NOT NULL CHECK (quelle IN ('registrierung','konto','abmeldelink')),
+    textfassung TEXT NOT NULL
+  );
+  CREATE INDEX idx_newsletter_einwilligungen ON newsletter_einwilligungen(benutzer_id, zeitpunkt);
+  `,
 ]
 
 /**

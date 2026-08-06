@@ -359,15 +359,26 @@ Vier Dinge, die man dabei leicht „vereinfacht":
   Teil von `/auth/me`: Die Aufteilung läuft über alle Dateien aller Touren, `/auth/me` ist
   der heißeste Aufruf der API.
 
+- **Der Newsletter-Schalter schaltet die EINWILLIGUNG, nicht den Versand.** Er ist auch
+  bei unbestätigter Adresse bedienbar — gesperrt ist, was rausgeht
+  (`NewsletterDienst.empfaenger` filtert auf `email_verified`), und die Zeile sagt es
+  dazu. Ein toter Schalter ließe rätseln, ob die Einwilligung angekommen ist. Kein
+  zweites Double-Opt-in: Das DOI beweist, dass die Einwilligung vom INHABER der Adresse
+  stammt — hier ist die Adresse längst bestätigt und angemeldet ist man auch. Gespeichert
+  wird kein Boolean, sondern eine **Historie** (Zeitpunkt, Zustand, Quelle, Textfassung,
+  Art. 7 Abs. 1 DSGVO); der Wortlaut steht in
+  [server/src/newsletter.ts](server/src/newsletter.ts) und wortgleich in der Oberfläche,
+  gehalten von einem Drift-Wächter. Der **Abmeldelink** (`/konto#newsletter-aus=<token>`)
+  läuft VOR jeder Anmeldeprüfung und braucht keine Sitzung: signierter Token, ohne Frist.
+
 **Der Sichtbarkeits-Schalter steht an ZWEI Stellen** (hier und im Bearbeiten-Modal des
 Profils) und ist EIN Zustand — man sucht ihn hier beim Aufräumen und dort beim Bearbeiten;
 auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
 
 Noch nicht gebaut (eigene Etappen in
-[docs/concepts/konzept_profil_konto.md](docs/concepts/konzept_profil_konto.md)): die
-Newsletter-Einwilligung, der ZIP-Datenexport und der Schalter „In Suchmaschinen
-erscheinen" — letzterer wäre heute eine Zusage ohne Deckung, weil `profil.html` als
-statische Seite ein festes `noindex` trägt.
+[docs/concepts/konzept_profil_konto.md](docs/concepts/konzept_profil_konto.md)): der
+ZIP-Datenexport und der Schalter „In Suchmaschinen erscheinen" — letzterer wäre heute eine
+Zusage ohne Deckung, weil `profil.html` als statische Seite ein festes `noindex` trägt.
 
 ## Benutzerverwaltung
 

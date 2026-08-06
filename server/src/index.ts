@@ -61,9 +61,13 @@ if (gehoben > 0) app.log.info(`${gehoben} Konto/Konten auf die Admin-Rolle gehob
 // Abgelaufene Wartelisten-Einträge löschen: einmal beim Start und danach
 // täglich. `unref` hält den Prozess nicht wach — die Aufräumerei ist nichts,
 // worauf ein Herunterfahren warten müsste.
+// Dazu die überholten Newsletter-Protokollzeilen: Der Nachweis muss drei Jahre
+// tragen, danach ist er Sammeln ohne Zweck (s. NewsletterDienst.raeumeAuf).
 const raeumeWarteliste = (): void => {
   const weg = app.warteliste.raeumeAuf()
   if (weg > 0) app.log.info(`${weg} abgelaufene Wartelisten-Einträge gelöscht`)
+  const alteEinwilligungen = app.newsletter.raeumeAuf()
+  if (alteEinwilligungen > 0) app.log.info(`${alteEinwilligungen} alte Newsletter-Protokollzeilen gelöscht`)
 }
 raeumeWarteliste()
 setInterval(raeumeWarteliste, 24 * 60 * 60 * 1000).unref()

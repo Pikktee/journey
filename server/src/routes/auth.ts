@@ -164,7 +164,13 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // `name` ist OPTIONAL: Das Formular fragt nur noch E-Mail und Passwort ab —
   // je weniger Felder, desto mehr Leute kommen an. Fehlt er, wird er aus der
   // Adresse abgeleitet (nameAusEmail); wer ihn mitschickt, behält ihn.
-  app.post<{ Body: { email: string; passwort: string; name?: string; code?: string } }>(
+  //
+  // `newsletter` ist das Kästchen unter den Feldern — nicht vorangekreuzt und
+  // nicht gekoppelt: Fehlt es oder steht es auf `false`, ändert das an der
+  // Registrierung nichts. Wirksam wird die Einwilligung erst mit der
+  // Bestätigung der Adresse (Riegel in `NewsletterDienst.empfaenger`), womit
+  // der Klick auf den Bestätigungslink das Double-Opt-in gleich miterledigt.
+  app.post<{ Body: { email: string; passwort: string; name?: string; code?: string; newsletter?: boolean } }>(
     '/api/auth/register',
     {
       schema: {
@@ -177,6 +183,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
             passwort: passwortSchema,
             name: { type: 'string', minLength: 1, maxLength: 80 },
             code: { type: 'string', maxLength: 40 },
+            newsletter: { type: 'boolean' },
           },
         },
       },
@@ -204,8 +211,16 @@ export function registriereAuthRouten(app: FastifyInstance): void {
         app.auth.loescheBenutzer(benutzer.id)
         return reply.code(403).send({ fehler: CODE_FEHLER.verbraucht })
       }
+      // Nur ein ausdrückliches `true` zählt — und nur als PROTOKOLLIERTE
+      // Einwilligung, nicht als stille Spalte: `setze` schreibt Zustand,
+      // Zeitpunkt, Quelle und Textfassung in einem Zug.
+      if (request.body.newsletter === true) app.newsletter.setze(benutzer.id, true, 'registrierung')
       const token = app.auth.erzeugeMailToken(benutzer.id, 'verify')
       const link = `${konfig.basisUrl}${WEB_PFADE.anmelden}#verify=${token}`
+      // Die Bestätigungsmail bleibt WERBEFREI: kein Satz über den Newsletter,
+      // keine List-Unsubscribe-Kopfzeile. Ein „Übrigens, unser Newsletter …"
+      // machte aus der transaktionalen Mail selbst eine Werbemail — und
+      // beworben wird die Einwilligung ohnehin nicht, sie wird bestätigt.
       const { betreff, text, html } = app.mailvorlagen.rendere(
         'verifikation',
         { name: benutzer.name },
@@ -495,6 +510,35 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     return { ok: true }
   })
 
+  // — Newsletter: Einwilligung setzen oder zurücknehmen —
+  //
+  // KEIN zweites Double-Opt-in. Das DOI ist kein Selbstzweck, sondern das
+  // Mittel, um nachzuweisen, dass die Einwilligung vom INHABER der Adresse
+  // stammt — es verhindert, dass jemand eine fremde Adresse einträgt. Genau
+  // dieser Fall ist hier ausgeschlossen: Die Adresse ist beim Anlegen des
+  // Kontos bestätigt worden, und diese Route erreicht nur, wer angemeldet ist.
+  //
+  // Solange die Adresse unbestätigt ist, wird der Wunsch trotzdem angenommen —
+  // gesperrt ist nicht der Schalter, sondern der VERSAND (s.
+  // `NewsletterDienst.empfaenger`). Ein Schalter, der sich nicht umlegen lässt,
+  // wäre eine Einwilligung, die man erst nach einem Umweg geben darf; ein
+  // Versand an eine unbestätigte Adresse dagegen wäre die Mail, gegen die das
+  // Double-Opt-in gebaut ist. Die Oberfläche sagt das an der Zeile dazu.
+  app.post<{ Body: { an: boolean } }>(
+    '/api/auth/me/newsletter',
+    {
+      schema: {
+        body: { type: 'object', additionalProperties: false, required: ['an'], properties: { an: { type: 'boolean' } } },
+      },
+    },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      app.newsletter.setze(benutzer.id, request.body.an, 'konto')
+      return { ok: true, newsletter: request.body.an, versandRuht: !app.auth.istVerifiziert(benutzer.id) }
+    },
+  )
+
   // — Speicher, aufgeschlüsselt —
   //
   // Eigene Route und nicht Teil von `/auth/me`: Die Aufteilung läuft über ALLE
@@ -559,6 +603,10 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       verifiziert: app.auth.istVerifiziert(request.benutzer.id),
       quota,
       registrierung,
+      // Eine Spalte, kein Aufruf: Der Schalter der Kontoeinstellungen soll
+      // beim Aufbau schon in der richtigen Lage stehen, und `/auth/me` ist die
+      // Antwort, auf die diese Seite ohnehin wartet.
+      newsletter: app.newsletter.stand(request.benutzer.id),
       profil: alsProfilAntwort(app, request.benutzer.id),
     }
   })

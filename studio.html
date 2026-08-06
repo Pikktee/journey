@@ -425,6 +425,24 @@
       display: flex; align-items: baseline; gap: 6px;
       font-size: 12.5px; color: var(--text-2);
     }
+    /* Die Newsletter-Einwilligung: eigene Zeile, eigener Satz, kein Haken
+       vorab. Sie steht bewusst NICHT im Fließtext der Rechtshinweise darunter —
+       eine Einwilligung, die man in einem Absatz mit anderen Zustimmungen
+       findet, ist keine (EuGH C-673/17 zum Vorankreuzen, und dieselbe Logik
+       trägt die Bündelung). */
+    .einwilligung {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin: -2px 0 16px; font-size: 12.5px; line-height: 1.55; color: var(--text-2);
+      cursor: pointer;
+    }
+    /* `color-scheme: dark` gehört dazu: Ohne sie zeichnet der Browser ein
+       WEISSES Kästchen — im dunklen Formular der lauteste Punkt neben dem
+       Absende-Knopf, und das für eine freiwillige Angabe. Mit ihr sieht es aus
+       wie die Eingabefelder darüber und trägt im Haken den Akzent. */
+    .einwilligung input {
+      color-scheme: dark; accent-color: var(--akzent);
+      width: 16px; height: 16px; margin: 1px 0 0; flex: none; cursor: pointer;
+    }
     .wl-recht { font-size: 12px; line-height: 1.6; color: var(--text-3); margin: -2px 0 14px; }
     .wl-recht a { color: var(--text-2); }
     .login-box .wl-aktion { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
@@ -2998,6 +3016,23 @@
             <label for="reg-passwort">Passwort <span class="feld-art">Pflicht, mindestens 8 Zeichen</span></label>
             <input id="reg-passwort" type="password" autocomplete="new-password" minlength="8" required />
           </div>
+          <!-- Nicht vorangekreuzt, nicht gekoppelt: Ohne Haken entsteht das
+               Konto genauso, und das Kästchen gehört zu keiner anderen
+               Zustimmung. Wirksam wird die Einwilligung erst mit der
+               Bestätigung der Adresse — der Klick auf den Link in der
+               Bestätigungsmail ist damit das Double-Opt-in gleich mit.
+               EIN Satz, wie man ihn von anderen Diensten kennt: Zweck und
+               Widerruf. Das Kleingedruckte (wie oft, worüber) steht in der
+               unten verlinkten Datenschutzerklärung und ausführlich in den
+               Kontoeinstellungen — ein Absatz an dieser Stelle wird nicht
+               gelesen und ist deshalb auch kein besserer Nachweis.
+               DERSELBE Satz steht in server/src/newsletter.ts
+               (EINWILLIGUNGSTEXTE.registrierung), weil die Historie seine
+               Fassung protokolliert; ein Drift-Wächter hält beide zusammen. -->
+          <label class="einwilligung" for="reg-newsletter">
+            <input id="reg-newsletter" type="checkbox" />
+            <span>Schick mir Neuigkeiten zu Maptale. Abbestellen jederzeit.</span>
+          </label>
           <div class="hinweis fehler" id="register-fehler" role="alert"></div>
           <button type="submit" class="primaer" id="reg-absenden">Konto erstellen</button>
           <div class="auth-wechsel">

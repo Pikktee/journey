@@ -49,6 +49,7 @@ const els = {
   registerForm: $<HTMLFormElement>('register-form'),
   regEmail: $<HTMLInputElement>('reg-email'),
   regPasswort: $<HTMLInputElement>('reg-passwort'),
+  regNewsletter: $<HTMLInputElement>('reg-newsletter'),
   regCodeChip: $('reg-code-chip'),
   regCodeWert: $('reg-code-wert'),
   regCodeAendern: $<HTMLButtonElement>('reg-code-aendern'),
@@ -554,7 +555,11 @@ els.registerForm.addEventListener('submit', async (e) => {
   els.registerFehler.textContent = ''
   els.regAbsenden.disabled = true
   try {
-    await api.registriere(els.regEmail.value.trim(), els.regPasswort.value, bestaetigterCode || undefined)
+    // Der Haken geht als ausdrückliches `true` mit — und nur dann. Er ist kein
+    // Bestandteil der Anmeldung: Fehlt er, entsteht das Konto unverändert.
+    await api.registriere(els.regEmail.value.trim(), els.regPasswort.value, bestaetigterCode || undefined, {
+      newsletter: els.regNewsletter.checked,
+    })
     regPasswortfeld.leere()
     await ladeSitzung() // direkt eingeloggt; Banner „bitte bestätigen" erscheint
   } catch (fehler) {

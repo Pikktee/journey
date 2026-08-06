@@ -15,6 +15,15 @@ export interface MailNachricht {
    * schneller im Spam, und Vorlesewerkzeuge nehmen ihn lieber.
    */
   html?: string
+  /**
+   * Zusätzliche Kopfzeilen — heute genau eine Sorte: `List-Unsubscribe` samt
+   * Ein-Klick-Zusage an einer WERBEmail (RFC 8058, s. newsletter.ts).
+   *
+   * Sie stehen nicht fest im Versand, weil sie nicht an jede Mail gehören: An
+   * einem Passwort-Reset wäre „Abbestellen" eine Zusage, die niemand einhalten
+   * will — abbestellen lässt sich der Newsletter, nicht das eigene Konto.
+   */
+  kopfzeilen?: Record<string, string>
 }
 
 export interface MailVersand {
@@ -62,6 +71,7 @@ export class ResendMail implements MailVersand {
         subject: nachricht.betreff,
         text: nachricht.text,
         ...(nachricht.html ? { html: nachricht.html } : {}),
+        ...(nachricht.kopfzeilen ? { headers: nachricht.kopfzeilen } : {}),
       }),
     })
     if (!antwort.ok) {

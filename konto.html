@@ -176,6 +176,11 @@
     .marke svg { width: 14px; height: 14px; }
     .marke.gut { color: var(--gruen); }
     .marke.offen { color: #ffca7a; }
+    /* Der Hinweis, dass etwas ruht, gehört zum Schalter — nicht in eine
+       Warnbox: Es ist kein Fehler, sondern eine Bedingung, die sich mit einem
+       Klick im Postfach erledigt. */
+    .zeile .b.ruht { color: #ffca7a; }
+    .zeile .b.ruht[hidden] { display: none; }
 
     /* ————— Speicher ————— */
     .speicher { padding: 18px; }
@@ -334,6 +339,32 @@
               <span class="b">Beim Wechsel werden alle anderen Geräte abgemeldet.</span>
             </span>
             <button type="button" class="knopf" id="btn-passwort">Ändern</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-kopf"><h2>Benachrichtigungen</h2></div>
+        <div class="tafel">
+          <!-- KEIN zweites Double-Opt-in. Das DOI ist kein Selbstzweck, sondern
+               das Mittel, um nachzuweisen, dass die Einwilligung vom Inhaber
+               der Adresse stammt — genau dieser Fall ist hier ausgeschlossen:
+               Die Adresse ist beim Anlegen des Kontos bestätigt worden, und
+               diesen Schalter erreicht nur, wer angemeldet ist. Den Nachweis
+               trägt stattdessen das Protokoll (Zeitpunkt, Konto, Textfassung —
+               Art. 7 Abs. 1 DSGVO, s. server/src/newsletter.ts).
+               Der Satz darunter steht WORTGLEICH dort als
+               EINWILLIGUNGSTEXTE.konto; ein Drift-Wächter hält beide zusammen.
+               Solange die Adresse unbestätigt ist, ruht der VERSAND — nicht der
+               Schalter: Eine Einwilligung darf man geben, bevor man sie
+               einlösen kann; die Zeile sagt es dann dazu. -->
+          <div class="zeile">
+            <label class="z" for="s-news">
+              <span class="t">Updates &amp; Neues von Maptale</span>
+              <span class="b">Ein paar Mal im Jahr bei wichtigen Produktneuheiten. Mails zu deinen Touren erhältst du unabhängig davon. Abbestellen jederzeit hier oder über den Link in jeder Mail.</span>
+              <span class="b ruht" id="s-news-ruht" hidden>Solange deine E-Mail-Adresse unbestätigt ist, geht nichts raus.</span>
+            </label>
+            <input type="checkbox" class="schalter" id="s-news" />
           </div>
         </div>
       </div>

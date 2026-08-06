@@ -12,6 +12,7 @@ import type { Konfig } from './config.js'
 import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
 import { MailVorlagenDienst } from './mailvorlagen.js'
+import { NewsletterDienst } from './newsletter.js'
 import type { Geocoder } from './pipeline/naming.js'
 import type { SchienenQuelle } from './pipeline/schienen.js'
 import type { BildWerkzeug } from './pipeline/bild.js'
@@ -23,6 +24,7 @@ import { registriereAuthRouten } from './routes/auth.js'
 import { registriereBibliotheksRouten } from './routes/bibliothek.js'
 import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
+import { registriereNewsletterRouten } from './routes/newsletter.js'
 import { registriereTourRouten } from './routes/tours.js'
 import { registriereWartelistenRouten } from './routes/warteliste.js'
 import { Protokoll, protokollZiel } from './protokoll.js'
@@ -71,6 +73,8 @@ declare module 'fastify' {
     warteliste: WartelistenDienst
     /** Texte der System-Mails — Katalog im Code, Anpassungen in der DB. */
     mailvorlagen: MailVorlagenDienst
+    /** Newsletter-Einwilligung: Zustand, Historie, Empfängerliste. */
+    newsletter: NewsletterDienst
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
     /** Die letzten Warnungen und Fehler für die Verwaltung (s. protokoll.ts). */
@@ -103,6 +107,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('einladungen', new EinladungsDienst(deps.db))
   app.decorate('warteliste', new WartelistenDienst(deps.db))
   app.decorate('mailvorlagen', new MailVorlagenDienst(deps.db))
+  app.decorate('newsletter', new NewsletterDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorate('protokoll', protokoll)
   app.decorateRequest('benutzer', null)
@@ -150,6 +155,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereBibliotheksRouten(app)
   registriereGalerieRouten(app)
   registriereWartelistenRouten(app)
+  registriereNewsletterRouten(app)
 
   app.get('/api/gesundheit', async () => ({ ok: true }))
 

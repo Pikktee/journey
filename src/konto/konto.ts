@@ -100,6 +100,7 @@ function zeigeHinweis(text: string, link?: { text: string; href: string }): void
 interface MeAntwort {
   benutzer: { id: string; email: string; name: string; rolle: string } | null
   verifiziert?: boolean
+  newsletter?: boolean
   profil?: { handle: string | null; anzeigename: string | null; sichtbarkeit: 'private' | 'public' }
 }
 
@@ -276,6 +277,84 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
   })
 }
 
+// ————— Newsletter —————
+
+/**
+ * Der Schalter „Updates & Neues von Maptale".
+ *
+ * Er ist NICHT gesperrt, solange die Adresse unbestätigt ist — gesperrt ist der
+ * Versand (der Server schickt nur an bestätigte Adressen). Ein toter Schalter
+ * ließe jemanden rätseln, ob die Einwilligung angekommen ist; die Zeile darunter
+ * sagt stattdessen, worauf es noch wartet.
+ */
+function verdrahteNewsletter(daten: MeAntwort): void {
+  const schalter = $('s-news') as HTMLInputElement | null
+  const ruht = $('s-news-ruht')
+  if (!schalter) return
+  schalter.checked = daten.newsletter === true
+  const zeigeRuht = (): void => {
+    if (ruht) ruht.hidden = !(schalter.checked && daten.verifiziert !== true)
+  }
+  zeigeRuht()
+
+  schalter.addEventListener('change', async () => {
+    const gewuenscht = schalter.checked
+    schalter.disabled = true
+    const antwort = await fetch('/api/auth/me/newsletter', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ an: gewuenscht }),
+    }).catch(() => null)
+    schalter.disabled = false
+    if (!antwort?.ok) {
+      // Zurückstellen statt eine Einwilligung zu zeigen, die niemand
+      // protokolliert hat.
+      schalter.checked = !gewuenscht
+      zeigeRuht()
+      melde('Die Einstellung ließ sich nicht ändern.')
+      return
+    }
+    zeigeRuht()
+    melde(
+      gewuenscht
+        ? daten.verifiziert === true
+          ? 'Du bekommst künftig Updates von Maptale.'
+          : 'Notiert. Es geht los, sobald deine E-Mail-Adresse bestätigt ist.'
+        : 'Du bekommst keine Updates mehr.',
+    )
+  })
+}
+
+/**
+ * `#newsletter-aus=<token>` — der Weg aus jeder Werbemail.
+ *
+ * Er führt hierher und nicht auf eine eigene Seite: Wer sich abmeldet, ist im
+ * selben Atemzug an der Stelle, an der er es sich anders überlegen kann. Er
+ * funktioniert OHNE Anmeldung (der Token ist signiert), deshalb läuft er vor
+ * der `/auth/me`-Abfrage — und wie beim Adresswechsel wird der Hash sofort aus
+ * der Adresszeile geräumt.
+ *
+ * Der Klick auf den Link trägt schon aus; ein Bestätigungsknopf davor wäre bei
+ * einer ABMELDUNG die falsche Reihenfolge (bei der Warteliste steht er, weil
+ * dort eine Löschung dranhängt — hier ist die Rücknahme ein Schalter weiter
+ * unten). Mail-Scanner, die Links vorab öffnen, lösen das nicht aus: Der Weg
+ * ist ein POST.
+ */
+async function loeseNewsletterAbmeldungEin(): Promise<{ ok: boolean; text: string } | null> {
+  const treffer = /^#newsletter-aus=(.+)$/.exec(window.location.hash)
+  if (!treffer?.[1]) return null
+  const token = decodeURIComponent(treffer[1])
+  window.history.replaceState(null, '', window.location.pathname)
+  const antwort = await fetch('/api/newsletter/abmelden', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token }),
+  }).catch(() => null)
+  if (antwort?.ok) return { ok: true, text: 'Du bekommst keine Updates mehr von Maptale.' }
+  const koerper = (await antwort?.json().catch(() => ({}))) as { fehler?: string } | undefined
+  return { ok: false, text: koerper?.fehler ?? 'Dieser Abmeldelink gilt nicht mehr.' }
+}
+
 // ————— Der Bestätigungslink aus der Mail —————
 
 /**
@@ -311,10 +390,12 @@ export async function starteKonto(): Promise<void> {
   const buehne = $('buehne')
   if (!buehne) return
 
-  // Der Link aus der Mail zuerst: Er kann die Adresse ändern, die gleich
-  // darunter angezeigt wird — in der anderen Reihenfolge stünde eine Sekunde
-  // lang die alte da.
+  // Die Links aus der Mail zuerst: Sie ändern, was gleich darunter angezeigt
+  // wird (Adresse bzw. Newsletter-Schalter) — in der anderen Reihenfolge stünde
+  // eine Sekunde lang der alte Stand da. Die Abmeldung geht auch ohne
+  // Anmeldung, deshalb steht sie vor jeder Prüfung.
   await loeseMailWechselEin()
+  const abmeldung = await loeseNewsletterAbmeldungEin()
 
   let daten: MeAntwort
   try {
@@ -326,12 +407,20 @@ export async function starteKonto(): Promise<void> {
     return
   }
   if (!daten.benutzer) {
+    // Wer aus einer Mail kommt, hat sein Anliegen hier schon erledigt — ihm
+    // eine Anmeldemaske hinzustellen, hieße, den Widerruf hinter eine Hürde zu
+    // schieben, die er gerade nicht gebraucht hat.
+    if (abmeldung) {
+      zeigeHinweis(abmeldung.text, { text: 'Zu deinem Konto', href: pfad('anmelden') })
+      return
+    }
     zeigeHinweis('Für die Kontoeinstellungen musst du angemeldet sein.', {
       text: 'Anmelden',
       href: pfad('anmelden'),
     })
     return
   }
+  if (abmeldung) melde(abmeldung.text)
 
   buehne.hidden = false
   document.title = 'Kontoeinstellungen · Maptale'
@@ -340,6 +429,7 @@ export async function starteKonto(): Promise<void> {
   if (profilLink && daten.profil?.handle) profilLink.href = profilPfad(daten.profil.handle)
 
   zeichneKonto(daten)
+  verdrahteNewsletter(daten)
   verdrahteSichtbarkeit(daten)
   void ladeGeraete()
   void ladeSpeicher()
