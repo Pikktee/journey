@@ -1,0 +1,38 @@
+# Maptale — was Suchmaschinen holen dürfen.
+#
+# Zwei Werkzeuge, die leicht verwechselt werden: Ein `Disallow` verbietet das
+# ABRUFEN, ein `noindex` im HTML-Kopf verbietet das AUFNEHMEN. Wer beides auf
+# dieselbe Seite legt, hebt das noindex auf — Google kann es nicht lesen, wenn
+# es die Seite nicht holen darf, und listet die nackte URL trotzdem.
+#
+# Deshalb hier NUR das, hinter dem ohnehin nichts Öffentliches liegt:
+# Verwaltung, Kontoeinstellungen und die Tür zum Studio. Sie tragen zusätzlich
+# ein `noindex` (admin.html, konto.html) — der Gürtel zum Hosenträger, falls
+# ein Crawler die robots.txt ignoriert.
+#
+# NICHT gesperrt und zwar absichtlich:
+#   /profil und /@handle  — tragen heute ein `noindex` im HTML (profil.html
+#                           wird statisch für alle gleich ausgeliefert). Genau
+#                           dieses noindex muss lesbar bleiben, sonst kippt
+#                           Etappe 6 („In Suchmaschinen erscheinen") auf eine
+#                           Sperre, die man nicht mehr aufheben kann.
+#   /tour/… und /erlebnis  — der Player. Er trägt ein `noindex` im HTML: Solange
+#                           die Seite für alle Touren gleich ausgeliefert wird,
+#                           kann sie `public` nicht von `unlisted` trennen, und
+#                           `unlisted` verspricht „jeder mit dem Link, sonst
+#                           niemand". Holen müssen die Vorschaukarten von
+#                           WhatsApp, Slack und Mastodon sie trotzdem — sie
+#                           lesen die og:-Tags und halten sich teils an die
+#                           robots.txt. Eine gesperrte Tour-URL hieße: geteilter
+#                           Link ohne Bild. Mit Etappe 6 entscheidet der Server
+#                           pro Tour: `public` bekommt `index`, `unlisted`
+#                           behält `noindex`.
+
+User-agent: *
+Disallow: /admin
+Disallow: /konto
+Disallow: /app
+Disallow: /anmelden
+Disallow: /registrieren
+
+Sitemap: https://maptale.io/sitemap.xml

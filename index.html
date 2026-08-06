@@ -3,16 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <script defer src="https://analytics.maptale.io/script.js" data-website-id="9f8e7d6c-5b4a-3f2e-1d0c-9b8a7f6e5d4c"></script>
-  <!-- Alt-Deeplinks & App-WebView: /?tour=… gehört dem Player (jetzt /erlebnis).
-       Läuft VOR allem anderen, damit die Landing für Tour-Aufrufe nie aufblitzt.
-       Die Pfad-Prüfung ist die Bremse: Liefe der Server /erlebnis versehentlich
-       als index.html aus (Vhost ohne `try_files $uri.html`), leitete diese Zeile
-       sich sonst endlos selbst weiter. -->
+  <!-- Alt-Deeplinks & App-WebView: /?tour=… gehört dem Player. Die Tour wohnt
+       heute im Pfad (/tour/<kennung>, s. src/routen.ts); diese Zeile fängt die
+       frühere Schreibweise ab, damit die Landing für Tour-Aufrufe nie aufblitzt.
+       Der Rest der Query bleibt erhalten (?app=1, Renderer-Flags).
+       Die Pfad-Prüfung ist die Bremse: Liefe der Server /tour/… versehentlich
+       als index.html aus (Vhost ohne den `location ^~ /tour/`-Block), leitete
+       diese Zeile sich sonst endlos selbst weiter. -->
   <script>
     (function () {
-      var q = window.location.search
-      if (window.location.pathname === '/' && /[?&]tour=/.test(q))
-        window.location.replace('/erlebnis' + q + window.location.hash)
+      if (window.location.pathname !== '/') return
+      var p = new URLSearchParams(window.location.search)
+      var t = p.get('tour')
+      if (!t) return
+      p.delete('tour')
+      var rest = p.toString()
+      window.location.replace(
+        '/tour/' + encodeURIComponent(t.replace(/^srv:/, '')) +
+          (rest ? '?' + rest : '') + window.location.hash,
+      )
     })()
   </script>
   <!-- Sitzungs-Hinweis (maptale_dabei): Gast-Nav sofort ausblenden, wenn eine
@@ -34,12 +43,25 @@
     name="description"
     content="Maptale verwandelt deine aufgezeichneten Touren in kinematische 3D-Flüge über echtes Gelände, mit dem Wetter jenes Tages und deinen Fotos am Wegesrand."
   />
+  <!-- Vorschaukarte für geteilte Links (WhatsApp, Slack, Mastodon, LinkedIn).
+       Die Bots holen NUR das ausgelieferte HTML und führen kein JavaScript aus
+       — hier stehen deshalb feste Werte, keine, die der Client nachträgt. Die
+       URLs müssen absolut sein: ein `/og/maptale.jpg` löst kein Dienst auf.
+       Das Bild erzeugt scripts/gen-og-bild.mjs. -->
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Maptale" />
+  <meta property="og:locale" content="de_DE" />
+  <meta property="og:url" content="https://maptale.io/" />
   <meta property="og:title" content="Maptale · deine Reisen als filmischer 3D-Flug" />
   <meta
     property="og:description"
     content="Zeichne deine Tour mit dem Handy auf. Maptale macht daraus einen filmischen Flug über echtes Gelände, mit echtem Wetter und deinen Fotos."
   />
+  <meta property="og:image" content="https://maptale.io/og/maptale.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Sonnenaufgang über einem Alpental, darüber der Schriftzug Maptale" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -697,7 +719,7 @@
       </div>
 
       <div class="tours">
-        <a class="tour-card reveal" href="/erlebnis?tour=kohphangan">
+        <a class="tour-card reveal" href="/tour/kohphangan">
           <img class="tc-img" src="/landing/card-phangan.jpg" alt="Koh Pha-ngan bei Dämmerung" loading="lazy" />
           <span class="no-chip">N°01</span>
           <svg class="tc-spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -716,7 +738,7 @@
           </div>
         </a>
 
-        <a class="tour-card reveal" href="/erlebnis?tour=stockholm">
+        <a class="tour-card reveal" href="/tour/stockholm">
           <img class="tc-img" src="/landing/card-stockholm.jpg" alt="Stockholmer Schären im Regen" loading="lazy" />
           <span class="no-chip">N°02</span>
           <svg class="tc-spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -736,7 +758,7 @@
           </div>
         </a>
 
-        <a class="tour-card reveal" href="/erlebnis?tour=oberland">
+        <a class="tour-card reveal" href="/tour/oberland">
           <img class="tc-img" src="/landing/card-oberland.jpg" alt="Lauterbrunnental mit Wasserfall" loading="lazy" />
           <span class="no-chip">N°03</span>
           <svg class="tc-spur" viewBox="-6 -6 112 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">

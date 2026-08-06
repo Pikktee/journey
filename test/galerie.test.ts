@@ -28,7 +28,7 @@ describe('alsKarte', () => {
     const karte = alsKarte(tour())
     expect(karte.titel).toBe('Lauterbrunnen → Grindelwald')
     expect(karte.unterzeile).toBe('12,4 km · Juli 2026')
-    expect(karte.spielLink).toBe('/erlebnis?tour=srv:t_abc')
+    expect(karte.spielLink).toBe('/tour/t_abc')
   })
 
   it('bleibt ohne Titel nicht namenlos', () => {
@@ -58,7 +58,7 @@ describe('alsKarte', () => {
 
   it('kodiert Kennungen für die Adresse', () => {
     const karte = alsKarte(tour({ id: 't a/b', autor: { anzeigename: 'X', avatarUrl: null, id: 'u/1' } }))
-    expect(karte.spielLink).toBe('/erlebnis?tour=srv:t%20a%2Fb')
+    expect(karte.spielLink).toBe('/tour/t%20a%2Fb')
     expect(karte.autorLink).toBe('/profil?id=u%2F1')
   })
 

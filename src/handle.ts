@@ -59,6 +59,9 @@ export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
   'favicon',
   'robots',
   'sitemap',
+  // Der Namensraum der Touren (`/tour/<kennung>`, s. routen.ts)
+  'tour',
+  'touren',
   'null',
   'undefined',
   // Was Maptale selbst noch brauchen wird

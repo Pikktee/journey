@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Die statischen Seiten von Maptale.
+
+  Bewusst NUR vier Adressen. Was fehlt und warum:
+
+  * Profile (/@handle) und Touren (/erlebnis?tour=…) kommen erst, wenn der
+    Server die Profilseite selbst ausliefert und pro Person entscheiden kann,
+    ob sie in den Index soll (Etappe 6 in docs/concepts/konzept_profil_konto.md).
+    Heute trägt profil.html ein festes `noindex`; sie hier zu listen hieße,
+    Google auf eine Seite zu schicken, die er nicht aufnehmen darf.
+  * Die Tür zum Studio (/anmelden, /registrieren, /app), /konto und /admin
+    sind in der robots.txt gesperrt — ein Eintrag hier widerspräche dem.
+
+  Diese Datei wird von Hand gepflegt. Der Wächter in test/routen.test.ts hält
+  sie gegen src/routen.ts: Jeder Pfad der Tabelle muss hier stehen, gesperrt
+  sein oder ausdrücklich als „gecrawlt, aber nicht gelistet" geführt werden —
+  sonst fällt eine neue Seite still aus dem Index.
+
+  Kein `lastmod`: Ein Datum, das beim ersten Inhaltswechsel nicht mitgeht, ist
+  schlechter als keines — Suchmaschinen entwerten die Angabe für die ganze
+  Datei, sobald sie ihr nicht mehr trauen.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://maptale.io/</loc></url>
+  <url><loc>https://maptale.io/galerie</loc></url>
+  <url><loc>https://maptale.io/impressum</loc></url>
+  <url><loc>https://maptale.io/datenschutz</loc></url>
+</urlset>

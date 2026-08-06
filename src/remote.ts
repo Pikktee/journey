@@ -1,4 +1,4 @@
-// Remote-Touren: lädt aufgezeichnete Touren vom Maptale-Backend (?tour=srv:<id>)
+// Remote-Touren: lädt aufgezeichnete Touren vom Maptale-Backend (/tour/t_<id>)
 // und adaptiert das Server-JSON (`maptale/tour@1`) auf die cfg-Form der
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
 // Neue Web-Module entstehen in TypeScript; der Bestand bleibt bewusst JS.

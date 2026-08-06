@@ -42,6 +42,11 @@ const val GALERIE_VERFUEGBAR = true
  * Ohne `.html` — der URL-Raum steht in `src/routen.ts` im Repo, aufgelöst vom
  * Nginx-Vhost. Dieser Link wird verschickt und vorgelesen; die kurze Form ist
  * die einzige, die jemand zu sehen bekommt.
+ *
+ * Die Tour steht im PFAD, nicht in einer Query (`tourPfad` in routen.ts): Erst
+ * dadurch ist sie eine Adresse, die für sich steht — mit eigener Vorschaukarte,
+ * sobald der Server die Seite selbst beantwortet. Kein `srv:`-Präfix mehr; die
+ * Server-Kennung trägt ihr `t_` selbst.
  */
 fun teilenLink(serverTourId: String, basis: String = Einstellungen.STANDARD_SERVER): String =
-    "${basis.trimEnd('/')}/erlebnis?tour=srv:$serverTourId"
+    "${basis.trimEnd('/')}/tour/$serverTourId"

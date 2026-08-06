@@ -13,7 +13,7 @@ Meilensteine M1–M9): eigene Touren aufzeichnen (Android), hochladen, serversei
 und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 
 - **Root**: Web-Player (Vite). Spielt statische `TOURS` und aufgezeichnete Touren
-  (`?tour=srv:<id>` → [src/remote.ts](src/remote.ts) gegen das Backend).
+  (`/tour/t_<id>` → [src/remote.ts](src/remote.ts) gegen das Backend).
 - **[server/](server/)**: Backend (Node 22 + Fastify + better-sqlite3, TypeScript strict).
   Upload → Anreicherungs-Pipeline (Benennung via Nominatim, Pausen-Kollaps — GPS-Drift im
   Stand wird auf den Schwerpunkt gezogen, sonst zittert die Kamera und die km-Statistik lügt;
@@ -83,9 +83,10 @@ Optik-Verifikation läuft weiterhin über den Dev-Server im Browser. Dev-Proxy: 
 `http://localhost:8787` (übersteuerbar via `MAPTALE_API`-Env, z. B. wenn 8787 belegt ist —
 auf dem Server läuft die API aus demselben Grund auf Host-Port 8790).
 
-Tour-Auswahl per Query-Param am Player: `/erlebnis.html?tour=<id aus TOURS>` (Default
-`kohphangan`), aufgezeichnete Touren via `?tour=srv:<id>`. `/?tour=…` funktioniert weiterhin,
-wird aber von der Landing auf `/erlebnis.html` umgeleitet. `?app=1` markiert die Android-WebView.
+Tour-Auswahl über den Pfad: `/tour/<id aus TOURS>` (`/erlebnis` ohne Kennung spielt die
+Standard-Tour `kohphangan`), aufgezeichnete Touren unter ihrer Server-Kennung `/tour/t_<id>`.
+Die Alt-Form `?tour=…` bleibt bedienbar und wird beim Start per `replaceState` auf den Pfad
+gezogen. `?app=1` markiert die Android-WebView.
 
 **Deployment.** Hetzner-VPS mit CloudPanel (Railway und der Caddy-Container sind abgelöst):
 CloudPanels Nginx serviert den statischen Build und proxyt `/api`; **nur die API läuft im
@@ -116,7 +117,7 @@ MapLibre). Alle sind eigene Vite-Einstiege ([vite.config.js](vite.config.js)).
 
 **Der URL-Raum steht in [src/routen.ts](src/routen.ts) — und nur dort.** Kein Router: Nginx
 liefert die Seiten statisch aus, nur `/api` geht in den Container. Aus der Tabelle leiten sich
-die Vite-Eingänge, alle Links (`pfad('player', '?tour=…')`), die Dev-Middleware in
+die Vite-Eingänge, alle Links (`pfad('galerie')`), die Dev-Middleware in
 [vite.config.js](vite.config.js) und die `location`-Blöcke des Vhosts ab; ein Drift-Wächter
 ([test/routen.test.ts](test/routen.test.ts)) hält Vhost und die Server-Kopie
 ([server/src/webpfade.ts](server/src/webpfade.ts), Mail-Links — eigener `rootDir`, kann nicht
@@ -135,7 +136,7 @@ CloudPanels eigenes Gerüst, nicht diese Datei — Handgriff und Gegenprobe:
 wird aus `pfad: '/anmelden'` ein Eintrag je Sprache samt `/en/`-Präfix — die Aufrufer nennen
 den sprachneutralen Namen, nicht den Pfad, und ändern sich nicht.
 
-**Neben der Tabelle liegt genau ein zweiter Namensraum: `/@henrik`** — die Adresse einer
+**Neben der Tabelle liegen zwei parametrisierte Namensräume.** Der erste ist `/@henrik` — die Adresse einer
 Person ([src/handle.ts](src/handle.ts), Server-Kopie [server/src/handle.ts](server/src/handle.ts),
 Vhost `location ~ ^/@`). Er steht bewusst NICHT in `ROUTEN`: Ohne das `@` teilte sich ein
 Handle den Namensraum mit allen Seitenpfaden, und jeder neue Pfad entwertete still einen
@@ -148,6 +149,20 @@ Adressen bedient (`/@vite/client`, `/@fs/…`); und ein geänderter Handle wande
 `handles_reserviert`, damit alte Links weiter zur Person führen, statt an den nächsten
 Interessenten zu fallen. Die alte Form `?id=…` bleibt für immer bedienbar — die Profilseite
 schreibt sie per `replaceState` auf `/@…` um.
+
+**Der zweite ist `/tour/<kennung>`** — die Adresse einer Tour (`tourPfad`/`tourAusPfad` in
+[src/routen.ts](src/routen.ts), Vhost `location ^~ /tour/`). Vorher war die Tour ein
+Query-Parameter, und damit kein Ort: keine eigene Vorschaukarte, kein eigener Titel, kein
+Sitemap-Eintrag — all das hängt an einer Adresse, die für sich steht. Der Pfad ist die
+Vorbedingung dafür, dass der Server ihn mit Etappe 6 selbst beantwortet. **Die Kennung ist
+die rohe ID und kein Slug**: Ihre Unerratbarkeit (14 Zeichen, ~2^80,
+[server/src/ids.ts](server/src/ids.ts)) IST die Sichtbarkeitsstufe `unlisted`; ein sprechender
+Name unter einem bekannten Handle wäre kein Geheimnis mehr, und die laufende Nummer `no` ist
+ohnehin nur pro Besitzer eindeutig. **Kein `srv:` im Pfad**: Server-IDs tragen ihr `t_` selbst
+— daran, und nur daran, unterscheidet der Player sie von den mitgelieferten `TOURS` (ein
+Wächter verbietet deshalb `t_`-Schlüssel in [src/tours.js](src/tours.js)). `?tour=…` bleibt
+bedienbar und wird beim Start per `replaceState` umgeschrieben; das `^~` im Vhost ist Pflicht,
+weil CloudPanels Endungs-Regex sonst jede Kennung abfinge, die auf `.jpg` endet.
 
 Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.js](src/main.js),
 der die Module verdrahtet. Der zentrale Datenfluss:
@@ -434,6 +449,19 @@ automatisch, sobald unter `android/` gearbeitet wird.
   12 Monate müssen in Umami auch tatsächlich eingestellt sein, sonst steht dort eine Frist,
   die die Datenbank nicht einhält. Die App misst nur das ABSPIELEN, weil sie den Player als
   WebView lädt; Aufzeichnen und Hochladen laufen an Umami vorbei.
+
+- **Auffindbarkeit ist eine dritte Ableitung von `ROUTEN`.** [public/robots.txt](public/robots.txt)
+  sperrt Verwaltung, Konto und die Studio-Tür; [public/sitemap.xml](public/sitemap.xml) listet
+  die vier statischen Seiten. Wer eine Seite dazunimmt, entscheidet also auch hier, in welche
+  Gruppe sie gehört — der Wächter in [test/routen.test.ts](test/routen.test.ts) verlangt für
+  jeden Pfad genau eines: gelistet, gesperrt oder ausdrücklich „gecrawlt, nicht gelistet"
+  (heute `/erlebnis` und `/profil`). **`Disallow` und `noindex` schließen sich aus**: Was nicht
+  geholt werden darf, kann auch nicht gelesen werden — die URL landet dann ohne Inhalt im
+  Index. Deshalb ist `/profil` NICHT gesperrt; sein `noindex` ist der Schalter, den Etappe 6
+  umlegt. Die **Vorschaukarten geteilter Links** (`og:`/`twitter:` in index, galerie, erlebnis)
+  tragen feste Marken-Werte: Die Bots führen kein JavaScript aus und lösen keine relativen
+  Bild-URLs auf. Das Bild erzeugt [scripts/gen-og-bild.mjs](scripts/gen-og-bild.mjs) aus dem
+  Landing-Hero.
 
 ## Medien-Generierung
 

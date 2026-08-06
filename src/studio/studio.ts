@@ -10,7 +10,7 @@ import * as api from './api.js'
 import { fuelleTopNav } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
-import { ROUTEN, pfad, profilPfad } from '../routen.js'
+import { ROUTEN, pfad, profilPfad, tourPfad } from '../routen.js'
 import { merkeAngemeldet, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
@@ -929,7 +929,7 @@ async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<
  * dorthin zurück, wo man herkam (Referrer + history.back(), src/main.js).
  */
 function spielAb(id: string): void {
-  location.href = pfad('player', `?tour=srv:${id}`)
+  location.href = tourPfad(`srv:${id}`)
 }
 
 /** Tour-ID aus `?edit=` — Editor-Deep-Link. */
@@ -1028,7 +1028,7 @@ function oeffneSichtMenue(karte: HTMLElement, t: api.TourListe): void {
   menue.querySelector('[data-link]')?.addEventListener('click', async (e) => {
     e.stopPropagation()
     schliesseSichtMenue()
-    await navigator.clipboard?.writeText(`${location.origin}${pfad('player', `?tour=srv:${t.id}`)}`)
+    await navigator.clipboard?.writeText(`${location.origin}${tourPfad(`srv:${t.id}`)}`)
   })
   menue.addEventListener('click', (e) => e.stopPropagation())
   karte.appendChild(menue)

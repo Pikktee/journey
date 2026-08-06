@@ -106,6 +106,63 @@ export function profilPfad(handle: string): string {
 }
 
 /**
+ * Die Adresse einer Tour: `/tour/t_9fK4mHx2QbVnRs`.
+ *
+ * Der zweite parametrisierte Namensraum neben `/@handle` — und aus demselben
+ * Grund NICHT in `ROUTEN`: Die Tabelle führt feste Pfade, hier steht hinter
+ * dem Präfix eine Kennung.
+ *
+ * **Warum kein `?tour=…` mehr.** Ein Query-Parameter ist kein Ort, sondern
+ * eine Anweisung an eine Seite. Solange er das war, konnte eine Tour nie eine
+ * eigene Vorschaukarte, keinen eigenen Titel und keinen Eintrag in der Sitemap
+ * bekommen — das alles hängt an einer Adresse, die für sich steht. Der Pfad
+ * ist die Vorbedingung dafür, dass der Server ihn später selbst beantwortet
+ * und Titel, Beschreibung und Titelbild in den Kopf schreibt (Etappe 6 in
+ * docs/concepts/konzept_profil_konto.md). Die Query-Form bleibt bedienbar —
+ * sie kostet nichts und alte Installationen der Android-App bauen sie noch.
+ *
+ * **Warum die rohe ID und kein Slug.** Die Kennung einer aufgezeichneten Tour
+ * ist absichtlich opak (14 Zeichen, ~2^80 — `server/src/ids.ts`): Genau ihre
+ * Unerratbarkeit IST die Sichtbarkeitsstufe `unlisted`, „jeder mit dem Link,
+ * sonst niemand". Ein sprechender Slug unter einem bekannten Handle wäre kein
+ * Geheimnis mehr, und eine kurze laufende Nummer erst recht nicht (die `no`
+ * der Tour ist ohnehin nur pro Besitzer eindeutig).
+ *
+ * **Warum kein `srv:` im Pfad.** Der Player kennt zwei Herkünfte: die
+ * mitgelieferten Touren aus `src/tours.js` (Schlüssel `kohphangan`) und die
+ * aufgezeichneten vom Server. Im Query-Param unterschied sie ein Präfix; im
+ * Pfad tut das die Kennung selbst, denn Server-IDs beginnen mit `t_`. Ein
+ * `/tour/srv:t_…` wäre ein Doppelpräfix, das nur erklärt, wo etwas herkommt —
+ * eine Auskunft, die niemanden angeht, der den Link anklickt. Damit die
+ * Unterscheidung trägt, darf keine mitgelieferte Tour `t_` heißen; ein
+ * Wächter in test/routen.test.ts prüft das.
+ */
+export function tourPfad(param: string): string {
+  const kennung = param.startsWith('srv:') ? param.slice(4) : param
+  // Anders als der Handle wird die Kennung kodiert: Sie kommt aus einer
+  // Server-Antwort, nicht aus einer geprüften Zeichenmenge. Die echten IDs
+  // (`t_…`, 54er-Alphabet) und die Schlüssel aus `tours.js` gehen unverändert
+  // durch — es kostet also nichts und fängt ab, was nicht hierher gehört.
+  return `/tour/${encodeURIComponent(kennung)}`
+}
+
+/**
+ * `/tour/t_9fK…` → `srv:t_9fK…`, `/tour/kohphangan` → `kohphangan`;
+ * alles andere → null.
+ *
+ * Die Gegenrichtung zu `tourPfad`. Zurückgegeben wird die Form, die der Player
+ * intern führt (mit `srv:`) — sie ist zugleich der Schlüssel seiner Merker
+ * (`maptale:pos:<id>`), und ein Wechsel dort ließe jede gemerkte Position
+ * verwaisen.
+ */
+export function tourAusPfad(pfadteil: string): string | null {
+  const treffer = /^\/tour\/([^/?#]+)/.exec(pfadteil)
+  if (!treffer?.[1]) return null
+  const kennung = decodeURIComponent(treffer[1])
+  return kennung.startsWith('t_') ? `srv:${kennung}` : kennung
+}
+
+/**
  * `/@henrik` → `henrik`; alles andere → null.
  *
  * Die Gegenrichtung zu `profilPfad`, für die Profilseite: Sie liegt unter zwei

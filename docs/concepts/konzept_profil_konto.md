@@ -204,7 +204,7 @@ zuletzt, obwohl es im Mockup nur eine Zeile ist.
 
 ---
 
-## Etappe 5.5 — Auffindbar und teilbar (klein)
+## Etappe 5.5 — Auffindbar und teilbar (klein) ✅
 
 Beim Prüfen von Etappe 3 aufgefallen: Es gibt **keine `robots.txt`** (live 404),
 **keine Sitemap** und **nirgends Open-Graph-Tags**. Wer heute einen Tour- oder
@@ -222,6 +222,56 @@ ist, kein Nebenschauplatz.
   Werte samt einem Marken-Bild.
 
 Etwa eine Stunde, unabhängig vom Rest.
+
+**Gebaut.** Drei Entscheidungen, die beim Umsetzen dazukamen:
+
+- **Kein `Disallow` auf `/profil` und `/@`.** Ein Disallow verbietet das
+  ABRUFEN, ein `noindex` das AUFNEHMEN — wer beides auf dieselbe Seite legt,
+  hebt das noindex auf (Google kann es nicht lesen, listet die nackte URL aber
+  trotzdem). Genau das noindex braucht Etappe 6 als Schalter.
+- **Der Player ist gecrawlt, steht aber nicht in der Sitemap.** Holen dürfen
+  die Vorschau-Bots die Seite, sonst hätte ein geteilter Tour-Link keine Karte;
+  gelistet gehört sie erst, wenn der Server pro Tour entscheiden kann. Er
+  bekommt deshalb auch **kein `og:url`** — es wäre für jede Tour dasselbe, und
+  manche Dienste zeigen dann diese Adresse statt der geteilten.
+- **Das Marken-Bild ist abgeleitet, nicht gemalt:**
+  [scripts/gen-og-bild.mjs](../../scripts/gen-og-bild.mjs) rendert
+  `public/og/maptale.jpg` (1200 × 630) aus dem Landing-Hero plus Wortmarke.
+
+Zusammengehalten wird das Ganze von einem Wächter in
+[test/routen.test.ts](../../test/routen.test.ts): Jeder Pfad aus `ROUTEN` muss
+in der Sitemap stehen, in der robots.txt gesperrt sein oder ausdrücklich als
+„gecrawlt, nicht gelistet" geführt werden. Eine neue Seite, die in keiner von
+beiden vorkommt, funktioniert sonst tadellos — sie taucht nur nie in einer
+Suche auf, und niemand merkt es.
+
+### Nachgezogen: die Tour bekommt eine eigene Adresse
+
+Aus der Frage „warum eigentlich `?tour=…` und nicht `/tour/<nr>`?" wurde ein
+eigener Namensraum: **`/tour/<kennung>`** (`tourPfad`/`tourAusPfad` in
+[src/routen.ts](../../src/routen.ts), `location ^~ /tour/` im Vhost,
+Gegenstück in [vite.config.js](../../vite.config.js)). Ein Query-Parameter ist
+kein Ort — solange die Tour einer war, konnte sie weder eine eigene
+Vorschaukarte noch einen Sitemap-Eintrag bekommen. Der Pfad ist die
+**Vorbedingung für Etappe 6**; die Meta-Tags pro Tour kommen dort.
+
+Drei Festlegungen:
+
+- **Die rohe ID, kein Slug und keine Nummer.** Die Unerratbarkeit der Kennung
+  (14 Zeichen, ~2^80, [server/src/ids.ts](../../server/src/ids.ts)) IST die
+  Sichtbarkeitsstufe `unlisted`. Eine kurze Nummer schaffte sie ab, ein
+  sprechender Slug unter einem bekannten Handle ebenso — und die laufende
+  Nummer `no` ist nur pro Besitzer eindeutig.
+- **Kein `srv:` im Pfad.** Server-Kennungen tragen ihr `t_` selbst; daran
+  unterscheidet der Player sie von den mitgelieferten `TOURS`. Ein Wächter
+  verbietet deshalb `t_`-Schlüssel in [src/tours.js](../../src/tours.js).
+- **`?tour=…` bleibt bedienbar** und wird beim Start per `replaceState`
+  umgeschrieben — wie `?id=…` beim Profil. Nichts ist produktiv, aber es kostet
+  nichts, und ältere Installationen der Android-App bauen die alte Form noch.
+
+Mitgezogen: die drei Demo-Karten der Landing samt Alt-Deeplink-Weiche, Studio
+(Abspielen, „Link kopieren"), Editor-Vorschau, Galeriekarten sowie
+`teilenLink`/`PlayerScreen` der Android-App.
 
 ---
 
@@ -244,6 +294,17 @@ Verworfene Wege, damit sie nicht wiederkommen:
 Datenbank steht (Titelbild als `og:image` — das löst die Teilen-Vorschau gleich
 mit). Der Rest der Seite bleibt clientseitig wie heute.
 
+**Dasselbe für `/tour/<kennung>`.** Der Namensraum steht seit Etappe 5.5
+(s. dort), der Player wird nur noch statisch ausgeliefert — es fehlt genau der
+Schritt, den auch die Profilseite braucht. Pro Tour aus der Datenbank: `title`
+als `og:title`, die Beschreibung, das Titelbild als `og:image`, dazu `og:url`
+auf die eigene Adresse (heute bewusst weggelassen, weil es für alle Touren
+dasselbe wäre). Und die Regel, die das Ganze ehrlich hält: **`public` bekommt
+`index`, `unlisted` bekommt `noindex`** — Vorschaukarte ja, Suchtreffer nein.
+Ein ungelisteter Link, der über die Vorschau in den Index rutscht, wäre genau
+der Bruch, den die Stufe verspricht zu verhindern. Im Vhost wird dann aus
+`location ^~ /tour/ { rewrite ^ /erlebnis.html last; }` ein `proxy_pass`.
+
 Der Knackpunkt ist, woher der Server das gebaute HTML nimmt — die Bundle-Namen
 tragen Hashes, der API-Container kennt den Docroot nicht. Zwei Varianten:
 
@@ -257,12 +318,62 @@ tragen Hashes, der API-Container kennt den Docroot nicht. Zwei Varianten:
 Im Vhost wird aus `location ~ ^/@ { rewrite ^ /profil.html last; }` ein
 `proxy_pass` an die API — wieder von Hand, s. Etappe 1.
 
-Dazu gehört: Sitemap um öffentliche, indexierbare Profile ergänzen,
+Dazu gehört: Sitemap um öffentliche, indexierbare Profile UND `public`-Touren
+ergänzen,
 `canonical`-URL setzen, und der Schalter im Konto schreibt ein Feld
 `suchmaschinen` (Standard **aus** — ein Profil über den Link zu teilen ist
 etwas anderes, als unter dem eigenen Namen auffindbar zu sein).
 
 ---
+
+## Etappe 7 — Ein geteiltes Stylesheet
+
+**Der Befund** (gemessen beim Prüfen von Etappe 3):
+
+- **4519 Zeilen Inline-CSS** in neun HTML-Dateien, **kein einziges externes
+  Stylesheet**. studio.html allein trägt 2570 Zeilen.
+- **245 `border-radius`-Stellen**, mit drei Werten für dasselbe: 9 px (konto,
+  profil, index, galerie), 10 px (studio, admin), 8 px im Mockup — das nie im
+  Code ankam.
+- **Zwei Namenssysteme für dieselben Farben**: `--akzent`/`--text`/`--fl-1` in
+  Studio, Admin, Galerie und Landing gegen `--amber`/`--ink` in Konto und
+  Profil.
+- In den neuen Seiten stehen Farben teils wieder als **rohe Hex-Werte** in den
+  Regeln (`#10151d`, `#222b37`), obwohl daneben Variablen definiert sind.
+
+Das ist keine gewachsene Eigenheit, sondern Duplikation mit messbarem Drift.
+Die Radien sind nur das Symptom, an dem es auffiel.
+
+**Der Weg: eine echte CSS-Datei, kein Kompromiss.** `src/basis.css` mit den
+Tokens (Farben, Radien, Schatten, Typo) und den Grundelementen, die auf jeder
+Seite vorkommen — Knöpfe, Felder, Topbar, Dialogschicht, Tafeln. Eingebunden per
+`import './basis.css'` im Einstiegs-TS jeder Seite; Vite bündelt, hasht und
+hängt das `<link>` beim Build selbst ein. Seitenspezifisches CSS bleibt
+zunächst, wo es ist, und wandert schrittweise nach.
+
+Das frühere Gegenargument — Inline-CSS spart einen Netzabruf und blockiert
+nichts — trägt hier nicht: Der Roundtrip fällt genau einmal an, danach liegt die
+Datei im Browser-Cache und gilt für ALLE fünf Einstiege, zwischen denen Nutzer
+ohnehin wechseln (Studio → Konto → Profil → Galerie → Player). Die
+HTML-Dokumente schrumpfen dabei deutlich.
+
+**Der Radius-Wert: 9 / 12 / 14** (Knopf / Karte / Modal). Den tragen die zwei
+neuesten Seiten und die Landing bereits; der Sprung von 10 auf 9 fällt nirgends
+auf, während 8 überall nachgezogen werden müsste — für einen Unterschied, den
+niemand sieht. Festgeschrieben wird er in [DESIGN.md](../../DESIGN.md).
+
+**Reihenfolge**, damit das nicht ein Umbau über alles wird:
+
+1. `basis.css` mit den Tokens, EIN Namenssystem (`--akzent` gewinnt, weil es in
+   vier von sechs Dateien steht). Alle Seiten importieren sie; die lokalen
+   `:root`-Blöcke fallen weg, `--amber`/`--ink` werden umbenannt.
+2. Die Grundelemente nachziehen (Knöpfe, Felder, Topbar, Dialoge) — Seite für
+   Seite, jede einzeln überprüfbar.
+3. Radien auf die Variablen umstellen; danach ist die Frage einmal beantwortet
+   statt bei jeder neuen Seite neu.
+
+Schritt 1 ist klein und bringt den größten Teil des Nutzens. Die Schritte 2 und
+3 können liegen bleiben, ohne dass etwas inkonsistent wird.
 
 ## Was die Umsetzung am ehesten kippt
 
@@ -288,7 +399,7 @@ Damit nicht wieder vorgeschlagen wird, was schon abgeräumt ist:
 | Profilseite zeigt nur öffentliche Touren | private Touren wohnen in „Meine Touren"; Kennzahlen zählen deshalb auch nur die öffentlichen |
 | Bearbeiten im Modal | robuster als `contenteditable` (Enter, eingefügtes HTML, Firefox), Verwerfen ist trivial |
 | Sichtbarkeits-Schalter an zwei Stellen | Modal und Kontoeinstellungen, aber EIN Zustand — man findet ihn dort, wo man ihn sucht |
-| Radius 8 / 12 / 14 (Knopf / Karte / Modal) | schärfer als der bisherige 10-px-Stand; **gilt bisher nur im Mockup** — `DESIGN.md`, `studio.html`, Editor und Admin ziehen als eigener Schritt nach |
+| ~~Radius 8 / 12 / 14~~ → **9 / 12 / 14** | Die 8 aus dem Mockup ist im Code nie angekommen; die neuen Seiten tragen 9, der Bestand 10. Vereinheitlicht wird auf **9** — s. Etappe 7 |
 | `--text-3` auf `#7e8a99` | 4,0:1 war zu wenig für 12-px-Meta-Zeilen, jetzt 5,6:1 |
 | Labels in Satzschrift | gesperrte Versalien sind die alte Player-Sprache (s. `CLAUDE.md`) |
 | Titelbilder als Fotos | gezeichnete Routen über Rastern lasen sich als Kursdiagramm |

@@ -2,6 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
 import { TOURS } from './tours.js'
 import { loadRemoteTour, createTimeAt } from './remote'
+import { tourAusPfad, tourPfad } from './routen'
 import { buildRoute, gruppiereStopps, nearestS, pointAt } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
 import { createDayNight } from './daynight.js'
@@ -18,12 +19,19 @@ import { sampleElevations, smoothValues } from './elevation.js'
 import { UI } from './ui.js'
 import { Tour } from './tour.js'
 
-// — Tour-Auswahl via ?tour=… — statische Registry oder aufgezeichnete Tour vom
-// Backend (?tour=srv:<id>, remote.ts). Top-Level-Await hält bewusst den Boot-
-// Screen, bis die Tour-Daten da sind (Vite/Zielbrowser können TLA seit ES2022);
-// scheitert das Laden, fällt der Player auf die Standard-Tour zurück.
+// — Tour-Auswahl über den Pfad `/tour/<kennung>` — statische Registry oder
+// aufgezeichnete Tour vom Backend (Kennungen mit `t_`, remote.ts). Top-Level-
+// Await hält bewusst den Boot-Screen, bis die Tour-Daten da sind (Vite/
+// Zielbrowser können TLA seit ES2022); scheitert das Laden, fällt der Player
+// auf die Standard-Tour zurück.
+//
+// `?tour=…` bleibt als Alias bedienbar und geht vor nichts: Der Pfad IST die
+// Adresse, die Query war nur ihre frühere Schreibweise (alte Installationen
+// der Android-App bauen sie noch). Umgeschrieben wird sie weiter unten, sobald
+// feststeht, welche Tour tatsächlich läuft.
 const params = new URLSearchParams(location.search)
-const tourParam = params.get('tour') ?? 'kohphangan'
+const ausPfad = tourAusPfad(location.pathname)
+const tourParam = ausPfad ?? params.get('tour') ?? 'kohphangan'
 
 // — App-Modus (?app=1): der Player läuft in der WebView der Android-App —
 // Dort sind Verweise auf die Landing-Seite sinnlos (es gibt keine „Startseite",
@@ -75,6 +83,19 @@ if (tourParam.startsWith('srv:')) {
 // Prototypkette eine Funktion statt einer Tour liefern.
 const tourId = remoteCfg ? tourParam : Object.hasOwn(TOURS, tourParam) ? tourParam : 'kohphangan'
 const cfg = remoteCfg ?? TOURS[tourId]
+
+// Wer über die Alt-Adresse `?tour=…` kam, bekommt die Adresszeile auf die
+// heutige Form gezogen — wie die Profilseite mit `?id=…`. Erst HIER, nicht
+// gleich beim Lesen: Scheiterte das Laden, stünde sonst eine Adresse in der
+// Zeile, die auf eine Tour zeigt, die gar nicht läuft. Der Rest der Query
+// (`?app=1`, Renderer-Flags) bleibt unangetastet, und `replaceState` legt
+// keinen Eintrag in die Verlaufsliste — der Weg zurück bleibt, wo er war.
+if (!ausPfad && params.has('tour')) {
+  const rest = new URLSearchParams(location.search)
+  rest.delete('tour')
+  const query = rest.toString()
+  history.replaceState(null, '', tourPfad(tourId) + (query ? `?${query}` : '') + location.hash)
+}
 
 // — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
 // Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
@@ -1016,7 +1037,7 @@ map.on('load', () => {
     toastT = setTimeout(() => (toastEl.hidden = true), 5200)
   }
 
-  // Konnte eine ?tour=srv:… nicht geladen werden (gelöscht, noch in
+  // Konnte eine Server-Tour nicht geladen werden (gelöscht, noch in
   // Verarbeitung, Server weg), läuft die Standard-Tour — das dem Nutzer
   // sichtbar sagen, nicht nur der Konsole.
   if (remoteFehler) toast(remoteFehler)

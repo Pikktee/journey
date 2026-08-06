@@ -173,7 +173,7 @@ if (wiederverwendet) {
   const tour = await api(args.server, `/api/tours/${id}`)
   if (tour.schema === 'maptale/tour@1') {
     console.log(`Tour ${id} existiert bereits („${tour.brandTitle}").`)
-    console.log(`Abspielen: http://localhost:5173/?tour=srv:${id}`)
+    console.log(`Abspielen: http://localhost:5173/tour/${id}`)
     process.exit(0)
   }
   console.log(`Tour ${id} bereits vorhanden (Status ${tour.status}) — Dateien werden erneut geladen`)
@@ -209,7 +209,7 @@ for (;;) {
   }
   if (tour.schema === 'maptale/tour@1') {
     console.log(`\nFertig: „${tour.brandTitle}" — ${tour.stats.km} km, ${tour.stats.gainM} hm, ${tour.media.length} Medien`)
-    console.log(`Abspielen: http://localhost:5173/?tour=srv:${id}`)
+    console.log(`Abspielen: http://localhost:5173/tour/${id}`)
     break
   }
   process.stdout.write('.')

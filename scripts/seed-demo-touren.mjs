@@ -214,7 +214,7 @@ for (const demoId of DEMOids) {
     console.log('  Sichtbarkeit: public')
   }
 
-  console.log(`  Abspielen: http://localhost:5173/erlebnis.html?tour=srv:${id}`)
+  console.log(`  Abspielen: http://localhost:5173/tour/${id}`)
 }
 
 console.log('\nFertig.')

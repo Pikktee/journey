@@ -1,5 +1,5 @@
 // Abspielen im WebView: lädt den gehosteten Web-Player mit
-// /erlebnis?tour=srv:<id>&app=1 — komplette Wiederverwendung der Engine
+// /tour/<id>?app=1 — komplette Wiederverwendung der Engine
 // (Plan-Entscheid), braucht Internet. serverUrl ist das Prod-Web-Origin (fest,
 // s. Navigation), `app=1` schaltet den App-Modus des Players: dort entfallen die
 // Tour-Auswahl und alle Verweise auf die Landing-Seite, die in der App ins Leere
@@ -173,7 +173,7 @@ fun PlayerScreen(
                         )
                     }
                 }
-                loadUrl("$serverUrl/erlebnis?tour=srv:$serverTourId&app=1")
+                loadUrl("$serverUrl/tour/$serverTourId?app=1")
             }
         },
         // Verlassen des Players: erst die Seite entladen (das stoppt Musik-, Motor-

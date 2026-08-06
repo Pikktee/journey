@@ -10,7 +10,16 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HANDLE_REGELN, RESERVIERTE_HANDLES } from '../src/handle'
-import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN, handleAusPfad, pfad, profilPfad } from '../src/routen'
+import {
+  EINSTIEGE,
+  PFAD_ZU_DATEI,
+  ROUTEN,
+  handleAusPfad,
+  pfad,
+  profilPfad,
+  tourAusPfad,
+  tourPfad,
+} from '../src/routen'
 
 const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 const lies = (p: string): string => readFileSync(join(wurzel, p), 'utf8')
@@ -38,7 +47,7 @@ describe('routen', () => {
   })
 
   it('hängt Query und Fragment an', () => {
-    expect(pfad('player', '?tour=srv:t_1')).toBe('/erlebnis?tour=srv:t_1')
+    expect(pfad('galerie', '?seite=2')).toBe('/galerie?seite=2')
     expect(pfad('anmelden', '#verify=abc')).toBe('/anmelden#verify=abc')
     expect(pfad('app')).toBe('/app')
   })
@@ -98,6 +107,46 @@ describe('routen', () => {
     })
   })
 
+  // — Der Tour-Namensraum (/tour/<kennung>) —
+  //
+  // Der zweite parametrisierte Namensraum neben /@handle. Was ihn zusammenhält:
+  // die Unterscheidung „Server-Tour oder mitgelieferte" hängt allein am
+  // `t_`-Präfix, und der Rückweg muss genau die Form liefern, unter der der
+  // Player seine Merker führt.
+  describe('Tour-Adressen', () => {
+    it('baut und liest /tour/<kennung> in beide Richtungen', () => {
+      expect(tourPfad('srv:t_9fK4mHx2QbVnRs')).toBe('/tour/t_9fK4mHx2QbVnRs')
+      expect(tourPfad('kohphangan')).toBe('/tour/kohphangan')
+      expect(tourAusPfad('/tour/t_9fK4mHx2QbVnRs')).toBe('srv:t_9fK4mHx2QbVnRs')
+      expect(tourAusPfad('/tour/kohphangan')).toBe('kohphangan')
+      expect(tourAusPfad('/erlebnis')).toBeNull()
+      expect(tourAusPfad('/@henrik')).toBeNull()
+      expect(tourAusPfad('/')).toBeNull()
+    })
+
+    it('bleibt über Hin- und Rückweg dieselbe Tour', () => {
+      // Der zurückgegebene Param IST der Schlüssel der Positions-Merker
+      // (`maptale:pos:<id>`) — kippt er, verwaist jede gemerkte Position.
+      for (const param of ['srv:t_abc', 'kohphangan', 'stockholm', 'oberland']) {
+        expect(tourAusPfad(tourPfad(param)), param).toBe(param)
+      }
+    })
+
+    it('hält keine mitgelieferte Tour unter einem t_-Namen', () => {
+      // Die einzige Unterscheidung zwischen Server-Tour und Registry im Pfad.
+      // Ein `t_`-Schlüssel in tours.js machte aus einer statischen Tour still
+      // einen Backend-Aufruf, der 404 gibt.
+      const tours = lies('src/tours.js')
+      expect(tours).not.toMatch(/^\s{2}t_[a-z0-9_]*\s*:/m)
+    })
+
+    it('kennt den Namensraum auch im Dev-Server', () => {
+      const config = lies('vite.config.js')
+      expect(config).toContain('tourAusPfad')
+      expect(config).toContain('ROUTEN.player.datei')
+    })
+  })
+
   // — Nginx —
   //
   // Zwei Wege führen zu einer Seite: entweder es gibt eine gleichnamige Datei
@@ -129,6 +178,14 @@ describe('routen', () => {
       const block = vhost.match(/location \/ \{[\s\S]*?\n\}/)?.[0] ?? ''
       expect(block).toContain('add_header Cache-Control')
       expect(block).toContain('include /etc/nginx/global_settings;')
+    })
+
+    it('leitet /tour/<kennung> auf den Player — und schlägt die Endungs-Regex', () => {
+      // Ohne diesen Block landet jeder geteilte Tour-Link auf der 404-Seite.
+      // `^~` ist nicht Kosmetik: In CloudPanels Gerüst steht eine
+      // Regex-Location auf Datei-Endungen, und Regex schlägt jede gewöhnliche
+      // Prefix-Location.
+      expect(vhost).toMatch(/location\s+\^~\s+\/tour\/\s*\{[^}]*erlebnis\.html/)
     })
 
     it('leitet /@henrik auf die Profilseite', () => {
@@ -163,6 +220,101 @@ describe('routen', () => {
       expect(auth).toContain('${WEB_PFADE.anmelden}#verify=')
       expect(auth).toContain('${WEB_PFADE.anmelden}#reset=')
       expect(auth).not.toContain('studio.html#')
+    })
+  })
+
+  // — Auffindbarkeit —
+  //
+  // robots.txt und sitemap.xml sind eine dritte Ableitung der Tabelle, und die
+  // stillste von allen: Eine neue Seite, die in keiner von beiden vorkommt,
+  // funktioniert tadellos — sie taucht nur nie in einer Suche auf, und niemand
+  // merkt es. Deshalb muss jeder Pfad hier eine Zuordnung haben.
+  describe('robots.txt und sitemap.xml', () => {
+    const robots = lies('public/robots.txt')
+    const sitemap = lies('public/sitemap.xml')
+    const BASIS = 'https://maptale.io'
+
+    /**
+     * Gecrawlt, aber bewusst nicht in der Sitemap. Wer eine Seite hier
+     * einträgt, trifft eine Entscheidung und schreibt sie hin — das ist der
+     * Zweck der Liste.
+     *
+     * `player`: eine Adresse ohne `?tour=…` ist nur die Standard-Tour, kein
+     * eigenständiger Inhalt; holen dürfen die Vorschau-Bots sie trotzdem.
+     * `profil`: trägt heute `noindex` im HTML (statisch für alle gleich) und
+     * kommt mit Etappe 6 in die Sitemap.
+     */
+    const NICHT_GELISTET = new Set<keyof typeof ROUTEN>(['player', 'profil'])
+
+    it('ordnet jeden Pfad zu — gelistet, gesperrt oder ausdrücklich beides nicht', () => {
+      for (const seite of SEITEN) {
+        const p = ROUTEN[seite].pfad
+        const gelistet = sitemap.includes(`<loc>${BASIS}${p === '/' ? '/' : p}</loc>`)
+        const gesperrt = new RegExp(`^Disallow: ${p}$`, 'm').test(robots)
+        const bewusst = NICHT_GELISTET.has(seite)
+        expect(
+          [gelistet, gesperrt, bewusst].filter(Boolean).length,
+          `${seite} (${p}): genau eines von gelistet/gesperrt/NICHT_GELISTET`,
+        ).toBe(1)
+      }
+    })
+
+    it('nennt die Sitemap unter ihrer echten Adresse', () => {
+      expect(robots).toContain(`Sitemap: ${BASIS}/sitemap.xml`)
+      expect(existsSync(join(wurzel, 'public/sitemap.xml'))).toBe(true)
+    })
+
+    it('sperrt nichts, was ein noindex tragen soll', () => {
+      // Ein Disallow hebt ein noindex auf: Was nicht geholt werden darf, kann
+      // auch nicht gelesen werden — die URL landet dann OHNE Inhalt im Index.
+      // Die Profilseite lebt genau von diesem noindex (bis Etappe 6).
+      // erlebnis.html: solange die Seite für alle Touren gleich ausgeliefert
+      // wird, kann sie `public` nicht von `unlisted` unterscheiden — und
+      // `unlisted` verspricht „jeder mit dem Link, sonst niemand". Ein
+      // Suchtreffer bräche das. Die Vorschaukarten bleiben unberührt, die Bots
+      // der Messenger kümmern sich nicht um `robots`.
+      for (const datei of ['profil.html', 'erlebnis.html'] as const) {
+        expect(lies(datei), datei).toContain('name="robots" content="noindex"')
+      }
+      expect(robots).not.toMatch(/^Disallow: \/profil$/m)
+      expect(robots).not.toMatch(/^Disallow: \/@/m)
+      // Dasselbe für die Touren: Ein gesperrtes /tour/ hieße heute „geteilter
+      // Link ohne Vorschaubild" und nähme Etappe 6 die Wahl pro Tour.
+      expect(robots).not.toMatch(/^Disallow: \/tour/m)
+    })
+
+    it('listet keinen Pfad, den es nicht gibt', () => {
+      const pfade = new Set(SEITEN.map((s) => ROUTEN[s].pfad))
+      for (const treffer of sitemap.matchAll(/<loc>https:\/\/maptale\.io([^<]*)<\/loc>/g)) {
+        expect(pfade.has(treffer[1] ?? ''), `Sitemap nennt ${treffer[1]}`).toBe(true)
+      }
+    })
+  })
+
+  // — Vorschaukarten geteilter Links —
+  //
+  // Die Bots von WhatsApp, Slack & Co. führen kein JavaScript aus: Was nicht im
+  // ausgelieferten HTML steht, gibt es für sie nicht. Und relative Bild-URLs
+  // löst keiner von ihnen auf.
+  describe('Open Graph', () => {
+    const SEITEN_MIT_KARTE = ['index.html', 'galerie.html', 'erlebnis.html'] as const
+    const BILD = 'https://maptale.io/og/maptale.jpg'
+
+    it('trägt Titel, Beschreibung, Bild und Karten-Art', () => {
+      for (const datei of SEITEN_MIT_KARTE) {
+        const html = lies(datei)
+        for (const tag of ['og:type', 'og:title', 'og:description', 'og:image']) {
+          expect(html, `${datei}: ${tag}`).toContain(`property="${tag}"`)
+        }
+        expect(html, `${datei}: twitter:card`).toContain('name="twitter:card"')
+        expect(html, `${datei}: og:image absolut`).toContain(`content="${BILD}"`)
+      }
+    })
+
+    it('hat das Bild wirklich im Build liegen', () => {
+      // public/ kopiert Vite unverändert nach dist/. Erzeugt wird die Datei von
+      // scripts/gen-og-bild.mjs — fehlt sie, zeigt jede geteilte Karte ein Loch.
+      expect(existsSync(join(wurzel, 'public/og/maptale.jpg'))).toBe(true)
     })
   })
 

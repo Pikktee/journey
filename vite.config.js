@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 import { HANDLE_REGELN } from './src/handle.ts'
-import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN } from './src/routen.ts'
+import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN, tourAusPfad } from './src/routen.ts'
 
 /**
  * URLs ohne `.html` — im Dev und in der Vorschau.
@@ -28,9 +28,19 @@ function saubereUrls() {
     // `/@fs/…`, `/@react-refresh`). Ein pauschales Umschreiben lieferte dem
     // Dev-Server statt seines Clients eine HTML-Seite — und zwar nur im Dev,
     // wo es keine Entsprechung in Produktion gibt.
+    // `/tour/<kennung>` ist der zweite parametrisierte Namensraum (s.
+    // src/routen.ts); in Nginx ist das `location ^~ /tour/`. Anders als beim
+    // Handle braucht es hier keine Zeichenprüfung — unter `/tour/` bedient
+    // Vite nichts Eigenes.
     const handle = pfad.startsWith('/@') ? pfad.slice(2) : null
     const datei =
-      pfad === '/' ? null : handle && HANDLE_REGELN.test(handle) ? ROUTEN.profil.datei : PFAD_ZU_DATEI[pfad]
+      pfad === '/'
+        ? null
+        : handle && HANDLE_REGELN.test(handle)
+          ? ROUTEN.profil.datei
+          : tourAusPfad(pfad)
+            ? ROUTEN.player.datei
+            : PFAD_ZU_DATEI[pfad]
     if (datei) req.url = `/${datei}${rest}`
   }
   // Bewusst kein Ausdrucks-Body: `middlewares.use()` gibt die Connect-App

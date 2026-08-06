@@ -11,14 +11,14 @@ class TeilenLinkTest {
     @Test
     fun `Link zeigt auf den Web-Player der Tour`() {
         assertEquals(
-            "https://maptale.example/erlebnis?tour=srv:t_abc",
+            "https://maptale.example/tour/t_abc",
             teilenLink("t_abc", basis = "https://maptale.example"),
         )
     }
 
     @Test
     fun `abschliessender Schraegstrich der Basis verdoppelt sich nicht`() {
-        assertTrue(teilenLink("t_abc", basis = "https://maptale.example/").startsWith("https://maptale.example/erlebnis"))
+        assertTrue(teilenLink("t_abc", basis = "https://maptale.example/").startsWith("https://maptale.example/tour/"))
     }
 
     @Test
