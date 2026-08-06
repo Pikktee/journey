@@ -57,6 +57,33 @@ dieser Datei; CSS-Variablen, [`src/brand.ts`](src/brand.ts) und Android `Theme.k
 `Typografie.kt` sind Ableitungen. Kurzregel: Outfit überall; Zahlen mit
 `font-variant-numeric: tabular-nums` (Compose: `fontFeatureSettings = "tnum"`), nicht Mono.
 
+**Im Web sind die Tokens genau eine Datei:** [`src/basis.css`](src/basis.css) — Farben,
+Radien, Schrift, Maße, aus dem YAML-Kopf von DESIGN.md abgeleitet. Daneben liegen die
+geteilten Bausteine: [`grundelemente.css`](src/grundelemente.css) (Kopfleiste, Konto-Menü,
+Dialogschicht, Fußzeile — die Produkt-Seiten) und [`werkzeug.css`](src/werkzeug.css) (Knöpfe,
+Felder, Etiketten von Studio und Verwaltung). **Zwei Dateien und nicht eine**, weil es zwei
+Knopf-Register gibt — Pillen auf den öffentlichen Seiten, Kästen im Werkzeug —, und
+`button.knopf` (Pille) `button, .knopf` (Kasten) durch die höhere Spezifität schlägt; in
+einer Datei würden die Werkzeugleisten still zu Pillenreihen.
+
+Drei Regeln, die man dabei leicht kippt: **Die Blätter hängen als `<link>` VOR dem
+`<style>`-Block** jeder Seite, nicht als Modul-Import — Vite hängt gebautes CSS ans ENDE des
+`<head>`, die Basis schlüge dort alles, was die Seite absichtlich anders macht (die
+Verwaltung wurde so 80 px breiter, ohne dass sich eine Zeile ihres CSS änderte). Der
+Dev-Server tut das NICHT, es fiele erst nach dem Deploy auf; `basisZuerst()` in
+[vite.config.js](vite.config.js) stellt die Reihenfolge nach dem Bauen wieder her und erkennt
+die Blätter an einer eigenen Custom Property (`--blatt-basis: 1`), weil Vite eine CSS-Datei
+nach ihrem JS-Chunk benennt und nicht nach der Quelle. **Was zweimal vorkommt, gehört in ein
+Blatt; was einmal vorkommt, bleibt in der Seite** — dort stehen nur noch ihre Abweichungen
+(Lesebreite, Dialogbreite, Zeitleisten-Maße). Und **keine Farbe steht zweimal**: weder als
+eigenes Token in einer HTML-Datei noch roh in einer Regel. Ein Drift-Wächter
+([test/basis-css.test.ts](test/basis-css.test.ts)) hält DESIGN.md und `basis.css`
+deckungsgleich, verbietet beides und findet Regeln, die eine Variable lesen, die es nicht
+gibt (`var(--text-3)` im Passwortfeld war so ein Fall — auf zwei von drei Seiten undefiniert,
+das Augen-Icon erbte deshalb die Textfarbe). `public/404.html` ist die eine erlaubte Kopie:
+Sie liegt außerhalb des Builds, weil eine Fehlerseite auch dann stehen muss, wenn genau das
+Bundle fehlt, das sie melden soll.
+
 ## Commands
 
 ```bash

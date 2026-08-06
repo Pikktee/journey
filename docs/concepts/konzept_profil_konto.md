@@ -414,7 +414,7 @@ etwas anderes, als unter dem eigenen Namen auffindbar zu sein).
 
 ---
 
-## Etappe 7 — Ein geteiltes Stylesheet
+## Etappe 7 — Ein geteiltes Stylesheet ✅
 
 **Der Befund** (gemessen beim Prüfen von Etappe 3):
 
@@ -462,6 +462,39 @@ niemand sieht. Festgeschrieben wird er in [DESIGN.md](../../DESIGN.md).
 
 Schritt 1 ist klein und bringt den größten Teil des Nutzens. Die Schritte 2 und
 3 können liegen bleiben, ohne dass etwas inkonsistent wird.
+
+**Umgesetzt am 6. August 2026, alle drei Schritte.** Was wo liegt:
+[src/basis.css](../../src/basis.css) (Tokens, jede Seite),
+[src/grundelemente.css](../../src/grundelemente.css) (Kopfleiste, Konto-Menü,
+Dialogschicht, Fußzeile — die Produkt-Seiten) und
+[src/werkzeug.css](../../src/werkzeug.css) (Knöpfe, Felder, Etiketten von Studio
+und Verwaltung). Der Drift-Wächter steht in
+[test/basis-css.test.ts](../../test/basis-css.test.ts).
+
+Vier Dinge, die beim Umsetzen anders kamen als geplant:
+
+- **Der Import im Einstiegs-TS trägt nicht.** Vite hängt gebautes CSS ans ENDE
+  des `<head>` — die Basis stünde damit HINTER dem `<style>` der Seite und
+  schlüge bei gleicher Spezifität genau das, was die Seite absichtlich anders
+  macht (gemessen: die Verwaltung wurde 80 px breiter, ohne dass sich eine
+  Zeile ihres CSS änderte). Der Dev-Server tut das nicht, es fiele also erst
+  nach dem Deploy auf. Die Blätter hängen jetzt als `<link>` vor dem
+  `<style>`, und `basisZuerst()` in [vite.config.js](../../vite.config.js)
+  stellt die Reihenfolge nach dem Bauen wieder her.
+- **Drei Dateien statt einer.** Das Projekt hat zwei Knopf-Register — Pillen
+  auf den öffentlichen Seiten, Kästen im Werkzeug —, und `button.knopf` (Pille)
+  schlägt `button, .knopf` (Kasten). In einer Datei wären die Werkzeugleisten
+  still zu Pillenreihen geworden. Welches Register gewinnt, ist eine
+  Design-Entscheidung; sie gehört nicht in eine Aufräum-Etappe.
+- **Die Radien sind 9 / 12 / 14 / 16**, nicht 9 / 12 / 14. `rounded.card: 14px`
+  ist neu in DESIGN.md, weil es im Code längst der häufigste Wert war (Karten
+  und Tafeln überall), nur nirgends geschrieben stand — und 16 blieb für
+  Dialoge nötig.
+- **Zwei tote Variablen kamen dabei ans Licht**: `var(--text-3)` im
+  Passwortfeld (auf Konto- und Profilseite gab es sie nicht, das Augen-Icon
+  erbte deshalb die Textfarbe) und `var(--ok, #56c271)` im Studio — eine fünfte
+  Grünstufe, die niemand definiert hatte. Der Wächter prüft diese Fehlerklasse
+  jetzt mit.
 
 ## Was die Umsetzung am ehesten kippt
 
