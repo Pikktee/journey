@@ -20,6 +20,27 @@ colors:
   topbar: "rgba(13, 17, 24, 0.82)"
   topbar-border: "#222b37"
   on-cta: "#1a1206"
+  # Flächenstufen über dem Grund — Karten, Felder, gehobene Zeilen.
+  surface-1: "#10151d"
+  surface-2: "#151c26"
+  surface-3: "#1c2530"
+  border-strong: "#2e3a49"
+  # Opake Sekundärtexte. Neben muted/faint, weil das andere Farben sind und
+  # nicht andere Namen: muted/faint sind Creme mit Deckkraft (sie nehmen den
+  # Grund an), text-2/text-3 sind blaugrau und stehen fest.
+  text-2: "#a7b1bf"
+  text-3: "#67727f"
+  card: "rgba(255, 255, 255, 0.035)"
+  # Status. Coral ist Zweitakzent und NIE Fehlerrot (s. Colors).
+  success: "#3ecf8e"
+  danger: "#e5484d"
+  info: "#5b9dff"
+  accent-violet: "#c58bff"
+  warning: "#e8a13c"
+  # Nur im Player: Glasflächen über der Karte und der helle Papierton.
+  glass: "rgba(12, 15, 20, 0.55)"
+  glass-border: "rgba(255, 255, 255, 0.1)"
+  paper: "#f6f1e7"
 typography:
   display:
     fontFamily: Outfit
@@ -55,6 +76,8 @@ rounded:
   lg: 12px
   xl: 16px
   full: 999px
+elevation:
+  shadow: "0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35)"
 spacing:
   wrap: 1160px
   page-gutter: 22px
@@ -124,8 +147,35 @@ Dunkle Flächen, ein warmer Akzentverlauf, cremefarbenes Textweiß.
 - **Line:** feine Trenner `rgba(255, 255, 255, 0.08)`; Topbar-Rand oft `#222b37`.
 - **On-CTA (`#1a1206`):** Text auf Amber/Coral-Knöpfen.
 
-CSS-Aliase: Landing/Galerie nutzen `--amber` / `--coral`; Studio historisch auch `--akzent` /
-`--akzent-2` (gleiche Hex-Werte). Neue UI bevorzugt `--amber` / `--coral`.
+### Ein Namenssystem: `src/basis.css`
+
+Die Werte oben stehen genau einmal im Code, als CSS-Variablen in
+[`src/basis.css`](src/basis.css). Jede Seite bindet sie ein (Einstiegsmodul per `import`,
+die Landing und die Rechtstexte per `<link>` bzw. `@import` — sie haben kein Bundle).
+**Keine HTML-Datei definiert eigene Farb-Tokens**, und die Werte selbst stehen nirgends
+sonst roh im Code. Ein Drift-Wächter ([`test/basis-css.test.ts`](test/basis-css.test.ts))
+liest den YAML-Kopf dieser Datei und hält beides nach.
+
+Es gab zwei Namenssysteme für dieselben Farben (`--akzent`/`--text`/`--fl-1` in Studio,
+Admin, Galerie und Landing gegen `--amber`/`--ink` in Konto und Profil) — dazu ein drittes
+im Player, wo `--ink` nicht der Text, sondern der HINTERGRUND war. Es gilt das erste:
+
+| YAML | CSS-Variable | | YAML | CSS-Variable |
+|---|---|---|---|---|
+| `primary` / `amber` | `--akzent` | | `surface-1…3` | `--fl-1` … `--fl-3` |
+| `secondary` / `coral` | `--akzent-2` | | `border-strong` | `--rand-hell` |
+| `text` | `--text` | | `text-2` / `text-3` | `--text-2` / `--text-3` |
+| `muted` | `--text-gedaempft` | | `card` | `--tafel` |
+| `faint` | `--text-zart` | | `success` / `danger` | `--gruen` / `--rot` |
+| `bg` | `--bg` | | `info` / `accent-violet` | `--blau` / `--lila` |
+| `bg-deep` | `--bg-tief` | | `warning` | `--warn` |
+| `line` | `--linie` | | `glass` / `glass-border` | `--glas` / `--glas-rand` |
+| `topbar` | `--topbar-bg` | | `paper` | `--papier` |
+| `topbar-border` | `--rand` | | `rounded.*` | `--radius-sm` … `--radius-full` |
+| `on-cta` | `--auf-akzent` | | `elevation.shadow` | `--schatten` |
+
+`--rand` ist eine FARBE (die opake Trennlinie). Wer einen Seitenabstand meint, nimmt
+`--seitenrand` — die Landing hatte beides unter demselben Namen.
 
 ## Typography
 

@@ -37,29 +37,24 @@
       } catch (e) {}
     })()
   </script>
+
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
+       überschreiben kann und nicht umgekehrt; im Build hält das der
+       basisZuerst()-Schritt in vite.config.js nach. -->
+  <link rel="stylesheet" href="/src/basis.css" />
+
   <style>
-    :root {
-      --bg-2: #06090e;
-      --ink: #f2ede3;
-      --muted: rgba(242, 237, 227, 0.64);
-      --faint: rgba(242, 237, 227, 0.42);
-      --amber: #F59E0B;
-      --coral: #FF6F52;
-      --line: rgba(255, 255, 255, 0.08);
-      --card: rgba(255, 255, 255, 0.035);
-      --sans: 'Outfit', system-ui, sans-serif;
-      --display: 'Outfit', system-ui, sans-serif;
-      --wrap: 1160px;
-    }
+    /* Farben, Radien, Schrift und Maße stehen in src/basis.css (s. <link> oben). */
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg-2);
-      color: var(--ink);
-      font-family: var(--sans);
+      background: var(--bg-tief);
+      color: var(--text);
+      font-family: var(--font-ui);
       -webkit-font-smoothing: antialiased;
     }
 
@@ -81,7 +76,7 @@
     }
     .brand {
       display: inline-flex; align-items: center; gap: 0.45em; flex-shrink: 0;
-      text-decoration: none; color: inherit; font-family: var(--display);
+      text-decoration: none; color: inherit; font-family: var(--font-display);
       font-weight: 700; font-size: 17px; letter-spacing: -0.02em; line-height: 1;
       justify-self: start;
     }
@@ -90,18 +85,18 @@
     .top-nav a {
       display: inline-flex; align-items: center; gap: 7px;
       color: #a7b1bf; text-decoration: none;
-      font-family: var(--sans);
+      font-family: var(--font-ui);
       font-size: 13.5px; font-weight: 500; padding: 7px 12px; border-radius: 9px;
       transition: color 0.18s ease, background 0.18s ease;
     }
     .top-nav a svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
-    .top-nav a:hover { color: var(--ink); background: rgba(255,255,255,0.06); }
-    .top-nav a.aktiv { color: var(--ink); background: rgba(255,255,255,0.07); }
+    .top-nav a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .top-nav a.aktiv { color: var(--text); background: rgba(255,255,255,0.07); }
     .top-nav a.aktiv svg { opacity: 1; }
     .nav-right { display: flex; align-items: center; gap: 10px; justify-self: end; }
     .nav-right a.nav-cta {
       color: #1a1206; font-weight: 600; font-size: 13.5px; text-decoration: none;
-      background: linear-gradient(120deg, var(--amber), var(--coral));
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       padding: 8px 16px; border-radius: 999px;
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.06); }
@@ -110,17 +105,17 @@
     .konto-wrap { position: relative; }
     .benutzer-chip {
       display: inline-flex; align-items: center; gap: 8px;
-      font-family: var(--sans); font-size: 13px; font-weight: 500;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 500;
       color: #a7b1bf;
       background: #10151d;
       border: 1px solid #222b37; border-radius: 999px;
       padding: 6px 12px 6px 7px; cursor: pointer;
     }
-    .benutzer-chip:hover { background: #1c2530; color: var(--ink); border-color: #2e3a49; }
-    .benutzer-chip[aria-expanded='true'] { border-color: var(--amber); }
+    .benutzer-chip:hover { background: #1c2530; color: var(--text); border-color: #2e3a49; }
+    .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
     .benutzer-chip .punkt {
       width: 20px; height: 20px; border-radius: 50%;
-      background: linear-gradient(120deg, var(--amber), var(--coral));
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       color: #221302; display: grid; place-items: center;
       font-size: 11px; font-weight: 700; text-transform: uppercase; flex: none;
     }
@@ -133,18 +128,18 @@
       display: flex; flex-direction: column; gap: 10px;
     }
     .konto-menue[hidden] { display: none !important; }
-    .km-mail { font-family: var(--sans); font-size: 12.5px; font-weight: 500; color: #a7b1bf; word-break: break-all; }
+    .km-mail { font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: #a7b1bf; word-break: break-all; }
     .km-quota-kopf { display: flex; justify-content: space-between; font-size: 11.5px; color: #67727f; margin-bottom: 6px; }
     .km-balken { height: 6px; border-radius: 3px; background: #10151d; overflow: hidden; }
-    .km-balken span { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
+    .km-balken span { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
     .km-balken span.voll { background: #e8a13c; }
     .km-trenner { height: 1px; background: #222b37; margin: 2px 0; }
     .km-eintrag {
       display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start;
-      font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--ink); text-decoration: none;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 500; color: var(--text); text-decoration: none;
       background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer;
     }
-    .km-eintrag:hover { background: rgba(255,255,255,0.06); text-decoration: none; color: var(--ink); }
+    .km-eintrag:hover { background: rgba(255,255,255,0.06); text-decoration: none; color: var(--text); }
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
     @media (max-width: 640px) {
       .top-nav { display: none; }
@@ -162,38 +157,38 @@
       background-size: cover; background-position: center;
     }
     .banner.leer { background: linear-gradient(150deg, #121a25, #0b1119 62%, #0c1520); }
-    .banner .schleier { position: absolute; inset: auto 0 0 0; height: 76%; background: linear-gradient(transparent, rgba(6, 9, 14, 0.75) 55%, var(--bg-2)); }
+    .banner .schleier { position: absolute; inset: auto 0 0 0; height: 76%; background: linear-gradient(transparent, rgba(6, 9, 14, 0.75) 55%, var(--bg-tief)); }
     .banner .schleier-oben { position: absolute; inset: 0 0 auto 0; height: 38%; background: linear-gradient(rgba(4, 7, 11, 0.45), transparent); }
 
     /* ————— Kopf ————— */
     .profilkopf { display: flex; gap: 22px; align-items: flex-end; margin-top: -54px; padding: 0 8px; position: relative; z-index: 2; }
     .avatar {
-      width: clamp(84px, 13vw, 112px); aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--bg-2);
-      background: linear-gradient(120deg, var(--amber), var(--coral)); color: #221302;
+      width: clamp(84px, 13vw, 112px); aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--bg-tief);
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: #221302;
       display: grid; place-items: center; font-size: clamp(32px, 5vw, 42px); font-weight: 700;
       overflow: hidden; flex: none;
     }
     .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .kopftext { flex: 1; min-width: 0; padding-bottom: 6px; }
-    .kopftext h1 { font-family: var(--display); font-size: clamp(24px, 3.6vw, 32px); font-weight: 600; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
-    .beiwerk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: var(--faint); font-size: 13.5px; margin-top: 5px; }
+    .kopftext h1 { font-family: var(--font-display); font-size: clamp(24px, 3.6vw, 32px); font-weight: 600; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
+    .beiwerk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: var(--text-zart); font-size: 13.5px; margin-top: 5px; }
     .beiwerk > span { display: inline-flex; align-items: center; gap: 6px; }
-    .beiwerk .handle { color: var(--muted); font-weight: 500; }
+    .beiwerk .handle { color: var(--text-gedaempft); font-weight: 500; }
     .beiwerk svg { width: 14px; height: 14px; flex: none; }
     .kopf-aktionen { display: flex; gap: 9px; align-items: center; padding-bottom: 8px; flex-wrap: wrap; }
 
     /* ————— Knöpfe ————— */
     button.knopf, .banner-knopf {
       display: inline-flex; align-items: center; gap: 7px;
-      font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--muted);
-      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--line); border-radius: 999px;
+      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text-gedaempft);
+      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--linie); border-radius: 999px;
       padding: 8px 15px; cursor: pointer; transition: background 0.16s, color 0.16s, border-color 0.16s;
     }
-    button.knopf:hover, .banner-knopf:hover { background: rgba(255, 255, 255, 0.09); color: var(--ink); }
+    button.knopf:hover, .banner-knopf:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
     button.knopf svg, .banner-knopf svg { width: 15px; height: 15px; flex: none; }
     button.knopf.primaer {
       color: #1a1206; font-weight: 600; border-color: transparent;
-      background: linear-gradient(120deg, var(--amber), var(--coral));
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
     }
     button.knopf.primaer:hover { filter: brightness(1.06); }
     button.knopf[hidden], .banner-knopf[hidden] { display: none !important; }
@@ -201,14 +196,14 @@
     /* Kein Knopf, sondern eine Auskunft: Bei privatem Profil gibt es nichts zu
        teilen — statt eines toten Knopfes steht hier, warum. */
     #privat-chip { cursor: default; }
-    #privat-chip:hover { background: rgba(255, 255, 255, 0.045); color: var(--muted); }
+    #privat-chip:hover { background: rgba(255, 255, 255, 0.045); color: var(--text-gedaempft); }
 
-    .bio { margin: 16px 8px 0; max-width: 68ch; color: var(--muted); font-size: 15.5px; line-height: 1.6; }
+    .bio { margin: 16px 8px 0; max-width: 68ch; color: var(--text-gedaempft); font-size: 15.5px; line-height: 1.6; }
     .bio[hidden] { display: none; }
 
     .links { display: flex; flex-wrap: wrap; gap: 18px; margin: 14px 8px 0; }
-    .link-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13.5px; text-decoration: none; transition: color 0.16s; }
-    .link-chip:hover { color: var(--amber); text-decoration: underline; text-underline-offset: 3px; }
+    .link-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--text-zart); font-size: 13.5px; text-decoration: none; transition: color 0.16s; }
+    .link-chip:hover { color: var(--akzent); text-decoration: underline; text-underline-offset: 3px; }
     .link-chip svg { width: 15px; height: 15px; flex: none; opacity: 0.85; }
 
     /* Kennzahlen als Chips — der Mittelweg aus drei Anläufen (Kacheln waren ein
@@ -217,30 +212,30 @@
     .kennzahlen { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 8px 0; }
     .kz {
       display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
-      border-radius: 999px; background: var(--card); border: 1px solid var(--line);
-      font-size: 13.5px; color: var(--faint);
+      border-radius: 999px; background: var(--tafel); border: 1px solid var(--linie);
+      font-size: 13.5px; color: var(--text-zart);
     }
-    .kz svg { width: 15px; height: 15px; flex: none; color: var(--amber); }
-    .kz b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .kz svg { width: 15px; height: 15px; flex: none; color: var(--akzent); }
+    .kz b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
     .touren-kopf { margin: 32px 8px 14px; }
-    .touren-kopf h2 { font-family: var(--display); font-size: 19px; font-weight: 600; margin: 0; }
+    .touren-kopf h2 { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin: 0; }
 
     .touren { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 0 8px 70px; }
     .tour {
-      border-radius: 14px; overflow: hidden; background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; overflow: hidden; background: var(--tafel); border: 1px solid var(--linie);
       text-decoration: none; color: inherit; display: block;
       transition: transform 0.16s ease, border-color 0.16s ease;
     }
     .tour:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.2); }
-    .tour:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+    .tour:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
     .tour .bild { height: 118px; position: relative; background-size: cover; background-position: center; background-color: rgba(255, 255, 255, 0.05); }
     .tour .bild::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(6, 8, 12, 0.75)); }
     .tour .txt { padding: 12px 14px 14px; }
     .tour .titel { font-weight: 550; }
-    .tour .meta { font-size: 12.5px; color: var(--faint); margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .tour .meta { font-size: 12.5px; color: var(--text-zart); margin-top: 4px; font-variant-numeric: tabular-nums; }
 
-    .hinweis { color: var(--muted); font-size: 16px; padding: 40px 0 60px; text-align: center; }
+    .hinweis { color: var(--text-gedaempft); font-size: 16px; padding: 40px 0 60px; text-align: center; }
 
     /* ————— Dialoge (nur für den Besitzer, s. src/profil/profilbearbeiten.ts) ————— */
     body.dialog-offen { overflow: hidden; }
@@ -253,13 +248,13 @@
       background: #151c26; border: 1px solid #222b37; border-radius: 16px;
       box-shadow: 0 24px 70px rgba(2, 5, 10, 0.7);
     }
-    .sp-kopf { padding: 18px 22px 14px; border-bottom: 1px solid var(--line); }
-    .sp-kopf h2 { font-family: var(--display); font-size: 18px; font-weight: 600; margin: 0; }
+    .sp-kopf { padding: 18px 22px 14px; border-bottom: 1px solid var(--linie); }
+    .sp-kopf h2 { font-family: var(--font-display); font-size: 18px; font-weight: 600; margin: 0; }
     /* Der Körper scrollt, nicht der Dialog: Sonst wandert die Fußzeile mit den
        Knöpfen aus dem Bild, und „Speichern" ist nicht mehr zu finden. */
     .sp-koerper { padding: 18px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-    .sp-fuss { padding: 14px 22px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 9px; }
-    .sp-hinweis { margin: 0; color: var(--muted); font-size: 14px; }
+    .sp-fuss { padding: 14px 22px 18px; border-top: 1px solid var(--linie); display: flex; justify-content: flex-end; gap: 9px; }
+    .sp-hinweis { margin: 0; color: var(--text-gedaempft); font-size: 14px; }
     .sp-reihe { display: flex; gap: 13px; flex-wrap: wrap; }
     .sp-reihe > * { flex: 1 1 200px; min-width: 0; }
     .sp-nebenzeile { display: flex; gap: 9px; flex-wrap: wrap; }
@@ -267,54 +262,54 @@
     .sp-fehler[hidden] { display: none; }
 
     .sp-feld { display: flex; flex-direction: column; gap: 6px; }
-    .sp-feld label { font-size: 13px; font-weight: 500; color: var(--muted); }
-    .sp-feld .zaehler { color: var(--faint); font-weight: 400; font-variant-numeric: tabular-nums; }
-    .sp-feld .zaehler.knapp { color: var(--amber); }
+    .sp-feld label { font-size: 13px; font-weight: 500; color: var(--text-gedaempft); }
+    .sp-feld .zaehler { color: var(--text-zart); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .sp-feld .zaehler.knapp { color: var(--akzent); }
     .sp-feld input, .sp-feld textarea, .vorsatz-feld {
-      font-family: var(--sans); font-size: 14.5px; color: var(--ink);
+      font-family: var(--font-ui); font-size: 14.5px; color: var(--text);
       background: #0d131b; border: 1px solid #222b37; border-radius: 10px;
       padding: 9px 12px; width: 100%; box-sizing: border-box;
     }
     .sp-feld textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
-    .sp-feld input:focus-visible, .sp-feld textarea:focus-visible { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+    .sp-feld input:focus-visible, .sp-feld textarea:focus-visible { outline: none; border-color: var(--akzent); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
     /* Feld mit feststehendem Vorsatz („maptale.io/@"). Der Rahmen sitzt auf der
        Hülle, das Eingabefeld darin ist nackt — zwei Rahmen nebeneinander sähen
        aus wie zwei Felder. */
     .vorsatz-feld { display: flex; align-items: center; gap: 0; padding: 0 0 0 12px; }
-    .vorsatz-feld:focus-within { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
-    .vorsatz-feld .fest { color: var(--faint); white-space: nowrap; flex: none; font-size: 14.5px; }
+    .vorsatz-feld:focus-within { border-color: var(--akzent); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+    .vorsatz-feld .fest { color: var(--text-zart); white-space: nowrap; flex: none; font-size: 14.5px; }
     .vorsatz-feld input { border: none; background: transparent; padding-left: 1px; }
     .vorsatz-feld input:focus-visible { box-shadow: none; border-color: transparent; }
 
-    .handle-stand { font-size: 12.5px; color: var(--faint); min-height: 17px; }
+    .handle-stand { font-size: 12.5px; color: var(--text-zart); min-height: 17px; }
     .handle-stand.frei { color: #7ddba2; }
     .handle-stand.belegt { color: #ff9ea0; }
 
-    .sp-schalterzeile { display: flex; align-items: center; gap: 16px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
+    .sp-schalterzeile { display: flex; align-items: center; gap: 16px; padding: 13px 15px; border: 1px solid var(--linie); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
     .sp-schalterzeile .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
-    .sp-schalterzeile .t { font-size: 14px; font-weight: 500; color: var(--ink); }
-    .sp-schalterzeile .b { font-size: 12.5px; color: var(--faint); line-height: 1.45; }
+    .sp-schalterzeile .t { font-size: 14px; font-weight: 500; color: var(--text); }
+    .sp-schalterzeile .b { font-size: 12.5px; color: var(--text-zart); line-height: 1.45; }
     .schalter { appearance: none; width: 44px; height: 26px; border-radius: 999px; background: #222b37; border: 1px solid #2e3a49; position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
-    .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--faint); transition: translate 0.18s, background 0.18s; }
+    .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-zart); transition: translate 0.18s, background 0.18s; }
     .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
-    .schalter:checked::after { translate: 18px 0; background: var(--amber); }
+    .schalter:checked::after { translate: 18px 0; background: var(--akzent); }
 
     .stile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .stil { height: 74px; border-radius: 12px; border: 1px solid var(--line); background-size: cover; background-position: center; cursor: pointer; padding: 0; }
+    .stil { height: 74px; border-radius: 12px; border: 1px solid var(--linie); background-size: cover; background-position: center; cursor: pointer; padding: 0; }
     .stil:hover { border-color: rgba(255, 255, 255, 0.28); }
-    .stil.gewaehlt { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3); }
+    .stil.gewaehlt { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3); }
 
     button.still {
       display: inline-flex; align-items: center; gap: 7px;
-      font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--muted);
-      background: transparent; border: 1px solid var(--line); border-radius: 999px;
+      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text-gedaempft);
+      background: transparent; border: 1px solid var(--linie); border-radius: 999px;
       padding: 8px 15px; cursor: pointer;
     }
-    button.still:hover { background: rgba(255, 255, 255, 0.06); color: var(--ink); }
+    button.still:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
     button.still svg { width: 15px; height: 15px; flex: none; }
     button.primaer {
-      font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: #1a1206;
-      background: linear-gradient(120deg, var(--amber), var(--coral));
+      font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: #1a1206;
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       border: 1px solid transparent; border-radius: 999px; padding: 8px 18px; cursor: pointer;
     }
     button.primaer:hover { filter: brightness(1.06); }
@@ -326,10 +321,10 @@
       .stile { grid-template-columns: 1fr; }
     }
 
-    footer { border-top: 1px solid var(--line); padding: 26px 0 40px; }
-    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--sans); font-size: 13px; color: var(--faint); }
-    footer a { color: var(--faint); text-decoration: none; }
-    footer a:hover { color: var(--ink); }
+    footer { border-top: 1px solid var(--linie); padding: 26px 0 40px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-family: var(--font-ui); font-size: 13px; color: var(--text-zart); }
+    footer a { color: var(--text-zart); text-decoration: none; }
+    footer a:hover { color: var(--text); }
 
     @media (prefers-reduced-motion: reduce) { .karte { transition: none; } }
   </style>

@@ -23,22 +23,26 @@
     Eingehängt über `error_page 404 /404.html;` im Vhost.
   -->
   <style>
+    /* Der EINE Ort, an dem die Marken-Tokens ein zweites Mal stehen dürfen —
+       src/basis.css ist ein gehashtes Asset, und genau das könnte fehlen, wenn
+       diese Seite gebraucht wird. Die Werte müssen deshalb von Hand mit
+       DESIGN.md mitgehen; der Wächter in test/basis-css.test.ts prüft sie. */
     :root {
-      --bg: #090c11;
-      --bg-tief: #06080c;
+      --bg: #0a0d14;
+      --bg-tief: #06090e;
       --rand: #222b37;
       --text: #f2ede3;
       --text-2: #a7b1bf;
       --text-3: #67727f;
-      --amber: #f59e0b;
-      --coral: #ff6f52;
-      --font: 'Outfit', system-ui, -apple-system, sans-serif;
+      --akzent: #f59e0b;
+      --akzent-2: #ff6f52;
+      --font-ui: 'Outfit', system-ui, -apple-system, sans-serif;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0;
-      font-family: var(--font);
+      font-family: var(--font-ui);
       color: var(--text);
       background:
         radial-gradient(120% 90% at 15% 8%, rgba(245, 165, 36, 0.08), transparent 55%),
@@ -70,14 +74,14 @@
       stroke-dasharray: 0.63 1;
     }
     .weg-lose {
-      fill: none; stroke: var(--amber); stroke-width: 2.8; stroke-linecap: round;
+      fill: none; stroke: var(--akzent); stroke-width: 2.8; stroke-linecap: round;
       stroke-dasharray: 0.008 0.017; mask: url(#ausfransen);
     }
     .pin .ring { fill: none; stroke: rgba(245, 158, 11, 0.5); stroke-width: 1.4; }
     .pin .mast { stroke: rgba(245, 158, 11, 0.65); stroke-width: 1.6; }
-    .pin .scheibe { fill: #0b0f16; stroke: var(--amber); stroke-width: 2; }
+    .pin .scheibe { fill: #0b0f16; stroke: var(--akzent); stroke-width: 2; }
     .pin text {
-      fill: var(--text); font-family: var(--font); font-size: 13px; font-weight: 600;
+      fill: var(--text); font-family: var(--font-ui); font-size: 13px; font-weight: 600;
       text-anchor: middle; font-variant-numeric: tabular-nums;
     }
     /* Der Halt, den es nicht gibt: gestrichelt, gedämpft, ohne Anschluss. */
@@ -113,19 +117,19 @@
     .knopf {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 12px 22px; border-radius: 999px;
-      font-family: var(--font); font-size: 15px; font-weight: 550; letter-spacing: -0.01em;
+      font-family: var(--font-ui); font-size: 15px; font-weight: 550; letter-spacing: -0.01em;
       text-decoration: none; border: 1px solid transparent;
       transition: transform 0.18s ease, box-shadow 0.22s ease, border-color 0.22s ease, color 0.22s ease;
     }
     .knopf-primaer {
-      background: linear-gradient(100deg, var(--amber), var(--coral));
+      background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
       color: #14100a;
       box-shadow: 0 8px 24px rgba(245, 158, 11, 0.22);
     }
     .knopf-primaer:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(245, 158, 11, 0.32); }
     .knopf-geist { border-color: var(--rand); color: var(--text); }
     .knopf-geist:hover { border-color: rgba(245, 158, 11, 0.55); transform: translateY(-1px); }
-    .knopf:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+    .knopf:focus-visible { outline: 2px solid var(--akzent); outline-offset: 3px; }
 
     .leise { margin: 26px 0 0; font-size: 13.5px; color: var(--text-3); }
     .leise a { color: var(--text-2); text-decoration: none; border-bottom: 1px solid var(--rand); }

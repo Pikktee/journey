@@ -4,18 +4,11 @@
    IBM Plex Mono nur noch im Debug-Feld des Google-3D-Testmodus
    ———————————————————————————————————————————— */
 
+/* Farben, Radien und Schrift kommen aus basis.css (main.js importiert sie vor
+   dieser Datei). Der Player hieß seine Variablen früher anders — und zwar
+   gefährlich anders: `--ink` war hier der HINTERGRUND, in Landing und Konto der
+   TEXT. Wer `var(--ink)` las, wusste ohne die Datei nicht, welche Farbe kommt. */
 :root {
-  --ink: #0a0d12;
-  --paper: #f6f1e7;
-  --text: #f2ede3;
-  --muted: rgba(242, 237, 227, 0.64);
-  --amber: #F59E0B;
-  --coral: #FF6F52;
-  --glass: rgba(12, 15, 20, 0.55);
-  --glass-brd: rgba(255, 255, 255, 0.1);
-  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
-  --font-ui: 'Outfit', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
   /* Scrub-Cursor: Playhead-Griff mit Links/Rechts-Pfeilen, weiß mit dunkler
      Kontur (sichtbar auf hellem Tag- wie dunklem Nacht-Gelände). Hotspot mittig. */
   --scrub-cursor:
@@ -33,7 +26,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--ink);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
@@ -54,7 +47,7 @@ button {
 }
 
 button:focus-visible {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--akzent);
   outline-offset: 2px;
 }
 
@@ -176,8 +169,8 @@ body.cinema .cine {
   text-align: right;
   padding: 10px 16px;
   border-radius: 14px;
-  background: var(--glass);
-  border: 1px solid var(--glass-brd);
+  background: var(--glas);
+  border: 1px solid var(--glas-rand);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
 }
@@ -186,7 +179,7 @@ body.cinema .cine {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0;
-  color: var(--amber);
+  color: var(--akzent);
   margin-bottom: 3px;
 }
 
@@ -206,7 +199,7 @@ body.cinema .cine {
   font-size: 11.5px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 /* — Intro — */
@@ -253,7 +246,7 @@ body.cinema .cine {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--amber);
+  color: var(--akzent);
 }
 
 .intro-title {
@@ -270,7 +263,7 @@ body.cinema .cine {
   width: 76px;
   height: 1px;
   margin: 30px auto 22px;
-  background: var(--amber);
+  background: var(--akzent);
   opacity: 0.85;
 }
 
@@ -279,7 +272,7 @@ body.cinema .cine {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 .intro-meta {
@@ -297,7 +290,7 @@ body.cinema .cine {
   letter-spacing: 0;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -349,7 +342,7 @@ body.cinema .cine {
   background: rgba(8, 11, 16, 0.42);
   -webkit-backdrop-filter: blur(7px) saturate(1.1);
   backdrop-filter: blur(7px) saturate(1.1);
-  color: var(--muted);
+  color: var(--text-gedaempft);
   text-decoration: none;
   transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease,
     opacity 0.5s ease, transform 0.5s ease;
@@ -464,7 +457,7 @@ body.cinema .cine {
   margin: 0;
   pointer-events: none;
   cursor: pointer;
-  background: var(--paper);
+  background: var(--papier);
   padding: clamp(10px, 1.1vw, 16px);
   padding-bottom: 0;
   border-radius: 12px;
@@ -786,8 +779,8 @@ body.cinema .cine {
   text-align: center;
   padding: 42px 56px;
   border-radius: 22px;
-  background: var(--glass);
-  border: 1px solid var(--glass-brd);
+  background: var(--glas);
+  border: 1px solid var(--glas-rand);
   backdrop-filter: blur(20px) saturate(1.3);
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
   box-shadow: 0 34px 100px rgba(0, 0, 0, 0.55);
@@ -798,7 +791,7 @@ body.cinema .cine {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--amber);
+  color: var(--akzent);
 }
 
 .finale-title {
@@ -827,7 +820,7 @@ body.cinema .cine {
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 .stat-value {
@@ -860,7 +853,7 @@ body.cinema .cine {
 }
 
 .btn-replay {
-  color: var(--amber);
+  color: var(--akzent);
   border: 1px solid rgba(245, 165, 36, 0.55);
 }
 
@@ -871,8 +864,8 @@ body.cinema .cine {
 
 /* Sekundäre Aktion — dezenter als der Amber-Replay-Button */
 .btn-finale-menu {
-  color: var(--muted);
-  border: 1px solid var(--glass-brd);
+  color: var(--text-gedaempft);
+  border: 1px solid var(--glas-rand);
 }
 
 .btn-finale-menu:hover {
@@ -895,8 +888,8 @@ body.cinema .cine {
   gap: 10px 14px;
   padding: 12px 16px;
   border-radius: 18px;
-  background: var(--glass);
-  border: 1px solid var(--glass-brd);
+  background: var(--glas);
+  border: 1px solid var(--glas-rand);
   backdrop-filter: blur(22px) saturate(1.35);
   -webkit-backdrop-filter: blur(22px) saturate(1.35);
   box-shadow: 0 26px 80px rgba(0, 0, 0, 0.5);
@@ -936,7 +929,7 @@ body.cinema .cine {
 
 .icon-btn:hover {
   border-color: rgba(245, 165, 36, 0.5);
-  color: var(--amber);
+  color: var(--akzent);
   transform: translateY(-1px);
 }
 
@@ -984,7 +977,7 @@ body.cinema .cine {
   padding: 3px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
 }
 
 .preset-btn {
@@ -995,7 +988,7 @@ body.cinema .cine {
   border: none;
   border-radius: 9px;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-gedaempft);
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
@@ -1010,7 +1003,7 @@ body.cinema .cine {
 
 .preset-btn.active {
   background: rgba(245, 165, 36, 0.18);
-  color: var(--amber);
+  color: var(--akzent);
 }
 
 .telemetry {
@@ -1029,7 +1022,7 @@ body.cinema .cine {
   font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 /* Live tickende Werte: Outfit + tabular-nums statt Mono — gleich breite
@@ -1148,13 +1141,13 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
 
 /* besucht: amber gefüllt + weißer Ring (trennt es von der amberfarbenen Fülllinie) */
 .photo-dot.seen {
-  background: var(--amber);
+  background: var(--akzent);
   border: 2px solid #fff;
 }
 
 /* nächster: creme gefüllt + Amber-RING (die Anfahrt-Vorschau, füllt sich bei Ankunft) */
 .photo-dot.is-next {
-  border: 2.5px solid var(--amber);
+  border: 2.5px solid var(--akzent);
 }
 
 /* Foto-Wegpunkte und Startpunkt leben als GL-Layer in der Karte (map.js) —
@@ -1268,7 +1261,7 @@ body.ui-clean * {
 
 .icon-btn.active {
   border-color: rgba(245, 165, 36, 0.6);
-  color: var(--amber);
+  color: var(--akzent);
   background: rgba(245, 165, 36, 0.14);
 }
 
@@ -1286,7 +1279,7 @@ body.ui-clean * {
   min-width: 224px;
   padding: 8px;
   background: rgba(12, 15, 20, 0.82);
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   border-radius: 14px;
   backdrop-filter: blur(20px) saturate(1.3);
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
@@ -1302,7 +1295,7 @@ body.ui-clean * {
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0;
-  color: var(--muted);
+  color: var(--text-gedaempft);
   padding: 6px 10px 4px;
 }
 .lm-item {
@@ -1334,17 +1327,17 @@ body.ui-clean * {
   place-items: center;
 }
 .lm-item.on {
-  color: var(--amber);
+  color: var(--akzent);
 }
 .lm-item.on .lm-check {
-  border-color: var(--amber);
+  border-color: var(--akzent);
 }
 .lm-item.on .lm-check::after {
   content: '';
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--akzent);
 }
 .lm-text {
   flex: 1;
@@ -1355,14 +1348,14 @@ body.ui-clean * {
 .lm-tag {
   font-size: 10px;
   letter-spacing: 0;
-  color: var(--muted);
-  border: 1px solid var(--glass-brd);
+  color: var(--text-gedaempft);
+  border: 1px solid var(--glas-rand);
   border-radius: 6px;
   padding: 1px 5px;
 }
 .lm-sep {
   height: 1px;
-  background: var(--glass-brd);
+  background: var(--glas-rand);
   margin: 6px 4px;
 }
 
@@ -1380,10 +1373,10 @@ body.ui-clean * {
 }
 .lm-seg-btn {
   padding: 6px 0;
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   border-radius: 8px;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-gedaempft);
   cursor: pointer;
   font-family: var(--font-ui);
   font-size: 11px;
@@ -1395,8 +1388,8 @@ body.ui-clean * {
   color: var(--text);
 }
 .lm-seg-btn.on {
-  color: var(--amber);
-  border-color: var(--amber);
+  color: var(--akzent);
+  border-color: var(--akzent);
 }
 
 .g3d-modal {
@@ -1415,7 +1408,7 @@ body.ui-clean * {
   padding: 26px 28px 22px;
   border-radius: 18px;
   background: rgba(16, 20, 27, 0.92);
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
   font-size: 12.5px;
   line-height: 1.55;
@@ -1431,13 +1424,13 @@ body.ui-clean * {
 
 .g3d-card p {
   margin: 0 0 10px;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 .g3d-card ol {
   margin: 0 0 10px;
   padding-left: 20px;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 .g3d-card li {
@@ -1445,7 +1438,7 @@ body.ui-clean * {
 }
 
 .g3d-card a {
-  color: var(--amber);
+  color: var(--akzent);
 }
 
 .g3d-note {
@@ -1460,7 +1453,7 @@ body.ui-clean * {
   margin: 6px 0 14px;
   padding: 11px 13px;
   border-radius: 10px;
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
   font-family: var(--font-mono);
@@ -1468,7 +1461,7 @@ body.ui-clean * {
 }
 
 .g3d-card input:focus-visible {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--akzent);
   outline-offset: 1px;
 }
 
@@ -1489,8 +1482,8 @@ body.ui-clean * {
 
 #g3d-cancel {
   background: transparent;
-  border: 1px solid var(--glass-brd);
-  color: var(--muted);
+  border: 1px solid var(--glas-rand);
+  color: var(--text-gedaempft);
 }
 
 #g3d-save {
@@ -1509,7 +1502,7 @@ body.ui-clean * {
   padding: 12px 18px;
   border-radius: 12px;
   background: rgba(16, 20, 27, 0.92);
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
   font-size: 11.5px;
   line-height: 1.5;
@@ -1527,7 +1520,7 @@ body:not(.dev) .dev-only {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.16em;
-  color: var(--amber);
+  color: var(--akzent);
   border: 1px solid rgba(245, 165, 36, 0.5);
   border-radius: 6px;
   padding: 3px 6px;
@@ -1550,7 +1543,7 @@ body:not(.dev) .dev-only {
   padding: 24px 26px 20px;
   border-radius: 18px;
   background: rgba(16, 20, 27, 0.94);
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
 }
 
@@ -1567,7 +1560,7 @@ body:not(.dev) .dev-only {
   align-items: center;
   gap: 16px;
   padding: 12px 0;
-  border-top: 1px solid var(--glass-brd);
+  border-top: 1px solid var(--glas-rand);
 }
 
 .opt-name {
@@ -1578,7 +1571,7 @@ body:not(.dev) .dev-only {
 .opt-desc {
   margin-top: 2px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 .opt-text {
@@ -1699,12 +1692,12 @@ body.app .app-exit {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   border-radius: 999px;
   background: rgba(10, 13, 18, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: var(--muted);
+  color: var(--text-gedaempft);
   cursor: pointer;
   transition:
     color 0.18s ease,
@@ -1726,7 +1719,7 @@ body.app .app-exit {
   width: max-content;
   max-width: min(320px, calc(100vw - 30px));
   padding: 13px 15px 14px;
-  border: 1px solid var(--glass-brd);
+  border: 1px solid var(--glas-rand);
   border-radius: 15px;
   background: rgba(12, 15, 20, 0.82);
   backdrop-filter: blur(20px) saturate(1.25);
@@ -1775,7 +1768,7 @@ body.app .app-exit {
   margin-top: 1px;
   font-size: 12px;
   line-height: 1.35;
-  color: var(--muted);
+  color: var(--text-gedaempft);
 }
 
 .karten-info-popup a {
@@ -1785,8 +1778,8 @@ body.app .app-exit {
 }
 
 .karten-info-popup a:hover {
-  color: var(--amber);
-  border-bottom-color: var(--amber);
+  color: var(--akzent);
+  border-bottom-color: var(--akzent);
 }
 
 /* — Responsive: kompakter, aber nichts verstecken —

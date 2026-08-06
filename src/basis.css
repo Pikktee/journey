@@ -1,0 +1,118 @@
+/*
+ * Die Tokens der Marke — Farben, Radien, Typografie, Maße.
+ *
+ * ABLEITUNG, KEINE QUELLE. Was hier steht, steht im YAML-Kopf von DESIGN.md;
+ * bei Widerspruch gilt DESIGN.md. Der Drift-Wächter in test/basis-css.test.ts
+ * hält beide Seiten deckungsgleich und verbietet zugleich, dass eine HTML-Datei
+ * eigene Farb-Tokens definiert oder einen dieser Werte roh hinschreibt.
+ *
+ * Vorher lagen 4519 Zeilen CSS inline in neun HTML-Dateien, mit ZWEI
+ * Namenssystemen für dieselben Farben (`--akzent`/`--text`/`--fl-1` gegen
+ * `--amber`/`--ink`) — und einem dritten im Player, wo `--ink` nicht der Text,
+ * sondern der Hintergrund war. Wer dort `var(--ink)` las, wusste nicht, welche
+ * Farbe kommt, ohne die Datei zu kennen.
+ *
+ * EINGEBUNDEN wird sie als `<link rel="stylesheet" href="/src/basis.css">` im
+ * <head> JEDER Seite, und zwar VOR deren <style>-Block. Die Reihenfolge ist
+ * keine Kosmetik: Bei gleicher Spezifität gewinnt die zuletzt deklarierte
+ * Regel, und stünde die Basis hinten, schlüge sie genau das, was die Seite
+ * absichtlich anders macht. Gemessen an `--wrap: 1080px` der Verwaltung — die
+ * Seite wurde 80 px breiter, ohne dass sich eine Zeile ihres eigenen CSS
+ * geändert hätte.
+ *
+ * ACHTUNG, DIE FALLE: Vite hängt gebautes CSS grundsätzlich ans ENDE des
+ * <head>, egal wo der Verweis im Quelltext stand. Der Dev-Server tut das
+ * NICHT — der Unterschied fiele also erst nach dem Deploy auf. Deshalb zieht
+ * `basisZuerst()` in vite.config.js den Verweis nach dem Bauen wieder nach
+ * vorn. Wer das Plugin entfernt, dreht in Produktion die Kaskade um.
+ *
+ * Warum überhaupt eine eigene Datei und nicht `@import` in jeden <style>?
+ * Weil Vite den @import zwar korrekt auflöst, die Tokens dann aber in JEDE
+ * Seite kopiert. So fällt der Roundtrip genau einmal an; danach liegt die
+ * Datei im Cache und gilt für alle Einstiege, zwischen denen ohnehin
+ * gewechselt wird (Studio → Konto → Profil → Galerie → Player).
+ *
+ * Zwei Sonderfälle: Impressum/Datenschutz ziehen sie per `@import` in
+ * rechtstext.css hinein (dort steht sie ebenfalls vorn), damit die zwei Seiten
+ * bei EINEM Stylesheet bleiben und weiter ohne JS auskommen. Und
+ * public/404.html trägt ihre Werte selbst — sie liegt außerhalb des Builds,
+ * weil eine Fehlerseite auch dann stehen muss, wenn das Bundle fehlt.
+ */
+
+:root {
+  /* ─── Marke ─── */
+  --akzent: #f59e0b; /* Sonne: Primärakzent, Fokusringe, aktive Zustände */
+  --akzent-2: #ff6f52; /* Koralle: Verlaufsende und warmer Zweitakzent */
+  --auf-akzent: #1a1206; /* Text auf Amber/Koralle */
+
+  /* ─── Text ───
+     Zwei Reihen, weil es zwei verschiedene Farben sind und nicht zwei Namen:
+     `--text-gedaempft`/`--text-zart` sind Creme mit Deckkraft (sie nehmen den
+     Grund an, gut auf Bildern und Glas), `--text-2`/`--text-3` sind blaugrau
+     und stehen fest — Tabellen und Zeilen sollen nicht mit dem Grund wandern. */
+  --text: #f2ede3;
+  --text-gedaempft: rgba(242, 237, 227, 0.64);
+  --text-zart: rgba(242, 237, 227, 0.42);
+  --text-2: #a7b1bf;
+  --text-3: #67727f;
+
+  /* ─── Flächen ─── */
+  --bg: #0a0d14; /* Seitengrund */
+  --bg-tief: #06090e; /* der Grund darunter — Ränder, Felder, Seitenkörper */
+  --fl-1: #10151d; /* Karten und ruhige Tafeln */
+  --fl-2: #151c26; /* Knöpfe, gehobene Zeilen */
+  --fl-3: #1c2530; /* dasselbe im Zeigen-Zustand */
+  --tafel: rgba(255, 255, 255, 0.035); /* Glastafel über Bildern */
+
+  /* ─── Linien ───
+     `--rand` ist eine FARBE. Wer den Seitenabstand meint, nimmt --seitenrand. */
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --linie: rgba(255, 255, 255, 0.08);
+
+  /* ─── Status ───
+     Koralle steht hier bewusst nicht: Sie ist Zweitakzent, nie Fehlerrot. */
+  --gruen: #3ecf8e;
+  --rot: #e5484d;
+  --blau: #5b9dff;
+  --lila: #c58bff;
+  --warn: #e8a13c;
+
+  /* ─── Player: Glas über der Karte ─── */
+  --glas: rgba(12, 15, 20, 0.55);
+  --glas-rand: rgba(255, 255, 255, 0.1);
+  --papier: #f6f1e7;
+
+  /* ─── Kopfleiste ─── */
+  --topbar-bg: rgba(13, 17, 24, 0.82);
+  --topbar-h: 58px;
+
+  /* ─── Form ───
+     Ein Wert je Rolle, damit die Frage nicht bei jeder neuen Seite neu
+     beantwortet wird: Chips und Knöpfe md, Karten und Dialoge lg/xl,
+     CTAs full. Der Bestand trug dafür 9, 10 und 8 px nebeneinander. */
+  --radius-sm: 7px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* ─── Tiefe ───
+     Hierarchie über Tonwerte und feine Ränder, nicht über Schattenstapel. */
+  --schatten:
+    0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
+
+  /* ─── Schrift ───
+     EINE UI-Schrift. Zahlen richtet `font-variant-numeric: tabular-nums` aus,
+     nicht Mono; --font-mono gilt nur für Karten-Attribution und Debug. */
+  --font-ui: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* ─── Maß ───
+     Seiten mit anderer Lesebreite (Konto 780, Verwaltung 1080) überschreiben
+     --wrap in ihrem eigenen Block; es ist kein Markenwert. */
+  --wrap: 1160px;
+
+  color-scheme: dark;
+}

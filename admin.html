@@ -12,6 +12,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
+       überschreiben kann und nicht umgekehrt; im Build hält das der
+       basisZuerst()-Schritt in vite.config.js nach. -->
+  <link rel="stylesheet" href="/src/basis.css" />
+
   <style>
     /* ————————————————————————————————————————————————————————————
        Benutzerverwaltung — dieselbe Design-DNA wie Studio und Entdecken
@@ -19,25 +26,7 @@
        Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung.
        ———————————————————————————————————————————————————————————— */
     :root {
-      --bg: #090c11;
-      --bg-tief: #06080c;
-      --fl-1: #10151d;
-      --fl-2: #151c26;
-      --fl-3: #1c2530;
-      --rand: #222b37;
-      --rand-hell: #2e3a49;
-      --text: #f2ede3;
-      --text-2: #a7b1bf;
-      --text-3: #67727f;
-      --akzent: #F59E0B;
-      --akzent-2: #ff6f52;
-      --gruen: #3ecf8e;
-      --rot: #e5484d;
-      --blau: #5b9dff;
-      --warn: #e8a13c;
-      --font-display: 'Outfit', system-ui, sans-serif;
-      --font-ui: 'Outfit', system-ui, sans-serif;
-      --topbar-h: 58px;
+      /* Schmaler als die Galerie: Hier stehen Listen mit wenigen Spalten. */
       --wrap: 1080px;
     }
     * { box-sizing: border-box; }

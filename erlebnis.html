@@ -54,6 +54,13 @@
 
   <!-- Kritisches Inline-CSS: setzt sofort den dunklen Grund und zeigt den Boot-Screen,
        bevor das per JS importierte style.css geladen ist (verhindert FOUC). -->
+
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
+       überschreiben kann und nicht umgekehrt; im Build hält das der
+       basisZuerst()-Schritt in vite.config.js nach. -->
+  <link rel="stylesheet" href="/src/basis.css" />
+
   <style>
     html, body { margin: 0; height: 100%; background: #0a0d12; overflow: hidden; }
 

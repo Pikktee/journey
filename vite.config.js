@@ -59,8 +59,45 @@ function saubereUrls() {
   }
 }
 
+/**
+ * Die Marken-Tokens (src/basis.css) müssen VOR dem inline-`<style>` der Seite
+ * stehen — sonst schlägt die Basis bei gleicher Spezifität genau das, was die
+ * Seite absichtlich anders macht.
+ *
+ * Im Quelltext steht der `<link>` an der richtigen Stelle. Vite hängt gebautes
+ * CSS aber grundsätzlich ans ENDE des `<head>`, egal wo der Verweis stand — die
+ * Verwaltung wurde dadurch 80 px breit (`--wrap: 1080px` verlor gegen die 1160
+ * der Basis), ohne dass sich eine Zeile ihres eigenen CSS geändert hätte. Und
+ * es fiele erst nach dem Deploy auf, weil der Dev-Server den Verweis stehen
+ * lässt.
+ *
+ * Also: nach der Asset-Injektion den Basis-Verweis wieder nach vorn ziehen.
+ * Nicht stattdessen `@import './src/basis.css'` in jeden `<style>`-Block —
+ * Vite löst den zwar korrekt auf, kopiert die Datei dann aber in JEDE Seite;
+ * der geteilte Browser-Cache über alle Einstiege war der Grund für die eigene
+ * Datei (s. Kopf von src/basis.css).
+ */
+export function basisZuerst() {
+  return {
+    name: 'maptale-basis-zuerst',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        const verweis = html.match(/[ \t]*<link rel="stylesheet"[^>]*basis-[^>]*>\n?/)
+        const stelle = html.search(/[ \t]*<style[\s>]/)
+        if (!verweis || stelle === -1) return html
+        const ohne = html.replace(verweis[0], '')
+        // `stelle` zeigt in den ursprünglichen String; der Verweis steht immer
+        // dahinter (Vite hängt ihn ans Kopfende), also verschiebt das Entfernen
+        // nichts davor.
+        return ohne.slice(0, stelle) + verweis[0].replace(/^\n?/, '') + '\n' + ohne.slice(stelle)
+      },
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [saubereUrls()],
+  plugins: [saubereUrls(), basisZuerst()],
   build: {
     // main.js lädt Remote-Touren per Top-Level-Await (Boot-Screen überbrückt).
     // Vites Default-Target (u. a. Chrome 87/Safari 14) kann kein TLA — diese

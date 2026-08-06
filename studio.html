@@ -35,37 +35,26 @@
       } catch (e) {}
     })();
   </script>
+
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
+       überschreiben kann und nicht umgekehrt; im Build hält das der
+       basisZuerst()-Schritt in vite.config.js nach. -->
+  <link rel="stylesheet" href="/src/basis.css" />
+
   <style>
     /* ————————————————————————————————————————————————————————————
        Maptale Studio — App-Shell. Design-DNA des Players (Outfit +
        Amber auf warmem Dunkel), aber als Werkzeug gedacht:
        voller Viewport, Panels mit eigenem Scroll, Karte als Bühne.
        ———————————————————————————————————————————————————————————— */
+    /* Farben, Radien, Schrift und Maße stehen in src/basis.css (s. <link> oben). Hier stehen nur die Maße der Zeitleiste — sie sind
+       Studio-eigen und gehören in keine Marken-Datei.
+
+       Kein --font-mono: DESIGN.md kennt EINE UI-Schrift, Zahlen richtet
+       `font-variant-numeric: tabular-nums` aus. Die zwei erlaubten Mono-Plätze
+       (Karten-Attribution, Debug) gibt es im Studio nicht. */
     :root {
-      --bg: #090c11;
-      --bg-tief: #06080c;
-      --fl-1: #10151d;
-      --fl-2: #151c26;
-      --fl-3: #1c2530;
-      --rand: #222b37;
-      --rand-hell: #2e3a49;
-      --text: #f2ede3;
-      --text-2: #a7b1bf;
-      --text-3: #67727f;
-      --akzent: #F59E0B;
-      --akzent-2: #ff6f52;
-      --gruen: #3ecf8e;
-      --rot: #e5484d;
-      --blau: #5b9dff;
-      --lila: #c58bff;
-      --schatten: 0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
-      --font-display: 'Outfit', system-ui, sans-serif;
-      --font-ui: 'Outfit', system-ui, sans-serif;
-      /* Kein --font-mono mehr: DESIGN.md kennt EINE UI-Schrift, Zahlen richtet
-         `font-variant-numeric: tabular-nums` aus. Die zwei erlaubten Mono-Plätze
-         (Karten-Attribution, Debug) gibt es im Studio nicht. */
-      --topbar-h: 58px;
-      --wrap: 1160px;
       --spur-x: 168px;           /* feste Namenspalte der Zeitleiste — klebt beim Scrollen links */
       --zeit-breite: 900px;      /* Breite des Zeitfelds; skaliert mit dem Zoom, JS setzt sie */
       --inspector-breite: 380px;

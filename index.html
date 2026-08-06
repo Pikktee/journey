@@ -73,21 +73,14 @@
     rel="stylesheet"
   />
 
+  <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
+       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
+       überschreiben kann und nicht umgekehrt; im Build hält das der
+       basisZuerst()-Schritt in vite.config.js nach. -->
+  <link rel="stylesheet" href="/src/basis.css" />
+
   <style>
     :root {
-      --bg: #0A0D14;
-      --bg-2: #06090E;
-      --ink: #f2ede3;
-      --muted: rgba(242, 237, 227, 0.64);
-      --faint: rgba(242, 237, 227, 0.42);
-      --amber: #F59E0B;
-      --coral: #FF6F52;
-      --line: rgba(255, 255, 255, 0.08);
-      --card: rgba(255, 255, 255, 0.035);
-      --sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-      --display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-      --wrap: 1160px;
-
       /* Abstands-Skala — EIN Rhythmus für die ganze Seite.
          Die Stufen wachsen aus Breite UND Höhe (vw + vh), damit sie auf dem
          Handy gemeinsam schrumpfen: reine vh-Werte blieben dort fast so groß
@@ -97,7 +90,7 @@
       --luft-kopf: clamp(28px, 4vw + 1vh, 52px);       /* Abschnittskopf → Inhalt */
       --luft-gitter: clamp(18px, 1.4vw + 0.8vh, 22px); /* zwischen Karten */
       /* Seitenrand: nie unter die Notch (Landscape auf iPhone). */
-      --rand: max(clamp(18px, 5.6vw, 22px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+      --seitenrand: max(clamp(18px, 5.6vw, 22px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
       /* Höhe der fixen Kopfleiste — Startwert, den das Skript unten durch die
          GEMESSENE ersetzt (sie hängt an Logo, Knopf-Polstern und Schriftgröße,
          ist also nicht sauber vorauszurechnen). */
@@ -115,9 +108,9 @@
     body {
       margin: 0;
       min-height: 100%;
-      background: var(--bg-2);
-      color: var(--ink);
-      font-family: var(--sans);
+      background: var(--bg-tief);
+      color: var(--text);
+      font-family: var(--font-ui);
       font-size: 17px;
       line-height: 1.65;
       -webkit-font-smoothing: antialiased;
@@ -136,7 +129,7 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
-    .wrap { width: min(var(--wrap), 100% - var(--rand) * 2); margin-inline: auto; }
+    .wrap { width: min(var(--wrap), 100% - var(--seitenrand) * 2); margin-inline: auto; }
 
     /* Auf dem Handy stehen Zeilen enger zusammen als am Desktop — 1.65 zog
        jeden Absatz über fünf weit auseinanderliegende Zeilen. */
@@ -150,26 +143,26 @@
       padding: 14px 0; transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
       border-bottom: 1px solid transparent;
     }
-    .nav.scrolled { background: rgba(8, 11, 16, 0.76); backdrop-filter: blur(14px); border-bottom-color: var(--line); }
+    .nav.scrolled { background: rgba(8, 11, 16, 0.76); backdrop-filter: blur(14px); border-bottom-color: var(--linie); }
     .nav > .wrap { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
-    .nav-middle { display: flex; align-items: center; gap: 6px; font-family: var(--sans); }
+    .nav-middle { display: flex; align-items: center; gap: 6px; font-family: var(--font-ui); }
     .nav-middle a {
       text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
       padding: 8px 14px; border-radius: 9px; transition: color 0.2s, background 0.2s;
     }
-    .nav-middle a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
-    .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--sans); }
+    .nav-middle a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+    .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); }
     .nav-right a {
       text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
       padding: 8px 14px; border-radius: 9px; transition: color 0.2s, background 0.2s;
     }
-    .nav-right a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+    .nav-right a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
     .nav-right a.nav-cta {
-      color: #1a1206; font-weight: 600; background: linear-gradient(120deg, var(--amber), var(--coral));
+      color: #1a1206; font-weight: 600; background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       padding: 8px 18px; border-radius: 999px;
     }
-    .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--amber), var(--coral)); }
+    .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
     .nav-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.15); margin: 0 4px; }
     /* Gast vs. angemeldet: ohne JS-Runde kein Aufblitzen der falschen Seite */
     html:not(.nav-dabei) [data-dabei] { display: none !important; }
@@ -179,19 +172,19 @@
     .konto-wrap { position: relative; }
     .benutzer-chip {
       display: inline-flex; align-items: center; gap: 8px;
-      font-family: var(--sans); font-size: 13px; font-weight: 500;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 500;
       color: rgba(242, 237, 227, 0.72);
       background: rgba(255, 255, 255, 0.045);
-      border: 1px solid var(--line);
+      border: 1px solid var(--linie);
       border-radius: 999px;
       padding: 6px 12px 6px 7px;
       cursor: pointer;
     }
-    .benutzer-chip:hover { background: rgba(255, 255, 255, 0.08); color: var(--ink); }
-    .benutzer-chip[aria-expanded='true'] { border-color: var(--amber); }
+    .benutzer-chip:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
     .benutzer-chip .punkt {
       width: 20px; height: 20px; border-radius: 50%;
-      background: linear-gradient(120deg, var(--amber), var(--coral));
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       color: #221302; display: grid; place-items: center;
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       flex: none;
@@ -206,7 +199,7 @@
     }
     .konto-menue[hidden] { display: none !important; }
     .km-mail {
-      font-family: var(--sans); font-size: 12.5px; font-weight: 500;
+      font-family: var(--font-ui); font-size: 12.5px; font-weight: 500;
       color: rgba(242, 237, 227, 0.64); word-break: break-all;
     }
     .km-quota-kopf {
@@ -216,18 +209,18 @@
     .km-balken { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
     .km-balken span {
       display: block; height: 100%; width: 0; border-radius: 3px;
-      background: linear-gradient(90deg, var(--amber), var(--coral));
+      background: linear-gradient(90deg, var(--akzent), var(--akzent-2));
     }
     .km-balken span.voll { background: #e8a13c; }
     .km-trenner { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 2px 0; }
     .km-eintrag {
       display: inline-flex; align-items: center; gap: 8px;
       width: 100%; justify-content: flex-start;
-      font-family: var(--sans); font-size: 13px; font-weight: 500;
-      color: var(--ink); text-decoration: none; background: transparent; border: 1px solid transparent;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+      color: var(--text); text-decoration: none; background: transparent; border: 1px solid transparent;
       border-radius: 8px; padding: 8px 10px; cursor: pointer;
     }
-    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; color: var(--ink); }
+    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; color: var(--text); }
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
 
     @media (max-width: 720px) { .nav-hide-sm { display: none; } }
@@ -247,9 +240,9 @@
       transition: transform 0.18s ease, filter 0.18s ease, background 0.18s ease, border-color 0.18s ease;
     }
     .btn:active { transform: translateY(1px); }
-    .btn-primary { color: #1a1206; background: linear-gradient(120deg, var(--amber), var(--coral)); box-shadow: 0 12px 34px -12px rgba(245, 165, 36, 0.6); }
+    .btn-primary { color: #1a1206; background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); box-shadow: 0 12px 34px -12px rgba(245, 165, 36, 0.6); }
     .btn-primary:hover { filter: brightness(1.07); transform: translateY(-1px); }
-    .btn-ghost { color: var(--ink); border-color: rgba(255, 255, 255, 0.22); background: rgba(10, 13, 18, 0.35); backdrop-filter: blur(4px); }
+    .btn-ghost { color: var(--text); border-color: rgba(255, 255, 255, 0.22); background: rgba(10, 13, 18, 0.35); backdrop-filter: blur(4px); }
     .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
     .btn .arr { transition: transform 0.2s ease; }
     .btn:hover .arr { transform: translateX(3px); }
@@ -272,7 +265,7 @@
     .hero-scrim {
       position: absolute; inset: 0; z-index: -2;
       background:
-        linear-gradient(to top, var(--bg-2) 1%, rgba(6, 9, 14, 0.45) 34%, rgba(6, 9, 14, 0.14) 60%, rgba(6, 9, 14, 0.62) 100%),
+        linear-gradient(to top, var(--bg-tief) 1%, rgba(6, 9, 14, 0.45) 34%, rgba(6, 9, 14, 0.14) 60%, rgba(6, 9, 14, 0.62) 100%),
         linear-gradient(to right, rgba(6, 9, 14, 0.86) 0%, rgba(6, 9, 14, 0.4) 46%, transparent 78%);
     }
     /* Cineastische Letterbox-Andeutung */
@@ -282,18 +275,18 @@
 
     .hero-inner { padding: 0 0 clamp(44px, 4vw + 4vh, 140px); max-width: 52rem; }
     .hero h1 {
-      font-family: var(--display); font-weight: 700;
+      font-family: var(--font-display); font-weight: 700;
       font-size: clamp(38px, 6.2vw, 76px); line-height: 1.05; letter-spacing: -0.02em;
       margin: 0; text-shadow: 0 2px 40px rgba(0, 0, 0, 0.5); max-width: 18ch;
     }
-    .hero h1 em { font-style: italic; color: transparent; background: linear-gradient(120deg, #ffce7a, var(--amber) 45%, var(--coral)); -webkit-background-clip: text; background-clip: text; }
+    .hero h1 em { font-style: italic; color: transparent; background: linear-gradient(120deg, #ffce7a, var(--akzent) 45%, var(--akzent-2)); -webkit-background-clip: text; background-clip: text; }
     .hero .lead { margin: 20px 0 0; max-width: 52ch; color: rgba(242, 237, 227, 0.86); font-size: clamp(16.5px, 1.9vw, 19.5px); text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5); }
     .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
-    .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 26px; font-family: var(--sans); font-size: 14px; font-weight: 500; color: rgba(242, 237, 227, 0.75); }
+    .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 26px; font-family: var(--font-ui); font-size: 14px; font-weight: 500; color: rgba(242, 237, 227, 0.75); }
     /* Der Trenner klebt am NACHFOLGENDEN Begriff (im Markup mit ihm in einem
        span), sonst blieb er beim Umbruch als einzelnes „·“ am Zeilenende hängen. */
     .hero-meta .teil { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
-    .hero-meta .sep { color: var(--amber); opacity: 0.8; font-weight: 700; }
+    .hero-meta .sep { color: var(--akzent); opacity: 0.8; font-weight: 700; }
 
     /* Schmaler Schirm: gestapelte Knöpfe gleich breit — nebeneinander
        unterschiedlich lange Kanten lesen sich als Unordnung. */
@@ -306,7 +299,7 @@
       .hero-meta { flex-direction: column; align-items: flex-start; gap: 6px; }
       .hero-meta .sep { display: none; }
       .hero-meta > span, .hero-meta > span.teil { display: flex; align-items: baseline; gap: 9px; }
-      .hero-meta > span::before { content: '·'; color: var(--amber); opacity: 0.8; font-weight: 700; }
+      .hero-meta > span::before { content: '·'; color: var(--akzent); opacity: 0.8; font-weight: 700; }
     }
     .scroll-cue { position: absolute; left: 50%; bottom: 20px; z-index: 1; transform: translateX(-50%); color: rgba(242, 237, 227, 0.5); animation: bob 2.2s ease-in-out infinite; }
     @keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
@@ -353,8 +346,8 @@
     section.band { position: relative; padding: var(--luft-band) 0; }
     .sec-head { max-width: 62ch; }
     .sec-head.center { margin-inline: auto; text-align: center; }
-    .sec-head h2 { font-family: var(--display); font-weight: 700; font-size: clamp(29px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -0.012em; margin: 0; text-wrap: balance; }
-    .sec-head p { color: var(--muted); margin: 14px 0 0; }
+    .sec-head h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(29px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -0.012em; margin: 0; text-wrap: balance; }
+    .sec-head p { color: var(--text-gedaempft); margin: 14px 0 0; }
 
     /* ─── Touren ─────────────────────────────────────────────────── */
     /* Der erste Abschnitt ist der einzige, der an den Hero grenzt: wer hierher
@@ -378,7 +371,7 @@
     .tours { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: var(--luft-gitter); margin-top: var(--luft-kopf); }
     .tour-card {
       position: relative; display: block; min-height: 440px; border-radius: 18px; overflow: hidden;
-      text-decoration: none; color: var(--ink); border: 1px solid var(--line);
+      text-decoration: none; color: var(--text); border: 1px solid var(--linie);
       box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.8);
       transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
     }
@@ -386,13 +379,13 @@
     .tour-card::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgba(6, 9, 14, 0.94) 6%, rgba(6, 9, 14, 0.5) 40%, rgba(6, 9, 14, 0.08) 74%, rgba(6, 9, 14, 0.28) 100%); }
     .tour-card:hover { transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.26); box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.9); }
     .tour-card:hover .tc-img { transform: scale(1.06); }
-    .no-chip { position: absolute; top: 18px; left: 18px; z-index: 2; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--ink); background: rgba(6, 9, 14, 0.55); border: 1px solid rgba(255, 255, 255, 0.24); padding: 5px 11px; border-radius: 999px; backdrop-filter: blur(6px); }
+    .no-chip { position: absolute; top: 18px; left: 18px; z-index: 2; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--text); background: rgba(6, 9, 14, 0.55); border: 1px solid rgba(255, 255, 255, 0.24); padding: 5px 11px; border-radius: 999px; backdrop-filter: blur(6px); }
     .tc-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: clamp(18px, 4.6vw, 22px); }
-    .tour-card h3 { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.1; margin: 0; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6); text-wrap: balance; }
+    .tour-card h3 { font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1.1; margin: 0; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6); text-wrap: balance; }
     .card-sub { color: rgba(242, 237, 227, 0.86); font-size: 14.5px; margin: 8px 0 14px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6); }
     .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 15px; }
-    .chip { font-family: var(--sans); font-size: 12px; font-weight: 500; color: rgba(242, 237, 227, 0.9); background: rgba(10, 13, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.16); padding: 4px 10px; border-radius: 7px; backdrop-filter: blur(4px); }
-    .card-go { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--amber); }
+    .chip { font-family: var(--font-ui); font-size: 12px; font-weight: 500; color: rgba(242, 237, 227, 0.9); background: rgba(10, 13, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.16); padding: 4px 10px; border-radius: 7px; backdrop-filter: blur(4px); }
+    .card-go { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--akzent); }
     .card-go .arr { transition: transform 0.2s ease; }
     .tour-card:hover .card-go .arr { transform: translateX(4px); }
 
@@ -410,8 +403,8 @@
       stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
       stroke-dasharray: 420; stroke-dashoffset: 0;
     }
-    .tc-spur .tc-start { fill: var(--amber); }
-    .tc-spur .tc-ende { fill: none; stroke: var(--amber); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .tc-spur .tc-start { fill: var(--akzent); }
+    .tc-spur .tc-ende { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
     .tour-card:hover .tc-spur .tc-linie { animation: tcZeichnen 1.1s cubic-bezier(0.3, 0.6, 0.2, 1); }
     @keyframes tcZeichnen { from { stroke-dashoffset: 420; } to { stroke-dashoffset: 0; } }
     @media (prefers-reduced-motion: reduce) { .tour-card:hover .tc-spur .tc-linie { animation: none; } }
@@ -424,7 +417,7 @@
       position: relative;
       padding: var(--step-luft-o) var(--step-luft-x) clamp(24px, 5.6vw, 30px);
       border-radius: 18px;
-      border: 1px solid var(--line); overflow: hidden;
+      border: 1px solid var(--linie); overflow: hidden;
       background: linear-gradient(158deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014));
       transition: transform 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
     }
@@ -439,7 +432,7 @@
     .step::before {
       counter-increment: step; content: '0' counter(step);
       position: absolute; top: calc(var(--step-luft-o) + 8px); right: calc(var(--step-luft-x) + 14px); z-index: 2;
-      font-family: var(--display); font-size: 40px; font-weight: 500; line-height: 1;
+      font-family: var(--font-display); font-size: 40px; font-weight: 500; line-height: 1;
       color: rgba(245, 165, 36, 0.2); font-variant-numeric: tabular-nums;
       transition: color 0.32s ease;
     }
@@ -451,7 +444,7 @@
        nicht als harte Linien anschlagen. */
     .step-buehne {
       position: relative; aspect-ratio: 300 / 140; margin-bottom: clamp(18px, 4vw, 22px);
-      border-radius: 13px; overflow: hidden; border: 1px solid var(--line);
+      border-radius: 13px; overflow: hidden; border: 1px solid var(--linie);
       /* DUNKLER als die Karte: die Szene liegt wie ein eingelassenes Fenster darin.
          Mit demselben hellen Verlauf wie die Karte verschwamm sie mit ihr. */
       background:
@@ -482,9 +475,9 @@
       fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
       stroke-dasharray: 460; stroke-dashoffset: 0;
     }
-    .sb-marke { fill: var(--amber); }
-    .sb-marke-ring { fill: none; stroke: var(--amber); stroke-width: 1.5; opacity: 0.55; }
-    .sb-glut { fill: var(--amber); }
+    .sb-marke { fill: var(--akzent); }
+    .sb-marke-ring { fill: none; stroke: var(--akzent); stroke-width: 1.5; opacity: 0.55; }
+    .sb-glut { fill: var(--akzent); }
     /* Die Route zeichnet sich beim Zeigen — dasselbe Motiv wie die Routen-Signatur
        auf den Tourkacheln, damit beide Abschnitte zusammengehören. */
     .step:hover .sb-route { animation: sbZeichnen 1.25s cubic-bezier(0.3, 0.6, 0.2, 1); }
@@ -498,51 +491,51 @@
       .step:hover .sb-route, .step:hover .sb-fortschritt { animation: none; }
     }
 
-    .step h3 { font-family: var(--display); font-weight: 600; font-size: 23px; margin: 0 0 9px; text-wrap: balance; }
-    .step p { color: var(--muted); font-size: 15px; margin: 0; }
+    .step h3 { font-family: var(--font-display); font-weight: 600; font-size: 23px; margin: 0 0 9px; text-wrap: balance; }
+    .step p { color: var(--text-gedaempft); font-size: 15px; margin: 0; }
 
     /* ─── Schluss-CTA (photographisch) ───────────────────────────── */
     .cta-band { position: relative; }
     .cta-band .inner {
       position: relative; overflow: hidden; border-radius: 24px;
       padding: clamp(44px, 9vw, 92px) clamp(20px, 6vw, 28px); text-align: center;
-      border: 1px solid var(--line);
+      border: 1px solid var(--linie);
     }
     .cta-band .inner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
     .cta-band .inner::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgba(6, 9, 14, 0.82), rgba(6, 9, 14, 0.62)), radial-gradient(90% 130% at 50% 120%, rgba(245, 165, 36, 0.22), transparent 60%); }
     .cta-band .inner > *:not(img) { position: relative; z-index: 2; }
     /* Einzeilig NUR, wo die Zeile auch hinpasst: mit nowrap als Grundregel lief
        „Bereit für deine eigene Reise?“ auf dem Handy rechts aus dem Bild. */
-    .cta-band h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 4vw, 44px); line-height: 1.12; margin: 0 auto; max-width: none; text-wrap: balance; text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6); }
+    .cta-band h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(24px, 4vw, 44px); line-height: 1.12; margin: 0 auto; max-width: none; text-wrap: balance; text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6); }
     @media (min-width: 721px) { .cta-band h2 { white-space: nowrap; } }
     .cta-band p { color: rgba(242, 237, 227, 0.82); margin: 16px auto 0; max-width: 48ch; }
     .cta-band .cta-row { margin-top: 30px; justify-content: center; }
 
     /* ─── Fuß ────────────────────────────────────────────────────── */
-    footer { border-top: 1px solid var(--line); padding: clamp(38px, 8vw, 48px) 0 clamp(34px, 7vw, 42px); background: var(--bg-2); }
+    footer { border-top: 1px solid var(--linie); padding: clamp(38px, 8vw, 48px) 0 clamp(34px, 7vw, 42px); background: var(--bg-tief); }
     /* Nur die OBERE Reihe ist flex — galt die Regel für beide .wrap, schrumpfte
        das Fuß-<p> auf seine Textbreite und die Trennlinie darüber war 94 px kurz. */
     footer > .wrap:first-of-type { display: flex; flex-wrap: wrap; gap: 26px 40px; justify-content: space-between; align-items: flex-start; }
     .foot-brand { display: flex; flex-direction: column; gap: 10px; max-width: 34ch; }
-    .foot-brand p { color: var(--faint); font-size: 13.5px; margin: 0; }
+    .foot-brand p { color: var(--text-zart); font-size: 13.5px; margin: 0; }
     .foot-links { display: flex; flex-wrap: wrap; gap: 10px 22px; }
-    .foot-links a { text-decoration: none; color: var(--muted); font-size: 14px; }
-    .foot-links a:hover { color: var(--ink); }
-    .attribution { color: var(--faint); font-size: 13px; font-family: var(--sans); margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+    .foot-links a { text-decoration: none; color: var(--text-gedaempft); font-size: 14px; }
+    .foot-links a:hover { color: var(--text); }
+    .attribution { color: var(--text-zart); font-size: 13px; font-family: var(--font-ui); margin-top: 26px; border-top: 1px solid var(--linie); padding-top: 20px; }
 
     /* ─── Android-App + App-Einblick (ein Abschnitt) ─────────────── */
     .app-band .inner {
       position: relative; display: grid; grid-template-columns: 1fr 0.82fr; gap: clamp(30px, 5vw, 58px); align-items: center;
-      border-radius: 24px; border: 1px solid var(--line); overflow: hidden; padding: clamp(24px, 5vw, 56px);
+      border-radius: 24px; border: 1px solid var(--linie); overflow: hidden; padding: clamp(24px, 5vw, 56px);
       background: radial-gradient(85% 130% at 88% 6%, rgba(61, 220, 132, 0.13), transparent 56%), rgba(255, 255, 255, 0.025);
     }
-    .app-band h2 { font-family: var(--display); font-weight: 500; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; letter-spacing: -0.012em; margin: 14px 0 0; text-wrap: balance; }
-    .app-band p { color: var(--muted); margin: 14px 0 0; max-width: 46ch; }
+    .app-band h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; letter-spacing: -0.012em; margin: 14px 0 0; text-wrap: balance; }
+    .app-band p { color: var(--text-gedaempft); margin: 14px 0 0; max-width: 46ch; }
     .app-cta { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
-    .btn-android { color: var(--ink); background: rgba(61, 220, 132, 0.08); border: 1px solid rgba(61, 220, 132, 0.42); }
+    .btn-android { color: var(--text); background: rgba(61, 220, 132, 0.08); border: 1px solid rgba(61, 220, 132, 0.42); }
     .btn-android:hover { background: rgba(61, 220, 132, 0.15); border-color: rgba(61, 220, 132, 0.72); transform: translateY(-1px); }
     .btn-android svg { width: 20px; height: 20px; }
-    .app-meta { display: block; font-family: var(--sans); font-size: 13px; color: var(--faint); margin-top: 16px; }
+    .app-meta { display: block; font-family: var(--font-ui); font-size: 13px; color: var(--text-zart); margin-top: 16px; }
 
     /* Prominentes Android-Logo + „Bald im Play Store“ in der linken Spalte */
     .app-brandrow { display: flex; align-items: center; gap: 15px; }
@@ -554,8 +547,8 @@
     }
     .playstore-soon .ps-icon { width: 21px; height: 21px; flex: none; }
     .playstore-soon .ps-text { display: flex; flex-direction: column; line-height: 1.12; text-align: left; }
-    .playstore-soon .ps-text small { font-family: var(--sans); font-size: 11.5px; font-weight: 500; color: var(--faint); }
-    .playstore-soon .ps-text strong { font-family: var(--sans); font-size: 15px; font-weight: 600; color: rgba(242, 237, 227, 0.92); }
+    .playstore-soon .ps-text small { font-family: var(--font-ui); font-size: 11.5px; font-weight: 500; color: var(--text-zart); }
+    .playstore-soon .ps-text strong { font-family: var(--font-ui); font-size: 15px; font-weight: 600; color: rgba(242, 237, 227, 0.92); }
 
     /* Showcase rechts: genau EIN Telefon, die Aufnahmen blenden ineinander. */
     .app-showcase { display: flex; flex-direction: column; align-items: center; gap: 18px; }
@@ -567,7 +560,7 @@
     @media (prefers-reduced-motion: reduce) { .phone-slide { transition: none; } }
     .shot-caption {
       min-height: 2.6em; margin: 0; text-align: center; text-wrap: balance; padding: 0 6px;
-      font-family: var(--display); font-weight: 500; font-size: 18px; line-height: 1.3;
+      font-family: var(--font-display); font-weight: 500; font-size: 18px; line-height: 1.3;
       color: rgba(242, 237, 227, 0.9);
     }
 
@@ -596,7 +589,7 @@
 
     /* Blätter-Steuerung mit Positionsanzeige n / total */
     .shot-controls { display: flex; align-items: center; justify-content: center; gap: 16px; }
-    .shot-counter { font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: rgba(242, 237, 227, 0.66); min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
+    .shot-counter { font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: rgba(242, 237, 227, 0.66); min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
     /* Der Punkt ist 7 px SICHTBAR, der Knopf darum 24 px groß — sonst wäre
        die Trefferfläche am Finger genau so klein wie die Grafik. */
     .shot-dots { display: flex; gap: 2px; justify-content: center; }
@@ -610,12 +603,12 @@
     }
     .shot-dot:hover::before { background: rgba(242, 237, 227, 0.45); }
     .shot-dot.active { width: 36px; }
-    .shot-dot.active::before { width: 22px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
+    .shot-dot.active::before { width: 22px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
     .shot-arrows { display: flex; gap: 10px; }
     .shot-nav {
       width: 42px; height: 42px; display: grid; place-items: center; cursor: pointer;
       border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.16);
-      background: rgba(255, 255, 255, 0.04); color: var(--ink);
+      background: rgba(255, 255, 255, 0.04); color: var(--text);
       transition: background 0.2s, border-color 0.2s, transform 0.15s;
     }
     .shot-nav:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.32); }

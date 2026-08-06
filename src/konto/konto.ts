@@ -36,8 +36,8 @@ const ZEICHEN: Record<string, string> = {
 
 /** Farben der Balkenabschnitte — dieselbe Reihenfolge wie in `speicherAbschnitte`. */
 const FARBEN: Record<string, string> = {
-  fotos: 'var(--amber)',
-  videos: 'var(--coral)',
+  fotos: 'var(--akzent)',
+  videos: 'var(--akzent-2)',
   klaenge: 'var(--lila)',
   aufzeichnungen: 'var(--blau)',
   sonstiges: 'rgba(242, 237, 227, 0.42)',
@@ -93,7 +93,7 @@ function zeigeHinweis(text: string, link?: { text: string; href: string }): void
     p.appendChild(document.createTextNode(' '))
     const a = el('a', undefined, link.text)
     a.href = link.href
-    a.style.color = 'var(--amber)'
+    a.style.color = 'var(--akzent)'
     p.appendChild(a)
   }
   ziel.replaceChildren(p)
