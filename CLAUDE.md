@@ -150,6 +150,25 @@ Adressen bedient (`/@vite/client`, `/@fs/…`); und ein geänderter Handle wande
 Interessenten zu fallen. Die alte Form `?id=…` bleibt für immer bedienbar — die Profilseite
 schreibt sie per `replaceState` auf `/@…` um.
 
+**`/@handle` beantwortet seit Etappe 6 der SERVER**, nicht Nginx
+([server/src/routes/seiten.ts](server/src/routes/seiten.ts), Vhost `proxy_pass` statt
+`rewrite`). Grund ist die eine Sorte Information, die eine statische Datei nicht tragen kann:
+die pro Adresse verschiedene. Der Server holt das gebaute `profil.html` zur Laufzeit über
+denselben Nginx (`MAPTALE_WEB_URL`, fünf Minuten im Speicher) und ersetzt darin **nur den
+Block zwischen `<!-- maptale:meta -->` und `<!-- /maptale:meta -->`** — die gehashten
+Asset-Verweise bleiben unangetastet, es gibt keine Kopplung an den Web-Build. Fehlen die
+Marker, wird die Seite stumm unverändert durchgereicht (Wächter in
+[test/routen.test.ts](test/routen.test.ts)). Drei Regeln, die man leicht kippt: **Indexiert
+wird nur, wer BEIDES will** — öffentliches Profil UND den Schalter „In Suchmaschinen
+erscheinen" (`users.suchmaschinen`, Standard aus); **ein privates oder unbekanntes Profil
+verrät im Kopf nichts** (generischer Titel statt Name plus `noindex` — der Meta-Kopf steht im
+Quelltext für jeden lesbar, `noindex` verbirgt ihn nur vor Suchmaschinen); und **die
+Vorschaukarte gibt es auch ohne Index**, weil die Messenger-Bots `robots` ignorieren. Genau
+deshalb ist `/@` NICHT in der robots.txt gesperrt. Die Sitemap der indexierbaren Profile
+kommt aus der Datenbank (`/sitemap-profile.xml`, eigener `location`-Block); die statische
+`sitemap.xml` daneben bleibt für die gebauten Seiten. Fällt die API aus, ist die Profilseite
+weg — der Preis dafür, dass sie überhaupt etwas über sich sagen kann.
+
 **Der zweite ist `/tour/<kennung>`** — die Adresse einer Tour (`tourPfad`/`tourAusPfad` in
 [src/routen.ts](src/routen.ts), Vhost `location ^~ /tour/`). Vorher war die Tour ein
 Query-Parameter, und damit kein Ort: keine eigene Vorschaukarte, kein eigener Titel, kein
@@ -390,10 +409,18 @@ Vier Dinge, die man dabei leicht „vereinfacht":
 Profils) und ist EIN Zustand — man sucht ihn hier beim Aufräumen und dort beim Bearbeiten;
 auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
 
-Noch nicht gebaut (eigene Etappen in
+- **„In Suchmaschinen erscheinen" ist ein ZWEITER Schalter neben der Sichtbarkeit**, nicht
+  deren dritte Stufe: Über den Link erreichbar zu sein ist etwas anderes, als unter dem
+  eigenen Namen auffindbar zu sein. Standard **aus**, auch für Bestandskonten mit
+  öffentlichem Profil. Bedienbar bleibt er auch bei privatem Profil (wirkungslos, die Zeile
+  sagt es dazu) — gesperrt zwänge er in eine Reihenfolge, die niemand kennt. Was er bewirkt,
+  entscheidet der Server: `index` nur bei öffentlichem Profil UND gesetztem Schalter
+  ([server/src/routes/seiten.ts](server/src/routes/seiten.ts)). Das steht so auch in
+  [datenschutz.html](datenschutz.html), Abschnitt 5 — wer es ändert, ändert dort eine Zusage.
+
+Noch nicht gebaut (eigene Etappe in
 [docs/concepts/konzept_profil_konto.md](docs/concepts/konzept_profil_konto.md)): der
-ZIP-Datenexport und der Schalter „In Suchmaschinen erscheinen" — letzterer wäre heute eine
-Zusage ohne Deckung, weil `profil.html` als statische Seite ein festes `noindex` trägt.
+ZIP-Datenexport.
 
 ## Benutzerverwaltung
 

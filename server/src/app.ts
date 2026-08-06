@@ -25,9 +25,11 @@ import { registriereBibliotheksRouten } from './routes/bibliothek.js'
 import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
 import { registriereNewsletterRouten } from './routes/newsletter.js'
+import { registriereSeitenRouten } from './routes/seiten.js'
 import { registriereTourRouten } from './routes/tours.js'
 import { registriereWartelistenRouten } from './routes/warteliste.js'
 import { Protokoll, protokollZiel } from './protokoll.js'
+import { SeitenQuelle } from './seiten.js'
 import type { Storage } from './storage.js'
 import { ZuGrossFehler } from './storage.js'
 
@@ -62,6 +64,14 @@ export interface AppAbhaengigkeiten {
   schienen: SchienenQuelle | null
   /** Mail-Versand (M9): Registrierungs-Bestätigung + Passwort-Reset */
   mail: MailVersand
+  /**
+   * Quelle der gebauten HTML-Seiten für `/@handle` (s. seiten.ts).
+   *
+   * Optional, weil die Produktion sie nicht setzt — dort genügt der Standard,
+   * der über `konfig.webUrl` an Nginx geht. Tests reichen eine Fassung mit
+   * festem HTML herein und kommen ohne Netz aus.
+   */
+  seiten?: SeitenQuelle
 }
 
 // Fastify-Typen um unsere Dekorationen erweitern
@@ -79,6 +89,8 @@ declare module 'fastify' {
     verarbeitungen: Map<string, Promise<void>>
     /** Die letzten Warnungen und Fehler für die Verwaltung (s. protokoll.ts). */
     protokoll: Protokoll
+    /** Gebaute HTML-Seiten für die Routen, die der Server selbst beantwortet. */
+    seiten: SeitenQuelle
   }
   interface FastifyRequest {
     benutzer: Benutzer | null
@@ -110,6 +122,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('newsletter', new NewsletterDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorate('protokoll', protokoll)
+  app.decorate('seiten', deps.seiten ?? new SeitenQuelle(deps.konfig))
   app.decorateRequest('benutzer', null)
 
   app.register(fastifyCookie, { secret: deps.konfig.cookieSecret })
@@ -156,6 +169,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereGalerieRouten(app)
   registriereWartelistenRouten(app)
   registriereNewsletterRouten(app)
+  registriereSeitenRouten(app)
 
   app.get('/api/gesundheit', async () => ({ ok: true }))
 

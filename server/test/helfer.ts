@@ -13,8 +13,19 @@ import type { VideoWerkzeug } from '../src/pipeline/video.js'
 import type { SchienenQuelle } from '../src/pipeline/schienen.js'
 import type { BildKlassifikator } from '../src/pipeline/vision.js'
 import type { WetterQuelle } from '../src/pipeline/weather.js'
+import { SeitenQuelle } from '../src/seiten.js'
 import { MemStorage } from '../src/storage.js'
 import type { UploadManifest } from '../src/schema/upload.js'
+
+/**
+ * Die gebaute `profil.html`, wie der Server sie über Nginx bekäme — auf das
+ * Nötige gekürzt. Fest hinterlegt statt aus dem Repo gelesen: Der Test prüft,
+ * ob der Server den Block zwischen den Markern ersetzt, nicht, was die echte
+ * Seite sonst enthält. Dass die Marker dort tatsächlich stehen, prüft der
+ * Wächter im Web-Test (test/routen.test.ts).
+ */
+export const TEST_PROFIL_HTML =
+  '<!doctype html><html><head>\n  <!-- maptale:meta -->\n  <title>Profil · Maptale</title>\n  <meta name="robots" content="noindex" />\n  <!-- /maptale:meta -->\n  <link rel="stylesheet" href="/assets/profil-abc123.css" />\n</head><body>Profil</body></html>'
 
 export const TEST_KONFIG: Konfig = {
   port: 0,
@@ -29,6 +40,7 @@ export const TEST_KONFIG: Konfig = {
   hinterTls: false,
   registrierungOffen: true,
   basisUrl: 'http://localhost:5173',
+  webUrl: 'https://maptale.test',
   mailAbsender: 'Luhambo <noreply@test>',
   openRouterKey: null,
   visionModell: 'google/gemini-2.5-flash-lite',
@@ -98,6 +110,8 @@ export async function baueTestApp(
     bildKlassifikator,
     schienen,
     mail,
+    // Ohne Netz: Der Server holt die gebaute Seite sonst über konfig.webUrl.
+    seiten: new SeitenQuelle({ webUrl: 'https://maptale.test' }, async () => TEST_PROFIL_HTML),
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')
 

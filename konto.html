@@ -406,6 +406,26 @@
             </label>
             <input type="checkbox" class="schalter" id="s-profil" />
           </div>
+          <!-- Zweiter Schalter und nicht die dritte Stufe des ersten: Ein
+               Profil über den Link zu teilen ist etwas anderes, als unter dem
+               eigenen Namen auffindbar zu sein. Wer seine Reisen in einer
+               Gruppe herumreicht, hat damit nicht eingewilligt, dass die
+               Adresse dauerhaft in einer Suche steht — Standard ist deshalb
+               AUS, auch für Bestandskonten mit öffentlichem Profil.
+               Er hängt sichtbar am ersten: Ohne öffentliches Profil ist er
+               wirkungslos, und der Server setzt `index` ohnehin nur, wenn
+               beides gilt (server/src/routes/seiten.ts). Gesperrt wird er
+               trotzdem nicht — man soll ihn vorher umlegen können, ohne die
+               Reihenfolge zu kennen; die Zeile darunter sagt, worauf er
+               wartet. -->
+          <div class="zeile">
+            <label class="z" for="s-suche">
+              <span class="t">In Suchmaschinen erscheinen</span>
+              <span class="b">Erlaubt Google &amp; Co., deine Profilseite in die Ergebnisse aufzunehmen. Ohne das ist sie weiterhin über den Link erreichbar — nur eben nicht auffindbar.</span>
+              <span class="b ruht" id="s-suche-ruht" hidden>Wirkt erst, wenn dein Profil öffentlich ist.</span>
+            </label>
+            <input type="checkbox" class="schalter" id="s-suche" />
+          </div>
         </div>
       </div>
 

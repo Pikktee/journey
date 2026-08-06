@@ -11,11 +11,14 @@
 # ein Crawler die robots.txt ignoriert.
 #
 # NICHT gesperrt und zwar absichtlich:
-#   /profil und /@handle  — tragen heute ein `noindex` im HTML (profil.html
-#                           wird statisch für alle gleich ausgeliefert). Genau
-#                           dieses noindex muss lesbar bleiben, sonst kippt
-#                           Etappe 6 („In Suchmaschinen erscheinen") auf eine
-#                           Sperre, die man nicht mehr aufheben kann.
+#   /profil und /@handle  — `/@handle` beantwortet seit Etappe 6 der Server und
+#                           setzt `index` oder `noindex` nach dem, was die
+#                           Person eingestellt hat. Genau das muss lesbar
+#                           bleiben: Ein Disallow nähme dem noindex die
+#                           Wirkung (die URL landete ohne Inhalt im Index) und
+#                           dem `index` den Sinn. `/profil?id=…` ist derselbe
+#                           Inhalt auf statischem Weg und trägt festes noindex;
+#                           der canonical-Verweis zeigt auf `/@handle`.
 #   /tour/… und /erlebnis  — der Player. Er trägt ein `noindex` im HTML: Solange
 #                           die Seite für alle Touren gleich ausgeliefert wird,
 #                           kann sie `public` nicht von `unlisted` trennen, und
@@ -36,3 +39,8 @@ Disallow: /anmelden
 Disallow: /registrieren
 
 Sitemap: https://maptale.io/sitemap.xml
+# Die zweite Sitemap kommt aus der Datenbank statt aus dem Build: Sie listet die
+# Profile, die in Suchmaschinen erscheinen wollen, und ändert sich, sobald
+# jemand den Schalter umlegt. Mehrere Sitemap-Zeilen sind vorgesehen — billiger
+# als eine Index-Datei mit zwei Einträgen.
+Sitemap: https://maptale.io/sitemap-profile.xml

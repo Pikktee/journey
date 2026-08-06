@@ -4,8 +4,19 @@
   <meta charset="utf-8" />
   <script defer src="https://analytics.maptale.io/script.js" data-website-id="9f8e7d6c-5b4a-3f2e-1d0c-9b8a7f6e5d4c"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Alles zwischen diesen beiden Markern ersetzt der SERVER, wenn die Seite
+       über `/@handle` kommt (server/src/seiten.ts): Titel, robots, description,
+       canonical und die og:-Tags nach dem, was in der Datenbank steht. Was hier
+       steht, ist der Kopf für den statischen Weg (`/profil?id=…`) und für den
+       Fall, dass die API nicht antwortet — deshalb `noindex`: Diese Fassung
+       weiß nicht, wessen Profil sie zeigt, und darf niemanden in den Index
+       bringen, der das nicht wollte.
+       Die Marker sind Vertrag, kein Kommentar. Ein Wächter in
+       test/routen.test.ts prüft, dass sie hier stehen. -->
+  <!-- maptale:meta -->
   <title>Profil · Maptale</title>
   <meta name="robots" content="noindex" />
+  <!-- /maptale:meta -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

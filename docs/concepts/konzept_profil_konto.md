@@ -275,7 +275,47 @@ Mitgezogen: die drei Demo-Karten der Landing samt Alt-Deeplink-Weiche, Studio
 
 ---
 
-## Etappe 6 — Die Profilseite serverseitig ausliefern
+## Etappe 6 — Die Profilseite serverseitig ausliefern ✅
+
+**Umgesetzt am 6. August 2026.** Mechanik in
+[server/src/seiten.ts](../../server/src/seiten.ts) (Seite holen, Marker-Block ersetzen,
+Escaping), Route in [server/src/routes/seiten.ts](../../server/src/routes/seiten.ts)
+(`GET /@:handle`, `GET /sitemap-profile.xml`), Migration 15 (`users.suchmaschinen`),
+`POST /api/auth/me/suchmaschinen`, Schalter in [konto.html](../../konto.html), Marker in
+[profil.html](../../profil.html), `proxy_pass` im Vhost, Dev-Proxy in
+[vite.config.js](../../vite.config.js). Datenschutzerklärung Abschnitt 5 nachgezogen — dort
+stand „auffindbar über Suchmaschinen", was weder vorher stimmte (alles trug `noindex`) noch
+jetzt ohne den Schalter stimmt.
+
+Fünf Entscheidungen, die beim Umsetzen dazukamen:
+
+- **Ein privates oder unbekanntes Profil bekommt einen VERSCHWIEGENEN Kopf** — generischer
+  Titel, kein Name. `noindex` verbirgt den Meta-Kopf vor Suchmaschinen, nicht vor Menschen:
+  Er steht im Quelltext. Sonst wäre die Route eine Auskunft darüber, wer hier ein Konto hat.
+- **Die Sitemap der Profile ist eine ZWEITE Datei** (`/sitemap-profile.xml`) statt eines
+  Eintrags in der statischen. Verschiedene Herkunft, verschiedene Änderungsrate; die
+  robots.txt nennt beide, was billiger ist als eine Index-Datei mit zwei Einträgen. Gelistet
+  wird genau, was auch `index` bekommt — liefe das auseinander, stünde in der Sitemap eine
+  Einladung, der die Seite selbst widerspricht.
+- **Der Server kennt jetzt die vier Titelbilder** (Kopie in
+  [server/src/titelbilder.ts](../../server/src/titelbilder.ts) mit Drift-Wächter). Ohne das
+  zeigte die Vorschaukarte eines Profils ohne eigenes Titelbild etwas anderes als das Banner
+  der Seite dahinter. Die PRÜFUNG eines gesetzten Titelbilds sieht weiter nur die Form des
+  Namens an.
+- **Der Abruf des gebauten HTML geht über den öffentlichen Namen**, nicht über `127.0.0.1`:
+  Der HTTP-Vhost leitet auf HTTPS um, und HTTPS auf die Loopback-Adresse scheitert am
+  Zertifikatsnamen. Ein TLS-Handshake alle fünf Minuten ist billiger als jede
+  Sonderbehandlung (`MAPTALE_WEB_URL`, Default = `MAPTALE_BASIS_URL`).
+- **Beim Rollout gilt die UMGEKEHRTE Reihenfolge wie in Etappe 1**: erst der Code, dann der
+  Vhost. Ein `proxy_pass` auf eine API, die `/@handle` noch nicht kennt, macht jede
+  Profilseite sofort tot — während ein zu früher `rewrite`-Block in Etappe 1 nur eine leere
+  Seite zeigte.
+
+Bewusst NICHT mitgebaut: dieselbe Behandlung für `/tour/<kennung>` (unten beschrieben). Die
+Mechanik trägt sie — es fehlt nur die Route.
+
+### Ursprünglicher Plan
+
 
 **Erst danach kann „In Suchmaschinen erscheinen" zurück ins Konto** — und dann
 bewirkt der Schalter auch etwas. Heute trägt [profil.html](../../profil.html)

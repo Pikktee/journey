@@ -69,6 +69,14 @@ function alsProfilAntwort(app: FastifyInstance, userId: string) {
     titelbild: profil?.titelbild ?? null,
     titelbildUrl: titelbildUrl(userId, profil?.titelbild ?? null),
     sichtbarkeit: profil?.sichtbarkeit ?? 'private',
+    // Zweiter, unabhängiger Zustand neben der Sichtbarkeit: „über den Link
+    // erreichbar" und „unter dem eigenen Namen auffindbar" sind verschiedene
+    // Entscheidungen (s. server/src/routes/seiten.ts). Steht hier mit, damit
+    // der Schalter der Kontoeinstellungen beim Aufbau richtig liegt.
+    suchmaschinen:
+      ((app.deps.db.prepare('SELECT suchmaschinen FROM users WHERE id = ?').get(userId) as
+        | { suchmaschinen: number }
+        | undefined)?.suchmaschinen ?? 0) === 1,
   }
 }
 
@@ -536,6 +544,32 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       if (!benutzer) return
       app.newsletter.setze(benutzer.id, request.body.an, 'konto')
       return { ok: true, newsletter: request.body.an, versandRuht: !app.auth.istVerifiziert(benutzer.id) }
+    },
+  )
+
+  // — „In Suchmaschinen erscheinen" —
+  //
+  // Eigene Route und kein Feld in `PATCH /profil`: Das Profil-Formular ist der
+  // Ort für das, was auf der Seite STEHT; das hier entscheidet, wer die Seite
+  // finden darf. Zusammengelegt wäre es ein Häkchen zwischen Ort und Instagram.
+  //
+  // Angenommen wird der Wunsch auch bei privatem Profil — wirksam wird er dann
+  // nicht (`seiten.ts` verlangt beides). Ein gesperrter Schalter zwänge in eine
+  // Reihenfolge, die niemand kennt; die Zeile in der Oberfläche sagt stattdessen
+  // dazu, worauf er wartet.
+  app.post<{ Body: { an: boolean } }>(
+    '/api/auth/me/suchmaschinen',
+    {
+      schema: {
+        body: { type: 'object', additionalProperties: false, required: ['an'], properties: { an: { type: 'boolean' } } },
+      },
+    },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      db.prepare('UPDATE users SET suchmaschinen = ? WHERE id = ?').run(request.body.an ? 1 : 0, benutzer.id)
+      const profil = app.auth.profil(benutzer.id)
+      return { ok: true, suchmaschinen: request.body.an, wirktRuht: profil?.sichtbarkeit !== 'public' }
     },
   )
 

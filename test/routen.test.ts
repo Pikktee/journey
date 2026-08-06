@@ -188,10 +188,19 @@ describe('routen', () => {
       expect(vhost).toMatch(/location\s+\^~\s+\/tour\/\s*\{[^}]*erlebnis\.html/)
     })
 
-    it('leitet /@henrik auf die Profilseite', () => {
-      // Ohne diesen Block landet jeder Profil-Link auf der 404-Seite — und der
-      // Deploy zieht den Vhost nicht mit.
-      expect(vhost).toMatch(/location\s+~\s+\^\/@\s*\{[^}]*profil\.html/)
+    it('reicht /@henrik an die API durch, statt profil.html auszuliefern', () => {
+      // Seit Etappe 6 beantwortet die API die Seite selbst — nur sie weiß, ob
+      // dieses Profil in den Index darf. Stünde hier wieder ein `rewrite`,
+      // bekäme jede Person denselben Kopf: den mit dem festen `noindex`.
+      const block = vhost.match(/location ~ \^\/@ \{[\s\S]*?\n\}/)?.[0] ?? ''
+      expect(block).toContain('proxy_pass http://127.0.0.1:8790;')
+      expect(block).not.toContain('profil.html')
+      // Ohne den Include verlöre die Antwort die geerbten Sicherheits-Header.
+      expect(block).toContain('include /etc/nginx/global_settings;')
+    })
+
+    it('reicht die Profil-Sitemap an die API durch', () => {
+      expect(vhost).toMatch(/location = \/sitemap-profile\.xml \{[\s\S]*?proxy_pass/)
     })
 
     it('bedient jeden Pfad — über die gleichnamige Datei oder einen eigenen Block', () => {
@@ -259,9 +268,35 @@ describe('routen', () => {
       }
     })
 
-    it('nennt die Sitemap unter ihrer echten Adresse', () => {
+    it('nennt beide Sitemaps unter ihrer echten Adresse', () => {
       expect(robots).toContain(`Sitemap: ${BASIS}/sitemap.xml`)
       expect(existsSync(join(wurzel, 'public/sitemap.xml'))).toBe(true)
+      // Die zweite kommt aus der Datenbank (server/src/routes/seiten.ts) und
+      // liegt deshalb NICHT im Build — der Vhost reicht sie an die API durch.
+      expect(robots).toContain(`Sitemap: ${BASIS}/sitemap-profile.xml`)
+      expect(lies('deploy/cloudpanel-nginx.conf')).toContain('location = /sitemap-profile.xml')
+    })
+
+    it('hält den Meta-Block der Profilseite ersetzbar', () => {
+      // Die Marker sind der Vertrag zwischen profil.html und dem Server
+      // (server/src/seiten.ts). Verschwinden sie beim Aufräumen, reicht der
+      // Server die Seite stumm unverändert durch: jedes Profil wieder mit
+      // demselben Kopf und festem noindex — und niemand merkt es.
+      const html = lies('profil.html')
+      expect(html).toContain('<!-- maptale:meta -->')
+      expect(html).toContain('<!-- /maptale:meta -->')
+      expect(html.indexOf('<!-- maptale:meta -->')).toBeLessThan(html.indexOf('<!-- /maptale:meta -->'))
+      // Der Server-seitige Vertrag: dieselben Zeichenketten dort.
+      const quelle = lies('server/src/seiten.ts')
+      expect(quelle).toContain("MARKE_AUF = '<!-- maptale:meta -->'")
+      expect(quelle).toContain("MARKE_ZU = '<!-- /maptale:meta -->'")
+    })
+
+    it('bedient /@handle im Dev über denselben Weg wie in Produktion', () => {
+      // Ohne den Proxy liefe der Dev-Server auf einem anderen URL-Raum: Die
+      // Profilseite käme statisch, ohne Meta-Kopf — und der Unterschied fiele
+      // erst nach dem Deploy auf.
+      expect(lies('vite.config.js')).toContain("'^/@[a-z0-9._-]+$'")
     })
 
     it('sperrt nichts, was ein noindex tragen soll', () => {

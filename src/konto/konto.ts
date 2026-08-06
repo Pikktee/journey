@@ -101,7 +101,12 @@ interface MeAntwort {
   benutzer: { id: string; email: string; name: string; rolle: string } | null
   verifiziert?: boolean
   newsletter?: boolean
-  profil?: { handle: string | null; anzeigename: string | null; sichtbarkeit: 'private' | 'public' }
+  profil?: {
+    handle: string | null
+    anzeigename: string | null
+    sichtbarkeit: 'private' | 'public'
+    suchmaschinen?: boolean
+  }
 }
 
 // ————— Anmeldung & Sicherheit —————
@@ -274,6 +279,64 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
       return
     }
     melde(gewuenscht ? 'Dein Profil ist jetzt öffentlich.' : 'Dein Profil ist jetzt privat.')
+    // Der Schalter darunter hängt an diesem: Wird das Profil privat, wirkt
+    // „In Suchmaschinen erscheinen" nicht mehr — und das muss man sehen, ohne
+    // die Seite neu zu laden.
+    zeigeSucheRuht()
+  })
+}
+
+// ————— In Suchmaschinen erscheinen —————
+
+/**
+ * Sagt an der Zeile, dass der Schalter gerade folgenlos ist.
+ *
+ * Eigene Funktion, weil zwei Stellen sie brauchen: der Aufbau und jeder
+ * Wechsel der Sichtbarkeit darüber.
+ */
+function zeigeSucheRuht(): void {
+  const schalter = $('s-suche') as HTMLInputElement | null
+  const profilSchalter = $('s-profil') as HTMLInputElement | null
+  const ruht = $('s-suche-ruht')
+  if (ruht) ruht.hidden = !(schalter?.checked && profilSchalter?.checked === false)
+}
+
+/**
+ * Der Schalter „In Suchmaschinen erscheinen".
+ *
+ * Er ist NICHT gesperrt, solange das Profil privat ist — wirkungslos ist er
+ * dann, nicht unbedienbar. Ein gesperrter Schalter zwänge in eine Reihenfolge,
+ * die niemand kennt; die Zeile darunter sagt stattdessen, worauf er wartet.
+ * Entschieden wird ohnehin im Server: `index` gibt es nur für ein öffentliches
+ * Profil MIT diesem Schalter (server/src/routes/seiten.ts).
+ */
+function verdrahteSuche(daten: MeAntwort): void {
+  const schalter = $('s-suche') as HTMLInputElement | null
+  if (!schalter) return
+  schalter.checked = daten.profil?.suchmaschinen === true
+  zeigeSucheRuht()
+
+  schalter.addEventListener('change', async () => {
+    const gewuenscht = schalter.checked
+    schalter.disabled = true
+    const antwort = await fetch('/api/auth/me/suchmaschinen', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ an: gewuenscht }),
+    }).catch(() => null)
+    schalter.disabled = false
+    if (!antwort?.ok) {
+      // Zurückstellen statt eine Einstellung zu zeigen, die der Server nicht kennt.
+      schalter.checked = !gewuenscht
+      melde('Die Einstellung ließ sich nicht ändern.')
+      return
+    }
+    zeigeSucheRuht()
+    melde(
+      gewuenscht
+        ? 'Deine Profilseite darf in Suchergebnissen erscheinen.'
+        : 'Deine Profilseite erscheint nicht mehr in Suchergebnissen.',
+    )
   })
 }
 
@@ -431,6 +494,7 @@ export async function starteKonto(): Promise<void> {
   zeichneKonto(daten)
   verdrahteNewsletter(daten)
   verdrahteSichtbarkeit(daten)
+  verdrahteSuche(daten)
   void ladeGeraete()
   void ladeSpeicher()
 

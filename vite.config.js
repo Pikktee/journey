@@ -82,6 +82,20 @@ export default defineConfig({
     // MAPTALE_API übersteuert das Ziel (z. B. wenn 8787 anderweitig belegt ist).
     proxy: {
       '/api': process.env.MAPTALE_API || 'http://localhost:8787',
+      // `/@henrik` beantwortet seit Etappe 6 die API selbst (Meta-Kopf aus der
+      // Datenbank, s. server/src/routes/seiten.ts) — im Dev muss das denselben
+      // Weg nehmen, sonst liefe der Dev-Server auf einem anderen URL-Raum als
+      // Produktion und der Unterschied fiele erst nach dem Deploy auf.
+      //
+      // Als Regex und nicht als Präfix `/@`: Vite bedient unter genau diesem
+      // Präfix seine EIGENEN Adressen (`/@vite/client`, `/@fs/…`). Das Muster
+      // verlangt deshalb, was auch ein Handle sein darf (HANDLE_REGELN) —
+      // insbesondere keinen Schrägstrich, den Vites Pfade alle haben.
+      //
+      // Das Gegenstück in `saubereUrls()` schreibt weiterhin auf profil.html
+      // um; es greift nur noch, wenn die API nicht läuft (dann geht der Proxy
+      // ins Leere und Vite liefert die statische Seite).
+      '^/@[a-z0-9._-]+$': process.env.MAPTALE_API || 'http://localhost:8787',
     },
   },
 })

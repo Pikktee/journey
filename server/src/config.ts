@@ -43,6 +43,16 @@ export interface Konfig {
   registrierungOffen: boolean
   /** Öffentliche Basis-URL (für Links in Bestätigungs-/Reset-Mails), z. B. https://luhambo.app */
   basisUrl: string
+  /**
+   * Woher der Server das GEBAUTE HTML holt, wenn er eine Seite selbst
+   * beantwortet (`seiten.ts`, `/@handle`).
+   *
+   * Normalerweise dieselbe Adresse wie `basisUrl` — der Container holt die
+   * Datei über denselben Nginx, der sie auch dem Browser ausliefert. Getrennt
+   * konfigurierbar bleibt sie, weil der Weg dorthin ein anderer sein kann als
+   * der, unter dem die Seite öffentlich steht (anderer Port, interner Name).
+   */
+  webUrl: string
   /** Absender der System-Mails */
   mailAbsender: string
   /** OpenRouter-API-Key für die Wetter-Bildanalyse (M5); null = Feature aus (No-Op) */
@@ -90,6 +100,7 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     hinterTls: env.MAPTALE_HINTER_TLS === '1',
     registrierungOffen: env.MAPTALE_REGISTRIERUNG_OFFEN !== '0',
     basisUrl: text(env.MAPTALE_BASIS_URL, 'http://localhost:5173'),
+    webUrl: text(env.MAPTALE_WEB_URL, text(env.MAPTALE_BASIS_URL, 'http://localhost:5173')),
     mailAbsender: text(env.MAPTALE_MAIL_ABSENDER, 'Maptale <noreply@maptale.io>'),
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,

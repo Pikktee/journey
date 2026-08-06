@@ -314,6 +314,26 @@ const MIGRATIONEN: Migration[] = [
   );
   CREATE INDEX idx_newsletter_einwilligungen ON newsletter_einwilligungen(benutzer_id, zeitpunkt);
   `,
+
+  // 15 — „In Suchmaschinen erscheinen".
+  //
+  // Ein eigenes Feld neben `profil_sichtbarkeit` und nicht dessen dritte Stufe:
+  // Ein Profil über den Link zu teilen ist etwas anderes, als unter dem eigenen
+  // Namen auffindbar zu sein. Wer seine Reisen in einer Gruppe herumreicht, hat
+  // damit nicht eingewilligt, dass die Adresse dauerhaft in einer Suche steht.
+  //
+  // **Standard aus.** Bei einem Feld, das eine Person unter ihrem Namen
+  // auffindbar macht, ist der stille Standard die Entscheidung — nicht der
+  // Schalter, den kaum jemand sucht. Bestandskonten bekommen deshalb 0, obwohl
+  // ihre Profile schon öffentlich sein können: Öffentlich war bisher „wer den
+  // Link hat", und dabei bleibt es, bis jemand aktiv etwas anderes will.
+  //
+  // Wirksam wird das Feld nur ZUSAMMEN mit `profil_sichtbarkeit = 'public'`
+  // (s. server/src/seiten.ts) — ein privates Profil ist nie indexierbar, egal
+  // was hier steht.
+  `
+  ALTER TABLE users ADD COLUMN suchmaschinen INTEGER NOT NULL DEFAULT 0;
+  `,
 ]
 
 /**

@@ -36,6 +36,16 @@ services:
       MAPTALE_HINTER_TLS: '1'
       # Mehrbenutzer-Betrieb (M9)
       MAPTALE_BASIS_URL: ${MAPTALE_BASIS_URL:-}
+      # Woher der Container das GEBAUTE profil.html holt, wenn er /@handle
+      # selbst beantwortet (server/src/seiten.ts). Leer = wie MAPTALE_BASIS_URL,
+      # und das ist der Normalfall: Es ist derselbe Nginx, der die Datei auch
+      # dem Browser ausliefert — ein Abruf alle fünf Minuten.
+      #
+      # 127.0.0.1 ginge nicht ohne Weiteres: Der HTTP-Vhost leitet auf HTTPS um,
+      # und HTTPS auf die Loopback-Adresse scheitert am Zertifikatsnamen. Der
+      # Umweg über den öffentlichen Namen kostet einen TLS-Handshake pro
+      # Cache-Periode und spart dafür jede Sonderbehandlung.
+      MAPTALE_WEB_URL: ${MAPTALE_WEB_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAPTALE_MAIL_ABSENDER: ${MAPTALE_MAIL_ABSENDER:-}
       MAPTALE_MAX_SPEICHER_PRO_BENUTZER: ${MAPTALE_MAX_SPEICHER_PRO_BENUTZER:-}

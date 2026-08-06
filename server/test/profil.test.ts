@@ -52,6 +52,10 @@ describe('Profil', () => {
       titelbild: null,
       titelbildUrl: null,
       sichtbarkeit: 'private',
+      // Zweiter, unabhängiger Zustand: „über den Link erreichbar" und „unter
+      // dem eigenen Namen auffindbar" sind verschiedene Entscheidungen. Aus
+      // demselben Grund ist der Standard aus (s. server/src/routes/seiten.ts).
+      suchmaschinen: false,
     })
   })
 
