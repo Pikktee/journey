@@ -32,14 +32,24 @@ describe('session-hinweis', () => {
   })
 
   it('blendet die Gast-Nav auf öffentlichen Seiten sofort aus', () => {
+    // Das Umschalt-CSS steht seit Etappe 7 in src/grundelemente.css und gilt
+    // damit für alle Produkt-Seiten; die Landing hat es weiterhin selbst (sie
+    // bindet die Bausteine nicht ein, ihre Kopfleiste ist eine andere).
+    const bausteine = readFileSync(join(wurzel, 'src/grundelemente.css'), 'utf8')
+    expect(bausteine).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
+    expect(bausteine).toContain(`html:not(.${NAV_DABEI_KLASSE}) [data-dabei]`)
+
     for (const datei of ['index.html', 'galerie.html', 'profil.html']) {
       const html = readFileSync(join(wurzel, datei), 'utf8')
+      const regeln = datei === 'index.html' ? html : html + bausteine
       expect(html, datei).toContain(`${SESSION_HINWEIS_COOKIE}=`)
       expect(html, datei).toContain(NAV_DABEI_KLASSE)
-      expect(html, datei).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
-      expect(html, datei).toContain(`html:not(.${NAV_DABEI_KLASSE}) [data-dabei]`)
+      expect(regeln, datei).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
+      expect(regeln, datei).toContain(`html:not(.${NAV_DABEI_KLASSE}) [data-dabei]`)
       expect(html, datei).toContain('data-gast')
       expect(html, datei).toContain('data-dabei')
+      // Die Regeln müssen die Seite auch erreichen.
+      if (datei !== 'index.html') expect(html, datei).toContain('/src/grundelemente.css')
     }
   })
 

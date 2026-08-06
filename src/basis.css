@@ -114,5 +114,10 @@
      --wrap in ihrem eigenen Block; es ist kein Markenwert. */
   --wrap: 1160px;
 
+  /* Erkennungsmarke für basisZuerst() in vite.config.js: Nach dem Bauen heißt
+     eine CSS-Datei nach ihrem JS-Chunk, nicht nach ihrer Quelle. Eine Custom
+     Property überlebt die Minifizierung — daran findet das Plugin dieses Blatt
+     wieder und bringt die drei in die richtige Reihenfolge. */
+  --blatt-basis: 1;
   color-scheme: dark;
 }

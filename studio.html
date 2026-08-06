@@ -37,10 +37,12 @@
   </script>
 
   <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
-       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
-       überschreiben kann und nicht umgekehrt; im Build hält das der
+       DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
+       Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
   <link rel="stylesheet" href="/src/basis.css" />
+  <link rel="stylesheet" href="/src/werkzeug.css" />
+  <link rel="stylesheet" href="/src/grundelemente.css" />
 
   <style>
     /* ————————————————————————————————————————————————————————————
@@ -91,87 +93,19 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
-    /* — Grundbausteine — */
-    button, .knopf {
-      font-family: var(--font-ui);
-      font-size: 13.5px;
-      font-weight: 500;
-      color: var(--text);
-      background: var(--fl-2);
-      border: 1px solid var(--rand);
-      border-radius: 10px;
-      padding: 9px 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      transition: background 160ms ease, border-color 160ms ease, transform 120ms ease, box-shadow 160ms ease, color 160ms ease, opacity 160ms ease;
-      white-space: nowrap;
-    }
-    button:hover, .knopf:hover { background: var(--fl-3); border-color: var(--rand-hell); }
-    button:active, .knopf:active { transform: scale(0.975); }
-    button:disabled { opacity: 0.45; cursor: default; transform: none; }
-    button:disabled:hover { background: var(--fl-2); border-color: var(--rand); }
-    button.primaer, .knopf.primaer {
-      background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
-      color: #221302;
-      border: none;
-      font-weight: 600;
-      padding: 10px 16px;
-      box-shadow: 0 6px 18px rgba(245, 133, 40, 0.22);
-    }
-    button.primaer:hover, .knopf.primaer:hover { box-shadow: 0 8px 24px rgba(245, 133, 40, 0.34); filter: brightness(1.06); }
-    button.gefahr:hover { border-color: rgba(229, 72, 77, 0.6); color: var(--rot); }
+    /* — Grundbausteine —
+       Knöpfe, Felder und Etiketten stehen in src/werkzeug.css (geteilt mit der
+       Verwaltung); hier nur, was das Studio zusätzlich hat. */
     button.icon {
       padding: 8px;
-      border-radius: 9px;
+      border-radius: var(--radius-md);
       color: var(--text-2);
     }
     button.icon:hover { color: var(--text); }
-    button svg, .knopf svg { width: 16px; height: 16px; flex: none; }
-    :is(button, .knopf, input, select, textarea, [role='button'], a):focus-visible {
-      outline: 2px solid var(--akzent);
-      outline-offset: 2px;
-      border-radius: 10px;
-    }
+    /* Kürzer als die Vorgabe: Im Editor stehen mehrere Felder übereinander. */
+    textarea { min-height: 76px; }
+    .badge { letter-spacing: 0.04em; }
 
-    input[type='text'], input[type='email'], input[type='password'], select, textarea {
-      font-family: var(--font-ui);
-      font-size: 14px;
-      color: var(--text);
-      background: var(--bg-tief);
-      border: 1px solid var(--rand);
-      border-radius: 10px;
-      padding: 10px 12px;
-      width: 100%;
-      transition: border-color 160ms ease, background 160ms ease;
-    }
-    :is(input, select, textarea):hover { border-color: var(--rand-hell); }
-    :is(input, select, textarea):focus { border-color: var(--akzent); outline: none; background: #0a0e15; }
-    ::placeholder { color: var(--text-3); }
-    label { display: block; margin: 0 0 6px; color: var(--text-2); font-size: 12.5px; font-weight: 500; }
-    label .zusatz { color: var(--text-3); font-weight: 400; }
-    select {
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b1bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      padding-right: 30px;
-    }
-    textarea { min-height: 76px; resize: vertical; }
-
-    .hinweis { font-size: 12.5px; color: var(--text-2); min-height: 1.2em; }
-    .hinweis.fehler { color: var(--rot); }
-    .hinweis.ok { color: var(--gruen); }
-
-    .badge {
-      font-size: 11px;
-      font-weight: 500;
-      padding: 3px 8px;
-      border-radius: 6px;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-    }
     .badge.bereit { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
     .badge.verarbeitung { background: rgba(245, 165, 36, 0.13); color: var(--akzent); }
     .badge.fehler { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
@@ -1882,10 +1816,12 @@
        überstehenden Kanten-Griffe weg und Anfang/Ende wären ungreifbar. */
     .welle-fenster { position: absolute; inset: 0; overflow: hidden; border-radius: 5px; pointer-events: none; }
     .welle { position: absolute; top: 0; bottom: 0; background-repeat: repeat-x; opacity: 0.55; }
-    /* Loop ist eine EINSTELLUNG (Inspector) — hier steht nur ihr Zeichen. */
+    /* Loop ist eine EINSTELLUNG (Inspector) — hier steht nur ihr Zeichen.
+       `color: inherit` schreibt hin, was ohnehin galt: Hier stand einmal
+       `var(--text-schwach)`, und die Variable gab es nie. */
     .zl-klip-loop {
       position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
-      font-size: 11px; line-height: 1; color: var(--text-schwach); pointer-events: none;
+      font-size: 11px; line-height: 1; color: inherit; pointer-events: none;
     }
     .zl-klip .kante { position: absolute; top: -2px; bottom: -2px; width: 14px; transform: none; cursor: ew-resize; }
     .zl-klip .kante.von { left: -7px; }

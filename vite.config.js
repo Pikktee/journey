@@ -60,37 +60,77 @@ function saubereUrls() {
 }
 
 /**
- * Die Marken-Tokens (src/basis.css) müssen VOR dem inline-`<style>` der Seite
- * stehen — sonst schlägt die Basis bei gleicher Spezifität genau das, was die
- * Seite absichtlich anders macht.
+ * Die geteilten Stylesheets (basis, werkzeug, grundelemente) müssen VOR dem
+ * inline-`<style>` der Seite stehen — sonst schlagen sie bei gleicher
+ * Spezifität genau das, was die Seite absichtlich anders macht.
  *
- * Im Quelltext steht der `<link>` an der richtigen Stelle. Vite hängt gebautes
+ * Im Quelltext stehen die `<link>` an der richtigen Stelle. Vite hängt gebautes
  * CSS aber grundsätzlich ans ENDE des `<head>`, egal wo der Verweis stand — die
  * Verwaltung wurde dadurch 80 px breit (`--wrap: 1080px` verlor gegen die 1160
  * der Basis), ohne dass sich eine Zeile ihres eigenen CSS geändert hätte. Und
- * es fiele erst nach dem Deploy auf, weil der Dev-Server den Verweis stehen
+ * es fiele erst nach dem Deploy auf, weil der Dev-Server die Verweise stehen
  * lässt.
  *
- * Also: nach der Asset-Injektion den Basis-Verweis wieder nach vorn ziehen.
- * Nicht stattdessen `@import './src/basis.css'` in jeden `<style>`-Block —
- * Vite löst den zwar korrekt auf, kopiert die Datei dann aber in JEDE Seite;
- * der geteilte Browser-Cache über alle Einstiege war der Grund für die eigene
- * Datei (s. Kopf von src/basis.css).
+ * Also: nach der Asset-Injektion die Verweise wieder nach vorn ziehen — in
+ * GENAU dieser Reihenfolge, sie ist Teil der Gestaltung: Tokens, dann das
+ * Werkzeug-Register, dann die Bausteine (deren `.km-eintrag` bewusst über den
+ * Werkzeug-Knopf schreibt, wie vorher in der Seite auch). Nicht stattdessen
+ * `@import` in jeden `<style>`-Block — Vite löst den zwar korrekt auf, kopiert
+ * die Dateien dann aber in JEDE Seite; der geteilte Browser-Cache über alle
+ * Einstiege war der Grund für die eigenen Dateien (s. Kopf von src/basis.css).
  */
+/**
+ * Die geteilten Blätter in der Reihenfolge, in der sie gelten müssen. Sie
+ * tragen ihren Namen als Custom Property (`--blatt-basis: 1` usw.) — s. unten,
+ * warum der DATEINAME nach dem Bauen nichts mehr taugt.
+ */
+export const GETEILTE_BLAETTER = ['basis', 'werkzeug', 'grundelemente']
+
 export function basisZuerst() {
   return {
     name: 'maptale-basis-zuerst',
     transformIndexHtml: {
       order: 'post',
-      handler(html) {
-        const verweis = html.match(/[ \t]*<link rel="stylesheet"[^>]*basis-[^>]*>\n?/)
-        const stelle = html.search(/[ \t]*<style[\s>]/)
-        if (!verweis || stelle === -1) return html
-        const ohne = html.replace(verweis[0], '')
-        // `stelle` zeigt in den ursprünglichen String; der Verweis steht immer
-        // dahinter (Vite hängt ihn ans Kopfende), also verschiebt das Entfernen
-        // nichts davor.
-        return ohne.slice(0, stelle) + verweis[0].replace(/^\n?/, '') + '\n' + ohne.slice(stelle)
+      handler(html, ctx) {
+        // Verschoben werden ALLE gebauten Stylesheets: Was in einer eigenen
+        // Datei liegt, ist Basis; was im <style> der Seite steht, ist deren
+        // Abweichung davon — und die gehört nach hinten.
+        const verweise = [...html.matchAll(/[ \t]*<link rel="stylesheet"[^>]*>\n?/g)]
+          .map((m) => m[0])
+          .filter((v) => /href="[^"]*\/assets\//.test(v))
+        if (!verweise.length) return html
+
+        // Untereinander zählt die Reihenfolge auch: `.km-eintrag` aus
+        // grundelemente.css überschreibt bewusst den Werkzeug-Knopf, wie
+        // vorher in der Seite auch. Der Dateiname trägt das nicht mehr — Vite
+        // benennt eine CSS-Datei nach dem JS-Chunk, in den sie fällt, und
+        // grundelemente.css heißt im dist `app-nav-<hash>.css`, weil Galerie,
+        // Konto und Profil sich dieses Modul teilen. `originalFileNames` ist
+        // für CSS-Assets leer. Also erkennt jedes Blatt sich an seiner eigenen
+        // Custom Property, die die Minifizierung nicht wegwirft.
+        const rang = (verweis) => {
+          const pfad = verweis.match(/href="\/?([^"]+)"/)?.[1]
+          const quelle = String(ctx.bundle?.[pfad?.replace(/^\//, '')]?.source ?? '')
+          const treffer = GETEILTE_BLAETTER.findIndex((b) => quelle.includes(`--blatt-${b}:`))
+          return treffer === -1 ? GETEILTE_BLAETTER.length : treffer
+        }
+        const sortiert = verweise
+          .map((v, i) => ({ v, rang: rang(v), i }))
+          .sort((a, b) => a.rang - b.rang || a.i - b.i)
+          .map((x) => x.v)
+
+        let ohne = html
+        for (const v of verweise) ohne = ohne.replace(v, '')
+        // Kommentare ausblenden, BEVOR nach dem <style> gesucht wird: Die
+        // Erklärung über dem Verweis nennt das Wort selbst, und die Links
+        // landeten dadurch IM Kommentar — die Seite kam ganz ohne Stylesheet.
+        // Sichtbar war das nur im gebauten Stand, nicht im Dev.
+        const ohneKommentare = ohne.replace(/<!--[\s\S]*?-->/g, (k) => ' '.repeat(k.length))
+        const stelle = ohneKommentare.search(/[ \t]*<style[\s>]/)
+        if (stelle === -1) return html
+        return (
+          ohne.slice(0, stelle) + sortiert.map((v) => `  ${v.trim()}\n`).join('') + ohne.slice(stelle)
+        )
       },
     },
   }

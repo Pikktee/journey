@@ -14,10 +14,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
-       DESIGN.md. Steht VOR dem <style>-Block, damit die Seite die Basis
-       überschreiben kann und nicht umgekehrt; im Build hält das der
+       DESIGN.md. Steht vor dem Stilblock dieser Seite, damit die Seite die
+       Basis überschreiben kann und nicht umgekehrt; im Build hält das der
        basisZuerst()-Schritt in vite.config.js nach. -->
   <link rel="stylesheet" href="/src/basis.css" />
+  <link rel="stylesheet" href="/src/werkzeug.css" />
+  <link rel="stylesheet" href="/src/grundelemente.css" />
 
   <style>
     /* ————————————————————————————————————————————————————————————
@@ -46,89 +48,20 @@
     /* Zahlen stehen untereinander in einer Spalte — tabular-nums statt Mono (DESIGN.md) */
     .zahl { font-variant-numeric: tabular-nums; }
 
-    button, .knopf {
-      font-family: var(--font-ui);
-      font-size: 13.5px;
-      font-weight: 500;
-      color: var(--text);
-      background: var(--fl-2);
-      border: 1px solid var(--rand);
-      border-radius: 10px;
-      padding: 9px 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      transition: background 160ms ease, border-color 160ms ease, transform 120ms ease, box-shadow 160ms ease, color 160ms ease, opacity 160ms ease;
-      white-space: nowrap;
-    }
-    button:hover, .knopf:hover { background: var(--fl-3); border-color: var(--rand-hell); }
-    button:active, .knopf:active { transform: scale(0.975); }
-    button:disabled { opacity: 0.4; cursor: default; transform: none; }
-    button:disabled:hover { background: var(--fl-2); border-color: var(--rand); }
-    /* Die globale :hover-Regel wiegt durch die Pseudoklasse mehr als eine
-       Klasse — der Primärknopf muss seine Fläche dort wiederholen, sonst wird
-       er beim Zeigen grau. */
-    button.primaer, .knopf.primaer {
-      background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
-      color: #221302;
-      border: none;
-      font-weight: 600;
-      padding: 10px 16px;
-      box-shadow: 0 6px 18px rgba(245, 133, 40, 0.22);
-    }
-    button.primaer:hover, .knopf.primaer:hover {
-      background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
-      box-shadow: 0 8px 24px rgba(245, 133, 40, 0.34);
-      filter: brightness(1.06);
-    }
+    /* Knöpfe, Felder und Etiketten stehen in src/werkzeug.css (geteilt mit dem
+       Studio); hier nur, was die Verwaltung zusätzlich hat. */
     button.still { background: transparent; border-color: transparent; color: var(--text-2); padding: 7px 10px; }
     button.still:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
-    button.gefahr:hover { border-color: rgba(229, 72, 77, 0.55); color: var(--rot); background: rgba(229, 72, 77, 0.08); }
-    button svg, .knopf svg { width: 16px; height: 16px; flex: none; }
-    :is(button, input, select, textarea, a):focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; border-radius: 10px; }
-
-    input[type='text'], input[type='email'], input[type='password'], input[type='search'], select, textarea {
-      font-family: var(--font-ui);
-      font-size: 14px;
-      color: var(--text);
-      background: var(--bg-tief);
-      border: 1px solid var(--rand);
-      border-radius: 10px;
-      padding: 10px 12px;
-      width: 100%;
-      transition: border-color 160ms ease, background 160ms ease;
-    }
-    textarea { line-height: 1.6; resize: vertical; min-height: 90px; }
-    :is(input, select, textarea):hover { border-color: var(--rand-hell); }
-    :is(input, select, textarea):focus { border-color: var(--akzent); outline: none; background: #0a0e15; }
+    button.gefahr:hover { background: rgba(229, 72, 77, 0.08); }
+    /* Länger als die Vorgabe: Hier werden Mailtexte bearbeitet. */
+    textarea { line-height: 1.6; min-height: 90px; }
     /* Ein gesperrtes Feld muss man SEHEN — sonst wirkt der Hinweis darunter wie
        eine Meinung und nicht wie der Grund, warum hier nichts passiert. */
     :is(input, select):disabled { opacity: 0.5; cursor: default; }
     :is(input, select):disabled:hover { border-color: var(--rand); }
-    ::placeholder { color: var(--text-3); }
-    label { display: block; margin: 0 0 6px; color: var(--text-2); font-size: 12.5px; font-weight: 500; }
-    label .zusatz { color: var(--text-3); font-weight: 400; }
-    select {
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b1bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      padding-right: 30px;
-    }
     .feld { margin-bottom: 14px; }
-    .hinweis { font-size: 12.5px; color: var(--text-2); min-height: 1.2em; }
-    .hinweis.fehler { color: var(--rot); }
-    .hinweis.ok { color: var(--gruen); }
+    .badge { display: inline-block; }
 
-    .badge {
-      font-size: 11px;
-      font-weight: 500;
-      padding: 3px 8px;
-      border-radius: 6px;
-      white-space: nowrap;
-      display: inline-block;
-    }
     .badge.admin { background: rgba(245, 165, 36, 0.14); color: var(--akzent); }
     .badge.nutzer { background: rgba(167, 177, 191, 0.12); color: var(--text-2); }
     .badge.offen { background: rgba(62, 207, 142, 0.13); color: var(--gruen); }
