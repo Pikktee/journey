@@ -32,6 +32,9 @@ export const TEST_KONFIG: Konfig = {
   mailAbsender: 'Luhambo <noreply@test>',
   openRouterKey: null,
   visionModell: 'google/gemini-2.5-flash-lite',
+  // Ohne Passwort läuft im Test nie ein `docker exec` — die Statistik-Route
+  // antwortet mit ihrem leeren Ergebnis.
+  umamiDbPasswort: null,
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */

@@ -37,7 +37,16 @@ export type AdminStatistiken = {
   seiten: Array<{ pfad: string; anzahl: number }>
 }
 
-async function holeUmamiStatistiken(): Promise<AdminStatistiken> {
+/**
+ * Zahlen der Reichweitenmessung aus der Umami-Datenbank (eigener Container auf
+ * demselben Host, deshalb `docker exec … psql`).
+ *
+ * Das Passwort kommt aus `MAPTALE_UMAMI_DB_PASSWORT` und steht bewusst nirgends
+ * im Quelltext. Fehlt es, gibt es keine Notfall-Vorgabe: Die Route liefert
+ * dieselbe leere Auskunft wie bei jedem anderen Ausfall (Container weg, psql
+ * langsam), und der Reiter zeigt Nullen statt einer Fehlerseite.
+ */
+async function holeUmamiStatistiken(dbPasswort: string | null): Promise<AdminStatistiken> {
   const leeresErgebnis: AdminStatistiken = {
     echtzeit: 0,
     heute: { aufrufe: 0, besucher: 0 },
@@ -46,6 +55,7 @@ async function holeUmamiStatistiken(): Promise<AdminStatistiken> {
     referrer: [],
     seiten: [],
   }
+  if (!dbPasswort) return leeresErgebnis
   try {
     const cmd = `
       SELECT COUNT(DISTINCT session_id) FROM website_event WHERE created_at >= NOW() - INTERVAL '5 minutes';
@@ -70,7 +80,7 @@ async function holeUmamiStatistiken(): Promise<AdminStatistiken> {
       '|',
       '-c',
       cmd,
-    ], { timeout: 3000, env: { ...process.env, PGPASSWORD: 'UmamiSecurePGPass2026!' } })
+    ], { timeout: 3000, env: { ...process.env, PGPASSWORD: dbPasswort } })
 
     const zeilen = stdout.trim().split('\n').map((z) => z.trim()).filter(Boolean)
     if (zeilen.length < 4) return leeresErgebnis
@@ -117,7 +127,7 @@ export function registriereAdminRouten(app: FastifyInstance): void {
   // — Statistiken —
   app.get('/api/admin/statistiken', async (request, reply) => {
     if (!erfordereAdmin(request, reply)) return
-    return holeUmamiStatistiken()
+    return holeUmamiStatistiken(konfig.umamiDbPasswort)
   })
 
   // — Benutzer —

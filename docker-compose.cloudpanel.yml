@@ -44,5 +44,8 @@ services:
       # Vision-Modell läuft über OpenRouter; MAPTALE_VISION_MODELL überschreibt den Default.
       OPEN_ROUTER_KEY: ${OPEN_ROUTER_KEY:-}
       MAPTALE_VISION_MODELL: ${MAPTALE_VISION_MODELL:-}
+      # Reichweitenmessung: Passwort der Umami-Postgres (Nachbar-Container).
+      # Fehlt es, bleibt der Statistik-Reiter der Verwaltung auf Null.
+      MAPTALE_UMAMI_DB_PASSWORT: ${MAPTALE_UMAMI_DB_PASSWORT:-}
     volumes:
       - /srv/maptale/daten:/data

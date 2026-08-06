@@ -50,7 +50,7 @@
             <li><a href="#dauer">Speicherdauer</a></li>
             <li><a href="#rechte">Deine Rechte</a></li>
           </ul>
-          <p class="stand">Stand: 3. August 2026</p>
+          <p class="stand">Stand: 5. August 2026</p>
         </div>
       </div>
     </header>
@@ -132,8 +132,36 @@
         <p>
           Beim Aufruf der Website und der API fallen die technisch notwendigen Zugriffsdaten an:
           IP-Adresse, Zeitpunkt, angefragte Ressource, Statuscode und übermittelte Datenmenge.
-          Sie dienen der Auslieferung, der Fehlersuche und der Missbrauchsabwehr. Eine
-          Reichweitenmessung, ein Analysewerkzeug oder Werbe-Tracking setzen wir nicht ein.
+          Sie dienen der Auslieferung, der Fehlersuche und der Missbrauchsabwehr. Werbe-Tracking
+          und geräteübergreifende Wiedererkennung setzen wir nicht ein.
+        </p>
+
+        <h3>Reichweitenmessung</h3>
+        <p>
+          Um zu sehen, welche Seiten überhaupt genutzt werden, betreiben wir eine schlanke
+          Reichweitenmessung mit <strong>Umami</strong>. Sie läuft auf unserem eigenen Server in
+          Deutschland; es fließen keine Daten an einen Analyse-Anbieter ab.
+        </p>
+        <p>Erfasst wird pro Seitenaufruf:</p>
+        <ul>
+          <li>die aufgerufene Adresse und die Seite, von der du kamst,</li>
+          <li>Browser, Betriebssystem, Gerätetyp und Bildschirmgröße,</li>
+          <li>Land und ungefähre Region, aus der IP-Adresse ermittelt,</li>
+          <li>Zeitpunkt des Aufrufs.</li>
+        </ul>
+        <p>
+          Deine <strong>IP-Adresse wird nicht gespeichert</strong>. Sie fließt nur in einen
+          Prüfwert ein, der zusätzlich aus einem <strong>täglich wechselnden Zufallswert</strong>
+          gebildet wird und dazu dient, Aufrufe eines Tages zu einem Besuch zusammenzufassen. Weil
+          der Zufallswert täglich wechselt, lässt sich derselbe Besuch über den Tag hinaus nicht
+          wiedererkennen — und aus dem Prüfwert lässt sich die IP-Adresse nicht zurückrechnen.
+          Profile entstehen dabei nicht, und wir führen diese Daten mit keinem Konto zusammen.
+        </p>
+        <p>
+          Rechtsgrundlage ist unser berechtigtes Interesse an einer bedarfsgerechten Gestaltung
+          der Website, Art. 6 Abs. 1 lit. f DSGVO. Du kannst der Messung jederzeit widersprechen
+          (siehe <a href="#rechte">Deine Rechte</a>); technisch genügt dafür jede gängige
+          Blockier-Erweiterung.
         </p>
 
         <h2 id="zwecke">3. Zwecke und Rechtsgrundlagen</h2>
@@ -149,6 +177,11 @@
           <li>
             <strong>Zugriffsprotokolle, Rate-Limits, Einladungspflicht</strong> — berechtigtes
             Interesse an einem sicheren, missbrauchsfreien Betrieb, Art. 6 Abs. 1 lit. f DSGVO.
+          </li>
+          <li>
+            <strong>Reichweitenmessung</strong> — berechtigtes Interesse an einer
+            bedarfsgerechten Gestaltung der Website, Art. 6 Abs. 1 lit. f DSGVO. Näheres in
+            Abschnitt 2.
           </li>
           <li>
             <strong>Veröffentlichung einer Tour</strong> — deine Entscheidung, Art. 6 Abs. 1
@@ -244,8 +277,14 @@
         <p>
           Aufzeichnungen bleiben zunächst <strong>auf dem Gerät</strong>. Erst beim Hochladen gehen
           sie an unseren Server; bis dahin kannst du sie im Gerät löschen. Die App enthält keine
-          Werbe-SDKs und kein Analysewerkzeug, überträgt keine Gerätekennungen zu Werbezwecken und
-          spricht ausschließlich mit unserem eigenen Server.
+          Werbe-SDKs, überträgt keine Gerätekennungen zu Werbezwecken und spricht ausschließlich
+          mit unserem eigenen Server.
+        </p>
+        <p>
+          Eine Ausnahme betrifft das Abspielen: Die App zeigt Touren, indem sie unseren Player als
+          Webseite lädt. Dabei greift dieselbe Reichweitenmessung wie auf der Website (Abschnitt 2)
+          — mit denselben Daten, derselben Rechtsgrundlage und demselben Widerspruchsrecht. Das
+          Aufzeichnen, Verwalten und Hochladen von Touren wird nicht gemessen.
         </p>
 
         <h2 id="cookies">8. Cookies und lokale Speicherung</h2>
@@ -268,12 +307,19 @@
           Einwilligung ist für all das nicht erforderlich (§ 25 Abs. 2 TDDDG), weshalb Maptale
           ohne Cookie-Banner auskommt.
         </p>
+        <p>
+          Auch die Reichweitenmessung aus Abschnitt 2 kommt ohne Cookie aus: Umami legt nichts auf
+          deinem Gerät ab und liest nichts aus, was dort gespeichert ist. Nach unserer Einschätzung
+          greift § 25 Abs. 1 TDDDG deshalb nicht.
+        </p>
 
         <h2 id="empfaenger">9. Empfänger und Auftragsverarbeiter</h2>
         <ul>
           <li>
             <strong>Hosting:</strong> Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen,
-            Deutschland. Konten, Touren und Medien liegen auf Servern in der EU.
+            Deutschland. Konten, Touren und Medien liegen auf Servern in der EU. Auch die
+            Reichweitenmessung läuft dort auf unserem eigenen Server — ein Analyse-Anbieter als
+            Empfänger kommt nicht hinzu.
           </li>
           <li>
             <strong>E-Mail-Versand:</strong> Resend (Plus Five Five, Inc., USA) für Bestätigungs-
@@ -312,6 +358,9 @@
           <li>
             <strong>Zugriffsprotokolle:</strong> werden nach kurzer Frist gelöscht oder
             anonymisiert.
+          </li>
+          <li>
+            <strong>Reichweitenmessung:</strong> 12 Monate ab dem Aufruf.
           </li>
           <li>
             <strong>Warteliste:</strong> unbestätigte Einträge nach 14 Tagen, bestätigte nach einem

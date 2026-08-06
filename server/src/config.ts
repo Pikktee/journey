@@ -49,6 +49,15 @@ export interface Konfig {
   openRouterKey: string | null
   /** Vision-Modell (M5) über OpenRouter; Default gutes Preis/Leistung, via Env überschreibbar */
   visionModell: string
+  /**
+   * Passwort der Umami-Postgres-Datenbank (Reichweitenmessung, selbst gehostet
+   * im Nachbar-Container). Nur der Statistik-Reiter der Verwaltung liest damit.
+   *
+   * Kein Default: Ein Geheimnis gehört nicht in den Quelltext — fehlt der Wert,
+   * bleibt die Statistik leer, statt dass irgendwo ein eingebautes Passwort
+   * mitläuft.
+   */
+  umamiDbPasswort: string | null
 }
 
 // Docker-Compose reicht Variablen als ${VAR:-} durch — nicht gesetzte werden zu
@@ -85,5 +94,6 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     // Leer (docker-compose ${VAR:-}) wie „nicht gesetzt" behandeln → Feature aus.
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
     visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODELL_DEFAULT),
+    umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim() ? env.MAPTALE_UMAMI_DB_PASSWORT.trim() : null,
   }
 }
