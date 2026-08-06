@@ -9,7 +9,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN, pfad } from '../src/routen'
+import { HANDLE_REGELN, RESERVIERTE_HANDLES } from '../src/handle'
+import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN, handleAusPfad, pfad, profilPfad } from '../src/routen'
 
 const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 const lies = (p: string): string => readFileSync(join(wurzel, p), 'utf8')
@@ -49,6 +50,54 @@ describe('routen', () => {
     expect(dateien).toContain('index.html')
   })
 
+  // — Der Handle-Namensraum (/@henrik) —
+  //
+  // Er liegt NEBEN der Tabelle, nicht darin: `/@…` ist kein Seitenpfad, sondern
+  // ein eigener Namensraum (s. src/handle.ts). Was ihn zusammenhält, sind diese
+  // drei Prüfungen — sonst entwertet ein neuer Pfad still einen vergebenen
+  // Handle, oder Browser und Server sind sich uneins darüber, was gültig ist.
+  describe('Profil-Adressen', () => {
+    it('baut und liest /@handle ohne Query-Kodierung', () => {
+      // `encodeURIComponent('@')` wäre `%40` — aus der vorlesbaren Adresse
+      // würde eine, die niemand diktiert.
+      expect(profilPfad('henrik')).toBe('/@henrik')
+      expect(handleAusPfad('/@henrik')).toBe('henrik')
+      expect(handleAusPfad('/@anna-maria')).toBe('anna-maria')
+      expect(handleAusPfad('/galerie')).toBeNull()
+      expect(handleAusPfad('/')).toBeNull()
+    })
+
+    it('reserviert jeden Seitenpfad als Handle', () => {
+      for (const seite of SEITEN) {
+        const p = ROUTEN[seite].pfad
+        if (p === '/') continue
+        expect(RESERVIERTE_HANDLES.has(p.slice(1)), `${p} fehlt in RESERVIERTE_HANDLES`).toBe(true)
+      }
+    })
+
+    it('kennt den Namensraum auch im Dev-Server', () => {
+      // Ohne das Gegenstück in der Vite-Middleware liefe der Dev-Server auf
+      // einem anderen URL-Raum als die Produktion — und das fiele erst nach dem
+      // Deploy auf. Die Prüfung gegen HANDLE_REGELN gehört dazu: Vite bedient
+      // unter `/@` seine eigenen Adressen (`/@vite/client`, `/@fs/…`).
+      const config = lies('vite.config.js')
+      expect(config).toContain('HANDLE_REGELN')
+      expect(config).toContain("pfad.startsWith('/@')")
+      expect(config).toContain('ROUTEN.profil.datei')
+    })
+
+    it('hält die Server-Kopie deckungsgleich', () => {
+      // server/ hat einen eigenen rootDir und kann src/handle.ts nicht
+      // importieren. Läuft die Kopie auseinander, ist ein Handle im Browser
+      // grün und wird vom Server abgelehnt — oder umgekehrt.
+      const quelle = lies('server/src/handle.ts')
+      expect(quelle).toContain(`export const HANDLE_REGELN = ${HANDLE_REGELN.toString()}`)
+      const liste = quelle.match(/RESERVIERTE_HANDLES[^[]*\[([\s\S]*?)\]/)?.[1] ?? ''
+      const serverWorte = new Set([...liste.matchAll(/'([^']+)'/g)].map((t) => t[1]))
+      expect(serverWorte).toEqual(RESERVIERTE_HANDLES)
+    })
+  })
+
   // — Nginx —
   //
   // Zwei Wege führen zu einer Seite: entweder es gibt eine gleichnamige Datei
@@ -80,6 +129,12 @@ describe('routen', () => {
       const block = vhost.match(/location \/ \{[\s\S]*?\n\}/)?.[0] ?? ''
       expect(block).toContain('add_header Cache-Control')
       expect(block).toContain('include /etc/nginx/global_settings;')
+    })
+
+    it('leitet /@henrik auf die Profilseite', () => {
+      // Ohne diesen Block landet jeder Profil-Link auf der 404-Seite — und der
+      // Deploy zieht den Vhost nicht mit.
+      expect(vhost).toMatch(/location\s+~\s+\^\/@\s*\{[^}]*profil\.html/)
     })
 
     it('bedient jeden Pfad — über die gleichnamige Datei oder einen eigenen Block', () => {

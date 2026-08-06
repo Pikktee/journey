@@ -1,6 +1,7 @@
 // Hülle der öffentlichen Seiten: holt die Daten und hängt die Karten in den
 // DOM. Alles, was entschieden werden muss, steht in galeriemodell.ts.
-import { alsKarte, idAusAdresse, profilKopf, type GalerieAntwort, type Karte, type ProfilAntwort } from './galeriemodell'
+import { profilPfad } from '../routen.js'
+import { alsKarte, profilKopf, wenAusAdresse, type GalerieAntwort, type Karte, type ProfilAntwort } from './galeriemodell'
 
 const SEITE = 24
 
@@ -112,14 +113,16 @@ export async function starteProfil(): Promise<void> {
   const gitter = document.getElementById('gitter')
   if (!kopf || !gitter) return
 
-  const id = idAusAdresse(window.location.search)
-  if (!id) {
+  // Handle aus dem Pfad (/@henrik) oder ID aus der Query (?id=…) — die alte
+  // Form bleibt bedienbar, weil solche Links längst geteilt sind.
+  const wen = wenAusAdresse(window.location.pathname, window.location.search)
+  if (!wen) {
     zeigeFehler(kopf, 'Kein Profil angegeben.')
     return
   }
 
   try {
-    const antwort = await fetch(`/api/benutzer/${encodeURIComponent(id)}/profil`)
+    const antwort = await fetch(`/api/benutzer/${encodeURIComponent(wen)}/profil`)
     if (antwort.status === 404) {
       zeigeFehler(kopf, 'Dieses Profil gibt es nicht (mehr).')
       return
@@ -128,6 +131,13 @@ export async function starteProfil(): Promise<void> {
     const daten = (await antwort.json()) as ProfilAntwort
     const { name, bio, bild } = profilKopf(daten)
     document.title = `${name} · Maptale`
+    // Auf die kanonische Adresse umschreiben, wenn der Aufruf über die alte
+    // Form kam (?id=… oder ein aufgegebener Handle). Kein Redirect, sondern
+    // replaceState: Die Seite steht schon, und ein zweiter Ladevorgang für
+    // dieselbe Antwort wäre nur Wartezeit — der Verlauf bleibt sauber.
+    if (daten.handle && window.location.pathname !== profilPfad(daten.handle)) {
+      window.history.replaceState(null, '', profilPfad(daten.handle))
+    }
 
     if (bild) {
       const img = document.createElement('img')

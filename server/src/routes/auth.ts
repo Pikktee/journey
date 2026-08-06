@@ -7,6 +7,7 @@ import type { Readable } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer, SESSION_COOKIE, SESSION_HINWEIS_COOKIE } from '../app.js'
 import { nameAusEmail, type ProfilAenderung } from '../auth/auth.js'
+import { HANDLE_TEXTE } from '../handle.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
 import { wartelisteAngeboten } from '../auth/warteliste.js'
 import { baueBremse } from '../bremse.js'
@@ -20,7 +21,8 @@ interface LoginBody {
   tokenLabel?: string
 }
 
-type ProfilBody = ProfilAenderung
+/** Der Handle steht neben den Profilfeldern, aber nicht in `ProfilAenderung` — s. Route. */
+type ProfilBody = ProfilAenderung & { handle?: string }
 
 /**
  * Ein Profilbild ist ein Vorschaubild, kein Foto-Upload — die App skaliert vor
@@ -39,6 +41,18 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024
  */
 const avatarUrl = (userId: string, datei: string): string =>
   `/api/benutzer/${userId}/avatar?v=${encodeURIComponent(datei)}`
+
+/** Das eigene Profil, wie es `/auth/me` und der Profil-PATCH ausliefern. */
+function alsProfilAntwort(app: FastifyInstance, userId: string) {
+  const profil = app.auth.profil(userId)
+  return {
+    handle: profil?.handle ?? null,
+    anzeigename: profil?.anzeigename ?? null,
+    bio: profil?.bio ?? null,
+    avatarUrl: profil?.avatar ? avatarUrl(userId, profil.avatar) : null,
+    sichtbarkeit: profil?.sichtbarkeit ?? 'private',
+  }
+}
 
 const emailSchema = { type: 'string', maxLength: 254 } as const
 const passwortSchema = { type: 'string', minLength: 8, maxLength: 1024 } as const
@@ -348,22 +362,21 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       })
     }
     const quota = await quotaStand(db, storage, benutzerStorage, request.benutzer.id, konfig.maxSpeicherProBenutzer)
-    const profil = app.auth.profil(request.benutzer.id)
     return {
       benutzer: request.benutzer,
       verifiziert: app.auth.istVerifiziert(request.benutzer.id),
       quota,
       registrierung,
-      profil: {
-        anzeigename: profil?.anzeigename ?? null,
-        bio: profil?.bio ?? null,
-        avatarUrl: profil?.avatar ? avatarUrl(request.benutzer.id, profil.avatar) : null,
-        sichtbarkeit: profil?.sichtbarkeit ?? 'private',
-      },
+      profil: alsProfilAntwort(app, request.benutzer.id),
     }
   })
 
   // — Profil ändern —
+  //
+  // Der Handle läuft NICHT durch `setzeProfil`: Er kann als einziges Feld
+  // scheitern (Form, reserviert, vergeben) und wird deshalb zuerst gesetzt —
+  // ein 409 nach halb geschriebenem Profil wäre eine Lüge über den Zustand.
+  // Die Prüfung im Browser bleibt reine Bequemlichkeit; entschieden wird hier.
   app.patch<{ Body: ProfilBody }>(
     '/api/auth/me/profil',
     {
@@ -376,6 +389,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
             anzeigename: { type: 'string', maxLength: 80 },
             bio: { type: 'string', maxLength: 500 },
             sichtbarkeit: { enum: ['private', 'public'] },
+            handle: { type: 'string', maxLength: 30 },
           },
         },
       },
@@ -383,14 +397,13 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-      app.auth.setzeProfil(benutzer.id, request.body)
-      const profil = app.auth.profil(benutzer.id)
-      return {
-        anzeigename: profil?.anzeigename ?? null,
-        bio: profil?.bio ?? null,
-        avatarUrl: profil?.avatar ? avatarUrl(benutzer.id, profil.avatar) : null,
-        sichtbarkeit: profil?.sichtbarkeit ?? 'private',
+      const { handle, ...rest } = request.body
+      if (handle !== undefined) {
+        const fehler = app.auth.setzeHandle(benutzer.id, handle)
+        if (fehler) return reply.code(fehler === 'vergeben' ? 409 : 400).send({ fehler: HANDLE_TEXTE[fehler] })
       }
+      app.auth.setzeProfil(benutzer.id, rest)
+      return alsProfilAntwort(app, benutzer.id)
     },
   )
 

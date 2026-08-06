@@ -12,7 +12,17 @@ warten, das nicht.
 
 ---
 
-## Etappe 1 — Der Handle und seine Adresse
+## Etappe 1 — Der Handle und seine Adresse ✅
+
+**Umgesetzt am 6. August 2026.** Der Vhost ist auf dem Server bereits nachgezogen
+(`location ~ ^/@`, Sicherung daneben, `nginx -t` + Reload, Gegenprobe grün) — das
+darf vor dem Code laufen. Der Rest wartet auf den nächsten Release.
+Was wo liegt: [src/handle.ts](../../src/handle.ts) (Regeln, reservierte Wörter,
+`zuHandle`) mit Server-Kopie [server/src/handle.ts](../../server/src/handle.ts)
+und Drift-Wächter; `profilPfad`/`handleAusPfad` in
+[src/routen.ts](../../src/routen.ts); Migration 11+12 in
+[server/src/db.ts](../../server/src/db.ts); Vergabe und 90-Tage-Sperre in
+[server/src/auth/auth.ts](../../server/src/auth/auth.ts).
 
 **Ziel:** `maptale.io/@henrik` funktioniert, überall wo heute `?id=<uuid>` steht.
 Ohne jede sichtbare Änderung an der Oberfläche.

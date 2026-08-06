@@ -4,11 +4,22 @@
 // Dateien im Storage — das hält die DB klein und den Umzug auf Postgres/R2 trivial.
 
 import Database from 'better-sqlite3'
+import { freierHandle, handleAusEmail } from './handle.js'
 
 export type Db = Database.Database
 
+/**
+ * Ein Migrationsschritt ist SQL — oder Code, wo SQL nicht reicht.
+ *
+ * Die Handle-Vergabe für Bestandskonten (Schritt 11) rechnet pro Zeile aus der
+ * E-Mail einen Namen und hängt bei Kollision einen Zähler an; das ist in SQLite
+ * nicht auszudrücken, ohne es zu erfinden. Beide Formen laufen in derselben
+ * Transaktion wie die Versionsnummer.
+ */
+type Migration = string | ((db: Db) => void)
+
 // Migrationen laufen der Reihe nach; `user_version` merkt den Stand.
-const MIGRATIONEN: string[] = [
+const MIGRATIONEN: Migration[] = [
   `
   CREATE TABLE users (
     id TEXT PRIMARY KEY,
@@ -178,6 +189,51 @@ const MIGRATIONEN: string[] = [
     geaendert_von TEXT REFERENCES users(id) ON DELETE SET NULL
   );
   `,
+  // Der Handle: die Adresse einer Person (`maptale.io/@henrik`). Regeln und
+  // reservierte Wörter stehen in handle.ts.
+  //
+  // UNIQUE steht als INDEX und nicht an der Spalte, weil SQLite ein
+  // `ALTER TABLE … ADD COLUMN … UNIQUE` nicht kennt. Der Index ist
+  // NOCASE — Groß/Klein unterscheidet in einer URL nicht, und zwei Konten
+  // „@Henrik" und „@henrik" wären dieselbe Adresse mit zwei Besitzern.
+  //
+  // `handles_reserviert` hält aufgegebene Handles 90 Tage fest. Das trennt zwei
+  // Dinge, die nicht dieselbe Dauer brauchen: Alte LINKS leiten weiter, solange
+  // die Adresse niemandem sonst gehört (kostet nichts); die SPERRE schützt
+  // davor, dass jemand die Adresse übernimmt und die alten Links miterbt. 90
+  // Tage sind der Ausgleich — lang genug gegen Identitätsübernahme, kurz genug,
+  // dass Namen nicht auf Jahre blockiert sind (Instagram sperrt 14 Tage, GitHub
+  // gibt sofort frei; beides zu wenig für einen Link in einem Reisebericht).
+  `
+  ALTER TABLE users ADD COLUMN handle TEXT;
+  ALTER TABLE users ADD COLUMN handle_geaendert_am TEXT;
+  CREATE UNIQUE INDEX idx_users_handle ON users(handle COLLATE NOCASE) WHERE handle IS NOT NULL;
+  CREATE TABLE handles_reserviert (
+    handle TEXT PRIMARY KEY COLLATE NOCASE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    frei_ab TEXT NOT NULL
+  );
+  `,
+  // Bestandskonten bekommen ihren Handle. Einmalig und deterministisch: nach
+  // Anlegedatum, aus der E-Mail abgeleitet, bei Kollision mit Zähler — wer
+  // zuerst da war, bekommt den kurzen Namen. Einmal vergeben ist er in der
+  // Welt, deshalb läuft das hier und nicht beim nächsten Login.
+  (db) => {
+    const zeilen = db
+      .prepare('SELECT id, email FROM users WHERE handle IS NULL ORDER BY created_at ASC, id ASC')
+      .all() as Array<{ id: string; email: string }>
+    const belegt = new Set(
+      (db.prepare('SELECT handle FROM users WHERE handle IS NOT NULL').all() as Array<{ handle: string }>).map((z) =>
+        z.handle.toLowerCase(),
+      ),
+    )
+    const setze = db.prepare('UPDATE users SET handle = ? WHERE id = ?')
+    for (const zeile of zeilen) {
+      const handle = freierHandle(handleAusEmail(zeile.email), (h) => belegt.has(h))
+      belegt.add(handle)
+      setze.run(handle, zeile.id)
+    }
+  },
 ]
 
 export function oeffneDb(pfad: string): Db {
@@ -194,7 +250,8 @@ function migriere(db: Db): void {
     const schritt = MIGRATIONEN[i]
     if (!schritt) continue
     db.transaction(() => {
-      db.exec(schritt)
+      if (typeof schritt === 'string') db.exec(schritt)
+      else schritt(db)
       db.pragma(`user_version = ${i + 1}`)
     })()
   }

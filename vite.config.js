@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 
-import { EINSTIEGE, PFAD_ZU_DATEI } from './src/routen.ts'
+import { HANDLE_REGELN } from './src/handle.ts'
+import { EINSTIEGE, PFAD_ZU_DATEI, ROUTEN } from './src/routen.ts'
 
 /**
  * URLs ohne `.html` — im Dev und in der Vorschau.
@@ -17,7 +18,19 @@ function saubereUrls() {
     const pfad = (schnitt === -1 ? req.url : req.url.slice(0, schnitt)).replace(/(.)\/+$/, '$1')
     const rest = schnitt === -1 ? '' : req.url.slice(schnitt)
     // `/` liefert Vite selbst; `/erlebnis.html` steht gar nicht in der Tabelle.
-    const datei = pfad === '/' ? null : PFAD_ZU_DATEI[pfad]
+    // `/@henrik` ist der eigene Namensraum der Profile (s. src/handle.ts) und
+    // steht deshalb nicht in der Tabelle, sondern als eigene Regel — in Nginx
+    // ist das `location ~ ^/@`. Der Handle bleibt in der Adresszeile stehen;
+    // die Seite liest ihn dort.
+    //
+    // Geprüft wird gegen HANDLE_REGELN und nicht bloß auf `/@`: Vite bedient
+    // unter genau diesem Präfix seine eigenen Adressen (`/@vite/client`,
+    // `/@fs/…`, `/@react-refresh`). Ein pauschales Umschreiben lieferte dem
+    // Dev-Server statt seines Clients eine HTML-Seite — und zwar nur im Dev,
+    // wo es keine Entsprechung in Produktion gibt.
+    const handle = pfad.startsWith('/@') ? pfad.slice(2) : null
+    const datei =
+      pfad === '/' ? null : handle && HANDLE_REGELN.test(handle) ? ROUTEN.profil.datei : PFAD_ZU_DATEI[pfad]
     if (datei) req.url = `/${datei}${rest}`
   }
   // Bewusst kein Ausdrucks-Body: `middlewares.use()` gibt die Connect-App

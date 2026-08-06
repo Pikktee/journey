@@ -6,6 +6,7 @@
 
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Db } from '../db.js'
+import { freierHandle, handleAusEmail, pruefeHandleForm, type HandleFehler } from '../handle.js'
 import { neueSessionId, neuesTokenSecret, neueUserId } from '../ids.js'
 import { hashePasswort, pruefePasswort } from './passwort.js'
 
@@ -53,6 +54,8 @@ const alsRolle = (wert: unknown): Rolle => (wert === 'admin' ? 'admin' : 'nutzer
  * gesetzten Anzeigenamen erscheint eine öffentliche Tour ohne Urheber.
  */
 export interface Profil {
+  /** Die Adresse der Person: `maptale.io/@henrik`. Immer gesetzt (s. handle.ts). */
+  handle: string | null
   anzeigename: string | null
   bio: string | null
   /** Dateiname im Benutzer-Storage; null = kein Bild */
@@ -73,6 +76,8 @@ const leerAlsNull = (wert: string): string | null => wert.trim() || null
 export type MailZweck = 'verify' | 'reset'
 
 const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
+/** Wie lange ein aufgegebener Handle für seinen früheren Besitzer gesperrt bleibt. */
+const HANDLE_SPERRE_MS = 90 * 24 * 60 * 60 * 1000
 // Lebensdauer der Einmal-Token: E-Mail-Bestätigung großzügig, Passwort-Reset kurz.
 const MAIL_TOKEN_DAUER_MS: Record<MailZweck, number> = {
   verify: 24 * 60 * 60 * 1000, // 24 h
@@ -149,12 +154,16 @@ export class AuthDienst {
   ): Promise<Benutzer> {
     const benutzer: Benutzer = { id: neueUserId(), email: email.toLowerCase().trim(), name, rolle }
     const pwHash = await hashePasswort(passwort)
+    // Jedes Konto bekommt sofort eine Adresse — ein Profil ohne Handle wäre
+    // nicht verlinkbar, und ein nachgereichter Handle hieße, dass die halbe
+    // Anwendung mit „vielleicht keiner" rechnen müsste.
+    const handle = freierHandle(handleAusEmail(benutzer.email), (h) => !this.handleFrei(h, null))
     try {
       this.db
         .prepare(
-          'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, rolle) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO users (id, email, pw_hash, name, created_at, email_verified, rolle, handle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         )
-        .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString(), verifiziert ? 1 : 0, rolle)
+        .run(benutzer.id, benutzer.email, pwHash, benutzer.name, new Date().toISOString(), verifiziert ? 1 : 0, rolle, handle)
     } catch (fehler) {
       // Die UNIQUE-Verletzung ist der einzige erwartbare Fall — als eigener
       // Fehlertyp, damit die Route 409 statt 500 antworten kann.
@@ -319,15 +328,110 @@ export class AuthDienst {
     this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
   }
 
+  // — Handle (die Adresse einer Person) —
+
+  /**
+   * Räumt abgelaufene Reservierungen weg. Läuft vor jeder Handle-Frage, statt
+   * als eigener Aufräum-Lauf: Die Tabelle ist klein, und eine Sperre, die
+   * abgelaufen ist, muss in DEM Moment weg sein, in dem jemand nach dem Namen
+   * fragt — nicht erst beim nächsten Neustart.
+   */
+  private raeumeHandleReservierungen(): void {
+    this.db.prepare('DELETE FROM handles_reserviert WHERE frei_ab <= ?').run(new Date().toISOString())
+  }
+
+  /**
+   * Ist der Handle zu haben? `fuerUserId` darf seinen eigenen behalten und
+   * einen selbst aufgegebenen zurücknehmen — die 90-Tage-Sperre richtet sich
+   * gegen ÜBERNAHME durch andere, nicht gegen den früheren Besitzer.
+   */
+  handleFrei(handle: string, fuerUserId: string | null): boolean {
+    this.raeumeHandleReservierungen()
+    const belegtVon = this.db.prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE').get(handle) as
+      | { id: string }
+      | undefined
+    if (belegtVon && belegtVon.id !== fuerUserId) return false
+    const gesperrtFuer = this.db
+      .prepare('SELECT user_id FROM handles_reserviert WHERE handle = ? COLLATE NOCASE')
+      .get(handle) as { user_id: string } | undefined
+    return !gesperrtFuer || gesperrtFuer.user_id === fuerUserId
+  }
+
+  /**
+   * Handle → Benutzer-ID. Fällt auf die Reservierungen zurück, denn genau dafür
+   * gibt es sie: Ein Link auf `@altname` soll die 90 Tage über weiter bei
+   * derselben Person landen.
+   */
+  benutzerIdFuerHandle(handle: string): string | null {
+    this.raeumeHandleReservierungen()
+    const zeile = this.db.prepare('SELECT id FROM users WHERE handle = ? COLLATE NOCASE').get(handle) as
+      | { id: string }
+      | undefined
+    if (zeile) return zeile.id
+    const alt = this.db
+      .prepare('SELECT user_id FROM handles_reserviert WHERE handle = ? COLLATE NOCASE')
+      .get(handle) as { user_id: string } | undefined
+    return alt?.user_id ?? null
+  }
+
+  /**
+   * Handle setzen. Gibt den Grund zurück, warum nicht — `null` heißt erledigt.
+   *
+   * Der bisherige Handle wandert dabei für 90 Tage in `handles_reserviert`:
+   * Alte Links leiten weiter, und niemand sonst kann die Adresse übernehmen und
+   * die Links miterben. Derselbe Handle noch einmal ist ein No-op, kein Fehler —
+   * sonst müsste jedes Formular vorher vergleichen.
+   */
+  setzeHandle(userId: string, wunsch: string): HandleFehler | null {
+    const handle = wunsch.trim().toLowerCase()
+    const formfehler = pruefeHandleForm(handle)
+    if (formfehler) return formfehler
+    const alt = this.handleVon(userId)
+    if (alt && alt.toLowerCase() === handle) return null
+    if (!this.handleFrei(handle, userId)) return 'vergeben'
+
+    const jetzt = new Date()
+    const freiAb = new Date(jetzt.getTime() + HANDLE_SPERRE_MS).toISOString()
+    this.db.transaction(() => {
+      if (alt) {
+        this.db
+          .prepare('INSERT OR REPLACE INTO handles_reserviert (handle, user_id, frei_ab) VALUES (?, ?, ?)')
+          .run(alt, userId, freiAb)
+      }
+      // Die eigene alte Reservierung geht weg — sonst zeigte der Handle
+      // gleichzeitig auf den Benutzer und auf sich selbst als „aufgegeben".
+      this.db.prepare('DELETE FROM handles_reserviert WHERE handle = ? COLLATE NOCASE').run(handle)
+      this.db
+        .prepare('UPDATE users SET handle = ?, handle_geaendert_am = ? WHERE id = ?')
+        .run(handle, jetzt.toISOString(), userId)
+    })()
+    return null
+  }
+
+  /** Der aktuelle Handle eines Kontos; null nur bei unbekannter ID. */
+  handleVon(userId: string): string | null {
+    const zeile = this.db.prepare('SELECT handle FROM users WHERE id = ?').get(userId) as
+      | { handle: string | null }
+      | undefined
+    return zeile?.handle ?? null
+  }
+
   /** Öffentliches Profil eines Benutzers; null, wenn es ihn nicht gibt. */
   profil(userId: string): Profil | null {
     const zeile = this.db
-      .prepare('SELECT anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
+      .prepare('SELECT handle, anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
       .get(userId) as
-      | { anzeigename: string | null; bio: string | null; avatar: string | null; profil_sichtbarkeit: string }
+      | {
+          handle: string | null
+          anzeigename: string | null
+          bio: string | null
+          avatar: string | null
+          profil_sichtbarkeit: string
+        }
       | undefined
     if (!zeile) return null
     return {
+      handle: zeile.handle,
       anzeigename: zeile.anzeigename,
       bio: zeile.bio,
       avatar: zeile.avatar,

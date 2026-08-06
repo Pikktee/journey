@@ -7,6 +7,7 @@ import {
   idAusAdresse,
   monat,
   profilKopf,
+  wenAusAdresse,
   type GalerieTour,
 } from '../src/galerie/galeriemodell'
 
@@ -46,6 +47,11 @@ describe('alsKarte', () => {
 
     const mitSeite = alsKarte(tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1' } }))
     expect(mitSeite.autorLink).toBe('/profil?id=u_1')
+  })
+
+  it('verlinkt über den Handle, sobald es einen gibt', () => {
+    const karte = alsKarte(tour({ autor: { anzeigename: 'Reisende', avatarUrl: null, id: 'u_1', handle: 'henrik' } }))
+    expect(karte.autorLink).toBe('/@henrik')
   })
 
   it('kodiert Kennungen für die Adresse', () => {
@@ -99,6 +105,25 @@ describe('idAusAdresse', () => {
   it('ohne Angabe null', () => {
     expect(idAusAdresse('')).toBeNull()
     expect(idAusAdresse('?andere=1')).toBeNull()
+  })
+})
+
+describe('wenAusAdresse', () => {
+  it('nimmt den Handle aus dem Pfad', () => {
+    expect(wenAusAdresse('/@henrik', '')).toBe('henrik')
+  })
+
+  it('fällt auf die alte ?id=-Form zurück — die Links sind in der Welt', () => {
+    expect(wenAusAdresse('/profil', '?id=u_123')).toBe('u_123')
+  })
+
+  it('gibt dem Pfad den Vorrang', () => {
+    // Ein `?id=` neben einem Handle ist bestenfalls Altlast eines kopierten Links
+    expect(wenAusAdresse('/@henrik', '?id=u_999')).toBe('henrik')
+  })
+
+  it('ohne beides null', () => {
+    expect(wenAusAdresse('/profil', '')).toBeNull()
   })
 })
 

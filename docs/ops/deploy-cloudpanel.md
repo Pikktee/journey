@@ -43,7 +43,16 @@ RESEND_API_KEY=re_…            # aus deiner lokalen .env
 MAPTALE_MAIL_ABSENDER=Maptale <noreply@maptale.io>   # Domain muss in Resend verifiziert sein
 OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildanalyse (Vision-Modell via OpenRouter); fehlt er, bleibt das Auto-Wetter wie in M2
 # MAPTALE_VISION_MODELL=google/gemini-2.5-flash-lite   # optional: Vision-Modell überschreiben
+MAPTALE_UMAMI_DB_PASSWORT=<Postgres-Passwort des Umami-Containers>   # optional: nur für den Statistik-Reiter der Verwaltung
 ```
+
+> **`MAPTALE_UMAMI_DB_PASSWORT`** ist das Postgres-Passwort der selbst gehosteten
+> Umami-Instanz (Container `umami-db-1` auf demselben Host; die Route fragt ihn
+> per `docker exec … psql` ab). Es steht bewusst nicht im Quelltext — fehlt der
+> Wert, zeigt der Reiter „Statistiken" Nullen, alles andere läuft weiter. Muss
+> mit dem `POSTGRES_PASSWORD` des Umami-Compose übereinstimmen: Wer es dort
+> rotiert, trägt es hier nach und startet die API neu
+> (`docker compose -f docker-compose.cloudpanel.yml up -d`).
 
 ## 2. CloudPanel-Site + Vhost + SSL
 
@@ -74,12 +83,19 @@ OPEN_ROUTER_KEY=sk-or-…        # optional (M5): Wetter-Verfeinerung per Bildan
 > Die Fehlerseite selbst braucht keinen Handgriff: Sie liegt in
 > [`public/404.html`](../public/404.html), und Vite kopiert `public/`
 > unverändert nach `dist/` — der normale Rollout bringt sie mit.
+>
+> Stand 2026-08-06 nachgezogen: der **Profil-Namensraum**
+> `location ~ ^/@ { rewrite ^ /profil.html last; }` (Etappe 1 aus
+> [konzept_profil_konto.md](../concepts/konzept_profil_konto.md)). Er darf VOR
+> dem Code ausgerollt werden — `/@…` antwortet dann mit der Profilseite, die den
+> unbekannten Handle als „nicht gefunden" zeigt. Umgekehrt wäre die Adresse für
+> die Dauer eines Deploys tot.
 
 **Gegenprobe nach jedem Vhost-Eingriff** (drei Zeilen, alle drei müssen stimmen):
 
 ```bash
 H=https://maptale.io
-for p in /app /anmelden /registrieren /erlebnis /galerie /profil /admin; do printf '%-16s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' $H$p)"; done
+for p in /app /anmelden /registrieren /erlebnis /galerie /profil /admin '/@henrik'; do printf '%-16s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' $H$p)"; done
 printf 'unbekannt        %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/gibtsnicht)" "$(curl -s $H/gibtsnicht | grep -o '<title>[^<]*</title>')"
 printf 'api/unbekannt    %s (%s)\n' "$(curl -s -o /dev/null -w '%{http_code}' $H/api/tours/gibtsnicht)" "$(curl -s $H/api/tours/gibtsnicht | head -c 40)"
 for u in /app /assets/ /api/auth/me; do printf '%-16s %s/3 Header\n' "$u" "$(curl -sI $H$u | grep -icE 'x-frame-options|x-content-type-options|referrer-policy')"; done

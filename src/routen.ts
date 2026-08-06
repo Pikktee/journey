@@ -84,6 +84,34 @@ export function pfad(seite: Seite, anhang = ''): string {
 }
 
 /**
+ * Die Adresse einer Person: `/@henrik`.
+ *
+ * Ein eigener Namensraum neben der Tabelle — nicht `/profil?id=…`. Warum das
+ * `@` und warum im Pfad: [handle.ts](./handle.ts). Ausgeliefert wird dieselbe
+ * `profil.html`; im Vhost steht dafür ein `location ~ ^/@`, im Dev die
+ * Middleware in `vite.config.js`.
+ *
+ * Der Handle wird NICHT durch `encodeURIComponent` geschickt: Das machte aus
+ * dem `@` ein `%40` und aus der Adresse eine, die niemand vorliest. Er kann es
+ * auch nicht brauchen — erlaubt sind nur `a–z 0–9 . _ -` (`HANDLE_REGELN`).
+ */
+export function profilPfad(handle: string): string {
+  return `/@${handle}`
+}
+
+/**
+ * `/@henrik` → `henrik`; alles andere → null.
+ *
+ * Die Gegenrichtung zu `profilPfad`, für die Profilseite: Sie liegt unter zwei
+ * Adressen (Handle im Pfad, ID in der Query) und muss wissen, unter welcher sie
+ * gerade aufgerufen wurde.
+ */
+export function handleAusPfad(pfadteil: string): string | null {
+  const treffer = /^\/@([^/?#]+)/.exec(pfadteil)
+  return treffer?.[1] ? decodeURIComponent(treffer[1]) : null
+}
+
+/**
  * Pfad → Datei für alles, was nicht schon von `try_files $uri.html` erschlagen
  * wird. Quelle für die Dev-Middleware; die drei Studio-Aliasse stehen als
  * `location =`-Blöcke im Nginx-Vhost.

@@ -22,10 +22,19 @@ interface GalerieZeile {
   stats_json: string | null
   created_at: string
   autor_id: string
+  autor_handle: string | null
   anzeigename: string | null
   avatar: string | null
   profil_sichtbarkeit: string
 }
+
+/**
+ * Die Spalten, die eine Galerie-Karte braucht — einmal geschrieben, weil
+ * Galerie und Profil dieselbe Karte ausliefern und ein fehlendes Feld auf einer
+ * der beiden Seiten erst in der Anzeige auffiele.
+ */
+const KARTEN_SPALTEN = `t.id, t.title, t.cover, t.cover_thumb, t.stats_json, t.created_at,
+        u.id AS autor_id, u.handle AS autor_handle, u.anzeigename, u.avatar, u.profil_sichtbarkeit`
 
 /** Karte, wie sie die Galerie ausliefert. */
 function alsKarte(z: GalerieZeile) {
@@ -37,8 +46,10 @@ function alsKarte(z: GalerieZeile) {
     ? {
         anzeigename: z.anzeigename,
         avatarUrl: z.avatar ? `/api/benutzer/${z.autor_id}/avatar?v=${encodeURIComponent(z.avatar)}` : null,
-        // Der Link auf die Profilseite entsteht nur, wenn es sie gibt
-        ...(profilOeffentlich ? { id: z.autor_id } : {}),
+        // Der Link auf die Profilseite entsteht nur, wenn es sie gibt. Die ID
+        // bleibt neben dem Handle stehen: Sie ist der Rückfall für Konten, die
+        // aus der Zeit vor den Handles stammen.
+        ...(profilOeffentlich ? { id: z.autor_id, handle: z.autor_handle } : {}),
       }
     : null
   return {
@@ -64,8 +75,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
     // dafür ein zweites COUNT über die ganze Tabelle zu rechnen.
     const zeilen = db
       .prepare(
-        `SELECT t.id, t.title, t.cover, t.cover_thumb, t.stats_json, t.created_at,
-                u.id AS autor_id, u.anzeigename, u.avatar, u.profil_sichtbarkeit
+        `SELECT ${KARTEN_SPALTEN}
          FROM tours t JOIN users u ON u.id = t.owner_id
          WHERE t.visibility = 'public' AND t.status = 'bereit'
          ORDER BY t.created_at DESC
@@ -80,12 +90,34 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
   })
 
   // — Öffentliche Profilseite —
+  //
+  // Der Parameter ist ein HANDLE (`/@henrik`) oder eine Benutzer-ID (die alte Form
+  // `?id=…`, die in Mails und Chats steht und deshalb nie abgeschaltet wird).
+  // Geraten wird dabei nicht: IDs tragen den Präfix `u_`, den handle.ts für
+  // Handles sperrt. Ein aufgegebener Handle löst 90 Tage lang weiter auf
+  // (`benutzerIdFuerHandle`) — sonst bräche jeder geteilte Link in dem Moment,
+  // in dem jemand seine Adresse ändert.
+  //
+  // Der Parameter heißt `:id` wie in der Avatar-Route daneben: Fastify legt
+  // Pfade mit gleichem Aufbau in denselben Baum, und zwei Namen an derselben
+  // Stelle wären eine Stolperstelle ohne Gewinn.
   app.get<{ Params: { id: string } }>('/api/benutzer/:id/profil', async (request, reply) => {
-    const person = db
-      .prepare('SELECT id, anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
-      .get(request.params.id) as
-      | { id: string; anzeigename: string | null; bio: string | null; avatar: string | null; profil_sichtbarkeit: string }
-      | undefined
+    const wen = request.params.id
+    const userId = wen.startsWith('u_') ? wen : app.auth.benutzerIdFuerHandle(wen)
+    const person = userId
+      ? (db
+          .prepare('SELECT id, handle, anzeigename, bio, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
+          .get(userId) as
+          | {
+              id: string
+              handle: string | null
+              anzeigename: string | null
+              bio: string | null
+              avatar: string | null
+              profil_sichtbarkeit: string
+            }
+          | undefined)
+      : undefined
     // 404 statt 403: ein nicht freigegebenes Profil verrät nicht, dass es
     // existiert (dieselbe Linie wie bei privaten Touren).
     if (!person || person.profil_sichtbarkeit !== 'public') {
@@ -94,8 +126,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
 
     const zeilen = db
       .prepare(
-        `SELECT t.id, t.title, t.cover, t.cover_thumb, t.stats_json, t.created_at,
-                u.id AS autor_id, u.anzeigename, u.avatar, u.profil_sichtbarkeit
+        `SELECT ${KARTEN_SPALTEN}
          FROM tours t JOIN users u ON u.id = t.owner_id
          WHERE t.owner_id = ? AND t.visibility = 'public' AND t.status = 'bereit'
          ORDER BY t.created_at DESC`,
@@ -103,6 +134,7 @@ export function registriereGalerieRouten(app: FastifyInstance): void {
       .all(person.id) as GalerieZeile[]
 
     return {
+      handle: person.handle,
       anzeigename: person.anzeigename,
       bio: person.bio,
       avatarUrl: person.avatar

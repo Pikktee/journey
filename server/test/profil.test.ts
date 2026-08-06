@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
 interface ProfilAntwort {
+  handle: string | null
   anzeigename: string | null
   bio: string | null
   avatarUrl: string | null
@@ -34,6 +35,9 @@ describe('Profil', () => {
     // Der Klarname aus der Registrierung wird NICHT zum Anzeigenamen — wer
     // sich mit echtem Namen anmeldet, veröffentlicht ihn nicht nebenbei.
     expect(await meinProfil(u)).toEqual({
+      // Die Adresse steht dagegen von Anfang an (s. handle.test.ts): Ein Profil
+      // ohne Handle wäre nicht verlinkbar.
+      handle: 'test',
       anzeigename: null,
       bio: null,
       avatarUrl: null,
