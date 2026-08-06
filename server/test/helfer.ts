@@ -73,6 +73,8 @@ export interface TestUmgebung {
   storage: MemStorage
   /** Ablage für Benutzerdateien (Avatare) */
   benutzerStorage: MemStorage
+  /** Ablage der Datenexport-Archive. */
+  archive: MemStorage
   mail: SammelMail
   /** Session-Cookie des angemeldeten Testbenutzers, für inject() */
   cookies: { maptale_session: string }
@@ -103,12 +105,14 @@ export async function baueTestApp(
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
   const benutzerStorage = new MemStorage()
+  const archive = new MemStorage()
   const mail = new SammelMail()
   const app = baueApp({
     konfig: { ...TEST_KONFIG, ...konfigPatch },
     db,
     storage,
     benutzerStorage,
+    archive,
     geocoder: new FesterGeocoder(geocoderAntworten),
     wetter,
     videoWerkzeug,
@@ -132,7 +136,7 @@ export async function baueTestApp(
   const sessionCookie = login.cookies.find((c) => c.name === 'maptale_session')
   const apiToken = (login.json() as { apiToken: string }).apiToken
 
-  return { app, storage, benutzerStorage, mail, cookies: { maptale_session: sessionCookie?.value ?? '' }, apiToken }
+  return { app, storage, benutzerStorage, archive, mail, cookies: { maptale_session: sessionCookie?.value ?? '' }, apiToken }
 }
 
 /**

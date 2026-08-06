@@ -5,6 +5,8 @@
 // Verwechslung ist deshalb kein Schönheitsfehler.
 import { describe, expect, it } from 'vitest'
 import {
+  exportZeile,
+  type ExportStand,
   belegtProzent,
   browserAus,
   geraeteName,
@@ -149,5 +151,43 @@ describe('Speicher', () => {
     expect(groesse(mb(2048))).toBe('2,0 GB')
     expect(groesse(mb(0.4))).toBe('0,4 MB')
     expect(groesse(0)).toBe('0 MB')
+  })
+})
+
+describe('exportZeile', () => {
+  const jetzt = new Date('2026-08-06T12:00:00Z')
+  const stand = (p: Partial<ExportStand> = {}): ExportStand => ({
+    id: 'x_1',
+    status: 'fertig',
+    angefordertAm: '2026-08-06T10:00:00Z',
+    fertigAm: '2026-08-06T10:05:00Z',
+    laeuftAbAm: '2026-08-08T10:05:00Z',
+    bytes: 1024 * 1024 * 640,
+    dateien: 42,
+    ...p,
+  })
+
+  it('sagt nichts, wenn nie exportiert wurde', () => {
+    // Kein „noch nichts" hinstellen: Die Zeile darüber erklärt den Knopf schon.
+    expect(exportZeile(null)).toBe('')
+    expect(exportZeile(undefined)).toBe('')
+  })
+
+  it('nennt Größe und verbleibende Frist', () => {
+    expect(exportZeile(stand(), jetzt)).toBe(
+      'Dein Archiv (640 MB) liegt bereit — der Link aus der Mail gilt noch 46 Stunden.',
+    )
+    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T12:40:00Z' }), jetzt)).toContain('noch eine Stunde')
+  })
+
+  it('behauptet nichts über ein Archiv, das es nicht mehr gibt', () => {
+    // Abgelaufen heißt gelöscht — die Zeile darf nicht sagen, es liege bereit.
+    expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T09:00:00Z' }), jetzt)).toContain('abgelaufen')
+    expect(exportZeile(stand({ laeuftAbAm: null }), jetzt)).toContain('abgelaufen')
+  })
+
+  it('unterscheidet läuft und fehlgeschlagen', () => {
+    expect(exportZeile(stand({ status: 'laeuft' }), jetzt)).toContain('wird gerade gebaut')
+    expect(exportZeile(stand({ status: 'fehler' }), jetzt)).toContain('fehlgeschlagen')
   })
 })

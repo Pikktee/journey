@@ -206,3 +206,40 @@ export function groesse(bytes: number): string {
   const text = Number.isInteger(gerundet) ? String(gerundet) : String(gerundet).replace('.', ',')
   return `${text.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} MB`
 }
+
+// ————— Datenexport —————
+
+/** Der Auftrag, wie ihn `/auth/me` mitliefert. */
+export interface ExportStand {
+  id: string
+  status: 'laeuft' | 'fertig' | 'fehler'
+  angefordertAm: string
+  fertigAm: string | null
+  laeuftAbAm: string | null
+  bytes: number | null
+  dateien: number | null
+}
+
+/**
+ * Der Satz unter „Alle Daten exportieren" — was gerade Sache ist.
+ *
+ * Vier Zustände, und der wichtigste ist der LEERE: Wer noch nie exportiert
+ * hat, bekommt keine Zeile hingestellt, die „noch nichts" sagt. Ein fertiges
+ * Archiv nennt seine Größe und die verbleibende Frist, denn beides entscheidet,
+ * ob man den Link aus der Mail noch braucht oder neu anfordert.
+ *
+ * Ein abgelaufener Auftrag zählt als „nichts mehr da" — die Zeile behauptet
+ * dann nicht, es liege noch ein Archiv bereit, das der Server längst gelöscht
+ * hat.
+ */
+export function exportZeile(stand: ExportStand | null | undefined, jetzt: Date = new Date()): string {
+  if (!stand) return ''
+  if (stand.status === 'laeuft') return 'Dein Archiv wird gerade gebaut. Die Mail kommt, sobald es fertig ist.'
+  if (stand.status === 'fehler') return 'Der letzte Versuch ist fehlgeschlagen. Fordere das Archiv noch einmal an.'
+  const ablauf = stand.laeuftAbAm ? new Date(stand.laeuftAbAm) : null
+  if (!ablauf || ablauf <= jetzt) return 'Dein letztes Archiv ist abgelaufen und wurde gelöscht.'
+  const stunden = Math.max(1, Math.round((ablauf.getTime() - jetzt.getTime()) / 3_600_000))
+  const wieLange = stunden === 1 ? 'noch eine Stunde' : `noch ${stunden} Stunden`
+  const wieGross = stand.bytes === null ? '' : ` (${groesse(stand.bytes)})`
+  return `Dein Archiv${wieGross} liegt bereit — der Link aus der Mail gilt ${wieLange}.`
+}

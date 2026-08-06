@@ -23,6 +23,7 @@ export type VorlagenSchluessel =
   | 'email-wechsel'
   | 'warteliste'
   | 'warteliste-einladung'
+  | 'export'
 
 export interface PlatzhalterInfo {
   name: string
@@ -171,6 +172,32 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
         'Der Code gilt für eine Anmeldung.\n\n' +
         'Magst du doch nicht mehr? Dann trag dich hier aus, wir löschen deine Adresse sofort:\n\n' +
         '{{austragenLink}}',
+    },
+  },
+  {
+    schluessel: 'export',
+    name: 'Datenexport fertig',
+    anlass:
+      'Geht raus, sobald das angeforderte ZIP gebaut ist (Art. 20 DSGVO). ' +
+      'Der Link gilt 48 Stunden — danach ist das Archiv gelöscht, nicht nur unerreichbar.',
+    hatLink: true,
+    platzhalter: [
+      { name: 'name', beschreibung: 'Name des Kontos', beispiel: 'Mira Wolf' },
+      LINK_INFO('Link zum Archiv', 'https://maptale.io/api/export/beispiel'),
+      { name: 'groesse', beschreibung: 'Größe des Archivs, fertig formatiert', beispiel: '1,4 GB' },
+      { name: 'frist', beschreibung: 'Wie lange der Link gilt', beispiel: '48 Stunden' },
+    ],
+    standard: {
+      betreff: 'Dein Datenexport ist fertig',
+      titel: 'Deine Daten liegen bereit',
+      text:
+        'Hallo {{name}},\n\n' +
+        'dein Archiv ist gebaut — {{groesse}} mit allen Touren, Medien und Konto-Angaben. ' +
+        'Über den Knopf unten lädst du es herunter.',
+      knopf: 'Archiv herunterladen',
+      fuss:
+        'Der Link gilt {{frist}}. Danach wird das Archiv gelöscht; du kannst jederzeit ein neues anfordern.\n\n' +
+        'Behandle den Link wie ein Passwort: Wer ihn hat, kann deine Daten herunterladen.',
     },
   },
 ]

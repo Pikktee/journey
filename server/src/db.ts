@@ -334,6 +334,38 @@ const MIGRATIONEN: Migration[] = [
   `
   ALTER TABLE users ADD COLUMN suchmaschinen INTEGER NOT NULL DEFAULT 0;
   `,
+
+  // 16 — Datenexport (Art. 20 DSGVO): die Job-Verwaltung.
+  //
+  // Eine Zeile je Anforderung, nicht je Konto: Was jemand wann angefordert hat,
+  // ist die Auskunft, die man später braucht („mein Link ist abgelaufen").
+  //
+  // **Der partielle UNIQUE-Index ist der Kern.** Zwei Klicks auf denselben
+  // Knopf dürfen keine zwei Archive bauen — und eine Prüfung im Code („läuft
+  // schon einer?") hilft dagegen nicht: Zwischen SELECT und INSERT liegt ein
+  // Fenster, in dem die zweite Anfrage dieselbe Antwort bekommt. Der Index
+  // schließt es in der Datenbank: Ein zweiter laufender Job je Konto ist
+  // schlicht nicht speicherbar, der INSERT scheitert, und die Route liefert
+  // den vorhandenen zurück.
+  //
+  // `laeuft_ab_am` steht in der Zeile und wird nicht gerechnet: Die Frist gilt
+  // ab FERTIGSTELLUNG, und eine später geänderte Konstante darf einen bereits
+  // verschickten Link nicht rückwirkend verkürzen oder verlängern.
+  `
+  CREATE TABLE exporte (
+    id TEXT PRIMARY KEY,
+    benutzer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('laeuft','fertig','fehler')),
+    angefordert_am TEXT NOT NULL,
+    fertig_am TEXT,
+    laeuft_ab_am TEXT,
+    bytes INTEGER,
+    dateien INTEGER,
+    fehler TEXT
+  );
+  CREATE UNIQUE INDEX idx_exporte_laufend ON exporte(benutzer_id) WHERE status = 'laeuft';
+  CREATE INDEX idx_exporte_benutzer ON exporte(benutzer_id, angefordert_am);
+  `,
 ]
 
 /**

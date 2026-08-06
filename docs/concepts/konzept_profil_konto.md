@@ -193,7 +193,39 @@ Was Teil B mitbekommt (Versand, noch nicht gebaut): `NewsletterDienst.empfaenger
 
 ---
 
-## Etappe 5 — Datenexport
+## Etappe 5 — Datenexport ✅
+
+**Umgesetzt am 6. August 2026.** [server/src/export.ts](../../server/src/export.ts)
+(Auftragsverwaltung, Fristen, ZIP-Mechanik über `yazl`),
+[exportinhalt.ts](../../server/src/exportinhalt.ts) (was hineingehört, Ordnernamen,
+Begleittext), [exportlauf.ts](../../server/src/exportlauf.ts) (Sammeln und Packen),
+[routes/export.ts](../../server/src/routes/export.ts), Migration 16, Mail-Vorlage `export`,
+Zeile „Alle Daten exportieren" im Konto, Datenschutzerklärung Abschnitt 11.
+
+Fünf Entscheidungen, die beim Umsetzen dazukamen:
+
+- **Gegen Doppelläufe hilft nur die Datenbank**, keine Prüfung im Code: ein partieller
+  `UNIQUE`-Index `WHERE status = 'laeuft'`. Zwischen „läuft schon einer?" und dem INSERT
+  liegt sonst ein Fenster, in dem beide Anfragen dasselbe sehen. Der zweite INSERT scheitert,
+  und die Route liefert den vorhandenen Auftrag — ohne zweite Mail.
+- **Medien gehen ungepackt ins Archiv.** Fotos und Videos sind schon komprimiert; sie durch
+  Deflate zu schicken kostet die CPU des ganzen Servers und spart nichts. Gepackt wird nur,
+  was Text ist.
+- **Aufgeräumt wird stündlich**, nicht im täglichen Lauf neben der Warteliste: Bei einem
+  täglichen läge ein Archiv im ungünstigen Fall 72 statt 48 Stunden herum. Derselbe Lauf
+  befreit Konten, deren Export beim Neustart mittendrin abbrach — sonst blockierte der
+  UNIQUE-Index sie für immer.
+- **Der Download-Link braucht keine Anmeldung.** Er wird im Postfach geöffnet, oft auf einem
+  anderen Gerät; ein Anmeldezwang machte aus dem Weg zu den eigenen Daten eine Hürde.
+  Dieselbe Linie wie beim Passwort-Reset, dessen Link sogar das ganze Konto öffnet. Gefälscht
+  und abgelaufen bekommen dieselbe Antwort — ein eigener Text verriete, dass es den Auftrag gab.
+- **Die Ordner heißen wie die Reise** (`touren/03-runde-bei-frankfurt/`), nicht wie die
+  Kennung: Wer das ZIP öffnet, sucht seine Tour, nicht `t_9fK4mHx2QbVnRs`. Die Kennung steht
+  in der `tour.json` daneben. Draußen bleibt der Anreicherungs-Cache — er ist unser Rechenweg,
+  keine Auskunft.
+
+### Ursprünglicher Plan
+
 
 Der einzige Punkt mit echtem Hintergrundlauf: ZIP aus Touren, Medien und
 Konto-Angaben bauen, irgendwo ablegen, Link mit 48-Stunden-Frist per Mail.

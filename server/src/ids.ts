@@ -9,6 +9,10 @@ const nano = customAlphabet('23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVW
 export const neueTourId = (): string => `t_${nano()}`
 export const neueUserId = (): string => `u_${nano()}`
 export const neueSessionId = (): string => `s_${nano()}${nano()}`
+// Doppelte Länge wie eine Tour-Kennung: Sie steht im Download-Link eines
+// Archivs, das ALLE Daten eines Kontos enthält. Signiert ist der Link
+// zusätzlich (s. export.ts) — das hier ist die zweite Mauer, nicht die einzige.
+export const neueExportId = (): string => `x_${nano()}${nano()}`
 export const neuesTokenSecret = (): string => `lhb_${nano()}${nano()}${nano()}`
 
 // Einladungscodes werden vorgelesen und abgetippt, nicht kopiert-und-eingefügt:

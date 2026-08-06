@@ -426,6 +426,18 @@
             </label>
             <input type="checkbox" class="schalter" id="s-suche" />
           </div>
+          <!-- Art. 20 DSGVO. Der Bau läuft im Hintergrund und dauert bei vielen
+               Medien Minuten — deshalb kommt das Ergebnis per Mail und nicht
+               als Download aus diesem Klick. Die Zeile darunter sagt, woran man
+               gerade ist; sie kommt aus /auth/me und wird nicht gepollt. -->
+          <div class="zeile">
+            <span class="z">
+              <span class="t">Alle Daten exportieren</span>
+              <span class="b">Touren, Fotos, Videos, Klänge und deine Konto-Angaben als ZIP. Der Bau dauert einen Moment — du bekommst den Link per Mail.</span>
+              <span class="b" id="ex-stand" hidden></span>
+            </span>
+            <button type="button" class="knopf" id="btn-export">ZIP anfordern</button>
+          </div>
         </div>
       </div>
 

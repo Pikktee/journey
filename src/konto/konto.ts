@@ -11,12 +11,14 @@
 import { pfad, profilPfad } from '../routen.js'
 import {
   belegtProzent,
+  exportZeile,
   geraeteName,
   geraeteSymbol,
   geraeteUnterzeile,
   groesse,
   speicherAbschnitte,
   speicherKnapp,
+  type ExportStand,
   type Geraet,
   type SpeicherStand,
 } from './kontomodell.js'
@@ -107,6 +109,7 @@ interface MeAntwort {
     sichtbarkeit: 'private' | 'public'
     suchmaschinen?: boolean
   }
+  export?: ExportStand | null
 }
 
 // ————— Anmeldung & Sicherheit —————
@@ -340,6 +343,53 @@ function verdrahteSuche(daten: MeAntwort): void {
   })
 }
 
+// ————— Datenexport —————
+
+/**
+ * Der Knopf „ZIP anfordern".
+ *
+ * Er wartet NICHT auf das Archiv: Die Route antwortet sofort, gebaut wird im
+ * Hintergrund, und das Ergebnis kommt per Mail. Deshalb sagt die Rückmeldung
+ * genau das — ein Spinner, der Minuten läuft, wäre eine Lüge über die Dauer,
+ * und ein Fortschrittsbalken bräuchte einen zweiten Kanal, den es nicht gibt.
+ *
+ * Läuft schon einer, antwortet der Server mit demselben Auftrag (er legt keinen
+ * zweiten an), und wir sagen es an der Zeile. Der Knopf bleibt danach gesperrt:
+ * Ein zweiter Klick änderte nichts, sähe aber aus, als täte er es.
+ */
+function verdrahteExport(daten: MeAntwort): void {
+  const knopf = $('btn-export') as HTMLButtonElement | null
+  const zeile = $('ex-stand')
+  if (!knopf) return
+
+  const zeige = (stand: ExportStand | null | undefined): void => {
+    const text = exportZeile(stand)
+    if (zeile) {
+      zeile.textContent = text
+      zeile.hidden = !text
+    }
+    knopf.disabled = stand?.status === 'laeuft'
+  }
+  zeige(daten.export)
+
+  knopf.addEventListener('click', async () => {
+    knopf.disabled = true
+    const antwort = await fetch('/api/auth/me/export', { method: 'POST' }).catch(() => null)
+    if (!antwort?.ok) {
+      knopf.disabled = false
+      melde(
+        antwort?.status === 429
+          ? 'Du hast in der letzten Stunde schon mehrere Archive angefordert.'
+          : 'Der Export ließ sich nicht starten.',
+      )
+      return
+    }
+    const stand = (await antwort.json().catch(() => null)) as { export?: ExportStand } | null
+    zeige(stand?.export)
+    melde('Export gestartet — du bekommst eine Mail, sobald das Archiv bereitliegt.')
+  })
+}
+
 // ————— Newsletter —————
 
 /**
@@ -495,6 +545,7 @@ export async function starteKonto(): Promise<void> {
   verdrahteNewsletter(daten)
   verdrahteSichtbarkeit(daten)
   verdrahteSuche(daten)
+  verdrahteExport(daten)
   void ladeGeraete()
   void ladeSpeicher()
 

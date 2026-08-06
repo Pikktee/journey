@@ -596,6 +596,15 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     // Auch die Benutzerdateien (Avatar) — sie hängen an keiner Tour und
     // überlebten den Cascade sonst als Waisen auf der Platte.
     await benutzerStorage.loescheTour(benutzer.id).catch(() => undefined)
+    // Dasselbe für ein fertiges Export-Archiv: Seine Zeile fällt gleich dem
+    // Cascade zum Opfer, und ohne sie findet der stündliche Aufräumer die
+    // Datei nie wieder — ein ZIP mit ALLEN Daten des gelöschten Kontos bliebe
+    // für immer liegen. Vor dem Löschen der Zeile lesen, sonst ist die ID weg.
+    for (const { id } of app.deps.db
+      .prepare('SELECT id FROM exporte WHERE benutzer_id = ?')
+      .all(benutzer.id) as Array<{ id: string }>) {
+      await app.deps.archive.loescheTour(id).catch(() => undefined)
+    }
     app.auth.loescheBenutzer(benutzer.id)
     loescheSessionCookies(reply)
     return { ok: true }
@@ -642,6 +651,10 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       // Antwort, auf die diese Seite ohnehin wartet.
       newsletter: app.newsletter.stand(request.benutzer.id),
       profil: alsProfilAntwort(app, request.benutzer.id),
+      // Der jüngste Export-Auftrag — keine eigene Route zum Pollen: Die
+      // Konto-Seite wartet ohnehin auf diese Antwort, und ein Export dauert
+      // Minuten, nicht Sekunden. Wer den Stand sehen will, lädt neu.
+      export: app.exporte.stand(request.benutzer.id),
     }
   })
 

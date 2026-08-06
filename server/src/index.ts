@@ -25,6 +25,8 @@ const storage = new FsStorage(join(konfig.datenDir, 'tours'))
 // Benutzerdateien (Avatare) liegen getrennt von den Touren, mit der Benutzer-ID
 // als Bereichsnamen — so räumt das Konto-Löschen sie mit einem Aufruf weg.
 const benutzerStorage = new FsStorage(join(konfig.datenDir, 'benutzer'))
+// Datenexport-Archive: eigener Bereich, eigene Lebensdauer (48 h, s. export.ts).
+const archive = new FsStorage(join(konfig.datenDir, 'exporte'))
 const geocoder = new NominatimGeocoder()
 const wetter = new OpenMeteoQuelle()
 const videoWerkzeug = new FfmpegWerkzeug()
@@ -44,6 +46,7 @@ const app = baueApp({
   db,
   storage,
   benutzerStorage,
+  archive,
   geocoder,
   wetter,
   videoWerkzeug,
@@ -71,6 +74,22 @@ const raeumeWarteliste = (): void => {
 }
 raeumeWarteliste()
 setInterval(raeumeWarteliste, 24 * 60 * 60 * 1000).unref()
+
+// Abgelaufene Export-Archive: STÜNDLICH, nicht täglich. Ein ZIP mit allen
+// Fotos einer Person ist das Gegenteil von „nur so lange wie nötig" — bei
+// einem täglichen Lauf läge es im ungünstigen Fall 72 statt 48 Stunden herum.
+// Derselbe Lauf befreit Konten, deren Export beim letzten Neustart mittendrin
+// abgebrochen ist (sonst blockierte er sie für immer).
+const raeumeExporte = (): void => {
+  void app.exporte
+    .raeumeAuf()
+    .then((weg) => {
+      if (weg > 0) app.log.info(`${weg} abgelaufene Export-Archive gelöscht`)
+    })
+    .catch((fehler) => app.log.error({ fehler }, 'Aufräumen der Export-Archive fehlgeschlagen'))
+}
+raeumeExporte()
+setInterval(raeumeExporte, 60 * 60 * 1000).unref()
 
 await app.listen({ port: konfig.port, host: '0.0.0.0' })
 app.log.info(`Maptale-API läuft auf Port ${konfig.port}`)

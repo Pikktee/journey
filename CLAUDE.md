@@ -426,9 +426,22 @@ auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
   ([server/src/routes/seiten.ts](server/src/routes/seiten.ts)). Das steht so auch in
   [datenschutz.html](datenschutz.html), Abschnitt 5 — wer es ändert, ändert dort eine Zusage.
 
-Noch nicht gebaut (eigene Etappe in
-[docs/concepts/konzept_profil_konto.md](docs/concepts/konzept_profil_konto.md)): der
-ZIP-Datenexport.
+- **Der ZIP-Datenexport ist der einzige echte HINTERGRUNDLAUF im Projekt** (Art. 20 DSGVO,
+  [server/src/export.ts](server/src/export.ts) für Aufträge und ZIP-Mechanik,
+  [exportinhalt.ts](server/src/exportinhalt.ts) für das WAS,
+  [exportlauf.ts](server/src/exportlauf.ts) für das Zusammenführen). Die Route antwortet
+  sofort und stößt den Bau danach an — ein Archiv über zwei Gigabyte hielte sonst eine
+  Verbindung minutenlang offen. Vier Dinge, die man dabei kippt: **Gegen Doppelläufe hilft
+  nur die Datenbank** (partieller `UNIQUE`-Index `WHERE status = 'laeuft'`; zwischen „läuft
+  schon einer?" und dem INSERT liegt sonst ein Fenster, in dem beide Anfragen dasselbe
+  sehen). **Medien gehen ungepackt ins ZIP** — sie sind schon komprimiert, Deflate kostet
+  die CPU des ganzen Servers und spart nichts. **Die Frist steht in der ZEILE**, beginnt mit
+  der Fertigstellung und darf von einer späteren Konstante nicht rückwirkend geändert werden.
+  Und **aufgeräumt wird stündlich**, nicht im täglichen Lauf: Ein Archiv mit allen Fotos einer
+  Person läge sonst bis zu 72 statt 48 Stunden herum. Der Download-Link (`/api/export/<token>`,
+  signiert) braucht **keine Anmeldung** — er wird im Postfach geöffnet, oft auf einem anderen
+  Gerät; dieselbe Linie wie beim Passwort-Reset. Fristen und Umfang stehen in
+  [datenschutz.html](datenschutz.html) Abschnitt 11 — wer sie ändert, ändert dort eine Zusage.
 
 ## Benutzerverwaltung
 

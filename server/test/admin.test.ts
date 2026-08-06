@@ -472,7 +472,7 @@ describe('System-Mails verwalten', () => {
     const antwort = await u.app.inject({ method: 'GET', url: '/api/admin/mailvorlagen', cookies: admin.cookies })
     expect(antwort.statusCode).toBe(200)
     const { vorlagen } = antwort.json() as { vorlagen: Array<Record<string, unknown>> }
-    expect(vorlagen).toHaveLength(5)
+    expect(vorlagen).toHaveLength(6)
     expect(vorlagen[0]).toMatchObject({ schluessel: 'verifikation', angepasst: false })
     expect(vorlagen[0]?.platzhalter).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'link' })]))
   })

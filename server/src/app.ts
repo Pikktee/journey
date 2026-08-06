@@ -25,10 +25,12 @@ import { registriereBibliotheksRouten } from './routes/bibliothek.js'
 import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
 import { registriereNewsletterRouten } from './routes/newsletter.js'
+import { registriereExportRouten } from './routes/export.js'
 import { registriereSeitenRouten } from './routes/seiten.js'
 import { registriereTourRouten } from './routes/tours.js'
 import { registriereWartelistenRouten } from './routes/warteliste.js'
 import { Protokoll, protokollZiel } from './protokoll.js'
+import { ExportDienst } from './export.js'
 import { SeitenQuelle } from './seiten.js'
 import type { Storage } from './storage.js'
 import { ZuGrossFehler } from './storage.js'
@@ -65,6 +67,14 @@ export interface AppAbhaengigkeiten {
   /** Mail-Versand (M9): Registrierungs-Bestätigung + Passwort-Reset */
   mail: MailVersand
   /**
+   * Ablage der Datenexport-Archive (`daten/exporte/<auftrag>/`).
+   *
+   * Ein dritter Bereich neben Touren und Benutzerdateien, kein Unterordner:
+   * Ein Archiv gehört zu keiner Tour, es hat eine eigene Lebensdauer (48 h),
+   * und `loescheTour(auftragId)` räumt es in einem Zug weg.
+   */
+  archive: Storage
+  /**
    * Quelle der gebauten HTML-Seiten für `/@handle` (s. seiten.ts).
    *
    * Optional, weil die Produktion sie nicht setzt — dort genügt der Standard,
@@ -91,6 +101,8 @@ declare module 'fastify' {
     protokoll: Protokoll
     /** Gebaute HTML-Seiten für die Routen, die der Server selbst beantwortet. */
     seiten: SeitenQuelle
+    /** Datenexport: Auftragsverwaltung, Fristen, Aufräumen (Art. 20 DSGVO). */
+    exporte: ExportDienst
   }
   interface FastifyRequest {
     benutzer: Benutzer | null
@@ -123,6 +135,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('verarbeitungen', new Map())
   app.decorate('protokoll', protokoll)
   app.decorate('seiten', deps.seiten ?? new SeitenQuelle(deps.konfig))
+  app.decorate('exporte', new ExportDienst(deps.db, deps.archive))
   app.decorateRequest('benutzer', null)
 
   app.register(fastifyCookie, { secret: deps.konfig.cookieSecret })
@@ -170,6 +183,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereWartelistenRouten(app)
   registriereNewsletterRouten(app)
   registriereSeitenRouten(app)
+  registriereExportRouten(app)
 
   app.get('/api/gesundheit', async () => ({ ok: true }))
 

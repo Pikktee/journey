@@ -107,13 +107,14 @@ describe('Mail-Layout', () => {
 })
 
 describe('Vorlagen-Katalog', () => {
-  it('kennt fünf System-Mails, jede mit Standardtext und Platzhaltern', () => {
+  it('kennt sechs System-Mails, jede mit Standardtext und Platzhaltern', () => {
     expect(VORLAGEN.map((v) => v.schluessel)).toEqual([
       'verifikation',
       'reset',
       'email-wechsel',
       'warteliste',
       'warteliste-einladung',
+      'export',
     ])
     for (const v of VORLAGEN) {
       expect(v.standard.betreff, v.schluessel).toBeTruthy()
