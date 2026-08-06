@@ -1,0 +1,1442 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Maptale, Mein Profil &amp; Kontoeinstellungen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Maptale Profil & Kontoeinstellungen
+
+   Zwei eigenständige Seiten: „Mein Profil" (öffentliche Seite, über
+   ein Modal bearbeitbar) und „Kontoeinstellungen".
+
+   Zwei Festlegungen, die den Rest erklären:
+
+   1. DIE PROFILSEITE ZEIGT NUR ÖFFENTLICHE TOUREN. Deshalb gibt es
+      hier keinen Filter und keine Sichtbarkeits-Plakette — beides
+      beantwortete eine Frage, die sich hier nicht stellt. Private
+      Touren und die mit Link liegen in „Meine Touren"; dort werden
+      sie auch umgestellt. Aus demselben Grund zählen die Kennzahlen
+      NUR die öffentlichen Touren: eine Seite, die „7 Reisen" über
+      drei Karten schreibt, verrät Fremden, dass vier fehlen.
+
+   2. RADIUS 8 / 12 / 14 (Knopf / Karte / Modal). Knöpfe und Felder
+      sind schärfer als der bisherige Studio-Stand (10 px); große
+      Flächen bleiben weicher, sonst wirkt alles kantig. Wenn das
+      bleibt, ziehen DESIGN.md, studio.html und der Editor nach —
+      als eigener Schritt, nicht halb.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #111722;
+  --fl-2: #161e2c;
+  --fl-3: #1e283a;
+  --rand: #232d3d;
+  --rand-hell: #2e3b4e;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #7e8a99;
+  --akzent: #F59E0B;
+  --akzent-2: #ff6f52;
+  --gruen: #3ecf8e;
+  --rot: #e5484d;
+  --blau: #5b9dff;
+  --lila: #c58bff;
+  --schatten: 0 24px 54px rgba(0, 0, 0, .65), 0 4px 16px rgba(0, 0, 0, .4);
+  --font-ui: 'Outfit', system-ui, sans-serif;
+  --topbar-h: 58px;
+  --wrap: 1040px;
+  --radius-btn: 8px;
+  --radius-modal: 14px;
+  --radius-card: 12px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14.5px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-weight: 550; margin: 0; }
+a { color: var(--akzent); text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+::selection { background: rgba(245, 165, 36, .3); }
+.zahl { font-variant-numeric: tabular-nums; }
+.t, .b, .n, .m { display: block; }
+
+/* Kleine Knöpfe brauchen auf Touch eine Fläche, die der Finger trifft —
+   ohne dass die Optik wächst. Das Pseudoelement liegt unsichtbar darüber. */
+.tipp-flaeche { position: relative; }
+.tipp-flaeche::after {
+  content: ''; position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: max(100%, 44px); height: max(100%, 44px);
+}
+
+button, .knopf {
+  font-family: var(--font-ui); font-size: 13.5px; font-weight: 500;
+  color: var(--text); background: var(--fl-2);
+  border: 1px solid var(--rand); border-radius: var(--radius-btn); padding: 8px 14px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  transition: background .16s, border-color .16s, transform .12s, box-shadow .16s, color .16s;
+  white-space: nowrap;
+}
+button:hover, .knopf:hover { background: var(--fl-3); border-color: var(--rand-hell); }
+button:active, .knopf:active { transform: scale(.98); }
+button:disabled { opacity: .45; cursor: default; transform: none; }
+button.primaer {
+  background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
+  color: #221302; border: none; font-weight: 600; padding: 9px 16px;
+  border-radius: var(--radius-btn);
+  box-shadow: 0 2px 6px rgba(245, 133, 40, .15);
+}
+button.primaer:hover { box-shadow: 0 3px 10px rgba(245, 133, 40, .22); filter: brightness(1.05); }
+button.gefahr { color: #ffb4b6; border-color: rgba(229,72,77,.3); background: rgba(229,72,77,.07); }
+button.gefahr:hover { background: rgba(229,72,77,.15); border-color: rgba(229,72,77,.55); color: #ffd0d1; }
+button.still { background: transparent; border-color: transparent; color: var(--text-2); }
+button.still:hover { background: var(--fl-2); color: var(--text); border-color: var(--rand); }
+button svg, .knopf svg { width: 16px; height: 16px; flex: none; }
+:is(button, input, textarea, select, a):focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; border-radius: var(--radius-btn); }
+
+input[type='text'], input[type='email'], input[type='password'], textarea, select {
+  font-size: 14px; background: var(--bg-tief); border: 1px solid var(--rand);
+  border-radius: var(--radius-btn); padding: 9px 12px; width: 100%; transition: border-color .16s, box-shadow .16s;
+}
+textarea { resize: vertical; min-height: 80px; }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--akzent); box-shadow: 0 0 0 3px rgba(245, 158, 11, .15); }
+input::placeholder, textarea::placeholder { color: var(--text-3); }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%237e8a99' stroke-width='1.8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+/* Passwortfeld */
+.pw-feld { position: relative; }
+.pw-feld input { padding-right: 44px; }
+.pw-auge {
+  position: absolute; right: 5px; top: 50%; translate: 0 -50%;
+  width: 32px; height: 32px; padding: 0; justify-content: center;
+  background: transparent; border: none; color: var(--text-3); border-radius: 6px;
+}
+.pw-auge:hover { background: var(--fl-2); color: var(--text); border: none; }
+
+/* — Mockup-Leiste — */
+.mockleiste {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 7px 18px; font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase;
+  background: repeating-linear-gradient(135deg, #14100a, #14100a 10px, #171209 10px, #171209 20px);
+  border-bottom: 1px solid #2a2113; color: #9c886a;
+}
+.mockleiste b { color: var(--akzent); font-weight: 600; }
+.mockleiste .sp { flex: 1; }
+.mockleiste button {
+  background: transparent; border: 1px solid #33291a; color: #b09a70;
+  border-radius: 999px; padding: 3px 11px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+}
+.mockleiste button[aria-pressed='true'] { background: rgba(245,165,36,.14); border-color: rgba(245,165,36,.5); color: var(--akzent); }
+
+/* — Topbar — */
+.topbar { position: sticky; top: 33px; z-index: 30; height: var(--topbar-h); border-bottom: 1px solid var(--rand); background: rgba(10,14,20,.86); backdrop-filter: blur(14px); }
+.topbar .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; height: 100%; display: flex; align-items: center; gap: 18px; }
+.brand { display: inline-flex; align-items: center; gap: 9px; color: var(--text); font-size: 17px; font-weight: 600; }
+.brand .mark { width: 26px; height: 26px; border-radius: var(--radius-btn); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); display: grid; place-items: center; color: #241402; font-weight: 700; font-size: 14px; }
+.top-nav { display: flex; gap: 4px; }
+.top-nav a { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: var(--radius-btn); color: var(--text-2); font-size: 13.5px; font-weight: 500; }
+.top-nav a:hover { background: var(--fl-1); color: var(--text); }
+.top-nav svg { width: 16px; height: 16px; }
+.topbar .sp { flex: 1; }
+
+.konto-wrap { position: relative; }
+.benutzer-chip { padding: 5px 13px 5px 6px; border-radius: 999px; gap: 9px; }
+.benutzer-chip .punkt, .km-kopf .punkt { border-radius: 50%; background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: #221302; display: grid; place-items: center; font-weight: 700; overflow: hidden; flex: none; }
+.benutzer-chip .punkt { width: 24px; height: 24px; font-size: 12px; }
+.konto-menue { position: absolute; right: 0; top: calc(100% + 9px); width: 256px; z-index: 40; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-modal); box-shadow: var(--schatten); padding: 8px; }
+.km-kopf { display: flex; gap: 10px; align-items: center; padding: 8px 8px 12px; }
+.km-kopf .punkt { width: 38px; height: 38px; }
+.km-kopf .z { min-width: 0; flex: 1; }
+.km-kopf .n { font-weight: 600; }
+.km-kopf .m { font-size: 12.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+.km-trenner { height: 1px; background: var(--rand); margin: 6px 4px; }
+.km-eintrag { width: 100%; justify-content: flex-start; background: transparent; border: none; border-radius: var(--radius-btn); padding: 9px 12px; color: var(--text-2); font-weight: 500; }
+.km-eintrag:hover { background: var(--fl-2); color: var(--text); border: none; }
+.km-eintrag svg { color: var(--text-3); }
+
+/* ————— Hauptseite Container ————— */
+.buehne { width: min(var(--wrap), 100% - 44px); margin-inline: auto; padding-bottom: 90px; }
+
+/* Öffentliche Vorschau Band */
+
+/* ————— Profil Showcase ————— */
+.banner {
+  position: relative; height: 230px; margin-top: 26px; border-radius: var(--radius-modal); overflow: hidden;
+  transition: background .25s ease;
+}
+/* Das Titelbild ist ein Foto, kein Muster: gezeichnete Routen über einem
+   Raster lasen sich als Kursdiagramm statt als Reise. Die Standardbilder
+   liegen in titelbilder/ (erzeugt von scripts/gen-profil-titelbilder.mjs
+   über fal.ai). */
+.banner { background-size: cover; background-position: center; }
+/* Zwei Schleier: unten läuft das Foto in den Seitengrund aus (darauf sitzen
+   Avatar und Name), oben nimmt ein leichter Schatten dem Knopf den Kampf
+   gegen einen hellen Himmel ab. */
+.banner .schleier { position: absolute; inset: auto 0 0 0; height: 76%; background: linear-gradient(transparent, rgba(9,12,17,.75) 55%, var(--bg)); }
+.banner .schleier-oben { position: absolute; inset: 0 0 auto 0; height: 38%; background: linear-gradient(rgba(4,7,11,.45), transparent); }
+.banner-knopf {
+  position: absolute; right: 14px; top: 14px; z-index: 3;
+  background: rgba(6,8,12,.55); border-color: rgba(255,255,255,.16); backdrop-filter: blur(8px);
+}
+.banner-knopf:hover { background: rgba(6,8,12,.78); }
+
+.profilkopf { display: flex; gap: 22px; align-items: flex-end; margin-top: -54px; padding: 0 8px; position: relative; z-index: 2; }
+.av-wrap { position: relative; flex: none; }
+.avatar {
+  width: 112px; height: 112px; border-radius: 50%; border: 4px solid var(--bg);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: #221302;
+  display: grid; place-items: center; font-size: 42px; font-weight: 700; overflow: hidden;
+}
+
+.kopftext { flex: 1; min-width: 0; padding-bottom: 6px; }
+.kopftext h1 { font-size: 32px; letter-spacing: -.02em; }
+.beiwerk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: var(--text-3); font-size: 13.5px; margin-top: 4px; }
+.beiwerk > span { display: inline-flex; align-items: center; gap: 6px; }
+.beiwerk .handle { color: var(--text-2); font-weight: 500; }
+.beiwerk svg { width: 14px; height: 14px; }
+.kopf-aktionen { display: flex; gap: 9px; align-items: center; padding-bottom: 8px; }
+
+.links { display: flex; flex-wrap: wrap; gap: 18px; margin: 12px 8px 0; }
+.link-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0;
+  border: none; background: transparent;
+  color: var(--text-3); font-size: 13.5px; font-weight: 450;
+  transition: color .16s;
+}
+.link-chip:hover { color: var(--akzent); text-decoration: underline; text-underline-offset: 3px; }
+.link-chip svg { width: 15px; height: 15px; flex: none; opacity: .85; }
+
+.bio { margin: 16px 8px 0; max-width: 68ch; color: var(--text-2); font-size: 15px; }
+
+/* Kennzahlen als Chips — der Mittelweg aus drei Anläufen: Icon-Kästchen mit
+   Zahl darunter (wie jedes Dashboard, über 100 px Höhe), Zahlen mit
+   Sparklines (Dekor mit Datenanspruch) und eine reine Textzeile (kompakt,
+   aber textlastig). Ein Chip pro Wert: 36 px hoch, mit eigenem Zeichen als
+   Anker — das Routen-Icon ist dasselbe wie in der Navigation, also Maptales
+   eigenes und kein Symbol von der Stange. */
+.kennzahlen { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 8px 0; }
+.kz {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+  border-radius: 999px; background: var(--fl-1); border: 1px solid var(--rand);
+  font-size: 13.5px; color: var(--text-3); transition: border-color .16s;
+}
+.kz:hover { border-color: var(--rand-hell); }
+.kz svg { width: 15px; height: 15px; flex: none; color: var(--akzent); }
+.kz b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.touren-kopf { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 30px 8px 14px; }
+.touren-kopf h2 { font-size: 19px; }
+.touren-kopf .anzahl { color: var(--text-3); font-size: 13.5px; }
+
+.touren { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 8px; }
+.tour { border-radius: var(--radius-card); overflow: hidden; background: var(--fl-1); border: 1px solid var(--rand); transition: transform .16s, border-color .16s; }
+.tour:hover { transform: translateY(-2px); border-color: var(--rand-hell); }
+.tour .bild { height: 118px; position: relative; background-size: cover; background-position: center; background-color: var(--fl-2); }
+.tour .bild::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(6,8,12,.75)); }
+.tour .txt { padding: 12px 14px 14px; }
+.tour .titel { font-weight: 550; }
+.tour .meta { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-3); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.tour .meta svg { width: 14px; height: 14px; flex: none; color: var(--text-2); }
+
+/* ————— KONTOEINSTELLUNGEN SEITE ————— */
+.seitenkopf { margin: 34px 0 20px; }
+.seitenkopf h1 { font-size: 28px; letter-spacing: -.015em; }
+.seitenkopf p { margin: 6px 0 0; color: var(--text-3); }
+
+.block { margin-top: 28px; }
+/* Satzschrift statt gesperrter Versalien — DESIGN.md kennt EINE UI-Schrift,
+   und Etiketten in Großbuchstaben waren die alte Sprache des Players. */
+.block-kopf { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.block-kopf h2 { font-size: 15px; font-weight: 600; color: var(--text-2); }
+.block-kopf .sp { flex: 1; }
+.block-kopf button { padding: 5px 11px; font-size: 12.5px; }
+.tafel { background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-card); }
+.zeile { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border-top: 1px solid var(--rand); }
+.zeile:first-child { border-top: none; }
+.zeile.geht { opacity: .35; transition: opacity .3s; }
+.zeile .z { flex: 1; min-width: 0; }
+.zeile .t { font-weight: 500; }
+.zeile .b { font-size: 12.5px; color: var(--text-3); }
+.zeile .sym { width: 34px; height: 34px; border-radius: var(--radius-btn); background: var(--fl-2); border: 1px solid var(--rand); display: grid; place-items: center; color: var(--text-3); flex: none; }
+/* Statusangaben ohne Pillen-Kostüm: gesperrte Versalien in einem grünen
+   Kästchen sind die Sprache von Admin-Oberflächen — und DESIGN.md hat sie
+   für den Player ausdrücklich verabschiedet. Ein Häkchen bzw. ein leuchtender
+   Punkt sagt dasselbe in Satzschrift, ohne Rahmen. */
+.marke {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font-size: 12.5px; color: var(--text-3); white-space: nowrap;
+}
+.marke svg { width: 14px; height: 14px; }
+.marke.gut { color: var(--gruen); }
+/* Das aktuelle Gerät braucht kein Abzeichen: Es trägt als einziges keinen
+   Abmelden-Knopf, sein Symbol steht in Amber, und im Titel steht schlicht,
+   dass man selbst gemeint ist. Ein grüner Statuspunkt wäre die Sprache von
+   Chat-Anwesenheit — hier geht es nicht um online, sondern um „das hier". */
+.zeile.hier .sym { color: var(--akzent); border-color: rgba(245,158,11,.32); background: rgba(245,158,11,.07); }
+.zeile .selbst { color: var(--text-3); font-weight: 400; }
+
+.schalter { appearance: none; width: 44px; height: 26px; border-radius: 999px; background: var(--fl-3); border: 1px solid var(--rand); position: relative; cursor: pointer; flex: none; transition: background .18s, border-color .18s; }
+.schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-3); transition: translate .18s, background .18s; }
+.schalter:checked { background: rgba(245,158,11,.25); border-color: rgba(245,158,11,.55); }
+.schalter:checked::after { translate: 18px 0; background: var(--akzent); }
+
+.speicher { padding: 18px; }
+.speicher .oben { display: flex; justify-content: space-between; align-items: baseline; font-size: 13.5px; color: var(--text-3); }
+.speicher .oben b { color: var(--text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.speicherbalken { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: var(--fl-3); margin: 10px 0 11px; }
+.legende { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12.5px; color: var(--text-2); }
+.legende span { display: inline-flex; align-items: center; gap: 7px; }
+.legende i { width: 9px; height: 9px; border-radius: 3px; }
+.legende b { color: var(--text-3); font-weight: 400; font-variant-numeric: tabular-nums; }
+.speicher-warnung { display: flex; align-items: center; gap: 11px; margin-top: 14px; padding: 11px 13px; border-radius: var(--radius-card); background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.28); color: #ffdca6; font-size: 13px; }
+.speicher-warnung svg { width: 17px; height: 17px; flex: none; }
+.speicher-warnung .sp { flex: 1; }
+.speicher-warnung button { background: rgba(6,8,12,.35); border-color: rgba(245,158,11,.35); color: #ffdca6; padding: 6px 12px; font-size: 12.5px; }
+.speicher-warnung button:hover { background: rgba(6,8,12,.6); border-color: rgba(245,158,11,.6); }
+
+/* Der Löschbereich steht abgesetzt am Ende: doppelter Abstand, eine feine
+   Trennlinie darüber und eine Überschrift in gedämpftem Rot. Wer bis hierhin
+   scrollt, weiß, dass die Alltagseinstellungen vorbei sind. */
+.gefahrenblock { margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--rand); }
+.gefahrenblock .block-kopf h2 { color: #e08c8e; }
+.tafel.gefahr {
+  border-color: rgba(229,72,77,.28);
+  background: linear-gradient(180deg, rgba(229,72,77,.045), transparent 70%), var(--fl-1);
+}
+.tafel.gefahr .t { color: #ffb4b6; }
+
+/* ————— DIALOGE ————— */
+.dialogschicht { position: fixed; inset: 0; z-index: 80; background: rgba(4,7,11,.82); backdrop-filter: blur(10px); display: grid; place-items: center; padding: 24px; overflow: auto; }
+.dialog {
+  width: min(500px, 100%); background: var(--fl-1); border: 1px solid var(--rand);
+  border-radius: var(--radius-modal); box-shadow: var(--schatten); padding: 24px;
+  max-height: 90vh; overflow: auto;
+  animation: modalIn .2s cubic-bezier(.16, 1, .3, 1);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .dialog { animation: none; } }
+.dialog h2 { font-size: 20px; margin-bottom: 6px; }
+.dialog p { color: var(--text-2); font-size: 13.5px; margin: 0; }
+.dialog .feld { margin-top: 16px; }
+.dialog .feld label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; font-weight: 500; }
+.dialog .hilfe { font-size: 12.5px; color: var(--text-3); margin: 6px 0 0; }
+.dialog .knopfzeile { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 24px; }
+.dialog .knopfzeile .sp { flex: 1; }
+
+/* ————— Profil bearbeiten ————— */
+.dialog.profil-modal { width: min(600px, 100%); padding: 24px 26px; }
+.sp-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.sp-modal-head h2 { margin: 0; font-size: 21px; font-weight: 600; }
+.sp-modal-head button { padding: 6px; }
+
+/* Avatar und die ersten beiden Felder teilen sich eine Zeile. */
+.sp-kopfreihe { display: flex; align-items: flex-end; gap: 16px; }
+.sp-avatar-box {
+  position: relative; width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: #221302;
+  display: grid; place-items: center; font-size: 34px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4); transition: transform .18s; border: none; padding: 0;
+}
+.sp-avatar-box:hover { transform: scale(1.02); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
+.sp-avatar-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.55); opacity: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; color: #fff; font-size: 12px; font-weight: 600;
+  transition: opacity .18s; backdrop-filter: blur(2px);
+}
+.sp-avatar-box:hover .sp-avatar-overlay, .sp-avatar-box:focus-visible .sp-avatar-overlay { opacity: 1; }
+.sp-avatar-overlay svg { width: 22px; height: 22px; }
+
+.sp-form-grid { display: flex; flex-direction: column; gap: 14px; }
+.sp-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.profil-modal textarea { min-height: 62px; }
+.sp-feld { display: flex; flex-direction: column; gap: 6px; }
+/* Satzschrift, keine Versalien — dieselbe Regel wie bei den Blockköpfen. */
+.sp-feld > label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+
+/* Felder mit festem Vorspann: Die Adresse bzw. das @ steht IM Feld, nicht im
+   Hilfstext darunter — dann ist beim Tippen sichtbar, was daraus wird, und
+   niemand tippt „https://" oder „@" noch einmal selbst. */
+.handle-feld { display: flex; align-items: center; background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-btn); transition: border-color .16s, box-shadow .16s; }
+.handle-feld:focus-within { border-color: var(--akzent); box-shadow: 0 0 0 3px rgba(245,158,11,.15); }
+.handle-feld .fest { padding: 9px 0 9px 12px; color: var(--text-3); white-space: nowrap; flex: none; }
+.handle-feld input { border: none; background: transparent; padding-left: 1px; min-width: 0; }
+.handle-feld input:focus { box-shadow: none; }
+
+/* Ortssuche: Vorschläge statt Freitext — Maptale kennt Nominatim ohnehin aus
+   der Anreicherungs-Pipeline. Ein strukturierter Ort ist später mehr wert als
+   ein Textfeld, in dem „FFM", „Frankfurt/M." und „ffm" nebeneinander stehen. */
+.ort-wrap { position: relative; }
+.ort-liste {
+  /* Breiter als das Feld und nach links wachsend: „Frankfurt am Main ·
+     Deutschland" passt in 212 px nicht, und der Ortsname ist wichtiger als
+     die Feldkante. */
+  position: absolute; right: 0; left: auto; min-width: 300px; max-width: 360px;
+  top: calc(100% + 5px); z-index: 12;
+  background: var(--fl-1); border: 1px solid var(--rand-hell); border-radius: var(--radius-btn);
+  box-shadow: var(--schatten); padding: 5px;
+  /* Quer NIE scrollen: lange Namen werden gekürzt, nicht weggeschoben. Längs
+     nur, wenn wirklich mehr Treffer kommen als hineinpassen — und dann mit
+     einem Balken, der zur Oberfläche gehört statt im hellen Systemgrau. */
+  max-height: 232px; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--rand-hell) transparent;
+}
+.ort-liste::-webkit-scrollbar { width: 8px; }
+.ort-liste::-webkit-scrollbar-track { background: transparent; }
+.ort-liste::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 99px; border: 2px solid var(--fl-1); }
+.ort-liste button {
+  width: 100%; justify-content: flex-start; gap: 9px; background: transparent; border: none;
+  border-radius: 6px; padding: 8px 10px; color: var(--text-2); font-size: 13.5px; text-align: left;
+}
+.ort-liste button:hover, .ort-liste button.aktiv { background: var(--fl-2); color: var(--text); border: none; }
+/* Knöpfe erben global `white-space: nowrap`; ohne min-width:0 sprengt der
+   längste Ortsname die Liste, statt sich kürzen zu lassen. */
+.ort-liste button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ort-liste .land { color: var(--text-3); font-size: 12.5px; }
+.ort-liste svg { width: 14px; height: 14px; color: var(--text-3); flex: none; }
+
+/* Zeichenzähler am Label — rechts, leise, und erst wenn es eng wird in Amber. */
+.sp-feld > label { display: flex; align-items: baseline; gap: 8px; }
+.sp-feld > label .zaehler { margin-left: auto; font-weight: 400; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.sp-feld > label .zaehler.knapp { color: var(--akzent); }
+.handle-stand { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-3); margin-top: 7px; min-height: 18px; }
+.handle-stand svg { width: 14px; height: 14px; flex: none; }
+.handle-stand.frei { color: var(--gruen); }
+.handle-stand.belegt { color: #ff9ea0; }
+
+.sp-schalterzeile {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--rand);
+}
+.sp-schalterzeile .t { font-weight: 500; }
+.sp-schalterzeile .b { font-size: 12.5px; color: var(--text-3); }
+.sp-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 22px; }
+
+/* Titelbild-Wahl. „Eigenes Foto" steht ganz oben über die volle Breite —
+   als Knopf in der Fußzeile ging es zwischen den Vorschauen unter, dabei
+   ist es für die meisten der eigentliche Weg.
+   Ein Rhythmus für den ganzen Dialog: 20 px zwischen den Blöcken, 12 px
+   innerhalb (Rasterlücke), 10 px zwischen Überschrift und dem, was sie
+   überschreibt. */
+.stile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 10px; }
+.stil { padding: 0; overflow: hidden; border-radius: var(--radius-card); background: var(--fl-2); display: block; text-align: left; }
+/* display:block ist nicht kosmetisch — als inline-Element schluckt der span
+   die Höhe und die Vorschau bleibt leer. */
+.stil .probe { display: block; height: 74px; position: relative; background-size: cover; background-position: center; }
+.stil .name { display: block; padding: 8px 11px; font-size: 12.5px; }
+.stil[aria-pressed='true'] { border-color: var(--akzent); box-shadow: 0 0 0 1px var(--akzent); }
+.stil[aria-pressed='true'] .name { color: var(--akzent); }
+/* Die Upload-Kachel ist der wichtigste Griff im Dialog und sah als graue
+   gestrichelte Zeile aus wie ein deaktiviertes Feld. Jetzt: Markenverlauf
+   hinter dem Icon, sanftes Amber-Leuchten im Grund, das beim Überfahren
+   aufgeht — und ein Pfeil rechts, damit die Fläche als Weg lesbar ist. */
+.stil-eigenes {
+  position: relative; width: 100%; margin-top: 20px; overflow: hidden;
+  display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+  /* Knöpfe erben global `white-space: nowrap` — hier steht ein ganzer Satz,
+     der sonst rechts unter dem Pfeil verschwindet. */
+  white-space: normal; text-align: left;
+  border: 1px dashed rgba(245,158,11,.42);
+  background:
+    radial-gradient(120% 180% at 12% 0%, rgba(245,158,11,.14), transparent 62%),
+    radial-gradient(90% 160% at 96% 120%, rgba(255,111,82,.12), transparent 60%),
+    var(--fl-2);
+  transition: border-color .18s, transform .14s, box-shadow .18s;
+}
+.stil-eigenes:hover {
+  border-color: var(--akzent); border-style: solid; transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(245,133,40,.16);
+  background:
+    radial-gradient(120% 180% at 12% 0%, rgba(245,158,11,.2), transparent 62%),
+    radial-gradient(90% 160% at 96% 120%, rgba(255,111,82,.16), transparent 60%),
+    var(--fl-2);
+}
+.stil-eigenes .kreis {
+  width: 44px; height: 44px; border-radius: 13px; flex: none; display: grid; place-items: center;
+  background: linear-gradient(130deg, var(--akzent), var(--akzent-2)); color: #221302;
+  box-shadow: 0 6px 16px rgba(245,133,40,.28);
+}
+.stil-eigenes .kreis svg { width: 21px; height: 21px; }
+.stil-eigenes .z { flex: 1; min-width: 0; }
+.stil-eigenes .t { font-weight: 600; font-size: 14.5px; }
+.stil-eigenes .b { font-size: 12.5px; color: var(--text-3); margin-top: 1px; }
+.stil-eigenes .pfeil { color: var(--text-3); flex: none; transition: transform .18s, color .18s; }
+.stil-eigenes:hover .pfeil { color: var(--akzent); transform: translateX(3px); }
+.stil-eigenes .pfeil svg { width: 18px; height: 18px; }
+/* `.dialog p { margin: 0 }` ist spezifischer als eine reine Klasse — ohne den
+   `.dialog`-Vorlauf klebte diese Überschrift ohne Abstand an der Upload-Kachel. */
+.dialog .stile-titel { font-size: 12.5px; color: var(--text-3); margin: 20px 0 0; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 90;
+  display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+  background: var(--fl-2); border: 1px solid var(--rand-hell); border-radius: 10px;
+  box-shadow: var(--schatten); color: var(--text); font-size: 13.5px;
+  transform: translateY(100px); opacity: 0; transition: transform .22s, opacity .22s;
+}
+.toast.sichtbar { transform: translateY(0); opacity: 1; }
+.toast svg { color: var(--gruen); width: 18px; height: 18px; }
+
+@media (max-width: 860px) {
+  .touren { grid-template-columns: repeat(2, 1fr); }
+  .profilkopf { flex-wrap: wrap; gap: 14px; }
+  .sp-form-row { grid-template-columns: 1fr; }
+  .sp-kopfreihe { flex-direction: column; align-items: flex-start; }
+  .stile { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .touren { grid-template-columns: 1fr; }
+  .kennzahlen { gap: 20px; }
+  .link-zeile { grid-template-columns: 110px minmax(0, 1fr) auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="mockleiste">
+  <b>Mockup</b>
+  <span class="sp"></span>
+  <button type="button" data-zeige="profil" aria-pressed="true">Mein Profil</button>
+  <button type="button" data-dlg="dlg-profil-bearbeiten">Profil bearbeiten</button>
+  <button type="button" data-zeige="konto" aria-pressed="false">Kontoeinstellungen</button>
+  <span class="sp"></span>
+  <button type="button" id="m-voll" aria-pressed="false">Speicher voll</button>
+</div>
+
+<header class="topbar">
+  <div class="wrap">
+    <a href="#" class="brand"><span class="mark">M</span>Maptale</a>
+    <nav class="top-nav">
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a>
+    </nav>
+    <span class="sp"></span>
+    <div class="konto-wrap">
+      <button class="benutzer-chip" id="chip" aria-haspopup="true" aria-expanded="false">
+        <span class="punkt" id="chip-initial">H</span><span id="chip-name">Henrik</span>
+      </button>
+      <div class="konto-menue" id="konto-menue" hidden>
+        <div class="km-kopf">
+          <span class="punkt" id="menue-initial">H</span>
+          <span class="z"><span class="n" id="menue-name">Henrik</span><span class="m">henrik@localhost.dev</span></span>
+        </div>
+        <button class="km-eintrag" data-zeige="profil">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Mein Profil
+        </button>
+        <button class="km-eintrag" data-zeige="konto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/></svg>Kontoeinstellungen
+        </button>
+        <button class="km-eintrag">
+          <!-- Zwei Personen: der zweite Pfad war zuletzt mit dem ersten verschmolzen. -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Administration
+        </button>
+        <div class="km-trenner" role="separator"></div>
+        <button class="km-eintrag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Abmelden
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════ 1. MEIN PROFIL ═══════════════ -->
+<main class="buehne" id="ansicht-profil">
+  <div class="banner" id="p-banner">
+    <div class="schleier-oben"></div>
+    <div class="schleier"></div>
+    <button class="banner-knopf" data-dlg="dlg-titelbild">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M4 18l5-6 4 4.5 3-3.5 4 5z"/><circle cx="15.5" cy="8" r="1.6"/></svg>
+      Titelbild
+    </button>
+  </div>
+
+  <div class="profilkopf">
+    <div class="av-wrap">
+      <div class="avatar" id="avatar">H</div>
+    </div>
+    <div class="kopftext">
+      <h1 id="p-name">Henrik</h1>
+      <div class="beiwerk">
+        <span class="handle" id="p-handle">@henrik</span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <span id="p-ort">Frankfurt am Main</span>
+        </span>
+        <span>Dabei seit Juli 2026</span>
+      </div>
+    </div>
+    <div class="kopf-aktionen">
+      <!-- Beschriftung nach Können des Geräts: „Teilen" nur dort, wo wirklich
+           das System-Teilen aufgeht (Web Share API). Sonst heißt der Knopf,
+           was er tut. -->
+      <button id="btn-share"><span id="share-icon"></span><span id="share-text">Link kopieren</span></button>
+      <!-- Bei privatem Profil gibt es nichts zu teilen — statt eines toten
+           Knopfes steht hier, warum, und der Weg dahin, es zu ändern. -->
+      <button id="privat-chip" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+        Nur für dich sichtbar
+      </button>
+      <button class="primaer" data-dlg="dlg-profil-bearbeiten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>Profil bearbeiten</button>
+    </div>
+  </div>
+
+  <p class="bio" id="p-bio">Unterwegs meistens auf zwei Rädern. Am liebsten dort, wo die Straße aufhört und der Weg anfängt.</p>
+
+  <div class="links" id="p-links"></div>
+
+  <!-- Zählt nur die öffentlichen Touren — s. Kopfkommentar. -->
+  <div class="kennzahlen">
+    <span class="kz">
+      <!-- dasselbe Routen-Zeichen wie „Meine Touren" in der Navigation -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>
+      <b class="zahl">3</b> Touren
+    </span>
+    <span class="kz">
+      <!-- Weg von A nach B: zwei Punkte, eine Strecke dazwischen -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17.5c3.5 0 3-8 7-8s3.5 5 7 5"/><circle cx="4" cy="17.5" r="1.8" fill="currentColor" stroke="none"/><circle cx="20" cy="14.5" r="1.8" fill="currentColor" stroke="none"/></svg>
+      <b class="zahl">68</b> km unterwegs
+    </span>
+    <span class="kz">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 19l6-9 3.5 4.5 3-4 6.5 8.5z"/><path d="M8.5 10L11 6.5"/></svg>
+      <b class="zahl">1 240</b> hm bergauf
+    </span>
+  </div>
+
+  <div class="touren-kopf">
+    <h2>Touren</h2>
+  </div>
+
+  <div class="touren" id="touren">
+    <article class="tour" data-modus="moped">
+      <div class="bild" style="background-image: url('tourbilder/kohphangan.jpg')"></div>
+      <div class="txt"><div class="titel">Koh Pha-ngan, im Kreis</div><div class="meta">41,8 km · Januar 2026</div></div>
+    </article>
+    <article class="tour" data-modus="bike">
+      <div class="bild" style="background-image: url('tourbilder/stockholm.jpg')"></div>
+      <div class="txt"><div class="titel">Stockholm bei Nacht</div><div class="meta">18,2 km · Oktober 2025</div></div>
+    </article>
+    <article class="tour" data-modus="tram">
+      <div class="bild" style="background-image: url('tourbilder/lissabon.jpg')"></div>
+      <div class="txt"><div class="titel">Lissabon, Linie 28</div><div class="meta">8,4 km · Mai 2026</div></div>
+    </article>
+  </div>
+
+</main>
+
+<!-- ═══════════════ 2. KONTOEINSTELLUNGEN ═══════════════ -->
+<main class="buehne" id="ansicht-konto" hidden>
+  <div class="seitenkopf">
+    <h1>Kontoeinstellungen</h1>
+  </div>
+
+  <div class="block">
+    <div class="block-kopf"><h2>Anmeldung &amp; Sicherheit</h2></div>
+    <div class="tafel">
+      <div class="zeile">
+        <span class="z"><span class="t">E-Mail-Adresse</span><span class="b">henrik@localhost.dev</span></span>
+        <span class="marke gut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>bestätigt</span>
+        <button data-dlg="dlg-mail">Ändern</button>
+      </div>
+      <div class="zeile">
+        <span class="z"><span class="t">Passwort</span><span class="b">Zuletzt geändert vor 3 Monaten</span></span>
+        <button data-dlg="dlg-pw">Ändern</button>
+      </div>
+      <div class="zeile">
+        <span class="z"><span class="t">Passkey</span><span class="b">Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN.</span></span>
+        <button data-dlg="dlg-passkey">Einrichten</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-kopf"><h2>Benachrichtigungen</h2></div>
+    <div class="tafel">
+      <!-- KEIN zweites Double-Opt-In. Das DOI ist kein Selbstzweck, sondern
+           das Mittel, um nachzuweisen, dass die Einwilligung vom Inhaber der
+           Adresse stammt — es schützt davor, dass jemand eine fremde Adresse
+           einträgt. Genau dieser Fall ist hier ausgeschlossen: Die Adresse ist
+           beim Anlegen des Kontos bestätigt worden, und diesen Schalter kann
+           nur umlegen, wer angemeldet ist.
+           Was den Nachweis trägt, ist stattdessen das Protokoll: Zeitpunkt,
+           Konto, und die Fassung des Textes, dem zugestimmt wurde (Art. 7
+           Abs. 1 DSGVO). Zwei Riegel gehören dazu: Solange die E-Mail
+           unbestätigt ist, bleibt der Schalter gesperrt, und nach einem
+           Adresswechsel ruht der Versand bis zur Bestätigung der neuen. -->
+      <div class="zeile">
+        <label class="z" for="s-news">
+          <span class="t">Updates &amp; Neues von Maptale</span>
+          <span class="b">Ein paar Mal im Jahr bei wichtigen Produktneuheiten. Mails zu deinen Touren erhältst du unabhängig davon. Abbestellen jederzeit hier oder über den Link in jeder Mail.</span>
+        </label>
+        <input type="checkbox" class="schalter" id="s-news" />
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-kopf"><h2>Angemeldete Geräte</h2></div>
+    <div class="tafel" id="geraete">
+      <div class="zeile hier">
+        <span class="sym"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg></span>
+        <span class="z"><span class="t">Chrome auf macOS <span class="selbst">— dieses Gerät</span></span><span class="b">Frankfurt am Main, DE · 84.119.x.x · zuletzt gerade eben</span></span>
+      </div>
+      <div class="zeile" data-geraet="Maptale App auf dem Pixel 9">
+        <span class="sym"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg></span>
+        <span class="z"><span class="t">Maptale App · Pixel 9</span><span class="b">Frankfurt am Main, DE · 84.119.x.x · lädt Aufnahmen hoch · zuletzt vor 2 Tagen</span></span>
+        <button class="gefahr">Abmelden</button>
+      </div>
+      <div class="zeile" data-geraet="Safari auf dem iPhone">
+        <span class="sym"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg></span>
+        <span class="z"><span class="t">Safari auf iPhone</span><span class="b">Lissabon, PT · 188.82.x.x · zuletzt am 12. Juli 2026</span></span>
+        <button class="gefahr">Abmelden</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-kopf"><h2>Speicher</h2></div>
+    <div class="tafel">
+      <div class="speicher">
+        <div class="oben"><span><b id="sp-belegt">248 MB</b> von 2048 MB belegt</span><span class="zahl" id="sp-prozent">12 %</span></div>
+        <div class="speicherbalken" id="sp-balken">
+          <i style="width:7.4%;background:var(--akzent)"></i>
+          <i style="width:3.1%;background:var(--akzent-2)"></i>
+          <i style="width:1.0%;background:var(--lila)"></i>
+          <i style="width:.6%;background:var(--blau)"></i>
+        </div>
+        <div class="legende" id="sp-legende">
+          <span><i style="background:var(--akzent)"></i>Fotos <b class="zahl">152 MB</b></span>
+          <span><i style="background:var(--akzent-2)"></i>Videos <b class="zahl">63 MB</b></span>
+          <span><i style="background:var(--lila)"></i>Eigene Klänge <b class="zahl">21 MB</b></span>
+          <span><i style="background:var(--blau)"></i>Aufzeichnungen <b class="zahl">12 MB</b></span>
+        </div>
+        <div class="speicher-warnung" id="sp-warnung" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 16.8v.2"/></svg>
+          <span class="sp">Dein Speicher ist fast voll. Die nächste Aufnahme passt vielleicht nicht mehr.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-kopf"><h2>Deine Daten</h2></div>
+    <div class="tafel">
+      <!-- Die Sichtbarkeit steht NUR hier, nicht zusätzlich im Bearbeiten-
+           Modal: Zwei Schalter für denselben Zustand laufen auseinander,
+           sobald einer von beiden einmal vergessen wird. Im Modal steht
+           dafür, was gerade gilt. -->
+      <div class="zeile">
+        <label class="z" for="s-profil-oeffentlich">
+          <span class="t">Öffentliches Profil</span>
+          <span class="b">Name, Ort, Text, Links und deine öffentlichen Touren sind unter
+            <span id="konto-profil-url">maptale.io/@henrik</span> für alle sichtbar.</span>
+        </label>
+        <input type="checkbox" class="schalter" id="s-profil-oeffentlich" checked />
+      </div>
+      <div class="zeile" id="zeile-suchmaschinen">
+        <label class="z" for="s-suchmaschinen">
+          <span class="t">In Suchmaschinen erscheinen</span>
+          <span class="b">Aus: Dein Profil ist über den Link erreichbar, taucht aber nicht bei Google &amp; Co. auf.</span>
+        </label>
+        <input type="checkbox" class="schalter" id="s-suchmaschinen" />
+      </div>
+      <div class="zeile">
+        <span class="z"><span class="t">Alle Daten exportieren</span><span class="b">Touren, Fotos, Videos und Klänge als ZIP per Mail anfordern.</span></span>
+        <button data-dlg="dlg-export">ZIP-Export anfordern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Eigener Block ganz unten, mit Abstand und rotem Rahmen: Löschen ist
+       nichts, was man beim Überfliegen der Datenzeilen aus Versehen anklickt.
+       Die Überschrift heißt trotzdem schlicht „Konto löschen" — „Gefahrenzone"
+       ist Entwickler-Folklore, die Farbe sagt es deutlicher als das Wort. -->
+  <div class="block gefahrenblock">
+    <div class="block-kopf"><h2>Konto löschen</h2></div>
+    <div class="tafel gefahr">
+      <div class="zeile">
+        <span class="z"><span class="t">Konto unwiderruflich löschen</span><span class="b">Entfernt dein Konto und alle hochgeladenen Medien permanent.</span></span>
+        <button class="gefahr" data-dlg="dlg-loeschen">Konto löschen</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ————— PROFIL BEARBEITEN ————— -->
+<div class="dialogschicht" id="dlg-profil-bearbeiten" hidden>
+  <div class="dialog profil-modal" role="dialog" aria-modal="true" aria-labelledby="h-profil-bearbeiten">
+    <div class="sp-modal-head">
+      <h2 id="h-profil-bearbeiten">Profildetails bearbeiten</h2>
+      <button class="still tipp-flaeche" data-zu aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <!-- Avatar NEBEN den ersten Feldern statt als eigener Block darüber: als
+         zentrierte Zeile kostete er 134 px Höhe, und das Modal begann auf
+         1080p zu scrollen. Hier füllt er die Höhe, die Name und Ort ohnehin
+         brauchen. -->
+    <div class="sp-form-grid">
+      <div class="sp-kopfreihe">
+        <button class="sp-avatar-box" id="sp-avatar-btn" aria-label="Profilbild wählen">
+          <span id="sp-avatar-letter">H</span>
+          <span class="sp-avatar-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Ändern
+          </span>
+        </button>
+        <div class="sp-form-row" style="flex:1">
+          <div class="sp-feld">
+            <label for="e-name">Name</label>
+            <input type="text" id="e-name" value="Henrik" />
+          </div>
+          <div class="sp-feld ort-wrap">
+            <label for="e-ort">Ort</label>
+            <input type="text" id="e-ort" value="Frankfurt am Main" autocomplete="off"
+                   role="combobox" aria-expanded="false" aria-controls="ort-liste" aria-autocomplete="list" />
+            <div class="ort-liste" id="ort-liste" role="listbox" hidden></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-feld">
+        <label for="e-handle">Profil-Adresse</label>
+        <div class="handle-feld">
+          <span class="fest">maptale.io/@</span>
+          <input type="text" id="e-handle" value="henrik" autocomplete="off" spellcheck="false"
+                 aria-describedby="handle-stand" maxlength="30" />
+        </div>
+        <div class="handle-stand" id="handle-stand" role="status"></div>
+      </div>
+
+      <div class="sp-feld">
+        <label for="e-bio">Über mich <span class="zaehler" id="bio-zaehler">0/300</span></label>
+        <textarea id="e-bio" maxlength="300" placeholder="Zwei Sätze über dich und deine Reisen.">Unterwegs meistens auf zwei Rädern. Am liebsten dort, wo die Straße aufhört und der Weg anfängt.</textarea>
+      </div>
+
+      <!-- Drei Felder, keine Liste. Das dritte hat kein festes Label: bei einer
+           Reise-App ist Komoot oder Strava wahrscheinlicher als irgendein
+           vorgegebener dritter Dienst — welcher es ist, erkennt das Feld an
+           der Adresse und setzt das passende Icon. -->
+      <!-- Zwei Felder, keine Liste und kein freies drittes: Ein Feld „Weiteres"
+           mit Platzhalter „Strava, Komoot, YouTube" stellt eine Frage, auf die
+           die meisten keine Antwort haben. Kommt der Bedarf, wird daraus ein
+           „Link hinzufügen" — dann mit Anlass. -->
+      <div class="sp-form-row">
+        <div class="sp-feld">
+          <label for="e-web">Website</label>
+          <div class="handle-feld">
+            <span class="fest">https://</span>
+            <input type="text" id="e-web" value="henrikheil.net" placeholder="beispiel.de" />
+          </div>
+        </div>
+        <div class="sp-feld">
+          <label for="e-insta">Instagram</label>
+          <div class="handle-feld">
+            <span class="fest">@</span>
+            <input type="text" id="e-insta" value="henrik.unterwegs" placeholder="benutzername" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Zweite Bedienstelle für DENSELBEN Zustand (die erste steht in den
+           Kontoeinstellungen). Bewusst doppelt: Hier sucht man sie beim
+           Bearbeiten, dort beim Aufräumen — auseinanderlaufen kann nichts,
+           weil beide Schalter über `setzeSichtbarkeit()` denselben Wert
+           schreiben und lesen. -->
+      <div class="sp-schalterzeile">
+        <label class="z" for="s-profil-modal">
+          <span class="t">Öffentliches Profil</span>
+          <span class="b">Name, Ort, Text, Links und deine öffentlichen Touren sind unter
+            <span id="s-profil-url">maptale.io/@henrik</span> für alle sichtbar.</span>
+        </label>
+        <input type="checkbox" class="schalter" id="s-profil-modal" checked />
+      </div>
+    </div>
+
+    <div class="sp-footer">
+      <button class="still" data-zu>Abbrechen</button>
+      <button class="primaer" id="btn-profil-speichern">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ————— TITELBILD ————— -->
+<div class="dialogschicht" id="dlg-titelbild" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="h-titelbild">
+    <h2 id="h-titelbild">Titelbild</h2>
+    <p>Das Bild über deinem Profil — quer, breit und am besten aus einer deiner Touren.</p>
+    <div id="eigenes-feld"><!-- Upload-Kachel aus zeichneStile() --></div>
+    <p class="stile-titel" id="l-stile">Oder eines von uns</p>
+    <div class="stile" id="stile" role="group" aria-labelledby="l-stile"><!-- Kacheln aus zeichneStile() --></div>
+    <div class="knopfzeile">
+      <button class="still" data-zu>Abbrechen</button>
+      <button class="primaer" id="btn-titelbild" data-toast="Titelbild geändert">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialogschicht" id="dlg-mail" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="h-mail">
+    <h2 id="h-mail">E-Mail-Adresse ändern</h2>
+    <p>Wir schicken einen Bestätigungslink an die neue Adresse.</p>
+    <div class="feld"><label for="d-mail">Neue Adresse</label><input type="email" id="d-mail" placeholder="name@beispiel.de" /></div>
+    <div class="feld">
+      <label for="d-mail-pw">Dein Passwort</label>
+      <div class="pw-feld">
+        <input type="password" id="d-mail-pw" placeholder="••••••••••" />
+        <button class="pw-auge tipp-flaeche" data-auge="d-mail-pw" aria-label="Passwort anzeigen" aria-pressed="false"></button>
+      </div>
+    </div>
+    <div class="knopfzeile"><button class="still" data-zu>Abbrechen</button><button class="primaer" data-toast="Bestätigungslink verschickt">Link senden</button></div>
+  </div>
+</div>
+
+<div class="dialogschicht" id="dlg-pw" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="h-pw">
+    <h2 id="h-pw">Passwort ändern</h2>
+    <div class="feld">
+      <label for="d-pw-alt">Aktuelles Passwort</label>
+      <div class="pw-feld">
+        <input type="password" id="d-pw-alt" placeholder="••••••••••" />
+        <button class="pw-auge tipp-flaeche" data-auge="d-pw-alt" aria-label="Passwort anzeigen" aria-pressed="false"></button>
+      </div>
+    </div>
+    <div class="feld">
+      <label for="d-pw-neu">Neues Passwort</label>
+      <div class="pw-feld">
+        <input type="password" id="d-pw-neu" placeholder="Am besten drei zufällige Wörter" />
+        <button class="pw-auge tipp-flaeche" data-auge="d-pw-neu" aria-label="Passwort anzeigen" aria-pressed="false"></button>
+      </div>
+      <div class="pw-balken" aria-hidden="true" style="display:flex;gap:4px;margin-top:9px">
+        <i id="pwb1" style="flex:1;height:4px;border-radius:99px;background:var(--fl-3)"></i>
+        <i id="pwb2" style="flex:1;height:4px;border-radius:99px;background:var(--fl-3)"></i>
+        <i id="pwb3" style="flex:1;height:4px;border-radius:99px;background:var(--fl-3)"></i>
+        <i id="pwb4" style="flex:1;height:4px;border-radius:99px;background:var(--fl-3)"></i>
+      </div>
+      <p class="hilfe" id="pw-text" role="status">Länge zählt mehr als Sonderzeichen.</p>
+    </div>
+    <div class="knopfzeile">
+      <button class="still" data-zu>Abbrechen</button><button class="primaer" data-toast="Passwort geändert">Ändern</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialogschicht" id="dlg-passkey" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="h-passkey">
+    <h2 id="h-passkey">Passkey einrichten</h2>
+    <p>Dein Gerät legt einen Schlüssel an, der es nie verlässt. Beim nächsten Anmelden genügt Fingerabdruck, Gesicht oder Geräte-PIN. Dein Passwort bleibt als Weg zurück bestehen.</p>
+    <div class="knopfzeile"><button class="still" data-zu>Später</button><button class="primaer" data-toast="Passkey angelegt">Passkey anlegen</button></div>
+  </div>
+</div>
+
+<div class="dialogschicht" id="dlg-export" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="h-export">
+    <h2 id="h-export">Daten herunterladen</h2>
+    <p>Wir packen alle Touren und Medien in eine ZIP-Datei und schicken den Link an henrik@localhost.dev. Das dauert ein paar Minuten; der Link gilt 48 Stunden.</p>
+    <div class="knopfzeile"><button class="still" data-zu>Abbrechen</button><button class="primaer" data-toast="Export gestartet — du bekommst eine Mail">Export starten</button></div>
+  </div>
+</div>
+
+<div class="dialogschicht" id="dlg-loeschen" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="h-loeschen">
+    <h2 id="h-loeschen" style="color:#ffb4b6">Konto löschen</h2>
+    <p>Unwiderruflich entfernt werden 7 Touren und 87 Medien.</p>
+    <div class="feld">
+      <label for="d-loesch">Tippe <b style="color:var(--text)">LÖSCHEN</b>, um zu bestätigen</label>
+      <input type="text" id="d-loesch" autocomplete="off" placeholder="LÖSCHEN" />
+    </div>
+    <div class="knopfzeile">
+      <button class="still" data-zu>Doch nicht</button>
+      <span class="sp"></span>
+      <button class="gefahr" id="loeschen-knopf" disabled>Konto löschen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="toast-txt">Erfolgreich gespeichert</span>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const body = document.body
+
+/* ————— Toast ————— */
+let toastZeit = null
+function zeigeToast(text) {
+  const t = $('toast')
+  $('toast-txt').textContent = text
+  t.classList.add('sichtbar')
+  clearTimeout(toastZeit)
+  toastZeit = setTimeout(() => t.classList.remove('sichtbar'), 3000)
+}
+
+/* ————— Dialoge: Fokus hinein, Tab-Falle, Fokus zurück —————
+   Ein Modal, aus dem der Tabulator herausläuft, ist für Tastatur- und
+   Screenreader-Nutzung keins. */
+let letzterAusloeser = null
+const fokussierbar = 'button:not([disabled]), input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])'
+
+function dialogAuf(id, ausloeser) {
+  letzterAusloeser = ausloeser ?? document.activeElement
+  const schicht = $(id)
+  schicht.hidden = false
+  const erstes = schicht.querySelector('input:not([type="hidden"]):not(.schalter), textarea') || schicht.querySelector(fokussierbar)
+  erstes?.focus()
+}
+function dialogZu(schicht) {
+  schicht.hidden = true
+  letzterAusloeser?.focus()
+  letzterAusloeser = null
+}
+function offenerDialog() { return [...document.querySelectorAll('.dialogschicht')].find((s) => !s.hidden) }
+
+document.querySelectorAll('[data-dlg]').forEach((b) => b.addEventListener('click', () => dialogAuf(b.dataset.dlg, b)))
+document.querySelectorAll('[data-zu]').forEach((b) => b.addEventListener('click', () => dialogZu(b.closest('.dialogschicht'))))
+document.querySelectorAll('[data-toast]').forEach((b) => b.addEventListener('click', () => {
+  const s = b.closest('.dialogschicht'); if (s) dialogZu(s)
+  zeigeToast(b.dataset.toast)
+}))
+document.querySelectorAll('.dialogschicht').forEach((s) => s.addEventListener('click', (e) => { if (e.target === s) dialogZu(s) }))
+document.addEventListener('keydown', (e) => {
+  const dlg = offenerDialog()
+  if (!dlg) return
+  if (e.key === 'Escape') { e.preventDefault(); dialogZu(dlg); return }
+  if (e.key !== 'Tab') return
+  const ziele = [...dlg.querySelectorAll(fokussierbar)].filter((el) => el.offsetParent !== null)
+  if (!ziele.length) return
+  const [erst, letzt] = [ziele[0], ziele[ziele.length - 1]]
+  if (e.shiftKey && document.activeElement === erst) { e.preventDefault(); letzt.focus() }
+  else if (!e.shiftKey && document.activeElement === letzt) { e.preventDefault(); erst.focus() }
+})
+
+/* ————— Links: eine Liste, kein festes Feldpaar —————
+   Zwei feste Felder (Website + Instagram) scheitern am dritten Dienst; die
+   Liste wächst mit und trägt den Typ als Auswahl, damit das Icon stimmt. */
+const TYPEN = {
+  web: { wort: 'Website', icon: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.7 2.6 14.3 0 17-2.6-2.7-2.6-14.3 0-17z"/>' },
+  instagram: { wort: 'Instagram', icon: '<rect x="4" y="4" width="16" height="16" rx="4.6"/><circle cx="12" cy="12" r="3.6"/><circle cx="16.9" cy="7.1" r=".9" fill="currentColor"/>' },
+}
+const svg = (pfad) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${pfad}</svg>`
+
+function zeichneProfilLinks() {
+  const insta = $('e-insta').value.trim().replace(/^@/, '')
+  const links = [
+    { typ: 'web', adresse: $('e-web').value.trim() },
+    { typ: 'instagram', adresse: insta && '@' + insta },
+  ].filter((l) => l.adresse)
+  $('p-links').innerHTML = links.map((l) => `<a href="#" class="link-chip">${svg(TYPEN[l.typ].icon)}<span></span></a>`).join('')
+  // Text per textContent, damit eine eingetippte Adresse kein Markup einschleust
+  $('p-links').querySelectorAll('.link-chip span').forEach((s, i) => { s.textContent = links[i].adresse })
+}
+
+/* ————— Profil-Adresse (Handle) —————
+   Der Handle steht im Pfad — maptale.io/@henrik — und nicht als Query hinter
+   /profil. Drei Gründe: ohne @ teilte er sich den Namensraum mit allen
+   Seitenpfaden (dann darf niemand mehr „galerie" oder „impressum" heißen und
+   jeder neue Pfad entwertet einen bestehenden Handle); das @ macht einen
+   eigenen Namensraum auf und sagt „hier kommt eine Person"; und er bleibt bei
+   Mehrsprachigkeit gleich — aus /profil würde /en/profile, aus /@henrik nichts.
+   Im Vhost ist das ein `location ~ ^/@`, das mit keinem try_files kollidiert,
+   weil @ in keinem Dateinamen vorkommt.
+
+   Der Handle ist NICHT der Anzeigename: Namen sind doppelt vergeben, dürfen
+   Leerzeichen und Umlaute haben und ändern sich; eine Adresse darf das alles
+   nicht. */
+const HANDLE_REGELN = /^[a-z0-9](?:[a-z0-9._-]{1,28})[a-z0-9]$/
+// Was die Seite selbst braucht — plus das Übliche, das sich niemand greifen
+// soll. Im Produkt gehört diese Liste neben src/routen.ts, damit ein neuer
+// Pfad nicht still einen vergebenen Handle überschreibt.
+const RESERVIERT = new Set([
+  'app', 'anmelden', 'registrieren', 'galerie', 'profil', 'admin', 'impressum',
+  'datenschutz', 'erlebnis', 'api', 'hilfe', 'support', 'blog', 'maptale', 'team',
+  'info', 'kontakt', 'shop', 'einstellungen', 'konto', 'me', 'you', 'null', 'undefined',
+])
+// Attrappe für „schon vergeben" — im Produkt fragt das den Server.
+const VERGEBEN = new Set(['henrik', 'anna', 'tom', 'reise', 'travel', 'maptale', 'lisa', 'max'])
+const HANDLE_START = 'henrik'
+
+function pruefeHandle(wert) {
+  const w = wert.trim().toLowerCase()
+  if (!w) return { art: 'leer', text: 'Ohne Adresse ist dein Profil nicht verlinkbar.' }
+  if (w === HANDLE_START) return { art: 'frei', text: 'Das ist deine aktuelle Adresse.' }
+  if (w.length < 3) return { art: 'belegt', text: 'Mindestens 3 Zeichen.' }
+  if (!HANDLE_REGELN.test(w)) return { art: 'belegt', text: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich — nicht am Anfang oder Ende.' }
+  if (RESERVIERT.has(w)) return { art: 'belegt', text: 'Diese Adresse ist für Maptale selbst reserviert.' }
+  if (VERGEBEN.has(w)) return { art: 'belegt', text: `@${w} ist schon vergeben.` }
+  return { art: 'frei', text: `@${w} ist frei.` }
+}
+const HAKEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
+const KREUZ = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+
+function zeigeHandleStand() {
+  const wert = $('e-handle').value
+  const stand = pruefeHandle(wert)
+  const feld = $('handle-stand')
+  feld.className = 'handle-stand ' + (stand.art === 'leer' ? '' : stand.art)
+  feld.innerHTML = (stand.art === 'frei' ? HAKEN : stand.art === 'belegt' ? KREUZ : '') + '<span></span>'
+  feld.querySelector('span').textContent = stand.text
+  /* Der Hinweis auf den alten Link erscheint nur, wenn wirklich geändert wird.
+     Zwei Dinge, die nicht dieselbe Dauer brauchen:
+     · WEITERLEITUNG alter Links — kostet nichts und läuft, solange die alte
+       Adresse niemandem sonst gehört. Reise-Links leben lange.
+     · SPERRE für andere — schützt davor, dass jemand die Adresse übernimmt
+       und damit die alten Links erbt. Hier zählt nur die Zeit, in der noch
+       jemand einen Link aus laufender Kommunikation anklickt.
+     90 Tage sind dafür der Punkt, an dem beides ausgeglichen ist: lang genug
+     gegen Identitätsübernahme, kurz genug, dass Adressen nicht auf Jahre
+     blockiert sind (Instagram sperrt 14 Tage, GitHub gibt sofort frei — beides
+     zu wenig für Links, die in einem Reisebericht stehen). */
+  const geaendert = wert.trim().toLowerCase() !== HANDLE_START && stand.art === 'frei'
+  if (geaendert) {
+    const zusatz = document.createElement('span')
+    zusatz.style.color = 'var(--text-3)'
+    zusatz.textContent = ` Alte Links leiten weiter; @${HANDLE_START} bleibt 90 Tage für dich reserviert.`
+    feld.append(zusatz)
+  }
+  // Über den Speichern-Knopf entscheidet pruefeAenderung() — sie kennt auch
+  // den Fall „nichts geändert". Zwei Stellen, die dasselbe Attribut setzen,
+  // wären ein Wettlauf.
+  const adresse = 'maptale.io/@' + (wert.trim().toLowerCase() || '…')
+  $('konto-profil-url').textContent = adresse
+  if ($('s-profil-url')) $('s-profil-url').textContent = adresse
+  pruefeAenderung()
+}
+/**
+ * Tippeingabe → gültiger Handle. Umlaute werden ÜBERSETZT, nicht gelöscht:
+ * „Henrik Süd" ergibt sonst „henriksd", und der Nutzer sucht den Fehler bei
+ * sich. Leerzeichen werden zum Bindestrich, weil das die übliche Lesart ist.
+ */
+function zuHandle(roh) {
+  return roh
+    .toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // é → e, å → a
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9._-]/g, '')
+    .slice(0, 30)   // maxlength greift nur beim Tippen, nicht beim Einfügen
+}
+$('e-handle').addEventListener('input', (e) => {
+  // Kleinschreibung erzwingen: Groß/Klein unterscheidet in URLs nicht, ein
+  // gemischtes @Henrik in der Adresszeile wäre nur Zierde mit Fehlerquelle.
+  const vorher = e.target.value
+  const pos = e.target.selectionStart
+  const neu = zuHandle(vorher)
+  e.target.value = neu
+  const versatz = neu.length - vorher.length
+  e.target.setSelectionRange(Math.max(0, pos + versatz), Math.max(0, pos + versatz))
+  zeigeHandleStand()
+})
+
+
+/* ————— Ortssuche —————
+   Freitext bedeutet „FFM", „Frankfurt/M." und „ffm" nebeneinander. Maptale
+   spricht in der Anreicherungs-Pipeline ohnehin mit Nominatim; hier steht
+   eine Attrappe derselben Idee: tippen, aus Vorschlägen wählen, fertig. */
+const ORTE = [
+  { ort: 'Frankfurt am Main', land: 'Deutschland' },
+  { ort: 'Freiburg im Breisgau', land: 'Deutschland' },
+  { ort: 'Friedrichshafen', land: 'Deutschland' },
+  { ort: 'Berlin', land: 'Deutschland' },
+  { ort: 'Innsbruck', land: 'Österreich' },
+  { ort: 'Lissabon', land: 'Portugal' },
+  { ort: 'Stockholm', land: 'Schweden' },
+  { ort: 'Chiang Mai', land: 'Thailand' },
+]
+const ORT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>'
+let ortAktiv = -1
+
+function ortListeZu() {
+  $('ort-liste').hidden = true
+  $('e-ort').setAttribute('aria-expanded', 'false')
+  ortAktiv = -1
+}
+function ortListeAuf() {
+  const suche = $('e-ort').value.trim().toLowerCase()
+  const treffer = ORTE.filter((o) => !suche || o.ort.toLowerCase().includes(suche) || o.land.toLowerCase().includes(suche)).slice(0, 5)
+  if (!treffer.length) return ortListeZu()
+  const liste = $('ort-liste')
+  liste.innerHTML = treffer.map((o, i) => `<button type="button" role="option" aria-selected="false" data-ort="${o.ort}">${ORT_ICON}<span>${o.ort} <span class="land">· ${o.land}</span></span></button>`).join('')
+  liste.querySelectorAll('button').forEach((b) => b.addEventListener('mousedown', (e) => {
+    e.preventDefault()                     // vor blur zuschlagen, sonst schließt die Liste zuerst
+    $('e-ort').value = b.dataset.ort
+    ortListeZu(); pruefeAenderung()
+  }))
+  liste.hidden = false
+  $('e-ort').setAttribute('aria-expanded', 'true')
+  ortAktiv = -1
+}
+$('e-ort').addEventListener('input', () => { ortListeAuf(); pruefeAenderung() })
+$('e-ort').addEventListener('focus', ortListeAuf)
+$('e-ort').addEventListener('blur', () => setTimeout(ortListeZu, 120))
+$('e-ort').addEventListener('keydown', (e) => {
+  const knoepfe = [...$('ort-liste').querySelectorAll('button')]
+  if ($('ort-liste').hidden || !knoepfe.length) return
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    ortAktiv = (ortAktiv + (e.key === 'ArrowDown' ? 1 : -1) + knoepfe.length) % knoepfe.length
+    knoepfe.forEach((b, i) => { b.classList.toggle('aktiv', i === ortAktiv); b.setAttribute('aria-selected', String(i === ortAktiv)) })
+    knoepfe[ortAktiv].scrollIntoView({ block: 'nearest' })
+  } else if (e.key === 'Enter' && ortAktiv >= 0) {
+    e.preventDefault()
+    $('e-ort').value = knoepfe[ortAktiv].dataset.ort
+    ortListeZu(); pruefeAenderung()
+  } else if (e.key === 'Escape') { ortListeZu() }
+})
+
+/* ————— Bio: Zähler und mitwachsendes Feld ————— */
+function bioAuffrischen() {
+  const feld = $('e-bio')
+  const z = $('bio-zaehler')
+  z.textContent = `${feld.value.length}/300`
+  z.classList.toggle('knapp', feld.value.length > 260)
+  feld.style.height = 'auto'
+  feld.style.height = Math.min(feld.scrollHeight, 160) + 'px'
+}
+$('e-bio').addEventListener('input', () => { bioAuffrischen(); pruefeAenderung() })
+
+/* ————— Speichern erst, wenn es etwas zu speichern gibt ————— */
+const FELDER = ['e-name', 'e-ort', 'e-handle', 'e-bio', 'e-web', 'e-insta']
+let standProfil = {}
+function standNehmenProfil() {
+  standProfil = Object.fromEntries(FELDER.map((id) => [id, $(id).value]))
+}
+function pruefeAenderung() {
+  const gleich = FELDER.every((id) => $(id).value === standProfil[id])
+  const handleOk = ['frei'].includes(pruefeHandle($('e-handle').value).art)
+  $('btn-profil-speichern').disabled = gleich || !handleOk
+}
+FELDER.forEach((id) => $(id).addEventListener('input', pruefeAenderung))
+document.querySelectorAll('[data-dlg="dlg-profil-bearbeiten"]').forEach((b) =>
+  b.addEventListener('click', () => { standNehmenProfil(); bioAuffrischen(); pruefeAenderung() }))
+
+/* ————— Profil speichern ————— */
+$('btn-profil-speichern').addEventListener('click', () => {
+  const name = $('e-name').value.trim() || 'Henrik'
+  const ort = $('e-ort').value.trim()
+  const bio = $('e-bio').value.trim()
+
+  const handle = $('e-handle').value.trim().toLowerCase() || HANDLE_START
+  $('p-name').textContent = name
+  $('p-handle').textContent = '@' + handle
+  $('p-ort').textContent = ort || '—'
+  $('p-bio').textContent = bio
+  $('p-bio').hidden = !bio
+  zeichneProfilLinks()
+
+  const init = name[0].toUpperCase()
+  $('chip-name').textContent = name
+  $('chip-initial').textContent = init
+  $('menue-initial').textContent = init
+  $('menue-name').textContent = name
+  $('avatar').textContent = init
+  $('sp-avatar-letter').textContent = init
+
+  zeigeSichtbarkeit()
+  standNehmenProfil()
+  pruefeAenderung()
+  dialogZu($('dlg-profil-bearbeiten'))
+  zeigeToast('Profildetails aktualisiert')
+})
+/* ————— Titelbild —————
+   Vier Stile, die man auseinanderhalten kann: Höhenlinien, Straßennetz,
+   Sternenhimmel, Bergschichten. Banner und Vorschau-Kachel kommen aus
+   derselben Funktion — sonst zeigt die Kachel bald etwas anderes als das,
+   was man bekommt. `k` skaliert die Strichstärken für die kleine Kachel. */
+const BANNER = [
+  { datei: 'serpentinen.jpg', name: 'Bergpass' },
+  { datei: 'kueste.jpg', name: 'Küstenstraße' },
+  { datei: 'nachtstadt.jpg', name: 'Stadt bei Nacht' },
+  { datei: 'wueste.jpg', name: 'Wüstenpiste' },
+]
+const BILDPFAD = (datei) => `titelbilder/${datei}`
+
+let bannerBild = BANNER[0].datei
+function zeichneBanner(datei) {
+  bannerBild = datei
+  $('p-banner').style.backgroundImage = `url('${BILDPFAD(datei)}')`
+}
+function zeichneStile() {
+  $('eigenes-feld').innerHTML = `
+    <button class="stil stil-eigenes" id="stil-eigenes" type="button">
+      <span class="kreis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16.5V4.5M7.4 9.1L12 4.5l4.6 4.6"/><path d="M4 15.5v3A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-3"/></svg></span>
+      <span class="z"><span class="t">Eigenes Foto hochladen</span><span class="b">Quer, mindestens 1600 px breit</span></span>
+      <span class="pfeil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>`
+  const stile = $('stile')
+  stile.innerHTML =
+    BANNER.map((b) => `
+      <button class="stil" type="button" data-datei="${b.datei}" aria-pressed="${b.datei === bannerBild}">
+        <span class="probe" style="background-image:url('${BILDPFAD(b.datei)}')"></span>
+        <span class="name">${b.name}</span>
+      </button>`).join('')
+  stile.querySelectorAll('[data-datei]').forEach((b) => b.addEventListener('click', () => {
+    stile.querySelectorAll('[data-datei]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+    zeichneBanner(b.dataset.datei)
+  }))
+  $('stil-eigenes').addEventListener('click', () => zeigeToast('Dateiauswahl — im Mockup ohne Funktion'))
+}
+
+/* ————— Navigation ————— */
+function zeige(ansichtName) {
+  $('ansicht-profil').hidden = ansichtName !== 'profil'
+  $('ansicht-konto').hidden = ansichtName !== 'konto'
+  document.querySelectorAll('.mockleiste [data-zeige]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.zeige === ansichtName))
+  })
+  window.scrollTo({ top: 0 })
+}
+document.querySelectorAll('[data-zeige]').forEach((b) => b.addEventListener('click', (e) => {
+  e.preventDefault(); menueAuf(false); zeige(b.dataset.zeige)
+}))
+
+const km = $('konto-menue')
+function menueAuf(an) { km.hidden = !an; $('chip').setAttribute('aria-expanded', String(an)) }
+$('chip').addEventListener('click', () => menueAuf(km.hidden))
+document.addEventListener('click', (e) => { if (!km.hidden && !e.target.closest('.konto-wrap')) menueAuf(false) })
+
+/* ————— Teilen —————
+   Web Share API, wo es sie gibt (Handy, Safari) — dort öffnet sich das
+   System-Blatt mit Nachrichten, Mail und allem, was installiert ist. Sonst
+   in die Zwischenablage, und der Knopf sagt das auch. */
+const KANN_TEILEN = typeof navigator.share === 'function'
+const ICON_TEILEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5M8 7l4-3.5L16 7"/><path d="M4 14v5.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V14"/></svg>'
+const ICON_KOPIEREN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15"/></svg>'
+$('share-icon').innerHTML = KANN_TEILEN ? ICON_TEILEN : ICON_KOPIEREN
+$('share-text').textContent = KANN_TEILEN ? 'Teilen' : 'Link kopieren'
+
+$('btn-share').addEventListener('click', async () => {
+  const url = 'https://maptale.io/' + $('p-handle').textContent
+  if (KANN_TEILEN) {
+    try { await navigator.share({ title: `${$('p-name').textContent} auf Maptale`, url }); return }
+    catch (e) { if (e?.name === 'AbortError') return }   // abgebrochen ist kein Fehler
+  }
+  navigator.clipboard?.writeText(url).catch(() => {})
+  zeigeToast(url.replace('https://', '') + ' kopiert')
+})
+
+/* ————— Öffentlich oder nicht —————
+   EIN Schalter (Kontoeinstellungen), drei Orte, die ihn spiegeln: der
+   Profilkopf (teilen oder nicht), das Bearbeiten-Modal (Statuszeile) und die
+   Suchmaschinen-Zeile, die ohne öffentliches Profil gegenstandslos ist. */
+let profilOeffentlich = true
+
+/** Einzige Stelle, die den Zustand ändert — beide Schalter rufen sie auf. */
+function setzeSichtbarkeit(auf, meldung = true) {
+  const geaendert = auf !== profilOeffentlich
+  profilOeffentlich = auf
+  $('s-profil-oeffentlich').checked = auf
+  $('s-profil-modal').checked = auf
+  $('btn-share').hidden = !auf
+  $('privat-chip').hidden = auf
+  $('p-handle').style.opacity = auf ? '' : '.5'
+  // Ohne öffentliches Profil gibt es nichts zu indizieren.
+  $('s-suchmaschinen').disabled = !auf
+  $('zeile-suchmaschinen').style.opacity = auf ? '' : '.45'
+  if (geaendert && meldung) zeigeToast(auf ? 'Profil ist jetzt öffentlich' : 'Profil ist jetzt privat')
+}
+function zeigeSichtbarkeit() { setzeSichtbarkeit(profilOeffentlich, false) }
+
+;['s-profil-oeffentlich', 's-profil-modal'].forEach((id) =>
+  $(id).addEventListener('change', (e) => setzeSichtbarkeit(e.target.checked)))
+
+// Der Chip am Profil führt dorthin, wo man ihn gerade sucht: ins Modal.
+$('privat-chip').addEventListener('click', () => dialogAuf('dlg-profil-bearbeiten', $('privat-chip')))
+
+/* ————— Fortbewegungsmittel an der Tour-Karte ————— */
+const MODI = {
+  walk: { wort: 'Zu Fuß', icon: '<path d="M13.5 4.6a1.6 1.6 0 1 0 0-.1M12.5 8l-2.7 1.6-1.3 3.4M12.5 8l2.4 1.8.9 3.2M12.5 8l-.7 4.4 2.1 2.2.6 4.4M11.8 12.4l-2.6 2.3-.4 4"/>' },
+  bike: { wort: 'Fahrrad', icon: '<circle cx="5.6" cy="16.4" r="3.4"/><circle cx="18.4" cy="16.4" r="3.4"/><path d="M8 16.4l3.6-6.4h4.2M9.6 10h4.6l2.6 5.4M14.6 6.6h2.6"/>' },
+  moped: { wort: 'Moped', icon: '<circle cx="5.4" cy="16.6" r="3.2"/><circle cx="18.6" cy="16.6" r="3.2"/><path d="M8.4 16.6h7M5.4 13.4V9.6h3.2l3 4.4h4.4M13 6.4h3.2l2.4 8.8"/>' },
+  jeep: { wort: 'Jeep', icon: '<path d="M3 15.5v-3l2.2-4h11l3.4 4H21v3"/><path d="M3 15.5h2.2M9.6 15.5h4.8M18.8 15.5H21"/><circle cx="7.4" cy="16.6" r="2.2"/><circle cx="16.6" cy="16.6" r="2.2"/>' },
+  tram: { wort: 'Tram', icon: '<rect x="5.5" y="3.5" width="13" height="14" rx="3"/><path d="M5.5 9.5h13M9 20.5l-2 1.5M15 20.5l2 1.5M12 3.5V1.5"/>' },
+  ferry: { wort: 'Fähre', icon: '<path d="M4 16.5l1.6-5h12.8l1.6 5"/><path d="M8 11.5V7.5h8v4M12 4v3.5"/><path d="M2.5 18.5c1.6 0 1.6 1.6 3.2 1.6s1.6-1.6 3.2-1.6 1.6 1.6 3.2 1.6 1.6-1.6 3.2-1.6 1.6 1.6 3.2 1.6"/>' },
+}
+document.querySelectorAll('.tour').forEach((t) => {
+  const m = MODI[t.dataset.modus]
+  if (!m) return
+  const meta = t.querySelector('.meta')
+  meta.insertAdjacentHTML('afterbegin', svg(m.icon))
+  meta.firstElementChild.setAttribute('aria-label', m.wort)
+})
+
+/* ————— Geräte abmelden ————— */
+$('geraete').addEventListener('click', (e) => {
+  const b = e.target.closest('button.gefahr')
+  if (!b) return
+  const zeile = b.closest('.zeile')
+  zeile.classList.add('geht')
+  setTimeout(() => zeile.remove(), 320)
+  zeigeToast(`${zeile.dataset.geraet} wurde abgemeldet`)
+})
+
+/* ————— Speicher-Attrappe ————— */
+$('m-voll').addEventListener('click', () => {
+  const voll = $('sp-warnung').hidden
+  $('m-voll').setAttribute('aria-pressed', String(voll))
+  $('sp-warnung').hidden = !voll
+  $('sp-belegt').textContent = voll ? '1 902 MB' : '248 MB'
+  $('sp-prozent').textContent = voll ? '93 %' : '12 %'
+  const breiten = voll ? ['57%', '24%', '7%', '5%'] : ['7.4%', '3.1%', '1.0%', '.6%']
+  ;[...$('sp-balken').children].forEach((i, n) => (i.style.width = breiten[n]))
+  const werte = voll ? ['1 167 MB', '491 MB', '143 MB', '101 MB'] : ['152 MB', '63 MB', '21 MB', '12 MB']
+  $('sp-legende').querySelectorAll('b').forEach((b, n) => (b.textContent = werte[n]))
+  zeige('konto')
+})
+
+/* ————— Passwort: Auge & Stärke ————— */
+const AUGE_AUF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>'
+const AUGE_ZU = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5l16 14"/><path d="M9.5 6.1A9.8 9.8 0 0 1 12 5.8c6 0 9.5 6.2 9.5 6.2a17 17 0 0 1-3.2 3.9M6.4 8.2A17 17 0 0 0 2.5 12S6 18.2 12 18.2c1 0 1.9-.2 2.7-.4"/></svg>'
+document.querySelectorAll('[data-auge]').forEach((b) => {
+  b.innerHTML = AUGE_AUF
+  b.addEventListener('click', () => {
+    const feld = $(b.dataset.auge)
+    const zeigen = feld.type === 'password'
+    feld.type = zeigen ? 'text' : 'password'
+    b.innerHTML = zeigen ? AUGE_ZU : AUGE_AUF
+    b.setAttribute('aria-pressed', String(zeigen))
+    b.setAttribute('aria-label', zeigen ? 'Passwort verbergen' : 'Passwort anzeigen')
+    feld.focus()
+  })
+})
+
+// Grobe Attrappe der Kurve aus src/passwortstaerke.ts
+const stufen = [
+  { farbe: '#e5484d', text: 'Zu kurz — Länge ist der Hebel, nicht Sonderzeichen.' },
+  { farbe: '#e5824d', text: 'Schwach. Drei zufällige Wörter wären deutlich besser.' },
+  { farbe: '#F59E0B', text: 'Geht so.' },
+  { farbe: '#3ecf8e', text: 'Gut.' },
+]
+$('d-pw-neu').addEventListener('input', (e) => {
+  const v = e.target.value
+  const n = v.length === 0 ? -1 : Math.min(3, Math.floor(v.length / 5))
+  for (let i = 0; i < 4; i++) $('pwb' + (i + 1)).style.background = i <= n ? stufen[Math.max(0, n)].farbe : 'var(--fl-3)'
+  $('pw-text').textContent = n < 0 ? 'Länge zählt mehr als Sonderzeichen.' : stufen[n].text
+})
+
+$('d-loesch').addEventListener('input', (e) => { $('loeschen-knopf').disabled = e.target.value.trim().toUpperCase() !== 'LÖSCHEN' })
+$('loeschen-knopf').addEventListener('click', () => { dialogZu($('dlg-loeschen')); zeigeToast('Konto gelöscht (im Mockup passiert nichts)') })
+
+zeichneProfilLinks()
+zeigeHandleStand()
+standNehmenProfil()
+bioAuffrischen()
+pruefeAenderung()
+zeigeSichtbarkeit()
+zeichneBanner(bannerBild)
+zeichneStile()
+</script>
+</body>
+</html>
