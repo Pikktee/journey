@@ -36,7 +36,14 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
   [profilmodell.ts](src/profil/profilmodell.ts). **Kennzahlen summiert der SERVER und nur
   über öffentliche Touren**: „12 Touren" neben drei sichtbaren Karten wäre eine Auskunft über
   die anderen neun. Das Bearbeiten-Modal wird erst für den Besitzer nachgeladen
-  ([profilbearbeiten.ts](src/profil/profilbearbeiten.ts)).
+  ([profilbearbeiten.ts](src/profil/profilbearbeiten.ts)). Ohne Anzeigenamen steht im Kopf
+  der HANDLE (nicht „Ohne Namen" — das beschrieb ein leeres Datenbankfeld, nicht die
+  Person; er fällt dann aus dem Beiwerk, sonst stünde er zweimal), und ohne gewähltes
+  Titelbild zeigt das Banner eines der vier mitgelieferten, deterministisch aus dem Handle
+  gewählt ([titelbilder.ts](src/profil/titelbilder.ts) `standardTitelbild`) — zufällig
+  bekäme dieselbe Person bei jedem Aufruf ein anderes Kopfbild.
+- **Kontoeinstellungen** ([konto.html](konto.html) + [src/konto/](src/konto/)): eigene Seite
+  unter `/konto`, nicht im Studio (s. eigener Abschnitt unten).
 - **Benutzerverwaltung** ([admin.html](admin.html) + [src/admin/](src/admin/)): Konten,
   Rollen und Einladungen (s. eigener Abschnitt unten).
 - **[android/](android/)**: Aufnahme-App (Kotlin, Compose, minSdk 29) — s. eigener Abschnitt.
@@ -314,6 +321,54 @@ die Datei lädt automatisch, sobald unter `src/studio/` gearbeitet wird. Was der
 Rohdaten + Overlay macht (Bildfassungen, Gehabschnitte, Pausen-Zeitraffer, Video-Faststart),
 steht in **[server/CLAUDE.md](server/CLAUDE.md)**.
 
+## Kontoeinstellungen
+
+Eigene Seite ([konto.html](konto.html) + [src/konto/](src/konto/)), erreichbar über das
+Konto-Menü — dort stehen seither zwei Einträge: „Mein Profil" (auf `/@handle`, nicht auf
+`/profil`) und „Kontoeinstellungen". Sie liegt NICHT im Studio: Das Studio ist der
+Schneideraum, das hier der Ordner mit den Papieren. Rechnende Teile stehen DOM-frei in
+[kontomodell.ts](src/konto/kontomodell.ts), die Formulare werden nachgeladen
+([kontodialoge.ts](src/konto/kontodialoge.ts)); die Dialogschicht teilt sie sich mit der
+Profilseite ([src/dialogschicht.ts](src/dialogschicht.ts)).
+
+Vier Dinge, die man dabei leicht „vereinfacht":
+
+- **Die Adresse wechselt erst nach dem Klick im NEUEN Postfach.** Bis dahin wohnt sie im
+  Mail-Token (`mail_tokens.nutzlast`, Zweck `email`) — stünde sie vorher in `users`,
+  gehörte das Konto ab dem Absenden einer Adresse, die niemand bestätigt hat. Der Klick
+  IST die Bestätigung (kein zweiter Verifikationslauf), der Link zeigt auf
+  `/konto#email=<token>` und der Hash wird beim Einlösen sofort aus der Adresszeile
+  geräumt. Ist die Adresse schon vergeben, ist die ANTWORT dieselbe wie im Erfolgsfall —
+  nur die Mail bleibt aus, sonst wäre die Route eine Auskunft darüber, wer ein Konto hat.
+- **Passwort und E-Mail-Wechsel verlangen das aktuelle Passwort.** Eine offene Sitzung
+  beweist nur, dass jemand am Gerät saß. Der Passwortwechsel beendet danach alle anderen
+  Zugänge (auch die App-Tokens) und behält genau die eigene Sitzung — sonst wirft er einen
+  aus der Seite, auf der man gerade steht.
+- **„Angemeldete Geräte" sind Sitzungen UND App-Tokens.** Die App meldet sich mit einem
+  Token an, nicht mit einer Sitzung; eine Liste nur aus Sitzungen hätte genau das Gerät
+  nicht dabei, an das die meisten zuerst denken. Die IDs tragen deshalb ein Präfix
+  (`sitzung:` / `app:`). Von der Herkunft wird nur gespeichert, was zum Wiedererkennen
+  nötig ist: roher User-Agent (die Deutung „Chrome auf macOS" passiert in
+  `kontomodell.ts`, damit eine bessere Deutung keine Migration kostet) und **zwei Oktette**
+  der IP. Das steht so auch in [datenschutz.html](datenschutz.html) — wer es erweitert,
+  ändert dort eine Zusage.
+- **Der Speicherbalken misst am LIMIT, nicht an der Summe**, und die Teile ergeben das
+  Belegte (deshalb der Eimer `sonstiges`). Aufgeschlüsselt wird nach Dateiendung, nicht
+  nach Ordner — in `media/` liegen Fotos, Videos, Poster und Klänge nebeneinander
+  (`artDerDatei` in [server/src/quota.ts](server/src/quota.ts)). Eigene Route und nicht
+  Teil von `/auth/me`: Die Aufteilung läuft über alle Dateien aller Touren, `/auth/me` ist
+  der heißeste Aufruf der API.
+
+**Der Sichtbarkeits-Schalter steht an ZWEI Stellen** (hier und im Bearbeiten-Modal des
+Profils) und ist EIN Zustand — man sucht ihn hier beim Aufräumen und dort beim Bearbeiten;
+auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
+
+Noch nicht gebaut (eigene Etappen in
+[docs/concepts/konzept_profil_konto.md](docs/concepts/konzept_profil_konto.md)): die
+Newsletter-Einwilligung, der ZIP-Datenexport und der Schalter „In Suchmaschinen
+erscheinen" — letzterer wäre heute eine Zusage ohne Deckung, weil `profil.html` als
+statische Seite ein festes `noindex` trägt.
+
 ## Benutzerverwaltung
 
 Eigene Seite ([admin.html](admin.html) + [src/admin/](src/admin/)), nicht Teil des Studios:
@@ -356,7 +411,8 @@ automatisch, sobald unter `android/` gearbeitet wird.
 - Neue Tour hinzufügen = neuer Eintrag in `TOURS`; keine Code-Änderung an der Engine nötig.
 - **Die besuchten Seiten tragen das Umami-Skript** (`https://analytics.maptale.io/script.js`
   mit `data-website-id`, jeweils Zeile 5 im `<head>`): index, erlebnis, studio, galerie,
-  profil. **Ohne Tag und zwar absichtlich:** admin (die eigene Verwaltung ist kein Publikum),
+  profil, konto (eine gewöhnliche Seite des Produkts — anders als die Verwaltung, die nur
+  der Betreiber sieht). **Ohne Tag und zwar absichtlich:** admin (die eigene Verwaltung ist kein Publikum),
   impressum und datenschutz. Wer eine Seite dazunimmt, entscheidet also, in welche Gruppe sie
   gehört — vergessen fällt nicht auf, denn die Seite funktioniert, taucht in der Auswertung
   nur nie auf. Ausgewertet wird im Verwaltungs-Reiter „Statistiken" (natives Dashboard,

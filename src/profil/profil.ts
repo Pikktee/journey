@@ -9,6 +9,7 @@
 
 import { alsKarte, wenAusAdresse, type GalerieTour } from '../galerie/galeriemodell.js'
 import { profilPfad } from '../routen.js'
+import { standardTitelbild, titelbildPfad } from './titelbilder.js'
 import {
   anfangsbuchstabe,
   istEigenes,
@@ -152,17 +153,20 @@ function zeichneKopf(profil: ProfilAntwort): void {
   }
 }
 
-/** Titelbild oder ruhige Fläche — ein leeres Banner ist kein Fehler. */
+/**
+ * Titelbild — das gewählte oder eines der mitgelieferten.
+ *
+ * Wer keines gewählt hat, bekommt trotzdem eins (`standardTitelbild`): Die vier
+ * Bilder liegen im Build, und ein leeres Banner ist keine Zurückhaltung,
+ * sondern 230 px graue Fläche über fast jedem Profil. Die ruhige Fläche
+ * (`.leer`) bleibt als Rückfall im CSS, falls das Bild nicht lädt.
+ */
 function zeichneBanner(profil: ProfilAntwort): void {
   const banner = $('p-banner')
   if (!banner) return
-  if (profil.titelbildUrl) {
-    banner.style.backgroundImage = `url("${profil.titelbildUrl.replace(/"/g, '%22')}")`
-    banner.classList.remove('leer')
-  } else {
-    banner.style.backgroundImage = ''
-    banner.classList.add('leer')
-  }
+  const bild = profil.titelbildUrl ?? titelbildPfad(standardTitelbild(profil.handle))
+  banner.style.backgroundImage = `url("${bild.replace(/"/g, '%22')}")`
+  banner.classList.remove('leer')
 }
 
 function zeichneLinks(profil: ProfilAntwort): void {

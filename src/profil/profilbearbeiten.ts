@@ -6,6 +6,7 @@
 // HTML und Firefox' eigene Vorstellungen davon sind drei Baustellen, und
 // „Verwerfen" ist in einem Formular ein Schließen statt einer Rücknahme.
 
+import { oeffneSchicht } from '../dialogschicht.js'
 import { HANDLE_TEXTE, pruefeHandleForm, zuHandle } from '../handle.js'
 import { profilPfad } from '../routen.js'
 import { zeichne } from './profil.js'
@@ -63,47 +64,6 @@ function feld(
   return { huelle, eingabe }
 }
 
-/** Dialogschicht mit Titel und Fußzeile; `schliesse` räumt sie wieder ab. */
-function schicht(titel: string): {
-  schicht: HTMLElement
-  koerper: HTMLElement
-  fuss: HTMLElement
-  schliesse: () => void
-} {
-  const aussen = el('div', 'dialogschicht')
-  const dialog = el('div', 'dialog')
-  dialog.setAttribute('role', 'dialog')
-  dialog.setAttribute('aria-modal', 'true')
-  dialog.setAttribute('aria-label', titel)
-  const kopf = el('div', 'sp-kopf')
-  kopf.appendChild(el('h2', undefined, titel))
-  dialog.appendChild(kopf)
-  const koerper = el('div', 'sp-koerper')
-  dialog.appendChild(koerper)
-  const fuss = el('div', 'sp-fuss')
-  dialog.appendChild(fuss)
-  aussen.appendChild(dialog)
-
-  const schliesse = (): void => {
-    aussen.remove()
-    document.removeEventListener('keydown', beiTaste)
-    document.body.classList.remove('dialog-offen')
-  }
-  // Escape schließt, ein Klick auf die Schicht auch — aber nur auf sie selbst:
-  // Ein Klick, der IM Dialog beginnt und über dem Rand endet (Textauswahl),
-  // schlösse ihn sonst mitten im Tippen.
-  const beiTaste = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') schliesse()
-  }
-  document.addEventListener('keydown', beiTaste)
-  aussen.addEventListener('mousedown', (e) => {
-    if (e.target === aussen) schliesse()
-  })
-  document.body.classList.add('dialog-offen')
-  document.body.appendChild(aussen)
-  return { schicht: aussen, koerper, fuss, schliesse }
-}
-
 async function sendeProfil(daten: Record<string, unknown>): Promise<{ ok: true } | { ok: false; fehler: string }> {
   try {
     const antwort = await fetch('/api/auth/me/profil', {
@@ -127,9 +87,14 @@ async function sendeProfil(daten: Record<string, unknown>): Promise<{ ok: true }
  * Server am Schrägstrich (s. server/src/profilfelder.ts).
  */
 function oeffneTitelbild(fertig: () => void): void {
-  const { koerper, fuss, schliesse } = schicht('Titelbild')
+  const { koerper, fuss, schliesse } = oeffneSchicht('Titelbild')
   koerper.appendChild(
-    el('p', 'sp-hinweis', 'Das Bild über deinem Profil — quer, breit und am besten aus einer deiner Touren.'),
+    el(
+      'p',
+      'sp-hinweis',
+      'Das Bild über deinem Profil — quer, breit und am besten aus einer deiner Touren. ' +
+        'Ohne eigene Wahl steht dort eines der vier.',
+    ),
   )
 
   let wahl: string | null = null
@@ -160,7 +125,9 @@ function oeffneTitelbild(fertig: () => void): void {
   eigenes.appendChild(document.createTextNode(' Eigenes Bild hochladen'))
   eigenes.addEventListener('click', () => datei.click())
 
-  const entfernen = el('button', 'still', 'Entfernen')
+  // „Zurücksetzen" und nicht „Entfernen": Danach steht dort nicht nichts,
+  // sondern wieder das mitgelieferte Bild (s. standardTitelbild).
+  const entfernen = el('button', 'still', 'Zurücksetzen')
   entfernen.type = 'button'
 
   const zeile = el('div', 'sp-nebenzeile')
@@ -206,8 +173,9 @@ function oeffneTitelbild(fertig: () => void): void {
 
   entfernen.addEventListener('click', async () => {
     await fetch('/api/auth/me/titelbild', { method: 'DELETE' }).catch(() => undefined)
-    // Auch das gewählte Vorschlagsbild muss weg — „Entfernen" heißt kein Bild,
-    // nicht „kein hochgeladenes Bild".
+    // Auch die gewählte Vorschlags-WAHL muss weg, nicht nur das hochgeladene
+    // Bild: Zurückgesetzt wird auf „keine eigene Entscheidung" — was danach im
+    // Banner steht, bestimmt `standardTitelbild`.
     await sendeProfil({ titelbild: '' })
     schliesse()
     fertig()
@@ -229,7 +197,7 @@ function oeffneTitelbild(fertig: () => void): void {
 
 /** Das Profil-Formular. */
 function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
-  const { koerper, fuss, schliesse } = schicht('Profil bearbeiten')
+  const { koerper, fuss, schliesse } = oeffneSchicht('Profil bearbeiten')
 
   const name = feld('e-name', 'Name', profil.anzeigename ?? '')
   const ort = feld('e-ort', 'Ort', profil.ort ?? '')

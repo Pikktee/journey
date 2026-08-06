@@ -85,6 +85,12 @@ Vorschläge kommen sollen, ist das ein eigener Schritt (Proxy-Route + Zwischensp
 Ebenfalls bewusst offen: der **Zuschnitt** hochgeladener Titelbilder — das Banner
 ist ein fester Ausschnitt (`object-fit: cover`), was bei querformatigen Bildern
 dasselbe Ergebnis liefert.
+**Nachgezogen am 6. August 2026** (zusammen mit Etappe 3): Ein Profil ohne Anzeigenamen
+zeigt jetzt seinen Handle statt „Ohne Namen" (und dann nicht zweimal), und ohne gewähltes
+Titelbild steht im Banner eines der vier Vorschlagsbilder — deterministisch aus dem Handle
+gewählt (`standardTitelbild`), damit dieselbe Person nicht bei jedem Aufruf ein anderes
+Kopfbild hat. Der Knopf im Titelbild-Dialog heißt deshalb „Zurücksetzen" statt „Entfernen":
+Danach steht dort nicht nichts.
 
 **Ziel:** [profil.html](../../profil.html) wird zu dem, was das Mockup zeigt —
 für Fremde wie für den Besitzer, mit Bearbeiten-Modal.
@@ -111,7 +117,29 @@ nicht das Formular.
 
 ---
 
-## Etappe 3 — Kontoeinstellungen
+## Etappe 3 — Kontoeinstellungen ✅
+
+**Umgesetzt am 6. August 2026.** Seite [konto.html](../../konto.html) +
+[src/konto/](../../src/konto/) unter `/konto`; Migration 15 (Sitzungs-Kennzeichen,
+`mail_tokens.nutzlast` + Zweck `email`); Routen `POST /api/auth/me/passwort`,
+`POST /api/auth/me/email`, `POST /api/auth/email-bestaetigen`,
+`GET|DELETE /api/auth/me/geraete[/:id]`, `GET /api/auth/me/speicher`; Mail-Vorlage
+`email-wechsel`. Das Konto-Menü hat jetzt „Mein Profil" und „Kontoeinstellungen"
+(Studio wie öffentliche Seiten). Umami-Tag: JA (s. CLAUDE.md).
+
+Zwei Abweichungen vom Mockup, beide bewusst:
+
+- **Der Newsletter-Schalter fehlt** — er ist Etappe 4 und hängt an
+  Einwilligungs-Protokoll und Abmeldelink; ein Schalter ohne die wäre eine Zusage ohne
+  Deckung. Ebenso fehlt der ZIP-Export (Etappe 5).
+- **„In Suchmaschinen erscheinen" fehlt VORERST.** `profil.html` ist eine statische Seite
+  mit festem `noindex` — der Schalter könnte heute nichts bewirken, außer zu behaupten, er
+  täte es. Die Entscheidung ist inzwischen gefallen: Er kommt mit **Etappe 6** zurück,
+  sobald die Profilseite serverseitig ausgeliefert wird.
+
+Zusätzlich zum Mockup: **Die Geräteliste zeigt auch die App-Tokens.** Die App meldet sich
+mit einem Token an, nicht mit einer Sitzung — eine Liste nur aus Sitzungen hätte genau das
+Gerät nicht dabei, das im Mockup als „Maptale App · Pixel 9" gezeichnet ist.
 
 **Ziel:** eigene Seite `/konto`, Inhalt wie im Mockup.
 
@@ -153,6 +181,66 @@ Braucht eine kleine Job-Verwaltung (Status, Aufräumen alter Archive) — deshal
 zuletzt, obwohl es im Mockup nur eine Zeile ist.
 
 **Bewusst später:** die automatische Newsletter-Erzeugung, Mehrsprachigkeit.
+
+---
+
+## Etappe 5.5 — Auffindbar und teilbar (klein)
+
+Beim Prüfen von Etappe 3 aufgefallen: Es gibt **keine `robots.txt`** (live 404),
+**keine Sitemap** und **nirgends Open-Graph-Tags**. Wer heute einen Tour- oder
+Profil-Link in WhatsApp, Slack oder Mastodon teilt, bekommt keine Vorschaukarte,
+sondern eine nackte URL — bei einem Produkt, dessen Kern das Teilen von Reisen
+ist, kein Nebenschauplatz.
+
+- `public/robots.txt`: Verwaltung, Konto und Studio ausschließen, Sitemap nennen.
+- `public/sitemap.xml` für die statischen Seiten (Landing, Galerie, Impressum,
+  Datenschutz). Profile und Touren kommen erst mit Etappe 6 dazu — vorher
+  dürfen sie ohnehin nicht in den Index.
+- `og:title`, `og:description`, `og:image`, `twitter:card` in
+  [index.html](../../index.html), [galerie.html](../../galerie.html) und
+  [erlebnis.html](../../erlebnis.html). Für die statischen Seiten reichen feste
+  Werte samt einem Marken-Bild.
+
+Etwa eine Stunde, unabhängig vom Rest.
+
+---
+
+## Etappe 6 — Die Profilseite serverseitig ausliefern
+
+**Erst danach kann „In Suchmaschinen erscheinen" zurück ins Konto** — und dann
+bewirkt der Schalter auch etwas. Heute trägt [profil.html](../../profil.html)
+ein festes `noindex`, weil sie statisch für alle gleich ausgeliefert wird.
+
+Verworfene Wege, damit sie nicht wiederkommen:
+
+| Weg | Warum nicht |
+| --- | --- |
+| `noindex` per JavaScript entfernen | Google verarbeitet das `noindex` im initialen HTML, **bevor** es JavaScript rendert. Die Seite fliegt raus, ehe der Code läuft |
+| `X-Robots-Tag` im Vhost | Nginx weiß nicht, ob DIESER Nutzer indexiert werden will — nur ein Schalter für alle oder keinen |
+| Bei jeder Änderung eine statische Datei je Profil schreiben | Cache-Invalidierung und ein Schreibpfad für einen Gewinn, der erst bei Zehntausenden Profilen zählt |
+
+**Der Weg:** Fastify beantwortet `/@handle` selbst und setzt im HTML-Kopf
+`robots`, `title`, `description` und die `og:`-Tags nach dem, was in der
+Datenbank steht (Titelbild als `og:image` — das löst die Teilen-Vorschau gleich
+mit). Der Rest der Seite bleibt clientseitig wie heute.
+
+Der Knackpunkt ist, woher der Server das gebaute HTML nimmt — die Bundle-Namen
+tragen Hashes, der API-Container kennt den Docroot nicht. Zwei Varianten:
+
+1. Der Build kopiert `dist/profil.html` ins API-Image. Koppelt Web-Build und
+   Image und braucht einen neuen Deploy-Schritt.
+2. **Empfohlen:** Der Container holt `profil.html` zur Laufzeit über Nginx
+   (`127.0.0.1`), hält sie ein paar Minuten im Speicher und ersetzt darin nur
+   den Meta-Block. Keine Kopplung, kein neuer Deploy-Schritt, ein Fetch pro
+   Cache-Periode.
+
+Im Vhost wird aus `location ~ ^/@ { rewrite ^ /profil.html last; }` ein
+`proxy_pass` an die API — wieder von Hand, s. Etappe 1.
+
+Dazu gehört: Sitemap um öffentliche, indexierbare Profile ergänzen,
+`canonical`-URL setzen, und der Schalter im Konto schreibt ein Feld
+`suchmaschinen` (Standard **aus** — ein Profil über den Link zu teilen ist
+etwas anderes, als unter dem eigenen Namen auffindbar zu sein).
 
 ---
 

@@ -27,6 +27,14 @@ export interface Storage {
   loesche(tourId: string, relPfad: string): Promise<void>
   /** Dateien eines Unterordners auflisten (nicht-rekursiv); fehlender Ordner → [] */
   listeDateien(tourId: string, unterordner: string): Promise<Array<{ name: string; groesse: number }>>
+  /**
+   * ALLE Dateien rekursiv, mit ihrem Pfad relativ zur Tour (`media/m1.w1920.jpg`).
+   *
+   * Die Grundlage von `gesamtGroesse` und der Speicher-Aufschlüsselung im Konto:
+   * Wer wissen will, wie viel davon Fotos sind, braucht die Namen — eine zweite
+   * Summierfunktion daneben liefe irgendwann anders als diese.
+   */
+  alleDateien(tourId: string): Promise<Array<{ pfad: string; groesse: number }>>
   /** Summe aller Bytes einer Tour (rekursiv über alle Unterordner) — für die Quota (M9) */
   gesamtGroesse(tourId: string): Promise<number>
   loescheTour(tourId: string): Promise<void>
@@ -136,10 +144,10 @@ export class FsStorage implements Storage {
     return dateien.sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  async gesamtGroesse(tourId: string): Promise<number> {
+  async alleDateien(tourId: string): Promise<Array<{ pfad: string; groesse: number }>> {
     const wurzel = sicherePfad(this.basisDir, tourId, '.')
-    let summe = 0
-    const gehe = async (ordner: string): Promise<void> => {
+    const dateien: Array<{ pfad: string; groesse: number }> = []
+    const gehe = async (ordner: string, praefix: string): Promise<void> => {
       let eintraege
       try {
         eintraege = await readdir(ordner, { withFileTypes: true })
@@ -148,12 +156,19 @@ export class FsStorage implements Storage {
       }
       for (const eintrag of eintraege) {
         const pfad = join(ordner, eintrag.name)
-        if (eintrag.isDirectory()) await gehe(pfad)
-        else if (eintrag.isFile()) summe += (await stat(pfad)).size
+        // Relativ und immer mit `/`: Die Aufrufer lesen den Pfad (Ordner,
+        // Endung), und ein Backslash unter Windows wäre eine stille Ausnahme.
+        const rel = praefix ? `${praefix}/${eintrag.name}` : eintrag.name
+        if (eintrag.isDirectory()) await gehe(pfad, rel)
+        else if (eintrag.isFile()) dateien.push({ pfad: rel, groesse: (await stat(pfad)).size })
       }
     }
-    await gehe(wurzel)
-    return summe
+    await gehe(wurzel, '')
+    return dateien
+  }
+
+  async gesamtGroesse(tourId: string): Promise<number> {
+    return (await this.alleDateien(tourId)).reduce((summe, d) => summe + d.groesse, 0)
   }
 
   async loescheTour(tourId: string): Promise<void> {
@@ -220,12 +235,17 @@ export class MemStorage implements Storage {
     return dateien.sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  async gesamtGroesse(tourId: string): Promise<number> {
-    let summe = 0
+  async alleDateien(tourId: string): Promise<Array<{ pfad: string; groesse: number }>> {
+    const praefix = `${tourId}/`
+    const dateien: Array<{ pfad: string; groesse: number }> = []
     for (const [key, inhalt] of this.dateien) {
-      if (key.startsWith(`${tourId}/`)) summe += inhalt.length
+      if (key.startsWith(praefix)) dateien.push({ pfad: key.slice(praefix.length), groesse: inhalt.length })
     }
-    return summe
+    return dateien.sort((a, b) => a.pfad.localeCompare(b.pfad))
+  }
+
+  async gesamtGroesse(tourId: string): Promise<number> {
+    return (await this.alleDateien(tourId)).reduce((summe, d) => summe + d.groesse, 0)
   }
 
   async loescheTour(tourId: string): Promise<void> {

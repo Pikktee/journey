@@ -1,0 +1,371 @@
+// Hülle der Kontoeinstellungen: holt die Daten und hängt sie in den DOM. Alles,
+// was entschieden oder gerechnet werden muss, steht in kontomodell.ts, die
+// Formulare in kontodialoge.ts (nachgeladen — s. dort).
+//
+// Die Seite ist bewusst NICHT Teil des Studios: Das Studio ist der
+// Schneideraum, das hier ist der Ordner mit den Papieren. Sie ist auch nicht
+// die Profilseite — dort steht, was andere sehen, hier, was das Konto ausmacht.
+// Der einzige Zustand, den sich beide teilen (öffentlich ja/nein), steht
+// deshalb an beiden Stellen und schreibt dasselbe Feld.
+
+import { pfad, profilPfad } from '../routen.js'
+import {
+  belegtProzent,
+  geraeteName,
+  geraeteSymbol,
+  geraeteUnterzeile,
+  groesse,
+  speicherAbschnitte,
+  speicherKnapp,
+  type Geraet,
+  type SpeicherStand,
+} from './kontomodell.js'
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/** Die Zeichen der Oberfläche — Pfaddaten, damit sie nicht als Markup im HTML stehen. */
+const ZEICHEN: Record<string, string> = {
+  rechner: 'M3 4.5h18a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1v-9a1 1 0 011-1z|M8 19.5h8',
+  telefon: 'M7.5 2.5h9a2 2 0 012 2v15a2 2 0 01-2 2h-9a2 2 0 01-2-2v-15a2 2 0 012-2z|M10.5 18.5h3',
+  app: 'M7.5 2.5h9a2 2 0 012 2v15a2 2 0 01-2 2h-9a2 2 0 01-2-2v-15a2 2 0 012-2z|M9 6.8l3.2 4.2L15 8.4l0 3.6',
+  haken: 'M20 6L9 17l-5-5',
+  achtung: 'M12 4.5l8.5 15h-17z|M12 10v4M12 16.8v.2',
+}
+
+/** Farben der Balkenabschnitte — dieselbe Reihenfolge wie in `speicherAbschnitte`. */
+const FARBEN: Record<string, string> = {
+  fotos: 'var(--amber)',
+  videos: 'var(--coral)',
+  klaenge: 'var(--lila)',
+  aufzeichnungen: 'var(--blau)',
+  sonstiges: 'rgba(242, 237, 227, 0.42)',
+}
+
+function zeichne(art: string, strichstaerke = '1.7'): SVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', strichstaerke)
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  svg.setAttribute('aria-hidden', 'true')
+  for (const d of (ZEICHEN[art] ?? '').split('|')) {
+    const pfadEl = document.createElementNS(SVG_NS, 'path')
+    pfadEl.setAttribute('d', d)
+    svg.appendChild(pfadEl)
+  }
+  return svg
+}
+
+const $ = (id: string): HTMLElement | null => document.getElementById(id)
+
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  klasse?: string,
+  text?: string,
+): HTMLElementTagNameMap[K] {
+  const knoten = document.createElement(tag)
+  if (klasse) knoten.className = klasse
+  if (text !== undefined) knoten.textContent = text
+  return knoten
+}
+
+/** Kurze Rückmeldung unten rechts; sie verschwindet von selbst. */
+let toastZeit: number | undefined
+function melde(text: string): void {
+  const toast = $('toast')
+  const inhalt = $('toast-text')
+  if (!toast || !inhalt) return
+  inhalt.textContent = text
+  toast.classList.add('sichtbar')
+  window.clearTimeout(toastZeit)
+  toastZeit = window.setTimeout(() => toast.classList.remove('sichtbar'), 4000)
+}
+
+function zeigeHinweis(text: string, link?: { text: string; href: string }): void {
+  const ziel = $('meldung')
+  if (!ziel) return
+  const p = el('p', 'hinweis', text)
+  if (link) {
+    p.appendChild(document.createTextNode(' '))
+    const a = el('a', undefined, link.text)
+    a.href = link.href
+    a.style.color = 'var(--amber)'
+    p.appendChild(a)
+  }
+  ziel.replaceChildren(p)
+}
+
+interface MeAntwort {
+  benutzer: { id: string; email: string; name: string; rolle: string } | null
+  verifiziert?: boolean
+  profil?: { handle: string | null; anzeigename: string | null; sichtbarkeit: 'private' | 'public' }
+}
+
+// ————— Anmeldung & Sicherheit —————
+
+function zeichneKonto(daten: MeAntwort): void {
+  const mail = $('k-email')
+  if (mail) mail.textContent = daten.benutzer?.email ?? ''
+
+  const stand = $('k-mailstand')
+  if (stand) {
+    stand.replaceChildren()
+    if (daten.verifiziert) {
+      stand.className = 'marke gut'
+      stand.appendChild(zeichne('haken', '2.4'))
+      stand.appendChild(document.createTextNode('bestätigt'))
+    } else {
+      // Kein stiller Haken auf einer unbestätigten Adresse: Ohne Bestätigung
+      // lässt sich nichts hochladen, und das steht sonst nirgends auf dieser Seite.
+      stand.className = 'marke offen'
+      stand.appendChild(zeichne('achtung', '1.9'))
+      stand.appendChild(document.createTextNode('unbestätigt'))
+    }
+  }
+}
+
+// ————— Geräte —————
+
+function geraeteZeile(geraet: Geraet, beiAbmelden: (g: Geraet) => void): HTMLElement {
+  const zeile = el('div', geraet.dieses ? 'zeile hier' : 'zeile')
+
+  const symbol = el('span', 'sym')
+  symbol.appendChild(zeichne(geraeteSymbol(geraet)))
+  zeile.appendChild(symbol)
+
+  const z = el('span', 'z')
+  const titel = el('span', 't')
+  titel.appendChild(document.createTextNode(geraeteName(geraet)))
+  if (geraet.dieses) {
+    const selbst = el('span', 'selbst', ' — dieses Gerät')
+    titel.appendChild(selbst)
+  }
+  z.appendChild(titel)
+  const unterzeile = geraeteUnterzeile(geraet)
+  if (unterzeile) z.appendChild(el('span', 'b', unterzeile))
+  zeile.appendChild(z)
+
+  // Das eigene Gerät bekommt keinen Knopf: Sich hier abzumelden gewinnt nichts,
+  // außer sich gleich wieder anmelden zu dürfen — dafür gibt es das Konto-Menü.
+  if (!geraet.dieses) {
+    const knopf = el('button', 'knopf gefahr', 'Abmelden')
+    knopf.type = 'button'
+    knopf.addEventListener('click', () => {
+      knopf.disabled = true
+      beiAbmelden(geraet)
+    })
+    zeile.appendChild(knopf)
+  }
+  return zeile
+}
+
+async function ladeGeraete(): Promise<void> {
+  const tafel = $('geraete')
+  if (!tafel) return
+  let geraete: Geraet[] = []
+  try {
+    const antwort = await fetch('/api/auth/me/geraete')
+    if (!antwort.ok) throw new Error(String(antwort.status))
+    geraete = ((await antwort.json()) as { geraete: Geraet[] }).geraete
+  } catch {
+    tafel.replaceChildren(zeileMitText('Die Geräteliste ließ sich gerade nicht laden.'))
+    return
+  }
+
+  const abmelden = async (geraet: Geraet): Promise<void> => {
+    const antwort = await fetch(`/api/auth/me/geraete/${encodeURIComponent(geraet.id)}`, { method: 'DELETE' })
+    if (!antwort.ok) {
+      melde('Das Gerät ließ sich nicht abmelden.')
+      return
+    }
+    melde(`${geraeteName(geraet)} wurde abgemeldet.`)
+    void ladeGeraete()
+  }
+
+  tafel.replaceChildren(...geraete.map((g) => geraeteZeile(g, (ziel) => void abmelden(ziel))))
+}
+
+function zeileMitText(text: string): HTMLElement {
+  const zeile = el('div', 'zeile')
+  const z = el('span', 'z')
+  z.appendChild(el('span', 'b', text))
+  zeile.appendChild(z)
+  return zeile
+}
+
+// ————— Speicher —————
+
+async function ladeSpeicher(): Promise<void> {
+  const balken = $('sp-balken')
+  const legende = $('sp-legende')
+  if (!balken || !legende) return
+  let stand: SpeicherStand
+  try {
+    const antwort = await fetch('/api/auth/me/speicher')
+    if (!antwort.ok) throw new Error(String(antwort.status))
+    stand = (await antwort.json()) as SpeicherStand
+  } catch {
+    legende.replaceChildren(el('span', undefined, 'Der Speicherstand ließ sich gerade nicht laden.'))
+    return
+  }
+
+  const belegt = $('sp-belegt')
+  if (belegt) belegt.textContent = groesse(stand.benutzt)
+  const von = $('sp-von')
+  if (von) von.textContent = `von ${groesse(stand.limit)} belegt`
+  const prozent = $('sp-prozent')
+  if (prozent) prozent.textContent = `${Math.round(belegtProzent(stand))} %`
+
+  const abschnitte = speicherAbschnitte(stand)
+  balken.replaceChildren(
+    ...abschnitte.map((a) => {
+      const i = el('i')
+      i.style.width = `${a.prozent}%`
+      i.style.background = FARBEN[a.art] ?? FARBEN.sonstiges!
+      return i
+    }),
+  )
+  legende.replaceChildren(
+    ...abschnitte.map((a) => {
+      const span = el('span')
+      const punkt = el('i')
+      punkt.style.background = FARBEN[a.art] ?? FARBEN.sonstiges!
+      span.appendChild(punkt)
+      span.appendChild(document.createTextNode(`${a.wort} `))
+      span.appendChild(el('b', undefined, groesse(a.bytes)))
+      return span
+    }),
+  )
+  // Ein leeres Konto bekommt keine leere Legende hingestellt.
+  if (!abschnitte.length) legende.replaceChildren(el('span', undefined, 'Noch nichts hochgeladen.'))
+
+  const warnung = $('sp-warnung')
+  if (warnung) warnung.hidden = !speicherKnapp(stand)
+}
+
+// ————— Sichtbarkeit —————
+
+function verdrahteSichtbarkeit(daten: MeAntwort): void {
+  const schalter = $('s-profil') as HTMLInputElement | null
+  const erklaerung = $('s-profil-erklaerung')
+  if (!schalter) return
+  const handle = daten.profil?.handle ?? null
+  const adresse = handle ? `${window.location.host}${profilPfad(handle)}` : 'deiner Profilseite'
+  if (erklaerung) {
+    erklaerung.textContent = `Name, Ort, Text, Links und deine öffentlichen Touren sind unter ${adresse} für alle sichtbar.`
+  }
+  schalter.checked = daten.profil?.sichtbarkeit === 'public'
+  schalter.addEventListener('change', async () => {
+    const gewuenscht = schalter.checked
+    schalter.disabled = true
+    const antwort = await fetch('/api/auth/me/profil', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sichtbarkeit: gewuenscht ? 'public' : 'private' }),
+    }).catch(() => null)
+    schalter.disabled = false
+    if (!antwort?.ok) {
+      // Zurückstellen statt eine Änderung zu zeigen, die der Server nicht kennt.
+      schalter.checked = !gewuenscht
+      melde('Die Sichtbarkeit ließ sich nicht ändern.')
+      return
+    }
+    melde(gewuenscht ? 'Dein Profil ist jetzt öffentlich.' : 'Dein Profil ist jetzt privat.')
+  })
+}
+
+// ————— Der Bestätigungslink aus der Mail —————
+
+/**
+ * `#email=<token>` einlösen.
+ *
+ * Der Hash wird sofort aus der Adresszeile geräumt — ein Token, das im Verlauf
+ * und in jedem geteilten Screenshot steht, ist keins mehr. Wirkt nur beim
+ * LADEN der Seite (wie `#verify=`/`#reset=` im Studio), nicht bei einem
+ * Hash-Wechsel in einem offenen Tab.
+ */
+async function loeseMailWechselEin(): Promise<boolean> {
+  const treffer = /^#email=(.+)$/.exec(window.location.hash)
+  if (!treffer?.[1]) return false
+  const token = decodeURIComponent(treffer[1])
+  window.history.replaceState(null, '', window.location.pathname)
+  const antwort = await fetch('/api/auth/email-bestaetigen', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token }),
+  }).catch(() => null)
+  if (antwort?.ok) {
+    melde('Deine neue E-Mail-Adresse ist bestätigt.')
+    return true
+  }
+  const koerper = (await antwort?.json().catch(() => ({}))) as { fehler?: string } | undefined
+  melde(koerper?.fehler ?? 'Dieser Bestätigungslink gilt nicht mehr.')
+  return false
+}
+
+// ————— Aufbau —————
+
+export async function starteKonto(): Promise<void> {
+  const buehne = $('buehne')
+  if (!buehne) return
+
+  // Der Link aus der Mail zuerst: Er kann die Adresse ändern, die gleich
+  // darunter angezeigt wird — in der anderen Reihenfolge stünde eine Sekunde
+  // lang die alte da.
+  await loeseMailWechselEin()
+
+  let daten: MeAntwort
+  try {
+    const antwort = await fetch('/api/auth/me')
+    if (!antwort.ok) throw new Error(String(antwort.status))
+    daten = (await antwort.json()) as MeAntwort
+  } catch {
+    zeigeHinweis('Die Kontoeinstellungen ließen sich gerade nicht laden.')
+    return
+  }
+  if (!daten.benutzer) {
+    zeigeHinweis('Für die Kontoeinstellungen musst du angemeldet sein.', {
+      text: 'Anmelden',
+      href: pfad('anmelden'),
+    })
+    return
+  }
+
+  buehne.hidden = false
+  document.title = 'Kontoeinstellungen · Maptale'
+
+  const profilLink = $('profil-link') as HTMLAnchorElement | null
+  if (profilLink && daten.profil?.handle) profilLink.href = profilPfad(daten.profil.handle)
+
+  zeichneKonto(daten)
+  verdrahteSichtbarkeit(daten)
+  void ladeGeraete()
+  void ladeSpeicher()
+
+  // Die Formulare erst beim ersten Griff — sie bringen die Passwortbewertung mit.
+  const dialoge = async (): Promise<typeof import('./kontodialoge.js')> => import('./kontodialoge.js')
+
+  $('btn-mail')?.addEventListener('click', async () => {
+    ;(await dialoge()).oeffneMailDialog(melde)
+  })
+  $('btn-passwort')?.addEventListener('click', async () => {
+    // Name und Adresse fließen in die Bewertung ein: Ein Passwort, in dem der
+    // eigene Name steht, ist kein gutes.
+    const persoenlich = (): string[] =>
+      [daten.benutzer?.name, daten.benutzer?.email, daten.profil?.anzeigename].filter(
+        (w): w is string => !!w,
+      )
+    ;(await dialoge()).oeffnePasswortDialog((text) => {
+      melde(text)
+      // Der Wechsel hat alle anderen Zugänge beendet — die Liste zeigt es.
+      void ladeGeraete()
+    }, persoenlich)
+  })
+  $('btn-loeschen')?.addEventListener('click', async () => {
+    ;(await dialoge()).oeffneLoeschDialog(() => {
+      window.location.href = pfad('start')
+    })
+  })
+}

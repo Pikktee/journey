@@ -11,6 +11,7 @@ import {
   zahl,
   type ProfilAntwort,
 } from '../src/profil/profilmodell'
+import { standardTitelbild, TITELBILDER } from '../src/profil/titelbilder'
 
 /**
  * U+202F, schmales geschütztes Leerzeichen — als Escape geschrieben, weil es
@@ -45,11 +46,34 @@ describe('profilKopf', () => {
     })
   })
 
-  it('bleibt ohne Anzeigenamen unpersönlich, statt etwas zu erfinden', () => {
+  it('nimmt ohne Anzeigenamen den Handle — und zeigt ihn dann nicht zweimal', () => {
     const kopf = profilKopf(profil({ anzeigename: null, bio: '  ', ort: '   ' }))
-    expect(kopf.name).toBe('Ohne Namen')
+    expect(kopf.name).toBe('@henrik')
+    expect(kopf.handle).toBeNull()
     expect(kopf.bio).toBeNull()
     expect(kopf.ort).toBeNull()
+  })
+
+  it('erfindet auch ohne Handle nichts', () => {
+    expect(profilKopf(profil({ anzeigename: null, handle: null })).name).toBe('Ohne Namen')
+  })
+})
+
+describe('standardTitelbild', () => {
+  it('gibt jedem Profil ohne eigene Wahl ein Bild aus der Auswahl', () => {
+    for (const handle of ['henrik', 'anna', 'x', '']) {
+      expect(TITELBILDER.map((b) => b.datei)).toContain(standardTitelbild(handle))
+    }
+  })
+
+  it('bleibt bei derselben Person dasselbe — sonst sähe jeder Aufruf nach Fehler aus', () => {
+    expect(standardTitelbild('henrik')).toBe(standardTitelbild('henrik'))
+    expect(standardTitelbild('HENRIK')).toBe(standardTitelbild('henrik'))
+  })
+
+  it('verteilt über die Auswahl, statt allen dasselbe zu geben', () => {
+    const namen = ['henrik', 'anna', 'tom', 'mira', 'lars', 'ida', 'jonas', 'nele']
+    expect(new Set(namen.map(standardTitelbild)).size).toBeGreaterThan(1)
   })
 })
 

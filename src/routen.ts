@@ -40,6 +40,7 @@ export type Seite =
   | 'registrieren'
   | 'galerie'
   | 'profil'
+  | 'konto'
   | 'verwaltung'
   | 'impressum'
   | 'datenschutz'
@@ -70,6 +71,11 @@ export const ROUTEN: Readonly<Record<Seite, Route>> = {
   registrieren: { pfad: '/registrieren', datei: 'studio.html' },
   galerie: { pfad: '/galerie', datei: 'galerie.html' },
   profil: { pfad: '/profil', datei: 'profil.html' },
+  // Eigene Seite, nicht im Studio: Das Studio ist der Schneideraum, das hier
+  // ist der Ordner mit den Papieren. Der Pfad heißt `/konto` und nicht
+  // `/einstellungen` — es sind die Angaben zum KONTO, während „Einstellungen"
+  // das Wort für Vorlieben ist, die es hier gar nicht gibt.
+  konto: { pfad: '/konto', datei: 'konto.html' },
   verwaltung: { pfad: '/admin', datei: 'admin.html' },
   impressum: { pfad: '/impressum', datei: 'impressum.html' },
   datenschutz: { pfad: '/datenschutz', datei: 'datenschutz.html' },

@@ -84,7 +84,33 @@ export interface ProfilAenderung {
 /** Leerer oder nur aus Leerraum bestehender Text heißt: Feld leeren. */
 const leerAlsNull = (wert: string): string | null => wert.trim() || null
 
-export type MailZweck = 'verify' | 'reset'
+export type MailZweck = 'verify' | 'reset' | 'email'
+
+/**
+ * Woher eine Sitzung kommt — so viel, wie zum Wiedererkennen nötig ist.
+ *
+ * Der User-Agent bleibt roh: Wie daraus „Chrome auf macOS" wird, ist eine Frage
+ * der Anzeige und ändert sich häufiger als das Schema (s. `kontomodell.ts`).
+ * Die IP wird auf ZWEI Oktette gekürzt — die vollständige Adresse wäre ein
+ * Bewegungsprofil, „84.119.x.x" beantwortet die einzige Frage, die hier
+ * gestellt wird.
+ */
+export interface SitzungsKennzeichen {
+  userAgent?: string | null
+  ip?: string | null
+}
+
+/** Ein angemeldetes Gerät — Browser-Sitzung oder App-Token. */
+export interface Geraet {
+  /** `sitzung:<id>` oder `app:<id>` — beide Listen haben eigene Tabellen. */
+  id: string
+  art: 'sitzung' | 'app'
+  /** Roher User-Agent (Sitzung) bzw. das bei der Anmeldung gesetzte Label (App). */
+  kennung: string | null
+  ipPraefix: string | null
+  angemeldetAm: string
+  zuletztGesehen: string | null
+}
 
 const SESSION_DAUER_MS = 30 * 24 * 60 * 60 * 1000 // 30 Tage
 /** Wie lange ein aufgegebener Handle für seinen früheren Besitzer gesperrt bleibt. */
@@ -93,6 +119,35 @@ const HANDLE_SPERRE_MS = 90 * 24 * 60 * 60 * 1000
 const MAIL_TOKEN_DAUER_MS: Record<MailZweck, number> = {
   verify: 24 * 60 * 60 * 1000, // 24 h
   reset: 60 * 60 * 1000, // 1 h
+  // Der Wechsel der Adresse liegt dazwischen: Er ist nicht so dringlich wie ein
+  // Reset, aber die Mail geht an eine Adresse, die noch niemandem gehört —
+  // sie soll nicht tagelang einlösbar bleiben.
+  email: 2 * 60 * 60 * 1000, // 2 h
+}
+
+/**
+ * Wie lange eine Sitzung ihren Zeitstempel behält, bevor er neu geschrieben
+ * wird. Ein UPDATE pro Anfrage wäre ein Schreibvorgang für jedes geladene Bild;
+ * für die Frage „zuletzt gestern" genügt eine Auflösung von Minuten.
+ */
+const GESEHEN_TAKT_MS = 5 * 60 * 1000
+
+/**
+ * `84.119.12.7` → `84.119.x.x`, `2001:db8::1` → `2001:db8:x`.
+ *
+ * Zwei Gruppen genügen, um ein fremdes Gerät zu erkennen („das war nicht mein
+ * Anschluss"), und sie sind zu grob, um daraus einen Aufenthaltsort zu machen.
+ */
+export function ipPraefix(ip: string | null | undefined): string | null {
+  if (!ip) return null
+  const wert = ip.replace(/^::ffff:/, '')
+  if (wert.includes(':')) {
+    const teile = wert.split(':').filter(Boolean).slice(0, 2)
+    return teile.length ? `${teile.join(':')}:x` : null
+  }
+  const teile = wert.split('.')
+  if (teile.length !== 4) return null
+  return `${teile[0]}.${teile[1]}.x.x`
 }
 
 const sha256 = (wert: string): string => createHash('sha256').update(wert).digest('hex')
@@ -214,35 +269,117 @@ export class AuthDienst {
 
   // — Sessions (Web) —
 
-  erzeugeSession(userId: string): { id: string; ablauf: Date } {
+  erzeugeSession(userId: string, kennzeichen: SitzungsKennzeichen = {}): { id: string; ablauf: Date } {
     const id = neueSessionId()
     const jetzt = Date.now()
     const ablauf = new Date(jetzt + SESSION_DAUER_MS)
     this.db
-      .prepare('INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
-      .run(id, userId, new Date(jetzt).toISOString(), ablauf.toISOString())
+      .prepare(
+        `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip_praefix, zuletzt_gesehen)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        id,
+        userId,
+        new Date(jetzt).toISOString(),
+        ablauf.toISOString(),
+        kennzeichen.userAgent?.slice(0, 300) ?? null,
+        ipPraefix(kennzeichen.ip),
+        new Date(jetzt).toISOString(),
+      )
     return { id, ablauf }
   }
 
   benutzerAusSession(sessionId: string): Benutzer | null {
     const zeile = this.db
       .prepare(
-        `SELECT u.id, u.email, u.name, u.rolle, s.expires_at FROM sessions s
+        `SELECT u.id, u.email, u.name, u.rolle, s.expires_at, s.zuletzt_gesehen FROM sessions s
          JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
       )
       .get(sessionId) as
-      | { id: string; email: string; name: string; rolle: string; expires_at: string }
+      | { id: string; email: string; name: string; rolle: string; expires_at: string; zuletzt_gesehen: string | null }
       | undefined
     if (!zeile) return null
     if (Date.parse(zeile.expires_at) < Date.now()) {
       this.beendeSession(sessionId)
       return null
     }
+    // Gedrosselt: „zuletzt gerade eben" braucht keine Auflösung von
+    // Millisekunden, ein Schreibvorgang je Anfrage aber sehr wohl eine Platte.
+    const zuletzt = zeile.zuletzt_gesehen ? Date.parse(zeile.zuletzt_gesehen) : 0
+    if (Date.now() - zuletzt > GESEHEN_TAKT_MS) {
+      this.db.prepare('UPDATE sessions SET zuletzt_gesehen = ? WHERE id = ?').run(new Date().toISOString(), sessionId)
+    }
     return { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
   }
 
   beendeSession(sessionId: string): void {
     this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId)
+  }
+
+  /**
+   * Die angemeldeten Geräte eines Kontos — Browser-Sitzungen UND App-Tokens.
+   *
+   * Beides zusammen, weil beides dasselbe ist: ein Zugang, den jemand behalten
+   * oder wegnehmen will. Die App meldet sich nicht mit einer Sitzung an, sondern
+   * mit einem Token — eine Liste, die nur Sitzungen zeigte, hätte genau das
+   * Gerät nicht dabei, an das die meisten zuerst denken.
+   *
+   * Abgelaufene Sitzungen fallen heraus; sie sind kein Zugang mehr und in der
+   * Liste nur eine Frage ohne Antwort.
+   */
+  geraete(userId: string): Geraet[] {
+    const jetzt = new Date().toISOString()
+    const sitzungen = this.db
+      .prepare(
+        `SELECT id, created_at, user_agent, ip_praefix, zuletzt_gesehen FROM sessions
+         WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC`,
+      )
+      .all(userId, jetzt) as Array<{
+      id: string
+      created_at: string
+      user_agent: string | null
+      ip_praefix: string | null
+      zuletzt_gesehen: string | null
+    }>
+    const tokens = this.db
+      .prepare('SELECT id, label, created_at, last_used_at FROM tokens WHERE user_id = ? ORDER BY created_at DESC')
+      .all(userId) as Array<{ id: string; label: string; created_at: string; last_used_at: string | null }>
+    return [
+      ...sitzungen.map((s) => ({
+        id: `sitzung:${s.id}`,
+        art: 'sitzung' as const,
+        kennung: s.user_agent,
+        ipPraefix: s.ip_praefix,
+        angemeldetAm: s.created_at,
+        zuletztGesehen: s.zuletzt_gesehen,
+      })),
+      ...tokens.map((t) => ({
+        id: `app:${t.id}`,
+        art: 'app' as const,
+        kennung: t.label,
+        ipPraefix: null,
+        angemeldetAm: t.created_at,
+        zuletztGesehen: t.last_used_at,
+      })),
+    ]
+  }
+
+  /**
+   * Ein Gerät abmelden. Die `user_id` steht in der Bedingung und nicht in einer
+   * Prüfung davor: Sonst wäre zwischen „gehört mir?" und dem DELETE eine Lücke,
+   * und eine fremde ID ließe sich mit genügend Versuchen finden.
+   */
+  meldeGeraetAb(userId: string, geraetId: string): boolean {
+    const [art, id] = [geraetId.slice(0, geraetId.indexOf(':')), geraetId.slice(geraetId.indexOf(':') + 1)]
+    if (!id) return false
+    if (art === 'sitzung') {
+      return this.db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+    }
+    if (art === 'app') {
+      return this.db.prepare('DELETE FROM tokens WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+    }
+    return false
   }
 
   // — API-Tokens (App) —
@@ -284,17 +421,20 @@ export class AuthDienst {
    * Klartext wandert direkt in die Mail. Frühere offene Token desselben Zwecks
    * werden verworfen (ein angefordertes Reset entwertet das vorige).
    */
-  erzeugeMailToken(userId: string, zweck: MailZweck): string {
+  erzeugeMailToken(userId: string, zweck: MailZweck, nutzlast: string | null = null): string {
     this.db.prepare('DELETE FROM mail_tokens WHERE user_id = ? AND zweck = ? AND used_at IS NULL').run(userId, zweck)
     const klartext = neuesTokenSecret()
     const jetzt = Date.now()
     this.db
-      .prepare('INSERT INTO mail_tokens (id, user_id, zweck, hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .prepare(
+        'INSERT INTO mail_tokens (id, user_id, zweck, hash, nutzlast, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      )
       .run(
         neueSessionId(),
         userId,
         zweck,
         sha256(klartext),
+        nutzlast,
         new Date(jetzt).toISOString(),
         new Date(jetzt + MAIL_TOKEN_DAUER_MS[zweck]).toISOString(),
       )
@@ -307,14 +447,30 @@ export class AuthDienst {
    * schon benutzt). Bewusst atomar in einer Transaktion gegen Doppel-Einlösung.
    */
   loeseMailToken(klartext: string, zweck: MailZweck): string | null {
+    return this.loeseMailTokenMitNutzlast(klartext, zweck)?.userId ?? null
+  }
+
+  /**
+   * Dasselbe, aber mit dem, was beim Erzeugen mitgegeben wurde.
+   *
+   * Der E-Mail-Wechsel braucht das: Die neue Adresse darf erst nach dem Klick in
+   * `users` stehen — bis dahin wohnt sie im Token. Stünde sie vorher dort,
+   * gehörte das Konto ab dem Absenden einer Adresse, die niemand bestätigt hat.
+   */
+  loeseMailTokenMitNutzlast(
+    klartext: string,
+    zweck: MailZweck,
+  ): { userId: string; nutzlast: string | null } | null {
     const hash = sha256(klartext)
     return this.db.transaction(() => {
       const zeile = this.db
-        .prepare('SELECT id, user_id, expires_at, used_at FROM mail_tokens WHERE hash = ? AND zweck = ?')
-        .get(hash, zweck) as { id: string; user_id: string; expires_at: string; used_at: string | null } | undefined
+        .prepare('SELECT id, user_id, nutzlast, expires_at, used_at FROM mail_tokens WHERE hash = ? AND zweck = ?')
+        .get(hash, zweck) as
+        | { id: string; user_id: string; nutzlast: string | null; expires_at: string; used_at: string | null }
+        | undefined
       if (!zeile || zeile.used_at || Date.parse(zeile.expires_at) < Date.now()) return null
       this.db.prepare('UPDATE mail_tokens SET used_at = ? WHERE id = ?').run(new Date().toISOString(), zeile.id)
-      return zeile.user_id
+      return { userId: zeile.user_id, nutzlast: zeile.nutzlast }
     })()
   }
 
@@ -330,13 +486,48 @@ export class AuthDienst {
     return zeile?.id ?? null
   }
 
-  async setzePasswort(userId: string, passwort: string): Promise<void> {
+  /**
+   * Passwort setzen und alle Zugänge beenden.
+   *
+   * `behalteSession` lässt genau eine Sitzung stehen — die des Wechselnden. Der
+   * Reset-Weg gibt sie nicht an (dort steht der Nutzer vor einem Formular ohne
+   * Sitzung und wird danach frisch eingeloggt); die Kontoeinstellungen schon,
+   * sonst wirft der eigene Passwortwechsel einen aus der Seite, auf der man
+   * gerade steht. Die App-Tokens fallen in BEIDEN Fällen: Wer sein Passwort
+   * wechselt, weil er sich Sorgen macht, meint auch das Telefon.
+   */
+  async setzePasswort(userId: string, passwort: string, behalteSession?: string): Promise<void> {
     const pwHash = await hashePasswort(passwort)
     this.db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(pwHash, userId)
-    // Sicherheitshalber alle Sessions/Tokens beenden — nach einem Reset soll
-    // niemand mit einer alten Sitzung weiterlaufen.
-    this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+    if (behalteSession) {
+      this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(userId, behalteSession)
+    } else {
+      this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+    }
     this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId)
+  }
+
+  /**
+   * Die eigene E-Mail-Adresse übernehmen — nach dem Klick im Postfach der NEUEN
+   * Adresse.
+   *
+   * Sie gilt damit als bestätigt: Der Klick ist derselbe Nachweis wie bei der
+   * Registrierung, nur an einer anderen Adresse. Ein zweiter Bestätigungslauf
+   * danach wäre eine Frage, die schon beantwortet ist.
+   *
+   * Gibt `false` zurück, wenn die Adresse inzwischen jemand anderem gehört —
+   * zwischen dem Absenden und dem Klick können Tage liegen.
+   */
+  uebernimmEigeneEmail(userId: string, email: string): boolean {
+    try {
+      const erg = this.db
+        .prepare('UPDATE users SET email = ?, email_verified = 1 WHERE id = ?')
+        .run(email.toLowerCase().trim(), userId)
+      return erg.changes > 0
+    } catch (fehler) {
+      if (String(fehler).includes('UNIQUE')) return false
+      throw fehler
+    }
   }
 
   // — Handle (die Adresse einer Person) —

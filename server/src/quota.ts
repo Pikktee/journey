@@ -14,6 +14,59 @@ export interface QuotaStand {
 }
 
 /**
+ * Woraus der belegte Platz besteht — die vier Abschnitte des Balkens im Konto.
+ *
+ * Warum überhaupt aufgeschlüsselt: „248 von 2048 MB" beantwortet nicht die
+ * Frage, die man vor dem Balken hat — nämlich WAS man wegräumen könnte. Vier
+ * Arten sind das, was sich sinnvoll unterscheiden lässt; feiner wird es eine
+ * Dateiliste, und die ist der Editor.
+ *
+ * `sonstiges` ist kein Rest-Eimer aus Bequemlichkeit, sondern die Zusicherung,
+ * dass die Summe der Teile die Gesamtsumme IST: Eine Aufschlüsselung, die
+ * weniger ergibt als der Balken zeigt, ist schlimmer als keine.
+ */
+export interface SpeicherAufteilung {
+  /** Fotos: Anzeige- und Kachelfassungen der Bilder. */
+  fotos: number
+  /** Videos samt Poster-Standbild. */
+  videos: number
+  /** Eigene Klänge — Bibliothek des Kontos und in Touren gelegte Audiodateien. */
+  klaenge: number
+  /** Aufzeichnung: Manifest, GPS-Track, Overlay und gerendertes Tour-JSON. */
+  aufzeichnungen: number
+  sonstiges: number
+}
+
+const BILD_ENDUNGEN = /\.(jpe?g|png|webp|avif|heic)$/i
+const VIDEO_ENDUNGEN = /\.(mp4|mov|m4v|webm)$/i
+const AUDIO_ENDUNGEN = /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i
+
+/**
+ * Ein Dateipfad → seine Art.
+ *
+ * Nach der ENDUNG und nicht nach dem Ordner: In `media/` liegen Fotos, Videos,
+ * Poster und die im Editor gelegten Klänge nebeneinander — der Ordner sagt nur,
+ * dass es kein Datensatz ist. Alles außerhalb von `media/` ist die Aufzeichnung
+ * selbst (Manifest, Track, `edits.json`, `tour.json`, `anreicherung.json`); sie
+ * ist winzig, steht aber im Balken, damit die Teile die Summe ergeben.
+ */
+export function artDerDatei(pfad: string): keyof SpeicherAufteilung {
+  if (AUDIO_ENDUNGEN.test(pfad)) return 'klaenge'
+  if (!pfad.startsWith('media/')) return 'aufzeichnungen'
+  if (BILD_ENDUNGEN.test(pfad)) return 'fotos'
+  if (VIDEO_ENDUNGEN.test(pfad)) return 'videos'
+  return 'sonstiges'
+}
+
+const LEERE_AUFTEILUNG = (): SpeicherAufteilung => ({
+  fotos: 0,
+  videos: 0,
+  klaenge: 0,
+  aufzeichnungen: 0,
+  sonstiges: 0,
+})
+
+/**
  * Summiert die Bytes aller Touren eines Benutzers über den Storage — plus die
  * benutzerweite Audio-Bibliothek (`<userId>/audio/` im benutzerStorage): auch
  * sie belegt VPS-Platz, sonst wäre sie ein Quota-Schlupfloch. Der Avatar bleibt
@@ -41,6 +94,30 @@ export async function quotaStand(
 ): Promise<QuotaStand> {
   const benutzt = await benutzteBytes(db, storage, benutzerStorage, userId)
   return { benutzt, limit, frei: Math.max(0, limit - benutzt) }
+}
+
+/**
+ * Derselbe belegte Platz, nur nach Art aufgeschlüsselt (Kontoeinstellungen).
+ *
+ * Läuft über dieselben Quellen wie `benutzteBytes` — Touren plus die
+ * benutzerweite Klangbibliothek —, damit die Summe der Teile dem Balken
+ * entspricht. Avatar und Titelbild bleiben wie dort außen vor.
+ */
+export async function speicherAufteilung(
+  db: Db,
+  storage: Storage,
+  benutzerStorage: Storage,
+  userId: string,
+): Promise<SpeicherAufteilung> {
+  const aufteilung = LEERE_AUFTEILUNG()
+  const zeilen = db.prepare('SELECT id FROM tours WHERE owner_id = ?').all(userId) as Array<{ id: string }>
+  for (const { id } of zeilen) {
+    for (const datei of await storage.alleDateien(id)) {
+      aufteilung[artDerDatei(datei.pfad)] += datei.groesse
+    }
+  }
+  for (const datei of await benutzerStorage.listeDateien(userId, 'audio')) aufteilung.klaenge += datei.groesse
+  return aufteilung
 }
 
 /**

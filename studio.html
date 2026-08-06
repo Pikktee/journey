@@ -3065,6 +3065,18 @@
                 <div class="km-balken"><span id="km-balken-fuell"></span></div>
               </div>
               <div class="km-trenner" role="separator"></div>
+              <!-- Die Adresse der Person (/@henrik) trägt studio.ts nach, sobald
+                   die Sitzung steht — im Markup steht sie noch nicht. -->
+              <a class="km-eintrag knopf" id="km-profil" href="/profil" hidden>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+                  <circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+                </svg>Mein Profil
+              </a>
+              <a class="km-eintrag knopf" id="km-konto" href="/konto">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/>
+                </svg>Kontoeinstellungen
+              </a>
               <!-- Nur für Admins (benutzer.rolle) — der Server prüft es ohnehin,
                    aber ein Eintrag, der zur Absage führt, ist kein Angebot. -->
               <a class="km-eintrag knopf" id="km-verwaltung" href="/admin" hidden>

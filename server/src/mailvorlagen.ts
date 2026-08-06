@@ -17,7 +17,12 @@
 import type { Db } from './db.js'
 import { findePlatzhalter, rendereMail, type GerenderteMail, type LayoutKontext, type MailBausteine } from './maillayout.js'
 
-export type VorlagenSchluessel = 'verifikation' | 'reset' | 'warteliste' | 'warteliste-einladung'
+export type VorlagenSchluessel =
+  | 'verifikation'
+  | 'reset'
+  | 'email-wechsel'
+  | 'warteliste'
+  | 'warteliste-einladung'
 
 export interface PlatzhalterInfo {
   name: string
@@ -94,6 +99,28 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
         'Der Link gilt 1 Stunde.\n\n' +
         'Warst du das nicht, ist nichts passiert: Dein bisheriges Passwort bleibt gültig, und ohne diesen Link ' +
         'lässt es sich nicht ändern.',
+    },
+  },
+  {
+    schluessel: 'email-wechsel',
+    name: 'Neue E-Mail-Adresse bestätigen',
+    anlass:
+      'Geht an die NEUE Adresse, wenn jemand sie in den Kontoeinstellungen einträgt. Erst der Klick macht sie zur Anmeldeadresse — bis dahin gilt die alte weiter.',
+    hatLink: true,
+    platzhalter: [
+      { name: 'name', beschreibung: 'Name des Kontos', beispiel: 'Mira Wolf' },
+      LINK_INFO('Bestätigungslink', 'https://maptale.io/konto#email=beispiel'),
+    ],
+    standard: {
+      betreff: 'Bestätige deine neue E-Mail-Adresse',
+      titel: 'Neue Adresse bestätigen',
+      text:
+        'Hallo {{name}},\n\n' +
+        'du möchtest dich bei Maptale künftig mit dieser Adresse anmelden. Ein Klick macht sie gültig.',
+      knopf: 'Adresse bestätigen',
+      fuss:
+        'Der Link gilt 2 Stunden. Bis du ihn anklickst, bleibt deine bisherige Adresse in Kraft.\n\n' +
+        'Du kennst Maptale nicht? Dann hat jemand deine Adresse falsch eingetippt. Ignoriere diese Nachricht — ohne den Klick passiert nichts, und dein Postfach bekommt keine weitere Post von uns.',
     },
   },
   {

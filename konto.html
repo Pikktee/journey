@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <script defer src="https://analytics.maptale.io/script.js" data-website-id="9f8e7d6c-5b4a-3f2e-1d0c-9b8a7f6e5d4c"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kontoeinstellungen · Maptale</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Sitzungs-Hinweis: Gast-CTA ausblenden, bevor /api/auth/me antwortet. -->
+  <script>
+    (function () {
+      try {
+        var dabei = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_dabei=') === 0
+        })
+        if (dabei) document.documentElement.classList.add('nav-dabei')
+      } catch (e) {}
+    })()
+  </script>
+  <style>
+    /* Farben, Nav und Dialoge folgen profil.html — beide Seiten gehören
+       zusammen („Mein Profil" / „Kontoeinstellungen") und dürfen nicht wie zwei
+       Produkte aussehen. Was hier dazukommt, sind die Tafeln und Zeilen. */
+    :root {
+      --bg-2: #06090e;
+      --ink: #f2ede3;
+      --muted: rgba(242, 237, 227, 0.64);
+      --faint: rgba(242, 237, 227, 0.42);
+      --amber: #F59E0B;
+      --coral: #FF6F52;
+      --gruen: #3ecf8e;
+      --rot: #e5484d;
+      --lila: #c58bff;
+      --blau: #5b9dff;
+      --line: rgba(255, 255, 255, 0.08);
+      --card: rgba(255, 255, 255, 0.035);
+      --sans: 'Outfit', system-ui, sans-serif;
+      --display: 'Outfit', system-ui, sans-serif;
+      /* Schmaler als Galerie und Profil: Hier stehen Zeilen mit Text und einem
+         Knopf rechts — über 1160 px liegen dazwischen 60 cm Nichts. */
+      --wrap: 780px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-2);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
+    .nav .wrap, footer .wrap { width: min(1160px, 100% - 44px); }
+
+    .nav {
+      height: 58px;
+      border-bottom: 1px solid #222b37;
+      background: rgba(13, 17, 24, 0.82);
+      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 60; display: flex; align-items: center;
+    }
+    .nav .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; height: 100%; }
+    .brand {
+      display: inline-flex; align-items: center; gap: 0.45em; flex-shrink: 0;
+      text-decoration: none; color: inherit; font-family: var(--display);
+      font-weight: 700; font-size: 17px; letter-spacing: -0.02em; line-height: 1;
+      justify-self: start;
+    }
+    .brand img { display: block; height: 28px; width: auto; translate: 0 1px; }
+    .top-nav { display: flex; align-items: center; gap: 2px; justify-self: center; }
+    .top-nav a {
+      display: inline-flex; align-items: center; gap: 7px;
+      color: #a7b1bf; text-decoration: none;
+      font-size: 13.5px; font-weight: 500; padding: 7px 12px; border-radius: 9px;
+      transition: color 0.18s ease, background 0.18s ease;
+    }
+    .top-nav a svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
+    .top-nav a:hover { color: var(--ink); background: rgba(255,255,255,0.06); }
+    .top-nav a.aktiv { color: var(--ink); background: rgba(255,255,255,0.07); }
+    .nav-right { display: flex; align-items: center; gap: 10px; justify-self: end; }
+    .nav-right a.nav-cta {
+      color: #1a1206; font-weight: 600; font-size: 13.5px; text-decoration: none;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      padding: 8px 16px; border-radius: 999px;
+    }
+    html:not(.nav-dabei) [data-dabei] { display: none !important; }
+    html.nav-dabei [data-gast] { display: none !important; }
+    .konto-wrap { position: relative; }
+    .benutzer-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--sans); font-size: 13px; font-weight: 500; color: #a7b1bf;
+      background: #10151d; border: 1px solid #222b37; border-radius: 999px;
+      padding: 6px 12px 6px 7px; cursor: pointer;
+    }
+    .benutzer-chip:hover { background: #1c2530; color: var(--ink); border-color: #2e3a49; }
+    .benutzer-chip[aria-expanded='true'] { border-color: var(--amber); }
+    .benutzer-chip .punkt {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      color: #221302; display: grid; place-items: center;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; flex: none;
+    }
+    .benutzer-chip img.punkt { object-fit: cover; display: block; }
+    .konto-menue {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 80;
+      width: 250px; padding: 14px; border-radius: 12px;
+      background: #151c26; border: 1px solid #222b37;
+      box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .konto-menue[hidden] { display: none !important; }
+    .km-mail { font-size: 12.5px; font-weight: 500; color: #a7b1bf; word-break: break-all; }
+    .km-quota-kopf { display: flex; justify-content: space-between; font-size: 11.5px; color: #67727f; margin-bottom: 6px; }
+    .km-balken { height: 6px; border-radius: 3px; background: #10151d; overflow: hidden; }
+    .km-balken span { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--amber), var(--coral)); }
+    .km-balken span.voll { background: #e8a13c; }
+    .km-trenner { height: 1px; background: #222b37; margin: 2px 0; }
+    .km-eintrag {
+      display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start;
+      font-size: 13px; font-weight: 500; color: var(--ink); text-decoration: none;
+      background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer;
+    }
+    .km-eintrag:hover { background: rgba(255,255,255,0.06); color: var(--ink); }
+    .km-eintrag svg { width: 15px; height: 15px; flex: none; }
+    @media (max-width: 640px) {
+      .top-nav { display: none; }
+      .nav .wrap { grid-template-columns: 1fr auto; }
+    }
+
+    /* ————— Seitenkopf ————— */
+    .seitenkopf { margin: 34px 0 6px; }
+    .seitenkopf h1 { font-family: var(--display); font-size: clamp(24px, 4vw, 28px); font-weight: 600; letter-spacing: -0.015em; margin: 0; }
+    .seitenkopf p { margin: 6px 0 0; color: var(--faint); font-size: 14px; }
+    .seitenkopf a { color: var(--amber); text-decoration: none; }
+    .seitenkopf a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ————— Blöcke und Tafeln —————
+       Satzschrift statt gesperrter Versalien: DESIGN.md kennt EINE UI-Schrift,
+       und Etiketten in Großbuchstaben sind die alte Sprache des Players. */
+    .block { margin-top: 28px; }
+    .block-kopf { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .block-kopf h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0; }
+    .tafel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .zeile { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border-top: 1px solid var(--line); }
+    .zeile:first-child { border-top: none; }
+    .zeile .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .zeile label.z { cursor: pointer; }
+    .zeile .t { font-size: 14.5px; font-weight: 500; }
+    .zeile .b { font-size: 12.5px; color: var(--faint); line-height: 1.45; word-break: break-word; }
+    .zeile .sym {
+      width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line); display: grid; place-items: center; color: var(--faint); flex: none;
+    }
+    .zeile .sym svg { width: 17px; height: 17px; }
+    /* Das aktuelle Gerät braucht kein Abzeichen: Es trägt als einziges keinen
+       Abmelden-Knopf, sein Symbol steht in Amber, und im Titel steht schlicht,
+       dass man selbst gemeint ist. Ein grüner Statuspunkt wäre die Sprache von
+       Chat-Anwesenheit — hier geht es nicht um online, sondern um „das hier". */
+    .zeile.hier .sym { color: var(--amber); border-color: rgba(245,158,11,0.32); background: rgba(245,158,11,0.07); }
+    .zeile .selbst { color: var(--faint); font-weight: 400; }
+    /* Statusangaben ohne Pillen-Kostüm: ein Häkchen in Satzschrift sagt
+       dasselbe wie ein grünes Kästchen mit Versalien, nur leiser. */
+    .marke { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12.5px; color: var(--faint); white-space: nowrap; }
+    .marke svg { width: 14px; height: 14px; }
+    .marke.gut { color: var(--gruen); }
+    .marke.offen { color: #ffca7a; }
+
+    /* ————— Speicher ————— */
+    .speicher { padding: 18px; }
+    .speicher .oben { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13.5px; color: var(--faint); }
+    .speicher .oben b { color: var(--ink); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .speicher .oben .anteil { font-variant-numeric: tabular-nums; }
+    .speicherbalken { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.07); margin: 10px 0 11px; }
+    .speicherbalken i { display: block; height: 100%; }
+    .legende { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12.5px; color: var(--muted); }
+    .legende span { display: inline-flex; align-items: center; gap: 7px; }
+    .legende i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+    .legende b { color: var(--faint); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .speicher-warnung {
+      display: flex; align-items: center; gap: 11px; margin-top: 14px; padding: 11px 13px;
+      border-radius: 12px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.28);
+      color: #ffdca6; font-size: 13px;
+    }
+    .speicher-warnung svg { width: 17px; height: 17px; flex: none; }
+    .speicher-warnung[hidden] { display: none; }
+
+    /* ————— Löschbereich —————
+       Abgesetzt am Ende: doppelter Abstand, eine feine Trennlinie darüber und
+       eine Überschrift in gedämpftem Rot. Wer bis hierhin scrollt, weiß, dass
+       die Alltagseinstellungen vorbei sind. Die Überschrift heißt trotzdem
+       schlicht „Konto löschen" — „Gefahrenzone" ist Entwickler-Folklore. */
+    .gefahrenblock { margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--line); }
+    .gefahrenblock .block-kopf h2 { color: #e08c8e; }
+    .tafel.gefahr { border-color: rgba(229,72,77,0.28); background: linear-gradient(180deg, rgba(229,72,77,0.045), transparent 70%), var(--card); }
+    .tafel.gefahr .t { color: #ffb4b6; }
+
+    /* ————— Knöpfe ————— */
+    button.knopf {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--muted);
+      background: rgba(255, 255, 255, 0.045); border: 1px solid var(--line); border-radius: 999px;
+      padding: 8px 15px; cursor: pointer; white-space: nowrap;
+      transition: background 0.16s, color 0.16s, border-color 0.16s;
+    }
+    button.knopf:hover { background: rgba(255, 255, 255, 0.09); color: var(--ink); }
+    button.knopf svg { width: 15px; height: 15px; flex: none; }
+    button.knopf.gefahr { color: #ffb4b6; border-color: rgba(229,72,77,0.3); background: rgba(229,72,77,0.07); }
+    button.knopf.gefahr:hover { background: rgba(229,72,77,0.15); border-color: rgba(229,72,77,0.55); color: #ffd0d1; }
+    button.knopf:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.still {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--muted);
+      background: transparent; border: 1px solid var(--line); border-radius: 999px;
+      padding: 8px 15px; cursor: pointer;
+    }
+    button.still:hover { background: rgba(255, 255, 255, 0.06); color: var(--ink); }
+    button.primaer {
+      font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: #1a1206;
+      background: linear-gradient(120deg, var(--amber), var(--coral));
+      border: 1px solid transparent; border-radius: 999px; padding: 8px 18px; cursor: pointer;
+    }
+    button.primaer:hover { filter: brightness(1.06); }
+    button.primaer:disabled, button.still:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    :is(button, input, a):focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+    .schalter { appearance: none; width: 44px; height: 26px; border-radius: 999px; background: #222b37; border: 1px solid #2e3a49; position: relative; cursor: pointer; flex: none; transition: background 0.18s, border-color 0.18s; margin: 0; }
+    .schalter::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--faint); transition: translate 0.18s, background 0.18s; }
+    .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
+    .schalter:checked::after { translate: 18px 0; background: var(--amber); }
+    .schalter:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .hinweis { color: var(--muted); font-size: 16px; padding: 40px 0 60px; text-align: center; }
+
+    /* ————— Dialoge (Aufbau in src/konto/kontodialoge.ts) ————— */
+    body.dialog-offen { overflow: hidden; }
+    .dialogschicht {
+      position: fixed; inset: 0; z-index: 100; background: rgba(4, 7, 11, 0.72);
+      backdrop-filter: blur(3px); display: grid; place-items: center; padding: 20px;
+    }
+    .dialog {
+      width: min(460px, 100%); max-height: min(88vh, 780px); display: flex; flex-direction: column;
+      background: #151c26; border: 1px solid #222b37; border-radius: 16px;
+      box-shadow: 0 24px 70px rgba(2, 5, 10, 0.7);
+    }
+    .sp-kopf { padding: 18px 22px 14px; border-bottom: 1px solid var(--line); }
+    .sp-kopf h2 { font-family: var(--display); font-size: 18px; font-weight: 600; margin: 0; }
+    /* Der Körper scrollt, nicht der Dialog: Sonst wandert die Fußzeile mit den
+       Knöpfen aus dem Bild, und „Ändern" ist nicht mehr zu finden. */
+    .sp-koerper { padding: 18px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+    .sp-fuss { padding: 14px 22px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 9px; }
+    .sp-hinweis { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .sp-fehler { margin: 0; color: #ff9ea0; font-size: 13.5px; }
+    .sp-fehler[hidden] { display: none; }
+    .sp-feld { display: flex; flex-direction: column; gap: 6px; }
+    .sp-feld label { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .sp-feld input {
+      font-family: var(--sans); font-size: 14.5px; color: var(--ink);
+      background: #0d131b; border: 1px solid #222b37; border-radius: 10px;
+      padding: 9px 12px; width: 100%;
+    }
+    .sp-feld input:focus-visible { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+
+    /* Meldung nach einer erledigten Sache — unten rechts, verschwindet von selbst. */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 120;
+      display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+      background: #1c2530; border: 1px solid #2e3a49; border-radius: 12px;
+      box-shadow: 0 24px 54px rgba(0,0,0,0.55); font-size: 13.5px;
+      transform: translateY(100px); opacity: 0; transition: transform 0.22s, opacity 0.22s;
+    }
+    .toast.sichtbar { transform: translateY(0); opacity: 1; }
+    .toast svg { color: var(--gruen); width: 18px; height: 18px; flex: none; }
+    @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+    footer { border-top: 1px solid var(--line); padding: 26px 0 40px; margin-top: 70px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-size: 13px; color: var(--faint); }
+    footer a { color: var(--faint); text-decoration: none; }
+    footer a:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a href="/" class="brand" title="Maptale — Startseite">
+        <img src="/logo-mark.svg" alt="" height="28" />
+        <span>Maptale</span>
+      </a>
+      <nav class="top-nav" aria-label="Hauptnavigation"></nav>
+      <div class="nav-right" id="nav-right">
+        <a href="/app" class="nav-cta" data-gast>Anmelden</a>
+        <div class="konto-wrap" data-dabei>
+          <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Konto wird geladen">
+            <span class="punkt"></span>
+            <span class="nav-profil-name">&nbsp;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <!-- Die Bühne bleibt verborgen, bis /auth/me geantwortet hat: Eine Tafel
+         mit leeren Zeilen, die sich erst danach füllt, sieht nach kaputter
+         Seite aus. Wer nicht angemeldet ist, landet in #meldung. -->
+    <div id="buehne" hidden>
+      <div class="seitenkopf">
+        <h1>Kontoeinstellungen</h1>
+        <p>Dein öffentliches Profil bearbeitest du unter <a id="profil-link" href="/profil">Mein Profil</a>.</p>
+      </div>
+
+      <div class="block">
+        <div class="block-kopf"><h2>Anmeldung &amp; Sicherheit</h2></div>
+        <div class="tafel">
+          <div class="zeile">
+            <span class="z"><span class="t">E-Mail-Adresse</span><span class="b" id="k-email"></span></span>
+            <span class="marke" id="k-mailstand"></span>
+            <button type="button" class="knopf" id="btn-mail">Ändern</button>
+          </div>
+          <div class="zeile">
+            <span class="z">
+              <span class="t">Passwort</span>
+              <span class="b">Beim Wechsel werden alle anderen Geräte abgemeldet.</span>
+            </span>
+            <button type="button" class="knopf" id="btn-passwort">Ändern</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-kopf"><h2>Angemeldete Geräte</h2></div>
+        <div class="tafel" id="geraete"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-kopf"><h2>Speicher</h2></div>
+        <div class="tafel">
+          <div class="speicher">
+            <div class="oben">
+              <span><b id="sp-belegt"></b> <span id="sp-von"></span></span>
+              <span class="anteil" id="sp-prozent"></span>
+            </div>
+            <div class="speicherbalken" id="sp-balken"></div>
+            <div class="legende" id="sp-legende"></div>
+            <div class="speicher-warnung" id="sp-warnung" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 16.8v.2"/></svg>
+              <span>Dein Speicher ist fast voll. Die nächste Aufnahme passt vielleicht nicht mehr.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-kopf"><h2>Deine Daten</h2></div>
+        <div class="tafel">
+          <!-- Zweite Bedienstelle für DENSELBEN Zustand (die erste steht im
+               Bearbeiten-Modal des Profils). Bewusst doppelt: Hier sucht man
+               sie beim Aufräumen, dort beim Bearbeiten — auseinanderlaufen
+               kann nichts, weil beide dasselbe Feld schreiben. -->
+          <div class="zeile">
+            <label class="z" for="s-profil">
+              <span class="t">Öffentliches Profil</span>
+              <span class="b" id="s-profil-erklaerung"></span>
+            </label>
+            <input type="checkbox" class="schalter" id="s-profil" />
+          </div>
+        </div>
+      </div>
+
+      <div class="block gefahrenblock">
+        <div class="block-kopf"><h2>Konto löschen</h2></div>
+        <div class="tafel gefahr">
+          <div class="zeile">
+            <span class="z">
+              <span class="t">Konto unwiderruflich löschen</span>
+              <span class="b">Entfernt dein Konto und alle hochgeladenen Medien permanent.</span>
+            </span>
+            <button type="button" class="knopf gefahr" id="btn-loeschen">Konto löschen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="meldung"></div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+    <span id="toast-text"></span>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <span>Maptale</span>
+      <span>
+        <a href="/impressum">Impressum</a> ·
+        <a href="/datenschutz">Datenschutz</a>
+      </span>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { starteKonto } from '/src/konto/konto.ts'
+    import { fuelleTopNav, montiereNavRechts } from '/src/app-nav.ts'
+
+    fuelleTopNav(document.querySelector('.top-nav'), 'konto')
+    void starteKonto()
+    void montiereNavRechts(document.getElementById('nav-right'))
+  </script>
+</body>
+</html>

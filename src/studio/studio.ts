@@ -10,7 +10,7 @@ import * as api from './api.js'
 import { fuelleTopNav } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
-import { ROUTEN, pfad } from '../routen.js'
+import { ROUTEN, pfad, profilPfad } from '../routen.js'
 import { merkeAngemeldet, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
@@ -77,6 +77,7 @@ const els = {
   // M9: Konto-Menü + Verifikations-Banner
   kontoMenue: $('konto-menue'),
   kmMail: $('km-mail'),
+  kmProfil: $<HTMLAnchorElement>('km-profil'),
   kmVerwaltung: $('km-verwaltung'),
   kmQuotaText: $('km-quota-text'),
   kmBalkenFuell: $('km-balken-fuell'),
@@ -278,6 +279,11 @@ function zeigeSitzung(sitzung: api.Sitzung): void {
   const unbestaetigt = sitzung.benutzer !== null && sitzung.verifiziert === false
   els.verifyBanner.hidden = !unbestaetigt
   els.kmVerwaltung.hidden = sitzung.benutzer?.rolle !== 'admin'
+  // „Mein Profil" zeigt auf die Adresse der Person, nicht auf /profil — dort
+  // stünde ohne Handle nichts. Ohne Handle bleibt der Eintrag weg.
+  const handle = sitzung.profil?.handle
+  els.kmProfil.hidden = !handle
+  if (handle) els.kmProfil.href = profilPfad(handle)
   uploadGesperrt = unbestaetigt
   els.neuBauen.title = unbestaetigt ? 'Erst E-Mail bestätigen' : ''
   if (sitzung.quota) {

@@ -46,6 +46,8 @@ export interface Benutzer {
 
 /** Öffentliches Profil — getrennt vom Konto (s. server/auth). */
 export interface Profil {
+  /** Die Adresse der Person: `/@henrik` (s. src/handle.ts). */
+  handle?: string | null
   anzeigename: string | null
   bio?: string | null
   avatarUrl: string | null

@@ -30,3 +30,24 @@ export const TITELBILDER: readonly Titelbild[] = [
 export function titelbildPfad(datei: string): string {
   return `/titelbilder/${datei}`
 }
+
+/**
+ * Welches Bild ein Profil bekommt, das keines gewählt hat.
+ *
+ * Ein leeres Banner ist keine Zurückhaltung, sondern ein Loch: 230 px graue
+ * Fläche über jedem Profil, das noch nicht in den Einstellungen war — also
+ * über den meisten. Die vier Bilder liegen ohnehin im Build.
+ *
+ * Gewählt wird DETERMINISTISCH aus dem Handle und nicht zufällig: Beim nächsten
+ * Laden dasselbe Profil mit einem anderen Kopfbild zu sehen, sähe nach Fehler
+ * aus, und zwei Personen mit verschiedenen Adressen bekommen so meist
+ * verschiedene Bilder. Der Streuwert ist eine simple Summenfunktion — es geht
+ * um Verteilung, nicht um Kryptografie.
+ */
+export function standardTitelbild(schluessel: string | null | undefined): string {
+  const bilder = TITELBILDER
+  const wort = schluessel?.trim().toLowerCase() ?? ''
+  let summe = 0
+  for (let i = 0; i < wort.length; i++) summe = (summe * 31 + wort.charCodeAt(i)) % 100_000
+  return bilder[summe % bilder.length]!.datei
+}

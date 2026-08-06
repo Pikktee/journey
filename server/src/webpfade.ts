@@ -14,6 +14,8 @@
 export const WEB_PFADE = {
   anmelden: '/anmelden',
   registrieren: '/registrieren',
+  /** Ziel des Bestätigungslinks beim E-Mail-Wechsel — dort steht auch der Anlass. */
+  konto: '/konto',
   /** Beide stehen in der Fußzeile jeder System-Mail (maillayout.ts). */
   impressum: '/impressum',
   datenschutz: '/datenschutz',

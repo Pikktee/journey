@@ -51,8 +51,16 @@ export interface LinkChip {
 }
 
 /**
- * Kopfzeile eines Profils. Ohne Anzeigenamen bleibt die Seite bewusst
- * unpersönlich, statt Klarnamen oder E-Mail zu erfinden.
+ * Kopfzeile eines Profils.
+ *
+ * Ohne Anzeigenamen steht dort der HANDLE — er ist der Name, den diese Person
+ * bereits hat, und er steht ohnehin in der Adresszeile. „Ohne Namen" war der
+ * frühere Rückfall und beschrieb nicht die Person, sondern ein leeres
+ * Datenbankfeld. Der Klarname aus der Registrierung bleibt weiter außen vor:
+ * Wer sich mit seinem echten Namen anmeldet, veröffentlicht ihn damit nicht.
+ *
+ * Der Handle fällt dann aus dem Beiwerk heraus — zweimal `@henrik`
+ * untereinander liest sich wie ein Fehler.
  */
 export function profilKopf(profil: ProfilAntwort): {
   name: string
@@ -62,11 +70,13 @@ export function profilKopf(profil: ProfilAntwort): {
   ort: string | null
   dabeiSeit: string
 } {
+  const anzeigename = profil.anzeigename?.trim()
+  const handle = profil.handle ? `@${profil.handle}` : null
   return {
-    name: profil.anzeigename?.trim() || 'Ohne Namen',
+    name: anzeigename || handle || 'Ohne Namen',
     bio: profil.bio?.trim() || null,
     bild: profil.avatarUrl,
-    handle: profil.handle ? `@${profil.handle}` : null,
+    handle: anzeigename ? handle : null,
     ort: profil.ort?.trim() || null,
     dabeiSeit: dabeiSeit(profil.dabeiSeit),
   }

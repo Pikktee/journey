@@ -12,7 +12,7 @@ import { istTitelbildVorschlag, titelbildUrl } from '../profilfelder.js'
 import type { EinladungsFehler } from '../auth/einladungen.js'
 import { wartelisteAngeboten } from '../auth/warteliste.js'
 import { baueBremse } from '../bremse.js'
-import { quotaStand } from '../quota.js'
+import { quotaStand, speicherAufteilung } from '../quota.js'
 import { WEB_PFADE } from '../webpfade.js'
 
 interface LoginBody {
@@ -99,8 +99,14 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   const setzeSessionCookie = (
     reply: import('fastify').FastifyReply,
     userId: string,
+    request?: import('fastify').FastifyRequest,
   ): { id: string; ablauf: Date } => {
-    const session = app.auth.erzeugeSession(userId)
+    // Gerät und grober Ort wandern in die Sitzung, damit die Kontoeinstellungen
+    // sie später wiedererkennbar auflisten können (s. AuthDienst.geraete).
+    const session = app.auth.erzeugeSession(userId, {
+      userAgent: request?.headers['user-agent'] ?? null,
+      ip: request?.ip ?? null,
+    })
     const cookieBasis = {
       path: '/',
       sameSite: 'lax' as const,
@@ -138,7 +144,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const benutzer = await app.auth.login(request.body.email, request.body.passwort)
       if (!benutzer) return reply.code(401).send({ fehler: 'E-Mail oder Passwort stimmt nicht.' })
 
-      setzeSessionCookie(reply, benutzer.id)
+      setzeSessionCookie(reply, benutzer.id, request)
       const antwort: { benutzer: typeof benutzer; apiToken?: string } = { benutzer }
       if (request.body.tokenLabel) antwort.apiToken = app.auth.erzeugeToken(benutzer.id, request.body.tokenLabel)
       return antwort
@@ -212,7 +218,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       }
       // Direkt einloggen (Cookie) — der Nutzer sieht sofort sein Studio mit dem
       // Hinweis „E-Mail bestätigen", statt nach der Registrierung ausgesperrt zu sein.
-      setzeSessionCookie(reply, benutzer.id)
+      setzeSessionCookie(reply, benutzer.id, request)
       return reply.code(201).send({ benutzer, verifiziert: false })
     },
   )
@@ -260,7 +266,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const userId = app.auth.loeseMailToken(request.body.token, 'verify')
       if (!userId) return reply.code(400).send({ fehler: 'Dieser Bestätigungslink gilt nicht mehr.' })
       app.auth.verifiziereEmail(userId)
-      setzeSessionCookie(reply, userId)
+      setzeSessionCookie(reply, userId, request)
       return { ok: true }
     },
   )
@@ -307,7 +313,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const userId = app.auth.loeseMailToken(request.body.token, 'reset')
       if (!userId) return reply.code(400).send({ fehler: 'Dieser Link gilt nicht mehr. Fordere einen neuen an.' })
       await app.auth.setzePasswort(userId, request.body.passwort)
-      setzeSessionCookie(reply, userId)
+      setzeSessionCookie(reply, userId, request)
       return { ok: true }
     },
   )
@@ -324,7 +330,7 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   app.post('/api/auth/session-aus-token', async (request, reply) => {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
-    const session = setzeSessionCookie(reply, benutzer.id)
+    const session = setzeSessionCookie(reply, benutzer.id, request)
     return { sessionId: session.id, ablauf: session.ablauf.toISOString() }
   })
 
@@ -333,6 +339,174 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     if (sessionId) app.auth.beendeSession(sessionId)
     loescheSessionCookies(reply)
     return { ok: true }
+  })
+
+  // ————— Kontoeinstellungen (Etappe 3) —————
+
+  // — Passwort ändern —
+  //
+  // Das ALTE Passwort steht dabei: Ein offener Laptop ist sonst ein
+  // übernommenes Konto, und die Sitzung allein beweist nur, dass jemand am
+  // Gerät saß. Danach fallen alle anderen Zugänge (s. setzePasswort) — die
+  // eigene Sitzung bleibt, sonst wirft der Wechsel einen aus der Seite, auf der
+  // man gerade steht.
+  app.post<{ Body: { alt: string; neu: string } }>(
+    '/api/auth/me/passwort',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['alt', 'neu'],
+          properties: { alt: { type: 'string', maxLength: 1024 }, neu: passwortSchema },
+        },
+      },
+    },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      if (loginGebremst(`pw:${benutzer.id}`)) {
+        return reply.code(429).send({ fehler: 'Zu viele Versuche. Bitte warte einen Moment.' })
+      }
+      if (!(await app.auth.login(benutzer.email, request.body.alt))) {
+        return reply.code(403).send({ fehler: 'Das aktuelle Passwort stimmt nicht.' })
+      }
+      const sessionId = request.cookies[SESSION_COOKIE]
+      await app.auth.setzePasswort(benutzer.id, request.body.neu, sessionId)
+      // Ohne Sitzung (App-Token) gibt es keine zu behalten — dann bekommt der
+      // Aufrufer hier eine frische, statt abgemeldet dazustehen.
+      if (!sessionId) setzeSessionCookie(reply, benutzer.id, request)
+      return { ok: true }
+    },
+  )
+
+  // — E-Mail-Adresse ändern: anstoßen —
+  //
+  // Die Mail geht an die NEUE Adresse, und erst der Klick dort macht sie gültig
+  // (der Token trägt sie bis dahin, s. AuthDienst.loeseMailTokenMitNutzlast).
+  // Sonst genügte ein Tippfehler, um sich selbst auszusperren. Das Passwort
+  // steht dabei aus demselben Grund wie oben.
+  //
+  // Ob die Adresse schon vergeben ist, wird geprüft — aber die Antwort ist
+  // dieselbe wie im Erfolgsfall: Diese Route wäre sonst eine Auskunft darüber,
+  // wer bei Maptale ein Konto hat. Verschickt wird dann nichts.
+  app.post<{ Body: { email: string; passwort: string } }>(
+    '/api/auth/me/email',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['email', 'passwort'],
+          properties: { email: emailSchema, passwort: { type: 'string', maxLength: 1024 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      if (resetGebremst(`mailwechsel:${benutzer.id}`)) {
+        return reply.code(429).send({ fehler: 'Zu viele Anfragen. Bitte versuche es später erneut.' })
+      }
+      const email = request.body.email.toLowerCase().trim()
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        return reply.code(400).send({ fehler: 'Diese E-Mail-Adresse stimmt nicht.' })
+      }
+      if (!(await app.auth.login(benutzer.email, request.body.passwort))) {
+        return reply.code(403).send({ fehler: 'Das Passwort stimmt nicht.' })
+      }
+      if (email === benutzer.email) {
+        return reply.code(400).send({ fehler: 'Das ist bereits deine Adresse.' })
+      }
+      if (!app.auth.emailVergeben(email)) {
+        const token = app.auth.erzeugeMailToken(benutzer.id, 'email', email)
+        const link = `${konfig.basisUrl}${WEB_PFADE.konto}#email=${token}`
+        const { betreff, text, html } = app.mailvorlagen.rendere(
+          'email-wechsel',
+          { name: benutzer.name },
+          { basisUrl: konfig.basisUrl, link },
+        )
+        try {
+          await mail.sende({ an: email, betreff, text, html })
+        } catch (fehler) {
+          app.log.error({ fehler }, 'Mail zum Adresswechsel konnte nicht versendet werden')
+        }
+      }
+      return { ok: true }
+    },
+  )
+
+  // — E-Mail-Adresse ändern: bestätigen —
+  //
+  // Ohne Anmeldung bedienbar: Der Link wird im Postfach der neuen Adresse
+  // angeklickt, und das ist im Zweifel ein anderer Browser als der, in dem die
+  // Sitzung steht. Der Token IST der Nachweis — er hängt an genau einem Konto
+  // und wurde nur ausgestellt, weil dort jemand sein Passwort eingegeben hat.
+  app.post<{ Body: { token: string } }>(
+    '/api/auth/email-bestaetigen',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['token'],
+          properties: { token: { type: 'string', maxLength: 200 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const eingeloest = app.auth.loeseMailTokenMitNutzlast(request.body.token, 'email')
+      if (!eingeloest?.nutzlast) {
+        return reply.code(400).send({ fehler: 'Dieser Link gilt nicht mehr. Stoße den Wechsel erneut an.' })
+      }
+      if (!app.auth.uebernimmEigeneEmail(eingeloest.userId, eingeloest.nutzlast)) {
+        // Zwischen Absenden und Klick können Tage liegen — in denen sich jemand
+        // anderes mit genau dieser Adresse registriert haben kann.
+        return reply.code(409).send({ fehler: 'Diese Adresse gehört inzwischen zu einem anderen Konto.' })
+      }
+      return { ok: true, email: eingeloest.nutzlast }
+    },
+  )
+
+  // — Angemeldete Geräte —
+  //
+  // Sitzungen UND App-Tokens (s. AuthDienst.geraete). `dieses` markiert die
+  // Sitzung, aus der gefragt wird: Sie trägt in der Oberfläche keinen
+  // Abmelden-Knopf — wer sich selbst hier abmeldet, hat nichts gewonnen, außer
+  // sich noch einmal anmelden zu dürfen.
+  app.get('/api/auth/me/geraete', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const eigene = request.cookies[SESSION_COOKIE]
+    return {
+      geraete: app.auth.geraete(benutzer.id).map((g) => ({ ...g, dieses: g.id === `sitzung:${eigene}` })),
+    }
+  })
+
+  app.delete<{ Params: { id: string } }>('/api/auth/me/geraete/:id', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    if (!app.auth.meldeGeraetAb(benutzer.id, request.params.id)) {
+      return reply.code(404).send({ fehler: 'Dieses Gerät ist nicht (mehr) angemeldet.' })
+    }
+    // Auch die eigene Sitzung darf fallen (etwa vom Telefon aus) — dann müssen
+    // die Cookies mit weg, sonst hinge der Browser an einer toten Sitzung.
+    if (request.params.id === `sitzung:${request.cookies[SESSION_COOKIE]}`) loescheSessionCookies(reply)
+    return { ok: true }
+  })
+
+  // — Speicher, aufgeschlüsselt —
+  //
+  // Eigene Route und nicht Teil von `/auth/me`: Die Aufteilung läuft über ALLE
+  // Dateien aller Touren, und `/auth/me` ist der heißeste Aufruf der API.
+  app.get('/api/auth/me/speicher', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const [stand, aufteilung] = await Promise.all([
+      quotaStand(db, storage, benutzerStorage, benutzer.id, konfig.maxSpeicherProBenutzer),
+      speicherAufteilung(db, storage, benutzerStorage, benutzer.id),
+    ])
+    return { ...stand, aufteilung }
   })
 
   // — Konto samt aller Daten löschen (DSGVO) — Storage-Dateien zuerst (die DB

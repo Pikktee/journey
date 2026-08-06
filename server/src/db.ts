@@ -240,6 +240,47 @@ const MIGRATIONEN: Migration[] = [
   ALTER TABLE users ADD COLUMN instagram TEXT;
   ALTER TABLE users ADD COLUMN titelbild TEXT;
   `,
+  // Kontoeinstellungen (Etappe 3): angemeldete Geräte sichtbar machen und der
+  // E-Mail-Wechsel.
+  //
+  // **Die Sitzung bekommt ein Gesicht.** Ohne Gerät und Ort ist eine Liste von
+  // Sitzungen eine Liste von IDs, an der niemand erkennt, welche die fremde
+  // ist. Vom Absender bleibt deshalb genau so viel stehen, wie zum Wiedererkennen
+  // nötig ist: `user_agent` roh (die Deutung — „Chrome auf macOS" — passiert in
+  // der Anzeige, damit eine bessere Deutung keine Migration braucht) und
+  // `ip_praefix` mit nur ZWEI Oktetten. Die vollständige Adresse wäre ein
+  // Bewegungsprofil in der Datenbank; „84.119.x.x" beantwortet dagegen die
+  // einzige Frage, die hier gestellt wird — war ich das, oder war das jemand
+  // anderes?
+  //
+  // `zuletzt_gesehen` wird gedrosselt fortgeschrieben (s. AuthDienst.sieheSession):
+  // ein UPDATE pro Anfrage wäre ein Schreibvorgang für jedes geladene Bild.
+  //
+  // Der E-Mail-Wechsel braucht einen dritten Token-Zweck UND einen Platz für
+  // die neue Adresse — sie darf erst nach dem Klick in `users` landen, sonst
+  // gehörte das Konto ab dem Absenden einer Adresse, die niemand bestätigt hat.
+  // SQLite kann ein CHECK nicht ändern, also wird die Tabelle neu gebaut.
+  `
+  ALTER TABLE sessions ADD COLUMN user_agent TEXT;
+  ALTER TABLE sessions ADD COLUMN ip_praefix TEXT;
+  ALTER TABLE sessions ADD COLUMN zuletzt_gesehen TEXT;
+
+  CREATE TABLE mail_tokens_neu (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    zweck TEXT NOT NULL CHECK (zweck IN ('verify','reset','email')),
+    hash TEXT NOT NULL UNIQUE,
+    nutzlast TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT
+  );
+  INSERT INTO mail_tokens_neu (id, user_id, zweck, hash, nutzlast, created_at, expires_at, used_at)
+    SELECT id, user_id, zweck, hash, NULL, created_at, expires_at, used_at FROM mail_tokens;
+  DROP TABLE mail_tokens;
+  ALTER TABLE mail_tokens_neu RENAME TO mail_tokens;
+  CREATE INDEX idx_mail_tokens_user ON mail_tokens(user_id, zweck);
+  `,
 ]
 
 /**
