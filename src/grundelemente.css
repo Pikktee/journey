@@ -261,7 +261,7 @@ html.nav-dabei [data-gast] {
   text-decoration: none;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 8px 10px;
   cursor: pointer;
 }
@@ -359,7 +359,7 @@ body.dialog-offen {
   color: var(--text);
   background: #0d131b;
   border: 1px solid var(--rand);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 9px 12px;
   width: 100%;
   box-sizing: border-box;

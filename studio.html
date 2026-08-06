@@ -327,7 +327,7 @@
     /* Bestätigte Einladung in Schritt 2 — Beleg, kein Formularfeld */
     .code-chip {
       display: flex; align-items: center; gap: 9px;
-      margin-bottom: 20px; padding: 9px 12px; border-radius: 10px;
+      margin-bottom: 20px; padding: 9px 12px; border-radius: var(--radius-md);
       background: rgba(62, 207, 142, 0.09);
       border: 1px solid rgba(62, 207, 142, 0.28);
       font-size: 13px; color: var(--text-2);
@@ -384,7 +384,7 @@
       gap: 7px;
       padding: 9px 16px 9px 12px;
       border: 1px solid var(--rand);
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: rgba(9, 13, 20, 0.55);
       -webkit-backdrop-filter: blur(8px) saturate(1.1);
       backdrop-filter: blur(8px) saturate(1.1);
@@ -481,7 +481,7 @@
       font-size: 13.5px;
       font-weight: 500;
       padding: 7px 12px;
-      border-radius: 9px;
+      border-radius: var(--radius-md);
       transition: color 0.18s ease, background 0.18s ease;
     }
     .top-nav a svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
@@ -503,7 +503,7 @@
       color: var(--text-2);
       background: var(--fl-1);
       border: 1px solid var(--rand);
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       padding: 6px 12px 6px 7px;
     }
     .benutzer-chip .punkt {
@@ -524,7 +524,7 @@
     .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
     .konto-menue {
       position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
-      width: 250px; padding: 14px; border-radius: 12px;
+      width: 250px; padding: 14px; border-radius: var(--radius-lg);
       background: var(--fl-2, #131922); border: 1px solid var(--rand);
       box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
       display: flex; flex-direction: column; gap: 10px;
@@ -569,14 +569,14 @@
     .bib-kopf .sp { flex: 1; }
     /* Die globale Formularregel setzt `width: 100%` — im Kopf stehen die
        Bedienelemente nebeneinander, nicht untereinander. */
-    .sortier { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 6px 10px; font-size: 12.5px; color: var(--text-2); }
-    .ansicht-schalter { display: inline-flex; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 3px; gap: 3px; }
+    .sortier { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 6px 10px; font-size: 12.5px; color: var(--text-2); }
+    .ansicht-schalter { display: inline-flex; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 3px; gap: 3px; }
     .ansicht-schalter button { border: none; background: transparent; border-radius: 6px; padding: 5px 8px; color: var(--text-3); display: grid; place-items: center; }
     .ansicht-schalter button svg { width: 16px; height: 16px; }
     .ansicht-schalter button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
 
     .suche { position: relative; width: min(320px, 32vw); }
-    .suche input { width: 100%; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 999px; padding: 8px 14px 8px 36px; font-size: 13.5px; }
+    .suche input { width: 100%; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 8px 14px 8px 36px; font-size: 13.5px; }
     .suche input::placeholder { color: var(--text-3); }
     .suche input:focus { outline: none; border-color: var(--akzent); background: var(--bg-tief); }
     .suche svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; color: var(--text-3); }
@@ -586,7 +586,7 @@
       --fl-primaer: linear-gradient(120deg, var(--akzent), var(--akzent-2));
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--fl-primaer);
-      color: #241402; border: none; border-radius: 999px; padding: 8px 16px;
+      color: #241402; border: none; border-radius: var(--radius-full); padding: 8px 16px;
       font-size: 13.5px; font-weight: 600; box-shadow: 0 6px 18px rgba(245, 165, 36, 0.22);
       transition: filter 160ms ease, box-shadow 160ms ease, transform 120ms ease;
     }
@@ -605,7 +605,7 @@
        hinaus. Gerundet wird am Bild, das die Kachel füllt. */
     .raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; align-items: start; }
     .karte {
-      position: relative; border-radius: 15px; cursor: pointer;
+      position: relative; border-radius: var(--radius-karte); cursor: pointer;
       background: var(--fl-1); border: 1px solid var(--rand);
       transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease;
       animation: ansichtEin 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
@@ -617,7 +617,7 @@
     .karte:nth-child(5) { animation-delay: 180ms; }
     .karte:nth-child(n + 6) { animation-delay: 225ms; }
     .karte:hover { transform: translateY(-2px); border-color: var(--rand-hell); box-shadow: var(--schatten); }
-    .karte .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: 14px; }
+    .karte .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: var(--radius-karte); }
     /* Kein Bild-Zoom beim Überfahren: die Kachel IST das Foto. Bewegt es sich
        unter dem Zeiger, wirkt jede Kachel wie ein Werbebanner. */
     .karte .bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 300ms ease; }
@@ -655,7 +655,7 @@
        den Zustand sieht, will ihn dort auch ändern. */
     .karte .sicht, .stift-knopf {
       display: inline-flex; align-items: center; gap: 0;
-      font-size: 11px; padding: 5px; border-radius: 999px;
+      font-size: 11px; padding: 5px; border-radius: var(--radius-full);
       background: rgba(6, 8, 12, 0.55); backdrop-filter: blur(7px);
       border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.82);
       transition: opacity 180ms ease, gap 220ms cubic-bezier(0.2, 0.7, 0.2, 1), padding 220ms cubic-bezier(0.2, 0.7, 0.2, 1), background 220ms ease;
@@ -701,13 +701,13 @@
     .karte.arbeitet { cursor: default; }
     .karte.arbeitet .bild img { filter: grayscale(0.5) brightness(0.55); }
     .karte.arbeitet::after {
-      content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: 14px;
+      content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: var(--radius-karte);
       background: linear-gradient(105deg, transparent 32%, rgba(245, 165, 36, 0.13) 46%, rgba(255, 240, 220, 0.16) 50%, rgba(245, 165, 36, 0.13) 54%, transparent 68%);
       background-size: 260% 100%; animation: schimmerLauf 1.9s linear infinite;
     }
     @keyframes schimmerLauf { from { background-position: 180% 0; } to { background-position: -80% 0; } }
     .karte .lauf { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0, 0, 0, 0.4); z-index: 4; border-radius: 0 0 14px 14px; overflow: hidden; }
-    .karte .lauf span { position: absolute; top: 0; height: 100%; width: 40%; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: wandern 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+    .karte .lauf span { position: absolute; top: 0; height: 100%; width: 40%; border-radius: var(--radius-full); background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: wandern 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
     @keyframes wandern { from { left: -40%; } to { left: 100%; } }
     /* Fehler auf der Übersicht: nur das Zeichen. Was schiefging, gehört dorthin,
        wo man es beheben kann — in die geöffnete Tour. */
@@ -724,14 +724,14 @@
     .sicht-menue {
       position: absolute; top: 42px; right: 11px; z-index: 20; min-width: 232px;
       background: rgba(14, 19, 26, 0.98); backdrop-filter: blur(14px);
-      border: 1px solid var(--rand-hell); border-radius: 13px; padding: 5px;
+      border: 1px solid var(--rand-hell); border-radius: var(--radius-karte); padding: 5px;
       box-shadow: 0 22px 50px rgba(2, 5, 10, 0.7); animation: menueRein 140ms ease backwards;
     }
     @keyframes menueRein { from { opacity: 0; transform: translateY(-4px); } }
     .sicht-menue button {
       display: flex; align-items: flex-start; gap: 9px; width: 100%;
       background: none; border: none; color: var(--text-2); text-align: left;
-      padding: 8px 10px; border-radius: 9px; font-size: 13px; line-height: 1.35;
+      padding: 8px 10px; border-radius: var(--radius-md); font-size: 13px; line-height: 1.35;
     }
     .sicht-menue button:hover { background: var(--fl-3); color: var(--text); }
     .sicht-menue button svg { width: 14px; height: 14px; opacity: 0.8; flex: none; margin-top: 2px; }
@@ -747,7 +747,7 @@
     .neu-kachel {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 7px; aspect-ratio: 16/10; overflow: hidden;
-      border: 1.5px dashed var(--rand-hell); border-radius: 15px; text-align: center;
+      border: 1.5px dashed var(--rand-hell); border-radius: var(--radius-karte); text-align: center;
       background: radial-gradient(90% 70% at 50% 0%, rgba(245, 165, 36, 0.06), transparent 70%), var(--fl-1);
       color: var(--text-2); padding: 14px 18px;
       transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
@@ -762,23 +762,23 @@
     .liste { display: flex; flex-direction: column; gap: 8px; }
     .zeile {
       display: flex; align-items: center; gap: 15px; padding: 9px 14px 9px 9px;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 13px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
       transition: background 160ms ease, border-color 160ms ease;
     }
     .zeile:hover { background: var(--fl-2); border-color: var(--rand-hell); }
-    .zeile .mini { width: 74px; height: 48px; border-radius: 9px; overflow: hidden; flex: none; background: var(--fl-2); display: grid; place-items: center; color: var(--text-3); }
+    .zeile .mini { width: 74px; height: 48px; border-radius: var(--radius-md); overflow: hidden; flex: none; background: var(--fl-2); display: grid; place-items: center; color: var(--text-3); }
     .zeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .zeile .mini svg { width: 18px; height: 18px; }
     .zeile .txt { flex: 1; min-width: 0; }
     .zeile .txt .t { font-family: var(--font-display); font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .zeile .txt .m { font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; color: var(--text-3); margin-top: 2px; }
     .zeile .rechts { display: flex; align-items: center; gap: 8px; }
-    .zeile .sichtpille { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 999px; padding: 3px 10px; }
+    .zeile .sichtpille { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 3px 10px; }
     .zeile .sichtpille.oeffentlich { color: #9ff0c6; border-color: rgba(62, 207, 142, 0.35); }
     .akt {
       display: inline-flex; align-items: center; gap: 7px;
       border: 1px solid var(--rand); background: var(--fl-2);
-      border-radius: 999px; padding: 7px 12px; font-size: 12.5px; color: var(--text-2);
+      border-radius: var(--radius-full); padding: 7px 12px; font-size: 12.5px; color: var(--text-2);
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
     }
     .akt:hover { border-color: rgba(245, 165, 36, 0.6); color: var(--text); }
@@ -799,7 +799,7 @@
     .leer-buehne .knopf-primaer { position: relative; }
 
     .skelett { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 18px; }
-    .skelett div { aspect-ratio: 16/10; border-radius: 15px; background: linear-gradient(100deg, var(--fl-1) 40%, var(--fl-2) 50%, var(--fl-1) 60%) 0 0 / 200% 100%; animation: schimmer 1.3s linear infinite; }
+    .skelett div { aspect-ratio: 16/10; border-radius: var(--radius-karte); background: linear-gradient(100deg, var(--fl-1) 40%, var(--fl-2) 50%, var(--fl-1) 60%) 0 0 / 200% 100%; animation: schimmer 1.3s linear infinite; }
 
     /* — Dateien über dem Fenster: die ganze Seite ist die Ablage — */
     .drop-overlay {
@@ -878,7 +878,7 @@
        damit es liest wie ein Lauflicht und nicht wie ein Blinken. */
     .neu-leer .ahnung { position: relative; width: 300px; height: 76px; margin-bottom: 24px; }
     .neu-leer .ahnung i {
-      position: absolute; top: 0; width: 30px; height: 30px; border-radius: 7px;
+      position: absolute; top: 0; width: 30px; height: 30px; border-radius: var(--radius-sm);
       border: 1.5px dashed var(--rand-hell);
       animation: platzAtmen 3.4s ease-in-out infinite;
       transition: border-color 220ms ease;
@@ -893,7 +893,7 @@
     .neu-leer .ahnung i:nth-child(4) { left: 240px; animation-delay: 1.35s; }
     @keyframes platzAtmen { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
     .neu-leer .achse {
-      position: absolute; left: 8px; right: 8px; bottom: 0; height: 7px; border-radius: 999px;
+      position: absolute; left: 8px; right: 8px; bottom: 0; height: 7px; border-radius: var(--radius-full);
       background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, #ff6f52, #3a2a4a, #1d2740);
       opacity: 0.62; transition: opacity 220ms ease;
     }
@@ -933,7 +933,7 @@
 
     .neu-raster { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
     .vorschau {
-      position: relative; aspect-ratio: 4/3; border-radius: 14px; overflow: hidden;
+      position: relative; aspect-ratio: 4/3; border-radius: var(--radius-karte); overflow: hidden;
       background: radial-gradient(120% 90% at 30% 0%, #101a26, #080b11 70%);
       border: 1px solid var(--rand);
     }
@@ -987,17 +987,17 @@
     .zeitband .bahn { position: relative; height: 92px; }
     .zeitband .bild {
       position: absolute; bottom: 0; width: 46px; height: 46px; margin-left: -23px;
-      border-radius: 7px; overflow: hidden; border: 1px solid var(--rand-hell);
+      border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--rand-hell);
       background: var(--fl-2) center/cover no-repeat; cursor: pointer;
     }
     .zeitband .bild.ohne-ort { border-style: dashed; }
     .zeitband .bild.ausserhalb { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 165, 36, 0.22); }
-    .zeitband .bild .zahl { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--fl-3); border: 1px solid var(--rand-hell); font-size: 9.5px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 13px; text-align: center; }
+    .zeitband .bild .zahl { position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: var(--radius-full); background: var(--fl-3); border: 1px solid var(--rand-hell); font-size: 9.5px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 13px; text-align: center; }
     .zeitband .bild .film { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); background: linear-gradient(160deg, var(--fl-2), var(--fl-3)); }
     .zeitband .bild .film svg { width: 16px; height: 16px; }
     .zeitband .stiel { position: absolute; bottom: 0; width: 1px; height: 14px; background: var(--rand-hell); }
     /* Tag-Nacht-Verlauf: die Achse sagt nebenbei, wann die Reise stattfand */
-    .zeitband .achse { position: relative; height: 7px; border-radius: 999px; margin-top: 8px; overflow: hidden; background: var(--fl-2); }
+    .zeitband .achse { position: relative; height: 7px; border-radius: var(--radius-full); margin-top: 8px; overflow: hidden; background: var(--fl-2); }
     .zeitband .achse .spanne { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #24405e, #6b8fb8, #f5a524, #ff6f52, #3a2a4a, #1d2740); }
     /* Zeit ohne Aufzeichnung — gestreift, damit man sieht: hier lief nichts mit */
     .zeitband .achse .luecke { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(-45deg, rgba(103, 114, 127, 0.32) 0 4px, transparent 4px 8px); }
@@ -1012,7 +1012,7 @@
     .neu-fuss .status.fehler { color: var(--rot); }
     .neu-modus { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--text-3); }
     .neu-modus .schloss { width: 14px; height: 14px; }
-    .neu-modus select, .neu-sicht { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 6px 26px 6px 10px; font-size: 12.5px; color: var(--text-2); }
+    .neu-modus select, .neu-sicht { width: auto; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 6px 26px 6px 10px; font-size: 12.5px; color: var(--text-2); }
 
     @media (max-width: 820px) {
       .neu-raster { grid-template-columns: 1fr; }
@@ -1071,7 +1071,7 @@
       position: absolute; left: 50%; top: 66px; transform: translate(-50%, -8px);
       display: flex; align-items: center; gap: 10px;
       max-width: min(560px, calc(100vw - 32px));
-      padding: 10px 16px 11px; border-radius: 12px;
+      padding: 10px 16px 11px; border-radius: var(--radius-lg);
       font-size: 13px; line-height: 1.45; color: var(--text);
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96));
       border: 1px solid var(--rand-hell);
@@ -1160,7 +1160,7 @@
       color: var(--text);
       font-size: 12.5px;
       padding: 8px 14px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       box-shadow: var(--schatten);
       max-width: min(520px, 86%);
       text-align: center;
@@ -1175,7 +1175,7 @@
          registrieren, sondern ihn sehen wie später im Film. */
     .foto-einblendung {
       position: absolute; left: 50%; top: 50%; z-index: 5;
-      margin: 0; padding: 13px 13px 0; border-radius: 12px;
+      margin: 0; padding: 13px 13px 0; border-radius: var(--radius-lg);
       background: #f6f1e7; box-shadow: 0 46px 120px rgba(0, 0, 0, 0.72), 0 14px 40px rgba(0, 0, 0, 0.5);
       opacity: 0; transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.6deg) rotateX(9deg);
       transition: opacity 500ms ease 40ms, transform 950ms cubic-bezier(0.19, 1.16, 0.32, 1);
@@ -1214,7 +1214,7 @@
     .fe-chip {
       justify-self: end; font-family: var(--font-ui); font-size: 11.5px; font-weight: 500;
       color: #8a7a63; border: 1px solid rgba(28, 23, 18, 0.22);
-      border-radius: 999px; padding: 4px 10px;
+      border-radius: var(--radius-full); padding: 4px 10px;
     }
     .fe-sub { grid-column: 1 / -1; font-family: var(--font-ui); font-size: 12.5px; color: rgba(28, 23, 18, 0.6); }
     /* Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist (Player-Backdrop) */
@@ -1278,7 +1278,7 @@
     .medien-punkt .stapel.s2 { transform: translate(11px, -7px) scale(0.88); opacity: 0.7; }
     .medien-punkt .anzahl {
       position: absolute; right: 0; bottom: 0; z-index: 3;
-      min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+      min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--radius-md);
       display: grid; place-items: center;
       font-size: 10.5px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
       color: #1a1206; background: var(--akzent); border: 1.5px solid rgba(9, 12, 17, 0.8);
@@ -1289,7 +1289,7 @@
     /* Zoom-Steuerung der Karte (statt der MapLibre-Leiste) */
     .karte-zoom {
       position: absolute; top: 14px; right: 16px; z-index: 8;
-      display: flex; flex-direction: column; border-radius: 9px; overflow: hidden;
+      display: flex; flex-direction: column; border-radius: var(--radius-md); overflow: hidden;
       border: 1px solid var(--rand); box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
     }
     .karte-zoom button {
@@ -1314,7 +1314,7 @@
     .karte-info .ki-knopf svg { width: 15px; height: 15px; }
     .karte-info .ki-blase {
       position: absolute; right: -3px; bottom: calc(100% + 11px);
-      width: max-content; max-width: 330px; padding: 12px 15px 13px; border-radius: 13px;
+      width: max-content; max-width: 330px; padding: 12px 15px 13px; border-radius: var(--radius-karte);
       background:
         radial-gradient(120% 150% at 100% 100%, rgba(245, 165, 36, 0.14), transparent 60%),
         linear-gradient(165deg, rgba(26, 34, 45, 0.94), rgba(9, 12, 17, 0.96));
@@ -1370,7 +1370,7 @@
     .transport { display: flex; align-items: center; gap: 6px; }
     .tp-play {
       width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
-      border-radius: 8px; border: 1px solid rgba(245, 165, 36, 0.4);
+      border-radius: var(--radius-md); border: 1px solid rgba(245, 165, 36, 0.4);
       color: var(--akzent); background: var(--fl-1);
     }
     .tp-play svg { width: 15px; height: 15px; }
@@ -1392,7 +1392,7 @@
     /* Karte folgt dem Läufer — aktiv wie Werkzeug-Auswahl (Voll-Amber). */
     .tp-folge {
       width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
-      border-radius: 8px; border: 1px solid var(--rand); color: var(--text-3);
+      border-radius: var(--radius-md); border: 1px solid var(--rand); color: var(--text-3);
       background: var(--fl-1);
     }
     .tp-folge svg { width: 15px; height: 15px; }
@@ -1408,8 +1408,8 @@
     }
 
     /* Werkzeuge (Auswahl/Hand/Zoom) — Segment-Umschalter wie in Final Cut. */
-    .werkzeuge { display: flex; align-items: center; gap: 3px; background: var(--fl-1); border: 1px solid var(--rand); border-radius: 9px; padding: 2px; }
-    .wkz { width: 27px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: 7px; }
+    .werkzeuge { display: flex; align-items: center; gap: 3px; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 2px; }
+    .wkz { width: 27px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm); }
     .wkz svg { width: 15px; height: 15px; }
     .wkz:hover { color: var(--text-2); background: var(--fl-3); }
     .wkz.an { background: var(--akzent); color: #1a1206; }
@@ -1429,7 +1429,7 @@
        zusätzlich Slots fester Mindestbreite. */
     .kopf-uhr {
       display: flex; align-items: stretch;
-      padding: 3px 4px; border-radius: 10px;
+      padding: 3px 4px; border-radius: var(--radius-md);
       background: var(--fl-1); border: 1px solid var(--rand);
     }
     /* Drei gleich gebaute Gruppen. Der Trenner sitzt AUF der Fuge und beide
@@ -1478,7 +1478,7 @@
     .zoom { display: flex; align-items: center; gap: 7px; }
     .zoom-b {
       width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
-      border-radius: 7px; border: 1px solid var(--rand); background: transparent; color: var(--text-2);
+      border-radius: var(--radius-sm); border: 1px solid var(--rand); background: transparent; color: var(--text-2);
     }
     .zoom-b svg { width: 14px; height: 14px; }
     .zoom-b:hover { border-color: var(--rand-hell); color: var(--text); }
@@ -1541,7 +1541,7 @@
     }
     .schwebe-menue button {
       width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 9px;
-      border: none; background: transparent; color: var(--text-2); border-radius: 7px;
+      border: none; background: transparent; color: var(--text-2); border-radius: var(--radius-sm);
       font-size: 13px; text-align: left;
     }
     .schwebe-menue button:hover { background: var(--fl-3); color: var(--text); }
@@ -1562,14 +1562,14 @@
       35% { box-shadow: 0 0 0 5px rgba(229, 72, 77, 0.26); }
     }
     .ablage-raster { display: grid; grid-template-columns: repeat(4, 54px); gap: 6px; padding: 6px; max-height: 220px; overflow-y: auto; }
-    .ablage-raster button { width: 54px; height: 54px; padding: 0; border-radius: 7px; overflow: hidden; border: 1px solid var(--rand); background: var(--fl-2); cursor: grab; touch-action: none; }
+    .ablage-raster button { width: 54px; height: 54px; padding: 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--rand); background: var(--fl-2); cursor: grab; touch-action: none; }
     .ablage-raster img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .ablage-raster button.geloescht img { opacity: 0.35; }
     .ablage-raster button:hover { border-color: var(--akzent); }
     /* Was aus der Ablage gezogen wird, hängt am Zeiger; die Marke zeigt, wo es landet. */
     .zieh-geist {
       position: fixed; z-index: 95; width: 52px; height: 52px; pointer-events: none;
-      border-radius: 8px; overflow: hidden; transform: translate(-50%, -50%) rotate(-4deg);
+      border-radius: var(--radius-md); overflow: hidden; transform: translate(-50%, -50%) rotate(-4deg);
       border: 2px solid var(--akzent); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.62);
     }
     .zieh-geist img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1864,7 +1864,7 @@
        greift nur, wo geclippt wird). */
     .halt-klip {
       position: absolute; top: 7px; bottom: 2px; min-width: 4px; padding: 0;
-      border-radius: 7px; overflow: visible; container-type: inline-size;
+      border-radius: var(--radius-sm); overflow: visible; container-type: inline-size;
       border: 1px solid var(--rand-hell); background: var(--fl-2);
       cursor: pointer; touch-action: none; transition: border-color 140ms ease;
     }
@@ -1982,7 +1982,7 @@
        Anordnung von dem Eingriff, der eine Aufnahme über die Strecke verschiebt. */
     .zug-etikett {
       position: fixed; z-index: 90; transform: translate(-50%, -230%); pointer-events: none;
-      padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+      padding: 4px 10px; border-radius: var(--radius-full); font-size: 11.5px; font-weight: 500;
       white-space: nowrap; box-shadow: var(--schatten);
     }
     .zug-etikett[data-art='reihe'] { background: var(--fl-3); color: var(--text-2); border: 1px solid var(--rand-hell); }
@@ -2089,7 +2089,7 @@
        Item mit viel Inhalt wird darin gestaucht statt den Container scrollen zu
        lassen — der aufgeklappte Block war so 2 px hoch (Zeilen im DOM, nichts zu
        sehen). Gleiche Sorte Falle wie „margin-top: auto kollabiert im Overflow". */
-    .insp-info { flex: none; border: 1px solid var(--rand); border-radius: 10px; background: var(--fl-2); overflow: hidden; }
+    .insp-info { flex: none; border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-2); overflow: hidden; }
     .insp-info summary {
       display: flex; align-items: center; gap: 8px;
       padding: 10px 12px; cursor: pointer; list-style: none;
@@ -2132,7 +2132,7 @@
     .feld-wie:focus-visible { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55); }
     .feld-wie-blase {
       position: absolute; left: -8px; top: calc(100% + 8px);
-      width: max-content; max-width: 250px; padding: 8px 11px 9px; border-radius: 10px;
+      width: max-content; max-width: 250px; padding: 8px 11px 9px; border-radius: var(--radius-md);
       font-size: 11.5px; line-height: 1.45; color: var(--text-2); white-space: normal;
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.96), rgba(9, 12, 17, 0.97));
       border: 1px solid var(--rand-hell);
@@ -2169,7 +2169,7 @@
     .zeit-paar > .feld { min-width: 0; }
     .zf {
       display: flex; align-items: stretch; min-width: 0; overflow: hidden;
-      border: 1px solid var(--rand); border-radius: 9px; background: var(--fl-1);
+      border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-1);
       cursor: var(--scrub);
     }
     .zf:hover { border-color: var(--rand-hell); }
@@ -2216,17 +2216,17 @@
     }
     .insp-notiz { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--text-3); }
     .insp-warnung {
-      margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 11.5px; line-height: 1.4;
+      margin: 0; padding: 8px 10px; border-radius: var(--radius-md); font-size: 11.5px; line-height: 1.4;
       background: color-mix(in srgb, var(--warn, #e8a13c) 14%, transparent); color: var(--warn, #e8a13c);
     }
-    .insp-bild { width: 100%; border-radius: 10px; border: 1px solid var(--rand); display: block; background: var(--fl-2); cursor: zoom-in; }
+    .insp-bild { width: 100%; border-radius: var(--radius-md); border: 1px solid var(--rand); display: block; background: var(--fl-2); cursor: zoom-in; }
     .insp-bild-huelle { position: relative; }
     .insp-bild-huelle .insp-bild { display: block; }
     .insp-bild-badge {
       position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 5px;
       font-size: 11px; font-weight: 500;
       color: #fff; background: rgba(6, 8, 12, 0.72); border: 1px solid rgba(255, 255, 255, 0.28);
-      border-radius: 999px; padding: 3px 9px 3px 7px; pointer-events: none;
+      border-radius: var(--radius-full); padding: 3px 9px 3px 7px; pointer-events: none;
     }
     .insp-bild-badge svg { width: 9px; height: 9px; }
 
@@ -2237,13 +2237,13 @@
     }
     .gross figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; max-height: 100%; }
     .gross img, .gross video {
-      max-width: 100%; max-height: calc(100vh - 170px); border-radius: 10px; display: block;
+      max-width: 100%; max-height: calc(100vh - 170px); border-radius: var(--radius-md); display: block;
       box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
     }
     .gross video { background: #000; }
     .gross .gt-video {
       font-size: 11.5px; font-weight: 500;
-      color: var(--akzent); border: 1px solid rgba(245, 165, 36, 0.5); border-radius: 999px;
+      color: var(--akzent); border: 1px solid rgba(245, 165, 36, 0.5); border-radius: var(--radius-full);
       padding: 2px 9px; vertical-align: middle; margin-left: 10px;
     }
     .gross figcaption { text-align: center; }
@@ -2280,7 +2280,7 @@
     .insp-stueck {
       display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px;
       padding: 10px 12px;
-      background: var(--fl-2); border: 1px solid var(--rand); border-radius: 10px;
+      background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md);
     }
     .insp-stueck-hoeren {
       flex: none; width: 32px; height: 32px; border-radius: 50%; padding: 0;
@@ -2322,7 +2322,7 @@
       height: min(680px, calc(100dvh - 48px));
       padding: 0;
       border: 1px solid var(--rand-hell);
-      border-radius: 16px;
+      border-radius: var(--radius-xl);
       background: var(--fl-1);
       color: var(--text);
       box-shadow: var(--schatten);
@@ -2349,7 +2349,7 @@
     .sfx-suche {
       width: 100%; padding: 9px 14px 9px 38px; font-size: 13.5px;
       font-family: var(--font-ui); color: var(--text);
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 10px;
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
       transition: border-color 140ms ease, background 140ms ease;
     }
     .sfx-suche::placeholder { color: var(--text-3); }
@@ -2405,7 +2405,7 @@
     .sfx-wie:focus-visible { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55); }
     .sfx-wie-blase {
       position: absolute; left: -8px; top: calc(100% + 9px);
-      width: max-content; max-width: 280px; padding: 8px 12px 9px; border-radius: 10px;
+      width: max-content; max-width: 280px; padding: 8px 12px 9px; border-radius: var(--radius-md);
       font-family: var(--font-ui); font-size: 11.5px; font-weight: 400;
       line-height: 1.45; color: var(--text-2); text-align: left; white-space: normal;
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.96), rgba(9, 12, 17, 0.97));
@@ -2492,7 +2492,7 @@
       display: flex; align-items: center; gap: 9px;
       width: calc(100% - 40px); margin: 2px 20px 8px; padding: 11px 14px;
       font-size: 12.5px; color: var(--text-2);
-      background: none; border: 1px dashed var(--rand-hell); border-radius: 10px;
+      background: none; border: 1px dashed var(--rand-hell); border-radius: var(--radius-md);
       transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
     }
     .sfx-upload:hover { color: var(--text); border-color: var(--akzent); background: rgba(245, 158, 11, 0.05); border-style: dashed; }

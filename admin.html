@@ -92,7 +92,7 @@
     .top-nav a {
       display: inline-flex; align-items: center; gap: 7px;
       color: var(--text-2); font-size: 13.5px; font-weight: 500;
-      padding: 7px 12px; border-radius: 9px;
+      padding: 7px 12px; border-radius: var(--radius-md);
       transition: color 0.18s ease, background 0.18s ease;
     }
     .top-nav a svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
@@ -101,7 +101,7 @@
     .benutzer-chip {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 13px; font-weight: 500; color: var(--text-2);
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 999px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full);
       padding: 6px 12px 6px 7px;
     }
     .benutzer-chip .punkt {
@@ -115,7 +115,7 @@
     .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
     .konto-menue {
       position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
-      width: 250px; padding: 14px; border-radius: 12px;
+      width: 250px; padding: 14px; border-radius: var(--radius-lg);
       background: var(--fl-2); border: 1px solid var(--rand);
       box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
       display: flex; flex-direction: column; gap: 10px;
@@ -169,7 +169,7 @@
       background: var(--akzent); border-radius: 2px 2px 0 0;
     }
     .reiter .z {
-      font-size: 11.5px; font-weight: 550; padding: 2px 8px; border-radius: 999px;
+      font-size: 11.5px; font-weight: 550; padding: 2px 8px; border-radius: var(--radius-full);
       background: var(--fl-2); color: var(--text-2); font-variant-numeric: tabular-nums;
       transition: background 160ms ease, color 160ms ease;
     }
@@ -202,10 +202,10 @@
        sich verteilen. Eine zweite Zeile „3 von 12" bräuchte es dann nicht. */
     .filter {
       display: inline-flex; gap: 3px; padding: 3px;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 999px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full);
     }
     .filter button {
-      background: none; border: none; border-radius: 999px;
+      background: none; border: none; border-radius: var(--radius-full);
       padding: 6px 12px; font-size: 13px; color: var(--text-2);
     }
     .filter button:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
@@ -218,14 +218,14 @@
        Schalter: die Fläche IST der Zustand — links aus, rechts an */
     .regel {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
       padding: 14px 18px; margin-bottom: 14px;
     }
     .regel .sp { flex: 1; }
     .schalter { display: flex; align-items: center; gap: 14px; }
     .schalter-knopf {
       position: relative; flex: none;
-      width: 46px; height: 26px; padding: 0; border-radius: 999px;
+      width: 46px; height: 26px; padding: 0; border-radius: var(--radius-full);
       background: var(--fl-3); border: 1px solid var(--rand);
     }
     .schalter-knopf:hover { background: var(--fl-3); border-color: var(--rand-hell); }
@@ -242,7 +242,7 @@
 
     .warnzeile {
       display: flex; align-items: center; gap: 10px;
-      margin: 0 0 14px; padding: 10px 14px; border-radius: 10px;
+      margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-md);
       background: color-mix(in srgb, var(--warn) 14%, transparent);
       color: var(--warn); font-size: 12.5px;
     }
@@ -253,7 +253,7 @@
        Überschrift steht jetzt im Reiter. */
     .liste {
       display: flex; flex-direction: column;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
       overflow: hidden;
     }
     .zeile {
@@ -332,7 +332,7 @@
     dialog[open] { display: block; }
     dialog::backdrop { background: rgba(4, 6, 10, 0.68); backdrop-filter: blur(3px); }
     .dialog-inner {
-      background: var(--fl-2); border: 1px solid var(--rand-hell); border-radius: 16px;
+      background: var(--fl-2); border: 1px solid var(--rand-hell); border-radius: var(--radius-xl);
       padding: 22px 24px 20px; box-shadow: 0 24px 60px rgba(2, 5, 10, 0.7); width: 440px; max-width: 100%;
     }
     .dialog-inner h2 { font-size: 18px; margin-bottom: 4px; }
@@ -353,16 +353,16 @@
       display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px;
     }
     .kpi-karte {
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px; padding: 18px 20px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte); padding: 18px 20px;
     }
     .kpi-label { font-size: 12px; font-weight: 550; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
     .kpi-wert { display: block; font-size: 32px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
     .kpi-wert.echtzeit { color: var(--gruen); }
     .kpi-hinweis { font-size: 12.5px; color: var(--text-2); }
     .statistiken-spalten { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
-    .karte-block { background: var(--fl-1); border: 1px solid var(--rand); border-radius: 16px; padding: 20px; }
+    .karte-block { background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-xl); padding: 20px; }
     .karte-block h3 { font-size: 15px; font-weight: 550; margin: 0 0 14px; color: var(--text); }
-    .stat-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 9px; font-size: 13.5px; }
+    .stat-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: var(--radius-md); font-size: 13.5px; }
     .stat-zeile:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
     .stat-zeile .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
     .stat-zeile .anzahl { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); flex: none; }
@@ -378,7 +378,7 @@
     .mail-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
     .mail-karte {
       display: flex; flex-direction: column; gap: 7px;
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: 14px;
+      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
       padding: 16px 18px 14px;
       transition: border-color 160ms ease, background 160ms ease;
     }
@@ -387,7 +387,7 @@
     .mail-karte .name { font-weight: 550; font-size: 15px; }
     .mail-karte .betreff {
       color: var(--text); font-size: 13px;
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 9px;
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
       padding: 7px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .mail-karte .unten { color: var(--text-3); font-size: 12.5px; }
@@ -450,13 +450,13 @@
 
     .ph-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 14px; }
     .ph-chips button {
-      font-size: 12px; padding: 4px 9px; border-radius: 999px;
+      font-size: 12px; padding: 4px 9px; border-radius: var(--radius-full);
       background: rgba(245, 165, 36, 0.1); border-color: rgba(245, 165, 36, 0.28); color: var(--akzent);
     }
     .ph-chips button:hover { background: rgba(245, 165, 36, 0.18); border-color: var(--akzent); }
 
     .vorschau-betreff {
-      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: 10px;
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
       padding: 9px 12px; margin-bottom: 10px; font-size: 13.5px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
@@ -464,12 +464,12 @@
     /* Der Rahmen trägt die Farbe der Mail, damit während des Ladens nicht kurz
        eine weiße Fläche steht. */
     .vorschau-rahmen {
-      background: #06090E; border: 1px solid var(--rand); border-radius: 12px; overflow: hidden;
+      background: #06090E; border: 1px solid var(--rand); border-radius: var(--radius-lg); overflow: hidden;
       height: min(52vh, 480px);
     }
     .vorschau-rahmen iframe { display: block; width: 100%; height: 100%; border: 0; }
     .mail-probleme {
-      margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+      margin-top: 12px; padding: 10px 14px; border-radius: var(--radius-md);
       background: rgba(229, 72, 77, 0.1); color: #ffb4b6; font-size: 12.5px;
     }
     /* Klebt am unteren Rand des scrollenden Dialogs: „Speichern" darf nie
@@ -506,7 +506,7 @@
       position: fixed; left: 50%; top: calc(var(--topbar-h) + 14px); transform: translate(-50%, -8px);
       z-index: 60; display: flex; align-items: center; gap: 10px;
       max-width: min(560px, calc(100vw - 32px));
-      padding: 10px 16px 11px; border-radius: 12px;
+      padding: 10px 16px 11px; border-radius: var(--radius-lg);
       font-size: 13px; line-height: 1.45; color: var(--text);
       background: linear-gradient(165deg, rgba(26, 34, 45, 0.95), rgba(9, 12, 17, 0.96));
       border: 1px solid var(--rand-hell);
@@ -536,7 +536,7 @@
       /* Vier Segmente passen nicht in 375 px. Umbrechen statt seitwärts
          scrollen: Ein waagerecht schiebbares Pillen-Band versteckt die letzte
          Möglichkeit hinter einer Geste, die niemand vermutet. */
-      .filter { flex-wrap: wrap; border-radius: 14px; max-width: 100%; }
+      .filter { flex-wrap: wrap; border-radius: var(--radius-karte); max-width: 100%; }
       .zeile { row-gap: 10px; padding: 14px 16px; }
       .zeile-konto { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .zeile-einladung, .zeile-warteliste { grid-template-columns: minmax(0, 1fr) auto; }

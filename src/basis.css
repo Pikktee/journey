@@ -89,11 +89,15 @@
 
   /* ─── Form ───
      Ein Wert je Rolle, damit die Frage nicht bei jeder neuen Seite neu
-     beantwortet wird: Chips und Knöpfe md, Karten und Dialoge lg/xl,
-     CTAs full. Der Bestand trug dafür 9, 10 und 8 px nebeneinander. */
+     beantwortet wird: Chips, Knöpfe und Felder md; Menüs lg; Karten und
+     Tafeln karte; Dialoge xl; CTAs full. Der Bestand trug daneben 8, 10, 13
+     und 15 px — jede Seite mit ihrer eigenen Antwort auf dieselbe Frage.
+     Detailmaße ohne Marken-Rolle (Scrollbalken, Wellenform-Ecken,
+     Fortschrittsbalken, Avatare) bleiben rohe Werte; sie sind Geometrie. */
   --radius-sm: 7px;
   --radius-md: 9px;
   --radius-lg: 12px;
+  --radius-karte: 14px;
   --radius-xl: 16px;
   --radius-full: 999px;
 

@@ -74,6 +74,10 @@ rounded:
   sm: 7px
   md: 9px
   lg: 12px
+  # Karten und Tafeln. Zwischen lg und xl, weil eine Tourkarte breiter ist als
+  # ein Dialog — 12 px wirken daran spitz, 16 px weich. Der Wert war im Code
+  # längst der häufigste; er stand nur nirgends geschrieben.
+  card: 14px
   xl: 16px
   full: 999px
 elevation:
@@ -213,10 +217,17 @@ Primär-CTAs dürfen einen warmen Amber-Glow tragen. Player: dezentes Grain + Vi
 
 ## Shapes
 
-- CTAs: Pill (`border-radius: 999px`).
-- Nav-Pills / kleine Chips: ≈ 9px.
-- Karten, Dialoge, Menüs: ≈ 12–16px.
+- CTAs: Pill (`border-radius: 999px` → `--radius-full`).
+- Nav-Pills / kleine Chips / Knöpfe und Felder im Werkzeug: 9px → `--radius-md`.
+- Menüs und Dialogfelder: 12px → `--radius-lg`. Karten und Tafeln: 14px →
+  `--radius-karte`. Dialoge: 16px → `--radius-xl`.
 - Fokus: 2px Amber-Outline mit Offset.
+
+**Fünf Stufen, sonst keine.** Der Bestand trug 8, 10, 13 und 15 daneben — pro
+Seite eine eigene Antwort auf dieselbe Frage. Wer einen sechsten Wert braucht,
+ändert die Skala hier, nicht die eine Regel. Ausgenommen sind Detailmaße, die
+keine Marken-Rolle haben: Scrollbalken, Wellenform-Ecken, Fortschrittsbalken,
+Avatare (`50%`).
 
 ## Components
 

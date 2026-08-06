@@ -149,18 +149,18 @@
     .nav-middle { display: flex; align-items: center; gap: 6px; font-family: var(--font-ui); }
     .nav-middle a {
       text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
-      padding: 8px 14px; border-radius: 9px; transition: color 0.2s, background 0.2s;
+      padding: 8px 14px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
     }
     .nav-middle a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
     .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); }
     .nav-right a {
       text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
-      padding: 8px 14px; border-radius: 9px; transition: color 0.2s, background 0.2s;
+      padding: 8px 14px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
     }
     .nav-right a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
     .nav-right a.nav-cta {
       color: #1a1206; font-weight: 600; background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
-      padding: 8px 18px; border-radius: 999px;
+      padding: 8px 18px; border-radius: var(--radius-full);
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
     .nav-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.15); margin: 0 4px; }
@@ -176,7 +176,7 @@
       color: rgba(242, 237, 227, 0.72);
       background: rgba(255, 255, 255, 0.045);
       border: 1px solid var(--linie);
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       padding: 6px 12px 6px 7px;
       cursor: pointer;
     }
@@ -192,7 +192,7 @@
     .benutzer-chip img.punkt { object-fit: cover; display: block; }
     .konto-menue {
       position: absolute; right: 0; top: calc(100% + 8px); z-index: 80;
-      width: 250px; padding: 14px; border-radius: 12px;
+      width: 250px; padding: 14px; border-radius: var(--radius-lg);
       background: #151c26; border: 1px solid rgba(255, 255, 255, 0.1);
       box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
       display: flex; flex-direction: column; gap: 10px;
@@ -218,7 +218,7 @@
       width: 100%; justify-content: flex-start;
       font-family: var(--font-ui); font-size: 13px; font-weight: 500;
       color: var(--text); text-decoration: none; background: transparent; border: 1px solid transparent;
-      border-radius: 8px; padding: 8px 10px; cursor: pointer;
+      border-radius: var(--radius-md); padding: 8px 10px; cursor: pointer;
     }
     .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; color: var(--text); }
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
@@ -235,7 +235,7 @@
     /* ─── Buttons ────────────────────────────────────────────────── */
     .btn {
       display: inline-flex; align-items: center; gap: 9px;
-      padding: 13px 24px; border-radius: 12px; text-decoration: none;
+      padding: 13px 24px; border-radius: var(--radius-lg); text-decoration: none;
       font-size: 15px; font-weight: 600; cursor: pointer; border: 1px solid transparent;
       transition: transform 0.18s ease, filter 0.18s ease, background 0.18s ease, border-color 0.18s ease;
     }
@@ -379,12 +379,12 @@
     .tour-card::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgba(6, 9, 14, 0.94) 6%, rgba(6, 9, 14, 0.5) 40%, rgba(6, 9, 14, 0.08) 74%, rgba(6, 9, 14, 0.28) 100%); }
     .tour-card:hover { transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.26); box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.9); }
     .tour-card:hover .tc-img { transform: scale(1.06); }
-    .no-chip { position: absolute; top: 18px; left: 18px; z-index: 2; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--text); background: rgba(6, 9, 14, 0.55); border: 1px solid rgba(255, 255, 255, 0.24); padding: 5px 11px; border-radius: 999px; backdrop-filter: blur(6px); }
+    .no-chip { position: absolute; top: 18px; left: 18px; z-index: 2; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: var(--text); background: rgba(6, 9, 14, 0.55); border: 1px solid rgba(255, 255, 255, 0.24); padding: 5px 11px; border-radius: var(--radius-full); backdrop-filter: blur(6px); }
     .tc-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: clamp(18px, 4.6vw, 22px); }
     .tour-card h3 { font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1.1; margin: 0; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6); text-wrap: balance; }
     .card-sub { color: rgba(242, 237, 227, 0.86); font-size: 14.5px; margin: 8px 0 14px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6); }
     .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 15px; }
-    .chip { font-family: var(--font-ui); font-size: 12px; font-weight: 500; color: rgba(242, 237, 227, 0.9); background: rgba(10, 13, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.16); padding: 4px 10px; border-radius: 7px; backdrop-filter: blur(4px); }
+    .chip { font-family: var(--font-ui); font-size: 12px; font-weight: 500; color: rgba(242, 237, 227, 0.9); background: rgba(10, 13, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.16); padding: 4px 10px; border-radius: var(--radius-sm); backdrop-filter: blur(4px); }
     .card-go { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--akzent); }
     .card-go .arr { transition: transform 0.2s ease; }
     .tour-card:hover .card-go .arr { transform: translateX(4px); }
@@ -394,7 +394,7 @@
       position: absolute; top: 16px; right: 16px; z-index: 2;
       width: 60px; height: 48px; padding: 5px; pointer-events: none;
       background: rgba(6, 9, 14, 0.42); backdrop-filter: blur(6px);
-      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius-md);
       transition: width 280ms cubic-bezier(0.2, 0.7, 0.2, 1), height 280ms cubic-bezier(0.2, 0.7, 0.2, 1), background 280ms ease;
     }
     .tour-card:hover .tc-spur { width: 74px; height: 58px; background: rgba(6, 9, 14, 0.56); }
@@ -444,7 +444,7 @@
        nicht als harte Linien anschlagen. */
     .step-buehne {
       position: relative; aspect-ratio: 300 / 140; margin-bottom: clamp(18px, 4vw, 22px);
-      border-radius: 13px; overflow: hidden; border: 1px solid var(--linie);
+      border-radius: var(--radius-karte); overflow: hidden; border: 1px solid var(--linie);
       /* DUNKLER als die Karte: die Szene liegt wie ein eingelassenes Fenster darin.
          Mit demselben hellen Verlauf wie die Karte verschwamm sie mit ihr. */
       background:
@@ -542,7 +542,7 @@
     .andi-mark { width: 54px; height: 54px; flex: none; filter: drop-shadow(0 12px 26px rgba(61, 220, 132, 0.4)); }
     .playstore-soon {
       display: inline-flex; align-items: center; gap: 11px;
-      padding: 8px 15px 8px 13px; border-radius: 13px;
+      padding: 8px 15px 8px 13px; border-radius: var(--radius-karte);
       border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.045);
     }
     .playstore-soon .ps-icon { width: 21px; height: 21px; flex: none; }
@@ -598,7 +598,7 @@
       display: grid; place-items: center; transition: width 0.25s;
     }
     .shot-dot::before {
-      content: ''; width: 7px; height: 7px; border-radius: 999px;
+      content: ''; width: 7px; height: 7px; border-radius: var(--radius-full);
       background: rgba(242, 237, 227, 0.24); transition: background 0.25s, width 0.25s;
     }
     .shot-dot:hover::before { background: rgba(242, 237, 227, 0.45); }

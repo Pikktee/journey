@@ -79,7 +79,7 @@
 
     .gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; padding: 22px 0 8px; }
 
-    .karte { border: 1px solid var(--linie); border-radius: 14px; overflow: hidden; background: var(--tafel); transition: transform 0.18s ease, border-color 0.18s ease; }
+    .karte { border: 1px solid var(--linie); border-radius: var(--radius-karte); overflow: hidden; background: var(--tafel); transition: transform 0.18s ease, border-color 0.18s ease; }
     .karte:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.2); }
     .karte:focus-within { border-color: rgba(255, 255, 255, 0.2); }
     .karte-haupt { display: block; text-decoration: none; color: inherit; }
@@ -94,7 +94,7 @@
     .karte-autor img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
 
     .mehr-zeile { display: flex; justify-content: center; padding: 26px 0 70px; }
-    button#mehr { font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text); background: transparent; border: 1px solid var(--linie); border-radius: 999px; padding: 11px 26px; cursor: pointer; }
+    button#mehr { font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text); background: transparent; border: 1px solid var(--linie); border-radius: var(--radius-full); padding: 11px 26px; cursor: pointer; }
     button#mehr:hover { border-color: rgba(255, 255, 255, 0.28); }
     button#mehr:disabled { opacity: 0.5; cursor: default; }
 
