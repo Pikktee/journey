@@ -24,7 +24,7 @@
  *    nicht in der robots.txt gesperrt: Ein Disallow nähme dem `noindex` die
  *    Lesbarkeit und der Karte das Bild.
  */
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import { HANDLE_REGELN } from '../handle.js'
 import { titelbildUrl } from '../profilfelder.js'
 import { type Metablock, alsBeschreibung, setzeMeta } from '../seiten.js'
@@ -33,6 +33,12 @@ import { standardTitelbild } from '../titelbilder.js'
 /** Der Kopf, den jede Seite bekommt, über die nichts gesagt werden darf. */
 const VERSCHWIEGEN: Metablock = {
   titel: 'Profil · Maptale',
+  robots: 'noindex',
+}
+
+/** Dasselbe für den Player — der Titel, der ohne Tour im Build steht. */
+const VERSCHWIEGEN_TOUR: Metablock = {
+  titel: 'Maptale — 3D-Reiseflug',
   robots: 'noindex',
 }
 
@@ -100,6 +106,91 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
   })
 
   /**
+   * `/tour/t_9fK4mHx2QbVnRs` — der Player mit dem Kopf DIESER Tour.
+   *
+   * Derselbe Schritt wie beim Profil, mit einer eigenen Sichtbarkeitsregel:
+   *
+   * - `public` → `index`. Eine Tour öffentlich zu stellen heißt, sie in die
+   *   Galerie zu hängen; sie dort zu finden, aber nicht über eine Suche, wäre
+   *   eine Unterscheidung ohne Unterschied. (Beim PROFIL ist das anders — dort
+   *   hängt ein Name an der Adresse, deshalb der eigene Schalter.)
+   * - `unlisted` → `noindex`, aber MIT Vorschaukarte. Genau dafür gibt es die
+   *   Stufe: „jeder mit dem Link, sonst niemand". Ein ungelisteter Link, der
+   *   über die Karte in den Index rutschte, wäre der Bruch, den sie verhindern
+   *   soll.
+   * - `private` → verschwiegener Kopf. Für den Besitzer mit 200 (er soll seine
+   *   Tour ansehen können), für alle anderen mit 404 — dieselbe Linie wie in
+   *   der API, wo private Touren von nicht existierenden ununterscheidbar sind.
+   *
+   * Die mitgelieferten Touren (`/tour/kohphangan`) kennt der Server nicht; sie
+   * bekommen den Kopf, der im gebauten `erlebnis.html` steht. Sie hier
+   * nachzubilden hieße, `src/tours.js` ein zweites Mal zu führen — für drei
+   * Demo-Fahrten, die von der Landing verlinkt sind und deren Inhalt dort
+   * steht.
+   */
+  app.get<{ Params: { kennung: string } }>('/tour/:kennung', async (request, reply) => {
+    const html = await app.seiten.seite('erlebnis.html').catch((fehler) => {
+      app.log.error({ fehler }, 'erlebnis.html nicht abrufbar')
+      return null
+    })
+    if (html === null) return reply.code(502).send('Seite gerade nicht verfügbar')
+    reply.type('text/html; charset=utf-8')
+    reply.header('cache-control', 'no-cache')
+
+    const kennung = decodeURIComponent(request.params.kennung)
+    // Nur Server-Kennungen; alles andere ist eine mitgelieferte Tour und
+    // behält den Kopf aus dem Build (der ein `noindex` trägt).
+    if (!/^t_[A-Za-z0-9_-]+$/.test(kennung)) return reply.send(html)
+
+    const tour = db
+      .prepare(
+        `SELECT t.id, t.title, t.description, t.visibility, t.status, t.cover, t.owner_id, t.stats_json
+         FROM tours t WHERE t.id = ?`,
+      )
+      .get(kennung) as
+      | {
+          id: string
+          title: string | null
+          description: string | null
+          visibility: string
+          status: string
+          cover: string | null
+          owner_id: string
+          stats_json: string | null
+        }
+      | undefined
+
+    const istBesitzer = !!request.benutzer && tour?.owner_id === request.benutzer.id
+    if (!tour || (tour.visibility === 'private' && !istBesitzer)) {
+      return reply.code(404).send(setzeMeta(html, VERSCHWIEGEN_TOUR))
+    }
+    if (tour.visibility === 'private') return reply.send(setzeMeta(html, VERSCHWIEGEN_TOUR))
+
+    const titel = tour.title?.trim() || 'Eine Reise'
+    const km = ((): number | null => {
+      const wert = tour.stats_json ? (JSON.parse(tour.stats_json) as { km?: number }).km : null
+      return typeof wert === 'number' && wert >= 0.1 ? wert : null
+    })()
+    return reply.send(
+      setzeMeta(html, {
+        titel: `${titel} · Maptale`,
+        // Nur `public` in den Index — `unlisted` behält die Karte und bleibt
+        // aus der Suche. Ein `bereit`-Status gehört dazu: Eine Tour in der
+        // Verarbeitung hat noch keinen Inhalt, den man indexieren könnte.
+        robots: tour.visibility === 'public' && tour.status === 'bereit' ? 'index' : 'noindex',
+        beschreibung:
+          alsBeschreibung(tour.description) ??
+          `${titel}${km === null ? '' : ` · ${km.toFixed(1).replace('.', ',')} km`} — als 3D-Kamerafahrt über die echte Strecke.`,
+        url: `${basis}/tour/${tour.id}`,
+        // Die Anzeigefassung (w1920), nicht die Kachel: Die Karte im Chat wird
+        // breit dargestellt, ein 480er Vorschaubild sähe dort matschig aus.
+        bild: absolut(tour.cover) ?? `${basis}/og/maptale.jpg`,
+        bildAlt: `Titelbild der Tour ${titel}`,
+      }),
+    )
+  })
+
+  /**
    * Die Sitemap der Profile — getrennt von der statischen `sitemap.xml`.
    *
    * Zwei Dateien statt einer, weil sie verschiedener Herkunft sind: Die eine
@@ -119,12 +210,39 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
          ORDER BY handle`,
       )
       .all() as Array<{ handle: string }>
-    reply.type('application/xml; charset=utf-8')
-    reply.header('cache-control', 'public, max-age=3600')
-    return reply.send(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${zeilen
-        .map((z) => `  <url><loc>${basis}/@${z.handle}</loc></url>`)
-        .join('\n')}\n</urlset>\n`,
+    return sendeSitemap(
+      reply,
+      zeilen.map((z) => `${basis}/@${z.handle}`),
     )
   })
+
+  /**
+   * Die Sitemap der Touren — dieselbe Regel wie im Kopf: nur `public`.
+   *
+   * Eigene Datei neben der Profil-Sitemap, weil beide getrennt zu sehen sind,
+   * was sich lohnt, sobald man in der Search Console nachschaut, welche Gruppe
+   * tatsächlich aufgenommen wurde.
+   */
+  app.get('/sitemap-touren.xml', async (_request, reply) => {
+    const zeilen = db
+      .prepare(`SELECT id FROM tours WHERE visibility = 'public' AND status = 'bereit' ORDER BY created_at DESC`)
+      .all() as Array<{ id: string }>
+    return sendeSitemap(
+      reply,
+      zeilen.map((z) => `${basis}/tour/${z.id}`),
+    )
+  })
+}
+
+/** Eine Sitemap aus fertigen Adressen — beide Routen schreiben dasselbe XML. */
+function sendeSitemap(reply: FastifyReply, adressen: string[]): FastifyReply {
+  reply.type('application/xml; charset=utf-8')
+  // Eine Stunde: Die Liste ändert sich, wenn jemand einen Schalter umlegt oder
+  // eine Tour veröffentlicht — beides eilt nicht, aber täglich wäre zu träge.
+  reply.header('cache-control', 'public, max-age=3600')
+  return reply.send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${adressen
+      .map((a) => `  <url><loc>${a}</loc></url>`)
+      .join('\n')}\n</urlset>\n`,
+  )
 }

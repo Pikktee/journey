@@ -44,3 +44,4 @@ Sitemap: https://maptale.io/sitemap.xml
 # jemand den Schalter umlegt. Mehrere Sitemap-Zeilen sind vorgesehen — billiger
 # als eine Index-Datei mit zwei Einträgen.
 Sitemap: https://maptale.io/sitemap-profile.xml
+Sitemap: https://maptale.io/sitemap-touren.xml

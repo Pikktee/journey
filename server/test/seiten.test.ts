@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { SeitenQuelle, alsBeschreibung, baueMeta, setzeMeta } from '../src/seiten.js'
 import { TITELBILD_DATEIEN, standardTitelbild } from '../src/titelbilder.js'
-import { TEST_PROFIL_HTML, baueTestApp } from './helfer.js'
+import { TEST_PROFIL_HTML, baueTestApp, beispielManifest } from './helfer.js'
 
 const wurzel = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -177,6 +177,112 @@ describe('GET /@handle', () => {
     const u = await baueTestApp()
     const a = await u.app.inject({ method: 'GET', url: '/@' + encodeURIComponent('../../etc') })
     expect(a.statusCode).toBe(404)
+  })
+})
+
+describe('GET /tour/<kennung>', () => {
+  /** Tour anlegen und in einen Zustand bringen, den die Seite beschreiben kann. */
+  async function legeTourAn(
+    u: Awaited<ReturnType<typeof baueTestApp>>,
+    opts: { sicht?: 'private' | 'unlisted' | 'public'; titel?: string; text?: string } = {},
+  ): Promise<string> {
+    const a = await u.app.inject({
+      method: 'POST',
+      url: '/api/tours',
+      cookies: u.cookies,
+      // Eigene clientTourId je Tour: Der Server dedupliziert darüber, sonst
+      // wäre die zweite Tour dieselbe wie die erste.
+      payload: { ...beispielManifest(), clientTourId: `ct-${opts.titel ?? 'a'}-${opts.sicht ?? 'p'}` },
+    })
+    const id = (a.json() as { id: string }).id
+    u.app.deps.db
+      .prepare(`UPDATE tours SET visibility = ?, status = 'bereit', title = ?, description = ?, cover = ? WHERE id = ?`)
+      .run(opts.sicht ?? 'public', opts.titel ?? 'Runde bei Lauterbrunnen', opts.text ?? null, `/api/media/${id}/m1.w1920.jpg`, id)
+    return id
+  }
+
+  it('setzt Titel, Beschreibung und Titelbild einer öffentlichen Tour', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u, { titel: 'Über den Pass', text: 'Sechs Stunden bergauf.' })
+    const a = await u.app.inject({ method: 'GET', url: `/tour/${id}` })
+    expect(a.statusCode).toBe(200)
+    expect(a.body).toContain('<title>Über den Pass · Maptale</title>')
+    expect(a.body).toContain('content="Sechs Stunden bergauf."')
+    expect(a.body).toContain('content="index"')
+    expect(a.body).toContain(`og:url" content="http://localhost:5173/tour/${id}"`)
+    // Die Anzeigefassung, nicht die 480er Kachel — die Karte wird breit gezeigt.
+    expect(a.body).toContain(`og:image" content="http://localhost:5173/api/media/${id}/m1.w1920.jpg"`)
+  })
+
+  it('hält eine ungelistete Tour aus dem Index, gibt ihr aber eine Karte', async () => {
+    // Der Kern der Stufe: „jeder mit dem Link, sonst niemand". Ein Suchtreffer
+    // bräche das, eine Vorschaukarte im Chat ist genau ihr Zweck.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u, { sicht: 'unlisted', titel: 'Nur für Freunde' })
+    const a = await u.app.inject({ method: 'GET', url: `/tour/${id}` })
+    expect(a.body).toContain('content="noindex"')
+    expect(a.body).toContain('<title>Nur für Freunde · Maptale</title>')
+    expect(a.body).toContain('name="twitter:card"')
+  })
+
+  it('verrät eine private Tour nicht — außer ihrem Besitzer', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u, { sicht: 'private', titel: 'Geheime Runde' })
+    const fremd = await u.app.inject({ method: 'GET', url: `/tour/${id}` })
+    expect(fremd.statusCode).toBe(404)
+    expect(fremd.body).not.toContain('Geheime Runde')
+    // Der Besitzer bekommt die Seite (er soll seine Tour ansehen können) —
+    // aber auch er braucht im Kopf keinen Titel, den niemand sehen darf.
+    const eigen = await u.app.inject({ method: 'GET', url: `/tour/${id}`, cookies: u.cookies })
+    expect(eigen.statusCode).toBe(200)
+    expect(eigen.body).toContain('content="noindex"')
+    expect(eigen.body).not.toContain('Geheime Runde')
+  })
+
+  it('reicht die mitgelieferten Touren unverändert durch', async () => {
+    // `/tour/kohphangan` steht in src/tours.js, nicht in der Datenbank. Die
+    // Liste hier ein zweites Mal zu führen, wäre die nächste Kopie.
+    const u = await baueTestApp()
+    const a = await u.app.inject({ method: 'GET', url: '/tour/kohphangan' })
+    expect(a.statusCode).toBe(200)
+    expect(a.body).toContain('content="noindex"')
+  })
+
+  it('antwortet auf eine unbekannte Kennung mit 404', async () => {
+    const u = await baueTestApp()
+    expect((await u.app.inject({ method: 'GET', url: '/tour/t_gibtsnicht' })).statusCode).toBe(404)
+  })
+
+  it('lässt eine Tour in Verarbeitung nicht in den Index', async () => {
+    // Sie hat noch keinen Inhalt, den man indexieren könnte.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    u.app.deps.db.prepare(`UPDATE tours SET status = 'verarbeitung' WHERE id = ?`).run(id)
+    expect((await u.app.inject({ method: 'GET', url: `/tour/${id}` })).body).toContain('content="noindex"')
+  })
+})
+
+describe('GET /sitemap-touren.xml', () => {
+  it('listet nur öffentliche, fertige Touren', async () => {
+    const u = await baueTestApp()
+    const anlegen = async (sicht: string, status: string): Promise<string> => {
+      const a = await u.app.inject({
+        method: 'POST',
+        url: '/api/tours',
+        cookies: u.cookies,
+        payload: { ...beispielManifest(), clientTourId: `ct-${sicht}-${status}` },
+      })
+      const id = (a.json() as { id: string }).id
+      u.app.deps.db.prepare('UPDATE tours SET visibility = ?, status = ? WHERE id = ?').run(sicht, status, id)
+      return id
+    }
+    const oeffentlich = await anlegen('public', 'bereit')
+    const ungelistet = await anlegen('unlisted', 'bereit')
+    const roh = await anlegen('public', 'verarbeitung')
+    const a = await u.app.inject({ method: 'GET', url: '/sitemap-touren.xml' })
+    expect(a.body).toContain(`<loc>http://localhost:5173/tour/${oeffentlich}</loc>`)
+    expect(a.body).not.toContain(ungelistet)
+    expect(a.body).not.toContain(roh)
   })
 })
 

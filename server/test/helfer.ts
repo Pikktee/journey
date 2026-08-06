@@ -27,6 +27,12 @@ import type { UploadManifest } from '../src/schema/upload.js'
 export const TEST_PROFIL_HTML =
   '<!doctype html><html><head>\n  <!-- maptale:meta -->\n  <title>Profil · Maptale</title>\n  <meta name="robots" content="noindex" />\n  <!-- /maptale:meta -->\n  <link rel="stylesheet" href="/assets/profil-abc123.css" />\n</head><body>Profil</body></html>'
 
+/** Dasselbe für den Player — der Kopf, den die mitgelieferten Touren behalten. */
+export const TEST_PLAYER_HTML = TEST_PROFIL_HTML.replace(
+  '<title>Profil · Maptale</title>',
+  '<title>Maptale — 3D-Reiseflug</title>',
+).replace('profil-abc123.css', 'erlebnis-def456.css')
+
 export const TEST_KONFIG: Konfig = {
   port: 0,
   datenDir: '/nirgendwo',
@@ -111,7 +117,9 @@ export async function baueTestApp(
     schienen,
     mail,
     // Ohne Netz: Der Server holt die gebaute Seite sonst über konfig.webUrl.
-    seiten: new SeitenQuelle({ webUrl: 'https://maptale.test' }, async () => TEST_PROFIL_HTML),
+    seiten: new SeitenQuelle({ webUrl: 'https://maptale.test' }, async (url) =>
+      url.endsWith('erlebnis.html') ? TEST_PLAYER_HTML : TEST_PROFIL_HTML,
+    ),
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')
 

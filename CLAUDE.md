@@ -164,9 +164,10 @@ erscheinen" (`users.suchmaschinen`, Standard aus); **ein privates oder unbekannt
 verrät im Kopf nichts** (generischer Titel statt Name plus `noindex` — der Meta-Kopf steht im
 Quelltext für jeden lesbar, `noindex` verbirgt ihn nur vor Suchmaschinen); und **die
 Vorschaukarte gibt es auch ohne Index**, weil die Messenger-Bots `robots` ignorieren. Genau
-deshalb ist `/@` NICHT in der robots.txt gesperrt. Die Sitemap der indexierbaren Profile
-kommt aus der Datenbank (`/sitemap-profile.xml`, eigener `location`-Block); die statische
-`sitemap.xml` daneben bleibt für die gebauten Seiten. Fällt die API aus, ist die Profilseite
+deshalb ist `/@` NICHT in der robots.txt gesperrt. Die Sitemaps der indexierbaren Profile
+und der öffentlichen Touren kommen aus der Datenbank (`/sitemap-profile.xml`,
+`/sitemap-touren.xml`, ein `location`-Block für beide); die statische `sitemap.xml` daneben
+bleibt für die gebauten Seiten, und die robots.txt nennt alle drei. Fällt die API aus, ist die Profilseite
 weg — der Preis dafür, dass sie überhaupt etwas über sich sagen kann.
 
 **Der zweite ist `/tour/<kennung>`** — die Adresse einer Tour (`tourPfad`/`tourAusPfad` in
@@ -181,7 +182,14 @@ ohnehin nur pro Besitzer eindeutig. **Kein `srv:` im Pfad**: Server-IDs tragen i
 — daran, und nur daran, unterscheidet der Player sie von den mitgelieferten `TOURS` (ein
 Wächter verbietet deshalb `t_`-Schlüssel in [src/tours.js](src/tours.js)). `?tour=…` bleibt
 bedienbar und wird beim Start per `replaceState` umgeschrieben; das `^~` im Vhost ist Pflicht,
-weil CloudPanels Endungs-Regex sonst jede Kennung abfinge, die auf `.jpg` endet.
+weil CloudPanels Endungs-Regex sonst jede Kennung abfinge, die auf `.jpg` endet. **Auch diese
+Adresse beantwortet der Server** (dieselbe Mechanik wie `/@`, Marker in
+[erlebnis.html](erlebnis.html)): Titel, Beschreibung und Titelbild der Tour, `index` nur für
+`public` — `unlisted` behält `noindex` und bekommt trotzdem seine Vorschaukarte, denn genau
+das verspricht die Stufe. Eine private Tour zeigt im Kopf nichts, auch ihrem Besitzer nicht;
+für Fremde antwortet sie 404, wie in der API. Die mitgelieferten Touren (`/tour/kohphangan`)
+reicht der Server unverändert durch — `src/tours.js` ein zweites Mal zu führen wäre die
+nächste Kopie, die auseinanderläuft.
 
 Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.js](src/main.js),
 der die Module verdrahtet. Der zentrale Datenfluss:

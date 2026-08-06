@@ -311,8 +311,24 @@ Fünf Entscheidungen, die beim Umsetzen dazukamen:
   Profilseite sofort tot — während ein zu früher `rewrite`-Block in Etappe 1 nur eine leere
   Seite zeigte.
 
-Bewusst NICHT mitgebaut: dieselbe Behandlung für `/tour/<kennung>` (unten beschrieben). Die
-Mechanik trägt sie — es fehlt nur die Route.
+**Nachgezogen (gleicher Tag): `/tour/<kennung>` auf demselben Weg.** Marker in
+[erlebnis.html](../../erlebnis.html), Route und `/sitemap-touren.xml` in derselben Datei,
+Vhost-Block ebenfalls auf `proxy_pass`. Die Sichtbarkeitsregel ist hier eine andere als beim
+Profil, und das ist Absicht:
+
+| | in der Galerie | Vorschaukarte | in Suchmaschinen |
+| --- | --- | --- | --- |
+| Tour `public` | ja | ja | **ja** |
+| Tour `unlisted` | nein | ja | nein |
+| Tour `private` | nein | nein | nein |
+| Profil `public` | — | ja | nur mit Schalter |
+
+Eine Tour öffentlich zu stellen heißt, sie in die Galerie zu hängen; sie dort zu finden, aber
+nicht über eine Suche, wäre eine Unterscheidung ohne Unterschied. Beim Profil hängt dagegen
+ein NAME an der Adresse — deshalb dort der eigene Schalter. Eine private Tour zeigt im Kopf
+auch ihrem Besitzer nichts (er bekommt die Seite mit 200, Fremde 404 wie in der API), und die
+mitgelieferten Touren reicht der Server unverändert durch: `src/tours.js` ein zweites Mal zu
+führen wäre die nächste Kopie.
 
 ### Ursprünglicher Plan
 

@@ -180,14 +180,6 @@ describe('routen', () => {
       expect(block).toContain('include /etc/nginx/global_settings;')
     })
 
-    it('leitet /tour/<kennung> auf den Player — und schlägt die Endungs-Regex', () => {
-      // Ohne diesen Block landet jeder geteilte Tour-Link auf der 404-Seite.
-      // `^~` ist nicht Kosmetik: In CloudPanels Gerüst steht eine
-      // Regex-Location auf Datei-Endungen, und Regex schlägt jede gewöhnliche
-      // Prefix-Location.
-      expect(vhost).toMatch(/location\s+\^~\s+\/tour\/\s*\{[^}]*erlebnis\.html/)
-    })
-
     it('reicht /@henrik an die API durch, statt profil.html auszuliefern', () => {
       // Seit Etappe 6 beantwortet die API die Seite selbst — nur sie weiß, ob
       // dieses Profil in den Index darf. Stünde hier wieder ein `rewrite`,
@@ -199,8 +191,19 @@ describe('routen', () => {
       expect(block).toContain('include /etc/nginx/global_settings;')
     })
 
-    it('reicht die Profil-Sitemap an die API durch', () => {
-      expect(vhost).toMatch(/location = \/sitemap-profile\.xml \{[\s\S]*?proxy_pass/)
+    it('reicht die dynamischen Sitemaps an die API durch', () => {
+      expect(vhost).toMatch(/location ~ \^\/sitemap-\(profile\|touren\)\\\.xml\$ \{[\s\S]*?proxy_pass/)
+    })
+
+    it('reicht /tour/ an die API durch, statt erlebnis.html auszuliefern', () => {
+      // Wie bei /@: Nur die API weiß, ob DIESE Tour in den Index darf.
+      // `^~` bleibt Pflicht — in CloudPanels Gerüst steht eine Regex-Location
+      // auf Datei-Endungen, und Regex schlägt jede gewöhnliche Prefix-Location:
+      // eine Kennung, die auf `.jpg` endet, käme sonst nie hier an.
+      const block = vhost.match(/location \^~ \/tour\/ \{[\s\S]*?\n\}/)?.[0] ?? ''
+      expect(block).toContain('proxy_pass http://127.0.0.1:8790;')
+      expect(block).not.toContain('erlebnis.html')
+      expect(block).toContain('include /etc/nginx/global_settings;')
     })
 
     it('bedient jeden Pfad — über die gleichnamige Datei oder einen eigenen Block', () => {
@@ -274,18 +277,30 @@ describe('routen', () => {
       // Die zweite kommt aus der Datenbank (server/src/routes/seiten.ts) und
       // liegt deshalb NICHT im Build — der Vhost reicht sie an die API durch.
       expect(robots).toContain(`Sitemap: ${BASIS}/sitemap-profile.xml`)
-      expect(lies('deploy/cloudpanel-nginx.conf')).toContain('location = /sitemap-profile.xml')
+      expect(robots).toContain(`Sitemap: ${BASIS}/sitemap-touren.xml`)
+      // Beide gehen an die API — ohne den Block antwortet Nginx mit 404 und
+      // die Sitemap-Zeile in der robots.txt zeigt ins Leere.
+      expect(lies('deploy/cloudpanel-nginx.conf')).toMatch(/location ~ \^\/sitemap-\(profile\|touren\)/)
     })
 
-    it('hält den Meta-Block der Profilseite ersetzbar', () => {
-      // Die Marker sind der Vertrag zwischen profil.html und dem Server
+    it('hält die Meta-Blöcke ersetzbar — und den Titel darin', () => {
+      // Die Marker sind der Vertrag zwischen den Seiten und dem Server
       // (server/src/seiten.ts). Verschwinden sie beim Aufräumen, reicht der
-      // Server die Seite stumm unverändert durch: jedes Profil wieder mit
-      // demselben Kopf und festem noindex — und niemand merkt es.
-      const html = lies('profil.html')
-      expect(html).toContain('<!-- maptale:meta -->')
-      expect(html).toContain('<!-- /maptale:meta -->')
-      expect(html.indexOf('<!-- maptale:meta -->')).toBeLessThan(html.indexOf('<!-- /maptale:meta -->'))
+      // Server die Seite stumm unverändert durch: jedes Profil und jede Tour
+      // wieder mit demselben Kopf und festem noindex — und niemand merkt es.
+      for (const datei of ['profil.html', 'erlebnis.html'] as const) {
+        const html = lies(datei)
+        const auf = html.indexOf('<!-- maptale:meta -->')
+        const zu = html.indexOf('<!-- /maptale:meta -->')
+        expect(auf, datei).toBeGreaterThan(-1)
+        expect(zu, datei).toBeGreaterThan(auf)
+        // Der Titel MUSS im Block liegen: Der Server schreibt einen eigenen
+        // hinein — stünde daneben noch einer, hätte die Seite zwei.
+        const titel = html.indexOf('<title>')
+        expect(titel, `${datei}: <title> gehört zwischen die Marker`).toBeGreaterThan(auf)
+        expect(titel, `${datei}: <title> gehört zwischen die Marker`).toBeLessThan(zu)
+        expect(html.split('<title>').length - 1, `${datei}: genau ein <title>`).toBe(1)
+      }
       // Der Server-seitige Vertrag: dieselben Zeichenketten dort.
       const quelle = lies('server/src/seiten.ts')
       expect(quelle).toContain("MARKE_AUF = '<!-- maptale:meta -->'")

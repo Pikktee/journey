@@ -4,30 +4,30 @@
   <meta charset="utf-8" />
   <script defer src="https://analytics.maptale.io/script.js" data-website-id="9f8e7d6c-5b4a-3f2e-1d0c-9b8a7f6e5d4c"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <!-- Alles zwischen diesen beiden Markern ersetzt der SERVER, wenn die Seite
+       über `/tour/<kennung>` kommt (server/src/routes/seiten.ts): Titel,
+       robots, Beschreibung und Vorschaubild DIESER Tour. `public` bekommt
+       `index`, `unlisted` behält `noindex` — die Stufe verspricht „jeder mit
+       dem Link, sonst niemand", und ein Suchtreffer bräche das.
+       Was hier steht, gilt für die mitgelieferten Touren (`/tour/kohphangan`,
+       die der Server nicht kennt) und für den direkten Aufruf von /erlebnis;
+       deshalb `noindex`: Diese Fassung weiß nicht, welche Tour sie zeigt.
+       Die Vorschaukarten bleiben in jedem Fall — die Bots von WhatsApp, Slack
+       & Co. lesen die og:-Tags und kümmern sich nicht um `robots`. Genau
+       deshalb ist /tour/ auch nicht in der robots.txt gesperrt.
+       Die Marker sind Vertrag, kein Kommentar; ein Wächter prüft sie. -->
+  <!-- maptale:meta -->
   <title>Maptale — 3D-Reiseflug</title>
-  <!-- Vorerst KEINE Tour im Suchindex. Die Seite wird für alle Touren gleich
-       ausgeliefert und kann deshalb nicht unterscheiden, welche `public` ist
-       und welche `unlisted` — und `unlisted` verspricht „jeder mit dem Link,
-       sonst niemand". Ein Suchtreffer bräche genau das. Die Vorschaukarten
-       geteilter Links bleiben davon unberührt: Die Bots von WhatsApp, Slack &
-       Co. lesen die og:-Tags und kümmern sich nicht um `robots`. Deshalb ist
-       /tour/ auch NICHT in der robots.txt gesperrt — ein Disallow nähme
-       diesem noindex die Lesbarkeit.
-       Mit Etappe 6 (Server liefert /tour/<kennung> selbst aus) entscheidet
-       das die Tour: `public` bekommt `index`, `unlisted` behält `noindex`. -->
   <meta name="robots" content="noindex" />
   <meta
     name="description"
     content="Eine echte Route als filmischer 3D-Flug über das Gelände — mit dem Wetter jenes Tages und den Fotos am Wegesrand."
   />
-  <!-- Vorschaukarte: feste Marken-Werte, NICHT die der geteilten Tour. Welche
-       Tour gemeint ist, steht im Pfad (/tour/<kennung>) und wird erst
-       clientseitig geladen; die Bots führen kein JavaScript aus. Ein Titelbild pro Tour bekommt die
-       Karte erst, wenn der Server die Seite selbst ausliefert (Etappe 6 in
-       docs/concepts/konzept_profil_konto.md) — bis dahin ist ein Marken-Bild
-       besser als eine nackte URL. Kein `og:url`: Es müsste hier für jede Tour
-       dasselbe sein, und manche Dienste zeigen dann diese Adresse statt der
-       geteilten — der Link führte auf die Standard-Tour. -->
+  <!-- Die Marken-Fassung der Vorschaukarte: für die mitgelieferten Touren und
+       für /erlebnis ohne Kennung. Eine aufgezeichnete Tour bekommt hier ihren
+       eigenen Titel und ihr Titelbild vom Server. Kein `og:url` in DIESER
+       Fassung: Sie gilt für mehrere Adressen, und manche Dienste zeigen die
+       genannte statt der geteilten — der Link führte auf die Standard-Tour. -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Maptale" />
   <meta property="og:locale" content="de_DE" />
@@ -41,6 +41,7 @@
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Sonnenaufgang über einem Alpental, darüber der Schriftzug Maptale" />
   <meta name="twitter:card" content="summary_large_image" />
+  <!-- /maptale:meta -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
