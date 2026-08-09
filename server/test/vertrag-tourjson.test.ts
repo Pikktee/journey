@@ -1,6 +1,6 @@
 // VERTRAGSTEST: Bestands-Overlays rendern unverändert.
 //
-// Etappe 4 des Zeitleisten-Umbaus (docs/concepts/zeitleiste-umbau.md §3) erweitert
+// Etappe 4 des Zeitleisten-Umbaus (docs/architecture/zeitleiste-umbau.md §3) erweitert
 // `maptale/edits@1` additiv um Ton-Anker (anker/versatzFilmS/dauerFilmS/einstiegS/
 // loop) und Video-Trim. Additiv heißt: ein Overlay OHNE die neuen Felder muss
 // exakt dasselbe Tour-JSON ergeben wie heute — kein Bestandsfilm darf sich beim

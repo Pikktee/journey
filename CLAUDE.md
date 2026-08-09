@@ -505,6 +505,8 @@ automatisch, sobald unter `android/` gearbeitet wird.
 ## Konventionen
 
 - Design / Marke: [`DESIGN.md`](DESIGN.md) — Single Source of Truth für Assistenten und UI.
+- Doku-Index: [`docs/README.md`](docs/README.md). `docs/archive/` ist Historie — nicht als
+  Implementierungsquelle nutzen (widerspricht oft dem Ist-Stand).
 - `window.__j` bündelt Debug-Handles des Players (`map`, `route`, `tour`, `rider`, `eleReady`
   u.a.); das Studio hat analog `window.__studio` mit den Accessoren `karte()` und `zustand()`.
 - Externe Datenquellen brauchen sichtbare Attribution (Esri/Maxar, AWS Terrain) — auch in

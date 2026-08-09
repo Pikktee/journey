@@ -2,19 +2,16 @@
 
 Ergebnis der Mockup-Session vom **2026-08-04**. Ausgangspunkt war ein Fehlerbericht
 („nach Fotos snappt der Playhead hart ein, davor lässt sich nichts bearbeiten");
-herausgekommen ist ein durchgespielter Entwurf für die nächste Ausbaustufe der
-Studio-Zeitleiste. Alles hier ist am Mockup verifiziert; **die Etappen 1 bis 3
-sind seit 2026-08-05 im echten Editor umgesetzt** (§4), Etappe 4 steht aus. Das Mockup ist
-[docs/mockups/studio-halt-und-spuren.html](../mockups/studio-halt-und-spuren.html)
-(Ansicht „Vorschlag", Deeplink `#vorschlag`; „Heute" stellt das Ist-Verhalten
-daneben) — es gehört mit ins Repo, die Begründungen unten verweisen auf seine
-Kommentare. Was die Umsetzung am ECHTEN Editor anders ergeben hat, steht je
-Etappe unter „Abweichungen von der Planung" (§4) und in der zweiten Messtabelle
-(§6) — mehrere Entscheidungen des Entwurfs haben dort nicht getragen.
+herausgekommen ist der Entwurf für die Studio-Zeitleiste. **Alle vier Etappen sind
+seit 2026-08-05 im echten Editor umgesetzt** (§4). Das historische Mockup liegt unter
+[docs/archive/mockups/studio-halt-und-spuren.html](../archive/mockups/studio-halt-und-spuren.html)
+(Ansicht „Vorschlag", Deeplink `#vorschlag`). Was die Umsetzung am ECHTEN Editor
+anders ergeben hat, steht je Etappe unter „Abweichungen von der Planung" (§4) und
+in der zweiten Messtabelle (§6).
 
-Dieses Dokument ergänzt [editor-ausbau.md](editor-ausbau.md) (erzählerische
-Werkzeuge, 2026-07-27): dort steht das *Was*, hier steht das *Wie* der Zeitleiste —
-mit Messwerten, verworfenen Alternativen und einem Umsetzungsplan in vier Etappen.
+Dieses Dokument ergänzt [editor-ausbau.md](../concepts/editor-ausbau.md)
+(erzählerische Werkzeuge, teils noch offen): dort steht das *Was*, hier das *Wie*
+der Zeitleiste — mit Messwerten und verworfenen Alternativen.
 
 ---
 
@@ -184,7 +181,7 @@ Maus weg). **Beides falsch, und beides unvermeidbar in diesem Modell.**
 
 - Beim Öffnen wird einmal **eingepasst** (fit); der Maßstab steht danach fest.
 - Zoomen ändert den Maßstab (Knöpfe − ⤢ +, ⌘+/⌘−, ⇧Z = einpassen — die
-  FCPX-Kürzel aus [studio-editor.html](../mockups/studio-editor.html); Zoomen um die
+  FCPX-Kürzel aus [studio-editor.html](../archive/mockups/studio-editor.html); Zoomen um die
   Mitte des sichtbaren Ausschnitts; Untergrenze ist „alles im Blick", darunter
   entstünde nur Leerrand).
 - **Beim Ziehen einer Fortbewegungs-Grenze wird der Maßstab eingefroren** (fit

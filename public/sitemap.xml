@@ -6,7 +6,7 @@
 
   * Profile (/@handle) und Touren (/erlebnis?tour=…) kommen erst, wenn der
     Server die Profilseite selbst ausliefert und pro Person entscheiden kann,
-    ob sie in den Index soll (Etappe 6 in docs/concepts/konzept_profil_konto.md).
+    ob sie in den Index soll (Etappe 6 in docs/architecture/konzept_profil_konto.md).
     Heute trägt profil.html ein festes `noindex`; sie hier zu listen hieße,
     Google auf eine Seite zu schicken, die er nicht aufnehmen darf.
   * Die Tür zum Studio (/anmelden, /registrieren, /app), /konto und /admin

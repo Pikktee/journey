@@ -7,6 +7,8 @@ in Server und App noch fehlen.
 Stand: **2026-07-27**, nichts davon umgesetzt. Voraussetzung für den Ausbau der
 Modus-Liste in [editor-ausbau.md](editor-ausbau.md), Abschnitt 9.
 
+> Früher unter `docs/architecture/` — dort falsch, weil noch nicht gebaut.
+
 ---
 
 ## Bestandsaufnahme: wo ein Modus heute steht
@@ -15,23 +17,23 @@ Modus-Liste in [editor-ausbau.md](editor-ausbau.md), Abschnitt 9.
 
 | # | Fundstelle | Inhalt |
 |---|---|---|
-| 1 | [tour.js:62](../src/tour.js#L62) | `MODE_SPEED` — Tempo-Faktor |
-| 2 | [tour.js:63](../src/tour.js#L63) | `MODE_SCALE` — `{behind, hover}` Kameradistanz |
-| 3 | [map.js:483](../src/map.js#L483) | `MODE_ICONS` — SVG-Markup des Fahrer-Markers |
-| 4 | [studio.html](../studio.html) | `<symbol id="i-m-*">` — **dieselben Icons ein zweites Mal** (6 Symbole) |
-| 5 | [vehicle.js:11](../src/vehicle.js#L11) | `MODE_SOUND` — Motorloop-Dateiname |
-| 6 | [editmodell.ts:17](../src/studio/editmodell.ts#L17) | `MODI` + `type Modus` — Kopie der Server-Liste |
-| 7 | [editor.ts:95](../src/studio/editor.ts#L95) | `MODUS_NAMEN` — Anzeigenamen |
-| 8 | [editor.ts:104](../src/studio/editor.ts#L104) | `MODUS_FARBEN` — Bandfarben der Zeitleiste |
+| 1 | [tour.js:62](../../src/tour.js#L62) | `MODE_SPEED` — Tempo-Faktor |
+| 2 | [tour.js:63](../../src/tour.js#L63) | `MODE_SCALE` — `{behind, hover}` Kameradistanz |
+| 3 | [map.js:483](../../src/map.js#L483) | `MODE_ICONS` — SVG-Markup des Fahrer-Markers |
+| 4 | [studio.html](../../studio.html) | `<symbol id="i-m-*">` — **dieselben Icons ein zweites Mal** (6 Symbole) |
+| 5 | [vehicle.js:11](../../src/vehicle.js#L11) | `MODE_SOUND` — Motorloop-Dateiname |
+| 6 | [editmodell.ts:17](../../src/studio/editmodell.ts#L17) | `MODI` + `type Modus` — Kopie der Server-Liste |
+| 7 | [editor.ts:95](../../src/studio/editor.ts#L95) | `MODUS_NAMEN` — Anzeigenamen |
+| 8 | [editor.ts:104](../../src/studio/editor.ts#L104) | `MODUS_FARBEN` — Bandfarben der Zeitleiste |
 
 **Außerhalb des Webs — 2 Stellen:**
 
 | # | Fundstelle | Inhalt |
 |---|---|---|
-| 9 | [upload.ts:13](../server/src/schema/upload.ts#L13) | `MODI` — Typ + JSON-Schema-Enums |
-| 10 | [Entities.kt:14](../android/app/src/main/java/app/maptale/daten/Entities.kt#L14) | Kotlin-Enum: Schlüssel + Anzeigename |
+| 9 | [upload.ts:13](../../server/src/schema/upload.ts#L13) | `MODI` — Typ + JSON-Schema-Enums |
+| 10 | [Entities.kt:14](../../android/app/src/main/java/app/maptale/daten/Entities.kt#L14) | Kotlin-Enum: Schlüssel + Anzeigename |
 
-**Wächter:** vier Tests in [studio-baukasten.test.ts](../test/studio-baukasten.test.ts)
+**Wächter:** vier Tests in [studio-baukasten.test.ts](../../test/studio-baukasten.test.ts)
 (ab „describe('Fortbewegungs-Modi')") vergleichen per Regex über den Quelltext:
 `MODE_SPEED`-Deckung, Tempo-Faktoren gegen `schaetzeAnimationsdauer`, `MODE_SCALE`-Deckung
 und die `d="…"`-Pfade von `MODE_ICONS` gegen den Sprite in `studio.html`.
@@ -115,8 +117,8 @@ export const MODI = Object.keys(MODUS) as (keyof typeof MODUS)[]
 export type Modus = keyof typeof MODUS
 ```
 
-**Falle — Reihenfolge:** `MODI` in [editmodell.ts:17](../src/studio/editmodell.ts#L17)
-(`walk, bike, moped, …`) und in [upload.ts:13](../server/src/schema/upload.ts#L13)
+**Falle — Reihenfolge:** `MODI` in [editmodell.ts:17](../../src/studio/editmodell.ts#L17)
+(`walk, bike, moped, …`) und in [upload.ts:13](../../server/src/schema/upload.ts#L13)
 (`walk, moped, bike, …`) stehen heute **unterschiedlich**. Maßgeblich für die neue
 Tabelle ist die Reihenfolge von `MODUS_NAMEN` — sie steuert die Auswahl-Listen
 (`Object.entries`). Der Wächter muss deshalb **sortiert** vergleichen (tut er bereits).
@@ -127,24 +129,24 @@ und bricht den Tempo-Faktor-Test.
 
 ### Schritt 2–4: Player umstellen
 
-- **[tour.js:62-70](../src/tour.js#L62)** — `MODE_SPEED`/`MODE_SCALE` löschen, aus
+- **[tour.js:62-70](../../src/tour.js#L62)** — `MODE_SPEED`/`MODE_SCALE` löschen, aus
   `MODUS` lesen. Die Zugriffe stehen u. a. bei
-  [tour.js:845](../src/tour.js#L845) („Kameradistanz an den Fortbewegungsmodus anpassen").
-- **[map.js:483](../src/map.js#L483)** — `MODE_ICONS` löschen. **Achtung:** `MODE_ICONS`
+  [tour.js:845](../../src/tour.js#L845) („Kameradistanz an den Fortbewegungsmodus anpassen").
+- **[map.js:483](../../src/map.js#L483)** — `MODE_ICONS` löschen. **Achtung:** `MODE_ICONS`
   ist `export`iert und wird anderswo benutzt; entweder Re-Export aus `modi.ts` beibehalten
   oder alle Aufrufer mitziehen. `setRiderIcon`/`createRider` nutzen den Fallback
   `MODE_ICONS[mode] ?? MODE_ICONS.bike` — der bleibt sinnvoll.
-- **[vehicle.js:11](../src/vehicle.js#L11)** — `MODE_SOUND` löschen; `sound: null`
+- **[vehicle.js:11](../../src/vehicle.js#L11)** — `MODE_SOUND` löschen; `sound: null`
   bedeutet Stille (heute: Modus fehlt in der Tabelle). Die Logik in
-  [vehicle.js:43](../src/vehicle.js#L43) (`?? null`) funktioniert unverändert.
+  [vehicle.js:43](../../src/vehicle.js#L43) (`?? null`) funktioniert unverändert.
 
 ### Schritt 5: Studio umstellen
 
-- **[editmodell.ts:17-19](../src/studio/editmodell.ts#L17)** — `MODI` und `type Modus`
+- **[editmodell.ts:17-19](../../src/studio/editmodell.ts#L17)** — `MODI` und `type Modus`
   löschen, aus `modi.ts` re-exportieren (damit die vielen Importe in `editor.ts` und den
   Tests unverändert bleiben). `WETTER_MODI` bleibt unangetastet — das ist ein eigenes
   Thema mit eigenem Wächter.
-- **[editor.ts:95-111](../src/studio/editor.ts#L95)** — `MODUS_NAMEN` und `MODUS_FARBEN`
+- **[editor.ts:95-111](../../src/studio/editor.ts#L95)** — `MODUS_NAMEN` und `MODUS_FARBEN`
   löschen; die vier Verwendungsstellen (Zeilen ~1184, ~1637, ~3034, ~3059) auf
   `MODUS[m].name` / `MODUS[m].farbe` umstellen.
 
@@ -205,7 +207,7 @@ Nach Stufe 1 ist das Rezept:
 2. **`server/src/schema/upload.ts`** — ein Wort in `MODI`.
 3. **`Entities.kt`** — eine Enum-Zeile (Schlüssel + Anzeigename).
 4. Falls motorisiert: einen Loop erzeugen
-   ([gen-vehicle-audio.mjs](../scripts/gen-vehicle-audio.mjs), ElevenLabs — das Auto ist
+   ([gen-vehicle-audio.mjs](../../scripts/gen-vehicle-audio.mjs), ElevenLabs — das Auto ist
    dort bereits auskommentiert vorbereitet).
 
 Vergisst man 2 oder 3, wird `npm test` rot und nennt Datei und fehlenden Schlüssel.
@@ -237,7 +239,7 @@ dazu ist günstig:
 
 - Der TypeConverter speichert **bereits den Austauschformat-Schlüssel**
   (`vonModus(m) = m.schluessel` → `"walk"`, nicht `"WALK"`,
-  [LuhamboDb.kt:16](../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt#L16)).
+  [LuhamboDb.kt:16](../../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt#L16)).
   Die Spalte ist TEXT mit den richtigen Werten → **vermutlich keine Datenmigration**,
   nur ein neuer Schema-Export prüfen.
 - `Modus.vonSchluessel` fällt bei Unbekanntem tolerant auf `WALK` zurück.

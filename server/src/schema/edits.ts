@@ -81,7 +81,7 @@ export interface KameraGrenze {
  *
  * - ALT (`ab`/`bis`): reine Aufnahmezeit. Sie kann nicht ausdrücken, wo in
  *   einer Standzeit ein Klip einsetzt — dort steht die Aufnahmeuhr still,
- *   während der Film weiterläuft (docs/concepts/zeitleiste-umbau.md §1).
+ *   während der Film weiterläuft (docs/architecture/zeitleiste-umbau.md §1).
  * - NEU (`anker` + `versatzFilmS` + `dauerFilmS`): der FCPX-„connected clip".
  *   Der Anker sagt, WO AUF DER REISE der Klip hängt, der Versatz in
  *   FILMsekunden sagt, wo genau — auch mitten in einem Halt. Dadurch rückt Ton

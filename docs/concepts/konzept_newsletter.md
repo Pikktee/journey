@@ -2,7 +2,7 @@
 
 **Stand:** 6. August 2026 · **Teil A (Einwilligung) ist umgesetzt**, Teil B (Erzeugung
 und Versand) nicht. Was gebaut wurde und wo es steht:
-[konzept_profil_konto.md](konzept_profil_konto.md), Etappe 4 — samt der drei Stellen, an
+[konzept_profil_konto.md](../architecture/konzept_profil_konto.md), Etappe 4 — samt der drei Stellen, an
 denen die Umsetzung dieses Papier schärft (Schalter statt Sperre bei unbestätigter
 Adresse, Label statt Wortlaut in der Historie, Aufräum-Lauf für die drei Jahre).
 **Betrifft:** Registrierung ([studio.html](../../studio.html)), Kontoeinstellungen

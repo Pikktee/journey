@@ -268,7 +268,7 @@ selbst und schreibt einmal beim Loslassen. Alle Achsen-Halte (Aufnahmen-Ketten U
 baut `achsenHalte()` an einer Stelle.
 
 **Fortbewegung · Kamera · Wetter sind drei GLEICHRANGIGE schmale Bahnen** (21 px, Etappe 3
-des [Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)). Sie beschreiben, wie das
+des [Zeitleisten-Umbaus](docs/architecture/zeitleiste-umbau.md)). Sie beschreiben, wie das
 Dazwischen aussieht — bei einer typischen Tour zwei bis drei Entscheidungen, die vorher drei
 randvolle Bahnen belegten und mit den Szenen um Fläche konkurrierten: Material verdient Fläche,
 Kontext verdient eine Zeile. Verworfen (mit Nutzer-Feedback): sie unter „Reise"
@@ -348,7 +348,7 @@ restS mehr). Eine Kante bleibt: Ereignisse, die ganz in einer Ex-Pause liegen, d
 einen Pixel (Ausweg: Zeitfelder im Inspector).
 
 **Der Abspielkopf steht in FILMsekunden** (`kopfFilmS`, Etappe 1 des
-[Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
+[Zeitleisten-Umbaus](docs/architecture/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
 Pfeiltasten und Abspielen; die Aufnahmezeit (`z.auswahl`, zugleich Einfügemarke) wird daraus
 ABGELEITET, nie umgekehrt. Der Grund ist die Umkehrbarkeit: In Aufnahmezeit gibt es keinen
 Wert für „mitten im Halt" (zwei Stützstellen auf derselben Sekunde), jede Rückrechnung fällt
@@ -383,7 +383,7 @@ entsteht nie beim Öffnen. Weil die Breite jetzt an den DATEN hängt, schreibt
 läuft in jedem Zug-Frame).
 
 **Ein Halt ist eine KETTE von Klips, kein Stapel** (Etappe 2 des
-[Zeitleisten-Umbaus](docs/concepts/zeitleiste-umbau.md)). Der „Cluster" war nie ein eigenes
+[Zeitleisten-Umbaus](docs/architecture/zeitleiste-umbau.md)). Der „Cluster" war nie ein eigenes
 Ding, sondern die Folge zusammenfallender Anker — als Stapel mit Zahl-Plakette gezeichnet,
 weil PUNKTE an derselben Stelle übereinanderlägen. Er saß an der LINKEN Kante einer Breite,
 die der Halt trotzdem belegte: eine tote Zone, in der nichts anzufassen war, obwohl dort der
@@ -482,7 +482,7 @@ lösen es längst mit `inset` (`.band.fokus`); bei den Klips musste es ein eigen
 selbst wieder zudeckte — mit `pointer-events: none`, sonst schluckt der Ring die überstehenden
 Kanten-Griffe. Der weiche SCHEIN darf außen bleiben: dass er an einer Kante fehlt, sieht man
 nicht. Dieselbe Familie wie „`border` + `overflow: hidden` frisst das Randpixel"
-(docs/concepts/zeitleiste-umbau.md §5).
+(docs/architecture/zeitleiste-umbau.md §5).
 
 **Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](src/studio/abspielen.ts)
 (lazy beim ersten Play) lässt den Abspielkopf über die Achse laufen, spielt Musik und Klänge

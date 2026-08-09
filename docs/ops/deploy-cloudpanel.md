@@ -86,7 +86,7 @@ MAPTALE_UMAMI_DB_PASSWORT=<Postgres-Passwort des Umami-Containers>   # optional:
 >
 > Stand 2026-08-06 nachgezogen: der **Profil-Namensraum**
 > `location ~ ^/@` (Etappe 1 aus
-> [konzept_profil_konto.md](../concepts/konzept_profil_konto.md)), der
+> [konzept_profil_konto.md](../architecture/konzept_profil_konto.md)), der
 > **Tour-Namensraum** `location ^~ /tour/` (Etappe 5.5) und der Block für die
 > beiden dynamischen **Sitemaps**.
 >

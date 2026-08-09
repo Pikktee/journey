@@ -1,9 +1,10 @@
 # Umsetzung: Profil & Kontoeinstellungen
 
-**Stand:** 6. August 2026 · Mockup abgenommen, Umsetzung offen.
+**Stand:** 6. August 2026 · Etappen 1–7 umgesetzt (Umsetzungsprotokoll, keine offene Roadmap).
 **Mockup:** [docs/mockups/studio-konto.html](../mockups/studio-konto.html)
 (Mockup-Leiste oben schaltet zwischen den Ansichten und Zuständen.)
-**Newsletter:** eigenes Konzept, [konzept_newsletter.md](konzept_newsletter.md).
+**Newsletter:** Einwilligung hier (Etappe 4); Versand noch offen in
+[konzept_newsletter.md](../concepts/konzept_newsletter.md).
 
 Fünf Etappen, jede für sich deploybar. Die Reihenfolge ist nicht
 Geschmackssache: Etappe 1 legt den Handle fest, und ein Handle, der einmal in

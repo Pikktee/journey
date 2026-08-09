@@ -1,4 +1,4 @@
-// Ton-Klips auf der Filmzeit-Achse (Etappe 4, docs/concepts/zeitleiste-umbau.md §2E).
+// Ton-Klips auf der Filmzeit-Achse (Etappe 4, docs/architecture/zeitleiste-umbau.md §2E).
 //
 // Ein Ton-Klip hängt seit dieser Etappe an der REISE, nicht an einer festen
 // Filmsekunde — der „connected clip" aus Final Cut. Er merkt sich:

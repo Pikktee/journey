@@ -118,7 +118,7 @@ export function profilPfad(handle: string): string {
  * bekommen — das alles hängt an einer Adresse, die für sich steht. Der Pfad
  * ist die Vorbedingung dafür, dass der Server ihn später selbst beantwortet
  * und Titel, Beschreibung und Titelbild in den Kopf schreibt (Etappe 6 in
- * docs/concepts/konzept_profil_konto.md). Die Query-Form bleibt bedienbar —
+ * docs/architecture/konzept_profil_konto.md). Die Query-Form bleibt bedienbar —
  * sie kostet nichts und alte Installationen der Android-App bauen sie noch.
  *
  * **Warum die rohe ID und kein Slug.** Die Kennung einer aufgezeichneten Tour
