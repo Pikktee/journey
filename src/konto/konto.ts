@@ -10,6 +10,7 @@
 
 import { pfad, profilPfad } from '../routen.js'
 import { profilSichtbarSatz, suchmaschinenSatz } from '../sichtbarkeit.js'
+import { ladeTracker, loeseTrackerRueckkehrEin } from './trackerkarte.js'
 import {
   belegtProzent,
   exportZeile,
@@ -518,6 +519,9 @@ export async function starteKonto(): Promise<void> {
   // Anmeldung, deshalb steht sie vor jeder Prüfung.
   await loeseMailWechselEin()
   const abmeldung = await loeseNewsletterAbmeldungEin()
+  // Die Rückkehr vom Tracker-Anbieter: Der Hash wird sofort geräumt, damit ein
+  // Neuladen nicht „Verbunden." meldet, ohne dass etwas verbunden wurde.
+  const trackerRueckkehr = loeseTrackerRueckkehrEin()
 
   let daten: MeAntwort
   try {
@@ -554,6 +558,8 @@ export async function starteKonto(): Promise<void> {
   verdrahteExport(daten)
   void ladeGeraete()
   void ladeSpeicher()
+  void ladeTracker(melde)
+  if (trackerRueckkehr) melde(trackerRueckkehr)
 
   // Die Formulare erst beim ersten Griff — sie bringen die Passwortbewertung mit.
   const dialoge = async (): Promise<typeof import('./kontodialoge.js')> => import('./kontodialoge.js')

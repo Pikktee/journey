@@ -109,6 +109,24 @@
     .zeile.ruht .t, .zeile.ruht .b { opacity: 0.6; }
     .zeile.ruht .schalter { opacity: 0.45; cursor: not-allowed; }
 
+    /* ————— Verbundene Dienste —————
+       „Zuletzt geholt" ist die Chronik unter den Anbietern und deshalb kleiner
+       gesetzt: Sie beantwortet „was ist passiert?", nicht „woran bin ich?". */
+    .tracker-importe { margin-top: 18px; }
+    .tracker-importe h3 {
+      margin: 0 0 8px 2px; font-size: 12.5px; font-weight: 500;
+      color: var(--text-gedaempft); letter-spacing: 0;
+    }
+    .tracker-importe .zeile { padding: 11px 18px; }
+    /* Der Punkt am Zeilenanfang trägt den Ton — ein farbiges Wort daneben
+       wäre die zweite Aussage über dieselbe Sache. `uebersprungen` bekommt
+       bewusst KEIN Rot: Eine Halleneinheit ohne GPS ist normal, kein Problem. */
+    .tracker-importe .punkt { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-gedaempft); }
+    .tracker-importe .punkt.ok { background: var(--gruen); }
+    .tracker-importe .punkt.warn { background: #ffca7a; }
+    .tracker-importe .punkt.fehler { background: var(--rot); }
+    .tracker-importe .wann { font-size: 12px; color: var(--text-gedaempft); font-variant-numeric: tabular-nums; flex: none; }
+
     /* ————— Speicher ————— */
     .speicher { padding: 18px; }
     .speicher .oben { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13.5px; color: var(--text-zart); }
@@ -252,6 +270,21 @@
       <div class="block">
         <div class="block-kopf"><h2>Angemeldete Geräte</h2></div>
         <div class="tafel" id="geraete"></div>
+      </div>
+
+      <!-- Verbundene Dienste: Sport-Tracker, deren Aufzeichnungen von selbst
+           als Tour ankommen. Steht neben „Angemeldete Geräte", weil beides
+           dieselbe Frage beantwortet — wer hat Zugang, und was hängt an
+           meinem Konto. Der ganze Block bleibt aus, solange kein Anbieter
+           registriert ist: eine leere Überschrift wäre eine Auskunft über
+           nichts. -->
+      <div class="block" id="tracker-block" hidden>
+        <div class="block-kopf"><h2>Verbundene Dienste</h2></div>
+        <div class="tafel" id="tracker"></div>
+        <div class="tracker-importe" id="tracker-importe" hidden>
+          <h3>Zuletzt geholt</h3>
+          <div class="tafel" id="tracker-importliste"></div>
+        </div>
       </div>
 
       <div class="block">

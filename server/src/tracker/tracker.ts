@@ -292,9 +292,19 @@ export class TrackerDienst {
    * Verknüpfung. Das ist eine Aussage, die auch in der Oberfläche steht.
    */
   trenne(benutzerId: string, anbieter: TrackerAnbieter): void {
-    this.db
-      .prepare('DELETE FROM tracker_verknuepfungen WHERE benutzer_id = ? AND anbieter = ?')
-      .run(benutzerId, anbieter)
+    // Auch das Abruf-Protokoll geht — es beschreibt die VERBINDUNG, nicht die
+    // Touren. Das ist die Zusage aus datenschutz.html Abschnitt 10 („bis zum
+    // Trennen"); bliebe es liegen, stünde dort eine Frist, die die Datenbank
+    // nicht einhält. Die Touren selbst bleiben unangetastet: Sie gehören dem
+    // Nutzer, nicht der Verknüpfung.
+    this.db.transaction(() => {
+      this.db
+        .prepare('DELETE FROM tracker_importe WHERE benutzer_id = ? AND anbieter = ?')
+        .run(benutzerId, anbieter)
+      this.db
+        .prepare('DELETE FROM tracker_verknuepfungen WHERE benutzer_id = ? AND anbieter = ?')
+        .run(benutzerId, anbieter)
+    })()
   }
 
   // — Importe —

@@ -198,6 +198,20 @@
           Blockier-Erweiterung.
         </p>
 
+        <p class="merk">
+          <strong>Verbundene Dienste (Sport-Tracker).</strong> Du kannst dein Maptale-Konto in den
+          Kontoeinstellungen mit einem Sport-Tracker verbinden — derzeit Polar. Dann holen wir
+          neue Aufzeichnungen von dort automatisch als Tour: <strong>die GPS-Strecke, Startzeit,
+          Dauer und die Sportart</strong>, mehr nicht. Trainingswerte wie Herzfrequenz, Kalorien
+          oder Trainingsbelastung fragen wir nicht ab. Für den Zugriff speichern wir ein
+          <strong>Zugangs-Token des Anbieters</strong> (verschlüsselt), die Kennung, unter der du
+          dort geführt wirst, sowie ein Protokoll der Abrufe (Zeitpunkt, Ergebnis, im Fehlerfall
+          der Grund). Die Verbindung entsteht nur, wenn du sie beim Anbieter selbst bestätigst,
+          und du kannst sie in den Kontoeinstellungen jederzeit trennen — die Tokens werden dann
+          gelöscht und die Berechtigung beim Anbieter widerrufen. <strong>Bereits importierte
+          Touren bleiben dir erhalten</strong>, sie gehören dir und nicht der Verbindung.
+        </p>
+
         <h2 id="zwecke">3. Zwecke und Rechtsgrundlagen</h2>
         <ul>
           <li>
@@ -207,6 +221,11 @@
           <li>
             <strong>Bestätigungs- und Passwort-Mails</strong>, ebenfalls lit. b; sie sind Teil der
             Anmeldung.
+          </li>
+          <li>
+            <strong>Verbundene Sport-Tracker</strong>, ebenfalls lit. b: Der Abruf ist genau die
+            Leistung, um die du mit dem Verbinden gebeten hast. Er beginnt erst mit deiner
+            Bestätigung beim Anbieter und endet mit dem Trennen.
           </li>
           <li>
             <strong>Zugriffsprotokolle, Rate-Limits, Einladungspflicht</strong>, berechtigtes
@@ -397,6 +416,14 @@
             <strong>Karten- und Wetterdienste:</strong> Esri, Amazon Web Services, OpenFreeMap,
             OpenStreetMap-Foundation, Open-Meteo, Google (Schriften), siehe Abschnitte 4 und 6.
           </li>
+          <li>
+            <strong>Verbundene Sport-Tracker:</strong> Polar Electro Oy, Professorintie 5, 90440
+            Kempele, Finnland — und nur, wenn du die Verbindung selbst herstellst. Der Anbieter
+            sitzt in der EU, eine Übermittlung in ein Drittland findet dabei nicht statt. Wir
+            <em>empfangen</em> von dort deine Aufzeichnungen; übermittelt wird beim Verbinden
+            lediglich die Kennung, unter der du bei Polar geführt wirst, zurück an Polar — keine
+            Adresse und kein Name von uns. Siehe Abschnitt 2.
+          </li>
         </ul>
         <p>
           Mit Auftragsverarbeitern bestehen Verträge nach Art. 28 DSGVO. Soweit Daten an Dienste in
@@ -421,6 +448,11 @@
             <strong>Sitzungen</strong> (samt Browser-Kennung und gekürzter IP): 30 Tage ab
             Anmeldung, beim Abmelden sofort, auch beim Abmelden eines einzelnen Geräts in den
             Kontoeinstellungen.
+          </li>
+          <li>
+            <strong>Verbundene Sport-Tracker:</strong> Zugangs-Token, Anbieter-Kennung und das
+            Abruf-Protokoll (welche Aufzeichnung wann geholt wurde) bis zum Trennen — dann sofort
+            gelöscht, ebenso mit dem Konto. Die daraus entstandenen Touren bleiben dir erhalten.
           </li>
           <li>
             <strong>Bestätigungs- und Reset-Links:</strong> nur bis zum Ablauf bzw. zur Einlösung.

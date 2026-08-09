@@ -440,6 +440,17 @@ Vier Dinge, die man dabei leicht „vereinfacht":
   gehalten von einem Drift-Wächter. Der **Abmeldelink** (`/konto#newsletter-aus=<token>`)
   läuft VOR jeder Anmeldeprüfung und braucht keine Sitzung: signierter Token, ohne Frist.
 
+- **„Verbundene Dienste" ist die Oberfläche der Tracker-Anbindung**
+  ([trackerkarte.ts](src/konto/trackerkarte.ts), Sätze und Ton DOM-frei in
+  [trackermodell.ts](src/konto/trackermodell.ts)). Der ganze Block bleibt AUS, solange kein
+  Anbieter registriert ist — eine Überschrift über einer leeren Tafel wäre eine Auskunft über
+  nichts. Vier Zustände müssen unterscheidbar bleiben, und der teuerste Fehler wäre,
+  `abgelaufen` wie „nicht verbunden" aussehen zu lassen: Dann wartet jemand auf Touren, die
+  nie kommen. Deshalb heißt der Knopf dort **„Neu verbinden"** und nicht „Verbinden", und der
+  Satz nennt den Grund. In der Chronik ist `uebersprungen` bernstein und NICHT rot: Eine
+  Halleneinheit ohne GPS ist normal — rot markiert wäre die Liste eines Vielsportlers
+  dauerhaft alarmiert, und die eine echte Störung ginge darin unter.
+
 **Der Sichtbarkeits-Schalter steht an ZWEI Stellen** (hier und im Bearbeiten-Modal des
 Profils) und ist EIN Zustand — man sucht ihn hier beim Aufräumen und dort beim Bearbeiten;
 auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.

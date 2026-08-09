@@ -1,13 +1,16 @@
 # Konzept: Tracker-Integrationen & Automatische Foto-Zuordnung
 
-Stand: August 2026 · Status: **Kern gebaut** (Etappen 0–1, 2026-08-09), Adapter offen ·
+Stand: August 2026 · Status: **Web-Weg fertig und live** (Etappen 0–4, 2026-08-10) ·
 Betrifft: `server/`, `android/`, `src/konto/`, später `ios/`
 
-Was steht: die additive Medien-Route (Etappe 0, eigenes Konzept) und der anbieterblinde Kern
-(Etappe 1) — Migration 17, Token-Verschlüsselung, Provider-Vertrag samt Registry,
-Normalisierer, TourAnleger, Importlauf, Nutzer-API und Webhook-Route. Ein erfundener Anbieter
-(`server/src/tracker/testprovider.ts`) legt darüber eine echte, spielbare Tour an; 34 Tests
-halten das fest. Was fehlt: die echten Adapter (Polar zuerst), die Kontoseite und die App.
+Was steht: die additive Medien-Route (Etappe 0, eigenes Konzept), der anbieterblinde Kern
+(Etappe 1), der **Polar-Adapter** (Etappe 3) und die Kontoseite „Verbundene Dienste"
+(Etappe 4) samt Datenschutz-Absatz. Der Webhook ist bei Polar registriert und in Produktion
+verifiziert: richtig signiert → 200, gefälscht → 401, PING → 200. Damit kann jemand sein
+Polar-Konto verbinden und bekommt neue Aufzeichnungen ohne Handgriff als Tour.
+
+Was fehlt: die App-Naht (Etappe 5), Push (6) und der Foto-Nachzug (7) — sowie die weiteren
+Anbieter. Bis dahin ist der Weg vollständig, aber nur am Rechner bedienbar.
 
 ## 1. Zielsetzung
 
@@ -738,7 +741,7 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 | 1 | ~~**Kern**~~ | `vertrag.ts`, `TourAnleger`, `Importlauf`, Migration 17, Registry, Tests | **fertig** (2026-08-09): Der TestProvider legt eine echte Tour an | — |
 | 2 | **Datei-Weg** | Normalisierer (FIT/TCX→GPX), Share-Intent Android, Studio-Hinweis Garmin-Export | Jede Uhr der Welt ist bedient | 2–3 Tage |
 | 3 | ~~**Polar**~~ | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | **Adapter fertig** (2026-08-10); Webhook-Registrierung und Praxistest offen: [docs/ops/polar-einrichten.md](../ops/polar-einrichten.md) | — |
-| 4 | **Client-Naht** | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste | Bedienbar ohne curl | 3–4 Tage |
+| 4 | ~~**Client-Naht**~~ | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste, Datenschutz-Absatz | **fertig** (2026-08-10) | — |
 | 5 | **Android dünn** | OAuth per Custom Tab, Deep Link, `WorkManager`-Abfrage als Rückfall | Verknüpfen am Telefon | 3–4 Tage |
 | 6 | **Push (FCM)** | Firebase-Projekt, `FirebaseMessagingService`, `push_geraete`, HTTP-v1-Versand, Datenschutz-Absatz | „Neue Tour" in Sekunden | 2–3 Tage |
 | 7 | **Foto-Nachzug (App)** | Galerie-Scan im Zeitfenster (nur Kamera-Bucket), Zeitzonen-Abgleich, Automatik mit stehender Einwilligung + Benachrichtigung, sonst Auswahl-Dialog — der Server-Teil ist seit Etappe 0 erprobt | Der eigentliche Produktwert | 3–4 Tage |

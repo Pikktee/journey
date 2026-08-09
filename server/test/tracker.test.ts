@@ -250,6 +250,9 @@ describe('Verknüpfen (OAuth)', () => {
     expect(antwort.statusCode).toBe(200)
     expect(provider.aufrufe).toContain('trenne')
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_verknuepfungen').get()).toEqual({ n: 0 })
+    // Das Abruf-Protokoll beschreibt die VERBINDUNG und geht mit ihr — so
+    // steht es als Frist in datenschutz.html Abschnitt 10.
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({ n: 0 })
     // Die Touren gehören dem Nutzer, nicht der Verknüpfung
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
   })
