@@ -21,6 +21,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 ### 1. `ops/` (Operations & Release)
 * [`deploy-cloudpanel.md`](ops/deploy-cloudpanel.md) — VPS-Deployment mit Hetzner & CloudPanel.
 * [`android-release.md`](ops/android-release.md) — Bauen, Signieren und Veröffentlichen der Android-APK.
+* [`polar-einrichten.md`](ops/polar-einrichten.md) — Polar AccessLink: Client, Token-Schlüssel, Webhook-Registrierung (das Geheimnis gibt es nur einmal).
 
 ### 2. `specs/` (Spezifikationen)
 * [`austauschformat.md`](specs/austauschformat.md) — `.maptale`-Export/Import-Format und `tour.json`.

@@ -194,6 +194,17 @@ Angemeldeten ein FREMDES Anbieter-Konto unterschieben (OAuth-CSRF), und ab da li
 Touren in sein Konto. Keine Tabelle: Er lebt Minuten, und einen Neustart soll er nicht
 überleben.
 
+**Polar ist der erste echte Adapter** ([provider/polar.ts](server/src/tracker/provider/polar.ts)).
+Drei Fallen, die man ihm nicht ansieht: Seine Tokens laufen **nicht ab** (kein
+`erneuereTokens`, `laeuftAb: null` — ein Ablaufdatum schickte den Kern in eine Erneuerung, die
+es nicht gibt); ein zweiter `POST /v3/users` antwortet **409** und das ist beim Neuverbinden
+der Normalfall, kein Fehler; und die Startzeit ist **lokale Zeit ohne Zone plus Versatz in
+Minuten** — wer `Z` anhängt, verschiebt jede Tour um ihren Zonen-Versatz, und das fällt als
+„falsches Licht" auf, nicht als Zeitfehler. Dazu liest der Adapter Feldnamen in BEIDEN
+Schreibweisen (`start-time` und `start_time`), weil Polars Doku beide zeigt. Einrichtung
+(Client, Token-Schlüssel, Webhook-Registrierung — das Signatur-Geheimnis gibt es nur EINMAL):
+[docs/ops/polar-einrichten.md](docs/ops/polar-einrichten.md).
+
 **Getestet wird gegen einen erfundenen Anbieter**
 ([testprovider.ts](server/src/tracker/testprovider.ts)) — dasselbe Muster wie `FesterGeocoder`
 und `FesteWetterQuelle`. Er liegt in `src/` und nicht in `test/`, weil er beweist, dass der

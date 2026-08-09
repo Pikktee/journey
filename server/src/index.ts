@@ -11,6 +11,7 @@ import { FfmpegBildWerkzeug } from './pipeline/bild.js'
 import { trageBildfassungenNach } from './pipeline/bildnachtrag.js'
 import { NominatimGeocoder } from './pipeline/naming.js'
 import { OverpassSchienen } from './pipeline/schienen.js'
+import { PolarProvider } from './tracker/provider/polar.js'
 import { FfmpegWerkzeug } from './pipeline/video.js'
 import { OpenRouterKlassifikator, type BildKlassifikator } from './pipeline/vision.js'
 import { OpenMeteoQuelle } from './pipeline/weather.js'
@@ -40,6 +41,11 @@ const bildKlassifikator: BildKlassifikator | null = konfig.openRouterKey
 const mail: MailVersand = process.env.RESEND_API_KEY
   ? new ResendMail(process.env.RESEND_API_KEY, konfig.mailAbsender)
   : new KonsoleMail()
+// Tracker-Anbieter. Sie werden IMMER registriert, auch ohne Zugangsdaten:
+// Die Registry meldet einen unkonfigurierten Anbieter als „nicht verfügbar",
+// und die Kontoseite kann „Polar (noch nicht eingerichtet)" zeigen. Verschwiege
+// man ihn ganz, wäre das keine Auskunft.
+const trackerProvider = [new PolarProvider(konfig.polar)]
 
 const app = baueApp({
   konfig,
@@ -53,6 +59,7 @@ const app = baueApp({
   bildWerkzeug,
   bildKlassifikator,
   schienen,
+  trackerProvider,
   mail,
 })
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)

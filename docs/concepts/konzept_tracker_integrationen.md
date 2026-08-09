@@ -322,6 +322,27 @@ Enterprise-Programm zu ist.
 
 ### Polar — der erste Adapter
 
+**Gebaut am 2026-08-10** ([provider/polar.ts](../../server/src/tracker/provider/polar.ts), 28
+Fixture-Tests). Vier Dinge stellten sich beim Bauen anders dar, als sie hier standen:
+
+- **Die Zugriffstokens laufen NICHT ab** („will not expire unless explicitly revoked") — der
+  Adapter hat deshalb kein `erneuereTokens` und setzt `laeuftAb: null`. Das bestätigt die
+  Annahme oben, aber ausdrücklich: Ein gesetztes Ablaufdatum schickte den Kern in eine
+  Erneuerung, die es bei Polar gar nicht gibt.
+- **Ein zweiter `POST /v3/users` antwortet 409** („already registered"). Beim Neuverbinden ist
+  das der NORMALFALL — als Fehler behandelt scheiterte jedes zweite Verbinden.
+- **Die Startzeit ist lokale Zeit OHNE Zone plus ein separater Versatz in Minuten**
+  (`start-time` + `start-time-utc-offset`). Wer einfach `Z` anhängt, verschiebt jede Tour um
+  ihren Zonen-Versatz — und weil Tageszeit, Sonnenstand und Foto-Platzierung daran hängen,
+  fällt es als „falsches Licht" auf, nicht als Zeitfehler.
+- **`has-route` sagt VOR dem Download, ob es eine Route gibt.** Eine Krafteinheit hat keine;
+  sie trotzdem zu holen wäre ein Aufruf für nichts. Ein 404 auf die GPX-Datei wird zusätzlich
+  wie „ohne Route" behandelt — die Doku sagt zu diesem Fall nichts.
+
+Dazu eine Eigenheit der API selbst: Polar schreibt seine JSON-Felder uneinheitlich
+(`start-time` neben `start_time`). Der Adapter liest **beide** Schreibweisen; sich für eine zu
+entscheiden hieße, es beim ersten echten Training herauszufinden.
+
 Self-serve über das AccessLink-Portal, kein Review, keine Firma nötig. OAuth 2.0; die
 Zugriffstokens sind langlebig, ein Refresh-Zyklus entfällt. **Zwei Eigenheiten bestimmen den
 Adapter:** Nach dem Token-Tausch muss der Nutzer einmal bei der App registriert werden
@@ -716,7 +737,7 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 | 0 | ~~**Additive Medien-Route**~~ | `POST /api/tours/:id/medien` + endgültiges Löschen + Studio-Nachreichen ([eigenes Konzept](konzept_medien_nachreichen_und_loeschen.md)) | **fertig** (2026-08-09) | — |
 | 1 | ~~**Kern**~~ | `vertrag.ts`, `TourAnleger`, `Importlauf`, Migration 17, Registry, Tests | **fertig** (2026-08-09): Der TestProvider legt eine echte Tour an | — |
 | 2 | **Datei-Weg** | Normalisierer (FIT/TCX→GPX), Share-Intent Android, Studio-Hinweis Garmin-Export | Jede Uhr der Welt ist bedient | 2–3 Tage |
-| 3 | **Polar** | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | Erster echter Auto-Import | 3–4 Tage |
+| 3 | ~~**Polar**~~ | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | **Adapter fertig** (2026-08-10); Webhook-Registrierung und Praxistest offen: [docs/ops/polar-einrichten.md](../ops/polar-einrichten.md) | — |
 | 4 | **Client-Naht** | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste | Bedienbar ohne curl | 3–4 Tage |
 | 5 | **Android dünn** | OAuth per Custom Tab, Deep Link, `WorkManager`-Abfrage als Rückfall | Verknüpfen am Telefon | 3–4 Tage |
 | 6 | **Push (FCM)** | Firebase-Projekt, `FirebaseMessagingService`, `push_geraete`, HTTP-v1-Versand, Datenschutz-Absatz | „Neue Tour" in Sekunden | 2–3 Tage |
