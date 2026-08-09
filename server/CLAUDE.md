@@ -152,11 +152,40 @@ Liste eines Vielsportlers dauerhaft rot, und die eine echte Störung ginge darin
 Umgekehrt gilt: Eine tote Verknüpfung wird SICHTBAR tot (`abgelaufen` samt Grund) — der Nutzer
 wartet sonst auf Touren, die nie kommen.
 
+**Ein Fehlschlag ist kein Grabstein.** Der Dedup-Index beantwortete anfangs zwei Fragen mit
+derselben Zeile — „schon erledigt?" und „schon versucht?" —, und damit war jeder vorübergehende
+Fehler das endgültige Ende einer Aktivität: Die wiederholte Zustellung, auf die das ganze
+Verfahren baut (Wahoo staffelt bis 72 h), lief wirkungslos in den Index. `wiederholbar` trennt
+das und wird vom GRUND gesetzt, nicht vom Status: „ohne Route" und „zu kurz" sind Aussagen über
+die Aktivität und bleiben endgültig; „Speicher voll", ein stummer Anbieter und jeder Netzfehler
+sind Aussagen über den Moment. `beanspruche` nimmt eine solche Zeile wieder an (`ON CONFLICT …
+DO UPDATE … WHERE wiederholbar = 1 AND versuche < MAX_VERSUCHE`), `gemeldet_am` bleibt dabei der
+Zeitpunkt der ERSTEN Meldung. Am Deckel steht der Grund samt „nach 3 Versuchen" in der Zeile —
+ein stiller Deckel läse sich wie ein Lauf, der noch kommt.
+
+**Der Sync-Zeitpunkt ist ein CURSOR, kein Zeitstempel.** `listeNeue(tokens, zuletztSyncAm)`
+fragt den Anbieter „was gibt es seitdem?" — vorgerückt, obwohl eine Aktivität offen blieb,
+listet er sie nie wieder auf, und beim Polling-Anbieter gibt es keinen zweiten Weg zu ihr.
+Deshalb setzt ihn `fuehreImporteAus` am ENDE und nur, wenn nichts Wiederholbares übrig ist,
+und zwar je Verknüpfung (ein Stapel kann aus mehreren stammen). Die Route setzt ihn nur noch
+im Fall „nichts gefunden".
+
+**„Jetzt abrufen" ist eine teure Route** — ein Anbieter-Aufruf plus je Aktivität ein voller
+Pipeline-Lauf, dieselbe Sorte Last wie ein Datenexport und mit derselben Begründung gebremst
+(6 pro 10 min je Konto). Sie wartet auf die ersten drei Aktivitäten und schiebt den Rest in
+`app.trackerLaeufe`: Nach einer Woche Funkstille stünde die Anfrage sonst minutenlang offen,
+bis der Reverse-Proxy sie abschneidet — der Lauf liefe weiter, der Nutzer sähe 504. Und
+abgelaufener Zugang (409) wie stummer Anbieter (502) werden GEFANGEN; ungefangen liefen beide
+in den allgemeinen Handler, und dort steht „Interner Fehler" statt dessen, was zu tun ist.
+
 **Token-Erneuerung ausschließlich im Kern** (`gueltigeTokens`): Wahoo gibt Refresh-Tokens
 einmalig aus, wer den neuen nicht speichert, hat die Verknüpfung verloren. Eine falsche
 Stelle, ein zerstörter Zustand. Beim Erneuern wird die Anbieter-Nutzerkennung
 weitergetragen — sie kommt oft nicht mit, und auf `null` gesetzt kappte sie den
-Zuordnungsweg des Webhooks. Die Tokens liegen AES-256-GCM-verschlüsselt
+Zuordnungsweg des Webhooks. `verbunden_am` bleibt beim Erneuern dagegen STEHEN: `verknuepfe`
+schreibt beide Fälle, und mitgeschrieben stünde auf der Kontoseite dauerhaft „verbunden seit
+vor ein paar Minuten" (Tokens laufen stündlich ab). Nach dem Trennen gibt es keine Zeile mehr,
+dort setzt der INSERT-Zweig das Datum ohnehin frisch. Die Tokens liegen AES-256-GCM-verschlüsselt
 ([krypto.ts](server/src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SCHLUESSEL`);
 fehlt der Schlüssel, sind alle Anbieter aus — Klartext als Rückfall gibt es nicht.
 

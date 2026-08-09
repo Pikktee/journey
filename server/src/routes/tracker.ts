@@ -6,8 +6,16 @@
 
 import type { FastifyInstance } from 'fastify'
 import { erfordereBenutzer } from '../app.js'
+import { baueBremse } from '../bremse.js'
 import { fuehreImporteAus } from '../tracker/importlauf.js'
-import { ANBIETER_NAMEN, type TrackerAnbieter, type TrackerProvider } from '../tracker/vertrag.js'
+import { ANBIETER_NAMEN, TokensUngueltigFehler, type TrackerAnbieter, type TrackerProvider } from '../tracker/vertrag.js'
+
+/**
+ * Wie viele Aktivitäten ein „Jetzt abrufen" abwartet, bevor der Rest in den
+ * Hintergrund geht. Drei sind der Normalfall (ein paar Tage Rückstand); die
+ * Nachhol-Fälle nach längerer Funkstille sollen die Anfrage nicht blockieren.
+ */
+const SYNC_SOFORT = 3
 
 /** Die Adresse, an die der Anbieter zurückschickt — muss dort hinterlegt sein. */
 export function rueckkehrUrl(basisUrl: string, anbieter: string): string {
@@ -127,9 +135,17 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
   })
 
   // — Manuell nachziehen (Polling-Anbieter, „hat nicht geklappt"-Knopf) —
+  //
+  // Ein Klick kostet einen Anbieter-Aufruf und je Aktivität einen vollen
+  // Pipeline-Lauf (Geocoding, Wetter, Video) — dieselbe Sorte Last wie ein
+  // Datenexport, und der hat aus demselben Grund eine Bremse.
+  const syncGebremst = baueBremse(6, 10 * 60_000) // 6 pro 10 min je Konto
   app.post<{ Params: { provider: string } }>('/api/tracker/:provider/sync', async (request, reply) => {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
+    if (syncGebremst(benutzer.id)) {
+      return reply.code(429).send({ fehler: 'Zu viele Abrufe. Versuch es in ein paar Minuten noch einmal.' })
+    }
     const provider = app.trackerRegistry.hole(request.params.provider)
     const verknuepfung = provider ? app.tracker.verknuepfung(benutzer.id, provider.id) : null
     if (!provider || !verknuepfung) return reply.code(404).send({ fehler: 'Nicht verbunden' })
@@ -138,16 +154,47 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
       return reply.code(409).send({ fehler: 'Verknüpfung ist nicht aktiv, bitte neu verbinden' })
     }
 
-    const tokens = await app.tracker.gueltigeTokens(verknuepfung, provider)
-    const ereignisse = await provider.listeNeue(tokens, verknuepfung.zuletztSyncAm)
+    // Abgelaufener Zugang und ein stummer Anbieter sind erwartete Zustände,
+    // keine Serverstörungen: Ungefangen liefen beide in den allgemeinen
+    // Handler und der Nutzer läse „Interner Fehler" statt dessen, was zu tun
+    // ist. `TokensUngueltigFehler` hat die Verknüpfung dabei schon auf
+    // `abgelaufen` gesetzt — die Oberfläche zeigt danach „neu verbinden".
+    let ereignisse
+    let tokens
+    try {
+      tokens = await app.tracker.gueltigeTokens(verknuepfung, provider)
+      ereignisse = await provider.listeNeue(tokens, verknuepfung.zuletztSyncAm)
+    } catch (fehler) {
+      if (fehler instanceof TokensUngueltigFehler) {
+        return reply.code(409).send({ fehler: 'Zugang abgelaufen, bitte neu verbinden' })
+      }
+      app.log.warn(`Tracker-Abruf fehlgeschlagen (${provider.id}): ${(fehler as Error).message}`)
+      return reply.code(502).send({ fehler: 'Der Anbieter antwortet gerade nicht. Später noch einmal versuchen.' })
+    }
+
     const auftraege = ereignisse
       .filter((e) => e.art === 'aktivitaet')
       .map((e) => ({ verknuepfung, provider, externeId: e.externeId }))
     // Anders als beim Webhook wird hier GEWARTET: Wer den Knopf drückt, will
-    // das Ergebnis sehen — und die Zahl der Aktivitäten ist begrenzt.
-    const ergebnisse = await fuehreImporteAus(app, app.tracker, auftraege)
-    app.tracker.merkeSync(verknuepfung.id)
-    return { gefunden: auftraege.length, neu: ergebnisse.length }
+    // das Ergebnis sehen. Aber nur auf die ersten paar — nach einer Woche
+    // Funkstille kämen zwanzig Aktivitäten, und die Anfrage stünde minutenlang
+    // offen, bis der Reverse-Proxy sie abschneidet (der Lauf ginge weiter, der
+    // Nutzer sähe 504). Der Rest läuft im Hintergrund weiter, wie beim Webhook.
+    const sofort = auftraege.slice(0, SYNC_SOFORT)
+    const rest = auftraege.slice(SYNC_SOFORT)
+    const ergebnisse = await fuehreImporteAus(app, app.tracker, sofort)
+    if (rest.length) {
+      const schluessel = `sync:${verknuepfung.id}`
+      app.trackerLaeufe.set(
+        schluessel,
+        fuehreImporteAus(app, app.tracker, rest).finally(() => app.trackerLaeufe.delete(schluessel)),
+      )
+    }
+    // Der Sync-Zeitpunkt kommt aus `fuehreImporteAus` (nur wenn nichts offen
+    // blieb — er ist der Cursor des nächsten Abrufs). Ohne Aufträge gibt es
+    // dort nichts zu entscheiden, und „nichts Neues" ist ein Erfolg.
+    if (!auftraege.length) app.tracker.merkeSync(verknuepfung.id)
+    return { gefunden: auftraege.length, neu: ergebnisse.length, imHintergrund: rest.length }
   })
 
   // — Importe: die Liste im Konto —

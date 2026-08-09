@@ -26,6 +26,8 @@ export interface TestProviderOptionen {
   konfiguriert?: boolean
   /** Ergebnisse für `listeNeue` (Polling-Pfad). */
   neue?: TrackerEreignis[]
+  /** `listeNeue` wirft — der Anbieter ist gerade nicht erreichbar. */
+  listeWirft?: boolean
 }
 
 /** Signatur, wie sie ein echter Anbieter über den ROHEN Body bildet. */
@@ -39,7 +41,7 @@ export class TestProvider implements TrackerProvider {
   /** Mitschrift für die Tests: Wurde beim Trennen wirklich abgemeldet? */
   readonly aufrufe: string[] = []
 
-  constructor(private readonly opt: TestProviderOptionen = {}) {
+  constructor(private opt: TestProviderOptionen = {}) {
     this.konfiguriert = opt.konfiguriert ?? true
   }
 
@@ -88,7 +90,17 @@ export class TestProvider implements TrackerProvider {
   }
 
   async listeNeue(): Promise<TrackerEreignis[]> {
+    if (this.opt.listeWirft) throw new Error('Anbieter antwortet nicht')
     return this.opt.neue ?? []
+  }
+
+  /**
+   * Einen Track nachreichen — für den Fall, den es in echt dauernd gibt: Die
+   * Zustellung kommt, bevor der Anbieter die Datei bereitgestellt hat (oder er
+   * ist gerade weg), und die WIEDERHOLTE Zustellung findet sie dann vor.
+   */
+  setzeTrack(externeId: string, track: RohTrack): void {
+    this.opt.tracks = { ...(this.opt.tracks ?? {}), [externeId]: track }
   }
 
   async holeTrack(_tokens: ProviderTokens, externeId: string): Promise<RohTrack> {

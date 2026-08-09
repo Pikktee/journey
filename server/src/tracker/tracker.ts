@@ -48,6 +48,10 @@ export interface ImportZeile {
   fertigAm: string | null
   gesehenAm: string | null
   fehler: string | null
+  /** Wie oft angelaufen (≥ 1) — steht in der Liste, damit ein Deckel sichtbar ist. */
+  versuche: number
+  /** Wartet die Aktivität noch auf einen neuen Anlauf? (s. `beanspruche`) */
+  wiederholbar: boolean
 }
 
 function zuVerknuepfung(z: VerknuepfungsZeile): Verknuepfung {
@@ -77,6 +81,16 @@ interface ZustandsEintrag {
  * nützt, lang genug für eine Anmeldung beim Anbieter samt Zwei-Faktor.
  */
 const ZUSTAND_GILT_MS = 15 * 60 * 1000
+
+/**
+ * Wie oft eine Aktivität höchstens angelaufen wird.
+ *
+ * Ohne Deckel ginge eine dauerhaft kaputte Aktivität bei JEDER Zustellung
+ * erneut durch Download und Pipeline — und Anbieter stellen bei Zweifeln
+ * mehrfach zu. Drei ist die Zahl, ab der ein Fehler nicht mehr nach einem
+ * Aussetzer aussieht; der Import bleibt danach als `fehler` sichtbar stehen.
+ */
+export const MAX_VERSUCHE = 3
 
 export class TrackerDienst {
   /**
@@ -145,6 +159,13 @@ export class TrackerDienst {
    * hintereinander verbindet, soll die vorhandene Zeile aktualisieren und
    * keine zweite anlegen — und zwischen SELECT und INSERT läge sonst wieder
    * ein Fenster.
+   *
+   * `verbunden_am` bleibt beim UPDATE ABSICHTLICH stehen: Die Funktion legt
+   * nicht nur beim Verbinden an, sondern auch bei jeder Token-Erneuerung
+   * (`gueltigeTokens`) — mitgeschrieben stünde auf der Kontoseite dauerhaft
+   * „verbunden seit vor ein paar Minuten", weil OAuth-Tokens stündlich
+   * erneuert werden. Beim echten Neuverbinden nach dem Trennen gibt es keine
+   * Zeile mehr, dort setzt der INSERT-Zweig das Datum frisch.
    */
   verknuepfe(benutzerId: string, anbieter: TrackerAnbieter, tokens: ProviderTokens): Verknuepfung {
     if (!this.schluessel) throw new Error('Tracker-Schlüssel fehlt')
@@ -160,7 +181,6 @@ export class TrackerDienst {
            tokens = excluded.tokens,
            laeuft_ab_am = excluded.laeuft_ab_am,
            status = 'aktiv',
-           verbunden_am = excluded.verbunden_am,
            letzter_fehler = NULL`,
       )
       .run(
@@ -282,28 +302,56 @@ export class TrackerDienst {
   /**
    * Einen Import beanspruchen.
    *
-   * Gibt `null` zurück, wenn diese Aktivität für dieses Konto schon einmal
-   * gemeldet wurde — der UNIQUE-Index entscheidet das, nicht eine Abfrage
-   * davor: Webhooks werden bei Zustellzweifeln wiederholt, und zwei parallele
-   * Zustellungen sehen zwischen „gibt's schon?" und dem INSERT dasselbe.
+   * Gibt `null` zurück, wenn diese Aktivität für dieses Konto schon erledigt
+   * ist — der UNIQUE-Index entscheidet das, nicht eine Abfrage davor: Webhooks
+   * werden bei Zustellzweifeln wiederholt, und zwei parallele Zustellungen
+   * sehen zwischen „gibt's schon?" und dem INSERT dasselbe.
+   *
+   * „Erledigt" ist dabei NICHT dasselbe wie „schon einmal versucht": Ein Lauf,
+   * der an etwas Vorübergehendem gescheitert ist (`wiederholbar`), wird von
+   * der nächsten Zustellung wieder beansprucht — sonst wäre der eine
+   * Netzaussetzer das endgültige Ende dieser Aktivität, und die Wiederholung
+   * des Anbieters liefe wirkungslos in den Index. Der Zähler deckelt das: Was
+   * dauerhaft kaputt ist, geht nicht bei jeder Zustellung erneut durch die
+   * Pipeline.
    */
   beanspruche(benutzerId: string, anbieter: TrackerAnbieter, externeId: string): ImportZeile | null {
     const id = neueTourId().replace('t_', 'i_')
     const jetztIso = this.jetzt().toISOString()
     const ergebnis = this.db
       .prepare(
-        `INSERT INTO tracker_importe (id, benutzer_id, anbieter, externe_id, status, gemeldet_am)
-         VALUES (?, ?, ?, ?, 'laeuft', ?)
-         ON CONFLICT(benutzer_id, anbieter, externe_id) DO NOTHING`,
+        `INSERT INTO tracker_importe (id, benutzer_id, anbieter, externe_id, status, gemeldet_am, wiederholbar, versuche)
+         VALUES (?, ?, ?, ?, 'laeuft', ?, 0, 1)
+         ON CONFLICT(benutzer_id, anbieter, externe_id) DO UPDATE SET
+           status = 'laeuft',
+           versuche = tracker_importe.versuche + 1,
+           wiederholbar = 0,
+           fehler = NULL,
+           fertig_am = NULL,
+           -- Auch wieder ungesehen: Der Ausgang des neuen Anlaufs ist eine
+           -- NEUE Nachricht. Bliebe die Quittung des gescheiterten stehen,
+           -- erschiene die geglückte Tour nie in der Benachrichtigung.
+           gesehen_am = NULL
+         WHERE tracker_importe.wiederholbar = 1 AND tracker_importe.versuche < ?`,
       )
-      .run(id, benutzerId, anbieter, externeId, jetztIso)
+      .run(id, benutzerId, anbieter, externeId, jetztIso, MAX_VERSUCHE)
     if (ergebnis.changes === 0) return null
-    return this.importZeile(id)
+    // Beim erneuten Anlauf gilt die VORHANDENE Zeile — `gemeldet_am` bleibt der
+    // Zeitpunkt der ersten Meldung, sonst wanderte die Aktivität in der Liste
+    // bei jedem Versuch nach oben.
+    return this.importZeileNach(benutzerId, anbieter, externeId)
+  }
+
+  private importZeileNach(benutzerId: string, anbieter: TrackerAnbieter, externeId: string): ImportZeile | null {
+    const z = this.db
+      .prepare('SELECT id FROM tracker_importe WHERE benutzer_id = ? AND anbieter = ? AND externe_id = ?')
+      .get(benutzerId, anbieter, externeId) as { id: string } | undefined
+    return z ? this.importZeile(z.id) : null
   }
 
   importZeile(id: string): ImportZeile | null {
     const z = this.db.prepare('SELECT * FROM tracker_importe WHERE id = ?').get(id) as
-      | Record<string, string | null>
+      | Record<string, string | number | null>
       | undefined
     if (!z) return null
     return {
@@ -312,18 +360,36 @@ export class TrackerDienst {
       anbieter: z['anbieter'] as TrackerAnbieter,
       externeId: z['externe_id'] as string,
       status: z['status'] as ImportStatus,
-      tourId: z['tour_id'] ?? null,
+      tourId: (z['tour_id'] as string | null) ?? null,
       gemeldetAm: z['gemeldet_am'] as string,
-      fertigAm: z['fertig_am'] ?? null,
-      gesehenAm: z['gesehen_am'] ?? null,
-      fehler: z['fehler'] ?? null,
+      fertigAm: (z['fertig_am'] as string | null) ?? null,
+      gesehenAm: (z['gesehen_am'] as string | null) ?? null,
+      fehler: (z['fehler'] as string | null) ?? null,
+      versuche: Number(z['versuche'] ?? 1),
+      wiederholbar: Number(z['wiederholbar'] ?? 0) === 1,
     }
   }
 
-  schliesseImportAb(id: string, status: ImportStatus, tourId?: string | null, fehler?: string | null): void {
+  /**
+   * Einen Import abschließen.
+   *
+   * `wiederholbar` sagt, ob ein neuer Anlauf überhaupt Sinn hätte, und ist
+   * eine Aussage über den GRUND, nicht über den Status: „ohne GPS" und „zu
+   * kurz" bleiben wahr, egal wie oft man es versucht; „Speicher voll", ein
+   * Anbieter-Ausfall oder ein Netzfehler sind Momentaufnahmen.
+   */
+  schliesseImportAb(
+    id: string,
+    status: ImportStatus,
+    tourId?: string | null,
+    fehler?: string | null,
+    wiederholbar = false,
+  ): void {
     this.db
-      .prepare('UPDATE tracker_importe SET status = ?, tour_id = ?, fertig_am = ?, fehler = ? WHERE id = ?')
-      .run(status, tourId ?? null, this.jetzt().toISOString(), fehler ?? null, id)
+      .prepare(
+        'UPDATE tracker_importe SET status = ?, tour_id = ?, fertig_am = ?, fehler = ?, wiederholbar = ? WHERE id = ?',
+      )
+      .run(status, tourId ?? null, this.jetzt().toISOString(), fehler ?? null, wiederholbar ? 1 : 0, id)
   }
 
   importe(benutzerId: string, grenze = 30): ImportZeile[] {

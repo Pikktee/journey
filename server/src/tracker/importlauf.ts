@@ -9,7 +9,7 @@
 
 import type { FastifyInstance } from 'fastify'
 import { QuotaFehler, ZuKleinFehler, legeTourAusTrackAn } from './touranleger.js'
-import type { ImportZeile, TrackerDienst, Verknuepfung } from './tracker.js'
+import { MAX_VERSUCHE, type ImportZeile, type TrackerDienst, type Verknuepfung } from './tracker.js'
 import { OhneRouteFehler, TokensUngueltigFehler, type TrackerProvider } from './vertrag.js'
 
 /**
@@ -21,6 +21,21 @@ import { OhneRouteFehler, TokensUngueltigFehler, type TrackerProvider } from './
  */
 function istUebersprungen(fehler: unknown): boolean {
   return fehler instanceof OhneRouteFehler || fehler instanceof ZuKleinFehler || fehler instanceof QuotaFehler
+}
+
+/**
+ * Hätte ein neuer Anlauf Sinn?
+ *
+ * Das ist eine Frage an den GRUND, nicht an den Status. „Ohne Route" und „zu
+ * kurz" sind Aussagen über die Aktivität — die bleiben wahr, so oft man es
+ * auch versucht. Alles andere ist eine Aussage über den Moment: ein voller
+ * Speicher, den jemand aufräumt, ein Anbieter, der gerade nicht antwortet,
+ * ein Netzaussetzer. Genau diese Fälle brachte die erste Fassung um: Die Zeile
+ * blieb als `fehler` stehen, und jede weitere Zustellung lief wirkungslos in
+ * den Dedup-Index.
+ */
+function istWiederholbar(fehler: unknown): boolean {
+  return !(fehler instanceof OhneRouteFehler || fehler instanceof ZuKleinFehler)
 }
 
 export interface ImportAuftrag {
@@ -54,13 +69,16 @@ export async function fuehreImportAus(
       track,
     })
     dienst.schliesseImportAb(importZeile.id, 'fertig', tourId)
-    dienst.merkeSync(verknuepfung.id)
   } catch (fehler) {
     const nachricht = (fehler as Error).message
+    // Am Deckel ist Schluss — und das gehört an die Zeile geschrieben, sonst
+    // wartet jemand auf einen weiteren Anlauf, der nicht mehr kommt.
+    const wiederholbar = istWiederholbar(fehler) && importZeile.versuche < MAX_VERSUCHE
+    const text = istWiederholbar(fehler) && !wiederholbar ? `${nachricht} (nach ${importZeile.versuche} Versuchen)` : nachricht
     if (istUebersprungen(fehler)) {
-      dienst.schliesseImportAb(importZeile.id, 'uebersprungen', null, nachricht)
+      dienst.schliesseImportAb(importZeile.id, 'uebersprungen', null, text, wiederholbar)
     } else {
-      dienst.schliesseImportAb(importZeile.id, 'fehler', null, nachricht)
+      dienst.schliesseImportAb(importZeile.id, 'fehler', null, text, wiederholbar)
       // Eine tote Verknüpfung muss SICHTBAR tot sein: Der Nutzer wartet sonst
       // auf Touren, die nie kommen.
       if (fehler instanceof TokensUngueltigFehler) {
@@ -79,6 +97,13 @@ export async function fuehreImportAus(
  * Jeder Import stößt eine Pipeline-Verarbeitung an (Geocoding, Wetter,
  * Bildanalyse); ein Anbieter, der nach einer Woche Funkstille zwanzig
  * Aktivitäten auf einmal meldet, würde parallel den ganzen Server belegen.
+ *
+ * Der Sync-Zeitpunkt wird am ENDE gesetzt und nur, wenn nichts offen blieb.
+ * Er ist beim Polling-Weg der CURSOR (`listeNeue(tokens, zuletztSyncAm)`):
+ * Vorgerückt, obwohl eine Aktivität gescheitert ist, listet der Anbieter sie
+ * beim nächsten Mal nicht mehr — und damit wäre sie auch dann verloren, wenn
+ * der neue Anlauf sie längst wieder annehmen würde. Je Verknüpfung entschieden,
+ * weil ein Stapel Aufträge aus mehreren stammen kann.
  */
 export async function fuehreImporteAus(
   app: FastifyInstance,
@@ -86,9 +111,19 @@ export async function fuehreImporteAus(
   auftraege: readonly ImportAuftrag[],
 ): Promise<ImportZeile[]> {
   const ergebnisse: ImportZeile[] = []
+  const beteiligt = new Set<string>()
+  const offen = new Set<string>()
   for (const auftrag of auftraege) {
+    beteiligt.add(auftrag.verknuepfung.id)
     const zeile = await fuehreImportAus(app, dienst, auftrag)
-    if (zeile) ergebnisse.push(zeile)
+    if (!zeile) continue
+    ergebnisse.push(zeile)
+    // Offen ist genau das, was noch einmal drankommen soll — dieselbe Frage,
+    // die `beanspruche` beim nächsten Anlauf stellt.
+    if (zeile.wiederholbar) offen.add(auftrag.verknuepfung.id)
+  }
+  for (const id of beteiligt) {
+    if (!offen.has(id)) dienst.merkeSync(id)
   }
   return ergebnisse
 }

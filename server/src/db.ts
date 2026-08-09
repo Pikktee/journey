@@ -426,6 +426,24 @@ const MIGRATIONEN: Migration[] = [
   CREATE UNIQUE INDEX idx_importe_dedup ON tracker_importe(benutzer_id, anbieter, externe_id);
   CREATE INDEX idx_importe_offen ON tracker_importe(benutzer_id, status);
   `,
+
+  // Ein gescheiterter Import darf kein Grabstein sein.
+  //
+  // Der Dedup-Index beantwortete bisher zwei verschiedene Fragen mit derselben
+  // Zeile: „schon erledigt?" und „schon versucht?". Damit blockierte jeder
+  // vorübergehende Fehler (Anbieter kurz weg, Netz, Speicher voll) die
+  // Aktivität für immer — auch die wiederholte Zustellung, auf die das ganze
+  // Verfahren baut (Wahoo staffelt bis 72 h), lief in den Index und tat nichts.
+  //
+  // `wiederholbar` trennt beides und wird vom AUSGANG gesetzt, nicht vom
+  // Status: „ohne GPS" und „zu kurz" sind Aussagen über die Aktivität und
+  // bleiben endgültig; „Speicher voll" und jeder echte Fehler sind Aussagen
+  // über den Moment. `versuche` deckelt das Ganze, damit eine dauerhaft kaputte
+  // Aktivität nicht bei jeder Zustellung erneut durch die Pipeline geht.
+  `
+  ALTER TABLE tracker_importe ADD COLUMN wiederholbar INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE tracker_importe ADD COLUMN versuche INTEGER NOT NULL DEFAULT 1;
+  `,
 ]
 
 /**

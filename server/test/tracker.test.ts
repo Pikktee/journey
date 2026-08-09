@@ -10,6 +10,7 @@ import { punkteZuGpx, zuGpx } from '../src/tracker/normalisierer.js'
 import { Registry } from '../src/tracker/registry.js'
 import { beispielRohTrack, TestProvider, testSignatur } from '../src/tracker/testprovider.js'
 import { modusAusSportart } from '../src/tracker/touranleger.js'
+import { MAX_VERSUCHE, TrackerDienst } from '../src/tracker/tracker.js'
 import { OhneRouteFehler, type RohTrack } from '../src/tracker/vertrag.js'
 import { baueTestApp, type TestUmgebung } from './helfer.js'
 
@@ -192,6 +193,27 @@ describe('Verknüpfen (OAuth)', () => {
     const zeile = u.app.deps.db.prepare('SELECT tokens FROM tracker_verknuepfungen').get() as { tokens: string }
     expect(zeile.tokens).not.toContain('zugriff-geheimer-code')
     expect(zeile.tokens.startsWith('v1.')).toBe(true)
+  })
+
+  it('hält „verbunden seit" fest, wenn nur die Tokens erneuert werden', async () => {
+    // `verknuepfe` legt nicht nur beim Verbinden an, sondern schreibt auch
+    // jede Token-Erneuerung — mitgeschriebenes Datum stünde auf der
+    // Kontoseite dauerhaft auf „vor ein paar Minuten".
+    const { u } = await baueMitProvider()
+    await verknuepfe(u)
+    const { id: uid } = u.app.deps.db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string }
+    const vorher = u.app.tracker.verknuepfung(uid, 'polar')?.verbundenAm
+    u.app.tracker.verknuepfe(uid, 'polar', { zugriff: 'frisch', externerNutzer: 'extern-1' })
+    expect(u.app.tracker.verknuepfung(uid, 'polar')?.verbundenAm).toBe(vorher)
+
+    // Nach dem Trennen ist es eine NEUE Verbindung — dort zählt das neue
+    // Datum. Mit eigener Uhr geprüft, sonst fällt beides in dieselbe
+    // Millisekunde und der Test bewiese nichts.
+    const spaeter = new Date(Date.parse(vorher ?? '') + 86_400_000)
+    const dienst = new TrackerDienst(u.app.deps.db, 'test-schluessel', () => spaeter)
+    dienst.trenne(uid, 'polar')
+    dienst.verknuepfe(uid, 'polar', { zugriff: 'neu', externerNutzer: 'extern-1' })
+    expect(dienst.verknuepfung(uid, 'polar')?.verbundenAm).toBe(spaeter.toISOString())
   })
 
   it('verlangt einen gültigen state — der CSRF-Riegel der Verknüpfung', async () => {
@@ -415,6 +437,152 @@ describe('Importliste und Benachrichtigung', () => {
     await Promise.all([...u.app.verarbeitungen.values()])
     expect(antwort.json()).toMatchObject({ gefunden: 1, neu: 1 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
+  })
+})
+
+describe('Ein Fehlschlag ist kein Grabstein', () => {
+  /** Die Import-Zeile roh aus der Datenbank (samt der Spalten hinter der API). */
+  function importZeile(u: TestUmgebung): { status: string; versuche: number; wiederholbar: number; fehler: string | null } {
+    return u.app.deps.db.prepare('SELECT status, versuche, wiederholbar, fehler FROM tracker_importe').get() as {
+      status: string
+      versuche: number
+      wiederholbar: number
+      fehler: string | null
+    }
+  }
+
+  it('nimmt die Aktivität beim nächsten Anlauf wieder an, wenn der Grund vorüber ist', async () => {
+    // Der Fall, für den Anbieter überhaupt wiederholt zustellen (Wahoo bis
+    // 72 h): Beim ersten Mal war die Datei noch nicht da.
+    const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {} })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    expect(importZeile(u)).toMatchObject({ status: 'fehler', versuche: 1, wiederholbar: 1 })
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 0 })
+
+    // Die Fehlermeldung wird abgeholt — der Nutzer hat sie gesehen
+    await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending?gesehen=1', cookies: u.cookies })
+
+    provider.setzeTrack('a1', beispielRohTrack())
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    expect(importZeile(u)).toMatchObject({ status: 'fertig', versuche: 2 })
+    // Genau EINE Tour — der zweite Anlauf ist ein Nachholen, kein Duplikat
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({ n: 1 })
+    // Der Ausgang des neuen Anlaufs ist eine NEUE Nachricht: Die geglückte
+    // Tour muss gemeldet werden, obwohl der Fehlschlag davor quittiert war.
+    const offen = await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies })
+    expect((offen.json() as { importe: Array<{ status: string }> }).importe).toMatchObject([{ status: 'fertig' }])
+  })
+
+  it('hört nach dem Deckel auf und schreibt es an die Zeile', async () => {
+    const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {} })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    for (let i = 0; i < MAX_VERSUCHE + 2; i++) {
+      await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    }
+    const zeile = importZeile(u)
+    expect(zeile.versuche).toBe(MAX_VERSUCHE)
+    expect(zeile.wiederholbar).toBe(0)
+    // Kein stiller Deckel: Warum nicht mehr weiterprobiert wird, steht da
+    expect(zeile.fehler).toContain(`nach ${MAX_VERSUCHE} Versuchen`)
+  })
+
+  it('probiert eine Aktivität OHNE Route nie wieder — die bleibt ohne Route', async () => {
+    const provider = new TestProvider({
+      webhookGeheimnis: WEBHOOK_GEHEIMNIS,
+      tracks: { leer: { format: 'punkte', punkte: [], start: '2026-07-04T08:00:00Z', ende: '2026-07-04T09:00:00Z' } },
+    })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'leer' })
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'leer' })
+    expect(importZeile(u)).toMatchObject({ status: 'uebersprungen', versuche: 1, wiederholbar: 0 })
+  })
+
+  it('nimmt einen vollen Speicher dagegen wieder auf — der geht vorbei', async () => {
+    const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: { a1: beispielRohTrack() } })
+    const u = await baueTestApp([], null, null, { maxSpeicherProBenutzer: 1 }, null, null, null, [provider])
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    expect(importZeile(u)).toMatchObject({ status: 'uebersprungen', wiederholbar: 1 })
+  })
+
+  it('rückt den Sync-Zeitpunkt NICHT vor, solange etwas offen ist', async () => {
+    // Der Zeitpunkt ist beim Polling der Cursor: vorgerückt, listet der
+    // Anbieter die gescheiterte Aktivität nie wieder auf.
+    const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {} })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    const offen = u.app.deps.db.prepare('SELECT zuletzt_sync_am FROM tracker_verknuepfungen').get()
+    expect(offen).toEqual({ zuletzt_sync_am: null })
+
+    provider.setzeTrack('a1', beispielRohTrack())
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    const fertig = u.app.deps.db.prepare('SELECT zuletzt_sync_am FROM tracker_verknuepfungen').get() as {
+      zuletzt_sync_am: string | null
+    }
+    expect(fertig.zuletzt_sync_am).not.toBeNull()
+  })
+})
+
+describe('Nachziehen von Hand', () => {
+  it('bremst und antwortet 429 statt Anbieter und Pipeline zu fluten', async () => {
+    const { u } = await baueMitProvider(
+      new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {}, neue: [] }),
+    )
+    await verknuepfe(u)
+    const kodes: number[] = []
+    for (let i = 0; i < 8; i++) {
+      kodes.push((await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })).statusCode)
+    }
+    expect(kodes.filter((k) => k === 200).length).toBe(6)
+    expect(kodes.at(-1)).toBe(429)
+  })
+
+  it('meldet einen abgelaufenen Zugang als 409 mit dem, was zu tun ist', async () => {
+    const { u } = await baueMitProvider()
+    await verknuepfe(u)
+    const { id: uid } = u.app.deps.db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string }
+    // Abgelaufen und ohne Erneuerungs-Token: `gueltigeTokens` wirft
+    u.app.tracker.verknuepfe(uid, 'polar', {
+      zugriff: 'alt',
+      laeuftAb: new Date(Date.now() - 60_000).toISOString(),
+      externerNutzer: 'extern-1',
+    })
+    const antwort = await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })
+    expect(antwort.statusCode).toBe(409)
+    expect((antwort.json() as { fehler: string }).fehler).toContain('neu verbinden')
+  })
+
+  it('meldet einen stummen Anbieter als 502, nicht als eigenen Fehler', async () => {
+    const { u } = await baueMitProvider(
+      new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {}, listeWirft: true }),
+    )
+    await verknuepfe(u)
+    const antwort = await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })
+    expect(antwort.statusCode).toBe(502)
+    expect((antwort.json() as { fehler: string }).fehler).not.toContain('Interner')
+  })
+
+  it('wartet nur auf die ersten Aktivitäten und schiebt den Rest in den Hintergrund', async () => {
+    const viele = Array.from({ length: 5 }, (_, i) => `p${i}`)
+    const provider = new TestProvider({
+      webhookGeheimnis: WEBHOOK_GEHEIMNIS,
+      tracks: Object.fromEntries(viele.map((id) => [id, beispielRohTrack()])),
+      neue: viele.map((id) => ({ externerNutzer: 'extern-1', externeId: id, art: 'aktivitaet' as const })),
+    })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    const antwort = await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })
+    expect(antwort.json()).toMatchObject({ gefunden: 5, neu: 3, imHintergrund: 2 })
+    await Promise.all([...u.app.trackerLaeufe.values()])
+    await Promise.all([...u.app.verarbeitungen.values()])
+    // Auch die nachlaufenden landen im Konto
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 5 })
   })
 })
 
