@@ -223,7 +223,9 @@
     .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; color: var(--text); }
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
 
-    @media (max-width: 720px) { .nav-hide-sm { display: none; } }
+    /* Der Konto-Chip fällt schmal weg wie die übrigen `nav-hide-sm`-Teile —
+       er kommt aus src/app-nav.ts und kann die Klasse nicht selbst tragen. */
+    @media (max-width: 720px) { .nav-hide-sm, .nav-right .konto-wrap { display: none; } }
     /* Ohne die mittleren Links trägt die Kopfleiste nur noch Logo + Knopf —
        dann darf sie schmaler sein und mehr vom Hero-Bild stehen lassen. */
     @media (max-width: 560px) {
@@ -332,7 +334,7 @@
        bei 844 px nicht), aber viel zu flach — die Kopfleiste brach zweizeilig um
        und schob sich über die Überschrift. Hier zählt die HÖHE, nicht die Breite. */
     @media (max-height: 500px) and (orientation: landscape) {
-      .nav-hide-sm { display: none; }
+      .nav-hide-sm, .nav-right .konto-wrap { display: none; }
       .hero { padding-top: 74px; }
       .hero-inner { padding-bottom: 26px; }
       .hero h1 { font-size: clamp(30px, 4.4vw, 46px); }
@@ -1111,100 +1113,11 @@
 
     document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
-    // Eingeloggt: „Zum Studio“ + Profil-Dropdown wie im Studio-Hauptscreen.
-    // Cookie-Name deckungsgleich mit src/session-hinweis.ts (maptale_dabei).
-    ;(function () {
-      var rechts = document.getElementById('nav-right')
-      if (!rechts) return
-      var HINWEIS = 'maptale_dabei'
-      var MAX_AGE = 30 * 24 * 60 * 60
-      function cookieSuffix() {
-        return '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '')
-      }
-      function merke() {
-        document.cookie = HINWEIS + '=1; Max-Age=' + MAX_AGE + cookieSuffix()
-        document.documentElement.classList.add('nav-dabei')
-      }
-      function vergesse() {
-        document.cookie = HINWEIS + '=; Max-Age=0' + cookieSuffix()
-        document.documentElement.classList.remove('nav-dabei')
-      }
-      fetch('/api/auth/me', { credentials: 'include' })
-        .then(function (r) { return r.ok ? r.json() : null })
-        .then(function (daten) {
-          if (!daten || !daten.benutzer) {
-            vergesse()
-            return
-          }
-          merke()
-          var name = (daten.profil && daten.profil.anzeigename) || daten.benutzer.name || 'Profil'
-          var initial = (name.trim().charAt(0) || '?').toUpperCase()
-          var avatar = daten.profil && daten.profil.avatarUrl
-          var mail = daten.benutzer.email || ''
-          var quota = daten.quota
-          var avatarHtml = avatar
-            ? '<img class="punkt" src="' + avatar + '" alt="" width="20" height="20" />'
-            : '<span class="punkt">' + initial + '</span>'
-          var mb = function (b) { return (b / (1024 * 1024)).toFixed(0) }
-          var quotaHtml = ''
-          if (quota && quota.limit > 0) {
-            var anteil = Math.min(100, (quota.benutzt / quota.limit) * 100)
-            quotaHtml =
-              '<div class="km-quota">' +
-                '<div class="km-quota-kopf"><span>Speicher</span><span>' + mb(quota.benutzt) + ' / ' + mb(quota.limit) + ' MB</span></div>' +
-                '<div class="km-balken"><span style="width:' + anteil.toFixed(0) + '%"' + (anteil > 90 ? ' class="voll"' : '') + '></span></div>' +
-              '</div>'
-          }
-          var adminHtml = (daten.benutzer && daten.benutzer.rolle === 'admin')
-            ? '<a href="/admin" class="km-eintrag">' +
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>' +
-                'Administration' +
-              '</a>'
-            : ''
-          rechts.innerHTML =
-            '<a href="/app" class="nav-cta">Zum Studio</a>' +
-            '<div class="konto-wrap nav-hide-sm">' +
-              '<button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">' +
-                avatarHtml + '<span class="nav-profil-name"></span>' +
-              '</button>' +
-              '<div class="konto-menue" id="nav-konto-menue" hidden>' +
-                (mail ? '<div class="km-mail"></div>' : '') +
-                quotaHtml +
-                '<div class="km-trenner" role="separator"></div>' +
-                adminHtml +
-                '<button type="button" class="km-eintrag" id="nav-abmelden">' +
-                  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' +
-                  'Abmelden' +
-                '</button>' +
-              '</div>' +
-            '</div>'
-          rechts.querySelector('.nav-profil-name').textContent = name
-          var mailEl = rechts.querySelector('.km-mail')
-          if (mailEl) mailEl.textContent = mail
-
-          var chip = document.getElementById('nav-profil')
-          var menue = document.getElementById('nav-konto-menue')
-          function schliesse() {
-            menue.hidden = true
-            chip.setAttribute('aria-expanded', 'false')
-          }
-          chip.addEventListener('click', function (e) {
-            e.stopPropagation()
-            var auf = menue.hidden
-            menue.hidden = !auf
-            chip.setAttribute('aria-expanded', String(auf))
-          })
-          document.addEventListener('click', function (e) {
-            if (!menue.hidden && !e.target.closest('.konto-wrap')) schliesse()
-          })
-          document.getElementById('nav-abmelden').addEventListener('click', function () {
-            vergesse()
-            fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-              .finally(function () { location.reload() })
-          })
-        })
-        .catch(function () { vergesse() })
-    })()
+    // Eingeloggt: „Zum Studio“ + Konto-Menü — dasselbe wie auf Galerie und
+    // Profil, aus src/app-nav.ts. Es stand hier lange als eigene Inline-Fassung,
+    // und genau die verlor „Mein Profil“ und „Kontoeinstellungen“: Wer beide
+    // Menüs pflegt, pflegt irgendwann nur noch eines. Der Modul-Aufruf steht
+    // unten in einem eigenen <script type="module">.
 
     // Sanftes Einblenden beim Scrollen (respektiert reduzierte Bewegung).
     var mag = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -1295,6 +1208,18 @@
 
       show(0)
     })()
+  </script>
+
+  <!-- Das Konto-Menü der Topbar. Eigenes Modul-Skript, weil der Block darüber
+       bewusst klassisches Inline-JS ist: Die Landing soll ohne Bundle stehen,
+       falls das Modul hängt — das Menü ist der einzige Teil, der geteilte Logik
+       braucht (und nur für Angemeldete überhaupt erscheint). -->
+  <script type="module">
+    import { montiereNavRechts } from '/src/app-nav.ts'
+    void montiereNavRechts(document.getElementById('nav-right'), {
+      text: 'Zum Studio',
+      href: '/app',
+    })
   </script>
 </body>
 </html>

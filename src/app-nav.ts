@@ -77,7 +77,16 @@ function quotaHtml(quota: Quota | undefined): string {
  * „Anmelden", Eingeloggte denselben Konto-Chip wie im Studio — ohne
  * „Neue Tour" (der bleibt Studio-only).
  */
-export async function montiereNavRechts(container: HTMLElement | null): Promise<void> {
+export async function montiereNavRechts(
+  container: HTMLElement | null,
+  /**
+   * Knopf links neben dem Chip. Die Landing zeigt dort „Zum Studio" — sie hatte
+   * deshalb lange eine EIGENE Kopie dieses Menüs im Inline-Skript, und in der
+   * fehlten „Mein Profil" und „Kontoeinstellungen" schlicht. Ein Parameter ist
+   * billiger als eine zweite Fassung, die niemand mitpflegt.
+   */
+  cta?: { text: string; href: string },
+): Promise<void> {
   if (!container) return
   try {
     const r = await fetch('/api/auth/me', { credentials: 'include' })
@@ -110,6 +119,7 @@ export async function montiereNavRechts(container: HTMLElement | null): Promise<
       : ''
 
     container.innerHTML = `
+      ${cta ? `<a href="${cta.href}" class="nav-cta">${cta.text}</a>` : ''}
       <div class="konto-wrap">
         <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
           ${avatarHtml}<span class="nav-profil-name"></span>
