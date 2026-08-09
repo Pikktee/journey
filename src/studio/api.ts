@@ -213,6 +213,39 @@ export function finalisiere(id: string): Promise<unknown> {
   return anfrage(`/tours/${id}/finalize`, { method: 'POST' })
 }
 
+/** Ein nachzureichendes Medium — die ID vergibt der SERVER (s. reicheMedienNach). */
+export interface NachreichEingabe {
+  type: 'photo' | 'video'
+  file: string
+  takenAt: string
+  anchor?: [number, number]
+  durationS?: number
+}
+
+/**
+ * Medien zu einer bestehenden Tour anmelden (additiv, Manifest wächst).
+ *
+ * Antwort ist die Zuordnung Eintrag → ID + Ablage-Dateiname, in der Reihenfolge
+ * der Anfrage; danach lädt der Aufrufer je Datei mit `ladeMedium` hoch. Die IDs
+ * kommen vom Server, weil beim Nachreichen — anders als beim Anlegen — keine
+ * idempotente Wiederholung nötig ist und so keine ID kollidieren kann.
+ */
+export function reicheMedienNach(
+  id: string,
+  medien: NachreichEingabe[],
+): Promise<{ medien: Array<{ id: string; datei: string }> }> {
+  return anfrage(`/tours/${id}/medien`, { method: 'POST', headers: jsonKopf, body: JSON.stringify({ medien }) })
+}
+
+/**
+ * Ein Medium ENDGÜLTIG löschen: Rohdatei und alle abgeleiteten Fassungen sind
+ * danach weg, der Speicher ist frei. Der Server rendert anschließend neu (aus
+ * dem Cache) — der Aufrufer wartet also auf „bereit", bevor er weiterschreibt.
+ */
+export function loescheMedium(id: string, mid: string): Promise<{ ok: boolean }> {
+  return anfrage(`/tours/${id}/media/${mid}`, { method: 'DELETE' })
+}
+
 export function tour(id: string): Promise<{ status?: string; fehler?: string | null; schema?: string; media?: Array<{ placement?: string }> }> {
   return anfrage(`/tours/${id}`)
 }

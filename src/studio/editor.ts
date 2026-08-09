@@ -11,6 +11,7 @@ import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
 import {
   effektiveMedien,
+  endgueltigZuLoeschen,
   erfasseUndo,
   isoZuOffset,
   LEERES_OVERLAY,
@@ -25,6 +26,7 @@ import {
   MOMENT_DEFAULT_S,
   ohneAudioEintrag,
   ohneKameraGrenze,
+  ohneMedien,
   ohneModusGrenze,
   ohneMoment,
   ohneWetterGrenze,
@@ -114,7 +116,17 @@ import {
   type TonPatch,
 } from './tonklip.js'
 import { baueStopps, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
-import { beschreibeAufnahme, liesAufnahme, type ExifAufnahme } from './exif.js'
+import { beschreibeAufnahme, liesAufnahme, liesExif, type ExifAufnahme } from './exif.js'
+import {
+  befundSaetze,
+  einordnungWort,
+  fasseZusammen,
+  megabyte,
+  streifenAnteil,
+  type NachreichBefund,
+  type NeueAufnahme,
+} from './nachreichen.js'
+import { exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
 // Nur Typen — das Modul selbst wird erst beim ersten Play geladen.
 import type { Abspieler, KlangMarke, MusikKlip, Spielplan } from './abspielen.js'
 
@@ -970,6 +982,13 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
         }),
       )
     }
+    // Aufnahmen gehören in dieselbe Spur wie die Momente — es ist die Bahn der
+    // Szenen. Der Eintrag steht unter dem Trenner, weil er als einziger nicht
+    // „ab der Marke" wirkt: Wohin ein Bild fällt, sagt seine eigene Uhrzeit.
+    const trenner = document.createElement('div')
+    trenner.className = 'trenner'
+    menue.appendChild(trenner)
+    menue.appendChild(menueEintrag('Aufnahmen hinzufügen …', () => $('nach-datei').click()))
   } else if (spur === 'musik') {
     menue.appendChild(menueEintrag('Aus der Bibliothek …', () => oeffneSfxDialog()))
     menue.appendChild(menueEintrag('Datei hochladen …', () => $('e-audio-datei').click()))
@@ -1056,7 +1075,12 @@ function oeffneAblage(): void {
     const b = document.createElement('button')
     b.type = 'button'
     b.className = m.geloescht ? 'geloescht' : ''
-    b.title = m.geloescht ? `${m.caption || m.id} · entfernt` : `${m.caption || m.id} · ohne Ort`
+    // Entfernt heißt seit dem endgültigen Löschen: entfernt BIS ZUM SPEICHERN.
+    // Bis dahin holt ein Zug auf die Zeitleiste die Aufnahme zurück — danach
+    // gibt es sie nicht mehr, und das gehört an die Aufnahme geschrieben.
+    b.title = m.geloescht
+      ? `${m.caption || m.id} · entfernt, wird beim Speichern endgültig gelöscht`
+      : `${m.caption || m.id} · ohne Ort`
     b.dataset['id'] = m.id
     const bild = document.createElement('img')
     bild.src = miniaturQuelle(m)
@@ -1067,6 +1091,283 @@ function oeffneAblage(): void {
   }
   menue.appendChild(raster)
   zeigeSchwebeMenue(menue, knopf)
+}
+
+// — Aufnahmen nachreichen —
+//
+// Bilder kamen lange nur beim ANLEGEN herein; danach war die Menge fest. Wer
+// abends die Aufnahmen der richtigen Kamera einliest, musste die ganze Tour neu
+// hochladen und verlor dabei jeden Schnitt. Der Weg hierher ist deshalb kein
+// neuer Screen, sondern ein zweiter Einstieg in einen, den es schon gibt
+// (docs/mockups/studio-aufnahmen-nachreichen.html).
+//
+// Serverseitig ist das die additive Medien-Route: Manifest-Einträge anmelden
+// (IDs vergibt der Server), je Datei ein PUT, danach neu verarbeiten.
+
+/** Die im Dialog gezeigte Auswahl: Befund + die zugehörigen Dateien. */
+let nachStand: { befund: NachreichBefund; dateien: Map<string, File>; weggelassen: Set<string> } | null = null
+
+/**
+ * Einzug des Streifens in px — die Punkte sitzen ZWISCHEN den Rändern, sonst
+ * schnitte der erste und letzte an der Kante ab (samt seiner Uhrzeit). Steht
+ * auch als `--streifen-rand` im CSS; beide Zahlen müssen gleich sein.
+ */
+const STREIFEN_RAND = 28
+
+/** Anteil 0–1 → `left` innerhalb der eingezogenen Achse. */
+function randPosition(anteil: number): string {
+  return `calc(${STREIFEN_RAND}px + ${(anteil * 100).toFixed(2)}% - ${(anteil * 2 * STREIFEN_RAND).toFixed(1)}px)`
+}
+
+/** EXIF lesen wie beim Anlegen — Aufnahmezeit und Ort stehen in der Datei selbst. */
+async function liesNeueAufnahmen(dateien: readonly File[], zone: string): Promise<NeueAufnahme[]> {
+  const gelesen: NeueAufnahme[] = []
+  for (const datei of dateien) {
+    const typ = medientyp(datei.name)
+    if (!typ) continue
+    let zeitMs = datei.lastModified
+    let zeitGeraten = true
+    let ort: [number, number] | null = null
+    if (typ === 'photo') {
+      // Der EXIF-Block steht am DATEIANFANG — 256 KB reichen, und bei dreißig
+      // Fotos ist das der Unterschied zwischen „gleich da" und Kaffeepause.
+      const exif = liesExif(await datei.slice(0, 262144).arrayBuffer())
+      if (exif.datum) {
+        zeitMs = exifDatumZuMs(exif.datum, zone)
+        zeitGeraten = false
+      }
+      if (exif.gps) ort = exif.gps
+    }
+    gelesen.push({ datei: datei.name, typ, zeitMs, zeitGeraten, ort, groesse: datei.size })
+  }
+  return gelesen
+}
+
+function nachDialog(): HTMLDialogElement {
+  return $('nach-dialog') as HTMLDialogElement
+}
+
+async function oeffneNachreichen(dateiListe: FileList | null): Promise<void> {
+  if (!z || !dateiListe?.length) return
+  const dateien = [...dateiListe]
+  const brauchbar = dateien.filter((d) => medientyp(d.name))
+  if (!brauchbar.length) {
+    status('Keine brauchbare Datei dabei — es gehen Fotos (JPG, PNG, WebP) und Videos (MP4, MOV, WebM).', 'fehler')
+    return
+  }
+  status('Liest die Aufnahmen …')
+  const gelesen = await liesNeueAufnahmen(brauchbar, z.daten.time.zone)
+  const befund = fasseZusammen(gelesen, {
+    startMs: Date.parse(z.daten.time.start),
+    endMs: Date.parse(z.daten.time.end),
+  })
+  nachStand = {
+    befund,
+    dateien: new Map(brauchbar.map((d) => [d.name, d])),
+    weggelassen: new Set(),
+  }
+  status('')
+  rendereNachreichen()
+  nachDialog().showModal()
+}
+
+/** Uhrzeit eines ms-Zeitpunkts in der Tour-Zone (der Streifen zeigt die Uhr). */
+function uhrzeitAusMs(ms: number): string {
+  if (!z || !Number.isFinite(ms)) return '—'
+  try {
+    return new Intl.DateTimeFormat('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: z.daten.time.zone,
+    }).format(new Date(ms))
+  } catch {
+    return '—'
+  }
+}
+
+function rendereNachreichen(): void {
+  if (!z || !nachStand) return
+  const { befund, weggelassen } = nachStand
+  const dabei = befund.aufnahmen.filter((a) => !weggelassen.has(a.datei))
+  const bytes = dabei.reduce((summe, a) => summe + a.groesse, 0)
+  $('nach-unter').textContent = `${z.daten.title ?? 'Ohne Titel'} · ${befund.aufnahmen.length} ${
+    befund.aufnahmen.length === 1 ? 'Datei' : 'Dateien'
+  } gelesen · ${megabyte(bytes)}`
+
+  // — Streifen: was die Tour hat (unten, grau) und was dazukommt (oben, hell) —
+  const streifen = $('nach-streifen')
+  streifen.replaceChildren()
+  const achse = document.createElement('div')
+  achse.className = 'achse'
+  streifen.appendChild(achse)
+  const spanne = document.createElement('div')
+  spanne.className = 'spanne'
+  const vonAnteil = streifenAnteil(Date.parse(z.daten.time.start), befund.vonMs, befund.bisMs)
+  const bisAnteil = streifenAnteil(Date.parse(z.daten.time.end), befund.vonMs, befund.bisMs)
+  spanne.style.left = randPosition(vonAnteil)
+  spanne.style.width = `calc(${((bisAnteil - vonAnteil) * 100).toFixed(2)}% - ${
+    ((bisAnteil - vonAnteil) * 2 * STREIFEN_RAND).toFixed(1)
+  }px)`
+  streifen.appendChild(spanne)
+
+  const setzePunkt = (el: HTMLElement, ms: number): void => {
+    el.style.left = randPosition(streifenAnteil(ms, befund.vonMs, befund.bisMs))
+  }
+  const vorhanden = z.daten.medien.filter((m) => Number.isFinite(Date.parse(m.takenAt)))
+  for (const m of vorhanden) {
+    const p = document.createElement('div')
+    p.className = 'nach-pkt alt'
+    p.title = `${uhrzeitKurz(m.takenAt)} Uhr · ${m.caption || m.id}`
+    setzePunkt(p, Date.parse(m.takenAt))
+    p.innerHTML = '<i></i>'
+    streifen.appendChild(p)
+  }
+  for (const a of dabei) {
+    const p = document.createElement('div')
+    p.className = `nach-pkt neu${a.einordnung === 'ablage' ? ' ablage' : ''}`
+    setzePunkt(p, a.zeitMs)
+    const punkt = document.createElement('i')
+    const uhr = document.createElement('span')
+    uhr.className = 'uhr'
+    uhr.textContent = a.einordnung === 'ablage' && a.zeitGeraten ? 'ohne Zeit' : uhrzeitAusMs(a.zeitMs)
+    // Uhrzeit ÜBER dem Punkt (Flex-Spalte im CSS) — darunter läge sie auf der Achse
+    p.append(uhr, punkt)
+    p.title = `${a.datei} · ${einordnungWort(a.einordnung)}`
+    streifen.appendChild(p)
+  }
+  $('nach-alt-anzahl').textContent = String(vorhanden.length)
+  $('nach-neu-anzahl').textContent = String(dabei.length)
+
+  // — Die Sätze: je Gruppe einer, nur für Gruppen, die es gibt —
+  //
+  // Gezählt wird die AUSWAHL (ohne Weggelassene), gemessen aber weiter am
+  // ursprünglichen Befund: Der Streifen soll nicht springen, sobald jemand
+  // eine Aufnahme weglässt — die Zeitachse ist der Bezug, nicht das Ergebnis.
+  const saetze = $('nach-saetze')
+  saetze.replaceChildren()
+  for (const satz of befundSaetze(fasseZusammen(dabei, {
+    startMs: Date.parse(z.daten.time.start),
+    endMs: Date.parse(z.daten.time.end),
+  }))) {
+    const li = document.createElement('li')
+    li.textContent = satz
+    saetze.appendChild(li)
+  }
+
+  // — Zeilen: „Weglassen" NUR, wo es etwas zu entscheiden gibt —
+  const zeilen = $('nach-zeilen')
+  zeilen.replaceChildren()
+  for (const a of befund.aufnahmen) {
+    const weg = weggelassen.has(a.datei)
+    const zeile = document.createElement('div')
+    zeile.className = `nach-zeile ${a.einordnung}${weg ? ' weg' : ''}`
+    const zeit = document.createElement('span')
+    zeit.className = 'zeit'
+    zeit.textContent = a.einordnung === 'ablage' && a.zeitGeraten ? '—' : uhrzeitAusMs(a.zeitMs)
+    const name = document.createElement('span')
+    name.className = 'name'
+    name.textContent = a.datei
+    const wohin = document.createElement('span')
+    wohin.className = 'wohin'
+    wohin.textContent = weg ? 'weggelassen' : einordnungWort(a.einordnung)
+    zeile.append(zeit, name, wohin)
+    // Nur die Aufnahme ohne Zeit und Ort stellt eine Frage — und selbst die hat
+    // mit der Ablage eine brauchbare Vorgabe, damit man sie ignorieren kann.
+    if (a.einordnung === 'ablage') {
+      const knopf = document.createElement('button')
+      knopf.type = 'button'
+      knopf.className = 'weglassen'
+      knopf.textContent = weg ? 'Doch mitnehmen' : 'Weglassen'
+      knopf.addEventListener('click', () => {
+        if (weg) weggelassen.delete(a.datei)
+        else weggelassen.add(a.datei)
+        rendereNachreichen()
+      })
+      zeile.appendChild(knopf)
+    }
+    zeilen.appendChild(zeile)
+  }
+
+  const los = $('nach-los') as HTMLButtonElement
+  los.disabled = dabei.length === 0
+  los.textContent = dabei.length === 1 ? '1 Aufnahme hinzufügen' : `${dabei.length} Aufnahmen hinzufügen`
+}
+
+/**
+ * Hochladen und neu verarbeiten.
+ *
+ * Reihenfolge: erst alle Einträge anmelden (der Server vergibt die IDs), dann
+ * je Datei ein PUT, zuletzt „neu verarbeiten". Der letzte Schritt ist bewusst
+ * ein VOLLER Lauf und kein Edit-Speichern: Ein neues Foto hat noch keinen
+ * Bildbefund im Anreicherungs-Cache — ohne ihn liefe es ohne Wetter-
+ * Verfeinerung und ohne Benennung mit.
+ */
+async function reicheNach(): Promise<void> {
+  if (!z || !nachStand) return
+  const { befund, dateien, weggelassen } = nachStand
+  const dabei = befund.aufnahmen.filter((a) => !weggelassen.has(a.datei))
+  if (!dabei.length) return
+  const los = $('nach-los') as HTMLButtonElement
+  const abbrechen = $('nach-abbrechen') as HTMLButtonElement
+  const hinweis = $('nach-hinweis')
+  los.disabled = true
+  abbrechen.disabled = true
+  const tourId = z.tourId
+  try {
+    hinweis.className = 'nach-hinweis'
+    hinweis.textContent = 'Aufnahmen werden angemeldet …'
+    const angemeldet = await api.reicheMedienNach(
+      tourId,
+      dabei.map((a) => ({
+        type: a.typ,
+        file: a.datei,
+        takenAt: isoMitZone(a.zeitMs, z?.daten.time.zone ?? 'UTC'),
+        ...(a.ort ? { anchor: a.ort } : {}),
+      })),
+    )
+    for (const [i, eintrag] of angemeldet.medien.entries()) {
+      const quelle = dabei[i]
+      const datei = quelle ? dateien.get(quelle.datei) : undefined
+      if (!datei) continue
+      hinweis.textContent = `Lädt ${i + 1} von ${angemeldet.medien.length} …`
+      await api.ladeMedium(tourId, eintrag.id, datei)
+    }
+    hinweis.textContent = 'Die Tour wird neu gebaut …'
+    await api.reprocess(tourId)
+    await warteAufBereit(tourId)
+    nachDialog().close()
+    nachStand = null
+    await ladeDaten(tourId)
+    status(
+      dabei.length === 1 ? '1 Aufnahme hinzugefügt.' : `${dabei.length} Aufnahmen hinzugefügt.`,
+      'ok',
+    )
+  } catch (fehler) {
+    hinweis.className = 'nach-hinweis fehler'
+    hinweis.textContent = (fehler as Error).message
+  } finally {
+    los.disabled = false
+    abbrechen.disabled = false
+  }
+}
+
+function verdrahteNachreichen(): void {
+  const datei = $('nach-datei') as HTMLInputElement
+  datei.addEventListener('change', () => {
+    void oeffneNachreichen(datei.files).finally(() => {
+      // Zurücksetzen, sonst löst dieselbe Datei beim zweiten Mal kein `change`
+      datei.value = ''
+    })
+  })
+  $('nach-schliessen').addEventListener('click', () => nachDialog().close())
+  $('nach-abbrechen').addEventListener('click', () => nachDialog().close())
+  $('nach-los').addEventListener('click', () => void reicheNach())
+  nachDialog().addEventListener('close', () => {
+    nachStand = null
+    const hinweis = $('nach-hinweis')
+    hinweis.className = 'nach-hinweis'
+    hinweis.textContent = 'Die Tour wird danach neu gebaut — der Film wird länger. Deine Schnitte bleiben.'
+  })
 }
 
 /**
@@ -5412,7 +5713,14 @@ function status(text: string, klasse = ''): void {
   }
   el.className = `editor-flash zeigt ${klasse}`
   // Symbol statisch, der TEXT über textContent — Meldungen tragen Dateinamen.
-  el.innerHTML = klasse === 'ok' ? icon('haken') : klasse === 'fehler' ? icon('x') : '<span class="kreisel"></span>'
+  el.innerHTML =
+    klasse === 'ok'
+      ? icon('haken')
+      : klasse === 'fehler'
+        ? icon('x')
+        : klasse === 'warnung'
+          ? icon('warnung')
+          : '<span class="kreisel"></span>'
   const span = document.createElement('span')
   span.textContent = text
   el.appendChild(span)
@@ -5423,10 +5731,15 @@ function status(text: string, klasse = ''): void {
     el.classList.add('pop')
   }
   if (klasse) {
-    flashUhr = window.setTimeout(() => {
-      el.classList.remove('zeigt', 'pop')
-      flashUhr = null
-    }, klasse === 'fehler' ? 7000 : 4000)
+    flashUhr = window.setTimeout(
+      () => {
+        el.classList.remove('zeigt', 'pop')
+        flashUhr = null
+      },
+      // Die Warnung steht so lange wie der geschärfte Knopf: Sie ERKLÄRT ihn.
+      // Verschwände sie früher, bliebe ein Knopf mit einer Frage ohne Kontext.
+      klasse === 'fehler' ? 7000 : klasse === 'warnung' ? 6000 : 4000,
+    )
   }
 }
 
@@ -5806,6 +6119,37 @@ async function warteAufBereit(id: string): Promise<void> {
   throw new Error('Verarbeitung dauert ungewöhnlich lange. Liste später prüfen.')
 }
 
+/**
+ * Zweistufiges endgültiges Löschen: erst ansagen, dann wegräumen.
+ *
+ * Während der Bearbeitung ist „Entfernen" nur ein Overlay-Flag — deshalb
+ * funktioniert Undo. Beim Speichern wird daraus ein echtes Löschen: Rohdatei
+ * und Fassungen sind danach weg, der Speicher ist frei. Das ist die einzige
+ * Stelle im Editor, an der etwas UNWIEDERBRINGLICH verschwindet, also fragt
+ * sie einmal nach — in der Sprache des Studios (Knopf schärfen, kein
+ * confirm()-Kasten), und mit der Zahl im Knopf statt eines vagen „Sicher?".
+ *
+ * `true` = der Aufrufer soll abbrechen und den zweiten Klick abwarten.
+ */
+function fragtNachLoeschung(knopf: HTMLButtonElement, anzahl: number): boolean {
+  if (!anzahl || knopf.dataset['loeschScharf']) return false
+  knopf.dataset['loeschScharf'] = '1'
+  const beschriftung = knopf.innerHTML
+  knopf.textContent = anzahl === 1 ? '1 Aufnahme endgültig löschen?' : `${anzahl} Aufnahmen endgültig löschen?`
+  status(
+    anzahl === 1
+      ? 'Beim Speichern wird die entfernte Aufnahme endgültig gelöscht — Datei und Speicherplatz sind danach weg. Nochmal klicken, um zu speichern.'
+      : `Beim Speichern werden ${anzahl} entfernte Aufnahmen endgültig gelöscht — Dateien und Speicherplatz sind danach weg. Nochmal klicken, um zu speichern.`,
+    'warnung',
+  )
+  setTimeout(() => {
+    if (!knopf.isConnected || !knopf.dataset['loeschScharf']) return
+    delete knopf.dataset['loeschScharf']
+    knopf.innerHTML = beschriftung
+  }, 6000)
+  return true
+}
+
 async function speichern(): Promise<void> {
   if (!z) return
   const problem = pruefeOverlay(z.edits)
@@ -5814,8 +6158,36 @@ async function speichern(): Promise<void> {
     return
   }
   const speichernKnopf = $('editor-speichern') as HTMLButtonElement
+  // Nur was der SERVER kennt, kann er löschen: in dieser Sitzung nachgereichte,
+  // aber noch nicht gespeicherte Medien gibt es dort noch gar nicht.
+  const bekannt = new Set(z.daten.medien.map((m) => m.id))
+  const zuLoeschen = endgueltigZuLoeschen(z.edits).filter((id) => bekannt.has(id))
+  if (fragtNachLoeschung(speichernKnopf, zuLoeschen.length)) return
+  const beschriftung = speichernKnopf.innerHTML
+  delete speichernKnopf.dataset['loeschScharf']
   speichernKnopf.disabled = true
   try {
+    // 0. Endgültig löschen — VOR dem Overlay, denn der Server räumt dabei seine
+    //    eigene Overlay-Fassung mit auf (medien-Eintrag, titelbild) und rendert
+    //    neu. Ein danach geschriebenes Overlay mit denselben Einträgen würde
+    //    toten Zustand zurückschreiben. Nacheinander, weil jedes Löschen einen
+    //    Render anstößt und der nächste Aufruf sonst auf „verarbeitung" träfe.
+    if (zuLoeschen.length) {
+      for (const [i, id] of zuLoeschen.entries()) {
+        status(
+          zuLoeschen.length === 1
+            ? 'Aufnahme wird endgültig gelöscht …'
+            : `Aufnahme ${i + 1} von ${zuLoeschen.length} wird endgültig gelöscht …`,
+        )
+        await api.loescheMedium(z.tourId, id)
+        await warteAufBereit(z.tourId)
+      }
+      // Lokal dasselbe tilgen wie der Server — und `gespeichert` mitziehen:
+      // Der Server-Stand IST jetzt das gestutzte Overlay, ohne diese Zeile
+      // liefe gleich ein Speichern für eine Änderung, die keine mehr ist.
+      z.edits = ohneMedien(z.edits, zuLoeschen)
+      z.gespeichert = JSON.stringify(ohneMedien(JSON.parse(z.gespeichert) as EditOverlay, zuLoeschen))
+    }
     // 1. Overlay (falls geändert) — der Server rendert die Tour neu
     if (JSON.stringify(z.edits) !== z.gespeichert) {
       status('Bearbeitungen werden gespeichert …')
@@ -5848,11 +6220,19 @@ async function speichern(): Promise<void> {
       if (stand.status === 'verarbeitung') await warteAufBereit(z.tourId)
     }
     await ladeDaten(z.tourId)
-    status('Gespeichert.', 'ok')
+    status(
+      zuLoeschen.length
+        ? zuLoeschen.length === 1
+          ? 'Gespeichert. 1 Aufnahme wurde endgültig gelöscht.'
+          : `Gespeichert. ${zuLoeschen.length} Aufnahmen wurden endgültig gelöscht.`
+        : 'Gespeichert.',
+      'ok',
+    )
   } catch (fehler) {
     status((fehler as Error).message, 'fehler')
   } finally {
     speichernKnopf.disabled = false
+    speichernKnopf.innerHTML = beschriftung
   }
 }
 
@@ -5957,6 +6337,7 @@ function verdrahteEinmal(): void {
   $('editor-finale').addEventListener('change', syncFinaleZielFeld)
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)
+  verdrahteNachreichen()
   $('karte-plus').addEventListener('click', () => {
     pausiereKartenFolge()
     karte?.zoomIn()

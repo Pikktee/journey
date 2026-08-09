@@ -105,6 +105,40 @@ Bewacht wird das von einem **Vertragstest**
 gerenderte `tour.json` für elf echte Overlay-Formen als Schnappschuss festhält — samt einer
 Probe, dass die Fälle sich überhaupt UNTERSCHEIDEN (ohne sie könnten elf identische Ergebnisse
 grün sein und der Vertrag bewachte nichts).
+
+**Die eine Ausnahme von „nie destruktiv": entfernte Aufnahmen.** `medien[].geloescht` ist seit
+dem endgültigen Löschen nur noch der ZWISCHENZUSTAND bis zum Speichern — er hält Undo/Redo am
+Leben, während die Datei noch liegt. Beim Speichern werden die markierten Medien wirklich
+gelöscht (`DELETE /api/tours/:id/media/:mid`): Rohdatei und alle Fassungen sind weg, der
+Speicher ist frei. Wer ein Bild nur „aus dem Film nehmen, aber behalten" will, findet dafür
+bewusst KEINEN Schalter — wer es behalten will, hat es in seiner Galerie, und die
+Unterscheidung kostete mehr Oberfläche, als sie wert ist. Vier Dinge tragen das:
+**Es wird EINMAL gefragt** (`fragtNachLoeschung`, der Speichern-Knopf schärft sich mit der Zahl
+darin — Studio-Sprache, kein `confirm()`-Kasten); **gelöscht wird VOR dem Overlay**, weil der
+Server dabei seine eigene Overlay-Fassung mitstutzt (`medien`-Eintrag, `titelbild`) und ein
+danach geschriebenes Overlay toten Zustand zurückschriebe; **`gespeichert` wird mitgezogen**
+(`ohneMedien` in [editmodell.ts](editmodell.ts) auch auf den Schnappschuss anwenden), sonst
+liefe direkt danach ein Speichern für eine Änderung, die keine mehr ist; und **nacheinander**,
+weil jedes Löschen einen Render anstößt und der nächste Aufruf sonst auf „verarbeitung" träfe.
+Der Tooltip in der Ablage sagt es dazu — „entfernt" heißt dort: entfernt bis zum Speichern.
+
+**Aufnahmen nachreichen** ([nachreichen.ts](nachreichen.ts) rechnet, `#nach-dialog` zeigt):
+Einstieg ist das „+" der Szenen-Spur, unter dem Trenner — als einziger Eintrag wirkt er nicht
+„ab der Marke", denn wohin ein Bild fällt, sagt seine eigene Uhrzeit. Der Dialog zeigt erst den
+BEFUND, dann den Knopf: ein Streifen mit beidem — was die Tour hat (grau, unter der Achse) und
+was dazukommt (hell, darüber, an seiner Uhrzeit). Drei Dinge, die man dabei kippt: Der Streifen
+zeigt **Aufnahmezeit, nicht Filmzeit** (die Übersetzung macht der Server beim Neubau; sie
+vorher zu zeigen wäre geraten); **„Weglassen" steht nur an Zeilen, die eine Frage stellen** —
+die Aufnahme ohne Zeit UND Ort, und selbst die hat mit der Ablage eine brauchbare Vorgabe; und
+**die Streifen-Spanne bleibt am ursprünglichen Befund**, damit die Achse nicht springt, sobald
+jemand etwas weglässt. Hochgeladen wird über die additive Medien-Route (`POST …/medien`, IDs
+vom Server), danach **`reprocess` und kein Edit-Speichern**: Ein neues Foto hat noch keinen
+Bildbefund im Anreicherungs-Cache und liefe sonst ohne Wetter-Verfeinerung mit. Die Ablage-
+Aufnahme ist im Streifen ein **Ring, kein zweiter Farbton** — `--warn` und `--akzent` sind
+beide Bernstein und nebeneinander nicht zu unterscheiden (gefüllt = sitzt auf der Strecke,
+offen = hat noch keinen Ort). `STREIFEN_RAND` in [editor.ts](editor.ts) und
+`--streifen-rand` im CSS sind DIESELBE Zahl; laufen sie auseinander, sitzen die Punkte neben
+ihrer Achse.
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
 gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
 vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `wetterAusOverlay`

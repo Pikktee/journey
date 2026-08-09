@@ -1083,6 +1083,7 @@
     .editor-flash svg { width: 15px; height: 15px; flex: none; }
     .editor-flash.ok svg { color: var(--gruen); }
     .editor-flash.fehler svg { color: var(--rot); }
+    .editor-flash.warnung svg { color: var(--warn); }
     /* Laufende Meldung („wird gespeichert …"): Amber-Kreisel statt Symbol. */
     .editor-flash .kreisel {
       width: 13px; height: 13px; flex: none; border-radius: 50%;
@@ -2504,6 +2505,87 @@
     .sfx-status.ok { color: var(--gruen); }
     .sfx-status.fehler { color: var(--rot); }
 
+    /* ———————————— Aufnahmen nachreichen ————————————
+       Gleiche Dialogschale wie die Bibliothek (auch hier gilt: `display: flex`
+       NUR im offenen Zustand, sonst hinge der Dialog sichtbar über der Seite). */
+    .nach-dialog {
+      width: min(720px, calc(100vw - 32px));
+      max-height: min(760px, calc(100dvh - 48px));
+      padding: 0;
+      border: 1px solid var(--rand-hell);
+      border-radius: var(--radius-xl);
+      background: var(--fl-1);
+      color: var(--text);
+      box-shadow: var(--schatten);
+      overflow: hidden;
+    }
+    .nach-dialog[open] { display: flex; flex-direction: column; }
+    .nach-dialog::backdrop { background: rgba(4, 6, 10, 0.62); backdrop-filter: blur(4px); }
+    .nach-kopf { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 0; }
+    .nach-kopf strong { font-family: var(--font-display); font-size: 21px; font-weight: 550; letter-spacing: -0.015em; }
+    .nach-kopf .nach-unter { display: block; font-size: 12.5px; color: var(--text-3); font-weight: 400; margin-top: 4px; }
+    /* flex:1 + min-height:0 — sonst staucht der Dialog die Zeilen, statt sie
+       scrollen zu lassen (dieselbe Falle wie bei .sfx-inhalt). */
+    .nach-inhalt { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 4px; }
+    .nach-abschnitt { margin-bottom: 14px; }
+    .nach-legende { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; font-size: 12px; color: var(--text-3); }
+    .nach-marke-name { color: var(--text-2); font-weight: 550; margin-right: auto; }
+    .nach-schl { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+    .nach-schl i { width: 8px; height: 8px; border-radius: 50%; }
+    .nach-schl i.alt { background: var(--text-3); }
+    .nach-schl i.neu { background: var(--akzent); }
+    /* Der Streifen zeigt AUFNAHMEZEIT, nicht Filmzeit: Hier geht es um „wann
+       war das", und das beantwortet die Uhr, nicht der Schnitt.
+       `--streifen-rand` ist der Einzug, in dem die Punkte sitzen — er steht
+       auch in editor.ts (STREIFEN_RAND). Beide Zahlen müssen gleich sein,
+       sonst sitzen die Punkte neben ihrer Achse. */
+    .nach-streifen {
+      --streifen-rand: 28px;
+      position: relative; height: 80px;
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
+    }
+    .nach-streifen .achse {
+      position: absolute; left: var(--streifen-rand); right: var(--streifen-rand);
+      top: 54px; height: 1px; background: var(--rand-hell);
+    }
+    .nach-streifen .spanne { position: absolute; top: 51px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-3) 26%, transparent); }
+    .nach-pkt { position: absolute; transform: translateX(-50%); }
+    .nach-pkt i { display: block; width: 7px; height: 7px; border-radius: 50%; margin: 0 auto; }
+    /* Was die Tour schon hat, sitzt UNTER der Achse und klein — es ist der
+       Bezug, nicht die Nachricht. */
+    .nach-pkt.alt { top: 63px; }
+    .nach-pkt.alt i { width: 5px; height: 5px; background: var(--text-3); }
+    /* Das Neue steht über der Achse, Uhrzeit ÜBER dem Punkt: darunter läge sie
+       auf der Linie. */
+    .nach-pkt.neu { top: 14px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .nach-pkt.neu i { background: var(--akzent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--akzent) 18%, transparent); }
+    /* Die Aufnahme ohne Platz ist ein RING, kein zweiter Farbton: `--warn` und
+       `--akzent` sind beide Bernstein und nebeneinander nicht zu unterscheiden.
+       Gefüllt = sitzt auf der Strecke, offen = hat noch keinen Ort. */
+    .nach-pkt.neu.ablage i {
+      width: 9px; height: 9px; background: transparent;
+      border: 2px solid var(--warn); box-shadow: none;
+    }
+    .nach-pkt.neu.ablage .uhr { color: var(--warn); }
+    .nach-pkt .uhr { display: block; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .nach-saetze { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 5px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
+    .nach-saetze li { padding-left: 14px; position: relative; }
+    .nach-saetze li::before { content: '·'; position: absolute; left: 4px; color: var(--text-3); }
+    .nach-zeilen { display: grid; gap: 1px; background: var(--rand); border: 1px solid var(--rand); border-radius: var(--radius-md); overflow: hidden; }
+    .nach-zeile { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--fl-1); font-size: 12.5px; }
+    .nach-zeile.weg { opacity: 0.45; }
+    .nach-zeile .zeit { font-variant-numeric: tabular-nums; color: var(--text); min-width: 46px; }
+    .nach-zeile .name { color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .nach-zeile .wohin { color: var(--text-2); }
+    .nach-zeile.ablage .wohin { color: var(--warn); }
+    /* „Weglassen" gibt es NUR, wo es etwas zu entscheiden gibt — die guten
+       Zeilen tragen keinen Knopf (dieselbe Regel wie im Prüf-Screen). */
+    .nach-zeile .weglassen { padding: 3px 9px; font-size: 11.5px; border-radius: var(--radius-sm); }
+    .nach-fuss { flex: none; display: flex; align-items: center; gap: 16px; padding: 12px 20px 16px; border-top: 1px solid var(--rand); }
+    .nach-hinweis { margin: 0; flex: 1; font-size: 12px; color: var(--text-3); line-height: 1.45; }
+    .nach-hinweis.fehler { color: var(--rot); }
+    .nach-knoepfe { display: flex; gap: 8px; flex: none; }
+
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
       body { overflow: auto; }
@@ -2670,6 +2752,7 @@
       <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-warnung" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.4H3z"/><path d="M12 10v4.2M12 17.2h.01"/></symbol>
       <symbol id="i-pfeil-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
       <symbol id="i-pfeil-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
       <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5.5 12h13"/></symbol>
@@ -3345,6 +3428,36 @@
       <div class="sfx-inhalt" id="sfx-inhalt"></div>
       <div class="sfx-status" id="sfx-status" role="status"></div>
     </dialog>
+    <!-- Aufnahmen nachreichen: erst der Befund, dann das Hinzufügen. Derselbe
+         Aufbau wie beim Anlegen einer Tour — nur dass die Zeitachse hier schon
+         existiert, weshalb der Streifen BEIDES zeigt: was die Tour hat (grau)
+         und was dazukommt (hell). -->
+    <dialog id="nach-dialog" class="nach-dialog" aria-labelledby="nach-titel">
+      <div class="nach-kopf">
+        <div><strong id="nach-titel">Aufnahmen hinzufügen</strong><span class="nach-unter" id="nach-unter"></span></div>
+        <button class="icon" id="nach-schliessen" title="Schließen" aria-label="Schließen"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="nach-inhalt">
+        <div class="nach-abschnitt">
+          <div class="nach-legende">
+            <span class="nach-marke-name">Wohin sie fallen</span>
+            <span class="nach-schl"><i class="alt"></i><span id="nach-alt-anzahl">0</span> in der Tour</span>
+            <span class="nach-schl"><i class="neu"></i><span id="nach-neu-anzahl">0</span> neu</span>
+          </div>
+          <div class="nach-streifen" id="nach-streifen"></div>
+        </div>
+        <ul class="nach-saetze" id="nach-saetze"></ul>
+        <div class="nach-zeilen" id="nach-zeilen"></div>
+      </div>
+      <div class="nach-fuss">
+        <p class="nach-hinweis" id="nach-hinweis">Die Tour wird danach neu gebaut — der Film wird länger. Deine Schnitte bleiben.</p>
+        <div class="nach-knoepfe">
+          <button id="nach-abbrechen">Abbrechen</button>
+          <button class="knopf-primaer" id="nach-los">Hinzufügen</button>
+        </div>
+      </div>
+    </dialog>
+    <input type="file" id="nach-datei" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple hidden>
     <!-- Aufziehrahmen des Zoom-Werkzeugs (fixed, damit ihn kein overflow klippt) -->
     <div class="zoom-box" id="zoom-box"></div>
   </section>

@@ -27,6 +27,25 @@ braucht den Rückfall auf `src`. Die App verkleinert schon vor dem Upload auf 25
 ([Fotoaufbereitung.kt](android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt)) — bewusst
 größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
 
+**Das Manifest wächst, es ändert sich nicht.** Medien kommen auch NACH dem Anlegen dazu
+(`POST /api/tours/:id/medien` — Studio-Nachreichen, später der Foto-Nachzug zu Cloud-Touren):
+Die Route hängt Einträge an, fasst vorhandene nie an und lässt **den Server die IDs vergeben**
+(`n_…`), damit keine kollidiert und keine je wiederverwendet wird. Gelöscht wird endgültig
+(`DELETE …/media/:mid`): Rohdatei und alle Ableitungen sind weg, der Speicher ist frei — der
+Manifest-Eintrag bleibt aber als **Tombstone** (`entfernt: true`) stehen, denn das Manifest ist
+das Protokoll dessen, was hochgeladen wurde. Vier Regeln hängen daran: **`verfuegbareMedien`
+([tours.ts](server/src/routes/tours.ts)) ist die EINE Filterstelle** — sie nimmt Tombstones und
+angekündigte Einträge ohne Datei aus `verarbeite()`, weshalb Platzierung, Fassungen,
+Bildanalyse, Render und Cover-Wahl sie gar nicht erst sehen (der Cover-Fallback beim gelöschten
+Titelbild fällt dadurch von selbst an). **finalize überspringt Tombstones**, sonst blockierte
+ein vor dem Finalisieren gelöschtes Medium die Tour für immer mit „Medien fehlen". **Der
+409-Riegel bei „bereit" gilt nur dem ÜBERSCHREIBEN** — ein nachgereichter Eintrag hat noch
+keine Datei und darf ankommen; ein Tombstone nie wieder (die Auslieferung hat für diesen Namen
+`immutable` versprochen). Und **gelöscht wird auch bei „bereit"**, nur nicht während
+`verarbeitung`: Eine verschwundene Datei wird 404, nicht stale — der Riegel schützt vor einer
+neuen Version unter altem Namen, nicht vor dem Verschwinden.
+Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concepts/konzept_medien_nachreichen_und_loeschen.md).
+
 **Vier Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`

@@ -1,7 +1,7 @@
 # Konzept: Medien nachreichen & endgültig löschen
 
-Stand: August 2026 · Status: **Konzept, nichts gebaut** · Betrifft: `server/`, `src/studio/`,
-`android/`, [datenschutz.html](../../datenschutz.html)
+Stand: August 2026 · Status: **Server und Studio gebaut** (2026-08-09), App offen ·
+Betrifft: `server/`, `src/studio/`, `android/`, [datenschutz.html](../../datenschutz.html)
 
 Mockups liegen fertig vor: [studio-aufnahmen-nachreichen.html](../mockups/studio-aufnahmen-nachreichen.html)
 (Studio) und [app-aufnahmen-hinzufuegen.html](../mockups/app-aufnahmen-hinzufuegen.html) (App).
@@ -126,13 +126,24 @@ Bild behalten will, hat es in seiner Galerie — Maptale ist nicht der Fotospeic
 
 ## 5. Reihenfolge und Einordnung
 
-| # | Schritt | Inhalt | Hängt an |
+| # | Schritt | Inhalt | Stand |
 |---|---|---|---|
-| 1 | **Server: Nachreichen** | `POST …/medien`, Statusregeln, Server-IDs, Tests | — |
-| 2 | **Server: Löschen** | `DELETE …/media/:mid`, Tombstone-Überspringen in der Pipeline, Ableitungen, Cover-Fallback | 1 (teilt Statusregeln) |
-| 3 | **Studio** | Nachreichen-Dialog (Mockup), Löschen zweistufig beim Speichern, Ansage | 1, 2 |
-| 4 | **App** | Galerie-Scan im Zeitfenster, Auswahl, Upload; Löschen mit Bestätigung | 1, 2 |
-| — | Tracker-Foto-Nachzug | schrumpft auf den App-Teil (Scan, Zeitzonen, Dialog) — der Server-Teil ist dann erprobt | 1–4 |
+| 1 | **Server: Nachreichen** | `POST …/medien`, Statusregeln, Server-IDs, Tests | **fertig** (2026-08-09) |
+| 2 | **Server: Löschen** | `DELETE …/media/:mid`, Tombstone-Überspringen in der Pipeline, Ableitungen, Cover-Fallback | **fertig** (2026-08-09) |
+| 3 | **Studio** | Nachreichen-Dialog (Mockup), Löschen zweistufig beim Speichern, Ansage | **fertig** (2026-08-09) |
+| 4 | **App** | Galerie-Scan im Zeitfenster, Auswahl, Upload; Löschen mit Bestätigung | offen |
+| — | Tracker-Foto-Nachzug | schrumpft auf den App-Teil (Scan, Zeitzonen, Dialog) — der Server-Teil ist erprobt | offen |
+
+Was beim Bauen anders entschieden wurde als oben skizziert:
+
+- **Der Editor blendet nur Tombstones aus, nicht jeden Eintrag ohne Datei.** Bei einer Tour im
+  Status `angelegt` läuft der Upload gerade erst — ein Medium dort verschwinden zu lassen,
+  hätte den Befund-Screen leer gezeigt. Die Pipeline filtert weiterhin beides.
+- **Nach dem Nachreichen läuft `reprocess`, kein Edit-Speichern.** Ein neues Foto hat noch
+  keinen Bildbefund im Anreicherungs-Cache; ein billiger Render ließe es ohne
+  Wetter-Verfeinerung und ohne Benennung mitlaufen.
+- **Die Ablage-Aufnahme ist im Streifen ein Ring, kein zweiter Farbton** — `--warn` (#e8a13c)
+  und `--akzent` (#f59e0b) sind beide Bernstein und nebeneinander nicht zu unterscheiden.
 
 Schritte 1–3 sind für sich auslieferbar und ein eigenständiges Feature, auch ohne dass je
 ein Tracker angebunden wird. Der App-Teil (4) ist der teuerste (Berechtigungen,

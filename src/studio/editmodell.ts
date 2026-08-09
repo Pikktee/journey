@@ -154,6 +154,13 @@ export interface EditOverlay {
   momente?: KameraMoment[]
   audio?: AudioEintrag[]
   wetter?: WetterGrenze[]
+  /**
+   * Selbst gewähltes Titelbild (Medien-ID). Der Editor SETZT es (noch) nicht,
+   * aber das Overlay läuft durch ihn hindurch — und wer ein Medium endgültig
+   * löscht, muss den Verweis mitnehmen, sonst griffe `bestimmeCover` beim
+   * nächsten Render ins Leere, statt ein neues Titelbild zu wählen.
+   */
+  titelbild?: string
 }
 
 export interface EditorSegment {
@@ -322,6 +329,38 @@ export function mitMedienEdit(edits: EditOverlay, id: string, patch: MediumEditP
   const naechste: EditOverlay = { ...edits }
   if (Object.keys(medien).length) naechste.medien = medien
   else delete naechste.medien
+  return naechste
+}
+
+/**
+ * Die Medien, die beim Speichern ENDGÜLTIG gelöscht werden: alles, was in
+ * dieser Sitzung als `geloescht` markiert wurde.
+ *
+ * Das Overlay-Flag ist seit dem endgültigen Löschen nur noch der
+ * ZWISCHENZUSTAND bis zum Speichern — es hält Undo/Redo am Leben, während die
+ * Datei noch liegt. Erst das Speichern räumt wirklich weg.
+ */
+export function endgueltigZuLoeschen(edits: EditOverlay): string[] {
+  return Object.entries(edits.medien ?? {})
+    .filter(([, e]) => e?.geloescht === true)
+    .map(([id]) => id)
+}
+
+/**
+ * Overlay-Spuren gelöschter Medien tilgen — Gegenstück zu dem, was der Server
+ * beim endgültigen Löschen an SEINER Fassung tut (routes/media.ts).
+ *
+ * Ein Edit auf eine Datei, die es nicht mehr gibt, ist toter Zustand; ein
+ * `titelbild`, das auf sie zeigt, ließe `bestimmeCover` beim nächsten Render
+ * ins Leere greifen, statt ein neues Titelbild zu wählen.
+ */
+export function ohneMedien(edits: EditOverlay, ids: readonly string[]): EditOverlay {
+  const weg = new Set(ids)
+  const naechste: EditOverlay = { ...edits }
+  const medien = Object.fromEntries(Object.entries(edits.medien ?? {}).filter(([id]) => !weg.has(id)))
+  if (Object.keys(medien).length) naechste.medien = medien
+  else delete naechste.medien
+  if (naechste.titelbild && weg.has(naechste.titelbild)) delete naechste.titelbild
   return naechste
 }
 
