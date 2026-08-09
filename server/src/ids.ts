@@ -7,6 +7,11 @@ import { customAlphabet } from 'nanoid'
 const nano = customAlphabet('23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ', 14)
 
 export const neueTourId = (): string => `t_${nano()}`
+// Nachgereichte Medien (die IDs beim Anlegen vergibt der Client): kurz, weil
+// die ID in jedem Medien-URL steht — Eindeutigkeit sichert der Aufrufer per
+// Abgleich gegen das Manifest, nicht die Länge.
+const nanoKurz = customAlphabet('23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ', 10)
+export const neueMediumId = (): string => `n_${nanoKurz()}`
 export const neueUserId = (): string => `u_${nano()}`
 export const neueSessionId = (): string => `s_${nano()}${nano()}`
 // Doppelte Länge wie eine Tour-Kennung: Sie steht im Download-Link eines

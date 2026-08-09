@@ -5,10 +5,28 @@
 import type { FastifyInstance } from 'fastify'
 import type { Readable } from 'node:stream'
 import { erfordereBenutzer } from '../app.js'
+import { neueMediumId } from '../ids.js'
+import { anzeigeDateiname, thumbDateiname } from '../pipeline/bild.js'
+import { posterDateiname, webVideoDateiname } from '../pipeline/video.js'
 import { pruefeQuota } from '../quota.js'
 import { AUDIO_DATEI_PATTERN, type EditOverlay } from '../schema/edits.js'
-import { mediumDateiname, type UploadManifest } from '../schema/upload.js'
-import { darfSehen, EDITS_PFAD, ladeTour, MANIFEST_PFAD, TRACK_PFAD } from './tours.js'
+import {
+  MAX_MEDIEN_PRO_TOUR,
+  mediumDateiname,
+  nachreichenJsonSchema,
+  type NachreichMedium,
+  type UploadManifest,
+  type UploadMedium,
+} from '../schema/upload.js'
+import {
+  darfSehen,
+  EDITS_PFAD,
+  ladeTour,
+  MANIFEST_PFAD,
+  mediumVorhanden,
+  starteVerarbeitung,
+  TRACK_PFAD,
+} from './tours.js'
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -53,15 +71,23 @@ export function registriereMediaRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const tour = ladeTour(app, request.params.id)
     if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
-    // Nach dem Rendern sind Medien unveränderlich (die Auslieferung verspricht
-    // `immutable`) — Überschreiben nur solange die Tour nicht bereit ist.
-    if (tour.status === 'bereit' || tour.status === 'verarbeitung') {
-      return reply.code(409).send({ fehler: `Medien sind im Status „${tour.status}" unveränderlich` })
+    if (tour.status === 'verarbeitung') {
+      return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hochladen' })
     }
 
     const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
     const medium = manifest.media.find((m) => m.id === request.params.mid)
     if (!medium) return reply.code(404).send({ fehler: `Unbekannte Medien-ID: ${request.params.mid}` })
+    // Tombstone: Was endgültig gelöscht wurde, kommt unter seiner ID nie zurück —
+    // die Auslieferung hat für diese Namen `immutable` versprochen.
+    if (medium.entfernt) return reply.code(409).send({ fehler: 'Medium wurde endgültig gelöscht' })
+    // Nach dem Rendern sind vorhandene Medien unveränderlich (derselbe
+    // `immutable`-Grund). NACHGEREICHTE Einträge haben noch keine Datei — für
+    // sie ist das PUT auch bei „bereit" erlaubt, sonst bliebe die additive
+    // Route (POST …/medien) bei fertigen Touren wirkungslos.
+    if (tour.status === 'bereit' && (await mediumVorhanden(storage, tour.id, medium))) {
+      return reply.code(409).send({ fehler: 'Medien sind im Status „bereit" unveränderlich' })
+    }
 
     const quotaFehler = await quotaVorabPruefung(request)
     if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
@@ -73,6 +99,128 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       konfig.maxMediumBytes,
     )
     return reply.code(200).send({ id: medium.id, bytes: info.groesse })
+  })
+
+  // — Nachreichen: neue Manifest-Einträge, die IDs vergibt der SERVER —
+  // Das Manifest ist append-only: bestehende Einträge fasst diese Route nie an,
+  // kein Dateiname wird je neu belegt (die `immutable`-Zusage der Auslieferung
+  // bleibt wahr). Server-IDs statt Client-IDs, weil beim Nachreichen keine
+  // idempotente Wiederholung des Anlegens nötig ist — dafür garantiert die
+  // Vergabe hier, dass keine ID kollidiert oder je wiederverwendet wird
+  // (Tombstones bleiben im Manifest stehen und zählen mit).
+  app.post<{ Params: { id: string }; Body: { medien: NachreichMedium[] } }>(
+    '/api/tours/:id/medien',
+    { schema: { body: nachreichenJsonSchema } },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      // Nachreichen ist ein Upload: dieselbe Verifikations-Schwelle wie beim Anlegen
+      if (!app.auth.istVerifiziert(benutzer.id)) {
+        return reply.code(403).send({ fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' })
+      }
+      const tour = ladeTour(app, request.params.id)
+      if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+      // 409 NUR während laufender Verarbeitung (der Renderer liest media/ und
+      // Manifest gerade) — „angelegt", „bereit" und „fehler" sind erlaubt:
+      // Genau der Status „bereit" ist der Zweck der Route (Cloud-Touren,
+      // Studio-Nachreichen).
+      if (tour.status === 'verarbeitung') {
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hinzufügen' })
+      }
+
+      const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
+      if (manifest.media.length + request.body.medien.length > MAX_MEDIEN_PRO_TOUR) {
+        return reply.code(400).send({ fehler: `Zu viele Medien (max. ${MAX_MEDIEN_PRO_TOUR} je Tour)` })
+      }
+      // Dateiendung + Zeitstempel-Semantik prüfen, BEVOR irgendetwas geschrieben
+      // wird — halbe Batches soll es nicht geben.
+      for (const eintrag of request.body.medien) {
+        try {
+          mediumDateiname({ ...eintrag, id: 'pruef' })
+        } catch (fehler) {
+          return reply.code(400).send({ fehler: (fehler as Error).message })
+        }
+        if (!Number.isFinite(Date.parse(eintrag.takenAt))) {
+          return reply.code(400).send({ fehler: `Ungültiger Aufnahmezeitpunkt: ${eintrag.takenAt}` })
+        }
+      }
+
+      // IDs kollisionsfrei vergeben — gegen ALLE Einträge, auch Tombstones
+      const vergeben = new Set(manifest.media.map((m) => m.id))
+      const neue: UploadMedium[] = request.body.medien.map((eintrag) => {
+        let id = neueMediumId()
+        while (vergeben.has(id)) id = neueMediumId()
+        vergeben.add(id)
+        return { ...eintrag, id }
+      })
+      manifest.media = [...manifest.media, ...neue]
+      await storage.schreibe(tour.id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
+
+      // Zuordnung zurückgeben: `datei` ist das PUT-Ziel (media/<datei>)
+      return reply.code(200).send({ medien: neue.map((m) => ({ id: m.id, datei: mediumDateiname(m) })) })
+    },
+  )
+
+  // — Endgültig löschen: Rohdatei + alle Ableitungen weg, Speicher frei —
+  // Der Manifest-Eintrag bleibt als Tombstone stehen (`entfernt: true`): Das
+  // Manifest ist das Protokoll dessen, was hochgeladen wurde, und nur so wird
+  // keine Medien-ID je wiederverwendet. Die `immutable`-Cache-Header stehen dem
+  // Löschen nicht entgegen — eine gelöschte Datei wird 404, nie stale.
+  app.delete<{ Params: { id: string; mid: string } }>('/api/tours/:id/media/:mid', async (request, reply) => {
+    const benutzer = erfordereBenutzer(request, reply)
+    if (!benutzer) return
+    const tour = ladeTour(app, request.params.id)
+    if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
+    if (tour.status === 'verarbeitung') {
+      return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut löschen' })
+    }
+
+    const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
+    const medium = manifest.media.find((m) => m.id === request.params.mid)
+    if (!medium) return reply.code(404).send({ fehler: `Unbekannte Medien-ID: ${request.params.mid}` })
+    // Idempotent: zweites Löschen desselben Mediums ist kein Fehler
+    if (medium.entfernt) return { ok: true }
+
+    // Original UND alle abgeleiteten Dateien: Anzeige-/Kachel-Fassung, bei
+    // Videos Web-Fassung und Poster. `loesche` toleriert fehlende Dateien —
+    // nach dem ersten Render ist das Original ohnehin schon verworfen.
+    const dateien =
+      medium.type === 'photo'
+        ? [mediumDateiname(medium), anzeigeDateiname(medium.id), thumbDateiname(medium.id)]
+        : [mediumDateiname(medium), webVideoDateiname(medium.id), posterDateiname(medium.id), thumbDateiname(medium.id)]
+    for (const datei of dateien) {
+      await storage.loesche(tour.id, `media/${datei}`)
+    }
+
+    // Tombstone ins Manifest — NACH dem Löschen der Dateien: Bricht es
+    // dazwischen ab, sind die Dateien weg und der Eintrag wirkt wie ein nie
+    // hochgeladener (verfuegbareMedien filtert beide gleich).
+    manifest.media = manifest.media.map((m) => (m.id === medium.id ? { ...m, entfernt: true } : m))
+    await storage.schreibe(tour.id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
+
+    // Overlay-Hygiene: Edits zu einer Datei, die es nicht mehr gibt, sind toter
+    // Zustand — und ein `titelbild` auf das gelöschte Medium ließe bestimmeCover
+    // beim nächsten Render ins Leere greifen statt neu zu wählen.
+    if (await storage.info(tour.id, EDITS_PFAD)) {
+      const edits = JSON.parse((await storage.lese(tour.id, EDITS_PFAD)).toString()) as EditOverlay
+      let geaendert = false
+      if (edits.medien?.[medium.id]) {
+        delete edits.medien[medium.id]
+        geaendert = true
+      }
+      if (edits.titelbild === medium.id) {
+        delete edits.titelbild
+        geaendert = true
+      }
+      if (geaendert) await storage.schreibe(tour.id, EDITS_PFAD, JSON.stringify(edits, null, 2))
+    }
+
+    // Gerenderte Tour direkt neu rendern (aus dem Cache, keine externen
+    // Aufrufe), damit tour.json und Cover nicht auf verschwundene Dateien
+    // zeigen. Schlägt der Claim fehl (paralleler Render), heilt der nächste
+    // Render den Stand — bei „angelegt" gibt es noch nichts nachzuziehen.
+    starteVerarbeitung(app, tour.id)
+    return { ok: true }
   })
 
   // — GPX-Track hochladen (M6): das trackFile des Manifests, roher Body —

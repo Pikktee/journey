@@ -35,7 +35,20 @@ export interface UploadMedium {
   anchor?: [number, number]
   caption?: string | null
   durationS?: number
+  /**
+   * Tombstone: Medium wurde ENDGÜLTIG gelöscht (Dateien weg, Speicher frei).
+   *
+   * Der Eintrag bleibt stehen, weil das Manifest das Protokoll dessen ist, was
+   * hochgeladen wurde — und weil nur so keine Medien-ID je wiederverwendet
+   * wird. Setzt ausschließlich der SERVER (DELETE-Route); im Upload-Schema
+   * fehlt das Feld absichtlich, ein Client kann es nicht mitschicken.
+   * Pipeline, Editor und finalize überspringen Tombstones.
+   */
+  entfernt?: boolean
 }
+
+/** Ein nachzureichendes Medium: wie UploadMedium, aber die ID vergibt der SERVER. */
+export type NachreichMedium = Omit<UploadMedium, 'id' | 'entfernt'>
 
 export interface UploadManifest {
   schema: typeof UPLOAD_SCHEMA_ID
@@ -70,6 +83,18 @@ export interface UploadManifest {
 // verloren (Review-Fund M7). Erlaubt: Sekundenbruchteile, `Z` oder `±HH:MM`.
 export const ISO_ZEIT_PATTERN = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$'
 export const ISO_ZEIT_MAXLAENGE = 40
+
+// Eigenschaften eines Medien-Eintrags OHNE die ID — geteilt zwischen dem
+// Manifest (Client vergibt die ID) und dem Nachreichen (Server vergibt sie).
+// Eine Konstante, damit die beiden Schemata nicht auseinanderlaufen.
+const medienEigenschaften = {
+  type: { enum: ['photo', 'video'] },
+  file: { type: 'string', minLength: 1, maxLength: 255 },
+  takenAt: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
+  anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
+  caption: { type: ['string', 'null'], maxLength: 1000 },
+  durationS: { type: 'number', minimum: 0 },
+} as const
 
 // JSON-Schema für die Fastify-Validierung. Bewusst strikt (additionalProperties
 // false) — Tippfehler im Client fallen sofort auf statt still zu verschwinden.
@@ -131,13 +156,34 @@ export const uploadManifestJsonSchema = {
         required: ['id', 'type', 'file', 'takenAt'],
         properties: {
           id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
-          type: { enum: ['photo', 'video'] },
-          file: { type: 'string', minLength: 1, maxLength: 255 },
-          takenAt: { type: 'string', pattern: ISO_ZEIT_PATTERN, maxLength: ISO_ZEIT_MAXLAENGE },
-          anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
-          caption: { type: ['string', 'null'], maxLength: 1000 },
-          durationS: { type: 'number', minimum: 0 },
+          ...medienEigenschaften,
         },
+      },
+    },
+  },
+} as const
+
+/** Obergrenze der Medien je Tour — gilt fürs Manifest UND übers Nachreichen hinweg. */
+export const MAX_MEDIEN_PRO_TOUR = 500
+
+// Body von `POST /api/tours/:id/medien` (additives Nachreichen): dieselben
+// Einträge wie im Manifest, nur ohne ID — die vergibt der Server und gibt sie
+// in der Antwort zurück. `entfernt` ist hier wie im Manifest-Schema bewusst
+// nicht zugelassen: Tombstones schreibt nur die DELETE-Route.
+export const nachreichenJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['medien'],
+  properties: {
+    medien: {
+      type: 'array',
+      minItems: 1,
+      maxItems: MAX_MEDIEN_PRO_TOUR,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['type', 'file', 'takenAt'],
+        properties: medienEigenschaften,
       },
     },
   },

@@ -44,8 +44,10 @@ import {
   mediumDateiname,
   uploadManifestJsonSchema,
   type UploadManifest,
+  type UploadMedium,
   type UploadSegment,
 } from '../schema/upload.js'
+import type { Storage } from '../storage.js'
 
 export interface TourZeile {
   id: string
@@ -97,6 +99,44 @@ const BILDANALYSE_PARALLEL = 10
 
 export function ladeTour(app: FastifyInstance, id: string): TourZeile | null {
   return (app.deps.db.prepare('SELECT * FROM tours WHERE id = ?').get(id) as TourZeile | undefined) ?? null
+}
+
+/**
+ * Dateien, an denen ein Medium als „vorhanden" gilt: das Original ODER eine
+ * daraus abgeleitete Fassung — nach dem ersten Render ist das Original
+ * verworfen (bild.ts/video.ts), die Fassung ist dann die einzige Datei.
+ */
+export function mediumDateiKandidaten(medium: UploadMedium): string[] {
+  return medium.type === 'photo'
+    ? [mediumDateiname(medium), anzeigeDateiname(medium.id)]
+    : [mediumDateiname(medium), webVideoDateiname(medium.id)]
+}
+
+export async function mediumVorhanden(storage: Storage, tourId: string, medium: UploadMedium): Promise<boolean> {
+  for (const datei of mediumDateiKandidaten(medium)) {
+    if (await storage.info(tourId, `media/${datei}`)) return true
+  }
+  return false
+}
+
+/**
+ * Die Medien, mit denen Pipeline und Editor rechnen: ohne Tombstones
+ * (endgültig gelöscht) und ohne Einträge, deren Datei nie ankam (nachgereicht
+ * angekündigt, aber kein PUT). Beides sind legitime Manifest-Zustände, seit
+ * das Manifest append-only wächst — ein Eintrag ohne Datei darf einen Render
+ * nie scheitern lassen und nie eine 404-Quelle ins tour.json schreiben.
+ */
+export async function verfuegbareMedien(
+  storage: Storage,
+  tourId: string,
+  medien: readonly UploadMedium[],
+): Promise<UploadMedium[]> {
+  const verfuegbar: UploadMedium[] = []
+  for (const medium of medien) {
+    if (medium.entfernt) continue
+    if (await mediumVorhanden(storage, tourId, medium)) verfuegbar.push(medium)
+  }
+  return verfuegbar
 }
 
 /** Sichtbarkeitsregel v1: private nur für Owner; unlisted/public für alle mit Link. */
@@ -228,23 +268,15 @@ export function registriereTourRouten(app: FastifyInstance): void {
       return reply.code(409).send({ fehler: 'Track (GPX) fehlt', fehlend: ['track.gpx'] })
     }
     // Ein Medium gilt als da, wenn das Original ODER eine daraus abgeleitete
-    // Fassung liegt: Nach dem ersten Render ist das Original verworfen, und ein
-    // wiederholtes finalize (der App-Upload versucht es bei jedem Retry) darf
-    // deshalb nicht „Medien fehlen" melden.
+    // Fassung liegt (mediumVorhanden): Nach dem ersten Render ist das Original
+    // verworfen, und ein wiederholtes finalize (der App-Upload versucht es bei
+    // jedem Retry) darf deshalb nicht „Medien fehlen" melden. Tombstones werden
+    // übersprungen — ein endgültig gelöschtes Medium KANN nicht mehr ankommen,
+    // als „fehlend" gemeldet blockierte es das Finalisieren für immer.
     const fehlend: string[] = []
     for (const medium of manifest.media) {
-      const kandidaten =
-        medium.type === 'photo'
-          ? [mediumDateiname(medium), anzeigeDateiname(medium.id)]
-          : [mediumDateiname(medium), webVideoDateiname(medium.id)]
-      let da = false
-      for (const datei of kandidaten) {
-        if (await storage.info(tour.id, `media/${datei}`)) {
-          da = true
-          break
-        }
-      }
-      if (!da) fehlend.push(medium.id)
+      if (medium.entfernt) continue
+      if (!(await mediumVorhanden(storage, tour.id, medium))) fehlend.push(medium.id)
     }
     if (fehlend.length) {
       setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
@@ -418,8 +450,12 @@ export function registriereTourRouten(app: FastifyInstance): void {
     const startMs = Date.parse(manifest.time.start)
 
     // Auto-Platzierung auf dem ORIGINAL-Track (ohne Overlay): die Basis, auf
-    // die der Editor seine Overrides live legt. Gelöschte bleiben sichtbar.
-    const platziert = platziereMedien(manifest.media, segmente.flatMap((s) => s.pts), startMs)
+    // die der Editor seine Overrides live legt. Overlay-Gelöschte (edits)
+    // bleiben sichtbar, und auch Einträge OHNE Datei bleiben es — bei
+    // „angelegt" läuft ihr Upload gerade erst. Nur Tombstones (endgültig
+    // gelöscht) verschwinden: Zu ihnen kommt nie mehr eine Datei.
+    const sichtbareMedien = manifest.media.filter((m) => !m.entfernt)
+    const platziert = platziereMedien(sichtbareMedien, segmente.flatMap((s) => s.pts), startMs)
     const videoDauern = await ermittleVideoDauern(app, tour.id, manifest)
     const medien: Array<Record<string, unknown>> = []
     for (const { medium, anchor, placement } of platziert) {
@@ -578,8 +614,10 @@ function bildMedientyp(datei: string): string {
 /**
  * Verarbeitung atomar beanspruchen (nur aus bereit/fehler heraus) und starten.
  * false = eine andere Verarbeitung läuft bereits oder die Tour ist angelegt.
+ * Exportiert für die Medien-Routen: endgültiges Löschen rendert direkt neu,
+ * damit das tour.json nicht auf verschwundene Dateien zeigt.
  */
-function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch = false): boolean {
+export function starteVerarbeitung(app: FastifyInstance, tourId: string, frisch = false): boolean {
   const claim = app.deps.db
     .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status IN ('bereit', 'fehler')`)
     .run(new Date().toISOString(), tourId)
@@ -763,7 +801,14 @@ async function verarbeite(
 
     // GPX-Quelle (M6): das hochgeladene trackFile serverseitig zu einem Segment
     // parsen und ins Manifest einsetzen — ab hier ist die Pipeline quellenblind.
-    manifest = { ...manifest, segments: await ladeOriginalSegmente(app, tourId, manifest) }
+    // Medien auf die VERFÜGBAREN filtern (keine Tombstones, keine angekündigten
+    // ohne Datei): die eine Stelle, ab der Platzierung, Fassungen, Bildanalyse,
+    // Render und Cover-Wahl gelöschte Medien nicht mehr sehen.
+    manifest = {
+      ...manifest,
+      segments: await ladeOriginalSegmente(app, tourId, manifest),
+      media: await verfuegbareMedien(storage, tourId, manifest.media),
+    }
 
     // Edit-Overlay (M7): Trim, Modus-Grenzen und Medien-Overrides fließen als
     // eigene Pipeline-Eingabe ein — die Rohdaten unter original/ bleiben unberührt.
