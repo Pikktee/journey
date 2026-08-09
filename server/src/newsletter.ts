@@ -64,12 +64,13 @@ export const EINWILLIGUNGSTEXTE = {
     fassung: 'registrierung-2026-08-06',
     text: 'Schick mir Neuigkeiten zu Maptale. Abbestellen jederzeit.',
   },
+  // Zweite Fassung desselben Tages: Der Wortlaut IST der Nachweis — wer ihn
+  // ändert, ohne die Kennung mitzuziehen, behauptet für alte Einträge einen
+  // Satz, der so nie dastand. (Der Kommentar steht VOR dem Eintrag, weil der
+  // Wächter in test/newsletter-einwilligung.test.ts den Block roh liest.)
   konto: {
-    fassung: 'konto-2026-08-06',
-    text:
-      'Ein paar Mal im Jahr bei wichtigen Produktneuheiten. ' +
-      'Mails zu deinen Touren erhältst du unabhängig davon. ' +
-      'Abbestellen jederzeit hier oder über den Link in jeder Mail.',
+    fassung: 'konto-2026-08-06-2',
+    text: 'Ein paar Mal im Jahr Neues von Maptale. Abbestellen jederzeit.',
   },
 } as const
 

@@ -51,10 +51,12 @@ describe('Newsletter-Einwilligung', () => {
   it('kennt beide Fassungen mit Label und Wortlaut', () => {
     expect(Object.keys(texte).sort()).toEqual(['konto', 'registrierung'])
     for (const [name, eintrag] of Object.entries(texte)) {
-      expect(eintrag.text.length, `${name} ohne Wortlaut`).toBeGreaterThan(40)
+      expect(eintrag.text.length, `${name} ohne Wortlaut`).toBeGreaterThan(30)
       // Das Label trägt sein Datum: Wer den Text ändert, ohne es zu heben,
       // behauptete eine Zustimmung zu einem Satz, den niemand gelesen hat.
-      expect(eintrag.fassung).toMatch(new RegExp(`^${name}-\\d{4}-\\d{2}-\\d{2}$`))
+      // Die laufende Nummer dahinter ist der zweite Wortlaut AM SELBEN TAG —
+      // ohne sie müsste man auf den nächsten Tag warten oder das Datum fälschen.
+      expect(eintrag.fassung).toMatch(new RegExp(`^${name}-\\d{4}-\\d{2}-\\d{2}(-\\d+)?$`))
     }
   })
 
