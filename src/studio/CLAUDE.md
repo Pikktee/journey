@@ -114,7 +114,10 @@ Speicher ist frei. Wer ein Bild nur „aus dem Film nehmen, aber behalten" will,
 bewusst KEINEN Schalter — wer es behalten will, hat es in seiner Galerie, und die
 Unterscheidung kostete mehr Oberfläche, als sie wert ist. Vier Dinge tragen das:
 **Es wird EINMAL gefragt** (`fragtNachLoeschung`, der Speichern-Knopf schärft sich mit der Zahl
-darin — Studio-Sprache, kein `confirm()`-Kasten); **gelöscht wird VOR dem Overlay**, weil der
+darin — Studio-Sprache, kein `confirm()`-Kasten; die Beschriftung davor wird beim SCHÄRFEN
+gesichert und nirgends sonst gelesen — beim zweiten Klick steht im Knopf längst die
+Löschfrage, ein erneutes `innerHTML` schriebe sie als Ruhezustand fest); **gelöscht wird VOR
+dem Overlay**, weil der
 Server dabei seine eigene Overlay-Fassung mitstutzt (`medien`-Eintrag, `titelbild`) und ein
 danach geschriebenes Overlay toten Zustand zurückschriebe; **`gespeichert` wird mitgezogen**
 (`ohneMedien` in [editmodell.ts](editmodell.ts) auch auf den Schnappschuss anwenden), sonst
@@ -133,7 +136,28 @@ die Aufnahme ohne Zeit UND Ort, und selbst die hat mit der Ablage eine brauchbar
 **die Streifen-Spanne bleibt am ursprünglichen Befund**, damit die Achse nicht springt, sobald
 jemand etwas weglässt. Hochgeladen wird über die additive Medien-Route (`POST …/medien`, IDs
 vom Server), danach **`reprocess` und kein Edit-Speichern**: Ein neues Foto hat noch keinen
-Bildbefund im Anreicherungs-Cache und liefe sonst ohne Wetter-Verfeinerung mit. Die Ablage-
+Bildbefund im Anreicherungs-Cache und liefe sonst ohne Wetter-Verfeinerung mit.
+
+**Der Dialog sagt VORHER, was der Server nachher tut** — `ordneEin` bildet
+`bestimmePlatzierung` ([server/src/pipeline/placement.ts](server/src/pipeline/placement.ts))
+Regel für Regel nach, sonst verspricht er Plätze, die es nicht gibt. Zwei Kanten waren genau
+so falsch: Ein GPS-Anker gilt nur bis **500 m** an die Strecke (`MAX_ABSTAND_M`, deshalb
+bekommt `ordneEin` die Abstandsfunktion aus dem Editor-Track herein), und die Zeitspanne hat
+**keine Toleranz** — anders als beim Anlegen (pruefung.ts), wo die Achse erst aus dem Material
+entsteht und ein Foto kurz vor dem Start sie DEHNT. Hier steht sie fest; außerhalb findet
+`ankerZurZeit` keinen Trackpunkt, und aus „eingeordnet nach ihrer Uhrzeit" würde still die
+Ablage.
+
+**Nachreichen ist ganz oder gar nicht — auch im Fehlerfall.** Der POST meldet den Batch auf
+einmal an; bricht danach ein PUT ab, nimmt `nimmNachreichenZurueck` die angemeldeten Einträge
+per DELETE wieder zurück (nacheinander, jedes Löschen stößt einen Render an). Ohne das blieben
+sie ohne Datei im Manifest stehen, und der zweite Klick auf „Hinzufügen" meldete dieselben
+Dateien ein zweites Mal an. Scheitert auch das Aufräumen, bleibt der Knopf gesperrt und der
+Satz sagt warum — ein Retry wäre dann die Doppelung. **Und der ganze Weg ist erst offen, wenn
+nichts Ungespeichertes im Editor steht** (`darfNachreichen`, gefragt vor der Dateiauswahl):
+Der Lauf endet mit `ladeDaten`, und das baut den Zustand aus der Server-Fassung neu auf —
+samt leerer Undo-Historie. Die Fußzeile verspricht „Deine Schnitte bleiben"; für
+ungespeicherte war das vorher das Gegenteil der Wahrheit. Die Ablage-
 Aufnahme ist im Streifen ein **Ring, kein zweiter Farbton** — `--warn` und `--akzent` sind
 beide Bernstein und nebeneinander nicht zu unterscheiden (gefüllt = sitzt auf der Strecke,
 offen = hat noch keinen Ort). `STREIFEN_RAND` in [editor.ts](editor.ts) und

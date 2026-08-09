@@ -38,7 +38,11 @@ das Protokoll dessen, was hochgeladen wurde. Vier Regeln hängen daran: **`verfu
 angekündigte Einträge ohne Datei aus `verarbeite()`, weshalb Platzierung, Fassungen,
 Bildanalyse, Render und Cover-Wahl sie gar nicht erst sehen (der Cover-Fallback beim gelöschten
 Titelbild fällt dadurch von selbst an). **finalize überspringt Tombstones**, sonst blockierte
-ein vor dem Finalisieren gelöschtes Medium die Tour für immer mit „Medien fehlen". **Der
+ein vor dem Finalisieren gelöschtes Medium die Tour für immer mit „Medien fehlen". **Die
+Editor-Route filtert Einträge ohne Datei nur bei „bereit"** — dort ist ein solcher Eintrag
+ein Überbleibsel (abgebrochenes Nachreichen) und als Klip gezeigt eine Aufnahme, die es nicht
+gibt; bei „angelegt" läuft ihr Upload dagegen gerade erst und sie gehören in die Ansicht. Das
+Manifest behält sie in beiden Fällen, es ist das Protokoll des Hochgeladenen. **Der
 409-Riegel bei „bereit" gilt nur dem ÜBERSCHREIBEN** — ein nachgereichter Eintrag hat noch
 keine Datei und darf ankommen; ein Tombstone nie wieder (die Auslieferung hat für diesen Namen
 `immutable` versprochen). Und **gelöscht wird auch bei „bereit"**, nur nicht während

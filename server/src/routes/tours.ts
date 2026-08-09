@@ -451,10 +451,19 @@ export function registriereTourRouten(app: FastifyInstance): void {
 
     // Auto-Platzierung auf dem ORIGINAL-Track (ohne Overlay): die Basis, auf
     // die der Editor seine Overrides live legt. Overlay-Gelöschte (edits)
-    // bleiben sichtbar, und auch Einträge OHNE Datei bleiben es — bei
-    // „angelegt" läuft ihr Upload gerade erst. Nur Tombstones (endgültig
-    // gelöscht) verschwinden: Zu ihnen kommt nie mehr eine Datei.
-    const sichtbareMedien = manifest.media.filter((m) => !m.entfernt)
+    // bleiben sichtbar; Tombstones verschwinden (zu ihnen kommt nie mehr eine
+    // Datei).
+    //
+    // Einträge OHNE Datei hängen am Status: Bei „angelegt" läuft ihr Upload
+    // gerade erst, sie GEHÖREN in die Ansicht. Bei einer fertigen Tour ist ein
+    // solcher Eintrag dagegen ein Überbleibsel — ein Nachreichen, dessen
+    // Upload abgebrochen ist. Ihn zu zeigen hieße, eine Aufnahme in die
+    // Zeitleiste zu setzen, die es nicht gibt (Bild 404, nichts dahinter);
+    // das Manifest behält ihn trotzdem, das Protokoll bleibt vollständig.
+    const sichtbareMedien =
+      tour.status === 'bereit'
+        ? await verfuegbareMedien(storage, tour.id, manifest.media)
+        : manifest.media.filter((m) => !m.entfernt)
     const platziert = platziereMedien(sichtbareMedien, segmente.flatMap((s) => s.pts), startMs)
     const videoDauern = await ermittleVideoDauern(app, tour.id, manifest)
     const medien: Array<Record<string, unknown>> = []

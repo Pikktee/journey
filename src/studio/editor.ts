@@ -118,12 +118,14 @@ import {
 import { baueStopps, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 import { beschreibeAufnahme, liesAufnahme, liesExif, type ExifAufnahme } from './exif.js'
 import {
+  abstandsFunktion,
   befundSaetze,
   einordnungWort,
   fasseZusammen,
   megabyte,
   streifenAnteil,
   type NachreichBefund,
+  type NachreichZiel,
   type NeueAufnahme,
 } from './nachreichen.js'
 import { exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
@@ -988,7 +990,11 @@ function oeffneSpurMenue(spur: string, knopf: HTMLElement): void {
     const trenner = document.createElement('div')
     trenner.className = 'trenner'
     menue.appendChild(trenner)
-    menue.appendChild(menueEintrag('Aufnahmen hinzufügen …', () => $('nach-datei').click()))
+    menue.appendChild(
+      menueEintrag('Aufnahmen hinzufügen …', () => {
+        if (darfNachreichen()) $('nach-datei').click()
+      }),
+    )
   } else if (spur === 'musik') {
     menue.appendChild(menueEintrag('Aus der Bibliothek …', () => oeffneSfxDialog()))
     menue.appendChild(menueEintrag('Datei hochladen …', () => $('e-audio-datei').click()))
@@ -1108,6 +1114,30 @@ function oeffneAblage(): void {
 let nachStand: { befund: NachreichBefund; dateien: Map<string, File>; weggelassen: Set<string> } | null = null
 
 /**
+ * Läuft gerade ein Upload? Solange bleibt der Dialog zu — auch gegen ESC und
+ * das „×". Ein weggeklickter Dialog nähme dem Lauf seine einzige Anzeige: Der
+ * Fortschritt steht in seiner Fußzeile, ein Fehler ebenso.
+ */
+let nachLaeuft = false
+
+/**
+ * Die Tour, gegen die eingeordnet wird — Zeitspanne UND Strecke.
+ *
+ * Die Strecke gehört dazu, weil `bestimmePlatzierung` im Server einen
+ * GPS-Anker nur bis 500 m an die Route heranlässt; ohne sie verspräche der
+ * Dialog „sitzt sofort auf der Strecke" für ein Foto, das der nächste Render
+ * in die Ablage legt.
+ */
+function nachreichZiel(zustand: Zustand): NachreichZiel {
+  const abstand = abstandsFunktion(zustand.track)
+  return {
+    startMs: Date.parse(zustand.daten.time.start),
+    endMs: Date.parse(zustand.daten.time.end),
+    ...(abstand ? { abstandZurStrecke: abstand } : {}),
+  }
+}
+
+/**
  * Einzug des Streifens in px — die Punkte sitzen ZWISCHEN den Rändern, sonst
  * schnitte der erste und letzte an der Kante ab (samt seiner Uhrzeit). Steht
  * auch als `--streifen-rand` im CSS; beide Zahlen müssen gleich sein.
@@ -1147,6 +1177,47 @@ function nachDialog(): HTMLDialogElement {
   return $('nach-dialog') as HTMLDialogElement
 }
 
+/**
+ * Steht noch etwas Ungespeichertes im Editor?
+ *
+ * Nachreichen endet mit `reprocess` + `ladeDaten` — und `ladeDaten` baut den
+ * Zustand aus der SERVER-Fassung neu auf, samt leerer Undo-Historie. Alles,
+ * was nur lokal steht, wäre danach weg. Deshalb fragt der Weg dorthin vorher,
+ * statt es kommentarlos zu verwerfen (die Fußzeile des Dialogs verspricht
+ * ausdrücklich „Deine Schnitte bleiben").
+ */
+function hatUngespeichertes(zustand: Zustand): boolean {
+  if (JSON.stringify(zustand.edits) !== zustand.gespeichert) return true
+  const titel = ($('editor-titel') as HTMLInputElement).value.trim()
+  const beschreibung = ($('editor-beschreibung') as HTMLTextAreaElement).value.trim()
+  const finale = ($('editor-finale') as HTMLInputElement).checked
+  const finaleZiel = ($('editor-finale-ziel') as HTMLInputElement).value.trim()
+  return (
+    (!!titel && titel !== (zustand.daten.title ?? '')) ||
+    beschreibung !== (zustand.daten.description ?? '') ||
+    finale !== !!zustand.daten.finale ||
+    finaleZiel !== (zustand.daten.finaleZiel ?? '')
+  )
+}
+
+/**
+ * Darf jetzt nachgereicht werden? Gefragt wird VOR der Dateiauswahl (sonst
+ * sucht man erst dreißig Fotos zusammen und hört dann „erst speichern") und
+ * noch einmal beim Öffnen des Dialogs — der Dateidialog steht offen, während
+ * nebenan weitergearbeitet werden kann.
+ */
+function darfNachreichen(): boolean {
+  if (!z) return false
+  if (hatUngespeichertes(z)) {
+    status(
+      'Erst speichern: Beim Hinzufügen baut der Server die Tour neu, und alles, was noch nicht gespeichert ist, ginge dabei verloren.',
+      'warnung',
+    )
+    return false
+  }
+  return true
+}
+
 async function oeffneNachreichen(dateiListe: FileList | null): Promise<void> {
   if (!z || !dateiListe?.length) return
   const dateien = [...dateiListe]
@@ -1155,12 +1226,10 @@ async function oeffneNachreichen(dateiListe: FileList | null): Promise<void> {
     status('Keine brauchbare Datei dabei — es gehen Fotos (JPG, PNG, WebP) und Videos (MP4, MOV, WebM).', 'fehler')
     return
   }
+  if (!darfNachreichen()) return
   status('Liest die Aufnahmen …')
   const gelesen = await liesNeueAufnahmen(brauchbar, z.daten.time.zone)
-  const befund = fasseZusammen(gelesen, {
-    startMs: Date.parse(z.daten.time.start),
-    endMs: Date.parse(z.daten.time.end),
-  })
+  const befund = fasseZusammen(gelesen, nachreichZiel(z))
   nachStand = {
     befund,
     dateien: new Map(brauchbar.map((d) => [d.name, d])),
@@ -1189,10 +1258,14 @@ function rendereNachreichen(): void {
   if (!z || !nachStand) return
   const { befund, weggelassen } = nachStand
   const dabei = befund.aufnahmen.filter((a) => !weggelassen.has(a.datei))
+  // Zahl und Megabyte beschreiben DASSELBE: das, was hochgeht. Sonst stünde
+  // neben „5 Dateien" die Größe von dreien und niemand sähe, welche gilt.
   const bytes = dabei.reduce((summe, a) => summe + a.groesse, 0)
-  $('nach-unter').textContent = `${z.daten.title ?? 'Ohne Titel'} · ${befund.aufnahmen.length} ${
-    befund.aufnahmen.length === 1 ? 'Datei' : 'Dateien'
-  } gelesen · ${megabyte(bytes)}`
+  const menge =
+    dabei.length === befund.aufnahmen.length
+      ? `${dabei.length} ${dabei.length === 1 ? 'Datei' : 'Dateien'}`
+      : `${dabei.length} von ${befund.aufnahmen.length} Dateien`
+  $('nach-unter').textContent = `${z.daten.title ?? 'Ohne Titel'} · ${menge} · ${megabyte(bytes)}`
 
   // — Streifen: was die Tour hat (unten, grau) und was dazukommt (oben, hell) —
   const streifen = $('nach-streifen')
@@ -1245,10 +1318,7 @@ function rendereNachreichen(): void {
   // eine Aufnahme weglässt — die Zeitachse ist der Bezug, nicht das Ergebnis.
   const saetze = $('nach-saetze')
   saetze.replaceChildren()
-  for (const satz of befundSaetze(fasseZusammen(dabei, {
-    startMs: Date.parse(z.daten.time.start),
-    endMs: Date.parse(z.daten.time.end),
-  }))) {
+  for (const satz of befundSaetze(fasseZusammen(dabei, nachreichZiel(z)))) {
     const li = document.createElement('li')
     li.textContent = satz
     saetze.appendChild(li)
@@ -1294,6 +1364,35 @@ function rendereNachreichen(): void {
 }
 
 /**
+ * Angemeldete Einträge eines gescheiterten Laufs zurücknehmen.
+ *
+ * Der POST meldet den ganzen Batch auf einmal an; bricht danach ein Upload ab
+ * (Netz, Quota), stünden die übrigen Einträge OHNE Datei für immer im
+ * Manifest — der Editor zeigt sie (nur Tombstones filtert er), und ein zweiter
+ * Klick auf „Hinzufügen" meldete dieselben Dateien ein zweites Mal an. Das
+ * Löschen macht daraus Tombstones: nichts liegt mehr, nichts ist mehr
+ * sichtbar, und der nächste Versuch beginnt sauber.
+ *
+ * Rückgabe: was NICHT weggeräumt werden konnte (dann ist auch das Aufräumen
+ * am selben Grund gescheitert — meist die Verbindung).
+ */
+async function nimmNachreichenZurueck(tourId: string, ids: readonly string[], hinweis: HTMLElement): Promise<string[]> {
+  const bleibt: string[] = []
+  for (const [i, id] of ids.entries()) {
+    hinweis.textContent = `Wird zurückgenommen … (${i + 1} von ${ids.length})`
+    try {
+      await api.loescheMedium(tourId, id)
+      // Jedes Löschen stößt einen Render an — der nächste Aufruf träfe sonst
+      // auf „verarbeitung" (dieselbe Regel wie beim endgültigen Löschen).
+      await warteAufBereit(tourId)
+    } catch {
+      bleibt.push(id)
+    }
+  }
+  return bleibt
+}
+
+/**
  * Hochladen und neu verarbeiten.
  *
  * Reihenfolge: erst alle Einträge anmelden (der Server vergibt die IDs), dann
@@ -1301,18 +1400,27 @@ function rendereNachreichen(): void {
  * ein VOLLER Lauf und kein Edit-Speichern: Ein neues Foto hat noch keinen
  * Bildbefund im Anreicherungs-Cache — ohne ihn liefe es ohne Wetter-
  * Verfeinerung und ohne Benennung mit.
+ *
+ * Der Lauf ist GANZ ODER GAR NICHT — wie der POST selbst: Was er anmeldet,
+ * nimmt er bei einem Fehler wieder zurück (s. nimmNachreichenZurueck).
  */
 async function reicheNach(): Promise<void> {
-  if (!z || !nachStand) return
+  if (!z || !nachStand || nachLaeuft) return
   const { befund, dateien, weggelassen } = nachStand
   const dabei = befund.aufnahmen.filter((a) => !weggelassen.has(a.datei))
   if (!dabei.length) return
   const los = $('nach-los') as HTMLButtonElement
   const abbrechen = $('nach-abbrechen') as HTMLButtonElement
+  const schliessen = $('nach-schliessen') as HTMLButtonElement
   const hinweis = $('nach-hinweis')
+  nachLaeuft = true
   los.disabled = true
   abbrechen.disabled = true
+  schliessen.disabled = true
   const tourId = z.tourId
+  const zone = z.daten.time.zone
+  // Was der Server in DIESEM Lauf angelegt hat — die Liste für den Rückzug.
+  let angemeldeteIds: string[] = []
   try {
     hinweis.className = 'nach-hinweis'
     hinweis.textContent = 'Aufnahmen werden angemeldet …'
@@ -1321,10 +1429,11 @@ async function reicheNach(): Promise<void> {
       dabei.map((a) => ({
         type: a.typ,
         file: a.datei,
-        takenAt: isoMitZone(a.zeitMs, z?.daten.time.zone ?? 'UTC'),
+        takenAt: isoMitZone(a.zeitMs, zone),
         ...(a.ort ? { anchor: a.ort } : {}),
       })),
     )
+    angemeldeteIds = angemeldet.medien.map((m) => m.id)
     for (const [i, eintrag] of angemeldet.medien.entries()) {
       const quelle = dabei[i]
       const datei = quelle ? dateien.get(quelle.datei) : undefined
@@ -1335,19 +1444,33 @@ async function reicheNach(): Promise<void> {
     hinweis.textContent = 'Die Tour wird neu gebaut …'
     await api.reprocess(tourId)
     await warteAufBereit(tourId)
+    // Ab hier steht alles beim Server — es gibt nichts mehr zurückzunehmen.
+    angemeldeteIds = []
+    nachLaeuft = false
     nachDialog().close()
     nachStand = null
     await ladeDaten(tourId)
-    status(
-      dabei.length === 1 ? '1 Aufnahme hinzugefügt.' : `${dabei.length} Aufnahmen hinzugefügt.`,
-      'ok',
-    )
+    status(dabei.length === 1 ? '1 Aufnahme hinzugefügt.' : `${dabei.length} Aufnahmen hinzugefügt.`, 'ok')
   } catch (fehler) {
+    const grund = (fehler as Error).message
     hinweis.className = 'nach-hinweis fehler'
-    hinweis.textContent = (fehler as Error).message
-  } finally {
+    const bleibt = angemeldeteIds.length ? await nimmNachreichenZurueck(tourId, angemeldeteIds, hinweis) : []
+    if (bleibt.length) {
+      // Auch das Aufräumen ist gescheitert: Ein zweiter Versuch legte jetzt
+      // Doppelungen an, also bleibt der Knopf zu und der Satz sagt, warum.
+      hinweis.textContent = `${grund} — die halb angelegten Aufnahmen ließen sich nicht zurücknehmen. Bitte den Editor neu laden und es noch einmal versuchen.`
+      return
+    }
+    hinweis.textContent = `${grund} — es wurde nichts hinzugefügt. Du kannst es gleich noch einmal versuchen.`
     los.disabled = false
+  } finally {
+    // `los` wird hier NICHT freigegeben: Nach dem harten Fehler wäre ein
+    // zweiter Versuch eine Doppelung. Die beiden Wege, an denen er wieder
+    // gehen darf, schalten ihn selbst frei (weicher Fehler oben,
+    // rendereNachreichen beim nächsten Öffnen).
+    nachLaeuft = false
     abbrechen.disabled = false
+    schliessen.disabled = false
   }
 }
 
@@ -1359,9 +1482,18 @@ function verdrahteNachreichen(): void {
       datei.value = ''
     })
   })
-  $('nach-schliessen').addEventListener('click', () => nachDialog().close())
-  $('nach-abbrechen').addEventListener('click', () => nachDialog().close())
+  $('nach-schliessen').addEventListener('click', () => {
+    if (!nachLaeuft) nachDialog().close()
+  })
+  $('nach-abbrechen').addEventListener('click', () => {
+    if (!nachLaeuft) nachDialog().close()
+  })
   $('nach-los').addEventListener('click', () => void reicheNach())
+  // ESC geht an den Knöpfen vorbei — während des Laufs schließt es den Dialog
+  // sonst mitsamt der einzigen Anzeige, die vom Upload berichtet.
+  nachDialog().addEventListener('cancel', (e) => {
+    if (nachLaeuft) e.preventDefault()
+  })
   nachDialog().addEventListener('close', () => {
     nachStand = null
     const hinweis = $('nach-hinweis')
@@ -6109,6 +6241,21 @@ function halteAbspielen(): void {
 
 // — Speichern / Neu verarbeiten —
 
+/**
+ * Beschriftung des Speichern-Knopfs, BEVOR die Löschfrage sie ersetzt hat.
+ * Modul-Ebene und nicht lokal, weil Schärfen und Speichern zwei getrennte
+ * Klicks sind — der zweite fände im Knopf nur noch die Frage vor.
+ */
+let speichernBeschriftung: string | null = null
+
+/** Knopf entschärfen und beschriften, wie er vor der Frage aussah. */
+function entschaerfeSpeichern(knopf: HTMLButtonElement): void {
+  if (!knopf.dataset['loeschScharf']) return
+  delete knopf.dataset['loeschScharf']
+  if (speichernBeschriftung !== null) knopf.innerHTML = speichernBeschriftung
+  speichernBeschriftung = null
+}
+
 async function warteAufBereit(id: string): Promise<void> {
   for (let i = 0; i < 90; i++) {
     const t = await api.tour(id)
@@ -6134,7 +6281,10 @@ async function warteAufBereit(id: string): Promise<void> {
 function fragtNachLoeschung(knopf: HTMLButtonElement, anzahl: number): boolean {
   if (!anzahl || knopf.dataset['loeschScharf']) return false
   knopf.dataset['loeschScharf'] = '1'
-  const beschriftung = knopf.innerHTML
+  // Die Beschriftung wird HIER gesichert und nirgends sonst gelesen: Beim
+  // zweiten Klick steht im Knopf längst die Löschfrage, ein erneutes
+  // `innerHTML` schriebe sie als „Originalzustand" fest.
+  speichernBeschriftung = knopf.innerHTML
   knopf.textContent = anzahl === 1 ? '1 Aufnahme endgültig löschen?' : `${anzahl} Aufnahmen endgültig löschen?`
   status(
     anzahl === 1
@@ -6143,9 +6293,7 @@ function fragtNachLoeschung(knopf: HTMLButtonElement, anzahl: number): boolean {
     'warnung',
   )
   setTimeout(() => {
-    if (!knopf.isConnected || !knopf.dataset['loeschScharf']) return
-    delete knopf.dataset['loeschScharf']
-    knopf.innerHTML = beschriftung
+    if (knopf.isConnected) entschaerfeSpeichern(knopf)
   }, 6000)
   return true
 }
@@ -6163,7 +6311,11 @@ async function speichern(): Promise<void> {
   const bekannt = new Set(z.daten.medien.map((m) => m.id))
   const zuLoeschen = endgueltigZuLoeschen(z.edits).filter((id) => bekannt.has(id))
   if (fragtNachLoeschung(speichernKnopf, zuLoeschen.length)) return
-  const beschriftung = speichernKnopf.innerHTML
+  // Beim zweiten Klick trägt der Knopf die Löschfrage — die echte Beschriftung
+  // liegt seit dem Schärfen im Merker. Nur wer gar nicht gefragt wurde (nichts
+  // zu löschen), liest sie hier frisch aus dem DOM.
+  const beschriftung = speichernBeschriftung ?? speichernKnopf.innerHTML
+  speichernBeschriftung = null
   delete speichernKnopf.dataset['loeschScharf']
   speichernKnopf.disabled = true
   try {

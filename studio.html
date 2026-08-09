@@ -3450,7 +3450,9 @@
         <div class="nach-zeilen" id="nach-zeilen"></div>
       </div>
       <div class="nach-fuss">
-        <p class="nach-hinweis" id="nach-hinweis">Die Tour wird danach neu gebaut — der Film wird länger. Deine Schnitte bleiben.</p>
+        <!-- role="status": Fortschritt und Fehler des Laufs stehen NUR hier —
+             ohne die Ansage bliebe der Upload für Screenreader stumm. -->
+        <p class="nach-hinweis" id="nach-hinweis" role="status">Die Tour wird danach neu gebaut — der Film wird länger. Deine Schnitte bleiben.</p>
         <div class="nach-knoepfe">
           <button id="nach-abbrechen">Abbrechen</button>
           <button class="knopf-primaer" id="nach-los">Hinzufügen</button>

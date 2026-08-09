@@ -8,6 +8,7 @@ import { FakeBildWerkzeug } from '../src/pipeline/bild.js'
 import { FakeVideoWerkzeug } from '../src/pipeline/video.js'
 import type { TourJson } from '../src/pipeline/enrich.js'
 import type { UploadManifest } from '../src/schema/upload.js'
+import { MANIFEST_PFAD } from '../src/routes/tours.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 // — Helfer wie in api.test.ts, plus ein Manifest mit zwei verankerten Fotos —
@@ -302,5 +303,29 @@ describe('Endgültig löschen (DELETE /api/tours/:id/media/:mid)', () => {
     expect(json.media.map((m) => m.id)).not.toContain(medien[0]?.id)
     // Die Tour ist trotzdem sauber fertig geworden
     expect(u.app.deps.db.prepare('SELECT status FROM tours WHERE id = ?').get(id)).toEqual({ status: 'bereit' })
+  })
+
+  it('zeigt einen Nachzügler ohne Datei bei „bereit" auch im Editor nicht', async () => {
+    // Ein abgebrochenes Nachreichen hinterlässt einen Eintrag ohne Datei. Bei
+    // einer fertigen Tour ist das ein Überbleibsel — als Klip gezeigt wäre es
+    // eine Aufnahme, die es nicht gibt (Bild 404). Bei „angelegt" bleibt er
+    // sichtbar: dort läuft der Upload gerade erst.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id, 'm1')
+    await finalisiere(u, id)
+
+    const { medien } = await nachreichen(u, id, [
+      { type: 'photo', file: 'abgebrochen.jpg', takenAt: '2026-07-04T10:30:00+02:00' },
+    ])
+    const editor = (await u.app.inject({ method: 'GET', url: `/api/tours/${id}/editor`, cookies: u.cookies })).json() as {
+      medien: Array<{ id: string }>
+    }
+    expect(editor.medien.map((m) => m.id)).toEqual(['m1'])
+    // Das Manifest behält ihn trotzdem — es ist das Protokoll des Hochgeladenen
+    const manifest = JSON.parse((await u.app.deps.storage.lese(id, MANIFEST_PFAD)).toString()) as {
+      media: Array<{ id: string }>
+    }
+    expect(manifest.media.map((m) => m.id)).toContain(medien[0]?.id)
   })
 })

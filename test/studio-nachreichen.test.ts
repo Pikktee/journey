@@ -5,13 +5,14 @@
 import { describe, expect, it } from 'vitest'
 import { endgueltigZuLoeschen, ohneMedien, type EditOverlay } from '../src/studio/editmodell.js'
 import {
+  abstandsFunktion,
   befundSaetze,
   einordnungWort,
   fasseZusammen,
+  MAX_ABSTAND_M,
   megabyte,
   ordneEin,
   streifenAnteil,
-  TOLERANZ_MS,
   type NeueAufnahme,
 } from '../src/studio/nachreichen.js'
 
@@ -44,18 +45,55 @@ describe('ordneEin', () => {
     expect(b?.einordnung).toBe('ablage')
   })
 
-  it('nimmt die Toleranz um die Aufzeichnung herum mit', () => {
-    // Wer kurz vor dem Start auslöst, meint dieselbe Tour.
-    const knappDavor = aufnahme({ zeitMs: TOUR.startMs - TOLERANZ_MS + 60000 })
-    const zuFrueh = aufnahme({ zeitMs: TOUR.startMs - TOLERANZ_MS - 60000 })
-    expect(ordneEin([knappDavor], TOUR)[0]?.einordnung).toBe('zeit')
-    expect(ordneEin([zuFrueh], TOUR)[0]?.einordnung).toBe('ablage')
+  it('kennt KEINE Toleranz um die Aufzeichnung — die Achse steht schon fest', () => {
+    // Anders als beim Anlegen: Der Server findet außerhalb der Zeitspanne
+    // keinen Trackpunkt, eine Toleranz verspräche eine Platzierung, die dann
+    // doch in der Ablage endet.
+    const knappDavor = aufnahme({ zeitMs: TOUR.startMs - 60000 })
+    const knappDrin = aufnahme({ zeitMs: TOUR.startMs + 60000 })
+    expect(ordneEin([knappDavor], TOUR)[0]?.einordnung).toBe('ablage')
+    expect(ordneEin([knappDrin], TOUR)[0]?.einordnung).toBe('zeit')
   })
 
   it('eine GERATENE Zeit im Fenster reicht — sie ist meist die richtige', () => {
     // Datei-Datum statt EXIF: bei Dateien direkt von der Kamera stimmt es.
     const geraten = aufnahme({ zeitGeraten: true, zeitMs: Date.parse('2026-07-04T09:30:00Z') })
     expect(ordneEin([geraten], TOUR)[0]?.einordnung).toBe('zeit')
+  })
+
+  it('ein GPS-Anker fern der Strecke sitzt NICHT auf ihr', () => {
+    // Genau die Reihenfolge des Servers: zu weit weg → Zeit → sonst Ablage.
+    const strecke = [
+      [18.07, 59.33],
+      [18.08, 59.34],
+    ]
+    const abstand = abstandsFunktion(strecke)
+    expect(abstand).toBeDefined()
+    const ziel = { ...TOUR, abstandZurStrecke: abstand! }
+    const nah = aufnahme({ datei: 'nah.jpg', ort: [18.0705, 59.3305] })
+    // ~1,5 km östlich — jenseits der 500 m, aber mit Zeit in der Aufzeichnung
+    const fern = aufnahme({ datei: 'fern.jpg', ort: [18.097, 59.33] })
+    const fernOhneZeit = aufnahme({
+      datei: 'fern2.jpg',
+      ort: [18.097, 59.33],
+      zeitMs: Date.parse('2019-01-01T00:00:00Z'),
+    })
+    expect(ordneEin([nah], ziel)[0]?.einordnung).toBe('ort')
+    expect(ordneEin([fern], ziel)[0]?.einordnung).toBe('zeit')
+    expect(ordneEin([fernOhneZeit], ziel)[0]?.einordnung).toBe('ablage')
+  })
+
+  it('ohne bekannte Strecke bleibt der Anker gültig', () => {
+    // Die Abstandsfunktion ist optional — ohne sie gilt die alte, großzügige
+    // Regel (so verhält es sich beim Anlegen, wo die Strecke erst entsteht).
+    const fern = aufnahme({ ort: [0, 0] })
+    expect(ordneEin([fern], TOUR)[0]?.einordnung).toBe('ort')
+    expect(abstandsFunktion([[18.07, 59.33]])).toBeUndefined()
+  })
+
+  it('hält dieselbe Schwelle wie die Pipeline', () => {
+    // Drift-Wächter zu MAX_ABSTAND_M in server/src/pipeline/placement.ts
+    expect(MAX_ABSTAND_M).toBe(500)
   })
 })
 

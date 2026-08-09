@@ -34,7 +34,7 @@ export function gpxPunkte(xml: string): GpxPunkt[] {
 }
 
 /** Haversine in Metern — reicht für die Kilometerangabe der Vorschau. */
-function distanzM(a: readonly number[], b: readonly number[]): number {
+export function distanzM(a: readonly number[], b: readonly number[]): number {
   const RAD = Math.PI / 180
   const dLat = ((b[1] as number) - (a[1] as number)) * RAD
   const dLng = ((b[0] as number) - (a[0] as number)) * RAD

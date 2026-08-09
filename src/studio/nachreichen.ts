@@ -8,6 +8,8 @@
 //
 // DOM-frei und ohne fetch, damit es unter Vitest prüfbar bleibt.
 
+import { distanzM } from './pruefung.js'
+
 /** Was aus einer gewählten Datei gelesen wurde (EXIF, sonst Datei-Datum). */
 export interface NeueAufnahme {
   datei: string
@@ -34,29 +36,50 @@ export interface EingeordneteAufnahme extends NeueAufnahme {
 }
 
 /**
- * Toleranz um die Aufzeichnung herum, in der eine Uhrzeit noch als „gehört
- * dazu" gilt — dieselbe Größe wie beim Anlegen (pruefung.ts): Wer die Kamera
- * kurz vor dem Start oder kurz nach dem Stopp auslöst, meint dieselbe Tour.
+ * Wie weit ein GPS-Anker von der Strecke abliegen darf, um noch als „sitzt auf
+ * der Strecke" zu gelten — DIESELBE Zahl wie `MAX_ABSTAND_M` in
+ * [server/src/pipeline/placement.ts]. Der Dialog trifft hier eine Ansage über
+ * das, was der Server gleich tun wird; wer sie großzügiger fasst, verspricht
+ * eine Platzierung, die dann doch in der Ablage endet.
  */
-export const TOLERANZ_MS = 20 * 60 * 1000
+export const MAX_ABSTAND_M = 500
 
 /**
- * Jede neue Aufnahme gegen die Tour-Zeitspanne einordnen.
- *
- * Der GPS-Anker schlägt die Zeit — das ist schon die Regel des Manifests
- * (`anchor` optional, sonst Zeit-Platzierung) und darf hier nicht anders
- * lauten. Eine GERATENE Zeit (Datei-Datum statt EXIF) allein reicht nicht für
- * die Ablage: Bei Dateien, die direkt von der Kamera kommen, ist sie meist
- * richtig — sie muss nur im Zeitfenster liegen.
+ * Die Tour, gegen die eingeordnet wird. `abstandZurStrecke` ist optional: Ohne
+ * sie gilt ein Anker als gültig (so verhält es sich beim Anlegen, wo die
+ * Strecke erst aus dem Material entsteht).
  */
-export function ordneEin(
-  aufnahmen: readonly NeueAufnahme[],
-  tour: { startMs: number; endMs: number },
-): EingeordneteAufnahme[] {
+export interface NachreichZiel {
+  startMs: number
+  endMs: number
+  abstandZurStrecke?: (ort: readonly [number, number]) => number
+}
+
+/**
+ * Jede neue Aufnahme gegen die bestehende Tour einordnen — in genau der
+ * Reihenfolge, in der `bestimmePlatzierung` (server/src/pipeline/placement.ts)
+ * sie später entscheidet:
+ *
+ * 1. GPS-Anker NAHE GENUG an der Strecke → sitzt sofort.
+ * 2. sonst Aufnahmezeit INNERHALB der Aufzeichnung → Zeit-Platzierung.
+ * 3. sonst Ablage.
+ *
+ * **Ohne Toleranz um die Zeitspanne herum**, anders als beim Anlegen
+ * (pruefung.ts): Dort entsteht die Zeitachse erst aus dem Material, ein Foto
+ * kurz vor dem Start DEHNT sie also. Hier steht sie schon fest, und der Server
+ * findet außerhalb von ihr keinen Trackpunkt — jede Toleranz wäre ein
+ * Versprechen, das die Platzierung gleich darauf bricht.
+ *
+ * Eine GERATENE Zeit (Datei-Datum statt EXIF) allein reicht nicht für die
+ * Ablage: Bei Dateien, die direkt von der Kamera kommen, ist sie meist richtig
+ * — sie muss nur im Zeitfenster liegen.
+ */
+export function ordneEin(aufnahmen: readonly NeueAufnahme[], tour: NachreichZiel): EingeordneteAufnahme[] {
   return aufnahmen.map((a) => {
-    if (a.ort) return { ...a, einordnung: 'ort' as const }
-    const drin =
-      Number.isFinite(a.zeitMs) && a.zeitMs >= tour.startMs - TOLERANZ_MS && a.zeitMs <= tour.endMs + TOLERANZ_MS
+    if (a.ort && (!tour.abstandZurStrecke || tour.abstandZurStrecke(a.ort) <= MAX_ABSTAND_M)) {
+      return { ...a, einordnung: 'ort' as const }
+    }
+    const drin = Number.isFinite(a.zeitMs) && a.zeitMs >= tour.startMs && a.zeitMs <= tour.endMs
     return { ...a, einordnung: drin ? ('zeit' as const) : ('ablage' as const) }
   })
 }
@@ -77,10 +100,7 @@ export interface NachreichBefund {
   bisMs: number
 }
 
-export function fasseZusammen(
-  aufnahmen: readonly NeueAufnahme[],
-  tour: { startMs: number; endMs: number },
-): NachreichBefund {
+export function fasseZusammen(aufnahmen: readonly NeueAufnahme[], tour: NachreichZiel): NachreichBefund {
   const eingeordnet = ordneEin(aufnahmen, tour).sort((a, b) => a.zeitMs - b.zeitMs)
   const zeiten = eingeordnet.map((a) => a.zeitMs).filter((t) => Number.isFinite(t))
   return {
@@ -134,6 +154,26 @@ export function einordnungWort(einordnung: Einordnung): string {
 export function streifenAnteil(ms: number, vonMs: number, bisMs: number): number {
   if (!(bisMs > vonMs) || !Number.isFinite(ms)) return 0
   return Math.min(1, Math.max(0, (ms - vonMs) / (bisMs - vonMs)))
+}
+
+/**
+ * Aus den Trackpunkten einer Tour die Abstandsfunktion für `ordneEin` bauen
+ * (kleinster Abstand zu irgendeinem Punkt — wie `abstandZumTrack` im Server).
+ * Der Editor-Track ist serverseitig auf 5 m vereinfacht; bei 500 m Schwelle
+ * fällt das nicht ins Gewicht.
+ */
+export function abstandsFunktion(
+  punkte: ReadonlyArray<readonly number[]>,
+): ((ort: readonly [number, number]) => number) | undefined {
+  if (punkte.length < 2) return undefined
+  return (ort) => {
+    let best = Infinity
+    for (const p of punkte) {
+      const d = distanzM(ort, p)
+      if (d < best) best = d
+    }
+    return best
+  }
 }
 
 /** „46,2 MB" — Größen im Dialog, deutsche Schreibweise mit Komma. */
