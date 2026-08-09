@@ -13,23 +13,23 @@ colors:
   on-surface: "#F2EDE3"
   muted: "rgba(242, 237, 227, 0.64)"
   faint: "rgba(242, 237, 227, 0.42)"
-  bg: "#0A0D14"
-  surface: "#0A0D14"
-  bg-deep: "#06090E"
+  bg: "#090C11"
+  surface: "#090C11"
+  bg-deep: "#06080C"
   line: "rgba(255, 255, 255, 0.08)"
   topbar: "rgba(13, 17, 24, 0.82)"
-  topbar-border: "#222b37"
+  topbar-border: "#232d3d"
   on-cta: "#1a1206"
   # Flächenstufen über dem Grund — Karten, Felder, gehobene Zeilen.
-  surface-1: "#10151d"
-  surface-2: "#151c26"
-  surface-3: "#1c2530"
-  border-strong: "#2e3a49"
+  surface-1: "#111722"
+  surface-2: "#161e2c"
+  surface-3: "#1e283a"
+  border-strong: "#2e3b4e"
   # Opake Sekundärtexte. Neben muted/faint, weil das andere Farben sind und
   # nicht andere Namen: muted/faint sind Creme mit Deckkraft (sie nehmen den
   # Grund an), text-2/text-3 sind blaugrau und stehen fest.
   text-2: "#a7b1bf"
-  text-3: "#67727f"
+  text-3: "#7e8a99"
   card: "rgba(255, 255, 255, 0.035)"
   # Status. Coral ist Zweitakzent und NIE Fehlerrot (s. Colors).
   success: "#3ecf8e"
@@ -72,7 +72,10 @@ typography:
     fontFeature: "tnum"
 rounded:
   sm: 7px
-  md: 9px
+  # Knöpfe, Felder, Chips im Werkzeug. 8 statt der früheren 9 px: schärfer, wie
+  # im abgenommenen Mockup (docs/mockups/studio-konto.html). Die Pillen der
+  # öffentlichen Seiten bleiben Pillen — sie sind das zweite Knopf-Register.
+  md: 8px
   lg: 12px
   # Karten und Tafeln. Zwischen lg und xl, weil eine Tourkarte breiter ist als
   # ein Dialog — 12 px wirken daran spitz, 16 px weich. Der Wert war im Code
@@ -218,7 +221,10 @@ Primär-CTAs dürfen einen warmen Amber-Glow tragen. Player: dezentes Grain + Vi
 ## Shapes
 
 - CTAs: Pill (`border-radius: 999px` → `--radius-full`).
-- Nav-Pills / kleine Chips / Knöpfe und Felder im Werkzeug: 9px → `--radius-md`.
+- Nav-Pills / kleine Chips / Knöpfe und Felder im Werkzeug: 8px → `--radius-md`.
+  **Zwei Knopf-Register, und das ist Absicht:** Pillen auf den öffentlichen
+  Seiten (sie liegen über Fotos und Karten), Kästen im Werkzeug und in den
+  Formular-Dialogen — dort stehen Knöpfe neben Feldern, und die sind Kästen.
 - Menüs und Dialogfelder: 12px → `--radius-lg`. Karten und Tafeln: 14px →
   `--radius-karte`. Dialoge: 16px → `--radius-xl`.
 - Fokus: 2px Amber-Outline mit Offset.

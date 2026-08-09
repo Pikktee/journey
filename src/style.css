@@ -144,7 +144,7 @@ body.cinema .cine {
   inset: 0;
   z-index: 40;
   pointer-events: none;
-  background: #06080c;
+  background: var(--bg-tief);
   opacity: 0;
   transition: opacity 0.3s ease;
 }

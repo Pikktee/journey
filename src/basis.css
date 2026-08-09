@@ -54,20 +54,20 @@
   --text-gedaempft: rgba(242, 237, 227, 0.64);
   --text-zart: rgba(242, 237, 227, 0.42);
   --text-2: #a7b1bf;
-  --text-3: #67727f;
+  --text-3: #7e8a99;
 
   /* ─── Flächen ─── */
-  --bg: #0a0d14; /* Seitengrund */
-  --bg-tief: #06090e; /* der Grund darunter — Ränder, Felder, Seitenkörper */
-  --fl-1: #10151d; /* Karten und ruhige Tafeln */
-  --fl-2: #151c26; /* Knöpfe, gehobene Zeilen */
-  --fl-3: #1c2530; /* dasselbe im Zeigen-Zustand */
+  --bg: #090c11; /* Seitengrund */
+  --bg-tief: #06080c; /* der Grund darunter — Ränder, Felder, Seitenkörper */
+  --fl-1: #111722; /* Karten und ruhige Tafeln */
+  --fl-2: #161e2c; /* Knöpfe, gehobene Zeilen */
+  --fl-3: #1e283a; /* dasselbe im Zeigen-Zustand */
   --tafel: rgba(255, 255, 255, 0.035); /* Glastafel über Bildern */
 
   /* ─── Linien ───
      `--rand` ist eine FARBE. Wer den Seitenabstand meint, nimmt --seitenrand. */
-  --rand: #222b37;
-  --rand-hell: #2e3a49;
+  --rand: #232d3d;
+  --rand-hell: #2e3b4e;
   --linie: rgba(255, 255, 255, 0.08);
 
   /* ─── Status ───
@@ -95,7 +95,7 @@
      Detailmaße ohne Marken-Rolle (Scrollbalken, Wellenform-Ecken,
      Fortschrittsbalken, Avatare) bleiben rohe Werte; sie sind Geometrie. */
   --radius-sm: 7px;
-  --radius-md: 9px;
+  --radius-md: 8px;
   --radius-lg: 12px;
   --radius-karte: 14px;
   --radius-xl: 16px;
