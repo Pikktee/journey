@@ -188,20 +188,28 @@ einer Map gehalten, damit Tests gezielt darauf warten können statt zu pollen.
 Dieselbe REST-Oberfläche für Android, iOS und Web. Sie ist der ganze Grund, warum die Clients
 dünn bleiben — sie muss deshalb stehen, bevor der erste Client gebaut wird.
 
+**Die URL-Pfade sind englisch** (Entscheidung 2026-08-09, Linie von
+[konzept_codebase_english_refactoring.md](konzept_codebase_english_refactoring.md)): Sie sind
+Außenfläche, und die Callback-URL brennt in jeder Anbieter-Registrierung ein — ein späterer
+Umzug auf englische Pfade bräche alle Verknüpfungen. Die internen Bezeichner bleiben deutsch
+wie im übrigen Server.
+
 | Route | Zweck |
 |---|---|
-| `GET /api/tracker/anbieter` | Liste: Kennung, Anzeigename, verfügbar, verbunden seit, letzter Import |
-| `POST /api/tracker/:anbieter/verknuepfen` | `{ ziel: 'web' \| 'app' }` → `{ autorisierungsUrl }` (mit `state`) |
-| `GET /api/tracker/:anbieter/rueckkehr` | OAuth-Redirect-Ziel; leitet auf `/konto#tracker=…` bzw. `maptale://tracker/…` |
-| `DELETE /api/tracker/:anbieter` | Trennen: Tokens löschen, Abo/Autorisierung beim Anbieter aufheben |
-| `POST /api/tracker/:anbieter/sync` | Manuell nachziehen (Polling-Anbieter, „hat nicht geklappt"-Knopf) |
-| `GET /api/tracker/importe` | Letzte Importe: Status, Tour-ID, Zeitfenster, Fehler |
-| `GET /api/tracker/importe/offen` | Was der Client noch nicht gesehen hat (Grundlage der Benachrichtigung) |
+| `GET /api/tracker/providers` | Liste: Kennung, Anzeigename, verfügbar, verbunden seit, letzter Import |
+| `POST /api/tracker/:provider/connect` | `{ ziel: 'web' \| 'app' }` → `{ autorisierungsUrl }` (mit `state`) |
+| `GET /api/tracker/:provider/callback` | OAuth-Redirect-Ziel; leitet auf `/konto#tracker=…` bzw. `maptale://tracker/…` |
+| `DELETE /api/tracker/:provider` | Trennen: Tokens löschen, Abo/Autorisierung beim Anbieter aufheben |
+| `POST /api/tracker/:provider/sync` | Manuell nachziehen (Polling-Anbieter, „hat nicht geklappt"-Knopf) |
+| `GET /api/tracker/imports` | Letzte Importe: Status, Tour-ID, Zeitfenster, Fehler |
+| `GET /api/tracker/imports/pending` | Was der Client noch nicht gesehen hat (Grundlage der Benachrichtigung) |
 
-Fotos brauchen **keine** neue Route: Eine angelegte Tour nimmt Medien über den bestehenden
-Weg entgegen (Manifest ergänzen + `PUT` der Datei + erneutes `finalize`). Ob das als
-`PATCH /api/tours/:id/medien` sauberer wäre, ist eine Frage an die Medien-Routen — nicht an
-dieses Konzept. **Entscheidung offen, s. Abschnitt 14.**
+Fotos laufen über die **additive Medien-Route** — entschieden am 2026-08-09, ausgearbeitet in
+[konzept_medien_nachreichen_und_loeschen.md](konzept_medien_nachreichen_und_loeschen.md).
+Der frühere Gedanke „Manifest ergänzen + erneutes `finalize` über den bestehenden Weg" trug
+nicht: Eine Cloud-Tour ist nach dem Anlegen `bereit`, und genau in diesem Status weist
+`PUT /api/tours/:id/media/:mid` heute mit 409 ab. Die additive Route ist damit **Etappe 0
+dieses Plans** — ohne sie liefert der erste Auto-Import eine leere Karte mit Linie.
 
 Der Ablauf in der App:
 
@@ -245,10 +253,26 @@ Der Track kommt vom Server, die Fotos kann nur das Gerät beisteuern — genau s
 Relive, und genau daran hängt der wahrgenommene Wert („meine Tour, meine Bilder").
 
 1. Webhook → Server legt die Tour **nur mit Track** an. Sie ist sofort spielbar.
-2. Der Client erfährt davon (Abschnitt 9) und fragt: „14 Fotos aus diesem Zeitraum gefunden —
-   hinzufügen?"
-3. Zugestimmt: Fotos werden hochgeladen, Tour neu verarbeitet, Medien landen über die
-   bestehende Zeit-Platzierung an ihrem Ort auf der Route.
+2. Der Client erfährt davon (Abschnitt 9) und ergänzt die Fotos des Zeitfensters —
+   **automatisch, wenn die stehende Einwilligung erteilt ist** (Entscheidung 2026-08-09):
+   Beim Verknüpfen (oder in den App-Einstellungen) schaltet der Nutzer einmal „Fotos
+   automatisch ergänzen" ein; danach lädt die App ohne Nachfrage hoch und meldet es als
+   Benachrichtigung („Tour Frankfurt · 3 Fotos hinzugefügt"). Ohne diese Einwilligung
+   bleibt es beim Vorschlag mit Nachfrage („14 Fotos gefunden — hinzufügen?").
+3. Hochgeladen wird über die additive Medien-Route
+   ([konzept_medien_nachreichen_und_loeschen.md](konzept_medien_nachreichen_und_loeschen.md)),
+   Tour neu verarbeitet, Medien landen über die bestehende Zeit-Platzierung an ihrem Ort.
+
+Drei Leitplanken der Automatik:
+
+- **Nur echte Kameraaufnahmen** (DCIM-/Kamera-Bucket) — keine Screenshots, keine
+  Messenger-Ordner. Der Zeitfenster-Scan erwischt sonst das fotografierte Dokument aus
+  der Pause.
+- **Rückgängig ist echt:** Ein hinzugefügtes Foto lässt sich endgültig löschen (Rohdatei
+  weg, Speicher frei) — die Benachrichtigung führt direkt dorthin.
+- **Die Einstellung lebt in der APP, nicht auf dem Server:** Die Galerie liegt auf dem
+  Gerät, und bei zwei Geräten am Konto soll nur das mit den Fotos hochladen. Keine
+  Migration, kein Server-Feld.
 
 Drei Fallen, die man erst im Betrieb merkt:
 
@@ -262,8 +286,10 @@ falsche Automatik.
 die Zeit ist nur der Rückfall. Das ist bereits die Logik im Manifest (`anchor` optional) —
 sie muss hier nur richtig gefüttert werden.
 
-**Kein stiller Scan.** Der Client fragt, bevor er die Galerie liest, und er lädt nichts ohne
-Zustimmung hoch. Am Desktop gibt es nur die Dateiauswahl — ein Browser hat keine Galerie, und
+**Kein Scan ohne Einwilligung.** Gelesen und hochgeladen wird nur mit Zustimmung — entweder
+der stehenden („Fotos automatisch ergänzen", s. oben, jederzeit widerruflich) oder der
+Nachfrage pro Tour. Die Automatik ist keine Ausnahme von dieser Regel, sondern ihre
+Einmal-Form. Am Desktop gibt es nur die Dateiauswahl — ein Browser hat keine Galerie, und
 das ist gut so.
 
 ---
@@ -669,13 +695,14 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 
 | # | Etappe | Inhalt | Ergebnis | Aufwand |
 |---|---|---|---|---|
+| 0 | **Additive Medien-Route** | `POST /api/tours/:id/medien` + endgültiges Löschen + Studio-Nachreichen ([eigenes Konzept](konzept_medien_nachreichen_und_loeschen.md)) | Eigenständiges Feature; ohne sie bleibt jede Cloud-Tour eine leere Linie | 2–3 Tage + Studio |
 | 1 | **Kern** | `vertrag.ts`, `TourAnleger`, `Importlauf`, Migration 17, Registry, Tests mit GPX-Fixture | Ein erfundener Test-Provider legt eine echte Tour an | 3–4 Tage |
 | 2 | **Datei-Weg** | Normalisierer (FIT/TCX→GPX), Share-Intent Android, Studio-Hinweis Garmin-Export | Jede Uhr der Welt ist bedient | 2–3 Tage |
 | 3 | **Polar** | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | Erster echter Auto-Import | 3–4 Tage |
 | 4 | **Client-Naht** | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste | Bedienbar ohne curl | 3–4 Tage |
 | 5 | **Android dünn** | OAuth per Custom Tab, Deep Link, `WorkManager`-Abfrage als Rückfall | Verknüpfen am Telefon | 3–4 Tage |
 | 6 | **Push (FCM)** | Firebase-Projekt, `FirebaseMessagingService`, `push_geraete`, HTTP-v1-Versand, Datenschutz-Absatz | „Neue Tour" in Sekunden | 2–3 Tage |
-| 7 | **Foto-Nachzug** | Galerie-Scan im Zeitfenster, Auswahl-Dialog, Upload + erneutes Finalize | Der eigentliche Produktwert | 4–5 Tage |
+| 7 | **Foto-Nachzug (App)** | Galerie-Scan im Zeitfenster (nur Kamera-Bucket), Zeitzonen-Abgleich, Automatik mit stehender Einwilligung + Benachrichtigung, sonst Auswahl-Dialog — der Server-Teil ist seit Etappe 0 erprobt | Der eigentliche Produktwert | 3–4 Tage |
 | 8 | **Wahoo** | OAuth mit Refresh-Rotation, Webhook, FIT-Download | Zweiter Anbieter, FIT-Weg im Betrieb erprobt | 2–3 Tage |
 | 9 | **Strava** | nach Prüfung von Tier-Modell und Auflagen; Streams→GPX | **Der Garmin-Zugang**, plus größte eigene Nutzerbasis | 4–5 Tage |
 | 10 | **Suunto** | Antrag früh stellen; Adapter analog Wahoo | Vierter Anbieter | 2 Tage + Wartezeit |
@@ -683,8 +710,22 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 | 12 | **iOS** | derselbe REST-Vertrag, APNs, HealthKit optional | Zweite Plattform ohne Server-Änderung | im iOS-Projekt |
 | — | Garmin (direkt) | Antrag stellen, wenn das Produkt öffentlich steht | offen; bis dahin über Etappe 9 versorgt | blockiert |
 
-**Erstes sinnvolles Release: Etappen 1–7** — Kern, Datei-Weg, Polar, Web- und Android-Naht,
-Push und Foto-Nachzug. Realistisch **4 Wochen** konzentrierte Arbeit. Jeder weitere Anbieter
+**Erstes sinnvolles Release: Etappen 0–7** — additive Medien-Route, Kern, Datei-Weg, Polar,
+Web- und Android-Naht, Push und Foto-Nachzug. Realistisch **4 Wochen** konzentrierte Arbeit.
+
+**Zugänge früh beantragen, sie sind Wartezeit, keine Arbeit:** Der Polar-Zugang
+liefert **keine Historie** — je früher verknüpft, desto eher gibt es echte
+Testaktivitäten. Der **Polar-Zugang besteht seit 2026-08-09** (AccessLink-Admin,
+self-serve; Client-ID/-Secret in `server/.env` als `MAPTALE_POLAR_CLIENT_ID`/`_SECRET`,
+Datentyp nur „Exercise data"). **Beide Redirect-URLs sind im selben Client hinterlegt**
+(`https://maptale.io/api/tracker/polar/callback` als Default plus
+`http://localhost:8787/…` für Dev) — der Adapter schickt `redirect_uri` deshalb IMMER
+explizit mit, Polars Default-Mechanik greift nie. Der Webhook samt
+`signature_secret_key` wird erst mit dem Adapter per `POST /v3/webhooks` registriert;
+**pro Client gibt es nur EIN Abo** — Dev testet daher über den manuellen Sync
+(Transaktions-Pull, der Webhook ist nur der Wecker) oder zeigt das Abo vor dem Launch
+vorübergehend auf einen Tunnel. Suunto-Antrag und der spätere Garmin-Antrag bleiben
+offen — sie sind Wartezeit, keine Arbeit. Jeder weitere Anbieter
 kostet danach 2–3 Tage, und genau das ist der Zweck des Zuschnitts: Der teure Teil wird einmal
 bezahlt.
 
@@ -703,9 +744,10 @@ Foto-Matching** (Abschnitt 4).
 
 Nichts davon blockiert Etappe 1, aber jedes will vor seiner Etappe beantwortet sein:
 
-1. **Fotos nachreichen: bestehender Weg oder eigene Route?** Manifest-Ergänzung plus erneutes
-   `finalize` funktioniert heute; ein `PATCH /api/tours/:id/medien` wäre für Clients klarer.
-   Entscheidung gehört zu Etappe 6.
+1. ~~**Fotos nachreichen: bestehender Weg oder eigene Route?**~~ **Entschieden (2026-08-09):
+   eigene additive Route** `POST /api/tours/:id/medien` mit server-vergebenen IDs, dazu
+   endgültiges Löschen — s. [konzept_medien_nachreichen_und_loeschen.md](konzept_medien_nachreichen_und_loeschen.md).
+   Sie ist Etappe 0 dieses Plans (s. Abschnitt 13), nicht Teil von Etappe 7.
 2. **Tour-Sichtbarkeit beim Auto-Import.** `private` wie beim Upload ist die konsistente
    Antwort — aber eine Tour, die von selbst entsteht und niemand sieht, könnte auch übersehen
    werden. Vermutlich `private` plus deutliche Meldung.

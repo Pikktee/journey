@@ -38,6 +38,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`konzept_newsletter.md`](concepts/konzept_newsletter.md) — Teil B: redaktioneller Newsletter-Versand (Teil A ist live).
 * [`konzept_mehrsprachigkeit_i18n.md`](concepts/konzept_mehrsprachigkeit_i18n.md) — Mehrsprachigkeit & `/de/` / `/en/`-Routing.
 * [`konzept_tracker_integrationen.md`](concepts/konzept_tracker_integrationen.md) — Garmin/Strava Sync & automatische Foto-Zuordnung.
+* [`konzept_medien_nachreichen_und_loeschen.md`](concepts/konzept_medien_nachreichen_und_loeschen.md) — Additive Medien-Route & endgültiges Löschen (Etappe 0 der Tracker-Integrationen).
 * [`konzept_codebase_english_refactoring.md`](concepts/konzept_codebase_english_refactoring.md) — Bezeichner auf Englisch: Wellenplan, Glossar, Welle‑1-Schnitt.
 * [`konzept-reisen-sammlungen.md`](concepts/konzept-reisen-sammlungen.md) — Sammlungen & mehrtägige Reisen.
 * [`modi-konsolidierung.md`](concepts/modi-konsolidierung.md) — Fortbewegungs-Modi auf eine zentrale Tabelle ziehen.
