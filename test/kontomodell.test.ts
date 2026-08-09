@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   exportZeile,
+  EXPORT_STANDARDZEILE,
   type ExportStand,
   belegtProzent,
   browserAus,
@@ -167,15 +168,15 @@ describe('exportZeile', () => {
     ...p,
   })
 
-  it('sagt nichts, wenn nie exportiert wurde', () => {
-    // Kein „noch nichts" hinstellen: Die Zeile darüber erklärt den Knopf schon.
-    expect(exportZeile(null)).toBe('')
-    expect(exportZeile(undefined)).toBe('')
+  it('zeigt die Standardzeile, wenn nie exportiert wurde', () => {
+    // Kein „noch nichts" hinstellen: Dann steht dort, was der Knopf tut.
+    expect(exportZeile(null)).toBe(EXPORT_STANDARDZEILE)
+    expect(exportZeile(undefined)).toBe(EXPORT_STANDARDZEILE)
   })
 
   it('nennt Größe und verbleibende Frist', () => {
     expect(exportZeile(stand(), jetzt)).toBe(
-      'Dein Archiv (640 MB) liegt bereit — der Link aus der Mail gilt noch 46 Stunden.',
+      'Dein Archiv (640 MB) liegt bereit, der Link aus der Mail gilt noch 46 Stunden.',
     )
     expect(exportZeile(stand({ laeuftAbAm: '2026-08-06T12:40:00Z' }), jetzt)).toContain('noch eine Stunde')
   })

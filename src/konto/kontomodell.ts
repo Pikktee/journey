@@ -221,19 +221,27 @@ export interface ExportStand {
 }
 
 /**
- * Der Satz unter „Alle Daten exportieren" — was gerade Sache ist.
+ * Was unter „Alle Daten exportieren" steht, solange es nichts zu berichten gibt.
  *
- * Vier Zustände, und der wichtigste ist der LEERE: Wer noch nie exportiert
- * hat, bekommt keine Zeile hingestellt, die „noch nichts" sagt. Ein fertiges
- * Archiv nennt seine Größe und die verbleibende Frist, denn beides entscheidet,
- * ob man den Link aus der Mail noch braucht oder neu anfordert.
+ * Steht hier und nicht im Markup, weil `exportZeile` ihn ERSETZT, sobald ein
+ * Auftrag existiert: Zwei Zeilen untereinander („so geht's" und „so steht's")
+ * sagten dasselbe zweimal, und die zweite war die einzige mit Neuigkeitswert.
+ */
+export const EXPORT_STANDARDZEILE = 'Alles als ZIP. Den Link bekommst du per Mail.'
+
+/**
+ * Der Satz unter „Alle Daten exportieren": was gerade Sache ist.
  *
- * Ein abgelaufener Auftrag zählt als „nichts mehr da" — die Zeile behauptet
+ * Ohne Auftrag steht dort die Standardzeile. Ein fertiges Archiv nennt seine
+ * Größe und die verbleibende Frist, denn beides entscheidet, ob man den Link
+ * aus der Mail noch braucht oder neu anfordert.
+ *
+ * Ein abgelaufener Auftrag zählt als „nichts mehr da": Die Zeile behauptet
  * dann nicht, es liege noch ein Archiv bereit, das der Server längst gelöscht
  * hat.
  */
 export function exportZeile(stand: ExportStand | null | undefined, jetzt: Date = new Date()): string {
-  if (!stand) return ''
+  if (!stand) return EXPORT_STANDARDZEILE
   if (stand.status === 'laeuft') return 'Dein Archiv wird gerade gebaut. Die Mail kommt, sobald es fertig ist.'
   if (stand.status === 'fehler') return 'Der letzte Versuch ist fehlgeschlagen. Fordere das Archiv noch einmal an.'
   const ablauf = stand.laeuftAbAm ? new Date(stand.laeuftAbAm) : null

@@ -169,6 +169,44 @@ export function oeffnePasswortDialog(meldung: (text: string) => void, persoenlic
 }
 
 /**
+ * Rückfrage vor dem Datenexport.
+ *
+ * KEINE Warnung — der Export nimmt nichts weg. Er ist trotzdem kein Knopf zum
+ * Nebenbei-Drücken: Er stößt einen Lauf über alle Medien des Kontos an, der
+ * Minuten dauert, danach 48 Stunden lang ein Archiv mit allen eigenen Fotos
+ * bereithält und pro Konto nur einmal gleichzeitig laufen kann — wer ihn aus
+ * Versehen trifft, wartet, bis er ihn wieder benutzen darf. Der Dialog sagt
+ * deshalb, was gleich passiert, statt „Bist du sicher?" zu fragen.
+ */
+export function oeffneExportDialog(starte: () => Promise<void>): void {
+  const { koerper, fuss, schliesse } = oeffneSchicht('Alle Daten exportieren')
+  koerper.appendChild(
+    el(
+      'p',
+      'sp-hinweis',
+      'Wir packen deine Touren, Fotos, Videos, Klänge und Konto-Angaben in ein ZIP. ' +
+        'Der Bau dauert einen Moment; den Link bekommst du per Mail.',
+    ),
+  )
+
+  const abbrechen = el('button', 'still', 'Abbrechen')
+  abbrechen.type = 'button'
+  abbrechen.addEventListener('click', schliesse)
+  const anfordern = el('button', 'primaer', 'ZIP anfordern')
+  anfordern.type = 'button'
+  anfordern.addEventListener('click', async () => {
+    anfordern.disabled = true
+    // Erst schließen, dann starten: Die Rückmeldung (Erfolg wie Fehler) steht
+    // als Flash-Meldung an der Seite, nicht im Dialog — sonst müsste man sie
+    // zweimal bauen.
+    schliesse()
+    await starte()
+  })
+  fuss.append(abbrechen, anfordern)
+  window.setTimeout(() => anfordern.focus(), 0)
+}
+
+/**
  * Konto löschen.
  *
  * Der Knopf bleibt gesperrt, bis das Wort dasteht. Kein Passwort, sondern ein

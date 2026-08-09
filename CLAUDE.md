@@ -447,8 +447,11 @@ auseinanderlaufen kann nichts, weil beide dasselbe Feld schreiben.
 - **„In Suchmaschinen erscheinen" ist ein ZWEITER Schalter neben der Sichtbarkeit**, nicht
   deren dritte Stufe: Über den Link erreichbar zu sein ist etwas anderes, als unter dem
   eigenen Namen auffindbar zu sein. Standard **aus**, auch für Bestandskonten mit
-  öffentlichem Profil. Bedienbar bleibt er auch bei privatem Profil (wirkungslos, die Zeile
-  sagt es dazu) — gesperrt zwänge er in eine Reihenfolge, die niemand kennt. Was er bewirkt,
+  öffentlichem Profil. Bei privatem Profil ist er **gesperrt**, und die Zeile darunter sagt,
+  worauf er wartet: Ein bedienbarer Schalter, der nichts tut, ist die schlechtere Auskunft
+  als einer, der sichtbar auf etwas wartet. Die Sätze unter beiden Schaltern stehen in
+  [src/sichtbarkeit.ts](src/sichtbarkeit.ts) — sie erscheinen hier UND im Bearbeiten-Modal
+  der Profilseite und waren genau deshalb schon einmal auseinandergelaufen. Was er bewirkt,
   entscheidet der Server: `index` nur bei öffentlichem Profil UND gesetztem Schalter
   ([server/src/routes/seiten.ts](server/src/routes/seiten.ts)). Das steht so auch in
   [datenschutz.html](datenschutz.html), Abschnitt 5 — wer es ändert, ändert dort eine Zusage.

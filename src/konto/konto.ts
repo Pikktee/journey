@@ -9,6 +9,7 @@
 // deshalb an beiden Stellen und schreibt dasselbe Feld.
 
 import { pfad, profilPfad } from '../routen.js'
+import { profilSichtbarSatz, suchmaschinenSatz } from '../sichtbarkeit.js'
 import {
   belegtProzent,
   exportZeile,
@@ -148,7 +149,7 @@ function geraeteZeile(geraet: Geraet, beiAbmelden: (g: Geraet) => void): HTMLEle
   const titel = el('span', 't')
   titel.appendChild(document.createTextNode(geraeteName(geraet)))
   if (geraet.dieses) {
-    const selbst = el('span', 'selbst', ' — dieses Gerät')
+    const selbst = el('span', 'selbst', ' · dieses Gerät')
     titel.appendChild(selbst)
   }
   z.appendChild(titel)
@@ -262,10 +263,11 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
   if (!schalter) return
   const handle = daten.profil?.handle ?? null
   const adresse = handle ? `${window.location.host}${profilPfad(handle)}` : 'deiner Profilseite'
-  if (erklaerung) {
-    erklaerung.textContent = `Name, Ort, Text, Links und deine öffentlichen Touren sind unter ${adresse} für alle sichtbar.`
-  }
   schalter.checked = daten.profil?.sichtbarkeit === 'public'
+  const zeigeSatz = (): void => {
+    if (erklaerung) erklaerung.textContent = profilSichtbarSatz(schalter.checked, adresse)
+  }
+  zeigeSatz()
   schalter.addEventListener('change', async () => {
     const gewuenscht = schalter.checked
     schalter.disabled = true
@@ -278,46 +280,49 @@ function verdrahteSichtbarkeit(daten: MeAntwort): void {
     if (!antwort?.ok) {
       // Zurückstellen statt eine Änderung zu zeigen, die der Server nicht kennt.
       schalter.checked = !gewuenscht
+      zeigeSatz()
       melde('Die Sichtbarkeit ließ sich nicht ändern.')
       return
     }
+    zeigeSatz()
     melde(gewuenscht ? 'Dein Profil ist jetzt öffentlich.' : 'Dein Profil ist jetzt privat.')
-    // Der Schalter darunter hängt an diesem: Wird das Profil privat, wirkt
-    // „In Suchmaschinen erscheinen" nicht mehr — und das muss man sehen, ohne
-    // die Seite neu zu laden.
-    zeigeSucheRuht()
+    // Der Schalter darunter hängt an diesem: Ohne öffentliches Profil ist „In
+    // Suchmaschinen erscheinen" folgenlos — und das muss man sehen, ohne die
+    // Seite neu zu laden.
+    zeigeSuche()
   })
 }
 
 // ————— In Suchmaschinen erscheinen —————
 
 /**
- * Sagt an der Zeile, dass der Schalter gerade folgenlos ist.
+ * Zeile und Zustand des Schalters „In Suchmaschinen erscheinen".
  *
- * Eigene Funktion, weil zwei Stellen sie brauchen: der Aufbau und jeder
- * Wechsel der Sichtbarkeit darüber.
+ * Bei privatem Profil ist er GESPERRT und die Zeile sagt, worauf er wartet: Ein
+ * bedienbarer Schalter, der nichts tut, ist die schlechtere Auskunft als einer,
+ * der sichtbar auf etwas wartet. Entschieden wird ohnehin im Server: `index`
+ * gibt es nur für ein öffentliches Profil MIT diesem Schalter
+ * (server/src/routes/seiten.ts).
+ *
+ * Eigene Funktion, weil zwei Stellen sie brauchen: der Aufbau und jeder Wechsel
+ * der Sichtbarkeit darüber.
  */
-function zeigeSucheRuht(): void {
+function zeigeSuche(): void {
   const schalter = $('s-suche') as HTMLInputElement | null
   const profilSchalter = $('s-profil') as HTMLInputElement | null
-  const ruht = $('s-suche-ruht')
-  if (ruht) ruht.hidden = !(schalter?.checked && profilSchalter?.checked === false)
+  const zeile = $('s-suche-erklaerung')
+  if (!schalter) return
+  const oeffentlich = profilSchalter?.checked === true
+  schalter.disabled = !oeffentlich
+  schalter.closest('.zeile')?.classList.toggle('ruht', !oeffentlich)
+  if (zeile) zeile.textContent = suchmaschinenSatz(schalter.checked, oeffentlich)
 }
 
-/**
- * Der Schalter „In Suchmaschinen erscheinen".
- *
- * Er ist NICHT gesperrt, solange das Profil privat ist — wirkungslos ist er
- * dann, nicht unbedienbar. Ein gesperrter Schalter zwänge in eine Reihenfolge,
- * die niemand kennt; die Zeile darunter sagt stattdessen, worauf er wartet.
- * Entschieden wird ohnehin im Server: `index` gibt es nur für ein öffentliches
- * Profil MIT diesem Schalter (server/src/routes/seiten.ts).
- */
 function verdrahteSuche(daten: MeAntwort): void {
   const schalter = $('s-suche') as HTMLInputElement | null
   if (!schalter) return
   schalter.checked = daten.profil?.suchmaschinen === true
-  zeigeSucheRuht()
+  zeigeSuche()
 
   schalter.addEventListener('change', async () => {
     const gewuenscht = schalter.checked
@@ -331,10 +336,11 @@ function verdrahteSuche(daten: MeAntwort): void {
     if (!antwort?.ok) {
       // Zurückstellen statt eine Einstellung zu zeigen, die der Server nicht kennt.
       schalter.checked = !gewuenscht
+      zeigeSuche()
       melde('Die Einstellung ließ sich nicht ändern.')
       return
     }
-    zeigeSucheRuht()
+    zeigeSuche()
     melde(
       gewuenscht
         ? 'Deine Profilseite darf in Suchergebnissen erscheinen.'
@@ -363,16 +369,14 @@ function verdrahteExport(daten: MeAntwort): void {
   if (!knopf) return
 
   const zeige = (stand: ExportStand | null | undefined): void => {
-    const text = exportZeile(stand)
-    if (zeile) {
-      zeile.textContent = text
-      zeile.hidden = !text
-    }
+    if (zeile) zeile.textContent = exportZeile(stand)
     knopf.disabled = stand?.status === 'laeuft'
   }
   zeige(daten.export)
 
-  knopf.addEventListener('click', async () => {
+  // Der Klick fragt erst nach (s. oeffneExportDialog) — der Lauf dahinter
+  // dauert Minuten und lässt sich nicht abbrechen.
+  const starte = async (): Promise<void> => {
     knopf.disabled = true
     const antwort = await fetch('/api/auth/me/export', { method: 'POST' }).catch(() => null)
     if (!antwort?.ok) {
@@ -386,7 +390,12 @@ function verdrahteExport(daten: MeAntwort): void {
     }
     const stand = (await antwort.json().catch(() => null)) as { export?: ExportStand } | null
     zeige(stand?.export)
-    melde('Export gestartet — du bekommst eine Mail, sobald das Archiv bereitliegt.')
+    melde('Export gestartet. Du bekommst eine Mail, sobald das Archiv bereitliegt.')
+  }
+
+  knopf.addEventListener('click', async () => {
+    const { oeffneExportDialog } = await import('./kontodialoge.js')
+    oeffneExportDialog(starte)
   })
 }
 
@@ -537,9 +546,6 @@ export async function starteKonto(): Promise<void> {
 
   buehne.hidden = false
   document.title = 'Kontoeinstellungen · Maptale'
-
-  const profilLink = $('profil-link') as HTMLAnchorElement | null
-  if (profilLink && daten.profil?.handle) profilLink.href = profilPfad(daten.profil.handle)
 
   zeichneKonto(daten)
   verdrahteNewsletter(daten)

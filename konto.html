@@ -55,8 +55,11 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* Kopfleiste und Fußzeile laufen auf DERSELBEN schmalen Breite wie der
+       Inhalt — sie trugen vorher die 1160 der übrigen Seiten, und dadurch stand
+       die Wortmarke 190 px links neben der Überschrift. Nicht die schmale
+       Spalte sah falsch aus, sondern dass nichts untereinander lag. */
     .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
-    .nav .wrap, footer .wrap { width: min(1160px, 100% - 44px); }
 
     /* ————— Seitenkopf ————— */
     .seitenkopf { margin: 34px 0 6px; }
@@ -100,6 +103,11 @@
        Klick im Postfach erledigt. */
     .zeile .b.ruht { color: #ffca7a; }
     .zeile .b.ruht[hidden] { display: none; }
+    /* Eine Zeile, die auf etwas anderes wartet: Der Schalter ist gesperrt, und
+       die ganze Zeile tritt zurück — sonst sieht man erst beim Klicken, dass
+       hier gerade nichts zu entscheiden ist. */
+    .zeile.ruht .t, .zeile.ruht .b { opacity: 0.6; }
+    .zeile.ruht .schalter { opacity: 0.45; cursor: not-allowed; }
 
     /* ————— Speicher ————— */
     .speicher { padding: 18px; }
@@ -195,7 +203,6 @@
     <div id="buehne" hidden>
       <div class="seitenkopf">
         <h1>Kontoeinstellungen</h1>
-        <p>Dein öffentliches Profil bearbeitest du unter <a id="profil-link" href="/profil">Mein Profil</a>.</p>
       </div>
 
       <div class="block">
@@ -286,16 +293,13 @@
                Adresse dauerhaft in einer Suche steht — Standard ist deshalb
                AUS, auch für Bestandskonten mit öffentlichem Profil.
                Er hängt sichtbar am ersten: Ohne öffentliches Profil ist er
-               wirkungslos, und der Server setzt `index` ohnehin nur, wenn
-               beides gilt (server/src/routes/seiten.ts). Gesperrt wird er
-               trotzdem nicht — man soll ihn vorher umlegen können, ohne die
-               Reihenfolge zu kennen; die Zeile darunter sagt, worauf er
-               wartet. -->
+               gesperrt, und die Zeile darunter sagt, worauf er wartet — der
+               Server setzt `index` ohnehin nur, wenn beides gilt
+               (server/src/routes/seiten.ts). -->
           <div class="zeile">
             <label class="z" for="s-suche">
               <span class="t">In Suchmaschinen erscheinen</span>
-              <span class="b">Erlaubt Google &amp; Co., deine Profilseite in die Ergebnisse aufzunehmen. Ohne das ist sie weiterhin über den Link erreichbar — nur eben nicht auffindbar.</span>
-              <span class="b ruht" id="s-suche-ruht" hidden>Wirkt erst, wenn dein Profil öffentlich ist.</span>
+              <span class="b" id="s-suche-erklaerung"></span>
             </label>
             <input type="checkbox" class="schalter" id="s-suche" />
           </div>
@@ -306,8 +310,11 @@
           <div class="zeile">
             <span class="z">
               <span class="t">Alle Daten exportieren</span>
-              <span class="b">Touren, Fotos, Videos, Klänge und deine Konto-Angaben als ZIP. Der Bau dauert einen Moment — du bekommst den Link per Mail.</span>
-              <span class="b" id="ex-stand" hidden></span>
+              <!-- EINE Zeile, kein Standardsatz mit Stand darunter: Sobald es
+                   einen Auftrag gibt, ist dessen Stand die einzige Auskunft mit
+                   Neuigkeitswert. Der Text kommt aus exportZeile()
+                   (src/konto/kontomodell.ts), auch der Satz ohne Auftrag. -->
+              <span class="b" id="ex-stand"></span>
             </span>
             <button type="button" class="knopf" id="btn-export">ZIP anfordern</button>
           </div>
