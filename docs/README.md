@@ -1,46 +1,62 @@
 # Maptale Dokumentation
 
-Willkommen in der Dokumentation von **Maptale**. Dieser Ordner ist in klare Themenbereiche gegliedert:
-
 ```
 docs/
 ├── ops/             # Betrieb, Deployment-Runbooks & Release-Anleitungen
 ├── specs/           # Datenformate, Schnittstellen & Datenmodell-Spezifikationen
-├── architecture/    # Umgesetzte Architektur-Entscheidungen & technische Designs (ADR)
-├── concepts/        # Geplante Zukunfts-Features, Entwürfe & Entwicklungs-Roadmaps
-└── mockups/         # Interaktive HTML-Prototypen & visuelle Entwürfe
+├── architecture/    # Umgesetzte Architektur-Entscheidungen & technische Designs
+├── concepts/        # Offene Zukunfts-Features & Entwürfe (noch nicht / nicht ganz gebaut)
+├── mockups/         # Aktuelle HTML-Prototypen als Vorlage
+└── archive/         # Historie — nicht als Implementierungsquelle nutzen
 ```
+
+**Für Coding-Agenten:** Verbindlich sind `ops/`, `specs/`, `architecture/` und die
+unten gelisteten offenen `concepts/`. `archive/` ignorieren (widerspricht oft dem
+Ist-Stand oder beschreibt erledigte Arbeit).
 
 ---
 
-## 📁 Ordner-Übersicht
+## Ordner-Übersicht
 
 ### 1. `ops/` (Operations & Release)
-Anleitungen für den Betrieb, Deployment auf Servern und App-Releases.
 * [`deploy-cloudpanel.md`](ops/deploy-cloudpanel.md) — VPS-Deployment mit Hetzner & CloudPanel.
 * [`android-release.md`](ops/android-release.md) — Bauen, Signieren und Veröffentlichen der Android-APK.
-* [`tools-monitoring-agents.md`](ops/tools-monitoring-agents.md) — Empfohlene Monitoring-Tools & automatisierte Agenten.
 
 ### 2. `specs/` (Spezifikationen)
-Kanonische Dokumentation der Datenstrukturen und Formate.
 * [`austauschformat.md`](specs/austauschformat.md) — `.maptale`-Export/Import-Format und `tour.json`.
 * [`overlay-und-tourjson.md`](specs/overlay-und-tourjson.md) — Rollenverteilung zwischen `edits.json`, `anreicherung.json` und `tour.json`.
 
-### 3. `architecture/` (Umgesetzte Architektur-Entscheidungen)
-Dokumentation von bereits gebauten System-Architekturen, Berechnungen und Design-Entscheidungen.
+### 3. `architecture/` (Umgesetzte Entscheidungen)
 * [`foto-pins-3d.md`](architecture/foto-pins-3d.md) — Three.js Custom-Layer für 3D-Fotopins & Mercator-Skalierung.
-* [`renderer-plan.md`](architecture/renderer-plan.md) — 3D Deck.gl / Three.js Renderer-Architektur.
-* [`modi-konsolidierung.md`](architecture/modi-konsolidierung.md) — Konsolidierung der Fortbewegungs-Modi im Web & Server.
+* [`renderer-plan.md`](architecture/renderer-plan.md) — Deck.gl / Three.js Renderer-Landschaft (Stufen, Flaggen).
+* [`zeitleiste-umbau.md`](architecture/zeitleiste-umbau.md) — Filmzeit-Achse, Halt-Klips, Zustandsbänder, Ton-Trim.
+* [`konzept_profil_konto.md`](architecture/konzept_profil_konto.md) — Handle, Profil, Konto, Newsletter-Einwilligung, Export, SEO-Meta.
 
-### 4. `concepts/` (Offene Konzepte & Zukunfts-Roadmaps)
-Konzepte und Entwicklungspläne für künftige Features.
+### 4. `concepts/` (Offene Konzepte)
+* [`konzept_play_store_interner_test.md`](concepts/konzept_play_store_interner_test.md) — Android Play Store, interner Test als erster Schritt.
+* [`konzept_social_login.md`](concepts/konzept_social_login.md) — Anmelden mit Google (später Apple).
+* [`konzept_newsletter.md`](concepts/konzept_newsletter.md) — Teil B: redaktioneller Newsletter-Versand (Teil A ist live).
 * [`konzept_mehrsprachigkeit_i18n.md`](concepts/konzept_mehrsprachigkeit_i18n.md) — Mehrsprachigkeit & `/de/` / `/en/`-Routing.
 * [`konzept_tracker_integrationen.md`](concepts/konzept_tracker_integrationen.md) — Garmin/Strava Sync & automatische Foto-Zuordnung.
-* [`konzept_codebase_english_refactoring.md`](concepts/konzept_codebase_english_refactoring.md) — Refactoring der Codebase auf englische Bezeichner.
+* [`konzept_codebase_english_refactoring.md`](concepts/konzept_codebase_english_refactoring.md) — Bezeichner auf Englisch: Wellenplan, Glossar, Welle‑1-Schnitt.
 * [`konzept-reisen-sammlungen.md`](concepts/konzept-reisen-sammlungen.md) — Sammlungen & mehrtägige Reisen.
-* [`zeitleiste-umbau.md`](concepts/zeitleiste-umbau.md) — Entwurf für den nächsten Ausbau der Studio-Zeitleiste.
+* [`modi-konsolidierung.md`](concepts/modi-konsolidierung.md) — Fortbewegungs-Modi auf eine zentrale Tabelle ziehen.
+* [`konzept_editor_zerlegung.md`](concepts/konzept_editor_zerlegung.md) — `editor.ts` in Karte / Inspector / Zeitleiste / Menüs zerlegen.
+* [`konzept_player_typescript.md`](concepts/konzept_player_typescript.md) — Player-Module schrittweise von JS nach TypeScript.
+* [`konzept_renderer_labor.md`](concepts/konzept_renderer_labor.md) — Renderer-Flags als Labor begrenzen, Default-Pfad klar halten.
+* [`konzept_live_mitverfolgen.md`](concepts/konzept_live_mitverfolgen.md) — Live-Link während der App-Aufnahme; Spur und Medien in Echtzeit.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
+* [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).
 
-### 5. `mockups/` (Visuelle Prototypen)
-Interaktive HTML-Prototypen zum Testen von Benutzeroberflächen vor der Implementierung.
+### 5. `mockups/` (Aktuelle Vorlagen)
+* [`studio-login.html`](mockups/studio-login.html) — Anmeldebühne.
+* [`studio-konto.html`](mockups/studio-konto.html) — Profil & Kontoeinstellungen (abgenommen, in `DESIGN.md` referenziert).
+* [`studio-aufnahmen-nachreichen.html`](mockups/studio-aufnahmen-nachreichen.html) — Medien nachträglich im Studio.
+* [`app-aufnahmen-hinzufuegen.html`](mockups/app-aufnahmen-hinzufuegen.html) — Medien nachträglich in der App.
+* [`app-live-teilen.html`](mockups/app-live-teilen.html) — Live-Freigabe während der Android-Aufnahme.
+* [`live-ansicht.html`](mockups/live-ansicht.html) — Live-Zuschaueransicht (`/live/…`).
+
+### 6. `archive/` (Historie)
+Siehe [`archive/README.md`](archive/README.md). Enthält u. a. den Tool-Katalog,
+alte Luhambo-/CI-/Logo-Mockups und den Zeitleisten-Mockup-Stand vor der Umsetzung.

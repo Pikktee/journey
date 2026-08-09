@@ -1,0 +1,297 @@
+# Umbauplan: Studio-Editor zerlegen (`editor.ts`)
+
+**Ziel:** [src/studio/editor.ts](../../src/studio/editor.ts) (~6 100 Zeilen, ~184
+Funktionen) so aufteilen, dass Alltagsänderungen (Inspector-Feld, Kartenmarker,
+Zeitleisten-Geste, Spur-Menü) in einer überschaubaren Datei landen — ohne Verhalten
+zu ändern.
+
+Stand: **2026-08-07**, nichts davon umgesetzt. Ergänzt
+[editor-ausbau.md](editor-ausbau.md) (Was) und
+[zeitleiste-umbau.md](../architecture/zeitleiste-umbau.md) (Wie der Achse); hier geht
+es nur um **Code-Organisation**.
+
+> Die reine Logik liegt schon in `editmodell.ts`, `zeitleiste.ts`, `tonklip.ts`,
+> `stopps.ts`, `abspielen.ts`. Was bleibt, ist DOM- + MapLibre-Verdrahtung — und die
+> ist in einer Datei zu einem Hotspot geworden.
+
+---
+
+## 1. Bestandsaufnahme
+
+| Block (Schätzung) | ~Zeilen | Kernfunktionen |
+|---|---:|---|
+| Zeitleiste zeichnen + Pointer | ~2 000+ | `renderZeitleiste`, `verdrahteZeitleiste`, `ziehKlip`, `zeitleisteZug`, `starteKantenZug`, `verschiebeGrenze`, `renderPlayhead` |
+| Inspector / Felder / EXIF | ~1 000+ | `renderInspektor`, `baueMediumFelder`, `baueAudioFelder`, `baueZeitfeld`, `baueInfoBereich` |
+| Karte / Track / Marker | ~500 | `baueKarte`, `zeichneTrack`, `zeichneMarker`, `baueMarkerEintrag`, `zeichneFokus`, `klickAufKarte` |
+| Menüs / Ablage / Großansicht | ~400 | `zeigeSchwebeMenue`, `oeffneSpurMenue`, `renderAblage`, `zieheAusAblage`, `zeigeGross` |
+| Kern (Öffnen, Render, Undo, Speichern) | ~500 | `oeffneEditor`, `ladeDaten`, `renderAlles`, `speichern`, Undo/Redo |
+| Rest (SFX-Dialog, Tour-Einstellungen, Hilfen) | ~1 500 | `baueSfxZeile`, `oeffneTourEinstellungen`, `verdrahteEinmal`, … |
+
+Die Arbeitsteilung im Kopfkommentar von `editor.ts` bleibt gültig:
+
+> Reine Logik in `editmodell.ts` + `zeitleiste.ts`; hier nur DOM + MapLibre.
+
+Neu ist die zweite Regel:
+
+> **Verdrahtung nach Oberfläche trennen** — eine Datei = eine Ansprechfläche
+> (Karte · Inspector · Zeitleiste · Menüs). Der Kern orchestriert, er implementiert
+> keine Gesten.
+
+---
+
+## 2. Leitregeln (nicht verhandelbar)
+
+1. **Verhalten zuerst, Dateien danach.** Jede Welle endet mit grünen Studio-Tests und
+   einem manuellen Smoke (Öffnen → Klip ziehen → Grenze ziehen → Speichern → Vorschau).
+   Kein sichtbarer Unterschied außer ggf. Dateinamen in Stacktraces.
+2. **Keine neue Abstraktionsschicht „für Architektur“.** Kein Event-Bus, kein DI-
+   Container, kein Framework. Module exportieren Funktionen; der Kern hält den
+   Zustand `z` und reicht Callbacks / Getter.
+3. **Zustand bleibt zentral.** Der Editor-Zustand (`z`, Overlay, Fokus, Playhead)
+   wandert **nicht** in die Teilmodule als eigene Quelle. Teilmodule bekommen
+   lesende Zugriffe und schreibende Callbacks — sonst entstehen zwei Wahrheiten.
+4. **Keine Logik zurück in den Kern ziehen.** Was heute schon in `zeitleiste.ts` /
+   `editmodell.ts` rechnet, bleibt dort. Beim Herauslösen nur verschieben, was DOM
+   oder MapLibre berührt.
+5. **Eine Welle = ein PR-Thema.** CI grün (`npm test`, `npm run typecheck`), dann
+   weiter. Kein „halb Inspector, halb Zeitleiste“ in einem Commit.
+6. **Englisch-Rename ist ein anderes Projekt.** Bezeichner bleiben deutsch, solange
+   [konzept_codebase_english_refactoring.md](konzept_codebase_english_refactoring.md)
+   nicht bewusst gestartet ist. Sonst zwei Umbauten gleichzeitig.
+
+---
+
+## 3. Zielstruktur
+
+```
+src/studio/
+  editor.ts              # Kern: oeffne/schliesse, z, renderAlles, Undo, Speichern
+  editorkarte.ts         # MapLibre: Track, Marker, Fokus, Klick → Anker
+  editorinspektor.ts     # rechtes Panel: Fokus-Felder, EXIF, Tour-Einstellungen
+  editorzeitleiste.ts    # DOM der Leiste + Pointer-Gesten (nutzt zeitleiste.ts)
+  editormenue.ts         # Schwebe-Menüs, Spur-„+“, Kontextaktionen
+  editormedien.ts        # Ablage, Großansicht, Drag aus Ablage (optional Welle 5)
+  editmodell.ts          # unverändert (DOM-frei)
+  zeitleiste.ts          # unverändert (DOM-frei)
+  tonklip.ts / stopps.ts / abspielen.ts  # unverändert
+```
+
+Namen bewusst mit `editor*`-Präfix: klar von der reinen Logik (`zeitleiste.ts`)
+getrennt, und Vite/Lazy-Import aus `studio.ts` bleibt ein Einstieg (`editor.ts`).
+
+**Öffentliche API nach außen bleibt klein:**
+
+```ts
+export async function oeffneEditor(tourId: string, zurueck: () => void): Promise<void>
+export function schliesseEditor(): void
+```
+
+Alles andere ist modul-intern oder wird nur zwischen den `editor*`-Dateien geteilt.
+
+---
+
+## 4. Wellen
+
+### Welle 0 — Inventar und Nahtstellen (kein Verhalten)
+
+**Was:** Kurze Tabelle am Dateianfang von `editor.ts` (oder in diesem Konzept
+fortgeschrieben): Funktion → Zielmodul. Die Top-Blöcke mit Zeilenbereichen markieren
+(`// --- Karte ---` usw.), **ohne** zu verschieben.
+
+**Fertig wenn:** Jede der ~184 Funktionen hat ein Ziel; unklare Fälle sind gelistet
+(nicht „irgendwann“).
+
+**Aufwand:** klein (halber Tag).
+
+---
+
+### Welle 1 — Menüs herausziehen (`editormenue.ts`)
+
+**Warum zuerst:** kleinste Fläche, klare Grenze, entzerrt `oeffneSpurMenue` /
+`zeigeSchwebeMenue` / `menueEintrag` sofort.
+
+**Mitnehmen:**
+- `zeigeSchwebeMenue`, `schliesseSpurMenue`, `menueEintrag`, `oeffneSpurMenue`
+- Hilfen, die **nur** Menüs brauchen
+
+**Nicht mitnehmen:** Aktionen hinter den Einträgen (die rufen weiter in den Kern /
+Overlay-Schreiber).
+
+**Schnittstelle (Skizze):**
+
+```ts
+export function oeffneSpurMenue(args: {
+  spur: string
+  knopf: HTMLElement
+  markeOffset: () => number
+  // Callbacks: Moment anlegen, Audio einsetzen, …
+  beiMoment: (art: MomentArt) => void
+  beiAudioAusBibliothek: () => void
+  // …
+}): void
+```
+
+**Fertig wenn:** Spur-„+“ und Kontextmenüs unverändert; `editor.ts` um ~150–200 Zeilen
+leichter.
+
+---
+
+### Welle 2 — Karte (`editorkarte.ts`)
+
+**Mitnehmen:**
+- `baueKarte`, `baueTrackLayer`, `zeichneTrack`, `zeichneMarker`, `baueMarkerEintrag`,
+  `zeichneFokus`, `passeAusschnittAn`, `klickAufKarte`
+- Marker-Map (`Medien-ID → MarkerEintrag`) — gehört zur Karte, nicht zum Kern
+
+**Braucht vom Kern:**
+- aktuellen Track / Stopps / Fokus-Spanne (Getter)
+- Callbacks: Anker verschieben, Fokus setzen, Halt wählen
+
+**Fallen (aus Studio-CLAUDE):**
+- Marker **fortschreiben**, nicht abreißen (sonst leere Kreise beim Klick).
+- Fokus-Leuchten nur für den **ausgewählten** Halt, nicht alle.
+- Kartenklick projiziert auf Track (`projiziereAufTrack` aus `editmodell`).
+
+**Fertig wenn:** Marker ziehen, Fokus-Abschnitt, Kartenklick → Anker; Tests zu
+Stopps/Projektion unverändert grün.
+
+---
+
+### Welle 3 — Inspector (`editorinspektor.ts`)
+
+**Mitnehmen:**
+- `renderInspektor`, `renderOhneInspektor`, `baueMediumFelder`, `baueAudioFelder`,
+  `baueZeiten`, `baueZeitfeld`, `feld` / `auswahl` / `regler` / `hinweis`
+- EXIF-Block (`ladeAufnahmeDaten`, `baueInfoBereich`, …)
+- Tour-Einstellungen (`oeffneTourEinstellungen` und Panel-Inhalt)
+
+**Schnitt:** Inspector **baut DOM und hängt Listener**; Schreiben läuft über dieselben
+`mitMedienEdit` / `mitAudioPatch` / … wie heute. Kein zweites Overlay-Modell.
+
+**Fallen:**
+- Flex-`flex-shrink` am hohen EXIF-Block (`flex: none`).
+- Globale `button:hover` schlägt Klassen — Primärflächen in `:hover` wiederholen.
+- Fokus speichert Identität; Spanne kommt aus `loeseFokusAuf()` je Render.
+
+**Fertig wenn:** alle Fokus-Arten (Medium, Ton, Band, Moment, Tour) editierbar;
+Inspector-Tests (`studio-inspektor.test.ts` soweit vorhanden) grün.
+
+---
+
+### Welle 4 — Zeitleisten-DOM + Pointer (`editorzeitleiste.ts`)
+
+**Der teuerste Schnitt.** Hier liegen die gemessen kritischen Gesten
+(Live-Rebuild im Zug, Filmzeit-Kopf, Klip-Reconcile).
+
+**Mitnehmen:**
+- `renderZeitleiste`, `verdrahteZeitleiste`
+- alle `zieh*` / `starteKantenZug` / `zeitleisteZug` / `verschiebeGrenze` /
+  `renderPlayhead` / Klip-Bau (`baueKlip`, …)
+
+**Nicht mitnehmen / nicht neu erfinden:**
+- `baueAchse`, `baueGrenzKurve`, `haltBeiFilmS`, … bleiben in `zeitleiste.ts`
+- Ton-Trim-Mathe bleibt in `tonklip.ts`
+
+**Schnittstelle:** Modul bekommt `host`-Elemente (Bahnen, Maßband, Kopf) und ein
+schmales `ZeitleisteApi`:
+
+```ts
+type ZeitleisteApi = {
+  liesZustand: () => EditorZeitZustand  // playhead, fokus, overlay-Snapshot, maßstab
+  schreibeOverlay: (naechstes: EditOverlay, opts?: { zug?: boolean }) => void
+  nachZugRender: () => void             // ohne Undo-Fortschreibung
+  vollerRender: () => void
+  // …
+}
+```
+
+**Fallen (nicht „aufräumen“):**
+- Während des Zugs: Maßstab einfrieren; bei Klip-Zug kein kompletter Listen-Neubau.
+- `setPointerCapture`: Ziel im `pointerdown` merken.
+- Auswahlrahmen innen (`inset` / `::after`), sonst frisst `overflow` den Rand.
+- Fortbewegungs-Grenze über `baueGrenzKurve`, nicht Bisektion.
+
+**Fertig wenn:** Smoke-Checkliste §6 komplett; bestehende Tests
+(`studio-abspielen`, `studio-tonklip`, `studio-stopps`, …) grün; kein spürbarer
+Rückschritt beim Ziehen (Ziel: weiter &lt; 8 ms/Frame am Editor-Track).
+
+---
+
+### Welle 5 — Medien-Nebenflächen (optional)
+
+Ablage, Großansicht, Drag-aus-Ablage, SFX-Katalog-Zeilen — wenn nach Welle 1–4 noch
+&gt; ~2 000 Zeilen in `editor.ts` liegen. Sonst im Kern lassen, bis sie stören.
+
+---
+
+## 5. Was bewusst im Kern bleibt
+
+| Verantwortung | Warum |
+|---|---|
+| `oeffneEditor` / `schliesseEditor` / `ladeDaten` | Lebenszyklus, Lazy-Grenze zu MapLibre |
+| `z` + Undo-Stack + `letzterStand` | eine Wahrheitsquelle |
+| `renderAlles` | Orchestrierung: Karte → Leiste → Inspector → Historie-Knöpfe |
+| `speichern` / Neu verarbeiten | API-Grenze |
+| Einmal-Verdrahtung der Shell-Knöpfe | gehört zur Seite, nicht zur Leiste |
+
+Zielgröße Kern nach Welle 4: **ideal &lt; 1 200 Zeilen**, akzeptabel &lt; 1 800.
+
+---
+
+## 6. Manuelle Smoke-Checkliste (jede Welle)
+
+Auf einer echten Tour mit Fotos, mindestens einem Video und Ton:
+
+1. Editor öffnen, Ausschnitt passt, Marker sichtbar.
+2. Foto-Klip in der Kette umordnen; außerhalb → Ort ändern; Undo einmal.
+3. Standzeit am Foto-Griff; Video-Trim links/rechts; Materialanschlag-Etikett.
+4. Fortbewegungs-Kante über einen Halt ziehen (Live-Bands + Filmdauer-Etikett).
+5. Ton-Klip verschieben/trimmen; Loop aus → Länge am Material.
+6. Inspector: Caption, Halt-Dauer, Audio-Lautstärke, EXIF aufklappen.
+7. Spur-„+“ → Moment anlegen; Speichern; Vorschau im Player.
+8. Ablage → Medium auf die Leiste (wenn Ablage betroffen).
+
+---
+
+## 7. Tests und Wächter
+
+- Bestehende DOM-freie Tests bleiben die Sicherheitsleine; sie müssen in keiner Welle
+  schwächer werden.
+- Kein Pflicht-UI-Test-Framework neu einführen.
+- Optional nach Welle 4: ein kleiner Drift-Wächter, der verbietet, dass `editor.ts`
+  wieder Pointer-Handler für `[data-…]`-Klips enthält (Regex auf typische Muster) —
+  nur wenn das Zurückrutschen real wird, nicht prophylaktisch.
+
+---
+
+## 8. Reihenfolge und Abhängigkeiten
+
+```
+Welle 0 → 1 (Menü) → 2 (Karte) → 3 (Inspector) → 4 (Zeitleiste) → [5]
+```
+
+- Welle 4 nicht vor 2/3 starten: sonst muss die Zeitleiste noch gegen den Monolithen
+  rückrufen, und der Gewinn verpufft.
+- Parallel zu Produktfeatures nur Welle 0–2; Welle 4 braucht ein ruhiges Fenster
+  (kein paralleler Zeitleisten-Feature-PR).
+- Unabhängig von Player-TS-Migration und Renderer-Labor
+  ([konzept_player_typescript.md](konzept_player_typescript.md),
+  [konzept_renderer_labor.md](konzept_renderer_labor.md)).
+
+---
+
+## 9. Nicht-Ziele
+
+- Editor auf ein Framework (React/Svelte) umschreiben.
+- Zeitleisten-**Logik** aus `zeitleiste.ts` zurück in den DOM-Layer mischen.
+- „Clean Architecture“-Ordner (`domain/`, `infrastructure/`) ohne Nutzen für Vite-Bundles.
+- Bezeichner auf Englisch (eigenes Konzept).
+
+---
+
+## 10. Erfolg
+
+- Alltagsänderung an Inspector oder Karte ohne Scrollen durch Pointer-Gesten.
+- Zeitleisten-Bugfix in einer Datei, die man im Kopf halten kann.
+- `editor.ts` ist Orchester, nicht Baustelle.
+- Kein Regressionsfenster länger als eine Welle (jede Welle shippbar).
