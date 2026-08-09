@@ -284,7 +284,7 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
                     modifier = Modifier.size(20.dp),
                 )
                 Text(
-                    "Bestätige deine E-Mail-Adresse — bis dahin lassen sich keine Reisen hochladen.",
+                    "Bestätige deine E-Mail-Adresse. Bis dahin lassen sich keine Reisen hochladen.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )

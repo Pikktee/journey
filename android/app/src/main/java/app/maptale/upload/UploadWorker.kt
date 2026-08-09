@@ -32,7 +32,7 @@ fun istEndgueltigerUploadFehler(status: Int): Boolean = status in setOf(400, 401
 
 /** Erklärung für die Tourliste; der Servertext ist meist der bessere. */
 fun uploadFehlerText(status: Int, serverText: String?): String = when (status) {
-    401 -> "Anmeldung abgelaufen — bitte neu anmelden"
+    401 -> "Anmeldung abgelaufen, bitte neu anmelden"
     else -> serverText?.ifBlank { null } ?: "Upload fehlgeschlagen (Fehler $status)"
 }
 

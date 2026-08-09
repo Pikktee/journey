@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Administration — Maptale</title>
-  <meta name="description" content="Maptale — Konten, Rollen und Einladungen verwalten." />
+  <title>Administration · Maptale</title>
+  <meta name="description" content="Maptale: Konten, Rollen und Einladungen verwalten." />
   <meta name="robots" content="noindex" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
@@ -737,7 +737,7 @@
   <dialog id="konto-dialog">
     <form class="dialog-inner" id="konto-form" method="dialog">
       <h2 id="kd-titel">Konto anlegen</h2>
-      <p class="unterzeile" id="kd-unterzeile">Das Konto ist sofort nutzbar — ohne Bestätigungsmail.</p>
+      <p class="unterzeile" id="kd-unterzeile">Das Konto ist sofort nutzbar, ohne Bestätigungsmail.</p>
       <div class="feld">
         <label for="kd-name">Name</label>
         <input id="kd-name" type="text" maxlength="80" required />
@@ -747,14 +747,14 @@
         <input id="kd-email" type="email" required />
       </div>
       <div class="feld">
-        <label for="kd-passwort">Passwort <span class="zusatz" id="kd-pw-zusatz">— mindestens 8 Zeichen</span></label>
+        <label for="kd-passwort">Passwort <span class="zusatz" id="kd-pw-zusatz">mindestens 8 Zeichen</span></label>
         <input id="kd-passwort" type="password" autocomplete="new-password" minlength="8" />
       </div>
       <div class="feld">
         <label for="kd-rolle">Rolle</label>
         <select id="kd-rolle">
-          <option value="nutzer">Nutzer — eigene Touren</option>
-          <option value="admin">Administrator — verwaltet Konten</option>
+          <option value="nutzer">Nutzer · eigene Touren</option>
+          <option value="admin">Administrator · verwaltet Konten</option>
         </select>
         <div class="hinweis" id="kd-rolle-hinweis"></div>
       </div>
@@ -776,7 +776,7 @@
       <h2>Einladung erstellen</h2>
       <p class="unterzeile">Ein Code, einmal einlösbar. Für mehrere Personen mehrere Einladungen.</p>
       <div class="feld">
-        <label for="ed-notiz">Notiz <span class="zusatz">— für wen ist die Einladung?</span></label>
+        <label for="ed-notiz">Notiz <span class="zusatz">für wen ist die Einladung?</span></label>
         <input id="ed-notiz" type="text" maxlength="120" placeholder="z. B. Anna vom Radclub" />
       </div>
       <div class="feld">
@@ -815,19 +815,19 @@
               <input id="md-betreff" type="text" maxlength="200" required />
             </div>
             <div class="feld">
-              <label for="md-mtitel">Überschrift <span class="zusatz">— die erste Zeile in der Mail</span></label>
+              <label for="md-mtitel">Überschrift <span class="zusatz">die erste Zeile in der Mail</span></label>
               <input id="md-mtitel" type="text" maxlength="200" required />
             </div>
             <div class="feld">
-              <label for="md-text">Text <span class="zusatz">— Leerzeile trennt Absätze</span></label>
+              <label for="md-text">Text <span class="zusatz">Leerzeile trennt Absätze</span></label>
               <textarea id="md-text" maxlength="4000" rows="7"></textarea>
             </div>
             <div class="feld">
-              <label for="md-knopf">Knopf <span class="zusatz">— leer lassen, dann muss der Link im Text stehen</span></label>
+              <label for="md-knopf">Knopf <span class="zusatz">leer lassen, dann muss der Link im Text stehen</span></label>
               <input id="md-knopf" type="text" maxlength="60" />
             </div>
             <div class="feld">
-              <label for="md-fuss">Kleingedrucktes <span class="zusatz">— Gültigkeit, Widerspruch, „war ich das nicht?"</span></label>
+              <label for="md-fuss">Kleingedrucktes <span class="zusatz">Gültigkeit, Widerspruch, „war ich das nicht?"</span></label>
               <textarea id="md-fuss" maxlength="2000" rows="5"></textarea>
             </div>
           </div>

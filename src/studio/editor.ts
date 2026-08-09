@@ -600,7 +600,7 @@ function renderAlles(): void {
   renderAblage()
   $('editor-map').classList.toggle('platzieren', z.platzieren !== null)
   $('editor-medien-hinweis').textContent = z.platzieren
-    ? 'Auf den Track klicken, um das Medium dort zu verankern — erneut „Platzieren" drücken bricht ab.'
+    ? 'Auf den Track klicken, um das Medium dort zu verankern, erneut „Platzieren" drücken bricht ab.'
     : ''
 }
 
@@ -673,8 +673,8 @@ function zeichneMarker(): void {
     eintrag.el.classList.toggle('an', !!fokusId && stopp.items.some((m) => m.id === fokusId))
     eintrag.el.title =
       stopp.items.length > 1
-        ? `Halt mit ${stopp.items.length} Aufnahmen — ziehen verankert alle neu`
-        : `${kopf.caption || kopf.id} · ${PLACEMENT_NAMEN[kopf.placement] ?? kopf.placement} — ziehen verankert neu`
+        ? `Halt mit ${stopp.items.length} Aufnahmen · ziehen verankert alle neu`
+        : `${kopf.caption || kopf.id} · ${PLACEMENT_NAMEN[kopf.placement] ?? kopf.placement}, ziehen verankert neu`
     marker.set(schluessel, eintrag)
     for (const m of stopp.items) {
       medienMarker.set(m.id, eintrag.el)
@@ -1056,7 +1056,7 @@ function oeffneAblage(): void {
     const b = document.createElement('button')
     b.type = 'button'
     b.className = m.geloescht ? 'geloescht' : ''
-    b.title = m.geloescht ? `${m.caption || m.id} — entfernt` : `${m.caption || m.id} — ohne Ort`
+    b.title = m.geloescht ? `${m.caption || m.id} · entfernt` : `${m.caption || m.id} · ohne Ort`
     b.dataset['id'] = m.id
     const bild = document.createElement('img')
     bild.src = miniaturQuelle(m)
@@ -1698,8 +1698,8 @@ function fuelleInfoRaster(raster: HTMLElement, m: MediumAnzeige, exif: ExifAufna
       : exif === null
         ? m.type === 'video'
           ? 'Die Videodatei trägt keine auslesbaren Kameradaten.'
-          : 'Das Foto trägt keine Kameradaten — viele Dienste entfernen sie beim Export.'
-        : 'Aus der Datei gelesen. Die Aufnahmezeit selbst lässt sich nicht ändern — verschiebe den Ort, um sie umzuhängen.'
+          : 'Das Foto trägt keine Kameradaten. Viele Dienste entfernen sie beim Export.'
+        : 'Aus der Datei gelesen. Die Aufnahmezeit selbst lässt sich nicht ändern. Verschiebe den Ort, um sie umzuhängen.'
   raster.appendChild(fuss)
 }
 
@@ -1784,7 +1784,7 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
   wechseln.type = 'button'
   wechseln.className = 'insp-stueck-wechseln'
   wechseln.textContent = 'Ändern …'
-  wechseln.title = 'Anderes Stück aus der Bibliothek wählen — die Platzierung bleibt'
+  wechseln.title = 'Anderes Stück aus der Bibliothek wählen, die Platzierung bleibt'
   wechseln.addEventListener('click', () => oeffneSfxDialog({ modus: 'ersetzen', index }))
   stueck.append(hoeren, text, wechseln)
   huelle.appendChild(stueck)
@@ -1890,7 +1890,7 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
     info.textContent = getrimmt
       ? `${formatiereFilmzeit(laenge)} von ${formatiereFilmzeit(klip.dateiS)}`
         + (klip.einstiegS > 0 ? ` · ab ${formatiereFilmzeit(klip.einstiegS)} der Datei` : '')
-      : `${formatiereFilmzeit(klip.dateiS)} — die ganze Datei`
+      : `${formatiereFilmzeit(klip.dateiS)}, die ganze Datei`
     huelle.appendChild(info)
   }
 
@@ -2170,7 +2170,7 @@ function loeschInfo(info: FokusZiel): { text: string; gesperrt: boolean; grund?:
     return {
       text: 'Abschnitt entfernen',
       gesperrt: true,
-      grund: 'Dieser Zustand deckt die ganze Tour — es gibt keinen zweiten, der seinen Platz einnehmen könnte.',
+      grund: 'Dieser Zustand deckt die ganze Tour, es gibt keinen zweiten, der seinen Platz einnehmen könnte.',
     }
   }
   return { text: 'Abschnitt entfernen', gesperrt: false }
@@ -2472,7 +2472,7 @@ function starteVorschau(a: AudioEintrag): void {
     stoppeVorschau()
     renderInspektor()
   })
-  void audio.play().catch(() => audioStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
+  void audio.play().catch(() => audioStatus('Vorhören blockiert. Einmal in die Seite klicken.', 'fehler'))
   vorschau = { audio, datei: a.datei }
 }
 
@@ -2534,8 +2534,8 @@ async function bibliothekHochladen(datei: File): Promise<void> {
   void setzeTonEin({ datei: name, typ: 'musik', ab: offsetZuIso(start, abOffset), quelle: 'benutzer' })
   audioStatus(
     parallel.length
-      ? `Hochgeladen und eingesetzt — läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
-      : 'Hochgeladen und eingesetzt — Art und Bereich im Panel anpassen, dann Speichern.',
+      ? `Hochgeladen und eingesetzt, läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
+      : 'Hochgeladen und eingesetzt, Art und Bereich im Panel anpassen, dann Speichern.',
     'ok',
   )
   renderAlles()
@@ -2632,7 +2632,7 @@ function sfxUebernehmen(datei: string, quelle: 'bibliothek' | 'benutzer', typ: S
     z.fokus = { art: 'audio', index }
     schliesseSfxDialog()
     renderAlles()
-    audioStatus(`„${name}" übernommen — Platzierung und Lautstärke bleiben.`, 'ok')
+    audioStatus(`„${name}" übernommen, Platzierung und Lautstärke bleiben.`, 'ok')
     return
   }
   const start = z.daten.time.start
@@ -2647,8 +2647,8 @@ function sfxUebernehmen(datei: string, quelle: 'bibliothek' | 'benutzer', typ: S
   void setzeTonEin({ datei, typ: typ ?? 'musik', ab: offsetZuIso(start, abOffset), quelle })
   audioStatus(
     parallel.length
-      ? `„${name}" eingesetzt — läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
-      : `„${name}" eingesetzt — auf der Zeitleiste platzieren, dann Speichern.`,
+      ? `„${name}" eingesetzt, läuft gleichzeitig mit ${parallel.join(', ')}. Bereiche an den Kanten zurechtziehen, dann Speichern.`
+      : `„${name}" eingesetzt, auf der Zeitleiste platzieren, dann Speichern.`,
     'ok',
   )
 }
@@ -2717,7 +2717,7 @@ function sfxVorhoeren(id: string, url: string): void {
       stoppeDialogVorschau()
       baueSfxListe()
     })
-    void dialogAudio.play().catch(() => sfxStatus('Vorhören blockiert — einmal in die Seite klicken.', 'fehler'))
+    void dialogAudio.play().catch(() => sfxStatus('Vorhören blockiert. Einmal in die Seite klicken.', 'fehler'))
   }
   baueSfxListe()
 }
@@ -2852,7 +2852,7 @@ function baueSfxZeile(def: SfxZeileDef): HTMLElement {
     nutzen.textContent = sfxZiel.modus === 'ersetzen' ? 'Übernehmen' : 'Einsetzen'
     nutzen.title =
       sfxZiel.modus === 'ersetzen'
-        ? `Das Stück durch „${def.name}" ersetzen — die Platzierung bleibt`
+        ? `Das Stück durch „${def.name}" ersetzen, die Platzierung bleibt`
         : `„${def.name}" ab der Marke einsetzen`
     nutzen.addEventListener('click', () => sfxUebernehmen(def.datei, def.quelle, def.typ, def.name))
     rechts.appendChild(nutzen)
@@ -2944,9 +2944,9 @@ function eigeneZeilen(q: string): SfxZeileDef[] {
         meta: `${(d.groesse / 1048576).toFixed(1)} MB`,
         loeschen: {
           gesperrtWeil: inTouren
-            ? `Wird noch verwendet in ${inTouren} — dort erst den Eintrag entfernen`
+            ? `Wird noch verwendet in ${inTouren}, dort erst den Eintrag entfernen`
             : ungespeichert
-              ? 'In dieser Tour eingesetzt — erst den Eintrag entfernen'
+              ? 'In dieser Tour eingesetzt, erst den Eintrag entfernen'
               : null,
         },
       }
@@ -3021,7 +3021,7 @@ function oeffneSfxDialog(ziel: SfxZiel = { modus: 'einsetzen' }): void {
   const unter = $('sfx-unter')
   if (ziel.modus === 'ersetzen' && z) {
     const eintrag = (z.edits.audio ?? [])[ziel.index]
-    unter.textContent = eintrag ? `Ersetzt „${audioName(eintrag)}" — Platzierung und Lautstärke bleiben.` : ''
+    unter.textContent = eintrag ? `Ersetzt „${audioName(eintrag)}", Platzierung und Lautstärke bleiben.` : ''
     // Den Reiter dorthin stellen, wo das aktuelle Stück wohnt.
     if (eintrag?.quelle === 'benutzer') sfxFilter = 'eigene'
     else if (eintrag?.quelle === 'bibliothek') sfxFilter = sfxEffekt(eintrag.datei)?.kategorie ?? sfxFilter
@@ -3053,10 +3053,10 @@ function audioEintragEntfernen(index: number): void {
   // Bibliothek liegen und sind dort löschbar, sobald keine Tour sie nutzt.
   audioStatus(
     eintrag.quelle === 'benutzer'
-      ? 'Eintrag entfernt — die Datei bleibt in deiner Bibliothek.'
+      ? 'Eintrag entfernt. Die Datei bleibt in deiner Bibliothek.'
       : eintrag.quelle === 'bibliothek'
         ? 'Eintrag entfernt.'
-        : `Eintrag entfernt — ${eintrag.datei} bleibt gespeichert.`,
+        : `Eintrag entfernt, ${eintrag.datei} bleibt gespeichert.`,
     'ok',
   )
   renderAlles()
@@ -3351,7 +3351,7 @@ function renderZeitleiste(): void {
         offsetZuAnteil(skala, vonS),
         'grenze',
         { ab, mode: a.mode },
-        `${MODUS_NAMEN[a.mode]} ab ${zeitText(ab)} Uhr — ziehen zum Verschieben`,
+        `${MODUS_NAMEN[a.mode]} ab ${zeitText(ab)} Uhr · ziehen zum Verschieben`,
       ),
     )
   }
@@ -3392,7 +3392,7 @@ function renderZeitleiste(): void {
           b.von,
           'kamera',
           { ab: b.ab, preset: b.wert },
-          `Kamera ${PRESET_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr — ziehen zum Verschieben`,
+          `Kamera ${PRESET_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr · ziehen zum Verschieben`,
         ),
       )
     }
@@ -3426,7 +3426,7 @@ function renderZeitleiste(): void {
     if (!b.wert) d.classList.add('leise')
     else d.classList.add('hell')
     if (!eigenes && b.wert) {
-      d.title = `${WETTER_NAMEN[b.wert]} — automatisch ermittelt (Wetterarchiv, an den Fotos nachgeschärft). Ändern übernimmt die ganze Einteilung.`
+      d.title = `${WETTER_NAMEN[b.wert]}, automatisch ermittelt (Wetterarchiv, an den Fotos nachgeschärft). Ändern übernimmt die ganze Einteilung.`
     }
     if (istFokus('wetter', b.von, b.bis)) d.classList.add('fokus')
     wetterBahn.appendChild(d)
@@ -3436,7 +3436,7 @@ function renderZeitleiste(): void {
           b.von,
           'wetter',
           { ab: b.ab, wettermode: b.wert },
-          `Wetter ${WETTER_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr — ziehen zum Verschieben`,
+          `Wetter ${WETTER_NAMEN[b.wert]} ab ${zeitText(b.ab)} Uhr · ziehen zum Verschieben`,
         ),
       )
     }
@@ -3475,7 +3475,7 @@ function renderZeitleiste(): void {
       pin.dataset['index'] = String(k.index)
       // Ohne gemessene Datei kennt die Leiste die Länge nicht — deshalb (noch)
       // ein Punkt statt eines Klips, und das sagt der Tooltip auch.
-      pin.title = `${anzeige} — Länge noch unbekannt; ziehen zum Verschieben`
+      pin.title = `${anzeige}, Länge noch unbekannt · ziehen zum Verschieben`
       if (fokussiert) pin.classList.add('fokus')
       pin.appendChild(document.createElement('i'))
       audioBahn.appendChild(pin)
@@ -3491,7 +3491,7 @@ function renderZeitleiste(): void {
     klip.title =
       `${anzeige} · ${formatiereFilmzeit(k.filmBis - k.filmVon)}`
       + (k.einstiegS > 0 ? ` (ab ${formatiereFilmzeit(k.einstiegS)} der Datei)` : '')
-      + ' — ziehen zum Verschieben, Kanten zum Trimmen'
+      + ' · ziehen zum Verschieben, Kanten zum Trimmen'
     if (fokussiert) klip.classList.add('fokus')
 
     // Wellenform: der DATEI-Streifen hinter dem Klip, um den Einstieg nach
@@ -3560,7 +3560,7 @@ function renderZeitleiste(): void {
 // Anfang und Ende; Aufnahmen am selben Ort liegen als Kette hintereinander,
 // weil die Kamera dort einmal hält und sie nacheinander zeigt.
 //
-// Drei Regeln tragen das (docs/concepts/zeitleiste-umbau.md §2A):
+// Drei Regeln tragen das (docs/architecture/zeitleiste-umbau.md §2A):
 //  • RECONCILE an `medium.id` — nicht am Titel (der ist weder eindeutig noch
 //    stabil) und erst recht nicht per Neubau: ein Neuaufbau je Zieh-Frame
 //    kostete 2,34 ms und — schlimmer — das gezogene Element samt dekodiertem
@@ -3677,7 +3677,7 @@ function schreibeMomentKlip(
   if (unten && unten.textContent !== dauerText) unten.textContent = dauerText
   const blase = el.querySelector('.dauer-blase')
   if (blase && blase.textContent !== dauerText) blase.textContent = dauerText
-  el.title = `${MOMENT_NAMEN[m.art]} bei ${zeitText(m.ab)} Uhr · ${dauerText} — die rechte Kante zieht die Dauer`
+  el.title = `${MOMENT_NAMEN[m.art]} bei ${zeitText(m.ab)} Uhr · ${dauerText} · die rechte Kante zieht die Dauer`
 }
 
 /** Klip-Gerüst einer Aufnahme — einmalig; danach nur noch fortgeschrieben. */
@@ -3775,8 +3775,8 @@ function schreibeKlip(el: HTMLElement, m: MediumAnzeige, k: SzenenKlip, gesamtS:
   if (blase && blase.textContent !== dauerText) blase.textContent = dauerText
   const kette = k.anzahl > 1 ? ` · Aufnahme ${k.platz + 1} von ${k.anzahl}` : ''
   el.title =
-    `${name} — ${uhrzeitKurz(m.takenAt)} Uhr · ${dauerText}${kette}`
-    + (m.type === 'video' ? ' — die Kanten schneiden das Video' : ' — die rechte Kante zieht die Standzeit')
+    `${name}, ${uhrzeitKurz(m.takenAt)} Uhr · ${dauerText}${kette}`
+    + (m.type === 'video' ? ' · die Kanten schneiden das Video' : ' · die rechte Kante zieht die Standzeit')
 }
 
 /**
@@ -4444,7 +4444,7 @@ function passeZeitBreiteAn(): void {
 // es keinen Wert für „mitten im Halt" (zwei Stützstellen auf derselben
 // Sekunde), die Rückrechnung fällt dort immer auf die linke Haltkante. Genau
 // daran klebte der Kopf — 28 von 39 Frames Stillstand, und mit Pfeiltasten kam
-// man an einem 6-s-Halt nie vorbei (docs/concepts/zeitleiste-umbau.md §1).
+// man an einem 6-s-Halt nie vorbei (docs/architecture/zeitleiste-umbau.md §1).
 
 /** Position des Abspielkopfs in Filmsekunden; null = noch keine. */
 let kopfFilmS: number | null = null
@@ -5803,7 +5803,7 @@ async function warteAufBereit(id: string): Promise<void> {
     if (t.status === 'fehler') throw new Error(`Verarbeitung fehlgeschlagen: ${t.fehler ?? 'unbekannt'}`)
     await new Promise((weiter) => setTimeout(weiter, 900))
   }
-  throw new Error('Verarbeitung dauert ungewöhnlich lange — Liste später prüfen.')
+  throw new Error('Verarbeitung dauert ungewöhnlich lange. Liste später prüfen.')
 }
 
 async function speichern(): Promise<void> {
@@ -5894,7 +5894,7 @@ async function neuVerarbeiten(): Promise<void> {
     await api.reprocess(z.tourId)
     await warteAufBereit(z.tourId)
     await ladeDaten(z.tourId)
-    status('Neu verarbeitet — Bearbeitungen sind erhalten.', 'ok')
+    status('Neu verarbeitet. Bearbeitungen sind erhalten.', 'ok')
   } catch (fehler) {
     status((fehler as Error).message, 'fehler')
   } finally {

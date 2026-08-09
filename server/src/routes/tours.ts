@@ -370,7 +370,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
       // den Renderer, kann tour.json einen Render hinter edits.json liegen —
       // selbstheilend beim nächsten Render/Reprocess, kein Doppel-Renderer.
       if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft — bitte gleich erneut speichern' })
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut speichern' })
       }
       await storage.schreibe(tour.id, EDITS_PFAD, JSON.stringify(request.body, null, 2))
       // Fertige (oder gescheiterte) Tour direkt neu rendern — gleicher

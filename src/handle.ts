@@ -91,7 +91,7 @@ export type HandleFehler = 'leer' | 'kurz' | 'form' | 'reserviert' | 'vergeben'
 export const HANDLE_TEXTE: Readonly<Record<HandleFehler, string>> = {
   leer: 'Ohne Adresse ist dein Profil nicht verlinkbar.',
   kurz: 'Mindestens 3 Zeichen.',
-  form: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich — nicht am Anfang oder Ende.',
+  form: 'Erlaubt sind a–z, 0–9, Punkt, Bindestrich und Unterstrich; nicht am Anfang oder Ende.',
   reserviert: 'Diese Adresse ist für Maptale selbst reserviert.',
   vergeben: 'Diese Adresse ist schon vergeben.',
 }

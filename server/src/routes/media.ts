@@ -103,14 +103,14 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
       if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft — bitte gleich erneut hochladen' })
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hochladen' })
       }
       const relPfad = `media/${request.params.datei}`
       // ÜBERSCHREIBEN VERBOTEN: die GET-Auslieferung verspricht
       // public/immutable-Cache-Header — eine neue Version unter altem Namen
       // würde stale ausgeliefert. Neue Version = neuer Name.
       if (await storage.info(tour.id, relPfad)) {
-        return reply.code(409).send({ fehler: 'Audio-Datei existiert bereits — anderen Namen wählen' })
+        return reply.code(409).send({ fehler: 'Audio-Datei existiert bereits, anderen Namen wählen' })
       }
       const quotaFehler = await quotaVorabPruefung(request)
       if (quotaFehler) return reply.code(413).send({ fehler: quotaFehler })
@@ -130,7 +130,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       const tour = ladeTour(app, request.params.id)
       if (!tour || tour.owner_id !== benutzer.id) return reply.code(404).send({ fehler: 'Tour nicht gefunden' })
       if (tour.status === 'verarbeitung') {
-        return reply.code(409).send({ fehler: 'Verarbeitung läuft — bitte gleich erneut löschen' })
+        return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut löschen' })
       }
       // Referenz-Schutz: solange die GESPEICHERTEN Bearbeitungen die Datei noch
       // nutzen, würde das Löschen ein bereits gerendertes tour.json auf eine
@@ -140,7 +140,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         if (edits.audio?.some((a) => a.datei === request.params.datei)) {
           return reply
             .code(409)
-            .send({ fehler: 'Datei wird von den gespeicherten Bearbeitungen genutzt — erst Eintrag entfernen und speichern' })
+            .send({ fehler: 'Datei wird von den gespeicherten Bearbeitungen genutzt, erst Eintrag entfernen und speichern' })
         }
       }
       const relPfad = `media/${request.params.datei}`

@@ -93,7 +93,7 @@ fun ImportScreen(
         ) {
             Text(
                 "Wähle eine GPX-Aufzeichnung (z. B. aus Komoot) und optional Fotos oder Videos. " +
-                    "Maptale baut daraus eine Kamerafahrt — Wetter und Ortsnamen kommen automatisch.",
+                    "Maptale baut daraus eine Kamerafahrt. Wetter und Ortsnamen kommen automatisch.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

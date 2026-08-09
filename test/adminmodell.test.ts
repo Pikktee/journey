@@ -116,8 +116,8 @@ describe('formatiereDatum', () => {
   })
 
   it('bleibt bei fehlenden oder kaputten Werten ruhig', () => {
-    expect(formatiereDatum(null)).toBe('—')
-    expect(formatiereDatum('kein datum')).toBe('—')
+    expect(formatiereDatum(null)).toBe('–')
+    expect(formatiereDatum('kein datum')).toBe('–')
   })
 })
 

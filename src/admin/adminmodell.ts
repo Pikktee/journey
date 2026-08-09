@@ -102,9 +102,9 @@ export function formatiereBytes(bytes: number): string {
 
 /** Tag.Monat.Jahr in der Zeitzone des Betrachters — kurz genug für eine Tabellenzelle. */
 export function formatiereDatum(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '–'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '–'
   const zwei = (n: number): string => String(n).padStart(2, '0')
   return `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}.${d.getFullYear()}`
 }
@@ -251,7 +251,7 @@ export function beschreibeWartenden(e: AdminWartender): string {
  */
 export function einladenGesperrt(e: AdminWartender): string {
   if (e.zustand === 'unbestaetigt') return 'Diese Adresse ist noch nicht bestätigt'
-  if (e.zustand === 'eingeladen') return 'Schon eingeladen — der Code steht in der Liste darunter'
+  if (e.zustand === 'eingeladen') return 'Schon eingeladen, der Code steht in der Liste darunter'
   return ''
 }
 
@@ -385,7 +385,7 @@ export function zaehleProtokoll(liste: readonly ProtokollEintrag[]): Record<Prot
  */
 export function formatiereZeitpunkt(iso: string, jetzt: Date = new Date()): string {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '–'
   const zwei = (n: number): string => String(n).padStart(2, '0')
   const uhr = `${zwei(d.getHours())}:${zwei(d.getMinutes())}:${zwei(d.getSeconds())}`
   const gleicherTag =

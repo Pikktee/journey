@@ -58,7 +58,7 @@ class ImportViewModel(private val app: MaptaleApp) : ViewModel() {
                 } ?: throw ImportFehler("Die GPX-Datei konnte nicht gelesen werden.")
                 if (!GpxImport.hatTrackpunkte(gpx)) throw ImportFehler("Die GPX-Datei enthält keine Trackpunkte.")
                 val spanne = GpxImport.zeitspanne(gpx)
-                    ?: throw ImportFehler("Die GPX-Datei enthält keine Zeitstempel — ein Import ist damit nicht möglich.")
+                    ?: throw ImportFehler("Die GPX-Datei enthält keine Zeitstempel. Ein Import ist damit nicht möglich.")
 
                 // Medien in den Cache kopieren (kein OOM bei großen Videos) und
                 // dabei Metadaten (EXIF) für die serverseitige Platzierung lesen.

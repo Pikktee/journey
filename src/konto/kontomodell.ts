@@ -249,5 +249,5 @@ export function exportZeile(stand: ExportStand | null | undefined, jetzt: Date =
   const stunden = Math.max(1, Math.round((ablauf.getTime() - jetzt.getTime()) / 3_600_000))
   const wieLange = stunden === 1 ? 'noch eine Stunde' : `noch ${stunden} Stunden`
   const wieGross = stand.bytes === null ? '' : ` (${groesse(stand.bytes)})`
-  return `Dein Archiv${wieGross} liegt bereit — der Link aus der Mail gilt ${wieLange}.`
+  return `Dein Archiv${wieGross} liegt bereit, der Link aus der Mail gilt ${wieLange}.`
 }

@@ -93,7 +93,7 @@ describe('kennzahlChips', () => {
     expect(kennzahlChips({ touren: 3, km: 68.2, hm: 1240 })).toEqual([
       { art: 'touren', zahl: '3', wort: 'Touren' },
       { art: 'km', zahl: '68', wort: 'km unterwegs' },
-      { art: 'hm', zahl: `1${SCHMAL}240`, wort: 'hm bergauf' },
+      { art: 'hm', zahl: `1${SCHMAL}240`, wort: 'Höhenmeter' },
     ])
   })
 

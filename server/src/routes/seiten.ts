@@ -38,7 +38,7 @@ const VERSCHWIEGEN: Metablock = {
 
 /** Dasselbe für den Player — der Titel, der ohne Tour im Build steht. */
 const VERSCHWIEGEN_TOUR: Metablock = {
-  titel: 'Maptale — 3D-Reiseflug',
+  titel: 'Maptale · 3D-Reiseflug',
   robots: 'noindex',
 }
 
@@ -94,7 +94,7 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
         // und die einzige, die dem Leser nichts gibt.
         beschreibung:
           alsBeschreibung(profil.bio) ??
-          `Die Reisen von ${name} auf Maptale — als 3D-Kamerafahrt über die echte Strecke.`,
+          `Die Reisen von ${name} auf Maptale, als 3D-Kamerafahrt über die echte Strecke.`,
         url: `${basis}/@${profil.handle ?? handle}`,
         bild: absolut(bild),
         bildAlt: `Titelbild von ${name}`,
@@ -180,7 +180,7 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
         robots: tour.visibility === 'public' && tour.status === 'bereit' ? 'index' : 'noindex',
         beschreibung:
           alsBeschreibung(tour.description) ??
-          `${titel}${km === null ? '' : ` · ${km.toFixed(1).replace('.', ',')} km`} — als 3D-Kamerafahrt über die echte Strecke.`,
+          `${titel}${km === null ? '' : ` · ${km.toFixed(1).replace('.', ',')} km`}, als 3D-Kamerafahrt über die echte Strecke.`,
         url: `${basis}/tour/${tour.id}`,
         // Die Anzeigefassung (w1920), nicht die Kachel: Die Karte im Chat wird
         // breit dargestellt, ein 480er Vorschaubild sähe dort matschig aus.

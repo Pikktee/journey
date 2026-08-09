@@ -196,7 +196,7 @@ export function rendereMail(
   // angehängtem Punkt löst nichts ein.
   if (zeigeKnopf) textTeile.push(`${knopf}:\n${kontext.link}`)
   for (const roh of absaetze(bausteine.fuss)) textTeile.push(fuelle(roh))
-  textTeile.push(`— Maptale\n${basis}`)
+  textTeile.push(`Maptale\n${basis}`)
   const text = textTeile.filter(Boolean).join('\n\n')
 
   const html = huelle(betreff, titel, koerper.join('\n'), fussBloecke.join('\n'), basis, text)
@@ -264,7 +264,7 @@ ${vorschauZeile(textFassung)}
         </tr>
         <tr>
           <td align="center" style="padding:24px 12px 0;font-family:${SCHRIFT};font-size:12.5px;line-height:1.7;color:${FARBEN.leise};">
-            <span style="color:${FARBEN.gedaempft};">Maptale</span> — deine Reisen als filmischer 3D-Flug.<br />
+            <span style="color:${FARBEN.gedaempft};">Maptale</span> · deine Reisen als filmischer 3D-Flug.<br />
             <a href="${basis}${WEB_PFADE.impressum}" style="color:${FARBEN.leise};text-decoration:underline;">Impressum</a>
             &nbsp;·&nbsp;
             <a href="${basis}${WEB_PFADE.datenschutz}" style="color:${FARBEN.leise};text-decoration:underline;">Datenschutz</a>

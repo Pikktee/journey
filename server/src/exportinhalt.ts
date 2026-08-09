@@ -94,7 +94,7 @@ export const istGepackt = (name: string): boolean => SCHON_GEPACKT.test(name)
  */
 export function liesmich(konto: KontoAngaben, touren: TourAngaben[], erstelltAm: string): string {
   return [
-    'Maptale — Datenexport',
+    'Maptale · Datenexport',
     '=====================',
     '',
     `Erstellt am: ${erstelltAm}`,
@@ -105,7 +105,7 @@ export function liesmich(konto: KontoAngaben, touren: TourAngaben[], erstelltAm:
     '',
     '  konto.json          Deine Konto- und Profilangaben, dazu die Historie deiner',
     '                      Newsletter-Einwilligung (Zeitpunkt, Zustand, Herkunft).',
-    '  touren.json         Alle Touren in einer Liste — Titel, Sichtbarkeit, Kennzahlen.',
+    '  touren.json         Alle Touren in einer Liste: Titel, Sichtbarkeit, Kennzahlen.',
     '  touren/<nr>-<titel>/',
     '    tour.json         Die fertige Tour, wie der Player sie abspielt: Strecke,',
     '                      Zeiten, Wetter, Foto-Stopps.',
@@ -116,7 +116,7 @@ export function liesmich(konto: KontoAngaben, touren: TourAngaben[], erstelltAm:
     'Die Dateien sind JSON und lassen sich mit jedem Texteditor öffnen; Fotos und',
     'Videos liegen als gewöhnliche Dateien vor.',
     '',
-    'Nicht enthalten sind Zugangsdaten (Passwort, Sitzungen, App-Tokens) — sie sind',
+    'Nicht enthalten sind Zugangsdaten (Passwort, Sitzungen, App-Tokens), sie sind',
     'Schlüssel, keine Auskunft, und gehören nicht in ein Archiv, das durch die Welt',
     'geht. Ebenso fehlen Daten, die wir gar nicht speichern.',
     '',

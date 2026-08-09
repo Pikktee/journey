@@ -112,7 +112,7 @@ export function kennzahlChips(kennzahlen: Kennzahlen | null): KennzahlChip[] {
     })
   }
   if (kennzahlen.km >= 1) chips.push({ art: 'km', zahl: zahl(Math.round(kennzahlen.km)), wort: 'km unterwegs' })
-  if (kennzahlen.hm >= 1) chips.push({ art: 'hm', zahl: zahl(Math.round(kennzahlen.hm)), wort: 'hm bergauf' })
+  if (kennzahlen.hm >= 1) chips.push({ art: 'hm', zahl: zahl(Math.round(kennzahlen.hm)), wort: 'Höhenmeter' })
   return chips
 }
 

@@ -170,7 +170,7 @@ describe('Vorlagen prüfen', () => {
 
   it('meldet jede andere fehlende Angabe', () => {
     expect(pruefeBausteine(eintrag, { ...eintrag.standard, text: 'Ganz ohne Anrede.' })).toContain(
-      '{{name}} fehlt — diese Angabe geht sonst verloren.',
+      '{{name}} fehlt, diese Angabe geht sonst verloren.',
     )
   })
 })

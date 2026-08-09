@@ -34,7 +34,7 @@ class UploadFehlerTest {
             uploadFehlerText(403, "Bitte bestätige zuerst deine E-Mail-Adresse"),
         )
         // Beim 401 ist unsere Handlungsanweisung besser als „Nicht angemeldet"
-        assertEquals("Anmeldung abgelaufen — bitte neu anmelden", uploadFehlerText(401, "Nicht angemeldet"))
+        assertEquals("Anmeldung abgelaufen, bitte neu anmelden", uploadFehlerText(401, "Nicht angemeldet"))
         assertEquals("Upload fehlgeschlagen (Fehler 400)", uploadFehlerText(400, null))
         assertEquals("Upload fehlgeschlagen (Fehler 400)", uploadFehlerText(400, "  "))
     }

@@ -116,7 +116,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
   if (tour.schema !== 'maptale/tour@1' && tour.schema !== 'luhambo/tour@1') {
     throw new RemoteTourFehler(
       tour.status === 'verarbeitung'
-        ? 'Die Tour wird noch verarbeitet — gleich noch einmal versuchen.'
+        ? 'Die Tour wird noch verarbeitet. Gleich noch einmal versuchen.'
         : `Tour nicht abspielbar (Status: ${tour.status ?? 'unbekannt'}${tour.fehler ? `, ${tour.fehler}` : ''})`,
       tour.status,
     )

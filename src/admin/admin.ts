@@ -452,7 +452,7 @@ function rendereReiter(): void {
         zahl.className = wichtig ? 'z wichtig' : 'z'
         zahl.textContent = String(wert)
         knopf.append(zahl)
-        knopf.setAttribute('aria-label', `${t.name} — ${wert} ${t.zaehlt}`)
+        knopf.setAttribute('aria-label', `${t.name}, ${wert} ${t.zaehlt}`)
         knopf.title = `${wert} ${t.zaehlt}`
       }
       knopf.addEventListener('click', () => setzeTab(t.id))
@@ -542,7 +542,7 @@ function rendereFilter<T extends string>(
       knopf.append(name, zahl)
       // Aus dem Inhalt gelesen ergäbe der Name „Alle3" — zwei aneinander
       // stoßende Inline-Elemente bekommen keinen Zwischenraum.
-      knopf.setAttribute('aria-label', `${c.name} — ${c.zahl}`)
+      knopf.setAttribute('aria-label', `${c.name}, ${c.zahl}`)
       knopf.addEventListener('click', () => waehle(c.wert))
       return knopf
     }),
@@ -660,7 +660,7 @@ function griff(
   if (opt.gesperrt) {
     knopf.disabled = true
     knopf.title = opt.gesperrt
-    knopf.setAttribute('aria-label', `${wort} — ${opt.gesperrt}`)
+    knopf.setAttribute('aria-label', `${wort}, ${opt.gesperrt}`)
   } else {
     knopf.addEventListener('click', tu)
   }
@@ -690,7 +690,7 @@ function rendereRegistrierung(): void {
   els.pflichtSchalter.setAttribute('aria-pressed', String(z.einladungPflicht))
   els.pflichtText.textContent = z.einladungPflicht
     ? 'Neue Konten entstehen nur über einen Einladungscode. Schalte es aus, damit sich jeder selbst anmelden kann.'
-    : 'Jeder kann sich selbst anmelden — die Bestätigungsmail bleibt Pflicht. Schalte es ein, um wieder nur Eingeladene hereinzulassen.'
+    : 'Jeder kann sich selbst anmelden. Die Bestätigungsmail bleibt Pflicht. Schalte es ein, um wieder nur Eingeladene hereinzulassen.'
   els.zuWarnung.hidden = z.registrierungOffen
 
   els.wlSchalter.setAttribute('aria-pressed', String(z.wartelisteOffen))
@@ -739,12 +739,12 @@ function rendereKonten(): void {
     kopf.oben.append(name, plakette(b.rolle, b.rolle === 'admin' ? 'Administrator' : 'Nutzer'))
     if (b.fest) {
       kopf.oben.append(
-        plakette('nutzer', 'Fest', 'Steht in der Konfiguration — Rolle und Konto sind unantastbar'),
+        plakette('nutzer', 'Fest', 'Steht in der Konfiguration: Rolle und Konto sind unantastbar'),
       )
     }
     if (!b.verifiziert) {
       kopf.oben.append(
-        plakette('unbestaetigt', 'Unbestätigt', 'E-Mail noch nicht bestätigt — Hochladen ist gesperrt'),
+        plakette('unbestaetigt', 'Unbestätigt', 'E-Mail noch nicht bestätigt. Hochladen ist gesperrt'),
       )
     }
     const unten = document.createElement('div')
@@ -769,7 +769,7 @@ function rendereKonten(): void {
 
   fuelleListe(els.kontenListe, zeilen, () =>
     z.benutzer.length
-      ? leerZustand('Kein Konto passt', 'Weder Name noch E-Mail treffen die Suche — oder der Filter blendet sie aus.', {
+      ? leerZustand('Kein Konto passt', 'Weder Name noch E-Mail treffen die Suche, oder der Filter blendet sie aus.', {
           name: 'Suche und Filter zurücksetzen',
           tu: () => {
             z.kontenSuche = ''
@@ -778,7 +778,7 @@ function rendereKonten(): void {
             rendereKonten()
           },
         })
-      : leerZustand('Noch keine Konten', 'Hier stehen alle, die sich angemeldet haben — samt Touren und belegtem Speicher.', {
+      : leerZustand('Noch keine Konten', 'Hier stehen alle, die sich angemeldet haben, samt Touren und belegtem Speicher.', {
           name: 'Konto anlegen',
           tu: () => oeffneKonto(null),
         }),
@@ -840,7 +840,7 @@ function rendereEinladungen(): void {
 
   fuelleListe(els.einladungenListe, zeilen, () =>
     z.einladungen.length
-      ? leerZustand('Keine passende Einladung', 'Kein Code und keine Notiz trifft die Suche — oder der Filter blendet sie aus.', {
+      ? leerZustand('Keine passende Einladung', 'Kein Code und keine Notiz trifft die Suche, oder der Filter blendet sie aus.', {
           name: 'Suche und Filter zurücksetzen',
           tu: () => {
             z.einladungenSuche = ''
@@ -849,7 +849,7 @@ function rendereEinladungen(): void {
             rendereEinladungen()
           },
         })
-      : leerZustand('Noch keine Einladung', 'Wer eingeladen wird, bekommt einen Code und einen Link dazu — einmal einlösbar.', {
+      : leerZustand('Noch keine Einladung', 'Wer eingeladen wird, bekommt einen Code und einen Link dazu, einmal einlösbar.', {
           name: 'Einladung erstellen',
           tu: () => oeffneEinladung(),
         }),
@@ -922,7 +922,7 @@ function rendereWarteliste(): void {
 
   fuelleListe(els.wartelisteListe, zeilen, () =>
     z.warteliste.length
-      ? leerZustand('Kein passender Eintrag', 'Weder Adresse noch Notiz trifft die Suche — oder der Filter blendet sie aus.', {
+      ? leerZustand('Kein passender Eintrag', 'Weder Adresse noch Notiz trifft die Suche, oder der Filter blendet sie aus.', {
           name: 'Suche und Filter zurücksetzen',
           tu: () => {
             z.wartelisteSuche = ''
@@ -933,7 +933,7 @@ function rendereWarteliste(): void {
         })
       : leerZustand(
           'Noch niemand trägt sich ein',
-          'Wer keinen Code hat, hinterlässt hier seine Adresse — nach der Bestätigung per Mail steht sie in dieser Liste.',
+          'Wer keinen Code hat, hinterlässt hier seine Adresse. Nach der Bestätigung per Mail steht sie in dieser Liste.',
         ),
   )
 }
@@ -1140,7 +1140,7 @@ async function widerrufe(e: AdminEinladung): Promise<void> {
     titel: offen ? `Einladung ${e.code} widerrufen?` : `Einladung ${e.code} entfernen?`,
     text: offen
       ? 'Wer sie noch nicht eingelöst hat, kommt damit nicht mehr herein.'
-      : 'Sie verschwindet aus der Liste — damit auch der Nachweis, wer über sie hereingekommen ist.',
+      : 'Sie verschwindet aus der Liste und damit auch der Nachweis, wer über sie hereingekommen ist.',
     ja: offen ? 'Widerrufen' : 'Entfernen',
     gefahr: true,
   })
@@ -1277,14 +1277,14 @@ function oeffneKonto(b: AdminBenutzer | null): void {
   els.kdTitel.textContent = b ? 'Konto bearbeiten' : 'Konto anlegen'
   els.kdUnterzeile.textContent = b
     ? 'Änderungen greifen sofort.'
-    : 'Das Konto ist sofort nutzbar — ohne Bestätigungsmail.'
+    : 'Das Konto ist sofort nutzbar, ohne Bestätigungsmail.'
   els.kdName.value = b?.name ?? ''
   els.kdEmail.value = b?.email ?? ''
   // Über `leere()`, nicht über `value = ''`: sonst bliebe die Stärkeanzeige des
   // vorigen Aufrufs stehen und der Speichern-Knopf womöglich gesperrt.
   kdPasswortfeld.leere()
   els.kdPasswort.required = !b
-  els.kdPwZusatz.textContent = b ? '— leer lassen, um es nicht zu ändern' : '— mindestens 8 Zeichen'
+  els.kdPwZusatz.textContent = b ? 'leer lassen, um es nicht zu ändern' : 'mindestens 8 Zeichen'
   els.kdRolle.value = b?.rolle ?? 'nutzer'
   els.kdVerifiziert.checked = b ? b.verifiziert : true
   els.kdSpeichern.textContent = b ? 'Speichern' : 'Anlegen'
@@ -1406,7 +1406,7 @@ function oeffneMail(v: MailVorlage): void {
       chip.type = 'button'
       chip.textContent = `{{${p.name}}}`
       chip.title = p.beschreibung
-      chip.setAttribute('aria-label', `${p.name} einfügen — ${p.beschreibung}`)
+      chip.setAttribute('aria-label', `${p.name} einfügen, ${p.beschreibung}`)
       chip.addEventListener('click', () => fuegeEin(`{{${p.name}}}`))
       return chip
     }),
@@ -1440,7 +1440,7 @@ async function zieheVorschau(): Promise<void> {
     const antwort = await api.vorschau(schluessel, bausteineAusFeldern())
     // Zwischenzeitlich einen anderen Dialog geöffnet? Dann ist diese Antwort alt.
     if (mailVorlage?.schluessel !== schluessel) return
-    els.mdVbetreff.textContent = antwort.betreff || '—'
+    els.mdVbetreff.textContent = antwort.betreff || '–'
     els.mdVorschau.srcdoc = antwort.html
     els.mdProbleme.textContent = antwort.probleme.join(' ')
     els.mdProbleme.hidden = antwort.probleme.length === 0

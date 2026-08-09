@@ -295,7 +295,7 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
       // kostet Geld, ohne je etwas zu bewirken.
       if (!antwort.ok) {
         const grund = antwort.status === 402 ? ' (Guthaben aufgebraucht?)' : antwort.status === 429 ? ' (Rate-Limit)' : ''
-        protokoll?.(`Bildanalyse: ${this.modell} antwortete mit HTTP ${antwort.status}${grund} — Foto ohne Wirkung`)
+        protokoll?.(`Bildanalyse: ${this.modell} antwortete mit HTTP ${antwort.status}${grund}, Foto ohne Wirkung`)
         return NEUTRAL
       }
       const json = (await antwort.json()) as { choices?: Array<{ message?: { content?: string } }> }
@@ -303,7 +303,7 @@ export class OpenRouterKlassifikator implements BildKlassifikator {
       const befund = parseBefund(text)
       if (!befund) {
         protokoll?.(
-          `Bildanalyse: ${this.modell} lieferte keinen verwertbaren Befund — ` +
+          `Bildanalyse: ${this.modell} lieferte keinen verwertbaren Befund, ` +
             (text ? `Antwort begann mit „${text.slice(0, 80)}"` : 'die Antwort war leer'),
         )
         return NEUTRAL

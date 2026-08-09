@@ -34,16 +34,16 @@ export interface SfxEffekt {
 // Atmosphären, aber eine eigene Kategorie: eine Komposition ist etwas anderes
 // als der Klang eines Ortes.
 const MUSIK: SfxEffekt[] = [
-  { datei: 'mus-aufbruch.mp3', name: 'Aufbruch', kategorie: 'musik', typ: 'musik', beschreibung: 'Hoffnungsvoller Folk zum Losfahren — Gitarre, Shaker, Glockenspiel' },
+  { datei: 'mus-aufbruch.mp3', name: 'Aufbruch', kategorie: 'musik', typ: 'musik', beschreibung: 'Hoffnungsvoller Folk zum Losfahren, Gitarre, Shaker, Glockenspiel' },
   { datei: 'mus-fernweh.mp3', name: 'Fernweh', kategorie: 'musik', typ: 'musik', beschreibung: 'Weit und sehnsüchtig: Klavier über langsamen Streichern' },
-  { datei: 'mus-kuestenstrasse.mp3', name: 'Küstenstraße', kategorie: 'musik', typ: 'musik', beschreibung: 'Sonnige Fahrt am Meer — Surfgitarre, lockeres Schlagzeug' },
+  { datei: 'mus-kuestenstrasse.mp3', name: 'Küstenstraße', kategorie: 'musik', typ: 'musik', beschreibung: 'Sonnige Fahrt am Meer, Surfgitarre, lockeres Schlagzeug' },
   { datei: 'mus-nachtfahrt.mp3', name: 'Nachtfahrt', kategorie: 'musik', typ: 'musik', beschreibung: 'Pulsierender Synthwave durchs Dunkel' },
   { datei: 'mus-bergpass.mp3', name: 'Bergpass', kategorie: 'musik', typ: 'musik', beschreibung: 'Weite Streicher und Hörner in dünner Höhenluft' },
   { datei: 'mus-tropen.mp3', name: 'Tropen', kategorie: 'musik', typ: 'musik', beschreibung: 'Marimba, Nylongitarre, warme Perkussion' },
   { datei: 'mus-stadtpuls.mp3', name: 'Stadtpuls', kategorie: 'musik', typ: 'musik', beschreibung: 'Trockener Groove, Funkgitarre, tiefer Bass' },
   { datei: 'mus-goldene-stunde.mp3', name: 'Goldene Stunde', kategorie: 'musik', typ: 'musik', beschreibung: 'Glühende Gitarrenflächen, fast ohne Takt' },
   { datei: 'mus-regentag.mp3', name: 'Regentag', kategorie: 'musik', typ: 'musik', beschreibung: 'Stilles Klavier, sparsam gesetzt' },
-  { datei: 'mus-heimkehr.mp3', name: 'Heimkehr', kategorie: 'musik', typ: 'musik', beschreibung: 'Ruhig auflösend — Gitarre und Klavier zum Ankommen' },
+  { datei: 'mus-heimkehr.mp3', name: 'Heimkehr', kategorie: 'musik', typ: 'musik', beschreibung: 'Ruhig auflösend, Gitarre und Klavier zum Ankommen' },
 ]
 
 // Umgebungs-Atmosphären: nahtlose Loops, laufen über einen Streckenbereich.

@@ -154,8 +154,8 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
         ton: 'hinweis',
         text:
           ohneOrt.length === 1
-            ? 'Eine Aufnahme ohne Ortsangabe — eingeordnet nach ihrer Uhrzeit.'
-            : `${ohneOrt.length} Aufnahmen ohne Ortsangabe — eingeordnet nach ihrer Uhrzeit.`,
+            ? 'Eine Aufnahme ohne Ortsangabe, eingeordnet nach ihrer Uhrzeit.'
+            : `${ohneOrt.length} Aufnahmen ohne Ortsangabe, eingeordnet nach ihrer Uhrzeit.`,
         dateien: ohneOrt.map((a) => a.datei),
       })
     }
@@ -181,7 +181,7 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
     meldungen.push({
       art: 'ohne-track',
       ton: 'hinweis',
-      text: 'Keine Aufzeichnung dabei — die Kamera fliegt von Foto zu Foto, in der Reihenfolge der Uhrzeiten.',
+      text: 'Keine Aufzeichnung dabei, die Kamera fliegt von Foto zu Foto, in der Reihenfolge der Uhrzeiten.',
       dateien: [],
     })
     if (ohneOrt.length) {
@@ -190,8 +190,8 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
         ton: 'warnung',
         text:
           ohneOrt.length === 1
-            ? 'Eine Aufnahme hat keine Ortsangabe — sie bekommt im Editor von Hand einen Platz.'
-            : `${ohneOrt.length} Aufnahmen haben keine Ortsangabe — sie bekommen im Editor von Hand einen Platz.`,
+            ? 'Eine Aufnahme hat keine Ortsangabe, sie bekommt im Editor von Hand einen Platz.'
+            : `${ohneOrt.length} Aufnahmen haben keine Ortsangabe, sie bekommen im Editor von Hand einen Platz.`,
         dateien: ohneOrt.map((a) => a.datei),
       })
     }
@@ -200,7 +200,7 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
       art: 'keine-orte',
       ton: 'warnung',
       text:
-        'Ohne Aufzeichnung braucht es mindestens zwei Fotos mit Ortsangabe — sonst gibt es keine Strecke, über die die Kamera fliegen könnte.',
+        'Ohne Aufzeichnung braucht es mindestens zwei Fotos mit Ortsangabe, sonst gibt es keine Strecke, über die die Kamera fliegen könnte.',
       dateien: [],
     })
   }
@@ -211,8 +211,8 @@ export function pruefe(gpx: string | null, aufnahmen: readonly AufnahmeBefund[])
       ton: 'hinweis',
       text:
         ohneZeit.length === 1
-          ? 'Eine Aufnahme hat keinen Zeitstempel — es gilt das Datum der Datei.'
-          : `${ohneZeit.length} Aufnahmen haben keinen Zeitstempel — es gilt das Datum der Datei.`,
+          ? 'Eine Aufnahme hat keinen Zeitstempel, es gilt das Datum der Datei.'
+          : `${ohneZeit.length} Aufnahmen haben keinen Zeitstempel, es gilt das Datum der Datei.`,
       dateien: ohneZeit.map((a) => a.datei),
     })
   }

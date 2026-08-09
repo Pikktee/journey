@@ -103,7 +103,7 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
       if (!benutzer) return
       const relPfad = `${BIBLIOTHEK_ORDNER}/${request.params.datei}`
       if (await benutzerStorage.info(benutzer.id, relPfad)) {
-        return reply.code(409).send({ fehler: 'Audio-Datei existiert bereits — anderen Namen wählen' })
+        return reply.code(409).send({ fehler: 'Audio-Datei existiert bereits, anderen Namen wählen' })
       }
       const laenge = Number(request.headers['content-length'] ?? 0)
       if (Number.isFinite(laenge) && laenge > 0) {
@@ -162,7 +162,7 @@ export function registriereBibliotheksRouten(app: FastifyInstance): void {
       const nutzer = nutzerVon(await ladeTourStaende(benutzer.id), request.params.datei)
       if (nutzer.length) {
         const titel = nutzer.map((t) => `„${t.titel}"`).join(', ')
-        return reply.code(409).send({ fehler: `Datei wird noch verwendet in ${titel} — dort erst den Eintrag entfernen` })
+        return reply.code(409).send({ fehler: `Datei wird noch verwendet in ${titel}, dort erst den Eintrag entfernen` })
       }
       await benutzerStorage.loesche(benutzer.id, relPfad)
       return { ok: true }

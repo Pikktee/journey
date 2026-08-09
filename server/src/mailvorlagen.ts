@@ -49,7 +49,7 @@ export interface VorlagenEintrag {
 
 const LINK_INFO = (was: string, beispiel: string): PlatzhalterInfo => ({
   name: 'link',
-  beschreibung: `${was} — steckt im Knopf; im Text nur nötig, wenn du den Knopf leerst`,
+  beschreibung: `${was}, steckt im Knopf; im Text nur nötig, wenn du den Knopf leerst`,
   beispiel,
 })
 
@@ -106,7 +106,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     schluessel: 'email-wechsel',
     name: 'Neue E-Mail-Adresse bestätigen',
     anlass:
-      'Geht an die NEUE Adresse, wenn jemand sie in den Kontoeinstellungen einträgt. Erst der Klick macht sie zur Anmeldeadresse — bis dahin gilt die alte weiter.',
+      'Geht an die NEUE Adresse, wenn jemand sie in den Kontoeinstellungen einträgt. Erst der Klick macht sie zur Anmeldeadresse, bis dahin gilt die alte weiter.',
     hatLink: true,
     platzhalter: [
       { name: 'name', beschreibung: 'Name des Kontos', beispiel: 'Mira Wolf' },
@@ -121,7 +121,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
       knopf: 'Adresse bestätigen',
       fuss:
         'Der Link gilt 2 Stunden. Bis du ihn anklickst, bleibt deine bisherige Adresse in Kraft.\n\n' +
-        'Du kennst Maptale nicht? Dann hat jemand deine Adresse falsch eingetippt. Ignoriere diese Nachricht — ohne den Klick passiert nichts, und dein Postfach bekommt keine weitere Post von uns.',
+        'Du kennst Maptale nicht? Dann hat jemand deine Adresse falsch eingetippt. Ignoriere diese Nachricht: Ohne den Klick passiert nichts, und dein Postfach bekommt keine weitere Post von uns.',
     },
   },
   {
@@ -136,7 +136,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
       titel: 'Fast auf der Liste',
       text:
         'Hallo,\n\n' +
-        'du möchtest Maptale ausprobieren — schön!\n\n' +
+        'du möchtest Maptale ausprobieren, schön!\n\n' +
         'Maptale wächst gerade von Einladung zu Einladung. Bestätige mit einem Klick, dass wir dich vormerken dürfen.',
       knopf: 'Platz bestätigen',
       fuss:
@@ -148,14 +148,14 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
   {
     schluessel: 'warteliste-einladung',
     name: 'Warteliste: Platz ist frei',
-    anlass: 'Geht raus, wenn du in der Warteliste auf „Einladen" drückst — mit dem frisch erzeugten Code.',
+    anlass: 'Geht raus, wenn du in der Warteliste auf „Einladen" drückst, mit dem frisch erzeugten Code.',
     hatLink: true,
     platzhalter: [
       { name: 'code', beschreibung: 'Der Einladungscode. Steht er allein in einem Absatz, wird er hervorgehoben.', beispiel: 'MAPT-4F7K' },
       LINK_INFO('Registrierung mit eingetragenem Code', 'https://maptale.io/registrieren#einladung=MAPT-4F7K'),
       {
         name: 'austragenLink',
-        beschreibung: 'Weg aus der Warteliste — muss in der Mail stehen (Löschung ohne Umweg über uns)',
+        beschreibung: 'Weg aus der Warteliste, muss in der Mail stehen (Löschung ohne Umweg über uns)',
         beispiel: 'https://maptale.io/registrieren#warteliste-austragen=beispiel',
       },
     ],
@@ -179,7 +179,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
     name: 'Datenexport fertig',
     anlass:
       'Geht raus, sobald das angeforderte ZIP gebaut ist (Art. 20 DSGVO). ' +
-      'Der Link gilt 48 Stunden — danach ist das Archiv gelöscht, nicht nur unerreichbar.',
+      'Der Link gilt 48 Stunden, danach ist das Archiv gelöscht, nicht nur unerreichbar.',
     hatLink: true,
     platzhalter: [
       { name: 'name', beschreibung: 'Name des Kontos', beispiel: 'Mira Wolf' },
@@ -192,7 +192,7 @@ export const VORLAGEN: readonly VorlagenEintrag[] = [
       titel: 'Deine Daten liegen bereit',
       text:
         'Hallo {{name}},\n\n' +
-        'dein Archiv ist gebaut — {{groesse}} mit allen Touren, Medien und Konto-Angaben. ' +
+        'dein Archiv ist gebaut: {{groesse}} mit allen Touren, Medien und Konto-Angaben. ' +
         'Über den Knopf unten lädst du es herunter.',
       knopf: 'Archiv herunterladen',
       fuss:
@@ -237,7 +237,7 @@ export function pruefeBausteine(eintrag: VorlagenEintrag, bausteine: MailBaustei
   ])
   const bekannt = new Set(eintrag.platzhalter.map((p) => p.name))
   for (const name of benutzt) {
-    if (!bekannt.has(name)) probleme.push(`{{${name}}} gibt es in dieser Mail nicht — es bliebe so stehen, wie es dasteht.`)
+    if (!bekannt.has(name)) probleme.push(`{{${name}}} gibt es in dieser Mail nicht, es bliebe so stehen, wie es dasteht.`)
   }
 
   // Ein Platzhalter, der den einzigen Weg der Mail trägt, muss ankommen: `link`
@@ -247,8 +247,8 @@ export function pruefeBausteine(eintrag: VorlagenEintrag, bausteine: MailBaustei
     if (p.name === 'link' && eintrag.hatLink && bausteine.knopf.trim()) continue
     probleme.push(
       p.name === 'link'
-        ? 'Ohne Knopf muss {{link}} im Text stehen — sonst kommt der Empfänger nirgendwohin.'
-        : `{{${p.name}}} fehlt — diese Angabe geht sonst verloren.`,
+        ? 'Ohne Knopf muss {{link}} im Text stehen, sonst kommt der Empfänger nirgendwohin.'
+        : `{{${p.name}}} fehlt, diese Angabe geht sonst verloren.`,
     )
   }
   return probleme

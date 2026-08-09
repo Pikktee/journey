@@ -94,7 +94,7 @@ export function oeffneMailDialog(meldung: (text: string) => void): void {
       return
     }
     schliesse()
-    meldung('Bestätigungslink verschickt — schau in dein neues Postfach.')
+    meldung('Bestätigungslink verschickt. Schau in dein neues Postfach.')
   })
 }
 
@@ -135,7 +135,7 @@ export function oeffnePasswortDialog(meldung: (text: string) => void, persoenlic
   const hinweis = el(
     'p',
     'sp-hinweis',
-    'Danach sind alle anderen Geräte abgemeldet — auch die Maptale App. Du bleibst hier angemeldet.',
+    'Danach sind alle anderen Geräte abgemeldet, auch die Maptale App. Du bleibst hier angemeldet.',
   )
   koerper.appendChild(hinweis)
   const fehler = el('p', 'sp-fehler')

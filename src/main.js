@@ -185,7 +185,7 @@ const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
 const setText = (id, text) => (document.getElementById(id).textContent = text)
-document.title = 'Maptale — deine Reisen als kinematische 3D-Erlebnisse'
+document.title = 'Maptale · deine Reisen als kinematische 3D-Erlebnisse'
 setText('intro-kicker', cfg.kicker)
 document.getElementById('intro-title').innerHTML = cfg.titleHtml
 setText('intro-route', cfg.stops.join('  →  '))
@@ -1068,7 +1068,7 @@ map.on('load', () => {
       g3dBusy = false
     }).catch((err) => {
       console.error('tiles3d:', err)
-      toast('Google 3D ließ sich nicht laden — Schlüssel/Abrechnung prüfen. Details in der Konsole.')
+      toast('Google 3D ließ sich nicht laden, Schlüssel/Abrechnung prüfen. Details in der Konsole.')
       localStorage.removeItem('g3dKey')
       g3dBusy = false
     })

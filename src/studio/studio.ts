@@ -755,7 +755,7 @@ async function ladeListe(): Promise<void> {
     touren = await api.listeTouren()
   } catch {
     els.bibliothek.innerHTML =
-      '<div class="leer-buehne"><h2>Touren konnten nicht geladen werden</h2><p>Der Server hat nicht geantwortet — kurz warten und die Seite neu laden.</p></div>'
+      '<div class="leer-buehne"><h2>Touren konnten nicht geladen werden</h2><p>Der Server hat nicht geantwortet. Kurz warten und die Seite neu laden.</p></div>'
     return
   }
   renderBibliothek()
@@ -778,7 +778,7 @@ function renderBibliothek(): void {
     leer.innerHTML = `
       <svg class="route" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-hidden="true"><path d="M-20 250C160 232 190 96 380 84s250 128 420 62 280-168 440-176"/></svg>
       <h2>Hier entsteht deine erste Tour</h2>
-      <p>Eine Aufzeichnung, ein paar Fotos — Maptale benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
+      <p>Eine Aufzeichnung, ein paar Fotos, Maptale benennt die Orte, holt das Wetter des Tages und baut daraus eine Kamerafahrt.</p>
       <button class="knopf-primaer" id="leer-waehlen">${icon('upload')}Dateien wählen</button>`
     els.bibliothek.appendChild(leer)
     leer.querySelector('#leer-waehlen')?.addEventListener('click', () => oeffneNeu())
@@ -808,7 +808,7 @@ function renderBibliothek(): void {
   const neu = document.createElement('button')
   neu.className = 'neu-kachel'
   neu.id = 'neu-kachel'
-  neu.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen — den Rest macht Maptale</span>`
+  neu.innerHTML = `${icon('upload')}<span class="h">Neue Tour</span><span class="n">Aufzeichnung und Fotos hierher ziehen, den Rest macht Maptale</span>`
   neu.addEventListener('click', () => oeffneNeu())
   raster.appendChild(neu)
   for (const t of liste) raster.appendChild(baueKarte(t))
@@ -843,7 +843,7 @@ function baueKarte(t: api.TourListe): HTMLElement {
     : `<div class="griffe">
         ${
           t.status === 'fehler'
-            ? '<span class="fehler-punkt" title="Etwas ist schiefgelaufen — zum Öffnen klicken" aria-label="Fehler">!</span>'
+            ? '<span class="fehler-punkt" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
             : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-sicht aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${SICHT_NAMEN[t.visibility] ?? t.visibility}">${icon(SICHT_ICONS[t.visibility] ?? 'schloss')}<span>${SICHT_NAMEN[t.visibility] ?? t.visibility}</span></button>`
         }
         <button class="stift-knopf" data-bearbeiten="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
@@ -1197,7 +1197,7 @@ function zeigeLesen(gelesen: number, gesamt: number): void {
           <span class="zahl"></span>
         </div>
         <h3>Liest die Aufnahmen</h3>
-        <p>Aufnahmezeit und Ort stehen in den Dateien selbst — Maptale liest sie und ordnet alles ein.</p>
+        <p>Aufnahmezeit und Ort stehen in den Dateien selbst, Maptale liest sie und ordnet alles ein.</p>
       </div>`
     el = els.neuRumpf.querySelector<HTMLElement>('.neu-lesen')
   }
@@ -1269,7 +1269,7 @@ function renderNeu(): void {
     leer.innerHTML = `
       <div class="ahnung"><i></i><i></i><i></i><i></i><div class="achse"></div></div>
       <h3>Hier beginnt deine <em>nächste Tour</em></h3>
-      <p>Aufzeichnung und Fotos hierher ziehen — Maptale liest die Zeitstempel und ordnet alles selbst ein.</p>
+      <p>Aufzeichnung und Fotos hierher ziehen, Maptale liest die Zeitstempel und ordnet alles selbst ein.</p>
       <button class="knopf-primaer" id="neu-waehlen">${icon('upload')}Dateien wählen</button>
       <p class="nachsatz">Auch ohne Aufzeichnung: Bei reinen Fotos fliegt die Kamera von Ort zu Ort.</p>
       <p class="hinweis" id="neu-leer-hinweis" hidden></p>`
@@ -1358,10 +1358,10 @@ function baueDaten(b: Pruefbefund): HTMLElement {
   el.innerHTML = `
     <h3 class="geschaetzt">${b.track ? 'Die Orte benennt Maptale beim Bauen' : 'Eine Tour aus deinen Fotos'}</h3>
     <div class="zahlen">
-      ${zahl('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '—')}
-      ${zahl('uhr', 'Unterwegs', spanneMs > 0 ? dauerText(spanneMs) : '—')}
-      ${zahl('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanneMs > 0 ? `${tag} · ${uhr(vonMs)}–${uhr(bisMs)}` : '—')}
-      ${zahl('kamera', 'Kamerafahrt', b.bereit ? `≈ ${dauerText(schaetzeFahrtS(km, b.aufnahmen.length) * 1000)}` : '—')}
+      ${zahl('route', 'Strecke', km ? `${String(km).replace('.', ',')} km` : '–')}
+      ${zahl('uhr', 'Unterwegs', spanneMs > 0 ? dauerText(spanneMs) : '–')}
+      ${zahl('kalender', b.track ? 'Aufgezeichnet' : 'Aufgenommen', spanneMs > 0 ? `${tag} · ${uhr(vonMs)}–${uhr(bisMs)}` : '–')}
+      ${zahl('kamera', 'Kamerafahrt', b.bereit ? `≈ ${dauerText(schaetzeFahrtS(km, b.aufnahmen.length) * 1000)}` : '–')}
     </div>`
   const meldungen = document.createElement('div')
   meldungen.className = 'meldungen'
