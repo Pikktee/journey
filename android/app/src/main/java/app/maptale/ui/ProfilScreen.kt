@@ -70,8 +70,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
 import app.maptale.BuildConfig
 import app.maptale.MaptaleApp
+import app.maptale.tracker.TrackerAbfrageWorker
+import app.maptale.tracker.TrackerAktion
+import app.maptale.tracker.TrackerRueckkehr
+import app.maptale.tracker.aktionText
+import app.maptale.tracker.anbieterAktion
+import app.maptale.tracker.anbieterSatz
+import app.maptale.upload.TrackerAnbieter
 import coil.compose.AsyncImage
 import java.util.Locale
 
@@ -88,8 +97,23 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
     var hinweisOhneNamen by remember { mutableStateOf(false) }
     var bildBlatt by remember { mutableStateOf(false) }
     var kontoLoeschenDialog by remember { mutableStateOf(false) }
+    val tracker by viewModel.tracker.collectAsState()
+    var meldung by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { viewModel.aktualisiere() }
+
+    // Nach der Rückkehr aus dem Browser den Stand frisch holen. Bewusst NICHT
+    // dem `ok=1` im Deep Link glauben: Was zählt, ist was auf dem Server steht.
+    LaunchedEffect(Unit) {
+        TrackerRueckkehr.ereignisse.collect { viewModel.aktualisiere() }
+    }
+
+    meldung?.let { text ->
+        LaunchedEffect(text) {
+            kotlinx.coroutines.delay(4000)
+            meldung = null
+        }
+    }
 
     // Einmalig befüllen, sobald das Profil geladen ist; danach gehört der Text
     // dem Nutzer. Bewusst NICHT aus konto.name (dem Klarnamen) vorbelegt.
@@ -259,6 +283,43 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             )
         }
 
+        // — Verbundene Dienste —
+        //
+        // Der Abschnitt bleibt AUS, solange der Server keinen Anbieter meldet:
+        // eine Überschrift über einer leeren Fläche wäre eine Auskunft über
+        // nichts. Sichtbar wird er, sobald es etwas zu verbinden gibt.
+        if (tracker.isNotEmpty()) {
+            Spacer(Modifier.height(30.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(26.dp))
+            Abschnittstitel("Verbundene Dienste")
+            Spacer(Modifier.height(14.dp))
+            for (anbieter in tracker) {
+                TrackerZeile(
+                    anbieter = anbieter,
+                    beiAktion = { aktion ->
+                        when (aktion) {
+                            TrackerAktion.TRENNEN -> viewModel.trackerTrennen(anbieter.id) { meldung = it }
+                            else -> viewModel.trackerVerbinden(
+                                anbieter.id,
+                                oeffne = { url ->
+                                    // Der SYSTEM-Browser, kein WebView: Mehrere
+                                    // Anbieter sperren eingebettete Browser für
+                                    // OAuth. Zurück kommt die App über den
+                                    // Deep Link maptale://tracker/…
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    }.onFailure { meldung = "Kein Browser gefunden." }
+                                },
+                                beiFehler = { meldung = it },
+                            )
+                        }
+                    },
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+
         Spacer(Modifier.height(30.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -317,7 +378,12 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
         }
 
         Spacer(Modifier.height(26.dp))
-        TextButton(onClick = viewModel::abmelden) {
+        TextButton(onClick = {
+            // Den Cloud-Abfrage-Lauf mit beenden: Er klopfte sonst weiter an
+            // eine Tür, für die es keinen Schlüssel mehr gibt.
+            TrackerAbfrageWorker.beenden(context)
+            viewModel.abmelden()
+        }) {
             Icon(
                 Icons.AutoMirrored.Filled.Logout,
                 contentDescription = null,
@@ -478,5 +544,55 @@ private fun Blattzeile(
     ) {
         Icon(symbol, contentDescription = null, tint = farbe, modifier = Modifier.size(20.dp))
         Text(text, style = MaterialTheme.typography.bodyLarge, color = farbe)
+    }
+}
+
+/**
+ * Eine Zeile der verbundenen Dienste.
+ *
+ * Vier Zustände, und sie müssen unterscheidbar bleiben — der teuerste Fehler
+ * wäre, `abgelaufen` wie „nicht verbunden" aussehen zu lassen: Dann wartet
+ * jemand auf Touren, die nie kommen. Deshalb heißt der Knopf dort „Neu
+ * verbinden" und der Satz nennt den Grund (Texte in tracker/TrackerModell.kt,
+ * gemeinsam mit der Weboberfläche gehalten).
+ */
+@Composable
+private fun TrackerZeile(anbieter: TrackerAnbieter, beiAktion: (TrackerAktion) -> Unit) {
+    val aktion = anbieterAktion(anbieter)
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                anbieter.name,
+                style = MaterialTheme.typography.titleSmall,
+                // Ein Anbieter, den dieser Server nicht anbietet, tritt zurück
+                color = if (anbieter.verfuegbar) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                anbieterSatz(anbieter),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (aktion != null) {
+            TextButton(onClick = { beiAktion(aktion) }) {
+                Text(
+                    aktionText(aktion),
+                    color = if (aktion == TrackerAktion.TRENNEN) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+            }
+        }
     }
 }

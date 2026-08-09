@@ -742,7 +742,7 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 | 2 | **Datei-Weg** | Normalisierer (FIT/TCX→GPX), Share-Intent Android, Studio-Hinweis Garmin-Export | Jede Uhr der Welt ist bedient | 2–3 Tage |
 | 3 | ~~**Polar**~~ | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | **Adapter fertig** (2026-08-10); Webhook-Registrierung und Praxistest offen: [docs/ops/polar-einrichten.md](../ops/polar-einrichten.md) | — |
 | 4 | ~~**Client-Naht**~~ | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste, Datenschutz-Absatz | **fertig** (2026-08-10) | — |
-| 5 | **Android dünn** | OAuth per Custom Tab, Deep Link, `WorkManager`-Abfrage als Rückfall | Verknüpfen am Telefon | 3–4 Tage |
+| 5 | ~~**Android dünn**~~ | OAuth im System-Browser, Deep Link, `WorkManager`-Abfrage als Rückfall | **fertig** (2026-08-10) | — |
 | 6 | **Push (FCM)** | Firebase-Projekt, `FirebaseMessagingService`, `push_geraete`, HTTP-v1-Versand, Datenschutz-Absatz | „Neue Tour" in Sekunden | 2–3 Tage |
 | 7 | **Foto-Nachzug (App)** | Galerie-Scan im Zeitfenster (nur Kamera-Bucket), Zeitzonen-Abgleich, Automatik mit stehender Einwilligung + Benachrichtigung, sonst Auswahl-Dialog — der Server-Teil ist seit Etappe 0 erprobt | Der eigentliche Produktwert | 3–4 Tage |
 | 8 | **Wahoo** | OAuth mit Refresh-Rotation, Webhook, FIT-Download | Zweiter Anbieter, FIT-Weg im Betrieb erprobt | 2–3 Tage |

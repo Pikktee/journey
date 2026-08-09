@@ -15,6 +15,7 @@ import app.maptale.daten.TourStatus
 import app.maptale.upload.ApiClient
 import app.maptale.upload.Einstellungen
 import app.maptale.upload.Einstellungen.Companion.STANDARD_SERVER
+import app.maptale.tracker.TrackerAbfrageWorker
 import app.maptale.upload.UploadWorker
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -93,6 +94,18 @@ class MaptaleApp : Application(), ImageLoaderFactory {
                 NotificationManager.IMPORTANCE_LOW,
             ).apply { description = "Läuft, während eine Tour aufgezeichnet wird" },
         )
+        // Eigener Kanal für Cloud-Importe: Wer die Aufzeichnungs-Meldung
+        // stummschaltet (sie steht ja dauerhaft), soll dabei nicht auch die
+        // Nachricht „deine Tour ist da" verlieren — es sind zwei verschiedene
+        // Anliegen, und Android lässt sie nur getrennt regeln, wenn sie
+        // getrennte Kanäle haben.
+        manager.createNotificationChannel(
+            NotificationChannel(
+                KANAL_IMPORTE,
+                "Neue Touren",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = "Meldet Touren, die aus einer verbundenen Uhr angekommen sind" },
+        )
         // Kontostand mitlesen, damit der Bild-Lader synchron an das Token kommt
         einstellungen.konto.launchIn(appScope)
 
@@ -107,10 +120,17 @@ class MaptaleApp : Application(), ImageLoaderFactory {
             for (tour in repository.tourenMitStatus(TourStatus.ENTWURF)) {
                 if (tour.endeMs != null) UploadWorker.starte(this@MaptaleApp, tour.id, ersetzen = false)
             }
+            // Cloud-Importe abfragen, solange ein Konto angemeldet ist. Der
+            // Lauf wird beim Abmelden wieder beendet (ProfilViewModel) — sonst
+            // klopfte er weiter an eine Tür, für die es keinen Schlüssel gibt.
+            if (einstellungen.aktuellesKonto().angemeldet) {
+                TrackerAbfrageWorker.sicherstellen(this@MaptaleApp)
+            }
         }
     }
 
     companion object {
         const val KANAL_AUFZEICHNUNG = "aufzeichnung"
+        const val KANAL_IMPORTE = "importe"
     }
 }

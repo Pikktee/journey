@@ -36,6 +36,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Rückweg aus dem Browser nach dem Verknüpfen eines Trackers:
+                 `maptale://tracker/<anbieter>?ok=1`. Ein eigenes Schema und
+                 kein https-App-Link, weil dafür eine assetlinks.json auf der
+                 Domain nötig wäre — die Adresse hier ist kein Ort im Web,
+                 sondern ein Rückruf, den nur diese App beantwortet. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="maptale" android:host="tracker" />
+            </intent-filter>
         </activity>
 
         <service

@@ -124,6 +124,38 @@ data class ProfilStand(
     val oeffentlich: Boolean,
 )
 
+/**
+ * Ein verbindbarer Sport-Tracker (Polar & Co.) samt Zustand — Spiegelbild von
+ * `GET /api/tracker/providers`.
+ *
+ * Die App bringt KEIN Anbieter-SDK mit und kennt auch kein OAuth: Sie holt
+ * eine Autorisierungs-URL vom eigenen Server, öffnet sie im Browser und wird
+ * per Deep Link zurückgerufen. Alles Übrige — Tokens, Webhooks, Importe —
+ * bleibt serverseitig, wo es hingehört (Konzept, Abschnitt 2).
+ */
+data class TrackerAnbieter(
+    val id: String,
+    val name: String,
+    /** Zugangsdaten auf dem Server hinterlegt; sonst gibt es nichts zu verbinden. */
+    val verfuegbar: Boolean,
+    val verbunden: Boolean,
+    /** `aktiv` · `abgelaufen` · `getrennt` — oder null, wenn nie verbunden. */
+    val status: String?,
+    val fehler: String?,
+) {
+    /** Der Zugang ist tot und muss neu erteilt werden — nicht dasselbe wie „nie verbunden". */
+    val abgelaufen get() = status == "abgelaufen"
+}
+
+/** Ein Import aus `GET /api/tracker/imports/pending` — die Grundlage der Meldung. */
+data class TrackerImport(
+    val id: String,
+    val anbieter: String,
+    val status: String,
+    val tourId: String?,
+    val fehler: String?,
+)
+
 class ApiClient(private val einstellungen: Einstellungen) {
 
     private val http = OkHttpClient.Builder()
@@ -380,6 +412,67 @@ class ApiClient(private val einstellungen: Einstellungen) {
     suspend fun sitzungFuerPlayer(): String = withContext(Dispatchers.IO) {
         val antwort = ausfuehren(autorisiert("/api/auth/session-aus-token").post("".toRequestBody()).build())
         antwort["sessionId"]?.jsonPrimitive?.contentOrNull ?: throw ApiFehler(200, "Antwort ohne sessionId")
+    }
+
+    // — Verbundene Dienste (Tracker) —
+
+    suspend fun trackerAnbieter(): List<TrackerAnbieter> = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(autorisiert("/api/tracker/providers").get().build())
+        val liste = antwort["anbieter"] as? JsonArray ?: return@withContext emptyList()
+        liste.mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            TrackerAnbieter(
+                id = id,
+                name = obj["name"]?.jsonPrimitive?.contentOrNull ?: id,
+                verfuegbar = obj["verfuegbar"]?.jsonPrimitive?.booleanOrNull ?: false,
+                verbunden = obj["verbunden"]?.jsonPrimitive?.booleanOrNull ?: false,
+                status = obj["status"]?.jsonPrimitive?.contentOrNull,
+                fehler = obj["fehler"]?.jsonPrimitive?.contentOrNull,
+            )
+        }
+    }
+
+    /**
+     * Die Adresse, an der der Nutzer die Verknüpfung erlaubt.
+     *
+     * `ziel = app` sorgt dafür, dass der Server nach dem Token-Tausch auf den
+     * Deep Link zurückleitet statt auf die Kontoseite — sonst bliebe der
+     * Browser stehen und die App erführe nie, dass sie fertig ist.
+     */
+    suspend fun trackerVerbindenUrl(anbieterId: String): String = withContext(Dispatchers.IO) {
+        val koerper = """{"ziel":"app"}""".toRequestBody(jsonTyp)
+        val antwort = ausfuehren(autorisiert("/api/tracker/$anbieterId/connect").post(koerper).build())
+        antwort["autorisierungsUrl"]?.jsonPrimitive?.contentOrNull
+            ?: throw ApiFehler(200, "Antwort ohne Autorisierungs-URL")
+    }
+
+    suspend fun trackerTrennen(anbieterId: String) {
+        withContext(Dispatchers.IO) { ausfuehren(autorisiert("/api/tracker/$anbieterId").delete().build()) }
+    }
+
+    /**
+     * Was seit dem letzten Blick angekommen ist.
+     *
+     * `quittieren` setzt den Gesehen-Vermerk auf dem SERVER — nur so meldet
+     * ein zweites Gerät am selben Konto dieselbe Tour nicht ein zweites Mal.
+     * Wer nur nachsehen will (ohne zu melden), lässt es weg.
+     */
+    suspend fun trackerOffeneImporte(quittieren: Boolean): List<TrackerImport> = withContext(Dispatchers.IO) {
+        val pfad = "/api/tracker/imports/pending" + if (quittieren) "?gesehen=1" else ""
+        val antwort = ausfuehren(autorisiert(pfad).get().build())
+        val liste = antwort["importe"] as? JsonArray ?: return@withContext emptyList()
+        liste.mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            TrackerImport(
+                id = id,
+                anbieter = obj["anbieter"]?.jsonPrimitive?.contentOrNull ?: "",
+                status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                tourId = obj["tourId"]?.jsonPrimitive?.contentOrNull,
+                fehler = obj["fehler"]?.jsonPrimitive?.contentOrNull,
+            )
+        }
     }
 
     private suspend fun autorisiert(pfad: String): Request.Builder {

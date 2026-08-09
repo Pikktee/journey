@@ -16,6 +16,7 @@ import app.maptale.upload.ApiFehler
 import app.maptale.upload.Einstellungen
 import app.maptale.upload.Konto
 import app.maptale.upload.KontoStand
+import app.maptale.upload.TrackerAnbieter
 import app.maptale.aufzeichnung.Spurpunkt
 import app.maptale.aufzeichnung.duenneAus
 import app.maptale.upload.ServerTour
@@ -238,11 +239,47 @@ class ProfilViewModel(
     private val internKonto = MutableStateFlow<KontoStand?>(null)
     val konto: StateFlow<KontoStand?> = internKonto
 
+    private val internTracker = MutableStateFlow<List<TrackerAnbieter>>(emptyList())
+
+    /**
+     * Die verbindbaren Sport-Tracker.
+     *
+     * Leer heißt „gibt es hier nicht" — der Abschnitt bleibt dann ganz aus.
+     * Ein Fehler beim Laden führt zum selben Ergebnis: Ein Dienst, der
+     * vielleicht gar nicht existiert, soll das Profil nicht mit einer
+     * Fehlermeldung beginnen lassen.
+     */
+    val tracker: StateFlow<List<TrackerAnbieter>> = internTracker
+
     /** Kontostand und Tourliste neu holen; Fehler lassen den letzten Stand stehen. */
     fun aktualisiere() {
         viewModelScope.launch {
             runCatching { apiClient.kontoStand() }.onSuccess { internKonto.value = it }
             runCatching { apiClient.toureListe() }.onSuccess { internServerTouren.value = it }
+            runCatching { apiClient.trackerAnbieter() }.onSuccess { internTracker.value = it }
+        }
+    }
+
+    /**
+     * Die Autorisierungs-URL holen; der Aufrufer öffnet sie im BROWSER.
+     *
+     * Kein WebView: Mehrere Anbieter sperren eingebettete Browser für OAuth,
+     * und ein Anmeldeformular in einer fremden App ist auch die schlechtere
+     * Gewohnheit. Zurück kommt die App über den Deep Link.
+     */
+    fun trackerVerbinden(anbieterId: String, oeffne: (String) -> Unit, beiFehler: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching { apiClient.trackerVerbindenUrl(anbieterId) }
+                .onSuccess(oeffne)
+                .onFailure { beiFehler("Das Verbinden ließ sich nicht starten.") }
+        }
+    }
+
+    fun trackerTrennen(anbieterId: String, beiFehler: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching { apiClient.trackerTrennen(anbieterId) }
+                .onSuccess { aktualisiere() }
+                .onFailure { beiFehler("Das Trennen hat nicht geklappt.") }
         }
     }
 

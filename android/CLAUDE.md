@@ -48,6 +48,28 @@ von der Vorgabe unterscheiden. Die Berechtigung wird nur bei „Automatisch" erf
 Start **nie** blockieren: Ohne sie zeichnet die App ohne Automatik auf, und der Server leitet
 die Aufteilung wie bisher aus dem Tempo ab.
 
+**Verbundene Dienste (Tracker) — die App bleibt dünn.** Kein Anbieter-SDK, kein OAuth in
+Kotlin: Die App holt eine Autorisierungs-URL vom eigenen Server
+(`POST /api/tracker/<id>/connect` mit `ziel=app`), öffnet sie im **System-Browser** und wird
+per Deep Link `maptale://tracker/<anbieter>` zurückgerufen. Kein WebView — mehrere Anbieter
+sperren eingebettete Browser für OAuth. Drei Dinge, die man dabei kippt: **`setIntent` in
+`onNewIntent`** ist Pflicht, sonst liefert `getIntent()` weiter den Start-Intent und ein
+zweites Verknüpfen im selben App-Leben kommt nie an. **Dem `ok=1` im Link wird NICHT
+geglaubt** — die App fragt den Server nach dem tatsächlichen Zustand; was zählt, steht dort.
+Und ein **eigenes Schema statt eines https-App-Links**, weil letzterer eine `assetlinks.json`
+auf der Domain bräuchte: Die Adresse ist kein Ort im Web, sondern ein Rückruf.
+
+**`TrackerAbfrageWorker` ist der Rückfall, nicht der Hauptweg** (Push ist Etappe 6). Er fängt
+drei Fälle, die Push nie abdeckt: Geräte ohne Play Services, von der Herstellersoftware
+verschluckte Nachrichten, und die Zeit zwischen „Konto verknüpft" und „Push-Token
+registriert". `ExistingPeriodicWorkPolicy.KEEP` — mit `UPDATE` setzte jeder App-Start das
+15-Minuten-Intervall zurück und die Abfrage liefe nie. Gemeldet werden **nur FERTIGE**
+Importe: Eine übersprungene Halleneinheit ist kein Ereignis für den Sperrbildschirm, und ein
+Fehler, den niemand beheben kann, ist dort Lärm — beides steht in der Liste im Konto. Eigener
+Benachrichtigungs-Kanal (`KANAL_IMPORTE`), damit das Stummschalten der dauerhaften
+Aufzeichnungs-Meldung nicht auch „deine Tour ist da" verschluckt. Beim Abmelden wird der Lauf
+beendet.
+
 **Video wird stabilisiert, Foto nicht** (`kamera/Stabilisierung.kt`, gebunden in
 `KameraScreen.kt`). CameraX schaltet von sich aus **nichts** ein: `VideoCapture.withOutput(…)`
 nahm mit dem rohen Sensorbild auf, und auf dem Pixel 9 sah man jeden Schritt. Es gibt zwei Wege,
