@@ -70,8 +70,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Intent
-import android.net.Uri
 import app.maptale.BuildConfig
 import app.maptale.MaptaleApp
 import app.maptale.tracker.TrackerAbfrageWorker
@@ -80,6 +78,7 @@ import app.maptale.tracker.TrackerRueckkehr
 import app.maptale.tracker.aktionText
 import app.maptale.tracker.anbieterAktion
 import app.maptale.tracker.anbieterSatz
+import app.maptale.tracker.oeffneAutorisierung
 import app.maptale.upload.TrackerAnbieter
 import coil.compose.AsyncImage
 import java.util.Locale
@@ -303,13 +302,13 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
                             else -> viewModel.trackerVerbinden(
                                 anbieter.id,
                                 oeffne = { url ->
-                                    // Der SYSTEM-Browser, kein WebView: Mehrere
-                                    // Anbieter sperren eingebettete Browser für
-                                    // OAuth. Zurück kommt die App über den
-                                    // Deep Link maptale://tracker/…
-                                    runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                                    }.onFailure { meldung = "Kein Browser gefunden." }
+                                    // Custom Tab, kein WebView: Mehrere Anbieter
+                                    // sperren eingebettete Browser für OAuth.
+                                    // Zurück kommt die App über den Deep Link
+                                    // maptale://tracker/…
+                                    if (!oeffneAutorisierung(context, url)) {
+                                        meldung = "Kein Browser gefunden."
+                                    }
                                 },
                                 beiFehler = { meldung = it },
                             )

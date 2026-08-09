@@ -50,9 +50,15 @@ die Aufteilung wie bisher aus dem Tempo ab.
 
 **Verbundene Dienste (Tracker) — die App bleibt dünn.** Kein Anbieter-SDK, kein OAuth in
 Kotlin: Die App holt eine Autorisierungs-URL vom eigenen Server
-(`POST /api/tracker/<id>/connect` mit `ziel=app`), öffnet sie im **System-Browser** und wird
+(`POST /api/tracker/<id>/connect` mit `ziel=app`), öffnet sie in einem **Custom Tab** und wird
 per Deep Link `maptale://tracker/<anbieter>` zurückgerufen. Kein WebView — mehrere Anbieter
-sperren eingebettete Browser für OAuth. Drei Dinge, die man dabei kippt: **`setIntent` in
+sperren eingebettete Browser für OAuth, und dort wäre weder die Adresse prüfbar noch das
+Passwort außerhalb unserer Reichweite. Der Custom Tab ist dieselbe Sicherheit wie der
+System-Browser, nur aufgeräumter: Er läuft in unserer Aufgabe, schließt sich nach dem Rückweg
+selbst und lässt keinen Tab liegen. Sein Rückfall ist eingebaut — `CustomTabsIntent` ist im
+Kern ein `ACTION_VIEW` mit Zusatzangaben, ein Browser ohne Custom-Tab-Unterstützung öffnet die
+Seite also ganz normal. Die Leiste trägt `NachtFlaeche`, NICHT das Sonnengelb: Chrome wählt
+die Schriftfarbe der Adresse nach der Helligkeit, und auf Gelb würde sie schwarz. Drei Dinge, die man dabei kippt: **`setIntent` in
 `onNewIntent`** ist Pflicht, sonst liefert `getIntent()` weiter den Start-Intent und ein
 zweites Verknüpfen im selben App-Leben kommt nie an. **Dem `ok=1` im Link wird NICHT
 geglaubt** — die App fragt den Server nach dem tatsächlichen Zustand; was zählt, steht dort.

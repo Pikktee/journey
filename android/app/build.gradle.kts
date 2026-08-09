@@ -129,6 +129,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.work.runtime)
+    // Custom Tabs für den OAuth-Weg der verbundenen Dienste
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.exifinterface)
 
