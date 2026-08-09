@@ -155,12 +155,18 @@
     /* ————— Dialoge (nur für den Besitzer, s. src/profil/profilbearbeiten.ts) —————
        Schicht, Kopf, Körper, Fuß und Felder stehen in src/grundelemente.css;
        hier nur, was das Profil-Formular dazu braucht. */
-    /* Breiter als die Kontodialoge: Hier stehen Felder nebeneinander. */
-    .dialog { width: min(560px, 100%); }
+    /* Breiter als die Kontodialoge: Hier stehen Felder nebeneinander — und
+       zwar knapp. Mit 560 px blieben neben dem Avatar 408 px für zwei Felder,
+       die zusammen 413 px verlangen, und die Reihe brach still um. */
+    .dialog { width: min(600px, 100%); }
     .sp-reihe { display: flex; gap: 13px; flex-wrap: wrap; }
     .sp-reihe > * { flex: 1 1 200px; min-width: 0; }
     .sp-nebenzeile { display: flex; gap: 9px; flex-wrap: wrap; }
-    .sp-feld .zaehler { color: var(--text-zart); font-weight: 400; font-variant-numeric: tabular-nums; }
+    /* Der Zähler steht RECHTS am Label, nicht hinter dem Wort: Er gehört zum
+       Feld darunter, nicht zur Beschriftung — `margin-left: auto` schiebt ihn
+       an die Feldkante, dafür muss das Label ein Flex-Kasten sein. */
+    .sp-feld label { display: flex; align-items: baseline; gap: 8px; }
+    .sp-feld .zaehler { margin-left: auto; color: var(--text-zart); font-weight: 400; font-variant-numeric: tabular-nums; }
     .sp-feld .zaehler.knapp { color: var(--akzent); }
     .sp-feld textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
     /* Feld mit feststehendem Vorsatz („maptale.io/@"). Der Rahmen sitzt auf der
@@ -168,7 +174,7 @@
        aus wie zwei Felder. */
     .vorsatz-feld {
       font-family: var(--font-ui); font-size: 14.5px; color: var(--text);
-      background: #0d131b; border: 1px solid var(--rand); border-radius: var(--radius-md);
+      background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);
       width: 100%; box-sizing: border-box;
       display: flex; align-items: center; gap: 0; padding: 0 0 0 12px;
     }
@@ -177,11 +183,14 @@
     .vorsatz-feld input { border: none; background: transparent; padding-left: 1px; }
     .vorsatz-feld input:focus-visible { box-shadow: none; border-color: transparent; }
 
-    .handle-stand { font-size: 12.5px; color: var(--text-zart); min-height: 17px; }
+    .handle-stand { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-zart); min-height: 17px; }
+    .handle-stand svg { width: 14px; height: 14px; flex: none; }
     .handle-stand.frei { color: #7ddba2; }
     .handle-stand.belegt { color: #ff9ea0; }
 
-    .sp-schalterzeile { display: flex; align-items: center; gap: 16px; padding: 13px 15px; border: 1px solid var(--linie); border-radius: var(--radius-lg); background: rgba(255, 255, 255, 0.02); }
+    /* Kein Kasten, sondern eine Linie darüber: Der Schalter ist kein eigenes
+       Element neben dem Formular, sondern dessen letzte Zeile. */
+    .sp-schalterzeile { display: flex; align-items: center; gap: 16px; margin-top: 3px; padding-top: 16px; border-top: 1px solid var(--rand); }
     .sp-schalterzeile .z { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
     .sp-schalterzeile .t { font-size: 14px; font-weight: 500; color: var(--text); }
     .sp-schalterzeile .b { font-size: 12.5px; color: var(--text-zart); line-height: 1.45; }
@@ -190,31 +199,100 @@
     .schalter:checked { background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.55); }
     .schalter:checked::after { translate: 18px 0; background: var(--akzent); }
 
-    .stile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .stil { height: 74px; border-radius: var(--radius-lg); border: 1px solid var(--linie); background-size: cover; background-position: center; cursor: pointer; padding: 0; }
-    .stil:hover { border-color: rgba(255, 255, 255, 0.28); }
-    .stil.gewaehlt { border-color: var(--akzent); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3); }
+    /* ————— Titelbild-Wahl —————
+       „Eigenes Foto" steht OBEN und über die volle Breite: Als Knopf in der
+       Fußzeile ging es zwischen den Vorschauen unter, dabei ist es für die
+       meisten der eigentliche Weg. */
+    .stil-eigenes {
+      position: relative; width: 100%; overflow: hidden;
+      display: flex; align-items: center; gap: 14px; padding: 15px 17px;
+      text-align: left; cursor: pointer; color: var(--text);
+      border: 1px dashed rgba(245, 158, 11, 0.42); border-radius: var(--radius-lg);
+      background:
+        radial-gradient(120% 180% at 12% 0%, rgba(245, 158, 11, 0.13), transparent 62%),
+        radial-gradient(90% 160% at 96% 120%, rgba(255, 111, 82, 0.11), transparent 60%),
+        var(--fl-2);
+      transition: border-color 0.18s, transform 0.14s, box-shadow 0.18s;
+    }
+    .stil-eigenes:hover { border-color: var(--akzent); border-style: solid; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(245, 133, 40, 0.16); }
+    .stil-eigenes:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .stil-eigenes .kreis {
+      width: 42px; height: 42px; border-radius: var(--radius-lg); flex: none; display: grid; place-items: center;
+      background: linear-gradient(130deg, var(--akzent), var(--akzent-2)); color: var(--auf-akzent);
+      box-shadow: 0 6px 16px rgba(245, 133, 40, 0.28);
+    }
+    .stil-eigenes .kreis svg { width: 21px; height: 21px; }
+    .stil-eigenes .z { flex: 1; min-width: 0; }
+    .stil-eigenes .t { display: block; font-weight: 600; font-size: 14.5px; }
+    .stil-eigenes .b { display: block; font-size: 12.5px; color: var(--text-zart); margin-top: 1px; }
+    .stil-eigenes .pfeil { color: var(--text-zart); flex: none; transition: transform 0.18s, color 0.18s; }
+    .stil-eigenes:hover .pfeil { color: var(--akzent); transform: translateX(3px); }
+    .stil-eigenes .pfeil svg { width: 18px; height: 18px; display: block; }
 
-    button.still {
-      display: inline-flex; align-items: center; gap: 7px;
-      font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; color: var(--text-gedaempft);
-      background: transparent; border: 1px solid var(--linie); border-radius: var(--radius-full);
-      padding: 8px 15px; cursor: pointer;
+    .stile-titel { margin: 5px 0 0; font-size: 12.5px; color: var(--text-zart); }
+    .stile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    /* Mit Bildunterschrift: Vier Fotos ohne Namen sind vier Fotos — mit Namen
+       sind es Angebote, über die man reden kann. `display: block` an der Probe
+       ist nicht kosmetisch: als Inline-Element schluckt der span die Höhe und
+       die Vorschau bliebe leer. */
+    .stil {
+      padding: 0; overflow: hidden; cursor: pointer; text-align: left; color: var(--text);
+      border: 1px solid var(--linie); border-radius: var(--radius-lg); background: var(--fl-2);
     }
-    button.still:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
-    button.still svg { width: 15px; height: 15px; flex: none; }
-    button.primaer {
-      font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: var(--auf-akzent);
-      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
-      border: 1px solid transparent; border-radius: var(--radius-full); padding: 8px 18px; cursor: pointer;
+    .stil .probe { display: block; height: 74px; background-size: cover; background-position: center; }
+    .stil .name { display: block; padding: 8px 11px; font-size: 12.5px; }
+    .stil:hover { border-color: rgba(255, 255, 255, 0.28); }
+    .stil[aria-pressed='true'] { border-color: var(--akzent); box-shadow: 0 0 0 1px var(--akzent); }
+    .stil[aria-pressed='true'] .name { color: var(--akzent); }
+
+    /* ————— Avatar im Bearbeiten-Modal —————
+       Er steht NEBEN den ersten beiden Feldern statt als eigener Block darüber:
+       als zentrierte Zeile kostete er über 130 px Höhe, und das Modal begann auf
+       1080 px Bildschirmhöhe zu scrollen. */
+    /* Name und Ort stehen mittig zum Avatar-Kreis. Damit die Mitte nicht
+       springt, sobald „Bild entfernen" dazukommt, liegt der Link UNTER dem
+       Kreis, ohne dessen Höhe zu ändern; Platz dafür macht die Reihe nur, wenn
+       es ihn gibt (.hat-bild). */
+    .sp-kopfreihe { display: flex; align-items: center; gap: 16px; }
+    .sp-avatar-spalte { position: relative; width: 84px; height: 84px; flex: none; }
+    .sp-kopfreihe:has(.hat-bild) { margin-bottom: 16px; }
+    .sp-kopfreihe .sp-reihe { flex: 1; }
+    .sp-avatar-box {
+      position: relative; width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none;
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); color: var(--auf-akzent);
+      display: grid; place-items: center; font-size: 34px; font-weight: 700; cursor: pointer;
+      border: none; padding: 0; transition: transform 0.18s;
     }
-    button.primaer:hover { filter: brightness(1.06); }
-    button.primaer:disabled, button.still:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    .sp-avatar-box:hover { transform: scale(1.02); }
+    .sp-avatar-box img { width: 100%; height: 100%; object-fit: cover; display: block; grid-area: 1 / 1; }
+    /* `display: block` schlüge sonst das `hidden`-Attribut — ohne Bild stand
+       ein leerer Kasten quer über dem Initial. */
+    .sp-avatar-box img[hidden] { display: none; }
+    .sp-avatar-box .ueber {
+      position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); opacity: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; color: #fff; font-size: 12px; font-weight: 600;
+      transition: opacity 0.18s;
+    }
+    .sp-avatar-box:hover .ueber, .sp-avatar-box:focus-visible .ueber { opacity: 1; }
+    .sp-avatar-box .ueber svg { width: 22px; height: 22px; }
+    /* Der Weg zurück zum Initialen-Kreis — leise unter dem Avatar, und nur da,
+       wenn es überhaupt ein Bild zu entfernen gibt. */
+    .sp-avatar-weg {
+      position: absolute; top: 100%; left: 0; width: 84px;
+      background: none; border: none; padding: 4px 0 0; cursor: pointer;
+      font-family: var(--font-ui); font-size: 12px; color: var(--text-zart); text-align: center;
+    }
+    .sp-avatar-weg:hover { color: var(--text-gedaempft); text-decoration: underline; }
 
     @media (max-width: 620px) {
       .profilkopf { flex-wrap: wrap; gap: 14px; margin-top: -42px; }
       .kopf-aktionen { width: 100%; padding-bottom: 0; }
       .stile { grid-template-columns: 1fr; }
+      /* Schmal stapeln Name und Ort ohnehin — der Avatar stünde daneben auf
+         halber Höhe zwischen beiden Feldern und sähe verrutscht aus. */
+      .sp-kopfreihe { flex-direction: column; align-items: flex-start; gap: 14px; }
+      .sp-kopfreihe .sp-reihe { width: 100%; }
     }
 
 

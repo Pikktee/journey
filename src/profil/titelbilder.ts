@@ -15,15 +15,17 @@
  */
 export interface Titelbild {
   datei: string
+  /** Die Bildunterschrift unter der Kachel — kurz, damit sie in eine Zeile passt. */
+  name: string
   /** Wird als Alternativtext gelesen, wenn das Bild nicht lädt. */
   wort: string
 }
 
 export const TITELBILDER: readonly Titelbild[] = [
-  { datei: 'serpentinen.jpg', wort: 'Serpentinen am Bergpass' },
-  { datei: 'kueste.jpg', wort: 'Küstenstraße über dem Meer' },
-  { datei: 'nachtstadt.jpg', wort: 'Stadt bei Nacht' },
-  { datei: 'wueste.jpg', wort: 'Piste durch die Wüste' },
+  { datei: 'serpentinen.jpg', name: 'Bergpass', wort: 'Serpentinen am Bergpass' },
+  { datei: 'kueste.jpg', name: 'Küstenstraße', wort: 'Küstenstraße über dem Meer' },
+  { datei: 'nachtstadt.jpg', name: 'Stadt bei Nacht', wort: 'Stadt bei Nacht' },
+  { datei: 'wueste.jpg', name: 'Wüstenpiste', wort: 'Piste durch die Wüste' },
 ]
 
 /** Öffentlicher Pfad eines mitgelieferten Bildes — dieselbe Form wie im Server. */

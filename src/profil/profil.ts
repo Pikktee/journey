@@ -32,6 +32,14 @@ const ZEICHEN: Record<string, string> = {
   privat: 'M6.25 10.5h11.5v10h-11.5z|M8.5 10.5V8a3.5 3.5 0 017 0v2.5',
   stift: 'M4 20h4l10-10-4-4L4 16z|M13.5 6.5l4 4',
   bild: 'M5.5 4.5h13a2 2 0 012 2v11a2 2 0 01-2 2h-13a2 2 0 01-2-2v-11a2 2 0 012-2z|M4 18l5-6 4 4.5 3-3.5 4 5|M17.1 8a1.6 1.6 0 11-3.2 0 1.6 1.6 0 013.2 0z',
+  // Für den Titelbild-Dialog: Hochladen, Weiter-Pfeil, Kamera (Avatar-Überlage).
+  hoch: 'M12 16.5V4.5|M7.4 9.1L12 4.5l4.6 4.6|M4 15.5v3A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5v-3',
+  pfeil: 'M9 6l6 6-6 6',
+  // Vor der Handle-Meldung: Haken, wenn die Adresse geht, Kreuz, wenn nicht.
+  haken: 'M20 6L9 17l-5-5',
+  kreuz: 'M18 6L6 18M6 6l12 12',
+  kamera:
+    'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z|M16 13a4 4 0 11-8 0 4 4 0 018 0z',
   teilen: 'M8.7 13.4l6.6 3.9|M15.3 6.7L8.7 10.6|M6.5 12a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z|M20.5 5.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z|M20.5 18.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z',
 }
 

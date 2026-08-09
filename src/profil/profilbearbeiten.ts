@@ -9,8 +9,9 @@
 import { oeffneSchicht } from '../dialogschicht.js'
 import { HANDLE_TEXTE, pruefeHandleForm, zuHandle } from '../handle.js'
 import { profilPfad } from '../routen.js'
+import { profilSichtbarSatz } from '../sichtbarkeit.js'
 import { zeichne } from './profil.js'
-import type { ProfilAntwort } from './profilmodell.js'
+import { anfangsbuchstabe, type ProfilAntwort } from './profilmodell.js'
 import { TITELBILDER, titelbildPfad } from './titelbilder.js'
 
 /** Bio-Grenze wie im Server-Schema (dort 500) — hier die Empfehlung des Mockups. */
@@ -86,32 +87,11 @@ async function sendeProfil(daten: Record<string, unknown>): Promise<{ ok: true }
  * des Avatars. Beide enden im selben Feld — welcher Fall vorliegt, erkennt der
  * Server am Schrägstrich (s. server/src/profilfelder.ts).
  */
-function oeffneTitelbild(fertig: () => void): void {
+function oeffneTitelbild(profil: ProfilAntwort, fertig: () => void): void {
   const { koerper, fuss, schliesse } = oeffneSchicht('Titelbild')
   koerper.appendChild(
-    el(
-      'p',
-      'sp-hinweis',
-      'Das Bild über deinem Profil — quer, breit und am besten aus einer deiner Touren. ' +
-        'Ohne eigene Wahl steht dort eines der vier.',
-    ),
+    el('p', 'sp-hinweis', 'Quer, breit und am besten aus einer deiner Touren.'),
   )
-
-  let wahl: string | null = null
-  const raster = el('div', 'stile')
-  for (const bild of TITELBILDER) {
-    const knopf = el('button', 'stil')
-    knopf.type = 'button'
-    knopf.style.backgroundImage = `url("${titelbildPfad(bild.datei)}")`
-    knopf.setAttribute('aria-label', bild.wort)
-    knopf.addEventListener('click', () => {
-      wahl = bild.datei
-      for (const k of raster.querySelectorAll('.stil')) k.classList.remove('gewaehlt')
-      knopf.classList.add('gewaehlt')
-    })
-    raster.appendChild(knopf)
-  }
-  koerper.appendChild(raster)
 
   const datei = el('input')
   datei.type = 'file'
@@ -119,24 +99,69 @@ function oeffneTitelbild(fertig: () => void): void {
   datei.hidden = true
   koerper.appendChild(datei)
 
-  const eigenes = el('button', 'still')
+  // Das eigene Foto steht OBEN und als eigene Fläche: Für die meisten ist es
+  // der eigentliche Weg, als Knopf unter den Vorschauen ging es unter.
+  const eigenes = el('button', 'stil-eigenes')
   eigenes.type = 'button'
-  eigenes.appendChild(zeichne('bild'))
-  eigenes.appendChild(document.createTextNode(' Eigenes Bild hochladen'))
+  const kreis = el('span', 'kreis')
+  kreis.appendChild(zeichne('hoch'))
+  const worte = el('span', 'z')
+  worte.appendChild(el('span', 't', 'Eigenes Foto hochladen'))
+  worte.appendChild(el('span', 'b', 'Quer, mindestens 1600 px breit'))
+  const pfeil = el('span', 'pfeil')
+  pfeil.appendChild(zeichne('pfeil'))
+  eigenes.append(kreis, worte, pfeil)
   eigenes.addEventListener('click', () => datei.click())
+  koerper.appendChild(eigenes)
 
-  // „Zurücksetzen" und nicht „Entfernen": Danach steht dort nicht nichts,
-  // sondern wieder das mitgelieferte Bild (s. standardTitelbild).
-  const entfernen = el('button', 'still', 'Zurücksetzen')
-  entfernen.type = 'button'
+  const titel = el('p', 'stile-titel', 'Oder eines von uns')
+  titel.id = 'l-stile'
+  koerper.appendChild(titel)
 
-  const zeile = el('div', 'sp-nebenzeile')
-  zeile.append(eigenes, entfernen)
-  koerper.appendChild(zeile)
+  let wahl: string | null = null
+  const raster = el('div', 'stile')
+  raster.setAttribute('role', 'group')
+  raster.setAttribute('aria-labelledby', titel.id)
+  for (const bild of TITELBILDER) {
+    const knopf = el('button', 'stil')
+    knopf.type = 'button'
+    // Der gewählte Zustand ist `aria-pressed` und keine eigene Klasse: Er ist
+    // eine Auskunft über den Knopf, und die Vorlesehilfe bekommt sie mit. Was
+    // heute im Banner steht, ist von Anfang an markiert — sonst sieht der
+    // Dialog aus, als stünde dort noch nichts.
+    knopf.setAttribute(
+      'aria-pressed',
+      String(profil.titelbildUrl === titelbildPfad(bild.datei)),
+    )
+    knopf.setAttribute('aria-label', bild.wort)
+    const probe = el('span', 'probe')
+    probe.style.backgroundImage = `url("${titelbildPfad(bild.datei)}")`
+    knopf.append(probe, el('span', 'name', bild.name))
+    knopf.addEventListener('click', () => {
+      wahl = bild.datei
+      for (const k of raster.querySelectorAll('.stil'))
+        k.setAttribute('aria-pressed', String(k === knopf))
+    })
+    raster.appendChild(knopf)
+  }
+  koerper.appendChild(raster)
 
   const melde = el('p', 'sp-fehler')
   melde.hidden = true
   koerper.appendChild(melde)
+
+  // „Zurücksetzen" und nicht „Entfernen": Danach steht dort nicht nichts,
+  // sondern wieder das mitgelieferte Bild (s. standardTitelbild). Es steht
+  // links in der Fußzeile und nur dann, wenn ein EIGENES Bild hochgeladen ist —
+  // wer eines der vier gewählt hat, wechselt einfach zu einem anderen. Woran
+  // man beide unterscheidet, ist der Pfad: Vorschläge liegen als statische
+  // Datei unter /titelbilder/, eigene Bilder kommen aus der API.
+  const eigenesBild =
+    !!profil.titelbildUrl &&
+    !TITELBILDER.some((b) => titelbildPfad(b.datei) === profil.titelbildUrl)
+  const entfernen = el('button', 'still', 'Zurücksetzen')
+  entfernen.type = 'button'
+  if (eigenesBild) fuss.append(entfernen, el('span', 'sp-luft'))
 
   const abbrechen = el('button', 'still', 'Abbrechen')
   abbrechen.type = 'button'
@@ -195,15 +220,117 @@ function oeffneTitelbild(fertig: () => void): void {
   })
 }
 
+/**
+ * Der Avatar im Bearbeiten-Modal: Klick öffnet die Dateiauswahl, darunter der
+ * Weg zurück zum Initialen-Kreis.
+ *
+ * Das Bild geht SOFORT zum Server und nicht erst beim Speichern — es ist eine
+ * eigene Route (`PUT /api/auth/me/avatar`, der Rest des Formulars läuft über
+ * `PATCH …/profil`), und ein Bild bis zum Absenden im Speicher zu halten hieße,
+ * es zweimal hochzuladen, wenn jemand sich umentscheidet. Der Dialog bleibt
+ * dabei offen: Ein `fertig()` lüde die Seite neu und würfe alles weg, was
+ * daneben schon getippt war.
+ */
+function avatarFeld(
+  profil: ProfilAntwort,
+  scheitere: (text: string) => void,
+): HTMLElement {
+  const spalte = el('div', 'sp-avatar-spalte')
+  const knopf = el('button', 'sp-avatar-box')
+  knopf.type = 'button'
+  knopf.setAttribute('aria-label', 'Profilbild ändern')
+  const buchstabe = el('span', undefined, anfangsbuchstabe(profil))
+  const bild = el('img')
+  bild.alt = ''
+  const ueber = el('span', 'ueber')
+  ueber.appendChild(zeichne('kamera'))
+  ueber.appendChild(document.createTextNode('Ändern'))
+  knopf.append(buchstabe, bild, ueber)
+
+  const datei = el('input')
+  datei.type = 'file'
+  datei.accept = 'image/*'
+  datei.hidden = true
+  const weg = el('button', 'sp-avatar-weg', 'Bild entfernen')
+  weg.type = 'button'
+
+  // Ein Ort für die Frage „ist ein Bild da?" — er hängt an drei Stellen: dem
+  // Kreis hier, dem Kopf der Seite dahinter und dem Entfernen-Weg.
+  const zeige = (url: string | null): void => {
+    bild.hidden = !url
+    buchstabe.hidden = !!url
+    weg.hidden = !url
+    // Der Entfernen-Link liegt außerhalb des Flusses (sonst verschöbe er die
+    // Mitte, an der Name und Ort hängen) — die Klasse macht die Reihe darunter
+    // um seine Höhe länger.
+    spalte.classList.toggle('hat-bild', !!url)
+    if (url) bild.src = url
+    const imKopf = document.getElementById('avatar')
+    if (imKopf) {
+      imKopf.replaceChildren()
+      if (url) {
+        const kopfbild = el('img')
+        kopfbild.src = url
+        kopfbild.alt = ''
+        imKopf.appendChild(kopfbild)
+      } else {
+        imKopf.textContent = anfangsbuchstabe(profil)
+      }
+    }
+  }
+  zeige(profil.avatarUrl)
+
+  knopf.addEventListener('click', () => datei.click())
+  datei.addEventListener('change', async () => {
+    const gewaehlt = datei.files?.[0]
+    if (!gewaehlt) return
+    knopf.disabled = true
+    try {
+      const antwort = await fetch('/api/auth/me/avatar', {
+        method: 'PUT',
+        headers: { 'content-type': 'image/jpeg' },
+        body: gewaehlt,
+      })
+      if (!antwort.ok) throw new Error(String(antwort.status))
+      const koerper = (await antwort.json()) as { avatarUrl?: string }
+      zeige(koerper.avatarUrl ?? null)
+    } catch {
+      scheitere('Das Profilbild ließ sich nicht hochladen. Vielleicht ist es zu groß?')
+    }
+    // Damit dieselbe Datei ein zweites Mal ein `change` auslöst, wenn der
+    // erste Versuch schiefging.
+    datei.value = ''
+    knopf.disabled = false
+  })
+  weg.addEventListener('click', async () => {
+    await fetch('/api/auth/me/avatar', { method: 'DELETE' }).catch(() => undefined)
+    zeige(null)
+  })
+
+  spalte.append(knopf, datei, weg)
+  return spalte
+}
+
 /** Das Profil-Formular. */
 function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   const { koerper, fuss, schliesse } = oeffneSchicht('Profil bearbeiten')
+
+  const melde = el('p', 'sp-fehler')
+  melde.hidden = true
+  const scheitere = (text: string): void => {
+    melde.textContent = text
+    melde.hidden = false
+  }
 
   const name = feld('e-name', 'Name', profil.anzeigename ?? '')
   const ort = feld('e-ort', 'Ort', profil.ort ?? '')
   const paar = el('div', 'sp-reihe')
   paar.append(name.huelle, ort.huelle)
-  koerper.appendChild(paar)
+  // Der Avatar teilt sich die Zeile mit Name und Ort: als eigener Block darüber
+  // kostete er die Höhe, ab der das Modal zu scrollen beginnt.
+  const kopfreihe = el('div', 'sp-kopfreihe')
+  kopfreihe.append(avatarFeld(profil, scheitere), paar)
+  koerper.appendChild(kopfreihe)
 
   const handle = feld('e-handle', 'Profil-Adresse', profil.handle ?? '', `${window.location.host}/@`)
   handle.eingabe.maxLength = 30
@@ -214,7 +341,7 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   koerper.appendChild(handle.huelle)
 
   const bioHuelle = el('div', 'sp-feld')
-  const bioLabel = el('label', undefined, 'Über mich ')
+  const bioLabel = el('label', undefined, 'Über mich')
   bioLabel.htmlFor = 'e-bio'
   const zaehler = el('span', 'zaehler')
   bioLabel.appendChild(zaehler)
@@ -253,8 +380,6 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
   schalterZeile.append(schalterText, schalter)
   koerper.appendChild(schalterZeile)
 
-  const melde = el('p', 'sp-fehler')
-  melde.hidden = true
   koerper.appendChild(melde)
 
   const felder: Felder = {
@@ -276,6 +401,17 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
 
   // — Laufende Rückmeldung —
 
+  // Der Satz unter dem Schalter hängt an ZWEI Feldern: an ihm selbst und am
+  // Handle darüber (die Adresse steht darin). Deshalb eine eigene Funktion.
+  const zeigeSichtbarkeit = (): void => {
+    const wert = felder.handle.value.trim().toLowerCase()
+    erklaerung.textContent = profilSichtbarSatz(
+      schalter.checked,
+      `${window.location.host}${profilPfad(wert || '…')}`,
+    )
+  }
+  schalter.addEventListener('change', zeigeSichtbarkeit)
+
   const zeigeBio = (): void => {
     zaehler.textContent = `${bio.value.length}/${BIO_MAX}`
     zaehler.classList.toggle('knapp', bio.value.length > BIO_MAX - 40)
@@ -288,12 +424,23 @@ function oeffneProfil(profil: ProfilAntwort, fertig: () => void): void {
     // „reserviert", sobald jemand zufällig so heißt wie eine Seite.
     const fehler = wert === eigener ? null : pruefeHandleForm(wert)
     handleStand.className = `handle-stand ${fehler ? 'belegt' : 'frei'}`
-    handleStand.textContent = fehler
-      ? HANDLE_TEXTE[fehler]
-      : wert === eigener
-        ? 'Das ist deine aktuelle Adresse.'
-        : `@${wert} sieht gut aus — ob sie frei ist, sagt dir das Speichern.`
-    erklaerung.textContent = `Name, Ort, Text, Links und deine öffentlichen Touren sind unter ${window.location.host}${profilPfad(wert || '…')} für alle sichtbar.`
+    // Haken oder Kreuz VOR dem Satz: Die Auskunft ist an der Farbe allein nicht
+    // zu erkennen, wenn man Rot und Grün nicht unterscheidet.
+    const zeichen = zeichne(fehler ? 'kreuz' : 'haken')
+    zeichen.setAttribute('stroke-width', '2.2')
+    handleStand.replaceChildren(
+      zeichen,
+      el(
+        'span',
+        undefined,
+        fehler
+          ? HANDLE_TEXTE[fehler]
+          : wert === eigener
+            ? 'Das ist deine aktuelle Adresse.'
+            : `@${wert} sieht gut aus. Ob sie frei ist, sagt dir das Speichern.`,
+      ),
+    )
+    zeigeSichtbarkeit()
     speichern.disabled = !!fehler
   }
 
@@ -354,6 +501,6 @@ export function montiereBearbeiten(profil: ProfilAntwort, fertig: () => void): v
   const titelbild = document.getElementById('btn-titelbild') as HTMLButtonElement | null
   if (titelbild) {
     titelbild.hidden = false
-    titelbild.addEventListener('click', () => oeffneTitelbild(fertig))
+    titelbild.addEventListener('click', () => oeffneTitelbild(profil, fertig))
   }
 }
