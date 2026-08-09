@@ -128,7 +128,7 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
     visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODELL_DEFAULT),
     umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim() ? env.MAPTALE_UMAMI_DB_PASSWORT.trim() : null,
-    trackerSchluessel: geheim(env.MAPTALE_TRACKER_SCHLUESSEL),
+    trackerSchluessel: geheim(env.MAPTALE_TRACKER_SECRET),
     polar: {
       clientId: geheim(env.MAPTALE_POLAR_CLIENT_ID),
       clientSecret: geheim(env.MAPTALE_POLAR_CLIENT_SECRET),

@@ -506,7 +506,7 @@ Drei Punkte, die man beim Vereinfachen verliert:
 ## 7. Sicherheit und Datenschutz-Mechanik
 
 **Tokens werden verschlüsselt abgelegt** (AES-256-GCM, Schlüssel aus eigener Umgebungsvariable
-`MAPTALE_TRACKER_SCHLUESSEL` — nicht aus `cookieSecret` ableiten: ein Cookie-Geheimnis
+`MAPTALE_TRACKER_SECRET` — nicht aus `cookieSecret` ableiten: ein Cookie-Geheimnis
 rotiert man beiläufig, und dann wären alle Verknüpfungen tot). Fehlt der Schlüssel, sind alle
 OAuth-Anbieter „nicht konfiguriert" — kein Klartext als Rückfall.
 
@@ -544,7 +544,7 @@ gelesen wird. Im Repo ist das eine Zusage — wer den Umfang später ändert, ä
 Neue Umgebungsvariablen nach dem Muster aus `config.ts` (leer = nicht gesetzt = Feature aus):
 
 ```
-MAPTALE_TRACKER_SCHLUESSEL      # Pflicht für alle OAuth-Anbieter
+MAPTALE_TRACKER_SECRET      # Pflicht für alle OAuth-Anbieter
 MAPTALE_POLAR_CLIENT_ID / _SECRET / _WEBHOOK_SECRET
 MAPTALE_WAHOO_CLIENT_ID / _SECRET / _WEBHOOK_SECRET
 MAPTALE_SUUNTO_CLIENT_ID / _SECRET / _ABO_SCHLUESSEL

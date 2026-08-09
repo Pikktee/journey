@@ -62,7 +62,7 @@ services:
       # gibt keinen Klartext-Rückfall. Bewusst nicht aus MAPTALE_COOKIE_SECRET
       # abgeleitet: Wer das Cookie-Geheimnis rotiert (alle Sitzungen weg, halb
       # so schlimm), machte sonst mit demselben Handgriff jede Verknüpfung tot.
-      MAPTALE_TRACKER_SCHLUESSEL: ${MAPTALE_TRACKER_SCHLUESSEL:-}
+      MAPTALE_TRACKER_SECRET: ${MAPTALE_TRACKER_SECRET:-}
       MAPTALE_POLAR_CLIENT_ID: ${MAPTALE_POLAR_CLIENT_ID:-}
       MAPTALE_POLAR_CLIENT_SECRET: ${MAPTALE_POLAR_CLIENT_SECRET:-}
       # Der Signatur-Schlüssel entsteht erst beim Registrieren des Webhooks

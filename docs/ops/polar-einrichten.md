@@ -33,7 +33,7 @@ Klartext-Rückfall für die gespeicherten Tokens:
 openssl rand -base64 32
 ```
 
-Das Ergebnis als `MAPTALE_TRACKER_SCHLUESSEL` hinterlegen. **Nie rotieren, ohne es zu
+Das Ergebnis als `MAPTALE_TRACKER_SECRET` hinterlegen. **Nie rotieren, ohne es zu
 wollen:** Jede vorhandene Verknüpfung wird damit unlesbar und muss neu autorisiert werden
 (der Server setzt sie dann auf `abgelaufen` mit sichtbarem Hinweis, aber die Autorisierung
 ist weg). Er ist genau deshalb eine eigene Variable und nicht aus `MAPTALE_COOKIE_SECRET`

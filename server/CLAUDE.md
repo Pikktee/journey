@@ -186,7 +186,7 @@ Zuordnungsweg des Webhooks. `verbunden_am` bleibt beim Erneuern dagegen STEHEN: 
 schreibt beide Fälle, und mitgeschrieben stünde auf der Kontoseite dauerhaft „verbunden seit
 vor ein paar Minuten" (Tokens laufen stündlich ab). Nach dem Trennen gibt es keine Zeile mehr,
 dort setzt der INSERT-Zweig das Datum ohnehin frisch. Die Tokens liegen AES-256-GCM-verschlüsselt
-([krypto.ts](server/src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SCHLUESSEL`);
+([krypto.ts](server/src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SECRET`);
 fehlt der Schlüssel, sind alle Anbieter aus — Klartext als Rückfall gibt es nicht.
 
 **Der `state` ist Pflicht, einmalig und liegt im Speicher.** Ohne ihn ließe sich einem
