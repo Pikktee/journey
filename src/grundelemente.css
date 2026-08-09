@@ -298,36 +298,96 @@ body.dialog-offen {
   max-height: min(88vh, 780px);
   display: flex;
   flex-direction: column;
-  background: var(--fl-2);
+  /* Die ruhige Kartenfläche, nicht die der Knöpfe: Auf --fl-2 stünden die
+     Felder (--bg-tief) und der Grund fast gleich weit auseinander wie Grund
+     und Dialog — der Dialog trug dann selbst den Ton einer gehobenen Zeile. */
+  background: var(--fl-1);
   border: 1px solid var(--rand);
   border-radius: var(--radius-xl);
   box-shadow: 0 24px 70px rgba(2, 5, 10, 0.7);
 }
+/* Keine Trennlinien unter dem Titel und über den Knöpfen: Der Dialog ist eine
+   Fläche, kein Formular mit Kopf- und Fußleiste. Die Linien zerlegten ihn in
+   drei Blöcke, obwohl der Abstand die Gliederung längst trägt (so auch im
+   abgenommenen Mockup, docs/mockups/studio-konto.html). */
 .sp-kopf {
-  padding: 18px 22px 14px;
-  border-bottom: 1px solid var(--linie);
+  padding: 24px 26px 6px;
 }
 .sp-kopf h2 {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   margin: 0;
 }
 /* Der Körper scrollt, nicht der Dialog: Sonst wandert die Fußzeile mit den
    Knöpfen aus dem Bild, und der Abschluss-Knopf ist nicht mehr zu finden. */
 .sp-koerper {
-  padding: 18px 22px;
+  padding: 18px 26px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
 .sp-fuss {
-  padding: 14px 22px 18px;
-  border-top: 1px solid var(--linie);
+  padding: 10px 26px 24px;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 9px;
+  gap: 10px;
+}
+/* Was links stehen soll (etwa „Zurücksetzen"), bekommt diesen Abstandhalter
+   davor — dann liegen die Abschluss-Knöpfe weiter rechts, wo sie hingehören. */
+.sp-fuss .sp-luft {
+  flex: 1;
+}
+
+/* Die Dialog-Knöpfe: Kästen, keine Pillen. Hier stehen sie neben Feldern, und
+   die sind Kästen — die Pillen der öffentlichen Seiten liegen über Fotos und
+   Karten und bleiben dort (s. DESIGN.md, „Shapes"). Sie stehen in diesem Blatt
+   und nicht in beiden Seiten, weil Profil und Konto sie wortgleich brauchten. */
+button.still,
+button.primaer {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  cursor: pointer;
+}
+button.still {
+  font-weight: 500;
+  color: var(--text-gedaempft);
+  background: transparent;
+  border: 1px solid var(--linie);
+  transition:
+    background 0.16s,
+    color 0.16s;
+}
+button.still:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+button.still svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+button.primaer {
+  font-weight: 600;
+  color: var(--auf-akzent);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+  border: 1px solid transparent;
+}
+button.primaer:hover {
+  filter: brightness(1.06);
+}
+button.primaer:disabled,
+button.still:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
 }
 .sp-hinweis {
   margin: 0;
@@ -357,7 +417,9 @@ body.dialog-offen {
   font-family: var(--font-ui);
   font-size: 14.5px;
   color: var(--text);
-  background: #0d131b;
+  /* Der tiefste Ton der Palette: Das Feld ist eine Vertiefung in der
+     Dialogfläche, kein zweiter Aufsatz darauf. */
+  background: var(--bg-tief);
   border: 1px solid var(--rand);
   border-radius: var(--radius-md);
   padding: 9px 12px;
