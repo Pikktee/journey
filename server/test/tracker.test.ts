@@ -600,6 +600,23 @@ describe('Ohne Anbieter und ohne Anmeldung', () => {
     expect((await u.app.inject({ method: 'POST', url: '/api/tracker/polar/connect', payload: {} })).statusCode).toBe(401)
   })
 
+  it('beantwortet den Erreichbarkeits-Test des Anbieters mit 200, ganz ohne Signatur', async () => {
+    // Polar schickt ihn beim ANLEGEN des Webhooks — der Signatur-Schlüssel
+    // entsteht erst als Antwort darauf. Ohne diesen Weg scheiterte jede
+    // Registrierung an der eigenen Prüfung („Ping failed, response was 401").
+    const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, istPing: true })
+    const { u } = await baueMitProvider(provider)
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/webhooks/tracker/polar',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ event: 'PING' }),
+    })
+    expect(antwort.statusCode).toBe(200)
+    // Und er löst nichts aus: kein Import, keine Tour
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({ n: 0 })
+  })
+
   it('beantwortet den Webhook eines unbekannten Anbieters mit 404', async () => {
     const { u } = await baueMitProvider()
     const antwort = await u.app.inject({

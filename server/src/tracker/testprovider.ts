@@ -28,6 +28,8 @@ export interface TestProviderOptionen {
   neue?: TrackerEreignis[]
   /** `listeNeue` wirft — der Anbieter ist gerade nicht erreichbar. */
   listeWirft?: boolean
+  /** Erkennt `{"event":"PING"}` als Erreichbarkeits-Test (wie Polar). */
+  istPing?: boolean
 }
 
 /** Signatur, wie sie ein echter Anbieter über den ROHEN Body bildet. */
@@ -66,6 +68,16 @@ export class TestProvider implements TrackerProvider {
   }
 
   webhook = {
+    istPing: (anfrage: WebhookAnfrage): boolean => {
+      if (!this.opt.istPing) return false
+      try {
+        const daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
+        return daten['event'] === 'PING' && daten['user_id'] === undefined && daten['entity_id'] === undefined
+      } catch {
+        return false
+      }
+    },
+
     verifiziere: (anfrage: WebhookAnfrage): boolean => {
       const geheimnis = this.opt.webhookGeheimnis
       if (!geheimnis) return false

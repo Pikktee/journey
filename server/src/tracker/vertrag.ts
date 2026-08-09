@@ -101,6 +101,20 @@ export interface TrackerProvider {
   webhook?: {
     /** Signatur/Challenge prüfen. Falsch = 401, kein Import. */
     verifiziere(anfrage: WebhookAnfrage): boolean | Promise<boolean>
+    /**
+     * Ist die Zustellung ein reiner Erreichbarkeits-Test?
+     *
+     * Polar schickt beim ANLEGEN des Webhooks einen PING und erwartet 200 —
+     * und der ist grundsätzlich nicht zu verifizieren: Der Signatur-Schlüssel
+     * entsteht erst als Antwort auf genau diesen Aufruf. Ohne diesen Weg
+     * scheiterte jede Webhook-Registrierung an der eigenen Signaturprüfung.
+     *
+     * Die Umsetzung muss ENG sein: true nur für eine Nutzlast, die
+     * nachweislich nichts auslöst. Der Aufrufer beantwortet sie mit 200 und
+     * tut nichts — wer unsignierte Pings schickt, erreicht damit nichts außer
+     * einer 200.
+     */
+    istPing?(anfrage: WebhookAnfrage): boolean
     parseEreignisse(anfrage: WebhookAnfrage): TrackerEreignis[]
     /** Manche Anbieter verlangen eine Echo-Antwort (Strava: `hub.challenge`). */
     antwort?(anfrage: WebhookAnfrage): unknown

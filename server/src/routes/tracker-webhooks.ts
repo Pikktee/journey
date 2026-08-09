@@ -49,6 +49,14 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
     if (!provider?.webhook) return reply.code(404).send({ fehler: 'Nicht gefunden' })
     const anfrage = zuAnfrage(request)
 
+    // Der Erreichbarkeits-Test des Anbieters läuft VOR der Signaturprüfung und
+    // ist der einzige Weg an ihr vorbei — notgedrungen: Polar schickt ihn beim
+    // ANLEGEN des Webhooks, und der Signatur-Schlüssel entsteht erst als
+    // Antwort auf genau diesen Aufruf. Ohne diesen Zweig scheiterte jede
+    // Registrierung an der eigenen Prüfung („Ping failed, response was 401").
+    // Ungefährlich, weil er nichts auslöst: 200, sonst nichts.
+    if (provider.webhook.istPing?.(anfrage)) return reply.code(200).send({ ok: true })
+
     // Verifikation ZUERST — vor jedem Datenbankzugriff. Falsche Signatur:
     // 401, kein Eintrag, kein Log-Spam (sonst wäre schon das Protokoll ein
     // Ziel für Müll von außen).

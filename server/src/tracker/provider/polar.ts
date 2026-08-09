@@ -178,6 +178,26 @@ export class PolarProvider implements TrackerProvider {
   // — Webhook —
 
   webhook = {
+    /**
+     * Der PING beim Anlegen des Webhooks — die einzige Zustellung, die ohne
+     * Signaturprüfung durchgeht, weil sie nicht prüfbar IST: Der
+     * Signatur-Schlüssel kommt erst mit der Antwort auf `POST /v3/webhooks`.
+     * Polar verlangt darauf 200, sonst wird der Webhook nicht angelegt
+     * („WebhookPingFailedException").
+     *
+     * Die Prüfung ist bewusst eng: NUR `{"event":"PING"}` ohne Nutzer- und
+     * Aktivitätskennung. Damit lässt sich über diesen Weg nichts anstoßen —
+     * wer unsignierte Pings schickt, bekommt eine 200 und sonst nichts.
+     */
+    istPing: (anfrage: WebhookAnfrage): boolean => {
+      try {
+        const daten = JSON.parse(anfrage.rohBody || '{}') as Record<string, unknown>
+        return daten['event'] === 'PING' && daten['user_id'] === undefined && daten['entity_id'] === undefined
+      } catch {
+        return false
+      }
+    },
+
     verifiziere: (anfrage: WebhookAnfrage): boolean => {
       const geheimnis = this.zugang.webhookGeheimnis
       // Ohne hinterlegtes Geheimnis wird NICHTS akzeptiert. Die Alternative

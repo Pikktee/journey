@@ -39,7 +39,24 @@ wollen:** Jede vorhandene Verknüpfung wird damit unlesbar und muss neu autorisi
 ist weg). Er ist genau deshalb eine eigene Variable und nicht aus `MAPTALE_COOKIE_SECRET`
 abgeleitet — das rotiert man beiläufig.
 
-## 3. Webhook registrieren (der Schritt, der nur einmal geht)
+## 3. Erst deployen, dann den Webhook registrieren
+
+**Die Reihenfolge ist Pflicht, nicht Ordnungsliebe:** Polar schickt beim Anlegen einen PING an
+die angegebene Adresse und legt den Webhook nur an, wenn er **200** zurückbekommt. Läuft dort
+noch eine Fassung ohne die Route — oder sind auf dem Server `MAPTALE_POLAR_CLIENT_ID`/`_SECRET`
+nicht gesetzt, dann meldet die Registry den Anbieter als unbekannt —, antwortet sie **404**,
+und Polar lehnt mit `WebhookPingFailedException` ab.
+
+Vorher also: Version-Tag setzen (`npm run release minor`), Deploy abwarten, Variablen aus
+Schritt 1 und 2 in der Server-Umgebung hinterlegen, Container neu starten. Gegenprobe:
+
+```bash
+curl -i -X POST https://maptale.io/api/webhooks/tracker/polar -H 'Content-Type: application/json' -d '{"event":"PING"}'
+```
+
+Erwartet ist **200**. Kommt 404, fehlt der Code oder die Client-Zugangsdaten; kommt 401, ist
+etwas am Ping-Pfad kaputt (er läuft absichtlich vor der Signaturprüfung — der Schlüssel dafür
+entsteht ja erst im nächsten Schritt).
 
 Polar erzeugt das Signatur-Geheimnis beim Anlegen des Webhooks und **liefert es genau einmal
 aus**. Es gibt kein „nochmal anzeigen".
@@ -65,9 +82,10 @@ Drei Dinge, die man dabei falsch macht:
   Entwicklungs-Tunnel zeigen, nicht auf beides. Für die Entwicklung ist deshalb der manuelle
   Abruf (`POST /api/tracker/polar/sync`) der vorgesehene Weg — er holt dieselben Aktivitäten
   ohne Webhook. Wer den Tunnel doch braucht, legt einen zweiten Client an.
-- **Ohne hinterlegtes Geheimnis wird jede Zustellung abgewiesen** (401), nicht durchgewunken.
-  Ein Webhook, der ohne Prüfung annimmt, wäre ein kostenloser Weg, fremde Konten mit Arbeit
-  zu belasten.
+- **Ohne hinterlegtes Geheimnis wird jede ECHTE Zustellung abgewiesen** (401), nicht
+  durchgewunken. Ein Webhook, der ohne Prüfung annimmt, wäre ein kostenloser Weg, fremde
+  Konten mit Arbeit zu belasten. Der PING ist die eine Ausnahme — er ist nicht prüfbar (der
+  Schlüssel entsteht erst als Antwort auf ihn) und löst nichts aus.
 - **Bestehendes Abo prüfen** geht mit `GET /v3/webhooks` (dieselbe Basic-Auth). Ein zweites
   anzulegen scheitert.
 

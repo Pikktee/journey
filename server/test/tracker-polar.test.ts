@@ -230,6 +230,23 @@ describe('Webhook', () => {
     ).toBe(false)
   })
 
+  it('erkennt den PING — die einzige Zustellung ohne prüfbare Signatur', () => {
+    const provider = new PolarProvider(ZUGANG)
+    const ping = JSON.stringify({ timestamp: '2026-08-10T00:00:00Z', event: 'PING' })
+    expect(provider.webhook.istPing({ rohBody: ping, kopfzeilen: {}, query: {} })).toBe(true)
+  })
+
+  it('lässt über den PING-Weg nichts durch, was Arbeit auslöst', () => {
+    const provider = new PolarProvider(ZUGANG)
+    const istPing = (nutzlast: unknown): boolean =>
+      provider.webhook.istPing({ rohBody: JSON.stringify(nutzlast), kopfzeilen: {}, query: {} })
+    // Ein „PING" mit Kennungen wäre der Versuch, an der Signatur vorbei einen
+    // Import anzustoßen — er zählt nicht als Ping und fällt in die Prüfung.
+    expect(istPing({ event: 'PING', user_id: 4711, entity_id: 'aQlC83' })).toBe(false)
+    expect(istPing({ event: 'EXERCISE', user_id: 4711, entity_id: 'aQlC83' })).toBe(false)
+    expect(istPing({ event: 'PING', entity_id: 'x' })).toBe(false)
+  })
+
   it('liest ein EXERCISE-Ereignis', () => {
     const provider = new PolarProvider(ZUGANG)
     expect(provider.webhook.parseEreignisse({ rohBody: nutzlast, kopfzeilen: {}, query: {} })).toEqual([
