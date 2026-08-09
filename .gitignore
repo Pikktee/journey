@@ -8,3 +8,9 @@ dist
 server/daten
 server/coverage
 coverage
+
+# >>> devhub
+.claude/launch.json
+.claude/launch.json.vor-devhub
+.cursor/rules/devhub.local.mdc
+# <<< devhub
