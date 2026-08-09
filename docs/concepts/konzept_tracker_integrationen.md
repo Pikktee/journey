@@ -1,7 +1,13 @@
 # Konzept: Tracker-Integrationen & Automatische Foto-Zuordnung
 
-Stand: August 2026 · Status: **Konzept, nichts gebaut** · Betrifft: `server/`, `android/`,
-`src/konto/`, später `ios/`
+Stand: August 2026 · Status: **Kern gebaut** (Etappen 0–1, 2026-08-09), Adapter offen ·
+Betrifft: `server/`, `android/`, `src/konto/`, später `ios/`
+
+Was steht: die additive Medien-Route (Etappe 0, eigenes Konzept) und der anbieterblinde Kern
+(Etappe 1) — Migration 17, Token-Verschlüsselung, Provider-Vertrag samt Registry,
+Normalisierer, TourAnleger, Importlauf, Nutzer-API und Webhook-Route. Ein erfundener Anbieter
+(`server/src/tracker/testprovider.ts`) legt darüber eine echte, spielbare Tour an; 34 Tests
+halten das fest. Was fehlt: die echten Adapter (Polar zuerst), die Kontoseite und die App.
 
 ## 1. Zielsetzung
 
@@ -665,6 +671,18 @@ android/app/src/main/java/app/maptale/tracker/   # dünn: OAuth-Start, Deep Link
 Zeile wie bei Export und Newsletter. **Sonst ändert sich an bestehenden Dateien nichts**
 außer `db.ts` (Migration), `config.ts` (Env) und `datenschutz.html`.
 
+**Beim Bauen kamen zwei Abweichungen dazu:**
+
+- **`legeTourAn` und `finalisiereTour` wurden aus den Routen in `tours.ts` herausgezogen** und
+  sind jetzt Funktionen, die Route UND TourAnleger rufen. Der Vorsatz „ruft die bestehenden
+  Pfade, dupliziert sie nicht" ließ sich sonst nicht einlösen: Die Regeln darin (Verifikation,
+  Idempotenz über `client_tour_id`, Medien-IDs, Zeit-Semantik, `private` als Vorgabe) hätten
+  sonst doppelt gepflegt werden müssen.
+- **Die Webhook-Routen liegen in einem eigenen Fastify-Plugin-Bereich.** Sie brauchen den
+  ROHEN Body für die Signaturprüfung (`JSON.parse` + `JSON.stringify` liefert nicht zwingend
+  dieselben Bytes zurück), und ein Content-Type-Parser gilt je Bereich — global gesetzt hinge
+  der rohe Body an jeder Route, auch an den mehrere MB großen Manifesten.
+
 ---
 
 ## 12. Do / Don't
@@ -695,8 +713,8 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 
 | # | Etappe | Inhalt | Ergebnis | Aufwand |
 |---|---|---|---|---|
-| 0 | **Additive Medien-Route** | `POST /api/tours/:id/medien` + endgültiges Löschen + Studio-Nachreichen ([eigenes Konzept](konzept_medien_nachreichen_und_loeschen.md)) | Eigenständiges Feature; ohne sie bleibt jede Cloud-Tour eine leere Linie | 2–3 Tage + Studio |
-| 1 | **Kern** | `vertrag.ts`, `TourAnleger`, `Importlauf`, Migration 17, Registry, Tests mit GPX-Fixture | Ein erfundener Test-Provider legt eine echte Tour an | 3–4 Tage |
+| 0 | ~~**Additive Medien-Route**~~ | `POST /api/tours/:id/medien` + endgültiges Löschen + Studio-Nachreichen ([eigenes Konzept](konzept_medien_nachreichen_und_loeschen.md)) | **fertig** (2026-08-09) | — |
+| 1 | ~~**Kern**~~ | `vertrag.ts`, `TourAnleger`, `Importlauf`, Migration 17, Registry, Tests | **fertig** (2026-08-09): Der TestProvider legt eine echte Tour an | — |
 | 2 | **Datei-Weg** | Normalisierer (FIT/TCX→GPX), Share-Intent Android, Studio-Hinweis Garmin-Export | Jede Uhr der Welt ist bedient | 2–3 Tage |
 | 3 | **Polar** | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | Erster echter Auto-Import | 3–4 Tage |
 | 4 | **Client-Naht** | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste | Bedienbar ohne curl | 3–4 Tage |

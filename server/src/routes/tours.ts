@@ -163,6 +163,149 @@ function nurOwner(app: FastifyInstance, id: string, benutzerId: string, reply: F
   return tour
 }
 
+/**
+ * Eine Tour aus einem Manifest anlegen — die eine Stelle, egal ob das Manifest
+ * aus App, Studio oder von einem Cloud-Import kommt.
+ *
+ * Als Funktion und nicht nur als Route, weil der TourAnleger der
+ * Tracker-Integration genau dies tun muss: Ein zweiter, eigener Anlege-Pfad
+ * für „Cloud-Touren" wäre der Anfang von zwei Sorten Tour — und die Regeln
+ * darin (Verifikation, Idempotenz über `client_tour_id`, Medien-IDs,
+ * Zeit-Semantik, `private` als Vorgabe) müssten dann doppelt gepflegt werden.
+ */
+export async function legeTourAn(
+  app: FastifyInstance,
+  benutzerId: string,
+  manifest: UploadManifest,
+): Promise<{ ok: true; id: string; wiederverwendet: boolean } | { ok: false; code: 400 | 403; fehler: string }> {
+  const { db, storage } = app.deps
+
+  // M9: Hochladen erst nach E-Mail-Bestätigung — bremst Wegwerf-Accounts und
+  // die daran hängenden Speicher-/Vision-Kosten. Gilt für den Cloud-Import
+  // genauso: Er IST ein Upload, nur ohne Handgriff.
+  if (!app.auth.istVerifiziert(benutzerId)) {
+    return { ok: false, code: 403, fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' }
+  }
+
+  // Idempotenz: dieselbe App-Tour erneut angelegt → vorhandene ID zurück.
+  // Eine Cloud-Tour setzt hier `polar:1234567` ein und bekommt damit die
+  // vorhandene Dedup-Sperre gegen wiederholte Webhook-Zustellungen geschenkt.
+  const clientId = manifest.clientTourId ?? null
+  if (clientId) {
+    const vorhanden = db
+      .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
+      .get(benutzerId, clientId) as { id: string } | undefined
+    if (vorhanden) return { ok: true, id: vorhanden.id, wiederverwendet: true }
+  }
+
+  // Medien-IDs müssen tour-eindeutig sein, Dateiendungen zulässig
+  const ids = new Set<string>()
+  for (const medium of manifest.media) {
+    if (ids.has(medium.id)) return { ok: false, code: 400, fehler: `Doppelte Medien-ID: ${medium.id}` }
+    ids.add(medium.id)
+    try {
+      mediumDateiname(medium)
+    } catch (fehler) {
+      return { ok: false, code: 400, fehler: (fehler as Error).message }
+    }
+  }
+
+  // Zeit-Semantik prüfen (das JSON-Schema prüft nur die Form): parsebar,
+  // start < end, gültige IANA-Zone — eine kaputte Zone würde sonst erst im
+  // Player die Intl-Formatter werfen lassen.
+  const { start, end, zone } = manifest.time
+  if (!Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(start) >= Date.parse(end)) {
+    return { ok: false, code: 400, fehler: 'Ungültige Zeitspanne (start/end)' }
+  }
+  try {
+    new Intl.DateTimeFormat('de-DE', { timeZone: zone })
+  } catch {
+    return { ok: false, code: 400, fehler: `Unbekannte Zeitzone: ${zone}` }
+  }
+
+  const id = neueTourId()
+  const jetzt = new Date().toISOString()
+  await storage.schreibe(id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
+  try {
+    // Nummer PRO BENUTZER und im selben synchronen Statement vergeben —
+    // better-sqlite3 ist synchron, damit ist die Vergabe race-frei.
+    // visibility ausdrücklich auf 'private': Eine frisch hochgeladene Tour
+    // gehört erst einmal niemandem außer ihrem Urheber — geteilt wird
+    // bewusst, nicht als Nebenwirkung des Hochladens. Der Tabellen-Default
+    // bleibt 'unlisted', damit bestehende Touren (und die Links, die
+    // jemand verschickt hat) unangetastet bleiben.
+    db.prepare(
+      `INSERT INTO tours (id, owner_id, no, status, visibility, client_tour_id, title, description, created_at, updated_at)
+       VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'angelegt', 'private', ?, ?, ?, ?, ?)`,
+    ).run(id, benutzerId, benutzerId, clientId, manifest.title ?? null, manifest.description ?? null, jetzt, jetzt)
+  } catch (fehler) {
+    // Paralleler Doppel-POST mit gleicher clientTourId: der UNIQUE-Index
+    // fängt ihn — idempotent die bereits angelegte Tour zurückgeben.
+    if (clientId && String((fehler as Error).message).includes('UNIQUE')) {
+      await storage.loescheTour(id)
+      const vorhanden = db
+        .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
+        .get(benutzerId, clientId) as { id: string } | undefined
+      if (vorhanden) return { ok: true, id: vorhanden.id, wiederverwendet: true }
+    }
+    throw fehler
+  }
+
+  return { ok: true, id, wiederverwendet: false }
+}
+
+/**
+ * Vollständigkeit prüfen und die Anreicherung anstoßen — der Kern von
+ * `POST /api/tours/:id/finalize`, ebenfalls für den TourAnleger geteilt.
+ *
+ * Der Status-Claim läuft ATOMAR und VOR jedem await: Zwei parallele Aufrufe
+ * würden die Pipeline sonst doppelt starten.
+ */
+export async function finalisiereTour(
+  app: FastifyInstance,
+  tour: TourZeile,
+): Promise<{ ok: true } | { ok: false; code: 409; fehler: string; fehlend?: string[] }> {
+  const { db, storage } = app.deps
+  const claim = db
+    .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status != 'verarbeitung'`)
+    .run(new Date().toISOString(), tour.id)
+  if (claim.changes === 0) return { ok: false, code: 409, fehler: 'Verarbeitung läuft bereits' }
+
+  const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
+  // Bei GPX-Quelle muss die Track-Datei da sein, bevor die Pipeline sie parst
+  if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PFAD))) {
+    setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
+    return { ok: false, code: 409, fehler: 'Track (GPX) fehlt', fehlend: ['track.gpx'] }
+  }
+  // Ein Medium gilt als da, wenn das Original ODER eine daraus abgeleitete
+  // Fassung liegt (mediumVorhanden): Nach dem ersten Render ist das Original
+  // verworfen, und ein wiederholtes finalize (der App-Upload versucht es bei
+  // jedem Retry) darf deshalb nicht „Medien fehlen" melden. Tombstones werden
+  // übersprungen — ein endgültig gelöschtes Medium KANN nicht mehr ankommen,
+  // als „fehlend" gemeldet blockierte es das Finalisieren für immer.
+  const fehlend: string[] = []
+  for (const medium of manifest.media) {
+    if (medium.entfernt) continue
+    if (!(await mediumVorhanden(storage, tour.id, medium))) fehlend.push(medium.id)
+  }
+  if (fehlend.length) {
+    setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
+    return { ok: false, code: 409, fehler: 'Medien fehlen', fehlend }
+  }
+
+  // Erst-Render: alle externen Schritte laufen und füllen den Anreicherungs-Cache.
+  // `erstmals` unterscheidet die allererste Verarbeitung von einem späteren
+  // reprocess (das ebenfalls frisch rendert) — nur beim ersten Mal schlägt die
+  // Pipeline ein Musikstück vor. `tour` hält noch den Status VOR dem Claim.
+  app.verarbeitungen.set(
+    tour.id,
+    verarbeite(app, tour.id, { frisch: true, erstmals: tour.status === 'angelegt' }).finally(() =>
+      app.verarbeitungen.delete(tour.id),
+    ),
+  )
+  return { ok: true }
+}
+
 export function registriereTourRouten(app: FastifyInstance): void {
   const { db, storage } = app.deps
 
@@ -173,76 +316,11 @@ export function registriereTourRouten(app: FastifyInstance): void {
     async (request, reply) => {
       const benutzer = erfordereBenutzer(request, reply)
       if (!benutzer) return
-
-      // M9: Hochladen erst nach E-Mail-Bestätigung — bremst Wegwerf-Accounts und
-      // die daran hängenden Speicher-/Vision-Kosten.
-      if (!app.auth.istVerifiziert(benutzer.id)) {
-        return reply.code(403).send({ fehler: 'Bitte bestätige zuerst deine E-Mail-Adresse' })
-      }
-
-      // Idempotenz: dieselbe App-Tour erneut angelegt → vorhandene ID zurück
-      const clientId = request.body.clientTourId ?? null
-      if (clientId) {
-        const vorhanden = db
-          .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
-          .get(benutzer.id, clientId) as { id: string } | undefined
-        if (vorhanden) return reply.code(200).send({ id: vorhanden.id, wiederverwendet: true })
-      }
-
-      // Medien-IDs müssen tour-eindeutig sein, Dateiendungen zulässig
-      const ids = new Set<string>()
-      for (const medium of request.body.media) {
-        if (ids.has(medium.id)) return reply.code(400).send({ fehler: `Doppelte Medien-ID: ${medium.id}` })
-        ids.add(medium.id)
-        try {
-          mediumDateiname(medium)
-        } catch (fehler) {
-          return reply.code(400).send({ fehler: (fehler as Error).message })
-        }
-      }
-
-      // Zeit-Semantik prüfen (das JSON-Schema prüft nur die Form): parsebar,
-      // start < end, gültige IANA-Zone — eine kaputte Zone würde sonst erst im
-      // Player die Intl-Formatter werfen lassen.
-      const { start, end, zone } = request.body.time
-      if (!Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(start) >= Date.parse(end)) {
-        return reply.code(400).send({ fehler: 'Ungültige Zeitspanne (start/end)' })
-      }
-      try {
-        new Intl.DateTimeFormat('de-DE', { timeZone: zone })
-      } catch {
-        return reply.code(400).send({ fehler: `Unbekannte Zeitzone: ${zone}` })
-      }
-
-      const id = neueTourId()
-      const jetzt = new Date().toISOString()
-      await storage.schreibe(id, MANIFEST_PFAD, JSON.stringify(request.body, null, 2))
-      try {
-        // Nummer PRO BENUTZER und im selben synchronen Statement vergeben —
-        // better-sqlite3 ist synchron, damit ist die Vergabe race-frei.
-        // visibility ausdrücklich auf 'private': Eine frisch hochgeladene Tour
-        // gehört erst einmal niemandem außer ihrem Urheber — geteilt wird
-        // bewusst, nicht als Nebenwirkung des Hochladens. Der Tabellen-Default
-        // bleibt 'unlisted', damit bestehende Touren (und die Links, die
-        // jemand verschickt hat) unangetastet bleiben.
-        db.prepare(
-          `INSERT INTO tours (id, owner_id, no, status, visibility, client_tour_id, title, description, created_at, updated_at)
-           VALUES (?, ?, (SELECT COALESCE(MAX(no), 0) + 1 FROM tours WHERE owner_id = ?), 'angelegt', 'private', ?, ?, ?, ?, ?)`,
-        ).run(id, benutzer.id, benutzer.id, clientId, request.body.title ?? null, request.body.description ?? null, jetzt, jetzt)
-      } catch (fehler) {
-        // Paralleler Doppel-POST mit gleicher clientTourId: der UNIQUE-Index
-        // fängt ihn — idempotent die bereits angelegte Tour zurückgeben.
-        if (clientId && String((fehler as Error).message).includes('UNIQUE')) {
-          await storage.loescheTour(id)
-          const vorhanden = db
-            .prepare('SELECT id FROM tours WHERE owner_id = ? AND client_tour_id = ?')
-            .get(benutzer.id, clientId) as { id: string } | undefined
-          if (vorhanden) return reply.code(200).send({ id: vorhanden.id, wiederverwendet: true })
-        }
-        throw fehler
-      }
-
-      return reply.code(201).send({ id })
+      const ergebnis = await legeTourAn(app, benutzer.id, request.body)
+      if (!ergebnis.ok) return reply.code(ergebnis.code).send({ fehler: ergebnis.fehler })
+      return ergebnis.wiederverwendet
+        ? reply.code(200).send({ id: ergebnis.id, wiederverwendet: true })
+        : reply.code(201).send({ id: ergebnis.id })
     },
   )
 
@@ -252,47 +330,12 @@ export function registriereTourRouten(app: FastifyInstance): void {
     if (!benutzer) return
     const tour = nurOwner(app, request.params.id, benutzer.id, reply)
     if (!tour) return
-
-    // Verarbeitung ATOMAR beanspruchen (synchrones UPDATE mit Status-Guard),
-    // BEVOR irgendein await läuft — zwei parallele finalize-Requests würden
-    // die Pipeline sonst doppelt starten.
-    const claim = db
-      .prepare(`UPDATE tours SET status = 'verarbeitung', updated_at = ? WHERE id = ? AND status != 'verarbeitung'`)
-      .run(new Date().toISOString(), tour.id)
-    if (claim.changes === 0) return reply.code(409).send({ fehler: 'Verarbeitung läuft bereits' })
-
-    const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
-    // Bei GPX-Quelle muss die Track-Datei da sein, bevor die Pipeline sie parst
-    if (manifest.trackFile && !(await storage.info(tour.id, TRACK_PFAD))) {
-      setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
-      return reply.code(409).send({ fehler: 'Track (GPX) fehlt', fehlend: ['track.gpx'] })
+    const ergebnis = await finalisiereTour(app, tour)
+    if (!ergebnis.ok) {
+      return reply
+        .code(ergebnis.code)
+        .send({ fehler: ergebnis.fehler, ...(ergebnis.fehlend ? { fehlend: ergebnis.fehlend } : {}) })
     }
-    // Ein Medium gilt als da, wenn das Original ODER eine daraus abgeleitete
-    // Fassung liegt (mediumVorhanden): Nach dem ersten Render ist das Original
-    // verworfen, und ein wiederholtes finalize (der App-Upload versucht es bei
-    // jedem Retry) darf deshalb nicht „Medien fehlen" melden. Tombstones werden
-    // übersprungen — ein endgültig gelöschtes Medium KANN nicht mehr ankommen,
-    // als „fehlend" gemeldet blockierte es das Finalisieren für immer.
-    const fehlend: string[] = []
-    for (const medium of manifest.media) {
-      if (medium.entfernt) continue
-      if (!(await mediumVorhanden(storage, tour.id, medium))) fehlend.push(medium.id)
-    }
-    if (fehlend.length) {
-      setzeStatus(app, tour.id, tour.status) // Claim zurückgeben
-      return reply.code(409).send({ fehler: 'Medien fehlen', fehlend })
-    }
-
-    // Erst-Render: alle externen Schritte laufen und füllen den Anreicherungs-Cache.
-    // `erstmals` unterscheidet die allererste Verarbeitung von einem späteren
-    // reprocess (das ebenfalls frisch rendert) — nur beim ersten Mal schlägt die
-    // Pipeline ein Musikstück vor. `tour` hält noch den Status VOR dem Claim.
-    app.verarbeitungen.set(
-      tour.id,
-      verarbeite(app, tour.id, { frisch: true, erstmals: tour.status === 'angelegt' }).finally(() =>
-        app.verarbeitungen.delete(tour.id),
-      ),
-    )
     return reply.code(202).send({ id: tour.id, status: 'verarbeitung' })
   })
 

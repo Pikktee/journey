@@ -366,6 +366,66 @@ const MIGRATIONEN: Migration[] = [
   CREATE UNIQUE INDEX idx_exporte_laufend ON exporte(benutzer_id) WHERE status = 'laeuft';
   CREATE INDEX idx_exporte_benutzer ON exporte(benutzer_id, angefordert_am);
   `,
+
+  // Tracker-Integrationen: GPS-Tracks aus Sport-Uhren (Polar zuerst) landen
+  // ohne Handgriff als spielbare Tour im Konto.
+  // Konzept: docs/concepts/konzept_tracker_integrationen.md, Abschnitt 6.
+  //
+  // Drei Dinge, die man beim Vereinfachen verliert:
+  //
+  // `externer_nutzer` ist der EINZIGE Zuordnungsweg vom Webhook zum Konto —
+  // der Anbieter schickt seine eigene Nutzerkennung, nicht unsere. Fehlt das
+  // Feld, ist die Zustellung unzustellbar; fehlt der Index, wird aus jeder
+  // Zustellung ein Tabellen-Scan. Er ist partiell, weil die Kennung erst nach
+  // dem Token-Tausch feststeht (bei Polar sogar erst nach `POST /v3/users`):
+  // Ohne `WHERE … IS NOT NULL` kollidierten alle noch unfertigen
+  // Verknüpfungen auf NULL.
+  //
+  // `uebersprungen` ist ein eigener Status und kein Fehler: Aktivitäten ohne
+  // GPS (Hallentraining, Krafteinheit) melden Anbieter genauso. Als Fehler
+  // geführt, stünde die Fehlerliste eines Vielsportlers dauerhaft voll.
+  //
+  // `gesehen_am` gehört auf den SERVER und nicht als „gelesen"-Flag in den
+  // Client: Zwei Geräte am selben Konto sollen dieselbe Tour nicht doppelt
+  // melden.
+  //
+  // Der UNIQUE-Index auf (benutzer, anbieter, externe_id) ist der zweite
+  // Dedup-Riegel — der erste ist `tours.client_tour_id`, den eine Cloud-Tour
+  // als `polar:1234567` belegt. Webhooks werden bei Zustellzweifeln wiederholt
+  // (Wahoo staffelt bis 72 h), und zwei parallele Zustellungen sehen zwischen
+  // „gibt's schon?" und dem INSERT dasselbe.
+  `
+  CREATE TABLE tracker_verknuepfungen (
+    id TEXT PRIMARY KEY,
+    benutzer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    anbieter TEXT NOT NULL,
+    externer_nutzer TEXT,
+    tokens TEXT NOT NULL,
+    laeuft_ab_am TEXT,
+    status TEXT NOT NULL CHECK (status IN ('aktiv','abgelaufen','getrennt')),
+    verbunden_am TEXT NOT NULL,
+    zuletzt_sync_am TEXT,
+    letzter_fehler TEXT
+  );
+  CREATE UNIQUE INDEX idx_tracker_konto ON tracker_verknuepfungen(benutzer_id, anbieter);
+  CREATE UNIQUE INDEX idx_tracker_extern ON tracker_verknuepfungen(anbieter, externer_nutzer)
+    WHERE externer_nutzer IS NOT NULL;
+
+  CREATE TABLE tracker_importe (
+    id TEXT PRIMARY KEY,
+    benutzer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    anbieter TEXT NOT NULL,
+    externe_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('wartet','laeuft','fertig','fehler','uebersprungen')),
+    tour_id TEXT REFERENCES tours(id) ON DELETE SET NULL,
+    gemeldet_am TEXT NOT NULL,
+    fertig_am TEXT,
+    gesehen_am TEXT,
+    fehler TEXT
+  );
+  CREATE UNIQUE INDEX idx_importe_dedup ON tracker_importe(benutzer_id, anbieter, externe_id);
+  CREATE INDEX idx_importe_offen ON tracker_importe(benutzer_id, status);
+  `,
 ]
 
 /**

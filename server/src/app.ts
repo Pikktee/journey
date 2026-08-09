@@ -29,6 +29,11 @@ import { registriereExportRouten } from './routes/export.js'
 import { registriereSeitenRouten } from './routes/seiten.js'
 import { registriereTourRouten } from './routes/tours.js'
 import { registriereWartelistenRouten } from './routes/warteliste.js'
+import { registriereTrackerRouten } from './routes/tracker.js'
+import { registriereTrackerWebhookRouten } from './routes/tracker-webhooks.js'
+import { Registry } from './tracker/registry.js'
+import { TrackerDienst } from './tracker/tracker.js'
+import type { TrackerProvider } from './tracker/vertrag.js'
 import { Protokoll, protokollZiel } from './protokoll.js'
 import { ExportDienst } from './export.js'
 import { SeitenQuelle } from './seiten.js'
@@ -82,6 +87,13 @@ export interface AppAbhaengigkeiten {
    * festem HTML herein und kommen ohne Netz aus.
    */
   seiten?: SeitenQuelle
+  /**
+   * Die Tracker-Anbieter (Polar, Wahoo, …) — injiziert wie `geocoder` und
+   * `wetter`: Produktion reicht die echten Adapter herein, Tests einen
+   * erfundenen mit festen Antworten. Ohne Eintrag gibt es keine Anbieter, und
+   * die Routen antworten mit einer leeren Liste statt zu fehlen.
+   */
+  trackerProvider?: TrackerProvider[]
 }
 
 // Fastify-Typen um unsere Dekorationen erweitern
@@ -103,6 +115,12 @@ declare module 'fastify' {
     seiten: SeitenQuelle
     /** Datenexport: Auftragsverwaltung, Fristen, Aufräumen (Art. 20 DSGVO). */
     exporte: ExportDienst
+    /** Cloud-Verknüpfungen zu Sport-Trackern: Tokens, Importe, Zuordnung. */
+    tracker: TrackerDienst
+    /** Welche Tracker-Anbieter es gibt und welche davon konfiguriert sind. */
+    trackerRegistry: Registry
+    /** Laufende Tracker-Importe — Tests warten gezielt darauf, statt zu pollen. */
+    trackerLaeufe: Map<string, Promise<unknown>>
   }
   interface FastifyRequest {
     benutzer: Benutzer | null
@@ -136,6 +154,9 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('protokoll', protokoll)
   app.decorate('seiten', deps.seiten ?? new SeitenQuelle(deps.konfig))
   app.decorate('exporte', new ExportDienst(deps.db, deps.archive))
+  app.decorate('tracker', new TrackerDienst(deps.db, deps.konfig.trackerSchluessel))
+  app.decorate('trackerRegistry', new Registry(deps.trackerProvider ?? []))
+  app.decorate('trackerLaeufe', new Map())
   app.decorateRequest('benutzer', null)
 
   app.register(fastifyCookie, { secret: deps.konfig.cookieSecret })
@@ -184,6 +205,11 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereNewsletterRouten(app)
   registriereSeitenRouten(app)
   registriereExportRouten(app)
+  registriereTrackerRouten(app)
+  // Als eigener Plugin-Bereich registriert: Die Webhook-Routen brauchen den
+  // ROHEN Body für die Signaturprüfung, und ein Content-Type-Parser gilt in
+  // Fastify je Bereich — global gesetzt läge der rohe Body an jeder Route.
+  app.register(registriereTrackerWebhookRouten)
 
   app.get('/api/gesundheit', async () => ({ ok: true }))
 

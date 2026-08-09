@@ -14,6 +14,7 @@ import type { SchienenQuelle } from '../src/pipeline/schienen.js'
 import type { BildKlassifikator } from '../src/pipeline/vision.js'
 import type { WetterQuelle } from '../src/pipeline/weather.js'
 import { SeitenQuelle } from '../src/seiten.js'
+import type { TrackerProvider } from '../src/tracker/vertrag.js'
 import { MemStorage } from '../src/storage.js'
 import type { UploadManifest } from '../src/schema/upload.js'
 
@@ -53,6 +54,12 @@ export const TEST_KONFIG: Konfig = {
   // Ohne Passwort läuft im Test nie ein `docker exec` — die Statistik-Route
   // antwortet mit ihrem leeren Ergebnis.
   umamiDbPasswort: null,
+  // Fester Schlüssel statt null: Die Tracker-Tests brauchen verschlüsselbare
+  // Tokens, und ein zufälliger Wert je Lauf machte gespeicherte Fixtures
+  // unlesbar. Echte Anbieter bleiben trotzdem aus — dafür fehlen die
+  // Client-IDs, und die Registry meldet sie als „nicht verfügbar".
+  trackerSchluessel: 'test-tracker-schluessel',
+  polar: { clientId: null, clientSecret: null, webhookGeheimnis: null },
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
@@ -101,6 +108,10 @@ export async function baueTestApp(
   // den Fassungen geben ein FakeBildWerkzeug herein (Spiegelbild des
   // FfmpegBildWerkzeug in index.ts)
   bildWerkzeug: BildWerkzeug | null = null,
+  // Default leer: keine Tracker-Anbieter — die Routen antworten mit einer
+  // leeren Liste. Tracker-Tests geben einen TestProvider herein (Spiegelbild
+  // der echten Adapter in index.ts).
+  trackerProvider: TrackerProvider[] = [],
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
@@ -119,6 +130,7 @@ export async function baueTestApp(
     bildWerkzeug,
     bildKlassifikator,
     schienen,
+    trackerProvider,
     mail,
     // Ohne Netz: Der Server holt die gebaute Seite sonst über konfig.webUrl.
     seiten: new SeitenQuelle({ webUrl: 'https://maptale.test' }, async (url) =>

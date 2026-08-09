@@ -68,6 +68,26 @@ export interface Konfig {
    * mitläuft.
    */
   umamiDbPasswort: string | null
+  /**
+   * Schlüssel für die OAuth-Tokens der Tracker-Anbieter (AES-256-GCM).
+   *
+   * Bewusst EIGENE Variable und nicht aus `cookieSecret` abgeleitet: Ein
+   * Cookie-Geheimnis rotiert man beiläufig (alle Sitzungen weg, halb so
+   * schlimm) — mit demselben Handgriff wären dann alle Verknüpfungen tot und
+   * müssten neu autorisiert werden. Fehlt der Schlüssel, sind alle
+   * OAuth-Anbieter „nicht konfiguriert"; Klartext als Rückfall gibt es nicht.
+   */
+  trackerSchluessel: string | null
+  /** Zugangsdaten je Tracker-Anbieter; fehlen sie, ist der Anbieter aus (nicht kaputt). */
+  polar: AnbieterZugang
+}
+
+/** Client-ID/-Secret plus Webhook-Geheimnis eines OAuth-Anbieters. */
+export interface AnbieterZugang {
+  clientId: string | null
+  clientSecret: string | null
+  /** Signatur-Schlüssel des Webhooks; bei Polar die Antwort auf `POST /v3/webhooks`. */
+  webhookGeheimnis: string | null
 }
 
 // Docker-Compose reicht Variablen als ${VAR:-} durch — nicht gesetzte werden zu
@@ -79,6 +99,8 @@ const zahl = (wert: string | undefined, standard: number): number => {
   const n = Number(wert)
   return wert && wert.trim() && Number.isFinite(n) ? n : standard
 }
+/** Geheimnis aus der Umgebung: leer (docker-compose `${VAR:-}`) zählt wie nicht gesetzt. */
+const geheim = (wert: string | undefined): string | null => (wert?.trim() ? wert.trim() : null)
 /** Kommagetrennte Adressliste, normalisiert wie in der users-Tabelle (lowercase). */
 const adressen = (wert: string | undefined, standard: string): string[] =>
   text(wert, standard)
@@ -106,5 +128,11 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
     openRouterKey: env.OPEN_ROUTER_KEY?.trim() ? env.OPEN_ROUTER_KEY.trim() : null,
     visionModell: text(env.MAPTALE_VISION_MODELL, VISION_MODELL_DEFAULT),
     umamiDbPasswort: env.MAPTALE_UMAMI_DB_PASSWORT?.trim() ? env.MAPTALE_UMAMI_DB_PASSWORT.trim() : null,
+    trackerSchluessel: geheim(env.MAPTALE_TRACKER_SCHLUESSEL),
+    polar: {
+      clientId: geheim(env.MAPTALE_POLAR_CLIENT_ID),
+      clientSecret: geheim(env.MAPTALE_POLAR_CLIENT_SECRET),
+      webhookGeheimnis: geheim(env.MAPTALE_POLAR_WEBHOOK_SECRET),
+    },
   }
 }

@@ -119,6 +119,57 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concept
    alten Auslieferungspfad.
 
 
+## Tracker-Integrationen (Cloud-Importe)
+
+Der anbieterblinde Kern in [server/src/tracker/](server/src/tracker/): Ein GPS-Track aus einer
+Sport-Uhr landet ohne Handgriff als spielbare Tour im Konto. Gebaut sind Vertrag, Registry,
+Krypto, Normalisierer, TourAnleger, Importlauf und die Routen; die echten Adapter (Polar
+zuerst) fehlen noch. Konzept: [docs/concepts/konzept_tracker_integrationen.md](docs/concepts/konzept_tracker_integrationen.md).
+
+**Eine Cloud-Tour ist keine eigene Sorte Tour.** `touranleger.ts` ruft `legeTourAn` und
+`finalisiereTour` aus [routes/tours.ts](server/src/routes/tours.ts) — dieselben Funktionen wie
+die Upload-Route. Beide wurden genau dafür aus den Routen herausgezogen: Ein zweiter
+Anlege-Pfad hätte Verifikation, Idempotenz, Medien-IDs, Zeit-Semantik und die
+`private`-Vorgabe ein zweites Mal geführt, und der Player hätte einen Sonderfall bekommen.
+
+**Der Dedup-Riegel liegt in der DATENBANK, nicht im Code.** Eine Cloud-Tour belegt
+`client_tour_id = 'polar:1234567'` und erbt damit die vorhandene `UNIQUE(owner_id,
+client_tour_id)`-Sperre der App. Daneben hat `tracker_importe` einen eigenen UNIQUE-Index —
+keiner davon ist der einzige, weil sie verschiedene Wege abdecken: der eine die wiederholte
+Zustellung (Wahoo staffelt bis 72 h), der andere den parallelen Anlege-Versuch.
+
+**Der Webhook antwortet SOFORT und arbeitet danach** (`app.trackerLaeufe`, Muster wie
+`app.verarbeitungen`): Strava verlangt eine Antwort in unter zwei Sekunden, ein Download plus
+Pipeline schafft das nie. Er läuft **vor jeder Anmeldeprüfung** — seine Autorität ist die
+Signatur, sein einziger Schreibzugriff geht über `externer_nutzer`. Verifikation kommt VOR
+jedem Datenbankzugriff (sonst wäre schon das Protokoll ein Ziel für Müll von außen), und eine
+Zustellung für ein unbekanntes Konto wird STILL verworfen — eine Fehlermeldung wäre eine
+Auskunft darüber, welche Anbieter-Konten bei uns liegen.
+
+**`uebersprungen` ist kein Fehler.** Aktivität ohne GPS, zu kurz (< 1 km UND < 10 min) oder
+Speicher voll: Das sind normale Ereignisse, keine Störungen. Als Fehler geführt stünde die
+Liste eines Vielsportlers dauerhaft rot, und die eine echte Störung ginge darin unter.
+Umgekehrt gilt: Eine tote Verknüpfung wird SICHTBAR tot (`abgelaufen` samt Grund) — der Nutzer
+wartet sonst auf Touren, die nie kommen.
+
+**Token-Erneuerung ausschließlich im Kern** (`gueltigeTokens`): Wahoo gibt Refresh-Tokens
+einmalig aus, wer den neuen nicht speichert, hat die Verknüpfung verloren. Eine falsche
+Stelle, ein zerstörter Zustand. Beim Erneuern wird die Anbieter-Nutzerkennung
+weitergetragen — sie kommt oft nicht mit, und auf `null` gesetzt kappte sie den
+Zuordnungsweg des Webhooks. Die Tokens liegen AES-256-GCM-verschlüsselt
+([krypto.ts](server/src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SCHLUESSEL`);
+fehlt der Schlüssel, sind alle Anbieter aus — Klartext als Rückfall gibt es nicht.
+
+**Der `state` ist Pflicht, einmalig und liegt im Speicher.** Ohne ihn ließe sich einem
+Angemeldeten ein FREMDES Anbieter-Konto unterschieben (OAuth-CSRF), und ab da liefen fremde
+Touren in sein Konto. Keine Tabelle: Er lebt Minuten, und einen Neustart soll er nicht
+überleben.
+
+**Getestet wird gegen einen erfundenen Anbieter**
+([testprovider.ts](server/src/tracker/testprovider.ts)) — dasselbe Muster wie `FesterGeocoder`
+und `FesteWetterQuelle`. Er liegt in `src/` und nicht in `test/`, weil er beweist, dass der
+Vertrag ohne Netz erfüllbar ist, und weil sich der erste echte Adapter an ihm misst.
+
 ## Konten, Registrierung, Warteliste
 
 **Es gibt zwei Rollen** (`users.rolle`), keine Rechtematrix: wer verwalten darf und wer seine
