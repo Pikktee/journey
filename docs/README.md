@@ -22,6 +22,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`deploy-cloudpanel.md`](ops/deploy-cloudpanel.md) — VPS-Deployment mit Hetzner & CloudPanel.
 * [`android-release.md`](ops/android-release.md) — Bauen, Signieren und Veröffentlichen der Android-APK.
 * [`polar-einrichten.md`](ops/polar-einrichten.md) — Polar AccessLink: Client, Token-Schlüssel, Webhook-Registrierung (das Geheimnis gibt es nur einmal).
+* [`push-einrichten.md`](ops/push-einrichten.md) — Firebase-Projekt, `google-services.json` und Dienstkonto für die Push-Meldung „deine Tour ist fertig".
 
 ### 2. `specs/` (Spezifikationen)
 * [`austauschformat.md`](specs/austauschformat.md) — `.maptale`-Export/Import-Format und `tour.json`.

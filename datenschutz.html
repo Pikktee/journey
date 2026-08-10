@@ -228,6 +228,13 @@
             Bestätigung beim Anbieter und endet mit dem Trennen.
           </li>
           <li>
+            <strong>Benachrichtigungen der App</strong>, deine Einwilligung, Art. 6 Abs. 1
+            lit. a DSGVO — erteilt mit der Erlaubnis für Benachrichtigungen, jederzeit in den
+            Android-Einstellungen widerrufbar. Über diesen Weg geht ausschließlich, was zu
+            deinen eigenen Touren gehört; Werbung bräuchte eine eigene Einwilligung. Näheres in
+            Abschnitt 7.
+          </li>
+          <li>
             <strong>Zugriffsprotokolle, Rate-Limits, Einladungspflicht</strong>, berechtigtes
             Interesse an einem sicheren, missbrauchsfreien Betrieb, Art. 6 Abs. 1 lit. f DSGVO.
           </li>
@@ -368,6 +375,58 @@
           mit denselben Daten, derselben Rechtsgrundlage und demselben Widerspruchsrecht. Das
           Aufzeichnen, Verwalten und Hochladen von Touren wird nicht gemessen.
         </p>
+        <h3>Fotos zu einer Tour aus einem verbundenen Tracker</h3>
+        <p>
+          Kommt eine Tour aus einer verbundenen Sport-Uhr, hat sie nur die Strecke — die Fotos
+          liegen auf deinem Telefon. Die App kann sie ergänzen und sieht dafür in deiner
+          Galerie nach. <strong>Gelesen wird ausschließlich im Zeitraum der Tour</strong>
+          (zuzüglich zwei Stunden, weil Fotos ihre Zeitzone oft nicht mitschreiben) und
+          <strong>nur in Kamera-Ordnern</strong> — Screenshots, Downloads und Bilder aus
+          Messenger-Apps bleiben außen vor.
+        </p>
+        <p>
+          <strong>Nichts davon geschieht ohne dich.</strong> Der Zugriff braucht die
+          Android-Berechtigung für Bilder, und darüber hinaus entweder deine Zustimmung im
+          Einzelfall („3 Fotos aus dieser Zeit gefunden — hinzufügen?") oder den Schalter
+          „Fotos automatisch ergänzen" in deinem Profil. Dieser Schalter ist standardmäßig
+          aus, gilt nur für das Gerät, auf dem du ihn setzt, und lässt sich jederzeit wieder
+          abschalten. Hochgeladen wird ausschließlich, was du bestätigt hast bzw. was in den
+          Zeitraum fällt; ein hinzugefügtes Foto kannst du in der Tour endgültig löschen —
+          Bild und alle daraus erzeugten Fassungen sind dann weg.
+        </p>
+        <p>
+          Enthält ein Foto GPS-Angaben, verwenden wir sie, um es an der richtigen Stelle der
+          Strecke zu zeigen. Android gibt den Ort nur mit einer eigenen Berechtigung heraus;
+          ohne sie ordnen wir das Bild über seine Aufnahmezeit zu.
+        </p>
+
+        <h3>Benachrichtigungen (Push)</h3>
+        <p>
+          Damit du erfährst, wenn eine Tour aus einem verbundenen Sport-Tracker angekommen ist,
+          kann die App eine Benachrichtigung anzeigen. Zugestellt wird sie über
+          <strong>Firebase Cloud Messaging</strong> von Google. Dazu erhält dein Gerät von Google
+          eine <strong>Installations-Kennung</strong>, die wir zusammen mit deinem Konto
+          speichern — sie ist die Adresse, an die eine Meldung geht.
+        </p>
+        <p>
+          Die Nachricht selbst enthält <strong>keine Inhalte</strong>: Sie besteht aus dem Anlass
+          („eine Tour ist fertig") und der Kennung der Tour. Titel, Ort und Bilder holt die App
+          anschließend direkt bei uns. Auf dem Weg über Google liegt damit nichts, was verrät, wo
+          du unterwegs warst.
+        </p>
+        <p>
+          <strong>Die Übertragung beginnt erst mit deiner Zustimmung.</strong> Solange du die
+          Benachrichtigung nicht erlaubt hast, meldet die App nichts an Google — die
+          entsprechende Firebase-Funktion ist ausgeschaltet, bis du zustimmst. Du kannst die
+          Erlaubnis jederzeit in den Android-Einstellungen zurücknehmen; beim Abmelden und beim
+          Löschen deines Kontos wird die Kennung entfernt. Ohne Push bleibt die App
+          funktionsfähig: Sie fragt dann in Abständen selbst nach, ob etwas angekommen ist.
+        </p>
+        <p>
+          Über diesen Weg gehen ausschließlich Meldungen zu deinen eigenen Touren — keine
+          Werbung, keine Produktneuigkeiten. Dafür gäbe es den Newsletter, und der verlangt eine
+          eigene Einwilligung.
+        </p>
 
         <h2 id="cookies">8. Cookies und lokale Speicherung</h2>
         <p>Wir setzen zwei technisch notwendige Cookies, beide ohne Analyse- oder Werbezweck:</p>
@@ -417,6 +476,13 @@
             OpenStreetMap-Foundation, Open-Meteo, Google (Schriften), siehe Abschnitte 4 und 6.
           </li>
           <li>
+            <strong>Benachrichtigungen der App:</strong> Google Ireland Ltd., Gordon House, Barrow
+            Street, Dublin 4, Irland (Firebase Cloud Messaging), verarbeitet auch in den USA.
+            Übermittelt werden die Installations-Kennung deines Geräts, dessen IP-Adresse und der
+            Anlass der Meldung — nicht ihr Inhalt. Nur, wenn du Benachrichtigungen erlaubt hast.
+            Siehe Abschnitt 7.
+          </li>
+          <li>
             <strong>Verbundene Sport-Tracker:</strong> Polar Electro Oy, Professorintie 5, 90440
             Kempele, Finnland — und nur, wenn du die Verbindung selbst herstellst. Der Anbieter
             sitzt in der EU, eine Übermittlung in ein Drittland findet dabei nicht statt. Wir
@@ -453,6 +519,12 @@
             <strong>Verbundene Sport-Tracker:</strong> Zugangs-Token, Anbieter-Kennung und das
             Abruf-Protokoll (welche Aufzeichnung wann geholt wurde) bis zum Trennen — dann sofort
             gelöscht, ebenso mit dem Konto. Die daraus entstandenen Touren bleiben dir erhalten.
+          </li>
+          <li>
+            <strong>Benachrichtigungs-Kennung des Geräts:</strong> bis du dich abmeldest, die
+            Erlaubnis zurücknimmst oder das Gerät in den Kontoeinstellungen abmeldest — dann
+            sofort gelöscht, ebenso mit dem Konto. Meldet Google die Kennung als ungültig (App
+            deinstalliert), löschen wir sie beim nächsten Versand.
           </li>
           <li>
             <strong>Bestätigungs- und Reset-Links:</strong> nur bis zum Ablauf bzw. zur Einlösung.

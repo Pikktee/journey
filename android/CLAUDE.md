@@ -65,10 +65,13 @@ geglaubt** — die App fragt den Server nach dem tatsächlichen Zustand; was zä
 Und ein **eigenes Schema statt eines https-App-Links**, weil letzterer eine `assetlinks.json`
 auf der Domain bräuchte: Die Adresse ist kein Ort im Web, sondern ein Rückruf.
 
-**`TrackerAbfrageWorker` ist der Rückfall, nicht der Hauptweg** (Push ist Etappe 6). Er fängt
-drei Fälle, die Push nie abdeckt: Geräte ohne Play Services, von der Herstellersoftware
-verschluckte Nachrichten, und die Zeit zwischen „Konto verknüpft" und „Push-Token
-registriert". `ExistingPeriodicWorkPolicy.KEEP` — mit `UPDATE` setzte jeder App-Start das
+**Der Weg von neuen Cloud-Touren ist Push, der Rückfall ist der `TrackerAbfrageWorker`** —
+und beide enden in derselben Funktion (`tracker/Importmeldung.kt`). Getrennt geschrieben
+liefen die Fassungen auseinander, und der Unterschied fiele erst auf einem Gerät auf, auf
+dem genau der andere Weg greift. Der periodische Lauf bleibt, weil er drei Fälle fängt, die
+Push nie abdeckt: Geräte ohne Play Services, von der Herstellersoftware verschluckte
+Nachrichten, und die Zeit zwischen „Konto verknüpft" und „Adresse registriert".
+`ExistingPeriodicWorkPolicy.KEEP` — mit `UPDATE` setzte jeder App-Start das
 15-Minuten-Intervall zurück und die Abfrage liefe nie. Gemeldet werden **nur FERTIGE**
 Importe: Eine übersprungene Halleneinheit ist kein Ereignis für den Sperrbildschirm, und ein
 Fehler, den niemand beheben kann, ist dort Lärm — beides steht in der Liste im Konto. **Geholt
@@ -80,6 +83,66 @@ Meldung. Ein Import, für den die Berechtigung fehlt, bleibt offen und kommt wie
 Benachrichtigungs-Kanal (`KANAL_IMPORTE`), damit das Stummschalten der dauerhaften
 Aufzeichnungs-Meldung nicht auch „deine Tour ist da" verschluckt. Beim Abmelden wird der Lauf
 beendet.
+
+**Push hält die App dünn** (`push/`): Sie meldet sich bei FCM an und gibt ihre Adresse dem
+EIGENEN Server — mehr nicht. Was gemeldet wird, holt sie über dieselben Routen wie der
+periodische Abruf; die Nachricht selbst trägt nur einen Anlass. Fünf Dinge, die man dabei
+kippt: **Die Adresse ist die FID, nicht der Registrierungs-Token** — FCM hat ihn mit SDK
+25.1.0 (Juni 2026) abgelöst, an die Stelle von `getToken`/`deleteToken`/`onNewToken` treten
+`register()`/`unregister()`/`onRegistered()`; wer eine Anleitung von früher befolgt, baut
+gegen ein abgekündigtes Feld. **Auto-Init ist AUS** (`firebase_messaging_auto_init_enabled`
+im Manifest), denn `firebase-installations` meldet sonst schon beim App-Start eine Kennung
+an Google — vor jeder Zustimmung; eingeschaltet wird sie erst in `MaptalePush.aktiviere`.
+**Die Berechtigungsabfrage IST der Zustimmungsmoment**, und sie steht am Rückweg des
+Verknüpfens: Vorher gäbe es nichts zu melden, und ein Systemdialog beim Start ist der, den
+man wegtippt. Beim App-Start wird nur NACHGEZOGEN, wenn die Erlaubnis schon steht — sonst
+bekäme eine Neuinstallation nie eine Adresse. **Abgemeldet wird VOR dem Abmelden vom Konto**,
+sonst gibt es kein Token mehr, mit dem sich das dem Server sagen ließe. Und **`google-services.json`
+ist optional**: Das Plugin wird nur angewandt, wenn die Datei da ist (sie ist ein Schlüssel und
+gitignored, in der CI ein Secret) — fest angewandt könnte niemand mehr bauen, der sie nicht
+hat, auch die Release-APK nicht. Ohne sie läuft die App vollständig, nur ohne Push.
+Einrichtung: [docs/ops/push-einrichten.md](../docs/ops/push-einrichten.md).
+
+**Der Foto-Nachzug ist der eigentliche Produktwert der Tracker-Anbindung**
+(`galerie/`): Der Track kommt aus der Uhr, die Fotos kann nur das Gerät beisteuern. Die
+rechnenden Teile stehen DOM-frei und getestet in `Fotofenster.kt`, die MediaStore-Abfrage in
+`Galerie.kt`, der Weg zum Server in `Fotonachzug.kt`. Sechs Dinge, die man dabei kippt:
+**Gelesen wird NUR im Zeitfenster einer Tour** — es gibt bewusst keine Funktion, die „alle
+Bilder" liefert; das ist die Zusage aus der Datenschutzerklärung, nicht Sparsamkeit im Code.
+**±2 Stunden Toleranz sind Zeitzonen-Vorsorge, kein Puffer**: EXIF trägt oft keine Zone,
+Tracks tragen UTC — wer sie großzügiger macht, holt die Fotos des Abendessens mit herein.
+**Positiv- UND Negativliste beim Ordner**: Nur die Sperrliste ließe jede künftige Foto-App
+durch, nur die Positivliste verlöre Hersteller mit eigenem Kamera-Ordner; ohne beides landet
+der Screenshot aus der Pause in der Reise. **`DATE_TAKEN`, nicht `DATE_ADDED`** — wer sein
+Handy nach der Tour an den Rechner hängt, hätte sonst ein Hinzufügedatum von heute.
+**MediaStore liefert seit Android 10 IMMER 0 als Koordinate**; der Ort steckt nur im EXIF des
+Originals (`MediaStore.setRequireOriginal` + `ACCESS_MEDIA_LOCATION`) und wird erst BEIM
+HOCHLADEN gelesen — ein Dateizugriff je Bild, und die meisten Vorschläge werden nie
+hochgeladen. Ohne ihn platziert der Server über die Zeit, und das ist der Normalfall. Und
+**nach dem Hochladen muss `reprocess` laufen**, sonst liegen die Bilder in der Ablage und
+nicht im Film — sein Fehlschlag ist aber kein Drama, s. unten.
+
+**Gegen doppelte Fotos stehen ZWEI Riegel, und sie decken verschiedene Wege.** Der eine liegt
+beim Server: Jeder Eintrag trägt eine `quelle` (`galerie:<MediaStore-ID>`), und was darunter
+schon im Manifest steht, wird kein zweites Mal angelegt. Das ist nötig, weil der Dedup über
+`tourDetail` allein NICHT trägt — der liest das gerenderte `tour.json`, und das kennt
+nachgereichte Bilder erst nach `reprocess`; scheitert der, schlüge der nächste Lauf dieselben
+Fotos wieder vor. Der andere ist `nachzugSperre`, ein prozessweiter Mutex: `meldeOffeneImporte`
+läuft aus zwei Richtungen (Push-Dienst und `TrackerAbfrageWorker`), und zwei gleichzeitige
+`POST …/medien` sehen dasselbe Manifest — der Server-Riegel greift erst, wenn der erste
+GESCHRIEBEN hat. Dazu die Längenprüfung vor dem `zip`: Ein stilles Abschneiden lüde Bild B
+unter der ID von A hoch.
+
+**Die Einwilligung lebt in der APP, nicht auf dem Server** (`Konto.fotosAutomatisch`): Die
+Galerie liegt auf dem Gerät, und bei zwei Geräten am selben Konto soll nur das mit den Fotos
+hochladen. Sie ist Vorgabe AUS und überlebt das Abmelden nicht — wer sich abmeldet, hat dem
+nächsten Konto auf diesem Gerät nichts erlaubt. Der Schalter im Profil fragt beim
+EINSCHALTEN nach dem Leserecht und bleibt aus, wenn es verweigert wird: ein „an", hinter dem
+nichts passieren kann, wäre die schlechtere Auskunft. Mit Einwilligung lädt der Meldungspfad
+(`Importmeldung.kt`) hoch, BEVOR er meldet — dann steht in der Benachrichtigung, was wirklich
+geschehen ist, statt einer zweiten, die nachklappert. Ohne sie wartet in der Tour selbst eine
+FRAGE (`ServerTourScreen`), und die Screen-Suche läuft genau dann nicht, wenn die Automatik
+an ist: Sonst böte sie an, was längst geschehen ist.
 
 **Video wird stabilisiert, Foto nicht** (`kamera/Stabilisierung.kt`, gebunden in
 `KameraScreen.kt`). CameraX schaltet von sich aus **nichts** ein: `VideoCapture.withOutput(…)`

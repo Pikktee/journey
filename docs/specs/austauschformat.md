@@ -54,6 +54,10 @@ Grundprinzipien:
   als 4. Koordinate trägt die nichtlineare Pseudo-Zeit (M2) und die
   Zeit-Platzierung von Medien.
 - `mode`: `walk | bike | moped | jeep | tram | ferry` (Tempo + Kameradistanz im Player).
+- `media[].quelle` (optional, nur beim Nachreichen): Herkunfts-Schlüssel des Clients,
+  z. B. `galerie:4711`. Er macht `POST /api/tours/:id/medien` idempotent — derselbe
+  Schlüssel legt keinen zweiten Eintrag an. Der Foto-Nachzug der App setzt ihn, das
+  Studio nicht (s. [konzept_medien_nachreichen_und_loeschen.md](../concepts/konzept_medien_nachreichen_und_loeschen.md)).
   Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
   Engine (`MODE_SPEED`/`MODE_SCALE` in `src/tour.js`); Motorgeräusche gibt es für
   `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.js`).

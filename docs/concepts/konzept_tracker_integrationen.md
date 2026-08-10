@@ -1,16 +1,25 @@
 # Konzept: Tracker-Integrationen & Automatische Foto-Zuordnung
 
-Stand: August 2026 · Status: **Web-Weg fertig und live** (Etappen 0–4, 2026-08-10) ·
+Stand: August 2026 · Status: **Etappen 0–6 gebaut**, Polar live (2026-08-10) ·
 Betrifft: `server/`, `android/`, `src/konto/`, später `ios/`
 
 Was steht: die additive Medien-Route (Etappe 0, eigenes Konzept), der anbieterblinde Kern
-(Etappe 1), der **Polar-Adapter** (Etappe 3) und die Kontoseite „Verbundene Dienste"
-(Etappe 4) samt Datenschutz-Absatz. Der Webhook ist bei Polar registriert und in Produktion
-verifiziert: richtig signiert → 200, gefälscht → 401, PING → 200. Damit kann jemand sein
-Polar-Konto verbinden und bekommt neue Aufzeichnungen ohne Handgriff als Tour.
+(Etappe 1), der **Polar-Adapter** (Etappe 3), die Kontoseite „Verbundene Dienste"
+(Etappe 4) samt Datenschutz-Absatz, die App-Naht (Etappe 5) und **Push** (Etappe 6). Der
+Webhook ist bei Polar registriert und in Produktion verifiziert: richtig signiert → 200,
+gefälscht → 401, PING → 200. Damit kann jemand sein Polar-Konto verbinden und bekommt neue
+Aufzeichnungen ohne Handgriff als Tour.
 
-Was fehlt: die App-Naht (Etappe 5), Push (6) und der Foto-Nachzug (7) — sowie die weiteren
-Anbieter. Bis dahin ist der Weg vollständig, aber nur am Rechner bedienbar.
+Push ist gebaut, aber noch nicht scharf: Es fehlt das Firebase-Projekt samt Dienstkonto —
+ein Handgriff in der Konsole, kein Code ([docs/ops/push-einrichten.md](../ops/push-einrichten.md)).
+Solange es fehlt, ist das Feature AUS und nicht kaputt; die App bleibt bei ihrem
+periodischen Abruf.
+
+Auch der **Foto-Nachzug** (Etappe 7) steht: Die App sieht im Zeitfenster einer Cloud-Tour in
+der Galerie nach und ergänzt die Bilder — automatisch bei stehender Einwilligung, sonst auf
+Nachfrage in der Tour.
+
+Was fehlt: die weiteren Anbieter (Etappen 8 ff.).
 
 ## 1. Zielsetzung
 
@@ -553,6 +562,7 @@ MAPTALE_WAHOO_CLIENT_ID / _SECRET / _WEBHOOK_SECRET
 MAPTALE_SUUNTO_CLIENT_ID / _SECRET / _ABO_SCHLUESSEL
 MAPTALE_RWGPS_CLIENT_ID / _SECRET
 MAPTALE_STRAVA_CLIENT_ID / _SECRET / _VERIFY_TOKEN
+MAPTALE_FCM_SERVICE_ACCOUNT     # Push; Dienstkonto-JSON als Base64 (s. Abschnitt 9)
 ```
 
 Betriebliches, das erfahrungsgemäß erst beim ersten Ausfall auffällt:
@@ -600,6 +610,17 @@ den Rest holt die App über die vorhandenen Routen. Ein Push mit Titel und Ort d
 über Googles Server und läge auf dem Sperrbildschirm; beides ist unnötig, wenn ein Wecken
 genügt. FCM ist **nicht** Ende-zu-Ende-verschlüsselt.
 
+**Beim Bauen kam eine Korrektur dazu (2026-08-10): Der Registrierungs-Token ist Geschichte.**
+Mit SDK 25.1.0 (Juni 2026) hat FCM ihn zugunsten der **Firebase-Installations-ID (FID)**
+abgelöst — `getToken`, `deleteToken` und `onNewToken` sind deprecated, an ihre Stelle treten
+`register()`, `unregister()` und `onRegistered()`, und die v1-API führt ihr Feld `token`
+ausdrücklich als „Deprecated: Use `fid` instead". Der Server schickt deshalb `fid`. Wer
+diesen Abschnitt später liest und eine Anleitung von 2024 danebenlegt, baut sonst gegen ein
+abgekündigtes Feld — die Übergangszeit verdeckt es, weil `token` eine FID noch annimmt.
+Die Spalte in `push_geraete` heißt trotzdem neutral `token`: Auf iOS steht dort später der
+APNs-Gerätetoken, und ein Feld je Plattform hieße, in jeder Abfrage zu entscheiden, welches
+gerade gilt.
+
 ### 9.1 Datenschutz — was FCM verlangt
 
 Was zu Google fließt: Registrierungs-Token, IP des Geräts, Zeitpunkt, Zustellstatus, Inhalt
@@ -625,6 +646,15 @@ Vier Punkte, die man beim Bauen leicht übergeht:
    mit dem Konto (Art. 17). Es gehört in den Datenexport (`exportinhalt.ts`) — sonst wird die
    Zusage „alles, was zu deinem Konto gehört" still unvollständig — und vermutlich in dieselbe
    Liste wie „Angemeldete Geräte" in den Kontoeinstellungen.
+
+   **Umgesetzt wurde davon alles außer der Liste** (2026-08-10), und das mit Absicht: Ein
+   Push-Gerät ist kein zweites Gerät neben dem App-Zugang, es IST derselbe. Als eigene Zeile
+   stünde dasselbe Telefon zweimal da, mit zwei Abmelde-Knöpfen, von denen einer weniger tut
+   als der andere. Stattdessen hängt die Zeile am App-Token (`ON DELETE CASCADE`): Wer den
+   Zugang abmeldet, beendet die Meldungen dorthin mit. Im Export steht sie dagegen sehr wohl —
+   sie ist das eine Datum, das an Google geht (Art. 15 Abs. 1 lit. c), und ohne den Wert
+   ließe sich dort nichts zuordnen. Das ist kein Widerspruch zur Regel „keine Zugangsmittel im
+   Archiv": Eine FID öffnet nichts, sie ist eine Adresse.
 4. **Keine neue Ökosystem-Abhängigkeit, aber eine sichtbarere.** Die App nutzt über
    `play-services-location` bereits Google-Komponenten; ob das im App-Abschnitt der
    Datenschutzerklärung beschrieben ist, gehört bei dieser Gelegenheit geprüft.
@@ -743,8 +773,8 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 | 3 | ~~**Polar**~~ | OAuth, `POST /v3/users`, Webhook mit HMAC, GPX holen | **Adapter fertig** (2026-08-10); Webhook-Registrierung und Praxistest offen: [docs/ops/polar-einrichten.md](../ops/polar-einrichten.md) | — |
 | 4 | ~~**Client-Naht**~~ | Kontoseite „Verbundene Dienste" (Web), Verknüpfen/Trennen/Status, Importliste, Datenschutz-Absatz | **fertig** (2026-08-10) | — |
 | 5 | ~~**Android dünn**~~ | OAuth im System-Browser, Deep Link, `WorkManager`-Abfrage als Rückfall | **fertig** (2026-08-10) | — |
-| 6 | **Push (FCM)** | Firebase-Projekt, `FirebaseMessagingService`, `push_geraete`, HTTP-v1-Versand, Datenschutz-Absatz | „Neue Tour" in Sekunden | 2–3 Tage |
-| 7 | **Foto-Nachzug (App)** | Galerie-Scan im Zeitfenster (nur Kamera-Bucket), Zeitzonen-Abgleich, Automatik mit stehender Einwilligung + Benachrichtigung, sonst Auswahl-Dialog — der Server-Teil ist seit Etappe 0 erprobt | Der eigentliche Produktwert | 3–4 Tage |
+| 6 | ~~**Push (FCM)**~~ | `FirebaseMessagingService`, `push_geraete` (Migration 18), HTTP-v1-Versand, Datenschutz-Absatz | **Code fertig** (2026-08-10); es fehlt allein das Firebase-Projekt samt Dienstkonto: [docs/ops/push-einrichten.md](../ops/push-einrichten.md) | — |
+| 7 | ~~**Foto-Nachzug (App)**~~ | Galerie-Scan im Zeitfenster (nur Kamera-Ordner), Zeitzonen-Toleranz, Automatik mit stehender Einwilligung + Benachrichtigung, sonst Frage in der Tour | **fertig** (2026-08-10) | — |
 | 8 | **Wahoo** | OAuth mit Refresh-Rotation, Webhook, FIT-Download | Zweiter Anbieter, FIT-Weg im Betrieb erprobt | 2–3 Tage |
 | 9 | **Strava** | nach Prüfung von Tier-Modell und Auflagen; Streams→GPX | **Der Garmin-Zugang**, plus größte eigene Nutzerbasis | 4–5 Tage |
 | 10 | **Suunto** | Antrag früh stellen; Adapter analog Wahoo | Vierter Anbieter | 2 Tage + Wartezeit |
@@ -753,7 +783,9 @@ kann jemand Garmin-Dateien importieren, ohne dass ein einziger OAuth-Adapter exi
 | — | Garmin (direkt) | Antrag stellen, wenn das Produkt öffentlich steht | offen; bis dahin über Etappe 9 versorgt | blockiert |
 
 **Erstes sinnvolles Release: Etappen 0–7** — additive Medien-Route, Kern, Datei-Weg, Polar,
-Web- und Android-Naht, Push und Foto-Nachzug. Realistisch **4 Wochen** konzentrierte Arbeit.
+Web- und Android-Naht, Push und Foto-Nachzug. Alles davon steht bis auf den **Datei-Weg
+(Etappe 2)**, der übersprungen wurde: Er hängt an keiner der anderen Etappen, und Polar
+liefert GPX fertig — der Normalisierer wird erst mit Wahoo (FIT) zur Pflicht.
 
 **Zugänge früh beantragen, sie sind Wartezeit, keine Arbeit:** Der Polar-Zugang
 liefert **keine Historie** — je früher verknüpft, desto eher gibt es echte

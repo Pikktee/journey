@@ -37,9 +37,18 @@ eigentliche Produktwert.
 ## 3. Nachreichen: das Manifest wird append-only
 
 **Neue Route `POST /api/tours/:id/medien`** nimmt neue Manifest-Einträge entgegen
-(`type`, `file`, `takenAt`, optional `anchor`/`caption`/`durationS` — dieselbe Form wie
-`UploadMedium`). Danach je Datei das bestehende `PUT /api/tours/:id/media/:mid`, zum
-Abschluss `reprocess`. Damit ist die offene Entscheidung 14.1 des Tracker-Konzepts
+(`type`, `file`, `takenAt`, optional `anchor`/`caption`/`durationS`/`quelle` — dieselbe Form
+wie `UploadMedium`). Danach je Datei das bestehende `PUT /api/tours/:id/media/:mid`, zum
+Abschluss `reprocess`.
+
+**Nachgereicht (2026-08-10): `quelle` macht die Route idempotent.** Ein Eintrag mit bereits
+bekannter `quelle` wird nicht ein zweites Mal angelegt — die vorhandene Zuordnung geht
+zurück, Länge und Reihenfolge der Antwort bleiben gleich. Nötig geworden ist das mit dem
+Foto-Nachzug der App: Sie kann den Bestand einer Tour nur über das GERENDERTE `tour.json`
+prüfen, und das kennt nachgereichte Medien erst nach dem Rendern. Scheitert `reprocess`,
+wiederholt sie den Lauf und lüde dieselben Bilder ein zweites Mal hoch. Das Studio setzt das
+Feld nicht: Dort wählt ein Mensch Dateien aus, und zwei Aufnahmen desselben Augenblicks sind
+Absicht. Damit ist die offene Entscheidung 14.1 des Tracker-Konzepts
 beantwortet: **eigene Route**, nicht „Manifest ergänzen + finalize" über den bestehenden Weg.
 
 Entwurfsentscheidungen:
