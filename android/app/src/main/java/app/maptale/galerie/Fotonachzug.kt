@@ -85,7 +85,13 @@ suspend fun suchePassendeFotos(app: MaptaleApp, serverTourId: String): List<Gale
  * Datei stehen, und genau dafür filtert der Server Einträge ohne Datei aus der
  * Verarbeitung.
  */
-suspend fun ladeFotosHoch(app: MaptaleApp, serverTourId: String, bilder: List<Galeriebild>): Int = nachzugSperre.withLock {
+suspend fun ladeFotosHoch(
+    app: MaptaleApp,
+    serverTourId: String,
+    bilder: List<Galeriebild>,
+    /** Nach jedem Bild aufgerufen — die Grundlage der Fortschrittsanzeige. */
+    beiFortschritt: (fertig: Int, gesamt: Int) -> Unit = { _, _ -> },
+): Int = nachzugSperre.withLock {
     if (bilder.isEmpty()) return@withLock 0
     val eintraege = bilder.map { bild ->
         NachreichMedium(
@@ -121,6 +127,7 @@ suspend fun ladeFotosHoch(app: MaptaleApp, serverTourId: String, bilder: List<Ga
             }
         }.isSuccess
         if (ok) geschafft++ else Log.w("Maptale", "Foto ${bild.dateiname} ließ sich nicht hochladen")
+        beiFortschritt(geschafft, bilder.size)
     }
     if (geschafft > 0) {
         // Ohne diesen Schritt lägen die Bilder in der Ablage, aber nicht im

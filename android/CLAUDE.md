@@ -160,8 +160,15 @@ Er lief dort einmal, damit die Benachrichtigung gleich sagen kann, was dazukam �
 kostete am Gerät genau die Benachrichtigung: `meldeOffeneImporte` läuft im Push-Handler,
 dem Android nur Sekunden gibt; dreizehn Fotos über Mobilfunk sprengen das. Der Prozess
 starb mittendrin (8 von 13 Dateien), und damit gab es WEDER Fotos noch Meldung noch
-Quittung. Gemeldet wird jetzt sofort, was sicher wahr ist (die Tour ist da); was der
-Nachzug ergänzt, meldet er selbst. WorkManager überlebt den Prozess, wartet auf Netz und
+Quittung. **Die Meldung gehört seither dem Nachzug** — und sie erzählt den Vorgang, statt sein Ende
+zu behaupten: nichts zu ergänzen, dann sofort melden; sonst Fortschritt zeigen („Fotos
+werden ergänzt … 7 von 12", `setOngoing`) und am Ende die vollständige Meldung über
+dieselbe ID. `setOnlyAlertOnce` ist dabei Pflicht, sonst vibriert das Telefon bei JEDEM
+Bild. Überschrift ist der TITEL der Tour, darunter „Polar · 4,2 km · 12 Fotos"; scheitert
+der Listenabruf, bleibt die allgemeine Überschrift statt einer falschen Angabe. Ein Deckel
+von vier Anläufen meldet die Tour notfalls ohne Bilder — er greift NICHT bei fehlendem
+Netz, denn dann läuft der Auftrag wegen `NetworkType.CONNECTED` gar nicht erst, und ohne
+Netz hätte die App von der Tour ohnehin nie erfahren. WorkManager überlebt den Prozess, wartet auf Netz und
 wiederholt — dieselbe Wahl wie beim `UploadWorker`. **`suchePassendeFotos` trennt „nichts gefunden" von „noch nicht zu beantworten"** (leere Liste vs. `null`): Eine Tour, die noch rendert, hat kein Zeitfenster — wer das als „nichts gefunden" liest, gibt auf, statt zu warten. Am Gerät kostete genau das eine Tour ihre Fotos: Der Nachzug startete EINE SEKUNDE bevor sie fertig war; zwei andere Touren derselben Runde hatten nur Glück mit dem Zeitpunkt. `null` führt jetzt zu `Result.retry`. Ein Wiederanlauf ist gefahrlos, weil
 die `quelle` den Server nichts doppelt anlegen lässt. Aus demselben Grund läuft der
 Knopf „Hinzufügen" im `appScope` statt im `viewModelScope`: Wer den Screen verlässt, riss

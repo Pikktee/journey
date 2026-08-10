@@ -1,21 +1,19 @@
-// Der Foto-Nachzug als eigene Arbeit — nicht im Meldungspfad.
+// Der Foto-Nachzug als eigene Arbeit — und der, der die Tour meldet.
 //
-// **Warum getrennt.** Er lief zuerst mitten in `meldeOffeneImporte`, also in
-// einem Push-Handler. Android gibt dem nur Sekunden, bevor der Prozess sterben
-// darf; dreizehn Fotos über Mobilfunk brauchen länger. Am Pixel 9 endete das
-// so: acht von dreizehn Dateien hochgeladen, dann Prozess weg — kein
-// `reprocess`, keine Benachrichtigung, keine Quittung. Die Tour war da, die
-// Fotos unsichtbar, und der Nutzer sah gar nichts.
+// **Warum getrennt vom Meldungspfad.** Er lief zuerst mitten in
+// `meldeOffeneImporte`, also in einem Push-Handler. Android gibt dem nur
+// Sekunden, bevor der Prozess sterben darf; dreizehn Fotos über Mobilfunk
+// brauchen länger. Am Pixel 9 endete das so: acht von dreizehn Dateien
+// hochgeladen, dann Prozess weg — kein `reprocess`, keine Benachrichtigung,
+// keine Quittung. WorkManager überlebt den Prozess, wartet auf Netz und
+// wiederholt mit Backoff; dieselbe Wahl wie beim `UploadWorker`.
 //
-// WorkManager ist für genau das gebaut: Er überlebt den Prozess, wartet auf
-// Netz und wiederholt mit Backoff. Dieselbe Wahl wie beim `UploadWorker`, und
-// aus demselben Grund.
-//
-// **Die Reihenfolge ist damit umgekehrt und das ist Absicht:** Erst wird die
-// Tour gemeldet, dann kommen die Fotos. Die Nachricht „deine Tour ist da" ist
-// wahr, sobald die Tour da ist — sie auf einen Upload warten zu lassen, hieß
-// eine sichere Nachricht gegen eine unsichere einzutauschen. Was der Nachzug
-// hinzufügt, meldet er selbst, wenn er fertig ist.
+// **Warum er auch die MELDUNG macht.** Eine Cloud-Tour ohne Bilder ist oft
+// vollständig — wer nicht fotografiert hat, hat eine Tour aus Track und
+// Kamerafahrt. Sie wirkt aber kaputt, wenn Bilder kommen SOLLEN und noch
+// fehlen. Ob welche kommen, weiß erst der Galerie-Scan, und der kostet
+// Millisekunden. Also meldet dieser Auftrag: sofort, wenn nichts dazukommt,
+// und sonst erst, wenn die Bilder da sind. Eine Meldung, eine Wahrheit.
 package app.maptale.galerie
 
 import android.content.Context
@@ -29,8 +27,32 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.maptale.MaptaleApp
+import app.maptale.tracker.beschreibeTouren
+import app.maptale.tracker.zeigeFortschritt
 import app.maptale.tracker.zeigeImportMeldung
+import app.maptale.upload.TrackerImport
 import java.time.Duration
+
+/**
+ * Nach so vielen vergeblichen Anläufen wird die Tour OHNE Fotos gemeldet.
+ *
+ * Der Deckel ist die Antwort auf den Einwand gegen „erst melden, wenn alles
+ * fertig ist": Ohne ihn bliebe eine Tour, deren Fotos partout nicht hochgehen,
+ * für immer unerwähnt. Vier Versuche mit exponentiellem Backoff sind gut eine
+ * Viertelstunde — danach ist die Nachricht wichtiger als ihre Vollständigkeit.
+ *
+ * **Er greift NICHT bei fehlendem Netz.** Der Auftrag trägt
+ * `NetworkType.CONNECTED`, läuft also erst gar nicht los, und `runAttemptCount`
+ * steigt dabei nicht. Das ist Absicht: Ohne Netz hätte die App von der Tour
+ * nie erfahren (Push, Importliste und Tourliste kommen alle über die
+ * Verbindung), und eine Meldung ohne Titel und Kilometer wäre die schlechtere
+ * Auskunft über eine Tour, die man gerade ohnehin nicht ansehen kann. Gemeldet
+ * wird, sobald wieder Netz da ist.
+ *
+ * Was der Deckel fängt, ist der Fall MIT Netz: Server antwortet nicht, Tour
+ * rendert noch, Upload bricht ab.
+ */
+private const val MAX_VERSUCHE_BIS_MELDUNG = 4
 
 class FotoNachzugWorker(
     context: Context,
@@ -40,35 +62,75 @@ class FotoNachzugWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as? MaptaleApp ?: return Result.success()
         val tourId = inputData.getString(EINGABE_TOUR_ID) ?: return Result.success()
+        val importId = inputData.getString(EINGABE_IMPORT_ID)
         if (!app.einstellungen.aktuellesKonto().angemeldet) return Result.success()
         // Die Einwilligung wird HIER noch einmal gelesen und nicht beim
         // Einreihen mitgegeben: Zwischen dem Einreihen und dem Lauf können
         // Stunden liegen (kein Netz), und wer den Schalter inzwischen
-        // ausgemacht hat, meinte auch diese Tour.
-        if (!app.einstellungen.aktuellesKonto().fotosAutomatisch) return Result.success()
-        if (!darfGalerieLesen(app)) return Result.success()
+        // ausgemacht hat, meinte auch diese Tour. Gemeldet wird sie trotzdem —
+        // sie ist ja da.
+        if (!app.einstellungen.aktuellesKonto().fotosAutomatisch || !darfGalerieLesen(app)) {
+            return melde(app, tourId, importId, 0)
+        }
 
         // `null` heißt „noch nicht zu beantworten" — die Tour rendert gerade, es
         // gibt also noch kein Zeitfenster. Das ist ein Grund zu WARTEN, nicht
         // aufzugeben: Genau hier ging eine Tour leer aus, weil der Nachzug eine
         // Sekunde vor dem Ende des Renderns lief.
-        val bilder = runCatching { suchePassendeFotos(app, tourId) }.getOrElse { return Result.retry() }
-            ?: return Result.retry()
-        if (bilder.isEmpty()) return Result.success()
+        val bilder = runCatching { suchePassendeFotos(app, tourId) }.getOrNull() ?: return spaeter(app, tourId, importId)
+        // Nichts zu ergänzen: Die Tour ist vollständig, wie sie ist.
+        if (bilder.isEmpty()) return melde(app, tourId, importId, 0)
 
-        val geschafft = runCatching { ladeFotosHoch(app, tourId, bilder) }.getOrElse { return Result.retry() }
+        // Ab jetzt ist sichtbar, dass etwas läuft: Titel der Tour plus „Fotos
+        // werden ergänzt … 3 von 12". Die endgültige Meldung ersetzt sie später
+        // über dieselbe ID.
+        val titelJetzt = beschreibeTouren(app, listOf(alsImport(tourId, importId)))?.first ?: ""
+        zeigeFortschritt(app, titelJetzt, 0, bilder.size)
+        val geschafft = runCatching {
+            ladeFotosHoch(app, tourId, bilder) { fertig, gesamt -> zeigeFortschritt(app, titelJetzt, fertig, gesamt) }
+        }.getOrDefault(0)
         // Nichts geschafft, obwohl es etwas zu tun gab: Das war kein Erfolg.
         // Der erneute Anlauf ist gefahrlos — die Einträge tragen ihre `quelle`,
         // der Server legt sie kein zweites Mal an und die fehlenden Dateien
         // werden nachgereicht.
-        if (geschafft == 0) return Result.retry()
+        if (geschafft == 0) return spaeter(app, tourId, importId)
+        return melde(app, tourId, importId, geschafft)
+    }
 
-        nachzugSatz(geschafft, automatisch = true)?.let { zeigeImportMeldung(app, it) }
+    /**
+     * Später noch einmal — aber nicht endlos schweigen.
+     *
+     * Am Deckel wird die Tour ohne ihre Bilder gemeldet und quittiert: Eine
+     * verspätete unvollständige Nachricht ist besser als gar keine.
+     */
+    private suspend fun spaeter(app: MaptaleApp, tourId: String, importId: String?): Result {
+        if (runAttemptCount + 1 < MAX_VERSUCHE_BIS_MELDUNG) return Result.retry()
+        melde(app, tourId, importId, 0)
+        return Result.retry()
+    }
+
+    /**
+     * Die Tour melden und den Import quittieren.
+     *
+     * Quittiert wird NUR bei gestellter Meldung — dieselbe Regel wie im
+     * Meldungspfad: Wer abhakt, ohne gezeigt zu haben, verliert die Nachricht,
+     * sobald die Benachrichtigungs-Berechtigung fehlt.
+     */
+    private fun alsImport(tourId: String, importId: String?) =
+        TrackerImport(id = importId ?: "", anbieter = "", status = "fertig", tourId = tourId, fehler = null)
+
+    private suspend fun melde(app: MaptaleApp, tourId: String, importId: String?, fotos: Int): Result {
+        val (titel, unterzeile) = beschreibeTouren(app, listOf(alsImport(tourId, importId)), fotos)
+            ?: return Result.success()
+        if (zeigeImportMeldung(app, titel, unterzeile) && importId != null) {
+            runCatching { app.apiClient.trackerImporteGesehen(listOf(importId)) }
+        }
         return Result.success()
     }
 
     companion object {
         const val EINGABE_TOUR_ID = "tourId"
+        const val EINGABE_IMPORT_ID = "importId"
 
         /**
          * Den Nachzug für eine Tour einreihen.
@@ -78,9 +140,9 @@ class FotoNachzugWorker(
          * starten — die Uploads liefen doppelt, auch wenn der Server am Ende
          * nichts doppelt anlegt.
          */
-        fun starte(context: Context, tourId: String) {
+        fun starte(context: Context, tourId: String, importId: String? = null) {
             val anfrage = OneTimeWorkRequestBuilder<FotoNachzugWorker>()
-                .setInputData(workDataOf(EINGABE_TOUR_ID to tourId))
+                .setInputData(workDataOf(EINGABE_TOUR_ID to tourId, EINGABE_IMPORT_ID to importId))
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, Duration.ofSeconds(30))
                 .build()
