@@ -393,7 +393,15 @@ export class AuthDienst {
     return klartext
   }
 
-  benutzerAusToken(klartext: string): Benutzer | null {
+  /**
+   * Auflösung eines App-Tokens — Benutzer UND die Kennung des Tokens selbst.
+   *
+   * Die zweite Hälfte braucht genau ein Aufrufer: Ein Push-Gerät hängt am
+   * Token, mit dem es sich angemeldet hat, damit „Gerät abmelden" in den
+   * Kontoeinstellungen die Meldungen dorthin mit beendet. Die App kann das
+   * nicht selbst aufräumen — sie ist in diesem Moment gerade ausgesperrt worden.
+   */
+  anmeldungAusToken(klartext: string): { benutzer: Benutzer; tokenId: string } | null {
     const hash = sha256(klartext)
     const zeile = this.db
       .prepare(
@@ -407,7 +415,14 @@ export class AuthDienst {
     // Vergleich in konstanter Zeit (Hash-Lookup wäre theoretisch genug, kostet nichts)
     if (!timingSafeEqual(Buffer.from(zeile.hash), Buffer.from(hash))) return null
     this.db.prepare('UPDATE tokens SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), zeile.token_id)
-    return { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) }
+    return {
+      benutzer: { id: zeile.id, email: zeile.email, name: zeile.name, rolle: alsRolle(zeile.rolle) },
+      tokenId: zeile.token_id,
+    }
+  }
+
+  benutzerAusToken(klartext: string): Benutzer | null {
+    return this.anmeldungAusToken(klartext)?.benutzer ?? null
   }
 
   widerrufeTokens(userId: string): void {

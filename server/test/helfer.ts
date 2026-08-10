@@ -7,6 +7,7 @@ import { baueApp } from '../src/app.js'
 import type { Konfig } from '../src/config.js'
 import { oeffneDb } from '../src/db.js'
 import type { MailNachricht, MailVersand } from '../src/mail.js'
+import type { PushNachricht, PushVersand, Zustellung } from '../src/push.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { BildWerkzeug } from '../src/pipeline/bild.js'
 import type { VideoWerkzeug } from '../src/pipeline/video.js'
@@ -60,6 +61,31 @@ export const TEST_KONFIG: Konfig = {
   // Client-IDs, und die Registry meldet sie als „nicht verfügbar".
   trackerSchluessel: 'test-tracker-schluessel',
   polar: { clientId: null, clientSecret: null, webhookGeheimnis: null },
+  // Kein Dienstkonto: index.ts baut daraus keinen FcmPush. Tests, die Push
+  // brauchen, reichen einen SammelPush an `baueTestApp` durch — an der
+  // Konfiguration hängt nur die Produktions-Verdrahtung.
+  fcmDienstkonto: null,
+}
+
+/**
+ * Push-Fake: sammelt Nachrichten, statt sie zu senden.
+ *
+ * `abgemeldeteTokens` ist der Hebel für den einen Fall, den kein anderer Test
+ * erreicht: FCM lehnt einen Token ab, weil die App deinstalliert wurde — und
+ * die Zeile muss dann verschwinden, nicht ins Protokoll.
+ */
+export class SammelPush implements PushVersand {
+  readonly einsatzbereit = true
+  gesendet: Array<{ tokens: string[]; nachricht: PushNachricht }> = []
+  abgemeldeteTokens = new Set<string>()
+  /** Auf `true` gesetzt wirft der Versand — der Import darf davon nicht kippen. */
+  faelltAus = false
+
+  async sende(tokens: readonly string[], nachricht: PushNachricht): Promise<Zustellung[]> {
+    if (this.faelltAus) throw new Error('FCM antwortet nicht')
+    this.gesendet.push({ tokens: [...tokens], nachricht })
+    return tokens.map((token) => ({ token, abgemeldet: this.abgemeldeteTokens.has(token) }))
+  }
 }
 
 /** Mail-Fake: sammelt Nachrichten, statt sie zu versenden (Auth-Flüsse testbar). */
@@ -112,6 +138,10 @@ export async function baueTestApp(
   // leeren Liste. Tracker-Tests geben einen TestProvider herein (Spiegelbild
   // der echten Adapter in index.ts).
   trackerProvider: TrackerProvider[] = [],
+  // Default null: kein Push — die Registrier-Route antwortet mit `push: false`
+  // und der Importlauf meldet nichts. Push-Tests geben einen SammelPush herein
+  // (Spiegelbild des FcmPush in index.ts).
+  push: PushVersand | null = null,
 ): Promise<TestUmgebung> {
   const db = oeffneDb(':memory:')
   const storage = new MemStorage()
@@ -131,6 +161,7 @@ export async function baueTestApp(
     bildKlassifikator,
     schienen,
     trackerProvider,
+    push,
     mail,
     // Ohne Netz: Der Server holt die gebaute Seite sonst über konfig.webUrl.
     seiten: new SeitenQuelle({ webUrl: 'https://maptale.test' }, async (url) =>

@@ -60,6 +60,7 @@ export async function fuehreImportAus(
   const importZeile = dienst.beanspruche(verknuepfung.benutzerId, verknuepfung.anbieter, externeId)
   if (!importZeile) return null
 
+  let fertigeTour: string | null = null
   try {
     const tokens = await dienst.gueltigeTokens(verknuepfung, provider)
     const track = await provider.holeTrack(tokens, externeId)
@@ -69,6 +70,7 @@ export async function fuehreImportAus(
       track,
     })
     dienst.schliesseImportAb(importZeile.id, 'fertig', tourId)
+    fertigeTour = tourId
   } catch (fehler) {
     const nachricht = (fehler as Error).message
     // Am Deckel ist Schluss. Das steht NICHT im Fehlertext, sondern in den
@@ -88,6 +90,22 @@ export async function fuehreImportAus(
         app.log.warn(`Tracker-Import fehlgeschlagen (${verknuepfung.anbieter}/${externeId}): ${nachricht}`)
       }
     }
+  }
+  // Gemeldet wird NUR das Fertige — und zwar AUSSERHALB des try: Ein Fehler
+  // beim Benachrichtigen darf einen gelungenen Import nicht nachträglich zum
+  // Fehlschlag machen (der stünde dann als „fehler" in der Liste, obwohl die
+  // Tour spielbar im Konto liegt). Eine übersprungene Halleneinheit und ein
+  // Fehler, den niemand beheben kann, sind kein Ereignis für den
+  // Sperrbildschirm; beide stehen in der Liste im Konto.
+  //
+  // Gewartet wird trotzdem, damit Tests dem Lauf folgen können, statt auf eine
+  // offene Zusage zu pollen. `melde` wirft selbst nicht.
+  if (fertigeTour) {
+    await app.push.melde(verknuepfung.benutzerId, {
+      typ: 'import-fertig',
+      tourId: fertigeTour,
+      importId: importZeile.id,
+    })
   }
   return dienst.importZeile(importZeile.id)
 }

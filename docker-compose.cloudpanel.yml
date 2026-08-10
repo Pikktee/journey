@@ -68,5 +68,10 @@ services:
       # Der Signatur-Schlüssel entsteht erst beim Registrieren des Webhooks
       # (POST /v3/webhooks) und wird nur EINMAL ausgeliefert.
       MAPTALE_POLAR_WEBHOOK_SECRET: ${MAPTALE_POLAR_WEBHOOK_SECRET:-}
+      # Push (FCM): das Dienstkonto-JSON eines Firebase-Projekts, BASE64 —
+      # der private Schlüssel darin trägt Zeilenumbrüche und überlebt keine
+      # .env-Zeile im Klartext. Fehlt es, ist Push aus und die App bleibt bei
+      # ihrem periodischen Abruf. Einrichtung: docs/ops/push-einrichten.md.
+      MAPTALE_FCM_SERVICE_ACCOUNT: ${MAPTALE_FCM_SERVICE_ACCOUNT:-}
     volumes:
       - /srv/maptale/daten:/data

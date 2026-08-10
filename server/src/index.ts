@@ -5,7 +5,9 @@ import { join } from 'node:path'
 import { baueApp } from './app.js'
 import { konfigAusEnv } from './config.js'
 import { oeffneDb } from './db.js'
+import { FcmPush } from './fcm.js'
 import { KonsoleMail, ResendMail, type MailVersand } from './mail.js'
+import type { PushVersand } from './push.js'
 import { trageTitelbilderNach } from './pipeline/cover.js'
 import { FfmpegBildWerkzeug } from './pipeline/bild.js'
 import { trageBildfassungenNach } from './pipeline/bildnachtrag.js'
@@ -46,6 +48,11 @@ const mail: MailVersand = process.env.RESEND_API_KEY
 // und die Kontoseite kann „Polar (noch nicht eingerichtet)" zeigen. Verschwiege
 // man ihn ganz, wäre das keine Auskunft.
 const trackerProvider = [new PolarProvider(konfig.polar)]
+// Push nur mit Dienstkonto. Ohne bleibt es beim periodischen Abruf der App —
+// derselbe Weg, der auch mit Push für Geräte ohne Play Services weiterläuft.
+// Ein kaputtes Dienstkonto ist dagegen ein Einrichtungsfehler und soll laut
+// sein: `FcmPush` wirft im Konstruktor mit einer Meldung, die sagt, was fehlt.
+const push: PushVersand | null = konfig.fcmDienstkonto ? new FcmPush(konfig.fcmDienstkonto) : null
 
 const app = baueApp({
   konfig,
@@ -60,6 +67,7 @@ const app = baueApp({
   bildKlassifikator,
   schienen,
   trackerProvider,
+  push,
   mail,
 })
 await app.auth.seedeAdmin(konfig.adminEmail, konfig.adminPasswort)

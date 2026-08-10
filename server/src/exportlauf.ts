@@ -66,6 +66,17 @@ export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
        WHERE benutzer_id = ? ORDER BY zeitpunkt`,
     )
     .all(benutzerId) as Array<{ zeitpunkt: string; zustand: string; quelle: string; textfassung: string }>
+  const pushGeraete = db
+    .prepare(
+      `SELECT plattform, token, angelegt_am, zuletzt_gesehen_am FROM push_geraete
+       WHERE benutzer_id = ? ORDER BY angelegt_am`,
+    )
+    .all(benutzerId) as Array<{
+    plattform: string
+    token: string
+    angelegt_am: string
+    zuletzt_gesehen_am: string
+  }>
   return {
     email: u.email,
     name: u.name,
@@ -83,6 +94,12 @@ export function sammleKonto(db: Db, benutzerId: string): KontoAngaben | null {
       inSuchmaschinen: !!u.suchmaschinen,
     },
     newsletter: { aktuell: !!u.newsletter, historie },
+    pushGeraete: pushGeraete.map((g) => ({
+      plattform: g.plattform,
+      token: g.token,
+      angelegtAm: g.angelegt_am,
+      zuletztGesehenAm: g.zuletzt_gesehen_am,
+    })),
   }
 }
 

@@ -13,6 +13,8 @@ import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
 import { MailVorlagenDienst } from './mailvorlagen.js'
 import { NewsletterDienst } from './newsletter.js'
+import { PushDienst, type PushVersand } from './push.js'
+import { registrierePushRouten } from './routes/push.js'
 import type { Geocoder } from './pipeline/naming.js'
 import type { SchienenQuelle } from './pipeline/schienen.js'
 import type { BildWerkzeug } from './pipeline/bild.js'
@@ -94,6 +96,13 @@ export interface AppAbhaengigkeiten {
    * die Routen antworten mit einer leeren Liste statt zu fehlen.
    */
   trackerProvider?: TrackerProvider[]
+  /**
+   * Push-Versand (FCM); null = Feature aus, nicht kaputt. Die App merkt das an
+   * der Registrier-Route und bleibt bei ihrem periodischen Abruf — den es aus
+   * genau diesem Grund weiter gibt. Erforderlich wie `wetter` und
+   * `bildKlassifikator`: Ein „aus" soll man beim Verdrahten SEHEN.
+   */
+  push: PushVersand | null
 }
 
 // Fastify-Typen um unsere Dekorationen erweitern
@@ -121,9 +130,18 @@ declare module 'fastify' {
     trackerRegistry: Registry
     /** Laufende Tracker-Importe — Tests warten gezielt darauf, statt zu pollen. */
     trackerLaeufe: Map<string, Promise<unknown>>
+    /** Push-Geräte und der Versand dorthin; ohne Dienstkonto ein No-Op. */
+    push: PushDienst
   }
   interface FastifyRequest {
     benutzer: Benutzer | null
+    /**
+     * Mit WELCHEM App-Token diese Anfrage kam (null bei Sitzungs-Cookie).
+     *
+     * Nur die Push-Registrierung liest das: Ihr Gerät soll mit genau diesem
+     * Zugang stehen und fallen (s. `AuthDienst.anmeldungAusToken`).
+     */
+    appTokenId: string | null
   }
 }
 
@@ -157,7 +175,9 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('tracker', new TrackerDienst(deps.db, deps.konfig.trackerSchluessel))
   app.decorate('trackerRegistry', new Registry(deps.trackerProvider ?? []))
   app.decorate('trackerLaeufe', new Map())
+  app.decorate('push', new PushDienst(deps.db, deps.push))
   app.decorateRequest('benutzer', null)
+  app.decorateRequest('appTokenId', null)
 
   app.register(fastifyCookie, { secret: deps.konfig.cookieSecret })
 
@@ -169,7 +189,9 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.addHook('preHandler', async (request) => {
     const auth = request.headers.authorization
     if (auth?.startsWith('Bearer ')) {
-      request.benutzer = app.auth.benutzerAusToken(auth.slice('Bearer '.length).trim())
+      const anmeldung = app.auth.anmeldungAusToken(auth.slice('Bearer '.length).trim())
+      request.benutzer = anmeldung?.benutzer ?? null
+      request.appTokenId = anmeldung?.tokenId ?? null
       return
     }
     const sessionId = request.cookies[SESSION_COOKIE]
@@ -213,6 +235,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereSeitenRouten(app)
   registriereExportRouten(app)
   registriereTrackerRouten(app)
+  registrierePushRouten(app)
   // Als eigener Plugin-Bereich registriert: Die Webhook-Routen brauchen den
   // ROHEN Body für die Signaturprüfung, und ein Content-Type-Parser gilt in
   // Fastify je Bereich — global gesetzt läge der rohe Body an jeder Route.

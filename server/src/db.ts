@@ -444,6 +444,46 @@ const MIGRATIONEN: Migration[] = [
   ALTER TABLE tracker_importe ADD COLUMN wiederholbar INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE tracker_importe ADD COLUMN versuche INTEGER NOT NULL DEFAULT 1;
   `,
+
+  // Push-Geräte: wohin „deine Tour ist fertig" geht.
+  //
+  // **`token` ist die plattformneutrale ADRESSE eines Geräts**, nicht unbedingt
+  // ein Token: Auf Android steht dort seit FCM 25.1.0 die
+  // Firebase-Installations-ID (die den Registrierungs-Token abgelöst hat), auf
+  // iOS wird es der APNs-Gerätetoken sein. Ein Feld je Plattform hieße, in
+  // jeder Abfrage zu entscheiden, welches gerade gilt.
+  //
+  // Drei Entscheidungen stecken in diesen zehn Zeilen:
+  //
+  // **Die Adresse ist global eindeutig.** Sie benennt eine INSTALLATION, nicht ein
+  // Konto — meldet sich auf demselben Telefon ein zweites Konto an, ist es
+  // derselbe Token. Ohne UNIQUE lägen dann zwei Zeilen da, und die nächste
+  // Meldung ginge an beide: Der Vorbesitzer des Geräts erführe, dass jemand
+  // anderes eine Tour bekommen hat. Die Registrierung schreibt deshalb per
+  // UPSERT um, statt anzulegen.
+  //
+  // **Das Gerät hängt am App-Token, nicht nur am Konto.** Wer in „Angemeldete
+  // Geräte" ein Telefon abmeldet, erwartet, dass dorthin nichts mehr geht —
+  // die App selbst kann das nicht mehr aufräumen, sie ist ja gerade
+  // ausgesperrt worden. Das CASCADE erledigt es an der einzigen Stelle, die es
+  // sicher erledigen kann. NULL bleibt erlaubt, weil sich ein Client auch mit
+  // einer Sitzung registrieren dürfte (heute tut es keiner).
+  //
+  // **`plattform` gibt es von Anfang an**, obwohl nur Android sendet: iOS
+  // spricht später APNs, und ein nachträglich eingezogenes Feld hieße, jede
+  // vorhandene Zeile raten zu müssen.
+  `
+  CREATE TABLE push_geraete (
+    id TEXT PRIMARY KEY,
+    benutzer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_id TEXT REFERENCES tokens(id) ON DELETE CASCADE,
+    plattform TEXT NOT NULL CHECK (plattform IN ('android','ios')),
+    token TEXT NOT NULL UNIQUE,
+    angelegt_am TEXT NOT NULL,
+    zuletzt_gesehen_am TEXT NOT NULL
+  );
+  CREATE INDEX idx_push_benutzer ON push_geraete(benutzer_id);
+  `,
 ]
 
 /**

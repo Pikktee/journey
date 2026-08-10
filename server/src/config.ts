@@ -80,6 +80,21 @@ export interface Konfig {
   trackerSchluessel: string | null
   /** Zugangsdaten je Tracker-Anbieter; fehlen sie, ist der Anbieter aus (nicht kaputt). */
   polar: AnbieterZugang
+  /**
+   * Dienstkonto-JSON eines Firebase-Projekts für den Push-Versand (FCM
+   * HTTP v1). Fehlt es, ist Push aus — die App fällt auf ihren periodischen
+   * Abruf zurück, den es aus genau diesem Grund weiter gibt.
+   *
+   * Aufbewahrt wird der ROHE JSON-Text, nicht das geparste Objekt: Was hier
+   * ankommt, ist eine Umgebungsvariable, und ob sie brauchbar ist, entscheidet
+   * der Versand beim Bauen (`FcmPush`) — dort steht auch die Fehlermeldung, die
+   * jemandem beim Einrichten hilft.
+   *
+   * Die Variable heißt englisch (`MAPTALE_FCM_SERVICE_ACCOUNT`), der Bezeichner
+   * hier deutsch — dieselbe Linie wie bei den Tracker-Routen: Was nach außen
+   * zeigt und in einer fremden Konsole eingetippt wird, ist Außenfläche.
+   */
+  fcmDienstkonto: string | null
 }
 
 /** Client-ID/-Secret plus Webhook-Geheimnis eines OAuth-Anbieters. */
@@ -101,6 +116,23 @@ const zahl = (wert: string | undefined, standard: number): number => {
 }
 /** Geheimnis aus der Umgebung: leer (docker-compose `${VAR:-}`) zählt wie nicht gesetzt. */
 const geheim = (wert: string | undefined): string | null => (wert?.trim() ? wert.trim() : null)
+/**
+ * Ein mehrzeiliges Geheimnis (Dienstkonto-JSON) aus der Umgebung.
+ *
+ * Beide Formen werden angenommen, und das ist kein Wischiwaschi: In der
+ * `.env` des Servers steht **Base64** — ein JSON mit eingebetteten `\n` im
+ * privaten Schlüssel überlebt keine `.env`-Zeile —, beim lokalen Ausprobieren
+ * dagegen kopiert man die Datei roh in die Variable. Erkannt wird an der Form
+ * (`{` = JSON), nicht an einer zweiten Variablen: Zwei Variablen für dieselbe
+ * Sache wären genau der Schalter, den man am Einrichtungstag falsch stellt.
+ */
+const mehrzeilig = (wert: string | undefined): string | null => {
+  const roh = wert?.trim()
+  if (!roh) return null
+  if (roh.startsWith('{')) return roh
+  const entpackt = Buffer.from(roh, 'base64').toString('utf8').trim()
+  return entpackt.startsWith('{') ? entpackt : null
+}
 /** Kommagetrennte Adressliste, normalisiert wie in der users-Tabelle (lowercase). */
 const adressen = (wert: string | undefined, standard: string): string[] =>
   text(wert, standard)
@@ -134,5 +166,6 @@ export function konfigAusEnv(env: NodeJS.ProcessEnv = process.env): Konfig {
       clientSecret: geheim(env.MAPTALE_POLAR_CLIENT_SECRET),
       webhookGeheimnis: geheim(env.MAPTALE_POLAR_WEBHOOK_SECRET),
     },
+    fcmDienstkonto: mehrzeilig(env.MAPTALE_FCM_SERVICE_ACCOUNT),
   }
 }

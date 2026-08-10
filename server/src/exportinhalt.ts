@@ -14,9 +14,15 @@
  *   Ein Ordner je Tour mit sprechendem Namen — wer das ZIP öffnet, sucht seine
  *   Reise, nicht `t_9fK4mHx2QbVnRs`. Die Kennung steht trotzdem in der
  *   `tour.json` daneben, sonst wäre die Zuordnung verloren.
- * - **Kein Passwort-Hash, keine Sitzungen, keine Tokens.** Sie betreffen die
- *   Person nicht im Sinne der Auskunft, sondern sind Zugangsmittel; im Export
- *   wären sie nur ein zusätzlicher Ort, an dem sie liegen.
+ * - **Kein Passwort-Hash, keine Sitzungen, keine Anmelde-Tokens.** Sie betreffen
+ *   die Person nicht im Sinne der Auskunft, sondern sind Zugangsmittel; im
+ *   Export wären sie nur ein zusätzlicher Ort, an dem sie liegen.
+ * - **Push-Geräte dagegen schon** — und das ist kein Widerspruch zur Zeile
+ *   darüber: Ein FCM-Registrierungs-Token öffnet nichts, er ist eine ADRESSE.
+ *   Er ist zudem das eine Datum, das wir an Google weitergeben (Art. 15 Abs. 1
+ *   lit. c) — wer wissen will, was dort über ihn liegt, braucht genau diesen
+ *   Wert, um es zuzuordnen. Ihn wegzulassen machte die Auskunft an der Stelle
+ *   unvollständig, an der sie am wenigsten selbstverständlich ist.
  * - **Die Newsletter-Historie gehört dazu** (Zeitpunkt, Zustand, Quelle): Sie
  *   ist der Nachweis, den wir über die Person führen — genau das, was Art. 15
  *   sichtbar machen will.
@@ -43,6 +49,8 @@ export type KontoAngaben = {
     aktuell: boolean
     historie: Array<{ zeitpunkt: string; zustand: string; quelle: string; textfassung: string }>
   }
+  /** Geräte, an die Push-Meldungen gehen (s. Kopf dieser Datei). */
+  pushGeraete: Array<{ plattform: string; token: string; angelegtAm: string; zuletztGesehenAm: string }>
 }
 
 /** Eine Tour, wie sie im Export beschrieben wird. */
