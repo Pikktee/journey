@@ -98,6 +98,13 @@ export type MailZweck = 'verify' | 'reset' | 'email'
 export interface SitzungsKennzeichen {
   userAgent?: string | null
   ip?: string | null
+  /**
+   * Das App-Token, für das diese Sitzung ausgestellt wurde (Player-Tausch).
+   *
+   * Gesetzt heißt: kein eigenes Gerät, sondern ein zweiter Ausweis desselben —
+   * die Geräteliste zeigt sie deshalb nicht, und mit dem Token fällt sie.
+   */
+  tokenId?: string | null
 }
 
 /** Ein angemeldetes Gerät — Browser-Sitzung oder App-Token. */
@@ -275,8 +282,8 @@ export class AuthDienst {
     const ablauf = new Date(jetzt + SESSION_DAUER_MS)
     this.db
       .prepare(
-        `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip_praefix, zuletzt_gesehen)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip_praefix, zuletzt_gesehen, token_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -286,8 +293,31 @@ export class AuthDienst {
         kennzeichen.userAgent?.slice(0, 300) ?? null,
         ipPraefix(kennzeichen.ip),
         new Date(jetzt).toISOString(),
+        kennzeichen.tokenId ?? null,
       )
     return { id, ablauf }
+  }
+
+  /**
+   * Die noch gültige Player-Sitzung eines App-Tokens — oder `null`.
+   *
+   * Der Grund, warum es sie gibt: Die App tauscht ihr Token vor JEDEM
+   * Abspielen gegen eine Sitzung. Jedes Mal eine neue anzulegen füllte die
+   * Geräteliste mit Kopien desselben Telefons; wiederverwendet bleibt es bei
+   * einer je Installation.
+   *
+   * Die jüngste gewinnt: Nach einer Migration oder einem Zurückdrehen der Uhr
+   * können mehrere dastehen, und die zuletzt ausgestellte hat die längste
+   * Restlaufzeit.
+   */
+  sitzungZuToken(tokenId: string): { id: string; ablauf: Date } | null {
+    const zeile = this.db
+      .prepare(
+        `SELECT id, expires_at FROM sessions
+         WHERE token_id = ? AND expires_at > ? ORDER BY created_at DESC LIMIT 1`,
+      )
+      .get(tokenId, new Date().toISOString()) as { id: string; expires_at: string } | undefined
+    return zeile ? { id: zeile.id, ablauf: new Date(zeile.expires_at) } : null
   }
 
   benutzerAusSession(sessionId: string): Benutzer | null {
@@ -327,13 +357,21 @@ export class AuthDienst {
    *
    * Abgelaufene Sitzungen fallen heraus; sie sind kein Zugang mehr und in der
    * Liste nur eine Frage ohne Antwort.
+   *
+   * Sitzungen MIT `token_id` ebenfalls: Das sind die Player-Sitzungen der App
+   * (der WebView kann kein Bearer-Token schicken). Sie sind kein zweites
+   * Gerät, sondern ein zweiter Ausweis desselben — das Telefon steht in
+   * derselben Liste bereits als App-Token, und mit ihm fällt die Sitzung.
+   * Einzeln gezeigt waren sie das Gegenteil dessen, wofür die Liste da ist:
+   * Wer ein fremdes Gerät sucht, fand eine Handvoll „Unbekanntes Gerät", die
+   * alle ihm selbst gehörten.
    */
   geraete(userId: string): Geraet[] {
     const jetzt = new Date().toISOString()
     const sitzungen = this.db
       .prepare(
         `SELECT id, created_at, user_agent, ip_praefix, zuletzt_gesehen FROM sessions
-         WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC`,
+         WHERE user_id = ? AND expires_at > ? AND token_id IS NULL ORDER BY created_at DESC`,
       )
       .all(userId, jetzt) as Array<{
       id: string

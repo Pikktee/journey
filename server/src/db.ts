@@ -484,6 +484,32 @@ const MIGRATIONEN: Migration[] = [
   );
   CREATE INDEX idx_push_benutzer ON push_geraete(benutzer_id);
   `,
+  // Die Player-Sitzung der App gehört zum App-Token, nicht in die Geräteliste.
+  //
+  // Der WebView kann kein Bearer-Token schicken, deshalb tauscht die App ihr
+  // Token vor dem Abspielen gegen eine Sitzung. Das legte bis hierher bei JEDEM
+  // Öffnen einer Tour eine neue an — zehn Touren angesehen, zehn Zeilen unter
+  // „Angemeldete Geräte", jede bis zum Ablauf ihrer Frist. Und weil OkHttp
+  // keinen Browser-User-Agent schickt, hieß jede davon „Unbekanntes Gerät":
+  // Die Liste, an der man ein fremdes Gerät erkennen soll, füllte sich mit
+  // Kopien des eigenen.
+  //
+  // `token_id` macht die Sitzung zu dem, was sie ist: ein zweiter Ausweis
+  // DESSELBEN Geräts. Daran hängen drei Dinge — der Tausch gibt eine
+  // vorhandene Sitzung zurück statt einer neuen, die Geräteliste zeigt sie
+  // nicht mehr als eigenen Eintrag (das Telefon steht dort schon als App), und
+  // das CASCADE nimmt sie mit, wenn jemand die App abmeldet. Ohne das Letzte
+  // bliebe nach dem Abmelden ein gültiger Zugang stehen.
+  //
+  // Das DELETE räumt die Altlast weg, und zwar eng: NUR Sitzungen mit einem
+  // OkHttp-User-Agent, denn genau die entstanden auf diesem Weg. Ein Browser
+  // schickt so etwas nie, und die App holt sich beim nächsten Abspielen eine
+  // neue — sie hat ihr Token, sie ist nicht ausgesperrt.
+  `
+  ALTER TABLE sessions ADD COLUMN token_id TEXT REFERENCES tokens(id) ON DELETE CASCADE;
+  CREATE INDEX idx_sessions_token ON sessions(token_id);
+  DELETE FROM sessions WHERE user_agent LIKE 'okhttp%';
+  `,
 ]
 
 /**

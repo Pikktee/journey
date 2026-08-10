@@ -184,6 +184,60 @@ describe('Angemeldete Geräte', () => {
     expect((nachher.json() as { benutzer: unknown }).benutzer).toBeNull()
   })
 
+  // Der WebView-Tausch lief bis 2026-08-10 in jede Tour eine neue Sitzung —
+  // zehn angesehene Touren, zehn Zeilen „Unbekanntes Gerät" (OkHttp schickt
+  // keinen Browser-User-Agent), alle vom eigenen Telefon.
+  it('macht aus dem Player-Tausch kein zweites Gerät, egal wie oft die App tauscht', async () => {
+    const u = await baueTestApp()
+    const kopf = { authorization: `Bearer ${u.apiToken}` }
+
+    const erste = await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token', headers: kopf })
+    const zweite = await u.app.inject({ method: 'POST', url: '/api/auth/session-aus-token', headers: kopf })
+    const sitzungsId = (erste.json() as { sessionId: string }).sessionId
+    // Derselbe Ausweis, nicht der nächste.
+    expect((zweite.json() as { sessionId: string }).sessionId).toBe(sitzungsId)
+
+    const { geraete } = (
+      await u.app.inject({ method: 'GET', url: '/api/auth/me/geraete', cookies: u.cookies })
+    ).json() as { geraete: Array<{ id: string; art: string }> }
+    // Eine Browser-Sitzung (der Test-Login) und das App-Token — sonst nichts.
+    expect(geraete.filter((g) => g.art === 'sitzung')).toHaveLength(1)
+    expect(geraete.filter((g) => g.art === 'app')).toHaveLength(1)
+
+    // Sie gilt trotzdem: Der WebView spielt damit private Touren ab.
+    const alsWebView = await u.app.inject({
+      method: 'GET',
+      url: '/api/auth/me',
+      cookies: { maptale_session: sitzungsId },
+    })
+    expect((alsWebView.json() as { benutzer: unknown }).benutzer).not.toBeNull()
+  })
+
+  // Wer das Telefon abmeldet, erwartet, dass dorthin nichts mehr geht — auch
+  // nicht über den Umweg der Player-Sitzung, die die App sich geholt hat.
+  it('nimmt die Player-Sitzung mit, wenn das App-Token abgemeldet wird', async () => {
+    const u = await baueTestApp()
+    const tausch = await u.app.inject({
+      method: 'POST',
+      url: '/api/auth/session-aus-token',
+      headers: { authorization: `Bearer ${u.apiToken}` },
+    })
+    const sitzungsId = (tausch.json() as { sessionId: string }).sessionId
+    const { geraete } = (
+      await u.app.inject({ method: 'GET', url: '/api/auth/me/geraete', cookies: u.cookies })
+    ).json() as { geraete: Array<{ id: string; art: string }> }
+    const appGeraet = geraete.find((g) => g.art === 'app')
+
+    await u.app.inject({ method: 'DELETE', url: `/api/auth/me/geraete/${appGeraet?.id}`, cookies: u.cookies })
+
+    const nachher = await u.app.inject({
+      method: 'GET',
+      url: '/api/auth/me',
+      cookies: { maptale_session: sitzungsId },
+    })
+    expect((nachher.json() as { benutzer: unknown }).benutzer).toBeNull()
+  })
+
   it('lässt niemanden fremde Geräte abmelden', async () => {
     const u = await baueTestApp()
     const fremd = await u.app.auth.legeBenutzerAn('fremd@example.com', 'geheim123', 'Fremde')

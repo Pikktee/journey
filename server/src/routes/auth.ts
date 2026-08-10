@@ -108,13 +108,22 @@ export function registriereAuthRouten(app: FastifyInstance): void {
     reply: import('fastify').FastifyReply,
     userId: string,
     request?: import('fastify').FastifyRequest,
+    /** Nur beim Player-Tausch: die Sitzung gehört zu diesem App-Token. */
+    tokenId?: string | null,
   ): { id: string; ablauf: Date } => {
     // Gerät und grober Ort wandern in die Sitzung, damit die Kontoeinstellungen
     // sie später wiedererkennbar auflisten können (s. AuthDienst.geraete).
-    const session = app.auth.erzeugeSession(userId, {
-      userAgent: request?.headers['user-agent'] ?? null,
-      ip: request?.ip ?? null,
-    })
+    //
+    // Eine vorhandene Sitzung desselben App-Tokens wird WIEDERVERWENDET statt
+    // ergänzt: Die App tauscht vor jedem Abspielen, und jeder Tausch legte
+    // sonst eine weitere Zeile an.
+    const session =
+      (tokenId ? app.auth.sitzungZuToken(tokenId) : null) ??
+      app.auth.erzeugeSession(userId, {
+        userAgent: request?.headers['user-agent'] ?? null,
+        ip: request?.ip ?? null,
+        tokenId: tokenId ?? null,
+      })
     const cookieBasis = {
       path: '/',
       sameSite: 'lax' as const,
@@ -152,9 +161,21 @@ export function registriereAuthRouten(app: FastifyInstance): void {
       const benutzer = await app.auth.login(request.body.email, request.body.passwort)
       if (!benutzer) return reply.code(401).send({ fehler: 'E-Mail oder Passwort stimmt nicht.' })
 
-      setzeSessionCookie(reply, benutzer.id, request)
+      // **Wer ein Token holt, bekommt KEINE Sitzung.** `tokenLabel` heißt „ich
+      // bin ein API-Client" — die App schickt danach ein Bearer-Token und hat
+      // nicht einmal einen CookieJar, der Set-Cookie also verwirft. Die Zeile
+      // in `sessions` blieb trotzdem bis zu ihrem Ablauf stehen und stand in
+      // „Angemeldete Geräte" als „Unbekanntes Gerät" (OkHttp schickt keinen
+      // Browser-User-Agent): ein Zugang, den niemand nutzt, in einer Liste, die
+      // genau dafür da ist, ungenutzte Zugänge zu erkennen. Was die App für den
+      // WebView-Player braucht, holt sie über `session-aus-token` — und die
+      // Sitzung hängt dort am Token statt neben ihm.
       const antwort: { benutzer: typeof benutzer; apiToken?: string } = { benutzer }
-      if (request.body.tokenLabel) antwort.apiToken = app.auth.erzeugeToken(benutzer.id, request.body.tokenLabel)
+      if (request.body.tokenLabel) {
+        antwort.apiToken = app.auth.erzeugeToken(benutzer.id, request.body.tokenLabel)
+      } else {
+        setzeSessionCookie(reply, benutzer.id, request)
+      }
       return antwort
     },
   )
@@ -350,10 +371,18 @@ export function registriereAuthRouten(app: FastifyInstance): void {
   // mit Link sichtbar sind — private Touren wären in der eigenen App
   // unabspielbar. Die App tauscht deshalb vor dem Abspielen ihr Token gegen
   // eine Sitzung und setzt sie als Cookie.
+  //
+  // **Die Sitzung hängt am Token, aus dem sie stammt** (`request.appTokenId`).
+  // Sie ist damit kein zweites Gerät, sondern ein zweiter Ausweis desselben:
+  // Ein erneuter Tausch bekommt dieselbe zurück, die Geräteliste zeigt sie
+  // nicht als eigenen Eintrag, und wer die App in „Angemeldete Geräte"
+  // abmeldet, nimmt sie per CASCADE mit. Vorher legte JEDES Öffnen einer Tour
+  // eine neue Sitzung an — sichtbar als Reihe von „Unbekanntes Gerät", denn
+  // OkHttp schickt keinen Browser-User-Agent.
   app.post('/api/auth/session-aus-token', async (request, reply) => {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
-    const session = setzeSessionCookie(reply, benutzer.id, request)
+    const session = setzeSessionCookie(reply, benutzer.id, request, request.appTokenId)
     return { sessionId: session.id, ablauf: session.ablauf.toISOString() }
   })
 

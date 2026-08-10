@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Maptale, Kopfleiste der Zeitleiste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Kopfleiste über der Zeitleiste im Studio-Editor
+
+   NUR ENTWURF. Nichts hiervon steht im Produktivcode; die Klassen
+   heißen absichtlich anders (`m-…`), damit nichts versehentlich
+   übernommen aussieht.
+
+   Der Befund am Ist-Zustand (Variante 0 unten):
+
+   1. DIE MITTE IST ZU BREIT, und zwar nicht, weil zu viel drinsteht,
+      sondern weil sie dreimal Platz für den größten denkbaren Wert
+      reserviert (min-width 10,5ch + 11,5ch + 11,5ch) und die
+      GESAMTwerte genauso laut setzt wie die laufenden. „/ 1:20" und
+      „/ 2,1 km" ändern sich nie — sie sind Bezug, kein Messwert.
+   2. DIE LEISTE HAT KEINE MITTE ALS ORT. Links stehen drei Gruppen
+      (Transport, Werkzeuge, Ablage), in der Mitte eine Tafel, rechts
+      ein rahmenloser Regler. Der Zoom wirkt verloren, weil er als
+      Einziger keine Gruppe IST.
+   3. DER TRANSPORT STEHT AM RAND, obwohl er die einzige Aktion der
+      Leiste ist — die Werkzeuge daneben sind Modi, die Anzeige ist
+      Ausgabe. Das mischt drei Sorten an einer Stelle.
+
+   Die Varianten beantworten das unterschiedlich weitgehend.
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b;
+  --auf-akzent: #1a1206;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #7e8a99;
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #111722;
+  --fl-2: #161e2c;
+  --fl-3: #1e283a;
+  --rand: #232d3d;
+  --rand-hell: #2e3b4e;
+  --lila: #c58bff;
+  --blau: #5b9dff;
+  --gruen: #3ecf8e;
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 15px; line-height: 1.55;
+  padding: 40px 28px 120px;
+}
+.seite { max-width: 1180px; margin: 0 auto; }
+
+h1 { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px; }
+.unter { color: var(--text-2); margin: 0 0 40px; max-width: 70ch; }
+h2 {
+  font-size: 19px; font-weight: 600; margin: 0 0 4px;
+  display: flex; align-items: baseline; gap: 10px;
+}
+h2 .nr {
+  font-size: 12px; font-weight: 600; color: var(--auf-akzent);
+  background: var(--akzent); border-radius: var(--radius-full, 999px);
+  padding: 2px 9px; letter-spacing: 0.02em;
+}
+h2 .nr.grau { background: var(--fl-3); color: var(--text-3); }
+.wozu { color: var(--text-2); margin: 0 0 16px; max-width: 78ch; font-size: 14.5px; }
+
+section.var { margin: 0 0 54px; }
+.rahmen {
+  border: 1px solid var(--rand); border-radius: var(--radius-lg);
+  background: var(--bg-tief); overflow: hidden;
+}
+.notiz {
+  margin: 14px 0 0; padding-left: 16px; color: var(--text-2);
+  font-size: 13.5px; max-width: 82ch;
+}
+.notiz li { margin: 0 0 4px; }
+.notiz b { color: var(--text); font-weight: 500; }
+.messwert {
+  display: inline-block; font-variant-numeric: tabular-nums;
+  background: var(--fl-2); border: 1px solid var(--rand);
+  border-radius: 6px; padding: 1px 7px; font-size: 12.5px; color: var(--text-2);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Gemeinsame Bausteine — so nah am Ist-Code wie möglich, damit
+   der Vergleich ehrlich ist.
+   ───────────────────────────────────────────────────────────── */
+
+.m-kopf {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 16px 6px; user-select: none;
+}
+.m-links, .m-rechts { display: flex; align-items: center; gap: 10px; }
+
+button {
+  font-family: inherit; cursor: pointer; color: inherit;
+  background: var(--fl-2); border: 1px solid var(--rand);
+  border-radius: var(--radius-md);
+}
+svg { display: block; }
+
+/* Werkzeug-Segmente */
+.m-werkzeuge {
+  display: flex; align-items: center; gap: 3px; background: var(--fl-1);
+  border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 2px;
+}
+.m-wkz {
+  width: 27px; height: 24px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3);
+  border-radius: var(--radius-sm);
+}
+.m-wkz svg { width: 15px; height: 15px; }
+.m-wkz:hover { color: var(--text-2); background: var(--fl-3); }
+.m-wkz.an { background: var(--akzent); color: var(--auf-akzent); }
+
+/* Play */
+.m-play {
+  width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+  border-radius: var(--radius-md); border: 1px solid rgba(245, 165, 36, 0.4);
+  color: var(--akzent); background: var(--fl-1);
+}
+.m-play svg { width: 15px; height: 15px; }
+.m-play:hover { background: rgba(245, 165, 36, 0.12); border-color: rgba(245, 165, 36, 0.6); }
+.m-play.spielt {
+  color: var(--auf-akzent); border-color: transparent;
+  background: linear-gradient(135deg, var(--akzent), #f7b750);
+}
+
+.m-folge {
+  width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+  border-radius: var(--radius-md); border: 1px solid var(--rand);
+  color: var(--text-3); background: var(--fl-1);
+}
+.m-folge svg { width: 15px; height: 15px; }
+.m-folge:hover { color: var(--text-2); background: var(--fl-3); border-color: var(--rand-hell); }
+.m-folge.an { color: var(--auf-akzent); background: var(--akzent); border-color: transparent; }
+
+.m-ablage {
+  height: 28px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 9px; font-size: 12.5px; color: var(--text-2); background: var(--fl-1);
+}
+.m-ablage svg { width: 14px; height: 14px; }
+.m-ablage:hover { border-color: var(--rand-hell); color: var(--text); }
+
+/* ─────────────────────────────────────────────────────────────
+   Variante 0 — IST-ZUSTAND (zum Vergleich, unverändert nachgebaut)
+   ───────────────────────────────────────────────────────────── */
+.ist-uhr {
+  display: flex; align-items: stretch; padding: 3px 4px;
+  border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand);
+}
+.ist-teil {
+  display: flex; align-items: center; gap: 7px; padding: 2px 11px;
+  font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 12.5px;
+}
+.ist-teil + .ist-teil { border-left: 1px solid var(--rand); }
+.ist-teil svg { width: 14px; height: 14px; flex: none; color: var(--text-3); }
+.ist-film { font-size: 14.5px; color: var(--text-3); display: inline-block; min-width: 10.5ch; }
+.ist-film b { font-weight: 600; color: var(--text); }
+.ist-wert { display: inline-block; min-width: 11.5ch; color: var(--text-2); }
+.ist-teil i { font-style: normal; color: var(--rand-hell); margin: 0 3px; }
+.ist-teil .cur { color: var(--text); }
+.ist-zoom { display: flex; align-items: center; gap: 7px; }
+.ist-zoom-b {
+  width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
+  border-radius: var(--radius-sm); border: 1px solid var(--rand);
+  background: transparent; color: var(--text-2);
+}
+.ist-zoom-b svg { width: 14px; height: 14px; }
+.ist-zoom input[type='range'] { width: 110px; accent-color: var(--akzent); }
+.ist-zoom-wert {
+  font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums;
+  min-width: 4ch; padding: 3px 6px; border: 1px solid transparent; background: transparent;
+}
+.m-tempo { font-size: 12px; font-weight: 500; color: var(--akzent); min-width: 30px; }
+
+/* ─────────────────────────────────────────────────────────────
+   Gemeinsam für die Entwürfe: die kompakte Anzeige.
+
+   Der Kern: die LAUFENDEN Werte sind der Inhalt, die GESAMTwerte
+   der Bezug. Bezug ist kleiner, gedämpfter und bekommt keinen
+   eigenen Platzhalter. Nur die Filmzeit hält eine feste Breite —
+   sie zählt beim Abspielen zehnmal pro Sekunde hoch und darf die
+   Nachbarn nicht schieben. Uhrzeit („15:58") hat von sich aus
+   immer fünf Zeichen; die km-Zahl bekommt einen kleinen Slot.
+   ───────────────────────────────────────────────────────────── */
+.a-teil {
+  display: flex; align-items: center; gap: 6px;
+  font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 12.5px;
+  white-space: nowrap;
+}
+.a-teil > svg { width: 13px; height: 13px; flex: none; color: var(--text-3); }
+.a-teil.tag > svg { color: rgba(245, 165, 36, 0.85); }
+.a-film { font-size: 15px; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+.a-film .slot { display: inline-block; min-width: 4ch; }
+.a-ges { font-size: 11.5px; color: var(--text-3); font-weight: 400; margin-left: 1px; }
+.a-km-cur { display: inline-block; min-width: 2.5ch; text-align: right; color: var(--text); }
+.a-trenn { width: 1px; align-self: stretch; background: var(--rand); margin: 0 2px; }
+.a-punkt { width: 3px; height: 3px; border-radius: 50%; background: var(--rand-hell); flex: none; }
+
+/* ─────────────────────────────────────────────────────────────
+   Variante 1 — Drei gleich gebaute Inseln
+   ───────────────────────────────────────────────────────────── */
+.v1-insel {
+  display: flex; align-items: center; gap: 10px; height: 32px;
+  padding: 0 4px 0 4px; border-radius: var(--radius-md);
+  background: var(--fl-1); border: 1px solid var(--rand);
+}
+.v1-insel > .m-play, .v1-insel > .m-folge { width: 26px; height: 24px; }
+.v1-anzeige { display: flex; align-items: center; gap: 10px; padding-right: 8px; }
+.v1-zoom {
+  display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 5px;
+  border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand);
+}
+.v1-zoom-b {
+  width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
+}
+.v1-zoom-b svg { width: 14px; height: 14px; }
+.v1-zoom-b:hover { color: var(--text); background: var(--fl-3); }
+.v1-zoom input[type='range'] { width: 84px; accent-color: var(--akzent); }
+.v1-fit {
+  height: 24px; padding: 0 8px; font-size: 12px; color: var(--text-3);
+  font-variant-numeric: tabular-nums; border: none; background: transparent;
+  border-left: 1px solid var(--rand); border-radius: 0; margin-left: 2px;
+}
+.v1-fit:hover { color: var(--text); }
+
+/* ─────────────────────────────────────────────────────────────
+   Variante 2 — Transport in die Mitte, Anzeige daran gehängt
+   ───────────────────────────────────────────────────────────── */
+.v2-mitte {
+  display: flex; align-items: center; gap: 0; height: 34px;
+  border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand);
+  padding: 0 4px;
+}
+.v2-tr { display: flex; align-items: center; gap: 4px; padding-right: 8px; }
+.v2-play {
+  width: 30px; height: 26px; display: grid; place-items: center; padding: 0;
+  border-radius: var(--radius-sm); border: none;
+  color: var(--auf-akzent); background: linear-gradient(135deg, var(--akzent), #f7b750);
+}
+.v2-play svg { width: 15px; height: 15px; }
+.v2-play:hover { filter: brightness(1.06); }
+.v2-sprung {
+  width: 24px; height: 26px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
+}
+.v2-sprung svg { width: 14px; height: 14px; }
+.v2-sprung:hover { color: var(--text); background: var(--fl-3); }
+.v2-anz {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 10px 0 10px; border-left: 1px solid var(--rand); height: 22px;
+}
+.v2-folge {
+  width: 26px; height: 26px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3);
+  border-left: 1px solid var(--rand); border-radius: 0; padding-left: 0; margin-left: 2px;
+}
+.v2-folge svg { width: 15px; height: 15px; }
+.v2-folge.an { color: var(--akzent); }
+.v2-folge:hover { color: var(--text); }
+
+/* ─────────────────────────────────────────────────────────────
+   Variante 3 — Anzeige wandert an den Abspielkopf
+   ───────────────────────────────────────────────────────────── */
+.v3-film {
+  display: flex; align-items: baseline; gap: 7px;
+  font-variant-numeric: tabular-nums;
+}
+.v3-film b { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; min-width: 4ch; display: inline-block; }
+.v3-film span { font-size: 12.5px; color: var(--text-3); }
+
+/* ─────────────────────────────────────────────────────────────
+   Der Streifen Zeitleiste darunter — nur Kulisse, damit die
+   Proportionen der Leiste im Verhältnis lesbar sind.
+   ───────────────────────────────────────────────────────────── */
+.m-leiste { border-top: 1px solid var(--rand); background: var(--bg-tief); position: relative; }
+.m-skala {
+  display: flex; height: 22px; align-items: flex-end;
+  padding-left: 108px; position: relative; border-bottom: 1px solid var(--rand);
+}
+.m-skala .tick {
+  flex: 1; border-left: 1px solid var(--rand); height: 8px;
+  font-size: 10px; color: var(--text-3); padding-left: 4px; position: relative;
+}
+.m-skala .tick span { position: absolute; top: -12px; left: 4px; font-variant-numeric: tabular-nums; }
+.m-spur { display: flex; height: 34px; border-bottom: 1px solid rgba(35, 45, 61, 0.6); }
+.m-spur-name {
+  width: 108px; flex: none; display: flex; align-items: center; gap: 7px;
+  padding-left: 12px; font-size: 11.5px; color: var(--text-3);
+  border-right: 1px solid var(--rand); background: var(--bg-tief);
+}
+.m-spur-name svg { width: 13px; height: 13px; }
+.m-spur-feld { flex: 1; position: relative; }
+.m-klip {
+  position: absolute; top: 6px; bottom: 6px; border-radius: 5px;
+  font-size: 11px; display: flex; align-items: center; padding: 0 8px; color: var(--text);
+}
+.m-klip.foto { background: rgba(245, 165, 36, 0.22); border: 1px solid rgba(245, 165, 36, 0.5); }
+.m-klip.musik { background: rgba(91, 157, 255, 0.18); border: 1px solid rgba(91, 157, 255, 0.45); }
+.m-klip.band { background: rgba(197, 139, 255, 0.16); border: 1px solid rgba(197, 139, 255, 0.4); }
+.m-kopf-linie {
+  position: absolute; top: 0; bottom: 0; width: 2px; background: var(--akzent);
+  left: 32%; z-index: 5; pointer-events: none;
+}
+.m-kopf-linie::before {
+  content: ''; position: absolute; top: 0; left: -5px; width: 12px; height: 10px;
+  background: var(--akzent); border-radius: 3px 3px 2px 2px;
+}
+/* Der Chip aus Variante 3 — Werte am Kopf statt in der Leiste. */
+.m-kopf-chip {
+  position: absolute; top: 12px; left: 10px; white-space: nowrap;
+  background: rgba(9, 12, 17, 0.92); border: 1px solid rgba(245, 165, 36, 0.45);
+  border-radius: 6px; padding: 2px 8px; font-size: 11.5px; color: var(--text-2);
+  font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px;
+}
+.m-kopf-chip svg { width: 11px; height: 11px; color: var(--text-3); }
+.m-kopf-chip .tag svg { color: rgba(245, 165, 36, 0.85); }
+.m-kopf-chip b { color: var(--text); font-weight: 500; }
+
+/* Breiten-Messband unter jeder Leiste */
+.mass {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px 10px;
+  font-size: 11.5px; color: var(--text-3); border-top: 1px dashed rgba(46, 59, 78, 0.6);
+}
+.mass b { color: var(--text-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.abschluss {
+  margin-top: 50px; padding: 22px 24px; border: 1px solid var(--rand);
+  border-radius: var(--radius-lg); background: var(--fl-1);
+}
+.abschluss h3 { margin: 0 0 10px; font-size: 17px; font-weight: 600; }
+.abschluss ol { margin: 0; padding-left: 20px; color: var(--text-2); }
+.abschluss li { margin-bottom: 8px; }
+.abschluss b { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="seite">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5.5v13l11-6.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 5.5v13"/><path d="M15 5.5v13"/></symbol>
+    <symbol id="i-folge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></symbol>
+    <symbol id="i-cursor" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.4 L6 18.6 L9.9 14.9 L12.3 20.4 L14.5 19.4 L12.1 14 L17.2 14 Z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24" fill="currentColor"><path d="M10.4 2a1.45 1.45 0 00-1.45 1.45v5.9a.45.45 0 01-.9 0V5.55a1.4 1.4 0 10-2.8 0v8.2l-1.15-1.4a1.55 1.55 0 00-2.45 1.9l3.15 4.25A6.15 6.15 0 0011.75 21h1.6A6.15 6.15 0 0019.5 14.85V6.35a1.4 1.4 0 10-2.8 0v3.1a.45.45 0 01-.9 0V4.25a1.4 1.4 0 10-2.8 0v5.1a.45.45 0 01-.9 0V3.45A1.45 1.45 0 0010.4 2z"/></symbol>
+    <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+    <symbol id="i-lupe-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+    <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
+    <symbol id="i-anpassen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7.5 5.5v13M16.5 5.5v13M3.5 9.5h4M3.5 14.5h4M16.5 9.5h4M16.5 14.5h4"/></symbol>
+    <symbol id="i-sonne" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.1M12 19.1v2.1M21.2 12h-2.1M4.9 12H2.8M18.5 5.5l-1.5 1.5M7 17l-1.5 1.5M18.5 18.5 17 17M7 7 5.5 5.5"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></symbol>
+    <symbol id="i-spur-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.7-4.5L6.5 20"/></symbol>
+    <symbol id="i-spur-musik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="17.5" r="2.4"/><circle cx="17.3" cy="15" r="2.4"/><path d="M9.4 17.5V6.2l10.3-2v10.8"/></symbol>
+    <symbol id="i-spur-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/></symbol>
+    <symbol id="i-anfang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5.5v13L8 12z"/><path d="M6 5.5v13"/></symbol>
+    <symbol id="i-ende" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5.5v13L16 12z"/><path d="M18 5.5v13"/></symbol>
+  </defs>
+</svg>
+
+<h1>Kopfleiste der Zeitleiste</h1>
+<p class="unter">
+  Vier Entwürfe für den Streifen über der Zeitleiste im Studio-Editor — vom
+  behutsamen Zuschnitt bis zum Umbau. Nichts davon ist im Code; das hier ist
+  eine Entscheidungsvorlage. Alle Leisten sind in derselben Breite gezeichnet
+  und tragen dieselben Werte, damit man sie nebeneinander lesen kann.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════ 0 -->
+<section class="var">
+  <h2><span class="nr grau">0</span> Ist-Zustand</h2>
+  <p class="wozu">
+    Zum Vergleich, 1:1 nachgebaut. Die mittlere Tafel misst rund
+    <span class="messwert">560 px</span> — drei Gruppen, die je Platz für ihren
+    größtmöglichen Wert reservieren. Der Zoom rechts ist die einzige Gruppe
+    ohne Rahmen und hängt deshalb frei am Rand.
+  </p>
+  <div class="rahmen">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="m-play"><svg><use href="#i-play"/></svg></button>
+          <button class="m-folge an"><svg><use href="#i-folge"/></svg></button>
+          <span class="m-tempo"></span>
+        </div>
+        <div class="m-werkzeuge">
+          <button class="m-wkz an"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-lupe"/></svg></button>
+        </div>
+      </div>
+      <div class="ist-uhr">
+        <span class="ist-teil">
+          <svg><use href="#i-film"/></svg>
+          <span class="ist-film"><b>0:25</b><i>/</i>1:20</span>
+        </span>
+        <span class="ist-teil">
+          <svg><use href="#i-sonne"/></svg>
+          <span class="ist-wert">15:58</span>
+        </span>
+        <span class="ist-teil">
+          <svg><use href="#i-route"/></svg>
+          <span class="ist-wert"><span class="cur">0,3</span><i>/</i>2,1 km</span>
+        </span>
+      </div>
+      <div class="m-rechts">
+        <div class="ist-zoom">
+          <button class="ist-zoom-b"><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" min="0" max="100" value="12" />
+          <button class="ist-zoom-b"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="ist-zoom-wert">1,0×</button>
+        </div>
+      </div>
+    </div>
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-foto"/></svg>Szenen</div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-musik"/></svg>Musik</div>
+        <div class="m-spur-feld"><div class="m-klip musik" style="left:2%;width:70%">Nachtfahrt</div></div>
+      </div>
+      <div class="m-kopf-linie"></div>
+    </div>
+    <div class="mass">Mittlere Tafel: <b>≈ 560 px</b> · Zoom rechts: <b>≈ 205 px</b> · Werkzeuge links: <b>≈ 180 px</b></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ 1 -->
+<section class="var">
+  <h2><span class="nr">1</span> Drei Inseln, gleiche Bauart</h2>
+  <p class="wozu">
+    Der kleinste Eingriff, der alle drei Beobachtungen bedient. Die Leiste
+    bekommt <b>drei gleich hohe, gleich gerahmte Gruppen</b>: links Modi
+    (Werkzeuge + Ablage), in der Mitte die Insel aus Transport <i>und</i>
+    Anzeige, rechts der Zoom — jetzt selbst eine Gruppe mit dem
+    Anpassen-Wert im gleichen Rahmen, also nicht mehr freihängend. Die
+    Anzeige schrumpft, weil die Gesamtwerte kleiner gesetzt sind und nur
+    noch die Filmzeit einen festen Slot hält.
+  </p>
+  <div class="rahmen">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div class="m-werkzeuge">
+          <button class="m-wkz an"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-lupe"/></svg></button>
+        </div>
+        <button class="m-ablage"><svg><use href="#i-spur-foto"/></svg>3</button>
+      </div>
+
+      <div class="v1-insel">
+        <button class="m-play js-play"><svg><use href="#i-play"/></svg></button>
+        <button class="m-folge an js-folge" title="Karte folgt der Position"><svg><use href="#i-folge"/></svg></button>
+        <div class="a-trenn"></div>
+        <div class="v1-anzeige">
+          <span class="a-teil"><svg><use href="#i-film"/></svg>
+            <span class="a-film"><span class="slot">0:25</span><span class="a-ges"> / 1:20</span></span>
+          </span>
+          <span class="a-punkt"></span>
+          <span class="a-teil tag"><svg><use href="#i-sonne"/></svg>15:58</span>
+          <span class="a-punkt"></span>
+          <span class="a-teil"><svg><use href="#i-route"/></svg>
+            <span class="a-km-cur">0,3</span><span class="a-ges"> / 2,1 km</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="m-rechts">
+        <div class="v1-zoom">
+          <button class="v1-zoom-b"><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" min="0" max="100" value="12" />
+          <button class="v1-zoom-b"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="v1-fit">1,0×</button>
+        </div>
+      </div>
+    </div>
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-foto"/></svg>Szenen</div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-musik"/></svg>Musik</div>
+        <div class="m-spur-feld"><div class="m-klip musik" style="left:2%;width:70%">Nachtfahrt</div></div>
+      </div>
+      <div class="m-kopf-linie"></div>
+    </div>
+    <div class="mass">Mittlere Insel: <b>≈ 420 px</b> (mit Play + Folgen darin) · Zoom: <b>≈ 190 px</b>, jetzt gerahmt</div>
+  </div>
+  <ul class="notiz">
+    <li><b>Play sitzt an der Anzeige</b>, nicht neben den Werkzeugen: Der Knopf
+      startet genau die Zahl, die daneben hochläuft. Vorher war er Nachbar von
+      Modus-Umschaltern, mit denen er nichts zu tun hat.</li>
+    <li><b>„Karte folgt" bleibt beim Play</b> — es ist eine Eigenschaft des
+      Abspielens, keine Karteneinstellung. Beide zusammen sind der Transport.</li>
+    <li><b>Gesamtwerte werden Bezug</b>: „/ 1:20" und „/ 2,1 km" in 11,5 px
+      gedämpft. Das allein spart rund 60 px, ohne Information wegzunehmen.</li>
+    <li><b>Der Anpassen-Knopf zieht in den Zoom-Rahmen</b>. Damit hat rechts
+      alles denselben Kasten wie links — die Leiste bekommt einen Rhythmus.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ 2 -->
+<section class="var">
+  <h2><span class="nr">2</span> Abspielpult in der Mitte</h2>
+  <p class="wozu">
+    Weiter gedacht: Die Mitte wird zum <b>Pult</b> — Sprung an den Anfang,
+    Play, Sprung ans Ende, dann die Werte, rechts abschließend „Karte folgt".
+    Der Play-Knopf ist hier dauerhaft gefüllt (er ist die einzige Aktion der
+    Leiste und darf sie anführen). Die Anzeige verliert die Icon-Wiederholung
+    bei den Nebengrößen nicht, aber deren Rahmen — es ist eine Zeile, keine
+    Tabelle.
+  </p>
+  <div class="rahmen">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div class="m-werkzeuge">
+          <button class="m-wkz an"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-lupe"/></svg></button>
+        </div>
+        <button class="m-ablage"><svg><use href="#i-spur-foto"/></svg>3</button>
+      </div>
+
+      <div class="v2-mitte">
+        <div class="v2-tr">
+          <button class="v2-sprung" title="An den Anfang (Pos1)"><svg><use href="#i-anfang"/></svg></button>
+          <button class="v2-play js-play"><svg><use href="#i-play"/></svg></button>
+          <button class="v2-sprung" title="Ans Ende (Ende)"><svg><use href="#i-ende"/></svg></button>
+        </div>
+        <div class="v2-anz">
+          <span class="a-teil">
+            <span class="a-film"><span class="slot">0:25</span><span class="a-ges"> / 1:20</span></span>
+          </span>
+          <span class="a-punkt"></span>
+          <span class="a-teil tag"><svg><use href="#i-sonne"/></svg>15:58</span>
+          <span class="a-punkt"></span>
+          <span class="a-teil"><svg><use href="#i-route"/></svg>
+            <span class="a-km-cur">0,3</span><span class="a-ges"> / 2,1 km</span>
+          </span>
+        </div>
+        <button class="v2-folge an js-folge" title="Karte folgt der Position"><svg><use href="#i-folge"/></svg></button>
+      </div>
+
+      <div class="m-rechts">
+        <div class="v1-zoom">
+          <button class="v1-zoom-b"><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" min="0" max="100" value="12" />
+          <button class="v1-zoom-b"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="v1-fit"><svg style="width:14px;height:14px"><use href="#i-anpassen"/></svg></button>
+        </div>
+      </div>
+    </div>
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-foto"/></svg>Szenen</div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-kamera"/></svg>Kamera</div>
+        <div class="m-spur-feld"><div class="m-klip band" style="left:0%;width:44%">nah</div><div class="m-klip band" style="left:44%;width:56%">weit</div></div>
+      </div>
+      <div class="m-kopf-linie"></div>
+    </div>
+    <div class="mass">Mittleres Pult: <b>≈ 470 px</b> · gewonnen gegenüber heute: <b>≈ 90 px</b>, dabei zwei Knöpfe mehr</div>
+  </div>
+  <ul class="notiz">
+    <li><b>Anfang / Ende sind neu</b> und kosten fast nichts, weil sie im
+      selben Rahmen sitzen. Sie ersetzen das Ziehen des Abspielkopfs über die
+      ganze Leiste, das beim starken Zoom eine Reise ist.</li>
+    <li><b>Der Zoom-Wert wird zum Symbol</b> („an Fenster anpassen"). Der Wert
+      „1,0×" ist beim Arbeiten selten interessant und kostet 4 Zeichen Breite
+      — er kann in den Titel des Knopfes. <i>Gegenrede:</i> Beim Vergleichen
+      zweier Zoomstufen hilft die Zahl; wer sie behalten will, nimmt sie aus
+      Variante 1.</li>
+    <li><b>Risiko:</b> Ein gefüllter Play-Knopf im Ruhezustand kollidiert mit
+      der Regel „Voll-Amber = aktiver Modus" (siehe <code>.wkz.an</code>).
+      Entweder man nimmt das bewusst in Kauf (Play ist Aktion, nicht Modus) —
+      oder man lässt ihn wie heute nur beim Abspielen füllen.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ 3 -->
+<section class="var">
+  <h2><span class="nr">3</span> Die Werte gehen an den Abspielkopf</h2>
+  <p class="wozu">
+    Der radikale Weg — und der, der die Frage „zu breit" an der Wurzel
+    beantwortet. <b>Uhrzeit und Strecke gelten an einer Stelle der
+    Zeitleiste, also stehen sie dort</b>: als Chip am Abspielkopf, der
+    mitwandert. In der Leiste bleibt nur die Filmzeit, denn die ist eine
+    Aussage über den ganzen Film. Die Kopfzeile wird dadurch fast leer und
+    kann links und rechts atmen.
+  </p>
+  <div class="rahmen">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div class="v1-insel" style="height:32px">
+          <button class="m-play js-play"><svg><use href="#i-play"/></svg></button>
+          <button class="m-folge an js-folge"><svg><use href="#i-folge"/></svg></button>
+          <div class="a-trenn"></div>
+          <div class="v3-film" style="padding-right:10px">
+            <b>0:25</b><span>/ 1:20</span>
+          </div>
+        </div>
+        <div class="m-werkzeuge">
+          <button class="m-wkz an"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-lupe"/></svg></button>
+        </div>
+        <button class="m-ablage"><svg><use href="#i-spur-foto"/></svg>3</button>
+      </div>
+      <div class="m-rechts">
+        <div class="v1-zoom">
+          <button class="v1-zoom-b"><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" min="0" max="100" value="12" />
+          <button class="v1-zoom-b"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="v1-fit">1,0×</button>
+        </div>
+      </div>
+    </div>
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur" style="height:44px">
+        <div class="m-spur-name"><svg><use href="#i-spur-foto"/></svg>Szenen</div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-musik"/></svg>Musik</div>
+        <div class="m-spur-feld"><div class="m-klip musik" style="left:2%;width:70%">Nachtfahrt</div></div>
+      </div>
+      <div class="m-kopf-linie">
+        <div class="m-kopf-chip">
+          <span class="tag" style="display:flex;align-items:center;gap:5px"><svg><use href="#i-sonne"/></svg>15:58</span>
+          <span style="display:flex;align-items:center;gap:5px"><svg><use href="#i-route"/></svg><b>0,3</b> / 2,1 km</span>
+        </div>
+      </div>
+    </div>
+    <div class="mass">Kopfleiste gesamt links: <b>≈ 440 px</b> · Mitte: <b>frei</b> · der Chip wandert mit dem Kopf</div>
+  </div>
+  <ul class="notiz">
+    <li><b>Der große Gewinn:</b> Die Werte stehen dort, wo sie gelten. Beim
+      Scrubben sieht man Uhrzeit und Kilometer unter dem Finger statt 700 px
+      weiter oben — das ist der Unterschied zwischen Ablesen und Sehen.</li>
+    <li><b>Der Preis:</b> Der Chip verdeckt Klips in der obersten Spur und muss
+      am rechten Rand die Seite wechseln. Er braucht außerdem eine Regel für
+      „Kopf außerhalb des sichtbaren Ausschnitts".</li>
+    <li><b>Zwischenweg:</b> Chip nur <i>während</i> des Ziehens/Abspielens
+      einblenden, im Ruhezustand steht alles in der Leiste. Das kostet aber
+      die Verlässlichkeit „immer an derselben Stelle".</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ 4 -->
+<section class="var">
+  <h2><span class="nr">4</span> Zoom als Werkzeug-Nachbar (Zusatz zu 1–3)</h2>
+  <p class="wozu">
+    Eine Antwort nur auf „der Zoom wirkt verloren", kombinierbar mit jeder
+    Variante oben: Der Zoom hört auf, ein Regler zu sein. Er wird zu
+    <b>zwei Lupen plus einem Wert-Knopf im Werkzeug-Register links</b> — dort,
+    wo auch das Zoom-Werkzeug (Aufziehen eines Ausschnitts) sitzt, mit dem er
+    dasselbe tut. Rechts bleibt der Platz frei für das, was dort hingehört:
+    Dinge, die den ganzen Film betreffen.
+  </p>
+  <div class="rahmen">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div class="m-werkzeuge">
+          <button class="m-wkz an"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz"><svg><use href="#i-lupe"/></svg></button>
+          <span style="width:1px;height:18px;background:var(--rand);margin:0 3px"></span>
+          <button class="m-wkz"><svg><use href="#i-lupe-minus"/></svg></button>
+          <button class="m-wkz" style="width:auto;padding:0 7px;font-size:12px;font-variant-numeric:tabular-nums">1,0×</button>
+          <button class="m-wkz"><svg><use href="#i-lupe-plus"/></svg></button>
+        </div>
+        <button class="m-ablage"><svg><use href="#i-spur-foto"/></svg>3</button>
+      </div>
+
+      <div class="v1-insel">
+        <button class="m-play js-play"><svg><use href="#i-play"/></svg></button>
+        <button class="m-folge an js-folge"><svg><use href="#i-folge"/></svg></button>
+        <div class="a-trenn"></div>
+        <div class="v1-anzeige">
+          <span class="a-teil"><svg><use href="#i-film"/></svg>
+            <span class="a-film"><span class="slot">0:25</span><span class="a-ges"> / 1:20</span></span>
+          </span>
+          <span class="a-punkt"></span>
+          <span class="a-teil tag"><svg><use href="#i-sonne"/></svg>15:58</span>
+          <span class="a-punkt"></span>
+          <span class="a-teil"><svg><use href="#i-route"/></svg>
+            <span class="a-km-cur">0,3</span><span class="a-ges"> / 2,1 km</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="m-rechts">
+        <button class="m-ablage" style="opacity:0.75">Vorschau</button>
+        <button class="m-ablage" style="opacity:0.75">Fertigstellen</button>
+      </div>
+    </div>
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-foto"/></svg>Szenen</div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-musik"/></svg>Musik</div>
+        <div class="m-spur-feld"><div class="m-klip musik" style="left:2%;width:70%">Nachtfahrt</div></div>
+      </div>
+      <div class="m-kopf-linie"></div>
+    </div>
+    <div class="mass">Zoom ohne Regler: <b>≈ 96 px</b> statt 205 px · rechts wird Platz frei</div>
+  </div>
+  <ul class="notiz">
+    <li><b>Der Regler verschwindet, nicht der Zoom.</b> Ein Schieber für eine
+      Größe, die man ohnehin per ⌘+/⌘− und Mausrad bedient, ist der teuerste
+      Weg zu einer Zahl. Der Wert-Knopf in der Mitte bleibt „an Fenster
+      anpassen" (⇧Z).</li>
+    <li><b>Die rechten Knöpfe sind nur Platzhalter</b> — sie zeigen, was dort
+      stehen KÖNNTE. Wenn dort nichts hingehört, bleibt die Seite leer und die
+      Mitte rückt optisch in die Mitte, statt gegen einen Regler zu drücken.</li>
+    <li><b>Gegenrede:</b> Der Regler zeigt auch, WIE weit man hineingezoomt ist
+      — die Reglerposition ist eine Anzeige. Wer darauf nicht verzichten will,
+      nimmt Variante 1.</li>
+  </ul>
+</section>
+
+<div class="abschluss">
+  <h3>Empfehlung</h3>
+  <ol>
+    <li><b>Variante 1 als Basis.</b> Sie löst alle drei Punkte mit dem
+      geringsten Bruch: Play und „Karte folgt" wandern in die Mitte-Insel, die
+      Anzeige wird um ~140 px schmaler, der Zoom bekommt einen Rahmen und ist
+      damit eine Gruppe unter Gruppen.</li>
+    <li><b>Darauf Variante 4 aufsetzen</b>, wenn der Zoom-Regler nach ein paar
+      Tagen Arbeit tatsächlich nie angefasst wird. Das ist eine Messung, keine
+      Designfrage — deshalb später und getrennt.</li>
+    <li><b>Variante 3 als eigenes Vorhaben.</b> Der Chip am Abspielkopf ist die
+      beste Idee des Stapels, aber er berührt das Ziehen, das Abspielen und die
+      Überlappung mit Klips. Er verdient einen eigenen Durchgang, nicht die
+      Kopfleisten-Runde.</li>
+    <li><b>Variante 2 nur, wenn Anfang/Ende gebraucht werden.</b> Sonst ist sie
+      Variante 1 mit zwei Knöpfen mehr und einem Play, das die Amber-Regel
+      dehnt.</li>
+  </ol>
+</div>
+
+</div>
+
+<script>
+// Nur Schaustellerei: Play/Pause und „Karte folgt" umschalten, damit man die
+// Zustände im Mockup ansehen kann.
+document.querySelectorAll('.js-play').forEach((b) => {
+  b.addEventListener('click', () => {
+    const spielt = b.classList.toggle('spielt');
+    b.querySelector('use').setAttribute('href', spielt ? '#i-pause' : '#i-play');
+  });
+});
+document.querySelectorAll('.js-folge').forEach((b) => {
+  b.addEventListener('click', () => b.classList.toggle('an'));
+});
+</script>
+</body>
+</html>

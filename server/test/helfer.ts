@@ -170,14 +170,24 @@ export async function baueTestApp(
   })
   await app.auth.legeBenutzerAn('test@example.com', 'geheim123', 'Testerin')
 
+  // ZWEI Anmeldungen, weil es zwei Sorten Client gibt und sie sich seit
+  // 2026-08-10 ausschließen: Der Browser bekommt eine Sitzung, der API-Client
+  // ein Token (und ausdrücklich keine Sitzung — s. Login-Route). Die
+  // Testumgebung spielt beide, deshalb steht hier, was in echt zwei Geräte
+  // wären.
   const login = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email: 'test@example.com', passwort: 'geheim123' },
+  })
+  if (login.statusCode !== 200) throw new Error(`Test-Login fehlgeschlagen: ${login.body}`)
+  const sessionCookie = login.cookies.find((c) => c.name === 'maptale_session')
+  const appLogin = await app.inject({
     method: 'POST',
     url: '/api/auth/login',
     payload: { email: 'test@example.com', passwort: 'geheim123', tokenLabel: 'Testgerät' },
   })
-  if (login.statusCode !== 200) throw new Error(`Test-Login fehlgeschlagen: ${login.body}`)
-  const sessionCookie = login.cookies.find((c) => c.name === 'maptale_session')
-  const apiToken = (login.json() as { apiToken: string }).apiToken
+  const apiToken = (appLogin.json() as { apiToken: string }).apiToken
 
   return { app, storage, benutzerStorage, archive, mail, cookies: { maptale_session: sessionCookie?.value ?? '' }, apiToken }
 }
