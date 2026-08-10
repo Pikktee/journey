@@ -7,19 +7,30 @@
 package app.maptale.galerie
 
 /**
- * Wie weit über die Tour hinaus gesucht wird — auf jeder Seite.
+ * Wie weit über die Tour hinaus gesucht wird — auf jeder Seite. NULL.
  *
- * **Das ist die Zeitzonen-Vorsorge, kein Großzügigkeitspuffer.** EXIF-Zeiten
- * tragen oft keine Zone (`DateTimeOriginal` ist lokale Kamerazeit), Tracks
- * tragen UTC. Wo Android den Versatz nicht kennt, liegt ein Bild um den
- * Zonen-Versatz daneben — bei einer Reise mit Zeitzonenwechsel um Stunden.
- * Zwei Stunden fangen den europäischen Alltagsfall (Sommerzeit, Nachbarzone)
- * und lassen die Entscheidung trotzdem beim Nutzer: Ein Vorschlag, der ein Bild
- * zu viel zeigt, ist ehrlicher als eine Automatik, die eines zu wenig findet.
+ * **Sie stand bis 2026-08-10 bei ZWEI STUNDEN, mit einer falschen Begründung:**
+ * „EXIF trägt oft keine Zone, Tracks tragen UTC". Nur lesen wir gar kein EXIF,
+ * sondern `MediaStore.DATE_TAKEN` — und das ist bereits normalisierte
+ * UTC-Zeit, Android rechnet die Zone beim Auslösen heraus. Die Warnung galt
+ * einer Datenquelle, die wir nicht benutzen.
  *
- * Wer das größer macht, holt die Fotos des Abendessens danach mit herein.
+ * Was sie anrichtete: Zwei Touren desselben Vormittags bekamen DIESELBEN
+ * dreizehn Fotos. Am Gerät gemeldet, an zwei Runden im Abstand von 1:43 min.
+ *
+ * **Warum jetzt gar keine und nicht bloß eine kleine.** Jede Toleranz > 0
+ * greift in die Nachbartour hinein, sobald zwei Aufzeichnungen dicht
+ * aufeinander folgen — bei fünf Minuten überlappten die Fenster des gemeldeten
+ * Falls immer noch um acht. Man kann das nicht durch eine kleinere Zahl lösen,
+ * nur durch eine kleinere Wahrscheinlichkeit; und ein Foto, das in zwei Touren
+ * auftaucht, ist ein sichtbarer Fehler, während ein fehlendes bloß fehlt.
+ *
+ * Die Regel ist damit die, die man auch erwartet: **Ein Foto gehört zu der
+ * Tour, die lief, als es entstand.** Der Preis ist das Bild vom Startpunkt,
+ * kurz bevor man auf Aufnahme drückt — das lässt sich im Studio nachreichen,
+ * und dort entscheidet ein Mensch statt einer Zahl.
  */
-const val TOLERANZ_MS = 2 * 60 * 60 * 1000L
+const val TOLERANZ_MS = 0L
 
 /** Ein Bild der Galerie, so weit es für die Zuordnung zählt. */
 data class Galeriebild(

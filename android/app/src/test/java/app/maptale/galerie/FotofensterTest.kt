@@ -42,15 +42,33 @@ class FotofensterTest {
     }
 
     @Test
-    fun `die Toleranz reicht zwei Stunden nach beiden Seiten`() {
-        // Sie fängt die Zeitzone, nicht das Abendessen: EXIF trägt oft keine
-        // Zone, der Track dagegen UTC.
-        val knappDrin = bild(1, -TOLERANZ_MS + 1000)
-        val knappDraussen = bild(2, -TOLERANZ_MS - 1000)
-        val danachDrin = bild(3, (ENDE - START) + TOLERANZ_MS - 1000)
-        val danachDraussen = bild(4, (ENDE - START) + TOLERANZ_MS + 1000)
+    fun `ausserhalb der Tour aufgenommene Bilder bleiben draussen`() {
+        // Keine Toleranz: `DATE_TAKEN` ist bereits UTC, eine Zeitzonen-Reserve
+        // braucht es nicht — und jede Reserve griffe in die Nachbartour.
+        val knappDrin = bild(1, 1000)
+        val knappDraussen = bild(2, -1000)
+        val danachDrin = bild(3, (ENDE - START) - 1000)
+        val danachDraussen = bild(4, (ENDE - START) + 1000)
         val treffer = passendeBilder(listOf(knappDrin, knappDraussen, danachDrin, danachDraussen), START, ENDE)
         assertEquals(listOf(1L, 3L), treffer.map { it.id })
+    }
+
+    @Test
+    fun `zwei Touren desselben Vormittags bekommen NICHT dieselben Fotos`() {
+        // Am Gerät gemeldet: Zwei Runden im Abstand von zwei Minuten erhielten
+        // beide alle dreizehn Bilder des Vormittags — die Toleranz stand auf
+        // zwei Stunden und deckte damit alles ab.
+        // Genau der gemeldete Fall: zwei Runden, keine zwei Minuten auseinander.
+        val tourA = START to START + 6 * 60 * 1000L
+        val tourB = START + 7 * 60 * 1000L to START + 27 * 60 * 1000L
+        val bilder = listOf(
+            bild(1, -60 * 60 * 1000),        // eine Stunde vorher: gehört keiner
+            bild(2, 3 * 60 * 1000),          // mitten in A
+            bild(3, 15 * 60 * 1000),         // mitten in B
+            bild(4, 6 * 60 * 1000 + 30_000), // in der Lücke: gehört keiner
+        )
+        assertEquals(listOf(2L), passendeBilder(bilder, tourA.first, tourA.second).map { it.id })
+        assertEquals(listOf(3L), passendeBilder(bilder, tourB.first, tourB.second).map { it.id })
     }
 
     @Test
