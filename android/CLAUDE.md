@@ -114,8 +114,14 @@ rechnenden Teile stehen DOM-frei und getestet in `Fotofenster.kt`, die MediaStor
 `Galerie.kt`, der Weg zum Server in `Fotonachzug.kt`. Sechs Dinge, die man dabei kippt:
 **Gelesen wird NUR im Zeitfenster einer Tour** — es gibt bewusst keine Funktion, die „alle
 Bilder" liefert; das ist die Zusage aus der Datenschutzerklärung, nicht Sparsamkeit im Code.
-**±2 Stunden Toleranz sind Zeitzonen-Vorsorge, kein Puffer**: EXIF trägt oft keine Zone,
-Tracks tragen UTC — wer sie großzügiger macht, holt die Fotos des Abendessens mit herein.
+**Es gibt KEINE Toleranz um das Fenster** (`TOLERANZ_MS = 0`): Sie stand einmal bei zwei
+Stunden, begründet damit, dass EXIF keine Zone trage — nur lesen wir kein EXIF, sondern
+`MediaStore.DATE_TAKEN`, und das ist bereits UTC. Die Folge war, dass zwei Runden desselben
+Vormittags DIESELBEN dreizehn Fotos bekamen (tatsächlich im Fenster lagen vier bzw. fünf).
+Auch eine kleine Toleranz löst das nicht, nur seltener: Sie greift in die Nachbartour, sobald
+zwei Aufzeichnungen dicht aufeinanderfolgen. Ein Foto in zwei Touren ist ein sichtbarer
+Fehler, ein fehlendes bloß ein fehlendes — deshalb die Regel, die man ohnehin erwartet: Ein
+Foto gehört zu der Tour, die lief, als es entstand.
 **Positiv- UND Negativliste beim Ordner**: Nur die Sperrliste ließe jede künftige Foto-App
 durch, nur die Positivliste verlöre Hersteller mit eigenem Kamera-Ordner; ohne beides landet
 der Screenshot aus der Pause in der Reise. **`DATE_TAKEN`, nicht `DATE_ADDED`** — wer sein
