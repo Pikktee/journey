@@ -85,6 +85,35 @@ class FotofensterTest {
     }
 
     @Test
+    fun `RAW-Dateien fallen heraus — sonst stirbt der ganze Nachzug an einer`() {
+        // Am Pixel 9 gefunden: Die Kamera legt neben jedem Foto ein .dng ab.
+        // Die Nachreich-Route kennt keine halben Stapel — ein Eintrag mit
+        // unbekannter Endung lässt die ganze Anfrage mit 400 scheitern.
+        val treffer = passendeBilder(
+            listOf(
+                bild(1, 1000).copy(dateiname = "PXL_1.jpg"),
+                bild(2, 2000).copy(dateiname = "PXL_1.RAW-02.ORIGINAL.dng"),
+                bild(3, 3000).copy(dateiname = "bild.PNG"),
+                bild(4, 4000).copy(dateiname = "ohne-endung"),
+            ),
+            START,
+            ENDE,
+        )
+        assertEquals(listOf(1L, 3L), treffer.map { it.id })
+    }
+
+    @Test
+    fun `die Endungsprüfung folgt dem, was der Server annimmt`() {
+        assertTrue(endungErlaubt("a.jpg"))
+        assertTrue(endungErlaubt("a.JPEG"))
+        assertTrue(endungErlaubt("a.webp"))
+        assertFalse(endungErlaubt("a.dng"))
+        assertFalse(endungErlaubt("a.mp4"))
+        // Bekannte Lücke: HEIC nimmt der Server (noch) nicht an.
+        assertFalse(endungErlaubt("a.heic"))
+    }
+
+    @Test
     fun `schon vorhandene Aufnahmen werden nicht erneut vorgeschlagen`() {
         // Sonst käme die Frage bei jedem Öffnen wieder — auch für den, der
         // einmal „nein" gesagt hat.

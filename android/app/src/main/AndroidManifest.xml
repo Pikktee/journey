@@ -85,6 +85,19 @@
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"
             android:value="false" />
+        <!-- Ohne diese Freigabe wirft `register()` mit „API disabled": Seit FCM
+             die Installations-ID zur Adresse gemacht hat, muss eine App
+             ausdrücklich erlauben, dass sie dafür benutzt wird. Am Gerät
+             gefunden — die Testsuite kann es nicht sehen, weil Firebase dort
+             gar nicht erst initialisiert.
+
+             Das hebt die Zeile darüber NICHT auf: `auto_init` entscheidet, ob
+             von SELBST registriert wird (nein), dies nur, ob es überhaupt
+             möglich ist. Übertragen wird weiterhin erst, wenn
+             `MaptalePush.aktiviere` es nach der Zustimmung anstößt. -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true" />
         <!-- Gilt für alle Firebase-Bestandteile, die von sich aus Daten sammeln
              würden. `firebase-analytics` ist gar nicht erst als Abhängigkeit
              aufgenommen; dies ist der Riegel für den Fall, dass es über eine

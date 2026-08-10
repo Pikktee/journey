@@ -93,6 +93,11 @@ kippt: **Die Adresse ist die FID, nicht der Registrierungs-Token** — FCM hat i
 gegen ein abgekündigtes Feld. **Auto-Init ist AUS** (`firebase_messaging_auto_init_enabled`
 im Manifest), denn `firebase-installations` meldet sonst schon beim App-Start eine Kennung
 an Google — vor jeder Zustimmung; eingeschaltet wird sie erst in `MaptalePush.aktiviere`.
+Daneben steht `firebase_messaging_installation_id_enabled=true`, und das ist kein
+Widerspruch: Ohne diese Freigabe wirft `register()` mit „API disabled“ — seit die FID die
+Adresse ist, muss eine App ausdrücklich erlauben, dass sie dafür benutzt wird. Das eine
+entscheidet, ob von SELBST registriert wird (nein), das andere, ob es überhaupt möglich ist.
+Am Gerät gefunden; die Testsuite sieht es nicht, weil Firebase dort nie initialisiert.
 **Die Berechtigungsabfrage IST der Zustimmungsmoment**, und sie steht am Rückweg des
 Verknüpfens: Vorher gäbe es nichts zu melden, und ein Systemdialog beim Start ist der, den
 man wegtippt. Beim App-Start wird nur NACHGEZOGEN, wenn die Erlaubnis schon steht — sonst
@@ -115,6 +120,12 @@ Tracks tragen UTC — wer sie großzügiger macht, holt die Fotos des Abendessen
 durch, nur die Positivliste verlöre Hersteller mit eigenem Kamera-Ordner; ohne beides landet
 der Screenshot aus der Pause in der Reise. **`DATE_TAKEN`, nicht `DATE_ADDED`** — wer sein
 Handy nach der Tour an den Rechner hängt, hätte sonst ein Hinzufügedatum von heute.
+**Gefiltert wird auf die Endungen, die der SERVER annimmt** (`endungErlaubt`): Das Pixel legt
+neben jedem Foto eine RAW-Datei ab, und weil die Nachreich-Route keine halben Stapel kennt,
+ließ ein einziges `.dng` den ganzen Nachzug mit 400 scheitern. Nebenwirkung, die man sonst
+extra bauen müsste: RAW und JPEG sind dasselbe Bild und lägen sonst doppelt in der Tour.
+Offene Lücke: **HEIC** nimmt die Pipeline nicht an — wessen Kamera so speichert, bekommt gar
+keinen Vorschlag. Das gehört serverseitig gelöst, nicht durch ein Aufweichen der Liste.
 **MediaStore liefert seit Android 10 IMMER 0 als Koordinate**; der Ort steckt nur im EXIF des
 Originals (`MediaStore.setRequireOriginal` + `ACCESS_MEDIA_LOCATION`) und wird erst BEIM
 HOCHLADEN gelesen — ein Dateizugriff je Bild, und die meisten Vorschläge werden nie

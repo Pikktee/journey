@@ -82,6 +82,31 @@ private val GESPERRTE_ORDNER = listOf(
  */
 private val KAMERA_ORDNER = listOf("camera", "dcim", "kamera", "100andro", "open camera")
 
+/**
+ * Endungen, die der Server als Foto annimmt (`ENDUNGEN` in `schema/upload.ts`).
+ *
+ * **Gefiltert wird HIER und nicht erst beim Hochladen**, weil das Nachreichen
+ * keine halben Stapel kennt: Ein einziger Eintrag mit unbekannter Endung lässt
+ * die ganze Anfrage mit 400 scheitern — und damit den kompletten Nachzug einer
+ * Tour. Genau so ist er am Pixel 9 gestorben, das neben jedem Foto eine
+ * RAW-Datei (`.dng`) ablegt.
+ *
+ * Nebenwirkung, die man sonst extra bauen müsste: Das RAW und sein JPEG sind
+ * DASSELBE Bild. Ohne diesen Filter läge beides in der Tour.
+ */
+private val ERLAUBTE_ENDUNGEN = setOf("jpg", "jpeg", "png", "webp")
+
+/**
+ * Nimmt der Server dieses Bild überhaupt an?
+ *
+ * Bekannte Lücke: **HEIC fehlt.** Wessen Kamera in HEIC speichert (auf vielen
+ * Telefonen die Voreinstellung), bekommt derzeit keinen Vorschlag — nicht weil
+ * die Bilder nicht gefunden würden, sondern weil die Pipeline sie nicht lesen
+ * kann. Das gehört auf der Serverseite gelöst, nicht durch ein Aufweichen hier.
+ */
+fun endungErlaubt(dateiname: String): Boolean =
+    dateiname.substringAfterLast('.', "").lowercase() in ERLAUBTE_ENDUNGEN
+
 /** Ist das Bild eine echte Kameraaufnahme? */
 fun istKamerabild(ordner: String?): Boolean {
     val name = ordner?.lowercase() ?: return false
@@ -120,6 +145,7 @@ fun passendeBilder(
     return bilder
         .filter { it.aufgenommenMs in fenster }
         .filter { istKamerabild(it.ordner) }
+        .filter { endungErlaubt(it.dateiname) }
         .filterNot { it.aufgenommenMs / 1000 in bekannt }
         .sortedBy { it.aufgenommenMs }
 }
