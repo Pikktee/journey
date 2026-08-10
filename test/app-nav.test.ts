@@ -94,7 +94,6 @@ describe('app-nav', () => {
       expect(html, datei).toContain('schreibeAppFooter')
       expect(html, datei).toContain('id="app-header"')
       expect(html, datei).toContain('id="app-footer"')
-      expect(html, datei).not.toContain(ICON_TOUREN)
       expect(html, datei).not.toMatch(/<footer[^>]*>\s*<div class="wrap">/)
     }
 
@@ -103,12 +102,12 @@ describe('app-nav', () => {
     expect(landing).toContain('id="app-footer"')
     expect(landing).not.toContain('foot-brand')
     expect(landing).not.toContain('class="attribution"')
+    expect(landing).toContain('view-transition-name: maptale-nav')
 
     const studio = readFileSync(join(wurzel, 'studio.html'), 'utf8')
     expect(studio).toContain('id="app-header"')
     expect(studio).toContain('id="app-footer"')
     expect(studio).not.toContain('class="topbar"')
-    expect(studio).not.toContain(ICON_TOUREN)
     expect(studio).not.toMatch(/<footer[^>]*>\s*<div class="wrap">/)
 
     const studioTs = readFileSync(join(wurzel, 'src/studio/studio.ts'), 'utf8')
@@ -128,5 +127,43 @@ describe('app-nav', () => {
     const konto = readFileSync(join(wurzel, 'konto.html'), 'utf8')
     expect(konto).toContain('konto-lesespalte')
     expect(konto).not.toMatch(/--wrap:\s*780px/)
+  })
+
+  it('trägt #app-header schon im HTML deckungsgleich zu appHeaderHtml', () => {
+    // Sonst blitzt beim MPA-Wechsel wieder die leere Schale — View Transition
+    // hin oder her. Der Inhalt MUSS exakt schreibeAppHeader entsprechen.
+    const seiten: Array<{
+      datei: string
+      aktiv: 'studio' | 'galerie' | 'profil' | 'konto' | 'admin'
+      variante?: 'studio' | 'admin' | 'oeffentlich'
+    }> = [
+      { datei: 'galerie.html', aktiv: 'galerie' },
+      { datei: 'konto.html', aktiv: 'konto' },
+      { datei: 'profil.html', aktiv: 'profil' },
+      { datei: 'studio.html', aktiv: 'studio', variante: 'studio' },
+      { datei: 'admin.html', aktiv: 'admin', variante: 'admin' },
+    ]
+    for (const s of seiten) {
+      const html = readFileSync(join(wurzel, s.datei), 'utf8')
+      const erwartet =
+        `<div class="wrap">${appHeaderHtml({
+          aktiv: s.aktiv,
+          ...(s.variante ? { variante: s.variante } : {}),
+        })}</div>`
+      // Kein Regex auf </nav>: innen steckt schon .top-nav.
+      expect(html, s.datei).toContain(`id="app-header"`)
+      expect(html, s.datei).toContain(erwartet)
+      expect(html, s.datei).toContain('class="brand"')
+      expect(html, s.datei).toContain('class="top-nav"')
+    }
+  })
+
+  it('optiert Basis und Produkt-Nav in Cross-Document View Transitions ein', () => {
+    const basis = readFileSync(join(wurzel, 'src/basis.css'), 'utf8')
+    expect(basis).toMatch(/@view-transition\s*\{\s*navigation:\s*auto/)
+    expect(basis).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*navigation:\s*none/)
+
+    const grund = readFileSync(join(wurzel, 'src/grundelemente.css'), 'utf8')
+    expect(grund).toContain('view-transition-name: maptale-nav')
   })
 })

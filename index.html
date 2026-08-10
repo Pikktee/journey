@@ -160,6 +160,9 @@
       padding: 0;
       transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
       border-bottom: 1px solid transparent;
+      /* Gleicher Name wie Produkt-Nav (grundelemente) — sonst springt die Leiste
+         beim Wechsel Landing ↔ App in der View Transition. */
+      view-transition-name: maptale-nav;
     }
     .nav.scrolled,
     .nav.menue-offen {

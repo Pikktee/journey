@@ -152,3 +152,15 @@ html {
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
+
+/* Cross-Document View Transitions: beim MPA-Wechsel bleibt der alte Frame
+   sichtbar und blendet zur neuen Seite — kein schwarzes Zwischenloch.
+   Opt-in auf beiden Dokumenten; ohne Browser-Support harmlos. */
+@view-transition {
+  navigation: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}

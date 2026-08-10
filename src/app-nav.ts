@@ -62,8 +62,8 @@ export type AppHeaderVariante = 'oeffentlich' | 'studio' | 'admin'
 
 /**
  * Die ganze Produkt-Kopfleiste — eine HTML-Quelle für Studio, Entdecken,
- * Profil, Konto und Verwaltung. Die Seiten behalten nur noch einen leeren
- * `<nav class="nav">`-Mount; `schreibeAppHeader` füllt ihn.
+ * Profil, Konto und Verwaltung. Die Seiten tragen dasselbe Markup schon im
+ * HTML (erster Paint / View Transition); `schreibeAppHeader` hält es deckungsgleich.
  */
 export function appHeaderHtml(opts: {
   aktiv: AppNavSeite

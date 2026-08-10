@@ -46,6 +46,8 @@
   z-index: 60;
   display: flex;
   align-items: center;
+  /* Dieselbe Named Transition wie Landing — die Leiste bleibt optisch stehen. */
+  view-transition-name: maptale-nav;
 }
 .nav .wrap {
   display: flex;
