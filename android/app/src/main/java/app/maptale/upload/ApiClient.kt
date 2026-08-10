@@ -8,6 +8,7 @@ import app.maptale.aufzeichnung.Spurpunkt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -452,11 +453,30 @@ class ApiClient(private val einstellungen: Einstellungen) {
     }
 
     /**
+     * Die Importe, die der Nutzer noch nicht gesehen hat, NAMENTLICH abhaken.
+     *
+     * Der Weg für alles, was erst meldet und dann quittiert: Was nicht gezeigt
+     * werden konnte, bleibt offen und kommt beim nächsten Lauf wieder. Mit
+     * `quittieren = true` beim Holen wäre es umgekehrt — dort gilt schon als
+     * gesehen, was nur GELESEN wurde.
+     */
+    suspend fun trackerImporteGesehen(ids: List<String>) {
+        if (ids.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            val koerper = buildJsonObject { put("ids", JsonArray(ids.map { JsonPrimitive(it) })) }
+                .toString()
+                .toRequestBody(jsonTyp)
+            ausfuehren(autorisiert("/api/tracker/imports/gesehen").post(koerper).build())
+        }
+    }
+
+    /**
      * Was seit dem letzten Blick angekommen ist.
      *
      * `quittieren` setzt den Gesehen-Vermerk auf dem SERVER — nur so meldet
      * ein zweites Gerät am selben Konto dieselbe Tour nicht ein zweites Mal.
-     * Wer nur nachsehen will (ohne zu melden), lässt es weg.
+     * Wer erst melden und dann abhaken will, holt OHNE und quittiert
+     * anschließend mit `trackerImporteGesehen`.
      */
     suspend fun trackerOffeneImporte(quittieren: Boolean): List<TrackerImport> = withContext(Dispatchers.IO) {
         val pfad = "/api/tracker/imports/pending" + if (quittieren) "?gesehen=1" else ""

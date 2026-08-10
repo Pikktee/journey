@@ -13,7 +13,7 @@ import { pruefeQuota } from '../quota.js'
 import type { Modus, UploadManifest } from '../schema/upload.js'
 import { UPLOAD_SCHEMA_ID } from '../schema/upload.js'
 import { zuGpx } from './normalisierer.js'
-import { OhneRouteFehler, type RohTrack, type TrackerAnbieter } from './vertrag.js'
+import { OhneRouteFehler, ZuKleinFehler, type RohTrack, type TrackerAnbieter } from './vertrag.js'
 
 /**
  * Sportart des Anbieters → Fortbewegungs-Modus.
@@ -82,14 +82,6 @@ function streckeM(gpx: string): number {
     summe += Math.hypot(dLat, dLng)
   }
   return summe
-}
-
-/** Wird geworfen, wenn die Aktivität unter der Mindestgröße bleibt (→ `uebersprungen`). */
-export class ZuKleinFehler extends Error {
-  constructor(nachricht: string) {
-    super(nachricht)
-    this.name = 'ZuKleinFehler'
-  }
 }
 
 /** Wird geworfen, wenn der Speicher des Kontos voll ist (→ `uebersprungen` mit Hinweis). */
@@ -178,4 +170,4 @@ export async function legeTourAusTrackAn(
   return { tourId: angelegt.id, wiederverwendet: false }
 }
 
-export { OhneRouteFehler }
+export { OhneRouteFehler, ZuKleinFehler }

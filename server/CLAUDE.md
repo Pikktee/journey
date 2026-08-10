@@ -189,6 +189,22 @@ dort setzt der INSERT-Zweig das Datum ohnehin frisch. Die Tokens liegen AES-256-
 ([krypto.ts](server/src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SECRET`);
 fehlt der Schlüssel, sind alle Anbieter aus — Klartext als Rückfall gibt es nicht.
 
+**Der Webhook ist der einzige Eingang OHNE Anmeldung** — und der einzige mit eigenem
+`bodyLimit` (64 KB statt der globalen 64 MB für Manifeste): Bis die Signatur geprüft ist, hat
+der Server den Body schon gepuffert und geparst; mit dem großen Limit wäre das der billigste
+Weg, ihn zu beschäftigen. Echte Zustellungen sind ein paar hundert Byte. Den 413 lässt der
+allgemeine Fehler-Handler seit demselben Zug durch: Fastifys Client-Fehler tragen ihren Code
+selbst (413, 400 bei kaputtem JSON, 415), und alle auf 500 zu werfen hieß, dem Aufrufer einen
+Serverfehler zu melden, den es nicht gibt — und ihn ins Log zu schreiben.
+
+**Quittiert wird, was ANKAM.** `?gesehen=1` an `…/imports/pending` hakt alles ab, was gerade
+offen ist — brauchbar für eine Ansicht, die sofort alles zeigt. Wer erst meldet und dann
+abhakt (die App), holt OHNE und quittiert danach namentlich über
+`POST …/imports/gesehen` mit den IDs. Sonst verschwindet eine Meldung dadurch, dass ein
+Hintergrundlauf sie gelesen hat: Genau das passierte, als der Android-Worker mit
+`?gesehen=1` holte und die Benachrichtigung anschließend an einer fehlenden Berechtigung
+scheiterte.
+
 **Der `state` ist Pflicht, einmalig und liegt im Speicher.** Ohne ihn ließe sich einem
 Angemeldeten ein FREMDES Anbieter-Konto unterschieben (OAuth-CSRF), und ab da liefen fremde
 Touren in sein Konto. Keine Tabelle: Er lebt Minuten, und einen Neustart soll er nicht

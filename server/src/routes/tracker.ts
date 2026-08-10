@@ -212,7 +212,39 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
     // Erst mit `?gesehen=1` gelten sie als abgeholt. Ohne diesen Schritt
     // verschwände eine Meldung schon dadurch, dass ein Hintergrundlauf sie
     // gelesen hat — der Nutzer hätte sie nie zu Gesicht bekommen.
+    //
+    // Wer wirklich sicher gehen will, quittiert HINTERHER und namentlich
+    // (POST …/gesehen): `?gesehen=1` quittiert alles, was gerade offen ist —
+    // auch das, was der Aufrufer am Ende gar nicht anzeigt.
     if (request.query.gesehen === '1') app.tracker.markiereGesehen(benutzer.id, offen.map((i) => i.id))
     return { importe: offen }
   })
+
+  // — Gezielt quittieren: genau das, was auch angezeigt wurde —
+  //
+  // Der Weg für Clients, die erst melden und dann abhaken (die App): Holen
+  // ohne `?gesehen=1`, Meldung zeigen, DIESE IDs quittieren. Was nicht
+  // ankam — weil die Benachrichtigung nicht gezeigt werden durfte oder der
+  // Lauf abbrach —, bleibt offen und kommt beim nächsten Mal wieder.
+  app.post<{ Body: { ids: string[] } }>(
+    '/api/tracker/imports/gesehen',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['ids'],
+          additionalProperties: false,
+          properties: { ids: { type: 'array', maxItems: 200, items: { type: 'string', maxLength: 64 } } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const benutzer = erfordereBenutzer(request, reply)
+      if (!benutzer) return
+      // `markiereGesehen` filtert selbst auf das eigene Konto — fremde IDs
+      // laufen ins Leere, statt eine Auskunft darüber zu geben, dass es sie gibt.
+      app.tracker.markiereGesehen(benutzer.id, request.body.ids)
+      return { ok: true }
+    },
+  )
 }

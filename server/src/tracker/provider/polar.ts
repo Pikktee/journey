@@ -27,6 +27,7 @@ import { gleichSicher } from '../krypto.js'
 import {
   OhneRouteFehler,
   TokensUngueltigFehler,
+  ZuKleinFehler,
   type ProviderTokens,
   type RohTrack,
   type TrackerEreignis,
@@ -289,6 +290,10 @@ export class PolarProvider implements TrackerProvider {
     )
     const dauerS = dauerZuSekunden(feld<string>(uebung, 'duration'))
     if (startMs === null || dauerS === null) throw new Error('Aktivität ohne brauchbare Start- oder Dauerangabe')
+    // Dauer null heißt: gestartet und sofort gestoppt. Das ist eine Aussage
+    // über die Aktivität und keine Störung — als Fehler geführt liefe sie
+    // dreimal durch den Wiederhol-Weg, obwohl sich daran nie etwas ändert.
+    if (dauerS <= 0) throw new ZuKleinFehler('Aufzeichnung ohne Dauer')
 
     const antwort = await this.hol(`${API}/v3/exercises/${encodeURIComponent(externeId)}/gpx`, {
       headers: { authorization: `Bearer ${tokens.zugriff}`, accept: 'application/gpx+xml' },

@@ -29,6 +29,10 @@ export interface ImportStand {
   gemeldetAm: string
   fertigAm: string | null
   fehler: string | null
+  /** Wie oft angelaufen (≥ 1). */
+  versuche?: number
+  /** Wartet die Aktivität noch auf einen neuen Anlauf? */
+  wiederholbar?: boolean
 }
 
 /**
@@ -67,9 +71,26 @@ export function anbieterKnopf(a: AnbieterStand): { text: string; art: 'primaer' 
  */
 export function importSatz(i: ImportStand): string {
   if (i.status === 'fertig') return 'Als Tour angelegt'
-  if (i.status === 'uebersprungen') return i.fehler ? `Übersprungen — ${entschaerfe(i.fehler)}` : 'Übersprungen'
-  if (i.status === 'fehler') return i.fehler ? `Nicht geklappt — ${entschaerfe(i.fehler)}` : 'Nicht geklappt'
+  const grund = i.fehler ? ` — ${entschaerfe(i.fehler)}` : ''
+  if (i.status === 'uebersprungen') return `Übersprungen${grund}${nachsatz(i)}`
+  if (i.status === 'fehler') return `Nicht geklappt${grund}${nachsatz(i)}`
   return 'Wird geholt …'
+}
+
+/**
+ * Ob es noch einen Anlauf gibt — die Auskunft, die über „muss ich etwas tun?"
+ * entscheidet.
+ *
+ * Der Server unterscheidet das seit dem Wiederhol-Weg (`wiederholbar`): Ein
+ * Netzaussetzer kommt wieder dran, eine Aufzeichnung ohne Strecke nie. Beides
+ * gleich zu beschriften hieße, den einen warten zu lassen und den anderen
+ * hoffen. Fehlt das Feld (ältere Antwort), bleibt es beim schlichten Satz —
+ * lieber nichts sagen als das Falsche.
+ */
+function nachsatz(i: ImportStand): string {
+  if (i.wiederholbar === undefined) return ''
+  if (i.wiederholbar) return ', wird noch einmal versucht'
+  return (i.versuche ?? 1) > 1 ? `, aufgegeben nach ${i.versuche} Versuchen` : ''
 }
 
 /** Ton der Zeile: nur echte Fehler werden als solche markiert. */

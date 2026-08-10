@@ -121,6 +121,30 @@ describe('Importliste', () => {
     expect(importTon(importe({ status: 'laeuft' }))).toBe('laeuft')
     expect(importSatz(importe({ status: 'wartet' }))).toContain('Wird geholt')
   })
+
+  it('sagt, ob es noch einen Anlauf gibt', () => {
+    // Der Server unterscheidet das seit dem Wiederhol-Weg. Beides gleich zu
+    // beschriften ließe den einen warten und den anderen hoffen.
+    const nochmal = importe({ status: 'fehler', fehler: 'Polar antwortete 500', wiederholbar: true, versuche: 1 })
+    expect(importSatz(nochmal)).toContain('wird noch einmal versucht')
+
+    const aufgegeben = importe({ status: 'fehler', fehler: 'Polar antwortete 500', wiederholbar: false, versuche: 3 })
+    expect(importSatz(aufgegeben)).toContain('aufgegeben nach 3 Versuchen')
+  })
+
+  it('hängt nichts an, wo es nichts zu sagen gibt', () => {
+    // Endgültig übersprungen (ohne Route) ist beim ersten Mal entschieden —
+    // „aufgegeben nach 1 Versuch" wäre eine Zahl ohne Aussage.
+    const ohneRoute = importe({
+      status: 'uebersprungen',
+      fehler: 'Aktivität ohne GPS-Route',
+      wiederholbar: false,
+      versuche: 1,
+    })
+    expect(importSatz(ohneRoute)).toBe('Übersprungen — die Aufzeichnung hat keine Strecke')
+    // Ältere Antwort ohne die Felder: lieber nichts sagen als das Falsche
+    expect(importSatz(importe({ status: 'fehler', fehler: 'Kaputt' }))).toBe('Nicht geklappt — Kaputt')
+  })
 })
 
 describe('Datumsformate', () => {

@@ -147,3 +147,20 @@ export class OhneRouteFehler extends Error {
     this.name = 'OhneRouteFehler'
   }
 }
+
+/**
+ * Die Aktivität ist zu klein für eine Tour — dieselbe Sorte wie
+ * `OhneRouteFehler`: eine Aussage über die Aktivität, nicht über den Moment
+ * (also `uebersprungen` und kein neuer Anlauf).
+ *
+ * Steht hier im VERTRAG und nicht beim TourAnleger, obwohl der sie am
+ * häufigsten wirft: Ein Adapter, der schon an der Anbieter-Antwort sieht, dass
+ * nichts zu holen ist (Polar: Dauer null), muss sie werfen können, ohne den
+ * TourAnleger zu importieren — sonst hinge an jedem Adapter die halbe Pipeline.
+ */
+export class ZuKleinFehler extends Error {
+  constructor(nachricht: string) {
+    super(nachricht)
+    this.name = 'ZuKleinFehler'
+  }
+}

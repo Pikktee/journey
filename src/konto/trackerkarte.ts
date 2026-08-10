@@ -58,10 +58,36 @@ function anbieterZeile(
   if (knopf) {
     const b = el('button', knopf.art === 'gefahr' ? 'knopf gefahr' : 'knopf', knopf.text)
     b.type = 'button'
-    b.addEventListener('click', () => {
-      b.disabled = true
-      beiKlick(a)
-    })
+    // Trennen ist unumkehrbar: Die Berechtigung beim Anbieter ist danach
+    // widerrufen und das Abruf-Protokoll gelöscht (die Zusage aus dem
+    // Datenschutz). Deshalb fragt der Knopf einmal nach — in der Sprache der
+    // Seite, wie im Studio, statt mit einem confirm()-Kasten. Die Beruhigung
+    // („die Touren bleiben") gehört VOR den Klick, nicht danach.
+    if (knopf.art === 'gefahr') {
+      const ruhe = knopf.text
+      let uhr: number | null = null
+      b.addEventListener('click', () => {
+        if (b.dataset['scharf']) {
+          if (uhr) window.clearTimeout(uhr)
+          b.disabled = true
+          beiKlick(a)
+          return
+        }
+        b.dataset['scharf'] = '1'
+        b.textContent = 'Wirklich trennen?'
+        b.title = `Der Zugang zu ${a.name} wird widerrufen. Deine bereits importierten Touren bleiben.`
+        uhr = window.setTimeout(() => {
+          delete b.dataset['scharf']
+          b.textContent = ruhe
+          b.title = ''
+        }, 6000)
+      })
+    } else {
+      b.addEventListener('click', () => {
+        b.disabled = true
+        beiKlick(a)
+      })
+    }
     zeile.appendChild(b)
   }
   return zeile

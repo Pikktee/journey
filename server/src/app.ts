@@ -176,13 +176,20 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
     if (sessionId) request.benutzer = app.auth.benutzerAusSession(sessionId)
   })
 
-  app.setErrorHandler((fehler: Error & { validation?: unknown }, _request, reply) => {
+  app.setErrorHandler((fehler: Error & { validation?: unknown; statusCode?: number }, _request, reply) => {
     if (fehler instanceof ZuGrossFehler) {
       return reply.code(413).send({ fehler: fehler.message })
     }
     if (fehler.validation) {
       return reply.code(400).send({ fehler: 'Ungültige Anfrage', details: fehler.message })
     }
+    // Fastifys eigene Client-Fehler tragen ihren Code SELBST — zu großer Body
+    // (413), kaputtes JSON (400), unbekannter Content-Type (415). Alles auf 500
+    // zu werfen machte aus „du hast zu viel geschickt" ein „bei uns ist etwas
+    // kaputt": Der Aufrufer sucht dann bei uns, und im Log steht eine Störung,
+    // die keine ist. Nur die Serverfehler bleiben stumm und geloggt.
+    const code = fehler.statusCode ?? 500
+    if (code >= 400 && code < 500) return reply.code(code).send({ fehler: fehler.message })
     app.log.error(fehler)
     return reply.code(500).send({ fehler: 'Interner Fehler' })
   })

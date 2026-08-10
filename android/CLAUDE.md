@@ -71,7 +71,12 @@ verschluckte Nachrichten, und die Zeit zwischen „Konto verknüpft" und „Push
 registriert". `ExistingPeriodicWorkPolicy.KEEP` — mit `UPDATE` setzte jeder App-Start das
 15-Minuten-Intervall zurück und die Abfrage liefe nie. Gemeldet werden **nur FERTIGE**
 Importe: Eine übersprungene Halleneinheit ist kein Ereignis für den Sperrbildschirm, und ein
-Fehler, den niemand beheben kann, ist dort Lärm — beides steht in der Liste im Konto. Eigener
+Fehler, den niemand beheben kann, ist dort Lärm — beides steht in der Liste im Konto. **Geholt
+wird ohne `?gesehen=1`, abgehakt wird hinterher** (`trackerImporteGesehen` mit den IDs): Wer
+beim Holen quittiert, verliert die Meldung, sobald das Zeigen scheitert — und es scheitert
+regelmäßig, weil die Benachrichtigungs-Berechtigung ab Android 13 fehlen kann. Abgehakt wird
+deshalb genau, was erledigt IST: das nicht Meldenswerte immer, das Fertige nur bei gestellter
+Meldung. Ein Import, für den die Berechtigung fehlt, bleibt offen und kommt wieder. Eigener
 Benachrichtigungs-Kanal (`KANAL_IMPORTE`), damit das Stummschalten der dauerhaften
 Aufzeichnungs-Meldung nicht auch „deine Tour ist da" verschluckt. Beim Abmelden wird der Lauf
 beendet.

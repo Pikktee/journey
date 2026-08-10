@@ -8,9 +8,9 @@
 // damit Tests gezielt darauf warten können, statt zu pollen.
 
 import type { FastifyInstance } from 'fastify'
-import { QuotaFehler, ZuKleinFehler, legeTourAusTrackAn } from './touranleger.js'
+import { QuotaFehler, legeTourAusTrackAn } from './touranleger.js'
 import { MAX_VERSUCHE, type ImportZeile, type TrackerDienst, type Verknuepfung } from './tracker.js'
-import { OhneRouteFehler, TokensUngueltigFehler, type TrackerProvider } from './vertrag.js'
+import { OhneRouteFehler, TokensUngueltigFehler, ZuKleinFehler, type TrackerProvider } from './vertrag.js'
 
 /**
  * Fehler, die eine Aktivität ÜBERSPRINGEN statt scheitern lassen.
@@ -71,14 +71,15 @@ export async function fuehreImportAus(
     dienst.schliesseImportAb(importZeile.id, 'fertig', tourId)
   } catch (fehler) {
     const nachricht = (fehler as Error).message
-    // Am Deckel ist Schluss — und das gehört an die Zeile geschrieben, sonst
-    // wartet jemand auf einen weiteren Anlauf, der nicht mehr kommt.
+    // Am Deckel ist Schluss. Das steht NICHT im Fehlertext, sondern in den
+    // Feldern (`wiederholbar` + `versuche`): Die Oberfläche formuliert daraus
+    // „wird noch einmal versucht" oder „aufgegeben nach 3 Versuchen" — in den
+    // Text geschrieben stünde es dort ein zweites Mal.
     const wiederholbar = istWiederholbar(fehler) && importZeile.versuche < MAX_VERSUCHE
-    const text = istWiederholbar(fehler) && !wiederholbar ? `${nachricht} (nach ${importZeile.versuche} Versuchen)` : nachricht
     if (istUebersprungen(fehler)) {
-      dienst.schliesseImportAb(importZeile.id, 'uebersprungen', null, text, wiederholbar)
+      dienst.schliesseImportAb(importZeile.id, 'uebersprungen', null, nachricht, wiederholbar)
     } else {
-      dienst.schliesseImportAb(importZeile.id, 'fehler', null, text, wiederholbar)
+      dienst.schliesseImportAb(importZeile.id, 'fehler', null, nachricht, wiederholbar)
       // Eine tote Verknüpfung muss SICHTBAR tot sein: Der Nutzer wartet sonst
       // auf Touren, die nie kommen.
       if (fehler instanceof TokensUngueltigFehler) {

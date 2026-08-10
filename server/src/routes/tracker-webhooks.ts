@@ -24,6 +24,17 @@ function zuAnfrage(request: FastifyRequest & { rohBody?: string }): WebhookAnfra
   }
 }
 
+/**
+ * Größte Zustellung, die hier angenommen wird.
+ *
+ * Der Bereich erbt sonst das globale Limit (64 MB, für Manifeste) — und dieser
+ * Eingang ist der einzige OHNE Anmeldung: Bis die Signatur geprüft ist, hat der
+ * Server den ganzen Body schon gepuffert und geparst, jeder Unbekannte könnte
+ * also 64 MB je Anfrage binden. Echte Zustellungen sind ein paar hundert Byte;
+ * 64 KB lassen jedem Anbieter Luft und nehmen dem Eingang die Hebelwirkung.
+ */
+const WEBHOOK_BODY_MAX = 64 * 1024
+
 export async function registriereTrackerWebhookRouten(app: FastifyInstance): Promise<void> {
   // Eigener JSON-Parser NUR in diesem Bereich: Er hebt den rohen Text auf und
   // parst ihn zusätzlich. Global gesetzt hinge der rohe Body an jeder Route
@@ -44,7 +55,9 @@ export async function registriereTrackerWebhookRouten(app: FastifyInstance): Pro
     return provider.webhook.antwort(zuAnfrage(request))
   })
 
-  app.post<{ Params: { provider: string } }>('/api/webhooks/tracker/:provider', async (request, reply) => {
+  app.post<{ Params: { provider: string } }>('/api/webhooks/tracker/:provider', {
+    bodyLimit: WEBHOOK_BODY_MAX,
+  }, async (request, reply) => {
     const provider = app.trackerRegistry.hole(request.params.provider)
     if (!provider?.webhook) return reply.code(404).send({ fehler: 'Nicht gefunden' })
     const anfrage = zuAnfrage(request)

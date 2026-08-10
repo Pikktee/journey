@@ -427,6 +427,58 @@ describe('Importliste und Benachrichtigung', () => {
     expect((vierte.json() as { importe: unknown[] }).importe).toHaveLength(0)
   })
 
+  it('quittiert auf Wunsch NAMENTLICH — was nicht dabei ist, bleibt offen', async () => {
+    // Der Weg für Clients, die erst melden und dann abhaken: Was nicht gezeigt
+    // werden konnte, darf nicht durch bloßes Lesen verschwinden.
+    const provider = new TestProvider({
+      webhookGeheimnis: WEBHOOK_GEHEIMNIS,
+      tracks: { a1: beispielRohTrack() },
+    })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'gibts-nicht' })
+
+    const offen = (await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies }))
+      .json() as { importe: Array<{ id: string; status: string }> }
+    expect(offen.importe).toHaveLength(2)
+    const fertig = offen.importe.find((i) => i.status === 'fertig')
+
+    const quittiert = await u.app.inject({
+      method: 'POST',
+      url: '/api/tracker/imports/gesehen',
+      cookies: u.cookies,
+      payload: { ids: [fertig?.id ?? ''] },
+    })
+    expect(quittiert.statusCode).toBe(200)
+    const danach = (await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies }))
+      .json() as { importe: Array<{ status: string }> }
+    // Der gemeldete ist weg, der ungemeldete wartet weiter
+    expect(danach.importe.map((i) => i.status)).toEqual(['fehler'])
+  })
+
+  it('quittiert nichts für fremde Konten', async () => {
+    const { u } = await baueMitProvider()
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    const offen = (await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies }))
+      .json() as { importe: Array<{ id: string }> }
+    // Ohne Anmeldung geht gar nichts — und eine fremde ID läuft ins Leere
+    expect(
+      (await u.app.inject({ method: 'POST', url: '/api/tracker/imports/gesehen', payload: { ids: ['i_fremd'] } }))
+        .statusCode,
+    ).toBe(401)
+    await u.app.inject({
+      method: 'POST',
+      url: '/api/tracker/imports/gesehen',
+      cookies: u.cookies,
+      payload: { ids: ['i_gibtsnicht'] },
+    })
+    const danach = (await u.app.inject({ method: 'GET', url: '/api/tracker/imports/pending', cookies: u.cookies }))
+      .json() as { importe: Array<{ id: string }> }
+    expect(danach.importe.map((i) => i.id)).toEqual(offen.importe.map((i) => i.id))
+  })
+
   it('zieht über den Polling-Weg nach, wenn ein Anbieter nicht pusht', async () => {
     const provider = new TestProvider({
       webhookGeheimnis: WEBHOOK_GEHEIMNIS,
@@ -488,9 +540,11 @@ describe('Ein Fehlschlag ist kein Grabstein', () => {
     }
     const zeile = importZeile(u)
     expect(zeile.versuche).toBe(MAX_VERSUCHE)
+    // Kein stiller Deckel: Dass Schluss ist, steht in den FELDERN (die
+    // Oberfläche macht daraus „aufgegeben nach 3 Versuchen") und der Grund
+    // bleibt der Grund — im Text stünde beides doppelt.
     expect(zeile.wiederholbar).toBe(0)
-    // Kein stiller Deckel: Warum nicht mehr weiterprobiert wird, steht da
-    expect(zeile.fehler).toContain(`nach ${MAX_VERSUCHE} Versuchen`)
+    expect(zeile.fehler).toContain('Unbekannte Aktivität')
   })
 
   it('probiert eine Aktivität OHNE Route nie wieder — die bleibt ohne Route', async () => {
@@ -618,6 +672,29 @@ describe('Ohne Anbieter und ohne Anmeldung', () => {
     expect(antwort.statusCode).toBe(200)
     // Und er löst nichts aus: kein Import, keine Tour
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({ n: 0 })
+  })
+
+  it('nimmt am Webhook keine Riesen-Bodies an — der Eingang ist unangemeldet', async () => {
+    // Bis die Signatur geprüft ist, hat der Server den Body schon gepuffert und
+    // geparst. Mit dem globalen 64-MB-Limit (für Manifeste) wäre das der
+    // billigste Weg, den Server zu beschäftigen.
+    const { u } = await baueMitProvider()
+    const gross = JSON.stringify({ muell: 'x'.repeat(200 * 1024) })
+    const antwort = await u.app.inject({
+      method: 'POST',
+      url: '/api/webhooks/tracker/polar',
+      headers: { 'content-type': 'application/json' },
+      payload: gross,
+    })
+    expect(antwort.statusCode).toBe(413)
+    // Eine normale Zustellung geht weiterhin durch (nur eben unsigniert → 401)
+    const klein = await u.app.inject({
+      method: 'POST',
+      url: '/api/webhooks/tracker/polar',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ event: 'EXERCISE', user_id: 'x', entity_id: 'y' }),
+    })
+    expect(klein.statusCode).toBe(401)
   })
 
   it('beantwortet den Webhook eines unbekannten Anbieters mit 404', async () => {
