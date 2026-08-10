@@ -5013,6 +5013,14 @@ function renderPlayhead(): void {
 
   setzeLaeufer(tOffsetS)
   synchronisiereFoto()
+  // Die Karte folgt dem KOPF, nicht dem Abspieler. Vorher hing `folgeKarte`
+  // allein an `setzeMarkeAnteil`, also am laufenden Film — beim Scrubben,
+  // Klicken oder mit den Pfeiltasten blieb die Karte stehen, obwohl der
+  // Schalter „Karte folgt der Position" heißt und die Position sich sehr wohl
+  // bewegte. Hier steht dieselbe Regel wie beim eingeblendeten Foto: eine
+  // FUNKTION der Kopfposition, aufgerufen an der einen Stelle, durch die jede
+  // Kopfbewegung läuft.
+  folgeKarte()
 }
 
 /**
@@ -5972,7 +5980,8 @@ function setzeMarkeAnteil(anteil: number): void {
   if (!skala) return
   setzeKopfFilm(anteilZuFilm(skala, anteil))
   folgeKopf(anteil)
-  folgeKarte()
+  // `folgeKarte()` stand hier einmal eigens — jetzt zieht `renderPlayhead` die
+  // Karte für JEDE Kopfbewegung nach, und der Abspieler ist nur eine davon.
 }
 
 // — Rand-Scroll: am Fensterrand geht es weiter —

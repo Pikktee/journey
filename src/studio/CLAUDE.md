@@ -450,9 +450,13 @@ Drei Regeln, die man dabei leicht kippt:
   KEINE Farbe — seinen Vorrang holt er aus Größe und Fläche (34×28 gegen 25×26 der Nachbarn,
   die hellste Fläche der Leiste, der einzige helle Rand, als Einziger volle Textfarbe). Erst
   beim Abspielen kommt Amber dazu, und dann bedeutet es dasselbe wie am eingeschalteten „Karte
-  folgt" daneben. Vorher war Play schon in Ruhe amber umrandet; damit war die Farbe verbraucht,
-  bevor sie etwas sagen konnte. Aus demselben Grund ist die Ablage-Plakette **rot** und nicht
-  amber: Ein Fund läuft nicht, er wartet.
+  folgt" daneben: **beide voll-amber, wie jeder aktive Umschalter im Studio** (`.wkz.an`).
+  Vorher war Play schon in Ruhe amber umrandet; damit war die Farbe verbraucht, bevor sie etwas
+  sagen konnte. Umgekehrt war „Karte folgt" kurzzeitig nur amber EINGEFÄRBT, damit Play das
+  einzige Farbige im Pult bleibt — zu leise für einen Zustand, den man auf einen Blick erkennen
+  muss: Als bloßes Icon war „an" von „aus" kaum zu unterscheiden, und was man dort sah, war
+  meist bloß der Fokusring. Aus demselben Grund ist die Ablage-Plakette **rot** und nicht amber:
+  Ein Fund läuft nicht, er wartet.
 - **Reserviert wird nur, was WIRKLICH schwankt.** Die Anzeige trug dreimal denselben
   großzügigen Slot (10,5ch + 11,5ch + 11,5ch) und war dadurch ~180 px breiter als ihr Inhalt.
   Die Uhrzeit hat IMMER fünf Zeichen („15:58", „--:--") und braucht gar keinen; bei der Strecke
@@ -621,6 +625,14 @@ Bild (der Abspieler lief ja nicht), und beim Abspielen ging es 0,8 s zu früh au
 Timer über die reine Standzeit lief, der Klip aber über Standzeit + Ausblendung. Im
 Schnelllauf (J/L) bleibt die Karte aus — dort will man die Strecke überfliegen. `ZeigeMarke`
 und `Schritt.zeige` sind damit ersatzlos entfallen.
+
+**Dieselbe Regel gilt für die Kartenmitte.** `folgeKarte()` hängt ebenfalls an
+`renderPlayhead`, nicht am Abspieler. Vorher stand der Aufruf allein in `setzeMarkeAnteil` —
+also nur im laufenden Film: Beim Scrubben, Klicken oder mit den Pfeiltasten blieb die Karte
+stehen, obwohl der Schalter „Karte folgt der Position" heißt und die Position sich sehr wohl
+bewegte. Der Abspieler ist jetzt eine Kopfbewegung unter vielen. Was dabei ERHALTEN bleiben
+muss, ist `pausiereKartenFolge`: Jedes Follow-`jumpTo` bricht eine laufende Zoom-Animation ab,
+deshalb setzt Rad/Pinch/Zoomstart das Folgen für 450 ms aus.
 
 **Eine Auswahl über drei Ansichten.** `z.fokus` (ausgewähltes Objekt) ist getrennt von
 `z.auswahl` (Einfügemarke für „ab hier"-Aktionen) — wie Selektion und Abspielkopf in einem

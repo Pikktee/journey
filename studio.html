@@ -1411,16 +1411,23 @@
     }
     .tp-sprung svg { width: 14px; height: 14px; }
     .tp-sprung:hover { color: var(--text); background: var(--fl-3); }
-    /* Karte folgt dem Läufer — eingefärbte Ikone ohne Fläche. Voll-Amber
-       bleibt dem aktiven Werkzeug-Segment vorbehalten (`.wkz.an`). */
+    /* Karte folgt dem Läufer — ein AN/AUS-Schalter, und die trägt das Studio
+       voll-amber (`.wkz.an`, und so stand es hier auch vor dem Pult-Umbau).
+       Zwischenzeitlich war er nur amber EINGEFÄRBT, damit Play im Pult das
+       einzige Farbige bleibt; das war zu leise für einen Zustand, den man auf
+       einen Blick erkennen muss — als bloßes Icon war er von „aus" kaum zu
+       unterscheiden, und was man dort sah, war meist nur der Fokusring.
+       Die Regel bleibt trotzdem heil: Amber heißt „läuft gerade", und dieser
+       Schalter läuft. Play bleibt in RUHE farblos und wird beim Abspielen
+       ebenso gefüllt — seinen Vorrang holt er aus Größe und Fläche. */
     .tp-folge {
       width: 27px; height: 26px; display: grid; place-items: center; padding: 0;
       border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
     }
     .tp-folge svg { width: 15px; height: 15px; }
     .tp-folge:hover { color: var(--text); background: var(--fl-3); }
-    .tp-folge.an { color: var(--akzent); }
-    .tp-folge.an:hover { color: var(--akzent); background: rgba(245, 165, 36, 0.12); }
+    .tp-folge.an { color: var(--auf-akzent); background: var(--akzent); }
+    .tp-folge.an:hover { color: var(--auf-akzent); background: var(--akzent); filter: brightness(1.06); }
     .tempo-chip {
       font-size: 12px; font-weight: 500; color: var(--akzent);
       min-width: 24px; font-variant-numeric: tabular-nums; text-align: center;
