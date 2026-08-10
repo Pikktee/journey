@@ -1,9 +1,9 @@
 /**
- * App-Topbar: Meine Touren · Entdecken.
+ * App-Header: Meine Touren · Entdecken.
  *
- * Eine Quelle für Studio, Entdecken und Profil — Icons, Link-Markup und das
- * Konto-Menü der öffentlichen Seiten. Sonst driftet der aktive Nav-Eintrag
- * (andere SVG-Pfade) und die rechte Seite (CTA vs. Chip) auseinander.
+ * Eine Quelle für Studio, Entdecken, Profil, Konto und Verwaltung — Markup
+ * (`appHeaderHtml`), Icons, Aktiv-Zustand und Konto-Menü. Sonst driftet der
+ * aktive Nav-Eintrag und die rechte Seite (CTA vs. Chip) auseinander.
  */
 
 import { pfad, profilPfad } from './routen.js'
@@ -47,14 +47,6 @@ export function fuelleTopNav(el: Element | null, aktiv: AppNavSeite): void {
   el.innerHTML = topNavHtml(aktiv)
 }
 
-type Quota = { benutzt: number; limit: number }
-
-type MeAntwort = {
-  benutzer?: { name?: string; email?: string; rolle?: string }
-  profil?: { anzeigename?: string; avatarUrl?: string; handle?: string | null }
-  quota?: Quota
-}
-
 const ICON_PROFIL =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>'
 
@@ -63,6 +55,80 @@ const ICON_KONTO =
 
 const ICON_ADMIN =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>'
+
+/** Welche rechte Seite die Kopfleiste trägt. */
+export type AppHeaderVariante = 'oeffentlich' | 'studio' | 'admin'
+
+/**
+ * Die ganze Produkt-Kopfleiste — eine HTML-Quelle für Studio, Entdecken,
+ * Profil, Konto und Verwaltung. Die Seiten behalten nur noch einen leeren
+ * `<nav class="nav">`-Mount; `schreibeAppHeader` füllt ihn.
+ */
+export function appHeaderHtml(opts: {
+  aktiv: AppNavSeite
+  variante?: AppHeaderVariante
+}): string {
+  const variante = opts.variante ?? 'oeffentlich'
+  const brand =
+    `<a href="/" class="brand" title="Zur Startseite">` +
+    `<img src="/logo-mark.svg" alt="" height="28" />` +
+    `<span>Maptale</span></a>`
+  const mitte =
+    `<nav class="top-nav" aria-label="Hauptnavigation">${topNavHtml(opts.aktiv)}</nav>`
+
+  let rechts: string
+  if (variante === 'studio') {
+    rechts =
+      `<div class="nav-right">` +
+      `<button class="knopf-primaer" id="neu-oben" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button>` +
+      `<div class="konto-wrap">` +
+      `<button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false">` +
+      `<span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span>` +
+      `</button>` +
+      `<div class="konto-menue" id="konto-menue" hidden>` +
+      `<div class="km-mail" id="km-mail"></div>` +
+      `<div class="km-quota">` +
+      `<div class="km-quota-kopf"><span>Speicher</span><span id="km-quota-text"></span></div>` +
+      `<div class="km-balken"><span id="km-balken-fuell"></span></div>` +
+      `</div>` +
+      `<div class="km-trenner" role="separator"></div>` +
+      `<a class="km-eintrag knopf" id="km-profil" href="/profil" hidden>${ICON_PROFIL}Mein Profil</a>` +
+      `<a class="km-eintrag knopf" id="km-konto" href="${pfad('konto')}">${ICON_KONTO}Kontoeinstellungen</a>` +
+      `<a class="km-eintrag knopf" id="km-verwaltung" href="${pfad('verwaltung')}" hidden>${ICON_ADMIN}Administration</a>` +
+      `<button type="button" class="km-eintrag" id="abmelden">` +
+      `<svg aria-hidden="true"><use href="#i-abmelden"/></svg>Abmelden</button>` +
+      `</div></div></div>`
+  } else if (variante === 'admin') {
+    rechts = `<div class="nav-right" id="nav-rechts"></div>`
+  } else {
+    rechts =
+      `<div class="nav-right" id="nav-right">` +
+      `<a href="${pfad('app')}" class="nav-cta" data-gast>Anmelden</a>` +
+      `<div class="konto-wrap" data-dabei>` +
+      `<button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">` +
+      `<span class="punkt"></span><span class="nav-profil-name"></span>` +
+      `</button></div></div>`
+  }
+
+  return `${brand}${mitte}${rechts}`
+}
+
+/** Schreibt die Kopfleiste in einen vorhandenen `.nav`-Mount (synchron). */
+export function schreibeAppHeader(
+  nav: Element | null,
+  opts: { aktiv: AppNavSeite; variante?: AppHeaderVariante },
+): void {
+  if (!nav) return
+  nav.innerHTML = `<div class="wrap">${appHeaderHtml(opts)}</div>`
+}
+
+type Quota = { benutzt: number; limit: number }
+
+type MeAntwort = {
+  benutzer?: { name?: string; email?: string; rolle?: string }
+  profil?: { anzeigename?: string; avatarUrl?: string; handle?: string | null }
+  quota?: Quota
+}
 
 function mb(b: number): string {
   return (b / (1024 * 1024)).toFixed(0)
@@ -126,7 +192,7 @@ function wendeProfilDatenAn(
 export async function montiereNavRechts(
   container: HTMLElement | null,
   /**
-   * Knopf links neben dem Chip. Die Landing zeigt dort „Zum Studio" — sie hatte
+   * Knopf links neben dem Chip. Die Landing zeigt dort „Meine Touren" — sie hatte
    * deshalb lange eine EIGENE Kopie dieses Menüs im Inline-Skript, und in der
    * fehlten „Mein Profil" und „Kontoeinstellungen" schlicht. Ein Parameter ist
    * billiger als eine zweite Fassung, die niemand mitpflegt.
@@ -239,4 +305,32 @@ export async function montiereNavRechts(
   } catch {
     /* Gast bleibt bei „Anmelden" */
   }
+}
+
+/**
+ * Gemeinsamer Einstieg für die Produkt-Kopfleiste: Markup schreiben, dann
+ * rechts den Konto-Chip (bzw. Gast-CTA) montieren. Studio übergibt
+ * `variante: 'studio'` und `rechts: null` (eigener Chip, Quota-Live-Updates).
+ */
+export async function montiereAppHeader(
+  nav: Element | null,
+  opts: {
+    aktiv: AppNavSeite
+    variante?: AppHeaderVariante
+    /** `null` = rechte Seite nicht antasten (Studio nach schreibeAppHeader). */
+    rechts?: HTMLElement | null
+    cta?: { text: string; href: string }
+  },
+): Promise<void> {
+  if (!nav) return
+  schreibeAppHeader(nav, {
+    aktiv: opts.aktiv,
+    ...(opts.variante !== undefined ? { variante: opts.variante } : {}),
+  })
+  if (opts.rechts === null || opts.variante === 'studio') return
+  const rechts =
+    opts.rechts ??
+    (nav.querySelector('.nav-right') as HTMLElement | null) ??
+    (nav.querySelector('#nav-right') as HTMLElement | null)
+  await montiereNavRechts(rechts, opts.cta)
 }

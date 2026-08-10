@@ -25,11 +25,19 @@
 }
 
 /* ═══════════════ Kopfleiste ═══════════════
-   Drei Zonen (DESIGN.md): Logo | zentriert Meine Touren / Entdecken | rechts
-   Aktionen. Die BREITE der inneren `.wrap` setzt die Seite — die Kontoseite
-   ist innen 780 px schmal, ihre Kopfleiste aber trotzdem 1160. */
+   Zwei Zonen (DESIGN.md): Logo + Meine Touren / Entdecken links, Aktionen
+   rechts. Früher viewport-mittig (`1fr auto 1fr`) — bei breitem rechtem
+   Cluster (Neue Tour + Chip) wirkte die Nav dann optisch zu weit rechts.
+   Zwischen Marke und Nav bleibt bewusst Luft (`--nav-marken-gap`), sonst
+   klebt sie am Logo.
+   Eine Schale für Galerie, Profil, Konto und Studio (`.nav`); Studio setzt
+   nur `position: relative`, weil `#app-view` selbst fixed ist.
+   Die BREITE der inneren `.wrap` setzt die Seite — die Kontoseite ist innen
+   780 px schmal und hält die Leiste absichtlich gleich schmal, damit Marke
+   und Überschrift untereinander liegen. */
 
 .nav {
+  --nav-marken-gap: clamp(18px, 2.4vw, 32px);
   height: var(--topbar-h);
   border-bottom: 1px solid var(--rand);
   background: var(--topbar-bg);
@@ -41,14 +49,13 @@
   align-items: center;
 }
 .nav .wrap {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
   gap: 12px;
   height: 100%;
 }
 
-/* Der Brand-Link ist direktes Grid-/Flex-Kind — kein Block-Wrapper, sonst
+/* Der Brand-Link ist direktes Flex-Kind — kein Block-Wrapper, sonst
    bläht die Zeilenhöhe und die Marke sitzt zu hoch (DESIGN.md). */
 .brand {
   display: inline-flex;
@@ -62,7 +69,6 @@
   font-size: 17px;
   letter-spacing: -0.02em;
   line-height: 1;
-  justify-self: start;
 }
 .brand img {
   display: block;
@@ -75,7 +81,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  justify-self: center;
+  margin-left: var(--nav-marken-gap);
 }
 .top-nav a {
   display: inline-flex;
@@ -114,7 +120,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  justify-self: end;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .nav-right a.nav-cta {
   color: var(--auf-akzent);
@@ -141,9 +148,7 @@ html.nav-dabei [data-gast] {
 @media (max-width: 640px) {
   .top-nav {
     display: none;
-  }
-  .nav .wrap {
-    grid-template-columns: 1fr auto;
+    margin-left: 0;
   }
 }
 

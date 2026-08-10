@@ -69,65 +69,8 @@
     .badge.abgelaufen { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
     .badge.unbestaetigt { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
 
-    /* — Topbar (Muster aus studio.html) — */
-    .topbar {
-      position: sticky; top: 0; z-index: 30;
-      height: var(--topbar-h);
-      background: rgba(9, 12, 17, 0.88);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--rand);
-    }
-    .topbar .wrap {
-      width: min(var(--wrap), 100% - 44px);
-      margin: 0 auto; height: 100%;
-      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px;
-    }
-    .topbar .brand {
-      color: inherit; display: inline-flex; align-items: center; gap: 0.45em;
-      font-family: var(--font-display); font-weight: 700; font-size: 17px;
-      letter-spacing: -0.02em; line-height: 1; justify-self: start;
-    }
-    .topbar .brand img { display: block; height: 28px; width: auto; translate: 0 1px; }
-    .top-nav { display: flex; align-items: center; gap: 2px; justify-self: center; }
-    .top-nav a {
-      display: inline-flex; align-items: center; gap: 7px;
-      color: var(--text-2); font-size: 13.5px; font-weight: 500;
-      padding: 7px 12px; border-radius: var(--radius-md);
-      transition: color 0.18s ease, background 0.18s ease;
-    }
-    .top-nav a svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
-    .top-nav a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
-    .topbar-rechts { justify-self: end; display: flex; align-items: center; gap: 10px; min-width: 0; }
-    .benutzer-chip {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 13px; font-weight: 500; color: var(--text-2);
-      background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full);
-      padding: 6px 12px 6px 7px;
-    }
-    .benutzer-chip .punkt {
-      width: 20px; height: 20px; border-radius: 50%;
-      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
-      color: #221302; display: grid; place-items: center;
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-    }
-    .benutzer-chip img.punkt { object-fit: cover; display: block; background: none; }
-    .konto-wrap { position: relative; }
-    .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
-    .konto-menue {
-      position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
-      width: 250px; padding: 14px; border-radius: var(--radius-lg);
-      background: var(--fl-2); border: 1px solid var(--rand);
-      box-shadow: 0 12px 40px rgba(2, 5, 10, 0.6);
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .km-mail { font-size: 12.5px; font-weight: 500; color: var(--text-2); word-break: break-all; }
-    .km-quota-kopf { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-3); margin-bottom: 6px; }
-    .km-balken { height: 6px; border-radius: 3px; background: var(--fl-1); overflow: hidden; }
-    .km-balken span { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
-    .km-trenner { height: 1px; background: var(--rand); margin: 2px 0; }
-    .km-eintrag { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start; font-size: 13px; color: var(--text); text-decoration: none; background: transparent; border-color: transparent; padding: 8px 10px; }
-    .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); border-color: transparent; color: var(--text); }
-    .km-eintrag svg { width: 15px; height: 15px; flex: none; }
+    /* Kopfleiste: Markup und Optik aus grundelemente.css (.nav). */
+    .nav .wrap { width: min(var(--wrap), 100% - 44px); }
 
     /* — Seite — */
     .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 90px; }
@@ -530,8 +473,6 @@
        Zeile links. Deshalb spannt `.haupt` über die volle Breite, die
        Kennzahlen teilen sich die Zeile darunter, die Griffe stehen für sich. */
     @media (max-width: 720px) {
-      .top-nav { display: none; }
-      .topbar .wrap { grid-template-columns: 1fr auto; }
       .reiter { gap: 16px; }
       /* Vier Segmente passen nicht in 375 px. Umbrechen statt seitwärts
          scrollen: Ein waagerecht schiebbares Pillen-Band versteckt die letzte
@@ -550,16 +491,8 @@
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap">
-      <a href="/" class="brand" title="Zur Startseite">
-        <img src="/logo-mark.svg" alt="" height="28" />
-        <span>Maptale</span>
-      </a>
-      <nav class="top-nav" id="top-nav" aria-label="Hauptnavigation"></nav>
-      <div class="topbar-rechts" id="nav-rechts"></div>
-    </div>
-  </header>
+  <!-- Header: eine Quelle in src/app-nav.ts (appHeaderHtml, Variante admin). -->
+  <nav class="nav" id="app-header"></nav>
 
   <!-- Alle, die keine Admins sind (oder gar nicht angemeldet) -->
   <div class="rumpf" id="sperre-view" hidden>

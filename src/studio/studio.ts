@@ -7,11 +7,11 @@
 // (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
 
 import * as api from './api.js'
-import { fuelleTopNav } from '../app-nav.js'
+import { schreibeAppHeader } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import { ROUTEN, pfad, profilPfad, tourPfad } from '../routen.js'
-import { merkeAngemeldet, merkeProfilCache, vergesseAngemeldet } from '../session-hinweis.js'
+import { leseProfilCache, merkeAngemeldet, merkeProfilCache, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
   baueFotoSegmente,
@@ -24,6 +24,32 @@ import {
   type Pruefbefund,
 } from './pruefung.js'
 import { baueUploadManifest, exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
+
+// Header synchron vor den Element-Lookups — sonst finden die IDs nichts.
+schreibeAppHeader(document.querySelector('#app-view > .nav'), {
+  aktiv: 'studio',
+  variante: 'studio',
+})
+// Chip aus dem Cache, sobald das Markup steht (vorher Inline-Skript im HTML).
+;(() => {
+  try {
+    const u = leseProfilCache()
+    if (!u) return
+    const n = document.getElementById('benutzer-name')
+    const pk = document.getElementById('benutzer-initial')
+    if (n && u.name) n.textContent = u.name
+    if (pk && u.avatarUrl) {
+      const i = document.createElement('img')
+      i.className = 'punkt'
+      i.src = u.avatarUrl
+      i.width = 20
+      i.height = 20
+      pk.replaceWith(i)
+    } else if (pk && u.initial) pk.textContent = u.initial
+  } catch {
+    /* Cache egal */
+  }
+})()
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -1614,7 +1640,6 @@ function zeigeFortschritt(getan: number, gesamt: number): void {
 }
 
 // — Start —
-fuelleTopNav(document.querySelector('#app-view .top-nav'), 'studio')
 // Editor-Chunk parallel zu Auth vorladen, wenn der Deep-Link ihn sowieso braucht.
 if (editIdAusUrl()) void import('./editor.js')
 void pruefeAnmeldung()

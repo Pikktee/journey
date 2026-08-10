@@ -206,9 +206,15 @@ Versalien-Eyebrow-Tracking.
 - Content-Breite: `--wrap: 1160px` (Landing, Galerie, Studio-Bibliothek); seitlicher Gutter ≈ 22px.
 - Studio-**Editor** bleibt full-bleed.
 - App-Topbar ≈ 58px, `rgba(13, 17, 24, 0.82)`, Blur, Rand `#222b37`.
-- App-Nav in drei Zonen: **Logo | zentriert Meine Touren / Entdecken | rechts Aktionen**.
+  Landing teilt dieselben Maße (Höhe, 28px-Logo, Chip `min-height: 34px`,
+  Wrap-Gutter 44px, CTA-Polster), damit Chip/CTA beim Wechsel nicht springen —
+  nur der transparente→Scroll-Hintergrund bleibt Landing-eigen.
+- App-Nav in zwei Zonen: **Logo + Meine Touren / Entdecken links | rechts Aktionen**.
+  Zwischen Marke und Nav bewusst Luft (`--nav-marken-gap`), damit die Links nicht
+  am Logo kleben. Nicht viewport-mittig — bei breitem rechtem Cluster (Neue Tour +
+  Chip) wirkte eine zentrierte Nav optisch zu weit rechts.
 - Wortmarke: `logo-mark.svg` (28px) + Text „Maptale“, `inline-flex`, `align-items: center`,
-  `gap: 0.45em`, Logo `translate: 0 1px`. Der Brand-**Link** ist direktes Grid-/Flex-Kind —
+  `gap: 0.45em`, Logo `translate: 0 1px`. Der Brand-**Link** ist direktes Flex-Kind —
   kein Block-Wrapper (sonst bläht die Zeilenhöhe und die Marke sitzt zu hoch).
 - Auf Studio-Hauptscreen nur „Maptale“, kein „Studio“ in der Wortmarke.
 

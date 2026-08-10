@@ -7,7 +7,7 @@
 // Verwaltung gilt es ein zweites Mal: Die vier Bereiche sind Reiter, alle vier
 // Panels liegen im DOM, sichtbar ist eins.
 
-import { fuelleTopNav, montiereNavRechts } from '../app-nav.js'
+import { montiereAppHeader } from '../app-nav.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
@@ -51,8 +51,6 @@ import {
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 
 const els = {
-  topNav: document.getElementById('top-nav'),
-  navRechts: document.getElementById('nav-rechts'),
   sperre: $('sperre-view'),
   sperreTitel: $('sperre-titel'),
   sperreText: $('sperre-text'),
@@ -380,8 +378,10 @@ function rendereStatistiken(s: api.AdminStatistiken): void {
 }
 
 async function start(): Promise<void> {
-  fuelleTopNav(els.topNav, 'admin')
-  void montiereNavRechts(els.navRechts)
+  await montiereAppHeader(document.getElementById('app-header'), {
+    aktiv: 'admin',
+    variante: 'admin',
+  })
   const sitzung = await api.me()
   if (!sitzung.benutzer) {
     els.sperreTitel.textContent = 'Nicht angemeldet'

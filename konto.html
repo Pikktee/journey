@@ -205,36 +205,11 @@
   </style>
 </head>
 <body>
-  <nav class="nav">
-    <div class="wrap">
-      <a href="/" class="brand" title="Zur Startseite">
-        <img src="/logo-mark.svg" alt="" height="28" />
-        <span>Maptale</span>
-      </a>
-      <nav class="top-nav" aria-label="Hauptnavigation"></nav>
-      <div class="nav-right" id="nav-right">
-        <a href="/app" class="nav-cta" data-gast>Anmelden</a>
-        <div class="konto-wrap" data-dabei>
-          <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Konto wird geladen">
-            <span class="punkt"></span>
-            <span class="nav-profil-name"></span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Profil-Chip sofort aus dem Cache füllen — das Script steht NACH dem Nav,
-       damit die Elemente existieren, aber VOR dem ersten Paint (synchron). -->
-  <script>
-    (function(){try{var p=localStorage.getItem('maptale_profil_cache');if(!p)return;
-    var u=JSON.parse(p),n=document.querySelector('.nav-profil-name'),
-    pk=document.querySelector('.benutzer-chip .punkt');
-    if(n&&u.name)n.textContent=u.name;
-    if(pk&&u.avatarUrl){var i=document.createElement('img');i.className='punkt';
-    i.src=u.avatarUrl;i.width=20;i.height=20;pk.replaceWith(i)}
-    else if(pk&&u.initial)pk.textContent=u.initial;
-    }catch(e){}})()
+  <!-- Header: eine Quelle in src/app-nav.ts (appHeaderHtml). -->
+  <nav class="nav" id="app-header"></nav>
+  <script type="module">
+    import { montiereAppHeader } from '/src/app-nav.ts'
+    void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'konto' })
   </script>
 
   <main class="wrap">
@@ -406,11 +381,7 @@
 
   <script type="module">
     import { starteKonto } from '/src/konto/konto.ts'
-    import { fuelleTopNav, montiereNavRechts } from '/src/app-nav.ts'
-
-    fuelleTopNav(document.querySelector('.top-nav'), 'konto')
     void starteKonto()
-    void montiereNavRechts(document.getElementById('nav-right'))
   </script>
 </body>
 </html>

@@ -11,6 +11,7 @@ import {
   vergesseProfilCache,
   vermutlichAngemeldet,
 } from '../src/session-hinweis'
+import { appHeaderHtml } from '../src/app-nav'
 
 const wurzel = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -43,17 +44,26 @@ describe('session-hinweis', () => {
     expect(bausteine).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
     expect(bausteine).toContain(`html:not(.${NAV_DABEI_KLASSE}) [data-dabei]`)
 
-    for (const datei of ['index.html', 'galerie.html', 'profil.html']) {
+    // Landing: Markup und Regeln noch in der Seite (eigene Nav).
+    const landing = readFileSync(join(wurzel, 'index.html'), 'utf8')
+    expect(landing).toContain(`${SESSION_HINWEIS_COOKIE}=`)
+    expect(landing).toContain(NAV_DABEI_KLASSE)
+    expect(landing).toContain('data-gast')
+    expect(landing).toContain('data-dabei')
+    expect(landing).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
+
+    // Produkt-Seiten: Cookie-Skript + Klasse in der Seite; data-gast/dabei
+    // kommen aus appHeaderHtml (eine Quelle), die Regeln aus grundelemente.
+    const kopf = appHeaderHtml({ aktiv: 'galerie' })
+    expect(kopf).toContain('data-gast')
+    expect(kopf).toContain('data-dabei')
+
+    for (const datei of ['galerie.html', 'profil.html', 'konto.html']) {
       const html = readFileSync(join(wurzel, datei), 'utf8')
-      const regeln = datei === 'index.html' ? html : html + bausteine
       expect(html, datei).toContain(`${SESSION_HINWEIS_COOKIE}=`)
       expect(html, datei).toContain(NAV_DABEI_KLASSE)
-      expect(regeln, datei).toContain(`html.${NAV_DABEI_KLASSE} [data-gast]`)
-      expect(regeln, datei).toContain(`html:not(.${NAV_DABEI_KLASSE}) [data-dabei]`)
-      expect(html, datei).toContain('data-gast')
-      expect(html, datei).toContain('data-dabei')
-      // Die Regeln müssen die Seite auch erreichen.
-      if (datei !== 'index.html') expect(html, datei).toContain('/src/grundelemente.css')
+      expect(html, datei).toContain('/src/grundelemente.css')
+      expect(html, datei).toContain('montiereAppHeader')
     }
   })
 

@@ -91,10 +91,9 @@
       --luft-gitter: clamp(18px, 1.4vw + 0.8vh, 22px); /* zwischen Karten */
       /* Seitenrand: nie unter die Notch (Landscape auf iPhone). */
       --seitenrand: max(clamp(18px, 5.6vw, 22px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
-      /* Höhe der fixen Kopfleiste — Startwert, den das Skript unten durch die
-         GEMESSENE ersetzt (sie hängt an Logo, Knopf-Polstern und Schriftgröße,
-         ist also nicht sauber vorauszurechnen). */
-      --navh: 72px;
+      /* Höhe der fixen Kopfleiste — gleich `--topbar-h` der Produkt-Seiten;
+         das Skript unten setzt die gemessene Höhe nach (Hamburger-Panel). */
+      --navh: 58px;
     }
 
     * { box-sizing: border-box; }
@@ -137,36 +136,180 @@
       body { line-height: 1.56; }
     }
 
-    /* ─── Kopfleiste (3-Zonen Navigationskonzept: Logo | One-Pager Anchors | App & Anmelden) ─ */
+    /* ─── Kopfleiste: Logo + Anker links, Aktionen rechts ───────────
+       Dieselbe Geometrie wie die Produkt-Seiten (grundelemente.css): feste
+       `--topbar-h`, gleicher Wrap-Gutter (44 px), gleiche Chip-/CTA-Maße.
+       Früher wuchs die Leiste mit dem 44-px-Logo und `padding: 14px` — Chip
+       und CTA sprangen beim Wechsel Landing ↔ Studio sichtbar. */
     .nav {
+      --nav-marken-gap: clamp(18px, 2.4vw, 32px);
       position: fixed; top: 0; left: 0; right: 0; z-index: 60;
-      padding: 14px 0; transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
+      /* Höhe nur auf der Wrap-Zeile — Panel darunter muss die Leiste
+         erweitern dürfen (kein display:flex auf .nav). */
+      padding: 0;
+      transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
       border-bottom: 1px solid transparent;
     }
-    .nav.scrolled { background: rgba(8, 11, 16, 0.76); backdrop-filter: blur(14px); border-bottom-color: var(--linie); }
-    .nav > .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
-    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; justify-self: start; }
-    .nav-middle { display: flex; align-items: center; gap: 6px; font-family: var(--font-ui); justify-self: center; }
+    .nav.scrolled,
+    .nav.menue-offen {
+      background: rgba(8, 11, 16, 0.82);
+      backdrop-filter: blur(16px);
+      border-bottom-color: var(--linie);
+    }
+    .nav > .wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: var(--topbar-h);
+      /* Gleicher Gutter wie Galerie/Studio — nicht --seitenrand, sonst wandert
+         der rechte Cluster beim Seitenwechsel. */
+      width: min(var(--wrap), 100% - 44px);
+    }
+    .brand { display: inline-flex; align-items: center; gap: 0.45em; text-decoration: none; flex-shrink: 0; }
+    .brand img { display: block; height: 28px; width: auto; translate: 0 1px; }
+    .nav-middle {
+      display: flex; align-items: center; gap: 2px;
+      font-family: var(--font-ui);
+      margin-left: var(--nav-marken-gap);
+    }
     .nav-middle a {
-      text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
-      padding: 8px 14px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
+      text-decoration: none; color: rgba(242, 237, 227, 0.78); font-size: 13.5px; font-weight: 500;
+      padding: 7px 12px; border-radius: var(--radius-md);
+      transition: color 0.2s, background 0.2s;
+      white-space: nowrap;
     }
-    .nav-middle a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
-    .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); justify-self: end; }
+    .nav-middle a:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+    .nav-end {
+      display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+      margin-left: auto; min-width: 0; flex-shrink: 0;
+    }
+    .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); flex-shrink: 0; }
     .nav-right a {
-      text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
-      padding: 8px 14px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
+      text-decoration: none; color: rgba(242, 237, 227, 0.78); font-size: 13.5px; font-weight: 500;
+      padding: 7px 12px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
     }
-    .nav-right a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+    .nav-right a:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
     .nav-right a.nav-cta {
-      color: var(--auf-akzent); font-weight: 600; background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
-      padding: 8px 18px; border-radius: var(--radius-full);
+      color: var(--auf-akzent); font-weight: 600; font-size: 13.5px;
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+      padding: 8px 16px; border-radius: var(--radius-full);
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
-    .nav-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.15); margin: 0 4px; }
+    .nav-divider { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.14); margin: 0 2px; }
     /* Gast vs. angemeldet: ohne JS-Runde kein Aufblitzen der falschen Seite */
     html:not(.nav-dabei) [data-dabei] { display: none !important; }
     html.nav-dabei [data-gast] { display: none !important; }
+
+    /* Mobile-Toggle: runde Glaskapsel, drei Striche morphen zum × */
+    .nav-toggle {
+      --toggle: 42px;
+      display: none; position: relative; align-items: center; justify-content: center;
+      width: var(--toggle); height: var(--toggle); padding: 0; flex-shrink: 0;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+    }
+    .nav-toggle:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.22); }
+    .nav-toggle:active { transform: scale(0.96); }
+    .nav.menue-offen .nav-toggle {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #ffce7a;
+    }
+    .nav-toggle-bars {
+      position: relative; width: 16px; height: 12px; display: block;
+    }
+    .nav-toggle-bars span {
+      position: absolute; left: 0; right: 0; height: 1.5px;
+      border-radius: 2px; background: currentColor;
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.2s ease, top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+                  width 0.32s ease, left 0.32s ease;
+    }
+    .nav-toggle-bars span:nth-child(1) { top: 0; width: 100%; }
+    .nav-toggle-bars span:nth-child(2) { top: 5px; width: 70%; left: 0; }
+    .nav-toggle-bars span:nth-child(3) { top: 10px; width: 100%; }
+    .nav.menue-offen .nav-toggle-bars span:nth-child(1) {
+      top: 5px; transform: rotate(45deg);
+    }
+    .nav.menue-offen .nav-toggle-bars span:nth-child(2) {
+      opacity: 0; width: 0; left: 50%;
+    }
+    .nav.menue-offen .nav-toggle-bars span:nth-child(3) {
+      top: 5px; transform: rotate(-45deg);
+    }
+
+    /* Ausklapp-Menü: weiches Sheet unter der Leiste */
+    .nav-panel {
+      flex-direction: column; gap: 4px;
+      padding: 10px var(--seitenrand) 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background:
+        linear-gradient(180deg, rgba(17, 23, 34, 0.55), rgba(8, 11, 16, 0.92));
+      backdrop-filter: blur(18px);
+    }
+    /* `hidden` steuert Sichtbarkeit — display:none am Attribut schlägt sonst
+       jedes `.menue-offen`-Display. */
+    .nav-panel:not([hidden]) { display: flex; }
+    .nav-panel-etikett {
+      font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+      color: rgba(242, 237, 227, 0.42);
+      padding: 10px 16px 4px; letter-spacing: 0.01em;
+    }
+    .nav-panel a {
+      display: flex; align-items: center; gap: 12px;
+      text-decoration: none; color: rgba(242, 237, 227, 0.9);
+      font-family: var(--font-ui); font-size: 16.5px; font-weight: 500;
+      padding: 13px 16px; border-radius: 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    }
+    .nav-panel a:hover,
+    .nav-panel a:focus-visible {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+    .nav-panel a:active { transform: scale(0.985); }
+    .nav-panel a .nav-panel-pfeil {
+      margin-left: auto; width: 16px; height: 16px; flex: none;
+      color: rgba(242, 237, 227, 0.28);
+      transition: color 0.2s, transform 0.2s;
+    }
+    .nav-panel a:hover .nav-panel-pfeil {
+      color: var(--akzent); transform: translateX(3px);
+    }
+    .nav-panel .nav-panel-trenner {
+      height: 1px; margin: 8px 16px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    }
+    /* Einblend-Staffel beim Öffnen */
+    .nav.menue-offen .nav-panel > * {
+      animation: nav-panel-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .nav.menue-offen .nav-panel > *:nth-child(1) { animation-delay: 0.02s; }
+    .nav.menue-offen .nav-panel > *:nth-child(2) { animation-delay: 0.05s; }
+    .nav.menue-offen .nav-panel > *:nth-child(3) { animation-delay: 0.08s; }
+    .nav.menue-offen .nav-panel > *:nth-child(4) { animation-delay: 0.11s; }
+    .nav.menue-offen .nav-panel > *:nth-child(5) { animation-delay: 0.14s; }
+    .nav.menue-offen .nav-panel > *:nth-child(6) { animation-delay: 0.17s; }
+    .nav.menue-offen .nav-panel > *:nth-child(7) { animation-delay: 0.2s; }
+    .nav.menue-offen .nav-panel > *:nth-child(8) { animation-delay: 0.23s; }
+    .nav.menue-offen .nav-panel > *:nth-child(9) { animation-delay: 0.26s; }
+    .nav.menue-offen .nav-panel > *:nth-child(10) { animation-delay: 0.29s; }
+    .nav.menue-offen .nav-panel > *:nth-child(11) { animation-delay: 0.32s; }
+    @keyframes nav-panel-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .nav-toggle-bars span { transition: none; }
+      .nav.menue-offen .nav-panel > * { animation: none; }
+    }
 
     /* Profil-Chip + Dropdown — wie Studio-Hauptscreen */
     .konto-wrap { position: relative; }
@@ -179,6 +322,11 @@
       border-radius: var(--radius-full);
       padding: 6px 12px 6px 7px;
       cursor: pointer;
+      min-height: 34px;
+    }
+    .nav-profil-name {
+      min-width: 3.5em;
+      display: inline-block;
     }
     .benutzer-chip:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
     .benutzer-chip[aria-expanded='true'] { border-color: var(--akzent); }
@@ -223,15 +371,15 @@
     .km-eintrag:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; color: var(--text); }
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
 
-    /* Der Konto-Chip fällt schmal weg wie die übrigen `nav-hide-sm`-Teile —
-       er kommt aus src/app-nav.ts und kann die Klasse nicht selbst tragen. */
-    @media (max-width: 720px) { .nav-hide-sm, .nav-right .konto-wrap { display: none; } }
-    /* Ohne die mittleren Links trägt die Kopfleiste nur noch Logo + Knopf —
-       dann darf sie schmaler sein und mehr vom Hero-Bild stehen lassen. */
+    /* Ab hier: Anker + Gast-Links + Konto-Chip ins Panel; in der Kopfzeile
+       bleiben Logo, Primär-CTA und der Menü-Knopf. */
+    @media (max-width: 720px) {
+      .nav-hide-sm, .nav-right .konto-wrap { display: none !important; }
+      .nav-toggle { display: inline-flex; }
+      .nav-middle { display: none; margin-left: 0; }
+    }
     @media (max-width: 560px) {
-      .nav { padding: 11px 0; }
-      .brand img { height: 36px; }
-      .nav-right a.nav-cta { padding: 9px 16px; font-size: 14px; }
+      .nav-toggle { --toggle: 40px; }
     }
 
     /* ─── Buttons ────────────────────────────────────────────────── */
@@ -334,7 +482,8 @@
        bei 844 px nicht), aber viel zu flach — die Kopfleiste brach zweizeilig um
        und schob sich über die Überschrift. Hier zählt die HÖHE, nicht die Breite. */
     @media (max-height: 500px) and (orientation: landscape) {
-      .nav-hide-sm, .nav-right .konto-wrap { display: none; }
+      .nav-hide-sm, .nav-right .konto-wrap, .nav-middle { display: none !important; }
+      .nav-toggle { display: inline-flex; }
       .hero { padding-top: 74px; }
       .hero-inner { padding-bottom: 26px; }
       .hero h1 { font-size: clamp(30px, 4.4vw, 46px); }
@@ -642,31 +791,52 @@
   <div class="vignette" aria-hidden="true"></div>
   <div class="grain" aria-hidden="true"></div>
 
-  <!-- Kopfleiste (3-Zonen-Navi: Logo Links | One-Pager Mitte | App-Seiten Rechts) -->
+  <!-- Kopfleiste: Logo + Abschnittsanker links (mit Abstand), Aktionen rechts.
+       Unter 720 px wandern Anker und Gast-Links ins Panel; Primär-CTA bleibt. -->
   <nav class="nav" id="nav">
     <div class="wrap">
       <a href="/" class="brand" title="Zur Startseite">
-        <img src="/logo.svg" alt="Maptale" height="44" style="display: block;" />
+        <img src="/logo.svg" alt="Maptale" height="28" />
       </a>
       <div class="nav-middle nav-hide-sm">
         <a href="#touren">Touren</a>
         <a href="#so-funktionierts">So funktioniert's</a>
         <a href="#app">Android App</a>
       </div>
-      <div class="nav-right" id="nav-right">
-        <a href="/galerie" class="nav-hide-sm" data-gast>Entdecken</a>
-        <a href="/app" class="nav-hide-sm" data-gast>Anmelden</a>
-        <div class="nav-divider nav-hide-sm" data-gast></div>
-        <a href="/registrieren" class="nav-cta" data-gast>Registrieren</a>
-        <!-- Sofort sichtbar bei html.nav-dabei; Details füllt /api/auth/me nach. -->
-        <a href="/app" class="nav-cta" data-dabei>Zum Studio</a>
-        <div class="konto-wrap nav-hide-sm" data-dabei>
-          <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">
-            <span class="punkt"></span>
-            <span class="nav-profil-name"></span>
-          </button>
+      <div class="nav-end">
+        <div class="nav-right" id="nav-right">
+          <a href="/galerie" class="nav-hide-sm" data-gast>Entdecken</a>
+          <a href="/app" class="nav-hide-sm" data-gast>Anmelden</a>
+          <div class="nav-divider nav-hide-sm" data-gast></div>
+          <a href="/registrieren" class="nav-cta" data-gast>Registrieren</a>
+          <!-- Sofort sichtbar bei html.nav-dabei; Details füllt /api/auth/me nach. -->
+          <a href="/app" class="nav-cta" data-dabei>Meine Touren</a>
+          <div class="konto-wrap nav-hide-sm" data-dabei>
+            <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">
+              <span class="punkt"></span>
+              <span class="nav-profil-name"></span>
+            </button>
+          </div>
         </div>
+        <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-panel" aria-label="Menü öffnen">
+          <span class="nav-toggle-bars" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
       </div>
+    </div>
+    <div class="nav-panel" id="nav-panel" hidden>
+      <div class="nav-panel-etikett">Auf der Seite</div>
+      <a href="#touren">Touren <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <a href="#so-funktionierts">So funktioniert's <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <a href="#app">Android App <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <div class="nav-panel-trenner" role="separator" data-gast></div>
+      <div class="nav-panel-etikett" data-gast>Konto</div>
+      <a href="/galerie" data-gast>Entdecken <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <a href="/app" data-gast>Anmelden <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <div class="nav-panel-trenner" role="separator" data-dabei></div>
+      <div class="nav-panel-etikett" data-dabei>Konto</div>
+      <a href="/konto" data-dabei>Kontoeinstellungen <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
   </nav>
 
@@ -707,7 +877,7 @@
         </div>
         <div class="hero-meta reveal">
           <span>Echtes 3D-Gelände</span>
-          <span class="teil"><span class="sep" aria-hidden="true">·</span>Wetter aus dem Archiv</span>
+          <span class="teil"><span class="sep" aria-hidden="true">·</span>Historische Wetterdaten</span>
           <span class="teil"><span class="sep" aria-hidden="true">·</span>Deine Fotos am Wegesrand</span>
         </div>
       </div>
@@ -1106,9 +1276,9 @@
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
 
-    // --navh trägt die ECHTE Höhe der Leiste: daran hängen der Anker-Versatz
-    // (scroll-padding-top) und der obere Rand des Hero. Sie wächst mit dem
-    // Profil-Chip und der Schriftgröße des Systems, ist also nicht zu raten.
+    // --navh trägt die Höhe der Leisten-Zeile (Wrap): daran hängen Anker-Versatz
+    // und Hero-Rand. Bei offenem Mobile-Panel wächst offsetHeight mit — ok,
+    // solange das Menü offen ist.
     var missNav = function () {
       document.documentElement.style.setProperty('--navh', nav.offsetHeight + 'px')
     }
@@ -1126,7 +1296,37 @@
 
     document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
-    // Eingeloggt: „Zum Studio“ + Konto-Menü — dasselbe wie auf Galerie und
+    // Mobile-Menü: Anker und Gast-Links hinter dem Toggle; Primär-CTA bleibt
+    // in der Leiste. Schließt bei Link-Klick, Escape und beim Aufweiten.
+    ;(function () {
+      var toggle = document.getElementById('nav-toggle')
+      var panel = document.getElementById('nav-panel')
+      if (!toggle || !panel) return
+      var setze = function (auf) {
+        nav.classList.toggle('menue-offen', auf)
+        panel.hidden = !auf
+        toggle.setAttribute('aria-expanded', String(auf))
+        toggle.setAttribute('aria-label', auf ? 'Menü schließen' : 'Menü öffnen')
+        missNav()
+      }
+      toggle.addEventListener('click', function () {
+        setze(panel.hidden)
+      })
+      panel.addEventListener('click', function (e) {
+        if (e.target.closest('a')) setze(false)
+      })
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) setze(false)
+      })
+      window.addEventListener('resize', function () {
+        // Nicht an die 720-px-Breite koppeln: Querformat-Handys sind breiter,
+        // brauchen den Toggle aber weiter (max-height-Regel). Schließen nur,
+        // wenn der Knopf selbst ausgeblendet ist.
+        if (!panel.hidden && window.getComputedStyle(toggle).display === 'none') setze(false)
+      })
+    })()
+
+    // Eingeloggt: „Meine Touren“ + Konto-Menü — dasselbe wie auf Galerie und
     // Profil, aus src/app-nav.ts. Es stand hier lange als eigene Inline-Fassung,
     // und genau die verlor „Mein Profil“ und „Kontoeinstellungen“: Wer beide
     // Menüs pflegt, pflegt irgendwann nur noch eines. Der Modul-Aufruf steht
@@ -1230,7 +1430,7 @@
   <script type="module">
     import { montiereNavRechts } from '/src/app-nav.ts'
     void montiereNavRechts(document.getElementById('nav-right'), {
-      text: 'Zum Studio',
+      text: 'Meine Touren',
       href: '/app',
     })
   </script>
