@@ -5,4 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.ksp) apply false
+    // Nur auf den Klassenpfad, nicht angewandt: Ob es überhaupt angewandt wird,
+    // entscheidet das App-Modul am Vorhandensein der google-services.json.
+    alias(libs.plugins.google.services) apply false
 }

@@ -14,6 +14,8 @@ workManager = "2.10.1"
 browser = "1.8.0"
 camerax = "1.4.2"
 playServicesLocation = "21.3.0"
+firebaseBom = "34.17.0"
+googleServices = "4.5.0"
 kotlinxSerialization = "1.8.1"
 kotlinxCoroutines = "1.10.2"
 okhttp = "4.12.0"
@@ -49,6 +51,15 @@ androidx-camera-video = { group = "androidx.camera", name = "camera-video", vers
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+# Push (Etappe 6): NUR Messaging. `firebase-analytics` bleibt bewusst draußen —
+# es wäre eine zweite Datenübertragung an Google, die niemand braucht.
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+# Kommt ohnehin über Messaging herein — aber die App IMPORTIERT die Klasse
+# (die FID ist seit FCM 25.1.0 die Adresse eines Geräts). Was man importiert,
+# deklariert man: Eine Abhängigkeit, die nur zufällig mitkommt, verschwindet
+# irgendwann mit einer Version, die man nur hochgezogen hat.
+firebase-installations = { group = "com.google.firebase", name = "firebase-installations" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutines" }
@@ -69,3 +80,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# Wird NUR angewandt, wenn eine google-services.json vorliegt (s. app/build.gradle.kts).
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

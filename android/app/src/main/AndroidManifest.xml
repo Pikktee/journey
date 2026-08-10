@@ -10,6 +10,19 @@
     <!-- Video-Ton (M4); ohne die Erlaubnis wird stumm aufgenommen -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Foto-Nachzug zu Cloud-Touren: die Galerie im Zeitfenster einer Tour
+         lesen. Ab Android 13 das feinere READ_MEDIA_IMAGES, darunter das grobe
+         READ_EXTERNAL_STORAGE — deshalb `maxSdkVersion`, sonst verlangte die App
+         auf neuen Geräten beides. Erfragt wird es erst, wenn jemand den Nachzug
+         einschaltet oder einem Vorschlag zustimmt. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Ohne diese Erlaubnis entfernt Android den GPS-Ort aus jedem Bild, das
+         die App liest (seit Android 10). Sie ist NICHT Voraussetzung: Fehlt der
+         Anker, platziert der Server das Foto über seine Aufnahmezeit am Track. -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <!-- Fortbewegung erkennen (Play Services Activity Recognition). Ab API 29
          eine Runtime-Berechtigung; ohne sie zeichnet die App ohne Automatik auf. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
@@ -53,5 +66,31 @@
             android:name=".aufzeichnung.AufzeichnungsService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- Push: weckt die App, wenn eine Cloud-Tour fertig ist. Der Dienst
+             läuft auch ohne google-services.json im Build mit — Firebase
+             initialisiert sich dann schlicht nicht und ruft ihn nie auf. -->
+        <service
+            android:name=".push.MaptalePushDienst"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Die Übertragung beginnt VOR der ersten Nachricht: firebase-messaging
+             zieht firebase-installations mit, und die meldet beim App-Start eine
+             Installations-ID an Google — auch wenn nie ein Push verschickt wird.
+             Deshalb aus, bis jemand zugestimmt hat (MaptalePush.aktiviere). -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <!-- Gilt für alle Firebase-Bestandteile, die von sich aus Daten sammeln
+             würden. `firebase-analytics` ist gar nicht erst als Abhängigkeit
+             aufgenommen; dies ist der Riegel für den Fall, dass es über eine
+             andere Bibliothek doch einmal hereinkäme. -->
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
     </application>
 </manifest>

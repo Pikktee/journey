@@ -11,6 +11,27 @@ plugins {
 }
 
 /**
+ * Firebase NUR mit hinterlegter `google-services.json`.
+ *
+ * Die Datei ist ein Schlüssel und gehört nicht ins Repo — sie kommt aus den
+ * CI-Secrets (s. docs/ops/push-einrichten.md). Das google-services-Plugin
+ * bricht den Build ab, wenn sie fehlt; fest angewandt könnte also niemand mehr
+ * bauen, der sie nicht hat: kein Beitragender, kein frischer Checkout, und die
+ * Release-APK der Landing-Seite schon gar nicht.
+ *
+ * Fehlt sie, läuft die App vollständig — nur ohne Push. Firebase meldet dann
+ * beim Start „initialization unsuccessful" ins Log, `FirebaseApp.getApps` bleibt
+ * leer, und `MaptalePush` fasst nichts an. Die App bleibt bei ihrem periodischen
+ * Abruf, den es aus genau diesem Grund weiter gibt.
+ */
+val firebaseKonfig = file("google-services.json")
+if (firebaseKonfig.exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.lifecycle("Ohne google-services.json: Push ist in diesem Build aus.")
+}
+
+/**
  * Die Version des Repos — DIE eine Nummer, die auch `npm run release` anhebt.
  *
  * Sie stand hier lange ein zweites Mal und wurde von Hand gepflegt; genau das
@@ -144,6 +165,13 @@ dependencies {
     implementation(libs.coil.video)
 
     implementation(libs.play.services.location)
+    // Push. Die Bibliothek ist IMMER dabei, auch ohne google-services.json —
+    // sonst müsste jeder Aufruf hinter einer Compile-Weiche stehen, und der
+    // Unterschied zwischen „ohne Konfiguration gebaut" und „mit" wäre nicht mehr
+    // nur eine Datei, sondern zwei verschiedene Apps.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.installations)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)

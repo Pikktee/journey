@@ -98,6 +98,20 @@ jobs:
             echo "pfad=" >> "$GITHUB_OUTPUT"
             echo "stabil=nein" >> "$GITHUB_OUTPUT"
           fi
+      # Ohne diese Datei baut die App vollständig — nur ohne Push (das
+      # google-services-Plugin wird dann gar nicht erst angewandt, s.
+      # android/app/build.gradle.kts). Sie gehört nicht ins Repo: Sie ist ein
+      # Schlüssel. Einrichtung: docs/ops/push-einrichten.md.
+      - name: Firebase-Konfiguration bereitlegen (falls hinterlegt)
+        env:
+          GOOGLE_SERVICES_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_B64" ]; then
+            printf '%s' "$GOOGLE_SERVICES_B64" | base64 -d > android/app/google-services.json
+            echo "google-services.json hinterlegt — Push ist in diesem APK an."
+          else
+            echo "Kein Firebase-Secret — dieses APK kann keine Push-Meldungen empfangen."
+          fi
       - name: APK bauen
         working-directory: android
         env:

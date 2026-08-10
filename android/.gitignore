@@ -6,3 +6,6 @@ local.properties
 .idea/
 *.iml
 .kotlin/
+# Firebase-Konfiguration (Push): ein Schlüssel, kein Quelltext. Lokal von Hand
+# hinterlegt, in der CI aus einem Secret — s. docs/ops/push-einrichten.md.
+app/google-services.json
