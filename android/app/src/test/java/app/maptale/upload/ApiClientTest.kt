@@ -159,6 +159,42 @@ class ApiClientTest {
     }
 
     @Test
+    fun `pushGeraetAnmelden schickt Adresse und Plattform`() = runTest {
+        melodeAn()
+        server.enqueue(MockResponse().setBody("""{"ok":true,"push":true,"geraetId":"g_abc"}"""))
+        assertTrue(client.pushGeraetAnmelden("fid-abc"))
+        val anfrage = server.takeRequest()
+        assertEquals("POST", anfrage.method)
+        assertEquals("/api/push/geraete", anfrage.path)
+        assertEquals("Bearer lhb_testtoken", anfrage.getHeader("Authorization"))
+        val koerper = anfrage.body.readUtf8()
+        assertTrue(koerper.contains("\"token\":\"fid-abc\""))
+        assertTrue(koerper.contains("\"plattform\":\"android\""))
+    }
+
+    @Test
+    fun `ein Server ohne Push meldet das, statt zu scheitern`() = runTest {
+        // Kein Dienstkonto auf dem Server: Die App soll das erfahren und es
+        // beim periodischen Abruf belassen — nicht in einen Fehler laufen.
+        melodeAn()
+        server.enqueue(MockResponse().setBody("""{"ok":false,"push":false}"""))
+        assertEquals(false, client.pushGeraetAnmelden("fid-abc"))
+    }
+
+    @Test
+    fun `pushGeraetAbmelden schickt die Adresse im Body, nicht im Pfad`() = runTest {
+        // Im Pfad landete sie in Zugriffsprotokollen — dort hat eine
+        // Geräte-Adresse nichts zu suchen.
+        melodeAn()
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        client.pushGeraetAbmelden("fid-abc")
+        val anfrage = server.takeRequest()
+        assertEquals("DELETE", anfrage.method)
+        assertEquals("/api/push/geraete", anfrage.path)
+        assertTrue(anfrage.body.readUtf8().contains("\"token\":\"fid-abc\""))
+    }
+
+    @Test
     fun `Fehlertext des Backends landet in der Exception`() = runTest {
         melodeAn()
         server.enqueue(MockResponse().setResponseCode(413).setBody("""{"fehler":"Datei zu groß"}"""))

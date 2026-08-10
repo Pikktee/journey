@@ -4,6 +4,7 @@
 package app.maptale.upload
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -17,6 +18,16 @@ data class Konto(
     val serverUrl: String,
     val apiToken: String?,
     val email: String?,
+    /**
+     * Stehende Einwilligung: Fotos zu Cloud-Touren ohne Nachfrage ergänzen.
+     *
+     * **Diese Einstellung lebt in der APP, nicht auf dem Server** — die Galerie
+     * liegt auf dem Gerät, und bei zwei Geräten am selben Konto soll nur das
+     * mit den Fotos hochladen. Als Server-Feld gälte sie für beide.
+     *
+     * Vorgabe AUS: Ein Zugriff auf die Galerie beginnt nicht durch Nichtstun.
+     */
+    val fotosAutomatisch: Boolean = false,
 ) {
     val angemeldet get() = apiToken != null
 }
@@ -26,6 +37,7 @@ class Einstellungen(private val context: Context) {
     private val schluesselServer = stringPreferencesKey("server_url")
     private val schluesselToken = stringPreferencesKey("api_token")
     private val schluesselEmail = stringPreferencesKey("email")
+    private val schluesselFotosAuto = booleanPreferencesKey("fotos_automatisch")
 
     /**
      * Letzter bekannter Kontostand, synchron lesbar.
@@ -45,6 +57,7 @@ class Einstellungen(private val context: Context) {
             serverUrl = (prefs[schluesselServer] ?: STANDARD_SERVER).trimEnd('/'),
             apiToken = prefs[schluesselToken],
             email = prefs[schluesselEmail],
+            fotosAutomatisch = prefs[schluesselFotosAuto] ?: false,
         ).also { letzterStand = it }
     }
 
@@ -61,10 +74,21 @@ class Einstellungen(private val context: Context) {
         }
     }
 
+    /**
+     * Die stehende Einwilligung für den Foto-Nachzug setzen.
+     *
+     * Sie überlebt das Abmelden NICHT (s. `abmelden`): Wer sich abmeldet, hat
+     * dem nächsten Konto auf diesem Gerät nichts erlaubt.
+     */
+    suspend fun setzeFotosAutomatisch(an: Boolean) {
+        context.dataStore.edit { it[schluesselFotosAuto] = an }
+    }
+
     suspend fun abmelden() {
         context.dataStore.edit {
             it.remove(schluesselToken)
             it.remove(schluesselEmail)
+            it.remove(schluesselFotosAuto)
         }
     }
 

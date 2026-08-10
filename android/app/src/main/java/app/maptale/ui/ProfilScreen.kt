@@ -13,6 +13,8 @@
 // in aller Regel sehen, was er zusammengereist hat, und nicht seine Bio pflegen.
 package app.maptale.ui
 
+import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,6 +74,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.maptale.BuildConfig
 import app.maptale.MaptaleApp
+import app.maptale.galerie.LESERECHT
+import app.maptale.galerie.darfGalerieLesen
+import app.maptale.push.MaptalePush
 import app.maptale.tracker.TrackerAbfrageWorker
 import app.maptale.tracker.TrackerAktion
 import app.maptale.tracker.TrackerRueckkehr
@@ -81,6 +86,7 @@ import app.maptale.tracker.anbieterSatz
 import app.maptale.tracker.oeffneAutorisierung
 import app.maptale.upload.TrackerAnbieter
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -101,10 +107,38 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
 
     LaunchedEffect(Unit) { viewModel.aktualisiere() }
 
+    // Push einschalten, sobald die Benachrichtigungs-Erlaubnis erteilt ist.
+    //
+    // Die Abfrage ab Android 13 IST der Zustimmungsmoment (Konzept 9.1): Wer
+    // sie ablehnt, bekommt keinen Token hinterlegt — dann läge eine Adresse
+    // auf dem Server, an die nichts gehen darf. Bis Android 12 gibt es keine
+    // Abfrage, dort zählt das Verbinden selbst als Zustimmung.
+    val meldeErlaubnis = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { erlaubt -> if (erlaubt) app.appScope.launch { MaptalePush.aktiviere(app) } }
+
+    // Der Foto-Nachzug braucht das Leserecht auf Bilder. Erfragt wird es erst
+    // beim Einschalten des Schalters — nicht beim Anmelden, nicht beim Start.
+    val fotosAutomatisch by viewModel.fotosAutomatisch.collectAsState()
+    val galerieErlaubnis = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { erlaubt -> viewModel.setzeFotosAutomatisch(erlaubt) }
+
     // Nach der Rückkehr aus dem Browser den Stand frisch holen. Bewusst NICHT
     // dem `ok=1` im Deep Link glauben: Was zählt, ist was auf dem Server steht.
+    //
+    // Der Rückweg aus dem Verknüpfen ist zugleich der Moment für Push: Erst
+    // jetzt gibt es überhaupt etwas zu melden. Vorher — etwa beim Anmelden —
+    // stünde die Systemabfrage vor einer Frage, die sich niemand gestellt hat.
     LaunchedEffect(Unit) {
-        TrackerRueckkehr.ereignisse.collect { viewModel.aktualisiere() }
+        TrackerRueckkehr.ereignisse.collect {
+            viewModel.aktualisiere()
+            if (Build.VERSION.SDK_INT >= 33) {
+                meldeErlaubnis.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                app.appScope.launch { MaptalePush.aktiviere(app) }
+            }
+        }
     }
 
     meldung?.let { text ->
@@ -317,6 +351,44 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
                 )
                 Spacer(Modifier.height(10.dp))
             }
+
+            // — Fotos automatisch ergänzen —
+            //
+            // Die stehende Einwilligung. Sie steht HIER und nicht in einem
+            // eigenen Abschnitt, weil sie nur zu Cloud-Touren gehört: Was die
+            // App selbst aufzeichnet, hat seine Fotos schon.
+            //
+            // Der Schalter fragt beim EINSCHALTEN nach dem Leserecht und bleibt
+            // aus, wenn es verweigert wird — ein „an", hinter dem nichts
+            // passieren kann, wäre die schlechtere Auskunft.
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Fotos automatisch ergänzen", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        if (fotosAutomatisch) {
+                            "Bilder aus der Zeit einer neuen Tour kommen ohne Nachfrage dazu."
+                        } else {
+                            "Ohne diesen Schalter fragt die App bei jeder neuen Tour nach."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = fotosAutomatisch,
+                    onCheckedChange = { an ->
+                        if (!an) viewModel.setzeFotosAutomatisch(false)
+                        else if (darfGalerieLesen(context)) viewModel.setzeFotosAutomatisch(true)
+                        else galerieErlaubnis.launch(LESERECHT)
+                    },
+                )
+            }
         }
 
         Spacer(Modifier.height(30.dp))
@@ -381,7 +453,13 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             // Den Cloud-Abfrage-Lauf mit beenden: Er klopfte sonst weiter an
             // eine Tür, für die es keinen Schlüssel mehr gibt.
             TrackerAbfrageWorker.beenden(context)
-            viewModel.abmelden()
+            // Push VOR dem Abmelden abbestellen — danach gibt es kein Token
+            // mehr, mit dem sich das beim Server sagen ließe, und die Adresse
+            // bliebe dort stehen. Erst dann abmelden.
+            app.appScope.launch {
+                MaptalePush.deaktiviere(app)
+                viewModel.abmelden()
+            }
         }) {
             Icon(
                 Icons.AutoMirrored.Filled.Logout,
@@ -447,6 +525,11 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             confirmButton = {
                 TextButton(onClick = {
                     kontoLoeschenDialog = false
+                    // Die Serverzeile fällt mit dem Konto (CASCADE); hier geht
+                    // es um das GERÄT: Token löschen, Auto-Init aus. Sonst
+                    // meldete die App nach dem Löschen weiter eine Adresse an
+                    // Google, für die es kein Konto mehr gibt.
+                    app.appScope.launch { MaptalePush.deaktiviere(app) }
                     // Die Navigation folgt von selbst: Ohne gültiges Token
                     // zeigt MaptaleNavigation wieder die Anmeldung.
                     viewModel.loescheKonto(danach = {})

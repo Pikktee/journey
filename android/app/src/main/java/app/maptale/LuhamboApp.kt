@@ -3,15 +3,19 @@
 // ViewModels/Service/Worker. Spiegelbild von baueApp(deps) im Backend.
 package app.maptale
 
+import android.Manifest
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import app.maptale.benennung.AndroidGeocoder
 import app.maptale.benennung.TourBenennung
 import app.maptale.daten.MaptaleDb
 import app.maptale.daten.TourRepository
 import app.maptale.daten.TourStatus
+import app.maptale.push.MaptalePush
 import app.maptale.upload.ApiClient
 import app.maptale.upload.Einstellungen
 import app.maptale.upload.Einstellungen.Companion.STANDARD_SERVER
@@ -125,6 +129,20 @@ class MaptaleApp : Application(), ImageLoaderFactory {
             // klopfte er weiter an eine Tür, für die es keinen Schlüssel gibt.
             if (einstellungen.aktuellesKonto().angemeldet) {
                 TrackerAbfrageWorker.sicherstellen(this@MaptaleApp)
+                // Push nachziehen, WENN die Erlaubnis schon steht. Ohne diesen
+                // Anlauf hinge der Token an einem einzigen Moment (dem
+                // Verknüpfen): Wer die App neu installiert, das Konto auf einem
+                // zweiten Gerät anmeldet oder die Erlaubnis später in den
+                // Systemeinstellungen erteilt, bekäme nie einen — und wartete
+                // auf Meldungen, die niemand adressieren kann. Von sich aus
+                // FRAGT die App hier nichts: Ein Systemdialog beim Start, ohne
+                // dass jemand etwas getan hat, ist genau die Abfrage, die man
+                // wegtippt.
+                if (ActivityCompat.checkSelfPermission(this@MaptaleApp, Manifest.permission.POST_NOTIFICATIONS)
+                    == PackageManager.PERMISSION_GRANTED
+                ) {
+                    MaptalePush.aktiviere(this@MaptaleApp)
+                }
             }
         }
     }

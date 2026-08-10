@@ -46,11 +46,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -80,6 +82,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.maptale.MaptaleApp
+import app.maptale.galerie.darfGalerieLesen
+import app.maptale.galerie.nachzugSatz
 import app.maptale.aufzeichnung.Fotomarke
 import app.maptale.aufzeichnung.duenneAus
 import app.maptale.upload.Serverfoto
@@ -110,6 +114,23 @@ fun ServerTourScreen(
     // ihm mitgeben. Dieselbe Sitzung wie beim WebView-Player tut es auch hier.
     var sitzung by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { sitzung = runCatching { app.apiClient.sitzungFuerPlayer() }.getOrNull() }
+
+    // Fotos aus der Galerie, die zeitlich passen — der Weg ohne stehende
+    // Einwilligung. Gesucht wird nur, wenn das Leserecht schon erteilt ist und
+    // die Automatik AUS ist: Mit Automatik hat der Meldungspfad die Bilder
+    // längst hochgeladen, und dann wäre die Frage hier ein zweites Angebot für
+    // etwas, das schon geschehen ist.
+    val vorschlag by viewModel.fotoVorschlag.collectAsState()
+    val nachzugLaeuft by viewModel.nachzugLaeuft.collectAsState()
+    var nachzugMeldung by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(tour?.status) {
+        if (tour?.spielbar == true &&
+            darfGalerieLesen(app) &&
+            !app.einstellungen.aktuellesKonto().fotosAutomatisch
+        ) {
+            viewModel.sucheFotos(app)
+        }
+    }
 
     // Einmalig befüllen, sobald geladen ist; danach gehören die Texte dem Nutzer.
     //
@@ -180,6 +201,55 @@ fun ServerTourScreen(
                             it,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
+
+                    // — Fotos aus der Galerie nachreichen —
+                    //
+                    // Der Weg OHNE stehende Einwilligung: eine FRAGE, hier und
+                    // nicht auf dem Sperrbildschirm. Sie steht nur da, wenn
+                    // wirklich etwas gefunden wurde — ein „0 Fotos gefunden"
+                    // wäre eine Meldung über nichts.
+                    nachzugSatz(vorschlag.size, automatisch = false)?.let { frage ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Default.AddPhotoAlternate,
+                                contentDescription = null,
+                                tint = Sonne,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            Text(frage, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = {
+                                    viewModel.uebernehmeFotos(app) { anzahl ->
+                                        nachzugMeldung = nachzugSatz(anzahl, automatisch = true)
+                                            ?: "Die Fotos ließen sich nicht hinzufügen."
+                                    }
+                                },
+                                enabled = !nachzugLaeuft,
+                                contentPadding = PaddingValues(horizontal = 0.dp),
+                            ) { Text(if (nachzugLaeuft) "Wird hinzugefügt …" else "Hinzufügen") }
+                            TextButton(
+                                onClick = { viewModel.verwirfVorschlag() },
+                                enabled = !nachzugLaeuft,
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            ) { Text("Nein danke") }
+                        }
+                    }
+                    nachzugMeldung?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 10.dp),
                         )
                     }

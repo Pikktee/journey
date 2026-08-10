@@ -19,8 +19,11 @@ import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
+import okio.source
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -96,6 +99,15 @@ data class Serverfoto(
      */
     val ankerLng: Double?,
     val ankerLat: Double?,
+    /**
+     * Aufnahmezeitpunkt (ISO) aus dem Manifest.
+     *
+     * Nicht für die Anzeige — dafür gibt es `zeitzeile` — sondern damit der
+     * Foto-Nachzug erkennt, was die Tour SCHON hat: Ohne diesen Abgleich käme
+     * derselbe Vorschlag bei jedem Öffnen wieder, auch für den, der ihn eben
+     * abgelehnt hat.
+     */
+    val aufgenommenIso: String?,
 )
 
 /** Konto-Auskunft aus GET /api/auth/me. */
@@ -147,6 +159,30 @@ data class TrackerAnbieter(
     /** Der Zugang ist tot und muss neu erteilt werden — nicht dasselbe wie „nie verbunden". */
     val abgelaufen get() = status == "abgelaufen"
 }
+
+/**
+ * Ein nachzureichendes Foto — die ID vergibt der SERVER (s. `medienNachreichen`).
+ *
+ * `anker` ist [lng, lat] wie im Manifest und OPTIONAL: Fehlt er, platziert der
+ * Server über die Aufnahmezeit am Track. Genau deshalb funktioniert der
+ * Foto-Nachzug auch mit Bildern ohne GPS — und das ist der Normalfall, seit
+ * Android den Ort ohne eigene Erlaubnis aus dem EXIF entfernt.
+ */
+data class NachreichMedium(
+    val dateiname: String,
+    val aufgenommenIso: String,
+    val anker: Pair<Double, Double>? = null,
+    /**
+     * Woher das Bild stammt (`galerie:<MediaStore-ID>`) — der Idempotenz-
+     * Schlüssel des Nachreichens.
+     *
+     * Er ist der Grund, warum ein wiederholter Nachzug keine Doppel erzeugt:
+     * Der Server legt eine bekannte `quelle` kein zweites Mal an, sondern gibt
+     * die vorhandene Zuordnung zurück. Ohne ihn müsste die App wissen, was die
+     * Tour schon hat — und das weiß sie erst NACH dem Rendern.
+     */
+    val quelle: String? = null,
+)
 
 /** Ein Import aus `GET /api/tracker/imports/pending` — die Grundlage der Meldung. */
 data class TrackerImport(
@@ -223,6 +259,92 @@ class ApiClient(private val einstellungen: Einstellungen) {
         withContext(Dispatchers.IO) {
             ausfuehren(autorisiert("/api/tours/$serverTourId/finalize").post("".toRequestBody()).build())
         }
+    }
+
+    /**
+     * Medien zu einer BESTEHENDEN Tour anmelden — additiv, das Manifest wächst.
+     *
+     * Der Weg des Foto-Nachzugs zu Cloud-Touren (und im Studio des
+     * Nachreichens). Die IDs vergibt der SERVER, anders als beim Anlegen: Dort
+     * braucht es sie für die idempotente Wiederholung, hier garantieren sie,
+     * dass keine kollidiert und keine je wiederverwendet wird.
+     *
+     * Zurück kommt die Zuordnung in der Reihenfolge der Anfrage — je Eintrag
+     * die Medien-ID, mit der danach `mediumHochladen` läuft.
+     */
+    suspend fun medienNachreichen(serverTourId: String, medien: List<NachreichMedium>): List<String> =
+        withContext(Dispatchers.IO) {
+            if (medien.isEmpty()) return@withContext emptyList()
+            val koerper = buildJsonObject {
+                put(
+                    "medien",
+                    JsonArray(
+                        medien.map { m ->
+                            buildJsonObject {
+                                put("type", JsonPrimitive("photo"))
+                                put("file", JsonPrimitive(m.dateiname))
+                                put("takenAt", JsonPrimitive(m.aufgenommenIso))
+                                m.anker?.let { (lng, breite) ->
+                                    put("anchor", JsonArray(listOf(JsonPrimitive(lng), JsonPrimitive(breite))))
+                                }
+                                m.quelle?.let { put("quelle", JsonPrimitive(it)) }
+                            }
+                        },
+                    ),
+                )
+            }.toString().toRequestBody(jsonTyp)
+            val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId/medien").post(koerper).build())
+            val liste = antwort["medien"] as? JsonArray ?: return@withContext emptyList()
+            liste.mapNotNull { (it as? JsonObject)?.get("id")?.jsonPrimitive?.contentOrNull }
+        }
+
+    /**
+     * Ein Medium aus einem beliebigen Datenstrom hochladen.
+     *
+     * Für Galeriebilder: Sie liegen nicht als `File` im App-Verzeichnis,
+     * sondern hinter einem `content://`-Uri, den nur der ContentResolver
+     * öffnen kann. Der Strom wird dabei GESTREAMT und nicht in den Speicher
+     * gelesen — ein Rohfoto sind schnell zwanzig Megabyte, und der Nachzug
+     * lädt gleich mehrere.
+     */
+    suspend fun mediumHochladen(serverTourId: String, mediumId: String, oeffne: () -> java.io.InputStream) {
+        withContext(Dispatchers.IO) {
+            val koerper = object : RequestBody() {
+                override fun contentType() = "application/octet-stream".toMediaType()
+                override fun writeTo(senke: BufferedSink) {
+                    oeffne().use { strom -> senke.writeAll(strom.source()) }
+                }
+            }
+            ausfuehren(autorisiert("/api/tours/$serverTourId/media/$mediumId").put(koerper).build())
+        }
+    }
+
+    /**
+     * Neu verarbeiten — nötig, damit nachgereichte Medien im Film auftauchen.
+     *
+     * Der Server rendert dabei aus seinem Anreicherungs-Cache; Geocoding,
+     * Wetter und Bildanalyse laufen nicht erneut, nur die neuen Fotos werden
+     * analysiert und platziert.
+     */
+    suspend fun neuVerarbeiten(serverTourId: String) {
+        withContext(Dispatchers.IO) {
+            ausfuehren(autorisiert("/api/tours/$serverTourId/reprocess").post("".toRequestBody()).build())
+        }
+    }
+
+    /**
+     * Das Zeitfenster einer fertigen Tour (`time.start`/`time.end` aus dem
+     * gerenderten Tour-JSON) — die Grundlage des Galerie-Scans.
+     *
+     * Null, solange die Tour nicht „bereit" ist: Dann gibt es kein Tour-JSON,
+     * und ohne Fenster wird auch nicht in der Galerie gesucht.
+     */
+    suspend fun tourZeitfenster(serverTourId: String): Pair<String, String>? = withContext(Dispatchers.IO) {
+        val antwort = ausfuehren(autorisiert("/api/tours/$serverTourId").get().build())
+        val zeit = antwort["time"] as? JsonObject ?: return@withContext null
+        val start = zeit["start"]?.jsonPrimitive?.contentOrNull ?: return@withContext null
+        val ende = zeit["end"]?.jsonPrimitive?.contentOrNull ?: return@withContext null
+        start to ende
     }
 
     /** Titel/Beschreibung serverseitig nachziehen (PATCH, idempotent). */
@@ -377,6 +499,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
                     quellPfad = src,
                     ankerLng = anker?.getOrNull(0)?.jsonPrimitive?.doubleOrNull,
                     ankerLat = anker?.getOrNull(1)?.jsonPrimitive?.doubleOrNull,
+                    aufgenommenIso = obj["takenAt"]?.jsonPrimitive?.contentOrNull,
                 )
             },
         )
@@ -492,6 +615,29 @@ class ApiClient(private val einstellungen: Einstellungen) {
                 tourId = obj["tourId"]?.jsonPrimitive?.contentOrNull,
                 fehler = obj["fehler"]?.jsonPrimitive?.contentOrNull,
             )
+        }
+    }
+
+    /**
+     * Den FCM-Token beim eigenen Server hinterlegen.
+     *
+     * `false` heißt: Der Server hat kein Dienstkonto, Push gibt es dort nicht.
+     * Das ist eine Auskunft, kein Fehler — die App bleibt dann bei ihrem
+     * periodischen Abruf, statt einen Token zu pflegen, an den nie etwas geht.
+     */
+    suspend fun pushGeraetAnmelden(token: String): Boolean = withContext(Dispatchers.IO) {
+        val koerper = buildJsonObject {
+            put("token", JsonPrimitive(token))
+            put("plattform", JsonPrimitive("android"))
+        }.toString().toRequestBody(jsonTyp)
+        val antwort = ausfuehren(autorisiert("/api/push/geraete").post(koerper).build())
+        antwort["push"]?.jsonPrimitive?.booleanOrNull == true
+    }
+
+    suspend fun pushGeraetAbmelden(token: String) {
+        withContext(Dispatchers.IO) {
+            val koerper = buildJsonObject { put("token", JsonPrimitive(token)) }.toString().toRequestBody(jsonTyp)
+            ausfuehren(autorisiert("/api/push/geraete").delete(koerper).build())
         }
     }
 

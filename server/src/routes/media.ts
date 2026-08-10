@@ -147,17 +147,48 @@ export function registriereMediaRouten(app: FastifyInstance): void {
 
       // IDs kollisionsfrei vergeben — gegen ALLE Einträge, auch Tombstones
       const vergeben = new Set(manifest.media.map((m) => m.id))
-      const neue: UploadMedium[] = request.body.medien.map((eintrag) => {
+      // Der Idempotenz-Riegel des Foto-Nachzugs: Was unter derselben `quelle`
+      // schon im Manifest steht, wird NICHT ein zweites Mal angelegt — die
+      // vorhandene Zuordnung geht zurück. Der Client kann seinen Lauf damit
+      // gefahrlos wiederholen, auch wenn er beim ersten Mal mittendrin abbrach
+      // oder das Rendern danach scheiterte (s. `quelle` im Schema).
+      //
+      // Tombstones zählen MIT: Ein endgültig gelöschtes Foto soll nicht beim
+      // nächsten Lauf wiederkommen — genau das wäre das Gegenteil von „Löschen
+      // ist echt". Die Antwort nennt seine alte ID; das PUT darauf lehnt die
+      // Upload-Route mit 409 ab, und der Client hat nichts verloren.
+      const nachQuelle = new Map(
+        manifest.media.filter((m) => m.quelle).map((m) => [m.quelle as string, m]),
+      )
+      const zuordnung: UploadMedium[] = []
+      const neue: UploadMedium[] = []
+      for (const eintrag of request.body.medien) {
+        const bekannt = eintrag.quelle ? nachQuelle.get(eintrag.quelle) : undefined
+        if (bekannt) {
+          zuordnung.push(bekannt)
+          continue
+        }
         let id = neueMediumId()
         while (vergeben.has(id)) id = neueMediumId()
         vergeben.add(id)
-        return { ...eintrag, id }
-      })
-      manifest.media = [...manifest.media, ...neue]
-      await storage.schreibe(tour.id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
+        const angelegt: UploadMedium = { ...eintrag, id }
+        if (eintrag.quelle) nachQuelle.set(eintrag.quelle, angelegt)
+        neue.push(angelegt)
+        zuordnung.push(angelegt)
+      }
+      if (neue.length) {
+        manifest.media = [...manifest.media, ...neue]
+        await storage.schreibe(tour.id, MANIFEST_PFAD, JSON.stringify(manifest, null, 2))
+      }
 
-      // Zuordnung zurückgeben: `datei` ist das PUT-Ziel (media/<datei>)
-      return reply.code(200).send({ medien: neue.map((m) => ({ id: m.id, datei: mediumDateiname(m) })) })
+      // Zuordnung zurückgeben: `datei` ist das PUT-Ziel (media/<datei>).
+      // Sie hat IMMER so viele Einträge wie die Anfrage und in derselben
+      // Reihenfolge — auch für die übersprungenen: Der Client paart sie mit
+      // seinen Dateien über den Index, eine kürzere Liste verschöbe alles.
+      return reply.code(200).send({
+        medien: zuordnung.map((m) => ({ id: m.id, datei: mediumDateiname(m) })),
+        neu: neue.length,
+      })
     },
   )
 

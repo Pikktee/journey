@@ -9,6 +9,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.maptale.MaptaleApp
 import app.maptale.daten.MediumEntity
+import app.maptale.galerie.Galeriebild
+import app.maptale.galerie.ladeFotosHoch
+import app.maptale.galerie.suchePassendeFotos
 import app.maptale.daten.TourEntity
 import app.maptale.daten.TourRepository
 import app.maptale.upload.ApiClient
@@ -27,8 +30,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -239,6 +245,11 @@ class ProfilViewModel(
     private val internKonto = MutableStateFlow<KontoStand?>(null)
     val konto: StateFlow<KontoStand?> = internKonto
 
+    /** Stehende Einwilligung für den Foto-Nachzug — sie lebt in der App. */
+    val fotosAutomatisch: StateFlow<Boolean> = einstellungen.konto
+        .map { it.fotosAutomatisch }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private val internTracker = MutableStateFlow<List<TrackerAnbieter>>(emptyList())
 
     /**
@@ -273,6 +284,17 @@ class ProfilViewModel(
                 .onSuccess(oeffne)
                 .onFailure { beiFehler("Das Verbinden ließ sich nicht starten.") }
         }
+    }
+
+    /**
+     * Die stehende Einwilligung „Fotos automatisch ergänzen" setzen.
+     *
+     * Der Zustand steht sofort in der Oberfläche (der Schalter soll nicht
+     * hängen), geschrieben wird danach — bei einem DataStore ist das kein
+     * Risiko, er schreibt lokal und schlägt praktisch nie fehl.
+     */
+    fun setzeFotosAutomatisch(an: Boolean) {
+        viewModelScope.launch { einstellungen.setzeFotosAutomatisch(an) }
     }
 
     fun trackerTrennen(anbieterId: String, beiFehler: (String) -> Unit) {
@@ -413,7 +435,61 @@ class ServerTourViewModel(
     private val internFehler = MutableStateFlow<String?>(null)
     val fehler: StateFlow<String?> = internFehler
 
+    /**
+     * Fotos aus der Galerie, die zeitlich zu dieser Tour passen.
+     *
+     * Der Weg OHNE stehende Einwilligung: Gefunden wird nur auf ausdrückliche
+     * Nachfrage (`sucheFotos`), hochgeladen erst nach einem zweiten Ja. Leer
+     * heißt „nichts vorzuschlagen" — und das ist auch der Zustand, solange
+     * niemand gesucht hat.
+     */
+    private val internFotoVorschlag = MutableStateFlow<List<Galeriebild>>(emptyList())
+    val fotoVorschlag: StateFlow<List<Galeriebild>> = internFotoVorschlag
+
+    /** Läuft gerade ein Nachzug? Der Knopf soll währenddessen nicht zweimal gehen. */
+    private val internNachzugLaeuft = MutableStateFlow(false)
+    val nachzugLaeuft: StateFlow<Boolean> = internNachzugLaeuft
+
     init { lade() }
+
+    /**
+     * In der Galerie nach passenden Fotos sehen.
+     *
+     * Wird vom Screen gerufen, sobald die Tour geladen UND das Leserecht
+     * erteilt ist. Ohne Erlaubnis passiert nichts — die Suche fragt nicht von
+     * sich aus danach, das tut der Knopf.
+     */
+    fun sucheFotos(app: MaptaleApp) {
+        viewModelScope.launch {
+            internFotoVorschlag.value = runCatching { suchePassendeFotos(app, serverId) }.getOrDefault(emptyList())
+        }
+    }
+
+    /**
+     * Die vorgeschlagenen Fotos übernehmen.
+     *
+     * Danach wird neu geladen: Der Server rendert nach dem Nachreichen neu, und
+     * bis das durch ist, zeigt die Tour ihren alten Stand. Der Vorschlag wird
+     * in jedem Fall geleert — auch wenn nichts hochging: Sonst stünde die Frage
+     * weiter da, und ein zweiter Klick liefe in dieselbe Wand.
+     */
+    fun uebernehmeFotos(app: MaptaleApp, danach: (Int) -> Unit) {
+        val bilder = internFotoVorschlag.value
+        if (bilder.isEmpty() || internNachzugLaeuft.value) return
+        viewModelScope.launch {
+            internNachzugLaeuft.value = true
+            val geschafft = runCatching { ladeFotosHoch(app, serverId, bilder) }.getOrDefault(0)
+            internFotoVorschlag.value = emptyList()
+            internNachzugLaeuft.value = false
+            danach(geschafft)
+            if (geschafft > 0) lade()
+        }
+    }
+
+    /** „Nein danke" — der Vorschlag verschwindet für diese Sitzung. */
+    fun verwirfVorschlag() {
+        internFotoVorschlag.value = emptyList()
+    }
 
     fun lade() {
         viewModelScope.launch {

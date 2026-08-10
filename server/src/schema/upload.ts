@@ -36,6 +36,22 @@ export interface UploadMedium {
   caption?: string | null
   durationS?: number
   /**
+   * Woher das Medium beim Client stammt — die Idempotenz-Schlüssel des
+   * Nachreichens (z. B. `galerie:1234` für eine MediaStore-Kennung).
+   *
+   * **Der Dedup-Riegel des Foto-Nachzugs, und er liegt im MANIFEST.** Die App
+   * kann nicht zuverlässig wissen, was eine Tour schon hat: Sie sieht das
+   * gerenderte `tour.json`, und das kennt nachgereichte Bilder erst nach dem
+   * Rendern. Scheitert das (409 während einer laufenden Verarbeitung, Netz
+   * weg), schlüge der nächste Lauf dieselben Fotos erneut vor und lüde sie ein
+   * zweites Mal hoch — sichtbar würde es erst danach, mit jedem Bild doppelt
+   * in der Tour. Das Manifest dagegen kennt den Eintrag SOFORT.
+   *
+   * Optional: Das Studio-Nachreichen setzt ihn nicht (dort wählt ein Mensch
+   * Dateien aus, und zwei Aufnahmen desselben Augenblicks sind dann Absicht).
+   */
+  quelle?: string
+  /**
    * Tombstone: Medium wurde ENDGÜLTIG gelöscht (Dateien weg, Speicher frei).
    *
    * Der Eintrag bleibt stehen, weil das Manifest das Protokoll dessen ist, was
@@ -94,6 +110,7 @@ const medienEigenschaften = {
   anchor: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' } },
   caption: { type: ['string', 'null'], maxLength: 1000 },
   durationS: { type: 'number', minimum: 0 },
+  quelle: { type: 'string', minLength: 1, maxLength: 200 },
 } as const
 
 // JSON-Schema für die Fastify-Validierung. Bewusst strikt (additionalProperties

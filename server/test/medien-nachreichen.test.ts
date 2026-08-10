@@ -54,17 +54,23 @@ async function nachreichen(
   u: TestUmgebung,
   tourId: string,
   medien: Array<Record<string, unknown>>,
-): Promise<{ statusCode: number; medien: Array<{ id: string; datei: string }> }> {
+): Promise<{ statusCode: number; medien: Array<{ id: string; datei: string }>; neu: number }> {
   const antwort = await u.app.inject({
     method: 'POST',
     url: `/api/tours/${tourId}/medien`,
     cookies: u.cookies,
     payload: { medien },
   })
-  return {
-    statusCode: antwort.statusCode,
-    medien: antwort.statusCode === 200 ? (antwort.json() as { medien: Array<{ id: string; datei: string }> }).medien : [],
-  }
+  const koerper =
+    antwort.statusCode === 200
+      ? (antwort.json() as { medien: Array<{ id: string; datei: string }>; neu?: number })
+      : { medien: [], neu: 0 }
+  return { statusCode: antwort.statusCode, medien: koerper.medien, neu: koerper.neu ?? 0 }
+}
+
+/** Das rohe Manifest der Tour — die Quelle, gegen die der Dedup läuft. */
+async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManifest> {
+  return JSON.parse((await u.app.deps.storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
 }
 
 async function tourJson(u: TestUmgebung, tourId: string): Promise<TourJson> {
@@ -107,6 +113,58 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     await u.app.verarbeitungen.get(id)
     const json = await tourJson(u, id)
     expect(json.media.map((m) => m.id)).toContain(neu?.id)
+  })
+
+  it('legt dieselbe `quelle` nur EINMAL an — auch wenn der Client den Lauf wiederholt', async () => {
+    // Der Riegel gegen doppelte Fotos beim Nachzug: Die App sieht das
+    // gerenderte tour.json, und das kennt nachgereichte Bilder erst nach dem
+    // Rendern. Scheitert das (409, Netz weg), wiederholt sie den Lauf — und
+    // ohne diesen Riegel stünde danach jedes Bild zweimal in der Tour.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id, 'm1')
+    await finalisiere(u, id)
+
+    const eintrag = { type: 'photo' as const, file: 'IMG_1.jpg', takenAt: '2026-07-04T10:30:00+02:00', quelle: 'galerie:4711' }
+    const erst = await nachreichen(u, id, [eintrag])
+    const zweit = await nachreichen(u, id, [eintrag])
+
+    expect(erst.statusCode).toBe(200)
+    expect(zweit.statusCode).toBe(200)
+    // Dieselbe Zuordnung zurück — der Client lädt gefahrlos noch einmal hoch.
+    expect(zweit.medien[0]?.id).toBe(erst.medien[0]?.id)
+    expect(erst.neu).toBe(1)
+    expect(zweit.neu).toBe(0)
+    const manifest = await manifestVon(u, id)
+    expect(manifest.media.filter((m) => m.quelle === 'galerie:4711')).toHaveLength(1)
+  })
+
+  it('behält die Reihenfolge, wenn nur ein Teil des Batches neu ist', async () => {
+    // Der Client paart Antwort und Dateien über den INDEX. Eine kürzere Liste
+    // verschöbe die Zuordnung — und er lüde Bild B unter der ID von A hoch.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id, 'm1')
+    await finalisiere(u, id)
+
+    const a = { type: 'photo' as const, file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00', quelle: 'galerie:1' }
+    const b = { type: 'photo' as const, file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00', quelle: 'galerie:2' }
+    const erst = await nachreichen(u, id, [a])
+    const zweit = await nachreichen(u, id, [a, b])
+    expect(zweit.medien).toHaveLength(2)
+    expect(zweit.medien[0]?.id).toBe(erst.medien[0]?.id)
+    expect(zweit.medien[1]?.id).not.toBe(erst.medien[0]?.id)
+  })
+
+  it('ohne `quelle` bleibt jeder Eintrag neu — das Studio wählt bewusst aus', async () => {
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id, 'm1')
+    await finalisiere(u, id)
+    const eintrag = { type: 'photo' as const, file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00' }
+    const erst = await nachreichen(u, id, [eintrag])
+    const zweit = await nachreichen(u, id, [eintrag])
+    expect(zweit.medien[0]?.id).not.toBe(erst.medien[0]?.id)
   })
 
   it('weist während laufender Verarbeitung mit 409 ab', async () => {
