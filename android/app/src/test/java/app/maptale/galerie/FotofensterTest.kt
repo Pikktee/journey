@@ -126,6 +126,8 @@ class FotofensterTest {
         assertTrue(endungErlaubt("a.JPEG"))
         assertTrue(endungErlaubt("a.webp"))
         assertFalse(endungErlaubt("a.dng"))
+        // Als FOTO gemeldet ist eine .mp4 falsch — der Server prüft die Endung
+        // gegen den Typ und wiese den ganzen Stapel mit 400 ab.
         assertFalse(endungErlaubt("a.mp4"))
         // HEIC nimmt der Server seit v0.55.3 an (er löst die Kacheln auf).
         assertTrue(endungErlaubt("a.heic"))
@@ -181,5 +183,45 @@ class FotofensterTest {
         assertEquals("14 Fotos aus dieser Zeit gefunden — hinzufügen?", nachzugSatz(14, automatisch = false))
         assertNull(nachzugSatz(0, automatisch = true))
         assertNull(nachzugSatz(0, automatisch = false))
+    }
+
+    @Test
+    fun `Videos gehen ihren eigenen Weg durch die Endungsprüfung`() {
+        assertTrue(endungErlaubt("VID_1.mp4", istVideo = true))
+        assertTrue(endungErlaubt("VID_1.MOV", istVideo = true))
+        assertTrue(endungErlaubt("clip.webm", istVideo = true))
+        // Die Kamera legt neben der .mp4 gern eine Vorschau ab — sie gehört so
+        // wenig in die Tour wie das RAW neben dem JPEG.
+        assertFalse(endungErlaubt("VID_1.lrv", istVideo = true))
+        assertFalse(endungErlaubt("VID_1.thm", istVideo = true))
+        // Und ein Foto als Video gemeldet ist genauso falsch wie umgekehrt.
+        assertFalse(endungErlaubt("IMG_1.jpg", istVideo = true))
+    }
+
+    @Test
+    fun `ein Video im Zeitfenster wird vorgeschlagen wie ein Foto`() {
+        val treffer = passendeBilder(
+            listOf(
+                bild(1, 1000),
+                bild(2, 2000).copy(dateiname = "VID_2.mp4", istVideo = true),
+                bild(3, 3000).copy(dateiname = "VID_3.lrv", istVideo = true),
+            ),
+            START,
+            ENDE,
+        )
+        assertEquals(listOf(1L, 2L), treffer.map { it.id })
+    }
+
+    @Test
+    fun `der Satz benennt, was tatsächlich dabei ist`() {
+        // „3 Fotos hinzugefügt" über zwei Bildern und einem Video ist falsch —
+        // wer das Video vermisst, sucht den Fehler beim Hochladen.
+        assertEquals("3 Aufnahmen hinzugefügt", nachzugSatz(3, automatisch = true, videos = 1))
+        assertEquals("2 Videos hinzugefügt", nachzugSatz(2, automatisch = true, videos = 2))
+        assertEquals("1 Video hinzugefügt", nachzugSatz(1, automatisch = true, videos = 1))
+        assertEquals(
+            "4 Aufnahmen aus dieser Zeit gefunden — hinzufügen?",
+            nachzugSatz(4, automatisch = false, videos = 2),
+        )
     }
 }

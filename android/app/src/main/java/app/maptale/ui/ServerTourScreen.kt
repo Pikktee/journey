@@ -211,7 +211,11 @@ fun ServerTourScreen(
                     // nicht auf dem Sperrbildschirm. Sie steht nur da, wenn
                     // wirklich etwas gefunden wurde — ein „0 Fotos gefunden"
                     // wäre eine Meldung über nichts.
-                    nachzugSatz(vorschlag.size, automatisch = false)?.let { frage ->
+                    nachzugSatz(
+                        vorschlag.size,
+                        automatisch = false,
+                        videos = vorschlag.count { it.istVideo },
+                    )?.let { frage ->
                         Row(
                             Modifier.fillMaxWidth().padding(top = 14.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -229,7 +233,11 @@ fun ServerTourScreen(
                             TextButton(
                                 onClick = {
                                     viewModel.uebernehmeFotos(app) { anzahl ->
-                                        nachzugMeldung = nachzugSatz(anzahl, automatisch = true)
+                                        nachzugMeldung = nachzugSatz(
+                                            anzahl,
+                                            automatisch = true,
+                                            videos = vorschlag.count { it.istVideo },
+                                        )
                                             ?: "Die Fotos ließen sich nicht hinzufügen."
                                     }
                                 },

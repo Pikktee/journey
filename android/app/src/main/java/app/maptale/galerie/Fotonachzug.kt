@@ -100,6 +100,7 @@ suspend fun ladeFotosHoch(
             // Erst hier gelesen und nicht beim Suchen: Es ist ein Dateizugriff
             // je Bild, und die meisten Vorschläge werden nie hochgeladen.
             anker = gpsAnker(app, bild)?.let { (breite, laenge) -> laenge to breite },
+            istVideo = bild.istVideo,
             // Der Idempotenz-Schlüssel: Derselbe Lauf ein zweites Mal legt
             // beim Server nichts Neues an (s. `NachreichMedium.quelle`).
             quelle = "galerie:${bild.id}",

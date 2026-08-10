@@ -37,52 +37,88 @@ import androidx.exifinterface.media.ExifInterface
  */
 fun bilderImZeitfenster(context: Context, startMs: Long, endeMs: Long): List<Galeriebild> {
     val fenster = suchfenster(startMs, endeMs)
+    // ZWEI Abfragen, weil MediaStore zwei Sammlungen führt. Videos fehlten hier
+    // bis 2026-08-10 vollständig: Wer unterwegs filmte, bekam sie nie
+    // vorgeschlagen — obwohl die Pipeline sie längst annimmt (Transcode,
+    // Poster, Faststart). Zusammengeführt wird nach Zeit, damit die Vorschläge
+    // in der Reihenfolge der Aufnahme stehen und nicht in zwei Blöcken.
+    return (
+        frage(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, fenster, istVideo = false) +
+            frage(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, fenster, istVideo = true)
+        ).sortedBy { it.aufgenommenMs }
+}
+
+/**
+ * Eine der beiden Sammlungen befragen.
+ *
+ * Die Spaltennamen sind in `MediaStore.Images` und `MediaStore.Video`
+ * dieselben Zeichenketten (beide erben von `MediaColumns`) — deshalb eine
+ * Funktion und keine zwei. `DATE_TAKEN` gibt es in beiden; bei Video füllt
+ * Android es aus den Container-Metadaten.
+ */
+private fun frage(
+    context: Context,
+    sammlung: Uri,
+    fenster: LongRange,
+    istVideo: Boolean,
+): List<Galeriebild> {
     // OHNE LATITUDE/LONGITUDE: Seit Android 10 gibt MediaStore dort immer 0
     // zurück — der Ort steckt nur noch im EXIF des Originals und ist erst mit
     // `ACCESS_MEDIA_LOCATION` lesbar (s. `gpsAnker`). Die Spalten mitzuführen
     // sähe aus, als käme etwas heraus, und läge in Wahrheit im Golf von Guinea.
     val spalten = arrayOf(
-        MediaStore.Images.Media._ID,
-        MediaStore.Images.Media.DISPLAY_NAME,
-        MediaStore.Images.Media.DATE_TAKEN,
-        MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+        MediaStore.MediaColumns._ID,
+        MediaStore.MediaColumns.DISPLAY_NAME,
+        MediaStore.MediaColumns.DATE_TAKEN,
+        MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
     )
-    val bedingung = "${MediaStore.Images.Media.DATE_TAKEN} BETWEEN ? AND ?"
+    val bedingung = "${MediaStore.MediaColumns.DATE_TAKEN} BETWEEN ? AND ?"
     val werte = arrayOf(fenster.first.toString(), fenster.last.toString())
     return try {
         context.contentResolver.query(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            sammlung,
             spalten,
             bedingung,
             werte,
-            "${MediaStore.Images.Media.DATE_TAKEN} ASC",
-        )?.use { zeiger -> leseBilder(zeiger) } ?: emptyList()
+            "${MediaStore.MediaColumns.DATE_TAKEN} ASC",
+        )?.use { zeiger -> leseBilder(zeiger, istVideo) } ?: emptyList()
     } catch (fehler: SecurityException) {
-        Log.w("Maptale", "Galerie nicht lesbar — kein Foto-Vorschlag", fehler)
+        Log.w("Maptale", "Galerie nicht lesbar — kein Vorschlag", fehler)
         emptyList()
     }
 }
 
-private fun leseBilder(zeiger: Cursor): List<Galeriebild> {
-    val spalteId = zeiger.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-    val spalteName = zeiger.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-    val spalteZeit = zeiger.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
-    val spalteOrdner = zeiger.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+private fun leseBilder(zeiger: Cursor, istVideo: Boolean): List<Galeriebild> {
+    val spalteId = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+    val spalteName = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+    val spalteZeit = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
+    val spalteOrdner = zeiger.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
     val bilder = mutableListOf<Galeriebild>()
     while (zeiger.moveToNext()) {
         bilder += Galeriebild(
             id = zeiger.getLong(spalteId),
-            dateiname = zeiger.getString(spalteName) ?: "foto.jpg",
+            dateiname = zeiger.getString(spalteName) ?: if (istVideo) "video.mp4" else "foto.jpg",
             aufgenommenMs = zeiger.getLong(spalteZeit),
             ordner = if (zeiger.isNull(spalteOrdner)) null else zeiger.getString(spalteOrdner),
+            istVideo = istVideo,
         )
     }
     return bilder
 }
 
-/** Die Adresse eines Galeriebilds im MediaStore. */
+/**
+ * Die Adresse einer Galerie-Aufnahme im MediaStore.
+ *
+ * Die Sammlung muss zur Art passen: Eine Video-ID an
+ * `Images.EXTERNAL_CONTENT_URI` gehängt zeigt entweder auf nichts oder — weil
+ * die IDs pro Sammlung vergeben werden — auf ein FREMDES Bild.
+ */
 fun bildUri(bild: Galeriebild): Uri =
-    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, bild.id)
+    ContentUris.withAppendedId(
+        if (bild.istVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        else MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        bild.id,
+    )
 
 /**
  * Den GPS-Ort eines Bildes aus seinem EXIF lesen — als [breite, länge].
@@ -95,8 +131,14 @@ fun bildUri(bild: Galeriebild): Uri =
  *
  * Erst beim Hochladen aufgerufen und nicht beim Suchen: Es ist ein Dateizugriff
  * je Bild, und die meisten Bilder eines Vorschlags werden nie hochgeladen.
+ *
+ * **Videos werden gar nicht erst geöffnet.** Ihr Ort steckt nicht im EXIF,
+ * sondern als `©xyz`-Atom im MP4-Container, den `ExifInterface` nicht liest —
+ * herauskommen würde `null`, nur nach einem Dateizugriff für nichts. Sie
+ * verankert die Zeit, und das ist bei einer laufenden Aufzeichnung ohnehin der
+ * genauere Weg: Ein Video hat eine Dauer, sein GPS-Punkt nur einen Anfang.
  */
-fun gpsAnker(context: Context, bild: Galeriebild): Pair<Double, Double>? = try {
+fun gpsAnker(context: Context, bild: Galeriebild): Pair<Double, Double>? = if (bild.istVideo) null else try {
     val uri = MediaStore.setRequireOriginal(bildUri(bild))
     context.contentResolver.openInputStream(uri)?.use { strom ->
         ExifInterface(strom).latLong?.let { (breite, laenge) -> breite to laenge }

@@ -130,8 +130,17 @@ Handy nach der Tour an den Rechner hängt, hätte sonst ein Hinzufügedatum von 
 neben jedem Foto eine RAW-Datei ab, und weil die Nachreich-Route keine halben Stapel kennt,
 ließ ein einziges `.dng` den ganzen Nachzug mit 400 scheitern. Nebenwirkung, die man sonst
 extra bauen müsste: RAW und JPEG sind dasselbe Bild und lägen sonst doppelt in der Tour.
-Offene Lücke: **HEIC** nimmt die Pipeline nicht an — wessen Kamera so speichert, bekommt gar
-keinen Vorschlag. Das gehört serverseitig gelöst, nicht durch ein Aufweichen der Liste.
+HEIC ist seit v0.55.3 dabei (der Server löst die Kacheln auf — gelöst wurde es dort, sonst
+hätte es nur Android repariert).
+**Videos liegen in einer ZWEITEN Sammlung** (`MediaStore.Video`) und wurden bis 2026-08-10
+gar nicht erst gesucht: Wer unterwegs filmte, bekam nie einen Vorschlag, obwohl die Pipeline
+Video längst annimmt (Transcode, Poster, Faststart). Drei Dinge hängen an `Galeriebild.istVideo`,
+und jedes läuft still falsch, wenn es fehlt: die **Content-URI** (IDs werden PRO Sammlung
+vergeben — eine Video-ID an `Images.EXTERNAL_CONTENT_URI` zeigt auf ein fremdes Bild), die
+**Endungsliste** (der Server prüft die Endung gegen den `type`; `.lrv`/`.thm` neben der `.mp4`
+sind derselbe Fall wie das RAW neben dem JPEG) und der **`type` im Manifest**. Der GPS-Anker
+entfällt für Video bewusst: Der Ort steht im MP4-Atom `©xyz`, das `ExifInterface` nicht liest —
+es verankert die Zeit, und ein Video hat ohnehin eine Dauer statt eines Punktes.
 **MediaStore liefert seit Android 10 IMMER 0 als Koordinate**; der Ort steckt nur im EXIF des
 Originals (`MediaStore.setRequireOriginal` + `ACCESS_MEDIA_LOCATION`) und wird erst BEIM
 HOCHLADEN gelesen — ein Dateizugriff je Bild, und die meisten Vorschläge werden nie

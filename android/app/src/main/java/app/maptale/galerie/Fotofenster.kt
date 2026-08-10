@@ -44,6 +44,18 @@ data class Galeriebild(
     val laenge: Double? = null,
     /** Ordner, in dem das Bild liegt (MediaStore-BUCKET_DISPLAY_NAME). */
     val ordner: String? = null,
+    /**
+     * Video statt Foto.
+     *
+     * Sie liegen in ZWEI Sammlungen (`MediaStore.Images` und
+     * `MediaStore.Video`) und werden getrennt abgefragt — das Feld hält fest,
+     * woher der Eintrag kam. Daran hängen drei Dinge, die sonst leise falsch
+     * laufen: die Content-URI beim Öffnen, die erlaubten Endungen und der
+     * `type` im Manifest. Ein Video als `photo` angemeldet lässt der Server mit
+     * 400 abprallen, und weil das Nachreichen keine halben Stapel kennt,
+     * scheiterte damit der ganze Nachzug einer Tour.
+     */
+    val istVideo: Boolean = false,
 ) {
     /**
      * Der GPS-Anker als [lng, lat] — die Reihenfolge des Manifests, nicht die
@@ -108,15 +120,33 @@ private val KAMERA_ORDNER = listOf("camera", "dcim", "kamera", "100andro", "open
 private val ERLAUBTE_ENDUNGEN = setOf("jpg", "jpeg", "png", "webp", "heic", "heif")
 
 /**
- * Nimmt der Server dieses Bild überhaupt an?
+ * Endungen, die der Server als VIDEO annimmt (`ENDUNGEN.video` in
+ * `schema/upload.ts`).
+ *
+ * Eigene Liste und keine gemeinsame: Der Server prüft die Endung GEGEN den
+ * angemeldeten `type`. Ein `.mp4` als `photo` gemeldet ist dort so falsch wie
+ * ein `.jpg` als `video` — und weil das Nachreichen keine halben Stapel kennt,
+ * risse ein einziger falscher Eintrag den ganzen Nachzug mit sich (genau so
+ * starb er am Pixel 9 an einer `.dng`-Datei).
+ */
+private val ERLAUBTE_VIDEO_ENDUNGEN = setOf("mp4", "mov", "webm")
+
+/**
+ * Nimmt der Server diese Aufnahme überhaupt an?
  *
  * `heic`/`heif` sind seit v0.55.3 dabei — die Voreinstellung vieler Kameras.
  * Der Server löst sie beim Aufbereiten auf; gelöst wurde das dort und nicht
  * hier, weil es sonst nur Android repariert hätte: Das Studio nimmt dieselben
  * Dateien entgegen, und die spätere iOS-App bekäme das Problem ein zweites Mal.
+ *
+ * Videos werden an ihrer eigenen Liste gemessen — die Kamera legt neben einer
+ * `.mp4` gern eine `.lrv` (Low-Resolution-Vorschau) oder `.thm` ab, und die
+ * gehören so wenig in die Tour wie das RAW neben dem JPEG.
  */
-fun endungErlaubt(dateiname: String): Boolean =
-    dateiname.substringAfterLast('.', "").lowercase() in ERLAUBTE_ENDUNGEN
+fun endungErlaubt(dateiname: String, istVideo: Boolean = false): Boolean {
+    val endung = dateiname.substringAfterLast('.', "").lowercase()
+    return endung in (if (istVideo) ERLAUBTE_VIDEO_ENDUNGEN else ERLAUBTE_ENDUNGEN)
+}
 
 /** Ist das Bild eine echte Kameraaufnahme? */
 fun istKamerabild(ordner: String?): Boolean {
@@ -156,7 +186,7 @@ fun passendeBilder(
     return bilder
         .filter { it.aufgenommenMs in fenster }
         .filter { istKamerabild(it.ordner) }
-        .filter { endungErlaubt(it.dateiname) }
+        .filter { endungErlaubt(it.dateiname, it.istVideo) }
         .filterNot { it.aufgenommenMs / 1000 in bekannt }
         .sortedBy { it.aufgenommenMs }
 }
@@ -170,10 +200,16 @@ fun passendeBilder(
  * sich wie ein Fehler, eine Mitteilung über eine offene wie eine verpasste
  * Gelegenheit.
  */
-fun nachzugSatz(anzahl: Int, automatisch: Boolean): String? = when {
-    anzahl <= 0 -> null
-    automatisch && anzahl == 1 -> "1 Foto hinzugefügt"
-    automatisch -> "$anzahl Fotos hinzugefügt"
-    anzahl == 1 -> "1 Foto aus dieser Zeit gefunden — hinzufügen?"
-    else -> "$anzahl Fotos aus dieser Zeit gefunden — hinzufügen?"
+fun nachzugSatz(anzahl: Int, automatisch: Boolean, videos: Int = 0): String? {
+    if (anzahl <= 0) return null
+    // Das Wort muss decken, was tatsächlich kommt: „3 Fotos hinzugefügt" über
+    // zwei Bildern und einem Video ist schlicht falsch, und wer das Video
+    // vermisst, sucht den Fehler beim Hochladen. Ein reiner Videofund heißt
+    // beim Namen, ein gemischter „Aufnahmen".
+    val wort = when {
+        videos <= 0 -> if (anzahl == 1) "Foto" else "Fotos"
+        videos == anzahl -> if (anzahl == 1) "Video" else "Videos"
+        else -> "Aufnahmen"
+    }
+    return if (automatisch) "$anzahl $wort hinzugefügt" else "$anzahl $wort aus dieser Zeit gefunden — hinzufügen?"
 }

@@ -173,6 +173,12 @@ data class NachreichMedium(
     val aufgenommenIso: String,
     val anker: Pair<Double, Double>? = null,
     /**
+     * `photo` oder `video` — der Server prüft die Dateiendung GEGEN diesen
+     * Wert und weist den ganzen Stapel mit 400 ab, wenn beides nicht
+     * zusammenpasst.
+     */
+    val istVideo: Boolean = false,
+    /**
      * Woher das Bild stammt (`galerie:<MediaStore-ID>`) — der Idempotenz-
      * Schlüssel des Nachreichens.
      *
@@ -281,7 +287,7 @@ class ApiClient(private val einstellungen: Einstellungen) {
                     JsonArray(
                         medien.map { m ->
                             buildJsonObject {
-                                put("type", JsonPrimitive("photo"))
+                                put("type", JsonPrimitive(if (m.istVideo) "video" else "photo"))
                                 put("file", JsonPrimitive(m.dateiname))
                                 put("takenAt", JsonPrimitive(m.aufgenommenIso))
                                 m.anker?.let { (lng, breite) ->

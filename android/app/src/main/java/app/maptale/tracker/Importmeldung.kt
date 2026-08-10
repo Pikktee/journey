@@ -131,7 +131,10 @@ fun zeigeFortschritt(context: Context, titel: String, fertig: Int, gesamt: Int):
         .setSmallIcon(R.drawable.ic_launcher_vordergrund)
         .setContentTitle(titel)
         .setContentText(
-            if (gesamt > 0) "Fotos werden ergänzt … $fertig von $gesamt" else "Tour wird vorbereitet …",
+            // „Aufnahmen" und nicht „Fotos": Seit dem Video-Nachzug kann in dem
+            // Stapel beides liegen, und die Meldung soll nichts benennen, was
+            // vielleicht gar nicht dabei ist.
+            if (gesamt > 0) "Aufnahmen werden ergänzt … $fertig von $gesamt" else "Tour wird vorbereitet …",
         )
         .setProgress(gesamt, fertig, gesamt <= 0)
         .setOngoing(true)
