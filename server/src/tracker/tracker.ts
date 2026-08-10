@@ -449,7 +449,8 @@ export class TrackerDienst {
       tour_status: string | null
       visibility: string | null
     }>
-    return zeilen.flatMap((z) => {
+    type ChronikZeile = ImportZeile & { tour: TourKurz | null }
+    return zeilen.flatMap<ChronikZeile>((z) => {
       const zeile = this.importZeile(z.id)
       if (!zeile) return []
       if (!z.tour_status) return [{ ...zeile, tour: null }]
