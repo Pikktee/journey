@@ -443,8 +443,26 @@
     /* — Bibliothek: die Touren SIND die Seite —
        Der Upload war einmal ein festes Panel links. Er ist jetzt eine Kachel im
        Raster und ein Fenster: Wer hier ankommt, sieht zuerst seine Reisen. */
-    .rumpf { flex: 1; min-height: 0; overflow-y: auto; }
-    .rumpf-innen { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 32px 0 80px; }
+    .rumpf {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .rumpf-innen {
+      flex: 1 0 auto;
+      width: min(var(--wrap), 100% - 44px);
+      margin: 0 auto;
+      padding: 32px 0 40px;
+    }
+    /* Impressum/Datenschutz: Mount `#app-footer`, Inhalt aus app-nav.ts.
+       `.rumpf-innen` wächst (`flex: 1`); fester Abstand hält die Linie vom
+       Inhalt weg — nicht `margin-top: auto` am Fuß (sonst klebt die Linie). */
+    #app-view > .rumpf > footer {
+      flex: none;
+      margin-top: 48px;
+    }
     .bib-kopf {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
       padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--rand);
@@ -2605,7 +2623,7 @@
     @media (max-width: 960px) {
       body { overflow: auto; }
       #app-view { position: static; height: auto; min-height: 100dvh; }
-      .rumpf-innen { width: min(var(--wrap), 100% - 32px); padding: 24px 0 90px; }
+      .rumpf-innen { width: min(var(--wrap), 100% - 32px); padding: 24px 0 32px; }
       .raster, .skelett { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
       .suche { display: none; }
       .zeile { flex-wrap: wrap; row-gap: 10px; }
@@ -3147,6 +3165,7 @@
           <div class="skelett" aria-busy="true"><div></div><div></div><div></div><div></div></div>
         </div>
       </div>
+      <footer id="app-footer"></footer>
     </div>
 
     <!-- Dateien überm Fenster: die ganze Seite ist die Ablage -->

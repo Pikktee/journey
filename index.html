@@ -114,7 +114,9 @@
       line-height: 1.65;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
-      overflow-x: hidden;
+      /* Kein overflow-x am body: hidden/clip setzt overflow-y auf auto und
+         macht den body zum Scrollport — dann greift html’s scrollbar-gutter
+         nicht. Quer-Clipping erledigt html in basis.css. */
     }
     a { color: inherit; }
     img { max-width: 100%; display: block; }
@@ -137,10 +139,10 @@
     }
 
     /* ─── Kopfleiste: Logo + Anker links, Aktionen rechts ───────────
-       Dieselbe Geometrie wie die Produkt-Seiten (grundelemente.css): feste
-       `--topbar-h`, gleicher Wrap-Gutter (44 px), gleiche Chip-/CTA-Maße.
-       Früher wuchs die Leiste mit dem 44-px-Logo und `padding: 14px` — Chip
-       und CTA sprangen beim Wechsel Landing ↔ Studio sichtbar. */
+       Dieselbe Leistenhöhe und Chip-/CTA-Maße wie die Produkt-Seiten
+       (`--topbar-h`, Wrap-Gutter 44 px). Das Wortmarken-Logo bleibt hier
+       größer als der 28-px-Mark+Text der App-Seiten — die rechte Cluster-
+       Position hängt an `margin-left: auto`, nicht an der Logobreite. */
     .nav {
       --nav-marken-gap: clamp(18px, 2.4vw, 32px);
       position: fixed; top: 0; left: 0; right: 0; z-index: 60;
@@ -166,7 +168,7 @@
       width: min(var(--wrap), 100% - 44px);
     }
     .brand { display: inline-flex; align-items: center; gap: 0.45em; text-decoration: none; flex-shrink: 0; }
-    .brand img { display: block; height: 28px; width: auto; translate: 0 1px; }
+    .brand img { display: block; height: 40px; width: auto; translate: 0 1px; }
     .nav-middle {
       display: flex; align-items: center; gap: 2px;
       font-family: var(--font-ui);
@@ -662,17 +664,49 @@
     .cta-band p { color: rgba(242, 237, 227, 0.82); margin: 16px auto 0; max-width: 48ch; }
     .cta-band .cta-row { margin-top: 30px; justify-content: center; }
 
-    /* ─── Fuß ────────────────────────────────────────────────────── */
-    footer { border-top: 1px solid var(--linie); padding: clamp(38px, 8vw, 48px) 0 clamp(34px, 7vw, 42px); background: var(--bg-tief); }
-    /* Nur die OBERE Reihe ist flex — galt die Regel für beide .wrap, schrumpfte
-       das Fuß-<p> auf seine Textbreite und die Trennlinie darüber war 94 px kurz. */
-    footer > .wrap:first-of-type { display: flex; flex-wrap: wrap; gap: 26px 40px; justify-content: space-between; align-items: flex-start; }
-    .foot-brand { display: flex; flex-direction: column; gap: 10px; max-width: 34ch; }
-    .foot-brand p { color: var(--text-zart); font-size: 13.5px; margin: 0; }
-    .foot-links { display: flex; flex-wrap: wrap; gap: 10px 22px; }
-    .foot-links a { text-decoration: none; color: var(--text-gedaempft); font-size: 14px; }
-    .foot-links a:hover { color: var(--text); }
-    .attribution { color: var(--text-zart); font-size: 13px; font-family: var(--font-ui); margin-top: 26px; border-top: 1px solid var(--linie); padding-top: 20px; }
+    /* ─── Fuß: eine kompakte Zeile wie die Produkt-Seiten ─────────── */
+    footer {
+      border-top: 1px solid var(--linie);
+      padding: 18px 0 28px;
+      background: var(--bg-tief);
+    }
+    footer .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 12px 32px;
+      justify-content: space-between;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-zart);
+    }
+    footer .fuss-marke {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.5em;
+    }
+    footer .fuss-version {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-zart);
+      opacity: 0.72;
+    }
+    footer .fuss-links {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+    }
+    footer .fuss-sep {
+      color: var(--text-zart);
+      opacity: 0.55;
+      user-select: none;
+    }
+    footer a {
+      color: var(--text-zart);
+      text-decoration: none;
+    }
+    footer a:hover { color: var(--text); }
 
     /* ─── Android-App + App-Einblick (ein Abschnitt) ─────────────── */
     .app-band .inner {
@@ -796,7 +830,7 @@
   <nav class="nav" id="nav">
     <div class="wrap">
       <a href="/" class="brand" title="Zur Startseite">
-        <img src="/logo.svg" alt="Maptale" height="28" />
+        <img src="/logo.svg" alt="Maptale" height="40" />
       </a>
       <div class="nav-middle nav-hide-sm">
         <a href="#touren">Touren</a>
@@ -1233,41 +1267,18 @@
       <div class="inner reveal">
         <img src="/landing/cta.jpg" alt="" loading="lazy" />
         <h2>Bereit für deine eigene Reise?</h2>
-        <p>Im Studio lädst du deine Tracks &amp; Fotos hoch, gestaltest den Film im Editor und teilst das Ergebnis.</p>
+        <p>Lade Tracks &amp; Fotos hoch, gestalte den Film im Editor und teile das Ergebnis.</p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="/app">Studio öffnen <span class="arr">▸</span></a>
-          <a class="btn btn-ghost" href="/registrieren">Konto anlegen</a>
+          <a class="btn btn-primary" href="/app" data-dabei>Meine Touren <span class="arr">▸</span></a>
+          <a class="btn btn-primary" href="/registrieren" data-gast>Kostenlos starten <span class="arr">▸</span></a>
+          <a class="btn btn-ghost" href="/anmelden" data-gast>Anmelden</a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Fuß -->
-  <footer>
-    <div class="wrap">
-      <div class="foot-brand">
-        <a class="brand" href="/" title="Zur Startseite">
-          <img src="/logo.svg" alt="Maptale" height="38" style="display: block;" />
-        </a>
-        <!-- Der Fuß spricht wie der Rest der Seite: was der Nutzer bekommt, in
-             seiner Sprache. „Kinematische 3D-Reiseflüge auf freien Kartendaten"
-             war die Beschreibung des Herstellers für den Hersteller — und
-             „kinematisch" heißt Bewegungslehre, nicht filmisch. -->
-        <p>Aus deiner Route wird ein Film über die echte Landschaft.</p>
-      </div>
-      <nav class="foot-links" aria-label="Fußzeile">
-        <a href="#touren">Touren</a>
-        <a href="#app">App</a>
-        <a href="/app">Studio</a>
-        <a href="/app">Anmelden</a>
-        <a href="/impressum">Impressum</a>
-        <a href="/datenschutz">Datenschutz</a>
-      </nav>
-    </div>
-    <div class="wrap">
-      <p class="attribution">© <span id="jahr">2026</span> Maptale</p>
-    </div>
-  </footer>
+  <!-- Fuß: dieselbe Quelle wie Galerie/Konto (appFooterHtml), plus Abschnittsanker. -->
+  <footer id="app-footer"></footer>
 
   <script>
     // Kopfleiste bekommt ab dem ersten Scroll Hintergrund + Trennlinie.
@@ -1293,8 +1304,6 @@
     window.addEventListener('resize', missNav)
     window.addEventListener('orientationchange', missNav)
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(missNav)
-
-    document.getElementById('jahr').textContent = String(new Date().getFullYear())
 
     // Mobile-Menü: Anker und Gast-Links hinter dem Toggle; Primär-CTA bleibt
     // in der Leiste. Schließt bei Link-Klick, Escape und beim Aufweiten.
@@ -1428,10 +1437,20 @@
        falls das Modul hängt — das Menü ist der einzige Teil, der geteilte Logik
        braucht (und nur für Angemeldete überhaupt erscheint). -->
   <script type="module">
-    import { montiereNavRechts } from '/src/app-nav.ts'
+    import { montiereNavRechts, schreibeAppFooter } from '/src/app-nav.ts'
+    import { pfad } from '/src/routen.ts'
     void montiereNavRechts(document.getElementById('nav-right'), {
       text: 'Meine Touren',
       href: '/app',
+    })
+    schreibeAppFooter(document.getElementById('app-footer'), {
+      ariaLabel: 'Fußzeile',
+      links: [
+        { href: '#touren', label: 'Touren' },
+        { href: '#app', label: 'App' },
+        { href: pfad('impressum'), label: 'Impressum' },
+        { href: pfad('datenschutz'), label: 'Datenschutz' },
+      ],
     })
   </script>
 </body>

@@ -199,17 +199,18 @@
     .dialog { width: min(460px, 100%); }
     .sp-hinweis { line-height: 1.5; }
 
-    /* Die Seite endet mit einer Tafel, nicht mit einem Raster — ohne diesen
-       Abstand klebte die Fußzeile daran. */
-    footer { margin-top: 70px; }
+    /* Die Seite endet mit einer Tafel — etwas mehr Abstand zum Fuß als die
+       Galerie (Raster) braucht. */ 
+    #app-footer { margin-top: 64px; }
   </style>
 </head>
 <body>
   <!-- Header: eine Quelle in src/app-nav.ts (appHeaderHtml). -->
   <nav class="nav" id="app-header"></nav>
   <script type="module">
-    import { montiereAppHeader } from '/src/app-nav.ts'
+    import { montiereAppHeader, schreibeAppFooter } from '/src/app-nav.ts'
     void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'konto' })
+    schreibeAppFooter(document.getElementById('app-footer'))
   </script>
 
   <main class="wrap">
@@ -369,15 +370,7 @@
     <span id="toast-text"></span>
   </div>
 
-  <footer>
-    <div class="wrap">
-      <span>Maptale</span>
-      <span>
-        <a href="/impressum">Impressum</a> ·
-        <a href="/datenschutz">Datenschutz</a>
-      </span>
-    </div>
-  </footer>
+  <footer id="app-footer"></footer>
 
   <script type="module">
     import { starteKonto } from '/src/konto/konto.ts'

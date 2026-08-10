@@ -125,3 +125,15 @@
   --blatt-basis: 1;
   color-scheme: dark;
 }
+
+/* Klassische Scrollbalken (macOS „Immer“, Windows) nehmen ~15 px Breite.
+   Ohne stabile Gutter springt Wrap/Nav, wenn die Leiste kommt oder geht.
+   Overflow gehört auf `html` (nicht nur `scrollbar-gutter`): `overflow-x` am
+   body erzwingt dort `overflow-y: auto` — dann scrollt der body, und die
+   Gutter auf html läuft leer (Landing hatte genau das).
+   Overlay-Scrollbars (macOS-Standard) ignorieren die Property. */
+html {
+  overflow-x: clip;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}

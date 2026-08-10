@@ -106,8 +106,9 @@
   <!-- Header: eine Quelle in src/app-nav.ts (appHeaderHtml). -->
   <nav class="nav" id="app-header"></nav>
   <script type="module">
-    import { montiereAppHeader } from '/src/app-nav.ts'
+    import { montiereAppHeader, schreibeAppFooter } from '/src/app-nav.ts'
     void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'galerie' })
+    schreibeAppFooter(document.getElementById('app-footer'))
   </script>
 
   <header class="kopf">
@@ -126,15 +127,7 @@
     <div class="mehr-zeile"><button id="mehr" type="button" hidden>Mehr anzeigen</button></div>
   </main>
 
-  <footer>
-    <div class="wrap">
-      <span>Maptale</span>
-      <span>
-        <a href="/impressum">Impressum</a> ·
-        <a href="/datenschutz">Datenschutz</a>
-      </span>
-    </div>
-  </footer>
+  <footer id="app-footer"></footer>
 
   <script type="module">
     import { starteGalerie } from '/src/galerie/galerie.ts'

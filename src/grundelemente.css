@@ -484,22 +484,47 @@ button.still:disabled {
   }
 }
 
-/* ═══════════════ Fußzeile ═══════════════ */
+/* ═══════════════ Fußzeile ═══════════════
+   Markup aus `appFooterHtml` / `schreibeAppFooter` (src/app-nav.ts) —
+   die Seiten mounten nur noch `<footer id="app-footer">`. */
 
-/* Der Abstand nach oben steht in der Seite: Die Galerie endet mit einem
-   Kartenraster, das seinen eigenen mitbringt; die Kontoseite braucht ihn. */
 footer {
   border-top: 1px solid var(--linie);
-  padding: 26px 0 40px;
+  /* Kompakt: die Luft zum Inhalt kommt aus margin-top, nicht aus
+     Riesen-Padding unter der Linie. */
+  padding: 18px 0 28px;
 }
 footer .wrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  align-items: baseline;
+  gap: 12px 32px;
   justify-content: space-between;
   font-family: var(--font-ui);
   font-size: 13px;
   color: var(--text-zart);
+}
+footer .fuss-marke {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+footer .fuss-version {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-zart);
+  opacity: 0.72;
+}
+footer .fuss-links {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+footer .fuss-sep {
+  color: var(--text-zart);
+  opacity: 0.55;
+  user-select: none;
 }
 footer a {
   color: var(--text-zart);
@@ -507,4 +532,21 @@ footer a {
 }
 footer a:hover {
   color: var(--text);
+}
+
+/* Sticky footer: der INHALT wächst (`flex: 1` auf main), der Fuß bleibt
+   kompakt mit festem Abstand zur Trennlinie. `margin-top: auto` am Fuß
+   würde die Linie am Inhalt kleben lassen und die Luft darunter aufblasen.
+   Nur direkter body-Kind (Galerie/Profil/Konto); Studio: `.rumpf`. */
+body:has(> #app-footer) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+body:has(> #app-footer) > main {
+  flex: 1 0 auto;
+}
+body > #app-footer {
+  flex-shrink: 0;
+  margin-top: 48px;
 }

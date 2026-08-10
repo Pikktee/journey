@@ -7,7 +7,7 @@
 // (Foto-Metadaten); hier nur DOM und Ablaufsteuerung.
 
 import * as api from './api.js'
-import { schreibeAppHeader } from '../app-nav.js'
+import { schreibeAppFooter, schreibeAppHeader } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import { ROUTEN, pfad, profilPfad, tourPfad } from '../routen.js'
@@ -25,11 +25,12 @@ import {
 } from './pruefung.js'
 import { baueUploadManifest, exifDatumZuMs, isoMitZone, medientyp } from './upload.js'
 
-// Header synchron vor den Element-Lookups — sonst finden die IDs nichts.
+// Header/Footer synchron vor den Element-Lookups — sonst finden die IDs nichts.
 schreibeAppHeader(document.querySelector('#app-view > .nav'), {
   aktiv: 'studio',
   variante: 'studio',
 })
+schreibeAppFooter(document.getElementById('app-footer'))
 // Chip aus dem Cache, sobald das Markup steht (vorher Inline-Skript im HTML).
 ;(() => {
   try {

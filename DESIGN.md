@@ -204,6 +204,10 @@ Versalien-Eyebrow-Tracking.
 ## Layout
 
 - Content-Breite: `--wrap: 1160px` (Landing, Galerie, Studio-Bibliothek); seitlicher Gutter ≈ 22px.
+- `html { overflow-x: clip; overflow-y: auto; scrollbar-gutter: stable }` —
+  reserviert die klassische Scrollbalkenbreite (YouTube-Muster), ohne dass ein
+  `overflow-x` am `body` den Scrollport dorthin zieht und die Gutter wirkungslos
+  macht. Overlay-Scrollbars unberührt.
 - Studio-**Editor** bleibt full-bleed.
 - App-Topbar ≈ 58px, `rgba(13, 17, 24, 0.82)`, Blur, Rand `#222b37`.
   Landing teilt dieselben Maße (Höhe, 28px-Logo, Chip `min-height: 34px`,
@@ -217,6 +221,11 @@ Versalien-Eyebrow-Tracking.
   `gap: 0.45em`, Logo `translate: 0 1px`. Der Brand-**Link** ist direktes Flex-Kind —
   kein Block-Wrapper (sonst bläht die Zeilenhöhe und die Marke sitzt zu hoch).
 - Auf Studio-Hauptscreen nur „Maptale“, kein „Studio“ in der Wortmarke.
+- Produkt-Fußzeile (Galerie, Profil, Konto, Meine Touren, Landing): links Marke +
+  stumme `vX.Y.Z` (`tabular-nums`), rechts Links mit Luft dazwischen — eine Quelle
+  in `appFooterHtml`. Landing ergänzt Touren/App-Anker. Bei wenig Inhalt am
+  Viewport-Ende, indem `main` / `.rumpf-innen` wächst — der Fuß bleibt kompakt
+  mit festem `margin-top` über der Trennlinie. Rechtstext-Seiten haben eigene Füße.
 
 ## Elevation & Depth
 

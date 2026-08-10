@@ -1,9 +1,9 @@
 /**
- * App-Header: Meine Touren · Entdecken.
+ * App-Chrome: Kopf- und Fußzeile der Produkt-Seiten.
  *
  * Eine Quelle für Studio, Entdecken, Profil, Konto und Verwaltung — Markup
- * (`appHeaderHtml`), Icons, Aktiv-Zustand und Konto-Menü. Sonst driftet der
- * aktive Nav-Eintrag und die rechte Seite (CTA vs. Chip) auseinander.
+ * (`appHeaderHtml` / `appFooterHtml`), Icons, Aktiv-Zustand und Konto-Menü.
+ * Sonst driftet Nav, CTA und die Rechtstext-Links auseinander.
  */
 
 import { pfad, profilPfad } from './routen.js'
@@ -13,6 +13,7 @@ import {
   merkeProfilCache,
   vergesseAngemeldet,
 } from './session-hinweis.js'
+import { version as APP_VERSION } from '../package.json'
 
 /**
  * Auf welcher Seite die Nav steht. 'profil', 'konto' und 'admin' tauchen selbst
@@ -120,6 +121,41 @@ export function schreibeAppHeader(
 ): void {
   if (!nav) return
   nav.innerHTML = `<div class="wrap">${appHeaderHtml(opts)}</div>`
+}
+
+/**
+ * Schlanke Produkt-Fußzeile (Marke + Version · Links). Standard: Impressum und
+ * Datenschutz. Die Landing ergänzt Abschnittsanker; Rechtstext-Seiten haben
+ * eigene Füße.
+ */
+export type AppFooterLink = { href: string; label: string }
+
+export function appFooterHtml(opts?: { links?: AppFooterLink[]; ariaLabel?: string }): string {
+  const links = opts?.links ?? [
+    { href: pfad('impressum'), label: 'Impressum' },
+    { href: pfad('datenschutz'), label: 'Datenschutz' },
+  ]
+  const aria = opts?.ariaLabel ?? 'Rechtliches'
+  return (
+    `<div class="wrap">` +
+    `<span class="fuss-marke">Maptale` +
+    `<span class="fuss-version">v${APP_VERSION}</span></span>` +
+    `<nav class="fuss-links" aria-label="${aria}">` +
+    links
+      .map((l) => `<a href="${l.href}">${l.label}</a>`)
+      .join('<span class="fuss-sep" aria-hidden="true">·</span>') +
+    `</nav>` +
+    `</div>`
+  )
+}
+
+/** Schreibt die Fußzeile in einen vorhandenen `footer`-Mount (synchron). */
+export function schreibeAppFooter(
+  fuss: Element | null,
+  opts?: { links?: AppFooterLink[]; ariaLabel?: string },
+): void {
+  if (!fuss) return
+  fuss.innerHTML = appFooterHtml(opts)
 }
 
 type Quota = { benutzt: number; limit: number }
