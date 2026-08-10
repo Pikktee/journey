@@ -37,6 +37,16 @@ export interface Verknuepfung {
   letzterFehler: string | null
 }
 
+/** So viel Tour, wie eine Chronik-Zeile braucht — nicht mehr. */
+export interface TourKurz {
+  titel: string | null
+  km: number | null
+  fotos: number | null
+  /** `angelegt` · `verarbeitung` · `bereit` · `fehler` — „schon spielbar?" */
+  status: string
+  sichtbarkeit: string | null
+}
+
 export interface ImportZeile {
   id: string
   benutzerId: string
@@ -407,6 +417,56 @@ export class TrackerDienst {
       .prepare('SELECT id FROM tracker_importe WHERE benutzer_id = ? ORDER BY gemeldet_am DESC LIMIT ?')
       .all(benutzerId, grenze) as Array<{ id: string }>
     return zeilen.map((z) => this.importZeile(z.id)).filter((z): z is ImportZeile => z !== null)
+  }
+
+  /**
+   * Die Chronik fürs Konto: dieselben Zeilen, aber mit der TOUR daran.
+   *
+   * Ohne sie stand dort „Als Tour angelegt" und ein Datum — wahr, aber ohne
+   * Wert: Welche Fahrt das war, ließ sich nur raten. Titel, Länge und
+   * Aufnahmezahl liegen längst in `tours` (die Bibliothek zeigt daraus ihre
+   * Kacheln), es kostet einen JOIN statt einer Datei je Zeile.
+   *
+   * LEFT JOIN, weil die meisten Zeilen KEINE Tour haben (übersprungen,
+   * gescheitert, noch am Laufen) und eine gelöschte Tour die Chronik nicht
+   * verschwinden lassen darf: Was passiert ist, ist passiert.
+   *
+   * Die Statistik wird HIER aufgelöst und nicht in der Oberfläche: `stats_json`
+   * ist ein internes Format, und die Chronik braucht daraus zwei Zahlen.
+   */
+  chronik(benutzerId: string, grenze = 200): Array<ImportZeile & { tour: TourKurz | null }> {
+    const zeilen = this.db
+      .prepare(
+        `SELECT i.id, t.title AS titel, t.stats_json, t.status AS tour_status, t.visibility
+         FROM tracker_importe i
+         LEFT JOIN tours t ON t.id = i.tour_id
+         WHERE i.benutzer_id = ? ORDER BY i.gemeldet_am DESC LIMIT ?`,
+      )
+      .all(benutzerId, grenze) as Array<{
+      id: string
+      titel: string | null
+      stats_json: string | null
+      tour_status: string | null
+      visibility: string | null
+    }>
+    return zeilen.flatMap((z) => {
+      const zeile = this.importZeile(z.id)
+      if (!zeile) return []
+      if (!z.tour_status) return [{ ...zeile, tour: null }]
+      const stats = z.stats_json ? (JSON.parse(z.stats_json) as { km?: number; fotos?: number }) : null
+      return [
+        {
+          ...zeile,
+          tour: {
+            titel: z.titel,
+            km: typeof stats?.km === 'number' ? stats.km : null,
+            fotos: typeof stats?.fotos === 'number' ? stats.fotos : null,
+            status: z.tour_status,
+            sichtbarkeit: z.visibility,
+          },
+        },
+      ]
+    })
   }
 
   /**

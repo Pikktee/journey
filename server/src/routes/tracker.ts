@@ -197,11 +197,17 @@ export function registriereTrackerRouten(app: FastifyInstance): void {
     return { gefunden: auftraege.length, neu: ergebnisse.length, imHintergrund: rest.length }
   })
 
-  // — Importe: die Liste im Konto —
+  // — Importe: die Chronik im Konto —
+  //
+  // Mit der Tour daran (Titel, Länge, Aufnahmen): „Als Tour angelegt" plus
+  // Datum war wahr und trotzdem nutzlos — welche Fahrt gemeint war, ließ sich
+  // daraus nicht sagen. Die Liste ist länger als die frühere Zehnerauswahl,
+  // weil sie im Dialog vollständig gezeigt wird; die Seite schneidet für ihre
+  // Vorschau selbst zu.
   app.get('/api/tracker/imports', async (request, reply) => {
     const benutzer = erfordereBenutzer(request, reply)
     if (!benutzer) return
-    return { importe: app.tracker.importe(benutzer.id) }
+    return { importe: app.tracker.chronik(benutzer.id) }
   })
 
   // — Was der Client noch nicht gesehen hat (Grundlage der Benachrichtigung) —

@@ -4,12 +4,16 @@
 // sehen was ankam. Die rechnenden Teile (Sätze, Ton, Daten) liegen DOM-frei in
 // [trackermodell.ts](trackermodell.ts) — hier steht nur, was Knoten baut.
 
+import { oeffneSchicht } from '../dialogschicht.js'
+import { tourPfad } from '../routen.js'
 import {
   anbieterKnopf,
   anbieterSatz,
   datumMitZeit,
   importSatz,
+  importTitel,
   importTon,
+  letzterAnkunftsSatz,
   rueckkehrText,
   type AnbieterStand,
   type ImportStand,
@@ -44,6 +48,7 @@ export function loeseTrackerRueckkehrEin(): string | null {
 
 function anbieterZeile(
   a: AnbieterStand,
+  importe: readonly ImportStand[],
   beiKlick: (a: AnbieterStand) => void,
 ): HTMLElement {
   // Ein Anbieter, den dieser Server nicht anbietet, tritt zurück — dieselbe
@@ -52,7 +57,29 @@ function anbieterZeile(
   const z = el('span', 'z')
   z.appendChild(el('span', 't', a.name))
   z.appendChild(el('span', 'b', anbieterSatz(a)))
+  const ankunft = letzterAnkunftsSatz(importe)
+  if (ankunft) z.appendChild(el('span', 'b', ankunft))
   zeile.appendChild(z)
+
+  // Der Verlauf hängt am DIENST, nicht in einem eigenen Abschnitt darunter:
+  // Die Frage „was ist von Polar angekommen?" stellt man bei Polar. Der Knopf
+  // erscheint nur, wenn es etwas zu zeigen gibt — ein Symbol, das einen leeren
+  // Dialog öffnet, ist eine Zusage ohne Inhalt.
+  if (importe.length) {
+    const verlauf = el('button', 'knopf still')
+    // Ein SVG und kein Emoji: Die Seite zeichnet ihre Symbole (`.sym svg`)
+    // durchgehend als Strichgrafik in der Textfarbe — ein Emoji brächte eine
+    // fremde Schrift, eine eigene Farbe und auf jedem System ein anderes Bild.
+    verlauf.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>'
+    verlauf.type = 'button'
+    verlauf.title = `Verlauf von ${a.name} ansehen`
+    verlauf.setAttribute('aria-label', `Verlauf von ${a.name} ansehen`)
+    verlauf.addEventListener('click', () => zeigeVerlauf(a, importe))
+    zeile.appendChild(verlauf)
+  }
 
   const knopf = anbieterKnopf(a)
   if (knopf) {
@@ -93,22 +120,57 @@ function anbieterZeile(
   return zeile
 }
 
+/**
+ * Eine Zeile des Verlaufs.
+ *
+ * **Wo eine Tour daraus wurde, IST die Zeile der Weg dorthin** — ein Verlauf,
+ * der eine angekommene Fahrt nennt und sie nicht öffnen lässt, schickt zum
+ * Suchen in die Bibliothek. Ein `<a>` und kein Klick-Handler, damit
+ * Mittelklick und „in neuem Tab öffnen" tun, was jeder erwartet. Verlinkt wird
+ * nur eine SPIELBEREITE Tour: Wer auf eine halb gerenderte klickt, landet auf
+ * einer Seite, die nichts zeigt.
+ */
 function importZeile(i: ImportStand): HTMLElement {
-  const zeile = el('div', 'zeile')
+  const spielbar = i.tourId && i.tour?.status === 'bereit'
+  const zeile = el(spielbar ? 'a' : 'div', spielbar ? 'zeile klickbar' : 'zeile')
+  if (spielbar && i.tourId) (zeile as HTMLAnchorElement).href = tourPfad(i.tourId)
   zeile.appendChild(el('span', `punkt ${importTon(i)}`))
   const z = el('span', 'z')
-  z.appendChild(el('span', 't', importSatz(i)))
+  const titel = importTitel(i)
+  // Ohne Tour rückt der Satz nach oben, statt unter einer Wiederholung des
+  // Dienstnamens zu stehen: Jede Zeile hat eine Hauptaussage, und bei einer
+  // übersprungenen Einheit IST der Grund die Hauptaussage.
+  if (titel) {
+    z.appendChild(el('span', 't', titel))
+    z.appendChild(el('span', 'b', importSatz(i)))
+  } else {
+    z.appendChild(el('span', 't', importSatz(i)))
+  }
   zeile.appendChild(z)
-  zeile.appendChild(el('span', 'wann', datumMitZeit(i.gemeldetAm)))
+  // Der Zeitpunkt der ANKUNFT, nicht der Meldung: Bei einem Import, der
+  // dreimal anlief, ist die erste Meldung nicht der Moment, in dem die Tour da
+  // war.
+  zeile.appendChild(el('span', 'wann', datumMitZeit(i.fertigAm ?? i.gemeldetAm)))
   return zeile
 }
 
-function zeileMitText(text: string): HTMLElement {
-  const zeile = el('div', 'zeile')
-  const z = el('span', 'z')
-  z.appendChild(el('span', 'b', text))
-  zeile.appendChild(z)
-  return zeile
+/**
+ * Der vollständige Verlauf eines Dienstes.
+ *
+ * Vollständig und nicht „die letzten zehn": Der frühere Abschnitt schnitt bei
+ * zehn ab und schrieb „… und 12 weitere" — eine Auskunft darüber, dass es mehr
+ * gibt, ohne einen Weg dorthin. In einem Dialog, der scrollt, kostet die
+ * ganze Liste nichts.
+ */
+function zeigeVerlauf(a: AnbieterStand, importe: readonly ImportStand[]): void {
+  const dialog = oeffneSchicht(`Verlauf · ${a.name}`)
+  const tafel = el('div', 'tafel verlauf')
+  tafel.replaceChildren(...importe.map((i) => importZeile(i)))
+  dialog.koerper.appendChild(tafel)
+  const schliessen = el('button', 'knopf', 'Schließen')
+  schliessen.type = 'button'
+  schliessen.addEventListener('click', dialog.schliesse)
+  dialog.fuss.appendChild(schliessen)
 }
 
 /**
@@ -170,42 +232,32 @@ export async function ladeTracker(melde: (text: string) => void): Promise<void> 
     void ladeTracker(melde)
   }
 
+  // Der Verlauf wird VOR den Zeilen geholt, weil jede ihren letzten Stand
+  // nennt. Fällt er aus, bleibt die Karte trotzdem bedienbar — verbinden und
+  // trennen hängen nicht daran.
+  const importe = await ladeImporte()
+
   tafel.replaceChildren(
     ...anbieter.map((a) =>
-      anbieterZeile(a, (ziel) => {
-        if (ziel.verbunden && ziel.status !== 'abgelaufen') void trenne(ziel)
-        else void verbinde(ziel)
-      }),
+      anbieterZeile(
+        a,
+        importe.filter((i) => i.anbieter === a.id),
+        (ziel) => {
+          if (ziel.verbunden && ziel.status !== 'abgelaufen') void trenne(ziel)
+          else void verbinde(ziel)
+        },
+      ),
     ),
   )
-
-  await ladeImporte()
 }
 
-/** Die Chronik unter den Anbietern — nur, wenn es etwas zu erzählen gibt. */
-async function ladeImporte(): Promise<void> {
-  const kasten = $('tracker-importe')
-  const liste = $('tracker-importliste')
-  if (!kasten || !liste) return
-  let importe: ImportStand[] = []
+/** Der Verlauf aller Dienste — die Karte teilt ihn selbst auf. */
+async function ladeImporte(): Promise<ImportStand[]> {
   try {
     const antwort = await fetch('/api/tracker/imports')
     if (!antwort.ok) throw new Error(String(antwort.status))
-    importe = ((await antwort.json()) as { importe: ImportStand[] }).importe
+    return ((await antwort.json()) as { importe: ImportStand[] }).importe
   } catch {
-    kasten.hidden = true
-    return
-  }
-  if (!importe.length) {
-    kasten.hidden = true
-    return
-  }
-  kasten.hidden = false
-  // Die letzten zehn genügen: Die Liste beantwortet „kam meine Fahrt an?",
-  // nicht „was lief in den letzten Monaten?".
-  const gezeigt = importe.slice(0, 10)
-  liste.replaceChildren(...gezeigt.map(importZeile))
-  if (importe.length > gezeigt.length) {
-    liste.appendChild(zeileMitText(`… und ${importe.length - gezeigt.length} weitere`))
+    return []
   }
 }

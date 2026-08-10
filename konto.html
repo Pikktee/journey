@@ -110,22 +110,32 @@
     .zeile.ruht .schalter { opacity: 0.45; cursor: not-allowed; }
 
     /* ————— Verbundene Dienste —————
-       „Zuletzt geholt" ist die Chronik unter den Anbietern und deshalb kleiner
-       gesetzt: Sie beantwortet „was ist passiert?", nicht „woran bin ich?". */
-    .tracker-importe { margin-top: 18px; }
-    .tracker-importe h3 {
-      margin: 0 0 8px 2px; font-size: 12.5px; font-weight: 500;
-      color: var(--text-gedaempft); letter-spacing: 0;
+       Der Verlauf steht seit 2026-08-10 im Dialog und nicht mehr als eigener
+       Abschnitt darunter: Die Frage „was kam von Polar an?" stellt man beim
+       Dienst, und zehn Zeilen plus „… und 12 weitere" waren die Auskunft, dass
+       es mehr gibt, ohne einen Weg dorthin. Der stille Knopf trägt das Symbol
+       und sonst nichts — neben „Trennen" wäre ein zweiter Kasten eine zweite
+       Entscheidung, und der Verlauf ist keine. */
+    .knopf.still {
+      background: none; border-color: transparent; padding: 7px;
+      line-height: 0; color: var(--text-gedaempft);
     }
-    .tracker-importe .zeile { padding: 11px 18px; }
+    .knopf.still svg { width: 18px; height: 18px; display: block; }
+    .knopf.still:hover { background: var(--tafel); color: var(--text); }
+    .verlauf .zeile { padding: 11px 14px; }
     /* Der Punkt am Zeilenanfang trägt den Ton — ein farbiges Wort daneben
        wäre die zweite Aussage über dieselbe Sache. `uebersprungen` bekommt
        bewusst KEIN Rot: Eine Halleneinheit ohne GPS ist normal, kein Problem. */
-    .tracker-importe .punkt { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-gedaempft); }
-    .tracker-importe .punkt.ok { background: var(--gruen); }
-    .tracker-importe .punkt.warn { background: #ffca7a; }
-    .tracker-importe .punkt.fehler { background: var(--rot); }
-    .tracker-importe .wann { font-size: 12px; color: var(--text-gedaempft); font-variant-numeric: tabular-nums; flex: none; }
+    .verlauf .punkt { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-gedaempft); }
+    .verlauf .punkt.ok { background: var(--gruen); }
+    .verlauf .punkt.warn { background: #ffca7a; }
+    .verlauf .punkt.fehler { background: var(--rot); }
+    .verlauf .wann { font-size: 12px; color: var(--text-gedaempft); font-variant-numeric: tabular-nums; flex: none; }
+    /* Eine Zeile, die zur Tour führt, sieht auch so aus — und behält die
+       Textfarbe: Blau unterstrichen wäre in einer Tafel aus Zeilen ein
+       Fremdkörper. */
+    .verlauf a.zeile { text-decoration: none; color: inherit; cursor: pointer; }
+    .verlauf a.zeile:hover { background: var(--tafel); }
 
     /* ————— Speicher ————— */
     .speicher { padding: 18px; }
@@ -281,10 +291,6 @@
       <div class="block" id="tracker-block" hidden>
         <div class="block-kopf"><h2>Verbundene Dienste</h2></div>
         <div class="tafel" id="tracker"></div>
-        <div class="tracker-importe" id="tracker-importe" hidden>
-          <h3>Zuletzt geholt</h3>
-          <div class="tafel" id="tracker-importliste"></div>
-        </div>
       </div>
 
       <div class="block">

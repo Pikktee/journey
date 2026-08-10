@@ -10,7 +10,9 @@ import {
   anbieterSatz,
   datumMitZeit,
   importSatz,
+  importTitel,
   importTon,
+  letzterAnkunftsSatz,
   kurzesDatum,
   rueckkehrText,
   type AnbieterStand,
@@ -89,9 +91,39 @@ describe('Anbieter-Zeile', () => {
 })
 
 describe('Importliste', () => {
-  it('meldet einen fertigen Import schlicht', () => {
+  it('meldet einen fertigen Import schlicht, solange die Tour nichts über sich sagt', () => {
     expect(importSatz(importe())).toBe('Als Tour angelegt')
     expect(importTon(importe())).toBe('ok')
+  })
+
+  // Der frühere Satz war „Als Tour angelegt" und sonst nichts — die einzige
+  // Statuszeile ohne Inhalt, während die Fehlerfälle ihren Grund nannten.
+  it('sagt bei einer fertigen Tour, WELCHE Fahrt angekommen ist', () => {
+    const i = importe({ tour: { titel: 'Frankfurt-Runde', km: 4.23, fotos: 12, status: 'bereit', sichtbarkeit: 'private' } })
+    expect(importTitel(i)).toBe('Frankfurt-Runde')
+    expect(importSatz(i)).toBe('Spielbereit · 4,2 km · 12 Aufnahmen')
+  })
+
+  it('verspricht nichts, was noch rendert', () => {
+    const i = importe({ tour: { titel: null, km: null, fotos: null, status: 'verarbeitung', sichtbarkeit: null } })
+    expect(importSatz(i)).toContain('wird noch verarbeitet')
+    // Ohne Tourtitel gibt es keine Überschrift: Der Dienstname stünde über
+    // einem Dialog, der bereits „Verlauf · Polar" heißt, und die
+    // Anbieter-Kennung („aQlC83") sagt niemandem etwas, der hier steht.
+    expect(importTitel(i)).toBeNull()
+  })
+
+  it('lässt Nullwerte weg, statt „0,0 km" zu behaupten', () => {
+    const i = importe({ tour: { titel: 'Ohne Zahlen', km: 0, fotos: 0, status: 'bereit', sichtbarkeit: null } })
+    expect(importSatz(i)).toBe('Spielbereit')
+  })
+
+  it('fasst den letzten Stand für die Anbieter-Zeile zusammen', () => {
+    expect(letzterAnkunftsSatz([])).toBeNull()
+    const fertig = importe({ tour: { titel: 'Abendrunde', km: 8, fotos: 3, status: 'bereit', sichtbarkeit: null } })
+    expect(letzterAnkunftsSatz([fertig])).toContain('Zuletzt: Abendrunde')
+    // Die Reihenfolge kommt vom Server (jüngste zuerst) — gelesen wird die erste.
+    expect(letzterAnkunftsSatz([importe({ status: 'uebersprungen' }), fertig])).toContain('übersprungen')
   })
 
   it('führt „übersprungen" NICHT als Fehler', () => {

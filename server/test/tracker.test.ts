@@ -286,6 +286,38 @@ describe('Webhook → Tour', () => {
     })
   })
 
+  // „Als Tour angelegt" plus Datum war wahr und trotzdem nutzlos: Welche Fahrt
+  // gemeint war, ließ sich nur in der Bibliothek über die Uhrzeit erraten.
+  it('hängt die Tour an die Chronik — Titel, Länge, Aufnahmen', async () => {
+    const { u } = await baueMitProvider()
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'a1' })
+    await Promise.all([...u.app.verarbeitungen.values()])
+
+    const { importe } = (
+      await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
+    ).json() as {
+      importe: Array<{ status: string; tour: { titel: string | null; km: number | null; status: string } | null }>
+    }
+    expect(importe[0]?.tour).toMatchObject({ status: 'bereit' })
+    expect(typeof importe[0]?.tour?.km).toBe('number')
+  })
+
+  // Eine Zeile ohne Tour ist der Normalfall (übersprungen, gescheitert) und
+  // darf die Chronik nicht sprengen.
+  it('lässt `tour` leer, wo keine angelegt wurde', async () => {
+    const provider = new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: {} })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'fehlt' })
+    await Promise.all([...u.app.trackerLaeufe.values()])
+
+    const { importe } = (
+      await u.app.inject({ method: 'GET', url: '/api/tracker/imports', cookies: u.cookies })
+    ).json() as { importe: Array<{ status: string; tour: unknown }> }
+    expect(importe[0]?.tour).toBeNull()
+  })
+
   it('legt bei wiederholter Zustellung KEINE zweite Tour an', async () => {
     const { u } = await baueMitProvider()
     await verknuepfe(u)

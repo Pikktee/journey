@@ -20,6 +20,15 @@ export interface AnbieterStand {
   fehler: string | null
 }
 
+/** Die Tour hinter einem Import — nur, was in eine Zeile gehört. */
+export interface TourKurz {
+  titel: string | null
+  km: number | null
+  fotos: number | null
+  status: string
+  sichtbarkeit: string | null
+}
+
 export interface ImportStand {
   id: string
   anbieter: string
@@ -33,6 +42,8 @@ export interface ImportStand {
   versuche?: number
   /** Wartet die Aktivität noch auf einen neuen Anlauf? */
   wiederholbar?: boolean
+  /** Die angelegte Tour, wenn es eine gibt (und sie noch existiert). */
+  tour?: TourKurz | null
 }
 
 /**
@@ -54,6 +65,31 @@ export function anbieterSatz(a: AnbieterStand): string {
   return `Verbunden${seit}. Neue Aufzeichnungen kommen von selbst an.`
 }
 
+/**
+ * Die dritte Zeile eines verbundenen Dienstes: was zuletzt ankam.
+ *
+ * Sie ersetzt den früheren Abschnitt „Zuletzt geholt" unter der Karte. Der war
+ * eine zweite Überschrift für eine Frage, die man beim Dienst selbst stellt —
+ * und trotzdem zu knapp, um sie zu beantworten. Hier steht die eine Zeile, die
+ * zählt („kam meine Fahrt an?"); alles Weitere liegt einen Klick entfernt im
+ * Verlauf.
+ *
+ * `null`, solange nichts angekommen ist: Ein „noch nichts" unter einer frisch
+ * verbundenen Uhr sagt nichts, was der Satz darüber nicht schon sagt.
+ */
+export function letzterAnkunftsSatz(importe: readonly ImportStand[]): string | null {
+  const letzter = importe[0]
+  if (!letzter) return null
+  const wann = datumMitZeit(letzter.fertigAm ?? letzter.gemeldetAm)
+  if (letzter.status === 'fertig') {
+    const titel = letzter.tour?.titel?.trim()
+    return titel ? `Zuletzt: ${titel} · ${wann}` : `Zuletzt angekommen: ${wann}`
+  }
+  if (letzter.status === 'uebersprungen') return `Zuletzt übersprungen: ${wann}`
+  if (letzter.status === 'fehler') return `Zuletzt nicht geklappt: ${wann}`
+  return `Läuft gerade: ${wann}`
+}
+
 /** Beschriftung des Knopfs rechts — oder null, wenn es nichts zu tun gibt. */
 export function anbieterKnopf(a: AnbieterStand): { text: string; art: 'primaer' | 'gefahr' } | null {
   if (!a.verfuegbar) return null
@@ -70,11 +106,44 @@ export function anbieterKnopf(a: AnbieterStand): { text: string; art: 'primaer' 
  * die eine echte Störung ginge darin unter.
  */
 export function importSatz(i: ImportStand): string {
-  if (i.status === 'fertig') return 'Als Tour angelegt'
+  if (i.status === 'fertig') return i.tour ? tourSatz(i.tour) : 'Als Tour angelegt'
   const grund = i.fehler ? ` — ${entschaerfe(i.fehler)}` : ''
   if (i.status === 'uebersprungen') return `Übersprungen${grund}${nachsatz(i)}`
   if (i.status === 'fehler') return `Nicht geklappt${grund}${nachsatz(i)}`
   return 'Wird geholt …'
+}
+
+/**
+ * Was aus der Aktivität geworden ist — die Zeile unter dem Titel.
+ *
+ * **Der frühere Satz war „Als Tour angelegt" und sonst nichts.** Wahr, und
+ * trotzdem die einzige Statuszeile ohne Inhalt: Die Fehlerfälle nannten
+ * wenigstens ihren Grund. Wer wissen wollte, WELCHE Fahrt da angekommen ist,
+ * musste in die Bibliothek wechseln und über die Uhrzeit raten.
+ *
+ * Länge und Aufnahmen stehen dort, wo sie etwas unterscheiden — zwei Runden
+ * desselben Tages trennt „4,2 km" sofort. Fehlt die Statistik (die Tour rendert
+ * noch), bleibt der schlichte Satz: lieber nichts sagen als „0,0 km".
+ */
+export function tourSatz(t: TourKurz): string {
+  if (t.status !== 'bereit') return 'Angelegt, wird noch verarbeitet …'
+  const teile: string[] = []
+  if (t.km !== null && t.km > 0) teile.push(`${t.km.toFixed(1).replace('.', ',')} km`)
+  if (t.fotos !== null && t.fotos > 0) teile.push(t.fotos === 1 ? '1 Aufnahme' : `${t.fotos} Aufnahmen`)
+  return teile.length ? `Spielbereit · ${teile.join(' · ')}` : 'Spielbereit'
+}
+
+/**
+ * Die Überschrift einer Chronik-Zeile — oder `null`.
+ *
+ * Es gibt sie nur, wo eine Tour daraus wurde: Dann ist ihr Titel das, wonach
+ * man sucht. Sonst `null`, und die Zeile rückt ihren Satz nach oben. Der
+ * naheliegende Rückfall — der Anbietername — stand über einem Dialog, der
+ * bereits „Verlauf · Polar" heißt, und die Anbieter-Kennung der Aktivität
+ * (`aQlC83`) benennt sie zwar eindeutig, aber für niemanden, der hier steht.
+ */
+export function importTitel(i: ImportStand): string | null {
+  return i.tour?.titel?.trim() || null
 }
 
 /**
