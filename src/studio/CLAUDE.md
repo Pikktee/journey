@@ -436,13 +436,20 @@ Höhe. Vorher standen links drei Gruppen nebeneinander (Transport, Werkzeuge, Ab
 Mitte eine Tafel und rechts ein rahmenloser Regler: Der Zoom war das einzige Element ohne
 Kasten und hing frei am Rand.
 
-Das Pult trägt in **vier Fächern** Transport · Karte folgt · Filmzeit · Uhrzeit+Strecke. Der
-Transport steht damit an der Zahl, die er hochlaufen lässt, statt neben Modus-Umschaltern, mit
-denen er nichts zu tun hat; „Karte folgt" bekam ein eigenes Fach, weil es weder Transportschritt
-noch Messwert ist (hinter den Zahlen las es sich wie einer). Die Fuge zwischen Fach 3 und 4
-trennt **zwei Sorten, nicht drei Werte**: Die Filmzeit sagt, wo der Kopf im fertigen FILM steht;
-Uhrzeit und Strecke sagen beide, was an dieser Stelle der AUFNAHME war — sie teilen ein Fach und
-sind durch ihre Symbole gegliedert.
+Das Pult trägt in **drei Fächern** Bedienen (Transport + „Karte folgt") · Filmzeit ·
+Uhrzeit+Strecke. Der Transport steht damit an der Zahl, die er hochlaufen lässt, statt neben
+Modus-Umschaltern, mit denen er nichts zu tun hat. Die zweite Fuge trennt **zwei Sorten, nicht
+drei Werte**: Die Filmzeit sagt, wo der Kopf im fertigen FILM steht; Uhrzeit und Strecke sagen
+beide, was an dieser Stelle der AUFNAHME war — sie teilen ein Fach.
+
+**Weniger ist hier die Gliederung.** Es waren einmal vier Fächer: „Karte folgt" hatte ein
+eigenes, weil es weder Transportschritt noch Messwert ist — hinter den Zahlen las es sich wie
+einer. Das kostete für EINEN Knopf eine dritte Haarlinie und zwei Polster, und drei Linien auf
+458 px lasen sich als Gitter statt als Gliederung. Vor den Zahlen, hinter einer breiteren Fuge
+(`margin-left`), kann er mit keiner verwechselt werden. Aus demselben Grund hat die Strecke
+**kein Symbol** mehr: „12,4 / 41,8 km" trägt seine Einheit selbst, das Straßen-Icon sagte
+dasselbe ein zweites Mal. Das Sonnen-/Mond-Symbol bleibt, weil es **kein Etikett** ist — es
+färbt sich nach der Tageszeit und ist damit selbst die Auskunft. Zusammen 458 → 430 px.
 
 Drei Regeln, die man dabei leicht kippt:
 
