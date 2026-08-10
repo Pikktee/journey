@@ -5,6 +5,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { Readable } from 'node:stream'
 import { erfordereBenutzer } from '../app.js'
+import { mitManifestSperre } from '../manifestsperre.js'
 import { neueMediumId } from '../ids.js'
 import { anzeigeDateiname, thumbDateiname } from '../pipeline/bild.js'
 import { posterDateiname, webVideoDateiname } from '../pipeline/video.js'
@@ -128,6 +129,10 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut hinzufügen' })
       }
 
+      // Lesen → Ändern → Schreiben gehört unter die Sperre: Zwei gleichzeitige
+      // Zustellungen lesen sonst denselben Stand, und der zweite Schreiber
+      // wirft den Eintrag des ersten weg (s. manifestsperre.ts).
+      return mitManifestSperre(tour.id, async () => {
       const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
       if (manifest.media.length + request.body.medien.length > MAX_MEDIEN_PRO_TOUR) {
         return reply.code(400).send({ fehler: `Zu viele Medien (max. ${MAX_MEDIEN_PRO_TOUR} je Tour)` })
@@ -189,6 +194,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
         medien: zuordnung.map((m) => ({ id: m.id, datei: mediumDateiname(m) })),
         neu: neue.length,
       })
+      })
     },
   )
 
@@ -206,6 +212,10 @@ export function registriereMediaRouten(app: FastifyInstance): void {
       return reply.code(409).send({ fehler: 'Verarbeitung läuft, bitte gleich erneut löschen' })
     }
 
+    // Auch hier unter die Sperre: Eine gleichzeitige Zustellung an
+    // `POST …/medien` überschriebe sonst den frisch gesetzten Tombstone und
+    // erweckte einen Eintrag, dessen Dateien gerade gelöscht wurden.
+    return mitManifestSperre(tour.id, async () => {
     const manifest = JSON.parse((await storage.lese(tour.id, MANIFEST_PFAD)).toString()) as UploadManifest
     const medium = manifest.media.find((m) => m.id === request.params.mid)
     if (!medium) return reply.code(404).send({ fehler: `Unbekannte Medien-ID: ${request.params.mid}` })
@@ -252,6 +262,7 @@ export function registriereMediaRouten(app: FastifyInstance): void {
     // Render den Stand — bei „angelegt" gibt es noch nichts nachzuziehen.
     starteVerarbeitung(app, tour.id)
     return { ok: true }
+    })
   })
 
   // — GPX-Track hochladen (M6): das trackFile des Manifests, roher Body —

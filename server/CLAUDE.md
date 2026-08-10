@@ -28,9 +28,16 @@ braucht den Rückfall auf `src`. Die App verkleinert schon vor dem Upload auf 25
 größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
 
 **Das Manifest wächst, es ändert sich nicht.** Medien kommen auch NACH dem Anlegen dazu
-(`POST /api/tours/:id/medien` — Studio-Nachreichen, später der Foto-Nachzug zu Cloud-Touren):
+(`POST /api/tours/:id/medien` — Studio-Nachreichen und der Foto-Nachzug zu Cloud-Touren):
 Die Route hängt Einträge an, fasst vorhandene nie an und lässt **den Server die IDs vergeben**
-(`n_…`), damit keine kollidiert und keine je wiederverwendet wird. Gelöscht wird endgültig
+(`n_…`), damit keine kollidiert und keine je wiederverwendet wird. **Ein Eintrag mit `quelle`
+kommt genau einmal ins Manifest** (`galerie:<MediaStore-ID>`): Die App kann nicht wissen, was
+eine Tour schon hat — sie sieht das gerenderte `tour.json`, und das kennt Nachgereichtes erst
+NACH dem Rendern. Scheitert das (409 während einer Verarbeitung, Netz weg), wiederholt sie
+den Lauf, und ohne diesen Riegel stünde danach jedes Bild doppelt in der Tour. Die Antwort
+behält Länge und Reihenfolge der Anfrage, auch für Übersprungene — der Client paart sie über
+den Index. Tombstones zählen mit: Ein endgültig gelöschtes Foto soll nicht beim nächsten Lauf
+wiederkommen. Ohne `quelle` (Studio) bleibt jeder Eintrag neu, dort wählt ein Mensch aus. Gelöscht wird endgültig
 (`DELETE …/media/:mid`): Rohdatei und alle Ableitungen sind weg, der Speicher ist frei — der
 Manifest-Eintrag bleibt aber als **Tombstone** (`entfernt: true`) stehen, denn das Manifest ist
 das Protokoll dessen, was hochgeladen wurde. Vier Regeln hängen daran: **`verfuegbareMedien`
@@ -48,6 +55,19 @@ keine Datei und darf ankommen; ein Tombstone nie wieder (die Auslieferung hat f�
 `immutable` versprochen). Und **gelöscht wird auch bei „bereit"**, nur nicht während
 `verarbeitung`: Eine verschwundene Datei wird 404, nicht stale — der Riegel schützt vor einer
 neuen Version unter altem Namen, nicht vor dem Verschwinden.
+**Am Manifest schreibt immer nur EINER je Tour** ([manifestsperre.ts](server/src/manifestsperre.ts)):
+Nachreichen und Löschen arbeiten beide „lesen → ändern → schreiben", und zwischen Lesen und
+Schreiben liegt echte Wartezeit. Zwei gleichzeitige Läufe lesen denselben Stand, der zweite
+schreibt den ersten weg — und verloren ist nicht bloß ein Eintrag: Der Client hat für ihn eine
+Medien-ID bekommen und lädt die Bytes hoch, die dann gegen die Quota zählen und zu keiner Tour
+gehören; der `quelle`-Riegel greift für sie nicht mehr, weil ihr Eintrag fehlt. Bei `DELETE`
+gegen `POST` erweckt die Zustellung sogar einen Eintrag, dessen Dateien gerade gelöscht wurden.
+Solange nur das Studio nachreichte, war das theoretisch (ein Mensch klickt nicht zweimal
+gleichzeitig); mit dem Foto-Nachzug gibt es automatische Aufrufer. Der Mutex in der App deckt
+nur ihren Prozess ab — serialisiert wird dort, wo die Datei liegt. Die Tests dazu verzögern das
+Lesen und holen den Inhalt SOFORT: Wer erst wartet und dann liest, sieht bereits das Ergebnis
+des anderen, und der Test wäre grün, ohne etwas zu prüfen.
+
 Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concepts/konzept_medien_nachreichen_und_loeschen.md).
 
 **Vier Feinheiten der Pipeline, die man leicht „repariert":**
@@ -220,6 +240,31 @@ Minuten** — wer `Z` anhängt, verschiebt jede Tour um ihren Zonen-Versatz, und
 Schreibweisen (`start-time` und `start_time`), weil Polars Doku beide zeigt. Einrichtung
 (Client, Token-Schlüssel, Webhook-Registrierung — das Signatur-Geheimnis gibt es nur EINMAL):
 [docs/ops/polar-einrichten.md](docs/ops/polar-einrichten.md).
+
+**Push ist die Zugabe, nicht der Weg** ([push.ts](server/src/push.ts) für Geräte und
+Meldung, [fcm.ts](server/src/fcm.ts) für den Versand, Migration 18). Gemeldet wird
+ausschließlich ein FERTIGER Import, und zwar AUSSERHALB des try im Importlauf: Ein Fehler
+beim Benachrichtigen darf einen gelungenen Import nicht nachträglich zum Fehlschlag machen —
+die Tour liegt spielbar im Konto, ob Google sie ausliefert oder nicht. Fünf Dinge, die man
+dabei kippt: **Die Nachricht trägt keine Inhalte, nur einen Anlass** (`{typ, tourId,
+importId}`) — sie läuft über Googles Server und läge sonst auf dem Sperrbildschirm, und FCM
+ist nicht Ende-zu-Ende-verschlüsselt. **Kein `notification`-Block**, nur `data`: Android
+zeigte den sonst selbst an, am Quittieren (`…/imports/gesehen`) vorbei und doppelt zum
+periodischen Abruf der App. **Die Adresse ist die FID, nicht der Registrierungs-Token** —
+FCM hat ihn mit SDK 25.1.0 (Juni 2026) abgelöst, die v1-API führt `token` als deprecated und
+will `fid`; die Spalte heißt trotzdem neutral `token`, weil dort später der
+APNs-Gerätetoken steht. **Das Gerät hängt am App-Token** (`ON DELETE CASCADE`): Wer in
+„Angemeldete Geräte" ein Telefon abmeldet, erwartet, dass dorthin nichts mehr geht — die App
+kann das nicht mehr selbst aufräumen, sie ist gerade ausgesperrt worden. Und **gelöscht wird NUR bei `UNREGISTERED`** — gelesen aus
+`error.details[].errorCode`, nicht aus dem HTTP-Status: Googles Tabelle führt
+`INVALID_ARGUMENT` (400), `SENDER_ID_MISMATCH` (403) und `THIRD_PARTY_AUTH_ERROR` (401) als
+Fehler bei UNS. Wer darauf löscht, räumt bei EINER kaputten Nutzlast die Geräte aller Konten
+ab, und es heilt nicht: Die Apps registrieren sich neu, der nächste Versand löscht wieder,
+und sichtbar ist nur, dass Push „nicht mehr geht". Die Asymmetrie entscheidet — ein
+behaltener toter Eintrag kostet einen vergeblichen Aufruf, ein gelöschter lebender das
+Feature. Ohne `MAPTALE_FCM_SERVICE_ACCOUNT` ist das Feature aus
+(Route antwortet `push: false`), nicht kaputt — Einrichtung:
+[docs/ops/push-einrichten.md](docs/ops/push-einrichten.md).
 
 **Getestet wird gegen einen erfundenen Anbieter**
 ([testprovider.ts](server/src/tracker/testprovider.ts)) — dasselbe Muster wie `FesterGeocoder`

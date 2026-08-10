@@ -73,6 +73,25 @@ async function manifestVon(u: TestUmgebung, tourId: string): Promise<UploadManif
   return JSON.parse((await u.app.deps.storage.lese(tourId, MANIFEST_PFAD)).toString()) as UploadManifest
 }
 
+/**
+ * Das Lesen des Manifests künstlich verlangsamen — so wie sich eine Datei- oder
+ * Netz-Ablage verhält.
+ *
+ * **Der Inhalt wird SOFORT geholt und erst danach gewartet.** Andersherum
+ * (warten, dann lesen) sieht der zweite Aufrufer bereits das Ergebnis des
+ * ersten, und der Wettlauf tritt nie ein — der Test wäre grün, ohne etwas zu
+ * prüfen. Genau so ist er beim Schreiben erst einmal danebengegangen.
+ */
+function verzoegereManifestLesen(u: TestUmgebung, ms = 20): void {
+  const echtesLesen = u.storage.lese.bind(u.storage)
+  u.storage.lese = async (tourId: string, pfad: string) => {
+    if (pfad !== MANIFEST_PFAD) return echtesLesen(tourId, pfad)
+    const daten = await echtesLesen(tourId, pfad)
+    await new Promise((r) => setTimeout(r, ms))
+    return daten
+  }
+}
+
 async function tourJson(u: TestUmgebung, tourId: string): Promise<TourJson> {
   const antwort = await u.app.inject({ method: 'GET', url: `/api/tours/${tourId}`, cookies: u.cookies })
   expect(antwort.statusCode).toBe(200)
@@ -165,6 +184,67 @@ describe('Nachreichen (POST /api/tours/:id/medien)', () => {
     const erst = await nachreichen(u, id, [eintrag])
     const zweit = await nachreichen(u, id, [eintrag])
     expect(zweit.medien[0]?.id).not.toBe(erst.medien[0]?.id)
+  })
+
+  it('verliert bei zwei gleichzeitigen Zustellungen keinen Eintrag', async () => {
+    // Lesen → Ändern → Schreiben ohne Serialisierung: Beide lesen denselben
+    // Stand, der zweite schreibt den ersten weg. Der Client hätte für den
+    // verlorenen Eintrag trotzdem eine ID bekommen und lüde die Bytes hoch —
+    // die Datei zählt dann gegen die Quota und gehört zu keiner Tour.
+    //
+    // Die Verzögerung ist der ganze Test: Mit einer Ablage, die ohne Wartezeit
+    // antwortet, überleben auch zwei ungeschützte Läufe. Erst ein realistisches
+    // Lesen (Datei, Netz) reißt das Fenster auf.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u)
+    await ladeMediumHoch(u, id, 'm1')
+    await finalisiere(u, id)
+
+    verzoegereManifestLesen(u)
+
+    const [a, b] = await Promise.all([
+      nachreichen(u, id, [
+        { type: 'photo', file: 'a.jpg', takenAt: '2026-07-04T10:30:00+02:00', quelle: 'galerie:A' },
+      ]),
+      nachreichen(u, id, [
+        { type: 'photo', file: 'b.jpg', takenAt: '2026-07-04T10:31:00+02:00', quelle: 'galerie:B' },
+      ]),
+    ])
+    expect(a.statusCode).toBe(200)
+    expect(b.statusCode).toBe(200)
+
+    // Beide Zusagen müssen im Manifest stehen — jede vergebene ID ist ein
+    // Versprechen, dass die Datei dorthin gehört.
+    const quellen = (await manifestVon(u, id)).media.map((m) => m.quelle).filter(Boolean)
+    expect(quellen).toContain('galerie:A')
+    expect(quellen).toContain('galerie:B')
+    const ids = (await manifestVon(u, id)).media.map((m) => m.id)
+    expect(ids).toContain(a.medien[0]?.id)
+    expect(ids).toContain(b.medien[0]?.id)
+  })
+
+  it('lässt einen Tombstone nicht von einer gleichzeitigen Zustellung überschreiben', async () => {
+    // Die teuerste Paarung: DELETE gegen POST. Ohne Sperre erweckt die
+    // Zustellung einen Eintrag, dessen Dateien der Server gerade gelöscht hat.
+    const u = await baueTestApp()
+    const id = await legeTourAn(u, manifestMitZweiFotos())
+    await ladeMediumHoch(u, id, 'm1')
+    await ladeMediumHoch(u, id, 'm2')
+    await finalisiere(u, id)
+
+    verzoegereManifestLesen(u)
+
+    await Promise.all([
+      u.app.inject({ method: 'DELETE', url: `/api/tours/${id}/media/m1`, cookies: u.cookies }),
+      nachreichen(u, id, [
+        { type: 'photo', file: 'neu.jpg', takenAt: '2026-07-04T10:32:00+02:00', quelle: 'galerie:N' },
+      ]),
+    ])
+    await u.app.verarbeitungen.get(id)
+
+    const manifest = await manifestVon(u, id)
+    expect(manifest.media.find((m) => m.id === 'm1')?.entfernt).toBe(true)
+    expect(manifest.media.map((m) => m.quelle)).toContain('galerie:N')
   })
 
   it('weist während laufender Verarbeitung mit 409 ab', async () => {
