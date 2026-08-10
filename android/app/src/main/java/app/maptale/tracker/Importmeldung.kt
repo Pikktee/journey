@@ -18,11 +18,7 @@ import androidx.core.app.NotificationCompat
 import app.maptale.MainActivity
 import app.maptale.MaptaleApp
 import app.maptale.R
-import app.maptale.galerie.darfGalerieLesen
-import app.maptale.galerie.ladeFotosHoch
-import app.maptale.galerie.nachzugSatz
-import app.maptale.galerie.suchePassendeFotos
-import app.maptale.upload.TrackerImport
+import app.maptale.galerie.FotoNachzugWorker
 
 private const val MELDUNG_ID = 4711
 
@@ -48,13 +44,17 @@ suspend fun meldeOffeneImporte(app: MaptaleApp) {
     // CLAUDE.md) — sie gelten damit als behandelt und werden abgehakt, sonst
     // stünden sie bis in alle Ewigkeit als „offen" auf dem Server.
     val erledigt = uebrige.map { it.id }.toMutableList()
-    // Fotos ergänzen, BEVOR gemeldet wird: Dann steht in der Meldung, was
-    // wirklich geschehen ist („2 neue Touren · 5 Fotos hinzugefügt") statt
-    // einer zweiten, die kurz darauf nachklappert. Nur mit stehender
-    // Einwilligung UND erteiltem Leserecht — ohne beides passiert hier nichts,
-    // und der Vorschlag wartet in der Tour.
-    val fotos = ergaenzeFotos(app, fertige)
-    val text = meldungFuer(fertige)?.let { if (fotos > 0) "$it · ${nachzugSatz(fotos, automatisch = true)}" else it }
+    // Den Foto-Nachzug nur EINREIHEN, nicht hier ausführen.
+    //
+    // Er lief einmal an dieser Stelle, damit die Meldung gleich sagen kann, was
+    // dazugekommen ist. Das kostete die Meldung: Diese Funktion läuft im
+    // Push-Handler, dem Android nur Sekunden gibt — dreizehn Fotos über
+    // Mobilfunk sprengen das, der Prozess stirbt mittendrin, und dann gibt es
+    // WEDER Fotos noch Benachrichtigung noch Quittung (am Gerät passiert).
+    // Gemeldet wird deshalb sofort, was sicher wahr ist: Die Tour ist da. Was
+    // der Nachzug ergänzt, meldet er selbst, wenn er es geschafft hat.
+    for (tourId in fertige.mapNotNull { it.tourId }) FotoNachzugWorker.starte(app, tourId)
+    val text = meldungFuer(fertige)
     if (text == null || zeigeImportMeldung(app, text)) {
         // Nichts zu melden ODER die Meldung steht: In beiden Fällen ist mit den
         // fertigen Importen alles geschehen, was geschehen sollte.
@@ -63,27 +63,6 @@ suspend fun meldeOffeneImporte(app: MaptaleApp) {
     // Scheitert das Abhaken, kommen sie beim nächsten Mal wieder — eine
     // doppelte Meldung ist der harmlosere Ausgang als eine verlorene.
     runCatching { app.apiClient.trackerImporteGesehen(erledigt) }
-}
-
-/**
- * Fotos zu den neuen Touren ergänzen — wenn die Einwilligung steht.
- *
- * Gibt zurück, wie viele hochgeladen wurden. Drei Bedingungen, und jede
- * einzelne beendet den Lauf still: keine stehende Einwilligung („Fotos
- * automatisch ergänzen" ist aus), kein Leserecht auf die Galerie, keine Tour
- * mit Kennung. Ohne Einwilligung ist das kein Versäumnis — der Vorschlag
- * wartet dann in der Tour selbst, mit einer Frage statt einer Mitteilung.
- */
-private suspend fun ergaenzeFotos(app: MaptaleApp, importe: List<TrackerImport>): Int {
-    if (!app.einstellungen.aktuellesKonto().fotosAutomatisch) return 0
-    if (!darfGalerieLesen(app)) return 0
-    var gesamt = 0
-    for (tourId in importe.mapNotNull { it.tourId }) {
-        val bilder = runCatching { suchePassendeFotos(app, tourId) }.getOrDefault(emptyList())
-        if (bilder.isEmpty()) continue
-        gesamt += runCatching { ladeFotosHoch(app, tourId, bilder) }.getOrDefault(0)
-    }
-    return gesamt
 }
 
 /** `true`, wenn die Meldung wirklich steht — nur dann darf sie abgehakt werden. */

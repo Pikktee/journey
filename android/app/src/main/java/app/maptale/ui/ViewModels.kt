@@ -476,7 +476,13 @@ class ServerTourViewModel(
     fun uebernehmeFotos(app: MaptaleApp, danach: (Int) -> Unit) {
         val bilder = internFotoVorschlag.value
         if (bilder.isEmpty() || internNachzugLaeuft.value) return
-        viewModelScope.launch {
+        // `appScope` und NICHT `viewModelScope`: Wer den Screen verlässt,
+        // während die Bilder hochgehen, riss den Lauf sonst mitten entzwei —
+        // dieselbe Sorte Abbruch, die den Nachzug im Push-Handler gekostet hat.
+        // Halb hochgeladene Fotos sind zwar nicht verloren (die `quelle` holt
+        // sie beim nächsten Anlauf nach), aber sichtbar werden sie erst mit dem
+        // Rendern am Ende.
+        appScope.launch {
             internNachzugLaeuft.value = true
             val geschafft = runCatching { ladeFotosHoch(app, serverId, bilder) }.getOrDefault(0)
             internFotoVorschlag.value = emptyList()

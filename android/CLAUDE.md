@@ -149,9 +149,17 @@ Galerie liegt auf dem Gerät, und bei zwei Geräten am selben Konto soll nur das
 hochladen. Sie ist Vorgabe AUS und überlebt das Abmelden nicht — wer sich abmeldet, hat dem
 nächsten Konto auf diesem Gerät nichts erlaubt. Der Schalter im Profil fragt beim
 EINSCHALTEN nach dem Leserecht und bleibt aus, wenn es verweigert wird: ein „an", hinter dem
-nichts passieren kann, wäre die schlechtere Auskunft. Mit Einwilligung lädt der Meldungspfad
-(`Importmeldung.kt`) hoch, BEVOR er meldet — dann steht in der Benachrichtigung, was wirklich
-geschehen ist, statt einer zweiten, die nachklappert. Ohne sie wartet in der Tour selbst eine
+nichts passieren kann, wäre die schlechtere Auskunft. **Der Nachzug ist eine eigene ARBEIT** (`FotoNachzugWorker`), nicht Teil des Meldungspfads.
+Er lief dort einmal, damit die Benachrichtigung gleich sagen kann, was dazukam — und das
+kostete am Gerät genau die Benachrichtigung: `meldeOffeneImporte` läuft im Push-Handler,
+dem Android nur Sekunden gibt; dreizehn Fotos über Mobilfunk sprengen das. Der Prozess
+starb mittendrin (8 von 13 Dateien), und damit gab es WEDER Fotos noch Meldung noch
+Quittung. Gemeldet wird jetzt sofort, was sicher wahr ist (die Tour ist da); was der
+Nachzug ergänzt, meldet er selbst. WorkManager überlebt den Prozess, wartet auf Netz und
+wiederholt — dieselbe Wahl wie beim `UploadWorker`. Ein Wiederanlauf ist gefahrlos, weil
+die `quelle` den Server nichts doppelt anlegen lässt. Aus demselben Grund läuft der
+Knopf „Hinzufügen" im `appScope` statt im `viewModelScope`: Wer den Screen verlässt, riss
+den Lauf sonst entzwei. Ohne sie wartet in der Tour selbst eine
 FRAGE (`ServerTourScreen`), und die Screen-Suche läuft genau dann nicht, wenn die Automatik
 an ist: Sonst böte sie an, was längst geschehen ist.
 
