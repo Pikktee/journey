@@ -289,6 +289,15 @@ erfundene Wellenform sähe aus wie eine Aussage über den Inhalt und wäre keine
 braucht ein eigenes `overflow: hidden` — am Klip selbst schnitte es die überstehenden
 Kanten-Griffe weg und Anfang/Ende wären nicht mehr zu greifen.
 
+**Und ihre Maße stehen in ANTEILEN der Achse, nie in Pixeln** (`wellenLage` rechnet gegen
+`gesamtFilmS`, `zeitBreite()` schreibt `calc(anteil * var(--zeit-breite))`). Das ist die
+allgemeine Regel für alles, was auf der Leiste eine LÄNGE hat — `zeitX` ist ihr Gegenstück für
+eine STELLE: **Zoomen baut die Bahnen nicht neu**, `setzeMassstab` schreibt nur `--zeit-breite`
+fort und lässt CSS den Rest rechnen. Feste Pixel frieren ein Element auf dem Maßstab des
+letzten Renders ein; die Wellenform behielt dadurch beim Hineinzoomen ihre Größe und endete
+weit vor dem Klip. Der Fehler ist von außen kaum als solcher zu erkennen — er sieht aus wie
+eine zu kurze Datei.
+
 
 **Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
 immutabel fortschreiben, Track-Projektion), [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
@@ -396,7 +405,7 @@ lang im fertigen Film — eine Fähre schrumpft auf ihren Filmanteil, ein Foto-H
 Standzeit als Achsenbreite (Sprung: Zeit steht, Film läuft; bei foto-lastigen Kurztouren IST
 der Film überwiegend Standzeit), eine reale Pause fällt fast auf einen Strich zusammen
 (Plateau; die GPS-Drift kollabiert zusätzlich serverseitig, s. o.). Das Maßband zählt
-Filmminuten („0:30", `baueFilmMassband`, film-linear ⇒ äquidistant); die Kopf-Uhr zeigt
+Filmminuten („0:30", `baueFilmMassband`, film-linear ⇒ äquidistant); das Pult zeigt
 „Filmzeit / Gesamt" prominent, Uhrzeit und km als Nebengrößen. ALLE Overlay-Anker bleiben
 absolute Aufnahme-Zeitstempel — nur die Abbildung Zeit ↔ Leistenposition
 (`offsetZuAnteil`/`anteilZuOffset` über `Achse`) ist nichtlinear; ohne Kurve (degenerierte
@@ -420,6 +429,54 @@ Pille, die beim Scrubben erscheint und verschwindet, verschiebt Uhr, Werkzeuge u
 Zoom-Regler daneben — eine Anzeige, die die Bedienelemente springen lässt, kostet mehr, als
 sie sagt; dass ein Halt läuft, zeigt ohnehin das eingeblendete Bild auf der Karte. Der
 Kopfstrich bleibt immer orange: Farbe bezeichnet auf der Leiste Identität, nicht Zustand.
+
+**Die Kopfleiste hat drei Gruppen, und jede ist eine.** Links die Werkzeuge (Modi), in der
+Mitte das **Pult** (`.pult`), rechts der Zoom — alle drei mit demselben Rahmen und derselben
+Höhe. Vorher standen links drei Gruppen nebeneinander (Transport, Werkzeuge, Ablage), in der
+Mitte eine Tafel und rechts ein rahmenloser Regler: Der Zoom war das einzige Element ohne
+Kasten und hing frei am Rand.
+
+Das Pult trägt in **vier Fächern** Transport · Karte folgt · Filmzeit · Uhrzeit+Strecke. Der
+Transport steht damit an der Zahl, die er hochlaufen lässt, statt neben Modus-Umschaltern, mit
+denen er nichts zu tun hat; „Karte folgt" bekam ein eigenes Fach, weil es weder Transportschritt
+noch Messwert ist (hinter den Zahlen las es sich wie einer). Die Fuge zwischen Fach 3 und 4
+trennt **zwei Sorten, nicht drei Werte**: Die Filmzeit sagt, wo der Kopf im fertigen FILM steht;
+Uhrzeit und Strecke sagen beide, was an dieser Stelle der AUFNAHME war — sie teilen ein Fach und
+sind durch ihre Symbole gegliedert.
+
+Drei Regeln, die man dabei leicht kippt:
+
+- **Amber heißt an der Zeitleiste ausschließlich „läuft gerade".** Play trägt im Ruhezustand
+  KEINE Farbe — seinen Vorrang holt er aus Größe und Fläche (34×28 gegen 25×26 der Nachbarn,
+  die hellste Fläche der Leiste, der einzige helle Rand, als Einziger volle Textfarbe). Erst
+  beim Abspielen kommt Amber dazu, und dann bedeutet es dasselbe wie am eingeschalteten „Karte
+  folgt" daneben. Vorher war Play schon in Ruhe amber umrandet; damit war die Farbe verbraucht,
+  bevor sie etwas sagen konnte. Aus demselben Grund ist die Ablage-Plakette **rot** und nicht
+  amber: Ein Fund läuft nicht, er wartet.
+- **Reserviert wird nur, was WIRKLICH schwankt.** Die Anzeige trug dreimal denselben
+  großzügigen Slot (10,5ch + 11,5ch + 11,5ch) und war dadurch ~180 px breiter als ihr Inhalt.
+  Die Uhrzeit hat IMMER fünf Zeichen („15:58", „--:--") und braucht gar keinen; bei der Strecke
+  schwankt allein der laufende Wert (`.ku-km-cur`). Beim Zoom-Wert dagegen war zu WENIG
+  reserviert: Er läuft 1,0…40,0, also vier ODER fünf Zeichen, und wuchs mit 4ch ab Faktor 10 um
+  7 px — weil er am rechten Rand sitzt, schob er die ganze Gruppe. Gemessen braucht er 6,97ch
+  (`ch` ist die Breite der Ziffer NULL; Komma und „×" sind schmaler bzw. breiter), gesetzt sind
+  7,5ch, zentriert.
+- **Anfang/Ende gibt es als Knopf UND als Taste** (Pos1/Ende). Beides fehlte: Wer bei starkem
+  Zoom an den Anfang wollte, zog den Abspielkopf über die halbe Leiste. `setzeKopfFilm` klemmt
+  selbst auf [0, gesamtS] — „ans Ende" ist deshalb schlicht `Infinity`.
+
+Entwürfe und die verworfenen Varianten:
+[docs/mockups/studio-zeitleiste-kopf.html](docs/mockups/studio-zeitleiste-kopf.html) (vier
+Varianten), [`…-entscheidungen.html`](docs/mockups/studio-zeitleiste-kopf-entscheidungen.html)
+(Play-Register, Abgrenzung der Zahlenpaare, Ort der Ablage),
+[`…-final.html`](docs/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
+
+**Die Ablage sitzt an der Szenen-Bahn, nicht in der Kopfleiste.** Dort steht sonst nur, WOMIT
+man arbeitet — die Ablage sagt, WAS in der Tour ist, und aus ihr ZIEHT man auf genau diese
+Bahn: Quelle und Ziel gehören nebeneinander. In der 168 px schmalen Namensspalte steht die
+**Zahl**, der Satz im `title` und in der Kopfzeile des Fachs; ein Satz schöbe das ⊕ aus der
+Zeile (es hält `margin-left: auto` und bleibt die letzte Sache darin). Der Puls beim Öffnen der
+Tour wird an der kleineren Plakette WICHTIGER als am früheren Knopf mit Satz, nicht entbehrlich.
 
 **Ein Video zählt mit seiner echten Länge, ein Moment mit seiner Dauer.** `aufnahmeHaltS`
 ist die eine Formel dafür (Video → `dauerS`, sonst `haltedauerS`); `display.holdS` ist bei

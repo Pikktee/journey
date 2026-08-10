@@ -1051,13 +1051,19 @@ function renderAblage(): void {
   // meldet sich laut — sonst übersieht man ihn zwischen leeren Bahnen.
   const ohneOrt = medien.filter((m) => !m.geloescht).length
   knopf.classList.toggle('warnt', ohneOrt > 0)
-  $('ablage-anzahl').textContent = ohneOrt
+  // In der Namensspalte steht die ZAHL, der Satz im Titel: Die Spalte ist
+  // 168 px breit und teilt sie sich mit Symbol, Name und ⊕ — ein Satz
+  // schöbe das ⊕ aus der Zeile. Gezählt wird, was die Farbe erklärt: bei
+  // einem Fund die Funde, sonst alles im Fach.
+  $('ablage-anzahl').textContent = String(ohneOrt || medien.length)
+  knopf.title = ohneOrt
     ? ohneOrt === 1
-      ? '1 Aufnahme ohne Ort'
-      : `${ohneOrt} Aufnahmen ohne Ort`
+      ? '1 Aufnahme ohne Ort — zum Verankern auf die Bahn ziehen'
+      : `${ohneOrt} Aufnahmen ohne Ort — zum Verankern auf die Bahn ziehen`
     : medien.length === 1
       ? '1 entfernte Aufnahme'
       : `${medien.length} entfernte Aufnahmen`
+  knopf.setAttribute('aria-label', knopf.title)
   if (ohneOrt > 0 && !gemeldeteAblage) {
     gemeldeteAblage = true
     knopf.classList.add('meldet')
@@ -3569,6 +3575,15 @@ function spurAnteil(clientX: number): number {
   return Math.max(0, Math.min(1, (clientX - r.left) / r.width))
 }
 
+/**
+ * Eine LÄNGE als Anteil der Achse — das Gegenstück zu `zeitX` (einer STELLE).
+ *
+ * Beides muss in `var(--zeit-breite)` gerechnet sein, weil Zoomen die Bahnen
+ * nicht neu baut, sondern nur diese Variable fortschreibt. Wer hier Pixel
+ * einsetzt, friert das Element auf dem Maßstab des letzten Renders ein.
+ */
+const zeitBreite = (anteil: number): string => `calc(${anteil.toFixed(6)} * var(--zeit-breite))`
+
 /** x-Position innerhalb von `.spuren` (Namenspalte + Anteil der Zeitachse). */
 const zeitX = (anteil: number): string => `calc(var(--spur-x) + ${anteil.toFixed(5)} * var(--zeit-breite))`
 
@@ -3931,7 +3946,11 @@ function renderZeitleiste(): void {
     // links geschoben. Beim Trimmen wandert dadurch der Ausschnitt — man sieht,
     // was man wegschneidet. Auf Klipbreite gestaucht sähe jeder Trim wie ein
     // Tempowechsel aus.
-    const welle = wellenLage(k, pxProFilmS)
+    // In ANTEILEN der Achse, nicht in Pixeln: Zoomen baut die Bahnen nicht
+    // neu, sondern schreibt nur `--zeit-breite` fort. Feste Pixel blieben auf
+    // dem Maßstab des letzten Renders stehen — die Wellenform behielt beim
+    // Hineinzoomen ihre Größe und endete weit vor dem Klip.
+    const welle = wellenLage(k, filmGesamtS())
     const bild = eintrag ? holeWelle(k.datei, audioUrl(eintrag, z.tourId)) : null
     if (welle && bild) {
       // Eigenes Fenster mit `overflow: hidden`: Der Klip selbst darf nicht
@@ -3941,10 +3960,11 @@ function renderZeitleiste(): void {
       fenster.className = 'welle-fenster'
       const spurEl = document.createElement('span')
       spurEl.className = 'welle'
-      spurEl.style.left = `${welle.versatzPx}px`
-      spurEl.style.width = `${welle.breitePx * welle.wiederholungen}px`
+      const breite = zeitBreite(welle.breiteAnteil)
+      spurEl.style.left = zeitBreite(welle.versatzAnteil)
+      spurEl.style.width = zeitBreite(welle.breiteAnteil * welle.wiederholungen)
       spurEl.style.backgroundImage = `url(${bild})`
-      spurEl.style.backgroundSize = `${welle.breitePx}px 100%`
+      spurEl.style.backgroundSize = `${breite} 100%`
       fenster.appendChild(spurEl)
       klip.appendChild(fenster)
     }
@@ -6499,6 +6519,16 @@ function verdrahteEinmal(): void {
     karte?.zoomOut()
   })
   $('tp-play').addEventListener('click', () => void spielUmschalten())
+  // Sprung an Anfang und Ende. `setzeKopfFilm` klemmt selbst auf
+  // [0, gesamtS] — deshalb genügt Infinity für „ans Ende".
+  $('tp-anfang').addEventListener('click', () => {
+    halteAbspielen()
+    setzeKopfFilm(0)
+  })
+  $('tp-ende').addEventListener('click', () => {
+    halteAbspielen()
+    setzeKopfFilm(Infinity)
+  })
   $('tp-folge').addEventListener('click', () => {
     karteFolgt = !karteFolgt
     const knopf = $('tp-folge')
@@ -6582,6 +6612,13 @@ function verdrahteEinmal(): void {
         if (k === 'k') halteAbspielen()
         else if (!abspieler) void spielUmschalten()
         else abspieler.setzeTempo(k === 'l' ? (t < 1 ? 1 : Math.min(t * 2, 4)) : t > -1 ? -1 : Math.max(t * 2, -4))
+      } else if (e.key === 'Home' || e.key === 'End') {
+        // Den ganzen Film überspringen. Es gab dafür bisher nichts — bei
+        // starkem Zoom war der Weg an den Anfang ein Zug über die halbe
+        // Leiste. `setzeKopfFilm` klemmt selbst, „ans Ende" ist Infinity.
+        e.preventDefault()
+        halteAbspielen()
+        setzeKopfFilm(e.key === 'Home' ? 0 : Infinity)
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         // Feines Scrubben mit den Pfeiltasten: fünf FILM-Sekunden je Druck
         // (≈ eine Foto-Haltebreite) — eine Minute Aufnahmezeit war auf der

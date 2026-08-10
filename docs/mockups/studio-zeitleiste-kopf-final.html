@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Kopfleiste der Zeitleiste, Entwurfsstand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Kopfleiste der Zeitleiste, zusammengezogener Entwurfsstand
+
+   NUR ENTWURF, Klassen `m-…`. Vorgänger:
+     studio-zeitleiste-kopf.html               vier Varianten
+     studio-zeitleiste-kopf-v2.html            Variante 2 ausgebaut
+     studio-zeitleiste-kopf-entscheidungen.html  A/B/C nebeneinander
+
+   Entschieden: Variante 2 (Abspielpult) + A3 + B3 + C2.
+
+   ── C2: DIE ABLAGE GEHÖRT AN DIE SZENEN-BAHN ──────────────────
+   Die Kopfleiste sagt, WOMIT man arbeitet (Werkzeuge, Transport,
+   Zoom). Die Ablage sagt, WAS in der Tour ist — das ist Inhalt und
+   keine Bedienung. Und aus ihr ZIEHT man Bilder auf die Szenen-Bahn:
+   Quelle und Ziel gehören nebeneinander, nicht eine Etage
+   auseinander. Sie sitzt deshalb als Plakette in der Namensspalte,
+   direkt neben dem vorhandenen ⊕, das dort ohnehin Dinge einsetzt.
+
+   Zwei Dinge, die dabei nicht verlorengehen dürfen: die einmalige
+   Meldung beim Öffnen der Tour (der Puls wird an der kleineren
+   Plakette WICHTIGER, nicht überflüssig) — und die Unterscheidung
+   „ohne Ort" (ein Fund, amber) gegen „entfernt" (eine Entscheidung,
+   still). Beides hält der Bestand schon: `ohneOrt` gegen
+   `medien.length` in `renderAblage`.
+
+   ── A3: PLAY IST NEUTRAL, ABER GRÖSSER ────────────────────────
+   Der Vorrang kommt aus GRÖSSE und ORT, nicht aus Farbe. Das macht
+   die Hausregel strenger, als der Bestand sie hielt: Amber heißt ab
+   jetzt AUSSCHLIESSLICH „aktiv". Im Ruhezustand trägt das Pult
+   deshalb gar kein Amber; beim Abspielen wird Play amber gefüllt —
+   genau wie „Karte folgt", wenn es an ist. Zwei amberne Dinge sind
+   dann kein Widerspruch, sondern zwei laufende Zustände.
+
+   Das war der Einwand gegen A3 („Play verliert seinen Rang gegen
+   das amberne Karte-folgt"), und er löst sich über drei Größen:
+   Play ist 34×28 gegen 25×26 der Nachbarn, steht auf der hellsten
+   Fläche der Leiste (--fl-3) und trägt als Einziges die volle
+   Textfarbe. Folge bleibt eine eingefärbte Ikone ohne Fläche.
+
+   ── B3: ZWEI REGISTER STATT DREI ANZEIGEN ─────────────────────
+   Die Filmzeit sagt, wo man im FERTIGEN FILM steht. Uhrzeit und
+   Strecke sind beide Aussagen über die AUFNAHME an dieser Stelle
+   und teilen sich ein Fach. Eine Fuge statt zweier Punkte —
+   getrennt werden zwei Sorten, nicht drei Werte.
+
+   ── weiterhin gültig aus den Vorrunden ────────────────────────
+   Zoom-Wert `min-width: 7.5ch`, zentriert (gemessen: „40,0×" braucht
+   54,8 px, ein ch ist 7,87 px → 6,97ch nötig; 4ch wie heute lässt
+   die ganze Gruppe springen). Filmzeit-Slot 4ch, weil sie beim
+   Abspielen zehnmal je Sekunde hochzählt.
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b; --auf-akzent: #1a1206;
+  --text: #f2ede3; --text-2: #a7b1bf; --text-3: #7e8a99;
+  --bg: #090c11; --bg-tief: #06080c;
+  --fl-1: #111722; --fl-2: #161e2c; --fl-3: #1e283a;
+  --rand: #232d3d; --rand-hell: #2e3b4e;
+  --lila: #c58bff; --blau: #5b9dff; --rot: #e5484d; --gruen: #3ecf8e;
+  --radius-sm: 7px; --radius-md: 8px; --radius-lg: 12px;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 15px; line-height: 1.55; padding: 40px 28px 120px; }
+.seite { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px; }
+.unter { color: var(--text-2); margin: 0 0 30px; max-width: 76ch; }
+h2 { font-size: 19px; font-weight: 600; margin: 0 0 6px; }
+.wozu { color: var(--text-2); margin: 0 0 18px; max-width: 82ch; font-size: 14.5px; }
+section { margin: 0 0 54px; }
+code { font-size: 0.92em; color: var(--text); background: var(--fl-2); padding: 1px 5px; border-radius: 4px; }
+button { font-family: inherit; cursor: pointer; color: inherit; background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md); }
+svg { display: block; }
+.rahmen { border: 1px solid var(--rand); border-radius: var(--radius-lg); background: var(--bg-tief); overflow: hidden; }
+
+/* Schaltpult des Mockups — gehört NICHT zur Oberfläche. */
+.pult { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; margin: 0 0 14px; border: 1px dashed var(--rand-hell); border-radius: var(--radius-md); background: rgba(30, 40, 58, 0.25); }
+.pult span.titel { font-size: 12px; color: var(--text-3); margin-right: 4px; letter-spacing: 0.03em; text-transform: uppercase; }
+.pult button { font-size: 12.5px; padding: 5px 11px; border-radius: var(--radius-sm); background: var(--fl-1); color: var(--text-2); }
+.pult button:hover { border-color: var(--rand-hell); color: var(--text); }
+.pult button.an { background: var(--akzent); color: var(--auf-akzent); border-color: transparent; }
+.pult .fuge { width: 1px; height: 20px; background: var(--rand); margin: 0 4px; }
+
+/* ══════════════════ DIE LEISTE ══════════════════ */
+.m-kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px 6px; user-select: none; }
+.m-links, .m-rechts { display: flex; align-items: center; gap: 10px; }
+
+.m-werkzeuge { display: flex; align-items: center; gap: 3px; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 2px; }
+.m-wkz { width: 27px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm); }
+.m-wkz svg { width: 15px; height: 15px; }
+.m-wkz:hover { color: var(--text-2); background: var(--fl-3); }
+/* Voll-Amber = aktiv. Das gilt jetzt ohne Ausnahme. */
+.m-wkz.an { background: var(--akzent); color: var(--auf-akzent); }
+
+/* ─── Das Pult: vier Fächer in einem Rahmen ───
+   ① Transport  ② Karte folgt  ③ Filmzeit  ④ Uhrzeit · Strecke
+   Die Fugen zwischen ③ und ④ ist B3: zwei Sorten, nicht drei Werte. */
+.m-pult { display: flex; align-items: stretch; height: 34px; border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand); padding: 0 3px; }
+.m-fach { display: flex; align-items: center; gap: 3px; padding: 0 8px; }
+.m-fach + .m-fach { border-left: 1px solid var(--rand); }
+.m-fach:first-child { padding-left: 3px; }
+.m-fach:last-child { padding-right: 11px; }
+
+/* A3 — Play ohne Farbe, aber als Größtes und Hellstes im Pult.
+   Die Fläche (--fl-3) ist die hellste der ganzen Leiste; der Rand
+   ist der einzige helle Rand; das Icon trägt als Einziges die volle
+   Textfarbe. Erst beim Abspielen kommt Amber dazu — als ZUSTAND. */
+.m-play {
+  width: 34px; height: 28px; display: grid; place-items: center; padding: 0;
+  border-radius: var(--radius-sm); border: 1px solid var(--rand-hell);
+  color: var(--text); background: var(--fl-3);
+}
+.m-play svg { width: 16px; height: 16px; }
+.m-play:hover { border-color: var(--text-3); background: #26334a; }
+.m-play.spielt { color: var(--auf-akzent); border-color: transparent; background: linear-gradient(135deg, var(--akzent), #f7b750); }
+.m-play.spielt:hover { filter: brightness(1.06); background: linear-gradient(135deg, var(--akzent), #f7b750); }
+
+/* Die Nachbarn treten bewusst zurück: kleiner, ohne Fläche, gedämpft. */
+.m-sprung { width: 25px; height: 26px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm); }
+.m-sprung svg { width: 14px; height: 14px; }
+.m-sprung:hover { color: var(--text); background: var(--fl-3); }
+
+/* „Karte folgt": eingefärbte Ikone ohne Fläche. Amber heißt hier
+   dasselbe wie am spielenden Play — dieser Zustand läuft gerade. */
+.m-folge { width: 27px; height: 26px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm); }
+.m-folge svg { width: 15px; height: 15px; }
+.m-folge:hover { color: var(--text); background: var(--fl-3); }
+.m-folge.an { color: var(--akzent); }
+.m-folge.an:hover { color: var(--akzent); background: rgba(245, 165, 36, 0.12); }
+
+/* Werte: laufender Wert ist Inhalt, Gesamtwert ist Bezug. */
+.a-teil { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 12.5px; }
+.a-teil > svg { width: 13px; height: 13px; flex: none; color: var(--text-3); }
+.a-teil.tag > svg { color: rgba(245, 165, 36, 0.85); }
+.a-teil.daemmerung > svg { color: rgba(255, 138, 101, 0.9); }
+.a-teil.nacht > svg { color: rgba(150, 170, 210, 0.9); }
+.a-film { font-size: 15px; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+.a-film .slot { display: inline-block; min-width: 4ch; }
+.a-ges { font-size: 11.5px; color: var(--text-3); font-weight: 400; margin-left: 1px; }
+.a-km-cur { display: inline-block; min-width: 2.5ch; text-align: right; color: var(--text); }
+/* B3: die beiden Nebengrößen teilen ein Fach und stehen darin
+   nebeneinander — gegliedert durch ihre Symbole, nicht durch Linien. */
+.m-neben { gap: 14px; }
+
+/* ─── Zoom rechts ─── */
+.m-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 5px; border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand); }
+.m-zoom-b { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm); }
+.m-zoom-b svg { width: 14px; height: 14px; }
+.m-zoom-b:hover { color: var(--text); background: var(--fl-3); }
+.m-zoom-b:disabled { opacity: 0.35; cursor: default; }
+.m-zoom-b:disabled:hover { color: var(--text-3); background: transparent; }
+.m-zoom input[type='range'] { width: 84px; accent-color: var(--akzent); cursor: pointer; }
+/* 7,5ch, zentriert — gemessen, nicht geschätzt. Siehe Kopfkommentar. */
+.m-fit { height: 24px; min-width: 7.5ch; padding: 0 8px; text-align: center; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; border: none; background: transparent; border-left: 1px solid var(--rand); border-radius: 0; margin-left: 2px; }
+.m-fit:enabled:hover { color: var(--text); }
+.m-fit:disabled { cursor: default; opacity: 0.75; }
+
+/* ─── C2: Ablage als Plakette in der Namensspalte der Szenen-Bahn ───
+   Eine Zahl, kein Satz: Die Spalte ist schmal, und der Satz steht im
+   Titel und in der Kopfzeile des Fachs, das sich beim Klick öffnet.
+   Sie liegt VOR dem ⊕ — das ⊕ hält `margin-left: auto` und bleibt
+   damit die letzte Sache in der Zeile, egal ob eine Plakette da ist.
+
+   Der Puls beim Öffnen der Tour (heute 4,2 s am Knopf) bleibt: An der
+   kleineren Plakette ist er wichtiger als am Knopf mit Satz, nicht
+   entbehrlich. */
+.ab-plakette { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; color: var(--akzent); background: rgba(245, 165, 36, 0.14); border: 1px solid rgba(245, 165, 36, 0.4); font-variant-numeric: tabular-nums; cursor: pointer; flex: none; }
+.ab-plakette:hover { background: rgba(245, 165, 36, 0.24); border-color: var(--akzent); }
+.ab-plakette svg { width: 10px; height: 10px; }
+/* Leeres Fach = keine Plakette. Eine „0" wäre eine Auskunft über nichts. */
+body:not(.ab-voll) .ab-plakette { display: none; }
+/* Die Meldung beim Öffnen der Tour — hier als Dauerschleife zum Ansehen. */
+body.ab-meldet .ab-plakette { animation: abMeldet 1.4s ease-out infinite; }
+@keyframes abMeldet {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0); }
+  30% { box-shadow: 0 0 0 4px rgba(245, 165, 36, 0.28); }
+}
+
+/* ─── Kulisse: der Streifen Zeitleiste ─── */
+.m-leiste { border-top: 1px solid var(--rand); background: var(--bg-tief); position: relative; }
+.m-skala { display: flex; height: 22px; align-items: flex-end; padding-left: 148px; border-bottom: 1px solid var(--rand); }
+.m-skala .tick { flex: 1; border-left: 1px solid var(--rand); height: 8px; position: relative; }
+.m-skala .tick span { position: absolute; top: -12px; left: 4px; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.m-spur { display: flex; height: 36px; border-bottom: 1px solid rgba(35, 45, 61, 0.6); }
+.m-spur-name { width: 148px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 12px; font-size: 11.5px; color: var(--text-3); border-right: 1px solid var(--rand); }
+.m-spur-name > svg { width: 14px; height: 14px; flex: none; }
+.spur-plus { width: 19px; height: 19px; flex: none; margin-left: auto; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 1px dashed var(--rand-hell); background: transparent; color: var(--text-3); opacity: 0.55; }
+.spur-plus svg { width: 11px; height: 11px; }
+.m-spur:hover .spur-plus { opacity: 1; }
+.m-spur-feld { flex: 1; position: relative; }
+.m-klip { position: absolute; top: 6px; bottom: 6px; border-radius: 5px; font-size: 11px; display: flex; align-items: center; padding: 0 8px; color: var(--text); overflow: hidden; }
+.m-klip.foto { background: rgba(245, 165, 36, 0.22); border: 1px solid rgba(245, 165, 36, 0.5); }
+.m-klip.musik { background: rgba(91, 157, 255, 0.18); border: 1px solid rgba(91, 157, 255, 0.45); }
+.m-klip.band { background: rgba(197, 139, 255, 0.16); border: 1px solid rgba(197, 139, 255, 0.4); }
+.m-kopf-linie { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--akzent); left: 32%; z-index: 5; }
+.m-kopf-linie::before { content: ''; position: absolute; top: 0; left: -5px; width: 12px; height: 10px; background: var(--akzent); border-radius: 3px 3px 2px 2px; }
+
+body.schmal .buehne { max-width: 980px; }
+.buehne { transition: max-width 200ms ease; }
+
+.mass { display: flex; gap: 8px; padding: 8px 16px 10px; font-size: 11.5px; color: var(--text-3); border-top: 1px dashed rgba(46, 59, 78, 0.6); }
+.mass b { color: var(--text-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+.notiz { margin: 18px 0 0; padding-left: 16px; color: var(--text-2); font-size: 13.5px; max-width: 86ch; }
+.notiz li { margin: 0 0 6px; }
+.notiz b { color: var(--text); font-weight: 500; }
+
+.offen { margin-top: 14px; padding: 18px 22px; border: 1px solid rgba(245, 165, 36, 0.35); border-radius: var(--radius-lg); background: rgba(245, 165, 36, 0.05); }
+.offen h3 { margin: 0 0 8px; font-size: 15.5px; font-weight: 600; }
+.offen p { margin: 0; color: var(--text-2); font-size: 14px; }
+.offen b { color: var(--text); font-weight: 500; }
+
+/* Vorher/Nachher der drei Zahlenpaare */
+.vgl { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.vgl-karte { border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-1); padding: 15px 16px; }
+.vgl-karte h3 { margin: 0 0 12px; font-size: 13.5px; font-weight: 600; color: var(--text-3); }
+.vgl-karte h3 b { color: var(--gruen); font-weight: 600; }
+.vgl-buehne { display: flex; justify-content: center; padding: 14px 0 4px; background: var(--bg-tief); border-radius: var(--radius-sm); }
+.g-punkte { display: flex; align-items: center; gap: 10px; }
+.g-punkte .fuge { width: 3px; height: 3px; border-radius: 50%; background: var(--rand-hell); flex: none; }
+.g-register { display: flex; align-items: center; }
+.g-register .haupt { padding-right: 13px; border-right: 1px solid var(--rand); }
+.g-register .neben { display: flex; align-items: center; gap: 14px; padding-left: 13px; }
+</style>
+</head>
+<body class="ab-voll">
+<div class="seite">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 5.5v13"/><path d="M15 5.5v13"/></symbol>
+  <symbol id="i-folge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.4 L6 18.6 L9.9 14.9 L12.3 20.4 L14.5 19.4 L12.1 14 L17.2 14 Z"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24" fill="currentColor"><path d="M10.4 2a1.45 1.45 0 00-1.45 1.45v5.9a.45.45 0 01-.9 0V5.55a1.4 1.4 0 10-2.8 0v8.2l-1.15-1.4a1.55 1.55 0 00-2.45 1.9l3.15 4.25A6.15 6.15 0 0011.75 21h1.6A6.15 6.15 0 0019.5 14.85V6.35a1.4 1.4 0 10-2.8 0v3.1a.45.45 0 01-.9 0V4.25a1.4 1.4 0 10-2.8 0v5.1a.45.45 0 01-.9 0V3.45A1.45 1.45 0 0010.4 2z"/></symbol>
+  <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-lupe-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7.5 5.5v13M16.5 5.5v13M3.5 9.5h4M3.5 14.5h4M16.5 9.5h4M16.5 14.5h4"/></symbol>
+  <symbol id="i-sonne" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.1M12 19.1v2.1M21.2 12h-2.1M4.9 12H2.8M18.5 5.5l-1.5 1.5M7 17l-1.5 1.5M18.5 18.5 17 17M7 7 5.5 5.5"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></symbol>
+  <symbol id="i-spur-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.7-4.5L6.5 20"/></symbol>
+  <symbol id="i-spur-musik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="17.5" r="2.4"/><circle cx="17.3" cy="15" r="2.4"/><path d="M9.4 17.5V6.2l10.3-2v10.8"/></symbol>
+  <symbol id="i-spur-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/></symbol>
+  <symbol id="i-anfang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5.5v13L8 12z"/><path d="M6 5.5v13"/></symbol>
+  <symbol id="i-ende" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5.5v13L16 12z"/><path d="M18 5.5v13"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+</defs></svg>
+
+<h1>Kopfleiste — Entwurfsstand</h1>
+<p class="unter">
+  Variante 2 mit allen drei Entscheidungen: <b>A3</b> (Play neutral und
+  größer, Farbe erst beim Abspielen), <b>B3</b> (zwei Register statt drei
+  Anzeigen) und <b>C2</b> (die Ablage an der Szenen-Bahn). <b>Klick auf
+  Play</b> zeigt, worauf A3 hinausläuft.
+</p>
+
+<section>
+  <h2>Die Leiste</h2>
+  <div class="pult">
+    <span class="titel">Zustand</span>
+    <button id="s-play">Abspielen</button>
+    <button id="s-folge" class="an">Karte folgt</button>
+    <div class="fuge"></div>
+    <span class="titel">Ablage</span>
+    <button id="s-ab-voll" class="an">3 ohne Ort</button>
+    <button id="s-ab-meldet">meldet sich</button>
+    <button id="s-ab-leer">leer</button>
+    <div class="fuge"></div>
+    <span class="titel">Zoom</span>
+    <button class="s-zoom an" data-z="1,0">1,0×</button>
+    <button class="s-zoom" data-z="4,2">4,2×</button>
+    <button class="s-zoom" data-z="40,0">40,0×</button>
+    <div class="fuge"></div>
+    <span class="titel">Fenster</span>
+    <button id="s-breit" class="an">breit</button>
+    <button id="s-schmal">schmal</button>
+  </div>
+
+  <div class="rahmen buehne">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div class="m-werkzeuge">
+          <button class="m-wkz an" title="Auswahl (A)"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz" title="Verschieben (H)"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz" title="Zoom (Z)"><svg><use href="#i-lupe"/></svg></button>
+        </div>
+        <!-- Hier stand die Ablage. Sie ist mit C2 an die Szenen-Bahn gezogen:
+             Die Kopfleiste trägt nur noch Bedienung, keinen Inhalt. -->
+      </div>
+
+      <div class="m-pult">
+        <div class="m-fach">
+          <button class="m-sprung" title="An den Anfang (Pos1)"><svg><use href="#i-anfang"/></svg></button>
+          <button class="m-play" id="play" title="Abspielen / Pause (Leertaste) · J K L"><svg><use href="#i-play"/></svg></button>
+          <button class="m-sprung" title="Ans Ende (Ende)"><svg><use href="#i-ende"/></svg></button>
+        </div>
+        <div class="m-fach">
+          <button class="m-folge an" id="folge" title="Karte folgt der Position (beim Abspielen)"><svg><use href="#i-folge"/></svg></button>
+        </div>
+        <!-- B3, Register 1: wo im FERTIGEN FILM steht der Kopf. -->
+        <div class="m-fach" title="Filmzeit: wo der Kopf im fertigen Film steht, und wie lang er wird">
+          <span class="a-teil">
+            <svg><use href="#i-film"/></svg>
+            <span class="a-film"><span class="slot" id="w-film">0:25</span><span class="a-ges"> / 1:20</span></span>
+          </span>
+        </div>
+        <!-- B3, Register 2: was an dieser Stelle der AUFNAHME war. -->
+        <div class="m-fach m-neben">
+          <span class="a-teil tag" title="Uhrzeit der Aufnahme an dieser Stelle">
+            <svg><use href="#i-sonne"/></svg><span id="w-uhr">15:58</span>
+          </span>
+          <span class="a-teil" title="Zurückgelegte Strecke von der Gesamtstrecke">
+            <svg><use href="#i-route"/></svg>
+            <span class="a-km-cur" id="w-km">0,7</span><span class="a-ges"> / 2,1 km</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="m-rechts">
+        <div class="m-zoom">
+          <button class="m-zoom-b" id="z-raus" title="Herauszoomen (⌘−)" disabled><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" id="z-regler" min="0" max="100" value="0" aria-label="Zeitleiste zoomen" />
+          <button class="m-zoom-b" id="z-rein" title="Hineinzoomen (⌘+)"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="m-fit" id="z-wert" title="An Fenster anpassen (⇧Z)" disabled>1,0×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name">
+          <svg><use href="#i-spur-foto"/></svg>Szenen
+          <span class="ab-plakette" title="3 Aufnahmen ohne Ort — zum Verankern auf die Bahn ziehen"><svg><use href="#i-spur-foto"/></svg>3</span>
+          <button class="spur-plus" title="Kamera-Moment an der Marke setzen"><svg><use href="#i-plus"/></svg></button>
+        </div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+          <div class="m-klip foto" style="left:74%;width:14%">Brücke</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-kamera"/></svg>Kamera<button class="spur-plus"><svg><use href="#i-plus"/></svg></button></div>
+        <div class="m-spur-feld">
+          <div class="m-klip band" style="left:0%;width:44%">nah</div>
+          <div class="m-klip band" style="left:44%;width:56%">weit</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-musik"/></svg>Musik &amp; Effekte<button class="spur-plus"><svg><use href="#i-plus"/></svg></button></div>
+        <div class="m-spur-feld"><div class="m-klip musik" style="left:2%;width:70%">Nachtfahrt</div></div>
+      </div>
+      <div class="m-kopf-linie" id="kopflinie"></div>
+    </div>
+    <div class="mass">Pult: <b>435 px</b> (heute 560 px, dabei ohne Transport) · Zoom: <b>227 px</b>, konstant über alle Faktoren · Mitte <b>−125 px</b> bei drei Knöpfen mehr</div>
+  </div>
+
+  <ul class="notiz">
+    <li><b>Im Ruhezustand trägt das Pult kein Amber</b> — außer „Karte folgt",
+      wenn es an ist. Genau das ist der Gewinn von A3: Amber heißt jetzt
+      ausschließlich „läuft gerade". Schalte „Karte folgt" im Schaltpult aus
+      und starte das Abspielen: Das Amber wandert dorthin, wo tatsächlich
+      etwas passiert.</li>
+    <li><b>Play behält seinen Rang ohne Farbe</b> — über drei Größen: 34×28
+      gegen 25×26 der Nachbarn, die hellste Fläche der Leiste
+      (<code>--fl-3</code>) und als Einziges die volle Textfarbe. Die
+      Sprungknöpfe haben bewusst keine Fläche.</li>
+    <li><b>Die vierte Fuge ist B3</b>: Filmzeit links, Uhrzeit und Strecke
+      rechts davon in einem Fach. Was der Kopf im <i>Film</i> ist, steht
+      getrennt von dem, was an dieser Stelle der <i>Aufnahme</i> war.</li>
+    <li><b>Die Ablage sitzt an der Szenen-Bahn</b> (C2) — die Plakette vor dem
+      ⊕, das dort schon Momente einsetzt. Klick öffnet dasselbe Fach wie
+      heute; der ganze Satz steht im Titel und in dessen Kopfzeile.</li>
+  </ul>
+
+  <div class="offen">
+    <h3>Was C2 nebenbei erledigt</h3>
+    <p>Die Kopfleiste trägt links jetzt <b>nur noch die Werkzeuge</b> — rund
+      170 px weniger, und vor allem: keine Zahl mehr, die die Werkzeugreihe
+      bei jeder Änderung verschiebt. <b>Die Mitte muss dafür nichts
+      abgeben.</b> Zwei Dinge sind beim Umsetzen die Falle: Die Plakette darf
+      nur bei „ohne Ort" amber sein (entfernte Aufnahmen zählen still mit,
+      wie heute), und der Puls beim Öffnen der Tour muss bleiben — probier
+      „meldet sich" oben. An der kleineren Plakette ist er wichtiger als am
+      Knopf mit Satz.</p>
+  </div>
+</section>
+
+<section>
+  <h2>B3 gegen den Vorstand</h2>
+  <p class="wozu">
+    Dieselben Werte, einmal mit Punkten (der letzte Entwurf) und einmal als
+    zwei Register. Der Unterschied ist nicht die Trennung an sich, sondern
+    <b>was</b> getrennt wird.
+  </p>
+  <div class="vgl">
+    <div class="vgl-karte">
+      <h3>vorher — drei Anzeigen, drei Punkte</h3>
+      <div class="vgl-buehne">
+        <div class="g-punkte">
+          <span class="a-teil"><svg><use href="#i-film"/></svg><span class="a-film"><span class="slot">0:25</span><span class="a-ges"> / 1:20</span></span></span>
+          <span class="fuge"></span>
+          <span class="a-teil tag"><svg><use href="#i-sonne"/></svg>15:58</span>
+          <span class="fuge"></span>
+          <span class="a-teil"><svg><use href="#i-route"/></svg><span class="a-km-cur">0,7</span><span class="a-ges"> / 2,1 km</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="vgl-karte">
+      <h3><b>B3</b> — zwei Register, eine Fuge</h3>
+      <div class="vgl-buehne">
+        <div class="g-register">
+          <span class="haupt"><span class="a-teil"><svg><use href="#i-film"/></svg><span class="a-film"><span class="slot">0:25</span><span class="a-ges"> / 1:20</span></span></span></span>
+          <span class="neben">
+            <span class="a-teil tag"><svg><use href="#i-sonne"/></svg>15:58</span>
+            <span class="a-teil"><svg><use href="#i-route"/></svg><span class="a-km-cur">0,7</span><span class="a-ges"> / 2,1 km</span></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* Nur Schaustellerei — die Zustände zum Durchklicken. */
+const $ = (id) => document.getElementById(id);
+
+let laeuft = false, uhr = null, t = 25;
+const FILM_GES = 80;
+function zeit(s) { return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
+function malen() {
+  $('w-film').textContent = zeit(t);
+  const anteil = t / FILM_GES;
+  $('kopflinie').style.left = `${(anteil * 100).toFixed(1)}%`;
+  // Die Aufnahme dauerte 26 Minuten; der Film daraus 1:20 — genau dafür
+  // stehen die beiden Register nebeneinander.
+  const min = 15 * 60 + 50 + Math.round(anteil * 26);
+  $('w-uhr').textContent = `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+  $('w-km').textContent = (anteil * 2.1).toFixed(1).replace('.', ',');
+}
+function spielUmschalten() {
+  laeuft = !laeuft;
+  $('play').classList.toggle('spielt', laeuft);
+  $('play').querySelector('use').setAttribute('href', laeuft ? '#i-pause' : '#i-play');
+  $('s-play').classList.toggle('an', laeuft);
+  $('s-play').textContent = laeuft ? 'Anhalten' : 'Abspielen';
+  clearInterval(uhr);
+  if (laeuft) uhr = setInterval(() => { t = (t + 0.1) % FILM_GES; malen(); }, 100);
+}
+$('play').addEventListener('click', spielUmschalten);
+$('s-play').addEventListener('click', spielUmschalten);
+
+function folgeUmschalten() {
+  $('s-folge').classList.toggle('an', $('folge').classList.toggle('an'));
+}
+$('folge').addEventListener('click', folgeUmschalten);
+$('s-folge').addEventListener('click', folgeUmschalten);
+
+/* Ablage: Füllstand und die Meldung beim Öffnen der Tour */
+const abKnoepfe = { 's-ab-voll': ['ab-voll'], 's-ab-meldet': ['ab-voll', 'ab-meldet'], 's-ab-leer': [] };
+Object.keys(abKnoepfe).forEach((id) => {
+  $(id).addEventListener('click', () => {
+    document.body.classList.remove('ab-voll', 'ab-meldet');
+    abKnoepfe[id].forEach((k) => document.body.classList.add(k));
+    Object.keys(abKnoepfe).forEach((x) => $(x).classList.toggle('an', x === id));
+  });
+});
+
+/* Zoom */
+document.querySelectorAll('.s-zoom').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.s-zoom').forEach((x) => x.classList.remove('an'));
+    b.classList.add('an');
+    const faktor = parseFloat(b.dataset.z.replace(',', '.'));
+    $('z-wert').textContent = b.dataset.z + '×';
+    $('z-wert').disabled = faktor === 1;
+    $('z-raus').disabled = faktor === 1;
+    $('z-rein').disabled = faktor >= 40;
+    $('z-regler').value = Math.round((Math.log(faktor) / Math.log(40)) * 100);
+  });
+});
+
+$('s-schmal').addEventListener('click', () => { document.body.classList.add('schmal'); $('s-schmal').classList.add('an'); $('s-breit').classList.remove('an'); });
+$('s-breit').addEventListener('click', () => { document.body.classList.remove('schmal'); $('s-breit').classList.add('an'); $('s-schmal').classList.remove('an'); });
+
+malen();
+</script>
+</body>
+</html>

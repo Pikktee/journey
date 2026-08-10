@@ -345,14 +345,30 @@ export function schreibeTonFest(achse: Achse, startIso: string, klip: TonKlip): 
  *
  * `wiederholungen` ist die Zahl der Dateidurchläufe, die der Klip überdeckt —
  * nur bei Loop mehr als eine.
+ *
+ * GERECHNET WIRD IN ANTEILEN DER GANZEN ACHSE, nicht in Pixeln. Das ist keine
+ * Geschmacksfrage: Zoomen baut die Bahnen NICHT neu, es schreibt nur
+ * `--zeit-breite` fort (`setzeMassstab`) — Klips und Marken folgen über
+ * `calc(anteil * var(--zeit-breite))`. Feste Pixel hier blieben auf dem
+ * Maßstab stehen, der beim letzten Render galt: Die Wellenform behielt ihre
+ * Größe und endete nach dem Hineinzoomen weit vor dem Klip. Als Anteil
+ * ausgedrückt skaliert der Browser sie mit, ohne dass etwas neu gebaut wird.
+ *
+ * Bezug ist `gesamtFilmS`, weil genau dafür `--zeit-breite` steht
+ * (`zeitBreitePx` = gesamtFilmS × pxProFilmS — und zwar in genau dem Fall, in
+ * dem eine Filmsekunde überhaupt existiert; ohne Kurve fällt die Breite auf
+ * die Fensterbreite zurück, und dann gibt es hier nichts zu zeichnen).
  */
 export function wellenLage(
   klip: TonKlip,
-  pxProFilmS: number,
-): { breitePx: number; versatzPx: number; wiederholungen: number } | null {
-  if (!(klip.dateiS && klip.dateiS > 0) || !(pxProFilmS > 0)) return null
-  const breitePx = klip.dateiS * pxProFilmS
+  gesamtFilmS: number,
+): { breiteAnteil: number; versatzAnteil: number; wiederholungen: number } | null {
+  if (!(klip.dateiS && klip.dateiS > 0) || !(gesamtFilmS > 0)) return null
   const klipS = klip.filmBis - klip.filmVon
   const wiederholungen = klip.loop ? Math.max(1, Math.ceil((klip.einstiegS + klipS) / klip.dateiS)) : 1
-  return { breitePx, versatzPx: -klip.einstiegS * pxProFilmS, wiederholungen }
+  return {
+    breiteAnteil: klip.dateiS / gesamtFilmS,
+    versatzAnteil: -klip.einstiegS / gesamtFilmS,
+    wiederholungen,
+  }
 }

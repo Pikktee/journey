@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Maptale, Kopfleiste der Zeitleiste (Variante 2, ausgebaut)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Variante 2 „Abspielpult", ausgebaut
+
+   NUR ENTWURF. Klassen heißen `m-…`, damit nichts versehentlich wie
+   Produktivcode aussieht. Vorgänger mit allen vier Varianten:
+   studio-zeitleiste-kopf.html
+
+   Gegenüber dem ersten Wurf geändert:
+
+   1. DER ZOOM-WERT IST ZURÜCK — und hat eine feste Breite. Er läuft
+      von „1,0×" bis „40,0×" (ZOOM_MAX = 40), also vier bis fünf
+      Zeichen. `min-width: 4ch` reicht dafür nicht: Ab Faktor 10 wächst
+      der Knopf, und weil er am rechten Rand sitzt, schiebt er die
+      ganze Gruppe. Reserviert wird jetzt für den LÄNGSTEN Wert.
+   2. „KARTE FOLGT" HAT EIN EIGENES FACH zwischen Transport und
+      Anzeige. Vorher stand es ganz rechts an der Insel und las sich
+      wie ein Teil der Werte.
+   3. DIE ABLAGE TRÄGT IHREN ECHTEN TEXT („3 Aufnahmen ohne Ort"),
+      nicht die Zahl allein — und sie ist weg, wenn das Fach leer ist.
+   4. ANFANG/ENDE bekommen Pos1/Ende auf der Tastatur. Beides fehlt
+      heute; die Tastatur kennt nur Leertaste, J/K/L und die
+      Pfeiltasten (je 5 Filmsekunden).
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b;
+  --auf-akzent: #1a1206;
+  --text: #f2ede3;
+  --text-2: #a7b1bf;
+  --text-3: #7e8a99;
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --fl-1: #111722;
+  --fl-2: #161e2c;
+  --fl-3: #1e283a;
+  --rand: #232d3d;
+  --rand-hell: #2e3b4e;
+  --lila: #c58bff;
+  --blau: #5b9dff;
+  --rot: #e5484d;
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 15px; line-height: 1.55;
+  padding: 40px 28px 120px;
+}
+.seite { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px; }
+.unter { color: var(--text-2); margin: 0 0 34px; max-width: 74ch; }
+h2 { font-size: 19px; font-weight: 600; margin: 0 0 6px; }
+.wozu { color: var(--text-2); margin: 0 0 16px; max-width: 80ch; font-size: 14.5px; }
+section { margin: 0 0 52px; }
+.rahmen { border: 1px solid var(--rand); border-radius: var(--radius-lg); background: var(--bg-tief); overflow: hidden; }
+button { font-family: inherit; cursor: pointer; color: inherit; background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md); }
+svg { display: block; }
+code { font-size: 0.92em; color: var(--text); background: var(--fl-2); padding: 1px 5px; border-radius: 4px; }
+
+/* ─── Schaltpult des Mockups (gehört NICHT zur Oberfläche) ─── */
+.pult {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 12px 14px; margin: 0 0 14px;
+  border: 1px dashed var(--rand-hell); border-radius: var(--radius-md);
+  background: rgba(30, 40, 58, 0.25);
+}
+.pult span.titel { font-size: 12px; color: var(--text-3); margin-right: 4px; letter-spacing: 0.03em; text-transform: uppercase; }
+.pult button {
+  font-size: 12.5px; padding: 5px 11px; border-radius: var(--radius-sm);
+  background: var(--fl-1); color: var(--text-2);
+}
+.pult button:hover { border-color: var(--rand-hell); color: var(--text); }
+.pult button.an { background: var(--akzent); color: var(--auf-akzent); border-color: transparent; }
+.pult .fuge { width: 1px; height: 20px; background: var(--rand); margin: 0 4px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   DIE LEISTE
+   ═══════════════════════════════════════════════════════════════ */
+.m-kopf {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 16px 6px; user-select: none;
+}
+.m-links, .m-rechts { display: flex; align-items: center; gap: 10px; }
+
+/* Werkzeug-Register — unverändert aus dem Bestand. */
+.m-werkzeuge {
+  display: flex; align-items: center; gap: 3px; background: var(--fl-1);
+  border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 2px;
+}
+.m-wkz {
+  width: 27px; height: 24px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
+}
+.m-wkz svg { width: 15px; height: 15px; }
+.m-wkz:hover { color: var(--text-2); background: var(--fl-3); }
+.m-wkz.an { background: var(--akzent); color: var(--auf-akzent); }
+
+/* Ablage — trägt ihren Satz, nicht die Zahl allein. Sie ist ausgeblendet,
+   solange das Fach leer ist: Ein Knopf, der „0 Aufnahmen" meldet, ist eine
+   Auskunft über nichts und nimmt der Leiste Platz weg. */
+.m-ablage {
+  height: 28px; display: inline-flex; align-items: center; gap: 7px;
+  padding: 0 10px; font-size: 12.5px; color: var(--text-2); background: var(--fl-1);
+  white-space: nowrap;
+}
+.m-ablage svg { width: 14px; height: 14px; flex: none; }
+.m-ablage:hover { border-color: var(--rand-hell); color: var(--text); }
+.m-ablage.warnt { color: var(--akzent); border-color: rgba(245, 165, 36, 0.45); }
+body:not(.ablage-voll) .m-ablage { display: none; }
+
+/* ─── Das Pult in der Mitte ─────────────────────────────────────
+   Vier Fächer in einem Rahmen, durch Linien getrennt:
+     ① Transport  ② Karte folgt  ③ Werte  (④ nichts mehr)
+   Vorher hing „Karte folgt" hinter den Werten und las sich wie einer.
+   ──────────────────────────────────────────────────────────────── */
+.m-pult {
+  display: flex; align-items: stretch; height: 34px;
+  border-radius: var(--radius-md); background: var(--fl-1);
+  border: 1px solid var(--rand); padding: 0 3px;
+}
+.m-fach { display: flex; align-items: center; gap: 3px; padding: 0 7px; }
+.m-fach + .m-fach { border-left: 1px solid var(--rand); }
+.m-fach:first-child { padding-left: 3px; }
+.m-fach:last-child { padding-right: 11px; }
+
+.m-play {
+  width: 32px; height: 26px; display: grid; place-items: center; padding: 0;
+  border-radius: var(--radius-sm); border: none;
+  color: var(--auf-akzent); background: linear-gradient(135deg, var(--akzent), #f7b750);
+}
+.m-play svg { width: 15px; height: 15px; }
+.m-play:hover { filter: brightness(1.06); }
+.m-sprung {
+  width: 25px; height: 26px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
+}
+.m-sprung svg { width: 14px; height: 14px; }
+.m-sprung:hover { color: var(--text); background: var(--fl-3); }
+
+/* „Karte folgt" ist ein Schalter, kein Transportschritt — deshalb eigenes
+   Fach und amber EINGEFÄRBT statt voll-amber GEFÜLLT. Gefüllt ist im Pult
+   nur Play; voll-amber bleibt links das aktive Werkzeug-Segment. */
+.m-folge {
+  width: 27px; height: 26px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
+}
+.m-folge svg { width: 15px; height: 15px; }
+.m-folge:hover { color: var(--text); background: var(--fl-3); }
+.m-folge.an { color: var(--akzent); }
+.m-folge.an:hover { color: var(--akzent); background: rgba(245, 165, 36, 0.12); }
+
+/* Werte: laufender Wert ist Inhalt, Gesamtwert ist Bezug. */
+.m-werte { display: flex; align-items: center; gap: 10px; }
+.a-teil {
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 12.5px;
+}
+.a-teil > svg { width: 13px; height: 13px; flex: none; color: var(--text-3); }
+.a-teil.tag > svg { color: rgba(245, 165, 36, 0.85); }
+.a-teil.nacht > svg { color: rgba(150, 170, 210, 0.9); }
+.a-film { font-size: 15px; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+/* Der laufende Wert zählt beim Abspielen zehnmal je Sekunde hoch: eigener
+   Slot, sonst schiebt „0:09" → „0:10" alles rechts davon. */
+.a-film .slot { display: inline-block; min-width: 4ch; }
+.a-ges { font-size: 11.5px; color: var(--text-3); font-weight: 400; margin-left: 1px; }
+.a-km-cur { display: inline-block; min-width: 2.5ch; text-align: right; color: var(--text); }
+.a-punkt { width: 3px; height: 3px; border-radius: 50%; background: var(--rand-hell); flex: none; }
+
+/* ─── Zoom rechts ───────────────────────────────────────────────
+   DER PUNKT DIESER RUNDE: Der Wert-Knopf reserviert Platz für den
+   LÄNGSTEN Wert, nicht für den aktuellen. Der Faktor läuft 1,0…40,0 —
+   also vier ODER fünf Zeichen. `tabular-nums` macht Ziffern gleich
+   breit, nicht Zahlen gleich lang.
+
+   DIE BREITE IST GEMESSEN, NICHT GESCHÄTZT — der erste Anlauf mit
+   5,5ch war zu knapp und sprang weiter. In Outfit 12px mit
+   tabular-nums misst „1,0×" 29,95px und „40,0×" 38,80px; mit 2×8px
+   Innenabstand braucht der Knopf 54,8px. Ein `ch` ist hier 7,87px,
+   nötig sind also 6,97ch — nicht die fünf, die man aus „fünf
+   Zeichen" ableiten würde: `ch` ist die Breite der Ziffer NULL, und
+   in der Zeichenkette stehen ein Komma (schmaler) und ein „×"
+   (breiter). Daher 7,5ch, aufgerundet mit Luft für einen anderen
+   „×"-Schnitt.
+
+   Zentriert statt rechtsbündig: Zentriert wächst ein fehlendes
+   Zeichen zur Hälfte nach beiden Seiten, rechtsbündig wandert die
+   ganze Zahl an den Rand.
+   Der Regler daneben hat ohnehin feste Breite; die Lupen auch. Damit
+   steht die rechte Kante der Gruppe still, egal welcher Faktor.
+   ──────────────────────────────────────────────────────────────── */
+.m-zoom {
+  display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 5px;
+  border-radius: var(--radius-md); background: var(--fl-1); border: 1px solid var(--rand);
+}
+.m-zoom-b {
+  width: 24px; height: 24px; display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--text-3); border-radius: var(--radius-sm);
+}
+.m-zoom-b svg { width: 14px; height: 14px; }
+.m-zoom-b:hover { color: var(--text); background: var(--fl-3); }
+.m-zoom-b:disabled { opacity: 0.35; cursor: default; }
+.m-zoom-b:disabled:hover { color: var(--text-3); background: transparent; }
+.m-zoom input[type='range'] { width: 84px; accent-color: var(--akzent); cursor: pointer; }
+.m-fit {
+  height: 24px; min-width: 7.5ch; padding: 0 8px; text-align: center;
+  font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums;
+  border: none; background: transparent; border-left: 1px solid var(--rand);
+  border-radius: 0; margin-left: 2px;
+}
+.m-fit:enabled:hover { color: var(--text); }
+.m-fit:disabled { cursor: default; opacity: 0.75; }
+
+/* Der Fehler zum Vergleich — genau die heutige Regel. */
+.m-fit.alt { min-width: 4ch; text-align: left; }
+
+/* ─── Kulisse: der Streifen Zeitleiste ─────────────────────────── */
+.m-leiste { border-top: 1px solid var(--rand); background: var(--bg-tief); position: relative; }
+.m-skala { display: flex; height: 22px; align-items: flex-end; padding-left: 108px; border-bottom: 1px solid var(--rand); }
+.m-skala .tick { flex: 1; border-left: 1px solid var(--rand); height: 8px; position: relative; }
+.m-skala .tick span { position: absolute; top: -12px; left: 4px; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.m-spur { display: flex; height: 36px; border-bottom: 1px solid rgba(35, 45, 61, 0.6); }
+.m-spur-name {
+  width: 108px; flex: none; display: flex; align-items: center; gap: 7px;
+  padding-left: 12px; font-size: 11.5px; color: var(--text-3);
+  border-right: 1px solid var(--rand);
+}
+.m-spur-name svg { width: 13px; height: 13px; }
+.m-spur-feld { flex: 1; position: relative; }
+.m-klip { position: absolute; top: 6px; bottom: 6px; border-radius: 5px; font-size: 11px; display: flex; align-items: center; padding: 0 8px; color: var(--text); overflow: hidden; }
+.m-klip.foto { background: rgba(245, 165, 36, 0.22); border: 1px solid rgba(245, 165, 36, 0.5); }
+.m-klip.musik { background: rgba(91, 157, 255, 0.18); border: 1px solid rgba(91, 157, 255, 0.45); }
+.m-klip.band { background: rgba(197, 139, 255, 0.16); border: 1px solid rgba(197, 139, 255, 0.4); }
+.m-kopf-linie { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--akzent); left: 32%; z-index: 5; transition: left 120ms linear; }
+.m-kopf-linie::before { content: ''; position: absolute; top: 0; left: -5px; width: 12px; height: 10px; background: var(--akzent); border-radius: 3px 3px 2px 2px; }
+
+/* Schmales Fenster: dieselbe Leiste bei ~980 px Editorbreite. */
+body.schmal .buehne { max-width: 980px; }
+.buehne { transition: max-width 200ms ease; }
+
+/* ─── Der Breiten-Beweis ──────────────────────────────────────── */
+.beweis { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.beweis-karte { border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 16px; background: var(--fl-1); }
+.beweis-karte h3 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; }
+.beweis-karte h3.schlecht { color: var(--rot); }
+.beweis-karte h3.gut { color: #3ecf8e; }
+.beweis-karte p { margin: 0 0 14px; font-size: 13px; color: var(--text-2); }
+.beweis-reihe {
+  display: flex; justify-content: flex-end;
+  border-right: 2px solid var(--akzent); padding-right: 10px;
+}
+.beweis-hinweis { margin: 10px 0 0; font-size: 12px; color: var(--text-3); text-align: right; }
+
+.notiz { margin: 16px 0 0; padding-left: 16px; color: var(--text-2); font-size: 13.5px; max-width: 84ch; }
+.notiz li { margin: 0 0 5px; }
+.notiz b { color: var(--text); font-weight: 500; }
+.mass { display: flex; gap: 8px; padding: 8px 16px 10px; font-size: 11.5px; color: var(--text-3); border-top: 1px dashed rgba(46, 59, 78, 0.6); }
+.mass b { color: var(--text-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="ablage-voll">
+<div class="seite">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 5.5v13"/><path d="M15 5.5v13"/></symbol>
+  <symbol id="i-folge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.4 L6 18.6 L9.9 14.9 L12.3 20.4 L14.5 19.4 L12.1 14 L17.2 14 Z"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24" fill="currentColor"><path d="M10.4 2a1.45 1.45 0 00-1.45 1.45v5.9a.45.45 0 01-.9 0V5.55a1.4 1.4 0 10-2.8 0v8.2l-1.15-1.4a1.55 1.55 0 00-2.45 1.9l3.15 4.25A6.15 6.15 0 0011.75 21h1.6A6.15 6.15 0 0019.5 14.85V6.35a1.4 1.4 0 10-2.8 0v3.1a.45.45 0 01-.9 0V4.25a1.4 1.4 0 10-2.8 0v5.1a.45.45 0 01-.9 0V3.45A1.45 1.45 0 0010.4 2z"/></symbol>
+  <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-lupe-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8.6v4.8M8.6 11h4.8"/></symbol>
+  <symbol id="i-lupe-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8.6 11h4.8"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7.5 5.5v13M16.5 5.5v13M3.5 9.5h4M3.5 14.5h4M16.5 9.5h4M16.5 14.5h4"/></symbol>
+  <symbol id="i-sonne" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.1M12 19.1v2.1M21.2 12h-2.1M4.9 12H2.8M18.5 5.5l-1.5 1.5M7 17l-1.5 1.5M18.5 18.5 17 17M7 7 5.5 5.5"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></symbol>
+  <symbol id="i-spur-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.7-4.5L6.5 20"/></symbol>
+  <symbol id="i-spur-musik" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="17.5" r="2.4"/><circle cx="17.3" cy="15" r="2.4"/><path d="M9.4 17.5V6.2l10.3-2v10.8"/></symbol>
+  <symbol id="i-spur-kamera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/></symbol>
+  <symbol id="i-anfang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5.5v13L8 12z"/><path d="M6 5.5v13"/></symbol>
+  <symbol id="i-ende" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5.5v13L16 12z"/><path d="M18 5.5v13"/></symbol>
+</defs></svg>
+
+<h1>Variante 2 — Abspielpult</h1>
+<p class="unter">
+  Ausgebaut nach der Rückmeldung: Zoom-Wert zurück und mit fester Breite,
+  „Karte folgt" in ein eigenes Fach, Ablage mit ihrem echten Text. Das
+  Schaltpult unten ist Teil des Mockups, nicht der Oberfläche — damit lassen
+  sich die Zustände durchspielen.
+</p>
+
+<section>
+  <h2>Die Leiste</h2>
+  <div class="pult">
+    <span class="titel">Zustand</span>
+    <button id="s-play">Abspielen</button>
+    <button id="s-folge" class="an">Karte folgt</button>
+    <div class="fuge"></div>
+    <span class="titel">Ablage</span>
+    <button id="s-ablage" class="an">3 ohne Ort</button>
+    <button id="s-ablage-leer">leer</button>
+    <div class="fuge"></div>
+    <span class="titel">Zoom</span>
+    <button class="s-zoom an" data-z="1,0">1,0×</button>
+    <button class="s-zoom" data-z="4,2">4,2×</button>
+    <button class="s-zoom" data-z="12,5">12,5×</button>
+    <button class="s-zoom" data-z="40,0">40,0×</button>
+    <div class="fuge"></div>
+    <span class="titel">Fenster</span>
+    <button id="s-breit" class="an">breit</button>
+    <button id="s-schmal">schmal</button>
+  </div>
+
+  <div class="rahmen buehne">
+    <div class="m-kopf">
+      <div class="m-links">
+        <div class="m-werkzeuge">
+          <button class="m-wkz an" title="Auswahl (A)"><svg><use href="#i-cursor"/></svg></button>
+          <button class="m-wkz" title="Verschieben (H)"><svg><use href="#i-hand"/></svg></button>
+          <button class="m-wkz" title="Zoom (Z)"><svg><use href="#i-lupe"/></svg></button>
+        </div>
+        <button class="m-ablage warnt" title="Aufnahmen, die noch nicht auf der Strecke liegen">
+          <svg><use href="#i-spur-foto"/></svg><span id="ablage-text">3 Aufnahmen ohne Ort</span>
+        </button>
+      </div>
+
+      <div class="m-pult">
+        <div class="m-fach">
+          <button class="m-sprung" title="An den Anfang (Pos1)"><svg><use href="#i-anfang"/></svg></button>
+          <button class="m-play" id="play" title="Abspielen / Pause (Leertaste) · J K L"><svg><use href="#i-play"/></svg></button>
+          <button class="m-sprung" title="Ans Ende (Ende)"><svg><use href="#i-ende"/></svg></button>
+        </div>
+        <div class="m-fach">
+          <button class="m-folge an" id="folge" title="Karte folgt der Position (beim Abspielen)"><svg><use href="#i-folge"/></svg></button>
+        </div>
+        <div class="m-fach m-werte">
+          <span class="a-teil" title="Filmzeit: wo der Kopf im fertigen Film steht, und wie lang er wird">
+            <svg><use href="#i-film"/></svg>
+            <span class="a-film"><span class="slot" id="w-film">0:25</span><span class="a-ges"> / 1:20</span></span>
+          </span>
+          <span class="a-punkt"></span>
+          <span class="a-teil tag" title="Uhrzeit der Aufnahme an dieser Stelle">
+            <svg><use href="#i-sonne"/></svg><span id="w-uhr">15:58</span>
+          </span>
+          <span class="a-punkt"></span>
+          <span class="a-teil" title="Zurückgelegte Strecke von der Gesamtstrecke">
+            <svg><use href="#i-route"/></svg>
+            <span class="a-km-cur" id="w-km">0,3</span><span class="a-ges"> / 2,1 km</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="m-rechts">
+        <div class="m-zoom">
+          <button class="m-zoom-b" id="z-raus" title="Herauszoomen (⌘−)" disabled><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" id="z-regler" min="0" max="100" value="0" aria-label="Zeitleiste zoomen" />
+          <button class="m-zoom-b" id="z-rein" title="Hineinzoomen (⌘+)"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="m-fit" id="z-wert" title="An Fenster anpassen (⇧Z)" disabled>1,0×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-leiste">
+      <div class="m-skala">
+        <div class="tick"><span>0:00</span></div><div class="tick"><span>0:20</span></div>
+        <div class="tick"><span>0:40</span></div><div class="tick"><span>1:00</span></div>
+        <div class="tick"><span>1:20</span></div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-foto"/></svg>Szenen</div>
+        <div class="m-spur-feld">
+          <div class="m-klip foto" style="left:6%;width:16%">Hafen</div>
+          <div class="m-klip foto" style="left:38%;width:20%">Altstadt</div>
+          <div class="m-klip foto" style="left:74%;width:14%">Brücke</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-kamera"/></svg>Kamera</div>
+        <div class="m-spur-feld">
+          <div class="m-klip band" style="left:0%;width:44%">nah</div>
+          <div class="m-klip band" style="left:44%;width:56%">weit</div>
+        </div>
+      </div>
+      <div class="m-spur">
+        <div class="m-spur-name"><svg><use href="#i-spur-musik"/></svg>Musik</div>
+        <div class="m-spur-feld"><div class="m-klip musik" style="left:2%;width:70%">Nachtfahrt</div></div>
+      </div>
+      <div class="m-kopf-linie" id="kopflinie"></div>
+    </div>
+    <div class="mass">Pult: <b>≈ 470 px</b> · Zoom: <b>≈ 196 px</b>, konstant über alle Faktoren · Werkzeuge + Ablage: <b>≈ 285 px</b></div>
+  </div>
+
+  <ul class="notiz">
+    <li><b>Vier Fächer in einem Rahmen:</b> Transport · Karte folgt · Werte.
+      „Karte folgt" hat jetzt eine eigene Zelle — es ist ein Schalter, kein
+      Transportschritt und kein Messwert. Vorher stand es hinter den Zahlen und
+      las sich wie einer.</li>
+    <li><b>Gefüllt ist im Pult nur Play.</b> „Karte folgt" ist amber
+      <i>eingefärbt</i> statt voll-amber <i>gefüllt</i> — damit bleibt
+      Voll-Amber weiterhin dem aktiven Werkzeug-Segment links vorbehalten, und
+      die Regel bricht nicht.</li>
+    <li><b>Anfang/Ende brauchen Pos1/Ende auf der Tastatur.</b> Heute gibt es
+      dafür kein Kürzel; wer bei starkem Zoom an den Anfang will, zieht den
+      Abspielkopf über die halbe Leiste.</li>
+    <li><b>Die Ablage ist weg, wenn das Fach leer ist</b> — bei einer sauberen
+      Tour siehst du sie nie. Probier den Schalter oben: Die Mitte bleibt
+      trotzdem mittig, weil sie nicht von den Rändern abhängt.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Der Zoom-Wert steht still</h2>
+  <p class="wozu">
+    Der Faktor läuft von 1,0 bis 40,0, also vier oder fünf Zeichen. Heute
+    reserviert der Knopf <code>min-width: 4ch</code> und ist linksbündig — ab
+    Faktor 10 wächst er, und weil er ganz rechts sitzt, schiebt er die ganze
+    Gruppe nach links. Beide Kästen unten sind an einer gemeinsamen Kante
+    ausgerichtet (der amberfarbene Strich rechts); die Knöpfe oben im
+    Schaltpult schalten beide gleichzeitig.
+  </p>
+  <div class="beweis">
+    <div class="beweis-karte">
+      <h3 class="schlecht">Heute — <code>min-width: 4ch</code>, linksbündig</h3>
+      <p>Die rechte Kante wandert mit dem Wert. Bei jedem Zoomschritt über 10
+        springt die Gruppe um gut eine Zeichenbreite.</p>
+      <div class="beweis-reihe">
+        <div class="m-zoom">
+          <button class="m-zoom-b"><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" class="z-spiegel" min="0" max="100" value="0" />
+          <button class="m-zoom-b"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="m-fit alt w-spiegel">1,0×</button>
+        </div>
+      </div>
+      <p class="beweis-hinweis">↑ die Kante bewegt sich</p>
+    </div>
+    <div class="beweis-karte">
+      <h3 class="gut">Neu — <code>min-width: 7.5ch</code>, zentriert</h3>
+      <p>Platz für den längsten Wert, nicht für den aktuellen. Zentriert, damit
+        ein fehlendes Zeichen zur Hälfte nach beiden Seiten geht statt die
+        Zahl wandern zu lassen.</p>
+      <div class="beweis-reihe">
+        <div class="m-zoom">
+          <button class="m-zoom-b"><svg><use href="#i-lupe-minus"/></svg></button>
+          <input type="range" class="z-spiegel" min="0" max="100" value="0" />
+          <button class="m-zoom-b"><svg><use href="#i-lupe-plus"/></svg></button>
+          <button class="m-fit w-spiegel">1,0×</button>
+        </div>
+      </div>
+      <p class="beweis-hinweis">↑ die Kante steht</p>
+    </div>
+  </div>
+  <ul class="notiz">
+    <li><b>Warum 7,5ch und nicht 5ch — gemessen, nicht geschätzt.</b> Mein
+      erster Anlauf hier stand auf 5,5ch und sprang immer noch um 4,7 px; die
+      Nachmessung im Browser erklärt warum: „1,0×" ist 29,95 px breit, „40,0×"
+      38,80 px, macht mit 2×8 px Innenabstand <b>54,8 px</b>. Ein
+      <code>ch</code> misst in Outfit 12px genau 7,87 px — nötig sind also
+      6,97ch. <code>ch</code> ist die Breite der Ziffer NULL, und in „40,0×"
+      stehen ein Komma (schmaler) und ein „×" (breiter): Fünf Zeichen sind
+      eben nicht fünf <code>ch</code>. 7,5ch ist der aufgerundete Wert mit
+      Luft für einen anderen „×"-Schnitt.</li>
+    <li><b>Warum zentriert und nicht rechtsbündig:</b> Rechtsbündig steht zwar
+      die Kante still, aber die Zahl rückt bei „1,0×" von der Trennlinie ab und
+      klebt am Rand. Zentriert bleibt sie da, wo das Auge sie sucht.</li>
+    <li><b>Dasselbe Muster gilt für die Filmzeit</b> im Pult
+      (<code>min-width: 4ch</code> auf dem laufenden Wert): Sie zählt beim
+      Abspielen zehnmal je Sekunde hoch. Ohne Slot schiebt „0:09" → „0:10"
+      Uhrzeit und Kilometer nach rechts.</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+/* Nur Schaustellerei — die Zustände zum Durchklicken. */
+const $ = (id) => document.getElementById(id);
+
+/* — Abspielen — */
+let laeuft = false, uhr = null, t = 25;
+const FILM_GES = 80;
+function zeit(s) { return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
+function malen() {
+  $('w-film').textContent = zeit(t);
+  const anteil = t / FILM_GES;
+  $('kopflinie').style.left = `${(anteil * 100).toFixed(1)}%`;
+  // Die Aufnahme dauerte 26 Minuten; der Film daraus 1:20. Genau dafür gibt
+  // es zwei Uhren nebeneinander.
+  const min = 15 * 60 + 50 + Math.round(anteil * 26);
+  $('w-uhr').textContent = `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+  $('w-km').textContent = (anteil * 2.1).toFixed(1).replace('.', ',');
+}
+function spielUmschalten() {
+  laeuft = !laeuft;
+  $('play').querySelector('use').setAttribute('href', laeuft ? '#i-pause' : '#i-play');
+  $('s-play').classList.toggle('an', laeuft);
+  $('s-play').textContent = laeuft ? 'Anhalten' : 'Abspielen';
+  clearInterval(uhr);
+  if (laeuft) uhr = setInterval(() => { t = (t + 0.1) % FILM_GES; malen(); }, 100);
+}
+$('play').addEventListener('click', spielUmschalten);
+$('s-play').addEventListener('click', spielUmschalten);
+
+/* — Karte folgt — */
+function folgeUmschalten() {
+  const an = $('folge').classList.toggle('an');
+  $('s-folge').classList.toggle('an', an);
+}
+$('folge').addEventListener('click', folgeUmschalten);
+$('s-folge').addEventListener('click', folgeUmschalten);
+
+/* — Ablage — */
+$('s-ablage').addEventListener('click', () => {
+  document.body.classList.add('ablage-voll');
+  $('s-ablage').classList.add('an'); $('s-ablage-leer').classList.remove('an');
+});
+$('s-ablage-leer').addEventListener('click', () => {
+  document.body.classList.remove('ablage-voll');
+  $('s-ablage-leer').classList.add('an'); $('s-ablage').classList.remove('an');
+});
+
+/* — Zoom: setzt Wert, Regler und die beiden Spiegel im Beweis-Abschnitt — */
+document.querySelectorAll('.s-zoom').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.s-zoom').forEach((x) => x.classList.remove('an'));
+    b.classList.add('an');
+    const txt = b.dataset.z + '×';
+    const faktor = parseFloat(b.dataset.z.replace(',', '.'));
+    const pos = Math.round((Math.log(faktor) / Math.log(40)) * 100);
+    $('z-wert').textContent = txt;
+    $('z-wert').disabled = faktor === 1;
+    $('z-raus').disabled = faktor === 1;
+    $('z-rein').disabled = faktor >= 40;
+    $('z-regler').value = pos;
+    document.querySelectorAll('.w-spiegel').forEach((w) => { w.textContent = txt; });
+    document.querySelectorAll('.z-spiegel').forEach((r) => { r.value = pos; });
+  });
+});
+
+/* — Fensterbreite — */
+$('s-schmal').addEventListener('click', () => {
+  document.body.classList.add('schmal');
+  $('s-schmal').classList.add('an'); $('s-breit').classList.remove('an');
+});
+$('s-breit').addEventListener('click', () => {
+  document.body.classList.remove('schmal');
+  $('s-breit').classList.add('an'); $('s-schmal').classList.remove('an');
+});
+
+malen();
+</script>
+</body>
+</html>

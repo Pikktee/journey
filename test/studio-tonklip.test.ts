@@ -369,22 +369,43 @@ describe('wellenLage — die Wellenform gehört zur DATEI, nicht zum Klip', () =
 
   it('misst in DATEI-Breite und schiebt um den Einstieg — man sieht, was wegfällt', () => {
     // Auf Klipbreite gestaucht sähe jeder Trim wie ein Tempowechsel aus.
-    const lage = wellenLage(basis, 10)
-    expect(lage?.breitePx).toBeCloseTo(600, 6) // 60 s Datei × 10 px/s
-    expect(lage?.versatzPx).toBeCloseTo(-40, 6) // um den Einstieg nach links
+    const lage = wellenLage(basis, 120)
+    expect(lage?.breiteAnteil).toBeCloseTo(0.5, 6) // 60 s Datei von 120 s Film
+    expect(lage?.versatzAnteil).toBeCloseTo(-4 / 120, 6) // um den Einstieg nach links
     expect(lage?.wiederholungen).toBe(1)
   })
 
+  // Der Bug, der das ausgelöst hat: Gerechnet wurde in Pixeln des aktuellen
+  // Maßstabs, aber Zoomen baut die Bahnen nicht neu — es schreibt nur
+  // `--zeit-breite` fort. Die Wellenform blieb dadurch auf ihrer alten Größe
+  // stehen und endete weit vor dem Klip. Als ANTEIL ist sie vom Maßstab
+  // unabhängig, und genau das hält dieser Test fest.
+  it('hängt nur an der Filmdauer, nicht am Zoom', () => {
+    const lage = wellenLage(basis, 120)
+    // Dieselbe Tour, zehnfach hineingezoomt: `gesamtFilmS` ändert sich dabei
+    // nicht — der Anteil also auch nicht.
+    expect(wellenLage(basis, 120)).toEqual(lage)
+    // Und ein anderer Film gibt einen anderen Anteil: 60 s Datei füllen einen
+    // 60-s-Film ganz.
+    expect(wellenLage(basis, 60)?.breiteAnteil).toBeCloseTo(1, 6)
+  })
+
   it('wiederholt nur bei Loop', () => {
-    expect(wellenLage({ ...basis, dateiS: 8, loop: false }, 10)?.wiederholungen).toBe(1)
+    expect(wellenLage({ ...basis, dateiS: 8, loop: false }, 120)?.wiederholungen).toBe(1)
     // 4 s Einstieg + 20 s Klip = 24 s über eine 8-s-Datei → drei Durchläufe
-    expect(wellenLage({ ...basis, dateiS: 8, loop: true }, 10)?.wiederholungen).toBe(3)
+    expect(wellenLage({ ...basis, dateiS: 8, loop: true }, 120)?.wiederholungen).toBe(3)
   })
 
   it('bleibt weg, solange die Datei nicht gemessen ist', () => {
     const ohne = { ...basis }
     delete (ohne as { dateiS?: number }).dateiS
-    expect(wellenLage(ohne, 10)).toBeNull()
+    expect(wellenLage(ohne, 120)).toBeNull()
+  })
+
+  // Ohne Kurve (degenerierte Tour) fällt `--zeit-breite` auf die Fensterbreite
+  // zurück — dann stimmt der Bezug nicht mehr und es gibt nichts zu zeichnen.
+  it('bleibt weg, solange es keine Filmdauer gibt', () => {
+    expect(wellenLage(basis, 0)).toBeNull()
   })
 })
 
