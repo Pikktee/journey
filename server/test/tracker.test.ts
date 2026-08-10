@@ -362,6 +362,35 @@ describe('Webhook → Tour', () => {
     expect(zeile.fehler).toContain('Zu kurz')
   })
 
+  it('importiert eine KURZE, aber echte Runde — die Schwelle fängt nur Versehen', async () => {
+    // Gemeldet an einer 521-m-Runde: Polar fragt bei kurzen Einheiten selbst,
+    // ob man sie behalten will. Wer dort ja sagt und sie hier trotzdem nicht
+    // wiederfindet, sucht den Fehler bei uns — zu Recht. Verworfen wird nur,
+    // was NIEMAND entschieden hat (Uhr in der Jackentasche).
+    const kurzAberEcht: RohTrack = {
+      format: 'punkte',
+      // ~500 m in sechs Minuten
+      punkte: [
+        { lat: 46.5934, lng: 7.9086, ele: 800, zeit: '2026-07-04T08:00:00Z' },
+        { lat: 46.5957, lng: 7.9086, ele: 802, zeit: '2026-07-04T08:03:00Z' },
+        { lat: 46.5979, lng: 7.9086, ele: 804, zeit: '2026-07-04T08:06:00Z' },
+      ],
+      start: '2026-07-04T08:00:00Z',
+      ende: '2026-07-04T08:06:00Z',
+    }
+    const { u } = await baueMitProvider(
+      new TestProvider({ webhookGeheimnis: WEBHOOK_GEHEIMNIS, tracks: { kurz: kurzAberEcht } }),
+    )
+    await verknuepfe(u)
+    await melde(u, { event: 'EXERCISE', user_id: 'extern-1', entity_id: 'kurz' })
+    const zeile = u.app.deps.db.prepare('SELECT status, tour_id FROM tracker_importe').get() as {
+      status: string
+      tour_id: string | null
+    }
+    expect(zeile.status).toBe('fertig')
+    expect(zeile.tour_id).toMatch(/^t_/)
+  })
+
   it('führt einen unbekannten Anbieter-Fehler als Fehler, mit lesbarem Grund', async () => {
     const { u } = await baueMitProvider()
     await verknuepfe(u)

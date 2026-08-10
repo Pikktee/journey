@@ -6,6 +6,15 @@ die Bedien-Seite der Overlays in [src/studio/CLAUDE.md](../src/studio/CLAUDE.md)
 
 ## Medien und Pipeline
 
+**HEIC wird beim Aufbereiten aufgelöst, in ZWEI Läufen** (`istKachelbild` in bild.ts): Ein
+HEIC vom Telefon besteht aus Kacheln (vier Streams à 512×512 für ein Bild von 1024×1024).
+ffmpeg setzt sie selbst zusammen, aber nur über einen komplexen Filtergraphen — und der
+verträgt sich nicht mit unserem `-vf`. Der naheliegende Ausweg ist eine FALLE:
+`-filter_complex "[0:v]scale=…"` läuft anstandslos durch und liefert Kachel null, also das
+linke obere Viertel (gemessen gegen das richtige Bild: SSIM 0,45). Ohne Filter macht ffmpeg
+es von selbst richtig; PNG als Zwischenformat, damit nicht zweimal JPEG-Verluste
+übereinanderliegen. Der zweistufige Weg ergibt bitgenau dasselbe Bild (SSIM 1,0).
+
 **Ausgeliefert werden ABGELEITETE Fassungen, nicht das Hochgeladene**
 ([bild.ts](server/src/pipeline/bild.ts)). Aus jedem Foto entstehen beim Rendern zwei Dateien —
 `m1.w1920.jpg` (Anzeige, längste Kante 1920) und `m1.t480.jpg` (Kachel für Listen, Zeitleiste,

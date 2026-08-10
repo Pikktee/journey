@@ -94,15 +94,15 @@ private val KAMERA_ORDNER = listOf("camera", "dcim", "kamera", "100andro", "open
  * Nebenwirkung, die man sonst extra bauen müsste: Das RAW und sein JPEG sind
  * DASSELBE Bild. Ohne diesen Filter läge beides in der Tour.
  */
-private val ERLAUBTE_ENDUNGEN = setOf("jpg", "jpeg", "png", "webp")
+private val ERLAUBTE_ENDUNGEN = setOf("jpg", "jpeg", "png", "webp", "heic", "heif")
 
 /**
  * Nimmt der Server dieses Bild überhaupt an?
  *
- * Bekannte Lücke: **HEIC fehlt.** Wessen Kamera in HEIC speichert (auf vielen
- * Telefonen die Voreinstellung), bekommt derzeit keinen Vorschlag — nicht weil
- * die Bilder nicht gefunden würden, sondern weil die Pipeline sie nicht lesen
- * kann. Das gehört auf der Serverseite gelöst, nicht durch ein Aufweichen hier.
+ * `heic`/`heif` sind seit v0.55.3 dabei — die Voreinstellung vieler Kameras.
+ * Der Server löst sie beim Aufbereiten auf; gelöst wurde das dort und nicht
+ * hier, weil es sonst nur Android repariert hätte: Das Studio nimmt dieselben
+ * Dateien entgegen, und die spätere iOS-App bekäme das Problem ein zweites Mal.
  */
 fun endungErlaubt(dateiname: String): Boolean =
     dateiname.substringAfterLast('.', "").lowercase() in ERLAUBTE_ENDUNGEN

@@ -42,14 +42,26 @@ export function modusAusSportart(sportart: string | null | undefined): Modus | n
 }
 
 /**
- * Mindestgröße einer importierten Aktivität.
+ * Mindestgröße einer importierten Aktivität — die Schwelle gegen VERSEHEN,
+ * nicht gegen kurze Touren.
  *
- * Ohne Schwelle landet jede 400-m-Aufwärmrunde als eigene Tour im Konto — nach
- * einer Woche ist die Bibliothek Müll, und niemand hat sie angelegt. Die Werte
- * sind bewusst niedrig: Sie sollen Ausreißer fangen, nicht kuratieren.
+ * **Sie stand bis 2026-08-10 bei 1 km / 10 min, und das war falsch gedacht.**
+ * Die Begründung lautete „sonst ist die Bibliothek nach einer Woche Müll" — nur
+ * hat diese Entscheidung längst jemand anders getroffen: Wer bei Polar eine
+ * kurze Einheit speichert, wird dort ausdrücklich gefragt, ob er sie behalten
+ * will. Sagt er ja und Maptale verwirft sie trotzdem, überstimmen wir eine
+ * Entscheidung, die der Nutzer bewusst gefällt hat — und er sucht den Fehler
+ * bei uns. Genau so gemeldet, an einer 521-m-Runde.
+ *
+ * Was bleibt, ist eine Schwelle gegen das, was NIEMAND entschieden hat: die
+ * versehentlich gestartete und gleich wieder beendete Aufzeichnung, die Uhr in
+ * der Jackentasche. Dafür genügen hundert Meter und zwei Minuten.
+ *
+ * Beide Bedingungen müssen zutreffen (`&&`): Eine halbe Stunde auf der Stelle
+ * ist eine Aufzeichnung, kein Versehen — und eine, die jemand behalten wollte.
  */
-export const MIN_STRECKE_M = 1000
-export const MIN_DAUER_S = 600
+export const MIN_STRECKE_M = 100
+export const MIN_DAUER_S = 120
 
 export interface AnlageQuelle {
   anbieter: TrackerAnbieter

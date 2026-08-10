@@ -90,12 +90,57 @@ export class FfmpegBildWerkzeug implements BildWerkzeug {
     ]
       .filter(Boolean)
       .join(',')
-    await execFileP(
-      this.ffmpeg,
-      ['-y', '-loglevel', 'error', '-i', quellPfad, '-vf', kette, '-q:v', String(guete), zielPfad],
-      { maxBuffer: 8 * 1024 * 1024 },
-    )
+    // HEIC/HEIF braucht einen Zwischenschritt — s. `istKachelbild`.
+    const quelle = istKachelbild(quellPfad) ? await this.setzeKachelnZusammen(quellPfad) : quellPfad
+    try {
+      await execFileP(
+        this.ffmpeg,
+        ['-y', '-loglevel', 'error', '-i', quelle, '-vf', kette, '-q:v', String(guete), zielPfad],
+        { maxBuffer: 8 * 1024 * 1024 },
+      )
+    } finally {
+      if (quelle !== quellPfad) await rm(quelle, { force: true })
+    }
   }
+
+  /**
+   * Ein HEIF-Bild in eine gewöhnliche Datei auflösen — verlustfrei als PNG.
+   *
+   * **Warum überhaupt zwei Läufe.** Ein HEIC vom Telefon besteht aus KACHELN
+   * (das Beispiel: vier Streams à 512×512 für ein Bild von 1024×1024). ffmpeg
+   * setzt sie selbst zusammen, aber nur über einen komplexen Filtergraphen —
+   * und der verträgt sich nicht mit unserem `-vf`; der Aufruf endet mit
+   * „Simple and complex filtering cannot be used together".
+   *
+   * Der naheliegende Ausweg ist eine Falle: `-filter_complex "[0:v]scale=…"`
+   * läuft anstandslos durch und liefert ein plausibel aussehendes Bild —
+   * nämlich KACHEL NULL, also das linke obere Viertel. Gemessen gegen das
+   * richtige Bild: SSIM 0,45. Aufgefallen wäre es erst an den Fotos einer
+   * fertigen Tour.
+   *
+   * Ohne Filter macht ffmpeg es dagegen von selbst richtig (SSIM 0,98 nach dem
+   * zweiten Lauf; der Rest ist JPEG-Rundung). PNG als Zwischenformat, damit
+   * nicht zweimal JPEG-Verluste übereinanderliegen.
+   */
+  private async setzeKachelnZusammen(quellPfad: string): Promise<string> {
+    const ziel = `${quellPfad}.stitch.png`
+    await execFileP(this.ffmpeg, ['-y', '-loglevel', 'error', '-i', quellPfad, ziel], {
+      maxBuffer: 8 * 1024 * 1024,
+    })
+    return ziel
+  }
+}
+
+/**
+ * Bilder, die vor dem Skalieren aufgelöst werden müssen.
+ *
+ * An der ENDUNG erkannt und nicht am Inhalt: Der Ablagename entsteht aus der
+ * geprüften Endung des Uploads (`mediumDateiname`), ist also keine Behauptung
+ * des Clients, sondern eine Zusage des Servers.
+ */
+export function istKachelbild(pfad: string): boolean {
+  const endung = pfad.toLowerCase().split('.').pop()
+  return endung === 'heic' || endung === 'heif'
 }
 
 /**

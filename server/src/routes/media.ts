@@ -33,6 +33,11 @@ const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
   png: 'image/png',
   webp: 'image/webp',
+  // Nur bis zum ersten Render: Danach ist das Original verworfen und
+  // ausgeliefert wird die JPEG-Ableitung. Ohne Eintrag ginge es als
+  // octet-stream raus und der Studio-Editor zeigte eine leere Fläche.
+  heic: 'image/heic',
+  heif: 'image/heif',
   mp4: 'video/mp4',
   mov: 'video/quicktime',
   webm: 'video/webm',

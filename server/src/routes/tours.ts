@@ -660,6 +660,10 @@ function bildMedientyp(datei: string): string {
   const endung = datei.toLowerCase().split('.').pop()
   if (endung === 'png') return 'image/png'
   if (endung === 'webp') return 'image/webp'
+  // Nur der Rückfall: Normalerweise analysiert die Kachel-Fassung (JPEG). Ein
+  // Modell, das HEIC nicht liest, meldet es sauber — besser als ein falsch
+  // deklarierter Typ.
+  if (endung === 'heic' || endung === 'heif') return 'image/heic'
   return 'image/jpeg'
 }
 

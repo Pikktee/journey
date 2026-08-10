@@ -208,7 +208,10 @@ export const nachreichenJsonSchema = {
 
 /** Erlaubte Datei-Endungen je Medientyp (bestimmt die abgelegte Datei) */
 const ENDUNGEN: Record<UploadMedium['type'], string[]> = {
-  photo: ['jpg', 'jpeg', 'png', 'webp'],
+  // heic/heif: Voreinstellung vieler Kameras (iPhone, viele Androids). Die
+  // Pipeline löst sie beim Aufbereiten auf (s. `istKachelbild` in bild.ts) —
+  // ausgeliefert wird ohnehin nie das Hochgeladene, sondern die Ableitung.
+  photo: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
   video: ['mp4', 'mov', 'webm'],
 }
 

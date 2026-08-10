@@ -109,8 +109,9 @@ class FotofensterTest {
         assertTrue(endungErlaubt("a.webp"))
         assertFalse(endungErlaubt("a.dng"))
         assertFalse(endungErlaubt("a.mp4"))
-        // Bekannte Lücke: HEIC nimmt der Server (noch) nicht an.
-        assertFalse(endungErlaubt("a.heic"))
+        // HEIC nimmt der Server seit v0.55.3 an (er löst die Kacheln auf).
+        assertTrue(endungErlaubt("a.heic"))
+        assertTrue(endungErlaubt("a.HEIF"))
     }
 
     @Test

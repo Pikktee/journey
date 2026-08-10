@@ -828,8 +828,14 @@ Nichts davon blockiert Etappe 1, aber jedes will vor seiner Etappe beantwortet s
 3. **Fortbewegungsart aus der Sportart.** Anbieter melden „Ride"/„Run"/„Hike"; daraus
    `bike`/`walk` abzuleiten ist naheliegend — die Zuordnungstabelle gehört in den Kern, nicht
    in jeden Adapter, und die vorhandene Server-Erkennung (Tempo, Schienen) bleibt darüber.
-4. **Mindestlänge für einen Import.** Eine 400-m-Aktivität als Tour anzulegen erzeugt Müll im
-   Konto. Ein Schwellwert (Vorschlag: 1 km oder 10 min) mit Status `uebersprungen`.
+4. ~~**Mindestlänge für einen Import.**~~ **Entschieden (2026-08-10) und einmal korrigiert.**
+   Zuerst 1 km / 10 min mit der Begründung „sonst ist die Bibliothek Müll" — das war falsch
+   gedacht: Wer bei Polar eine kurze Einheit speichert, wird DORT gefragt, ob er sie behalten
+   will. Sagt er ja und wir verwerfen sie trotzdem, überstimmen wir eine bewusste Entscheidung,
+   und der Nutzer sucht den Fehler bei uns (genau so gemeldet, an einer 521-m-Runde). Jetzt
+   **100 m UND 2 min** — eine Schwelle gegen das VERSEHEN (Uhr in der Jackentasche), nicht
+   gegen kurze Touren. Beide Bedingungen müssen zutreffen: Eine halbe Stunde auf der Stelle
+   ist eine Aufzeichnung, kein Versehen.
 5. **Strava-Auflagen** (Branding, Darstellung, Videos) — vor Etappe 10 im aktuellen
    API-Agreement prüfen, nicht aus diesem Dokument übernehmen.
 
