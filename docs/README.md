@@ -29,6 +29,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`overlay-und-tourjson.md`](specs/overlay-und-tourjson.md) — Rollenverteilung zwischen `edits.json`, `anreicherung.json` und `tour.json`.
 
 ### 3. `architecture/` (Umgesetzte Entscheidungen)
+* [`systemuebersicht.md`](architecture/systemuebersicht.md) — Tech-Stack & High-Level-Systemarchitektur (Einstieg mit Diagrammen).
 * [`foto-pins-3d.md`](architecture/foto-pins-3d.md) — Three.js Custom-Layer für 3D-Fotopins & Mercator-Skalierung.
 * [`renderer-plan.md`](architecture/renderer-plan.md) — Deck.gl / Three.js Renderer-Landschaft (Stufen, Flaggen).
 * [`zeitleiste-umbau.md`](architecture/zeitleiste-umbau.md) — Filmzeit-Achse, Halt-Klips, Zustandsbänder, Ton-Trim.
