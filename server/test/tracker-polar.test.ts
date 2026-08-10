@@ -330,7 +330,12 @@ describe('Track holen', () => {
 })
 
 describe('Nachziehen (Rückfall, wenn eine Zustellung verloren ging)', () => {
-  it('listet Aktivitäten und filtert nach dem letzten Abruf', async () => {
+  // Die Umkehrung eines früheren Verhaltens: Gefiltert wurde nach der
+  // STARTZEIT der Übung, verglichen mit dem Cursor des letzten Abrufs. Bei
+  // Polar liegen zwischen beidem Stunden — eine Übung erscheint erst, wenn die
+  // Uhr synchronisiert, und dazu muss die Ergebnisansicht weggeklickt sein.
+  // Wer in dieser Lücke abrief, verlor seine Tour dauerhaft.
+  it('listet auch, was VOR dem letzten Abruf begann — es erscheint später', async () => {
     const liste = [
       uebung({ id: 'alt', 'start-time': '2026-07-01T10:00:00', 'start-time-utc-offset': 0 }),
       uebung({ id: 'neu', 'start-time': '2026-07-05T10:00:00', 'start-time-utc-offset': 0 }),
@@ -338,7 +343,7 @@ describe('Nachziehen (Rückfall, wenn eine Zustellung verloren ging)', () => {
     const { hol } = baueHol([[/\/v3\/exercises$/, { json: liste }]])
     const provider = new PolarProvider(ZUGANG, hol)
     const ereignisse = await provider.listeNeue(TOKENS, '2026-07-04T00:00:00Z')
-    expect(ereignisse.map((e) => e.externeId)).toEqual(['neu'])
+    expect(ereignisse.map((e) => e.externeId)).toEqual(['alt', 'neu'])
     expect(ereignisse[0]?.externerNutzer).toBe('4711')
   })
 

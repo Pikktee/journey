@@ -175,7 +175,8 @@ jedem Datenbankzugriff (sonst wäre schon das Protokoll ein Ziel für Müll von 
 Zustellung für ein unbekanntes Konto wird STILL verworfen — eine Fehlermeldung wäre eine
 Auskunft darüber, welche Anbieter-Konten bei uns liegen.
 
-**`uebersprungen` ist kein Fehler.** Aktivität ohne GPS, zu kurz (< 1 km UND < 10 min) oder
+**`uebersprungen` ist kein Fehler.** Aktivität ohne GPS, zu kurz (< 100 m UND < 2 min — die
+Schwelle steht gegen das VERSEHEN, nicht gegen die kurze Runde, s. `touranleger.ts`) oder
 Speicher voll: Das sind normale Ereignisse, keine Störungen. Als Fehler geführt stünde die
 Liste eines Vielsportlers dauerhaft rot, und die eine echte Störung ginge darin unter.
 Umgekehrt gilt: Eine tote Verknüpfung wird SICHTBAR tot (`abgelaufen` samt Grund) — der Nutzer
@@ -198,6 +199,17 @@ listet er sie nie wieder auf, und beim Polling-Anbieter gibt es keinen zweiten W
 Deshalb setzt ihn `fuehreImporteAus` am ENDE und nur, wenn nichts Wiederholbares übrig ist,
 und zwar je Verknüpfung (ein Stapel kann aus mehreren stammen). Die Route setzt ihn nur noch
 im Fall „nichts gefunden".
+
+**Wogegen der Cursor NICHT gehalten werden darf, ist die Startzeit einer Aktivität.** Er läuft
+in Wanduhrzeit; eine Aktivität erscheint beim Anbieter aber lange nach ihrem Start — bei Polar
+erst, wenn die Uhr synchronisiert, und dazu muss am Handgelenk die Ergebnisansicht weggeklickt
+sein. Wer in dieser Lücke „Jetzt abrufen" drückt, schob den Cursor hinter die Startzeit seiner
+eigenen Tour, und der Vergleich filterte sie danach für immer weg: Der Rückfallweg konnte das
+eine nicht, wofür es ihn gibt. `PolarProvider.listeNeue` filtert deshalb GAR NICHT mehr nach
+Zeit — die Grenze ist `beanspruche` (Import-Zeile in der Datenbank, VOR jedem Netzaufruf), und
+Polars Liste ist ohnehin kurz. Ein künftiger Adapter, der `seit` an die Anbieter-API
+weiterreicht, muss prüfen, worauf sie filtert (Erscheinungszeit ja, Startzeit nein) und im
+Zweifel großzügig überlappen.
 
 **„Jetzt abrufen" ist eine teure Route** — ein Anbieter-Aufruf plus je Aktivität ein voller
 Pipeline-Lauf, dieselbe Sorte Last wie ein Datenexport und mit derselben Begründung gebremst

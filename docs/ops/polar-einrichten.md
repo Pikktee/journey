@@ -96,17 +96,30 @@ Drei Dinge, die man dabei falsch macht:
 2. **Danach** ein Training aufzeichnen und in Polar Flow synchronisieren. Die Reihenfolge ist
    nicht verhandelbar: Polar liefert **keine Historie**, sondern nur, was nach der
    Registrierung entsteht. Wer vorher aufzeichnet, wartet vergeblich.
-3. Die Tour erscheint privat in der Bibliothek; die Importliste im Konto zeigt Status und im
+3. **Auf der Uhr die Ergebnisansicht wegklicken.** Das ist der Schritt, den man nicht
+   erwartet und der nirgends steht: Solange die Zusammenfassung des Trainings am Handgelenk
+   offen ist, gilt die Einheit als nicht abgeschlossen — sie wird nicht synchronisiert, Polar
+   erfährt nichts davon, und es geht kein Webhook raus. Von außen sieht das exakt aus wie ein
+   kaputter Webhook: leere Chronik, keine Meldung, kein Eintrag im Log. Am eigenen Gerät
+   gefunden (2026-08-10), nachdem alles andere geprüft war.
+4. Die Tour erscheint privat in der Bibliothek; die Importliste im Konto zeigt Status und im
    Fehlerfall den Grund.
 
 Kommt nichts an, in dieser Reihenfolge prüfen:
 
 | Prüfen | Wie |
 |---|---|
+| Ist die Einheit auf der Uhr abgeschlossen? | Ergebnisansicht wegklicken (s. Schritt 3), dann in Polar Flow nachsehen: Steht sie dort nicht, kommt sie auch bei uns nie an |
 | Ist der Import überhaupt gemeldet? | Importliste im Konto (`GET /api/tracker/imports`) |
-| Kam die Zustellung an? | Server-Log — eine abgewiesene Signatur steht als 401 |
+| Klopft Polar überhaupt an? | Nginx-Access-Log: `grep 'webhooks/tracker/polar' /home/*/logs/*access.log` — steht dort nichts, ist der Webhook nicht registriert (`GET /v3/webhooks`), und das API-Log kann folgerichtig auch nichts zeigen |
+| Kam die Zustellung an? | API-Log — eine abgewiesene Signatur steht als 401 (fehlendes `MAPTALE_POLAR_WEBHOOK_SECRET`) |
 | Liegt es an der Zustellung? | `POST /api/tracker/polar/sync` holt dieselbe Aktivität ohne Webhook |
 | Hat die Aktivität eine Route? | Status `uebersprungen` mit Grund — Hallentraining hat keine |
+
+**Der manuelle Abruf holt auch Älteres nach.** Er filtert bewusst nicht nach dem Zeitpunkt des
+letzten Abrufs: Eine Übung erscheint bei Polar Stunden nach ihrem Start (s. Schritt 3), und ein
+Vergleich mit ihrer Startzeit schloss sie früher dauerhaft aus. Doppelt angelegt wird dabei
+nichts — die Grenze ist die Import-Zeile in der Datenbank, nicht die Uhrzeit.
 
 ## 5. Was der Import mit den Daten macht
 

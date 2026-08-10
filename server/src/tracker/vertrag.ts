@@ -120,7 +120,23 @@ export interface TrackerProvider {
     antwort?(anfrage: WebhookAnfrage): unknown
   }
 
-  /** Ohne Webhook: seit `seit` neue Aktivitäten auflisten (Polling-Fallback). */
+  /**
+   * Ohne Webhook: neue Aktivitäten auflisten (Polling-Fallback).
+   *
+   * **`seit` ist ein Hinweis, keine Filtervorschrift — und die STARTZEIT einer
+   * Aktivität ist der falsche Gegenwert dazu.** Der Cursor läuft in
+   * Wanduhrzeit und rückt auch dann vor, wenn ein Abruf nichts fand; eine
+   * Aktivität erscheint beim Anbieter aber oft lange nach ihrem Start (die Uhr
+   * synchronisiert später, der Anbieter rechnet nach). Wer beides vergleicht,
+   * verliert genau die Aktivitäten dauerhaft, die in dieser Lücke lagen — und
+   * das ist der einzige Fall, für den es den Polling-Weg gibt. Genau so
+   * geschehen, s. `PolarProvider.listeNeue`.
+   *
+   * Wer `seit` an eine Anbieter-API weiterreicht, prüfe also, WORAUF sie
+   * filtert (Erscheinungszeit ist richtig, Startzeit nicht) — im Zweifel
+   * großzügig überlappen lassen: Doppeltes fängt `beanspruche` im Kern ab,
+   * bevor auch nur ein Byte geholt wird.
+   */
   listeNeue?(tokens: ProviderTokens, seit: string | null): Promise<TrackerEreignis[]>
 
   holeTrack(tokens: ProviderTokens, externeId: string): Promise<RohTrack>

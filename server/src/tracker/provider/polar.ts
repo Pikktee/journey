@@ -241,32 +241,38 @@ export class PolarProvider implements TrackerProvider {
   }
 
   /**
-   * Aktivitäten seit `seit` auflisten — der Rückfall, wenn eine Zustellung
-   * verloren ging.
+   * Alles auflisten, was Polar gerade vorhält — der Rückfall, wenn eine
+   * Zustellung verloren ging.
    *
-   * Polar hält hier nur ein begrenztes Fenster vor; das ist der Preis dafür,
-   * dass es überhaupt einen Weg zurück gibt. Für den Normalfall bleibt der
-   * Webhook zuständig.
+   * **`seit` wird bewusst NICHT angewandt, und das war einmal ein Fehler.**
+   * Der Cursor (`zuletztSyncAm`) läuft in Wanduhrzeit und rückt auch dann vor,
+   * wenn ein Abruf nichts fand; die einzige Zeit, die eine Übung mitbringt, ist
+   * ihre STARTZEIT. Zwischen beiden liegt bei Polar regelmäßig eine große
+   * Lücke: Eine Übung erscheint erst, wenn die Uhr synchronisiert — und dazu
+   * muss am Handgelenk die Ergebnisansicht weggeklickt sein, was Stunden
+   * dauern kann. Wer in dieser Lücke „Jetzt abrufen" drückt, schiebt den
+   * Cursor hinter die Startzeit seiner eigenen Tour, und danach filtert genau
+   * dieser Vergleich sie für immer weg. Der Rückfallweg konnte damit das
+   * einzige nicht, wofür es ihn gibt: eine verlorene Zustellung nachholen.
+   *
+   * Nichts zu filtern ist ungefährlich, weil die Grenze ohnehin woanders
+   * liegt: `beanspruche` im Kern lehnt jede Aktivität ab, die schon eine
+   * Import-Zeile hat — VOR jedem Netzaufruf. Was Polar hier doppelt meldet,
+   * kostet einen Datenbank-Zugriff und sonst nichts. Und die Liste ist kurz:
+   * Polar hält nur ein begrenztes Fenster vor und kennt keine Historie vor der
+   * Registrierung.
    */
-  async listeNeue(tokens: ProviderTokens, seit: string | null): Promise<TrackerEreignis[]> {
+  async listeNeue(tokens: ProviderTokens, _seit: string | null): Promise<TrackerEreignis[]> {
     const roh = await this.json('/v3/exercises', tokens)
     // Je nach Fassung antwortet Polar mit einer Liste oder mit einem Objekt,
     // das sie unter `exercises` trägt.
     const liste = Array.isArray(roh) ? roh : ((feld<unknown[]>(roh, 'exercises') ?? []) as unknown[])
-    const seitMs = seit ? Date.parse(seit) : NaN
     const ereignisse: TrackerEreignis[] = []
     for (const eintrag of liste) {
       if (!eintrag || typeof eintrag !== 'object') continue
       const uebung = eintrag as Record<string, unknown>
       const id = feld<string | number>(uebung, 'id')
       if (id === undefined) continue
-      if (Number.isFinite(seitMs)) {
-        const start = startZeitpunkt(
-          feld<string>(uebung, 'start-time'),
-          Number(feld(uebung, 'start-time-utc-offset') ?? 0),
-        )
-        if (start !== null && start <= seitMs) continue
-      }
       ereignisse.push({
         externerNutzer: String(tokens.externerNutzer ?? ''),
         externeId: String(id),

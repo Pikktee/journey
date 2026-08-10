@@ -522,6 +522,29 @@ describe('Importliste und Benachrichtigung', () => {
     expect(antwort.json()).toMatchObject({ gefunden: 1, neu: 1 })
     expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
   })
+
+  // Die Gegenprobe zum weggefallenen Zeitfilter im Polar-Adapter: Der Anbieter
+  // darf dieselbe Aktivität ruhig noch einmal melden — die Grenze ist
+  // `beanspruche` und nicht der Cursor. Ohne diesen Riegel wäre „großzügig
+  // überlappen" ein Weg, jede Tour zweimal anzulegen.
+  it('legt nichts doppelt an, wenn derselbe Abruf dieselbe Aktivität erneut meldet', async () => {
+    const provider = new TestProvider({
+      webhookGeheimnis: WEBHOOK_GEHEIMNIS,
+      tracks: { p1: beispielRohTrack() },
+      neue: [{ externerNutzer: 'extern-1', externeId: 'p1', art: 'aktivitaet' }],
+    })
+    const { u } = await baueMitProvider(provider)
+    await verknuepfe(u)
+    await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })
+    await Promise.all([...u.app.verarbeitungen.values()])
+
+    const zweiter = await u.app.inject({ method: 'POST', url: '/api/tracker/polar/sync', cookies: u.cookies })
+    await Promise.all([...u.app.verarbeitungen.values()])
+    // Gemeldet wird weiterhin eine — bearbeitet keine mehr.
+    expect(zweiter.json()).toMatchObject({ gefunden: 1, neu: 0 })
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tours').get()).toEqual({ n: 1 })
+    expect(u.app.deps.db.prepare('SELECT COUNT(*) AS n FROM tracker_importe').get()).toEqual({ n: 1 })
+  })
 })
 
 describe('Ein Fehlschlag ist kein Grabstein', () => {
