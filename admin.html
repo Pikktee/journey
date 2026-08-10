@@ -11,6 +11,13 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="preload"
+    as="font"
+    type="font/woff2"
+    href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2"
+    crossorigin
+  />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Marken-Tokens (Farben, Radien, Schrift) — src/basis.css, abgeleitet aus
@@ -27,10 +34,6 @@
        (Outfit, Amber auf warmem Dunkel). Bewusst eine eigene Seite: Das
        Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung.
        ———————————————————————————————————————————————————————————— */
-    :root {
-      /* Schmaler als die Galerie: Hier stehen Listen mit wenigen Spalten. */
-      --wrap: 1080px;
-    }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
     body {
@@ -69,11 +72,12 @@
     .badge.abgelaufen { background: rgba(229, 72, 77, 0.13); color: var(--rot); }
     .badge.unbestaetigt { background: rgba(232, 161, 60, 0.14); color: var(--warn); }
 
-    /* Kopfleiste: Markup und Optik aus grundelemente.css (.nav). */
-    .nav .wrap { width: min(var(--wrap), 100% - 44px); }
+    /* Kopfleiste: Markup und Optik aus grundelemente.css (.nav).
+       Wrap-Breite wie Galerie (1160 aus basis.css). */
+    .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
 
     /* — Seite — */
-    .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 90px; }
+    .rumpf { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 30px 0 40px; }
     .kopf { margin-bottom: 18px; }
     .kopf h1 { font-size: clamp(25px, 2.8vw, 31px); font-weight: 480; letter-spacing: -0.02em; }
     .kopf h1 em { font-style: normal; color: var(--akzent); }
@@ -793,6 +797,8 @@
       </div>
     </form>
   </dialog>
+
+  <footer id="app-footer"></footer>
 
   <script type="module" src="/src/admin/admin.ts"></script>
 </body>

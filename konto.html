@@ -12,6 +12,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
+    rel="preload"
+    as="font"
+    type="font/woff2"
+    href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2"
+    crossorigin
+  />
+  <link
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
@@ -39,9 +46,9 @@
        zusammen („Mein Profil" / „Kontoeinstellungen") und dürfen nicht wie zwei
        Produkte aussehen. Was hier dazukommt, sind die Tafeln und Zeilen. */
     :root {
-      /* Schmaler als Galerie und Profil: Hier stehen Zeilen mit Text und einem
-         Knopf rechts — über 1160 px liegen dazwischen 60 cm Nichts. */
-      --wrap: 780px;
+      /* Kein --wrap-Override: Nav/Fuß wie Galerie bei 1160. Der Formularschacht
+         darunter bleibt schmal (--konto-lesebreite), linksbündig unter der Marke. */
+      --konto-lesebreite: 780px;
     }
 
     * { box-sizing: border-box; }
@@ -55,11 +62,9 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Kopfleiste und Fußzeile laufen auf DERSELBEN schmalen Breite wie der
-       Inhalt — sie trugen vorher die 1160 der übrigen Seiten, und dadurch stand
-       die Wortmarke 190 px links neben der Überschrift. Nicht die schmale
-       Spalte sah falsch aus, sondern dass nichts untereinander lag. */
+    /* Chrome (Nav/Fuß) auf voller Produktbreite; Inhalt darunter schmal. */
     .wrap { width: min(var(--wrap), 100% - 44px); margin-inline: auto; }
+    .konto-lesespalte { max-width: min(var(--konto-lesebreite), 100%); }
 
     /* ————— Seitenkopf ————— */
     .seitenkopf { margin: 34px 0 6px; }
@@ -214,6 +219,9 @@
   </script>
 
   <main class="wrap">
+    <!-- Lesespalte 780 px, linksbündig in der 1160-er Wrap — Marke und Titel
+         fluchten; Nav/Fuß springen beim Seitenwechsel nicht. -->
+    <div class="konto-lesespalte">
     <!-- Die Bühne bleibt verborgen, bis /auth/me geantwortet hat: Eine Tafel
          mit leeren Zeilen, die sich erst danach füllt, sieht nach kaputter
          Seite aus. Wer nicht angemeldet ist, landet in #meldung. -->
@@ -363,6 +371,7 @@
       </div>
     </div>
     <div id="meldung"></div>
+    </div>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite">

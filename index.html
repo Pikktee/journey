@@ -67,6 +67,15 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Outfit latin vor dem Hero: sonst gewinnt fetchpriority=high am JPG und
+       die Nav zeichnet erst den Fallback. Dieselbe Datei bedient 400–700. -->
+  <link
+    rel="preload"
+    as="font"
+    type="font/woff2"
+    href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2"
+    crossorigin
+  />
   <link rel="preload" as="image" href="/landing/hero.jpg" fetchpriority="high" />
   <link
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
@@ -374,8 +383,9 @@
     .km-eintrag svg { width: 15px; height: 15px; flex: none; }
 
     /* Ab hier: Anker + Gast-Links + Konto-Chip ins Panel; in der Kopfzeile
-       bleiben Logo, Primär-CTA und der Menü-Knopf. */
-    @media (max-width: 720px) {
+       bleiben Logo, Primär-CTA und der Menü-Knopf. Früher als 720: sonst läuft
+       „Registrieren“ rechts aus dem Viewport (Logo 40 px + drei Anker + Gast). */
+    @media (max-width: 980px) {
       .nav-hide-sm, .nav-right .konto-wrap { display: none !important; }
       .nav-toggle { display: inline-flex; }
       .nav-middle { display: none; margin-left: 0; }
@@ -480,7 +490,7 @@
       .scroll-cue { display: none; }
     }
 
-    /* Handy im Querformat: breit genug für die Anker-Links (720-px-Grenze greift
+    /* Handy im Querformat: breit genug für die Anker-Links (980-px-Grenze greift
        bei 844 px nicht), aber viel zu flach — die Kopfleiste brach zweizeilig um
        und schob sich über die Überschrift. Hier zählt die HÖHE, nicht die Breite. */
     @media (max-height: 500px) and (orientation: landscape) {
@@ -826,7 +836,7 @@
   <div class="grain" aria-hidden="true"></div>
 
   <!-- Kopfleiste: Logo + Abschnittsanker links (mit Abstand), Aktionen rechts.
-       Unter 720 px wandern Anker und Gast-Links ins Panel; Primär-CTA bleibt. -->
+       Unter 980 px wandern Anker und Gast-Links ins Panel; Primär-CTA bleibt. -->
   <nav class="nav" id="nav">
     <div class="wrap">
       <a href="/" class="brand" title="Zur Startseite">
@@ -1328,7 +1338,7 @@
         if (e.key === 'Escape' && !panel.hidden) setze(false)
       })
       window.addEventListener('resize', function () {
-        // Nicht an die 720-px-Breite koppeln: Querformat-Handys sind breiter,
+        // Nicht an die 980-px-Breite koppeln: Querformat-Handys sind breiter,
         // brauchen den Toggle aber weiter (max-height-Regel). Schließen nur,
         // wenn der Knopf selbst ausgeblendet ist.
         if (!panel.hidden && window.getComputedStyle(toggle).display === 'none') setze(false)

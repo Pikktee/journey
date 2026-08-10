@@ -11,6 +11,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
+    rel="preload"
+    as="font"
+    type="font/woff2"
+    href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2"
+    crossorigin
+  />
+  <link
     href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
@@ -36,7 +43,16 @@
       --text-3: #7e8a99;
       --akzent: #f59e0b;
       --akzent-2: #ff6f52;
-      --font-ui: 'Outfit', system-ui, -apple-system, sans-serif;
+      --font-ui: 'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif;
+    }
+    /* Wie basis.css: Metrik-Zwilling, sonst springt der Text beim Outfit-Swap. */
+    @font-face {
+      font-family: 'Outfit Fallback';
+      src: local('Arial');
+      size-adjust: 101.7%;
+      ascent-override: 92%;
+      descent-override: 24%;
+      line-gap-override: 0%;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }

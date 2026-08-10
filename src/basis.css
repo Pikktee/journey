@@ -16,8 +16,8 @@
  * <head> JEDER Seite, und zwar VOR deren <style>-Block. Die Reihenfolge ist
  * keine Kosmetik: Bei gleicher Spezifität gewinnt die zuletzt deklarierte
  * Regel, und stünde die Basis hinten, schlüge sie genau das, was die Seite
- * absichtlich anders macht. Gemessen an `--wrap: 1080px` der Verwaltung — die
- * Seite wurde 80 px breiter, ohne dass sich eine Zeile ihres eigenen CSS
+ * absichtlich anders macht. Früher an einer schmaleren Verwaltung gemessen —
+ * die Seite wurde 80 px breiter, ohne dass sich eine Zeile ihres eigenen CSS
  * geändert hätte.
  *
  * ACHTUNG, DIE FALLE: Vite hängt gebautes CSS grundsätzlich ans ENDE des
@@ -108,14 +108,16 @@
 
   /* ─── Schrift ───
      EINE UI-Schrift. Zahlen richtet `font-variant-numeric: tabular-nums` aus,
-     nicht Mono; --font-mono gilt nur für Karten-Attribution und Debug. */
-  --font-ui: 'Outfit', system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+     nicht Mono; --font-mono gilt nur für Karten-Attribution und Debug.
+     „Outfit Fallback“ (unten) hält die Metriken bis Outfit da ist — sonst
+     zeichnet display:swap erst system-ui (~8 % breiter) und die Nav springt. */
+  --font-ui: 'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
   /* ─── Maß ───
-     Seiten mit anderer Lesebreite (Konto 780, Verwaltung 1080) überschreiben
-     --wrap in ihrem eigenen Block; es ist kein Markenwert. */
+     Seiten mit anderer Lesebreite überschreiben lokal (Konto: Spalte 780 in
+     voller 1160-er Schale). --wrap selbst ist der Marken-/Chrome-Wert. */
   --wrap: 1160px;
 
   /* Erkennungsmarke für basisZuerst() in vite.config.js: Nach dem Bauen heißt
@@ -124,6 +126,19 @@
      wieder und bringt die drei in die richtige Reihenfolge. */
   --blatt-basis: 1;
   color-scheme: dark;
+}
+
+/* Metrik-Zwilling für Outfit: Arial lokal, auf Outfit-Laufweite skaliert.
+   Ohne das blitzt auf der Landing (und bei kaltem Cache überall) zuerst
+   system-ui/SF Pro — die Menüpunkte laufen breiter und rutschen beim Swap
+   zusammen. size-adjust an Nav-Labels gemessen (13,5 px / 500). */
+@font-face {
+  font-family: 'Outfit Fallback';
+  src: local('Arial');
+  size-adjust: 101.7%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
 }
 
 /* Klassische Scrollbalken (macOS „Immer“, Windows) nehmen ~15 px Breite.

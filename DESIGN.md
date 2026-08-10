@@ -203,7 +203,9 @@ Versalien-Eyebrow-Tracking.
 
 ## Layout
 
-- Content-Breite: `--wrap: 1160px` (Landing, Galerie, Studio-Bibliothek); seitlicher Gutter ≈ 22px.
+- Content-Breite: `--wrap: 1160px` (Landing, Galerie, Studio, Verwaltung, Chrome
+  von Konto); Konto-Formularschacht darunter max. 780 px, linksbündig unter der
+  Marke — damit Nav/Fuß beim Seitenwechsel nicht springen.
 - `html { overflow-x: clip; overflow-y: auto; scrollbar-gutter: stable }` —
   reserviert die klassische Scrollbalkenbreite (YouTube-Muster), ohne dass ein
   `overflow-x` am `body` den Scrollport dorthin zieht und die Gutter wirkungslos
@@ -221,11 +223,11 @@ Versalien-Eyebrow-Tracking.
   `gap: 0.45em`, Logo `translate: 0 1px`. Der Brand-**Link** ist direktes Flex-Kind —
   kein Block-Wrapper (sonst bläht die Zeilenhöhe und die Marke sitzt zu hoch).
 - Auf Studio-Hauptscreen nur „Maptale“, kein „Studio“ in der Wortmarke.
-- Produkt-Fußzeile (Galerie, Profil, Konto, Meine Touren, Landing): links Marke +
-  stumme `vX.Y.Z` (`tabular-nums`), rechts Links mit Luft dazwischen — eine Quelle
-  in `appFooterHtml`. Landing ergänzt Touren/App-Anker. Bei wenig Inhalt am
-  Viewport-Ende, indem `main` / `.rumpf-innen` wächst — der Fuß bleibt kompakt
-  mit festem `margin-top` über der Trennlinie. Rechtstext-Seiten haben eigene Füße.
+- Produkt-Fußzeile (Galerie, Profil, Konto, Meine Touren, Verwaltung, Landing):
+  links Marke + stumme `vX.Y.Z` (`tabular-nums`), rechts Links mit Luft dazwischen —
+  eine Quelle in `appFooterHtml`. Landing ergänzt Touren/App-Anker. Bei wenig Inhalt
+  am Viewport-Ende, indem `main` / `.rumpf` wächst — der Fuß bleibt kompakt mit
+  festem `margin-top` über der Trennlinie. Rechtstext-Seiten haben eigene Füße.
 
 ## Elevation & Depth
 

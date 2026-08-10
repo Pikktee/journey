@@ -7,7 +7,7 @@
 // Verwaltung gilt es ein zweites Mal: Die vier Bereiche sind Reiter, alle vier
 // Panels liegen im DOM, sichtbar ist eins.
 
-import { montiereAppHeader } from '../app-nav.js'
+import { montiereAppHeader, schreibeAppFooter } from '../app-nav.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
@@ -382,6 +382,7 @@ async function start(): Promise<void> {
     aktiv: 'admin',
     variante: 'admin',
   })
+  schreibeAppFooter(document.getElementById('app-footer'))
   const sitzung = await api.me()
   if (!sitzung.benutzer) {
     els.sperreTitel.textContent = 'Nicht angemeldet'

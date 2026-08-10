@@ -23,10 +23,10 @@ export const BRAND_COLORS = {
 } as const;
 
 export const BRAND_FONTS = {
-  /** Titel, Wortmarke, Display, UI — eine Schrift */
-  display: "'Outfit', system-ui, -apple-system, sans-serif",
+  /** Titel, Wortmarke, Display, UI — eine Schrift (Fallback: s. basis.css) */
+  display: "'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif",
   /** Alias von display (historisch getrennt) */
-  sans: "'Outfit', system-ui, -apple-system, sans-serif",
+  sans: "'Outfit', 'Outfit Fallback', system-ui, -apple-system, sans-serif",
   /**
    * Optional: Karten-Attribution / Debug.
    * Nicht für Kennzahlen — dort Outfit + `font-variant-numeric: tabular-nums`.

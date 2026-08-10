@@ -117,9 +117,16 @@ describe('app-nav', () => {
 
     const admin = readFileSync(join(wurzel, 'admin.html'), 'utf8')
     expect(admin).toContain('id="app-header"')
+    expect(admin).toContain('id="app-footer"')
     expect(admin).not.toContain('<header class="topbar"')
+    expect(admin).not.toMatch(/--wrap:\s*1080px/)
 
     const adminTs = readFileSync(join(wurzel, 'src/admin/admin.ts'), 'utf8')
     expect(adminTs).toContain('montiereAppHeader')
+    expect(adminTs).toContain('schreibeAppFooter')
+
+    const konto = readFileSync(join(wurzel, 'konto.html'), 'utf8')
+    expect(konto).toContain('konto-lesespalte')
+    expect(konto).not.toMatch(/--wrap:\s*780px/)
   })
 })

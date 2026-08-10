@@ -30,11 +30,10 @@
    Cluster (Neue Tour + Chip) wirkte die Nav dann optisch zu weit rechts.
    Zwischen Marke und Nav bleibt bewusst Luft (`--nav-marken-gap`), sonst
    klebt sie am Logo.
-   Eine Schale für Galerie, Profil, Konto und Studio (`.nav`); Studio setzt
-   nur `position: relative`, weil `#app-view` selbst fixed ist.
-   Die BREITE der inneren `.wrap` setzt die Seite — die Kontoseite ist innen
-   780 px schmal und hält die Leiste absichtlich gleich schmal, damit Marke
-   und Überschrift untereinander liegen. */
+   Eine Schale für Galerie, Profil, Konto, Studio und Verwaltung (`.nav`);
+   Studio setzt nur `position: relative`, weil `#app-view` selbst fixed ist.
+   Die BREITE der inneren `.wrap` ist die Produktbreite (1160). Konto hält den
+   Formularschacht darunter schmal (`--konto-lesebreite`), linksbündig. */
 
 .nav {
   --nav-marken-gap: clamp(18px, 2.4vw, 32px);
@@ -543,7 +542,8 @@ body:has(> #app-footer) {
   flex-direction: column;
   min-height: 100dvh;
 }
-body:has(> #app-footer) > main {
+body:has(> #app-footer) > main,
+body:has(> #app-footer) > .rumpf {
   flex: 1 0 auto;
 }
 body > #app-footer {
