@@ -457,10 +457,22 @@ Drei Regeln, die man dabei leicht kippt:
   muss: Als bloßes Icon war „an" von „aus" kaum zu unterscheiden, und was man dort sah, war
   meist bloß der Fokusring. Aus demselben Grund ist die Ablage-Plakette **rot** und nicht amber:
   Ein Fund läuft nicht, er wartet.
+- **Die drei Gruppen sind gleich hoch** (`--kopf-gruppe: 32px`). Vorher standen 30 px
+  Werkzeuge neben 34 px Pult und Zoom, und der Zoom las sich dadurch als klobiger rechter
+  Rand. **Und die Mitte steht MITTIG**: `.zl-kopf` ist ein `1fr auto 1fr`-Raster, kein
+  `space-between` — bei 93 px Werkzeugen gegen 227 px Zoom saß das Pult sonst 67 px zu weit
+  links. Im engen Fenster (≤ 960 px) wird daraus wieder eine umbrechende Flex-Reihe; ein
+  Raster kann nicht umbrechen, und `flex-wrap` allein täte dort nichts.
 - **Reserviert wird nur, was WIRKLICH schwankt.** Die Anzeige trug dreimal denselben
   großzügigen Slot (10,5ch + 11,5ch + 11,5ch) und war dadurch ~180 px breiter als ihr Inhalt.
   Die Uhrzeit hat IMMER fünf Zeichen („15:58", „--:--") und braucht gar keinen; bei der Strecke
-  schwankt allein der laufende Wert (`.ku-km-cur`). Beim Zoom-Wert dagegen war zu WENIG
+  schwankt allein der laufende Wert (`.ku-km-cur`). Bei der Filmzeit setzt `renderPlayhead` die
+  Reserve auf die ZEICHENZAHL DES GESAMTWERTS — länger als der Film kann der Kopf nicht stehen,
+  kürzer reicht nicht; pauschale 10,5ch waren für „1:15 / 2:52" rund 30 px zu viel, und
+  linksbündig sammelte sich der Überschuss vollständig rechts. Aus demselben Grund ist der
+  Schnelllauf-Faktor eine `position: absolute`-Plakette AM Play-Knopf: Als eigenes Feld
+  reservierte er 24 px, die fast immer leer standen — sichtbar als Loch rechts der
+  Transportknöpfe. Beim Zoom-Wert dagegen war zu WENIG
   reserviert: Er läuft 1,0…40,0, also vier ODER fünf Zeichen, und wuchs mit 4ch ab Faktor 10 um
   7 px — weil er am rechten Rand sitzt, schob er die ganze Gruppe. Gemessen braucht er 6,97ch
   (`ch` ist die Breite der Ziffer NULL; Komma und „×" sind schmaler bzw. breiter), gesetzt sind

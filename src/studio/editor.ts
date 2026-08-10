@@ -5002,6 +5002,13 @@ function renderPlayhead(): void {
   // wie ein Fehler und nicht wie eine Angabe zur Genauigkeit — die steht im
   // Titel der Gruppe, wo man sie liest, wenn man sie braucht.
   if (filmGes && spiel) filmGes.textContent = formatiereFilmzeit(spiel.gesamtS)
+  // Der laufende Wert reserviert genau so viel, wie der Gesamtwert braucht:
+  // Länger als der Film kann der Kopf nicht stehen. Eine feste Reserve am
+  // ganzen Block war für kurze Touren rund 30 px zu groß und sammelte sich
+  // vollständig rechts; eine zu kleine ließe die Nachbarn bei 9:59 → 10:00
+  // springen. `ch` genügt hier, weil tabular-nums alle Ziffern gleich breit
+  // macht und der Doppelpunkt in beiden Werten an derselben Stelle steht.
+  if (film && filmGes) film.style.minWidth = `${filmGes.textContent.length}ch`
   const uhr = document.getElementById('kopf-uhr')
   // Ohne Sekunden: die Anzeige läuft beim Scrubben mit, da zappelt eine
   // Sekundenstelle nur.
