@@ -25,6 +25,38 @@ function cookieSuffix(): string {
   return `; Path=/; SameSite=Lax${secure}`
 }
 
+export const PROFIL_CACHE_KEY = 'maptale_profil_cache'
+
+export type ProfilCacheData = {
+  name: string
+  initial: string
+  avatarUrl?: string | null | undefined
+}
+
+export function merkeProfilCache(profil: ProfilCacheData): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(PROFIL_CACHE_KEY, JSON.stringify(profil))
+  } catch {}
+}
+
+export function vergesseProfilCache(): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(PROFIL_CACHE_KEY)
+  } catch {}
+}
+
+export function leseProfilCache(): ProfilCacheData | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(PROFIL_CACHE_KEY)
+    return raw ? (JSON.parse(raw) as ProfilCacheData) : null
+  } catch {
+    return null
+  }
+}
+
 export function merkeAngemeldet(): void {
   if (typeof document === 'undefined') return
   document.cookie = `${SESSION_HINWEIS_COOKIE}=1; Max-Age=${MAX_AGE_S}${cookieSuffix()}`
@@ -35,6 +67,7 @@ export function vergesseAngemeldet(): void {
   if (typeof document === 'undefined') return
   document.cookie = `${SESSION_HINWEIS_COOKIE}=; Max-Age=0${cookieSuffix()}`
   document.documentElement.classList.remove(NAV_DABEI_KLASSE)
+  vergesseProfilCache()
 }
 
 /** Ob der Hinweis-Cookie gesetzt ist (synchron, vor Modul-Boot lesbar). */
@@ -42,3 +75,4 @@ export function vermutlichAngemeldet(cookie = typeof document !== 'undefined' ? 
   const nadel = `${SESSION_HINWEIS_COOKIE}=`
   return cookie.split(';').some((teil) => teil.trim().startsWith(nadel))
 }
+

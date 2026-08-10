@@ -7,7 +7,12 @@
  */
 
 import { pfad, profilPfad } from './routen.js'
-import { merkeAngemeldet, vergesseAngemeldet } from './session-hinweis.js'
+import {
+  leseProfilCache,
+  merkeAngemeldet,
+  merkeProfilCache,
+  vergesseAngemeldet,
+} from './session-hinweis.js'
 
 /**
  * Auf welcher Seite die Nav steht. 'profil', 'konto' und 'admin' tauchen selbst
@@ -72,6 +77,47 @@ function quotaHtml(quota: Quota | undefined): string {
   </div>`
 }
 
+function wendeProfilDatenAn(
+  container: HTMLElement,
+  daten: { name: string; initial: string; avatarUrl?: string | null | undefined },
+): void {
+  const nameEl = container.querySelector('.nav-profil-name')
+  if (nameEl && nameEl.textContent !== daten.name) {
+    nameEl.textContent = daten.name
+  }
+  const chip = container.querySelector('.benutzer-chip') as HTMLButtonElement | null
+  if (chip) {
+    chip.removeAttribute('disabled')
+    chip.removeAttribute('aria-busy')
+    chip.removeAttribute('aria-label')
+  }
+
+  const punkt = container.querySelector('.benutzer-chip .punkt')
+  if (punkt) {
+    if (daten.avatarUrl) {
+      if (punkt instanceof HTMLImageElement) {
+        if (punkt.src !== daten.avatarUrl) punkt.src = daten.avatarUrl
+      } else {
+        const img = document.createElement('img')
+        img.className = 'punkt'
+        img.src = daten.avatarUrl
+        img.width = 20
+        img.height = 20
+        punkt.replaceWith(img)
+      }
+    } else if (daten.initial) {
+      if (punkt instanceof HTMLImageElement) {
+        const span = document.createElement('span')
+        span.className = 'punkt'
+        span.textContent = daten.initial
+        punkt.replaceWith(span)
+      } else {
+        if (punkt.textContent !== daten.initial) punkt.textContent = daten.initial
+      }
+    }
+  }
+}
+
 /**
  * Rechte Seite der öffentlichen Topbar (Entdecken / Profil): Gast sieht
  * „Anmelden", Eingeloggte denselben Konto-Chip wie im Studio — ohne
@@ -88,6 +134,13 @@ export async function montiereNavRechts(
   cta?: { text: string; href: string },
 ): Promise<void> {
   if (!container) return
+
+  // Versuche Profil vorab aus dem Cache zu setzen, damit kein Layout-Sprung entsteht
+  const cache = leseProfilCache()
+  if (cache) {
+    wendeProfilDatenAn(container, cache)
+  }
+
   try {
     const r = await fetch('/api/auth/me', { credentials: 'include' })
     const daten = (r.ok ? await r.json() : null) as MeAntwort | null
@@ -101,69 +154,88 @@ export async function montiereNavRechts(
     const initial = (name.trim().charAt(0) || '?').toUpperCase()
     const avatar = daten.profil?.avatarUrl
     const mail = daten.benutzer.email || ''
-    const avatarHtml = avatar
-      ? `<img class="punkt" src="${avatar}" alt="" width="20" height="20" />`
-      : `<span class="punkt">${initial}</span>`
+
+    merkeProfilCache({ name, initial, avatarUrl: avatar })
+    wendeProfilDatenAn(container, { name, initial, avatarUrl: avatar })
 
     const adminLink = daten.benutzer.rolle === 'admin'
       ? `<a href="${pfad('verwaltung')}" class="km-eintrag">${ICON_ADMIN}Administration</a>`
       : ''
 
-    // „Mein Profil" führt an die Adresse der Person (/@henrik), nicht auf
-    // `/profil` — dort steht ohne Handle nichts, und die Adresse ist die, die
-    // man auch teilt. Ohne Handle bleibt der Eintrag weg statt ins Leere zu
-    // zeigen; ein Konto ohne Handle gibt es zwar nicht mehr (Migration 12),
-    // aber ein toter Menüeintrag wäre der schlechtere Rückfall.
     const profilLink = daten.profil?.handle
       ? `<a href="${profilPfad(daten.profil.handle)}" class="km-eintrag">${ICON_PROFIL}Mein Profil</a>`
       : ''
 
-    container.innerHTML = `
-      ${cta ? `<a href="${cta.href}" class="nav-cta">${cta.text}</a>` : ''}
-      <div class="konto-wrap">
-        <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
-          ${avatarHtml}<span class="nav-profil-name"></span>
-        </button>
-        <div class="konto-menue" id="nav-konto-menue" hidden>
-          ${mail ? '<div class="km-mail"></div>' : ''}
-          ${quotaHtml(daten.quota)}
-          <div class="km-trenner" role="separator"></div>
-          ${profilLink}
-          <a href="${pfad('konto')}" class="km-eintrag">${ICON_KONTO}Kontoeinstellungen</a>
-          ${adminLink}
-          <button type="button" class="km-eintrag" id="nav-abmelden">
-            ${ICON_ABMELDEN}Abmelden
+    let kontoWrap = container.querySelector('.konto-wrap') as HTMLElement | null
+    if (!kontoWrap) {
+      const avatarHtml = avatar
+        ? `<img class="punkt" src="${avatar}" alt="" width="20" height="20" />`
+        : `<span class="punkt">${initial}</span>`
+      container.innerHTML = `
+        ${cta ? `<a href="${cta.href}" class="nav-cta" data-dabei>${cta.text}</a>` : ''}
+        <div class="konto-wrap" data-dabei>
+          <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
+            ${avatarHtml}<span class="nav-profil-name">${name}</span>
           </button>
-        </div>
-      </div>`
+          <div class="konto-menue" id="nav-konto-menue" hidden></div>
+        </div>`
+      kontoWrap = container.querySelector('.konto-wrap')
+    }
 
-    const nameEl = container.querySelector('.nav-profil-name')
-    if (nameEl) nameEl.textContent = name
-    const mailEl = container.querySelector('.km-mail')
-    if (mailEl) mailEl.textContent = mail
+    // Falls die .konto-wrap aus der HTML-Vorlage stammt, fehlt ihr das
+    // Dropdown-Menü — es muss nachträglich eingefügt werden.
+    if (kontoWrap && !kontoWrap.querySelector('.konto-menue')) {
+      const menueDiv = document.createElement('div')
+      menueDiv.className = 'konto-menue'
+      menueDiv.id = 'nav-konto-menue'
+      menueDiv.hidden = true
+      kontoWrap.appendChild(menueDiv)
+    }
 
-    const chip = container.querySelector('#nav-profil') as HTMLButtonElement | null
-    const menue = container.querySelector('#nav-konto-menue') as HTMLElement | null
-    if (!chip || !menue) return
+    const menue = container.querySelector('#nav-konto-menue, .konto-menue') as HTMLElement | null
+    if (menue) {
+      menue.id = 'nav-konto-menue'
+      menue.innerHTML = `
+        ${mail ? `<div class="km-mail">${mail}</div>` : ''}
+        ${quotaHtml(daten.quota)}
+        <div class="km-trenner" role="separator"></div>
+        ${profilLink}
+        <a href="${pfad('konto')}" class="km-eintrag">${ICON_KONTO}Kontoeinstellungen</a>
+        ${adminLink}
+        <button type="button" class="km-eintrag" id="nav-abmelden">
+          ${ICON_ABMELDEN}Abmelden
+        </button>`
+    }
 
-    chip.addEventListener('click', (e) => {
-      e.stopPropagation()
-      const auf = menue.hidden
-      menue.hidden = !auf
-      chip.setAttribute('aria-expanded', String(auf))
-    })
-    document.addEventListener('click', (e) => {
-      if (!menue.hidden && !(e.target as Element | null)?.closest?.('.konto-wrap')) {
-        menue.hidden = true
-        chip.setAttribute('aria-expanded', 'false')
-      }
-    })
-    container.querySelector('#nav-abmelden')?.addEventListener('click', () => {
-      vergesseAngemeldet()
-      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() =>
-        location.reload(),
-      )
-    })
+    const chip = container.querySelector('.benutzer-chip') as HTMLButtonElement | null
+    if (chip && menue && !chip.dataset.listener) {
+      chip.dataset.listener = 'true'
+      chip.disabled = false
+      chip.removeAttribute('aria-busy')
+      chip.removeAttribute('aria-label')
+      chip.id = 'nav-profil'
+      chip.setAttribute('aria-haspopup', 'true')
+      chip.setAttribute('aria-expanded', 'false')
+
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const auf = menue.hidden
+        menue.hidden = !auf
+        chip.setAttribute('aria-expanded', String(auf))
+      })
+      document.addEventListener('click', (e) => {
+        if (!menue.hidden && !(e.target as Element | null)?.closest?.('.konto-wrap')) {
+          menue.hidden = true
+          chip.setAttribute('aria-expanded', 'false')
+        }
+      })
+      container.querySelector('#nav-abmelden')?.addEventListener('click', () => {
+        vergesseAngemeldet()
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() =>
+          location.reload(),
+        )
+      })
+    }
   } catch {
     /* Gast bleibt bei „Anmelden" */
   }

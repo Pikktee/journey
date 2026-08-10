@@ -11,7 +11,7 @@ import { fuelleTopNav } from '../app-nav.js'
 import { codeVollstaendig, formatiereEinladungscode } from '../einladungscode.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import { ROUTEN, pfad, profilPfad, tourPfad } from '../routen.js'
-import { merkeAngemeldet, vergesseAngemeldet } from '../session-hinweis.js'
+import { merkeAngemeldet, merkeProfilCache, vergesseAngemeldet } from '../session-hinweis.js'
 import { liesExif } from './exif.js'
 import {
   baueFotoSegmente,
@@ -181,6 +181,9 @@ function zeigeBenutzer(sitzung: api.Sitzung): void {
   els.kmMail.textContent = benutzer?.email ?? ''
 
   const avatar = sitzung.profil?.avatarUrl
+  const initial = (anzeige.trim().charAt(0) || '?').toUpperCase()
+  merkeProfilCache({ name: anzeige, initial, avatarUrl: avatar })
+
   const punkt = els.benutzerChip.querySelector('.punkt')
   if (!punkt) return
   if (avatar) {

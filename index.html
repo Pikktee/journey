@@ -144,15 +144,15 @@
       border-bottom: 1px solid transparent;
     }
     .nav.scrolled { background: rgba(8, 11, 16, 0.76); backdrop-filter: blur(14px); border-bottom-color: var(--linie); }
-    .nav > .wrap { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
-    .nav-middle { display: flex; align-items: center; gap: 6px; font-family: var(--font-ui); }
+    .nav > .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; justify-self: start; }
+    .nav-middle { display: flex; align-items: center; gap: 6px; font-family: var(--font-ui); justify-self: center; }
     .nav-middle a {
       text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
       padding: 8px 14px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
     }
     .nav-middle a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
-    .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); }
+    .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); justify-self: end; }
     .nav-right a {
       text-decoration: none; color: rgba(242, 237, 227, 0.82); font-size: 14.5px; font-weight: 500;
       padding: 8px 14px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
@@ -663,12 +663,25 @@
         <div class="konto-wrap nav-hide-sm" data-dabei>
           <button type="button" class="benutzer-chip" disabled aria-busy="true" aria-label="Profil wird geladen">
             <span class="punkt"></span>
-            <span class="nav-profil-name">&nbsp;</span>
+            <span class="nav-profil-name"></span>
           </button>
         </div>
       </div>
     </div>
   </nav>
+
+  <!-- Profil-Chip sofort aus dem Cache füllen — das Script steht NACH dem Nav,
+       damit die Elemente existieren, aber VOR dem ersten Paint (synchron). -->
+  <script>
+    (function(){try{var p=localStorage.getItem('maptale_profil_cache');if(!p)return;
+    var u=JSON.parse(p),n=document.querySelector('.nav-profil-name'),
+    pk=document.querySelector('.benutzer-chip .punkt');
+    if(n&&u.name)n.textContent=u.name;
+    if(pk&&u.avatarUrl){var i=document.createElement('img');i.className='punkt';
+    i.src=u.avatarUrl;i.width=20;i.height=20;pk.replaceWith(i)}
+    else if(pk&&u.initial)pk.textContent=u.initial;
+    }catch(e){}})()
+  </script>
 
   <!-- Hero -->
   <header class="hero">

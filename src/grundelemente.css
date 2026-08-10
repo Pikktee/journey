@@ -167,6 +167,13 @@ html.nav-dabei [data-gast] {
   border-radius: var(--radius-full);
   padding: 6px 12px 6px 7px;
   cursor: pointer;
+  min-height: 34px;
+}
+/* Chipbreite vorab reservieren: Selbst ohne Cache soll der leere Chip so
+   breit sein wie ein kurzer Name, damit kein Layout-Sprung entsteht. */
+.nav-profil-name {
+  min-width: 3.5em;
+  display: inline-block;
 }
 .benutzer-chip:hover {
   background: var(--fl-3);

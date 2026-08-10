@@ -3276,6 +3276,17 @@
         </div>
       </div>
     </header>
+  <!-- Profil-Chip sofort aus dem Cache füllen (synchron, vor erstem Paint). -->
+  <script>
+    (function(){try{var p=localStorage.getItem('maptale_profil_cache');if(!p)return;
+    var u=JSON.parse(p),n=document.getElementById('benutzer-name'),
+    pk=document.getElementById('benutzer-initial');
+    if(n&&u.name)n.textContent=u.name;
+    if(pk&&u.avatarUrl){var i=document.createElement('img');i.className='punkt';
+    i.src=u.avatarUrl;i.width=20;i.height=20;pk.replaceWith(i)}
+    else if(pk&&u.initial)pk.textContent=u.initial;
+    }catch(e){}})()
+  </script>
     <div class="verify-banner" id="verify-banner" hidden>
       <svg><use href="#i-blitz"/></svg>
       <span>Bitte bestätige deine E-Mail-Adresse, der Link liegt in deinem Postfach. Hochladen ist erst danach möglich.</span>

@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest'
 import {
   NAV_DABEI_KLASSE,
   SESSION_HINWEIS_COOKIE,
+  leseProfilCache,
+  merkeProfilCache,
+  vergesseAngemeldet,
+  vergesseProfilCache,
   vermutlichAngemeldet,
 } from '../src/session-hinweis'
 
@@ -51,6 +55,26 @@ describe('session-hinweis', () => {
       // Die Regeln müssen die Seite auch erreichen.
       if (datei !== 'index.html') expect(html, datei).toContain('/src/grundelemente.css')
     }
+  })
+
+  it('speichert und löscht den Profil-Cache im localStorage', () => {
+    const storage: Record<string, string> = {}
+    globalThis.localStorage = {
+      getItem: (k: string) => storage[k] ?? null,
+      setItem: (k: string, v: string) => { storage[k] = v },
+      removeItem: (k: string) => { delete storage[k] },
+      clear: () => {},
+      length: 0,
+      key: () => null,
+    }
+
+    expect(leseProfilCache()).toBeNull()
+
+    merkeProfilCache({ name: 'Henrik', initial: 'H', avatarUrl: '/avatar.jpg' })
+    expect(leseProfilCache()).toEqual({ name: 'Henrik', initial: 'H', avatarUrl: '/avatar.jpg' })
+
+    vergesseProfilCache()
+    expect(leseProfilCache()).toBeNull()
   })
 
   it('hält Frontend und Server auf demselben Hinweis-Cookie', () => {
