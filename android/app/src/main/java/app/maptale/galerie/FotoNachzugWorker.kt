@@ -48,7 +48,12 @@ class FotoNachzugWorker(
         if (!app.einstellungen.aktuellesKonto().fotosAutomatisch) return Result.success()
         if (!darfGalerieLesen(app)) return Result.success()
 
+        // `null` heißt „noch nicht zu beantworten" — die Tour rendert gerade, es
+        // gibt also noch kein Zeitfenster. Das ist ein Grund zu WARTEN, nicht
+        // aufzugeben: Genau hier ging eine Tour leer aus, weil der Nachzug eine
+        // Sekunde vor dem Ende des Renderns lief.
         val bilder = runCatching { suchePassendeFotos(app, tourId) }.getOrElse { return Result.retry() }
+            ?: return Result.retry()
         if (bilder.isEmpty()) return Result.success()
 
         val geschafft = runCatching { ladeFotosHoch(app, tourId, bilder) }.getOrElse { return Result.retry() }

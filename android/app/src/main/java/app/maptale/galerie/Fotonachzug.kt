@@ -43,15 +43,23 @@ fun darfGalerieLesen(context: Context): Boolean =
 /**
  * Vorschlag für eine Tour: Was läge im Zeitfenster?
  *
- * Lädt NICHTS hoch. Leer heißt: nichts gefunden, keine Erlaubnis, oder die Tour
- * ist noch nicht fertig (dann gibt es kein Zeitfenster). Alle drei Fälle enden
- * gleich — es gibt nichts vorzuschlagen —, und keiner davon ist ein Fehler.
+ * Lädt NICHTS hoch. **`null` heißt „noch nicht zu beantworten"** — die Tour
+ * rendert noch (dann hat sie kein Zeitfenster) oder der Server war nicht
+ * erreichbar. Eine LEERE Liste heißt dagegen „beantwortet: nichts dabei".
+ *
+ * Die Unterscheidung ist der ganze Zweck des Rückgabetyps, und ihr Fehlen hat
+ * am Gerät eine Tour ohne Fotos hinterlassen: Der Nachzug startete eine Sekunde
+ * bevor die Tour fertig gerendert war, bekam kein Fenster, las das als „nichts
+ * gefunden" und gab auf. Zwei andere Touren derselben Runde hatten nur Glück
+ * mit dem Zeitpunkt.
  */
-suspend fun suchePassendeFotos(app: MaptaleApp, serverTourId: String): List<Galeriebild> {
+suspend fun suchePassendeFotos(app: MaptaleApp, serverTourId: String): List<Galeriebild>? {
+    // Ohne Leserecht ist die Frage beantwortet, nicht offen: Ein neuer Anlauf
+    // ändert daran nichts, solange niemand die Erlaubnis erteilt.
     if (!darfGalerieLesen(app)) return emptyList()
-    val fenster = runCatching { app.apiClient.tourZeitfenster(serverTourId) }.getOrNull() ?: return emptyList()
-    val startMs = zeitpunkt(fenster.first) ?: return emptyList()
-    val endeMs = zeitpunkt(fenster.second) ?: return emptyList()
+    val fenster = runCatching { app.apiClient.tourZeitfenster(serverTourId) }.getOrNull() ?: return null
+    val startMs = zeitpunkt(fenster.first) ?: return null
+    val endeMs = zeitpunkt(fenster.second) ?: return null
     // Was die Tour schon hat, fällt heraus — sonst käme derselbe Vorschlag bei
     // jedem Öffnen wieder, auch für den, der ihn abgelehnt hat. Verglichen wird
     // über den Aufnahmezeitpunkt und nicht über den Dateinamen: Der Server

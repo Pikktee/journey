@@ -162,7 +162,7 @@ dem Android nur Sekunden gibt; dreizehn Fotos über Mobilfunk sprengen das. Der 
 starb mittendrin (8 von 13 Dateien), und damit gab es WEDER Fotos noch Meldung noch
 Quittung. Gemeldet wird jetzt sofort, was sicher wahr ist (die Tour ist da); was der
 Nachzug ergänzt, meldet er selbst. WorkManager überlebt den Prozess, wartet auf Netz und
-wiederholt — dieselbe Wahl wie beim `UploadWorker`. Ein Wiederanlauf ist gefahrlos, weil
+wiederholt — dieselbe Wahl wie beim `UploadWorker`. **`suchePassendeFotos` trennt „nichts gefunden" von „noch nicht zu beantworten"** (leere Liste vs. `null`): Eine Tour, die noch rendert, hat kein Zeitfenster — wer das als „nichts gefunden" liest, gibt auf, statt zu warten. Am Gerät kostete genau das eine Tour ihre Fotos: Der Nachzug startete EINE SEKUNDE bevor sie fertig war; zwei andere Touren derselben Runde hatten nur Glück mit dem Zeitpunkt. `null` führt jetzt zu `Result.retry`. Ein Wiederanlauf ist gefahrlos, weil
 die `quelle` den Server nichts doppelt anlegen lässt. Aus demselben Grund läuft der
 Knopf „Hinzufügen" im `appScope` statt im `viewModelScope`: Wer den Screen verlässt, riss
 den Lauf sonst entzwei. Ohne sie wartet in der Tour selbst eine

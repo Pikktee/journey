@@ -461,7 +461,10 @@ class ServerTourViewModel(
      */
     fun sucheFotos(app: MaptaleApp) {
         viewModelScope.launch {
-            internFotoVorschlag.value = runCatching { suchePassendeFotos(app, serverId) }.getOrDefault(emptyList())
+            // `null` (Tour rendert noch) wie „nichts" behandeln: Der Screen
+            // fragt beim nächsten Statuswechsel ohnehin erneut.
+            internFotoVorschlag.value =
+                runCatching { suchePassendeFotos(app, serverId) }.getOrNull().orEmpty()
         }
     }
 
