@@ -164,7 +164,7 @@ export class Tour {
   modes: ModusGrenze[]
   showFinale: boolean
   onToMenu: (() => void) | null
-  /** Atmosphäre-/Flare-Overlay hängt sich hier ein (main.js) */
+  /** Atmosphäre-/Flare-Overlay hängt sich hier ein (main.ts) */
   onPose?: (pose: KameraPose) => void
 
   scaleSm: Smooth
@@ -307,7 +307,7 @@ export class Tour {
   // Sonnenstand (Grad) → Ziel-Anhebung der Kamera + gemerkter Sonnen-Azimut fürs
   // Yaw. Golden Hour (Sonne tief) hebt voll an, tiefe Nacht moderat (damit Sterne
   // sichtbar sind, ohne den ganzen Nachtteil in Dauerschräglage zu zwingen), heller
-  // Tag gar nicht. Wird von der Tag/Nacht-Regie (main.js) gespeist; die Smooths in
+  // Tag gar nicht. Wird von der Tag/Nacht-Regie (main.ts) gespeist; die Smooths in
   // update() ziehen weich nach.
   setSun(sun: Sonnenstand): void {
     this.sunAlt = sun.altitude
@@ -769,7 +769,7 @@ export class Tour {
   }
 
   // JKL-Shuttle: L (dir +1) / J (dir −1). Erneut in dieselbe Richtung = schneller;
-  // Richtungswechsel startet wieder bei 1×. K hält an (in main.js verdrahtet).
+  // Richtungswechsel startet wieder bei 1×. K hält an (in main.ts verdrahtet).
   shuttle(dir: number): void {
     if (this.phase === 'intro') return
     if (this.phase === 'photo') this.ui.hidePhoto()

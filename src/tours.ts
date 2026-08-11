@@ -9,7 +9,7 @@
 
 /**
  * Fortbewegungsmittel eines Segments. Die Liste steht heute an mehreren Stellen
- * (MODE_SPEED/MODE_SCALE in tour.js, MODE_ICONS in map.ts, MODE_SOUND in
+ * (MODE_SPEED/MODE_SCALE in tour.ts, MODE_ICONS in map.ts, MODE_SOUND in
  * vehicle.ts, MODI in server/src/schema/upload.ts) und wird von einem
  * Drift-Wächter zusammengehalten; die Zusammenführung zu einer Quelle ist ein
  * eigener Plan (docs/concepts/modi-konsolidierung.md).
@@ -24,7 +24,7 @@ export type Ankerpunkt = [number, number]
 
 export interface TourSegment {
   mode: Modus
-  /** Anzeigename in der Telemetrie; ohne Angabe zeigt main.js den Modus-Schlüssel. */
+  /** Anzeigename in der Telemetrie; ohne Angabe zeigt main.ts den Modus-Schlüssel. */
   label?: string
   pts: Wegpunkt[]
 }
@@ -71,7 +71,7 @@ export interface TourConfig {
   /** true = Endscreen; fehlt/false = zurück zum Startscreen */
   showFinale?: boolean
   finaleTitle: string
-  /** Ohne `time` bleibt die Tag/Nacht-Regie aus (main.js prüft das Feld). */
+  /** Ohne `time` bleibt die Tag/Nacht-Regie aus (main.ts prüft das Feld). */
   time?: TourZeit
   /** m: Geoid über WGS84-Ellipsoid in der Region (nur für den Google-3D-Testmodus) */
   geoid?: number
@@ -103,7 +103,7 @@ export const TOURS = {
         // Grindelwald — die EINZIGE mit dem Rad fahrbare Verbindung. Wengen/Kleine
         // Scheidegg sind autofrei bzw. nur per Zahnradbahn erreichbar und daher raus.
         // 16 km, ~460 Hm: sanft talwärts, dann stetiger Anstieg. Höhen aus BRouter-DEM
-        // (elevation.js überschreibt sie ohnehin mit Terrarium-Werten).
+        // (elevation.ts überschreibt sie ohnehin mit Terrarium-Werten).
         //
         // DICHTE Geometrie (338 Stützpunkte, Median-Abstand 29 m). Die Vorgängerfassung
         // hatte nur 35 Punkte auf 16 km — über solche Lücken schneidet die Catmull-Rom-
@@ -784,7 +784,7 @@ export const TOURS = {
       { km: 23, mode: 'clouds', k: 0.18 },
       { km: 28, mode: 'off', k: 0.15 },
     ],
-    // Eigene Musik statt des Ambient-Loops (main.js lässt ihn dann weg, der
+    // Eigene Musik statt des Ambient-Loops (main.ts lässt ihn dann weg, der
     // Musik-Schalter steuert diese Spur): „Nachtfahrt" aus der Studio-Bibliothek —
     // pulsierender Synthwave, passend zur Fahrt in die Vollmondnacht.
     // gain 0.8 ≈ der bisherige Ambient-Pegel (0.22 × 0.8 ≈ 0.16).
@@ -907,7 +907,7 @@ export const TOURS = {
         // (surface=concrete:plates, Pass ~290 m) und die Serpentinen nach Thong Nai Pan
         // hinab. Dichte Geometrie (overview=full, leicht RDP-gefiltert), damit die
         // Kamera exakt auf der Piste bleibt statt daneben. 17,4 km. Höhen grob
-        // modelliert (elevation.js überschreibt mit DEM-Werten).
+        // modelliert (elevation.ts überschreibt mit DEM-Werten).
         pts: [
           [100.01373, 9.73349, 60],
           [100.01322, 9.73333, 60],

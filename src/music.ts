@@ -2,7 +2,7 @@
 // (SeamlessLoop mit langem Crossfade), weich ein-/ausgeblendet, an-/abschaltbar.
 // Spielt nur, wenn das Gate wahr ist (z.B. „Tour läuft, nicht im Menü") UND die Musik
 // aktiviert ist — sonst blendet sie sanft aus und pausiert.
-// Ducking bei Video-Ton: folgt der Video-Hülle (Equal-Power), s. audiotracks.js.
+// Ducking bei Video-Ton: folgt der Video-Hülle (Equal-Power), s. audiotracks.ts.
 import { SeamlessLoop } from './audioloop.js'
 import { alsHuelle, videoMusikDuck, type DuckPegel } from './audiotracks.js'
 

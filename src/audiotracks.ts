@@ -1,7 +1,7 @@
 // Tour-eigene Audio-Spuren (Kreativbaukasten): vom Autor im Studio hinterlegte
 // Musik-Bereiche und SFX-One-Shots, verankert am Streckenanteil f (cfg.audio aus
 // remote.ts). Musik läuft geloopt, solange der Playhead im Bereich [f0,f1) steht —
-// mit träger Blende an den Grenzen (wie music.js); SFX feuern einmalig beim
+// mit träger Blende an den Grenzen (wie music.ts); SFX feuern einmalig beim
 // Vorwärts-Überfahren ihres f0 (nur echte Wiedergabe, keine Scrub-/Seek-Sprünge).
 // Läuft nur, wenn das Gate wahr ist (z.B. „Tour läuft/Foto/Scrub"). Pause INNERHALB
 // des Bereichs stoppt den Ton SOFORT und hält die Position — Weiterlaufen setzt
@@ -142,7 +142,7 @@ export function createAudioTracks(tracks: TourAudio[], { volume = 0.22 }: { volu
   const vol = (t: TourAudio) => Math.max(0, Math.min(1, volume * (t.gain ?? 1)))
 
   // Träge Blende + Play/Pause nach Ziel (aktiviert && Gate && im Bereich). Eigener
-  // Timer wie music.js, damit der Ton unabhängig von der Render-Schleife läuft.
+  // Timer wie music.ts, damit der Ton unabhängig von der Render-Schleife läuft.
   const timer = setInterval(() => {
     const offen = gate()
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s), ohne zu rattern
@@ -189,7 +189,7 @@ export function createAudioTracks(tracks: TourAudio[], { volume = 0.22 }: { volu
       }
 
       const tgt = want ? vol(spur) : 0
-      spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.js)
+      spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.ts)
       el.volume = Math.max(0, Math.min(1, spur.level * pegelDuck))
       // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren. `ended` schließt
       // den Fall aus, den es ohne Loop jetzt gibt: eine durchgelaufene Datei
@@ -204,7 +204,7 @@ export function createAudioTracks(tracks: TourAudio[], { volume = 0.22 }: { volu
   window.addEventListener('pointerdown', () => { for (const s of musik) s.blocked = false }, { passive: true })
 
   return {
-    // Streckenanteil pro Frame zuführen (updateTrace-Wrapper in main.js). Musik
+    // Streckenanteil pro Frame zuführen (updateTrace-Wrapper in main.ts). Musik
     // liest ihn im Timer; SFX prüfen hier sofort die Vorwärts-Kante über f0.
     setFrac: (f: number, istPlayback: boolean) => {
       frac = f

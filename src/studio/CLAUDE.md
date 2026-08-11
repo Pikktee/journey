@@ -259,7 +259,7 @@ Länge, beide können wiederholen, beide mischen sich — die Beschriftung „Mu
 Strecke) / Effekt (ein Zeitpunkt)" war eine Aussage über eine Form, die es nicht mehr gibt.
 Was der Unterschied noch bewirkt, sind genau zwei Dinge im Player, und beide fragen dasselbe
 („Score oder Ort?"): Der Zuschauer-Schalter **„Musik"** nimmt `type: 'music'` weg und lässt
-den Ton der Szene stehen (`main.js`, `setMusikEnabled`/`setSfxEnabled`), und unter dem eigenen
+den Ton der Szene stehen (`main.ts`, `setMusikEnabled`/`setSfxEnabled`), und unter dem eigenen
 Ton eines Videos **duckt** nur die Musik. Deshalb heißt das Feld in der Oberfläche „Rolle"
 (Filmmusik · Ton der Szene). Beim Umschalten kippen zwei Dinge leicht still: `bis` fiel früher
 ersatzlos weg (die Länge geht jetzt vorher nach `dauerFilmS`), und die Loop-VORGABE hängt an

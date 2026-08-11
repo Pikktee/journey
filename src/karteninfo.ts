@@ -10,7 +10,7 @@
  * irgendwo sonst und Escape schließen ebenfalls.
  *
  * Der Inhalt kommt NICHT aus einer zweiten, handgeführten Liste, sondern aus
- * den `attribution`-Feldern der Stil-Quellen (siehe map.js). Eine neue
+ * den `attribution`-Feldern der Stil-Quellen (siehe map.ts). Eine neue
  * Kachelquelle erscheint damit von selbst — auch wenn niemand an diese Datei
  * denkt. Ohne Rollen-Eintrag heißt sie schlicht „Kartendaten"; ungenannt
  * bleibt sie nie.
@@ -124,7 +124,7 @@ export function createKartenInfo(
     if (auf === offen) return
     offen = auf
     knopf.setAttribute('aria-expanded', String(auf))
-    // Solange die Quellen offen sind, zieht sich die UI nicht zurück (main.js) —
+    // Solange die Quellen offen sind, zieht sich die UI nicht zurück (main.ts) —
     // sonst blendete der Text weg, während man ihn liest.
     document.body.classList.toggle('info-offen', auf)
     clearTimeout(zuTimer)

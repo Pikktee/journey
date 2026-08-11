@@ -7,7 +7,7 @@ import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
  * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
  * Subset, das diese Datei und die Engine anfassen: die volle Form steht in
  * `RemoteMedium` (src/remote.ts) bzw. `TourFoto` (src/tours.ts); `s` kommt aus
- * der Verankerung in main.js (nearestS).
+ * der Verankerung in main.ts (nearestS).
  */
 export interface PlayerMedium extends StoppFoto {
   src: string
@@ -47,14 +47,18 @@ type VideoMitFrameCallback = HTMLVideoElement & {
   requestVideoFrameCallback?: (cb: () => void) => number
 }
 
-/** Pflicht-Element aus [erlebnis.html](../erlebnis.html) — fehlt es, ist der Player kaputt. */
-const $ = <T extends Element = HTMLElement>(id: string): T => {
+/**
+ * Pflicht-Element aus [erlebnis.html](../erlebnis.html) — fehlt es, ist der Player kaputt.
+ * Exportiert, weil der Verdrahter (main.ts) auf dasselbe DOM zugreift und die
+ * benannte Meldung dort genauso zählt wie hier.
+ */
+export const $ = <T extends Element = HTMLElement>(id: string): T => {
   const el = document.getElementById(id)
   if (!el) throw new Error(`Player-DOM: #${id} fehlt (erlebnis.html)`)
   return el as unknown as T
 }
 
-const pflicht = <T extends Element>(wurzel: Element, wahl: string): T => {
+export const pflicht = <T extends Element>(wurzel: Element, wahl: string): T => {
   const el = wurzel.querySelector(wahl)
   if (!el) throw new Error(`Player-DOM: ${wahl} fehlt (erlebnis.html)`)
   return el as T
@@ -103,9 +107,9 @@ export class UI {
   }
   profileY: number[] = []
 
-  /** Vom Verdrahter (main.js) gesetzt — Fahrer-Marker und Spur pro Frame. */
+  /** Vom Verdrahter (main.ts) gesetzt — Fahrer-Marker und Spur pro Frame. */
   updateTrace!: (s: number, pos: Wegpunkt) => void
-  /** Moduswechsel: Marker-Icon + Motorloop (main.js) */
+  /** Moduswechsel: Marker-Icon + Motorloop (main.ts) */
   onModeChange?: (mode: string) => void
   /** 10-Hz-Takt, z. B. Tag/Nacht-Regie */
   onTick?: (frac: number) => void
@@ -171,7 +175,7 @@ export class UI {
 
     // Video-Stopps (M4): Die Ton-Wahl bleibt für die Session gemerkt. Ende des
     // Videos → onMediaEnded stößt denselben Weiter-Pfad an wie ein abgelaufenes
-    // Foto-HOLD (main.js → tour.ts).
+    // Foto-HOLD (main.ts → tour.ts).
     // Ton AN als Vorgabe: Der Player startet immer erst nach einem Klick auf
     // „Tour starten" — damit gilt die Nutzergeste, die Browser für Autoplay mit
     // Ton verlangen. Nur ein explizites „aus" in der Session überschreibt das.
@@ -179,7 +183,7 @@ export class UI {
     // stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
     this._videoTonGemeldet = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
-    this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.js
+    this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.ts
     this._standbildTimer = 0
     this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel
     try {
@@ -592,7 +596,7 @@ export class UI {
     this.els.teleEle.textContent = `${fmtDE.format(ele)} m`
     if (holdFrac != null) this.els.holdFill.style.transform = `scaleX(${holdFrac.toFixed(3)})`
     // Der Modus wird nicht mehr angezeigt, aber weiter verfolgt: an der Kante
-    // hängen Marker-Icon und Motorloop (onModeChange in main.js).
+    // hängen Marker-Icon und Motorloop (onModeChange in main.ts).
     if (modeKey && modeKey !== this._mode) {
       this._mode = modeKey
       this.onModeChange?.(modeKey)
@@ -608,6 +612,6 @@ export class UI {
     }
     const s = frac * this.total
     if (Math.abs(s - this._lastSyncS) > 60) this.syncDots(s)
-    this.onTick?.(frac) // z.B. Tag/Nacht-Regie (main.js), läuft im 10-Hz-Takt
+    this.onTick?.(frac) // z.B. Tag/Nacht-Regie (main.ts), läuft im 10-Hz-Takt
   }
 }

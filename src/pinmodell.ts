@@ -1,5 +1,5 @@
 // Die RECHENREGELN der 3D-Foto-Pins — DOM-frei, GL-frei, unter Vitest getestet.
-// [photopins.js](photopins.js) enthält nur noch Three.js- und MapLibre-Verdrahtung; alles,
+// [photopins.ts](photopins.ts) enthält nur noch Three.js- und MapLibre-Verdrahtung; alles,
 // was man ohne Karte prüfen kann (Zustände, Detailstufen-Fenster, Blende, Maßstab), liegt
 // hier. Dieselbe Arbeitsteilung wie im Studio (editmodell.ts / editor.ts).
 

@@ -118,7 +118,7 @@
   </style>
 </head>
 <body>
-  <!-- Boot-Screen gegen FOUC: verdeckt ungestyltes HTML, bis App & Karte bereit sind (in main.js entfernt) -->
+  <!-- Boot-Screen gegen FOUC: verdeckt ungestyltes HTML, bis App & Karte bereit sind (in main.ts entfernt) -->
   <div id="boot" aria-hidden="true">
     <div class="boot-inner">
       <div class="boot-mark"><img src="/logo.svg" alt="Maptale" height="42" /></div>
@@ -135,7 +135,7 @@
   <!-- Atmosphäre: Horizont-Dunst, Sterne, Sonne + Lens-Flare, unabhängig vom aktiven Renderer (atmosphere.js) -->
   <div class="blink" id="blink" aria-hidden="true"></div>
 
-  <!-- Weg zurück — dorthin, wo man herkam (Ziel setzt main.js aus dem Referrer).
+  <!-- Weg zurück — dorthin, wo man herkam (Ziel setzt main.ts aus dem Referrer).
        Steht ÜBER allem und bleibt die ganze Fahrt über sichtbar: er ist der
        einzige Ausweg aus dem Player, deshalb darf er nicht mit dem Intro
        verschwinden. Im Kino-Modus zieht er sich mit der übrigen UI zurück und
@@ -253,7 +253,7 @@
 
   <!-- Kein Knopf zum Ein-/Ausblenden: die Bedienelemente ziehen sich während der
        Fahrt von selbst zurück und kommen bei der nächsten Regung wieder
-       (Auto-Rückzug in main.js). Ein Griff für etwas, das ohne Zutun passiert,
+       (Auto-Rückzug in main.ts). Ein Griff für etwas, das ohne Zutun passiert,
        wäre nur noch ein Element mehr auf dem Schirm. -->
 
   <!-- Steuerleiste -->
@@ -335,6 +335,6 @@
     </div>
   </footer>
 
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

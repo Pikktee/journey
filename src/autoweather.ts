@@ -3,7 +3,7 @@
 // aufgefüllt zwischen den Ankern. Der Zeitpunkt je Anker kommt aus den EXIF-Daten
 // des Fotos (DateTimeOriginal); Fotos ohne EXIF (gestrippte Bilder) fallen auf die
 // Pseudo-Zeit der Tour an dieser Streckenposition zurück. Ergebnis ist eine Timeline
-// über s: [{s, mode, k}] — main.js schaltet beim Überfahren der Abschnittsmitten
+// über s: [{s, mode, k}] — main.ts schaltet beim Überfahren der Abschnittsmitten
 // weich um (die Blenden liegen in weather/atmosphere).
 // Vision-Ableitung aus den Bildern selbst ist bewusst NICHT Teil davon (später).
 import { readExifDate, type ExifZeitpunkt } from './exif.js'
@@ -12,7 +12,7 @@ import type { Ankerpunkt, TourZeit, Wegpunkt } from './tours.js'
 
 const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive'
 
-/** Wetter-Modi des Overlays (src/weather.js) — „off" heißt: kein Effekt. */
+/** Wetter-Modi des Overlays (src/weather.ts) — „off" heißt: kein Effekt. */
 export type WetterModus = 'off' | 'clouds' | 'rain' | 'snow' | 'fog' | 'storm'
 
 /** Ein Wetterzustand: Modus plus stufenlose Stärke k (0..1). */

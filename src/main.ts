@@ -1,21 +1,107 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
-import { TOURS } from './tours.js'
-import { loadRemoteTour, createTimeAt } from './remote'
-import { tourAusPfad, tourPfad } from './routen'
-import { buildRoute, gruppiereStopps, nearestS, pointAt } from './geo.js'
+import type { Map as MapLibreKarte, Marker } from 'maplibre-gl'
+import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } from './tours.js'
+import { loadRemoteTour, createTimeAt, type RemoteTourCfg } from './remote.js'
+import { tourAusPfad, tourPfad } from './routen.js'
+import { buildRoute, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
-import { createAtmosphere } from './atmosphere.js'
-import { createWeather } from './weather.js'
-import { createMusic } from './music.js'
-import { createAudioTracks } from './audiotracks.js'
-import { createVehicle } from './vehicle.js'
+import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
+import { createWeather, type Wetteroverlay } from './weather.js'
+import { createMusic, type Hintergrundmusik } from './music.js'
+import { createAudioTracks, type AudioSpuren } from './audiotracks.js'
+import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
-import { UI } from './ui.js'
-import { Tour } from './tour.js'
+import { UI, $, type PlayerMedium } from './ui.js'
+import { Tour, type KameraMoment, type ModusGrenze } from './tour.js'
+import type { PinStopp, PinSteuerung } from './photopins.js'
+
+/**
+ * Was der Verdrahter aus einer Tour liest — das SUBSET, in dem sich die
+ * mitgelieferte `TourConfig` (src/tours.ts) und die aufgezeichnete
+ * `RemoteTourCfg` (src/remote.ts) treffen. Bewusst keine dritte „Wahrheit"
+ * fürs Tour-Format: Was hier fehlt, fasst diese Datei nicht an.
+ */
+interface SpielerFoto {
+  src: string
+  title: string
+  caption: string
+  anchor: Ankerpunkt
+  /** Aufgezeichnete Touren bringen den Zeitstempel mit (Auto-Wetter spart das EXIF) */
+  takenAt?: string
+  type?: 'photo' | 'video'
+  durationS?: number
+  poster?: string
+  thumb?: string
+  display?: { holdS?: number; kenBurns?: boolean }
+}
+
+interface SpielerSegment {
+  /** Freie Zeichenkette: Server-Segmente sind nicht auf `Modus` eingeschränkt */
+  mode: string
+  label?: string
+  pts: Wegpunkt[]
+}
+
+interface SpielerTour {
+  kicker: string
+  titleHtml: string
+  stops: string[]
+  finaleTitle: string
+  showFinale?: boolean
+  /** Ohne `time` bleibt die Tag/Nacht-Regie (und damit die Atmosphäre) aus */
+  time?: TourZeit
+  segments: SpielerSegment[]
+  photos: SpielerFoto[]
+  /** Kuratierte Wetter-Timeline (km entlang der Route) — schlägt das Auto-Wetter */
+  weather?: Array<{ km: number; mode: string; k: number }>
+  timeline?: Array<{ f: number; t: string }>
+  camera?: Array<{ f: number; preset: string; skala?: number }>
+  moments?: Array<{ f: number; art: string; dauerS?: number }>
+  audio?: TourAudio[]
+}
+
+/** Ein Foto mit seiner Verankerung an der Route (`s` aus nearestS). */
+type VerankertesFoto = SpielerFoto & PlayerMedium
+
+/** Wetter-Stützstelle in Streckenmetern — kuratiert (cfg.weather) oder automatisch. */
+interface WetterStuetze {
+  s: number
+  mode: string
+  k: number
+}
+
+/**
+ * Debug-Handles am Fenster (`window.__j`). Sie sind kein API-Vertrag, sondern
+ * der Zugriff auf die laufenden Teile in der Konsole — deshalb ist alles
+ * optional, was erst im Laufe des Bootens entsteht.
+ */
+interface PlayerDebug {
+  map: MapLibreKarte
+  route: Route
+  tourAudio: AudioSpuren | null
+  vehicle?: Fahrzeugton
+  tour?: Tour
+  rider?: Marker
+  weather?: Wetteroverlay
+  music?: Hintergrundmusik | null
+  atmo?: Atmosphaere
+  pins?: PinSteuerung
+  /** 'dem' sobald die echten Höhen greifen, 'fallback' wenn der Fetch scheiterte */
+  eleReady?: Promise<string>
+  wxTimeline?: WetterStuetze[]
+}
+
+declare global {
+  interface Window {
+    __j: PlayerDebug
+    /** Brücke der Android-App (PlayerScreen.kt, @JavascriptInterface) */
+    MaptaleApp?: { verlassen?: () => void }
+  }
+}
 
 // — Tour-Auswahl über den Pfad `/tour/<kennung>` — statische Registry oder
 // aufgezeichnete Tour vom Backend (Kennungen mit `t_`, remote.ts). Top-Level-
@@ -66,11 +152,11 @@ window.visualViewport?.addEventListener('resize', setzeViewportHoehe)
 // resize-Event ankommt (WebViews, eingebettete Ansichten) — sonst bliebe nach
 // einer Drehung das Layout des vorherigen Formats stehen.
 new ResizeObserver(setzeViewportHoehe).observe(document.documentElement)
-let remoteCfg = null
-let remoteFehler = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
+let remoteCfg: RemoteTourCfg | null = null
+let remoteFehler: string | null = null // Meldung fürs Toast, sobald die UI steht (Fallback lief)
 if (tourParam.startsWith('srv:')) {
-  remoteCfg = await loadRemoteTour(tourParam.slice('srv:'.length)).catch((err) => {
-    remoteFehler = err?.message ?? String(err)
+  remoteCfg = await loadRemoteTour(tourParam.slice('srv:'.length)).catch((err: unknown) => {
+    remoteFehler = err instanceof Error ? err.message : String(err)
     console.error('Remote-Tour nicht ladbar:', remoteFehler)
     return null
   })
@@ -80,7 +166,11 @@ if (tourParam.startsWith('srv:')) {
 // Lookup via Object.hasOwn: ?tour=constructor o. Ä. darf nicht über die
 // Prototypkette eine Funktion statt einer Tour liefern.
 const tourId = remoteCfg ? tourParam : Object.hasOwn(TOURS, tourParam) ? tourParam : 'kohphangan'
-const cfg = remoteCfg ?? TOURS[tourId]
+// Der Registry-Zugriff über eine freie Zeichenkette braucht die Tabelle als
+// Wörterbuch; `TOURS` selbst bleibt das Literal (die Typen der Touren hängen
+// daran). Der zweite Fallback ist unerreichbar — tourId kommt aus genau dieser
+// Tabelle —, steht aber, damit der Typ ohne `!` auskommt.
+const cfg: SpielerTour = remoteCfg ?? (TOURS as Record<string, SpielerTour>)[tourId] ?? TOURS.kohphangan
 
 // Wer über die Alt-Adresse `?tour=…` kam, bekommt die Adresszeile auf die
 // heutige Form gezogen — wie die Profilseite mit `?id=…`. Erst HIER, nicht
@@ -116,54 +206,66 @@ const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 // weg. Für Stockholm liegt die untergehende Sonne rückwärts die GANZE Golden Hour voraus
 // (vorwärts nur an einer einzigen Stelle). Fotos werden per nearestS neu verankert.
 const reverse = params.get('reverse') === '1'
-const segsSrc = reverse
+const segsSrc: SpielerSegment[] = reverse
   ? cfg.segments.slice().reverse().map((seg) => ({ ...seg, pts: seg.pts.slice().reverse() }))
   : cfg.segments
 
 // Segmente zu einer Wegpunktliste verbinden (Nahtpunkte dedupen)
-const waypoints = []
+const waypoints: Wegpunkt[] = []
 for (const seg of segsSrc) {
   waypoints.push(...(waypoints.length ? seg.pts.slice(1) : seg.pts))
 }
 const route = buildRoute(waypoints)
 
+// Streckenmeter des Segment-Anfangs; ein Segment ohne Punkte gibt es in gültigen
+// Daten nicht (der Fallback vermeidet nur die Ausnahme im Verdrahter).
+const segmentStart = (r: Route, seg: SpielerSegment) => {
+  const p0 = seg.pts[0]
+  return p0 ? nearestS(r, p0) : 0
+}
+
 // Modus-Grenzen. Vorwärts: sauber via nearestS je Segment-Startpunkt. Rückwärts:
 // die VORWÄRTS-Grenzen an der Streckenmitte spiegeln — nearestS auf reversierte
 // Segment-Nähte ist mehrdeutig (Inseln wie Fjäderholmarna liegen nah an der
 // Stadtstrecke → die Fähre würde über die halbe Route „auslaufen").
-let modes
+let modes: ModusGrenze[]
 if (reverse) {
-  const fwdWp = []
+  const fwdWp: Wegpunkt[] = []
   for (const seg of cfg.segments) fwdWp.push(...(fwdWp.length ? seg.pts.slice(1) : seg.pts))
   const fwdRoute = buildRoute(fwdWp)
   const T = fwdRoute.total
-  const fwd = cfg.segments.map((seg) => ({ s: nearestS(fwdRoute, seg.pts[0]), mode: seg.mode, label: seg.label ?? seg.mode }))
-  fwd[0].s = 0
+  const fwd = cfg.segments.map((seg) => ({ s: segmentStart(fwdRoute, seg), mode: seg.mode, label: seg.label ?? seg.mode }))
+  const erst = fwd[0]
+  if (erst) erst.s = 0
   const bounds = fwd.map((m) => m.s).concat([T]) // [0, s1, …, T] — Segment-Intervalle
   const scale = route.total / T // reversierte Route ist minimal anders lang
   modes = fwd
-    .map((m, i) => ({ s: (T - bounds[i + 1]) * scale, mode: m.mode, label: m.label }))
+    .map((m, i) => ({ s: (T - (bounds[i + 1] ?? T)) * scale, mode: m.mode, label: m.label }))
     .sort((a, b) => a.s - b.s)
 } else {
-  modes = cfg.segments.map((seg) => ({ s: nearestS(route, seg.pts[0]), mode: seg.mode, label: seg.label ?? seg.mode }))
+  modes = cfg.segments.map((seg) => ({ s: segmentStart(route, seg), mode: seg.mode, label: seg.label ?? seg.mode }))
 }
-modes[0].s = 0
-const photos = cfg.photos.map((p) => ({ ...p, s: nearestS(route, p.anchor) })).sort((a, b) => a.s - b.s)
+const ersteGrenze = modes[0]
+if (ersteGrenze) ersteGrenze.s = 0
+const startModus = ersteGrenze?.mode ?? 'bike'
+const photos: VerankertesFoto[] = cfg.photos
+  .map((p) => ({ ...p, s: nearestS(route, p.anchor) }))
+  .sort((a, b) => a.s - b.s)
 // Fotos mit nahe beieinanderliegenden Ankern zu einem Stopp gruppieren —
 // dort werden sie nacheinander gezeigt (ein Halt, mehrere Bilder)
 const stops = gruppiereStopps(photos)
 // Kamera-Momente (Kreativbaukasten): Punkt-Ereignisse, f → Streckenmeter s.
-// Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.js).
-const moments = (cfg.moments ?? [])
+// Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.ts).
+const moments: KameraMoment[] = (cfg.moments ?? [])
   .map((m) => ({ s: m.f * route.total, art: m.art, dauerS: m.dauerS }))
   .sort((a, b) => a.s - b.s)
 const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
-const setText = (id, text) => (document.getElementById(id).textContent = text)
+const setText = (id: string, text: string) => ($(id).textContent = text)
 document.title = 'Maptale · deine Reisen als kinematische 3D-Erlebnisse'
 setText('intro-kicker', cfg.kicker)
-document.getElementById('intro-title').innerHTML = cfg.titleHtml
+$('intro-title').innerHTML = cfg.titleHtml
 setText('intro-route', cfg.stops.join('  →  '))
 setText('finale-title', cfg.finaleTitle)
 setText('chip-photos', `${photos.length} Fotos`)
@@ -176,9 +278,9 @@ setText('final-photos', String(photos.length))
 // bleiben. Ohne Referrer (direkt geöffneter Link) bleibt es bei der Startseite.
 // Die Wörter sind die der Navigation, nicht die der Pfade: /galerie heißt für
 // Besucher überall „Entdecken".
-const HERKUNFT = { '/app': 'Studio', '/galerie': 'Entdecken', '/profil': 'Profil' }
+const HERKUNFT: Record<string, string> = { '/app': 'Studio', '/galerie': 'Entdecken', '/profil': 'Profil' }
 if (!appModus) {
-  let her = null
+  let her: URL | null = null
   try {
     const r = new URL(document.referrer)
     // Nur echte Zwischenseiten übernehmen; die Landing „/" ist selbst die
@@ -187,11 +289,12 @@ if (!appModus) {
   } catch {}
   if (her) {
     const wort = HERKUNFT[her.pathname] ?? 'Zurück'
-    const zurueck = document.querySelector('.zurueck')
+    const zurueck = document.querySelector<HTMLAnchorElement>('.zurueck')
     if (zurueck) {
       zurueck.href = her.href
       zurueck.setAttribute('aria-label', `Zurück zu: ${wort}`)
-      zurueck.querySelector('.zurueck-wort').textContent = wort
+      const wortEl = zurueck.querySelector('.zurueck-wort')
+      if (wortEl) wortEl.textContent = wort
       zurueck.addEventListener('click', (e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || history.length < 2) return
         e.preventDefault()
@@ -214,23 +317,23 @@ if (boot) {
     if (dismissed) return
     dismissed = true
     boot.classList.add('gone')
-    setTimeout(() => boot.remove(), 800)
+    window.setTimeout(() => boot.remove(), 800)
   }
   map.once('idle', dismissBoot)
   map.once('load', dismissBoot)
-  setTimeout(dismissBoot, 4000)
+  window.setTimeout(dismissBoot, 4000)
 }
 
 map.on('error', (e) => console.error('map error:', e.error?.message ?? e))
 
 map.on('load', () => {
   const syncTrace = addRouteLayers(map, route)
-  const rider = createRider(map, [start[0], start[1]], modes[0].mode)
+  const rider = createRider(map, [start[0], start[1]], startModus)
 
   const ui = new UI(stops, route)
-  let kamFolger = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
+  let kamFolger: ((frac: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
-    syncTrace(s, pos)
+    syncTrace(s, [pos[0], pos[1]])
     rider.setLngLat([pos[0], pos[1]])
     // Tour-Audio folgt dem Streckenanteil pro Frame: Musik-Bereiche + SFX-Kanten.
     // istPlayback nur bei echter Wiedergabe — Scrub-/Seek-Sprünge feuern keine SFX.
@@ -240,22 +343,22 @@ map.on('load', () => {
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
   const vehicle = createVehicle('/audio')
-  vehicle.setMode(modes[0].mode)
+  vehicle.setMode(startModus)
   window.__j.vehicle = vehicle
   ui.onModeChange = (mode) => { setRiderIcon(rider, mode); vehicle.setMode(mode) }
 
   const km = `${(route.total / 1000).toFixed(1)} km`
-  const setGain = (hm) => {
-    document.getElementById('chip-gain').textContent = `${Math.round(hm)} hm`
-    document.getElementById('final-gain').textContent = `${Math.round(hm)} hm`
+  const setGain = (hm: number) => {
+    $('chip-gain').textContent = `${Math.round(hm)} hm`
+    $('final-gain').textContent = `${Math.round(hm)} hm`
   }
-  document.getElementById('chip-distance').textContent = km
-  document.getElementById('final-km').textContent = km
+  $('chip-distance').textContent = km
+  $('final-km').textContent = km
   setGain(route.gain)
 
   // Echte DEM-Höhen nachladen: korrigiert Höhenprofil, Telemetrie und
   // Höhenmeter — die Wegpunkt-Höhen sind nur der Startwert.
-  const modeAtS = (s) => {
+  const modeAtS = (s: number): ModusGrenze | undefined => {
     let cur = modes[0]
     for (const m of modes) if (m.s <= s + 1) cur = m
     return cur
@@ -263,15 +366,19 @@ map.on('load', () => {
   window.__j.eleReady = sampleElevations(route.coords)
     .then((eles) => {
       const sm = smoothValues(eles, 9)
-      route.coords.forEach((c, i) => (c[2] = sm[i]))
+      route.coords.forEach((c, i) => (c[2] = sm[i] ?? c[2]))
       // Fähr-Abschnitte auf Meereshöhe klemmen: das DEM rauscht über der
       // Ostsee um einige Meter und würde Phantom-Höhenmeter aufsummieren
       route.coords.forEach((c, i) => {
-        if (modeAtS(route.cum[i]).mode === 'ferry') c[2] = 0
+        if (modeAtS(route.cum[i] ?? 0)?.mode === 'ferry') c[2] = 0
       })
       let gain = 0
       const cs = route.coords
-      for (let i = 1; i < cs.length; i++) if (cs[i][2] > cs[i - 1][2]) gain += cs[i][2] - cs[i - 1][2]
+      for (let i = 1; i < cs.length; i++) {
+        const vor = cs[i - 1]
+        const jetzt = cs[i]
+        if (vor && jetzt && jetzt[2] > vor[2]) gain += jetzt[2] - vor[2]
+      }
       route.gain = gain
       setGain(gain)
       ui.rebuildProfile()
@@ -303,12 +410,12 @@ map.on('load', () => {
     const keyframes = cfg.camera.slice().sort((a, b) => a.f - b.f)
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
-    const defaultPreset = document.querySelector('.preset-btn.active')?.dataset.preset ?? 'mittel'
-    let kamAktiv = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
+    const defaultPreset = document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
+    let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
     kamFolger = (frac) => {
       if (kamManuell) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
-      let k = null
+      let k: { f: number; preset: string; skala?: number } | null = null
       for (const kf of keyframes) if (kf.f <= frac) k = kf
       // `standard` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
       // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
@@ -318,10 +425,11 @@ map.on('load', () => {
       // Eine Feinjustierung gehört zu einem gewählten Abstand — auf „standard"
       // angewandt verböge sie die Einstellung des Zuschauers.
       const skala = k && k.preset !== 'standard' ? (k.skala ?? 1) : 1
+      if (preset === null) return
       // Kennung aus Preset+Skala: eine reine Feinjustierung (gleiches Preset,
       // andere Skala) muss ebenfalls neu angewendet werden.
-      const kennung = preset === null ? null : `${preset}:${skala}`
-      if (kennung === null || kennung === kamAktiv) return
+      const kennung = `${preset}:${skala}`
+      if (kennung === kamAktiv) return
       kamAktiv = kennung
       tour.setPreset(preset, skala)
       // Button-Zustand nachziehen (gleiches Muster wie der Klick-Handler unten)
@@ -330,7 +438,7 @@ map.on('load', () => {
     }
   }
 
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeWeather(); document.getElementById('options-modal').hidden = true } })
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeWeather(); $('options-modal').hidden = true } })
 
   // — Wetter-Dropdown (Regen/Gewitter) — live umschaltbar, unabhängig von Tag/Nacht. Das Overlay läuft in eigener Schleife, friert aber über das Gate
   // ein, sobald die Szene pausiert (stehende Kamera = stehender Regen). Kein Reload
@@ -349,8 +457,9 @@ map.on('load', () => {
   const WEATHER_INT_KEY = 'maptale:weather-int'
   // Wetter-Stärke: drei UI-Stufen auf einer stufenlosen Skala (die API nimmt jedes
   // 0..1 — ein späteres Echtwetter kann feiner dosieren). Default Mittel.
-  const WEATHER_INT = { leicht: 0.4, mittel: 0.7, stark: 1 }
+  const WEATHER_INT: Record<string, number> = { leicht: 0.4, mittel: 0.7, stark: 1 }
   let weatherInt = 'mittel'
+  const stufenStaerke = () => WEATHER_INT[weatherInt] ?? 0.7
   // Himmel je Wetter-Modus: Wolkendeckung als SPANNE [c0..c1] über die Stärke —
   // die Atmosphäre formt daraus die Wolken selbst (locker → aufgerissen →
   // geschlossen). „Wolkig" spannt den ganzen Bogen: Leicht = einzelne Wolken
@@ -358,7 +467,7 @@ map.on('load', () => {
   // sichtbare Sonne. Niederschlags-Modi starten dagegen schon bedeckt (auch
   // leichter Regen fällt nicht aus heiterem Himmel). Die Atmosphäre existiert erst
   // nach dem Tag/Nacht-Block (cfg.time) → später via atmoWeather-Hook gekoppelt.
-  const WEATHER_SKY = {
+  const WEATHER_SKY: Record<string, { c0: number; c1: number; dark: number; fog: number }> = {
     off: { c0: 0, c1: 0, dark: 0, fog: 0 },
     clouds: { c0: 0.28, c1: 0.98, dark: 0.34, fog: 0 },
     fog: { c0: 0.22, c1: 0.45, dark: 0.2, fog: 1 },
@@ -366,42 +475,42 @@ map.on('load', () => {
     snow: { c0: 0.62, c1: 0.96, dark: 0.3, fog: 0.4 },
     storm: { c0: 0.88, c1: 1, dark: 0.8, fog: 0.12 },
   }
-  const skyFor = (m, k) => {
-    const b = WEATHER_SKY[m] ?? WEATHER_SKY.off
+  const skyFor = (m: string, k: number) => {
+    const b = WEATHER_SKY[m] ?? WEATHER_SKY.off!
     // k läuft im UI 0.4..1 (Leicht..Stark); darunter (künftiges Echtwetter,
     // stufenlos) bleibt die Deckung am unteren Ende der Spanne
     const t = Math.max(0, Math.min(1, (k - 0.4) / 0.6))
     return { cover: b.c0 + (b.c1 - b.c0) * t, dark: b.dark * (0.4 + 0.6 * k), fog: b.fog * (0.35 + 0.65 * k) }
   }
-  let atmoWeather = null // () => atmo.setWeather(skyFor(...)), gesetzt sobald atmo existiert
-  let groundSnow = null // () => dayNight.setSnow(...), gesetzt sobald die Tag/Nacht-Regie existiert
-  const weatherBtn = document.getElementById('btn-weather')
-  const weatherMenu = document.getElementById('weather-menu')
+  let atmoWeather: (() => void) | null = null // () => atmo.setWeather(skyFor(...)), gesetzt sobald atmo existiert
+  let groundSnow: (() => void) | null = null // () => dayNight.setSnow(...), gesetzt sobald die Tag/Nacht-Regie existiert
+  const weatherBtn = $('btn-weather')
+  const weatherMenu = $('weather-menu')
   const closeWeather = () => { weatherMenu.hidden = true; weatherBtn.setAttribute('aria-expanded', 'false') }
-  const openWeather = () => { closeLayers(); weatherMenu.hidden = false; weatherBtn.setAttribute('aria-expanded', 'true') }
-  const syncWeatherUI = (m) => {
+  const openWeather = () => { weatherMenu.hidden = false; weatherBtn.setAttribute('aria-expanded', 'true') }
+  const syncWeatherUI = (m: string) => {
     weatherBtn.classList.toggle('active', m !== 'off') // aktiver Zustand am Button ablesbar
-    weatherMenu.querySelectorAll('[data-weather]').forEach((el) => {
+    weatherMenu.querySelectorAll<HTMLElement>('[data-weather]').forEach((el) => {
       const on = el.dataset.weather === m
       el.classList.toggle('on', on)
       el.setAttribute('aria-checked', String(on))
     })
-    weatherMenu.querySelectorAll('[data-wlevel]').forEach((el) => {
+    weatherMenu.querySelectorAll<HTMLElement>('[data-wlevel]').forEach((el) => {
       const on = el.dataset.wlevel === weatherInt
       el.classList.toggle('on', on)
       el.setAttribute('aria-checked', String(on))
     })
   }
-  // — Auto-Wetter: echtes historisches Wetter (Open-Meteo + EXIF, autoweather.js) —
+  // — Auto-Wetter: echtes historisches Wetter (Open-Meteo + EXIF, autoweather.ts) —
   // Default-Modus; jede manuelle Wahl im Menü überschreibt ihn (und wird gemerkt).
   // Die Timeline lädt asynchron; bis dahin (und bei Fetch-Fehlern) bleibt es bei
   // „Kein Wetter". k ist im Auto-Modus stufenlos (dafür ist setIntensity gebaut).
-  let weatherK = WEATHER_INT[weatherInt] // wirksame Stärke (UI-Stufe bzw. Auto-Wert)
+  let weatherK = stufenStaerke() // wirksame Stärke (UI-Stufe bzw. Auto-Wert)
   let weatherAuto = false
-  let wxTimeline = null // [{s, mode, k}] sobald geladen
-  let wxSegment = null // zuletzt angewandter Timeline-Eintrag (gegen Dauer-Reapply)
+  let wxTimeline: WetterStuetze[] | null = null // sobald geladen
+  let wxSegment: WetterStuetze | null = null // zuletzt angewandter Timeline-Eintrag (gegen Dauer-Reapply)
 
-  const applyWx = (m, k) => {
+  const applyWx = (m: string, k: number) => {
     weatherK = k
     weather.setIntensity(k)
     weather.setMode(m)
@@ -410,18 +519,18 @@ map.on('load', () => {
   }
   const applyAutoNow = () => {
     const e = weatherAt(wxTimeline, tour.s)
-    if (!e) { applyWx('off', WEATHER_INT[weatherInt]); return }
+    if (!e) { applyWx('off', stufenStaerke()); return }
     if (wxSegment === e) return
     wxSegment = e
     applyWx(e.mode, e.k)
   }
-  const applyWeather = (m, persist = true) => {
+  const applyWeather = (m: string, persist = true) => {
     weatherAuto = m === 'auto'
     if (weatherAuto) {
       wxSegment = null
       applyAutoNow()
     } else {
-      applyWx(m, WEATHER_INT[weatherInt])
+      applyWx(m, stufenStaerke())
     }
     syncWeatherUI(weatherAuto ? 'auto' : weather.mode)
     if (persist) {
@@ -432,7 +541,7 @@ map.on('load', () => {
     }
   }
   // Beim Fahren die Abschnittsmitten überwachen (die Übergänge blenden weich in
-  // weather.js/atmosphere.js) — 0,8 s reichen, Wetter ändert sich gemächlich.
+  // weather.ts/atmosphere.ts) — 0,8 s reichen, Wetter ändert sich gemächlich.
   // Zugleich den Wetter-Ton beim Finale („Ziel erreicht") ausblenden (nur der
   // Sound; die Regen-Partikel laufen im Orbit weiter) — kommt beim Neustart zurück.
   setInterval(() => {
@@ -440,14 +549,15 @@ map.on('load', () => {
     // Wetter-SFX folgt dem Audio-Master (Optionen) UND blendet beim Finale aus
     weather.setSoundEnabled(audioOn && tour.phase !== 'finale')
   }, 800)
-  weatherMenu.querySelectorAll('[data-weather]').forEach((el) => {
-    el.addEventListener('click', () => { applyWeather(el.dataset.weather); closeWeather() })
+  weatherMenu.querySelectorAll<HTMLElement>('[data-weather]').forEach((el) => {
+    el.addEventListener('click', () => { applyWeather(el.dataset.weather ?? 'off'); closeWeather() })
   })
   // Stärke-Umschalter (Leicht/Mittel/Stark): wirkt live auf den laufenden Modus,
   // Menü bleibt offen (man will die Wirkung direkt vergleichen)
-  weatherMenu.querySelectorAll('[data-wlevel]').forEach((el) => {
+  weatherMenu.querySelectorAll<HTMLElement>('[data-wlevel]').forEach((el) => {
     el.addEventListener('click', () => {
-      weatherInt = WEATHER_INT[el.dataset.wlevel] ? el.dataset.wlevel : 'mittel'
+      const stufe = el.dataset.wlevel
+      weatherInt = stufe && WEATHER_INT[stufe] ? stufe : 'mittel'
       // Im Auto-Modus bleibt Auto aktiv (die Stärke kommt dort aus den Wetterdaten,
       // die Stufe greift erst wieder bei manueller Wahl)
       applyWeather(weatherAuto ? 'auto' : weather.mode)
@@ -455,7 +565,8 @@ map.on('load', () => {
   })
   weatherBtn.addEventListener('click', (e) => { e.stopPropagation(); weatherMenu.hidden ? openWeather() : closeWeather() })
   document.addEventListener('click', (e) => {
-    if (!weatherMenu.hidden && !weatherMenu.contains(e.target) && e.target !== weatherBtn) closeWeather()
+    const ziel = e.target
+    if (!weatherMenu.hidden && ziel instanceof Node && !weatherMenu.contains(ziel) && ziel !== weatherBtn) closeWeather()
   })
   // Gemerkte Wetter-Wahl + Stärke wiederherstellen. OHNE gemerkte Wahl ist
   // AUTO der Default (echtes Wetter der Reise); „off" bleibt eine bewusste Wahl.
@@ -469,7 +580,7 @@ map.on('load', () => {
   } catch { syncWeatherUI('off') }
 
   // Foto-Wegpunkte + Startpunkt als GL-Layer auf der Karte
-  const spotPunkte = stops.map((st) => {
+  const spotPunkte: PinStopp[] = stops.map((st) => {
     const pos = pointAt(route, st.s)
     // Für den Pin-Kopf (?pins3d=foto) reicht die Kachel-Fassung: Die Scheibe
     // ist gut hundert Pixel groß, das Foto in Anzeigegröße wäre reine Last.
@@ -480,10 +591,10 @@ map.on('load', () => {
     map,
     spotPunkte,
     [start[0], start[1]],
-    (s) => tour.jumpToPhoto(s) // Wegpunkt-Klick öffnet das Foto direkt
+    (s) => tour.jumpToPhoto(s), // Wegpunkt-Klick öffnet das Foto direkt
   )
 
-  // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.js) — das ist der
+  // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.ts) — das ist der
   // Normalfall; die flachen Kreise klebten im Bergland am Hang und verschwanden hinter
   // jedem Grat. `?pins3d=0` schaltet auf sie zurück (A/B-Vergleich), `?pins3d=foto`
   // zeigt das Bild im Kopf statt der Nummer.
@@ -495,7 +606,7 @@ map.on('load', () => {
     for (const l of ['spots-circle', 'spots-num']) map.setLayoutProperty(l, 'visibility', 'none')
     // Der Sync-Callback steht sofort, der Renderer kommt lazy nach (Three.js gehört
     // nicht ins Basis-Bundle) — bis dahin läuft er ins Leere.
-    let pins = null
+    let pins: PinSteuerung | null = null
     ui.registerSpots((s) => pins?.sync(s))
     import('./photopins.js').then(({ installPhotoPins }) => {
       pins = installPhotoPins(map, spotPunkte, {
@@ -509,11 +620,11 @@ map.on('load', () => {
   ui.syncDots(0)
 
   // — Steuerung —
-  document.getElementById('btn-start').addEventListener('click', () => tour.begin())
-  document.getElementById('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
-  document.getElementById('btn-replay').addEventListener('click', () => tour.restart())
+  $('btn-start').addEventListener('click', () => tour.begin())
+  $('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
+  $('btn-replay').addEventListener('click', () => tour.restart())
   // Vom „Ziel erreicht“-Screen zurück ins Hauptmenü (wie der Dock-Menü-Knopf)
-  document.getElementById('btn-finale-menu').addEventListener('click', () => tour.toMenu())
+  $('btn-finale-menu').addEventListener('click', () => tour.toMenu())
 
   // — Hintergrundmusik (unaufdringlich, nahtlos geloopt) — läuft während der
   // Track-Animation (Fahrt/Foto), pausiert im Menü; per Dock-Knopf abschaltbar.
@@ -526,15 +637,15 @@ map.on('load', () => {
   window.__j.music = music
 
   // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub. Pause stoppt sie
-  // sofort und hält die Abspielposition (audiotracks.js); Bereichsgrenzen und
-  // Menü/Finale blenden weich aus. Bewusst anders als music.js — die eigene
+  // sofort und hält die Abspielposition (audiotracks.ts); Bereichsgrenzen und
+  // Menü/Finale blenden weich aus. Bewusst anders als music.ts — die eigene
   // Musik gehört zur SZENE, nicht zur App.
   tourAudio?.setGate(
     () => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing || tour.phase === 'photo'),
   )
 
   // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).
-  // Pegel 0..1 aus der Video-Hülle; Stärke am Plateau: VIDEO_DUCK in audiotracks.js.
+  // Pegel 0..1 aus der Video-Hülle; Stärke am Plateau: VIDEO_DUCK in audiotracks.ts.
   ui.onVideoTon = (huelle) => {
     music?.setDucking(huelle)
     tourAudio?.setDucking(huelle)
@@ -560,10 +671,10 @@ map.on('load', () => {
   }
   applyAudio()
 
-  const optAudio = document.getElementById('opt-audio')
-  const optMusic = document.getElementById('opt-music')
-  const optWeather = document.getElementById('opt-weather')
-  const setSwitch = (el, on) => el.setAttribute('aria-checked', String(on))
+  const optAudio = $('opt-audio')
+  const optMusic = $('opt-music')
+  const optWeather = $('opt-weather')
+  const setSwitch = (el: HTMLElement, on: boolean) => el.setAttribute('aria-checked', String(on))
   setSwitch(optAudio, audioOn)
   setSwitch(optMusic, musicOn)
   optAudio.addEventListener('click', () => {
@@ -589,11 +700,11 @@ map.on('load', () => {
 
   // Optionen-Dialog öffnen/schließen (Wetter-Switch beim Öffnen aktualisieren, falls
   // im Dev-Menü verstellt). Klick auf den abgedunkelten Hintergrund schließt.
-  const optModal = document.getElementById('options-modal')
+  const optModal = $('options-modal')
   const openOptions = () => { syncWeatherSwitch(); optModal.hidden = false }
   const closeOptions = () => { optModal.hidden = true }
-  document.getElementById('btn-options').addEventListener('click', openOptions)
-  document.getElementById('opt-close').addEventListener('click', closeOptions)
+  $('btn-options').addEventListener('click', openOptions)
+  $('opt-close').addEventListener('click', closeOptions)
   optModal.addEventListener('click', (e) => { if (e.target === optModal) closeOptions() })
 
   // — Entwicklermodus — blendet Dev-Regler (Wetter-Palette, Kameradistanz) ein.
@@ -602,7 +713,7 @@ map.on('load', () => {
   const DEV_KEY = 'maptale:dev'
   let devOn = params.get('dev') === '1'
   try { devOn = devOn || localStorage.getItem(DEV_KEY) === '1' } catch { /* Storage evtl. gesperrt */ }
-  const setDev = (on) => {
+  const setDev = (on: boolean) => {
     devOn = on
     document.body.classList.toggle('dev', on)
     try { localStorage.setItem(DEV_KEY, on ? '1' : '0') } catch { /* Storage evtl. gesperrt */ }
@@ -610,12 +721,12 @@ map.on('load', () => {
   setDev(devOn)
   let devSeq = ''
   window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    if (istTextfeld(e.target)) return
     devSeq = (devSeq + e.key).slice(-3).toLowerCase()
     if (devSeq === 'dev') { setDev(!devOn); toast(devOn ? 'Entwicklermodus an' : 'Entwicklermodus aus') }
   })
 
-  const speedBtn = document.getElementById('btn-speed')
+  const speedBtn = $('btn-speed')
   // Tempo-Label aus dem Tour-Zustand: Faktor + Richtung (−4× = 4× rückwärts).
   // Wird pro Stats-Tick aufgerufen, bleibt also auch nach JKL-Shuttle aktuell.
   ui.onSpeed = (mult, dir) => {
@@ -624,15 +735,15 @@ map.on('load', () => {
   }
   speedBtn.addEventListener('click', () => {
     tour.dir = 1 // Button ist ein Vorwärts-Tempo-Umschalter
-    ui.onSpeed(tour.cycleSpeed(), tour.dir)
+    ui.onSpeed?.(tour.cycleSpeed(), tour.dir)
   })
 
-  for (const btn of document.querySelectorAll('.preset-btn')) {
+  for (const btn of document.querySelectorAll<HTMLElement>('.preset-btn')) {
     btn.addEventListener('click', () => {
       kamManuell = true // manueller Eingriff: Kamera-Folger dauerhaft aus (bis Reload)
       document.querySelector('.preset-btn.active')?.classList.remove('active')
       btn.classList.add('active')
-      tour.setPreset(btn.dataset.preset)
+      tour.setPreset(btn.dataset.preset ?? 'mittel')
     })
   }
 
@@ -640,13 +751,14 @@ map.on('load', () => {
   // Aufgezeichnete Touren (M2) bringen timeline-Stützstellen mit — die Pseudo-
   // Uhr folgt dann dem echten Tempo (Pausen serverseitig komprimiert) statt
   // linear über die Strecke zu laufen; statische Touren bleiben linear.
-  if (cfg.time) {
-    const t0 = Date.parse(cfg.time.start)
-    const t1 = Date.parse(cfg.time.end)
+  const zeit = cfg.time
+  if (zeit) {
+    const t0 = Date.parse(zeit.start)
+    const t1 = Date.parse(zeit.end)
     const timeAt = createTimeAt(cfg.timeline, t0, t1)
-    const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: cfg.time.zone })
-    const teleTime = document.getElementById('tele-time')
-    document.getElementById('tele-time-wrap').hidden = false
+    const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zeit.zone })
+    const teleTime = $('tele-time')
+    $('tele-time-wrap').hidden = false
 
     // Atmosphäre-Overlay (Horizont-Dunst, Sterne, Sonne + Lens-Flare): folgt der
     // Tour-Kamera pro Frame (tour.onPose).
@@ -700,16 +812,16 @@ map.on('load', () => {
     // Kuratierte Wetter-Timeline der Tour (cfg.weather, km entlang der Route) hat
     // Vorrang vor dem Auto-Wetter — nötig, weil das ERA5-Archiv für manche Orte nie
     // ein Gewitter codiert (z.B. Koh Pha-ngan). Sonst echtes historisches Wetter.
-    const wxSource = cfg.weather
+    const wxSource: Promise<WetterStuetze[]> = cfg.weather
       ? Promise.resolve(cfg.weather.map((w) => ({ s: w.km * 1000, mode: w.mode, k: w.k })).sort((a, b) => a.s - b.s))
-      : buildWeatherTimeline({ photos, route, time: cfg.time, pointAt })
+      : buildWeatherTimeline({ photos, route, time: zeit, pointAt })
     wxSource
       .then((tl) => {
         wxTimeline = tl
         window.__j.wxTimeline = tl
         if (weatherAuto) { wxSegment = null; applyAutoNow() }
       })
-      .catch((err) => console.info('Auto-Wetter nicht verfügbar:', err?.message ?? err))
+      .catch((err: unknown) => console.info('Auto-Wetter nicht verfügbar:', err instanceof Error ? err.message : err))
     ui.onTick = (frac) => {
       const date = new Date(timeAt(frac))
       const pos = pointAt(route, frac * route.total)
@@ -720,7 +832,7 @@ map.on('load', () => {
   }
 
   // Dock-Höhe als CSS-Variable: mobil rückt die (Pflicht-)Attribution darüber
-  const dockEl = document.getElementById('dock')
+  const dockEl = $('dock')
   new ResizeObserver(() => {
     document.documentElement.style.setProperty('--dock-h', `${dockEl.offsetHeight}px`)
   }).observe(dockEl)
@@ -729,17 +841,18 @@ map.on('load', () => {
   // Foto-Dots laufen über diesen Weg — Chromes Touch-Zielkorrektur legt den
   // Finger gern auf einen Dot, ein separater Dot-Handler würde Scrubs schlucken.
   // Tap ohne Bewegung auf einem Dot = Sprung kurz vor dessen Foto-Stopp.
-  const progress = document.getElementById('progress')
-  const fracAt = (e) => {
+  const progress = $('progress')
+  const fracAt = (e: PointerEvent) => {
     const rect = progress.getBoundingClientRect()
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   }
   let scrubMoved = false
-  let scrubDot = null
+  let scrubDot: number | null = null
   let scrubDownX = 0
   progress.addEventListener('pointerdown', (e) => {
     scrubMoved = false
-    scrubDot = e.target.classList.contains('photo-dot') ? Number(e.target.dataset.s) : null
+    const ziel = e.target
+    scrubDot = ziel instanceof HTMLElement && ziel.classList.contains('photo-dot') ? Number(ziel.dataset.s) : null
     scrubDownX = e.clientX
     progress.setPointerCapture(e.pointerId)
     document.body.classList.add('scrubbing') // Scrub-Cursor, auch über den Dots
@@ -763,7 +876,7 @@ map.on('load', () => {
     if (tour.scrubbing) tour.endScrub(tour.s / route.total)
   })
 
-  for (const dot of document.querySelectorAll('.photo-dot')) {
+  for (const dot of document.querySelectorAll<HTMLElement>('.photo-dot')) {
     dot.addEventListener('click', (e) => {
       e.stopPropagation()
       // Pointer-Gesten laufen über das Scrubbing oben — hier nur noch die
@@ -774,8 +887,8 @@ map.on('load', () => {
 
   // Klick aufs Foto hält die Anzeige an (und löst sie wieder); „Weiter“
   // springt zum nächsten Foto des Stopps bzw. setzt die Fahrt fort
-  document.getElementById('photo-card').addEventListener('click', () => tour.togglePhotoHold())
-  document.getElementById('photo-next').addEventListener('click', (e) => {
+  $('photo-card').addEventListener('click', () => tour.togglePhotoHold())
+  $('photo-next').addEventListener('click', (e) => {
     e.stopPropagation()
     tour.photoNext()
   })
@@ -783,7 +896,7 @@ map.on('load', () => {
   ui.onMediaEnded = () => tour.onMediaEnded()
 
   // Kino-Modus: Marke, Halt-Chip, Steuerleiste und Mauszeiger aus dem Bild (CSS: body.ui-clean)
-  const setClean = (on) => document.body.classList.toggle('ui-clean', on)
+  const setClean = (on: boolean) => document.body.classList.toggle('ui-clean', on)
   // Menü-Rücksprung (Dock, Finale-Button, Tourende ohne Endscreen) räumt den
   // Kino-Modus auf — ein Hook am Tour-Objekt, weil setClean erst hier entsteht.
   tour.onToMenu = () => setClean(false)
@@ -800,8 +913,8 @@ map.on('load', () => {
   const hatZeiger = window.matchMedia('(hover: hover)').matches
   let ruheTimer = 0
   const planeRueckzug = () => {
-    clearTimeout(ruheTimer)
-    ruheTimer = setTimeout(() => {
+    window.clearTimeout(ruheTimer)
+    ruheTimer = window.setTimeout(() => {
       // Bei Pause, Foto-Stopp, Intro und Finale gehören die Bedienelemente auf
       // den Schirm — dann später erneut prüfen statt den Rückzug zu vergessen
       // (die Fahrt läuft nach einem Foto-Stopp ohne Zutun weiter). Ebenso, solange
@@ -847,20 +960,20 @@ map.on('load', () => {
   // Player verlassen (nur im App-Modus sichtbar): die Android-App stellt dafür
   // eine Brücke bereit (PlayerScreen.kt, @JavascriptInterface). Fehlt sie — etwa
   // weil jemand ?app=1 im normalen Browser aufruft —, bleibt der History-Rückweg.
-  document.getElementById('btn-app-zurueck').addEventListener('click', () => {
+  $('btn-app-zurueck').addEventListener('click', () => {
     if (window.MaptaleApp?.verlassen) window.MaptaleApp.verlassen()
     else history.back()
   })
 
   // — Kurzmeldung unten („Toast") — für Dinge, die der Nutzer wissen muss, ohne
   // dass sie den Ablauf anhalten (z. B. eine nicht ladbare Server-Tour).
-  const toastEl = document.getElementById('toast')
-  let toastT = null
-  const toast = (msg) => {
+  const toastEl = $('toast')
+  let toastT = 0
+  const toast = (msg: string) => {
     toastEl.textContent = msg
     toastEl.hidden = false
-    clearTimeout(toastT)
-    toastT = setTimeout(() => (toastEl.hidden = true), 5200)
+    window.clearTimeout(toastT)
+    toastT = window.setTimeout(() => (toastEl.hidden = true), 5200)
   }
 
   // Konnte eine Server-Tour nicht geladen werden (gelöscht, noch in
@@ -895,7 +1008,7 @@ map.on('load', () => {
   // Tastatursteuerung des Players (wie in Videoschnitt-Software)
   window.addEventListener('keydown', (e) => {
     // In Textfeldern (z. B. Google-Key-Dialog) nichts abfangen
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    if (istTextfeld(e.target)) return
     if (tour.phase === 'intro') return // vor dem Start hat der Player keine Tasten
 
     switch (e.code) {
@@ -931,3 +1044,8 @@ map.on('load', () => {
     }
   })
 })
+
+/** Tastendrücke in Eingabefeldern gehören dem Feld, nicht dem Player. */
+function istTextfeld(ziel: EventTarget | null): boolean {
+  return ziel instanceof HTMLElement && (ziel.tagName === 'INPUT' || ziel.tagName === 'TEXTAREA')
+}

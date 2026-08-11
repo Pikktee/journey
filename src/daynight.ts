@@ -31,7 +31,7 @@ export type Lichtstimmung = Omit<Keyframe, 'a'>
 // Kontrast), sky/hor/fog färben die Atmosphäre, li/lc das Licht. Dichter gestaffelt als
 // vorher, damit der Übergang über den Tag als weiche Lichtkurve läuft statt in Sprüngen.
 // Nacht ist bewusst tiefblau (nicht schwarz) — die Farbe trägt die Stimmung, der
-// Atmosphären-Schleier (atmosphere.js) legt die Lichtfarbe zusätzlich über den Boden.
+// Atmosphären-Schleier (atmosphere.ts) legt die Lichtfarbe zusätzlich über den Boden.
 // Nacht-Helligkeiten nach User-Feedback gesenkt („Landschaft nachts zu hell"):
 // die Textur bleibt eine Tagesaufnahme, tiefe Nacht drückt sie jetzt auf ~0.19.
 const KEYS: Keyframe[] = [
@@ -92,7 +92,7 @@ function paramsAt(alt: number): Lichtstimmung {
 // in der Dämmerung.
 /**
  * Die Regie ist eine Funktion mit einem Anhang: pro Frame aufgerufen, dazu
- * `setSnow` für die Wetter-Kopplung (main.js applyWeather).
+ * `setSnow` für die Wetter-Kopplung (main.ts applyWeather).
  */
 export interface TagNachtRegie {
   (date: Date, lnglat: LngLat): void
@@ -153,7 +153,7 @@ export function createDayNight(
       // bitidentische Pixel): MapLibres Fog-Matrix legt die Near-Plane auf
       // cameraToSeaLevelDistance — bei Pitch ~86 und hoher Kamera beginnt die
       // Fog-Tiefe erst JENSEITS des gerenderten Horizonts. Die sichtbare
-      // Luftperspektive kommt komplett aus atmosphere.js (drawHaze + #farblur);
+      // Luftperspektive kommt komplett aus atmosphere.ts (drawHaze + #farblur);
       // der Wert hier bleibt nur für flachere Default-Kamera-Posen gesetzt.
       'fog-ground-blend': 0.45,
       'atmosphere-blend': 0,
@@ -162,7 +162,7 @@ export function createDayNight(
     const wantNight = night ? sun.altitude < -2 : sun.altitude < -4
     if (wantNight !== night) night = wantNight
   }) as TagNachtRegie
-  // Wetter-Kopplung (main.js applyWeather): Schneedecke aufs Satellitenbild.
+  // Wetter-Kopplung (main.ts applyWeather): Schneedecke aufs Satellitenbild.
   // Weiche Überblendung über die Paint-Transition; Drossel zurücksetzen, damit
   // der Wechsel sofort greift statt erst beim nächsten Sonnenstands-Schritt.
   fn.setSnow = (amt: number) => {

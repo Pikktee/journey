@@ -141,7 +141,7 @@ export function tourPfad(param: string): string {
   const kennung = param.startsWith('srv:') ? param.slice(4) : param
   // Anders als der Handle wird die Kennung kodiert: Sie kommt aus einer
   // Server-Antwort, nicht aus einer geprüften Zeichenmenge. Die echten IDs
-  // (`t_…`, 54er-Alphabet) und die Schlüssel aus `tours.js` gehen unverändert
+  // (`t_…`, 54er-Alphabet) und die Schlüssel aus `tours.ts` gehen unverändert
   // durch — es kostet also nichts und fängt ab, was nicht hierher gehört.
   return `/tour/${encodeURIComponent(kennung)}`
 }

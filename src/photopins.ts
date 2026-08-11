@@ -34,17 +34,51 @@
 // Fahrer-Marker immer lesbar (MapLibre macht dort dasselbe über opacityWhenCovered).
 
 import * as THREE from 'three'
-import maplibregl from 'maplibre-gl'
-import { EXAGGERATION } from './map.js'
-import { naechsterIndex, zustaende, stufenZiele, blendeSchritt, weltGroesse, imBild } from './pinmodell'
+import maplibregl, { type CustomLayerInterface, type Map as MapLibreKarte } from 'maplibre-gl'
+import { EXAGGERATION, type LngLat2D } from './map.js'
+import { naechsterIndex, zustaende, stufenZiele, blendeSchritt, weltGroesse, imBild, type Fenster, type PinZustand } from './pinmodell.js'
+import type { Lichtstimmung } from './daynight.js'
 
 const DEG = Math.PI / 180
 
-// Zustände in der Sprache der Timeline (identisch zu map.js/addSpotLayers):
+/** Ein Foto-Stopp, wie ihn der Verdrahter aus der Route baut (s. main.ts). */
+export interface PinStopp {
+  lnglat: LngLat2D
+  /** Streckenmeter des Halts */
+  s: number
+  /** Fallback-Höhe aus dem Routen-Profil (ohne Überhöhung), bis das DEM greift */
+  ele?: number | undefined
+  /** Foto für die Kopf-Variante (`?pins3d=foto`) */
+  src?: string | undefined
+}
+
+/** Steuerung des Layers; `sync` ist signaturgleich zum Rückgabewert von addSpotLayers. */
+export interface PinSteuerung {
+  sync(s: number): void
+  setFenster(f?: Partial<Fenster>): void
+  setVisible(on: boolean): void
+  applyDayNight(p?: Pick<Lichtstimmung, 'br'> | null): void
+  setTiefentest(on: boolean): void
+  setMasse(m?: Partial<typeof MASSE>): void
+  _dbg(): unknown
+  remove(): void
+}
+
+/** Aussehen eines Pins je Timeline-Zustand (s. ZUSTAND). */
+interface ZustandStil {
+  fuellung: string
+  ring: string
+  ringPx: number
+  /** Materialfarbe von Mast und Fußring (Three-Hex) */
+  mast: number
+  ziffer: string
+}
+
+// Zustände in der Sprache der Timeline (identisch zu map.ts/addSpotLayers):
 //   kommend  = creme gefüllt, dünner neutraler Ring
 //   naechster = creme gefüllt + Amber-Ring (Ziel)
 //   besucht  = amber gefüllt + weißer Ring
-const ZUSTAND = {
+const ZUSTAND: Record<PinZustand, ZustandStil> = {
   kommend: { fuellung: '#f6f1e7', ring: 'rgba(23,17,6,0.42)', ringPx: 5, mast: 0xf1ece2, ziffer: '#1c1712' },
   naechster: { fuellung: '#f6f1e7', ring: '#f5a524', ringPx: 9, mast: 0xf5a524, ziffer: '#1c1712' },
   besucht: { fuellung: '#f5a524', ring: '#ffffff', ringPx: 7, mast: 0xf5a524, ziffer: '#231a08' },
@@ -79,21 +113,24 @@ const PX_MAX = 1.7
 const FENSTER = { vor: COARSE ? 1 : 2, zurueck: 1 }
 const BLENDE = 0.12 // Anteil pro Frame, mit dem sich stufe ihrem Ziel nähert (~0,3 s)
 
-// 4×4 spaltenweise multiplizieren — float64 wegen der Mercator-Präzision
-function mat4mul(a, b, o) {
+// 4×4 spaltenweise multiplizieren — float64 wegen der Mercator-Präzision.
+// Die `!` stehen für „nachweislich im Bereich": alle drei Puffer sind exakt 16
+// Elemente lang, die Indizes laufen über 0…15 (wie in demclean.ts).
+function mat4mul(a: ArrayLike<number>, b: ArrayLike<number>, o: number[]): number[] {
   for (let c = 0; c < 4; c++)
     for (let r = 0; r < 4; r++) {
-      o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3]
+      o[c * 4 + r] = a[r]! * b[c * 4]! + a[4 + r]! * b[c * 4 + 1]! + a[8 + r]! * b[c * 4 + 2]! + a[12 + r]! * b[c * 4 + 3]!
     }
   return o
 }
 
 // — Kopfscheibe als Canvas-Textur: Füllung/Ring aus dem Zustand, darin die Nummer oder
 //   das runde Foto. Wird NUR bei Zustandswechsel neu gezeichnet, nicht pro Frame.
-function zeichneKopf(canvas, nummer, zustand, bild) {
+function zeichneKopf(canvas: HTMLCanvasElement, nummer: number, zustand: PinZustand, bild: HTMLImageElement | null) {
   const S = 192
   canvas.width = canvas.height = S
   const g = canvas.getContext('2d')
+  if (!g) return
   g.clearRect(0, 0, S, S)
   const z = ZUSTAND[zustand]
   const m = S / 2
@@ -158,11 +195,12 @@ function zeichneKopf(canvas, nummer, zustand, bild) {
 
 // Mast: weißes Band mit weichen Rändern (Alpha-Antialiasing) und leichtem Abfall nach
 // unten. Die FARBE kommt aus dem Material (eine Textur für alle Pins).
-function mastTextur() {
+function mastTextur(): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 16
   c.height = 64
   const g = c.getContext('2d')
+  if (!g) throw new Error('Foto-Pins: kein 2D-Kontext für die Mast-Textur')
   const img = g.createImageData(16, 64)
   for (let y = 0; y < 64; y++) {
     const vy = y / 63 // 0 = oben (Kopf), 1 = unten (Fuß)
@@ -184,11 +222,12 @@ function mastTextur() {
 
 // Bodenring: markiert den exakten Ort am Hang und erdet den Pin (ohne ihn schwebte
 // der Kopf über dem Nichts — genau der Vorwurf an schwebende 3D-Marker).
-function fussTextur() {
+function fussTextur(): THREE.CanvasTexture {
   const S = 128
   const c = document.createElement('canvas')
   c.width = c.height = S
   const g = c.getContext('2d')
+  if (!g) throw new Error('Foto-Pins: kein 2D-Kontext für die Fuß-Textur')
   const m = S / 2
   const grd = g.createRadialGradient(m, m, 0, m, m, m)
   grd.addColorStop(0, 'rgba(255,255,255,0.30)')
@@ -208,15 +247,47 @@ function fussTextur() {
   return t
 }
 
+/** Ein Pin samt seinen drei Meshes und seinem geblendeten Detailstufen-Zustand. */
+interface Pin {
+  sp: PinStopp
+  nummer: number
+  /** Mercator, relativ zum Ursprung */
+  mx: number
+  my: number
+  /** Aktuelle (weich nachgezogene) Fußhöhe und ihr Ziel aus der Terrain-Abfrage */
+  ele: number
+  eleZiel: number | null
+  zustand: PinZustand
+  /** 0 = flacher Bodenpunkt, 1 = voller Pin (wird geblendet) */
+  stufe: number
+  zielStufe: number
+  canvas: HTMLCanvasElement
+  texKopf: THREE.CanvasTexture
+  kopf: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  mast: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  fuss: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  bild: HTMLImageElement | null
+  /** Klickziel des Kopfes in CSS-Pixeln; null = außerhalb des Bildes */
+  schirm: { x: number; y: number; r: number } | null
+  /** Zwischenwerte aus aktualisiere() für schirmPunkte() */
+  klickZ: number
+  pxKlick: number
+  hPx: number
+  wPx: number
+}
+
 /**
  * @param map      MapLibre-Karte (Terrain aktiv)
- * @param spots    [{ lnglat:[lng,lat], s, ele?, src? }] — ele = Fallback-Höhe (Route, ohne
- *                 Überhöhung), src = Foto für die Kopf-Variante
- * @param opts     { onSelect(s), variante: 'nummer'|'foto' }
- * @returns        { sync(s), setVisible, applyDayNight, remove, … } — `sync` ist
- *                 signaturgleich zum Rückgabewert von addSpotLayers (ui.registerSpots)
+ * @param spots    Foto-Stopps; `ele` = Fallback-Höhe (Route, ohne Überhöhung)
+ * @param opts     Klick-Rückruf und Kopf-Variante (Nummer oder Foto)
+ * @returns        Steuerung des Layers; `sync` ist signaturgleich zum Rückgabewert
+ *                 von addSpotLayers (ui.registerSpots)
  */
-export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } = {}) {
+export function installPhotoPins(
+  map: MapLibreKarte,
+  spots: PinStopp[],
+  { onSelect, variante = 'nummer' }: { onSelect?: (s: number) => void; variante?: 'nummer' | 'foto' } = {},
+): PinSteuerung {
   if (COARSE) {
     MASSE.kopf = 14
     MASSE.mast = 62
@@ -224,7 +295,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
   }
   const scene = new THREE.Scene()
   const camera = new THREE.Camera()
-  let renderer = null
+  let renderer: THREE.WebGLRenderer | null = null
   let sichtbar = true
 
   // Mercator-Ursprung in der Mitte der Punktwolke: die Vertices bleiben klein
@@ -249,7 +320,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
   const vPos = new THREE.Vector3()
   const vSkala = new THREE.Vector3()
 
-  const pins = spots.map((sp, i) => {
+  const pins: Pin[] = spots.map((sp, i) => {
     const mc = maplibregl.MercatorCoordinate.fromLngLat(sp.lnglat, 0)
     const canvas = document.createElement('canvas')
     zeichneKopf(canvas, i + 1, 'kommend', null)
@@ -287,6 +358,10 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
       fuss,
       bild: null,
       schirm: null, // { x, y, r } in CSS-Pixeln — Klickziel des Kopfes
+      klickZ: 0,
+      pxKlick: 0,
+      hPx: 0,
+      wPx: 0,
     }
   })
 
@@ -307,7 +382,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
     }
   }
 
-  function neuZeichnen(p) {
+  function neuZeichnen(p: Pin) {
     zeichneKopf(p.canvas, p.nummer, p.zustand, p.bild)
     p.texKopf.needsUpdate = true
     const z = ZUSTAND[p.zustand]
@@ -321,7 +396,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
   //   Höhe wird dabei NACHGEZOGEN statt gesetzt: eine feiner aufgelöste Kachel ändert
   //   den Wert um mehrere Meter, hart gesetzt würde der Pin sichtbar springen.
   let letzteHoehen = 0
-  function hoehenPruefen(jetzt) {
+  function hoehenPruefen(jetzt: number) {
     if (jetzt - letzteHoehen < 400) return
     letzteHoehen = jetzt
     for (const p of pins) {
@@ -338,23 +413,27 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
     return { k: (2 * Math.tan(fov / 2)) / hPx, hPx, wPx: tr?.width || map.getCanvas().clientWidth || 1200 }
   }
 
-  const mvp = new Array(16)
-  const mainBuf = new Array(16)
+  const mvp: number[] = new Array<number>(16).fill(0)
+  const mainBuf: number[] = new Array<number>(16).fill(0)
 
-  // Punkt (Mercator, ursprungsrelativ) durch die MVP-Matrix → NDC + Clip-w
-  function projiziere(m, x, y, z, out) {
-    const w = m[3] * x + m[7] * y + m[11] * z + m[15]
+  /** Projizierter Punkt: NDC-x/y plus Clip-w (Tiefe). */
+  interface Projektion { x: number; y: number; w: number }
+
+  // Punkt (Mercator, ursprungsrelativ) durch die MVP-Matrix → NDC + Clip-w.
+  // Die `!` wie in mat4mul: m ist immer die gefüllte 16er-Matrix.
+  function projiziere(m: number[], x: number, y: number, z: number, out: Projektion): Projektion {
+    const w = m[3]! * x + m[7]! * y + m[11]! * z + m[15]!
     out.w = w
-    out.x = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w
-    out.y = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w
+    out.x = (m[0]! * x + m[4]! * y + m[8]! * z + m[12]!) / w
+    out.y = (m[1]! * x + m[5]! * y + m[9]! * z + m[13]!) / w
     return out
   }
-  const pA = { x: 0, y: 0, w: 0 }
-  const pB = { x: 0, y: 0, w: 0 }
+  const pA: Projektion = { x: 0, y: 0, w: 0 }
+  const pB: Projektion = { x: 0, y: 0, w: 0 }
 
   let blendet = false // läuft gerade eine Detailstufen-Blende? (pro Frame neu bestimmt)
 
-  function aktualisiere(m) {
+  function aktualisiere(m: number[]) {
     blendet = false
     const { k, hPx, wPx } = metrik()
     const b = map.getBearing() * DEG
@@ -366,7 +445,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
 
     // Maßstab bei Referenzdistanz (Pixel je Meter) — Bezug der weltfesten Größe.
     const pxRef = 1 / (k * D_REF)
-    const groesse = (px, pxProM) => weltGroesse(px, pxProM, pxRef, MASSE.perspektive, PX_MIN, PX_MAX)
+    const groesse = (px: number, pxProM: number) => weltGroesse(px, pxProM, pxRef, MASSE.perspektive, PX_MIN, PX_MAX)
 
     for (const pin of pins) {
       if (pin.eleZiel != null) pin.ele += (pin.eleZiel - pin.ele) * 0.18 // weich nachziehen
@@ -446,7 +525,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
   // Klickziele in CSS-Pixeln. Bezugspunkt ist die Kopfmitte bzw. — bei ausgeblendeter
   // Detailstufe — der Bodenpunkt (klickZ). Ein Stopp bleibt in JEDER Stufe anfassbar; die
   // flachen 2D-Kreise waren es auch.
-  function schirmPunkte(m) {
+  function schirmPunkte(m: number[]) {
     for (const pin of pins) {
       if (!pin.fuss.visible) {
         pin.schirm = null // außerhalb des Bildes → keine (veraltete) Klickfläche
@@ -461,8 +540,8 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
     }
   }
 
-  function treffer(punkt) {
-    let best = null
+  function treffer(punkt: { x: number; y: number }): Pin | null {
+    let best: Pin | null = null
     let bestD = Infinity
     for (const pin of pins) {
       if (!pin.schirm) continue
@@ -475,7 +554,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
     return best
   }
 
-  const layer = {
+  const layer: CustomLayerInterface = {
     id: 'photopins-3d',
     type: 'custom',
     renderingMode: '3d',
@@ -487,11 +566,13 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
       renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl })
       renderer.autoClear = false
     },
-    render(gl, opts) {
+    render(_gl, opts) {
       if (!renderer || !sichtbar) return
       hoehenPruefen(performance.now())
-      const main = opts?.defaultProjectionData?.mainMatrix || opts
-      for (let i = 0; i < 16; i++) mainBuf[i] = main[i]
+      // Ältere MapLibre-Fassungen reichten die Matrix direkt statt im Options-Objekt
+      // durch — der Fallback bleibt, die Typen kennen nur die heutige Form.
+      const main: ArrayLike<number> = opts?.defaultProjectionData?.mainMatrix ?? (opts as unknown as ArrayLike<number>)
+      for (let i = 0; i < 16; i++) mainBuf[i] = main[i] ?? 0
       mat4mul(mainBuf, originMat, mvp)
       aktualisiere(mvp) // Maßstab kommt aus DIESER Matrix (s. projiziere)
       schirmPunkte(mvp)
@@ -526,11 +607,13 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
       const ziele = stufenZiele(pins.length, naechsterIndex(sWerte, s), FENSTER)
       for (let i = 0; i < pins.length; i++) {
         const pin = pins[i]
-        if (zust[i] !== pin.zustand) {
-          pin.zustand = zust[i]
+        const z = zust[i]
+        if (!pin || !z) continue
+        if (z !== pin.zustand) {
+          pin.zustand = z
           neuZeichnen(pin) // Kopf-Textur trägt die Zustandsfarben
         }
-        pin.zielStufe = ziele[i]
+        pin.zielStufe = ziele[i] ?? 0
       }
       map.triggerRepaint() // auch ohne Zustandswechsel: die Blende muss anlaufen
     },
@@ -540,13 +623,13 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
       if (zurueck != null) FENSTER.zurueck = Math.max(0, zurueck)
       map.triggerRepaint()
     },
-    setVisible(on) {
+    setVisible(on: boolean) {
       sichtbar = on
       map.triggerRepaint()
     },
     // Nachts leicht zurücknehmen — der Pin bleibt UI, soll aber nicht wie ein
     // Scheinwerfer über der dunklen Landschaft stehen.
-    applyDayNight(p) {
+    applyDayNight(p?: Pick<Lichtstimmung, 'br'> | null) {
       const b = Math.max(0.55, Math.min(1, p?.br ?? 1))
       for (const pin of pins) {
         pin.mast.material.opacity = 0.92 * b
@@ -557,7 +640,7 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
     // Verdeckung durch das Gelände an/aus (Mast + Fußring). MapLibres Terrain schreibt
     // Tiefe, ein Custom-Layer mit renderingMode '3d' testet also dagegen — nachgewiesen
     // an einem Pin hinter dem Bergkamm. Der KOPF bleibt immer sichtbar.
-    setTiefentest(on) {
+    setTiefentest(on: boolean) {
       for (const p of pins) {
         p.mast.material.depthTest = on
         p.fuss.material.depthTest = on

@@ -1,7 +1,6 @@
 // Remote-Touren: lädt aufgezeichnete Touren vom Maptale-Backend (/tour/t_<id>)
 // und adaptiert das Server-JSON (`maptale/tour@1`) auf die cfg-Form der
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
-// Neue Web-Module entstehen in TypeScript; der Bestand bleibt bewusst JS.
 
 /** Ein Medium der Tour — für den Player ein „Foto" mit optionalem Video-Typ (M4). */
 export interface RemoteMedium {
@@ -55,7 +54,7 @@ export interface TourJsonAntwort {
   stats: { km: number; gainM: number }
 }
 
-/** cfg-Form, die main.js versteht (Felder wie in src/tours.ts) plus Remote-Extras. */
+/** cfg-Form, die main.ts versteht (Felder wie in src/tours.ts) plus Remote-Extras. */
 export interface RemoteTourCfg {
   id: string
   no: string
@@ -83,11 +82,11 @@ export interface RemoteTourCfg {
   /** Kuratierte Wetter-Timeline im Player-Format (km entlang der Route) */
   weather?: Array<{ km: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
-  /** Kamera-Keyframes (roh, f-basiert — main.js rechnet frac = s/total selbst) */
+  /** Kamera-Keyframes (roh, f-basiert — main.ts rechnet frac = s/total selbst) */
   camera?: Array<{ f: number; preset: string; skala?: number }>
-  /** Kamera-Momente (roh, f-basiert — main.js verankert sie an s) */
+  /** Kamera-Momente (roh, f-basiert — main.ts verankert sie an s) */
   moments?: Array<{ f: number; art: string; dauerS?: number }>
-  /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.js spielt sie ab) */
+  /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.ts spielt sie ab) */
   audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number; loop?: boolean; startS?: number }>
   stats: { km: number; gainM: number }
 }
@@ -108,7 +107,7 @@ export class RemoteTourFehler extends Error {
  * in loadRemoteTour) — direkt testbar.
  *
  * Wetter: der Server liefert Keyframes über den Streckenanteil f; der Player
- * spielt kuratierte Timelines in km ab (main.js koppelt cfg.weather mit Vorrang
+ * spielt kuratierte Timelines in km ab (main.ts koppelt cfg.weather mit Vorrang
  * vor dem Client-Auto-Wetter). km = f · Gesamt-km des Servers — die minimale
  * Abweichung zum Client-Resampling ist bei Wetter-Grenzen bedeutungslos.
  */
@@ -133,7 +132,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     time: tour.time,
     segments: tour.segments,
     // Fotos UND Videos (M4): beide werden im Foto-Overlay als Stopp gezeigt,
-    // Videos halten bis zum Ende statt für eine feste Dauer (tour.js/ui.js).
+    // Videos halten bis zum Ende statt für eine feste Dauer (tour.ts/ui.ts).
     // Unplatzierte Medien (anchor null, M6) hat der Player nirgends zu verorten.
     photos: tour.media
       .filter((m) => Array.isArray(m.anchor))
@@ -156,7 +155,7 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     cfg.weather = tour.weather.map((w) => ({ km: w.f * tour.stats.km, mode: w.mode, k: w.k }))
   }
   if (tour.timeline?.length) cfg.timeline = tour.timeline
-  // Kamera-Keyframes + Audio-Spuren ROH durchreichen (f-basiert — main.js
+  // Kamera-Keyframes + Audio-Spuren ROH durchreichen (f-basiert — main.ts
   // rechnet frac = tour.s/route.total selbst). Kaputte f-Werte fliegen raus
   // (Muster createTimeAt); leere Ergebnisse lassen das Feld ganz weg.
   if (tour.camera?.length) {

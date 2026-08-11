@@ -3,7 +3,7 @@
 // von vorn ein (Equal-Power), das erste aus. Damit verschwindet der harte Schnitt am
 // Loop-Punkt, den `<audio loop>` bzw. nicht perfekt schließende Clips erzeugen.
 //
-// Die öffentliche Fläche ahmt so viel vom <audio>-Element nach, dass weather.js die
+// Die öffentliche Fläche ahmt so viel vom <audio>-Element nach, dass weather.ts die
 // Elemente 1:1 austauschen kann: .volume (get/set), .paused, .play() (Promise),
 // .pause(), ._blocked.
 export class SeamlessLoop {

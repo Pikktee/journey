@@ -17,7 +17,7 @@ export const EXAGGERATION = 1.35
 /** Koordinate ohne Höhe, wie GeoJSON und die Marker sie wollen. */
 export type LngLat2D = [number, number]
 
-// DEM-Kacheln durch die Spike-Bereinigung leiten (siehe demclean.js): kaputte
+// DEM-Kacheln durch die Spike-Bereinigung leiten (siehe demclean.ts): kaputte
 // Ausreißer-Pixel in den groben Overview-Kacheln werden vor dem Rendern gekappt.
 registerDemClean(maplibregl)
 
@@ -43,7 +43,7 @@ const COARSE = window.matchMedia('(pointer: coarse)').matches
 //   · Reisetempo halbiert (120 → 60 m/s): nur +11 % bei doppelter Tourdauer
 //
 // Wirksam war einzig, die DEM-Abfragen der Horizont-Sonde zu senken
-// (s. atmosphere.js, inkrementeller Fächer).
+// (s. atmosphere.ts, inkrementeller Fächer).
 //
 // METHODIK-WARNUNG für künftige Messungen: Einzelmessungen täuschen hier massiv.
 // Der erste Lauf nach dem Umschalten ist durch den kalten Kachel-Cache langsamer,
@@ -77,7 +77,7 @@ export function targetPixelRatio() {
 // Zeichenfläche und den Texturspeicher halbiert.
 // EHRLICHE EINORDNUNG: Auf dem Pixel 9 gemessen bringt das für die BILDRATE
 // nichts — dort limitiert nicht die Füllrate, sondern MapLibres Terrain-Pass
-// (s. PROBE_MS in atmosphere.js). Die Regel bleibt wegen Speicher/Bandbreite und
+// (s. PROBE_MS in atmosphere.ts). Die Regel bleibt wegen Speicher/Bandbreite und
 // weil schwächere Geräte als das Pixel 9 sehr wohl füllratenbegrenzt sein können.
 export function overlayPixelRatio() {
   return COARSE ? 1 : targetPixelRatio()
@@ -90,10 +90,10 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
     zoom: 11,
     pitch: 48,
     bearing: -35,
-    // Kein globales minZoom: Intro/Finale-Orbit geht bewusst tiefer (tour.js ovR/ovA).
+    // Kein globales minZoom: Intro/Finale-Orbit geht bewusst tiefer (tour.ts ovR/ovA).
     // Freies Rauszoomen in der Fahrt-Pause deckelt updateMapLock auf 9 — sonst
     // zeichnet MapLibre bei Tour-Pitch ein Terrain-Mesh, das die FPS killt.
-    // 86 statt 72: die „Himmel-Momente" der Tour (tour.js skyLift) kippen die Kamera
+    // 86 statt 72: die „Himmel-Momente" der Tour (tour.ts skyLift) kippen die Kamera
     // zur Golden Hour/Nacht über den Horizont hinaus, damit ein echter Himmelsanteil
     // MIT Sonne/Sternen ins Bild kommt — dafür braucht die FreeCamera-Ableitung
     // Pitch-Spielraum, sonst klemmt die Rahmung und der Horizont klebt am oberen Rand.
@@ -108,7 +108,7 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
     // saubersten Vergleich 3 von 255 maximaler Abweichung. Der Grund ist die
     // Bildkomposition selbst: Satellitenraster auf Terrain-Mesh, zwei
     // 2D-Overlays, DOM-UI — Geometriekanten gibt es kaum, und die einzige
-    // relevante (Silhouette gegen den Himmel) weicht drawHaze in atmosphere.js
+    // relevante (Silhouette gegen den Himmel) weicht drawHaze in atmosphere.ts
     // ohnehin auf. Messung, Grenzen und die verworfene Einstellungs-Idee:
     // docs/archive/antialias-verworfen.md.
     // Render-Auflösung als Pixelbudget deckeln (s. targetPixelRatio) — hält den M4 an
@@ -138,7 +138,7 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
         dem: {
           type: 'raster-dem',
           // Über demclean:// geleitet — die groben Overview-Kacheln werden von
-          // korrupten Ausreißer-Pixeln bereinigt (siehe demclean.js).
+          // korrupten Ausreißer-Pixeln bereinigt (siehe demclean.ts).
           tiles: ['demclean://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
           encoding: 'terrarium',
           tileSize: 256,
@@ -181,7 +181,7 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
   // (Einzelbild vor/zurück), nicht das Verschieben/Zoomen der Karte.
   map.keyboard.disable()
   // Pflicht-Attribution (Esri/OSM/Mapzen/Open-Meteo) hinter dem ⓘ-Knopf unten
-  // rechts — siehe karteninfo.ts. Open-Meteo (Auto-Wetter, autoweather.js) hat
+  // rechts — siehe karteninfo.ts. Open-Meteo (Auto-Wetter, autoweather.ts) hat
   // keine Kachelquelle im Stil und wird hier ergänzt; die Nennung ist
   // Lizenzbedingung (CC BY 4.0) und muss auch in spätere Video-Exporte.
   // OpenStreetMap steht hier als FESTER Eintrag und nicht mehr als Kachelquelle:

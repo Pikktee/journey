@@ -139,7 +139,7 @@ export function basisZuerst() {
 export default defineConfig({
   plugins: [saubereUrls(), basisZuerst()],
   build: {
-    // main.js lädt Remote-Touren per Top-Level-Await (Boot-Screen überbrückt).
+    // main.ts lädt Remote-Touren per Top-Level-Await (Boot-Screen überbrückt).
     // Vites Default-Target (u. a. Chrome 87/Safari 14) kann kein TLA — diese
     // Targets (TLA: Chrome 89+/Firefox 89+/Safari 15+) kann die App ohnehin
     // voraussetzen, MapLibre GL verlangt moderne Browser.

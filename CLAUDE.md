@@ -6,14 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Maptale ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
 automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vite,
-gerendert mit MapLibre GL JS. Der Player wandert wellenweise nach **TypeScript**
-([docs/concepts/konzept_player_typescript.md](docs/concepts/konzept_player_typescript.md));
-Daten, Blätter, Kernbausteine, Karten-Nebenmodule, die UI-Schicht und die Engine (`tour.ts`)
-sind durch; noch Vanilla JS sind die Visuals (`atmosphere`, `weather`, `photopins`) und der
-Verdrahter (`main.js`). Wer eine der
-verbliebenen `.js` anfasst, folgt der Wellen-Reihenfolge des Konzepts statt sie zu überholen —
-**eine `.ts` darf kein noch nicht migriertes `.js` importieren** (`allowJs` ist aus, das gäbe
-`TS7016`).
+gerendert mit MapLibre GL JS. **Player und Studio sind vollständig TypeScript** — unter
+`src/` liegt seit dem 2026-08-11 keine `.js` mehr; die Migration und ihre Befunde stehen in
+[docs/concepts/konzept_player_typescript.md](docs/concepts/konzept_player_typescript.md).
+`allowJs` ist aus und bleibt es: Eine neue `.js` unter `src/` stünde außerhalb von `tsc` und
+fiele erst am Aufrufer auf (`TS7016`). Das übrige JS des Repos (`vite.config.js`,
+`vitest.config.js`, `scripts/*.mjs`) läuft unter Node bzw. Vites Config-Loader und bleibt.
 
 **Maptale wird von einem Prototyp zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
 Meilensteine M1–M9): eigene Touren aufzeichnen (Android), hochladen, serverseitig anreichern
@@ -104,7 +102,7 @@ npm run release  # Version anheben + Tag pushen → triggert Deploy (bugfix|mino
 Weitere Arbeitsbereiche:
 
 ```bash
-npm test                      # Web-Unit-Tests (Vitest: geo.js, remote.ts/timeAt, audiotracks.js
+npm test                      # Web-Unit-Tests (Vitest: geo.ts, remote.ts/timeAt, audiotracks.ts
                               #   und die Studio-Logik — Editor, Baukasten, Upload, EXIF)
 npm run typecheck             # tsc --noEmit; die CI deployt ohne grünen Typecheck nicht
 cd server && npm run dev      # Backend (tsx watch, Port 8787; via PORT übersteuerbar)
@@ -145,7 +143,7 @@ Installation nicht aktualisieren: [docs/ops/android-release.md](docs/ops/android
 ## Architektur
 
 Es gibt drei unabhängige Frontends: den **Player** ([erlebnis.html](erlebnis.html) +
-[src/main.js](src/main.js)), das **Studio** ([studio.html](studio.html) +
+[src/main.ts](src/main.ts)), das **Studio** ([studio.html](studio.html) +
 [src/studio/](src/studio/)) und eine schlanke **Landing** ([index.html](index.html), kein
 MapLibre). Alle sind eigene Vite-Einstiege ([vite.config.js](vite.config.js)).
 
@@ -225,7 +223,7 @@ für Fremde antwortet sie 404, wie in der API. Die mitgelieferten Touren (`/tour
 reicht der Server unverändert durch — `src/tours.ts` ein zweites Mal zu führen wäre die
 nächste Kopie, die auseinanderläuft.
 
-Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.js](src/main.js),
+Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.ts](src/main.ts),
 der die Module verdrahtet. Der zentrale Datenfluss:
 
 **Route als Bogenlängen-Parameter.** [src/geo.ts](src/geo.ts) `buildRoute()` nimmt Wegpunkte,
@@ -240,7 +238,7 @@ Kurswinkel. Fotos und Modus-Wechsel werden über `s` verankert.
 `anchor`-Koordinate), Intro-/Finale-Texte, optional `time` (für Tag/Nacht), `geoid` und `weather`.
 `weather` ist eine kuratierte Wetter-Timeline `[{ km, mode, k }]` (km entlang der Route) und hat
 Vorrang vor dem historischen Auto-Wetter — nötig, wenn das ERA5-Archiv einen Effekt nie codiert
-(z.B. Gewitter über Koh Pha-ngan). main.js verkettet die Segmente
+(z.B. Gewitter über Koh Pha-ngan). main.ts verkettet die Segmente
 zu einer Wegpunktliste, baut die Route und verankert Fotos via `nearestS`. Nahe beieinander
 liegende Fotos (< 120 m in `s`) werden zu einem **Stopp** mit mehreren `items` gruppiert.
 
@@ -283,7 +281,7 @@ AWS-Terrain-DEM (`EXAGGERATION`-Konstante), Atmosphäre, Routen-Layer, Foto-Wegp
 (`addSpotLayers`), Fahrer-Marker (`createRider`/`setRiderIcon` mit `MODE_ICONS`).
 [src/daynight.ts](src/daynight.ts) + [src/sun.ts](src/sun.ts) mappen Streckenanteil → Pseudo-Uhrzeit
 → Sonnenstand → Szenenstimmung (nur wenn `cfg.time` gesetzt ist).
-**Foto-Stopps sind 3D-PINS** ([src/photopins.js](src/photopins.js), Standard;
+**Foto-Stopps sind 3D-PINS** ([src/photopins.ts](src/photopins.ts), Standard;
 `?pins3d=0` = alte flache Kreise, `?pins3d=foto` = Bild im Kopf): Fußring am Boden, Mast,
 Kopfscheibe mit Nummer. Eigener Three.js-Custom-Layer, weil MapLibre 5 Symbole/Kreise nicht
 über Grund heben kann (`symbol-z-offset` gibt es dort nicht). Die Größe kommt aus der
@@ -298,7 +296,7 @@ Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
 
 **UI.** [src/ui.ts](src/ui.ts) `UI` verwaltet Overlays, Steuerleiste, Telemetrie, Höhenprofil und
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in
-main.js über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
+main.ts über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
 `tour.jumpToPhoto`. Der Player-DOM liegt statisch in [erlebnis.html](erlebnis.html); JS greift
 per `id` zu. **Die UI zieht sich während der Fahrt selbst zurück** (`body.ui-clean`, nach 3,2 s
 Ruhe; Weg zurück, Halt-Chip, Steuerleiste UND Mauszeiger) und kommt bei der nächsten Regung wieder —
@@ -347,8 +345,8 @@ der Motorloop lässt es hören — ein Wort „Unterwegs mit · Jeep 4×4" in de
 wiederholte das nur. Der Modus wird weiter pro Frame verfolgt (`modeKey` in `ui.stats`), denn an
 seiner Kante hängen Marker-Icon und Motorsound.
 
-**Atmosphäre und Wetter.** [src/atmosphere.js](src/atmosphere.js) (Horizont-Dunst, Wolken,
-Sterne, Sonne) und [src/weather.js](src/weather.js) (Regen/Schnee/Nebel/Gewitter als
+**Atmosphäre und Wetter.** [src/atmosphere.ts](src/atmosphere.ts) (Horizont-Dunst, Wolken,
+Sterne, Sonne) und [src/weather.ts](src/weather.ts) (Regen/Schnee/Nebel/Gewitter als
 Partikel-Overlay) liegen über der Karte. Das Wetter kommt entweder aus der kuratierten
 `weather`-Timeline der Tour, aus dem Tour-JSON des Servers oder — als Fallback — aus
 [src/autoweather.ts](src/autoweather.ts) (Open-Meteo an den Foto-Ankern).

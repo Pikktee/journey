@@ -4,10 +4,10 @@
 strict wie der Rest des Web-Codes — ohne die Kamerafahrt, den Default-Renderer oder
 die Tour-Verträge zu riskieren.
 
-Stand: **2026-08-11**. Welle 0 (Rauchtest), **Block A = Wellen 1–4** und
-**Block B = Wellen 5–6 (`ui`, Engine) sind umgesetzt** — 14 der 19
-Player-Dateien liegen unter `tsc`, offen ist nur noch Block C (Wellen 7–8:
-Visuals, Verdrahter).
+Stand: **2026-08-11**. **Der Umbau ist abgeschlossen.** Welle 0 (Rauchtest),
+Block A (Wellen 1–4), Block B (Wellen 5–6: `ui`, Engine) und Block C
+(Wellen 7–8: Visuals, Verdrahter) sind umgesetzt — unter `src/` liegt keine
+`.js` mehr, `npm run typecheck` deckt den kompletten Player-Pfad.
 
 Verwandt, aber **nicht** dasselbe:
 - [modi-konsolidierung.md](modi-konsolidierung.md) — Modus-Tabelle; der dort
@@ -23,10 +23,10 @@ Verwandt, aber **nicht** dasselbe:
 
 | | |
 |---|---|
-| Player-JS | ursprünglich 19 Dateien, 7229 Zeilen; nach Block B noch **4** (`atmosphere`, `main`, `photopins`, `weather`) |
-| Web-TS | 40 `.ts` (Studio, Konto, Profil, Routen, …) + eine `.d.ts`; nach Block B 54 `.ts`, **keine `.d.ts` mehr** |
+| Player-JS | ursprünglich 19 Dateien, 7229 Zeilen; nach Block C **keine mehr** |
+| Web-TS | 40 `.ts` (Studio, Konto, Profil, Routen, …) + eine `.d.ts`; nach Block C 58 `.ts`, **keine `.d.ts` mehr** |
 | `tsconfig.json` | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, **`allowJs: false`**, `include: src/**/*.ts` |
-| Einstieg | [erlebnis.html](../../erlebnis.html) Zeile 372 → [src/main.js](../../src/main.js) |
+| Einstieg | [erlebnis.html](../../erlebnis.html) → [src/main.ts](../../src/main.ts) |
 | Getestet heute | u. a. `geo` (JS-Test), `remote.ts`/`timeAt`, `audiotracks`, `pinmodell.ts` |
 
 Zwei Mechaniken tragen die Migration von selbst: `tsconfig` inkludiert
@@ -90,8 +90,8 @@ Welle 3   geo, audiotracks + music, autoweather, vehicle          [durchgeführt
 Welle 4   Karten-Nebenmodule (elevation, daynight, map)           [durchgeführt]
 Welle 5   UI-Schicht (ui; karteninfo ist schon ts)               [durchgeführt]
 Welle 6   Engine (tour.js) — Herzstück                           [durchgeführt]
-Welle 7   Default-Visuals (atmosphere, weather, photopins)
-Welle 8   main.js — Verdrahter, zuletzt
+Welle 7   Default-Visuals (atmosphere, weather, photopins)         [durchgeführt]
+Welle 8   main.js — Verdrahter, zuletzt                            [durchgeführt]
 ```
 
 Gegenüber der ersten Fassung sind drei Dinge gewandert, alle drei aus demselben
@@ -305,6 +305,34 @@ intern splitten (Split = eigenes Refactor-Konzept).
 importiert alle drei (`photopins` dynamisch) — die Reihenfolge hätte
 Übergangs-`.d.ts` gekostet, für Dateien, die eine Welle später ohnehin wandern.
 
+**Umgesetzt.** Fünf Dinge, die dabei entschieden wurden:
+
+- **`three` bringt keine Typen mit** (0.185 exportiert nur `build/three.module.js`)
+  — `@types/three` ist als devDependency dazugekommen, versionsgleich (0.185.4).
+  Die Alternative wäre eine handgeschriebene `.d.ts` gewesen, also genau die
+  Sorte zweiter Wahrheit, die dieser Plan vermeidet.
+- **Narrowing überlebt keine `function`-Deklaration.** `const ctx =
+  canvas.getContext('2d'); if (!ctx) throw` schmälert `ctx` NICHT innerhalb einer
+  gehobenen `function draw() {}` — TypeScript behandelt sie als am Blockanfang
+  erzeugt. In `atmosphere.ts` (fast alle Zeichen-Ebenen sind `function`) hätte das
+  ~60 `!` gekostet; stattdessen holt ein `kontext2d(canvas, wofuer)` den Kontext
+  und wirft mit Adresse. Bei `weather.ts` fiel es nicht auf — dort sind alle
+  Helfer Pfeil-Konstanten, und für die gilt die Verengung.
+- **Die beiden Offscreens (Dunst-Maske, Wolken) laufen jetzt über einen
+  Lazy-Getter** statt über ein Paar `let cv, ctx`. Grund ist derselbe: `resize()`
+  setzt das Canvas auf `null`, der Kontext blieb stehen — ein Zustand, den man
+  danach an jeder Verwendungsstelle wieder ausschließen muss. Der Getter prüft
+  beides und baut in der aktuellen Größe neu; das Verwerfen bei `resize` bleibt.
+- **Tupel retten `noUncheckedIndexedAccess`.** `type Vec3 = [number, number,
+  number]` destrukturiert exakt (`const [r, g, b] = sky.fogc` ist `number`),
+  ein `number[]` nicht. Die Farb- und Richtungsrechnung in `atmosphere.ts` kostet
+  dadurch KEIN einziges `!`. Nur in den Rasterschleifen (Wolkenrauschen,
+  Mercator-Matrizen) steht `!` — mit demselben Kommentar wie in `demclean.ts`.
+- **`weather.ts` führt Loops und Donner getrennt.** Die alte `sounds`-Tafel
+  mischte `SeamlessLoop` und `HTMLAudioElement` unter einem Schlüsselraum; die
+  laufende Lautstärke-Rampe hing als `_ramp` am fremden Objekt. Beides ist jetzt
+  getrennt bzw. eine `Map` — dieselbe Mechanik, aber ohne Fremdfelder.
+
 ---
 
 ### Welle 8 — `main.js` (Verdrahter, zuletzt)
@@ -319,6 +347,28 @@ einmal typsicher befüllen.
 
 **Fertig wenn:** kein `.js` mehr unter `src/`, und `npm run typecheck` deckt den
 kompletten Player-Pfad.
+
+**Umgesetzt.** Vier Dinge:
+
+- **`SpielerTour` ist das Subset, in dem sich `TourConfig` und `RemoteTourCfg`
+  treffen** — lokal in `main.ts`, nicht exportiert. Es ist keine dritte Fassung
+  des Tour-Formats: Wo die beiden Quellen auseinandergehen, steht die WEITERE
+  (`mode: string`, weil Server-Segmente nicht auf `Modus` eingeschränkt sind;
+  `time?`, weil statische Touren ohne auskommen). Was hier fehlt, fasst der
+  Verdrahter nicht an.
+- **`TOURS` wird für den Lookup einmal als Wörterbuch gelesen.** Die Tabelle
+  steht mit `satisfies`, hat also keine Index-Signatur — ein Zugriff über eine
+  freie Zeichenkette (`?tour=…`) ist damit ein Typfehler. Der `Record`-Cast
+  steht an genau EINER Stelle, die `Object.hasOwn`-Prüfung davor bleibt.
+- **`window.__j` bekommt ein `PlayerDebug`-Interface** (`declare global`). Alles,
+  was erst im Laufe des Bootens entsteht, ist optional — die Handles sind ein
+  Konsolen-Zugang, kein API-Vertrag.
+- **Ein toter Aufruf ist aufgefallen und entfernt:** `openWeather()` rief
+  `closeLayers()`, eine Funktion, die es seit dem Ausbau des Renderer-Labors
+  nicht mehr gibt. In JS warf jeder Klick auf den Wetter-Knopf dort einen
+  `ReferenceError`, BEVOR das Menü sichtbar wurde — unbemerkt, weil der Knopf nur
+  in `body.dev` steht. Der Typecheck fand ihn sofort (`Cannot find name`); nach
+  dem Entfernen öffnet das Menü wieder (Smoke unten).
 
 ---
 
@@ -432,6 +482,25 @@ dem Lauf gehört es gelöscht (dieselbe Regel wie bei den Wegwerf-Tests in §5b)
 Konsolen-/Netzfehler: einer, `400` von `analytics.maptale.io` — Umami mag
 `localhost` nicht, mit der Migration hat er nichts zu tun.
 
+**Block-C-Abnahme (2026-08-11), beide Tour-Arten, 25 s ab `#btn-start`:**
+
+| | `/tour/kohphangan` (statisch) | `/tour/t_cGuHmm3vMa4ggQ` (aufgezeichnet) |
+|---|---|---|
+| Phasenfolge | `ride → photo` | dito |
+| `s` | 19 → 1735 m, Halt bei 691–745 | 42 → 1871 m, Halt bei 354–410 |
+| Pitch | 44° → 57° | 42° → 64° |
+| DEM-Höhen | 0–349 m (`eleReady: 'dem'`) | 654–1042 m (`dem`) |
+| Foto-Karte | „Thong Sala" | „Staubbachfall" |
+| 3D-Pins | 12 | 6 |
+| Auto-Wetter | `clouds` | `off` |
+| Atmosphäre | `_dbg().horizonRenderNdcY` läuft mit der Kamera | dito |
+| Scrub · `nudge` in Pause · `jumpToPhoto` · `toMenu` | alle vier wie erwartet | dito |
+
+Dazu die Dev-Bedienung, die an `main.ts` hängt (`?dev=1`): Wetter-Menü öffnet,
+„Gewitter" schaltet auf `storm` und schließt das Menü, Stufe „stark" hebt die
+Intensität auf 1 ohne den Modus zu verlieren, der Optionen-Dialog öffnet und sein
+Wetter-Schalter schaltet auf `off`. Keine Konsolenfehler.
+
 ---
 
 ## 5b. Äquivalenztest gegen die Vorgänger-Fassung
@@ -483,17 +552,20 @@ Was nicht rein rechnet (Kamera-Pose, DOM), bleibt beim Smoke aus §5a.
 
 ---
 
-## 6. CI und Definition of Done (gesamt)
+## 6. CI und Definition of Done (gesamt) — **erfüllt**
 
-- `npm run typecheck` umfasst den gesamten Player-Pfad (keine Insel-JS mehr im
+- ✅ `npm run typecheck` umfasst den gesamten Player-Pfad (keine Insel-JS mehr im
   Default-Graph).
-- `allowJs` bleibt `false` — im Endzustand wie während der Migration (s.
+- ✅ `allowJs` bleibt `false` — im Endzustand wie während der Migration (s.
   Abschnitt 8, Zeile „Reihenfolge-Zwang").
-- Kein `.d.ts` bleibt übrig: `src/audiotracks.d.ts` entfällt mit Welle 3.
-- `npm test` / Deploy-Gate unverändert grün.
-- Manuell: Koh Pha-ngan + eine aufgezeichnete Tour, Desktop und schmale Viewport-Breite.
-- `CLAUDE.md`-Absatz „neue Module in TypeScript“ → „Player und Studio in TypeScript“.
-- `test/geo.test.js` ist danach der letzte JS-Test — mit Welle 3 nach `.test.ts`.
+- ✅ Kein `.d.ts` bleibt übrig: `src/audiotracks.d.ts` entfiel mit Welle 3.
+- ✅ `npm test` / Deploy-Gate unverändert grün (564 Tests).
+- ✅ Manuell: Koh Pha-ngan + eine aufgezeichnete Tour (s. Block-C-Abnahme).
+- ✅ `CLAUDE.md`: „Player und Studio sind vollständig TypeScript“.
+- ✅ `test/geo.test.js` war der letzte JS-Test — mit Welle 3 nach `.test.ts`.
+
+Neu dazugekommen ist genau eine Abhängigkeit: **`@types/three`** (devDependency,
+versionsgleich zu `three`) — s. Befunde zu Welle 7.
 
 ---
 
