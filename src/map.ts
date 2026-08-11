@@ -98,18 +98,19 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
     // MIT Sonne/Sternen ins Bild kommt — dafür braucht die FreeCamera-Ableitung
     // Pitch-Spielraum, sonst klemmt die Rahmung und der Horizont klebt am oberen Rand.
     maxPitch: 86,
-    // HIER STAND `antialias: !COARSE` — und tat seit dem Sprung auf MapLibre 5
-    // nichts mehr: Die WebGL-Kontext-Attribute sind dort unter
-    // `canvasContextAttributes` gewandert, ein unbekanntes Top-Level-Feld wird
-    // stumm ignoriert (der Typecheck der Migration hat es gefunden). Die Zeile
-    // ist deshalb ersatzlos raus statt umgeschrieben: Sie WIEDER scharf zu
-    // stellen wäre eine Optik- und Bildraten-Änderung und gehört gemessen —
-    // MSAA war ursprünglich für Touch abgeschaltet, weil es dort ab 2× Pixel-
-    // dichte nicht zu unterscheiden war. Was der Player heute zeigt, ist der
-    // MapLibre-Default `antialias: false` auf ALLEN Geräten.
-    // Messplan und die Frage, ob daraus eine Einstellung wird:
-    // docs/concepts/konzept_antialias.md — dort steht auch, dass das
-    // `antialias: true` in photopins.js aus demselben Grund wirkungslos ist.
+    // KEIN Antialiasing, und das ist eine gemessene Entscheidung. Hier stand bis
+    // 2026-08-11 `antialias: !COARSE` — wirkungslos, seit MapLibre 5 die
+    // WebGL-Kontext-Attribute nach `canvasContextAttributes` verschoben hat (ein
+    // unbekanntes Top-Level-Feld wird stumm ignoriert; gefunden hat es der
+    // Typecheck beim TS-Umbau). Die naheliegende Reparatur wurde gegengeprüft und
+    // VERWORFEN: Mit `canvasContextAttributes: { antialias: true }` (nachgewiesen
+    // aktiv, SAMPLES = 4) blieb dasselbe Bild bei identischer Kamerapose — im
+    // saubersten Vergleich 3 von 255 maximaler Abweichung. Der Grund ist die
+    // Bildkomposition selbst: Satellitenraster auf Terrain-Mesh, zwei
+    // 2D-Overlays, DOM-UI — Geometriekanten gibt es kaum, und die einzige
+    // relevante (Silhouette gegen den Himmel) weicht drawHaze in atmosphere.js
+    // ohnehin auf. Messung, Grenzen und die verworfene Einstellungs-Idee:
+    // docs/archive/antialias-verworfen.md.
     // Render-Auflösung als Pixelbudget deckeln (s. targetPixelRatio) — hält den M4 an
     // 4K und schwächere GPUs unter der 60→30-fps-Füllraten-Klippe, ohne kleine Fenster
     // anzutasten. pixelRatio skaliert MapLibres GESAMTE Pipeline (Raster-Decode, Terrain-

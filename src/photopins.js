@@ -480,7 +480,11 @@ export function installPhotoPins(map, spots, { onSelect, variante = 'nummer' } =
     type: 'custom',
     renderingMode: '3d',
     onAdd(m, gl) {
-      renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true })
+      // Kein `antialias` hier: Three benutzt den übergebenen Kontext unverändert,
+      // die Attribute stehen längst fest — das Flag war wirkungslos. Die Karte
+      // fordert seit der Messung vom 2026-08-11 ebenfalls kein MSAA mehr an
+      // (docs/archive/antialias-verworfen.md).
+      renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl })
       renderer.autoClear = false
     },
     render(gl, opts) {

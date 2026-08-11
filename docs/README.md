@@ -46,7 +46,6 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`modi-konsolidierung.md`](concepts/modi-konsolidierung.md) — Fortbewegungs-Modi auf eine zentrale Tabelle ziehen.
 * [`konzept_editor_zerlegung.md`](concepts/konzept_editor_zerlegung.md) — `editor.ts` in Karte / Inspector / Zeitleiste / Menüs zerlegen.
 * [`konzept_player_typescript.md`](concepts/konzept_player_typescript.md) — Player-Module schrittweise von JS nach TypeScript.
-* [`konzept_antialias.md`](concepts/konzept_antialias.md) — MSAA war seit MapLibre 5 stumm aus: Messplan und die Frage, ob daraus eine „Bildqualität"-Einstellung wird.
 * [`konzept_live_mitverfolgen.md`](concepts/konzept_live_mitverfolgen.md) — Live-Link während der App-Aufnahme; Spur und Medien in Echtzeit.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
@@ -64,4 +63,6 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 Siehe [`archive/README.md`](archive/README.md). Enthält u. a. den Tool-Katalog,
 alte Luhambo-/CI-/Logo-Mockups, den Zeitleisten-Mockup-Stand vor der Umsetzung und
 das [Renderer-Labor](archive/renderer-labor.md) (2026-08-11 ausgebaut — was es gab,
-was es gelehrt hat, wie man es zurückholt).
+was es gelehrt hat, wie man es zurückholt) sowie
+[antialias-verworfen.md](archive/antialias-verworfen.md) (MSAA war seit MapLibre 5
+stumm aus; nachgemessen, ohne sichtbaren Effekt, Flags entfernt).
