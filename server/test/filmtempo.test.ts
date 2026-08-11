@@ -1,5 +1,5 @@
 // Drift-Wächter: Die Filmtempi im Server sind eine KOPIE der Engine-Konstanten
-// aus src/tour.js (der Server kann die Datei nicht importieren — eigener
+// aus src/tour.ts (der Server kann die Datei nicht importieren — eigener
 // rootDir, kein allowJs). Läuft die Kopie auseinander, bemisst die Pipeline
 // Zeitraffer-Rampen nach einem Tempo, das der Player gar nicht fährt.
 //
@@ -21,7 +21,7 @@ import {
 } from '../src/pipeline/filmtempo.js'
 import { MODI } from '../src/schema/upload.js'
 
-const engineQuelle = (): string => readFileSync(new URL('../../src/tour.js', import.meta.url), 'utf8')
+const engineQuelle = (): string => readFileSync(new URL('../../src/tour.ts', import.meta.url), 'utf8')
 const geoQuelle = (): string => readFileSync(new URL('../../src/geo.ts', import.meta.url), 'utf8')
 
 describe('Filmtempo', () => {
@@ -31,7 +31,7 @@ describe('Filmtempo', () => {
 
   it('deckt sich mit MODE_SPEED der Engine', () => {
     const block = engineQuelle().match(/const MODE_SPEED = \{([^}]*)\}/)
-    expect(block, 'MODE_SPEED in src/tour.js nicht gefunden').not.toBeNull()
+    expect(block, 'MODE_SPEED in src/tour.ts nicht gefunden').not.toBeNull()
     const engine = Object.fromEntries(
       [...(block?.[1] ?? '').matchAll(/(\w+)\s*:\s*([\d.]+)/g)].map((m) => [m[1] as string, Number(m[2])]),
     )
@@ -40,7 +40,7 @@ describe('Filmtempo', () => {
 
   it('deckt sich mit dem Basistempo der Engine', () => {
     const treffer = engineQuelle().match(/this\.baseSpeed\s*=\s*([\d.]+)/)
-    expect(treffer, 'baseSpeed in src/tour.js nicht gefunden').not.toBeNull()
+    expect(treffer, 'baseSpeed in src/tour.ts nicht gefunden').not.toBeNull()
     expect(Number(treffer?.[1])).toBe(BASIS_TEMPO_MS)
   })
 

@@ -181,10 +181,10 @@ describe('Kamera-Momente', () => {
     expect(pruefeOverlay({ schema: 'maptale/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 6 }] })).toBeNull()
   })
 
-  it('Default-Dauern decken sich mit der Engine (Drift-Wächter tour.js)', () => {
-    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+  it('Default-Dauern decken sich mit der Engine (Drift-Wächter tour.ts)', () => {
+    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
     const block = quelle.match(/const MOMENT_DEFAULT_S = \{([^}]*)\}/)
-    expect(block, 'MOMENT_DEFAULT_S in src/tour.js nicht gefunden').not.toBeNull()
+    expect(block, 'MOMENT_DEFAULT_S in src/tour.ts nicht gefunden').not.toBeNull()
     const engine = Object.fromEntries(
       [...(block?.[1] ?? '').matchAll(/(\w+):\s*(\d+)/g)].map((m) => [m[1] as string, Number(m[2])]),
     )
@@ -315,18 +315,18 @@ describe('Fortbewegungs-Modi', () => {
   // Drift-Wächter: Studio und Player-Engine müssen dieselben Modi kennen. Sie
   // liefen auseinander — das Studio bot nur walk/bike/tram/ferry an, während
   // Engine, Icons und Motorsound moped/jeep längst unterstützten; aufgezeichnete
-  // Touren konnten diese Modi deshalb nie bekommen. tour.js lädt MapLibre und
+  // Touren konnten diese Modi deshalb nie bekommen. tour.ts lädt MapLibre und
   // ist im Node-Test nicht importierbar, also über den Quelltext.
   it('decken sich mit MODE_SPEED der Engine', () => {
-    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
     const block = quelle.match(/const MODE_SPEED = \{([^}]*)\}/)
-    expect(block, 'MODE_SPEED in src/tour.js nicht gefunden').not.toBeNull()
+    expect(block, 'MODE_SPEED in src/tour.ts nicht gefunden').not.toBeNull()
     const engine = [...(block?.[1] ?? '').matchAll(/(\w+)\s*:/g)].map((m) => m[1] as string)
     expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
   })
 
   it('Tempo-Faktoren der Dauerschätzung stimmen mit der Engine überein', () => {
-    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
     const block = quelle.match(/const MODE_SPEED = \{([^}]*)\}/)
     const engine = Object.fromEntries(
       [...(block?.[1] ?? '').matchAll(/(\w+)\s*:\s*([\d.]+)/g)].map((m) => [m[1] as string, Number(m[2])]),
@@ -347,17 +347,17 @@ describe('Fortbewegungs-Modi', () => {
   // KEINEN Wächter — eine Engine-Änderung wäre in Dauer-Schätzung und
   // Filmzeit-Kurve unbemerkt verhallt.
   it('Haltezeiten decken sich mit HOLD_HIDE/HOLD_AUSBLEND der Engine', () => {
-    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
     const hide = quelle.match(/const HOLD_HIDE = ([\d.]+)/)
     const ausblend = quelle.match(/const HOLD_AUSBLEND = ([\d.]+)/)
-    expect(hide, 'HOLD_HIDE in src/tour.js nicht gefunden').not.toBeNull()
-    expect(ausblend, 'HOLD_AUSBLEND in src/tour.js nicht gefunden').not.toBeNull()
+    expect(hide, 'HOLD_HIDE in src/tour.ts nicht gefunden').not.toBeNull()
+    expect(ausblend, 'HOLD_AUSBLEND in src/tour.ts nicht gefunden').not.toBeNull()
     expect(Number(hide?.[1])).toBe(HALT_ENGINE_S)
     expect(Number(ausblend?.[1])).toBe(HALT_AUSBLEND_S)
   })
 
   it('haben in der Engine auch eine Kamera-Skala', () => {
-    const quelle = readFileSync(new URL('../src/tour.js', import.meta.url), 'utf8')
+    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
     const block = quelle.match(/const MODE_SCALE = \{([\s\S]*?)\n\}/)
     const engine = [...(block?.[1] ?? '').matchAll(/^\s{2}(\w+)\s*:/gm)].map((m) => m[1] as string)
     expect(engine.slice().sort()).toEqual([...MODI].slice().sort())

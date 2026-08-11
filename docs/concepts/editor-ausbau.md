@@ -40,7 +40,7 @@ klingen nach Kamera), aber die beiden tragen verschiedene Grammatik:
   *wie nah bin ich dran, während gefahren wird.*
 - **Momente** ([edits.ts:107](../server/src/schema/edits.ts#L107)) sind Punkt-Ereignisse
   `{ab, art, dauerS}`. In der Engine ist das eine **eigene Phase**: die Fahrt bremst
-  ~160 m vorher ab, hält an, die Kamera agiert ([tour.js:793](../src/tour.js#L793)).
+  ~160 m vorher ab, hält an, die Kamera agiert ([tour.ts:793](../src/tour.ts#L793)).
 
 Ein Moment ist damit kein Kamera-Attribut, sondern ein **Halt** — grammatikalisch näher
 am Foto-Stopp als am Kamera-Abstand. Eine Bahn, die gleichzeitig durchgehend gefüllt ist
@@ -140,7 +140,7 @@ gruppiert) → beiläufig; einzelnes Foto nach langer Fahrt → groß.
 ## 4. Tempo-Spur
 
 Erzählerisch der stärkste fehlende Hebel. Heute hängt das Tempo allein am
-Fortbewegungsmodus ([tour.js:62](../src/tour.js#L62)) — aber die Fortbewegung ist ein
+Fortbewegungsmodus ([tour.ts:62](../src/tour.ts#L62)) — aber die Fortbewegung ist ein
 **Fakt** („ich bin geradelt"), das Tempo eine **Erzählentscheidung** („die 40 km
 Landstraße im Flug, die Serpentinen in Ruhe").
 
@@ -276,7 +276,7 @@ Offen: API-Kosten pro Erzeugung (Quota-Frage) und Musik-Ducking darunter.
 ## 9. Fortbewegung
 
 Heute: `walk 0.4 · bike 1 · moped 1.15 · tram 1.25 · jeep 1.45 · ferry 2.5`
-([tour.js:62](../src/tour.js#L62)), Ton nur für `moped/jeep/ferry`
+([tour.ts:62](../src/tour.ts#L62)), Ton nur für `moped/jeep/ferry`
 ([vehicle.js:11](../src/vehicle.ts#L11)).
 
 **Beobachtung:** Ein Modus tut vier Dinge — Tempo, Kameradistanz, Icon, Motorsound. Die
@@ -358,7 +358,7 @@ Die Pause ist heute ein Nebenprodukt der Zeitrechnung, kein Objekt. Sie könnte 
 werden: ein **Moment** an der Rampenmitte, mit einer Beschriftung wie „2 Stunden
 später" oder „Kino". Momente gibt es bereits als Punkt-Ereignis
 ([edits.ts:107](../server/src/schema/edits.ts#L107), eigene Engine-Phase in
-[tour.js:793](../src/tour.js#L793)), und `findePausen` liefert Ort und Dauer frei Haus
+[tour.ts:793](../src/tour.ts#L793)), und `findePausen` liefert Ort und Dauer frei Haus
 — beides steckt schon in der Pipeline, nichts davon müsste erfunden werden.
 
 Drei Fragen, die vor dem Bauen zu klären sind:

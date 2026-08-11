@@ -8,8 +8,9 @@ Maptale ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mi
 automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vite,
 gerendert mit MapLibre GL JS. Der Player wandert wellenweise nach **TypeScript**
 ([docs/concepts/konzept_player_typescript.md](docs/concepts/konzept_player_typescript.md));
-Daten, Blätter, Kernbausteine und Karten-Nebenmodule sind durch, die UI-Schicht, die Engine
-(`tour.js`), die Visuals und der Verdrahter (`main.js`) sind noch Vanilla JS. Wer eine der
+Daten, Blätter, Kernbausteine, Karten-Nebenmodule, die UI-Schicht und die Engine (`tour.ts`)
+sind durch; noch Vanilla JS sind die Visuals (`atmosphere`, `weather`, `photopins`) und der
+Verdrahter (`main.js`). Wer eine der
 verbliebenen `.js` anfasst, folgt der Wellen-Reihenfolge des Konzepts statt sie zu überholen —
 **eine `.ts` darf kein noch nicht migriertes `.js` importieren** (`allowJs` ist aus, das gäbe
 `TS7016`).
@@ -243,7 +244,7 @@ Vorrang vor dem historischen Auto-Wetter — nötig, wenn das ERA5-Archiv einen 
 zu einer Wegpunktliste, baut die Route und verankert Fotos via `nearestS`. Nahe beieinander
 liegende Fotos (< 120 m in `s`) werden zu einem **Stopp** mit mehreren `items` gruppiert.
 
-**Kamera-Engine.** [src/tour.js](src/tour.js) `Tour` ist das Herzstück. Sie nutzt MapLibres
+**Kamera-Engine.** [src/tour.ts](src/tour.ts) `Tour` ist das Herzstück. Sie nutzt MapLibres
 **FreeCamera-API** (nicht zoom-basiert), weil zoom-basierte Kameras in steilem Gelände im Hang
 stecken bleiben — die Kamera hat eine explizite Flughöhe über Grund plus Blickpunkt. Jede
 Kameragröße läuft durch einen `Smooth`-Filter (exponentielle Glättung mit `tau`), wodurch
@@ -253,7 +254,7 @@ Foto-Orbit → Finale. Pro Modus skalieren `MODE_SPEED`/`MODE_SCALE` Tempo und K
 pro Frame `ui.updateTrace(s, pos)` und optional `ui.onTick(frac)` auf.
 
 **Fortbewegungs-Modi** sind `walk | bike | moped | jeep | tram | ferry`. Die Liste muss an vier
-Stellen deckungsgleich bleiben: `MODE_SPEED`/`MODE_SCALE` ([src/tour.js](src/tour.js)),
+Stellen deckungsgleich bleiben: `MODE_SPEED`/`MODE_SCALE` ([src/tour.ts](src/tour.ts)),
 `MODE_ICONS` ([src/map.ts](src/map.ts)), `MODE_SOUND` ([src/vehicle.ts](src/vehicle.ts), nur
 die drei mit Motorgeräusch: moped/jeep/ferry — die Tram fährt lautlos) und `MODI` ([server/src/schema/upload.ts](server/src/schema/upload.ts), von
 dort beziehen Studio-Typ und alle JSON-Schema-Enums ihre Werte). Sie **lief schon einmal
@@ -295,7 +296,7 @@ Rechenregeln DOM-frei und getestet in [src/pinmodell.ts](src/pinmodell.ts); Mach
 Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
 [docs/architecture/foto-pins-3d.md](docs/architecture/foto-pins-3d.md).
 
-**UI.** [src/ui.js](src/ui.js) `UI` verwaltet Overlays, Steuerleiste, Telemetrie, Höhenprofil und
+**UI.** [src/ui.ts](src/ui.ts) `UI` verwaltet Overlays, Steuerleiste, Telemetrie, Höhenprofil und
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in
 main.js über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
 `tour.jumpToPhoto`. Der Player-DOM liegt statisch in [erlebnis.html](erlebnis.html); JS greift

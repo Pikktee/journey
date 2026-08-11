@@ -6,7 +6,7 @@
 // Filmsekunden zu bemessen statt in Metern — 200 m sind zu Fuß gut vier
 // Sekunden und auf der Fähre eine halbe.
 //
-// Die Zahlen sind eine KOPIE der Engine-Konstanten aus src/tour.js
+// Die Zahlen sind eine KOPIE der Engine-Konstanten aus src/tour.ts
 // (`baseSpeed`, `MODE_SPEED`); der Server kann die Datei nicht importieren
 // (eigener rootDir, kein allowJs). Ein Drift-Wächter in
 // server/test/filmtempo.test.ts vergleicht sie mit deren Quelltext — dieselbe
@@ -14,10 +14,10 @@
 
 import type { Modus } from '../schema/upload.js'
 
-/** Streckenfortschritt bei 1× (m/s) — src/tour.js `baseSpeed`. */
+/** Streckenfortschritt bei 1× (m/s) — src/tour.ts `baseSpeed`. */
 export const BASIS_TEMPO_MS = 120
 
-/** Tempo-Faktor je Fortbewegung — src/tour.js `MODE_SPEED`. */
+/** Tempo-Faktor je Fortbewegung — src/tour.ts `MODE_SPEED`. */
 export const MODUS_TEMPO: Record<Modus, number> = {
   walk: 0.4,
   bike: 1,
@@ -27,9 +27,9 @@ export const MODUS_TEMPO: Record<Modus, number> = {
   ferry: 2.5,
 }
 
-/** `HOLD_HIDE` in src/tour.js: sichtbare Foto-Karte (Default, `display.holdS` übersteuert). */
+/** `HOLD_HIDE` in src/tour.ts: sichtbare Foto-Karte (Default, `display.holdS` übersteuert). */
 export const HALT_ENGINE_S = 5.2
-/** `HOLD_AUSBLEND` in src/tour.js: Ausblendung nach der Anzeige, bevor es weitergeht. */
+/** `HOLD_AUSBLEND` in src/tour.ts: Ausblendung nach der Anzeige, bevor es weitergeht. */
 export const HALT_AUSBLEND_S = 0.8
 /** `NAHE_M` in src/geo.ts: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
 export const NAHE_M = 120
@@ -53,7 +53,7 @@ export function filmsekunden(meter: number, mode: Modus): number {
  * Filmzeit, die EINE Aufnahme am Halt belegt (ohne Ausblendung).
  *
  * Ein Video zählt mit seiner echten Länge — der Player läuft bis zum Dateiende,
- * `display.holdS` ist dort wirkungslos (src/tour.js). Spiegel von
+ * `display.holdS` ist dort wirkungslos (src/tour.ts). Spiegel von
  * `aufnahmeHaltS` in src/studio/zeitleiste.ts; laufen die beiden auseinander,
  * zeigt die Zeitleiste eine andere Filmdauer, als der Film hat.
  */

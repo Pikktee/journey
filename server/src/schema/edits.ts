@@ -181,7 +181,7 @@ export interface WetterGrenze {
   staerke?: number
 }
 
-/** Moment-Arten — muss mit der Engine (src/tour.js) synchron bleiben. */
+/** Moment-Arten — muss mit der Engine (src/tour.ts) synchron bleiben. */
 export const MOMENT_ARTEN = ['umkreisen', 'aufstieg', 'innehalten'] as const
 export type MomentArt = (typeof MOMENT_ARTEN)[number]
 

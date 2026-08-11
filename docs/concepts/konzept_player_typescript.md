@@ -4,9 +4,10 @@
 strict wie der Rest des Web-Codes — ohne die Kamerafahrt, den Default-Renderer oder
 die Tour-Verträge zu riskieren.
 
-Stand: **2026-08-11**. Welle 0 (Rauchtest) und **Block A = Wellen 1–4 sind
-umgesetzt** — 12 der 19 Player-Dateien liegen unter `tsc`. Offen sind Block B
-(Wellen 5–6: `ui`, Engine) und Block C (Wellen 7–8: Visuals, Verdrahter).
+Stand: **2026-08-11**. Welle 0 (Rauchtest), **Block A = Wellen 1–4** und
+**Block B = Wellen 5–6 (`ui`, Engine) sind umgesetzt** — 14 der 19
+Player-Dateien liegen unter `tsc`, offen ist nur noch Block C (Wellen 7–8:
+Visuals, Verdrahter).
 
 Verwandt, aber **nicht** dasselbe:
 - [modi-konsolidierung.md](modi-konsolidierung.md) — Modus-Tabelle; der dort
@@ -22,8 +23,8 @@ Verwandt, aber **nicht** dasselbe:
 
 | | |
 |---|---|
-| Player-JS | ursprünglich 19 Dateien, 7229 Zeilen; nach Block A noch **6** (`atmosphere`, `main`, `photopins`, `tour`, `ui`, `weather`) |
-| Web-TS | 40 `.ts` (Studio, Konto, Profil, Routen, …) + eine `.d.ts`; nach Block A 52 `.ts`, **keine `.d.ts` mehr** |
+| Player-JS | ursprünglich 19 Dateien, 7229 Zeilen; nach Block B noch **4** (`atmosphere`, `main`, `photopins`, `weather`) |
+| Web-TS | 40 `.ts` (Studio, Konto, Profil, Routen, …) + eine `.d.ts`; nach Block B 54 `.ts`, **keine `.d.ts` mehr** |
 | `tsconfig.json` | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, **`allowJs: false`**, `include: src/**/*.ts` |
 | Einstieg | [erlebnis.html](../../erlebnis.html) Zeile 372 → [src/main.js](../../src/main.js) |
 | Getestet heute | u. a. `geo` (JS-Test), `remote.ts`/`timeAt`, `audiotracks`, `pinmodell.ts` |
@@ -87,8 +88,8 @@ Welle 1   tours.js — Daten, liefert TourConfig         [durchgeführt]
 Welle 2   Blätter ohne MapLibre (sun, audioloop, exif, demclean)   [durchgeführt]
 Welle 3   geo, audiotracks + music, autoweather, vehicle          [durchgeführt]
 Welle 4   Karten-Nebenmodule (elevation, daynight, map)           [durchgeführt]
-Welle 5   UI-Schicht (ui; karteninfo ist schon ts)
-Welle 6   Engine (tour.js) — Herzstück
+Welle 5   UI-Schicht (ui; karteninfo ist schon ts)               [durchgeführt]
+Welle 6   Engine (tour.js) — Herzstück                           [durchgeführt]
 Welle 7   Default-Visuals (atmosphere, weather, photopins)
 Welle 8   main.js — Verdrahter, zuletzt
 ```
@@ -234,6 +235,18 @@ Importiert `geo` und `audiotracks` (beide Welle 3). DOM-lastig. IDs aus
 `erlebnis.html` als Konstanten oder schmale Getter; kein komplettes UI-Rewrite.
 `karteninfo.ts` existiert bereits — Muster übernehmen.
 
+**Umgesetzt.** Der Zugriff aufs DOM läuft über zwei Helfer (`$` per id,
+`pflicht` per Selektor), die beim Fehlen ein benanntes „Player-DOM: #x fehlt
+(erlebnis.html)" werfen statt später am Aufrufer als `null`-TypeError
+aufzuschlagen — dieselbe Absturzklasse, nur mit Adresse. Die `els`-Tafel trägt
+jetzt echte Elementtypen (`HTMLImageElement`, `SVGPathElement`, …); genau daran
+hing der Kommentar bei `setPlaying`, dass SVG kein `hidden`-Property kennt.
+Zwei Kleinigkeiten am Rand: `requestVideoFrameCallback` steht nicht in jeder
+lib.dom-Fassung und bekommt eine schmale Erweiterung des `HTMLVideoElement`
+statt einer Zusage; und die Timer-Felder laufen über `window.setTimeout`
+(liefert `number`) — das globale `setTimeout` ist wegen `@types/node` im Repo
+`NodeJS.Timeout` und hätte den Bestandswert `0` unbrauchbar gemacht.
+
 ---
 
 ### Welle 6 — `tour.js` (Engine)
@@ -247,8 +260,33 @@ Vorgehen:
 3. Callbacks (`ui.updateTrace`, `onPose`) als Interfaces.
 4. Keine Algorithmus-„Verbesserungen“.
 
-Smoke: Intro → Fahrt → Foto-Orbit → Finale; Scrub; Wiederaufnahme-Ticket
-(`maptale:weiter:`); Moduswechsel hör-/sichtbar.
+Smoke: Intro → Fahrt → Foto-Orbit → Finale; Scrub; Moduswechsel hör-/sichtbar.
+(Das Wiederaufnahme-Ticket `maptale:weiter:` gibt es seit dem Ausbau des
+Renderer-Labors nicht mehr — `resumeAt` bleibt als Einstieg für Messungen.)
+
+**Umgesetzt.** Vier Dinge, die dabei entschieden wurden:
+
+- **Die Modus- und Preset-Tabellen bleiben Literale, die Lookups bekommen einen
+  Helfer.** `MODE_SPEED`/`MODE_SCALE`/`PRESETS` stehen mit `satisfies`
+  (Vollständigkeit über `Modus` bleibt geprüft), gelesen wird über
+  `tempoFaktor`/`skalaFuer`/`distanzFuer`. Grund: Die Schlüssel kommen als FREIE
+  Zeichenketten herein (Server-Segmente, `data-preset` im DOM) — die Fallbacks
+  des Bestands (`?? 1`, `?? MODE_SCALE.bike`) sind deshalb kein Zierrat, und ein
+  `Record<Modus, …>` hätte sie zu totem Code erklärt.
+- **Die Literale müssen Literale bleiben, weil vier Drift-Wächter sie per REGEX
+  lesen** (`test/studio-baukasten.test.ts`, `server/test/filmtempo.test.ts` —
+  der Server kann die Datei nicht importieren). Ein `const MODE_SPEED:
+  Record<Modus, number> = {` hätte `const MODE_SPEED = \{` nicht mehr getroffen,
+  und die Wächter wären still verstummt. Deshalb steht `satisfies` HINTER dem
+  Objekt. Die Dateiendung in den Wächtern (`../src/tour.ts`) musste mit.
+- **`shownStop` ist ehrlich `PlayerStopp | null`** statt einer
+  Definite-Assignment-Zusage. Das kostet drei Wächter (`advancePhoto`,
+  Foto-Trigger, „ausgerollt") an Stellen, die die Phase ohnehin schon prüften —
+  erreichbar sind sie nicht, aber sie ersetzen einen möglichen TypeError durch
+  ein Nichtstun.
+- **`ui.updateTrace` trägt ein `!`.** Es ist der einzige Rückruf, den die Engine
+  ohne `?.` aufruft; gesetzt wird er von `main.js` direkt nach dem Konstruktor.
+  Ein Default-No-op hätte einen Verdrahtungsfehler verschluckt.
 
 ---
 
@@ -298,8 +336,8 @@ Keine zweite „Wahrheit“ fürs Tour-Format im Client erfinden, die dem
 Austauschformat widerspricht. Lieber schmale `PlayerTour`-Typen mit dem Subset,
 das `main` wirklich anfasst.
 
-**Was Block A bereits geschaffen hat** — Block B und C typisieren dagegen und
-erfinden nichts Neues (`grep -n "^export \(type\|interface\)" src/*.ts`):
+**Was Block A und B bereits geschaffen haben** — Block C typisiert dagegen und
+erfindet nichts Neues (`grep -n "^export \(type\|interface\)" src/*.ts`):
 
 | Modul | Typen |
 |---|---|
@@ -308,6 +346,14 @@ erfinden nichts Neues (`grep -n "^export \(type\|interface\)" src/*.ts`):
 | `map.ts` | `LngLat2D`, `FotoWegpunkt` |
 | `daynight.ts` | `Lichtstimmung`, `TagNachtRegie` |
 | `audiotracks.ts` | `DuckPegel`, `AudioSpuren` |
+| `ui.ts` | `PlayerMedium`, `PlayerStopp`, `Telemetrie` |
+| `tour.ts` | `Kameradistanz`, `KameraMoment`, `ModusGrenze`, `KameraPose`, `TourOptionen` |
+
+`PlayerMedium` ist bewusst das SUBSET, das Anzeige und Engine anfassen (`s`,
+`src`, `title`, `caption`, optional `type`/`poster`/`thumb`/`display`) — nicht
+eine dritte Fassung neben `RemoteMedium` (src/remote.ts) und `TourFoto`
+(src/tours.ts). `KameraPose` ist der Vertrag zum Atmosphäre-Overlay: Welle 7
+typisiert `atmo.render(pose)` dagegen, statt ihn zu wiederholen.
 
 ---
 
@@ -367,6 +413,25 @@ devhub-Dev-Server, `window.__j.tour` abwarten, `#btn-start` klicken, dann Phase,
 → ride`, `s` wächst, Pitch pendelt sich bei ~65° ein (die ersten Sekunden sind
 flach — das ist der einschwingende Smooth-Filter, kein Fehler).
 
+Zwei Werkzeug-Notizen: Das Skript treibt `puppeteer-core` (liegt als
+devDependency im Repo) auf das Chromium des Playwright-Caches — der Ordner heißt
+dort `Google Chrome for Testing.app`, nicht `Chromium.app`. Und es muss **im
+Repo-Wurzelverzeichnis** liegen, sonst findet Node `puppeteer-core` nicht; nach
+dem Lauf gehört es gelöscht (dieselbe Regel wie bei den Wegwerf-Tests in §5b).
+
+**Block-B-Abnahme (2026-08-11), beide Tour-Arten:**
+
+| | `/tour/kohphangan` (statisch) | `/tour/t_…` (aufgezeichnet) |
+|---|---|---|
+| Phasenfolge | `intro → ride → photo → ride` | dito (Halt schon bei s≈0) |
+| `s` | 18 → 1728 m in 25 s, Halt bei 745 m | 0 → 145 m, zwei Halte |
+| Pitch | 45° → 8° (Anflug) → 57° und steigend | bis 66° |
+| Foto-Karte | „Thong Sala" ein/aus, Telemetrie läuft mit | „Foto · 13:17"/„13:49" |
+| Scrub · `jumpToPhoto` · `nudge` in Pause · `toMenu` | alle vier wie erwartet | dito |
+
+Konsolen-/Netzfehler: einer, `400` von `analytics.maptale.io` — Umami mag
+`localhost` nicht, mit der Migration hat er nichts zu tun.
+
 ---
 
 ## 5b. Äquivalenztest gegen die Vorgänger-Fassung
@@ -392,6 +457,12 @@ const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 214748364
 
 expect(neu.pointAt(rb, s)).toEqual(alt.pointAt(ra, s))
 ```
+
+**Für Block B ging das nicht** und das ist kein Versäumnis: `tour` importiert
+MapLibre (im Node-Test nicht ladbar — genau der Grund, warum die Drift-Wächter
+den Quelltext per Regex lesen), und alles Rechnende in `ui` hängt am
+Konstruktor, also am DOM. Die Abnahme war deshalb der Smoke aus §5a, gefahren
+über beide Tour-Arten (Ergebnis unten).
 
 An `geo` und `autoweather` hat das Block A abgenommen: 12 zufällige Routen à 41
 Stützstellen, 200 Punktpaare, `wmoToWeather` über 2 430 Code-/Wolken-/Regen-/

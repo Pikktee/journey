@@ -267,7 +267,7 @@ nicht abgedeckt.
 
 ### 7.3 Nicht die volle Tour-Engine
 
-`src/tour.js` für Intro-Orbit, Foto-Phasen, Zeitraffer ist für **abgeschlossene**
+`src/tour.ts` für Intro-Orbit, Foto-Phasen, Zeitraffer ist für **abgeschlossene**
 Routen gebaut. Live v1:
 
 - MapLibre-Karte (Stil an Player angelehnt, Attribution bleibt).

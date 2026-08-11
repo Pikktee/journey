@@ -536,7 +536,7 @@ Bild+Name+Bild — gemessene JS-Klassen schalteten erst beim Loslassen, weil
 
 **Die rechte Kante eines Fotos ist seine Standzeit** (`display.holdS`, Blase am Griff). Ein
 Video hat diesen Griff NICHT — der Player läuft bis zum Dateiende, `holdS` ist dort wirkungslos
-(src/tour.js), ein Griff dafür wäre eine Lüge. Es hat stattdessen **zwei SCHNITT-Kanten**
+(src/tour.ts), ein Griff dafür wäre eine Lüge. Es hat stattdessen **zwei SCHNITT-Kanten**
 (`edits.medien[].trim` in DATEI-Sekunden, Etappe 4): Der alte Satz „ein Video trägt seine
 Länge, sie steht nicht zur Wahl" stimmt für die Standzeit, nicht für den Schnitt. Anschlag
 ist an beiden Kanten die Datei, Loop gibt es hier nicht. Der **Ripple kostet keine Zeile

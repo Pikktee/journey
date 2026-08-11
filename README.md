@@ -33,8 +33,8 @@ npm run dev
 | `src/data.js` | Demo-Route (Lauterbrunnen → Grindelwald) + Foto-Metadaten |
 | `src/geo.ts` | Haversine, Kurswinkel, Catmull-Rom-Glättung, Resampling |
 | `src/map.ts` | Kartenstil (Satellit + DEM + Atmosphäre), Routen-Layer, Fahrer-Marker |
-| `src/tour.js` | Kamera-Engine (Phasen, Glättung, Foto-Trigger) |
-| `src/ui.js` | Overlays, Steuerleiste, Telemetrie |
+| `src/tour.ts` | Kamera-Engine (Phasen, Glättung, Foto-Trigger) |
+| `src/ui.ts` | Overlays, Steuerleiste, Telemetrie |
 
 ## Nächste Schritte Richtung Produkt
 

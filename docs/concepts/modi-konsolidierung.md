@@ -17,8 +17,8 @@ Modus-Liste in [editor-ausbau.md](editor-ausbau.md), Abschnitt 9.
 
 | # | Fundstelle | Inhalt |
 |---|---|---|
-| 1 | [tour.js:62](../../src/tour.js#L62) | `MODE_SPEED` — Tempo-Faktor |
-| 2 | [tour.js:63](../../src/tour.js#L63) | `MODE_SCALE` — `{behind, hover}` Kameradistanz |
+| 1 | [tour.ts:62](../../src/tour.ts#L62) | `MODE_SPEED` — Tempo-Faktor |
+| 2 | [tour.ts:63](../../src/tour.ts#L63) | `MODE_SCALE` — `{behind, hover}` Kameradistanz |
 | 3 | [map.js:483](../../src/map.ts#L483) | `MODE_ICONS` — SVG-Markup des Fahrer-Markers |
 | 4 | [studio.html](../../studio.html) | `<symbol id="i-m-*">` — **dieselben Icons ein zweites Mal** (6 Symbole) |
 | 5 | [vehicle.js:11](../../src/vehicle.ts#L11) | `MODE_SOUND` — Motorloop-Dateiname |
@@ -64,24 +64,14 @@ sie lohnen erst, wenn Modi ohne Play-Store-Update ausrollbar sein sollen.
 
 ## Stufe 1 — die acht Web-Stellen zu einer machen
 
-### Schritt 0: Rauchtest der Modul-Auflösung (5 Minuten, vor allem anderen)
+### Schritt 0: Rauchtest der Modul-Auflösung — **entfällt**
 
-`tour.js`, `map.js` und `vehicle.js` sind **reines JavaScript**, und das Root-`tsconfig.json`
-hat `allowJs: false` (include nur `src/**/*.ts`, `test/**/*.ts`). Zu klären ist nur, wie
-eine `.ts`-Datei aus einer `.js`-Datei importiert wird:
-
-```js
-// in src/tour.js probeweise:
-import { MODUS } from './modi.ts'      // Variante A
-import { MODUS } from './modi'         // Variante B (ohne Endung)
-```
-
-Danach `npm run dev` **und** `npm run build` — beide müssen durchlaufen. Die im Repo
-übliche `.js`-Endung (`'./geo.js'`) löst **nicht** zuverlässig auf `.ts` auf.
-
-**Fällt der Test aus:** Fallback auf das Muster, das für `audiotracks.js` bereits
-funktioniert — `src/modi.js` (reines JS) plus handgeschriebene `src/modi.d.ts`. Kostet
-ein kleines Typ-Duplikat, dafür null Auflösungsrisiko.
+Er ist erledigt: `tour`, `map` und `vehicle` sind seit der Player-Migration
+selbst TypeScript ([konzept_player_typescript.md](konzept_player_typescript.md),
+Wellen 3–6), ein neues `src/modi.ts` wird also von `.ts` aus importiert — mit der
+repo-üblichen `.js`-Endung (`from './modi.js'`), im Build wie im Dev-Server
+gemessen. Der frühere Fallback (`modi.js` + handgeschriebene `modi.d.ts`) ist
+damit gegenstandslos; `allowJs` bleibt `false`.
 
 ### Schritt 1: `src/modi.ts` anlegen
 
@@ -129,9 +119,9 @@ und bricht den Tempo-Faktor-Test.
 
 ### Schritt 2–4: Player umstellen
 
-- **[tour.js:62-70](../../src/tour.js#L62)** — `MODE_SPEED`/`MODE_SCALE` löschen, aus
+- **[tour.ts:62-70](../../src/tour.ts#L62)** — `MODE_SPEED`/`MODE_SCALE` löschen, aus
   `MODUS` lesen. Die Zugriffe stehen u. a. bei
-  [tour.js:845](../../src/tour.js#L845) („Kameradistanz an den Fortbewegungsmodus anpassen").
+  [tour.ts:845](../../src/tour.ts#L845) („Kameradistanz an den Fortbewegungsmodus anpassen").
 - **[map.js:483](../../src/map.ts#L483)** — `MODE_ICONS` löschen. **Achtung:** `MODE_ICONS`
   ist `export`iert und wird anderswo benutzt; entweder Re-Export aus `modi.ts` beibehalten
   oder alle Aufrufer mitziehen. `setRiderIcon`/`createRider` nutzen den Fallback
@@ -180,8 +170,8 @@ tun ist**:
 | Jeder Eintrag hat ein Icon | `MODUS[k].icon` nicht leer | „`ski` hat kein Icon" |
 | Tempo-Faktoren stimmen | wie bisher, aber gegen `MODUS[k].speed` statt Regex | unverändert |
 
-Der Tempo-Test importiert `MODUS` künftig direkt statt `tour.js` per Regex zu lesen
-(`tour.js` lädt MapLibre und ist im Node-Test nicht importierbar — `modi.ts` hat keine
+Der Tempo-Test importiert `MODUS` künftig direkt statt `tour.ts` per Regex zu lesen
+(`tour.ts` lädt MapLibre und ist im Node-Test nicht importierbar — `modi.ts` hat keine
 Abhängigkeiten und ist es sehr wohl). Das ist der eigentliche Nebengewinn dieses Umbaus.
 
 ### Abnahme

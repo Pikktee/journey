@@ -1,30 +1,147 @@
 // DOM-Schicht: Overlays, Steuerleiste, Höhenprofil, Telemetrie. Keine Map-Logik.
-import { pointAt } from './geo.js'
+import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
+import type { Wegpunkt } from './tours.js'
 import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
 
-const $ = (id) => document.getElementById(id)
+/**
+ * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
+ * Subset, das diese Datei und die Engine anfassen: die volle Form steht in
+ * `RemoteMedium` (src/remote.ts) bzw. `TourFoto` (src/tours.ts); `s` kommt aus
+ * der Verankerung in main.js (nearestS).
+ */
+export interface PlayerMedium extends StoppFoto {
+  src: string
+  title: string
+  caption: string
+  /** fehlt bei den statischen Touren — dort ist alles ein Foto */
+  type?: 'photo' | 'video'
+  /** Standbild eines Videos (auch Quelle des Seitenverhältnisses) */
+  poster?: string
+  /** Kachel-Fassung für den Pin-Kopf */
+  thumb?: string
+  /** Anzeige-Optionen aus dem Studio (Kreativbaukasten) */
+  display?: { holdS?: number; kenBurns?: boolean }
+}
+
+/** Ein Halt: Streckenmeter des ersten Mediums plus alles, was dort gezeigt wird. */
+export type PlayerStopp = Stopp<PlayerMedium>
+
+/** Was die Engine pro Telemetrie-Takt (10 Hz) meldet. */
+export interface Telemetrie {
+  km: number
+  ele: number
+  /** Streckenanteil 0..1 — Fortschrittsleiste und Playhead */
+  frac: number
+  /** Nächster Halt oder null (Intro/Finale, hinter dem letzten Halt) */
+  next: { title: string; km: number } | null
+  modeKey: string
+  /** Füllstand des Anzeige-Balkens; null = Video (ui füllt ihn aus der Videozeit) */
+  holdFrac: number | null
+}
+
+/**
+ * `requestVideoFrameCallback` steht nicht in jeder lib.dom-Fassung und fehlt in
+ * manchen Browsern ganz — deshalb die schmale Erweiterung statt einer Zusage.
+ */
+type VideoMitFrameCallback = HTMLVideoElement & {
+  requestVideoFrameCallback?: (cb: () => void) => number
+}
+
+/** Pflicht-Element aus [erlebnis.html](../erlebnis.html) — fehlt es, ist der Player kaputt. */
+const $ = <T extends Element = HTMLElement>(id: string): T => {
+  const el = document.getElementById(id)
+  if (!el) throw new Error(`Player-DOM: #${id} fehlt (erlebnis.html)`)
+  return el as unknown as T
+}
+
+const pflicht = <T extends Element>(wurzel: Element, wahl: string): T => {
+  const el = wurzel.querySelector(wahl)
+  if (!el) throw new Error(`Player-DOM: ${wahl} fehlt (erlebnis.html)`)
+  return el as T
+}
+
 const fmtDE = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 
 const PROFILE_SAMPLES = 140
 const VB_H = 30 // viewBox-Höhe des Profil-SVGs
 
 export class UI {
-  constructor(stops, route) {
+  stops: PlayerStopp[]
+  route: Route
+  total: number
+  spotSync: ((s: number) => void) | null
+  els: {
+    intro: HTMLElement
+    dock: HTMLElement
+    layer: HTMLElement
+    card: HTMLElement
+    frame: HTMLElement
+    img: HTMLImageElement
+    video: VideoMitFrameCallback
+    standbild: HTMLImageElement
+    sound: HTMLButtonElement
+    flash: HTMLElement
+    pTitle: HTMLElement
+    pSub: HTMLElement
+    pChip: HTMLElement
+    pCount: HTMLElement
+    holdFill: HTMLElement
+    finale: HTMLElement
+    profileBase: SVGPathElement
+    profileFill: SVGPathElement
+    progRect: SVGRectElement
+    head: HTMLElement
+    dots: HTMLElement
+    teleKm: HTMLElement
+    teleEle: HTMLElement
+    nextStop: HTMLElement
+    nextName: HTMLElement
+    nextKm: HTMLElement
+    blink: HTMLElement
+    iconPlay: SVGElement
+    iconPause: SVGElement
+  }
+  profileY: number[] = []
+
+  /** Vom Verdrahter (main.js) gesetzt — Fahrer-Marker und Spur pro Frame. */
+  updateTrace!: (s: number, pos: Wegpunkt) => void
+  /** Moduswechsel: Marker-Icon + Motorloop (main.js) */
+  onModeChange?: (mode: string) => void
+  /** 10-Hz-Takt, z. B. Tag/Nacht-Regie */
+  onTick?: (frac: number) => void
+  /** Tempo-Anzeige (Faktor + Richtung) */
+  onSpeed?: (mult: number, dir: number) => void
+  /** Video-Ton-Hülle 0..1 → Musik-Ducking */
+  onVideoTon: ((huelle: number) => void) | null
+  /** Video am Stopp durchgelaufen → weiter wie nach abgelaufenem Foto-HOLD */
+  onMediaEnded?: () => void
+
+  private _lastSyncS: number
+  private _preloaded: Set<number>
+  private _preloadImgs: HTMLImageElement[]
+  private _soundOn: boolean
+  private _videoTonGemeldet: number
+  private _standbildTimer: number
+  private _standbildGen: number
+  private _mode?: string
+
+  constructor(stops: PlayerStopp[], route: Route) {
     this.stops = stops // [{ s, items: [Foto, …] }]
     this.route = route
     this.total = route.total
     this.spotSync = null // GL-Wegpunkte, via registerSpots()
+    const card = $('photo-card')
     this.els = {
       intro: $('intro'),
       dock: $('dock'),
       layer: $('photo-layer'),
-      card: $('photo-card'),
+      card,
       // .photo-frame trägt keine id — Träger der Ken-Burns-Klasse/-Dauer (display)
-      frame: $('photo-card').querySelector('.photo-frame'),
-      img: $('photo-img'),
-      video: $('photo-video'),
-      standbild: $('photo-video-standbild'),
-      sound: $('photo-sound'),
+      frame: pflicht<HTMLElement>(card, '.photo-frame'),
+      img: $<HTMLImageElement>('photo-img'),
+      video: $<VideoMitFrameCallback>('photo-video'),
+      standbild: $<HTMLImageElement>('photo-video-standbild'),
+      sound: $<HTMLButtonElement>('photo-sound'),
       flash: $('photo-flash'),
       pTitle: $('photo-title'),
       pSub: $('photo-sub'),
@@ -32,9 +149,9 @@ export class UI {
       pCount: $('photo-count'),
       holdFill: $('photo-hold-fill'),
       finale: $('finale'),
-      profileBase: $('profile-base'),
-      profileFill: $('profile-fill'),
-      progRect: $('prog-rect'),
+      profileBase: $<SVGPathElement>('profile-base'),
+      profileFill: $<SVGPathElement>('profile-fill'),
+      progRect: $<SVGRectElement>('prog-rect'),
       head: $('progress-head'),
       dots: $('progress-dots'),
       teleKm: $('tele-km'),
@@ -43,8 +160,8 @@ export class UI {
       nextName: $('next-stop-name'),
       nextKm: $('next-stop-km'),
       blink: $('blink'),
-      iconPlay: $('icon-play'),
-      iconPause: $('icon-pause'),
+      iconPlay: $<SVGElement>('icon-play'),
+      iconPause: $<SVGElement>('icon-pause'),
     }
     this.buildProfile()
     this.buildDots()
@@ -54,7 +171,7 @@ export class UI {
 
     // Video-Stopps (M4): Die Ton-Wahl bleibt für die Session gemerkt. Ende des
     // Videos → onMediaEnded stößt denselben Weiter-Pfad an wie ein abgelaufenes
-    // Foto-HOLD (main.js → tour.js).
+    // Foto-HOLD (main.js → tour.ts).
     // Ton AN als Vorgabe: Der Player startet immer erst nach einem Klick auf
     // „Tour starten" — damit gilt die Nutzergeste, die Browser für Autoplay mit
     // Ton verlangen. Nur ein explizites „aus" in der Session überschreibt das.
@@ -77,7 +194,7 @@ export class UI {
     // die Tour nicht am Stopp hängen bleiben — weiter wie bei einem Video-Ende.
     this.els.video.addEventListener('error', () => this.onMediaEnded?.())
     this.els.video.addEventListener('timeupdate', () => {
-      // Fortschrittsbalken folgt der Videozeit (tour.js liefert holdFrac=null,
+      // Fortschrittsbalken folgt der Videozeit (tour.ts liefert holdFrac=null,
       // rührt den Balken bei Videos also nicht an)
       const v = this.els.video
       if (v.duration > 0) this.els.holdFill.style.transform = `scaleX(${(v.currentTime / v.duration).toFixed(3)})`
@@ -95,13 +212,13 @@ export class UI {
       this._aktualisiereVideoTon()
     })
     // play/pause: Hülle + Ducking nachziehen (timeupdate deckt den laufenden Clip ab)
-    for (const ev of ['play', 'pause']) {
+    for (const ev of ['play', 'pause'] as const) {
       this.els.video.addEventListener(ev, () => this._aktualisiereVideoTon())
     }
   }
 
   // Läuft das sichtbare Video gerade mit Ton? (nicht stumm, nicht pausiert)
-  _videoTonLaeuft() {
+  _videoTonLaeuft(): boolean {
     const v = this.els.video
     return !v.hidden && !!v.getAttribute('src') && !v.muted && !v.paused
   }
@@ -110,7 +227,7 @@ export class UI {
    * Video-Lautstärke nach Hülle (Ein-/Ausblende) setzen und Musik-Ducking melden.
    * Die Hülle steuert beides — so crossfadet Video-Ton mit der Hintergrundmusik.
    */
-  _aktualisiereVideoTon() {
+  _aktualisiereVideoTon(): void {
     const v = this.els.video
     let huelle = 0
     if (this._videoTonLaeuft() && v.duration > 0 && Number.isFinite(v.duration)) {
@@ -127,15 +244,15 @@ export class UI {
     this.onVideoTon?.(gerundet)
   }
 
-  _syncSoundBtn() {
+  _syncSoundBtn(): void {
     const { sound } = this.els
     sound.setAttribute('aria-pressed', this._soundOn ? 'true' : 'false')
-    sound.querySelector('.ico-muted').hidden = this._soundOn
-    sound.querySelector('.ico-sound').hidden = !this._soundOn
+    pflicht<HTMLElement>(sound, '.ico-muted').hidden = this._soundOn
+    pflicht<HTMLElement>(sound, '.ico-sound').hidden = !this._soundOn
   }
 
   // Laufendes Video anhalten und die Ressource freigeben (Stopp-Wechsel/Ausblenden)
-  _stopVideo() {
+  _stopVideo(): void {
     this._standbildGen++ // ausstehende Frame-Callbacks verwerfen
     clearTimeout(this._standbildTimer)
     const { video: v, standbild } = this.els
@@ -155,7 +272,7 @@ export class UI {
 
   // Ersten Video-Frame abwarten, dann Standbild weich ausblenden — ohne das
   // springt der Browser hart von Standbild/Poster auf den dekodierten Frame.
-  _warteAufErstenFrame(video, gen) {
+  _warteAufErstenFrame(video: VideoMitFrameCallback, gen: number): void {
     let fertig = false
     const weiter = () => {
       if (fertig || gen !== this._standbildGen) return
@@ -171,16 +288,16 @@ export class UI {
     }, { once: true })
     // Notausgang: lieber Standbild weg als ewig darüber hängen
     clearTimeout(this._standbildTimer)
-    this._standbildTimer = setTimeout(weiter, 1500)
+    this._standbildTimer = window.setTimeout(weiter, 1500)
   }
 
-  _videoStandbildWeg(gen) {
+  _videoStandbildWeg(gen: number): void {
     if (gen !== this._standbildGen) return
     const { standbild } = this.els
     if (standbild.hidden) return
     standbild.classList.add('weg')
     clearTimeout(this._standbildTimer)
-    this._standbildTimer = setTimeout(() => {
+    this._standbildTimer = window.setTimeout(() => {
       if (gen !== this._standbildGen) return
       standbild.hidden = true
       standbild.classList.remove('weg')
@@ -191,7 +308,7 @@ export class UI {
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
   // alle auf einmal (bis ~14 MB) würden beim Start mit den Karten-Tiles um
   // die Bandbreite konkurrieren
-  preloadStop(i) {
+  preloadStop(i: number): void {
     const st = this.stops[i]
     if (!st || this._preloaded.has(i)) return
     this._preloaded.add(i)
@@ -207,8 +324,8 @@ export class UI {
   }
 
   // Höhenprofil der Route als Flächenpfad (viewBox 0..100 × 0..30)
-  buildProfile() {
-    const ys = []
+  buildProfile(): void {
+    const ys: number[] = []
     let minE = Infinity
     let maxE = -Infinity
     for (let i = 0; i < PROFILE_SAMPLES; i++) {
@@ -228,14 +345,15 @@ export class UI {
   }
 
   // Y-Position (in % der Leistenhöhe) an Streckenanteil frac
-  yAt(frac) {
+  yAt(frac: number): number {
     const x = Math.max(0, Math.min(1, frac)) * (PROFILE_SAMPLES - 1)
     const i = Math.min(Math.floor(x), PROFILE_SAMPLES - 2)
-    const y = this.profileY[i] + (this.profileY[i + 1] - this.profileY[i]) * (x - i)
+    // Die Indizes liegen per Konstruktion im Feld (0 … SAMPLES−1)
+    const y = this.profileY[i]! + (this.profileY[i + 1]! - this.profileY[i]!) * (x - i)
     return (y / VB_H) * 100
   }
 
-  buildDots() {
+  buildDots(): void {
     for (const st of this.stops) {
       const frac = st.s / this.total
       const dot = document.createElement('button')
@@ -243,27 +361,32 @@ export class UI {
       dot.style.left = `${frac * 100}%`
       dot.style.top = `${this.yAt(frac)}%`
       dot.title = st.items.map((p) => p.title).join(' · ')
-      dot.dataset.s = st.s
+      dot.dataset.s = String(st.s)
       this.els.dots.appendChild(dot)
     }
   }
 
-  registerSpots(syncFn) {
+  /** Alle Timeline-Punkte — `children` ist live, die Punkte sind hier gebaut. */
+  private get punkte(): HTMLCollectionOf<HTMLElement> {
+    return this.els.dots.children as HTMLCollectionOf<HTMLElement>
+  }
+
+  registerSpots(syncFn: (s: number) => void): void {
     this.spotSync = syncFn // (s) => Feature-States der GL-Wegpunkte setzen
   }
 
   // Nach dem Eintreffen echter DEM-Höhen: Profil und Dot-Positionen neu aufbauen
-  rebuildProfile() {
+  rebuildProfile(): void {
     this.buildProfile()
-    for (const dot of this.els.dots.children) {
+    for (const dot of this.punkte) {
       dot.style.top = `${this.yAt(Number(dot.dataset.s) / this.total)}%`
     }
   }
 
-  syncDots(s) {
+  syncDots(s: number): void {
     this._lastSyncS = s
     let nextFound = false
-    for (const dot of this.els.dots.children) {
+    for (const dot of this.punkte) {
       // „Besucht" erst, wenn der Playhead den Punkt tatsächlich erreicht hat
       // (kleiner 25-m-Vorlauf, damit der Zustand exakt mit dem Einblenden der
       // Foto-Karte kippt) — NICHT mehr 200 m davor. So ist die Timeline ehrlich:
@@ -281,7 +404,7 @@ export class UI {
     }
   }
 
-  hideIntro() {
+  hideIntro(): void {
     this.els.intro.classList.add('gone')
     this.els.dock.hidden = false
     void this.els.dock.offsetWidth // Reflow, damit die Einblende-Transition greift
@@ -289,18 +412,18 @@ export class UI {
     this.setPlaying(true)
   }
 
-  showIntro() {
+  showIntro(): void {
     this.els.intro.classList.remove('gone')
   }
 
   // Zurück ins Hauptmenü: Intro wieder zeigen, Tour-UI komplett einziehen
-  showMenu() {
+  showMenu(): void {
     this.els.dock.classList.remove('up')
     this.els.dock.hidden = true
     this.showIntro()
   }
 
-  setPlaying(on) {
+  setPlaying(on: boolean): void {
     // SVG-Elemente haben keine hidden-Property (nur HTMLElement) — die
     // Zuweisung war ein wirkungsloses Expando, das Icon wechselte nie
     this.els.iconPlay.toggleAttribute('hidden', on)
@@ -317,7 +440,7 @@ export class UI {
     this._aktualisiereVideoTon()
   }
 
-  setPhotoContent(photo, idx, count) {
+  setPhotoContent(photo: PlayerMedium, idx: number, count: number): void {
     const { frame, img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'
     // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar,
@@ -327,9 +450,10 @@ export class UI {
     frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? 5.2) + 1.8}s`)
     // Seitenverhältnis erst setzen, wenn das neue Medium vermessen ist — das alte
     // --photo-ar belassen (kein Zwischen-Reset auf 3:2), sonst springt der Rahmen.
-    const merkeSeitenverhaeltnis = (el) => {
-      const b = el.naturalWidth || el.videoWidth
-      const h = el.naturalHeight || el.videoHeight
+    const merkeSeitenverhaeltnis = (el: HTMLImageElement | HTMLVideoElement) => {
+      const bild = el instanceof HTMLImageElement
+      const b = bild ? el.naturalWidth : el.videoWidth
+      const h = bild ? el.naturalHeight : el.videoHeight
       if (!b || !h) return
       // Deckeln: extreme Panoramen/Hochformate sonst breiter/höher als die Bühne
       const ar = Math.max(0.62, Math.min(1.85, b / h))
@@ -390,7 +514,7 @@ export class UI {
     pCount.textContent = `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
   }
 
-  showPhoto(photo, idx, count) {
+  showPhoto(photo: PlayerMedium, idx: number, count: number): void {
     const { layer, card, flash } = this.els
     this.setPhotoContent(photo, idx, count)
     this.els.holdFill.style.transform = 'scaleX(0)'
@@ -407,7 +531,7 @@ export class UI {
   }
 
   // Nächstes Foto am selben Halt: Inhalt kurz aus- und wieder einblenden
-  swapPhoto(photo, idx, count) {
+  swapPhoto(photo: PlayerMedium, idx: number, count: number): void {
     const { card, frame, img } = this.els
     card.classList.add('swapping')
     this.els.holdFill.style.transform = 'scaleX(0)'
@@ -433,7 +557,7 @@ export class UI {
     }, 260)
   }
 
-  hidePhoto() {
+  hidePhoto(): void {
     const { layer, card } = this.els
     this._stopVideo() // Video anhalten + Ressource freigeben (+ Ducking aus)
     this.els.video.hidden = true
@@ -446,24 +570,24 @@ export class UI {
     this._aktualisiereVideoTon()
   }
 
-  showFinale() {
+  showFinale(): void {
     this.els.finale.hidden = false
     void this.els.finale.offsetWidth
     this.els.finale.classList.add('in')
   }
 
-  hideFinale() {
+  hideFinale(): void {
     this.els.finale.classList.remove('in')
     this.els.finale.hidden = true
   }
 
-  blink(cb) {
+  blink(cb: () => void): void {
     this.els.blink.classList.add('on')
     setTimeout(cb, 240)
     setTimeout(() => this.els.blink.classList.remove('on'), 650)
   }
 
-  stats({ km, ele, frac, next, modeKey, holdFrac }) {
+  stats({ km, ele, frac, next, modeKey, holdFrac }: Telemetrie): void {
     this.els.teleKm.textContent = `${km.toFixed(1)} km`
     this.els.teleEle.textContent = `${fmtDE.format(ele)} m`
     if (holdFrac != null) this.els.holdFill.style.transform = `scaleX(${holdFrac.toFixed(3)})`
