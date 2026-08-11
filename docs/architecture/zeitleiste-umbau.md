@@ -74,7 +74,7 @@ der erste Vorschlag und wurde verworfen — zu technisch für das, was man dort
 sieht.)
 
 **Warum Ton oben und der Kontext unten** — und nicht die Ordnung „nach
-Wirkung" aus [editor-ausbau.md](editor-ausbau.md) §1, die „klingt" zuletzt
+Wirkung" aus [editor-ausbau.md](../concepts/editor-ausbau.md) §1, die „klingt" zuletzt
 führt: Jene Tabelle ordnet die begriffliche FAMILIE und stammt aus einer
 Zeitleiste, in der alle Bahnen gleich hoch waren. Seit die drei
 Zustandsbahnen 19-px-Zeilen sind — mit der Begründung „Material verdient
@@ -112,7 +112,7 @@ Mal darüber.
 - **Momente sind Halte** und gehören mit Achsenbreite in dieselbe Bahn (Muster in
   Koralle statt Bild). Heute haben sie null Breite — an der Beispieltour waren
   13,6 s Film unsichtbar (190,3 s real vs. 176,7 s Achse). Deckt sich mit
-  [editor-ausbau.md](editor-ausbau.md) §1: ein Moment ist grammatikalisch ein Halt.
+  [editor-ausbau.md](../concepts/editor-ausbau.md) §1: ein Moment ist grammatikalisch ein Halt.
 - **Beiläufige Bilder** (laufen nebenher, docs/editor-ausbau.md) bleiben in
   derselben Spur: schmaler, gestrichelt, tiefer — den Unterschied sagt die Breite
   (keine Standzeit), nicht ein Spurwechsel, den man erst lernen müsste.
@@ -876,9 +876,9 @@ Dazu die, die erst der echte Editor gekostet hat (Etappen 2 und 3):
   Varianten diskutiert, Empfehlung „nur beim Ziehen sichtbar" (ggf. + feine
   Trennstriche). Offen gelassen.
 - **Titel-Spur** und die weiteren Bausteine aus
-  [editor-ausbau.md](editor-ausbau.md) — die Szenen-Bahn ist dafür der Platz,
+  [editor-ausbau.md](../concepts/editor-ausbau.md) — die Szenen-Bahn ist dafür der Platz,
   aber nichts davon ist hier verplant.
-- **Die Ordnungstabelle in [editor-ausbau.md](editor-ausbau.md) §1** („gilt ·
+- **Die Ordnungstabelle in [editor-ausbau.md](../concepts/editor-ausbau.md) §1** („gilt ·
   hält an · läuft nebenher · klingt") widerspricht der Reihenfolge in §2.0.
   Sie ordnet die begriffliche Familie, nicht die Bahnen auf dem Schirm — das
   sollte dort dazugeschrieben werden, sonst kollidieren die beiden Dokumente

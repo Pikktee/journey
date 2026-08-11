@@ -67,7 +67,7 @@ sie lohnen erst, wenn Modi ohne Play-Store-Update ausrollbar sein sollen.
 ### Schritt 0: Rauchtest der Modul-Auflösung — **entfällt**
 
 Er ist erledigt: `tour`, `map` und `vehicle` sind seit der Player-Migration
-selbst TypeScript ([konzept_player_typescript.md](konzept_player_typescript.md),
+selbst TypeScript ([konzept_player_typescript.md](../archive/konzept_player_typescript.md),
 Wellen 3–6), ein neues `src/modi.ts` wird also von `.ts` aus importiert — mit der
 repo-üblichen `.js`-Endung (`from './modi.js'`), im Build wie im Dev-Server
 gemessen. Der frühere Fallback (`modi.js` + handgeschriebene `modi.d.ts`) ist

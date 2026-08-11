@@ -21,7 +21,7 @@ Verwandt, aber anders:
 > **Produktpriorität:** Geniales Feature, aber **nicht** vor stabilem
 > Upload-/Studio-/Player-Alltag und den Wartungsplänen
 > ([Editor-Zerlegung](konzept_editor_zerlegung.md),
-> [Player-TS](konzept_player_typescript.md)). Live multipliziert genau diese
+> [Player-TS](../archive/konzept_player_typescript.md)). Live multipliziert genau diese
 > Flächen.
 
 ---

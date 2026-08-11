@@ -8,7 +8,7 @@ trotzdem vollständig, damit niemand denselben Weg noch einmal geht — der Befu
 sieht beim Wiederentdecken nach einem Bug aus.
 
 Ausgelöst durch einen Fund beim TypeScript-Umbau des Players
-([konzept_player_typescript.md](../concepts/konzept_player_typescript.md), Block A).
+([konzept_player_typescript.md](konzept_player_typescript.md), Block A).
 
 ---
 

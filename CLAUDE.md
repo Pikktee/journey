@@ -8,7 +8,7 @@ Maptale ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mi
 automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vite,
 gerendert mit MapLibre GL JS. **Player und Studio sind vollständig TypeScript** — unter
 `src/` liegt seit dem 2026-08-11 keine `.js` mehr; die Migration und ihre Befunde stehen in
-[docs/concepts/konzept_player_typescript.md](docs/concepts/konzept_player_typescript.md).
+[docs/archive/konzept_player_typescript.md](docs/archive/konzept_player_typescript.md).
 `allowJs` ist aus und bleibt es: Eine neue `.js` unter `src/` stünde außerhalb von `tsc` und
 fiele erst am Aufrufer auf (`TS7016`). Das übrige JS des Repos (`vite.config.js`,
 `vitest.config.js`, `scripts/*.mjs`) läuft unter Node bzw. Vites Config-Loader und bleibt.

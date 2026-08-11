@@ -10,7 +10,7 @@ klar und pflegbar halten. Experimentelle Renderer bleiben Labor — dokumentiert
 am Einstieg isoliert, ohne stillen Anspruch auf den Produktpfad.
 
 Stand: **2026-08-07**, nichts davon umgesetzt. Baut auf
-[renderer-plan.md](../architecture/renderer-plan.md) auf (Stufen 0–2 gebaut,
+[renderer-plan.md](renderer-plan.md) auf (Stufen 0–2 gebaut,
 Stufe 3–4 offen) und trennt **Forschung** von **Auslieferung**.
 
 ---
@@ -36,7 +36,7 @@ setzt und die URL umschreibt.
 - Jeder Tag/Nacht-, Gebäude- und Trace-Hook in `main.js` verzweigt in Labor-Pfade.
 - Performance- und Optik-Bugs sind mehrdeutig („welcher Renderer?“).
 - Agenten und Menschen behandeln Labor-Code wie Produktcode (Typen, Features, Fixes).
-- [renderer-plan.md](../architecture/renderer-plan.md) Stufe 4 („Default wechseln“)
+- [renderer-plan.md](renderer-plan.md) Stufe 4 („Default wechseln“)
   wirkt näher, als die Produktentscheidung ist.
 
 Dieses Konzept **stoppt den Drift**, ohne die Spikes zu löschen.
@@ -165,7 +165,7 @@ Labor ist ein Block oder ein Aufruf.
 
 ### Welle 4 — Dokumentation und Agenten-Hinweise
 
-1. [renderer-plan.md](../architecture/renderer-plan.md): Kopf ergänzen —
+1. [renderer-plan.md](renderer-plan.md): Kopf ergänzen —
    „Stufen 0–2 = Labor (`?scene=1`); Default bleibt MapLibre bis ausdrückliches Go
    zu Stufe 4.“ Empfehlung „Stufe 0 als Nächstes“ im Plan historisch lassen, aber
    **Produktpriorität** hierher verweisen.

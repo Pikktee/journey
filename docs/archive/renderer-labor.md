@@ -66,7 +66,7 @@ einen unsichtbaren Layer, und jede Änderung an Kamera, Tag/Nacht oder Wetter
 musste die Labor-Verzweigungen mitdenken.
 
 Der konkrete Anlass war die geplante TypeScript-Migration des Players
-([konzept_player_typescript.md](../concepts/konzept_player_typescript.md)): Weil
+([konzept_player_typescript.md](konzept_player_typescript.md)): Weil
 `main.js` vier der Module **dynamisch** importierte und ein dynamischer Import
 einer untypisierten `.js` denselben `TS7016` wirft wie ein statischer, hätte das
 Labor die letzte Migrationswelle blockiert — entweder durch Typisierarbeit an

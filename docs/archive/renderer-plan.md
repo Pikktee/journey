@@ -105,7 +105,7 @@ die Gebäude. Das ist der Hauptgrund, warum das eine mehrstufige Investition ist
 ## 6. Datenschicht: Gebäude-Geometrie
 
 Das Flimmern kam von überlappenden OSM-Polygonen ohne `hide_3d`
-([Memo](../../.claude/…/gebaeude-flimmern-zfight.md)). Im eigenen Renderer lösbar:
+(s. [renderer-labor.md](renderer-labor.md)). Im eigenen Renderer lösbar:
 
 - **MVP**: OpenFreeMap-Tiles weiter nutzen, aber beim Meshing **client-seitig
   deduplizieren** (überlappende Umriss-/`building:part`-Polygone erkennen und

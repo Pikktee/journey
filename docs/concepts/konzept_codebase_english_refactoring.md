@@ -44,7 +44,7 @@ Deshalb kommt der Player in den Wellen 1–7 **nicht vor**: Dort ist fast nichts
 tun. Die Wellen greifen genau dort, wo nach dem Prototyp weitergebaut wurde.
 
 **Verhältnis zur TypeScript-Migration**
-([konzept_player_typescript.md](konzept_player_typescript.md)): Die beiden
+([konzept_player_typescript.md](../archive/konzept_player_typescript.md)): Die beiden
 Vorhaben berühren sich kaum — das eine betrifft `src/*.js`, das andere alles
 darum herum. Die eine echte Abhängigkeit läuft in eine Richtung: Wer die ~30
 Restnamen des Players anfassen will, tut das **nach** der TS-Migration, weil

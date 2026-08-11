@@ -1,5 +1,12 @@
 # Umbauplan: Player von JavaScript nach TypeScript
 
+> **Erledigt und archiviert am 2026-08-12**, ausgeliefert mit **v0.60.0**. Unter
+> `src/` liegt keine `.js` mehr, `tsc --noEmit` deckt den kompletten Player-Pfad.
+> Dieses Blatt ist Historie — es bleibt lesenswert für die Methodik (topologische
+> Wellen, Äquivalenztest §5b, Smoke-Aufbau §5a) und die Befunde unterwegs (totes
+> `antialias`, verwaister `closeLayers`-Aufruf). Der aktuelle Stand steht in
+> `CLAUDE.md`.
+
 **Ziel:** Die Player-Module unter `src/*.js` schrittweise nach TypeScript bringen —
 strict wie der Rest des Web-Codes — ohne die Kamerafahrt, den Default-Renderer oder
 die Tour-Verträge zu riskieren.
@@ -10,9 +17,9 @@ Block A (Wellen 1–4), Block B (Wellen 5–6: `ui`, Engine) und Block C
 `.js` mehr, `npm run typecheck` deckt den kompletten Player-Pfad.
 
 Verwandt, aber **nicht** dasselbe:
-- [modi-konsolidierung.md](modi-konsolidierung.md) — Modus-Tabelle; der dort
+- [modi-konsolidierung.md](../concepts/modi-konsolidierung.md) — Modus-Tabelle; der dort
   geforderte Rauchtest JS↔TS-Import ist mit Welle 0 **erledigt** (Ergebnis unten).
-- [konzept_codebase_english_refactoring.md](konzept_codebase_english_refactoring.md) —
+- [konzept_codebase_english_refactoring.md](../concepts/konzept_codebase_english_refactoring.md) —
   Bezeichner; **nicht** mit der Datei-Migration vermischen.
 - [../archive/renderer-labor.md](../archive/renderer-labor.md) — das ausgebaute
   Renderer-Labor; der Grund, warum dieser Plan seit dem 2026-08-11 kleiner ist.
