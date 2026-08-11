@@ -31,7 +31,7 @@
    Zwischen Marke und Nav bleibt bewusst Luft (`--nav-marken-gap`), sonst
    klebt sie am Logo.
    Eine Schale für Galerie, Profil, Konto, Studio und Verwaltung (`.nav`);
-   Studio setzt nur `position: relative`, weil `#app-view` selbst fixed ist.
+   die Landing hat ihre eigene (fixe, höhere) Leiste in index.html.
    Die BREITE der inneren `.wrap` ist die Produktbreite (1160). Konto hält den
    Formularschacht darunter schmal (`--konto-lesebreite`), linksbündig. */
 

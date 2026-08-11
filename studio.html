@@ -82,9 +82,20 @@
       font-family: var(--font-ui);
       font-size: 14.5px;
       line-height: 1.5;
+      /* Editor und Anmeldebühne sind fixe Vollbild-Schalen mit eigenen
+         Scroll-Zonen — das Dokument darf dort nicht mitscrollen. */
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
     }
+    /* Die Bibliothek ist dagegen eine gewöhnliche Seite: Sie scrollt mit dem
+       DOKUMENT, wie Entdecken und Profil. Vorher scrollte `.rumpf` in der
+       fixen Schale — der Balken begann erst unter der Kopfleiste, und weil
+       `scrollbar-gutter: stable` (basis.css) auf `html` sitzt und `html` gar
+       nicht scrollte, sprang beim Laden die ganze Seite um seine Breite, sobald
+       die Kacheln den Container überliefen.
+       Nur der `body` wird gelöst — `html` behält `overflow-y: auto` und die
+       Gutter aus basis.css und IST damit der Scroller. */
+    body:has(#app-view:not([hidden])) { height: auto; overflow: visible; }
     ::selection { background: rgba(245, 165, 36, 0.3); }
     a { color: var(--akzent); text-decoration: none; }
     h1, h2, h3 { font-family: var(--font-display); font-weight: 550; margin: 0; }
@@ -425,13 +436,10 @@
       margin-inline: auto;
     }
     /* Kopfleiste teilt Markup und Optik mit Entdecken/Profil/Konto
-       (src/grundelemente.css). Hier nur die Abweichung der App-Schale:
-       nicht sticky — #app-view ist selbst fixed. */
+       (src/grundelemente.css) — inklusive `position: sticky`, denn die
+       Bibliothek scrollt mit dem Dokument. Hier nur: nicht schrumpfen. */
     #app-view > .nav {
-      position: relative;
-      top: auto;
       flex: none;
-      z-index: 5;
     }
     .verify-banner {
       flex: none; display: flex; align-items: center; gap: 10px;
@@ -442,8 +450,7 @@
     .verify-banner svg { width: 15px; height: 15px; flex: none; }
 
     #app-view {
-      position: fixed;
-      inset: 0;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
     }
@@ -452,8 +459,6 @@
        Raster und ein Fenster: Wer hier ankommt, sieht zuerst seine Reisen. */
     .rumpf {
       flex: 1;
-      min-height: 0;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
     }
@@ -2628,8 +2633,8 @@
 
     /* ————————————————— Schmale Viewports ————————————————— */
     @media (max-width: 960px) {
-      body { overflow: auto; }
-      #app-view { position: static; height: auto; min-height: 100dvh; }
+      /* Dokument-Scroll und statische Schale gelten inzwischen überall
+         (s. `body:has(#app-view…)` oben) — hier bleibt nur der engere Gutter. */
       .rumpf-innen { width: min(var(--wrap), 100% - 32px); padding: 24px 0 32px; }
       .raster, .skelett { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
       .suche { display: none; }
