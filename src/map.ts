@@ -107,6 +107,9 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
     // MSAA war ursprünglich für Touch abgeschaltet, weil es dort ab 2× Pixel-
     // dichte nicht zu unterscheiden war. Was der Player heute zeigt, ist der
     // MapLibre-Default `antialias: false` auf ALLEN Geräten.
+    // Messplan und die Frage, ob daraus eine Einstellung wird:
+    // docs/concepts/konzept_antialias.md — dort steht auch, dass das
+    // `antialias: true` in photopins.js aus demselben Grund wirkungslos ist.
     // Render-Auflösung als Pixelbudget deckeln (s. targetPixelRatio) — hält den M4 an
     // 4K und schwächere GPUs unter der 60→30-fps-Füllraten-Klippe, ohne kleine Fenster
     // anzutasten. pixelRatio skaliert MapLibres GESAMTE Pipeline (Raster-Decode, Terrain-

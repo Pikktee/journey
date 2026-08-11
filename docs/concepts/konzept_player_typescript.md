@@ -206,8 +206,9 @@ Zwei Dinge, die man beim Weitermachen kennen sollte:
   ignoriert. Der Typecheck hat sie gefunden — genau die Sorte Fehler, für die
   dieser Umbau gemacht ist. Die Zeile ist ersatzlos raus statt umgeschrieben:
   Sie WIEDER scharf zu stellen wäre eine Optik- und Bildraten-Änderung und
-  gehört gemessen (MSAA war für Touch bewusst aus). **Offene Entscheidung**,
-  nicht Teil dieses Plans.
+  gehört gemessen (MSAA war für Touch bewusst aus). **Offene Entscheidung** und
+  nicht Teil dieses Plans — sie hat ein eigenes Konzept samt Messplan:
+  [konzept_antialias.md](konzept_antialias.md).
 - **Ein laufender Dev-Server überlebt das Umbenennen nicht.** Vites Modulgraph
   hält die alten `/src/x.js`-Adressen mit `?t=`-Stempel; nach der Migration
   antwortet der Server darauf 404 und `window.__j` entsteht nie — es sieht aus

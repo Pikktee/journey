@@ -46,6 +46,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`modi-konsolidierung.md`](concepts/modi-konsolidierung.md) — Fortbewegungs-Modi auf eine zentrale Tabelle ziehen.
 * [`konzept_editor_zerlegung.md`](concepts/konzept_editor_zerlegung.md) — `editor.ts` in Karte / Inspector / Zeitleiste / Menüs zerlegen.
 * [`konzept_player_typescript.md`](concepts/konzept_player_typescript.md) — Player-Module schrittweise von JS nach TypeScript.
+* [`konzept_antialias.md`](concepts/konzept_antialias.md) — MSAA war seit MapLibre 5 stumm aus: Messplan und die Frage, ob daraus eine „Bildqualität"-Einstellung wird.
 * [`konzept_live_mitverfolgen.md`](concepts/konzept_live_mitverfolgen.md) — Live-Link während der App-Aufnahme; Spur und Medien in Echtzeit.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
