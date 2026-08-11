@@ -548,7 +548,22 @@ Drei Fallen, die dabei Zeit kosten:
 - **Danach beides löschen** (`test/_*.test.ts`, `src/_*_alt.js`) und `npm test`
   gegenlaufen lassen — eine vergessene Alt-Fassung landet sonst im Build-Graph.
 
-Was nicht rein rechnet (Kamera-Pose, DOM), bleibt beim Smoke aus §5a.
+**Wo die Methode NICHT greift** — an Block C gelernt, damit es niemand zweimal
+versucht:
+
+- **Factory-Module.** `atmosphere.ts` und `weather.ts` rechnen zwar überwiegend
+  rein (Farbverläufe, Partikelbahnen, Sonnenstand), exportieren aber je genau
+  **eine** Factory mit DOM-Container. Die Rechnung ist modul-intern und über die
+  Modulgrenze nicht erreichbar; Exporte nur für den Test hinzuzufügen wäre genau
+  die Änderung, die Leitregel 2 verbietet.
+- **Alles mit `Math.random`.** In `atmosphere.ts` sieben Vorkommen (Sterne,
+  Wolken) — damit ist auch ein Pixelvergleich zweier Fassungen nicht
+  deterministisch.
+- **Alles, was MapLibre importiert** (`tour.ts`, `map.ts`).
+
+Brauchbar war die Methode damit an `geo`, `autoweather` und allem, was seine
+Rechnung **exportiert** (`audiotracks`, `pinmodell`). Für den Rest bleibt es beim
+Smoke aus §5a — der in Block B und C jeweils genügt hat.
 
 ---
 
