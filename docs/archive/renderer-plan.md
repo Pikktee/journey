@@ -1,5 +1,10 @@
 # Renderer-Plan: von MapLibre-Klötzen zur echten 3D-Szene
 
+> **Archiviert am 2026-08-11.** Die hier beschriebenen Renderer sind aus dem
+> Hauptprojekt ausgebaut; der Code hängt am Tag `labor/renderer-v1`. Was
+> geblieben ist und wie man es zurückholt: [renderer-labor.md](renderer-labor.md).
+> Dieses Blatt ist Historie — die Dateiverweise zeigen ins Leere.
+
 Stand: 2026-07 · Status: **Stufe 0–2 gebaut** ([src/deckscene.js](../src/deckscene.js), Flag
 `?scene=1`) — eigenständige deck-Szene mit Terrain+Satellit, Gebäuden, geerdeten Schatten,
 Route, Wegpunkten, Himmel und Tag/Nacht; gemeinsame Datenschicht [src/buildingdata.js](../src/buildingdata.js)

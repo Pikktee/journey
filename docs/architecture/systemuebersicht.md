@@ -39,7 +39,7 @@ Drei Laufzeiten, ein Produkt:
 | Sprache | Vanilla JS + TypeScript (neue Module in TS; Player teils noch JS) |
 | Bundler | Vite 6 (Multi-Page: je HTML-Einstieg ein Bundle) |
 | Karten | MapLibre GL JS 5 |
-| 3D / Experimente | Three.js, deck.gl 9, 3D Tiles Renderer (Google Photorealistic) |
+| 3D | Three.js (3D-Foto-Pins) |
 | Tests | Vitest |
 | Design | [`DESIGN.md`](../../DESIGN.md) → Tokens in `src/basis.css` |
 
@@ -271,7 +271,6 @@ flowchart TB
 | `tour.js` | Phasen intro → Fahrt → Foto-Orbit → Finale; Smooth-Filter |
 | `elevation.js` | DEM-Höhen nachladen (AWS Terrarium) |
 | `remote.ts` | Server-Touren `/tour/t_<id>` |
-| Renderer-Flags | `?deck=`, `?scene=`, `?tiles3d=`, `?roofs=` — Labor, s. [renderer-plan.md](renderer-plan.md) |
 
 Fortbewegungs-Modi (`walk | bike | moped | jeep | tram | ferry`) müssen an vier
 Stellen deckungsgleich bleiben (Engine, Icons, Sound, Server-Schema) — ein
@@ -360,7 +359,7 @@ Runbooks: [`ops/deploy-cloudpanel.md`](../ops/deploy-cloudpanel.md),
 | Overlay vs. Tour-JSON | [overlay-und-tourjson.md](../specs/overlay-und-tourjson.md) |
 | Austauschformat | [austauschformat.md](../specs/austauschformat.md) |
 | 3D-Fotopins | [foto-pins-3d.md](foto-pins-3d.md) |
-| Renderer-Landschaft | [renderer-plan.md](renderer-plan.md) |
+| Renderer-Labor (ausgebaut) | [../archive/renderer-labor.md](../archive/renderer-labor.md) |
 | Studio-Zeitleiste | [zeitleiste-umbau.md](zeitleiste-umbau.md) |
 | Profil & Konto | [konzept_profil_konto.md](konzept_profil_konto.md) |
 | CloudPanel-Deploy | [../ops/deploy-cloudpanel.md](../ops/deploy-cloudpanel.md) |

@@ -127,9 +127,6 @@
   </div>
 
   <div id="map"></div>
-  <!-- Google Photorealistic 3D Tiles (Testmodus) — Cesium rendert hierhin -->
-  <div id="g3d" hidden></div>
-
   <!-- Kino-Atmosphäre -->
   <div class="cine cine-top" aria-hidden="true"></div>
   <div class="cine cine-bottom" aria-hidden="true"></div>
@@ -229,25 +226,6 @@
     </div>
   </section>
 
-  <!-- API-Schlüssel-Dialog für den Google-3D-Testmodus -->
-  <section class="g3d-modal" id="g3d-modal" hidden>
-    <div class="g3d-card">
-      <h3>Google Photorealistic 3D Tiles</h3>
-      <p>Testmodus, dafür brauchst du einen eigenen Google-Maps-Platform-Schlüssel:</p>
-      <ol>
-        <li>In der <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">Google Cloud Console</a> ein Projekt anlegen und die Abrechnung aktivieren</li>
-        <li>Die <strong>Map Tiles API</strong> aktivieren</li>
-        <li>Unter „Anmeldedaten“ einen API-Schlüssel erstellen (empfohlen: auf die Map Tiles API und diese Domain beschränken)</li>
-      </ol>
-      <p class="g3d-note">1.000 Sessions/Monat sind frei, danach $6 je 1.000. Der Schlüssel bleibt nur lokal in diesem Browser (localStorage), er wird nirgendwohin übertragen außer an Google.</p>
-      <input id="g3d-key" type="text" placeholder="AIza…" autocomplete="off" spellcheck="false" />
-      <div class="g3d-actions">
-        <button id="g3d-cancel">Abbrechen</button>
-        <button id="g3d-save">Aktivieren</button>
-      </div>
-    </div>
-  </section>
-
   <!-- Optionen (Endnutzer) — Ton/Musik/Wetter global schalten -->
   <section class="opt-modal" id="options-modal" hidden>
     <div class="opt-card" role="dialog" aria-modal="true" aria-label="Optionen">
@@ -301,18 +279,6 @@
       </button>
       <!-- Nur im Entwicklermodus (body.dev) sichtbar -->
       <span class="dev-chip dev-only" aria-hidden="true">DEV</span>
-      <div class="layers-wrap dev-only">
-        <button class="icon-btn" id="btn-layers" title="Ebenen & Renderer" aria-label="Ebenen und Renderer" aria-haspopup="true" aria-expanded="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3.2 12.5 12 17.5l8.8-5"/><path d="M3.2 17 12 22l8.8-5"/></svg>
-        </button>
-        <div class="layers-menu" id="layers-menu" role="radiogroup" aria-label="Ansicht" hidden>
-          <button class="lm-item" role="menuitemradio" data-mode="hidden"><span class="lm-check"></span><span class="lm-text">Standard</span></button>
-          <button class="lm-item" role="menuitemradio" data-mode="maplibre"><span class="lm-check"></span><span class="lm-text">MapLibre-Gebäude</span></button>
-          <button class="lm-item" role="menuitemradio" data-mode="deck"><span class="lm-check"></span><span class="lm-text">Deck-Hybrid</span></button>
-          <button class="lm-item" role="menuitemradio" data-mode="scene"><span class="lm-check"></span><span class="lm-text">Deck 3D-Pipeline<span class="lm-tag">experimentell</span></span></button>
-          <button class="lm-item" role="menuitemradio" data-mode="google"><span class="lm-check"></span><span class="lm-text">Google 3D<span class="lm-tag">echt</span></span></button>
-        </div>
-      </div>
       <div class="layers-wrap weather-wrap dev-only">
         <button class="icon-btn" id="btn-weather" title="Wetter" aria-label="Wettereffekte" aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14h8a3.2 3.2 0 0 0 .3-6.4 4.6 4.6 0 0 0-8.8-1.2A3.3 3.3 0 0 0 8 14z"/><path d="M8.5 16.5 7.5 19M12.5 16.5 11.5 19M16.5 16.5 15.5 19"/></svg>

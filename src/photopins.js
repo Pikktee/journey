@@ -17,8 +17,9 @@
 //     eine kamerazugewandte Scheibe — Nummer/Foto am Kopf wären unmöglich.
 //   · Ein DOM-Marker (wie der Fahrer) kennt nur eine Bodenkoordinate; ein Pixel-Offset nach
 //     oben wäre nicht perspektivisch (Höhe schrumpfte nicht mit der Entfernung).
-//   → Bleibt der CustomLayerInterface-Weg mit Three.js. Das Muster ist im Repo etabliert
-//     (buildings3d.js, deckscene.js): Mercator-Ursprung + Projektionsmatrix von MapLibre.
+//   → Bleibt der CustomLayerInterface-Weg mit Three.js: Mercator-Ursprung + Projektions-
+//     matrix von MapLibre. (Das Muster stammt aus den früheren Gebäude-Renderern, die
+//     2026-08-11 ausgebaut wurden — docs/archive/renderer-labor.md.)
 //
 // MASSSTAB — der eigentliche Entwurfspunkt. Eine feste Pin-Höhe in Metern funktioniert
 // nicht: dieselben 40 m sind im Intro-Anflug (Kamera 3 km hoch) ein Zahnstocher und am
@@ -78,7 +79,7 @@ const PX_MAX = 1.7
 const FENSTER = { vor: COARSE ? 1 : 2, zurueck: 1 }
 const BLENDE = 0.12 // Anteil pro Frame, mit dem sich stufe ihrem Ziel nähert (~0,3 s)
 
-// 4×4 spaltenweise multiplizieren (float64, wie buildings3d.js — Mercator-Präzision)
+// 4×4 spaltenweise multiplizieren — float64 wegen der Mercator-Präzision
 function mat4mul(a, b, o) {
   for (let c = 0; c < 4; c++)
     for (let r = 0; r < 4; r++) {

@@ -23,10 +23,10 @@ describe('sammleQuellen', () => {
 
   it('führt dieselbe Rechtezeile nur einmal auf', () => {
     const quellen = sammleQuellen(
-      { buildings: { attribution: '© OpenStreetMap' }, poi: { attribution: '© OpenStreetMap' } },
+      { dem: { attribution: '© OpenStreetMap' }, poi: { attribution: '© OpenStreetMap' } },
       [{ rolle: 'Wetter', html: '© OpenStreetMap' }],
     )
-    expect(quellen).toEqual([{ rolle: 'Gebäude & Wege', html: '© OpenStreetMap' }])
+    expect(quellen).toEqual([{ rolle: 'Gelände & Höhen', html: '© OpenStreetMap' }])
   })
 
   it('hängt Quellen ohne Kacheln (Wetter) hinten an', () => {

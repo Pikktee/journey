@@ -274,9 +274,8 @@ Welle 0 → 1 (Menü) → 2 (Karte) → 3 (Inspector) → 4 (Zeitleiste) → [5]
   rückrufen, und der Gewinn verpufft.
 - Parallel zu Produktfeatures nur Welle 0–2; Welle 4 braucht ein ruhiges Fenster
   (kein paralleler Zeitleisten-Feature-PR).
-- Unabhängig von Player-TS-Migration und Renderer-Labor
-  ([konzept_player_typescript.md](konzept_player_typescript.md),
-  [konzept_renderer_labor.md](konzept_renderer_labor.md)).
+- Unabhängig von der Player-TS-Migration
+  ([konzept_player_typescript.md](konzept_player_typescript.md)).
 
 ---
 

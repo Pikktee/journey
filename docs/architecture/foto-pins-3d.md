@@ -24,7 +24,7 @@ Geprüft am installierten Bundle, nicht aus der Erinnerung:
 | Symbol-/Circle-Layer über Grund heben | **Nein.** `symbol-z-offset` und `*-elevation-reference` existieren in dieser Version nicht (kommen aus der Mapbox-Welt bzw. späteren Specs). `circle-pitch-alignment: viewport` hält den Kreis zur Kamera, aber am Boden. |
 | `fill-extrusion` als Mast | Geometrisch ja, aber der Klotz trägt weder Text noch eine kamerazugewandte Scheibe — Nummer und Foto am Kopf wären unmöglich, und eine Beschriftung ließe sich nicht dorthin heben. |
 | DOM-Marker (wie der Fahrer) mit Pixel-Offset | **Nein.** Ein Marker kennt nur eine Bodenkoordinate; ein Offset nach oben wäre nicht perspektivisch — die Pinhöhe schrumpfte nicht mit der Entfernung, bei Kameraschwenks „klebte" der Kopf falsch. |
-| Custom Layer (`renderingMode: '3d'`) mit Three.js | **Ja.** Im Repo etabliert (buildings3d.js, deckscene.js): Mercator-Ursprung + MapLibres Projektionsmatrix, Three rendert in denselben WebGL-Kontext. |
+| Custom Layer (`renderingMode: '3d'`) mit Three.js | **Ja.** Damals im Repo etabliert (buildings3d.js, deckscene.js — inzwischen ausgebaut, s. [Archiv](../archive/renderer-labor.md)): Mercator-Ursprung + MapLibres Projektionsmatrix, Three rendert in denselben WebGL-Kontext. |
 
 Zusätzlich belegt: **MapLibres Terrain schreibt Tiefe**, gegen die ein Custom Layer
 testen kann. Mast und Bodenring werden vom Gelände geschnitten (im A/B mit
@@ -194,7 +194,9 @@ __j.pins._dbg()                 // Höhen, Detailstufen, Bildschirmpositionen
    mit Texturatlas. Und eine echte Messung am Pixel 9, nicht per CPU-Drosselung.
 3. **Foto im Kopf.** Bei 27 px Radius ist ein Foto erkennbar, aber klein. Entweder
    deutlich größer (dann nur für den nächsten Stopp) oder beim Nähern aufblenden.
-4. **Zweit-Renderer.** In `?tiles3d=1` (Google-3D) und `?scene=1` läuft MapLibre
-   unsichtbar weiter — dort müssten die Pins in die jeweilige Szene gespiegelt werden.
-5. **Startpunkt.** Der Start-Dot ist weiterhin flach; ein eigener kleiner Pin wäre
+4. **Startpunkt.** Der Start-Dot ist weiterhin flach; ein eigener kleiner Pin wäre
    konsequent.
+
+*(Der frühere Punkt „Zweit-Renderer" — Pins in die deck-/Google-Szene spiegeln —
+ist mit dem Ausbau des Renderer-Labors am 2026-08-11 entfallen, s.
+[Archiv](../archive/renderer-labor.md).)*

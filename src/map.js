@@ -73,98 +73,6 @@ export function overlayPixelRatio() {
   return COARSE ? 1 : targetPixelRatio()
 }
 
-// Gebäude — ein EINZELNER, solider fill-extrusion-Layer (kein Fenster-Pattern,
-// kein separater Dachdeckel).
-//
-// DIAGNOSE des hartnäckigen Flimmerns (an echten OpenFreeMap-Kacheln gemessen,
-// Gamla Stan z14/9014/4817): 69 Gebäude, davon ~10 mit ÜBERLAPPENDEN Polygonen
-// (Gebäude-Umriss + building:parts) auf UNTERSCHIEDLICHEN Höhen → koplanares
-// Z-Fighting an den geteilten Wandflächen. Und: `hide_3d` ist in diesen Kacheln
-// bei KEINEM Feature gesetzt — die eigentlich zu verdeckenden Umrisse werden also
-// mitgerendert. Das ist DATENSEITIG kaputt und clientseitig nicht sauber
-// auflösbar (fill-extrusion hat keinen Depth-Bias, die Umrisse sind per Property
-// nicht von den Teilen unterscheidbar).
-//
-// FIX, der wirklich greift: den Streit UNSICHTBAR machen statt die Geometrie zu
-// reparieren. Das Auge nimmt HELLIGKEITS-Flimmern viel stärker wahr als Farbton-
-// Flimmern. Beide Paletten haben deshalb bei voller Farbtonvielfalt eine EXAKT
-// KONSTANTE Luminanz (Tag alle Luma≈142, Nacht alle ≈46, rechnerisch erzeugt) und
-// niedrige Sättigung. Zwei überlappende Häuser tragen dann zwar verschiedene
-// Farbtöne, aber gleiche Helligkeit → der Frame-zu-Frame-Wechsel des Z-Fights ist
-// nur noch ein kaum sichtbarer Farbschimmer statt eines harten Hell/Dunkel-Kippens.
-// (Gilt auch durch Licht/Verlauf: die streitenden Flächen sind gleich orientierte
-// Wände → gleiche Schattierung → die Luma-Gleichheit bleibt erhalten.)
-// Nebenbei löst dasselbe „zu dominant“ (gedeckt, gleichmäßig) und „alle gleich“
-// (14 Farbtöne).
-const BLD_DAY = [
-  '#9d8d6c', '#a08a71', '#a48777', '#a8857c', '#969264', '#829b6a', '#9b8f69',
-  '#a38975', '#a9837e', '#8e9664', '#7796a5', '#7d92a8', '#9f8c70', '#999066',
-]
-const BLD_NIGHT = [
-  '#272e3d', '#282e3e', '#25303b', '#362d23', '#26303c', '#243238', '#2a2c42',
-  '#382b24', '#243039', '#292d41', '#272e3c', '#2b2b44', '#392a25', '#272e3e',
-]
-
-// Tile-Feature-ID = OSM-ID × 10 + Typziffer — erst ÷10, sonst streut das
-// Modulo nicht (die letzte Ziffer ist fast immer 0 oder 2)
-const BID = ['floor', ['/', ['coalesce', ['id'], 0], 10]]
-
-// Farbwahl pro Gebäude: bekannte OSM-colour-Namen grob auf einen Paletten-Index
-// abbilden (gelbe Häuser bleiben gelblich, rote rötlich …), alles andere per
-// ID-Hash. Beides ist ID/colour-stabil, sodass ein Haus über Tile-Grenzen und
-// Frames hinweg IMMER seine Farbe behält — Voraussetzung, damit Duplikate sicher
-// denselben Ton bekommen. Ergebnis ist ein number→Farbe-`match` (color-sicher).
-function buildingColor(palette) {
-  const idx = [
-    'match', ['coalesce', ['get', 'colour'], ''],
-    ['yellow', 'lightyellow', 'gold', '#fcf0cc', '#fcf1d4', '#f4e3c0'], 0,
-    ['orange', 'salmon', 'lightsalmon', 'coral', 'peachpuff', 'sandybrown'], 1,
-    ['red', 'firebrick', 'darkred', '#8b0000', 'indianred', 'maroon'], 3,
-    ['beige', 'ivory', 'cream', 'papayawhip', '#f7f5ec', '#f6f1e2'], 6,
-    ['brown', 'sienna', 'saddlebrown', 'chocolate'], 7,
-    ['gray', 'grey', 'lightgrey', 'lightgray', 'silver', '#dadbdb'], 9,
-    ['white', 'snow', '#ffffff', '#fefdfc', '#faf9fa'], 13,
-    ['%', BID, palette.length], // Fallback: stabiler Hash
-  ]
-  const expr = ['match', idx]
-  palette.forEach((c, i) => { if (i < palette.length - 1) expr.push(i, c) })
-  expr.push(palette[palette.length - 1]) // match braucht einen Fallback-Zweig
-  return expr
-}
-
-// Höhe hart auf 250 m deckeln: einzelne OSM-Gebäude tragen fehlerhafte Höhen
-// (Tippfehler, falsche Einheit), und beim Tile-Nachladen kann eine noch grob
-// tesselierte Geometrie kurz nach oben schießen. Ohne Deckel steht dann ein
-// riesiger Spike im Bild, der verschwindet, sobald das saubere Tile da ist.
-// 250 m liegt weit über allem entlang der Touren (höchstes Haus ~100 m).
-const BLD_H = ['min', ['coalesce', ['get', 'render_height'], 8], 250]
-
-// Weiches Einblenden über eine schmale Zoomstufe — sonst poppen alle Häuser eines
-// Tiles schlagartig auf (das „ruckartige Einblenden"). Der Fade ist NICHT die Quelle
-// der gemeldeten Stippel-Artefakte: die sind Z-Fighting überlappender OSM-Polygone
-// und werden dadurch unsichtbar, dass alle Gebäudefarben auf konstante Luminanz
-// normalisiert sind (siehe buildings.js / BLD_DAY) — das Flimmern kippt dann nur noch
-// im Farbton, kaum wahrnehmbar, statt in der Helligkeit.
-const APPEAR = ['interpolate', ['linear'], ['zoom'], 13.9, 0, 14.25, 1]
-
-// Fundament 2 m unter Grund setzen: auf dem überhöhten, grob aufgelösten DEM
-// (maxzoom 13) sitzt die Hangkante sonst mal knapp über, mal knapp unter der
-// drapierten Satellitenfläche — der Wandfuß flimmert dann gegen den Boden. Ein
-// paar Meter versenkt verschwindet die Naht unter dem Gelände (unsichtbar).
-const BLD_BASE = ['-', ['coalesce', ['get', 'render_min_height'], 0], 2]
-
-// Tag-Farbe: die aus dem Satellitenbild gesampelte Dachfarbe (feature-state {color},
-// gesetzt von buildings.js — luminanz-normalisiert, daher flimmer-sicher), solange
-// noch nicht gesampelt die Fallback-Palette (ebenfalls konstante Luminanz).
-const DAY_COLOR = ['coalesce', ['feature-state', 'color'], buildingColor(BLD_DAY)]
-
-// Tag/Nacht-Umschalter für die Gebäude: nur die Farbe (transitionsfähig, blendet
-// über fill-extrusion-color-transition weich). Nachts die dunkle Palette statt der
-// Satellitenfarbe (das Satellitenbild ist eine Tagaufnahme).
-export function setBuildingsNight(map, on) {
-  map.setPaintProperty('buildings-3d', 'fill-extrusion-color', on ? buildingColor(BLD_NIGHT) : DAY_COLOR)
-}
-
 export function createMap(container, center) {
   const map = new maplibregl.Map({
     container,
@@ -218,13 +126,6 @@ export function createMap(container, center) {
           // Ohne „Terrain:"-Präfix — die Rolle steht im Popup schon in der Zeile
           attribution: 'Mapzen / <a href="https://registry.opendata.aws/terrain-tiles/">AWS Open Data</a>',
         },
-        // OpenFreeMap-Vektortiles (OpenMapTiles-Schema) — liefern OSM-Gebäude
-        // mit Höhen, damit Städte nicht flach wirken
-        buildings: {
-          type: 'vector',
-          url: 'https://tiles.openfreemap.org/planet',
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
-        },
       },
       layers: [
         {
@@ -234,31 +135,7 @@ export function createMap(container, center) {
           // längere Überblendung beim Tile-Wechsel: weniger sichtbares Aufpoppen
           paint: { 'raster-fade-duration': 500 },
         },
-        {
-          // EIN einziger Baukörper-Layer (siehe Kommentar oben bei BLD_DAY) —
-          // solide Farbe je OSM-ID, vertikaler Verlauf für Volumen, kein Pattern,
-          // kein separater Dachdeckel. Das ist der Kern der Flimmer-Behebung.
-          id: 'buildings-3d',
-          type: 'fill-extrusion',
-          source: 'buildings',
-          'source-layer': 'building',
-          minzoom: 13,
-          filter: ['!=', ['get', 'hide_3d'], true],
-          paint: {
-            'fill-extrusion-color': DAY_COLOR,
-            'fill-extrusion-color-transition': { duration: 1500 }, // Tag/Nacht weich blenden
-            'fill-extrusion-height': BLD_H,
-            'fill-extrusion-base': BLD_BASE,
-            'fill-extrusion-opacity': APPEAR,
-            // Basis dunkler → die Baukörper wirken geerdet und treten hinter das
-            // Satellitenbild zurück, statt flach darüber zu leuchten.
-            'fill-extrusion-vertical-gradient': true,
-          },
-        },
       ],
-      // Fixes, warmes Sonnenlicht aus Südwest (map-verankert): Wände werden je
-      // nach Ausrichtung unterschiedlich hell — Volumen statt Einheitsgrau
-      light: { anchor: 'map', position: [1.3, 220, 40], color: '#ffedd6', intensity: 0.4 },
       terrain: { source: 'dem', exaggeration: EXAGGERATION },
       // Start-Himmel (bis die Tag/Nacht-Regie übernimmt) — reiner Blauverlauf
       // OHNE Dunst: fog = horizon (kein abgesetzter Schleier), Fog an den Horizont
@@ -285,7 +162,16 @@ export function createMap(container, center) {
   // rechts — siehe karteninfo.ts. Open-Meteo (Auto-Wetter, autoweather.js) hat
   // keine Kachelquelle im Stil und wird hier ergänzt; die Nennung ist
   // Lizenzbedingung (CC BY 4.0) und muss auch in spätere Video-Exporte.
+  // OpenStreetMap steht hier als FESTER Eintrag und nicht mehr als Kachelquelle:
+  // Die Routen der Touren sind mit OSRM/BRouter aus OSM-Daten geroutet, also ein
+  // abgeleitetes Werk — die ODbL verlangt die Nennung unabhängig davon, ob gerade
+  // OSM-Kacheln geladen werden. Seit die Gebäude-Ebene (OpenFreeMap) entfallen ist,
+  // gäbe es sonst gar keine OSM-Nennung mehr.
   createKartenInfo(map, [
+    {
+      rolle: 'Routen',
+      html: 'Routing © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · ODbL',
+    },
     { rolle: 'Wetter', html: '<a href="https://open-meteo.com/">Open-Meteo</a> · CC BY 4.0' },
   ])
   // Pixelbudget beim Fenster-Resize neu einregeln: Aufziehen von klein → 4K-Vollbild

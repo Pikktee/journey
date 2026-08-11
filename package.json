@@ -13,17 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@deck.gl/core": "^9.3.6",
-    "@deck.gl/extensions": "^9.3.6",
-    "@deck.gl/geo-layers": "^9.3.6",
-    "@deck.gl/layers": "^9.3.6",
-    "@deck.gl/mapbox": "^9.3.6",
-    "@loaders.gl/mvt": "^4.4.3",
-    "3d-tiles-renderer": "^0.4.28",
     "maplibre-gl": "^5.6.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "puppeteer-core": "^25.3.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",

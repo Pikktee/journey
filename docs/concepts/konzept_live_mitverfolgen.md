@@ -272,8 +272,9 @@ Routen gebaut. Live v1:
 
 - MapLibre-Karte (Stil an Player angelehnt, Attribution bleibt).
 - Linie + Marker; Kamera folgt mit einfachem `easeTo` / Soft-Follow.
-- Kein Wetter-Partikel-Zwang, keine Musikpflicht, keine Labor-Renderer
-  ([konzept_renderer_labor.md](konzept_renderer_labor.md)).
+- Kein Wetter-Partikel-Zwang, keine Musikpflicht. (Labor-Renderer gibt es seit
+  dem 2026-08-11 ohnehin nicht mehr, s.
+  [../archive/renderer-labor.md](../archive/renderer-labor.md).)
 
 Später kann eine „Live-Inszenierung“ wachsen — eigener Codepfad, kein
 Flag-Missbrauch am Default-Player.

@@ -56,11 +56,15 @@ function paramsAt(alt) {
   }
 }
 
-// setNight: Fassaden-Pattern + Dachfarben umschalten (map.js), überblendet.
-// onParams(p, sun): optionaler Hook, der dieselben interpolierten Keyframe-Werte + den
-// Sonnenstand herausreicht — die reine deck-Szene (deckscene.js) hängt sich dort an, damit
-// ihr Himmel/Licht exakt derselben Regie folgt wie MapLibres Boden.
-export function createDayNight(map, setNight, onParams) {
+// onParams(p, sun): Hook, der die interpolierten Keyframe-Werte + den Sonnenstand
+// herausreicht — Atmosphäre und 3D-Pins hängen sich dort an, damit Himmel und Licht
+// exakt derselben Regie folgen wie MapLibres Boden.
+//
+// Einen zweiten Callback für den reinen Tag/Nacht-UMSCHLAG gab es bis 2026-08-11; er
+// bediente ausschließlich die Gebäude und die Labor-Renderer. Die Hysterese unten
+// bleibt trotzdem nötig — sie verhindert das Flackern der Fenster-Paint-Properties
+// in der Dämmerung.
+export function createDayNight(map, onParams) {
   let lastAlt = Infinity
   let lastApply = 0
   let night = false
@@ -117,10 +121,7 @@ export function createDayNight(map, setNight, onParams) {
     })
     // Fenster an/aus mit Hysterese, damit es in der Dämmerung nicht flackert
     const wantNight = night ? sun.altitude < -2 : sun.altitude < -4
-    if (wantNight !== night) {
-      night = wantNight
-      setNight(night)
-    }
+    if (wantNight !== night) night = wantNight
   }
   // Wetter-Kopplung (main.js applyWeather): Schneedecke aufs Satellitenbild.
   // Weiche Überblendung über die Paint-Transition; Drossel zurücksetzen, damit

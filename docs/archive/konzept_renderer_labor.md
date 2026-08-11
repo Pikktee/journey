@@ -1,5 +1,10 @@
 # Umbauplan: Renderer-Labor begrenzen
 
+> **Archiviert am 2026-08-11.** Die hier beschriebenen Renderer sind aus dem
+> Hauptprojekt ausgebaut; der Code hängt am Tag `labor/renderer-v1`. Was
+> geblieben ist und wie man es zurückholt: [renderer-labor.md](renderer-labor.md).
+> Dieses Blatt ist Historie — die Dateiverweise zeigen ins Leere.
+
 **Ziel:** Den **Default-Player** (MapLibre + `fill-extrusion` + Schatten + 3D-Pins)
 klar und pflegbar halten. Experimentelle Renderer bleiben Labor — dokumentiert,
 am Einstieg isoliert, ohne stillen Anspruch auf den Produktpfad.

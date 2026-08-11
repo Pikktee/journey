@@ -916,9 +916,7 @@ export class Tour {
       lt: [this.lt.lng.v, this.lt.lat.v],
       ltAlt: this.ltAlt.v,
     }
-    // Optionaler Zweit-Renderer (Google-3D-Testmodus) bekommt dieselbe Pose
-    this.extCamera?.(pose)
-    // Sonnen-Flare-Overlay (sunflare.js) — läuft renderer-unabhängig immer mit
+    // Atmosphäre-/Flare-Overlay hängt sich hier ein und bekommt dieselbe Pose
     this.onPose?.(pose)
   }
 

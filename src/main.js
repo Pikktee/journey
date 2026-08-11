@@ -4,7 +4,7 @@ import { TOURS } from './tours.js'
 import { loadRemoteTour, createTimeAt } from './remote'
 import { tourAusPfad, tourPfad } from './routen'
 import { buildRoute, gruppiereStopps, nearestS, pointAt } from './geo.js'
-import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, setBuildingsNight } from './map.js'
+import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
 import { createAtmosphere } from './atmosphere.js'
@@ -13,8 +13,6 @@ import { createMusic } from './music.js'
 import { createAudioTracks } from './audiotracks.js'
 import { createVehicle } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
-import { installBuildingEnhancer } from './buildings.js'
-import { installBuildingShadows } from './shadows.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI } from './ui.js'
 import { Tour } from './tour.js'
@@ -88,7 +86,7 @@ const cfg = remoteCfg ?? TOURS[tourId]
 // heutige Form gezogen — wie die Profilseite mit `?id=…`. Erst HIER, nicht
 // gleich beim Lesen: Scheiterte das Laden, stünde sonst eine Adresse in der
 // Zeile, die auf eine Tour zeigt, die gar nicht läuft. Der Rest der Query
-// (`?app=1`, Renderer-Flags) bleibt unangetastet, und `replaceState` legt
+// (`?app=1`, `?dev=1`, …) bleibt unangetastet, und `replaceState` legt
 // keinen Eintrag in die Verlaufsliste — der Weg zurück bleibt, wo er war.
 if (!ausPfad && params.has('tour')) {
   const rest = new URLSearchParams(location.search)
@@ -105,34 +103,12 @@ const tourAudio = cfg.audio?.length ? createAudioTracks(cfg.audio) : null
 // sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
 const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 
-// Position (und Play/Pause-Zustand) über EINEN selbst ausgelösten Reload hinweg
-// merken: Der Renderer-/Ansicht-Wechsel lädt die Seite neu und soll am selben
-// Frame im selben Wiedergabezustand weiterlaufen.
-//
-// Die Übergabe ist ein EINMAL-TICKET im sessionStorage: der Umschalter legt es,
-// der nächste Start verbraucht es. Ohne Ticket beginnt die Tour vorn — wer sie
-// verlässt und später erneut startet (Bibliothek, Entdecken, Landing), will den
-// Startscreen und nicht Kilometer 14 von gestern. Vorher hing die Wiederaufnahme
-// allein an einem 30-Minuten-Zeitfenster im localStorage und griff deshalb bei
-// JEDEM erneuten Aufruf derselben Tour.
-const POS_KEY = `maptale:pos:${tourId}`
-const WEITER_KEY = `maptale:weiter:${tourId}`
-const savePos = (tour) => {
-  if (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment') {
-    localStorage.setItem(POS_KEY, JSON.stringify({ s: tour.s, ts: Date.now(), playing: tour.playing }))
-  } else {
-    localStorage.removeItem(POS_KEY)
-  }
-}
-/** Position sichern UND das Ticket für den kommenden Reload legen. */
-const uebergebePosition = (tour) => {
-  savePos(tour)
-  try {
-    sessionStorage.setItem(WEITER_KEY, '1')
-  } catch {
-    /* Storage evtl. gesperrt: dann startet der Reload eben vorn */
-  }
-}
+// Eine Tour beginnt am Anfang — immer. Es gab hier einmal eine Wiederaufnahme
+// über ein Einmal-Ticket im sessionStorage; ihr einziger Erzeuger war der
+// Ansicht-/Renderer-Umschalter, der die Seite neu lud und am selben Frame
+// weiterlaufen sollte. Mit dem Labor ist er entfallen, und damit der Grund:
+// Wer eine Tour verlässt und erneut startet, will den Startscreen und nicht
+// Kilometer 14 von gestern.
 
 // ?reverse=1: Tour rückwärts abspielen (nur Wegpunkt-/Segment-Reihenfolge umgedreht,
 // nichts am Kamera-/Sonnen-Code). Grund: Die Pseudo-Zeit koppelt Sonnenuntergang an den
@@ -251,17 +227,11 @@ map.on('load', () => {
   const syncTrace = addRouteLayers(map, route)
   const rider = createRider(map, [start[0], start[1]], modes[0].mode)
 
-  let tiles3d = null // „Google 3D"-Modus via Three.js (?tiles3d=1), lazy geladen
-
-  let scene = null // reine deck-Szene (?scene=1), async geladen — Trace/Tag-Nacht hängen daran
-
   const ui = new UI(stops, route)
   let kamFolger = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, pos)
     rider.setLngLat([pos[0], pos[1]])
-    scene?.setProgress(s, pos) // reine deck-Szene: Trace bis exakt zum Fahrer nachziehen
-    tiles3d?.setProgress(s, pos) // Google-3D-Modus: Trace + Fahrer-Marker (no-op solange aus)
     // Tour-Audio folgt dem Streckenanteil pro Frame: Musik-Bereiche + SFX-Kanten.
     // istPlayback nur bei echter Wiedergabe — Scrub-/Seek-Sprünge feuern keine SFX.
     tourAudio?.setFrac(s / route.total, tour.playing && !tour.scrubbing)
@@ -360,124 +330,9 @@ map.on('load', () => {
     }
   }
 
-  // Diagnose-Helfer (Konsole): alle Baukörper um [x,y] Pixel verschieben. Bringt ein
-  // KONSTANTER Versatz die Häuser sauber auf ihre Satelliten-Textur, ist es ein
-  // Registrierungs-Offset (OSM↔Esri, ggf. korrigierbar). Bleibt der Versatz nur
-  // teilweise weg / kippt je nach Blickrichtung, ist es Luftbild-Parallaxe (nicht
-  // korrigierbar, nur mit eigenen Gebäude-Tiles). __j.nudgeBuildings() setzt zurück.
-  window.__j.nudgeBuildings = (x = 0, y = 0) =>
-    map.setPaintProperty('buildings-3d', 'fill-extrusion-translate', [x, y])
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeWeather(); document.getElementById('options-modal').hidden = true } })
 
-  // Gebäude-Renderer wählen. Default: der MapLibre-fill-extrusion-Layer, aufgewertet
-  // per Satelliten-Dachfarbe (buildings.js). Mit ?deck=1: HYBRID-Renderer — MapLibre
-  // behält Boden/Terrain/Schatten, deck.gl rendert die Gebäude interleaved mit
-  // gerichteter Beleuchtung und prozeduraler Fassade (Etagen/Fenster). Der MapLibre-
-  // Gebäudelayer wird dann ausgeblendet, damit sich nichts überlagert. Siehe deckbuildings.js.
-  // Stufe 0 des Renderer-Plans: eigenständige deck.gl-Terrain-Szene (Terrain+Satellit),
-  // MapLibre unsichtbar als Kamera-/Terrain-Rechner. Spiegelt die Pose über tour.extCamera.
-  if (params.get('scene') === '1') {
-    import('./deckscene.js').then(({ installDeckScene }) => {
-      scene = installDeckScene(map, { route, stops, shadows: params.get('shadows') === '1' })
-      scene.enable()
-      tour.extCamera = scene.setCamera
-      tour.applyCamera() // Szene sofort auf die aktuelle Pose ziehen
-      if (isNight) scene.setNight(true) // Nacht-Zustand nachziehen, falls schon aktiv
-      window.__j.scene = scene
-    })
-  }
-
-  // Leichter Dächer-Renderer (?roofs=1): MapLibre-Boden bleibt, der flache fill-extrusion-Layer
-  // wird ausgeblendet und durch prozedurale 3D-Gebäude mit Dächern (Three.js-Custom-Layer) ersetzt.
-  // Statische Geometrie → leicht, kein Lüfter. Stil (nordic/alpine) passt zur Region.
-  if (params.get('roofs') === '1') {
-    if (map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', 'none')
-    import('./buildings3d.js').then(({ installBuildings3D }) => {
-      const style = cfg.buildingStyle || (tourId === 'oberland' ? 'alpine' : 'nordic')
-      window.__j.buildings3d = installBuildings3D(map, { route, style })
-      window.__j.buildings3d.setVisible(buildings3dOn) // „Gebäude ausblenden"-Zustand beim Laden nachziehen
-      if (isNight) window.__j.buildings3d.setNight(true) // Nacht-Zustand nachziehen, falls schon aktiv
-    })
-  }
-
-  let shadows = null
-  // Geerdete Wurf-Schatten in beiden Pfaden (erden auch die deck-Gebäude). ?noshadows=1
-  // zum A/B-Vergleich. Nachts unten über die Tag/Nacht-Regie abgeschaltet.
-  if (params.get('noshadows') !== '1' && params.get('roofs') !== '1') shadows = installBuildingShadows(map)
-  window.__j.shadows = shadows
-
-  const deckMode = params.get('deck') === '1'
-  const roofsMode = params.get('roofs') === '1' // Dächer-Renderer aktiv → flache Ebene bleibt AUS
-  if (deckMode) {
-    // HYBRID: MapLibre-Boden behalten, Gebäude aus deck.gl (interleaved, beleuchtet, echte
-    // Satellitenfarbe). MapLibre-Gebäudelayer aus, damit sich nichts überlagert.
-    map.setLayoutProperty('buildings-3d', 'visibility', 'none')
-    import('./deckbuildings.js').then(({ installDeckBuildings }) => {
-      // Route mitgeben → Satellitenkacheln des Korridors vorab laden (kein Nachfärben zur Fahrt).
-      window.__j.buildings2 = installDeckBuildings(map, { route })
-      if (!buildings3dOn) window.__j.buildings2.setVisible(false) // falls vor dem Laden umgeschaltet
-      if (isNight) window.__j.buildings2.setNight(true) // Nacht-Zustand nachziehen, falls schon aktiv
-    })
-  } else {
-    window.__j.buildings = installBuildingEnhancer(map)
-  }
-
-  // Gebäude-Sichtbarkeit aus dem Modus abgeleitet. Standard ist AUS („Gebäude ausblenden")
-  // — nur ein expliziter Modus-Wunsch (?buildings=on oder ein anderer 3D-Renderer) schaltet sie
-  // ein; ?buildings=off erzwingt aus, auch innerhalb eines sonst gebäudefähigen Renderers. Wird
-  // auch von der Tag/Nacht- und Schatten-Logik genutzt (buildings3dOn), daher als Funktion erhalten.
-  let buildings3dOn =
-    params.get('buildings') !== 'off' &&
-    (params.get('buildings') === 'on' || deckMode || roofsMode || params.get('scene') === '1' || params.get('tiles3d') === '1')
-  let isNight = false
-  const applyShadows = () => shadows?.setVisible(buildings3dOn && !isNight)
-  const setBuildings3d = (on) => {
-    buildings3dOn = on
-    if (deckMode) window.__j.buildings2?.setVisible(on)
-    // Im Roofs-Modus die flache fill-extrusion-Ebene NICHT anfassen — sie bleibt dauerhaft aus
-    // (die Three.js-Dächer ersetzen sie); sonst rendern beide doppelt und „Ausblenden" greift nicht.
-    else if (!roofsMode && map.getLayer('buildings-3d')) map.setLayoutProperty('buildings-3d', 'visibility', on ? 'visible' : 'none')
-    window.__j.buildings3d?.setVisible(on) // Dächer-Renderer (?roofs=1) folgt dem Umschalter mit
-    applyShadows()
-  }
-  setBuildings3d(buildings3dOn) // Anfangszustand anwenden (v.a. „Gebäude ausblenden")
-
-  // Ansicht-Dropdown: EINE Radio-Gruppe, alle Optionen schließen sich gegenseitig aus. Auswahl
-  // lädt in den gewählten Modus (Query-Param); der aktive Modus wird aus der URL abgeleitet.
-  const layersBtn = document.getElementById('btn-layers')
-  const layersMenu = document.getElementById('layers-menu')
-  const closeLayers = () => { layersMenu.hidden = true; layersBtn.setAttribute('aria-expanded', 'false') }
-  const openLayers = () => { closeWeather(); layersMenu.hidden = false; layersBtn.setAttribute('aria-expanded', 'true') }
-  const curMode = params.get('tiles3d') === '1' ? 'google'
-    : params.get('scene') === '1' ? 'scene'
-    : deckMode ? 'deck'
-    : params.get('buildings') === 'on' ? 'maplibre'
-    : 'hidden'
-  layersMenu.querySelectorAll('[data-mode]').forEach((el) => {
-    const active = el.dataset.mode === curMode
-    el.classList.toggle('on', active)
-    el.setAttribute('aria-checked', String(active))
-    el.addEventListener('click', () => {
-      if (el.dataset.mode === curMode) { closeLayers(); return }
-      const u = new URL(location.href)
-      ;['deck', 'scene', 'g3d', 'tiles3d', 'buildings'].forEach((p) => u.searchParams.delete(p))
-      const m = el.dataset.mode
-      if (m === 'deck') u.searchParams.set('deck', '1')
-      else if (m === 'scene') u.searchParams.set('scene', '1')
-      else if (m === 'google') u.searchParams.set('tiles3d', '1')
-      else if (m === 'maplibre') u.searchParams.set('buildings', 'on')
-      else if (m === 'hidden') u.searchParams.set('buildings', 'off')
-      uebergebePosition(tour) // Position + Ticket → dieser Reload läuft nahtlos weiter
-      location.href = u.toString() // Reload in den gewählten Modus
-    })
-  })
-  layersBtn.addEventListener('click', (e) => { e.stopPropagation(); layersMenu.hidden ? openLayers() : closeLayers() })
-  document.addEventListener('click', (e) => {
-    if (!layersMenu.hidden && !layersMenu.contains(e.target) && e.target !== layersBtn) closeLayers()
-  })
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeLayers(); closeWeather(); document.getElementById('options-modal').hidden = true } })
-
-  // — Wetter-Dropdown (Regen/Gewitter) — live umschaltbar, unabhängig vom Renderer UND
-  // von Tag/Nacht. Das Overlay läuft in eigener Schleife, friert aber über das Gate
+  // — Wetter-Dropdown (Regen/Gewitter) — live umschaltbar, unabhängig von Tag/Nacht. Das Overlay läuft in eigener Schleife, friert aber über das Gate
   // ein, sobald die Szene pausiert (stehende Kamera = stehender Regen). Kein Reload
   // wie bei der Ansicht-Radiogruppe: setMode wirkt sofort. Wahl + Stärke werden gemerkt.
   const weather = createWeather(document.body)
@@ -630,8 +485,8 @@ map.on('load', () => {
 
   // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.js) — das ist der
   // Normalfall; die flachen Kreise klebten im Bergland am Hang und verschwanden hinter
-  // jedem Grat. `?pins3d=0` schaltet auf sie zurück (A/B-Vergleich, wie bei den
-  // Renderer-Flags), `?pins3d=foto` zeigt das Bild im Kopf statt der Nummer.
+  // jedem Grat. `?pins3d=0` schaltet auf sie zurück (A/B-Vergleich), `?pins3d=foto`
+  // zeigt das Bild im Kopf statt der Nummer.
   // Der Startpunkt-Dot bleibt in beiden Fällen flach — er ist kein Halt.
   const pinsParam = params.get('pins3d')
   if (pinsParam === '0') {
@@ -652,22 +507,6 @@ map.on('load', () => {
     })
   }
   ui.syncDots(0)
-
-  // Fortsetzen nur mit Ticket (s. oben beim POS_KEY): Der Renderer-Wechsel legt es
-  // unmittelbar vor seinem Reload, hier wird es SOFORT verbraucht — jeder normale
-  // Aufruf der Tour beginnt damit im Startscreen. Die eine Zustandsgröße `s` reicht.
-  try {
-    const weiter = sessionStorage.getItem(WEITER_KEY) === '1'
-    sessionStorage.removeItem(WEITER_KEY)
-    const saved = weiter ? JSON.parse(localStorage.getItem(POS_KEY) || 'null') : null
-    if (saved && Date.now() - saved.ts < 30 * 60 * 1000 && saved.s > 5) {
-      // War die Tour beim Umschalten am Abspielen, läuft sie danach direkt weiter;
-      // war sie pausiert, bleibt sie pausiert (A/B-Vergleich am selben Frame).
-      tour.resumeAt(saved.s, saved.playing === true)
-    }
-  } catch {
-    /* defekter Merker oder gesperrter Storage: normal ins Intro starten */
-  }
 
   // — Steuerung —
   document.getElementById('btn-start').addEventListener('click', () => tour.begin())
@@ -757,9 +596,9 @@ map.on('load', () => {
   document.getElementById('opt-close').addEventListener('click', closeOptions)
   optModal.addEventListener('click', (e) => { if (e.target === optModal) closeOptions() })
 
-  // — Entwicklermodus — blendet Dev-Regler (Render-Art, Wetter-Palette, Kamera-
-  // distanz) ein. Aktivierung: ?dev=1 ODER Tippfolge „dev". Merker in localStorage,
-  // damit ein Reload (z.B. Renderer-Wechsel) den Modus behält.
+  // — Entwicklermodus — blendet Dev-Regler (Wetter-Palette, Kameradistanz) ein.
+  // Aktivierung: ?dev=1 ODER Tippfolge „dev". Merker in localStorage, damit ein
+  // Reload den Modus behält.
   const DEV_KEY = 'maptale:dev'
   let devOn = params.get('dev') === '1'
   try { devOn = devOn || localStorage.getItem(DEV_KEY) === '1' } catch { /* Storage evtl. gesperrt */ }
@@ -810,7 +649,7 @@ map.on('load', () => {
     document.getElementById('tele-time-wrap').hidden = false
 
     // Atmosphäre-Overlay (Horizont-Dunst, Sterne, Sonne + Lens-Flare): folgt der
-    // Tour-Kamera pro Frame (tour.onPose), unabhängig vom aktiven Renderer.
+    // Tour-Kamera pro Frame (tour.onPose).
     const atmo = createAtmosphere(document.body)
     atmo.setFov(map.transform?.fov ?? 36.87)
     // Echte (geclampte) Render-Kamera fürs Overlay — die Tour-Pose kennt MapLibres
@@ -842,22 +681,11 @@ map.on('load', () => {
 
     const dayNight = createDayNight(
       map,
-      (on) => {
-        isNight = on
-        setBuildingsNight(map, on)
-        window.__j.buildings2?.setNight(on) // deck-Gebäude (Hybrid) nachts mit abdunkeln
-        window.__j.buildings3d?.setNight(on) // Dächer-Renderer (?roofs=1) nachts mit abdunkeln
-        tiles3d?.setNight(on) // Google-3D: Himmel/Licht dezent abtönen (Tiles sind tag-fotografiert)
-        applyShadows() // nachts kein Sonnenschatten; folgt auch dem Gebäude-Umschalter
-      },
-      // deck-Szene + Dächer-Renderer + Google-3D + Atmosphäre der Regie folgen lassen.
+      // Pins und Atmosphäre der Tag/Nacht-Regie folgen lassen.
       // (atmo.setSun/tour.setSun laufen NICHT mehr hier — die Drossel machte den
       // Sonnenstand beim Scrubben pfadabhängig; beide werden pro Frame in onPose gesetzt.)
-      (p, sun) => {
-        scene?.applyDayNight(p, sun)
-        window.__j.buildings3d?.applyDayNight(p, sun)
+      (p) => {
         window.__j.pins?.applyDayNight(p) // 3D-Pins (?pins3d=1) nachts zurücknehmen
-        tiles3d?.applyDayNight(p, sun)
         atmo.setSky(p.hor, p.sky, p.fog) // Dunst an Horizont/Himmel/Fog der Tageszeit koppeln
       },
     )
@@ -1024,10 +852,8 @@ map.on('load', () => {
     else history.back()
   })
 
-  // — Google Photorealistic 3D Tiles („Google 3D"-Modus) —
-  // MapLibre läuft unsichtbar weiter (Tour-Engine braucht dessen Terrain-Abfragen); ein schlanker
-  // Three.js-Renderer (tiles3d.js, 3DTilesRendererJS — kein Cesium) rendert die Google-Tiles und
-  // spiegelt die Kamera. Der API-Schlüssel bleibt im localStorage. Aktiv über ?tiles3d=1.
+  // — Kurzmeldung unten („Toast") — für Dinge, die der Nutzer wissen muss, ohne
+  // dass sie den Ablauf anhalten (z. B. eine nicht ladbare Server-Tour).
   const toastEl = document.getElementById('toast')
   let toastT = null
   const toast = (msg) => {
@@ -1041,50 +867,6 @@ map.on('load', () => {
   // Verarbeitung, Server weg), läuft die Standard-Tour — das dem Nutzer
   // sichtbar sagen, nicht nur der Konsole.
   if (remoteFehler) toast(remoteFehler)
-
-  const g3dModal = document.getElementById('g3d-modal')
-  const g3dKeyInput = document.getElementById('g3d-key')
-  let g3dBusy = false
-
-  // Nur im lokalen Dev-Server: Google-Schlüssel aus der .env (VITE_GOOGLE_MAP_TILES_API_KEY).
-  // Der DEV-Guard lässt den Wert beim Produktions-Build als toten Code wegfallen.
-  const g3dEnvKey = import.meta.env.DEV ? import.meta.env.VITE_GOOGLE_MAP_TILES_API_KEY || '' : ''
-
-  const enableGoogle3d = () => {
-    if (g3dBusy || tiles3d) return
-    const key = localStorage.getItem('g3dKey') || g3dEnvKey
-    if (!key) { g3dModal.hidden = false; g3dKeyInput.focus(); return }
-    g3dBusy = true
-    // FreeCamera-FOV von MapLibre übernehmen, damit die Google-Ansicht denselben Bildausschnitt hat.
-    import('./tiles3d.js').then(({ createTiles3D }) => {
-      tiles3d = createTiles3D(route, cfg.geoid ?? 0, map.transform?.fov ?? 45, stops)
-      tiles3d.enable(key)
-      if (isNight) tiles3d.setNight(true)
-      tour.extCamera = tiles3d.setCamera
-      document.getElementById('map').style.visibility = 'hidden'
-      tour.applyCamera()
-      window.__j.tiles3d = tiles3d
-      toast('Google Photorealistic 3D aktiv')
-      g3dBusy = false
-    }).catch((err) => {
-      console.error('tiles3d:', err)
-      toast('Google 3D ließ sich nicht laden, Schlüssel/Abrechnung prüfen. Details in der Konsole.')
-      localStorage.removeItem('g3dKey')
-      g3dBusy = false
-    })
-  }
-
-  // „Google 3D" ist ein Modus der Ansicht-Radiogruppe (?tiles3d=1) → beim Laden aktivieren.
-  // Fehlt der Schlüssel, öffnet enableGoogle3d den Key-Dialog.
-  if (params.get('tiles3d') === '1') enableGoogle3d()
-  document.getElementById('g3d-cancel').addEventListener('click', () => (g3dModal.hidden = true))
-  document.getElementById('g3d-save').addEventListener('click', () => {
-    const key = g3dKeyInput.value.trim()
-    if (!key) return
-    localStorage.setItem('g3dKey', key)
-    g3dModal.hidden = true
-    enableGoogle3d()
-  })
 
   // — Bildraten-Protokoll (?app=1 oder ?fps=1) —
   // Android-WebView: zeigt die HTML-Seite direkt an, leitet console.log/info/

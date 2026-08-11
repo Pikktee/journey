@@ -5,7 +5,7 @@
  * beim Aufklappen als grauer Balken quer über die Bildecke läuft und sich nur
  * über denselben winzigen Knopf wieder schließen lässt. Hier ist derselbe
  * (rechtlich nötige) Inhalt eine Karte im Glas-Look des Players: pro Quelle
- * steht, WAS man ihr im Bild ansieht — Satellitenbild, Gelände, Gebäude —
+ * steht, WAS man ihr im Bild ansieht — Satellitenbild, Gelände, Routen —
  * und wem sie gehört. Klick auf den Knopf öffnet und schließt, ein Klick
  * irgendwo sonst und Escape schließen ebenfalls.
  *
@@ -17,9 +17,7 @@
  *
  * Das Element hängt am BODY, nicht als MapLibre-Control im Kartencontainer:
  * dessen z-index gilt nur innerhalb des Karten-Stacking-Contexts, und das
- * Popup verschwand dort hinter der Steuerleiste. Der Knopf selbst bleibt
- * dadurch auch im Google-3D-Modus sichtbar, wo MapLibres Canvas ausgeblendet
- * ist — die Nennung der Quellen darf nicht am Renderer hängen.
+ * Popup verschwand dort hinter der Steuerleiste.
  */
 
 import type { Map as MapLibreKarte } from 'maplibre-gl'
@@ -35,7 +33,6 @@ export interface Datenquelle {
 const ROLLEN: Record<string, string> = {
   satellite: 'Satellitenbild',
   dem: 'Gelände & Höhen',
-  buildings: 'Gebäude & Wege',
 }
 
 /**

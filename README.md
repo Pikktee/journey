@@ -104,4 +104,8 @@ Das Tool prüft ein sauberes Arbeitsverzeichnis, hebt die Version an
 - Satellit: © Esri, Maxar, Earthstar Geographics — Attribution muss sichtbar bleiben
   (auch in exportierten Videos einbrennen!)
 - Terrain: Mapzen / AWS Open Data Terrain Tiles
+- Routen: mit OSRM/BRouter aus OpenStreetMap-Daten geroutet → © OpenStreetMap-Mitwirkende,
+  ODbL. Die Nennung hängt **nicht** an geladenen OSM-Kacheln (es gibt keine mehr) — die
+  Route selbst ist das abgeleitete Werk.
+- Wetter: Open-Meteo, CC BY 4.0
 - Demo-Fotos: KI-generiert (Platzhalter)

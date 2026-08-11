@@ -289,21 +289,6 @@ Rechenregeln DOM-frei und getestet in [src/pinmodell.ts](src/pinmodell.ts); Mach
 Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
 [docs/architecture/foto-pins-3d.md](docs/architecture/foto-pins-3d.md).
 
-**Gebäude sind ein einzelner fill-extrusion-Layer** (`buildings-3d`; MapLibre kann kein
-AO/Schatten/Fenster). [src/buildings.js](src/buildings.js) sampelt beim Kachel-Laden die echte
-Dachfarbe aus dem Esri-Satellitenpixel am Gebäude-Zentroid und setzt sie per `feature-state`
-{color} (nachts ignoriert → dunkle Palette). **Kritisch:** In den OpenFreeMap-Kacheln fehlt
-`hide_3d`, ~15 % der Polygone überlappen (Umriss + parts) und flimmern durch koplanares
-Z-Fighting; clientseitig ist das geometrisch nicht sauber lösbar. Deshalb werden ALLE
-Gebäudefarben (gesampelt wie Fallback-Palette) auf **konstante Luminanz** normalisiert — der
-Z-Fight kippt dann nur im Farbton, kaum sichtbar. Echte Geometrie-Bereinigung + Dächer/Schatten
-brauchen einen zweiten Renderer; drei Wege sind gebaut und per Query-Flag wählbar: `?deck=1`
-(deck.gl-Gebäude über MapLibre, [src/deckbuildings.js](src/deckbuildings.js)), `?scene=1`
-(eigenständige deck.gl-Szene, [src/deckscene.js](src/deckscene.js)) und `?roofs=1` (leichter
-Three.js-Dächer-Renderer, [src/buildings3d.js](src/buildings3d.js)). Geerdete Wurf-Schatten
-([src/shadows.js](src/shadows.js)) laufen im Default-Pfad mit (`?noshadows=1` schaltet sie aus).
-Begründung und Vergleich: [docs/architecture/renderer-plan.md](docs/architecture/renderer-plan.md).
-
 **UI.** [src/ui.js](src/ui.js) `UI` verwaltet Overlays, Steuerleiste, Telemetrie, Höhenprofil und
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in
 main.js über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
@@ -339,20 +324,16 @@ Satzschrift.
 
 **Die Pflicht-Attribution ist ein ⓘ-Knopf mit Popup** ([src/karteninfo.ts](src/karteninfo.ts)),
 nicht MapLibres compact-Control (`attributionControl: false`): eine Glaskarte, die pro Quelle
-nennt, WAS man ihr ansieht (Satellitenbild · Gelände · Gebäude · Wetter). Zwei Punkte, die man
+nennt, WAS man ihr ansieht (Satellitenbild · Gelände · Routen · Wetter). Zwei Punkte, die man
 leicht „aufräumt": Der Inhalt wird aus den `attribution`-Feldern der Stil-Quellen gebaut — eine
 neue Kachelquelle erscheint dadurch von selbst, ohne Rollen-Eintrag als „Kartendaten", aber
 niemals ungenannt. Und das Element hängt am **body**, nicht im Kartencontainer: dessen `z-index`
 gilt nur innerhalb des Karten-Stacking-Contexts, das Popup verschwand dort hinter der
-Steuerleiste (Nebeneffekt: der Knopf bleibt im Google-3D-Modus sichtbar, wo MapLibres Canvas
-ausgeblendet ist). Solange es offen steht, hält `body.info-offen` den Auto-Rückzug der UI an.
+Steuerleiste. Solange es offen steht, hält `body.info-offen` den Auto-Rückzug der UI an.
 
-**Eine Tour beginnt am Anfang.** Der Player merkt sich Position und Wiedergabezustand
-(`maptale:pos:<id>`), aber die Wiederaufnahme hängt an einem **Einmal-Ticket** im sessionStorage
-(`maptale:weiter:<id>`): Nur der Renderer-/Ansicht-Umschalter legt es unmittelbar vor seinem
-eigenen Reload, der nächste Start verbraucht es sofort. Vorher genügte ein 30-Minuten-Fenster im
-localStorage — wer eine Tour verließ und erneut startete, landete bei Kilometer 14 statt im
-Startscreen. Ohne Ticket wird der Merker nicht einmal gelesen.
+**Eine Tour beginnt am Anfang — immer.** Kein Positions-Merker, keine Wiederaufnahme:
+Wer eine Tour verlässt und erneut startet, will den Startscreen und nicht Kilometer 14
+von gestern.
 
 **Das Fortbewegungsmittel steht NICHT in der Telemetrie.** Der Marker auf der Karte zeigt es,
 der Motorloop lässt es hören — ein Wort „Unterwegs mit · Jeep 4×4" in der Steuerleiste
@@ -365,16 +346,6 @@ Partikel-Overlay) liegen über der Karte. Das Wetter kommt entweder aus der kura
 `weather`-Timeline der Tour, aus dem Tour-JSON des Servers oder — als Fallback — aus
 [src/autoweather.js](src/autoweather.js) (Open-Meteo an den Foto-Ankern).
 [src/audiotracks.js](src/audiotracks.js) spielt die im Studio gesetzten Musik-/SFX-Spuren.
-
-**„Google 3D"-Modus (`?tiles3d=1`).** [src/tiles3d.js](src/tiles3d.js) rendert Google
-Photorealistic 3D Tiles — den echten Fotoscan der Stadt, also „die echten Gebäude, die dort
-stehen" — in einer eigenen, lazy geladenen **Three.js**-Szene via 3DTilesRendererJS (kein
-Cesium). MapLibre läuft dabei **unsichtbar weiter** (die Tour-Engine braucht dessen Terrain-
-Abfragen); die Kamera wird pro Frame in ECEF gespiegelt (`extCamera`, `WGS84_ELLIPSOID`).
-Route/Fahrer/Tag-Nacht sind integriert. Aktivierung über einen Google-Map-Tiles-API-Key
-(`VITE_GOOGLE_MAP_TILES_API_KEY` im Dev bzw. `localStorage`). Grenze: Google deckt nur ~2.500
-Städte ab (nicht alpin) → für unabgedeckte Regionen bleibt der MapLibre-Boden der Fallback.
-Renderer-Landschaft & Begründung: [docs/architecture/renderer-plan.md](docs/architecture/renderer-plan.md).
 
 ## Studio
 

@@ -31,7 +31,6 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 ### 3. `architecture/` (Umgesetzte Entscheidungen)
 * [`systemuebersicht.md`](architecture/systemuebersicht.md) — Tech-Stack & High-Level-Systemarchitektur (Einstieg mit Diagrammen).
 * [`foto-pins-3d.md`](architecture/foto-pins-3d.md) — Three.js Custom-Layer für 3D-Fotopins & Mercator-Skalierung.
-* [`renderer-plan.md`](architecture/renderer-plan.md) — Deck.gl / Three.js Renderer-Landschaft (Stufen, Flaggen).
 * [`zeitleiste-umbau.md`](architecture/zeitleiste-umbau.md) — Filmzeit-Achse, Halt-Klips, Zustandsbänder, Ton-Trim.
 * [`konzept_profil_konto.md`](architecture/konzept_profil_konto.md) — Handle, Profil, Konto, Newsletter-Einwilligung, Export, SEO-Meta.
 
@@ -47,7 +46,6 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`modi-konsolidierung.md`](concepts/modi-konsolidierung.md) — Fortbewegungs-Modi auf eine zentrale Tabelle ziehen.
 * [`konzept_editor_zerlegung.md`](concepts/konzept_editor_zerlegung.md) — `editor.ts` in Karte / Inspector / Zeitleiste / Menüs zerlegen.
 * [`konzept_player_typescript.md`](concepts/konzept_player_typescript.md) — Player-Module schrittweise von JS nach TypeScript.
-* [`konzept_renderer_labor.md`](concepts/konzept_renderer_labor.md) — Renderer-Flags als Labor begrenzen, Default-Pfad klar halten.
 * [`konzept_live_mitverfolgen.md`](concepts/konzept_live_mitverfolgen.md) — Live-Link während der App-Aufnahme; Spur und Medien in Echtzeit.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
@@ -63,4 +61,6 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 
 ### 6. `archive/` (Historie)
 Siehe [`archive/README.md`](archive/README.md). Enthält u. a. den Tool-Katalog,
-alte Luhambo-/CI-/Logo-Mockups und den Zeitleisten-Mockup-Stand vor der Umsetzung.
+alte Luhambo-/CI-/Logo-Mockups, den Zeitleisten-Mockup-Stand vor der Umsetzung und
+das [Renderer-Labor](archive/renderer-labor.md) (2026-08-11 ausgebaut — was es gab,
+was es gelehrt hat, wie man es zurückholt).
