@@ -1,0 +1,2363 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maptale Android: Entdecken, Profil, Konto (Entwurf)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   ENTWURF, nicht die echte App. Gegenstand: die Hülle der Android-App,
+   wenn „Entdecken" dazukommt und Profil/Konto den Umfang des Webs
+   bekommen.
+
+   Vorlage: echter TourenScreen/ProfilScreen/Navigation.kt (zwei Reiter,
+   Aufnahme-Knopf mittig auf der Leiste) und die Web-Seiten /konto,
+   /galerie, /@handle.
+
+   Marke nach DESIGN.md: Outfit überall, Zahlen mit tabular-nums.
+   der alte App-Screenshot (public/landing/app-liste.jpg) zeigt noch
+   Serif-Titel und Mono-Zahlen, das ist überholt.
+   ———————————————————————————————————————————————————————————————— */
+:root {
+  --bg: #090c11;
+  --bg-tief: #06080c;
+  --nacht: #06090E;
+  --nacht-bg: #0A0D14;
+  --fl-1: #10151C;
+  --fl-2: #161c25;
+  --fl-3: #1e252f;
+  --rand: #222b37;
+  --rand-hell: #2e3a49;
+  --text: #f2ede3;
+  --text-2: rgba(242, 237, 227, 0.64);
+  --text-3: rgba(242, 237, 227, 0.42);
+  --akzent: #F59E0B;
+  --akzent-2: #FF6F52;
+  --auf-cta: #1a1206;
+  --alarm: #E5484D;
+  --gruen: #38b676;
+  --font: 'Outfit', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg-tief); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.02em; }
+p { margin: 0; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ——— Seitengerüst ——— */
+.leiste-oben {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(6,8,12,.86); backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.leiste-innen {
+  max-width: 1600px; margin: 0 auto; padding: 0 40px;
+  height: 58px; display: flex; align-items: center; gap: 28px;
+}
+.leiste-marke { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; }
+.leiste-marke svg { width: 21px; height: 21px; color: var(--akzent); }
+.leiste-marke span { color: var(--text-3); font-weight: 400; }
+.sprung { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.sprung a {
+  font-size: 13px; color: var(--text-2); text-decoration: none;
+  padding: 6px 11px; border-radius: 8px;
+}
+.sprung a:hover { color: var(--text); background: rgba(255,255,255,.06); }
+
+.seite { max-width: 1600px; margin: 0 auto; padding: 0 40px 160px; }
+
+header.kopf { padding: 76px 0 0; max-width: 900px; }
+.kopf .stand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; color: var(--text-3); margin-bottom: 20px;
+}
+.kopf .stand b { color: var(--akzent); font-weight: 600; }
+.kopf h1 { font-size: 52px; line-height: 1.04; margin-bottom: 18px; letter-spacing: -0.035em; }
+.kopf .lead { font-size: 18px; color: var(--text-2); line-height: 1.6; }
+.kopf .lead b { color: var(--text); font-weight: 500; }
+
+.inhaltsblock { display: flex; flex-wrap: wrap; gap: 10px; margin: 40px 0 0; }
+.inhaltsblock a {
+  display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+  border: 1px solid var(--rand); border-radius: 4px; padding: 9px 15px 9px 12px;
+  background: var(--fl-1); transition: border-color .15s, background .15s;
+}
+.inhaltsblock a:hover { border-color: var(--akzent); background: var(--fl-2); }
+.inhaltsblock .nr {
+  font-size: 12px; font-weight: 700; color: var(--akzent);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.inhaltsblock .tt { font-size: 14.5px; color: var(--text); font-weight: 500; line-height: 1; }
+
+/* Kernsatz: Karte ohne farbigen Seitenbalken */
+.merke {
+  margin: 34px 0 0; padding: 20px 22px; max-width: 980px;
+  border: 1px solid var(--rand); border-radius: 4px; background: var(--fl-1);
+  font-size: 15px; color: var(--text-2); line-height: 1.6;
+}
+.merke b { color: var(--text); font-weight: 600; }
+.merke + .merke { margin-top: 16px; }
+
+section.akt { margin-top: 96px; scroll-margin-top: 78px; }
+.akt-kopf {
+  display: flex; align-items: baseline; gap: 16px;
+  padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.09);
+}
+.akt-nr { font-size: 13px; font-weight: 600; color: var(--akzent); letter-spacing: 0.02em; }
+.akt h2 { font-size: 30px; letter-spacing: -0.03em; }
+.akt .leit { max-width: 860px; color: var(--text-2); font-size: 16px; margin-top: 18px; line-height: 1.6; }
+
+.reihe { display: flex; gap: 36px; margin-top: 38px; flex-wrap: wrap; align-items: flex-start; }
+figure.tafel { margin: 0; width: 372px; }
+figure.tafel figcaption {
+  margin-top: 18px; font-size: 13.5px; color: var(--text-2); line-height: 1.6;
+}
+figure.tafel figcaption b { color: var(--text); font-weight: 600; }
+figure.tafel figcaption > b:first-child {
+  display: block; margin-bottom: 5px; font-size: 15px; letter-spacing: -0.015em;
+}
+figure.tafel.empfohlen .phone { box-shadow: 0 40px 80px -30px #000, 0 0 0 2px rgba(245,158,11,.5); }
+.urteil {
+  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 14px;
+  font-size: 12px; font-weight: 600; border-radius: 4px; padding: 4px 10px 4px 8px;
+  border: 1px solid var(--rand-hell); color: var(--text-2);
+}
+.urteil::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.urteil.ja { color: var(--gruen); border-color: rgba(56,182,118,.4); background: rgba(56,182,118,.07); }
+.urteil.ja::before { background: var(--gruen); }
+.urteil.nein { color: var(--alarm); border-color: rgba(229,72,77,.35); }
+.urteil.nein::before { background: var(--alarm); }
+
+/* ——— Telefon ——— */
+.phone {
+  width: 372px; height: 806px; border-radius: 46px; padding: 8px;
+  background: linear-gradient(160deg, #232a34, #10141a 60%);
+  box-shadow: 0 40px 80px -30px #000, 0 0 0 1px rgba(255,255,255,.04);
+  position: relative;
+}
+.schirm {
+  position: relative; width: 100%; height: 100%; border-radius: 38px; overflow: hidden;
+  background: var(--nacht); display: flex; flex-direction: column; font-size: 14px;
+}
+.statusleiste {
+  height: 34px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px; font-size: 12.5px; color: var(--text); font-weight: 500;
+}
+.sl-rechts { display: flex; gap: 5px; align-items: center; opacity: .85; }
+.sl-rechts svg { width: 14px; height: 14px; }
+.gestenbalken {
+  position: absolute; left: 50%; translate: -50% 0; bottom: 7px;
+  width: 116px; height: 4px; border-radius: 2px; background: rgba(242,237,227,.28);
+  z-index: 5;
+}
+.inhalt { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+/* ——— Reiterleiste ——— */
+.leiste {
+  flex: none; height: 74px; padding-bottom: 14px;
+  background: var(--nacht-bg); border-top: 1px solid rgba(255,255,255,.06);
+  display: grid; position: relative;
+}
+.leiste.zwei { grid-template-columns: 1fr 1fr; }
+.leiste.drei { grid-template-columns: repeat(3, 1fr); }
+.reiter {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 11.5px; color: var(--text-3); font-weight: 500;
+}
+.reiter svg { width: 23px; height: 23px; }
+.reiter.an { color: var(--text); }
+.reiter.an svg { color: var(--akzent); }
+
+/* Aufnahme-Knopf: heute mittig IN der Leiste */
+.knopf-mitte {
+  position: absolute; left: 50%; bottom: 26px; translate: -50% 0;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(155deg, var(--akzent), #f0a91f);
+  border: 4px solid var(--nacht); box-shadow: 0 10px 26px -8px rgba(245,158,11,.6);
+}
+
+/* FAB */
+.fab {
+  position: absolute; right: 20px; bottom: 20px; z-index: 4;
+  width: 62px; height: 62px; border-radius: 22px;
+  background: linear-gradient(155deg, var(--akzent), var(--akzent-2));
+  display: grid; place-items: center; color: var(--auf-cta);
+  box-shadow: 0 16px 34px -12px rgba(245,158,11,.75);
+}
+.fab svg { width: 27px; height: 27px; }
+.fab.breit {
+  width: auto; height: 54px; border-radius: 18px; padding: 0 20px 0 16px;
+  display: flex; align-items: center; gap: 9px;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+}
+.fab.breit svg { width: 22px; height: 22px; }
+
+/* aktiver Reiter mit Pille statt bloßer Farbe */
+.reiter .pille {
+  display: grid; place-items: center; width: 54px; height: 30px; border-radius: 999px;
+}
+.reiter.an .pille { background: rgba(245,158,11,.16); }
+
+/* ——— Laufende Aufnahme: gemeinsame Teile ——— */
+@keyframes puls {
+  0% { box-shadow: 0 0 0 0 rgba(229,72,77,.5); }
+  70% { box-shadow: 0 0 0 8px rgba(229,72,77,0); }
+  100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }
+}
+.punkt {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--alarm); flex: none;
+  animation: puls 1.8s ease-out infinite;
+}
+.lb-oben {
+  font-size: 11px; color: var(--text-2); font-weight: 500;
+  display: flex; align-items: center; gap: 7px;
+}
+.lb-zeit { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.lb-zeit .neben { font-size: 13px; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.lb-text { flex: 1; min-width: 0; }
+.spur { width: 66px; height: 26px; flex: none; opacity: .9; }
+.chev { color: var(--text-3); flex: none; }
+.chev svg { width: 18px; height: 18px; display: block; }
+.pause {
+  width: 36px; height: 36px; border-radius: 50%; flex: none;
+  background: var(--fl-3); border: 1px solid rgba(255,255,255,.08);
+  display: grid; place-items: center; color: var(--text);
+}
+.pause svg { width: 15px; height: 15px; }
+
+/* V1 angedockt: die Leiste wächst nach oben, kein zweiter Kasten */
+.dock {
+  flex: none; position: relative;
+  background: var(--nacht-bg);
+  padding: 10px 16px 11px; display: flex; align-items: center; gap: 12px;
+}
+.dock::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--alarm), var(--akzent-2) 38%, rgba(245,158,11,0) 92%);
+}
+
+/* V2 schwebende Karte mit Fahrzeug-Ring */
+.floating {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 4;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 10px 12px; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(38,26,22,.97), rgba(17,22,30,.97));
+  border: 1px solid rgba(255,255,255,.09);
+  box-shadow: 0 22px 44px -22px #000, inset 0 1px 0 rgba(255,255,255,.07);
+}
+.ring {
+  width: 40px; height: 40px; border-radius: 50%; flex: none; position: relative;
+  display: grid; place-items: center; color: var(--text);
+  background: rgba(229,72,77,.13); border: 1.5px solid rgba(229,72,77,.55);
+  animation: puls 1.8s ease-out infinite;
+}
+.ring svg { width: 21px; height: 21px; }
+
+/* V3 flaches Band, nur ein Lebenszeichen */
+.flach {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px 10px; overflow: hidden;
+  background: rgba(10,13,20,.86); backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.flach::before {
+  content: ""; position: absolute; left: 0; top: 0; height: 1.5px; width: 44%;
+  background: linear-gradient(90deg, transparent, var(--alarm), var(--akzent-2), transparent);
+  animation: wandern 3.4s linear infinite;
+}
+@keyframes wandern {
+  0% { translate: -100% 0; } 100% { translate: 240% 0; }
+}
+
+/* Zustand pausiert */
+.pausiert .punkt { background: var(--warn, #e8a13c); animation: none; }
+.pausiert .ring { background: rgba(232,161,60,.13); border-color: rgba(232,161,60,.5); animation: none; }
+.pausiert.dock::before { background: linear-gradient(90deg, #e8a13c, rgba(232,161,60,0) 70%); }
+
+/* ——— Bildschirm-Inhalte ——— */
+.liste { height: 100%; overflow: hidden; padding: 6px 16px 0; display: flex; flex-direction: column; gap: 14px; }
+.schirmkopf {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 8px 4px 2px;
+}
+.schirmkopf h3 { font-size: 25px; letter-spacing: -0.025em; }
+.schirmkopf .neben { font-size: 12.5px; color: var(--text-3); }
+
+.karte { border-radius: 16px; overflow: hidden; position: relative; flex: none; background: var(--fl-1); }
+.karte img { width: 100%; height: 168px; object-fit: cover; display: block; }
+.karte .schleier {
+  position: absolute; inset: auto 0 0 0; height: 96px;
+  background: linear-gradient(to top, rgba(6,9,14,.92), transparent);
+}
+.karte .titel {
+  position: absolute; left: 14px; right: 14px; bottom: 11px;
+}
+.karte .titel .t { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.karte .titel .u { font-size: 12.5px; color: rgba(242,237,227,.72); margin-top: 1px; }
+
+/* Autorzeile in Entdecken */
+.autor { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+.autor .av {
+  width: 20px; height: 20px; border-radius: 50%; flex: none;
+  background: linear-gradient(140deg, var(--akzent), var(--akzent-2));
+}
+.autor .h { font-size: 12.5px; color: var(--text-2); font-weight: 500; }
+
+.filter { display: flex; gap: 7px; padding: 2px 4px 0; flex: none; }
+.chip {
+  font-size: 12.5px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--rand-hell); color: var(--text-2);
+}
+.chip.an { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.45); color: var(--text); }
+
+/* Profil */
+.banner { position: relative; height: 152px; flex: none; }
+.banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.banner .verlauf { position: absolute; inset: 0; background: linear-gradient(to top, var(--nacht) 4%, transparent 70%); }
+.banner .zahnrad, .banner .zurueck {
+  position: absolute; top: 12px; width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(6,9,14,.5); backdrop-filter: blur(6px);
+  display: grid; place-items: center; color: var(--text);
+}
+.banner .zahnrad { right: 14px; }
+.banner .zurueck { left: 14px; }
+.banner .zahnrad svg, .banner .zurueck svg { width: 19px; height: 19px; }
+
+.profilkopf { padding: 0 18px; margin-top: -34px; position: relative; }
+.avatar {
+  width: 74px; height: 74px; border-radius: 50%;
+  border: 3px solid var(--nacht); background: linear-gradient(140deg, var(--akzent), var(--akzent-2));
+  display: grid; place-items: center; font-size: 27px; font-weight: 600; color: var(--auf-cta);
+}
+.profilkopf .name { font-size: 22px; font-weight: 600; margin-top: 10px; letter-spacing: -0.02em; }
+.profilkopf .handle { font-size: 13.5px; color: var(--text-3); }
+.kennzahlen {
+  display: flex; gap: 22px; margin-top: 14px; padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.kennzahl .w { font-size: 18px; font-weight: 600; }
+.kennzahl .b { font-size: 11.5px; color: var(--text-3); }
+.gitter { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 14px 18px 0; }
+.gitter .zelle { border-radius: 12px; overflow: hidden; position: relative; background: var(--fl-1); }
+.gitter .zelle img { width: 100%; height: 96px; object-fit: cover; display: block; }
+.gitter .zelle .z-t {
+  position: absolute; left: 8px; right: 8px; bottom: 6px; font-size: 12px; font-weight: 600;
+  text-shadow: 0 1px 6px rgba(0,0,0,.8);
+}
+.folgen {
+  margin: 14px 18px 0; padding: 9px 0; text-align: center; border-radius: 999px;
+  border: 1px solid var(--rand-hell); font-size: 13.5px; font-weight: 500; color: var(--text);
+}
+
+/* Gerätezeilen im Profil */
+.geraetblock { margin: 18px 18px 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.07); }
+.geraetblock .ueber { font-size: 11.5px; color: var(--text-3); margin-bottom: 8px; }
+.zeile {
+  display: flex; align-items: center; gap: 12px; padding: 11px 0;
+}
+.zeile + .zeile { border-top: 1px solid rgba(255,255,255,.05); }
+.zeile .z-text { flex: 1; min-width: 0; }
+.zeile .z-t { font-size: 14px; }
+.zeile .z-u { font-size: 11.5px; color: var(--text-3); }
+.zeile svg.li { width: 19px; height: 19px; color: var(--text-3); flex: none; }
+.schalter {
+  width: 40px; height: 23px; border-radius: 999px; background: var(--fl-3); position: relative; flex: none;
+}
+.schalter::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px;
+  border-radius: 50%; background: var(--text-3);
+}
+.schalter.an { background: rgba(245,158,11,.4); }
+.schalter.an::after { left: 20px; background: var(--akzent); }
+
+/* Native Kopfzeile über dem WebView */
+.appkopf {
+  flex: none; height: 54px; display: flex; align-items: center; gap: 12px;
+  padding: 0 8px 0 14px; border-bottom: 1px solid rgba(255,255,255,.06);
+  background: var(--nacht-bg);
+}
+.appkopf svg { width: 21px; height: 21px; }
+.appkopf .t { font-size: 16.5px; font-weight: 600; letter-spacing: -0.015em; }
+
+.web { padding: 16px 18px 0; height: 100%; overflow: hidden; }
+.nativ-zeile {
+  position: relative; padding-left: 8px; padding-right: 8px;
+  border: 1px dashed rgba(245,158,11,.45); border-radius: 10px; margin-top: 4px;
+}
+.nativ-zeile::after {
+  content: "öffnet nativ"; position: absolute; right: 8px; top: -8px;
+  font-size: 9.5px; font-weight: 600; color: var(--akzent);
+  background: var(--nacht); padding: 0 5px; border-radius: 4px;
+}
+.naht {
+  position: absolute; left: 0; right: 0; top: 88px; height: 0;
+  border-top: 1px dashed rgba(245,158,11,.5); z-index: 6;
+}
+.naht span {
+  position: absolute; right: 10px; top: -9px; font-size: 10px; font-weight: 600;
+  color: var(--akzent); background: var(--nacht); padding: 0 6px; border-radius: 4px;
+}
+.balken { height: 9px; border-radius: 999px; background: var(--fl-2); overflow: hidden; display: flex; }
+.balken i { display: block; height: 100%; }
+.legende { display: flex; gap: 14px; margin-top: 10px; font-size: 11.5px; color: var(--text-2); flex-wrap: wrap; }
+.legende span { display: inline-flex; align-items: center; gap: 5px; }
+.legende i { width: 8px; height: 8px; border-radius: 2px; display: block; }
+.abschnitt { font-size: 11.5px; color: var(--text-3); margin: 20px 0 2px; }
+
+/* Skelett */
+.sk { background: var(--fl-2); border-radius: 8px; }
+.sk.a { animation: atmen 1.5s ease-in-out infinite; }
+@keyframes atmen { 0%,100% { opacity: .55 } 50% { opacity: .95 } }
+
+/* ——— Knöpfe, Felder, Onboarding ——— */
+.knopf-1 {
+  display: block; text-align: center; padding: 13px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--akzent), var(--akzent-2));
+  color: var(--auf-cta); font-weight: 600; font-size: 15px;
+  box-shadow: 0 14px 30px -14px rgba(245,158,11,.8);
+}
+.knopf-2 {
+  display: block; text-align: center; padding: 12px; border-radius: 14px;
+  border: 1px solid var(--rand-hell); color: var(--text); font-weight: 500; font-size: 14.5px;
+}
+.knopf-3 { display: block; text-align: center; padding: 9px; color: var(--text-2); font-size: 13.5px; }
+.feld-label { font-size: 11.5px; color: var(--text-3); margin: 12px 0 5px; }
+.feld {
+  background: var(--fl-1); border: 1px solid var(--rand); border-radius: 12px;
+  padding: 11px 13px; font-size: 14px; color: var(--text-3);
+  display: flex; align-items: center; gap: 8px;
+}
+.feld.voll { color: var(--text); border-color: var(--rand-hell); }
+.feld .auge { margin-left: auto; color: var(--text-3); }
+.feld .auge svg { width: 17px; height: 17px; display: block; }
+.pw-bahn { display: flex; gap: 4px; margin-top: 7px; }
+.pw-bahn i { flex: 1; height: 4px; border-radius: 2px; background: var(--fl-3); }
+.pw-rat { font-size: 11.5px; color: var(--text-2); margin-top: 6px; }
+
+/* Szenen über dem Bühnenbild */
+.szene { position: absolute; inset: 0; }
+.szene > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pinfoto {
+  position: absolute; width: 46px; height: 46px; border-radius: 50%; overflow: hidden;
+  border: 2px solid rgba(242,237,227,.92); box-shadow: 0 10px 22px -8px #000;
+  translate: -50% -50%;
+}
+.pinfoto img { width: 100%; height: 100%; object-fit: cover; }
+.pinnr {
+  position: absolute; width: 30px; height: 30px; border-radius: 50%; translate: -50% -50%;
+  background: var(--akzent); color: var(--auf-cta); display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; box-shadow: 0 10px 22px -8px #000;
+}
+.aufnahme-hud {
+  position: absolute; top: 16px; left: 22px;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(10,13,20,.7); backdrop-filter: blur(8px);
+  border: 1px solid rgba(229,72,77,.4); border-radius: 999px; padding: 7px 14px 7px 11px;
+  font-size: 12.5px; font-weight: 500;
+}
+.bildkarte {
+  position: absolute; width: 62px; height: 46px; border-radius: 8px; overflow: hidden;
+  border: 1.5px solid rgba(242,237,227,.85); box-shadow: 0 10px 22px -10px #000;
+}
+.bildkarte img { width: 100%; height: 100%; object-fit: cover; }
+
+.kette { position: absolute; left: 26px; right: 26px; top: 96px; }
+.kette-reihe { display: flex; align-items: center; justify-content: space-between; }
+.knoten {
+  width: 62px; height: 62px; border-radius: 20px; flex: none; display: grid; place-items: center;
+  background: rgba(10,13,20,.72); border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(8px); color: var(--text);
+}
+.knoten.stark { background: linear-gradient(150deg, var(--akzent), var(--akzent-2)); color: var(--auf-cta); border-color: transparent; }
+.knoten svg { width: 27px; height: 27px; }
+.faden { flex: 1; height: 2px; background: repeating-linear-gradient(90deg, rgba(245,158,11,.75) 0 6px, transparent 6px 12px); margin: 0 8px; }
+.kette-worte { display: flex; justify-content: space-between; margin-top: 10px; }
+.kette-worte span { font-size: 11.5px; color: var(--text-2); width: 62px; text-align: center; }
+
+.laptop {
+  position: absolute; left: 32px; right: 32px; top: 104px;
+  border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,.16);
+  background: #0b0f15; box-shadow: 0 26px 50px -20px #000;
+}
+.laptop .lt-kopf { height: 22px; display: flex; align-items: center; gap: 5px; padding: 0 9px; background: #121821; }
+.laptop .lt-kopf i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.22); }
+.laptop .lt-kopf b { margin-left: 8px; font-size: 9.5px; font-weight: 500; color: var(--text-3); }
+.laptop .lt-leib { padding: 10px; }
+.spurzeile { display: flex; gap: 4px; height: 15px; margin-bottom: 6px; }
+.klip { border-radius: 3px; height: 100%; }
+.laptop .lt-fuss { height: 8px; background: #121821; border-top: 1px solid rgba(255,255,255,.08); }
+.laptop-sockel {
+  position: absolute; left: 20px; right: 20px; height: 7px; border-radius: 0 0 8px 8px;
+  background: linear-gradient(180deg, #1b2230, #0d1219);
+}
+
+.buehne { position: absolute; inset: 0; }
+.buehne > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.buehne .dunkel {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, var(--nacht) 22%, rgba(6,9,14,.35) 62%, rgba(6,9,14,.55));
+}
+.buehne .worte { position: absolute; left: 26px; right: 26px; bottom: 116px; }
+.buehne .worte h4 { font-size: 27px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+.buehne .worte p { font-size: 14.5px; color: var(--text-2); margin-top: 9px; line-height: 1.5; }
+.punkte { position: absolute; left: 0; right: 0; bottom: 84px; display: flex; gap: 6px; justify-content: center; }
+.punkte i { width: 6px; height: 6px; border-radius: 50%; background: rgba(242,237,227,.28); }
+.punkte i.an { width: 18px; border-radius: 3px; background: var(--akzent); }
+.fussknopf { position: absolute; left: 22px; right: 22px; bottom: 26px; }
+.ueberspringen { position: absolute; right: 20px; top: 6px; font-size: 13px; color: var(--text-2); }
+
+.formular { padding: 18px 22px 0; height: 100%; overflow: hidden; }
+.formular h4 { font-size: 23px; font-weight: 600; letter-spacing: -0.025em; }
+.formular .unter { font-size: 13.5px; color: var(--text-2); margin-top: 6px; line-height: 1.5; }
+
+.auswahlzeile { display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+.auswahlzeile + .auswahlzeile { border-top: 1px solid rgba(255,255,255,.05); }
+.box {
+  width: 21px; height: 21px; border-radius: 7px; flex: none;
+  border: 1.5px solid var(--rand-hell); display: grid; place-items: center; color: var(--auf-cta);
+}
+.box.an { background: var(--akzent); border-color: var(--akzent); }
+.box svg { width: 13px; height: 13px; }
+.az-text { flex: 1; min-width: 0; }
+.az-t { font-size: 14px; font-weight: 500; }
+.az-u { font-size: 11.5px; color: var(--text-3); }
+.az-bild { width: 44px; height: 34px; border-radius: 8px; object-fit: cover; flex: none; }
+
+.info-karte {
+  border: 1px solid var(--rand); border-radius: 14px; padding: 13px 14px;
+  background: linear-gradient(160deg, rgba(26,34,45,.6), rgba(9,12,17,.5));
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.info-karte .kopf-i { font-size: 13.5px; font-weight: 600; }
+.info-karte .text-i { font-size: 12px; color: var(--text-2); margin-top: 3px; line-height: 1.45; }
+.info-karte .sinn { width: 32px; height: 32px; border-radius: 10px; flex: none; display: grid; place-items: center;
+  background: rgba(245,158,11,.14); color: var(--akzent); }
+.info-karte .sinn svg { width: 18px; height: 18px; }
+
+/* ——— Überblickstabelle ——— */
+.tabelle { margin-top: 34px; border: 1px solid var(--rand); border-radius: 4px; overflow: hidden; max-width: 1160px; }
+.tz { display: grid; grid-template-columns: 250px 130px 1fr; gap: 0; }
+.tz + .tz { border-top: 1px solid rgba(255,255,255,.07); }
+.tz > div { padding: 14px 18px; font-size: 14px; }
+.tz.kopfzeile > div {
+  font-size: 11.5px; color: var(--text-3); font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; background: var(--fl-1);
+}
+.tz .was { font-weight: 500; }
+.tz .warum { color: var(--text-2); font-size: 13.5px; }
+.herkunft {
+  display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
+  white-space: nowrap; line-height: 1.5;
+}
+.herkunft-nativ { color: var(--akzent); background: rgba(245,158,11,.12); }
+.herkunft-web { color: #7fb2ff; background: rgba(91,157,255,.12); }
+.herkunft-tab { color: var(--gruen); background: rgba(56,182,118,.12); }
+
+.offen { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 20px; margin-top: 28px; max-width: 1160px; }
+.offen > div { border: 1px solid var(--rand); border-radius: 4px; padding: 18px 20px; background: var(--fl-1); }
+.offen .frage { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.offen .dazu { font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
+
+.gegen { display: flex; gap: 34px; flex-wrap: wrap; margin-top: 34px; }
+.notiz {
+  width: 372px; font-size: 13.5px; color: var(--text-2); line-height: 1.6;
+  border: 1px solid var(--rand); border-radius: 4px; padding: 18px 20px; background: var(--fl-1);
+}
+.notiz > b:first-child {
+  display: block; color: var(--text); font-size: 15px; font-weight: 600;
+  letter-spacing: -0.015em; margin-bottom: 7px;
+}
+.notiz b { color: var(--text); font-weight: 600; }
+.notiz ul { margin: 10px 0 0; padding-left: 0; list-style: none; }
+.notiz li { margin-bottom: 9px; padding-left: 15px; position: relative; }
+.notiz li::before {
+  content: ""; position: absolute; left: 0; top: 8px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--akzent); opacity: .7;
+}
+.notiz li:last-child { margin-bottom: 0; }
+
+/* ————————————————————————————————————————————————————————————————
+   Schmale Bildschirme. Die Telefone haben feste Innenmaße (372 px),
+   deshalb werden sie als Ganzes verkleinert: `zoom` statt `transform`,
+   weil zoom auch den belegten Platz mitnimmt und darunter nichts
+   überlappt.
+   ———————————————————————————————————————————————————————————————— */
+@media (max-width: 1000px) {
+  .leiste-innen { padding: 0 20px; }
+  .seite { padding: 0 20px 100px; }
+  .kopf { padding-top: 52px; }
+  .kopf h1 { font-size: 38px; }
+  .kopf .lead { font-size: 16.5px; }
+  section.akt { margin-top: 68px; }
+  .akt h2 { font-size: 25px; }
+  .reihe, .gegen { gap: 28px; }
+  .tz { grid-template-columns: 200px 118px 1fr; }
+}
+
+/* Tablet-Hochformat: zwei Telefone passen nur nebeneinander, wenn sie
+   ein Stück kleiner werden. Sonst steht eine Spalte neben viel Leerraum. */
+@media (min-width: 640px) and (max-width: 1000px) {
+  .phone { zoom: 0.88; }
+  figure.tafel, .notiz { width: 328px; }
+}
+
+@media (max-width: 720px) {
+  .sprung { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: 16px; }
+  .sprung::-webkit-scrollbar { display: none; }
+  .sprung a { white-space: nowrap; padding: 6px 9px; }
+  .leiste-marke span { display: none; }
+
+  /* Überblick: aus der Tabelle werden gestapelte Karten */
+  .tz { grid-template-columns: 1fr; gap: 4px; }
+  .tz.kopfzeile { display: none; }
+  .tz > div { padding: 4px 16px; }
+  .tz > div:first-child { padding-top: 14px; }
+  .tz > div:last-child { padding-bottom: 14px; }
+}
+
+@media (max-width: 560px) {
+  .seite { padding: 0 16px 80px; }
+  .kopf { padding-top: 40px; }
+  .kopf h1 { font-size: 31px; letter-spacing: -0.03em; }
+  .kopf .lead { font-size: 15.5px; }
+  .akt h2 { font-size: 22px; }
+  .akt-kopf { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .akt .leit { font-size: 15px; }
+  .merke { padding: 16px 18px; font-size: 14.5px; }
+  .reihe, .gegen { gap: 34px; }
+
+  figure.tafel, .notiz { width: 100%; max-width: 372px; }
+  figure.tafel figcaption { font-size: 14px; }
+  .notiz { font-size: 14px; }
+  .inhaltsblock { gap: 8px; }
+  .inhaltsblock a { padding: 8px 12px 8px 10px; }
+  .inhaltsblock .tt { font-size: 13.5px; }
+}
+
+/* Ein Telefon ist 372 px breit und passt bis zu einem Fenster von 404 px.
+   Darunter wird es gestuft verkleinert; `zoom` nimmt den belegten Platz mit,
+   deshalb rutscht die Bildunterschrift korrekt nach. calc() ist hier nicht
+   verlässlich, feste Stufen schon. */
+@media (max-width: 404px) { .phone { zoom: 0.96 } .kopf h1 { font-size: 27px } }
+@media (max-width: 392px) { .phone { zoom: 0.93 } }
+@media (max-width: 378px) { .phone { zoom: 0.90 } }
+@media (max-width: 366px) { .phone { zoom: 0.86 } }
+@media (max-width: 350px) { .phone { zoom: 0.81 } }
+@media (max-width: 330px) { .phone { zoom: 0.76 } }
+</style>
+</head>
+<body>
+<div class="leiste-oben">
+  <div class="leiste-innen">
+    <span class="leiste-marke">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+      Maptale <span>Android-Entwurf</span>
+    </span>
+    <nav class="sprung">
+      <a href="#akt1">1 Aufnahme-Knopf</a>
+      <a href="#akt2">2 Laufende Aufnahme</a>
+      <a href="#akt3">3 Profil und Konto</a>
+      <a href="#akt4">4 Entdecken</a>
+      <a href="#akt5">5 Touren von der Uhr</a>
+      <a href="#akt6">6 Erster Start</a>
+      <a href="#ueberblick">Überblick</a>
+    </nav>
+  </div>
+</div>
+
+<div class="seite">
+
+<header class="kopf">
+  <div class="stand"><b>Entwurf</b> · 11. August 2026 · noch nicht gebaut</div>
+  <h1>Die App bekommt Entdecken, Profil und Konto</h1>
+  <p class="lead">
+    Die Web-Oberfläche kann inzwischen deutlich mehr als die App: öffentliche Profile, vollständige
+    Kontoeinstellungen, eine Galerie aller öffentlichen Touren. Diese Seite zeigt, wie das auf dem
+    Telefon aussieht, was nativ gebaut wird und was die App aus dem Web einbettet.
+  </p>
+  <div class="inhaltsblock">
+    <a href="#akt1"><span class="nr">01</span><span class="tt">Wohin mit dem Aufnahme-Knopf</span></a>
+    <a href="#akt2"><span class="nr">02</span><span class="tt">Die laufende Aufnahme</span></a>
+    <a href="#akt3"><span class="nr">03</span><span class="tt">Profil und Kontoeinstellungen</span></a>
+    <a href="#akt4"><span class="nr">04</span><span class="tt">Entdecken und fremde Profile</span></a>
+    <a href="#akt5"><span class="nr">05</span><span class="tt">Welche Touren von der Uhr kommen</span></a>
+    <a href="#akt6"><span class="nr">06</span><span class="tt">Der erste Start</span></a>
+    <a href="#ueberblick"><span class="nr">07</span><span class="tt">Überblick: nativ, Web, offene Fragen</span></a>
+  </div>
+</header>
+
+<!-- ————————————————————————————————————————————— AKT 1 -->
+<section class="akt" id="akt1">
+  <div class="akt-kopf"><span class="akt-nr">Akt 1</span><h2>Wohin mit dem Aufnahme-Knopf</h2></div>
+  <p class="leit">
+    Die Leiste hat heute zwei Reiter, dazwischen den Aufnahme-Knopf. Er ist kein dritter Reiter, sondern startet etwas. Mit „Entdecken" verliert er seine Mitte.
+  </p>
+  <div class="merke">
+    <b>Kontoeinstellungen werden kein Reiter.</b> Im Web stehen Profil und Kontoeinstellungen
+    zusammen in einem Menü. In der App wird das Profil ein Reiter, die Einstellungen erreicht man
+    über ein Zahnrad darin. Ein Dauerplatz in der Leiste wäre an einen Bereich vergeben, den man
+    zweimal im Jahr öffnet.
+  </div>
+
+  <div class="reihe">
+
+    <!-- HEUTE -->
+    <figure class="tafel">
+      <span class="urteil">Heute</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf"><h3>Touren</h3><span class="neben tnum">3</span></div>
+            <div class="karte">
+              <img src="landing/card-phangan.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Koh Pha-ngan</div><div class="u tnum">41,1 km · 8. Nov. 2025</div></div>
+            </div>
+            <div class="karte">
+              <img src="landing/card-oberland.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Berner Oberland</div><div class="u tnum">16,3 km · 4. Okt. 2025</div></div>
+            </div>
+            <div class="karte">
+              <img src="landing/card-stockholm.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Stockholmer Schären</div><div class="u tnum">24,2 km · 24. Aug. 2025</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="leiste zwei">
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+          <div class="knopf-mitte"></div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Zwei Reiter, Knopf in der Mitte</b>
+        Die Mitte ist eine Aussage: links das Eigene, rechts die Person, dazwischen die Handlung. Ein
+        dritter Reiter nimmt ihr diese Stelle.
+      </figcaption>
+    </figure>
+
+    <!-- VARIANTE A -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">Variante A · gewählt</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf"><h3>Touren</h3><span class="neben tnum">3</span></div>
+            <div class="karte">
+              <img src="landing/card-phangan.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Koh Pha-ngan</div><div class="u tnum">41,1 km · 8. Nov. 2025</div></div>
+            </div>
+            <div class="karte">
+              <img src="landing/card-oberland.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Berner Oberland</div><div class="u tnum">16,3 km · 4. Okt. 2025</div></div>
+            </div>
+            <div class="karte">
+              <img src="landing/card-stockholm.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Stockholmer Schären</div><div class="u tnum">24,2 km · 24. Aug. 2025</div></div>
+            </div>
+          </div>
+          <div class="fab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Drei Reiter, Knopf als FAB</b>
+        Der Knopf verlässt die Leiste und wird, was er ist: eine Handlung über dem Inhalt. Er liegt nur
+        im Touren-Reiter.
+      </figcaption>
+    </figure>
+
+    <!-- A VERFEINERT -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">A · verfeinert</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf"><h3>Touren</h3><span class="neben tnum">3</span></div>
+            <div class="karte">
+              <img src="landing/card-phangan.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Koh Pha-ngan</div><div class="u tnum">41,1 km · 8. Nov. 2025</div></div>
+            </div>
+            <div class="karte">
+              <img src="landing/card-oberland.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Berner Oberland</div><div class="u tnum">16,3 km · 4. Okt. 2025</div></div>
+            </div>
+            <div class="karte" style="margin-bottom:78px">
+              <img src="landing/card-stockholm.jpg" alt="" />
+              <div class="schleier"></div>
+              <div class="titel"><div class="t">Stockholmer Schären</div><div class="u tnum">24,2 km · 24. Aug. 2025</div></div>
+            </div>
+          </div>
+          <div class="fab breit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.5 19c3-1.5 4.5-4 6-7s3-5.5 6-7"/>
+              <circle cx="4.5" cy="19" r="2.2" fill="currentColor" stroke="none"/>
+              <circle cx="16.5" cy="5" r="2.8"/>
+            </svg>
+            Aufnehmen
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter an">
+            <span class="pille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg></span>
+            Touren
+          </div>
+          <div class="reiter">
+            <span class="pille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg></span>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <span class="pille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg></span>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Drei Nachbesserungen</b>
+        Der Knopf trägt das Wort „Aufnehmen" und schrumpft beim Scrollen auf das Icon. Das Icon ist kein
+        Plus mehr, sondern eine Strecke mit Start und Ziel; „+" heißt hinzufügen, und das gibt es seit
+        Akt 5 auch für Touren von der Uhr. Der aktive Reiter trägt eine Pille, die auch bei
+        Sonnenlicht erkennbar bleibt.
+      </figcaption>
+    </figure>
+
+  </div>
+
+  <div class="merke" style="margin-top: 40px">
+    <b>Der eigentliche Gewinn liegt nicht im Knopf, sondern im zweiten Teil seines Auftrags.</b>
+    Heute führt er während einer laufenden Aufnahme zu ihr zurück. Das kann er nur, solange man ihn
+    sieht. Ein FAB im Touren-Reiter sieht man aus „Entdecken" heraus nicht. Der bessere Griff dafür
+    ist ohnehin ein anderer: Akt 2.
+  </div>
+</section>
+
+<!-- ————————————————————————————————————————————— AKT 2 -->
+<section class="akt" id="akt2">
+  <div class="akt-kopf"><span class="akt-nr">Akt 2</span><h2>Die laufende Aufnahme</h2></div>
+  <p class="leit">
+    Solange aufgezeichnet wird, liegt ein Streifen über der Leiste, in <b>jedem</b> Reiter. Er zeigt
+    Dauer und Kilometer und führt zurück in die Aufzeichnung.
+  </p>
+
+  <div class="reihe">
+
+    <!-- V1 ANGEDOCKT -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">V1 · angedockt</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">14:38</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf"><h3>Entdecken</h3></div>
+            <div class="filter">
+              <span class="chip an">Neu</span><span class="chip">Beliebt</span><span class="chip">In der Nähe</span>
+            </div>
+            <div>
+              <div class="karte">
+                <img src="tourbilder/lissabon.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel"><div class="t">Alfama bei Sonnenuntergang</div><div class="u tnum">7,4 km · Lissabon</div></div>
+              </div>
+              <div class="autor"><span class="av"></span><span class="h">@marta</span></div>
+            </div>
+            <div>
+              <div class="karte">
+                <img src="tourbilder/stockholm.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel"><div class="t">Schären im Nebel</div><div class="u tnum">24,2 km · Stockholm</div></div>
+              </div>
+              <div class="autor"><span class="av"></span><span class="h">@henrik</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="dock">
+          <span class="lb-text">
+            <span class="lb-oben"><span class="punkt"></span>Aufzeichnung · Rad</span>
+            <span class="lb-zeit tnum" style="display:block">0:47:12 <span class="neben">· 3,3 km</span></span>
+          </span>
+          <svg class="spur" viewBox="0 0 70 26" fill="none" aria-hidden="true">
+            <path d="M2 21C9 16 12 20 19 13S32 4 40 10s9 11 25 2" stroke="url(#sp1)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="66" cy="11" r="3.2" fill="#FF6F52"/>
+            <circle cx="66" cy="11" r="6.5" fill="#FF6F52" fill-opacity=".2"/>
+            <defs><linearGradient id="sp1" x1="2" y1="21" x2="66" y2="11" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#E5484D" stop-opacity=".35"/><stop offset="1" stop-color="#FF6F52"/></linearGradient></defs>
+          </svg>
+          <span class="chev">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          </span>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Ein Block statt zwei Kästen</b>
+        Der Streifen sitzt auf der Leiste, ohne eigenen Rahmen. Der Lichtstrich oben ist das
+        Lebenszeichen, die Linie rechts die eigene Spur. Er verdeckt nichts, sondern schiebt die Liste
+        hoch.
+      </figcaption>
+    </figure>
+
+    <!-- V2 SCHWEBENDE KARTE -->
+    <figure class="tafel">
+      <span class="urteil">V2 · schwebende Karte</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">14:38</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf"><h3>Entdecken</h3></div>
+            <div class="filter">
+              <span class="chip an">Neu</span><span class="chip">Beliebt</span><span class="chip">In der Nähe</span>
+            </div>
+            <div>
+              <div class="karte">
+                <img src="tourbilder/lissabon.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel"><div class="t">Alfama bei Sonnenuntergang</div><div class="u tnum">7,4 km · Lissabon</div></div>
+              </div>
+              <div class="autor"><span class="av"></span><span class="h">@marta</span></div>
+            </div>
+            <div>
+              <div class="karte">
+                <img src="tourbilder/stockholm.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel"><div class="t">Schären im Nebel</div><div class="u tnum">24,2 km · Stockholm</div></div>
+              </div>
+              <div class="autor"><span class="av"></span><span class="h">@henrik</span></div>
+            </div>
+          </div>
+          <div class="floating">
+            <span class="ring">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M5.5 17.5l4-9h5l-3 9M9.5 8.5h5.5l3 9"/></svg>
+            </span>
+            <span class="lb-text">
+              <span class="lb-oben">Aufzeichnung läuft</span>
+              <span class="lb-zeit tnum" style="display:block">0:47:12 <span class="neben">· 3,3 km</span></span>
+            </span>
+            <span class="pause">
+              <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+            </span>
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Mit Griff zum Pausieren</b>
+        Der pulsende Ring zeigt das Fortbewegungsmittel. Der Preis ist ein zweiter Kasten über der
+        Leiste und ein zweites Ziel im selben Griff: Pause und „dorthin" liegen nebeneinander.
+      </figcaption>
+    </figure>
+
+    <!-- V3 FLACHES BAND -->
+    <figure class="tafel">
+      <span class="urteil">V3 · flaches Band</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">14:38</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf"><h3>Entdecken</h3></div>
+            <div class="filter">
+              <span class="chip an">Neu</span><span class="chip">Beliebt</span><span class="chip">In der Nähe</span>
+            </div>
+            <div>
+              <div class="karte">
+                <img src="tourbilder/lissabon.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel"><div class="t">Alfama bei Sonnenuntergang</div><div class="u tnum">7,4 km · Lissabon</div></div>
+              </div>
+              <div class="autor"><span class="av"></span><span class="h">@marta</span></div>
+            </div>
+            <div>
+              <div class="karte">
+                <img src="tourbilder/stockholm.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel"><div class="t">Schären im Nebel</div><div class="u tnum">24,2 km · Stockholm</div></div>
+              </div>
+              <div class="autor"><span class="av"></span><span class="h">@henrik</span></div>
+            </div>
+          </div>
+          <div class="flach">
+            <span class="punkt"></span>
+            <span class="lb-text" style="font-size:13px">
+              <b style="font-weight:600">Aufzeichnung</b>
+              <span class="tnum" style="color:var(--text-2)"> · 0:47:12 · 3,3 km</span>
+            </span>
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>So leise wie möglich</b>
+        Eine Zeile Glas mit wanderndem Lichtstrich. Braucht am wenigsten Platz und wird am ehesten
+        übersehen. Als Rückfall für kleine Bildschirme brauchbar.
+      </figcaption>
+    </figure>
+
+  </div>
+
+  <div class="gegen">
+    <figure class="tafel">
+      <span class="urteil">V1 · pausiert</span>
+      <div class="phone" style="height: 300px">
+        <div class="schirm" style="justify-content: flex-end">
+          <div class="dock pausiert">
+            <span class="lb-text">
+              <span class="lb-oben"><span class="punkt"></span>Pausiert · seit 2 Min</span>
+              <span class="lb-zeit tnum" style="display:block">0:47:12 <span class="neben">· 3,3 km</span></span>
+            </span>
+            <svg class="spur" viewBox="0 0 70 26" fill="none" aria-hidden="true">
+              <path d="M2 21C9 16 12 20 19 13S32 4 40 10s9 11 25 2" stroke="rgba(232,161,60,.45)" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="66" cy="11" r="3.2" fill="#e8a13c"/>
+            </svg>
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </span>
+          </div>
+          <div class="leiste drei">
+            <div class="reiter">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+              Touren
+            </div>
+            <div class="reiter an">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+              Entdecken
+            </div>
+            <div class="reiter">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+              Profil
+            </div>
+          </div>
+          <div class="gestenbalken"></div>
+        </div>
+      </div>
+      <figcaption>
+        <b>Der Zustand steckt in der Farbe</b>
+        Bernstein statt rot, der Punkt hört auf zu pulsen. Dazu das Wort und wie lange schon, sonst
+        bleibt offen, ob man gerade selbst pausiert hat.
+      </figcaption>
+    </figure>
+
+    <div class="notiz">
+      <b>Warum nicht die Benachrichtigung?</b>
+      Die gibt es weiterhin, sie bleibt der Weg von außerhalb der App. Innerhalb zieht niemand die
+      Systemleiste herunter, um zur eigenen Fahrt zurückzukommen.
+      <ul>
+        <li><b>Er ersetzt keinen Zustand.</b> Dauer und Kilometer stehen auch im Aufzeichnungs-Screen.</li>
+        <li><b>Die Spur ist echt</b>, dieselben Punkte wie auf der Karte. Eine erfundene Wellenlinie
+        fiele beim ersten Vergleich auf.</li>
+        <li><b>Ein Griff, ein Ziel.</b> Ein Pause-Knopf spart einen Tipp und kostet den klaren Satz
+        „tippen führt zur Aufzeichnung".</li>
+      </ul>
+    </div>
+
+    <div class="notiz">
+      <b>Was beim Erscheinen passiert</b>
+      Er schiebt sich von unten heraus und drückt die Liste hoch, statt sie zu überdecken. Kein Ein-
+      und Ausblenden: Ein Element, das an derselben Stelle erscheint und verschwindet, wirkt wie ein
+      Fehler.
+    </div>
+  </div>
+</section>
+
+<!-- ————————————————————————————————————————————— AKT 3 -->
+<section class="akt" id="akt3">
+  <div class="akt-kopf"><span class="akt-nr">Akt 3</span><h2>Profil und Kontoeinstellungen</h2></div>
+  <p class="leit">
+    Der Reiter zeigt die eigene Seite so, wie andere sie sehen: Titelbild, Handle, Kennzahlen aus
+    öffentlichen Touren, Kachelgitter. Oben rechts führt das Zahnrad in die Kontoeinstellungen.
+  </p>
+
+  <div class="reihe">
+
+    <!-- EIGENES PROFIL -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">Reiter „Profil" · eigenes</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt" style="overflow:hidden">
+          <div class="banner">
+            <img src="titelbilder/serpentinen.jpg" alt="" />
+            <div class="verlauf"></div>
+            <div class="zahnrad">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 009 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1A1.6 1.6 0 004.6 9a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
+            </div>
+          </div>
+          <div class="profilkopf">
+            <div class="avatar">H</div>
+            <div class="name">Henrik</div>
+            <div class="handle">@henrik</div>
+            <div class="kennzahlen">
+              <div class="kennzahl"><div class="w tnum">7</div><div class="b">Reisen</div></div>
+              <div class="kennzahl"><div class="w tnum">312</div><div class="b">Kilometer</div></div>
+              <div class="kennzahl"><div class="w tnum">4</div><div class="b">Länder</div></div>
+            </div>
+          </div>
+          <div class="gitter">
+            <div class="zelle"><img src="landing/card-phangan.jpg" alt="" /><div class="z-t">Koh Pha-ngan</div></div>
+            <div class="zelle"><img src="landing/card-oberland.jpg" alt="" /><div class="z-t">Berner Oberland</div></div>
+            <div class="zelle"><img src="landing/card-stockholm.jpg" alt="" /><div class="z-t">Schären</div></div>
+            <div class="zelle"><img src="tourbilder/lissabon.jpg" alt="" /><div class="z-t">Alfama</div></div>
+            <div class="zelle"><img src="tourbilder/kohphangan.jpg" alt="" /><div class="z-t">Inselrunde</div></div>
+            <div class="zelle"><img src="landing/card-oberland.jpg" alt="" /><div class="z-t">Lauterbrunnen</div></div>
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+            Entdecken
+          </div>
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Nativ, weil es eine Kachelliste ist</b>
+        Dieselben Kacheln wie in Entdecken, derselbe Bild-Cache. Sonst nichts: Was das Gerät angeht,
+        steht in den Kontoeinstellungen.
+      </figcaption>
+    </figure>
+
+    <!-- KONTOEINSTELLUNGEN -->
+    <figure class="tafel">
+      <span class="urteil">Zahnrad → Kontoeinstellungen</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="appkopf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <span class="t">Kontoeinstellungen</span>
+        </div>
+        <div class="naht"><span>ab hier WebView</span></div>
+        <div class="inhalt">
+          <div class="web">
+            <div style="font-size:12px;color:var(--text-3)">Speicher</div>
+            <div style="font-size:19px;font-weight:600;margin:2px 0 9px" class="tnum">3,4 GB <span style="font-size:13px;color:var(--text-3);font-weight:400">von 10 GB</span></div>
+            <div class="balken">
+              <i style="width:46%;background:var(--akzent)"></i>
+              <i style="width:18%;background:var(--akzent-2)"></i>
+              <i style="width:6%;background:#5b9dff"></i>
+            </div>
+            <div class="legende">
+              <span><i style="background:var(--akzent)"></i>Fotos 2,1 GB</span>
+              <span><i style="background:var(--akzent-2)"></i>Videos 1,1 GB</span>
+              <span><i style="background:#5b9dff"></i>Klänge 0,2 GB</span>
+            </div>
+
+            <div class="abschnitt">Zugang</div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">E-Mail-Adresse</span>
+              <span class="z-u">henrik@maptale.io</span></span>
+              <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Passwort ändern</span></span>
+              <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Angemeldete Geräte</span>
+              <span class="z-u">3 · dieses Gerät dabei</span></span>
+              <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="abschnitt">Sichtbarkeit</div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Profil öffentlich</span>
+              <span class="z-u">Über den Link erreichbar</span></span>
+              <span class="schalter an"></span>
+            </div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">In Suchmaschinen erscheinen</span></span>
+              <span class="schalter"></span>
+            </div>
+
+            <div class="abschnitt">Dieses Gerät</div>
+            <div class="zeile nativ-zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Auf diesem Gerät</span>
+              <span class="z-u">Fotos, Dienste, Benachrichtigungen</span></span>
+              <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Die Naht liegt unter der Kopfzeile</b>
+        Titel und Zurück-Pfeil sind nativ, alles darunter ist <code style="font-size:12.5px">/konto?app=1</code>.
+        Die gestrichelte Linie steht nur im Entwurf. Am Gerät ist dort nichts zu sehen, weil beide
+        Seiten aus DESIGN.md stammen.
+      </figcaption>
+    </figure>
+
+    <!-- LADEZUSTAND -->
+    <figure class="tafel">
+      <span class="urteil">Der erste Moment</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="appkopf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <span class="t">Kontoeinstellungen</span>
+        </div>
+        <div class="inhalt">
+          <div class="web">
+            <div class="sk a" style="width:64px;height:11px"></div>
+            <div class="sk a" style="width:150px;height:20px;margin:9px 0 12px"></div>
+            <div class="sk a" style="width:100%;height:9px;border-radius:999px"></div>
+            <div class="sk a" style="width:60%;height:11px;margin-top:12px"></div>
+            <div class="sk a" style="width:52px;height:11px;margin:26px 0 12px"></div>
+            <div class="sk a" style="width:100%;height:15px;margin-bottom:20px"></div>
+            <div class="sk a" style="width:80%;height:15px;margin-bottom:20px"></div>
+            <div class="sk a" style="width:88%;height:15px;margin-bottom:20px"></div>
+            <div class="sk a" style="width:66px;height:11px;margin:26px 0 12px"></div>
+            <div class="sk a" style="width:100%;height:15px;margin-bottom:20px"></div>
+            <div class="sk a" style="width:74%;height:15px"></div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Ein Skelett statt eines weißen Blitzes</b>
+        Ein WebView zeigt beim Start Weiß. Der View wird deshalb erst bei
+        <code style="font-size:12.5px">onPageCommitVisible</code> eingeblendet, bis dahin steht das
+        Skelett in App-Optik.
+      </figcaption>
+    </figure>
+
+    <!-- AUF DIESEM GERÄT -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">→ Auf diesem Gerät · nativ</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="appkopf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <span class="t">Auf diesem Gerät</span>
+        </div>
+        <div class="inhalt">
+          <div class="web">
+            <p style="font-size:12.5px;color:var(--text-3);line-height:1.5;margin-bottom:4px">
+              Diese Angaben gelten nur für dieses Telefon. Auf einem zweiten Gerät am selben Konto
+              stehen sie eigenständig.
+            </p>
+
+            <div class="abschnitt">Fotos</div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Automatisch ergänzen</span>
+              <span class="z-u">Nur Bilder aus dem Zeitraum einer Tour</span></span>
+              <span class="schalter an"></span>
+            </div>
+
+            <div class="abschnitt">Verbundene Dienste</div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Polar</span>
+              <span class="z-u" style="color:var(--gruen)">Verbunden · zuletzt heute 08:12</span></span>
+              <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Garmin</span>
+              <span class="z-u">Nicht verbunden</span></span>
+              <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+
+            <div class="abschnitt">Benachrichtigungen</div>
+            <div class="zeile">
+              <span class="z-text"><span class="z-t" style="display:block">Neue Touren melden</span>
+              <span class="z-u">Wenn eine Uhr-Aufzeichnung ankommt</span></span>
+              <span class="schalter an"></span>
+            </div>
+
+            <div class="zeile" style="margin-top:18px;border-top:1px solid rgba(255,255,255,.07)">
+              <span class="z-text"><span class="z-t" style="display:block;color:var(--alarm)">Abmelden</span>
+              <span class="z-u">henrik@maptale.io</span></span>
+            </div>
+            <p style="font-size:11px;color:var(--text-3);margin-top:14px" class="tnum">Maptale 0.59.4</p>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Der Ort für alles, was dem Telefon gehört</b>
+        Erreichbar über eine Zeile in den Kontoeinstellungen, die die App ruft
+        (<code style="font-size:12.5px">maptale://geraet</code>). Das ist die einzige Stelle, an der
+        die Web-Seite die App anstößt.
+      </figcaption>
+    </figure>
+
+  </div>
+
+  <div class="gegen">
+    <div class="notiz">
+      <b>Warum die Schalter nicht im WebView stehen</b>
+      Sie gehören dem Gerät: Die Galerie liegt auf diesem Telefon, und bei zwei Geräten am selben
+      Konto soll nur eines hochladen.
+      <ul>
+        <li><b>Tracker brauchen den Custom Tab</b>, mehrere Anbieter sperren eingebettete Browser für
+        OAuth.</li>
+        <li><b>Abmelden</b> beendet im WebView nur die Cookie-Sitzung. Das Token der App lebte weiter.</li>
+        <li><b>Kein nativer Block im WebView</b>: zwei Scroll-Behälter übereinander streiten sich um
+        jeden Wisch.</li>
+      </ul>
+    </div>
+
+    <div class="notiz">
+      <b>Warum die App das Web-Menü nicht nachbaut</b>
+      Im Web stehen beide Einträge gleichberechtigt im Konto-Menü, weil es dort keinen Dauerplatz
+      fürs Profil gibt. Auf dem Telefon ist das Profil ein Reiter.
+      <ul>
+        <li>Ein Bottom-Sheet hätte eine <b>tote Zeile</b>: „Mein Profil", während man daraufsteht.</li>
+        <li>Die Hierarchie bleibt dieselbe: <b>Profil ist der Ort, Konto der Schrank daneben.</b></li>
+        <li>Gleich sein sollten die <b>Wörter</b>: „Kontoeinstellungen", nicht „Einstellungen".</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ————————————————————————————————————————————— AKT 4 -->
+<section class="akt" id="akt4">
+  <div class="akt-kopf"><span class="akt-nr">Akt 4</span><h2>Entdecken und fremde Profile</h2></div>
+  <p class="leit">
+    Der Reiter zeigt alle Touren, die auf <b>public</b> stehen, dieselben Daten wie /galerie im Web.
+    Unter jeder Kachel steht, wer sie aufgenommen hat; ein Tipp öffnet das fremde Profil.
+  </p>
+
+  <div class="reihe">
+
+    <!-- ENTDECKEN -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">Entdecken</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="liste">
+            <div class="schirmkopf">
+              <h3>Entdecken</h3>
+              <span style="display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--fl-1);color:var(--text-2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" width="17" height="17"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+              </span>
+            </div>
+            <div class="filter">
+              <span class="chip an">Neu</span><span class="chip">Beliebt</span><span class="chip">In der Nähe</span>
+            </div>
+
+            <div>
+              <div class="karte">
+                <img src="tourbilder/lissabon.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel">
+                  <div class="t">Alfama bei Sonnenuntergang</div>
+                  <div class="u tnum">7,4 km · Lissabon · 12 Fotos</div>
+                </div>
+              </div>
+              <div class="autor">
+                <span class="av"></span><span class="h">@marta</span>
+                <span style="margin-left:auto;font-size:11.5px;color:var(--text-3)">vor 2 Tagen</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="karte">
+                <img src="landing/card-stockholm.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel">
+                  <div class="t">Schären im Nebel</div>
+                  <div class="u tnum">24,2 km · Stockholm · 9 Fotos</div>
+                </div>
+              </div>
+              <div class="autor">
+                <span class="av" style="background:linear-gradient(140deg,#5b9dff,#c58bff)"></span><span class="h">@henrik</span>
+                <span style="margin-left:auto;font-size:11.5px;color:var(--text-3)">vor 5 Tagen</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="karte">
+                <img src="tourbilder/kohphangan.jpg" alt="" />
+                <div class="schleier"></div>
+                <div class="titel">
+                  <div class="t">Inselrunde im Regen</div>
+                  <div class="u tnum">41,1 km · Koh Pha-ngan · 12 Fotos</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter">
+            <span class="pille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg></span>
+            Touren
+          </div>
+          <div class="reiter an">
+            <span class="pille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg></span>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <span class="pille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg></span>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Eine Spalte, keine Kachelwand</b>
+        Die Kachel muss den Ort zeigen können, zwei nebeneinander wären Briefmarken. Kein FAB in
+        diesem Reiter. Unter der Kachel nur Person und Alter, denn Ort und Kilometer stehen im Bild.
+      </figcaption>
+    </figure>
+
+    <figure class="tafel">
+      <span class="urteil">Fremdes Profil</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="banner">
+            <img src="titelbilder/kueste.jpg" alt="" />
+            <div class="verlauf"></div>
+            <div class="zurueck">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+            </div>
+          </div>
+          <div class="profilkopf">
+            <div class="avatar" style="background:linear-gradient(140deg,#5b9dff,#c58bff)">M</div>
+            <div class="name">Marta</div>
+            <div class="handle">@marta</div>
+            <div class="kennzahlen">
+              <div class="kennzahl"><div class="w tnum">12</div><div class="b">Reisen</div></div>
+              <div class="kennzahl"><div class="w tnum">486</div><div class="b">Kilometer</div></div>
+              <div class="kennzahl"><div class="w tnum">6</div><div class="b">Länder</div></div>
+            </div>
+          </div>
+          <div class="gitter">
+            <div class="zelle"><img src="tourbilder/lissabon.jpg" alt="" /><div class="z-t">Alfama</div></div>
+            <div class="zelle"><img src="tourbilder/kohphangan.jpg" alt="" /><div class="z-t">Inselrunde</div></div>
+            <div class="zelle"><img src="landing/card-stockholm.jpg" alt="" /><div class="z-t">Schären</div></div>
+            <div class="zelle"><img src="landing/card-oberland.jpg" alt="" /><div class="z-t">Lauterbrunnen</div></div>
+          </div>
+        </div>
+        <div class="leiste drei">
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+            Touren
+          </div>
+          <div class="reiter an">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2 4.8-4.8 2 2-4.8z"/></svg>
+            Entdecken
+          </div>
+          <div class="reiter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg>
+            Profil
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Derselbe Screen, zwei Rollen</b>
+        Ein „gehört mir?" entscheidet über Zahnrad und Bearbeiten-Griffe, wie im Web. Die Leiste
+        bleibt auf Entdecken stehen.
+      </figcaption>
+    </figure>
+
+    <div class="notiz">
+      <b>Jeder Chip ist eine Zusage des Servers</b>
+      Gezeichnet sind drei, tragen kann heute einer.
+      <ul>
+        <li><b>„Neu"</b> ist gratis, nach Veröffentlichungsdatum.</li>
+        <li><b>„Beliebt"</b> braucht eine Zählung. Aufrufe zu zählen heißt, sie zu speichern, mit
+        eigener Frist.</li>
+        <li><b>„In der Nähe"</b> braucht den Standort des Lesers. Wer den Dialog fürs Stöbern ablehnt,
+        lehnt ihn beim Aufzeichnen wieder ab.</li>
+      </ul>
+      Zum Start also „Neu" und Suche.
+    </div>
+
+    <div class="notiz">
+      <b>Was hier offen ist</b>
+      <ul>
+        <li><b>Ohne Titelbild</b> zeigt das Banner eines der vier mitgelieferten, deterministisch aus
+        dem Handle gewählt.</li>
+        <li><b>Kennzahlen summiert der Server</b>, nur über öffentliche Touren.</li>
+        <li><b>Folgen gibt es nicht</b> und ist deshalb nicht gezeichnet. Es wäre eine eigene
+        Entscheidung mit Server-Anteil.</li>
+      </ul>
+    </div>
+
+    <div class="notiz">
+      <b>Der Weg zurück aus dem Player</b>
+      Im App-Modus führt <code style="font-size:12.5px">.app-exit</code> heute fest in die eigene
+      Tourliste. Mit „Entdecken" stimmt das nicht mehr: Wer aus einer fremden Tour kommt, will
+      dorthin zurück.
+    </div>
+  </div>
+</section>
+
+<!-- ————————————————————————————————————————————— AKT 5 -->
+<section class="akt" id="akt5">
+  <div class="akt-kopf"><span class="akt-nr">Akt 5</span><h2>Welche Touren von der Uhr kommen</h2></div>
+  <p class="leit">
+    Nicht jede Aufzeichnung ist eine Reise. Wer eine Uhr trägt, sammelt Hallentrainings und Fahrten
+    zum Bäcker, und heute landet alles in der Bibliothek. Deshalb ein Schalter <b>pro Anbieter</b>
+    und eine Liste zum Selbstwählen. Beides gehört zum <b>Konto</b>, nicht zum Gerät: Token und
+    Webhook liegen beim Server.
+  </p>
+
+  <div class="reihe">
+
+    <!-- TRACKER-KARTE IM WEBVIEW -->
+    <figure class="tafel">
+      <span class="urteil">Kontoeinstellungen · WebView</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="appkopf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <span class="t">Kontoeinstellungen</span>
+        </div>
+        <div class="inhalt">
+          <div class="web">
+            <div class="abschnitt" style="margin-top:4px">Verbundene Dienste</div>
+
+            <div style="border:1px solid var(--rand);border-radius:14px;padding:13px 14px;margin-top:8px;background:var(--fl-1)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="width:30px;height:30px;border-radius:9px;background:rgba(62,207,142,.14);display:grid;place-items:center;color:var(--gruen)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 6L9 17l-5-5"/></svg>
+                </span>
+                <span style="flex:1">
+                  <span style="display:block;font-size:15px;font-weight:600">Polar</span>
+                  <span style="display:block;font-size:11.5px;color:var(--gruen)">Verbunden · zuletzt heute 08:12</span>
+                </span>
+              </div>
+              <div class="zeile" style="margin-top:6px">
+                <span class="z-text"><span class="z-t" style="display:block">Touren automatisch übernehmen</span>
+                <span class="z-u">Neue Aufzeichnungen kommen von selbst</span></span>
+                <span class="schalter an"></span>
+              </div>
+              <div class="zeile nativ-zeile">
+                <span class="z-text"><span class="z-t" style="display:block">Aus Polar hinzufügen …</span>
+                <span class="z-u">Ältere Aufzeichnungen nachholen</span></span>
+                <svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+            </div>
+
+            <div style="border:1px solid var(--rand);border-radius:14px;padding:13px 14px;margin-top:12px;background:var(--fl-1)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="width:30px;height:30px;border-radius:9px;background:var(--fl-3);display:grid;place-items:center;color:var(--text-3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+                </span>
+                <span style="flex:1">
+                  <span style="display:block;font-size:15px;font-weight:600">Garmin</span>
+                  <span style="display:block;font-size:11.5px;color:var(--text-3)">Nicht verbunden</span>
+                </span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--akzent);border:1px solid rgba(245,158,11,.4);border-radius:999px;padding:5px 12px">Verbinden</span>
+              </div>
+            </div>
+
+            <p style="font-size:11.5px;color:var(--text-3);margin-top:14px;line-height:1.5">
+              Der Knopf „Verbinden" ruft die App. Die Anmeldung beim Anbieter läuft im
+              System-Browser, nicht hier drin.
+            </p>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Ein Schalter je Anbieter</b>
+        Wer Polar für Reisen und Garmin fürs Training trägt, will diese Trennung. Standard bleibt
+        <b>an</b>. Beide markierten Zeilen rufen die App.
+      </figcaption>
+    </figure>
+
+    <!-- AUSWAHLLISTE NATIV -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">Auswahl · nativ</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="appkopf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <span class="t">Aus Polar hinzufügen</span>
+        </div>
+        <div class="inhalt">
+          <div class="web">
+            <p style="font-size:12px;color:var(--text-3);line-height:1.5">
+              Aufzeichnungen der letzten 90 Tage <b style="color:var(--text-2);font-weight:500">mit GPS</b>.
+              Was du nicht auswählst, wird nicht gespeichert.
+            </p>
+
+            <div style="margin-top:10px">
+              <div class="auswahlzeile">
+                <span class="box an"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="M20 6L9 17l-5-5"/></svg></span>
+                <img class="az-bild" src="tourbilder/lissabon.jpg" alt="" />
+                <span class="az-text">
+                  <span class="az-t" style="display:block">Radfahrt · Lissabon</span>
+                  <span class="az-u tnum">Gestern 17:40 · 24,1 km · 1:52 h</span>
+                </span>
+              </div>
+              <div class="auswahlzeile">
+                <span class="box an"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="M20 6L9 17l-5-5"/></svg></span>
+                <img class="az-bild" src="landing/card-oberland.jpg" alt="" />
+                <span class="az-text">
+                  <span class="az-t" style="display:block">Wanderung · Lauterbrunnen</span>
+                  <span class="az-u tnum">4. Aug. · 11,3 km · 3:20 h</span>
+                </span>
+              </div>
+              <div class="auswahlzeile">
+                <span class="box"></span>
+                <span class="az-bild" style="background:var(--fl-2);display:grid;place-items:center;color:var(--text-3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/></svg>
+                </span>
+                <span class="az-text">
+                  <span class="az-t" style="display:block">Laufen · Frankfurt</span>
+                  <span class="az-u tnum">2. Aug. · 8,4 km · 0:47 h</span>
+                </span>
+              </div>
+              <div class="auswahlzeile">
+                <span class="box"></span>
+                <span class="az-bild" style="background:var(--fl-2);display:grid;place-items:center;color:var(--text-3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/></svg>
+                </span>
+                <span class="az-text">
+                  <span class="az-t" style="display:block">Radfahrt · Frankfurt</span>
+                  <span class="az-u tnum">31. Juli · 6,2 km · 0:24 h</span>
+                </span>
+              </div>
+              <div class="auswahlzeile">
+                <span class="box"></span>
+                <span class="az-bild" style="background:var(--fl-2);display:grid;place-items:center;color:var(--text-3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/></svg>
+                </span>
+                <span class="az-text">
+                  <span class="az-t" style="display:block">Wanderung · Taunus</span>
+                  <span class="az-u tnum">28. Juli · 14,7 km · 4:05 h</span>
+                </span>
+              </div>
+            </div>
+
+            <div style="position:absolute;left:16px;right:16px;bottom:18px">
+              <span class="knopf-1">2 Touren hinzufügen</span>
+            </div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Nativ, weil hier ausgewählt wird</b>
+        Mehrfachauswahl mit Vorschaubildern. Die Liste wird <b>live geholt und nicht gespeichert</b>,
+        sonst lägen bei uns Daten über Aufzeichnungen, die bewusst nicht importiert wurden.
+      </figcaption>
+    </figure>
+
+    <div class="notiz">
+      <b>Was daran entschieden werden muss</b>
+      <ul>
+        <li><b>Die Liste hängt nicht am Schalter</b>, denn der häufigste Anlass ist ein anderer: Uhr
+        heute verbunden, Tour von letztem Sommer nachholen.</li>
+        <li><b>Kein Push bei ausgeschalteter Automatik.</b> Der Weg ist dann die Liste.</li>
+        <li><b>Nur Aufzeichnungen mit GPS.</b> Eine Halleneinheit ist keine Tour.</li>
+        <li><b>Vorschaubilder nur, wo es welche gibt.</b> Vor dem Import existiert kein Titelbild.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ————————————————————————————————————————————— AKT 6 -->
+<section class="akt" id="akt6">
+  <div class="akt-kopf"><span class="akt-nr">Akt 6</span><h2>Der erste Start</h2></div>
+  <p class="leit">
+    Bisher steht am Anfang eine Anmeldemaske, und ein Konto gibt es nur im Web. Wer die App lädt,
+    steht vor einer verschlossenen Tür. Auf <b>maptale.io</b> verlangt die Registrierung zusätzlich
+    einen Einladungscode.
+  </p>
+  <div class="merke">
+    <b>Deshalb ist der wichtigste Knopf des Onboardings nicht „Konto anlegen", sondern „Erst umsehen".</b>
+    „Entdecken" ist öffentlich und braucht kein Konto. Man kann fremde Reisen ansehen, bevor man
+    eine Adresse hergibt. Das entschärft die Einladungshürde und dreht die Reihenfolge um: erst
+    zeigen, was die App macht, dann fragen.
+  </div>
+
+  <div class="reihe">
+
+    <!-- BÜHNE 1 -->
+    <figure class="tafel">
+      <span class="urteil">1 · Was dabei herauskommt</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="buehne">
+            <img src="landing/hero.jpg" alt="" />
+            <div class="dunkel"></div>
+            <div class="szene">
+              <svg viewBox="0 0 356 738" preserveAspectRatio="xMidYMid slice" fill="none">
+                <path d="M24 466C68 438 92 406 134 386s64-26 92-72 44-88 70-116"
+                      stroke="url(#r1)" stroke-width="4" stroke-linecap="round"/>
+                <path d="M134 386v-50M226 306v-50M296 198v-44" stroke="rgba(242,237,227,.45)" stroke-width="1.5"/>
+                <ellipse cx="134" cy="386" rx="13" ry="5" fill="#F59E0B" fill-opacity=".55"/>
+                <ellipse cx="226" cy="306" rx="13" ry="5" fill="#F59E0B" fill-opacity=".55"/>
+                <ellipse cx="296" cy="198" rx="10" ry="4" fill="#F59E0B" fill-opacity=".45"/>
+                <circle cx="24" cy="466" r="7" fill="#FF6F52"/>
+                <circle cx="24" cy="466" r="15" fill="#FF6F52" fill-opacity=".2"/>
+                <defs>
+                  <linearGradient id="r1" x1="24" y1="466" x2="296" y2="198" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#FF6F52"/><stop offset="1" stop-color="#F59E0B" stop-opacity=".55"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="pinfoto" style="left:37.6%;top:45.5%"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+              <div class="pinfoto" style="left:63.5%;top:34.7%"><img src="landing/card-stockholm.jpg" alt="" /></div>
+              <div class="pinnr" style="left:83.1%;top:20.9%">3</div>
+            </div>
+            <span class="ueberspringen">Überspringen</span>
+            <div class="worte">
+              <h4>Deine Reise, als Flug über die Karte.</h4>
+              <p>Aus Strecke und Fotos wird eine Kamerafahrt über echtes Gelände, mit Wetter,
+              Tageslicht und einem Halt an jedem Bild.</p>
+            </div>
+            <div class="punkte"><i class="an"></i><i></i><i></i></div>
+            <div class="fussknopf"><span class="knopf-1">Weiter</span></div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Das Ergebnis zuerst</b>
+        Die erste Bühne beantwortet die Frage aus dem Store: Was kommt dabei heraus? Route und
+        Foto-Pins liegen über dem Bild. „Überspringen" steht von Anfang an oben rechts.
+      </figcaption>
+    </figure>
+
+    <!-- BÜHNE 2 -->
+    <figure class="tafel">
+      <span class="urteil">2 · Wie sie entsteht</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="buehne">
+            <img src="titelbilder/serpentinen.jpg" alt="" />
+            <div class="dunkel"></div>
+            <div class="szene">
+              <svg viewBox="0 0 356 738" preserveAspectRatio="xMidYMid slice" fill="none">
+                <path d="M34 452C70 424 76 384 114 364s58 0 82-30" stroke="#FF6F52" stroke-width="4" stroke-linecap="round"/>
+                <path d="M196 334c26-32 30-70 56-92" stroke="rgba(245,158,11,.55)" stroke-width="3"
+                      stroke-linecap="round" stroke-dasharray="3 9"/>
+                <circle cx="196" cy="334" r="8" fill="#FF6F52"/>
+                <circle cx="196" cy="334" r="17" fill="#FF6F52" fill-opacity=".22"/>
+                <path d="M92 388l-24-8M158 344l32-38" stroke="rgba(242,237,227,.5)" stroke-width="1.4" stroke-dasharray="3 4"/>
+                <circle cx="92" cy="388" r="4" fill="#F59E0B"/>
+                <circle cx="158" cy="344" r="4" fill="#F59E0B"/>
+              </svg>
+              <div class="bildkarte" style="left:6%;top:48%"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+              <div class="bildkarte" style="left:53%;top:34.5%"><img src="landing/card-oberland.jpg" alt="" /></div>
+            </div>
+            <div class="aufnahme-hud"><span class="punkt"></span>Aufzeichnung <span class="tnum" style="color:var(--text-2)">0:47:12</span></div>
+            <span class="ueberspringen">Überspringen</span>
+            <div class="worte">
+              <h4>Aufnehmen und einfach fahren.</h4>
+              <p>Starte die Aufzeichnung und steck das Telefon weg. Deine Fotos von unterwegs findet
+              die App selbst und setzt sie an die Stelle, an der sie entstanden sind.</p>
+            </div>
+            <div class="punkte"><i></i><i class="an"></i><i></i></div>
+            <div class="fussknopf"><span class="knopf-1">Weiter</span></div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Der Satz, der die Arbeit wegnimmt</b>
+        „Steck das Telefon weg" ist das Versprechen. Die Szene zeigt beides: die Strecke, die
+        weiterläuft, und zwei Fotos, die an ihr andocken. Dass Bilder automatisch verortet werden,
+        erwartet niemand.
+      </figcaption>
+    </figure>
+
+    <!-- BÜHNE 3 -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">3 · Ohne Telefon in der Hand</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="buehne">
+            <img src="titelbilder/kueste.jpg" alt="" />
+            <div class="dunkel"></div>
+            <div class="kette">
+              <div class="kette-reihe">
+                <span class="knoten">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9.5 6V3.5h5V6M9.5 18v2.5h5V18M12 9.5V12l2 1.2"/></svg>
+                </span>
+                <span class="faden"></span>
+                <span class="knoten stark">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+                </span>
+                <span class="faden"></span>
+                <span class="knoten">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="13" rx="2.5"/><circle cx="12" cy="12.5" r="3.4"/><path d="M8 6l1.6-2.5h4.8L16 6"/></svg>
+                </span>
+              </div>
+              <div class="kette-worte">
+                <span>Deine Uhr</span><span>Maptale</span><span>Fotos vom Telefon</span>
+              </div>
+            </div>
+            <span class="ueberspringen">Überspringen</span>
+            <div class="worte">
+              <h4>Du trägst schon eine Uhr?</h4>
+              <p>Dann zeichne nichts doppelt auf: Polar und Garmin schicken ihre Touren direkt an
+              Maptale. Das Telefon steuert die Fotos bei.</p>
+              <div style="display:flex;gap:8px;margin-top:14px">
+                <span style="font-size:12.5px;font-weight:500;border:1px solid rgba(255,255,255,.16);background:rgba(12,15,20,.5);border-radius:999px;padding:6px 13px">Polar</span>
+                <span style="font-size:12.5px;font-weight:500;border:1px solid rgba(255,255,255,.16);background:rgba(12,15,20,.5);border-radius:999px;padding:6px 13px">Garmin</span>
+                <span style="font-size:12.5px;font-weight:500;color:var(--text-2);border:1px solid rgba(255,255,255,.1);background:rgba(12,15,20,.35);border-radius:999px;padding:6px 13px">bald mehr</span>
+              </div>
+            </div>
+            <div class="punkte"><i></i><i></i><i class="an"></i></div>
+            <div class="fussknopf"><span class="knopf-1">Los geht's</span></div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Der Vorgriff auf die Tracker</b>
+        Wer eine Uhr trägt, entscheidet hier, ob die App taugt. Die Kette zeigt den Weg: Uhr,
+        Maptale, Fotos vom Telefon. „bald mehr" ist ehrlicher als eine Liste, die Strava vermuten
+        lässt. Verbunden wird erst in Schritt 5.
+      </figcaption>
+    </figure>
+
+    <!-- BÜHNE 4 (ALTERNATIVE) -->
+    <figure class="tafel">
+      <span class="urteil">4 · Studio, eher nicht hier</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="buehne">
+            <img src="titelbilder/nachtstadt.jpg" alt="" />
+            <div class="dunkel"></div>
+            <div class="laptop">
+              <div class="lt-kopf"><i></i><i></i><i></i><b>maptale.io/app</b></div>
+              <div class="lt-leib">
+                <div class="spurzeile">
+                  <span class="klip" style="width:34%;background:linear-gradient(135deg,#F59E0B,#e08c0a)"></span>
+                  <span class="klip" style="width:22%;background:linear-gradient(135deg,#FF6F52,#e2593f)"></span>
+                  <span class="klip" style="width:40%;background:linear-gradient(135deg,#F59E0B,#e08c0a)"></span>
+                </div>
+                <div class="spurzeile" style="height:11px">
+                  <span class="klip" style="width:18%;background:rgba(91,157,255,.55)"></span>
+                  <span class="klip" style="width:12%;background:transparent"></span>
+                  <span class="klip" style="width:44%;background:rgba(91,157,255,.55)"></span>
+                </div>
+                <div class="spurzeile" style="height:9px;margin-bottom:0">
+                  <span class="klip" style="width:26%;background:rgba(197,139,255,.5)"></span>
+                  <span class="klip" style="width:8%;background:transparent"></span>
+                  <span class="klip" style="width:30%;background:rgba(197,139,255,.5)"></span>
+                </div>
+              </div>
+              <div class="lt-fuss"></div>
+            </div>
+            <span class="ueberspringen">Überspringen</span>
+            <div class="worte">
+              <h4>Feinschliff am großen Bildschirm.</h4>
+              <p>Am Rechner öffnest du dieselbe Tour im Studio: Kamerafahrt, Musik, Titel, Halte
+              kürzen. Die App bleibt für unterwegs.</p>
+            </div>
+            <div class="punkte"><i></i><i></i><i></i><i class="an"></i></div>
+            <div class="fussknopf"><span class="knopf-1">Los geht's</span></div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Richtig, aber zum falschen Zeitpunkt</b>
+        Vor der ersten eigenen Tour bedeutet „Kamerafahrt bearbeiten" nichts, und aus drei Wischern
+        werden vier. Vorschlag: Der Hinweis kommt nach der ersten fertigen Tour, als Zeile unter der
+        frischen Karte.
+      </figcaption>
+    </figure>
+
+    <!-- 2 TÜR -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">2 · Die Tür</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="buehne">
+            <img src="landing/cta.jpg" alt="" />
+            <div class="dunkel" style="background:linear-gradient(to top, var(--nacht) 44%, rgba(6,9,14,.55))"></div>
+            <div class="worte" style="bottom:186px">
+              <h4>Willkommen bei Maptale</h4>
+              <p>Zum Aufzeichnen und Hochladen brauchst du ein Konto. Umsehen kannst du dich auch
+              ohne.</p>
+            </div>
+            <div style="position:absolute;left:22px;right:22px;bottom:26px;display:flex;flex-direction:column;gap:10px">
+              <span class="knopf-1">Konto anlegen</span>
+              <span class="knopf-2">Ich habe schon ein Konto</span>
+              <span class="knopf-3">Erst umsehen →</span>
+            </div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Drei Wege, klar gewichtet</b>
+        „Erst umsehen" führt nach Entdecken. Der Aufnahme-Knopf fragt dort beim ersten Tipp nach dem
+        Konto. So sieht man den Wert vor der Hürde.
+      </figcaption>
+    </figure>
+
+    <!-- 3 REGISTRIEREN -->
+    <figure class="tafel">
+      <span class="urteil">3 · Konto anlegen</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="appkopf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+          <span class="t">Konto anlegen</span>
+        </div>
+        <div class="inhalt">
+          <div class="formular">
+            <div class="feld-label" style="margin-top:2px">Einladungscode</div>
+            <div class="feld voll tnum" style="letter-spacing:.08em">MAPT-4F7K-2Q</div>
+
+            <div class="feld-label">E-Mail</div>
+            <div class="feld voll">henrik@maptale.io</div>
+
+            <div class="feld-label">Passwort</div>
+            <div class="feld voll">
+              ••••••••••••••
+              <span class="auge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>
+              </span>
+            </div>
+            <div class="pw-bahn">
+              <i style="background:var(--gruen)"></i><i style="background:var(--gruen)"></i>
+              <i style="background:var(--gruen)"></i><i></i>
+            </div>
+            <div class="pw-rat">Gut. Drei Wörter sind stärker als ein Wort mit Zeichen.</div>
+
+            <div class="feld-label">Handle</div>
+            <div class="feld voll">@henrik</div>
+            <div class="pw-rat" style="color:var(--gruen)">Frei. Deine Adresse: maptale.io/@henrik</div>
+
+            <div style="margin-top:22px"><span class="knopf-1">Konto anlegen</span></div>
+            <p style="font-size:11px;color:var(--text-3);margin-top:12px;line-height:1.5;text-align:center">
+              Mit dem Anlegen stimmst du der Datenschutzerklärung zu.
+            </p>
+            <p style="font-size:12.5px;color:var(--text-2);margin-top:16px;text-align:center">
+              Keinen Code? <b style="color:var(--akzent);font-weight:600">Auf die Warteliste</b>
+            </p>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Der Einladungscode steht oben</b>
+        Ohne ihn geht auf maptale.io nichts. Wer erst alles ausfüllt und dann an der Codeprüfung
+        scheitert, hat umsonst getippt. Darunter die Warteliste. Die Passwortbewertung ist dieselbe
+        wie im Web und braucht eine Kotlin-Fassung mit geteilten Testfällen.
+      </figcaption>
+    </figure>
+
+    <!-- 4 POSTFACH -->
+    <figure class="tafel">
+      <span class="urteil">4 · Postfach</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="formular" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:84px">
+            <span style="width:66px;height:66px;border-radius:22px;background:rgba(245,158,11,.14);display:grid;place-items:center;color:var(--akzent)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="31" height="31"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M3 7l9 6 9-6"/></svg>
+            </span>
+            <h4 style="margin-top:20px">Schau in dein Postfach</h4>
+            <p class="unter">Wir haben dir einen Link an <b style="color:var(--text)">henrik@maptale.io</b>
+            geschickt. Er bestätigt deine Adresse. Danach geht es hier weiter.</p>
+
+            <div style="width:100%;margin-top:26px;display:flex;flex-direction:column;gap:10px">
+              <span class="knopf-2">Mail-App öffnen</span>
+              <span class="knopf-3 tnum">Erneut senden (in 0:42)</span>
+            </div>
+
+            <div class="info-karte" style="margin-top:36px;text-align:left">
+              <span class="sinn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4l3 2"/></svg>
+              </span>
+              <span>
+                <span class="kopf-i">Du musst nicht warten</span>
+                <span class="text-i">Sieh dich in der Zwischenzeit um. Sobald der Link geklickt ist,
+                merkt die App es von selbst.</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Die Sackgasse, die keine sein darf</b>
+        Der Bestätigungslink öffnet den Browser, also kommt niemand von selbst zurück. Deshalb
+        „Mail-App öffnen", ein Erneut-Senden mit Sperre, und die App fragt im Hintergrund nach.
+      </figcaption>
+    </figure>
+
+    <!-- 5 UHR -->
+    <figure class="tafel empfohlen">
+      <span class="urteil ja">5 · Uhr verbinden</span>
+      <div class="phone"><div class="schirm">
+        <div class="statusleiste"><span class="tnum">09:41</span>
+          <span class="sl-rechts">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h4v-8H2zM9 20h4V4H9zM16 20h4v-12h-4z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h14v8H4zM19 10h2v4h-2z"/></svg>
+          </span>
+        </div>
+        <div class="inhalt">
+          <div class="formular">
+            <h4 style="margin-top:10px">Trägst du eine Uhr?</h4>
+            <p class="unter">Dann musst du nichts doppelt aufzeichnen: Deine Aufzeichnungen kommen von
+            selbst an, und die App ergänzt die Fotos vom Telefon dazu.</p>
+
+            <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px">
+              <div style="border:1px solid var(--rand);border-radius:14px;padding:13px 14px;background:var(--fl-1);display:flex;align-items:center;gap:11px">
+                <span style="width:32px;height:32px;border-radius:10px;background:var(--fl-3);display:grid;place-items:center;color:var(--text-2)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9.5 6V3.5h5V6M9.5 18v2.5h5V18"/></svg>
+                </span>
+                <span style="flex:1;font-size:15px;font-weight:500">Polar</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--akzent)">Verbinden</span>
+              </div>
+              <div style="border:1px solid var(--rand);border-radius:14px;padding:13px 14px;background:var(--fl-1);display:flex;align-items:center;gap:11px">
+                <span style="width:32px;height:32px;border-radius:10px;background:var(--fl-3);display:grid;place-items:center;color:var(--text-2)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9.5 6V3.5h5V6M9.5 18v2.5h5V18"/></svg>
+                </span>
+                <span style="flex:1;font-size:15px;font-weight:500">Garmin</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--akzent)">Verbinden</span>
+              </div>
+            </div>
+
+            <div class="info-karte" style="margin-top:20px">
+              <span class="sinn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/></svg>
+              </span>
+              <span>
+                <span class="kopf-i">Ohne Uhr geht es genauso</span>
+                <span class="text-i">Die App zeichnet selbst auf. Den Knopf dafür findest du gleich
+                auf der Startseite.</span>
+              </span>
+            </div>
+
+            <div style="position:absolute;left:22px;right:22px;bottom:26px">
+              <span class="knopf-3">Später · zur App →</span>
+            </div>
+          </div>
+        </div>
+        <div class="gestenbalken"></div>
+      </div></div>
+      <figcaption>
+        <b>Der Moment, in dem die App nicht leer ist</b>
+        Wer hier verbindet, hat beim ersten Öffnen schon Touren in der Liste. Der Schritt ist
+        optional und der letzte, weil er in den Custom Tab führt.
+      </figcaption>
+    </figure>
+
+  </div>
+
+  <div class="gegen">
+    <div class="notiz">
+      <b>Warum die Registrierung nativ ist</b>
+      Der erste Start entscheidet den Eindruck, und es gibt noch keine Sitzung, die man an einen
+      WebView übergeben könnte.
+      <ul>
+        <li>Der Preis ist die Passwortbewertung, die dann doppelt existiert. Dagegen helfen
+        <b>gemeinsame Testfälle</b>, wie bei den Fortbewegungs-Modi.</li>
+        <li><b>Kein „Weiter mit Google"</b>: ein zweiter Kontotyp mit eigenem Zurücksetz-,
+        Verknüpfungs- und Löschpfad.</li>
+        <li><b>Berechtigungen werden erklärt, nicht abgefragt.</b> Ein Systemdialog beim ersten Start
+        ist der, den man wegtippt.</li>
+      </ul>
+    </div>
+
+    <div class="notiz">
+      <b>Was aus dem Anmeldescreen wird</b>
+      Er bleibt als Ziel von „Ich habe schon ein Konto".
+      <ul>
+        <li><b>Passwort vergessen</b> führt in den Browser, zurück geht es über die Anmeldung.</li>
+        <li><b>Das Onboarding läuft einmal</b>, gemerkt am Gerät, nicht am Konto.</li>
+        <li><b>„Erst umsehen" ist ein Zustand</b>: zwei Reiter, und jeder Griff, der ein Konto
+        braucht, führt zur Tür.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ————————————————————————————————————————————— ÜBERBLICK -->
+<section class="akt" id="ueberblick">
+  <div class="akt-kopf"><span class="akt-nr">Überblick</span><h2>Was nativ gebaut wird und was aus dem Web kommt</h2></div>
+  <p class="leit">
+    Was oft benutzt wird und sich wie eine App anfühlen muss, wird nativ. Was selten benutzt wird,
+    viel Formular ist und rechtlich verbindlich, kommt aus dem Web. Alles, wofür der System-Browser
+    nötig ist, läuft im Custom Tab.
+  </p>
+
+  <div class="tabelle">
+    <div class="tz kopfzeile"><div>Bereich</div><div>Herkunft</div><div>Grund</div></div>
+    <div class="tz">
+      <div class="was">Entdecken</div>
+      <div><span class="herkunft herkunft-nativ">nativ</span></div>
+      <div class="warum">Der meistbenutzte Bereich. Scrollen, Bilder und der Sprung ins Abspielen müssen sitzen.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Profil, eigenes und fremdes</div>
+      <div><span class="herkunft herkunft-nativ">nativ</span></div>
+      <div class="warum">Im Kern eine Kachelliste, dieselben Bausteine wie Entdecken. Titelbild und Avatar brauchen den Foto-Picker des Geräts.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Kontoeinstellungen</div>
+      <div><span class="herkunft herkunft-web">Web</span></div>
+      <div class="warum">Rund 1.300 Zeilen Formularlogik, Teile davon wortgleich in der Datenschutzerklärung. Eine zweite Fassung würde auseinanderlaufen.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Auf diesem Gerät</div>
+      <div><span class="herkunft herkunft-nativ">nativ</span></div>
+      <div class="warum">Foto-Zugriff, Benachrichtigungen, Abmelden. Zustand des Telefons, nicht des Kontos.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Verbundene Dienste</div>
+      <div><span class="herkunft herkunft-web">Web</span></div>
+      <div class="warum">Kontoweit, weil Token und Webhook beim Server liegen. Nur der Verbinden-Knopf ruft die App.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Anmeldung beim Tracker</div>
+      <div><span class="herkunft herkunft-tab">Custom Tab</span></div>
+      <div class="warum">Mehrere Anbieter sperren eingebettete Browser für OAuth. Rückweg über den Deep Link.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Touren von der Uhr auswählen</div>
+      <div><span class="herkunft herkunft-nativ">nativ</span></div>
+      <div class="warum">Mehrfachauswahl mit Vorschaubildern. Die Liste wird live geholt und nicht gespeichert.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Onboarding und Registrierung</div>
+      <div><span class="herkunft herkunft-nativ">nativ</span></div>
+      <div class="warum">Der erste Eindruck, und der einzige Moment ohne Sitzung, die man an einen WebView übergeben könnte.</div>
+    </div>
+    <div class="tz">
+      <div class="was">Player</div>
+      <div><span class="herkunft herkunft-web">Web</span></div>
+      <div class="warum">Bleibt wie heute. Die Engine läuft im Browser, die App tauscht vorher ihr Token gegen eine Sitzung.</div>
+    </div>
+  </div>
+
+  <h3 style="font-size:19px;margin-top:52px">Offene Entscheidungen</h3>
+  <div class="offen">
+    <div>
+      <div class="frage">Welche Fassung bekommt der Aufnahme-Streifen?</div>
+      <div class="dazu">Drei Entwürfe stehen in Akt 2. Empfehlung ist V1, angedockt an die Leiste, mit der
+      eigenen Spur als Miniatur.</div>
+    </div>
+    <div>
+      <div class="frage">Das App-Token beim Passwortwechsel</div>
+      <div class="dazu">Der Wechsel beendet heute alle anderen Zugänge, auch das Token der App. Der
+      Server muss sich merken, aus welchem Token die Sitzung stammt, und dieses eine verschonen.</div>
+    </div>
+    <div>
+      <div class="frage">Ohne Konto in die App</div>
+      <div class="dazu">„Erst umsehen" verlangt einen Zustand, den es heute nicht gibt: öffentliche
+      Routen ohne Bearer-Token, Player ohne Sitzung, Profil-Reiter als Tür.</div>
+    </div>
+    <div>
+      <div class="frage">Warteliste in der App oder im Browser</div>
+      <div class="dazu">Wer keinen Einladungscode hat, wird gerade nicht zum Nutzer. Der Vorschlag ist,
+      dafür in den Browser zu führen statt ein zweites Formular zu bauen.</div>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
