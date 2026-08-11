@@ -298,6 +298,17 @@ Keine zweite „Wahrheit“ fürs Tour-Format im Client erfinden, die dem
 Austauschformat widerspricht. Lieber schmale `PlayerTour`-Typen mit dem Subset,
 das `main` wirklich anfasst.
 
+**Was Block A bereits geschaffen hat** — Block B und C typisieren dagegen und
+erfinden nichts Neues (`grep -n "^export \(type\|interface\)" src/*.ts`):
+
+| Modul | Typen |
+|---|---|
+| `tours.ts` | `Modus`, `Wegpunkt`, `Ankerpunkt`, `TourSegment`, `TourFoto`, `TourZeit`, `TourWetter`, `TourAudio`, `TourConfig` |
+| `geo.ts` | `LngLat`, `Route`, `StoppFoto`, `Stopp<T>` |
+| `map.ts` | `LngLat2D`, `FotoWegpunkt` |
+| `daynight.ts` | `Lichtstimmung`, `TagNachtRegie` |
+| `audiotracks.ts` | `DuckPegel`, `AudioSpuren` |
+
 ---
 
 ## 5. Importe und Endungen
@@ -355,6 +366,49 @@ devhub-Dev-Server, `window.__j.tour` abwarten, `#btn-start` klicken, dann Phase,
 `s` und `map.getPitch()` über ~25 s beobachten. Erwartung: `intro → ride → photo
 → ride`, `s` wächst, Pitch pendelt sich bei ~65° ein (die ersten Sekunden sind
 flach — das ist der einschwingende Smooth-Filter, kein Fehler).
+
+---
+
+## 5b. Äquivalenztest gegen die Vorgänger-Fassung
+
+Der Typecheck prüft Typen, nicht Verhalten — und genau die Dateien mit dem
+höchsten Risiko (`tour.js`, `ui.js`, `main.js`, `atmosphere.js`) haben keinen
+einzigen Verhaltenstest. Für alles, was **rein rechnet**, gibt es eine billige
+und sehr scharfe Absicherung: die alte Fassung danebenlegen und beide mit
+denselben Eingaben füttern.
+
+```bash
+git show <commit-vor-der-welle>:src/geo.js > src/_geo_alt.js
+```
+
+```ts
+// test/_aequiv.test.ts — WEGWERF, nach dem grünen Lauf löschen
+import * as neu from '../src/geo.ts'
+// @ts-expect-error — Alt-Fassung ohne Typen, nur für den Vergleich
+import * as alt from '../src/_geo_alt.js'
+
+let seed = 42                                   // deterministisch, KEIN Math.random:
+const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+
+expect(neu.pointAt(rb, s)).toEqual(alt.pointAt(ra, s))
+```
+
+An `geo` und `autoweather` hat das Block A abgenommen: 12 zufällige Routen à 41
+Stützstellen, 200 Punktpaare, `wmoToWeather` über 2 430 Code-/Wolken-/Regen-/
+Schnee-Kombinationen, `weatherAt` über 30 Timelines samt Rändern — alles
+identisch.
+
+Drei Fallen, die dabei Zeit kosten:
+
+- **Zufallswerte einmal berechnen**, nicht je Aufruf: `f(rnd())` gegen `g(rnd())`
+  vergleicht zwei verschiedene Eingaben und schlägt immer fehl.
+- Die Wegwerf-Dateien müssen **unter `test/` bzw. `src/`** liegen — `vitest.config.js`
+  inkludiert nur `test/**/*.test.{js,ts}`, ein Test im Repo-Wurzelverzeichnis wird
+  gar nicht gefunden.
+- **Danach beides löschen** (`test/_*.test.ts`, `src/_*_alt.js`) und `npm test`
+  gegenlaufen lassen — eine vergessene Alt-Fassung landet sonst im Build-Graph.
+
+Was nicht rein rechnet (Kamera-Pose, DOM), bleibt beim Smoke aus §5a.
 
 ---
 
