@@ -24,6 +24,34 @@ auf **Englisch** vereinheitlichen.
 - Mehrsprachigkeit der Oberfläche → [konzept_mehrsprachigkeit_i18n.md](konzept_mehrsprachigkeit_i18n.md)
 - Modus-Konsolidierung → [modi-konsolidierung.md](modi-konsolidierung.md)
 
+### Ausgangslage: der Player ist schon englisch
+
+Die Codebase ist **nicht durchgehend deutsch**, und das prägt den Zuschnitt der
+Wellen unten. Gemessen am 2026-08-11:
+
+| Bereich | Sprache der Bezeichner |
+|---|---|
+| Player (`src/*.js`) | **englisch** — der alte Prototyp-Code |
+| Studio, Konto, Profil, Admin (`src/**/*.ts`) | deutsch |
+| Server (`server/`), Android (`android/`) | deutsch |
+
+Im Player sind rund **30 von 839** Bezeichnern deutsch (~4 %) — durchweg jüngere
+Ergänzungen: `planeRueckzug`, `kamFolger`, `merkeSeitenverhaeltnis`,
+`setzeViewportHoehe`, `zeichneKopf`, `hoehenPruefen` und ein paar mehr in
+`main.js`, `photopins.js`, `atmosphere.js`, `ui.js`, `tour.js`.
+
+Deshalb kommt der Player in den Wellen 1–7 **nicht vor**: Dort ist fast nichts zu
+tun. Die Wellen greifen genau dort, wo nach dem Prototyp weitergebaut wurde.
+
+**Verhältnis zur TypeScript-Migration**
+([konzept_player_typescript.md](konzept_player_typescript.md)): Die beiden
+Vorhaben berühren sich kaum — das eine betrifft `src/*.js`, das andere alles
+darum herum. Die eine echte Abhängigkeit läuft in eine Richtung: Wer die ~30
+Restnamen des Players anfassen will, tut das **nach** der TS-Migration, weil
+Umbenennen dann eine typgeprüfte Operation über den ganzen Graph ist statt einer
+Textsuche. Umgekehrt gewinnt die TS-Migration nichts davon, vorher anglisiert zu
+haben.
+
 ### Agenten-Qualität
 Englisch im Code macht Agenten **nicht** grundsätzlich schlechter, solange
 Glossar + `CLAUDE.md` mitziehen. Schlechter wird es durch **Halb-Umbau**
@@ -63,6 +91,7 @@ Vor dem Start in `CLAUDE.md` die Sprachregel anpassen:
 | **6** | API-Transporttypen & interne Helper; URL-Aliases optional | hoch |
 | **7** | DB-Spalten, Room-Felder, Overlay-/Tour-JSON-Felder mit Schema-Bump / Migration | sehr hoch |
 | **8** | Rest-Docs, Mockup-Kommentare, Aufräumen verbotener Synonyme | niedrig |
+| **9** *(optional)* | Die ~30 deutschen Restnamen im Player (s. §1). **Erst nach der TS-Migration** — dann greift „Symbol umbenennen" typgeprüft. | niedrig |
 
 **Aufwand (realistisch, mit Agenten):** eher **mehrere Wochen gestreckt** als
 „2–3 Tage“. Tipparbeit ist billig; Review, Migration und Altbestand sind es nicht.
