@@ -302,6 +302,38 @@ Drei Abweichungen im Bestand, die beim Anfassen mitgehen:
 
 ---
 
+## 5a. Schnitt in Blöcke — nicht in einem Rutsch
+
+Die acht Wellen sind die Reihenfolge, nicht die Liefergröße. Drei Blöcke, jeder
+ein eigener Commit, ein Release am Ende:
+
+| Block | Wellen | Umfang | Abnahme |
+|---|---|---:|---|
+| A | 1–4 | ~2 300 Z, mechanisch | typecheck + `npm test` |
+| B | 5–6 | 1 436 Z (`ui`, Engine) | **Smoke zwingend** |
+| C | 7–8 | ~2 700 Z (Visuals, Verdrahter) | Smoke + beide Tour-Arten, Desktop und schmal |
+
+**Warum nicht alles auf einmal:** nicht die Menge — die Abnahme. Von den 19
+Player-Dateien haben nur `geo` und `audiotracks` echte Tests; die Treffer bei
+`tour` und `map` in `test/` sind Drift-Wächter (Modus-Tabelle, `t_`-Schlüssel),
+keine Verhaltenstests. `tour.js`, `main.js`, `atmosphere.js` und `ui.js` — der
+eigentliche Kern — haben **keinen einzigen**. Der Typecheck fängt in diesem Umbau
+also genau das, was ohnehin selten bricht, und nichts von dem, was wirklich
+brechen kann. Dazu beißen `noUncheckedIndexedAccess` und
+`exactOptionalPropertyTypes` ausgerechnet in `geo`/`tour`/`atmosphere` am
+härtesten (jeder `coords[i][2]` wird `| undefined`) — hunderte Einzelentscheidungen
+zwischen sauber prüfen und mit `!` durchwischen. Und ein 7 000-Zeilen-Diff ist
+nicht bisektierbar, wenn drei Tage später die Kamera in einer Kurve zuckt.
+
+**Smoke-Aufbau** (der Browser-Pane taugt nicht — er meldet `innerWidth 0`, MapLibre
+startet dort nie): Headless-Chromium aus dem Playwright-Cache gegen den
+devhub-Dev-Server, `window.__j.tour` abwarten, `#btn-start` klicken, dann Phase,
+`s` und `map.getPitch()` über ~25 s beobachten. Erwartung: `intro → ride → photo
+→ ride`, `s` wächst, Pitch pendelt sich bei ~65° ein (die ersten Sekunden sind
+flach — das ist der einschwingende Smooth-Filter, kein Fehler).
+
+---
+
 ## 6. CI und Definition of Done (gesamt)
 
 - `npm run typecheck` umfasst den gesamten Player-Pfad (keine Insel-JS mehr im
