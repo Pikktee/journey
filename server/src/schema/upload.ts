@@ -6,8 +6,8 @@ export const UPLOAD_SCHEMA_ID = 'maptale/upload@1'
 
 /**
  * Fortbewegungs-Modi — muss deckungsgleich mit der Player-Engine bleiben
- * (MODE_SPEED/MODE_SCALE in src/tour.js, MODE_ICONS in src/map.js,
- * MODE_SOUND in src/vehicle.js). Eine Quelle für Typ UND JSON-Schema-Enums,
+ * (MODE_SPEED/MODE_SCALE in src/tour.js, MODE_ICONS in src/map.ts,
+ * MODE_SOUND in src/vehicle.ts). Eine Quelle für Typ UND JSON-Schema-Enums,
  * damit die drei Stellen nicht wieder auseinanderlaufen.
  */
 export const MODI = ['walk', 'moped', 'bike', 'jeep', 'tram', 'ferry'] as const

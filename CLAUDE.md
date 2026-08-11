@@ -5,8 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Was das ist
 
 Maptale ist eine App für Relive-artige 3D-Kamerafahrten über eine GPS-Route mit
-automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vanilla JS + Vite
-(neue Module in TypeScript), gerendert mit MapLibre GL JS.
+automatischen Foto-Stopps — vollständig auf freien Kartendaten. Web-Player in Vite,
+gerendert mit MapLibre GL JS. Der Player wandert wellenweise nach **TypeScript**
+([docs/concepts/konzept_player_typescript.md](docs/concepts/konzept_player_typescript.md));
+Daten, Blätter, Kernbausteine und Karten-Nebenmodule sind durch, die UI-Schicht, die Engine
+(`tour.js`), die Visuals und der Verdrahter (`main.js`) sind noch Vanilla JS. Wer eine der
+verbliebenen `.js` anfasst, folgt der Wellen-Reihenfolge des Konzepts statt sie zu überholen —
+**eine `.ts` darf kein noch nicht migriertes `.js` importieren** (`allowJs` ist aus, das gäbe
+`TS7016`).
 
 **Maptale wird von einem Prototyp zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
 Meilensteine M1–M9): eigene Touren aufzeichnen (Android), hochladen, serverseitig anreichern
@@ -207,7 +213,7 @@ die rohe ID und kein Slug**: Ihre Unerratbarkeit (14 Zeichen, ~2^80,
 Name unter einem bekannten Handle wäre kein Geheimnis mehr, und die laufende Nummer `no` ist
 ohnehin nur pro Besitzer eindeutig. **Kein `srv:` im Pfad**: Server-IDs tragen ihr `t_` selbst
 — daran, und nur daran, unterscheidet der Player sie von den mitgelieferten `TOURS` (ein
-Wächter verbietet deshalb `t_`-Schlüssel in [src/tours.js](src/tours.js)). `?tour=…` bleibt
+Wächter verbietet deshalb `t_`-Schlüssel in [src/tours.ts](src/tours.ts)). `?tour=…` bleibt
 bedienbar und wird beim Start per `replaceState` umgeschrieben; das `^~` im Vhost ist Pflicht,
 weil CloudPanels Endungs-Regex sonst jede Kennung abfinge, die auf `.jpg` endet. **Auch diese
 Adresse beantwortet der Server** (dieselbe Mechanik wie `/@`, Marker in
@@ -215,20 +221,20 @@ Adresse beantwortet der Server** (dieselbe Mechanik wie `/@`, Marker in
 `public` — `unlisted` behält `noindex` und bekommt trotzdem seine Vorschaukarte, denn genau
 das verspricht die Stufe. Eine private Tour zeigt im Kopf nichts, auch ihrem Besitzer nicht;
 für Fremde antwortet sie 404, wie in der API. Die mitgelieferten Touren (`/tour/kohphangan`)
-reicht der Server unverändert durch — `src/tours.js` ein zweites Mal zu führen wäre die
+reicht der Server unverändert durch — `src/tours.ts` ein zweites Mal zu führen wäre die
 nächste Kopie, die auseinanderläuft.
 
 Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.js](src/main.js),
 der die Module verdrahtet. Der zentrale Datenfluss:
 
-**Route als Bogenlängen-Parameter.** [src/geo.js](src/geo.js) `buildRoute()` nimmt Wegpunkte,
+**Route als Bogenlängen-Parameter.** [src/geo.ts](src/geo.ts) `buildRoute()` nimmt Wegpunkte,
 glättet sie (Catmull-Rom) und resampled sie auf ~14 m Schritte. Die entstehende `route` trägt
 `coords` (lng,lat,ele), kumulierte Distanzen `cum` und `total`. **Die eine Zustandsvariable, die
 alles antreibt, ist `s` — die Position entlang der Route in Metern.** `pointAt(route, s)`,
 `bearingAt(route, s)`, `nearestS(route, lnglat)` übersetzen zwischen `s`, Koordinaten und
 Kurswinkel. Fotos und Modus-Wechsel werden über `s` verankert.
 
-**Tour-Konfiguration als Daten.** [src/tours.js](src/tours.js) exportiert `TOURS` — pro Tour:
+**Tour-Konfiguration als Daten.** [src/tours.ts](src/tours.ts) exportiert `TOURS` — pro Tour:
 `segments` (jedes mit `pts` und `mode`), `photos` (mit
 `anchor`-Koordinate), Intro-/Finale-Texte, optional `time` (für Tag/Nacht), `geoid` und `weather`.
 `weather` ist eine kuratierte Wetter-Timeline `[{ km, mode, k }]` (km entlang der Route) und hat
@@ -248,7 +254,7 @@ pro Frame `ui.updateTrace(s, pos)` und optional `ui.onTick(frac)` auf.
 
 **Fortbewegungs-Modi** sind `walk | bike | moped | jeep | tram | ferry`. Die Liste muss an vier
 Stellen deckungsgleich bleiben: `MODE_SPEED`/`MODE_SCALE` ([src/tour.js](src/tour.js)),
-`MODE_ICONS` ([src/map.js](src/map.js)), `MODE_SOUND` ([src/vehicle.js](src/vehicle.js), nur
+`MODE_ICONS` ([src/map.ts](src/map.ts)), `MODE_SOUND` ([src/vehicle.ts](src/vehicle.ts), nur
 die drei mit Motorgeräusch: moped/jeep/ferry — die Tram fährt lautlos) und `MODI` ([server/src/schema/upload.ts](server/src/schema/upload.ts), von
 dort beziehen Studio-Typ und alle JSON-Schema-Enums ihre Werte). Sie **lief schon einmal
 auseinander** — Studio und Server kannten `moped`/`jeep` nicht, obwohl Engine, Icons und
@@ -266,15 +272,15 @@ lässt mindestens einen Trackpunkt im Abschnitt: sonst gälte der Zustand für k
 Band verschwände aus der Anzeige und wäre nicht mehr anzufassen.
 
 **Höhen zweistufig.** Wegpunkt-Höhen sind nur der Startwert. Nach dem Laden holt
-[src/elevation.js](src/elevation.js) echte DEM-Höhen aus AWS Terrarium-Tiles (async fetch +
+[src/elevation.ts](src/elevation.ts) echte DEM-Höhen aus AWS Terrarium-Tiles (async fetch +
 Bilinear-Sampling), glättet sie und überschreibt `coords[i][2]`; Höhenmeter und Höhenprofil
 werden neu berechnet. Fähr-Abschnitte werden auf Meereshöhe geklemmt (DEM rauscht über Wasser).
 Fällt der Fetch aus (offline), bleibt es beim Wegpunkt-Profil.
 
-**Rendering-Schichten.** [src/map.js](src/map.js) baut den MapLibre-Stil: Esri-Satellit über
+**Rendering-Schichten.** [src/map.ts](src/map.ts) baut den MapLibre-Stil: Esri-Satellit über
 AWS-Terrain-DEM (`EXAGGERATION`-Konstante), Atmosphäre, Routen-Layer, Foto-Wegpunkte
 (`addSpotLayers`), Fahrer-Marker (`createRider`/`setRiderIcon` mit `MODE_ICONS`).
-[src/daynight.js](src/daynight.js) + [src/sun.js](src/sun.js) mappen Streckenanteil → Pseudo-Uhrzeit
+[src/daynight.ts](src/daynight.ts) + [src/sun.ts](src/sun.ts) mappen Streckenanteil → Pseudo-Uhrzeit
 → Sonnenstand → Szenenstimmung (nur wenn `cfg.time` gesetzt ist).
 **Foto-Stopps sind 3D-PINS** ([src/photopins.js](src/photopins.js), Standard;
 `?pins3d=0` = alte flache Kreise, `?pins3d=foto` = Bild im Kopf): Fußring am Boden, Mast,
@@ -344,8 +350,8 @@ seiner Kante hängen Marker-Icon und Motorsound.
 Sterne, Sonne) und [src/weather.js](src/weather.js) (Regen/Schnee/Nebel/Gewitter als
 Partikel-Overlay) liegen über der Karte. Das Wetter kommt entweder aus der kuratierten
 `weather`-Timeline der Tour, aus dem Tour-JSON des Servers oder — als Fallback — aus
-[src/autoweather.js](src/autoweather.js) (Open-Meteo an den Foto-Ankern).
-[src/audiotracks.js](src/audiotracks.js) spielt die im Studio gesetzten Musik-/SFX-Spuren.
+[src/autoweather.ts](src/autoweather.ts) (Open-Meteo an den Foto-Ankern).
+[src/audiotracks.ts](src/audiotracks.ts) spielt die im Studio gesetzten Musik-/SFX-Spuren.
 
 ## Studio
 

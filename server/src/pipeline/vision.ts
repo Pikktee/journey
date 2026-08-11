@@ -86,7 +86,7 @@ export function bildBefundZuWetter(b: BildBefund): { mode: WetterModus; k: numbe
 
 /**
  * Aktiver Zustand der Basis-Keyframes an Position f — exakt die Lookup-Logik des
- * Players (weatherAt in src/autoweather.js): die Grenze zwischen zwei Marken
+ * Players (weatherAt in src/autoweather.ts): die Grenze zwischen zwei Marken
  * liegt auf ihrer Mitte. `basis` muss nach f sortiert sein.
  */
 function basisZustandBei(basis: readonly WetterKeyframe[], f: number): WetterKeyframe {

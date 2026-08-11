@@ -510,7 +510,7 @@ describe('reichereAn mit Edit-Overlay', () => {
   })
 
   // Der Platz im Foto-Stopp wird hier nur DURCHGEREICHT — gruppiert wird erst
-  // im Player (gruppiereStopps in src/geo.js), der Server kennt keine Stopps.
+  // im Player (gruppiereStopps in src/geo.ts), der Server kennt keine Stopps.
   it('reicht reihe aus dem Overlay in die Medien durch — nur wo gesetzt', async () => {
     const tour = await reichereAn(
       eingabe({

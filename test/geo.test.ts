@@ -1,13 +1,14 @@
-// Absicherung des Routen-Kerns (src/geo.js) — die eine Zustandsvariable des
+// Absicherung des Routen-Kerns (src/geo.ts) — die eine Zustandsvariable des
 // Players ist der Streckenmeter s; buildRoute/pointAt/nearestS übersetzen
 // zwischen s, Koordinaten und Ankern. Bisher ungetestet, jetzt Pflicht:
 // Remote-Touren hängen an exakt diesem Verhalten.
 
 import { describe, expect, it } from 'vitest'
 import { bearingAt, buildRoute, dist, gruppiereStopps, nearestS, pointAt } from '../src/geo.js'
+import type { Wegpunkt } from '../src/tours.js'
 
 // Gerade West→Ost auf 46° Breite, sanft steigend — 5 Wegpunkte à ~770 m
-const wegpunkte = [
+const wegpunkte: Wegpunkt[] = [
   [8.0, 46.0, 500],
   [8.01, 46.0, 520],
   [8.02, 46.0, 540],
@@ -21,17 +22,17 @@ describe('buildRoute', () => {
     expect(route.total).toBeGreaterThan(2800)
     expect(route.total).toBeLessThan(3400)
     // Schrittweite: innere Stützpunkte liegen exakt 14 m auseinander
-    expect(route.cum[1] - route.cum[0]).toBeCloseTo(14, 5)
-    expect(route.cum[2] - route.cum[1]).toBeCloseTo(14, 5)
+    expect(route.cum[1]! - route.cum[0]!).toBeCloseTo(14, 5)
+    expect(route.cum[2]! - route.cum[1]!).toBeCloseTo(14, 5)
     // Monoton steigend bis total
-    for (let i = 1; i < route.cum.length; i++) expect(route.cum[i]).toBeGreaterThanOrEqual(route.cum[i - 1])
+    for (let i = 1; i < route.cum.length; i++) expect(route.cum[i]).toBeGreaterThanOrEqual(route.cum[i - 1]!)
     expect(route.cum[route.cum.length - 1]).toBe(route.total)
   })
 
   it('startet und endet exakt an den Wegpunkten', () => {
     const route = buildRoute(wegpunkte)
-    expect(route.coords[0].slice(0, 2)).toEqual([8.0, 46.0])
-    const ende = route.coords[route.coords.length - 1]
+    expect(route.coords[0]!.slice(0, 2)).toEqual([8.0, 46.0])
+    const ende = route.coords[route.coords.length - 1]!
     expect(ende[0]).toBeCloseTo(8.04, 10)
     expect(ende[1]).toBeCloseTo(46.0, 10)
   })
@@ -99,13 +100,13 @@ describe('dist', () => {
 // sich der Studio-Editor ausrichtet (Drift-Wächter in studio-stopps.test.ts).
 
 describe('gruppiereStopps', () => {
-  const foto = (id, s, extra = {}) => ({ id, s, ...extra })
+  const foto = (id: string, s: number, extra: { reihe?: number } = {}) => ({ id, s, ...extra })
 
   it('fasst Aufnahmen unter 120 m zu einem Halt zusammen', () => {
     const stopps = gruppiereStopps([foto('a', 1000), foto('b', 1119), foto('c', 5000)])
     expect(stopps.map((x) => x.items.map((m) => m.id))).toEqual([['a', 'b'], ['c']])
     // Der Halt liegt am ERSTEN Foto, nicht in der Mitte
-    expect(stopps[0].s).toBe(1000)
+    expect(stopps[0]!.s).toBe(1000)
   })
 
   it('misst zum Anfang des Halts — eine Kette verschmilzt nicht endlos', () => {
@@ -122,12 +123,12 @@ describe('gruppiereStopps', () => {
       foto('b', 1050, { reihe: 0 }),
       foto('c', 1100, { reihe: 1 }),
     ])
-    expect(mitReihe[0].items.map((m) => m.id)).toEqual(['b', 'c', 'a'])
+    expect(mitReihe[0]!.items.map((m) => m.id)).toEqual(['b', 'c', 'a'])
     const ohne = gruppiereStopps([foto('a', 1000), foto('b', 1050)])
-    expect(ohne[0].items.map((m) => m.id)).toEqual(['a', 'b'])
+    expect(ohne[0]!.items.map((m) => m.id)).toEqual(['a', 'b'])
     // Teilweise gesetzt: wer keine hat, kommt dahinter
     const teils = gruppiereStopps([foto('a', 1000), foto('b', 1050, { reihe: 0 })])
-    expect(teils[0].items.map((m) => m.id)).toEqual(['b', 'a'])
+    expect(teils[0]!.items.map((m) => m.id)).toEqual(['b', 'a'])
   })
 
   it('kommt mit leerer Liste und Einzelfotos zurecht', () => {

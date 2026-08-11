@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config'
 
-// Web-Tests (logikhaltige Module: geo.js, remote.ts, künftig Studio).
+// Web-Tests (logikhaltige Module: geo.ts, remote.ts, künftig Studio).
 // server/ hat sein eigenes Vitest-Projekt — hier bewusst ausgeschlossen.
 export default defineConfig({
   test: {

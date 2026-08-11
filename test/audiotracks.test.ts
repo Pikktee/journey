@@ -1,4 +1,4 @@
-// Tour-Audio (src/audiotracks.js): getestet werden NUR die reinen, DOM-freien
+// Tour-Audio (src/audiotracks.ts): getestet werden NUR die reinen, DOM-freien
 // Helfer — createAudioTracks braucht window/Audio und läuft nur im Browser
 // (Vitest läuft in Node). Die Kantenerkennung ist die eigentliche Logik:
 // Musik-Bereiche als halboffene Intervalle, SFX nur beim echten Vorwärts-Überfahren.

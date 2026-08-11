@@ -1,7 +1,7 @@
 // Foto-Stopps: Aufnahmen, die am selben Ort gemacht wurden, gehören zusammen.
 //
 // Der Player gruppiert Fotos, deren Anker weniger als 120 STRECKENMETER
-// auseinanderliegen, zu EINEM Halt und zeigt sie dort nacheinander (src/geo.js,
+// auseinanderliegen, zu EINEM Halt und zeigt sie dort nacheinander (src/geo.ts,
 // gruppiereStopps). Der Editor muss dieselbe Gruppierung zeigen — sonst plant
 // man zwölf Halte und sieht später acht.
 //
@@ -13,7 +13,7 @@ import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
 
 /**
  * Abstand, unter dem zwei Aufnahmen als „am selben Ort" gelten (Streckenmeter).
- * MUSS mit NAHE_M in src/geo.js übereinstimmen — ein Drift-Wächter in
+ * MUSS mit NAHE_M in src/geo.ts übereinstimmen — ein Drift-Wächter in
  * test/studio-stopps.test.ts vergleicht beide.
  */
 export const NAHE_M = 120
@@ -57,7 +57,7 @@ export function baueStopps(
     // Gemessen wird zum ANFANG des Halts, nicht zum Vorgänger — sonst könnte
     // eine Perlenkette knapp benachbarter Aufnahmen zu einem beliebig langen
     // Stopp verschmelzen. Genau so entscheidet es der Player (gruppiereStopps
-    // in src/geo.js); ein Drift-Wächter vergleicht beide Wege.
+    // in src/geo.ts); ein Drift-Wächter vergleicht beide Wege.
     const anfang = letzte?.meter[0]
     if (letzte && anfang !== undefined && x.ort.meter - anfang < NAHE_M) {
       letzte.items.push(x.m)

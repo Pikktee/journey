@@ -10,7 +10,7 @@
 // Beide müssen dasselbe rechnen, sonst startet ein Klip im fertigen Film woanders
 // als im Editor gezeigt — genau die Sorte Drift, an der schon die
 // Gehabschnitts-Erkennung einmal hing. Deshalb: dieselbe Gruppierung (120
-// Streckenmeter, src/geo.js), dieselben Halt-Dauern (`aufnahmeHaltS` +
+// Streckenmeter, src/geo.ts), dieselben Halt-Dauern (`aufnahmeHaltS` +
 // Ausblendung) und dieselbe Interpolations-Konvention (Plateau → Ankunft).
 
 import { HALT_AUSBLEND_S, NAHE_M, aufnahmeHaltS, tempoMs } from './filmtempo.js'
@@ -175,7 +175,7 @@ export function projiziereAufReihe(reihe: Zeitreihe, lng: number, lat: number): 
 
 /**
  * Aufnahmen zu Halten gruppieren — Spiegel von `baueStopps`
- * (src/studio/stopps.ts) und `gruppiereStopps` (src/geo.js).
+ * (src/studio/stopps.ts) und `gruppiereStopps` (src/geo.ts).
  *
  * Gemessen wird zum ANFANG des Halts, nicht zum Vorgänger: sonst könnte eine
  * Perlenkette knapp benachbarter Aufnahmen zu einem beliebig langen Stopp

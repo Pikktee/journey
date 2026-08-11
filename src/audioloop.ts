@@ -7,23 +7,28 @@
 // Elemente 1:1 austauschen kann: .volume (get/set), .paused, .play() (Promise),
 // .pause(), ._blocked.
 export class SeamlessLoop {
-  constructor(url, { xfade = 0.7 } = {}) {
+  readonly xfade: number
+  /** Die beiden versetzt laufenden Elemente derselben Quelle. */
+  readonly els: [HTMLAudioElement, HTMLAudioElement]
+  /** Autoplay wurde geblockt — die Aufrufer setzen das nach einer Geste zurück. */
+  _blocked = false
+  private _master = 0 // Ziel-Lautstärke (wie <audio>.volume)
+  private _playing = false
+  private _cur: 0 | 1 = 0
+  private _timer: ReturnType<typeof setInterval> | null = null
+
+  constructor(url: string, { xfade = 0.7 }: { xfade?: number } = {}) {
     this.xfade = xfade
-    this._master = 0 // Ziel-Lautstärke (wie <audio>.volume)
-    this._playing = false
-    this._blocked = false
-    this._cur = 0
-    this._timer = null
     this.els = [new Audio(url), new Audio(url)]
     for (const a of this.els) { a.preload = 'auto'; a.loop = false; a.volume = 0 }
   }
 
   get paused() { return !this._playing }
   get volume() { return this._master }
-  set volume(v) { this._master = v < 0 ? 0 : v > 1 ? 1 : v; if (this._playing) this._apply() }
+  set volume(v: number) { this._master = v < 0 ? 0 : v > 1 ? 1 : v; if (this._playing) this._apply() }
 
-  _apply() {
-    const a = this.els[this._cur], b = this.els[1 - this._cur]
+  private _apply() {
+    const a = this.els[this._cur], b = this.els[this._cur === 0 ? 1 : 0]
     const dur = a.duration
     let f = 0 // Crossfade-Fortschritt 0..1 in den letzten xfade-Sekunden
     if (dur && a.currentTime > dur - this.xfade) f = Math.min(1, (a.currentTime - (dur - this.xfade)) / this.xfade)
@@ -31,19 +36,19 @@ export class SeamlessLoop {
     b.volume = this._master * Math.sin((f * Math.PI) / 2)
   }
 
-  _tick() {
+  private _tick() {
     if (!this._playing) return
-    const a = this.els[this._cur], b = this.els[1 - this._cur]
+    const a = this.els[this._cur], b = this.els[this._cur === 0 ? 1 : 0]
     const dur = a.duration
     if (dur && a.currentTime > dur - this.xfade && b.paused) {
       b.currentTime = 0
       b.play().then(() => { this._blocked = false }).catch(() => { this._blocked = true })
     }
-    if (dur && a.currentTime >= dur - 0.03) { a.pause(); a.currentTime = 0; this._cur = 1 - this._cur }
+    if (dur && a.currentTime >= dur - 0.03) { a.pause(); a.currentTime = 0; this._cur = this._cur === 0 ? 1 : 0 }
     this._apply()
   }
 
-  play() {
+  play(): Promise<void> {
     if (this._playing) return Promise.resolve()
     this._playing = true
     if (!this._timer) this._timer = setInterval(() => this._tick(), 40)

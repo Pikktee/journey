@@ -3,7 +3,7 @@
 // daher direkt unit-testbar.
 //
 // Wichtig fürs Gesamtsystem: Der Player baut die Route selbst neu auf
-// (Catmull-Rom + Resampling in src/geo.js des Web-Projekts). Die Vereinfachung
+// (Catmull-Rom + Resampling in src/geo.ts des Web-Projekts). Die Vereinfachung
 // hier dient nur der Payload-Größe; Streckenpositionen tauschen wir als
 // Bruchteil f (0..1), nie als absolute Meter.
 

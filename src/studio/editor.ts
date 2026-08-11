@@ -5072,7 +5072,7 @@ function uhrzeitKurz(iso: string): string {
 /**
  * Der Läufer zeigt, WO auf der Strecke die Marke steht — und WOMIT man dort
  * unterwegs ist. Das Piktogramm ist zeichengleich mit dem Fahrer im Player
- * (MODE_ICONS in src/map.js), damit Editor und Wiedergabe dieselbe Sprache
+ * (MODE_ICONS in src/map.ts), damit Editor und Wiedergabe dieselbe Sprache
  * sprechen.
  */
 function setzeLaeufer(tOffsetS: number): void {

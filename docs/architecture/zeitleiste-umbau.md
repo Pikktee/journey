@@ -338,7 +338,7 @@ Folgen außerhalb des Schemas:
   `anker + versatzFilmS + dauerFilmS` beim Rendern über die Film-Achse in die
   `f0/f1`-Anteile des Tour-JSON übersetzen (die Achse steht der Pipeline über
   [filmtempo.ts](../../server/src/pipeline/filmtempo.ts) zur Verfügung).
-- **Player** ([audiotracks.js](../../src/audiotracks.js),
+- **Player** ([audiotracks.js](../../src/audiotracks.ts),
   [abspielen.ts](../../src/studio/abspielen.ts)): `loop` aus dem Overlay statt
   pauschal `el.loop = true` für Musik; SFX mit `loop: true` brauchen ein
   Bereichsende (heute one-shot). `einstiegS` = Start-Seek (das Eintritts-Seek-

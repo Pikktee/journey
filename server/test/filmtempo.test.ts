@@ -22,7 +22,7 @@ import {
 import { MODI } from '../src/schema/upload.js'
 
 const engineQuelle = (): string => readFileSync(new URL('../../src/tour.js', import.meta.url), 'utf8')
-const geoQuelle = (): string => readFileSync(new URL('../../src/geo.js', import.meta.url), 'utf8')
+const geoQuelle = (): string => readFileSync(new URL('../../src/geo.ts', import.meta.url), 'utf8')
 
 describe('Filmtempo', () => {
   it('kennt genau die Modi des Austauschformats', () => {
@@ -52,7 +52,7 @@ describe('Filmtempo', () => {
     expect(Number(quelle.match(/const HOLD_AUSBLEND = ([\d.]+)/)?.[1])).toBe(HALT_AUSBLEND_S)
   })
 
-  it('deckt sich mit dem Halt-Abstand aus src/geo.js', () => {
+  it('deckt sich mit dem Halt-Abstand aus src/geo.ts', () => {
     // Wer Aufnahmen anders gruppiert als der Player, webt die Halte an andere
     // Stellen der Achse — und ein Ton-Klip landete neben seinem Anker.
     expect(Number(geoQuelle().match(/export const NAHE_M = (\d+)/)?.[1])).toBe(NAHE_M)

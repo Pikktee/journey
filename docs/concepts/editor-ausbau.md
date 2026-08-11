@@ -173,7 +173,7 @@ Technisch **fast gratis** — aber nur auf dem richtigen Weg:
 - **Falsch:** CSS `filter` auf dem Karten-Canvas. Zusätzlicher Vollbild-Pass pro Frame
   (`blur` besonders teuer), färbt Fotokarte und Bedienleiste mit.
 - **Richtig:** die Raster-Paint-Properties des Satellitenlayers, die
-  [daynight.js:84](../src/daynight.js#L84) bereits pro Frame fährt. Läuft im vorhandenen
+  [daynight.js:84](../src/daynight.ts#L84) bereits pro Frame fährt. Läuft im vorhandenen
   Shader-Durchgang: kein zweiter Pass, keine messbaren Kosten.
 
 | Regler | Wirkung |
@@ -185,7 +185,7 @@ Technisch **fast gratis** — aber nur auf dem richtigen Weg:
 | `raster-hue-rotate` | dreht den Farbkreis (neu, bisher ungenutzt) |
 
 Vorschlag für die Look-Palette (als **Offsets** auf die Tageszeit-Keyframes in
-[daynight.js:16](../src/daynight.js#L16)):
+[daynight.js:16](../src/daynight.ts#L16)):
 
 | Look | Werte |
 |---|---|
@@ -225,7 +225,7 @@ Ursprünglich abgelehnt, nach Einwand **revidiert: Farbe ja, Linienstil nein.**
 Die Route ist das einzige durchgehende Lesbarkeitselement über wechselndem Untergrund
 (Wald, Fels, Schnee, Meer, Stadt bei Nacht) — man wählt bei km 0 und sieht km 30 nicht.
 **Aber** die Route ist bereits vierschichtig
-([map.js:336–370](../src/map.js#L336)): weiße Vorschaulinie (2,4 px), Farbverlauf
+([map.js:336–370](../src/map.ts#L336)): weiße Vorschaulinie (2,4 px), Farbverlauf
 Bernstein→Koralle (4,6 px), weicher Schein (11 px, blur 7), farbige Spitze. Genau diese
 Struktur — Kern plus Schein — erzeugt die Lesbarkeit. Solange ein Thema **alle vier
 Schichten stimmig** setzt und die Helligkeitsdifferenz erhält, ist Magenta so lesbar wie
@@ -277,7 +277,7 @@ Offen: API-Kosten pro Erzeugung (Quota-Frage) und Musik-Ducking darunter.
 
 Heute: `walk 0.4 · bike 1 · moped 1.15 · tram 1.25 · jeep 1.45 · ferry 2.5`
 ([tour.js:62](../src/tour.js#L62)), Ton nur für `moped/jeep/ferry`
-([vehicle.js:11](../src/vehicle.js#L11)).
+([vehicle.js:11](../src/vehicle.ts#L11)).
 
 **Beobachtung:** Ein Modus tut vier Dinge — Tempo, Kameradistanz, Icon, Motorsound. Die
 Tempo-Spur löst die erste Wirkung heraus; danach erzeugt `Modus × Tempo × Kamera` mehr

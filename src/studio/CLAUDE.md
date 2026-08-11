@@ -217,7 +217,7 @@ tauscht nur die Datei, Platzierung und Lautstärke bleiben; das aktuelle Stück 
 „Aktuell"-Badge). Beim Aussuchen klingt immer nur EINE Quelle (Bibliotheks- und
 Panel-Vorhören stoppen einander; das Panel-Vorhören folgt der Eintrags-Lautstärke live am
 Regler). ÜBERLAPPENDE Klips sind erlaubt und MISCHEN sich — im Player (je Spur ein
-Element, audiotracks.js) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
+Element, audiotracks.ts) wie im Studio-Abspielen (je Klip ein Element, abspielen.ts); die
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `loeseTonKlips`), die Bahn wächst mit.
 
 **Ein Ton-Klip hängt an der REISE, nicht an einer Filmsekunde** (Etappe 4, rechnende Teile
@@ -629,9 +629,11 @@ vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das
 `1/schaetzeAnimationsdauer`, sodass der Halt an einem Foto hier so viel Zeit „kostet" wie
 später. Musik läuft über EIN `Audio`-Element mit **Eintritts-Seek** (wer mitten im Bereich
 startet, hört, was dort im Film liefe — `createAudioTracks` kann das nicht, deshalb eigener
-Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.js](src/audiotracks.js), damit im
-Studio nichts klingt, was der Film nicht spielt (Drift-Wächter + handgeschriebene
-`audiotracks.d.ts`, weil `allowJs` aus ist). Jede manuelle Geste ruft `halteAbspielen()` —
+Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](src/audiotracks.ts), damit im
+Studio nichts klingt, was der Film nicht spielt (Drift-Wächter). Bis zur
+TypeScript-Migration des Players lag daneben eine handgeschriebene
+`audiotracks.d.ts`, weil `allowJs` aus ist — seit `audiotracks.ts` TypeScript ist,
+prüft `tsc` die eine verbliebene Signatur selbst. Jede manuelle Geste ruft `halteAbspielen()` —
 der Spielplan ist ein Schnappschuss und liefe sonst gegen veraltete Halte.
 
 **Welches Bild auf der Karte liegt, ist eine FUNKTION der Kopfposition** — keine Uhr und keine

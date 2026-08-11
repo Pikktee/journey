@@ -134,9 +134,9 @@ describe('routen', () => {
 
     it('hält keine mitgelieferte Tour unter einem t_-Namen', () => {
       // Die einzige Unterscheidung zwischen Server-Tour und Registry im Pfad.
-      // Ein `t_`-Schlüssel in tours.js machte aus einer statischen Tour still
+      // Ein `t_`-Schlüssel in tours.ts machte aus einer statischen Tour still
       // einen Backend-Aufruf, der 404 gibt.
-      const tours = lies('src/tours.js')
+      const tours = lies('src/tours.ts')
       expect(tours).not.toMatch(/^\s{2}t_[a-z0-9_]*\s*:/m)
     })
 

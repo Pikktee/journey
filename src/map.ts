@@ -1,11 +1,21 @@
 // Kartenaufbau: Esri World Imagery (Satellit) über AWS Terrain Tiles (Terrarium-DEM),
 // dazu Atmosphäre und die beiden Routen-Layer.
-import maplibregl from 'maplibre-gl'
-import { indexAt } from './geo.js'
+import maplibregl, {
+  type ExpressionSpecification,
+  type GeoJSONSource,
+  type LngLatLike,
+  type Map as MapLibreMap,
+  type Marker,
+} from 'maplibre-gl'
+import { indexAt, type Route } from './geo.js'
 import { registerDemClean } from './demclean.js'
-import { createKartenInfo } from './karteninfo'
+import { createKartenInfo } from './karteninfo.js'
+import type { Modus } from './tours.js'
 
 export const EXAGGERATION = 1.35
+
+/** Koordinate ohne Höhe, wie GeoJSON und die Marker sie wollen. */
+export type LngLat2D = [number, number]
 
 // DEM-Kacheln durch die Spike-Bereinigung leiten (siehe demclean.js): kaputte
 // Ausreißer-Pixel in den groben Overview-Kacheln werden vor dem Rendern gekappt.
@@ -73,7 +83,7 @@ export function overlayPixelRatio() {
   return COARSE ? 1 : targetPixelRatio()
 }
 
-export function createMap(container, center) {
+export function createMap(container: HTMLElement | string, center: LngLatLike): MapLibreMap {
   const map = new maplibregl.Map({
     container,
     center,
@@ -88,7 +98,15 @@ export function createMap(container, center) {
     // MIT Sonne/Sternen ins Bild kommt — dafür braucht die FreeCamera-Ableitung
     // Pitch-Spielraum, sonst klemmt die Rahmung und der Horizont klebt am oberen Rand.
     maxPitch: 86,
-    antialias: !COARSE,
+    // HIER STAND `antialias: !COARSE` — und tat seit dem Sprung auf MapLibre 5
+    // nichts mehr: Die WebGL-Kontext-Attribute sind dort unter
+    // `canvasContextAttributes` gewandert, ein unbekanntes Top-Level-Feld wird
+    // stumm ignoriert (der Typecheck der Migration hat es gefunden). Die Zeile
+    // ist deshalb ersatzlos raus statt umgeschrieben: Sie WIEDER scharf zu
+    // stellen wäre eine Optik- und Bildraten-Änderung und gehört gemessen —
+    // MSAA war ursprünglich für Touch abgeschaltet, weil es dort ab 2× Pixel-
+    // dichte nicht zu unterscheiden war. Was der Player heute zeigt, ist der
+    // MapLibre-Default `antialias: false` auf ALLEN Geräten.
     // Render-Auflösung als Pixelbudget deckeln (s. targetPixelRatio) — hält den M4 an
     // 4K und schwächere GPUs unter der 60→30-fps-Füllraten-Klippe, ohne kleine Fenster
     // anzutasten. pixelRatio skaliert MapLibres GESAMTE Pipeline (Raster-Decode, Terrain-
@@ -178,7 +196,7 @@ export function createMap(container, center) {
   // würde sonst die Zeichenfläche über die Füllraten-Klippe treiben (pixelRatio bleibt
   // bei MapLibre über Resizes konstant). Gedrosselt + Schwellwert, damit das Ziehen am
   // Fensterrand keinen Dauer-Realloc des Framebuffers auslöst.
-  let prTimer = null
+  let prTimer: ReturnType<typeof setTimeout> | undefined
   window.addEventListener('resize', () => {
     clearTimeout(prTimer)
     prTimer = setTimeout(() => {
@@ -195,13 +213,16 @@ export function createMap(container, center) {
 // lange) Linie 60× pro Sekunde neu tesselliert — für Glow und Linie doppelt.
 const COMMIT_STRIDE = 8
 
-export function addRouteLayers(map, route) {
-  const coords2d = route.coords.map((c) => [c[0], c[1]])
-  const line = (coordinates) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates } })
+/** Zeichnet die Route ein und liefert den Pro-Frame-Updater für die Spitze. */
+export function addRouteLayers(map: MapLibreMap, route: Route): (s: number, pos: LngLat2D) => void {
+  const coords2d: LngLat2D[] = route.coords.map((c) => [c[0], c[1]])
+  const line = (coordinates: LngLat2D[]): GeoJSON.Feature =>
+    ({ type: 'Feature', properties: null, geometry: { type: 'LineString', coordinates } })
+  const start = coords2d[0]!
 
   map.addSource('route-full', { type: 'geojson', data: line(coords2d) })
-  map.addSource('route-progress', { type: 'geojson', lineMetrics: true, data: line([coords2d[0], coords2d[0]]) })
-  map.addSource('route-tip', { type: 'geojson', data: line([coords2d[0], coords2d[0]]) })
+  map.addSource('route-progress', { type: 'geojson', lineMetrics: true, data: line([start, start]) })
+  map.addSource('route-tip', { type: 'geojson', data: line([start, start]) })
 
   // Gepunktete Vorschau der Gesamtstrecke
   map.addLayer({
@@ -252,28 +273,40 @@ export function addRouteLayers(map, route) {
   })
 
   let committed = -1
-  return (s, pos) => {
+  return (s: number, pos: LngLat2D) => {
     const base = Math.max(1, indexAt(route, Math.min(s, route.total))) - 1 // letzter Stützpunkt vor s
     const commit = base - (base % COMMIT_STRIDE)
     if (commit !== committed) {
       committed = commit
       const cs = coords2d.slice(0, commit + 1)
-      if (cs.length < 2) cs.push(cs[0])
-      map.getSource('route-progress').setData(line(cs))
+      if (cs.length < 2) cs.push(cs[0] ?? start)
+      map.getSource<GeoJSONSource>('route-progress')?.setData(line(cs))
     }
     const tip = coords2d.slice(commit, base + 1)
     tip.push([pos[0], pos[1]])
-    map.getSource('route-tip').setData(line(tip))
+    map.getSource<GeoJSONSource>('route-tip')?.setData(line(tip))
   }
 }
 
 // Nummerierte Foto-Wegpunkte als GL-Layer (Circle + Symbol): im Gegensatz zu
 // DOM-Markern laufen sie der Kamera nicht einen Frame hinterher und sitzen
 // dadurch pixelfest auf der Karte. Klick springt zur Szene.
-export function addSpotLayers(map, spots, startLngLat, onSelect) {
+export interface FotoWegpunkt {
+  /** Streckenmeter des Halts */
+  s: number
+  lnglat: LngLat2D
+}
+
+/** Zeichnet Start- und Foto-Punkte ein und liefert den Fortschritts-Updater. */
+export function addSpotLayers(
+  map: MapLibreMap,
+  spots: FotoWegpunkt[],
+  startLngLat: LngLat2D,
+  onSelect: (s: number) => void,
+): (s: number) => void {
   map.addSource('start-dot', {
     type: 'geojson',
-    data: { type: 'Feature', geometry: { type: 'Point', coordinates: startLngLat } },
+    data: { type: 'Feature', properties: null, geometry: { type: 'Point', coordinates: startLngLat } },
   })
   map.addLayer({
     id: 'start-dot',
@@ -293,7 +326,7 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
     type: 'geojson',
     data: {
       type: 'FeatureCollection',
-      features: spots.map((sp, i) => ({
+      features: spots.map((sp, i): GeoJSON.Feature => ({
         type: 'Feature',
         id: i,
         properties: { label: String(i + 1), s: sp.s },
@@ -301,8 +334,10 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
       })),
     },
   })
-  const done = ['boolean', ['feature-state', 'done'], false]
-  const next = ['boolean', ['feature-state', 'next'], false]
+  // Style-Ausdrücke sind für MapLibre verschachtelte `unknown`-Arrays; `as const`
+  // hielte sie readonly und damit unbrauchbar für die Paint-Properties.
+  const done: ExpressionSpecification = ['boolean', ['feature-state', 'done'], false]
+  const next: ExpressionSpecification = ['boolean', ['feature-state', 'next'], false]
   map.addLayer({
     id: 'spots-circle',
     type: 'circle',
@@ -339,8 +374,10 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
 
   for (const layerId of ['spots-circle', 'spots-num']) {
     map.on('click', layerId, (e) => {
-      const f = e.features?.[0]
-      if (f) onSelect(f.properties.s)
+      // `properties.s` ist oben selbst geschrieben worden — GeoJSON-Properties
+      // sind für MapLibre trotzdem nur ein loses Objekt.
+      const s = e.features?.[0]?.properties['s']
+      if (typeof s === 'number') onSelect(s)
     })
   }
   map.on('mouseenter', 'spots-circle', () => (map.getCanvas().style.cursor = 'pointer'))
@@ -349,7 +386,7 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
   // Fortschritts-Zustand der Wegpunkte (erledigt / als Nächstes dran). „Besucht" erst
   // bei ERREICHEN (kleiner 20-m-Vorlauf, damit es mit dem Einblenden der Foto-Karte
   // zusammenfällt) — NICHT mehr 200 m davor.
-  return (s) => {
+  return (s: number) => {
     let nextFound = false
     spots.forEach((sp, i) => {
       const isDone = sp.s <= s + 20
@@ -362,7 +399,7 @@ export function addSpotLayers(map, spots, startLngLat, onSelect) {
 // Piktogramme je Fortbewegungsmodus (24×24, Strichstil)
 const SVG_OPEN =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
-export const MODE_ICONS = {
+export const MODE_ICONS: Record<Modus, string> = {
   bike: `${SVG_OPEN}
     <circle cx="5.5" cy="17.5" r="3.4"/><circle cx="18.5" cy="17.5" r="3.4"/>
     <path d="M5.5 17.5 9.3 10.6h6l3.2 6.9"/><path d="M9.3 10.6 12.4 17.5h6.1"/>
@@ -392,12 +429,18 @@ export const MODE_ICONS = {
     <path d="M8.5 11.7h5.4"/></svg>`,
 }
 
-export function createRider(map, lnglat, mode = 'bike') {
+/**
+ * Piktogramm zu einem Modus — der Schlüssel kommt roh aus der Tour, ein
+ * unbekannter Wert fällt (wie eh und je) auf das Rad zurück.
+ */
+const modeIcon = (mode: string): string => MODE_ICONS[mode as Modus] ?? MODE_ICONS.bike
+
+export function createRider(map: MapLibreMap, lnglat: LngLatLike, mode = 'bike'): Marker {
   const el = document.createElement('div')
   el.className = 'rider'
   el.innerHTML = `
     <div class="rider-pulse"></div>
-    <div class="rider-puck">${MODE_ICONS[mode] ?? MODE_ICONS.bike}</div>`
+    <div class="rider-puck">${modeIcon(mode)}</div>`
   // subpixelPositioning: sonst rundet MapLibre auf ganze Pixel → Marker zittert
   // opacityWhenCovered '1': MapLibre dimmt Terrain-Marker per Default auf 0.2, sobald sein
   //   Tiefentest sie „hinter dem Gelände" wähnt. Der bodennahe Fahrer-Marker fällt bei
@@ -408,9 +451,10 @@ export function createRider(map, lnglat, mode = 'bike') {
     .addTo(map)
 }
 
-export function setRiderIcon(rider, mode) {
-  const puck = rider.getElement().querySelector('.rider-puck')
-  puck.innerHTML = MODE_ICONS[mode] ?? MODE_ICONS.bike
+export function setRiderIcon(rider: Marker, mode: string): void {
+  const puck = rider.getElement().querySelector<HTMLElement>('.rider-puck')
+  if (!puck) return
+  puck.innerHTML = modeIcon(mode)
   puck.classList.remove('pop')
   void puck.offsetWidth
   puck.classList.add('pop') // kleiner Wechsel-Impuls

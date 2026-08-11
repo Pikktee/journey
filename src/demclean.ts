@@ -27,10 +27,10 @@ const SPIKE = 50 // m über lokalem Median → als Ausreißer kappen
 const LOWLAND = 140 // m: nur in flacher/küstennaher Umgebung kappen, nie im Gebirge
 const MAX_PASSES = 4 // iterieren, bis auch die Randpixel des Flecks weg sind
 
-const decode = (r, g, b) => r * 256 + g + b / 256 - 32768
+const decode = (r: number, g: number, b: number) => r * 256 + g + b / 256 - 32768
 
 // Höhe → Terrarium-RGB zurückschreiben (Alpha unangetastet lassen)
-function encode(data, i, e) {
+function encode(data: Uint8ClampedArray, i: number, e: number) {
   const T = Math.max(0, Math.min(65535.996, e + 32768))
   const f = Math.floor(T)
   data[i] = Math.floor(T / 256)
@@ -41,7 +41,7 @@ function encode(data, i, e) {
 // Registriert das demclean://-Protokoll einmalig. DEM-Quelle nutzt dann
 // demclean://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png
 let registered = false
-export function registerDemClean(maplibregl) {
+export function registerDemClean(maplibregl: { addProtocol: typeof import('maplibre-gl').addProtocol }) {
   if (registered) return
   registered = true
   maplibregl.addProtocol('demclean', async (params, abort) => {
@@ -61,22 +61,27 @@ export function registerDemClean(maplibregl) {
   })
 }
 
-function zoomOf(url) {
+function zoomOf(url: string): number | null {
   const m = url.match(/\/terrarium\/(\d+)\//)
-  return m ? +m[1] : null
+  return m?.[1] ? +m[1] : null
 }
 
-async function cleanTile(buf) {
+async function cleanTile(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
   const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))
   const cv = new OffscreenCanvas(SIZE, SIZE)
   const ctx = cv.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null // kein 2D-Kontext → Originalbytes behalten
   ctx.drawImage(bmp, 0, 0)
   bmp.close?.()
   const img = ctx.getImageData(0, 0, SIZE, SIZE)
   const d = img.data
 
+  // Alle Puffer sind exakt SIZE×SIZE groß und jede Schleife unten läuft über
+  // geklemmte Indizes — die `!` stehen deshalb für „nachweislich im Bereich" und
+  // nicht für „wird schon passen". Ein Bereichs-Check pro Pixel wäre in dieser
+  // Schleife (65 536 Pixel × 49er-Fenster × bis zu 4 Durchläufe) messbar teuer.
   const orig = new Float32Array(SIZE * SIZE)
-  for (let p = 0, i = 0; p < orig.length; p++, i += 4) orig[p] = decode(d[i], d[i + 1], d[i + 2])
+  for (let p = 0, i = 0; p < orig.length; p++, i += 4) orig[p] = decode(d[i]!, d[i + 1]!, d[i + 2]!)
 
   // Iterativer Despeckle: jeder Durchlauf liest die Baseline aus dem Stand des
   // Vor-Durchlaufs, sonst schirmen die Fleck-Pixel ihre Nachbarn gegenseitig ab.
@@ -87,20 +92,20 @@ async function cleanTile(buf) {
     let changed = 0
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        const e = snap[y * SIZE + x]
+        const e = snap[y * SIZE + x]!
         const x0 = Math.max(0, x - R), x1 = Math.min(SIZE - 1, x + R)
         const y0 = Math.max(0, y - R), y1 = Math.min(SIZE - 1, y + R)
         let mn = Infinity
         for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
-          const v = snap[yy * SIZE + xx]
+          const v = snap[yy * SIZE + xx]!
           if (v < mn) mn = v
         }
         // billiger Vorfilter: kein lokaler Ausreißer oder gar kein Tiefland → weiter
         if (e - mn <= CAND || mn >= LOWLAND) continue
-        const win = []
-        for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) win.push(snap[yy * SIZE + xx])
+        const win: number[] = []
+        for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) win.push(snap[yy * SIZE + xx]!)
         win.sort((a, b) => a - b)
-        const med = win[win.length >> 1]
+        const med = win[win.length >> 1]!
         if (e - med > SPIKE && med < LOWLAND) {
           cur[y * SIZE + x] = med
           changed++
@@ -113,7 +118,7 @@ async function cleanTile(buf) {
 
   if (!total) return null // nichts geändert → Originalbytes behalten (exakt, kein Re-Encode)
 
-  for (let p = 0, i = 0; p < cur.length; p++, i += 4) if (cur[p] !== orig[p]) encode(d, i, cur[p])
+  for (let p = 0, i = 0; p < cur.length; p++, i += 4) if (cur[p] !== orig[p]) encode(d, i, cur[p]!)
   ctx.putImageData(img, 0, 0)
   const outBlob = await cv.convertToBlob({ type: 'image/png' })
   return await outBlob.arrayBuffer()

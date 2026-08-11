@@ -2,7 +2,28 @@
 // Sonnenstand das Szenenlicht, den Himmel, das Grading des Satellitenbilds
 // und die Fenster der Gebäude. Alles wird über der Sonnenhöhe geblendet —
 // die Uhrzeit selbst spielt keine Rolle, nur wo die Sonne steht.
-import { sunPosition } from './sun.js'
+import type { Map as MapLibreMap } from 'maplibre-gl'
+import { sunPosition, type Sonnenstand } from './sun.js'
+import type { LngLat } from './geo.js'
+
+/**
+ * Ein Keyframe der Lichtregie über der Sonnenhöhe `a` (Grad). br/sat/con graden
+ * das Satellitenbild, sky/hor/fog färben die Atmosphäre, li/lc das Licht.
+ */
+interface Keyframe {
+  a: number
+  br: number
+  sat: number
+  con: number
+  sky: string
+  hor: string
+  fog: string
+  li: number
+  lc: string
+}
+
+/** Interpolierte Keyframe-Werte an einer Sonnenhöhe — ohne die Höhe selbst. */
+export type Lichtstimmung = Omit<Keyframe, 'a'>
 
 // Keyframes über der Sonnenhöhe (Grad): tiefe Nacht → nautische/blaue Dämmerung →
 // Sonnenauf-/-untergang → goldene Stunde → Tag. br/sat/con graden das Satellitenbild
@@ -13,7 +34,7 @@ import { sunPosition } from './sun.js'
 // Atmosphären-Schleier (atmosphere.js) legt die Lichtfarbe zusätzlich über den Boden.
 // Nacht-Helligkeiten nach User-Feedback gesenkt („Landschaft nachts zu hell"):
 // die Textur bleibt eine Tagesaufnahme, tiefe Nacht drückt sie jetzt auf ~0.19.
-const KEYS = [
+const KEYS: Keyframe[] = [
   { a: -16, br: 0.19, sat: -0.64, con: 0.07, sky: '#080f1e', hor: '#101a2e', fog: '#0a1020', li: 0.2, lc: '#8ea3d6' },
   { a: -8, br: 0.26, sat: -0.54, con: 0.06, sky: '#122036', hor: '#2b2f4e', fog: '#1a2036', li: 0.25, lc: '#9aa6cc' },
   { a: -4, br: 0.36, sat: -0.36, con: 0.03, sky: '#1c3358', hor: '#5b466e', fog: '#33314a', li: 0.3, lc: '#c4a6cf' },
@@ -28,21 +49,26 @@ const KEYS = [
   { a: 24, br: 1, sat: 0, con: 0, sky: '#7ab3e0', hor: '#8dbbe2', fog: '#96c0e3', li: 0.4, lc: '#ffedd6' },
 ]
 
-const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
-const mixHex = (a, b, t) => {
+const hex = (c: string): [number, number, number] =>
+  [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]
+const mixHex = (a: string, b: string, t: number): string => {
   const [ar, ag, ab] = hex(a)
   const [br_, bg, bb] = hex(b)
-  const ch = (x, y) => Math.round(x + (y - x) * t)
+  const ch = (x: number, y: number) => Math.round(x + (y - x) * t)
   return `rgb(${ch(ar, br_)},${ch(ag, bg)},${ch(ab, bb)})`
 }
 
-function paramsAt(alt) {
-  if (alt <= KEYS[0].a) return KEYS[0]
-  if (alt >= KEYS[KEYS.length - 1].a) return KEYS[KEYS.length - 1]
+function paramsAt(alt: number): Lichtstimmung {
+  // KEYS ist nicht leer und die Suche unten bleibt innerhalb der Liste — die
+  // `!` sind Bereichs-Nachweise, keine Hoffnungen.
+  const erster = KEYS[0]!
+  const letzter = KEYS[KEYS.length - 1]!
+  if (alt <= erster.a) return erster
+  if (alt >= letzter.a) return letzter
   let i = 0
-  while (KEYS[i + 1].a < alt) i++
-  const lo = KEYS[i]
-  const hi = KEYS[i + 1]
+  while (KEYS[i + 1]!.a < alt) i++
+  const lo = KEYS[i]!
+  const hi = KEYS[i + 1]!
   const t = (alt - lo.a) / (hi.a - lo.a)
   return {
     br: lo.br + (hi.br - lo.br) * t,
@@ -64,12 +90,25 @@ function paramsAt(alt) {
 // bediente ausschließlich die Gebäude und die Labor-Renderer. Die Hysterese unten
 // bleibt trotzdem nötig — sie verhindert das Flackern der Fenster-Paint-Properties
 // in der Dämmerung.
-export function createDayNight(map, onParams) {
+/**
+ * Die Regie ist eine Funktion mit einem Anhang: pro Frame aufgerufen, dazu
+ * `setSnow` für die Wetter-Kopplung (main.js applyWeather).
+ */
+export interface TagNachtRegie {
+  (date: Date, lnglat: LngLat): void
+  /** Schneedecke aufs Satellitenbild, 0..1 */
+  setSnow(amt: number): void
+}
+
+export function createDayNight(
+  map: MapLibreMap,
+  onParams?: (p: Lichtstimmung, sun: Sonnenstand) => void,
+): TagNachtRegie {
   let lastAlt = Infinity
   let lastApply = 0
   let night = false
   let snowAmt = 0 // 0..1 — „schneebedeckte Landschaft" als Grading des Satellitenbilds
-  const fn = (date, lnglat) => {
+  const fn = ((date: Date, lnglat: LngLat) => {
     const sun = sunPosition(date, lnglat[1], lnglat[0])
     // Die virtuelle Uhr läuft schnell (~3°/s Sonnenbewegung) — 2–4 Updates/s
     // reichen, die 300-ms-Paint-Transitionen glätten die Stufen
@@ -122,11 +161,11 @@ export function createDayNight(map, onParams) {
     // Fenster an/aus mit Hysterese, damit es in der Dämmerung nicht flackert
     const wantNight = night ? sun.altitude < -2 : sun.altitude < -4
     if (wantNight !== night) night = wantNight
-  }
+  }) as TagNachtRegie
   // Wetter-Kopplung (main.js applyWeather): Schneedecke aufs Satellitenbild.
   // Weiche Überblendung über die Paint-Transition; Drossel zurücksetzen, damit
   // der Wechsel sofort greift statt erst beim nächsten Sonnenstands-Schritt.
-  fn.setSnow = (amt) => {
+  fn.setSnow = (amt: number) => {
     if (amt === snowAmt) return
     snowAmt = amt
     map.setPaintProperty('satellite', 'raster-brightness-min-transition', { duration: 2500 })

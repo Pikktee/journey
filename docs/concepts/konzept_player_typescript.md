@@ -4,10 +4,9 @@
 strict wie der Rest des Web-Codes — ohne die Kamerafahrt, den Default-Renderer oder
 die Tour-Verträge zu riskieren.
 
-Stand: **2026-08-11**, nichts davon umgesetzt (außer dem bestehenden Muster:
-neue Produktflächen sind bereits `.ts`, der Player-Kern ist historisch `.js`).
-Welle 0 ist als Rauchtest **durchgeführt**, ihr Ergebnis steht unten und hat die
-Wellen-Reihenfolge geändert.
+Stand: **2026-08-11**. Welle 0 (Rauchtest) und **Block A = Wellen 1–4 sind
+umgesetzt** — 12 der 19 Player-Dateien liegen unter `tsc`. Offen sind Block B
+(Wellen 5–6: `ui`, Engine) und Block C (Wellen 7–8: Visuals, Verdrahter).
 
 Verwandt, aber **nicht** dasselbe:
 - [modi-konsolidierung.md](modi-konsolidierung.md) — Modus-Tabelle; der dort
@@ -23,8 +22,8 @@ Verwandt, aber **nicht** dasselbe:
 
 | | |
 |---|---|
-| Player-JS | 19 Dateien, 7229 Zeilen (`src/*.js`) |
-| Web-TS | 40 `.ts` (Studio, Konto, Profil, Routen, …) + eine `.d.ts` |
+| Player-JS | ursprünglich 19 Dateien, 7229 Zeilen; nach Block A noch **6** (`atmosphere`, `main`, `photopins`, `tour`, `ui`, `weather`) |
+| Web-TS | 40 `.ts` (Studio, Konto, Profil, Routen, …) + eine `.d.ts`; nach Block A 52 `.ts`, **keine `.d.ts` mehr** |
 | `tsconfig.json` | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, **`allowJs: false`**, `include: src/**/*.ts` |
 | Einstieg | [erlebnis.html](../../erlebnis.html) Zeile 372 → [src/main.js](../../src/main.js) |
 | Getestet heute | u. a. `geo` (JS-Test), `remote.ts`/`timeAt`, `audiotracks`, `pinmodell.ts` |
@@ -84,10 +83,10 @@ Größe entscheiden nur dort, wo der Graph frei lässt.
 
 ```
 Welle 0   Rauchtest Import + Typstrategie              [durchgeführt]
-Welle 1   tours.js — Daten, liefert TourConfig
-Welle 2   Blätter ohne MapLibre (sun, audioloop, exif, demclean)
-Welle 3   geo, audiotracks + music, autoweather, vehicle
-Welle 4   Karten-Nebenmodule (elevation, daynight, map)
+Welle 1   tours.js — Daten, liefert TourConfig         [durchgeführt]
+Welle 2   Blätter ohne MapLibre (sun, audioloop, exif, demclean)   [durchgeführt]
+Welle 3   geo, audiotracks + music, autoweather, vehicle          [durchgeführt]
+Welle 4   Karten-Nebenmodule (elevation, daynight, map)           [durchgeführt]
 Welle 5   UI-Schicht (ui; karteninfo ist schon ts)
 Welle 6   Engine (tour.js) — Herzstück
 Welle 7   Default-Visuals (atmosphere, weather, photopins)
@@ -197,6 +196,30 @@ sämtliche Visuals) — geht diese Welle schief, steht der ganze Rest.
 
 MapLibre-Typen: `@types` / mitgelieferte Typen der Dependency nutzen; wo die API
 lockerer ist als unser Strict-Modus, Adapter-Typen lokal halten.
+
+### Befunde aus Block A (Wellen 1–4)
+
+Zwei Dinge, die man beim Weitermachen kennen sollte:
+
+- **`antialias` in `map.ts` war seit MapLibre 5 tot.** Die Option ist dort unter
+  `canvasContextAttributes` gewandert; ein unbekanntes Top-Level-Feld wird stumm
+  ignoriert. Der Typecheck hat sie gefunden — genau die Sorte Fehler, für die
+  dieser Umbau gemacht ist. Die Zeile ist ersatzlos raus statt umgeschrieben:
+  Sie WIEDER scharf zu stellen wäre eine Optik- und Bildraten-Änderung und
+  gehört gemessen (MSAA war für Touch bewusst aus). **Offene Entscheidung**,
+  nicht Teil dieses Plans.
+- **Ein laufender Dev-Server überlebt das Umbenennen nicht.** Vites Modulgraph
+  hält die alten `/src/x.js`-Adressen mit `?t=`-Stempel; nach der Migration
+  antwortet der Server darauf 404 und `window.__j` entsteht nie — es sieht aus
+  wie ein kaputter Player, ist aber nur ein kalter Neustart
+  (`devhub down journey && devhub up journey`). Der Build ist davon nicht
+  betroffen, es fällt also nur lokal auf.
+
+Was der Smoke gezeigt hat (drei statische Touren + eine abgefangene Server-Tour,
+Aufbau s. Abschnitt 5a): `ride → photo`, `s` wächst, Pitch pendelt sich bei ~64°
+ein, DEM-Höhen greifen (Oberland 658–1042 m, Koh Pha-ngan 0–349 m), das
+Auto-Wetter baut seine Stützstellen (Stockholm 23) und der Motor-Loop schaltet
+am Modus-Wechsel ein (`eng-moped`).
 
 ---
 

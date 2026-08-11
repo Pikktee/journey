@@ -365,12 +365,12 @@ describe('Fortbewegungs-Modi', () => {
 
   // Der Läufer im Editor soll dasselbe Zeichen tragen wie der Fahrer im Player.
   // Das Studio hat einen eigenen Sprite (studio.html), die Engine ihre MODE_ICONS
-  // (src/map.js) — zwei Orte, ein Bild. Hier wird beides verglichen: dass es je
+  // (src/map.ts) — zwei Orte, ein Bild. Hier wird beides verglichen: dass es je
   // Modus ein Symbol gibt UND dass die Pfade wirklich deckungsgleich sind.
   it('haben im Studio-Sprite ein zeichengleiches Piktogramm', () => {
-    const engineQuelle = readFileSync(new URL('../src/map.js', import.meta.url), 'utf8')
-    const engineBlock = engineQuelle.match(/export const MODE_ICONS = \{([\s\S]*?)\n\}/)
-    expect(engineBlock, 'MODE_ICONS in src/map.js nicht gefunden').not.toBeNull()
+    const engineQuelle = readFileSync(new URL('../src/map.ts', import.meta.url), 'utf8')
+    const engineBlock = engineQuelle.match(/export const MODE_ICONS(?::[^=]+)? = \{([\s\S]*?)\n\}/)
+    expect(engineBlock, 'MODE_ICONS in src/map.ts nicht gefunden').not.toBeNull()
     const studioQuelle = readFileSync(new URL('../studio.html', import.meta.url), 'utf8')
 
     /** Alle `d="…"`-Pfade eines SVG-Schnipsels, Leerraum normalisiert. */

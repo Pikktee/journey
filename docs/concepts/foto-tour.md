@@ -6,10 +6,10 @@ Hosentasche, keine Aufzeichnung gestartet), soll trotzdem eine Kamerafahrt bekom
 ## Warum das kleiner ist, als es klingt
 
 Die Engine braucht kein GPX — sie braucht **Wegpunkte**. Die statischen Touren in
-[src/tours.js](../src/tours.js) haben genau das: `segments[].pts`, kein Track, keine
-Zeitreihe. `buildRoute()` in [src/geo.js](../src/geo.js) glättet die Punkte per
+[src/tours.ts](../src/tours.ts) haben genau das: `segments[].pts`, kein Track, keine
+Zeitreihe. `buildRoute()` in [src/geo.ts](../src/geo.ts) glättet die Punkte per
 Catmull-Rom und resampled sie auf ~14-m-Schritte; die Höhen holt
-[src/elevation.js](../src/elevation.js) danach ohnehin aus dem DEM und **überschreibt**
+[src/elevation.ts](../src/elevation.ts) danach ohnehin aus dem DEM und **überschreibt**
 `coords[i][2]`.
 
 Und die zweite Hälfte liegt auch schon da: Der Studio-EXIF-Leser

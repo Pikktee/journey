@@ -31,7 +31,7 @@ export const MODUS_TEMPO: Record<Modus, number> = {
 export const HALT_ENGINE_S = 5.2
 /** `HOLD_AUSBLEND` in src/tour.js: Ausblendung nach der Anzeige, bevor es weitergeht. */
 export const HALT_AUSBLEND_S = 0.8
-/** `NAHE_M` in src/geo.js: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
+/** `NAHE_M` in src/geo.ts: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
 export const NAHE_M = 120
 
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */

@@ -241,7 +241,7 @@ export function formatiereAbstand(ms: number): string {
 /**
  * Wegpunkte für eine Tour OHNE Aufzeichnung: die verorteten Fotos in zeitlicher
  * Reihenfolge. Höhe 0 — der Player holt sie ohnehin aus dem Geländemodell und
- * überschreibt sie ([src/elevation.js]).
+ * überschreibt sie ([src/elevation.ts]).
  */
 export function baueFotoSegmente(
   aufnahmen: readonly AufnahmeBefund[],

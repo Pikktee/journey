@@ -1,6 +1,85 @@
 // Tour-Registry: jede Tour besteht aus Segmenten mit Fortbewegungsmodus
 // (walk / tram / ferry / bike), Foto-Ankern und Text-Metadaten.
 // Segment-Nahtpunkte teilen sich exakt dieselbe Koordinate.
+//
+// Diese Datei ist zugleich die TYPQUELLE des Players: `TourConfig` beschreibt,
+// was Engine und Verdrahter aus einer Tour lesen — nicht das ganze Server-Schema
+// (das steht in docs/specs/austauschformat.md und kommt über `RemoteTourCfg` in
+// src/remote.ts herein, das dieselbe Form mit Remote-Extras trägt).
+
+/**
+ * Fortbewegungsmittel eines Segments. Die Liste steht heute an mehreren Stellen
+ * (MODE_SPEED/MODE_SCALE in tour.js, MODE_ICONS in map.ts, MODE_SOUND in
+ * vehicle.ts, MODI in server/src/schema/upload.ts) und wird von einem
+ * Drift-Wächter zusammengehalten; die Zusammenführung zu einer Quelle ist ein
+ * eigener Plan (docs/concepts/modi-konsolidierung.md).
+ */
+export type Modus = 'walk' | 'bike' | 'moped' | 'jeep' | 'tram' | 'ferry'
+
+/** Wegpunkt [lng, lat, ele] — Höhe in Metern (elevation.ts überschreibt sie später). */
+export type Wegpunkt = [number, number, number]
+
+/** Ankerkoordinate eines Fotos [lng, lat] — ohne Höhe (nearestS sucht auf der Route). */
+export type Ankerpunkt = [number, number]
+
+export interface TourSegment {
+  mode: Modus
+  /** Anzeigename in der Telemetrie; ohne Angabe zeigt main.js den Modus-Schlüssel. */
+  label?: string
+  pts: Wegpunkt[]
+}
+
+export interface TourFoto {
+  src: string
+  title: string
+  caption: string
+  anchor: Ankerpunkt
+}
+
+/** Pseudo-Zeit der Tour: Streckenanteil ↦ linear interpolierte Uhrzeit. */
+export interface TourZeit {
+  start: string
+  end: string
+  /** IANA-Zone — Auto-Wetter fragt Open-Meteo in genau dieser Zone ab. */
+  zone: string
+}
+
+/** Kuratierte Wetter-Timeline (km entlang der Route); schlägt das Auto-Wetter. */
+export interface TourWetter {
+  km: number
+  mode: string
+  k: number
+}
+
+/** Tour-eigene Audio-Spur, verankert am Streckenanteil f (s. audiotracks.ts). */
+export interface TourAudio {
+  type: string
+  src: string
+  f0: number
+  f1: number
+  gain?: number
+  loop?: boolean
+  startS?: number
+}
+
+export interface TourConfig {
+  no: string
+  brandTitle: string
+  kicker: string
+  titleHtml: string
+  stops: string[]
+  /** true = Endscreen; fehlt/false = zurück zum Startscreen */
+  showFinale?: boolean
+  finaleTitle: string
+  /** Ohne `time` bleibt die Tag/Nacht-Regie aus (main.js prüft das Feld). */
+  time?: TourZeit
+  /** m: Geoid über WGS84-Ellipsoid in der Region (nur für den Google-3D-Testmodus) */
+  geoid?: number
+  segments: TourSegment[]
+  photos: TourFoto[]
+  weather?: TourWetter[]
+  audio?: TourAudio[]
+}
 
 export const TOURS = {
   oberland: {
@@ -1176,4 +1255,4 @@ export const TOURS = {
       },
     ],
   },
-}
+} satisfies Record<string, TourConfig>

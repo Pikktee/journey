@@ -6,15 +6,23 @@ const J1970 = 2440588
 const J2000 = 2451545
 const E = rad * 23.4397 // Neigung der Erdachse
 
-const toDays = (date) => date.valueOf() / DAY_MS - 0.5 + J1970 - J2000
+const toDays = (date: Date) => date.valueOf() / DAY_MS - 0.5 + J1970 - J2000
 
-function eclipticLongitude(d) {
+function eclipticLongitude(d: number) {
   const M = rad * (357.5291 + 0.98560028 * d) // mittlere Anomalie
   const C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M))
   return M + C + rad * 102.9372 + Math.PI
 }
 
-export function sunPosition(date, lat, lng) {
+/** Sonnenstand an einem Ort: Höhe über dem Horizont und Azimut, beide in Grad. */
+export interface Sonnenstand {
+  /** Grad über dem Horizont (negativ = untergegangen) */
+  altitude: number
+  /** Grad von Norden, im Uhrzeigersinn */
+  azimuth: number
+}
+
+export function sunPosition(date: Date, lat: number, lng: number): Sonnenstand {
   const lw = rad * -lng
   const phi = rad * lat
   const d = toDays(date)

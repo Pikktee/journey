@@ -20,7 +20,7 @@ Grundprinzipien:
   Streckenanteile. Die Pipeline rendert das Tour-JSON jederzeit neu aus
   Rohdaten + Overlay (`POST /api/tours/:id/reprocess`).
 - **Streckenpositionen als Bruchteil `f` (0..1), nie Meter.** Der Player baut
-  die Route selbst neu auf (Catmull-Rom + 14-m-Resampling in `src/geo.js`);
+  die Route selbst neu auf (Catmull-Rom + 14-m-Resampling in `src/geo.ts`);
   serverseitige Meter würden minimal abweichen. Medien-Anker bleiben
   `[lng, lat]` und laufen clientseitig durch `nearestS`.
 - **Unbekannte Felder ignoriert der Player.** Baukasten-Felder (`camera`,
@@ -60,7 +60,7 @@ Grundprinzipien:
   Studio nicht (s. [konzept_medien_nachreichen_und_loeschen.md](../concepts/konzept_medien_nachreichen_und_loeschen.md)).
   Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
   Engine (`MODE_SPEED`/`MODE_SCALE` in `src/tour.js`); Motorgeräusche gibt es für
-  `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.js`).
+  `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.ts`).
 - `title: null` ⇒ Auto-Benennung serverseitig (Reverse-Geocoding Start/Ziel).
 - `clientTourId`: idempotentes Anlegen — dieselbe App-Tour erzeugt nie zwei
   Server-Touren; die Antwort liefert die vorhandene ID zurück.
@@ -105,7 +105,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 ```
 
 - Die Kopf-Felder (`no`…`finaleTitle`) sind bewusst deckungsgleich mit der
-  statischen `TOURS`-Registry (`src/tours.js`) — der Adapter reicht sie durch.
+  statischen `TOURS`-Registry (`src/tours.ts`) — der Adapter reicht sie durch.
   `showFinale` steuert den Endscreen: `false` (Default bei aufgezeichneten
   Touren) → Player kehrt zum Startscreen zurück; `true` → „Ziel erreicht" mit
   `finaleTitle`. Kuratierte Demo-Touren setzen `showFinale: true`.
@@ -156,7 +156,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   90 % der Verarbeitungszeit (30 Fotos: 66 s → 11 s). Kosten sind kein Faktor —
   gemessen $0,0002 je Foto, also rund 0,4 Cent für eine Tour mit 20 Fotos.
 - Fehlt `weather`, greift im Player das Client-Auto-Wetter
-  (`src/autoweather.js`) als Fallback — echte `takenAt`/`time`-Werte machen es
+  (`src/autoweather.ts`) als Fallback — echte `takenAt`/`time`-Werte machen es
   bei aufgezeichneten Touren sofort sinnvoll.
 - **Kreativbaukasten-Felder** (aus dem Edit-Overlay gerendert, s. u.; der
   Player ignoriert sie, wenn sie fehlen):
@@ -169,7 +169,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
     `skala` bleibt dabei außen vor — sie gehört zu einem gewählten Abstand.
     `PRESETS` in src/tour.js kennt ihn NICHT; er wird im Folger übersetzt.
   - `audio: [{type, src, f0, f1, gain?}]` — `music` spielt im Streckenbereich
-    [f0, f1) mit weichen Blenden (src/audiotracks.js; ersetzt die statische
+    [f0, f1) mit weichen Blenden (src/audiotracks.ts; ersetzt die statische
     Hintergrundmusik der Tour komplett), `sfx` feuert einmal beim
     Vorwärts-Überfahren von `f0` (f1 == f0). `gain` 0..1 (Default 1).
   - `media[].display: {holdS?, kenBurns?}` — Haltedauer des Foto-Stopps in

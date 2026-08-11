@@ -159,8 +159,6 @@ describe('Musik', () => {
 })
 
 describe('Drift-Wächter: geteilte Klang-Regel', () => {
-  const js = readFileSync(new URL('../src/audiotracks.js', import.meta.url), 'utf8')
-  const dts = readFileSync(new URL('../src/audiotracks.d.ts', import.meta.url), 'utf8')
   const modul = readFileSync(new URL('../src/studio/abspielen.ts', import.meta.url), 'utf8')
 
   it('das Studio benutzt die Auslöse-Regel des Players, keine eigene', () => {
@@ -169,22 +167,10 @@ describe('Drift-Wächter: geteilte Klang-Regel', () => {
     expect(modul).toMatch(/import \{ sfxSollFeuern \} from '\.\.\/audiotracks\.js'/)
   })
 
-  it('die Typdeklaration deckt sich mit der JS-Signatur', () => {
-    // audiotracks.js ist Vanilla-JS (allowJs ist aus), die .d.ts also von Hand
-    // geschrieben — sie könnte stumm falsch werden.
-    const namen = (liste: string): string[] =>
-      liste
-        .split(',')
-        .map((p) => (p.split(':')[0] as string).trim())
-        .filter(Boolean)
-    for (const name of ['istAktiv', 'sfxSollFeuern']) {
-      const inJs = new RegExp(`export function ${name}\\(([^)]*)\\)`).exec(js)
-      const inDts = new RegExp(`export function ${name}\\(([^)]*)\\)`).exec(dts)
-      expect(inJs, `${name} fehlt in src/audiotracks.js`).not.toBeNull()
-      expect(inDts, `${name} fehlt in src/audiotracks.d.ts`).not.toBeNull()
-      expect(namen(inDts?.[1] ?? '')).toEqual(namen(inJs?.[1] ?? ''))
-    }
-  })
+  // Der zweite Wächter dieser Gruppe verglich die handgeschriebene
+  // src/audiotracks.d.ts mit der JS-Signatur daneben — sie konnte stumm falsch
+  // werden. Seit src/audiotracks.ts TypeScript ist, gibt es nur noch EINE
+  // Signatur und `tsc` prüft sie; der Wächter ist ersatzlos entfallen.
 })
 
 describe('erzeugeAbspieler', () => {

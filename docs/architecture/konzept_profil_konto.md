@@ -297,7 +297,7 @@ Drei Festlegungen:
   Nummer `no` ist nur pro Besitzer eindeutig.
 - **Kein `srv:` im Pfad.** Server-Kennungen tragen ihr `t_` selbst; daran
   unterscheidet der Player sie von den mitgelieferten `TOURS`. Ein Wächter
-  verbietet deshalb `t_`-Schlüssel in [src/tours.js](../../src/tours.js).
+  verbietet deshalb `t_`-Schlüssel in [src/tours.ts](../../src/tours.ts).
 - **`?tour=…` bleibt bedienbar** und wird beim Start per `replaceState`
   umgeschrieben — wie `?id=…` beim Profil. Nichts ist produktiv, aber es kostet
   nichts, und ältere Installationen der Android-App bauen die alte Form noch.
@@ -360,7 +360,7 @@ Eine Tour öffentlich zu stellen heißt, sie in die Galerie zu hängen; sie dort
 nicht über eine Suche, wäre eine Unterscheidung ohne Unterschied. Beim Profil hängt dagegen
 ein NAME an der Adresse — deshalb dort der eigene Schalter. Eine private Tour zeigt im Kopf
 auch ihrem Besitzer nichts (er bekommt die Seite mit 200, Fremde 404 wie in der API), und die
-mitgelieferten Touren reicht der Server unverändert durch: `src/tours.js` ein zweites Mal zu
+mitgelieferten Touren reicht der Server unverändert durch: `src/tours.ts` ein zweites Mal zu
 führen wäre die nächste Kopie.
 
 ### Ursprünglicher Plan

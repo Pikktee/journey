@@ -3,9 +3,9 @@
 // — volle Stunde × Streckenposition zu dieser Stunde — und destilliert daraus
 // geglättete Keyframes [{f, mode, k, source}] im Format der kuratierten
 // Wetter-Timelines des Players (cfg.weather hat dort Vorrang vor dem
-// Client-Auto-Wetter in src/autoweather.js).
+// Client-Auto-Wetter in src/autoweather.ts).
 //
-// Das WMO-Mapping ist der Zwilling von wmoToWeather in src/autoweather.js —
+// Das WMO-Mapping ist der Zwilling von wmoToWeather in src/autoweather.ts —
 // Server-Keyframes und Client-Fallback müssen dieselbe Wetterwelt erzählen.
 
 import { anteilZurUhrzeit, positionZurZeit, pseudoZeiten, zeitZurPosition, type Zeitreihe } from './zeit.js'
@@ -53,7 +53,7 @@ const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.m
 /**
  * WMO-Wettercode + Stundenwerte → Modus + Stärke k (0..1, stufenlos).
  * Reihenfolge: Gewitter schlägt Schnee schlägt Regen schlägt Nebel schlägt
- * Bewölkung — identisch zu src/autoweather.js.
+ * Bewölkung — identisch zu src/autoweather.ts.
  */
 export function wmoZuWetter(w: WetterStunde): { mode: WetterModus; k: number } {
   if (w.code >= 95) return { mode: 'storm', k: clamp(0.5 + w.regenMm / 8, 0.4, 1) }
@@ -276,7 +276,7 @@ export function wetterAusOverlay(
  * ersten Eingriff festschreiben — wie `materialisiereModi` bei der Fortbewegung.
  *
  * Die Bandgrenze liegt dort, wo auch der Player umschaltet: auf der MITTE
- * zwischen zwei Marken (`weatherAt` in src/autoweather.js). Aufeinanderfolgende
+ * zwischen zwei Marken (`weatherAt` in src/autoweather.ts). Aufeinanderfolgende
  * Marken mit gleichem Zustand sind dieselbe Aussage und werden zusammengefasst.
  */
 export function wetterZuGrenzen(

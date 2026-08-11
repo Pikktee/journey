@@ -32,8 +32,8 @@ wirklich existiert. Beide Skripte überspringen Vorhandenes — gezielt neu erze
 Datei vorher löschen.
 
 **Wiedergabe-Wege im Player:** Loops laufen nahtlos über den Crossfade-Wrapper
-`src/audioloop.js` (`SeamlessLoop`), die Hintergrundmusik über `src/music.js`
+`src/audioloop.ts` (`SeamlessLoop`), die Hintergrundmusik über `src/music.ts`
 (Dock-Toggle; entfällt, wenn die Tour eigene Musik in `cfg.audio` mitbringt), die
-Motorloops über `src/vehicle.js` (`MODE_SOUND` — `moped`/`jeep`/`ferry`;
+Motorloops über `src/vehicle.ts` (`MODE_SOUND` — `moped`/`jeep`/`ferry`;
 `walk`/`bike`/`tram` sind lautlos) — folgt `ui.onModeChange`, läuft nur während der Fahrt
 (Gate in main.js).

@@ -124,7 +124,7 @@ export function registriereSeitenRouten(app: FastifyInstance): void {
    *
    * Die mitgelieferten Touren (`/tour/kohphangan`) kennt der Server nicht; sie
    * bekommen den Kopf, der im gebauten `erlebnis.html` steht. Sie hier
-   * nachzubilden hieße, `src/tours.js` ein zweites Mal zu führen — für drei
+   * nachzubilden hieße, `src/tours.ts` ein zweites Mal zu führen — für drei
    * Demo-Fahrten, die von der Landing verlinkt sind und deren Inhalt dort
    * steht.
    */

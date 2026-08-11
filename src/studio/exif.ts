@@ -1,6 +1,6 @@
 // EXIF-Leser fürs Studio (M6): Aufnahmezeit (DateTimeOriginal) + GPS aus einem
 // im Browser gewählten JPEG (ArrayBuffer). Erweitert den Player-Leser
-// (src/exif.js, nur Datum aus URL) um Sekunden und GPS-Koordinaten. Bewusst
+// (src/exif.ts, nur Datum aus URL) um Sekunden und GPS-Koordinaten. Bewusst
 // abhängigkeitsfrei — TIFF-IFDs sind flach genug für ein paar DataView-Zugriffe.
 
 export interface ExifDatum {

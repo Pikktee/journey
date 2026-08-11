@@ -43,7 +43,7 @@ export interface MediumEdit {
    * zeigt sie nacheinander; ohne dieses Feld entschiede allein die Projektion
    * der Anker auf die Route über die Abfolge — für den Autor unkontrollierbar.
    * Wirkt nur innerhalb eines Stopps; die Reihenfolge der Stopps untereinander
-   * bleibt die Strecke (gruppiereStopps in src/geo.js).
+   * bleibt die Strecke (gruppiereStopps in src/geo.ts).
    */
   reihe?: number
   /**

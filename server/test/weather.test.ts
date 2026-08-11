@@ -1,4 +1,4 @@
-// Auto-Wetter: WMO-Mapping (Zwilling von src/autoweather.js), Glättung,
+// Auto-Wetter: WMO-Mapping (Zwilling von src/autoweather.ts), Glättung,
 // Keyframe-Destillat über Raum-Zeit-Samples und die Forecast/Archiv-Weiche.
 
 import { afterEach, describe, expect, it, vi } from 'vitest'

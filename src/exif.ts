@@ -5,17 +5,29 @@
 // Anfang des vollen Bodys.
 const EXIF_SCAN_BYTES = 128 * 1024
 
-// EXIF-Zeitstring „YYYY:MM:DD HH:MM:SS" → Komponenten (KEIN Date-Objekt: EXIF
-// kennt keine Zeitzone; die Interpretation übernimmt der Aufrufer in der Tour-Zone)
-function parseExifDate(s) {
+/**
+ * Aufnahmezeitpunkt als Kalender-Komponenten — bewusst KEIN Date-Objekt: EXIF
+ * kennt keine Zeitzone, die Interpretation übernimmt der Aufrufer in der Tour-Zone.
+ */
+export interface ExifZeitpunkt {
+  y: number
+  mo: number
+  d: number
+  hh: number
+  mm: number
+}
+
+function parseExifDate(s: string): ExifZeitpunkt | null {
   const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/.exec(s)
   if (!m) return null
-  const [, y, mo, d, hh, mm] = m
+  // Die Defaults sind Formsache — die sechs Gruppen sind im Muster verpflichtend
+  // und stehen hier nur, damit `noUncheckedIndexedAccess` nicht auf `!` besteht.
+  const [, y = '', mo = '', d = '', hh = '', mm = ''] = m
   return { y: +y, mo: +mo, d: +d, hh: +hh, mm: +mm }
 }
 
 // TIFF-IFD durchsuchen: liefert den Wert-Offset eines Tags (oder null)
-function findTag(view, tiff, ifdOff, tag, le) {
+function findTag(view: DataView, tiff: number, ifdOff: number, tag: number, le: boolean): number | null {
   const n = view.getUint16(tiff + ifdOff, le)
   for (let i = 0; i < n; i++) {
     const e = tiff + ifdOff + 2 + i * 12
@@ -24,7 +36,7 @@ function findTag(view, tiff, ifdOff, tag, le) {
   return null
 }
 
-function asciiValue(view, tiff, entry, le) {
+function asciiValue(view: DataView, tiff: number, entry: number, le: boolean): string {
   const count = view.getUint32(entry + 4, le)
   const valOff = count > 4 ? tiff + view.getUint32(entry + 8, le) : entry + 8
   let s = ''
@@ -34,8 +46,8 @@ function asciiValue(view, tiff, entry, le) {
   return s
 }
 
-export async function readExifDate(url) {
-  let buf
+export async function readExifDate(url: string): Promise<ExifZeitpunkt | null> {
+  let buf: ArrayBuffer
   try {
     const res = await fetch(url, { headers: { Range: `bytes=0-${EXIF_SCAN_BYTES - 1}` } })
     if (!res.ok) return null

@@ -1,6 +1,6 @@
 // Foto-Stopps: Aufnahmen am selben Ort gehören zu EINEM Halt.
 // Reine Logik (src/studio/stopps.ts) plus ein Drift-Wächter gegen die
-// Player-Gruppierung (src/geo.js) — beide müssen dieselbe Regel anwenden,
+// Player-Gruppierung (src/geo.ts) — beide müssen dieselbe Regel anwenden,
 // sonst plant man im Editor zwölf Halte und sieht im Film acht.
 
 import { readFileSync } from 'node:fs'
@@ -15,6 +15,7 @@ import {
 } from '../src/studio/editmodell'
 import { baueStopps, dOffsetOhneCluster, meterOhneCluster, NAHE_M, reiheVergeben, snapZiel, stoppSignatur, stoppVon } from '../src/studio/stopps'
 import { kumMeter, meterZuOffset, offsetBeiMeter } from '../src/studio/zeitleiste'
+import { NAHE_M as PLAYER_NAHE_M } from '../src/geo.js'
 
 const START = '2026-03-12T07:10:00Z'
 const iso = (s: number): string => offsetZuIso(START, s)
@@ -156,15 +157,15 @@ describe('meterOhneCluster / dOffsetOhneCluster', () => {
 })
 
 describe('Drift-Wächter: Editor und Player gruppieren gleich', () => {
-  // src/geo.js ist reines JavaScript ohne Typen und hier nicht importierbar —
-  // wie bei den Engine-Konstanten wird deshalb der Quelltext verglichen. Die
-  // Gruppierung selbst prüft test/geo.test.js an denselben Beispielen.
-  const geo = readFileSync(new URL('../src/geo.js', import.meta.url), 'utf8')
+  // Seit src/geo.ts TypeScript ist, wird die Schwelle direkt importiert statt
+  // aus dem Quelltext gelesen — exakter als jede Regex. Für die beiden Regeln
+  // darunter bleibt der Textvergleich: sie stecken im Rumpf, nicht in einer
+  // Konstanten. Die Gruppierung selbst prüft test/geo.test.ts an denselben
+  // Beispielen.
+  const geo = readFileSync(new URL('../src/geo.ts', import.meta.url), 'utf8')
 
   it('teilen dieselbe Nähe-Schwelle', () => {
-    const treffer = geo.match(/export const NAHE_M = (\d+)/)
-    expect(treffer, 'NAHE_M in src/geo.js nicht gefunden').not.toBeNull()
-    expect(Number(treffer?.[1])).toBe(NAHE_M)
+    expect(PLAYER_NAHE_M).toBe(NAHE_M)
   })
 
   it('messen beide zum ANFANG des Halts', () => {

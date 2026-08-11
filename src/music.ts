@@ -4,12 +4,25 @@
 // aktiviert ist — sonst blendet sie sanft aus und pausiert.
 // Ducking bei Video-Ton: folgt der Video-Hülle (Equal-Power), s. audiotracks.js.
 import { SeamlessLoop } from './audioloop.js'
-import { videoMusikDuck } from './audiotracks.js'
+import { alsHuelle, videoMusikDuck, type DuckPegel } from './audiotracks.js'
 
-export function createMusic(url, { volume = 0.16 } = {}) {
+export interface Hintergrundmusik {
+  setGate(fn: () => boolean): void
+  setEnabled(on: boolean): void
+  /** Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel. */
+  setDucking(pegel: DuckPegel): void
+  readonly enabled: boolean
+  /** Debug/Abnahme */
+  readonly playing: boolean
+  /** Debug/Abnahme */
+  readonly level: number
+  destroy(): void
+}
+
+export function createMusic(url: string, { volume = 0.16 }: { volume?: number } = {}): Hintergrundmusik {
   const loop = new SeamlessLoop(url, { xfade: 1.4 })
   let enabled = true
-  let gate = () => false
+  let gate = (): boolean => false
   let master = 0
   let duckTgt = 1
   let duck = 1
@@ -30,13 +43,10 @@ export function createMusic(url, { volume = 0.16 } = {}) {
   window.addEventListener('pointerdown', () => { loop._blocked = false }, { passive: true })
 
   return {
-    setGate: (fn) => { gate = fn },
-    setEnabled: (on) => { enabled = on },
+    setGate: (fn: () => boolean) => { gate = fn },
+    setEnabled: (on: boolean) => { enabled = on },
     // Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel.
-    setDucking: (pegel) => {
-      const g = pegel === true ? 1 : pegel === false ? 0 : Math.max(0, Math.min(1, Number(pegel) || 0))
-      duckTgt = videoMusikDuck(g)
-    },
+    setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
     get enabled() { return enabled },
     get playing() { return !loop.paused }, // Debug/Abnahme
     get level() { return master }, // Debug/Abnahme

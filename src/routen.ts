@@ -129,7 +129,7 @@ export function profilPfad(handle: string): string {
  * der Tour ist ohnehin nur pro Besitzer eindeutig).
  *
  * **Warum kein `srv:` im Pfad.** Der Player kennt zwei Herkünfte: die
- * mitgelieferten Touren aus `src/tours.js` (Schlüssel `kohphangan`) und die
+ * mitgelieferten Touren aus `src/tours.ts` (Schlüssel `kohphangan`) und die
  * aufgezeichneten vom Server. Im Query-Param unterschied sie ein Präfix; im
  * Pfad tut das die Kennung selbst, denn Server-IDs beginnen mit `t_`. Ein
  * `/tour/srv:t_…` wäre ein Doppelpräfix, das nur erklärt, wo etwas herkommt —

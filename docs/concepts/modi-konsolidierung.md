@@ -19,9 +19,9 @@ Modus-Liste in [editor-ausbau.md](editor-ausbau.md), Abschnitt 9.
 |---|---|---|
 | 1 | [tour.js:62](../../src/tour.js#L62) | `MODE_SPEED` — Tempo-Faktor |
 | 2 | [tour.js:63](../../src/tour.js#L63) | `MODE_SCALE` — `{behind, hover}` Kameradistanz |
-| 3 | [map.js:483](../../src/map.js#L483) | `MODE_ICONS` — SVG-Markup des Fahrer-Markers |
+| 3 | [map.js:483](../../src/map.ts#L483) | `MODE_ICONS` — SVG-Markup des Fahrer-Markers |
 | 4 | [studio.html](../../studio.html) | `<symbol id="i-m-*">` — **dieselben Icons ein zweites Mal** (6 Symbole) |
-| 5 | [vehicle.js:11](../../src/vehicle.js#L11) | `MODE_SOUND` — Motorloop-Dateiname |
+| 5 | [vehicle.js:11](../../src/vehicle.ts#L11) | `MODE_SOUND` — Motorloop-Dateiname |
 | 6 | [editmodell.ts:17](../../src/studio/editmodell.ts#L17) | `MODI` + `type Modus` — Kopie der Server-Liste |
 | 7 | [editor.ts:95](../../src/studio/editor.ts#L95) | `MODUS_NAMEN` — Anzeigenamen |
 | 8 | [editor.ts:104](../../src/studio/editor.ts#L104) | `MODUS_FARBEN` — Bandfarben der Zeitleiste |
@@ -132,13 +132,13 @@ und bricht den Tempo-Faktor-Test.
 - **[tour.js:62-70](../../src/tour.js#L62)** — `MODE_SPEED`/`MODE_SCALE` löschen, aus
   `MODUS` lesen. Die Zugriffe stehen u. a. bei
   [tour.js:845](../../src/tour.js#L845) („Kameradistanz an den Fortbewegungsmodus anpassen").
-- **[map.js:483](../../src/map.js#L483)** — `MODE_ICONS` löschen. **Achtung:** `MODE_ICONS`
+- **[map.js:483](../../src/map.ts#L483)** — `MODE_ICONS` löschen. **Achtung:** `MODE_ICONS`
   ist `export`iert und wird anderswo benutzt; entweder Re-Export aus `modi.ts` beibehalten
   oder alle Aufrufer mitziehen. `setRiderIcon`/`createRider` nutzen den Fallback
   `MODE_ICONS[mode] ?? MODE_ICONS.bike` — der bleibt sinnvoll.
-- **[vehicle.js:11](../../src/vehicle.js#L11)** — `MODE_SOUND` löschen; `sound: null`
+- **[vehicle.js:11](../../src/vehicle.ts#L11)** — `MODE_SOUND` löschen; `sound: null`
   bedeutet Stille (heute: Modus fehlt in der Tabelle). Die Logik in
-  [vehicle.js:43](../../src/vehicle.js#L43) (`?? null`) funktioniert unverändert.
+  [vehicle.js:43](../../src/vehicle.ts#L43) (`?? null`) funktioniert unverändert.
 
 ### Schritt 5: Studio umstellen
 

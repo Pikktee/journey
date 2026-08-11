@@ -240,7 +240,7 @@ describe('GET /tour/<kennung>', () => {
   })
 
   it('reicht die mitgelieferten Touren unverändert durch', async () => {
-    // `/tour/kohphangan` steht in src/tours.js, nicht in der Datenbank. Die
+    // `/tour/kohphangan` steht in src/tours.ts, nicht in der Datenbank. Die
     // Liste hier ein zweites Mal zu führen, wäre die nächste Kopie.
     const u = await baueTestApp()
     const a = await u.app.inject({ method: 'GET', url: '/tour/kohphangan' })

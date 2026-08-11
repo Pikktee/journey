@@ -1,8 +1,26 @@
 // Geometrie-Helfer: Haversine, Kurswinkel, Catmull-Rom-Glättung, gleichmäßiges Resampling.
+import type { Wegpunkt } from './tours.js'
+
 const D2R = Math.PI / 180
 const R = 6371000
 
-export function dist(a, b) {
+/** Punkt mit mindestens [lng, lat] — die Höhe interessiert Distanz und Kurs nicht. */
+export type LngLat = [number, number] | Wegpunkt
+
+/**
+ * Die geglättete, gleichmäßig abgetastete Route. `cum[i]` ist der Streckenmeter
+ * von `coords[i]`; `s` (der Streckenmeter) ist die eine Zustandsvariable des Players.
+ */
+export interface Route {
+  coords: Wegpunkt[]
+  cum: number[]
+  /** Gesamtlänge in Metern */
+  total: number
+  /** Summe aller Anstiege in Metern */
+  gain: number
+}
+
+export function dist(a: LngLat, b: LngLat): number {
   const dLat = (b[1] - a[1]) * D2R
   const dLng = (b[0] - a[0]) * D2R
   const la1 = a[1] * D2R
@@ -11,7 +29,7 @@ export function dist(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-export function bearing(a, b) {
+export function bearing(a: LngLat, b: LngLat): number {
   const la1 = a[1] * D2R
   const la2 = b[1] * D2R
   const dLng = (b[0] - a[0]) * D2R
@@ -21,12 +39,12 @@ export function bearing(a, b) {
 }
 
 // Kürzeste Winkeldifferenz b−a in (−180, 180]
-export function angleDelta(a, b) {
+export function angleDelta(a: number, b: number): number {
   return ((b - a + 540) % 360) - 180
 }
 
 // Zielpunkt: von `[lng, lat]` aus `distM` Meter in Richtung `bearingDeg`
-export function destination([lng, lat], distM, bearingDeg) {
+export function destination([lng, lat]: LngLat, distM: number, bearingDeg: number): [number, number] {
   const delta = distM / R
   const theta = bearingDeg * D2R
   const phi1 = lat * D2R
@@ -37,7 +55,7 @@ export function destination([lng, lat], distM, bearingDeg) {
   return [lambda2 / D2R, phi2 / D2R]
 }
 
-function cr(p0, p1, p2, p3, t) {
+function cr(p0: number, p1: number, p2: number, p3: number, t: number): number {
   const t2 = t * t
   const t3 = t2 * t
   return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
@@ -45,29 +63,35 @@ function cr(p0, p1, p2, p3, t) {
 
 // Wegpunkte [lng, lat, ele] → geglättete, alle `step` Meter abgetastete Route
 // mit kumulierten Distanzen. Catmull-Rom wirkt pro Dimension, daher direkt auf lng/lat/ele.
-export function buildRoute(waypoints, step = 14) {
-  const pts = [waypoints[0], ...waypoints, waypoints[waypoints.length - 1]]
-  const dense = []
+//
+// Die `!` in den Schleifen unten sind allesamt Laufindizes innerhalb der eigenen
+// Länge — der Aufrufer schuldet nur eine nicht leere Wegpunktliste.
+export function buildRoute(waypoints: Wegpunkt[], step = 14): Route {
+  const erster = waypoints[0]!
+  const letzter = waypoints[waypoints.length - 1]!
+  const pts = [erster, ...waypoints, letzter]
+  const dense: Wegpunkt[] = []
   const SEGS = 18
   for (let i = 0; i < pts.length - 3; i++) {
+    const [p0, p1, p2, p3] = [pts[i]!, pts[i + 1]!, pts[i + 2]!, pts[i + 3]!]
     for (let j = 0; j < SEGS; j++) {
       const t = j / SEGS
       dense.push([
-        cr(pts[i][0], pts[i + 1][0], pts[i + 2][0], pts[i + 3][0], t),
-        cr(pts[i][1], pts[i + 1][1], pts[i + 2][1], pts[i + 3][1], t),
-        cr(pts[i][2], pts[i + 1][2], pts[i + 2][2], pts[i + 3][2], t),
+        cr(p0[0], p1[0], p2[0], p3[0], t),
+        cr(p0[1], p1[1], p2[1], p3[1], t),
+        cr(p0[2], p1[2], p2[2], p3[2], t),
       ])
     }
   }
-  dense.push([...waypoints[waypoints.length - 1]])
+  dense.push([...letzter])
 
-  const coords = [dense[0]]
+  const coords: Wegpunkt[] = [dense[0]!]
   const cum = [0]
   let travelled = 0
   let emitted = 0
   for (let i = 1; i < dense.length; i++) {
-    const a = dense[i - 1]
-    const b = dense[i]
+    const a = dense[i - 1]!
+    const b = dense[i]!
     const d = dist(a, b)
     if (d === 0) continue
     while (travelled + d >= (emitted + 1) * step) {
@@ -78,12 +102,12 @@ export function buildRoute(waypoints, step = 14) {
     }
     travelled += d
   }
-  coords.push(dense[dense.length - 1])
+  coords.push(dense[dense.length - 1]!)
   cum.push(travelled)
 
   let gain = 0
   for (let i = 1; i < coords.length; i++) {
-    const dEle = coords[i][2] - coords[i - 1][2]
+    const dEle = coords[i]![2] - coords[i - 1]![2]
     if (dEle > 0) gain += dEle
   }
 
@@ -91,31 +115,31 @@ export function buildRoute(waypoints, step = 14) {
 }
 
 // Erster Stützpunkt-Index mit cum[i] >= s (binäre Suche)
-export function indexAt(route, s) {
+export function indexAt(route: Route, s: number): number {
   const { cum } = route
   let lo = 0
   let hi = cum.length - 1
   while (lo < hi) {
     const mid = (lo + hi) >> 1
-    if (cum[mid] < s) lo = mid + 1
+    if (cum[mid]! < s) lo = mid + 1
     else hi = mid
   }
   return lo
 }
 
 // Position [lng, lat, ele] bei Streckenmeter s
-export function pointAt(route, s) {
+export function pointAt(route: Route, s: number): Wegpunkt {
   const { coords, cum, total } = route
   const c = Math.max(0, Math.min(s, total))
   const i = Math.max(1, indexAt(route, c))
-  const a = coords[i - 1]
-  const b = coords[i]
-  const span = cum[i] - cum[i - 1] || 1
-  const t = (c - cum[i - 1]) / span
+  const a = coords[i - 1]!
+  const b = coords[i]!
+  const span = cum[i]! - cum[i - 1]! || 1
+  const t = (c - cum[i - 1]!) / span
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 }
 
-export function bearingAt(route, s) {
+export function bearingAt(route: Route, s: number): number {
   const a = pointAt(route, s)
   const b = pointAt(route, Math.min(s + 30, route.total))
   if (dist(a, b) < 1) return bearing(pointAt(route, Math.max(0, s - 30)), a)
@@ -123,17 +147,17 @@ export function bearingAt(route, s) {
 }
 
 // Streckenmeter des Punktes, der `lnglat` am nächsten liegt
-export function nearestS(route, lnglat) {
+export function nearestS(route: Route, lnglat: LngLat): number {
   let best = 0
   let bestD = Infinity
   for (let i = 0; i < route.coords.length; i++) {
-    const d = dist(route.coords[i], lnglat)
+    const d = dist(route.coords[i]!, lnglat)
     if (d < bestD) {
       bestD = d
       best = i
     }
   }
-  return route.cum[best]
+  return route.cum[best]!
 }
 
 /**
@@ -142,6 +166,20 @@ export function nearestS(route, lnglat) {
  * Drift-Wächter in test/studio-stopps.test.ts vergleicht beide.
  */
 export const NAHE_M = 120
+
+/** Ein Foto, wie die Gruppierung es braucht: verankert an `s`, optional gereiht. */
+export interface StoppFoto {
+  /** Streckenmeter des Ankers */
+  s: number
+  /** Platz im Halt (0-basiert, im Studio gesetzt) */
+  reihe?: number
+}
+
+/** Ein Halt: Streckenmeter des ERSTEN Fotos plus alle Aufnahmen dort. */
+export interface Stopp<T extends StoppFoto> {
+  s: number
+  items: T[]
+}
 
 /**
  * Fotos zu Stopps gruppieren: Wer weniger als `naheM` Streckenmeter vom
@@ -155,8 +193,8 @@ export const NAHE_M = 120
  *
  * Erwartet Fotos MIT `s` (Streckenmeter), aufsteigend sortiert.
  */
-export function gruppiereStopps(photos, naheM = NAHE_M) {
-  const stops = []
+export function gruppiereStopps<T extends StoppFoto>(photos: T[], naheM = NAHE_M): Array<Stopp<T>> {
+  const stops: Array<Stopp<T>> = []
   for (const p of photos) {
     const last = stops[stops.length - 1]
     if (last && p.s - last.s < naheM) last.items.push(p)

@@ -21,7 +21,7 @@ export interface RemoteMedium {
   thumb?: string
   /** Anzeige-Optionen aus dem Studio (Kreativbaukasten): Haltedauer + Ken-Burns */
   display?: { holdS?: number; kenBurns?: boolean }
-  /** Platz im Foto-Stopp (0-basiert) — greift in gruppiereStopps (src/geo.js) */
+  /** Platz im Foto-Stopp (0-basiert) — greift in gruppiereStopps (src/geo.ts) */
   reihe?: number
 }
 
@@ -55,7 +55,7 @@ export interface TourJsonAntwort {
   stats: { km: number; gainM: number }
 }
 
-/** cfg-Form, die main.js versteht (Felder wie in src/tours.js) plus Remote-Extras. */
+/** cfg-Form, die main.js versteht (Felder wie in src/tours.ts) plus Remote-Extras. */
 export interface RemoteTourCfg {
   id: string
   no: string
