@@ -42,7 +42,7 @@ Wortmarke gehört in den **zentrierten Titelblock**, nicht nach oben links: dort
 Player genau EIN Element, der Weg hinaus. Ihr Text spricht von **Maptale**, nicht vom Studio —
 ein Konto braucht auch, wer nur mit der App aufzeichnet (die App verweist zum Registrieren
 ausdrücklich auf die Website). Entwurf und die beiden verworfenen Varianten (Tag/Nacht-Himmel,
-Feld aus Routen-Signaturen): [docs/mockups/studio-login.html](docs/mockups/studio-login.html).
+Feld aus Routen-Signaturen): [docs/mockups/studio-login.html](../../docs/mockups/studio-login.html).
 
 **Jedes Feld sagt, ob es sein muss.** In den vier Auth-Formularen (Anmelden, Registrieren,
 Passwort, Warteliste) trägt jedes Label ein Wort: „Pflicht" oder „optional". Sternchen mit
@@ -57,14 +57,14 @@ Ein bestehendes Passwort zu benoten ändert nichts mehr.
 
 **Die Bibliothek ist die Bühne.** Kacheln mit Titelbild statt Zeilen; über dem Bild liegt die
 **Routen-Signatur** — die Form DIESER Tour. Fotos sehen einander ähnlich, Routen nicht.
-Sie entsteht beim Anreichern ([server/src/pipeline/signatur.ts](server/src/pipeline/signatur.ts))
+Sie entsteht beim Anreichern ([server/src/pipeline/signatur.ts](../../server/src/pipeline/signatur.ts))
 und liegt als `stats.spur` neben `stats.fotos` in der Tour-Liste; ältere Touren haben beides
 erst nach dem nächsten Rendern, die Kachel muss ohne auskommen. Die ganze Kachel spielt ab —
 die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben genau zwei Griffe
 (Bearbeiten, Sichtbarkeit, letztere zugleich Anzeige UND Umschalter).
 
 **Neue Tour: erst zeigen, dann hochladen.** Der Upload ist kein Formular mehr, sondern ein
-Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](src/studio/pruefung.ts),
+Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](pruefung.ts),
 DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was
 auffiel (ohne Ortsangabe, ohne Zeitstempel, außerhalb der Aufzeichnung). Nur wo es etwas zu
 entscheiden gibt, steht ein Knopf („Weglassen").
@@ -84,13 +84,13 @@ Statuszeile („3 Dateien ignoriert") in die Einladung — sonst wäre sie unsic
 der Sichtbarkeit bleibt „Privat", auch solange das Feld aus ist.
 **Ohne GPX** werden die Foto-Orte zur Strecke:
 das Manifest trägt dann `segments` statt `trackFile` (`baueFotoSegmente`) — deshalb überspringt
-[tours.ts](server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die
+[tours.ts](../../server/src/routes/tours.ts) `ladeOriginalSegmente` für solche Touren die
 Gehabschnitts-Automatik: zwischen zwei Fotos liegt eine Luftlinie, jedes daraus gerechnete
 Tempo wäre Zufall. Die eigene Inszenierung dafür (gestrichelte Bodenlinie, fliegende statt
-fahrende Kamera) steht noch aus: [docs/concepts/foto-tour.md](docs/concepts/foto-tour.md).
+fahrende Kamera) steht noch aus: [docs/concepts/foto-tour.md](../../docs/concepts/foto-tour.md).
 
 **Rohdaten + Overlay, nie destruktiv.** Der Editor verändert die hochgeladenen Daten nicht,
-sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](server/src/schema/edits.ts)):
+sondern schreibt ein **Edit-Overlay** (`maptale/edits@1`, [server/src/schema/edits.ts](../../server/src/schema/edits.ts)):
 `medien` (Caption, Anker, gelöscht, Anzeigeoptionen, Video-Schnitt), `modi`, `kamera`, `audio`,
 `wetter`, `titelbild` (dazu das TOUR-`trim` — im Format erhalten und serverseitig angewandt,
 aber **nicht mehr bedienbar**: die Griffe an den Leistenrändern sind entfallen, eine Tour
@@ -101,7 +101,7 @@ Beim Speichern rendert der Server die Tour aus Rohdaten + Overlay neu. Edits ref
 **Die Schema-ID bleibt `maptale/edits@1`, auch wenn Felder dazukommen:** Erweiterungen sind
 strikt additiv, alle neuen Felder optional, ihre Vorgaben bilden das bisherige Verhalten ab.
 Bewacht wird das von einem **Vertragstest**
-([server/test/vertrag-tourjson.test.ts](server/test/vertrag-tourjson.test.ts)), der das
+([server/test/vertrag-tourjson.test.ts](../../server/test/vertrag-tourjson.test.ts)), der das
 gerenderte `tour.json` für elf echte Overlay-Formen als Schnappschuss festhält — samt einer
 Probe, dass die Fälle sich überhaupt UNTERSCHEIDEN (ohne sie könnten elf identische Ergebnisse
 grün sein und der Vertrag bewachte nichts).
@@ -139,7 +139,7 @@ vom Server), danach **`reprocess` und kein Edit-Speichern**: Ein neues Foto hat 
 Bildbefund im Anreicherungs-Cache und liefe sonst ohne Wetter-Verfeinerung mit.
 
 **Der Dialog sagt VORHER, was der Server nachher tut** — `ordneEin` bildet
-`bestimmePlatzierung` ([server/src/pipeline/placement.ts](server/src/pipeline/placement.ts))
+`bestimmePlatzierung` ([server/src/pipeline/placement.ts](../../server/src/pipeline/placement.ts))
 Regel für Regel nach, sonst verspricht er Plätze, die es nicht gibt. Zwei Kanten waren genau
 so falsch: Ein GPS-Anker gilt nur bis **500 m** an die Strecke (`MAX_ABSTAND_M`, deshalb
 bekommt `ordneEin` die Abstandsfunktion aus dem Editor-Track herein), und die Zeitspanne hat
@@ -166,7 +166,7 @@ ihrer Achse.
 `wetter` (Grenzen `[{ab, mode, staerke?}]` wie `modi`/`kamera`) ist ein Sonderfall: sobald
 gesetzt, **ersetzt** es das Auto-Wetter (Open-Meteo + Foto-Verfeinerung) der ganzen Tour
 vollständig — bewusste Korrektur, wenn das automatische Wetter danebenlag. `wetterAusOverlay`
-([server/src/pipeline/weather.ts](server/src/pipeline/weather.ts)) baut daraus eine
+([server/src/pipeline/weather.ts](../../server/src/pipeline/weather.ts)) baut daraus eine
 Stufenfunktion; Marken-PAARE auf demselben `f` legen die Umschaltung (Player: Mitte zweier
 Marken) exakt auf die Grenze. Rein render-seitig → der Anreicherungs-Cache bleibt gültig
 (ein Wetter-Edit löst keine externen Aufrufe aus).
@@ -185,7 +185,7 @@ bei der Fortbewegung. Die Kamera-Spur bleibt dagegen ohne Vorgabe: ihr Grundband
 
 **Eine neue Tour bekommt Musik, aber nur einmal.** Beim ERSTEN Verarbeiten (`finalize`, erkannt
 am Status VOR dem Claim → `erstmals` in `verarbeite`) wählt
-[musikwahl.ts](server/src/pipeline/musikwahl.ts) aus Uhrzeit, Wetter, Höhen, Fortbewegung und
+[musikwahl.ts](../../server/src/pipeline/musikwahl.ts) aus Uhrzeit, Wetter, Höhen, Fortbewegung und
 Breitengrad ein Stück der Bibliothek und schreibt es ins **Overlay** — nicht direkt ins
 Tour-JSON, denn dort wäre es im Studio unsichtbar und unabänderlich. Reihenfolge der Regeln
 (erste gewinnt): Nacht → Nachtfahrt, nasses Drittel → Regentag, Höhenmeter/Höhe → Bergpass,
@@ -198,7 +198,7 @@ Mal; ein Drift-Wächter prüft, dass jede davon im Katalog steht und Musik ist.
 
 **Die Audio-Bibliothek „Musik & Effekte" ist benutzerweit.** Eigene Dateien landen NICHT
 mehr tour-lokal, sondern in der Bibliothek des Kontos (`<userId>/audio/` im benutzerStorage,
-[server/src/routes/bibliothek.ts](server/src/routes/bibliothek.ts)): einmal hochgeladen, in
+[server/src/routes/bibliothek.ts](../../server/src/routes/bibliothek.ts)): einmal hochgeladen, in
 jeder Tour einsetzbar (`quelle: 'benutzer'` im Overlay), zur Quota zählend, löschbar nur
 solange KEINE Tour sie referenziert (edits.json ODER gerendertes tour.json). Ausgeliefert
 wird über die Tour (`/api/tours/:id/bibliothek-audio/:datei`, Sichtbarkeit + Referenz-Check
@@ -221,7 +221,7 @@ Element, audiotracks.ts) wie im Studio-Abspielen (je Klip ein Element, abspielen
 Zeitleiste stapelt sie in Unterzeilen (`lane` aus `loeseTonKlips`), die Bahn wächst mit.
 
 **Ein Ton-Klip hängt an der REISE, nicht an einer Filmsekunde** (Etappe 4, rechnende Teile
-DOM-frei in [src/studio/tonklip.ts](src/studio/tonklip.ts)). Er merkt sich `anker`
+DOM-frei in [src/studio/tonklip.ts](tonklip.ts)). Er merkt sich `anker`
 (Aufnahmezeit — wo auf der Reise), `versatzFilmS` (die Feinlage in FILMsekunden, darf mitten
 in einer Standzeit liegen — was reine Aufnahmezeit nicht ausdrücken kann), `dauerFilmS`,
 `einstiegS` (Einstieg in die Datei) und `loop`. Dadurch rückt Ton mit, wenn Standzeiten oder
@@ -251,7 +251,7 @@ Vorgabe der Rolle abweicht. Gemessen wird VOR dem Einfügen — so entsteht gena
 Overlay-Stand (ein Undo-Schritt) und der Klip steht sofort in seiner endgültigen Form da,
 statt nach dem Erscheinen zu zucken. Ohne messbare Länge bleibt es bei der Vorgabe: `loop:
 false` ohne bekanntes Ende erzeugte wieder den stummen Rest. **Die Auto-Musikwahl des Servers
-([musikwahl.ts](server/src/pipeline/musikwahl.ts)) ist davon nicht betroffen** — sie schlägt
+([musikwahl.ts](../../server/src/pipeline/musikwahl.ts)) ist davon nicht betroffen** — sie schlägt
 ein Stück vor, das die GANZE Tour tragen soll, und schreibt weiter nur `datei`/`typ`/`ab`.
 
 **`musik` vs. `sfx` beschreibt seit Etappe 4 die ROLLE, nicht die Form.** Beide sind Klips mit
@@ -299,18 +299,18 @@ weit vor dem Klip. Der Fehler ist von außen kaum als solcher zu erkennen — er
 eine zu kurze Datei.
 
 
-**Arbeitsteilung im Code.** [src/studio/editmodell.ts](src/studio/editmodell.ts) (Overlay
-immutabel fortschreiben, Track-Projektion), [src/studio/zeitleiste.ts](src/studio/zeitleiste.ts)
-(Skalen, Bänder, Marken, Dauerschätzung), [src/studio/stopps.ts](src/studio/stopps.ts)
-(Halt-Gruppierung) und [src/studio/tonklip.ts](src/studio/tonklip.ts) (Ton-Klips auf der
+**Arbeitsteilung im Code.** [src/studio/editmodell.ts](editmodell.ts) (Overlay
+immutabel fortschreiben, Track-Projektion), [src/studio/zeitleiste.ts](zeitleiste.ts)
+(Skalen, Bänder, Marken, Dauerschätzung), [src/studio/stopps.ts](stopps.ts)
+(Halt-Gruppierung) und [src/studio/tonklip.ts](tonklip.ts) (Ton-Klips auf der
 Filmachse: auflösen, verschieben, trimmen) sind **DOM-frei und unter Vitest getestet**;
-[src/studio/editor.ts](src/studio/editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
+[src/studio/editor.ts](editor.ts) enthält nur DOM- und MapLibre-Verdrahtung.
 Neue Editor-Logik gehört in diese Module, sonst ist sie nicht testbar.
 
 **Im Studio gibt es kein Mono.** Zeiten, Kilometer, Zähler und Skalenmarken laufen in Outfit mit
 `font-variant-numeric: tabular-nums` (DESIGN.md). Die Variable `--font-mono` ist **entfernt** —
 wer sie aus Gewohnheit wieder schreibt, bekommt keinen Fehler, sondern still die geerbte
-Schrift; und der IBM-Plex-Mono-Webfont wird von [studio.html](studio.html) nicht mehr geladen.
+Schrift; und der IBM-Plex-Mono-Webfont wird von [studio.html](../../studio.html) nicht mehr geladen.
 Versalien sind nur da richtig, wo sie die Sache selbst sind (Initialen im Profil-Chip,
 Datei-Endung „MP3") — nicht als gesperrtes Etikett über einer Zeile.
 
@@ -335,7 +335,7 @@ selbst und schreibt einmal beim Loslassen. Alle Achsen-Halte (Aufnahmen-Ketten U
 baut `achsenHalte()` an einer Stelle.
 
 **Fortbewegung · Kamera · Wetter sind drei GLEICHRANGIGE schmale Bahnen** (21 px, Etappe 3
-des [Zeitleisten-Umbaus](docs/architecture/zeitleiste-umbau.md)). Sie beschreiben, wie das
+des [Zeitleisten-Umbaus](../../docs/architecture/zeitleiste-umbau.md)). Sie beschreiben, wie das
 Dazwischen aussieht — bei einer typischen Tour zwei bis drei Entscheidungen, die vorher drei
 randvolle Bahnen belegten und mit den Szenen um Fläche konkurrierten: Material verdient Fläche,
 Kontext verdient eine Zeile. Verworfen (mit Nutzer-Feedback): sie unter „Reise"
@@ -358,7 +358,7 @@ Kante steht nach jedem Neuaufbau wieder unter dem Zeiger (gemessen 0,1 px); mit 
 Vorframes sprang sie um 116 px, und genau deshalb war der Zug zwischenzeitlich entkoppelt.
 Gemessen kostet ein Zieh-Frame 5,5 ms im Median (335 Trackpunkte, 12 Klips) bzw. 4,0 ms
 (541 Punkte ohne Medien) — der Editor-Track ist serverseitig auf 5 m vereinfacht
-([tours.ts](server/src/routes/tours.ts)), aus 9 000 Rohpunkten werden 541.
+([tours.ts](../../server/src/routes/tours.ts)), aus 9 000 Rohpunkten werden 541.
 Ein Undo-Schritt bleibt es: `renderNachZug` schreibt `letzterStand` nicht fort.
 
 **Die Ziellinie ist eine Orientierung durch alle Bahnen** — den ganzen Zug über sichtbar, weil
@@ -400,7 +400,7 @@ Kartenpunkte **fort** statt sie abzureißen (geschlüsselt nach der Zusammensetz
 sonst wurden bei jedem Klick alle Fotos kurz zu leeren Kreisen.
 
 **Die Achse zeigt FILMZEIT, die Anker bleiben Aufnahmezeit.** Position auf der Leiste ∝
-Filmzeit (`baueAchse` in [zeitleiste.ts](src/studio/zeitleiste.ts)): gleich breit heißt gleich
+Filmzeit (`baueAchse` in [zeitleiste.ts](zeitleiste.ts)): gleich breit heißt gleich
 lang im fertigen Film — eine Fähre schrumpft auf ihren Filmanteil, ein Foto-Halt bekommt seine
 Standzeit als Achsenbreite (Sprung: Zeit steht, Film läuft; bei foto-lastigen Kurztouren IST
 der Film überwiegend Standzeit), eine reale Pause fällt fast auf einen Strich zusammen
@@ -415,7 +415,7 @@ restS mehr). Eine Kante bleibt: Ereignisse, die ganz in einer Ex-Pause liegen, d
 einen Pixel (Ausweg: Zeitfelder im Inspector).
 
 **Der Abspielkopf steht in FILMsekunden** (`kopfFilmS`, Etappe 1 des
-[Zeitleisten-Umbaus](docs/architecture/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
+[Zeitleisten-Umbaus](../../docs/architecture/zeitleiste-umbau.md)) — eine Quelle für Scrubben, Klick,
 Pfeiltasten und Abspielen; die Aufnahmezeit (`z.auswahl`, zugleich Einfügemarke) wird daraus
 ABGELEITET, nie umgekehrt. Der Grund ist die Umkehrbarkeit: In Aufnahmezeit gibt es keinen
 Wert für „mitten im Halt" (zwei Stützstellen auf derselben Sekunde), jede Rückrechnung fällt
@@ -489,10 +489,10 @@ Drei Regeln, die man dabei leicht kippt:
   selbst auf [0, gesamtS] — „ans Ende" ist deshalb schlicht `Infinity`.
 
 Entwürfe und die verworfenen Varianten:
-[docs/mockups/studio-zeitleiste-kopf.html](docs/mockups/studio-zeitleiste-kopf.html) (vier
-Varianten), [`…-entscheidungen.html`](docs/mockups/studio-zeitleiste-kopf-entscheidungen.html)
+[docs/mockups/studio-zeitleiste-kopf.html](../../docs/mockups/studio-zeitleiste-kopf.html) (vier
+Varianten), [`…-entscheidungen.html`](../../docs/mockups/studio-zeitleiste-kopf-entscheidungen.html)
 (Play-Register, Abgrenzung der Zahlenpaare, Ort der Ablage),
-[`…-final.html`](docs/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
+[`…-final.html`](../../docs/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
 
 **Die Ablage sitzt an der Szenen-Bahn, nicht in der Kopfleiste.** Dort steht sonst nur, WOMIT
 man arbeitet — die Ablage sagt, WAS in der Tour ist, und aus ihr ZIEHT man auf genau diese
@@ -521,7 +521,7 @@ entsteht nie beim Öffnen. Weil die Breite jetzt an den DATEN hängt, schreibt
 läuft in jedem Zug-Frame).
 
 **Ein Halt ist eine KETTE von Klips, kein Stapel** (Etappe 2 des
-[Zeitleisten-Umbaus](docs/architecture/zeitleiste-umbau.md)). Der „Cluster" war nie ein eigenes
+[Zeitleisten-Umbaus](../../docs/architecture/zeitleiste-umbau.md)). Der „Cluster" war nie ein eigenes
 Ding, sondern die Folge zusammenfallender Anker — als Stapel mit Zahl-Plakette gezeichnet,
 weil PUNKTE an derselben Stelle übereinanderlägen. Er saß an der LINKEN Kante einer Breite,
 die der Halt trotzdem belegte: eine tote Zone, in der nichts anzufassen war, obwohl dort der
@@ -542,7 +542,7 @@ Länge, sie steht nicht zur Wahl" stimmt für die Standzeit, nicht für den Schn
 ist an beiden Kanten die Datei, Loop gibt es hier nicht. Der **Ripple kostet keine Zeile
 Code** — ein Video liegt in einer Halt-Kette ohne Lücken, ein kürzerer Ausschnitt macht
 seinen Halt schmaler, die Achse baut sich neu und alles Folgende rückt vor. Angewandt wird
-der Schnitt in der Pipeline ([video.ts](server/src/pipeline/video.ts)), und zwar **immer per
+der Schnitt in der Pipeline ([video.ts](../../server/src/pipeline/video.ts)), und zwar **immer per
 Transcode**: `-c copy` schnitte nur an Keyframes und träfe den Punkt um Sekunden. Die
 geschnittene Fassung (`m1.cut.mp4`) entsteht NEBEN dem Master, nie an seiner Stelle — sonst
 wäre der zweite Schnitt einer in den ersten, und „Trim zurücknehmen" fände das Weggeschnittene
@@ -578,7 +578,7 @@ Streckenabschnitt auf der Karte).
 **Was in der Datei steht, liest der Editor selbst.** Der Block „Aufnahme-Details" unter einer
 Aufnahme zeigt Aufnahmezeit, Verortung und die Kameradaten aus dem EXIF (Kamera, Objektiv,
 Belichtung, Auflösung, Höhe). Gelesen wird clientseitig aus der ausgelieferten Datei —
-`liesAufnahme`/`beschreibeAufnahme` in [src/studio/exif.ts](src/studio/exif.ts), beide DOM-frei
+`liesAufnahme`/`beschreibeAufnahme` in [src/studio/exif.ts](exif.ts), beide DOM-frei
 und an echten Beispiel-JPEGs getestet (`test/fixtures/`). Der EXIF-Block steht am DATEIANFANG,
 deshalb holt der Editor per Range-Request nur die ersten 256 KB — und das erst beim ersten
 Aufklappen (Ergebnis je Medium gecacht, der Auf-/Zu-Zustand überlebt den Render). Kein
@@ -622,14 +622,14 @@ Kanten-Griffe. Der weiche SCHEIN darf außen bleiben: dass er an einer Kante feh
 nicht. Dieselbe Familie wie „`border` + `overflow: hidden` frisst das Randpixel"
 (docs/architecture/zeitleiste-umbau.md §5).
 
-**Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](src/studio/abspielen.ts)
+**Abspielen ist Schnittprüfung, kein zweiter Player.** [src/studio/abspielen.ts](abspielen.ts)
 (lazy beim ersten Play) lässt den Abspielkopf über die Achse laufen, spielt Musik und Klänge
 und blendet an jedem Halt die Foto-Karte auf — die 3D-Kamerafahrt bleibt dem echten Player
 vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das Tempo ist
 `1/schaetzeAnimationsdauer`, sodass der Halt an einem Foto hier so viel Zeit „kostet" wie
 später. Musik läuft über EIN `Audio`-Element mit **Eintritts-Seek** (wer mitten im Bereich
 startet, hört, was dort im Film liefe — `createAudioTracks` kann das nicht, deshalb eigener
-Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](src/audiotracks.ts), damit im
+Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts), damit im
 Studio nichts klingt, was der Film nicht spielt (Drift-Wächter). Bis zur
 TypeScript-Migration des Players lag daneben eine handgeschriebene
 `audiotracks.d.ts`, weil `allowJs` aus ist — seit `audiotracks.ts` TypeScript ist,
@@ -685,8 +685,8 @@ Video für den Rest der Wiedergabe leise.
 
 **Der Pegel eines Ton-Klips ist ABSOLUT — im Studio wie im Player.** Ohne eigenen Wert gilt
 `STUDIO_PEGEL_VORGABE` (0.8, in [audiotracks.ts](../audiotracks.ts), Spiegel von `STUDIO_PEGEL`
-in [server/src/schema/edits.ts](server/src/schema/edits.ts), Drift-Wächter in
-[test/studio-baukasten.test.ts](test/studio-baukasten.test.ts)). Der Weg dorthin hatte zwei
+in [server/src/schema/edits.ts](../../server/src/schema/edits.ts), Drift-Wächter in
+[test/studio-baukasten.test.ts](../../test/studio-baukasten.test.ts)). Der Weg dorthin hatte zwei
 Lecks, und beide machten den fertigen Film LEISER als den geprüften Schnitt: `enrich.ts` schrieb
 `gain` nur bei ausdrücklich gesetzter Lautstärke, und der Player legte über alles einen Master
 von 0.22 (der gehört den KURATIERTEN Touren in [src/tours.ts](../tours.ts), deren `gain` gegen

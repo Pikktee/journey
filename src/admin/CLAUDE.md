@@ -4,19 +4,19 @@ Diese Datei lädt, sobald unter `src/admin/` gearbeitet wird. Die Server-Seite (
 Einladungen, Warteliste, System-Mails) steht in [server/CLAUDE.md](../../server/CLAUDE.md).
 
 
-Eigene Seite ([admin.html](admin.html) + [src/admin/](src/admin/)), nicht Teil des Studios:
+Eigene Seite ([admin.html](../../admin.html) + [src/admin/](./)), nicht Teil des Studios:
 Das Studio ist der Schneideraum für Touren, das hier ist Hausverwaltung. Erreichbar über das
 Konto-Menü im Studio — der Eintrag erscheint nur für Admins. Rechnende Teile liegen DOM-frei in
-[adminmodell.ts](src/admin/adminmodell.ts), Server-Seite in
-[server/src/routes/admin.ts](server/src/routes/admin.ts) hinter `erfordereAdmin`.
+[adminmodell.ts](adminmodell.ts), Server-Seite in
+[server/src/routes/admin.ts](../../server/src/routes/admin.ts) hinter `erfordereAdmin`.
 
 **Sechs Reiter, und die Regel steht bei dem, was sie regelt.** Konten · Einladungen ·
 Warteliste · Statistiken · Protokoll · System-Mails; alle sechs Panels liegen im DOM, sichtbar ist eins
-(dasselbe `hidden`-Muster wie im Studio). Die Liste `TABS` in [adminmodell.ts](src/admin/adminmodell.ts)
+(dasselbe `hidden`-Muster wie im Studio). Die Liste `TABS` in [adminmodell.ts](adminmodell.ts)
 ist die einzige Quelle für Leiste, Zähler und URL-Anhang (`/admin#einladungen`, per
 `replaceState` — mit `pushState` führte der Zurück-Knopf durch die zuletzt besuchten Reiter,
 statt die Seite zu verlassen); ein Drift-Wächter prüft, dass zu jedem Reiter ein
-`panel-<id>` in [admin.html](admin.html) steht. Die beiden Schalter der Registrierung liegen
+`panel-<id>` in [admin.html](../../admin.html) steht. Die beiden Schalter der Registrierung liegen
 NICHT mehr zusammen in einer Karte, sondern je im Reiter, den sie betreffen — die
 Einladungspflicht bei den Einladungen, das Wartelisten-Angebot bei der Warteliste. Weil die
 Warteliste dadurch „angeschaltet, aber ohne Wirkung" sein kann, ohne dass die Ursache
@@ -28,13 +28,13 @@ denn nur dort wartet Arbeit. Bei Statistiken steht „Live", bei den Vorlagen ih
 die Angabe jeweils zählt, steht im `aria-label`.
 
 **Das Protokoll zeigt, was die API zuletzt gemeldet hat** — die letzten 500 Warnungen und
-Fehler aus einem Ringpuffer im Arbeitsspeicher ([server/src/protokoll.ts](server/src/protokoll.ts)).
+Fehler aus einem Ringpuffer im Arbeitsspeicher ([server/src/protokoll.ts](../../server/src/protokoll.ts)).
 Bewusst keine Tabelle: Ein Protokoll in der Datenbank will Fristen, Indizes und eine
 Aufräumerei, und die Frage dahinter ist fast immer „was ist gerade eben schiefgegangen?".
 Der Preis steht offen im Reiter, denn Leere ist hier die GUTE Nachricht und darf nicht
 wie ein Ausfall klingen: „Nichts vorgefallen seit dem Start der API am … um …".
 Gefüllt wird der Puffer am **Logger-Ziel** (`protokollZiel` als pino-Stream in
-[app.ts](server/src/app.ts)), nicht an den Aufrufstellen — sonst gäbe es zwei Wege, etwas
+[app.ts](../../server/src/app.ts)), nicht an den Aufrufstellen — sonst gäbe es zwei Wege, etwas
 zu melden, und der zweite bliebe liegen; die Zeile geht dabei unverändert weiter nach
 stdout, das Docker-Log bleibt also die vollständige Quelle. Drei Feinheiten: Der Zähler am
 Reiter zählt nur die FEHLER (eine Warnung ist Betrieb), die Zusammenfassung über der Liste

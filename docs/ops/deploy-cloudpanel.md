@@ -81,7 +81,7 @@ MAPTALE_UMAMI_DB_PASSWORT=<Postgres-Passwort des Umami-Containers>   # optional:
 > und `/registrieren`), der **`include /etc/nginx/global_settings;`** in allen
 > vier Blöcken mit eigenem `add_header` und **`error_page 404 /404.html;`**.
 > Die Fehlerseite selbst braucht keinen Handgriff: Sie liegt in
-> [`public/404.html`](../public/404.html), und Vite kopiert `public/`
+> [`public/404.html`](../../public/404.html), und Vite kopiert `public/`
 > unverändert nach `dist/` — der normale Rollout bringt sie mit.
 >
 > Stand 2026-08-06 nachgezogen: der **Profil-Namensraum**
@@ -150,7 +150,7 @@ Registrierung + Bestätigungsmail funktionieren, ein Test-Upload spielt ab.
 
 ## 5. Automatischer Deploy (GitHub Actions)
 
-[`deploy.yml`](../.github/workflows/deploy.yml) ist bereits auf den
+[`deploy.yml`](../../.github/workflows/deploy.yml) ist bereits auf den
 CloudPanel-Fluss umgestellt: Test-Gate (Web + Backend + Android) → **API-Image**
 nach GHCR → per SSH die **Compose-Datei** auf den Server spiegeln, den
 API-Container aktualisieren **und** `dist/` in den Site-Root synchronisieren

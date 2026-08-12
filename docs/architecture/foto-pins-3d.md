@@ -4,9 +4,9 @@ Frage: Lassen sich die nummerierten Foto-Wegpunkte, heute flache Kreise am Boden
 dreidimensional mit Höhe darstellen — als Pin, der über dem Gelände steht?
 
 **Antwort: ja, aber nur mit einem eigenen Renderer.** Inzwischen die
-**Standarddarstellung** der Foto-Stopps: [src/photopins.js](../src/photopins.js) (Three.js-
-Custom-Layer) mit den Rechenregeln in [src/pinmodell.ts](../src/pinmodell.ts) (DOM-frei,
-21 Vitest-Fälle in [test/pinmodell.test.ts](../test/pinmodell.test.ts)).
+**Standarddarstellung** der Foto-Stopps: [src/photopins.js](../../src/photopins.ts) (Three.js-
+Custom-Layer) mit den Rechenregeln in [src/pinmodell.ts](../../src/pinmodell.ts) (DOM-frei,
+21 Vitest-Fälle in [test/pinmodell.test.ts](../../test/pinmodell.test.ts)).
 
 * `?pins3d=0` schaltet auf die alten flachen Kreise zurück — A/B-Vergleich wie bei den
   Renderer-Flags, und der Rückfall, falls ein Gerät Ärger macht.

@@ -18,7 +18,7 @@ npm run release minor
 ```
 
 Das hebt die Version in der `package.json` und pusht den Tag `vX.Y.Z`. Der Tag
-löst [.github/workflows/deploy.yml](../.github/workflows/deploy.yml) aus, und
+löst [.github/workflows/deploy.yml](../../.github/workflows/deploy.yml) aus, und
 dort laufen nach demselben Test-Gate wie der Server-Deploy zwei Dinge parallel:
 
 | Job | Ergebnis |
@@ -48,7 +48,7 @@ Rechnung hält die semver-Reihenfolge ein, **solange Minor und Patch unter 100
 bleiben** — bei `0.100.0` läge das Ergebnis hinter `1.0.0`, deshalb bricht der
 Build dort ab, statt still die Reihenfolge zu drehen.
 
-Ein Drift-Wächter ([test/versionen.test.ts](../test/versionen.test.ts)) lässt die
+Ein Drift-Wächter ([test/versionen.test.ts](../../test/versionen.test.ts)) lässt die
 Web-Tests fehlschlagen, sobald jemand wieder eine feste Nummer in die
 Gradle-Datei schreibt. Die App zeigt ihren Stand unten im Profil an:
 „Maptale 0.34.0 · Build 3400".

@@ -30,7 +30,7 @@ Originalzustand.
 ein Mensch entschieden hat: Foto-Titel, verschobene Anker, Modus-Grenzen,
 Kamera-Presets, Musik, Wetterkorrekturen. Nichts Abgeleitetes, nichts
 Ausgerechnetes. Geschrieben wird es fast nur an einer Stelle:
-`PUT /api/tours/:id/edits` ([server/src/routes/tours.ts](../server/src/routes/tours.ts)).
+`PUT /api/tours/:id/edits` ([server/src/routes/tours.ts](../../server/src/routes/tours.ts)).
 Die einzige Ausnahme ist die Auto-Musik beim allerersten Verarbeiten (s. unten) —
 und die ist bewusst so gebaut, dass sie sich nie wiederholt.
 
@@ -91,7 +91,7 @@ Ein Zeitstempel (`2026-05-14T13:17:19+02:00`) und eine Medien-ID (`m3`)
 bedeuten dagegen immer dasselbe. Deshalb gilt: **im Overlay nie `f`** — nur
 Medien-IDs, Koordinaten und absolute ISO-Zeitstempel. Die Umrechnung in `f`
 macht die Pipeline bei jedem Render neu
-([positionZurZeit](../server/src/pipeline/zeit.ts)).
+([positionZurZeit](../../server/src/pipeline/zeit.ts)).
 
 Aus demselben Grund zeigt die Zeitleiste im Studio **Aufnahmezeit** und nicht
 Streckenanteil: Was man dort anfasst, wird direkt zum Anker im Overlay.
@@ -122,7 +122,7 @@ Auto-Wetter und Auto-Musik sind beides. Die Regel dafür: **Was jemand
 das Überstimmen stehen könnte.
 
 - **Auto-Musik** schreibt die Pipeline beim allerersten Verarbeiten ins Overlay
-  ([musikwahl.ts](../server/src/pipeline/musikwahl.ts)) und rührt es danach nie
+  ([musikwahl.ts](../../server/src/pipeline/musikwahl.ts)) und rührt es danach nie
   wieder an. Läge sie nur im Tour-JSON, wäre sie im Studio unsichtbar und
   unlöschbar — die Pipeline schriebe sie bei jedem Render zurück. Man bräuchte
   dann ein „diesmal wirklich keine Musik"-Flag, also doch wieder ein Overlay.
@@ -144,7 +144,7 @@ jemand die erste davon anfasst.
 - **Ein Overlay-Feld ohne Schema wird still verschluckt.** Fastifys Ajv läuft
   mit `removeAdditional` — unbekannte Felder verschwinden beim `PUT`, ohne
   Fehlermeldung. Neue Felder gehören immer auch ins JSON-Schema in
-  [server/src/schema/edits.ts](../server/src/schema/edits.ts).
+  [server/src/schema/edits.ts](../../server/src/schema/edits.ts).
 - **Der Editor liest nicht das Tour-JSON.** Er lädt `/api/tours/:id/editor`
   (Rohdaten-Segmente + Overlay). Was nur gerendert existiert, kann er nicht
   anzeigen — und schon gar nicht bearbeiten.

@@ -35,12 +35,12 @@ Da ist der Nutzer die Quelle, nicht der Gestalter.
 **Kamera und Momente werden NICHT verschmolzen.** Der Wunsch ist nachvollziehbar (beide
 klingen nach Kamera), aber die beiden tragen verschiedene Grammatik:
 
-- **Kamera** ([edits.ts:52](../server/src/schema/edits.ts#L52)) ist eine Stufenfunktion
+- **Kamera** ([edits.ts:52](../../server/src/schema/edits.ts#L52)) ist eine Stufenfunktion
   `{ab, preset, skala}` — lückenlose Bänder, Grundband „Standard". Sie beantwortet:
   *wie nah bin ich dran, während gefahren wird.*
-- **Momente** ([edits.ts:107](../server/src/schema/edits.ts#L107)) sind Punkt-Ereignisse
+- **Momente** ([edits.ts:107](../../server/src/schema/edits.ts#L107)) sind Punkt-Ereignisse
   `{ab, art, dauerS}`. In der Engine ist das eine **eigene Phase**: die Fahrt bremst
-  ~160 m vorher ab, hält an, die Kamera agiert ([tour.ts:793](../src/tour.ts#L793)).
+  ~160 m vorher ab, hält an, die Kamera agiert ([tour.ts:793](../../src/tour.ts#L793)).
 
 Ein Moment ist damit kein Kamera-Attribut, sondern ein **Halt** — grammatikalisch näher
 am Foto-Stopp als am Kamera-Abstand. Eine Bahn, die gleichzeitig durchgehend gefüllt ist
@@ -126,7 +126,7 @@ beim Wetter: eine Vorgabe, punktuelle Korrektur.
 **Was daran hängt** — beiläufige Fotos halten nicht an:
 
 - `schaetzeAnimationsdauer` muss sie anders zählen (sonst lügt die Zahl unter den Bahnen),
-- der Studio-Abspieler ([abspielen.ts](../src/studio/abspielen.ts)) braucht einen zweiten
+- der Studio-Abspieler ([abspielen.ts](../../src/studio/abspielen.ts)) braucht einen zweiten
   Halt-Typ ohne Standzeit,
 - die Engine braucht eine Overlay-Ebene, die **während** `phase === 'ride'` läuft — heute
   ist jedes Foto an `phase === 'photo'` gekoppelt,
@@ -140,7 +140,7 @@ gruppiert) → beiläufig; einzelnes Foto nach langer Fahrt → groß.
 ## 4. Tempo-Spur
 
 Erzählerisch der stärkste fehlende Hebel. Heute hängt das Tempo allein am
-Fortbewegungsmodus ([tour.ts:62](../src/tour.ts#L62)) — aber die Fortbewegung ist ein
+Fortbewegungsmodus ([tour.ts:62](../../src/tour.ts#L62)) — aber die Fortbewegung ist ein
 **Fakt** („ich bin geradelt"), das Tempo eine **Erzählentscheidung** („die 40 km
 Landstraße im Flug, die Serpentinen in Ruhe").
 
@@ -173,7 +173,7 @@ Technisch **fast gratis** — aber nur auf dem richtigen Weg:
 - **Falsch:** CSS `filter` auf dem Karten-Canvas. Zusätzlicher Vollbild-Pass pro Frame
   (`blur` besonders teuer), färbt Fotokarte und Bedienleiste mit.
 - **Richtig:** die Raster-Paint-Properties des Satellitenlayers, die
-  [daynight.js:84](../src/daynight.ts#L84) bereits pro Frame fährt. Läuft im vorhandenen
+  [daynight.js:84](../../src/daynight.ts#L84) bereits pro Frame fährt. Läuft im vorhandenen
   Shader-Durchgang: kein zweiter Pass, keine messbaren Kosten.
 
 | Regler | Wirkung |
@@ -185,7 +185,7 @@ Technisch **fast gratis** — aber nur auf dem richtigen Weg:
 | `raster-hue-rotate` | dreht den Farbkreis (neu, bisher ungenutzt) |
 
 Vorschlag für die Look-Palette (als **Offsets** auf die Tageszeit-Keyframes in
-[daynight.js:16](../src/daynight.ts#L16)):
+[daynight.js:16](../../src/daynight.ts#L16)):
 
 | Look | Werte |
 |---|---|
@@ -225,7 +225,7 @@ Ursprünglich abgelehnt, nach Einwand **revidiert: Farbe ja, Linienstil nein.**
 Die Route ist das einzige durchgehende Lesbarkeitselement über wechselndem Untergrund
 (Wald, Fels, Schnee, Meer, Stadt bei Nacht) — man wählt bei km 0 und sieht km 30 nicht.
 **Aber** die Route ist bereits vierschichtig
-([map.js:336–370](../src/map.ts#L336)): weiße Vorschaulinie (2,4 px), Farbverlauf
+([map.js:336–370](../../src/map.ts#L336)): weiße Vorschaulinie (2,4 px), Farbverlauf
 Bernstein→Koralle (4,6 px), weicher Schein (11 px, blur 7), farbige Spitze. Genau diese
 Struktur — Kern plus Schein — erzeugt die Lesbarkeit. Solange ein Thema **alle vier
 Schichten stimmig** setzt und die Helligkeitsdifferenz erhält, ist Magenta so lesbar wie
@@ -276,8 +276,8 @@ Offen: API-Kosten pro Erzeugung (Quota-Frage) und Musik-Ducking darunter.
 ## 9. Fortbewegung
 
 Heute: `walk 0.4 · bike 1 · moped 1.15 · tram 1.25 · jeep 1.45 · ferry 2.5`
-([tour.ts:62](../src/tour.ts#L62)), Ton nur für `moped/jeep/ferry`
-([vehicle.js:11](../src/vehicle.ts#L11)).
+([tour.ts:62](../../src/tour.ts#L62)), Ton nur für `moped/jeep/ferry`
+([vehicle.js:11](../../src/vehicle.ts#L11)).
 
 **Beobachtung:** Ein Modus tut vier Dinge — Tempo, Kameradistanz, Icon, Motorsound. Die
 Tempo-Spur löst die erste Wirkung heraus; danach erzeugt `Modus × Tempo × Kamera` mehr
@@ -294,7 +294,7 @@ Erlebnis-pro-Aufwand-Verhältnis der ganzen Liste.
 ### Was an Modi wirklich fehlt
 
 - **Auto** — die häufigste Fortbewegung überhaupt; `jeep` ist Gelände. Der Motorloop ist
-  in [gen-vehicle-audio.mjs](../scripts/gen-vehicle-audio.mjs) bereits auskommentiert
+  in [gen-vehicle-audio.mjs](../../scripts/gen-vehicle-audio.mjs) bereits auskommentiert
   vorhanden.
 - **Laufen** — `walk 0.4` ist Spaziergang; Läufer sind eine eigene große Gruppe (~0.6,
   andere Kamerahöhe).
@@ -323,7 +323,7 @@ Anzeigenamen) zu einer Tabelle zusammenziehen.
 ## 10. Wetter
 
 Heute: `off · clouds · fog · rain · snow · storm` plus stufenlose Stärke
-([weather.ts:19](../server/src/pipeline/weather.ts#L19)). Hier liegt **mehr auf der
+([weather.ts:19](../../server/src/pipeline/weather.ts#L19)). Hier liegt **mehr auf der
 Straße als bei den Modi** — vier Effekte setzen auf vorhandener Infrastruktur auf:
 
 1. **Talnebel** — Nebel liegt in den Tälern, Gipfel ragen heraus. DEM-Höhen sind da,
@@ -348,7 +348,7 @@ nicht zwei Achsen.
 ## 11. Die Pause als erzähltes Ereignis
 
 **Neu am 2026-08-01**, aus dem Befund einer Testtour: drei Stunden Aufnahme, davon zwei
-im Kino. Seit dem Zeitraffer-Umbau ([zeit.ts](../server/src/pipeline/zeit.ts),
+im Kino. Seit dem Zeitraffer-Umbau ([zeit.ts](../../server/src/pipeline/zeit.ts),
 `raffePausen`) läuft die Uhr über die Pause ehrlich weiter, und der Himmel dreht auf
 dem Rampenfenster sichtbar von Dämmerung auf Nacht. Das ist die halbe Miete: Der
 Zuschauer *sieht*, dass Zeit vergangen ist. Er erfährt aber nicht, **wie viel** und
@@ -357,8 +357,8 @@ Zuschauer *sieht*, dass Zeit vergangen ist. Er erfährt aber nicht, **wie viel**
 Die Pause ist heute ein Nebenprodukt der Zeitrechnung, kein Objekt. Sie könnte eines
 werden: ein **Moment** an der Rampenmitte, mit einer Beschriftung wie „2 Stunden
 später" oder „Kino". Momente gibt es bereits als Punkt-Ereignis
-([edits.ts:107](../server/src/schema/edits.ts#L107), eigene Engine-Phase in
-[tour.ts:793](../src/tour.ts#L793)), und `findePausen` liefert Ort und Dauer frei Haus
+([edits.ts:107](../../server/src/schema/edits.ts#L107), eigene Engine-Phase in
+[tour.ts:793](../../src/tour.ts#L793)), und `findePausen` liefert Ort und Dauer frei Haus
 — beides steckt schon in der Pipeline, nichts davon müsste erfunden werden.
 
 Drei Fragen, die vor dem Bauen zu klären sind:

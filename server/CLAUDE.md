@@ -16,7 +16,7 @@ es von selbst richtig; PNG als Zwischenformat, damit nicht zweimal JPEG-Verluste
 übereinanderliegen. Der zweistufige Weg ergibt bitgenau dasselbe Bild (SSIM 1,0).
 
 **Ausgeliefert werden ABGELEITETE Fassungen, nicht das Hochgeladene**
-([bild.ts](server/src/pipeline/bild.ts)). Aus jedem Foto entstehen beim Rendern zwei Dateien —
+([bild.ts](src/pipeline/bild.ts)). Aus jedem Foto entstehen beim Rendern zwei Dateien —
 `m1.w1920.jpg` (Anzeige, längste Kante 1920) und `m1.t480.jpg` (Kachel für Listen, Zeitleiste,
 Pin-Köpfe) —, danach wird das **Original verworfen**; bei Video ebenso, sobald `m1.web.mp4`
 steht. An einer echten Tour: 26,5 MB Originale → 3,1 MB Fassungen, ohne sichtbaren Unterschied
@@ -24,16 +24,16 @@ in der Wiedergabe. Vier Dinge, die man dabei leicht zerstört:
 *Die Reihenfolge* — erst schreiben, dann löschen; wer die Quelle vorher wegnimmt, verliert bei
 einem Abbruch beides. *Der Wiedereintritt* — jeder Re-Render läuft ohne Original, `bereiteFotosAuf`
 und `bereiteVideosAuf` müssen die vorhandene Fassung als Quelle nehmen statt zu scheitern. *Der
-Vollständigkeits-Check* im finalize ([tours.ts](server/src/routes/tours.ts)) zählt Original ODER
+Vollständigkeits-Check* im finalize ([tours.ts](src/routes/tours.ts)) zählt Original ODER
 Fassung, sonst meldet jeder App-Retry „Medien fehlen". Und *das EXIF*: ffmpeg wirft es beim
 Skalieren weg, der Studio-Editor liest die Aufnahme-Details aber aus der ausgelieferten Datei —
 deshalb wird der Exif-APP1-Block von Hand übertragen und seine Drehung dabei auf 1 gesetzt (die
 steckt jetzt in den Pixeln; bliebe die Angabe stehen, drehte der Browser ein zweites Mal). Die
 Kachel bekommt bewusst kein EXIF: der Block eines Testfotos war 42 KB, mehr als das Bild selbst.
-Bestandstouren stellt ein Start-Durchlauf um ([bildnachtrag.ts](server/src/pipeline/bildnachtrag.ts),
+Bestandstouren stellt ein Start-Durchlauf um ([bildnachtrag.ts](src/pipeline/bildnachtrag.ts),
 ohne Re-Render, also ohne neue Wetter-/Vision-Aufrufe). **`thumb` kann fehlen** — jede Anzeige
 braucht den Rückfall auf `src`. Die App verkleinert schon vor dem Upload auf 2560 px
-([Fotoaufbereitung.kt](android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt)) — bewusst
+([Fotoaufbereitung.kt](../android/app/src/main/java/app/maptale/kamera/Fotoaufbereitung.kt)) — bewusst
 größer als die Anzeige-Fassung, denn der Server rechnet aus DIESER Datei.
 
 **Das Manifest wächst, es ändert sich nicht.** Medien kommen auch NACH dem Anlegen dazu
@@ -50,7 +50,7 @@ wiederkommen. Ohne `quelle` (Studio) bleibt jeder Eintrag neu, dort wählt ein M
 (`DELETE …/media/:mid`): Rohdatei und alle Ableitungen sind weg, der Speicher ist frei — der
 Manifest-Eintrag bleibt aber als **Tombstone** (`entfernt: true`) stehen, denn das Manifest ist
 das Protokoll dessen, was hochgeladen wurde. Vier Regeln hängen daran: **`verfuegbareMedien`
-([tours.ts](server/src/routes/tours.ts)) ist die EINE Filterstelle** — sie nimmt Tombstones und
+([tours.ts](src/routes/tours.ts)) ist die EINE Filterstelle** — sie nimmt Tombstones und
 angekündigte Einträge ohne Datei aus `verarbeite()`, weshalb Platzierung, Fassungen,
 Bildanalyse, Render und Cover-Wahl sie gar nicht erst sehen (der Cover-Fallback beim gelöschten
 Titelbild fällt dadurch von selbst an). **finalize überspringt Tombstones**, sonst blockierte
@@ -64,7 +64,7 @@ keine Datei und darf ankommen; ein Tombstone nie wieder (die Auslieferung hat f�
 `immutable` versprochen). Und **gelöscht wird auch bei „bereit"**, nur nicht während
 `verarbeitung`: Eine verschwundene Datei wird 404, nicht stale — der Riegel schützt vor einer
 neuen Version unter altem Namen, nicht vor dem Verschwinden.
-**Am Manifest schreibt immer nur EINER je Tour** ([manifestsperre.ts](server/src/manifestsperre.ts)):
+**Am Manifest schreibt immer nur EINER je Tour** ([manifestsperre.ts](src/manifestsperre.ts)):
 Nachreichen und Löschen arbeiten beide „lesen → ändern → schreiben", und zwischen Lesen und
 Schreiben liegt echte Wartezeit. Zwei gleichzeitige Läufe lesen denselben Stand, der zweite
 schreibt den ersten weg — und verloren ist nicht bloß ein Eintrag: Der Client hat für ihn eine
@@ -77,16 +77,16 @@ nur ihren Prozess ab — serialisiert wird dort, wo die Datei liegt. Die Tests d
 Lesen und holen den Inhalt SOFORT: Wer erst wartet und dann liest, sieht bereits das Ergebnis
 des anderen, und der Test wäre grün, ohne etwas zu prüfen.
 
-Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concepts/konzept_medien_nachreichen_und_loeschen.md).
+Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](../docs/concepts/konzept_medien_nachreichen_und_loeschen.md).
 
 **Vier Feinheiten der Pipeline, die man leicht „repariert":**
 
 1. **Der Nutzertext eines Fotos wird die ÜBERSCHRIFT**, nicht die Unterzeile: `edits.caption`
    (Oberfläche: „Titel") landet im Tour-JSON als `title`, die Uhrzeit rutscht als „Foto ·
-   14:32" darunter ([enrich.ts](server/src/pipeline/enrich.ts)). Ohne Beschriftung bleibt es
+   14:32" darunter ([enrich.ts](src/pipeline/enrich.ts)). Ohne Beschriftung bleibt es
    umgekehrt. Der Feldname `caption` ist historisch — wer den Text „zurück an seinen Platz"
    schiebt, macht die Überschrift wieder zur Maschinenangabe.
-2. **Gehabschnitte trennt der Server selbst** ([tempo.ts](server/src/pipeline/tempo.ts)):
+2. **Gehabschnitte trennt der Server selbst** ([tempo.ts](src/pipeline/tempo.ts)):
    Rolling-Median über ±30 s, Hysterese 5,5/8 km/h, Mindestdauern gegen Ampel-Fehlalarme. Sie
    läuft in `ladeOriginalSegmente` — der einen Stelle, die sich Editor und Render teilen;
    nur beim Rendern angewandt, zeigte der Editor eine andere Aufteilung als das Video.
@@ -102,7 +102,7 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concept
    Straßenbahnfahrt mit Fußwegen ein einziges „zu Fuß" über die ganze Tour.
 
    **Welches Fahrzeug es war, entscheidet die Trasse, nicht das Tempo**
-   ([schienen.ts](server/src/pipeline/schienen.ts)): Moped, Jeep und Tram sind am Tempo nicht
+   ([schienen.ts](src/pipeline/schienen.ts)): Moped, Jeep und Tram sind am Tempo nicht
    auseinanderzuhalten, die Automatik hebt eine Aufnahme ohne Angabe deshalb höchstens auf
    „Rad". Wer über ≥ 500 m zu ≥ 85 % im 30-m-Korridor um `railway=tram/light_rail` bleibt,
    saß in der Straßenbahn — abgefragt per Overpass (OSM). Die drei Schwellen stehen als
@@ -116,18 +116,18 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concept
    eine Anreicherung, kein Muss.
 
    Erkennt die **App** die Fortbewegung selbst (Activity Recognition, s.
-   [android/CLAUDE.md](android/CLAUDE.md)), schickt sie fertige Abschnitte und setzt
+   [android/CLAUDE.md](../android/CLAUDE.md)), schickt sie fertige Abschnitte und setzt
    `modiAutomatisch` im Manifest. Nur dieses Feld unterscheidet „erkannt" von „angegeben" —
    `walk` heißt in der App beides. Ein Fahrzeug schickt sie als `jeep`; welches es war, klärt
    auch dort erst der Schienenabgleich.
-3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](server/src/pipeline/zeit.ts),
+3. **Eine Pause wird GERAFFT, nicht herausgekürzt** ([zeit.ts](src/pipeline/zeit.ts),
    `raffePausen`): Überall gilt die echte Aufnahmezeit, nur um die Pause herum liegt ein
    schmales Streckenfenster, in dem die Zeit im Schnelldurchlauf vergeht — der Himmel dreht
    dort sichtbar von Dämmerung auf Nacht. Bis Juli 2026 wurde die Pause stattdessen auf zwei
    Minuten gestaucht; das nahm den Ruck, ließ aber ALLES Folgende um die Restdauer
    zurückhängen. An einer echten Tour endete die Telemetrie deshalb um 20:51, während die
    Fotos derselben Minuten schon „22:48" untertitelt waren. Das Fenster wird in FILMsekunden
-   bemessen ([filmtempo.ts](server/src/pipeline/filmtempo.ts) — der Server kennt seit dem
+   bemessen ([filmtempo.ts](src/pipeline/filmtempo.ts) — der Server kennt seit dem
    die Tempo-Tabelle der Engine, mit Drift-Wächter), nicht in Metern: 200 m sind zu Fuß vier
    Sekunden und auf der Fähre eine halbe. Und es wächst mit der Pausendauer, sonst zuckte
    das Licht bei zwei Stunden genauso schnell wie bei zwanzig Minuten. Der Player braucht
@@ -135,7 +135,7 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concept
    IST der Zeitraffer — und weil der Sonnenstand pro Frame aus der Pseudo-Zeit gerechnet
    wird, ist er auch beim Scrubben deterministisch.
 4. **Ein Video wird neu geschrieben, sobald sein Index hinten liegt**
-   ([video.ts](server/src/pipeline/video.ts)): Android schreibt jede Aufnahme über den
+   ([video.ts](src/pipeline/video.ts)): Android schreibt jede Aufnahme über den
    MediaMuxer, und der setzt das `moov`-Atom ans Dateiende — bei 26 MB also 26 MB hinter den
    Anfang. Wer so etwas streamt, sieht erst einmal gar nichts: Der Player liest den Kopf,
    findet keinen Index, springt ans Dateiende, holt ihn dort und beginnt erst dann zu laden.
@@ -150,13 +150,13 @@ Konzept: [docs/concepts/konzept_medien_nachreichen_und_loeschen.md](docs/concept
 
 ## Tracker-Integrationen (Cloud-Importe)
 
-Der anbieterblinde Kern in [server/src/tracker/](server/src/tracker/): Ein GPS-Track aus einer
+Der anbieterblinde Kern in [server/src/tracker/](src/tracker/): Ein GPS-Track aus einer
 Sport-Uhr landet ohne Handgriff als spielbare Tour im Konto. Gebaut sind Vertrag, Registry,
 Krypto, Normalisierer, TourAnleger, Importlauf und die Routen; die echten Adapter (Polar
-zuerst) fehlen noch. Konzept: [docs/concepts/konzept_tracker_integrationen.md](docs/concepts/konzept_tracker_integrationen.md).
+zuerst) fehlen noch. Konzept: [docs/concepts/konzept_tracker_integrationen.md](../docs/concepts/konzept_tracker_integrationen.md).
 
 **Eine Cloud-Tour ist keine eigene Sorte Tour.** `touranleger.ts` ruft `legeTourAn` und
-`finalisiereTour` aus [routes/tours.ts](server/src/routes/tours.ts) — dieselben Funktionen wie
+`finalisiereTour` aus [routes/tours.ts](src/routes/tours.ts) — dieselben Funktionen wie
 die Upload-Route. Beide wurden genau dafür aus den Routen herausgezogen: Ein zweiter
 Anlege-Pfad hätte Verifikation, Idempotenz, Medien-IDs, Zeit-Semantik und die
 `private`-Vorgabe ein zweites Mal geführt, und der Player hätte einen Sonderfall bekommen.
@@ -227,7 +227,7 @@ Zuordnungsweg des Webhooks. `verbunden_am` bleibt beim Erneuern dagegen STEHEN: 
 schreibt beide Fälle, und mitgeschrieben stünde auf der Kontoseite dauerhaft „verbunden seit
 vor ein paar Minuten" (Tokens laufen stündlich ab). Nach dem Trennen gibt es keine Zeile mehr,
 dort setzt der INSERT-Zweig das Datum ohnehin frisch. Die Tokens liegen AES-256-GCM-verschlüsselt
-([krypto.ts](server/src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SECRET`);
+([krypto.ts](src/tracker/krypto.ts), Schlüssel aus `MAPTALE_TRACKER_SECRET`);
 fehlt der Schlüssel, sind alle Anbieter aus — Klartext als Rückfall gibt es nicht.
 
 **Der Webhook ist der einzige Eingang OHNE Anmeldung** — und der einzige mit eigenem
@@ -251,7 +251,7 @@ Angemeldeten ein FREMDES Anbieter-Konto unterschieben (OAuth-CSRF), und ab da li
 Touren in sein Konto. Keine Tabelle: Er lebt Minuten, und einen Neustart soll er nicht
 überleben.
 
-**Polar ist der erste echte Adapter** ([provider/polar.ts](server/src/tracker/provider/polar.ts)).
+**Polar ist der erste echte Adapter** ([provider/polar.ts](src/tracker/provider/polar.ts)).
 Drei Fallen, die man ihm nicht ansieht: Seine Tokens laufen **nicht ab** (kein
 `erneuereTokens`, `laeuftAb: null` — ein Ablaufdatum schickte den Kern in eine Erneuerung, die
 es nicht gibt); ein zweiter `POST /v3/users` antwortet **409** und das ist beim Neuverbinden
@@ -260,10 +260,10 @@ Minuten** — wer `Z` anhängt, verschiebt jede Tour um ihren Zonen-Versatz, und
 „falsches Licht" auf, nicht als Zeitfehler. Dazu liest der Adapter Feldnamen in BEIDEN
 Schreibweisen (`start-time` und `start_time`), weil Polars Doku beide zeigt. Einrichtung
 (Client, Token-Schlüssel, Webhook-Registrierung — das Signatur-Geheimnis gibt es nur EINMAL):
-[docs/ops/polar-einrichten.md](docs/ops/polar-einrichten.md).
+[docs/ops/polar-einrichten.md](../docs/ops/polar-einrichten.md).
 
-**Push ist die Zugabe, nicht der Weg** ([push.ts](server/src/push.ts) für Geräte und
-Meldung, [fcm.ts](server/src/fcm.ts) für den Versand, Migration 18). Gemeldet wird
+**Push ist die Zugabe, nicht der Weg** ([push.ts](src/push.ts) für Geräte und
+Meldung, [fcm.ts](src/fcm.ts) für den Versand, Migration 18). Gemeldet wird
 ausschließlich ein FERTIGER Import, und zwar AUSSERHALB des try im Importlauf: Ein Fehler
 beim Benachrichtigen darf einen gelungenen Import nicht nachträglich zum Fehlschlag machen —
 die Tour liegt spielbar im Konto, ob Google sie ausliefert oder nicht. Fünf Dinge, die man
@@ -285,10 +285,10 @@ und sichtbar ist nur, dass Push „nicht mehr geht". Die Asymmetrie entscheidet 
 behaltener toter Eintrag kostet einen vergeblichen Aufruf, ein gelöschter lebender das
 Feature. Ohne `MAPTALE_FCM_SERVICE_ACCOUNT` ist das Feature aus
 (Route antwortet `push: false`), nicht kaputt — Einrichtung:
-[docs/ops/push-einrichten.md](docs/ops/push-einrichten.md).
+[docs/ops/push-einrichten.md](../docs/ops/push-einrichten.md).
 
 **Getestet wird gegen einen erfundenen Anbieter**
-([testprovider.ts](server/src/tracker/testprovider.ts)) — dasselbe Muster wie `FesterGeocoder`
+([testprovider.ts](src/tracker/testprovider.ts)) — dasselbe Muster wie `FesterGeocoder`
 und `FesteWetterQuelle`. Er liegt in `src/` und nicht in `test/`, weil er beweist, dass der
 Vertrag ohne Netz erfüllbar ist, und weil sich der erste echte Adapter an ihm misst.
 
@@ -300,7 +300,7 @@ eigenen Touren hat. `Benutzer.rolle` hängt an jeder aufgelösten Sitzung und ko
 
 **Wer Admin ist, entscheidet zuerst die Konfiguration.** `MAPTALE_ADMINS` (Default:
 Henriks beide Adressen) wird bei JEDEM Start auf die Admin-Rolle gehoben — `hebeAdmins` in
-[auth.ts](server/src/auth/auth.ts). Das ist bewusst eine Boot-Garantie und keine einmalige
+[auth.ts](src/auth/auth.ts). Das ist bewusst eine Boot-Garantie und keine einmalige
 Migration: So kann sich niemand aussperren, und ein Konto, das es beim Umstellen noch gar nicht
 gab, wird Admin, sobald es angelegt ist. Die Kehrseite: Diese Konten lassen sich in der
 Oberfläche NICHT herabstufen oder löschen — die Route lehnt es mit 409 ab, statt es beim
@@ -310,7 +310,7 @@ stehen doppelt (Server + `rolleGesperrt`/`loeschenGesperrt` im Modell): Der Serv
 durchsetzen, die Oberfläche SOLL den Knopf gar nicht erst anbieten.
 
 **Registrierung: ein Schalter, zwei Ebenen.** Die DB-Einstellung `einladung_pflicht`
-(Vorgabe AN, [einladungen.ts](server/src/auth/einladungen.ts)) entscheidet, ob ein Code nötig
+(Vorgabe AN, [einladungen.ts](src/auth/einladungen.ts)) entscheidet, ob ein Code nötig
 ist — sie liegt in der Datenbank und nicht in der Umgebung, weil sie zur Laufzeit umgelegt wird.
 Darüber steht weiterhin der harte Env-Riegel `MAPTALE_REGISTRIERUNG_OFFEN`: Ist der zu, hilft
 auch ein gültiger Code nicht. `/auth/me` meldet beides AUCH ohne Anmeldung — genau dort, wo das
@@ -330,14 +330,14 @@ den Code und prüft ihn über `POST /api/auth/einladung-pruefen` — rein lesend
 **nur E-Mail und Passwort**: Jedes weitere Pflichtfeld kostet Anmeldungen, und für ein Konto
 gebraucht wurde der Name nie. `users.name` ist trotzdem NOT NULL und trägt zwei sichtbare
 Dinge (Mail-Anrede „Hallo Mira," und den Konto-Chip, solange im Profil kein Anzeigename
-steht) — deshalb leitet `nameAusEmail` ([server/src/auth/auth.ts](server/src/auth/auth.ts))
+steht) — deshalb leitet `nameAusEmail` ([server/src/auth/auth.ts](src/auth/auth.ts))
 ihn aus dem lokalen Teil der Adresse ab: Plus-Zusatz weg, Trennzeichen zu Leerraum, jedes
 Wort groß (`mira.wolf@…` → „Mira Wolf"). Eine VORGABE, keine Behauptung — im Profil ist der
 Anzeigename jederzeit überschreibbar. Das Feld `name` bleibt in der Route optional: Wer ihn
 mitschickt, behält ihn. Der bestätigte Code steht im Formular als grüner Chip mit „Ändern",
 sonst wüsste niemand, ob die Einladung angekommen ist. Ohne Einladungspflicht entfällt
 Schritt 1 ersatzlos.
-`formatiereEinladungscode` ([src/einladungscode.ts](src/einladungscode.ts)) räumt beim TIPPEN
+`formatiereEinladungscode` ([src/einladungscode.ts](../src/einladungscode.ts)) räumt beim TIPPEN
 auf (Versalien, Bindestrich von selbst), statt hinterher zu meckern. Zwei Kanten: Der Einstieg
 `#registrieren` von der Landing fällt VOR der `/auth/me`-Antwort an und kennt die Pflicht noch
 nicht — `zeigeRegistrierungsmodus` stellt ihn nachträglich gerade. Und ein zwischen Schritt 1
@@ -346,8 +346,8 @@ das beheben lässt. Der Link aus der Verwaltung (`/studio.html#einladung=CODE`) 
 sofort und überspringt Schritt 1; wie `#verify=`/`#reset=` wirkt er nur beim Laden der Seite,
 nicht bei einem Hash-Wechsel in einem offenen Tab.
 
-**Wer keinen Code hat, kommt auf die Warteliste** ([server/src/auth/warteliste.ts](server/src/auth/warteliste.ts),
-[routes/warteliste.ts](server/src/routes/warteliste.ts)) — die Kehrseite der Einladungspflicht:
+**Wer keinen Code hat, kommt auf die Warteliste** ([server/src/auth/warteliste.ts](src/auth/warteliste.ts),
+[routes/warteliste.ts](src/routes/warteliste.ts)) — die Kehrseite der Einladungspflicht:
 Adresse hinterlassen, der Betreiber lädt gezielt nach. Vier Dinge tragen das, und jedes davon
 lässt sich „vereinfachen", bis es rechtlich kippt:
 **Double-Opt-in** — ein Eintrag zählt erst nach dem Klick in der Bestätigungsmail; ohne ihn
@@ -366,14 +366,14 @@ Tagen, Wartende nach einem Jahr, Eingeladene 90 Tage nach dem Code.
 Ob das Formular überhaupt vor der Tür steht, entscheidet `wartelisteAngeboten` aus DREI Werten
 (eigener Schalter, Einladungspflicht, Env-Riegel) — bei offener Registrierung wäre „trag dich
 ein, wir melden uns" eine Schikane. `/auth/me` meldet das Ergebnis mit, die Seite rechnet es
-nicht nach. Die Fristen stehen auch in [datenschutz.html](datenschutz.html); wer sie im Code
+nicht nach. Die Fristen stehen auch in [datenschutz.html](../datenschutz.html); wer sie im Code
 ändert, ändert dort eine Zusage.
 
 
 ## Newsletter-Einwilligung
 
-Teil A des [Newsletter-Konzepts](docs/concepts/konzept_newsletter.md) —
-[newsletter.ts](server/src/newsletter.ts) + [routes/newsletter.ts](server/src/routes/newsletter.ts),
+Teil A des [Newsletter-Konzepts](../docs/concepts/konzept_newsletter.md) —
+[newsletter.ts](src/newsletter.ts) + [routes/newsletter.ts](src/routes/newsletter.ts),
 Migration 16. Der Versand selbst (Teil B) ist noch nicht gebaut; was er braucht, liegt
 bereit: `empfaenger()` und `newsletterKopfzeilen()`.
 
@@ -383,7 +383,7 @@ bereit: `empfaenger()` und `newsletterKopfzeilen()`.
 `abmeldelink`) und Textfassung — Art. 7 Abs. 1 DSGVO. Gespeichert wird ein LABEL
 (`konto-2026-08-06`), nicht der Satz; **wer den Wortlaut ändert, hebt das Datum im
 Label**, sonst behauptet die Zeile eine Zustimmung zu einem Text, den niemand gelesen hat.
-Ein Drift-Wächter ([test/newsletter-einwilligung.test.ts](test/newsletter-einwilligung.test.ts))
+Ein Drift-Wächter ([test/newsletter-einwilligung.test.ts](../test/newsletter-einwilligung.test.ts))
 hält die Sätze in `studio.html` und `konto.html` gegen `EINWILLIGUNGSTEXTE` und prüft
 zugleich, dass das Kästchen der Registrierung kein `checked` trägt (EuGH C-673/17).
 
@@ -413,7 +413,7 @@ Warteliste, s. index.ts) löscht überholte Protokollzeilen nach drei Jahren —
 jemand vorhalten, ohne Einwilligung angeschrieben worden zu sein (§§ 195, 199 BGB). Die
 jüngste bleibt immer: Sonst stünde in `users` ein Zustand ohne Herkunft. Mit dem Konto geht
 alles (Art. 17). Die Fristen und der Umfang stehen in
-[datenschutz.html](datenschutz.html) (Abschnitte 2, 3, 9, 10) — wer sie im Code ändert,
+[datenschutz.html](../datenschutz.html) (Abschnitte 2, 3, 9, 10) — wer sie im Code ändert,
 ändert dort eine Zusage.
 
 ## System-Mails
@@ -421,7 +421,7 @@ alles (Art. 17). Die Fristen und der Umfang stehen in
 **System-Mails: HTML im Maptale-Look, Texte in der Verwaltung.** Die vier Mails (Bestätigung,
 Passwort-Reset, Warteliste bestätigen, Warteliste einladen) gehen als **multipart** raus —
 HTML UND Text, immer beide aus DERSELBEN Quelle
-([maillayout.ts](server/src/maillayout.ts) `rendereMail`). Der Text-Teil ist keine Beigabe:
+([maillayout.ts](src/maillayout.ts) `rendereMail`). Der Text-Teil ist keine Beigabe:
 Ohne ihn steigt die Spam-Wahrscheinlichkeit, und die halbe Testsuite zieht ihren Link daraus
 (`letzterLink()`). Deshalb steht der Haupt-Link im Text auf einer EIGENEN Zeile — Programme,
 die selbst verlinken, schneiden sonst am nächsten Satzzeichen ab, und ein Token mit
@@ -431,10 +431,10 @@ Das HTML ist tabellenbasiert mit Inline-Styles, weil Outlook mit Word rendert un
 Flächenfarbe muss **doppelt** stehen (`bgcolor`-Attribut UND Inline-Style), der Knopf ist eine
 Tabelle mit `bgcolor` (der Verlauf ist nur Zugabe — Outlook sieht ihn nie), und das Logo ist
 ein **PNG** mit `alt="Maptale"` (`public/branding/mail-logo.png`, Rendering von `logo.svg`,
-s. [scripts/gen-logo.mjs](scripts/gen-logo.mjs)): SVG zeigt kein Mail-Programm, und weil
+s. [scripts/gen-logo.mjs](../scripts/gen-logo.mjs)): SVG zeigt kein Mail-Programm, und weil
 Bilder oft erst auf Klick geladen werden, ist der Alt-Text so gesetzt, dass an seiner Stelle
 die Wortmarke steht.
-**Die Texte stehen im Katalog** [mailvorlagen.ts](server/src/mailvorlagen.ts) — die Tabelle
+**Die Texte stehen im Katalog** [mailvorlagen.ts](src/mailvorlagen.ts) — die Tabelle
 `mailvorlagen` hält nur ABWEICHUNGEN. Eine bessere Formulierung im Code erreicht damit alle,
 die nichts angepasst haben; „Zurücksetzen" ist folgerichtig ein DELETE, und wer den Standard
 von Hand zurücktippt, bekommt ebenfalls die Zeile gelöscht (sonst hinge die Vorlage still vom

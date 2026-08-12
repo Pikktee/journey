@@ -103,7 +103,7 @@ Mal darüber.
 - **Standzeit am rechten Griff** des Klips (Foto: `display.holdS`), live während
   des Zugs, Dauer-Blase am Griff. **Videos haben diesen Griff nicht** — ihre
   Standzeit ist eine Tatsache der Datei (der Player läuft bis zum Ende, `holdS`
-  ist wirkungslos, [tour.js](../../src/tour.js)).
+  ist wirkungslos, [tour.js](../../src/tour.ts)).
 - **Videos zählen mit ihrer echten Länge.** Heute rechnet die Achse jedes Video
   wie ein Foto mit 5,2 s: ein 34-s-Video bekommt ~34 px statt ~200 px. `durationS`
   steht bereits im Tour-JSON — **es fehlt nur in der Editor-Route**
@@ -167,7 +167,7 @@ Mal darüber.
 ### C. Fester Maßstab: der Schlüssel zur Fortbewegung
 
 **Das Problem.** Die Fortbewegung bestimmt die Filmdauer (`MODE_SPEED` in
-[tour.js](../../src/tour.js), gespiegelt in `tempoMs`): dieselbe Strecke ist zu Fuß
+[tour.js](../../src/tour.ts), gespiegelt in `tempoMs`): dieselbe Strecke ist zu Fuß
 ein Vielfaches der Fährfahrt. Eine gezogene Modus-Grenze ändert also die Achse, auf
 der sie selbst liegt. Solange die Leiste den **ganzen Film auf die Fensterbreite**
 passt (heutiges Zoom-Modell: Faktor auf Basisbreite, [editor.ts](../../src/studio/editor.ts)

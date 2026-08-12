@@ -6,14 +6,14 @@ Hosentasche, keine Aufzeichnung gestartet), soll trotzdem eine Kamerafahrt bekom
 ## Warum das kleiner ist, als es klingt
 
 Die Engine braucht kein GPX — sie braucht **Wegpunkte**. Die statischen Touren in
-[src/tours.ts](../src/tours.ts) haben genau das: `segments[].pts`, kein Track, keine
-Zeitreihe. `buildRoute()` in [src/geo.ts](../src/geo.ts) glättet die Punkte per
+[src/tours.ts](../../src/tours.ts) haben genau das: `segments[].pts`, kein Track, keine
+Zeitreihe. `buildRoute()` in [src/geo.ts](../../src/geo.ts) glättet die Punkte per
 Catmull-Rom und resampled sie auf ~14-m-Schritte; die Höhen holt
-[src/elevation.ts](../src/elevation.ts) danach ohnehin aus dem DEM und **überschreibt**
+[src/elevation.ts](../../src/elevation.ts) danach ohnehin aus dem DEM und **überschreibt**
 `coords[i][2]`.
 
 Und die zweite Hälfte liegt auch schon da: Der Studio-EXIF-Leser
-([src/studio/exif.ts](../src/studio/exif.ts)) liest neben der Aufnahmezeit bereits
+([src/studio/exif.ts](../../src/studio/exif.ts)) liest neben der Aufnahmezeit bereits
 `gps: [lng, lat]` aus dem GPS-IFD.
 
 **Am Server ist deshalb nichts zu ändern.** Das Upload-Schema erlaubt als Track-Quelle
@@ -51,7 +51,7 @@ Damit erübrigt sich der Warnhinweis — die Darstellung sagt es selbst. Eine le
 Kennzeichnung an der Tour („aus Fotos") bleibt trotzdem sinnvoll, damit man später
 weiß, warum diese Tour anders aussieht.
 
-**Die Modus-Automatik greift hier nicht.** [tempo.ts](../server/src/pipeline/tempo.ts)
+**Die Modus-Automatik greift hier nicht.** [tempo.ts](../../server/src/pipeline/tempo.ts)
 rechnet aus dem Punktabstand ein Tempo — bei Luftlinien zwischen weit entfernten Fotos
 kommt Unsinn heraus. Für Foto-Touren gilt deshalb die Ausnahme: **hier** wird die
 Fortbewegung gefragt, weil es keine Daten gibt, aus denen man sie lesen könnte. Technisch:
@@ -71,6 +71,6 @@ s. `anreicherung.json`) und ist deshalb bewusst ein zweiter Schritt.
 ## Aufwand
 
 Stufe 1 liegt im Studio: Manifest aus Fotos bauen (neue Funktion neben
-`baueUploadManifest` in [src/studio/upload.ts](../src/studio/upload.ts)), der
+`baueUploadManifest` in [src/studio/upload.ts](../../src/studio/upload.ts)), der
 Upload-Fluss ohne GPX, die Kennzeichnung, Tests für die Punktbildung (Sortierung,
 Fotos ohne GPS, weniger als zwei Punkte). Server unverändert.
