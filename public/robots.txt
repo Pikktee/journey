@@ -37,6 +37,10 @@ Disallow: /konto
 Disallow: /app
 Disallow: /anmelden
 Disallow: /registrieren
+# Das Rückmelde-Formular: nichts Öffentliches, nur ein Eingabefeld. Es trägt
+# deshalb KEIN noindex — beides zusammen hätte die URL ohne Inhalt in den Index
+# gebracht (s. oben).
+Disallow: /feedback
 
 Sitemap: https://maptale.io/sitemap.xml
 # Die zweite Sitemap kommt aus der Datenbank statt aus dem Build: Sie listet die

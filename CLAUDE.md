@@ -527,6 +527,55 @@ automatisch, sobald unter `android/` gearbeitet wird.
   die die Datenbank nicht einhält. Die App misst nur das ABSPIELEN, weil sie den Player als
   WebView lädt; Aufzeichnen und Hochladen laufen an Umami vorbei.
 
+- **Rückmeldungen sind ein eigener Knopf, kein Postfach.** Die Kopfleiste trägt neben dem
+  Konto einen Feedback-Griff ([src/feedbackknopf.ts](src/feedbackknopf.ts)); er öffnet das
+  Formular ÜBER der aktuellen Seite, damit der technische Kontext die Seite nennt, auf der
+  jemand etwas bemerkt hat. Dieselbe Maske steht unter `/feedback` — von dort holt sie die
+  Android-App im WebView (`?app=1`, Kopf- und Fußzeile aus). **Für den Absender ist es EIN
+  Feld**: Kategorie, Status und Notiz vergibt, wer sichtet, im Reiter „Rückmeldungen" der
+  Verwaltung. Jede Pflichtangabe im Formular kostet in einer Alpha Meldungen.
+  **Die technischen Angaben sind freiwillig und sichtbar** — Häkchen (Standard an) plus
+  Aufklapper, der aus DEMSELBEN Objekt gebaut wird, das gesendet wird
+  ([feedbackmodell.ts](src/feedbackmodell.ts)); ein Häkchen ohne Einblick verlangt Vertrauen
+  für etwas, das man zeigen kann. Die Seitenangabe trägt nur den PFAD: Query und Fragment
+  tragen hier Einlöse-Token (`#email=…`, `#reset=…`). Welche Felder überhaupt ankommen,
+  entscheidet der Server ([server/src/routes/rueckmeldungen.ts](server/src/routes/rueckmeldungen.ts)
+  `saubereKontext`) — sonst wäre das Feld ein offener Kanal und die Aufzählung in
+  [datenschutz.html](datenschutz.html) (Abschnitt 2, Fristen in 10) eine Zusage, die nicht
+  stimmt. Melden geht OHNE Anmeldung: „ich komme nicht rein" kann niemand angemeldet
+  schicken.
+
+- **Der Entwicklungsstand steht hinter der Wortmarke** — das kleine Wort „Alpha", Markup und
+  Text aus [src/entwicklungsstand.ts](src/entwicklungsstand.ts). Es ist ANKLICKBAR und das ist
+  kein Beiwerk: Wer das Wort nicht kennt, klickt und liest dort, was der Stand für seine Daten
+  bedeutet — ein bekannteres Wort wie „Beta" würde man zu verstehen glauben und nie öffnen.
+  **Nicht „Preview"**, weil „Vorschau" hier bereits ein Fachwort der Oberfläche ist
+  (Vorschaukarten geteilter Links, Titelbild-Vorschau) und der Hinweis dann als „Vorschau
+  einer Tour" lesbar wäre. **Kein Chip in Akzentfarbe**: Eine Pille neben der Wortmarke zog
+  mehr Blicke auf sich als die Marke — der Stand soll genannt sein, nicht beworben. Und
+  **erklären ist nicht melden**: Der Weg zur Rückmeldung ist ein eigener Knopf daneben (s.
+  oben), nicht ein zweiter Klick im Hinweis.
+  **Das CSS steht STATISCH** in [grundelemente.css](src/grundelemente.css) und — weil die
+  Landing dieses Blatt nicht lädt — noch einmal in [index.html](index.html): Per JavaScript
+  eingehängte Regeln kommen nach dem Markup, das Wort blitzte dadurch bei jedem Laden kurz
+  ungestaltet neben der Marke auf. Nur die Optik des Kärtchens hängt das Modul selbst ein, es
+  entsteht erst auf Klick — dort stehen drei PUNKTE mit Symbol und Überschrift („Im Umbau",
+  „Kein Backup", „Sag es uns"), kein Fließtext: Ein Absatzblock neben der Wortmarke wird
+  überflogen, und der mittlere Punkt ist der, den niemand überfliegen sollte.
+  **Ausgerichtet wird auf die GRUNDLINIE der Wortmarke, und zwar auf jeder Seite anders**:
+  Die Produkt-Seiten nutzen `align-items: last baseline` — `.brand` ist dort ein inline-flex
+  aus Logo UND Text, und die *letzte* Baseline ist die des Schriftzugs (die *erste* wäre die
+  Bildunterkante, das Wort säße 10 px zu tief). Die Landing hat statt Text ein einziges Bild,
+  in dem der Schriftzug steckt; dort trägt der Hinweis einen gemessenen `margin-bottom`, der
+  sich aus der Logo-Geometrie ergibt (Grundlinie bei y=33,5 von 46 Einheiten, bei 40 px
+  Anzeigehöhe also 9,2 px über der Bildunterkante). Wer Logo oder Höhe ändert, ändert diesen
+  Wert mit. Der Knopf steht NEBEN `.nav-right`, nicht darin: `montiereNavRechts`
+  schreibt diesen Container neu, sobald `/auth/me` antwortet. Der **Player bekommt beides
+  bewusst nicht** — oben links steht dort genau ein Element, der Weg hinaus. Gehalten von zwei
+  Wächtern: der Vergleich gegen `appHeaderHtml` ([test/app-nav.test.ts](test/app-nav.test.ts))
+  deckt die fünf Produkt-Seiten ab, [test/entwicklungsstand.test.ts](test/entwicklungsstand.test.ts)
+  die Landing mit ihrer eigenen Kopfleiste.
+
 - **Auffindbarkeit ist eine dritte Ableitung von `ROUTEN`.** [public/robots.txt](public/robots.txt)
   sperrt Verwaltung, Konto und die Studio-Tür; [public/sitemap.xml](public/sitemap.xml) listet
   die vier statischen Seiten. Wer eine Seite dazunimmt, entscheidet also auch hier, in welche

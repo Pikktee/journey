@@ -238,12 +238,15 @@
       position: relative; z-index: 2; text-align: center;
       max-width: 560px; display: grid; justify-items: center; gap: 22px;
     }
+    /* Größer als zuvor (20 px): Auf der halben Bühne stand die Wortmarke wie
+       eine Bildunterschrift über dem Titel. Sie ist hier das Erste, was man
+       liest, und darf das auch aussehen. */
     .login-marke {
-      display: inline-flex; align-items: center; gap: 0.45em;
-      font-family: var(--font-display); font-size: 20px; font-weight: 500;
-      letter-spacing: -0.01em; color: var(--text);
+      display: inline-flex; align-items: center; gap: 0.4em;
+      font-family: var(--font-display); font-size: 27px; font-weight: 600;
+      letter-spacing: -0.015em; color: var(--text);
     }
-    .login-marke svg { width: 26px; height: 26px; translate: 0 1px; flex: none; }
+    .login-marke svg { width: 34px; height: 34px; translate: 0 1px; flex: none; }
     .login-titel h1 {
       font-size: clamp(32px, 3.6vw, 46px);
       line-height: 1.08;
@@ -254,8 +257,6 @@
     }
     .login-titel h1 em { font-style: italic; color: var(--akzent); }
     .login-titel p { color: var(--text-2); max-width: 40ch; margin: 0; font-size: 15px; text-wrap: balance; }
-    .login-fuss { color: var(--text-3); font-size: 12.5px; letter-spacing: -0.01em; }
-    .login-fuss i { color: var(--akzent); font-style: normal; opacity: 0.85; }
     /* Einmal beim Öffnen aufziehen — nicht in Schleife */
     .login-titel > * { animation: bueTitelEin 900ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
     .login-titel > *:nth-child(1) { animation-delay: 120ms; }
@@ -316,7 +317,7 @@
     /* text-wrap: balance — die Unterzeilen sind zwei kurze Sätze; ohne Ausgleich
        rutscht das erste Wort des zweiten ans Ende der ersten Zeile und steht
        dort allein. */
-    .login-box .unterzeile { color: var(--text-3); font-size: 13px; margin: 6px 0 26px; text-wrap: balance; }
+    .login-box .unterzeile { color: var(--text-3); font-size: 13px; text-wrap: balance; }
     /* Wo zwei Sätze stehen, bricht es zwischen ihnen um — nicht mittendrin.
        `balance` allein macht daraus zwei gleich LANGE Zeilen und zerteilt
        dabei den ersten Satz („… von Einladung zu / Einladung."); Breite hilft
@@ -324,9 +325,89 @@
        Satz seine Zeile, und `balance` wirkt nur noch innerhalb eines Satzes —
        dort, wo es hingehört. */
     .login-box .unterzeile .satz { display: block; }
-    .login-box .feld { margin-bottom: 16px; }
-    .login-box button[type='submit'] { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
-    .auth-wechsel { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    /* Hervorgehoben wird „nur mit Einladung" und nicht bloß das Substantiv:
+       Das einschränkende Wort ist „nur". Kein echtes Bold (700), sondern die
+       hellere Textfarbe bei 550 — in derselben Zeile steht mit dem
+       Alpha-Link schon eine Auszeichnung in Akzentfarbe, und zwei harte
+       Hervorhebungen ließen den Blick zwischen ihnen springen. */
+    .login-box .unterzeile b { color: var(--text); font-weight: 550; }
+    /* Eine Rhythmik für ALLE Auth-Formulare statt Rand an Rand gestapelter
+       Einzelmaße: Das Formular ist ein Grid mit festem Abstand, Ausnahmen
+       stehen als bewusste Abweichung darunter. Der Anlass war die Anmeldung —
+       dort klebte das erste Feld mit 0 px an der Überschrift, weil der Abstand
+       aus der `.unterzeile` kam, die es dort gar nicht gibt. */
+    .auth-form {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+    .auth-form > h2 { margin: 0; }
+    /* Die Unterzeile gehört zur Überschrift, nicht zum nächsten Block: Sie
+       rückt näher heran, als der Grundabstand es täte. */
+    .auth-form > .unterzeile { margin: -11px 0 0; }
+    .login-box .feld { margin-bottom: 0; }
+    /* Ein leerer Fehlerkasten darf keine Lücke reißen — er steht immer im
+       Markup, sichtbar wird er erst mit Text. */
+    .auth-form > .hinweis:empty { display: none; }
+    /* Der Absende-Knopf bekommt etwas mehr Luft: Er beendet den Abschnitt. */
+    .auth-form > button[type='submit'] { margin-top: 4px; }
+    .login-box button[type='submit'] { width: 100%; justify-content: center; font-size: 14.5px; }
+    /* Die Warteliste als eigene Karte — der zweite Weg herein, und für die
+       meisten Besucher einer geschlossenen Alpha der einzige. Kein Kasten mit
+       Akzentkante: Die Fläche hebt sich sanft ab, die kleine Route erzählt,
+       worum es geht (anstehen, dann losfahren), und der Knopf trägt den
+       Marken-Verlauf — er IST hier der Handlungsaufruf. */
+    /* Karte und „oder" liegen in einem Container, damit sie gemeinsam
+       verschwinden, wenn keine Warteliste angeboten wird. Der Container ist
+       ein Grid-Kind und trug den Abstand deshalb nur AUSSEN — innen klebte der
+       Trenner an der Karte. Dieselbe Rhythmik wie im Formular. */
+    .wl-block { display: grid; gap: 18px; }
+    .wl-karte {
+      /* Gestapelt und nicht nebeneinander: In der 384 px schmalen Anmeldespalte
+         blieben dem Text neben der Grafik 222 px, also rund 30 Zeichen je
+         Zeile. Über die volle Breite trägt die Route zugleich mehr Bild. */
+      display: block;
+      padding: 14px 18px 16px;
+      border-radius: var(--radius-karte);
+      border: 1px solid var(--rand);
+      background:
+        radial-gradient(120% 140% at 88% 8%, rgba(245, 158, 11, 0.10), transparent 62%),
+        rgba(255, 255, 255, 0.028);
+    }
+    .wl-bild { display: block; width: 100%; height: auto; margin-bottom: 10px; }
+    .wl-text b { display: block; font-size: 14.5px; font-weight: 650; color: var(--text); }
+    .wl-text p { margin: 5px 0 11px; font-size: 12.5px; line-height: 1.5; color: var(--text-gedaempft); }
+    .wl-text .knopf-wl {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+      color: var(--auf-akzent);
+      background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+      border: none; border-radius: var(--radius-full);
+      padding: 8px 15px; cursor: pointer;
+    }
+    .wl-text .knopf-wl:hover { filter: brightness(1.06); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
+    .wl-text .wl-pfeil { width: 14px; height: 14px; transition: translate 0.18s ease; }
+    .wl-text .knopf-wl:hover .wl-pfeil { translate: 2px 0; }
+    /* Zwei Wege, ein Trenner: Ohne ihn läse sich das Code-Feld wie ein Teil
+       der Karte darüber. */
+    .wl-oder {
+      display: flex; align-items: center; gap: 12px;
+      margin: 0;
+      color: var(--text-zart); font-size: 12px;
+    }
+    .wl-oder::before, .wl-oder::after {
+      content: ''; flex: 1; height: 1px; background: var(--linie);
+    }
+    @media (max-width: 420px) {
+      /* Karte und „oder" liegen in einem Container, damit sie gemeinsam
+       verschwinden, wenn keine Warteliste angeboten wird. Der Container ist
+       ein Grid-Kind und trug den Abstand deshalb nur AUSSEN — innen klebte der
+       Trenner an der Karte. Dieselbe Rhythmik wie im Formular. */
+    .wl-block { display: grid; gap: 18px; }
+    .wl-karte { padding: 12px 14px 14px; }
+    }
+
+    .auth-wechsel { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .auth-wechsel .link, .link {
       background: none; border: none; padding: 0; color: var(--akzent);
       font: inherit; font-size: 13px; cursor: pointer; text-decoration: none;
@@ -377,7 +458,7 @@
        trägt die Bündelung). */
     .einwilligung {
       display: flex; align-items: flex-start; gap: 10px;
-      margin: -2px 0 16px; font-size: 12.5px; line-height: 1.55; color: var(--text-2);
+      margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-2);
       cursor: pointer;
     }
     /* `color-scheme: dark` gehört dazu: Ohne sie zeichnet der Browser ein
@@ -388,11 +469,21 @@
       color-scheme: dark; accent-color: var(--akzent);
       width: 16px; height: 16px; margin: 1px 0 0; flex: none; cursor: pointer;
     }
-    .wl-recht { font-size: 12px; line-height: 1.6; color: var(--text-3); margin: -2px 0 14px; }
+    .wl-recht { font-size: 12px; line-height: 1.6; color: var(--text-3); margin: 0; }
     .wl-recht a { color: var(--text-2); }
-    .login-box .wl-aktion { width: 100%; justify-content: center; margin-top: 8px; font-size: 14.5px; }
-    .auth-rechtstexte { margin-top: 28px; text-align: center; font-size: 12px; color: var(--text-3); }
+    .login-box .wl-aktion { width: 100%; justify-content: center; margin-top: 4px; font-size: 14.5px; }
+    .auth-rechtstexte {
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      font-size: 12px;
+      color: var(--text-3);
+    }
     .auth-rechtstexte a { color: var(--text-3); }
+    .auth-rechtstexte .fuss-sep { color: var(--text-zart); opacity: 0.55; user-select: none; }
     /* Zurück zur Landing — fix oben links. Nur Chevron + Ziel: die Marke
        gehört nicht in die Navigationspille (Wortmarke steht in der Bühne). */
     .login-zurueck {
@@ -3015,23 +3106,28 @@
         </div>
         <h1>Deine Reisen als <em>filmischer 3D-Flug</em>.</h1>
         <p>Ein Konto für alles: unterwegs mit der App aufzeichnen, am Rechner verfeinern, als 3D-Kamerafahrt abspielen und teilen, mit echtem Wetter und echter Tageszeit.</p>
-        <div class="login-fuss">Aufnehmen · Verfeinern <i>→</i> Abspielen</div>
       </div>
     </div>
     <div class="login-formseite">
       <div class="login-box" id="auth-box">
-        <!-- Jedes Feld sagt im Label, ob es sein muss (`.feld-art`). Sternchen
+        <!-- Gekennzeichnet wird nur, wo es etwas zu UNTERSCHEIDEN gibt: In der
+             Warteliste steht neben der Pflicht-Adresse ein freiwilliges Feld,
+             dort tragen beide ihr Wort. Wo alles Pflicht ist (Anmelden,
+             Registrieren, Passwort), steht an jedem Label dasselbe und sagt
+             damit nichts — NN/g nennt Login-Formulare ausdrücklich als Fall
+             ohne Kennzeichnung. Die Längenangabe am Passwort bleibt: Sie ist
+             die Regel fürs Feld, nicht seine Pflichtigkeit. Sternchen
              mit Legende darunter wären kürzer, aber man muss sie erst
              entschlüsseln; das Wort steht da, wo die Frage aufkommt. -->
         <!-- Anmelden -->
         <form id="login-form" class="auth-form">
           <h2>Anmelden</h2>
           <div class="feld">
-            <label for="email">E-Mail <span class="feld-art">Pflicht</span></label>
+            <label for="email">E-Mail</label>
             <input id="email" type="email" autocomplete="username" required />
           </div>
           <div class="feld">
-            <label for="passwort">Passwort <span class="feld-art">Pflicht</span></label>
+            <label for="passwort">Passwort</label>
             <input id="passwort" type="password" autocomplete="current-password" required />
           </div>
           <div class="hinweis fehler" id="login-fehler" role="alert"></div>
@@ -3047,10 +3143,61 @@
              nach den eigenen Daten: Wer keinen gültigen Code hat, soll das
              erfahren, bevor er Adresse und Passwort eintippt. -->
         <form id="code-form" class="auth-form" hidden>
-          <h2>Einladungscode</h2>
-          <p class="unterzeile">Neue Konten gibt es zurzeit nur mit Einladung.</p>
+          <h2>Konto anlegen</h2>
+          <!-- Zwei `.satz`-Spans statt eines Fließtexts: `text-wrap: balance`
+               (s. .login-box .unterzeile) macht sonst zwei gleich LANGE Zeilen
+               und bricht mitten im ersten Satz um. Und „Alpha" ist derselbe
+               Griff wie hinter der Wortmarke — wer hier zum ersten Mal liest,
+               dass Maptale in der Alpha ist, hat genau hier die Frage, was das
+               bedeutet. -->
+          <p class="unterzeile">
+            <span class="satz">Maptale ist in der <button type="button" class="stand-hinweis stand-inline" aria-haspopup="dialog" aria-expanded="false">Alpha</button>.</span>
+            <span class="satz">Neue Konten gibt es zurzeit <b>nur mit Einladung</b>.</span>
+          </p>
+
+          <!-- Die Warteliste steht VOR dem Code-Feld, und das ist Absicht: In
+               einer geschlossenen Alpha hat die Mehrheit derer, die hier
+               landen, keinen Code. Unter dem Absende-Knopf fand man sie erst,
+               nachdem man gescheitert war. Karte UND Trenner hängen an einer
+               Sichtbarkeit — ohne angebotene Warteliste bliebe sonst ein
+               „oder" ohne zweiten Weg stehen (s. /auth/me → registrierung.warteliste). -->
+          <div class="wl-block" id="zur-warteliste" hidden>
+            <div class="wl-karte">
+              <!-- Die Route als Warteschlange: drei Punkte auf dem Weg, der
+                   vorderste hell (der Nächste), am Ziel die Fahne. Dieselbe
+                   Linie wie im Zeichen und im Hero — die Marke erzählt hier
+                   dasselbe wie überall, nur auf zwei Zentimetern. -->
+              <svg class="wl-bild" viewBox="0 0 320 46" fill="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="wl-route" x1="10" y1="38" x2="300" y2="10" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#F0940A" stop-opacity=".22"/>
+                    <stop offset="1" stop-color="#FF8A5C"/>
+                  </linearGradient>
+                </defs>
+                <path d="M8 38c34 0 44-14 78-14s52 12 86 4 40-20 74-20" stroke="url(#wl-route)" stroke-width="2.2" stroke-linecap="round"/>
+                <circle cx="20" cy="37" r="3" fill="#F59E0B" fill-opacity=".26"/>
+                <circle cx="48" cy="32" r="3.4" fill="#F59E0B" fill-opacity=".48"/>
+                <circle cx="86" cy="24" r="4.4" fill="#F59E0B"/>
+                <circle cx="86" cy="24" r="8" stroke="#F59E0B" stroke-opacity=".4" stroke-width="1.3"/>
+                <path d="M292 6v26" stroke="#FF8A5C" stroke-width="2" stroke-linecap="round"/>
+                <path d="M292 7h13l-3.8 5 3.8 5h-13z" fill="#FF8A5C"/>
+              </svg>
+              <div class="wl-text">
+                <b>Noch keine Einladung?</b>
+                <p>Wir laden nach und nach ein. Trag dich ein, und sobald ein Platz frei wird, kommt dein Code per E-Mail.</p>
+                <button type="button" class="knopf-wl" data-modus="warteliste">
+                  Auf die Warteliste
+                  <svg class="wl-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="wl-oder"><span>oder</span></div>
+          </div>
+
           <div class="feld">
-            <label for="reg-code">Dein Code <span class="feld-art">Pflicht</span></label>
+            <!-- Kein „Pflicht" mehr: Bei einem einzigen Feld gibt es nichts zu
+                 unterscheiden (NN/g), und `required` steht am Input. -->
+            <label for="reg-code">Du hast einen Code?</label>
             <input id="reg-code" class="code-eingabe" type="text" maxlength="9" autocomplete="off"
                    spellcheck="false" autocapitalize="characters" placeholder="ABCD-2345" required />
           </div>
@@ -3058,9 +3205,6 @@
           <button type="submit" class="primaer" id="code-weiter">Weiter</button>
           <div class="auth-wechsel">
             <button type="button" class="link" data-modus="login">Ich habe ein Konto</button>
-            <!-- Der Weg für alle ohne Code. Steht nur da, wenn die Warteliste
-                 auch angeboten wird (s. /auth/me → registrierung.warteliste). -->
-            <button type="button" class="link" data-modus="warteliste" id="zur-warteliste" hidden>Ich habe keinen Code</button>
           </div>
         </form>
 
@@ -3127,11 +3271,11 @@
                steht ohnehin ein eigener Anzeigename. Jedes Pflichtfeld kostet
                Anmeldungen. -->
           <div class="feld">
-            <label for="reg-email">E-Mail <span class="feld-art">Pflicht</span></label>
+            <label for="reg-email">E-Mail</label>
             <input id="reg-email" type="email" autocomplete="username" required />
           </div>
           <div class="feld">
-            <label for="reg-passwort">Passwort <span class="feld-art">Pflicht, mindestens 8 Zeichen</span></label>
+            <label for="reg-passwort">Passwort <span class="feld-art">mindestens 8 Zeichen</span></label>
             <input id="reg-passwort" type="password" autocomplete="new-password" minlength="8" required />
           </div>
           <!-- Nicht vorangekreuzt, nicht gekoppelt: Ohne Haken entsteht das
@@ -3163,7 +3307,7 @@
           <h2>Passwort zurücksetzen</h2>
           <p class="unterzeile">Wir schicken dir einen Link an deine E-Mail-Adresse.</p>
           <div class="feld">
-            <label for="reset-email">E-Mail <span class="feld-art">Pflicht</span></label>
+            <label for="reset-email">E-Mail</label>
             <input id="reset-email" type="email" autocomplete="username" required />
           </div>
           <div class="hinweis" id="reset-anfordern-status" role="status"></div>
@@ -3177,15 +3321,21 @@
         <form id="reset-setzen-form" class="auth-form" hidden>
           <h2>Neues Passwort</h2>
           <div class="feld">
-            <label for="reset-passwort">Neues Passwort <span class="feld-art">Pflicht, mindestens 8 Zeichen</span></label>
+            <label for="reset-passwort">Neues Passwort <span class="feld-art">mindestens 8 Zeichen</span></label>
             <input id="reset-passwort" type="password" autocomplete="new-password" minlength="8" required />
           </div>
           <div class="hinweis fehler" id="reset-setzen-fehler" role="alert"></div>
           <button type="submit" class="primaer" id="reset-absenden">Passwort speichern</button>
         </form>
 
+        <!-- Derselbe Satz Rechtstext-Links wie in der Fußzeile der Produkt-
+             Seiten: Punkt als eigenes, zurückgenommenes Zeichen (nicht als
+             Satzzeichen im Linktext) und mehr Luft dazwischen. Vorher standen
+             hier zwei Links mit einem harten „·" dazwischen, das genauso
+             kräftig war wie sie selbst. -->
         <p class="auth-rechtstexte">
-          <a href="/impressum" target="_blank" rel="noopener">Impressum</a> ·
+          <a href="/impressum" target="_blank" rel="noopener">Impressum</a>
+          <span class="fuss-sep" aria-hidden="true">·</span>
           <a href="/datenschutz" target="_blank" rel="noopener">Datenschutz</a>
         </p>
       </div>
@@ -3196,7 +3346,7 @@
   <main id="app-view" hidden>
     <!-- Header: Markup = appHeaderHtml Variante studio; schreibeAppHeader/montiere verfeinern. -->
     <nav class="nav" id="app-header">
-      <div class="wrap"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app" class="aktiv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><div class="nav-right"><button class="knopf-primaer" id="neu-oben" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button><div class="konto-wrap"><button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false"><span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span></button><div class="konto-menue" id="konto-menue" hidden><div class="km-mail" id="km-mail"></div><div class="km-quota"><div class="km-quota-kopf"><span>Speicher</span><span id="km-quota-text"></span></div><div class="km-balken"><span id="km-balken-fuell"></span></div></div><div class="km-trenner" role="separator"></div><a class="km-eintrag knopf" id="km-profil" href="/profil" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Mein Profil</a><a class="km-eintrag knopf" id="km-konto" href="/konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/></svg>Kontoeinstellungen</a><a class="km-eintrag knopf" id="km-verwaltung" href="/admin" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>Administration</a><button type="button" class="km-eintrag" id="abmelden"><svg aria-hidden="true"><use href="#i-abmelden"/></svg>Abmelden</button></div></div></div></div>
+      <div class="wrap"><span class="marken-gruppe"><a href="/" class="brand" title="Zur Startseite"><img src="/logo-mark.svg" alt="" height="28" /><span>Maptale</span></a><button type="button" class="stand-hinweis" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button></span><nav class="top-nav" aria-label="Hauptnavigation"><a href="/app" class="aktiv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l4-10 4 6 3-4 5 8"/><circle cx="8" cy="7" r="1.4"/><circle cx="19" cy="17" r="1.4"/></svg>Meine Touren</a><a href="/galerie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16-2.5-3-2.5-13.5 0-16z"/></svg>Entdecken</a></nav><button type="button" class="feedback-knopf" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button><div class="nav-right"><button class="knopf-primaer" id="neu-oben" hidden><svg><use href="#i-plus"/></svg>Neue Tour</button><div class="konto-wrap"><button class="benutzer-chip" id="benutzer-chip" hidden aria-haspopup="true" aria-expanded="false"><span class="punkt" id="benutzer-initial"></span><span id="benutzer-name"></span></button><div class="konto-menue" id="konto-menue" hidden><div class="km-mail" id="km-mail"></div><div class="km-quota"><div class="km-quota-kopf"><span>Speicher</span><span id="km-quota-text"></span></div><div class="km-balken"><span id="km-balken-fuell"></span></div></div><div class="km-trenner" role="separator"></div><a class="km-eintrag knopf" id="km-profil" href="/profil" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Mein Profil</a><a class="km-eintrag knopf" id="km-konto" href="/konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/></svg>Kontoeinstellungen</a><a class="km-eintrag knopf" id="km-verwaltung" href="/admin" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1 0 7.75"/></svg>Administration</a><button type="button" class="km-eintrag" id="abmelden"><svg aria-hidden="true"><use href="#i-abmelden"/></svg>Abmelden</button></div></div></div></div>
     </nav>
   <!-- Profil-Chip-Cache füllt studio.ts nach schreibeAppHeader. -->
     <div class="verify-banner" id="verify-banner" hidden>

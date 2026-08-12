@@ -4,11 +4,13 @@
 import type {
   AdminBenutzer,
   AdminEinladung,
+  AdminRueckmeldung,
   AdminWartender,
   MailBausteine,
   MailVorlage,
   ProtokollEintrag,
   Rolle,
+  RueckmeldungStatus,
 } from './adminmodell.js'
 
 export class ApiFehler extends Error {
@@ -132,6 +134,32 @@ export function ladeWartendenEin(id: string): Promise<{ eintrag: AdminWartender;
 
 export function loescheWartenden(id: string): Promise<unknown> {
   return anfrage(`/admin/warteliste/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+// — Rückmeldungen —
+
+export interface RueckmeldungsStand {
+  rueckmeldungen: AdminRueckmeldung[]
+  zaehlung: Record<RueckmeldungStatus | 'gesamt', number>
+}
+
+export function rueckmeldungen(): Promise<RueckmeldungsStand> {
+  return anfrage('/admin/rueckmeldungen')
+}
+
+export function aendereRueckmeldung(
+  id: string,
+  felder: { status?: RueckmeldungStatus; notiz?: string | null },
+): Promise<{ rueckmeldung: AdminRueckmeldung }> {
+  return anfrage(`/admin/rueckmeldungen/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: jsonKopf,
+    body: JSON.stringify(felder),
+  })
+}
+
+export function loescheRueckmeldung(id: string): Promise<unknown> {
+  return anfrage(`/admin/rueckmeldungen/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 // — System-Mails —

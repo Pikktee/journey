@@ -13,7 +13,14 @@ export type EinladungsZustand = 'offen' | 'eingeloest' | 'abgelaufen'
 // Jetzt ist jeder Bereich ein Reiter — und weil die Liste den URL-Anhang, die
 // Reiterleiste UND die Zähler speist, steht sie EINMAL hier.
 
-export type TabId = 'konten' | 'statistiken' | 'einladungen' | 'warteliste' | 'mails' | 'protokoll'
+export type TabId =
+  | 'konten'
+  | 'statistiken'
+  | 'einladungen'
+  | 'warteliste'
+  | 'rueckmeldungen'
+  | 'mails'
+  | 'protokoll'
 
 export interface Tab {
   id: TabId
@@ -32,6 +39,7 @@ export const TABS: readonly Tab[] = [
   { id: 'einladungen', name: 'Einladungen', zaehlt: 'offen' },
   { id: 'warteliste', name: 'Warteliste', zaehlt: 'warten' },
   { id: 'statistiken', name: 'Statistiken', zaehlt: 'Live' },
+  { id: 'rueckmeldungen', name: 'Rückmeldungen', zaehlt: 'offen' },
   { id: 'protokoll', name: 'Protokoll', zaehlt: 'Fehler' },
   { id: 'mails', name: 'System-Mails', zaehlt: 'Vorlagen' },
 ]
@@ -404,4 +412,77 @@ export function beschreibeProtokoll(anzahl: number, fehler: number, gestartet: s
   const teile = [`${anzahl} ${anzahl === 1 ? 'Meldung' : 'Meldungen'}`]
   if (fehler > 0) teile.push(`davon ${fehler} ${fehler === 1 ? 'Fehler' : 'Fehler'}`)
   return `${teile.join(', ')}${seit}.`
+}
+
+/** Der Eingang der Alpha: was Besucher gemeldet haben. */
+export type RueckmeldungStatus = 'offen' | 'in_arbeit' | 'erledigt'
+
+export interface AdminRueckmeldung {
+  id: string
+  benutzerId: string | null
+  benutzerName: string | null
+  email: string | null
+  text: string
+  kontext: Record<string, string | number | boolean | null> | null
+  quelle: 'web' | 'app'
+  status: RueckmeldungStatus
+  notiz: string | null
+  angelegtAm: string
+  geaendertAm: string | null
+}
+
+export type RueckmeldungFilter = 'alle' | RueckmeldungStatus
+
+/** Wortlaut der Zustände — an einer Stelle, sonst heißt derselbe Status zweimal anders. */
+export const RUECKMELDUNG_WORTE: Record<RueckmeldungStatus, string> = {
+  offen: 'Offen',
+  in_arbeit: 'In Arbeit',
+  erledigt: 'Erledigt',
+}
+
+export function zaehleRueckmeldungen(
+  liste: readonly AdminRueckmeldung[],
+): Record<RueckmeldungStatus, number> {
+  const z: Record<RueckmeldungStatus, number> = { offen: 0, in_arbeit: 0, erledigt: 0 }
+  for (const r of liste) z[r.status]++
+  return z
+}
+
+/**
+ * Suche über Text, Notiz, Absender-Adresse und Name — also über alles, woran
+ * man sich an eine Meldung erinnert. Der technische Kontext bleibt draußen:
+ * Eine Suche nach „Chrome" fände sonst jede zweite Zeile.
+ */
+export function filtereRueckmeldungen(
+  liste: readonly AdminRueckmeldung[],
+  suche: string,
+  filter: RueckmeldungFilter = 'alle',
+): AdminRueckmeldung[] {
+  const s = suche.trim().toLowerCase()
+  return liste.filter((r) => {
+    if (filter !== 'alle' && r.status !== filter) return false
+    if (!s) return true
+    return [r.text, r.notiz, r.email, r.benutzerName]
+      .filter(Boolean)
+      .some((feld) => String(feld).toLowerCase().includes(s))
+  })
+}
+
+/**
+ * Wer hat gemeldet? „Angemeldet als Mira" ist etwas anderes als eine
+ * hinterlassene Adresse — und beides etwas anderes als anonym. Wer das
+ * zusammenzieht, verliert genau die Auskunft, ob eine Rückfrage möglich ist.
+ */
+export function beschreibeAbsender(r: AdminRueckmeldung): string {
+  if (r.benutzerName) return r.email ? `${r.benutzerName} · ${r.email}` : r.benutzerName
+  if (r.email) return r.email
+  return 'Ohne Absender'
+}
+
+/** Der technische Kontext als eine Zeile. Leer, wenn er abgewählt war. */
+export function kontextZeile(r: AdminRueckmeldung): string {
+  if (!r.kontext) return 'Ohne technische Angaben'
+  return Object.entries(r.kontext)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(' · ')
 }

@@ -13,6 +13,7 @@ import type { Db } from './db.js'
 import type { MailVersand } from './mail.js'
 import { MailVorlagenDienst } from './mailvorlagen.js'
 import { NewsletterDienst } from './newsletter.js'
+import { RueckmeldungsDienst } from './rueckmeldungen.js'
 import { PushDienst, type PushVersand } from './push.js'
 import { registrierePushRouten } from './routes/push.js'
 import type { Geocoder } from './pipeline/naming.js'
@@ -27,6 +28,7 @@ import { registriereBibliotheksRouten } from './routes/bibliothek.js'
 import { registriereGalerieRouten } from './routes/galerie.js'
 import { registriereMediaRouten } from './routes/media.js'
 import { registriereNewsletterRouten } from './routes/newsletter.js'
+import { registriereRueckmeldungsRouten } from './routes/rueckmeldungen.js'
 import { registriereExportRouten } from './routes/export.js'
 import { registriereSeitenRouten } from './routes/seiten.js'
 import { registriereTourRouten } from './routes/tours.js'
@@ -116,6 +118,8 @@ declare module 'fastify' {
     mailvorlagen: MailVorlagenDienst
     /** Newsletter-Einwilligung: Zustand, Historie, Empfängerliste. */
     newsletter: NewsletterDienst
+    /** Rückmeldungen aus der Alpha: Eingang, Status, Notizen. */
+    rueckmeldungen: RueckmeldungsDienst
     /** Laufende Finalize-Verarbeitungen — Tests können gezielt darauf warten. */
     verarbeitungen: Map<string, Promise<void>>
     /** Die letzten Warnungen und Fehler für die Verwaltung (s. protokoll.ts). */
@@ -168,6 +172,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   app.decorate('warteliste', new WartelistenDienst(deps.db))
   app.decorate('mailvorlagen', new MailVorlagenDienst(deps.db))
   app.decorate('newsletter', new NewsletterDienst(deps.db))
+  app.decorate('rueckmeldungen', new RueckmeldungsDienst(deps.db))
   app.decorate('verarbeitungen', new Map())
   app.decorate('protokoll', protokoll)
   app.decorate('seiten', deps.seiten ?? new SeitenQuelle(deps.konfig))
@@ -232,6 +237,7 @@ export function baueApp(deps: AppAbhaengigkeiten): FastifyInstance {
   registriereGalerieRouten(app)
   registriereWartelistenRouten(app)
   registriereNewsletterRouten(app)
+  registriereRueckmeldungsRouten(app)
   registriereSeitenRouten(app)
   registriereExportRouten(app)
   registriereTrackerRouten(app)

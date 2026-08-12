@@ -11,6 +11,7 @@ import { montiereAppHeader, schreibeAppFooter } from '../app-nav.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
+  beschreibeAbsender,
   beschreibeEinladung,
   beschreibeProtokoll,
   beschreibeVorlage,
@@ -20,23 +21,30 @@ import {
   filtereBenutzer,
   filtereEinladungen,
   filtereProtokoll,
+  filtereRueckmeldungen,
   filtereWarteliste,
   formatiereBytes,
   formatiereDatum,
   formatiereZeitpunkt,
   initiale,
+  kontextZeile,
   loeschenGesperrt,
   rolleGesperrt,
+  RUECKMELDUNG_WORTE,
   tabAusHash,
   wartelisteAngeboten,
   zaehleAdmins,
   zaehleEinladungen,
   zaehleProtokoll,
+  zaehleRueckmeldungen,
   zaehleWarteliste,
   TABS,
   type AdminBenutzer,
   type AdminEinladung,
+  type AdminRueckmeldung,
   type AdminWartender,
+  type RueckmeldungFilter,
+  type RueckmeldungStatus,
   type EinladungsFilter,
   type KontenFilter,
   type MailBausteine,
@@ -77,6 +85,10 @@ const els = {
   wartelisteListe: $('warteliste-liste'),
   wartelisteFilter: $('warteliste-filter'),
   wartelisteSuche: $<HTMLInputElement>('warteliste-suche'),
+  // Rückmeldungen
+  rueckmeldungenListe: $('rueckmeldungen-liste'),
+  rueckmeldungenFilter: $('rueckmeldungen-filter'),
+  rueckmeldungenSuche: $<HTMLInputElement>('rueckmeldungen-suche'),
   // Protokoll
   protokollZusammenfassung: $('protokoll-zusammenfassung'),
   protokollListe: $('protokoll-liste'),
@@ -156,6 +168,9 @@ interface Zustand {
   einladungenFilter: EinladungsFilter
   wartelisteSuche: string
   wartelisteFilter: WartelistenFilter
+  rueckmeldungen: AdminRueckmeldung[]
+  rueckmeldungenSuche: string
+  rueckmeldungenFilter: RueckmeldungFilter
   protokoll: ProtokollEintrag[]
   /** Meldungen, die eintrafen, während jemand liest — sie warten hinter dem Streifen. */
   protokollWartend: ProtokollEintrag[]
@@ -183,6 +198,9 @@ const z: Zustand = {
   einladungenFilter: 'alle',
   wartelisteSuche: '',
   wartelisteFilter: 'alle',
+  rueckmeldungen: [],
+  rueckmeldungenSuche: '',
+  rueckmeldungenFilter: 'alle',
   protokoll: [],
   protokollWartend: [],
   protokollGestartet: null,
@@ -303,10 +321,11 @@ for (const art of ['close', 'cancel']) {
 async function lade(): Promise<void> {
   z.fehler = ''
   try {
-    const [konten, einladungen, warteliste, mails, protokoll, stats] = await Promise.all([
+    const [konten, einladungen, warteliste, rueckmeldungen, mails, protokoll, stats] = await Promise.all([
       api.benutzer(),
       api.einladungen(),
       api.warteliste(),
+      api.rueckmeldungen(),
       api.mailvorlagen(),
       api.protokoll(),
       api.statistiken().catch(() => ({
@@ -325,6 +344,7 @@ async function lade(): Promise<void> {
     z.basisUrl = einladungen.basisUrl || location.origin
     z.warteliste = warteliste.eintraege
     z.wartelisteOffen = warteliste.wartelisteOffen
+    z.rueckmeldungen = rueckmeldungen.rueckmeldungen
     z.protokoll = protokoll.eintraege
     z.protokollWartend = []
     z.protokollGestartet = protokoll.gestartet
@@ -420,6 +440,13 @@ function reiterZahl(id: TabId): { wert: number; wichtig: boolean } {
   if (id === 'warteliste') {
     const wartend = zaehleWarteliste(z.warteliste).wartend
     return { wert: wartend, wichtig: wartend > 0 }
+  }
+  // Wie bei der Warteliste zählt nur, worauf man handeln kann: OFFENE
+  // Meldungen. Eine erledigte an den Reiter zu schreiben hieße, dauerhaft eine
+  // Zahl zu zeigen, die nie kleiner wird.
+  if (id === 'rueckmeldungen') {
+    const offen = zaehleRueckmeldungen(z.rueckmeldungen).offen
+    return { wert: offen, wichtig: offen > 0 }
   }
   // Beim Protokoll zählen die FEHLER, nicht alle Meldungen: Eine Warnung ist
   // Betrieb, ein Fehler ist etwas, das jemand ansehen sollte — und nur das
@@ -683,6 +710,7 @@ function render(): void {
   rendereKonten()
   rendereEinladungen()
   rendereWarteliste()
+  rendereRueckmeldungen()
   rendereMailvorlagen()
   rendereProtokoll()
 }
@@ -997,6 +1025,171 @@ function rendereMailvorlagen(): void {
 // diese Ansicht ist also immer „seit dem letzten Neustart" — der Satz darüber
 // sagt das, damit Leere nicht als „alles gut" gelesen wird.
 
+/**
+ * Der Eingang der Alpha. Eine Zeile trägt vier Dinge, und jedes davon fehlte
+ * schmerzlich: den TEXT (ungekürzt, das ist die Meldung), WER es war (angemeldet
+ * oder Adresse oder anonym — daran hängt, ob eine Rückfrage geht), WORAUF es
+ * passierte (der technische Kontext, sofern mitgeschickt) und die NOTIZ.
+ *
+ * Der Status ist ein Auswahlfeld und kein Knopf: Drei Zustände über zwei Knöpfe
+ * zu verteilen hieße raten, welcher der nächste ist — „erledigt" folgt oft
+ * direkt auf „offen", ohne Zwischenschritt.
+ */
+function rendereRueckmeldungen(): void {
+  const gesucht = filtereRueckmeldungen(z.rueckmeldungen, z.rueckmeldungenSuche)
+  const zahl = zaehleRueckmeldungen(gesucht)
+  rendereFilter(
+    els.rueckmeldungenFilter,
+    [
+      { wert: 'alle', name: 'Alle', zahl: gesucht.length },
+      { wert: 'offen', name: RUECKMELDUNG_WORTE.offen, zahl: zahl.offen },
+      { wert: 'in_arbeit', name: RUECKMELDUNG_WORTE.in_arbeit, zahl: zahl.in_arbeit },
+      { wert: 'erledigt', name: RUECKMELDUNG_WORTE.erledigt, zahl: zahl.erledigt },
+    ] satisfies Chip<RueckmeldungFilter>[],
+    z.rueckmeldungenFilter,
+    (wert) => {
+      z.rueckmeldungenFilter = wert
+      rendereRueckmeldungen()
+    },
+  )
+
+  const sichtbar = filtereRueckmeldungen(gesucht, '', z.rueckmeldungenFilter)
+  const zeilen = sichtbar.map((r) => {
+    const zeile = document.createElement('div')
+    zeile.className = 'zeile zeile-rueckmeldung'
+
+    const kopf = haupt(initiale(r.benutzerName ?? r.email ?? '?'))
+    const absender = document.createElement('span')
+    absender.className = 'name'
+    absender.textContent = beschreibeAbsender(r)
+    kopf.oben.append(
+      absender,
+      plakette(
+        { offen: 'offen', in_arbeit: 'unbestaetigt', erledigt: 'eingeloest' }[r.status],
+        RUECKMELDUNG_WORTE[r.status],
+      ),
+    )
+    if (r.quelle === 'app') kopf.oben.append(plakette('unbestaetigt', 'App'))
+
+    // Der Text steht ungekürzt: Er IST die Meldung. Eine Zeile mit „…" zwänge
+    // dazu, jede einzelne aufzuklappen, um zu wissen, worum es überhaupt geht.
+    const text = document.createElement('div')
+    text.className = 'zitat'
+    text.textContent = r.text
+    kopf.text.append(text)
+
+    const unten = document.createElement('div')
+    unten.className = 'unten'
+    unten.textContent = `${formatiereDatum(r.angelegtAm)} · ${kontextZeile(r)}`
+    unten.title = kontextZeile(r)
+    kopf.text.append(unten)
+
+    if (r.notiz) {
+      const notiz = document.createElement('div')
+      notiz.className = 'unten'
+      notiz.textContent = `Notiz: ${r.notiz}`
+      kopf.text.append(notiz)
+    }
+
+    const wahl = document.createElement('select')
+    wahl.className = 'still status-wahl'
+    wahl.setAttribute('aria-label', `Status von ${beschreibeAbsender(r)}`)
+    for (const [wert, wort] of Object.entries(RUECKMELDUNG_WORTE)) {
+      const option = document.createElement('option')
+      option.value = wert
+      option.textContent = wort
+      option.selected = wert === r.status
+      wahl.append(option)
+    }
+    wahl.addEventListener('change', () => {
+      void setzeRueckmeldungsStatus(r, wahl.value as RueckmeldungStatus, wahl)
+    })
+
+    zeile.append(
+      kopf.wurzel,
+      griffe(
+        wahl,
+        griff('Notiz', () => void notiereRueckmeldung(r)),
+        griff('Löschen', () => void loescheRueckmeldung(r), { gefahr: true }),
+      ),
+    )
+    return zeile
+  })
+
+  fuelleListe(els.rueckmeldungenListe, zeilen, () =>
+    z.rueckmeldungen.length
+      ? leerZustand('Keine passende Rückmeldung', 'Weder Text noch Absender trifft die Suche, oder der Filter blendet sie aus.', {
+          name: 'Suche und Filter zurücksetzen',
+          tu: () => {
+            z.rueckmeldungenSuche = ''
+            z.rueckmeldungenFilter = 'alle'
+            els.rueckmeldungenSuche.value = ''
+            rendereRueckmeldungen()
+          },
+        })
+      : leerZustand(
+          'Noch nichts gemeldet',
+          'Hier landet, was Besucher über den Alpha-Hinweis oder /feedback schreiben.',
+        ),
+  )
+}
+
+async function setzeRueckmeldungsStatus(
+  r: AdminRueckmeldung,
+  status: RueckmeldungStatus,
+  wahl: HTMLSelectElement,
+): Promise<void> {
+  wahl.disabled = true
+  try {
+    const { rueckmeldung } = await api.aendereRueckmeldung(r.id, { status })
+    Object.assign(r, rueckmeldung)
+    flash(`Auf „${RUECKMELDUNG_WORTE[status]}" gesetzt.`)
+  } catch (fehler) {
+    // Zurück auf den alten Wert: Ein Auswahlfeld, das den nicht gespeicherten
+    // Zustand zeigt, behauptet eine Änderung, die es nicht gibt.
+    wahl.value = r.status
+    flash(fehlerText(fehler), 'fehler')
+  } finally {
+    wahl.disabled = false
+    rendereReiter()
+    rendereRueckmeldungen()
+  }
+}
+
+async function notiereRueckmeldung(r: AdminRueckmeldung): Promise<void> {
+  // Ein `prompt` und kein eigener Dialog: Es ist ein Feld, und die Notiz ist
+  // eine Gedächtnisstütze für den Betreiber, kein Formular.
+  const notiz = window.prompt('Interne Notiz zu dieser Rückmeldung', r.notiz ?? '')
+  if (notiz === null) return
+  try {
+    const { rueckmeldung } = await api.aendereRueckmeldung(r.id, { notiz: notiz.trim() || null })
+    Object.assign(r, rueckmeldung)
+    flash('Notiz gespeichert.')
+  } catch (fehler) {
+    flash(fehlerText(fehler), 'fehler')
+  }
+  rendereRueckmeldungen()
+}
+
+async function loescheRueckmeldung(r: AdminRueckmeldung): Promise<void> {
+  const ja = await frage({
+    titel: 'Rückmeldung löschen?',
+    text: 'Der Text und alles daran ist danach weg. Erledigte verschwinden ohnehin nach einem halben Jahr von selbst.',
+    ja: 'Löschen',
+    gefahr: true,
+  })
+  if (!ja) return
+  try {
+    await api.loescheRueckmeldung(r.id)
+    z.rueckmeldungen = z.rueckmeldungen.filter((x) => x.id !== r.id)
+    flash('Rückmeldung gelöscht.')
+  } catch (fehler) {
+    flash(fehlerText(fehler), 'fehler')
+  }
+  rendereReiter()
+  rendereRueckmeldungen()
+}
+
 function rendereProtokoll(): void {
   const gesucht = filtereProtokoll(z.protokoll, z.protokollSuche)
   const zahl = zaehleProtokoll(gesucht)
@@ -1264,6 +1457,10 @@ els.einladungenSuche.addEventListener('input', () => {
 els.wartelisteSuche.addEventListener('input', () => {
   z.wartelisteSuche = els.wartelisteSuche.value
   rendereWarteliste()
+})
+els.rueckmeldungenSuche.addEventListener('input', () => {
+  z.rueckmeldungenSuche = els.rueckmeldungenSuche.value
+  rendereRueckmeldungen()
 })
 els.protokollSuche.addEventListener('input', () => {
   z.protokollSuche = els.protokollSuche.value

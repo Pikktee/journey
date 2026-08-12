@@ -269,6 +269,34 @@ Avatare (`50%`).
   zur Zeit — eine neue ersetzt die alte mit kurzem Puls, kein Stapel. Ausnahme modale
   Dialoge: der Browser-Top-Layer liegt über allem, dort meldet eine Fußzeile IM Dialog
   (s. Bibliothek im Studio), kein Toast dahinter. Referenz: `.editor-flash` in `studio.html`.
+- **Formularfelder sagen, ob sie sein müssen — beide Sorten.** Jedes Label trägt hinter der
+  Frage ein Wort: `<label>Frage <span class="feld-art pflicht">Pflicht</span></label>` bzw.
+  `optional`. Nur das eine zu markieren zwingt zum Rückschluss aus dem Fehlen, und genau
+  dieser Rückschluss kostet den Moment Unsicherheit, der Formulare zäh macht — Nielsen Norman
+  Group und Baymard empfehlen beide, beides auszuzeichnen. Regeln für die Optik, alle aus
+  derselben Quelle:
+  - **Wort statt Sternchen.** Ein `*` braucht eine Legende am Formularfuß, also einen zweiten
+    Blick. Das Wort steht da, wo die Frage aufkommt.
+  - **Lesbar, nicht dekorativ.** NN/g warnt ausdrücklich vor „pale grays or low-contrast
+    colors" und zu kleiner Schrift: mindestens 11,5 px, `text-2` für „Pflicht", `text-3` für
+    „optional" — keine graue Mikroschrift und keine Kapsel, die mit dem Label konkurriert.
+  - **Rechts in der Labelzeile** (`margin-left: auto`), damit der Labeltext nicht
+    auseinandergezogen wird und die Kennzeichnungen untereinander eine Spalte bilden.
+  - **Nicht nur optisch:** Das Pflichtfeld trägt `required` und `aria-required="true"` —
+    sonst steht die Auskunft nur für Sehende da.
+  - **Nur wo es etwas zu unterscheiden gibt.** Sind ALLE Felder eines Formulars Pflicht
+    (Anmelden, Registrieren, Passwort setzen), steht an jedem Label dasselbe Wort und sagt
+    damit nichts — dort entfällt die sichtbare Kennzeichnung ganz; NN/g nennt
+    Login-Formulare ausdrücklich als solchen Fall. Gekennzeichnet wird, wo Pflicht und
+    Freiwilliges nebeneinanderstehen (Warteliste: Adresse + freiwillige Notiz; Rückmeldung:
+    Text + freiwillige Adresse). Die programmatische Auszeichnung (`required`) bleibt immer.
+  - Feldregeln wie „mindestens 8 Zeichen" stehen an derselben Stelle, sind aber etwas
+    anderes als die Pflichtigkeit — sie bleiben auch dort, wo „Pflicht" entfällt.
+
+  Verwendet in den Auth-Formularen (`studio.html`) und im Rückmelde-Formular
+  (`src/feedbackformular.ts`). Quellen: [NN/g, Marking Required Fields in
+  Forms](https://www.nngroup.com/articles/required-fields/) · [Baymard, Mark Both Required and
+  Optional Fields](https://baymard.com/blog/required-optional-form-fields).
 - **Assets:** Favicon, Apple-Touch und Logo unter `public/` / `public/branding/` — nicht neu erfinden.
 
 ## Das Zeichen: Offener Globus

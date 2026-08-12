@@ -206,6 +206,48 @@
       margin-left: auto; min-width: 0; flex-shrink: 0;
     }
     .nav-right { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); flex-shrink: 0; }
+
+    /* Marke + Entwicklungsstand + Feedback. Dieselben drei Regeln stehen in
+       src/grundelemente.css für die Produkt-Seiten; hier stehen sie noch einmal,
+       weil diese Seite jenes Blatt NICHT lädt (sie hat eine eigene Kopfleiste,
+       s. .nav oben). Statisch und nicht per JS eingehängt: Sonst blitzt der
+       Hinweis bei jedem Laden ungestaltet neben der Marke auf. */
+    /* `center` und nicht `baseline`: Die Marke ist ein Bild neben Text, und
+       deren Grundlinien führten den Hinweis in eine zweite Zeile. */
+    /* `last baseline`: Die letzte Grundlinie von .brand ist die des Schriftzugs
+       (nicht die des Logos), der Hinweis sitzt damit bündig darauf. `center`
+       davor ist der Rückfall für Browser ohne `last`. */
+    /* Hier NICHT `last baseline` wie auf den Produkt-Seiten: Deren Marke ist
+       Logo + Text, diese hier ist ein einziges Bild — der Schriftzug steckt im
+       SVG, und die letzte Baseline wäre die BILDUNTERKANTE. Beide Werte unten
+       kommen aus der Geometrie von public/logo.svg (viewBox 152×46, Anzeige
+       40 px hoch, Faktor 40/46):
+
+         Grundlinie   <text y="30.5"> und NICHT 33,5 — der Knoten liegt
+                      AUSSERHALB der translate(3,3)-Gruppe. 46 − 30,5 = 15,5
+                      Einheiten über der Bildunterkante → 13,5 px.
+                      (Die unterste Pixelzeile des Schriftzugs liegt tiefer,
+                      das ist die Unterlänge des „p" — nicht die Grundlinie.)
+         Weißraum     Der Schriftzug endet bei x≈138 von 152, rechts stehen
+                      also ~12 px Luft im Bild. Ohne Ausgleich klafft neben
+                      dem Wort eine Lücke, die niemand im CSS sucht.
+
+       Ändert sich das Logo oder seine Höhe, ändern sich beide Werte mit. */
+    .marken-gruppe {
+      display: inline-flex; gap: 0; flex-shrink: 0; white-space: nowrap;
+      align-items: flex-end;
+    }
+    /* 11 px und nicht 13,5: Der Abstand gilt der BOX, die Grundlinie des
+       Hinweises liegt rund 2,5 px darüber (Descender-Raum bei line-height 1).
+       Gemessen sitzt sie damit auf der Grundlinie des Schriftzugs. */
+    .marken-gruppe .stand-hinweis { margin-bottom: 11px; margin-left: -3px; }
+    .stand-hinweis {
+      font-family: var(--font-ui); font-size: 11px; font-weight: 550;
+      letter-spacing: 0.01em; line-height: 1;
+      color: var(--text-zart); background: none; border: none; padding: 0;
+      cursor: help; transition: color 150ms ease;
+    }
+    .stand-hinweis:hover { color: var(--text-gedaempft); }
     .nav-right a {
       text-decoration: none; color: rgba(242, 237, 227, 0.78); font-size: 13.5px; font-weight: 500;
       padding: 9px 13px; border-radius: var(--radius-md); transition: color 0.2s, background 0.2s;
@@ -214,13 +256,61 @@
     .nav-right a.nav-cta {
       color: var(--auf-akzent); font-weight: 600; font-size: 13.5px;
       background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
-      padding: 10px 18px; border-radius: var(--radius-full);
+      /* Dieselbe Höhe wie die Griffe daneben (Konto-Chip 34 px): Der CTA hebt
+         sich durch seine FARBE hervor, nicht zusätzlich durch Größe. Drei
+         verschiedene Höhen nebeneinander liest man als Versehen. */
+      padding: 6px 16px; border-radius: var(--radius-full);
     }
     .nav-right a.nav-cta:hover { filter: brightness(1.07); background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); }
+    /* Angemeldet ist „Meine Touren" Navigation, kein Handlungsaufruf: Der
+       Verlauf bleibt „Registrieren" vorbehalten, sonst konkurrieren rechts
+       zwei starke Punkte (s. grundelemente.css). */
+    .nav-right a.nav-cta[data-dabei] {
+      background: none; color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.16); padding: 5px 16px;
+    }
+    .nav-right a.nav-cta[data-dabei]:hover {
+      filter: none; background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
     .nav-divider { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.14); margin: 0 2px; }
     /* Gast vs. angemeldet: ohne JS-Runde kein Aufblitzen der falschen Seite */
     html:not(.nav-dabei) [data-dabei] { display: none !important; }
     html.nav-dabei [data-gast] { display: none !important; }
+
+    /* Wie die Nav-Links daneben, nicht als umrandeter Knopf: Die Umrandung war
+       ein drittes Register zwischen Textlinks und farbigem CTA. */
+    .feedback-knopf {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--font-ui); font-size: 14px; font-weight: 500;
+      color: var(--text-gedaempft); background: none; border: none;
+      border-radius: 10px; padding: 8px 12px; cursor: pointer;
+      transition: color .18s ease, background .18s ease;
+    }
+    .feedback-knopf:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+    .feedback-knopf svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
+    /* Auf schmalen Schirmen bleibt das Symbol stehen: Der Weg zur Rückmeldung
+       darf nicht verschwinden, nur weil das Fenster eng ist. */
+    @media (max-width: 980px) {
+      .feedback-knopf { padding: 7px 9px; }
+      .feedback-knopf span { display: none; }
+    }
+
+    /* Weg zur Galerie unter den Tour-Karten. Umrandet und nicht als CTA:
+       Er ist die Fortsetzung des Abschnitts, nicht der Hauptruf der Seite
+       (das bleibt „Eigene Reise aufzeichnen"). */
+    .touren-mehr { display: flex; justify-content: center; margin-top: 34px; }
+    .touren-mehr a {
+      display: inline-flex; align-items: center; gap: 9px;
+      font-family: var(--font-ui); font-size: 15px; font-weight: 550;
+      color: var(--text); text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.16); border-radius: var(--radius-full);
+      padding: 12px 24px; transition: border-color .2s, background .2s;
+    }
+    .touren-mehr a:hover {
+      border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.05);
+    }
+    .touren-mehr svg { width: 17px; height: 17px; }
 
     /* Mobile-Toggle: runde Glaskapsel, drei Striche morphen zum × */
     .nav-toggle {
@@ -522,6 +612,20 @@
     .sec-head.center { margin-inline: auto; text-align: center; }
     .sec-head h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(29px, 4.2vw, 46px); line-height: 1.08; letter-spacing: -0.012em; margin: 0; text-wrap: balance; }
     .sec-head p { color: var(--text-gedaempft); margin: 14px 0 0; }
+
+    /* Angesprungene Abschnitte: Die Kopfluft eines Bandes ist im Lesefluss
+       richtig, beim SPRUNG aber zählt sie doppelt — erst schiebt die fixierte
+       Leiste (scroll-padding-top), dann noch einmal --luft-band. Die Überschrift
+       landete dadurch erst bei y≈225 mit einem leeren Streifen darüber.
+       Das negative scroll-margin zieht genau diese Luft wieder ab; weil der
+       Abstand Bandkante→Überschrift immer `--luft-band + 20px` ist, kürzt sich
+       die Variable heraus: Die Überschrift steht auf JEDER Schirmbreite rund
+       48 px unter der Leiste. #touren hat seine eigene Regel (s. u.). */
+    #so-funktionierts,
+    #einblick,
+    #app {
+      scroll-margin-top: calc(-1 * var(--luft-band) + 14px);
+    }
 
     /* ─── Touren ─────────────────────────────────────────────────── */
     /* Der erste Abschnitt ist der einzige, der an den Hero grenzt: wer hierher
@@ -850,17 +954,26 @@
        Unter 980 px wandern Anker und Gast-Links ins Panel; Primär-CTA bleibt. -->
   <nav class="nav" id="nav">
     <div class="wrap">
-      <a href="/" class="brand" title="Zur Startseite">
-        <img src="/logo.svg" alt="Maptale" height="40" />
-      </a>
+      <!-- Wortmarke + Entwicklungsstand: Chip-Markup und -Optik stehen in
+           src/entwicklungsstand.ts (eine Quelle mit der Produkt-Kopfleiste). -->
+      <span class="marken-gruppe">
+        <a href="/" class="brand" title="Zur Startseite">
+          <img src="/logo.svg" alt="Maptale" height="40" />
+        </a>
+        <button type="button" class="stand-hinweis" aria-haspopup="dialog" aria-expanded="false" title="Was das bedeutet">Alpha</button>
+      </span>
       <div class="nav-middle nav-hide-sm">
         <a href="#touren">Touren</a>
         <a href="#so-funktionierts">So funktioniert's</a>
         <a href="#app">Android App</a>
       </div>
       <div class="nav-end">
+        <!-- Eigener Griff neben dem Konto, NICHT im Alpha-Hinweis versteckt:
+             Das eine erklärt einen Zustand, das andere ist eine Handlung.
+             Steht vor #nav-right, weil montiereNavRechts dessen Inhalt neu
+             schreibt, sobald /auth/me antwortet. -->
+        <button type="button" class="feedback-knopf" aria-haspopup="dialog" title="Rückmeldung geben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.3-.6L3 21l1.7-5a8.2 8.2 0 0 1-.7-3.4 8.4 8.4 0 0 1 8.4-8.5h.5a8.4 8.4 0 0 1 8.1 8z"/></svg><span>Feedback</span></button>
         <div class="nav-right" id="nav-right">
-          <a href="/galerie" class="nav-hide-sm" data-gast>Entdecken</a>
           <a href="/app" class="nav-hide-sm" data-gast>Anmelden</a>
           <div class="nav-divider nav-hide-sm" data-gast></div>
           <a href="/registrieren" class="nav-cta" data-gast>Registrieren</a>
@@ -887,7 +1000,6 @@
       <a href="#app">Android App <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
       <div class="nav-panel-trenner" role="separator" data-gast></div>
       <div class="nav-panel-etikett" data-gast>Konto</div>
-      <a href="/galerie" data-gast>Entdecken <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
       <a href="/app" data-gast>Anmelden <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
       <div class="nav-panel-trenner" role="separator" data-dabei></div>
       <div class="nav-panel-etikett" data-dabei>Konto</div>
@@ -1009,6 +1121,16 @@
             </div>
             <span class="card-go">Ansehen <span class="arr">▸</span></span>
           </div>
+        </a>
+      </div>
+      <!-- Der Weg zur Galerie steht HIER und nicht mehr in der Kopfleiste: Wer
+           gerade drei Touren angesehen hat, will die nächsten sehen — in der
+           Leiste stand „Entdecken" dagegen neben „Registrieren" und konkurrierte
+           mit ihm. Auf den Produkt-Seiten bleibt der Nav-Eintrag, dort ist er
+           der einzige Weg zur Galerie. -->
+      <div class="touren-mehr reveal">
+        <a href="/galerie">Alle Touren entdecken
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
       </div>
     </div>

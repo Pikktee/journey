@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <script defer src="https://analytics.maptale.io/script.js" data-website-id="9f8e7d6c-5b4a-3f2e-1d0c-9b8a7f6e5d4c"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Rückmeldung geben · Maptale</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Sitzungs-Hinweis: Gast-CTA ausblenden, bevor /api/auth/me antwortet. -->
+  <script>
+    (function () {
+      try {
+        var dabei = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('maptale_dabei=') === 0
+        })
+        if (dabei) document.documentElement.classList.add('nav-dabei')
+      } catch (e) {}
+    })()
+  </script>
+
+  <!-- Marken-Tokens vor dem Stilblock dieser Seite (s. konto.html). -->
+  <link rel="stylesheet" href="/src/basis.css" />
+  <link rel="stylesheet" href="/src/grundelemente.css" />
+
+  <style>
+    /* Nur die Abweichungen dieser Seite: eine Lesespalte. Alles andere steht
+       in basis.css und grundelemente.css. */
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-tief);
+      color: var(--text);
+      font-family: var(--font-ui);
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(26px, 5vw, 34px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+    }
+
+    .vorspann {
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.55;
+      margin: 0 0 26px;
+    }
+
+    /* Die App öffnet dieselbe Seite im WebView. Dort gibt es keine Website
+       drumherum: Kopfleiste und Fußzeile bleiben aus, sonst führte ein Link
+       aus der App auf die Website und es gäbe keinen Weg zurück. */
+    body.app .nav,
+    body.app footer { display: none; }
+    body.app main { padding-top: 24px; }
+  </style>
+</head>
+<body>
+  <nav class="nav" id="app-header"></nav>
+
+  <main>
+    <h1>Rückmeldung geben</h1>
+    <p class="vorspann">
+      Maptale ist in der Alpha. Jedes Feedback fließt direkt in die Entwicklung: ob
+      Fehler, fehlende Funktion oder ein Satz, der niemandem einleuchtet.
+    </p>
+    <div id="feedback-mount"></div>
+  </main>
+
+  <footer id="app-footer"></footer>
+
+  <script type="module">
+    import { montiereAppHeader, schreibeAppFooter } from '/src/app-nav.ts'
+    import { montiereFeedbackFormular } from '/src/feedbackformular.ts'
+
+    // `?app=1` markiert die Android-WebView — dieselbe Kennung wie im Player.
+    if (new URLSearchParams(location.search).has('app')) document.body.classList.add('app')
+
+    void montiereAppHeader(document.getElementById('app-header'), { aktiv: 'konto' })
+    schreibeAppFooter(document.getElementById('app-footer'))
+
+    const quelle = document.body.classList.contains('app') ? 'app' : 'web'
+    montiereFeedbackFormular(document.getElementById('feedback-mount'), { quelle })
+  </script>
+</body>
+</html>

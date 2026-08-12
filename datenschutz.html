@@ -31,7 +31,6 @@
           <img src="/logo-mark.svg" alt="" />
           <span>Maptale</span>
         </a>
-        <a class="nav-gegen" href="/impressum">Impressum</a>
       </div>
     </nav>
 
@@ -44,25 +43,35 @@
             Eine Tour besteht aus Orten, Zeiten und Bildern, also aus Daten, die etwas über dich
             erzählen. Hier steht, was davon wohin geht, warum, und wie lange es bleibt.
           </p>
-          <ul class="inhalt">
-            <li><a href="#verantwortlich">Verantwortlicher</a></li>
-            <li><a href="#daten">Welche Daten</a></li>
-            <li><a href="#zwecke">Zwecke</a></li>
-            <li><a href="#anreicherung">Anreicherung</a></li>
-            <li><a href="#sichtbarkeit">Sichtbarkeit</a></li>
-            <li><a href="#karten">Karten &amp; Schriften</a></li>
-            <li><a href="#app">Android-App</a></li>
-            <li><a href="#cookies">Cookies</a></li>
-            <li><a href="#empfaenger">Empfänger</a></li>
-            <li><a href="#dauer">Speicherdauer</a></li>
-            <li><a href="#rechte">Deine Rechte</a></li>
-          </ul>
           <p class="stand">Stand: 5. August 2026</p>
         </div>
       </div>
     </header>
 
     <main class="wrap">
+      <!-- Die Gliederung stand als Pillen-Reihe im Kopf: einmal gelesen, dann
+           weggescrollt und für den Rest der Erklärung nicht mehr erreichbar.
+           Auf breiten Schirmen steht sie jetzt als Spalte daneben und bleibt
+           beim Scrollen stehen, mit Marke am gerade gelesenen Abschnitt; auf
+           schmalen bleibt es bei der Reihe oben im Fluss (eine klebende Leiste
+           mit elf Punkten fräße dort die halbe Lesefläche). -->
+      <nav class="gliederung" id="gliederung" aria-label="Abschnitte dieser Erklärung">
+        <b>Inhalt</b>
+        <ul class="inhalt">
+          <li><a href="#verantwortlich"><span class="nr">1</span>Verantwortlicher</a></li>
+          <li><a href="#daten"><span class="nr">2</span>Welche Daten</a></li>
+          <li><a href="#zwecke"><span class="nr">3</span>Zwecke</a></li>
+          <li><a href="#anreicherung"><span class="nr">4</span>Anreicherung</a></li>
+          <li><a href="#sichtbarkeit"><span class="nr">5</span>Sichtbarkeit</a></li>
+          <li><a href="#karten"><span class="nr">6</span>Karten &amp; Schriften</a></li>
+          <li><a href="#app"><span class="nr">7</span>Android-App</a></li>
+          <li><a href="#cookies"><span class="nr">8</span>Cookies</a></li>
+          <li><a href="#empfaenger"><span class="nr">9</span>Empfänger</a></li>
+          <li><a href="#dauer"><span class="nr">10</span>Speicherdauer</a></li>
+          <li><a href="#rechte"><span class="nr">11</span>Deine Rechte</a></li>
+          <li><a href="#aenderungen"><span class="nr">12</span>Änderungen</a></li>
+        </ul>
+      </nav>
       <div class="spalte prosa">
         <h2 id="verantwortlich">1. Verantwortlicher</h2>
         <p>
@@ -217,6 +226,23 @@
           und du kannst sie in den Kontoeinstellungen jederzeit trennen — die Tokens werden dann
           gelöscht und die Berechtigung beim Anbieter widerrufen. <strong>Bereits importierte
           Touren bleiben dir erhalten</strong>, sie gehören dir und nicht der Verbindung.
+        </p>
+
+        <p class="merk">
+          <strong>Rückmeldungen.</strong> Über den Feedback-Knopf oder die Seite
+          <a href="/feedback">Rückmeldung geben</a> kannst du uns schreiben, was dir auffällt.
+          Gespeichert wird dein <strong>Text</strong>, dazu — sofern du sie einträgst — eine
+          <strong>E-Mail-Adresse für Rückfragen</strong>. Bist du angemeldet, hängt die
+          <strong>Kennung deines Kontos</strong> daran, damit wir zurückfragen können; eine
+          Rückmeldung ohne Anmeldung ist ebenso möglich.
+        </p>
+        <p>
+          Die <strong>technischen Angaben</strong> (aufgerufene Seite ohne Zusätze,
+          Maptale-Version, Browser, Betriebssystem, Fenstergröße, Spracheinstellung) senden wir
+          nur mit, wenn du das Häkchen gesetzt lässt. Was genau übertragen wird, kannst du im
+          Formular vor dem Absenden aufklappen; nimmst du das Häkchen heraus, wird nichts davon
+          gespeichert. Andere Angaben nimmt der Server nicht an. Rechtsgrundlage ist unser
+          berechtigtes Interesse an der Verbesserung und Fehlersuche, Art. 6 Abs. 1 lit. f DSGVO.
         </p>
 
         <h2 id="zwecke">3. Zwecke und Rechtsgrundlagen</h2>
@@ -541,6 +567,12 @@
             anonymisiert.
           </li>
           <li>
+            <strong>Rückmeldungen:</strong> erledigte 6 Monate, offene längstens 18 Monate ab
+            dem Absenden; danach werden sie automatisch gelöscht. Löschst du dein Konto, fällt
+            der Bezug zu dir weg — der gemeldete Sachverhalt bleibt anonym erhalten, weil an ihm
+            die Fehlersuche hängt.
+          </li>
+          <li>
             <strong>Reichweitenmessung:</strong> 12 Monate ab dem Aufruf.
           </li>
           <li>
@@ -583,7 +615,7 @@
           >.
         </p>
 
-        <h2>12. Änderungen dieser Erklärung</h2>
+        <h2 id="aenderungen">12. Änderungen dieser Erklärung</h2>
         <p>
           Entwickelt sich Maptale weiter, passen wir diese Erklärung an. Es gilt jeweils die hier
           veröffentlichte Fassung; das Datum oben nennt ihren Stand.
@@ -591,16 +623,10 @@
       </div>
     </main>
 
-    <footer>
-      <div class="wrap">
-        <span>Maptale. Aus deiner Route wird ein Film über die echte Landschaft.</span>
-        <span>
-          <a href="/">Startseite</a> ·
-          <a href="/impressum">Impressum</a> ·
-          <a href="/datenschutz">Datenschutz</a>
-        </span>
-      </div>
-    </footer>
+    <!-- Dieselbe Fußzeile wie auf den übrigen Seiten: Marke mit Version links,
+         Rechtstext-Links rechts. Inhalt aus src/app-nav.ts (appFooterHtml), damit
+         die Version nicht an zwei Stellen gepflegt wird. -->
+    <footer id="app-footer"></footer>
     <!-- Der Weg zurück: die Geschichte, wenn es eine gibt. Wer die Seite in
          einem neuen Tab öffnet (aus der Anmeldung heraus etwa), hat keine —
          dann bleibt der Link auf der Startseite, wie im Markup notiert. -->
@@ -610,6 +636,19 @@
           e.preventDefault()
           history.back()
         }
+      })
+    </script>
+    <script type="module">
+      import { montiereGliederung } from '/src/rechtstextgliederung.ts'
+      import { schreibeAppFooter } from '/src/app-nav.ts'
+      montiereGliederung(document.getElementById('gliederung'))
+      import { pfad } from '/src/routen.ts'
+      schreibeAppFooter(document.getElementById('app-footer'), {
+        links: [
+          { href: '/', label: 'Startseite' },
+          { href: pfad('impressum'), label: 'Impressum' },
+          { href: pfad('datenschutz'), label: 'Datenschutz' },
+        ],
       })
     </script>
   </body>

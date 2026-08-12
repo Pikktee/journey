@@ -31,7 +31,6 @@
           <img src="/logo-mark.svg" alt="" />
           <span>Maptale</span>
         </a>
-        <a class="nav-gegen" href="/datenschutz">Datenschutz</a>
       </div>
     </nav>
 
@@ -41,6 +40,7 @@
           <a class="zurueck" href="/" data-zurueck><span aria-hidden="true">‹</span> Zurück</a>
           <h1>Impressum</h1>
           <p class="lead">
+            Maptale macht aus aufgezeichneten Routen filmische Kamerafahrten über echtes Gelände.
             Wer diesen Dienst betreibt, unter welcher Anschrift er erreichbar ist und wer für
             seine Inhalte einsteht: Angaben gemäß § 5 DDG (Digitale-Dienste-Gesetz).
           </p>
@@ -61,7 +61,21 @@
         <h2>Kontakt</h2>
         <p>
           E-Mail: <a href="mailto:contact@henrikheil.net">contact@henrikheil.net</a><br />
-          Anfragen zu Inhalten, Konten und Datenschutz gehen an dieselbe Adresse.
+          Rechtliche Anfragen, Meldungen zu Inhalten und Auskunftswünsche zum Datenschutz gehen
+          an diese Adresse.
+        </p>
+        <p>
+          Für alles Übrige — Fehler, Wünsche, Fragen zur Bedienung — gibt es das Formular unter
+          <a href="/feedback">Rückmeldung geben</a>. Das ist der schnellere Weg: Was dort
+          ankommt, landet direkt in der Liste, nach der gearbeitet wird.
+        </p>
+
+        <h2>Stand des Dienstes</h2>
+        <p>
+          Maptale befindet sich in einer offenen Alpha. Der Dienst wird laufend verändert;
+          Funktionen können sich ändern oder entfallen, und es besteht kein Anspruch auf
+          ständige Verfügbarkeit. Hochgeladene Touren und Medien werden nach bestem Vermögen
+          erhalten — ersetzen aber keine eigene Sicherung der Originaldateien.
         </p>
 
         <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
@@ -70,10 +84,11 @@
         <h2>Haftung für Inhalte</h2>
         <p>
           Als Diensteanbieter sind wir für eigene Inhalte auf diesen Seiten nach den allgemeinen
-          Gesetzen verantwortlich. Nutzergenerierte Touren, GPS-Tracks, Fotos, Videos, Titel und
-          Beschreibungen, werden von den jeweiligen Nutzerinnen und Nutzern hochgeladen; für
-          deren Inhalte sind diese selbst verantwortlich. Wir sind nicht verpflichtet, übermittelte
-          oder gespeicherte fremde Informationen zu überwachen.
+          Gesetzen verantwortlich. Was Nutzerinnen und Nutzer hochladen — GPS-Aufzeichnungen,
+          Fotos, Videos, Titel, Beschreibungen und Tonspuren — verantworten sie selbst. Wir sind
+          nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.
+          Öffentlich sichtbar ist eine Tour nur, wenn ihr Urheber sie ausdrücklich auf
+          „öffentlich" oder „über den Link" stellt; die Voreinstellung ist privat.
         </p>
         <p class="merk">
           Verletzt eine öffentlich gestellte Tour Rechte, etwa an einem Bild oder am
@@ -99,37 +114,40 @@
             Satellitenbild: © <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics
           </li>
           <li>
-            Gelände: Mapzen /
+            Gelände und Höhen: Mapzen /
             <a href="https://registry.opendata.aws/terrain-tiles/">AWS Open Data</a>
           </li>
           <li>
-            Gebäude, Wege und Ortsnamen: ©
+            Wege, Schienen und Ortsnamen: ©
             <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende
+            (Ortsbestimmung über Nominatim, Trassenabgleich über Overpass)
+          </li>
+          <li>
+            Wetter zur Aufnahmezeit:
+            <a href="https://open-meteo.com/">Open-Meteo</a> (ERA5-Archiv, CC BY 4.0)
           </li>
         </ul>
         <p>
-          Die Rechte an hochgeladenen Fotos, Videos und Tracks verbleiben bei den Urheberinnen und
-          Urhebern. Marke, Gestaltung und Software von Maptale sind urheberrechtlich geschützt.
+          Die Rechte an hochgeladenen Fotos, Videos und Aufzeichnungen verbleiben vollständig bei
+          ihren Urheberinnen und Urhebern. Maptale erwirbt daran keine eigenen Rechte und
+          verwendet sie ausschließlich, um die Tour zu erzeugen und so auszuspielen, wie ihr
+          Urheber sie eingestellt hat. Marke, Gestaltung, Zeichen und Software von Maptale sind
+          urheberrechtlich geschützt.
         </p>
 
         <h2>Streitschlichtung</h2>
         <p>
           Wir sind nicht verpflichtet und nicht bereit, an Streitbeilegungsverfahren vor einer
-          Verbraucherschlichtungsstelle teilzunehmen.
+          Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG). Die Online-Streitbeilegungs-
+          Plattform der Europäischen Kommission wurde im Juli 2025 eingestellt.
         </p>
       </div>
     </main>
 
-    <footer>
-      <div class="wrap">
-        <span>Maptale. Aus deiner Route wird ein Film über die echte Landschaft.</span>
-        <span>
-          <a href="/">Startseite</a> ·
-          <a href="/impressum">Impressum</a> ·
-          <a href="/datenschutz">Datenschutz</a>
-        </span>
-      </div>
-    </footer>
+    <!-- Dieselbe Fußzeile wie auf den übrigen Seiten: Marke mit Version links,
+         Rechtstext-Links rechts. Inhalt aus src/app-nav.ts (appFooterHtml), damit
+         die Version nicht an zwei Stellen gepflegt wird. -->
+    <footer id="app-footer"></footer>
     <!-- Der Weg zurück: die Geschichte, wenn es eine gibt. Wer die Seite in
          einem neuen Tab öffnet (aus der Anmeldung heraus etwa), hat keine —
          dann bleibt der Link auf der Startseite, wie im Markup notiert. -->
@@ -139,6 +157,17 @@
           e.preventDefault()
           history.back()
         }
+      })
+    </script>
+    <script type="module">
+      import { schreibeAppFooter } from '/src/app-nav.ts'
+      import { pfad } from '/src/routen.ts'
+      schreibeAppFooter(document.getElementById('app-footer'), {
+        links: [
+          { href: '/', label: 'Startseite' },
+          { href: pfad('impressum'), label: 'Impressum' },
+          { href: pfad('datenschutz'), label: 'Datenschutz' },
+        ],
       })
     </script>
   </body>

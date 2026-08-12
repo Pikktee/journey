@@ -39,6 +39,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Person
@@ -90,7 +91,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun ProfilScreen(viewModel: ProfilViewModel) {
+fun ProfilScreen(viewModel: ProfilViewModel, zurRueckmeldung: () -> Unit = {}) {
     val konto by viewModel.konto.collectAsState()
     val lokale by viewModel.lokaleTouren.collectAsState(initial = emptyList())
     val vomServer by viewModel.serverTouren.collectAsState()
@@ -448,7 +449,19 @@ fun ProfilScreen(viewModel: ProfilViewModel) {
             }
         }
 
+        // Rückmeldung: der Weg zum Formular, solange Maptale in der Alpha ist.
+        // Er steht hier und nicht in einem Menü, weil die App keines hat — und
+        // über dem Abmelden, weil er die häufigere Handlung ist.
         Spacer(Modifier.height(26.dp))
+        TextButton(onClick = zurRueckmeldung) {
+            Icon(
+                Icons.AutoMirrored.Filled.Chat,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Text("Rückmeldung geben", Modifier.padding(start = 8.dp))
+        }
+
         TextButton(onClick = {
             // Den Cloud-Abfrage-Lauf mit beenden: Er klopfte sonst weiter an
             // eine Tür, für die es keinen Schlüssel mehr gibt.

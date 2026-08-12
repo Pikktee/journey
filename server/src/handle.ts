@@ -26,6 +26,7 @@ export const RESERVIERTE_HANDLES: ReadonlySet<string> = new Set([
   'impressum',
   'datenschutz',
   'erlebnis',
+  'feedback',
   // Technisches
   'api',
   'assets',

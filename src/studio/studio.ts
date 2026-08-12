@@ -84,7 +84,8 @@ const els = {
   regUnterzeile: $('reg-unterzeile'),
   registerFehler: $('register-fehler'),
   // Warteliste: der Weg herein für alle ohne Code
-  zurWarteliste: $<HTMLButtonElement>('zur-warteliste'),
+  /** Der Wartelisten-Teaser unter dem Code-Formular (Block, nicht mehr Link). */
+  zurWarteliste: $<HTMLElement>('zur-warteliste'),
   wartelisteForm: $<HTMLFormElement>('warteliste-form'),
   wlEmail: $<HTMLInputElement>('wl-email'),
   wlNotiz: $<HTMLTextAreaElement>('wl-notiz'),
@@ -180,7 +181,10 @@ function zeige(angemeldet: boolean): void {
   els.loginView.hidden = angemeldet
   els.appView.hidden = !angemeldet
   els.benutzerChip.hidden = !angemeldet
-  els.neuOben.hidden = !angemeldet
+  // `neu-oben` bleibt hier IMMER aus: Ob er erscheint, entscheidet nicht die
+  // Anmeldung, sondern ob die „Neue Tour"-Kachel gerade zu sehen ist
+  // (s. beobachteNeuKachel).
+  els.neuOben.hidden = true
   if (!angemeldet) {
     els.kontoMenue.hidden = true
     els.benutzerChip.setAttribute('aria-expanded', 'false')
@@ -846,6 +850,38 @@ function renderBibliothek(): void {
   raster.appendChild(neu)
   for (const t of liste) raster.appendChild(baueKarte(t))
   els.bibliothek.appendChild(raster)
+  beobachteNeuKachel(neu)
+}
+
+/** Der eine Beobachter — wird bei jedem Neuaufbau der Liste umgehängt. */
+let neuKachelBeobachter: IntersectionObserver | null = null
+
+/**
+ * Der Knopf „Neue Tour" in der Kopfleiste erscheint erst, wenn die Kachel
+ * weggescrollt ist.
+ *
+ * Beides gleichzeitig war eine Dopplung, und der Knopf war dabei der farbigste
+ * Punkt der Leiste: Die Kachel sagt dasselbe, erklärt sich selbst und ist das
+ * Ziel fürs Hineinziehen von Dateien. Ersatzlos streichen ließ er sich aber
+ * auch nicht — bei einer langen Liste ist die Kachel oben aus dem Bild, und die
+ * Leiste klebt. Also zeigt ihn genau der Fall, für den es ihn braucht.
+ */
+function beobachteNeuKachel(kachel: HTMLElement): void {
+  neuKachelBeobachter?.disconnect()
+  if (!('IntersectionObserver' in window)) {
+    // Ohne Beobachter lieber sichtbar als unerreichbar.
+    els.neuOben.hidden = false
+    return
+  }
+  neuKachelBeobachter = new IntersectionObserver(
+    ([eintrag]) => {
+      els.neuOben.hidden = !!eintrag?.isIntersecting
+    },
+    // Die Kopfleiste liegt über der Seite: Was unter ihr steckt, ist für den
+    // Betrachter weg, auch wenn es technisch noch im Sichtfeld ist.
+    { rootMargin: '-64px 0px 0px 0px' },
+  )
+  neuKachelBeobachter.observe(kachel)
 }
 
 /** Die Form der Tour über dem Titelbild — nur, wenn der Server sie mitliefert. */

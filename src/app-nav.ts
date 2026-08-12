@@ -14,6 +14,8 @@ import {
   vergesseAngemeldet,
 } from './session-hinweis.js'
 import { version as APP_VERSION } from '../package.json'
+import { montiereStandChip, standChipHtml } from './entwicklungsstand.js'
+import { feedbackKnopfHtml, montiereFeedbackKnopf } from './feedbackknopf.js'
 
 /**
  * Auf welcher Seite die Nav steht. 'profil', 'konto' und 'admin' tauchen selbst
@@ -70,10 +72,15 @@ export function appHeaderHtml(opts: {
   variante?: AppHeaderVariante
 }): string {
   const variante = opts.variante ?? 'oeffentlich'
+  // Wortmarke und Stand-Chip stehen in einer eigenen Gruppe: Der Chip gehört
+  // an die Marke, nicht in den Nav-Abstand dahinter (`--nav-marken-gap`).
   const brand =
+    `<span class="marken-gruppe">` +
     `<a href="/" class="brand" title="Zur Startseite">` +
     `<img src="/logo-mark.svg" alt="" height="28" />` +
-    `<span>Maptale</span></a>`
+    `<span>Maptale</span></a>` +
+    standChipHtml() +
+    `</span>`
   const mitte =
     `<nav class="top-nav" aria-label="Hauptnavigation">${topNavHtml(opts.aktiv)}</nav>`
 
@@ -111,7 +118,10 @@ export function appHeaderHtml(opts: {
       `</button></div></div>`
   }
 
-  return `${brand}${mitte}${rechts}`
+  // Der Feedback-Knopf steht NEBEN `.nav-right`, nicht darin: `montiereNavRechts`
+  // schreibt diesen Container per `innerHTML` neu, sobald `/auth/me` antwortet —
+  // ein Knopf darin wäre nach dem ersten Konto-Abgleich spurlos verschwunden.
+  return `${brand}${mitte}${feedbackKnopfHtml()}${rechts}`
 }
 
 /** Schreibt die Kopfleiste in einen vorhandenen `.nav`-Mount (synchron). */
@@ -121,6 +131,8 @@ export function schreibeAppHeader(
 ): void {
   if (!nav) return
   nav.innerHTML = `<div class="wrap">${appHeaderHtml(opts)}</div>`
+  montiereStandChip()
+  montiereFeedbackKnopf()
 }
 
 /**
@@ -235,6 +247,10 @@ export async function montiereNavRechts(
    */
   cta?: { text: string; href: string },
 ): Promise<void> {
+  // Auch hier und nicht nur in `schreibeAppHeader`: Die Landing hat ihre eigene
+  // Kopfleiste im HTML und montiert nur die rechte Seite nach.
+  montiereStandChip()
+  montiereFeedbackKnopf()
   if (!container) return
 
   // Versuche Profil vorab aus dem Cache zu setzen, damit kein Layout-Sprung entsteht

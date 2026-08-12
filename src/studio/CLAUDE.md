@@ -63,6 +63,18 @@ erst nach dem nächsten Rendern, die Kachel muss ohne auskommen. Die ganze Kache
 die Taste in der Mitte ist die Ansage dafür, nicht das einzige Ziel; daneben genau zwei Griffe
 (Bearbeiten, Sichtbarkeit, letztere zugleich Anzeige UND Umschalter).
 
+**„Neue Tour" steht in der KACHEL, im Kopf nur bei Bedarf.** Der Knopf `#neu-oben` ist
+standardmäßig aus und erscheint erst, wenn die Kachel aus dem Sichtfeld gescrollt ist
+(`beobachteNeuKachel`, IntersectionObserver mit `rootMargin: -64px` für die überlagernde
+Kopfleiste). Beides gleichzeitig war eine Dopplung, und der Knopf war dabei der farbigste
+Punkt der Leiste; die Kachel erklärt sich dagegen selbst und ist das Ziel fürs Hineinziehen
+von Dateien. Ersatzlos streichen ging trotzdem nicht: Bei einer langen Liste ist die Kachel
+oben aus dem Bild, die Leiste klebt. Ohne `IntersectionObserver` (sehr alte Browser) bleibt
+der Knopf sichtbar — lieber doppelt als unerreichbar. **Achtung bei der Abnahme:** In der
+Browser-Pane feuert `IntersectionObserver` NICHT (sie pausiert den Rendering-Lifecycle,
+sobald sie unsichtbar ist; ein Kontroll-Observer meldet dort ebenfalls nichts) — das
+Verhalten ist nur in einem echten Fenster zu sehen.
+
 **Neue Tour: erst zeigen, dann hochladen.** Der Upload ist kein Formular mehr, sondern ein
 Fenster, das den **Befund** der abgelegten Dateien zeigt ([src/studio/pruefung.ts](pruefung.ts),
 DOM-frei und getestet): Streckenform, Zeitspanne, jede Aufnahme an ihrer Uhrzeit — und was

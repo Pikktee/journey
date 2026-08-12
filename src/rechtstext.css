@@ -23,6 +23,13 @@
   --lesebreite: 760px;
 }
 
+/* Sanftes Springen zu den Abschnitten — die Gliederung soll zeigen, WOHIN es
+   geht, nicht bloß umschalten. `scroll-margin-top` an `.prosa h2` hält die
+   Überschrift dabei unter der Kopfleiste. */
+html {
+  scroll-behavior: smooth;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -244,13 +251,35 @@ header.kopf .stand {
 
 /* Sprungliste der Abschnitte (nur Datenschutz — beim Impressum wäre sie
    länger als der Text). */
+/* — Gliederung — */
+
+/* Auf breiten Schirmen eine eigene Spalte rechts, die beim Scrollen stehen
+   bleibt; darunter wieder eine Reihe im Fluss. Das Grid steht auf `main`, nicht
+   auf `.wrap`: Der Text behält seine Lesebreite (s. `.wrap > .spalte`), die
+   Gliederung bekommt den Platz, der rechts davon ohnehin frei war. */
+main.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+}
+.gliederung > b {
+  display: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
 .inhalt {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  margin: 30px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
+}
+.inhalt .nr {
+  color: var(--text-zart);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5em;
 }
 .inhalt a {
   display: inline-block;
@@ -268,20 +297,105 @@ header.kopf .stand {
   border-color: rgba(245, 158, 11, 0.5);
 }
 
+@media (min-width: 1120px) {
+  main.wrap {
+    grid-template-columns: minmax(0, var(--lesebreite)) minmax(180px, 232px);
+    gap: 0 56px;
+    align-items: start;
+  }
+  /* Die Gliederung steht im Markup VOR dem Text (erst der Überblick, dann die
+     Erklärung — für Tastatur und Vorlese-Werkzeuge die richtige Reihenfolge),
+     im Bild aber rechts daneben. */
+  .gliederung {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: calc(var(--topbar-h) + 26px);
+    max-height: calc(100vh - var(--topbar-h) - 52px);
+    overflow-y: auto;
+    padding-left: 18px;
+    border-left: 1px solid var(--linie);
+  }
+  .spalte.prosa { grid-column: 1; grid-row: 1; }
+  .gliederung > b { display: block; margin-bottom: 12px; }
+  /* Als Liste, nicht als Pillen-Reihe: In einer schmalen Spalte stünden
+     Kapseln zerrissen untereinander. Der aktive Punkt trägt eine Marke am
+     linken Rand — dort, wo die Linie ohnehin läuft. */
+  .inhalt {
+    flex-direction: column;
+    gap: 1px;
+  }
+  .inhalt a {
+    display: grid;
+    grid-template-columns: 1.6em 1fr;
+    align-items: baseline;
+    border: none;
+    border-radius: 0;
+    padding: 6px 0 6px 12px;
+    margin-left: -19px;
+    border-left: 2px solid transparent;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--text-3);
+  }
+  .inhalt .nr { margin-right: 0; }
+  .inhalt a:hover {
+    color: var(--text);
+    border-color: transparent;
+    border-left-color: var(--rand-hell);
+  }
+  /* Der gelesene Abschnitt trägt Farbe UND Gewicht: Die Kante allein ist am
+     Rand des Blickfelds zu leise, und wer die Gliederung nur streift, soll
+     seinen Platz auf einen Blick finden. */
+  .inhalt a[aria-current] {
+    color: var(--text);
+    font-weight: 550;
+    border-left-color: var(--akzent);
+  }
+  .inhalt a[aria-current] .nr { color: var(--akzent); }
+}
+
 /* — Fuß — */
 
+/* Dieselbe Fußzeile wie auf den Produkt-Seiten (Markup aus app-nav.ts): Marke
+   mit Version links, Links rechts. Die Maße bleiben etwas großzügiger als
+   dort — ein Rechtstext endet, er geht nicht in die nächste Tafel über. */
 footer {
   border-top: 1px solid var(--linie);
   margin-top: 56px;
-  padding: 26px 0 44px;
+  padding: 22px 0 44px;
 }
 footer .wrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  align-items: baseline;
+  gap: 10px 28px;
   justify-content: space-between;
+  font-family: var(--font-ui);
   font-size: 13px;
   color: var(--text-zart);
+}
+footer .fuss-marke {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+footer .fuss-version {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-zart);
+  opacity: 0.72;
+}
+footer .fuss-links {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+footer .fuss-sep {
+  color: var(--text-zart);
+  opacity: 0.55;
+  user-select: none;
 }
 footer a {
   color: var(--text-zart);
@@ -310,5 +424,11 @@ footer a:hover {
   .inhalt a {
     font-size: 12.5px;
     padding: 5px 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

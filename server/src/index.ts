@@ -86,6 +86,10 @@ const raeumeWarteliste = (): void => {
   if (weg > 0) app.log.info(`${weg} abgelaufene Wartelisten-Einträge gelöscht`)
   const alteEinwilligungen = app.newsletter.raeumeAuf()
   if (alteEinwilligungen > 0) app.log.info(`${alteEinwilligungen} alte Newsletter-Protokollzeilen gelöscht`)
+  // Rückmeldungen verfallen ebenfalls: erledigte nach einem halben Jahr, offene
+  // nach anderthalb. Ein Eingang, den niemand leert, wird sonst zur Sammlung.
+  const alteRueckmeldungen = app.rueckmeldungen.raeumeAuf()
+  if (alteRueckmeldungen > 0) app.log.info(`${alteRueckmeldungen} abgelaufene Rückmeldungen gelöscht`)
 }
 raeumeWarteliste()
 setInterval(raeumeWarteliste, 24 * 60 * 60 * 1000).unref()

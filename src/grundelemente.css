@@ -117,24 +117,148 @@
   opacity: 1;
 }
 
+/* Wortmarke + Entwicklungsstand. Der Hinweis gehört an die Marke, nicht in den
+   Nav-Abstand dahinter (--nav-marken-gap), deshalb die eigene Gruppe.
+
+   Das CSS steht STATISCH hier und nicht mehr im Modul: Per JavaScript
+   eingehängte Regeln kommen nach dem Markup, und das Wort blitzte deshalb bei
+   jedem Laden kurz ungestaltet auf. Die Landing (index.html) führt dieselben
+   drei Regeln in ihrem eigenen Stilblock — sie lädt dieses Blatt nicht, weil
+   ihre Kopfleiste eine andere ist. */
+.marken-gruppe {
+  display: inline-flex;
+  /* `last baseline` und nicht `baseline`: `.brand` ist ein inline-flex mit dem
+     Logo als erstem Kind, und ein Bild liefert seine Baseline an der
+     UNTERKANTE — mit `baseline` rutschte das Wort 10 px unter den Text. Die
+     LETZTE Baseline von `.brand` ist dagegen die des Schriftzugs, und genau
+     darauf soll der Hinweis sitzen (gemessen: beide bei 34,5 px).
+     `center` davor ist der Rückfall für Browser, die `last` nicht kennen; dort
+     steht der Hinweis mittig statt bündig, was tragbar ist. */
+  align-items: center;
+  align-items: last baseline;
+  gap: 7px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Klein, ruhig, nachgestellt: Der Stand soll genannt sein, nicht beworben. Eine
+   Pille in Akzentfarbe zog neben der Wortmarke mehr Blicke auf sich als die
+   Marke selbst. */
+.stand-hinweis {
+  font-family: var(--font-ui);
+  /* Gemischt geschrieben statt in Versalien: Kapitälchen neben der Wortmarke
+     lasen sich wie ein zweites Etikett; „Alpha" ist ein Wort und soll als Wort
+     dastehen. Dafür etwas größer, sonst wird es zu zart. */
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: var(--text-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: help;
+  transition: color 150ms ease;
+}
+.stand-hinweis:hover { color: var(--text-2); background: none; }
+
+/* Derselbe Griff mitten im Fließtext (Anmeldebühne): Dort ist „Alpha" ein Wort
+   im Satz und kein nachgestelltes Kennzeichen — es erbt deshalb die Schrift
+   der Umgebung und zeigt sich als Link, nicht als kleines graues Etikett. */
+.stand-hinweis.stand-inline {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  color: var(--akzent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+}
+.stand-hinweis.stand-inline:hover {
+  color: var(--akzent);
+  text-decoration-thickness: 2px;
+}
+
+/* Der Weg zum Rückmelde-Formular — ein eigener Griff neben dem Konto und
+   ausdrücklich NICHT im Alpha-Hinweis versteckt: Das eine erklärt einen
+   Zustand, das andere ist eine Handlung.
+
+   Gestaltet wie die Nav-Links daneben und NICHT als umrandeter Knopf: In einer
+   Leiste aus zwei Textlinks und einem farbigen CTA war die Umrandung ein
+   drittes Register und sah wie ein Fremdkörper aus. */
+.feedback-knopf {
+  /* Schiebt sich selbst nach rechts — er steht vor `.nav-right`, damit dessen
+     Neuaufbau ihn nicht mitnimmt. */
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+.feedback-knopf:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+.feedback-knopf svg { width: 15px; height: 15px; flex: none; opacity: 0.88; }
+/* Auf schmalen Schirmen bleibt das Symbol: Der Weg darf nicht verschwinden,
+   nur weil das Fenster eng ist. */
+@media (max-width: 620px) {
+  .feedback-knopf { padding: 7px 9px; }
+  .feedback-knopf span { display: none; }
+}
+
 .nav-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
+  /* KEIN `margin-left: auto` mehr: Den trägt der Feedback-Knopf davor. Zwei
+     Auto-Margins teilen den freien Raum unter sich auf — der Knopf landete
+     dadurch in der Mitte der Leiste statt bei den übrigen Griffen. */
   flex-shrink: 0;
 }
 .nav-right a.nav-cta {
   color: var(--auf-akzent);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 13px;
   text-decoration: none;
   background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
-  padding: 8px 16px;
+  /* Dieselbe Höhe wie der Feedback-Griff und der Konto-Chip: Der CTA soll sich
+     durch seine FARBE hervorheben, nicht zusätzlich durch Größe — nebeneinander
+     wirkte er sonst wie aus einer anderen Leiste. */
+  padding: 6px 15px;
   border-radius: var(--radius-full);
 }
 .nav-right a.nav-cta:hover {
   filter: brightness(1.06);
+}
+/* Angemeldet ist „Meine Touren" NAVIGATION und kein Handlungsaufruf — daneben
+   führt der Konto-Chip zu denselben Inhalten. Der Farbverlauf bleibt deshalb
+   dem Gast-Zustand vorbehalten („Anmelden", „Registrieren"): Dort ist er
+   verdient. Rechts steht so genau ein farbiger Punkt, das Konto-Initial.
+   `padding` um 1 px kleiner, weil die Umrandung zwei Pixel dazugibt. */
+.nav-right a.nav-cta[data-dabei] {
+  background: none;
+  color: var(--text);
+  border: 1px solid var(--rand);
+  padding: 5px 15px;
+}
+.nav-right a.nav-cta[data-dabei]:hover {
+  filter: none;
+  background: none;
+  border-color: var(--rand-hell);
 }
 
 /* Sitzungs-Hinweis aus dem Cookie: Gast- und Angemeldet-Teile der Leiste

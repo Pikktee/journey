@@ -188,7 +188,20 @@ private fun AngemeldeteNavigation(app: MaptaleApp) {
                 )
             }
             composable(REITER_PROFIL) {
-                ProfilScreen(viewModel = viewModel(factory = MaptaleViewModelFactory(app)))
+                ProfilScreen(
+                    viewModel = viewModel(factory = MaptaleViewModelFactory(app)),
+                    zurRueckmeldung = { navController.navigate("rueckmeldung") },
+                )
+            }
+            composable("rueckmeldung") {
+                // Wie der Player vom Prod-Web-Origin und nicht aus
+                // konto.serverUrl: Die erste DataStore-Emission ist null und
+                // zöge den WebView auf eine tote Adresse.
+                RueckmeldungScreen(
+                    serverUrl = Einstellungen.STANDARD_SERVER,
+                    sitzungHolen = { runCatching { app.apiClient.sitzungFuerPlayer() }.getOrNull() },
+                    zurueck = { navController.popBackStack() },
+                )
             }
             composable("aufzeichnung") {
                 AufzeichnungScreen(

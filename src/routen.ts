@@ -42,6 +42,7 @@ export type Seite =
   | 'profil'
   | 'konto'
   | 'verwaltung'
+  | 'feedback'
   | 'impressum'
   | 'datenschutz'
 
@@ -77,6 +78,10 @@ export const ROUTEN: Readonly<Record<Seite, Route>> = {
   // das Wort für Vorlieben ist, die es hier gar nicht gibt.
   konto: { pfad: '/konto', datei: 'konto.html' },
   verwaltung: { pfad: '/admin', datei: 'admin.html' },
+  // Eigene Adresse und nicht nur ein Dialog hinter dem Alpha-Chip: Die
+  // Android-App öffnet dieselbe Seite im WebView, und ein Link, den man
+  // weitergeben kann („schreib es hier rein"), braucht einen Ort.
+  feedback: { pfad: '/feedback', datei: 'feedback.html' },
   impressum: { pfad: '/impressum', datei: 'impressum.html' },
   datenschutz: { pfad: '/datenschutz', datei: 'datenschutz.html' },
 }

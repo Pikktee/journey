@@ -510,6 +510,38 @@ const MIGRATIONEN: Migration[] = [
   CREATE INDEX idx_sessions_token ON sessions(token_id);
   DELETE FROM sessions WHERE user_agent LIKE 'okhttp%';
   `,
+  // Rückmeldungen aus der Alpha: der Eingang für alles, was Besuchern auffällt.
+  //
+  // **`benutzer_id` ist SET NULL und nicht CASCADE.** Wer sein Konto löscht,
+  // soll nicht rückwirkend die Fehlerberichte mitlöschen, an denen die Alpha
+  // sich repariert — die Meldung „Upload bricht bei großen Videos ab" ist keine
+  // Aussage über eine Person, sobald der Bezug weg ist. Die Kennung ist der
+  // Bezug; ohne sie bleibt der Sachverhalt.
+  //
+  // **`kontext` ist ein JSON-Text und keine Spaltenreihe.** Was zum Melden
+  // nützlich ist, ändert sich mit jedem Client (Web heute, App morgen, iOS
+  // später); jede neue Angabe wäre sonst eine Migration, und die alten Zeilen
+  // trügen ein Feld, das es zu ihrer Zeit nicht gab. Ausgewertet wird beim
+  // Lesen, nicht beim Schreiben. NULL heißt: Der Absender hat die technischen
+  // Angaben abgewählt — das ist etwas anderes als „leer".
+  //
+  // **Der Status ist eine kleine, feste Menge.** Ein Freitextfeld liefe binnen
+  // eines Monats in „offen", "Offen" und „todo" auseinander.
+  `
+  CREATE TABLE rueckmeldungen (
+    id TEXT PRIMARY KEY,
+    benutzer_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    email TEXT,
+    text TEXT NOT NULL,
+    kontext TEXT,
+    quelle TEXT NOT NULL CHECK (quelle IN ('web','app')),
+    status TEXT NOT NULL DEFAULT 'offen' CHECK (status IN ('offen','in_arbeit','erledigt')),
+    notiz TEXT,
+    angelegt_am TEXT NOT NULL,
+    geaendert_am TEXT
+  );
+  CREATE INDEX idx_rueckmeldungen_status ON rueckmeldungen(status, angelegt_am DESC);
+  `,
 ]
 
 /**
