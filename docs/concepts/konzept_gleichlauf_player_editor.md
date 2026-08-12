@@ -1,6 +1,6 @@
 # Gleichlauf: ein Film, zwei Bühnen
 
-Stand: 12. August 2026 · Status: **Entscheidungen getroffen, nichts gebaut** · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
+Stand: 13. August 2026 (Prüfung eingearbeitet) · Status: **Entscheidungen getroffen, nichts gebaut** · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
 
 **Ziel:** Der Studio-Editor zeigt denselben Film wie der Player — so genau, dass man **auf
 den Takt der Musik schneiden** kann. Heute weicht er an drei Achsen ab: hörbar (bis v0.60.4),
@@ -22,16 +22,28 @@ und die Umsetzbarkeit — nicht die Richtung.
 |---|---|---|---|
 | E1 | **Bild und Ton hängen an EINER Uhr.** Die Filmzeit kommt aus der Echtzeit, nicht aus aufsummierten, gedeckelten Frames | 12.08. | Etappe 1; auf langsamen Geräten springt das Bild künftig, statt zu schleichen |
 | E2 | **Die Position folgt der Filmzeit**, nicht umgekehrt | 12.08. | Etappe 4; Anfahren/Ausrollen werden eine Form IN der Kurve statt einer emergenten Rampe |
-| E3 | **Eine geteilte Filmachse** als Modul, von Player UND Studio importiert | 12.08. | Etappe 3; drei Kopien werden zwei |
+| E3 | **Eine geteilte Filmachse** als Modul, von Player UND Studio importiert | 12.08. | Etappe 3; drei Kopien werden zwei. *Nur teilen* — ob sie dabei von Aufnahmezeit auf Strecke umparametrisiert wird, ist offen (§2) |
 | E4 | **`f` wird über die Wegpunkte abgebildet**, nicht über `f × route.total` | 12.08. | Etappe 2 |
 | E5 | **Musik startet und endet in Player und Editor gleich, framegenau** — Schneiden auf den Takt muss möglich sein | 12.08. | macht E2 zur **Pflicht**; schließt die billige Rampen-Nachbildung aus (§4) |
 | E6 | **Kein sichtbares Taktraster.** Stattdessen framegenaue Platzierung über Zahlenfelder und Tastatur | 12.08. | §11 statt BPM-Erkennung — deutlich kleiner |
 | E7 | **Tag/Nacht kommt in den Editor**, als Raster-Grading. Wetter danach, mit Schalter | 12.08. | §10 |
 | E8 | **Die Szene-Regeln werden geteilt, die Darstellung nicht** | 12.08. | §9; ein gemeinsames DOM-Bauteil ist ausdrücklich NICHT gewollt |
-| E9 | **Die Filmachse wird NICHT ins Tour-JSON exportiert** | 12.08. | §4 |
+| E9 | **Die Filmachse wird NICHT ins Tour-JSON exportiert** — Film-ANKER je Ereignis dagegen schon (E10) | 12.08., präzisiert 13.08. | §12 |
+| E10 | **Das Tour-JSON bekommt additive Film-Felder je Ereignis** (Filmsekunde neben `f0`/`f1`) | 13.08. | §5.1; ohne sie ist E5 im Format nicht ausdrückbar. Gehört **hinter** Etappe 4 (§12) |
+| E11 | **Der Server schickt `f` je ausgeliefertem Wegpunkt mit** — statt `f` künftig auf der vereinfachten Geometrie zu messen | 13.08. | §8D; additiv, ändert keinen Bestands-Render — greift dafür erst nach dem nächsten Render |
 
 ## 2. Offene Punkte
 
+- **Wird die geteilte Achse umparametrisiert?** Der ursprüngliche Grund („über der Strecke
+  eindeutig umkehrbar") trägt nicht: Die Mehrdeutigkeit wandert nur — über der Strecke sind
+  die HALTE die Plateaus (§5.1). `zeitleiste.ts` rechnet durchgehend in Aufnahmezeit, ebenso
+  `projiziereAufReihe` im Server, und das Austauschformat begründet trim-stabile Anker
+  ausdrücklich. **Teilen ist das Ziel; Umparametrisieren wäre ein zweites Risiko.**
+- **Wie läuft die Filmzeit rückwärts?** `shuttle` fährt mit `dir = −1` und `mult` bis 8×
+  ([tour.ts](../../src/tour.ts)) — im Papier stand bisher nur „2×/4×" (das ist `cycleSpeed`).
+  Unter E2 muss die Filmzeit rückwärts laufen; Stopp- und Moment-Trigger sind heute bewusst
+  auf `dir > 0` beschränkt, und rückwärts durch einen Halt heißt: Filmzeit vergeht, Position
+  steht. Eigene Entwurfsfrage, kein Umstellungsdetail.
 - **Bleibt der Zuschauer-`mult` (2×/4×)?** Als Faktor auf die Filmzeit bleibt der Schnitt in
   sich stimmig — aber ein Schalter, der die Filmdauer halbiert, ist eine bewusste Ausnahme
   vom Taktversprechen (E5).
@@ -79,7 +91,7 @@ bereits auf einen Klick — „Vorschau" verlinkt den Player im selben Tab
 
 ## 4. Der Befund
 
-Alle Zahlen an den vier lokalen Touren, 12. August 2026. Werkzeuge und Messfallen: §16.
+Alle Zahlen an den vier lokalen Touren, 12./13. August 2026. Werkzeuge und Messfallen: §16.
 
 ### 4.1 Zwei Uhren, nicht eine fehlende Kurve
 
@@ -141,6 +153,12 @@ taugt dafür nicht (§16).
 der 356-m-Tour — dort erreicht die Engine zwischen den Stopps nie Vollgeschwindigkeit. Wer
 die Rampen nachbilden will, braucht eine **Simulation der Engine-Schleife**, keine Zahl.
 
+> **Zur Messbasis:** „roh" heißt hier die Geometrie aus `tour.json` — die ist bereits mit
+> 5 m Toleranz vereinfacht (§8D). Gegen die echten Rohpunkte im Manifest gemessen beträgt der
+> Längenunterschied auf diesen vier Touren **0,00–0,09 %** (Koh Pha-ngan 0,02 %, Stockholm
+> 0,09 %). Die Zahlen unten bleiben damit gültig; bei einer dicht abgetasteten Aufzeichnung
+> (1 Hz statt 30 s) wäre der Anteil größer — ungemessen.
+
 **Die Route (15 %).** `buildRoute` glättet (Catmull-Rom, 18 Stützpunkte je Span) und tastet
 auf 14 m ab. Ergebnis gegenüber der Rohgeometrie, in der der Server `f` misst: **+2,18 %**
 (Koh Pha-ngan), +2,58 % (Stockholm), +2,71 % (Oberland), +3,04 % (Völklingen).
@@ -151,6 +169,9 @@ Server und Player parametrisieren dieselbe Strecke verschieden — der Server mi
 Rohgeometrie, der Player rechnet `f × route.total` auf der geglätteten Route. Je Rohpunkt am
 selben physischen Ort gemessen, **monotone** Zuordnung (sonst schnappt eine sich kreuzende
 Route auf den falschen Vorbeigang), in Filmsekunden:
+
+*Auch hier ist „Rohgeometrie" die Fassung aus `tour.json`, also die mit 5 m vereinfachte —
+dieselbe Einschränkung wie in §4.2, gleiche Größenordnung (≤ 0,09 %).*
 
 | Tour | Filmdauer | Median | p90 | max |
 |---|---|---|---|---|
@@ -180,9 +201,33 @@ und summiert sich über zwölf Stopps auf 2–3 s. Für „gleicher Anfang, glei
 es zur Not; für ein **Taktversprechen** ist eine Näherung kein Kompromiss, sondern ein
 gebrochenes Versprechen.
 
-⇒ **Etappen 1–4 sind alle vier Pflicht.**
+⇒ **Etappen 1–4 sind alle vier Pflicht** — und sie genügen nicht ohne E10 (§5.1).
 
-### Zwei Dinge, die sonst still dagegen arbeiten
+### 5.1 Der Blocker: das Tour-JSON kann Ton IN Halten nicht ausdrücken
+
+Etappen 1–4 richten die **Uhr**. Sie ändern nichts an der **Ausdruckskraft des Formats** —
+und dort liegt der größere Fall.
+
+`enrich.ts` rechnet Film → `f` → Tour-JSON. In einer Standzeit (Foto-Halt, Moment, Ex-Pause)
+läuft der Film, aber die Strecke steht. Der Code sagt es wörtlich:
+
+> „Das passiert, wenn er ganz in einer Standzeit oder einer Ex-Pause liegt: Dort läuft der
+> Film, aber die STRECKE steht — und das Tour-JSON kennt nur Streckenanteile."
+
+Ein Musik-Klip, der ganz in einem Halt liegt, wird deshalb **verworfen** (mit
+Protokolleintrag). Schlimmer ist der Klip, der nur teilweise darin liegt: `f` ist am Halt kein
+Anker mehr, sondern ein Punkt, auf den ein ganzes Film-Intervall kollabiert. Ein Klip, der 2 s
+in einen 5,2-s-Halt hinein beginnt, setzt im Player an der Halt-Kante ein — bis zu ~5 s
+Fehler, bei 120 bpm zehn Schläge (zweieinhalb Takte).
+
+**Damit ist E5 im heutigen Format nicht ausdrückbar**, unabhängig von jeder Uhr.
+
+Die Abhilfe ist klein und **kein Schema-Bruch**: ein additives Feld je Ereignis — die
+Filmsekunde neben `f0`/`f1` (**E10**). Das steht nicht im Widerspruch zu E9: Abgelehnt wurde
+die ACHSE (redundant und groß), nicht ein Anker je Klip. Betroffen sind alle Ereignisse, die
+in einem Halt liegen können: Ton-Klips, Kamera-Keyframes, Momente.
+
+### 5.2 Zwei Dinge, die sonst still dagegen arbeiten
 
 1. **Video-Halte enden heute am DATEIENDE**, nicht an der Achse (`onMediaEnded` →
    `advancePhoto`). Weicht die echte Dateilänge um Zehntel von `dauerS` ab, verschiebt sich
@@ -256,16 +301,21 @@ bei der **Kamera-Glättung** (`Smooth.to`, `glide`, `skyLift`, `tuck`, `reposeTw
 genau die Trennlinie, die ohnehin durch den Code geht: Inhaltliches hängt an der Position,
 Ästhetisches an `dt`.
 
-`visibilitychange` gehört dazu, nicht als Zusatz: Ohne Deckel schöbe ein zurückkehrender
-Hintergrund-Tab die Filmzeit um die volle Abwesenheit vor.
+`visibilitychange` gehört dazu, nicht als Zusatz — und es ist der richtige Griff für den
+Hintergrund-Tab: Ohne ihn schöbe die Rückkehr die Filmzeit um die volle Abwesenheit vor. Ein
+Deckel auf `dtFilm` wäre dafür das falsche Werkzeug (§12, Etappe 1): Er greift entweder zu
+spät oder verliert wieder still Zeit.
 
 **Kein Audio-Masterclock.** Naheliegend wäre, die Filmzeit aus `audio.currentTime` zu nehmen.
 Geht nicht: Musik liegt in **Bereichen** `[f0,f1)`, mehrere dürfen sich überlappen, dazwischen
 ist Stille. Es gibt keine durchgehende Tonspur. Läuft die Filmuhr in Echtzeit, ist es auch
 nicht nötig — beide Uhren sind dann dieselbe.
 
-**B. Die Position folgt der Filmzeit (E2).** Im Kern **eine Zeile** — der Integrator in
-[tour.ts](../../src/tour.ts) wird `s = anteilBei(kurve, filmS) · total`; der Studio-Abspieler
+**B. Die Position folgt der Filmzeit (E2).** Der Integrator in
+[tour.ts](../../src/tour.ts) wird `s = anteilBei(kurve, filmS) · total`. Das ist **eine Zeile
+im Kern und mehr drumherum**: Am Integrator hängen der Bremsweg-Vorgriff, `nextIdx`/
+`nextMomentIdx`, die Ausroll-Schwelle `speed < 4`, die Finale-Schwelle und `dir`. Der Plan
+(§12, Etappe 4) zählt sie auf — die Formulierung „eine Zeile" setzte die Erwartung falsch; der Studio-Abspieler
 betreibt dieses Modell schon ([abspielen.ts](../../src/studio/abspielen.ts), `tick()`).
 Anfahren und Ausrollen sind danach keine emergente Eigenschaft einer Differentialgleichung
 mehr, sondern eine **Form in der Kurve** — es gibt kein zweites Modell zum Nachbilden.
@@ -278,21 +328,50 @@ als Position + Breite) → Stützstellenkurve + Halt-Intervalle + Interpolation 
 Richtungen*. `interpoliere` ist zwischen Studio und Server heute schon **byte-identisch**,
 `webeHalte` unterscheidet sich in zwei Zeilen.
 
-**Die x-Achse wird die Strecke, nicht die Aufnahmezeit.** Im Studio ist der Zeitstempel reiner
-Schlüssel — die abhängige Größe entsteht rein geometrisch. Über der Strecke wird die Abbildung
-außerdem **eindeutig umkehrbar**: In der Zeitachse ist eine reale Pause ein Plateau
-(Umkehrung mehrdeutig, per Konvention „Ankunft"), über der Strecke ist sie ein Punkt.
+**Ob die x-Achse von der Aufnahmezeit auf die Strecke wechselt, ist OFFEN (§2).** Der
+ursprüngliche Grund — „über der Strecke eindeutig umkehrbar" — trägt nur halb: Eindeutig wird
+die Richtung Film → Position, genau was E2 braucht. In der Gegenrichtung wandert die
+Mehrdeutigkeit bloß: Über der Zeit sind reale Pausen die Plateaus, über der Strecke sind es
+die HALTE (zu einem Streckenwert gehört dann ein Film-Intervall, §5.1). Die
+lower_bound-Konvention „Plateau → Ankunft" braucht man in beiden Fällen weiter.
+
+Dagegen steht, dass `zeitleiste.ts` durchgehend in Aufnahmezeit rechnet, `projiziereAufReihe`
+im Server ebenso, und das Austauschformat trim-stabile Anker ausdrücklich begründet. **Teilen
+ist das Ziel; Umparametrisieren wäre ein zweites Risiko im selben Schritt.** Diese Etappe ist
+im Plan die kürzest beschriebene und vermutlich die teuerste.
 
 Das Modul gehört nach `src/`, neben `geo.ts` und `audiotracks.ts` — nicht nach `src/studio/`.
 Ein Import Player→Studio zöge die Editor-Typenwelt in den Player-Chunk und drehte die bisher
 saubere Abhängigkeitsrichtung um.
 
-**D. `f` über die Wegpunkte (E4).** Der Player baut seine Route aus **denselben Wegpunkten**,
-die der Server geschickt hat — er kann für jeden beides ausrechnen: die kumulierte Rohdistanz
-(= `f` des Servers) und sein `s` auf der gebauten Route. In `buildRoute` ist das billig:
-Wegpunkt `i` entspricht exakt `dense[i · SEGS]`. Es fehlt nur, den Wegstand mitzuschreiben —
-fünf Zeilen und ein Feld `wegpunktS` in `Route`. Räumt §4.3 weg und behebt denselben Fehler
-bei Kamera-Keyframes, Momenten und Wetter-Ankern mit.
+**D. `f` über die Wegpunkte (E4).** Statt `f × route.total` eine Tabelle: je Wegpunkt sein
+`f` und sein `s` auf der gebauten Route. In `buildRoute` ist die eine Hälfte billig — Wegpunkt
+`i` entspricht `dense[i · SEGS]` (für `waypoints[0…n-2]`; der letzte kommt nach der Schleife
+aus `dense.push`), es fehlt nur, den Wegstand mitzuschreiben.
+
+**Die andere Hälfte kann der Player NICHT selbst.** Eine frühere Fassung dieses Abschnitts
+behauptete, er baue seine Route „aus denselben Wegpunkten, die der Server geschickt hat", und
+könne die Rohdistanz nachrechnen. Das stimmt für aufgezeichnete Touren nicht:
+`enrich.ts` liefert `vereinfacheSegment(seg.pts)` aus (Douglas-Peucker, 5 m), während `f` als
+`dist / gesamtM` auf der **rohen** Zeitreihe gemessen wird (`zeit.ts`, `positionZurZeit`). Die
+weggeworfenen Punkte tragen Länge, die clientseitig nicht rekonstruierbar ist.
+
+Gemessen ist der Unterschied auf den vier lokalen Touren **klein** — 0,00–0,09 % Längenverlust
+(Koh Pha-ngan 0,02 %, Stockholm 0,09 %), also weit unter der Catmull-Rom-Aufblähung von
++2,2–3,0 %, die den Routenanteil dominiert. Zwei Gründe, es trotzdem zu lösen: Für ein
+Taktversprechen zählt nicht „klein", sondern „exakt" — und diese vier sind dünn abgetastete
+Demo-Tracks (30-s-Raster). Eine 1-Hz-Aufzeichnung verliert bei 5 m Toleranz mehr; ungemessen.
+
+**Also eine Richtungsentscheidung, nicht fünf Zeilen** — getroffen als **E11**: Der Server
+schickt je ausgeliefertem Wegpunkt sein `f` mit (additiv, billig, natürliche Ergänzung zu
+E10). Die Alternative — `f` künftig auf der vereinfachten Geometrie messen — hätte jeden
+Bestands-Render verändert.
+
+Räumt §4.3 weg und behebt denselben Fehler bei Kamera-Keyframes, Momenten und Wetter-Ankern
+mit — **je Tour aber erst nach ihrem nächsten Render.** Bis dahin fehlt das Feld, der Player
+fällt auf `f × route.total` zurück und behält den Fehler aus §4.3. Das ist harmlos (der
+Rückfall IST das heutige Verhalten, nicht ein falsches) — anders als bei E10, wo ein Feld aus
+dem alten Achsen-Modell aktiv in die Irre führte.
 
 **E. Die Fortschrittsleiste wird filmlinear.** Folgt aus B. Und sie ist unabhängig davon
 fällig: Bei jedem Foto-Halt steht `tour.s` still, also stehen Balken, Playhead und
@@ -394,56 +473,119 @@ hergeben**, sonst ist ein Frame schmaler als ein Pixel.
 
 ## 12. Umsetzungsplan
 
-Kein Schema-Bruch in keiner Etappe — das Austauschformat bleibt unverändert.
+**Eine Nummerierung, nicht zwei:** Die Schritte heißen wie ihre Etappe; was keine Etappe ist,
+trägt seinen Namen. (Vorher standen „Punkt 3" und „Etappe 2" nebeneinander — eine
+Verwechslungsquelle in Commit-Nachrichten.)
 
-**0. Nachsehen, was seit v0.60.4 live ist.** Der Video-Ton im Studio und der neue Player-Pegel
-sind ausgeliefert, aber nie gehört. Braucht eine Tour mit Video.
+**Kein Schema-BRUCH, aber das Format wächst.** Zwei Etappen legen Felder dazu (Etappe 2:
+`f` je ausgeliefertem Wegpunkt; Etappe 4b: Filmsekunde je Ereignis). Beides ist additiv,
+`maptale/tour@1` bleibt, Bestandsdaten laufen weiter — aber **[austauschformat.md](../specs/austauschformat.md)
+zieht mit**. Dort steht heute die Regel „Streckenpositionen als Bruchteil `f` (0..1), nie
+Meter"; E10 ist die erste begründete Ausnahme davon und gehört dort erklärt, nicht nur hier.
 
-**1. Gruppe C, die drei kleinen Reparaturen** (§6C): Seitenverhältnis, Ken-Burns-Sekunde, rohe
-`5.2` (samt `export` in `tour.ts`). Heute Fehler, unabhängig von jedem Umbau, **nichts davon
-wird später weggeworfen**. Je ein kleiner Wächter dazu. Ein Nachmittag.
+**Schritt 0 — Nachsehen, was seit v0.60.4 live ist.** Der Video-Ton im Studio und der neue
+Player-Pegel sind ausgeliefert, aber nie gehört. Braucht eine Tour mit Video.
 
-**2. Etappe 1 — Eine Uhr.** `tick()` trennt `dtKamera` (weiter bei 50 ms gedeckelt) von
-`dtFilm` (Echtzeit, gedeckelt erst bei ~0,25 s als Hänger-Schutz); `s`-Integration und alle
-Zeitzähler (`holdT`, `momentT`) laufen auf `dtFilm`; `visibilitychange` pausiert. Test ohne
-Browser: 10 s Echtzeit mit 200-ms-Frames müssen 10 s Filmzeit ergeben, nicht 2,5 s.
+**Schritt 1 — Gruppe C, die drei kleinen Reparaturen** (§6C): Seitenverhältnis,
+Ken-Burns-Sekunde, rohe `5.2` (samt `export` in `tour.ts`). Heute Fehler, unabhängig von jedem
+Umbau, **nichts davon wird später weggeworfen**. Je ein kleiner Wächter dazu. Ein Nachmittag.
+
+**Etappe 1 — Eine Uhr.** `tick()` trennt `dtKamera` von `dtFilm`; `s`-Integration und alle
+Zeitzähler (`holdT`, `momentT`) laufen auf `dtFilm`; `visibilitychange` pausiert. **Der
+`dtFilm`-Deckel gehört überdacht:** Bei 12× lag das längste Frame bei 205 ms, ein 0,25-s-Deckel
+greift dort knapp nicht — am Pixel 9 mit Kachel-Stockern liegt man darüber, und dann verliert
+die Filmuhr wieder still, genau der Fehler, den diese Etappe behebt. Der Rückkehr-aus-dem-
+Hintergrund-Fall hängt an `visibilitychange`, nicht am Deckel. Was doch verworfen wird, soll
+**zählbar** sein statt unsichtbar (Zähler auf `window.__j`). Dazu die Kamera-Teilschritte aus
+Falle 3.
+Test ohne Browser: 10 s Echtzeit mit 200-ms-Frames müssen 10 s Filmzeit ergeben, nicht 2,5 s.
 *Fertig, wenn:* Bei 6× CPU-Drosselung deckt sich `Δs ÷ Tempo` mit `Δ audio.currentTime` auf
-±2 % (heute 81,3 %) — Messskript in §16. **Eigenes Release, bewusst allein.**
+±2 % (heute 81,3 %) — **gemessen im Fenster „Phase `ride`, konstanter Modus, Tempo > 97 % des
+Ziels"**, sonst mischen Rampen und Modus-Wechsel hinein; das Messskript wählt es (§16).
+**Eigenes Release, bewusst allein.**
 
-**3. Etappe 2 — `f` über die Wegpunkte.** `buildRoute` schreibt `wegpunktS` mit; `main.ts`
-ersetzt alle `f * route.total`.
+**Etappe 2 — `f` über die Wegpunkte.** Zwei Hälften (§8D, E11): Der Server schickt je
+ausgeliefertem Wegpunkt sein `f` mit (additiv, Spec-Eintrag); `buildRoute` schreibt den
+Wegstand je Wegpunkt mit, `main.ts` ersetzt alle `f * route.total` durch die Tabelle.
 *Fertig, wenn:* Der Median-Fehler aus §4.3 fällt unter 0,05 s.
 
-**4. Etappe 3 — Die geteilte Achse.** `src/filmachse.ts` als domänenfreier Kern; das Studio
+**Etappe 3 — Die geteilte Achse.** `src/filmachse.ts` als domänenfreier Kern; das Studio
 benutzt ihn statt der eigenen Kopie; der Player rechnet seine Filmachse, **noch ohne sie
 anzutreiben**; der Server prüft gegen ein Verhaltens-Fixture statt gegen Regex.
 *Fertig, wenn:* Das Tempo-Modell steht an genau zwei Stellen und kein Test liest mehr
 Quelltext per Regex.
 
-**5. Etappe 4 — Der Antrieb dreht sich um.** **Vorbedingung:** Video-Halte an die Achse
-hängen statt an `ended` (§5). Dann: Rampen als explizite Form in die Achse; `s` aus der
-Filmzeit ableiten; Bremsweg-Vorgriff und Ausrollschwelle entfallen; Scrubben, `seek`, `nudge`,
-`mult` auf Filmsekunden.
+**Etappe 4 — Der Antrieb dreht sich um.** **Zwei Vorbedingungen:** (a) Video-Halte an die
+Achse hängen statt an `ended` (§5.2); (b) die Rückwärtsfahrt entwerfen (§2). Die
+`dir > 0`-Schranke der Stopp- und Moment-Trigger und der Bremsweg-Vorgriff sind **zwei
+verschiedene Dinge**: Die Schranke verhindert, dass Rückwärtsfahren an jedem Stopp
+hängenbleibt, der Vorgriff korrigiert nur den Anhalteort. Unter einer Achse mit
+Halt-Intervallen wird rückwärts durch einen Halt zwangsläufig wieder ein Halt — ob das
+gewollt ist, ist die offene Frage. Dann: Rampen als explizite Form in die
+Achse; `s` aus der Filmzeit ableiten; Bremsweg-Vorgriff und Ausrollschwelle entfallen;
+Scrubben, `seek`, `nudge`, `mult` und `dir` auf Filmsekunden.
 *Fertig, wenn:* Die Gesamtdauer eines Durchlaufs deckt sich mit `spiel.gesamtS` im Studio auf
 < 1 % (heute 9–13 %), an allen vier Fixtur-Touren.
 
-**6. Etappe 5 — Die Leiste.** Filmäquidistantes Höhenprofil, Halte mit Breite, `Telemetrie`
+**Etappe 4b — Ereignisse nach Filmzeit auslösen (E10).**
+
+**Die Substanz ist die Auslöse-Logik, die JSON-Felder sind nur ihr Transport.** Solange
+[audiotracks.ts](../../src/audiotracks.ts) in `frac` rechnet, ändert ein Feld daneben gar
+nichts: `istAktiv` prüft `f0 <= frac && frac < f1`, und ein Klip, der ganz in einem Halt
+liegt, hat `f0 === f1` — er bliebe stumm, welche Filmsekunde auch immer im JSON steht.
+Deshalb gehören beide Teile in **dieselbe** Etappe:
+
+1. `istAktiv` und `sfxSollFeuern` rechnen in **Filmsekunden** statt in `frac`. Beide sind
+   **mit dem Studio geteilt** ([abspielen.ts](../../src/studio/abspielen.ts) importiert sie) —
+   die Umstellung ändert Player und Editor in einem Zug, was hier erwünscht ist. Die
+   0,02-Schwelle der SFX-Kante bekommt dabei ihre Entsprechung in Sekunden (Falle 2).
+2. Additive Filmsekunde je Ereignis neben `f0`/`f1`, für Ton-Klips, Kamera-Keyframes und
+   Momente; der Player nimmt sie, wenn sie da ist, sonst `f` wie bisher. Spec-Eintrag nicht
+   vergessen (s. o.).
+3. `enrich.ts` verwirft keine Klips mehr mit „liegt ganz in einer Standzeit".
+
+> **Warum NACH Etappe 4 und nicht vorher.** Eine Filmsekunde ist keine absolute Größe — sie
+> bedeutet, was die Achse sagt. Die Server-Achse kennt heute keine Rampen
+> ([filmachse.ts](../../server/src/pipeline/filmachse.ts) summiert nur `meter / tempoMs` plus
+> Halte); Etappe 4 legt sie hinein, und die Filmdauer wächst dadurch um 9–13 % (§14).
+> „Filmsekunde 120,0" heißt vorher und nachher also etwas anderes, kumulativ über die Tour.
+> Stünde Etappe 4b davor, trügen alle bis dahin gerenderten Touren still veraltete Anker —
+> nichts sähe kaputt aus, es klänge nur falsch. Wer sie doch vorziehen will, muss einen
+> **Re-Render-Lauf als Teil von Etappe 4** einplanen (das Repo kennt das Muster: „Bestands-
+> touren brauchen Re-Render"). Der billigere Weg ist, die Reihenfolge zu respektieren.
+
+*Fertig, wenn:* Ein Musik-Klip, der 2 s in einen 5,2-s-Halt hinein beginnt, setzt im Player
+dort ein und nicht an der Halt-Kante — und keiner wird mehr mit „liegt ganz in einer
+Standzeit" verworfen.
+
+**Etappe 5 — Die Leiste.** Filmäquidistantes Höhenprofil, Halte mit Breite, `Telemetrie`
 bekommt `frac` **und** `filmFrac`, `fracAt` liefert einen Filmanteil.
 *Fertig, wenn:* Der Playhead läuft durch einen Foto-Halt sichtbar durch, und die
 Sonnenstand-/Wetter-Regie zeigt unverändert dieselben Werte an denselben Streckenpunkten.
 
-**7. Feinplatzierung** (§11). **Nach** den Zeit-Etappen: Vorher stellte man Werte ein, die der
-Player nicht einhält.
+**Danach — Feinplatzierung** (§11). Nach den Zeit-Etappen: Vorher stellte man Werte ein, die
+der Player nicht einhält.
 
-**8. Tag/Nacht im Editor** (§10), danach das Wetter mit Schalter. Unabhängig vom Rest, kann
-dazwischen.
+**Jederzeit dazwischen — Tag/Nacht im Editor** (§10), danach das Wetter mit Schalter. Und die
+**Szene-Schicht** (§9): kleiner, sofort sichtbar, unabhängig.
 
-**9. Szene-Schicht** (§9). Kleiner, sofort sichtbar, unabhängig; jederzeit dazwischen.
+**Ausdrücklich nicht:** die Filmachse ins Tour-JSON exportieren (E9). Die Begründung dafür
+verschiebt sich mit dem Plan und sollte richtig dastehen:
 
-**Ausdrücklich nicht:** die Filmachse ins Tour-JSON exportieren (E9) — sie löst das Problem
-nicht, ihr Informationsgehalt ist bis auf `stats.km` redundant (das der Player heute schon
-bekommt und ignoriert), und roh wäre sie +17,8 % auf das größte `tour.json` bzw. ~450 kB bei
-einer Ganztagestour. Und: die Rampen im Studio nachbilden (§5).
+- **Sie wird redundant, weil beide Seiten dieselbe Achse aus denselben Eingaben rechnen** —
+  geteilte `filmachse.ts` (Etappe 3), Wegpunkt-`f` (E11), dieselben Modi und Halte. Nicht
+  mehr, wie früher formuliert, „weil der Player ohnehin woanders ankommt": Nach Etappe 4
+  kommt er genau dort an, das ist E2.
+- **E10 deckt die eine Stelle ab, an der die Abbildung nicht umkehrbar ist** — den Halt. Ein
+  bis zwei Zahlen je Ereignis statt einer ganzen Kurve.
+- **Und sie ist teuer:** roh +17,8 % auf das größte `tour.json`, ~450 kB bei einer
+  Ganztagestour.
+
+Das heißt zugleich: **E9 trägt erst, wenn Etappen 2–4 stehen** — vorher rechnen die beiden
+Achsen nicht dasselbe. Mit dem Vorbehalt aus Falle 4: Spät bekannte Videolängen können sie
+wieder auseinanderziehen.
+
+Ebenfalls nicht: die Rampen im Studio nachbilden (§5).
 
 ---
 
@@ -453,15 +595,24 @@ einer Ganztagestour. Und: die Rampen im Studio nachbilden (§5).
    Wetter und `next.km`; Filmanteil für Balken, Playhead, Profil-x und Dot-x. Das
    Zeitleisten-Papier führt „zwei Film-Koordinatensysteme in einer Geste" als Falle und nennt
    es *immer* einen Bug. Zwei getrennte Feldnamen, keine Doppelbedeutung.
-2. **`sfxSollFeuern` prüft eine Kante mit Schwelle 0,02 in `frac`.** Über einem Halt-Plateau
-   bewegt sich `frac` nicht, ein Sprung darüber hinweg schon. Muss auf Filmsekunden umgestellt
-   werden — und sie ist **geteilt mit dem Studio**, also ändern sich beide Seiten zugleich.
-3. **Die dt-Trennung ist keine Kosmetik.** Wird `dtFilm` versehentlich in `Smooth.to`
-   gereicht, ruckelt die Kamera bei jedem langen Frame sichtbar.
-4. **Die Achse hängt an Werten, die erst spät bekannt sind.** Videolängen kommen bei Altbestand
-   erst mit `loadedmetadata`. Dann braucht es einen zweiten Aufbau, und der Balken springt
-   einmal nach. Fehlt `durationS` ganz, nimmt das Studio 5,2 s an — der Player muss dieselbe
-   Annahme treffen.
+2. **`istAktiv` und `sfxSollFeuern` rechnen in `frac` — beide gehören in Etappe 4b**, nicht
+   erst zur Leiste. Über einem Halt-Plateau bewegt sich `frac` nicht, ein Sprung darüber
+   hinweg schon; und ein Klip ganz im Halt hat `f0 === f1` und ist damit nie aktiv. Beide sind
+   **geteilt mit dem Studio**, also ändern sich beide Bühnen zugleich. (Falle 1 betrifft
+   dagegen die ANZEIGE — das ist Etappe 5 und eine andere Baustelle.)
+3. **Die dt-Trennung hat ZWEI Richtungen, und die zweite ist die schlimmere.** Wird `dtFilm`
+   versehentlich in `Smooth.to` gereicht, ruckelt die Kamera bei jedem langen Frame sichtbar.
+   Bleibt umgekehrt `dtKamera` bei 50 ms gedeckelt, während `dtFilm` frei läuft, integrieren
+   **alle** Glättungsfilter bei 12× Drosselung nur ~65 % der vergangenen Zeit (§4.1: 35 %
+   verworfen) — die Kamera ruckelt dann nicht, sie **hängt dauerhaft hinterher**, der
+   Blickpunkt schleppt sich hinter dem Fahrer her. Es braucht eine Regel für lange Frames:
+   mehrere 50-ms-Teilschritte pro Frame, oder die Filter bei großem Sprung schnappen lassen.
+4. **Die Achse hängt an Werten, die erst spät bekannt sind — und unter E2 springt dann `s`,
+   nicht nur der Balken.** Videolängen kommen bei Altbestand erst mit `loadedmetadata`; ein
+   Achsen-Neubau mitten in der Fahrt verschiebt die Abbildung Filmzeit → Position, und die
+   Kamera setzt um. Entweder `dauerS` beim Import nachziehen (Migration) oder die Achse für
+   die laufende Fahrt einfrieren. Fehlt `durationS` ganz, nimmt das Studio 5,2 s an — der
+   Player muss dieselbe Annahme treffen.
 5. ~~**Momente kosten im Studio Achsenbreite, in der Server-Achse nicht.**~~ **ERLEDIGT mit
    v0.60.5** (`baueMomentHalte` in `filmachse.ts`). War Vorbedingung für Etappe 3.
 
