@@ -91,6 +91,7 @@ import {
   rasteAnHalt,
   schrittFilmS,
   uhrDiffZuOffset,
+  videoStandS,
   zeitBeiFilm,
   type Achse,
   type AchsenHalt,
@@ -6142,6 +6143,10 @@ function zeigeFoto(id: string): void {
   eingeblendet = id
   blinke(mitMedienId('.halt-klip', id), 'puls', 700)
   blinke(mitMedienId('.medien-punkt', id), 'puls', 1400)
+  // Der Blitz gehört zum Auftritt und damit dem Kopf: Die Klasse steht,
+  // solange die Karte liegt, der Fortschritt kommt aus `--fe-zeit`. Als
+  // Timer-Effekt (`blinke`) feuerte er bei jedem Überfahren neu.
+  document.getElementById('foto-flash')?.classList.add('blitz')
 
   const karteEl = $('foto-einblendung')
   const rahmen = document.createElement('div')
@@ -6155,9 +6160,14 @@ function zeigeFoto(id: string): void {
     // Kein `autoplay`, kein `loop`: Was zu sehen ist, hängt an der Kopfposition
     // (`synchronisiereFoto`) — ein Video, das nach eigener Uhr läuft, zeigte
     // beim Scrubben irgendeinen Frame und beim Stillstand den nächsten.
-    // Die Datei ist der ungeschnittene Master; der linke Trim ist der Nullpunkt
+    // Die Datei ist der ungeschnittene Master; der Trim sind die Nullpunkte
     // des Ausschnitts (der Schnitt selbst entsteht erst in der Pipeline).
-    video.dataset['vonS'] = String(klemmeVideoTrim(m.trim, m.dauerS ?? 0)?.vonS ?? 0)
+    // Das rechte Ende gehört dazu: Ohne es liefe die Wiedergabe über den
+    // Schnitt hinaus und in der Ausblendung des Halts gegen das Dateiende.
+    const schnitt = klemmeVideoTrim(m.trim, m.dauerS ?? 0)
+    video.dataset['vonS'] = String(schnitt?.vonS ?? 0)
+    const endeS = schnitt?.bisS ?? m.dauerS
+    if (endeS) video.dataset['bisS'] = String(endeS)
     rahmen.appendChild(video)
   } else {
     const bild = document.createElement('img')
@@ -6199,7 +6209,6 @@ function zeigeFoto(id: string): void {
   karteEl.classList.toggle('ruhig', m.display?.kenBurns === false)
   karteEl.classList.add('an')
   document.querySelector('.karten-buehne')?.classList.add('foto-an')
-  blinke($('foto-flash'), 'blitz', 750)
 }
 
 /**
@@ -6255,26 +6264,44 @@ function synchronisiereFoto(): void {
 function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
   const karteEl = document.getElementById('foto-einblendung')
   if (!karteEl) return
+  // Die Zeiten stehen auf der BÜHNE, nicht auf der Karte: Der Kamerablitz ist
+  // ihr Geschwister und erbt sie von dort — auf der Karte gesetzt käme er nie
+  // an sie heran.
+  const buehne = document.querySelector<HTMLElement>('.karten-buehne') ?? karteEl
+  const klipS = Math.max(0.1, dauerS)
   const zeit = `-${imS.toFixed(3)}s`
-  const dauer = `${Math.max(0.1, dauerS).toFixed(3)}s`
+  const dauer = `${klipS.toFixed(3)}s`
+  // Der Abgang liegt in den letzten `HALT_AUSBLEND_S` des Klips — genau die
+  // Spanne, um die der Klip länger ist als die Standzeit. Vor seinem Beginn ist
+  // der Wert positiv und damit eine Verzögerung: die Animation steht noch aus.
+  const ausDauerS = Math.min(HALT_AUSBLEND_S, klipS)
+  const ausZeit = `${(klipS - ausDauerS - imS).toFixed(3)}s`
   // Nur bei Änderung schreiben — die Funktion läuft in jedem Kopf-Frame.
-  if (karteEl.dataset['feStand'] !== `${zeit}|${dauer}`) {
-    karteEl.dataset['feStand'] = `${zeit}|${dauer}`
-    karteEl.style.setProperty('--fe-zeit', zeit)
-    karteEl.style.setProperty('--fe-kb-dauer', dauer)
+  if (buehne.dataset['feStand'] !== `${zeit}|${dauer}`) {
+    buehne.dataset['feStand'] = `${zeit}|${dauer}`
+    buehne.style.setProperty('--fe-zeit', zeit)
+    buehne.style.setProperty('--fe-kb-dauer', dauer)
+    buehne.style.setProperty('--fe-aus-zeit', ausZeit)
+    buehne.style.setProperty('--fe-aus-dauer', `${ausDauerS.toFixed(3)}s`)
   }
 
   const video = karteEl.querySelector('video')
   if (!video) return
-  const ziel = Number(video.dataset['vonS'] ?? 0) + imS
-  if (tempo === 1) {
+  const vonS = Number(video.dataset['vonS'] ?? 0)
+  // Das Ende kommt aus dem Schnitt bzw. der Server-Länge — und zusätzlich aus
+  // der Datei selbst, sobald sie ihre Dauer kennt: Fehlt `dauerS` (Altbestand),
+  // ist der Klip die Foto-Standzeit lang und damit meist länger als das Video.
+  const dateiEndeS = video.duration > 0 && Number.isFinite(video.duration) ? video.duration : Infinity
+  const endeS = Math.min(Number(video.dataset['bisS'] ?? 0) || Infinity, dateiEndeS)
+  const { zielS, ausgelaufen } = videoStandS(vonS, endeS, imS)
+  if (tempo === 1 && !ausgelaufen) {
     // Im Lauf trägt das Video seine eigene Uhr; nachgezogen wird erst, wenn es
     // merklich auseinanderläuft — ein Seek pro Frame ruckelte sichtbar.
-    if (Math.abs(video.currentTime - ziel) > 0.34) setzeVideoZeit(video, ziel)
+    if (Math.abs(video.currentTime - zielS) > 0.34) setzeVideoZeit(video, zielS)
     if (video.paused) void video.play().catch(() => {})
   } else {
     if (!video.paused) video.pause()
-    if (Math.abs(video.currentTime - ziel) > 0.04) setzeVideoZeit(video, ziel)
+    if (Math.abs(video.currentTime - zielS) > 0.04) setzeVideoZeit(video, zielS)
   }
 }
 
@@ -6290,6 +6317,7 @@ function verbergeFoto(): void {
   eingeblendet = null
   const karteEl = document.getElementById('foto-einblendung')
   karteEl?.classList.remove('an')
+  document.getElementById('foto-flash')?.classList.remove('blitz')
   document.querySelector('.karten-buehne')?.classList.remove('foto-an')
   // Ein laufendes Video würde sonst unsichtbar weiterspielen
   karteEl?.querySelector('video')?.pause()

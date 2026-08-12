@@ -90,6 +90,7 @@ import {
   schrittFilmS,
   waehleFilmStufe,
   videoFilmS,
+  videoStandS,
   VIDEO_TRIM_MIN_S,
 } from '../src/studio/zeitleiste'
 
@@ -1465,6 +1466,32 @@ describe('klemmeVideoTrim (Drift-Wächter gegen video.ts)', () => {
 
   it('lässt einen Foto-Halt unberührt — dort gibt es nichts zu schneiden', () => {
     expect(aufnahmeHaltS({ type: 'photo', trim: { vonS: 2, bisS: 3 } })).toBe(HALT_ENGINE_S)
+  })
+})
+
+describe('videoStandS: der Klip ist länger als das Material', () => {
+  it('klemmt am Materialende statt über die Dauer hinaus zu zielen', () => {
+    // Mitten im Video: unverändert die Kopfposition
+    expect(videoStandS(0, 34, 12).zielS).toBeCloseTo(12, 6)
+    expect(videoStandS(0, 34, 12).ausgelaufen).toBe(false)
+    // In der Ausblendung (Klip = 34 + HALT_AUSBLEND_S): das Material ist zu Ende
+    const inDerAusblendung = videoStandS(0, 34, 34 + HALT_AUSBLEND_S)
+    expect(inDerAusblendung.zielS).toBeLessThan(34)
+    expect(inDerAusblendung.zielS).toBeCloseTo(33.96, 6)
+    expect(inDerAusblendung.ausgelaufen).toBe(true)
+  })
+
+  it('rechnet den Schnitt mit: das Ende ist bisS, nicht das Dateiende', () => {
+    // Ausschnitt 6–20 s einer 34-s-Datei → der Klip ist 14 s lang
+    expect(videoStandS(6, 20, 0).zielS).toBeCloseTo(6, 6)
+    expect(videoStandS(6, 20, 13).zielS).toBeCloseTo(19, 6)
+    expect(videoStandS(6, 20, 14).ausgelaufen).toBe(true)
+    expect(videoStandS(6, 20, 14).zielS).toBeCloseTo(19.96, 6)
+  })
+
+  it('bleibt im Material, wenn der Klip kürzer ist als das Video', () => {
+    // Ohne bekannte `dauerS` ist der Klip die Foto-Standzeit lang
+    expect(videoStandS(0, 34, HALT_ENGINE_S).ausgelaufen).toBe(false)
   })
 })
 

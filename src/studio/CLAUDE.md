@@ -666,9 +666,28 @@ irgendeinen Frame statt des gemeinten. Jetzt stehen beide Animationen dauerhaft 
 mit dem Kunstgriff, mit dem man ein Standbild aus einer Animation zieht. Die Drift-Dauer ist
 die Klip-Dauer (`--fe-kb-dauer`, wie `--kb-dauer` im Player): fest gesetzte 6 s wären an einem
 20-s-Halt nach einem Viertel fertig. Das Video wird auf `trim.vonS + imS` gesetzt und läuft nur
-bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtbar); der linke
-Trim steht im `dataset` des Elements, weil die ausgelieferte Datei der ungeschnittene Master
-ist und der Schnitt erst in der Pipeline entsteht.
+bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtbar); **beide
+Trim-Kanten** stehen im `dataset` des Elements, weil die ausgelieferte Datei der ungeschnittene
+Master ist und der Schnitt erst in der Pipeline entsteht.
+
+**Der Klip ist um die Ausblendung LÄNGER als das Material** (`aufnahmeHaltS(m) +
+HALT_AUSBLEND_S`) — deshalb klemmt `videoStandS` das Ziel auf einen Frame vor dem Ende
+(Schnitt-`bisS`, sonst `video.duration`). Ohne die Klemme lief `vonS + imS` darüber hinaus:
+Der Browser klemmt `currentTime` still, die Abweichung bleibt dadurch dauerhaft über der
+0,34-s-Schwelle, und die Wiedergabe seekte in JEDEM Frame ans Ende — das sichtbare Zittern am
+Klip-Ende. Gemessen an einer 6-s-Datei: Ziel 6,80 s → `currentTime` 6,00 s, Abweichung 0,80 s.
+
+**Auch Auftritt und Abgang der Karte hängen am Kopf** — sie waren bis zuletzt eine
+`transition` (opacity 500 ms, transform 950 ms), und eine Transition hat keine ansteuerbare
+Zeitachse: Sie startet beim Klassenwechsel und läuft nach Wanduhr, beim Scrubben sprang die
+Karte deshalb sofort auf ihren Zielzustand. Jetzt sind es drei pausierte Animationen mit
+negativem Delay (`feEinBlende`/`feEinFlug` an `--fe-zeit`, `feAbgang` an `--fe-aus-zeit`, das
+in den letzten `HALT_AUSBLEND_S` des Klips negativ wird). Drei Dinge tragen das: Der Abgang
+steht **zuletzt** in der Liste (bei gleicher Property gewinnt die letzte laufende) und trägt
+`forwards` statt `both` — mit `both` läge sein Anfangsbild schon vor seinem Beginn über dem
+Auftritt; die Zeitvariablen stehen auf der **Bühne** (`.karten-buehne`) und nicht auf der
+Karte, weil der Kamerablitz ihr Geschwister ist und sie von dort erbt; und der Blitz ist
+deshalb keine Timer-Klasse (`blinke`) mehr, sondern steht, solange die Karte liegt.
 
 **Dieselbe Regel gilt für die Kartenmitte.** `folgeKarte()` hängt ebenfalls an
 `renderPlayhead`, nicht am Abspieler. Vorher stand der Aufruf allein in `setzeMarkeAnteil` —

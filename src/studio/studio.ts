@@ -174,6 +174,9 @@ function setzeGastPfad(): void {
 }
 
 function zeige(angemeldet: boolean): void {
+  // Ab hier bestimmt JS, welche Ansicht steht — der Boot-Vorgriff darf
+  // `hidden` nicht länger übersteuern (s. html.studio-gesteuert in studio.html).
+  document.documentElement.classList.add('studio-gesteuert')
   els.loginView.hidden = angemeldet
   els.appView.hidden = !angemeldet
   els.benutzerChip.hidden = !angemeldet
