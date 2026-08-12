@@ -12,6 +12,7 @@
 // server/test/filmtempo.test.ts vergleicht sie mit deren Quelltext — dieselbe
 // Absicherung wie im Studio (src/studio/zeitleiste.ts).
 
+import type { MomentArt } from '../schema/edits.js'
 import type { Modus } from '../schema/upload.js'
 
 /** Streckenfortschritt bei 1× (m/s) — src/tour.ts `baseSpeed`. */
@@ -33,6 +34,9 @@ export const HALT_ENGINE_S = 5.2
 export const HALT_AUSBLEND_S = 0.8
 /** `NAHE_M` in src/geo.ts: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
 export const NAHE_M = 120
+
+/** `MOMENT_DEFAULT_S` in src/tour.ts: Filmzeit eines Kamera-Moments ohne eigene Angabe. */
+export const MOMENT_DEFAULT_S: Record<MomentArt, number> = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
 
 /** Meter, die der Film in dieser Fortbewegung je Sekunde zurücklegt. */
 export function tempoMs(mode: Modus): number {
@@ -60,4 +64,17 @@ export function filmsekunden(meter: number, mode: Modus): number {
 export function aufnahmeHaltS(m: { type: 'photo' | 'video'; dauerS?: number; display?: { holdS?: number } }): number {
   if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
   return m.display?.holdS ?? HALT_ENGINE_S
+}
+
+/**
+ * Filmzeit, die EIN Kamera-Moment kostet — OHNE Ausblendung.
+ *
+ * Anders als am Foto-Halt: Die Engine (src/tour.ts, Phase `moment`) geht nach
+ * `momentDauer` unmittelbar zurück auf `ride`, es gibt kein `HOLD_AUSBLEND`-
+ * Nachspiel. Spiegel von `momentDauerS` in src/studio/editor.ts; wer hier die
+ * Ausblendung addiert, macht jeden Moment im Render um 0,8 s breiter als in der
+ * Zeitleiste — und schiebt damit genau die Ton-Klips, um die es geht.
+ */
+export function momentHaltS(m: { art: MomentArt; dauerS?: number | undefined }): number {
+  return m.dauerS ?? MOMENT_DEFAULT_S[m.art]
 }

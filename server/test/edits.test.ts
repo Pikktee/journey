@@ -646,6 +646,55 @@ describe('reichereAn: Ton am Film-Anker', () => {
     )
   })
 
+  it('ein Kamera-Moment kostet Filmzeit — ein Klip dahinter rückt mit', async () => {
+    // Ein Moment hält den Film an (src/tour.ts, Phase `moment`) und kostet im
+    // Studio Achsenbreite. Fehlte er in der Server-Achse, löste der Render
+    // einen Versatz, der ÜBER den Moment reicht, gegen eine zu kurze Achse auf:
+    // Editor und fertiger Film zeigten den Klip an verschiedenen Stellen.
+    const spur = {
+      datei: 'musik.mp3' as const,
+      typ: 'musik' as const,
+      ab: iso(0),
+      anker: iso(0),
+      versatzFilmS: 20,
+      dauerFilmS: 4,
+    }
+    const moment = { ab: iso(150), art: 'umkreisen' as const } // 6 Filmsekunden
+    const ohne = await rendere({ schema: 'maptale/edits@1', audio: [spur] })
+    const mit = await rendere({ schema: 'maptale/edits@1', momente: [moment], audio: [spur] })
+    // Sechs der zwanzig Filmsekunden vergehen jetzt im Moment — der Klip setzt
+    // entsprechend früher auf der STRECKE ein.
+    expect(mit.audio?.[0]?.f0).toBeLessThan(ohne.audio?.[0]?.f0 ?? 1)
+    // Und zwar genau um die Momentdauer: derselbe Punkt wie ohne Moment bei
+    // 20 − 6 Filmsekunden Versatz.
+    const gekuerzt = await rendere({
+      schema: 'maptale/edits@1',
+      audio: [{ ...spur, versatzFilmS: 20 - 6 }],
+    })
+    expect(mit.audio?.[0]?.f0).toBeCloseTo(gekuerzt.audio?.[0]?.f0 ?? -1, 9)
+  })
+
+  it('ein Moment hinter dem Track-Ende verlängert die Achse nicht', async () => {
+    // Verworfen wird er ohnehin (er steht nicht in `moments`) — er darf dann
+    // auch die Ton-Verankerung nicht anfassen.
+    const spur = {
+      datei: 'musik.mp3' as const,
+      typ: 'musik' as const,
+      ab: iso(0),
+      anker: iso(0),
+      versatzFilmS: 20,
+      dauerFilmS: 4,
+    }
+    const ohne = await rendere({ schema: 'maptale/edits@1', audio: [spur] })
+    const dahinter = await rendere({
+      schema: 'maptale/edits@1',
+      momente: [{ ab: iso(3600), art: 'umkreisen' }],
+      audio: [spur],
+    })
+    expect(dahinter.moments).toBeUndefined()
+    expect(dahinter.audio?.[0]?.f0).toBeCloseTo(ohne.audio?.[0]?.f0 ?? -1, 9)
+  })
+
   it('dauerFilmS schlägt „bis" — und gibt auch einem Effekt eine Länge', async () => {
     const tour = await rendere({
       schema: 'maptale/edits@1',

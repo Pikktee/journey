@@ -9,7 +9,15 @@ import { STUDIO_PEGEL, type EditOverlay } from '../schema/edits.js'
 import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
-import { baueAchsenHalte, baueFilmAchse, filmBeiZeit, projiziereAufReihe, zeitBeiFilm } from './filmachse.js'
+import {
+  type AchsenHalt,
+  baueAchsenHalte,
+  baueFilmAchse,
+  baueMomentHalte,
+  filmBeiZeit,
+  projiziereAufReihe,
+  zeitBeiFilm,
+} from './filmachse.js'
 import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
 import { baueSignatur } from './signatur.js'
 import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
@@ -347,22 +355,27 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Kamera-Momente: Punkt-Ereignisse. Wie Kamera-Grenzen an f verankert; ein
   // Moment hinter dem (getrimmten) Track-Ende ergibt keinen Sinn → verwerfen.
   let moments: TourJson['moments']
+  // Dieselben Momente in AUFNAHMEZEIT — sie sind Halte der Film-Achse (s.u.)
+  // und müssen genau die gefilterte Liste sein: Ein hinter dem Track-Ende
+  // verworfener Moment darf die Achse nicht verlängern.
+  let momentHalte: AchsenHalt[] = []
   if (edits?.momente?.length) {
     const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
-    const liste = edits.momente
-      .map((m) => ({ abMs: Date.parse(m.ab), art: m.art, dauerS: m.dauerS }))
-      .filter((m) => Number.isFinite(m.abMs))
+    const gefiltert = edits.momente
+      .map((m) => ({ offsetS: (Date.parse(m.ab) - startMs) / 1000, art: m.art, dauerS: m.dauerS }))
+      .filter((m) => Number.isFinite(m.offsetS))
       .filter((m) => {
-        if (trackEndeSek === undefined || (m.abMs - startMs) / 1000 <= trackEndeSek) return true
+        if (trackEndeSek === undefined || m.offsetS <= trackEndeSek) return true
         protokoll?.(`Kamera-Moment hinter dem Track-Ende übersprungen (${m.art})`)
         return false
       })
-      .sort((a, b) => a.abMs - b.abMs)
-      .map((m) => ({
-        f: positionZurZeit(reihe, (m.abMs - startMs) / 1000).f,
-        art: m.art,
-        ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
-      }))
+      .sort((a, b) => a.offsetS - b.offsetS)
+    momentHalte = baueMomentHalte(gefiltert)
+    const liste = gefiltert.map((m) => ({
+      f: positionZurZeit(reihe, m.offsetS).f,
+      art: m.art,
+      ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
+    }))
     if (liste.length) moments = liste
   }
 
@@ -384,9 +397,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       (s) => s.anker !== undefined || s.versatzFilmS !== undefined || s.dauerFilmS !== undefined,
     )
     const achse = brauchtAchse
-      ? baueFilmAchse(
-          reihe,
-          baueAchsenHalte(
+      ? baueFilmAchse(reihe, [
+          ...baueAchsenHalte(
             media
               .filter((m) => m.anchor)
               .map((m) => {
@@ -400,7 +412,12 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
                 }
               }),
           ),
-        )
+          // Momente halten den Film genauso an wie eine Aufnahme — im Studio
+          // kosten sie längst Achsenbreite (achsenHalte in editor.ts). Fehlten
+          // sie hier, klänge jeder Ton-Klip, dessen Versatz über einen Moment
+          // reicht, im Render an einer anderen Stelle als im Editor.
+          ...momentHalte,
+        ])
       : null
     /** Streckenanteil zu einer Filmsekunde (über die Achse zurück in die Zeit). */
     const fBeiFilm = (filmS: number): number =>

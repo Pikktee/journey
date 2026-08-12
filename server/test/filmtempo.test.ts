@@ -13,12 +13,15 @@ import {
   HALT_AUSBLEND_S,
   HALT_ENGINE_S,
   MODUS_TEMPO,
+  MOMENT_DEFAULT_S,
   NAHE_M,
   aufnahmeHaltS,
   filmsekunden,
   meterFuerFilmsekunden,
+  momentHaltS,
   tempoMs,
 } from '../src/pipeline/filmtempo.js'
+import { MOMENT_ARTEN } from '../src/schema/edits.js'
 import { MODI } from '../src/schema/upload.js'
 
 const engineQuelle = (): string => readFileSync(new URL('../../src/tour.ts', import.meta.url), 'utf8')
@@ -50,6 +53,32 @@ describe('Filmtempo', () => {
     const quelle = engineQuelle()
     expect(Number(quelle.match(/const HOLD_HIDE = ([\d.]+)/)?.[1])).toBe(HALT_ENGINE_S)
     expect(Number(quelle.match(/const HOLD_AUSBLEND = ([\d.]+)/)?.[1])).toBe(HALT_AUSBLEND_S)
+  })
+
+  it('deckt sich mit den Moment-Dauern der Engine', () => {
+    // Ein Kamera-Moment hält den Film genauso an wie eine Aufnahme — seine
+    // Dauer geht als Halt in die Film-Achse ein. Eine abweichende Kopie
+    // verschöbe jeden Ton-Klip dahinter um die Differenz.
+    const block = engineQuelle().match(/const MOMENT_DEFAULT_S = \{([^}]*)\}/)
+    expect(block, 'MOMENT_DEFAULT_S in src/tour.ts nicht gefunden').not.toBeNull()
+    const engine = Object.fromEntries(
+      [...(block?.[1] ?? '').matchAll(/(\w+)\s*:\s*([\d.]+)/g)].map((m) => [m[1] as string, Number(m[2])]),
+    )
+    expect(engine).toEqual(MOMENT_DEFAULT_S)
+  })
+
+  it('kennt genau die Moment-Arten des Overlay-Schemas', () => {
+    expect(Object.keys(MOMENT_DEFAULT_S).slice().sort()).toEqual([...MOMENT_ARTEN].slice().sort())
+  })
+
+  it('bemisst einen Moment OHNE Ausblendung — anders als eine Aufnahme', () => {
+    // Die Engine geht nach `momentDauer` direkt zurück auf `ride`; es gibt kein
+    // HOLD_AUSBLEND-Nachspiel wie am Foto-Halt. Spiegel von `momentDauerS` in
+    // src/studio/editor.ts.
+    expect(momentHaltS({ art: 'umkreisen' })).toBe(6)
+    expect(momentHaltS({ art: 'innehalten' })).toBe(4)
+    expect(momentHaltS({ art: 'aufstieg', dauerS: 12 })).toBe(12)
+    expect(momentHaltS({ art: 'aufstieg' })).not.toBe(MOMENT_DEFAULT_S.aufstieg + HALT_AUSBLEND_S)
   })
 
   it('deckt sich mit dem Halt-Abstand aus src/geo.ts', () => {

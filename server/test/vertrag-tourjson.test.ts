@@ -277,6 +277,26 @@ const FAELLE: Array<[name: string, edits: EditOverlay | null]> = [
     },
   ],
   [
+    'Ton am Film-Anker HINTER einem Moment',
+    {
+      schema: 'maptale/edits@1',
+      // Der Fall, in dem sich der Moment-Halt der Film-Achse überhaupt zeigt:
+      // ein Versatz, der über den Moment hinwegreicht. Ohne ihn läge der Klip
+      // an einer anderen Streckenstelle, als der Editor zeigt.
+      momente: [{ ab: '2026-07-04T08:22:51+02:00', art: 'umkreisen' }],
+      audio: [
+        {
+          datei: 'eigene-spur.mp3',
+          typ: 'musik',
+          ab: '2026-07-04T08:12:31+02:00',
+          anker: '2026-07-04T08:12:31+02:00',
+          versatzFilmS: 30,
+          dauerFilmS: 25,
+        },
+      ],
+    },
+  ],
+  [
     'Video-Schnitt (Etappe 4)',
     {
       schema: 'maptale/edits@1',
