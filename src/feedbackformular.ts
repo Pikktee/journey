@@ -99,8 +99,23 @@ const STIL = `
   padding: 10px 16px;
   cursor: pointer;
 }
-.fb-senden:hover { filter: brightness(1.06); }
-.fb-senden:disabled { opacity: 0.5; cursor: default; filter: none; }
+/* Fläche in JEDEM Zustand wiederholen: Studio und Verwaltung laden
+   werkzeug.css, dessen \`button:hover\` (0,1,1) und \`button:disabled:hover\`
+   sonst die Markenfläche schlagen — der Knopf wurde dort beim Überfahren grau
+   (s. DESIGN.md, „Primary button"). Dieselbe Falle beim :active-Skalieren. */
+.fb-senden:hover {
+  background: var(--akzent, #f59e0b);
+  border: none;
+  filter: brightness(1.06);
+}
+.fb-senden:active { transform: none; }
+.fb-senden:disabled,
+.fb-senden:disabled:hover {
+  background: var(--akzent, #f59e0b);
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
 /* Der Abbrechen-Knopf steht LINKS und ohne Fläche: Er ist der Weg zurück, nicht
    die zweite Wahl — als gleichwertiger Kasten daneben ließe er zögern. */
 .fb-abbrechen {
@@ -114,7 +129,8 @@ const STIL = `
   padding: 10px 4px;
   cursor: pointer;
 }
-.fb-abbrechen:hover { color: var(--text-2, #a7b1bf); background: none; }
+.fb-abbrechen:hover { color: var(--text-2, #a7b1bf); background: none; border: none; }
+.fb-abbrechen:active { transform: none; }
 .fb-fuss .fb-senden { margin-left: auto; }
 .fb-meldung { font-size: 12.5px; line-height: 1.45; margin: 2px 0 0; }
 .fb-meldung.fehler { color: var(--rot, #e5484d); }

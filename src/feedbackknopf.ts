@@ -71,6 +71,11 @@ const STIL = `
   width: 30px;
   height: 30px;
   flex: none;
+  /* padding 0 ist Pflicht, nicht Kosmetik: In Studio und Verwaltung gilt
+     werkzeug.css mit 9px 14px Innenabstand an jedem button, und in einem
+     30x30-Feld schob das den Kreuz-Inhalt aus der Mitte — der runde Hover lag
+     daneben. */
+  padding: 0;
   background: none;
   border: none;
   border-radius: var(--radius-full, 999px);
@@ -82,7 +87,9 @@ const STIL = `
 .fb-dialog-zu:hover {
   color: var(--text, #f2ede3);
   background: rgba(255, 255, 255, 0.07);
+  border: none;
 }
+.fb-dialog-zu:active { transform: none; }
 .fb-dialog > p {
   margin: 0 0 16px;
   font-size: 13px;
