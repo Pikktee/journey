@@ -13,7 +13,8 @@
 // Streckenmeter, src/geo.ts), dieselben Halt-Dauern (`aufnahmeHaltS` +
 // Ausblendung) und dieselbe Interpolations-Konvention (Plateau → Ankunft).
 
-import { HALT_AUSBLEND_S, NAHE_M, aufnahmeHaltS, tempoMs } from './filmtempo.js'
+import type { MomentArt } from '../schema/edits.js'
+import { HALT_AUSBLEND_S, NAHE_M, aufnahmeHaltS, momentHaltS, tempoMs } from './filmtempo.js'
 import type { Zeitreihe } from './zeit.js'
 
 /** Ein Halt auf der Achse: wann er beginnt (Aufnahmezeit) und was er im Film kostet. */
@@ -210,4 +211,30 @@ export function baueAchsenHalte(
     offsetS: g.offsets.reduce((s, v) => s + v, 0) / g.offsets.length,
     breiteS: g.breiteS,
   }))
+}
+
+/**
+ * Kamera-Momente als Halte — Spiegel von `achsenHalte` (src/studio/editor.ts).
+ *
+ * Ein Moment ist grammatikalisch ein HALT: die Fahrt steht, die Kamera tut
+ * etwas, Filmzeit vergeht (src/tour.ts, Phase `moment`). Er gehört deshalb
+ * genauso in die Achse wie eine Foto-Kette — fehlte er, wäre die Achse um seine
+ * Dauer zu kurz: Ein Ton-Klip, dessen Versatz (Anker + Filmsekunden) ÜBER den
+ * Moment reicht, bekäme eine zu weit vorn liegende Streckenstelle und klänge im
+ * fertigen Film um die Momentdauer SPÄTER als im Editor gezeigt — der Player
+ * fährt den Moment ja mit.
+ *
+ * Anders als Aufnahmen werden Momente NICHT gruppiert: Jeder ist ein eigenes
+ * Ereignis mit eigener Dauer, und zwei dicht beieinander sind im Film zwei
+ * Halte hintereinander. `webeHalte` sortiert selbst.
+ */
+export function baueMomentHalte(
+  momente: ReadonlyArray<{
+    /** Sekunden ab time.start */
+    offsetS: number
+    art: MomentArt
+    dauerS?: number | undefined
+  }>,
+): AchsenHalt[] {
+  return momente.map((m) => ({ offsetS: m.offsetS, breiteS: momentHaltS(m) }))
 }

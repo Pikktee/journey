@@ -658,6 +658,16 @@ gerenderten Film an der richtigen Stelle schneidet.
   Ein Versatz in Filmsekunden ist ohne die Halte nicht auffindbar. Sie ist der
   Spiegel von `baueAchse` — gleiche Gruppierung (120 m), gleiche Halt-Dauern,
   gleiche lower_bound-Konvention; Drift-Wächter halten beides zusammen.
+- **Nachtrag: Momente sind auch SERVERSEITIG Halte** (`baueMomentHalte`). Die
+  Achse der Pipeline kannte anfangs nur platzierte Medien, während das Studio
+  längst auch Momente mit Achsenbreite führte (`achsenHalte` in editor.ts) —
+  ein Ton-Klip, dessen Versatz über einen Moment hinwegreicht, bekam dadurch
+  eine zu weit vorn liegende Streckenstelle und klang im fertigen Film um die
+  Momentdauer (4–6 s je Moment) später als im Editor gezeigt. Zwei Feinheiten:
+  Ein Moment kostet seine DAUER OHNE Ausblendung (die Engine geht danach direkt
+  zurück auf `ride`, anders als am Foto-Halt), und in die Achse gehört genau
+  die Liste, die auch `moments` speist — ein hinter dem Track-Ende verworfener
+  Moment darf sie nicht verlängern.
 - **`videoMeta` musste cachefähig BLEIBEN und trotzdem auf den Schnitt hören.**
   Sie hing bis dahin nur an den Rohdaten und überlebte jedes Edit-Speichern im
   Anreicherungs-Cache — ein Schnitt ist aber ein Edit. Dafür gibt es jetzt eine

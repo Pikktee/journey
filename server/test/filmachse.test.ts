@@ -10,11 +10,12 @@ import { describe, expect, it } from 'vitest'
 import {
   baueAchsenHalte,
   baueFilmAchse,
+  baueMomentHalte,
   filmBeiZeit,
   projiziereAufReihe,
   zeitBeiFilm,
 } from '../src/pipeline/filmachse.js'
-import { HALT_AUSBLEND_S, HALT_ENGINE_S } from '../src/pipeline/filmtempo.js'
+import { HALT_AUSBLEND_S, HALT_ENGINE_S, MOMENT_DEFAULT_S } from '../src/pipeline/filmtempo.js'
 import { baueZeitreihe } from '../src/pipeline/zeit.js'
 import type { UploadSegment } from '../src/schema/upload.js'
 
@@ -114,6 +115,56 @@ describe('baueAchsenHalte', () => {
   it('eine eigene Standzeit schlägt die Vorgabe', () => {
     const halte = baueAchsenHalte([{ type: 'photo', meter: 0, offsetS: 5, display: { holdS: 12 } }])
     expect(halte[0]?.breiteS).toBeCloseTo(12 + HALT_AUSBLEND_S, 6)
+  })
+})
+
+describe('baueMomentHalte', () => {
+  it('nimmt die Dauer der Art — ohne Ausblendung', () => {
+    const halte = baueMomentHalte([
+      { offsetS: 100, art: 'umkreisen' },
+      { offsetS: 200, art: 'innehalten', dauerS: 9 },
+    ])
+    // Ein Moment endet in der Engine direkt in der Weiterfahrt; 0,8 s
+    // Ausblendung wie am Foto-Halt gibt es dort nicht.
+    expect(halte).toEqual([
+      { offsetS: 100, breiteS: MOMENT_DEFAULT_S.umkreisen },
+      { offsetS: 200, breiteS: 9 },
+    ])
+  })
+
+  it('gruppiert NICHT: zwei dichte Momente sind zwei Halte', () => {
+    // Anders als Aufnahmen (120-m-Kette): jeder Moment ist ein eigenes
+    // Ereignis mit eigener Kamerabewegung.
+    const halte = baueMomentHalte([
+      { offsetS: 100, art: 'innehalten' },
+      { offsetS: 101, art: 'innehalten' },
+    ])
+    expect(halte).toHaveLength(2)
+  })
+
+  it('verlängert die Achse und schiebt alles Spätere nach hinten', () => {
+    // Der eigentliche Befund: Ohne den Moment-Halt löst der Render einen
+    // Ton-Klip, der über anker + versatzFilmS DAHINTER liegt, gegen eine zu
+    // kurze Achse auf — er landete im Film um die Momentdauer zu früh.
+    const reihe = baueZeitreihe([geradeStrecke(11, 96, 60)])
+    const ohne = baueFilmAchse(reihe, [])!
+    const mit = baueFilmAchse(reihe, baueMomentHalte([{ offsetS: 300, art: 'umkreisen' }]))!
+    expect(mit.gesamtS - ohne.gesamtS).toBeCloseTo(MOMENT_DEFAULT_S.umkreisen, 6)
+    // Ein Anker VOR dem Moment liegt unverändert; 6 Filmsekunden nach ihm steht
+    // die Aufnahmeuhr noch im Moment, statt schon weitergelaufen zu sein.
+    expect(filmBeiZeit(mit, 120)).toBeCloseTo(filmBeiZeit(ohne, 120), 6)
+    expect(zeitBeiFilm(mit, filmBeiZeit(mit, 300) + 3)).toBeCloseTo(300, 6)
+    expect(zeitBeiFilm(ohne, filmBeiZeit(ohne, 300) + 3)).toBeGreaterThan(300)
+  })
+
+  it('reiht sich mit den Aufnahme-Halten in EINE Achse', () => {
+    const reihe = baueZeitreihe([geradeStrecke(11, 96, 60)])
+    const achse = baueFilmAchse(reihe, [
+      ...baueAchsenHalte([{ type: 'photo', meter: 480, offsetS: 300 }]),
+      ...baueMomentHalte([{ offsetS: 480, art: 'aufstieg' }]),
+    ])!
+    // 20 s Fahrt + Foto (Standzeit samt Ausblendung) + Moment (nur Dauer)
+    expect(achse.gesamtS).toBeCloseTo(20 + HALT_ENGINE_S + HALT_AUSBLEND_S + MOMENT_DEFAULT_S.aufstieg, 6)
   })
 })
 

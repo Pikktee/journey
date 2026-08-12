@@ -1187,6 +1187,243 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverändert �
 }
 `;
 
+exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverändert — Ton am Film-Anker HINTER einem Moment 1`] = `
+{
+  "audio": [
+    {
+      "f0": 0.08278614236419966,
+      "f1": 0.11252908373243974,
+      "gain": 0.8,
+      "src": "/api/media/t_vertrag01/eigene-spur.mp3",
+      "type": "music",
+    },
+  ],
+  "brandTitle": "Lauterbrunnen → Grindelwald",
+  "description": null,
+  "finaleTitle": "Grindelwald",
+  "id": "t_vertrag01",
+  "kicker": "Aufgezeichnet am 4. Juli 2026",
+  "media": [
+    {
+      "anchor": [
+        7.9105,
+        46.59,
+      ],
+      "caption": "",
+      "id": "m1",
+      "placement": "gps",
+      "src": "/api/media/t_vertrag01/m1.w1920.jpg",
+      "takenAt": "2026-07-04T08:22:51+02:00",
+      "thumb": "/api/media/t_vertrag01/m1.t480.jpg",
+      "title": "Foto · 08:22",
+      "type": "photo",
+    },
+    {
+      "anchor": [
+        7.9184,
+        46.5891,
+      ],
+      "caption": "",
+      "durationS": 34.2,
+      "id": "m2",
+      "placement": "gps",
+      "poster": "/api/media/t_vertrag01/m2.poster.jpg",
+      "src": "/api/media/t_vertrag01/m2.web.mp4",
+      "takenAt": "2026-07-04T09:12:31+02:00",
+      "title": "Video · 09:12",
+      "type": "video",
+    },
+    {
+      "anchor": [
+        7.9605,
+        46.6042,
+      ],
+      "caption": "",
+      "id": "m3",
+      "placement": "gps",
+      "src": "/api/media/t_vertrag01/m3.w1920.jpg",
+      "takenAt": "2026-07-04T10:42:31+02:00",
+      "thumb": "/api/media/t_vertrag01/m3.t480.jpg",
+      "title": "Foto · 10:42",
+      "type": "photo",
+    },
+  ],
+  "moments": [
+    {
+      "art": "umkreisen",
+      "f": 0.03712044014873121,
+    },
+  ],
+  "no": "N°42",
+  "schema": "maptale/tour@1",
+  "segments": [
+    {
+      "label": "Zu Fuß",
+      "mode": "walk",
+      "pts": [
+        [
+          7.9086,
+          46.5934,
+          800,
+        ],
+        [
+          7.9105,
+          46.59,
+          830,
+        ],
+        [
+          7.9121,
+          46.5885,
+          860,
+        ],
+        [
+          7.9122,
+          46.5886,
+          860,
+        ],
+        [
+          7.9142,
+          46.5872,
+          905,
+        ],
+      ],
+    },
+    {
+      "label": "Rad",
+      "mode": "bike",
+      "pts": [
+        [
+          7.9142,
+          46.5872,
+          905,
+        ],
+        [
+          7.9184,
+          46.5891,
+          1005,
+        ],
+        [
+          7.9605,
+          46.6042,
+          1120,
+        ],
+        [
+          8.0341,
+          46.6244,
+          1034,
+        ],
+      ],
+    },
+  ],
+  "showFinale": false,
+  "stats": {
+    "fotos": 3,
+    "gainM": 0,
+    "km": 10.9,
+    "spur": {
+      "d": "M0 64.4L1.5 68.3L2.8 70.1L2.9 69.9L4.5 71.6L4.5 71.6L7.8 69.4L41.4 51.9L100 28.4",
+      "ende": [
+        100,
+        28.4,
+      ],
+      "start": [
+        0,
+        64.4,
+      ],
+    },
+  },
+  "status": "bereit",
+  "stops": [
+    "Lauterbrunnen",
+    "Grindelwald",
+  ],
+  "time": {
+    "end": "2026-07-04T14:03:10+02:00",
+    "start": "2026-07-04T08:12:31+02:00",
+    "zone": "Europe/Zurich",
+  },
+  "timeline": [
+    {
+      "f": 0,
+      "t": "2026-07-04T06:12:31Z",
+    },
+    {
+      "f": 0.0371,
+      "t": "2026-07-04T06:22:51Z",
+    },
+    {
+      "f": 0.0561,
+      "t": "2026-07-04T06:30:51Z",
+    },
+    {
+      "f": 0.0573,
+      "t": "2026-07-04T06:50:51Z",
+    },
+    {
+      "f": 0.0773,
+      "t": "2026-07-04T07:00:51Z",
+    },
+    {
+      "f": 0.1125,
+      "t": "2026-07-04T07:12:31Z",
+    },
+    {
+      "f": 0.4451,
+      "t": "2026-07-04T08:42:31Z",
+    },
+    {
+      "f": 1,
+      "t": "2026-07-04T12:02:31Z",
+    },
+  ],
+  "titleHtml": "Lauterbrunnen<br />→ Grindelwald",
+  "weather": [
+    {
+      "f": 0,
+      "k": 0.7,
+      "mode": "off",
+      "source": "openmeteo",
+    },
+    {
+      "f": 0.0756,
+      "k": 0.68,
+      "mode": "clouds",
+      "source": "openmeteo",
+    },
+    {
+      "f": 0.288,
+      "k": 0.64,
+      "mode": "rain",
+      "source": "openmeteo",
+    },
+    {
+      "f": 0.4936,
+      "k": 0.56,
+      "mode": "rain",
+      "source": "openmeteo",
+    },
+    {
+      "f": 0.6601,
+      "k": 0.76,
+      "mode": "clouds",
+      "source": "openmeteo",
+    },
+    {
+      "f": 0.8266,
+      "k": 0.52,
+      "mode": "clouds",
+      "source": "openmeteo",
+    },
+    {
+      "f": 0.993,
+      "k": 0.7,
+      "mode": "off",
+      "source": "openmeteo",
+    },
+  ],
+}
+`;
+
 exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverändert — Trim (Altbestand, nicht mehr bedienbar) 1`] = `
 {
   "audio": [
