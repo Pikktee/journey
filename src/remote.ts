@@ -2,6 +2,8 @@
 // und adaptiert das Server-JSON (`maptale/tour@1`) auf die cfg-Form der
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
 
+import { STUDIO_PEGEL_VORGABE } from './audiotracks.js'
+
 /** Ein Medium der Tour — für den Player ein „Foto" mit optionalem Video-Typ (M4). */
 export interface RemoteMedium {
   id: string
@@ -88,6 +90,13 @@ export interface RemoteTourCfg {
   moments?: Array<{ f: number; art: string; dauerS?: number }>
   /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.ts spielt sie ab) */
   audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number; loop?: boolean; startS?: number }>
+  /**
+   * Master über `audio`. Bei aufgezeichneten Touren immer 1: `gain` kommt aus
+   * dem Regler des Studios und ist bereits der Pegel, den der Autor beim
+   * Schneiden gehört hat (s. TourConfig.audioPegel). KEIN Server-Feld — die
+   * Aussage gehört zur Herkunft der Tour, nicht zu ihren Daten.
+   */
+  audioPegel?: number
   stats: { km: number; gainM: number }
 }
 
@@ -180,7 +189,18 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
         (a.gain === undefined || Number.isFinite(a.gain)) &&
         (a.startS === undefined || (Number.isFinite(a.startS) && a.startS >= 0)),
     )
-    if (spuren.length) cfg.audio = spuren
+    if (spuren.length) {
+      // `gain` auffüllen statt dem Player seine eigene Vorgabe (1.0) zu lassen:
+      // Bis zu dieser Änderung schrieb enrich.ts das Feld nur bei ausdrücklich
+      // gesetzter Lautstärke — jedes VORHANDENE tour.json kommt also ohne, und
+      // ohne diesen Rückfall klängen genau die Bestandstouren zu laut, bis
+      // jemand sie neu rendert.
+      cfg.audio = spuren.map((a) => ({ ...a, gain: a.gain ?? STUDIO_PEGEL_VORGABE }))
+      // Der Pegel einer aufgezeichneten Tour ist ABSOLUT: `gain` kommt aus dem
+      // Regler im Studio und wird dort ohne Master vorgehört. Deshalb hier 1
+      // statt der 0.22 der kuratierten Touren (s. TourConfig.audioPegel).
+      cfg.audioPegel = 1
+    }
   }
   return cfg
 }

@@ -13,12 +13,14 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
     {
       "f0": 0.17713750319021987,
       "f1": 1,
+      "gain": 0.8,
       "src": "/api/tours/t_vertrag01/bibliothek-audio/mein-stueck.mp3",
       "type": "music",
     },
     {
       "f0": 0.44511770629870545,
       "f1": 0.44511770629870545,
+      "gain": 0.8,
       "src": "/audio/sfx/sfx-moewen.mp3",
       "type": "sfx",
     },
@@ -950,6 +952,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
     {
       "f0": 0.011054319985202512,
       "f1": 0.11252908373243974,
+      "gain": 0.8,
       "loop": false,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",
       "startS": 8,
@@ -958,6 +961,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
     {
       "f0": 0.2880003773789752,
       "f1": 0.42002508632691893,
+      "gain": 0.8,
       "loop": true,
       "src": "/audio/sfx/sfx-brandung.mp3",
       "type": "sfx",
@@ -1189,6 +1193,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
     {
       "f0": 0,
       "f1": 1,
+      "gain": 0.8,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",
       "type": "music",
     },
@@ -1806,12 +1811,14 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
     {
       "f0": 0,
       "f1": 1,
+      "gain": 0.8,
       "src": "/api/tours/t_vertrag01/bibliothek-audio/mein-stueck.mp3",
       "type": "music",
     },
     {
       "f0": 0.11252908373243974,
       "f1": 0.11252908373243974,
+      "gain": 0.8,
       "src": "/audio/sfx/sfx-wind.mp3",
       "type": "sfx",
     },

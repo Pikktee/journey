@@ -79,6 +79,15 @@ export interface TourConfig {
   photos: TourFoto[]
   weather?: TourWetter[]
   audio?: TourAudio[]
+  /**
+   * Master-Faktor über alle `audio`-Spuren (audiotracks.ts). Fehlt er, gilt der
+   * gedämpfte Vorgabewert der kuratierten Touren — dort ist `gain` gegen ihn
+   * ausgemessen (0.22 × 0.8 ≈ 0.16, s. kohphangan). AUFGEZEICHNETE Touren setzen
+   * ihn auf 1: Ihr `gain` IST der Pegel, den der Autor im Studio-Abspieler
+   * gehört hat, und ein zweiter Faktor darüber machte den Film leiser als den
+   * Schnitt (gemessen Faktor 3,6 — der Grund, warum der Player „viel leiser" war).
+   */
+  audioPegel?: number
 }
 
 export const TOURS = {

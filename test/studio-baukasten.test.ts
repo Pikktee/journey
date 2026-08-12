@@ -3,6 +3,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
 import {
   effektiveMedien,
   erfasseUndo,
@@ -428,6 +429,24 @@ describe('Wetter-Grenzen', () => {
     expect(block, 'WETTER_MODI in server/src/pipeline/weather.ts nicht gefunden').not.toBeNull()
     const server = [...(block?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((m) => m[1] as string)
     expect(server).toEqual([...WETTER_MODI])
+  })
+
+  // Drift-Wächter: die Reglerstellung ohne eigenen Wert steht zweimal — im
+  // Studio (Vorhören, Abspielen, Regler) und im Server, der sie als `gain` ins
+  // Tour-JSON schreibt. Laufen sie auseinander, klingt der Film leiser oder
+  // lauter als der Schnitt, den man geprüft hat — und man hört es erst im Player.
+  it('STUDIO_PEGEL_VORGABE deckt sich mit STUDIO_PEGEL im Server', () => {
+    const quelle = readFileSync(new URL('../server/src/schema/edits.ts', import.meta.url), 'utf8')
+    const treffer = quelle.match(/STUDIO_PEGEL = ([0-9.]+)/)
+    expect(treffer, 'STUDIO_PEGEL in server/src/schema/edits.ts nicht gefunden').not.toBeNull()
+    expect(Number(treffer?.[1])).toBe(STUDIO_PEGEL_VORGABE)
+  })
+
+  // Und der Server muss ihn UNBEDINGT schreiben: `gain` weglassen hieße im
+  // Player 1.0 (kein Wissen über die Studio-Vorgabe), also lauter als der Schnitt.
+  it('enrich.ts schreibt gain immer, nicht nur bei gesetztem Wert', () => {
+    const quelle = readFileSync(new URL('../server/src/pipeline/enrich.ts', import.meta.url), 'utf8')
+    expect(quelle).toMatch(/gain: spur\.lautstaerke \?\? STUDIO_PEGEL/)
   })
 })
 

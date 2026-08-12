@@ -28,7 +28,7 @@
 // Modul wird erst beim ersten Play geladen (editor.ts), damit die Audio-Elemente
 // niemanden belasten, der nur schneidet.
 
-import { sfxSollFeuern } from '../audiotracks.js'
+import { alsHuelle, sfxSollFeuern, videoMusikDuck, type DuckPegel } from '../audiotracks.js'
 import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
 
 /** Musik-Bereich auf der Zeitachse. */
@@ -182,6 +182,14 @@ export interface Abspieler {
   /** Debug/E2E: welche Musik gerade läuft (die Elemente hängen nicht im DOM).
    *  `urls` listet ALLE laufenden Spuren — bei Überlappung mehr als eine. */
   tonStand: () => { url: string | null; laeuft: boolean; urls: string[] }
+  /**
+   * Video-Ton-Hülle 0..1 → Musik ducken, wie `AudioSpuren.setDucking` im Player.
+   * Ohne sie liefe die Filmmusik im Editor unter dem Ton der Aufnahme ungedämpft
+   * weiter — der Schnitt klänge anders als der Film, und genau das soll das
+   * Abspielen prüfen. SFX werden wie im Player NICHT gedämpft: Ein Effekt, der
+   * zur Szene gehört, soll nicht unter deren eigenem Ton wegtauchen.
+   */
+  setzeDucking: (pegel: DuckPegel) => void
   /** Alles verstummen und Elemente freigeben (Editor verlassen) */
   schliesse: () => void
 }
@@ -201,6 +209,15 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
   // Laufende Klänge merken, damit Pause sie WIRKLICH verstummen lässt — ein
   // angestoßener Donner klänge sonst nach dem Anhalten sekundenlang weiter.
   let aktiveKlaenge: HTMLAudioElement[] = []
+
+  // Musik-Dämpfung unter laufendem Video-Ton (1 = ungedämpft). Anders als im
+  // Player ohne Glättung: Dort läuft ein eigener 60-ms-Timer, hier kommt der
+  // Wert aus `synchronisiereBild` — also aus jedem Kopfschritt, und die Hülle
+  // selbst ist schon die weiche Blende (videoTonHuelle über VIDEO_FADE_S).
+  let duck = 1
+
+  /** Pegel eines Klips inklusive Dämpfung — die EINE Stelle, die el.volume rechnet. */
+  const pegel = (klip: MusikKlip): number => Math.max(0, Math.min(1, klip.lautstaerke * duck))
 
   function stoppeKlaenge(): void {
     for (const el of musikElemente.values()) el.pause()
@@ -244,7 +261,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         el = undefined
       }
       if (el) {
-        el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
+        el.volume = pegel(klip)
         el.loop = klip.loop ?? true
       }
       if (!el) {
@@ -253,7 +270,7 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         el.preload = 'none'
         el.src = klip.url
         el.dataset['url'] = klip.url // `el.src` ist absolut aufgelöst, der Plan trägt den rohen Verweis
-        el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
+        el.volume = pegel(klip)
         const kurve = plan.kurve
         const beiEintritt = anteil
         el.addEventListener(
@@ -371,6 +388,19 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
     tonStand: () => {
       const laufende = [...musikElemente.values()].filter((el) => !el.paused)
       return { url: laufende[0]?.src ?? null, laeuft: laufende.length > 0, urls: laufende.map((el) => el.src) }
+    },
+    setzeDucking: (p: DuckPegel) => {
+      const neu = videoMusikDuck(alsHuelle(p))
+      if (neu === duck) return
+      duck = neu
+      // Laufende Elemente sofort nachziehen: Der nächste `spieleMusik`-Durchlauf
+      // käme erst beim nächsten Frame, und ohne laufende Wiedergabe (Scrubben
+      // durch ein Video) gar nicht — die Dämpfung bliebe dann stehen.
+      if (!plan) return
+      for (const [i, el] of musikElemente) {
+        const klip = plan.musik[i]
+        if (klip) el.volume = pegel(klip)
+      }
     },
     schliesse: () => {
       halteAn()

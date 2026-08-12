@@ -5,7 +5,7 @@
 // Später ergänzt (gleiche Stelle, gleiche Signatur): Bildanalyse (M5),
 // GPX-Quelle + Medien-Platzierung (M6), Edit-Overlay (M7).
 
-import type { EditOverlay } from '../schema/edits.js'
+import { STUDIO_PEGEL, type EditOverlay } from '../schema/edits.js'
 import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
@@ -480,7 +480,11 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
             : `/api/media/${tourId}/${spur.datei}`,
         f0,
         f1,
-        ...(spur.lautstaerke !== undefined ? { gain: spur.lautstaerke } : {}),
+        // IMMER mitschreiben, anders als loop/startS darunter: Der Player kennt
+        // die Vorgabe des Studio-Reglers (0.8) nicht, und ohne Wert spielte er
+        // mit 1.0 — der Film klänge lauter als der Schnitt. Der Wert ist hier
+        // absolut; den Master setzt remote.ts auf 1 (s. TourConfig.audioPegel).
+        gain: spur.lautstaerke ?? STUDIO_PEGEL,
         // Nur mitschreiben, was ausdrücklich gesetzt ist: Der Player kennt
         // dieselben Vorgaben (Musik loopt, SFX nicht) und würde sie sonst aus
         // einem geschriebenen Wert lesen statt aus der Regel — Bestandsdaten

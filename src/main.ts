@@ -11,7 +11,7 @@ import { sunPosition } from './sun.js'
 import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
 import { createWeather, type Wetteroverlay } from './weather.js'
 import { createMusic, type Hintergrundmusik } from './music.js'
-import { createAudioTracks, type AudioSpuren } from './audiotracks.js'
+import { createAudioTracks, KURATIERTER_PEGEL, type AudioSpuren } from './audiotracks.js'
 import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
@@ -62,6 +62,8 @@ interface SpielerTour {
   camera?: Array<{ f: number; preset: string; skala?: number }>
   moments?: Array<{ f: number; art: string; dauerS?: number }>
   audio?: TourAudio[]
+  /** Master über `audio`; fehlt = KURATIERTER_PEGEL (s. TourConfig.audioPegel) */
+  audioPegel?: number
 }
 
 /** Ein Foto mit seiner Verankerung an der Route (`s` aus nearestS). */
@@ -188,7 +190,11 @@ if (!ausPfad && params.has('tour')) {
 // — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
 // Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
 // cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
-const tourAudio = cfg.audio?.length ? createAudioTracks(cfg.audio) : null
+// Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
+// den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
+const tourAudio = cfg.audio?.length
+  ? createAudioTracks(cfg.audio, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })
+  : null
 // Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
 // sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
 const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
@@ -640,9 +646,12 @@ map.on('load', () => {
   // sofort und hält die Abspielposition (audiotracks.ts); Bereichsgrenzen und
   // Menü/Finale blenden weich aus. Bewusst anders als music.ts — die eigene
   // Musik gehört zur SZENE, nicht zur App.
-  tourAudio?.setGate(
-    () => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing || tour.phase === 'photo'),
-  )
+  // Ein `|| tour.phase === 'photo'` stand hier einmal und war genau der Fall,
+  // in dem die Pause NICHT griff: Im Foto-/Video-Halt bleibt `playing` sonst
+  // die einzige Auskunft darüber, ob der Film läuft — mit der Oder-Klausel lief
+  // die Musik unter der angehaltenen Einblendung weiter und stand danach an
+  // einer anderen Stelle als der Schnitt im Studio.
+  tourAudio?.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing))
 
   // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).
   // Pegel 0..1 aus der Video-Hülle; Stärke am Plateau: VIDEO_DUCK in audiotracks.ts.

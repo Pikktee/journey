@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { TourJson } from '../src/pipeline/enrich.js'
+import { STUDIO_PEGEL } from '../src/schema/edits.js'
 import { baueTestApp, beispielManifest, type TestUmgebung } from './helfer.js'
 
 async function legeTourAn(u: TestUmgebung, manifest = beispielManifest()): Promise<string> {
@@ -235,7 +236,9 @@ describe('Pipeline-Durchstich: PUT /edits rendert camera/audio/display (Baukaste
     expect(musik).toMatchObject({ src: `/api/media/${id}/a1.mp3`, f0: 0, f1: 1, gain: 0.8 })
     const sfx = tour.audio?.find((a) => a.type === 'sfx')
     expect(sfx?.f0).toBe(sfx?.f1)
-    expect(sfx && 'gain' in sfx).toBe(false)
+    // Ohne eigene Lautstärke gilt die Studio-Vorgabe — geschrieben wird sie
+    // immer, sonst spielte der Player mit 1.0 (s. enrich.ts).
+    expect(sfx?.gain).toBe(STUDIO_PEGEL)
     // Sortiert nach f0
     expect(tour.audio?.[0]?.f0).toBeLessThanOrEqual(tour.audio?.[1]?.f0 ?? 0)
   })

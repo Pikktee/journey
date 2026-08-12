@@ -3,6 +3,7 @@
 // bei Schema-Drift zuerst etwas, deshalb eigene Tests.
 
 import { describe, expect, it } from 'vitest'
+import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
 import { adaptiereTour, createTimeAt, RemoteTourFehler, type TourJsonAntwort } from '../src/remote'
 
 function beispielTour(): TourJsonAntwort {
@@ -134,7 +135,16 @@ describe('adaptiereTour', () => {
     ]
     const cfg = adaptiereTour(tour)
     expect(cfg.camera).toEqual(tour.camera)
-    expect(cfg.audio).toEqual(tour.audio)
+    // Audio geht roh durch — mit EINER Ergänzung: fehlendes `gain` wird auf die
+    // Studio-Vorgabe gesetzt. Bestandstouren wurden ohne das Feld gerendert und
+    // klängen im Player sonst mit 1.0, also lauter als im Schnitt.
+    expect(cfg.audio).toEqual([
+      { type: 'music', src: '/api/media/t_abc123/a1.mp3', f0: 0.1, f1: 0.9, gain: 0.8 },
+      { type: 'sfx', src: '/api/media/t_abc123/knall.mp3', f0: 0.5, f1: 0.5, gain: STUDIO_PEGEL_VORGABE },
+    ])
+    // Und der Master steht dann auf 1: `gain` ist bei aufgezeichneten Touren
+    // absolut (die 0.22 der kuratierten Touren wären ein zweiter Faktor darüber).
+    expect(cfg.audioPegel).toBe(1)
   })
 
   it('filtert Kamera-/Audio-Einträge mit kaputten f-Werten (Number.isFinite)', () => {
@@ -157,7 +167,7 @@ describe('adaptiereTour', () => {
     const cfg = adaptiereTour(tour)
     expect(cfg.audio).toEqual([
       { type: 'music', src: '/api/media/t_abc123/ok.mp3', f0: 0.2, f1: 0.8, gain: 0.5 },
-      { type: 'sfx', src: '/api/media/t_abc123/ohne-gain.mp3', f0: 0.5, f1: 0.5 },
+      { type: 'sfx', src: '/api/media/t_abc123/ohne-gain.mp3', f0: 0.5, f1: 0.5, gain: STUDIO_PEGEL_VORGABE },
     ])
   })
 

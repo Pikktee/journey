@@ -7,6 +7,7 @@
 
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
 import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
 import {
@@ -2276,7 +2277,7 @@ function baueAudioFelder(index: number, a: AudioEintrag): HTMLElement {
     feld(
       'Lautstärke',
       regler(
-        { min: 0, max: 100, step: 5, wert: Math.round((a.lautstaerke ?? 0.8) * 100) },
+        { min: 0, max: 100, step: 5, wert: Math.round((a.lautstaerke ?? STUDIO_PEGEL_VORGABE) * 100) },
         (v) => `${v} %`,
         (v) => {
           if (!z) return
@@ -2907,7 +2908,7 @@ function starteVorschau(a: AudioEintrag): void {
   const audio = new Audio(audioUrl(a, z.tourId))
   // Mit der eingestellten Lautstärke des Eintrags — 0.8 ist der Standard, den
   // auch der Regler anzeigt; der Zug am Regler passt sie live an (beiLive).
-  audio.volume = a.lautstaerke ?? 0.8
+  audio.volume = a.lautstaerke ?? STUDIO_PEGEL_VORGABE
   audio.addEventListener('ended', () => {
     stoppeVorschau()
     renderInspektor()
@@ -5945,7 +5946,7 @@ function holeSpielplan(): Spielplan | null {
     // nicht klingen — sonst hörte man etwas, das im Film nicht vorkommt.
     if (!a || audioWirdVerworfen(a, z.edits, start, achse)) continue
     const url = audioUrl(a, z.tourId)
-    const lautstaerke = a.lautstaerke ?? 0.8
+    const lautstaerke = a.lautstaerke ?? STUDIO_PEGEL_VORGABE
     const von = filmZuAnteil(achse, k.filmVon)
     // Ein Klip MIT Ausdehnung läuft als Bereich (auch ein Effekt — der Player
     // tut seit Etappe 4 dasselbe); einer ohne bleibt die Überfahr-Marke.
@@ -6154,7 +6155,13 @@ function zeigeFoto(id: string): void {
   if (m.type === 'video') {
     const video = document.createElement('video')
     video.src = m.src
-    video.muted = true
+    // Der Ton der Aufnahme gehört zum Schnitt: Ohne ihn prüfte das Abspielen
+    // einen Film, den es nicht gibt — die Musik stünde ungedämpft über einer
+    // Szene, die im Player ihre eigene Stimme hat. Stumm startet es trotzdem
+    // (volume 0): Die Ein-/Ausblendung setzt `synchronisiereBild` ab dem ersten
+    // Kopfschritt, dieselbe Hülle wie im Player (audiotracks.ts).
+    video.muted = false
+    video.volume = 0
     video.playsInline = true
     video.preload = 'auto'
     // Kein `autoplay`, kein `loop`: Was zu sehen ist, hängt an der Kopfposition
@@ -6294,15 +6301,36 @@ function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
   const dateiEndeS = video.duration > 0 && Number.isFinite(video.duration) ? video.duration : Infinity
   const endeS = Math.min(Number(video.dataset['bisS'] ?? 0) || Infinity, dateiEndeS)
   const { zielS, ausgelaufen } = videoStandS(vonS, endeS, imS)
-  if (tempo === 1 && !ausgelaufen) {
+  const laeuft = tempo === 1 && !ausgelaufen
+  if (laeuft) {
     // Im Lauf trägt das Video seine eigene Uhr; nachgezogen wird erst, wenn es
     // merklich auseinanderläuft — ein Seek pro Frame ruckelte sichtbar.
     if (Math.abs(video.currentTime - zielS) > 0.34) setzeVideoZeit(video, zielS)
-    if (video.paused) void video.play().catch(() => {})
-  } else {
-    if (!video.paused) video.pause()
-    if (Math.abs(video.currentTime - zielS) > 0.04) setzeVideoZeit(video, zielS)
+    if (video.paused) {
+      void video.play().catch(() => {
+        // Unmuted-Autoplay ohne frische Geste wird geblockt (wie im Player,
+        // src/ui.ts): stumm erzwingen, damit das Bild überhaupt läuft — sonst
+        // stünde am Video-Halt ein Standbild und der Schnitt wäre nicht zu prüfen.
+        video.muted = true
+        void video.play().catch(() => {})
+      })
+    }
+  } else if (!video.paused) {
+    video.pause()
   }
+  if (!laeuft && Math.abs(video.currentTime - zielS) > 0.04) setzeVideoZeit(video, zielS)
+
+  // Ton-Hülle über den AUSSCHNITT (nicht die Datei): Ein- und Ausblende liegen
+  // an den Schnittkanten, wie im Player über `video.duration` der geschnittenen
+  // Fassung — hier ist die ausgelieferte Datei noch der ungeschnittene Master.
+  // Im Schnelllauf/rückwärts steht das Video und schweigt, also Hülle 0.
+  const ausschnittS = Number.isFinite(endeS) ? endeS - vonS : video.duration - vonS
+  const huelle = laeuft && !video.muted ? videoTonHuelle(imS, ausschnittS) : 0
+  const laut = videoLautstaerke(huelle)
+  // Nur bei Bedarf setzen — die Funktion läuft in jedem Kopf-Frame, und manche
+  // Browser feuern `volumechange` sonst im Kreis.
+  if (Math.abs(video.volume - laut) > 0.004) video.volume = laut
+  abspieler?.setzeDucking(huelle)
 }
 
 function setzeVideoZeit(video: HTMLVideoElement, sekunde: number): void {
@@ -6321,6 +6349,9 @@ function verbergeFoto(): void {
   document.querySelector('.karten-buehne')?.classList.remove('foto-an')
   // Ein laufendes Video würde sonst unsichtbar weiterspielen
   karteEl?.querySelector('video')?.pause()
+  // Und seine Dämpfung mitnehmen: Ohne das bliebe die Musik nach dem letzten
+  // Video-Halt für den Rest der Wiedergabe leise.
+  abspieler?.setzeDucking(0)
 }
 
 function zeigeTempo(tempo: number): void {

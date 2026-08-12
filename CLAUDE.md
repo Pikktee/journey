@@ -352,6 +352,16 @@ Partikel-Overlay) liegen über der Karte. Das Wetter kommt entweder aus der kura
 [src/autoweather.ts](src/autoweather.ts) (Open-Meteo an den Foto-Ankern).
 [src/audiotracks.ts](src/audiotracks.ts) spielt die im Studio gesetzten Musik-/SFX-Spuren.
 
+**Die Tour-Musik hängt am Zustand `playing`, nicht an der Phase.** Ihr Gate stand einmal auf
+`playing || scrubbing || phase === 'photo'` — und genau die letzte Klausel hob die Pause dort
+auf, wo man sie am ehesten drückt: Im Foto-/Video-Halt ist `playing` die einzige Auskunft
+darüber, ob der Film läuft, also spielte die Musik unter der angehaltenen Einblendung weiter und
+stand danach woanders als der Schnitt im Studio. Aus demselben Grund läuft `holdT` in
+[src/tour.ts](src/tour.ts) nur bei `playing` weiter — sonst blendete das Foto unter dem
+„Angehalten"-Abzeichen von selbst weiter. Der PEGEL steht absolut (Studio-Regler, Vorgabe 0.8);
+der Master 0.22 gilt nur den kuratierten Touren, deren `gain` gegen ihn ausgemessen ist
+(`KURATIERTER_PEGEL` vs. `cfg.audioPegel`, s. [src/studio/CLAUDE.md](src/studio/CLAUDE.md)).
+
 ## Studio
 
 Die Weboberfläche für aufgezeichnete Touren ([studio.html](studio.html), Vite-Einstieg;

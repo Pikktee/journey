@@ -25,6 +25,7 @@ export type Modus = (typeof MODI)[number]
  */
 export const WETTER_MODI = ['off', 'clouds', 'fog', 'rain', 'snow', 'storm'] as const
 export type WetterModus = (typeof WETTER_MODI)[number]
+
 /** Trackpunkt der Editor-Daten: [lng, lat, ele, tOffsetS] */
 export type TrackPunkt = [number, number, number, number]
 

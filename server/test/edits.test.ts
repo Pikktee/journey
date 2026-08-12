@@ -12,7 +12,7 @@ import {
 import { reichereAn } from '../src/pipeline/enrich.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { PlatziertesMedium } from '../src/pipeline/placement.js'
-import { pruefeEditsSemantik, type EditOverlay } from '../src/schema/edits.js'
+import { pruefeEditsSemantik, STUDIO_PEGEL, type EditOverlay } from '../src/schema/edits.js'
 import type { UploadManifest, UploadSegment } from '../src/schema/upload.js'
 
 const START_MS = Date.parse('2026-07-04T08:00:00Z')
@@ -433,7 +433,10 @@ describe('reichereAn mit Edit-Overlay', () => {
     const sfx = tour.audio?.[1]
     expect(sfx?.type).toBe('sfx')
     expect(sfx?.f0).toBe(sfx?.f1)
-    expect(sfx && 'gain' in sfx).toBe(false)
+    // `gain` steht IMMER — ohne ihn spielte der Player mit 1.0, der Film wäre
+    // lauter als der Schnitt. Ohne eigenen Wert gilt die Reglerstellung des
+    // Studios (STUDIO_PEGEL), nicht „kein Feld".
+    expect(sfx?.gain).toBe(STUDIO_PEGEL)
   })
 
   it('Bibliotheks-Audio: /audio/sfx-URL, keine media/-Prüfung', async () => {

@@ -670,6 +670,30 @@ bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtba
 Trim-Kanten** stehen im `dataset` des Elements, weil die ausgelieferte Datei der ungeschnittene
 Master ist und der Schnitt erst in der Pipeline entsteht.
 
+**Das Video KLINGT — und duckt dabei die Musik.** Es lief lange mit hartem `muted = true`, und
+damit prüfte das Abspielen einen Film, den es nicht gibt: Im Player hat die Aufnahme ihre eigene
+Stimme und die Filmmusik taucht darunter weg, im Editor stand die Musik ungedämpft über einer
+stummen Szene. Beides kommt jetzt aus denselben Funktionen wie im Player
+([audiotracks.ts](../audiotracks.ts)): `videoTonHuelle` über den AUSSCHNITT (nicht die Datei —
+die ausgelieferte ist der ungeschnittene Master, die Blenden gehören an die Schnittkanten),
+`videoLautstaerke` fürs Video und `videoMusikDuck` für die Musik, gereicht über
+`Abspieler.setzeDucking`. Drei Dinge, die man dabei kippt: Gehört wird nur bei **Tempo 1** (im
+Schnelllauf steht das Video ohnehin), der **Autoplay-Rückfall** muss bleiben (unmuted-Play ohne
+frische Geste wird geblockt — dann stumm erzwingen, sonst steht am Video-Halt ein Standbild),
+und `verbergeFoto` muss die Dämpfung **zurücknehmen**, sonst bleibt die Musik nach dem letzten
+Video für den Rest der Wiedergabe leise.
+
+**Der Pegel eines Ton-Klips ist ABSOLUT — im Studio wie im Player.** Ohne eigenen Wert gilt
+`STUDIO_PEGEL_VORGABE` (0.8, in [audiotracks.ts](../audiotracks.ts), Spiegel von `STUDIO_PEGEL`
+in [server/src/schema/edits.ts](server/src/schema/edits.ts), Drift-Wächter in
+[test/studio-baukasten.test.ts](test/studio-baukasten.test.ts)). Der Weg dorthin hatte zwei
+Lecks, und beide machten den fertigen Film LEISER als den geprüften Schnitt: `enrich.ts` schrieb
+`gain` nur bei ausdrücklich gesetzter Lautstärke, und der Player legte über alles einen Master
+von 0.22 (der gehört den KURATIERTEN Touren in [src/tours.ts](../tours.ts), deren `gain` gegen
+ihn ausgemessen ist — `KURATIERTER_PEGEL`). Zusammen ein Faktor 3,6. Jetzt schreibt der Server
+`gain` immer, [remote.ts](../remote.ts) füllt es für bereits gerenderte Bestandstouren nach
+(sonst spielten genau die mit 1.0, also zu LAUT) und setzt `cfg.audioPegel = 1`.
+
 **Der Klip ist um die Ausblendung LÄNGER als das Material** (`aufnahmeHaltS(m) +
 HALT_AUSBLEND_S`) — deshalb klemmt `videoStandS` das Ziel auf einen Frame vor dem Ende
 (Schnitt-`bisS`, sonst `video.duration`). Ohne die Klemme lief `vonS + imS` darüber hinaus:

@@ -13,6 +13,15 @@ export const EDITS_SCHEMA_ID = 'maptale/edits@1'
 export const AUDIO_DATEI_PATTERN = '^[A-Za-z0-9_-]{1,64}\\.(mp3|m4a|ogg|wav)$'
 const AUDIO_DATEI_REGEX = new RegExp(AUDIO_DATEI_PATTERN)
 
+/**
+ * Reglerstellung eines Ton-Klips ohne eigenen Wert. Der Studio-Abspieler hört
+ * genau damit vor (`TON_PEGEL_VORGABE` in src/studio/editmodell.ts, Drift-Wächter
+ * in test/studio-baukasten.test.ts), und `enrich.ts` schreibt sie ins Tour-JSON:
+ * Der Player kennt die Vorgabe sonst nicht und spielte mit 1.0 — der Film wäre
+ * lauter als der Schnitt.
+ */
+export const STUDIO_PEGEL = 0.8
+
 /** true, wenn der Dateiname eine zulässige Audio-Datei unter media/ bezeichnet. */
 export function istAudioDatei(name: string): boolean {
   return AUDIO_DATEI_REGEX.test(name)
@@ -135,7 +144,7 @@ export interface AudioEdit {
    * es nicht.
    */
   loop?: boolean
-  /** 0..1; fehlt = Standard-Lautstärke des Players */
+  /** 0..1; fehlt = {@link STUDIO_PEGEL} (die Reglerstellung, die der Editor zeigt) */
   lautstaerke?: number
   /**
    * Herkunft. Fehlt = tour-lokal hochgeladen (Datei muss unter media/ liegen).

@@ -895,7 +895,11 @@ export class Tour {
       // Foto sichtbar: Route UND Kamera stehen komplett still — kein Orbit,
       // kein Nachschwingen. Der Einfrier-Moment liegt unter dem Kamerablitz.
       this.speed = 0
-      this.holdT += dt
+      // Pause im Halt hält den Halt WIRKLICH an: Ohne die Bedingung lief die
+      // Standzeit unter dem „Angehalten"-Abzeichen weiter und das Foto blendete
+      // von selbst weiter — und die Tour-Musik, die am selben Zustand hängt,
+      // lief dabei aus dem Takt (das Video pausiert `ui.setPlaying` längst).
+      if (this.playing) this.holdT += dt
       // Fotos blenden nach ihrer Anzeigedauer weiter (holdDauer: Autor-Wert oder
       // Default); Videos halten die Karte, bis sie durchgelaufen sind
       // (ui.onMediaEnded → onMediaEnded ruft advancePhoto).

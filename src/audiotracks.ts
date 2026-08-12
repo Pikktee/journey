@@ -122,7 +122,28 @@ export interface AudioSpuren {
   destroy(): void
 }
 
-export function createAudioTracks(tracks: TourAudio[], { volume = 0.22 }: { volume?: number } = {}): AudioSpuren {
+/**
+ * Master-Faktor der KURATIERTEN Touren (src/tours.ts): deren `gain` ist gegen
+ * ihn ausgemessen. Aufgezeichnete Touren geben stattdessen `cfg.audioPegel = 1`
+ * herein — ihr `gain` kommt aus dem Studio-Regler und ist bereits der Pegel,
+ * den der Autor beim Schneiden gehört hat.
+ */
+export const KURATIERTER_PEGEL = 0.22
+
+/**
+ * Reglerstellung eines Ton-Klips ohne eigenen Wert — die Vorgabe des Studios
+ * (Spiegel von STUDIO_PEGEL in server/src/schema/edits.ts, Drift-Wächter in
+ * test/studio-baukasten.test.ts). Sie steht hier und nicht im Studio, weil auch
+ * der PLAYER sie braucht: `enrich.ts` schreibt `gain` erst seit dieser Änderung
+ * immer, und ein bereits gerendertes Tour-JSON kommt ohne. Ohne den Rückfall
+ * spielte genau der Bestand mit 1.0 — lauter als der Schnitt, nicht leiser.
+ */
+export const STUDIO_PEGEL_VORGABE = 0.8
+
+export function createAudioTracks(
+  tracks: TourAudio[],
+  { volume = KURATIERTER_PEGEL }: { volume?: number } = {},
+): AudioSpuren {
   // Bereichs-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
   // geladen, preload='none'), eigener Blend-Level für die weiche Bereichsgrenze.
   // Getrennt wird nach AUSDEHNUNG, nicht nach Typ — ein Effekt mit Länge klingt
