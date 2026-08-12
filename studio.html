@@ -1116,10 +1116,24 @@
       height: 100%; transform: scaleX(0); transform-origin: left;
       background: linear-gradient(90deg, #f5a524, var(--akzent-2));
     }
-    /* „Entwickeln" + Ken-Burns-Drift wie im Player; das Video bewegt sich selbst. */
-    .foto-einblendung.an .fe-frame img { animation: feEntwickeln 1.6s ease-out both, feKenburns 6s ease-out both; }
+    /* „Entwickeln" + Ken-Burns-Drift wie im Player — beide hängen am ABSPIELKOPF,
+       nicht an einer eigenen Uhr: Die Animationen stehen dauerhaft auf `paused`,
+       ihr Fortschritt kommt aus dem negativen Delay `--fe-zeit`, das
+       synchronisiereBild() bei jedem Kopfschritt setzt. Ohne das lief der Zoom
+       beim Scrubben ab 0 los und beim Stillstand weiter. Die Drift-Dauer ist die
+       Standzeit des Klips (`--fe-kb-dauer`), wie `--kb-dauer` im Player. */
+    .foto-einblendung.an .fe-frame img {
+      animation: feEntwickeln 1.6s ease-out both, feKenburns var(--fe-kb-dauer, 6s) ease-out both;
+      animation-delay: var(--fe-zeit, 0s), var(--fe-zeit, 0s);
+      animation-play-state: paused;
+    }
     /* Wer Ken Burns für dieses Foto abgeschaltet hat, sieht es hier auch ruhig. */
-    .foto-einblendung.an.ruhig .fe-frame img { animation: feEntwickeln 1.6s ease-out both; transform: scale(1.04); }
+    .foto-einblendung.an.ruhig .fe-frame img {
+      animation: feEntwickeln 1.6s ease-out both;
+      animation-delay: var(--fe-zeit, 0s);
+      animation-play-state: paused;
+      transform: scale(1.04);
+    }
     @keyframes feEntwickeln { from { filter: brightness(1.45) contrast(0.82) saturate(0.55); } to { filter: none; } }
     @keyframes feKenburns { from { transform: scale(1.12); } to { transform: scale(1.02); } }
     .fe-cap { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 12px; padding: 11px 6px 13px; }

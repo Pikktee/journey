@@ -636,6 +636,14 @@ TypeScript-Migration des Players lag daneben eine handgeschriebene
 prüft `tsc` die eine verbliebene Signatur selbst. Jede manuelle Geste ruft `halteAbspielen()` —
 der Spielplan ist ein Schnappschuss und liefe sonst gegen veraltete Halte.
 
+**Die Audio-Elemente überleben Pause und Neustart, der Plan tut es nicht.** Sie hängen an einer
+Map (Index im Plan) und entstehen beim ersten Eintritt in ihren Bereich; der Plan wird bei
+jedem Start frisch geholt. Wer nur beim ANLEGEN Lautstärke, Loop und Datei setzt, hat sie für
+den Rest der Sitzung festgeschrieben: Ein am Regler geänderter Pegel war im Vorhören zu hören
+und im Abspielen nicht. Deshalb zieht `spieleMusik` Lautstärke und Loop bei jedem Eintritt nach
+und ersetzt das Element, wenn der Eintrag inzwischen eine andere Datei trägt (verglichen wird
+`dataset.url`, nicht `el.src` — der ist absolut aufgelöst).
+
 **Welches Bild auf der Karte liegt, ist eine FUNKTION der Kopfposition** — keine Uhr und keine
 Überfahr-Marke. `synchronisiereFoto` (aufgerufen aus `renderPlayhead`, also bei jeder
 Kopfbewegung) fragt `haltBeiFilmS`: steht der Kopf in einem Klip, liegt dessen Bild auf der
@@ -646,6 +654,21 @@ Bild (der Abspieler lief ja nicht), und beim Abspielen ging es 0,8 s zu früh au
 Timer über die reine Standzeit lief, der Klip aber über Standzeit + Ausblendung. Im
 Schnelllauf (J/L) bleibt die Karte aus — dort will man die Strecke überfliegen. `ZeigeMarke`
 und `Schritt.zeige` sind damit ersatzlos entfallen.
+
+**Und was IM Bild passiert, hängt an derselben Position** (`synchronisiereBild`) — die Regel
+gilt nicht nur dafür, WELCHES Medium liegt, sondern auch für seinen Stand. Beides lief lange
+nach eigener Uhr weiter: Der Ken-Burns-Zug war eine gewöhnliche CSS-Animation ab dem Einfügen
+des `img`, das Video hing an `autoplay` + `loop`. Wer in die Mitte eines Halts scrubbte, sah
+den Zoom trotzdem bei 0 anfangen und weiterlaufen, obwohl der Kopf stand, und im Video
+irgendeinen Frame statt des gemeinten. Jetzt stehen beide Animationen dauerhaft auf
+`animation-play-state: paused` und ihr Fortschritt kommt aus einem NEGATIVEN Delay
+(`--fe-zeit`, gesetzt bei jedem Kopfschritt) — dieselbe Linie wie beim Fortschrittsbalken, nur
+mit dem Kunstgriff, mit dem man ein Standbild aus einer Animation zieht. Die Drift-Dauer ist
+die Klip-Dauer (`--fe-kb-dauer`, wie `--kb-dauer` im Player): fest gesetzte 6 s wären an einem
+20-s-Halt nach einem Viertel fertig. Das Video wird auf `trim.vonS + imS` gesetzt und läuft nur
+bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtbar); der linke
+Trim steht im `dataset` des Elements, weil die ausgelieferte Datei der ungeschnittene Master
+ist und der Schnitt erst in der Pipeline entsteht.
 
 **Dieselbe Regel gilt für die Kartenmitte.** `folgeKarte()` hängt ebenfalls an
 `renderPlayhead`, nicht am Abspieler. Vorher stand der Aufruf allein in `setzeMarkeAnteil` —

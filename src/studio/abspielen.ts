@@ -231,11 +231,28 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
       const klip = plan.musik[i]
       if (!klip) continue
       let el = musikElemente.get(i)
+      // Der Eintrag kann sich geändert haben, seit das Element entstand — die
+      // Elemente überleben Pause und Neustart, der Plan wird bei jedem Start
+      // frisch geholt. Ein getauschtes Stück braucht ein neues Element,
+      // Lautstärke und Loop werden schlicht nachgezogen: Sonst klang der Klip
+      // für den Rest der Sitzung mit dem Wert, den er beim ersten Play hatte
+      // (am Regler hörte man die Änderung, im Abspielen nicht).
+      if (el && el.dataset['url'] !== klip.url) {
+        el.pause()
+        el.removeAttribute('src')
+        musikElemente.delete(i)
+        el = undefined
+      }
+      if (el) {
+        el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
+        el.loop = klip.loop ?? true
+      }
       if (!el) {
         el = new Audio()
         el.loop = klip.loop ?? true
         el.preload = 'none'
         el.src = klip.url
+        el.dataset['url'] = klip.url // `el.src` ist absolut aufgelöst, der Plan trägt den rohen Verweis
         el.volume = Math.max(0, Math.min(1, klip.lautstaerke))
         const kurve = plan.kurve
         const beiEintritt = anteil
