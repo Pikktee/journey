@@ -70,8 +70,29 @@ export class Filmuhr {
   selbstweiter = 0
   /** Frames seit dem Anhalten (nur intern, aber lesbar nützlich). */
   private frameInPause = 0
-  /** Längstes tatsächlich verrechnetes Frame in Sekunden (nach Deckel). */
+  /**
+   * Längstes gemessenes Frame in Sekunden — VOR dem Notdeckel.
+   *
+   * Nach dem Kappen stünde dort für jeden Ausreißer exakt `NOT_DECKEL_S`, also
+   * genau bei den Fällen nichts, für die der Zähler da ist.
+   */
   laengstesFrameS = 0
+
+  /**
+   * Wird bei jedem Wechsel von `laeuft` gerufen (Anhalten, Weiterlaufen).
+   *
+   * Nötig, weil nicht alles an der Filmuhr hängt, was mitgehen muss: Ein
+   * `<audio>`/`<video>`-Element läuft an der Wanduhr des Browsers weiter, auch
+   * wenn kein Frame mehr kommt. Ohne diesen Griff wäre die Musik nach einer
+   * Minute im Hintergrund eine Minute weiter als das Bild — der Befund aus §4.1
+   * des Konzepts, den die Drosselungs-Messung nicht sieht.
+   */
+  beiWechsel: ((laeuft: boolean) => void) | null = null
+
+  /** Läuft die Uhr? (false = Seite im Hintergrund) */
+  get laeuft(): boolean {
+    return this.pausiertBei === null
+  }
 
   constructor(jetztMs: () => number = () => performance.now()) {
     this.jetztMs = jetztMs
@@ -106,12 +127,12 @@ export class Filmuhr {
     // NICHT übernehmen: Sonst zählte das nächste Frame die Differenz doppelt.
     if (!(dt > 0)) return 0
     this.vorige = now
+    if (dt > this.laengstesFrameS) this.laengstesFrameS = dt // vor dem Deckel
     if (dt > NOT_DECKEL_S) {
       this.verworfenS += dt - NOT_DECKEL_S
       this.verworfenFrames++
       dt = NOT_DECKEL_S
     }
-    if (dt > this.laengstesFrameS) this.laengstesFrameS = dt
     return dt
   }
 
@@ -127,6 +148,7 @@ export class Filmuhr {
     this.vorige = null
     this.pausiertBei = this.jetztMs()
     this.pausen++
+    this.beiWechsel?.(false)
   }
 
   /**
@@ -138,6 +160,7 @@ export class Filmuhr {
     this.pausiertS += Math.max(0, (this.jetztMs() - this.pausiertBei) / 1000)
     this.pausiertBei = null
     // `vorige` bleibt null: Erst das nächste Frame kennt seinen Zeitstempel.
+    this.beiWechsel?.(true)
   }
 }
 

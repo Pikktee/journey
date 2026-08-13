@@ -458,13 +458,23 @@ map.on('load', () => {
   const weather = createWeather(document.body)
   // Animiert die Szene? Fahrt läuft, Nutzer scrubbt, oder eine Orbit-Phase dreht
   // (Intro/Finale drehen unabhängig von playing) — nur dann läuft auch das Wetter.
-  const sceneAnimating = () => tour.playing || tour.scrubbing || tour.phase === 'intro' || tour.phase === 'finale'
+  //
+  // `tour.uhr.laeuft` steht in JEDEM Gate dieser Seite, und das ist der Kern von
+  // „eine Uhr": Die Ton-Schleifen haben eigene Timer (audiotracks.ts, music.ts),
+  // sie laufen bewusst unabhängig von der Render-Schleife — und liefen deshalb
+  // im Hintergrund-Tab weiter, während die Filmuhr stand. Nach einer Minute war
+  // die Musik eine Minute voraus, dauerhaft (der Befund aus §4.1). Steht die
+  // Uhr, steht der Ton; die Position hält er (audiotracks.ts: Pause INNERHALB
+  // eines Bereichs setzt nicht zurück), also läuft er nach der Rückkehr genau
+  // dort weiter, wo das Bild steht.
+  const sceneAnimating = () =>
+    tour.uhr.laeuft && (tour.playing || tour.scrubbing || tour.phase === 'intro' || tour.phase === 'finale')
   weather.setGate(sceneAnimating)
   window.__j.weather = weather
 
   // Motorloop nur während der eigentlichen Fahrt: nicht im Foto-Stopp, Intro/Finale,
   // beim Scrubben oder in Pause (dort geht der Motor weich aus wie an einer Ampel).
-  vehicle.setGate(() => tour.playing && !tour.scrubbing && tour.phase === 'ride')
+  vehicle.setGate(() => tour.uhr.laeuft && tour.playing && !tour.scrubbing && tour.phase === 'ride')
   const WEATHER_KEY = 'maptale:weather'
   const WEATHER_INT_KEY = 'maptale:weather-int'
   // Wetter-Stärke: drei UI-Stufen auf einer stufenlosen Skala (die API nimmt jedes
@@ -645,7 +655,7 @@ map.on('load', () => {
   // Bringt die Tour EIGENE Musik mit (cfg.audio), entfällt der Ambient-Loop —
   // der Musik-Schalter in den Optionen steuert dann die Tour-Musik (tourAudio).
   const music = hatEigeneMusik ? null : createMusic('/audio/ambient.mp3')
-  music?.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale')
+  music?.setGate(() => tour.uhr.laeuft && tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
 
   // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub. Pause stoppt sie
@@ -657,7 +667,9 @@ map.on('load', () => {
   // die einzige Auskunft darüber, ob der Film läuft — mit der Oder-Klausel lief
   // die Musik unter der angehaltenen Einblendung weiter und stand danach an
   // einer anderen Stelle als der Schnitt im Studio.
-  tourAudio?.setGate(() => tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing))
+  tourAudio?.setGate(
+    () => tour.uhr.laeuft && tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing),
+  )
 
   // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).
   // Pegel 0..1 aus der Video-Hülle; Stärke am Plateau: VIDEO_DUCK in audiotracks.ts.

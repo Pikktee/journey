@@ -35,13 +35,34 @@ describe('Filmuhr', () => {
     expect(uhr.laengstesFrameS).toBeCloseTo(0.205, 6)
   })
 
-  it('zählt, was der Notdeckel doch kappt', () => {
+  it('zählt, was der Notdeckel doch kappt — und merkt sich den Wert VOR dem Kappen', () => {
     const uhr = new Filmuhr(() => 0)
     uhr.frame(1000)
     const dt = uhr.frame(1000 + 5000) // 5 s Aussetzer ohne jedes Ereignis
     expect(dt).toBe(NOT_DECKEL_S)
     expect(uhr.verworfenS).toBeCloseTo(5 - NOT_DECKEL_S, 6)
     expect(uhr.verworfenFrames).toBe(1)
+    // Stünde hier 1,0, wäre der Zähler bei genau den Fällen blind, für die er da ist
+    expect(uhr.laengstesFrameS).toBeCloseTo(5, 6)
+  })
+
+  it('meldet jeden Wechsel von `laeuft` — daran hängt der Ton', () => {
+    // Die Ton-Schleifen haben eigene Timer und liefen im Hintergrund weiter,
+    // während die Filmuhr stand: Musik voraus, Bild zurück (Konzept §4.1).
+    let wanduhr = 0
+    const uhr = new Filmuhr(() => wanduhr)
+    const meldungen: boolean[] = []
+    uhr.beiWechsel = (laeuft) => meldungen.push(laeuft)
+    expect(uhr.laeuft).toBe(true)
+
+    uhr.pausiere()
+    expect(uhr.laeuft).toBe(false)
+    uhr.pausiere() // zweites Mal: kein zweiter Wechsel
+    wanduhr = 4000
+    uhr.weiter()
+    expect(uhr.laeuft).toBe(true)
+    uhr.weiter() // ebenso
+    expect(meldungen).toEqual([false, true])
   })
 
   it('überspringt die Abwesenheit statt sie in den Film zu schieben', () => {

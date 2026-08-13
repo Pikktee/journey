@@ -293,6 +293,16 @@ export class Tour {
     this.applyCamera()
     this.updateMapLock() // Intro-Orbit: Karte gesperrt, kein Greifhand-Cursor
     this.uhr = new Filmuhr()
+    // Was NICHT an der Filmuhr hängt, muss beim Anhalten ausdrücklich mit: Ein
+    // laufendes Video zählt an der Wanduhr des Browsers weiter, auch wenn kein
+    // Frame mehr kommt — und käme aus dem Hintergrund an einer anderen Stelle
+    // zurück als der Halt, der es zeigt. Der Wiedergabe-Zustand bleibt dabei
+    // unangetastet (kein „Angehalten"-Abzeichen): Wer den Tab wechselt, hat
+    // nichts pausiert. Die Ton-Spuren gehen den anderen Weg — ihre Gates fragen
+    // `uhr.laeuft` (src/main.ts).
+    this.uhr.beiWechsel = (laeuft) => {
+      if (this.phase === 'photo' && this.photoShown === true) this.ui.setzeVideoLauf(laeuft && this.playing)
+    }
     verbindeSichtbarkeit(this.uhr)
     this.uiClock = 0
     this._tick = this.tick.bind(this)

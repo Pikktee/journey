@@ -445,6 +445,24 @@ export class UI {
     this._aktualisiereVideoTon()
   }
 
+  /**
+   * Laufendes Video anhalten/weiterlaufen lassen, OHNE den Wiedergabe-Zustand
+   * anzufassen (kein „Angehalten"-Abzeichen, kein Icon-Wechsel).
+   *
+   * Für die Seite im Hintergrund: `setPlaying(false)` wäre dort falsch — der
+   * Nutzer hat nichts angehalten, er hat den Tab gewechselt, und beim
+   * Zurückkommen soll der Film weiterlaufen, nicht pausiert dastehen. Das
+   * Video braucht den Griff trotzdem: Es hängt an der Wanduhr des Browsers und
+   * liefe sonst durch, während die Filmuhr steht (src/filmuhr.ts).
+   */
+  setzeVideoLauf(on: boolean): void {
+    const v = this.els.video
+    if (v.hidden || !v.getAttribute('src')) return
+    if (on) v.play().catch(() => {})
+    else v.pause()
+    this._aktualisiereVideoTon()
+  }
+
   setPhotoContent(photo: PlayerMedium, idx: number, count: number): void {
     const { frame, img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'

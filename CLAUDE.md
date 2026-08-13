@@ -264,6 +264,16 @@ Deckel — die Android-WebView sagt es zusätzlich ausdrücklich
 (`maptale:hintergrund`/`maptale:vordergrund` aus `PlayerScreen.kt`), weil dort nicht zugesichert
 ist, dass `visibilitychange` durchkommt. Und was der Notdeckel (1,0 s, ein Netz für Umgebungen
 ohne dieses Ereignis) doch kappt, ist **zählbar** statt unsichtbar: `window.__j.uhr`.
+
+**Was nicht an der Filmuhr hängt, muss ausdrücklich mitgehen** — sonst ist es nicht eine Uhr,
+sondern wieder zwei. Die Ton-Schleifen haben eigene Timer (`audiotracks.ts`, `music.ts`,
+`vehicle.ts`, `weather.ts`), bewusst unabhängig von der Render-Schleife; sie liefen deshalb im
+Hintergrund-Tab weiter, während das Bild stand, und die Musik war nach einer Minute eine
+Minute voraus — dauerhaft. Deshalb steht **`tour.uhr.laeuft` in jedem Gate** der Seite
+([src/main.ts](src/main.ts)); die Position hält der Ton dabei selbst (Pause innerhalb eines
+Bereichs setzt nicht zurück). Das laufende **Video** geht den anderen Weg, über
+`uhr.beiWechsel` → `ui.setzeVideoLauf` — ohne `setPlaying`, denn wer den Tab wechselt, hat
+nichts angehalten, und ein „Angehalten"-Abzeichen beim Zurückkommen wäre die falsche Auskunft.
 Hintergrund und Messwerte: [scripts/messungen/README.md](scripts/messungen/README.md),
 Konzept §8A und Falle 3.
 

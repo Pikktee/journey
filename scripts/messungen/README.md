@@ -78,10 +78,17 @@ Einordnung stehen im [Konzept](../../docs/concepts/konzept_gleichlauf_player_edi
 | Verworfene Zeit durch den 50-ms-Deckel | 0 % / 5,0 % / 35,3 % |
 
 **Nach Etappe 1 (13. August 2026, „eine Uhr"):** dieselbe Messung, dieselbe Tour —
-**99,7 % / 99,4 % / 98,5 %**. Die Bildrate fällt unverändert (60 → 29 → 16 fps): Das Gerät
-lässt jetzt Bilder aus, statt die Tour zu verlangsamen. Der Rest bei 12× ist der
-Euler-Fehler des Integrators (`s += speed · dt` mit dem `speed` vom Frame-Anfang), nicht
-verlorene Zeit — `verworfenS` blieb 0.
+**99,8 % / 99,7 % / 99,6 %** (eine Messreihe, 1× / 6× / 12×; Einzelläufe streuen um ein
+knappes Prozent). Die Bildrate fällt unverändert (60 → 31 → 19 fps): Das Gerät lässt jetzt
+Bilder aus, statt die Tour zu verlangsamen.
+
+Der fehlende Rest ist **nicht verlorene Zeit** — `verworfenS` bleibt 0 —, sondern das
+Messfenster selbst: Es lässt bis 3 % Untertempo zu (`speed > ziel * 0.97`), und die
+gewerteten Intervalle liegen im Mittel etwas unter dem Ziel.
+
+Und **6 s Hintergrund** (`visibilitychange` plus stillstehende `rAF`-Kette) ergeben 0 m
+Versatz im Bild UND +0,01 s im Ton. Die Gegenprobe mit dem alten Gate-Verhalten, nur
+`uhr.laeuft` überschrieben: +6,00 s — der Ton lief die volle Abwesenheit weiter.
 | Player gegen Studio-Filmzeit | +9,1 % … +12,7 % (vier Touren) |
 | davon Rampen je Stopp | 0,44 s (Kurztour) … 2,70 s |
 | `route.total` gegen Rohgeometrie | +2,18 % … +3,04 % |
