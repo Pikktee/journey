@@ -34,6 +34,8 @@ und die Umsetzbarkeit — nicht die Richtung.
 | E12 | **Die geteilte Achse wird über der STRECKE parametrisiert**, nicht über der Aufnahmezeit | 13.08. | **Vorbedingung von E2**, keine Wahl (§8C). Macht Etappe 3 zum teuersten Schritt und legt sie auf den kritischen Pfad |
 | E13 | **Rückwärts fährt über dieselbe Kurve — Halte inklusive.** Kein zweiter Zeitbegriff, keine `dir`-Sonderfälle | 14.08. | Etappe 4 wird KLEINER: `nextIdx`, `syncNextIdx`, Bremsweg-Vorgriff und die `dir > 0`-Schranken entfallen (§12) |
 | E14 | **Die Rampe wird eine feste Form über eine feste STRECKE** (ease-in-out), nicht die nachgebaute Exponentialkurve | 14.08. | Etappe 4; Halt-Breite wird exakt, die Rampe im Studio zeichenbar. Länge wird an den heutigen Werten kalibriert (§14) |
+| E15 | **Die Foto-Karte hängt auch im Player an der POSITION**, nicht an der Wanduhr — sie erscheint und animiert deshalb auch rückwärts | 14.08. | Etappe 4, DOM-Seite; erledigt zugleich den offenen Ken-Burns-Eintrag (§6C) und die leere Karte beim Scrubben |
+| E16 | **Schnelllauf 8× in beiden Bühnen** — dazu die Editor-Regeln: Ton nur bei Tempo 1, Karte aus ab 2× | 14.08. | Etappe 4; macht den fehlenden Ton-Ausgleich beim `shuttle` gegenstandslos |
 
 ## 2. Offene Punkte
 
@@ -41,15 +43,12 @@ und die Umsetzbarkeit — nicht die Richtung.
   sich stimmig — aber ein Schalter, der die Filmdauer halbiert, ist eine bewusste Ausnahme
   vom Taktversprechen (E5). Unter E13 ist er ein Faktor auf `dtFilm` und sonst nichts; die
   Frage ist nur noch, ob er BLEIBT.
-- **Ken Burns: welche Zahl stimmt — und welches Zeitmodell?** Zwei Fragen in einer Zeile.
-  Die Zahl: `holdS + 1.8` gegen `holdS + 0.8` (§6C); erst messen, wie lange die Karte auf
-  jeder Seite *tatsächlich* sichtbar ist — die Absicht ist aus dem Code nicht lesbar, weil
-  Kommentar und Zahl sich widersprechen. Das Modell wiegt schwerer: Im Player ist der Zug
-  eine CSS-`transition` an der Wanduhr (nicht pausierbar, nicht scrubbar — er läuft unter
-  dem „Angehalten"-Abzeichen weiter), im Editor eine pausierte Animation am Abspielkopf.
-  Entweder der Player übernimmt das Studio-Modell (dann gehört die Umsetzung in die
-  Szene-Schicht, §9), oder die Sekunde wird angeglichen und der Rest bleibt bewusst stehen.
-  Zu entscheiden, BEVOR jemand es „schnell mitnimmt" (§12, Schritt 1).
+- **Ken Burns: welche Zahl stimmt?** Nur noch die Zahl — das Zeitmodell ist mit E15
+  entschieden (der Player übernimmt das des Editors, in Etappe 4). Bleibt `holdS + 1.8`
+  gegen `holdS + 0.8` (§6C): erst messen, wie lange die Karte auf jeder Seite *tatsächlich*
+  sichtbar ist, denn die Absicht ist aus dem Code nicht lesbar — Kommentar und Zahl
+  widersprechen sich. Erledigt sich mit E15 wahrscheinlich von selbst: Ziehen beide Seiten
+  ihren Fortschritt aus derselben Filmzeit, gibt es keine zwei Dauern mehr.
 - **Steht der Wetter-Schalter im Editor anfangs an oder aus?** Aus wäre ruhiger beim
   Schneiden, an wäre ehrlicher zum Film.
 - **Bekommen Halte in der Player-Leiste sichtbare Breite** (wie im Studio) oder bleiben es
@@ -575,9 +574,11 @@ sind Zahlenkorrekturen — ein Nachmittag, je ein Wächter dazu.
 pausierbar, nicht scrubbar: Unter dem „Angehalten"-Abzeichen läuft er weiter, während `holdT`
 steht (die Pause-Korrektur aus v0.60.4 erreicht ihn nicht). Das Studio fährt dagegen eine
 dauerhaft pausierte Animation mit negativem Delay. Die Differenz ist also nicht eine Sekunde,
-sondern **ein anderes Zeitmodell** — dieselbe Sorte wie §6A. Entweder der Player übernimmt das
-Studio-Modell (dann gehört es zur Szene-Schicht, §9), oder die Sekunde wird angeglichen und
-der Rest bleibt bewusst stehen. Zu entscheiden, bevor man es „schnell mitnimmt".
+sondern **ein anderes Zeitmodell** — dieselbe Sorte wie §6A. **Entschieden mit E15
+(14.08.): Der Player übernimmt das Studio-Modell**, und zwar in Etappe 4 statt in der
+Szene-Schicht — dort fällt es ohnehin an, weil die Karte auch rückwärts erscheinen soll.
+Die 1-Sekunden-Zeile in §6C erledigt sich damit von selbst: Wenn beide Seiten ihren
+Fortschritt aus derselben Filmzeit ziehen, gibt es keine zwei Dauern mehr.
 
 **Etappe 1 — Eine Uhr.** `tick()` rechnet in `dtFilm` — echte, ungedeckelte Frame-Zeit;
 `s`-Integration und alle Zeitzähler (`holdT`, `momentT`) laufen darauf; `visibilitychange`
@@ -651,9 +652,31 @@ statt eines eigenen.
 Und das ist der Schritt, der Etappe 4 **kleiner** macht statt größer: Wenn „im Halt" ein
 Zustand der KURVE ist (`filmS` liegt in einem Halt-Intervall) statt eines getriggerten
 Phasenwechsels, entfallen `nextIdx`, `nextMomentIdx`, `syncNextIdx`, der Bremsweg-Vorgriff,
-die Ausrollschwelle `speed < 4` und alle `dir > 0`-Schranken. Zwei Dinge sind dabei zu
-entscheiden, aber beide klein: ob die Foto-Karte auch rückwärts erscheint (im Editor tut sie
-es), und ob der 8×-Schnelllauf bleibt oder sich dem Editor angleicht (dort 4×).
+die Ausrollschwelle `speed < 4` und alle `dir > 0`-Schranken.
+
+**Die Foto-Karte erscheint rückwärts genauso — und animiert rückwärts (E15).** Das ist der
+Teil, der Etappe 4 auf der DOM-Seite wieder größer macht, und er hängt an derselben
+Umstellung: Im Editor stehen die Animationen dauerhaft auf `paused`, ihr Fortschritt kommt
+aus einem NEGATIVEN DELAY (`--fe-zeit`) — rückwärts läuft dort alles von selbst rückwärts.
+Der Player fährt dagegen echte Wanduhr-Animationen (Auftritt per Klassenwechsel, Ken Burns
+als `transition`); die kann man nicht rückwärts laufen lassen, nur neu starten.
+
+Bis Etappe 4 war das die richtige Trennung (§6A: „der Player läuft linear in Echtzeit, im
+Editor wird gescrubbt"). Mit E2 verliert sie ihre Begründung — die Position ist dann auch im
+Player eine Funktion der Filmzeit. Der Wechsel auf das Editor-Modell löst deshalb drei Dinge
+in einem Zug: rückwärts stimmt, **Ken Burns wird pausierbar** (heute läuft er unter dem
+„Angehalten"-Abzeichen weiter — der offene §6C-Eintrag erledigt sich hier), und **Scrubben
+zeigt endlich etwas** (heute räumt `beginScrub` die Karte weg, wer durch einen Halt zieht,
+sieht nichts). Die eine Grenze: Ein Video kann nicht rückwärts spielen — dort wird geseekt,
+also Standbilder ohne Ton, genau wie im Editor.
+
+**Der Schnelllauf geht auf 8× in BEIDEN Bühnen (E16)**, und mit ihm die zwei Regeln, die der
+Editor schon hat: **Ton nur bei Tempo 1** ([abspielen.ts](../../src/studio/abspielen.ts):
+„im Schnelllauf oder rückwärts klänge sie wie ein durchgedrehter Kassettenrekorder") und
+**Karte aus ab 2×** ([editor.ts](../../src/studio/editor.ts): „dort will man die Strecke
+überfliegen"). Das erledigt zugleich eine offene Lücke: Im Player läuft die Musik heute im
+Schnelllauf weiter und driftet, weil `shuttle` keinen Ausgleich auslöst — mit dieser Regel
+braucht sie keinen, sie klingt dort nicht. Im Editor wird aus `Math.min(t * 2, 4)` eine 8.
 
 **Die Rampe ist eine feste Form über eine feste STRECKE (E14)**, keine nachgebaute
 Exponentialkurve. Heute strebt `speed` das Ziel asymptotisch an (τ = 1,1 s beim Anfahren,
