@@ -8,6 +8,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
+import { klemmeSeitenverhaeltnis } from '../einblendung.js'
 import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
 import {
@@ -5925,6 +5926,14 @@ let abspieler: Abspieler | null = null
 let karteFolgt = true
 /** Welche Aufnahme gerade auf der Karte liegt — Wechsel baut die Karte neu. */
 let eingeblendet: string | null = null
+/**
+ * Gemessenes Seitenverhältnis je Medium (geklemmt, s. `klemmeSeitenverhaeltnis`).
+ *
+ * Der Rahmen der Foto-Karte entsteht bei jedem Auftritt neu; ohne dieses
+ * Gedächtnis stünde er bis zum `load` des Bildes auf der Vorgabe 3:2 und
+ * sprang beim Scrubben über einen Halt sichtbar in die Form.
+ */
+const seitenverhaeltnisse = new Map<string, number>()
 
 /** Schnappschuss für eine Wiedergabe — bei jedem Start neu eingesammelt. */
 function holeSpielplan(): Spielplan | null {
@@ -6152,6 +6161,18 @@ function zeigeFoto(id: string): void {
   const karteEl = $('foto-einblendung')
   const rahmen = document.createElement('div')
   rahmen.className = 'fe-frame'
+  // Der Rahmen bekommt das GEMESSENE Seitenverhältnis, wie im Player
+  // (ui.ts, `--photo-ar`) und mit derselben Klemme. Gemerkt wird es je
+  // Medium, weil `zeigeFoto` beim Scrubben oft läuft und ein neu gebauter
+  // Rahmen sonst bei jedem Auftritt kurz auf 3:2 stünde.
+  const bekannt = seitenverhaeltnisse.get(m.id)
+  if (bekannt !== undefined) rahmen.style.setProperty('--fe-ar', bekannt.toFixed(4))
+  const merkeSeitenverhaeltnis = (b: number, h: number): void => {
+    const ar = klemmeSeitenverhaeltnis(b, h)
+    if (ar === null) return
+    seitenverhaeltnisse.set(m.id, ar)
+    rahmen.style.setProperty('--fe-ar', ar.toFixed(4))
+  }
   if (m.type === 'video') {
     const video = document.createElement('video')
     video.src = m.src
@@ -6175,11 +6196,18 @@ function zeigeFoto(id: string): void {
     video.dataset['vonS'] = String(schnitt?.vonS ?? 0)
     const endeS = schnitt?.bisS ?? m.dauerS
     if (endeS) video.dataset['bisS'] = String(endeS)
+    video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video.videoWidth, video.videoHeight), {
+      once: true,
+    })
     rahmen.appendChild(video)
   } else {
     const bild = document.createElement('img')
     bild.src = m.src
     bild.alt = ''
+    // Aus dem Browser-Cache ist `complete` schon beim Anlegen wahr — dann
+    // feuert `load` nicht mehr.
+    if (bild.complete && bild.naturalWidth) merkeSeitenverhaeltnis(bild.naturalWidth, bild.naturalHeight)
+    else bild.addEventListener('load', () => merkeSeitenverhaeltnis(bild.naturalWidth, bild.naturalHeight), { once: true })
     rahmen.appendChild(bild)
   }
   // Fortschrittsbalken wie im Player (`photo-hold`) — wie lange die Karte noch

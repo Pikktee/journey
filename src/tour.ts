@@ -4,6 +4,7 @@
 // werden dadurch automatisch zu weichen Kamerafahrten. Eine explizite Flughöhe ist
 // nötig, weil zoom-basierte Kameras (jumpTo) in steilem Gelände im Hang stecken bleiben.
 import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
+import { HOLD_AUSBLEND, HOLD_HIDE } from './einblendung.js'
 import { pointAt, bearingAt, dist, bearing, angleDelta, destination, type Route } from './geo.js'
 import { EXAGGERATION, type LngLat2D } from './map.js'
 import type { Wegpunkt } from './tours.js'
@@ -31,8 +32,10 @@ export const PRESETS = {
  */
 const distanzFuer = (name: string): Kameradistanz => (PRESETS as Record<string, Kameradistanz | undefined>)[name] ?? PRESETS.mittel
 
-const HOLD_HIDE = 5.2 // s sichtbare Foto-Karte (Default; display.holdS übersteuert pro Medium)
-const HOLD_AUSBLEND = 0.8 // s Ausblend-Animation nach der Anzeige, dann weiterfahren
+// Standzeit und Ausblendung gehören der Foto-Karte, nicht der Engine — sie
+// stehen in einer Datei, die auch das Studio importieren kann (einblendung.ts).
+// Vorher standen sie hier und die vierte Fundstelle (ui.ts) war eine rohe 5.2,
+// die kein Wächter sah.
 
 /** Ein Kamera-Moment aus dem Kreativbaukasten, verankert an Streckenmeter `s`. */
 export interface KameraMoment {

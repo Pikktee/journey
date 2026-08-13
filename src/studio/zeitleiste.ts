@@ -5,6 +5,7 @@
 // (Streckenanteil): die Leiste zeigt die ZEIT der Aufzeichnung, damit
 // Trim/Grenzen/Audio exakt an den absoluten Zeit-Ankern des Overlays hängen.
 
+import { HOLD_AUSBLEND, HOLD_HIDE } from '../einblendung.js'
 import {
   isoZuOffset,
   offsetZuIso,
@@ -537,9 +538,12 @@ export function baueTrimGriffe(edits: EditOverlay, startIso: string, skala: Zeit
 const BASIS_TEMPO_MS = 120
 /** Spiegel von MODE_SPEED (src/tour.js). */
 const TEMPO: Record<Modus, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
-/** `HOLD_HIDE` (5,2 s Anzeige) + `HOLD_AUSBLEND` (0,8 s) in src/tour.js. */
-export const HALT_ENGINE_S = 5.2
-export const HALT_AUSBLEND_S = 0.8
+// Standzeit und Ausblendung sind KEINE Spiegel mehr, sondern dieselben Werte:
+// `einblendung.ts` ist DOM- und importfrei, das Studio kann sie direkt lesen.
+// (Anders als Tempo und Modus-Faktoren oben — die stecken in `tour.ts`, und das
+// importiert MapLibre.) Die alten Namen bleiben, sie stehen im ganzen Editor.
+export const HALT_ENGINE_S = HOLD_HIDE
+export const HALT_AUSBLEND_S = HOLD_AUSBLEND
 
 /** Film-Tempo eines Modus in m/s — die EINE Formel für Schätzung und Kurve. */
 const tempoMs = (mode: Modus): number => BASIS_TEMPO_MS * (TEMPO[mode] ?? 1)

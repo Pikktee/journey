@@ -2,6 +2,7 @@
 import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
 import type { Wegpunkt } from './tours.js'
 import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
+import { HOLD_HIDE, klemmeSeitenverhaeltnis } from './einblendung.js'
 
 /**
  * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
@@ -451,16 +452,15 @@ export class UI {
     // die Drift-Dauer folgt der Anzeigedauer (holdS + Ausblende) — der Drift
     // läuft so nie vor der Karte aus. Default (7 s) bleibt ohne display identisch.
     frame.classList.toggle('kein-kb', photo.display?.kenBurns === false)
-    frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? 5.2) + 1.8}s`)
+    frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? HOLD_HIDE) + 1.8}s`)
     // Seitenverhältnis erst setzen, wenn das neue Medium vermessen ist — das alte
     // --photo-ar belassen (kein Zwischen-Reset auf 3:2), sonst springt der Rahmen.
     const merkeSeitenverhaeltnis = (el: HTMLImageElement | HTMLVideoElement) => {
       const bild = el instanceof HTMLImageElement
       const b = bild ? el.naturalWidth : el.videoWidth
       const h = bild ? el.naturalHeight : el.videoHeight
-      if (!b || !h) return
-      // Deckeln: extreme Panoramen/Hochformate sonst breiter/höher als die Bühne
-      const ar = Math.max(0.62, Math.min(1.85, b / h))
+      const ar = klemmeSeitenverhaeltnis(b, h)
+      if (ar === null) return
       frame.style.setProperty('--photo-ar', ar.toFixed(4))
     }
     if (istVideo) {

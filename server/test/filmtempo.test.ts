@@ -26,6 +26,9 @@ import { MODI } from '../src/schema/upload.js'
 
 const engineQuelle = (): string => readFileSync(new URL('../../src/tour.ts', import.meta.url), 'utf8')
 const geoQuelle = (): string => readFileSync(new URL('../../src/geo.ts', import.meta.url), 'utf8')
+// Standzeit und Ausblendung stehen seit Paket A nicht mehr in der Engine,
+// sondern in einem Modul, das auch das Studio importieren kann.
+const karteQuelle = (): string => readFileSync(new URL('../../src/einblendung.ts', import.meta.url), 'utf8')
 
 describe('Filmtempo', () => {
   it('kennt genau die Modi des Austauschformats', () => {
@@ -50,9 +53,13 @@ describe('Filmtempo', () => {
   it('deckt sich mit den Halte-Konstanten der Engine', () => {
     // Sie bemessen, wie viel FILMzeit eine Aufnahme kostet — die Grundlage der
     // Film-Achse, über die seit Etappe 4 die Ton-Anker übersetzt werden.
-    const quelle = engineQuelle()
-    expect(Number(quelle.match(/const HOLD_HIDE = ([\d.]+)/)?.[1])).toBe(HALT_ENGINE_S)
-    expect(Number(quelle.match(/const HOLD_AUSBLEND = ([\d.]+)/)?.[1])).toBe(HALT_AUSBLEND_S)
+    const quelle = karteQuelle()
+    const hide = quelle.match(/export const HOLD_HIDE = ([\d.]+)/)
+    const ausblend = quelle.match(/export const HOLD_AUSBLEND = ([\d.]+)/)
+    expect(hide, 'HOLD_HIDE in src/einblendung.ts nicht gefunden').not.toBeNull()
+    expect(ausblend, 'HOLD_AUSBLEND in src/einblendung.ts nicht gefunden').not.toBeNull()
+    expect(Number(hide?.[1])).toBe(HALT_ENGINE_S)
+    expect(Number(ausblend?.[1])).toBe(HALT_AUSBLEND_S)
   })
 
   it('deckt sich mit den Moment-Dauern der Engine', () => {

@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
+import { HOLD_AUSBLEND, HOLD_HIDE } from '../src/einblendung.js'
 import {
   effektiveMedien,
   erfasseUndo,
@@ -345,17 +346,13 @@ describe('Fortbewegungs-Modi', () => {
     }
   })
 
-  // Die Haltezeit-Spiegel (HALT_ENGINE_S/HALT_AUSBLEND_S) hatten als einzige
-  // KEINEN Wächter — eine Engine-Änderung wäre in Dauer-Schätzung und
-  // Filmzeit-Kurve unbemerkt verhallt.
-  it('Haltezeiten decken sich mit HOLD_HIDE/HOLD_AUSBLEND der Engine', () => {
-    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
-    const hide = quelle.match(/const HOLD_HIDE = ([\d.]+)/)
-    const ausblend = quelle.match(/const HOLD_AUSBLEND = ([\d.]+)/)
-    expect(hide, 'HOLD_HIDE in src/tour.ts nicht gefunden').not.toBeNull()
-    expect(ausblend, 'HOLD_AUSBLEND in src/tour.ts nicht gefunden').not.toBeNull()
-    expect(Number(hide?.[1])).toBe(HALT_ENGINE_S)
-    expect(Number(ausblend?.[1])).toBe(HALT_AUSBLEND_S)
+  // Die Haltezeiten sind seit Paket A KEINE Kopie mehr, sondern derselbe Wert:
+  // `einblendung.ts` ist DOM- und importfrei, das Studio liest ihn direkt. Der
+  // Wächter prüft deshalb keine Zeichenkette mehr, sondern die Identität — er
+  // fällt erst, wenn jemand die Werte wieder auseinanderschreibt.
+  it('Haltezeiten SIND HOLD_HIDE/HOLD_AUSBLEND, keine Kopie davon', () => {
+    expect(HALT_ENGINE_S).toBe(HOLD_HIDE)
+    expect(HALT_AUSBLEND_S).toBe(HOLD_AUSBLEND)
   })
 
   it('haben in der Engine auch eine Kamera-Skala', () => {
