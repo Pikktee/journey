@@ -49,7 +49,19 @@ function abstandZurStrecke(p: [number, number], a: [number, number], b: [number,
  * Aufzeichnungen sollen keinen Callstack sprengen.
  */
 export function vereinfacheSegment(pts: readonly UploadPunkt[], toleranzM = 5): UploadPunkt[] {
-  if (pts.length <= 2) return [...pts]
+  return vereinfacheIndizes(pts, toleranzM).map((i) => pts[i] as UploadPunkt)
+}
+
+/**
+ * Dasselbe Verfahren, aber die INDIZES der überlebenden Punkte statt der
+ * Punkte selbst. Gebraucht, seit das Tour-JSON je ausgeliefertem Wegpunkt
+ * sein `f` mitschickt (E11): Das `f` wird auf der ROHEN Zeitreihe gemessen,
+ * und die weggeworfenen Punkte tragen Länge — aus den ausgelieferten Punkten
+ * allein ist es nicht rekonstruierbar. Über den Index findet enrich.ts jeden
+ * überlebenden Punkt in der Zeitreihe wieder.
+ */
+export function vereinfacheIndizes(pts: readonly UploadPunkt[], toleranzM = 5): number[] {
+  if (pts.length <= 2) return pts.map((_, i) => i)
   const xy = projiziere(pts)
   const behalten = new Array<boolean>(pts.length).fill(false)
   behalten[0] = behalten[pts.length - 1] = true
@@ -71,7 +83,9 @@ export function vereinfacheSegment(pts: readonly UploadPunkt[], toleranzM = 5): 
       stapel.push([von, index], [index, bis])
     }
   }
-  return pts.filter((_, i) => behalten[i])
+  const indizes: number[] = []
+  for (let i = 0; i < pts.length; i++) if (behalten[i]) indizes.push(i)
+  return indizes
 }
 
 export interface TourStats {

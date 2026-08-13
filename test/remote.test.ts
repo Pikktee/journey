@@ -47,7 +47,7 @@ describe('adaptiereTour', () => {
     expect(cfg.photos[0]?.type).toBe('photo')
     expect(cfg.segments[0]?.mode).toBe('walk')
     // Kein Server-Wetter → Feld bleibt weg (Client-Auto-Wetter greift als Fallback)
-    expect(cfg.weather).toBeUndefined()
+    expect(cfg.weatherF).toBeUndefined()
   })
 
   it('reicht showFinale nur bei true durch', () => {
@@ -58,17 +58,36 @@ describe('adaptiereTour', () => {
     expect(adaptiereTour(an).showFinale).toBe(true)
   })
 
-  it('rechnet Wetter-Keyframes von f auf km um (Player-Format)', () => {
+  // Bis E11 rechnete der Adapter hier `km = f · Gesamt-km`, und main.ts machte
+  // daraus wieder Meter — zusammen war das der Rückfall `f × total`. Die
+  // Übersetzung liegt jetzt an EINER Stelle (src/streckenanker.ts), also geht
+  // das f roh durch.
+  it('reicht Wetter-Keyframes roh durch (f-verankert)', () => {
     const tour = beispielTour()
     tour.weather = [
       { f: 0, mode: 'clouds', k: 0.5 },
       { f: 0.5, mode: 'rain', k: 0.8, source: 'photo' },
     ]
     const cfg = adaptiereTour(tour)
-    expect(cfg.weather).toEqual([
-      { km: 0, mode: 'clouds', k: 0.5 },
-      { km: 10.7, mode: 'rain', k: 0.8 },
+    expect(cfg.weatherF).toEqual([
+      { f: 0, mode: 'clouds', k: 0.5 },
+      { f: 0.5, mode: 'rain', k: 0.8 },
     ])
+  })
+
+  it('wirft kaputte Wetter-f weg', () => {
+    const tour = beispielTour()
+    tour.weather = [
+      { f: Number.NaN, mode: 'rain', k: 1 },
+      { f: 0.5, mode: 'clouds', k: 0.5 },
+    ]
+    expect(adaptiereTour(tour).weatherF).toEqual([{ f: 0.5, mode: 'clouds', k: 0.5 }])
+  })
+
+  it('reicht das f je Wegpunkt durch (E11)', () => {
+    const tour = beispielTour()
+    tour.segments[0]!.f = [0, 0.4]
+    expect(adaptiereTour(tour).segments[0]?.f).toEqual([0, 0.4])
   })
 
   it('reicht Videos mit Poster und Dauer durch (M4)', () => {

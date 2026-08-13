@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bestimmeCover, reichereAn } from '../src/pipeline/enrich.js'
+import { distanzM } from '../src/pipeline/geo.js'
 import { FesterGeocoder } from '../src/pipeline/naming.js'
 import type { BildBefund } from '../src/pipeline/vision.js'
 import { FesteWetterQuelle, testRaster } from '../src/pipeline/weather.js'
@@ -36,6 +37,66 @@ describe('reichereAn', () => {
     expect(tour.segments[0]?.label).toBe('Zu Fuß')
     expect(tour.segments[0]?.pts[0]).toHaveLength(3)
     expect(tour.stats.km).toBeGreaterThan(9)
+  })
+
+  // E11 (Gleichlauf-Konzept §8D): Ohne dieses Feld muss der Player `f × total`
+  // auf seiner 2–3 % längeren Catmull-Rom-Route rechnen, und der Fehler ist
+  // ungleichmäßig verteilt.
+  it('schickt je ausgeliefertem Wegpunkt sein f mit', async () => {
+    const tour = await reichereAn(eingabe())
+    const alle: number[] = []
+    for (const seg of tour.segments) {
+      expect(seg.f).toHaveLength(seg.pts.length)
+      alle.push(...(seg.f as number[]))
+    }
+    // Über alle Segmente hinweg monoton von 0 bis 1 — der Nahtpunkt kommt
+    // zweimal vor (der Player wirft die Kopie mit `slice(1)` weg) und trägt
+    // deshalb beide Male denselben Wert.
+    expect(alle[0]).toBe(0)
+    expect(alle.at(-1)).toBeCloseTo(1, 12)
+    for (let i = 1; i < alle.length; i++) expect(alle[i]).toBeGreaterThanOrEqual(alle[i - 1] as number)
+    const naht = tour.segments[0]?.f?.at(-1)
+    expect(tour.segments[1]?.f?.[0]).toBe(naht)
+  })
+
+  it('misst f auf der ROHEN Geometrie, nicht auf den ausgelieferten Punkten', async () => {
+    // Ein Bogen mit vielen Zwischenpunkten: Douglas-Peucker wirft sie weg,
+    // ihre Länge bleibt im `f`. Würde `f` aus den gelieferten Punkten gerechnet,
+    // läge der Mittelpunkt woanders.
+    const manifest = beispielManifest()
+    const bogen: UploadPunkt[] = Array.from({ length: 41 }, (_, i) => {
+      const t = i / 40
+      return [8 + t * 0.02, 46 + Math.sin(t * Math.PI) * 0.004, 500, i * 30]
+    })
+    manifest.segments = [{ mode: 'walk', pts: bogen }]
+    manifest.media = []
+    const tour = await reichereAn(eingabe({ manifest }))
+    const seg = tour.segments[0]
+    expect(seg?.pts.length).toBeLessThan(bogen.length) // vereinfacht
+    // f des zweiten gelieferten Punktes = Rohdistanz bis dorthin / Gesamt-Roh
+    const rohBis = (bis: number) => {
+      let m = 0
+      for (let i = 1; i <= bis; i++) m += distanzM(bogen[i - 1] as UploadPunkt, bogen[i] as UploadPunkt)
+      return m
+    }
+    const zweiter = seg?.pts[1] as [number, number, number]
+    const idx = bogen.findIndex((p) => p[0] === zweiter[0] && p[1] === zweiter[1])
+    expect(idx).toBeGreaterThan(0)
+    // Auf 8 Nachkommastellen — genau die Rundung, mit der `f` geschrieben wird.
+    expect(seg?.f?.[1]).toBeCloseTo(rohBis(idx) / rohBis(bogen.length - 1), 8)
+  })
+
+  it('schreibt f gerundet — sonst kostet das Feld mehr als die Achse, die §12 ablehnt', () => {
+    // Roh serialisiert JSON bis zu 17 signifikante Stellen (~21 Zeichen je
+    // Punkt): +19,8 % auf das größte lokale tour.json gegen +11,2 % gerundet.
+    // Acht Nachkommastellen sind bei 41,8 km ein Weg von 0,4 mm — die Grenze
+    // liegt weit jenseits dessen, was die Route auflöst (14-m-Raster).
+    const lang = (x: number) => (String(x).split('.')[1] ?? '').length
+    return reichereAn(eingabe()).then((tour) => {
+      const stellen = tour.segments.flatMap((s) => s.f ?? []).map(lang)
+      expect(stellen.length).toBeGreaterThan(0)
+      expect(Math.max(...stellen)).toBeLessThanOrEqual(8)
+    })
   })
 
   it('rendert Medien mit URL, Uhrzeit-Titel und Anker', async () => {

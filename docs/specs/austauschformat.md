@@ -23,6 +23,13 @@ Grundprinzipien:
   die Route selbst neu auf (Catmull-Rom + 14-m-Resampling in `src/geo.ts`);
   serverseitige Meter würden minimal abweichen. Medien-Anker bleiben
   `[lng, lat]` und laufen clientseitig durch `nearestS`.
+  **Damit `f` und Meter dieselbe Stelle meinen, schickt das Tour-JSON je
+  ausgeliefertem Wegpunkt sein `f` mit** (`segments[].f`, s. u.). Ohne das war
+  die Regel eine halbe: Der Server misst `f` auf der ROHEN Zeitreihe, die Route
+  des Players ist 2,2–3,0 % länger — und die Dehnung verteilt sich
+  ungleichmäßig, ein Anker lag deshalb bis zu 9 Filmsekunden neben seiner
+  Stelle. Nachrechnen kann der Client das nicht: `vereinfacheSegment` wirft
+  Punkte weg, die Länge tragen.
 - **Unbekannte Felder ignoriert der Player.** Baukasten-Felder (`camera`,
   `audio`, `media[].display`) sind reserviert und ab Tag 1 im Schema erlaubt.
 
@@ -92,7 +99,7 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   "description": null,
   "time": { "start": "…", "end": "…", "zone": "Europe/Zurich" },
   "timeline": [{ "f": 0.0, "t": "…" }, { "f": 1.0, "t": "…" }],
-  "segments": [{ "mode": "walk", "label": "Zu Fuß", "pts": [[7.9086, 46.5934, 802.1]] }],
+  "segments": [{ "mode": "walk", "label": "Zu Fuß", "pts": [[7.9086, 46.5934, 802.1]], "f": [0.0] }],
   "media": [
     { "id": "m1", "type": "photo", "src": "/api/media/t_V1kQz9xY/m1.w1920.jpg",
       "thumb": "/api/media/t_V1kQz9xY/m1.t480.jpg",
@@ -127,6 +134,22 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   Umstellung gerendert wurden und den Start-Nachtrag noch nicht durchlaufen
   haben (`server/src/pipeline/bildnachtrag.ts`) — jede Anzeige braucht deshalb
   einen Rückfall auf `src`.
+- `segments[].f` (**additiv**, `maptale/tour@1` bleibt): Streckenanteil je Punkt
+  von `pts`, auf der ROHEN Geometrie gemessen — parallele Liste, gleiche Länge.
+  Der Player baut daraus mit `route.wpS` (`src/geo.ts`) eine Tabelle und
+  übersetzt JEDEN `f`-Anker der Tour EINMAL beim Laden nach Streckenmetern
+  (`src/streckenanker.ts`); danach rechnet er nur noch in Metern. Betroffen sind
+  `audio[].f0/f1`, `camera[].f`, `moments[].f`, `weather[].f` und `timeline[].f`.
+  Drei Dinge hängen daran:
+  - **Fehlt das Feld, fällt der Player auf `f × route.total` zurück** — das ist
+    kein Notbehelf, sondern exakt sein Verhalten von vorher. Touren, die vor
+    dieser Erweiterung gerendert wurden, bekommen es bei ihrem nächsten Render.
+  - **Kuratierte Touren (`src/tours.ts`) bekommen es NIE** — sie sind eine Datei
+    mit Wegpunkten, keine Aufzeichnung. Für sie ist der Rückfall dauerhaft.
+  - **Der Nahtpunkt zweier Segmente steht doppelt** (einmal als letzter Punkt,
+    einmal als erster des nächsten) und trägt beide Male denselben Wert; der
+    Player wirft die Kopie mit `slice(1)` weg und muss die `f`-Liste dabei
+    mitziehen.
 - `timeline` (M2, `server/src/pipeline/zeit.ts`): destillierte Stützstellen
   Streckenanteil→Pseudo-Zeit (stückweise linear, ±45 s genau); Pausen > 15 min
   sind serverseitig auf 2 min komprimiert (sonst springt die Pseudo-Sonne beim

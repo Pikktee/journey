@@ -18,6 +18,14 @@ export interface Route {
   total: number
   /** Summe aller Anstiege in Metern */
   gain: number
+  /**
+   * Streckenmeter je EINGABE-Wegpunkt (parallel zur Liste, die `buildRoute`
+   * bekam) — die Hälfte der f-Übersetzung, die auf dieser Seite liegt
+   * (Gleichlauf-Konzept §8D). Zusammen mit dem `f` je Wegpunkt aus dem
+   * Tour-JSON wird daraus die Tabelle, mit der `src/streckenanker.ts` jeden
+   * f-Anker exakt nach `s` übersetzt.
+   */
+  wpS: number[]
 }
 
 export function dist(a: LngLat, b: LngLat): number {
@@ -87,13 +95,21 @@ export function buildRoute(waypoints: Wegpunkt[], step = 14): Route {
 
   const coords: Wegpunkt[] = [dense[0]!]
   const cum = [0]
+  // Wegstand je Stützpunkt der dichten Kurve — daraus fällt `wpS` ab: Wegpunkt
+  // `k` steckt in `dense[k * SEGS]` (die Schleife oben setzt bei `j === 0` genau
+  // `pts[i + 1]` ab, und der letzte kommt aus dem `dense.push` danach).
+  const denseCum = new Array<number>(dense.length)
+  denseCum[0] = 0
   let travelled = 0
   let emitted = 0
   for (let i = 1; i < dense.length; i++) {
     const a = dense[i - 1]!
     const b = dense[i]!
     const d = dist(a, b)
-    if (d === 0) continue
+    if (d === 0) {
+      denseCum[i] = travelled
+      continue
+    }
     while (travelled + d >= (emitted + 1) * step) {
       const t = ((emitted + 1) * step - travelled) / d
       coords.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t])
@@ -101,9 +117,11 @@ export function buildRoute(waypoints: Wegpunkt[], step = 14): Route {
       emitted++
     }
     travelled += d
+    denseCum[i] = travelled
   }
   coords.push(dense[dense.length - 1]!)
   cum.push(travelled)
+  const wpS = waypoints.map((_, k) => denseCum[Math.min(k * SEGS, dense.length - 1)] ?? 0)
 
   let gain = 0
   for (let i = 1; i < coords.length; i++) {
@@ -111,7 +129,7 @@ export function buildRoute(waypoints: Wegpunkt[], step = 14): Route {
     if (dEle > 0) gain += dEle
   }
 
-  return { coords, cum, total: travelled, gain }
+  return { coords, cum, total: travelled, gain, wpS }
 }
 
 // Erster Stützpunkt-Index mit cum[i] >= s (binäre Suche)

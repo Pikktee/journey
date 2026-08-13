@@ -5,6 +5,7 @@ import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } 
 import { loadRemoteTour, createTimeAt, type RemoteTourCfg } from './remote.js'
 import { tourAusPfad, tourPfad } from './routen.js'
 import { buildRoute, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
+import { baueSBeiF } from './streckenanker.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
@@ -45,6 +46,12 @@ interface SpielerSegment {
   mode: string
   label?: string
   pts: Wegpunkt[]
+  /**
+   * Streckenanteil je Punkt, vom Server auf der ROHEN Geometrie gemessen (E11).
+   * Kuratierte TOURS haben ihn NIE — sie sind eine Datei mit Wegpunkten, keine
+   * Aufzeichnung; für sie bleibt es dauerhaft beim Rückfall `f × route.total`.
+   */
+  f?: number[]
 }
 
 interface SpielerTour {
@@ -59,6 +66,8 @@ interface SpielerTour {
   photos: SpielerFoto[]
   /** Kuratierte Wetter-Timeline (km entlang der Route) — schlägt das Auto-Wetter */
   weather?: Array<{ km: number; mode: string; k: number }>
+  /** Dasselbe aus dem Tour-JSON, aber f-verankert (remote.ts) — geht vor */
+  weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
   camera?: Array<{ f: number; preset: string; skala?: number }>
   moments?: Array<{ f: number; art: string; dauerS?: number }>
@@ -90,6 +99,13 @@ interface PlayerDebug {
   tour?: Tour
   /** Filmuhr der Engine samt Zählern (verworfene Zeit, Pausen, längstes Frame) */
   uhr?: Filmuhr
+  /**
+   * Woher die f→s-Übersetzung kommt: `tabelle` (Wegpunkt-`f` aus dem Tour-JSON)
+   * oder `rueckfall` (`f × route.total`). Bei kuratierten Touren ist der
+   * Rückfall der Normalfall — bei einer aufgezeichneten ein Datenfehler, der
+   * sich sonst als „alles wie früher" tarnt.
+   */
+  anker?: 'tabelle' | 'rueckfall'
   rider?: Marker
   weather?: Wetteroverlay
   music?: Hintergrundmusik | null
@@ -190,18 +206,6 @@ if (!ausPfad && params.has('tour')) {
   history.replaceState(null, '', tourPfad(tourId) + (query ? `?${query}` : '') + location.hash)
 }
 
-// — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
-// Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
-// cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
-// Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
-// den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
-const tourAudio = cfg.audio?.length
-  ? createAudioTracks(cfg.audio, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })
-  : null
-// Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
-// sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
-const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
-
 // Eine Tour beginnt am Anfang — immer. Es gab hier einmal eine Wiederaufnahme
 // über ein Einmal-Ticket im sessionStorage; ihr einziger Erzeuger war der
 // Ansicht-/Renderer-Umschalter, der die Seite neu lud und am selben Frame
@@ -215,16 +219,57 @@ const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 // weg. Für Stockholm liegt die untergehende Sonne rückwärts die GANZE Golden Hour voraus
 // (vorwärts nur an einer einzigen Stelle). Fotos werden per nearestS neu verankert.
 const reverse = params.get('reverse') === '1'
+// Die f-Liste muss MITGEDREHT werden: Sie ist parallel zu `pts`, und rückwärts
+// läuft sie danach absteigend (baueSBeiF spiegelt die Tabelle dafür selbst).
 const segsSrc: SpielerSegment[] = reverse
-  ? cfg.segments.slice().reverse().map((seg) => ({ ...seg, pts: seg.pts.slice().reverse() }))
+  ? cfg.segments
+      .slice()
+      .reverse()
+      .map((seg) => ({ ...seg, pts: seg.pts.slice().reverse(), ...(seg.f ? { f: seg.f.slice().reverse() } : {}) }))
   : cfg.segments
 
 // Segmente zu einer Wegpunktliste verbinden (Nahtpunkte dedupen)
 const waypoints: Wegpunkt[] = []
+// Parallel dazu das `f` je Wegpunkt — dieselbe `slice(1)`-Regel, sonst trägt ab
+// dem zweiten Segment jeder Wegpunkt das f seines Nachbarn. Fehlt EINEM Segment
+// die Liste (oder hat sie eine andere Länge als seine Punkte), gibt es keine
+// Tabelle: eine halbe wäre schlimmer als keine.
+const wegpunktF: number[] = []
+let fVollstaendig = true
 for (const seg of segsSrc) {
-  waypoints.push(...(waypoints.length ? seg.pts.slice(1) : seg.pts))
+  const erster = waypoints.length === 0
+  waypoints.push(...(erster ? seg.pts : seg.pts.slice(1)))
+  if (seg.f?.length === seg.pts.length) wegpunktF.push(...(erster ? seg.f : seg.f.slice(1)))
+  else fVollstaendig = false
 }
 const route = buildRoute(waypoints)
+
+// Die eine Übersetzung, durch die JEDER f-Anker dieser Tour geht (§8D). Danach
+// rechnet der Player nur noch in Metern — es gibt bewusst keine Tabelle zurück.
+const sBeiF = baueSBeiF(fVollstaendig ? wegpunktF : null, route.wpS, route.total)
+window.__j.anker = sBeiF.quelle
+// Für die zwei Verbraucher, die (noch) in Anteilen rechnen: audiotracks.ts
+// vergleicht `f0 <= frac < f1` gegen `s / route.total` und ist mit dem Studio
+// GETEILT (Etappe 4b stellt beide zugleich auf Filmsekunden um), createTimeAt
+// interpoliert seine Stützstellen in f. Beide bekommen deshalb keinen Meter,
+// sondern ihre Anker in der Parametrisierung des Players — dieselbe Korrektur,
+// nur am Ende wieder durch `total` geteilt.
+const fracBeiF = (f: number) => sBeiF(f) / route.total
+
+// — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
+// Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
+// cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
+// Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
+// den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
+// Die Bereichsgrenzen laufen EINMAL durch die Übersetzung; danach vergleicht
+// audiotracks.ts sie gegen `s / route.total` und trifft die gemeinte Stelle.
+const audioSpuren = cfg.audio?.map((a) => ({ ...a, f0: fracBeiF(a.f0), f1: fracBeiF(a.f1) }))
+const tourAudio = audioSpuren?.length
+  ? createAudioTracks(audioSpuren, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })
+  : null
+// Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
+// sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
+const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
 
 // Streckenmeter des Segment-Anfangs; ein Segment ohne Punkte gibt es in gültigen
 // Daten nicht (der Fallback vermeidet nur die Ausnahme im Verdrahter).
@@ -266,7 +311,7 @@ const stops = gruppiereStopps(photos)
 // Kamera-Momente (Kreativbaukasten): Punkt-Ereignisse, f → Streckenmeter s.
 // Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.ts).
 const moments: KameraMoment[] = (cfg.moments ?? [])
-  .map((m) => ({ s: m.f * route.total, art: m.art, dauerS: m.dauerS }))
+  .map((m) => ({ s: sBeiF(m.f), art: m.art, dauerS: m.dauerS }))
   .sort((a, b) => a.s - b.s)
 const start = pointAt(route, 0)
 
@@ -340,14 +385,16 @@ map.on('load', () => {
   const rider = createRider(map, [start[0], start[1]], startModus)
 
   const ui = new UI(stops, route)
-  let kamFolger: ((frac: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
+  let kamFolger: ((s: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, [pos[0], pos[1]])
     rider.setLngLat([pos[0], pos[1]])
     // Tour-Audio folgt dem Streckenanteil pro Frame: Musik-Bereiche + SFX-Kanten.
     // istPlayback nur bei echter Wiedergabe — Scrub-/Seek-Sprünge feuern keine SFX.
+    // (Die Anker der Spuren sind beim Laden in genau diese Parametrisierung
+    // übersetzt worden — s. `audioSpuren` oben.)
     tourAudio?.setFrac(s / route.total, tour.playing && !tour.scrubbing)
-    kamFolger?.(s / route.total)
+    kamFolger?.(s)
   }
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
@@ -412,23 +459,26 @@ map.on('load', () => {
   Object.assign(window.__j, { tour, rider, uhr: tour.uhr })
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
-  // Keyframes über den Streckenanteil f. Es gilt der letzte Keyframe mit f <= frac
+  // Keyframes, im Tour-JSON über den Streckenanteil f verankert und beim Laden
+  // in Streckenmeter übersetzt. Es gilt der letzte Keyframe mit s <= tour.s
   // (Punktfunktion wie die Modi); vor dem ersten Keyframe bleibt der Player-Default.
   // Feuert NUR bei Preset-Änderung — setPreset klemmt glide, nie pro Frame rufen.
   // Ein manueller Klick auf einen Preset-Button schaltet den Folger dauerhaft aus
   // (bis Reload): der Nutzer hat das letzte Wort über die Kameradistanz.
   let kamManuell = false
   if (cfg.camera?.length) {
-    const keyframes = cfg.camera.slice().sort((a, b) => a.f - b.f)
+    const keyframes = cfg.camera
+      .map((k) => ({ s: sBeiF(k.f), preset: k.preset, ...(k.skala !== undefined ? { skala: k.skala } : {}) }))
+      .sort((a, b) => a.s - b.s)
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
     const defaultPreset = document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
     let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
-    kamFolger = (frac) => {
+    kamFolger = (s) => {
       if (kamManuell) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
-      let k: { f: number; preset: string; skala?: number } | null = null
-      for (const kf of keyframes) if (kf.f <= frac) k = kf
+      let k: { s: number; preset: string; skala?: number } | null = null
+      for (const kf of keyframes) if (kf.s <= s) k = kf
       // `standard` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
       // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
       // diese Zeile fiele er in setPreset auf „mittel" (PRESETS['standard']
@@ -782,7 +832,15 @@ map.on('load', () => {
   if (zeit) {
     const t0 = Date.parse(zeit.start)
     const t1 = Date.parse(zeit.end)
-    const timeAt = createTimeAt(cfg.timeline, t0, t1)
+    // Auch die Pseudo-Zeit hängt an f: Ihre Stützstellen laufen durch dieselbe
+    // Übersetzung, damit die Sonne dort steht, wo die Aufnahme sie gesehen hat.
+    // `createTimeAt` bekommt sie in der Parametrisierung des Players, weil es
+    // gegen `tour.s / route.total` befragt wird.
+    const timeAt = createTimeAt(
+      cfg.timeline?.map((e) => ({ f: fracBeiF(e.f), t: e.t })),
+      t0,
+      t1,
+    )
     const fmt = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: zeit.zone })
     const teleTime = $('tele-time')
     $('tele-time-wrap').hidden = false
@@ -839,8 +897,13 @@ map.on('load', () => {
     // Kuratierte Wetter-Timeline der Tour (cfg.weather, km entlang der Route) hat
     // Vorrang vor dem Auto-Wetter — nötig, weil das ERA5-Archiv für manche Orte nie
     // ein Gewitter codiert (z.B. Koh Pha-ngan). Sonst echtes historisches Wetter.
-    const wxSource: Promise<WetterStuetze[]> = cfg.weather
-      ? Promise.resolve(cfg.weather.map((w) => ({ s: w.km * 1000, mode: w.mode, k: w.k })).sort((a, b) => a.s - b.s))
+    const kuratiert: WetterStuetze[] | null = cfg.weatherF
+      ? cfg.weatherF.map((w) => ({ s: sBeiF(w.f), mode: w.mode, k: w.k }))
+      : cfg.weather
+        ? cfg.weather.map((w) => ({ s: w.km * 1000, mode: w.mode, k: w.k }))
+        : null
+    const wxSource: Promise<WetterStuetze[]> = kuratiert
+      ? Promise.resolve(kuratiert.slice().sort((a, b) => a.s - b.s))
       : buildWeatherTimeline({ photos, route, time: zeit, pointAt })
     wxSource
       .then((tl) => {

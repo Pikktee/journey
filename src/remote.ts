@@ -42,7 +42,13 @@ export interface TourJsonAntwort {
   finaleTitle: string
   description: string | null
   time: { start: string; end: string; zone: string }
-  segments: Array<{ mode: string; label: string; pts: Array<[number, number, number]> }>
+  segments: Array<{
+    mode: string
+    label: string
+    pts: Array<[number, number, number]>
+    /** Streckenanteil je Punkt, roh gemessen (E11); fehlt bei Altbestand */
+    f?: number[]
+  }>
   media: RemoteMedium[]
   /** Wetter-Keyframes über den Streckenanteil f (kommt in M2 vom Server) */
   weather?: Array<{ f: number; mode: string; k: number; source?: string }>
@@ -68,7 +74,13 @@ export interface RemoteTourCfg {
   showFinale?: boolean
   finaleTitle: string
   time: { start: string; end: string; zone: string }
-  segments: Array<{ mode: string; label: string; pts: Array<[number, number, number]> }>
+  segments: Array<{
+    mode: string
+    label: string
+    pts: Array<[number, number, number]>
+    /** Streckenanteil je Punkt (E11) — main.ts baut daraus die f→s-Tabelle */
+    f?: number[]
+  }>
   photos: Array<{
     src: string
     title: string
@@ -81,8 +93,14 @@ export interface RemoteTourCfg {
     thumb?: string
     display?: { holdS?: number; kenBurns?: boolean }
   }>
-  /** Kuratierte Wetter-Timeline im Player-Format (km entlang der Route) */
-  weather?: Array<{ km: number; mode: string; k: number }>
+  /**
+   * Wetter-Keyframes ROH, über den Streckenanteil f — anders als die
+   * kuratierten Touren, die ihre Timeline in km führen (src/tours.ts).
+   * Bis E11 rechnete der Adapter hier `km = f · Gesamt-km` und der Player
+   * `s = km · 1000`; beides zusammen war der Rückfall `f × total` mit
+   * Zwischenschritt. main.ts übersetzt jetzt über die Wegpunkt-Tabelle.
+   */
+  weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
   /** Kamera-Keyframes (roh, f-basiert — main.ts rechnet frac = s/total selbst) */
   camera?: Array<{ f: number; preset: string; skala?: number }>
@@ -115,10 +133,11 @@ export class RemoteTourFehler extends Error {
  * Adaptiert das Server-JSON auf die cfg-Form. Reine Funktion (der fetch steckt
  * in loadRemoteTour) — direkt testbar.
  *
- * Wetter: der Server liefert Keyframes über den Streckenanteil f; der Player
- * spielt kuratierte Timelines in km ab (main.ts koppelt cfg.weather mit Vorrang
- * vor dem Client-Auto-Wetter). km = f · Gesamt-km des Servers — die minimale
- * Abweichung zum Client-Resampling ist bei Wetter-Grenzen bedeutungslos.
+ * **Alles f-Verankerte geht ROH durch.** Wetter, Kamera-Keyframes, Momente und
+ * Ton-Bereiche behalten ihr `f`; main.ts übersetzt es EINMAL beim Laden über
+ * die Wegpunkt-Tabelle nach Streckenmetern (src/streckenanker.ts) und rechnet
+ * danach nur noch in Metern. Der Adapter rechnete früher `km = f · Gesamt-km`
+ * — das war der Rückfall `f × total` in Verkleidung.
  */
 export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
   if (tour.schema !== 'maptale/tour@1' && tour.schema !== 'luhambo/tour@1') {
@@ -161,7 +180,11 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     stats: tour.stats,
   }
   if (tour.weather?.length) {
-    cfg.weather = tour.weather.map((w) => ({ km: w.f * tour.stats.km, mode: w.mode, k: w.k }))
+    // Roh durchreichen (f-basiert) — die Übersetzung nach Streckenmetern macht
+    // main.ts über die Wegpunkt-Tabelle. Kaputte f fliegen raus (Muster
+    // createTimeAt); leere Ergebnisse lassen das Feld ganz weg.
+    const keyframes = tour.weather.filter((w) => Number.isFinite(w.f))
+    if (keyframes.length) cfg.weatherF = keyframes.map((w) => ({ f: w.f, mode: w.mode, k: w.k }))
   }
   if (tour.timeline?.length) cfg.timeline = tour.timeline
   // Kamera-Keyframes + Audio-Spuren ROH durchreichen (f-basiert — main.ts

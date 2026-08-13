@@ -42,6 +42,34 @@ describe('buildRoute', () => {
     expect(route.gain).toBeGreaterThan(75)
     expect(route.gain).toBeLessThan(90)
   })
+
+  // `wpS` ist die Player-Hälfte der f-Übersetzung (§8D): je EINGABE-Wegpunkt
+  // sein Wegstand auf der gebauten Route. Verrutscht die Zuordnung um einen
+  // Index, trägt jeder Anker das f seines Nachbarn.
+  describe('wpS — Wegstand je Wegpunkt', () => {
+    it('hat je Wegpunkt einen Eintrag, von 0 bis total', () => {
+      const route = buildRoute(wegpunkte)
+      expect(route.wpS).toHaveLength(wegpunkte.length)
+      expect(route.wpS[0]).toBe(0)
+      expect(route.wpS[route.wpS.length - 1]).toBeCloseTo(route.total, 9)
+      for (let i = 1; i < route.wpS.length; i++) expect(route.wpS[i]).toBeGreaterThan(route.wpS[i - 1]!)
+    })
+
+    it('trifft den Ort des Wegpunktes (Gegenprobe über pointAt)', () => {
+      const route = buildRoute(wegpunkte)
+      for (let i = 0; i < wegpunkte.length; i++) {
+        const p = pointAt(route, route.wpS[i]!)
+        // Innerhalb eines 14-m-Schritts — genauer geht es nicht, die Route ist
+        // in genau diesem Raster abgetastet.
+        expect(dist(p, wegpunkte[i]!)).toBeLessThan(14)
+      }
+    })
+
+    it('kommt auch mit einem einzelnen Wegpunkt zurecht', () => {
+      const route = buildRoute([[8, 46, 500]])
+      expect(route.wpS).toEqual([0])
+    })
+  })
 })
 
 describe('pointAt', () => {

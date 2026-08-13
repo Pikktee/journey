@@ -18,7 +18,7 @@ import {
   projiziereAufReihe,
   zeitBeiFilm,
 } from './filmachse.js'
-import { berechneStats, vereinfacheSegment, type TourStats } from './geo.js'
+import { berechneStats, vereinfacheIndizes, type TourStats } from './geo.js'
 import { baueSignatur } from './signatur.js'
 import { baueBenennung, benenneTour, type Benennung, type Endpunkte, type Geocoder } from './naming.js'
 import { platziereMedien, type Platzierung } from './placement.js'
@@ -46,7 +46,18 @@ export interface TourJson {
   finaleTitle: string
   description: string | null
   time: { start: string; end: string; zone: string }
-  segments: Array<{ mode: string; label: string; pts: Array<[number, number, number]> }>
+  segments: Array<{
+    mode: string
+    label: string
+    pts: Array<[number, number, number]>
+    /**
+     * Streckenanteil je Punkt von `pts`, auf der ROHEN Geometrie gemessen (E11).
+     * Damit übersetzt der Player jeden `f`-Anker exakt in seine Streckenmeter,
+     * statt `f × route.total` zu rechnen. Fehlt bei Touren, die vor E11
+     * gerendert wurden — dort bleibt es beim Rückfall.
+     */
+    f?: number[]
+  }>
   media: Array<{
     id: string
     type: 'photo' | 'video'
@@ -247,13 +258,47 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     })
   }
 
+  // Zeitreihe der ROHEN (getrimmten) Punkte: Sie trägt die kumulierte Distanz,
+  // aus der jedes `f` dieses Tour-JSONs entsteht — Timeline, Kamera-Keyframes,
+  // Ton-Bereiche, Wetter UND seit E11 der Wegpunkt selbst.
+  const reihe = baueZeitreihe(rohSegmente)
+
   // Statistik auf den ROHDATEN (volle Auflösung), Ausgabe-Punkte vereinfacht.
   const stats = berechneStats(rohSegmente)
-  const segments = rohSegmente.map((seg) => ({
-    mode: seg.mode,
-    label: seg.label ?? MODE_LABELS[seg.mode] ?? seg.mode,
-    pts: vereinfacheSegment(seg.pts).map((p): [number, number, number] => [p[0], p[1], p[2]]),
-  }))
+  // Je ausgeliefertem Wegpunkt sein `f` (E11, Gleichlauf-Konzept §8D). Ohne das
+  // Feld muss der Player `f × route.total` rechnen — und seine Route ist durch
+  // Catmull-Rom + 14-m-Resampling 2,2–3,0 % länger als die Rohgeometrie, in der
+  // hier gemessen wird, UNGLEICHMÄSSIG verteilt. Der Rest ist nicht clientseitig
+  // zu beheben: `vereinfacheSegment` wirft Punkte weg, die Länge tragen.
+  // Das Feld ist additiv — `maptale/tour@1` bleibt, Bestandstouren bekommen es
+  // bei ihrem nächsten Render.
+  let punktIndex = 0
+  const segments = rohSegmente.map((seg) => {
+    const basis = punktIndex
+    punktIndex += seg.pts.length
+    const indizes = vereinfacheIndizes(seg.pts)
+    const eintrag: TourJson['segments'][number] = {
+      mode: seg.mode,
+      label: seg.label ?? MODE_LABELS[seg.mode] ?? seg.mode,
+      pts: indizes.map((i): [number, number, number] => {
+        const p = seg.pts[i] as UploadPunkt
+        return [p[0], p[1], p[2]]
+      }),
+    }
+    // gesamtM = 0 gibt es nur bei einer Tour ohne Ausdehnung — dort wäre jedes
+    // `f` eine Null-Division, und der Rückfall im Player ist genauso gut.
+    if (reihe.gesamtM > 0) {
+      // GERUNDET, und das ist kein Kosmetik-Schritt: Roh serialisiert JSON jede
+      // Zahl mit bis zu 17 signifikanten Stellen (`0.057312851865195705`), also
+      // ~21 Zeichen je Punkt. Auf der größten lokalen Tour sind das +19,8 % auf
+      // das `tour.json` — mehr als die +17,8 %, mit denen das Gleichlauf-Konzept
+      // den Export der Filmachse ABLEHNT (§12). Acht Nachkommastellen kosten
+      // +11,2 % und sind absurd genau: Bei 41,8 km Streckenlänge entspricht
+      // 1e-8 einem Weg von 0,4 mm.
+      eintrag.f = indizes.map((i) => Number((((reihe.punkte[basis + i]?.dist ?? 0) / reihe.gesamtM)).toFixed(8)))
+    }
+    return eintrag
+  })
 
   // Medien-Platzierung (M6): jedem Medium einen Track-Anker geben (GPS nah am
   // Track, sonst Zeit-Mapping, sonst unplatziert). Unplatzierte bleiben mit im
@@ -310,7 +355,6 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // Nichtlineare Pseudo-Zeit: Stützstellen f→Zeit mit komprimierten Pausen.
   // Auto-Wetter ist eine ANREICHERUNG, kein Muss — fällt die Quelle aus, wird
   // `weather` weggelassen und der Player nutzt sein Client-Auto-Wetter.
-  const reihe = baueZeitreihe(rohSegmente)
   const timeline = destilliereTimeline(reihe, manifest.time.start)
 
   // Kamera-Keyframes (Baukasten): absolute `ab`-Zeiten → Streckenanteil f über

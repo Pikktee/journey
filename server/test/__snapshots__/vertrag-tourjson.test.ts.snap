@@ -79,6 +79,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -110,6 +117,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -323,6 +336,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -354,6 +374,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -536,6 +562,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -567,6 +600,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -758,6 +797,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -789,6 +835,10 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -805,6 +855,11 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Moped",
       "mode": "moped",
       "pts": [
@@ -826,6 +881,9 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        1,
+      ],
       "label": "F√§hre",
       "mode": "ferry",
       "pts": [
@@ -1021,6 +1079,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -1052,6 +1117,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -1258,6 +1329,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -1289,6 +1367,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -1489,6 +1573,11 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.0031788,
+        0.05457756,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -1510,6 +1599,11 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.05457756,
+        0.14510769,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -1660,6 +1754,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -1691,6 +1792,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -1882,6 +1989,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -1913,6 +2027,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -2132,6 +2252,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -2163,6 +2290,10 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -2179,6 +2310,11 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Jeep",
       "mode": "jeep",
       "pts": [
@@ -2335,6 +2471,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -2366,6 +2509,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [
@@ -2557,6 +2706,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
   "schema": "maptale/tour@1",
   "segments": [
     {
+      "f": [
+        0,
+        0.03712044,
+        0.05607616,
+        0.05731285,
+        0.0773091,
+      ],
       "label": "Zu Fu√ü",
       "mode": "walk",
       "pts": [
@@ -2588,6 +2744,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unver√§ndert ‚Ä
       ],
     },
     {
+      "f": [
+        0.0773091,
+        0.11252908,
+        0.44511771,
+        1,
+      ],
       "label": "Rad",
       "mode": "bike",
       "pts": [

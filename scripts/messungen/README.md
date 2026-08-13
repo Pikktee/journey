@@ -75,9 +75,35 @@ Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt a
 | [hintergrund-versatz.mjs](hintergrund-versatz.mjs) | Was der Drosselungs-Lauf NICHT sieht: den Versatz zwischen Bild und Ton nach einer Zeit im Hintergrund. Läuft zweimal — einmal wie ausgeliefert, einmal mit überschriebenem `uhr.laeuft` (das Gate-Verhalten vor dem Nachtrag) — und zeigt so die Wirkung statt nur den Zustand. | `node …` |
 | [rampen-simulation.ts](rampen-simulation.ts) | Anfahr-/Ausrollkosten je Halt — die Geschwindigkeitslogik in Node nachgebildet, festes `dt`. Vergleicht Player-Dauer gegen Studio-Filmzeit je Tour. | `npx tsx …` |
 | [routen-laenge.ts](routen-laenge.ts) | Wie viel länger `route.total` (Catmull-Rom + 14-m-Resample) gegenüber der Rohgeometrie ist, in der der Server `f` misst. | `npx tsx …` |
-| [anker-versatz.ts](anker-versatz.ts) | Den Rest, den keine Uhr behebt: Server-`f` gegen Player-`frac` am selben physischen Punkt, in Filmsekunden. Zuordnung **monoton**, sonst schnappt eine sich kreuzende Route auf den falschen Vorbeigang. | `npx tsx …` |
+| [anker-versatz.ts](anker-versatz.ts) | Den Rest, den keine Uhr behebt: wo ein `f`-Anker landet gegen den Ort, den der Server gemeint hat — **je Ankerklasse**, alter Weg (`f × route.total`) gegen neuen (Wegpunkt-Tabelle). **Abnahmekriterium für Etappe 2.** | `npx tsx …` |
 
 Die `.ts`-Skripte importieren `src/geo.ts` und laufen deshalb über `tsx`, nicht über `node`.
+
+**Drei Dinge, die den Anker-Versatz falsch messen lassen** (sie haben beim Umbau je einen
+Anlauf gekostet):
+
+1. **Die Suche nach dem gemeinten Ort braucht ein FENSTER.** Global den nächsten Routenpunkt
+   zu nehmen, schnappt bei einer sich kreuzenden Route (Koh Pha-ngan fährt zweimal durch
+   dieselbe Bucht) auf den falschen Vorbeigang — gemessen wurden 18 Filmsekunden Fehler, wo
+   keiner ist. Gesucht wird deshalb nur im Routenabschnitt zwischen den beiden Wegpunkten,
+   die den Anker einschließen.
+2. **Und sie muss STETIG sein.** `nearestS` rundet auf das 14-m-Raster der Route; das sind
+   bis zu 7 m, auf dem Rad 0,06 Filmsekunden — mehr als das Abnahmekriterium selbst. Ohne die
+   Projektion auf die Nachbarsegmente misst man die Abtastung statt die Übersetzung.
+3. **Der Ersatz-Maßstab für Touren vor E11 muss der Reihe nach zuordnen.** Sie haben kein `f`
+   je Wegpunkt im Tour-JSON; das Skript holt es aus den Rohpunkten daneben
+   (`original/manifest.json`, Douglas-Peucker behält Originalpunkte). Über eine
+   Koordinaten-Tabelle zugeordnet bekommt der erste Vorbeigang das Maß des zweiten, die Liste
+   läuft nicht mehr monoton — und `baueSBeiF` verwirft sie dann STUMM zugunsten des
+   Rückfalls. In der Ausgabe stand daraufhin zweimal derselbe alte Weg, „alt" und „neu"
+   Ziffer für Ziffer gleich. Genau das ist das Warnzeichen: Sind die beiden Spalten identisch,
+   misst die Zeile nichts.
+
+Und eine Grenze, die keine Falle ist: **Eine Ankerklasse ohne Anker misst nichts.** Die
+lokalen Touren haben keine Momente, und ihre Ton- und Kamera-Anker liegen auf `f = 0` bzw.
+`f = 1` — dort ist auch der alte Weg exakt. Aussagekräftig sind auf diesem Bestand die
+Wetter-Keyframes und die beiden Rückhalt-Zeilen (`Wegpunkte`, `Raster`, dicht abgetastet);
+die leeren Klassen stehen als „—" da, statt eine geprüfte Null vorzutäuschen.
 
 ## Messwerte vom 12. August 2026
 
@@ -101,6 +127,25 @@ Bilder aus, statt die Tour zu verlangsamen.
 Der fehlende Rest ist **nicht verlorene Zeit** — `verworfenS` bleibt 0 —, sondern das
 Messfenster selbst: Es lässt bis 3 % Untertempo zu (`speed > ziel * 0.97`), und die
 gewerteten Intervalle liegen im Mittel etwas unter dem Ziel.
+
+**Nach Etappe 2 (13. August 2026, „`f` über die Wegpunkte"):** Der Anker-Versatz auf den vier
+lokalen Touren, Median über alle Wegpunkte, in Filmsekunden — **0,77 / 0,51 / 0,27 / 0,00 s
+alt gegen 0,00 s neu** (jeweils unter 0,005 s, p90 ebenso; das Maximum liegt bei 0,05 s und
+steht dort, wo Wegpunkte weit auseinanderliegen und die Catmull-Rom-Glättung zwischen ihnen
+frei interpoliert). Die Wetter-Keyframes, die einzige Klasse mit echten Ankern abseits von
+`f = 0/1`, fallen von 0,80 / 0,13 / 0,07 / 0,00 s auf 0,00 s.
+
+**Was NICHT null wird, und warum das so bleibt:** Die Zeile „Raster" (501 gleichverteilte
+Proben je Tour, also auch mitten zwischen zwei Wegpunkten) steht bei Koh Pha-ngan auf
+**max 0,65 s** — vorher 9,02 s. Die Tabelle interpoliert zwischen ihren Stützstellen LINEAR,
+die gebaute Route folgt dort einer Catmull-Rom-Kurve; wo Wegpunkte weit auseinanderstehen
+(die Fähre), bleibt genau diese Differenz übrig. An einem echten Anker ist sie
+bedeutungslos — Anker liegen auf Wegpunkten oder nah daran —, aber „Kriterium erfüllt" heißt
+nicht „exakt", und wer die nächste Etappe misst, sollte wissen, wo der Rest sitzt.
+
+Woher die Übersetzung im laufenden Player kommt, sagt `window.__j.anker`: `tabelle` oder
+`rueckfall`. Bei den kuratierten Touren ist `rueckfall` richtig (sie haben kein Wegpunkt-`f`);
+bei einer aufgezeichneten ist er ein Datenfehler, der sich sonst als „alles wie früher" tarnt.
 
 Und **6 s Hintergrund** ([hintergrund-versatz.mjs](hintergrund-versatz.mjs)) ergeben 0 m
 Versatz im Bild UND +0,00…0,01 s im Ton, der dort pausiert steht. Die Gegenprobe mit dem

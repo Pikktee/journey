@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { berechneStats, distanzM, glaette, vereinfacheSegment } from '../src/pipeline/geo.js'
+import { berechneStats, distanzM, glaette, vereinfacheIndizes, vereinfacheSegment } from '../src/pipeline/geo.js'
 import type { UploadPunkt } from '../src/schema/upload.js'
 
 describe('distanzM', () => {
@@ -44,6 +44,35 @@ describe('vereinfacheSegment', () => {
       [8.001, 46.001, 10, 60],
     ]
     expect(vereinfacheSegment(pts)).toEqual(pts)
+  })
+})
+
+describe('vereinfacheIndizes', () => {
+  // Die Indizes sind die Brücke zum `f` je Wegpunkt (E11): enrich.ts findet
+  // darüber jeden überlebenden Punkt in der rohen Zeitreihe wieder. Läuft das
+  // auseinander, trägt jeder Wegpunkt das `f` eines anderen.
+  it('liefert dieselbe Auswahl wie vereinfacheSegment', () => {
+    const pts: UploadPunkt[] = [
+      [8, 46, 500, 0],
+      [8.0025, 46.0025, 600, 150],
+      [8.005, 46.005, 777, 300], // deutlicher Knick
+      [8.0025, 46.0075, 800, 450],
+      [8, 46.01, 900, 600],
+    ]
+    const indizes = vereinfacheIndizes(pts, 5)
+    expect(indizes.map((i) => pts[i])).toEqual(vereinfacheSegment(pts, 5))
+    expect(indizes[0]).toBe(0)
+    expect(indizes.at(-1)).toBe(pts.length - 1)
+  })
+
+  it('zählt auch bei ≤ 2 Punkten durch', () => {
+    expect(vereinfacheIndizes([[8, 46, 0, 0]])).toEqual([0])
+    expect(
+      vereinfacheIndizes([
+        [8, 46, 0, 0],
+        [8.001, 46.001, 10, 60],
+      ]),
+    ).toEqual([0, 1])
   })
 })
 

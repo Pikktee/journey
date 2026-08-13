@@ -233,6 +233,25 @@ alles antreibt, ist `s` — die Position entlang der Route in Metern.** `pointAt
 `bearingAt(route, s)`, `nearestS(route, lnglat)` übersetzen zwischen `s`, Koordinaten und
 Kurswinkel. Fotos und Modus-Wechsel werden über `s` verankert.
 
+**Und JEDER `f`-Anker wird beim Laden EINMAL nach `s` übersetzt** — danach rechnet der Player
+nur in Metern ([src/streckenanker.ts](src/streckenanker.ts), Gleichlauf-Konzept §8D). Der
+Server misst `f` auf der ROHEN Zeitreihe, die gebaute Route ist durch Catmull-Rom und das
+14-m-Raster 2,2–3,0 % länger, und die Dehnung verteilt sich UNGLEICHMÄSSIG: `f × route.total`
+lag deshalb im Median 0,8 Filmsekunden und in der Spitze 9 s neben der gemeinten Stelle. Die
+Tabelle dagegen ist exakt — je Wegpunkt sein `f` (`segments[].f` aus dem Tour-JSON) und sein
+`s` (`route.wpS`), dazwischen linear. Vier Dinge, die man dabei kippt: **Es reicht nicht, die
+Formel `f * route.total` zu ersetzen** — die stand fast nur bei den Momenten; die größeren
+Verbraucher rechnen UMGEKEHRT (`tourAudio.setFrac(s / route.total)` gegen rohe `f0`/`f1`,
+`kamFolger` gegen `k.f`, `createTimeAt(frac)`, Wetter über `f`) und tauchen bei einer Suche
+nach der Formel gar nicht auf. **Die Verkettung wirft je Folgesegment den ersten Punkt weg**
+(`slice(1)`) — die `f`-Liste muss das mitmachen, sonst trägt ab dem zweiten Segment jeder
+Wegpunkt das `f` seines Nachbarn. **`?reverse=1` dreht Segmente UND Punkte um**, `f` läuft
+danach absteigend; `baueSBeiF` spiegelt die Tabelle, statt sie zu verwerfen. Und **kuratierte
+`TOURS` bekommen nie ein Wegpunkt-`f`** — sie sind eine Datei mit Wegpunkten, keine
+Aufzeichnung: Für sie ist der Rückfall auf `f × route.total` dauerhaft, nicht übergangsweise
+(für aufgezeichnete gilt er bis zu ihrem nächsten Render). Messwerkzeug samt seiner drei
+eigenen Fallen: [scripts/messungen/anker-versatz.ts](scripts/messungen/anker-versatz.ts).
+
 **Tour-Konfiguration als Daten.** [src/tours.ts](src/tours.ts) exportiert `TOURS` — pro Tour:
 `segments` (jedes mit `pts` und `mode`), `photos` (mit
 `anchor`-Koordinate), Intro-/Finale-Texte, optional `time` (für Tag/Nacht), `geoid` und `weather`.
