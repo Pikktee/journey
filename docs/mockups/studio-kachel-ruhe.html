@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Die ruhige Kachel: Menü, Signet, Play, Sichtbarkeit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Vier Fragen an die Kachel, einzeln durchgespielt:
+
+     1 Menü-Inhalt   M1/M2/M3   — darf „Bearbeiten" doppelt vorkommen?
+     2 Signet        G1/G2/G3   — muss der Kasten oben links wachsen?
+     3 Play          P1–P4      — muss die Taste in der Bildmitte stehen?
+     4 Sichtbarkeit  S1–S4      — gehört das Schloss über das Bild?
+
+   Danach die Zusammensetzung („Die ruhige Kachel") gegen den Bestand.
+
+   NUR ENTWURF. Tokens aus src/basis.css kopiert, damit die Datei allein
+   steht. Alle Varianten sind ECHT bedienbar; „Hover fixiert" oben setzt
+   dieselben Regeln über `:is(:hover, .hv)`, keine Sonderoptik.
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b; --akzent-2: #ff6f52; --auf-akzent: #1a1206;
+  --text: #f2ede3; --text-gedaempft: rgba(242,237,227,0.64); --text-zart: rgba(242,237,227,0.42);
+  --text-2: #a7b1bf; --text-3: #7e8a99;
+  --bg: #090c11; --bg-tief: #06080c; --fl-1: #111722; --fl-2: #161e2c; --fl-3: #1e283a;
+  --rand: #232d3d; --rand-hell: #2e3b4e; --linie: rgba(255,255,255,0.08);
+  --gruen: #3ecf8e; --rot: #e5484d; --blau: #5b9dff; --warn: #e8a13c;
+  --radius-sm: 7px; --radius-md: 8px; --radius-lg: 12px; --radius-karte: 14px; --radius-xl: 16px; --radius-full: 999px;
+  --schatten: 0 14px 34px rgba(2,5,10,0.5), 0 2px 8px rgba(2,5,10,0.35);
+  --font-ui: 'Outfit', system-ui, sans-serif; --font-display: 'Outfit', system-ui, sans-serif;
+  --wrap: 1160px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 14px; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 480; letter-spacing: -0.02em; margin: 0; }
+svg { width: 16px; height: 16px; }
+
+.m-kopf { position: sticky; top: 0; z-index: 90; backdrop-filter: blur(14px); background: rgba(13,17,24,0.88); border-bottom: 1px solid var(--rand); }
+.m-kopf .innen { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 13px 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.m-kopf .marke { font-family: var(--font-display); font-size: 15px; }
+.m-kopf .marke em { font-style: italic; color: var(--akzent); }
+.m-kopf .sp { flex: 1; }
+.m-schalter { display: inline-flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-2); border: 1px solid var(--rand); background: var(--fl-1); border-radius: var(--radius-full); padding: 6px 13px 6px 10px; }
+.m-schalter input { accent-color: var(--akzent); width: 15px; height: 15px; }
+.m-sprung { display: flex; gap: 4px; flex-wrap: wrap; }
+.m-sprung a { font-size: 12px; color: var(--text-3); text-decoration: none; border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 4px 10px; }
+.m-sprung a:hover { color: var(--text); border-color: var(--rand-hell); }
+
+main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120px; }
+.m-intro { max-width: 76ch; color: var(--text-2); line-height: 1.6; }
+.m-intro h1 { font-size: 32px; margin-bottom: 12px; }
+.m-intro p { margin: 0 0 10px; }
+code { font-size: 12.5px; background: var(--fl-2); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
+.m-abschnitt { margin-top: 62px; }
+.m-abschnitt > h2 { font-size: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--rand); margin-bottom: 14px; }
+.m-warum { max-width: 80ch; color: var(--text-2); line-height: 1.62; margin: 0 0 20px; }
+.m-warum b { color: var(--text); font-weight: 500; }
+.m-buehne { background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-xl); padding: 22px; }
+.m-hv-fahne { font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); margin-bottom: 11px; display: flex; align-items: center; gap: 7px; }
+.m-hv-fahne::before { content: ''; width: 18px; height: 1px; background: var(--rand-hell); }
+.m-fuss-note { display: flex; gap: 10px; margin-top: 14px; font-size: 12.5px; color: var(--text-3); line-height: 1.55; }
+.m-fuss-note b { color: var(--text-2); font-weight: 500; }
+
+/* Nebeneinander-Vergleich: Spalte mit Überschrift über jeder Kachel */
+.m-reihe { display: grid; gap: 20px; align-items: start; }
+.m-reihe.drei { grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); }
+.m-reihe.vier { grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+.m-fall > h4 { font-family: var(--font-display); font-size: 14.5px; font-weight: 500; margin: 0 0 3px; }
+.m-fall > h4 .tag { font-size: 11px; color: var(--akzent); letter-spacing: 0.04em; text-transform: uppercase; margin-left: 6px; }
+.m-fall > h4 .tag.aus { color: var(--rot); }
+.m-fall > h4 .tag.still { color: var(--text-3); }
+/* Feste Texthöhe, damit die Kacheln einer Reihe auf einer Linie stehen —
+   sonst hängt jede Variante anders hoch und der Vergleich wird schief. */
+.m-fall > p { margin: 0 0 12px; font-size: 12.5px; color: var(--text-3); line-height: 1.55; min-height: 4.7em; }
+.m-reihe.drei .m-fall > p { min-height: 3.2em; }
+.m-fall > p b { color: var(--text-2); font-weight: 500; }
+
+/* ——— Kachel-Grundform (aus studio.html) ——— */
+.k {
+  position: relative; border-radius: var(--radius-karte); cursor: pointer;
+  background: var(--fl-1); border: 1px solid var(--rand);
+  transition: transform 200ms cubic-bezier(0.2,0.7,0.2,1), border-color 200ms ease, box-shadow 200ms ease;
+}
+.k:is(:hover, .hv) { transform: translateY(-2px); border-color: var(--rand-hell); box-shadow: var(--schatten); }
+.k .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: var(--radius-karte); }
+.k .bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 260ms ease; }
+.k .bild::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,8,12,0.05) 0%, rgba(6,8,12,0.5) 72%, rgba(6,8,12,0.86) 100%); }
+.k .fuss { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 13px 14px 12px; pointer-events: none; }
+.k .fuss .t { font-family: var(--font-display); font-size: 16.5px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k .fuss .m { font-size: 12.5px; font-weight: 500; color: rgba(242,237,227,0.62); margin-top: 4px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.k .schleier { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(42% 42% at 50% 50%, rgba(6,8,12,0.42), transparent 72%); opacity: 0; transition: opacity 200ms ease; }
+.k:is(:hover, .hv) .schleier { opacity: 1; }
+
+/* Signet */
+.k .spur {
+  position: absolute; top: 9px; left: 11px; z-index: 2;
+  width: 64px; height: 50px; padding: 5px; pointer-events: none;
+  background: rgba(6,8,12,0.45); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 11px;
+  transition: width 250ms cubic-bezier(0.2,0.7,0.2,1), height 250ms cubic-bezier(0.2,0.7,0.2,1), background 250ms ease, opacity 220ms ease;
+}
+.k .spur svg { width: 100%; height: 100%; }
+.k .spur .linie { fill: none; stroke: rgba(255,255,255,0.92); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; stroke-dasharray: 400; stroke-dashoffset: 0; }
+.k .spur .start { fill: var(--akzent); }
+.k .spur .ende { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+@keyframes spurZeichnen { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+/* G1 — Bestand: Kasten wächst UND Linie zeichnet sich */
+.k.g1:is(:hover, .hv) .spur { width: 80px; height: 62px; background: rgba(6,8,12,0.6); }
+.k.g1:is(:hover, .hv) .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3,0.6,0.2,1); }
+/* G2 — fest: nur die Linie zeichnet sich nach, die Geometrie steht */
+.k.g2:is(:hover, .hv) .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3,0.6,0.2,1); }
+/* G3 — weicht: macht die Ecke für Auswahl/Griffe frei */
+.k.g3:is(:hover, .hv) .spur { opacity: 0; }
+
+/* Griffe oben rechts */
+.k .griffe { position: absolute; top: 9px; right: 11px; z-index: 5; display: flex; flex-direction: row-reverse; align-items: center; gap: 6px; }
+.glasknopf {
+  display: inline-flex; align-items: center; gap: 0; font-size: 11px; padding: 5px; border-radius: var(--radius-full);
+  background: rgba(6,8,12,0.55); backdrop-filter: blur(7px);
+  border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.82);
+  transition: opacity 180ms ease, gap 200ms cubic-bezier(0.2,0.7,0.2,1), padding 200ms cubic-bezier(0.2,0.7,0.2,1), background 180ms ease, color 160ms ease, border-color 160ms ease;
+}
+.glasknopf svg { width: 12px; height: 12px; flex: none; }
+.glasknopf span { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width 200ms cubic-bezier(0.2,0.7,0.2,1); }
+.glasknopf:hover, .glasknopf[aria-expanded='true'] { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6,8,12,0.9); color: #fff; }
+.glasknopf:hover span, .glasknopf[aria-expanded='true'] span { max-width: 110px; }
+.glasknopf[aria-expanded='true'] { border-color: var(--akzent); color: var(--akzent); }
+.glasknopf.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,0.4); }
+.glasknopf.leise { opacity: 0; }
+.k:is(:hover, .hv, :focus-within) .glasknopf.leise { opacity: 1; }
+/* Ein einzelnes ⋯ steht IMMER, aber schwach: es ist der einzige Weg zu allem
+   Weiteren; erscheint es erst beim Zeigen, ist es auf Touch unauffindbar. */
+.glasknopf.immer { opacity: 0.55; }
+.k:is(:hover, .hv, :focus-within) .glasknopf.immer { opacity: 1; }
+
+/* Menü */
+.karten-menue {
+  position: absolute; top: 42px; right: 11px; z-index: 30; min-width: 214px;
+  background: rgba(14,19,26,0.98); backdrop-filter: blur(14px);
+  border: 1px solid var(--rand-hell); border-radius: var(--radius-karte); padding: 5px;
+  box-shadow: 0 22px 50px rgba(2,5,10,0.7); animation: menueRein 140ms ease backwards;
+}
+@keyframes menueRein { from { opacity: 0; transform: translateY(-4px); } }
+.karten-menue button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; color: var(--text-2); padding: 8px 10px; border-radius: var(--radius-md); font-size: 13px; }
+.karten-menue button:hover { background: var(--fl-3); color: var(--text); }
+.karten-menue button svg { width: 14px; height: 14px; opacity: 0.85; flex: none; }
+.karten-menue button kbd { margin-left: auto; font-family: var(--font-ui); font-size: 11px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 0 5px; }
+.karten-menue hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+.karten-menue .gefahr { color: #f0868a; }
+.karten-menue .gefahr:hover { background: rgba(229,72,77,0.14); color: #ff9a9d; }
+.k.menue-offen { z-index: 20; }
+
+/* — Play-Varianten — */
+/* P1: die Taste in der Bildmitte (Bestand) */
+.k .play-mitte {
+  position: absolute; top: 50%; left: 50%; z-index: 4;
+  width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(10,14,20,0.55); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.28); color: #fff; padding: 0;
+  transform: translate(-50%,-50%) scale(0.82); opacity: 0;
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2,0.8,0.2,1), background 180ms ease;
+}
+.k .play-mitte svg { width: 19px; height: 19px; margin-left: 2px; }
+.k:is(:hover, .hv, :focus-within) .play-mitte { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+.k .play-mitte:hover { background: rgba(10,14,20,0.8); border-color: rgba(255,255,255,0.85); }
+
+/* P2: Dauer-Chip im Fuß — steht IMMER und sagt zugleich, wie lang der Film ist */
+.k .dauer {
+  display: inline-flex; align-items: center; gap: 5px; pointer-events: auto;
+  font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums;
+  padding: 3px 9px 3px 7px; border-radius: var(--radius-full);
+  background: rgba(6,8,12,0.5); border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.9);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.k .dauer svg { width: 11px; height: 11px; }
+.k:is(:hover, .hv) .dauer { background: rgba(255,255,255,0.92); border-color: #fff; color: #0d1119; }
+
+/* P3: gar keine Taste — das Bild hellt auf, der Titel bekommt den Pfeil */
+.k.p3 .fuss .t { display: flex; align-items: center; gap: 7px; }
+.k.p3 .fuss .t .pf { width: 15px; height: 15px; flex: none; opacity: 0; transform: translateX(-4px); transition: opacity 170ms ease, transform 200ms cubic-bezier(0.2,0.7,0.2,1); }
+.k.p3:is(:hover, .hv) .fuss .t .pf { opacity: 1; transform: none; }
+.k.p3:is(:hover, .hv) .bild img { filter: brightness(1.1) saturate(1.05); }
+
+/* P4: Taste unten rechts — Bildmitte bleibt frei */
+.k .play-eck {
+  position: absolute; right: 13px; bottom: 13px; z-index: 5;
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,0.94); color: #0d1119; border: none; padding: 0;
+  transform: scale(0.8); opacity: 0;
+  transition: opacity 170ms ease, transform 210ms cubic-bezier(0.2,0.8,0.2,1), background 160ms ease;
+}
+.k .play-eck svg { width: 16px; height: 16px; margin-left: 2px; }
+.k:is(:hover, .hv, :focus-within) .play-eck { opacity: 1; transform: none; }
+.k .play-eck:hover { background: #fff; }
+.k.p4 .fuss { padding-right: 62px; }
+
+/* Feinstufen der Play-Einblendung (Abschnitt „Gewählt") */
+.k.f2 .play-mitte { transform: translate(-50%,-50%) scale(0.94); }
+.k.f2:is(:hover, .hv, :focus-within) .play-mitte { transform: translate(-50%,-50%) scale(1); }
+.k.f3 .play-mitte { transform: translate(-50%,-50%); opacity: 0.34; transition: opacity 180ms ease, background 180ms ease, border-color 180ms ease; }
+.k.f3:is(:hover, .hv, :focus-within) .play-mitte { transform: translate(-50%,-50%); opacity: 1; }
+/* Der Fokusring muss die Taste auch dann zeigen, wenn sie ausgeblendet ist —
+   sonst wandert der Tastatur-Fokus in etwas Unsichtbares. */
+.k .play-mitte:focus-visible { opacity: 1; outline: 2px solid var(--akzent); outline-offset: 3px; }
+
+/* — Sichtbarkeits-Varianten — */
+/* S2: als Chip in der Metazeile des Fußes */
+.sicht-inline {
+  display: inline-flex; align-items: center; gap: 5px; pointer-events: auto;
+  font-size: 11.5px; padding: 2px 9px 2px 7px; border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,0.16); color: rgba(242,237,227,0.72); background: rgba(6,8,12,0.35);
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.sicht-inline svg { width: 11px; height: 11px; }
+.sicht-inline:hover { border-color: rgba(255,255,255,0.5); color: #fff; background: rgba(6,8,12,0.6); }
+.sicht-inline.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,0.4); }
+/* S3: nur ein Punkt vor dem Titel */
+.k .punkt-sicht { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+.k .punkt-sicht.privat { background: var(--text-3); }
+.k .punkt-sicht.link { background: var(--blau); }
+.k .punkt-sicht.oeffentlich { background: var(--gruen); }
+.k.s3 .fuss .t { display: flex; align-items: center; gap: 8px; }
+
+/* — Bewegungs-Zählung — */
+.zaehler { display: grid; gap: 7px; margin-top: 14px; }
+.zaehl-zeile { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text-2); }
+.zaehl-zeile .name { width: 118px; flex: none; color: var(--text-3); }
+.zaehl-punkte { display: flex; gap: 4px; }
+.zaehl-punkte i { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); display: block; }
+.zaehl-punkte i.ruhig { background: var(--rand-hell); }
+.zaehl-zeile .was { color: var(--text-3); font-size: 12px; }
+
+/* — Tabelle — */
+.m-tabelle { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+.m-tabelle th, .m-tabelle td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linie); vertical-align: top; line-height: 1.5; }
+.m-tabelle th { font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); font-weight: 500; }
+.m-tabelle td { color: var(--text-2); }
+.m-tabelle td:first-child { color: var(--text); white-space: nowrap; }
+.m-tabelle .ja { color: var(--gruen); }
+.m-tabelle .nein { color: var(--text-3); }
+.m-tabelle .mittel { color: var(--warn); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6L19 12z"/></symbol>
+  <symbol id="i-stift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 10-4-4L4 16z"/></symbol>
+  <symbol id="i-muell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-mehr" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/></symbol>
+  <symbol id="i-schloss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+  <symbol id="i-schloss-offen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 017.5-2"/></symbol>
+  <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8M12 3.6c2.2 2.4 3.3 5.3 3.3 8.4s-1.1 6-3.3 8.4c-2.2-2.4-3.3-5.3-3.3-8.4S9.8 6 12 3.6z"/></symbol>
+  <symbol id="i-kopie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.2"/><path d="M5 15H4.5A1.5 1.5 0 013 13.5V5.5A1.5 1.5 0 014.5 4h8A1.5 1.5 0 0114 5.5V6"/></symbol>
+  <symbol id="i-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="13" rx="2.4"/><circle cx="12" cy="13" r="3.4"/><path d="M8.5 6.5l1.2-2h4.6l1.2 2"/></symbol>
+  <symbol id="i-schrift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><path d="M5 7V5.5h14V7M12 5.5V19M9 19h6"/></symbol>
+  <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3 2"/></symbol>
+  <symbol id="i-pfeil-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h12M13 6.5L18.5 12 13 17.5"/></symbol>
+</svg>
+
+<header class="m-kopf">
+  <div class="innen">
+    <span class="marke">Mockup · <em>Die ruhige Kachel</em></span>
+    <nav class="m-sprung">
+      <a href="#menue">1 Menü</a>
+      <a href="#signet">2 Signet</a>
+      <a href="#play">3 Play</a>
+      <a href="#sicht">4 Sichtbarkeit</a>
+      <a href="#summe">Zusammen</a>
+      <a href="#gewaehlt">Gewählt</a>
+    </nav>
+    <span class="sp"></span>
+    <label class="m-schalter"><input type="checkbox" id="hv-schalter" checked /> Hover fixiert</label>
+  </div>
+</header>
+
+<main>
+  <div class="m-intro">
+    <h1>Vier Fragen an die Kachel</h1>
+    <p>
+      Die Einwände hängen zusammen. In der Bestands-Kachel bewegen sich beim Zeigen
+      <b>sechs Dinge gleichzeitig</b>: die Kachel hebt sich, der Signet-Kasten wächst,
+      die Signet-Linie zeichnet sich neu, der Stift blendet ein, die Play-Taste wächst
+      aus der Mitte, der Schleier legt sich darüber. Jede Einzelbewegung ist gut
+      begründet — zusammen ergibt das ein Zucken unter dem Zeiger, und beim Überfahren
+      einer Liste von zwanzig Kacheln zuckt es zwanzigmal.
+    </p>
+    <p>
+      Unten steht jede Frage einzeln, mit fixiertem Hover (Schalter oben rechts, hier
+      standardmäßig <b>an</b>) — und am Ende die Zusammensetzung gegen den Bestand.
+    </p>
+  </div>
+
+  <!-- ————————————————— 1 MENÜ ————————————————— -->
+  <section class="m-abschnitt" id="menue">
+    <h2>1 · Darf „Bearbeiten" doppelt vorkommen?</h2>
+    <p class="m-warum">
+      Die kurze Antwort: <b>ja, aber nicht so.</b> Dass ein Kontextmenü die Aktion
+      wiederholt, die daneben schon als Knopf steht, ist gängig und richtig — Finder,
+      Google Drive, YouTube Studio machen es alle. Der Grund ist, dass das Menü der
+      <b>vollständige Katalog</b> ist: Wer per Rechtsklick oder Tastatur dorthin kommt,
+      soll nicht raten müssen, welche Aktionen nur außerhalb existieren.
+      <br><br>
+      Der Einwand trifft trotzdem, denn hier ist die Lage eine andere: Der Stift ist kein
+      Werkzeugleisten-Knopf, der immer sichtbar wäre — er erscheint <b>beim selben Zeigen,
+      bei dem auch das ⋯ erscheint</b>, in derselben Ecke, 6 px daneben. Zwei Wege zur
+      selben Sache, gleichzeitig eingeblendet, ist keine Redundanz mehr, sondern eine
+      Verdopplung. Also: entweder der Stift bleibt und das Menü lässt ihn weg, oder — besser —
+      der Stift geht und das Menü ist der eine Ort.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">alle drei im Zeigen-Zustand · Menüs anklickbar</div>
+      <div class="m-reihe drei">
+        <div class="m-fall">
+          <h4>M1 — Stift + volles Menü <span class="tag aus">verdoppelt</span></h4>
+          <p>Der Entwurf von gestern. Zwei Zeichen erscheinen zugleich, und das Menü
+          wiederholt beide Nachbarn. <b>Der Einwand.</b></p>
+          <article class="k g1 hv-ziel" data-menue-art="voll">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf leise" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              <button class="glasknopf leise"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+              <button class="glasknopf"><svg><use href="#i-schloss"/></svg><span>Privat</span></button>
+            </div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen</div></div>
+            <div class="schleier"></div>
+            <button class="play-mitte"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>M2 — nur das Menü <span class="tag">empfohlen</span></h4>
+          <p>Der Stift fällt weg, das ⋯ steht <b>immer</b> da (schwach, beim Zeigen voll) und
+          führt zu allem. Ein Zeichen statt drei — das nimmt der Ecke die halbe Unruhe.</p>
+          <article class="k g1 hv-ziel" data-menue-art="voll">
+            <div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M12 20c18 6 10 30 28 36s34-6 46 8"/><circle class="start" cx="12" cy="20" r="3.2"/><circle class="ende" cx="86" cy="64" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+            </div>
+            <div class="fuss"><div class="t">Stockholm, Schären am Abend</div><div class="m">18,4 km · 8 Aufnahmen</div></div>
+            <div class="schleier"></div>
+            <button class="play-mitte"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>M3 — Stift + Menü ohne Duplikate <span class="tag still">möglich</span></h4>
+          <p>Das Menü zeigt nur, was sonst nirgends steht. Sauber gedacht — aber der
+          Rechtsklick liefert dann ein Menü <b>ohne</b> „Bearbeiten", und das fühlt sich
+          kaputt an.</p>
+          <article class="k g1 hv-ziel" data-menue-art="ohne">
+            <div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M20 88c6-22 24-18 30-34s6-28 6-28"/><circle class="start" cx="20" cy="88" r="3.2"/><circle class="ende" cx="56" cy="26" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf leise" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              <button class="glasknopf leise"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+            </div>
+            <div class="fuss"><div class="t">Lissabon, Alfama hinunter</div><div class="m">6,2 km · 14 Aufnahmen</div></div>
+            <div class="schleier"></div>
+            <button class="play-mitte"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+      </div>
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Der Ausweg aus dem Dilemma:</b> Das Menü darf ruhig alles enthalten —
+        aber nur EIN sichtbares Zeichen darf danebenstehen. Ist das Menü der einzige Griff
+        (M2), ist nichts doppelt, und der Rechtsklick auf die Kachel kann dasselbe Menü
+        öffnen. Das Bearbeiten verliert dabei nichts: Die Kachel spielt beim Klick ab, und
+        wer bearbeiten will, öffnet ein Menü — das ist auch heute schon ein zweiter
+        Handgriff, nur mit weniger Zeichen im Bild.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————— 2 SIGNET ————————————————— -->
+  <section class="m-abschnitt" id="signet">
+    <h2>2 · Muss der Kasten oben links wachsen?</h2>
+    <p class="m-warum">
+      <b>Nein.</b> Das Wachsen war ein Kunststück ohne Auftrag: Die Routenform ist eine
+      Erkennungshilfe, keine Anzeige, die man beim Zeigen genauer liest — dafür ist sie
+      auch bei 80 px zu klein. Sie kostet aber die auffälligste Bewegung der ganzen
+      Kachel, weil sich dabei die <b>Geometrie</b> ändert und nicht nur die Deckkraft.
+      Bleibt die Frage, ob die Linie sich weiter nachzeichnen soll: Das ist eine
+      Bewegung <em>im</em> Element, nicht am Layout — deutlich ruhiger, und sie erklärt,
+      was das Zeichen überhaupt ist.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">alle drei im Zeigen-Zustand</div>
+      <div class="m-reihe drei">
+        <div class="m-fall">
+          <h4>G1 — wächst <span class="tag aus">Bestand</span></h4>
+          <p>64×50 → 80×62 px, dazu Nachzeichnen. Die Ecke springt; auf einer Liste
+          springt sie bei jedem Überfahren.</p>
+          <article class="k g1 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen</div></div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+        <div class="m-fall">
+          <h4>G2 — steht fest <span class="tag">empfohlen</span></h4>
+          <p>Die Geometrie rührt sich nicht, nur die Linie zeichnet sich nach. Die
+          Erklärung bleibt, das Springen ist weg.</p>
+          <article class="k g2 hv-ziel">
+            <div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M12 20c18 6 10 30 28 36s34-6 46 8"/><circle class="start" cx="12" cy="20" r="3.2"/><circle class="ende" cx="86" cy="64" r="3.2"/></svg></div>
+            <div class="fuss"><div class="t">Stockholm, Schären am Abend</div><div class="m">18,4 km · 8 Aufnahmen</div></div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+        <div class="m-fall">
+          <h4>G3 — weicht <span class="tag still">nur mit Auswahl</span></h4>
+          <p>Blendet beim Zeigen aus. Sinnvoll nur, wenn die Ecke gebraucht wird (Auswahl-
+          Häkchen) — sonst verschwindet grundlos Information.</p>
+          <article class="k g3 hv-ziel">
+            <div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M20 88c6-22 24-18 30-34s6-28 6-28"/><circle class="start" cx="20" cy="88" r="3.2"/><circle class="ende" cx="56" cy="26" r="3.2"/></svg></div>
+            <div class="fuss"><div class="t">Lissabon, Alfama hinunter</div><div class="m">6,2 km · 14 Aufnahmen</div></div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————— 3 PLAY ————————————————— -->
+  <section class="m-abschnitt" id="play">
+    <h2>3 · Muss die Taste in der Bildmitte stehen?</h2>
+    <p class="m-warum">
+      Die Taste hat zwei Aufgaben, die sich streiten. Sie ist <b>Ansage</b> („diese Kachel
+      spielt ab") — dafür ist sie gut. Und sie ist <b>Ziel</b> — dafür ist sie überflüssig,
+      denn die ganze Kachel klickt ohnehin. Der Preis: Sie steht mitten im Bild, also genau
+      dort, wo das Foto seine Aussage hat, und sie wächst beim Erscheinen aus dem Nichts.
+      Drei Alternativen, wovon eine <b>zusätzlich etwas erzählt</b>, statt nur zu wiederholen.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">alle vier im Zeigen-Zustand</div>
+      <div class="m-reihe vier">
+        <div class="m-fall">
+          <h4>P1 — Mitte <span class="tag aus">Bestand</span></h4>
+          <p>Unmissverständlich, aber mitten im Motiv — und die Bewegung (Skalieren aus 0,82)
+          ist die zweitgrößte der Kachel.</p>
+          <article class="k g2 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen</div></div>
+            <div class="schleier"></div>
+            <button class="play-mitte"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>P2 — Dauer-Chip <span class="tag">empfohlen</span></h4>
+          <p>„▶ 6:20" steht <b>immer</b> im Fuß und sagt zusätzlich, wie lang der Film ist.
+          Beim Zeigen wird er nur hell — <b>kein Erscheinen, kein Wachsen</b>.</p>
+          <article class="k g2 hv-ziel">
+            <div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M12 20c18 6 10 30 28 36s34-6 46 8"/><circle class="start" cx="12" cy="20" r="3.2"/><circle class="ende" cx="86" cy="64" r="3.2"/></svg></div>
+            <div class="fuss">
+              <div class="t">Stockholm, Schären am Abend</div>
+              <div class="m"><span class="dauer"><svg><use href="#i-play"/></svg>4:05</span> 18,4 km · 8 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>P3 — gar keine Taste <span class="tag still">radikal</span></h4>
+          <p>Das Bild hellt auf, im Titel erscheint ein Pfeil. Am ruhigsten — sagt aber
+          auf Touch (kein Hover!) nichts mehr darüber, was ein Tippen tut.</p>
+          <article class="k g2 p3 hv-ziel">
+            <div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M20 88c6-22 24-18 30-34s6-28 6-28"/><circle class="start" cx="20" cy="88" r="3.2"/><circle class="ende" cx="56" cy="26" r="3.2"/></svg></div>
+            <div class="fuss">
+              <div class="t"><svg class="pf"><use href="#i-pfeil-r"/></svg>Lissabon, Alfama hinunter</div>
+              <div class="m">6,2 km · 14 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>P4 — unten rechts <span class="tag still">Kompromiss</span></h4>
+          <p>Volle Taste, aber das Motiv bleibt frei. Sie liegt dort, wo der Daumen
+          ohnehin ist — und kollidiert mit nichts.</p>
+          <article class="k g2 p4 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen</div></div>
+            <div class="schleier"></div>
+            <button class="play-eck"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+      </div>
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Warum P2 gewinnt:</b> Es ist die einzige Variante, die etwas
+        <em>hinzufügt</em>. Die Filmdauer ist die Angabe, die auf der Kachel bisher fehlt
+        und die man vor dem Klicken am ehesten wissen will („habe ich jetzt sechs Minuten?").
+        Der Chip ist zugleich die Abspiel-Ansage, steht auf Touch genauso da wie mit Maus,
+        und bewegt sich beim Zeigen nicht — er wechselt nur die Farbe.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————— 4 SICHTBARKEIT ————————————————— -->
+  <section class="m-abschnitt" id="sicht">
+    <h2>4 · Wohin mit der Sichtbarkeit?</h2>
+    <p class="m-warum">
+      Sie steht heute oben rechts als Glaspille über dem Foto — an derselben Stelle, an
+      der auch Stift und ⋯ auftauchen. Das ist der Grund, warum die Ecke voll wirkt.
+      Dabei ist die Sichtbarkeit <b>kein Werkzeug, sondern eine Eigenschaft der Tour</b>,
+      genau wie „41,8 km" und „12 Aufnahmen" — und Eigenschaften stehen im Fuß.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">alle vier im Zeigen-Zustand</div>
+      <div class="m-reihe vier">
+        <div class="m-fall">
+          <h4>S1 — oben rechts <span class="tag aus">Bestand</span></h4>
+          <p>Gut sichtbar, aber im Werkzeug-Eck. Beim Zeigen stehen dort drei Dinge
+          nebeneinander.</p>
+          <article class="k g2 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf leise" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              <button class="glasknopf"><svg><use href="#i-schloss"/></svg><span>Privat</span></button>
+            </div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen</div></div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>S2 — im Fuß, bei den Fakten <span class="tag">empfohlen</span></h4>
+          <p>Sie steht bei ihresgleichen, bleibt klickbar (öffnet dasselbe Menü) und
+          räumt die Ecke frei. Öffentlich bleibt grün — der einzige Zustand, der
+          heraussticht, weil er der einzige mit Publikum ist.</p>
+          <article class="k g2 hv-ziel">
+            <div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M12 20c18 6 10 30 28 36s34-6 46 8"/><circle class="start" cx="12" cy="20" r="3.2"/><circle class="ende" cx="86" cy="64" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+            </div>
+            <div class="fuss">
+              <div class="t">Stockholm, Schären am Abend</div>
+              <div class="m"><button class="sicht-inline oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button> 18,4 km · 8 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>S3 — Punkt vor dem Titel <span class="tag still">sehr still</span></h4>
+          <p>Ein farbiger Punkt: grau privat, blau per Link, grün öffentlich. Am
+          ruhigsten — aber eine Farbe allein ist keine Auskunft (und ein
+          Barrierefreiheits-Problem).</p>
+          <article class="k g2 s3 hv-ziel">
+            <div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M20 88c6-22 24-18 30-34s6-28 6-28"/><circle class="start" cx="20" cy="88" r="3.2"/><circle class="ende" cx="56" cy="26" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+            </div>
+            <div class="fuss">
+              <div class="t"><span class="punkt-sicht link" title="Per Link"></span>Lissabon, Alfama hinunter</div>
+              <div class="m">6,2 km · 14 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>S4 — gar nicht auf der Kachel <span class="tag aus">verworfen</span></h4>
+          <p>Nur im Menü und in der Liste. Ruhig, aber falsch: Wer zehn Kacheln
+          durchsieht, muss zehn Menüs öffnen, um zu wissen, was öffentlich steht.</p>
+          <article class="k g2 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+            </div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen</div></div>
+            <div class="schleier"></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————— ZUSAMMEN ————————————————— -->
+  <section class="m-abschnitt" id="summe">
+    <h2>Zusammengesetzt</h2>
+    <p class="m-warum">
+      <b>M2 + G2 + P2 + S2.</b> Oben rechts steht nur noch ein Zeichen, oben links steht
+      das Signet still, die Bildmitte bleibt frei, und der Fuß trägt alles, was die Tour
+      über sich sagt: Dauer, Sichtbarkeit, Strecke, Aufnahmen. Beim Zeigen bewegen sich
+      noch <b>zwei</b> Dinge (die Kachel hebt sich, der Schleier legt sich darüber), dazu
+      zwei Farbwechsel ohne Bewegung (⋯ und Dauer-Chip).
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">links Bestand · rechts Vorschlag — beide im Zeigen-Zustand</div>
+      <div class="m-reihe" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))">
+        <div class="m-fall">
+          <h4>Heute</h4>
+          <p>Sechs bewegte Dinge beim Zeigen.</p>
+          <article class="k g1 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf leise"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+              <button class="glasknopf"><svg><use href="#i-schloss"/></svg><span>Privat</span></button>
+            </div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen · 3. August</div></div>
+            <div class="schleier"></div>
+            <button class="play-mitte"><svg><use href="#i-play"/></svg></button>
+          </article>
+          <div class="zaehler">
+            <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="was">Kachel · Signet-Kasten · Signet-Linie · Stift · Play · Schleier</span></div>
+          </div>
+        </div>
+
+        <div class="m-fall">
+          <h4>Vorschlag <span class="tag">M2 · G2 · P2 · S2</span></h4>
+          <p>Zwei bewegte Dinge, zwei Farbwechsel.</p>
+          <article class="k g2 hv-ziel" data-menue-art="voll">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+            </div>
+            <div class="fuss">
+              <div class="t">Koh Pha-ngan, Inselrunde</div>
+              <div class="m">
+                <span class="dauer"><svg><use href="#i-play"/></svg>6:20</span>
+                <button class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</button>
+                41,8 km · 12 Aufnahmen
+              </div>
+            </div>
+            <div class="schleier"></div>
+          </article>
+          <div class="zaehler">
+            <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i></span><span class="was">Kachel · Schleier</span></div>
+            <div class="zaehl-zeile"><span class="name">Wechselt Farbe</span><span class="zaehl-punkte"><i class="ruhig"></i><i class="ruhig"></i></span><span class="was">⋯ · Dauer-Chip (Signet-Linie zeichnet nach)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <table class="m-tabelle">
+        <thead><tr><th>Frage</th><th>Bestand</th><th>Vorschlag</th><th>Was sich dadurch ändert</th></tr></thead>
+        <tbody>
+          <tr><td>Menü-Inhalt</td><td>Stift + ⋯, Menü wiederholt beides</td><td class="ja">nur ⋯, Menü vollständig</td><td>ein Zeichen statt drei; Rechtsklick kann dasselbe Menü öffnen</td></tr>
+          <tr><td>Signet</td><td>wächst 64→80 px</td><td class="ja">steht fest, Linie zeichnet nach</td><td>die auffälligste Layout-Bewegung fällt weg</td></tr>
+          <tr><td>Play</td><td>Taste wächst in der Bildmitte</td><td class="ja">Dauer-Chip im Fuß, immer da</td><td>Motiv frei, Filmdauer neu sichtbar, auch auf Touch</td></tr>
+          <tr><td>Sichtbarkeit</td><td>Glaspille über dem Bild</td><td class="ja">Chip bei den Fakten</td><td>steht bei ihresgleichen, Ecke wird frei</td></tr>
+          <tr><td>Löschen</td><td class="nein">gibt es nicht</td><td class="ja">im ⋯-Menü, mit Dialog</td><td>siehe <code>studio-touren-karten.html</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Offene Frage für die Umsetzung:</b> Die Filmdauer steht heute nicht in der
+        Listen-Antwort des Servers (<code>stats</code> trägt km und Fotos). Sie kommt aus der
+        Timeline im Tour-JSON — der Wert müsste beim Rendern in die Tour-Zeile geschrieben
+        werden. Bis dahin trägt der Chip nur den Pfeil und heißt schlicht „Abspielen".</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————— GEWÄHLT ————————————————— -->
+  <section class="m-abschnitt" id="gewaehlt">
+    <h2>Gewählt: M2 · G2 · P1 · S2</h2>
+    <p class="m-warum">
+      Die Taste in der Mitte hat ein Argument, das in der Aufstellung oben fehlte:
+      <b>Sie ist das einzige benannte Abspiel-Ziel für Tastatur und Screenreader.</b>
+      Eine Kachel, die nur als Ganzes klickt, hat sonst keinen fokussierbaren Griff, der
+      „Abspielen" heißt — und der Dauer-Chip wäre dafür ein schlechterer Name gewesen.
+      Damit bleiben zwei Feinheiten, die die Entscheidung nichts kosten:
+    </p>
+    <p class="m-warum">
+      <b>Erstens: die Filmdauer trotzdem in den Fuß</b>, als reine Angabe ohne Griff
+      („6:20 · 41,8 km · 12 Aufnahmen"). Sie war der eigentliche Gewinn von P2, und sie
+      hängt nicht an der Taste. <b>Zweitens: die Einblendung entschärfen.</b> Die Taste
+      wächst heute aus <code>scale(0.82)</code> — das ist der sichtbare Teil der Unruhe,
+      nicht die Taste selbst. Drei Stufen zur Wahl:
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">alle drei fertig gebaut · Unterschied nur in der Einblendung der Taste</div>
+      <div class="m-reihe drei">
+        <div class="m-fall">
+          <h4>F1 — wie heute <span class="tag still">scale 0,82 → 1</span></h4>
+          <p>Die Taste wächst spürbar. Auf einer langen Liste ist das die Bewegung, die
+          beim Überfahren am meisten auffällt.</p>
+          <article class="k g2 hv-ziel" data-menue-art="voll">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe"><button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button></div>
+            <div class="fuss">
+              <div class="t">Koh Pha-ngan, Inselrunde</div>
+              <div class="m"><button class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</button> 6:20 · 41,8 km · 12 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+            <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>F2 — kaum <span class="tag">empfohlen</span></h4>
+          <p>Dieselbe Geste, aber aus 0,94: Man sieht, dass etwas erscheint, ohne dass es
+          zuckt. Die Ansage bleibt, die Unruhe geht.</p>
+          <article class="k g2 f2 hv-ziel" data-menue-art="voll">
+            <div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M12 20c18 6 10 30 28 36s34-6 46 8"/><circle class="start" cx="12" cy="20" r="3.2"/><circle class="ende" cx="86" cy="64" r="3.2"/></svg></div>
+            <div class="griffe"><button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button></div>
+            <div class="fuss">
+              <div class="t">Stockholm, Schären am Abend</div>
+              <div class="m"><button class="sicht-inline oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button> 4:05 · 18,4 km · 8 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+            <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+
+        <div class="m-fall">
+          <h4>F3 — steht immer, schwach <span class="tag still">Touch-freundlich</span></h4>
+          <p>Keine Größenänderung, nur Deckkraft 0,34 → 1. Die Kachel sagt auch <b>ohne
+          Zeiger</b>, dass sie abspielt — der einzige Zustand, den ein Handy je sieht.</p>
+          <article class="k g2 f3 hv-ziel" data-menue-art="voll">
+            <div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M20 88c6-22 24-18 30-34s6-28 6-28"/><circle class="start" cx="20" cy="88" r="3.2"/><circle class="ende" cx="56" cy="26" r="3.2"/></svg></div>
+            <div class="griffe"><button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button></div>
+            <div class="fuss">
+              <div class="t">Lissabon, Alfama hinunter</div>
+              <div class="m"><button class="sicht-inline"><svg><use href="#i-schloss-offen"/></svg>Per Link</button> 5:10 · 6,2 km · 14 Aufnahmen</div>
+            </div>
+            <div class="schleier"></div>
+            <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+          </article>
+        </div>
+      </div>
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Bewegungs-Bilanz von M2 · G2 · P1 · S2 mit F2:</b> drei bewegte Dinge
+        (Kachel, Schleier, Taste — die Taste nur noch minimal) statt sechs. <b>Und ein
+        Detail, das dazugehört:</b> Der Fokusring muss die Taste auch im ausgeblendeten
+        Zustand sichtbar machen, sonst springt der Tastatur-Fokus in etwas Unsichtbares —
+        <code>:focus-visible</code> setzt hier <code>opacity: 1</code>. Mit der Tab-Taste
+        auf einer Kachel nachprüfbar.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* Mockup-Bedienung — kein Produktcode. */
+const schalter = document.getElementById('hv-schalter')
+function setzeHover() { document.querySelectorAll('.hv-ziel').forEach((el) => el.classList.toggle('hv', schalter.checked)) }
+schalter.addEventListener('change', setzeHover)
+if (new URLSearchParams(location.search).get('hv') === '0') schalter.checked = false
+setzeHover()
+
+const MENUE_VOLL = `
+  <button><svg><use href="#i-play"/></svg>Abspielen<kbd>↵</kbd></button>
+  <button><svg><use href="#i-stift"/></svg>Bearbeiten<kbd>E</kbd></button>
+  <button><svg><use href="#i-schrift"/></svg>Umbenennen</button>
+  <button><svg><use href="#i-schloss"/></svg>Sichtbarkeit …</button>
+  <button><svg><use href="#i-kopie"/></svg>Link kopieren</button>
+  <button><svg><use href="#i-foto"/></svg>Titelbild wählen</button>
+  <hr />
+  <button class="gefahr"><svg><use href="#i-muell"/></svg>Tour löschen …</button>`
+const MENUE_OHNE = `
+  <button><svg><use href="#i-schrift"/></svg>Umbenennen</button>
+  <button><svg><use href="#i-schloss"/></svg>Sichtbarkeit …</button>
+  <button><svg><use href="#i-kopie"/></svg>Link kopieren</button>
+  <button><svg><use href="#i-foto"/></svg>Titelbild wählen</button>
+  <hr />
+  <button class="gefahr"><svg><use href="#i-muell"/></svg>Tour löschen …</button>`
+
+function schliesseMenues() {
+  document.querySelectorAll('.karten-menue').forEach((m) => m.remove())
+  document.querySelectorAll('.menue-offen').forEach((k) => k.classList.remove('menue-offen'))
+  document.querySelectorAll('[data-menue][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'))
+}
+document.addEventListener('click', (e) => {
+  const knopf = e.target.closest('[data-menue]')
+  if (!knopf) { schliesseMenues(); return }
+  e.stopPropagation()
+  const karte = knopf.closest('.k')
+  const offen = karte.classList.contains('menue-offen')
+  schliesseMenues()
+  if (offen) return
+  const menue = document.createElement('div')
+  menue.className = 'karten-menue'
+  menue.innerHTML = karte.dataset.menueArt === 'ohne' ? MENUE_OHNE : MENUE_VOLL
+  menue.addEventListener('click', (ev) => ev.stopPropagation())
+  karte.appendChild(menue)
+  karte.classList.add('menue-offen')
+  knopf.setAttribute('aria-expanded', 'true')
+})
+// Rechtsklick öffnet dasselbe Menü — der Grund, warum es vollständig sein muss.
+document.querySelectorAll('.k[data-menue-art]').forEach((k) => {
+  k.addEventListener('contextmenu', (e) => {
+    e.preventDefault()
+    k.querySelector('[data-menue]')?.click()
+  })
+})
+document.querySelectorAll('.sicht-inline, .dauer').forEach((b) => b.addEventListener('click', (e) => e.stopPropagation()))
+</script>
+</body>
+</html>
