@@ -102,37 +102,87 @@ export interface Halt {
 /** Ein eingewebter Halt: dazu, wo er im FILM liegt. */
 export type HaltIntervall<H extends Halt = Halt> = H & { filmVon: number; filmBis: number }
 
+// — Die Rampe (E14) —
+//
+// Anfahren und Ausrollen sind seit Etappe 4 eine FORM IN DER KURVE, keine
+// emergente Eigenschaft einer Differentialgleichung mehr. Vorher strebte
+// `speed` sein Ziel exponentiell an (τ = 1,1 s beim Anfahren, 0,55 s beim
+// Ausrollen): kräftig vorn, dann immer sanfter, **ohne definiertes Ende** — und
+// die Dauer hing am Tempo. Genau diese Unschärfe war der Grund, warum die
+// Halt-Breite im Studio nie stimmen konnte.
+//
+// Drei Folgen der festen Form: Die Halt-Breite wird EXAKT, die Rampe ist im
+// Editor zeichenbar, und sie passt zur Achse, die seit E12 ohnehin über der
+// STRECKE rechnet (eine Rampe über feste ZEIT müsste dort rückwärts aufgelöst
+// werden).
+
 /**
- * Halte als Sprünge einweben: an ihrer Position zwei Stützstellen (Film vor und
- * nach der Standzeit), alle späteren Werte heben sich um die Breite. Aufsteigend
- * gewebt, damit `filmAmHalt` die früheren Halte schon trägt — die Intervalle
- * stimmen ohne Nachrechnen.
+ * Weganteil der Rampe nach dem Zeitanteil `u` (0..1) — `2u³ − u⁴`.
  *
- * Die x-Größe bleibt offen (`ort`): über der Strecke sind es Meter (die Achse),
- * über der Aufnahmezeit Sekunden (das Zug-Fenster einer Fortbewegungs-Grenze im
- * Editor). Weben ist in beiden Fällen dieselbe Rechnung, und genau deshalb steht
- * sie einmal.
+ * Ihre Ableitung ist `2 · smoothstep(u)`: Tempo 0 am Anfang, sanft anziehend,
+ * in der MITTE am stärksten, sanft ins Reisetempo (Beschleunigung an beiden
+ * Enden null — kein Ruck). Das ist genau die Form, die E14 beschreibt.
+ *
+ * Aus `σ(1) = 1` und `σ'(1) = 2` folgt die eine Zahl, die die ganze Rechnung
+ * trägt: **Eine Rampe dauert doppelt so lange wie das Reisen derselben
+ * Strecke.** Ihr Zuschlag ist also genau eine Reisezeit ihrer Länge — und weil
+ * die aus der Reise-Achse kommt, stimmt er auch, wenn mitten in der Rampe ein
+ * Modus wechselt.
  */
-export function webeHalte<H extends Halt>(
-  xs: number[],
-  ys: number[],
-  halte: readonly H[],
-  ort: (h: H) => number,
-): Array<HaltIntervall<H>> {
-  const intervalle: Array<HaltIntervall<H>> = []
-  for (const h of [...halte].sort((a, b) => ort(a) - ort(b))) {
-    if (!(h.breiteS > 0)) continue
-    const x = ort(h)
-    const filmAmHalt = interpoliere(xs, ys, x)
-    // Einfügeposition: hinter alle Stützstellen ≤ Halt-Position
-    let i = xs.length
-    while (i > 0 && (xs[i - 1] as number) > x) i--
-    for (let j = i; j < xs.length; j++) ys[j] = (ys[j] as number) + h.breiteS
-    xs.splice(i, 0, x, x)
-    ys.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
-    intervalle.push({ ...h, filmVon: filmAmHalt, filmBis: filmAmHalt + h.breiteS })
-  }
-  return intervalle
+const rampenWeg = (u: number): number => u * u * u * (2 - u)
+
+/**
+ * Stützstellen je Rampe. Die Kurve wird stückweise linear abgetastet — 12
+ * Stufen halten den Fehler unter einem Prozent der Rampenzeit und kosten bei
+ * zwölf Halten rund 300 Punkte.
+ */
+const RAMPEN_STUFEN = 12
+
+/**
+ * Anfahr- und Ausrollstrecke in Metern — **die eine gestalterische Zahl der
+ * Rampe**, kalibriert und nicht geraten.
+ *
+ * Kalibriert an den heute simulierten Rampen, damit sich die Fahrt nicht
+ * sprunghaft anders anfühlt — die Summe über die vier Fixtur-Touren beträgt
+ * 64,3 Rampen-Sekunden ([rampen-simulation.ts](../scripts/messungen/rampen-simulation.ts):
+ * 32,4 · 14,7 · 1,3 · 15,9). Der Zuschlag einer Rampe ist `Länge ÷ Tempo`, ein
+ * Halt kostet also `2 L / v`; **120 m** treffen die Summe auf 3,3 % genau
+ * (62,2 s), nachgerechnet mit
+ * [rampen-kalibrierung.ts](../scripts/messungen/rampen-kalibrierung.ts).
+ *
+ * Die VERTEILUNG ändert sich dabei bewusst, und das ist keine Ungenauigkeit,
+ * sondern der Kern von E14: Heute WÄCHST der Zuschlag mit dem Tempo (die
+ * Exponentialkurve braucht bei Vollgas länger, 2,70 s je Halt auf der
+ * 41-km-Tour gegen 0,44 s auf der kurzen), künftig FÄLLT er damit — dieselbe
+ * Strecke ist schneller durchfahren. Die schnelle Tour verliert deshalb
+ * Rampenzeit (32,4 → 22,0 s), die überwiegend gegangene gewinnt welche
+ * (14,7 → 24,2 s): Der Antritt wirkt bei Tempo knackiger und zu Fuß getragener.
+ *
+ * **Liegen zwei Halte näher beieinander als 2 L**, teilen sie sich die Lücke
+ * hälftig — sonst überlappten Ausrollen und Anfahren, und die Achse liefe
+ * rückwärts. Auf der kurzen Tour (356 m Luftlinie zwischen drei Halten) greift
+ * genau das: Ihre Rampen bleiben bei 3,0 s, egal wie lang `RAMPE_M` steht.
+ */
+export const RAMPE_M = 120
+
+/** Wie die Achse ihre Rampen setzt. */
+export interface Rampenwahl {
+  /**
+   * Anfahr- und Ausrollstrecke in Metern; Vorgabe `RAMPE_M`. `0` baut die reine
+   * Reise-Achse — dafür gibt es genau einen Grund, und der sind die Tests: Sie
+   * beschreiben das Weben der HALTE, und mit Rampe stünde in jeder Erwartung
+   * noch deren Zuschlag.
+   */
+  rampeM?: number
+  /**
+   * Beginnt das Stück im STAND? Vorgabe ja — eine Tour fährt aus dem Stand los.
+   *
+   * Das Zug-Fenster einer Fortbewegungs-Grenze (`baueGrenzKurve` im Editor)
+   * beginnt dagegen mitten in der Fahrt: Dort eine Anfahrt einzurechnen schöbe
+   * die gezogene Kante um deren Zuschlag, und sie landete nicht dort, wo man
+   * losgelassen hat.
+   */
+  ausDemStand?: boolean
 }
 
 // — Die Achse —
@@ -167,9 +217,16 @@ export interface Filmachse<H extends Streckenhalt = Streckenhalt> {
 /**
  * Die Filmachse aus Abschnitten und Halten.
  *
- * Innerhalb eines Abschnitts ist die Abbildung EXAKT linear (Strecke ÷ Tempo) —
- * Stützstellen je Trackpunkt braucht es dafür nicht. Wer sie hat (der Editor),
- * legt seinen Zeit→Strecke-Adapter daneben, statt sie in die Achse zu tragen.
+ * Innerhalb eines Abschnitts ist die REISE-Abbildung exakt linear (Strecke ÷
+ * Tempo) — Stützstellen je Trackpunkt braucht es dafür nicht. Wer sie hat (der
+ * Editor), legt seinen Zeit→Strecke-Adapter daneben, statt sie in die Achse zu
+ * tragen. Nichtlinear wird die Achse nur dort, wo eine RAMPE liegt: um jeden
+ * Halt und am Start der Tour.
+ *
+ * Gebaut wird in einem Durchgang von vorn nach hinten — Rampe, Reise, Rampe,
+ * Halt-Plateau —, und der aufgelaufene `zuschlag` trägt Rampen und Standzeiten
+ * gemeinsam. Ein nachträgliches Einweben (die frühere `webeHalte`) ginge nicht
+ * mehr: Die Rampen einer Lücke hängen davon ab, wie lang sie ist.
  *
  * **Die Meter müssen ROH sein, nicht die der gebauten Route:** Catmull-Rom und
  * das 14-m-Raster machen die Route 2,2–3,0 % länger, und die Dehnung verteilt
@@ -180,9 +237,13 @@ export function baueFilmachse<H extends Streckenhalt>(
   abschnitte: readonly Streckenabschnitt[],
   gesamtM: number,
   halte: readonly H[],
+  wahl: Rampenwahl = {},
 ): Filmachse<H> {
-  const sM: number[] = [0]
-  const filmS: number[] = [0]
+  const rampeM = wahl.rampeM ?? RAMPE_M
+  const ausDemStand = wahl.ausDemStand ?? true
+  // — Die REISE-Achse: Strecke ÷ Tempo, ohne Rampen und ohne Halte —
+  const reiseM: number[] = [0]
+  const reiseS: number[] = [0]
   let film = 0
   let vonM = 0
   let mode = abschnitte[0]?.mode ?? 'bike'
@@ -190,19 +251,87 @@ export function baueFilmachse<H extends Streckenhalt>(
     const bisM = Math.max(vonM, Math.min(gesamtM, a.abM))
     if (bisM > vonM) {
       film += filmsekunden(bisM - vonM, mode)
-      sM.push(bisM)
-      filmS.push(film)
+      reiseM.push(bisM)
+      reiseS.push(film)
     }
     vonM = bisM
     mode = a.mode
   }
   if (gesamtM > vonM) {
     film += filmsekunden(gesamtM - vonM, mode)
-    sM.push(gesamtM)
-    filmS.push(film)
+    reiseM.push(gesamtM)
+    reiseS.push(film)
+  }
+  const reiseFilm = (m: number): number => interpoliere(reiseM, reiseS, m)
+
+  // Halte ohne Breite kosten nichts und bremsen deshalb auch nicht. Sortiert
+  // wird nach dem ORT; die Sortierung ist stabil, also behalten Halte auf
+  // demselben Meterstand (mehrere in derselben realen Pause) ihre Reihenfolge.
+  const geordnet = halte
+    .map((h) => ({ h, ort: Math.max(0, Math.min(gesamtM, h.meterM)) }))
+    .filter((e) => e.h.breiteS > 0)
+    .sort((a, b) => a.ort - b.ort)
+
+  const sM: number[] = [0]
+  const filmS: number[] = [0]
+  const intervalle: Array<HaltIntervall<H>> = []
+  /** Alles, was die Achse gegenüber der reinen Reisezeit schon gewonnen hat. */
+  let zuschlag = 0
+  let stand = 0 // Meterstand des letzten Ruhepunkts (Start oder Halt)
+
+  const setze = (m: number, f: number): void => {
+    const n = sM.length
+    if (n > 0 && sM[n - 1] === m && filmS[n - 1] === f) return
+    sM.push(m)
+    filmS.push(f)
   }
 
-  const intervalle = webeHalte(sM, filmS, halte, (h) => Math.max(0, Math.min(gesamtM, h.meterM)))
+  /**
+   * Eine Rampe abtasten. `anfahrt` = aus dem Stand ins Reisetempo, sonst die
+   * Zeitumkehrung davon. Sie kostet `2 × Reisezeit` ihrer Strecke; der
+   * Zuschlag ist damit genau eine Reisezeit.
+   */
+  const rampe = (vonRampeM: number, laenge: number, anfahrt: boolean): void => {
+    if (!(laenge > 0)) return
+    const reise = reiseFilm(vonRampeM + laenge) - reiseFilm(vonRampeM)
+    const basis = reiseFilm(vonRampeM) + zuschlag
+    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
+      const u = k / RAMPEN_STUFEN
+      const anteil = anfahrt ? rampenWeg(u) : 1 - rampenWeg(1 - u)
+      setze(vonRampeM + laenge * anteil, basis + 2 * reise * u)
+    }
+    zuschlag += reise
+  }
+
+  for (let i = 0; i <= geordnet.length; i++) {
+    const eintrag = geordnet[i]
+    const ziel = eintrag ? eintrag.ort : gesamtM
+    const luecke = Math.max(0, ziel - stand)
+    // Vor einem Halt wird gebremst, am Tour-ENDE nicht: Der Film läuft dort
+    // aus, wie er es heute tut. Beide Rampen teilen sich die Lücke hälftig,
+    // wenn sie sonst überlappten.
+    const ausrollen = eintrag ? Math.min(rampeM, luecke / 2) : 0
+    const anfahrt =
+      i === 0 && !ausDemStand ? 0 : Math.min(rampeM, eintrag ? luecke / 2 : luecke)
+    setze(stand, reiseFilm(stand) + zuschlag)
+    rampe(stand, anfahrt, true)
+    // Reisen: die Modus-Grenzen zwischen den Rampen behalten ihre Stützstelle.
+    const reiseVon = stand + anfahrt
+    const reiseBis = ziel - ausrollen
+    for (const m of reiseM) if (m > reiseVon && m < reiseBis) setze(m, reiseFilm(m) + zuschlag)
+    if (reiseBis > reiseVon) setze(reiseBis, reiseFilm(reiseBis) + zuschlag)
+    rampe(reiseBis, ausrollen, false)
+    if (!eintrag) break
+    // Das Halt-Plateau: dieselbe Strecke, zwei Filmzeiten.
+    const ankunft = reiseFilm(ziel) + zuschlag
+    setze(ziel, ankunft)
+    sM.push(ziel)
+    filmS.push(ankunft + eintrag.h.breiteS)
+    intervalle.push({ ...eintrag.h, filmVon: ankunft, filmBis: ankunft + eintrag.h.breiteS })
+    zuschlag += eintrag.h.breiteS
+    stand = ziel
+  }
+
   return { sM, filmS, gesamtM, gesamtS: filmS[filmS.length - 1] as number, halte: intervalle }
 }
 

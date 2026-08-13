@@ -665,13 +665,16 @@ describe('reichereAn: Ton am Film-Anker', () => {
     // Sechs der zwanzig Filmsekunden vergehen jetzt im Moment — der Klip setzt
     // entsprechend früher auf der STRECKE ein.
     expect(mit.audio?.[0]?.f0).toBeLessThan(ohne.audio?.[0]?.f0 ?? 1)
-    // Und zwar genau um die Momentdauer: derselbe Punkt wie ohne Moment bei
-    // 20 − 6 Filmsekunden Versatz.
+    // Und zwar um MEHR als die Momentdauer: Seit E14 bringt jeder Halt seine
+    // Rampen mit — vor ihm wird gebremst, danach wieder angefahren, und beides
+    // kostet Filmzeit, ohne Strecke zu machen. Ein Klip 20 Filmsekunden hinter
+    // dem Anker kommt deshalb weiter vorn heraus als bei einem Moment, der nur
+    // seine nackte Dauer kostete.
     const gekuerzt = await rendere({
       schema: 'maptale/edits@1',
       audio: [{ ...spur, versatzFilmS: 20 - 6 }],
     })
-    expect(mit.audio?.[0]?.f0).toBeCloseTo(gekuerzt.audio?.[0]?.f0 ?? -1, 9)
+    expect(mit.audio?.[0]?.f0).toBeLessThan(gekuerzt.audio?.[0]?.f0 ?? -1)
   })
 
   it('ein Moment hinter dem Track-Ende verlängert die Achse nicht', async () => {

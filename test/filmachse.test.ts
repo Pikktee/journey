@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { HOLD_AUSBLEND, HOLD_HIDE, standzeitS } from '../src/einblendung'
 import {
   MOMENT_DEFAULT_S,
+  RAMPE_M,
   baueFilmachse,
   filmBeiStrecke,
   haltBeiFilm,
@@ -30,6 +31,7 @@ interface Fall {
   abschnitte: Array<{ abM: number; mode: string }>
   gesamtM: number
   halte: Array<{ meterM: number; breiteS: number }>
+  rampeM: number
   gesamtS: number
   filmBeiStrecke: Array<[number, number]>
   streckeBeiFilm: Array<[number, number]>
@@ -68,7 +70,7 @@ describe('Verhaltens-Fixture (Web-Seite)', () => {
   })
 
   it.each(fixture.faelle)('$name', (fall) => {
-    const achse = baueFilmachse(fall.abschnitte, fall.gesamtM, fall.halte)
+    const achse = baueFilmachse(fall.abschnitte, fall.gesamtM, fall.halte, { rampeM: fall.rampeM })
     expect(achse.gesamtS).toBeCloseTo(fall.gesamtS, 6)
     for (const [meterM, filmS] of fall.filmBeiStrecke) {
       expect(filmBeiStrecke(achse, meterM), `Film bei ${meterM} m`).toBeCloseTo(filmS, 6)
@@ -80,7 +82,11 @@ describe('Verhaltens-Fixture (Web-Seite)', () => {
 })
 
 describe('Filmachse', () => {
-  const walk960 = () => baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 6 }])
+  // Diese Fälle prüfen das Weben der HALTE und rechnen deshalb ohne Rampe
+  // (`rampeM: 0`) — sonst stünde in jeder Erwartung noch ein Rampen-Zuschlag,
+  // und der Test sagte nicht mehr, worüber er redet. Die Rampe selbst hat ihre
+  // eigenen Fälle im Fixture.
+  const walk960 = () => baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 6 }], { rampeM: 0 })
 
   it('gibt einem Halt seine Filmsekunden — die Strecke hat dort keine Ausdehnung', () => {
     const achse = walk960()
@@ -101,7 +107,7 @@ describe('Filmachse', () => {
   })
 
   it('überspringt Halte ohne Breite, statt sie als Stufe einzuweben', () => {
-    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 0 }])
+    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 480, breiteS: 0 }], { rampeM: 0 })
     expect(achse.halte).toEqual([])
     expect(achse.gesamtS).toBeCloseTo(20, 6)
   })
@@ -110,7 +116,7 @@ describe('Filmachse', () => {
     // Ein Anker kann hinter dem Tour-Ende landen (Trim, Projektionsfehler). Die
     // Standzeit gehört dann ans Ende — nicht in eine Achse, die dort schon
     // vorbei ist.
-    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 5000, breiteS: 6 }])
+    const achse = baueFilmachse([{ abM: 0, mode: 'walk' }], 960, [{ meterM: 5000, breiteS: 6 }], { rampeM: 0 })
     expect(achse.gesamtS).toBeCloseTo(26, 6)
     expect(achse.halte[0]?.filmVon).toBeCloseTo(20, 6)
   })
@@ -177,8 +183,11 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
   })
   const spielkurve = baueSpielKurve(editor, [{ aktiv: true, pts: track }])
 
-  it('misst dieselbe Filmdauer', () => {
-    expect(spieler.gesamtS).toBeCloseTo(METER / 48 + HALT_S, 6)
+  it('misst dieselbe Filmdauer — Rampen inklusive', () => {
+    // DREI Rampen: aus dem Stand los, vor dem Halt bremsen, danach wieder
+    // anfahren. Am Tour-ENDE wird nicht gebremst — der Film läuft dort aus, wie
+    // er es heute tut. Jede Rampe kostet eine Reisezeit ihrer Strecke (E14).
+    expect(spieler.gesamtS).toBeCloseTo(METER / 48 + HALT_S + (3 * RAMPE_M) / 48, 6)
     expect(editor.kurve?.gesamtS).toBeCloseTo(spieler.gesamtS, 6)
   })
 
@@ -198,9 +207,11 @@ describe('Gleichlauf: Ton am selben Punkt', () => {
     // Der eigentliche Gewinn: Mitten im Halt gibt es keine Streckenposition, die
     // sich unterscheidet — die Filmsekunde und damit die Stelle in der Datei
     // sehr wohl. Vorher setzte der Player hier hart auf den Dateianfang.
+    // Ankunft: 480 m Reise (10 s) plus die zwei Rampen davor (je 120/48 = 2,5 s).
     const ankunft = filmBeiStrecke(spieler, HALT_M)
-    expect(musikVersatzS(ankunft, 30)).toBeCloseTo(10, 6)
-    expect(musikVersatzS(ankunft + 3, 30)).toBeCloseTo(13, 6)
+    expect(ankunft).toBeCloseTo(15, 6)
+    expect(musikVersatzS(ankunft, 30)).toBeCloseTo(15, 6)
+    expect(musikVersatzS(ankunft + 3, 30)).toBeCloseTo(18, 6)
     expect(streckeBeiFilm(spieler, ankunft)).toBeCloseTo(streckeBeiFilm(spieler, ankunft + 3), 6)
   })
 })

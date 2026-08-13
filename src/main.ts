@@ -9,8 +9,10 @@ import { HOLD_AUSBLEND, standzeitS } from './einblendung.js'
 import {
   baueFilmachse,
   filmBeiStrecke,
+  haltBeiFilm,
   interpoliere,
   momentHaltS,
+  streckeBeiFilm,
   type Filmachse,
   type Streckenhalt,
 } from './filmachse.js'
@@ -26,7 +28,7 @@ import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI, $, type PlayerMedium } from './ui.js'
-import { Tour, type KameraMoment, type ModusGrenze } from './tour.js'
+import { Tour, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
 import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
 
@@ -341,26 +343,44 @@ const rohGesamt = rohKum[rohKum.length - 1] ?? 0
 /** Wegstand auf der GEBAUTEN Route → roher Wegstand (die Achse rechnet in diesen). */
 const rohBeiS = (s: number) => interpoliere(route.wpS, rohKum, s)
 
+/** Roher Wegstand → Wegstand auf der GEBAUTEN Route (der Rückweg von `rohBeiS`). */
+const sBeiRoh = (roh: number) => interpoliere(rohKum, route.wpS, roh)
+
 /**
  * Die Halte der Achse: Foto-/Video-Ketten und Kamera-Momente. Ein Halt kostet
  * Filmzeit und keine Strecke — genau das drückt die Achse aus.
  *
  * Die Breite einer Aufnahme ist `standzeitS` + Ausblendung, dieselbe Rechnung
  * wie im Editor (`aufnahmeHaltS`); fehlt einem Video die Länge, gilt in BEIDEN
- * Bühnen die Foto-Annahme (Konzept, Falle 4).
+ * Bühnen die Foto-Annahme (Konzept, Falle 4). Die `stuecke` fallen aus
+ * DERSELBEN Rechnung ab — die Engine schaltet die Karte danach weiter, statt
+ * die Standzeiten ein zweites Mal zu addieren.
+ *
+ * **Diese Achse wird nie neu gebaut** (Konzept, Falle 5): Seit die Position aus
+ * ihr kommt, verschöbe ein Neubau mitten in der Fahrt nicht mehr nur den
+ * Balken, sondern `s` — die Kamera setzte sichtbar um. Videolängen, die bei
+ * Altbestand erst mit `loadedmetadata` bekannt werden, ändern hier deshalb
+ * nichts mehr; es gilt, was das Tour-JSON sagt, und ohne Angabe die
+ * Foto-Annahme, die auch das Studio trifft.
  */
-const achsenHalte: Streckenhalt[] = [
-  ...stops.map((halt) => ({
-    meterM: rohBeiS(halt.s),
-    breiteS: halt.items.reduce(
-      (summe, m) =>
-        summe +
-        standzeitS({ ...m, ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}) }) +
-        HOLD_AUSBLEND,
-      0,
-    ),
+const achsenHalte: Array<Streckenhalt & Omit<Spielhalt, 'filmVon' | 'filmBis'>> = [
+  ...stops.map((halt) => {
+    let ab = 0
+    const stuecke = halt.items.map((m) => {
+      const standS = standzeitS({ ...m, ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}) })
+      const stueck = { abS: ab, standS }
+      ab += standS + HOLD_AUSBLEND
+      return stueck
+    })
+    return { meterM: rohBeiS(halt.s), breiteS: ab, stopp: halt, moment: null, stuecke }
+  }),
+  ...moments.map((m) => ({
+    meterM: rohBeiS(m.s),
+    breiteS: momentHaltS(m),
+    stopp: null,
+    moment: m,
+    stuecke: [],
   })),
-  ...moments.map((m) => ({ meterM: rohBeiS(m.s), breiteS: momentHaltS(m) })),
 ]
 const filmachse = baueFilmachse(
   modes.map((m) => ({ abM: rohBeiS(m.s), mode: m.mode })),
@@ -369,6 +389,20 @@ const filmachse = baueFilmachse(
 )
 /** Filmsekunde an einem Wegstand der gebauten Route. */
 const filmBeiS = (s: number) => filmBeiStrecke(filmachse, rohBeiS(s))
+/**
+ * Die Achse, wie die Engine sie liest (E2) — in den Metern der GEBAUTEN Route.
+ *
+ * Der Umrechnungsschritt gehört hierher und nicht in die Engine: Die Achse
+ * rechnet in ROHEN Metern (sonst wäre die Filmdauer allein durch die
+ * Catmull-Rom-Glättung 2,2–3,0 % zu lang), die Engine fährt auf der gebauten
+ * Route. Nur diese Datei kennt beide Meterstände.
+ */
+const filmspur: Filmspur = {
+  gesamtS: filmachse.gesamtS,
+  sBeiFilm: (f) => sBeiRoh(streckeBeiFilm(filmachse, f)),
+  filmBeiS,
+  haltBeiFilm: (f) => haltBeiFilm(filmachse, f),
+}
 window.__j.filmachse = filmachse
 window.__j.filmS = filmBeiS
 
@@ -555,8 +589,8 @@ map.on('load', () => {
   map.touchPitch.disable()
 
   const tour = new Tour(map, route, stops, ui, {
+    film: filmspur,
     modes,
-    moments,
     showFinale: cfg.showFinale === true,
   })
   // `uhr` ist die Filmuhr der Engine: Ihre Zähler (verworfene Sekunden,
@@ -816,8 +850,20 @@ map.on('load', () => {
   // eingebaute ~2,5-s-Blende aus (kommt beim „Noch einmal erleben" wieder).
   // Bringt die Tour EIGENE Musik mit (cfg.audio), entfällt der Ambient-Loop —
   // der Musik-Schalter in den Optionen steuert dann die Tour-Musik (tourAudio).
+  /**
+   * Ton klingt NUR bei Tempo 1 vorwärts (E16).
+   *
+   * Der Editor hält diese Regel seit jeher („im Schnelllauf oder rückwärts
+   * klänge sie wie ein durchgedrehter Kassettenrekorder", src/studio/abspielen.ts),
+   * der Player nicht — und weil `shuttle` keinen Ausgleich auslöste, driftete
+   * die Musik im Schnelllauf davon: Bei 8× vergehen acht Filmsekunden je
+   * Wanduhrsekunde, die Datei kennt nur die eine. Mit dieser Regel braucht sie
+   * keinen Ausgleich mehr — sie klingt dort nicht.
+   */
+  const tempoEins = () => tour.mult === 1 && tour.dir > 0
+
   const music = hatEigeneMusik ? null : createMusic('/audio/ambient.mp3')
-  music?.setGate(() => tour.uhr.laeuft && tour.phase !== 'intro' && tour.phase !== 'finale')
+  music?.setGate(() => tour.uhr.laeuft && tempoEins() && tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
 
   // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub. Pause stoppt sie
@@ -830,7 +876,12 @@ map.on('load', () => {
   // die Musik unter der angehaltenen Einblendung weiter und stand danach an
   // einer anderen Stelle als der Schnitt im Studio.
   tourAudio?.setGate(
-    () => tour.uhr.laeuft && tour.phase !== 'intro' && tour.phase !== 'finale' && (tour.playing || tour.scrubbing),
+    () =>
+      tour.uhr.laeuft &&
+      tempoEins() &&
+      tour.phase !== 'intro' &&
+      tour.phase !== 'finale' &&
+      (tour.playing || tour.scrubbing),
   )
 
   // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).
@@ -918,9 +969,19 @@ map.on('load', () => {
   const speedBtn = $('btn-speed')
   // Tempo-Label aus dem Tour-Zustand: Faktor + Richtung (−4× = 4× rückwärts).
   // Wird pro Stats-Tick aufgerufen, bleibt also auch nach JKL-Shuttle aktuell.
+  let letztesTempo = 1
   ui.onSpeed = (mult, dir) => {
     const txt = `${dir < 0 ? '−' : ''}${mult}×`
     if (speedBtn.textContent !== txt) speedBtn.textContent = txt
+    // Zurück auf Tempo 1: Der Ton hat den Schnelllauf STUMM verbracht (E16) und
+    // steht deshalb dort, wo er beim Umschalten war — dieselbe Lage wie nach
+    // einem Sprung. `onSpeed` läuft im 10-Hz-Takt der Telemetrie, ausgerichtet
+    // wird nur an der Kante.
+    const tempo = dir * mult
+    if (tempo !== letztesTempo) {
+      letztesTempo = tempo
+      if (tempo === 1) nachSprung()
+    }
   }
   speedBtn.addEventListener('click', () => {
     tour.dir = 1 // Button ist ein Vorwärts-Tempo-Umschalter

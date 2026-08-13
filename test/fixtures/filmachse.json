@@ -19,7 +19,14 @@
     "Streckenmeter sind dort dieselbe Zahl, und ihre zeitparametrisierte Achse",
     "lässt sich gegen dieselben Erwartungen prüfen. Reale Pausen kommen deshalb",
     "in den Fällen nicht vor — sie haben in der Strecken-Achse ohnehin keine",
-    "Breite (Konzept §8C, E12)."
+    "Breite (Konzept §8C, E12).",
+    "",
+    "Jeder Fall nennt seine Rampenlänge SELBST (`rampeM`). Die ersten fünf setzen",
+    "sie auf 0 und beschreiben damit die reine Reise-Achse; die Rampen-Fälle",
+    "danach wählen runde 240 bzw. 300 m, damit ihre Werte von Hand nachrechenbar",
+    "bleiben. Die im Produkt gültige Länge steht als `RAMPE_M` in",
+    "src/filmachse.ts und ist dort kalibriert — sie gehört nicht ins Fixture:",
+    "Das hier beschreibt die FORM der Rampe, nicht ihre Dosierung."
   ],
   "tempoMs": {
     "walk": 48,
@@ -38,6 +45,7 @@
   "faelle": [
     {
       "name": "Ein Modus: Strecke ÷ Tempo, sonst nichts",
+      "rampeM": 0,
       "abschnitte": [{ "abM": 0, "mode": "walk" }],
       "gesamtM": 960,
       "halte": [],
@@ -47,6 +55,7 @@
     },
     {
       "name": "Modus-Wechsel: die Fähre staucht ihren Abschnitt",
+      "rampeM": 0,
       "abschnitte": [
         { "abM": 0, "mode": "walk" },
         { "abM": 480, "mode": "ferry" }
@@ -59,6 +68,7 @@
     },
     {
       "name": "Ein Halt: Filmzeit läuft, die Strecke steht",
+      "rampeM": 0,
       "abschnitte": [{ "abM": 0, "mode": "walk" }],
       "gesamtM": 960,
       "halte": [{ "meterM": 480, "breiteS": 6 }],
@@ -68,6 +78,7 @@
     },
     {
       "name": "Zwei Halte: der zweite kennt die Breite des ersten",
+      "rampeM": 0,
       "abschnitte": [{ "abM": 0, "mode": "walk" }],
       "gesamtM": 960,
       "halte": [
@@ -80,6 +91,7 @@
     },
     {
       "name": "Halt genau am Modus-Wechsel",
+      "rampeM": 0,
       "abschnitte": [
         { "abM": 0, "mode": "walk" },
         { "abM": 480, "mode": "ferry" }
@@ -89,6 +101,49 @@
       "gesamtS": 17.2,
       "filmBeiStrecke": [[480, 10], [1080, 17.2]],
       "streckeBeiFilm": [[10, 480], [15.2, 480], [16.2, 780]]
+    },
+    {
+      "name": "Rampe: der Start kostet genau eine Reisezeit seiner Strecke",
+      "rampeM": 240,
+      "abschnitte": [{ "abM": 0, "mode": "walk" }],
+      "gesamtM": 960,
+      "halte": [],
+      "gesamtS": 25,
+      "filmBeiStrecke": [[0, 0], [45, 5], [240, 10], [960, 25]],
+      "streckeBeiFilm": [[5, 45], [10, 240], [25, 960]]
+    },
+    {
+      "name": "Rampe: vor dem Halt wird gebremst, danach wieder angefahren",
+      "rampeM": 240,
+      "abschnitte": [{ "abM": 0, "mode": "walk" }],
+      "gesamtM": 960,
+      "halte": [{ "meterM": 480, "breiteS": 6 }],
+      "gesamtS": 41,
+      "filmBeiStrecke": [[240, 10], [435, 15], [480, 20], [720, 36], [960, 41]],
+      "streckeBeiFilm": [[15, 435], [20, 480], [26, 480], [36, 720], [41, 960]]
+    },
+    {
+      "name": "Rampe: enge Halte teilen sich die Lücke hälftig",
+      "rampeM": 240,
+      "abschnitte": [{ "abM": 0, "mode": "walk" }],
+      "gesamtM": 960,
+      "halte": [
+        { "meterM": 240, "breiteS": 6 },
+        { "meterM": 480, "breiteS": 6 }
+      ],
+      "gesamtS": 47,
+      "filmBeiStrecke": [[240, 10], [480, 26], [960, 47]],
+      "streckeBeiFilm": [[10, 240], [16, 240], [26, 480], [32, 480], [47, 960]]
+    },
+    {
+      "name": "Rampe: dieselbe Strecke kostet auf der Fähre weniger",
+      "rampeM": 300,
+      "abschnitte": [{ "abM": 0, "mode": "ferry" }],
+      "gesamtM": 3000,
+      "halte": [],
+      "gesamtS": 11,
+      "filmBeiStrecke": [[300, 2], [3000, 11]],
+      "streckeBeiFilm": [[2, 300], [11, 3000]]
     }
   ]
 }

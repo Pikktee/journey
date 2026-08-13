@@ -6,15 +6,22 @@
 // während der Film weiterläuft. Ohne eine Achse, die die Halte kennt, wäre
 // „3 Sekunden nach dem Anker" beim Rendern nicht auffindbar.
 //
-// Das hier ist der SERVER-Spiegel von `baueAchse` in src/studio/zeitleiste.ts.
+// Das hier ist der SERVER-Spiegel von `baueFilmachse` in src/filmachse.ts.
 // Beide müssen dasselbe rechnen, sonst startet ein Klip im fertigen Film woanders
 // als im Editor gezeigt — genau die Sorte Drift, an der schon die
 // Gehabschnitts-Erkennung einmal hing. Deshalb: dieselbe Gruppierung (120
 // Streckenmeter, src/geo.ts), dieselben Halt-Dauern (`aufnahmeHaltS` +
-// Ausblendung) und dieselbe Interpolations-Konvention (Plateau → Ankunft).
+// Ausblendung), dieselben RAMPEN (E14) und dieselbe Interpolations-Konvention
+// (Plateau → Ankunft).
+//
+// **Gerechnet wird über die STRECKE, die Anker bleiben Aufnahmezeit** — genau
+// wie im Editor (src/studio/zeitleiste.ts, `baueAchse`). Das ist seit E12 keine
+// Wahl mehr: Die Rampen sind eine Form über einer STRECKE, über der Aufnahmeuhr
+// ließen sie sich nicht ausdrücken. Aufnahmezeit ↔ Filmzeit geht deshalb in
+// zwei Schritten, über den Adapter `tS`/`mM`.
 
 import type { MomentArt } from '../schema/edits.js'
-import { HALT_AUSBLEND_S, NAHE_M, aufnahmeHaltS, momentHaltS, tempoMs } from './filmtempo.js'
+import { HALT_AUSBLEND_S, NAHE_M, RAMPE_M, aufnahmeHaltS, momentHaltS, tempoMs } from './filmtempo.js'
 import type { Zeitreihe } from './zeit.js'
 
 /** Ein Halt auf der Achse: wann er beginnt (Aufnahmezeit) und was er im Film kostet. */
@@ -24,14 +31,17 @@ export interface AchsenHalt {
 }
 
 /**
- * Stückweise lineare Abbildung Aufnahmezeit ↔ Filmzeit.
+ * Aufnahmezeit ↔ Strecke ↔ Filmzeit, stückweise linear.
  *
- * `tS` ist nicht streng monoton: Jeder Halt liegt als PAAR gleicher Zeiten
- * darin (Ankunft und Abfahrt) — das Plateau, in dem der Film läuft und die Uhr
- * steht. Genau dafür ist die Achse da.
+ * `tS`/`mM` ist der Zeit→Strecke-Adapter (je Stützpunkt seine Aufnahmesekunde
+ * und sein Meterstand); `sM`/`filmS` ist die eigentliche Achse. `sM` ist nicht
+ * streng monoton: Jeder Halt liegt als PAAR gleicher Meterwerte darin (Ankunft
+ * und Abfahrt) — das Plateau, in dem der Film läuft und die Strecke steht.
  */
 export interface FilmAchse {
   tS: number[]
+  mM: number[]
+  sM: number[]
   filmS: number[]
   gesamtS: number
 }
@@ -72,34 +82,44 @@ function interpoliere(xs: readonly number[], ys: readonly number[], x: number): 
 }
 
 /**
- * Halte als Sprünge einweben: an der Halt-Zeit zwei Stützstellen (Film vor und
- * nach der Standzeit), alle späteren Werte heben sich um die Breite. Aufsteigend
- * gewebt, damit `filmAmHalt` die früheren Halte schon trägt.
+ * Weganteil der Rampe nach dem Zeitanteil `u` — `2u³ − u⁴`, Spiegel von
+ * `rampenWeg` in src/filmachse.ts.
+ *
+ * Ihre Ableitung ist `2 · smoothstep(u)`: Tempo 0 am Anfang, in der Mitte die
+ * stärkste Beschleunigung, sanft ins Reisetempo. Daraus folgt die eine Zahl,
+ * die die Rechnung trägt: Eine Rampe dauert DOPPELT so lange wie das Reisen
+ * derselben Strecke, ihr Zuschlag ist also genau eine Reisezeit.
  */
-function webeHalte(tS: number[], filmS: number[], halte: readonly AchsenHalt[]): void {
-  for (const h of [...halte].sort((a, b) => a.offsetS - b.offsetS)) {
-    if (!(h.breiteS > 0)) continue
-    const filmAmHalt = interpoliere(tS, filmS, h.offsetS)
-    let i = tS.length
-    while (i > 0 && (tS[i - 1] as number) > h.offsetS) i--
-    for (let j = i; j < tS.length; j++) filmS[j] = (filmS[j] as number) + h.breiteS
-    tS.splice(i, 0, h.offsetS, h.offsetS)
-    filmS.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
-  }
+function rampenWeg(u: number): number {
+  return u * u * u * (2 - u)
 }
+
+/** Stützstellen je Rampe — dieselbe Abtastung wie im Web. */
+const RAMPEN_STUFEN = 12
 
 /**
  * Film-Achse aus der (bereits getrimmten) Zeitreihe und den Halten.
  *
  * Fahrzeit kommt aus Strecke ÷ modusabhängigem Tempo — dieselbe Rechnung, mit
- * der die Engine fährt (filmtempo.ts). `null`, wenn zu wenig Material für eine
- * Abbildung da ist; der Aufrufer fällt dann auf die alte Aufnahmezeit-
- * Verankerung zurück, statt zu raten.
+ * der die Engine fährt (filmtempo.ts) —, dazu die Rampen um jeden Halt und am
+ * Start. `null`, wenn zu wenig Material für eine Abbildung da ist; der Aufrufer
+ * fällt dann auf die alte Aufnahmezeit-Verankerung zurück, statt zu raten.
+ *
+ * `rampeM` ist nur für das Verhaltens-Fixture offen: Es beschreibt die FORM der
+ * Rampe mit runden Längen, die Dosierung steht als `RAMPE_M` in filmtempo.ts.
  */
-export function baueFilmAchse(reihe: Zeitreihe, halte: readonly AchsenHalt[]): FilmAchse | null {
+export function baueFilmAchse(
+  reihe: Zeitreihe,
+  halte: readonly AchsenHalt[],
+  rampeM: number = RAMPE_M,
+): FilmAchse | null {
+  // — Der Zeit→Strecke-Adapter und die reine REISE-Achse —
   const tS: number[] = []
-  const filmS: number[] = []
+  const mM: number[] = []
+  const reiseM: number[] = []
+  const reiseS: number[] = []
   let film = 0
+  let meter = 0
   const punkte = reihe.punkte
   for (let i = 0; i < punkte.length; i++) {
     const p = punkte[i]
@@ -108,28 +128,97 @@ export function baueFilmAchse(reihe: Zeitreihe, halte: readonly AchsenHalt[]): F
       const vor = punkte[i - 1]
       // Das Tempo des Punktes, VON dem gefahren wird — Grenzen wirken ab ihrem
       // Punkt, exakt wie in der Studio-Achse.
-      if (vor) film += meterZwischen(vor, p) / tempoMs(vor.mode)
+      if (vor) {
+        const d = meterZwischen(vor, p)
+        meter += d
+        film += d / tempoMs(vor.mode)
+      }
     }
     const letzter = tS.length - 1
-    if (letzter >= 0 && tS[letzter] === p.tSek && filmS[letzter] === film) continue
+    if (letzter >= 0 && tS[letzter] === p.tSek && mM[letzter] === meter) continue
     tS.push(p.tSek)
-    filmS.push(film)
+    mM.push(meter)
+    const r = reiseM.length - 1
+    if (r >= 0 && reiseM[r] === meter) continue
+    reiseM.push(meter)
+    reiseS.push(film)
   }
-  if (tS.length < 2) return null
-  webeHalte(tS, filmS, halte)
+  if (tS.length < 2 || reiseM.length < 2) return null
+  const gesamtM = meter
+  const reiseFilm = (m: number): number => interpoliere(reiseM, reiseS, m)
+
+  // Halte auf die Strecke ziehen — nach ZEIT vorsortiert, damit mehrere Halte
+  // in derselben realen Pause (gleicher Meterstand) ihre Reihenfolge behalten.
+  const geordnet = [...halte]
+    .filter((h) => h.breiteS > 0)
+    .sort((a, b) => a.offsetS - b.offsetS)
+    .map((h) => ({ h, ort: Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS))) }))
+    .sort((a, b) => a.ort - b.ort)
+
+  const sM: number[] = [0]
+  const filmS: number[] = [0]
+  let zuschlag = 0
+  let stand = 0
+
+  const setze = (m: number, f: number): void => {
+    const n = sM.length
+    if (n > 0 && sM[n - 1] === m && filmS[n - 1] === f) return
+    sM.push(m)
+    filmS.push(f)
+  }
+
+  const rampe = (vonRampeM: number, laenge: number, anfahrt: boolean): void => {
+    if (!(laenge > 0)) return
+    const reise = reiseFilm(vonRampeM + laenge) - reiseFilm(vonRampeM)
+    const basis = reiseFilm(vonRampeM) + zuschlag
+    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
+      const u = k / RAMPEN_STUFEN
+      const anteil = anfahrt ? rampenWeg(u) : 1 - rampenWeg(1 - u)
+      setze(vonRampeM + laenge * anteil, basis + 2 * reise * u)
+    }
+    zuschlag += reise
+  }
+
+  for (let i = 0; i <= geordnet.length; i++) {
+    const eintrag = geordnet[i]
+    const ziel = eintrag ? eintrag.ort : gesamtM
+    const luecke = Math.max(0, ziel - stand)
+    const ausrollen = eintrag ? Math.min(rampeM, luecke / 2) : 0
+    const anfahrt = Math.min(rampeM, eintrag ? luecke / 2 : luecke)
+    setze(stand, reiseFilm(stand) + zuschlag)
+    rampe(stand, anfahrt, true)
+    const reiseVon = stand + anfahrt
+    const reiseBis = ziel - ausrollen
+    for (const m of reiseM) if (m > reiseVon && m < reiseBis) setze(m, reiseFilm(m) + zuschlag)
+    if (reiseBis > reiseVon) setze(reiseBis, reiseFilm(reiseBis) + zuschlag)
+    rampe(reiseBis, ausrollen, false)
+    if (!eintrag) break
+    const ankunft = reiseFilm(ziel) + zuschlag
+    setze(ziel, ankunft)
+    sM.push(ziel)
+    filmS.push(ankunft + eintrag.h.breiteS)
+    zuschlag += eintrag.h.breiteS
+    stand = ziel
+  }
+
   const gesamtS = filmS[filmS.length - 1] as number
   if (!(gesamtS > 0)) return null
-  return { tS, filmS, gesamtS }
+  return { tS, mM, sM, filmS, gesamtS }
 }
 
-/** Filmsekunde zu einer Aufnahmezeit (Plateau → Ankunft). */
+/** Filmsekunde zu einer Aufnahmezeit — zwei Schritte: Zeit → Strecke → Film. */
 export function filmBeiZeit(achse: FilmAchse, tSek: number): number {
-  return interpoliere(achse.tS, achse.filmS, tSek)
+  return interpoliere(achse.sM, achse.filmS, interpoliere(achse.tS, achse.mM, tSek))
 }
 
-/** Aufnahmezeit zu einer Filmsekunde (Umkehrung; im Halt → dessen Zeit). */
+/**
+ * Aufnahmezeit zu einer Filmsekunde (Umkehrung; im Halt → dessen Zeit).
+ *
+ * Der Rückweg Strecke → Zeit ist in einer realen PAUSE mehrdeutig — dort gilt
+ * die Ankunft, dieselbe lower_bound-Konvention wie überall.
+ */
 export function zeitBeiFilm(achse: FilmAchse, filmS: number): number {
-  return interpoliere(achse.filmS, achse.tS, filmS)
+  return interpoliere(achse.mM, achse.tS, interpoliere(achse.filmS, achse.sM, filmS))
 }
 
 /**

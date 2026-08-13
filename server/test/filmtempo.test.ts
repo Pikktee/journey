@@ -40,6 +40,7 @@ interface Fall {
   abschnitte: Array<{ abM: number; mode: string }>
   gesamtM: number
   halte: Array<{ meterM: number; breiteS: number }>
+  rampeM: number
   gesamtS: number
   filmBeiStrecke: Array<[number, number]>
   streckeBeiFilm: Array<[number, number]>
@@ -102,7 +103,11 @@ describe('Filmtempo', () => {
   })
 
   it.each(fixture.faelle)('rechnet den Fixture-Fall „$name" wie die Web-Achse', (fall) => {
-    const achse = baueFilmAchse(alsZeitreihe(fall), fall.halte.map((h) => ({ offsetS: h.meterM, breiteS: h.breiteS })))
+    const achse = baueFilmAchse(
+      alsZeitreihe(fall),
+      fall.halte.map((h) => ({ offsetS: h.meterM, breiteS: h.breiteS })),
+      fall.rampeM,
+    )
     expect(achse).not.toBeNull()
     expect(achse?.gesamtS).toBeCloseTo(fall.gesamtS, 4)
     for (const [meterM, filmS] of fall.filmBeiStrecke) {

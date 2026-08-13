@@ -1,9 +1,16 @@
-// Wie viel Filmzeit kosten Anfahren und Ausrollen, die das Studio NICHT modelliert?
+// Wie viel Filmzeit kosteten Anfahren und Ausrollen in der Engine VOR Etappe 4?
 //
-// Der Browser taugt dafür nicht: headless drosselt rAF, und `dt` ist in tour.ts
-// auf 0,05 s geklemmt — der Player läuft dort um den Drosselfaktor zu langsam.
-// Also wird die Geschwindigkeitslogik der Engine hier Zeile für Zeile
-// nachgebildet (tour.ts:916-953) und mit festem dt = 1/60 integriert.
+// Der Browser taugte dafür nicht: headless drosselt rAF, und `dt` war in tour.ts
+// auf 0,05 s geklemmt — der Player lief dort um den Drosselfaktor zu langsam.
+// Also ist die damalige Geschwindigkeitslogik hier Zeile für Zeile nachgebildet
+// und mit festem dt = 1/60 integriert.
+//
+// **Das Skript beschreibt einen Zustand, den es nicht mehr gibt** — die Engine
+// integriert `s` seit E2 nicht mehr selbst, und die Rampen sind seit E14 eine
+// feste Form in der Achse. Es bleibt trotzdem stehen, weil es die
+// KALIBRIER-GRUNDLAGE ist: An seinen 64,3 Rampen-Sekunden über die vier
+// Fixtur-Touren ist `RAMPE_M` (src/filmachse.ts) ausgerichtet. Die Gegenrechnung
+// steht in rampen-kalibrierung.ts, der heutige Stand in durchlauf-gegen-achse.mjs.
 import { readFileSync, readdirSync } from 'node:fs'
 import { buildRoute, nearestS, gruppiereStopps } from '../../src/geo.js'
 

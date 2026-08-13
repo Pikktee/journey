@@ -3,15 +3,25 @@
 // Skalar exponentiell geglättet — Phasenwechsel (Intro → Fahrt, Foto-Orbit, Finale)
 // werden dadurch automatisch zu weichen Kamerafahrten. Eine explizite Flughöhe ist
 // nötig, weil zoom-basierte Kameras (jumpTo) in steilem Gelände im Hang stecken bleiben.
+//
+// **Die Position FOLGT der Filmzeit** (Konzept E2, Etappe 4). Die Engine
+// integriert `s` nicht mehr selbst, sondern liest es aus der geteilten Achse:
+// `s = streckeBeiFilm(achse, filmS)`, und `filmS` kommt aus der Filmuhr. Was
+// dadurch ERSATZLOS entfallen ist, ist der eigentliche Gewinn (E13): die
+// Zeiger `nextIdx`/`nextMomentIdx` samt `syncNextIdx`, der Bremsweg-Vorgriff
+// (`speed · 0.62`), die Ausrollschwelle `speed < 4` und jede `dir > 0`-Schranke.
+// „Im Halt" ist seither ein ZUSTAND DER KURVE — `filmS` liegt in einem
+// Halt-Intervall — und kein getriggerter Phasenwechsel. Rückwärts fährt
+// dadurch über dieselbe Kurve, Halte inklusive, genau wie der Editor
+// (src/studio/abspielen.ts) es seit Monaten tut.
 import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
-import { HOLD_AUSBLEND, HOLD_HIDE } from './einblendung.js'
-import { BASIS_TEMPO_MS, MODUS_TEMPO, momentHaltS } from './filmachse.js'
+import { HOLD_AUSBLEND } from './einblendung.js'
 import { Filmuhr, verbindeSichtbarkeit } from './filmuhr.js'
 import { pointAt, bearingAt, dist, bearing, angleDelta, destination, type Route } from './geo.js'
 import { EXAGGERATION, type LngLat2D } from './map.js'
 import type { Wegpunkt } from './tours.js'
 import type { Sonnenstand } from './sun.js'
-import type { PlayerStopp, PlayerMedium, UI } from './ui.js'
+import type { PlayerStopp, UI } from './ui.js'
 
 /** Kameraabstand hinter dem Fahrer und Flughöhe über Grund, beides in Metern. */
 export interface Kameradistanz {
@@ -54,6 +64,40 @@ export interface ModusGrenze {
   label?: string | undefined
 }
 
+/**
+ * Ein Halt, wie ihn die Engine sieht: sein Fenster im FILM und was darin liegt.
+ *
+ * Entweder eine Aufnahme-Kette (`stopp` samt `stuecke`) oder ein Kamera-Moment
+ * — nie beides. Die Stücke sind die Aufnahmen des Halts mit ihrer Lage
+ * innerhalb des Fensters; sie kommen aus derselben Rechnung, die dem Halt seine
+ * Breite in der Achse gibt (src/main.ts), damit die Karte nicht nach einem
+ * anderen Maß weiterschaltet als die Achse gebaut ist.
+ */
+export interface Spielhalt {
+  filmVon: number
+  filmBis: number
+  stopp: PlayerStopp | null
+  moment: KameraMoment | null
+  /** Je Aufnahme: Filmsekunde ab Haltbeginn und ihre STANDzeit (ohne Ausblendung) */
+  stuecke: ReadonlyArray<{ abS: number; standS: number }>
+}
+
+/**
+ * Die Filmachse dieser Tour, wie die Engine sie braucht — in den Metern der
+ * GEBAUTEN Route, nicht in den rohen der Achse. Die Übersetzung macht der
+ * Verdrahter (src/main.ts), der beide Meterstände kennt.
+ */
+export interface Filmspur {
+  /** Gesamtdauer des Films in Sekunden */
+  gesamtS: number
+  /** Streckenmeter zu einer Filmsekunde — die Richtung, für die es die Achse gibt */
+  sBeiFilm: (filmS: number) => number
+  /** Filmsekunde an einem Streckenmeter (im Halt: seine Ankunft) */
+  filmBeiS: (s: number) => number
+  /** Der Halt, in dem diese Filmsekunde steht — `null` heißt Fahrt */
+  haltBeiFilm: (filmS: number) => Spielhalt | null
+}
+
 /** Kamerapose eines Frames — das Atmosphäre-Overlay hängt sich daran. */
 export interface KameraPose {
   cg: LngLat2D
@@ -63,7 +107,8 @@ export interface KameraPose {
 }
 
 export interface TourOptionen {
-  moments?: KameraMoment[]
+  /** Die Filmachse — ohne sie hat die Engine keine Position (E2) */
+  film: Filmspur
   modes?: ModusGrenze[]
   /** true = Endscreen; sonst zurück zum Startscreen */
   showFinale?: boolean
@@ -106,12 +151,6 @@ type Phase = 'intro' | 'ride' | 'photo' | 'moment' | 'finale'
 // Paket D in filmachse.ts, geteilt mit Studio und Server-Spiegel.
 const MOMENT_ORBIT_SPEED = 38 // Grad/s beim Umkreisen (6 s ≈ 228°, elegante Dreivierteldrehung)
 const MOMENT_ASCEND_LIFT = 2.4 // Faktor, um den die Kamera-Flughöhe beim Aufstieg wächst
-const momentDauer = (m: KameraMoment | null | undefined): number => (m ? momentHaltS(m) : 5)
-
-// Anzeigedauer eines Foto-Items: vom Autor im Studio gesetzt (display.holdS,
-// Kreativbaukasten) oder der Default. Videos halten unabhängig davon bis zum
-// Ende (ui.onMediaEnded) — auf ihnen ist holdS wirkungslos.
-const holdDauer = (item: PlayerMedium | undefined): number => item?.display?.holdS ?? HOLD_HIDE
 
 // „Himmel-Momente": Zur Golden Hour und nachts kippt die Kamera nach oben, damit
 // Horizont + Sonne/Sterne ins Bild kommen und der Fahrer ins untere Drittel rutscht.
@@ -155,9 +194,9 @@ const MODE_SCALE = {
 }
 
 // Die Modus-Schlüssel kommen als freie Zeichenketten herein (Server-Segmente,
-// src/remote.ts) — die Fallbacks des Bestands („?? 1", „?? MODE_SCALE.bike")
-// sind deshalb kein Zierrat, sondern der Umgang mit einem unbekannten Modus.
-const tempoFaktor = (mode: string): number => (MODUS_TEMPO as Record<string, number | undefined>)[mode] ?? 1
+// src/remote.ts) — der Fallback des Bestands („?? MODE_SCALE.bike") ist deshalb
+// kein Zierrat, sondern der Umgang mit einem unbekannten Modus. Das TEMPO fragt
+// die Engine gar nicht mehr: Es steckt in der Achse, die ihr `s` liefert.
 const skalaFuer = (mode: string): Kameradistanz => (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
 
 export class Tour {
@@ -165,7 +204,7 @@ export class Tour {
   route: Route
   stops: PlayerStopp[]
   ui: UI
-  moments: KameraMoment[]
+  film: Filmspur
   modes: ModusGrenze[]
   showFinale: boolean
   onToMenu: (() => void) | null
@@ -180,23 +219,28 @@ export class Tour {
   settled: boolean
   repose: boolean
   reposeTween: ReposeTween | null
+  /**
+   * Die Filmsekunde — **die eine Größe, die läuft**. Alles andere ist eine
+   * Funktion von ihr: Position, Halt, Phase, Foto-Karte.
+   */
+  filmS: number
   s: number
+  /**
+   * Streckentempo des letzten Frames (m/s) — eine BEOBACHTUNG, kein Antrieb.
+   * Vorher war es die integrierte Zustandsgröße der Engine; heute fällt es aus
+   * der Achse ab. Die Messskripte lesen es (scripts/messungen/).
+   */
   speed: number
-  baseSpeed: number
   mult: number
   dir: number
   preset: Kameradistanz
-  nextIdx: number
+  /** Der Halt, in dem die Filmzeit gerade steht (null = Fahrt) */
+  halt: Spielhalt | null = null
   itemIdx: number
-  holdT: number
   /** false = keine Karte, true = sichtbar, 'hiding' = Ausblendphase läuft */
   photoShown: boolean | 'hiding'
   /** Der Halt, dessen Karte gerade läuft (null außerhalb der Foto-Phase) */
   shownStop: PlayerStopp | null = null
-  nextMomentIdx: number
-  activeMoment: KameraMoment | null
-  momentReady: boolean
-  momentT: number
   glide: number
   course: number
   tuck: Smooth
@@ -225,12 +269,12 @@ export class Tour {
   uiClock: number
   private _tick: (now: number) => void
 
-  constructor(map: MapLibreKarte, route: Route, stops: PlayerStopp[], ui: UI, opts: TourOptionen = {}) {
+  constructor(map: MapLibreKarte, route: Route, stops: PlayerStopp[], ui: UI, opts: TourOptionen) {
     this.map = map
     this.route = route
     this.stops = stops // [{ s, items: [Foto, …] }] aufsteigend nach s
     this.ui = ui
-    this.moments = opts.moments ?? [] // [{ s, art, dauerS? }] Kamera-Momente, aufsteigend
+    this.film = opts.film
     this.modes = opts.modes ?? [{ s: 0, mode: 'bike', label: 'Rad' }]
     // Endscreen nur wenn ausdrücklich an (Studio) bzw. bei kuratierten Demo-Touren.
     // Sonst zurück zum Startscreen — die meisten Touren haben kein konkretes Ziel.
@@ -253,23 +297,14 @@ export class Tour {
     this.repose = false
     // Aktiver zeitbasierter Kameraschwenk (Scrub-Sprung im Pause-Modus) oder null.
     this.reposeTween = null
+    this.filmS = 0
     this.s = 0
     this.speed = 0
-    this.baseSpeed = BASIS_TEMPO_MS // m/s Streckenfortschritt bei 1×
     this.mult = 1
     this.dir = 1 // Wiedergaberichtung: +1 vorwärts, −1 rückwärts (JKL-Shuttle)
     this.preset = PRESETS.mittel
-    this.nextIdx = 0 // Index des nächsten Foto-Stopps
-    this.itemIdx = 0 // Foto innerhalb des aktuellen Stopps
-    this.holdT = 0
+    this.itemIdx = 0 // Foto innerhalb des aktuellen Halts
     this.photoShown = false
-    // Kamera-Momente: paralleler Zeiger + aktiver Moment + Timer/Orbit-Winkel.
-    // Bewusst getrennt von den Foto-Stopps (nextIdx), sonst kollidieren beide
-    // am selben s. Der Moment friert die Fahrt ein (wie ein Foto ohne Karte).
-    this.nextMomentIdx = 0
-    this.activeMoment = null
-    this.momentReady = false // true = Kamera ausgerollt, Moment-Bewegung läuft
-    this.momentT = 0 // Sekunden seit momentReady (Ablauf gegen momentDauer)
     this.glide = 1 // Tau-Multiplikator, >1 direkt nach Phasenwechseln (epischere Schwenks)
     this.course = bearingAt(route, 0) // stark geglättete Fahrtrichtung für die Kameraposition
     this.tuck = new Smooth(1) // 1 = voller Abstand; <1 = näher am Fahrer (Hindernis im Rücken)
@@ -450,20 +485,40 @@ export class Tour {
     }
   }
 
+  /**
+   * Filmsekunde setzen — und mit ihr Position und Halt (E2).
+   *
+   * Die EINE Stelle, an der `filmS` geschrieben wird: Sprünge, Scrubben,
+   * Einzelbild und der laufende Film gehen alle hier durch. Sonst gäbe es
+   * wieder Zustände, in denen `s` und `filmS` verschiedene Dinge behaupten.
+   */
+  private setzeFilm(filmS: number): void {
+    this.filmS = Math.max(0, Math.min(this.film.gesamtS, filmS))
+    this.s = this.film.sBeiFilm(this.filmS)
+    // Beim Scrubben löst nichts aus — dort führt allein der Zeigefinger.
+    this.halt = this.scrubbing ? null : this.film.haltBeiFilm(this.filmS)
+  }
+
+  /**
+   * Zu einem Streckenanteil springen.
+   *
+   * Der Anteil ist der der STRECKE (die Fortschrittsleiste zeichnet ihn so);
+   * die Achse macht daraus die Filmsekunde, ab der die Engine rechnet. Im Halt
+   * ist das seine ANKUNFT — mitten in einen Halt zu scrubben bekommt erst mit
+   * Etappe 5 eine Fläche, die man treffen kann.
+   */
   seek(frac: number): void {
-    const s = Math.max(0, Math.min(1, frac)) * this.route.total
-    if (this.phase === 'photo') this.ui.hidePhoto()
     if (this.phase === 'intro') this.ui.hideIntro()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.phase = 'ride'
-    this.s = s
+    this.raeumeKarte()
+    this.setzeFilm(this.film.filmBeiS(Math.max(0, Math.min(1, frac)) * this.route.total))
+    const s = this.s
     this.speed = 0
     this.dir = 1
     this.glide = 1.6
-    this.photoShown = false
     this.course = bearingAt(this.route, s) // nach Teleport nicht minutenlang nachdrehen
     this.tuck.set(1)
-    this.syncNextIdx()
     this.ui.syncDots(s)
     this.emitStats() // Kopf/Telemetrie sofort auf die Zielposition
     // Wiedergabezustand vom Scrubben beibehalten:
@@ -483,61 +538,22 @@ export class Tour {
     }
   }
 
-  // Nach einem Reload an die gemerkte Position zurückkehren, OHNE Intro-Orbit:
-  // Fahrt-Phase, Kamera hart auf die Pose schneiden (kein Einschwingen aus der
-  // Übersicht), standardmäßig pausiert — so zeigt ein Reload exakt denselben Frame
-  // (nötig fürs A/B-Vergleichen). Terrain-Höhen sind evtl. noch nicht geladen →
-  // groundAlt fällt aufs Höhenprofil zurück, die Pose sitzt beim nächsten Tick sauber.
-  resumeAt(s: number, play = false): void {
-    this.ui.hideIntro()
-    this.phase = 'ride'
-    this.playing = false
-    this.scrubbing = false
-    this.s = Math.max(0, Math.min(this.route.total, s))
-    this.speed = 0
-    this.dir = 1
-    this.glide = 1
-    this.photoShown = false
-    this.tuck.set(1)
-    this.syncNextIdx()
-    this._snapRideCamera() // setzt cg/lt/alt hart + applyCamera
-    this.settled = true
-    this.updateMapLock() // Karte je nach Play/Pause sperren/freigeben (+ camSnap)
-    this.ui.syncDots(this.s)
-    this.ui.updateTrace(this.s, pointAt(this.route, this.s))
-    this.emitStats()
-    if (play) this.setPlaying(true)
-    else this.ui.setPlaying(false) // Play/Pause-Icon auf Pause stellen (hideIntro setzt es auf Play)
-  }
-
-  // Index des nächsten (vorwärts liegenden) Foto-Stopps neu bestimmen — nötig
-  // nach jedem Sprung/Richtungswechsel, damit Stopps korrekt wieder auslösen
-  syncNextIdx(): void {
-    this.nextIdx = this.stops.findIndex((st) => st.s > this.s + 160)
-    if (this.nextIdx === -1) this.nextIdx = this.stops.length
-    // Denselben Resync für die Kamera-Momente (paralleler Zeiger)
-    this.nextMomentIdx = this.moments.findIndex((m) => m.s > this.s + 160)
-    if (this.nextMomentIdx === -1) this.nextMomentIdx = this.moments.length
-  }
-
   // — Timeline-Scrubbing (Ziehen wie im Video-Editor) —
   // Während des Ziehens folgt die Kamera straff der Position, aber es wird
-  // nichts ausgelöst: keine Foto-Stopps, kein Finale, kein Streckenfortschritt.
+  // nichts ausgelöst: keine Halte, kein Finale, kein Fortschritt von selbst.
   beginScrub(frac: number): void {
-    if (this.phase === 'photo') this.ui.hidePhoto()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.scrubbing = true
     this.phase = 'ride'
-    this.photoShown = false
+    this.raeumeKarte()
     this.settled = false
     this.speed = 0
     this.scrub(frac)
   }
 
   scrub(frac: number): void {
-    this.s = Math.max(0, Math.min(1, frac)) * this.route.total
+    this.setzeFilm(this.film.filmBeiS(Math.max(0, Math.min(1, frac)) * this.route.total))
     this.glide = Math.min(this.glide, 0.5) // Kamera zieht straff nach statt zu schweben
-    this.syncNextIdx()
     this.emitStats() // Kopf und Telemetrie sofort, nicht erst beim 10-Hz-Takt
   }
 
@@ -546,39 +562,85 @@ export class Tour {
     this.seek(frac) // setzt Kurs, nächsten Stopp und Wiedergabe wie ein Sprung
   }
 
-  // „Weiter“: nächstes Foto des Stopps zeigen, sonst Fahrt fortsetzen.
-  // Holt die Tour auch aus einer Foto-Pause zurück.
+  /**
+   * „Weiter“: zur nächsten Aufnahme des Halts springen, sonst hinter den Halt.
+   *
+   * Das ist jetzt ein Sprung in der FILMZEIT und keine Zustandsänderung mehr —
+   * die Karte folgt daraus von selbst. Holt die Tour auch aus einer Foto-Pause
+   * zurück.
+   */
   photoNext(): void {
-    if (this.phase !== 'photo' || this.photoShown !== true) return
-    this.advancePhoto()
+    const halt = this.halt
+    if (this.phase !== 'photo' || !halt?.stopp || this.photoShown !== true) return
+    const naechstes = halt.stuecke[this.itemIdx + 1]
+    this.setzeFilm(naechstes ? halt.filmVon + naechstes.abS : halt.filmBis)
+    this.ui.syncDots(this.s)
     if (!this.playing) this.setPlaying(true)
+    else this.emitStats()
   }
 
-  // Ein Foto-Stopp „weiter“: nächstes Item am selben Halt zeigen, sonst die
-  // Karte ausblenden. Gemeinsamer Pfad für abgelaufenes Foto-HOLD (update),
-  // manuelles „Weiter“ (photoNext) und durchgelaufenes Video (onMediaEnded).
-  advancePhoto(): void {
-    const items = this.shownStop?.items
-    if (!items) return // außerhalb der Foto-Phase gibt es nichts weiterzuschalten
-    if (this.itemIdx + 1 < items.length) {
-      this.itemIdx++
-      this.holdT = 0
-      this.ui.swapPhoto(items[this.itemIdx]!, this.itemIdx, items.length)
-    } else {
-      this.photoShown = 'hiding'
-      this.holdT = 0 // Ausblendphase läuft ab hier (HOLD_AUSBLEND, s. update)
-      this.ui.hidePhoto()
+  /**
+   * Ein Video ist durchgelaufen (ui.onMediaEnded) — der NOTAUSGANG, mehr nicht.
+   *
+   * Bis Etappe 4 endete der Halt hier: `ended` schaltete weiter. Weicht die
+   * echte Dateilänge um Zehntel von `dauerS` ab, verschob sich dadurch alles
+   * Folgende, und zwar kumulativ — Studio und Player kamen an verschiedenen
+   * Stellen heraus. Jetzt endet der Halt an der ACHSE, und die kennt die Länge
+   * aus dem Tour-JSON. Bleibt die Datei kürzer, steht ihr letztes Bild; ist sie
+   * länger, wird sie beschnitten. Beides ist besser als eine Achse, der man
+   * nicht trauen kann.
+   */
+  onMediaEnded(): void {}
+
+  // Zeigt der aktuelle Halt gerade ein Video? (der Balken kommt dann aus der Videozeit)
+  aktuellesItemIstVideo(): boolean {
+    return this.phase === 'photo' && this.shownStop?.items[this.itemIdx]?.type === 'video'
+  }
+
+  /**
+   * Die Foto-Karte an den Stand im Halt bringen.
+   *
+   * Der AUSLÖSER ist seit Etappe 4 das Halt-Intervall und nicht mehr ein
+   * getriggerter Phasenwechsel; ein- und ausgeblendet wird noch wie bisher über
+   * `showPhoto`/`hidePhoto`. Dass die Karte dadurch an den Halt-Kanten flackert
+   * und beim Scrubben verschwindet, ist der bekannte Zwischenstand — das behebt
+   * E15, wenn die Karte selbst an der Position hängt.
+   */
+  private zeigeHalt(halt: Spielhalt): void {
+    const items = halt.stopp?.items
+    if (!items?.length) return
+    const imHalt = this.filmS - halt.filmVon
+    // Die letzte Ausblendung des Halts: die Karte geht, die Fahrt steht noch.
+    if (imHalt >= halt.filmBis - halt.filmVon - HOLD_AUSBLEND) {
+      if (this.photoShown === true) {
+        this.photoShown = 'hiding'
+        this.ui.hidePhoto()
+      }
+      return
+    }
+    let idx = 0
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (imHalt >= (halt.stuecke[i]?.abS ?? 0)) {
+        idx = i
+        break
+      }
+    }
+    if (this.shownStop !== halt.stopp || this.photoShown !== true) {
+      this.shownStop = halt.stopp
+      this.itemIdx = idx
+      this.photoShown = true
+      this.ui.showPhoto(items[idx]!, idx, items.length)
+    } else if (idx !== this.itemIdx) {
+      this.itemIdx = idx
+      this.ui.swapPhoto(items[idx]!, idx, items.length)
     }
   }
 
-  // Video am Stopp ist zu Ende gelaufen (ui.onMediaEnded) → weiter wie beim Foto.
-  onMediaEnded(): void {
-    if (this.phase === 'photo' && this.photoShown === true) this.advancePhoto()
-  }
-
-  // Zeigt der aktuelle Stopp gerade ein Video? (hält bis zum Ende statt HOLD_HIDE)
-  aktuellesItemIstVideo(): boolean {
-    return this.phase === 'photo' && this.shownStop?.items[this.itemIdx]?.type === 'video'
+  /** Die Karte wegnehmen — beim Verlassen eines Halts und bei jedem Sprung. */
+  private raeumeKarte(): void {
+    if (this.photoShown !== false) this.ui.hidePhoto()
+    this.photoShown = false
+    this.shownStop = null
   }
 
   // Klick aufs Foto: Anzeige anhalten bzw. weiterlaufen lassen
@@ -595,10 +657,10 @@ export class Tour {
     this.playing = false
     this.scrubbing = false
     this.speed = 0
-    this.s = 0
-    this.nextIdx = 0
+    this.setzeFilm(0)
     this.photoShown = false
-    this.glide = 2.2
+    this.shownStop = null
+    this.glide = 2.2 // toMenu blendet die Karte schon oben aus
     // Orbit dort weiterdrehen, wo die Kamera gerade steht (kein Sprung)
     this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
     this.ui.syncDots(0)
@@ -607,9 +669,10 @@ export class Tour {
     this.updateMapLock() // Intro-Orbit: Karte gesperrt wie beim ersten Laden
   }
 
-  // Foto-Stopp direkt öffnen (Klick auf Timeline-Dot oder Karten-Wegpunkt):
+  // Halt direkt öffnen (Klick auf Timeline-Dot oder Karten-Wegpunkt):
   // Kamera hart hinter den Punkt setzen — der Schnitt liegt unter der Blende —
-  // und die Karte sofort zeigen statt erst 600 m anzufahren.
+  // und die Karte sofort zeigen statt erst 600 m anzufahren. Die Filmzeit
+  // springt dabei auf die ANKUNFT des Halts; alles Weitere folgt daraus.
   jumpToPhoto(s: number): void {
     const idx = this.stops.findIndex((st) => Math.abs(st.s - s) < 1)
     if (idx === -1) return this.seek(Math.max(0, s - 600) / this.route.total)
@@ -632,15 +695,13 @@ export class Tour {
       this.lt.lng.set(p[0])
       this.lt.lat.set(p[1])
       this.ltAlt.set(ground)
-      this.s = st.s
       this.course = b
       this.speed = 0
       this.dir = 1
+      this.setzeFilm(this.film.filmBeiS(st.s))
       this.phase = 'photo'
       this.shownStop = st
-      this.nextIdx = idx + 1
       this.itemIdx = 0
-      this.holdT = 0
       this.photoShown = true
       this.ui.syncDots(st.s)
       this.ui.updateTrace(st.s, p)
@@ -654,13 +715,13 @@ export class Tour {
     this.ui.hidePhoto()
     this.ui.hideFinale()
     this.ui.blink(() => {
-      this.s = 0
       this.speed = 0
       this.dir = 1
-      this.nextIdx = 0
+      this.setzeFilm(0)
       this.phase = 'ride'
       this.glide = 1
       this.photoShown = false
+      this.shownStop = null // hidePhoto lief oben schon
       this.course = bearingAt(this.route, 0)
       this.ui.syncDots(0)
       // Kamera hart hinter den Start setzen (Schnitt liegt unter der Blende)
@@ -676,19 +737,24 @@ export class Tour {
     })
   }
 
+  // Tempo-Knopf: 1× → 2× → 4× → 8× → 1×. Der Schnelllauf geht seit E16 in
+  // BEIDEN Bühnen bis 8×, und der Ton klingt dort nicht mehr mit (main.ts) —
+  // im Schnelllauf klänge er wie ein durchgedrehter Kassettenrekorder, und
+  // genau das machte den fehlenden Ausgleich beim `shuttle` gegenstandslos.
   cycleSpeed(): number {
-    this.mult = this.mult >= 4 ? 1 : this.mult * 2
+    this.mult = this.mult >= 8 ? 1 : this.mult * 2
     return this.mult
   }
 
   // — Tastatursteuerung wie im Video-Editor —
 
-  // Einzelbild vor/zurück (Cursortasten). Ein „Bild“ = Strecke bei 1× in 1/24 s
-  // des aktuellen Modus. Bleibt angehalten, snappt die Kamera hart auf die neue
-  // Position (kein Nachschweben) und aktualisiert Kamerastand → kein Resume-Fade.
+  // Einzelbild vor/zurück (Cursortasten). Ein „Bild“ = 1/24 FILMsekunde — seit
+  // E2 eine Zeit und keine Strecke mehr, und damit an einer Rampe oder im Halt
+  // dasselbe Bild wie im Editor. Bleibt angehalten, snappt die Kamera hart auf
+  // die neue Position (kein Nachschweben) und aktualisiert den Kamerastand →
+  // kein Resume-Fade.
   nudge(frames: number): void {
     if (this.phase === 'intro') return
-    if (this.phase === 'photo') this.ui.hidePhoto()
     if (this.phase === 'finale') this.ui.hideFinale()
     // Kam die Kamera gerade aus der Fahrt (noch nicht eingeschwungen), läge sie
     // auf einer nachlaufenden Pose — ein harter Snap auf die ideale Pose wäre
@@ -697,14 +763,11 @@ export class Tour {
     // nächsten Bild sitzt sie auf ideal und die Taste schneidet knackig.
     const wasSettled = this.settled && this.phase === 'ride'
     this.phase = 'ride'
-    this.photoShown = false
+    this.raeumeKarte()
     this.dir = 1
     this.speed = 0
     this.setPlaying(false)
-    const mo = this.modeAt(this.s)
-    const step = frames * this.baseSpeed * tempoFaktor(mo.mode) / 24
-    this.s = Math.max(0, Math.min(this.route.total, this.s + step))
-    this.syncNextIdx()
+    this.setzeFilm(this.filmS + frames / 24)
     if (wasSettled) {
       this._snapRideCamera() // eingeschwungen ⇒ harter Einzelbild-Schnitt, kein Sprung
       this.settled = true
@@ -793,16 +856,14 @@ export class Tour {
   // Richtungswechsel startet wieder bei 1×. K hält an (in main.ts verdrahtet).
   shuttle(dir: number): void {
     if (this.phase === 'intro') return
-    if (this.phase === 'photo') this.ui.hidePhoto()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.phase = 'ride'
-    this.photoShown = false
+    this.raeumeKarte()
     if (this.playing && this.dir === dir) {
       this.mult = this.mult >= 8 ? 8 : this.mult * 2
     } else {
       this.dir = dir
       this.mult = 1
-      this.syncNextIdx() // Richtung/Position neu ⇒ nächsten Stopp neu bestimmen
     }
     if (!this.playing) this.setPlaying(true)
   }
@@ -881,117 +942,78 @@ export class Tour {
     const { route, preset } = this
     this.glide += (1 - this.glide) * (1 - Math.exp(-dt / 2.2))
     this.skyLift.to(this.skyLiftTarget, dt, SKY_LIFT_TAU) // Himmel-Anhebung weich nachziehen
-    const mo = this.modeAt(this.s)
 
-    if (this.phase === 'moment' && this.momentReady && this.activeMoment) {
-      // Kamera-Moment: Fahrt steht, die Kamera führt eine Bewegung aus. Läuft
-      // erst, wenn ausgerollt (momentReady) — davor greift der Fahrt-Framing-
-      // Zweig unten und bremst die Kamera weich am Ankerpunkt aus (wie Foto).
-      this.speed = 0
-      this.momentT += dt
-      const m = this.activeMoment
-      const p = pointAt(route, m.s)
-      const dauer = momentDauer(m)
+    // — Die Filmzeit läuft, die Position folgt (E2) —
+    //
+    // Kein Integrator mehr, keine Trigger: `mult` ist ein Faktor auf die
+    // Filmzeit, `dir` ihr Vorzeichen, und ALLES Weitere — Position, Halt,
+    // Phase, Foto-Karte — ist eine Funktion von `filmS`. Rückwärts läuft
+    // dieselbe Kurve rückwärts, Halte und Rampen inklusive (E13).
+    const vorher = this.filmS
+    const sVorher = this.s
+    if (!this.scrubbing && this.playing) {
+      this.setzeFilm(this.filmS + this.dir * this.mult * dt)
+      if (this.dir < 0 && this.filmS <= 0) { this.dir = 1; this.setPlaying(false) } // am Anfang angekommen
+    }
+    // Beobachtetes Streckentempo (m/s) — Messwert, kein Antrieb.
+    if (dt > 0) this.speed = Math.abs(this.s - sVorher) / dt
+    const mo = this.modeAt(this.s)
+    const halt = this.halt
+    const warPhase = this.phase
+
+    if (halt?.moment) {
+      // Kamera-Moment: Die Fahrt STEHT (das sagt die Kurve), die Kamera führt
+      // eine Bewegung aus. Ein Ausroll-Warten gibt es nicht mehr — die Rampe
+      // vor dem Halt hat die Fahrt bereits sauber zum Stehen gebracht.
+      this.phase = 'moment'
+      this.raeumeKarte()
+      const m = halt.moment
+      const p = pointAt(route, this.s)
+      const imHalt = this.filmS - halt.filmVon
+      if (warPhase !== 'moment') {
+        // Orbit-Azimut nahtlos aus der aktuellen Kameralage übernehmen
+        this.orbitA = bearing([p[0], p[1]], [this.cg.lng.v, this.cg.lat.v])
+        this.glide = 2.2 // weicher Eingang in die Kamerabewegung
+      }
       if (m.art === 'umkreisen') {
-        this.orbitA += MOMENT_ORBIT_SPEED * dt
+        // Über die FILMzeit gedreht, nicht über die Frame-Zeit: rückwärts dreht
+        // der Orbit dadurch zurück, statt weiterzulaufen.
+        this.orbitA += MOMENT_ORBIT_SPEED * (this.filmS - vorher)
         this.updateOrbitCamera(dt, p, this.preset.behind * this.scaleSm.v, this.preset.hover * this.hoverSm.v)
       } else if (m.art === 'aufstieg') {
         // Kamera-Bodenpunkt halten, Flughöhe + Blick über die Dauer anheben
-        const t = Math.min(1, this.momentT / dauer)
+        const t = Math.min(1, imHalt / Math.max(0.001, halt.filmBis - halt.filmVon))
         const ease = t * t * (3 - 2 * t)
         const riderG = this.groundAlt([p[0], p[1]], p[2])
         const zielAlt = riderG + this.preset.hover * this.hoverSm.v * (1 + (MOMENT_ASCEND_LIFT - 1) * ease)
         this.smoothTowards(dt, [this.cg.lng.v, this.cg.lat.v], zielAlt, p)
       } // innehalten: kein Kamera-Update → Pose bleibt exakt eingefroren
       this.applyCamera()
-      this.ui.updateTrace(this.s, pointAt(route, this.s))
-      if (this.momentT >= dauer) {
-        this.phase = 'ride'
-        this.momentReady = false
-        this.activeMoment = null
-        this.glide = 1.8 // weicher Wiederanlauf
-      }
+      this.ui.updateTrace(this.s, p)
       return
     }
 
-    if (this.phase === 'photo' && this.photoShown) {
-      // Foto sichtbar: Route UND Kamera stehen komplett still — kein Orbit,
+    if (halt?.stopp) {
+      // Aufnahme-Halt: Route UND Kamera stehen komplett still — kein Orbit,
       // kein Nachschwingen. Der Einfrier-Moment liegt unter dem Kamerablitz.
-      this.speed = 0
-      // Pause im Halt hält den Halt WIRKLICH an: Ohne die Bedingung lief die
-      // Standzeit unter dem „Angehalten"-Abzeichen weiter und das Foto blendete
-      // von selbst weiter — und die Tour-Musik, die am selben Zustand hängt,
-      // lief dabei aus dem Takt (das Video pausiert `ui.setPlaying` längst).
-      if (this.playing) this.holdT += dt
-      // Fotos blenden nach ihrer Anzeigedauer weiter (holdDauer: Autor-Wert oder
-      // Default); Videos halten die Karte, bis sie durchgelaufen sind
-      // (ui.onMediaEnded → onMediaEnded ruft advancePhoto).
-      if (this.photoShown === true && !this.aktuellesItemIstVideo() && this.holdT >= holdDauer(this.shownStop?.items[this.itemIdx])) {
-        this.advancePhoto()
-      }
-      if (this.photoShown === 'hiding' && this.holdT >= HOLD_AUSBLEND) {
-        this.phase = 'ride'
-        this.photoShown = false
-        this.glide = 1.5
-      }
+      // Dass die Standzeit unter dem „Angehalten"-Abzeichen NICHT weiterläuft,
+      // fällt jetzt von selbst an: Steht die Filmuhr, steht der Halt.
+      this.phase = 'photo'
+      this.zeigeHalt(halt)
+      this.ui.updateTrace(this.s, pointAt(route, this.s))
       return
-    } else {
-      const speedTarget =
-        this.phase === 'ride' && !this.scrubbing && this.playing
-          ? this.baseSpeed * this.mult * tempoFaktor(mo.mode)
-          : 0
-      const speedTau = this.phase === 'photo' || this.phase === 'moment' ? 0.55 : 1.1
-      this.speed += (speedTarget - this.speed) * (1 - Math.exp(-dt / speedTau))
-      // Beim Scrubben bestimmt allein der Zeigefinger die Position; sonst trägt
-      // die Richtung (this.dir) das Vorzeichen — Rückwärtswiedergabe per JKL.
-      // In Pause (nur Einschwingen) darf sich s nicht bewegen.
-      if (!this.scrubbing && this.playing) {
-        this.s = Math.max(0, Math.min(this.s + this.dir * this.speed * dt, route.total))
-        if (this.dir < 0 && this.s <= 0) { this.dir = 1; this.setPlaying(false) } // am Anfang angekommen
-      }
-
-      // Foto-Trigger: Bremsweg der Ausrollkurve (≈ speed · τ) einplanen,
-      // damit der Stopp nahe am Ankerpunkt landet (nur vorwärts — beim Zurück-
-      // spulen soll die Fahrt nicht an jedem Stopp hängenbleiben)
-      if (this.phase === 'ride' && !this.scrubbing && this.playing && this.dir > 0 && this.nextIdx < this.stops.length) {
-        const brake = this.speed * 0.62
-        if (this.s >= this.stops[this.nextIdx]!.s - brake) {
-          this.phase = 'photo'
-          this.shownStop = this.stops[this.nextIdx]!
-          this.nextIdx++
-        }
-      }
-      // Moment-Trigger: gleiche Bremsweg-Logik wie beim Foto, eigener Zeiger.
-      if (this.phase === 'ride' && !this.scrubbing && this.playing && this.dir > 0 && this.nextMomentIdx < this.moments.length) {
-        const brake = this.speed * 0.62
-        if (this.s >= this.moments[this.nextMomentIdx]!.s - brake) {
-          this.phase = 'moment'
-          this.activeMoment = this.moments[this.nextMomentIdx]!
-          this.momentReady = false
-          this.nextMomentIdx++
-          this.glide = 2.2 // weicher Eingang in die Kamerabewegung
-        }
-      }
-      // Ausgerollt: Karte zeigen — ab jetzt steht alles still
-      if (this.phase === 'photo' && this.speed < 4 && this.shownStop) {
-        this.speed = 0
-        this.photoShown = true
-        this.itemIdx = 0
-        this.holdT = 0
-        this.ui.showPhoto(this.shownStop.items[0]!, 0, this.shownStop.items.length)
-      }
-      // Moment ausgerollt: Bewegung starten. Orbit-Azimut nahtlos aus der
-      // aktuellen Kameralage übernehmen (wie beim Finale-Eintritt).
-      if (this.phase === 'moment' && !this.momentReady && this.speed < 4 && this.activeMoment) {
-        this.speed = 0
-        this.momentReady = true
-        this.momentT = 0
-        const p = pointAt(route, this.activeMoment.s)
-        this.orbitA = bearing([p[0], p[1]], [this.cg.lng.v, this.cg.lat.v])
-      }
     }
 
-    if (this.s >= route.total && this.dir > 0 && this.phase !== 'photo' && this.phase !== 'moment' && !this.scrubbing && this.playing) {
+    if (warPhase === 'photo' || warPhase === 'moment') {
+      // Halt verlassen — in beide Richtungen derselbe Weg zurück in die Fahrt.
+      this.raeumeKarte()
+      this.phase = 'ride'
+      this.glide = 1.5
+    } else if (this.phase !== 'finale') {
+      this.phase = 'ride'
+    }
+
+    if (this.filmS >= this.film.gesamtS && this.dir > 0 && !this.scrubbing && this.playing) {
       // Ohne Endscreen: wieder der Startscreen — kein „Ziel erreicht" ohne Ziel.
       if (!this.showFinale) {
         this.toMenu()
@@ -1095,8 +1117,13 @@ export class Tour {
   emitStats(): void {
     const p = pointAt(this.route, this.s)
     const inTour = this.phase === 'ride' || this.phase === 'photo' || this.phase === 'moment'
-    const next = inTour && this.nextIdx < this.stops.length ? this.stops[this.nextIdx]! : null
+    // Der nächste Halt ist eine FRAGE AN DIE POSITION, kein mitgeführter Zeiger:
+    // `nextIdx` musste nach jedem Sprung und jedem Richtungswechsel von Hand
+    // nachgezogen werden (`syncNextIdx`) — und war genau dort falsch, wo man es
+    // vergaß.
+    const next = inTour ? (this.stops.find((st) => st.s > this.s + 1) ?? null) : null
     const mo = this.modeAt(this.s)
+    const stueck = this.halt?.stuecke[this.itemIdx]
     this.ui.stats({
       km: this.s / 1000,
       ele: p[2],
@@ -1106,8 +1133,8 @@ export class Tour {
       // Füllstand des Anzeige-Balkens auf der Foto-Karte (steht bei Pause).
       // Bei Videos null → ui.ts füllt ihn selbst aus der Videozeit (timeupdate).
       holdFrac:
-        this.photoShown === true && !this.aktuellesItemIstVideo()
-          ? Math.min(this.holdT / holdDauer(this.shownStop?.items[this.itemIdx]), 1)
+        this.photoShown === true && !this.aktuellesItemIstVideo() && this.halt && stueck
+          ? Math.max(0, Math.min((this.filmS - this.halt.filmVon - stueck.abS) / stueck.standS, 1))
           : null,
     })
     // Tempo-Anzeige (Button) mit Faktor + Richtung aktuell halten — auch nach

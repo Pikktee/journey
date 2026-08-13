@@ -1175,7 +1175,14 @@ export function baueGrenzKurve(
   // (lower_bound trifft die Stützstelle vor dem Sprung) — sonst zählte er
   // doppelt und die Kante liefe um seine Standzeit davon.
   const imFenster = halte.filter((h) => h.offsetS > vonS && h.offsetS <= bisS)
-  const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, imFenster))
+  // Anfahrt NUR, wenn das Fenster am Tour-Anfang beginnt — daran und an nichts
+  // anderem erkennt man das: `filmBeiVon` ist die Filmsekunde der linken
+  // Fensterkante. Beginnt es an einer vorigen Grenze, fährt der Film dort
+  // längst; eine Rampe schöbe die gezogene Kante um ihren Zuschlag, und sie
+  // landete nicht dort, wo losgelassen wurde.
+  const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, imFenster), {
+    ausDemStand: filmBeiVon <= 0,
+  })
   return {
     tS: adapter.tS,
     mM: adapter.mM,

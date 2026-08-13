@@ -35,6 +35,17 @@ export const HALT_AUSBLEND_S = 0.8
 /** `NAHE_M` in src/geo.ts: Streckenabstand, unter dem Aufnahmen EINEN Halt bilden. */
 export const NAHE_M = 120
 
+/**
+ * `RAMPE_M` in src/filmachse.ts: Anfahr- und Ausrollstrecke in Metern (E14).
+ *
+ * Sie ist der Grund, warum diese Kopie in DERSELBEN Auslieferung mitgeht wie
+ * Etappe 4: Kennt die Server-Achse die Rampen nicht, lösen `anker +
+ * versatzFilmS` in Studio und Render verschieden auf — exakt die Drift, die
+ * Etappe 3 gerade beendet hat. Herleitung der Zahl steht drüben, sie ist
+ * gestalterisch und nicht technisch.
+ */
+export const RAMPE_M = 120
+
 /** `MOMENT_DEFAULT_S` in src/tour.ts: Filmzeit eines Kamera-Moments ohne eigene Angabe. */
 export const MOMENT_DEFAULT_S: Record<MomentArt, number> = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
 

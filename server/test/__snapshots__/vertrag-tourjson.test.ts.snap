@@ -1008,7 +1008,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
 {
   "audio": [
     {
-      "f0": 0.011054319985202512,
+      "f0": 0.002072684997225471,
       "f1": 0.11252908373243974,
       "gain": 0.8,
       "loop": false,
@@ -1018,7 +1018,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     },
     {
       "f0": 0.2880003773789752,
-      "f1": 0.42002508632691893,
+      "f1": 0.4200250863269188,
       "gain": 0.8,
       "loop": true,
       "src": "/audio/sfx/sfx-brandung.mp3",
@@ -1262,7 +1262,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
 {
   "audio": [
     {
-      "f0": 0.08278614236419966,
+      "f0": 0.046425250972301574,
       "f1": 0.11252908373243974,
       "gain": 0.8,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",

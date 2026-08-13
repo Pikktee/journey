@@ -275,7 +275,7 @@ pro Frame `ui.updateTrace(s, pos)` und optional `ui.onTick(frac)` auf.
 ([src/filmachse.ts](src/filmachse.ts), Gleichlauf-Konzept §8C, E3/E12). Das Modul ist DOM- und
 importfrei und wird von **Player und Studio gemeinsam** benutzt: Tempo je Modus
 (`MODUS_TEMPO`/`tempoMs` — früher `MODE_SPEED`+`baseSpeed` in `tour.ts`), Moment-Standzeiten,
-die lower_bound-Interpolation und das Einweben der Halte. Vorher stand das Tempo-Modell an
+die lower_bound-Interpolation, das Einweben der Halte und die RAMPEN (`RAMPE_M`, s. unten). Vorher stand das Tempo-Modell an
 DREI Stellen, gekoppelt über Tests, die den Quelltext von `tour.ts` nach Zeichenketten
 absuchten — einer prüfte, ob ein Kommentar dasteht. Jetzt sind es zwei: hier und der
 erzwungene Server-Spiegel ([filmtempo.ts](server/src/pipeline/filmtempo.ts) +
@@ -289,8 +289,9 @@ Player braucht Filmsekunde → Streckenposition, und über der Aufnahmezeit ende
 einer Aufnahmezeit, die er nicht weiterverwenden kann (`cfg.timeline` ist Pseudo-Zeit mit
 Pausen-Zeitraffer, nicht die Aufnahmeuhr). Wer in Aufnahmezeit verankert — die Zeitleiste des
 Editors, Medien, Ton-Klips —, legt einen **Zeit→Strecke-Adapter** daneben (`AchsenKurve` in
-[zeitleiste.ts](src/studio/zeitleiste.ts): je Stützpunkt seine Zeit und sein Meterstand); die
-Anker selbst bleiben Zeitstempel, umgestellt ist die Achse, nicht die Verankerung. Drei Dinge,
+[zeitleiste.ts](src/studio/zeitleiste.ts): je Stützpunkt seine Zeit und sein Meterstand) — der
+Server-Spiegel seit Etappe 4 genauso; die Anker selbst bleiben Zeitstempel, umgestellt ist die
+Achse, nicht die Verankerung. Drei Dinge,
 die man dabei kippt: Die Achse rechnet über die **rohen Wegpunktabstände**, nicht über
 `route.cum` — Catmull-Rom und das 14-m-Raster machen die Route 2,2–3,0 % länger, die Filmdauer
 wäre allein durch die Glättung zu lang. Die Konvention **„Plateau → Ankunft"** bleibt nötig,
@@ -298,9 +299,8 @@ sie wechselt nur ihren Ort (über der Zeit waren die Plateaus die realen Pausen,
 Strecke sind es die Halte). Und das Modul gehört nach `src/`, **nicht** nach `src/studio/`: Ein
 Import Player→Studio zöge die Editor-Typenwelt in den Player-Chunk.
 
-**Im Player treibt die Achse noch nichts an** (`window.__j.filmachse`, `window.__j.filmS`) — die
-Engine integriert ihre Position weiter selbst; der Antrieb dreht sich erst mit Etappe 4 um. Was
-sie heute schon trägt, ist der TON: Beim Eintritt in einen Musik-Bereich UND am Ende jedes
+**Die Achse TREIBT den Player an** (`window.__j.filmachse`, `window.__j.filmS`) — s. den
+eigenen Abschnitt unten. Sie trägt daneben den TON: Beim Eintritt in einen Musik-Bereich UND am Ende jedes
 Sprungs setzt `musikVersatzS` ([src/audiotracks.ts](src/audiotracks.ts)) die Datei auf die
 Stelle, die dort im Film liefe. Vorher stand da hart `currentTime = startS`: Wer mitten
 hineinsprang, hörte das Stück von vorn; wer INNERHALB eines Bereichs scrubbte, hörte es
@@ -320,12 +320,52 @@ aus — im Normalfall der Vergleich zweier Zahlen, im Fehlerfall die einzige Ste
 Ton je erfährt, dass er zu weit ist. Das ist dieselbe Regel wie in §8A: *Was nicht an der
 Filmuhr hängt, muss ausdrücklich mitgehen.*
 
-**Was bis Etappe 4 bleibt:** Die Achse kennt die Anfahr- und Ausrollrampen NICHT, die Engine
-fährt sie mit — je Halt 0,44–2,70 s (`scripts/messungen/rampen-simulation.ts`). Wer eine
-Stelle ANFÄHRT, ist dort also weiter im Stück als wer sie ANSPRINGT; über zwölf Halte sind das
-+12,7 %. Kein Flicken hilft: Ein laufendes Nachziehen zöge die Musik an jedem Halt um die
-Rampensekunden zurück — ein Stottern statt eines Versatzes. Das löst erst der umgedrehte
-Antrieb (Etappe 4), der die Rampen in die Kurve legt.
+**Die Position FOLGT der Filmzeit — die Engine integriert `s` nicht mehr selbst** (Etappe 4,
+E2): `s = streckeBeiFilm(achse, filmS)`, und `filmS` kommt aus der Filmuhr. Was dadurch
+ERSATZLOS entfallen ist, ist der eigentliche Gewinn (E13): die Zeiger `nextIdx`/`nextMomentIdx`
+samt `syncNextIdx`, der Bremsweg-Vorgriff (`speed · 0.62`), die Ausrollschwelle `speed < 4`
+und jede `dir > 0`-Schranke. **„Im Halt" ist seither ein ZUSTAND DER KURVE** — `filmS` liegt in
+einem Halt-Intervall —, kein getriggerter Phasenwechsel: Rückwärts fährt derselbe Weg zurück,
+Halte inklusive, wie im Editor seit Monaten. `mult` und `dir` sind Faktor und Vorzeichen auf
+die Filmzeit, `nudge` ist 1/24 FILMsekunde, und `speed` in [tour.ts](src/tour.ts) ist nur noch
+eine Beobachtung für die Messskripte. Fünf Dinge, die man dabei kippt:
+
+- **Video-Halte enden an der ACHSE, nicht am Dateiende** (`onMediaEnded` ist Notausgang und
+  tut nichts mehr). Wich die echte Dateilänge um Zehntel von `dauerS` ab, verschob sich sonst
+  alles Folgende — kumulativ, und Studio und Player kamen woanders heraus.
+- **Die Achse wird für eine laufende Fahrt NIE neu gebaut** (Konzept, Falle 5). Ein Neubau
+  verschöbe jetzt nicht mehr nur den Balken, sondern `s`: Die Kamera setzte sichtbar um. Spät
+  bekannte Videolängen (`loadedmetadata` bei Altbestand) ändern deshalb nichts; es gilt, was
+  das Tour-JSON sagt, und ohne Angabe die Foto-Annahme, die auch das Studio trifft.
+- **Die Achse rechnet in ROHEN Metern, die Engine fährt auf der gebauten Route.** Die
+  Übersetzung in beide Richtungen steht in [main.ts](src/main.ts) (`rohBeiS`/`sBeiRoh`) und
+  nirgends sonst — nur diese Datei kennt beide Meterstände.
+- **Der Anteil, den `seek`/`scrub` bekommen, ist der der STRECKE**, weil die Fortschritts-
+  leiste ihn so zeichnet; die Achse macht daraus die Filmsekunde. Filmlinear wird die Leiste
+  erst mit Etappe 5 — bis dahin landet ein Scrub auf einen Halt an dessen ANKUNFT.
+- **Die Foto-Karte hängt noch am Auslöser, nicht an der Position** (E15, zweiter Gang):
+  `zeigeHalt` ruft weiterhin `showPhoto`/`hidePhoto`, nur kommt der Anlass jetzt aus dem
+  Halt-Intervall. Sie flackert deshalb an Halt-Kanten und verschwindet beim Scrubben.
+
+**Die Rampe ist eine feste Form über eine feste STRECKE** (E14, `RAMPE_M` = 120 m in
+[filmachse.ts](src/filmachse.ts)), keine nachgebaute Exponentialkurve. Ihr Weganteil ist
+`2u³ − u⁴`, die Ableitung also `2 · smoothstep(u)`: sanft an, in der Mitte am stärksten, sanft
+ins Reisetempo — und daraus folgt die eine Zahl, die alles trägt: **Eine Rampe dauert doppelt
+so lange wie das Reisen ihrer Strecke, ihr Zuschlag ist genau eine Reisezeit.** Gerampt wird
+aus dem Stand, vor jedem Halt und nach jedem Halt; am Tour-ENDE nicht (der Film läuft aus).
+Liegen zwei Halte näher als 2 × `RAMPE_M`, teilen sie sich die Lücke hälftig. Die Länge ist
+KALIBRIERT und nicht geraten (`scripts/messungen/rampen-kalibrierung.ts` gegen die 64,3
+Rampen-Sekunden aus `rampen-simulation.ts`); dass sich die Verteilung dabei umdreht — schnelle
+Fortbewegung wird knackiger, zu Fuß getragener —, ist gewollt. **Der Server-Zwilling muss
+mit**: [server/src/pipeline/filmachse.ts](server/src/pipeline/filmachse.ts) rechnet seit
+derselben Auslieferung über die STRECKE statt über die Aufnahmezeit und kennt dieselben
+Rampen; bliebe er zurück, lösten `anker + versatzFilmS` in Studio und Render verschieden auf.
+
+**Schnelllauf geht bis 8× — und Ton klingt nur bei Tempo 1 vorwärts** (E16). Beide Bühnen
+gleich (`cycleSpeed`/`shuttle` im Player, J/L im Editor). Das erledigt eine Lücke statt sie zu
+flicken: Die Musik lief im Schnelllauf weiter und driftete, weil `shuttle` keinen Ausgleich
+auslöste — bei 8× vergehen acht Filmsekunden je Wanduhrsekunde. Beim Zurückschalten auf 1×
+richtet [main.ts](src/main.ts) den Ton einmal aus (`nachSprung`), wie nach jedem Sprung.
 
 **Die Engine hat genau EINE Uhr, und sie ist ungedeckelt** ([src/filmuhr.ts](src/filmuhr.ts)).
 Vorher klemmte `tick()` die Frame-Zeit bei 50 ms — ein langsames Gerät bekam dadurch keine

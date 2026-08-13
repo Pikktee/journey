@@ -39,8 +39,9 @@ export const NOT_DECKEL_S = 1.0
 /**
  * Zählt Filmsekunden aus einer monotonen Echtzeituhr.
  *
- * Alles, was Zeit misst, hängt daran: die `s`-Integration, `holdT`, `momentT`,
- * die Tweens und jeder Glättungsfilter der Kamera.
+ * Alles, was Zeit misst, hängt daran — seit Etappe 4 ist das genau EINE Größe:
+ * die Filmsekunde `tour.filmS`, aus der Position, Halt und Foto-Karte folgen.
+ * Daneben nur noch Ästhetisches: die Tweens und die Glättungsfilter der Kamera.
  */
 export class Filmuhr {
   /** Zeitstempel des letzten Frames; `null` = das nächste Frame setzt neu an. */

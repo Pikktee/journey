@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
 import { HOLD_AUSBLEND, HOLD_HIDE } from '../src/einblendung.js'
-import { MODUS_TEMPO, MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S } from '../src/filmachse.js'
+import { MODUS_TEMPO, MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S, RAMPE_M, tempoMs } from '../src/filmachse.js'
 import {
   effektiveMedien,
   erfasseUndo,
@@ -649,18 +649,23 @@ describe('Zeitleiste', () => {
     const abschnitte = [{ mode: 'bike' as const, aktiv: true, pts: fahrTrack }]
     const achse = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 20 }], fSkala)
     const gesamt = achse.kurve?.gesamtS ?? 0
+    // Seit E14 bringt die Achse ihre RAMPEN mit. Bei Radtempo (120 m/s) kostet
+    // eine 120-m-Rampe genau eine Filmsekunde. Hier sind es drei: aus dem Stand
+    // los, vor dem Halt bremsen, danach wieder anfahren — am Tour-Ende wird
+    // nicht gebremst. Der Halt liegt dadurch bei 52 statt 50 Filmsekunden.
+    const R = RAMPE_M / tempoMs('bike')
 
     it('Halte bekommen ihre Standzeit als Achsenbreite', () => {
-      expect(gesamt).toBeCloseTo(120, 1) // 100 s Fahrt + 20 s Halt
-      // Der Halt belegt (50..70)/120 der Achse
-      expect(offsetZuAnteil(achse, 599)).toBeLessThan(50 / 120)
-      expect(offsetZuAnteil(achse, 601)).toBeGreaterThan(70 / 120 - 0.01)
+      expect(gesamt).toBeCloseTo(120 + 3 * R, 1) // 100 s Fahrt + 20 s Halt + 3 Rampen
+      // Der Halt belegt (52..72)/123 der Achse
+      expect(offsetZuAnteil(achse, 599)).toBeLessThan((50 + 2 * R) / gesamt)
+      expect(offsetZuAnteil(achse, 601)).toBeGreaterThan((70 + 2 * R) / gesamt - 0.01)
     })
 
     it('Sprung-Konventionen: Halt-Zeit → Sprunganfang, Anteil im Sprung → Halt-Zeit', () => {
-      expect(offsetZuAnteil(achse, 600)).toBeCloseTo(50 / 120, 4)
-      // Mitten im Halt-Sprung (Filmzeit 60 von 120) steht die Aufnahmezeit still
-      expect(anteilZuOffset(achse, 60 / 120)).toBeCloseTo(600, 4)
+      expect(offsetZuAnteil(achse, 600)).toBeCloseTo((50 + 2 * R) / gesamt, 4)
+      // Mitten im Halt-Sprung steht die Aufnahmezeit still
+      expect(anteilZuOffset(achse, (60 + 2 * R) / gesamt)).toBeCloseTo(600, 4)
       // Außerhalb des Sprungs normale Umkehrung
       expect(anteilZuOffset(achse, offsetZuAnteil(achse, 300))).toBeCloseTo(300, 4)
     })
@@ -676,7 +681,7 @@ describe('Zeitleiste', () => {
         { mode: 'bike' as const, aktiv: false, pts: [fahrTrack[1]!, fahrTrack[2]!] },
       ]
       const a2 = baueAchse(mitTrim, [], fSkala)
-      expect(a2.kurve?.gesamtS).toBeCloseTo(100, 1)
+      expect(a2.kurve?.gesamtS).toBeCloseTo(100 + R, 1) // + Anfahrt aus dem Stand
     })
 
     it('ohne Fahrstrecke tragen die HALTE die Achse — der Film ist ja fast nur Standzeit', () => {
@@ -696,9 +701,9 @@ describe('Zeitleiste', () => {
     })
 
     it('filmZuOffset liefert die Film-Sekunde der Achse (Kopf-Uhr)', () => {
-      expect(filmZuOffset(achse, 300)).toBeCloseTo(25, 1)
-      expect(filmZuOffset(achse, 600)).toBeCloseTo(50, 1) // Sprunganfang
-      expect(filmZuOffset(achse, 1200)).toBeCloseTo(120, 1)
+      expect(filmZuOffset(achse, 300)).toBeCloseTo(25 + R, 1)
+      expect(filmZuOffset(achse, 600)).toBeCloseTo(50 + 2 * R, 1) // Sprunganfang
+      expect(filmZuOffset(achse, 1200)).toBeCloseTo(120 + 3 * R, 1)
     })
 
     it('eine reale Pause fällt zum Plateau zusammen — Umkehrung liefert die Ankunft', () => {
@@ -717,14 +722,17 @@ describe('Zeitleiste', () => {
     })
 
     it('Fahranteil der Achse stimmt mit der Dauer-Schätzung überein (eine Formel)', () => {
+      // Die Schätzung ist die reine REISEzeit — sie kennt die Rampen nicht (und
+      // kann sie nicht kennen: wo sie liegen, entscheiden die Halte). Was beide
+      // teilen müssen, ist das Tempo-Modell, und genau das prüft die Zeile.
       const gesamtOhneHalt = baueAchse(abschnitte, [], fSkala).kurve?.gesamtS
-      expect(gesamtOhneHalt).toBeCloseTo(schaetzeAnimationsdauer(abschnitte, []), 6)
+      expect(gesamtOhneHalt).toBeCloseTo(schaetzeAnimationsdauer(abschnitte, []) + R, 6)
     })
 
     it('Halte kommen als INTERVALLE zurück — in Aufnahmezeit gibt es sie nicht', () => {
       const gerundet = (a: typeof achse): number[][] =>
         (a.halte ?? []).map((h) => [h.offsetS, h.breiteS, +h.filmVon.toFixed(3), +h.filmBis.toFixed(3)])
-      expect(gerundet(achse)).toEqual([[600, 20, 50, 70]])
+      expect(gerundet(achse)).toEqual([[600, 20, 50 + 2 * R, 70 + 2 * R]])
       // `indizes` reicht die Achse unverändert durch (Rückweg zum Stopp)
       const mitId = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 20, indizes: [3] }], fSkala)
       expect(mitId.halte?.[0]?.indizes).toEqual([3])
@@ -737,24 +745,26 @@ describe('Zeitleiste', () => {
         ],
         fSkala,
       )
+      // Der zweite Halt bringt seine eigenen zwei Rampen mit: 75 s Reise + 20 s
+      // Standzeit + vier Rampen bis dorthin.
       expect(gerundet(zwei)).toEqual([
-        [600, 20, 50, 70],
-        [900, 6, 95, 101],
+        [600, 20, 50 + 2 * R, 70 + 2 * R],
+        [900, 6, 95 + 4 * R, 101 + 4 * R],
       ])
       // Halte ohne Breite werden nicht eingewebt und tauchen nicht auf
       expect(baueAchse(abschnitte, [{ offsetS: 600, breiteS: 0 }], fSkala).halte).toEqual([])
     })
 
     it('haltBeiFilmS sagt, WO im Halt der Kopf steht', () => {
-      expect(haltBeiFilmS(achse, 49.9)).toBeNull()
-      const ankunft = haltBeiFilmS(achse, 50)
+      expect(haltBeiFilmS(achse, 50 + 2 * R - 0.1)).toBeNull()
+      const ankunft = haltBeiFilmS(achse, 50 + 2 * R)
       expect(ankunft?.index).toBe(0)
       expect(ankunft?.imHaltS).toBeCloseTo(0, 6)
       expect(ankunft?.restS).toBeCloseTo(20, 6)
-      expect(haltBeiFilmS(achse, 62.1)?.imHaltS).toBeCloseTo(12.1, 6)
-      expect(haltBeiFilmS(achse, 62.1)?.restS).toBeCloseTo(7.9, 6)
+      expect(haltBeiFilmS(achse, 62.1 + 2 * R)?.imHaltS).toBeCloseTo(12.1, 6)
+      expect(haltBeiFilmS(achse, 62.1 + 2 * R)?.restS).toBeCloseTo(7.9, 6)
       // Die Abfahrt gehört schon zur Weiterfahrt
-      expect(haltBeiFilmS(achse, 70.1)).toBeNull()
+      expect(haltBeiFilmS(achse, 70.1 + 2 * R)).toBeNull()
       // … außer der Film endet im Halt: dann steht der Kopf bis zuletzt darin
       const amEnde = baueAchse(abschnitte, [{ offsetS: 1200, breiteS: 8 }], fSkala)
       expect(haltBeiFilmS(amEnde, amEnde.kurve!.gesamtS)?.imHaltS).toBeCloseTo(8, 6)
@@ -782,7 +792,7 @@ describe('Zeitleiste', () => {
       const eine = baueAchse(abschnitte, [{ offsetS: 600, breiteS: 6, stuecke: [{ id: 'm1', dauerS: 6 }] }], fSkala)
       expect(beschreibeHaltStand(haltBeiFilmS(eine, eine.halte![0]!.filmVon + 2.5)!)).toBe('2,5 s von 6,0 s')
       // Ohne bekannte Stücke zählt die Zeit im ganzen Halt
-      expect(beschreibeHaltStand(haltBeiFilmS(achse, 62.1)!)).toBe('12,1 s von 20,0 s')
+      expect(beschreibeHaltStand(haltBeiFilmS(achse, 62.1 + 2 * R)!)).toBe('12,1 s von 20,0 s')
     })
 
     it('5-Filmsekunden-Schritte überspringen keinen Halt', () => {
@@ -828,8 +838,8 @@ describe('Zeitleiste', () => {
 
       const video = { id: 'v1', dauerS: aufnahmeHaltS({ type: 'video', dauerS: 34 }) + HALT_AUSBLEND_S }
       const mitVideo = baueAchse(abschnitte, [{ offsetS: 600, breiteS: video.dauerS, stuecke: [video] }], fSkala)
-      // 100 s Fahrt + 34,8 s Video statt 100 + 6
-      expect(mitVideo.kurve?.gesamtS).toBeCloseTo(134.8, 1)
+      // 100 s Fahrt + 34,8 s Video statt 100 + 6, dazu die drei Rampen
+      expect(mitVideo.kurve?.gesamtS).toBeCloseTo(134.8 + 3 * R, 1)
       expect(mitVideo.halte?.[0]?.breiteS).toBeCloseTo(34.8, 6)
       // … und der Kopf steht mitten im Video, nicht in einer 6-s-Annahme
       expect(haltBeiFilmS(mitVideo, mitVideo.halte![0]!.filmVon + 20)?.stueck?.imS).toBeCloseTo(20, 6)
@@ -981,8 +991,10 @@ describe('Zeitleiste', () => {
       // Monoton und im Fenster geklemmt
       expect(zeitBeiFilm(kurve, -50)).toBeCloseTo(fSkala.vonS, 6)
       expect(zeitBeiFilm(kurve, 1e6)).toBeCloseTo(fSkala.bisS, 6)
-      // Der Halt im Fenster kostet Filmzeit, ohne von der Grenze abzuhängen
-      expect(kurve.gesamtS).toBeCloseTo(12 + 12000 / (120 * 0.4), 1)
+      // Der Halt im Fenster kostet Filmzeit, ohne von der Grenze abzuhängen —
+      // dazu seine beiden Rampen und die Anfahrt aus dem Stand (zu Fuß 2,5 s je
+      // Rampe).
+      expect(kurve.gesamtS).toBeCloseTo(12 + 12000 / (120 * 0.4) + (3 * RAMPE_M) / tempoMs('walk'), 1)
       expect(baueGrenzKurve([], 0, 10, 'walk', 0, [])).toBeNull()
     })
 
@@ -1176,15 +1188,17 @@ describe('Zeitleiste', () => {
         }
         const zug = starte(start, 288, 0, 'walk')
         const halt = achseVon(start).halte![0]!
-        expect(halt.filmVon).toBeCloseTo(86, 6) // rechts der Kante (die steht auf Film 60)
-        expect(halt.filmBis).toBeCloseTo(106, 6)
+        // 60 s Fußweg + 26 s Rad bis zum Halt, dazu drei Rampen davor (Start
+        // und Bremsen zu Fuß, Anfahrt nach der Kante mit dem Rad).
+        expect(halt.filmVon).toBeCloseTo(89.5, 6) // rechts der Kante (die steht auf Film 62,5)
+        expect(halt.filmBis).toBeCloseTo(109.5, 6)
 
         const f = ziehFrame(start, iso(288), halt.filmVon + 10, zug, 10)
         expect(f.gerastet).toBe(true)
         expect(isoZuOffset(START, f.ab)).toBe(600 + RAST_HINTER_S)
         // Der Halt ist mitgewandert (mehr Fußweg davor) — die Kante steht
         // dahinter, nicht mehr auf dem angepeilten Pixel.
-        expect(achseVon(f.edits).halte![0]!.filmVon).toBeCloseTo(125, 6)
+        expect(achseVon(f.edits).halte![0]!.filmVon).toBeCloseTo(130, 6)
 
         // Wichtig ist nur, dass sich das im nächsten Frame FÄNGT: der Zeiger
         // liegt jetzt links des Halts, also gilt wieder der Fixpunkt. Es
@@ -1280,12 +1294,14 @@ describe('Zeitleiste', () => {
       ]
       const a2 = baueAchse(mitTrim, [{ offsetS: 300, breiteS: 20 }], fSkala)
       const spiel = baueSpielKurve(a2, mitTrim)
-      // Erster Abschnitt (50 s Fahrt + 20 s Halt) spielt, der getrimmte nicht
-      expect(spiel.gesamtS).toBeCloseTo(70, 1)
-      expect(filmBei(spiel, 1)).toBeCloseTo(70, 1)
+      // Erster Abschnitt (50 s Fahrt + 20 s Halt + drei Rampen) spielt, der
+      // getrimmte nicht
+      const bisTrim = 70 + 3 * R
+      expect(spiel.gesamtS).toBeCloseTo(bisTrim, 1)
+      expect(filmBei(spiel, 1)).toBeCloseTo(bisTrim, 1)
       // Hinter der Trim-Grenze wächst die Spielzeit nicht mehr (Plateau)
       const grenzAnteil = offsetZuAnteil(a2, 600)
-      expect(filmBei(spiel, grenzAnteil + 0.1)).toBeCloseTo(70, 1)
+      expect(filmBei(spiel, grenzAnteil + 0.1)).toBeCloseTo(bisTrim, 1)
     })
   })
 
@@ -1396,11 +1412,12 @@ describe('Zeitleiste', () => {
       [{ offsetS: 600, breiteS: 20 }],
       baueSkala(track2)!,
     )
-    const marken = baueFilmMassband(achse, 5) // 120 s × 5 px/s → 15-s-Stufe
+    const gesamtS = achse.kurve!.gesamtS // 120 s + drei Rampen à 1 s
+    const marken = baueFilmMassband(achse, 5) // 123 s × 5 px/s → 15-s-Stufe
     expect(marken.map((m) => m.text)).toEqual(['0:00', '0:15', '0:30', '0:45', '1:00', '1:15', '1:30', '1:45', '2:00'])
     // film-linear ⇒ äquidistant
     for (let i = 1; i < marken.length; i++) {
-      expect((marken[i]?.anteil ?? 0) - (marken[i - 1]?.anteil ?? 0)).toBeCloseTo(15 / 120, 6)
+      expect((marken[i]?.anteil ?? 0) - (marken[i - 1]?.anteil ?? 0)).toBeCloseTo(15 / gesamtS, 6)
     }
     expect(marken.filter((m) => m.voll).map((m) => m.text)).toEqual(['0:00', '1:00', '2:00'])
     expect(marken[0]?.rand).toBe('anfang')

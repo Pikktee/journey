@@ -20,6 +20,7 @@ import {
   wellenLage,
   type TonKlip,
 } from '../src/studio/tonklip'
+import { RAMPE_M, tempoMs } from '../src/filmachse'
 import { baueAchse, type Achse } from '../src/studio/zeitleiste'
 
 const START = '2026-07-04T08:00:00.000Z'
@@ -30,7 +31,11 @@ function track(punkte = 31): TrackPunkt[] {
   return Array.from({ length: punkte }, (_, i): TrackPunkt => [7.9 + i * 96 * gradProMeter, 46.6, 800, i * 60])
 }
 
-/** Achse ohne Halte: 30 Schritte à 2 Filmsekunden = 60 s Film, 1800 s Aufnahme. */
+/**
+ * Achse ohne Halte: 30 Schritte à 2 Filmsekunden = 60 s Film, 1800 s Aufnahme —
+ * dazu die Anfahrt aus dem Stand, die seit E14 in der Achse liegt (120 m zu Fuß
+ * = 2,5 Filmsekunden, `RAMPE`).
+ */
 function achseOhneHalt(): Achse {
   return baueAchse([{ mode: 'walk', aktiv: true, pts: track() }], [], { vonS: 0, bisS: 1800 })
 }
@@ -45,6 +50,9 @@ function achseMitHalt(): Achse {
 
 const klipVon = (klips: readonly TonKlip[], index = 0): TonKlip => klips[index] as TonKlip
 
+/** Zuschlag einer Anfahr-/Ausrollrampe zu Fuß (s). */
+const RAMPE = RAMPE_M / tempoMs('walk')
+
 describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
   const achse = achseOhneHalt()
 
@@ -52,7 +60,7 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
     const audio: AudioEintrag[] = [{ datei: 'a.mp3', typ: 'musik', ab: '2026-07-04T08:05:00.000Z' }]
     const k = klipVon(loeseTonKlips(audio, START, achse))
     expect(k.altVerankert).toBe(true)
-    expect(k.filmVon).toBeCloseTo(10, 6) // 300 Aufnahmesekunden = 10 Filmsekunden
+    expect(k.filmVon).toBeCloseTo(10 + RAMPE, 6) // 300 Aufnahmesekunden = 10 Filmsekunden + Anfahrt
     expect(k.filmBis).toBeCloseTo(achse.kurve?.gesamtS ?? 0, 6) // ohne `bis`: bis zum Schluss
     expect(k.laengeGesetzt).toBe(false)
     expect(k.loop).toBe(true) // Vorgabe für Musik — das bisherige Verhalten
@@ -71,8 +79,8 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
     ]
     const k = klipVon(loeseTonKlips(audio, START, achse))
     expect(k.altVerankert).toBe(false)
-    expect(k.filmVon).toBeCloseTo(12.5, 6)
-    expect(k.filmBis).toBeCloseTo(20.5, 6)
+    expect(k.filmVon).toBeCloseTo(12.5 + RAMPE, 6)
+    expect(k.filmBis).toBeCloseTo(20.5 + RAMPE, 6)
     expect(k.laengeGesetzt).toBe(true)
   })
 
@@ -118,7 +126,7 @@ describe('verankere — Anker in Aufnahmezeit, Feinlage in Filmsekunden', () => 
     // Der Kernbefund aus §1: Im Halt gibt es keine unterscheidbare Aufnahmezeit.
     // Der Versatz trägt die Feinlage, deshalb landet der Klip trotzdem genau dort.
     const achse = achseMitHalt()
-    const imHalt = 20 + 3 // Halt beginnt bei Filmsekunde 20 (600 s ÷ 30 s/Filmsek.)
+    const imHalt = achse.halte![0]!.filmVon + 3
     const { anker, versatzFilmS } = verankere(achse, START, imHalt)
     expect(versatzFilmS).toBeGreaterThan(0) // ohne ihn fiele die Lage auf die Haltkante
     const klips = loeseTonKlips([{ datei: 'a.mp3', typ: 'musik', ab: anker, anker, versatzFilmS }], START, achse)

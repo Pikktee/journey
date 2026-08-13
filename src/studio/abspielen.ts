@@ -67,7 +67,7 @@ export interface Spielplan {
 /** Laufender Zustand der Wiedergabe. */
 export interface SpielStand {
   marke: number
-  /** 0 = angehalten, 1 = normal, ±2/±4 = Schnelllauf (J/L wie in Final Cut) */
+  /** 0 = angehalten, 1 = normal, ±2 bis ±8 = Schnelllauf (J/L wie in Final Cut) */
   tempo: number
 }
 

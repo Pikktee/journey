@@ -6767,11 +6767,13 @@ function verdrahteEinmal(): void {
       } else if (k === 'l' || k === 'j' || k === 'k') {
         // Shuttle wie in Final Cut: L vorwärts, J zurück (mehrfach = schneller),
         // K hält an. Der Abspieler existiert erst nach dem ersten Play.
+        // Der Deckel liegt bei 8× — dieselbe Stufe wie im Player (E16), damit
+        // ein Tempo, das man hier lernt, dort auch existiert.
         e.preventDefault()
         const t = abspieler?.tempo() ?? 0
         if (k === 'k') halteAbspielen()
         else if (!abspieler) void spielUmschalten()
-        else abspieler.setzeTempo(k === 'l' ? (t < 1 ? 1 : Math.min(t * 2, 4)) : t > -1 ? -1 : Math.max(t * 2, -4))
+        else abspieler.setzeTempo(k === 'l' ? (t < 1 ? 1 : Math.min(t * 2, 8)) : t > -1 ? -1 : Math.max(t * 2, -8))
       } else if (e.key === 'Home' || e.key === 'End') {
         // Den ganzen Film überspringen. Es gab dafür bisher nichts — bei
         // starkem Zoom war der Weg an den Anfang ein Zug über die halbe
