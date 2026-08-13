@@ -1,6 +1,8 @@
 # Konzept: Codebase-Bezeichner auf Englisch
 
-**Stand:** 7. August 2026 · geplant, nichts davon umgesetzt.
+**Stand:** 7. August 2026 · **am 13.08. geprüft und VERTAGT** (§9) — nichts davon umgesetzt,
+und bis auf Weiteres bleibt auch neuer Code deutsch. Was jetzt schon gilt: die linke
+Glossar-Spalte (§6), ein Wort je Begriff.
 **Anlass:** Zukunftssicherheit (Mitentwickler, Hiring, öffentliche APIs) bei
 weiterhin deutschem Chat und deutschen Produkttexten.
 **Leitplanke:** Coding-Agenten übernehmen die Tipparbeit; Menschen halten
@@ -217,6 +219,25 @@ Danach: npm test (betroffene Studio-Tests) und npm run typecheck.
 Synonyme in der rechten Spalte sind **verboten**, außer hier erlaubt.
 Neue Begriffe zuerst hier eintragen, dann im Code verwenden.
 
+**Solange die Migration vertagt ist (§9), gilt die LINKE Spalte genauso verbindlich.**
+Das ist die wichtigere Hälfte: Ein Synonym kostet heute, in jeder Suche und in jedem
+Konzept — die englische Zielform kostet erst, wenn übersetzt wird. Und eine Übersetzung
+wird billig, wenn vorher pro Begriff EIN Wort dasteht; teuer wird sie, wenn man erst die
+Bedeutung sortieren muss, bevor man ein Wort wählen kann.
+
+Drei Doppel stehen unten noch in der linken Spalte, weil sie so im Code stehen. Sie sind
+hiermit aufgelöst — umbenannt wird **beiläufig**, wenn eine Etappe die Stelle ohnehin
+öffnet, nie als eigener Lauf:
+
+| Begriff | verbindlich deutsch | Alt-Namen im Code | wo |
+|---|---|---|---|
+| Ort, an dem der Film anhält | **Halt** | `Stopp`, `PlayerStopp`, `gruppiereStopps`, `stops`, Datei `stopps.ts` | Player + `src/studio/stopps.ts` |
+| Wie lange die Karte steht | **Standzeit** | `haltedauerS` (neben `klemmeStandzeit` in derselben Datei) | `zeitleiste.ts` |
+| Zeit, die der Film läuft | **Filmzeit** | — (einheitlich) | — |
+
+`HOLD_HIDE`/`holdT`/`display.holdS` bleiben, wie sie sind: englisches Prototyp-Erbe des
+Players und im Austauschformat ein persistiertes Feld (Welle 7).
+
 ### 6.1 Domain-Kern
 
 | Deutsch / Ist | Englisch (Code) | Nicht verwenden / Hinweis |
@@ -357,12 +378,45 @@ Start, wenn mindestens eines gilt:
 - öffentliche API/Lib geplant, oder
 - der bestehende Hybrid (schon teils Englisch) stört mehr als der Umbau.
 
-Sonst: Glossar jetzt pflegen, **neue** Module bereits englisch benennen
-(„stop the bleeding“), den großen Schnitt verschieben.
+### Stand 13. August 2026: geprüft und VERTAGT
+
+Aufgekommen mitten in Paket B des [Gleichlauf-Umbaus](konzept_gleichlauf_player_editor.md):
+Der legt neue geteilte Module an (`filmuhr.ts`, `einblendung.ts`, bald `filmachse.ts`), und
+die Frage war, ob wenigstens die englisch entstehen sollen.
+
+**Entschieden: nein. Alles bleibt deutsch, auch neue Module.** Damit ist die frühere
+Empfehlung dieses Abschnitts („neue Module bereits englisch, stop the bleeding") ausdrücklich
+zurückgenommen. Drei Gründe:
+
+1. **Die Regel wäre nicht ablesbar gewesen.** Der naheliegende Schnitt „`src/*.ts` ist der
+   Player, also englisch" hält nicht: Flach in `src/` liegen auch `passwortstaerke.ts`,
+   `app-nav.ts`, `dialogschicht.ts`, `entwicklungsstand.ts`, `handle.ts` — Produktmodule der
+   deutschen Seite ohne eigenes Verzeichnis. Eine Grenze hätte entweder Dateien verschoben
+   (mitten in den Etappen, die genau diese Dateien anfassen) oder wäre eine Liste zum
+   Nachschlagen geworden.
+2. **Der Mix ist teurer als der Aufschub.** Eine englische Insel plus Sonderregel erzeugt
+   genau den Zustand, den §1 als agentenschädlich benennt — und der wächst mit jedem Paket.
+3. **Später wird es kaum teurer.** Die Arbeit steckt laut diesem Papier in Review,
+   Persistenz und Drift-Wächtern, nicht in der Zahl der Namen. Ob dreißig Bezeichner mehr zu
+   übersetzen sind, ist Tipparbeit für einen Agenten.
+
+**Was stattdessen gilt:** die linke Glossar-Spalte (§6) — ein Wort je Begriff, auf Deutsch.
+Das ist die Wartbarkeitsfrage, die heute wirklich Geld kostet, und sie ist von der Sprache
+unabhängig.
+
+**Wieder aufmachen, wenn** eines der drei Tor-Kriterien oben eintritt. Bis dahin ist diese
+Frage beantwortet — wer sie erneut stellt, findet hier die Antwort samt Begründung, statt sie
+neu herzuleiten.
 
 ---
 
 ## 10. Nächster Schritt
+
+Solange vertagt (§9), gibt es genau einen: **die deutschen Doppel beiläufig auflösen** —
+`Stopp` → Halt, `haltedauerS` → Standzeit —, wenn eine Etappe die Stelle ohnehin öffnet.
+Kein eigener Lauf dafür.
+
+Wenn das Tor aufgeht:
 
 1. Dieses Dokument reviewen (Glossar-Streitpunkte: vor allem `Halt` → `stop`).
 2. CLAUDE-Sprachregel anpassen (Welle 0).
