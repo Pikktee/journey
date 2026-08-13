@@ -747,13 +747,24 @@ Ebenfalls nicht: die Rampen im Studio nachbilden (§5).
    Der Deckel gehört damit nicht der Kamera, sondern nirgends: Die eine echte Frage ist, ob
    die Kamera bei einem langen Frame springen darf — und E1 beantwortet sie mit ja.
    *(Diese Falle stand zwei Fassungen lang falsch herum im Papier.)*
-4. **Die Achse hängt an Werten, die erst spät bekannt sind — und unter E2 springt dann `s`,
+4. **„Was nicht an der Filmuhr hängt, muss ausdrücklich mitgehen" hat ZWEI belegte Fälle,
+   und der zweite kam erst nach dem ersten.** Der offensichtliche ist der Hintergrund
+   (Uhr steht, `<audio>` läuft — Paket B, nachgetragen). Der zweite ist die **verworfene
+   Zeit**: Der Notdeckel (1,0 s) kappt, was ein gedrosseltes `rAF` ohne
+   `visibilitychange` erzeugt — verdecktes Fenster, Kachel-Nachladen nach einem Sprung,
+   langsames Gerät unter Last. Danach ist die Tondatei um genau diese Sekunden zu weit,
+   dauerhaft, und wie weit hängt an der Vorgeschichte: In der Entwicklungs-Pane gemessen
+   **29,4 s in zwei Frames**, hörbar als „dieselbe Stelle der Tour, andere Stelle des
+   Stücks". Der Ausgleich hängt deshalb am Zähler selbst (`uhr.verworfenFrames` in
+   `updateTrace`), nicht an den Sprungwegen — die kennt er nicht. Wer eine dritte Uhr
+   einführt, prüft diese Liste: Bild, Ton, was noch?
+5. **Die Achse hängt an Werten, die erst spät bekannt sind — und unter E2 springt dann `s`,
    nicht nur der Balken.** Videolängen kommen bei Altbestand erst mit `loadedmetadata`; ein
    Achsen-Neubau mitten in der Fahrt verschiebt die Abbildung Filmzeit → Position, und die
    Kamera setzt um. Entweder `dauerS` beim Import nachziehen (Migration) oder die Achse für
    die laufende Fahrt einfrieren. Fehlt `durationS` ganz, nimmt das Studio 5,2 s an — der
    Player muss dieselbe Annahme treffen.
-5. ~~**Momente kosten im Studio Achsenbreite, in der Server-Achse nicht.**~~ **ERLEDIGT mit
+6. ~~**Momente kosten im Studio Achsenbreite, in der Server-Achse nicht.**~~ **ERLEDIGT mit
    v0.60.5** (`baueMomentHalte` in `filmachse.ts`). War Vorbedingung für Etappe 3.
 
 ---
@@ -792,7 +803,7 @@ weiteren Stellen nachbilden müsste, existiert als eigenes Ding nicht mehr.
 ## 16. Werkzeuge
 
 Die Messungen hinter allen Zahlen liegen in
-[scripts/messungen/](../../scripts/messungen/README.md) — samt der fünf Fallen, die eine
+[scripts/messungen/](../../scripts/messungen/README.md) — samt der sechs Fallen, die eine
 Messung hier wertlos machen: gedrosseltes Headless (`chrome-headless-shell` ließ die Tour 20×
 zu langsam laufen), der `dt`-Deckel (verfälscht genau das, was man messen will), das
 0×0-Viewport des Entwicklungs-Panes, synthetische Klicks ohne User-Activation (unmuted

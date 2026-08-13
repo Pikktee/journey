@@ -9,7 +9,7 @@ ohne sie nicht prüfen kann („Fertig, wenn bei 6× CPU-Drosselung `Δs ÷ Temp
 Sie sind kein Teil von Build oder Testlauf — sie messen einen laufenden Dev-Server bzw.
 lesen die gerenderten Touren der lokalen Instanz.
 
-## Fünf Fallen, die jede Messung hier wertlos machen
+## Sechs Fallen, die jede Messung hier wertlos machen
 
 Sie haben beim ersten Mal drei Anläufe gekostet. Wer sie nicht kennt, misst etwas anderes,
 als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
@@ -48,6 +48,13 @@ als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
    `hintergrund-versatz.mjs` macht es richtig; wer selbst misst, prüft `pausen` und
    `pausiertS` als Kontrolle, dass der Hintergrund überhaupt eingetreten ist.
 
+6. **Grün heißt nicht, dass der Player startet.** Typecheck, 643 Web-Tests und der Build waren
+   grün, während der Player auf `main` gar nicht mehr lief: `window.__j.anker = …` stand vor
+   der Zeile, die `window.__j` anlegt, und `Cannot set properties of undefined` brach das
+   ganze Modul ab. Keine dieser drei Prüfungen führt Code im Browser aus. Deshalb liegt
+   [player-startet.mjs](player-startet.mjs) daneben — fünf Sekunden, und er hätte es gefunden
+   (an genau diesem Fehler nachgestellt).
+
 Ein Kniff daneben, der keine Falle ist, sondern nützlich: Um eine Aufnahme im Editor zu einem
 **Video** zu machen, ohne Server-Daten anzufassen, lässt sich die Antwort von
 `/api/tours/:id/editor` clientseitig umschreiben (`window.fetch` patchen bzw. Playwright-
@@ -72,6 +79,7 @@ Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt a
 |---|---|---|
 | [bild-gegen-tonuhr.mjs](bild-gegen-tonuhr.mjs) | Wie weit die Bilduhr der Engine unter Last von der Echtzeit-Uhr des Tons abweicht. **Abnahmekriterium für Etappe 1.** Wertet nur stetige Fahrt (Halte und Rampen ausgeschlossen). | `node … 6` (CPU-Drosselung) |
 | [frame-verlust.mjs](frame-verlust.mjs) | Den Mechanismus dahinter: Frame-Abstände derselben rAF-Kette, Anteil über dem 50-ms-Deckel, verworfene Zeit. | `node … 12` |
+| [player-startet.mjs](player-startet.mjs) | **Rauchtest**, kein Messwerkzeug: Lädt der Player, kommt die Karte, gibt es Konsolenfehler? Die einzige Frage, die kein Test dieses Repos beantwortet — `tsc` sieht keinen Laufzeitfehler, die Suite ist DOM-frei, der Build bündelt nur. Nach jeder Änderung an `main.ts` und den Modulen darunter. | `node …` |
 | [hintergrund-versatz.mjs](hintergrund-versatz.mjs) | Was der Drosselungs-Lauf NICHT sieht: den Versatz zwischen Bild und Ton nach einer Zeit im Hintergrund. Läuft zweimal — einmal wie ausgeliefert, einmal mit überschriebenem `uhr.laeuft` (das Gate-Verhalten vor dem Nachtrag) — und zeigt so die Wirkung statt nur den Zustand. | `node …` |
 | [rampen-simulation.ts](rampen-simulation.ts) | Anfahr-/Ausrollkosten je Halt — die Geschwindigkeitslogik in Node nachgebildet, festes `dt`. Vergleicht Player-Dauer gegen Studio-Filmzeit je Tour. | `npx tsx …` |
 | [routen-laenge.ts](routen-laenge.ts) | Wie viel länger `route.total` (Catmull-Rom + 14-m-Resample) gegenüber der Rohgeometrie ist, in der der Server `f` misst. | `npx tsx …` |
