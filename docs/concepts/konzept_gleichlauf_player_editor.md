@@ -750,8 +750,10 @@ weiteren Stellen nachbilden müsste, existiert als eigenes Ding nicht mehr.
 ## 16. Werkzeuge
 
 Die Messungen hinter allen Zahlen liegen in
-[scripts/messungen/](../../scripts/messungen/README.md) — samt der vier Fallen, die eine
+[scripts/messungen/](../../scripts/messungen/README.md) — samt der fünf Fallen, die eine
 Messung hier wertlos machen: gedrosseltes Headless (`chrome-headless-shell` ließ die Tour 20×
 zu langsam laufen), der `dt`-Deckel (verfälscht genau das, was man messen will), das
-0×0-Viewport des Entwicklungs-Panes, und synthetische Klicks ohne User-Activation (unmuted
-Autoplay bleibt geblockt, man misst „kein Ton", wo Ton wäre).
+0×0-Viewport des Entwicklungs-Panes, synthetische Klicks ohne User-Activation (unmuted
+Autoplay bleibt geblockt, man misst „kein Ton", wo Ton wäre) — und `bringToFront()`, das in
+Headless gar keinen Hintergrund herstellt: kein `visibilitychange`, rAF läuft weiter, die Uhr
+wird nie angehalten und beide Vergleichsläufe kommen gleich heraus.

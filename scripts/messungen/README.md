@@ -9,7 +9,7 @@ ohne sie nicht prüfen kann („Fertig, wenn bei 6× CPU-Drosselung `Δs ÷ Temp
 Sie sind kein Teil von Build oder Testlauf — sie messen einen laufenden Dev-Server bzw.
 lesen die gerenderten Touren der lokalen Instanz.
 
-## Vier Fallen, die jede Messung hier wertlos machen
+## Fünf Fallen, die jede Messung hier wertlos machen
 
 Sie haben beim ersten Mal drei Anläufe gekostet. Wer sie nicht kennt, misst etwas anderes,
 als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
@@ -36,8 +36,19 @@ als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
    misst „kein Ton", wo Ton wäre. Entweder mit
    `--autoplay-policy=no-user-gesture-required` starten (so machen es die Skripte hier)
    oder mit echten Eingabe-Ereignissen arbeiten.
+5. **`page.bringToFront()` erzeugt in Headless KEINEN Hintergrund.** Eine zweite Seite nach
+   vorn zu holen sieht aus wie ein Tab-Wechsel, liefert aber weder `visibilitychange` noch
+   hält es die rAF-Kette an: Die Uhr wurde in einem so gebauten Lauf nie pausiert
+   (`window.__j.uhr.pausen === 0`) und beide Vergleichsläufe kamen erwartungsgemäß gleich
+   heraus — gemessen wurde nichts. Der Hintergrund muss hergestellt werden: **erst** die
+   rAF-Kette kappen (`window.requestAnimationFrame` ersetzen), **dann**
+   `visibilityState: 'hidden'` samt Ereignis. Die Reihenfolge ist Teil der Falle — läuft rAF
+   weiter, hebt die Selbstheilung der Uhr die Pause nach zwei Frames wieder auf (das ist so
+   gewollt, s. `src/filmuhr.ts`, macht die Messung aber wertlos).
+   `hintergrund-versatz.mjs` macht es richtig; wer selbst misst, prüft `pausen` und
+   `pausiertS` als Kontrolle, dass der Hintergrund überhaupt eingetreten ist.
 
-Ein fünfter Kniff, der keine Falle ist, sondern nützlich: Um eine Aufnahme im Editor zu einem
+Ein Kniff daneben, der keine Falle ist, sondern nützlich: Um eine Aufnahme im Editor zu einem
 **Video** zu machen, ohne Server-Daten anzufassen, lässt sich die Antwort von
 `/api/tours/:id/editor` clientseitig umschreiben (`window.fetch` patchen bzw. Playwright-
 `route`). So wurde der Video-Ton im Studio geprüft, obwohl keine lokale Tour ein Video hat.
@@ -61,6 +72,7 @@ Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt a
 |---|---|---|
 | [bild-gegen-tonuhr.mjs](bild-gegen-tonuhr.mjs) | Wie weit die Bilduhr der Engine unter Last von der Echtzeit-Uhr des Tons abweicht. **Abnahmekriterium für Etappe 1.** Wertet nur stetige Fahrt (Halte und Rampen ausgeschlossen). | `node … 6` (CPU-Drosselung) |
 | [frame-verlust.mjs](frame-verlust.mjs) | Den Mechanismus dahinter: Frame-Abstände derselben rAF-Kette, Anteil über dem 50-ms-Deckel, verworfene Zeit. | `node … 12` |
+| [hintergrund-versatz.mjs](hintergrund-versatz.mjs) | Was der Drosselungs-Lauf NICHT sieht: den Versatz zwischen Bild und Ton nach einer Zeit im Hintergrund. Läuft zweimal — einmal wie ausgeliefert, einmal mit überschriebenem `uhr.laeuft` (das Gate-Verhalten vor dem Nachtrag) — und zeigt so die Wirkung statt nur den Zustand. | `node …` |
 | [rampen-simulation.ts](rampen-simulation.ts) | Anfahr-/Ausrollkosten je Halt — die Geschwindigkeitslogik in Node nachgebildet, festes `dt`. Vergleicht Player-Dauer gegen Studio-Filmzeit je Tour. | `npx tsx …` |
 | [routen-laenge.ts](routen-laenge.ts) | Wie viel länger `route.total` (Catmull-Rom + 14-m-Resample) gegenüber der Rohgeometrie ist, in der der Server `f` misst. | `npx tsx …` |
 | [anker-versatz.ts](anker-versatz.ts) | Den Rest, den keine Uhr behebt: Server-`f` gegen Player-`frac` am selben physischen Punkt, in Filmsekunden. Zuordnung **monoton**, sonst schnappt eine sich kreuzende Route auf den falschen Vorbeigang. | `npx tsx …` |
@@ -76,6 +88,10 @@ Einordnung stehen im [Konzept](../../docs/concepts/konzept_gleichlauf_player_edi
 |---|---|
 | Bilduhr bei 1× / 6× / 12× Drosselung | 99,7 % / 81,3 % / 46,1 % der Echtzeit |
 | Verworfene Zeit durch den 50-ms-Deckel | 0 % / 5,0 % / 35,3 % |
+| Player gegen Studio-Filmzeit | +9,1 % … +12,7 % (vier Touren) |
+| davon Rampen je Stopp | 0,44 s (Kurztour) … 2,70 s |
+| `route.total` gegen Rohgeometrie | +2,18 % … +3,04 % |
+| Anker-Versatz, Median / p90 | 0,03–0,70 s / 0,05–0,88 s |
 
 **Nach Etappe 1 (13. August 2026, „eine Uhr"):** dieselbe Messung, dieselbe Tour —
 **99,8 % / 99,7 % / 99,6 %** (eine Messreihe, 1× / 6× / 12×; Einzelläufe streuen um ein
@@ -86,10 +102,8 @@ Der fehlende Rest ist **nicht verlorene Zeit** — `verworfenS` bleibt 0 —, so
 Messfenster selbst: Es lässt bis 3 % Untertempo zu (`speed > ziel * 0.97`), und die
 gewerteten Intervalle liegen im Mittel etwas unter dem Ziel.
 
-Und **6 s Hintergrund** (`visibilitychange` plus stillstehende `rAF`-Kette) ergeben 0 m
-Versatz im Bild UND +0,01 s im Ton. Die Gegenprobe mit dem alten Gate-Verhalten, nur
-`uhr.laeuft` überschrieben: +6,00 s — der Ton lief die volle Abwesenheit weiter.
-| Player gegen Studio-Filmzeit | +9,1 % … +12,7 % (vier Touren) |
-| davon Rampen je Stopp | 0,44 s (Kurztour) … 2,70 s |
-| `route.total` gegen Rohgeometrie | +2,18 % … +3,04 % |
-| Anker-Versatz, Median / p90 | 0,03–0,70 s / 0,05–0,88 s |
+Und **6 s Hintergrund** ([hintergrund-versatz.mjs](hintergrund-versatz.mjs)) ergeben 0 m
+Versatz im Bild UND +0,00…0,01 s im Ton, der dort pausiert steht. Die Gegenprobe mit dem
+alten Gate-Verhalten, nur `uhr.laeuft` überschrieben: **+6,01 s** — der Ton lief die volle
+Abwesenheit weiter, dauerhaft (die Position wird nur beim Eintritt in einen Bereich
+gesetzt).
