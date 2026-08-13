@@ -1,11 +1,11 @@
 // Die Film-Achse der Pipeline (Etappe 4): Aufnahmezeit ↔ Filmsekunde.
 //
-// Sie ist der Server-Spiegel von `baueAchse` in src/studio/zeitleiste.ts. Beide
-// müssen dasselbe rechnen — sonst startet ein Ton-Klip im fertigen Film
-// woanders, als der Editor ihn gezeigt hat. Ein Drift-Wächter am Ende hält die
-// Interpolations-Konvention gegen die Studio-Quelle.
+// Sie ist der Server-Spiegel der geteilten Achse (src/filmachse.ts, von Player
+// und Studio benutzt). Beide müssen dasselbe rechnen — sonst startet ein
+// Ton-Klip im fertigen Film woanders, als der Editor ihn gezeigt hat. Die Zahlen
+// hält das gemeinsame Verhaltens-Fixture zusammen (filmtempo.test.ts), die
+// Konvention der Drift-Wächter am Ende.
 
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   baueAchsenHalte,
@@ -190,19 +190,32 @@ describe('projiziereAufReihe', () => {
   })
 })
 
-describe('Drift-Wächter gegen die Studio-Achse', () => {
-  it('teilt die lower_bound-Konvention von src/studio/zeitleiste.ts', () => {
-    // Die Studio-Interpolation liefert bei doppelten Stützstellen den LINKEN
-    // Wert („Plateau → Ankunft"). Kippte eine der beiden Seiten auf rechts,
-    // spränge jeder Anker, der auf einer Halt-Zeit sitzt, um die Standzeit.
-    const quelle = readFileSync(new URL('../../src/studio/zeitleiste.ts', import.meta.url), 'utf8')
-    expect(quelle).toMatch(/Umkehrung; Plateau → Ankunft/)
-    expect(quelle).toMatch(/if \(\(xs\[mitte\] as number\) < x\) lo = mitte \+ 1/)
+describe('Drift-Wächter gegen die Web-Achse', () => {
+  // Die Zahlen prüft das gemeinsame Verhaltens-Fixture (filmtempo.test.ts, und
+  // in der Web-Hälfte test/filmachse.test.ts). Hier steht die KONVENTION, an
+  // der beide Seiten hängen und die kein Zahlenvergleich sichtbar macht.
+  //
+  // Vorher stand an dieser Stelle ein Wächter, der src/studio/zeitleiste.ts als
+  // TEXT las und auf `tS.splice(i, 0, h.offsetS, h.offsetS)` prüfte. Er fiel mit
+  // Paket D — nicht weil das Weben sich geändert hätte, sondern weil es
+  // umgezogen ist (src/filmachse.ts) und in Metern rechnet. Genau das ist der
+  // Grund, warum ein Quelltext-Wächter keiner ist.
+
+  it('liefert bei doppelten Stützstellen die ANKUNFT, nicht die Abfahrt', () => {
+    // Kippte eine der beiden Seiten auf „rechts", spränge jeder Anker, der auf
+    // einer Halt-Zeit sitzt, um die ganze Standzeit.
+    const reihe = baueZeitreihe([geradeStrecke(11, 96, 60)])
+    const achse = baueFilmAchse(reihe, [{ offsetS: 300, breiteS: 6 }])!
+    expect(filmBeiZeit(achse, 300)).toBeCloseTo(10, 6) // nicht 16
+    expect(zeitBeiFilm(achse, 16)).toBeCloseTo(300, 6) // nicht die Zeit danach
   })
 
-  it('webt Halte wie die Studio-Achse: zwei Stützstellen, Späteres hebt sich', () => {
-    const quelle = readFileSync(new URL('../../src/studio/zeitleiste.ts', import.meta.url), 'utf8')
-    expect(quelle).toMatch(/tS\.splice\(i, 0, h\.offsetS, h\.offsetS\)/)
-    expect(quelle).toMatch(/filmS\.splice\(i, 0, filmAmHalt, filmAmHalt \+ h\.breiteS\)/)
+  it('webt einen Halt als PAAR ein: Späteres hebt sich um seine Breite', () => {
+    const reihe = baueZeitreihe([geradeStrecke(11, 96, 60)])
+    const ohne = baueFilmAchse(reihe, [])!
+    const mit = baueFilmAchse(reihe, [{ offsetS: 300, breiteS: 6 }])!
+    expect(filmBeiZeit(mit, 120)).toBeCloseTo(filmBeiZeit(ohne, 120), 6) // davor: unverändert
+    expect(filmBeiZeit(mit, 480)).toBeCloseTo(filmBeiZeit(ohne, 480) + 6, 6) // danach: um die Breite
+    expect(mit.gesamtS - ohne.gesamtS).toBeCloseTo(6, 6)
   })
 })

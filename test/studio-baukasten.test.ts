@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
 import { HOLD_AUSBLEND, HOLD_HIDE } from '../src/einblendung.js'
+import { MODUS_TEMPO, MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S } from '../src/filmachse.js'
 import {
   effektiveMedien,
   erfasseUndo,
@@ -184,14 +185,10 @@ describe('Kamera-Momente', () => {
     expect(pruefeOverlay({ schema: 'maptale/edits@1', momente: [{ ab: iso(0), art: 'umkreisen', dauerS: 6 }] })).toBeNull()
   })
 
-  it('Default-Dauern decken sich mit der Engine (Drift-Wächter tour.ts)', () => {
-    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
-    const block = quelle.match(/const MOMENT_DEFAULT_S = \{([^}]*)\}/)
-    expect(block, 'MOMENT_DEFAULT_S in src/tour.ts nicht gefunden').not.toBeNull()
-    const engine = Object.fromEntries(
-      [...(block?.[1] ?? '').matchAll(/(\w+):\s*(\d+)/g)].map((m) => [m[1] as string, Number(m[2])]),
-    )
-    expect(engine).toEqual(MOMENT_DEFAULT_S)
+  it('Default-Dauern SIND die der Engine, keine Kopie davon', () => {
+    // Seit Paket D liest `tour.ts` dieselbe Tabelle (src/filmachse.ts) — der
+    // Wächter vergleicht deshalb keine Zeichenkette mehr, sondern die Identität.
+    expect(MOMENT_DEFAULT_S).toBe(ENGINE_MOMENT_DEFAULT_S)
   })
 })
 
@@ -320,23 +317,17 @@ describe('Fortbewegungs-Modi', () => {
   // Engine, Icons und Motorsound moped/jeep längst unterstützten; aufgezeichnete
   // Touren konnten diese Modi deshalb nie bekommen. tour.ts lädt MapLibre und
   // ist im Node-Test nicht importierbar, also über den Quelltext.
-  it('decken sich mit MODE_SPEED der Engine', () => {
-    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
-    const block = quelle.match(/const MODE_SPEED = \{([^}]*)\}/)
-    expect(block, 'MODE_SPEED in src/tour.ts nicht gefunden').not.toBeNull()
-    const engine = [...(block?.[1] ?? '').matchAll(/(\w+)\s*:/g)].map((m) => m[1] as string)
-    expect(engine.slice().sort()).toEqual([...MODI].slice().sort())
+  it('decken sich mit der Tempo-Tabelle der Engine', () => {
+    // `MODUS_TEMPO` steht seit Paket D in src/filmachse.ts und wird von der
+    // Engine, vom Studio und (als erzwungener Spiegel) vom Server gelesen —
+    // kein Quelltext-Vergleich mehr nötig.
+    expect(Object.keys(MODUS_TEMPO).slice().sort()).toEqual([...MODI].slice().sort())
   })
 
   it('Tempo-Faktoren der Dauerschätzung stimmen mit der Engine überein', () => {
-    const quelle = readFileSync(new URL('../src/tour.ts', import.meta.url), 'utf8')
-    const block = quelle.match(/const MODE_SPEED = \{([^}]*)\}/)
-    const engine = Object.fromEntries(
-      [...(block?.[1] ?? '').matchAll(/(\w+)\s*:\s*([\d.]+)/g)].map((m) => [m[1] as string, Number(m[2])]),
-    )
     // Eine 12 km lange Fahrt je Modus: die geschätzte Dauer muss exakt
-    // Länge / (120 · MODE_SPEED) sein — prüft Faktor UND Basistempo.
-    for (const [modus, faktor] of Object.entries(engine)) {
+    // Länge / (120 · Faktor) sein — prüft Faktor UND Basistempo.
+    for (const [modus, faktor] of Object.entries(MODUS_TEMPO)) {
       const strecke: TrackPunkt[] = [
         [9, 47, 0, 0],
         [9 + 12000 / (111_320 * Math.cos((47 * Math.PI) / 180)), 47, 0, 3600],

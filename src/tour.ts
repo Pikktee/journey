@@ -5,6 +5,7 @@
 // nötig, weil zoom-basierte Kameras (jumpTo) in steilem Gelände im Hang stecken bleiben.
 import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
 import { HOLD_AUSBLEND, HOLD_HIDE } from './einblendung.js'
+import { BASIS_TEMPO_MS, MODUS_TEMPO, momentHaltS } from './filmachse.js'
 import { Filmuhr, verbindeSichtbarkeit } from './filmuhr.js'
 import { pointAt, bearingAt, dist, bearing, angleDelta, destination, type Route } from './geo.js'
 import { EXAGGERATION, type LngLat2D } from './map.js'
@@ -100,13 +101,12 @@ interface ReposeTween {
 
 type Phase = 'intro' | 'ride' | 'photo' | 'moment' | 'finale'
 
-// Kamera-Momente (Kreativbaukasten): Default-Dauern je Art in Sekunden — muss
-// mit MOMENT_DEFAULT_S in src/studio/editmodell.ts übereinstimmen (Drift-Test).
-const MOMENT_DEFAULT_S = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
+// Kamera-Momente (Kreativbaukasten): Ein Moment hält den Film an wie eine
+// Aufnahme — seine Standzeit gehört deshalb zum Tempo-Modell und steht seit
+// Paket D in filmachse.ts, geteilt mit Studio und Server-Spiegel.
 const MOMENT_ORBIT_SPEED = 38 // Grad/s beim Umkreisen (6 s ≈ 228°, elegante Dreivierteldrehung)
 const MOMENT_ASCEND_LIFT = 2.4 // Faktor, um den die Kamera-Flughöhe beim Aufstieg wächst
-const momentDauer = (m: KameraMoment | null | undefined): number =>
-  m?.dauerS ?? (m ? (MOMENT_DEFAULT_S as Record<string, number | undefined>)[m.art] : undefined) ?? 5
+const momentDauer = (m: KameraMoment | null | undefined): number => (m ? momentHaltS(m) : 5)
 
 // Anzeigedauer eines Foto-Items: vom Autor im Studio gesetzt (display.holdS,
 // Kreativbaukasten) oder der Default. Videos halten unabhängig davon bis zum
@@ -138,12 +138,13 @@ class Smooth {
   }
 }
 
-// Tempo- und Kameradistanz-Faktoren je Fortbewegungsmodus: schnelle Modi
-// fahren deutlich schneller UND die Kamera zoomt weiter heraus — die
-// Spreizung macht den Moduswechsel körperlich spürbar.
+// Kameradistanz je Fortbewegungsmodus: schnelle Modi fahren deutlich schneller
+// UND die Kamera zoomt weiter heraus — die Spreizung macht den Moduswechsel
+// körperlich spürbar. Das TEMPO (früher `MODE_SPEED` und `baseSpeed` hier) steht
+// seit Paket D in filmachse.ts: dieselbe Tabelle, die die Filmachse rechnet, und
+// dieselbe, die das Studio liest.
 // hover > behind bei walk: in Städten schaut die Kamera dadurch etwas steiler
 // über die Dächer, statt hinter Häuserzeilen zu hängen
-const MODE_SPEED = { walk: 0.4, moped: 1.15, bike: 1, jeep: 1.45, tram: 1.25, ferry: 2.5 }
 const MODE_SCALE = {
   walk: { behind: 0.5, hover: 0.68 },
   moped: { behind: 0.95, hover: 1 }, // wendig wie ein Rad, Kamera dicht dran
@@ -156,7 +157,7 @@ const MODE_SCALE = {
 // Die Modus-Schlüssel kommen als freie Zeichenketten herein (Server-Segmente,
 // src/remote.ts) — die Fallbacks des Bestands („?? 1", „?? MODE_SCALE.bike")
 // sind deshalb kein Zierrat, sondern der Umgang mit einem unbekannten Modus.
-const tempoFaktor = (mode: string): number => (MODE_SPEED as Record<string, number | undefined>)[mode] ?? 1
+const tempoFaktor = (mode: string): number => (MODUS_TEMPO as Record<string, number | undefined>)[mode] ?? 1
 const skalaFuer = (mode: string): Kameradistanz => (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
 
 export class Tour {
@@ -254,7 +255,7 @@ export class Tour {
     this.reposeTween = null
     this.s = 0
     this.speed = 0
-    this.baseSpeed = 120 // m/s Streckenfortschritt bei 1×
+    this.baseSpeed = BASIS_TEMPO_MS // m/s Streckenfortschritt bei 1×
     this.mult = 1
     this.dir = 1 // Wiedergaberichtung: +1 vorwärts, −1 rückwärts (JKL-Shuttle)
     this.preset = PRESETS.mittel

@@ -6,9 +6,12 @@
 // Wie serverseitig gilt: Edits referenzieren stabile Anker (Medien-IDs,
 // Koordinaten, absolute Zeitstempel), nie den Streckenanteil f.
 
+import { MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S } from '../filmachse.js'
+
 /**
  * Fortbewegungs-Modi — deckungsgleich mit MODI in server/src/schema/upload.ts
- * und mit der Player-Engine (MODE_SPEED/MODE_SCALE in src/tour.js). Reihenfolge
+ * und mit der Player-Engine (MODUS_TEMPO in src/filmachse.ts, MODE_SCALE in
+ * src/tour.ts). Reihenfolge
  * wie in der UI: unmotorisiert → motorisiert → öffentlich → Wasser.
  * Ein Drift-Wächter in test/studio-baukasten.test.ts vergleicht die Liste mit
  * der Engine — sie lief schon einmal auseinander (Studio kannte moped/jeep nicht,
@@ -109,10 +112,11 @@ export interface KameraMoment {
 }
 
 /**
- * Default-Dauern je Moment-Art (s). Muss mit der Engine (src/tour.js) synchron
- * bleiben — ein Drift-Wächter in test/studio-baukasten.test.ts prüft das.
+ * Default-Dauern je Moment-Art (s) — KEINE Kopie mehr, sondern dieselbe Tabelle,
+ * aus der auch die Engine liest (src/filmachse.ts, seit Paket D). Der Name bleibt
+ * hier stehen, er steht im ganzen Editor.
  */
-export const MOMENT_DEFAULT_S: Record<MomentArt, number> = { umkreisen: 6, aufstieg: 5, innehalten: 4 }
+export const MOMENT_DEFAULT_S: Record<MomentArt, number> = ENGINE_MOMENT_DEFAULT_S
 
 /** Platziertes Audio-Asset: Musik mit Bereich [ab,bis], SFX als Einzelschuss. */
 export interface AudioEintrag {

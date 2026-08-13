@@ -31,6 +31,28 @@ export const HOLD_HIDE = 5.2
 export const HOLD_AUSBLEND = 0.8
 
 /**
+ * Standzeit EINER Aufnahme im Halt (ohne Ausblendung) — die Filmzeit, die sie
+ * kostet.
+ *
+ * Für ein Video ist das seine Länge und sonst nichts: Der Player läuft bis zum
+ * Dateiende, `display.holdS` ist dort wirkungslos. Kennt niemand die Länge
+ * (unverarbeiteter Altbestand), bleibt es bei der Foto-Annahme — und zwar in
+ * Player UND Editor gleich (Konzept, Falle 4).
+ *
+ * Der Editor legt für seinen Video-SCHNITT noch eine Klemme darum
+ * (`aufnahmeHaltS` in src/studio/zeitleiste.ts); die Regel darunter ist diese.
+ */
+export function standzeitS(m: {
+  type?: 'photo' | 'video'
+  /** Länge des Videos in Sekunden */
+  dauerS?: number
+  display?: { holdS?: number }
+}): number {
+  if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return m.dauerS
+  return m.display?.holdS ?? HOLD_HIDE
+}
+
+/**
  * Grenzen des Seitenverhältnisses der Foto-Karte (Breite ÷ Höhe).
  *
  * Extreme Panoramen und Hochformate würden die Bühne sonst sprengen: Ein

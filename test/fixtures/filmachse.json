@@ -1,0 +1,94 @@
+{
+  "hinweis": [
+    "Verhaltens-Fixture der Filmachse — die Klammer um die ZWEI Stellen, an denen das",
+    "Tempo-Modell steht: src/filmachse.ts (Player + Studio) und server/src/pipeline/",
+    "filmtempo.ts + filmachse.ts (der Server kann die Web-Datei nicht importieren,",
+    "eigener rootDir). Beide Seiten rechnen diese Fälle durch: test/filmachse.test.ts",
+    "und server/test/filmtempo.test.ts.",
+    "",
+    "Vorher hielten Tests die beiden Seiten zusammen, indem sie den QUELLTEXT von",
+    "src/tour.ts nach Zeichenketten absuchten — einer prüfte, ob ein Kommentar",
+    "dasteht. Eine umbenannte Konstante ließ den Wächter still durchlaufen.",
+    "",
+    "Die Zahlen sind von Hand gerechnet, nicht aus einer Implementierung gezogen:",
+    "Ein generiertes Fixture beschriebe nur, was eine Seite TUT, statt was beide",
+    "SOLLEN. Die Fälle sind deshalb bewusst glatt (Strecken als Vielfache der",
+    "Tempi).",
+    "",
+    "Die Server-Seite fährt jeden Fall mit 1 m/s ab: Aufnahmesekunde und",
+    "Streckenmeter sind dort dieselbe Zahl, und ihre zeitparametrisierte Achse",
+    "lässt sich gegen dieselben Erwartungen prüfen. Reale Pausen kommen deshalb",
+    "in den Fällen nicht vor — sie haben in der Strecken-Achse ohnehin keine",
+    "Breite (Konzept §8C, E12)."
+  ],
+  "tempoMs": {
+    "walk": 48,
+    "bike": 120,
+    "moped": 138,
+    "jeep": 174,
+    "tram": 150,
+    "ferry": 300
+  },
+  "standzeit": {
+    "fotoS": 5.2,
+    "ausblendS": 0.8,
+    "momentS": { "umkreisen": 6, "aufstieg": 5, "innehalten": 4 }
+  },
+  "haltAbstandM": 120,
+  "faelle": [
+    {
+      "name": "Ein Modus: Strecke ÷ Tempo, sonst nichts",
+      "abschnitte": [{ "abM": 0, "mode": "walk" }],
+      "gesamtM": 960,
+      "halte": [],
+      "gesamtS": 20,
+      "filmBeiStrecke": [[0, 0], [240, 5], [480, 10], [960, 20]],
+      "streckeBeiFilm": [[0, 0], [10, 480], [20, 960]]
+    },
+    {
+      "name": "Modus-Wechsel: die Fähre staucht ihren Abschnitt",
+      "abschnitte": [
+        { "abM": 0, "mode": "walk" },
+        { "abM": 480, "mode": "ferry" }
+      ],
+      "gesamtM": 1080,
+      "halte": [],
+      "gesamtS": 12,
+      "filmBeiStrecke": [[240, 5], [480, 10], [780, 11], [1080, 12]],
+      "streckeBeiFilm": [[10, 480], [11, 780]]
+    },
+    {
+      "name": "Ein Halt: Filmzeit läuft, die Strecke steht",
+      "abschnitte": [{ "abM": 0, "mode": "walk" }],
+      "gesamtM": 960,
+      "halte": [{ "meterM": 480, "breiteS": 6 }],
+      "gesamtS": 26,
+      "filmBeiStrecke": [[240, 5], [480, 10], [960, 26]],
+      "streckeBeiFilm": [[10, 480], [13, 480], [16, 480], [21, 720]]
+    },
+    {
+      "name": "Zwei Halte: der zweite kennt die Breite des ersten",
+      "abschnitte": [{ "abM": 0, "mode": "walk" }],
+      "gesamtM": 960,
+      "halte": [
+        { "meterM": 240, "breiteS": 6 },
+        { "meterM": 720, "breiteS": 4 }
+      ],
+      "gesamtS": 30,
+      "filmBeiStrecke": [[240, 5], [480, 16], [720, 21], [960, 30]],
+      "streckeBeiFilm": [[5, 240], [10, 240], [21, 720], [25, 720], [25.5, 744]]
+    },
+    {
+      "name": "Halt genau am Modus-Wechsel",
+      "abschnitte": [
+        { "abM": 0, "mode": "walk" },
+        { "abM": 480, "mode": "ferry" }
+      ],
+      "gesamtM": 1080,
+      "halte": [{ "meterM": 480, "breiteS": 5.2 }],
+      "gesamtS": 17.2,
+      "filmBeiStrecke": [[480, 10], [1080, 17.2]],
+      "streckeBeiFilm": [[10, 480], [15.2, 480], [16.2, 780]]
+    }
+  ]
+}

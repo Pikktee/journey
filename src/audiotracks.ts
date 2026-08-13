@@ -51,6 +51,36 @@ export function sfxSollFeuern(vorher: number, nachher: number, f0: number, istPl
   return vorher < f0 && nachher >= f0
 }
 
+/**
+ * Wo in der Datei setzt ein Musik-Bereich ein, wenn man mitten in ihm einsteigt?
+ *
+ * Nicht bei 0: Wer bei der Hälfte des Bereichs einsteigt, soll hören, was dort
+ * im fertigen Film liefe. `seitFilmS` ist die FILMzeit seit Bereichsbeginn — die
+ * eine Größe, die der Aufrufer beisteuert (Player: über die Filmachse; Editor:
+ * über seine Spielkurve). Kürzere Dateien laufen im Loop, deshalb der Umbruch;
+ * `dauerS` ist erst nach `loadedmetadata` bekannt — ohne sie kommt der rohe
+ * Versatz zurück.
+ *
+ * `einstiegS` (linker Trim) verschiebt den Nullpunkt IN der Datei. Der Modulo
+ * läuft danach über die GANZE Datei, nicht über den Rest hinter dem Einstieg —
+ * denn genau das tut `el.loop`: Es springt am Dateiende auf Position 0 zurück.
+ * Loop hebt nur den RECHTEN Anschlag auf; eine Wiederholung VOR dem Dateianfang
+ * gibt es nicht.
+ *
+ * Sie stand bis Paket D in src/studio/abspielen.ts und rechnete dort über die
+ * Filmkurve des Editors — für den Player unerreichbar. Er setzte deshalb hart
+ * `currentTime = startS`: Wer mitten hineinsprang, hörte das Stück von vorn, wer
+ * innerhalb eines Bereichs scrubbte, hörte es weiterlaufen. Ein Umzug, kein
+ * Nachbau (Konzept §6C, Etappe 3).
+ */
+export function musikVersatzS(seitFilmS: number, dauerS = 0, einstiegS = 0, loop = true): number {
+  const roh = Math.max(0, einstiegS) + Math.max(0, seitFilmS)
+  if (!(dauerS > 0)) return roh
+  // Ohne Loop endet der Klip am Material: die Position bleibt am Dateiende
+  // stehen (das Element ist dann `ended` und schweigt), statt vorn neu zu beginnen.
+  return loop ? roh % dauerS : Math.min(roh, dauerS)
+}
+
 // Ducking bei Video-Ton: volle Video-Lautstärke senkt die Musik auf diesen Anteil
 // (~−13 dB). Der tatsächliche Duck-Pegel folgt der Video-Ton-Hülle (Equal-Power-
 // Crossfade) — s. videoTonHuelle / videoMusikDuck. Später im Editor pro Medium
@@ -112,6 +142,21 @@ interface Bereichsspur extends TourAudio {
 export interface AudioSpuren {
   setFrac(f: number, istPlayback: boolean): void
   setGate(fn: () => boolean): void
+  /**
+   * Laufende Bereiche auf die Filmsekunde nachziehen, an der der Film JETZT
+   * steht — nach einem Scrub oder Sprung INNERHALB eines Bereichs.
+   *
+   * Der Eintritt allein genügt dafür nicht: Wer im Bereich bleibt, löst ihn nie
+   * aus, und die Datei stünde bis zum Bereichsende an einer anderen Stelle als
+   * der Film. Warum nicht in jedem Frame: Während des Scrubs läuft die Musik
+   * (das Gate zählt Scrubben als Wiedergabe) — ein Seek je Frame wäre ein
+   * Stottern statt einer Position.
+   *
+   * `bei` ist der Streckenanteil, an dem der Sprung ENDET. Er muss mitkommen:
+   * `setFrac` läuft erst im nächsten Frame, der eingebaute Wert wäre also noch
+   * der von VOR dem Sprung — und der Ton stünde eine Geste zu spät.
+   */
+  richteAus(bei?: number): void
   setMusikEnabled(on: boolean): void
   setSfxEnabled(on: boolean): void
   setDucking(pegel: DuckPegel): void
@@ -119,6 +164,13 @@ export interface AudioSpuren {
   readonly level: number
   /** Quelle der Spur unter dem Playhead (Debug/E2E) */
   readonly aktiveSpur: string | null
+  /**
+   * Was die Bereichs-Spuren gerade spielen und WO in der Datei sie stehen
+   * (Debug/E2E) — Spiegel von `Abspieler.tonStand` im Studio. Ohne ihn ist die
+   * Datei-Position im Player nicht nachprüfbar: Die Elemente entstehen per
+   * `new Audio()` und hängen nirgends im DOM.
+   */
+  readonly tonStand: Array<{ src: string; laeuft: boolean; positionS: number; dauerS: number; f0: number }>
   destroy(): void
 }
 
@@ -142,7 +194,18 @@ export const STUDIO_PEGEL_VORGABE = 0.8
 
 export function createAudioTracks(
   tracks: TourAudio[],
-  { volume = KURATIERTER_PEGEL }: { volume?: number } = {},
+  {
+    volume = KURATIERTER_PEGEL,
+    filmS,
+  }: {
+    volume?: number
+    /**
+     * Filmsekunde zu einem Streckenanteil (main.ts, über die Filmachse). Fehlt
+     * sie, bleibt es beim alten Verhalten „von vorn" — so lief es, solange die
+     * Achse für den Player unerreichbar war.
+     */
+    filmS?: (frac: number) => number
+  } = {},
 ): AudioSpuren {
   // Bereichs-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
   // geladen, preload='none'), eigener Blend-Level für die weiche Bereichsgrenze.
@@ -161,6 +224,30 @@ export function createAudioTracks(
   let duck = 1
 
   const vol = (t: TourAudio) => Math.max(0, Math.min(1, volume * (t.gain ?? 1)))
+
+  /**
+   * Die Datei auf die Stelle setzen, die bei Streckenanteil `f` im Film liefe.
+   *
+   * Ohne bekannte Dauer (das Element lädt erst) bleibt es beim rohen Versatz —
+   * `loadedmetadata` zieht ihn danach exakt nach. Ohne Filmachse (`filmS`
+   * fehlt) gilt der Dateianfang bzw. der linke Trim, also das alte Verhalten.
+   */
+  const setzeVersatz = (spur: Bereichsspur, f: number): void => {
+    const el = spur.el
+    if (!el) return
+    const start = spur.startS ?? 0
+    if (!filmS) {
+      el.currentTime = start
+      return
+    }
+    const dauer = Number.isFinite(el.duration) ? el.duration : 0
+    const seit = filmS(f) - filmS(spur.f0)
+    try {
+      el.currentTime = musikVersatzS(seit, dauer, start, loopAktiv(spur))
+    } catch {
+      /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
+    }
+  }
 
   // Träge Blende + Play/Pause nach Ziel (aktiviert && Gate && im Bereich). Eigener
   // Timer wie music.ts, damit der Ton unabhängig von der Render-Schleife läuft.
@@ -187,10 +274,16 @@ export function createAudioTracks(
           // seit Etappe 4 aus dem Overlay statt pauschal aus dem Typ.
           spur.el.loop = loopAktiv(spur)
           spur.el.src = spur.src
+          // Die Dauer kennt erst der geladene Kopf der Datei — bis dahin ist der
+          // Versatz ungekürzt. Einmalig nachziehen, mit dem Anteil VON DAMALS:
+          // Beim Laden steht der Film schon weiter, gemeint ist der Eintritt.
+          const beiEintritt = frac
+          spur.el.addEventListener('loadedmetadata', () => setzeVersatz(spur, beiEintritt), { once: true })
         }
-        // Einstieg in die DATEI (linker Trim): der Klip beginnt dort, wo der
-        // Autor die Kante gezogen hat, nicht am Dateianfang.
-        spur.el.currentTime = spur.startS ?? 0
+        // Einstieg in die DATEI: linker Trim plus die Filmzeit, die seit dem
+        // Bereichsbeginn vergangen ist — wer mitten hineinspringt, hört, was
+        // dort im Film liefe (§6C, `musikVersatzS`).
+        setzeVersatz(spur, frac)
         if (want) spur.el.play().catch(() => { spur.blocked = true })
       }
       spur.drin = drin
@@ -240,12 +333,27 @@ export function createAudioTracks(
       vorher = f // Vorher-Position hart nachziehen — auch nach Sprüngen/Scrubs
     },
     setGate: (fn: () => boolean) => { gate = fn },
+    richteAus: (bei?: number) => {
+      const f = bei ?? frac
+      for (const spur of musik) if (istAktiv(spur, f)) setzeVersatz(spur, f)
+    },
     setMusikEnabled: (on: boolean) => { musikEnabled = on },
     setSfxEnabled: (on: boolean) => { sfxEnabled = on },
     // Video-Ton-Hülle 0..1 → Musik ducken (Equal-Power); true/false bleibt kompatibel.
     setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
     get level() { return musik.reduce((m, s) => Math.max(m, s.level), 0) }, // Debug/E2E
     get aktiveSpur() { return musik.find((s) => istAktiv(s, frac))?.src ?? null }, // Debug/E2E
+    get tonStand() {
+      return musik
+        .filter((s) => s.el)
+        .map((s) => ({
+          src: s.src,
+          laeuft: !s.el?.paused,
+          positionS: s.el?.currentTime ?? 0,
+          dauerS: s.el?.duration ?? 0,
+          f0: s.f0,
+        }))
+    },
     destroy: () => { clearInterval(timer); for (const s of musik) s.el?.pause() },
   }
 }

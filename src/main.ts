@@ -4,7 +4,16 @@ import type { Map as MapLibreKarte, Marker } from 'maplibre-gl'
 import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } from './tours.js'
 import { loadRemoteTour, createTimeAt, type RemoteTourCfg } from './remote.js'
 import { tourAusPfad, tourPfad } from './routen.js'
-import { buildRoute, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
+import { buildRoute, dist, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
+import { HOLD_AUSBLEND, standzeitS } from './einblendung.js'
+import {
+  baueFilmachse,
+  filmBeiStrecke,
+  interpoliere,
+  momentHaltS,
+  type Filmachse,
+  type Streckenhalt,
+} from './filmachse.js'
 import { baueSBeiF } from './streckenanker.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers } from './map.js'
 import { createDayNight } from './daynight.js'
@@ -92,9 +101,9 @@ interface WetterStuetze {
  * optional, was erst im Laufe des Bootens entsteht.
  */
 interface PlayerDebug {
-  map: MapLibreKarte
-  route: Route
-  tourAudio: AudioSpuren | null
+  map?: MapLibreKarte
+  route?: Route
+  tourAudio?: AudioSpuren | null
   vehicle?: Fahrzeugton
   tour?: Tour
   /** Filmuhr der Engine samt Zählern (verworfene Zeit, Pausen, längstes Frame) */
@@ -106,6 +115,13 @@ interface PlayerDebug {
    * sich sonst als „alles wie früher" tarnt.
    */
   anker?: 'tabelle' | 'rueckfall'
+  /**
+   * Die Filmachse dieser Tour (Strecke → Filmzeit). Sie treibt den Player noch
+   * nicht an (Etappe 4), der Ton hängt aber schon an ihr — und zum Nachmessen
+   * braucht es beides: die Achse und die Auswertung `filmS(s)`.
+   */
+  filmachse?: Filmachse
+  filmS?: (s: number) => number
   rider?: Marker
   weather?: Wetteroverlay
   music?: Hintergrundmusik | null
@@ -123,6 +139,13 @@ declare global {
     MaptaleApp?: { verlassen?: () => void }
   }
 }
+
+// Das Objekt entsteht VOR dem ersten Eintrag. Vorher wurde es erst beim
+// Karten-Aufbau angelegt — `window.__j.anker = …` lief davor und warf
+// `Cannot set properties of undefined`, was das ganze Modul abbrach; und selbst
+// ohne den Fehler hätte das spätere `window.__j = { … }` alles Frühere wieder
+// weggeworfen. Deshalb wird ab hier nur noch ERGÄNZT.
+window.__j = {}
 
 // — Tour-Auswahl über den Pfad `/tour/<kennung>` — statische Registry oder
 // aufgezeichnete Tour vom Backend (Kennungen mit `t_`, remote.ts). Top-Level-
@@ -256,21 +279,6 @@ window.__j.anker = sBeiF.quelle
 // nur am Ende wieder durch `total` geteilt.
 const fracBeiF = (f: number) => sBeiF(f) / route.total
 
-// — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
-// Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
-// cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
-// Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
-// den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
-// Die Bereichsgrenzen laufen EINMAL durch die Übersetzung; danach vergleicht
-// audiotracks.ts sie gegen `s / route.total` und trifft die gemeinte Stelle.
-const audioSpuren = cfg.audio?.map((a) => ({ ...a, f0: fracBeiF(a.f0), f1: fracBeiF(a.f1) }))
-const tourAudio = audioSpuren?.length
-  ? createAudioTracks(audioSpuren, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })
-  : null
-// Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
-// sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
-const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
-
 // Streckenmeter des Segment-Anfangs; ein Segment ohne Punkte gibt es in gültigen
 // Daten nicht (der Fallback vermeidet nur die Ausnahme im Verdrahter).
 const segmentStart = (r: Route, seg: SpielerSegment) => {
@@ -313,6 +321,77 @@ const stops = gruppiereStopps(photos)
 const moments: KameraMoment[] = (cfg.moments ?? [])
   .map((m) => ({ s: sBeiF(m.f), art: m.art, dauerS: m.dauerS }))
   .sort((a, b) => a.s - b.s)
+// — Die Filmachse: Strecke → Filmzeit (Etappe 3) —
+//
+// Sie TREIBT den Player noch NICHT an — das ist Etappe 4; bis dahin integriert
+// die Engine ihre Position weiter selbst. Gebraucht wird sie schon jetzt für den
+// TON: Wer mitten in ein Musikstück springt, soll es dort hören, wo der Film
+// steht (`musikVersatzS`, src/audiotracks.ts).
+//
+// Gerechnet wird über die ROHEN Wegpunktabstände, NICHT über `route.cum`:
+// Catmull-Rom und das 14-m-Raster machen die gebaute Route 2,2–3,0 % länger, und
+// die Dehnung verteilt sich ungleichmäßig — die Filmdauer wäre allein durch die
+// Glättung zu lang (Konzept §8C, Falle 2). Dieselbe Sorte Tabelle wie bei den
+// f-Ankern, nur mit den rohen Metern statt `f` auf der einen Seite.
+const rohKum: number[] = [0]
+for (let i = 1; i < waypoints.length; i++) {
+  rohKum.push((rohKum[i - 1] as number) + dist(waypoints[i - 1] as Wegpunkt, waypoints[i] as Wegpunkt))
+}
+const rohGesamt = rohKum[rohKum.length - 1] ?? 0
+/** Wegstand auf der GEBAUTEN Route → roher Wegstand (die Achse rechnet in diesen). */
+const rohBeiS = (s: number) => interpoliere(route.wpS, rohKum, s)
+
+/**
+ * Die Halte der Achse: Foto-/Video-Ketten und Kamera-Momente. Ein Halt kostet
+ * Filmzeit und keine Strecke — genau das drückt die Achse aus.
+ *
+ * Die Breite einer Aufnahme ist `standzeitS` + Ausblendung, dieselbe Rechnung
+ * wie im Editor (`aufnahmeHaltS`); fehlt einem Video die Länge, gilt in BEIDEN
+ * Bühnen die Foto-Annahme (Konzept, Falle 4).
+ */
+const achsenHalte: Streckenhalt[] = [
+  ...stops.map((halt) => ({
+    meterM: rohBeiS(halt.s),
+    breiteS: halt.items.reduce(
+      (summe, m) =>
+        summe +
+        standzeitS({ ...m, ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}) }) +
+        HOLD_AUSBLEND,
+      0,
+    ),
+  })),
+  ...moments.map((m) => ({ meterM: rohBeiS(m.s), breiteS: momentHaltS(m) })),
+]
+const filmachse = baueFilmachse(
+  modes.map((m) => ({ abM: rohBeiS(m.s), mode: m.mode })),
+  rohGesamt,
+  achsenHalte,
+)
+/** Filmsekunde an einem Wegstand der gebauten Route. */
+const filmBeiS = (s: number) => filmBeiStrecke(filmachse, rohBeiS(s))
+window.__j.filmachse = filmachse
+window.__j.filmS = filmBeiS
+
+// — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
+// Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
+// cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
+// Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
+// den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
+// Die Bereichsgrenzen laufen EINMAL durch die Übersetzung; danach vergleicht
+// audiotracks.ts sie gegen `s / route.total` und trifft die gemeinte Stelle.
+// Über `filmS` hängt der Einstiegspunkt in die Datei an der Filmachse — sonst
+// begänne jedes Stück beim Hineinspringen wieder von vorn.
+const audioSpuren = cfg.audio?.map((a) => ({ ...a, f0: fracBeiF(a.f0), f1: fracBeiF(a.f1) }))
+const tourAudio = audioSpuren?.length
+  ? createAudioTracks(audioSpuren, {
+      volume: cfg.audioPegel ?? KURATIERTER_PEGEL,
+      filmS: (frac) => filmBeiS(frac * route.total),
+    })
+  : null
+// Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
+// sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
+const hatEigeneMusik = !!cfg.audio?.some((a) => a.type === 'music')
+
 const start = pointAt(route, 0)
 
 // — Texte aus der Tour-Konfiguration —
@@ -359,7 +438,7 @@ if (!appModus) {
 }
 
 const map = createMap('map', [start[0], start[1]])
-window.__j = { map, route, tourAudio }
+Object.assign(window.__j, { map, route, tourAudio })
 
 // Boot-Screen sanft ausblenden, sobald die Karte da ist. 'idle' gibt das
 // schönste Timing (Kacheln gerendert); 'load' und ein absoluter Timeout sind
@@ -396,6 +475,19 @@ map.on('load', () => {
     tourAudio?.setFrac(s / route.total, tour.playing && !tour.scrubbing)
     kamFolger?.(s)
   }
+
+  /**
+   * Nach jedem SPRUNG den Ton auf die Filmsekunde nachziehen, an der der Film
+   * jetzt steht (§6C, Etappe 3).
+   *
+   * Der Bereichs-EINTRITT allein genügt nicht: Wer innerhalb eines Musikstücks
+   * scrubbt, tritt nicht neu ein — die Datei liefe einfach weiter und stünde bis
+   * zum Bereichsende woanders als der Film. Nicht pro Frame, sondern am ENDE der
+   * Geste: Während des Scrubs klingt die Musik (das Gate zählt Scrubben als
+   * Wiedergabe), und ein Seek je Frame wäre ein Stottern statt einer Position.
+   */
+  const nachSprung = () => tourAudio?.richteAus(tour.s / route.total)
+
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
   const vehicle = createVehicle('/audio')
@@ -663,7 +755,10 @@ map.on('load', () => {
     map,
     spotPunkte,
     [start[0], start[1]],
-    (s) => tour.jumpToPhoto(s), // Wegpunkt-Klick öffnet das Foto direkt
+    (s) => {
+      tour.jumpToPhoto(s) // Wegpunkt-Klick öffnet das Foto direkt
+      nachSprung()
+    },
   )
 
   // Foto-Stopps stehen als 3D-PINS über dem Gelände (photopins.ts) — das ist der
@@ -682,7 +777,10 @@ map.on('load', () => {
     ui.registerSpots((s) => pins?.sync(s))
     import('./photopins.js').then(({ installPhotoPins }) => {
       pins = installPhotoPins(map, spotPunkte, {
-        onSelect: (s) => tour.jumpToPhoto(s),
+        onSelect: (s) => {
+          tour.jumpToPhoto(s)
+          nachSprung()
+        },
         variante: pinsParam === 'foto' ? 'foto' : 'nummer',
       })
       window.__j.pins = pins
@@ -959,11 +1057,15 @@ map.on('load', () => {
     if (!tour.scrubbing) return
     if (!scrubMoved && scrubDot != null) tour.jumpToPhoto(scrubDot) // Dot-Tap: Foto sofort
     else tour.endScrub(fracAt(e))
+    nachSprung()
   })
   progress.addEventListener('pointercancel', () => {
     document.body.classList.remove('scrubbing')
     // abgebrochene Gesten liefern keine brauchbaren Koordinaten mehr
-    if (tour.scrubbing) tour.endScrub(tour.s / route.total)
+    if (tour.scrubbing) {
+      tour.endScrub(tour.s / route.total)
+      nachSprung()
+    }
   })
 
   for (const dot of document.querySelectorAll<HTMLElement>('.photo-dot')) {
@@ -971,7 +1073,10 @@ map.on('load', () => {
       e.stopPropagation()
       // Pointer-Gesten laufen über das Scrubbing oben — hier nur noch die
       // Tastatur-Aktivierung (Enter/Leertaste erzeugt click mit detail 0)
-      if (e.detail === 0) tour.jumpToPhoto(Number(dot.dataset.s))
+      if (e.detail === 0) {
+        tour.jumpToPhoto(Number(dot.dataset.s))
+        nachSprung()
+      }
     })
   }
 
@@ -1112,10 +1217,12 @@ map.on('load', () => {
       case 'ArrowRight': // ein Bild vor (Shift: 12 Bilder)
         e.preventDefault()
         tour.nudge(e.shiftKey ? 12 : 1)
+        nachSprung()
         break
       case 'ArrowLeft': // ein Bild zurück
         e.preventDefault()
         tour.nudge(e.shiftKey ? -12 : -1)
+        nachSprung()
         break
       case 'KeyL': // JKL: vorwärts (nochmal = schneller)
         e.preventDefault()

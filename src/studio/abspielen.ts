@@ -24,11 +24,11 @@
 // 0,8 s zu früh (der Timer lief über die Standzeit, der Klip aber über
 // Standzeit + Ausblendung).
 //
-// Reine Logik (tick, musikVersatzS) ist DOM-frei und unter Vitest getestet; das
+// Reine Logik (tick, seitKlipbeginnS) ist DOM-frei und unter Vitest getestet; das
 // Modul wird erst beim ersten Play geladen (editor.ts), damit die Audio-Elemente
 // niemanden belasten, der nur schneidet.
 
-import { alsHuelle, sfxSollFeuern, videoMusikDuck, type DuckPegel } from '../audiotracks.js'
+import { alsHuelle, musikVersatzS, sfxSollFeuern, videoMusikDuck, type DuckPegel } from '../audiotracks.js'
 import { anteilBei, filmBei, type Filmkurve } from './zeitleiste.js'
 
 /** Musik-Bereich auf der Zeitachse. */
@@ -111,35 +111,16 @@ export function tick(stand: SpielStand, dtS: number, plan: Spielplan): Schritt {
 }
 
 /**
- * Wo in der Datei setzt ein Musik-Bereich ein, wenn man mitten in ihm startet?
+ * Filmzeit, die seit dem Beginn eines Ton-Klips vergangen ist — das Argument von
+ * `musikVersatzS` (src/audiotracks.ts, geteilt mit dem Player).
  *
- * Nicht bei 0: Wer bei der Hälfte des Bereichs einsteigt, soll hören, was dort
- * im fertigen Film liefe. Die FILMzeit seit Bereichsbeginn ist der Versatz
- * (über die Kurve — eine reale Pause im Bereich zählt nicht als Spielzeit);
- * kürzere Dateien laufen im Loop, deshalb der Umbruch. `dauerS` ist erst nach
- * `loadedmetadata` bekannt — ohne sie kommt der rohe Versatz zurück.
- *
- * `einstiegS` (linker Trim) verschiebt den Nullpunkt IN der Datei. Der Modulo
- * läuft danach über die GANZE Datei, nicht über den Rest hinter dem Einstieg —
- * denn genau das tut `el.loop`: Es springt am Dateiende auf Position 0 zurück.
- * Loop hebt nur den RECHTEN Anschlag auf; eine Wiederholung VOR dem Dateianfang
- * gibt es nicht (docs §2E — der erste Wurf ließ den Versatz modulo in die Datei
- * wandern, das Stück setzte dann mitten drin ein).
+ * Gerechnet über die SPIELKURVE: Eine reale Pause im Bereich zählt nicht als
+ * Spielzeit. Die Funktion selbst kennt keine Kurve mehr — sie ist seit Paket D
+ * die gemeinsame Rechnung beider Bühnen, und der Player hat keine Filmkurve,
+ * sondern eine Filmachse.
  */
-export function musikVersatzS(
-  anteil: number,
-  klipVon: number,
-  kurve: Filmkurve,
-  dauerS = 0,
-  einstiegS = 0,
-  loop = true,
-): number {
-  const seit = Math.max(0, filmBei(kurve, anteil) - filmBei(kurve, klipVon))
-  const roh = Math.max(0, einstiegS) + seit
-  if (!(dauerS > 0)) return roh
-  // Ohne Loop endet der Klip am Material: die Position bleibt am Dateiende
-  // stehen (das Element ist dann `ended` und schweigt), statt vorn neu zu beginnen.
-  return loop ? roh % dauerS : Math.min(roh, dauerS)
+export function seitKlipbeginnS(anteil: number, klipVon: number, kurve: Filmkurve): number {
+  return Math.max(0, filmBei(kurve, anteil) - filmBei(kurve, klipVon))
 }
 
 /**
@@ -278,7 +259,12 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
           () => {
             if (!el || !el.duration) return
             try {
-              el.currentTime = musikVersatzS(beiEintritt, klip.von, kurve, el.duration, klip.einstiegS, el.loop)
+              el.currentTime = musikVersatzS(
+                seitKlipbeginnS(beiEintritt, klip.von, kurve),
+                el.duration,
+                klip.einstiegS,
+                el.loop,
+              )
             } catch {
               /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
             }
@@ -294,7 +280,12 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
         // die im Film JETZT liefe — ohne die Datei neu zu laden.
         if (el.duration) {
           try {
-            el.currentTime = musikVersatzS(anteil, klip.von, plan.kurve, el.duration, klip.einstiegS, el.loop)
+            el.currentTime = musikVersatzS(
+              seitKlipbeginnS(anteil, klip.von, plan.kurve),
+              el.duration,
+              klip.einstiegS,
+              el.loop,
+            )
           } catch {
             /* s. o. */
           }

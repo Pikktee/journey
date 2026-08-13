@@ -5,7 +5,16 @@
 // (Streckenanteil): die Leiste zeigt die ZEIT der Aufzeichnung, damit
 // Trim/Grenzen/Audio exakt an den absoluten Zeit-Ankern des Overlays hängen.
 
-import { HOLD_AUSBLEND, HOLD_HIDE } from '../einblendung.js'
+import { HOLD_AUSBLEND, HOLD_HIDE, standzeitS } from '../einblendung.js'
+import {
+  baueFilmachse,
+  filmBeiStrecke,
+  interpoliere,
+  streckeBeiFilm,
+  tempoMs,
+  type Filmachse,
+  type Streckenabschnitt,
+} from '../filmachse.js'
 import {
   isoZuOffset,
   offsetZuIso,
@@ -29,16 +38,45 @@ export interface ZeitSkala {
 }
 
 /**
- * Aufnahmezeit ↔ Fahr- und Haltezeit des FILMS, beide Arrays monoton
- * nicht-fallend. Duplikate in `tS` sind Foto-Halte (Zeit steht, Film läuft) —
- * ein „Sprung"; konstante `filmS` über wachsendem `tS` sind reale Pausen —
- * ein „Plateau".
+ * Aufnahmezeit ↔ Filmzeit — seit Paket D über die STRECKE (Konzept E12).
+ *
+ * Die Rechnung selbst steht in [src/filmachse.ts](../filmachse.ts) und ist mit
+ * dem Player geteilt; hier liegt der ADAPTER, den der Editor dafür braucht:
+ * `tS`/`mM` sind parallel (je Stützpunkt seine Aufnahmezeit und sein
+ * Streckenmeter), `kern` ist die Achse darüber.
+ *
+ * Warum diese Zerlegung: Der Editor verankert alles in AUFNAHMEZEIT (Medien,
+ * Ton-Klips, Zustandsgrenzen — trim-stabil, so begründet es die Spec), die
+ * Achse muss aber Filmsekunde → Streckenposition liefern können, sonst kann der
+ * Player sie nicht antreiben. Also: Anker in Zeit, Achse in Metern, dazwischen
+ * dieser Adapter.
+ *
+ * `mM` ist monoton nicht-fallend; ein Plateau darin ist eine reale PAUSE (Zeit
+ * vergeht, Strecke steht). Die Halte sind keine Stützstellen dieser Tabelle
+ * mehr — sie stecken im Kern.
  */
 export interface AchsenKurve {
   tS: number[]
-  filmS: number[]
-  /** Filmzeit der ganzen Achse inkl. Halte (letzter filmS-Wert) */
+  mM: number[]
+  kern: Filmachse<AchsenHaltM>
+  /** Filmzeit der ganzen Achse inkl. Halte */
   gesamtS: number
+  /**
+   * Filmsekunde, bei der `kern` beginnt. Null für die ganze Achse; das
+   * Zug-FENSTER einer Fortbewegungs-Grenze (`baueGrenzKurve`) sitzt dagegen
+   * mitten im Film und rechnet trotzdem in absoluten Filmsekunden.
+   */
+  versatzS?: number
+}
+
+/** Aufnahmezeit → Streckenmeter. Ein Plateau darin ist eine reale Pause. */
+function meterBeiZeit(kurve: AchsenKurve, tOffsetS: number): number {
+  return interpoliere(kurve.tS, kurve.mM, tOffsetS)
+}
+
+/** Streckenmeter → Aufnahmezeit (Umkehrung; Plateau → Ankunft). */
+function zeitBeiMeter(kurve: AchsenKurve, meterM: number): number {
+  return interpoliere(kurve.mM, kurve.tS, meterM)
 }
 
 /**
@@ -75,7 +113,7 @@ export function baueSkala(track: readonly TrackPunkt[]): ZeitSkala | null {
 export function anteilZuOffset(skala: ZeitSkala | Achse, anteil: number): number {
   const a = Math.max(0, Math.min(1, anteil))
   const kurve = (skala as Achse).kurve
-  if (kurve) return interpoliere(kurve.filmS, kurve.tS, a * kurve.gesamtS)
+  if (kurve) return zeitBeiFilm(kurve, a * kurve.gesamtS)
   return skala.vonS + a * (skala.bisS - skala.vonS)
 }
 
@@ -86,14 +124,14 @@ export function anteilZuOffset(skala: ZeitSkala | Achse, anteil: number): number
  */
 export function offsetZuAnteil(skala: ZeitSkala | Achse, tOffsetS: number): number {
   const kurve = (skala as Achse).kurve
-  if (kurve) return interpoliere(kurve.tS, kurve.filmS, tOffsetS) / kurve.gesamtS
+  if (kurve) return filmBeiZeit(kurve, tOffsetS) / kurve.gesamtS
   return Math.max(0, Math.min(1, (tOffsetS - skala.vonS) / (skala.bisS - skala.vonS)))
 }
 
 /** Film-Sekunde der ACHSE (inkl. Halte) zu einem Zeit-Offset — für Kopf-Uhr
  *  und Spielkurve. Ohne Kurve linear auf [0, 1] skaliert (degenerierter Fall). */
 export function filmZuOffset(achse: Achse, tOffsetS: number): number {
-  if (achse.kurve) return interpoliere(achse.kurve.tS, achse.kurve.filmS, tOffsetS)
+  if (achse.kurve) return filmBeiZeit(achse.kurve, tOffsetS)
   return offsetZuAnteil(achse, tOffsetS)
 }
 
@@ -531,22 +569,12 @@ export function baueTrimGriffe(edits: EditOverlay, startIso: string, skala: Zeit
 // an jedem Foto an). Beides auf einer Achse zu zeigen wäre verwirrend — deshalb
 // nur diese eine Zahl.
 //
-// Die drei Konstanten spiegeln src/tour.js. Ein Drift-Wächter in
-// test/studio-baukasten.test.ts vergleicht sie mit der Engine.
-
-/** `baseSpeed` in src/tour.js: Streckenfortschritt bei 1× in m/s. */
-const BASIS_TEMPO_MS = 120
-/** Spiegel von MODE_SPEED (src/tour.js). */
-const TEMPO: Record<Modus, number> = { walk: 0.4, bike: 1, moped: 1.15, jeep: 1.45, tram: 1.25, ferry: 2.5 }
-// Standzeit und Ausblendung sind KEINE Spiegel mehr, sondern dieselben Werte:
-// `einblendung.ts` ist DOM- und importfrei, das Studio kann sie direkt lesen.
-// (Anders als Tempo und Modus-Faktoren oben — die stecken in `tour.ts`, und das
-// importiert MapLibre.) Die alten Namen bleiben, sie stehen im ganzen Editor.
+// Das Tempo-Modell ist seit Paket D KEINE Kopie mehr: `filmachse.ts` ist DOM-
+// und importfrei, Studio und Player lesen dieselben Zahlen (`tempoMs`). Genauso
+// stehen Standzeit und Ausblendung in `einblendung.ts`. Die alten Namen bleiben,
+// sie stehen im ganzen Editor.
 export const HALT_ENGINE_S = HOLD_HIDE
 export const HALT_AUSBLEND_S = HOLD_AUSBLEND
-
-/** Film-Tempo eines Modus in m/s — die EINE Formel für Schätzung und Kurve. */
-const tempoMs = (mode: Modus): number => BASIS_TEMPO_MS * (TEMPO[mode] ?? 1)
 
 /** Meter zwischen zwei Trackpunkten (lokale Plattkarte — auf Segmentlänge genau genug). */
 function meterZwischen(a: TrackPunkt, b: TrackPunkt): number {
@@ -608,7 +636,9 @@ export function aufnahmeHaltS(m: {
   trim?: { vonS: number; bisS?: number }
 }): number {
   if (m.type === 'video' && m.dauerS !== undefined && m.dauerS > 0) return videoFilmS(m.dauerS, m.trim)
-  return haltedauerS(m.display)
+  // Ohne Schnitt ist es dieselbe Regel wie im Player (`standzeitS`) — der
+  // Video-Trim ist der eine Zusatz, den nur der Editor kennt.
+  return standzeitS(m)
 }
 
 /**
@@ -708,30 +738,8 @@ export interface Filmkurve {
   gesamtS: number
 }
 
-/**
- * Stückweise lineare Auswertung ys(x) über monoton nicht-fallendem xs.
- * lower_bound: erster Index mit xs[i] ≥ x — bei Duplikat-Stufen in xs landet
- * ein exakter Treffer damit auf der ERSTEN Stützstelle der Stufe, knapp
- * darüber hinter der letzten. Außerhalb wird geklemmt.
- */
-function interpoliere(xs: readonly number[], ys: readonly number[], x: number): number {
-  const n = xs.length
-  if (n === 0) return 0
-  if (x <= (xs[0] as number)) return ys[0] as number
-  if (x >= (xs[n - 1] as number)) return ys[n - 1] as number
-  let lo = 0
-  let hi = n - 1
-  while (lo < hi) {
-    const mitte = (lo + hi) >> 1
-    if ((xs[mitte] as number) < x) lo = mitte + 1
-    else hi = mitte
-  }
-  const a = xs[lo - 1] as number
-  const b = xs[lo] as number
-  const spanne = b - a
-  const u = spanne > 0 ? (x - a) / spanne : 1
-  return (ys[lo - 1] as number) + u * ((ys[lo] as number) - (ys[lo - 1] as number))
-}
+// `interpoliere` mit ihrer lower_bound-Konvention steht seit Paket D in
+// filmachse.ts — sie war zwischen Studio und Server schon byte-identisch.
 
 /** Fahr-Filmsekunde an einem Achsen-Anteil. */
 export function filmBei(kurve: Filmkurve, anteil: number): number {
@@ -789,8 +797,17 @@ export interface AchsenHalt {
   stuecke?: readonly HaltStueck[]
 }
 
+/**
+ * Ein Halt, dessen Ort auf der STRECKE bekannt ist — das Ergebnis des
+ * Zeit→Strecke-Adapters (E12). Der Editor gibt Halte in Aufnahmezeit herein,
+ * die Achse rechnet in Metern.
+ */
+export interface AchsenHaltM extends AchsenHalt {
+  meterM: number
+}
+
 /** Ein eingewebter Halt: dazu, wo er im FILM liegt. */
-export interface HaltIntervall extends AchsenHalt {
+export interface HaltIntervall extends AchsenHaltM {
   filmVon: number
   filmBis: number
 }
@@ -1048,54 +1065,70 @@ export function baueAchse(
   halte: readonly AchsenHalt[],
   skala: ZeitSkala,
 ): Achse {
-  const tS: number[] = []
-  const filmS: number[] = []
-  let film = 0
-  for (const a of abschnitte) {
-    const tempo = tempoMs(a.mode)
-    for (let i = 0; i < a.pts.length; i++) {
-      const p = a.pts[i] as TrackPunkt
-      if (i > 0) film += meterZwischen(a.pts[i - 1] as TrackPunkt, p) / tempo
-      const letzter = tS.length - 1
-      if (letzter >= 0 && tS[letzter] === p[3] && filmS[letzter] === film) continue
-      tS.push(p[3])
-      filmS.push(film)
-    }
+  const adapter = baueAdapter(abschnitte)
+  if (adapter.tS.length < 2) return { ...skala, halte: [] }
+
+  const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, halte))
+  // Degeneriert-Wächter erst NACH den Halten: Eine Foto-Tour ohne nennenswerte
+  // Fahrstrecke hat trotzdem einen echten Film (fast nur Standzeiten).
+  if (kern.gesamtS < 1) return { ...skala, halte: [] }
+  return {
+    ...skala,
+    kurve: { tS: adapter.tS, mM: adapter.mM, kern, gesamtS: kern.gesamtS },
+    halte: kern.halte,
   }
-  if (tS.length < 2) return { ...skala, halte: [] }
+}
 
-  const intervalle = webeHalte(tS, filmS, halte)
-  film = filmS[filmS.length - 1] as number
-
-  if (film < 1) return { ...skala, halte: [] }
-  return { ...skala, kurve: { tS, filmS, gesamtS: film }, halte: intervalle }
+/** Der Zeit→Strecke-Adapter: je Stützpunkt seine Zeit und sein Streckenmeter. */
+interface Adapter {
+  tS: number[]
+  mM: number[]
+  grenzen: Streckenabschnitt[]
+  gesamtM: number
 }
 
 /**
- * Halte als Sprünge in eine (tS, filmS)-Kurve einweben — an der Halt-Zeit zwei
- * Stützstellen (Film vor und nach der Standzeit), alle späteren Werte heben
- * sich um die Breite. Weil aufsteigend gewebt wird, trägt `filmAmHalt` die
- * früheren Halte schon — die Intervalle stimmen ohne Nachrechnen.
+ * Trackpunkte in den Adapter überführen — je Abschnitt eine Modus-Grenze in
+ * Metern, je Punkt ein Stützwert.
  *
- * Beide Kurven mit Halten teilen sich diese Stelle: die ganze Achse
- * (`baueAchse`) und das Zug-Fenster einer Fortbewegungs-Grenze
- * (`baueGrenzKurve`). Zwei Fassungen liefen an den Rundungen auseinander, und
- * die Grenze landete beim Loslassen neben der Ziellinie.
+ * Der Abstand ZWISCHEN zwei Abschnitten wird bewusst nicht gezählt: Sie teilen
+ * sich ihren Wechselpunkt (`zerlegeFuerAnzeige`), er zählt also bereits im
+ * linken. Die Dedup-Regel („gleiche Zeit UND gleicher Meterstand") hält die
+ * Naht aus der Tabelle heraus.
  */
-function webeHalte(tS: number[], filmS: number[], halte: readonly AchsenHalt[]): HaltIntervall[] {
-  const intervalle: HaltIntervall[] = []
-  for (const h of [...halte].sort((a, b) => a.offsetS - b.offsetS)) {
-    if (!(h.breiteS > 0)) continue
-    const filmAmHalt = interpoliere(tS, filmS, h.offsetS)
-    // Einfügeposition: hinter alle Stützstellen ≤ Halt-Zeit
-    let i = tS.length
-    while (i > 0 && (tS[i - 1] as number) > h.offsetS) i--
-    for (let j = i; j < tS.length; j++) filmS[j] = (filmS[j] as number) + h.breiteS
-    tS.splice(i, 0, h.offsetS, h.offsetS)
-    filmS.splice(i, 0, filmAmHalt, filmAmHalt + h.breiteS)
-    intervalle.push({ ...h, filmVon: filmAmHalt, filmBis: filmAmHalt + h.breiteS })
+function baueAdapter(
+  abschnitte: ReadonlyArray<{ mode: Modus; pts: readonly TrackPunkt[] }>,
+): Adapter {
+  const tS: number[] = []
+  const mM: number[] = []
+  const grenzen: Streckenabschnitt[] = []
+  let meter = 0
+  for (const a of abschnitte) {
+    grenzen.push({ abM: meter, mode: a.mode })
+    for (let i = 0; i < a.pts.length; i++) {
+      const p = a.pts[i] as TrackPunkt
+      if (i > 0) meter += meterZwischen(a.pts[i - 1] as TrackPunkt, p)
+      const letzter = tS.length - 1
+      if (letzter >= 0 && tS[letzter] === p[3] && mM[letzter] === meter) continue
+      tS.push(p[3])
+      mM.push(meter)
+    }
   }
-  return intervalle
+  return { tS, mM, grenzen, gesamtM: meter }
+}
+
+/**
+ * Halte von der Aufnahmezeit auf die Strecke ziehen.
+ *
+ * Nach Zeit vorsortiert: Liegen mehrere Halte in derselben realen PAUSE, haben
+ * sie denselben Meterstand (dort steht die Strecke) — die stabile Sortierung im
+ * Kern behält dann ihre Reihenfolge im Film. Genau dorthin wandert mit E12 die
+ * Mehrdeutigkeit, die vorher bei den Pausen lag.
+ */
+function halteAufStrecke(adapter: Adapter, halte: readonly AchsenHalt[]): AchsenHaltM[] {
+  return [...halte]
+    .sort((a, b) => a.offsetS - b.offsetS)
+    .map((h) => ({ ...h, meterM: interpoliere(adapter.tS, adapter.mM, h.offsetS) }))
 }
 
 // — Der Zug einer FORTBEWEGUNGS-Grenze: analytisch, nicht per Bisektion —
@@ -1137,21 +1170,19 @@ export function baueGrenzKurve(
 ): AchsenKurve | null {
   const pts = punkteZwischen(track, vonS, bisS)
   if (pts.length < 2) return null
-  const tempo = tempoMs(mode)
-  const tS: number[] = []
-  const filmS: number[] = []
-  let film = filmBeiVon
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i] as TrackPunkt
-    if (i > 0) film += meterZwischen(pts[i - 1] as TrackPunkt, p) / tempo
-    tS.push(p[3])
-    filmS.push(film)
-  }
+  const adapter = baueAdapter([{ mode, pts }])
   // Ein Halt GENAU auf der linken Fensterkante zählt schon zu `filmBeiVon`
   // (lower_bound trifft die Stützstelle vor dem Sprung) — sonst zählte er
   // doppelt und die Kante liefe um seine Standzeit davon.
-  webeHalte(tS, filmS, halte.filter((h) => h.offsetS > vonS && h.offsetS <= bisS))
-  return { tS, filmS, gesamtS: filmS[filmS.length - 1] as number }
+  const imFenster = halte.filter((h) => h.offsetS > vonS && h.offsetS <= bisS)
+  const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, imFenster))
+  return {
+    tS: adapter.tS,
+    mM: adapter.mM,
+    kern,
+    gesamtS: filmBeiVon + kern.gesamtS,
+    versatzS: filmBeiVon,
+  }
 }
 
 /** Trackpunkte im Zeitfenster, mit interpolierten Rändern (nie leer bei Bedarf). */
@@ -1164,14 +1195,20 @@ function punkteZwischen(track: readonly TrackPunkt[], vonS: number, bisS: number
   return [links, ...mitte, rechts]
 }
 
-/** Aufnahmezeit zu einer Filmsekunde (Umkehrung; außerhalb geklemmt). */
+/**
+ * Aufnahmezeit zu einer Filmsekunde (Umkehrung; außerhalb geklemmt).
+ *
+ * Zwei Schritte statt einem: Film → Strecke über die geteilte Achse, Strecke →
+ * Zeit über den Adapter. In einer realen PAUSE ist der zweite mehrdeutig — dort
+ * gilt die Ankunft, dieselbe lower_bound-Konvention wie überall.
+ */
 export function zeitBeiFilm(kurve: AchsenKurve, filmS: number): number {
-  return interpoliere(kurve.filmS, kurve.tS, filmS)
+  return zeitBeiMeter(kurve, streckeBeiFilm(kurve.kern, filmS - (kurve.versatzS ?? 0)))
 }
 
-/** Filmsekunde zu einer Aufnahmezeit. */
+/** Filmsekunde zu einer Aufnahmezeit (Zeit → Strecke → Film). */
 export function filmBeiZeit(kurve: AchsenKurve, tOffsetS: number): number {
-  return interpoliere(kurve.tS, kurve.filmS, tOffsetS)
+  return (kurve.versatzS ?? 0) + filmBeiStrecke(kurve.kern, meterBeiZeit(kurve, tOffsetS))
 }
 
 /**

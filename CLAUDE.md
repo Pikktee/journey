@@ -266,9 +266,48 @@ liegende Fotos (< 120 m in `s`) werden zu einem **Stopp** mit mehreren `items` g
 stecken bleiben — die Kamera hat eine explizite Flughöhe über Grund plus Blickpunkt. Jede
 Kameragröße läuft durch einen `Smooth`-Filter (exponentielle Glättung mit `tau`), wodurch
 Phasenwechsel automatisch zu weichen Schwenks werden. Phasen: `intro` (Orbit) → Fahrt →
-Foto-Orbit → Finale. Pro Modus skalieren `MODE_SPEED`/`MODE_SCALE` Tempo und Kameradistanz;
+Foto-Orbit → Finale. Pro Modus skalieren `MODUS_TEMPO` ([src/filmachse.ts](src/filmachse.ts))
+und `MODE_SCALE` ([src/tour.ts](src/tour.ts)) Tempo und Kameradistanz;
 `PRESETS` (nah/mittel/weit) sind die vom Nutzer wählbaren Einstellungsgrößen. Die Engine ruft
 pro Frame `ui.updateTrace(s, pos)` und optional `ui.onTick(frac)` auf.
+
+**Aus der Strecke wird Filmzeit — an genau EINER Stelle**
+([src/filmachse.ts](src/filmachse.ts), Gleichlauf-Konzept §8C, E3/E12). Das Modul ist DOM- und
+importfrei und wird von **Player und Studio gemeinsam** benutzt: Tempo je Modus
+(`MODUS_TEMPO`/`tempoMs` — früher `MODE_SPEED`+`baseSpeed` in `tour.ts`), Moment-Standzeiten,
+die lower_bound-Interpolation und das Einweben der Halte. Vorher stand das Tempo-Modell an
+DREI Stellen, gekoppelt über Tests, die den Quelltext von `tour.ts` nach Zeichenketten
+absuchten — einer prüfte, ob ein Kommentar dasteht. Jetzt sind es zwei: hier und der
+erzwungene Server-Spiegel ([filmtempo.ts](server/src/pipeline/filmtempo.ts) +
+[filmachse.ts](server/src/pipeline/filmachse.ts), eigener `rootDir`), und beide rechnen
+dasselbe **Verhaltens-Fixture** durch ([test/fixtures/filmachse.json](test/fixtures/filmachse.json),
+Web-Hälfte in [test/filmachse.test.ts](test/filmachse.test.ts), Server-Hälfte in
+[server/test/filmtempo.test.ts](server/test/filmtempo.test.ts)).
+
+**Parametrisiert wird über die STRECKE, nicht über die Aufnahmezeit.** Das ist keine Wahl: Der
+Player braucht Filmsekunde → Streckenposition, und über der Aufnahmezeit endet die Rechnung bei
+einer Aufnahmezeit, die er nicht weiterverwenden kann (`cfg.timeline` ist Pseudo-Zeit mit
+Pausen-Zeitraffer, nicht die Aufnahmeuhr). Wer in Aufnahmezeit verankert — die Zeitleiste des
+Editors, Medien, Ton-Klips —, legt einen **Zeit→Strecke-Adapter** daneben (`AchsenKurve` in
+[zeitleiste.ts](src/studio/zeitleiste.ts): je Stützpunkt seine Zeit und sein Meterstand); die
+Anker selbst bleiben Zeitstempel, umgestellt ist die Achse, nicht die Verankerung. Drei Dinge,
+die man dabei kippt: Die Achse rechnet über die **rohen Wegpunktabstände**, nicht über
+`route.cum` — Catmull-Rom und das 14-m-Raster machen die Route 2,2–3,0 % länger, die Filmdauer
+wäre allein durch die Glättung zu lang. Die Konvention **„Plateau → Ankunft"** bleibt nötig,
+sie wechselt nur ihren Ort (über der Zeit waren die Plateaus die realen Pausen, über der
+Strecke sind es die Halte). Und das Modul gehört nach `src/`, **nicht** nach `src/studio/`: Ein
+Import Player→Studio zöge die Editor-Typenwelt in den Player-Chunk.
+
+**Im Player treibt die Achse noch nichts an** (`window.__j.filmachse`, `window.__j.filmS`) — die
+Engine integriert ihre Position weiter selbst; der Antrieb dreht sich erst mit Etappe 4 um. Was
+sie heute schon trägt, ist der TON: Beim Eintritt in einen Musik-Bereich UND am Ende jedes
+Sprungs setzt `musikVersatzS` ([src/audiotracks.ts](src/audiotracks.ts)) die Datei auf die
+Stelle, die dort im Film liefe. Vorher stand da hart `currentTime = startS`: Wer mitten
+hineinsprang, hörte das Stück von vorn; wer INNERHALB eines Bereichs scrubbte, hörte es
+weiterlaufen — die Datei stand danach bis zum Bereichsende woanders als der Film. Die Funktion
+kam aus `src/studio/abspielen.ts` (ein Umzug, kein Nachbau); nachgezogen wird am ENDE einer
+Geste und nicht pro Frame, weil während des Scrubs Musik klingt und ein Seek je Frame ein
+Stottern wäre.
 
 **Die Engine hat genau EINE Uhr, und sie ist ungedeckelt** ([src/filmuhr.ts](src/filmuhr.ts)).
 Vorher klemmte `tick()` die Frame-Zeit bei 50 ms — ein langsames Gerät bekam dadurch keine
@@ -297,7 +336,8 @@ Hintergrund und Messwerte: [scripts/messungen/README.md](scripts/messungen/READM
 Konzept §8A und Falle 3.
 
 **Fortbewegungs-Modi** sind `walk | bike | moped | jeep | tram | ferry`. Die Liste muss an vier
-Stellen deckungsgleich bleiben: `MODE_SPEED`/`MODE_SCALE` ([src/tour.ts](src/tour.ts)),
+Stellen deckungsgleich bleiben: `MODUS_TEMPO` ([src/filmachse.ts](src/filmachse.ts)) samt
+`MODE_SCALE` ([src/tour.ts](src/tour.ts)),
 `MODE_ICONS` ([src/map.ts](src/map.ts)), `MODE_SOUND` ([src/vehicle.ts](src/vehicle.ts), nur
 die drei mit Motorgeräusch: moped/jeep/ferry — die Tram fährt lautlos) und `MODI` ([server/src/schema/upload.ts](server/src/schema/upload.ts), von
 dort beziehen Studio-Typ und alle JSON-Schema-Enums ihre Werte). Sie **lief schon einmal

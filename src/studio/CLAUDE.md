@@ -411,8 +411,20 @@ Loslassen einmal geschrieben (= genau ein Undo-Schritt). Analog schreibt `zeichn
 Kartenpunkte **fort** statt sie abzureißen (geschlüsselt nach der Zusammensetzung des Halts) —
 sonst wurden bei jedem Klick alle Fotos kurz zu leeren Kreisen.
 
-**Die Achse zeigt FILMZEIT, die Anker bleiben Aufnahmezeit.** Position auf der Leiste ∝
-Filmzeit (`baueAchse` in [zeitleiste.ts](zeitleiste.ts)): gleich breit heißt gleich
+**Die Achse zeigt FILMZEIT, die Anker bleiben Aufnahmezeit — und gerechnet wird über die
+STRECKE.** `baueAchse` ([zeitleiste.ts](zeitleiste.ts)) baut seit Paket D des
+[Gleichlauf-Konzepts](../../docs/concepts/konzept_gleichlauf_player_editor.md) keine eigene
+Kurve mehr, sondern zwei Dinge: den **Zeit→Strecke-Adapter** (`AchsenKurve`: je Stützpunkt
+seine Aufnahmezeit und sein Meterstand) und darüber die geteilte Achse
+([src/filmachse.ts](../filmachse.ts), dieselbe, die der Player rechnet). `zeitBeiFilm` geht
+seither in zwei Schritten — Film → Strecke → Zeit —, `filmBeiZeit` umgekehrt; die Signaturen
+sind dieselben geblieben. Grund ist E12: Der Player braucht Filmsekunde → Streckenposition, und
+das kann eine über der Aufnahmezeit parametrisierte Achse nicht liefern. Zwei Folgen, die man
+kennen muss: Das Tempo-Modell ist **keine Kopie** mehr (`tempoMs` kommt aus `filmachse.ts`, die
+Moment-Dauern ebenso), und die alte Mehrdeutigkeit der realen PAUSEN sitzt jetzt bei den
+HALTEN — mehrere Halte in derselben Pause haben denselben Meterstand und behalten ihre
+Reihenfolge nur, weil sie nach Zeit vorsortiert eingewebt werden. Position auf der Leiste ∝
+Filmzeit: gleich breit heißt gleich
 lang im fertigen Film — eine Fähre schrumpft auf ihren Filmanteil, ein Foto-Halt bekommt seine
 Standzeit als Achsenbreite (Sprung: Zeit steht, Film läuft; bei foto-lastigen Kurztouren IST
 der Film überwiegend Standzeit), eine reale Pause fällt fast auf einen Strich zusammen
@@ -639,9 +651,12 @@ nicht. Dieselbe Familie wie „`border` + `overflow: hidden` frisst das Randpixe
 und blendet an jedem Halt die Foto-Karte auf — die 3D-Kamerafahrt bleibt dem echten Player
 vorbehalten („Vorschau"). Die Schrittlogik `tick()` ist rein und getestet; das Tempo ist
 `1/schaetzeAnimationsdauer`, sodass der Halt an einem Foto hier so viel Zeit „kostet" wie
-später. Musik läuft über EIN `Audio`-Element mit **Eintritts-Seek** (wer mitten im Bereich
-startet, hört, was dort im Film liefe — `createAudioTracks` kann das nicht, deshalb eigener
-Weg); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts), damit im
+später. Musik läuft über EIN `Audio`-Element je Klip mit **Eintritts-Seek** (wer mitten im Bereich
+startet, hört, was dort im Film liefe). Die Rechnung dahinter ist seit Paket D geteilt:
+`musikVersatzS` steht in [audiotracks.ts](../audiotracks.ts) und bekommt die Filmzeit seit
+Klipbeginn herein (`seitKlipbeginnS` über die Spielkurve) — der Player ruft dieselbe Funktion
+über seine Filmachse, und beide Bühnen greifen an derselben Filmsekunde auf dieselbe
+Datei-Position zu (Wächter in [test/filmachse.test.ts](../../test/filmachse.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts), damit im
 Studio nichts klingt, was der Film nicht spielt (Drift-Wächter). Bis zur
 TypeScript-Migration des Players lag daneben eine handgeschriebene
 `audiotracks.d.ts`, weil `allowJs` aus ist — seit `audiotracks.ts` TypeScript ist,

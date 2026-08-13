@@ -66,7 +66,8 @@ Grundprinzipien:
   Schlüssel legt keinen zweiten Eintrag an. Der Foto-Nachzug der App setzt ihn, das
   Studio nicht (s. [konzept_medien_nachreichen_und_loeschen.md](../concepts/konzept_medien_nachreichen_und_loeschen.md)).
   Die Liste ist deckungsgleich mit `MODI` in `server/src/schema/upload.ts` und der
-  Engine (`MODE_SPEED`/`MODE_SCALE` in `src/tour.js`); Motorgeräusche gibt es für
+  Engine (`MODUS_TEMPO` in `src/filmachse.ts`, `MODE_SCALE` in `src/tour.ts`);
+  Motorgeräusche gibt es für
   `moped`, `jeep` und `ferry` (`MODE_SOUND` in `src/vehicle.ts`).
 - `title: null` ⇒ Auto-Benennung serverseitig (Reverse-Geocoding Start/Ziel).
 - `clientTourId`: idempotentes Anlegen — dieselbe App-Tour erzeugt nie zwei
