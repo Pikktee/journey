@@ -309,6 +309,24 @@ kam aus `src/studio/abspielen.ts` (ein Umzug, kein Nachbau); nachgezogen wird am
 Geste und nicht pro Frame, weil während des Scrubs Musik klingt und ein Seek je Frame ein
 Stottern wäre.
 
+**Und ein zweiter Anlass zum Nachziehen: verworfene Filmzeit.** Der Ton läuft auf der
+WANDUHR, der Film auf der Filmuhr — und die verwirft, was über ihrem Notdeckel (1,0 s) liegt.
+Bei gedrosseltem `rAF` ohne `visibilitychange` (verdecktes Fenster, Kachel-Nachladen nach
+einem Sprung, langsames Gerät unter Last) ist die Datei danach um genau diese Sekunden zu
+weit, und zwar dauerhaft: In der Entwicklungs-Pane gemessen 29,4 s in zwei Frames, hörbar als
+„dieselbe Stelle der Tour, andere Stelle des Stücks". Deshalb vergleicht `updateTrace`
+`tour.uhr.verworfenFrames` mit dem zuletzt gesehenen Stand und richtet bei jeder Änderung neu
+aus — im Normalfall der Vergleich zweier Zahlen, im Fehlerfall die einzige Stelle, an der der
+Ton je erfährt, dass er zu weit ist. Das ist dieselbe Regel wie in §8A: *Was nicht an der
+Filmuhr hängt, muss ausdrücklich mitgehen.*
+
+**Was bis Etappe 4 bleibt:** Die Achse kennt die Anfahr- und Ausrollrampen NICHT, die Engine
+fährt sie mit — je Halt 0,44–2,70 s (`scripts/messungen/rampen-simulation.ts`). Wer eine
+Stelle ANFÄHRT, ist dort also weiter im Stück als wer sie ANSPRINGT; über zwölf Halte sind das
++12,7 %. Kein Flicken hilft: Ein laufendes Nachziehen zöge die Musik an jedem Halt um die
+Rampensekunden zurück — ein Stottern statt eines Versatzes. Das löst erst der umgedrehte
+Antrieb (Etappe 4), der die Rampen in die Kurve legt.
+
 **Die Engine hat genau EINE Uhr, und sie ist ungedeckelt** ([src/filmuhr.ts](src/filmuhr.ts)).
 Vorher klemmte `tick()` die Frame-Zeit bei 50 ms — ein langsames Gerät bekam dadurch keine
 ausgelassenen Bilder, sondern eine langsamere Tour: bei 6× Drosselung lief die Bilduhr auf

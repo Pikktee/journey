@@ -170,7 +170,17 @@ export interface AudioSpuren {
    * Datei-Position im Player nicht nachprüfbar: Die Elemente entstehen per
    * `new Audio()` und hängen nirgends im DOM.
    */
-  readonly tonStand: Array<{ src: string; laeuft: boolean; positionS: number; dauerS: number; f0: number }>
+  readonly tonStand: Array<{
+    src: string
+    laeuft: boolean
+    positionS: number
+    dauerS: number
+    f0: number
+    /** Zustand des Elements — ein Seek vor dem Puffern greift nicht (readyState 0) */
+    bereit: number
+    sucht: boolean
+    pegel: number
+  }>
   destroy(): void
 }
 
@@ -352,6 +362,9 @@ export function createAudioTracks(
           positionS: s.el?.currentTime ?? 0,
           dauerS: s.el?.duration ?? 0,
           f0: s.f0,
+          bereit: s.el?.readyState ?? 0,
+          sucht: s.el?.seeking ?? false,
+          pegel: Math.round((s.el?.volume ?? 0) * 1000) / 1000,
         }))
     },
     destroy: () => { clearInterval(timer); for (const s of musik) s.el?.pause() },

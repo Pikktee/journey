@@ -464,6 +464,8 @@ map.on('load', () => {
   const rider = createRider(map, [start[0], start[1]], startModus)
 
   const ui = new UI(stops, route)
+  /** Zählerstand der verworfenen Frames beim letzten Nachziehen (s. updateTrace). */
+  let gesehenVerworfen = 0
   let kamFolger: ((s: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, [pos[0], pos[1]])
@@ -474,6 +476,18 @@ map.on('load', () => {
     // übersetzt worden — s. `audioSpuren` oben.)
     tourAudio?.setFrac(s / route.total, tour.playing && !tour.scrubbing)
     kamFolger?.(s)
+    // Hat die Filmuhr Zeit VERWORFEN, lief der Ton auf der Wanduhr weiter und
+    // der Film nicht — dann ist die Datei um genau diese Sekunden zu weit.
+    // Der Notdeckel (1,0 s) greift bei gedrosseltem `rAF` ohne
+    // `visibilitychange`: verdecktes Fenster, Kachel-Nachladen nach einem
+    // Sprung, ein langsames Gerät unter Last. Gemessen in der Entwicklungs-Pane:
+    // 29,4 s in zwei Frames — danach steht dieselbe Stelle der Tour an einer
+    // ganz anderen Stelle des Stücks. Genau dann neu ausrichten; im Normalfall
+    // zählt der Vergleich zweier Zahlen und sonst nichts.
+    if (tour.uhr.verworfenFrames !== gesehenVerworfen) {
+      gesehenVerworfen = tour.uhr.verworfenFrames
+      nachSprung()
+    }
   }
 
   /**
