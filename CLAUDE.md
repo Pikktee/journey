@@ -251,6 +251,22 @@ Foto-Orbit → Finale. Pro Modus skalieren `MODE_SPEED`/`MODE_SCALE` Tempo und K
 `PRESETS` (nah/mittel/weit) sind die vom Nutzer wählbaren Einstellungsgrößen. Die Engine ruft
 pro Frame `ui.updateTrace(s, pos)` und optional `ui.onTick(frac)` auf.
 
+**Die Engine hat genau EINE Uhr, und sie ist ungedeckelt** ([src/filmuhr.ts](src/filmuhr.ts)).
+Vorher klemmte `tick()` die Frame-Zeit bei 50 ms — ein langsames Gerät bekam dadurch keine
+ausgelassenen Bilder, sondern eine langsamere Tour: bei 6× Drosselung lief die Bilduhr auf
+81,3 % der Echtzeit, bei 12× auf 46,1 %, während der Ton in Echtzeit weiterlief. Ein Film mit
+Ton trifft hier die Wahl jedes Videoplayers: **Die Zeit wird gehalten, das Bild springt.**
+Drei Dinge, die man dabei falsch herum baut: Die **Kamera bekommt keinen eigenen Deckel und
+keine Teilschritte** — `Smooth.to` rechnet `1 − exp(−dt/τ)` und ist bei konstantem Ziel exakt,
+ein gedeckeltes `dtKamera` ließe sie dauerhaft hinterherhängen (~65 % der vergangenen Zeit bei
+12×). Der **Rückkehr-aus-dem-Hintergrund-Fall hängt an `visibilitychange`**, nicht an einem
+Deckel — die Android-WebView sagt es zusätzlich ausdrücklich
+(`maptale:hintergrund`/`maptale:vordergrund` aus `PlayerScreen.kt`), weil dort nicht zugesichert
+ist, dass `visibilitychange` durchkommt. Und was der Notdeckel (1,0 s, ein Netz für Umgebungen
+ohne dieses Ereignis) doch kappt, ist **zählbar** statt unsichtbar: `window.__j.uhr`.
+Hintergrund und Messwerte: [scripts/messungen/README.md](scripts/messungen/README.md),
+Konzept §8A und Falle 3.
+
 **Fortbewegungs-Modi** sind `walk | bike | moped | jeep | tram | ferry`. Die Liste muss an vier
 Stellen deckungsgleich bleiben: `MODE_SPEED`/`MODE_SCALE` ([src/tour.ts](src/tour.ts)),
 `MODE_ICONS` ([src/map.ts](src/map.ts)), `MODE_SOUND` ([src/vehicle.ts](src/vehicle.ts), nur

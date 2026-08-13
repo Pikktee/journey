@@ -18,11 +18,16 @@ als er glaubt — und merkt es nicht, weil das Ergebnis plausibel aussieht.
    Headless ist die Shell, und dort lief die Tour rund **20× zu langsam**. Deshalb starten
    die Browser-Skripte mit `channel: 'chromium'` (volles Headless). Wer das ändert, misst
    die Bildrate des Messaufbaus statt die des Players.
-2. **Der `dt`-Deckel verfälscht genau das, was man messen will.** `tour.ts` rechnet
-   `dt = Math.min((now - lastT) / 1000, 0.05)`. Jede Messung, die die Fortbewegung der
-   Engine gegen die Wanduhr hält, misst damit den Deckel mit. Für die Rampen wurde die
-   Geschwindigkeitslogik deshalb in Node nachgebildet
-   ([rampen-simulation.ts](rampen-simulation.ts)) statt im Browser gemessen.
+2. **Der `dt`-Deckel verfälschte genau das, was man messen will** — bis Etappe 1. `tour.ts`
+   rechnete `dt = Math.min((now - lastT) / 1000, 0.05)`; jede Messung, die die Fortbewegung
+   der Engine gegen die Wanduhr hielt, maß damit den Deckel mit. Seit v0.62.0 zählt
+   [src/filmuhr.ts](../../src/filmuhr.ts) echte Frame-Zeit, und der Notdeckel dort liegt bei
+   1,0 s — weit über jedem Frame, das eine Drosselung erzeugt. Wer misst, sollte trotzdem
+   `window.__j.uhr.verworfenS` mitlesen: Ist die Zahl > 0, hat der Aufbau ausgesetzt (und
+   nicht bloß gestockt), und die Messung wertet einen anderen Vorgang.
+   Für die Rampen wurde die Geschwindigkeitslogik in Node nachgebildet
+   ([rampen-simulation.ts](rampen-simulation.ts)) statt im Browser gemessen — das bleibt
+   richtig, dort geht es um die Form der Kurve, nicht um die Uhr.
 3. **Der Browser-Pane der Entwicklungsumgebung hat ein 0×0-Viewport**, `rAF` feuert dort
    gar nicht und MapLibre lädt nie. Er taugt für DOM-Zugriffe auf eine ANGEMELDETE Sitzung,
    nicht für Optik oder Timing.
@@ -71,6 +76,12 @@ Einordnung stehen im [Konzept](../../docs/concepts/konzept_gleichlauf_player_edi
 |---|---|
 | Bilduhr bei 1× / 6× / 12× Drosselung | 99,7 % / 81,3 % / 46,1 % der Echtzeit |
 | Verworfene Zeit durch den 50-ms-Deckel | 0 % / 5,0 % / 35,3 % |
+
+**Nach Etappe 1 (13. August 2026, „eine Uhr"):** dieselbe Messung, dieselbe Tour —
+**99,7 % / 99,4 % / 98,5 %**. Die Bildrate fällt unverändert (60 → 29 → 16 fps): Das Gerät
+lässt jetzt Bilder aus, statt die Tour zu verlangsamen. Der Rest bei 12× ist der
+Euler-Fehler des Integrators (`s += speed · dt` mit dem `speed` vom Frame-Anfang), nicht
+verlorene Zeit — `verworfenS` blieb 0.
 | Player gegen Studio-Filmzeit | +9,1 % … +12,7 % (vier Touren) |
 | davon Rampen je Stopp | 0,44 s (Kurztour) … 2,70 s |
 | `route.total` gegen Rohgeometrie | +2,18 % … +3,04 % |

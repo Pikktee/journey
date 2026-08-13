@@ -5,6 +5,7 @@
 // nötig, weil zoom-basierte Kameras (jumpTo) in steilem Gelände im Hang stecken bleiben.
 import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
 import { HOLD_AUSBLEND, HOLD_HIDE } from './einblendung.js'
+import { Filmuhr, verbindeSichtbarkeit } from './filmuhr.js'
 import { pointAt, bearingAt, dist, bearing, angleDelta, destination, type Route } from './geo.js'
 import { EXAGGERATION, type LngLat2D } from './map.js'
 import type { Wegpunkt } from './tours.js'
@@ -214,7 +215,12 @@ export class Tour {
   ltAlt: Smooth
   camSnap: Kamerastand | null = null
 
-  lastT: number
+  /**
+   * Die eine Uhr der Engine (src/filmuhr.ts). Sie speist ALLES, was Zeit
+   * misst — Fortbewegung, Standzeiten, Kamera-Glättung —, und zwar mit echter,
+   * ungedeckelter Frame-Zeit. Ihre Zähler hängen zum Nachsehen an `window.__j`.
+   */
+  uhr: Filmuhr
   uiClock: number
   private _tick: (now: number) => void
 
@@ -286,7 +292,8 @@ export class Tour {
 
     this.applyCamera()
     this.updateMapLock() // Intro-Orbit: Karte gesperrt, kein Greifhand-Cursor
-    this.lastT = performance.now()
+    this.uhr = new Filmuhr()
+    verbindeSichtbarkeit(this.uhr)
     this.uiClock = 0
     this._tick = this.tick.bind(this)
     requestAnimationFrame(this._tick)
@@ -792,8 +799,10 @@ export class Tour {
   // — pro Frame —
 
   tick(now: number): void {
-    const dt = Math.min((now - this.lastT) / 1000, 0.05)
-    this.lastT = now
+    // Echte Frame-Zeit, ungedeckelt (src/filmuhr.ts). Ein langsames Gerät lässt
+    // das Bild springen statt nachlaufen — und die Kamera rechnet auf DEMSELBEN
+    // `dt`: ein eigener Deckel für sie ließe sie dauerhaft hinterherhängen.
+    const dt = this.uhr.frame(now)
 
     if (this.phase === 'intro') {
       // Ruhiger, langsamer Orbit: das Intro ist Bühne, nicht Bewegungsschau — die

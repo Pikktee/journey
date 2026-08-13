@@ -116,18 +116,35 @@ fun PlayerScreen(
     val halter = remember { arrayOfNulls<WebView>(1) }
 
     // — App im Hintergrund: Ton anhalten, beim Zurückkommen fortsetzen —
+    //
+    // Die Filmuhr des Players (src/filmuhr.ts) muss davon WISSEN: Sie zählt
+    // echte Frame-Zeit, und ohne einen Halt schöbe die Rückkehr den Film um die
+    // volle Abwesenheit vor. Im Browser hängt das an `visibilitychange` — ob die
+    // WebView es beim Wechsel in den Hintergrund liefert, hängt daran, ob die
+    // View ihre Fenster-Sichtbarkeit verliert, und ist nicht zugesichert.
+    // Deshalb sagt die App es hier ausdrücklich. Reihenfolge ist Absicht:
+    // erst der Seite Bescheid geben, dann die Zeitgeber einfrieren — und beim
+    // Zurückkommen umgekehrt.
     val lebenszyklus = ansicht.findViewTreeLifecycleOwner()?.lifecycle
     DisposableEffect(lebenszyklus) {
         val beobachter = LifecycleEventObserver { _, ereignis ->
             val web = halter[0]
             when (ereignis) {
                 Lifecycle.Event.ON_PAUSE -> {
+                    web?.evaluateJavascript(
+                        "window.dispatchEvent(new Event('maptale:hintergrund'))",
+                        null,
+                    )
                     web?.onPause()
                     web?.pauseTimers()
                 }
                 Lifecycle.Event.ON_RESUME -> {
                     web?.onResume()
                     web?.resumeTimers()
+                    web?.evaluateJavascript(
+                        "window.dispatchEvent(new Event('maptale:vordergrund'))",
+                        null,
+                    )
                 }
                 else -> Unit
             }

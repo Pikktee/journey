@@ -17,6 +17,7 @@ import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI, $, type PlayerMedium } from './ui.js'
 import { Tour, type KameraMoment, type ModusGrenze } from './tour.js'
+import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
 
 /**
@@ -87,6 +88,8 @@ interface PlayerDebug {
   tourAudio: AudioSpuren | null
   vehicle?: Fahrzeugton
   tour?: Tour
+  /** Filmuhr der Engine samt Zählern (verworfene Zeit, Pausen, längstes Frame) */
+  uhr?: Filmuhr
   rider?: Marker
   weather?: Wetteroverlay
   music?: Hintergrundmusik | null
@@ -403,7 +406,10 @@ map.on('load', () => {
     moments,
     showFinale: cfg.showFinale === true,
   })
-  Object.assign(window.__j, { tour, rider })
+  // `uhr` ist die Filmuhr der Engine: Ihre Zähler (verworfene Sekunden,
+  // Pausen, längstes Frame) sind der Blick darauf, was auf einem langsamen
+  // Gerät tatsächlich passiert — sichtbar in der Konsole statt still.
+  Object.assign(window.__j, { tour, rider, uhr: tour.uhr })
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
   // Keyframes über den Streckenanteil f. Es gilt der letzte Keyframe mit f <= frac
