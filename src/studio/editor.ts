@@ -5433,7 +5433,7 @@ function starteKantenZug(ziel: HTMLElement, rolle: string): void {
     // Und weil sie EXAKT ist, darf der Zug live ins Modell schreiben: die Kante
     // landet nach jedem Neuaufbau wieder unter dem Zeiger.
     const modi = modiUmKante(kanteS)
-    const kurve = modi ? baueGrenzKurve(z.track, vonS, bisS, modi.links, filmVon, achse.halte ?? []) : null
+    const kurve = modi ? baueGrenzKurve(z.track, vonS, bisS, modi.links, modi.rechts, filmVon, achse.halte ?? []) : null
     if (!kurve || !modi) return
     zeitBei = (filmS: number): number => zeitBeiFilm(kurve, filmS)
     maxFilmS = kurve.gesamtS

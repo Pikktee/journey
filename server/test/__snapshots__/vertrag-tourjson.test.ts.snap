@@ -1008,7 +1008,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
 {
   "audio": [
     {
-      "f0": 0.002072684997225471,
+      "f0": 0.003737816578715636,
       "f1": 0.11252908373243974,
       "gain": 0.8,
       "loop": false,
@@ -1017,7 +1017,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       "type": "music",
     },
     {
-      "f0": 0.2880003773789752,
+      "f0": 0.2880003773789751,
       "f1": 0.4200250863269188,
       "gain": 0.8,
       "loop": true,
@@ -1262,7 +1262,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
 {
   "audio": [
     {
-      "f0": 0.046425250972301574,
+      "f0": 0.06627176980764647,
       "f1": 0.11252908373243974,
       "gain": 0.8,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",

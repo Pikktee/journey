@@ -143,11 +143,11 @@ describe('Filmtempo', () => {
   })
 
   it('rechnet Strecke und Filmdauer ineinander um', () => {
-    expect(tempoMs('walk')).toBe(48)
+    expect(tempoMs('walk')).toBe(60)
     expect(tempoMs('ferry')).toBe(300)
-    // Zu Fuß dauern 240 m fünf Filmsekunden — auf der Fähre keine Sekunde
-    expect(filmsekunden(240, 'walk')).toBe(5)
-    expect(meterFuerFilmsekunden(5, 'walk')).toBe(240)
+    // Zu Fuß dauern 240 m vier Filmsekunden — auf der Fähre keine Sekunde
+    expect(filmsekunden(240, 'walk')).toBe(4)
+    expect(meterFuerFilmsekunden(4, 'walk')).toBe(240)
     expect(filmsekunden(meterFuerFilmsekunden(3, 'tram'), 'tram')).toBeCloseTo(3, 9)
   })
 })

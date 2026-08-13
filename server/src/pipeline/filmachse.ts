@@ -82,28 +82,45 @@ function interpoliere(xs: readonly number[], ys: readonly number[], x: number): 
 }
 
 /**
- * Weganteil der Rampe nach dem Zeitanteil `u` — `2u³ − u⁴`, Spiegel von
- * `rampenWeg` in src/filmachse.ts.
+ * Weganteil der Rampe nach dem Zeitanteil `u`, von Tempo `v0` auf `v1` —
+ * Spiegel von `rampenWeg` in src/filmachse.ts.
  *
- * Ihre Ableitung ist `2 · smoothstep(u)`: Tempo 0 am Anfang, in der Mitte die
- * stärkste Beschleunigung, sanft ins Reisetempo. Daraus folgt die eine Zahl,
- * die die Rechnung trägt: Eine Rampe dauert DOPPELT so lange wie das Reisen
- * derselben Strecke, ihr Zuschlag ist also genau eine Reisezeit.
+ * Die Geschwindigkeit folgt `v0 + (v1 − v0) · smoothstep(u)`: sanft an, in der
+ * Mitte am stärksten, sanft ins neue Tempo. Daraus die zwei Zahlen, die die
+ * Rechnung tragen: `w(1) = 1` und die Dauer `T = 2L / (v0 + v1)` — die Strecke
+ * durch das MITTLERE Tempo. Für `v0 = 0` fällt daraus die Halt-Rampe heraus
+ * (`2u³ − u⁴`, `T = 2L/v1`).
  */
-function rampenWeg(u: number): number {
-  return u * u * u * (2 - u)
+function rampenWeg(u: number, v0: number, v1: number): number {
+  const mittel = (v0 + v1) / 2
+  if (!(mittel > 0)) return u
+  return (v0 * u + (v1 - v0) * (u * u * u - (u * u * u * u) / 2)) / mittel
 }
 
 /** Stützstellen je Rampe — dieselbe Abtastung wie im Web. */
 const RAMPEN_STUFEN = 12
 
+/** Ein Punkt der Achse, an dem sich das Tempo ändert — Spiegel von `Rampenknoten`. */
+interface Rampenknoten {
+  ort: number
+  halte: AchsenHalt[]
+  vLinks: number
+  vRechts: number
+  wunschL: number
+  wunschR: number
+  lenL: number
+  lenR: number
+}
+
 /**
  * Film-Achse aus der (bereits getrimmten) Zeitreihe und den Halten.
  *
  * Fahrzeit kommt aus Strecke ÷ modusabhängigem Tempo — dieselbe Rechnung, mit
- * der die Engine fährt (filmtempo.ts) —, dazu die Rampen um jeden Halt und am
- * Start. `null`, wenn zu wenig Material für eine Abbildung da ist; der Aufrufer
- * fällt dann auf die alte Aufnahmezeit-Verankerung zurück, statt zu raten.
+ * der die Engine fährt (filmtempo.ts) —, dazu die Rampen. Sie liegen an JEDEM
+ * Tempowechsel: am Start, an jedem Halt (Sonderfall „von oder auf null") und an
+ * jeder Modus-Grenze, dort symmetrisch um die Grenze. `null`, wenn zu wenig
+ * Material für eine Abbildung da ist; der Aufrufer fällt dann auf die alte
+ * Aufnahmezeit-Verankerung zurück, statt zu raten.
  *
  * `rampeM` ist nur für das Verhaltens-Fixture offen: Es beschreibt die FORM der
  * Rampe mit runden Längen, die Dosierung steht als `RAMPE_M` in filmtempo.ts.
@@ -113,12 +130,10 @@ export function baueFilmAchse(
   halte: readonly AchsenHalt[],
   rampeM: number = RAMPE_M,
 ): FilmAchse | null {
-  // — Der Zeit→Strecke-Adapter und die reine REISE-Achse —
+  // — Der Zeit→Strecke-Adapter und die Tempo-Stufen über der Strecke —
   const tS: number[] = []
   const mM: number[] = []
-  const reiseM: number[] = []
-  const reiseS: number[] = []
-  let film = 0
+  const stufen: Array<{ abM: number; v: number }> = []
   let meter = 0
   const punkte = reihe.punkte
   for (let i = 0; i < punkte.length; i++) {
@@ -128,37 +143,114 @@ export function baueFilmAchse(
       const vor = punkte[i - 1]
       // Das Tempo des Punktes, VON dem gefahren wird — Grenzen wirken ab ihrem
       // Punkt, exakt wie in der Studio-Achse.
-      if (vor) {
-        const d = meterZwischen(vor, p)
-        meter += d
-        film += d / tempoMs(vor.mode)
-      }
+      if (vor) meter += meterZwischen(vor, p)
     }
+    const v = tempoMs(p.mode)
+    const letzte = stufen[stufen.length - 1]
+    if (!letzte) stufen.push({ abM: 0, v })
+    else if (letzte.abM === meter) letzte.v = v
+    else if (letzte.v !== v) stufen.push({ abM: meter, v })
     const letzter = tS.length - 1
     if (letzter >= 0 && tS[letzter] === p.tSek && mM[letzter] === meter) continue
     tS.push(p.tSek)
     mM.push(meter)
-    const r = reiseM.length - 1
-    if (r >= 0 && reiseM[r] === meter) continue
-    reiseM.push(meter)
-    reiseS.push(film)
   }
-  if (tS.length < 2 || reiseM.length < 2) return null
+  if (tS.length < 2 || !(meter > 0) || stufen.length === 0) return null
   const gesamtM = meter
-  const reiseFilm = (m: number): number => interpoliere(reiseM, reiseS, m)
+  // Tempowechsel in der Rampenzone eines Halts wandern AUF den Halt — sonst
+  // quetschen sich Wechsel- und Halt-Rampe in die paar Meter dazwischen, und
+  // der Film beschleunigt auf voller Höhe, um sofort wieder zu stehen (an
+  // Stockholm gemessen: Grenze zu Fuß → Fähre 13 m vor einem Halt).
+  const halteOrte = [...halte]
+    .filter((h) => h.breiteS > 0)
+    .map((h) => Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS))))
+    .sort((a, b) => a - b)
+  if (rampeM > 0 && halteOrte.length > 0 && stufen.length > 1) {
+    for (const st of stufen.slice(1)) {
+      let naechster: number | undefined
+      for (const o of halteOrte) {
+        const abstand = Math.abs(o - st.abM)
+        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM))) naechster = o
+      }
+      if (naechster !== undefined) st.abM = naechster
+    }
+    stufen.sort((a, b) => a.abM - b.abM)
+    const geraeumt: Array<{ abM: number; v: number }> = []
+    for (const st of stufen) {
+      const letzte = geraeumt[geraeumt.length - 1]
+      if (!letzte) geraeumt.push(st)
+      else if (letzte.abM === st.abM) letzte.v = st.v
+      else if (letzte.v !== st.v) geraeumt.push(st)
+    }
+    stufen.length = 0
+    stufen.push(...geraeumt)
+  }
 
+  const tempoBei = (m: number): number => {
+    let v = (stufen[0] as { v: number }).v
+    for (const st of stufen) if (st.abM <= m) v = st.v
+    return v
+  }
+
+  // — Die Rampenknoten —
+  //
   // Halte auf die Strecke ziehen — nach ZEIT vorsortiert, damit mehrere Halte
   // in derselben realen Pause (gleicher Meterstand) ihre Reihenfolge behalten.
-  const geordnet = [...halte]
-    .filter((h) => h.breiteS > 0)
-    .sort((a, b) => a.offsetS - b.offsetS)
-    .map((h) => ({ h, ort: Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS))) }))
-    .sort((a, b) => a.ort - b.ort)
+  const knoten: Rampenknoten[] = []
+  const knotenAn = (ort: number): Rampenknoten => {
+    const da = knoten.find((k) => k.ort === ort)
+    if (da) return da
+    const neu: Rampenknoten = {
+      ort,
+      halte: [],
+      vLinks: ort <= 0 ? 0 : tempoBei(ort - 1e-9),
+      vRechts: ort >= gesamtM ? 0 : tempoBei(ort),
+      wunschL: 0,
+      wunschR: 0,
+      lenL: 0,
+      lenR: 0,
+    }
+    knoten.push(neu)
+    return neu
+  }
+  knotenAn(0)
+  knotenAn(gesamtM)
+  for (const st of stufen.slice(1)) if (st.abM > 0 && st.abM < gesamtM) knotenAn(st.abM)
+  for (const h of [...halte].filter((x) => x.breiteS > 0).sort((a, b) => a.offsetS - b.offsetS)) {
+    knotenAn(Math.max(0, Math.min(gesamtM, interpoliere(tS, mM, h.offsetS)))).halte.push(h)
+  }
+  knoten.sort((a, b) => a.ort - b.ort)
 
+  for (const k of knoten) {
+    const amStart = k.ort <= 0
+    const amEnde = k.ort >= gesamtM
+    if (k.halte.length > 0) {
+      k.wunschL = amStart ? 0 : rampeM
+      k.wunschR = amEnde ? 0 : rampeM
+    } else if (amStart) {
+      k.wunschR = rampeM
+    } else if (!amEnde) {
+      // Modus-Grenze: EINE Rampe, symmetrisch um die Grenze.
+      k.wunschL = rampeM / 2
+      k.wunschR = rampeM / 2
+    }
+  }
+  // Kollidierende Rampen teilen sich die Lücke anteilig nach ihrem Bedarf.
+  for (let i = 0; i + 1 < knoten.length; i++) {
+    const links = knoten[i] as Rampenknoten
+    const rechts = knoten[i + 1] as Rampenknoten
+    const luecke = Math.max(0, rechts.ort - links.ort)
+    const bedarf = links.wunschR + rechts.wunschL
+    const faktor = bedarf > luecke ? (bedarf > 0 ? luecke / bedarf : 0) : 1
+    links.lenR = links.wunschR * faktor
+    rechts.lenL = rechts.wunschL * faktor
+  }
+
+  // — Der Durchgang —
   const sM: number[] = [0]
   const filmS: number[] = [0]
-  let zuschlag = 0
-  let stand = 0
+  let pos = 0
+  let film = 0
 
   const setze = (m: number, f: number): void => {
     const n = sM.length
@@ -167,39 +259,45 @@ export function baueFilmAchse(
     filmS.push(f)
   }
 
-  const rampe = (vonRampeM: number, laenge: number, anfahrt: boolean): void => {
-    if (!(laenge > 0)) return
-    const reise = reiseFilm(vonRampeM + laenge) - reiseFilm(vonRampeM)
-    const basis = reiseFilm(vonRampeM) + zuschlag
-    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
-      const u = k / RAMPEN_STUFEN
-      const anteil = anfahrt ? rampenWeg(u) : 1 - rampenWeg(1 - u)
-      setze(vonRampeM + laenge * anteil, basis + 2 * reise * u)
+  const reise = (bis: number): void => {
+    while (pos < bis) {
+      let naechste = bis
+      for (const st of stufen) if (st.abM > pos && st.abM < naechste) naechste = st.abM
+      film += (naechste - pos) / tempoBei(pos)
+      pos = naechste
+      setze(pos, film)
     }
-    zuschlag += reise
   }
 
-  for (let i = 0; i <= geordnet.length; i++) {
-    const eintrag = geordnet[i]
-    const ziel = eintrag ? eintrag.ort : gesamtM
-    const luecke = Math.max(0, ziel - stand)
-    const ausrollen = eintrag ? Math.min(rampeM, luecke / 2) : 0
-    const anfahrt = Math.min(rampeM, eintrag ? luecke / 2 : luecke)
-    setze(stand, reiseFilm(stand) + zuschlag)
-    rampe(stand, anfahrt, true)
-    const reiseVon = stand + anfahrt
-    const reiseBis = ziel - ausrollen
-    for (const m of reiseM) if (m > reiseVon && m < reiseBis) setze(m, reiseFilm(m) + zuschlag)
-    if (reiseBis > reiseVon) setze(reiseBis, reiseFilm(reiseBis) + zuschlag)
-    rampe(reiseBis, ausrollen, false)
-    if (!eintrag) break
-    const ankunft = reiseFilm(ziel) + zuschlag
-    setze(ziel, ankunft)
-    sM.push(ziel)
-    filmS.push(ankunft + eintrag.h.breiteS)
-    zuschlag += eintrag.h.breiteS
-    stand = ziel
+  const rampe = (von: number, laenge: number, v0: number, v1: number): void => {
+    if (!(laenge > 0) || !(v0 + v1 > 0)) return
+    const dauer = (2 * laenge) / (v0 + v1)
+    const basis = film
+    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
+      const u = k / RAMPEN_STUFEN
+      setze(von + laenge * rampenWeg(u, v0, v1), basis + dauer * u)
+    }
+    film = basis + dauer
+    pos = von + laenge
   }
+
+  for (const k of knoten) {
+    reise(k.ort - k.lenL)
+    if (k.halte.length > 0) {
+      rampe(pos, k.lenL, k.vLinks, 0)
+      for (const h of k.halte) {
+        setze(k.ort, film)
+        sM.push(k.ort)
+        filmS.push(film + h.breiteS)
+        film += h.breiteS
+      }
+      pos = k.ort
+      rampe(k.ort, k.lenR, 0, k.vRechts)
+    } else {
+      rampe(k.ort - k.lenL, k.lenL + k.lenR, k.vLinks, k.vRechts)
+    }
+  }
+  reise(gesamtM)
 
   const gesamtS = filmS[filmS.length - 1] as number
   if (!(gesamtS > 0)) return null

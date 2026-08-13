@@ -422,7 +422,7 @@ sind dieselben geblieben. Grund ist E12: Der Player braucht Filmsekunde → Stre
 das kann eine über der Aufnahmezeit parametrisierte Achse nicht liefern. Seit Etappe 4 legt
 derselbe Kern auch die **Rampen** hinein (`RAMPE_M`, 120 m Anfahrt/Ausrollen je Halt und am
 Start): Die Filmdauer, die das Pult zeigt, ist damit die, die der Player wirklich braucht — jede
-Bestandstour wurde dadurch auf dem Papier 9–13 % länger, der Film ist derselbe. Die eine
+Bestandstour wurde dadurch auf dem Papier 2,7–7,8 % länger, der Film ist derselbe. Die eine
 Ausnahme ist das Zug-Fenster einer Fortbewegungs-Grenze (`baueGrenzKurve`): Es beginnt mitten in
 der Fahrt und bekommt deshalb `ausDemStand: false` — mit Anfahrt landete die gezogene Kante um
 deren Zuschlag neben dem Zeiger. Zwei Folgen, die man

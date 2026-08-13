@@ -29,8 +29,17 @@
 /** Streckenfortschritt bei 1× in m/s (die Engine fährt damit, src/tour.ts). */
 export const BASIS_TEMPO_MS = 120
 
-/** Tempo-Faktor je Fortbewegungsmodus. Schlüssel = die Modi des Austauschformats. */
-export const MODUS_TEMPO = { walk: 0.4, moped: 1.15, bike: 1, jeep: 1.45, tram: 1.25, ferry: 2.5 }
+/**
+ * Tempo-Faktor je Fortbewegungsmodus. Schlüssel = die Modi des Austauschformats.
+ *
+ * **Gestalterische Zahlen**, keine physikalischen: Sie sagen, wie sich eine
+ * Fortbewegung im FILM anfühlen soll, nicht wie schnell man sich wirklich
+ * bewegt. `walk` stand bis zum Abfahren des Rampen-Nachtrags auf 0,4 und wirkte
+ * einen Tick zu träge — 0,5 ist die Korrektur daran. Wer hier etwas ändert,
+ * ändert die Dauer JEDER bestehenden Tour (s. scripts/messungen/filmdauer.ts)
+ * und muss den Spiegel in server/src/pipeline/filmtempo.ts mitnehmen.
+ */
+export const MODUS_TEMPO = { walk: 0.5, moped: 1.15, bike: 1, jeep: 1.45, tram: 1.25, ferry: 2.5 }
 
 /**
  * Film-Tempo eines Modus in m/s.
@@ -115,21 +124,38 @@ export type HaltIntervall<H extends Halt = Halt> = H & { filmVon: number; filmBi
 // Editor zeichenbar, und sie passt zur Achse, die seit E12 ohnehin über der
 // STRECKE rechnet (eine Rampe über feste ZEIT müsste dort rückwärts aufgelöst
 // werden).
+//
+// **Die Rampe gilt für JEDEN Tempowechsel, nicht nur für Halte** (Nachtrag zu
+// Etappe 4). Ein Halt ist seither der Sonderfall „Wechsel von oder auf null".
+// Der erste Wurf rampte nur um Halte herum und ließ Modus-Grenzen springen —
+// bei Stockholm von zu Fuß auf Fähre in einem Frame, Faktor 6,25. Die alte
+// Engine hatte das nicht: Ihr Tiefpass lag auf JEDER Tempoänderung. Sichtbar
+// wurde es erst zusammen mit der Kamera, die weiter geglättet folgt: erst
+// schnell und nah, dann schnell und weit — „auf einen Schlag sehr schnell,
+// wird dann aber scheinbar langsamer".
 
 /**
- * Weganteil der Rampe nach dem Zeitanteil `u` (0..1) — `2u³ − u⁴`.
+ * Weganteil der Rampe nach dem Zeitanteil `u` (0..1), von Tempo `v0` auf `v1`.
  *
- * Ihre Ableitung ist `2 · smoothstep(u)`: Tempo 0 am Anfang, sanft anziehend,
- * in der MITTE am stärksten, sanft ins Reisetempo (Beschleunigung an beiden
- * Enden null — kein Ruck). Das ist genau die Form, die E14 beschreibt.
+ * Die Geschwindigkeit folgt `v(u) = v0 + (v1 − v0) · smoothstep(u)`: sanft an,
+ * in der MITTE am stärksten, sanft ins neue Tempo — Beschleunigung an beiden
+ * Enden null, also kein Ruck. Integriert ergibt das
  *
- * Aus `σ(1) = 1` und `σ'(1) = 2` folgt die eine Zahl, die die ganze Rechnung
- * trägt: **Eine Rampe dauert doppelt so lange wie das Reisen derselben
- * Strecke.** Ihr Zuschlag ist also genau eine Reisezeit ihrer Länge — und weil
- * die aus der Reise-Achse kommt, stimmt er auch, wenn mitten in der Rampe ein
- * Modus wechselt.
+ *     w(u) = [v0·u + (v1 − v0)·(u³ − u⁴/2)] / ((v0 + v1)/2)
+ *
+ * und daraus die zwei Zahlen, die die Rechnung tragen: `w(1) = 1` (die Rampe
+ * fährt genau ihre Strecke) und die **Dauer `T = 2L / (v0 + v1)`** — die Strecke
+ * geteilt durch das MITTLERE Tempo.
+ *
+ * Für `v0 = 0` fällt daraus exakt die Halt-Rampe heraus (`w = 2u³ − u⁴`,
+ * `T = 2L/v1`): Die Verallgemeinerung geht stetig in die frühere Form über,
+ * Halte rechnen weiter dasselbe.
  */
-const rampenWeg = (u: number): number => u * u * u * (2 - u)
+const rampenWeg = (u: number, v0: number, v1: number): number => {
+  const mittel = (v0 + v1) / 2
+  if (!(mittel > 0)) return u
+  return (v0 * u + (v1 - v0) * (u * u * u - (u * u * u * u) / 2)) / mittel
+}
 
 /**
  * Stützstellen je Rampe. Die Kurve wird stückweise linear abgetastet — 12
@@ -139,31 +165,69 @@ const rampenWeg = (u: number): number => u * u * u * (2 - u)
 const RAMPEN_STUFEN = 12
 
 /**
- * Anfahr- und Ausrollstrecke in Metern — **die eine gestalterische Zahl der
- * Rampe**, kalibriert und nicht geraten.
+ * Rampenstrecke in Metern — **die eine gestalterische Zahl der Rampe**,
+ * kalibriert und nicht geraten.
  *
- * Kalibriert an den heute simulierten Rampen, damit sich die Fahrt nicht
+ * Kalibriert an den Rampen der alten Engine, damit sich die Fahrt nicht
  * sprunghaft anders anfühlt — die Summe über die vier Fixtur-Touren beträgt
  * 64,3 Rampen-Sekunden ([rampen-simulation.ts](../scripts/messungen/rampen-simulation.ts):
- * 32,4 · 14,7 · 1,3 · 15,9). Der Zuschlag einer Rampe ist `Länge ÷ Tempo`, ein
- * Halt kostet also `2 L / v`; **120 m** treffen die Summe auf 3,3 % genau
- * (62,2 s), nachgerechnet mit
+ * 32,4 · 14,7 · 1,3 · 15,9). Am HALT ist der Zuschlag `Länge ÷ Tempo`, ein Halt
+ * kostet also `2 L / v`; **120 m** treffen die Summe auf 3,3 % genau (62,2 s),
+ * nachgerechnet mit
  * [rampen-kalibrierung.ts](../scripts/messungen/rampen-kalibrierung.ts).
  *
  * Die VERTEILUNG ändert sich dabei bewusst, und das ist keine Ungenauigkeit,
- * sondern der Kern von E14: Heute WÄCHST der Zuschlag mit dem Tempo (die
- * Exponentialkurve braucht bei Vollgas länger, 2,70 s je Halt auf der
- * 41-km-Tour gegen 0,44 s auf der kurzen), künftig FÄLLT er damit — dieselbe
+ * sondern der Kern von E14: Früher WUCHS der Zuschlag mit dem Tempo (die
+ * Exponentialkurve brauchte bei Vollgas länger, 2,70 s je Halt auf der
+ * 41-km-Tour gegen 0,44 s auf der kurzen), jetzt FÄLLT er damit — dieselbe
  * Strecke ist schneller durchfahren. Die schnelle Tour verliert deshalb
  * Rampenzeit (32,4 → 22,0 s), die überwiegend gegangene gewinnt welche
  * (14,7 → 24,2 s): Der Antritt wirkt bei Tempo knackiger und zu Fuß getragener.
  *
- * **Liegen zwei Halte näher beieinander als 2 L**, teilen sie sich die Lücke
- * hälftig — sonst überlappten Ausrollen und Anfahren, und die Achse liefe
- * rückwärts. Auf der kurzen Tour (356 m Luftlinie zwischen drei Halten) greift
- * genau das: Ihre Rampen bleiben bei 3,0 s, egal wie lang `RAMPE_M` steht.
+ * **Am Halt liegt die volle Länge auf JEDER Seite** (bremsen davor, anfahren
+ * danach); an einer Modus-Grenze liegt sie EINMAL und **symmetrisch um die
+ * Grenze** — halbe Länge davor, halbe danach. Das ist eine Entscheidung und
+ * keine Ableitung: Eine Rampe ganz vor der Grenze führe das neue Tempo schon
+ * im alten Abschnitt, eine ganz danach hielte das alte über die Grenze hinaus;
+ * symmetrisch gehört der Wechsel der Grenze selbst.
+ *
+ * **Kollidieren zwei Rampen, teilen sie sich die Lücke** — anteilig nach dem,
+ * was sie bräuchten, was bei zwei gleich langen genau die Hälfte ist. Sonst
+ * überlappten sie, und die Achse liefe rückwärts. Auf der kurzen Fixtur-Tour
+ * (356 m zwischen drei Halten) greift das durchgehend: Ihre Rampen bleiben bei
+ * 3,0 s, egal wie lang `RAMPE_M` steht.
  */
 export const RAMPE_M = 120
+
+/**
+ * Was eine Modus-Rampe VOR ihrer Grenze gegenüber reiner Reise kostet (s).
+ *
+ * Für das Zug-Fenster einer Fortbewegungs-Grenze im Editor
+ * ([zeitleiste.ts](studio/zeitleiste.ts), `baueGrenzKurve`): Dessen Kurve
+ * rechnet das Fenster durchgehend im LINKEN Modus, weil die Filmposition der
+ * Kante nur von dem abhängt, was vor ihr liegt. Seit die Grenze ihre eigene
+ * Rampe hat, stimmt das um genau diesen Betrag nicht mehr — die halbe
+ * Rampenstrecke vor der Kante wird nicht mehr mit `v0` gefahren, sondern
+ * anfahrend. Der Betrag ist KONSTANT (er hängt nur an den beiden Tempi und der
+ * Rampenlänge, nicht daran, wo die Kante steht), verschiebt die Kurve also bloß
+ * und lässt sie umkehrbar.
+ *
+ * Gesucht ist der Zeitanteil `u*`, an dem die Rampe ihre halbe STRECKE hinter
+ * sich hat (`w(u*) = ½`) — sie ist symmetrisch in der Strecke, nicht in der
+ * Zeit. `w` ist streng monoton, also findet ihn eine Bisektion.
+ */
+export function rampenVersatzS(v0: number, v1: number, rampeM: number = RAMPE_M): number {
+  if (!(rampeM > 0) || !(v0 > 0) || !(v1 > 0) || v0 === v1) return 0
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 40; i++) {
+    const mitte = (lo + hi) / 2
+    if (rampenWeg(mitte, v0, v1) < 0.5) lo = mitte
+    else hi = mitte
+  }
+  const dauer = (2 * rampeM) / (v0 + v1)
+  return dauer * ((lo + hi) / 2) - rampeM / 2 / v0
+}
 
 /** Wie die Achse ihre Rampen setzt. */
 export interface Rampenwahl {
@@ -214,19 +278,35 @@ export interface Filmachse<H extends Streckenhalt = Streckenhalt> {
   halte: Array<HaltIntervall<H>>
 }
 
+/** Ein Punkt der Achse, an dem sich das Tempo ändert — und wie viel Rampe er will. */
+interface Rampenknoten<H extends Streckenhalt> {
+  ort: number
+  /** Halte an genau dieser Stelle (mehrere, wenn sie in derselben Pause liegen) */
+  halte: H[]
+  /** Tempo links und rechts des Knotens (m/s); am Halt ist es dazwischen null */
+  vLinks: number
+  vRechts: number
+  /** Rampenlänge, die der Knoten links/rechts BRÄUCHTE, und was er nach dem Teilen bekommt */
+  wunschL: number
+  wunschR: number
+  lenL: number
+  lenR: number
+}
+
 /**
  * Die Filmachse aus Abschnitten und Halten.
  *
- * Innerhalb eines Abschnitts ist die REISE-Abbildung exakt linear (Strecke ÷
- * Tempo) — Stützstellen je Trackpunkt braucht es dafür nicht. Wer sie hat (der
- * Editor), legt seinen Zeit→Strecke-Adapter daneben, statt sie in die Achse zu
- * tragen. Nichtlinear wird die Achse nur dort, wo eine RAMPE liegt: um jeden
- * Halt und am Start der Tour.
+ * Zwischen den Rampen ist die Abbildung exakt linear (Strecke ÷ Tempo) —
+ * Stützstellen je Trackpunkt braucht es dafür nicht. Wer sie hat (der Editor),
+ * legt seinen Zeit→Strecke-Adapter daneben, statt sie in die Achse zu tragen.
+ * Nichtlinear wird die Achse genau dort, wo sich das TEMPO ändert: am Start,
+ * an jedem Halt und an jeder Modus-Grenze.
  *
- * Gebaut wird in einem Durchgang von vorn nach hinten — Rampe, Reise, Rampe,
- * Halt-Plateau —, und der aufgelaufene `zuschlag` trägt Rampen und Standzeiten
- * gemeinsam. Ein nachträgliches Einweben (die frühere `webeHalte`) ginge nicht
- * mehr: Die Rampen einer Lücke hängen davon ab, wie lang sie ist.
+ * Gebaut wird in drei Schritten und einem Durchgang: die Tempo-Stufen über der
+ * Strecke, daraus die Rampenknoten samt Teilung der Lücken, dann von vorn nach
+ * hinten Reise · Rampe · Halt-Plateau · Rampe. Ein nachträgliches Einweben (die
+ * frühere `webeHalte`) ginge nicht: Wie lang eine Rampe wird, hängt davon ab,
+ * wie viel Platz zwischen ihren Nachbarn ist.
  *
  * **Die Meter müssen ROH sein, nicht die der gebauten Route:** Catmull-Rom und
  * das 14-m-Raster machen die Route 2,2–3,0 % länger, und die Dehnung verteilt
@@ -241,43 +321,134 @@ export function baueFilmachse<H extends Streckenhalt>(
 ): Filmachse<H> {
   const rampeM = wahl.rampeM ?? RAMPE_M
   const ausDemStand = wahl.ausDemStand ?? true
-  // — Die REISE-Achse: Strecke ÷ Tempo, ohne Rampen und ohne Halte —
-  const reiseM: number[] = [0]
-  const reiseS: number[] = [0]
-  let film = 0
-  let vonM = 0
-  let mode = abschnitte[0]?.mode ?? 'bike'
-  for (const a of abschnitte.slice(1)) {
-    const bisM = Math.max(vonM, Math.min(gesamtM, a.abM))
-    if (bisM > vonM) {
-      film += filmsekunden(bisM - vonM, mode)
-      reiseM.push(bisM)
-      reiseS.push(film)
-    }
-    vonM = bisM
-    mode = a.mode
-  }
-  if (gesamtM > vonM) {
-    film += filmsekunden(gesamtM - vonM, mode)
-    reiseM.push(gesamtM)
-    reiseS.push(film)
-  }
-  const reiseFilm = (m: number): number => interpoliere(reiseM, reiseS, m)
 
+  // — 1. Das Tempo über der Strecke, als Stufenfunktion —
+  //
+  // Aufeinanderfolgende Abschnitte mit demselben Tempo werden zusammengelegt:
+  // Ein Segmentwechsel ohne Tempowechsel ist keine Kante und braucht keine
+  // Rampe (dieselbe Fahrt, nur ein anderer Eintrag im Manifest).
+  const stufen: Array<{ abM: number; v: number }> = [{ abM: 0, v: tempoMs(abschnitte[0]?.mode ?? 'bike') }]
+  {
+    let vonM = 0
+    for (const a of abschnitte.slice(1)) {
+      const bisM = Math.max(vonM, Math.min(gesamtM, a.abM))
+      vonM = bisM
+      const v = tempoMs(a.mode)
+      const letzte = stufen[stufen.length - 1] as { abM: number; v: number }
+      if (letzte.abM === bisM) letzte.v = v
+      else if (letzte.v !== v) stufen.push({ abM: bisM, v })
+    }
+  }
+  // — 1b. Tempowechsel in der Rampenzone eines Halts wandern AUF den Halt —
+  //
+  // Sonst quetschen sich Wechsel- und Halt-Rampe in die paar Meter dazwischen,
+  // und der Film beschleunigt auf voller Höhe, um sofort wieder zu stehen. An
+  // Stockholm gemessen: Die Grenze zu Fuß → Fähre liegt 13 m vor einem Halt,
+  // der Film ging dort in 0,36 s auf Fährtempo und in 0,06 s zurück auf null.
+  // Auf den Halt gezogen stimmt es auch inhaltlich — man bremst ohnehin, und
+  // die neue Fortbewegung beginnt mit der Weiterfahrt (dort steigt man ja ein).
+  const halteOrte = halte
+    .filter((h) => h.breiteS > 0)
+    .map((h) => Math.max(0, Math.min(gesamtM, h.meterM)))
+    .sort((a, b) => a - b)
+  if (rampeM > 0 && halteOrte.length > 0 && stufen.length > 1) {
+    for (const st of stufen.slice(1)) {
+      let naechster: number | undefined
+      for (const o of halteOrte) {
+        const abstand = Math.abs(o - st.abM)
+        if (abstand < rampeM && (naechster === undefined || abstand < Math.abs(naechster - st.abM))) naechster = o
+      }
+      if (naechster !== undefined) st.abM = naechster
+    }
+    // Nach dem Ziehen neu ordnen: gleiche Stelle → die spätere gilt, gleiches
+    // Tempo → keine Kante.
+    stufen.sort((a, b) => a.abM - b.abM)
+    const geraeumt: Array<{ abM: number; v: number }> = []
+    for (const st of stufen) {
+      const letzte = geraeumt[geraeumt.length - 1]
+      if (!letzte) geraeumt.push(st)
+      else if (letzte.abM === st.abM) letzte.v = st.v
+      else if (letzte.v !== st.v) geraeumt.push(st)
+    }
+    stufen.length = 0
+    stufen.push(...geraeumt)
+  }
+
+  const tempoBei = (m: number): number => {
+    let v = (stufen[0] as { v: number }).v
+    for (const st of stufen) if (st.abM <= m) v = st.v
+    return v
+  }
+
+  // — 2. Die Rampenknoten —
+  //
   // Halte ohne Breite kosten nichts und bremsen deshalb auch nicht. Sortiert
   // wird nach dem ORT; die Sortierung ist stabil, also behalten Halte auf
   // demselben Meterstand (mehrere in derselben realen Pause) ihre Reihenfolge.
-  const geordnet = halte
-    .map((h) => ({ h, ort: Math.max(0, Math.min(gesamtM, h.meterM)) }))
-    .filter((e) => e.h.breiteS > 0)
-    .sort((a, b) => a.ort - b.ort)
+  const knoten: Array<Rampenknoten<H>> = []
+  const knotenAn = (ort: number): Rampenknoten<H> => {
+    const da = knoten.find((k) => k.ort === ort)
+    if (da) return da
+    const neu: Rampenknoten<H> = {
+      ort,
+      halte: [],
+      vLinks: ort <= 0 ? 0 : tempoBei(ort - 1e-9),
+      vRechts: ort >= gesamtM ? 0 : tempoBei(ort),
+      wunschL: 0,
+      wunschR: 0,
+      lenL: 0,
+      lenR: 0,
+    }
+    knoten.push(neu)
+    return neu
+  }
+  knotenAn(0)
+  knotenAn(gesamtM)
+  for (const st of stufen.slice(1)) if (st.abM > 0 && st.abM < gesamtM) knotenAn(st.abM)
+  for (const h of halte) {
+    if (!(h.breiteS > 0)) continue
+    knotenAn(Math.max(0, Math.min(gesamtM, h.meterM))).halte.push(h)
+  }
+  knoten.sort((a, b) => a.ort - b.ort)
 
+  for (const k of knoten) {
+    const amStart = k.ort <= 0
+    const amEnde = k.ort >= gesamtM
+    if (k.halte.length > 0) {
+      // Ein Halt ist der Sonderfall „Wechsel von oder auf null" — und der
+      // einzige, bei dem die volle Länge auf JEDE Seite gehört.
+      k.wunschL = amStart ? 0 : rampeM
+      k.wunschR = amEnde ? 0 : rampeM
+    } else if (amStart) {
+      // Losfahren aus dem Stand. Ein Zug-Fenster mitten in der Fahrt nicht.
+      k.wunschR = ausDemStand ? rampeM : 0
+    } else if (!amEnde) {
+      // Modus-Grenze: EINE Rampe, symmetrisch um die Grenze (s. RAMPE_M).
+      k.wunschL = rampeM / 2
+      k.wunschR = rampeM / 2
+    }
+    // Am Tour-ENDE wird nicht gebremst: Der Film läuft dort aus.
+  }
+
+  // Kollidierende Rampen teilen sich die Lücke ANTEILIG nach ihrem Bedarf — bei
+  // zwei gleich langen ist das genau die Hälfte, und zwischen Halt (volle
+  // Länge) und Modus-Grenze (halbe) bleibt das Verhältnis erhalten.
+  for (let i = 0; i + 1 < knoten.length; i++) {
+    const links = knoten[i] as Rampenknoten<H>
+    const rechts = knoten[i + 1] as Rampenknoten<H>
+    const luecke = Math.max(0, rechts.ort - links.ort)
+    const bedarf = links.wunschR + rechts.wunschL
+    const faktor = bedarf > luecke ? (bedarf > 0 ? luecke / bedarf : 0) : 1
+    links.lenR = links.wunschR * faktor
+    rechts.lenL = rechts.wunschL * faktor
+  }
+
+  // — 3. Der Durchgang —
   const sM: number[] = [0]
   const filmS: number[] = [0]
   const intervalle: Array<HaltIntervall<H>> = []
-  /** Alles, was die Achse gegenüber der reinen Reisezeit schon gewonnen hat. */
-  let zuschlag = 0
-  let stand = 0 // Meterstand des letzten Ruhepunkts (Start oder Halt)
+  let pos = 0
+  let film = 0
 
   const setze = (m: number, f: number): void => {
     const n = sM.length
@@ -286,51 +457,56 @@ export function baueFilmachse<H extends Streckenhalt>(
     filmS.push(f)
   }
 
-  /**
-   * Eine Rampe abtasten. `anfahrt` = aus dem Stand ins Reisetempo, sonst die
-   * Zeitumkehrung davon. Sie kostet `2 × Reisezeit` ihrer Strecke; der
-   * Zuschlag ist damit genau eine Reisezeit.
-   */
-  const rampe = (vonRampeM: number, laenge: number, anfahrt: boolean): void => {
-    if (!(laenge > 0)) return
-    const reise = reiseFilm(vonRampeM + laenge) - reiseFilm(vonRampeM)
-    const basis = reiseFilm(vonRampeM) + zuschlag
-    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
-      const u = k / RAMPEN_STUFEN
-      const anteil = anfahrt ? rampenWeg(u) : 1 - rampenWeg(1 - u)
-      setze(vonRampeM + laenge * anteil, basis + 2 * reise * u)
+  /** Reisen bis `bis` — an jeder Tempo-Stufe unterwegs eine Stützstelle. */
+  const reise = (bis: number): void => {
+    while (pos < bis) {
+      let naechste = bis
+      for (const st of stufen) if (st.abM > pos && st.abM < naechste) naechste = st.abM
+      film += (naechste - pos) / tempoBei(pos)
+      pos = naechste
+      setze(pos, film)
     }
-    zuschlag += reise
   }
 
-  for (let i = 0; i <= geordnet.length; i++) {
-    const eintrag = geordnet[i]
-    const ziel = eintrag ? eintrag.ort : gesamtM
-    const luecke = Math.max(0, ziel - stand)
-    // Vor einem Halt wird gebremst, am Tour-ENDE nicht: Der Film läuft dort
-    // aus, wie er es heute tut. Beide Rampen teilen sich die Lücke hälftig,
-    // wenn sie sonst überlappten.
-    const ausrollen = eintrag ? Math.min(rampeM, luecke / 2) : 0
-    const anfahrt =
-      i === 0 && !ausDemStand ? 0 : Math.min(rampeM, eintrag ? luecke / 2 : luecke)
-    setze(stand, reiseFilm(stand) + zuschlag)
-    rampe(stand, anfahrt, true)
-    // Reisen: die Modus-Grenzen zwischen den Rampen behalten ihre Stützstelle.
-    const reiseVon = stand + anfahrt
-    const reiseBis = ziel - ausrollen
-    for (const m of reiseM) if (m > reiseVon && m < reiseBis) setze(m, reiseFilm(m) + zuschlag)
-    if (reiseBis > reiseVon) setze(reiseBis, reiseFilm(reiseBis) + zuschlag)
-    rampe(reiseBis, ausrollen, false)
-    if (!eintrag) break
-    // Das Halt-Plateau: dieselbe Strecke, zwei Filmzeiten.
-    const ankunft = reiseFilm(ziel) + zuschlag
-    setze(ziel, ankunft)
-    sM.push(ziel)
-    filmS.push(ankunft + eintrag.h.breiteS)
-    intervalle.push({ ...eintrag.h, filmVon: ankunft, filmBis: ankunft + eintrag.h.breiteS })
-    zuschlag += eintrag.h.breiteS
-    stand = ziel
+  /**
+   * Eine Rampe abtasten: `laenge` Meter von Tempo `v0` auf `v1`.
+   *
+   * Sie dauert `2L / (v0 + v1)` — Strecke durch das mittlere Tempo. Am Halt
+   * (`v0` oder `v1` null) ist das die doppelte Reisezeit, ihr Zuschlag also
+   * genau eine Reisezeit; an einer Modus-Grenze ist sie sogar KÜRZER als das
+   * Fahren derselben Strecke in zwei Hälften, weil man das langsamere Tempo
+   * früher verlässt.
+   */
+  const rampe = (von: number, laenge: number, v0: number, v1: number): void => {
+    if (!(laenge > 0) || !(v0 + v1 > 0)) return
+    const dauer = (2 * laenge) / (v0 + v1)
+    const basis = film
+    for (let k = 1; k <= RAMPEN_STUFEN; k++) {
+      const u = k / RAMPEN_STUFEN
+      setze(von + laenge * rampenWeg(u, v0, v1), basis + dauer * u)
+    }
+    film = basis + dauer
+    pos = von + laenge
   }
+
+  for (const k of knoten) {
+    reise(k.ort - k.lenL)
+    if (k.halte.length > 0) {
+      rampe(pos, k.lenL, k.vLinks, 0)
+      for (const h of k.halte) {
+        setze(k.ort, film)
+        sM.push(k.ort)
+        filmS.push(film + h.breiteS)
+        intervalle.push({ ...h, filmVon: film, filmBis: film + h.breiteS })
+        film += h.breiteS
+      }
+      pos = k.ort
+      rampe(k.ort, k.lenR, 0, k.vRechts)
+    } else {
+      rampe(k.ort - k.lenL, k.lenL + k.lenR, k.vLinks, k.vRechts)
+    }
+  }
+  reise(gesamtM)
 
   return { sM, filmS, gesamtM, gesamtS: filmS[filmS.length - 1] as number, halte: intervalle }
 }

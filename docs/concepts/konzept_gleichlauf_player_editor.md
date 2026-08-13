@@ -722,6 +722,37 @@ nicht sprunghaft anders anfühlt. Das Fahrgefühl ändert sich trotzdem hörbar 
 Ruck mehr ganz vorn. Das ist die eine Stelle dieses Vorhabens, die man SEHEN muss, bevor man
 sie festschreibt (§14).
 
+**NACHTRAG nach dem Abfahren (14.08.): Die Rampe gilt für JEDEN Tempowechsel.** Der erste
+Wurf rampte nur um Halte herum; Modus-Grenzen sprangen von einem Frame zum nächsten — bei
+Stockholm von zu Fuß auf Fähre, Faktor 6,25. Das war ein Fehler und kein Auslassen: Die alte
+Engine hatte einen Tiefpass auf JEDE Tempoänderung, Etappe 4 hat ihn mit dem Integrator
+entfernt, ohne ihn in der Kurve zu ersetzen. Sichtbar wurde es erst zusammen mit der Kamera,
+die weiter geglättet folgt (`MODE_SCALE` walk 0,5/0,68 gegen ferry 2,3/2,2): erst schnell und
+nah, dann schnell und weit — gemeldet als „auf einen Schlag sehr schnell, wird dann aber
+scheinbar langsamer".
+
+Die vorhandene Form verallgemeinert sich stetig, ein Halt ist seither der Sonderfall „Wechsel
+von oder auf null": Über eine Rampenstrecke `L` von `v0` auf `v1` folgt die Geschwindigkeit
+`v(u) = v0 + (v1 − v0) · smoothstep(u)`, daraus die Dauer `T = 2L/(v0 + v1)` und der
+Weganteil `w(u) = [v0·u + (v1 − v0)·(u³ − u⁴/2)] / ((v0 + v1)/2)`. Für `v0 = 0` fällt exakt
+die Halt-Rampe heraus. Zwei Festlegungen dazu, beide Entscheidungen und keine Ableitungen:
+Die Rampe liegt **symmetrisch um die Modus-Grenze** (halbe Länge davor, halbe danach), und
+kollidierende Rampen **teilen sich die Lücke anteilig nach ihrem Bedarf** — bei zwei gleich
+langen genau hälftig. Eine Modus-Rampe VERKÜRZT den Film übrigens leicht (man verlässt das
+langsamere Tempo früher).
+
+**Eine dritte Regel kam beim Nachfahren dazu**, und sie ist die eigentliche Lehre des harten
+Falls: Ein Tempowechsel NÄHER als eine Rampenlänge an einem Halt wandert ganz **auf** den
+Halt. Bei Stockholm liegt die Grenze zu Fuß → Fähre 13 m vor einem Foto-Halt; geteilt bekamen
+Wechsel- und Bremsrampe je ein paar Meter, und der Film ging in 0,36 s auf volles Fährtempo,
+um 0,06 s später stillzustehen — ein Ruck, wo vorher nur ein Sprung war. Auf den Halt gezogen
+stimmt es auch inhaltlich: Dort steigt man ein, die neue Fortbewegung beginnt mit der
+Weiterfahrt. Gemessen an der größten Tempo-Änderungsrate der Achse: 7 939 m/s² vorher, 560
+m/s² danach — und 560 ist der Spitzenwert, den eine volle Fähr-Rampe von Natur aus hat.
+
+**Und `MODUS_TEMPO.walk` geht von 0,4 auf 0,5** — gestalterisch, nach demselben Abfahren: Zu
+Fuß wirkte einen Tick zu träge. Das ändert die Dauer jeder Tour mit Fußabschnitten.
+
 **Die Rampen brauchen ihren Zwilling auf dem Server in DERSELBEN Auslieferung.**
 [filmachse.ts](../../server/src/pipeline/filmachse.ts) kennt sie heute nicht (sie summiert nur
 `meter / tempoMs` plus Halte). Bleibt sie zurück, lösen `anker + versatzFilmS` in Studio und
@@ -750,7 +781,7 @@ Deshalb gehören beide Teile in **dieselbe** Etappe:
 > **Warum NACH Etappe 4 und nicht vorher.** Eine Filmsekunde ist keine absolute Größe — sie
 > bedeutet, was die Achse sagt. Die Server-Achse kennt heute keine Rampen
 > ([filmachse.ts](../../server/src/pipeline/filmachse.ts) summiert nur `meter / tempoMs` plus
-> Halte); Etappe 4 legt sie hinein, und die Filmdauer wächst dadurch um 9–13 % (§14).
+> Halte); Etappe 4 legt sie hinein, und die Filmdauer wächst dadurch um 2,7–7,8 % (§14).
 > „Filmsekunde 120,0" heißt vorher und nachher also etwas anderes, kumulativ über die Tour.
 > Stünde Etappe 4b davor, trügen alle bis dahin gerenderten Touren still veraltete Anker —
 > nichts sähe kaputt aus, es klänge nur falsch. Wer sie doch vorziehen will, muss einen
@@ -870,9 +901,23 @@ sich anfassen lässt, statt nur zu laufen.
 In die Kurve gelegt bleiben sie erhalten — aber sie werden *gestaltet* statt zu *entstehen*,
 und das ist eine Gelegenheit, sie zu ändern. Bewusst, nicht nebenbei.
 
-**Jede bestehende Tour wird 9–13 % länger — auf dem Papier.** Wandert die Rampe in die Achse,
-zeigt das Studio die *richtige* Dauer. Wer „4:53" gewohnt ist, sieht danach „5:25". Der Film
-ist derselbe; die Zahl war vorher falsch.
+**Jede bestehende Tour ändert ihre Dauer — auf dem Papier.** Wandert die Rampe in die Achse,
+zeigt das Studio die *richtige* Dauer; der Film ist derselbe, die Zahl war vorher falsch.
+Gemessen an den vier Fixtur-Touren gegen die Studio-Dauer VOR Etappe 4
+([filmdauer.ts](../../scripts/messungen/filmdauer.ts),
+[durchlauf-gegen-achse.mjs](../../scripts/messungen/durchlauf-gegen-achse.mjs)):
+
+| Tour | vor Etappe 4 | mit Halt-Rampen | Modus-Rampen | `walk` 0,5 | jetzt | gesamt |
+|---|---|---|---|---|---|---|
+| 41 km, gemischt | 293,0 s | 314,6 s | −4,7 s | −2,2 s | **307,7 s** | +5,0 % |
+| Stockholm (walk/tram/ferry) | 201,8 s | 228,8 s | −5,0 s | −16,6 s | **207,2 s** | +2,7 % |
+| kurz, Rad | 51,0 s | 53,9 s | 0 | 0 | **53,9 s** | +5,7 % |
+| Oberland, Rad | 171,5 s | 184,8 s | 0 | 0 | **184,8 s** | +7,8 % |
+
+Also **2,7–7,8 % länger**, nicht die 9–13 %, die eine frühere Fassung hier nannte: Die
+Modus-Rampen samt der Halt-Regel nehmen etwas zurück, das schnellere Fußtempo deutlich mehr —
+und fast alles davon in Stockholm, das zu zwei Dritteln aus Fußwegen besteht. Reine Radtouren
+haben weder Modus-Grenzen noch Fußwege und bleiben von beidem unberührt.
 
 **Auf langsamen Geräten springt das Bild, statt zu schleichen.** Heute läuft die Tour bei
 25 fps in Zeitlupe weiter und bleibt in sich stimmig — nur der Ton nicht. Danach hält sie die

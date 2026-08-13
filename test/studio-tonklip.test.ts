@@ -52,6 +52,8 @@ const klipVon = (klips: readonly TonKlip[], index = 0): TonKlip => klips[index] 
 
 /** Zuschlag einer Anfahr-/Ausrollrampe zu Fuß (s). */
 const RAMPE = RAMPE_M / tempoMs('walk')
+/** Filmsekunden für die ersten 300 Aufnahmesekunden (480 m zu Fuß). */
+const BIS_300 = 480 / tempoMs('walk')
 
 describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
   const achse = achseOhneHalt()
@@ -60,7 +62,7 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
     const audio: AudioEintrag[] = [{ datei: 'a.mp3', typ: 'musik', ab: '2026-07-04T08:05:00.000Z' }]
     const k = klipVon(loeseTonKlips(audio, START, achse))
     expect(k.altVerankert).toBe(true)
-    expect(k.filmVon).toBeCloseTo(10 + RAMPE, 6) // 300 Aufnahmesekunden = 10 Filmsekunden + Anfahrt
+    expect(k.filmVon).toBeCloseTo(BIS_300 + RAMPE, 6) // 300 Aufnahmesekunden Reise + Anfahrt
     expect(k.filmBis).toBeCloseTo(achse.kurve?.gesamtS ?? 0, 6) // ohne `bis`: bis zum Schluss
     expect(k.laengeGesetzt).toBe(false)
     expect(k.loop).toBe(true) // Vorgabe für Musik — das bisherige Verhalten
@@ -79,8 +81,8 @@ describe('loeseTonKlips — alte und neue Verankerung nebeneinander', () => {
     ]
     const k = klipVon(loeseTonKlips(audio, START, achse))
     expect(k.altVerankert).toBe(false)
-    expect(k.filmVon).toBeCloseTo(12.5 + RAMPE, 6)
-    expect(k.filmBis).toBeCloseTo(20.5 + RAMPE, 6)
+    expect(k.filmVon).toBeCloseTo(BIS_300 + 2.5 + RAMPE, 6)
+    expect(k.filmBis).toBeCloseTo(BIS_300 + 10.5 + RAMPE, 6)
     expect(k.laengeGesetzt).toBe(true)
   })
 

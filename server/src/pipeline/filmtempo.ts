@@ -18,9 +18,15 @@ import type { Modus } from '../schema/upload.js'
 /** Streckenfortschritt bei 1× (m/s) — src/tour.ts `baseSpeed`. */
 export const BASIS_TEMPO_MS = 120
 
-/** Tempo-Faktor je Fortbewegung — src/tour.ts `MODE_SPEED`. */
+/**
+ * Tempo-Faktor je Fortbewegung — Spiegel von `MODUS_TEMPO` in src/filmachse.ts.
+ *
+ * Gestalterische Zahlen, keine physikalischen; `walk` ging nach dem Abfahren
+ * des Rampen-Nachtrags von 0,4 auf 0,5 (zu träge). Wer sie ändert, ändert die
+ * Dauer jeder bestehenden Tour — und muss beide Seiten anfassen.
+ */
 export const MODUS_TEMPO: Record<Modus, number> = {
-  walk: 0.4,
+  walk: 0.5,
   bike: 1,
   moped: 1.15,
   jeep: 1.45,

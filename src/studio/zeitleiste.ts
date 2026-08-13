@@ -10,6 +10,7 @@ import {
   baueFilmachse,
   filmBeiStrecke,
   interpoliere,
+  rampenVersatzS,
   streckeBeiFilm,
   tempoMs,
   type Filmachse,
@@ -1152,10 +1153,19 @@ function halteAufStrecke(adapter: Adapter, halte: readonly AchsenHalt[]): Achsen
 /**
  * Film ↔ Aufnahmezeit im Zug-Fenster einer Fortbewegungs-Grenze.
  *
- * `vonS`/`bisS` sind die Nachbargrenzen (oder die Enden der Tour), `mode` der
- * Modus LINKS der gezogenen Kante, `filmBeiVon` ihre Filmsekunde in der
- * aktuellen Achse. Halte im Fenster kosten Filmzeit, ohne von der Grenze
- * abzuhängen — sie werden als dieselben Sprünge eingewebt wie in der Achse.
+ * `vonS`/`bisS` sind die Nachbargrenzen (oder die Enden der Tour), `links`/
+ * `rechts` die Modi beiderseits der gezogenen Kante, `filmBeiVon` ihre
+ * Filmsekunde in der aktuellen Achse. Halte im Fenster kosten Filmzeit, ohne von
+ * der Grenze abzuhängen — sie werden als dieselben Sprünge eingewebt wie in der
+ * Achse.
+ *
+ * **Die Kante bringt seit dem Rampen-Nachtrag ihre EIGENE Rampe mit**, und die
+ * liegt zur Hälfte vor ihr: Die halbe Rampenstrecke wird nicht mehr im linken
+ * Tempo gefahren, sondern anfahrend. Das ist ein KONSTANTER Betrag
+ * (`rampenVersatzS`) — er hängt nur an den beiden Tempi, nicht daran, wo die
+ * Kante steht —, verschiebt die Kurve also bloß und lässt sie exakt umkehrbar.
+ * Ohne ihn landete die Kante bei walk → bike um 0,36 Filmsekunden neben dem
+ * Zeiger, bei starkem Zoom sichtbar.
  *
  * Null, wenn im Fenster keine zwei Trackpunkte liegen: dann gibt es nichts zu
  * ziehen.
@@ -1164,13 +1174,14 @@ export function baueGrenzKurve(
   track: readonly TrackPunkt[],
   vonS: number,
   bisS: number,
-  mode: Modus,
+  links: Modus,
+  rechts: Modus,
   filmBeiVon: number,
   halte: readonly AchsenHalt[],
 ): AchsenKurve | null {
   const pts = punkteZwischen(track, vonS, bisS)
   if (pts.length < 2) return null
-  const adapter = baueAdapter([{ mode, pts }])
+  const adapter = baueAdapter([{ mode: links, pts }])
   // Ein Halt GENAU auf der linken Fensterkante zählt schon zu `filmBeiVon`
   // (lower_bound trifft die Stützstelle vor dem Sprung) — sonst zählte er
   // doppelt und die Kante liefe um seine Standzeit davon.
@@ -1183,12 +1194,13 @@ export function baueGrenzKurve(
   const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, imFenster), {
     ausDemStand: filmBeiVon <= 0,
   })
+  const versatzS = filmBeiVon + rampenVersatzS(tempoMs(links), tempoMs(rechts))
   return {
     tS: adapter.tS,
     mM: adapter.mM,
     kern,
-    gesamtS: filmBeiVon + kern.gesamtS,
-    versatzS: filmBeiVon,
+    gesamtS: versatzS + kern.gesamtS,
+    versatzS,
   }
 }
 

@@ -348,18 +348,43 @@ eine Beobachtung für die Messskripte. Fünf Dinge, die man dabei kippt:
   Halt-Intervall. Sie flackert deshalb an Halt-Kanten und verschwindet beim Scrubben.
 
 **Die Rampe ist eine feste Form über eine feste STRECKE** (E14, `RAMPE_M` = 120 m in
-[filmachse.ts](src/filmachse.ts)), keine nachgebaute Exponentialkurve. Ihr Weganteil ist
-`2u³ − u⁴`, die Ableitung also `2 · smoothstep(u)`: sanft an, in der Mitte am stärksten, sanft
-ins Reisetempo — und daraus folgt die eine Zahl, die alles trägt: **Eine Rampe dauert doppelt
-so lange wie das Reisen ihrer Strecke, ihr Zuschlag ist genau eine Reisezeit.** Gerampt wird
-aus dem Stand, vor jedem Halt und nach jedem Halt; am Tour-ENDE nicht (der Film läuft aus).
-Liegen zwei Halte näher als 2 × `RAMPE_M`, teilen sie sich die Lücke hälftig. Die Länge ist
-KALIBRIERT und nicht geraten (`scripts/messungen/rampen-kalibrierung.ts` gegen die 64,3
-Rampen-Sekunden aus `rampen-simulation.ts`); dass sich die Verteilung dabei umdreht — schnelle
-Fortbewegung wird knackiger, zu Fuß getragener —, ist gewollt. **Der Server-Zwilling muss
-mit**: [server/src/pipeline/filmachse.ts](server/src/pipeline/filmachse.ts) rechnet seit
-derselben Auslieferung über die STRECKE statt über die Aufnahmezeit und kennt dieselben
-Rampen; bliebe er zurück, lösten `anker + versatzFilmS` in Studio und Render verschieden auf.
+[filmachse.ts](src/filmachse.ts)), keine nachgebaute Exponentialkurve — und sie gilt für
+**JEDEN Tempowechsel**, nicht nur für Halte. Über eine Rampenstrecke `L` von `v0` auf `v1`
+folgt das Tempo `v0 + (v1 − v0) · smoothstep(u)`: sanft an, in der Mitte am stärksten, sanft
+ins neue Tempo. Daraus die zwei Zahlen, die alles tragen: die Dauer **`T = 2L / (v0 + v1)`**
+(Strecke durch das MITTLERE Tempo) und der Weganteil
+`w(u) = [v0·u + (v1 − v0)·(u³ − u⁴/2)] / ((v0 + v1)/2)`. Ein HALT ist der Sonderfall „Wechsel
+von oder auf null" — dort fällt `w = 2u³ − u⁴` heraus und die Rampe kostet genau eine
+Reisezeit ihrer Strecke.
+
+Fünf Regeln daneben: Am Halt liegt die volle Länge auf JEDER Seite, an einer Modus-Grenze
+liegt sie EINMAL und **symmetrisch um die Grenze**; am Tour-ENDE wird nicht gebremst (der Film
+läuft aus); **kollidierende Rampen teilen sich die Lücke anteilig** nach ihrem Bedarf (bei
+zwei gleich langen hälftig); **ein Tempowechsel NÄHER als eine Rampenlänge an einem Halt
+wandert ganz auf den Halt** — dort steht man ohnehin, und ohne die Regel beschleunigte der
+Film auf den letzten Metern auf volle Höhe, um sofort wieder stillzustehen (an Stockholm
+gemessen: Grenze zu Fuß → Fähre 13 m vor einem Halt, 0,36 s auf Fährtempo und 0,06 s zurück
+auf null); und die Länge ist KALIBRIERT, nicht geraten
+(`scripts/messungen/rampen-kalibrierung.ts` gegen die 64,3 Rampen-Sekunden aus
+`rampen-simulation.ts`). Dass sich die Verteilung dabei umdreht — schnelle Fortbewegung wird
+knackiger, zu Fuß getragener —, ist gewollt. Dass die Modus-Rampe den Film sogar leicht
+VERKÜRZT, folgt aus der Formel: Man verlässt das langsamere Tempo früher.
+
+**Nur um Halte zu rampen war ein Fehler**, und einer, den man erst beim Abfahren sieht: An
+einer Modus-Grenze sprang das Tempo dann von einem Frame zum nächsten (Stockholm walk → ferry,
+Faktor 6,25), während die Kamera weiter geglättet folgte — erst schnell und nah, dann schnell
+und weit. Die alte Engine hatte das nicht: Ihr Tiefpass lag auf JEDER Tempoänderung.
+
+**`MODUS_TEMPO` und `RAMPE_M` sind GESTALTERISCHE Zahlen** — sie sagen, wie sich eine
+Fortbewegung im Film anfühlen soll, nicht wie schnell man wirklich ist. `walk` steht seit dem
+Abfahren auf 0,5 (vorher 0,4, zu träge). Wer eine davon ändert, ändert die Dauer JEDER
+bestehenden Tour: `scripts/messungen/filmdauer.ts` ist der Beleg, und der Spiegel in
+`server/src/pipeline/filmtempo.ts` muss mit.
+
+**Der Server-Zwilling muss mit**:
+[server/src/pipeline/filmachse.ts](server/src/pipeline/filmachse.ts) rechnet seit derselben
+Auslieferung über die STRECKE statt über die Aufnahmezeit und kennt dieselben Rampen; bliebe
+er zurück, lösten `anker + versatzFilmS` in Studio und Render verschieden auf.
 
 **Schnelllauf geht bis 8× — und Ton klingt nur bei Tempo 1 vorwärts** (E16). Beide Bühnen
 gleich (`cycleSpeed`/`shuttle` im Player, J/L im Editor). Das erledigt eine Lücke statt sie zu

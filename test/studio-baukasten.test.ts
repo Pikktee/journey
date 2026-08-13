@@ -5,7 +5,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { STUDIO_PEGEL_VORGABE } from '../src/audiotracks.js'
 import { HOLD_AUSBLEND, HOLD_HIDE } from '../src/einblendung.js'
-import { MODUS_TEMPO, MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S, RAMPE_M, tempoMs } from '../src/filmachse.js'
+import {
+  MODUS_TEMPO,
+  MOMENT_DEFAULT_S as ENGINE_MOMENT_DEFAULT_S,
+  RAMPE_M,
+  rampenVersatzS,
+  tempoMs,
+} from '../src/filmachse.js'
 import {
   effektiveMedien,
   erfasseUndo,
@@ -654,6 +660,13 @@ describe('Zeitleiste', () => {
     // los, vor dem Halt bremsen, danach wieder anfahren — am Tour-Ende wird
     // nicht gebremst. Der Halt liegt dadurch bei 52 statt 50 Filmsekunden.
     const R = RAMPE_M / tempoMs('bike')
+    /**
+     * Was eine MODUS-Rampe die ganze Tour kostet: ihre Dauer minus die zwei
+     * halben Reisen, die sie ersetzt. Der Wert ist NEGATIV — man verlässt das
+     * langsamere Tempo früher, als man es ohne Rampe verließe.
+     */
+    const modusRampeS = (v0: number, v1: number): number =>
+      (2 * RAMPE_M) / (v0 + v1) - RAMPE_M / 2 / v0 - RAMPE_M / 2 / v1
 
     it('Halte bekommen ihre Standzeit als Achsenbreite', () => {
       expect(gesamt).toBeCloseTo(120 + 3 * R, 1) // 100 s Fahrt + 20 s Halt + 3 Rampen
@@ -964,7 +977,7 @@ describe('Zeitleiste', () => {
       // Neuaufbau wieder unter dem Zeiger.
       const halte = [{ offsetS: 300, breiteS: 12 }]
       const a = baueAchse(abschnitte, halte, fSkala)
-      const kurve = baueGrenzKurve(fahrTrack, fSkala.vonS, fSkala.bisS, 'walk', 0, a.halte ?? [])!
+      const kurve = baueGrenzKurve(fahrTrack, fSkala.vonS, fSkala.bisS, 'walk', 'bike', 0, a.halte ?? [])!
 
       // Die PROBE, die der Live-Zug macht: Zeit aus der Kurve holen, damit die
       // Achse NEU bauen — und die Kante muss wieder auf derselben Filmsekunde
@@ -983,7 +996,9 @@ describe('Zeitleiste', () => {
       // schneidet die Millisekunden ab, eine Sekunde Aufnahmezeit sind hier
       // 0,05 Filmsekunden (zu Fuß ≈ 0,2 px). Darunter geht es nicht, und mehr
       // braucht es nicht.
-      for (const ziel of [30, 90, 180, 250]) {
+      // Ziele als ANTEILE der Zug-Kurve, nicht als feste Sekunden: Sonst hängt
+      // der Test daran, wie schnell zu Fuß gerade ist.
+      for (const ziel of [0.12, 0.36, 0.7, 0.95].map((f) => f * kurve.gesamtS)) {
         const t = zeitBeiFilm(kurve, ziel)
         expect(Math.abs(filmZuOffset(achseMitGrenze(t), t) - ziel)).toBeLessThan(0.1)
       }
@@ -994,8 +1009,13 @@ describe('Zeitleiste', () => {
       // Der Halt im Fenster kostet Filmzeit, ohne von der Grenze abzuhängen —
       // dazu seine beiden Rampen und die Anfahrt aus dem Stand (zu Fuß 2,5 s je
       // Rampe).
-      expect(kurve.gesamtS).toBeCloseTo(12 + 12000 / (120 * 0.4) + (3 * RAMPE_M) / tempoMs('walk'), 1)
-      expect(baueGrenzKurve([], 0, 10, 'walk', 0, [])).toBeNull()
+      // Dazu der halbe Rampen-Versatz der gezogenen Kante selbst: Ihre Rampe
+      // liegt zur Hälfte VOR ihr und wird nicht mehr im linken Tempo gefahren.
+      expect(kurve.gesamtS).toBeCloseTo(
+        12 + 12000 / tempoMs('walk') + (3 * RAMPE_M) / tempoMs('walk') + rampenVersatzS(tempoMs('walk'), tempoMs('bike')),
+        1,
+      )
+      expect(baueGrenzKurve([], 0, 10, 'walk', 'bike', 0, [])).toBeNull()
     })
 
     it('Filmdauer-Vorschau: nur die umgewidmete Strecke ändert sich', () => {
@@ -1003,10 +1023,11 @@ describe('Zeitleiste', () => {
       const meterAlt = 0
       const meterNeu = 12000
       const laenger = filmDauerBeiGrenze(200, meterAlt, meterNeu, 'walk', 'bike')
-      // 12 km wechseln von Rad auf zu Fuß: +12000/48 − 12000/120 = +150 s
-      expect(laenger).toBeCloseTo(200 + 12000 / 48 - 12000 / 120, 3)
+      // 12 km wechseln von Rad auf zu Fuß — die Differenz der Kehrwerte der Tempi
+      const mehr = 12000 / tempoMs('walk') - 12000 / tempoMs('bike')
+      expect(laenger).toBeCloseTo(200 + mehr, 3)
       // Zurückgezogen kehrt sich das Vorzeichen um
-      expect(filmDauerBeiGrenze(200, meterNeu, meterAlt, 'walk', 'bike')).toBeCloseTo(200 - (12000 / 48 - 12000 / 120), 3)
+      expect(filmDauerBeiGrenze(200, meterNeu, meterAlt, 'walk', 'bike')).toBeCloseTo(200 - mehr, 3)
       // Gleicher Modus links wie rechts ändert nichts
       expect(filmDauerBeiGrenze(200, 0, 5000, 'bike', 'bike')).toBeCloseTo(200, 6)
     })
@@ -1115,9 +1136,9 @@ describe('Zeitleiste', () => {
       }
 
       /** Zug-Start für eine Fortbewegungs-Kante bei `kanteS` (Vorgänger bei `vonS`). */
-      function starte(edits: EditOverlay, kanteS: number, vonS: number, links: Modus) {
+      function starte(edits: EditOverlay, kanteS: number, vonS: number, links: Modus, rechts: Modus) {
         const achse = achseVon(edits)
-        const kurve = baueGrenzKurve(fahrTrack, vonS, fSkala.bisS, links, filmZuOffset(achse, vonS), achse.halte ?? [])!
+        const kurve = baueGrenzKurve(fahrTrack, vonS, fSkala.bisS, links, rechts, filmZuOffset(achse, vonS), achse.halte ?? [])!
         return {
           vonS,
           bisS: fSkala.bisS,
@@ -1150,7 +1171,7 @@ describe('Zeitleiste', () => {
             { ab: iso(600), mode: 'bike' },
           ],
         }
-        const zug = starte(start, 600, 0, 'walk')
+        const zug = starte(start, 600, 0, 'walk', 'bike')
 
         for (const ziel of [20, 40, 100, 200]) {
           const f = ziehFrame(start, iso(600), ziel, zug, 10)
@@ -1186,19 +1207,31 @@ describe('Zeitleiste', () => {
             { ab: iso(288), mode: 'bike' },
           ],
         }
-        const zug = starte(start, 288, 0, 'walk')
+        const zug = starte(start, 288, 0, 'walk', 'bike')
         const halt = achseVon(start).halte![0]!
-        // 60 s Fußweg + 26 s Rad bis zum Halt, dazu drei Rampen davor (Start
-        // und Bremsen zu Fuß, Anfahrt nach der Kante mit dem Rad).
-        expect(halt.filmVon).toBeCloseTo(89.5, 6) // rechts der Kante (die steht auf Film 62,5)
-        expect(halt.filmBis).toBeCloseTo(109.5, 6)
+        // 60 s Fußweg + 26 s Rad bis zum Halt, dazu die Anfahrt aus dem Stand
+        // (+2,5 s), das Bremsen vor dem Halt (+1 s) und die Rampe an der
+        // Modus-Grenze selbst, die etwas EINSPART.
+        // 2880 m zu Fuß + 3120 m mit dem Rad bis zum Halt
+        const bis =
+          2880 / tempoMs('walk') +
+          3120 / tempoMs('bike') +
+          RAMPE_M / tempoMs('walk') +
+          RAMPE_M / tempoMs('bike') +
+          modusRampeS(tempoMs('walk'), tempoMs('bike'))
+        expect(halt.filmVon).toBeCloseTo(bis, 6) // rechts der Kante
+        expect(halt.filmBis).toBeCloseTo(bis + 20, 6)
 
         const f = ziehFrame(start, iso(288), halt.filmVon + 10, zug, 10)
         expect(f.gerastet).toBe(true)
         expect(isoZuOffset(START, f.ab)).toBe(600 + RAST_HINTER_S)
         // Der Halt ist mitgewandert (mehr Fußweg davor) — die Kante steht
         // dahinter, nicht mehr auf dem angepeilten Pixel.
-        expect(achseVon(f.edits).halte![0]!.filmVon).toBeCloseTo(130, 6)
+        // Alles bis zum Halt ist jetzt Fußweg: 6000 m plus Anfahrt und Bremsen.
+        expect(achseVon(f.edits).halte![0]!.filmVon).toBeCloseTo(
+          6000 / tempoMs('walk') + (2 * RAMPE_M) / tempoMs('walk'),
+          6,
+        )
 
         // Wichtig ist nur, dass sich das im nächsten Frame FÄNGT: der Zeiger
         // liegt jetzt links des Halts, also gilt wieder der Fixpunkt. Es
@@ -1229,7 +1262,7 @@ describe('Zeitleiste', () => {
             { ab: iso(300), mode: 'bike' },
           ],
         }
-        const zug = starte(start, 300, 0, 'walk')
+        const zug = starte(start, 300, 0, 'walk', 'bike')
         const halt = achseVon(start).halte!.find((h) => h.offsetS === 600)!
 
         // Vordere Hälfte des Halts → die Grenze landet VOR ihm: er läuft
@@ -1263,7 +1296,7 @@ describe('Zeitleiste', () => {
           ],
         }
         // Die hintere Kante ganz nach links gezogen — auf ihren Vorgänger
-        const zug = starte(start, 900, 300, 'bike')
+        const zug = starte(start, 900, 300, 'bike', 'jeep')
         const gezogen = ziehFrame(start, iso(900), -1000, zug, px)
         const neu = achseVon(gezogen.edits)
         const breitePx = (landung(gezogen.edits, gezogen.ab) - filmZuOffset(neu, 300)) * px
