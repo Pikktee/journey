@@ -46,9 +46,15 @@ und die Umsetzbarkeit — nicht die Richtung.
 - **Wie sieht die Rampe in der Kurve aus?** Heute exponentiell (τ = 1,1 s bzw. 0,55 s). Eine
   ease-in-out-Form über eine feste Strecke wäre einfacher zu beschreiben und im Studio
   zeichenbar.
-- **Ken Burns: welche Zahl stimmt?** `holdS + 1.8` gegen `holdS + 0.8` (§6C). Erst messen,
-  wie lange die Karte auf jeder Seite *tatsächlich* sichtbar ist — die Absicht ist aus dem
-  Code nicht lesbar, weil Kommentar und Zahl sich widersprechen.
+- **Ken Burns: welche Zahl stimmt — und welches Zeitmodell?** Zwei Fragen in einer Zeile.
+  Die Zahl: `holdS + 1.8` gegen `holdS + 0.8` (§6C); erst messen, wie lange die Karte auf
+  jeder Seite *tatsächlich* sichtbar ist — die Absicht ist aus dem Code nicht lesbar, weil
+  Kommentar und Zahl sich widersprechen. Das Modell wiegt schwerer: Im Player ist der Zug
+  eine CSS-`transition` an der Wanduhr (nicht pausierbar, nicht scrubbar — er läuft unter
+  dem „Angehalten"-Abzeichen weiter), im Editor eine pausierte Animation am Abspielkopf.
+  Entweder der Player übernimmt das Studio-Modell (dann gehört die Umsetzung in die
+  Szene-Schicht, §9), oder die Sekunde wird angeglichen und der Rest bleibt bewusst stehen.
+  Zu entscheiden, BEVOR jemand es „schnell mitnimmt" (§12, Schritt 1).
 - **Steht der Wetter-Schalter im Editor anfangs an oder aus?** Aus wäre ruhiger beim
   Schneiden, an wäre ehrlicher zum Film.
 - **Bekommen Halte in der Player-Leiste sichtbare Breite** (wie im Studio) oder bleiben es
@@ -269,6 +275,29 @@ Das ist die einzige Kopie, die bleiben **muss**. Alle anderen sind Gewohnheit.
 | **Halt-Gruppierung** | zwei Implementierungen (`gruppiereStopps` / `baueStopps`) | nur per Textvergleich gekoppelt |
 | **Ken-Burns-Zeitmodell** | Player: CSS-`transition` (Wanduhr, nicht pausierbar, nicht scrubbar) · Editor: pausierte Animation mit negativem Delay | Unter „Angehalten" läuft der Zug im Player weiter, während `holdT` steht. **Kein Zahlen-, sondern ein Modellunterschied** — die 1-Sekunden-Zeile oben ist nur seine sichtbare Spitze |
 | **Musikposition beim Bereichseintritt** | Player: hart `currentTime = startS` · Editor: Seek auf die FILM-Position (`musikVersatzS`) | Nach jedem Scrub oder Sprung steht dieselbe Filmsekunde an einer anderen Stelle der Datei — genau das Taktversprechen. Der Player braucht denselben Versatz |
+
+**Wann welche Zeile fällt** — die Tabelle ist ein Befund, kein Plan, und zwei ihrer Einträge
+kamen erst nach der Paketierung dazu:
+
+- Seitenverhältnis und Standzeit sind **erledigt** (Paket A). Die Halt-Gruppierung und die
+  CSS-Zwillinge nimmt die **Szene-Schicht** (§9, jederzeit dazwischen), die Filmachse die
+  Etappen 2–4.
+- Die **Musikposition gehört zu Paket D** (§12) — nicht früher, und das hat einen Grund:
+  `musikVersatzS` ([abspielen.ts](../../src/studio/abspielen.ts)) ist längst eine reine,
+  getestete Funktion, aber sie rechnet über die **Filmkurve**, und die liegt in
+  `src/studio/`. Ein Import Player→Studio ist die eine Richtung, die §8C ausschließt. Mit der
+  geteilten Achse zieht sie nach `src/` um, und der Player ruft dieselbe Funktion — ein
+  Umzug, kein Nachbau. Eine Näherung im `f`-Raum ginge zwar sofort, wäre aber ausgerechnet in
+  den Halten falsch (dort steht `f` still), also an der Stelle, an die man am häufigsten
+  scrubbt.
+- Das **Ken-Burns-Zeitmodell** wartet auf die Entscheidung in §2 (angleichen oder bewusst
+  getrennt lassen). Fällt sie auf „angleichen", gehört die Umsetzung in die Szene-Schicht —
+  es ist dieselbe Sorte Arbeit wie `balkenAnteil` und `klipDauerS`.
+
+Was ausdrücklich **nicht** folgt: ein gemeinsamer Abspieler. Der Player kennt Spuren mit
+`f0`/`f1` aus dem Tour-JSON, der Editor Klips aus dem Overlay; die beiden Datenmodelle
+treffen sich frühestens mit E10 (§5.1). Geteilt werden die RECHNUNGEN — Hüllkurven, Pegel,
+Kanten, Versatz —, nicht die Mechanik (§6A).
 
 ---
 
@@ -523,7 +552,7 @@ dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ih
 | **A** | Schritt 0 (nachsehen, was live ist) + Schritt 1 (Gruppe C) | S | eigenes Release |
 | **B** | Etappe 1 — eine Uhr | M | **allein**, bewusst |
 | **C** | Etappe 2 — alle `f`-Anker nach `s`, Server-`f` je Wegpunkt, Spec | M | mit D bündelbar |
-| **D** | Etappe 3 — geteilte `filmachse.ts` über der Strecke (E12) | L | von außen unsichtbar |
+| **D** | Etappe 3 — geteilte `filmachse.ts` über der Strecke (E12), dazu der Umzug von `musikVersatzS` (§6C) | L | erste hörbare Wirkung: der Ton springt beim Scrubben mit |
 | **E** | Etappe 4 + Rampen im Server-Spiegel | XL | **unteilbar** |
 | **F** | Etappe 4b — Auslösen in Filmsekunden + Film-Anker | M | direkt nach E |
 | **G** | Etappe 5 — die Leiste | M | eigenes Release |
@@ -595,8 +624,21 @@ ist der Rückfall auf `f × route.total` dauerhaft, nicht übergangsweise.
 **Etappe 3 — Die geteilte Achse.** `src/filmachse.ts` als domänenfreier Kern; das Studio
 benutzt ihn statt der eigenen Kopie; der Player rechnet seine Filmachse, **noch ohne sie
 anzutreiben**; der Server prüft gegen ein Verhaltens-Fixture statt gegen Regex.
-*Fertig, wenn:* Das Tempo-Modell steht an genau zwei Stellen und kein Test liest mehr
-Quelltext per Regex.
+
+**Und zum Abschluss der Umzug von `musikVersatzS`** — die erste Stelle, an der die geteilte
+Achse etwas HÖRBAR macht, und der Grund, warum sie hier steht und nicht später: Der Player
+setzt heute beim Eintritt in einen Musik-Bereich hart `currentTime = spur.startS`
+([audiotracks.ts](../../src/audiotracks.ts)). Wer mitten hineinspringt, hört das Stück von
+vorn; wer INNERHALB eines Bereichs scrubbt, hört es einfach weiterlaufen — die Datei steht
+danach an einer anderen Stelle als der Film, und zwar bis zum Bereichsende. Der Editor kann
+es längst richtig (`musikVersatzS`, „wer mitten im Bereich startet, hört, was dort im Film
+liefe"), nur rechnet die Funktion über die Filmkurve und liegt deshalb in `src/studio/` —
+für den Player unerreichbar, solange die Achse dort wohnt (§8C). Mit dem Umzug ruft er
+dieselbe Funktion, beim Eintritt UND am Ende jedes Scrubs.
+
+*Fertig, wenn:* Das Tempo-Modell steht an genau zwei Stellen, kein Test liest mehr Quelltext
+per Regex — und ein Scrub mitten in ein Musikstück setzt den Ton dort fort, wo der Film
+steht (im Player wie im Editor, gegen dieselbe Filmsekunde geprüft).
 
 **Etappe 4 — Der Antrieb dreht sich um.** **Zwei Vorbedingungen:** (a) Video-Halte an die
 Achse hängen statt an `ended` (§5.2); (b) die Rückwärtsfahrt entwerfen (§2). Die
