@@ -30,8 +30,8 @@ und die Umsetzbarkeit — nicht die Richtung.
 | E8 | **Die Szene-Regeln werden geteilt, die Darstellung nicht** | 12.08. | §9; ein gemeinsames DOM-Bauteil ist ausdrücklich NICHT gewollt |
 | E9 | **Die Filmachse wird NICHT ins Tour-JSON exportiert** — Film-ANKER je Ereignis dagegen schon (E10) | 12.08., präzisiert 13.08. | §12 |
 | E10 | **Das Tour-JSON bekommt additive Film-Felder je Ereignis** (Filmsekunde neben `f0`/`f1`) | 13.08. | §5.1; ohne sie ist E5 im Format nicht ausdrückbar. Gehört **hinter** Etappe 4 (§12) |
-| E12 | **Die geteilte Achse wird über der STRECKE parametrisiert**, nicht über der Aufnahmezeit | 13.08. | **Vorbedingung von E2**, keine Wahl (§8C). Macht Etappe 3 zum teuersten Schritt und legt sie auf den kritischen Pfad |
 | E11 | **Der Server schickt `f` je ausgeliefertem Wegpunkt mit** — statt `f` künftig auf der vereinfachten Geometrie zu messen | 13.08. | §8D; additiv, ändert keinen Bestands-Render — greift dafür erst nach dem nächsten Render |
+| E12 | **Die geteilte Achse wird über der STRECKE parametrisiert**, nicht über der Aufnahmezeit | 13.08. | **Vorbedingung von E2**, keine Wahl (§8C). Macht Etappe 3 zum teuersten Schritt und legt sie auf den kritischen Pfad |
 
 ## 2. Offene Punkte
 
@@ -294,10 +294,17 @@ verschwinden ersatzlos.
 
 **A. Eine Uhr (E1).** Die Engine zählt Filmsekunden aus einer monotonen Echtzeituhr statt aus
 aufsummierten, geklemmten Frames. Ein langsames Gerät lässt das Bild dann **springen**, nicht
-**nachlaufen** — die richtige Wahl für einen Film mit Ton. Der Deckel bleibt, wo er hingehört:
-bei der **Kamera-Glättung** (`Smooth.to`, `glide`, `skyLift`, `tuck`, `reposeTween`). Das ist
-genau die Trennlinie, die ohnehin durch den Code geht: Inhaltliches hängt an der Position,
-Ästhetisches an `dt`.
+**nachlaufen** — die richtige Wahl für einen Film mit Ton.
+
+**Und der Deckel entfällt ganz — auch bei der Kamera.** Eine frühere Fassung ließ ihn „dort,
+wo er hingehört: bei der Kamera-Glättung". Das war falsch herum (Falle 3): `Smooth.to` rechnet
+`1 − exp(−dt/τ)`, die exakte Lösung bei konstantem Ziel — ein langes Frame sammelt dort keinen
+Fehler an. Ein gedeckeltes `dtKamera` ließe die Kamera stattdessen **dauerhaft
+hinterherhängen**, weil sie bei 12× nur ~65 % der vergangenen Zeit integrierte. Die Tweens
+über feste Dauer (`reposeTween`, `t += dt/dur`) springen bei einem langen Frame ein Stück
+weiter — genau das, was E1 will. Die Trennung `dtFilm`/`dtKamera` schrumpft damit auf den
+Namen: Inhaltliches hängt an der Position, Ästhetisches an `dt`, und `dt` ist beidesmal
+dasselbe. Ob der zweite Bezeichner bleibt, entscheidet sich beim Bauen.
 
 `visibilitychange` gehört dazu, nicht als Zusatz — und es ist der richtige Griff für den
 Hintergrund-Tab: Ohne ihn schöbe die Rückkehr die Filmzeit um die volle Abwesenheit vor. Ein
@@ -504,6 +511,35 @@ Verwechslungsquelle in Commit-Nachrichten.)
 zieht mit**. Dort steht heute die Regel „Streckenpositionen als Bruchteil `f` (0..1), nie
 Meter"; E10 ist die erste begründete Ausnahme davon und gehört dort erklärt, nicht nur hier.
 
+### Auslieferungen
+
+Sieben Pakete. Jedes ist ein Arbeitsgang mit eigenem „Fertig, wenn" — und **je ein eigener
+Arbeitskontext**: Die Pakete fassen verschiedene Ecken an (Player-Engine, Server-Pipeline,
+Studio-Zeitleiste), und wer alle drei gleichzeitig im Kopf hält, verliert Genauigkeit genau
+dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ihnen.
+
+| Paket | Inhalt | Größe | Auslieferung |
+|---|---|---|---|
+| **A** | Schritt 0 (nachsehen, was live ist) + Schritt 1 (Gruppe C) | S | eigenes Release |
+| **B** | Etappe 1 — eine Uhr | M | **allein**, bewusst |
+| **C** | Etappe 2 — alle `f`-Anker nach `s`, Server-`f` je Wegpunkt, Spec | M | mit D bündelbar |
+| **D** | Etappe 3 — geteilte `filmachse.ts` über der Strecke (E12) | L | von außen unsichtbar |
+| **E** | Etappe 4 + Rampen im Server-Spiegel | XL | **unteilbar** |
+| **F** | Etappe 4b — Auslösen in Filmsekunden + Film-Anker | M | direkt nach E |
+| **G** | Etappe 5 — die Leiste | M | eigenes Release |
+
+**Was nicht geteilt werden darf:** Etappe 4 und die Rampen in
+[server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts) gehen in DERSELBEN
+Auslieferung raus (s. Etappe 4). Zwischen E und F ist der Zustand konsistent, nur noch nicht
+taktgenau — das ist die einzige zulässige Naht in diesem Block.
+
+**Vor E steht ein Entwurfsschritt ohne Code:** die Rückwärtsfahrt und die Form der Rampe in
+der Kurve (§2). Beide blockieren Etappe 4, beide sind eine halbe Seite in diesem Papier —
+keine eigene Sitzung, aber auch nichts, was man beim Bauen nebenbei entscheidet.
+
+**Frei dazwischen, in beliebiger Reihenfolge:** Tag/Nacht im Editor (§10) und die
+Szene-Schicht (§9). Die Feinplatzierung (§11) erst nach G.
+
 **Schritt 0 — Nachsehen, was seit v0.60.4 live ist.** Der Video-Ton im Studio und der neue
 Player-Pegel sind ausgeliefert, aber nie gehört. Braucht eine Tour mit Video.
 
@@ -518,14 +554,15 @@ sondern **ein anderes Zeitmodell** — dieselbe Sorte wie §6A. Entweder der Pla
 Studio-Modell (dann gehört es zur Szene-Schicht, §9), oder die Sekunde wird angeglichen und
 der Rest bleibt bewusst stehen. Zu entscheiden, bevor man es „schnell mitnimmt".
 
-**Etappe 1 — Eine Uhr.** `tick()` trennt `dtKamera` von `dtFilm`; `s`-Integration und alle
-Zeitzähler (`holdT`, `momentT`) laufen auf `dtFilm`; `visibilitychange` pausiert. **Der
+**Etappe 1 — Eine Uhr.** `tick()` rechnet in `dtFilm` — echte, ungedeckelte Frame-Zeit;
+`s`-Integration und alle Zeitzähler (`holdT`, `momentT`) laufen darauf; `visibilitychange`
+pausiert. **Der
 `dtFilm`-Deckel gehört überdacht:** Bei 12× lag das längste Frame bei 205 ms, ein 0,25-s-Deckel
 greift dort knapp nicht — am Pixel 9 mit Kachel-Stockern liegt man darüber, und dann verliert
 die Filmuhr wieder still, genau der Fehler, den diese Etappe behebt. Der Rückkehr-aus-dem-
 Hintergrund-Fall hängt an `visibilitychange`, nicht am Deckel. Was doch verworfen wird, soll
-**zählbar** sein statt unsichtbar (Zähler auf `window.__j`). Dazu die Kamera-Teilschritte aus
-Falle 3.
+**zählbar** sein statt unsichtbar (Zähler auf `window.__j`). Die Kamera bekommt **keinen
+eigenen Deckel und keine Teilschritte** — sie läuft auf demselben `dt` (Falle 3).
 **Vorher zu prüfen:** Liefert die Android-WebView `visibilitychange` beim Wechsel in den
 Hintergrund? Sonst hat ausgerechnet die Plattform mit den gemessenen ~26 fps den Fall nicht
 abgedeckt.
