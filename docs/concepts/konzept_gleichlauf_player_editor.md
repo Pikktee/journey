@@ -36,6 +36,7 @@ und die Umsetzbarkeit — nicht die Richtung.
 | E14 | **Die Rampe wird eine feste Form über eine feste STRECKE** (ease-in-out), nicht die nachgebaute Exponentialkurve | 14.08. | Etappe 4; Halt-Breite wird exakt, die Rampe im Studio zeichenbar. Länge wird an den heutigen Werten kalibriert (§14) |
 | E15 | **Die Foto-Karte hängt auch im Player an der POSITION**, nicht an der Wanduhr — sie erscheint und animiert deshalb auch rückwärts | 14.08. | Etappe 4, DOM-Seite; erledigt zugleich den offenen Ken-Burns-Eintrag (§6C) und die leere Karte beim Scrubben |
 | E16 | **Schnelllauf 8× in beiden Bühnen** — dazu die Editor-Regeln: Ton nur bei Tempo 1, Karte aus ab 2× | 14.08. | Etappe 4; macht den fehlenden Ton-Ausgleich beim `shuttle` gegenstandslos |
+| E17 | **Die Bedienung liegt über dem Bild**, nicht darunter — Steuerleiste und Fortschrittsleiste über der Foto-Karte | 14.08. | Folge von E15 (§12, Etappe 4); heute umgekehrt (`.photo-layer` 25 gegen `.dock` 20), was nur trug, weil die Karte beim Scrubben verschwand |
 
 ## 2. Offene Punkte
 
@@ -51,8 +52,11 @@ und die Umsetzbarkeit — nicht die Richtung.
   ihren Fortschritt aus derselben Filmzeit, gibt es keine zwei Dauern mehr.
 - **Steht der Wetter-Schalter im Editor anfangs an oder aus?** Aus wäre ruhiger beim
   Schneiden, an wäre ehrlicher zum Film.
-- **Bekommen Halte in der Player-Leiste sichtbare Breite** (wie im Studio) oder bleiben es
-  Punkte auf ihrem Beginn?
+- **Bekommen die Halte in der Player-Leiste MINIATUREN** (wie die Klip-Kette im Editor)?
+  Ihre Breite ist keine Frage mehr — sie folgt aus Etappe 5 (s. dort). Ein Bild darin ist
+  eine eigene Sache: Es macht die Leiste zur Übersicht über den Film statt zu einer Skala,
+  kostet aber Kacheln, Platz und eine Entscheidung, was auf einem Telefon davon übrig
+  bleibt. Später, nicht in G.
 - **Wird die Beschriftungskarte angeglichen?** Player zeigt Titel/Caption/km/Zähler, Editor
   Caption/Typ/Uhrzeit ohne Zähler. Bewusste Informationsarchitektur je Seite — oder
   ungeprüfte Abweichung. Nicht entschieden.
@@ -670,6 +674,14 @@ zeigt endlich etwas** (heute räumt `beginScrub` die Karte weg, wer durch einen 
 sieht nichts). Die eine Grenze: Ein Video kann nicht rückwärts spielen — dort wird geseekt,
 also Standbilder ohne Ton, genau wie im Editor.
 
+**Und daraus folgt die Schichtung (E17): Die Bedienung gehört ÜBER das Bild.** Heute liegt
+sie darunter (`.photo-layer` z-index 25 gegen `.dock` 20), und das trug nur, weil
+`beginScrub` die Karte wegräumt — wer scrubbt, sieht sie nicht. Bleibt sie liegen, muss die
+Leiste erreichbar sein, WÄHREND sie liegt. Das ist keine Kosmetik, sondern die Ordnung, die
+jeder Videoplayer hat: Das Bild ist der Inhalt, die Steuerung liegt darauf. Mitzuziehen sind
+`.finale` (26) und der Auto-Rückzug der UI — eine Leiste, die sich nach 3,2 s zurückzieht,
+verdeckt ohnehin nichts, aber wenn sie auf Regung wiederkommt, muss sie oben sein.
+
 **Der Schnelllauf geht auf 8× in BEIDEN Bühnen (E16)**, und mit ihm die zwei Regeln, die der
 Editor schon hat: **Ton nur bei Tempo 1** ([abspielen.ts](../../src/studio/abspielen.ts):
 „im Schnelllauf oder rückwärts klänge sie wie ein durchgedrehter Kassettenrekorder") und
@@ -739,6 +751,18 @@ Standzeit" verworfen.
 
 **Etappe 5 — Die Leiste.** Filmäquidistantes Höhenprofil, Halte mit Breite, `Telemetrie`
 bekommt `frac` **und** `filmFrac`, `fracAt` liefert einen Filmanteil.
+
+**Die Breite der Halte ist dabei keine Geschmacksfrage, sondern eine Folge.** Ein Halt
+kostet Filmzeit; läuft der Playhead filmlinear, verbringt er dort mehrere Sekunden. Bliebe
+der Halt ein Punkt, liefe der Kopf über ihn hinweg, während das Bild steht — genau der
+Defekt, den das Studio am 2026-08-05 verlassen hat („Playhead: Stillstand vor Halt-Sprung,
+28 von 39 Frames"). Und die Fläche ist zugleich der Griff: Ein Punkt lässt sich anspringen,
+eine Breite lässt sich ANFAHREN — man kann mitten in einen Halt scrubben, was mit E15 auch
+etwas zeigt.
+
+Damit wird die Leiste des Players das, was die Zeitleiste des Editors längst ist: eine
+Auskunft darüber, woraus der Film besteht. Der nächste Schritt in dieser Richtung wären
+Miniaturen in den Halten (§2) — der ist bewusst NICHT Teil dieser Etappe.
 *Fertig, wenn:* Der Playhead läuft durch einen Foto-Halt sichtbar durch, und die
 Sonnenstand-/Wetter-Regie zeigt unverändert dieselben Werte an denselben Streckenpunkten.
 
@@ -818,6 +842,17 @@ Ebenfalls nicht: die Rampen im Studio nachbilden (§5).
 ---
 
 ## 14. Was sich für den Nutzer ändert
+
+**Der Player wird ein Videoplayer.** Das ist die Klammer um E13 bis E17, und es ist mehr als
+die Summe der Einzelteile: Heute ist die Tour eine Fahrt, die man startet und die einem
+Ereignisse vorlegt — ein Foto erscheint, weil die Engine gerade dort ankam. Danach ist sie
+ein Film, in dem jede Stelle einen Zustand hat: Man kann mitten in ein Foto scrubben und
+sieht es (mit seinem Ken-Burns-Stand an genau dieser Sekunde), man kann rückwärts hindurch,
+die Bedienung liegt über dem Bild statt darunter, und in der Leiste hat jeder Halt die
+Breite, die er im Film einnimmt.
+
+Nichts davon ist eine neue Funktion. Es ist dieselbe Tour — mit dem Unterschied, dass sie
+sich anfassen lässt, statt nur zu laufen.
 
 **Die Tour fühlt sich anders an.** Anfahren und Ausrollen sind heute echtes Kameraverhalten.
 In die Kurve gelegt bleiben sie erhalten — aber sie werden *gestaltet* statt zu *entstehen*,
