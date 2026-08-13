@@ -32,20 +32,15 @@ und die Umsetzbarkeit — nicht die Richtung.
 | E10 | **Das Tour-JSON bekommt additive Film-Felder je Ereignis** (Filmsekunde neben `f0`/`f1`) | 13.08. | §5.1; ohne sie ist E5 im Format nicht ausdrückbar. Gehört **hinter** Etappe 4 (§12) |
 | E11 | **Der Server schickt `f` je ausgeliefertem Wegpunkt mit** — statt `f` künftig auf der vereinfachten Geometrie zu messen | 13.08. | §8D; additiv, ändert keinen Bestands-Render — greift dafür erst nach dem nächsten Render |
 | E12 | **Die geteilte Achse wird über der STRECKE parametrisiert**, nicht über der Aufnahmezeit | 13.08. | **Vorbedingung von E2**, keine Wahl (§8C). Macht Etappe 3 zum teuersten Schritt und legt sie auf den kritischen Pfad |
+| E13 | **Rückwärts fährt über dieselbe Kurve — Halte inklusive.** Kein zweiter Zeitbegriff, keine `dir`-Sonderfälle | 14.08. | Etappe 4 wird KLEINER: `nextIdx`, `syncNextIdx`, Bremsweg-Vorgriff und die `dir > 0`-Schranken entfallen (§12) |
+| E14 | **Die Rampe wird eine feste Form über eine feste STRECKE** (ease-in-out), nicht die nachgebaute Exponentialkurve | 14.08. | Etappe 4; Halt-Breite wird exakt, die Rampe im Studio zeichenbar. Länge wird an den heutigen Werten kalibriert (§14) |
 
 ## 2. Offene Punkte
 
-- **Wie läuft die Filmzeit rückwärts?** `shuttle` fährt mit `dir = −1` und `mult` bis 8×
-  ([tour.ts](../../src/tour.ts)) — im Papier stand bisher nur „2×/4×" (das ist `cycleSpeed`).
-  Unter E2 muss die Filmzeit rückwärts laufen; Stopp- und Moment-Trigger sind heute bewusst
-  auf `dir > 0` beschränkt, und rückwärts durch einen Halt heißt: Filmzeit vergeht, Position
-  steht. Eigene Entwurfsfrage, kein Umstellungsdetail.
 - **Bleibt der Zuschauer-`mult` (2×/4×)?** Als Faktor auf die Filmzeit bleibt der Schnitt in
   sich stimmig — aber ein Schalter, der die Filmdauer halbiert, ist eine bewusste Ausnahme
-  vom Taktversprechen (E5).
-- **Wie sieht die Rampe in der Kurve aus?** Heute exponentiell (τ = 1,1 s bzw. 0,55 s). Eine
-  ease-in-out-Form über eine feste Strecke wäre einfacher zu beschreiben und im Studio
-  zeichenbar.
+  vom Taktversprechen (E5). Unter E13 ist er ein Faktor auf `dtFilm` und sonst nichts; die
+  Frage ist nur noch, ob er BLEIBT.
 - **Ken Burns: welche Zahl stimmt — und welches Zeitmodell?** Zwei Fragen in einer Zeile.
   Die Zahl: `holdS + 1.8` gegen `holdS + 0.8` (§6C); erst messen, wie lange die Karte auf
   jeder Seite *tatsächlich* sichtbar ist — die Absicht ist aus dem Code nicht lesbar, weil
@@ -562,9 +557,10 @@ dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ih
 Auslieferung raus (s. Etappe 4). Zwischen E und F ist der Zustand konsistent, nur noch nicht
 taktgenau — das ist die einzige zulässige Naht in diesem Block.
 
-**Vor E steht ein Entwurfsschritt ohne Code:** die Rückwärtsfahrt und die Form der Rampe in
-der Kurve (§2). Beide blockieren Etappe 4, beide sind eine halbe Seite in diesem Papier —
-keine eigene Sitzung, aber auch nichts, was man beim Bauen nebenbei entscheidet.
+**Der Entwurfsschritt vor E ist erledigt** (14.08.): Rückwärts fährt über dieselbe Kurve
+(E13), die Rampe wird eine feste Form über eine feste Strecke (E14). Beide Entscheidungen
+stehen bei Etappe 4 mit ihrer Begründung; E13 macht die Etappe kleiner, als sie im Plan
+aussieht.
 
 **Frei dazwischen, in beliebiger Reihenfolge:** Tag/Nacht im Editor (§10) und die
 Szene-Schicht (§9). Die Feinplatzierung (§11) erst nach G.
@@ -640,15 +636,44 @@ dieselbe Funktion, beim Eintritt UND am Ende jedes Scrubs.
 per Regex — und ein Scrub mitten in ein Musikstück setzt den Ton dort fort, wo der Film
 steht (im Player wie im Editor, gegen dieselbe Filmsekunde geprüft).
 
-**Etappe 4 — Der Antrieb dreht sich um.** **Zwei Vorbedingungen:** (a) Video-Halte an die
-Achse hängen statt an `ended` (§5.2); (b) die Rückwärtsfahrt entwerfen (§2). Die
-`dir > 0`-Schranke der Stopp- und Moment-Trigger und der Bremsweg-Vorgriff sind **zwei
-verschiedene Dinge**: Die Schranke verhindert, dass Rückwärtsfahren an jedem Stopp
-hängenbleibt, der Vorgriff korrigiert nur den Anhalteort. Unter einer Achse mit
-Halt-Intervallen wird rückwärts durch einen Halt zwangsläufig wieder ein Halt — ob das
-gewollt ist, ist die offene Frage. Dann: Rampen als explizite Form in die
-Achse; `s` aus der Filmzeit ableiten; Bremsweg-Vorgriff und Ausrollschwelle entfallen;
-Scrubben, `seek`, `nudge`, `mult` und `dir` auf Filmsekunden.
+**Etappe 4 — Der Antrieb dreht sich um.** **Eine Vorbedingung bleibt:** Video-Halte an die
+Achse hängen statt an `ended` (§5.2). Dann: Rampen als explizite Form in die Achse; `s` aus
+der Filmzeit ableiten; Bremsweg-Vorgriff und Ausrollschwelle entfallen; Scrubben, `seek`,
+`nudge` und `mult` auf Filmsekunden.
+
+**Rückwärts fährt über dieselbe Kurve (E13).** Die frühere Sorge — „an jedem Halt kleben" —
+hat sich an der Praxis erledigt: Der Editor macht es seit Monaten genau so
+([abspielen.ts](../../src/studio/abspielen.ts), `tick` rechnet `filmBei(kurve, alt) + tempo · dt`
+mit negativem Tempo bis −4×), die Halte sind dort Plateaus derselben Kurve, und es ist
+niemandem als Mangel aufgefallen. Der Player bekommt damit dasselbe Verhalten wie der Editor
+statt eines eigenen.
+
+Und das ist der Schritt, der Etappe 4 **kleiner** macht statt größer: Wenn „im Halt" ein
+Zustand der KURVE ist (`filmS` liegt in einem Halt-Intervall) statt eines getriggerten
+Phasenwechsels, entfallen `nextIdx`, `nextMomentIdx`, `syncNextIdx`, der Bremsweg-Vorgriff,
+die Ausrollschwelle `speed < 4` und alle `dir > 0`-Schranken. Zwei Dinge sind dabei zu
+entscheiden, aber beide klein: ob die Foto-Karte auch rückwärts erscheint (im Editor tut sie
+es), und ob der 8×-Schnelllauf bleibt oder sich dem Editor angleicht (dort 4×).
+
+**Die Rampe ist eine feste Form über eine feste STRECKE (E14)**, keine nachgebaute
+Exponentialkurve. Heute strebt `speed` das Ziel asymptotisch an (τ = 1,1 s beim Anfahren,
+0,55 s beim Ausrollen): kräftig vorn, dann immer sanfter, **ohne definiertes Ende** — und die
+Dauer hängt am Tempo (2,70 s je Halt auf der 41-km-Tour, 0,44 s auf der 356-m-Tour, wo nie
+Vollgas erreicht wird). Genau diese Unschärfe ist der Grund, warum die Halt-Breite im Studio
+heute nicht stimmen kann.
+
+Stattdessen: eine ease-in-out-Form über eine feste Anfahrstrecke — sanft an, in der Mitte am
+stärksten, sanft ins Tempo. Drei Folgen: Die Halt-Breite wird **exakt**, die Rampe ist im
+Editor **zeichenbar**, und sie passt zur Achse, die seit E12 ohnehin über der Strecke rechnet
+(eine Rampe über feste ZEIT müsste dort rückwärts aufgelöst werden). Nebeneffekt, gewollt:
+Bei schneller Fortbewegung ist dieselbe Strecke früher durchfahren, der Antritt wirkt
+knackiger; zu Fuß getragener.
+
+**Die Länge wird kalibriert, nicht geraten** — an den heute gemessenen Rampen
+([rampen-simulation.ts](../../scripts/messungen/rampen-simulation.ts)), damit sich die Fahrt
+nicht sprunghaft anders anfühlt. Das Fahrgefühl ändert sich trotzdem hörbar am Antritt: kein
+Ruck mehr ganz vorn. Das ist die eine Stelle dieses Vorhabens, die man SEHEN muss, bevor man
+sie festschreibt (§14).
 
 **Die Rampen brauchen ihren Zwilling auf dem Server in DERSELBEN Auslieferung.**
 [filmachse.ts](../../server/src/pipeline/filmachse.ts) kennt sie heute nicht (sie summiert nur
