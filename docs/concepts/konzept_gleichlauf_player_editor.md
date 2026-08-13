@@ -551,14 +551,26 @@ dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ih
 | **B** | Etappe 1 — eine Uhr | M | **allein**, bewusst |
 | **C** | Etappe 2 — alle `f`-Anker nach `s`, Server-`f` je Wegpunkt, Spec | M | mit D bündelbar |
 | **D** | Etappe 3 — geteilte `filmachse.ts` über der Strecke (E12), dazu der Umzug von `musikVersatzS` (§6C) | L | erste hörbare Wirkung: der Ton springt beim Scrubben mit |
-| **E** | Etappe 4 + Rampen im Server-Spiegel | XL | **unteilbar** |
+| **E** | Etappe 4 + Rampen im Server-Spiegel — gebaut in zwei Gängen (Engine, dann Anzeige) | XL | **als Release unteilbar** |
 | **F** | Etappe 4b — Auslösen in Filmsekunden + Film-Anker | M | direkt nach E |
 | **G** | Etappe 5 — die Leiste | M | eigenes Release |
 
-**Was nicht geteilt werden darf:** Etappe 4 und die Rampen in
-[server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts) gehen in DERSELBEN
-Auslieferung raus (s. Etappe 4). Zwischen E und F ist der Zustand konsistent, nur noch nicht
-taktgenau — das ist die einzige zulässige Naht in diesem Block.
+**Was nicht geteilt werden darf, ist die AUSLIEFERUNG — nicht die Arbeit.** Etappe 4 und die
+Rampen in [server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts) gehen in
+DERSELBEN Auslieferung raus (s. Etappe 4). Zwischen E und F ist der Zustand konsistent, nur
+noch nicht taktgenau — das ist die einzige zulässige Naht im Release-Block.
+
+**Gebaut wird E dagegen in zwei Gängen**, denn es sind zwei Baustellen:
+
+- **E-Engine** — Antrieb umdrehen, Rampe in die Kurve, die Zustandsmaschine abräumen (E13,
+  E14), Server-Zwilling, Schnelllauf-Regeln (E16). Danach stimmt die DAUER; prüfbar am
+  Kriterium unten und an einer Fahrt.
+- **E-Anzeige** — die Foto-Karte an die Position hängen (E15) und die Schichtung umdrehen
+  (E17). Danach stimmt das BILD; prüfbar am Scrubben durch einen Halt.
+
+Der zweite Gang braucht aus dem ersten nur `filmS` und die Halt-Intervalle. Dazwischen ist
+der Player benutzbar, aber die Karte flackert an Halt-Kanten (sie wird noch getriggert statt
+gestellt) — ein Zustand zum Prüfen, nicht zum Ausliefern.
 
 **Der Entwurfsschritt vor E ist erledigt** (14.08.): Rückwärts fährt über dieselbe Kurve
 (E13), die Rampe wird eine feste Form über eine feste Strecke (E14). Beide Entscheidungen
