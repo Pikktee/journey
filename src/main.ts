@@ -11,6 +11,7 @@ import {
   filmBeiStrecke,
   haltBeiFilm,
   interpoliere,
+  modusMischung,
   momentHaltS,
   streckeBeiFilm,
   type Filmachse,
@@ -28,7 +29,7 @@ import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
 import { UI, $, type PlayerMedium } from './ui.js'
-import { Tour, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
+import { Tour, mischeSkala, skalaFuer, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
 import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
 
@@ -382,11 +383,18 @@ const achsenHalte: Array<Streckenhalt & Omit<Spielhalt, 'filmVon' | 'filmBis'>> 
     stuecke: [],
   })),
 ]
-const filmachse = baueFilmachse(
-  modes.map((m) => ({ abM: rohBeiS(m.s), mode: m.mode })),
-  rohGesamt,
-  achsenHalte,
-)
+const achsenGrenzen = modes.map((m) => ({ abM: rohBeiS(m.s), mode: m.mode }))
+const filmachse = baueFilmachse(achsenGrenzen, rohGesamt, achsenHalte)
+/**
+ * Fortbewegung an einem ROHEN Meterstand — aus der ACHSE, nicht aus `modes`.
+ * Die Achse zieht einen Tempowechsel dicht an einem Halt auf den Halt; die
+ * rohen Grenzen wissen davon nichts.
+ */
+const modusBeiRoh = (m: number): string => {
+  let mode = filmachse.modi[0]?.mode ?? 'bike'
+  for (const g of filmachse.modi) if (g.abM <= m) mode = g.mode
+  return mode
+}
 /** Filmsekunde an einem Wegstand der gebauten Route. */
 const filmBeiS = (s: number) => filmBeiStrecke(filmachse, rohBeiS(s))
 /**
@@ -402,6 +410,20 @@ const filmspur: Filmspur = {
   sBeiFilm: (f) => sBeiRoh(streckeBeiFilm(filmachse, f)),
   filmBeiS,
   haltBeiFilm: (f) => haltBeiFilm(filmachse, f),
+  modusBeiS: (s) => {
+    const m = modusMischung(filmachse, rohBeiS(s), modusBeiRoh)
+    return m.anteil >= 0.5 ? m.nachMode : m.vonMode
+  },
+  // Die Kameradistanz folgt DERSELBEN Rampe wie das Tempo: `modusMischung`
+  // liefert die zwei Modi und den Anteil dazwischen, `mischeSkala` macht daraus
+  // die Distanz. Hier und nicht in der Engine, weil nur diese Datei beide
+  // Meterstände kennt (Roh für die Achse, Route für die Kamera).
+  skalaBeiS: (s) => {
+    const m = modusMischung(filmachse, rohBeiS(s), (x) => modusBeiRoh(x))
+    return m.vonMode === m.nachMode
+      ? skalaFuer(m.vonMode)
+      : mischeSkala(skalaFuer(m.vonMode), skalaFuer(m.nachMode), m.anteil)
+  },
 }
 window.__j.filmachse = filmachse
 window.__j.filmS = filmBeiS

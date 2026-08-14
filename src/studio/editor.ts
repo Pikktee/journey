@@ -5379,13 +5379,15 @@ function kantenZeiten(art: 'modus' | 'kamera' | 'wetter'): number[] {
 }
 
 /** Modus links und rechts einer Fortbewegungs-Kante (für Tempo und Vorschau). */
-function modiUmKante(tOffsetS: number): { links: Modus; rechts: Modus } | null {
+function modiUmKante(tOffsetS: number): { davor: Modus | null; links: Modus; rechts: Modus } | null {
   if (!z) return null
   const abschnitte = zerlegeFuerAnzeige(z.daten.segmente as EditorSegment[], z.edits, z.daten.time.start)
   const i = abschnitte.findIndex((a) => Math.abs((a.pts[0] as TrackPunkt)[3] - tOffsetS) < 1)
   const rechts = abschnitte[i]
   const links = abschnitte[i - 1]
-  return rechts && links ? { links: links.mode, rechts: rechts.mode } : null
+  // `davor` ist der Modus VOR dem Zug-Fenster: Beschleunigt der Film an dessen
+  // linker Kante, liegt die Rampe IM Fenster und kostet dort Zeit.
+  return rechts && links ? { davor: abschnitte[i - 2]?.mode ?? null, links: links.mode, rechts: rechts.mode } : null
 }
 
 /** Zug-Start: Fenster und Umrechnung einsammeln — beides steht dann fest. */
@@ -5433,7 +5435,9 @@ function starteKantenZug(ziel: HTMLElement, rolle: string): void {
     // Und weil sie EXAKT ist, darf der Zug live ins Modell schreiben: die Kante
     // landet nach jedem Neuaufbau wieder unter dem Zeiger.
     const modi = modiUmKante(kanteS)
-    const kurve = modi ? baueGrenzKurve(z.track, vonS, bisS, modi.links, modi.rechts, filmVon, achse.halte ?? []) : null
+    const kurve = modi
+      ? baueGrenzKurve(z.track, vonS, bisS, modi, filmVon, achse.halte ?? [])
+      : null
     if (!kurve || !modi) return
     zeitBei = (filmS: number): number => zeitBeiFilm(kurve, filmS)
     maxFilmS = kurve.gesamtS

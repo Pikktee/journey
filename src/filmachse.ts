@@ -185,11 +185,16 @@ const RAMPEN_STUFEN = 12
  * (14,7 → 24,2 s): Der Antritt wirkt bei Tempo knackiger und zu Fuß getragener.
  *
  * **Am Halt liegt die volle Länge auf JEDER Seite** (bremsen davor, anfahren
- * danach); an einer Modus-Grenze liegt sie EINMAL und **symmetrisch um die
- * Grenze** — halbe Länge davor, halbe danach. Das ist eine Entscheidung und
- * keine Ableitung: Eine Rampe ganz vor der Grenze führe das neue Tempo schon
- * im alten Abschnitt, eine ganz danach hielte das alte über die Grenze hinaus;
- * symmetrisch gehört der Wechsel der Grenze selbst.
+ * danach); an einer Modus-Grenze liegt sie EINMAL und ganz im **schnelleren**
+ * Abschnitt — beim Beschleunigen hinter der Grenze, beim Verzögern davor.
+ *
+ * Das war zuerst symmetrisch (halbe Länge auf jede Seite) und das war falsch:
+ * Die halbe Rampe lag dann im LANGSAMEREN Abschnitt, also ging man die letzten
+ * 60 m zum Anleger schon mit anlaufendem Fährtempo — an Stockholm gemessen mit
+ * dem 5,3-Fachen des Fußgängertempos, mit dem Fußgänger-Marker auf der Karte.
+ * Beim Aussteigen dasselbe rückwärts (6,6-Faches). Im schnelleren Abschnitt
+ * stimmt es auch inhaltlich: Die Fähre beschleunigt, nachdem man eingestiegen
+ * ist, und der Wagen bremst, bevor man aussteigt.
  *
  * **Kollidieren zwei Rampen, teilen sie sich die Lücke** — anteilig nach dem,
  * was sie bräuchten, was bei zwei gleich langen genau die Hälfte ist. Sonst
@@ -205,28 +210,18 @@ export const RAMPE_M = 120
  * Für das Zug-Fenster einer Fortbewegungs-Grenze im Editor
  * ([zeitleiste.ts](studio/zeitleiste.ts), `baueGrenzKurve`): Dessen Kurve
  * rechnet das Fenster durchgehend im LINKEN Modus, weil die Filmposition der
- * Kante nur von dem abhängt, was vor ihr liegt. Seit die Grenze ihre eigene
- * Rampe hat, stimmt das um genau diesen Betrag nicht mehr — die halbe
- * Rampenstrecke vor der Kante wird nicht mehr mit `v0` gefahren, sondern
- * anfahrend. Der Betrag ist KONSTANT (er hängt nur an den beiden Tempi und der
- * Rampenlänge, nicht daran, wo die Kante steht), verschiebt die Kurve also bloß
- * und lässt sie umkehrbar.
+ * Kante nur von dem abhängt, was vor ihr liegt.
  *
- * Gesucht ist der Zeitanteil `u*`, an dem die Rampe ihre halbe STRECKE hinter
- * sich hat (`w(u*) = ½`) — sie ist symmetrisch in der Strecke, nicht in der
- * Zeit. `w` ist streng monoton, also findet ihn eine Bisektion.
+ * Beim BESCHLEUNIGEN ist das seit der Verlegung der Rampe wieder exakt — sie
+ * liegt dann ganz hinter der Grenze, vor ihr fährt der Film unverändert `v0`.
+ * Beim VERZÖGERN liegt die ganze Rampe davor und ersetzt `rampeM` Meter Reise
+ * durch die Rampendauer. Der Betrag ist KONSTANT (er hängt nur an den beiden
+ * Tempi und der Rampenlänge, nicht daran, wo die Kante steht), verschiebt die
+ * Kurve also bloß und lässt sie umkehrbar.
  */
 export function rampenVersatzS(v0: number, v1: number, rampeM: number = RAMPE_M): number {
-  if (!(rampeM > 0) || !(v0 > 0) || !(v1 > 0) || v0 === v1) return 0
-  let lo = 0
-  let hi = 1
-  for (let i = 0; i < 40; i++) {
-    const mitte = (lo + hi) / 2
-    if (rampenWeg(mitte, v0, v1) < 0.5) lo = mitte
-    else hi = mitte
-  }
-  const dauer = (2 * rampeM) / (v0 + v1)
-  return dauer * ((lo + hi) / 2) - rampeM / 2 / v0
+  if (!(rampeM > 0) || !(v0 > 0) || !(v1 > 0) || v1 >= v0) return 0
+  return (2 * rampeM) / (v0 + v1) - rampeM / v0
 }
 
 /** Wie die Achse ihre Rampen setzt. */
@@ -239,17 +234,35 @@ export interface Rampenwahl {
    */
   rampeM?: number
   /**
-   * Beginnt das Stück im STAND? Vorgabe ja — eine Tour fährt aus dem Stand los.
+   * Mit welchem Tempo (m/s) betritt der Film dieses Stück?
    *
-   * Das Zug-Fenster einer Fortbewegungs-Grenze (`baueGrenzKurve` im Editor)
-   * beginnt dagegen mitten in der Fahrt: Dort eine Anfahrt einzurechnen schöbe
-   * die gezogene Kante um deren Zuschlag, und sie landete nicht dort, wo man
-   * losgelassen hat.
+   * Vorgabe `0` — eine Tour fährt aus dem Stand los, und daraus wird die
+   * Anfahr-Rampe. Das Zug-Fenster einer Fortbewegungs-Grenze (`baueGrenzKurve`
+   * im Editor) beginnt dagegen mitten in der Fahrt: Dort gibt es kein Anfahren,
+   * sondern höchstens einen Tempowechsel an der linken Kante. `null` heißt
+   * „kein Wechsel, der Film läuft schon im Tempo des ersten Abschnitts".
    */
-  ausDemStand?: boolean
+  startTempoMs?: number | null
 }
 
 // — Die Achse —
+
+/**
+ * Ein Tempowechsel, wie ihn die KAMERA braucht: die beiden Modi und das
+ * Streckenfenster, über das die Achse zwischen ihnen überblendet.
+ *
+ * Ohne das hinge die Kameradistanz an einer eigenen Uhr: Sie zieht mit
+ * τ = 2,2 s nach (~6 s bis sie steht), die Rampe ist in unter einer Sekunde
+ * fertig. Dazwischen fährt man Fährtempo mit einer Fußgänger-Kamera — an
+ * Stockholm gemessen mit dem 2,3-Fachen des sonstigen Bildschirm-Tempos. Über
+ * dasselbe Fenster geführt bleibt es stetig, ohne neue gestalterische Zahl.
+ */
+export interface Modusuebergang {
+  vonM: number
+  bisM: number
+  vonMode: string
+  nachMode: string
+}
 
 /** Ein Streckenabschnitt: ab welchem Meter er gilt und wie der Film ihn fährt. */
 export interface Streckenabschnitt {
@@ -276,6 +289,72 @@ export interface Filmachse<H extends Streckenhalt = Streckenhalt> {
   gesamtM: number
   gesamtS: number
   halte: Array<HaltIntervall<H>>
+  /** Die Fenster, in denen die Achse zwischen zwei Modi überblendet (für die Kamera) */
+  uebergaenge: Modusuebergang[]
+  /**
+   * Die Fortbewegung über der Strecke, wie die ACHSE sie führt.
+   *
+   * Nicht dieselbe Liste wie die Modus-Grenzen der Tour: Ein Tempowechsel dicht
+   * an einem Halt ist hier auf den Halt gezogen. Wer die rohen Grenzen fragt,
+   * bekommt für die Meter dazwischen eine Fortbewegung, die die Achse gar nicht
+   * mehr fährt — der Fußgänger-Marker liefe dann mit Fährtempo über die Karte.
+   */
+  modi: Array<{ abM: number; mode: string }>
+}
+
+/** Das Tempo (m/s), das die Achse an einem Streckenmeter gerade fährt. */
+export function tempoBeiStrecke(achse: Pick<Filmachse, 'sM' | 'filmS'>, meterM: number): number {
+  const { sM, filmS } = achse
+  const n = sM.length
+  if (n < 2) return 0
+  let lo = 0
+  let hi = n - 1
+  while (lo < hi) {
+    const mitte = (lo + hi) >> 1
+    if ((sM[mitte] as number) < meterM) lo = mitte + 1
+    else hi = mitte
+  }
+  // Halt-Plateaus (gleiche Meter, wachsende Filmzeit) tragen kein Tempo — das
+  // nächste fahrende Stück gilt.
+  for (let i = Math.max(1, lo); i < n; i++) {
+    const dm = (sM[i] as number) - (sM[i - 1] as number)
+    const df = (filmS[i] as number) - (filmS[i - 1] as number)
+    if (dm > 0 && df > 0) return dm / df
+  }
+  return 0
+}
+
+/**
+ * Die Modus-Mischung an einem Streckenmeter: welche zwei Modi, und wie weit
+ * zwischen ihnen. `anteil` 0 = ganz `vonMode`, 1 = ganz `nachMode`.
+ *
+ * **Gemischt wird nach dem TEMPO, nicht nach der Strecke.** Das ist der Punkt:
+ * Die Rampe ist eine Form über der ZEIT (nach halber Rampenzeit sind aus dem
+ * Stand erst 3/16 der Strecke gefahren), eine Mischung über die Strecke hinkte
+ * ihr also nach — die Kamera stünde noch nah, während das Tempo längst oben
+ * ist. Am Tempo geführt bleibt `Tempo ÷ Kameradistanz` über den ganzen Wechsel
+ * stetig, und genau darauf sind die Modi abgestimmt.
+ *
+ * Außerhalb eines Übergangs sind beide Modi derselbe — der Aufrufer muss also
+ * nicht unterscheiden.
+ */
+export function modusMischung(
+  achse: Pick<Filmachse, 'uebergaenge' | 'sM' | 'filmS'>,
+  meterM: number,
+  modeBei: (m: number) => string,
+): { vonMode: string; nachMode: string; anteil: number } {
+  for (const u of achse.uebergaenge) {
+    if (meterM < u.vonM) break // aufsteigend gesammelt
+    if (meterM < u.bisM) {
+      const v0 = tempoMs(u.vonMode)
+      const v1 = tempoMs(u.nachMode)
+      const spanne = v1 - v0
+      const roh = spanne === 0 ? 1 : (tempoBeiStrecke(achse, meterM) - v0) / spanne
+      return { vonMode: u.vonMode, nachMode: u.nachMode, anteil: Math.max(0, Math.min(1, roh)) }
+    }
+  }
+  const mode = modeBei(meterM)
+  return { vonMode: mode, nachMode: mode, anteil: 1 }
 }
 
 /** Ein Punkt der Achse, an dem sich das Tempo ändert — und wie viel Rampe er will. */
@@ -286,6 +365,8 @@ interface Rampenknoten<H extends Streckenhalt> {
   /** Tempo links und rechts des Knotens (m/s); am Halt ist es dazwischen null */
   vLinks: number
   vRechts: number
+  modeLinks: string
+  modeRechts: string
   /** Rampenlänge, die der Knoten links/rechts BRÄUCHTE, und was er nach dem Teilen bekommt */
   wunschL: number
   wunschR: number
@@ -320,23 +401,28 @@ export function baueFilmachse<H extends Streckenhalt>(
   wahl: Rampenwahl = {},
 ): Filmachse<H> {
   const rampeM = wahl.rampeM ?? RAMPE_M
-  const ausDemStand = wahl.ausDemStand ?? true
+  const startTempoMs = wahl.startTempoMs === undefined ? 0 : wahl.startTempoMs
 
   // — 1. Das Tempo über der Strecke, als Stufenfunktion —
   //
   // Aufeinanderfolgende Abschnitte mit demselben Tempo werden zusammengelegt:
   // Ein Segmentwechsel ohne Tempowechsel ist keine Kante und braucht keine
   // Rampe (dieselbe Fahrt, nur ein anderer Eintrag im Manifest).
-  const stufen: Array<{ abM: number; v: number }> = [{ abM: 0, v: tempoMs(abschnitte[0]?.mode ?? 'bike') }]
+  const ersterModus = abschnitte[0]?.mode ?? 'bike'
+  const stufen: Array<{ abM: number; v: number; mode: string }> = [
+    { abM: 0, v: tempoMs(ersterModus), mode: ersterModus },
+  ]
   {
     let vonM = 0
     for (const a of abschnitte.slice(1)) {
       const bisM = Math.max(vonM, Math.min(gesamtM, a.abM))
       vonM = bisM
       const v = tempoMs(a.mode)
-      const letzte = stufen[stufen.length - 1] as { abM: number; v: number }
-      if (letzte.abM === bisM) letzte.v = v
-      else if (letzte.v !== v) stufen.push({ abM: bisM, v })
+      const letzte = stufen[stufen.length - 1] as { abM: number; v: number; mode: string }
+      if (letzte.abM === bisM) {
+        letzte.v = v
+        letzte.mode = a.mode
+      } else if (letzte.v !== v) stufen.push({ abM: bisM, v, mode: a.mode })
     }
   }
   // — 1b. Tempowechsel in der Rampenzone eines Halts wandern AUF den Halt —
@@ -363,12 +449,14 @@ export function baueFilmachse<H extends Streckenhalt>(
     // Nach dem Ziehen neu ordnen: gleiche Stelle → die spätere gilt, gleiches
     // Tempo → keine Kante.
     stufen.sort((a, b) => a.abM - b.abM)
-    const geraeumt: Array<{ abM: number; v: number }> = []
+    const geraeumt: Array<{ abM: number; v: number; mode: string }> = []
     for (const st of stufen) {
       const letzte = geraeumt[geraeumt.length - 1]
       if (!letzte) geraeumt.push(st)
-      else if (letzte.abM === st.abM) letzte.v = st.v
-      else if (letzte.v !== st.v) geraeumt.push(st)
+      else if (letzte.abM === st.abM) {
+        letzte.v = st.v
+        letzte.mode = st.mode
+      } else if (letzte.v !== st.v) geraeumt.push(st)
     }
     stufen.length = 0
     stufen.push(...geraeumt)
@@ -378,6 +466,11 @@ export function baueFilmachse<H extends Streckenhalt>(
     let v = (stufen[0] as { v: number }).v
     for (const st of stufen) if (st.abM <= m) v = st.v
     return v
+  }
+  const modusBei = (m: number): string => {
+    let mode = (stufen[0] as { mode: string }).mode
+    for (const st of stufen) if (st.abM <= m) mode = st.mode
+    return mode
   }
 
   // — 2. Die Rampenknoten —
@@ -392,8 +485,10 @@ export function baueFilmachse<H extends Streckenhalt>(
     const neu: Rampenknoten<H> = {
       ort,
       halte: [],
-      vLinks: ort <= 0 ? 0 : tempoBei(ort - 1e-9),
+      vLinks: ort <= 0 ? (startTempoMs ?? tempoBei(0)) : tempoBei(ort - 1e-9),
       vRechts: ort >= gesamtM ? 0 : tempoBei(ort),
+      modeLinks: modusBei(Math.max(0, ort - 1e-9)),
+      modeRechts: modusBei(Math.min(gesamtM, ort)),
       wunschL: 0,
       wunschR: 0,
       lenL: 0,
@@ -420,12 +515,15 @@ export function baueFilmachse<H extends Streckenhalt>(
       k.wunschL = amStart ? 0 : rampeM
       k.wunschR = amEnde ? 0 : rampeM
     } else if (amStart) {
-      // Losfahren aus dem Stand. Ein Zug-Fenster mitten in der Fahrt nicht.
-      k.wunschR = ausDemStand ? rampeM : 0
+      // Der Eintritt ins Stück ist selbst ein Tempowechsel — aus dem Stand die
+      // Anfahrt, mitten in der Fahrt der Wechsel an der linken Kante. Beides
+      // liegt im schnelleren Abschnitt, hier also dahinter (nach vorn ist kein
+      // Platz).
+      k.wunschR = k.vRechts > k.vLinks ? rampeM : 0
     } else if (!amEnde) {
-      // Modus-Grenze: EINE Rampe, symmetrisch um die Grenze (s. RAMPE_M).
-      k.wunschL = rampeM / 2
-      k.wunschR = rampeM / 2
+      // Modus-Grenze: EINE Rampe, ganz im SCHNELLEREN Abschnitt (s. RAMPE_M).
+      if (k.vRechts > k.vLinks) k.wunschR = rampeM
+      else k.wunschL = rampeM
     }
     // Am Tour-ENDE wird nicht gebremst: Der Film läuft dort aus.
   }
@@ -447,6 +545,7 @@ export function baueFilmachse<H extends Streckenhalt>(
   const sM: number[] = [0]
   const filmS: number[] = [0]
   const intervalle: Array<HaltIntervall<H>> = []
+  const uebergaenge: Modusuebergang[] = []
   let pos = 0
   let film = 0
 
@@ -491,6 +590,14 @@ export function baueFilmachse<H extends Streckenhalt>(
 
   for (const k of knoten) {
     reise(k.ort - k.lenL)
+    // Wechselt der MODUS hier, blendet die Kamera über dieselbe Strecke über.
+    // Am Halt gehört das Fenster der Ausfahrt: Während der Standzeit steht die
+    // Kamera ohnehin, und die neue Fortbewegung beginnt mit der Weiterfahrt.
+    if (k.modeLinks !== k.modeRechts) {
+      const vonM = k.halte.length > 0 ? k.ort : k.ort - k.lenL
+      const bisM = k.ort + k.lenR
+      if (bisM > vonM) uebergaenge.push({ vonM, bisM, vonMode: k.modeLinks, nachMode: k.modeRechts })
+    }
     if (k.halte.length > 0) {
       rampe(pos, k.lenL, k.vLinks, 0)
       for (const h of k.halte) {
@@ -508,7 +615,15 @@ export function baueFilmachse<H extends Streckenhalt>(
   }
   reise(gesamtM)
 
-  return { sM, filmS, gesamtM, gesamtS: filmS[filmS.length - 1] as number, halte: intervalle }
+  return {
+    sM,
+    filmS,
+    gesamtM,
+    gesamtS: filmS[filmS.length - 1] as number,
+    halte: intervalle,
+    uebergaenge,
+    modi: stufen.map((st) => ({ abM: st.abM, mode: st.mode })),
+  }
 }
 
 /** Nur die Stützstellen — beide Auswertungen brauchen die Halt-Liste nicht. */

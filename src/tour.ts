@@ -90,12 +90,32 @@ export interface Spielhalt {
 export interface Filmspur {
   /** Gesamtdauer des Films in Sekunden */
   gesamtS: number
+  /**
+   * Kameradistanz an einem Streckenmeter — sie folgt DERSELBEN Rampe wie das
+   * Tempo (src/main.ts, aus `modusMischung`).
+   *
+   * Vorher zog ein eigener Tiefpass sie nach (τ = 2,2 s, also ~6 s bis sie
+   * steht), während die Rampe in unter einer Sekunde fertig ist: Dazwischen
+   * fuhr man Fährtempo mit einer Fußgänger-Kamera. Über dasselbe Fenster
+   * geführt bleibt das Bildschirm-Tempo stetig — die Modi sind längst so
+   * abgestimmt, dass Tempo ÷ Kameradistanz überall gleich ist (0,167–0,202/s).
+   */
+  skalaBeiS: (s: number) => Kameradistanz
   /** Streckenmeter zu einer Filmsekunde — die Richtung, für die es die Achse gibt */
   sBeiFilm: (filmS: number) => number
   /** Filmsekunde an einem Streckenmeter (im Halt: seine Ankunft) */
   filmBeiS: (s: number) => number
   /** Der Halt, in dem diese Filmsekunde steht — `null` heißt Fahrt */
   haltBeiFilm: (filmS: number) => Spielhalt | null
+  /**
+   * Die Fortbewegung an einem Streckenmeter, wie die ACHSE sie sieht.
+   *
+   * Nicht dasselbe wie die Modus-Grenzen der Tour: Ein Tempowechsel dicht an
+   * einem Halt wandert in der Achse auf den Halt (dort steigt man ein). Fragte
+   * der Marker die rohen Grenzen, liefe für die letzten Meter ein Fußgänger mit
+   * Fährtempo über die Karte.
+   */
+  modusBeiS: (s: number) => string
 }
 
 /** Kamerapose eines Frames — das Atmosphäre-Overlay hängt sich daran. */
@@ -197,7 +217,13 @@ const MODE_SCALE = {
 // src/remote.ts) — der Fallback des Bestands („?? MODE_SCALE.bike") ist deshalb
 // kein Zierrat, sondern der Umgang mit einem unbekannten Modus. Das TEMPO fragt
 // die Engine gar nicht mehr: Es steckt in der Achse, die ihr `s` liefert.
-const skalaFuer = (mode: string): Kameradistanz => (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
+export const skalaFuer = (mode: string): Kameradistanz => (MODE_SCALE as Record<string, Kameradistanz | undefined>)[mode] ?? MODE_SCALE.bike
+
+/** Zwei Kameradistanzen mischen — der Übergang an einer Modus-Grenze. */
+export const mischeSkala = (a: Kameradistanz, b: Kameradistanz, t: number): Kameradistanz => ({
+  behind: a.behind + (b.behind - a.behind) * t,
+  hover: a.hover + (b.hover - a.hover) * t,
+})
 
 export class Tour {
   map: MapLibreKarte
@@ -683,7 +709,7 @@ export class Tour {
     this.ui.blink(() => {
       const p = pointAt(this.route, st.s)
       const b = bearingAt(this.route, st.s)
-      const sc = skalaFuer(this.modeAt(st.s).mode)
+      const sc = this.film.skalaBeiS(st.s)
       this.scaleSm.set(sc.behind)
       this.hoverSm.set(sc.hover)
       this.tuck.set(1)
@@ -789,11 +815,10 @@ export class Tour {
   _ridePose(s: number): Fahrtpose {
     const { route, preset } = this
     const rider = pointAt(route, s)
-    const mo = this.modeAt(s)
     const course = bearingAt(route, s)
     const backDir = this.yawedBackDir(course) // Golden Hour: zur Sonne eindrehen (Pause/Scrub konsistent)
     const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
-    const sc = skalaFuer(mo.mode)
+    const sc = this.film.skalaBeiS(s)
     const behind = preset.behind * sc.behind
     const hover = preset.hover * sc.hover
     let k = 1
@@ -931,11 +956,15 @@ export class Tour {
     requestAnimationFrame(this._tick)
   }
 
-  // Aktueller Fortbewegungsmodus bei Streckenmeter s
+  /**
+   * Aktueller Fortbewegungsmodus bei Streckenmeter s — aus der ACHSE, nicht aus
+   * den rohen Grenzen (s. `Filmspur.modusBeiS`). Das Label kommt weiter aus den
+   * Grenzen, es ist reine Beschriftung.
+   */
   modeAt(s: number): ModusGrenze {
-    let cur = this.modes[0]!
-    for (const m of this.modes) if (m.s <= s + 1) cur = m
-    return cur
+    const mode = this.film.modusBeiS(s)
+    for (const m of this.modes) if (m.mode === mode) return m
+    return { s: 0, mode }
   }
 
   update(dt: number): void {
@@ -957,7 +986,6 @@ export class Tour {
     }
     // Beobachtetes Streckentempo (m/s) — Messwert, kein Antrieb.
     if (dt > 0) this.speed = Math.abs(this.s - sVorher) / dt
-    const mo = this.modeAt(this.s)
     const halt = this.halt
     const warPhase = this.phase
 
@@ -1036,10 +1064,13 @@ export class Tour {
       this.course += angleDelta(this.course, bearingAt(route, this.s)) * (1 - Math.exp(-dt / (2.8 * this.glide)))
       const backDir = this.yawedBackDir(this.course) // Golden Hour: zur Sonne eindrehen
       const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
-      // Kameradistanz an den Fortbewegungsmodus anpassen (zu Fuß nah, Fähre weit)
-      const sc = skalaFuer(mo.mode)
-      this.scaleSm.to(sc.behind, dt, 2.2)
-      this.hoverSm.to(sc.hover, dt, 2.2)
+      // Kameradistanz an den Fortbewegungsmodus anpassen (zu Fuß nah, Fähre weit).
+      // Sie wird GESETZT, nicht gefiltert: Der Übergang steckt schon in der
+      // Achse (dieselbe Rampe wie das Tempo), ein zweiter Tiefpass darüber
+      // hinkte ihm nach und machte aus dem Wechsel einen Tempo-Ausreißer.
+      const sc = this.film.skalaBeiS(this.s)
+      this.scaleSm.set(sc.behind)
+      this.hoverSm.set(sc.hover)
       const behind = preset.behind * this.scaleSm.v
       const hover = preset.hover * this.hoverSm.v
       // Steht eine Felswand hinter dem Fahrer, die Kamera nicht darüber heben

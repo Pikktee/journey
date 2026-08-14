@@ -686,6 +686,26 @@ zeigt endlich etwas** (heute räumt `beginScrub` die Karte weg, wer durch einen 
 sieht nichts). Die eine Grenze: Ein Video kann nicht rückwärts spielen — dort wird geseekt,
 also Standbilder ohne Ton, genau wie im Editor.
 
+**Zwei Dinge müssen mit der Rampe MITGEHEN, sonst hängen sie an einer anderen Uhr.** Das ist
+dieselbe Regel wie in §8A, nur für Größen, die nicht die Filmzeit selbst sind:
+
+- **Die Kameradistanz.** Sie zog mit τ = 2,2 s nach (rund 6 s bis sie steht), die Rampe ist in
+  unter einer Sekunde fertig — dazwischen fährt man Fährtempo mit einer Fußgänger-Kamera.
+  Gemessen als Bildschirm-Tempo (Fahrtempo ÷ Kameradistanz) sprang die Spitze auf das 5,3-Fache
+  des Ruhewerts. Sie folgt deshalb derselben Rampe, und zwar am TEMPO geführt: Die Rampe ist
+  eine Form über der ZEIT, eine Mischung über die Strecke hinkte ihr nach.
+- **Die Fortbewegung, die Marker und Motorton lesen.** Sie kommt aus der Achse, nicht aus den
+  rohen Modus-Grenzen — sonst läuft der Fußgänger-Marker über die Meter, die die Regel „Wechsel
+  wandert auf den Halt" der neuen Fortbewegung zugeschlagen hat.
+
+**Und die Geometrie muss dicht genug sein.** Die Achse rechnet in ROHEN Wegpunkt-Metern, die
+Kamera fährt auf der gezeichneten Route — wo Catmull-Rom über weite Stützpunkte ausbeult, muss
+die Kamera schneller werden, und der Überschuss sitzt in den KURVEN. An Stockholm liefen 2,2 %
+des Films mehr als 50 % zu schnell (Spitze 4,9-fach), sichtbar als „die Schlenker wirken
+extrem". `buildRoute` verdichtet die Stützpunkte deshalb vor der Glättung auf höchstens
+`STUETZ_MAX_M` = 25 m; danach sind es 0,00 %. Das ist kein Datenproblem der Demo-Touren: Auch
+eine App-Aufzeichnung legt bei Fährtempo hunderte Meter zwischen zwei Punkten.
+
 **Und daraus folgt die Schichtung (E17): Die Bedienung gehört ÜBER das Bild.** Heute liegt
 sie darunter (`.photo-layer` z-index 25 gegen `.dock` 20), und das trug nur, weil
 `beginScrub` die Karte wegräumt — wer scrubbt, sieht sie nicht. Bleibt sie liegen, muss die
@@ -736,10 +756,16 @@ von oder auf null": Über eine Rampenstrecke `L` von `v0` auf `v1` folgt die Ges
 `v(u) = v0 + (v1 − v0) · smoothstep(u)`, daraus die Dauer `T = 2L/(v0 + v1)` und der
 Weganteil `w(u) = [v0·u + (v1 − v0)·(u³ − u⁴/2)] / ((v0 + v1)/2)`. Für `v0 = 0` fällt exakt
 die Halt-Rampe heraus. Zwei Festlegungen dazu, beide Entscheidungen und keine Ableitungen:
-Die Rampe liegt **symmetrisch um die Modus-Grenze** (halbe Länge davor, halbe danach), und
-kollidierende Rampen **teilen sich die Lücke anteilig nach ihrem Bedarf** — bei zwei gleich
-langen genau hälftig. Eine Modus-Rampe VERKÜRZT den Film übrigens leicht (man verlässt das
-langsamere Tempo früher).
+Die Rampe liegt **ganz im schnelleren Abschnitt** (beim Beschleunigen dahinter, beim Verzögern
+davor), und kollidierende Rampen **teilen sich die Lücke anteilig nach ihrem Bedarf** — bei
+zwei gleich langen genau hälftig.
+
+Symmetrisch war der erste Wurf, und er war falsch: Die halbe Rampe lag dann im LANGSAMEREN
+Abschnitt, man ging also die letzten 60 m zum Anleger schon mit anlaufendem Fährtempo. An
+Stockholm gemessen mit dem 5,3-Fachen des Fußgängertempos, beim Aussteigen mit dem 6,6-Fachen —
+und gemeldet als genau das: „da ist sogar das Laufen extrem schnell". Im schnelleren Abschnitt
+stimmt es auch inhaltlich: Die Fähre beschleunigt, nachdem man eingestiegen ist, und der Wagen
+bremst, bevor man aussteigt.
 
 **Eine dritte Regel kam beim Nachfahren dazu**, und sie ist die eigentliche Lehre des harten
 Falls: Ein Tempowechsel NÄHER als eine Rampenlänge an einem Halt wandert ganz **auf** den

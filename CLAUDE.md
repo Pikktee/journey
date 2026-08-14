@@ -227,7 +227,16 @@ Der Player läuft clientseitig ab einem `map.on('load')`-Callback in [src/main.t
 der die Module verdrahtet. Der zentrale Datenfluss:
 
 **Route als Bogenlängen-Parameter.** [src/geo.ts](src/geo.ts) `buildRoute()` nimmt Wegpunkte,
-glättet sie (Catmull-Rom) und resampled sie auf ~14 m Schritte. Die entstehende `route` trägt
+**verdichtet sie zuerst linear auf höchstens `STUETZ_MAX_M` = 25 m**, glättet sie dann
+(Catmull-Rom) und resampled sie auf ~14 m Schritte. Das Vorverdichten ist keine Kosmetik: Die
+Glättung BEULT über weite Stützpunkte aus, und der Überschuss sitzt in den KURVEN. Solange die
+Engine ihre Position selbst integrierte, war das nur eine etwas zu lange Route; seit sie aus
+der Filmachse kommt (die in ROHEN Metern rechnet), ist es ein TEMPOfehler — wo die gezeichnete
+Route länger ist, muss die Kamera schneller werden. An Stockholm lief der Film in Schlenkern
+mit bis zu 95 statt 60 m/s, also fast doppelt so schnell wie auf der Geraden; 2,2 % des Films
+liefen mehr als 50 % zu schnell. Nach dem Verdichten sind es 0,00 %
+(`scripts/messungen/bildschirmtempo.mjs`). Verdichtet wird nur, wo es zu dünn ist — dichte
+Fußwege und Aufzeichnungen bleiben Punkt für Punkt, wie sie sind. Die entstehende `route` trägt
 `coords` (lng,lat,ele), kumulierte Distanzen `cum` und `total`. **Die eine Zustandsvariable, die
 alles antreibt, ist `s` — die Position entlang der Route in Metern.** `pointAt(route, s)`,
 `bearingAt(route, s)`, `nearestS(route, lnglat)` übersetzen zwischen `s`, Koordinaten und
@@ -358,13 +367,14 @@ von oder auf null" — dort fällt `w = 2u³ − u⁴` heraus und die Rampe kost
 Reisezeit ihrer Strecke.
 
 Fünf Regeln daneben: Am Halt liegt die volle Länge auf JEDER Seite, an einer Modus-Grenze
-liegt sie EINMAL und **symmetrisch um die Grenze**; am Tour-ENDE wird nicht gebremst (der Film
-läuft aus); **kollidierende Rampen teilen sich die Lücke anteilig** nach ihrem Bedarf (bei
-zwei gleich langen hälftig); **ein Tempowechsel NÄHER als eine Rampenlänge an einem Halt
-wandert ganz auf den Halt** — dort steht man ohnehin, und ohne die Regel beschleunigte der
-Film auf den letzten Metern auf volle Höhe, um sofort wieder stillzustehen (an Stockholm
-gemessen: Grenze zu Fuß → Fähre 13 m vor einem Halt, 0,36 s auf Fährtempo und 0,06 s zurück
-auf null); und die Länge ist KALIBRIERT, nicht geraten
+liegt sie EINMAL und ganz im **schnelleren** Abschnitt (beim Beschleunigen dahinter, beim
+Verzögern davor — symmetrisch gelegt liefe der langsamere Modus auf seinen letzten Metern
+schon mit dem Tempo des schnelleren, an Stockholm gemessen zu Fuß mit dem 5,3-Fachen des
+Fußgängertempos); am Tour-ENDE wird nicht gebremst (der Film läuft aus); **kollidierende
+Rampen teilen sich die Lücke anteilig** nach ihrem Bedarf (bei zwei gleich langen hälftig);
+**ein Tempowechsel NÄHER als eine Rampenlänge an einem Halt wandert ganz auf den Halt** —
+dort steigt man ein, und ohne die Regel beschleunigte der Film auf den letzten Metern auf
+volle Höhe, um sofort wieder stillzustehen; und die Länge ist KALIBRIERT, nicht geraten
 (`scripts/messungen/rampen-kalibrierung.ts` gegen die 64,3 Rampen-Sekunden aus
 `rampen-simulation.ts`). Dass sich die Verteilung dabei umdreht — schnelle Fortbewegung wird
 knackiger, zu Fuß getragener —, ist gewollt. Dass die Modus-Rampe den Film sogar leicht
@@ -380,6 +390,21 @@ Fortbewegung im Film anfühlen soll, nicht wie schnell man wirklich ist. `walk` 
 Abfahren auf 0,5 (vorher 0,4, zu träge). Wer eine davon ändert, ändert die Dauer JEDER
 bestehenden Tour: `scripts/messungen/filmdauer.ts` ist der Beleg, und der Spiegel in
 `server/src/pipeline/filmtempo.ts` muss mit.
+
+**Die KAMERADISTANZ folgt derselben Rampe** (`Filmspur.skalaBeiS`, aus `modusMischung`) —
+und zwar am TEMPO geführt, nicht an der Strecke: Die Rampe ist eine Form über der Zeit, nach
+halber Rampenzeit sind aus dem Stand erst 3/16 ihrer Strecke gefahren. Vorher zog ein eigener
+Tiefpass die Distanz nach (τ = 2,2 s, also rund 6 s bis sie steht), während die Rampe in unter
+einer Sekunde fertig ist: Dazwischen fuhr man Fährtempo mit einer Fußgänger-Kamera. Das ist
+keine Kosmetik, sondern dieselbe Regel wie bei der Uhr — *was nicht an der Filmzeit hängt,
+muss ausdrücklich mitgehen*. Gemessen als **Bildschirm-Tempo** (Fahrtempo ÷ Kameradistanz,
+`scripts/messungen/bildschirmtempo.mjs`): Die Modi sind darauf abgestimmt und liegen alle bei
+0,167–0,202 /s; die Spitze über den ganzen Film fiel von 0,888 auf 0,230 /s.
+
+**Und die Fortbewegung, die Marker und Motorton lesen, kommt aus der ACHSE** (`filmachse.modi`),
+nicht aus den rohen Modus-Grenzen: Die Achse zieht einen Tempowechsel dicht an einem Halt auf
+den Halt, die rohen Grenzen wissen davon nichts — ein Fußgänger-Marker liefe sonst für die
+Meter dazwischen mit Fährtempo über die Karte.
 
 **Der Server-Zwilling muss mit**:
 [server/src/pipeline/filmachse.ts](server/src/pipeline/filmachse.ts) rechnet seit derselben

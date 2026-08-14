@@ -85,6 +85,7 @@ Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt a
 | [rampen-kalibrierung.ts](rampen-kalibrierung.ts) | Die Gegenrechnung dazu: Was kosten die Rampen der NEUEN Achse bei verschiedenen Längen, je Tour und in Summe? Die Zahl, die dabei herauskam, steht als `RAMPE_M` in src/filmachse.ts. | `npx tsx …` |
 | [durchlauf-gegen-achse.mjs](durchlauf-gegen-achse.mjs) | Deckt sich die Dauer eines echten Durchlaufs mit `filmachse.gesamtS`? **Abnahmekriterium für Etappe 4** (< 1 %, vorher 9–13 %). Läuft bei Tempo 8, misst die Wanduhr. | `node …` |
 | [filmdauer.ts](filmdauer.ts) | Wie lang der Film je Tour ist — und was eine gestalterische Zahl daran ändert (`MODUS_TEMPO`, `RAMPE_M`). Der Beleg dafür, dass eine solche Änderung JEDE bestehende Tour anfasst. | `npx tsx …` |
+| [bildschirmtempo.mjs](bildschirmtempo.mjs) | Zwei Zahlen für die Frage „wirkt es schnell?": das sichtbare Tempo gegen das von der Achse GEMEINTE (der Kurven-Effekt der Catmull-Rom-Glättung) und das Bildschirm-Tempo (Fahrtempo ÷ Kameradistanz). **Abnahme für die Vorverdichtung und für die Kamera-Kopplung.** | `node …` |
 | [routen-laenge.ts](routen-laenge.ts) | Wie viel länger `route.total` (Catmull-Rom + 14-m-Resample) gegenüber der Rohgeometrie ist, in der der Server `f` misst. | `npx tsx …` |
 | [anker-versatz.ts](anker-versatz.ts) | Den Rest, den keine Uhr behebt: wo ein `f`-Anker landet gegen den Ort, den der Server gemeint hat — **je Ankerklasse**, alter Weg (`f × route.total`) gegen neuen (Wegpunkt-Tabelle). **Abnahmekriterium für Etappe 2.** | `npx tsx …` |
 

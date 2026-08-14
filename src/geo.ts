@@ -69,15 +69,67 @@ function cr(p0: number, p1: number, p2: number, p3: number, t: number): number {
   return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
 }
 
+/**
+ * Höchster Abstand zweier STÜTZPUNKTE, bevor Catmull-Rom über sie glättet.
+ *
+ * **Die Glättung beult aus, und der Überschuss sitzt in den Kurven** — je weiter
+ * die Stützpunkte auseinanderliegen, desto weiter der Bogen. Solange die Engine
+ * ihre Position selbst integrierte, war das nur eine etwas zu lange Route.
+ * Seit die Position aus der Filmachse kommt (Etappe 4), ist es ein
+ * TEMPOfehler: Die Achse rechnet in rohen Wegpunkt-Metern, die Kamera fährt auf
+ * der gezeichneten Route — wo die länger ist, muss die Kamera schneller
+ * werden. An Stockholm gemessen lief der Film in Schlenkern mit bis zu 95 m/s
+ * statt 60, also fast doppelt so schnell wie auf der Geraden (in der alten
+ * Engine war beides gleich schnell).
+ *
+ * Vorverdichten behebt das an der Wurzel: Zwischen zwei weit auseinander
+ * liegenden Stützpunkten liegt die Catmull-Rom-Kurve durch kollineare Punkte
+ * praktisch auf der Geraden. Gemessen an Stockholm fällt die Streckung
+ * Route/Roh im 95. Perzentil von 1,92 auf 1,01 und im Maximum von 4,88 auf
+ * 1,34; die Gesamtlänge nähert sich der echten (24,85 → 24,24 km bei 24,19 km
+ * roh).
+ *
+ * **Verdichtet wird nur, wo es zu dünn ist.** Dichte Abschnitte (Fußwege,
+ * Aufzeichnungen) bleiben Punkt für Punkt, wie sie sind — dort ändert sich
+ * nichts. Der Preis ist, dass die gezeichnete Linie den gesetzten Punkten enger
+ * folgt, also formal eckiger wird; für die Kamera macht das nichts, weil ihr
+ * Kurs ohnehin durch einen eigenen Tiefpass läuft (src/tour.ts).
+ */
+export const STUETZ_MAX_M = 25
+
+/**
+ * Wegpunkte linear nachverdichten, bevor geglättet wird.
+ *
+ * Gibt neben den dichteren Punkten die Indizes der ORIGINALE zurück: `wpS`
+ * muss weiterhin je EINGEGEBENEM Wegpunkt einen Wegstand liefern — daran hängen
+ * die `f`-Anker (src/streckenanker.ts) und die Roh-Meter-Tabelle (src/main.ts).
+ */
+function verdichte(waypoints: Wegpunkt[], maxM: number): { pts: Wegpunkt[]; original: number[] } {
+  const pts: Wegpunkt[] = [waypoints[0]!]
+  const original: number[] = [0]
+  for (let i = 1; i < waypoints.length; i++) {
+    const a = waypoints[i - 1]!
+    const b = waypoints[i]!
+    const n = Math.max(1, Math.ceil(dist(a, b) / maxM))
+    for (let k = 1; k <= n; k++) {
+      const t = k / n
+      pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t])
+    }
+    original.push(pts.length - 1)
+  }
+  return { pts, original }
+}
+
 // Wegpunkte [lng, lat, ele] → geglättete, alle `step` Meter abgetastete Route
 // mit kumulierten Distanzen. Catmull-Rom wirkt pro Dimension, daher direkt auf lng/lat/ele.
 //
 // Die `!` in den Schleifen unten sind allesamt Laufindizes innerhalb der eigenen
 // Länge — der Aufrufer schuldet nur eine nicht leere Wegpunktliste.
-export function buildRoute(waypoints: Wegpunkt[], step = 14): Route {
-  const erster = waypoints[0]!
-  const letzter = waypoints[waypoints.length - 1]!
-  const pts = [erster, ...waypoints, letzter]
+export function buildRoute(waypoints: Wegpunkt[], step = 14, stuetzMaxM = STUETZ_MAX_M): Route {
+  const { pts: stuetz, original } = verdichte(waypoints, stuetzMaxM)
+  const erster = stuetz[0]!
+  const letzter = stuetz[stuetz.length - 1]!
+  const pts = [erster, ...stuetz, letzter]
   const dense: Wegpunkt[] = []
   const SEGS = 18
   for (let i = 0; i < pts.length - 3; i++) {
@@ -121,7 +173,10 @@ export function buildRoute(waypoints: Wegpunkt[], step = 14): Route {
   }
   coords.push(dense[dense.length - 1]!)
   cum.push(travelled)
-  const wpS = waypoints.map((_, k) => denseCum[Math.min(k * SEGS, dense.length - 1)] ?? 0)
+  // `wpS` bleibt je EINGEGEBENEM Wegpunkt ein Wert — die Zwischenpunkte der
+  // Verdichtung tauchen hier nicht auf. Stützpunkt `k` steckt in
+  // `dense[k * SEGS]`, also der Original-Wegpunkt `j` in `original[j] * SEGS`.
+  const wpS = original.map((k) => denseCum[Math.min(k * SEGS, dense.length - 1)] ?? 0)
 
   let gain = 0
   for (let i = 1; i < coords.length; i++) {

@@ -661,12 +661,12 @@ describe('Zeitleiste', () => {
     // nicht gebremst. Der Halt liegt dadurch bei 52 statt 50 Filmsekunden.
     const R = RAMPE_M / tempoMs('bike')
     /**
-     * Was eine MODUS-Rampe die ganze Tour kostet: ihre Dauer minus die zwei
-     * halben Reisen, die sie ersetzt. Der Wert ist NEGATIV — man verlässt das
-     * langsamere Tempo früher, als man es ohne Rampe verließe.
+     * Was eine MODUS-Rampe die ganze Tour kostet: ihre Dauer minus die Reise,
+     * die sie ersetzt. Sie liegt ganz im SCHNELLEREN Abschnitt, ersetzt dort
+     * also `RAMPE_M` Meter — und kostet damit Zeit, statt welche zu sparen.
      */
     const modusRampeS = (v0: number, v1: number): number =>
-      (2 * RAMPE_M) / (v0 + v1) - RAMPE_M / 2 / v0 - RAMPE_M / 2 / v1
+      (2 * RAMPE_M) / (v0 + v1) - RAMPE_M / Math.max(v0, v1)
 
     it('Halte bekommen ihre Standzeit als Achsenbreite', () => {
       expect(gesamt).toBeCloseTo(120 + 3 * R, 1) // 100 s Fahrt + 20 s Halt + 3 Rampen
@@ -977,7 +977,7 @@ describe('Zeitleiste', () => {
       // Neuaufbau wieder unter dem Zeiger.
       const halte = [{ offsetS: 300, breiteS: 12 }]
       const a = baueAchse(abschnitte, halte, fSkala)
-      const kurve = baueGrenzKurve(fahrTrack, fSkala.vonS, fSkala.bisS, 'walk', 'bike', 0, a.halte ?? [])!
+      const kurve = baueGrenzKurve(fahrTrack, fSkala.vonS, fSkala.bisS, { davor: null, links: 'walk', rechts: 'bike' }, 0, a.halte ?? [])!
 
       // Die PROBE, die der Live-Zug macht: Zeit aus der Kurve holen, damit die
       // Achse NEU bauen — und die Kante muss wieder auf derselben Filmsekunde
@@ -1015,7 +1015,7 @@ describe('Zeitleiste', () => {
         12 + 12000 / tempoMs('walk') + (3 * RAMPE_M) / tempoMs('walk') + rampenVersatzS(tempoMs('walk'), tempoMs('bike')),
         1,
       )
-      expect(baueGrenzKurve([], 0, 10, 'walk', 'bike', 0, [])).toBeNull()
+      expect(baueGrenzKurve([], 0, 10, { davor: null, links: 'walk', rechts: 'bike' }, 0, [])).toBeNull()
     })
 
     it('Filmdauer-Vorschau: nur die umgewidmete Strecke ändert sich', () => {
@@ -1136,9 +1136,9 @@ describe('Zeitleiste', () => {
       }
 
       /** Zug-Start für eine Fortbewegungs-Kante bei `kanteS` (Vorgänger bei `vonS`). */
-      function starte(edits: EditOverlay, kanteS: number, vonS: number, links: Modus, rechts: Modus) {
+      function starte(edits: EditOverlay, kanteS: number, vonS: number, links: Modus, rechts: Modus, davor: Modus | null = null) {
         const achse = achseVon(edits)
-        const kurve = baueGrenzKurve(fahrTrack, vonS, fSkala.bisS, links, rechts, filmZuOffset(achse, vonS), achse.halte ?? [])!
+        const kurve = baueGrenzKurve(fahrTrack, vonS, fSkala.bisS, { davor, links, rechts }, filmZuOffset(achse, vonS), achse.halte ?? [])!
         return {
           vonS,
           bisS: fSkala.bisS,
@@ -1296,7 +1296,7 @@ describe('Zeitleiste', () => {
           ],
         }
         // Die hintere Kante ganz nach links gezogen — auf ihren Vorgänger
-        const zug = starte(start, 900, 300, 'bike', 'jeep')
+        const zug = starte(start, 900, 300, 'bike', 'jeep', 'walk')
         const gezogen = ziehFrame(start, iso(900), -1000, zug, px)
         const neu = achseVon(gezogen.edits)
         const breitePx = (landung(gezogen.edits, gezogen.ab) - filmZuOffset(neu, 300)) * px

@@ -1153,19 +1153,22 @@ function halteAufStrecke(adapter: Adapter, halte: readonly AchsenHalt[]): Achsen
 /**
  * Film ↔ Aufnahmezeit im Zug-Fenster einer Fortbewegungs-Grenze.
  *
- * `vonS`/`bisS` sind die Nachbargrenzen (oder die Enden der Tour), `links`/
- * `rechts` die Modi beiderseits der gezogenen Kante, `filmBeiVon` ihre
+ * `vonS`/`bisS` sind die Nachbargrenzen (oder die Enden der Tour), `modi` die
+ * Fortbewegung davor, links und rechts der gezogenen Kante, `filmBeiVon` ihre
  * Filmsekunde in der aktuellen Achse. Halte im Fenster kosten Filmzeit, ohne von
  * der Grenze abzuhängen — sie werden als dieselben Sprünge eingewebt wie in der
  * Achse.
  *
- * **Die Kante bringt seit dem Rampen-Nachtrag ihre EIGENE Rampe mit**, und die
- * liegt zur Hälfte vor ihr: Die halbe Rampenstrecke wird nicht mehr im linken
- * Tempo gefahren, sondern anfahrend. Das ist ein KONSTANTER Betrag
- * (`rampenVersatzS`) — er hängt nur an den beiden Tempi, nicht daran, wo die
- * Kante steht —, verschiebt die Kurve also bloß und lässt sie exakt umkehrbar.
- * Ohne ihn landete die Kante bei walk → bike um 0,36 Filmsekunden neben dem
- * Zeiger, bei starkem Zoom sichtbar.
+ * **Zwei Rampen ragen ins Fenster**, und beide sind KONSTANT (sie hängen nur an
+ * den Tempi, nicht daran, wo die Kante steht) — sie verschieben die Kurve also
+ * bloß und lassen sie exakt umkehrbar:
+ *
+ * - An der LINKEN Fensterkante, wenn der Film dort beschleunigt: Die Rampe
+ *   liegt im schnelleren Abschnitt, also im Fenster. Sie kommt als
+ *   `startTempoMs` in die Achse, damit sie mitgerechnet wird.
+ * - An der gezogenen Kante selbst, wenn der Film dort VERZÖGERT: Dann liegt
+ *   ihre Rampe davor, ersetzt also Reise im linken Modus (`rampenVersatzS`).
+ *   Beschleunigt er, liegt sie dahinter und geht das Fenster nichts an.
  *
  * Null, wenn im Fenster keine zwei Trackpunkte liegen: dann gibt es nichts zu
  * ziehen.
@@ -1174,11 +1177,11 @@ export function baueGrenzKurve(
   track: readonly TrackPunkt[],
   vonS: number,
   bisS: number,
-  links: Modus,
-  rechts: Modus,
+  modi: { davor: Modus | null; links: Modus; rechts: Modus },
   filmBeiVon: number,
   halte: readonly AchsenHalt[],
 ): AchsenKurve | null {
+  const { davor, links, rechts } = modi
   const pts = punkteZwischen(track, vonS, bisS)
   if (pts.length < 2) return null
   const adapter = baueAdapter([{ mode: links, pts }])
@@ -1186,13 +1189,11 @@ export function baueGrenzKurve(
   // (lower_bound trifft die Stützstelle vor dem Sprung) — sonst zählte er
   // doppelt und die Kante liefe um seine Standzeit davon.
   const imFenster = halte.filter((h) => h.offsetS > vonS && h.offsetS <= bisS)
-  // Anfahrt NUR, wenn das Fenster am Tour-Anfang beginnt — daran und an nichts
-  // anderem erkennt man das: `filmBeiVon` ist die Filmsekunde der linken
-  // Fensterkante. Beginnt es an einer vorigen Grenze, fährt der Film dort
-  // längst; eine Rampe schöbe die gezogene Kante um ihren Zuschlag, und sie
-  // landete nicht dort, wo losgelassen wurde.
+  // Mit welchem Tempo betritt der Film das Fenster? Am Tour-Anfang aus dem
+  // Stand (0), sonst mit dem Tempo des Abschnitts davor — daraus baut die Achse
+  // die Rampe an der linken Fensterkante selbst.
   const kern = baueFilmachse(adapter.grenzen, adapter.gesamtM, halteAufStrecke(adapter, imFenster), {
-    ausDemStand: filmBeiVon <= 0,
+    startTempoMs: filmBeiVon <= 0 ? 0 : davor === null ? null : tempoMs(davor),
   })
   const versatzS = filmBeiVon + rampenVersatzS(tempoMs(links), tempoMs(rechts))
   return {

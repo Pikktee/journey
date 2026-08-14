@@ -11,8 +11,9 @@
 // als im Editor gezeigt — genau die Sorte Drift, an der schon die
 // Gehabschnitts-Erkennung einmal hing. Deshalb: dieselbe Gruppierung (120
 // Streckenmeter, src/geo.ts), dieselben Halt-Dauern (`aufnahmeHaltS` +
-// Ausblendung), dieselben RAMPEN (E14) und dieselbe Interpolations-Konvention
-// (Plateau → Ankunft).
+// Ausblendung), dieselben RAMPEN (E14 — an jedem Tempowechsel, am Halt auf
+// beiden Seiten, an einer Modus-Grenze ganz im schnelleren Abschnitt) und
+// dieselbe Interpolations-Konvention (Plateau → Ankunft).
 //
 // **Gerechnet wird über die STRECKE, die Anker bleiben Aufnahmezeit** — genau
 // wie im Editor (src/studio/zeitleiste.ts, `baueAchse`). Das ist seit E12 keine
@@ -118,7 +119,7 @@ interface Rampenknoten {
  * Fahrzeit kommt aus Strecke ÷ modusabhängigem Tempo — dieselbe Rechnung, mit
  * der die Engine fährt (filmtempo.ts) —, dazu die Rampen. Sie liegen an JEDEM
  * Tempowechsel: am Start, an jedem Halt (Sonderfall „von oder auf null") und an
- * jeder Modus-Grenze, dort symmetrisch um die Grenze. `null`, wenn zu wenig
+ * jeder Modus-Grenze, dort ganz im schnelleren Abschnitt. `null`, wenn zu wenig
  * Material für eine Abbildung da ist; der Aufrufer fällt dann auf die alte
  * Aufnahmezeit-Verankerung zurück, statt zu raten.
  *
@@ -230,9 +231,12 @@ export function baueFilmAchse(
     } else if (amStart) {
       k.wunschR = rampeM
     } else if (!amEnde) {
-      // Modus-Grenze: EINE Rampe, symmetrisch um die Grenze.
-      k.wunschL = rampeM / 2
-      k.wunschR = rampeM / 2
+      // Modus-Grenze: EINE Rampe, ganz im SCHNELLEREN Abschnitt — beim
+      // Beschleunigen hinter der Grenze, beim Verzögern davor. Symmetrisch
+      // gelegt liefe der langsamere Modus auf seinen letzten Metern schon mit
+      // dem Tempo des schnelleren.
+      if (k.vRechts > k.vLinks) k.wunschR = rampeM
+      else k.wunschL = rampeM
     }
   }
   // Kollidierende Rampen teilen sich die Lücke anteilig nach ihrem Bedarf.

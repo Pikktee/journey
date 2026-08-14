@@ -420,12 +420,15 @@ seine Aufnahmezeit und sein Meterstand) und darüber die geteilte Achse
 seither in zwei Schritten — Film → Strecke → Zeit —, `filmBeiZeit` umgekehrt; die Signaturen
 sind dieselben geblieben. Grund ist E12: Der Player braucht Filmsekunde → Streckenposition, und
 das kann eine über der Aufnahmezeit parametrisierte Achse nicht liefern. Seit Etappe 4 legt
-derselbe Kern auch die **Rampen** hinein (`RAMPE_M`, 120 m Anfahrt/Ausrollen je Halt und am
-Start): Die Filmdauer, die das Pult zeigt, ist damit die, die der Player wirklich braucht — jede
-Bestandstour wurde dadurch auf dem Papier 2,7–7,8 % länger, der Film ist derselbe. Die eine
-Ausnahme ist das Zug-Fenster einer Fortbewegungs-Grenze (`baueGrenzKurve`): Es beginnt mitten in
-der Fahrt und bekommt deshalb `ausDemStand: false` — mit Anfahrt landete die gezogene Kante um
-deren Zuschlag neben dem Zeiger. Zwei Folgen, die man
+derselbe Kern auch die **Rampen** hinein (`RAMPE_M`, 120 m an jedem Tempowechsel — am Halt auf
+beiden Seiten, an einer Modus-Grenze ganz im schnelleren Abschnitt): Die Filmdauer, die das
+Pult zeigt, ist damit die, die der Player wirklich braucht — jede Bestandstour wurde dadurch
+auf dem Papier 2,7–7,8 % länger, der Film ist derselbe. Das Zug-Fenster einer
+Fortbewegungs-Grenze (`baueGrenzKurve`) braucht dafür zwei Angaben, die es früher nicht
+brauchte: `startTempoMs` (mit welchem Tempo der Film das Fenster betritt — am Tour-Anfang aus
+dem Stand, sonst mit dem Modus DAVOR, dessen Rampe ins Fenster ragt) und den Modus RECHTS der
+Kante (`rampenVersatzS`, nur beim Verzögern von null verschieden). Ohne beides landete die
+gezogene Kante um bis zu 0,36 Filmsekunden neben dem Zeiger. Zwei Folgen, die man
 kennen muss: Das Tempo-Modell ist **keine Kopie** mehr (`tempoMs` kommt aus `filmachse.ts`, die
 Moment-Dauern ebenso), und die alte Mehrdeutigkeit der realen PAUSEN sitzt jetzt bei den
 HALTEN — mehrere Halte in derselben Pause haben denselben Meterstand und behalten ihre
