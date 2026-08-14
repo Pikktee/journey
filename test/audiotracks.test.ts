@@ -12,12 +12,14 @@ import {
   istAktiv,
   loopAktiv,
   sfxSollFeuern,
+  SFX_KANTE_S,
   VIDEO_DUCK,
   VIDEO_FADE_S,
   videoTonHuelle,
   videoLautstaerke,
   videoMusikDuck,
 } from '../src/audiotracks.js'
+import { NOT_DECKEL_S } from '../src/filmuhr.js'
 
 describe('VIDEO_DUCK (Default-Ducking bei Video-Ton)', () => {
   it('liegt als hörbare Absenkung zwischen still und voll', () => {
@@ -80,68 +82,90 @@ describe('Equal-Power-Crossfade (Video ↔ Musik)', () => {
   })
 })
 
-describe('istAktiv (Musik-Bereich [f0,f1))', () => {
-  const spur = { f0: 0.2, f1: 0.6 }
+describe('istAktiv (Musik-Bereich [filmVonS, filmBisS))', () => {
+  // Gerechnet wird in FILMSEKUNDEN (E10): Ein Bereich, der ganz in einer
+  // Standzeit liegt, hat dort eine Länge — im Streckenanteil hätte er keine.
+  const spur = { filmVonS: 20, filmBisS: 60 }
 
   it('ist innerhalb des Bereichs aktiv', () => {
-    expect(istAktiv(spur, 0.4)).toBe(true)
+    expect(istAktiv(spur, 40)).toBe(true)
   })
 
   it('schließt die Startgrenze ein, die Endgrenze aus (halboffen)', () => {
-    expect(istAktiv(spur, 0.2)).toBe(true)
-    expect(istAktiv(spur, 0.6)).toBe(false)
+    expect(istAktiv(spur, 20)).toBe(true)
+    expect(istAktiv(spur, 60)).toBe(false)
   })
 
   it('ist außerhalb inaktiv', () => {
-    expect(istAktiv(spur, 0.1)).toBe(false)
-    expect(istAktiv(spur, 0.9)).toBe(false)
+    expect(istAktiv(spur, 10)).toBe(false)
+    expect(istAktiv(spur, 90)).toBe(false)
   })
 
-  it('deckt „Musik bis zum Ende“ ab (f1 = 1: frac < 1 bleibt aktiv)', () => {
-    const bisEnde = { f0: 0.5, f1: 1 }
-    expect(istAktiv(bisEnde, 0.999)).toBe(true)
-    expect(istAktiv(bisEnde, 1)).toBe(false) // exakt am Ziel: Finale übernimmt
+  it('deckt einen Klip AB, der ganz in einer Standzeit liegt', () => {
+    // Der Fall, um den es in E10 geht: Der Halt beginnt bei Filmsekunde 100 und
+    // dauert 5,2 s; der Klip setzt 2 s hinein ein. Im Streckenanteil wäre
+    // f0 === f1 (die Strecke steht) und die Spur bliebe stumm.
+    const imHalt = { filmVonS: 102, filmBisS: 105.2 }
+    expect(istAktiv(imHalt, 101.9)).toBe(false)
+    expect(istAktiv(imHalt, 102)).toBe(true)
+    expect(istAktiv(imHalt, 104)).toBe(true)
+    expect(istAktiv(imHalt, 105.2)).toBe(false)
+  })
+
+  it('deckt „Musik bis zum Ende" ab (Filmende: davor aktiv, darauf nicht)', () => {
+    const bisEnde = { filmVonS: 300, filmBisS: 640 }
+    expect(istAktiv(bisEnde, 639.9)).toBe(true)
+    expect(istAktiv(bisEnde, 640)).toBe(false) // exakt am Ziel: Finale übernimmt
   })
 })
 
-describe('sfxSollFeuern (One-Shot-Kante über f0)', () => {
+describe('sfxSollFeuern (One-Shot-Kante über die Filmsekunde)', () => {
   it('feuert beim Vorwärts-Überfahren mit Frame-kleiner Sprungweite', () => {
-    expect(sfxSollFeuern(0.499, 0.5005, 0.5, true)).toBe(true)
+    expect(sfxSollFeuern(119.98, 120.02, 120, true)).toBe(true)
   })
 
-  it('feuert auch, wenn der Schritt exakt auf f0 landet', () => {
-    expect(sfxSollFeuern(0.499, 0.5, 0.5, true)).toBe(true)
+  it('feuert auch, wenn der Schritt exakt auf die Marke landet', () => {
+    expect(sfxSollFeuern(119.98, 120, 120, true)).toBe(true)
   })
 
   it('feuert NICHT ohne Wiedergabe (Scrub/Seek: istPlayback false)', () => {
-    expect(sfxSollFeuern(0.499, 0.5005, 0.5, false)).toBe(false)
+    expect(sfxSollFeuern(119.98, 120.02, 120, false)).toBe(false)
   })
 
-  it('feuert NICHT bei Sprüngen ≥ 0.02 (Seek quer über die Marke)', () => {
-    expect(sfxSollFeuern(0.4, 0.6, 0.5, true)).toBe(false)
+  it('feuert NICHT bei Sprüngen ab SFX_KANTE_S (Seek quer über die Marke)', () => {
+    expect(sfxSollFeuern(118, 122, 120, true)).toBe(false)
     // knapp unter der Schwelle feuert noch
-    expect(sfxSollFeuern(0.49, 0.5, 0.5, true)).toBe(true)
+    expect(sfxSollFeuern(120 - SFX_KANTE_S + 0.001, 120, 120, true)).toBe(true)
+  })
+
+  it('lässt das längste reale Frame durch — die Schwelle ist der Notdeckel', () => {
+    // Die 0,02 der frac-Fassung waren 2 % der TOUR (auf Koh Pha-ngan ~4,4 s);
+    // naiv als „0,02 s" übernommen hätte sie jedes Frame verschluckt. Gemessen
+    // sind 205 ms bei 12× Drosselung das schlechteste Frame, und weiter als
+    // NOT_DECKEL_S kann ein Frame die Filmzeit gar nicht tragen.
+    expect(SFX_KANTE_S).toBe(NOT_DECKEL_S)
+    expect(sfxSollFeuern(119.9, 120.105, 120, true)).toBe(true) // 205-ms-Frame
   })
 
   it('feuert NICHT rückwärts über die Marke', () => {
-    expect(sfxSollFeuern(0.5005, 0.499, 0.5, true)).toBe(false)
+    expect(sfxSollFeuern(120.02, 119.98, 120, true)).toBe(false)
   })
 
   it('feuert NICHT erneut, wenn die Marke schon passiert ist', () => {
-    // vorher wird nach jedem Aufruf hart nachgezogen — hinter f0 ist Ruhe
-    expect(sfxSollFeuern(0.5, 0.5005, 0.5, true)).toBe(false)
-    expect(sfxSollFeuern(0.51, 0.511, 0.5, true)).toBe(false)
+    // vorher wird nach jedem Aufruf hart nachgezogen — hinter der Marke ist Ruhe
+    expect(sfxSollFeuern(120, 120.02, 120, true)).toBe(false)
+    expect(sfxSollFeuern(120.5, 120.52, 120, true)).toBe(false)
   })
 
-  it('feuert bei f0=0 beim ersten Vorwärts-Tick aus der Nullposition', () => {
+  it('feuert bei Filmsekunde 0 beim ersten Vorwärts-Tick aus der Nullposition', () => {
     // Sonderfall: „vorher < 0" gibt es nie — die Start-Marke feuert stattdessen,
     // sobald der Playhead die 0 verlässt
-    expect(sfxSollFeuern(0, 0.001, 0, true)).toBe(true)
+    expect(sfxSollFeuern(0, 0.016, 0, true)).toBe(true)
   })
 
-  it('feuert bei f0=0 NICHT im Stillstand auf der Null und nicht ohne Wiedergabe', () => {
+  it('feuert bei Filmsekunde 0 NICHT im Stillstand und nicht ohne Wiedergabe', () => {
     expect(sfxSollFeuern(0, 0, 0, true)).toBe(false)
-    expect(sfxSollFeuern(0, 0.001, 0, false)).toBe(false)
+    expect(sfxSollFeuern(0, 0.016, 0, false)).toBe(false)
   })
 })
 
@@ -162,8 +186,14 @@ describe('loopAktiv (Etappe 4: Wiederholung aus dem Overlay)', () => {
 describe('hatBereich (Klip oder Marke?)', () => {
   it('entscheidet an der Ausdehnung, nicht am Typ', () => {
     // Seit Etappe 4 darf auch ein Effekt eine Länge haben; ein One-Shot bleibt
-    // ein Punkt (f0 === f1) und läuft weiter über die Kantenerkennung.
-    expect(hatBereich({ f0: 0.2, f1: 0.6 })).toBe(true)
-    expect(hatBereich({ f0: 0.4, f1: 0.4 })).toBe(false)
+    // ein Punkt und läuft weiter über die Kantenerkennung.
+    expect(hatBereich({ filmVonS: 20, filmBisS: 60 })).toBe(true)
+    expect(hatBereich({ filmVonS: 40, filmBisS: 40 })).toBe(false)
+  })
+
+  it('sieht die Länge eines Klips, der ganz in einer Standzeit liegt', () => {
+    // Genau der Klip, den enrich.ts bis E10 mit „liegt ganz in einer Standzeit"
+    // verworfen hat — in Filmzeit gemessen hat er 3,2 Sekunden.
+    expect(hatBereich({ filmVonS: 102, filmBisS: 105.2 })).toBe(true)
   })
 })

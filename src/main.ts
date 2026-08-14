@@ -81,8 +81,10 @@ interface SpielerTour {
   /** Dasselbe aus dem Tour-JSON, aber f-verankert (remote.ts) — geht vor */
   weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
-  camera?: Array<{ f: number; preset: string; skala?: number }>
-  moments?: Array<{ f: number; art: string; dauerS?: number }>
+  /** `filmS` (E10) geht `f` vor — s. Kamera-Folger unten */
+  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
+  /** `filmS` bleibt hier ungelesen: Ein Moment IST ein Halt (s. unten) */
+  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
   audio?: TourAudio[]
   /** Master über `audio`; fehlt = KURATIERTER_PEGEL (s. TourConfig.audioPegel) */
   audioPegel?: number
@@ -321,6 +323,13 @@ const photos: VerankertesFoto[] = cfg.photos
 const stops = gruppiereStopps(photos)
 // Kamera-Momente (Kreativbaukasten): Punkt-Ereignisse, f → Streckenmeter s.
 // Die Engine hält dort an und führt eine Kamerabewegung aus (src/tour.ts).
+//
+// Als einziges Ereignis bleibt der Moment an `f` verankert, obwohl das Tour-JSON
+// seit E10 auch für ihn eine Filmsekunde trägt: Ein Moment IST ein Halt, und die
+// Achse wird AUS den Halten gebaut — ihn über sie zu verorten wäre ein Kreis. Ein
+// Ort auf der Strecke ist er nicht nur wegen der Kamerabewegung, sondern weil
+// genau das seine Filmsekunde überhaupt erst erzeugt. Das Feld im JSON ist die
+// Auskunft, WANN er im Film liegt, kein Eingang für den Player.
 const moments: KameraMoment[] = (cfg.moments ?? [])
   .map((m) => ({ s: sBeiF(m.f), art: m.art, dauerS: m.dauerS }))
   .sort((a, b) => a.s - b.s)
@@ -429,20 +438,25 @@ window.__j.filmachse = filmachse
 window.__j.filmS = filmBeiS
 
 // — Tour-eigene Audio-Spuren (Kreativbaukasten, cfg.audio aus remote.ts):
-// Musik-Bereiche + SFX-One-Shots, f-verankert. Statische Touren haben kein
-// cfg.audio → null, der restliche Code chaint optional (bitidentisches Verhalten).
+// Musik-Bereiche + SFX-One-Shots, in FILMSEKUNDEN verankert (E10). Statische
+// Touren haben kein cfg.audio → null, der restliche Code chaint optional.
 // Der Master steht an der TOUR (cfg.audioPegel): aufgezeichnete Touren tragen
 // den Studio-Pegel absolut, kuratierte sind gegen die 0.22 ausgemessen.
-// Die Bereichsgrenzen laufen EINMAL durch die Übersetzung; danach vergleicht
-// audiotracks.ts sie gegen `s / route.total` und trifft die gemeinte Stelle.
-// Über `filmS` hängt der Einstiegspunkt in die Datei an der Filmachse — sonst
-// begänne jedes Stück beim Hineinspringen wieder von vorn.
-const audioSpuren = cfg.audio?.map((a) => ({ ...a, f0: fracBeiF(a.f0), f1: fracBeiF(a.f1) }))
+//
+// Die Grenzen laufen EINMAL durch die Übersetzung, danach rechnet
+// audiotracks.ts nur noch in Filmzeit. Je Endpunkt gilt: `filmS`/`filmBisS` aus
+// dem Tour-JSON, wo sie stehen — sonst der Rückfall über die Filmachse. Nur der
+// Server kann den ersten Weg gehen: Ein Anker MITTEN in einer Standzeit fällt im
+// Streckenanteil auf die Halt-Kante, und aus `f` ist er nicht wieder
+// herauszuholen (Konzept §5.1). Kuratierte Touren tragen die Felder nie — für
+// sie ist der Rückfall der Normalzustand, nicht ein Übergang.
+const audioSpuren = cfg.audio?.map((a) => ({
+  ...a,
+  filmVonS: a.filmS ?? filmBeiS(sBeiF(a.f0)),
+  filmBisS: a.filmBisS ?? filmBeiS(sBeiF(a.f1)),
+}))
 const tourAudio = audioSpuren?.length
-  ? createAudioTracks(audioSpuren, {
-      volume: cfg.audioPegel ?? KURATIERTER_PEGEL,
-      filmS: (frac) => filmBeiS(frac * route.total),
-    })
+  ? createAudioTracks(audioSpuren, { volume: cfg.audioPegel ?? KURATIERTER_PEGEL })
   : null
 // Bringt die Tour eigene Musik mit, ersetzt sie den Ambient-Loop komplett —
 // sonst liefen beide Musiken übereinander (der Musik-Schalter steuert dann tourAudio).
@@ -522,16 +536,20 @@ map.on('load', () => {
   const ui = new UI(stops, route)
   /** Zählerstand der verworfenen Frames beim letzten Nachziehen (s. updateTrace). */
   let gesehenVerworfen = 0
-  let kamFolger: ((s: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
+  let kamFolger: ((filmS: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
   ui.updateTrace = (s, pos) => {
     syncTrace(s, [pos[0], pos[1]])
     rider.setLngLat([pos[0], pos[1]])
-    // Tour-Audio folgt dem Streckenanteil pro Frame: Musik-Bereiche + SFX-Kanten.
-    // istPlayback nur bei echter Wiedergabe — Scrub-/Seek-Sprünge feuern keine SFX.
-    // (Die Anker der Spuren sind beim Laden in genau diese Parametrisierung
-    // übersetzt worden — s. `audioSpuren` oben.)
-    tourAudio?.setFrac(s / route.total, tour.playing && !tour.scrubbing)
-    kamFolger?.(s)
+    // Tour-Audio und Kamera-Keyframes folgen der FILMSEKUNDE pro Frame (E10):
+    // Musik-Bereiche + SFX-Kanten, Preset-Wechsel. istPlayback nur bei echter
+    // Wiedergabe — Scrub-/Seek-Sprünge feuern keine SFX.
+    //
+    // `tour.filmS` und nicht `filmBeiS(s)`: Im Halt steht `s` still, der
+    // Rückweg über die Achse lieferte dort die ganze Standzeit lang die
+    // ANKUNFT (lower_bound). Genau die Sekunden, um die es hier geht, wären
+    // damit unerreichbar — die Ankunft ist der Wert, den `f` schon hat.
+    tourAudio?.setFilmS(tour.filmS, tour.playing && !tour.scrubbing)
+    kamFolger?.(tour.filmS)
     // Hat die Filmuhr Zeit VERWORFEN, lief der Ton auf der Wanduhr weiter und
     // der Film nicht — dann ist die Datei um genau diese Sekunden zu weit.
     // Der Notdeckel (1,0 s) greift bei gedrosseltem `rAF` ohne
@@ -556,7 +574,7 @@ map.on('load', () => {
    * Geste: Während des Scrubs klingt die Musik (das Gate zählt Scrubben als
    * Wiedergabe), und ein Seek je Frame wäre ein Stottern statt einer Position.
    */
-  const nachSprung = () => tourAudio?.richteAus(tour.s / route.total)
+  const nachSprung = () => tourAudio?.richteAus(tour.filmS)
 
   // Fahrzeug-Motorloop (dezent): folgt dem aktiven Segment-Modus, läuft nur während
   // der eigentlichen Fahrt (Gate unten). Moduswechsel blendet den Motor weich über.
@@ -621,26 +639,33 @@ map.on('load', () => {
   Object.assign(window.__j, { tour, rider, uhr: tour.uhr })
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
-  // Keyframes, im Tour-JSON über den Streckenanteil f verankert und beim Laden
-  // in Streckenmeter übersetzt. Es gilt der letzte Keyframe mit s <= tour.s
-  // (Punktfunktion wie die Modi); vor dem ersten Keyframe bleibt der Player-Default.
+  // Keyframes, beim Laden EINMAL in Filmsekunden übersetzt (E10) — aus `filmS`,
+  // wo der Server es mitschreibt, sonst über die Filmachse aus `f`. Es gilt der
+  // letzte Keyframe mit filmS <= tour.filmS (Punktfunktion wie die Modi); vor
+  // dem ersten Keyframe bleibt der Player-Default. In Filmzeit und nicht in
+  // Metern, weil ein Keyframe MITTEN in einem Halt sonst erst an dessen Kante
+  // griffe — dort steht die Strecke, während der Film läuft.
   // Feuert NUR bei Preset-Änderung — setPreset klemmt glide, nie pro Frame rufen.
   // Ein manueller Klick auf einen Preset-Button schaltet den Folger dauerhaft aus
   // (bis Reload): der Nutzer hat das letzte Wort über die Kameradistanz.
   let kamManuell = false
   if (cfg.camera?.length) {
     const keyframes = cfg.camera
-      .map((k) => ({ s: sBeiF(k.f), preset: k.preset, ...(k.skala !== undefined ? { skala: k.skala } : {}) }))
-      .sort((a, b) => a.s - b.s)
+      .map((k) => ({
+        filmS: k.filmS ?? filmBeiS(sBeiF(k.f)),
+        preset: k.preset,
+        ...(k.skala !== undefined ? { skala: k.skala } : {}),
+      }))
+      .sort((a, b) => a.filmS - b.filmS)
     // Vor dem ersten Keyframe gilt der Player-Default — der ist beim Boot der
     // aktive Button (statisch „mittel"). Auch nach Rückwärts-Scrub/Restart.
     const defaultPreset = document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
     let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
-    kamFolger = (s) => {
+    kamFolger = (filmS) => {
       if (kamManuell) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
-      let k: { s: number; preset: string; skala?: number } | null = null
-      for (const kf of keyframes) if (kf.s <= s) k = kf
+      let k: { filmS: number; preset: string; skala?: number } | null = null
+      for (const kf of keyframes) if (kf.filmS <= filmS) k = kf
       // `standard` ist ein echter Keyframe-Wert und bedeutet dasselbe wie „vor
       // dem ersten Keyframe": zurück auf die Einstellung des Zuschauers. Ohne
       // diese Zeile fiele er in setPreset auf „mittel" (PRESETS['standard']

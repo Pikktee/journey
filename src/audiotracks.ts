@@ -1,26 +1,44 @@
 // Tour-eigene Audio-Spuren (Kreativbaukasten): vom Autor im Studio hinterlegte
-// Musik-Bereiche und SFX-One-Shots, verankert am Streckenanteil f (cfg.audio aus
-// remote.ts). Musik läuft geloopt, solange der Playhead im Bereich [f0,f1) steht —
-// mit träger Blende an den Grenzen (wie music.ts); SFX feuern einmalig beim
-// Vorwärts-Überfahren ihres f0 (nur echte Wiedergabe, keine Scrub-/Seek-Sprünge).
+// Musik-Bereiche und SFX-One-Shots, verankert in FILMSEKUNDEN (cfg.audio aus
+// remote.ts, übersetzt in main.ts). Musik läuft geloopt, solange der Playhead im
+// Bereich [filmVonS, filmBisS) steht — mit träger Blende an den Grenzen (wie
+// music.ts); SFX feuern einmalig beim Vorwärts-Überfahren ihrer Filmsekunde (nur
+// echte Wiedergabe, keine Scrub-/Seek-Sprünge).
 // Läuft nur, wenn das Gate wahr ist (z.B. „Tour läuft/Foto/Scrub"). Pause INNERHALB
 // des Bereichs stoppt den Ton SOFORT und hält die Position — Weiterlaufen setzt
 // genau dort fort (wie im Studio-Abspieler). Bereich verlassen / Musik aus: weiche
 // Blende. setDucking: Video-Ton senkt laufende Musik (nicht SFX) auf VIDEO_DUCK ab.
+//
+// **Gerechnet wird in Filmsekunden und nicht mehr im Streckenanteil `frac`**
+// (Gleichlauf-Konzept E10, Etappe 4b). Der Grund ist der HALT: Dort läuft der
+// Film, aber die Strecke steht — ein Klip, der ganz in einer Standzeit liegt,
+// hat `f0 === f1` und wäre unter jeder `frac`-Prüfung stumm, welche Filmsekunde
+// auch immer im Tour-JSON steht. Die JSON-Felder sind der Transport, DIESE
+// Rechnung ist die Substanz.
 
+import { NOT_DECKEL_S } from './filmuhr.js'
 import type { TourAudio } from './tours.js'
 
 // — Reine Helfer (DOM-frei) — direkt testbar (test/audiotracks.test.ts, Node ohne Audio) —
 //
-// Die Helfer nehmen bewusst STRUKTURELLE Ausschnitte („was hat f0 und f1?") und
-// nicht die ganze `TourAudio`: Das Studio ruft sie mit seinen eigenen Klip-Objekten
-// auf (src/studio/abspielen.ts) — genau darin liegt der Wert, dass es eine Regel
-// für Player und Editor ist und nicht zwei.
+// Die Helfer nehmen bewusst STRUKTURELLE Ausschnitte („was hat filmVonS und
+// filmBisS?") und nicht die ganze `TourAudio`: Das Studio ruft sie mit seinen
+// eigenen Klip-Objekten auf (src/studio/abspielen.ts) — genau darin liegt der
+// Wert, dass es eine Regel für Player und Editor ist und nicht zwei.
 
-// Steht der Playhead im Bereich einer Musik-Spur? Halboffenes Intervall [f0,f1):
-// an der Endgrenze ist die Spur schon aus (die Blende übernimmt das Weiche).
-export function istAktiv(spur: { f0: number; f1: number }, frac: number): boolean {
-  return spur.f0 <= frac && frac < spur.f1
+/** Eine Spur, wie sie hier gespielt wird: Tour-Angaben plus Film-Verankerung. */
+export interface SpielSpur extends TourAudio {
+  /** Filmsekunde, in der die Spur einsetzt (bei einem One-Shot: seine Marke) */
+  filmVonS: number
+  /** Filmsekunde, in der sie endet; ≤ filmVonS heißt „Marke ohne Länge" */
+  filmBisS: number
+}
+
+// Steht der Playhead im Bereich einer Musik-Spur? Halboffenes Intervall
+// [filmVonS, filmBisS): an der Endgrenze ist die Spur schon aus (die Blende
+// übernimmt das Weiche).
+export function istAktiv(spur: { filmVonS: number; filmBisS: number }, filmS: number): boolean {
+  return spur.filmVonS <= filmS && filmS < spur.filmBisS
 }
 
 // Wiederholt diese Spur? Ohne Angabe gilt, was der Player immer getan hat:
@@ -34,21 +52,38 @@ export function loopAktiv(spur: { type: string; loop?: boolean }): boolean {
 // Hat diese Spur eine Ausdehnung — oder ist sie eine Marke ohne Länge?
 // Musik hatte immer einen Bereich, ein Effekt war immer ein Punkt. Seit Etappe 4
 // darf auch ein Effekt eine Länge haben (die seiner Datei); WAS er ist,
-// entscheidet damit die Spur selbst und nicht mehr ihr Typ.
-export function hatBereich(spur: { f0: number; f1: number }): boolean {
-  return spur.f1 > spur.f0
+// entscheidet damit die Spur selbst und nicht mehr ihr Typ. Gemessen wird die
+// Ausdehnung in FILMzeit: Ein Bereich, der ganz in einer Standzeit liegt, hätte
+// im Streckenanteil keine — genau der Fall, um den es in E10 geht.
+export function hatBereich(spur: { filmVonS: number; filmBisS: number }): boolean {
+  return spur.filmBisS > spur.filmVonS
 }
 
-// Soll ein SFX-One-Shot feuern? Nur beim VORWÄRTS-Überfahren von f0, nur bei
-// echter Wiedergabe (istPlayback) und nur bei Frame-kleiner Sprungweite — ein
-// Scrub/Seek quer über die Marke soll nicht knallen. Nach jedem Aufruf zieht
+/**
+ * Größte Sprungweite (Filmsekunden), die noch als Frame durchgeht — darüber
+ * ist es ein Seek und die Marke wird lautlos „verbraucht".
+ *
+ * **Keine Übersetzung der alten 0,02, sondern eine neue Herleitung.** In `frac`
+ * waren das 2 % der ganzen Tour, auf Koh Pha-ngan rund 4,4 Filmsekunden; eine
+ * naiv übernommene „0,02 s" verschluckte JEDEN One-Shot, weil jedes Frame
+ * länger dauert. Die Schranke muss über der schlechtesten Frame-Zeit liegen —
+ * gemessen 205 ms bei 12× Drosselung, am Telefon mehr. Genau diese Frage hat
+ * die Filmuhr schon beantwortet: Ihr Notdeckel (src/filmuhr.ts) kappt jedes
+ * Frame bei 1,0 s, ein Frame kann die Filmzeit bei Tempo 1 also gar nicht
+ * weiter tragen. Zwei Zahlen, eine Herleitung.
+ */
+export const SFX_KANTE_S = NOT_DECKEL_S
+
+// Soll ein SFX-One-Shot feuern? Nur beim VORWÄRTS-Überfahren seiner Filmsekunde,
+// nur bei echter Wiedergabe (istPlayback) und nur bei Frame-kleiner Sprungweite —
+// ein Scrub/Seek quer über die Marke soll nicht knallen. Nach jedem Aufruf zieht
 // der Aufrufer die Vorher-Position hart nach, Sprünge „verbrauchen" die Marke also.
-// Sonderfall f0=0: „vorher < 0" gibt es nie — die Marke am Tour-Start feuert
-// stattdessen beim ersten echten Vorwärts-Tick aus der Nullposition heraus.
-export function sfxSollFeuern(vorher: number, nachher: number, f0: number, istPlayback: boolean): boolean {
-  if (!istPlayback || nachher - vorher >= 0.02) return false
-  if (f0 === 0) return vorher === 0 && nachher > 0
-  return vorher < f0 && nachher >= f0
+// Sonderfall Filmsekunde 0: „vorher < 0" gibt es nie — die Marke am Tour-Start
+// feuert stattdessen beim ersten echten Vorwärts-Tick aus der Nullposition heraus.
+export function sfxSollFeuern(vorherS: number, nachherS: number, filmVonS: number, istPlayback: boolean): boolean {
+  if (!istPlayback || nachherS - vorherS >= SFX_KANTE_S) return false
+  if (filmVonS === 0) return vorherS === 0 && nachherS > 0
+  return vorherS < filmVonS && nachherS >= filmVonS
 }
 
 /**
@@ -132,7 +167,7 @@ export const alsHuelle = (pegel: DuckPegel): number =>
   pegel === true ? 1 : pegel === false ? 0 : Math.max(0, Math.min(1, Number(pegel) || 0))
 
 /** Eine laufende Bereichs-Spur: die Tour-Angaben plus ihr Wiedergabe-Zustand. */
-interface Bereichsspur extends TourAudio {
+interface Bereichsspur extends SpielSpur {
   el: HTMLAudioElement | null
   level: number
   drin: boolean
@@ -140,7 +175,8 @@ interface Bereichsspur extends TourAudio {
 }
 
 export interface AudioSpuren {
-  setFrac(f: number, istPlayback: boolean): void
+  /** Filmsekunde pro Frame zuführen (`tour.filmS`, nicht aus `s` zurückgerechnet). */
+  setFilmS(filmS: number, istPlayback: boolean): void
   setGate(fn: () => boolean): void
   /**
    * Laufende Bereiche auf die Filmsekunde nachziehen, an der der Film JETZT
@@ -152,11 +188,11 @@ export interface AudioSpuren {
    * (das Gate zählt Scrubben als Wiedergabe) — ein Seek je Frame wäre ein
    * Stottern statt einer Position.
    *
-   * `bei` ist der Streckenanteil, an dem der Sprung ENDET. Er muss mitkommen:
-   * `setFrac` läuft erst im nächsten Frame, der eingebaute Wert wäre also noch
+   * `beiFilmS` ist die Filmsekunde, an der der Sprung ENDET. Sie muss mitkommen:
+   * `setFilmS` läuft erst im nächsten Frame, der eingebaute Wert wäre also noch
    * der von VOR dem Sprung — und der Ton stünde eine Geste zu spät.
    */
-  richteAus(bei?: number): void
+  richteAus(beiFilmS?: number): void
   setMusikEnabled(on: boolean): void
   setSfxEnabled(on: boolean): void
   setDucking(pegel: DuckPegel): void
@@ -175,7 +211,7 @@ export interface AudioSpuren {
     laeuft: boolean
     positionS: number
     dauerS: number
-    f0: number
+    filmVonS: number
     /** Zustand des Elements — ein Seek vor dem Puffern greift nicht (readyState 0) */
     bereit: number
     sucht: boolean
@@ -203,19 +239,8 @@ export const KURATIERTER_PEGEL = 0.22
 export const STUDIO_PEGEL_VORGABE = 0.8
 
 export function createAudioTracks(
-  tracks: TourAudio[],
-  {
-    volume = KURATIERTER_PEGEL,
-    filmS,
-  }: {
-    volume?: number
-    /**
-     * Filmsekunde zu einem Streckenanteil (main.ts, über die Filmachse). Fehlt
-     * sie, bleibt es beim alten Verhalten „von vorn" — so lief es, solange die
-     * Achse für den Player unerreichbar war.
-     */
-    filmS?: (frac: number) => number
-  } = {},
+  tracks: SpielSpur[],
+  { volume = KURATIERTER_PEGEL }: { volume?: number } = {},
 ): AudioSpuren {
   // Bereichs-Spuren: je Spur ein lazy HTMLAudioElement (erst beim ersten Eintritt
   // geladen, preload='none'), eigener Blend-Level für die weiche Bereichsgrenze.
@@ -228,32 +253,25 @@ export function createAudioTracks(
   let musikEnabled = true
   let sfxEnabled = true
   let gate = (): boolean => false
-  let frac = 0
-  let vorher = 0 // interne Vorher-Position für die SFX-Kantenerkennung
+  let jetztS = 0 // Filmsekunde des letzten Frames
+  let vorherS = 0 // interne Vorher-Position für die SFX-Kantenerkennung
   let duckTgt = 1
   let duck = 1
 
   const vol = (t: TourAudio) => Math.max(0, Math.min(1, volume * (t.gain ?? 1)))
 
   /**
-   * Die Datei auf die Stelle setzen, die bei Streckenanteil `f` im Film liefe.
+   * Die Datei auf die Stelle setzen, die in Filmsekunde `filmS` liefe.
    *
    * Ohne bekannte Dauer (das Element lädt erst) bleibt es beim rohen Versatz —
-   * `loadedmetadata` zieht ihn danach exakt nach. Ohne Filmachse (`filmS`
-   * fehlt) gilt der Dateianfang bzw. der linke Trim, also das alte Verhalten.
+   * `loadedmetadata` zieht ihn danach exakt nach.
    */
-  const setzeVersatz = (spur: Bereichsspur, f: number): void => {
+  const setzeVersatz = (spur: Bereichsspur, filmS: number): void => {
     const el = spur.el
     if (!el) return
-    const start = spur.startS ?? 0
-    if (!filmS) {
-      el.currentTime = start
-      return
-    }
     const dauer = Number.isFinite(el.duration) ? el.duration : 0
-    const seit = filmS(f) - filmS(spur.f0)
     try {
-      el.currentTime = musikVersatzS(seit, dauer, start, loopAktiv(spur))
+      el.currentTime = musikVersatzS(filmS - spur.filmVonS, dauer, spur.startS ?? 0, loopAktiv(spur))
     } catch {
       /* Seek vor dem Puffern kann fehlschlagen — dann läuft sie ab 0 */
     }
@@ -265,7 +283,7 @@ export function createAudioTracks(
     const offen = gate()
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s), ohne zu rattern
     for (const spur of musik) {
-      const drin = istAktiv(spur, frac)
+      const drin = istAktiv(spur, jetztS)
       // Welcher Schalter zuständig ist, sagt der TYP — auch ein Effekt mit
       // Bereich bleibt ein Effekt und geht mit „Klänge aus" mit.
       const anBleibt = spur.type === 'music' ? musikEnabled : sfxEnabled
@@ -285,15 +303,15 @@ export function createAudioTracks(
           spur.el.loop = loopAktiv(spur)
           spur.el.src = spur.src
           // Die Dauer kennt erst der geladene Kopf der Datei — bis dahin ist der
-          // Versatz ungekürzt. Einmalig nachziehen, mit dem Anteil VON DAMALS:
-          // Beim Laden steht der Film schon weiter, gemeint ist der Eintritt.
-          const beiEintritt = frac
+          // Versatz ungekürzt. Einmalig nachziehen, mit der Filmsekunde VON
+          // DAMALS: Beim Laden steht der Film schon weiter, gemeint ist der Eintritt.
+          const beiEintritt = jetztS
           spur.el.addEventListener('loadedmetadata', () => setzeVersatz(spur, beiEintritt), { once: true })
         }
         // Einstieg in die DATEI: linker Trim plus die Filmzeit, die seit dem
         // Bereichsbeginn vergangen ist — wer mitten hineinspringt, hört, was
         // dort im Film liefe (§6C, `musikVersatzS`).
-        setzeVersatz(spur, frac)
+        setzeVersatz(spur, jetztS)
         if (want) spur.el.play().catch(() => { spur.blocked = true })
       }
       spur.drin = drin
@@ -328,31 +346,31 @@ export function createAudioTracks(
   window.addEventListener('pointerdown', () => { for (const s of musik) s.blocked = false }, { passive: true })
 
   return {
-    // Streckenanteil pro Frame zuführen (updateTrace-Wrapper in main.ts). Musik
-    // liest ihn im Timer; SFX prüfen hier sofort die Vorwärts-Kante über f0.
-    setFrac: (f: number, istPlayback: boolean) => {
-      frac = f
+    // Filmsekunde pro Frame zuführen (updateTrace-Wrapper in main.ts). Musik
+    // liest sie im Timer; SFX prüfen hier sofort die Vorwärts-Kante.
+    setFilmS: (filmS: number, istPlayback: boolean) => {
+      jetztS = filmS
       for (const s of sfx) {
-        if (sfxEnabled && sfxSollFeuern(vorher, f, s.f0, istPlayback)) {
+        if (sfxEnabled && sfxSollFeuern(vorherS, filmS, s.filmVonS, istPlayback)) {
           const el = new Audio(s.src) // One-Shot: eigenes Element, spielt aus und verfällt
           el.volume = vol(s)
           if (s.startS) el.currentTime = s.startS // linker Trim gilt auch hier
           el.play().catch(() => {}) // Autoplay-Block: One-Shot verfällt (kein Nachholen)
         }
       }
-      vorher = f // Vorher-Position hart nachziehen — auch nach Sprüngen/Scrubs
+      vorherS = filmS // Vorher-Position hart nachziehen — auch nach Sprüngen/Scrubs
     },
     setGate: (fn: () => boolean) => { gate = fn },
-    richteAus: (bei?: number) => {
-      const f = bei ?? frac
-      for (const spur of musik) if (istAktiv(spur, f)) setzeVersatz(spur, f)
+    richteAus: (beiFilmS?: number) => {
+      const filmS = beiFilmS ?? jetztS
+      for (const spur of musik) if (istAktiv(spur, filmS)) setzeVersatz(spur, filmS)
     },
     setMusikEnabled: (on: boolean) => { musikEnabled = on },
     setSfxEnabled: (on: boolean) => { sfxEnabled = on },
     // Video-Ton-Hülle 0..1 → Musik ducken (Equal-Power); true/false bleibt kompatibel.
     setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
     get level() { return musik.reduce((m, s) => Math.max(m, s.level), 0) }, // Debug/E2E
-    get aktiveSpur() { return musik.find((s) => istAktiv(s, frac))?.src ?? null }, // Debug/E2E
+    get aktiveSpur() { return musik.find((s) => istAktiv(s, jetztS))?.src ?? null }, // Debug/E2E
     get tonStand() {
       return musik
         .filter((s) => s.el)
@@ -361,7 +379,7 @@ export function createAudioTracks(
           laeuft: !s.el?.paused,
           positionS: s.el?.currentTime ?? 0,
           dauerS: s.el?.duration ?? 0,
-          f0: s.f0,
+          filmVonS: s.filmVonS,
           bereit: s.el?.readyState ?? 0,
           sucht: s.el?.seeking ?? false,
           pegel: Math.round((s.el?.volume ?? 0) * 1000) / 1000,

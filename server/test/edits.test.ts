@@ -336,7 +336,7 @@ describe('reichereAn mit Edit-Overlay', () => {
       }),
     )
     expect(tour.camera).toHaveLength(2)
-    expect(tour.camera?.[0]).toEqual({ f: 0, preset: 'weit' })
+    expect(tour.camera?.[0]).toEqual({ f: 0, preset: 'weit', filmS: 0 })
     expect(tour.camera?.[1]?.preset).toBe('nah')
     // t=900 liegt in der Streckenmitte (gleichförmige Punkte)
     expect(tour.camera?.[1]?.f).toBeGreaterThan(0.4)
@@ -356,7 +356,7 @@ describe('reichereAn mit Edit-Overlay', () => {
     )
     // Beide Grenzen liegen vor dem getrimmten Track → beide auf f=0 geklemmt,
     // nur die spätere überlebt (Punktfunktion: sie gilt „ab hier")
-    expect(tour.camera).toEqual([{ f: 0, preset: 'weit' }])
+    expect(tour.camera).toEqual([{ f: 0, preset: 'weit', filmS: 0 }])
   })
 
   it('verwirft Kamera-Grenzen hinter dem Track-Ende (statt auf f=1 zu klemmen)', async () => {
@@ -428,8 +428,12 @@ describe('reichereAn mit Edit-Overlay', () => {
     })
     expect(meldungen).toEqual([])
     expect(tour.audio).toHaveLength(2)
-    // sortiert nach f0: Musik (f0=0) vor SFX (f0≈0.5)
-    expect(tour.audio?.[0]).toEqual({ type: 'music', src: '/api/media/t1/musik.mp3', f0: 0, f1: 1, gain: 0.7 })
+    // sortiert nach Filmsekunde: Musik (ab 0) vor SFX. Neben `f0`/`f1` stehen
+    // seit E10 die Film-Anker — der Bereich läuft bis ans Filmende.
+    const musik = tour.audio?.[0]
+    expect(musik).toMatchObject({ type: 'music', src: '/api/media/t1/musik.mp3', f0: 0, f1: 1, gain: 0.7 })
+    expect(musik?.filmS).toBe(0)
+    expect(musik?.filmBisS).toBeGreaterThan(0)
     const sfx = tour.audio?.[1]
     expect(sfx?.type).toBe('sfx')
     expect(sfx?.f0).toBe(sfx?.f1)
@@ -577,11 +581,12 @@ describe('reichereAn: Ton am Film-Anker', () => {
     expect(mit.audio?.[0]?.f0).toBeGreaterThan(ohne.audio?.[0]?.f0 ?? 1)
   })
 
-  it('IN einer Standzeit bewegt der Versatz nichts — das Tour-JSON kennt nur Strecke', async () => {
+  it('IN einer Standzeit trägt die FILMSEKUNDE den Versatz — f steht still (E10)', async () => {
     // Die bewusste Kante: Der Film läuft im Halt weiter, die Strecke nicht. Ein
-    // Versatz von 5 s ab dem Foto (Standzeit 6 s) landet auf demselben f. Der
-    // Editor kann die Stelle zeigen, das Austauschformat kann sie nicht tragen.
-    const meldungen: string[] = []
+    // Versatz von 5 s ab dem Foto (Standzeit 6 s) landet auf demselben `f` —
+    // daran ändert E10 nichts, das ist die Eigenschaft des Streckenanteils.
+    // Was sich ändert: Die Filmsekunde daneben sagt, WO im Halt der Klip
+    // einsetzt, und genau um diese 5 Sekunden rückt sie mit.
     const gleich = await Promise.all(
       [0, 5].map((v) =>
         reichereAn({
@@ -600,8 +605,17 @@ describe('reichereAn: Ton am Film-Anker', () => {
       ),
     )
     expect(gleich[0]?.audio?.[0]?.f0).toBeCloseTo(gleich[1]?.audio?.[0]?.f0 ?? -1, 9)
+    const ankunft = gleich[0]?.audio?.[0]?.filmS ?? 0 // Versatz 0 = die Halt-Kante
+    const drin5 = gleich[1]?.audio?.[0]?.filmS ?? 0
+    expect(drin5 - ankunft).toBeCloseTo(5, 6)
+    // ... und zwar MITTEN im Halt, nicht an dessen Ende: Die Standzeit ist 6 s.
+    expect(drin5).toBeLessThan(ankunft + 6)
 
-    // Und wer ganz im Halt bleibt, wird laut übersprungen statt still verschluckt
+    // Und wer GANZ im Halt bleibt, wird nicht mehr übersprungen: Bis E10 fiel
+    // genau dieser Klip heraus („liegt ganz in einer Standzeit"), weil seine
+    // Spanne im f-Raum auf einen Punkt zusammenfällt. In Filmzeit hat er sehr
+    // wohl eine Länge — hier die drei Sekunden aus `dauerFilmS`.
+    const meldungen: string[] = []
     const drin = await reichereAn({
       tourId: 't1',
       nummer: 1,
@@ -616,8 +630,11 @@ describe('reichereAn: Ton am Film-Anker', () => {
       audioDateien: ['musik.mp3'],
       protokoll: (m) => meldungen.push(m),
     })
-    expect(drin.audio).toBeUndefined()
-    expect(meldungen.some((m) => /Standzeit/.test(m))).toBe(true)
+    const klip = drin.audio?.[0]
+    expect(klip).toBeDefined()
+    expect(klip?.f0).toBeCloseTo(klip?.f1 ?? -1, 9) // im f-Raum weiterhin ein Punkt
+    expect((klip?.filmBisS ?? 0) - (klip?.filmS ?? 0)).toBeCloseTo(3, 6)
+    expect(meldungen.some((m) => /Standzeit/.test(m))).toBe(false)
   })
 
   it('ein Klip rückt mit, wenn eine Standzeit davor wächst', async () => {

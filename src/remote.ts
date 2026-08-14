@@ -3,6 +3,7 @@
 // statischen TOURS-Registry — der restliche Player merkt keinen Unterschied.
 
 import { STUDIO_PEGEL_VORGABE } from './audiotracks.js'
+import type { TourAudio } from './tours.js'
 
 /** Ein Medium der Tour — für den Player ein „Foto" mit optionalem Video-Typ (M4). */
 export interface RemoteMedium {
@@ -53,12 +54,25 @@ export interface TourJsonAntwort {
   /** Wetter-Keyframes über den Streckenanteil f (kommt in M2 vom Server) */
   weather?: Array<{ f: number; mode: string; k: number; source?: string }>
   timeline?: Array<{ f: number; t: string }>
-  /** Kamera-Keyframes über den Streckenanteil f (Kreativbaukasten): Preset ab f */
-  camera?: Array<{ f: number; preset: string; skala?: number }>
-  /** Kamera-Momente über den Streckenanteil f: Punkt-Ereignisse (Umkreisen/…) */
-  moments?: Array<{ f: number; art: string; dauerS?: number }>
-  /** Audio-Spuren über den Streckenanteil f: Musik-Bereiche [f0,f1) + SFX (f0=f1) */
-  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number; loop?: boolean; startS?: number }>
+  /**
+   * Kamera-Keyframes (Kreativbaukasten): Preset ab dieser Stelle. `f` ist der
+   * Streckenanteil, `filmS` die Filmsekunde (E10) — sie geht vor, wo sie steht.
+   */
+  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
+  /** Kamera-Momente: Punkt-Ereignisse (Umkreisen/…) mit Streckenanteil und Filmsekunde */
+  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
+  /** Audio-Spuren: Musik-Bereiche [f0,f1) + SFX (f0=f1), dazu ihre Film-Anker (E10) */
+  audio?: Array<{
+    type: string
+    src: string
+    f0: number
+    f1: number
+    gain?: number
+    loop?: boolean
+    startS?: number
+    filmS?: number
+    filmBisS?: number
+  }>
   stats: { km: number; gainM: number }
 }
 
@@ -102,12 +116,12 @@ export interface RemoteTourCfg {
    */
   weatherF?: Array<{ f: number; mode: string; k: number }>
   timeline?: Array<{ f: number; t: string }>
-  /** Kamera-Keyframes (roh, f-basiert — main.ts rechnet frac = s/total selbst) */
-  camera?: Array<{ f: number; preset: string; skala?: number }>
+  /** Kamera-Keyframes (roh — main.ts übersetzt f bzw. filmS selbst) */
+  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
   /** Kamera-Momente (roh, f-basiert — main.ts verankert sie an s) */
-  moments?: Array<{ f: number; art: string; dauerS?: number }>
-  /** Tour-eigene Audio-Spuren (roh, f-basiert — audiotracks.ts spielt sie ab) */
-  audio?: Array<{ type: string; src: string; f0: number; f1: number; gain?: number; loop?: boolean; startS?: number }>
+  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
+  /** Tour-eigene Audio-Spuren (roh — main.ts übersetzt in Filmsekunden) */
+  audio?: TourAudio[]
   /**
    * Master über `audio`. Bei aufgezeichneten Touren immer 1: `gain` kommt aus
    * dem Regler des Studios und ist bereits der Pegel, den der Autor beim
@@ -191,7 +205,11 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
   // rechnet frac = tour.s/route.total selbst). Kaputte f-Werte fliegen raus
   // (Muster createTimeAt); leere Ergebnisse lassen das Feld ganz weg.
   if (tour.camera?.length) {
-    const kamera = tour.camera.filter((k) => Number.isFinite(k.f))
+    // Ein kaputter `filmS` fällt weg statt den Keyframe mitzunehmen — main.ts
+    // rechnet ihn dann wie bei Bestandsdaten aus `f`.
+    const kamera = tour.camera
+      .filter((k) => Number.isFinite(k.f))
+      .map(({ filmS, ...rest }) => (Number.isFinite(filmS) ? { ...rest, filmS: filmS as number } : rest))
     if (kamera.length) cfg.camera = kamera
   }
   if (tour.moments?.length) {
@@ -218,7 +236,15 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
       // gesetzter Lautstärke — jedes VORHANDENE tour.json kommt also ohne, und
       // ohne diesen Rückfall klängen genau die Bestandstouren zu laut, bis
       // jemand sie neu rendert.
-      cfg.audio = spuren.map((a) => ({ ...a, gain: a.gain ?? STUDIO_PEGEL_VORGABE }))
+      // Ein kaputter Film-Anker verschweigt die Spur NICHT — er fällt weg, und
+      // main.ts rechnet die Filmsekunde wie bei Bestandsdaten aus `f0`/`f1`.
+      // Die Spur wegzuwerfen wäre die teurere Reaktion: Sie klänge dann gar nicht.
+      cfg.audio = spuren.map((a) => ({
+        ...a,
+        gain: a.gain ?? STUDIO_PEGEL_VORGABE,
+        ...(Number.isFinite(a.filmS) ? { filmS: a.filmS } : {}),
+        ...(Number.isFinite(a.filmBisS) ? { filmBisS: a.filmBisS } : {}),
+      }))
       // Der Pegel einer aufgezeichneten Tour ist ABSOLUT: `gain` kommt aus dem
       // Regler im Studio und wird dort ohne Master vorgehört. Deshalb hier 1
       // statt der 0.22 der kuratierten Touren (s. TourConfig.audioPegel).

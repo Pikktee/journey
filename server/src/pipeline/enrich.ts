@@ -5,7 +5,7 @@
 // Später ergänzt (gleiche Stelle, gleiche Signatur): Bildanalyse (M5),
 // GPX-Quelle + Medien-Platzierung (M6), Edit-Overlay (M7).
 
-import { STUDIO_PEGEL, type EditOverlay } from '../schema/edits.js'
+import { STUDIO_PEGEL, type EditOverlay, type MomentArt } from '../schema/edits.js'
 import type { UploadManifest, UploadPunkt } from '../schema/upload.js'
 import { mediumDateiname } from '../schema/upload.js'
 import { wendeEditsAufSegmenteAn, wendeMedienEditsAn } from './edits.js'
@@ -83,8 +83,16 @@ export interface TourJson {
   timeline?: Array<{ f: number; t: string }>
   /** Auto-Wetter-Keyframes (M2, Open-Meteo; ab M5 auch source "photo") */
   weather?: Array<{ f: number; mode: string; k: number; source: string }>
-  camera?: Array<{ f: number; preset: string; skala?: number }>
-  moments?: Array<{ f: number; art: string; dauerS?: number }>
+  /**
+   * Kamera-Keyframes. `f` ist der Streckenanteil, `filmS` die Filmsekunde
+   * (E10) — der Player nimmt `filmS`, wo es steht, sonst `f` wie bisher.
+   */
+  camera?: Array<{ f: number; preset: string; skala?: number; filmS?: number }>
+  /**
+   * Kamera-Momente. `filmS` ist hier eine AUSKUNFT: Der Player verankert einen
+   * Moment weiter an `f`, weil die Film-Achse aus den Momenten gebaut wird.
+   */
+  moments?: Array<{ f: number; art: string; dauerS?: number; filmS?: number }>
   audio?: Array<{
     type: string
     src: string
@@ -95,6 +103,15 @@ export interface TourJson {
     loop?: boolean
     /** Einstieg in die Datei (s) — Start-Seek beim Eintritt in den Bereich */
     startS?: number
+    /**
+     * Filmsekunde des Einsatzes (E10) — geht `f0` vor. Sie ist die einzige
+     * Größe, die einen Klip MITTEN in einer Standzeit verorten kann: Dort läuft
+     * der Film, während die Strecke steht, und jedes `f` fällt auf die
+     * Halt-Kante.
+     */
+    filmS?: number
+    /** Filmsekunde des Endes; nur bei Bereichen (ein One-Shot hat keine) */
+    filmBisS?: number
   }>
   stats: TourStats
 }
@@ -362,50 +379,18 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   // exakt wie die tOffsets der Punkte). positionZurZeit klemmt außerhalb —
   // eine Grenze vor dem Trim-Start landet auf f des Track-Anfangs (gewollt:
   // „gilt ab hier" bleibt auch nach dem Beschneiden wahr).
-  let camera: TourJson['camera']
-  if (edits?.kamera?.length) {
-    // Eine Grenze HINTER dem (getrimmten) Track-Ende würde auf f=1 geklemmt —
-    // die Kamera schaltete dann sichtbar exakt am Finale um, wo die Grenze nie
-    // gemeint war → verwerfen. Vor dem Start bleibt die Klemmung („gilt ab hier").
-    const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
-    const keyframes = edits.kamera
-      .map((g) => ({ abMs: Date.parse(g.ab), preset: g.preset, skala: g.skala }))
-      .filter((g) => Number.isFinite(g.abMs))
-      .filter((g) => {
-        if (trackEndeSek === undefined || (g.abMs - startMs) / 1000 <= trackEndeSek) return true
-        protokoll?.(`Kamera-Grenze hinter dem Track-Ende übersprungen (${g.preset})`)
-        return false
-      })
-      // positionZurZeit ist monoton in der Zeit → nach `ab` sortiert ist auch
-      // f sortiert; bei gleichem f gewinnt unten der spätere `ab`.
-      .sort((a, b) => a.abMs - b.abMs)
-      .map((g) => ({
-        f: positionZurZeit(reihe, (g.abMs - startMs) / 1000).f,
-        preset: g.preset,
-        ...(g.skala !== undefined && g.skala !== 1 ? { skala: g.skala } : {}),
-      }))
-    const dedupliziert: NonNullable<TourJson['camera']> = []
-    for (const k of keyframes) {
-      const letzter = dedupliziert[dedupliziert.length - 1]
-      if (letzter && letzter.f === k.f) {
-        letzter.preset = k.preset
-        if (k.skala !== undefined) letzter.skala = k.skala
-        else delete letzter.skala
-      } else dedupliziert.push(k)
-    }
-    if (dedupliziert.length) camera = dedupliziert
-  }
-
   // Kamera-Momente: Punkt-Ereignisse. Wie Kamera-Grenzen an f verankert; ein
   // Moment hinter dem (getrimmten) Track-Ende ergibt keinen Sinn → verwerfen.
-  let moments: TourJson['moments']
-  // Dieselben Momente in AUFNAHMEZEIT — sie sind Halte der Film-Achse (s.u.)
-  // und müssen genau die gefilterte Liste sein: Ein hinter dem Track-Ende
-  // verworfener Moment darf die Achse nicht verlängern.
+  //
+  // Sie stehen VOR der Achse, weil sie zu ihr gehören: Ein Moment hält den Film
+  // an, seine Standzeit ist Achsenbreite. Ein hinter dem Track-Ende verworfener
+  // Moment darf die Achse nicht verlängern — deshalb ist es genau die gefilterte
+  // Liste, die unten in die Halte geht.
   let momentHalte: AchsenHalt[] = []
+  let gefilterteMomente: Array<{ offsetS: number; art: MomentArt; dauerS: number | undefined }> = []
   if (edits?.momente?.length) {
     const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
-    const gefiltert = edits.momente
+    gefilterteMomente = edits.momente
       .map((m) => ({ offsetS: (Date.parse(m.ab) - startMs) / 1000, art: m.art, dauerS: m.dauerS }))
       .filter((m) => Number.isFinite(m.offsetS))
       .filter((m) => {
@@ -414,33 +399,24 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         return false
       })
       .sort((a, b) => a.offsetS - b.offsetS)
-    momentHalte = baueMomentHalte(gefiltert)
-    const liste = gefiltert.map((m) => ({
-      f: positionZurZeit(reihe, m.offsetS).f,
-      art: m.art,
-      ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
-    }))
-    if (liste.length) moments = liste
+    momentHalte = baueMomentHalte(gefilterteMomente)
   }
 
-  // Audio-Spuren (Baukasten): absolute Zeiten → f-Bereiche. Fehlende Dateien
-  // und Bereiche, die der Trim vollständig entfernt hat, werden mit Warnung
-  // übersprungen — ein kaputter Verweis darf den Render nie scheitern lassen.
-  let audio: TourJson['audio']
-  if (edits?.audio?.length) {
-    const vorhandene = new Set(audioDateien ?? [])
-    const benutzerVorhandene = new Set(benutzerAudioDateien ?? [])
-    const ersterPunkt = reihe.punkte[0]
-    const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
-    // Film-Achse für die NEUE Verankerung (Etappe 4): Ein Klip hängt an einem
-    // Anker in Aufnahmezeit plus einem Versatz in FILMsekunden — der darf
-    // mitten in einer Standzeit liegen, wo die Aufnahmeuhr steht. Gebaut wird
-    // sie nur, wenn wirklich jemand die neuen Felder benutzt; ohne sie bleibt
-    // unten der alte Weg Zeichen für Zeichen erhalten (Vertragstest).
-    const brauchtAchse = edits.audio.some(
-      (s) => s.anker !== undefined || s.versatzFilmS !== undefined || s.dauerFilmS !== undefined,
-    )
-    const achse = brauchtAchse
+  /**
+   * Die Film-Achse der Tour — Aufnahmezeit ↔ Strecke ↔ Filmsekunde.
+   *
+   * Sie stand bis E10 im Audio-Block und wurde nur gebaut, wenn ein Klip die
+   * neuen Anker-Felder benutzte. Seit E10 bekommt JEDES Ereignis seine
+   * Filmsekunde mit ins Tour-JSON (Ton-Klips, Kamera-Keyframes, Momente), also
+   * braucht sie jeder Zweig — einmal gebaut, von allen gelesen.
+   *
+   * Ihre Halte sind die Aufnahmen (Standzeit + Ausblendung) und die Momente;
+   * exakt dieselben, mit denen der Player seine Achse baut (src/filmachse.ts).
+   * `null` nur bei einer degenerierten Tour ohne Zeitreihe — dann bleibt es
+   * überall beim reinen `f`, also beim Verhalten von vorher.
+   */
+  const achse =
+    reihe.punkte.length > 0
       ? baueFilmAchse(reihe, [
           ...baueAchsenHalte(
             media
@@ -463,6 +439,90 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
           ...momentHalte,
         ])
       : null
+
+  /**
+   * Filmsekunde eines Ereignisses fürs Tour-JSON — gerundet wie `segments[].f`.
+   *
+   * Acht Nachkommastellen, aus demselben Grund wie dort: Roh serialisiert JSON
+   * bis zu 17 signifikante Stellen, und ein Feld je Ereignis kostete damit mehr
+   * als die Filmachse, deren Export das Gleichlauf-Konzept ausdrücklich ablehnt
+   * (§12). Ohne Achse gibt es keine Filmsekunde — dann bleibt das Feld weg und
+   * der Player rechnet wie bisher aus `f`.
+   */
+  const filmZahl = (filmS: number): number => Number(filmS.toFixed(8))
+  const filmFeld = (tSek: number): number | undefined =>
+    achse ? filmZahl(filmBeiZeit(achse, tSek)) : undefined
+
+  let camera: TourJson['camera']
+  if (edits?.kamera?.length) {
+    // Eine Grenze HINTER dem (getrimmten) Track-Ende würde auf f=1 geklemmt —
+    // die Kamera schaltete dann sichtbar exakt am Finale um, wo die Grenze nie
+    // gemeint war → verwerfen. Vor dem Start bleibt die Klemmung („gilt ab hier").
+    const trackEndeSek = reihe.punkte[reihe.punkte.length - 1]?.tSek
+    const keyframes = edits.kamera
+      .map((g) => ({ abMs: Date.parse(g.ab), preset: g.preset, skala: g.skala }))
+      .filter((g) => Number.isFinite(g.abMs))
+      .filter((g) => {
+        if (trackEndeSek === undefined || (g.abMs - startMs) / 1000 <= trackEndeSek) return true
+        protokoll?.(`Kamera-Grenze hinter dem Track-Ende übersprungen (${g.preset})`)
+        return false
+      })
+      // positionZurZeit ist monoton in der Zeit → nach `ab` sortiert ist auch
+      // f sortiert; bei gleichem f gewinnt unten der spätere `ab`.
+      .sort((a, b) => a.abMs - b.abMs)
+      .map((g) => {
+        const tSek = (g.abMs - startMs) / 1000
+        const filmS = filmFeld(tSek)
+        return {
+          f: positionZurZeit(reihe, tSek).f,
+          preset: g.preset,
+          ...(g.skala !== undefined && g.skala !== 1 ? { skala: g.skala } : {}),
+          ...(filmS !== undefined ? { filmS } : {}),
+        }
+      })
+    const dedupliziert: NonNullable<TourJson['camera']> = []
+    for (const k of keyframes) {
+      const letzter = dedupliziert[dedupliziert.length - 1]
+      if (letzter && letzter.f === k.f) {
+        letzter.preset = k.preset
+        if (k.skala !== undefined) letzter.skala = k.skala
+        else delete letzter.skala
+        // Der spätere Keyframe gewinnt — auch mit seiner Filmsekunde. Bei
+        // gleichem `f` können sie sich unterscheiden: genau dann, wenn beide
+        // in derselben Standzeit liegen.
+        if (k.filmS !== undefined) letzter.filmS = k.filmS
+      } else dedupliziert.push(k)
+    }
+    if (dedupliziert.length) camera = dedupliziert
+  }
+
+  let moments: TourJson['moments']
+  if (gefilterteMomente.length) {
+    moments = gefilterteMomente.map((m) => {
+      const filmS = filmFeld(m.offsetS)
+      return {
+        f: positionZurZeit(reihe, m.offsetS).f,
+        art: m.art,
+        ...(m.dauerS !== undefined ? { dauerS: m.dauerS } : {}),
+        // Die Filmsekunde des Moments ist eine AUSKUNFT, kein Eingang: Der
+        // Player verankert ihn weiter an `f`, weil die Achse aus den Momenten
+        // gebaut wird und ein Moment über sie zu verorten ein Kreis wäre
+        // (s. src/main.ts). Sie steht hier, damit ein Leser des Tour-JSON
+        // dieselbe Filmzeit sieht wie Editor und Player.
+        ...(filmS !== undefined ? { filmS } : {}),
+      }
+    })
+  }
+
+  // Audio-Spuren (Baukasten): absolute Zeiten → f-Bereiche. Fehlende Dateien
+  // und Bereiche, die der Trim vollständig entfernt hat, werden mit Warnung
+  // übersprungen — ein kaputter Verweis darf den Render nie scheitern lassen.
+  let audio: TourJson['audio']
+  if (edits?.audio?.length) {
+    const vorhandene = new Set(audioDateien ?? [])
+    const benutzerVorhandene = new Set(benutzerAudioDateien ?? [])
+    const ersterPunkt = reihe.punkte[0]
+    const letzterPunkt = reihe.punkte[reihe.punkte.length - 1]
     /** Streckenanteil zu einer Filmsekunde (über die Achse zurück in die Zeit). */
     const fBeiFilm = (filmS: number): number =>
       positionZurZeit(reihe, zeitBeiFilm(achse as NonNullable<typeof achse>, filmS)).f
@@ -487,38 +547,34 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       const filmVerankert =
         achse !== null && (spur.anker !== undefined || spur.versatzFilmS !== undefined || spur.dauerFilmS !== undefined)
       const tAb = (Date.parse(spur.anker ?? spur.ab) - startMs) / 1000
+      const tBis = spur.bis !== undefined ? (Date.parse(spur.bis) - startMs) / 1000 : undefined
       let f0: number
       let f1: number
+      // Die Filmsekunden des Klips (E10) — die eigentliche Auskunft, seit der
+      // Player in Filmzeit rechnet. `undefined` nur ohne Achse.
+      let filmVonS: number | undefined
+      let filmBisS: number | undefined
       if (filmVerankert) {
         // Anker → Filmsekunde → Versatz drauf → zurück in Zeit und Anteil.
         const filmVon = filmBeiZeit(achse, tAb) + (spur.versatzFilmS ?? 0)
         f0 = fBeiFilm(filmVon)
+        filmVonS = filmVon
         if (spur.dauerFilmS !== undefined) {
-          f1 = fBeiFilm(filmVon + spur.dauerFilmS)
+          filmBisS = filmVon + spur.dauerFilmS
+          f1 = fBeiFilm(filmBisS)
         } else if (spur.typ === 'musik') {
-          f1 = spur.bis !== undefined ? positionZurZeit(reihe, (Date.parse(spur.bis) - startMs) / 1000).f : 1
+          filmBisS = tBis !== undefined ? filmBeiZeit(achse, tBis) : achse.gesamtS
+          f1 = tBis !== undefined ? positionZurZeit(reihe, tBis).f : 1
         } else {
+          filmBisS = filmVon
           f1 = f0
-        }
-        // Ein Musik-Klip, dessen Spanne im f-Raum auf einen Punkt zusammenfällt,
-        // wäre stumm (`istAktiv` prüft f0 ≤ f < f1). Das passiert, wenn er ganz
-        // in einer Standzeit oder einer Ex-Pause liegt: Dort läuft der Film,
-        // aber die STRECKE steht — und das Tour-JSON kennt nur Streckenanteile.
-        // Lieber laut überspringen als still nichts abspielen. Ein One-Shot lebt
-        // dagegen genau von diesem Punkt.
-        if (f1 < f0 || (f1 === f0 && spur.typ === 'musik')) {
-          protokoll?.(`Audio ohne Streckenanteil übersprungen (liegt ganz in einer Standzeit?): ${spur.datei}`)
-          continue
         }
       } else {
         f0 = positionZurZeit(reihe, tAb).f
+        filmVonS = achse ? filmBeiZeit(achse, tAb) : undefined
         if (spur.typ === 'musik') {
-          f1 = spur.bis !== undefined ? positionZurZeit(reihe, (Date.parse(spur.bis) - startMs) / 1000).f : 1
-          // Leere Spanne (z. B. komplett vor den Trim-Start geklemmt) → weg damit
-          if (f1 <= f0) {
-            protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
-            continue
-          }
+          f1 = tBis !== undefined ? positionZurZeit(reihe, tBis).f : 1
+          filmBisS = achse ? (tBis !== undefined ? filmBeiZeit(achse, tBis) : achse.gesamtS) : undefined
         } else {
           // SFX: One-Shot exakt bei f0. Liegt `ab` außerhalb des (getrimmten)
           // Tracks, würde die Klemmung den Knall an den Tour-Start/-Ende legen,
@@ -529,6 +585,20 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
           }
           f1 = f0
         }
+      }
+      // Ein Musik-Klip ohne Ausdehnung wäre stumm (`istAktiv` prüft
+      // Von ≤ x < Bis) — nur gilt das seit E10 in FILMZEIT und nicht mehr im
+      // Streckenanteil. Genau darin liegt der Unterschied: Ein Klip, der ganz
+      // in einer Standzeit oder einer Ex-Pause liegt, fällt im `f`-Raum auf
+      // einen Punkt zusammen (dort steht die Strecke, während der Film läuft)
+      // und wurde deshalb bis hierher VERWORFEN. Er hat sehr wohl eine Länge,
+      // man muss sie nur in der richtigen Größe messen. Übrig bleibt der Fall,
+      // in dem auch der Film keine Zeit dafür hat — etwa eine Spanne, die der
+      // Trim vollständig vor den Track-Anfang klemmt.
+      const leer = filmVonS !== undefined && filmBisS !== undefined ? !(filmBisS > filmVonS) : f1 <= f0
+      if (spur.typ === 'musik' && leer) {
+        protokoll?.(`Audio außerhalb des Tracks übersprungen: ${spur.datei}`)
+        continue
       }
       spuren.push({
         type: spur.typ === 'musik' ? 'music' : 'sfx',
@@ -552,9 +622,20 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         // bekämen ein Feld, das sie nie hatten.
         ...(spur.loop !== undefined ? { loop: spur.loop } : {}),
         ...(spur.einstiegS ? { startS: spur.einstiegS } : {}),
+        // Die Film-Anker (E10). `filmS` steht bei jedem Klip, `filmBisS` nur bei
+        // einem BEREICH: Ein One-Shot hat keine Länge, und ein zweites Feld mit
+        // demselben Wert wäre eine Angabe über nichts. Der Player fällt je
+        // Endpunkt einzeln auf `f0`/`f1` zurück — ein Bereich ohne `filmBisS`
+        // bleibt dadurch ein Bereich.
+        ...(filmVonS !== undefined ? { filmS: filmZahl(filmVonS) } : {}),
+        ...(filmBisS !== undefined && filmVonS !== undefined && filmBisS > filmVonS
+          ? { filmBisS: filmZahl(filmBisS) }
+          : {}),
       })
     }
-    spuren.sort((a, b) => a.f0 - b.f0)
+    // Sortiert nach FILMSEKUNDE, wo es sie gibt: Zwei Klips in derselben
+    // Standzeit haben dasselbe `f0` und stünden sonst in beliebiger Reihenfolge.
+    spuren.sort((a, b) => (a.filmS ?? a.f0) - (b.filmS ?? b.f0) || a.f0 - b.f0)
     if (spuren.length) audio = spuren
   }
 

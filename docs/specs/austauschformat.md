@@ -30,6 +30,18 @@ Grundprinzipien:
   ungleichmäßig, ein Anker lag deshalb bis zu 9 Filmsekunden neben seiner
   Stelle. Nachrechnen kann der Client das nicht: `vereinfacheSegment` wirft
   Punkte weg, die Länge tragen.
+  **Die eine begründete Ausnahme ist die FILMSEKUNDE je Ereignis** (`audio[].filmS`
+  / `filmBisS`, `camera[].filmS`, `moments[].filmS` — E10, s. u.). Sie ist keine
+  zweite Streckenangabe, sondern eine andere Größe: Im HALT (Foto-Standzeit,
+  Moment, kollabierte Pause) läuft der Film, während die Strecke steht. Ein
+  ganzes Film-Intervall fällt dort auf EIN `f` zusammen, und aus diesem `f` ist
+  es nicht wieder herauszuholen — ein Klip, der zwei Sekunden in eine
+  5,2-s-Standzeit hinein beginnt, setzte sonst an der Halt-Kante ein, und einer,
+  der ganz darin liegt, hätte gar keine Länge. Sekunden statt Anteil sind hier
+  also nicht Bequemlichkeit, sondern die einzige Parametrisierung, in der die
+  Angabe existiert. Die ganze ACHSE zu exportieren bleibt abgelehnt (sie ist
+  redundant und teuer, Gleichlauf-Konzept §12); ein bis zwei Zahlen je Ereignis
+  decken genau die Stelle ab, an der die Abbildung nicht umkehrbar ist.
 - **Unbekannte Felder ignoriert der Player.** Baukasten-Felder (`camera`,
   `audio`, `media[].display`) sind reserviert und ab Tag 1 im Schema erlaubt.
 
@@ -184,18 +196,29 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   bei aufgezeichneten Touren sofort sinnvoll.
 - **Kreativbaukasten-Felder** (aus dem Edit-Overlay gerendert, s. u.; der
   Player ignoriert sie, wenn sie fehlen):
-  - `camera: [{f, preset}]` — Kamera-Preset-Keyframes (nah|mittel|weit|standard),
-    sortiert nach `f`; gilt ab `f` bis zum nächsten Keyframe. Der Player
+  - `camera: [{f, preset, filmS?}]` — Kamera-Preset-Keyframes (nah|mittel|weit|standard),
+    sortiert nach `f`; gilt ab dieser Stelle bis zum nächsten Keyframe. Der Player
     (main.js-Folger) wendet sie über `tour.setPreset` an; ein manueller
     Preset-Klick des Zuschauers übersteuert den Verlauf. `standard` ist der
     Wert für „keine Vorgabe": Der Folger setzt dort den Abstand zurück, den der
     Zuschauer eingestellt hat (dasselbe wie vor dem ersten Keyframe), und eine
     `skala` bleibt dabei außen vor — sie gehört zu einem gewählten Abstand.
     `PRESETS` in src/tour.js kennt ihn NICHT; er wird im Folger übersetzt.
-  - `audio: [{type, src, f0, f1, gain?}]` — `music` spielt im Streckenbereich
-    [f0, f1) mit weichen Blenden (src/audiotracks.ts; ersetzt die statische
-    Hintergrundmusik der Tour komplett), `sfx` feuert einmal beim
-    Vorwärts-Überfahren von `f0` (f1 == f0). `gain` 0..1 (Default 1).
+  - `audio: [{type, src, f0, f1, gain?, filmS?, filmBisS?}]` — `music` spielt im
+    Bereich [Beginn, Ende) mit weichen Blenden (src/audiotracks.ts; ersetzt die
+    statische Hintergrundmusik der Tour komplett), `sfx` feuert einmal beim
+    Vorwärts-Überfahren seines Beginns. `gain` 0..1 (Default 1).
+  - **Die Film-Anker `filmS` / `filmBisS` (additiv, E10) gehen `f0`/`f1` vor.**
+    Der Player rechnet in Filmsekunden, nicht im Streckenanteil — je Endpunkt
+    einzeln: Wo `filmS` steht, gilt es; wo es fehlt, rechnet er die Filmsekunde
+    aus `f0` über die Filmachse. `filmBisS` steht nur bei einem BEREICH — ein
+    One-Shot hat keine Länge, und dasselbe gilt für `camera[].filmS` und
+    `moments[].filmS` (dort ist es eine Auskunft: Einen Moment verankert der
+    Player weiter an `f`, weil die Filmachse AUS den Momenten gebaut wird).
+    Gerundet auf 8 Nachkommastellen, wie `segments[].f` und aus demselben Grund.
+    Kuratierte Touren (`src/tours.ts`) tragen die Felder nie; Touren, die vor
+    E10 gerendert wurden, bekommen sie beim nächsten Render — bis dahin klingen
+    sie unverändert.
   - `media[].display: {holdS?, kenBurns?}` — Haltedauer des Foto-Stopps in
     Sekunden (Default 5,2 s) und Ken-Burns-Drift an/aus (Default an);
     für Videos wirkungslos (Haltedauer = Videolänge).
@@ -285,7 +308,11 @@ sondern kreative Zutaten mit eigenem Lebenszyklus:
 Beim Rendern bildet die Pipeline die Zeit-Anker über `positionZurZeit` auf
 den **bearbeiteten** (getrimmten) Track ab: `kamera.ab → camera[].f`,
 `audio.ab/bis → f0/f1` (Musik ohne `bis` → f1 = 1; Einträge, die komplett
-außerhalb der Wiedergabespanne liegen, entfallen mit Warnung).
+außerhalb der Wiedergabespanne liegen, entfallen mit Warnung). Parallel dazu
+läuft dieselbe Abbildung über die **Film-Achse** (`server/src/pipeline/filmachse.ts`,
+Spiegel von `src/filmachse.ts`) und liefert die Film-Anker. „Komplett außerhalb"
+wird seit E10 in FILMZEIT geprüft: Ein Klip ganz in einer Standzeit hat dort
+sehr wohl eine Länge und bleibt — vorher fiel genau er heraus.
 
 ## Status- und Fehlerfälle
 

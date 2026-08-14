@@ -318,6 +318,25 @@ kam aus `src/studio/abspielen.ts` (ein Umzug, kein Nachbau); nachgezogen wird am
 Geste und nicht pro Frame, weil während des Scrubs Musik klingt und ein Seek je Frame ein
 Stottern wäre.
 
+**Und die Ereignisse werden NACH FILMZEIT ausgelöst** (E10, Etappe 4b): `istAktiv` und
+`sfxSollFeuern` in [src/audiotracks.ts](src/audiotracks.ts) vergleichen Filmsekunden, der
+Kamera-Folger in [main.ts](src/main.ts) ebenso. Der Grund ist der HALT: Dort läuft der Film,
+während die Strecke steht — ein Musik-Klip, der ganz in einer Standzeit liegt, hat
+`f0 === f1` und wäre unter jeder `frac`-Prüfung stumm, welche Zahl auch immer im JSON
+danebensteht. **Die Auslöse-Logik ist die Substanz, die JSON-Felder sind ihr Transport:** Das
+Tour-JSON trägt seit E10 additiv eine Filmsekunde je Ereignis (`audio[].filmS`/`filmBisS`,
+`camera[].filmS`, `moments[].filmS` — [docs/specs/austauschformat.md](docs/specs/austauschformat.md)),
+der Player nimmt sie je Endpunkt, wo sie steht, und rechnet sonst wie bisher aus `f`.
+Vier Dinge, die man dabei kippt: Die Filmsekunde kommt aus **`tour.filmS`** und nie aus
+`filmBeiS(s)` — im Halt steht `s` still, der Rückweg lieferte dort die ganze Standzeit lang
+die ANKUNFT, also genau den Wert, den `f` schon hat. Die **SFX-Schwelle ist keine Übersetzung
+der alten 0,02**, sondern der Notdeckel der Filmuhr (1,0 s): In `frac` waren das 2 % der
+Tour (auf Koh Pha-ngan ~4,4 s), naiv als „0,02 s" übernommen verschlucken sie jeden One-Shot.
+Der **Moment bleibt an `f` verankert**, obwohl er das Feld trägt — er IST ein Halt, und die
+Achse wird aus den Halten gebaut. Und **Bestandstouren klingen unverändert**: Sie tragen ihre
+Anker noch in `f` und wandern erst beim nächsten Render an die Stelle, die der Autor in
+Filmzeit gemeint hat.
+
 **Und ein zweiter Anlass zum Nachziehen: verworfene Filmzeit.** Der Ton läuft auf der
 WANDUHR, der Film auf der Filmuhr — und die verwirft, was über ihrem Notdeckel (1,0 s) liegt.
 Bei gedrosseltem `rAF` ohne `visibilitychange` (verdecktes Fenster, Kachel-Nachladen nach

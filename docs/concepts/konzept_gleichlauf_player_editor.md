@@ -1,6 +1,6 @@
 # Gleichlauf: ein Film, zwei Bühnen
 
-Stand: 13. August 2026 (Prüfung eingearbeitet) · Status: **Entscheidungen getroffen, nichts gebaut** · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
+Stand: 14. August 2026 · Status: **Pakete A–F gebaut** (offen: G — Etappe 5, die Leiste) · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
 
 **Ziel:** Der Studio-Editor zeigt denselben Film wie der Player — so genau, dass man **auf
 den Takt der Musik schneiden** kann. Heute weicht er an drei Achsen ab: hörbar (bis v0.60.4),
@@ -552,7 +552,7 @@ dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ih
 | **C** | Etappe 2 — alle `f`-Anker nach `s`, Server-`f` je Wegpunkt, Spec | M | mit D bündelbar |
 | **D** | Etappe 3 — geteilte `filmachse.ts` über der Strecke (E12), dazu der Umzug von `musikVersatzS` (§6C) | L | erste hörbare Wirkung: der Ton springt beim Scrubben mit |
 | **E** | Etappe 4 + Rampen im Server-Spiegel — gebaut in zwei Gängen (Engine, dann Anzeige) | XL | **als Release unteilbar** |
-| **F** | Etappe 4b — Auslösen in Filmsekunden + Film-Anker | M | direkt nach E |
+| **F** | Etappe 4b — Auslösen in Filmsekunden + Film-Anker | M | **gebaut** (14.08.) |
 | **G** | Etappe 5 — die Leiste | M | eigenes Release |
 
 **Was nicht geteilt werden darf, ist die AUSLIEFERUNG — nicht die Arbeit.** Etappe 4 und die
@@ -829,6 +829,16 @@ Deshalb gehören beide Teile in **dieselbe** Etappe:
 *Fertig, wenn:* Ein Musik-Klip, der 2 s in einen 5,2-s-Halt hinein beginnt, setzt im Player
 dort ein und nicht an der Halt-Kante — und keiner wird mehr mit „liegt ganz in einer
 Standzeit" verworfen.
+
+**Gebaut am 14.08.** Drei Nachträge aus der Umsetzung, die das Papier vorher nicht hatte:
+Die Filmsekunde muss aus **`tour.filmS`** kommen und nie aus `filmBeiS(s)` — im Halt steht
+`s`, der Rückweg über die Achse liefert dort die ganze Standzeit lang die ANKUNFT, also
+genau den Wert, den `f` schon hat (aus `s` zurückgerechnet wäre das Feld wirkungslos
+gewesen). Der Rückfall gilt **je Endpunkt einzeln** (`filmS ?? aus f0`, `filmBisS ?? aus f1`)
+— dadurch bleibt ein Bereich auch dann ein Bereich, wenn nur eine der beiden Zahlen da ist,
+und ein One-Shot braucht kein zweites Feld mit demselben Wert. Und die Server-Achse wird
+seither **unbedingt** gebaut, nicht mehr nur bei Klips mit Anker-Feldern: Jedes Ereignis
+bekommt seine Filmsekunde, also braucht sie jeder Zweig.
 
 **Etappe 5 — Die Leiste.** Filmäquidistantes Höhenprofil, Halte mit Breite, `Telemetrie`
 bekommt `frac` **und** `filmFrac`, `fracAt` liefert einen Filmanteil.

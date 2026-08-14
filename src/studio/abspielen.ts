@@ -298,10 +298,18 @@ export function erzeugeAbspieler(optionen: AbspielerOptionen): Abspieler {
   }
 
   function pruefeKlaenge(vorher: number, nachher: number): void {
-    for (const k of plan?.klaenge ?? []) {
-      // Dieselbe Regel wie im Player (audiotracks.js): nur beim Vorwärts-
+    if (!plan) return
+    // Die Kante wird in FILMSEKUNDEN geprüft, nicht in Achsen-Anteilen (E10):
+    // Die Schwelle, ab der ein Schritt als Sprung gilt, ist eine Frame-Zeit —
+    // im Anteil hinge sie an der Länge der Tour, und dieselbe Geste feuerte in
+    // einem kurzen Film anders als in einem langen. Der Umweg über die Kurve
+    // ist zugleich der Grund, dass beide Bühnen dieselbe Zahl vergleichen.
+    const filmVorher = filmBei(plan.kurve, vorher)
+    const filmNachher = filmBei(plan.kurve, nachher)
+    for (const k of plan.klaenge) {
+      // Dieselbe Regel wie im Player (audiotracks.ts): nur beim Vorwärts-
       // Überfahren, und ein Sprung „verbraucht" die Marke lautlos.
-      if (!sfxSollFeuern(vorher, nachher, k.anteil, true)) continue
+      if (!sfxSollFeuern(filmVorher, filmNachher, filmBei(plan.kurve, k.anteil), true)) continue
       const a = new Audio(k.url)
       a.volume = Math.max(0, Math.min(1, k.lautstaerke))
       if (k.einstiegS) a.currentTime = k.einstiegS // linker Trim gilt auch beim One-Shot

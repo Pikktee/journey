@@ -665,7 +665,10 @@ startet, hört, was dort im Film liefe). Die Rechnung dahinter ist seit Paket D 
 `musikVersatzS` steht in [audiotracks.ts](../audiotracks.ts) und bekommt die Filmzeit seit
 Klipbeginn herein (`seitKlipbeginnS` über die Spielkurve) — der Player ruft dieselbe Funktion
 über seine Filmachse, und beide Bühnen greifen an derselben Filmsekunde auf dieselbe
-Datei-Position zu (Wächter in [test/filmachse.test.ts](../../test/filmachse.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts), damit im
+Datei-Position zu (Wächter in [test/filmachse.test.ts](../../test/filmachse.test.ts)); Klänge nutzen `sfxSollFeuern` aus [src/audiotracks.ts](../audiotracks.ts) — seit E10 in
+FILMSEKUNDEN, der Abspieler rechnet seine Marken dafür über `filmBei(plan.kurve, …)` um; die
+Schwelle, ab der ein Schritt als Sprung gilt, ist eine Frame-Zeit und hinge im Achsen-Anteil
+an der Länge der Tour. Das ändert Player und Editor in einem Zug, damit im
 Studio nichts klingt, was der Film nicht spielt (Drift-Wächter). Bis zur
 TypeScript-Migration des Players lag daneben eine handgeschriebene
 `audiotracks.d.ts`, weil `allowJs` aus ist — seit `audiotracks.ts` TypeScript ist,

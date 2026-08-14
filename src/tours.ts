@@ -60,6 +60,17 @@ export interface TourAudio {
   gain?: number
   loop?: boolean
   startS?: number
+  /**
+   * Filmsekunde des Einsatzes (E10) — geht `f0` vor, wenn sie da ist.
+   *
+   * Der Streckenanteil kann den Halt nicht ausdrücken: Dort läuft der Film und
+   * die Strecke steht, ein Klip mitten in einer Standzeit fiele auf die
+   * Halt-Kante. Kuratierte Touren (diese Datei) tragen das Feld nie — für sie
+   * gilt dauerhaft der Rückfall über die Filmachse.
+   */
+  filmS?: number
+  /** Filmsekunde des Endes; nur bei Bereichen (ein One-Shot hat keine) */
+  filmBisS?: number
 }
 
 export interface TourConfig {

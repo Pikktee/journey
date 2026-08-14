@@ -6,6 +6,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0,
       "f1": 0.17713750319021987,
+      "filmBisS": 72.40668346,
+      "filmS": 0,
       "gain": 0.6,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",
       "type": "music",
@@ -13,6 +15,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0.17713750319021987,
       "f1": 1,
+      "filmBisS": 155.2279531,
+      "filmS": 72.40668346,
       "gain": 0.8,
       "src": "/api/tours/t_vertrag01/bibliothek-audio/mein-stueck.mp3",
       "type": "music",
@@ -20,6 +24,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0.44511770629870545,
       "f1": 0.44511770629870545,
+      "filmS": 97.76396069,
       "gain": 0.8,
       "src": "/audio/sfx/sfx-moewen.mp3",
       "type": "sfx",
@@ -264,10 +269,12 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "camera": [
     {
       "f": 0,
+      "filmS": 0,
       "preset": "mittel",
     },
     {
       "f": 0.17713750319021987,
+      "filmS": 78.40668346,
       "preset": "weit",
       "skala": 1.4,
     },
@@ -325,11 +332,13 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "art": "umkreisen",
       "f": 0.03712044014873121,
+      "filmS": 10.71600609,
     },
     {
       "art": "innehalten",
       "dauerS": 6,
       "f": 0.44511770629870545,
+      "filmS": 103.76396069,
     },
   ],
   "no": "NÂ°42",
@@ -1010,6 +1019,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0.003737816578715636,
       "f1": 0.11252908373243974,
+      "filmBisS": 42.5,
+      "filmS": 2.5,
       "gain": 0.8,
       "loop": false,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",
@@ -1019,6 +1030,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0.2880003773789751,
       "f1": 0.4200250863269188,
+      "filmBisS": 94.48324034,
+      "filmS": 82.48324034,
       "gain": 0.8,
       "loop": true,
       "src": "/audio/sfx/sfx-brandung.mp3",
@@ -1264,6 +1277,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0.06627176980764647,
       "f1": 0.11252908373243974,
+      "filmBisS": 55,
+      "filmS": 30,
       "gain": 0.8,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",
       "type": "music",
@@ -1323,6 +1338,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "art": "umkreisen",
       "f": 0.03712044014873121,
+      "filmS": 10.71600609,
     },
   ],
   "no": "NÂ°42",
@@ -1514,6 +1530,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0,
       "f1": 1,
+      "filmBisS": 89.83709655,
+      "filmS": 0,
       "gain": 0.8,
       "src": "/api/media/t_vertrag01/eigene-spur.mp3",
       "type": "music",
@@ -2168,6 +2186,8 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0,
       "f1": 1,
+      "filmBisS": 140.91965165,
+      "filmS": 0,
       "gain": 0.8,
       "src": "/api/tours/t_vertrag01/bibliothek-audio/mein-stueck.mp3",
       "type": "music",
@@ -2175,6 +2195,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
     {
       "f0": 0.11252908373243974,
       "f1": 0.11252908373243974,
+      "filmS": 38.19988401,
       "gain": 0.8,
       "src": "/audio/sfx/sfx-wind.mp3",
       "type": "sfx",
@@ -2184,6 +2205,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
   "camera": [
     {
       "f": 0.05607616471294017,
+      "filmS": 25.95091629,
       "preset": "nah",
       "skala": 0.8,
     },
@@ -2246,6 +2268,7 @@ exports[`Vertrag: gerendertes Tour-JSON je Overlay-Form > bleibt unverÃ¤ndert â€
       "art": "aufstieg",
       "dauerS": 4,
       "f": 0.11252908373243974,
+      "filmS": 38.19988401,
     },
   ],
   "no": "NÂ°42",
