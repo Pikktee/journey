@@ -3021,12 +3021,13 @@
         <path d="M20 14.3A8.4 8.4 0 0 1 9.7 4a8.6 8.6 0 1 0 10.3 10.3z"/>
       </symbol>
       <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
-      <!-- Darstellung der Karte: Sonne hinter Wolke — beides, worum es im
-           Panel geht (Tageszeit UND Wetter), in einem Zeichen. -->
-      <symbol id="i-stimmung" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="9" cy="8.4" r="3.1"/>
-        <path d="M9 2.6v1.5M9 12.7v.6M14.8 8.4h-1.5M4.7 8.4H3.2M13.1 4.3l-1 1M5.9 11.5l-1 1M4.9 4.3l1 1"/>
-        <path d="M9.6 20.2h8.1a2.9 2.9 0 0 0 .3-5.8 4.2 4.2 0 0 0-8-1.1 3 3 0 0 0-.4 6z"/>
+      <!-- Zahnrad = Einstellungen. Dieselbe Form wie im Konto-Menü, damit das
+           Zeichen im Produkt eine Bedeutung hat und nicht zwei. Der frühere
+           Entwurf (Sonne hinter Wolke) beschrieb den INHALT des Panels — als
+           Knopf gelesen sah er aus wie ein Wetter-Umschalter. -->
+      <symbol id="i-zahnrad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.1"/>
+        <path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/>
       </symbol>
       <symbol id="i-wolke" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7.4 18.4h9.2a3.3 3.3 0 0 0 .3-6.6 4.8 4.8 0 0 0-9.1-1.2 3.4 3.4 0 0 0-.4 7.8z"/>
@@ -3554,7 +3555,7 @@
                aus" ist keine dritte Zoomstufe. -->
           <div class="karte-werkzeuge">
             <div class="karte-zoom">
-              <button id="karte-stimmung" title="Darstellung der Karte" aria-label="Darstellung der Karte" aria-haspopup="dialog" aria-expanded="false"><svg><use href="#i-stimmung"/></svg></button>
+              <button id="karte-stimmung" title="Darstellung der Karte" aria-label="Darstellung der Karte" aria-haspopup="dialog" aria-expanded="false"><svg><use href="#i-zahnrad"/></svg></button>
             </div>
             <!-- Zoom der Karte (die MapLibre-Leiste passte nicht zur Optik) -->
             <div class="karte-zoom" role="group" aria-label="Karte zoomen">
