@@ -433,12 +433,37 @@ function schliesse(): void {
   marker = new Map()
   medienMarker = new Map()
   markerZuId = new Map()
+  leereTourCaches()
   laeufer = null
   kumStrecke = []
   pxProFilmS = 0
   einpassen = true
   kopfFilmS = null
   zurueckCb?.()
+}
+
+/**
+ * Alle Caches leeren, deren Schlüssel nur INNERHALB einer Tour eindeutig ist.
+ *
+ * **Medien-IDs sind pro Tour vergeben** — jede Tour beginnt bei `m1`. Ein
+ * Cache, der sie als Schlüssel nimmt und den Tourwechsel überlebt, liefert in
+ * der zweiten Tour die Daten der ersten. Sichtbar war das an den Miniaturen:
+ * Tour 2 zeigte die Fotos von Tour 1, bis jemand die Seite neu lud. Unsichtbar
+ * betraf es genauso die Aufnahme-Details (fremde Kamera, fremdes Objektiv) und
+ * das Seitenverhältnis der Foto-Karte — falsche Auskünfte, die aussehen wie
+ * echte. Bei den Ton-Caches ist der Schlüssel ein Dateiname: für die
+ * benutzerweite Bibliothek eindeutig, für tour-lokale `media/`-Klänge nicht.
+ *
+ * Eine Stelle für alle, damit der nächste Cache hier landet und nicht wieder
+ * zwei Jahre still danebenliegt.
+ */
+function leereTourCaches(): void {
+  klipEls = new Map()
+  momentEls = new Map()
+  exifCache.clear()
+  seitenverhaeltnisse.clear()
+  tonDauern.clear()
+  wellenBilder.clear()
 }
 
 /** Von außen (Studio-URL / Zurück-Taste) — no-op, wenn der Editor schon zu ist. */
