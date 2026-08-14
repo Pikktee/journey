@@ -49,6 +49,7 @@ import {
   type Modus,
   type MomentArt,
   type TrackPunkt,
+  wetterBeiZeit,
   type WetterModus,
 } from './editmodell.js'
 import {
@@ -118,6 +119,7 @@ import {
   type TonKlip,
   type TonPatch,
 } from './tonklip.js'
+import { erzeugeKartenstimmung, type Kartenstimmung } from './kartenstimmung.js'
 import { baueStopps, meterOhneCluster, reiheVergeben, stoppVon, type Stopp } from './stopps.js'
 import { beschreibeAufnahme, liesAufnahme, liesExif, type ExifAufnahme } from './exif.js'
 import {
@@ -396,6 +398,7 @@ async function ladeDaten(tourId: string): Promise<void> {
     karte = baueKarte()
     await new Promise<void>((erfuellt) => karte?.once('load', () => erfuellt()))
     baueTrackLayer(karte)
+    baueStimmung(karte)
   }
   passeAusschnittAn()
   // Abspielkopf auf den Anfang der Tour stellen — er ist ab jetzt immer
@@ -421,6 +424,10 @@ function schliesse(): void {
   verbergeFoto()
   karte?.remove()
   karte = null
+  // Die Stimmung hängt an DIESER Karte (Paint-Properties) und an einem Canvas
+  // in DIESER Bühne — beides ist mit `remove()` weg. Der Schalter-Zustand lebt
+  // dagegen in localStorage weiter und wird beim nächsten Aufbau gelesen.
+  stimmung = null
   z = null
   letzterStand = null
   marker = new Map()
@@ -5018,6 +5025,9 @@ function renderPlayhead(): void {
   const zeitIso = offsetZuIso(z.daten.time.start, tOffsetS)
   if (uhr) uhr.textContent = uhrzeitKurz(zeitIso)
   zeigeTageszeit(zeitIso)
+  // Was die Uhr als Symbol andeutet, zeigt die Karte als Licht — dieselbe
+  // Kopfposition, zwei Auflösungen derselben Auskunft.
+  synchronisiereStimmung(zeitIso)
   const km = document.getElementById('kopf-km')
   if (km) km.textContent = kmText(meterZuOffset(kumStrecke, z.track, tOffsetS))
 
@@ -5058,6 +5068,132 @@ function zeigeTageszeit(iso: string): void {
   if (klasse) el.classList.add(klasse)
   const use = el.querySelector('use')
   if (use && use.getAttribute('href') !== symbol) use.setAttribute('href', symbol)
+}
+
+// — Stimmung und Wetter auf der Karte (Konzept §10) —
+
+let stimmung: Kartenstimmung | null = null
+
+/**
+ * Vorgabe: Tageszeit AN, Wetter AUS.
+ *
+ * Die offene Frage des Konzepts („anfangs an oder aus?") hat für die beiden
+ * Schalter verschiedene Antworten, weil sie verschiedene Dinge tun. Die
+ * Tageszeit ist eine FARBKORREKTUR — sie bewegt nichts, kostet nichts und
+ * beantwortet beim Öffnen sofort, ob man eine Nachtfahrt vor sich hat; wer sie
+ * erst einschalten muss, sieht bis dahin eine Tour, die es so nicht gibt. Das
+ * Wetter ist BEWEGUNG über dem Bild: Beim Setzen von Ankern will man die Karte
+ * sehen, nicht Regen darüber, und es kostet eine Bildschleife.
+ */
+const STIMMUNG_VORGABE = { tagNacht: true, wetter: false }
+const STIMMUNG_SCHLUESSEL = 'maptale.editor.stimmung'
+
+function liesStimmungWahl(): { tagNacht: boolean; wetter: boolean } {
+  try {
+    const roh = localStorage.getItem(STIMMUNG_SCHLUESSEL)
+    if (!roh) return { ...STIMMUNG_VORGABE }
+    const w = JSON.parse(roh) as Partial<typeof STIMMUNG_VORGABE>
+    return {
+      tagNacht: typeof w.tagNacht === 'boolean' ? w.tagNacht : STIMMUNG_VORGABE.tagNacht,
+      wetter: typeof w.wetter === 'boolean' ? w.wetter : STIMMUNG_VORGABE.wetter,
+    }
+  } catch {
+    // Privater Modus, volles Kontingent, kaputter Eintrag — die Vorgabe trägt.
+    return { ...STIMMUNG_VORGABE }
+  }
+}
+
+function merkeStimmungWahl(): void {
+  if (!stimmung) return
+  try {
+    localStorage.setItem(
+      STIMMUNG_SCHLUESSEL,
+      JSON.stringify({ tagNacht: stimmung.tagNachtAn, wetter: stimmung.wetterAn }),
+    )
+  } catch {
+    /* nicht schreiben zu können ist kein Grund, die Ansicht nicht zu ändern */
+  }
+}
+
+function baueStimmung(k: maplibregl.Map): void {
+  const buehne = document.querySelector<HTMLElement>('.karten-buehne')
+  if (!buehne) return
+  stimmung = erzeugeKartenstimmung(k, 'sat', buehne)
+  // Wie im Player: Das Overlay friert ein, sobald die Szene nicht animiert —
+  // hier während eines Zugs an der Zeitleiste. Das hält das gemessene
+  // 5,5-ms-Ziehbudget frei (Konzept §10, Falle 3); die Blende ins Standbild
+  // bringt `weather.ts` selbst mit.
+  stimmung.setGate(() => !zug)
+  const wahl = liesStimmungWahl()
+  stimmung.setTagNacht(wahl.tagNacht)
+  stimmung.setWetter(wahl.wetter)
+  zeigeStimmungWahl()
+}
+
+/** Schalterstellungen und den Knopf-Zustand an die Oberfläche schreiben. */
+function zeigeStimmungWahl(): void {
+  const tag = document.getElementById('stimmung-tagnacht') as HTMLInputElement | null
+  const wet = document.getElementById('stimmung-wetter') as HTMLInputElement | null
+  if (tag) tag.checked = stimmung?.tagNachtAn ?? STIMMUNG_VORGABE.tagNacht
+  if (wet) wet.checked = stimmung?.wetterAn ?? STIMMUNG_VORGABE.wetter
+  // Der Knopf trägt die Akzentfarbe, sobald irgendetwas eingeschaltet ist —
+  // sonst wäre bei geschlossenem Panel nicht zu sehen, woher eine nächtlich
+  // abgedunkelte Karte kommt.
+  document.getElementById('karte-stimmung')?.classList.toggle('an', !!(stimmung?.tagNachtAn || stimmung?.wetterAn))
+}
+
+function verdrahteStimmung(): void {
+  const knopf = $('karte-stimmung')
+  const panel = $('stimmung-panel')
+  const zu = (): void => {
+    panel.hidden = true
+    knopf.setAttribute('aria-expanded', 'false')
+  }
+  knopf.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const offen = panel.hidden
+    panel.hidden = !offen
+    knopf.setAttribute('aria-expanded', String(offen))
+    if (offen) zeigeStimmungWahl()
+  })
+  // Klick daneben schließt — aber nicht der Klick IM Panel, sonst ginge es bei
+  // jedem Umlegen eines Schalters zu.
+  document.addEventListener('click', (e) => {
+    if (panel.hidden) return
+    if (e.target instanceof Node && (panel.contains(e.target) || knopf.contains(e.target))) return
+    zu()
+  })
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !panel.hidden) zu()
+  })
+  $('stimmung-tagnacht').addEventListener('change', (e) => {
+    stimmung?.setTagNacht((e.target as HTMLInputElement).checked)
+    merkeStimmungWahl()
+    zeigeStimmungWahl()
+  })
+  $('stimmung-wetter').addEventListener('change', (e) => {
+    stimmung?.setWetter((e.target as HTMLInputElement).checked)
+    merkeStimmungWahl()
+    zeigeStimmungWahl()
+  })
+}
+
+/**
+ * Die Stimmung an der Kopfposition nachziehen.
+ *
+ * Aufgerufen aus `renderPlayhead` — dieselbe Stelle wie das eingeblendete Foto
+ * und die Kartenmitte, und aus demselben Grund: Was die Karte zeigt, ist eine
+ * FUNKTION der Kopfposition und kein Ereignis. Das Wetter kommt aus
+ * `anzeigeWetter()`, also aus den eigenen Grenzen, sonst aus dem Auto-Wetter
+ * des Servers — genau das, was die Wetter-Bahn darunter zeichnet.
+ */
+function synchronisiereStimmung(zeitIso: string): void {
+  if (!stimmung || !z?.auswahl) return
+  // `anzeigeWetter()` ist genau die Liste, die die Wetter-Bahn zeichnet: eigene
+  // Grenzen, sonst das Auto-Wetter des Servers. Die Karte zeigt damit dasselbe,
+  // was in der Leiste steht — und nicht eine zweite Wahrheit daneben.
+  const gilt = wetterBeiZeit(anzeigeWetter(), zeitIso)
+  stimmung.setze(zeitIso, [z.auswahl[0], z.auswahl[1]], gilt)
 }
 
 const kmText = (meter: number): string => (meter / 1000).toFixed(1).replace('.', ',')
@@ -6679,6 +6815,7 @@ function verdrahteEinmal(): void {
     pausiereKartenFolge()
     karte?.zoomOut()
   })
+  verdrahteStimmung()
   $('tp-play').addEventListener('click', () => void spielUmschalten())
   // Sprung an Anfang und Ende. `setzeKopfFilm` klemmt selbst auf
   // [0, gesamtS] — deshalb genügt Infinity für „ans Ende".

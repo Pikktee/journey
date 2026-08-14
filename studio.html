@@ -1153,6 +1153,14 @@
       perspective: 1300px; container-type: size;
     }
     #editor-map { position: absolute; inset: 0; }
+    /* Das Wetter-Overlay (src/weather.ts) hängt seinen Canvas als #weather in
+       die Bühne. Seine Regeln stehen im Player in style.css, das diese Seite
+       NICHT lädt — ohne sie läge ein unpositionierter Canvas im Fluss und
+       schöbe die Karte weg. `absolute` statt `fixed` wie im Player: Hier
+       gehört das Wetter über die Karte, nicht über die Seite. Die Größe kommt
+       aus diesen vier Kanten; `resize` misst sie und setzt nur die
+       Backing-Auflösung (s. Kommentar dort). */
+    #weather { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
     #editor-map .maplibregl-canvas:focus,
     #editor-map .maplibregl-canvas:focus-visible { outline: none; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }
@@ -1359,9 +1367,12 @@
     @keyframes markerPuls { 0% { box-shadow: 0 0 0 0 rgba(245, 165, 36, 0.8); } 100% { box-shadow: 0 0 0 22px rgba(245, 165, 36, 0); } }
     .medien-punkt.puls .kern { animation: markerPuls 700ms ease-out 2; }
 
-    /* Zoom-Steuerung der Karte (statt der MapLibre-Leiste) */
-    .karte-zoom {
+    /* Rechte Werkzeugspalte der Karte (statt der MapLibre-Leiste) */
+    .karte-werkzeuge {
       position: absolute; top: 14px; right: 16px; z-index: 8;
+      display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+    }
+    .karte-zoom {
       display: flex; flex-direction: column; border-radius: var(--radius-md); overflow: hidden;
       border: 1px solid var(--rand); box-shadow: 0 2px 8px rgba(2, 5, 10, 0.45);
     }
@@ -1372,6 +1383,44 @@
     .karte-zoom button + button { border-top: 1px solid var(--rand); }
     .karte-zoom button:hover { background: rgba(28, 37, 48, 0.96); color: var(--text); }
     .karte-zoom svg { width: 17px; height: 17px; }
+    /* Eingeschaltete Darstellung: der Knopf trägt die Akzentfarbe. Sonst wäre
+       bei geschlossenem Panel nicht zu sehen, dass die Karte gerade gradet —
+       und ein nächtliches Satellitenbild sähe wie ein Ladefehler aus. */
+    #karte-stimmung.an { color: var(--akzent); }
+
+    .stimmung-panel {
+      position: absolute; top: 14px; right: 60px; z-index: 9; width: 286px;
+      padding: 11px 12px 9px; border-radius: var(--radius-md);
+      background: rgba(14, 19, 26, 0.96); border: 1px solid var(--rand);
+      box-shadow: 0 10px 30px rgba(2, 5, 10, 0.6);
+    }
+    .stimmung-panel[hidden] { display: none; }
+    /* Präfix `ks-` (Kartenstimmung) und NICHT `sp-`: Das gehört der geteilten
+       Dialogschicht (src/grundelemente.css, von dieser Seite geladen). Mit
+       `sp-kopf`/`sp-fuss` erbte das Panel deren Dialog-Regeln — der Fußsatz
+       wurde ein `display: flex` mit `justify-content: flex-end` und stand
+       rechtsbündig 84px eingerückt, dazu 34px Fremd-Polsterung. Eine Klasse,
+       die einem geteilten Blatt gehört, ist hier kein freier Name. */
+    .ks-kopf {
+      font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--text-3); margin-bottom: 8px;
+    }
+    .ks-zeile {
+      display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px;
+      padding: 7px 6px; border-radius: var(--radius-sm); cursor: pointer;
+    }
+    .ks-zeile:hover { background: var(--fl-3); }
+    .ks-sym { width: 18px; height: 18px; color: var(--text-3); }
+    .ks-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .ks-text b { font-weight: 500; font-size: 13.5px; color: var(--text); }
+    .ks-sub { font-size: 11.5px; color: var(--text-3); line-height: 1.35; }
+    /* Wie überall im Studio (`.kb`): Ohne `accent-color` ist das Kästchen das
+       graue Browser-Standardelement und auf dunklem Grund kaum zu sehen —
+       „an" und „aus" wären nur am Häkchen zu unterscheiden. */
+    .ks-zeile input { margin: 0; accent-color: var(--akzent); width: 15px; height: 15px; flex: none; }
+    .ks-fuss {
+      margin: 8px 6px 0; font-size: 11.5px; color: var(--text-3); line-height: 1.4;
+    }
 
     /* Kartenquellen hinter einem (i): Esri/Maxar zu nennen ist Pflicht, sie darf
        also nicht verschwinden — sie steckt im Knopf-Label und in der Blase, die
@@ -2967,6 +3016,16 @@
         <path d="M20 14.3A8.4 8.4 0 0 1 9.7 4a8.6 8.6 0 1 0 10.3 10.3z"/>
       </symbol>
       <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6V12l3 1.8"/></symbol>
+      <!-- Darstellung der Karte: Sonne hinter Wolke — beides, worum es im
+           Panel geht (Tageszeit UND Wetter), in einem Zeichen. -->
+      <symbol id="i-stimmung" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8.4" r="3.1"/>
+        <path d="M9 2.6v1.5M9 12.7v.6M14.8 8.4h-1.5M4.7 8.4H3.2M13.1 4.3l-1 1M5.9 11.5l-1 1M4.9 4.3l1 1"/>
+        <path d="M9.6 20.2h8.1a2.9 2.9 0 0 0 .3-5.8 4.2 4.2 0 0 0-8-1.1 3 3 0 0 0-.4 6z"/>
+      </symbol>
+      <symbol id="i-wolke" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7.4 18.4h9.2a3.3 3.3 0 0 0 .3-6.6 4.8 4.8 0 0 0-9.1-1.2 3.4 3.4 0 0 0-.4 7.8z"/>
+      </symbol>
       <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
       <symbol id="i-warnung" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.4H3z"/><path d="M12 10v4.2M12 17.2h.01"/></symbol>
@@ -3485,10 +3544,36 @@
                später an genau diesem Halt zeigt. Inhalt baut editor.ts. -->
           <div class="foto-flash" id="foto-flash" aria-hidden="true"></div>
           <div class="foto-einblendung" id="foto-einblendung" aria-hidden="true"></div>
-          <!-- Zoom der Karte (die MapLibre-Leiste passte nicht zur Optik) -->
-          <div class="karte-zoom" role="group" aria-label="Karte zoomen">
-            <button id="karte-plus" title="Hineinzoomen" aria-label="Hineinzoomen"><svg><use href="#i-plus"/></svg></button>
-            <button id="karte-minus" title="Herauszoomen" aria-label="Herauszoomen"><svg><use href="#i-minus"/></svg></button>
+          <!-- Rechte Werkzeugspalte: Darstellung, darunter der Zoom. Zwei
+               Gruppen mit Abstand und nicht eine Leiste — „wie sieht die Karte
+               aus" ist keine dritte Zoomstufe. -->
+          <div class="karte-werkzeuge">
+            <div class="karte-zoom">
+              <button id="karte-stimmung" title="Darstellung der Karte" aria-label="Darstellung der Karte" aria-haspopup="dialog" aria-expanded="false"><svg><use href="#i-stimmung"/></svg></button>
+            </div>
+            <!-- Zoom der Karte (die MapLibre-Leiste passte nicht zur Optik) -->
+            <div class="karte-zoom" role="group" aria-label="Karte zoomen">
+              <button id="karte-plus" title="Hineinzoomen" aria-label="Hineinzoomen"><svg><use href="#i-plus"/></svg></button>
+              <button id="karte-minus" title="Herauszoomen" aria-label="Herauszoomen"><svg><use href="#i-minus"/></svg></button>
+            </div>
+          </div>
+          <!-- Was die Karte zeigt: Tageszeit und Wetter, getrennt schaltbar.
+               Der Editor sagt beides längst (Uhr-Symbol, Wetter-Bahn) — hier
+               wird es sichtbar. Kein modaler Dialog: zwei Schalter, die man
+               beim Schneiden umlegt, gehören neben die Karte und nicht vor sie. -->
+          <div class="stimmung-panel" id="stimmung-panel" role="dialog" aria-label="Darstellung der Karte" hidden>
+            <div class="ks-kopf">Darstellung</div>
+            <label class="ks-zeile" for="stimmung-tagnacht">
+              <svg class="ks-sym" aria-hidden="true"><use href="#i-sonne"/></svg>
+              <span class="ks-text"><b>Tageszeit</b><span class="ks-sub">Licht nach dem Sonnenstand</span></span>
+              <input id="stimmung-tagnacht" type="checkbox" />
+            </label>
+            <label class="ks-zeile" for="stimmung-wetter">
+              <svg class="ks-sym" aria-hidden="true"><use href="#i-wolke"/></svg>
+              <span class="ks-text"><b>Wetter</b><span class="ks-sub">Regen, Schnee und Nebel</span></span>
+              <input id="stimmung-wetter" type="checkbox" />
+            </label>
+            <p class="ks-fuss">Nur die Vorschau, nicht der Film.</p>
           </div>
           <!-- Kartenquellen: Pflichtangabe, aber platzsparend hinter einem (i) -->
           <div class="karte-info">

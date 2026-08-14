@@ -78,6 +78,30 @@ export interface WetterGrenze {
 }
 
 /**
+ * Welches Wetter gilt zu einem Zeitpunkt? — die Grenzen als Stufenfunktion.
+ *
+ * Dieselbe Auskunft, die die Wetter-Bahn als Bänder zeichnet, nur an einem
+ * Punkt statt über einer Spanne: Es gilt die letzte Grenze, die nicht in der
+ * Zukunft liegt. VOR der ersten gilt nichts (`null`) — nicht etwa „klar":
+ * Solange keine Grenze gesetzt ist, hat der Autor sich nicht geäußert, und der
+ * Unterschied entscheidet, ob die Karte gar nichts oder ausdrücklich klares
+ * Wetter zeigt.
+ *
+ * Erwartet aufsteigend sortierte Grenzen — so schreibt `mitWetterGrenze` sie,
+ * und so liefert der Server sein Auto-Wetter.
+ */
+export function wetterBeiZeit(grenzen: readonly WetterGrenze[], iso: string): WetterGrenze | null {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return null
+  let gilt: WetterGrenze | null = null
+  for (const g of grenzen) {
+    if (Date.parse(g.ab) > t) break
+    gilt = g
+  }
+  return gilt
+}
+
+/**
  * Kamera-Abstand einer Grenze. `standard` ist ein WERT wie die anderen drei und
  * nicht die Abwesenheit eines Werts: Er sagt „hier gilt, was der Zuschauer im
  * Player eingestellt hat". Ohne ihn war Standard nur der Zustand VOR der ersten

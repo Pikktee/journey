@@ -58,7 +58,15 @@ const mixHex = (a: string, b: string, t: number): string => {
   return `rgb(${ch(ar, br_)},${ch(ag, bg)},${ch(ab, bb)})`
 }
 
-function paramsAt(alt: number): Lichtstimmung {
+/**
+ * Die Lichtstimmung an einer Sonnenhöhe (Grad) — interpoliert über `KEYS`.
+ *
+ * Exportiert, weil der Editor dieselbe Kurve braucht (Konzept §10): Was auch
+ * auf einer Draufsicht ohne Gelände und ohne Horizont trägt, ist das GRADING
+ * des Satellitenbilds. Licht (`setLight`) und Himmel (`setSky`) tragen dort
+ * nicht — das eine braucht Gelände, das andere einen Horizont.
+ */
+export function paramsAt(alt: number): Lichtstimmung {
   // KEYS ist nicht leer und die Suche unten bleibt innerhalb der Liste — die
   // `!` sind Bereichs-Nachweise, keine Hoffnungen.
   const erster = KEYS[0]!
@@ -79,6 +87,36 @@ function paramsAt(alt: number): Lichtstimmung {
     hor: mixHex(lo.hor, hi.hor, t),
     fog: mixHex(lo.fog, hi.fog, t),
     lc: mixHex(lo.lc, hi.lc, t),
+  }
+}
+
+/** Die vier Raster-Paint-Werte, mit denen ein Satellitenbild gegradet wird. */
+export interface Rastergrading {
+  brightnessMax: number
+  brightnessMin: number
+  saturation: number
+  contrast: number
+}
+
+/**
+ * Lichtstimmung (plus Schneedecke) → Grading-Werte für einen Raster-Layer.
+ *
+ * Herausgezogen, damit Player und Editor dieselbe Rechnung anwenden und nur
+ * der LAYER verschieden ist (`satellite` gegen `sat`). Vorher stand sie im
+ * Rumpf von `createDayNight`, verwoben mit `setLight`/`setSky` — und genau die
+ * beiden sind der Teil, der im Editor nicht trägt.
+ *
+ * `brightness-min` hebt die DUNKLEN Pixel an: Wälder, Wiesen und Fels werden
+ * weißlich, was sich als geschlossene Schneedecke liest. Tagesabhängig
+ * skaliert — nachts reflektiert Schnee zwar, glüht aber nicht.
+ */
+export function rastergrading(p: Lichtstimmung, schnee = 0): Rastergrading {
+  const dayNorm = Math.min(Math.max((p.br - 0.19) / (1 - 0.19), 0), 1)
+  return {
+    brightnessMax: +p.br.toFixed(3),
+    brightnessMin: +(schnee * (0.08 + 0.34 * dayNorm)).toFixed(3),
+    saturation: +Math.max(-1, p.sat - 0.5 * schnee).toFixed(3),
+    contrast: +(p.con - 0.06 * schnee).toFixed(3),
   }
 }
 
@@ -118,16 +156,13 @@ export function createDayNight(
     lastApply = now
     const p = paramsAt(sun.altitude)
     onParams?.(p, sun)
-    // Schnee-Grading: raster-brightness-min hebt die DUNKLEN Pixel an (Wälder,
-    // Wiesen, Fels werden weißlich — liest sich als geschlossene Schneedecke),
-    // dazu kräftig entsättigen. Tagsabhängig skaliert: nachts reflektiert Schnee
-    // zwar (leicht heller als schneefrei), aber kein Weiß-Glühen.
-    const dayNorm = Math.min(Math.max((p.br - 0.19) / (1 - 0.19), 0), 1)
-    const bmin = snowAmt * (0.08 + 0.34 * dayNorm)
-    map.setPaintProperty('satellite', 'raster-brightness-max', +p.br.toFixed(3))
-    map.setPaintProperty('satellite', 'raster-brightness-min', +bmin.toFixed(3))
-    map.setPaintProperty('satellite', 'raster-saturation', +Math.max(-1, p.sat - 0.5 * snowAmt).toFixed(3))
-    map.setPaintProperty('satellite', 'raster-contrast', +(p.con - 0.06 * snowAmt).toFixed(3))
+    // Grading des Satellitenbilds — dieselbe Rechnung wie im Editor
+    // (`rastergrading`), nur auf einem anders benannten Layer.
+    const g = rastergrading(p, snowAmt)
+    map.setPaintProperty('satellite', 'raster-brightness-max', g.brightnessMax)
+    map.setPaintProperty('satellite', 'raster-brightness-min', g.brightnessMin)
+    map.setPaintProperty('satellite', 'raster-saturation', g.saturation)
+    map.setPaintProperty('satellite', 'raster-contrast', g.contrast)
     map.setLight({
       anchor: 'map',
       // Licht nie unter den Horizont lassen: nachts bleibt ein flaches,

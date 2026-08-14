@@ -26,6 +26,7 @@ import {
   mitMoment,
   mitTrim,
   mitWetterGrenze,
+  wetterBeiZeit,
   MODI,
   MOMENT_DEFAULT_S,
   offsetZuIso,
@@ -406,6 +407,42 @@ describe('Wetter-Grenzen', () => {
     const e = mitWetterGrenze(LEERES_OVERLAY, iso(0), 'snow')
     const ohne = ohneWetterGrenze(e, iso(0))
     expect('wetter' in ohne).toBe(false)
+  })
+
+  // `wetterBeiZeit` beantwortet punktuell, was die Wetter-Bahn als Bänder
+  // zeichnet — die Karte im Editor (§10) fragt darüber, was sie zeigen soll.
+  describe('wetterBeiZeit', () => {
+    const grenzen = [
+      { ab: iso(0), mode: 'clouds' as const },
+      { ab: iso(600), mode: 'rain' as const, staerke: 0.9 },
+      { ab: iso(1200), mode: 'off' as const },
+    ]
+
+    it('gilt AB ihrer Grenze und bis zur nächsten', () => {
+      expect(wetterBeiZeit(grenzen, iso(0))?.mode).toBe('clouds')
+      expect(wetterBeiZeit(grenzen, iso(599))?.mode).toBe('clouds')
+      expect(wetterBeiZeit(grenzen, iso(600))?.mode).toBe('rain')
+      expect(wetterBeiZeit(grenzen, iso(1199))?.mode).toBe('rain')
+      expect(wetterBeiZeit(grenzen, iso(5000))?.mode).toBe('off')
+    })
+
+    it('reicht die Stärke durch', () => {
+      expect(wetterBeiZeit(grenzen, iso(700))?.staerke).toBe(0.9)
+      expect(wetterBeiZeit(grenzen, iso(100))?.staerke).toBeUndefined()
+    })
+
+    // Der Unterschied, der leicht verlorengeht: VOR der ersten Grenze hat sich
+    // niemand geäußert (null). Als 'off' gelesen wäre das die AUSSAGE „klares
+    // Wetter" — und eine Tour ohne jede Wetterangabe zeigte dann ausdrücklich
+    // klares Wetter statt gar keines.
+    it('sagt vor der ersten Grenze nichts — und nicht `off`', () => {
+      expect(wetterBeiZeit(grenzen, iso(-1))).toBeNull()
+      expect(wetterBeiZeit([], iso(500))).toBeNull()
+    })
+
+    it('verträgt eine unbrauchbare Zeit', () => {
+      expect(wetterBeiZeit(grenzen, 'morgen früh')).toBeNull()
+    })
   })
 
   it('pruefeOverlay lehnt Stärke außerhalb [0,1] ab', () => {

@@ -250,11 +250,19 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     return d
   }
 
+  // Gemessen wird das CANVAS, nicht das Fenster — und seine Layoutgröße kommt
+  // aus dem CSS (`inset: 0`), nicht von hier. Vorher stand da
+  // `window.innerWidth/innerHeight` plus ein `style.width`, das die Maße selbst
+  // setzte: Im Player stimmte das (der Canvas liegt `fixed` über dem Viewport),
+  // im Editor läge das Wetter damit über der ganzen Seite statt über der Karte.
+  // Wer die Größe schreibt, kann sie nicht messen — deshalb setzt `resize` nur
+  // noch die BACKING-Auflösung und liest das Layout.
   const resize = () => {
-    dpr = overlayPixelRatio() // Fenster-Aufziehen (klein → 4K) zieht das Pixelbudget nach
-    w = window.innerWidth; h = window.innerHeight
+    dpr = overlayPixelRatio() // Aufziehen (klein → 4K) zieht das Pixelbudget nach
+    const r = canvas.getBoundingClientRect()
+    w = Math.max(1, Math.round(r.width))
+    h = Math.max(1, Math.round(r.height))
     canvas.width = w * dpr; canvas.height = h * dpr
-    canvas.style.width = `${w}px`; canvas.style.height = `${h}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     // Kein Hard-Rebuild: der Bestand bleibt, die Zielanzahl (targetN in step)
     // zieht die Menge über Nachschub/Recycling weich auf die neue Fläche.
@@ -517,7 +525,15 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   }
 
   resize()
-  window.addEventListener('resize', resize)
+  // `ResizeObserver` statt `window.resize`: Im Editor ändert sich die Karte
+  // auch dann, wenn das Fenster gleich bleibt — Panel auf, Zeitleiste größer
+  // gezogen. Der Vergleich mit dem letzten Wert ist Pflicht: Der Observer
+  // feuert auch für Änderungen, die keine sind, und `resize` verwirft dabei
+  // jedes Mal die Transform-Matrix.
+  new ResizeObserver(() => {
+    const r = canvas.getBoundingClientRect()
+    if (Math.round(r.width) !== w || Math.round(r.height) !== h) resize()
+  }).observe(canvas)
   // Autoplay-Policy: war das Audio beim Auto-Restore blockiert, nach der ersten
   // User-Geste den laufenden Loop nachstarten.
   window.addEventListener('pointerdown', () => {
