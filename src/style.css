@@ -77,6 +77,16 @@ button:focus-visible {
 #weather {
   position: fixed;
   inset: 0;
+  /* `width`/`height` sind PFLICHT, nicht Redundanz zu `inset: 0`: Ein <canvas>
+     hat eine intrinsische Größe (die Attribute, Vorgabe 300×150), und bei
+     `position: absolute/fixed` gewinnt die gegen gegenüberliegende Kanten —
+     der Browser löst die Überbestimmung auf, indem er `right`/`bottom`
+     fallenlässt. Ohne diese zwei Zeilen bliebe der Canvas 300×150, und weil
+     `resize()` aus der Layoutgröße die Backing-Auflösung rechnet, WÜCHSE er
+     über den ResizeObserver in jedem Schritt um das dpr-Fache: weiße Fläche,
+     dann ein stehender Tab. */
+  width: 100%;
+  height: 100%;
   z-index: 3;
   pointer-events: none;
 }

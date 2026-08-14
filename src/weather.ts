@@ -257,11 +257,33 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   // im Editor läge das Wetter damit über der ganzen Seite statt über der Karte.
   // Wer die Größe schreibt, kann sie nicht messen — deshalb setzt `resize` nur
   // noch die BACKING-Auflösung und liest das Layout.
+  /**
+   * Die Fläche, die das Overlay bedeckt — gemessen an dem, was sie VORGIBT.
+   *
+   * Nie am Canvas selbst: `resize` schreibt `canvas.width`, und das ist
+   * zugleich seine intrinsische Größe. Aus dem Canvas zu lesen, was man in ihn
+   * schreibt, ist eine Rückkopplung — sie hat den Editor-Tab zum Stehen
+   * gebracht, weil die Fläche in jedem Schritt um das dpr-Fache wuchs.
+   *
+   * Welche Fläche gilt, entscheidet dieselbe Regel wie im Layout: Ein `fixed`
+   * positionierter Canvas hängt am Viewport (so liegt er im Player über der
+   * ganzen Seite — dessen `body` ist NICHT so hoch wie das Fenster), ein
+   * `absolute` positionierter an seinem Container (so liegt er im Editor über
+   * der Kartenbühne).
+   */
+  const flaeche = (): { w: number; h: number } => {
+    if (getComputedStyle(canvas).position === 'fixed') {
+      return { w: window.innerWidth, h: window.innerHeight }
+    }
+    const r = container.getBoundingClientRect()
+    return { w: r.width, h: r.height }
+  }
+
   const resize = () => {
     dpr = overlayPixelRatio() // Aufziehen (klein → 4K) zieht das Pixelbudget nach
-    const r = canvas.getBoundingClientRect()
-    w = Math.max(1, Math.round(r.width))
-    h = Math.max(1, Math.round(r.height))
+    const f = flaeche()
+    w = Math.max(1, Math.round(f.w))
+    h = Math.max(1, Math.round(f.h))
     canvas.width = w * dpr; canvas.height = h * dpr
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     // Kein Hard-Rebuild: der Bestand bleibt, die Zielanzahl (targetN in step)
@@ -525,15 +547,22 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   }
 
   resize()
-  // `ResizeObserver` statt `window.resize`: Im Editor ändert sich die Karte
-  // auch dann, wenn das Fenster gleich bleibt — Panel auf, Zeitleiste größer
-  // gezogen. Der Vergleich mit dem letzten Wert ist Pflicht: Der Observer
-  // feuert auch für Änderungen, die keine sind, und `resize` verwirft dabei
-  // jedes Mal die Transform-Matrix.
+  // `ResizeObserver` auf dem CONTAINER statt `window.resize`: Im Editor ändert
+  // sich die Karte auch dann, wenn das Fenster gleich bleibt — Panel auf,
+  // Zeitleiste größer gezogen. Der Vergleich mit dem letzten Wert ist Pflicht:
+  // Der Observer feuert auch für Änderungen, die keine sind, und `resize`
+  // verwirft dabei jedes Mal die Transform-Matrix.
   new ResizeObserver(() => {
-    const r = canvas.getBoundingClientRect()
-    if (Math.round(r.width) !== w || Math.round(r.height) !== h) resize()
-  }).observe(canvas)
+    const f = flaeche()
+    if (Math.round(f.w) !== w || Math.round(f.h) !== h) resize()
+  }).observe(container)
+  // Der Viewport-Fall braucht sein eigenes Ereignis: Ein `fixed` Canvas ändert
+  // seine Fläche mit dem FENSTER, und dessen Größe meldet kein Observer auf
+  // einem Element (der `body` kann dabei unverändert bleiben).
+  window.addEventListener('resize', () => {
+    const f = flaeche()
+    if (Math.round(f.w) !== w || Math.round(f.h) !== h) resize()
+  })
   // Autoplay-Policy: war das Audio beim Auto-Restore blockiert, nach der ersten
   // User-Geste den laufenden Loop nachstarten.
   window.addEventListener('pointerdown', () => {

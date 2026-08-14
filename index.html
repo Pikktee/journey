@@ -399,6 +399,17 @@
       height: 1px; margin: 8px 16px;
       background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
     }
+    /* Einträge, die den CTA der Leiste VERTRETEN — sie erscheinen erst, wenn
+       er dort ausgeblendet ist (s. die 560-px-Regel unten). Ohne diesen
+       Standard stünde „Registrieren“ zwischen 560 und 980 px zweimal: in der
+       Leiste und im offenen Panel. Kein !important: Die data-gast/data-dabei-
+       Regeln oben haben dieselbe Spezifität und müssen weiter gewinnen. */
+    .nav-panel .nav-nur-xs { display: none; }
+    /* Der Primärruf bleibt der Primärruf, auch als Zeile: Akzentfarbe statt
+       Verlaufspille — eine Pille wäre im Sheet ein Fremdkörper zwischen lauter
+       gleich gebauten Zeilen. */
+    .nav-panel a.nav-panel-cta { color: var(--akzent); font-weight: 600; }
+    .nav-panel a.nav-panel-cta .nav-panel-pfeil { color: var(--akzent); opacity: 0.7; }
     /* Einblend-Staffel beim Öffnen */
     .nav.menue-offen .nav-panel > * {
       animation: nav-panel-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -491,8 +502,17 @@
       .nav-toggle { display: inline-flex; }
       .nav-middle { display: none; margin-left: 0; }
     }
+    /* Auf dem Handy geht auch der CTA ins Panel. Gemessen bei 375 px: Marke
+       159 + Feedback 33 + „Registrieren“ 107 + Menü 40 samt Lücken = 371 px
+       Inhalt in 331 px Zeile — der Burger stand 18 px HINTER dem rechten Rand
+       und war nicht mehr anzutippen. Die Grenze liegt bei 560 (nicht knapper),
+       weil „Meine Touren“ die längere der beiden Beschriftungen ist. Der
+       Handlungsaufruf fehlt dadurch oben nicht: Er steht im Hero formatfüllend
+       ein Stück darunter. */
     @media (max-width: 560px) {
       .nav-toggle { --toggle: 40px; }
+      .nav-right { display: none; }
+      .nav-panel .nav-nur-xs { display: flex; }
     }
 
     /* ─── Buttons ────────────────────────────────────────────────── */
@@ -951,7 +971,8 @@
   <div class="grain" aria-hidden="true"></div>
 
   <!-- Kopfleiste: Logo + Abschnittsanker links (mit Abstand), Aktionen rechts.
-       Unter 980 px wandern Anker und Gast-Links ins Panel; Primär-CTA bleibt. -->
+       Unter 980 px wandern Anker und Gast-Links ins Panel, unter 560 px auch
+       der Primär-CTA — dort bleiben nur Marke, Feedback und der Menü-Knopf. -->
   <nav class="nav" id="nav">
     <div class="wrap">
       <!-- Wortmarke + Entwicklungsstand: Chip-Markup und -Optik stehen in
@@ -1001,8 +1022,11 @@
       <div class="nav-panel-trenner" role="separator" data-gast></div>
       <div class="nav-panel-etikett" data-gast>Konto</div>
       <a href="/app" data-gast>Anmelden <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
+      <!-- Vertretung für den CTA der Leiste, nur unter 560 px sichtbar (s. CSS). -->
+      <a href="/registrieren" class="nav-nur-xs nav-panel-cta" data-gast>Registrieren <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
       <div class="nav-panel-trenner" role="separator" data-dabei></div>
       <div class="nav-panel-etikett" data-dabei>Konto</div>
+      <a href="/app" class="nav-nur-xs nav-panel-cta" data-dabei>Meine Touren <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
       <a href="/konto" data-dabei>Kontoeinstellungen <svg class="nav-panel-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
   </nav>

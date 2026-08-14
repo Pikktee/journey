@@ -1157,10 +1157,15 @@
        die Bühne. Seine Regeln stehen im Player in style.css, das diese Seite
        NICHT lädt — ohne sie läge ein unpositionierter Canvas im Fluss und
        schöbe die Karte weg. `absolute` statt `fixed` wie im Player: Hier
-       gehört das Wetter über die Karte, nicht über die Seite. Die Größe kommt
-       aus diesen vier Kanten; `resize` misst sie und setzt nur die
-       Backing-Auflösung (s. Kommentar dort). */
-    #weather { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+       gehört das Wetter über die Karte, nicht über die Seite.
+
+       `width`/`height` sind dabei PFLICHT und keine Redundanz zu `inset: 0`:
+       Ein <canvas> hat eine intrinsische Größe (seine Attribute, Vorgabe
+       300×150), und bei `position: absolute` gewinnt die gegen gegenüber-
+       liegende Kanten. Ohne sie bliebe der Canvas 300×150 — und weil `resize()`
+       die Backing-Auflösung aus der Layoutgröße rechnet, wüchse er über den
+       ResizeObserver in jedem Schritt um das dpr-Fache, bis der Tab steht. */
+    #weather { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
     #editor-map .maplibregl-canvas:focus,
     #editor-map .maplibregl-canvas:focus-visible { outline: none; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }

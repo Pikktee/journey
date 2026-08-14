@@ -165,3 +165,15 @@ Versatz im Bild UND +0,00…0,01 s im Ton, der dort pausiert steht. Die Gegenpro
 alten Gate-Verhalten, nur `uhr.laeuft` überschrieben: **+6,01 s** — der Ton lief die volle
 Abwesenheit weiter, dauerhaft (die Position wird nur beim Eintritt in einen Bereich
 gesetzt).
+
+**Falle 7: Ein `<canvas>` mit `inset: 0` ist nicht so groß wie sein Container.** Es hat eine
+INTRINSISCHE Größe (seine `width`/`height`-Attribute, Vorgabe 300×150), und bei
+`position: absolute/fixed` gewinnt die gegen gegenüberliegende Kanten — der Browser löst die
+Überbestimmung auf, indem er `right`/`bottom` fallenlässt. Wer daraufhin die Backing-Auflösung
+aus `getBoundingClientRect()` DES CANVAS rechnet, baut eine Rückkopplung: Das geschriebene
+Attribut ist die neue Layoutgröße, ein `ResizeObserver` feuert, die Fläche wächst je Runde um
+das dpr-Fache. Sichtbar als weißes Bild und stehender Tab — und zwar erst im Editor, weil der
+Player seine Größe vorher per `style.width` selbst setzte. Zwei Regeln daraus: **`width`/
+`height` gehören ins CSS**, und **gemessen wird nie das Element, in das man schreibt**
+(`flaeche()` in [src/weather.ts](../../src/weather.ts) misst Container bzw. Viewport, je nach
+`position`).
