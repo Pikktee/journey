@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Player-UI: Ideen zur Prüfung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --amber: #F59E0B;
+    --coral: #FF6F52;
+    --paper: #f6f1e7;
+    --text: #F2EDE3;
+    --muted: rgba(242, 237, 227, 0.64);
+    --faint: rgba(242, 237, 227, 0.42);
+    --glas: rgba(12, 15, 20, 0.62);
+    --glas-rand: rgba(255, 255, 255, 0.10);
+    --grund: #06080C;
+    --flaeche-1: #111722;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 46px 40px 110px;
+    background: var(--grund); color: var(--text);
+    font-family: Outfit, system-ui, sans-serif; font-weight: 300;
+    font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 8px; }
+  .intro { color: var(--muted); max-width: 70ch; line-height: 1.62; margin: 0 0 6px; font-size: 15.5px; }
+  .intro + .intro { margin-bottom: 18px; }
+  .inhalt { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 20px; font-size: 13px; }
+  .inhalt a { color: var(--muted); text-decoration: none; padding: 5px 12px; border-radius: 999px;
+              border: 1px solid rgba(242,237,227,0.14); }
+  .inhalt a:hover { color: var(--text); border-color: rgba(242,237,227,0.3); }
+
+  h2.kapitel { font-size: 12px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 500;
+               color: var(--amber); margin: 0 0 5px; padding-top: 44px; }
+  .kapitel-satz { color: var(--muted); max-width: 78ch; line-height: 1.62; margin: 0 0 30px; font-size: 15px; }
+  .kapitel-satz em { font-style: normal; color: var(--text); }
+
+  .fall { margin: 0 0 38px; }
+  .fallkopf { display: flex; align-items: baseline; gap: 11px; margin-bottom: 5px; flex-wrap: wrap; }
+  .fallkopf h3 { font-size: 17px; font-weight: 500; margin: 0; letter-spacing: -0.01em; }
+  .marke { font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint);
+           border: 1px solid rgba(242,237,227,0.2); border-radius: 999px; padding: 2px 9px; }
+  .marke.neu { color: var(--amber); border-color: rgba(245,158,11,0.45); }
+  .warum { font-size: 14px; color: var(--muted); margin: 0 0 15px; max-width: 82ch; line-height: 1.6; }
+  .warum b, .warum strong { color: var(--text); font-weight: 500; }
+
+  /* ——— Bühne ——— */
+  .buehne {
+    position: relative; height: 288px; border-radius: 18px; overflow: hidden;
+    background:
+      linear-gradient(to bottom, rgba(6,8,12,0) 55%, rgba(6,8,12,0.55) 100%),
+      radial-gradient(120% 80% at 26% -10%, #3d6b82 0%, #27455a 34%, #1a2c3a 62%, #101a24 100%);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .buehne.klein { height: 236px; }
+  .buehne.hoch { width: 300px; height: 470px; flex: none; }
+  .reihe { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .reihe > .buehne { flex: 1 1 330px; }
+  .gelaende, .route { position: absolute; inset: 0; }
+
+  .zurueck { position: absolute; top: 15px; left: 15px; z-index: 31; display: inline-flex; align-items: center;
+    gap: 7px; padding: 7px 14px 7px 11px; border-radius: 999px; background: var(--glas);
+    border: 1px solid var(--glas-rand); font-size: 13.5px; backdrop-filter: blur(10px); }
+  .zurueck svg { width: 15px; height: 15px; }
+
+  /* ——— Steuerleiste ——— */
+  .dock { position: absolute; left: 13px; right: 13px; bottom: 13px; z-index: 20;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 14px 11px; border-radius: 18px; background: var(--glas);
+    border: 1px solid var(--glas-rand); backdrop-filter: blur(16px); }
+  .cluster { display: flex; align-items: center; gap: 8px; }
+  .rund { width: 37px; height: 37px; border-radius: 12px; display: grid; place-items: center;
+          background: rgba(246,241,231,0.08); border: 1px solid var(--glas-rand); color: var(--text); font-size: 12.5px; }
+  .rund svg { width: 17px; height: 17px; }
+  .play { width: 41px; height: 41px; border-radius: 13px; background: var(--paper); color: #1a1206; border-color: transparent; }
+  .play svg { width: 18px; height: 18px; fill: currentColor; }
+
+  .tele { display: flex; align-items: center; gap: 18px; margin-left: auto; }
+  .tele-eintrag { display: flex; flex-direction: column; }
+  .tele-label { font-size: 10px; letter-spacing: 0.05em; color: var(--faint); }
+  .tele-wert { font-size: 14.5px; }
+  .zeit-links { font-size: 14px; color: var(--muted); margin-left: 4px; white-space: nowrap; }
+  .zeit-links b { font-weight: 500; color: var(--text); }
+  .eine-zeile { font-size: 14px; color: var(--muted); }
+  .eine-zeile b { font-weight: 500; color: var(--text); }
+  .trenn { opacity: 0.3; margin: 0 7px; }
+
+  /* ——— Bahn ——— */
+  .leiste { position: relative; height: 34px; flex: 1 1 100%; }
+  .leiste.hoch { height: 40px; }
+  .bahn { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px;
+          border-radius: 999px; background: rgba(246,241,231,0.15); z-index: 2; }
+  .bahn-fill { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px;
+               border-radius: 999px; background: linear-gradient(90deg, var(--amber), var(--coral)); z-index: 3; }
+  .halt { position: absolute; top: 50%; height: 14px; margin-top: -7px; border-radius: 4px;
+          background: rgba(246,241,231,0.32); z-index: 4; min-width: 6px; overflow: hidden; }
+  .halt.gesehen { background: var(--paper); }
+  /* aktiver Halt */
+  .halt.aktiv { height: 20px; margin-top: -10px; border-radius: 5px; background: rgba(246,241,231,0.28);
+                box-shadow: 0 0 0 1.5px rgba(246,241,231,0.55), 0 0 14px rgba(245,158,11,0.35); z-index: 5; }
+  .halt .rest { position: absolute; inset: 0; background: linear-gradient(90deg, var(--amber), var(--coral));
+                border-radius: inherit; }
+  /* Unterteilung bei mehreren Aufnahmen */
+  .halt .naht { position: absolute; top: 2px; bottom: 2px; width: 1px; background: rgba(10,12,16,0.55); z-index: 2; }
+
+  .kopf-linie { position: absolute; top: 0; bottom: -3px; width: 2px; border-radius: 2px; z-index: 6;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.3));
+    transform: translateX(-50%); box-shadow: 0 0 5px rgba(0,0,0,0.55); }
+  .kopf-linie::before { content: ''; position: absolute; top: 0; left: 50%; width: 13px; height: 14px;
+    transform: translateX(-50%); background: var(--paper);
+    clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%); border-radius: 3px 3px 0 0; }
+
+  /* Zeiten */
+  .zeit-ende { position: absolute; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--faint); z-index: 5; }
+  .zeit-ende.links { left: 0; } .zeit-ende.rechts { right: 0; }
+  .leiste.mit-enden .bahn { left: 40px; right: 44px; }
+  .leiste.mit-enden .bahn-fill { left: 40px; }
+  .kopf-zeit { position: absolute; bottom: calc(100% - 4px); transform: translateX(-50%); z-index: 7;
+    background: var(--paper); color: #1a1206; font-size: 12px; font-weight: 500; padding: 2px 7px;
+    border-radius: 6px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+
+  /* Modus-Marken */
+  .modus { position: absolute; bottom: calc(50% + 9px); transform: translateX(-50%); z-index: 5;
+           color: var(--faint); display: grid; place-items: center; }
+  .modus svg { width: 13px; height: 13px; }
+
+  /* ——— Scrub-Vorschau ——— */
+  .vorschau { position: absolute; bottom: calc(100% + 10px); z-index: 9; width: 176px; border-radius: 12px;
+    overflow: hidden; background: rgba(12,15,20,0.82); border: 1px solid var(--glas-rand);
+    backdrop-filter: blur(14px); box-shadow: 0 12px 30px rgba(0,0,0,0.55); }
+  .vorschau.schmal { width: 96px; }
+  .vorschau .bild { height: 99px; position: relative;
+    background: linear-gradient(150deg, #8a5f30, #d29653 40%, #6b8792 100%); }
+  .vorschau .bild::after { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(70% 55% at 28% 18%, rgba(255,255,255,0.26), transparent 62%); }
+  .vorschau .zaehler { position: absolute; right: 6px; bottom: 6px; font-size: 10.5px; padding: 1px 6px;
+    border-radius: 999px; background: rgba(6,8,12,0.7); color: var(--muted); }
+  .vorschau .fuss { padding: 7px 10px 9px; }
+  .vorschau .titel { font-size: 13px; font-weight: 500; line-height: 1.28; }
+  .vorschau .zeile2 { font-size: 11.5px; color: var(--faint); margin-top: 2px; }
+  .vorschau.nur-zeit .fuss { padding: 6px 10px 7px; text-align: center; }
+  .vorschau.nur-zeit .titel { font-size: 14px; }
+
+  /* ——— Höhenprofil ——— */
+  .hp-chip { position: absolute; top: 15px; right: 15px; z-index: 22; display: inline-flex; align-items: center;
+    gap: 9px; padding: 6px 12px 6px 10px; border-radius: 999px; background: var(--glas);
+    border: 1px solid var(--glas-rand); backdrop-filter: blur(10px); font-size: 13px; }
+  .hp-chip .funke { display: block; width: 44px; height: 15px; }
+  .hp-panel { position: absolute; top: 15px; right: 15px; z-index: 22; width: 248px; padding: 11px 13px 9px;
+    border-radius: 14px; background: var(--glas); border: 1px solid var(--glas-rand); backdrop-filter: blur(14px); }
+  .hp-kopf { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+  .hp-titel { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--faint); }
+  .hp-wert { font-size: 15px; font-weight: 500; }
+  .hp-svg { display: block; width: 100%; height: 58px; }
+  .hp-fuss { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); margin-top: 4px; }
+
+  .notiz { display: flex; gap: 22px; margin-top: 11px; font-size: 12.5px; color: var(--faint); flex-wrap: wrap; }
+  .notiz b { font-weight: 500; color: var(--muted); }
+
+  .gegen { border-left: 2px solid rgba(229,72,77,0.5); padding: 2px 0 2px 14px; margin: 14px 0 0;
+           font-size: 13.5px; color: var(--muted); max-width: 78ch; line-height: 1.55; }
+  .gegen b { color: rgba(229,72,77,0.9); font-weight: 500; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 24px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); font-weight: 500; }
+  td.wert { color: var(--muted); line-height: 1.5; }
+  .ja { color: #3ecf8e; } .nein { color: rgba(229,72,77,0.9); } .vll { color: var(--amber); }
+</style>
+</head>
+<body>
+
+<h1>Player-UI: Ideen zur Prüfung</h1>
+<p class="intro">Alles hier ist Entwurf, nichts gebaut. Ausgangspunkt: Seit Paket&nbsp;G ist die Fortschrittsleiste die <em>Zeitachse des Films</em> — Halte haben darin echte Breite. Damit ändert sich, was die Leiste sein kann, und mehrere Elemente daneben verlieren ihren Grund.</p>
+<p class="intro">Zweite Runde. Neu gegenüber der ersten: der Halt als eigenes Bauteil mit Zustand, die Gliederung der Bahn, ein zweiter Ort für die Zeit, die Randkollision der Vorschau — und für jede Idee ein ehrliches Gegenargument.</p>
+<div class="inhalt">
+  <a href="#halt">1 · Der Halt in der Bahn</a><a href="#zeit">2 · Filmzeit</a><a href="#scrub">3 · Scrubben</a>
+  <a href="#gliederung">4 · Gliederung</a><a href="#profil">5 · Höhenprofil</a><a href="#telefon">6 · Telefon</a>
+  <a href="#zusammen">7 · Zusammenschau</a><a href="#urteil">Urteil</a>
+</div>
+
+<!-- ============ 1 · DER HALT ============ -->
+<h2 class="kapitel" id="halt">1 · Der Halt ist jetzt ein Bauteil mit Zustand</h2>
+<p class="kapitel-satz">Das war in der ersten Runde ein stummer Block. Dabei ist er das Einzige in der Leiste, in dem man sich <em>befinden</em> kann — und genau darüber schwieg er. Drei Zustände, die er haben sollte.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Man ist drin — und sieht, wie lange noch</h3><span class="marke neu">1a · neu</span></div>
+  <p class="warum">Steht der Kopf in einem Halt, wächst der Block auf 20&nbsp;px, bekommt einen hellen Rand und füllt sich in Akzentfarbe <b>proportional zur verstrichenen Standzeit</b>. Damit beantwortet die Leiste die Frage, die im Halt tatsächlich aufkommt: „läuft das noch, oder hängt es?" Heute bewegt sich der Kopf dort nur sehr langsam, und das ist von Stillstand kaum zu unterscheiden.</p>
+  <div class="buehne" id="b-1a"></div>
+  <div class="notiz"><span><b>Kosten:</b> eine CSS-Klasse und ein Füllstand aus Daten, die die Engine schon hat</span></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Ein Halt kann mehrere Aufnahmen haben</h3><span class="marke neu">1b · neu</span></div>
+  <p class="warum">Im Datenmodell trägt ein Halt <code>items[]</code> — nah beieinander liegende Fotos werden zu einem Stopp gruppiert (&lt;&nbsp;120&nbsp;m). Der Block kann das zeigen: feine Nähte an den Übergängen. Man sieht dann, dass der lange Block kein zäher Einzelhalt ist, sondern drei Bilder — und beim Scrubben trifft man das mittlere gezielt.</p>
+  <div class="buehne" id="b-1b"></div>
+  <p class="gegen"><b>Dagegen:</b> Auf dem Telefon ist ein Dreier-Halt keine 20&nbsp;px breit; zwei Nähte darin sind dann Grafikrauschen. Regel wäre: Nähte erst ab einer Mindestbreite je Abschnitt (etwa 6&nbsp;px), sonst bleibt der Block glatt.</p>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Alle drei Zustände nebeneinander</h3><span class="marke">1c</span></div>
+  <p class="warum">Kommend (gedeckt), besucht (Papier), aktiv (hell mit Füllung) — und dazwischen eine Fahrt. Der Unterschied muss auf einen Blick lesbar sein, ohne Legende.</p>
+  <div class="buehne" id="b-1c"></div>
+</div>
+
+<!-- ============ 2 · ZEIT ============ -->
+<h2 class="kapitel" id="zeit">2 · Wo die Filmzeit hingehört</h2>
+<p class="kapitel-satz">Erste Runde: an die Telemetrie geklebt — dort war sie eine vierte Zahl unter drei anderen und wirkte fremd. Die Zeit gehört zur <em>Leiste</em>, denn sie sagt genau das, was der Kopf zeigt. Drei Orte, an denen das stimmt, plus einer, den ich verworfen habe.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Direkt neben den Knöpfen</h3><span class="marke neu">2a · neu</span></div>
+  <p class="warum">Die Form, die YouTube und die meisten Player nutzen: <b>0:42 / 5:09</b> unmittelbar rechts der Bedienelemente. Sie sitzt dort, wo die Hand ohnehin ist, sie springt beim Wachsen der Ziffern nicht (die Bahn ist links davon unberührt), und die Telemetrie rechts bleibt als eigene Gruppe erhalten. Von allen Fassungen die ruhigste.</p>
+  <div class="buehne" id="b-2a"></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>An den Enden der Bahn</h3><span class="marke">2b</span></div>
+  <p class="warum">Verstrichen links, Gesamt rechts — die Zahlen rahmen die Bahn. Klar zugeordnet; der Preis ist, dass die Bahn an beiden Seiten kürzer wird, und sie ist die Fläche, auf der man scrubbt. Bei 352&nbsp;px Telefonbreite kostet das ein Viertel der Griff-Länge.</p>
+  <div class="buehne" id="b-2b"></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Verbleibend statt verstrichen</h3><span class="marke neu">2c · neu</span></div>
+  <p class="warum">Ein Tipp auf die Zahl schaltet um: <b>−4:27</b> statt 0:42. Das ist die Frage, die man in einem Film tatsächlich hat („wie lange noch?"), und die Umschaltung ist eine bekannte Geste. Kostet nichts außer einem Zustand, den man sich merken sollte.</p>
+  <div class="buehne" id="b-2c"></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Verworfen: die Zeit am Kopf</h3><span class="marke">2d</span></div>
+  <p class="warum">In der ersten Runde war das ein Vorschlag: eine Marke, die auf dem Playhead mitläuft. Sie ist perfekt zugeordnet — und genau deshalb ständig in Bewegung, an der einen Stelle, auf die man während der Fahrt schaut. Sie verdeckt außerdem den Halt, auf den man gerade zuläuft.</p>
+  <div class="buehne klein" id="b-2d"></div>
+  <p class="gegen"><b>Verworfen als Dauerzustand.</b> Als Zustand <em>während des Scrubbens</em> ist genau das aber richtig — s. Abschnitt 3.</p>
+</div>
+
+<!-- ============ 3 · SCRUBBEN ============ -->
+<h2 class="kapitel" id="scrub">3 · Was beim Scrubben passiert</h2>
+<p class="kapitel-satz">Heute nichts außer der Fahrt. Dabei ist das der Moment, in dem jemand <em>sucht</em> — und der einzige, in dem eine Miniatur billig ist: eine statt neun, nur solange der Finger liegt. Das löst nebenbei den offenen Punkt „Miniaturen in den Halten" aus dem Konzept, zu einem Bruchteil der Kosten.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Über einem Halt: das Bild</h3><span class="marke">3a</span></div>
+  <p class="warum">Titel, Filmzeit, Kilometer — und bei mehreren Aufnahmen ein Zähler in der Ecke (<b>2/3</b>), passend zur Naht aus 1b. Das ist der bessere Ersatz für „Nächster Halt": Man sieht, was dort ist, statt es angekündigt zu bekommen, und zwar dann, wenn man danach sucht.</p>
+  <div class="reihe"><div class="buehne" id="b-3a"></div><div class="buehne" id="b-3b"></div></div>
+  <div class="notiz"><span><b>Links:</b> über einem Halt</span><span><b>Rechts:</b> über freier Fahrt — nur Zeit und Ort, schmal</span></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Am Rand: die Kachel weicht aus</h3><span class="marke neu">3c · neu</span></div>
+  <p class="warum">Der Fall, den ich in der ersten Runde übersehen habe. Am linken und rechten Ende der Bahn liefe die zentrierte Kachel aus dem Bild. Sie klemmt deshalb am Rand der Leiste — der Kopf wandert unter ihr weiter, statt sie zu schieben. Dieselbe Regel wie bei jedem Video-Player, und sie muss ins CSS, nicht in den Kopf des Nutzers.</p>
+  <div class="reihe"><div class="buehne" id="b-3d"></div><div class="buehne" id="b-3e"></div></div>
+  <div class="notiz"><span><b>Links:</b> ganz am Anfang</span><span><b>Rechts:</b> ganz am Ende</span></div>
+</div>
+
+<!-- ============ 4 · GLIEDERUNG ============ -->
+<h2 class="kapitel" id="gliederung">4 · Gliederung der Fahrt</h2>
+<p class="kapitel-satz">Zwischen den Halten liegt Fahrt — und die ist nicht gleichförmig: Sie wechselt die Fortbewegung. Die Bahn könnte das zeigen. Ob sie es <em>soll</em>, ist die eigentliche Frage.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Modus-Marken über der Bahn</h3><span class="marke neu">4a · neu</span></div>
+  <p class="warum">An jedem Wechsel ein kleines Symbol: zu Fuß, Fähre, Moped. Es macht sichtbar, dass die Reise aus Abschnitten besteht — und erklärt beiläufig, warum der Film hier schnell und dort getragen läuft.</p>
+  <div class="buehne" id="b-4a"></div>
+  <p class="gegen"><b>Dagegen — und das wiegt schwer:</b> Im Player ist bewusst entschieden, dass das Fortbewegungsmittel <em>nicht</em> in der Steuerleiste steht: „Der Marker auf der Karte zeigt es, der Motorloop lässt es hören — ein Wort dafür wiederholte das nur." Symbole in der Bahn sind dieselbe Wiederholung, nur kleiner. Der Unterschied wäre, dass sie etwas zeigen, was der Marker nicht kann: den Wechsel <em>bevor</em> er kommt. Ob das gebraucht wird, ist keine Design-, sondern eine Produktfrage.</p>
+</div>
+
+<!-- ============ 5 · HÖHENPROFIL ============ -->
+<h2 class="kapitel" id="profil">5 · Höhenprofil oben rechts</h2>
+<p class="kapitel-satz">Der Platz ist frei, seit „Nächster Halt" dort weg ist. Ein Profil dort hätte den Vorteil, den die Kurve in der Leiste verloren hat: Es stünde über der <em>Strecke</em> und wäre wieder ein echtes Diagramm — mit Achse, echter Spanne und einer Position darauf.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Zugeklappt: Zahl plus Funkenlinie</h3><span class="marke">5a</span></div>
+  <p class="warum">Höhe als Zahl, daneben 44&nbsp;px Sparkline mit Positionspunkt. Beantwortet „geht's noch hoch?", ohne etwas zu öffnen. Wenn dieser Chip da ist, kann die Höhe aus der Telemetrie unten verschwinden — sonst steht dieselbe Zahl zweimal im Bild.</p>
+  <div class="buehne" id="b-5a"></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Aufgeklappt: das echte Profil</h3><span class="marke">5b</span></div>
+  <p class="warum">Über der Strecke, mit echter Spanne (keine 150-m-Mindestdehnung wie in der alten Leisten-Kurve), Start- und Zielkilometer, Position als Linie, gefahrener Teil gefüllt. Hier <em>darf</em> es ein Diagramm sein, weil man es absichtlich geöffnet hat.</p>
+  <div class="buehne" id="b-5b"></div>
+  <p class="gegen"><b>Dagegen:</b> Ein Panel, das man öffnen muss, öffnet man einmal. Und die freie Ecke ist selbst ein Gewinn — vergleiche 5c.</p>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Gegenprobe: gar nichts</h3><span class="marke">5c</span></div>
+  <p class="warum">Dieselbe Szene ohne alles oben rechts. Die ehrliche Frage an das Bild: Fehlt etwas — oder ist genau das der Zustand, den ein filmischer Player will?</p>
+  <div class="buehne" id="b-5c"></div>
+</div>
+
+<!-- ============ 6 · TELEFON ============ -->
+<h2 class="kapitel" id="telefon">6 · Auf dem Telefon</h2>
+<p class="kapitel-satz">Die eigentliche Prüfung. Dort ist ein 6-Sekunden-Halt <em>6,8&nbsp;px</em> breit, die Bahn 352&nbsp;px lang und der Daumen 40. Was hier nicht funktioniert, funktioniert nicht.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Hochkant, drei Fassungen</h3><span class="marke neu">6a · neu</span></div>
+  <p class="warum">Links heute (Kurve, „Nächster Halt"), Mitte aufgeräumt mit Zeit neben den Knöpfen, rechts dieselbe Fassung während eines Scrubs über einen Halt. Beachte in der Mitte, wie viel Bild die fehlende Karte oben rechts zurückgibt — und wie klar der aktive Halt trotz 7&nbsp;px lesbar bleibt, weil er höher wird statt breiter.</p>
+  <div class="reihe">
+    <div class="buehne hoch" id="b-6a"></div>
+    <div class="buehne hoch" id="b-6b"></div>
+    <div class="buehne hoch" id="b-6c"></div>
+  </div>
+</div>
+
+<!-- ============ 7 · ZUSAMMEN ============ -->
+<h2 class="kapitel" id="zusammen">7 · Zusammenschau</h2>
+<p class="kapitel-satz">Alles, was ich empfehle, in einem Bild — und daneben der heutige Stand als Vergleich.</p>
+
+<div class="fall">
+  <div class="reihe">
+    <div class="buehne" id="b-7a"></div>
+    <div class="buehne" id="b-7b"></div>
+  </div>
+  <div class="notiz"><span><b>Links:</b> heute</span><span><b>Rechts:</b> Vorschlag — Zeit bei den Knöpfen, Halt mit Zustand, freie Ecke</span></div>
+</div>
+
+<!-- ============ URTEIL ============ -->
+<h2 class="kapitel" id="urteil">Urteil</h2>
+<table>
+  <tr><th>Idee</th><th>Aufwand</th><th>Empfehlung</th></tr>
+  <tr><td>1a · aktiver Halt mit Füllstand</td><td class="wert">klein — Zustand aus vorhandenen Daten</td><td class="wert"><span class="ja">bauen</span> — beantwortet die einzige Frage, die im Halt aufkommt</td></tr>
+  <tr><td>1b · Nähte bei mehreren Aufnahmen</td><td class="wert">klein, mit Mindestbreiten-Regel</td><td class="wert"><span class="ja">bauen</span> — kostenlos aus <code>items[]</code>, macht lange Blöcke erklärbar</td></tr>
+  <tr><td>2a · Zeit neben den Knöpfen</td><td class="wert">klein</td><td class="wert"><span class="ja">bauen</span> — ruhigste Fassung, verkürzt die Bahn nicht</td></tr>
+  <tr><td>2b · Zeit an den Bahn-Enden</td><td class="wert">klein</td><td class="wert"><span class="nein">nein</span> — kostet auf dem Telefon ein Viertel der Griff-Fläche</td></tr>
+  <tr><td>2c · verbleibend umschaltbar</td><td class="wert">klein</td><td class="wert"><span class="vll">gern, später</span> — hübsche Zugabe, kein Mangel ohne sie</td></tr>
+  <tr><td>2d · Zeit am Kopf</td><td class="wert">mittel</td><td class="wert"><span class="nein">nein</span> als Dauerzustand — geht in 3a auf</td></tr>
+  <tr><td>3a · Scrub-Vorschau</td><td class="wert">mittel — eine Kachel, nur während der Geste</td><td class="wert"><span class="ja">bauen</span> — ersetzt „Nächster Halt" durch etwas Besseres</td></tr>
+  <tr><td>3c · Randklemmung</td><td class="wert">klein</td><td class="wert"><span class="ja">Pflichtteil von 3a</span></td></tr>
+  <tr><td>4a · Modus-Marken</td><td class="wert">mittel</td><td class="wert"><span class="vll">Produktfrage</span> — widerspricht einer bestehenden Entscheidung; nur mit Absicht</td></tr>
+  <tr><td>5a/5b · Höhenprofil oben rechts</td><td class="wert">mittel — Panel, Zustand, Telefon-Fassung</td><td class="wert"><span class="vll">warten</span> — im Finale trägt es mehr; hier erst, wenn es jemand vermisst</td></tr>
+  <tr><td>Kurve raus, „Nächster Halt" raus</td><td class="wert">klein — Entfernen</td><td class="wert"><span class="ja">bauen</span> — Voraussetzung für fast alles hier</td></tr>
+</table>
+
+<script>
+const KOPF = 0.398
+const HALTE = [
+  { von: 0.083, bis: 0.102 }, { von: 0.171, bis: 0.190 }, { von: 0.262, bis: 0.281 },
+  { von: 0.352, bis: 0.371, teile: 3 }, { von: 0.470, bis: 0.489 }, { von: 0.561, bis: 0.580 },
+  { von: 0.712, bis: 0.731, teile: 2 }, { von: 0.845, bis: 0.864 }, { von: 0.926, bis: 0.945 },
+]
+const MODI = [
+  { bei: 0.0, art: 'walk' }, { bei: 0.225, art: 'ferry' }, { bei: 0.51, art: 'moped' }, { bei: 0.79, art: 'walk' },
+]
+const SYM = {
+  walk: '<path d="M13 4.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2ZM9 22l2.4-6.2L9 13V8l4-1.5 3 3.2 3 1.3M11.4 15.8 8 22"/>',
+  ferry: '<path d="M3 17.5c1.6 0 1.6 1.4 3.2 1.4s1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4M5 15l1.4-5h11.2L19 15M9 10V6.5h6V10M12 3v3.5"/>',
+  moped: '<circle cx="5.5" cy="17.5" r="3"/><circle cx="18.5" cy="17.5" r="3"/><path d="M8.5 17.5h7l-2-7h-3M13.5 10.5 12 6h3"/>',
+}
+
+const GELAENDE = `<svg class="gelaende" viewBox="0 0 400 288" preserveAspectRatio="none">
+  <path d="M0,150 C46,132 82,148 124,138 C170,127 196,142 240,132 C292,120 330,136 400,124 L400,288 L0,288Z" fill="rgba(14,32,30,0.36)"/>
+  <path d="M0,192 C58,172 96,200 150,183 C208,164 250,196 300,178 C346,162 380,184 400,176 L400,288 L0,288Z" fill="rgba(10,24,21,0.52)"/>
+  <path d="M0,226 C70,210 120,238 186,220 C250,204 300,230 400,212 L400,288 L0,288Z" fill="rgba(5,14,12,0.68)"/>
+</svg>
+<svg class="route" viewBox="0 0 400 288" preserveAspectRatio="none">
+  <path d="M34,258 C104,238 124,206 190,196 C254,186 280,164 350,148" fill="none"
+        stroke="rgba(245,158,11,0.9)" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="190" cy="196" r="6" fill="#f6f1e7" stroke="rgba(26,18,6,0.45)" stroke-width="2"/>
+</svg>`
+
+const ZURUECK = `<div class="zurueck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.5 7.5 12l6.5 6.5"/></svg>Entdecken</div>`
+
+const NEXT_ALT = `<aside style="position:absolute;top:15px;right:15px;z-index:22;padding:9px 15px;border-radius:14px;text-align:right;background:var(--glas);border:1px solid var(--glas-rand);backdrop-filter:blur(10px)">
+  <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--faint);margin-bottom:2px">Nächster Halt</div>
+  <div style="font-size:14.5px">Bergkamm<span style="color:var(--faint);margin-left:8px;font-size:13px">in 1.2 km</span></div></aside>`
+
+function knoepfe(zeit) {
+  return `<div class="cluster">
+    <div class="rund play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></div>
+    <div class="rund">1×</div>
+    <div class="rund"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.4" fill="currentColor"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.4" fill="currentColor"/></svg></div>
+    ${zeit ? `<div class="zeit-links"><b>${zeit === 'rest' ? '−4:27' : '0:42'}</b>${zeit === 'rest' ? '' : ' / 5:09'}</div>` : ''}
+  </div>`
+}
+
+function tele(art) {
+  if (art === 'keine') return ''
+  if (art === 'ohne-hoehe') return `<div class="tele"><div class="tele-eintrag"><span class="tele-label">Distanz</span><span class="tele-wert">16.4 km</span></div></div>`
+  return `<div class="tele">
+    <div class="tele-eintrag"><span class="tele-label">Distanz</span><span class="tele-wert">16.4 km</span></div>
+    <div class="tele-eintrag"><span class="tele-label">Höhe</span><span class="tele-wert">312 m</span></div></div>`
+}
+
+function kurveAlt(id) {
+  const N = 160, ys = []; let h = 0.32
+  for (let i = 0; i < N; i++) { const f = i / (N - 1)
+    if (!HALTE.some((x) => f >= x.von && f <= x.bis)) { h += Math.sin(f * 17.3) * 0.017 + Math.sin(f * 5.1) * 0.011; h = Math.max(0.12, Math.min(0.8, h)) }
+    ys.push(h) }
+  const pts = ys.map((y, i) => `L${((i / (N - 1)) * 100).toFixed(2)},${(3 + 22 * (1 - y)).toFixed(2)}`).join(' ')
+  const d = `M0,30 ${pts} L100,30 Z`
+  let h2 = `<svg viewBox="0 0 100 30" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+    <defs><linearGradient id="k${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F59E0B"/><stop offset="1" stop-color="#FF6F52"/></linearGradient>
+    <clipPath id="kc${id}"><rect x="0" y="0" width="${KOPF * 100}" height="30"/></clipPath></defs>
+    <path d="${d}" fill="rgba(246,241,231,0.14)"/><path d="${d}" fill="url(#k${id})" clip-path="url(#kc${id})"/></svg>`
+  for (const x of HALTE) {
+    h2 += `<div style="position:absolute;top:40%;bottom:0;left:${x.von * 100}%;width:${(x.bis - x.von) * 100}%;border-radius:2px 2px 0 0;background:linear-gradient(to bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.05));z-index:2"></div>`
+    const yi = Math.round(((x.von * (N - 1))))
+    const top = ((3 + 22 * (1 - ys[yi])) / 30) * 100
+    const g = x.bis <= KOPF
+    h2 += `<div style="position:absolute;left:${x.von * 100}%;top:${top}%;width:11px;height:11px;border-radius:50%;transform:translate(-50%,-50%);z-index:5;background:${g ? '#F59E0B' : '#f6f1e7'};border:${g ? '2px solid #fff' : '1.5px solid rgba(26,18,6,0.35)'}"></div>`
+  }
+  h2 += `<div class="kopf-linie" style="left:${KOPF * 100}%"></div>`
+  return `<div class="leiste hoch">${h2}</div>`
+}
+
+function bahn(o = {}) {
+  const kopf = o.kopf ?? KOPF
+  let h = `<div class="bahn"></div><div class="bahn-fill" style="width:${(o.enden ? kopf * 0.79 + 0.1 : kopf) * 100}%"></div>`
+  if (o.enden) h = `<span class="zeit-ende links">0:42</span><span class="zeit-ende rechts">5:09</span>` + h
+  if (o.modi) for (const m of MODI) if (m.bei > 0.01)
+    h += `<div class="modus" style="left:${m.bei * 100}%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${SYM[m.art]}</svg></div>`
+
+  for (const x of HALTE) {
+    const drin = o.aktiv && kopf >= x.von && kopf <= x.bis
+    const g = x.bis <= kopf ? ' gesehen' : ''
+    const b = (x.bis - x.von) * 100
+    let inner = ''
+    if (drin) inner += `<div class="rest" style="width:${(((kopf - x.von) / (x.bis - x.von)) * 100).toFixed(0)}%"></div>`
+    if (o.nahte && x.teile) for (let i = 1; i < x.teile; i++)
+      inner += `<div class="naht" style="left:${((i / x.teile) * 100).toFixed(1)}%"></div>`
+    h += `<div class="halt${drin ? ' aktiv' : g}" style="left:${x.von * 100}%;width:${b}%">${inner}</div>`
+  }
+
+  if (o.vorschau) {
+    const v = o.vorschau
+    const stil = v.klemm === 'links' ? 'left:0' : v.klemm === 'rechts' ? 'right:0' : `left:${v.pos * 100}%;transform:translateX(-50%)`
+    h += `<div class="vorschau${v.bild ? '' : ' schmal nur-zeit'}" style="${stil}">
+      ${v.bild ? `<div class="bild">${v.zaehler ? `<span class="zaehler">${v.zaehler}</span>` : ''}</div>` : ''}
+      <div class="fuss"><div class="titel">${v.titel}</div>${v.zeile2 ? `<div class="zeile2">${v.zeile2}</div>` : ''}</div></div>`
+    h += `<div class="kopf-linie" style="left:${v.pos * 100}%"></div>`
+  } else {
+    if (o.kopfZeit) h += `<div class="kopf-zeit" style="left:${kopf * 100}%">2:03</div>`
+    h += `<div class="kopf-linie" style="left:${kopf * 100}%"></div>`
+  }
+  return `<div class="leiste${o.enden ? ' mit-enden' : ''}${o.hoch ? ' hoch' : ''}">${h}</div>`
+}
+
+// — Höhenprofil über die STRECKE —
+const HP = (() => { const a = []; let h = 120
+  for (let i = 0; i < 90; i++) { h += Math.sin(i * 0.21) * 26 + Math.sin(i * 0.55) * 9; h = Math.max(20, Math.min(430, h)); a.push(h) }
+  return a })()
+const HPmin = Math.min(...HP), HPmax = Math.max(...HP)
+const hpY = (i, hh) => hh - ((HP[i] - HPmin) / (HPmax - HPmin)) * (hh - 4) - 2
+const hpPfad = (w, hh) => HP.map((_, i) => `${i ? 'L' : 'M'}${((i / (HP.length - 1)) * w).toFixed(1)},${hpY(i, hh).toFixed(1)}`).join(' ')
+
+const hpChip = () => `<div class="hp-chip">
+  <svg class="funke" viewBox="0 0 44 15" preserveAspectRatio="none">
+    <path d="${hpPfad(44, 15)}" fill="none" stroke="rgba(242,237,227,0.5)" stroke-width="1.2"/>
+    <circle cx="${(0.42 * 44).toFixed(1)}" cy="${hpY(38, 15).toFixed(1)}" r="2.2" fill="#F59E0B"/></svg>
+  <span style="font-weight:500">312 m</span></div>`
+
+const hpPanel = () => `<div class="hp-panel">
+  <div class="hp-kopf"><span class="hp-titel">Höhe über der Strecke</span><span class="hp-wert">312 m</span></div>
+  <svg class="hp-svg" viewBox="0 0 222 58" preserveAspectRatio="none">
+    <defs><linearGradient id="hpg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(245,158,11,0.34)"/><stop offset="1" stop-color="rgba(245,158,11,0.02)"/></linearGradient>
+      <clipPath id="hpc"><rect x="0" y="0" width="${0.42 * 222}" height="58"/></clipPath></defs>
+    <path d="${hpPfad(222, 58)} L222,58 L0,58Z" fill="rgba(242,237,227,0.06)"/>
+    <path d="${hpPfad(222, 58)} L222,58 L0,58Z" fill="url(#hpg)" clip-path="url(#hpc)"/>
+    <path d="${hpPfad(222, 58)}" fill="none" stroke="rgba(242,237,227,0.5)" stroke-width="1.3"/>
+    <line x1="${0.42 * 222}" y1="0" x2="${0.42 * 222}" y2="58" stroke="#F59E0B" stroke-width="1.4"/></svg>
+  <div class="hp-fuss"><span>0 km</span><span>41.8 km</span></div></div>`
+
+function baue(id, o = {}) {
+  const el = document.getElementById(id); if (!el) return
+  const inhalt = o.altKurve
+    ? knoepfe(null) + tele() + kurveAlt(id)
+    : knoepfe(o.zeit) + tele(o.tele) + bahn(o)
+  el.innerHTML = GELAENDE + ZURUECK + (o.oben ?? '') + (o.ohneDock ? '' : `<footer class="dock">${inhalt}</footer>`)
+}
+
+// 1 — Halt
+baue('b-1a', { aktiv: true, kopf: 0.475, zeit: 'lauf' })
+baue('b-1b', { nahte: true, aktiv: true, kopf: 0.362, zeit: 'lauf' })
+baue('b-1c', { aktiv: true, nahte: true, kopf: 0.565, zeit: 'lauf' })
+// 2 — Zeit
+baue('b-2a', { aktiv: true, zeit: 'lauf' })
+baue('b-2b', { aktiv: true, enden: true })
+baue('b-2c', { aktiv: true, zeit: 'rest' })
+baue('b-2d', { aktiv: true, kopfZeit: true })
+// 3 — Scrubben
+baue('b-3a', { aktiv: true, nahte: true, zeit: 'lauf', vorschau: { pos: 0.562, bild: true, zaehler: '2/3', titel: 'Bergkamm bei Sonnenuntergang', zeile2: '3:12 · km 19.5' } })
+baue('b-3b', { aktiv: true, zeit: 'lauf', vorschau: { pos: 0.65, titel: '3:39', zeile2: 'km 24.1' } })
+baue('b-3d', { aktiv: true, zeit: 'lauf', vorschau: { pos: 0.05, klemm: 'links', bild: true, titel: 'Thong Sala, Hafen', zeile2: '0:18 · km 0.4' } })
+baue('b-3e', { aktiv: true, zeit: 'lauf', vorschau: { pos: 0.965, klemm: 'rechts', bild: true, titel: 'Zurück am Pier', zeile2: '5:02 · km 41.2' } })
+// 4 — Gliederung
+baue('b-4a', { aktiv: true, modi: true, zeit: 'lauf', hoch: true })
+// 5 — Höhenprofil
+baue('b-5a', { aktiv: true, zeit: 'lauf', tele: 'ohne-hoehe', oben: hpChip() })
+baue('b-5b', { aktiv: true, zeit: 'lauf', tele: 'ohne-hoehe', oben: hpPanel() })
+baue('b-5c', { aktiv: true, zeit: 'lauf' })
+// 6 — Telefon
+baue('b-6a', { altKurve: true, oben: NEXT_ALT })
+baue('b-6b', { aktiv: true, kopf: 0.475, zeit: 'lauf', tele: 'keine' })
+baue('b-6c', { aktiv: true, nahte: true, zeit: 'lauf', tele: 'keine', vorschau: { pos: 0.562, bild: true, zaehler: '2/3', titel: 'Bergkamm', zeile2: '3:12 · km 19.5' } })
+// 7 — Zusammenschau
+baue('b-7a', { altKurve: true, oben: NEXT_ALT })
+baue('b-7b', { aktiv: true, nahte: true, kopf: 0.475, zeit: 'lauf' })
+</script>
+</body>
+</html>

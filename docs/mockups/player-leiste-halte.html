@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Player-Leiste: wie ein Halt aussieht</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --akzent: #f5a524;
+    --akzent-2: #ff6f52;
+    --papier: #f7f2e8;
+    --tinte: #171106;
+    --dock: rgba(20, 16, 10, 0.82);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px 40px 80px;
+    background: #14100a;
+    color: var(--papier);
+    font-family: Outfit, system-ui, sans-serif;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+  }
+  h1 { font-size: 28px; font-weight: 500; margin: 0 0 6px; }
+  .unter { opacity: 0.62; max-width: 62ch; line-height: 1.55; margin: 0 0 40px; font-size: 15px; }
+  .fall { margin: 0 0 44px; }
+  .kopf { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .kopf h2 { font-size: 17px; font-weight: 500; margin: 0; }
+  .kopf .marke {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    opacity: 0.5; border: 1px solid rgba(247,242,232,0.25); border-radius: 999px; padding: 2px 9px;
+  }
+  .warum { font-size: 14px; opacity: 0.6; margin: 0 0 14px; max-width: 74ch; line-height: 1.5; }
+  .buehne {
+    background: var(--dock);
+    border: 1px solid rgba(247, 242, 232, 0.08);
+    border-radius: 16px;
+    padding: 18px 22px 22px;
+    backdrop-filter: blur(8px);
+  }
+  .schmal { max-width: 380px; }
+  .leiste { position: relative; height: 44px; }
+  .leiste svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+  .kopf-linie {
+    position: absolute; top: 0; bottom: -3px; width: 2px; border-radius: 2px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.32));
+    transform: translateX(-50%); box-shadow: 0 0 5px rgba(0,0,0,0.55); z-index: 6;
+  }
+  .kopf-linie::before {
+    content: ''; position: absolute; top: 0; left: 50%; width: 14px; height: 15px;
+    transform: translateX(-50%); background: var(--papier);
+    clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+    border-radius: 3px 3px 0 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+  .punkt {
+    position: absolute; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--papier); border: 1.5px solid rgba(23,17,6,0.35);
+    transform: translate(-50%, -50%); z-index: 5; padding: 0;
+  }
+  .punkt.gesehen { background: var(--akzent); border: 2px solid #fff; }
+  .zeile { display: flex; gap: 26px; margin-top: 14px; font-size: 12.5px; opacity: 0.55; }
+  .zeile b { font-weight: 500; opacity: 0.9; }
+
+  /* — Ist-Zustand — */
+  .ist-flaeche {
+    position: absolute; top: 40%; bottom: 0; min-width: 2px; border-radius: 2px 2px 0 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
+    z-index: 2;
+  }
+
+  /* — A: Kapsel — */
+  .kapsel {
+    position: absolute; height: 13px; border-radius: 999px;
+    background: var(--papier); border: 1.5px solid rgba(23,17,6,0.35);
+    transform: translateY(-50%); z-index: 5; min-width: 13px;
+  }
+  .kapsel.gesehen { background: var(--akzent); border: 2px solid #fff; }
+
+  /* — B: Kapitel-Spur — */
+  .spur { position: absolute; left: 0; right: 0; bottom: 3px; height: 4px; border-radius: 999px; background: rgba(247,242,232,0.13); z-index: 2; }
+  .spur-fill { position: absolute; left: 0; bottom: 3px; height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); z-index: 3; }
+  .kapitel { position: absolute; bottom: 0; height: 10px; border-radius: 3px; background: rgba(247,242,232,0.30); z-index: 4; }
+  .kapitel.gesehen { background: var(--papier); }
+
+  /* — C: Aufhellung — */
+  .aufhell {
+    position: absolute; top: 0; bottom: 0; z-index: 2;
+    background: rgba(247, 242, 232, 0.10);
+    border-left: 1px solid rgba(247,242,232,0.22);
+    border-right: 1px solid rgba(247,242,232,0.22);
+  }
+
+  /* — D: Schraffur unter der Kurve — */
+  .haltsaum {
+    position: absolute; bottom: 0; height: 6px; border-radius: 2px; z-index: 4;
+    background: repeating-linear-gradient(115deg, rgba(247,242,232,0.55) 0 2px, rgba(247,242,232,0) 2px 5px);
+  }
+  .haltsaum.gesehen { background: repeating-linear-gradient(115deg, var(--akzent) 0 2px, rgba(245,165,36,0) 2px 5px); }
+
+  /* — B2: gestauchte Kurve, Spur im selben Höhenbudget — */
+  .leiste.geteilt svg { top: 0; height: 26px; bottom: auto; }
+  .leiste.geteilt .spur, .leiste.geteilt .spur-fill { bottom: 8px; }
+  .leiste.geteilt .kapitel { bottom: 5px; }
+
+  /* — E: ohne Profil, reine Zeitachse — */
+  .bahn { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 999px; background: rgba(247,242,232,0.15); z-index: 2; }
+  .bahn-fill { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 999px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); z-index: 3; }
+  .bahn-halt { position: absolute; top: 50%; height: 14px; margin-top: -7px; border-radius: 4px; background: rgba(247,242,232,0.34); z-index: 4; min-width: 6px; }
+  .bahn-halt.gesehen { background: var(--papier); }
+</style>
+</head>
+<body>
+
+<h1>Der Halt in der Player-Leiste</h1>
+<p class="unter">Seit Etappe 5 ist die Leiste die Zeitachse des Films: Ein Foto-Halt kostet dort echte Breite (auf Koh&nbsp;Pha-ngan 1,9&nbsp;% pro 6-Sekunden-Halt — 20&nbsp;px am Desktop, 7&nbsp;px auf dem Telefon). Die Frage ist, wie diese Breite aussieht. Alle Varianten zeigen dieselbe Stelle derselben Tour.</p>
+
+<!-- ========== IST ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Jetzt gebaut</h2><span class="marke">Ist</span></div>
+  <p class="warum">Ein halbtransparenter Kasten von der halben Leistenhöhe bis zum Boden. Er sitzt hinter der Profilkurve und über der Fläche — dadurch wirkt er wie ein zweites, fremdes Bauteil neben den Punkten statt wie deren Ausdehnung.</p>
+  <div class="buehne"><div class="leiste" id="ist"></div>
+    <div class="zeile"><span><b>Griff:</b> der Punkt (25 px Trefferfläche)</span><span><b>Fläche:</b> Anzeige, nicht anfassbar</span></div>
+  </div>
+</section>
+
+<!-- ========== A ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Aus dem Punkt wird eine Kapsel</h2><span class="marke">A</span></div>
+  <p class="warum">Der Halt ist kein Kasten neben dem Punkt, sondern der Punkt selbst — in die Länge gezogen auf die Zeit, die er kostet. Ein Halt ohne Standzeit bleibt exakt der Kreis von heute, es gibt also kein zweites Bauteil. Und weil die Kapsel der Griff ist, kann man sie anfahren statt nur ansehen: das löst nebenbei, dass die 25-px-Trefferfläche des Punkts heute breiter ist als der Halt.</p>
+  <div class="buehne"><div class="leiste" id="a"></div>
+    <div class="zeile"><span><b>Griff:</b> die Kapsel selbst</span><span><b>Bauteile:</b> eines statt zwei</span></div>
+  </div>
+</section>
+
+<!-- ========== B ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Kapitel-Spur unter der Kurve</h2><span class="marke">B</span></div>
+  <p class="warum">Das Höhenprofil bleibt reine Landschaft, die Gliederung des Films wandert in eine eigene dünne Spur darunter — die Sprache, die jeder von Video-Kapiteln kennt. Klarste Trennung von „wo bin ich" und „woraus besteht der Film", kostet aber 10&nbsp;px Höhe und macht aus einer Leiste zwei.</p>
+  <div class="buehne"><div class="leiste" id="b"></div>
+    <div class="zeile"><span><b>Griff:</b> die ganze Spur</span><span><b>Preis:</b> zweite Zeile, im Querformat eng</span></div>
+  </div>
+</section>
+
+<!-- ========== C ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Aufgehellter Zeitabschnitt</h2><span class="marke">C</span></div>
+  <p class="warum">Kein eigenes Bauteil, sondern ein Lichtfeld über die volle Leistenhöhe — der Halt ist eine Zeitspanne, in der etwas anderes passiert, und die ganze Leiste weiß das. Ruhigste Variante; auf dem Telefon werden 7&nbsp;px Breite allerdings zu einem schwer erkennbaren Strich.</p>
+  <div class="buehne"><div class="leiste" id="c"></div>
+    <div class="zeile"><span><b>Griff:</b> der Punkt bleibt</span><span><b>Risiko:</b> auf 7 px kaum sichtbar</span></div>
+  </div>
+</section>
+
+<!-- ========== D ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Saum am Fuß der Leiste</h2><span class="marke">D</span></div>
+  <p class="warum">Ein schraffierter Streifen am unteren Rand, in der Akzentfarbe, sobald er besucht ist — die Schraffur liest sich als „hier steht die Zeit", ohne der Höhenkurve Fläche wegzunehmen. Kommt mit wenig Höhe aus und bleibt auch schmal erkennbar; die Textur ist auf einem dichten Telefon-Display allerdings der erste Kandidat für Moiré.</p>
+  <div class="buehne"><div class="leiste" id="d"></div>
+    <div class="zeile"><span><b>Griff:</b> Saum + Punkt</span><span><b>Risiko:</b> Textur auf HiDPI</span></div>
+  </div>
+</section>
+
+<!-- ========== B2 ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Dasselbe, ohne einen Pixel mehr</h2><span class="marke">B2</span></div>
+  <p class="warum">B kostet keine Höhe — die Kurve war nur unangetastet geblieben. Auf 26&nbsp;px gestaucht bleibt sie als Landschaft lesbar (sie ist ohnehin auf eine Mindest-Spanne von 150&nbsp;m gestreckt, es geht dort nie um Ablesbarkeit), und die Kapitel-Spur liegt im selben 44-px-Budget darunter.</p>
+  <div class="buehne"><div class="leiste geteilt" id="b2"></div>
+    <div class="zeile"><span><b>Höhe:</b> unverändert 44 px</span><span><b>Griff:</b> die ganze Spur</span></div>
+  </div>
+</section>
+
+<!-- ========== E ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Ohne Höhenprofil</h2><span class="marke">E</span></div>
+  <p class="warum">Die Kurve ganz weg, übrig bleibt die Zeitachse: eine Bahn, ihr Fortschritt, und die Halte als Blöcke darin. Das Argument dafür ist stärker geworden, seit die Leiste filmlinear läuft — die Kurve zeigt jetzt Höhe über FILMZEIT, was als Höhenprofil gar nicht mehr stimmt: Im Halt ist sie flach, ein langsamer Fußweg wird breit gezogen, ein Fährabschnitt gestaucht. Dazu wird sie bei flachen Touren auf eine Mindest-Spanne von 150&nbsp;m aufgeblasen, zeigt dort also DEM-Rauschen statt Gelände. Die Höhe steht als Zahl daneben in der Telemetrie.</p>
+  <div class="buehne"><div class="leiste" id="e"></div>
+    <div class="zeile"><span><b>Griff:</b> die ganze Bahn</span><span><b>Frei:</b> ~18 px, die die Leiste nicht mehr braucht</span></div>
+  </div>
+</section>
+
+<!-- ========== TELEFON ========== -->
+<section class="fall">
+  <div class="kopf"><h2>Dieselben vier auf 352 px</h2><span class="marke">Telefon</span></div>
+  <p class="warum">Die eigentliche Prüfung: Dort ist derselbe Halt nur noch 6,8&nbsp;px breit — schmaler als der Punkt, der auf ihm sitzt.</p>
+  <div class="buehne schmal">
+    <div class="leiste" id="ta"></div>
+    <div class="leiste" id="tb" style="margin-top:10px"></div>
+    <div class="leiste" id="tc" style="margin-top:10px"></div>
+    <div class="leiste" id="td" style="margin-top:10px"></div>
+    <div class="zeile"><span>von oben: A · B2 · C · E</span></div>
+  </div>
+</section>
+
+<script>
+// — Eine Tour, filmlinear: Halte als Plateaus in der Höhenkurve —
+// Halte in Filmanteilen (von, bis), dazu Fahrt-Höhen dazwischen.
+const HALTE = [
+  { von: 0.083, bis: 0.102 }, { von: 0.171, bis: 0.190 }, { von: 0.262, bis: 0.281 },
+  { von: 0.352, bis: 0.371 }, { von: 0.470, bis: 0.489 }, { von: 0.561, bis: 0.580 },
+  { von: 0.712, bis: 0.731 }, { von: 0.845, bis: 0.864 }, { von: 0.926, bis: 0.945 },
+]
+const KOPF = 0.398 // Playhead-Position (Filmanteil)
+const N = 220
+
+// Höhenkurve: Fahrt schwingt, Halte sind flach (der Film steht dort)
+function kurve() {
+  const ys = []
+  let h = 0.30
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1)
+    const imHalt = HALTE.some((x) => f >= x.von && f <= x.bis)
+    if (!imHalt) {
+      h += Math.sin(f * 17.3) * 0.016 + Math.sin(f * 5.1) * 0.011 + Math.cos(f * 31) * 0.004
+      h = Math.max(0.12, Math.min(0.82, h))
+    }
+    ys.push(h)
+  }
+  return ys
+}
+const YS = kurve()
+
+function svgProfil(id) {
+  const pts = YS.map((y, i) => `L${((i / (N - 1)) * 100).toFixed(2)},${(3 + 22 * (1 - y)).toFixed(2)}`).join(' ')
+  const d = `M0,30 ${pts} L100,30 Z`
+  return `<svg viewBox="0 0 100 30" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#f5a524"/><stop offset="1" stop-color="#ff6f52"/>
+      </linearGradient>
+      <clipPath id="c${id}"><rect x="0" y="0" width="${KOPF * 100}" height="30"/></clipPath>
+    </defs>
+    <path d="${d}" fill="rgba(247,242,232,0.14)"/>
+    <path d="${d}" fill="url(#g${id})" clip-path="url(#c${id})"/>
+  </svg>`
+}
+
+function hoeheBei(f) {
+  const x = Math.max(0, Math.min(1, f)) * (N - 1)
+  const i = Math.min(Math.floor(x), N - 2)
+  const y = YS[i] + (YS[i + 1] - YS[i]) * (x - i)
+  return ((3 + 22 * (1 - y)) / 30) * 100
+}
+
+function baue(id, variante) {
+  const el = document.getElementById(id)
+  if (!el) return
+  let html = svgProfil(id)
+
+  if (variante === 'B' || variante === 'B2') {
+    html += `<div class="spur"></div><div class="spur-fill" style="width:${KOPF * 100}%"></div>`
+  }
+  if (variante === 'E') {
+    html = `<div class="bahn"></div><div class="bahn-fill" style="width:${KOPF * 100}%"></div>`
+  }
+
+  for (const h of HALTE) {
+    const b = (h.bis - h.von) * 100
+    const l = h.von * 100
+    const gesehen = h.bis <= KOPF ? ' gesehen' : ''
+    if (variante === 'IST') html += `<div class="ist-flaeche" style="left:${l}%;width:${b}%"></div>`
+    if (variante === 'A') html += `<div class="kapsel${gesehen}" style="left:${l}%;width:${b}%;top:${hoeheBei(h.von)}%"></div>`
+    if (variante === 'B' || variante === 'B2') html += `<div class="kapitel${gesehen}" style="left:${l}%;width:${b}%"></div>`
+    if (variante === 'E') html += `<div class="bahn-halt${gesehen}" style="left:${l}%;width:${b}%"></div>`
+    if (variante === 'C') {
+      html += `<div class="aufhell" style="left:${l}%;width:${b}%"></div>`
+      html += `<div class="punkt${gesehen}" style="left:${l}%;top:${hoeheBei(h.von)}%"></div>`
+    }
+    if (variante === 'D') {
+      html += `<div class="haltsaum${gesehen}" style="left:${l}%;width:${b}%"></div>`
+      html += `<div class="punkt${gesehen}" style="left:${l}%;top:${hoeheBei(h.von)}%"></div>`
+    }
+    if (variante === 'IST') html += `<div class="punkt${gesehen}" style="left:${l}%;top:${hoeheBei(h.von)}%"></div>`
+  }
+  html += `<div class="kopf-linie" style="left:${KOPF * 100}%"></div>`
+  el.innerHTML = html
+}
+
+baue('ist', 'IST'); baue('a', 'A'); baue('b', 'B'); baue('c', 'C'); baue('d', 'D')
+baue('b2', 'B2'); baue('e', 'E')
+baue('ta', 'A'); baue('tb', 'B2'); baue('tc', 'C'); baue('td', 'E')
+</script>
+</body>
+</html>

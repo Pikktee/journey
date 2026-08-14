@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Player-Steuerleiste: was übrig bleibt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --akzent: #f5a524;
+    --akzent-2: #ff6f52;
+    --papier: #f7f2e8;
+    --glas: rgba(20, 16, 10, 0.72);
+    --rand: rgba(247, 242, 232, 0.10);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 44px 40px 90px;
+    background: #100d08; color: var(--papier);
+    font-family: Outfit, system-ui, sans-serif; font-weight: 300;
+    font-variant-numeric: tabular-nums;
+  }
+  h1 { font-size: 28px; font-weight: 500; margin: 0 0 6px; }
+  .unter { opacity: 0.6; max-width: 66ch; line-height: 1.55; margin: 0 0 40px; font-size: 15px; }
+  .fall { margin: 0 0 52px; }
+  .kopf { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .kopf h2 { font-size: 18px; font-weight: 500; margin: 0; }
+  .marke { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.5;
+           border: 1px solid rgba(247,242,232,0.25); border-radius: 999px; padding: 2px 9px; }
+  .warum { font-size: 14px; opacity: 0.62; margin: 0 0 16px; max-width: 78ch; line-height: 1.55; }
+
+  /* — Die Bühne: ein Ausschnitt des Players — */
+  .buehne {
+    position: relative; height: 300px; border-radius: 18px; overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 30% 0%, #2b4a5e 0%, #1d3243 42%, #16222c 70%, #0f1720 100%);
+    border: 1px solid rgba(247,242,232,0.07);
+  }
+  .buehne.schmal { max-width: 400px; height: 250px; }
+  /* angedeutetes Gelände + Routenlinie, damit die Leiste im Kontext steht */
+  .gelaende { position: absolute; inset: 0; opacity: 0.9; }
+  .route { position: absolute; inset: 0; }
+
+  .zurueck {
+    position: absolute; top: 16px; left: 16px; z-index: 31;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 14px 7px 11px; border-radius: 999px;
+    background: var(--glas); border: 1px solid var(--rand);
+    font-size: 13.5px; backdrop-filter: blur(10px);
+  }
+  .zurueck svg { width: 15px; height: 15px; }
+
+  /* — Nächster Halt (heute) — */
+  .next {
+    position: absolute; top: 16px; right: 16px; z-index: 22;
+    padding: 10px 16px; border-radius: 14px; text-align: right;
+    background: var(--glas); border: 1px solid var(--rand); backdrop-filter: blur(10px);
+  }
+  .next-kicker { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.55; margin-bottom: 3px; }
+  .next-value { font-size: 15px; font-weight: 400; }
+  .next-km { opacity: 0.6; margin-left: 9px; font-size: 13.5px; }
+
+  /* — Steuerleiste — */
+  .dock {
+    position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 20;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 16px; border-radius: 18px;
+    background: var(--glas); border: 1px solid var(--rand); backdrop-filter: blur(14px);
+  }
+  .cluster { display: flex; align-items: center; gap: 9px; }
+  .rund {
+    width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+    background: rgba(247,242,232,0.08); border: 1px solid var(--rand); color: var(--papier);
+    font-size: 13.5px;
+  }
+  .play { width: 44px; height: 44px; border-radius: 14px; background: var(--papier); color: #171106; }
+  .play svg { width: 20px; height: 20px; fill: currentColor; }
+  .rund svg { width: 19px; height: 19px; }
+
+  .tele { display: flex; gap: 22px; margin-left: auto; }
+  .tele-eintrag { display: flex; flex-direction: column; gap: 1px; }
+  .tele-label { font-size: 10.5px; letter-spacing: 0.05em; opacity: 0.5; }
+  .tele-wert { font-size: 15px; font-weight: 400; }
+  .filmzeit { font-size: 14px; opacity: 0.72; white-space: nowrap; }
+  .filmzeit b { font-weight: 500; opacity: 1; }
+
+  /* — Leiste — */
+  .leiste { position: relative; height: 44px; flex: 1 1 100%; }
+  .leiste svg.profil { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .kopf-linie {
+    position: absolute; top: 0; bottom: -3px; width: 2px; border-radius: 2px; z-index: 6;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.32));
+    transform: translateX(-50%); box-shadow: 0 0 5px rgba(0,0,0,0.55);
+  }
+  .kopf-linie::before {
+    content: ''; position: absolute; top: 0; left: 50%; width: 14px; height: 15px;
+    transform: translateX(-50%); background: var(--papier);
+    clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+    border-radius: 3px 3px 0 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+  .punkt {
+    position: absolute; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--papier); border: 1.5px solid rgba(23,17,6,0.35);
+    transform: translate(-50%, -50%); z-index: 5;
+  }
+  .punkt.gesehen { background: var(--akzent); border: 2px solid #fff; }
+  .ist-flaeche {
+    position: absolute; top: 40%; bottom: 0; border-radius: 2px 2px 0 0; z-index: 2;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
+  }
+  /* reine Zeitachse */
+  .bahn { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 999px; background: rgba(247,242,232,0.15); z-index: 2; }
+  .bahn-fill { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 999px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); z-index: 3; }
+  .bahn-halt { position: absolute; top: 50%; height: 14px; margin-top: -7px; border-radius: 4px; background: rgba(247,242,232,0.34); z-index: 4; min-width: 6px; }
+  .bahn-halt.gesehen { background: var(--papier); }
+
+  .notiz { display: flex; gap: 26px; margin-top: 12px; font-size: 12.5px; opacity: 0.55; flex-wrap: wrap; }
+  .notiz b { font-weight: 500; opacity: 0.92; }
+  .weg { text-decoration: line-through; opacity: 0.45; }
+</style>
+</head>
+<body>
+
+<h1>Was von der Steuerleiste übrig bleibt</h1>
+<p class="unter">Zwei Elemente stehen zur Debatte: die Höhenkurve in der Fortschrittsleiste und der Block „Nächster Halt" oben rechts. Beide sagen etwas, das die Leiste seit Paket&nbsp;G selbst zeigt. Hier steht, was ohne sie da ist.</p>
+
+<!-- ===== HEUTE ===== -->
+<section class="fall">
+  <div class="kopf"><h2>Heute</h2><span class="marke">Ist</span></div>
+  <p class="warum">Oben rechts eine zweite Textkarte gegenüber dem Weg zurück; unten eine Leiste, in der Höhenkurve, Punkte und Halt-Flächen um denselben Platz konkurrieren.</p>
+  <div class="buehne" id="b-ist"></div>
+  <div class="notiz"><span><b>Textstellen:</b> 4 (zurück · nächster Halt · Distanz · Höhe)</span><span><b>Bauteile in der Leiste:</b> Kurve · Fläche · Punkt · Kopf</span></div>
+</section>
+
+<!-- ===== AUFGERÄUMT ===== -->
+<section class="fall">
+  <div class="kopf"><h2>Ohne Kurve, ohne „Nächster Halt"</h2><span class="marke">A</span></div>
+  <p class="warum">Die obere rechte Ecke ist leer — die Halte stehen als Blöcke in der Leiste, mit ihrer Breite, und der Kopf läuft sichtbar darauf zu. Die Leiste ist eine Zeitachse: Bahn, Fortschritt, Halte. Die Blöcke sind zugleich der Griff, man fährt sie an statt sie nur anzusehen.</p>
+  <div class="buehne" id="b-a"></div>
+  <div class="notiz"><span><b>Textstellen:</b> 3</span><span><b>Bauteile in der Leiste:</b> Bahn · Block · Kopf</span><span class="weg">Nächster Halt · Höhenkurve</span></div>
+</section>
+
+<!-- ===== MIT FILMZEIT ===== -->
+<section class="fall">
+  <div class="kopf"><h2>Dasselbe mit Filmzeit</h2><span class="marke">B</span></div>
+  <p class="warum">Wenn die Leiste die Zeitachse ist, ist die naheliegende Zahl daneben die Zeit — die Sprache jedes Videoplayers, und die einzige Angabe, die dem entspricht, was der Kopf gerade tut. Distanz und Höhe bleiben daneben stehen: Sie sind die Auskunft über den Ort, und dafür gibt es sonst keine.</p>
+  <div class="buehne" id="b-b"></div>
+  <div class="notiz"><span><b>Neu:</b> 0:42 / 5:09 — was der Kopf zeigt, in Zahlen</span></div>
+</section>
+
+<!-- ===== TELEFON ===== -->
+<section class="fall">
+  <div class="kopf"><h2>Auf dem Telefon</h2><span class="marke">Hochkant</span></div>
+  <p class="warum">Die eigentliche Prüfung: Dort ist ein 6-Sekunden-Halt nur 6,8&nbsp;px breit, und der Platz für Text ist am knappsten. Links heute, rechts aufgeräumt.</p>
+  <div style="display:flex; gap:18px; flex-wrap:wrap">
+    <div class="buehne schmal" id="b-tist"></div>
+    <div class="buehne schmal" id="b-ta"></div>
+  </div>
+</section>
+
+<script>
+const HALTE = [
+  { von: 0.083, bis: 0.102, name: 'Thong Sala' }, { von: 0.171, bis: 0.190 }, { von: 0.262, bis: 0.281 },
+  { von: 0.352, bis: 0.371 }, { von: 0.470, bis: 0.489, name: 'Bergkamm' }, { von: 0.561, bis: 0.580 },
+  { von: 0.712, bis: 0.731 }, { von: 0.845, bis: 0.864 }, { von: 0.926, bis: 0.945 },
+]
+const KOPF = 0.398
+const N = 200
+
+const YS = (() => {
+  const ys = []; let h = 0.30
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1)
+    if (!HALTE.some((x) => f >= x.von && f <= x.bis)) {
+      h += Math.sin(f * 17.3) * 0.016 + Math.sin(f * 5.1) * 0.011 + Math.cos(f * 31) * 0.004
+      h = Math.max(0.12, Math.min(0.82, h))
+    }
+    ys.push(h)
+  }
+  return ys
+})()
+
+function hoeheBei(f) {
+  const x = Math.max(0, Math.min(1, f)) * (N - 1)
+  const i = Math.min(Math.floor(x), N - 2)
+  const y = YS[i] + (YS[i + 1] - YS[i]) * (x - i)
+  return ((3 + 22 * (1 - y)) / 30) * 100
+}
+
+function profil(id) {
+  const pts = YS.map((y, i) => `L${((i / (N - 1)) * 100).toFixed(2)},${(3 + 22 * (1 - y)).toFixed(2)}`).join(' ')
+  const d = `M0,30 ${pts} L100,30 Z`
+  return `<svg class="profil" viewBox="0 0 100 30" preserveAspectRatio="none">
+    <defs><linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5a524"/><stop offset="1" stop-color="#ff6f52"/></linearGradient>
+      <clipPath id="c${id}"><rect x="0" y="0" width="${KOPF * 100}" height="30"/></clipPath></defs>
+    <path d="${d}" fill="rgba(247,242,232,0.14)"/>
+    <path d="${d}" fill="url(#g${id})" clip-path="url(#c${id})"/></svg>`
+}
+
+const GELAENDE = `<svg class="gelaende" viewBox="0 0 400 300" preserveAspectRatio="none">
+  <path d="M0,208 C60,186 96,214 150,196 C208,176 250,206 300,190 C346,176 380,196 400,188 L400,300 L0,300Z" fill="rgba(12,26,20,0.55)"/>
+  <path d="M0,236 C70,220 120,246 186,230 C250,215 300,240 400,224 L400,300 L0,300Z" fill="rgba(8,18,14,0.7)"/>
+</svg>
+<svg class="route" viewBox="0 0 400 300" preserveAspectRatio="none">
+  <path d="M40,268 C110,246 130,214 196,204 C260,194 286,172 350,158" fill="none"
+        stroke="rgba(245,165,36,0.85)" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="196" cy="204" r="6" fill="#f7f2e8" stroke="rgba(23,17,6,0.4)" stroke-width="2"/>
+</svg>`
+
+const ZURUECK = `<div class="zurueck">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.5 7.5 12l6.5 6.5"/></svg>Entdecken</div>`
+
+const NEXT = `<aside class="next">
+  <div class="next-kicker">Nächster Halt</div>
+  <div class="next-value">Bergkamm<span class="next-km">in 1.2 km</span></div></aside>`
+
+function knoepfe() {
+  return `<div class="cluster">
+    <div class="rund play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></div>
+    <div class="rund">1×</div>
+    <div class="rund"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.4" fill="currentColor"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.4" fill="currentColor"/></svg></div>
+  </div>`
+}
+
+function telemetrie(mitZeit) {
+  return `<div class="tele">
+    ${mitZeit ? `<div class="filmzeit"><b>0:42</b> / 5:09</div>` : ''}
+    <div class="tele-eintrag"><span class="tele-label">Distanz</span><span class="tele-wert">16.4 km</span></div>
+    <div class="tele-eintrag"><span class="tele-label">Höhe</span><span class="tele-wert">312 m</span></div>
+  </div>`
+}
+
+function leiste(id, art) {
+  let h = art === 'kurve' ? profil(id) : `<div class="bahn"></div><div class="bahn-fill" style="width:${KOPF * 100}%"></div>`
+  for (const x of HALTE) {
+    const l = x.von * 100, b = (x.bis - x.von) * 100
+    const g = x.bis <= KOPF ? ' gesehen' : ''
+    if (art === 'kurve') {
+      h += `<div class="ist-flaeche" style="left:${l}%;width:${b}%"></div>`
+      h += `<div class="punkt${g}" style="left:${l}%;top:${hoeheBei(x.von)}%"></div>`
+    } else {
+      h += `<div class="bahn-halt${g}" style="left:${l}%;width:${b}%"></div>`
+    }
+  }
+  h += `<div class="kopf-linie" style="left:${KOPF * 100}%"></div>`
+  return `<div class="leiste">${h}</div>`
+}
+
+function baue(id, { next, art, zeit }) {
+  document.getElementById(id).innerHTML =
+    GELAENDE + ZURUECK + (next ? NEXT : '') +
+    `<footer class="dock">${knoepfe()}${telemetrie(zeit)}${leiste(id, art)}</footer>`
+}
+
+baue('b-ist', { next: true, art: 'kurve', zeit: false })
+baue('b-a', { next: false, art: 'bahn', zeit: false })
+baue('b-b', { next: false, art: 'bahn', zeit: true })
+baue('b-tist', { next: true, art: 'kurve', zeit: false })
+baue('b-ta', { next: false, art: 'bahn', zeit: true })
+</script>
+</body>
+</html>
