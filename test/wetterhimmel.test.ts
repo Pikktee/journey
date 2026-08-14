@@ -3,7 +3,7 @@
 // für den flachen Schleier über der Karte.
 
 import { describe, expect, it } from 'vitest'
-import { himmelBei, schleierFuer, WETTER_HIMMEL, type SzenenWetter } from '../src/wetterhimmel.js'
+import { bildwirkung, himmelBei, schleierFuer, WETTER_HIMMEL, type SzenenWetter } from '../src/wetterhimmel.js'
 // Die Studio-Liste und nicht die des Servers: Sie ist von hier importierbar
 // (server/ hat einen eigenen `rootDir`) und ihrerseits gegen das Server-Schema
 // gewacht — test/studio-baukasten.test.ts vergleicht beide.
@@ -67,12 +67,20 @@ describe('schleierFuer', () => {
   })
 
   // Der Schleier färbt die Karte, er deckt sie nicht zu — man arbeitet
-  // darunter. Im Player rettet die Bewegung der Tropfen ein dichteres Bild,
-  // hier gibt es keine.
-  it('bleibt auch beim Gewitter durchsichtig genug zum Arbeiten', () => {
-    const s = schleierFuer('storm', 1)
-    expect(alpha(s.wasch) + alpha(s.schatten)).toBeLessThan(0.4)
-  })
+  // darunter. Gemessen wird das an der sichtbaren HELLIGKEIT und nicht an der
+  // Summe der Deckkräfte: Zwei helle Flächen (Nebel) machen das Bild heller,
+  // nicht unlesbarer, und ein Alpha-Grenzwert verbietet ausgerechnet die Lage,
+  // die dicht sein SOLL.
+  it.each(['clouds', 'fog', 'rain', 'snow', 'storm'] as SzenenWetter[])(
+    'löscht die Karte auch bei voller Stärke nicht aus (%s)',
+    (m) => {
+      // Grenzen am RECHENwert des Testfelds; das echte Kartenmittel liegt
+      // heller. Es geht um „noch zu bearbeiten", nicht um einen Sollwert.
+      const g = ueberGrau(m)[1] as number
+      expect(g, `${m} zu dunkel`).toBeGreaterThan(55)
+      expect(g, `${m} zu milchig`).toBeLessThan(200)
+    },
+  )
 
   // Nur Schnee legt sich auf den BODEN — dieselbe Kopplung wie im Player
   // (`dayNight.setSnow`), damit eine Winterfahrt eine weiße Landschaft zeigt
@@ -96,3 +104,61 @@ function alpha(farbe: string): number {
   expect(m, `keine rgba-Farbe: ${farbe}`).not.toBeNull()
   return Number((m as RegExpExecArray)[1])
 }
+
+describe('die Lagen sind voneinander zu unterscheiden', () => {
+  // Der Test, der diese Datei überhaupt nötig gemacht hat. Eine erste Fassung
+  // skalierte alle Lagen aus derselben Formel (`cover`/`dark`) — und weil beide
+  // bei fast jeder Lage gegen dasselbe Maximum laufen, sahen sie bei voller
+  // Stärke gleich aus: gemessen alle fünf zwischen rgb(94) und rgb(126),
+  // Wolken und Nebel trennten 9 von 765 möglichen Stufen. Am Bildschirm war
+  // das „fast kein Unterschied", und genau so wurde es gemeldet.
+  const PAARE: Array<[SzenenWetter, SzenenWetter]> = []
+  const LAGEN: SzenenWetter[] = ['clouds', 'fog', 'rain', 'snow', 'storm']
+  for (let i = 0; i < LAGEN.length; i++)
+    for (let j = i + 1; j < LAGEN.length; j++) PAARE.push([LAGEN[i]!, LAGEN[j]!])
+
+  // Die Zahl hier ist ein REGRESSIONSSCHUTZ, kein Abnahmekriterium: Sie rechnet
+  // auf einem einzelnen Farbwert, das echte Bild ist eine Landschaft aus
+  // Tausenden. Abgenommen wird am Screenshot (scripts/messungen — mittlere
+  // Helligkeit je Lage), und dort lagen die fünf Lagen zuletzt bei 85 · 169 ·
+  // 79 · 179 · 62 gegen 94 ohne Wetter. Was dieser Test verhindern soll, ist
+  // der Rückfall in den gemeldeten Zustand „fast kein Unterschied" — damals
+  // trennten Wolken und Nebel 9 von 765 Stufen.
+  it.each(PAARE)('%s und %s sehen verschieden aus', (a, b) => {
+    expect(abstand(ueberGrau(a), ueberGrau(b))).toBeGreaterThanOrEqual(30)
+  })
+
+  // Die Reihenfolge ist die Aussage: Nebel verschluckt (am hellsten), Schnee
+  // hellt auf, Wolken dämpfen, Regen kühlt ab, Gewitter verdunkelt.
+  it('ordnet sich von hell nach dunkel wie die Lagen selbst', () => {
+    const hell = (m: SzenenWetter) => ueberGrau(m)[1] as number
+    expect(hell('fog')).toBeGreaterThan(hell('snow'))
+    expect(hell('snow')).toBeGreaterThan(hell('clouds'))
+    expect(hell('clouds')).toBeGreaterThan(hell('rain'))
+    expect(hell('rain')).toBeGreaterThan(hell('storm'))
+  })
+})
+
+/** Der Schleier einer Lage über einem mittleren Grau — was man am Ende sieht. */
+function ueberGrau(m: SzenenWetter, k = 1): number[] {
+  // Ein typisches Satellitengrün, KEIN Grau: Auf einem grauen Feld ist eine
+  // Entsättigung wirkungslos, und die trägt bei mehreren Lagen den größten
+  // Teil des Unterschieds. Ein Test auf grauem Grund hätte sie übersehen.
+  const LAND = [96, 112, 78]
+  const b = bildwirkung(m, k)
+  // 1. Grading: Helligkeit als Faktor, Sättigung als Zug zur Luminanz.
+  const hell = LAND.map((x) => Math.max(0, Math.min(255, x * b.helligkeit)))
+  const lum = 0.2126 * (hell[0] as number) + 0.7152 * (hell[1] as number) + 0.0722 * (hell[2] as number)
+  const grau = Math.min(1, Math.abs(b.saettigung))
+  const gegradet = hell.map((x) => x + (lum - x) * grau)
+  // 2. Schleier darüber, in derselben Reihenfolge wie im CSS.
+  const s = schleierFuer(m, k)
+  const zahl = (f: string) => (/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/.exec(f) ?? []).slice(1).map(Number)
+  const legen = (unten: number[], oben: number[]): number[] => {
+    const al = oben[3] ?? 0
+    return unten.map((x, i) => Math.round(x + ((oben[i] ?? 0) - x) * al))
+  }
+  return legen(legen(gegradet, zahl(s.wasch)), zahl(s.schatten))
+}
+
+const abstand = (a: number[], b: number[]): number => a.reduce((s, x, i) => s + Math.abs(x - (b[i] ?? 0)), 0)

@@ -1398,10 +1398,13 @@
     .karte-zoom button + button { border-top: 1px solid var(--rand); }
     .karte-zoom button:hover { background: rgba(28, 37, 48, 0.96); color: var(--text); }
     .karte-zoom svg { width: 17px; height: 17px; }
-    /* Eingeschaltete Darstellung: der Knopf trägt die Akzentfarbe. Sonst wäre
-       bei geschlossenem Panel nicht zu sehen, dass die Karte gerade gradet —
-       und ein nächtliches Satellitenbild sähe wie ein Ladefehler aus. */
-    #karte-stimmung.an { color: var(--akzent); }
+    /* Eingeschaltete Darstellung: heller, NICHT amber. Amber heißt an der
+       Zeitleiste „läuft gerade" (s. src/studio/CLAUDE.md) — auf einem
+       Einstellungs-Knopf wäre das eine dritte Bedeutung derselben Farbe, und
+       ein Zahnrad, das leuchtet, zieht mehr Blick auf sich als die Karte
+       darunter. Der volle Textton genügt: Er unterscheidet sich sichtbar vom
+       gedämpften Ruhezustand der Nachbarknöpfe. */
+    #karte-stimmung.an { color: var(--text); }
 
     .stimmung-panel {
       position: absolute; top: 14px; right: 60px; z-index: 9; width: 286px;
@@ -3035,9 +3038,14 @@
            Zeichen im Produkt eine Bedeutung hat und nicht zwei. Der frühere
            Entwurf (Sonne hinter Wolke) beschrieb den INHALT des Panels — als
            Knopf gelesen sah er aus wie ein Wetter-Umschalter. -->
-      <symbol id="i-zahnrad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3.1"/>
-        <path d="M12 2.6l1.1 2.3 2.5-.5.4 2.5 2.3 1.1-1.4 2.1 1.4 2.1-2.3 1.1-.4 2.5-2.5-.5L12 21.4l-1.1-2.3-2.5.5-.4-2.5-2.3-1.1L7.1 13.8 5.7 11.7l2.3-1.1.4-2.5 2.5.5z"/>
+      <!-- Zahnrad mit sechs klar abgesetzten Zähnen. Die Sternform aus dem
+           Konto-Menü stand hier zuerst: Bei 17 px verschmelzen ihre acht
+           spitzen Zacken zum Kreis, und was bleibt, liest sich als Blume. Sechs
+           RECHTECKIGE Zähne bleiben auch klein als Zahnrad erkennbar. -->
+      <symbol id="i-zahnrad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.4"/>
+        <path d="M12 2.2v3.1M12 18.7v3.1M20.5 7.2l-2.7 1.55M6.2 15.25 3.5 16.8M20.5 16.8l-2.7-1.55M6.2 8.75 3.5 7.2"/>
+        <circle cx="12" cy="12" r="8.1" stroke-dasharray="2.4 3.85"/>
       </symbol>
       <symbol id="i-wolke" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7.4 18.4h9.2a3.3 3.3 0 0 0 .3-6.6 4.8 4.8 0 0 0-9.1-1.2 3.4 3.4 0 0 0-.4 7.8z"/>

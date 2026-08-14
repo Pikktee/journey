@@ -28,7 +28,7 @@
 
 import { paramsAt, rastergrading, type Rastergrading } from '../daynight.js'
 import { sunPosition } from '../sun.js'
-import { schleierFuer, type SzenenWetter } from '../wetterhimmel.js'
+import { bildwirkung, schleierFuer, type SzenenWetter, type Wettergrading } from '../wetterhimmel.js'
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
 // die tragen genau diese Liste (`WETTER_MODI`, gewacht gegen das Server-Schema).
@@ -110,8 +110,18 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
     gesetzt = g
   }
 
-  /** Der Wetter-Anteil des Bildes: Schleier über der Karte, Schnee im Grading. */
-  const wetterBild = (w: Wetterstand | null): { schnee: number } => {
+  /**
+   * Der Wetter-Anteil des Bildes.
+   *
+   * Drei Wege, und alle drei sind nötig: der SCHLEIER über der Karte (Farbton),
+   * das GRADING des Bildes (Helligkeit und Sättigung — „bedeckt" heißt weniger
+   * Licht und weniger Farbe, und das kann eine Fläche darüber nicht) und die
+   * SCHNEEDECKE. Mit dem Schleier allein lagen Wolken und Regen auf der echten
+   * Karte bei 102 bzw. 97 mittlerer Helligkeit gegen 94 ohne Wetter — also
+   * heller statt dunkler, weil ein helles Grau über einer dunklen Landschaft
+   * aufhellt.
+   */
+  const wetterBild = (w: Wetterstand | null): { schnee: number; bild: Wettergrading } => {
     const modus: SzenenWetter = (wetterAn && w ? w.mode : 'off') as SzenenWetter
     const s = schleierFuer(modus, w?.staerke ?? 0.7)
     // Zwei Farbflächen übereinander plus, bei Nebel, ein weicher Verlauf von
@@ -131,26 +141,36 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
       }
       letzterSchleier = bild
     }
-    return { schnee: s.schnee }
+    return { schnee: s.schnee, bild: bildwirkung(modus, w?.staerke ?? 0.7) }
   }
+
+  /** Wetter auf ein fertiges Grading legen — Licht mal Faktor, Farbe minus Abzug. */
+  const mitWetter = (g: Rastergrading, b: Wettergrading): Rastergrading => ({
+    brightnessMax: +Math.max(0, Math.min(1, g.brightnessMax * b.helligkeit)).toFixed(3),
+    brightnessMin: g.brightnessMin,
+    // Die Sättigung ist bei MapLibre auf [-1, 1] geklemmt; ohne die Klemme
+    // fiele eine schon nächtlich entsättigte Karte unter -1 und der Wert würde
+    // still verworfen.
+    saturation: +Math.max(-1, Math.min(1, g.saturation + b.saettigung)).toFixed(3),
+    contrast: g.contrast,
+  })
 
   const anwenden = (): void => {
     if (!stand) return
-    const { schnee } = wetterBild(stand.wetter)
+    const { schnee, bild } = wetterBild(stand.wetter)
     if (tagNacht) {
       // Der Sonnenstand hängt an Datum UND Ort — deshalb beides. Die
       // Stunden-Heuristik des Uhr-Symbols reicht hier nicht: Sie kennt weder
       // die Jahreszeit noch den Breitengrad, und auf der Karte sähe man den
       // Unterschied sofort (Mitternachtssonne gegen Polarnacht).
       const sonne = sunPosition(new Date(stand.zeitIso), stand.ort[1], stand.ort[0])
-      gradiere(rastergrading(paramsAt(sonne.altitude), schnee))
-    } else if (schnee > 0) {
-      // Ohne Tageszeit-Regie trotzdem die Schneedecke: Sie gehört zum WETTER,
-      // nicht zum Licht. Volles Tageslicht als Grundlage — genau das, was
-      // „Tageszeit aus" bedeutet.
-      gradiere(rastergrading({ br: 1, sat: 0, con: 0, li: 0.4, sky: '', hor: '', fog: '', lc: '' }, schnee))
+      gradiere(mitWetter(rastergrading(paramsAt(sonne.altitude), schnee), bild))
     } else {
-      gradiere(NEUTRAL)
+      // Ohne Tageszeit-Regie trotzdem Schneedecke und Wetter-Grading: Beide
+      // gehören zum WETTER, nicht zum Licht. Volles Tageslicht als Grundlage —
+      // genau das, was „Tageszeit aus" bedeutet.
+      const TAG = { br: 1, sat: 0, con: 0, li: 0.4, sky: '', hor: '', fog: '', lc: '' }
+      gradiere(mitWetter(rastergrading(TAG, schnee), bild))
     }
   }
 
