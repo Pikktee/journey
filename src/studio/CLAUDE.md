@@ -699,7 +699,11 @@ den Zoom trotzdem bei 0 anfangen und weiterlaufen, obwohl der Kopf stand, und im
 irgendeinen Frame statt des gemeinten. Jetzt stehen beide Animationen dauerhaft auf
 `animation-play-state: paused` und ihr Fortschritt kommt aus einem NEGATIVEN Delay
 (`--fe-zeit`, gesetzt bei jedem Kopfschritt) — dieselbe Linie wie beim Fortschrittsbalken, nur
-mit dem Kunstgriff, mit dem man ein Standbild aus einer Animation zieht. Die Drift-Dauer ist
+mit dem Kunstgriff, mit dem man ein Standbild aus einer Animation zieht. **Seit E15 fährt der
+Player dasselbe Modell** (`--karte-zeit`), und die vier Rechnungen darunter sind geteilt:
+`kartenZeiten`, `balkenAnteil`, `klipDauerS` und `videoStandS` stehen in
+[src/einblendung.ts](../einblendung.ts) — `videoStandS` ist von hier dorthin gezogen und wird
+unter seinem Namen re-exportiert. Geteilt sind die ZAHLEN, nicht das DOM (Konzept §6A). Die Drift-Dauer ist
 die Klip-Dauer (`--fe-kb-dauer`, wie `--kb-dauer` im Player): fest gesetzte 6 s wären an einem
 20-s-Halt nach einem Viertel fertig. Das Video wird auf `trim.vonS + imS` gesetzt und läuft nur
 bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtbar); **beide

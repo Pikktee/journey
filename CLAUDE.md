@@ -352,9 +352,8 @@ eine Beobachtung für die Messskripte. Fünf Dinge, die man dabei kippt:
 - **Der Anteil, den `seek`/`scrub` bekommen, ist der der STRECKE**, weil die Fortschritts-
   leiste ihn so zeichnet; die Achse macht daraus die Filmsekunde. Filmlinear wird die Leiste
   erst mit Etappe 5 — bis dahin landet ein Scrub auf einen Halt an dessen ANKUNFT.
-- **Die Foto-Karte hängt noch am Auslöser, nicht an der Position** (E15, zweiter Gang):
-  `zeigeHalt` ruft weiterhin `showPhoto`/`hidePhoto`, nur kommt der Anlass jetzt aus dem
-  Halt-Intervall. Sie flackert deshalb an Halt-Kanten und verschwindet beim Scrubben.
+- **Die Foto-Karte ist eine FUNKTION der Filmzeit** (E15, s. den eigenen Abschnitt unten) —
+  kein getriggerter Auftritt mehr.
 
 **Die Rampe ist eine feste Form über eine feste STRECKE** (E14, `RAMPE_M` = 120 m in
 [filmachse.ts](src/filmachse.ts)), keine nachgebaute Exponentialkurve — und sie gilt für
@@ -491,13 +490,50 @@ Messwerte und Fallen (Mercator-y-Flip cullt Bodenflächen!) in
 die Fortschrittsleiste. Das Scrubbing (Ziehen/Tippen auf der Timeline, inkl. Foto-Dots) wird in
 main.ts über Pointer-Events verdrahtet und ruft `tour.beginScrub/scrub/endScrub` bzw.
 `tour.jumpToPhoto`. Der Player-DOM liegt statisch in [erlebnis.html](erlebnis.html); JS greift
-per `id` zu. **Die UI zieht sich während der Fahrt selbst zurück** (`body.ui-clean`, nach 3,2 s
+per `id` zu. **Die UI zieht sich zurück, solange der FILM läuft** (`body.ui-clean`, nach 3,2 s
 Ruhe; Weg zurück, Halt-Chip, Steuerleiste UND Mauszeiger) und kommt bei der nächsten Regung wieder —
-auf jeder Zeigerart, deshalb gibt es keinen Knopf und keine Taste dafür mehr. Zwei Fallen:
+auf jeder Zeigerart, deshalb gibt es keinen Knopf und keine Taste dafür mehr. Drei Fallen:
 `pointermove` feuert auch ohne Handbewegung, sobald sich der Inhalt unter dem stehenden Zeiger
-ändert (also pro Frame) — ohne Koordinaten-Vergleich käme die UI nie zur Ruhe; und `:hover` (die
+ändert (also pro Frame) — ohne Koordinaten-Vergleich käme die UI nie zur Ruhe; `:hover` (die
 Ausnahme „Maus liegt auf der Steuerleiste") darf nur bei `(hover: hover)` zählen, weil die
-Pseudoklasse auf Touch nach einem Tipp am getippten Element hängen bleibt.
+Pseudoklasse auf Touch nach einem Tipp am getippten Element hängen bleibt; und der **Halt zählt
+zur laufenden Wiedergabe**. Dort stand einmal `phase === 'ride'`, die Leiste blieb also die
+ganze Standzeit oben — unter der alten Schichtung unsichtbar, seit E17 der Normalfall: Sie
+deckte Bildunterschrift und „Weiter" zu (gemessen 93 px bei 1280 × 800). Dieselbe Lehre wie bei
+E13 — ein Halt ist ein Zustand der Kurve, kein anderer Betriebsmodus.
+
+**Die Bedienung liegt ÜBER dem Bild** (E17): `.photo-layer` (12) und `.finale` (13) unter
+`.dock` (20), `.karten-info` (22), `.zurueck` (31) und dem Startscreen (30). Vorher war es
+umgekehrt (25 gegen 20), und das trug nur, solange `beginScrub` die Karte wegräumte — seit sie
+liegen bleibt, muss die Leiste erreichbar sein, WÄHREND sie liegt. Das ist die Ordnung jedes
+Videoplayers: Das Bild ist der Inhalt, die Steuerung liegt darauf. Gehalten von
+[test/player-schichtung.test.ts](test/player-schichtung.test.ts) — die Zahlen stehen 500 Zeilen
+auseinander, wer die eine anfasst, sieht die andere nicht.
+
+**Und die Foto-Karte ist eine FUNKTION der Filmzeit** (E15, `Tour.synchronisiereKarte` →
+`UI.synchronisiereKarte`), keine Wanduhr-Animation mehr. Jede Aufnahme eines Halts ist ein
+KLIP von Standzeit + Ausblendung (`klipDauerS` in [einblendung.ts](src/einblendung.ts));
+steht `filmS` darin, liegt ihre Karte auf der Bühne — mit dem Auftritt, dem „Entwickeln", dem
+Ken-Burns-Stand und dem Video-Frame genau dieser Filmsekunde. Technisch stehen die Animationen
+dauerhaft auf `animation-play-state: paused`, ihr Fortschritt kommt aus einem NEGATIVEN Delay
+(`--karte-zeit`, gesetzt bei jedem Frame) — die Technik, mit der man ein Standbild aus einer
+Animation zieht, aus dem Editor übernommen (`--fe-zeit`). Vier Dinge fallen damit zusammen:
+Die Karte erscheint auch rückwärts und animiert rückwärts; **Ken Burns ist pausierbar** (als
+`transition` lief er unter dem „Angehalten"-Abzeichen weiter, gemessen: Bildskala hält jetzt
+über 2,2 s Wanduhr exakt); Scrubben durch einen Halt zeigt endlich etwas (`beginScrub` räumte
+die Karte weg); und die **1-Sekunden-Abweichung aus §6C** des Gleichlauf-Konzepts ist weg — die
+Drift-Dauer ist beidseits die Klip-Länge (`holdS + 0.8`), nicht mehr `holdS + 1.8` im Player.
+Vier Regeln daneben: Ein **Video kann nicht rückwärts spielen**, dort wird geseekt
+(`videoStandS`, geteilt); es läuft nur bei Tempo genau 1 und schweigt sonst; **ab 2×
+Schnelllauf bleibt die Karte ganz aus** (E16, „dort will man die Strecke überfliegen"); und
+`swapPhoto` ist ersatzlos entfallen — jede Aufnahme hat ihren eigenen Klip und damit ihren
+eigenen Auf- und Abgang. Was geteilt wird, sind die RECHNUNGEN (`kartenZeiten`,
+`balkenAnteil`, `klipDauerS`, `videoStandS` in [einblendung.ts](src/einblendung.ts)) und die
+Filmzeit — **nicht die Mechanik**: Ein gemeinsames DOM-Bauteil ist ausdrücklich nicht gewollt
+(Konzept §6A), der Player streamt einen Film voraus, der Editor springt in einer Datei umher.
+Was **mitten in einen Halt zu scrubben** angeht, fehlt noch der Griff: Ein Halt hat auf der
+Leiste keine Breite, `fracAt` liefert einen Streckenanteil, ein Zug landet also auf seiner
+ANKUNFT. Das ist Etappe 5 („die Fläche ist zugleich der Griff").
 
 **Oben links steht genau EIN Element: der Weg hinaus** — die Pille `.zurueck`, fest positioniert
 über dem Intro. Sie steht die ganze Fahrt über da (nicht nur im Startscreen), trägt das Wort der

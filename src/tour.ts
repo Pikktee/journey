@@ -15,7 +15,7 @@
 // dadurch über dieselbe Kurve, Halte inklusive, genau wie der Editor
 // (src/studio/abspielen.ts) es seit Monaten tut.
 import maplibregl, { type Map as MapLibreKarte } from 'maplibre-gl'
-import { HOLD_AUSBLEND } from './einblendung.js'
+import { klipDauerS } from './einblendung.js'
 import { Filmuhr, verbindeSichtbarkeit } from './filmuhr.js'
 import { pointAt, bearingAt, dist, bearing, angleDelta, destination, type Route } from './geo.js'
 import { EXAGGERATION, type LngLat2D } from './map.js'
@@ -263,8 +263,8 @@ export class Tour {
   /** Der Halt, in dem die Filmzeit gerade steht (null = Fahrt) */
   halt: Spielhalt | null = null
   itemIdx: number
-  /** false = keine Karte, true = sichtbar, 'hiding' = Ausblendphase läuft */
-  photoShown: boolean | 'hiding'
+  /** Liegt gerade eine Foto-Karte auf der Bühne? */
+  photoShown: boolean
   /** Der Halt, dessen Karte gerade läuft (null außerhalb der Foto-Phase) */
   shownStop: PlayerStopp | null = null
   glide: number
@@ -362,8 +362,11 @@ export class Tour {
     // unangetastet (kein „Angehalten"-Abzeichen): Wer den Tab wechselt, hat
     // nichts pausiert. Die Ton-Spuren gehen den anderen Weg — ihre Gates fragen
     // `uhr.laeuft` (src/main.ts).
+    // Anhalten muss aus dem EREIGNIS kommen: Die Karten-Sync hängt an
+    // `requestAnimationFrame`, und genau das läuft im Hintergrund nicht mehr.
+    // Zurück holt sie das Video von selbst — der nächste Kopfschritt reicht.
     this.uhr.beiWechsel = (laeuft) => {
-      if (this.phase === 'photo' && this.photoShown === true) this.ui.setzeVideoLauf(laeuft && this.playing)
+      if (!laeuft) this.ui.haltVideoAn()
     }
     verbindeSichtbarkeit(this.uhr)
     this.uiClock = 0
@@ -521,8 +524,12 @@ export class Tour {
   private setzeFilm(filmS: number): void {
     this.filmS = Math.max(0, Math.min(this.film.gesamtS, filmS))
     this.s = this.film.sBeiFilm(this.filmS)
-    // Beim Scrubben löst nichts aus — dort führt allein der Zeigefinger.
-    this.halt = this.scrubbing ? null : this.film.haltBeiFilm(this.filmS)
+    // Auch beim Scrubben: „Im Halt" ist ein ZUSTAND der Kurve und kein
+    // ausgelöstes Ereignis (E13). Bis E15 war der Halt hier beim Scrubben
+    // ausdrücklich null — die Karte hätte sonst geflackert, weil sie an einer
+    // eigenen Uhr hing. Jetzt hängt sie an dieser Filmsekunde, und wer durch
+    // einen Halt zieht, soll sehen, was dort steht.
+    this.halt = this.film.haltBeiFilm(this.filmS)
   }
 
   /**
@@ -571,7 +578,9 @@ export class Tour {
     if (this.phase === 'finale') this.ui.hideFinale()
     this.scrubbing = true
     this.phase = 'ride'
-    this.raeumeKarte()
+    // Die Karte bleibt liegen: Zieht man durch einen Halt, soll sie mit dem
+    // Stand DIESER Filmsekunde dastehen (E15). Vorher räumte diese Zeile sie
+    // weg — man scrubbte blind an jedem Foto vorbei.
     this.settled = false
     this.speed = 0
     this.scrub(frac)
@@ -597,7 +606,7 @@ export class Tour {
    */
   photoNext(): void {
     const halt = this.halt
-    if (this.phase !== 'photo' || !halt?.stopp || this.photoShown !== true) return
+    if (this.phase !== 'photo' || !halt?.stopp || !this.photoShown) return
     const naechstes = halt.stuecke[this.itemIdx + 1]
     this.setzeFilm(naechstes ? halt.filmVon + naechstes.abS : halt.filmBis)
     this.ui.syncDots(this.s)
@@ -618,32 +627,43 @@ export class Tour {
    */
   onMediaEnded(): void {}
 
-  // Zeigt der aktuelle Halt gerade ein Video? (der Balken kommt dann aus der Videozeit)
-  aktuellesItemIstVideo(): boolean {
-    return this.phase === 'photo' && this.shownStop?.items[this.itemIdx]?.type === 'video'
+  /**
+   * Der Faktor auf die Filmzeit, wie ihn die Anzeige braucht: 1 = normale
+   * Fahrt, 0 = die Filmzeit steht, negativ = rückwärts.
+   *
+   * Beim Scrubben führt der Zeigefinger, also steht die Filmzeit für alles,
+   * was eine eigene Uhr hat (das Video) — die Karte selbst folgt trotzdem, weil
+   * ihr Stand aus `filmS` kommt und nicht aus einer Uhr.
+   */
+  private get anzeigeTempo(): number {
+    if (this.scrubbing || !this.playing || !this.uhr.laeuft) return 0
+    return this.dir * this.mult
   }
 
   /**
-   * Die Foto-Karte an den Stand im Halt bringen.
+   * Die Foto-Karte ist eine FUNKTION der Filmzeit (E15) — keine Uhr.
    *
-   * Der AUSLÖSER ist seit Etappe 4 das Halt-Intervall und nicht mehr ein
-   * getriggerter Phasenwechsel; ein- und ausgeblendet wird noch wie bisher über
-   * `showPhoto`/`hidePhoto`. Dass die Karte dadurch an den Halt-Kanten flackert
-   * und beim Scrubben verschwindet, ist der bekannte Zwischenstand — das behebt
-   * E15, wenn die Karte selbst an der Position hängt.
+   * Steht `filmS` im Klip einer Aufnahme, liegt deren Karte auf der Bühne, und
+   * zwar mit dem Auftritt, dem „Entwickeln", dem Ken-Burns-Stand und dem
+   * Video-Frame GENAU DIESER Filmsekunde. Damit erscheint sie auch rückwärts
+   * (und animiert rückwärts), sie steht unter dem „Angehalten"-Abzeichen still,
+   * und wer mitten in einen Halt scrubbt, sieht endlich etwas — vorher räumte
+   * `beginScrub` sie weg.
+   *
+   * Die Klips eines Halts liegen lückenlos hintereinander (`abS` aus derselben
+   * Rechnung, aus der die Achse den Halt gebaut hat); ein Klip ist Standzeit
+   * PLUS Ausblendung. Es gibt deshalb keinen Sonderfall „letzte Ausblendung"
+   * mehr: Jede Aufnahme nimmt ihre eigene mit.
+   *
+   * Ab 2× Schnelllauf bleibt die Karte aus — dort will man die Strecke
+   * überfliegen, nicht an jedem Halt ein Bild aufblitzen sehen (E16, dieselbe
+   * Regel wie im Editor).
    */
-  private zeigeHalt(halt: Spielhalt): void {
-    const items = halt.stopp?.items
-    if (!items?.length) return
+  private synchronisiereKarte(halt: Spielhalt | null): void {
+    const items = halt?.stopp?.items
+    const tempo = this.anzeigeTempo
+    if (!halt || !items?.length || Math.abs(tempo) > 1) return this.raeumeKarte()
     const imHalt = this.filmS - halt.filmVon
-    // Die letzte Ausblendung des Halts: die Karte geht, die Fahrt steht noch.
-    if (imHalt >= halt.filmBis - halt.filmVon - HOLD_AUSBLEND) {
-      if (this.photoShown === true) {
-        this.photoShown = 'hiding'
-        this.ui.hidePhoto()
-      }
-      return
-    }
     let idx = 0
     for (let i = items.length - 1; i >= 0; i--) {
       if (imHalt >= (halt.stuecke[i]?.abS ?? 0)) {
@@ -651,42 +671,40 @@ export class Tour {
         break
       }
     }
-    if (this.shownStop !== halt.stopp || this.photoShown !== true) {
+    const stueck = halt.stuecke[idx]
+    if (!stueck) return this.raeumeKarte()
+    if (this.shownStop !== halt.stopp || this.itemIdx !== idx || !this.photoShown) {
       this.shownStop = halt.stopp
       this.itemIdx = idx
       this.photoShown = true
-      this.ui.showPhoto(items[idx]!, idx, items.length)
-    } else if (idx !== this.itemIdx) {
-      this.itemIdx = idx
-      this.ui.swapPhoto(items[idx]!, idx, items.length)
+      this.ui.zeigeKarte(items[idx]!, idx, items.length)
     }
+    this.ui.synchronisiereKarte(imHalt - stueck.abS, klipDauerS(stueck.standS), tempo)
   }
 
-  /** Die Karte wegnehmen — beim Verlassen eines Halts und bei jedem Sprung. */
+  /** Die Karte wegnehmen — außerhalb jedes Halts und beim Verlassen der Tour. */
   private raeumeKarte(): void {
-    if (this.photoShown !== false) this.ui.hidePhoto()
+    if (this.photoShown) this.ui.verbergeKarte()
     this.photoShown = false
     this.shownStop = null
   }
 
   // Klick aufs Foto: Anzeige anhalten bzw. weiterlaufen lassen
   togglePhotoHold(): void {
-    if (this.phase === 'photo' && this.photoShown === true) this.setPlaying(!this.playing)
+    if (this.phase === 'photo' && this.photoShown) this.setPlaying(!this.playing)
   }
 
   // Zurück ins Hauptmenü: Intro-Overlay + Übersichts-Orbit, Tour-UI einziehen.
   // Kein harter Schnitt — die Kamera zieht majestätisch zur Übersicht auf.
   toMenu(): void {
-    this.ui.hidePhoto()
+    this.raeumeKarte()
     this.ui.hideFinale()
     this.phase = 'intro'
     this.playing = false
     this.scrubbing = false
     this.speed = 0
     this.setzeFilm(0)
-    this.photoShown = false
-    this.shownStop = null
-    this.glide = 2.2 // toMenu blendet die Karte schon oben aus
+    this.glide = 2.2 // toMenu räumt die Karte schon oben weg
     // Orbit dort weiterdrehen, wo die Kamera gerade steht (kein Sprung)
     this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
     this.ui.syncDots(0)
@@ -703,7 +721,7 @@ export class Tour {
     const idx = this.stops.findIndex((st) => Math.abs(st.s - s) < 1)
     if (idx === -1) return this.seek(Math.max(0, s - 600) / this.route.total)
     const st = this.stops[idx]!
-    this.ui.hidePhoto()
+    this.raeumeKarte()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.scrubbing = false
     this.ui.blink(() => {
@@ -726,19 +744,18 @@ export class Tour {
       this.dir = 1
       this.setzeFilm(this.film.filmBeiS(st.s))
       this.phase = 'photo'
-      this.shownStop = st
-      this.itemIdx = 0
-      this.photoShown = true
       this.ui.syncDots(st.s)
       this.ui.updateTrace(st.s, p)
       if (!this.playing) this.setPlaying(true)
       this.applyCamera()
-      this.ui.showPhoto(st.items[0]!, 0, st.items.length)
+      // Die Karte legt der nächste Kopfschritt hin — sie ist eine Funktion der
+      // Filmzeit, und die steht jetzt auf der Ankunft des Halts.
+      this.synchronisiereKarte(this.halt)
     })
   }
 
   restart(): void {
-    this.ui.hidePhoto()
+    this.raeumeKarte()
     this.ui.hideFinale()
     this.ui.blink(() => {
       this.speed = 0
@@ -746,8 +763,6 @@ export class Tour {
       this.setzeFilm(0)
       this.phase = 'ride'
       this.glide = 1
-      this.photoShown = false
-      this.shownStop = null // hidePhoto lief oben schon
       this.course = bearingAt(this.route, 0)
       this.ui.syncDots(0)
       // Kamera hart hinter den Start setzen (Schnitt liegt unter der Blende)
@@ -1027,7 +1042,7 @@ export class Tour {
       // Dass die Standzeit unter dem „Angehalten"-Abzeichen NICHT weiterläuft,
       // fällt jetzt von selbst an: Steht die Filmuhr, steht der Halt.
       this.phase = 'photo'
-      this.zeigeHalt(halt)
+      this.synchronisiereKarte(halt)
       this.ui.updateTrace(this.s, pointAt(route, this.s))
       return
     }
@@ -1154,19 +1169,12 @@ export class Tour {
     // vergaß.
     const next = inTour ? (this.stops.find((st) => st.s > this.s + 1) ?? null) : null
     const mo = this.modeAt(this.s)
-    const stueck = this.halt?.stuecke[this.itemIdx]
     this.ui.stats({
       km: this.s / 1000,
       ele: p[2],
       frac: this.s / this.route.total,
       modeKey: mo.mode,
       next: next ? { title: next.items[0]!.title, km: (next.s - this.s) / 1000 } : null,
-      // Füllstand des Anzeige-Balkens auf der Foto-Karte (steht bei Pause).
-      // Bei Videos null → ui.ts füllt ihn selbst aus der Videozeit (timeupdate).
-      holdFrac:
-        this.photoShown === true && !this.aktuellesItemIstVideo() && this.halt && stueck
-          ? Math.max(0, Math.min((this.filmS - this.halt.filmVon - stueck.abS) / stueck.standS, 1))
-          : null,
     })
     // Tempo-Anzeige (Button) mit Faktor + Richtung aktuell halten — auch nach
     // JKL-Shuttle oder automatischem Stopp am Streckenanfang

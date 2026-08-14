@@ -8,7 +8,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
-import { klemmeSeitenverhaeltnis } from '../einblendung.js'
+import { balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis } from '../einblendung.js'
 import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
 import {
@@ -6276,10 +6276,7 @@ function synchronisiereFoto(): void {
   if (stueck.id !== eingeblendet) zeigeFoto(stueck.id)
   // Der Balken zeigt den Stand IM Klip — auch, wenn man mitten hineinscrubbt.
   const fuellung = document.querySelector<HTMLElement>('#foto-einblendung .fe-hold-fill')
-  if (fuellung) {
-    const anteil = stueck.dauerS > 0 ? Math.max(0, Math.min(1, stueck.imS / stueck.dauerS)) : 0
-    fuellung.style.transform = `scaleX(${anteil.toFixed(4)})`
-  }
+  if (fuellung) fuellung.style.transform = `scaleX(${balkenAnteil(stueck.imS, stueck.dauerS).toFixed(4)})`
   synchronisiereBild(stueck.imS, stueck.dauerS, tempo)
 }
 
@@ -6307,21 +6304,20 @@ function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
   // ihr Geschwister und erbt sie von dort — auf der Karte gesetzt käme er nie
   // an sie heran.
   const buehne = document.querySelector<HTMLElement>('.karten-buehne') ?? karteEl
-  const klipS = Math.max(0.1, dauerS)
-  const zeit = `-${imS.toFixed(3)}s`
-  const dauer = `${klipS.toFixed(3)}s`
-  // Der Abgang liegt in den letzten `HALT_AUSBLEND_S` des Klips — genau die
+  // Dieselbe Rechnung wie im Player (`kartenZeiten` in src/einblendung.ts):
+  // Der Abgang liegt in den letzten `HOLD_AUSBLEND` des Klips — genau die
   // Spanne, um die der Klip länger ist als die Standzeit. Vor seinem Beginn ist
-  // der Wert positiv und damit eine Verzögerung: die Animation steht noch aus.
-  const ausDauerS = Math.min(HALT_AUSBLEND_S, klipS)
-  const ausZeit = `${(klipS - ausDauerS - imS).toFixed(3)}s`
+  // sein Delay positiv und damit eine Verzögerung: die Animation steht noch aus.
+  const z = kartenZeiten(imS, dauerS)
+  const zeit = `${z.zeitS.toFixed(3)}s`
+  const dauer = `${z.kbDauerS.toFixed(3)}s`
   // Nur bei Änderung schreiben — die Funktion läuft in jedem Kopf-Frame.
   if (buehne.dataset['feStand'] !== `${zeit}|${dauer}`) {
     buehne.dataset['feStand'] = `${zeit}|${dauer}`
     buehne.style.setProperty('--fe-zeit', zeit)
     buehne.style.setProperty('--fe-kb-dauer', dauer)
-    buehne.style.setProperty('--fe-aus-zeit', ausZeit)
-    buehne.style.setProperty('--fe-aus-dauer', `${ausDauerS.toFixed(3)}s`)
+    buehne.style.setProperty('--fe-aus-zeit', `${z.ausZeitS.toFixed(3)}s`)
+    buehne.style.setProperty('--fe-aus-dauer', `${z.ausDauerS.toFixed(3)}s`)
   }
 
   const video = karteEl.querySelector('video')

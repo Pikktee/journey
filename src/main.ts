@@ -5,7 +5,7 @@ import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } 
 import { loadRemoteTour, createTimeAt, type RemoteTourCfg } from './remote.js'
 import { tourAusPfad, tourPfad } from './routen.js'
 import { buildRoute, dist, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
-import { HOLD_AUSBLEND, standzeitS } from './einblendung.js'
+import { klipDauerS, standzeitS } from './einblendung.js'
 import {
   baueFilmachse,
   filmBeiStrecke,
@@ -351,7 +351,7 @@ const sBeiRoh = (roh: number) => interpoliere(rohKum, route.wpS, roh)
  * Die Halte der Achse: Foto-/Video-Ketten und Kamera-Momente. Ein Halt kostet
  * Filmzeit und keine Strecke — genau das drückt die Achse aus.
  *
- * Die Breite einer Aufnahme ist `standzeitS` + Ausblendung, dieselbe Rechnung
+ * Die Breite einer Aufnahme ist ihr KLIP (Standzeit + Ausblendung), dieselbe Rechnung
  * wie im Editor (`aufnahmeHaltS`); fehlt einem Video die Länge, gilt in BEIDEN
  * Bühnen die Foto-Annahme (Konzept, Falle 4). Die `stuecke` fallen aus
  * DERSELBEN Rechnung ab — die Engine schaltet die Karte danach weiter, statt
@@ -370,7 +370,7 @@ const achsenHalte: Array<Streckenhalt & Omit<Spielhalt, 'filmVon' | 'filmBis'>> 
     const stuecke = halt.items.map((m) => {
       const standS = standzeitS({ ...m, ...(m.durationS !== undefined ? { dauerS: m.durationS } : {}) })
       const stueck = { abS: ab, standS }
-      ab += standS + HOLD_AUSBLEND
+      ab += klipDauerS(standS)
       return stueck
     })
     return { meterM: rohBeiS(halt.s), breiteS: ab, stopp: halt, moment: null, stuecke }
@@ -1207,14 +1207,20 @@ map.on('load', () => {
   const planeRueckzug = () => {
     window.clearTimeout(ruheTimer)
     ruheTimer = window.setTimeout(() => {
-      // Bei Pause, Foto-Stopp, Intro und Finale gehören die Bedienelemente auf
-      // den Schirm — dann später erneut prüfen statt den Rückzug zu vergessen
-      // (die Fahrt läuft nach einem Foto-Stopp ohne Zutun weiter). Ebenso, solange
-      // die Maus auf der Steuerleiste liegt: was man gerade anvisiert (Timeline,
-      // Tempo, Optionen), darf nicht unter dem Zeiger wegblenden.
+      // Bei Pause, Intro und Finale gehören die Bedienelemente auf den Schirm —
+      // dann später erneut prüfen statt den Rückzug zu vergessen. Ebenso,
+      // solange die Maus auf der Steuerleiste liegt: was man gerade anvisiert
+      // (Timeline, Tempo, Optionen), darf nicht unter dem Zeiger wegblenden.
       // Ebenso, solange das Kartendaten-Popup offen steht (body.info-offen,
       // karteninfo.ts): der Text blendete sonst weg, während man ihn liest.
-      const ruht = tour.phase === 'ride' && tour.playing
+      //
+      // **Der HALT zählt seit E17 dazu.** Vorher stand hier `phase === 'ride'`,
+      // die Leiste blieb also für die ganze Standzeit oben — unter der alten
+      // Schichtung unsichtbar (die Karte lag darüber), seit sie oben liegt der
+      // Normalfall: Sie deckte die Bildunterschrift samt „Weiter" zu. Das ist
+      // dieselbe Lehre wie bei E13 — ein Halt ist ein Zustand der Kurve, kein
+      // anderer Betriebsmodus: Was zählt, ist, ob der FILM läuft.
+      const ruht = tour.playing && (tour.phase === 'ride' || tour.phase === 'photo' || tour.phase === 'moment')
       const festgehalten =
         (hatZeiger && dockEl.matches(':hover')) || document.body.classList.contains('info-offen')
       if (ruht && !festgehalten) setClean(true)

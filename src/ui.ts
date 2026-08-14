@@ -2,7 +2,7 @@
 import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
 import type { Wegpunkt } from './tours.js'
 import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
-import { HOLD_HIDE, klemmeSeitenverhaeltnis } from './einblendung.js'
+import { balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis, videoStandS } from './einblendung.js'
 
 /**
  * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
@@ -36,8 +36,6 @@ export interface Telemetrie {
   /** Nächster Halt oder null (Intro/Finale, hinter dem letzten Halt) */
   next: { title: string; km: number } | null
   modeKey: string
-  /** Füllstand des Anzeige-Balkens; null = Video (ui füllt ihn aus der Videozeit) */
-  holdFrac: number | null
 }
 
 /**
@@ -126,6 +124,8 @@ export class UI {
   private _preloadImgs: HTMLImageElement[]
   private _soundOn: boolean
   private _videoTonGemeldet: number
+  /** Zuletzt geschriebene Karten-Zeiten — die Sync läuft in JEDEM Frame. */
+  private _kartenStand: string
   private _standbildTimer: number
   private _standbildGen: number
   private _mode?: string
@@ -184,6 +184,7 @@ export class UI {
     // stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
     this._videoTonGemeldet = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
+    this._kartenStand = ''
     this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.ts
     this._standbildTimer = 0
     this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel
@@ -191,58 +192,27 @@ export class UI {
       const gemerkt = sessionStorage.getItem('maptale:video-sound')
       if (gemerkt !== null) this._soundOn = gemerkt === '1'
     } catch { /* Storage kann in restriktiven Kontexten fehlen */ }
-    this.els.video.addEventListener('ended', () => {
-      this._aktualisiereVideoTon()
-      this.onMediaEnded?.()
-    })
-    // Kann das Video nicht abspielen (Dekodierfehler, unspielbarer Codec), darf
-    // die Tour nicht am Stopp hängen bleiben — weiter wie bei einem Video-Ende.
+    // `ended` und `error` sind seit Etappe 4 nur noch Notausgänge: Der Halt
+    // endet an der ACHSE, nicht am Dateiende (tour.ts, `onMediaEnded`).
+    this.els.video.addEventListener('ended', () => this.onMediaEnded?.())
     this.els.video.addEventListener('error', () => this.onMediaEnded?.())
-    this.els.video.addEventListener('timeupdate', () => {
-      // Fortschrittsbalken folgt der Videozeit (tour.ts liefert holdFrac=null,
-      // rührt den Balken bei Videos also nicht an)
-      const v = this.els.video
-      if (v.duration > 0) this.els.holdFill.style.transform = `scaleX(${(v.currentTime / v.duration).toFixed(3)})`
-      this._aktualisiereVideoTon()
-    })
     this.els.sound.addEventListener('click', (e) => {
       e.stopPropagation() // nicht die Foto-Karte anhalten (deren Klick pausiert)
       this._soundOn = !this._soundOn
       this.els.video.muted = !this._soundOn
-      if (this._soundOn) this.els.video.play().catch(() => {})
       try {
         sessionStorage.setItem('maptale:video-sound', this._soundOn ? '1' : '0')
       } catch { /* ignorieren */ }
       this._syncSoundBtn()
-      this._aktualisiereVideoTon()
+      // Pegel und Ducking zieht der nächste Kopfschritt nach (synchronisiereKarte).
     })
-    // play/pause: Hülle + Ducking nachziehen (timeupdate deckt den laufenden Clip ab)
-    for (const ev of ['play', 'pause'] as const) {
-      this.els.video.addEventListener(ev, () => this._aktualisiereVideoTon())
-    }
-  }
-
-  // Läuft das sichtbare Video gerade mit Ton? (nicht stumm, nicht pausiert)
-  _videoTonLaeuft(): boolean {
-    const v = this.els.video
-    return !v.hidden && !!v.getAttribute('src') && !v.muted && !v.paused
   }
 
   /**
-   * Video-Lautstärke nach Hülle (Ein-/Ausblende) setzen und Musik-Ducking melden.
-   * Die Hülle steuert beides — so crossfadet Video-Ton mit der Hintergrundmusik.
+   * Musik-Ducking melden — nur an der Kante des gerundeten Pegels.
+   * Die Hülle steuert beides: Video-Lautstärke UND das Absenken der Musik.
    */
-  _aktualisiereVideoTon(): void {
-    const v = this.els.video
-    let huelle = 0
-    if (this._videoTonLaeuft() && v.duration > 0 && Number.isFinite(v.duration)) {
-      huelle = videoTonHuelle(v.currentTime, v.duration)
-      const laut = videoLautstaerke(huelle)
-      // Nur setzen, wenn nötig — sonst feuert mancher Browser volumechange im Kreis
-      if (Math.abs(v.volume - laut) > 0.004) v.volume = laut
-    } else if (v.getAttribute('src') && v.volume !== 0) {
-      v.volume = 0
-    }
+  private _meldeVideoTon(huelle: number): void {
     const gerundet = Math.round(huelle * 100) / 100
     if (gerundet === this._videoTonGemeldet) return
     this._videoTonGemeldet = gerundet
@@ -264,15 +234,12 @@ export class UI {
     standbild.hidden = true
     standbild.classList.remove('weg')
     standbild.removeAttribute('src')
-    if (!v.getAttribute('src')) {
-      this._aktualisiereVideoTon()
-      return
-    }
+    this._meldeVideoTon(0)
+    if (!v.getAttribute('src')) return
     v.pause()
     v.removeAttribute('src')
     v.removeAttribute('poster')
     v.load()
-    this._aktualisiereVideoTon()
   }
 
   // Ersten Video-Frame abwarten, dann Standbild weich ausblenden — ohne das
@@ -435,42 +402,37 @@ export class UI {
     this.els.iconPause.toggleAttribute('hidden', !on)
     // Angehaltene Foto-Karte kennzeichnen (Badge „Angehalten“)
     this.els.card.classList.toggle('held', !on)
-    // Video-Stopp: Pause/Weiter hält auch das laufende Video an bzw. weiter
-    const v = this.els.video
-    if (!v.hidden && v.getAttribute('src')) {
-      if (on) v.play().catch(() => {})
-      else v.pause()
-    }
-    // play/pause-Events aktualisieren die Hülle; hier zusätzlich, falls play() synchron scheitert
-    this._aktualisiereVideoTon()
+    // Das laufende Video zieht `synchronisiereKarte` nach: Es läuft genau dann,
+    // wenn die Filmzeit mit Tempo 1 vorwärts läuft — ein zweiter Griff hier
+    // wäre eine zweite Wahrheit über denselben Zustand.
   }
 
   /**
-   * Laufendes Video anhalten/weiterlaufen lassen, OHNE den Wiedergabe-Zustand
-   * anzufassen (kein „Angehalten"-Abzeichen, kein Icon-Wechsel).
+   * Laufendes Video hart anhalten, OHNE den Wiedergabe-Zustand anzufassen
+   * (kein „Angehalten"-Abzeichen, kein Icon-Wechsel).
    *
    * Für die Seite im Hintergrund: `setPlaying(false)` wäre dort falsch — der
-   * Nutzer hat nichts angehalten, er hat den Tab gewechselt, und beim
-   * Zurückkommen soll der Film weiterlaufen, nicht pausiert dastehen. Das
-   * Video braucht den Griff trotzdem: Es hängt an der Wanduhr des Browsers und
-   * liefe sonst durch, während die Filmuhr steht (src/filmuhr.ts).
+   * Nutzer hat nichts angehalten, er hat den Tab gewechselt. Das Video braucht
+   * den Griff trotzdem, und zwar aus dem Ereignis heraus: Es hängt an der
+   * Wanduhr des Browsers, die Sync dagegen an `requestAnimationFrame` — und
+   * genau das läuft im Hintergrund nicht mehr (src/filmuhr.ts). Beim
+   * Zurückkommen holt der nächste Kopfschritt das Video von selbst wieder.
    */
-  setzeVideoLauf(on: boolean): void {
+  haltVideoAn(): void {
     const v = this.els.video
-    if (v.hidden || !v.getAttribute('src')) return
-    if (on) v.play().catch(() => {})
-    else v.pause()
-    this._aktualisiereVideoTon()
+    if (!v.paused) v.pause()
+    this._meldeVideoTon(0)
   }
 
   setPhotoContent(photo: PlayerMedium, idx: number, count: number): void {
     const { frame, img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'
-    // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar,
-    // die Drift-Dauer folgt der Anzeigedauer (holdS + Ausblende) — der Drift
-    // läuft so nie vor der Karte aus. Default (7 s) bleibt ohne display identisch.
+    // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar.
+    // Die Drift-DAUER kommt nicht mehr von hier, sondern aus der Filmzeit
+    // (`--kb-dauer` in synchronisiereKarte, = Klip-Länge). Sie stand hier auf
+    // `holdS + 1.8` gegen die 0,8 des Editors — die 1-Sekunden-Abweichung aus
+    // §6C des Gleichlauf-Konzepts.
     frame.classList.toggle('kein-kb', photo.display?.kenBurns === false)
-    frame.style.setProperty('--kb-dauer', `${(photo.display?.holdS ?? HOLD_HIDE) + 1.8}s`)
     // Seitenverhältnis erst setzen, wenn das neue Medium vermessen ist — das alte
     // --photo-ar belassen (kein Zwischen-Reset auf 3:2), sonst springt der Rahmen.
     const merkeSeitenverhaeltnis = (el: HTMLImageElement | HTMLVideoElement) => {
@@ -504,18 +466,9 @@ export class UI {
       video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video), { once: true })
       this._warteAufErstenFrame(video, gen)
       video.src = photo.src
-      video.play().catch(() => {
-        // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt → stumm
-        // erzwingen, damit das Video überhaupt läuft und 'ended' feuert; sonst
-        // bliebe die Tour am Video-Stopp stehen. Button zeigt „stumm", ein Klick
-        // schaltet den Ton dann nach der Gesten-Regel wieder ein.
-        video.muted = true
-        this._soundOn = false
-        this._syncSoundBtn()
-        video.play().catch(() => {})
-        this._aktualisiereVideoTon()
-      })
-      this._aktualisiereVideoTon()
+      // Kein `play()` hier: Ob das Video läuft, sagt die FILMZEIT — der nächste
+      // Kopfschritt startet es (synchronisiereKarte). Ein Start von hier aus
+      // liefe beim Scrubben und rückwärts nach eigener Uhr.
     } else {
       this._stopVideo()
       video.hidden = true
@@ -536,60 +489,120 @@ export class UI {
     pCount.textContent = `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
   }
 
-  showPhoto(photo: PlayerMedium, idx: number, count: number): void {
+  /**
+   * Die Karte für diese Aufnahme aufbauen und auf die Bühne legen.
+   *
+   * Der Auftritt wird hier NICHT gestartet — er ist eine dauerhaft pausierte
+   * Animation, deren Fortschritt `synchronisiereKarte` aus der Filmzeit setzt.
+   * Deshalb gibt es hier auch keine erzwungenen Reflows mehr: Es gibt nichts
+   * „neu zu starten", der Stand kommt aus dem Delay.
+   */
+  zeigeKarte(photo: PlayerMedium, idx: number, count: number): void {
     const { layer, card, flash } = this.els
     this.setPhotoContent(photo, idx, count)
-    this.els.holdFill.style.transform = 'scaleX(0)'
+    this._kartenStand = '' // die Zeiten des neuen Klips müssen einmal durch
     layer.classList.add('show')
     layer.setAttribute('aria-hidden', 'false')
     document.body.classList.add('cinema')
-    // Blitz + Karten-Transition sicher neu starten
-    flash.classList.remove('on')
-    void flash.offsetWidth
+    // Der Blitz gehört zum Auftritt und damit dem Kopf: Die Klasse steht,
+    // solange die Karte liegt; wo im Blitz man ist, sagt `--karte-zeit`.
     flash.classList.add('on')
-    void card.offsetWidth
     card.classList.add('in')
     this.syncDots(photo.s)
   }
 
-  // Nächstes Foto am selben Halt: Inhalt kurz aus- und wieder einblenden
-  swapPhoto(photo: PlayerMedium, idx: number, count: number): void {
-    const { card, frame, img } = this.els
-    card.classList.add('swapping')
-    this.els.holdFill.style.transform = 'scaleX(0)'
-    setTimeout(() => {
-      this.setPhotoContent(photo, idx, count)
-      // „Entwickeln“-Blende (animation) für das neue Bild IMMER neu starten —
-      // sie ist die Foto-Signatur, unabhängig von Ken Burns. Der Drift-Reset
-      // (transform/transition) bleibt auf Ken-Burns-Bilder beschränkt: bei
-      // kein-kb würde der Inline-Reset scale(1.12) hart erzwingen.
-      const mitKb = !frame.classList.contains('kein-kb')
-      img.style.animation = 'none'
-      if (mitKb) {
-        img.style.transition = 'none'
-        img.style.transform = 'scale(1.12)'
+  /**
+   * Die Karte auf den Stand DIESER Filmsekunde bringen (E15).
+   *
+   * `imS` ist der Stand im Klip, `dauerS` seine Länge (Standzeit + Ausblendung),
+   * `tempo` der Faktor auf die Filmzeit — 1 = normale Fahrt, 0 = steht,
+   * negativ = rückwärts. Alles Sichtbare hängt daran: Auftritt, „Entwickeln",
+   * Ken-Burns-Zug, Abgang, Fortschrittsbalken und die Stelle im Video.
+   *
+   * Läuft in JEDEM Frame — deshalb werden die Variablen nur bei Änderung
+   * geschrieben und die Video-Zeit nur bei merklicher Abweichung nachgezogen
+   * (ein Seek je Frame ruckelt sichtbar).
+   */
+  synchronisiereKarte(imS: number, dauerS: number, tempo: number): void {
+    const { layer, holdFill, video } = this.els
+    const z = kartenZeiten(imS, dauerS)
+    const zeit = `${z.zeitS.toFixed(3)}s`
+    const stand = `${zeit}|${z.kbDauerS.toFixed(3)}|${z.ausZeitS.toFixed(3)}`
+    if (this._kartenStand !== stand) {
+      this._kartenStand = stand
+      // Auf der SCHICHT, nicht auf der Karte: Der Kamerablitz ist ihr
+      // Geschwister und erbt die Zeiten von dort.
+      layer.style.setProperty('--karte-zeit', zeit)
+      layer.style.setProperty('--kb-dauer', `${z.kbDauerS.toFixed(3)}s`)
+      layer.style.setProperty('--karte-aus-zeit', `${z.ausZeitS.toFixed(3)}s`)
+      layer.style.setProperty('--karte-aus-dauer', `${z.ausDauerS.toFixed(3)}s`)
+    }
+    holdFill.style.transform = `scaleX(${balkenAnteil(imS, dauerS).toFixed(4)})`
+
+    if (video.hidden || !video.getAttribute('src')) {
+      this._meldeVideoTon(0)
+      return
+    }
+    // Der Player liefert die GESCHNITTENE Datei aus — der Ausschnitt beginnt
+    // bei 0. Kennt sie ihre Länge noch nicht, steht das Ende offen; die Klemme
+    // greift dann erst mit `loadedmetadata`.
+    const endeS = video.duration > 0 && Number.isFinite(video.duration) ? video.duration : Infinity
+    const { zielS, ausgelaufen } = videoStandS(0, endeS, imS)
+    // Ein Video kann nicht rückwärts spielen: Im Schnelllauf und rückwärts
+    // steht es auf dem Frame der Kopfposition und schweigt — wie im Editor.
+    const laeuft = tempo === 1 && !ausgelaufen
+    if (laeuft) {
+      // Im Lauf trägt das Video seine eigene Uhr; nachgezogen wird erst, wenn
+      // es merklich auseinanderläuft.
+      if (Math.abs(video.currentTime - zielS) > 0.34) this._setzeVideoZeit(zielS)
+      if (video.paused) {
+        video.play().catch(() => {
+          // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt → stumm
+          // erzwingen, damit das Bild überhaupt läuft; sonst stünde am
+          // Video-Halt ein Standbild. Ein Klick auf den Ton-Knopf schaltet ihn
+          // danach nach der Gesten-Regel wieder ein.
+          video.muted = true
+          this._soundOn = false
+          this._syncSoundBtn()
+          video.play().catch(() => {})
+        })
       }
-      void img.offsetWidth
-      img.style.animation = ''
-      if (mitKb) {
-        img.style.transition = ''
-        img.style.transform = ''
-      }
-      card.classList.remove('swapping')
-    }, 260)
+    } else if (!video.paused) {
+      video.pause()
+    }
+    if (!laeuft && Math.abs(video.currentTime - zielS) > 0.04) this._setzeVideoZeit(zielS)
+
+    // Ton-Hülle über den Ausschnitt: Ein- und Ausblende liegen an den
+    // Schnittkanten, und sie steuert zugleich das Ducking der Musik.
+    const ausschnittS = Number.isFinite(endeS) ? endeS : dauerS
+    const huelle = laeuft && !video.muted ? videoTonHuelle(imS, ausschnittS) : 0
+    const laut = videoLautstaerke(huelle)
+    // Nur bei Bedarf setzen — sonst feuert mancher Browser volumechange im Kreis
+    if (Math.abs(video.volume - laut) > 0.004) video.volume = laut
+    this._meldeVideoTon(huelle)
   }
 
-  hidePhoto(): void {
-    const { layer, card } = this.els
+  private _setzeVideoZeit(sekunde: number): void {
+    try {
+      this.els.video.currentTime = Math.max(0, sekunde)
+    } catch {
+      /* Seek vor dem Puffern kann fehlschlagen — der nächste Kopfschritt holt es nach */
+    }
+  }
+
+  /** Die Karte wegnehmen — außerhalb jedes Halts und beim Verlassen der Tour. */
+  verbergeKarte(): void {
+    const { layer, card, flash } = this.els
     this._stopVideo() // Video anhalten + Ressource freigeben (+ Ducking aus)
     this.els.video.hidden = true
     this.els.sound.hidden = true
     card.classList.remove('in')
     card.classList.remove('held')
+    flash.classList.remove('on')
     layer.classList.remove('show')
     layer.setAttribute('aria-hidden', 'true')
     document.body.classList.remove('cinema')
-    this._aktualisiereVideoTon()
+    this._kartenStand = ''
   }
 
   showFinale(): void {
@@ -609,10 +622,9 @@ export class UI {
     setTimeout(() => this.els.blink.classList.remove('on'), 650)
   }
 
-  stats({ km, ele, frac, next, modeKey, holdFrac }: Telemetrie): void {
+  stats({ km, ele, frac, next, modeKey }: Telemetrie): void {
     this.els.teleKm.textContent = `${km.toFixed(1)} km`
     this.els.teleEle.textContent = `${fmtDE.format(ele)} m`
-    if (holdFrac != null) this.els.holdFill.style.transform = `scaleX(${holdFrac.toFixed(3)})`
     // Der Modus wird nicht mehr angezeigt, aber weiter verfolgt: an der Kante
     // hängen Marker-Icon und Motorloop (onModeChange in main.ts).
     if (modeKey && modeKey !== this._mode) {

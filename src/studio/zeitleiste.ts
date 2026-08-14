@@ -680,31 +680,15 @@ export function videoFilmS(dateiS: number, trim?: { vonS: number; bisS?: number 
   return geklemmt ? geklemmt.bisS - geklemmt.vonS : dateiS
 }
 
-/** Sicherheitsabstand zum Materialende (s) — ein Frame bei 25 fps. */
-const VIDEO_ENDE_S = 0.04
-
 /**
  * Wo das Video steht, wenn der Kopf `imS` Sekunden im Klip ist.
  *
- * Der Klip ist um die Ausblendung LÄNGER als das Material
- * (`aufnahmeHaltS(m) + HALT_AUSBLEND_S`), und bei einem rechten Schnitt endet
- * das Material noch früher. Ohne Klemme läuft `vonS + imS` über das Ende
- * hinaus: Der Browser klemmt `currentTime` still, die Abweichung wächst mit
- * jedem Frame über die Nachzieh-Schwelle — und die Wiedergabe seekte in JEDEM
- * Frame ans Ende, während `ended`/`play()` sich abwechselten. Das war das
- * Zittern am Klip-Ende. `ausgelaufen` sagt, dass ab hier nur noch das letzte
- * Bild steht (die Ausblendung des Halts), also weder gespielt noch nachgezogen
- * werden muss.
+ * Die Rechnung wohnt seit E15 in [einblendung.ts](../einblendung.ts) — der
+ * Player braucht sie genauso, und ein Import Player→Studio ist die eine
+ * Richtung, die das Gleichlauf-Konzept ausschließt (§8C). Hier bleibt sie
+ * lesbar, weil `synchronisiereBild` sie unter diesem Namen kennt.
  */
-export function videoStandS(
-  vonS: number,
-  endeS: number,
-  imS: number,
-): { zielS: number; ausgelaufen: boolean } {
-  const letzterFrameS = Math.max(vonS, endeS - VIDEO_ENDE_S)
-  const roh = vonS + Math.max(0, imS)
-  return { zielS: Math.min(roh, letzterFrameS), ausgelaufen: roh >= letzterFrameS }
-}
+export { videoStandS } from '../einblendung.js'
 
 /**
  * Dauer in Sekunden → kurze Anzeige („2:05 Std", „14 Min", „38 Sek").

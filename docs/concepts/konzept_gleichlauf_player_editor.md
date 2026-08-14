@@ -44,12 +44,11 @@ und die Umsetzbarkeit — nicht die Richtung.
   sich stimmig — aber ein Schalter, der die Filmdauer halbiert, ist eine bewusste Ausnahme
   vom Taktversprechen (E5). Unter E13 ist er ein Faktor auf `dtFilm` und sonst nichts; die
   Frage ist nur noch, ob er BLEIBT.
-- **Ken Burns: welche Zahl stimmt?** Nur noch die Zahl — das Zeitmodell ist mit E15
-  entschieden (der Player übernimmt das des Editors, in Etappe 4). Bleibt `holdS + 1.8`
-  gegen `holdS + 0.8` (§6C): erst messen, wie lange die Karte auf jeder Seite *tatsächlich*
-  sichtbar ist, denn die Absicht ist aus dem Code nicht lesbar — Kommentar und Zahl
-  widersprechen sich. Erledigt sich mit E15 wahrscheinlich von selbst: Ziehen beide Seiten
-  ihren Fortschritt aus derselben Filmzeit, gibt es keine zwei Dauern mehr.
+- ~~**Ken Burns: welche Zahl stimmt?**~~ **Erledigt mit E15 (14.08.)**, und zwar von
+  selbst, wie vermutet: Beide Seiten ziehen ihren Fortschritt aus derselben Filmzeit, und
+  die Dauer IST die Klip-Länge (`klipDauerS` = Standzeit + Ausblendung, also `holdS + 0.8`).
+  Die 1,8 des Players hatten keine Absicht hinter sich — es gibt jetzt keine zwei Dauern
+  mehr, die man vergleichen könnte.
 - **Steht der Wetter-Schalter im Editor anfangs an oder aus?** Aus wäre ruhiger beim
   Schneiden, an wäre ehrlicher zum Film.
 - **Bekommen die Halte in der Player-Leiste MINIATUREN** (wie die Klip-Kette im Editor)?
@@ -267,11 +266,11 @@ Das ist die einzige Kopie, die bleiben **muss**. Alle anderen sind Gewohnheit.
 |---|---|---|
 | **Filmachse / Tempo** | 3 Kopien, per Quelltext-Regex gekoppelt (einer prüft, ob ein *Kommentar* dasteht) | die 9–13 % aus §4.2 |
 | **Standzeit `5.2`** | 4 Stellen, bewacht sind 2. Die vierte steht roh in [ui.ts](../../src/ui.ts), weil `HOLD_HIDE` in [tour.ts](../../src/tour.ts) **nicht exportiert** ist | stille Abweichung, von keinem Test gesehen |
-| **Ken-Burns-Dauer** | `holdS + 1.8` (Player) gegen `holdS + 0.8` (Editor) | **1 Sekunde** — und der Player-Kommentar sagt „holdS + Ausblende", während die Ausblende 0,8 ist |
+| ~~**Ken-Burns-Dauer**~~ | **erledigt (E15)**: beide `klipDauerS` = `holdS + 0.8` | — |
 | **Seitenverhältnis** | gemessen und geklemmt (0,62–1,85) gegen fest `aspect-ratio: 3/2` + `object-fit: cover` | Ein Hochformat-Foto steht im Player hochkant und wird im Editor auf den **Mittelstreifen** beschnitten — genau den, den der Player-Kommentar ausdrücklich vermeiden will |
 | **CSS-Zwillinge** | Fortschrittsbalken wörtlich gleich; Ken-Burns-Endskala 1.01/1.02; „Ken Burns aus" = 1.0/1.04; Entwickeln-Filter verschieden | Der Farb-Wächter greift nicht: Er verbietet rohe Werte, die als **Token** existieren — `#d8d2c4`, `#8a7a63`, `#f5a524` sind keine |
 | **Halt-Gruppierung** | zwei Implementierungen (`gruppiereStopps` / `baueStopps`) | nur per Textvergleich gekoppelt |
-| **Ken-Burns-Zeitmodell** | Player: CSS-`transition` (Wanduhr, nicht pausierbar, nicht scrubbar) · Editor: pausierte Animation mit negativem Delay | Unter „Angehalten" läuft der Zug im Player weiter, während `holdT` steht. **Kein Zahlen-, sondern ein Modellunterschied** — die 1-Sekunden-Zeile oben ist nur seine sichtbare Spitze |
+| ~~**Ken-Burns-Zeitmodell**~~ | **erledigt (E15)**: der Player fährt dasselbe Modell wie der Editor — dauerhaft pausierte Animationen, Fortschritt aus negativem Delay (`--karte-zeit` gegen `--fe-zeit`) | — |
 | **Musikposition beim Bereichseintritt** | Player: hart `currentTime = startS` · Editor: Seek auf die FILM-Position (`musikVersatzS`) | Nach jedem Scrub oder Sprung steht dieselbe Filmsekunde an einer anderen Stelle der Datei — genau das Taktversprechen. Der Player braucht denselben Versatz |
 
 **Wann welche Zeile fällt** — die Tabelle ist ein Befund, kein Plan, und zwei ihrer Einträge
@@ -288,9 +287,10 @@ kamen erst nach der Paketierung dazu:
   Umzug, kein Nachbau. Eine Näherung im `f`-Raum ginge zwar sofort, wäre aber ausgerechnet in
   den Halten falsch (dort steht `f` still), also an der Stelle, an die man am häufigsten
   scrubbt.
-- Das **Ken-Burns-Zeitmodell** wartet auf die Entscheidung in §2 (angleichen oder bewusst
-  getrennt lassen). Fällt sie auf „angleichen", gehört die Umsetzung in die Szene-Schicht —
-  es ist dieselbe Sorte Arbeit wie `balkenAnteil` und `klipDauerS`.
+- Das **Ken-Burns-Zeitmodell** ist mit E15 angeglichen und in Etappe 4 gelandet statt in der
+  Szene-Schicht — dort fiel es ohnehin an, weil die Karte auch rückwärts erscheinen soll.
+  `balkenAnteil`, `klipDauerS`, `kartenZeiten` und `videoStandS` sind dabei gleich
+  mitgezogen und stehen in [einblendung.ts](../../src/einblendung.ts).
 
 Was ausdrücklich **nicht** folgt: ein gemeinsamer Abspieler. Der Player kennt Spuren mit
 `f0`/`f1` aus dem Tour-JSON, der Editor Klips aus dem Overlay; die beiden Datenmodelle
@@ -566,7 +566,12 @@ noch nicht taktgenau — das ist die einzige zulässige Naht im Release-Block.
   E14), Server-Zwilling, Schnelllauf-Regeln (E16). Danach stimmt die DAUER; prüfbar am
   Kriterium unten und an einer Fahrt.
 - **E-Anzeige** — die Foto-Karte an die Position hängen (E15) und die Schichtung umdrehen
-  (E17). Danach stimmt das BILD; prüfbar am Scrubben durch einen Halt.
+  (E17). Danach stimmt das BILD; prüfbar am Scrubben durch einen Halt. **Erledigt am
+  14.08.** — mit einem Befund, den erst die neue Schichtung sichtbar machte: Der
+  Auto-Rückzug der UI lief nur bei `phase === 'ride'`, die Leiste blieb also die ganze
+  Standzeit oben und deckte über der Karte die Bildunterschrift samt „Weiter" zu (93 px
+  bei 1280 × 800). Er zählt den Halt jetzt zur laufenden Wiedergabe — dieselbe Lehre wie
+  E13: ein Halt ist ein Zustand der Kurve, kein anderer Betriebsmodus.
 
 Der zweite Gang braucht aus dem ersten nur `filmS` und die Halt-Intervalle. Dazwischen ist
 der Player benutzbar, aber die Karte flackert an Halt-Kanten (sie wird noch getriggert statt
@@ -670,7 +675,11 @@ Zustand der KURVE ist (`filmS` liegt in einem Halt-Intervall) statt eines getrig
 Phasenwechsels, entfallen `nextIdx`, `nextMomentIdx`, `syncNextIdx`, der Bremsweg-Vorgriff,
 die Ausrollschwelle `speed < 4` und alle `dir > 0`-Schranken.
 
-**Die Foto-Karte erscheint rückwärts genauso — und animiert rückwärts (E15).** Das ist der
+**Die Foto-Karte erscheint rückwärts genauso — und animiert rückwärts (E15).** *(Umgesetzt
+am 14.08.: `Tour.synchronisiereKarte` → `UI.synchronisiereKarte`, CSS-Variable `--karte-zeit`.
+`swapPhoto` ist ersatzlos entfallen — jede Aufnahme ist ein eigener Klip mit eigenem Auf- und
+Abgang; `holdFrac` in der Telemetrie ebenso, der Balken wird im selben Frame gesetzt wie der
+Rest.)* Das ist der
 Teil, der Etappe 4 auf der DOM-Seite wieder größer macht, und er hängt an derselben
 Umstellung: Im Editor stehen die Animationen dauerhaft auf `paused`, ihr Fortschritt kommt
 aus einem NEGATIVEN DELAY (`--fe-zeit`) — rückwärts läuft dort alles von selbst rückwärts.
@@ -706,7 +715,10 @@ extrem". `buildRoute` verdichtet die Stützpunkte deshalb vor der Glättung auf 
 `STUETZ_MAX_M` = 25 m; danach sind es 0,00 %. Das ist kein Datenproblem der Demo-Touren: Auch
 eine App-Aufzeichnung legt bei Fährtempo hunderte Meter zwischen zwei Punkten.
 
-**Und daraus folgt die Schichtung (E17): Die Bedienung gehört ÜBER das Bild.** Heute liegt
+**Und daraus folgt die Schichtung (E17): Die Bedienung gehört ÜBER das Bild.** *(Umgesetzt
+am 14.08.: `.photo-layer` 12, `.finale` 13, darüber `.dock` 20, `.karten-info` 22 und
+`.zurueck` 31; Wächter in [test/player-schichtung.test.ts](../../test/player-schichtung.test.ts).)*
+Heute liegt
 sie darunter (`.photo-layer` z-index 25 gegen `.dock` 20), und das trug nur, weil
 `beginScrub` die Karte wegräumt — wer scrubbt, sieht sie nicht. Bleibt sie liegen, muss die
 Leiste erreichbar sein, WÄHREND sie liegt. Das ist keine Kosmetik, sondern die Ordnung, die

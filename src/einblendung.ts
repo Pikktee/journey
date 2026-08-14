@@ -53,6 +53,93 @@ export function standzeitS(m: {
 }
 
 /**
+ * Filmzeit, die eine Aufnahme im Halt insgesamt einnimmt — Standzeit UND
+ * Ausblendung.
+ *
+ * Das ist die Länge ihres KLIPS: Der Editor zeichnet ihn so auf die Zeitleiste,
+ * die Achse reiht die Aufnahmen eines Halts danach aneinander, und beide Bühnen
+ * lassen ihre Karte genau so lange liegen. Bis E15 rechnete der Player daneben
+ * mit `holdS + 1.8` für den Ken-Burns-Zug — die eine Sekunde aus §6C des
+ * Gleichlauf-Konzepts.
+ */
+export function klipDauerS(standS: number): number {
+  return standS + HOLD_AUSBLEND
+}
+
+/**
+ * Füllstand des Anzeige-Balkens (0..1) an der Stelle `imS` eines Klips.
+ *
+ * Er wird bei jedem Kopfschritt GESETZT und nicht über eine Dauer animiert:
+ * Eine Animation kennt nur „seit dem Start" und stünde beim Scrubben und nach
+ * jeder Pause neben der Wahrheit.
+ */
+export function balkenAnteil(imS: number, dauerS: number): number {
+  if (!(dauerS > 0)) return 0
+  return Math.max(0, Math.min(1, imS / dauerS))
+}
+
+/** Die vier Zeiten der pausierten Karten-Animationen (Sekunden). */
+export interface KartenZeiten {
+  /** Negatives Delay der Auftritts-Animationen — der Stand IM Klip. */
+  zeitS: number
+  /** Dauer des Ken-Burns-Zugs: die volle Klip-Länge. */
+  kbDauerS: number
+  /** Delay des Abgangs; positiv, solange er noch aussteht. */
+  ausZeitS: number
+  /** Dauer des Abgangs. */
+  ausDauerS: number
+}
+
+/**
+ * Aus dem Stand im Klip die Delays der dauerhaft PAUSIERTEN Animationen.
+ *
+ * Das ist die Technik, mit der ein Standbild aus einer Animation gezogen wird:
+ * Die Animation läuft nie, ihr Fortschritt kommt aus einem negativen Delay.
+ * Deshalb erscheint die Karte auch rückwärts und beim Scrubben mit dem Bild,
+ * das an DIESER Filmsekunde gilt — eine Wanduhr-Transition kann das nicht, sie
+ * startet beim Klassenwechsel und läuft danach für sich.
+ *
+ * Der Abgang liegt in den letzten `HOLD_AUSBLEND` des Klips, also genau in der
+ * Spanne, um die der Klip länger ist als die Standzeit.
+ */
+export function kartenZeiten(imS: number, dauerS: number): KartenZeiten {
+  const klipS = Math.max(0.1, dauerS)
+  const ausDauerS = Math.min(HOLD_AUSBLEND, klipS)
+  return { zeitS: -imS, kbDauerS: klipS, ausZeitS: klipS - ausDauerS - imS, ausDauerS }
+}
+
+/**
+ * Ein Video steht nicht auf dem letzten Frame, sondern kurz davor — sonst
+ * klemmt der Browser `currentTime` still.
+ */
+const VIDEO_ENDE_S = 0.04
+
+/**
+ * Die Stelle IM Video, die zum Stand `imS` des Klips gehört — geklemmt an die
+ * Schnittkanten.
+ *
+ * Der Klip ist um die Ausblendung länger als das Material (und bei einem
+ * rechten Schnitt endet es noch früher). Ohne Klemme läuft `vonS + imS` über
+ * das Ende hinaus: Der Browser klemmt `currentTime` still, die Abweichung
+ * wächst mit jedem Frame über die Nachzieh-Schwelle — und die Wiedergabe seekte
+ * in JEDEM Frame ans Ende, während `ended`/`play()` sich abwechselten. Das war
+ * das Zittern am Klip-Ende. `ausgelaufen` sagt, dass ab hier nur noch das
+ * letzte Bild steht, also weder gespielt noch nachgezogen werden muss.
+ *
+ * Der Player liefert geschnittene Dateien aus (`vonS` = 0), der Editor den
+ * ungeschnittenen Master mit beiden Kanten — die Rechnung ist dieselbe.
+ */
+export function videoStandS(
+  vonS: number,
+  endeS: number,
+  imS: number,
+): { zielS: number; ausgelaufen: boolean } {
+  const letzterFrameS = Math.max(vonS, endeS - VIDEO_ENDE_S)
+  const roh = vonS + Math.max(0, imS)
+  return { zielS: Math.min(roh, letzterFrameS), ausgelaufen: roh >= letzterFrameS }
+}
+
+/**
  * Grenzen des Seitenverhältnisses der Foto-Karte (Breite ÷ Höhe).
  *
  * Extreme Panoramen und Hochformate würden die Bühne sonst sprengen: Ein

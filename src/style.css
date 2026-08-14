@@ -396,10 +396,16 @@ body.cinema .cine {
 
 /* — Foto-Overlay — */
 
+/* Die Bedienung liegt ÜBER dem Bild (E17) — die Ordnung jedes Videoplayers.
+   Vorher lag die Foto-Schicht auf 25 und die Steuerleiste auf 20; das trug nur,
+   solange `beginScrub` die Karte wegräumte. Seit sie beim Scrubben liegen
+   bleibt, muss die Leiste erreichbar sein, WÄHREND sie liegt. Der Auto-Rückzug
+   (body.ui-clean) ändert daran nichts: Er blendet die Leiste aus, und wenn sie
+   auf Regung wiederkommt, liegt sie oben. */
 .photo-layer {
   position: fixed;
   inset: 0;
-  z-index: 25;
+  z-index: 12;
   display: grid;
   place-items: center;
   pointer-events: none;
@@ -436,8 +442,13 @@ body.cinema .cine {
   background: radial-gradient(circle at 50% 45%, rgba(255, 250, 240, 0.95) 0%, rgba(255, 250, 240, 0.55) 42%, transparent 78%);
 }
 
+/* Auch der Blitz gehört dem Kopf: als Timer-Klasse feuerte er bei jedem
+   Überfahren neu und lief dann nach Wanduhr weiter. Die Klasse steht, solange
+   die Karte liegt; wo im Blitz man ist, sagt `--karte-zeit`. */
 .photo-flash.on {
   animation: flash 0.75s ease-out both;
+  animation-delay: var(--karte-zeit, 0s);
+  animation-play-state: paused;
 }
 
 @keyframes flash {
@@ -464,7 +475,6 @@ body.cinema .cine {
   box-shadow: 0 50px 140px rgba(0, 0, 0, 0.7), 0 12px 36px rgba(0, 0, 0, 0.5);
   opacity: 0;
   transform: translateY(70px) scale(0.9) rotate(1.4deg) rotateX(10deg);
-  transition: transform 0.95s cubic-bezier(0.19, 1.16, 0.32, 1), opacity 0.5s ease 0.04s;
   will-change: transform;
 }
 
@@ -472,9 +482,53 @@ body.cinema .cine {
   pointer-events: auto;
 }
 
+/* Auftritt und Abgang hängen an der FILMZEIT, nicht an einer Uhr (E15).
+   Als `transition` (so war es) ließ sich das gar nicht ansteuern: Eine
+   Transition startet beim Klassenwechsel und läuft danach nach Wanduhr —
+   rückwärts gab es sie nicht, beim Scrubben sprang die Karte sofort auf ihren
+   Zielzustand. Jetzt stehen die Animationen dauerhaft auf `paused` und ihr
+   Fortschritt kommt aus dem negativen Delay `--karte-zeit`, das
+   `synchronisiereKarte` (ui.ts) bei jedem Kopfschritt setzt.
+   Drei Animationen, weil Blende und Flug verschiedene Kurven haben; der Abgang
+   steht ZULETZT und gewinnt dadurch, solange er läuft. Sein `forwards` (statt
+   `both`) hält ihn davor still — mit `both` läge sein Anfangsbild über dem
+   Auftritt. */
 .photo-card.in {
-  opacity: 1;
-  transform: translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg);
+  animation:
+    karteBlende 0.5s ease both,
+    karteFlug 0.95s cubic-bezier(0.19, 1.16, 0.32, 1) both,
+    karteAbgang var(--karte-aus-dauer, 0.8s) ease-in forwards;
+  animation-delay: calc(var(--karte-zeit, 0s) + 0.04s), var(--karte-zeit, 0s), var(--karte-aus-zeit, 0s);
+  animation-play-state: paused;
+}
+
+@keyframes karteBlende {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes karteFlug {
+  from {
+    transform: translateY(70px) scale(0.9) rotate(1.4deg) rotateX(10deg);
+  }
+  to {
+    transform: translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg);
+  }
+}
+
+@keyframes karteAbgang {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.96) rotate(-1.4deg);
+  }
 }
 
 /* Fast bildschirmfüllend, aber IMMER im Viewport. Leitgröße ist die HÖHE (Caption +
@@ -510,15 +564,19 @@ body.cinema .cine {
   height: 100%;
   object-fit: cover;
   transform: scale(1.12);
-  /* Drift-Dauer folgt der Anzeigedauer des Mediums (--kb-dauer aus ui.js,
-     display.holdS + Ausblende); ohne Studio-Wert bleibt es beim 7-s-Default */
-  transition: transform var(--kb-dauer, 7s) ease-out;
   filter: brightness(1) contrast(1.02) saturate(1.05);
 }
 
+/* „Entwickeln" und Ken-Burns-Drift hängen an derselben Filmzeit wie die Karte
+   (E15). Der Drift war eine `transition` und damit Wanduhr: Unter dem
+   „Angehalten"-Abzeichen lief er weiter, während der Halt stand, und beim
+   Scrubben begann er von vorn. Die Drift-DAUER ist die Klip-Länge
+   (`--kb-dauer`, aus ui.ts) — vorher `holdS + 1.8` gegen die 0,8 des Editors,
+   die 1-Sekunden-Abweichung aus §6C des Gleichlauf-Konzepts. */
 .photo-card.in .photo-frame img:not(.video-standbild) {
-  transform: scale(1.01); /* Ken-Burns-Drift während der Anzeige */
-  animation: develop 1.6s ease-out both; /* „Entwickeln“ wie ein Sofortbild */
+  animation: develop 1.6s ease-out both, kenburns var(--kb-dauer, 7s) ease-out both;
+  animation-delay: var(--karte-zeit, 0s), var(--karte-zeit, 0s);
+  animation-play-state: paused;
 }
 
 @keyframes develop {
@@ -530,14 +588,23 @@ body.cinema .cine {
   }
 }
 
-/* Ken-Burns pro Medium abschaltbar (display.kenBurns === false, Studio): das
-   Bild steht ruhig, ohne Drift und ohne „Entwickeln“. !important schlägt die
-   spezifischeren .photo-card.in-Regeln oben. */
-/* Ken-Burns abgeschaltet: nur der DRIFT entfällt — das „Entwickeln"
-   (develop-Filterblende) gehört zur Foto-Signatur und bleibt. */
-.photo-frame.kein-kb img:not(.video-standbild) {
-  transform: none !important;
-  transition: none;
+@keyframes kenburns {
+  from {
+    transform: scale(1.12);
+  }
+  to {
+    transform: scale(1.01);
+  }
+}
+
+/* Ken-Burns pro Medium abschaltbar (display.kenBurns === false, Studio): nur
+   der DRIFT entfällt — das „Entwickeln" (Filterblende) gehört zur
+   Foto-Signatur und bleibt. */
+.photo-card.in .photo-frame.kein-kb img:not(.video-standbild) {
+  animation: develop 1.6s ease-out both;
+  animation-delay: var(--karte-zeit, 0s);
+  animation-play-state: paused;
+  transform: none;
 }
 
 /* Video-Stopp (M4): nicht beschneiden (auch Hochformat-Handyvideos), schwarzer
@@ -694,40 +761,47 @@ body.cinema .cine {
   transform: scale(0.95);
 }
 
-/* Umblenden zwischen Fotos desselben Stopps */
-.photo-card.in.swapping .photo-frame img:not(.video-standbild),
-.photo-card.in.swapping .photo-title,
-.photo-card.in.swapping .photo-sub,
-.photo-card.in.swapping .photo-badges {
-  opacity: 0;
-  transition: opacity 0.24s ease;
-  transition-delay: 0s;
-}
-
+/* Die Beschriftung tritt gestaffelt auf — und zwar ebenfalls aus der Filmzeit:
+   Als Transition mit `transition-delay` fing sie beim Klassenwechsel an, ein
+   Scrub mitten in einen Halt hätte sie also noch einmal einfliegen lassen. Die
+   Staffelung steckt jetzt im Delay, nicht in der Verzögerung. Ein eigenes
+   Umblenden zwischen zwei Aufnahmen braucht es dafür nicht mehr: Jede hat
+   ihren eigenen Klip, also ihren eigenen Auf- und Abgang. */
 .photo-title,
 .photo-sub,
 .photo-chip {
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.photo-card.in .photo-title,
+.photo-card.in .photo-sub,
+.photo-card.in .photo-chip {
+  animation: bildunterschrift 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-play-state: paused;
 }
 
 .photo-card.in .photo-title {
-  transition-delay: 0.35s;
-  opacity: 1;
-  transform: none;
-}
-
-.photo-card.in .photo-chip {
-  transition-delay: 0.55s;
-  opacity: 1;
-  transform: none;
+  animation-delay: calc(var(--karte-zeit, 0s) + 0.35s);
 }
 
 .photo-card.in .photo-sub {
-  transition-delay: 0.45s;
-  opacity: 1;
-  transform: none;
+  animation-delay: calc(var(--karte-zeit, 0s) + 0.45s);
+}
+
+.photo-card.in .photo-chip {
+  animation-delay: calc(var(--karte-zeit, 0s) + 0.55s);
+}
+
+@keyframes bildunterschrift {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .photo-title {
@@ -759,10 +833,11 @@ body.cinema .cine {
 
 /* — Finale — */
 
+/* Zieht mit der Foto-Schicht unter die Bedienung (E17). */
 .finale {
   position: fixed;
   inset: 0;
-  z-index: 26;
+  z-index: 13;
   display: grid;
   place-items: center;
   pointer-events: none;
@@ -1548,6 +1623,22 @@ body.app .app-exit {
     transform: scale(1.02) !important;
     animation: none !important;
   }
+  /* Ohne Bewegung liegt die Karte einfach da — die pausierten Animationen
+     würden sonst mit 0,001 ms Dauer auf ihr Endbild springen. */
+  .photo-card {
+    transition: opacity 0.2s ease;
+  }
+  .photo-card.in,
+  .photo-card.in .photo-title,
+  .photo-card.in .photo-sub,
+  .photo-card.in .photo-chip {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .photo-flash.on {
+    animation: none !important;
+  }
   .rider-pulse,
   .photo-dot.is-next {
     animation: none !important;
@@ -1560,8 +1651,9 @@ body.app .app-exit {
    Geschwister im Fluss), damit sich die Bildecke beim Öffnen nicht verschiebt. */
 
 /* Am BODY verankert, nicht in MapLibres Control-Ecke (siehe karteninfo.ts):
-   z-index 22 liegt über der Steuerleiste (20) und unter Foto-Karte (25),
-   Finale (26) und Startscreen (30) — dort gehört die Bühne der Szene. */
+   z-index 22 liegt über der Steuerleiste (20) und dem Bild (Foto-Karte 12,
+   Finale 13, s. E17) und unter dem Startscreen (30) — dort gehört die Bühne
+   der Szene. */
 .karten-info {
   position: fixed;
   right: 10px;
