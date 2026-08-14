@@ -47,6 +47,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`konzept_editor_zerlegung.md`](concepts/konzept_editor_zerlegung.md) — `editor.ts` in Karte / Inspector / Zeitleiste / Menüs zerlegen.
 * [`konzept_live_mitverfolgen.md`](concepts/konzept_live_mitverfolgen.md) — Live-Link während der App-Aufnahme; Spur und Medien in Echtzeit.
 * [`konzept_gleichlauf_player_editor.md`](concepts/konzept_gleichlauf_player_editor.md) — Ein Film, zwei Bühnen: Editor und Player zur Deckung bringen, bis auf den Takt genau.
+* [`konzept_tempoempfinden.md`](concepts/konzept_tempoempfinden.md) — Warum sich der Film an manchen Stellen zu schnell anfühlt: drei behobene Ursachen, zwei offene Kandidaten, die Messwerkzeuge dazu.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
 * [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).
