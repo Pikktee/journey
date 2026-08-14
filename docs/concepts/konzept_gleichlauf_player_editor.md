@@ -451,6 +451,34 @@ Doppelt sind die DOM-/CSS-Schicht (~200 Zeilen TS + ~110 Zeilen CSS je Seite) un
 aus §6C. **Ein geteiltes DOM-Modul wäre die falsche Antwort (E8):** Die beiden Karten teilen
 die Optik, aber nicht ihr Zeitmodell.
 
+**Erledigt am 14.08.** — angefangen mit Paket A, abgeschlossen mit der letzten Runde:
+`klipDauerS`, `standzeitS` (samt exportiertem `HOLD_HIDE`), `klemmeSeitenverhaeltnis`,
+`balkenAnteil`, dazu `kartenZeiten` und `videoStandS` aus E15, und zuletzt
+`ausschnittDauerS` und `reihenfolgeImHalt`. Der CSS-Paar-Wächter steht in
+[test/einblendung-css.test.ts](../../test/einblendung-css.test.ts).
+
+Zwei Befunde aus dem Abschluss, die die Tabelle nicht vorhersah:
+
+- **`tonPegelFuer` wurde `ausschnittDauerS`.** Geteilt war die Kurve längst
+  (`videoTonHuelle`); doppelt war, worüber sie blendet — der Player nahm `endeS` roh, der
+  Editor `endeS - vonS`. Beides war an seiner Stelle richtig (der Player liefert die
+  geschnittene Fassung aus, `vonS` = 0), aber es waren zwei Formeln für eine Regel: Wer im
+  Player je einen linken Schnitt zuließe, hätte dort eine zu lange Ausblende und niemanden,
+  der es meldet.
+- **`reihenfolgeImHalt` bekommt den Zweitschlüssel als ARGUMENT.** Geteilt ist der VORRANG
+  (`reihe` schlägt alles), nicht die Messung: Der Player ordnet nach Streckenmetern, das
+  Studio nach Aufnahmezeit — dort muss auch eine Aufnahme ohne verlässlichen Ort einzuordnen
+  sein. Bei einer Umkehr auf der Strecke kommen beide deshalb legitim zu verschiedenen
+  Folgen. Der alte Wächter (ein Regex auf `a.reihe ?? Number.POSITIVE_INFINITY` im Quelltext
+  des Players) prüft jetzt Verhalten statt Zeichenketten.
+
+**Der CSS-Wächter prüft die ZEITEN und ausdrücklich nicht die Optik.** Schatten, Rotation und
+Polsterung dürfen verschieden sein — die Bühne liegt formatfüllend über der Karte, die
+Vorschau klebt an einem Wegpunkt. Gleich sein müssen die vier Dauern (Blende, Flug, Abgang,
+Blenden-Versatz), weil beide Seiten ihren Fortschritt über dieselben Funktionen rechnen; sie
+stehen in verschiedenen EINHEITEN da (`0.5s` gegen `500ms`), ein Textvergleich fände hier
+neun Unterschiede und keinen echten.
+
 Geteilt wird ein DOM-freies `src/einblendung.ts` mit sechs reinen Funktionen — jede mit einem
 konkreten Anlass von heute:
 

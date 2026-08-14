@@ -8,7 +8,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
-import { balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis } from '../einblendung.js'
+import { ausschnittDauerS, balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis } from '../einblendung.js'
 import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
 import {
@@ -6349,10 +6349,11 @@ function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
   if (!laeuft && Math.abs(video.currentTime - zielS) > 0.04) setzeVideoZeit(video, zielS)
 
   // Ton-Hülle über den AUSSCHNITT (nicht die Datei): Ein- und Ausblende liegen
-  // an den Schnittkanten, wie im Player über `video.duration` der geschnittenen
-  // Fassung — hier ist die ausgelieferte Datei noch der ungeschnittene Master.
+  // an den Schnittkanten. Die Rechnung teilt sich der Editor mit dem Player
+  // (`ausschnittDauerS`) — verschieden ist nur, was ankommt: dort die
+  // geschnittene Fassung ohne linke Kante, hier der ungeschnittene Master.
   // Im Schnelllauf/rückwärts steht das Video und schweigt, also Hülle 0.
-  const ausschnittS = Number.isFinite(endeS) ? endeS - vonS : video.duration - vonS
+  const ausschnittS = ausschnittDauerS(video.duration, vonS, endeS)
   const huelle = laeuft && !video.muted ? videoTonHuelle(imS, ausschnittS) : 0
   const laut = videoLautstaerke(huelle)
   // Nur bei Bedarf setzen — die Funktion läuft in jedem Kopf-Frame, und manche

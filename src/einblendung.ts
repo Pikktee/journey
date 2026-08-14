@@ -164,3 +164,57 @@ export function klemmeSeitenverhaeltnis(breite: number, hoehe: number): number |
   if (!(breite > 0) || !(hoehe > 0)) return null
   return Math.max(AR_MIN, Math.min(AR_MAX, breite / hoehe))
 }
+
+/**
+ * Länge des AUSSCHNITTS eines Videos — die Strecke, über die geblendet wird.
+ *
+ * Die Ton-Hülle (`videoTonHuelle`) legt Ein- und Ausblende an die Kanten dieses
+ * Ausschnitts, nicht an die der Datei. Beide Bühnen rechnen ihn deshalb aus,
+ * und sie rechneten ihn VERSCHIEDEN: Der Player nahm `endeS` roh, der Editor
+ * `endeS - vonS`. Beides war an seiner Stelle richtig — der Player liefert die
+ * geschnittene Fassung aus (`vonS` = 0), der Editor den ungeschnittenen Master
+ * mit beiden Kanten —, aber es waren zwei Formeln für eine Regel: Wer im Player
+ * je einen linken Schnitt zuließe, hätte dort eine zu lange Ausblende und
+ * niemanden, der es meldet.
+ *
+ * Ohne rechten Schnitt (`endeS` unendlich oder fehlend) gilt das Dateiende.
+ * Dieselbe Kantenlage wie `videoStandS` — die beiden gehören zusammen.
+ */
+export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number): number {
+  const ende = endeS !== undefined && Number.isFinite(endeS) ? endeS : dateiDauerS
+  return Math.max(0, (Number.isFinite(ende) ? ende : 0) - Math.max(0, vonS))
+}
+
+/**
+ * Reihenfolge der Aufnahmen INNERHALB eines Halts.
+ *
+ * `reihe` ist eine Entscheidung des Autors und schlägt deshalb alles andere;
+ * ohne sie gilt die natürliche Ordnung der jeweiligen Bühne. Und die ist
+ * verschieden, notwendigerweise: Der Player kennt seine Fotos über die
+ * Streckenmeter (`s`), das Studio über die Aufnahmezeit (`takenAt`) — dort ist
+ * eine Aufnahme ohne verlässlichen Ort trotzdem einzuordnen. Deshalb ist der
+ * Zweitschlüssel ein Argument und keine feste Regel: Was geteilt wird, ist der
+ * VORRANG, nicht die Messung.
+ *
+ * Vorher stand die Rechnung zweimal da — in `gruppiereStopps` ([geo.ts](geo.ts))
+ * und in `sortiereItems` ([studio/stopps.ts](studio/stopps.ts)) —, gekoppelt
+ * durch einen Wächter, der den Quelltext des Players nach
+ * `a.reihe ?? Number.POSITIVE_INFINITY` absuchte. Ein Regex auf einen Rumpf
+ * hält keine Regel zusammen: Er hätte jede Umformulierung als Bruch gemeldet
+ * und jede echte Änderung der Studio-Seite durchgelassen.
+ *
+ * Ohne `reihe` zählt die Aufnahme als „ganz hinten" (nicht als 0) — sonst
+ * schöbe sich ein unbenanntes Bild vor eines, das der Autor ausdrücklich an
+ * den Anfang gestellt hat. Stabil bei Gleichstand, und die Eingabe bleibt
+ * unangetastet.
+ */
+export function reihenfolgeImHalt<T extends { reihe?: number }>(
+  items: readonly T[],
+  natuerlich: (x: T) => number,
+): T[] {
+  return [...items].sort((a, b) => {
+    const ra = a.reihe ?? Number.POSITIVE_INFINITY
+    const rb = b.reihe ?? Number.POSITIVE_INFINITY
+    return ra === rb ? natuerlich(a) - natuerlich(b) : ra - rb
+  })
+}

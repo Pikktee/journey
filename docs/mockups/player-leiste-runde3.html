@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Player-Leiste, dritte Runde: die offenen Fragen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Farben aus src/basis.css — keine erfundenen Werte. */
+  :root {
+    --akzent: #f59e0b;
+    --akzent-2: #ff6f52;
+    --auf-akzent: #1a1206;
+    --papier: #f6f1e7;
+    --text: #f2ede3;
+    --text-gedaempft: rgba(242, 237, 227, 0.64);
+    --text-zart: rgba(242, 237, 227, 0.42);
+    --glas: rgba(12, 15, 20, 0.62);
+    --glas-rand: rgba(255, 255, 255, 0.10);
+    --grund: #06080c;
+    --rot: rgba(229, 72, 77, 0.9);
+    --gruen: #3ecf8e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 46px 40px 120px;
+    background: var(--grund); color: var(--text);
+    font-family: Outfit, system-ui, sans-serif; font-weight: 300;
+    font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 8px; }
+  .intro { color: var(--text-gedaempft); max-width: 74ch; line-height: 1.62; margin: 0 0 8px; font-size: 15.5px; }
+  .intro em { font-style: normal; color: var(--text); }
+  .inhalt { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 0; font-size: 13px; }
+  .inhalt a { color: var(--text-gedaempft); text-decoration: none; padding: 5px 12px; border-radius: 999px;
+              border: 1px solid rgba(242,237,227,0.14); }
+  .inhalt a:hover { color: var(--text); border-color: rgba(242,237,227,0.3); }
+
+  h2.kapitel { font-size: 12px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 500;
+               color: var(--akzent); margin: 0 0 5px; padding-top: 48px; }
+  .kapitel-satz { color: var(--text-gedaempft); max-width: 80ch; line-height: 1.62; margin: 0 0 28px; font-size: 15px; }
+  .kapitel-satz em { font-style: normal; color: var(--text); }
+
+  .fall { margin: 0 0 40px; }
+  .fallkopf { display: flex; align-items: baseline; gap: 11px; margin-bottom: 5px; flex-wrap: wrap; }
+  .fallkopf h3 { font-size: 17px; font-weight: 500; margin: 0; letter-spacing: -0.01em; }
+  .marke { font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-zart);
+           border: 1px solid rgba(242,237,227,0.2); border-radius: 999px; padding: 2px 9px; }
+  .marke.neu { color: var(--akzent); border-color: rgba(245,158,11,0.45); }
+  .marke.frage { color: var(--akzent-2); border-color: rgba(255,111,82,0.45); }
+  .warum { font-size: 14px; color: var(--text-gedaempft); margin: 0 0 15px; max-width: 84ch; line-height: 1.6; }
+  .warum b, .warum strong { color: var(--text); font-weight: 500; }
+  code { font-family: Outfit, system-ui, sans-serif; font-weight: 400; color: var(--text);
+         background: rgba(242,237,227,0.08); padding: 1px 5px; border-radius: 4px; font-size: 0.94em; }
+
+  /* ——— Bühne ——— */
+  .buehne {
+    position: relative; height: 288px; border-radius: 18px; overflow: hidden;
+    background:
+      linear-gradient(to bottom, rgba(6,8,12,0) 55%, rgba(6,8,12,0.55) 100%),
+      radial-gradient(120% 80% at 26% -10%, #3d6b82 0%, #27455a 34%, #1a2c3a 62%, #101a24 100%);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .buehne.breit { width: 100%; max-width: 1040px; }
+  .buehne.hoch { height: 344px; }
+  .buehne.telefon { width: 390px; height: 470px; flex: none; }
+  /* Damit die Bahn hier wirklich 352 px misst — das Maß, an dem die 6,8 px
+     gemessen wurden. Ohne diese Zeile wäre die Nachbildung 20 px zu schmal
+     und alle Pixelbelege dieses Dokuments gingen daneben. */
+  .buehne.telefon .dock { left: 5px; right: 5px; padding-left: 13px; padding-right: 13px; }
+  .reihe { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .reihe > .buehne:not(.telefon) { flex: 1 1 340px; }
+  .gelaende, .route { position: absolute; inset: 0; }
+
+  .zurueck { position: absolute; top: 15px; left: 15px; z-index: 31; display: inline-flex; align-items: center;
+    gap: 7px; padding: 7px 14px 7px 11px; border-radius: 999px; background: var(--glas);
+    border: 1px solid var(--glas-rand); font-size: 13.5px; backdrop-filter: blur(10px); }
+  .zurueck svg { width: 15px; height: 15px; }
+
+  /* ——— Steuerleiste ——— */
+  .dock { position: absolute; left: 13px; right: 13px; bottom: 13px; z-index: 20;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 14px 11px; border-radius: 18px; background: var(--glas);
+    border: 1px solid var(--glas-rand); backdrop-filter: blur(16px); }
+  .cluster { display: flex; align-items: center; gap: 8px; }
+  .rund { width: 37px; height: 37px; border-radius: 12px; display: grid; place-items: center;
+          background: rgba(246,241,231,0.08); border: 1px solid var(--glas-rand); color: var(--text); font-size: 12.5px; }
+  .rund svg { width: 17px; height: 17px; }
+  .play { width: 41px; height: 41px; border-radius: 13px; background: var(--papier); color: var(--auf-akzent); border-color: transparent; }
+  .play svg { width: 18px; height: 18px; fill: currentColor; }
+  .zeit-links { font-size: 14px; color: var(--text-gedaempft); margin-left: 4px; white-space: nowrap; }
+  .zeit-links b { font-weight: 500; color: var(--text); }
+
+  .tele { display: flex; align-items: center; gap: 18px; margin-left: auto; }
+  .tele-eintrag { display: flex; flex-direction: column; }
+  .tele-label { font-size: 10.5px; font-weight: 500; color: var(--text-gedaempft); }
+  .tele-wert { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+
+  /* ——— Bahn ——— */
+  .leiste { position: relative; height: 44px; flex: 1 1 100%; }
+  .bahn { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px;
+          border-radius: 999px; background: rgba(246,241,231,0.15); z-index: 2; }
+  .bahn-fill { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px;
+               border-radius: 999px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); z-index: 3; }
+
+  /* Der Halt-Block. `min-width` ist hier keine Kosmetik, sondern DIE Regel aus
+     Kapitel 3 — sie steht deshalb im CSS und nicht in den erzeugten Stilen. */
+  .halt { position: absolute; top: 50%; height: 14px; margin-top: -7px; border-radius: 4px;
+          background: rgba(246,241,231,0.32); z-index: 4; min-width: 10px; overflow: hidden; }
+  .halt.gesehen { background: var(--papier); }
+  .halt.aktiv { height: 20px; margin-top: -10px; border-radius: 5px;
+                background: rgba(246,241,231,0.30);
+                box-shadow: 0 0 0 1.5px rgba(246,241,231,0.62), 0 0 14px rgba(245,158,11,0.30); z-index: 5; }
+  .halt.aktiv.gesehen { background: var(--papier); }
+  .halt .rest { position: absolute; inset: 0; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
+  .halt .naht { position: absolute; top: 2px; bottom: 2px; width: 1px; background: rgba(6,8,12,0.55); z-index: 3; }
+  /* Die Zelle, in der der Finger liegt — Gegenstück zum Zähler in der Kachel. */
+  .halt .zelle { position: absolute; top: 0; bottom: 0; background: rgba(246,241,231,0.42); z-index: 2; }
+  /* Video-Fassungen (Kapitel 4) */
+  .halt.v-textur { background-image: repeating-linear-gradient(115deg,
+      rgba(6,8,12,0.30) 0 1.5px, rgba(6,8,12,0) 1.5px 5px); }
+  .halt.v-rand { box-shadow: inset 0 0 0 1.5px rgba(245,158,11,0.85); }
+  .halt .v-pfeil { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 0; height: 0; border-left: 5px solid rgba(6,8,12,0.62);
+      border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent; z-index: 3; }
+
+  .kopf-linie { position: absolute; top: 0; bottom: -3px; width: 2px; border-radius: 2px; z-index: 6;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.3));
+    transform: translateX(-50%); box-shadow: 0 0 5px rgba(0,0,0,0.55); }
+  .kopf-linie::before { content: ''; position: absolute; top: 0; left: 50%; width: 16px; height: 17px;
+    margin-left: -8px; background: center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='17'%20viewBox='0%200%2016%2017'%3E%3Cpath%20d='M1.7%201.3H14.3V9.2L8%2015.7L1.7%209.2Z'%20fill='%23fff'%20stroke='%23f59e0b'%20stroke-width='1.6'%20stroke-linejoin='round'/%3E%3C/svg%3E");
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.55)); }
+
+  /* Fassung aus Kapitel 3b: im Halt trägt die Linie keinen Schild mehr. */
+  .kopf-linie.ohne-schild::before { display: none; }
+
+  /* Der alte Punkt-Griff — nur noch als Beleg in Kapitel 2 */
+  .alt-punkt { position: absolute; top: 50%; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--papier); border: 1.5px solid rgba(23,17,6,0.35);
+    transform: translate(-50%,-50%); z-index: 7; }
+  .treffer { position: absolute; top: 50%; width: 25px; height: 25px; border-radius: 50%;
+    transform: translate(-50%,-50%); z-index: 6;
+    border: 1px dashed rgba(229,72,77,0.85); background: rgba(229,72,77,0.14); }
+  .treffer.ok { border-color: rgba(62,207,142,0.85); background: rgba(62,207,142,0.12); }
+  .treffer.block { border-radius: 5px; width: auto; height: 26px; }
+
+  /* ——— Scrub-Vorschau ——— */
+  .vorschau { position: absolute; bottom: calc(100% + 66px); z-index: 9; width: 176px; border-radius: 12px;
+    overflow: hidden; background: rgba(12,15,20,0.82); border: 1px solid var(--glas-rand);
+    backdrop-filter: blur(14px); box-shadow: 0 12px 30px rgba(0,0,0,0.55); }
+  .vorschau.schmal { width: 96px; }
+  .vorschau .bild { height: 99px; position: relative;
+    background: linear-gradient(150deg, #8a5f30, #d29653 40%, #6b8792 100%); }
+  .vorschau .bild::after { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(70% 55% at 28% 18%, rgba(255,255,255,0.26), transparent 62%); }
+  .vorschau .bild.video { background: linear-gradient(150deg, #2f4f5e, #4d7386 45%, #7d6a52 100%); }
+  .vorschau .zaehler { position: absolute; right: 6px; bottom: 6px; font-size: 10.5px; padding: 1px 6px;
+    border-radius: 999px; background: rgba(6,8,12,0.7); color: var(--text-gedaempft); z-index: 2; }
+  .vorschau .dauer { position: absolute; left: 6px; bottom: 6px; font-size: 10.5px; padding: 1px 6px;
+    border-radius: 999px; background: rgba(6,8,12,0.7); color: var(--text-gedaempft); z-index: 2;
+    display: inline-flex; align-items: center; gap: 4px; }
+  .vorschau .dauer::before { content: ''; width: 0; height: 0; border-left: 5px solid var(--papier);
+    border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent; }
+  .vorschau .fuss { padding: 7px 10px 9px; }
+  .vorschau .titel { font-size: 13px; font-weight: 500; line-height: 1.28; }
+  .vorschau .zeile2 { font-size: 11.5px; color: var(--text-zart); margin-top: 2px; }
+  .vorschau.nur-zeit .fuss { padding: 6px 10px 7px; text-align: center; }
+  .vorschau.nur-zeit .titel { font-size: 14px; }
+
+  /* ——— Foto-Karte (für die Gegenprobe in Kapitel 1) ——— */
+  .karte { position: absolute; left: 50%; top: 33%; transform: translate(-50%,-50%); z-index: 12;
+    width: 236px; border-radius: 16px; overflow: hidden; background: rgba(10,12,16,0.72);
+    border: 1px solid var(--glas-rand); box-shadow: 0 18px 46px rgba(0,0,0,0.55); }
+  .karte .rahmen { position: relative; height: 118px;
+    background: linear-gradient(150deg, #8a5f30, #d29653 40%, #6b8792 100%); }
+  .karte .rahmen::after { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(70% 55% at 28% 18%, rgba(255,255,255,0.26), transparent 62%); }
+  .karte .balken { position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+    background: rgba(10,8,5,0.3); z-index: 2; }
+  .karte .balken i { display: block; height: 100%;
+    background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
+  .karte .unter { padding: 9px 12px 11px; }
+  .karte .kt { font-size: 14px; font-weight: 500; }
+  .karte .kc { font-size: 11px; color: var(--text-zart); margin-top: 3px; }
+
+  .zeiger { position: absolute; z-index: 24; font-size: 11.5px; color: var(--akzent);
+    display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .zeiger::before { content: ''; width: 22px; height: 1px; background: rgba(245,158,11,0.7); }
+  .zeiger.links { flex-direction: row-reverse; }
+  .zeiger.links::before { content: ''; }
+
+  .notiz { display: flex; gap: 22px; margin-top: 11px; font-size: 12.5px; color: var(--text-zart); flex-wrap: wrap; }
+  .notiz b { font-weight: 500; color: var(--text-gedaempft); }
+
+  .gegen { border-left: 2px solid rgba(229,72,77,0.5); padding: 2px 0 2px 14px; margin: 14px 0 0;
+           font-size: 13.5px; color: var(--text-gedaempft); max-width: 82ch; line-height: 1.55; }
+  .gegen b { color: var(--rot); font-weight: 500; }
+  .fuer { border-left: 2px solid rgba(62,207,142,0.5); padding: 2px 0 2px 14px; margin: 14px 0 0;
+          font-size: 13.5px; color: var(--text-gedaempft); max-width: 82ch; line-height: 1.55; }
+  .fuer b { color: var(--gruen); font-weight: 500; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 24px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-zart); font-weight: 500; }
+  td.wert { color: var(--text-gedaempft); line-height: 1.5; }
+  .ja { color: var(--gruen); } .nein { color: var(--rot); } .vll { color: var(--akzent); }
+
+  /* Maßband für die Pixel-Belege */
+  .band { position: relative; height: 26px; margin-top: 10px; }
+  .band .stueck { position: absolute; top: 0; height: 14px; border-radius: 3px; }
+  .band .mass { position: absolute; top: 15px; font-size: 10.5px; color: var(--text-zart); transform: translateX(-50%); }
+</style>
+</head>
+<body>
+
+<h1>Player-Leiste, dritte Runde</h1>
+<p class="intro">Runde 2 hat die Richtung gesetzt: Kurve raus, „Nächster Halt" raus, Filmzeit neben die Knöpfe, der Halt wird ein Bauteil, die Scrub-Vorschau ersetzt die Ankündigung. Diese Runde klärt, was danach noch offen war — die <em>fünf Fragen aus §6 des Papiers</em> — und stellt drei Punkte richtig, an denen Runde 2 zu schnell war.</p>
+<p class="intro">Entschieden ist inzwischen: der Halt bekommt <em>keinen Füllstand</em> (Kapitel 1), und <em>„Distanz" bleibt</em> in der Telemetrie — km und Filmzeit sind Auskünfte über zwei verschiedene Achsen, genau die Trennung, die <code>frac</code>/<code>filmFrac</code> gerade gezogen hat.</p>
+<p class="intro">Alles hier ist weiterhin Entwurf. Nichts davon ist gebaut.</p>
+<div class="inhalt">
+  <a href="#fuell">1 · Kein Füllstand</a><a href="#griff">2 · Ein Griff statt zwei</a>
+  <a href="#breite">3 · Mindestbreite &amp; Playhead</a><a href="#video">4 · Video-Halte</a>
+  <a href="#vvideo">5 · Vorschau bei Video</a><a href="#rand">6 · Vorschau, verfeinert</a>
+  <a href="#tasten">7 · Tastatur-Sprünge</a><a href="#zusammen">8 · Zusammenschau</a><a href="#urteil">Urteil</a>
+</div>
+
+<!-- ============ 1 ============ -->
+<h2 class="kapitel" id="fuell">1 · Der Halt bekommt keinen Füllstand</h2>
+<p class="kapitel-satz">Runde 2 wollte den aktiven Block anteilig zur Standzeit füllen — „damit man sieht, dass es noch läuft". Die Frage ist berechtigt, die Antwort steht aber schon im Bild: <em>Die Foto-Karte hat diesen Balken bereits.</em></p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Dieselbe Zahl, zweimal, in derselben Farbe</h3><span class="marke neu">Gegenprobe</span></div>
+  <p class="warum">Links: Halt mit Füllstand, wie Runde 2 ihn vorschlug. Der Balken am unteren Bildrand der Karte (<code>.photo-hold-fill</code>) zeigt exakt denselben Wert — er kommt aus demselben <code>balkenAnteil()</code> und trägt denselben Amber-Verlauf. Rechts dieselbe Szene, Block nur mit Zustand „aktiv": höher, heller Rand. Es fehlt nichts.</p>
+  <div class="reihe"><div class="buehne hoch" id="b-1a"></div><div class="buehne hoch" id="b-1b"></div></div>
+  <div class="notiz"><span><b>Links:</b> mit Füllstand — zwei Balken</span><span><b>Rechts:</b> nur Zustand — ein Balken</span><span>rechts zeigt auch schon die Playhead-Fassung aus Kapitel 3b</span></div>
+  <p class="gegen"><b>Und der schwerere Einwand:</b> Der Halt zählt zur laufenden Wiedergabe — die Steuerleiste zieht sich <em>während</em> des Halts zurück (E17). Der Füllstand im Block wäre also meistens gar nicht zu sehen, der Balken an der Karte immer. Der Ort, an dem die Frage „läuft das noch?" aufkommt, ist das Bild, nicht die Leiste.</p>
+  <p class="fuer"><b>Was der Block trotzdem braucht:</b> den Zustand „ich bin drin". Der beantwortet eine andere Frage — <em>wo im Film</em> stehe ich — und die beantwortet der Kartenbalken nicht. Er zählt beim Scrubben und in dem Moment, in dem die Leiste nach einer Regung zurückkommt.</p>
+</div>
+
+<!-- ============ 2 ============ -->
+<h2 class="kapitel" id="griff">2 · Ein Griff statt zwei</h2>
+<p class="kapitel-satz">Der gemessene Befund des Papiers lautet „der Griff ist breiter als der Halt". Genauer gesagt streiten <em>zwei</em> Griffe um dieselben Pixel, und sie meinen Verschiedenes: Der Punkt springt auf die <em>Ankunft</em>, die Bahn daneben auf die <em>getroffene Filmsekunde</em>.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Heute: was ein Tipp tut, hängt an 25 Pixeln</h3><span class="marke">Ist</span></div>
+  <p class="warum">Rot die Trefferfläche des Punkts (<code>::before</code>, <code>inset: -7px</code> → 25 px). Sie liegt über dem ganzen Halt und noch 9 px links davon. Ein Tipp irgendwo darin ruft <code>jumpToPhoto</code> und springt auf die Ankunft — also genau dorthin, wohin vor Paket G <em>jede</em> Eingabe fiel. Die mit G gewonnene Anfahrbarkeit erreicht per Finger nur, wer <em>zieht</em>.</p>
+  <div class="buehne breit" id="b-2a"></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Vorschlag: die Bahn ist der Griff, überall</h3><span class="marke neu">neu</span></div>
+  <p class="warum">Der Punkt entfällt, und mit ihm der Sonderfall im Tipp-Pfad. Ein Tipp auf die Bahn seekt <b>immer</b> auf die Filmsekunde, auf die er zeigt — auch mitten in einen Halt, wo dann der Stand genau dieser Sekunde steht (E15). Der Block ist dabei kein Knopf, sondern das, was man an dieser Stelle <em>sieht</em>; anfassbar ist die Bahn.</p>
+  <div class="buehne breit" id="b-2b"></div>
+  <p class="fuer"><b>Was dadurch verschwindet:</b> ein zweiter Griff, eine zweite Bedeutung desselben Tipps und eine Verzweigung in <code>main.ts</code>. <code>jumpToPhoto</code> bleibt für Karten-Wegpunkte — dort bedeutet ein Pixel keine Zeit, und der harte Schnitt mit Blende ist richtig.</p>
+  <p class="gegen"><b>Der ehrliche Verlust:</b> Der Dot-Tipp schnitt hart und sofort ins Bild. Ein Seek zieht die Kamera in ~0,7 s dorthin. Das ist dieselbe Bewegung, die jedes Scrub-Ende schon macht — aber es <em>ist</em> ein Unterschied, und wer den Schnitt vermisst, müsste ihn für Halt-Treffer zurückholen.</p>
+</div>
+
+<!-- ============ 3 ============ -->
+<h2 class="kapitel" id="breite">3 · Mindest-Zeichenbreite statt Übergriff</h2>
+<p class="kapitel-satz">Auf dem Telefon ist ein 6-Sekunden-Halt <em>6,8 px</em> breit. Die Versuchung ist, ihm eine größere Trefferfläche zu geben — das ist genau der Fehler von heute. Der Halt soll nicht heimlich breiter zu <em>treffen</em>, sondern sichtbar breiter <em>gezeichnet</em> sein.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Die Regel: nie schmaler als 10 px</h3><span class="marke neu">neu</span></div>
+  <p class="warum">Eine Zeile CSS (<code>min-width: 10px</code> am Block). Der Preis ist ein Positionsfehler von höchstens 1,6 px je Seite — bei 352 px Bahnlänge sind das 0,45 % der Filmdauer, auf Koh Pha-ngan rund 1,4 Sekunden. Unter der Schwelle, an der man beim Zielen einen Unterschied merkt; über der Schwelle, an der man den Block überhaupt sieht. Und weil das Gezeichnete das Treffbare ist, gibt es keine Zone mehr, die anders reagiert, als sie aussieht.</p>
+  <div class="band" id="band-1"></div>
+  <div class="notiz" style="margin-top:16px"><span><b>Oben:</b> echte Breite 6,8 px</span><span><b>Mitte:</b> geklemmt auf 10 px</span><span><b>Unten:</b> heutige Trefferfläche 25 px</span></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Am echten Telefonmaß</h3><span class="marke">390 px</span></div>
+  <p class="warum">Beide Bühnen sind 390 px breit, die Bahn darin also 352 px — die Blöcke stimmen hier in echten Pixeln. Links ohne Klemmung (Blöcke bei 6,8 px), rechts mit. Der Unterschied ist nicht Schönheit, sondern ob man ein Ziel sieht.</p>
+  <div class="reihe">
+    <div class="buehne telefon" id="b-3a"></div>
+    <div class="buehne telefon" id="b-3b"></div>
+  </div>
+  <div class="notiz"><span><b>Links:</b> ungeklemmt</span><span><b>Rechts:</b> min-width 10 px, aktiver Halt zusätzlich 20 px hoch</span></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Und dann deckt der Playhead ihn zu</h3><span class="marke neu">3b · beim Zeichnen gefunden</span></div>
+  <p class="warum">Der Befund kam erst aus dem gerenderten Bild, nicht aus der Überlegung: Der Schild des Playheads ist <b>16 px breit</b> — also breiter als der geklemmte Block und mehr als doppelt so breit wie der ungeklemmte. Steht der Kopf in einem Halt, und genau dann ist der Zustand „aktiv" gefragt, liegt der Schild mittendrauf. Auf dem Telefon bleibt vom hellen Rand nichts übrig.</p>
+  <div class="reihe">
+    <div class="buehne telefon" id="b-3c"></div>
+    <div class="buehne telefon" id="b-3d"></div>
+  </div>
+  <div class="notiz"><span><b>Links:</b> mit Schild — der aktive Halt ist praktisch verdeckt</span><span><b>Rechts:</b> im Halt nur die Linie</span></div>
+  <p class="fuer"><b>Vorschlag:</b> Im Halt verliert die Linie ihren Schild. Das ist kein Kniff, sondern folgerichtig — der Schild markiert eine Stelle auf einer Bahn, und im Halt ist der <em>Block</em> diese Marke. Die dünne Linie bleibt und zeigt weiter die genaue Filmsekunde, die man beim Scrubben braucht.</p>
+  <p class="gegen"><b>Zu prüfen:</b> Der Schild geht dann bei jedem Halt-Eintritt weg und bei jedem Austritt wieder auf — bei neun Halten neunmal je Tour. Ein Ein-/Ausblenden über ~120 ms macht daraus eine Bewegung statt eines Blinkens; hart geschaltet wäre es Unruhe.</p>
+</div>
+
+<!-- ============ 4 ============ -->
+<h2 class="kapitel" id="video">4 · Wie sieht ein Video-Halt aus?</h2>
+<p class="kapitel-satz">§6, Frage 3. Ein Video hat eine echte Länge (<code>dauerS</code> statt der Foto-Annahme) — sein Block ist also von selbst breiter. Die Frage ist, ob er <em>zusätzlich</em> anders aussehen soll. Drei Fassungen, dieselbe Stelle: Halt 3 ist ein 14-Sekunden-Video, alles andere sind Fotos.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>a · gar nichts — die Länge ist die Auskunft</h3><span class="marke">4a</span></div>
+  <p class="warum">Der Video-Halt (der vierte Block, gerade passiert) ist doppelt so breit wie ein Foto-Halt, weil er doppelt so lange dauert. Der noch breitere Block rechts daneben ist kein zweites Video, sondern ein Halt mit <em>drei Aufnahmen</em> — und genau das ist der Punkt: Breite heißt Zeit, egal woher sie kommt. Mehr sagt die Zeitachse nicht, und mehr <em>soll</em> sie nicht sagen.</p>
+  <div class="buehne breit" id="b-4a"></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>b · ein Pfeil im Block</h3><span class="marke">4b</span></div>
+  <p class="warum">Das bekannte Zeichen, mittig im Block. Funktioniert am Desktop; auf dem Telefon ist ein 5-px-Dreieck in einem 14-px-Block der Grund, warum man Symbole nicht in Fortschrittsbalken legt.</p>
+  <div class="buehne breit" id="b-4b"></div>
+  <p class="gegen"><b>Dagegen:</b> Das Zeichen sagt „hier kann man abspielen" — aber man kann nirgendwo <em>nicht</em> abspielen; der Film läuft ohnehin. Es ist eine Typangabe im Gewand einer Handlungsaufforderung.</p>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>c · eine feine Textur</h3><span class="marke">4c</span></div>
+  <p class="warum">Schräge Schraffur im Block, sonst nichts. Skaliert bis zur Mindestbreite, braucht keine Fläche und liest sich als „hier ist etwas anderes" — ohne zu behaupten, es sei ein Knopf.</p>
+  <div class="buehne breit" id="b-4c"></div>
+  <p class="gegen"><b>Dagegen:</b> Auf einem dichten Display ist eine 1,5-px-Schraffur der erste Kandidat für Moiré (dieselbe Sorge wie bei Fassung D der ersten Runde). Und sie beantwortet eine Frage, die vor dem Halt niemand stellt.</p>
+</div>
+
+<div class="fuer" style="max-width:82ch"><b>Empfehlung: 4a.</b> Der Unterschied Foto/Video ist keine Auskunft, die <em>vorher</em> gebraucht wird — er ist da, sobald der Halt beginnt (die Karte zeigt ein laufendes Bild, es gibt einen Ton-Schalter). In der Leiste erklärt er nur die Breite, und die erklärt sich selbst. Das Zeichen gehört in die <em>Vorschau</em>, wo man tatsächlich fragt „was ist da?" — s. Kapitel 5.</div>
+
+<!-- ============ 5 ============ -->
+<h2 class="kapitel" id="vvideo">5 · Was zeigt die Vorschau bei einem Video?</h2>
+<p class="kapitel-satz">§6, Frage 4. Die naheliegende Antwort — „das Bild der getroffenen Sekunde" — ist die teure: Sie verlangt ein zweites <code>&lt;video&gt;</code>, einen Seek je Fingerbewegung und einen Dekoder, der mithält. Genau das flackert.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Das Standbild, plus Zeichen und Länge</h3><span class="marke neu">Vorschlag</span></div>
+  <p class="warum">Die Kachel zeigt <code>poster</code> (das Standbild, das der Player ohnehin lädt — es ist auch die Quelle des Seitenverhältnisses), dazu unten links ein Pfeil mit der Dauer. Das beantwortet, was man beim Suchen wissen will: <em>was</em> ist dort und <em>wie lange</em> hält es auf. Frame-genau muss es nicht sein — man sucht die Stelle, nicht das Einzelbild.</p>
+  <div class="reihe"><div class="buehne" id="b-5a"></div><div class="buehne" id="b-5b"></div></div>
+  <div class="notiz"><span><b>Links:</b> Video-Halt — Standbild, Pfeil, 0:14</span><span><b>Rechts:</b> Foto-Halt mit drei Aufnahmen — Zähler 2/3</span></div>
+  <p class="gegen"><b>Der Rest an Unehrlichkeit:</b> Zieht man durch die zweite Hälfte eines langen Videos, zeigt die Kachel weiter dessen erstes Bild. Bei 14 s ist das egal, bei einem Zwei-Minuten-Video wäre es falsch. Falls Videos je so lang werden: ein zweites Standbild zur Hälfte — nicht ein laufender Dekoder.</p>
+</div>
+
+<!-- ============ 6 ============ -->
+<h2 class="kapitel" id="rand">6 · Die Vorschau, verfeinert</h2>
+<p class="kapitel-satz">Die Randklemmung stand schon in Runde 2. Was fehlte: was die Kachel tut, wenn man <em>zwischen</em> den Halten liegt, und was die Nähte für sie bedeuten.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Drei Zustände einer Geste</h3><span class="marke">6a</span></div>
+  <p class="warum">Über einem Halt das Bild; über freier Fahrt nur Zeit und Ort in einer schmalen Kachel; am Bahnende klemmt sie am Rand, während der Kopf darunter weiterwandert. Der Wechsel zwischen breit und schmal passiert an der Blockkante — also genau dort, wo die Leiste ohnehin eine Kante zeigt.</p>
+  <div class="reihe"><div class="buehne" id="b-6a"></div><div class="buehne" id="b-6b"></div><div class="buehne" id="b-6c"></div></div>
+  <div class="notiz"><span><b>1</b> über einem Halt</span><span><b>2</b> über freier Fahrt</span><span><b>3</b> geklemmt am rechten Rand</span></div>
+</div>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Nähte und Zähler zeigen dasselbe</h3><span class="marke neu">neu</span></div>
+  <p class="warum">Liegt der Finger im zweiten von drei Abschnitten eines Halts, ist die zweite Naht-Zelle hell und der Zähler steht auf <b>2/3</b> — Leiste und Kachel sagen dasselbe an zwei Orten, ohne dass eines das andere wiederholt: Die Naht sagt <em>wie breit</em>, der Zähler <em>der wievielte</em>.</p>
+  <div class="buehne breit" id="b-6d"></div>
+  <p class="gegen"><b>Regel dazu (aus Runde 2, verschärft):</b> Nähte erst, wenn jeder Abschnitt ≥ 6 px misst. Mit der 10-px-Klemmung aus Kapitel 3 heißt das in der Praxis: auf dem Telefon bleiben Dreier-Halte glatt, der Zähler in der Kachel trägt die Auskunft allein.</p>
+</div>
+
+<!-- ============ 7 ============ -->
+<h2 class="kapitel" id="tasten">7 · Blitzt die Vorschau bei J/K/L auf?</h2>
+<p class="kapitel-satz">§6, Frage 5. Meine Antwort: <em>nein</em>, und das Bild zeigt warum.</p>
+
+<div class="fall">
+  <div class="fallkopf"><h3>Gegenprobe</h3><span class="marke frage">4b · offen</span></div>
+  <p class="warum">J/K/L ist keine Suche, sondern ein Tempowechsel — beim Schnelllauf feuert es mehrmals hintereinander. Eine Kachel, die dabei jedes Mal auf- und abblendet, ist Flackern an der Stelle, an der man gerade das Bild anschaut. Dazu: Ab 2× bleibt die Foto-Karte ohnehin aus (E16, „dort will man die Strecke überfliegen") — eine Vorschaukachel wäre dann das einzige Bild im Schnelllauf, also genau das Gegenteil.</p>
+  <div class="reihe"><div class="buehne" id="b-7a"></div><div class="buehne" id="b-7b"></div></div>
+  <div class="notiz"><span><b>Links:</b> mit Aufblitzen bei 4×</span><span><b>Rechts:</b> ohne</span></div>
+  <p class="fuer"><b>Ausnahme, die ich für richtig hielte:</b> das <em>Einzelbild im Halt</em> (der offene Rest von E15, im Papier unter „was noch fehlt"). Ein Frame-Schritt mit den Pfeiltasten soll die Karte auf die neue Filmsekunde stellen statt sie wegzuräumen — das ist aber eine Sache der Karte, nicht der Vorschaukachel.</p>
+</div>
+
+<!-- ============ 8 ============ -->
+<h2 class="kapitel" id="zusammen">8 · Zusammenschau</h2>
+<p class="kapitel-satz">Alles Entschiedene in einem Bild — Desktop und Telefon —, daneben der heutige Stand.</p>
+
+<div class="fall">
+  <div class="reihe"><div class="buehne" id="b-8a"></div><div class="buehne" id="b-8b"></div></div>
+  <div class="notiz"><span><b>Links:</b> heute (Kurve, „Nächster Halt", Punkt-Griff)</span><span><b>Rechts:</b> Vorschlag</span></div>
+</div>
+
+<div class="fall">
+  <div class="reihe"><div class="buehne telefon" id="b-8c"></div><div class="buehne telefon" id="b-8d"></div></div>
+  <div class="notiz"><span><b>Links:</b> heute, 390 px</span><span><b>Rechts:</b> Vorschlag, 390 px — Blöcke geklemmt, Zeit bei den Knöpfen, Ecke frei</span></div>
+</div>
+
+<!-- ============ URTEIL ============ -->
+<h2 class="kapitel" id="urteil">Urteil dieser Runde</h2>
+<table>
+  <tr><th>Frage</th><th>Antwort</th><th>Begründung in einem Satz</th></tr>
+  <tr><td>Füllstand im aktiven Halt</td><td class="wert"><span class="nein">nein</span></td><td class="wert">Der Kartenbalken zeigt denselben Wert, und im Halt ist die Leiste weggezogen.</td></tr>
+  <tr><td>Zustand „aktiv" am Block</td><td class="wert"><span class="ja">ja</span></td><td class="wert">Beantwortet „wo im Film", was der Kartenbalken nicht sagt.</td></tr>
+  <tr><td>Punkt-Griff / <code>jumpToPhoto</code> an der Leiste</td><td class="wert"><span class="nein">entfällt</span></td><td class="wert">Zwei Griffe mit zwei Bedeutungen auf denselben Pixeln; die Bahn genügt.</td></tr>
+  <tr><td>Mindest-Zeichenbreite 10 px</td><td class="wert"><span class="ja">ja</span></td><td class="wert">Gezeichnet = treffbar; der Positionsfehler bleibt unter 1,6 px.</td></tr>
+  <tr><td>Schild des Playheads im Halt</td><td class="wert"><span class="ja">weg, nur Linie</span></td><td class="wert">16 px Schild über 10 px Block — sonst ist der aktive Zustand genau dann unsichtbar, wenn er gilt.</td></tr>
+  <tr><td>Video-Halt anders gezeichnet</td><td class="wert"><span class="nein">nein</span> (4a)</td><td class="wert">Die Breite ist die Auskunft; der Typ zeigt sich, sobald der Halt beginnt.</td></tr>
+  <tr><td>Vorschau bei Video</td><td class="wert"><span class="ja">Standbild + Pfeil + Dauer</span></td><td class="wert">Frame-genau kostet einen Dekoder und flackert; man sucht die Stelle, nicht das Bild.</td></tr>
+  <tr><td>Vorschau bei J/K/L</td><td class="wert"><span class="nein">nein</span></td><td class="wert">Tempowechsel ist keine Suche; ab 2× ist die Karte bewusst aus.</td></tr>
+  <tr><td>„Distanz" in der Telemetrie</td><td class="wert"><span class="ja">bleibt</span></td><td class="wert">km und Filmzeit sind zwei Achsen — dieselbe Trennung wie <code>frac</code>/<code>filmFrac</code>.</td></tr>
+  <tr><td>Höhe in der Telemetrie</td><td class="wert"><span class="ja">bleibt</span></td><td class="wert">Ohne Höhenchip die einzige Auskunft über das Gelände.</td></tr>
+</table>
+
+<script>
+// Eine Tour, filmlinear. Halte in Filmanteilen. Halt 4 hat drei Aufnahmen,
+// Halt 7 zwei; Halt 3 ist in Kapitel 4 das Video (doppelte Länge).
+// Ein Halt kostet 1,9 % je Aufnahme — drei Bilder stehen dreimal so lange, und
+// die Zeitachse zeigt das. In Runde 2 waren alle Blöcke gleich breit; das war
+// hübsch und falsch, und es hat die Naht-Frage künstlich schwer gemacht.
+const HALTE = [
+  { von: 0.083, bis: 0.102 }, { von: 0.171, bis: 0.190 }, { von: 0.262, bis: 0.300, video: true },
+  { von: 0.352, bis: 0.409, teile: 3 }, { von: 0.470, bis: 0.489 }, { von: 0.561, bis: 0.580 },
+  { von: 0.712, bis: 0.750, teile: 2 }, { von: 0.845, bis: 0.864 }, { von: 0.926, bis: 0.945 },
+]
+// Ohne Video: dieselbe Reihe, Halt 3 auf normale Länge — für alle Kapitel außer 4.
+const FOTOS = HALTE.map((h, i) => (i === 2 ? { von: 0.262, bis: 0.281 } : h))
+const KOPF = 0.398
+
+const GELAENDE = `<svg class="gelaende" viewBox="0 0 400 288" preserveAspectRatio="none">
+  <path d="M0,150 C46,132 82,148 124,138 C170,127 196,142 240,132 C292,120 330,136 400,124 L400,288 L0,288Z" fill="rgba(14,32,30,0.36)"/>
+  <path d="M0,192 C58,172 96,200 150,183 C208,164 250,196 300,178 C346,162 380,184 400,176 L400,288 L0,288Z" fill="rgba(10,24,21,0.52)"/>
+  <path d="M0,226 C70,210 120,238 186,220 C250,204 300,230 400,212 L400,288 L0,288Z" fill="rgba(5,14,12,0.68)"/>
+</svg>
+<svg class="route" viewBox="0 0 400 288" preserveAspectRatio="none">
+  <path d="M34,258 C104,238 124,206 190,196 C254,186 280,164 350,148" fill="none"
+        stroke="rgba(245,158,11,0.9)" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="190" cy="196" r="6" fill="#f6f1e7" stroke="rgba(26,18,6,0.45)" stroke-width="2"/>
+</svg>`
+
+const ZURUECK = `<div class="zurueck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.5 7.5 12l6.5 6.5"/></svg>Entdecken</div>`
+
+const NEXT_ALT = `<aside style="position:absolute;top:15px;right:15px;z-index:22;padding:9px 15px;border-radius:14px;text-align:right;background:var(--glas);border:1px solid var(--glas-rand);backdrop-filter:blur(10px)">
+  <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-zart);margin-bottom:2px">Nächster Halt</div>
+  <div style="font-size:14.5px">Bergkamm<span style="color:var(--text-zart);margin-left:8px;font-size:13px">in 1.2 km</span></div></aside>`
+
+const KARTE = (anteil) => `<figure class="karte">
+  <div class="rahmen"><div class="balken"><i style="width:${(anteil * 100).toFixed(0)}%"></i></div></div>
+  <figcaption class="unter"><div class="kt">Bergkamm bei Sonnenuntergang</div><div class="kc">KM 19.5</div></figcaption></figure>`
+
+function knoepfe(zeit) {
+  return `<div class="cluster">
+    <div class="rund play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></div>
+    <div class="rund">${zeit === 'schnell' ? '4×' : '1×'}</div>
+    <div class="rund"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.4" fill="currentColor"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.4" fill="currentColor"/></svg></div>
+    ${zeit ? `<div class="zeit-links"><b>2:03</b> / 5:09</div>` : ''}
+  </div>`
+}
+
+function tele(art) {
+  if (art === 'keine') return ''
+  return `<div class="tele">
+    <div class="tele-eintrag"><span class="tele-label">Distanz</span><span class="tele-wert">16.4 km</span></div>
+    <div class="tele-eintrag"><span class="tele-label">Höhe</span><span class="tele-wert">312 m</span></div></div>`
+}
+
+// — Die alte Kurve, nur noch als Vergleichsbild —
+function kurveAlt(id) {
+  const N = 160, ys = []; let h = 0.32
+  for (let i = 0; i < N; i++) { const f = i / (N - 1)
+    if (!FOTOS.some((x) => f >= x.von && f <= x.bis)) { h += Math.sin(f * 17.3) * 0.017 + Math.sin(f * 5.1) * 0.011; h = Math.max(0.12, Math.min(0.8, h)) }
+    ys.push(h) }
+  const pts = ys.map((y, i) => `L${((i / (N - 1)) * 100).toFixed(2)},${(3 + 22 * (1 - y)).toFixed(2)}`).join(' ')
+  const d = `M0,30 ${pts} L100,30 Z`
+  let h2 = `<svg viewBox="0 0 100 30" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+    <defs><linearGradient id="k${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#ff6f52"/></linearGradient>
+    <clipPath id="kc${id}"><rect x="0" y="0" width="${KOPF * 100}" height="30"/></clipPath></defs>
+    <path d="${d}" fill="rgba(246,241,231,0.14)"/><path d="${d}" fill="url(#k${id})" clip-path="url(#kc${id})"/></svg>`
+  for (const x of FOTOS) {
+    h2 += `<div style="position:absolute;top:40%;bottom:0;left:${x.von * 100}%;width:${(x.bis - x.von) * 100}%;border-radius:2px 2px 0 0;background:linear-gradient(to bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.05));z-index:2"></div>`
+    const yi = Math.round(x.von * (N - 1))
+    const top = ((3 + 22 * (1 - ys[yi])) / 30) * 100
+    const g = x.bis <= KOPF
+    h2 += `<div style="position:absolute;left:${x.von * 100}%;top:${top}%;width:11px;height:11px;border-radius:50%;transform:translate(-50%,-50%);z-index:5;background:${g ? '#f59e0b' : '#f6f1e7'};border:${g ? '2px solid #fff' : '1.5px solid rgba(26,18,6,0.35)'}"></div>`
+  }
+  h2 += `<div class="kopf-linie" style="left:${KOPF * 100}%"></div>`
+  return `<div class="leiste" style="height:40px">${h2}</div>`
+}
+
+function bahn(o = {}) {
+  const kopf = o.kopf ?? KOPF
+  const liste = o.halte ?? FOTOS
+  let h = `<div class="bahn"></div><div class="bahn-fill" style="width:${kopf * 100}%"></div>`
+
+  for (const x of liste) {
+    const drin = kopf >= x.von && kopf <= x.bis
+    const g = x.bis <= kopf ? ' gesehen' : ''
+    let kl = 'halt' + (drin ? ' aktiv' + g : g)
+    if (x.video && o.videoStil === 'textur') kl += ' v-textur'
+    if (x.video && o.videoStil === 'rand') kl += ' v-rand'
+    let inner = ''
+    // Der Füllstand existiert nur noch als Gegenprobe in Kapitel 1.
+    if (drin && o.fuellstand) inner += `<div class="rest" style="width:${(((kopf - x.von) / (x.bis - x.von)) * 100).toFixed(0)}%"></div>`
+    if (o.nahte && x.teile) {
+      // Liegt der Kopf in diesem Halt, hebt sich die getroffene Zelle ab.
+      if (drin) {
+        const z = Math.min(x.teile - 1, Math.floor(((kopf - x.von) / (x.bis - x.von)) * x.teile))
+        inner += `<div class="zelle" style="left:${((z / x.teile) * 100).toFixed(1)}%;width:${(100 / x.teile).toFixed(1)}%"></div>`
+      }
+      for (let i = 1; i < x.teile; i++)
+        inner += `<div class="naht" style="left:${((i / x.teile) * 100).toFixed(1)}%"></div>`
+    }
+    if (x.video && o.videoStil === 'pfeil') inner += `<div class="v-pfeil"></div>`
+    const roh = o.ohneKlemme ? 'min-width:0;' : ''
+    h += `<div class="${kl}" style="${roh}left:${x.von * 100}%;width:${((x.bis - x.von) * 100).toFixed(3)}%">${inner}</div>`
+  }
+
+  // Belege für Kapitel 2: alter Punkt-Griff mit seiner Trefferfläche
+  if (o.altGriff) for (const x of liste) {
+    h += `<div class="treffer" style="left:${x.von * 100}%"></div>`
+    h += `<div class="alt-punkt" style="left:${x.von * 100}%"></div>`
+  }
+  if (o.blockGriff) for (const x of liste)
+    h += `<div class="treffer ok block" style="left:${x.von * 100}%;width:${((x.bis - x.von) * 100).toFixed(3)}%;min-width:10px"></div>`
+
+  // Der Schild fällt weg, sobald der Kopf in einem Halt steht (Kapitel 3b) —
+  // das gilt beim Scrubben genauso wie in der Fahrt.
+  const schild = (x) => (o.ohneSchild && liste.some((h) => x >= h.von && x <= h.bis) ? ' ohne-schild' : '')
+
+  if (o.vorschau) {
+    const v = o.vorschau
+    const stil = v.klemm === 'links' ? 'left:0' : v.klemm === 'rechts' ? 'right:0' : `left:${v.pos * 100}%;transform:translateX(-50%)`
+    h += `<div class="vorschau${v.bild ? '' : ' schmal nur-zeit'}" style="${stil}">
+      ${v.bild ? `<div class="bild${v.video ? ' video' : ''}">
+        ${v.dauer ? `<span class="dauer">${v.dauer}</span>` : ''}
+        ${v.zaehler ? `<span class="zaehler">${v.zaehler}</span>` : ''}</div>` : ''}
+      <div class="fuss"><div class="titel">${v.titel}</div>${v.zeile2 ? `<div class="zeile2">${v.zeile2}</div>` : ''}</div></div>`
+    h += `<div class="kopf-linie${schild(v.pos)}" style="left:${v.pos * 100}%"></div>`
+  } else {
+    h += `<div class="kopf-linie${schild(kopf)}" style="left:${kopf * 100}%"></div>`
+  }
+  return `<div class="leiste">${h}</div>`
+}
+
+function baue(id, o = {}) {
+  const el = document.getElementById(id); if (!el) return
+  const inhalt = o.altKurve
+    ? knoepfe(null) + tele(o.tele) + kurveAlt(id)
+    : knoepfe(o.zeit) + tele(o.tele) + bahn(o)
+  el.innerHTML = GELAENDE + ZURUECK + (o.oben ?? '') + (o.karte ?? '') + `<footer class="dock">${inhalt}</footer>`
+}
+
+// — 1 · Füllstand —
+const IM_HALT = 0.3865 // steht im Dreier-Halt (0.352–0.409), gut zur Hälfte
+baue('b-1a', { kopf: IM_HALT, zeit: 'lauf', fuellstand: true, karte: KARTE(0.45) })
+baue('b-1b', { kopf: IM_HALT, zeit: 'lauf', karte: KARTE(0.45), ohneSchild: true })
+
+// — 2 · Griff —
+baue('b-2a', { zeit: 'lauf', altGriff: true, ohneKlemme: true })
+baue('b-2b', { zeit: 'lauf', blockGriff: true })
+
+// — 3 · Mindestbreite: Maßband in echten Pixeln —
+;(function band() {
+  const el = document.getElementById('band-1'); if (!el) return
+  el.parentElement.insertAdjacentHTML('beforeend', '')
+  const reihen = [
+    { y: 0, w: 6.8, farbe: 'rgba(246,241,231,0.32)', text: '6,8 px — was der Halt heute misst' },
+    { y: 30, w: 10, farbe: 'var(--papier)', text: '10 px — geklemmt: gezeichnet = treffbar' },
+    { y: 60, w: 25, farbe: 'rgba(229,72,77,0.28)', text: '25 px — heutige Trefferfläche des Punkts' },
+  ]
+  el.style.height = '96px'
+  el.innerHTML = reihen.map((r) =>
+    `<div class="stueck" style="left:0;top:${r.y}px;width:${r.w}px;background:${r.farbe};height:14px;${r.w === 25 ? 'border:1px dashed rgba(229,72,77,0.85);' : ''}"></div>
+     <div class="mass" style="left:${r.w + 12}px;top:${r.y}px;transform:none;line-height:14px">${r.text}</div>`).join('')
+})()
+baue('b-3a', { zeit: 'lauf', tele: 'keine', kopf: IM_HALT, ohneKlemme: true })
+baue('b-3b', { zeit: 'lauf', tele: 'keine', kopf: IM_HALT })
+baue('b-3c', { zeit: 'lauf', tele: 'keine', kopf: 0.4785 })
+baue('b-3d', { zeit: 'lauf', tele: 'keine', kopf: 0.4785, ohneSchild: true })
+
+// — 4 · Video-Halte —
+baue('b-4a', { zeit: 'lauf', halte: HALTE, kopf: 0.325 })
+baue('b-4b', { zeit: 'lauf', halte: HALTE, kopf: 0.325, videoStil: 'pfeil' })
+baue('b-4c', { zeit: 'lauf', halte: HALTE, kopf: 0.325, videoStil: 'textur' })
+
+// — 5 · Vorschau bei Video —
+baue('b-5a', { zeit: 'lauf', halte: HALTE, vorschau: {
+  pos: 0.281, bild: true, video: true, dauer: '0:14', titel: 'Abfahrt durch den Palmenweg', zeile2: '2:14 · km 12.8' } })
+baue('b-5b', { zeit: 'lauf', nahte: true, kopf: 0.3805, ohneSchild: true, vorschau: {
+  pos: 0.3805, bild: true, zaehler: '2/3', titel: 'Bergkamm bei Sonnenuntergang', zeile2: '3:12 · km 19.5' } })
+
+// — 6 · Vorschau verfeinert —
+baue('b-6a', { zeit: 'lauf', vorschau: { pos: 0.562, bild: true, titel: 'Aussicht nach Westen', zeile2: '3:39 · km 24.1' } })
+baue('b-6b', { zeit: 'lauf', vorschau: { pos: 0.65, titel: '4:12', zeile2: 'km 28.6' } })
+baue('b-6c', { zeit: 'lauf', vorschau: { pos: 0.965, klemm: 'rechts', bild: true, titel: 'Zurück am Pier', zeile2: '5:02 · km 41.2' } })
+baue('b-6d', { zeit: 'lauf', nahte: true, kopf: 0.3805, ohneSchild: true, vorschau: {
+  pos: 0.3805, bild: true, zaehler: '2/3', titel: 'Bergkamm bei Sonnenuntergang', zeile2: '3:12 · km 19.5' } })
+
+// — 7 · Tastatur —
+baue('b-7a', { zeit: 'schnell', vorschau: { pos: 0.63, titel: '4:02', zeile2: 'km 27.4' } })
+baue('b-7b', { zeit: 'schnell', kopf: 0.63 })
+
+// — 8 · Zusammenschau —
+baue('b-8a', { altKurve: true, oben: NEXT_ALT })
+baue('b-8b', { zeit: 'lauf', nahte: true, kopf: IM_HALT, ohneSchild: true })
+baue('b-8c', { altKurve: true, oben: NEXT_ALT, tele: 'keine' })
+baue('b-8d', { zeit: 'lauf', tele: 'keine', kopf: IM_HALT, ohneSchild: true })
+</script>
+</body>
+</html>

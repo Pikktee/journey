@@ -1,4 +1,5 @@
 // Geometrie-Helfer: Haversine, Kurswinkel, Catmull-Rom-Glättung, gleichmäßiges Resampling.
+import { reihenfolgeImHalt } from './einblendung.js'
 import type { Wegpunkt } from './tours.js'
 
 const D2R = Math.PI / 180
@@ -275,11 +276,9 @@ export function gruppiereStopps<T extends StoppFoto>(photos: T[], naheM = NAHE_M
   }
   for (const stop of stops) {
     if (stop.items.length < 2) continue
-    stop.items.sort((a, b) => {
-      const ra = a.reihe ?? Number.POSITIVE_INFINITY
-      const rb = b.reihe ?? Number.POSITIVE_INFINITY
-      return ra === rb ? a.s - b.s : ra - rb
-    })
+    // Geteilt mit dem Editor (src/einblendung.ts) — die natürliche Ordnung ist
+    // hier die Strecke, im Studio die Aufnahmezeit.
+    stop.items = reihenfolgeImHalt(stop.items, (p) => p.s)
   }
   return stops
 }

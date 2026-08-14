@@ -16,6 +16,7 @@ import {
 import { baueStopps, dOffsetOhneCluster, meterOhneCluster, NAHE_M, reiheVergeben, snapZiel, stoppSignatur, stoppVon } from '../src/studio/stopps'
 import { kumMeter, meterZuOffset, offsetBeiMeter } from '../src/studio/zeitleiste'
 import { NAHE_M as PLAYER_NAHE_M } from '../src/geo.js'
+import { reihenfolgeImHalt } from '../src/einblendung.js'
 
 const START = '2026-03-12T07:10:00Z'
 const iso = (s: number): string => offsetZuIso(START, s)
@@ -174,8 +175,54 @@ describe('Drift-Wächter: Editor und Player gruppieren gleich', () => {
     expect(geo).toMatch(/p\.s - last\.s < naheM/)
   })
 
-  it('der Player ordnet innerhalb eines Stopps nach `reihe`', () => {
-    expect(geo).toMatch(/a\.reihe \?\? Number\.POSITIVE_INFINITY/)
+  // Die Reihenfolge im Halt war bis zur Szene-Schicht (§9) ein Textvergleich:
+  // Der Wächter suchte den Quelltext des Players nach
+  // `a.reihe ?? Number.POSITIVE_INFINITY` ab. Ein Regex auf einen Rumpf hält
+  // keine Regel zusammen — er meldet jede Umformulierung als Bruch und lässt
+  // jede echte Änderung der Studio-Seite durch. Beide rufen jetzt dieselbe
+  // Funktion auf, und geprüft wird das VERHALTEN an denselben Beispielen.
+  // Eine Aufnahme, wie beide Bühnen sie kennen: ein Ort (der Player misst
+  // Meter) UND eine Zeit (das Studio ordnet danach). `reihe` ist optional.
+  type Aufnahme = { s: number; takenAt: string; reihe?: number }
+  const auf = (s: number, min: number, reihe?: number): Aufnahme => ({
+    s,
+    takenAt: `2026-05-02T10:${String(min).padStart(2, '0')}:00Z`,
+    ...(reihe !== undefined ? { reihe } : {}),
+  })
+  const nachOrt = (x: Aufnahme) => x.s
+  const nachZeit = (x: Aufnahme) => Date.parse(x.takenAt)
+
+  it('beide ordnen innerhalb eines Stopps nach `reihe` — Verhalten, nicht Quelltext', () => {
+    expect(geo).toMatch(/reihenfolgeImHalt\(/)
+
+    // `reihe` schlägt die natürliche Ordnung, in beiden Welten.
+    const spaet = auf(900, 5, 0)
+    const frueh = auf(800, 0)
+    expect(reihenfolgeImHalt([frueh, spaet], nachOrt).map(nachOrt)).toEqual([900, 800])
+    expect(reihenfolgeImHalt([frueh, spaet], nachZeit).map(nachOrt)).toEqual([900, 800])
+  })
+
+  it('ohne `reihe` gilt die natürliche Ordnung — und die ist je Bühne verschieden', () => {
+    // Der Player misst Meter, das Studio die Aufnahmezeit. Bei einer Aufnahme,
+    // die später entstand, aber weiter vorn liegt (Umkehr auf der Strecke),
+    // kommen beide deshalb LEGITIM zu verschiedenen Folgen — genau darum ist
+    // der Zweitschlüssel ein Argument und keine feste Regel.
+    const a = auf(900, 0)
+    const b = auf(800, 5)
+    expect(reihenfolgeImHalt([a, b], nachOrt).map(nachOrt)).toEqual([800, 900])
+    expect(reihenfolgeImHalt([a, b], nachZeit).map(nachOrt)).toEqual([900, 800])
+  })
+
+  it('ohne `reihe` steht eine Aufnahme HINTEN, nicht vorn', () => {
+    // Sonst schöbe sich ein unbenanntes Bild vor eines, das der Autor
+    // ausdrücklich an den Anfang gestellt hat.
+    expect(reihenfolgeImHalt([auf(100, 0), auf(900, 5, 5)], nachOrt).map(nachOrt)).toEqual([900, 100])
+  })
+
+  it('lässt die Eingabe unangetastet', () => {
+    const liste = [auf(900, 0), auf(800, 5)]
+    reihenfolgeImHalt(liste, nachOrt)
+    expect(liste.map(nachOrt)).toEqual([900, 800])
   })
 
   it('das Studio-Schema kennt `reihe` genauso wie das Server-Schema', () => {

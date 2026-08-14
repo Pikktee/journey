@@ -11,6 +11,7 @@ import {
   AR_MIN,
   HOLD_AUSBLEND,
   HOLD_HIDE,
+  ausschnittDauerS,
   balkenAnteil,
   kartenZeiten,
   klemmeSeitenverhaeltnis,
@@ -107,5 +108,42 @@ describe('klemmeSeitenverhaeltnis', () => {
     const ar = klemmeSeitenverhaeltnis(2000, 3000)
     expect(ar).not.toBeNull()
     expect(ar as number).toBeLessThan(1)
+  })
+})
+
+describe('ausschnittDauerS', () => {
+  // Die Ton-Hülle blendet über den AUSSCHNITT ein und aus, nicht über die
+  // Datei. Beide Bühnen rechneten ihn bis zur Szene-Schicht (§9) getrennt:
+  // der Player `endeS` roh, der Editor `endeS - vonS`.
+  it('nimmt im Player die geschnittene Fassung (kein linker Schnitt)', () => {
+    expect(ausschnittDauerS(12, 0, 9)).toBe(9)
+  })
+
+  it('zieht im Editor die linke Kante ab (ungeschnittener Master)', () => {
+    expect(ausschnittDauerS(30, 4, 13)).toBe(9)
+  })
+
+  // Der Fall, der die beiden Formeln verband: DERSELBE Ausschnitt, einmal als
+  // geschnittene Datei, einmal als Master mit Kanten — dieselbe Blenddauer.
+  it('ergibt für denselben Ausschnitt dieselbe Länge', () => {
+    expect(ausschnittDauerS(9, 0, 9)).toBe(ausschnittDauerS(30, 4, 13))
+  })
+
+  // Ohne rechten Schnitt gilt das Dateiende — und die linke Kante zählt auch
+  // dort. Genau hier lag der stille Unterschied: Der Player nahm `dauerS`
+  // ungekürzt, was für ihn richtig war (vonS = 0) und für sonst niemanden.
+  it('fällt ohne rechten Schnitt auf das Dateiende zurück', () => {
+    expect(ausschnittDauerS(12)).toBe(12)
+    expect(ausschnittDauerS(12, 0, Number.POSITIVE_INFINITY)).toBe(12)
+    expect(ausschnittDauerS(12, 3)).toBe(9)
+  })
+
+  // Ein Video, dessen Metadaten noch fehlen (`duration` = NaN), darf keine
+  // negative oder unendliche Blenddauer erzeugen: `videoTonHuelle` bekäme
+  // sonst eine Zahl, aus der jeder Pegel NaN wird — also Stille ohne Grund.
+  it('bleibt bei unbekannter Dauer bei 0', () => {
+    expect(ausschnittDauerS(Number.NaN)).toBe(0)
+    expect(ausschnittDauerS(Number.POSITIVE_INFINITY, 0, Number.NaN)).toBe(0)
+    expect(ausschnittDauerS(5, 9)).toBe(0) // linke Kante hinter dem Ende
   })
 })

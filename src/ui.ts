@@ -2,7 +2,7 @@
 import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
 import type { Wegpunkt } from './tours.js'
 import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
-import { balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis, videoStandS } from './einblendung.js'
+import { ausschnittDauerS, balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis, videoStandS } from './einblendung.js'
 
 /**
  * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
@@ -644,7 +644,9 @@ export class UI {
 
     // Ton-Hülle über den Ausschnitt: Ein- und Ausblende liegen an den
     // Schnittkanten, und sie steuert zugleich das Ducking der Musik.
-    const ausschnittS = Number.isFinite(endeS) ? endeS : dauerS
+    // Geteilt mit dem Editor (`ausschnittDauerS`): Der Player liefert die
+    // geschnittene Fassung aus, sein linker Schnitt ist also 0.
+    const ausschnittS = ausschnittDauerS(dauerS, 0, endeS)
     const huelle = laeuft && !video.muted ? videoTonHuelle(imS, ausschnittS) : 0
     const laut = videoLautstaerke(huelle)
     // Nur bei Bedarf setzen — sonst feuert mancher Browser volumechange im Kreis

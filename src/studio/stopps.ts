@@ -8,6 +8,7 @@
 // Wie überall im Studio ist das hier reine, DOM-freie Logik; die Verdrahtung
 // (Ziehen, Filmstreifen) liegt in editor.ts.
 
+import { reihenfolgeImHalt } from '../einblendung.js'
 import { mitMedienEdit, projiziereAufTrack, type EditOverlay, type MediumAnzeige, type TrackPunkt } from './editmodell.js'
 import { meterZuOffset, offsetBeiMeter } from './zeitleiste.js'
 
@@ -75,14 +76,16 @@ export function baueStopps(
   }))
 }
 
-/** `reihe` zuerst (0-basiert), danach die Aufnahmezeit. */
+/**
+ * `reihe` zuerst (0-basiert), danach die Aufnahmezeit.
+ *
+ * Die Regel ist mit dem Player geteilt (`reihenfolgeImHalt` in
+ * src/einblendung.ts); verschieden ist nur die natürliche Ordnung dahinter —
+ * dort die Streckenmeter, hier die Aufnahmezeit. Eine Aufnahme ohne
+ * verlässlichen Ort ist im Editor trotzdem einzuordnen.
+ */
 function sortiereItems(items: MediumAnzeige[]): MediumAnzeige[] {
-  return [...items].sort((a, b) => {
-    const ra = a.reihe ?? Number.POSITIVE_INFINITY
-    const rb = b.reihe ?? Number.POSITIVE_INFINITY
-    if (ra !== rb) return ra - rb
-    return Date.parse(a.takenAt) - Date.parse(b.takenAt)
-  })
+  return reihenfolgeImHalt(items, (m) => Date.parse(m.takenAt))
 }
 
 /** Stopp, zu dem eine Aufnahme gehört. */

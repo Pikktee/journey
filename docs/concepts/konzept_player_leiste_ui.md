@@ -3,9 +3,11 @@
 Stand: 14. August 2026 · Status: **Entwurf, nichts gebaut** · Betrifft: `src/ui.ts`, `src/style.css`,
 `erlebnis.html`, `src/tour.ts` (Telemetrie)
 
-Mockups: [player-ui-ideen.html](../mockups/player-ui-ideen.html) (Hauptdokument, zweite Runde),
-[player-leiste-halte.html](../mockups/player-leiste-halte.html) (nur die Halt-Darstellung),
-[player-steuerleiste.html](../mockups/player-steuerleiste.html) (erste Runde, Gesamtbild).
+Mockups: [player-leiste-runde3.html](../mockups/player-leiste-runde3.html) (**dritte Runde, die
+offenen Fragen — der aktuelle Stand**), [player-ui-ideen.html](../mockups/player-ui-ideen.html)
+(zweite Runde, alle Ideen bebildert), [player-leiste-halte.html](../mockups/player-leiste-halte.html)
+(nur die Halt-Darstellung), [player-steuerleiste.html](../mockups/player-steuerleiste.html)
+(erste Runde, Gesamtbild).
 
 ---
 
@@ -152,13 +154,69 @@ Streckenanteil).
 
 ---
 
-## 6. Offene Fragen für die Fortsetzung
+## 6. Die offenen Fragen, beantwortet (dritte Runde)
 
-1. Bleibt die **Höhe** in der Telemetrie, wenn kein Höhenchip kommt? (Ja — sie ist dann die
-   einzige Auskunft über das Gelände.)
-2. Braucht der Player überhaupt noch **„Distanz"**, wenn die Zeit da ist? Beides sind Auskünfte
-   über verschiedene Achsen; die Frage ist, ob der Zuschauer die Strecke wissen will.
-3. Wie sieht der Block aus, wenn ein Halt **ein Video** ist statt eines Fotos? Es hat eine
-   echte Länge — vielleicht ein anderes Muster im Block.
-4. Was zeigt die Vorschau bei einem Video-Halt — ein Standbild welcher Sekunde?
-5. Soll die Scrub-Vorschau auch bei **Tastatur-Sprüngen** (J/K/L) kurz aufblitzen?
+Bebildert in [player-leiste-runde3.html](../mockups/player-leiste-runde3.html). Alles weiterhin
+Entwurf — nichts davon ist gebaut.
+
+1. **Höhe bleibt** in der Telemetrie. Ohne Höhenchip ist sie die einzige Auskunft über das Gelände.
+2. **„Distanz" bleibt.** km und Filmzeit sind Auskünfte über zwei verschiedene Achsen — genau die
+   Trennung, die `frac`/`filmFrac` gerade gezogen hat. Eine davon zu streichen, weil die andere
+   dazukommt, verwechselt sie wieder.
+3. **Video-Halte werden nicht anders gezeichnet.** Ein Video hat eine echte Länge (`dauerS` statt
+   der Foto-Annahme), sein Block ist also von selbst breiter — und Breite heißt in einer Zeitachse
+   Zeit, egal woher sie kommt: Der Nachbarblock mit drei Aufnahmen ist noch breiter, ohne dass
+   ihn deshalb jemand für ein Video hält. Ein Pfeil im Block behauptet „hier kann man abspielen",
+   obwohl man nirgends *nicht* abspielen kann; eine Schraffur ist auf HiDPI der erste Kandidat für
+   Moiré. Der Typ zeigt sich ohnehin, sobald der Halt beginnt (laufendes Bild, Ton-Schalter).
+4. **Die Vorschau zeigt bei Video das `poster`**, dazu ein Pfeil mit der Dauer (`0:14`) — nicht
+   den Frame der getroffenen Sekunde. Frame-genau verlangte ein zweites `<video>`, einen Seek je
+   Fingerbewegung und einen Dekoder, der mithält; das flackert. Man sucht die Stelle, nicht das
+   Einzelbild. Grenze: Bei einem Zwei-Minuten-Video wäre das erste Bild in der zweiten Hälfte
+   falsch — dann ein zweites Standbild zur Hälfte, kein laufender Dekoder.
+5. **Keine Vorschau bei J/K/L.** Das ist ein Tempowechsel, keine Suche, und feuert im Schnelllauf
+   mehrfach. Dazu: Ab 2× bleibt die Foto-Karte bewusst aus (E16) — eine Vorschaukachel wäre dann
+   das einzige Bild im Schnelllauf, also genau das Gegenteil der Absicht.
+
+### Drei Korrekturen an §4
+
+- **Der aktive Halt bekommt KEINEN Füllstand** (gegen die Empfehlung von Runde 2). Die Foto-Karte
+  hat diesen Balken bereits — `.photo-hold-fill` in [erlebnis.html](../../erlebnis.html), gespeist
+  aus demselben `balkenAnteil()`, in derselben Amber-Farbe. Und der Halt zählt zur laufenden
+  Wiedergabe: Die Steuerleiste zieht sich *während* des Halts zurück (E17), der Füllstand wäre
+  also meist unsichtbar, der Kartenbalken immer. Dieselbe Argumentation, mit der „Nächster Halt"
+  und das Fortbewegungsmittel geflogen sind. **Der Zustand „aktiv"** (höher, heller Rand) bleibt —
+  er beantwortet eine andere Frage: *wo im Film* stehe ich, und die beantwortet der Kartenbalken
+  nicht.
+- **Mindest-Zeichenbreite statt Übergriff-Trefferfläche.** Der Befund aus §2 ist nicht „der Griff
+  ist zu breit", sondern „das Gezeichnete ist schmaler als das Treffbare". Der Block wird deshalb
+  nie schmaler als **10 px** gezeichnet (`min-width`); der Positionsfehler bleibt unter 1,6 px je
+  Seite — 0,45 % der Filmdauer, auf Koh Pha-ngan rund 1,4 s, unter der Zielschwelle. Damit stimmen
+  Sichtbarkeit und Treffer wieder überein, statt dass eine Zone anders reagiert, als sie aussieht.
+- **Der Dot-Tap-Sonderfall entfällt.** `jumpToPhoto` am Timeline-Punkt ([main.ts](../../src/main.ts),
+  `pointerup`) ist der zweite Griff, der um dieselben Pixel streitet — er springt auf die
+  **Ankunft**, während ein Tipp einen Pixel daneben auf die getroffene Filmsekunde seekt. Künftig
+  seekt ein Tipp auf die Bahn immer dorthin, wohin er zeigt, auch mitten in einen Halt (E15 zeigt
+  dort den Stand dieser Sekunde). `jumpToPhoto` bleibt für **Karten-Wegpunkte**, wo ein Pixel keine
+  Zeit bedeutet und der harte Schnitt mit Blende richtig ist. Ehrlicher Verlust: Der Dot-Tipp
+  schnitt sofort ins Bild, ein Seek zieht die Kamera in ~0,7 s dorthin.
+
+### Ein Befund, der erst im gerenderten Bild auftauchte
+
+**Der Schild des Playheads deckt den aktiven Halt zu.** Er misst 16 px — breiter als der geklemmte
+Block (10 px) und mehr als doppelt so breit wie der ungeklemmte (6,8 px auf dem Telefon). Steht der
+Kopf in einem Halt, und genau dann gilt der Zustand „aktiv", liegt der Schild mittendrauf; auf dem
+Telefon bleibt vom hellen Rand nichts übrig. **Vorschlag: Im Halt verliert die Linie ihren Schild.**
+Das ist folgerichtig statt trickreich — der Schild markiert eine Stelle auf einer Bahn, im Halt ist
+der *Block* diese Marke; die dünne Linie bleibt und zeigt weiter die genaue Filmsekunde. Zu prüfen
+beim Bauen: Der Wechsel passiert je Tour rund neunmal in beide Richtungen und braucht ein kurzes
+Ein-/Ausblenden (~120 ms), sonst blinkt er.
+
+### Was danach noch offen ist
+
+- **Modus-Marken in der Bahn** (§4) — unverändert eine Produktfrage, nicht entschieden.
+- **Höhenprofil oben rechts** (§4) — unverändert „warten, bis es jemand vermisst".
+- **Verbleibend statt verstrichen** (`−4:27`) — später.
+- **Das Einzelbild im Halt** (offener Rest von E15): `nudge` räumt die Karte weg, statt sie auf die
+  neue Filmsekunde zu stellen. Gehört zur Karte, nicht zur Leiste — aber es ist der einzige Ort,
+  an dem eine Tastengeste doch etwas anzeigen sollte.
