@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Player in 16:9 und 9:16</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Der Player in zwei Formaten, und was mit den Fotos passiert.
+
+   NUR ENTWURF. Kein Produktcode wurde geändert. Die Tokens sind aus
+   src/basis.css KOPIERT (Konvention der übrigen Mockups), damit die Datei
+   ohne Bundle steht; die Bilder kommen über den Dev-Server aus public/.
+
+   AUSGANGSLAGE (Bestand, src/style.css .photo-card/.photo-frame):
+     · Die Fotoeinblendung ist eine PAPIERKARTE über der laufenden Szene:
+       heller Papiergrund, Bild oben, Caption (Titel · Chip · Unterschrift)
+       darunter. Ken Burns driftet das Bild, „develop" blendet es ein.
+     · Der Rahmen rechnet über die HÖHE: --photo-ar (echtes Medienverhältnis)
+       mal verfügbare Höhe minus --photo-chrome (235 px Caption + Rand).
+     · body.kompakt-quer (main.ts, Höhe ≤ 560) klappt das Layout um:
+       Bild links, Text rechts.
+
+   DAS PROBLEM, um das es hier geht:
+     Ein 3:2-Querfoto auf einem 393×852-Handy ist über die volle Breite nur
+     243 px hoch — 28 % der Bildschirmhöhe. Im Querformat ist der Fall
+     harmlos (Bild füllt die Höhe, daneben bleibt eine Textspalte).
+     Die Asymmetrie ist der Kern: quer ist Platz NEBEN dem Bild,
+     hoch ist Platz UNTER dem Bild.
+
+   ALLE PROZENTZAHLEN in den Fußnoten sind gerechnet, nicht geschätzt:
+   Bezug ist ein 393 × 852 CSS-px-Viewport (iPhone 16 / Pixel 9 Klasse),
+   Kartenrand 14 px.
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b; --akzent-2: #ff6f52; --auf-akzent: #1a1206;
+  --text: #f2ede3; --text-gedaempft: rgba(242,237,227,0.64); --text-zart: rgba(242,237,227,0.42);
+  --text-2: #a7b1bf; --text-3: #7e8a99;
+  --bg: #090c11; --bg-tief: #06080c; --fl-1: #111722; --fl-2: #161e2c; --fl-3: #1e283a;
+  --rand: #232d3d; --rand-hell: #2e3b4e; --linie: rgba(255,255,255,0.08);
+  --gruen: #3ecf8e; --rot: #e5484d; --blau: #5b9dff; --lila: #c58bff; --warn: #e8a13c;
+  --glas: rgba(12,15,20,0.55); --glas-rand: rgba(255,255,255,0.1); --papier: #f6f1e7;
+  --radius-sm: 7px; --radius-md: 8px; --radius-lg: 12px; --radius-karte: 14px; --radius-xl: 16px; --radius-full: 999px;
+  --schatten: 0 14px 34px rgba(2,5,10,0.5), 0 2px 8px rgba(2,5,10,0.35);
+  --font-ui: 'Outfit', system-ui, sans-serif; --font-display: 'Outfit', system-ui, sans-serif;
+  --wrap: 1340px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+/* figure/figcaption tragen im UA-Blatt `margin: 1em 40px` — die 80 px machten
+   jedes Varianten-Feld 292 statt 212 px breit, und die Reihe brach zu früh um. */
+figure, figcaption { margin: 0; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui);
+  font-size: 14px; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 480; letter-spacing: -0.02em; margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+
+/* ── Gerüst des Mockups (nicht Teil des Produkts) ───────────────── */
+
+.m-kopf {
+  position: sticky; top: 0; z-index: 90; backdrop-filter: blur(14px);
+  background: rgba(13,17,24,0.9); border-bottom: 1px solid var(--rand);
+  padding: 14px 26px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+}
+.m-kopf h1 { font-size: 17px; font-weight: 500; }
+.m-kopf .marke { color: var(--akzent); font-weight: 600; }
+.m-schalter { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.m-schalter label {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-2);
+  background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-full);
+  padding: 6px 13px 6px 10px; cursor: pointer; user-select: none;
+}
+.m-schalter input { accent-color: var(--akzent); margin: 0; }
+
+.m-wrap { max-width: var(--wrap); margin: 0 auto; padding: 40px 26px 120px; }
+.m-abschnitt { margin: 0 0 78px; }
+.m-abschnitt > h2 {
+  font-size: 25px; font-weight: 500; margin-bottom: 8px;
+  display: flex; align-items: baseline; gap: 12px;
+}
+.m-abschnitt > h2 .nr {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--akzent);
+  border: 1px solid rgba(245,158,11,0.35); border-radius: var(--radius-full); padding: 3px 9px;
+}
+.m-lead { color: var(--text-2); font-size: 14.5px; line-height: 1.62; max-width: 74ch; margin: 0 0 26px; }
+.m-lead b { color: var(--text); font-weight: 600; }
+.m-lead code {
+  font-size: 12.5px; background: var(--fl-2); border: 1px solid var(--rand);
+  border-radius: 5px; padding: 1px 5px; color: var(--text-2);
+}
+
+.m-notiz {
+  border-left: 2px solid var(--akzent); background: rgba(245,158,11,0.05);
+  padding: 13px 18px; border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--text-2); font-size: 13.5px; line-height: 1.6; max-width: 78ch; margin: 22px 0 0;
+}
+.m-notiz b { color: var(--text); font-weight: 600; }
+
+/* Bühnenreihe: waagerecht scrollbar, damit die Varianten nebeneinander
+   vergleichbar bleiben statt untereinander zu wandern. */
+/* Umbruch statt Scrollbalken: Die fünf Handy-Varianten passen bei 56 %
+   Maßstab nebeneinander (5 × 212 + 4 × 22 = 1148 < 1288) — nur so sind sie
+   direkt vergleichbar. Die beiden Desktop-Bühnen brechen untereinander um. */
+.m-reihe {
+  display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap;
+  padding: 4px 0 20px;
+}
+.m-fall { flex: 0 0 auto; }
+.m-fall > figcaption { margin-top: 13px; width: var(--fig-w, 212px); }
+.m-fall .v-name {
+  font-size: 13.5px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 7px;
+}
+.m-fall .v-name .kuerzel {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: var(--auf-akzent);
+  background: var(--akzent); border-radius: 4px; padding: 2px 5px;
+}
+.m-fall .v-name.aus .kuerzel { background: var(--fl-3); color: var(--text-3); }
+.m-fall .v-text { font-size: 12.5px; line-height: 1.55; color: var(--text-3); margin-top: 5px; }
+.m-fall .v-mass {
+  margin-top: 7px; font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--text-2);
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.m-fall .v-mass span {
+  border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 2px 8px;
+}
+.m-fall .v-mass span.gut { border-color: rgba(62,207,142,0.4); color: #7fe0b4; }
+.m-fall .v-mass span.schlecht { border-color: rgba(229,72,77,0.4); color: #f08d90; }
+
+/* ── Geräte-Rahmen ──────────────────────────────────────────────── */
+
+.skal { transform-origin: top left; }
+.handy-skal { --s: 0.54; width: calc(393px * var(--s)); height: calc(852px * var(--s)); }
+.handy-skal > .geraet { transform: scale(var(--s)); transform-origin: top left; }
+body.gross .handy-skal { --s: 1; }
+.desk-skal { --s: 0.72; width: calc(1280px * var(--s)); height: calc(720px * var(--s)); }
+.desk-skal > .geraet { transform: scale(var(--s)); transform-origin: top left; }
+body.gross .desk-skal { --s: 1; }
+
+.geraet { position: relative; overflow: hidden; background: #05070a; }
+.handy {
+  width: 393px; height: 852px; border-radius: 46px;
+  box-shadow: 0 0 0 9px #16191f, 0 0 0 10.5px #303640, 0 30px 70px rgba(0,0,0,0.6);
+}
+.handy::after { /* Dynamic-Island-Attrappe */
+  content: ''; position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+  width: 96px; height: 27px; border-radius: 999px; background: #05070a; z-index: 60;
+}
+.desk {
+  width: 1280px; height: 720px; border-radius: 10px;
+  box-shadow: 0 0 0 8px #16191f, 0 0 0 9.5px #303640, 0 34px 80px rgba(0,0,0,0.6);
+}
+
+/* ── Die Szene (simulierte Kamerafahrt) ─────────────────────────── */
+
+.szene { position: absolute; inset: 0; overflow: hidden; }
+.szene img {
+  position: absolute; inset: -6%; width: 112%; height: 112%; object-fit: cover;
+  filter: saturate(0.92) brightness(0.72) blur(1.5px);
+  animation: fahrt 26s ease-in-out infinite alternate;
+}
+body.ruhig .szene img { animation: none; }
+@keyframes fahrt {
+  from { transform: scale(1.06) translate3d(0,0,0); }
+  to   { transform: scale(1.14) translate3d(-2.5%, 1.5%, 0); }
+}
+.szene::after { /* Vignette + Dunst, damit die Karte trägt */
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 30%, rgba(0,0,0,0) 40%, rgba(3,6,11,0.7) 100%),
+    linear-gradient(180deg, rgba(3,6,11,0.42), rgba(3,6,11,0) 26%, rgba(3,6,11,0) 62%, rgba(3,6,11,0.72));
+}
+
+/* Route + Fahrer-Marker als Andeutung, damit klar ist: da läuft ein Film */
+.route { position: absolute; inset: 0; pointer-events: none; }
+.route path { fill: none; stroke: rgba(245,158,11,0.85); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(245,158,11,0.5)); }
+.route path.schatten { stroke: rgba(0,0,0,0.35); stroke-width: 7; filter: none; }
+.reiter {
+  position: absolute; width: 30px; height: 30px; border-radius: 999px;
+  background: linear-gradient(140deg, #f8bb4b, #ef8c37); display: grid; place-items: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.9);
+  font-size: 15px; z-index: 3;
+}
+
+/* ── Player-Chrome (stark vereinfacht) ──────────────────────────── */
+
+.zurueck {
+  position: absolute; top: 26px; left: 18px; z-index: 30;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--glas); border: 1px solid var(--glas-rand); backdrop-filter: blur(10px);
+  border-radius: var(--radius-full); padding: 7px 14px 7px 11px;
+  font-size: 12.5px; font-weight: 500; color: var(--text);
+}
+.handy .zurueck { top: 52px; }
+.leiste {
+  position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 30;
+  background: var(--glas); border: 1px solid var(--glas-rand); backdrop-filter: blur(14px);
+  border-radius: var(--radius-xl); padding: 11px 13px 12px;
+  display: grid; gap: 9px;
+}
+.desk .leiste { left: 50%; transform: translateX(-50%); right: auto; width: 780px; }
+.zeitleiste { position: relative; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+.zeitleiste i { position: absolute; inset: 0 62% 0 0; border-radius: 999px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
+.zeitleiste b { position: absolute; top: 50%; left: 38%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 999px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+.zeitleiste u { position: absolute; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 999px; background: rgba(255,255,255,0.75); }
+.leiste-zeile { display: flex; align-items: center; gap: 12px; }
+.rund {
+  width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center;
+  background: rgba(255,255,255,0.1); border: 1px solid var(--glas-rand); font-size: 13px;
+}
+.rund.haupt { background: linear-gradient(140deg, #f8bb4b, #ef8c37); color: #171106; border: none; width: 38px; height: 38px; }
+.tele { display: flex; gap: 16px; margin-left: auto; }
+.tele div { text-align: right; }
+.tele .lab { font-size: 9.5px; color: var(--text-zart); }
+.tele .val { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* ── Die Fotokarte (Bestandsoptik) ──────────────────────────────── */
+
+.foto-schicht {
+  position: absolute; inset: 0; z-index: 20; display: grid; place-items: center;
+  padding: 0 14px;
+}
+.foto-karte {
+  background: var(--papier); border-radius: var(--radius-lg);
+  padding: 14px 14px 0; transform: rotate(-0.4deg);
+  box-shadow: 0 50px 140px rgba(0,0,0,0.7), 0 12px 36px rgba(0,0,0,0.5);
+  max-width: 100%;
+}
+.rahmen { position: relative; overflow: hidden; border-radius: 5px; background: #d8d2c4; }
+.rahmen img {
+  display: block; width: 100%; height: 100%; object-fit: cover;
+  filter: brightness(1) contrast(1.02) saturate(1.05);
+  animation: kenburns 9s ease-out infinite alternate;
+}
+body.ruhig .rahmen img { animation: none; }
+@keyframes kenburns { from { transform: scale(1.12); } to { transform: scale(1.005); } }
+
+.caption { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 14px; padding: 12px 5px 14px; }
+.caption .titel { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; color: #1c1712; font-size: 22px; line-height: 1.1; }
+.caption .chip {
+  justify-self: end; font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums;
+  color: #8a7a63; border: 1px solid rgba(28,23,18,0.2); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+}
+.caption .sub { grid-column: 1 / -1; font-size: 12.5px; line-height: 1.55; color: rgba(28,23,18,0.62); }
+.caption .reihe { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 11px; }
+.pille-weiter {
+  font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: #171106;
+  background: linear-gradient(135deg, #f8bb4b, #ef8c37); border-radius: 999px; padding: 9px 17px;
+  box-shadow: 0 6px 18px rgba(239,140,55,0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.pille-still {
+  font-size: 11.5px; font-weight: 500; color: #8a7a63;
+  border: 1px solid rgba(28,23,18,0.18); border-radius: 999px; padding: 6px 11px;
+}
+
+/* Querformat-Layout der Karte (Bestand: body.kompakt-quer) */
+.foto-karte.quer { display: grid; grid-template-columns: auto minmax(190px, 250px); gap: 0 18px; padding: 14px; align-items: center; }
+.foto-karte.quer .caption { padding: 0; align-content: center; }
+.foto-karte.quer .caption .titel { font-size: 26px; }
+
+/* ── Varianten-Mechanik ─────────────────────────────────────────── */
+
+/* D: randlos, Bild füllt den ganzen Bildschirm, Text als Overlay */
+.randlos { position: absolute; inset: 0; z-index: 20; overflow: hidden; }
+.randlos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--fokus, 50% 50%); animation: schwenk 11s ease-in-out infinite alternate; }
+body.ruhig .randlos img { animation: none; }
+@keyframes schwenk { from { transform: scale(1.06) translateX(3.5%); } to { transform: scale(1.06) translateX(-3.5%); } }
+.randlos .text {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 20px 108px;
+  background: linear-gradient(180deg, rgba(4,7,12,0) 0%, rgba(4,7,12,0.55) 40%, rgba(4,7,12,0.9) 100%);
+}
+.randlos .text .titel { font-family: var(--font-display); font-size: 27px; font-weight: 600; letter-spacing: -0.02em; }
+.randlos .text .sub { font-size: 13px; color: var(--text-gedaempft); margin-top: 6px; line-height: 1.5; }
+.randlos .text .chip { display: inline-block; margin-top: 12px; font-size: 11.5px; color: var(--text-2); border: 1px solid var(--glas-rand); border-radius: 999px; padding: 4px 10px; }
+
+/* E: Blur-Fill — unscharfe Vergrößerung hinter dem unbeschnittenen Bild */
+.blurfill { position: absolute; inset: 0; z-index: 20; overflow: hidden; display: grid; align-content: center; }
+.blurfill .grund { position: absolute; inset: 0; }
+.blurfill .grund img { width: 100%; height: 100%; object-fit: cover; filter: blur(38px) saturate(1.35) brightness(0.62); transform: scale(1.25); }
+.blurfill .scharf { position: relative; width: 100%; }
+.blurfill .scharf img { display: block; width: 100%; height: auto; box-shadow: 0 30px 80px rgba(0,0,0,0.55); }
+.blurfill .text { position: relative; padding: 22px 20px 0; }
+.blurfill .text .titel { font-family: var(--font-display); font-size: 25px; font-weight: 600; letter-spacing: -0.02em; }
+.blurfill .text .sub { font-size: 13px; color: var(--text-gedaempft); margin-top: 6px; line-height: 1.5; }
+
+/* Fokuspunkt-Marker (nur Editor, nie im Player) */
+.fokus-marke {
+  position: absolute; z-index: 25; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+  border-radius: 999px; border: 2px solid var(--akzent); background: rgba(245,158,11,0.18);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 0 14px rgba(245,158,11,0.6); display: none;
+}
+.fokus-marke::after { content: ''; position: absolute; inset: 9px; border-radius: 999px; background: var(--akzent); }
+body.fokus .fokus-marke { display: block; }
+
+/* Verworfener Bildbereich, damit der Preis eines Crops sichtbar wird */
+.verlust { position: absolute; inset: 0; z-index: 24; display: none; pointer-events: none; }
+body.verlust .verlust { display: block; }
+.verlust i {
+  position: absolute; top: 0; bottom: 0; background: rgba(229,72,77,0.3);
+  backdrop-filter: grayscale(1); border-left: 1px dashed rgba(255,255,255,0.5); border-right: 1px dashed rgba(255,255,255,0.5);
+}
+.verlust b {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  font-size: 10.5px; font-weight: 600; color: #fff; background: rgba(160,30,34,0.85);
+  border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+}
+
+/* Safe-Rahmen des jeweils anderen Formats (Studio-Vorschau) */
+.safe {
+  position: absolute; z-index: 40; pointer-events: none; display: none;
+  border: 1.5px dashed rgba(245,158,11,0.9); box-shadow: 0 0 0 9999px rgba(4,7,12,0.42);
+}
+body.safe .safe { display: block; }
+.safe span {
+  position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--auf-akzent);
+  background: var(--akzent); border-radius: 3px; padding: 2px 7px; white-space: nowrap;
+}
+
+/* ── Studio-Vorschau-Kopf (Abschnitt 4) ─────────────────────────── */
+.studio-rahmen { background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-xl); padding: 12px; width: max-content; }
+.studio-leiste { display: flex; align-items: center; gap: 8px; padding: 2px 4px 12px; }
+.studio-leiste .tab {
+  font-size: 12.5px; font-weight: 500; color: var(--text-2);
+  background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 6px 12px;
+}
+.studio-leiste .tab.an { background: var(--akzent); border-color: var(--akzent); color: var(--auf-akzent); font-weight: 600; }
+.studio-leiste .hinweis { margin-left: auto; font-size: 12px; color: var(--text-3); }
+
+/* ── Vergleichstabelle ──────────────────────────────────────────── */
+.m-tab { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.m-tab th, .m-tab td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--rand); vertical-align: top; }
+.m-tab th { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); font-weight: 600; }
+.m-tab td:first-child { font-weight: 600; color: var(--text); white-space: nowrap; }
+.m-tab .ja { color: #7fe0b4; }
+.m-tab .nein { color: #f08d90; }
+.m-tab .halb { color: var(--warn); }
+.m-tab tr.empf td { background: rgba(245,158,11,0.06); }
+</style>
+</head>
+<body class="fokus">
+
+<header class="m-kopf">
+  <h1><span class="marke">Maptale</span> — Mockup: der Player in 16:9 und 9:16</h1>
+  <div class="m-schalter">
+    <label><input type="checkbox" id="s-gross" /> Echte Größe (100 %)</label>
+    <label><input type="checkbox" id="s-ruhig" /> Bewegung aus</label>
+    <label><input type="checkbox" id="s-fokus" checked /> Fokuspunkt zeigen</label>
+    <label><input type="checkbox" id="s-verlust" /> Verworfenen Bildbereich zeigen</label>
+    <label><input type="checkbox" id="s-safe" /> Safe-Rahmen zeigen</label>
+  </div>
+</header>
+
+<div class="m-wrap">
+
+  <!-- ══ 1 ══════════════════════════════════════════════════════ -->
+  <section class="m-abschnitt">
+    <h2><span class="nr">1</span> Der leichte Fall: 16:9 am großen Bildschirm</h2>
+    <p class="m-lead">
+      Im Querformat ist Platz <b>neben</b> dem Bild. Der Bestand nutzt ihn schon: Die Karte rechnet
+      über die Höhe (<code>--photo-ar</code> × verfügbare Höhe), ein Hochformatfoto bekommt dadurch
+      einen stehenden Rahmen und die Caption wandert in eine eigene Spalte. Beide Orientierungen
+      füllen hier über 70 % der Bildhöhe — es gibt kein Problem zu lösen.
+    </p>
+
+    <div class="m-reihe">
+
+      <!-- 1A: Querfoto in 16:9 -->
+      <figure class="m-fall" style="--fig-w: 922px">
+        <div class="skal desk-skal"><div class="geraet desk">
+          <div class="szene"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+          <svg class="route" viewBox="0 0 1280 720"><path class="schatten" d="M120 640 C 380 600, 460 470, 700 430 S 1040 330, 1180 250" /><path d="M120 640 C 380 600, 460 470, 700 430 S 1040 330, 1180 250" /></svg>
+          <div class="reiter" style="left:684px; top:416px">🛵</div>
+          <div class="zurueck">← Entdecken</div>
+
+          <div class="foto-schicht">
+            <figure class="foto-karte">
+              <div class="rahmen" style="width: 700px; height: 467px">
+                <img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" />
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Thong Nai Pan</div>
+                <div class="chip">km 28,4 · 17:12</div>
+                <div class="sub">Die Bucht öffnet sich nach der letzten Kehre — der einzige Strand der Insel, der bis zum Abend Sonne hat.</div>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="safe" style="left:490px; top:0; width:405px; height:720px"><span>9:16 — was das Handy sieht</span></div>
+
+          <div class="leiste">
+            <div class="zeitleiste"><i></i><u style="left:14%"></u><u style="left:31%"></u><u style="left:38%"></u><u style="left:55%"></u><u style="left:79%"></u><b></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele">
+                <div><div class="lab">Distanz</div><div class="val">28,4 km</div></div>
+                <div><div class="lab">Höhe</div><div class="val">86 m</div></div>
+                <div><div class="lab">Zeit</div><div class="val">17:12</div></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">1A</span> Querfoto in 16:9 — Bestand</div>
+          <div class="v-text">Karte fast bildschirmfüllend, Caption unter dem Bild. Die Szene bleibt oben und an den Seiten sichtbar.</div>
+          <div class="v-mass"><span class="gut">Bildhöhe 65 %</span><span class="gut">Bild vollständig</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 1B: Hochformatfoto in 16:9 -->
+      <figure class="m-fall" style="--fig-w: 922px">
+        <div class="skal desk-skal"><div class="geraet desk">
+          <div class="szene"><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+          <svg class="route" viewBox="0 0 1280 720"><path class="schatten" d="M90 610 C 300 640, 520 520, 660 440 S 980 380, 1210 300" /><path d="M90 610 C 300 640, 520 520, 660 440 S 980 380, 1210 300" /></svg>
+          <div class="reiter" style="left:644px; top:426px">🛵</div>
+          <div class="zurueck">← Entdecken</div>
+
+          <div class="foto-schicht">
+            <figure class="foto-karte quer">
+              <div class="rahmen" style="width: 386px; height: 515px">
+                <img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" style="object-position: 50% 42%" />
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Dschungelbach</div>
+                <div class="chip">km 19,5</div>
+                <div class="sub">Hochkant mit dem Handy aufgenommen — der Rahmen stellt sich mit, die Bildunterschrift bekommt eine eigene Spalte.</div>
+                <div class="reihe"><span class="pille-weiter">Weiter ↓</span><span class="pille-still">2 von 3</span></div>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="safe" style="left:490px; top:0; width:405px; height:720px"><span>9:16 — was das Handy sieht</span></div>
+
+          <div class="leiste">
+            <div class="zeitleiste"><i style="inset:0 48% 0 0"></i><u style="left:14%"></u><u style="left:31%"></u><u style="left:52%"></u><u style="left:79%"></u><b style="left:52%"></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele">
+                <div><div class="lab">Distanz</div><div class="val">19,5 km</div></div>
+                <div><div class="lab">Höhe</div><div class="val">312 m</div></div>
+                <div><div class="lab">Zeit</div><div class="val">16:04</div></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">1B</span> Hochformatfoto in 16:9 — Bestand</div>
+          <div class="v-text">Das Layout klappt um: Bild links, Text rechts. Genau der Platz, der im Hochformat fehlt.</div>
+          <div class="v-mass"><span class="gut">Bildhöhe 72 %</span><span class="gut">Bild vollständig</span></div>
+        </figcaption>
+      </figure>
+
+    </div>
+
+    <p class="m-notiz">
+      Schalte oben <b>„Safe-Rahmen zeigen"</b> ein: Der senkrechte Ausschnitt markiert, was vom
+      selben Moment auf dem Handy übrig bliebe. Bei 1A liegt die halbe Karte außerhalb — im
+      Hochformat kann die Karte also nicht dieselbe Größe haben, sie muss ein anderes Layout sein.
+    </p>
+  </section>
+
+  <!-- ══ 2 ══════════════════════════════════════════════════════ -->
+  <section class="m-abschnitt">
+    <h2><span class="nr">2</span> Der harte Fall: Querformatfoto auf dem Handy</h2>
+    <p class="m-lead">
+      393 × 852 px, Kartenrand 14 px. Ein 3:2-Foto über die volle Kartenbreite ist <b>243 px hoch —
+      28 % der Bildschirmhöhe</b>. Fünf Wege, damit umzugehen. Alle zeigen denselben Moment, damit
+      man sie direkt vergleichen kann.
+    </p>
+
+    <div class="m-reihe">
+
+      <!-- 2A Bestand -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+          <svg class="route" viewBox="0 0 393 852"><path class="schatten" d="M40 700 C 150 660, 120 540, 240 470 S 330 340, 360 250" /><path d="M40 700 C 150 660, 120 540, 240 470 S 330 340, 360 250" /></svg>
+          <div class="reiter" style="left:226px; top:456px">🛵</div>
+          <div class="zurueck">← Entdecken</div>
+
+          <div class="foto-schicht">
+            <figure class="foto-karte">
+              <div class="rahmen" style="width: 337px; height: 225px">
+                <img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" />
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Thong Nai Pan</div>
+                <div class="chip">km 28,4</div>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="leiste">
+            <div class="zeitleiste"><i></i><u style="left:14%"></u><u style="left:38%"></u><u style="left:79%"></u><b></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">28,4 km</div></div><div><div class="lab">Zeit</div><div class="val">17:12</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">2A</span> Bestand: Karte, Bild + Titelzeile</div>
+          <div class="v-text">Was heute passiert. Das Bild wirkt klein — nicht weil es klein ist, sondern weil drumherum nichts steht.</div>
+          <div class="v-mass"><span class="schlecht">Bildhöhe 26 %</span><span>Block 42 %</span><span class="gut">Bild vollständig</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 2B Karte mit Unterbau -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+          <svg class="route" viewBox="0 0 393 852"><path class="schatten" d="M40 700 C 150 660, 120 540, 240 470 S 330 340, 360 250" /><path d="M40 700 C 150 660, 120 540, 240 470 S 330 340, 360 250" /></svg>
+          <div class="reiter" style="left:226px; top:456px">🛵</div>
+          <div class="zurueck">← Entdecken</div>
+
+          <div class="foto-schicht">
+            <figure class="foto-karte">
+              <div class="rahmen" style="width: 337px; height: 225px">
+                <img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" />
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Thong Nai Pan</div>
+                <div class="chip">km 28,4</div>
+                <div class="sub">Die Bucht öffnet sich nach der letzten Kehre — der einzige Strand der Insel, der bis zum Abend Sonne hat.</div>
+                <div class="reihe"><span class="pille-weiter">Weiter ↓</span><span class="pille-still">2 von 3</span><span class="pille-still">17:12</span></div>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="leiste">
+            <div class="zeitleiste"><i></i><u style="left:14%"></u><u style="left:38%"></u><u style="left:79%"></u><b></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">28,4 km</div></div><div><div class="lab">Zeit</div><div class="val">17:12</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">2B</span> Karte mit Text-Unterbau</div>
+          <div class="v-text">Dieselben Elemente wie im Querformat, nur umgeklappt: quer <i>neben</i>, hoch <i>unter</i> dem Bild. Kein Pixel Bildinhalt geht verloren.</div>
+          <div class="v-mass"><span class="schlecht">Bildhöhe 26 %</span><span class="gut">Block 55 %</span><span class="gut">Bild vollständig</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 2C 4:5 -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+          <svg class="route" viewBox="0 0 393 852"><path class="schatten" d="M40 700 C 150 660, 120 540, 240 470 S 330 340, 360 250" /><path d="M40 700 C 150 660, 120 540, 240 470 S 330 340, 360 250" /></svg>
+          <div class="reiter" style="left:226px; top:456px">🛵</div>
+          <div class="zurueck">← Entdecken</div>
+
+          <div class="foto-schicht">
+            <figure class="foto-karte">
+              <div class="rahmen" style="width: 337px; height: 421px">
+                <img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" style="object-position: 46% 50%" />
+                <div class="fokus-marke" style="left:46%; top:50%"></div>
+                <div class="verlust">
+                  <i style="left:0; width:17%"></i><i style="right:0; width:17%"></i>
+                  <b>34 % der Bildbreite verworfen</b>
+                </div>
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Thong Nai Pan</div>
+                <div class="chip">km 28,4</div>
+                <div class="sub">Die Bucht öffnet sich nach der letzten Kehre.</div>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="leiste">
+            <div class="zeitleiste"><i></i><u style="left:14%"></u><u style="left:38%"></u><u style="left:79%"></u><b></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">28,4 km</div></div><div><div class="lab">Zeit</div><div class="val">17:12</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">2C</span> 4:5-Ausschnitt mit Fokuspunkt</div>
+          <div class="v-text">Der Instagram-Kompromiss: doppelte Bildhöhe für ein Drittel Breite. Der Fokuspunkt (aus der Bildanalyse, im Editor verschiebbar) entscheidet, welches Drittel.</div>
+          <div class="v-mass"><span class="gut">Bildhöhe 49 %</span><span class="gut">Block 65 %</span><span class="schlecht">−34 % Breite</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 2D randlos -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+          <div class="randlos">
+            <img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" style="--fokus: 46% 50%" />
+            <div class="fokus-marke" style="left:46%; top:50%"></div>
+            <div class="verlust">
+              <i style="left:0; width:34.5%"></i><i style="right:0; width:34.5%"></i>
+              <b>69 % der Bildbreite verworfen</b>
+            </div>
+            <div class="text">
+              <div class="titel">Thong Nai Pan</div>
+              <div class="sub">Die Bucht öffnet sich nach der letzten Kehre — der einzige Strand der Insel, der bis zum Abend Sonne hat.</div>
+              <div class="chip">km 28,4 · 17:12 · 2 von 3</div>
+            </div>
+          </div>
+          <div class="zurueck" style="z-index:30">← Entdecken</div>
+          <div class="leiste">
+            <div class="zeitleiste"><i></i><u style="left:14%"></u><u style="left:38%"></u><u style="left:79%"></u><b></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">28,4 km</div></div><div><div class="lab">Zeit</div><div class="val">17:12</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">2D</span> Randlos 9:16 + langsamer Schwenk</div>
+          <div class="v-text">Das Reels-Format. Maximal wuchtig — aber die Szene ist weg, die Papierkarte als Marken-Signatur auch, und es bleibt ein Drittel des Bildes.</div>
+          <div class="v-mass"><span class="gut">Bildhöhe 100 %</span><span class="schlecht">−69 % Breite</span><span class="schlecht">Szene verdeckt</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 2E blur fill -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/06-bergpiste.jpg" alt="" /></div>
+          <div class="blurfill">
+            <div class="grund"><img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" /></div>
+            <div class="scharf"><img src="/photos/kohphangan/08-thong-nai-pan.jpg" alt="" /></div>
+            <div class="text">
+              <div class="titel">Thong Nai Pan</div>
+              <div class="sub">Die Bucht öffnet sich nach der letzten Kehre — der einzige Strand der Insel, der bis zum Abend Sonne hat.</div>
+            </div>
+          </div>
+          <div class="zurueck" style="z-index:30">← Entdecken</div>
+          <div class="leiste">
+            <div class="zeitleiste"><i></i><u style="left:14%"></u><u style="left:38%"></u><u style="left:79%"></u><b></b></div>
+            <div class="leiste-zeile">
+              <div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">28,4 km</div></div><div><div class="lab">Zeit</div><div class="val">17:12</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">2E</span> Blur-Fill, randlos</div>
+          <div class="v-text">Bild vollständig, Fläche gefüllt, kein Ausschnitt nötig. Kostet aber dieselbe Sache wie 2D: die Szene verschwindet, und der Papier-Look mit ihr.</div>
+          <div class="v-mass"><span class="schlecht">Bildhöhe 31 %</span><span class="gut">Bild vollständig</span><span class="schlecht">Szene verdeckt</span></div>
+        </figcaption>
+      </figure>
+
+    </div>
+
+    <p class="m-notiz">
+      Schalte <b>„Verworfenen Bildbereich zeigen"</b> ein — das ist der Preis, den 2C und 2D
+      bezahlen. Bei einem Strand fällt er nicht auf, bei einem Gruppenbild ist er der Unterschied
+      zwischen „schönes Bild" und „wo ist Anna?". Genau deshalb kann das keine globale
+      Einstellung sein, sondern gehört <b>pro Bild</b> entschieden — automatisch vorgeschlagen,
+      im Editor korrigierbar.
+    </p>
+  </section>
+
+  <!-- ══ 3 ══════════════════════════════════════════════════════ -->
+  <section class="m-abschnitt">
+    <h2><span class="nr">3</span> Die Extremfälle: Panorama und Hochformat</h2>
+    <p class="m-lead">
+      Zwei Fälle, in denen die Regel kippt. Beim <b>Panorama</b> (hier 3:1) ist die Karte ein
+      Streifen — hier ist der Schwenk nicht Notlösung, sondern die einzige Darstellung, die das
+      Bild überhaupt zeigt. Beim <b>Hochformatfoto im Hochformat-Player</b> gibt es dagegen gar
+      kein Problem: Es ist der Fall, für den das Gerät gebaut ist.
+    </p>
+
+    <div class="m-reihe">
+
+      <!-- 3A Panorama als Karte -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/03-phaeng.jpg" alt="" /></div>
+          <div class="zurueck">← Entdecken</div>
+          <div class="foto-schicht">
+            <figure class="foto-karte">
+              <div class="rahmen" style="width: 337px; height: 112px">
+                <img src="/photos/kohphangan/09-ostkueste.jpg" alt="" />
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Ostküste</div>
+                <div class="chip">km 33,1</div>
+                <div class="sub">Panorama, 3:1 — quer über die Bucht gezogen.</div>
+              </figcaption>
+            </figure>
+          </div>
+          <div class="leiste">
+            <div class="zeitleiste"><i style="inset:0 22% 0 0"></i><b style="left:78%"></b></div>
+            <div class="leiste-zeile"><div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">33,1 km</div></div></div></div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name aus"><span class="kuerzel">3A</span> Panorama als Karte</div>
+          <div class="v-text">Ein Briefschlitz. Technisch korrekt, erzählerisch wertlos.</div>
+          <div class="v-mass"><span class="schlecht">Bildhöhe 13 %</span><span class="gut">Bild vollständig</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 3B Panorama mit Schwenk -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/03-phaeng.jpg" alt="" /></div>
+          <div class="randlos">
+            <img src="/photos/kohphangan/09-ostkueste.jpg" alt="" style="animation-duration: 14s" />
+            <div class="text">
+              <div class="titel">Ostküste</div>
+              <div class="sub">Der Schwenk läuft über die Standzeit des Halts — 6 Sekunden von der Landzunge bis zum Riff.</div>
+              <div class="chip">km 33,1 · Schwenk ⟷</div>
+            </div>
+          </div>
+          <div class="zurueck" style="z-index:30">← Entdecken</div>
+          <div class="leiste">
+            <div class="zeitleiste"><i style="inset:0 22% 0 0"></i><b style="left:78%"></b></div>
+            <div class="leiste-zeile"><div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">33,1 km</div></div></div></div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">3B</span> Panorama mit Schwenk</div>
+          <div class="v-text">Hier gewinnt Hochformat gegen Querformat: Das Bild wird <i>abgefahren</i> statt gezeigt. Die Standzeit ist ohnehin da.</div>
+          <div class="v-mass"><span class="gut">Bildhöhe 100 %</span><span class="gut">Bild über Zeit vollständig</span></div>
+        </figcaption>
+      </figure>
+
+      <!-- 3C Hochformat im Hochformat -->
+      <figure class="m-fall">
+        <div class="skal handy-skal"><div class="geraet handy">
+          <div class="szene"><img src="/photos/kohphangan/05-dschungelpiste.jpg" alt="" /></div>
+          <svg class="route" viewBox="0 0 393 852"><path class="schatten" d="M60 720 C 170 680, 130 560, 250 490" /><path d="M60 720 C 170 680, 130 560, 250 490" /></svg>
+          <div class="zurueck">← Entdecken</div>
+          <div class="foto-schicht">
+            <figure class="foto-karte">
+              <div class="rahmen" style="width: 337px; height: 449px">
+                <img src="/photos/kohphangan/04-dschungelbach.jpg" alt="" style="object-position: 50% 42%" />
+              </div>
+              <figcaption class="caption">
+                <div class="titel">Dschungelbach</div>
+                <div class="chip">km 19,5</div>
+                <div class="sub">Hochkant aufgenommen, hochkant gezeigt.</div>
+              </figcaption>
+            </figure>
+          </div>
+          <div class="leiste">
+            <div class="zeitleiste"><i style="inset:0 52% 0 0"></i><b style="left:48%"></b></div>
+            <div class="leiste-zeile"><div class="rund haupt">❚❚</div><div class="rund">1×</div>
+              <div class="tele"><div><div class="lab">Distanz</div><div class="val">19,5 km</div></div></div></div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="v-name"><span class="kuerzel">3C</span> Hochformatfoto im Hochformat</div>
+          <div class="v-text">Der Normalfall der App-Aufnahme — und der Beleg, dass 9:16 nicht das schwierige Format ist, sondern nur das, in dem Querfotos schwierig sind.</div>
+          <div class="v-mass"><span class="gut">Bildhöhe 53 %</span><span class="gut">Block 68 %</span><span class="gut">Bild vollständig</span></div>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ══ 4 ══════════════════════════════════════════════════════ -->
+  <section class="m-abschnitt">
+    <h2><span class="nr">4</span> Im Studio: ein Rahmen, zwei Grenzen</h2>
+    <p class="m-lead">
+      Zwei Player nebeneinander wären eine zweite MapLibre-Instanz — teuer, und man schaut ohnehin
+      immer nur in einen. Der Weg aus der Filmproduktion ist billiger: <b>in einem Format arbeiten,
+      die Grenze des anderen als Linie einblenden.</b> Dann sieht man den Konflikt, <i>während</i>
+      man schneidet, statt erst beim Umschalten.
+    </p>
+
+    <div class="studio-rahmen">
+      <div class="studio-leiste">
+        <span class="tab an">16:9</span>
+        <span class="tab">9:16</span>
+        <span class="tab">◱ Safe-Rahmen</span>
+        <span class="tab">◎ Fokuspunkt</span>
+        <span class="hinweis">Vorschau · Halt 7 von 12 · Fokuspunkt aus Bildanalyse (vorgeschlagen)</span>
+      </div>
+      <div class="skal desk-skal" style="--s: 0.66"><div class="geraet desk">
+        <div class="szene"><img src="/photos/kohphangan/07-daemmerung.jpg" alt="" /></div>
+        <svg class="route" viewBox="0 0 1280 720"><path class="schatten" d="M150 660 C 420 610, 500 480, 720 440 S 1050 340, 1200 260" /><path d="M150 660 C 420 610, 500 480, 720 440 S 1050 340, 1200 260" /></svg>
+        <div class="reiter" style="left:704px; top:426px">🛵</div>
+
+        <div class="foto-schicht">
+          <figure class="foto-karte">
+            <div class="rahmen" style="width: 660px; height: 440px">
+              <img src="/photos/kohphangan/10-longtail.jpg" alt="" style="object-position: 40% 50%" />
+              <div class="fokus-marke" style="left:40%; top:52%"></div>
+            </div>
+            <figcaption class="caption">
+              <div class="titel">Longtail vor Haad Rin</div>
+              <div class="chip">km 39,8 · 18:41</div>
+              <div class="sub">Der Fokuspunkt gilt für beide Formate — im 16:9 wird er nie gebraucht, im 9:16 entscheidet er den Ausschnitt.</div>
+            </figcaption>
+          </figure>
+        </div>
+
+        <!-- Safe-Rahmen hier IMMER an: das ist der Sinn des Abschnitts -->
+        <div class="safe" style="display:block; left:490px; top:0; width:405px; height:720px"><span>9:16 — was das Handy sieht</span></div>
+
+        <div class="leiste">
+          <div class="zeitleiste"><i style="inset:0 32% 0 0"></i><u style="left:14%"></u><u style="left:38%"></u><u style="left:68%"></u><u style="left:79%"></u><b style="left:68%"></b></div>
+          <div class="leiste-zeile"><div class="rund haupt">❚❚</div><div class="rund">1×</div>
+            <div class="tele"><div><div class="lab">Filmzeit</div><div class="val">04:12</div></div><div><div class="lab">Distanz</div><div class="val">39,8 km</div></div></div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <p class="m-notiz">
+      Der Safe-Rahmen darf <b>nicht nur für die Einblendungen</b> gelten, sondern muss auch die
+      Kamerafahrt betreffen: Fahrer-Marker, nächster Pin, Horizont. Wenn im Hochformat die halbe
+      Route seitlich abgeschnitten ist, hilft die schönste Fotokarte nichts.
+    </p>
+  </section>
+
+  <!-- ══ 5 ══════════════════════════════════════════════════════ -->
+  <section class="m-abschnitt">
+    <h2><span class="nr">5</span> Gegenüberstellung</h2>
+    <p class="m-lead">Alle Zahlen bezogen auf 393 × 852 px und ein 3:2-Foto.</p>
+    <table class="m-tab">
+      <thead>
+        <tr><th>Variante</th><th>Bildhöhe</th><th>Bild erhalten</th><th>Szene sichtbar</th><th>Papier-Look</th><th>Wofür</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2A Bestand</td><td>26 %</td><td class="ja">ganz</td><td class="ja">ja</td><td class="ja">ja</td><td>—</td></tr>
+        <tr class="empf"><td>2B Text-Unterbau</td><td>26 %</td><td class="ja">ganz</td><td class="ja">ja</td><td class="ja">ja</td><td><b>Standard</b> — alles, was eine Bildunterschrift hat</td></tr>
+        <tr class="empf"><td>2C 4:5-Ausschnitt</td><td>49 %</td><td class="halb">66 %</td><td class="ja">ja</td><td class="ja">ja</td><td><b>Wahl des Autors</b> — Motive mit klarer Mitte</td></tr>
+        <tr><td>2D Randlos + Schwenk</td><td>100 %</td><td class="nein">31 %</td><td class="nein">nein</td><td class="nein">nein</td><td>Nur Panorama (3B) und Video</td></tr>
+        <tr><td>2E Blur-Fill</td><td>31 %</td><td class="ja">ganz</td><td class="nein">nein</td><td class="nein">nein</td><td>Video im falschen Format</td></tr>
+      </tbody>
+    </table>
+
+    <p class="m-notiz">
+      <b>Der Vorschlag in einem Satz:</b> 2B als Standard, 2C als Autorenwahl pro Bild, 2D nur dort,
+      wo das Bildverhältnis es erzwingt — gespeichert als <i>ein</i> Fokuspunkt plus <i>eine</i>
+      Darstellungsart je Medium, formatneutral. Kein <code>crop169</code> neben <code>crop916</code>:
+      Sobald zwei formatabhängige Felder nebeneinander stehen, laufen sie auseinander — wie die
+      Modus-Liste damals.
+    </p>
+  </section>
+
+</div>
+
+<script>
+  const an = (id, klasse) => {
+    const el = document.getElementById(id);
+    const setzen = () => document.body.classList.toggle(klasse, el.checked);
+    el.addEventListener('change', setzen);
+    setzen();
+  };
+  an('s-gross', 'gross');
+  an('s-ruhig', 'ruhig');
+  an('s-fokus', 'fokus');
+  an('s-verlust', 'verlust');
+  an('s-safe', 'safe');
+</script>
+</body>
+</html>

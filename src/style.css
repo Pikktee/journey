@@ -556,6 +556,28 @@ body.cinema .cine {
   height: var(--photo-h);
   width: calc(var(--photo-h) * var(--photo-ar));
   background: #d8d2c4;
+  /* Weich, weil `--photo-chrome` springt, sobald die Bedienung kommt oder geht
+     (s. u.) — eine Custom Property lässt sich nicht animieren, die daraus
+     gerechnete Höhe schon. */
+  transition: height 220ms ease, width 220ms ease;
+}
+
+/* Solange die Bedienung STEHT, macht die Karte ihr Platz. Seit E17 liegt die
+   Leiste ÜBER dem Bild (vorher darunter — das trug nur, weil die Karte beim
+   Scrubben verschwand), und sie verdeckte gemessen die unteren 88 px: genau die
+   Bildunterschrift. Verschieben allein reicht nicht, die Karte ist dafür zu
+   hoch — sie muss kleiner werden. Videoplayer lösen es ebenso, dort rücken die
+   Untertitel hoch, sobald die Controls erscheinen. Sobald die UI sich
+   zurückzieht (`body.ui-clean`), nimmt die Karte die volle Bühne zurück. */
+body:not(.ui-clean) .photo-frame {
+  --photo-chrome: 335px;
+}
+
+/* Und sie rückt hoch: Kleiner allein reicht nicht, weil die Karte in der vollen
+   Bühne zentriert bleibt — gemessen blieben 48 px Überlappung. Das Polster ist
+   der Raum der Leiste, die Karte zentriert sich im Rest. */
+body:not(.ui-clean) .photo-layer {
+  padding-bottom: 96px;
 }
 
 .photo-frame img:not(.video-standbild) {
@@ -2154,6 +2176,17 @@ body.kompakt-quer .photo-frame {
      Kartenrand — plus Luft, damit die leicht gedrehte Karte (rotate) mit
      ihren Ecken nicht an die Bildkanten stößt. */
   --photo-chrome: 64px;
+}
+
+/* Die Luft für die Bedienung (s. oben bei `.photo-frame`) — quer ist die Bühne
+   flacher, dort kostet dieselbe Leiste weniger Bildhöhe, und die allgemeine
+   Regel oben würde die Karte über den oberen Rand schieben (gemessen −3 px). */
+body.kompakt-quer:not(.ui-clean) .photo-frame {
+  --photo-chrome: 116px;
+}
+
+body.kompakt-quer:not(.ui-clean) .photo-layer {
+  padding-bottom: 44px;
 }
 
 body.kompakt-quer .photo-caption {

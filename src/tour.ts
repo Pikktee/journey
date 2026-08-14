@@ -544,7 +544,10 @@ export class Tour {
     if (this.phase === 'intro') this.ui.hideIntro()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.phase = 'ride'
-    this.raeumeKarte()
+    // Kein `raeumeKarte()`: `setzeFilm` synchronisiert die Karte noch in diesem
+    // Aufruf, und sie ist seit E15 eine Funktion der Filmzeit. Weggenommen
+    // blitzte sie bei jedem Sprung weg und baute sich mit vollem Auftritt neu
+    // auf — auch wenn man im selben Halt landet.
     this.setzeFilm(this.film.filmBeiS(Math.max(0, Math.min(1, frac)) * this.route.total))
     const s = this.s
     this.speed = 0
@@ -898,7 +901,10 @@ export class Tour {
     if (this.phase === 'intro') return
     if (this.phase === 'finale') this.ui.hideFinale()
     this.phase = 'ride'
-    this.raeumeKarte()
+    // Auch hier kein `raeumeKarte()` (s. `seek`): Ein Richtungswechsel MITTEN
+    // in einem Halt ließ die Karte sonst kurz verschwinden und mit vollem
+    // Auftritt zurückkommen, obwohl sich an der Filmzeit nichts geändert hat.
+    // Ab 2× nimmt `synchronisiereKarte` sie ohnehin weg (E16).
     if (this.playing && this.dir === dir) {
       this.mult = this.mult >= 8 ? 8 : this.mult * 2
     } else {
