@@ -533,7 +533,7 @@ map.on('load', () => {
   const syncTrace = addRouteLayers(map, route)
   const rider = createRider(map, [start[0], start[1]], startModus)
 
-  const ui = new UI(stops, route)
+  const ui = new UI(stops, route, filmspur)
   /** Zählerstand der verworfenen Frames beim letzten Nachziehen (s. updateTrace). */
   let gesehenVerworfen = 0
   let kamFolger: ((filmS: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
@@ -1152,7 +1152,8 @@ map.on('load', () => {
   // Finger gern auf einen Dot, ein separater Dot-Handler würde Scrubs schlucken.
   // Tap ohne Bewegung auf einem Dot = Sprung kurz vor dessen Foto-Stopp.
   const progress = $('progress')
-  const fracAt = (e: PointerEvent) => {
+  /** Filmanteil unter dem Zeiger — die Leiste ist seit Etappe 5 die Zeitachse. */
+  const filmAnteilAt = (e: PointerEvent) => {
     const rect = progress.getBoundingClientRect()
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   }
@@ -1166,26 +1167,26 @@ map.on('load', () => {
     scrubDownX = e.clientX
     progress.setPointerCapture(e.pointerId)
     document.body.classList.add('scrubbing') // Scrub-Cursor, auch über den Dots
-    tour.beginScrub(fracAt(e))
+    tour.beginScrub(filmAnteilAt(e))
   })
   progress.addEventListener('pointermove', (e) => {
     if (!tour.scrubbing) return
     if (!scrubMoved && Math.abs(e.clientX - scrubDownX) < 4) return // Tipp-Zittern ist kein Scrub
     scrubMoved = true
-    tour.scrub(fracAt(e))
+    tour.scrub(filmAnteilAt(e))
   })
   progress.addEventListener('pointerup', (e) => {
     document.body.classList.remove('scrubbing')
     if (!tour.scrubbing) return
     if (!scrubMoved && scrubDot != null) tour.jumpToPhoto(scrubDot) // Dot-Tap: Foto sofort
-    else tour.endScrub(fracAt(e))
+    else tour.endScrub(filmAnteilAt(e))
     nachSprung()
   })
   progress.addEventListener('pointercancel', () => {
     document.body.classList.remove('scrubbing')
     // abgebrochene Gesten liefern keine brauchbaren Koordinaten mehr
     if (tour.scrubbing) {
-      tour.endScrub(tour.s / route.total)
+      tour.endScrub(tour.filmS / filmspur.gesamtS)
       nachSprung()
     }
   })

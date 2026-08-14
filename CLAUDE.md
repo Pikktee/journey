@@ -368,9 +368,8 @@ eine Beobachtung für die Messskripte. Fünf Dinge, die man dabei kippt:
 - **Die Achse rechnet in ROHEN Metern, die Engine fährt auf der gebauten Route.** Die
   Übersetzung in beide Richtungen steht in [main.ts](src/main.ts) (`rohBeiS`/`sBeiRoh`) und
   nirgends sonst — nur diese Datei kennt beide Meterstände.
-- **Der Anteil, den `seek`/`scrub` bekommen, ist der der STRECKE**, weil die Fortschritts-
-  leiste ihn so zeichnet; die Achse macht daraus die Filmsekunde. Filmlinear wird die Leiste
-  erst mit Etappe 5 — bis dahin landet ein Scrub auf einen Halt an dessen ANKUNFT.
+- **Der Anteil, den `seek`/`scrub` bekommen, ist der des FILMS** (Etappe 5), weil die
+  Fortschrittsleiste ihn so zeichnet — s. den Abschnitt „Die Leiste ist die Zeitachse" unten.
 - **Die Foto-Karte ist eine FUNKTION der Filmzeit** (E15, s. den eigenen Abschnitt unten) —
   kein getriggerter Auftritt mehr.
 
@@ -550,9 +549,31 @@ eigenen Auf- und Abgang. Was geteilt wird, sind die RECHNUNGEN (`kartenZeiten`,
 `balkenAnteil`, `klipDauerS`, `videoStandS` in [einblendung.ts](src/einblendung.ts)) und die
 Filmzeit — **nicht die Mechanik**: Ein gemeinsames DOM-Bauteil ist ausdrücklich nicht gewollt
 (Konzept §6A), der Player streamt einen Film voraus, der Editor springt in einer Datei umher.
-Was **mitten in einen Halt zu scrubben** angeht, fehlt noch der Griff: Ein Halt hat auf der
-Leiste keine Breite, `fracAt` liefert einen Streckenanteil, ein Zug landet also auf seiner
-ANKUNFT. Das ist Etappe 5 („die Fläche ist zugleich der Griff").
+**Und die Leiste ist die ZEITACHSE des Films** (Etappe 5), nicht mehr die Strecke. Damit hat
+jeder Halt die Breite, die er im Film einnimmt — und weil sich eine Breite anfahren lässt,
+kann man mitten in einen Halt scrubben und sieht dort den Stand dieser Filmsekunde. Vorher
+stand der Kopf die ganze Standzeit still und sprang danach über sie hinweg (derselbe Defekt,
+den die Studio-Zeitleiste am 2026-08-05 verlassen hat). Vier Dinge, die man dabei kippt:
+
+- **`frac` bedeutet seither zwei Dinge, und deshalb heißt es nicht mehr überall so.**
+  `Telemetrie` trägt `frac` (Streckenanteil: Sonnenstand, Pseudo-Uhrzeit, Wetter-Regie,
+  `next.km`, `syncDots`) UND `filmFrac` (Filmanteil: Balken, Playhead, Profil-x, Dot-x). Die
+  Kante zwischen beiden liegt in `UI.stats` und nirgends sonst. Der Aufruf, der still kippen
+  kann, ist **`onTick`** — er treibt die Tag/Nacht-Regie an und rechnet
+  `pointAt(route, frac × total)`: mit dem Filmanteil wanderte die Sonne im Halt weiter,
+  während der Film steht.
+- **Die Halt-Fläche ist Anzeige, nicht Griff** (`.halt-flaeche`, `pointer-events: none`).
+  Wäre sie der Griff, spränge ein Tipp in ihrer Mitte auf die ANKUNFT des Halts — also genau
+  dorthin, wohin vorher jede Eingabe fiel. Der Griff bleibt der Punkt und sitzt am Beginn.
+- **Das Höhenprofil wird filmäquidistant abgetastet**, Halte sind darin Plateaus; `yAt` nimmt
+  deshalb einen FILManteil, und die Punkte tragen ihn im `dataset` (für `rebuildProfile`
+  nach dem Eintreffen der DEM-Höhen).
+- **Im Punkte-Container liegen jetzt zwei Sorten Kinder.** `punkte` fragt nach `.photo-dot`
+  statt nach `children`, sonst läse `syncDots` `dataset.s` von einer Fläche.
+
+Abnahme: [scripts/messungen/leiste-filmlinear.mjs](scripts/messungen/leiste-filmlinear.mjs).
+Was **noch fehlt**, ist das Einzelbild im Halt: `nudge` räumt die Karte weg, statt sie auf die
+neue Filmsekunde zu stellen (eine Lücke von E15, gehört zur Feinplatzierung).
 
 **Oben links steht genau EIN Element: der Weg hinaus** — die Pille `.zurueck`, fest positioniert
 über dem Intro. Sie steht die ganze Fahrt über da (nicht nur im Startscreen), trägt das Wort der

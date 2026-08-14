@@ -27,15 +27,43 @@ export interface PlayerMedium extends StoppFoto {
 /** Ein Halt: Streckenmeter des ersten Mediums plus alles, was dort gezeigt wird. */
 export type PlayerStopp = Stopp<PlayerMedium>
 
-/** Was die Engine pro Telemetrie-Takt (10 Hz) meldet. */
+/**
+ * Was die Engine pro Telemetrie-Takt (10 Hz) meldet.
+ *
+ * **Zwei Anteile, zwei Namen.** `frac` ist eine Auskunft über den ORT
+ * (Sonnenstand, Pseudo-Uhrzeit, Wetter-Regie, `next.km`, `syncDots`), `filmFrac`
+ * eine über die ZEIT (Balken, Playhead, Profil-x, Dot-x). Ein Halt kostet
+ * Filmzeit, ohne Strecke zu kosten — dort laufen die beiden auseinander, und
+ * genau dort entstehen die Fehler. Deshalb gibt es kein Feld, das beides heißt.
+ */
 export interface Telemetrie {
   km: number
   ele: number
-  /** Streckenanteil 0..1 — Fortschrittsleiste und Playhead */
+  /** Streckenanteil 0..1 — alles, was den ORT meint */
   frac: number
+  /** Filmanteil 0..1 — alles, was die ZEIT meint (Leiste, Playhead, Profil) */
+  filmFrac: number
   /** Nächster Halt oder null (Intro/Finale, hinter dem letzten Halt) */
   next: { title: string; km: number } | null
   modeKey: string
+}
+
+/**
+ * Was die Leiste von der Filmachse braucht.
+ *
+ * Bewusst ein eigenes, schmales Gegenstück zu `Filmspur` (src/tour.ts) statt
+ * eines Imports: `tour.ts` importiert aus dieser Datei, und die Anzeige braucht
+ * von der Achse nur die drei Rechnungen, mit denen sie ihre x-Achse aufspannt.
+ */
+export interface Filmleiste {
+  /** Gesamtdauer des Films in Sekunden */
+  gesamtS: number
+  /** Streckenmeter zu einer Filmsekunde — spannt Profil und Halt-Flächen auf */
+  sBeiFilm: (filmS: number) => number
+  /** Filmsekunde an einem Streckenmeter (im Halt: seine Ankunft) */
+  filmBeiS: (s: number) => number
+  /** Der Halt, in dem diese Filmsekunde steht — `null` heißt Fahrt */
+  haltBeiFilm: (filmS: number) => { filmVon: number; filmBis: number } | null
 }
 
 /**
@@ -72,6 +100,8 @@ export class UI {
   stops: PlayerStopp[]
   route: Route
   total: number
+  /** Die Filmachse, wie die Anzeige sie liest — die Leiste ist filmlinear */
+  film: Filmleiste
   spotSync: ((s: number) => void) | null
   els: {
     intro: HTMLElement
@@ -130,10 +160,11 @@ export class UI {
   private _standbildGen: number
   private _mode?: string
 
-  constructor(stops: PlayerStopp[], route: Route) {
+  constructor(stops: PlayerStopp[], route: Route, film: Filmleiste) {
     this.stops = stops // [{ s, items: [Foto, …] }]
     this.route = route
     this.total = route.total
+    this.film = film
     this.spotSync = null // GL-Wegpunkte, via registerSpots()
     const card = $('photo-card')
     this.els = {
@@ -295,13 +326,23 @@ export class UI {
     }
   }
 
-  // Höhenprofil der Route als Flächenpfad (viewBox 0..100 × 0..30)
+  /**
+   * Höhenprofil der Route als Flächenpfad (viewBox 0..100 × 0..30) — abgetastet
+   * in gleichen FILM-Schritten, nicht in gleichen Metern.
+   *
+   * Die Leiste ist seit Etappe 5 die Zeitachse des Films, und das Profil ist
+   * ihre Kurve: Wo der Film steht, steht auch sie. Halte werden dadurch von
+   * selbst zu flachen Plateaus, und ein langsamer Fußweg bekommt die Breite,
+   * die er im Film einnimmt — sonst zeigte die Kurve an einer Stelle eine Höhe,
+   * die der Playhead darüber zu einer ganz anderen Zeit erreicht.
+   */
   buildProfile(): void {
     const ys: number[] = []
     let minE = Infinity
     let maxE = -Infinity
     for (let i = 0; i < PROFILE_SAMPLES; i++) {
-      const ele = pointAt(this.route, (this.total * i) / (PROFILE_SAMPLES - 1))[2]
+      const s = this.film.sBeiFilm((this.film.gesamtS * i) / (PROFILE_SAMPLES - 1))
+      const ele = pointAt(this.route, s)[2]
       ys.push(ele)
       minE = Math.min(minE, ele)
       maxE = Math.max(maxE, ele)
@@ -316,31 +357,60 @@ export class UI {
     this.els.profileFill.setAttribute('d', d)
   }
 
-  // Y-Position (in % der Leistenhöhe) an Streckenanteil frac
-  yAt(frac: number): number {
-    const x = Math.max(0, Math.min(1, frac)) * (PROFILE_SAMPLES - 1)
+  // Y-Position (in % der Leistenhöhe) an einem FILManteil — das Profil ist
+  // filmäquidistant abgetastet, ein Streckenanteil träfe hier den falschen Punkt
+  yAt(filmFrac: number): number {
+    const x = Math.max(0, Math.min(1, filmFrac)) * (PROFILE_SAMPLES - 1)
     const i = Math.min(Math.floor(x), PROFILE_SAMPLES - 2)
     // Die Indizes liegen per Konstruktion im Feld (0 … SAMPLES−1)
     const y = this.profileY[i]! + (this.profileY[i + 1]! - this.profileY[i]!) * (x - i)
     return (y / VB_H) * 100
   }
 
+  /**
+   * Halte auf die Leiste zeichnen: je Halt eine FLÄCHE und einen Punkt.
+   *
+   * Die Fläche ist die Filmzeit, die der Halt kostet — ohne sie liefe der
+   * Playhead über ihn hinweg, während das Bild steht (genau der Defekt, den die
+   * Studio-Zeitleiste am 2026-08-05 verlassen hat). Sie ist bewusst
+   * `pointer-events: none`: Wäre sie der Griff, spränge ein Tipp in ihrer Mitte
+   * auf die ANKUNFT des Halts — dann wäre die Breite zwar zu sehen, aber nicht
+   * anzufahren. So zieht ein Scrub quer durch sie hindurch und landet auf der
+   * Filmsekunde, die man getroffen hat (E15 zeigt dort das Bild).
+   *
+   * Der Punkt bleibt der Griff und sitzt am BEGINN des Halts: „hier kommt man
+   * an" ist die Stelle, die ein Sprung meint.
+   */
   buildDots(): void {
     for (const st of this.stops) {
-      const frac = st.s / this.total
+      const von = this.film.filmBeiS(st.s)
+      const halt = this.film.haltBeiFilm(von)
+      const filmFrac = von / this.film.gesamtS
+      const breite = halt ? (halt.filmBis - halt.filmVon) / this.film.gesamtS : 0
+      if (breite > 0) {
+        const flaeche = document.createElement('div')
+        flaeche.className = 'halt-flaeche'
+        flaeche.style.left = `${filmFrac * 100}%`
+        flaeche.style.width = `${breite * 100}%`
+        this.els.dots.appendChild(flaeche)
+      }
       const dot = document.createElement('button')
       dot.className = 'photo-dot'
-      dot.style.left = `${frac * 100}%`
-      dot.style.top = `${this.yAt(frac)}%`
+      dot.style.left = `${filmFrac * 100}%`
+      dot.style.top = `${this.yAt(filmFrac)}%`
       dot.title = st.items.map((p) => p.title).join(' · ')
       dot.dataset.s = String(st.s)
+      dot.dataset.filmFrac = String(filmFrac)
       this.els.dots.appendChild(dot)
     }
   }
 
-  /** Alle Timeline-Punkte — `children` ist live, die Punkte sind hier gebaut. */
-  private get punkte(): HTMLCollectionOf<HTMLElement> {
-    return this.els.dots.children as HTMLCollectionOf<HTMLElement>
+  /**
+   * Alle Timeline-Punkte. Ausdrücklich nur die Knöpfe: Im selben Container
+   * liegen seit Etappe 5 auch die Halt-Flächen, und die tragen kein `dataset.s`.
+   */
+  private get punkte(): NodeListOf<HTMLElement> {
+    return this.els.dots.querySelectorAll<HTMLElement>('.photo-dot')
   }
 
   registerSpots(syncFn: (s: number) => void): void {
@@ -351,7 +421,7 @@ export class UI {
   rebuildProfile(): void {
     this.buildProfile()
     for (const dot of this.punkte) {
-      dot.style.top = `${this.yAt(Number(dot.dataset.s) / this.total)}%`
+      dot.style.top = `${this.yAt(Number(dot.dataset.filmFrac))}%`
     }
   }
 
@@ -622,7 +692,7 @@ export class UI {
     setTimeout(() => this.els.blink.classList.remove('on'), 650)
   }
 
-  stats({ km, ele, frac, next, modeKey }: Telemetrie): void {
+  stats({ km, ele, frac, filmFrac, next, modeKey }: Telemetrie): void {
     this.els.teleKm.textContent = `${km.toFixed(1)} km`
     this.els.teleEle.textContent = `${fmtDE.format(ele)} m`
     // Der Modus wird nicht mehr angezeigt, aber weiter verfolgt: an der Kante
@@ -631,8 +701,11 @@ export class UI {
       this._mode = modeKey
       this.onModeChange?.(modeKey)
     }
-    this.els.progRect.setAttribute('width', (frac * 100).toFixed(2))
-    this.els.head.style.left = `${frac * 100}%` // Playhead: vertikale Linie, nur X
+    // Balken und Playhead laufen in FILMZEIT: Im Halt steht die Strecke, der
+    // Film aber nicht — mit `frac` stünde der Kopf dort mehrere Sekunden still
+    // und spränge danach über die Halt-Fläche.
+    this.els.progRect.setAttribute('width', (filmFrac * 100).toFixed(2))
+    this.els.head.style.left = `${filmFrac * 100}%` // Playhead: vertikale Linie, nur X
     if (next) {
       this.els.nextStop.hidden = false
       this.els.nextName.textContent = next.title
@@ -640,6 +713,9 @@ export class UI {
     } else {
       this.els.nextStop.hidden = true
     }
+    // Ab hier wieder der ORT: Punkt-Zustände, Vorladen und die Tag/Nacht-Regie
+    // fragen, wo man IST. Mit dem Filmanteil wanderte die Sonne im Halt weiter,
+    // während der Film steht.
     const s = frac * this.total
     if (Math.abs(s - this._lastSyncS) > 60) this.syncDots(s)
     this.onTick?.(frac) // z.B. Tag/Nacht-Regie (main.ts), läuft im 10-Hz-Takt

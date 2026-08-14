@@ -1206,6 +1206,26 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
 }
 
+/* Die Fläche eines Halts: die Filmzeit, die er kostet. Seit die Leiste filmlinear
+   läuft (Etappe 5), verbringt der Playhead dort mehrere Sekunden — ohne Fläche
+   liefe er über einen Punkt hinweg, während das Bild steht. Bewusst NICHT
+   anfassbar: Wäre sie der Griff, spränge ein Tipp in ihrer Mitte auf die Ankunft
+   des Halts; so zieht ein Scrub quer hindurch und landet auf der Filmsekunde,
+   die er getroffen hat. Unter dem Punkt (z-index 3) und über der Profilfläche. */
+.halt-flaeche {
+  position: absolute;
+  /* Anteilig und nicht in Pixeln: die Leiste ist am Desktop 44 px hoch, auf dem
+     Telefon 54 und im Querformat wieder anders — ein fester Wert ergäbe drei
+     verschiedene Bandhöhen. */
+  top: 40%;
+  bottom: 0;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* Fotopunkte auf der Timeline — DIESELBE Sprache wie die Karten-Wegpunkte (map.js),
    nur kompakter: kommend = creme gefüllt · nächster = creme + Amber-RING · besucht =
    amber GEFÜLLT + weißer Ring. Gleiche Größe (box-sizing: border-box → der Ring ändert

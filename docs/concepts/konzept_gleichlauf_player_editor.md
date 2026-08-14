@@ -1,6 +1,6 @@
 # Gleichlauf: ein Film, zwei Bühnen
 
-Stand: 14. August 2026 · Status: **Pakete A–F gebaut** (offen: G — Etappe 5, die Leiste) · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
+Stand: 14. August 2026 · Status: **Pakete A–G gebaut** — der Plan ist damit abgearbeitet; offen bleiben die freien Stücke (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung) · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
 
 **Ziel:** Der Studio-Editor zeigt denselben Film wie der Player — so genau, dass man **auf
 den Takt der Musik schneiden** kann. Heute weicht er an drei Achsen ab: hörbar (bis v0.60.4),
@@ -37,6 +37,8 @@ und die Umsetzbarkeit — nicht die Richtung.
 | E15 | **Die Foto-Karte hängt auch im Player an der POSITION**, nicht an der Wanduhr — sie erscheint und animiert deshalb auch rückwärts | 14.08. | Etappe 4, DOM-Seite; erledigt zugleich den offenen Ken-Burns-Eintrag (§6C) und die leere Karte beim Scrubben |
 | E16 | **Schnelllauf 8× in beiden Bühnen** — dazu die Editor-Regeln: Ton nur bei Tempo 1, Karte aus ab 2× | 14.08. | Etappe 4; macht den fehlenden Ton-Ausgleich beim `shuttle` gegenstandslos |
 | E17 | **Die Bedienung liegt über dem Bild**, nicht darunter — Steuerleiste und Fortschrittsleiste über der Foto-Karte | 14.08. | Folge von E15 (§12, Etappe 4); heute umgekehrt (`.photo-layer` 25 gegen `.dock` 20), was nur trug, weil die Karte beim Scrubben verschwand |
+| E18 | **Die Halt-Fläche ist Anzeige, nicht Griff.** Der Griff bleibt der Punkt, und er sitzt an der ANKUNFT des Halts | 14.08. | Etappe 5; die Fläche ist `pointer-events: none` — sonst spränge ein Tipp in ihrer Mitte auf die Ankunft, und die Breite wäre zwar zu sehen, aber nicht anzufahren (s. u.) |
+| E19 | **Das Höhenprofil wird filmäquidistant abgetastet**, nicht in gleichen Metern | 14.08. | Etappe 5; Halte werden dadurch zu Plateaus, `yAt` nimmt seither einen FILManteil. Ein metrisches Profil unter einem filmlinearen Playhead zeigte an jeder Stelle eine Höhe, die der Kopf zu einer anderen Zeit erreicht |
 
 ## 2. Offene Punkte
 
@@ -553,7 +555,7 @@ dort, wo dieses Vorhaben sie braucht. Dieses Blatt ist die Übergabe zwischen ih
 | **D** | Etappe 3 — geteilte `filmachse.ts` über der Strecke (E12), dazu der Umzug von `musikVersatzS` (§6C) | L | erste hörbare Wirkung: der Ton springt beim Scrubben mit |
 | **E** | Etappe 4 + Rampen im Server-Spiegel — gebaut in zwei Gängen (Engine, dann Anzeige) | XL | **als Release unteilbar** |
 | **F** | Etappe 4b — Auslösen in Filmsekunden + Film-Anker | M | **gebaut** (14.08.) |
-| **G** | Etappe 5 — die Leiste | M | eigenes Release |
+| **G** | Etappe 5 — die Leiste | M | **gebaut** (14.08.) |
 
 **Was nicht geteilt werden darf, ist die AUSLIEFERUNG — nicht die Arbeit.** Etappe 4 und die
 Rampen in [server/src/pipeline/filmachse.ts](../../server/src/pipeline/filmachse.ts) gehen in
@@ -857,6 +859,35 @@ Miniaturen in den Halten (§2) — der ist bewusst NICHT Teil dieser Etappe.
 *Fertig, wenn:* Der Playhead läuft durch einen Foto-Halt sichtbar durch, und die
 Sonnenstand-/Wetter-Regie zeigt unverändert dieselben Werte an denselben Streckenpunkten.
 
+**Gebaut am 14.08.**, gemessen mit [leiste-filmlinear.mjs](../../scripts/messungen/leiste-filmlinear.mjs)
+(kuratierte und aufgezeichnete Tour): Der Kopf legt in einem 6-s-Halt 1,90 % der Leiste zurück
+(Soll 1,91 %), sein längster Stillstand ist 0,11 s — der 10-Hz-Telemetrie-Takt, vorher die
+ganze Standzeit. Ein Scrub in die Halt-Mitte landet auf 12,93 s (Ziel 12,93) und zeigt die
+Karte mit `--karte-zeit: -3.000s`, also exakt der Halbzeit ihres Klips. Die Regie bekommt
+weiterhin den Streckenanteil, Abweichung 0.
+
+Vier Nachträge aus der Umsetzung:
+
+- **Die Halt-Fläche darf nicht der Griff sein (E18).** Der erste Gedanke war, den Knopf
+  selbst auf die Breite des Halts zu ziehen. Das hätte die Etappe gegen ihr eigenes Ziel
+  gebaut: Ein Tipp in der Mitte spränge dann auf die ANKUNFT, also genau dorthin, wohin
+  vorher jede Eingabe fiel. Die Fläche ist deshalb ein eigenes, nicht anfassbares Element
+  (`.halt-flaeche`), und ein Scrub zieht quer durch sie hindurch.
+- **`yAt` nimmt seither einen FILManteil (E19)** — mit dem Streckenanteil säßen die Punkte
+  auf der falschen Höhe der eigenen Kurve. Auch `rebuildProfile` (nach dem Eintreffen der
+  DEM-Höhen) rechnet damit, die Punkte tragen ihren Filmanteil im `dataset`.
+- **Der Container der Punkte trägt jetzt zwei Sorten Kinder.** `punkte` fragt deshalb nach
+  `.photo-dot` statt nach `children` — sonst läse `syncDots` `dataset.s` von einer Fläche
+  und schaltete deren Zustand.
+- **Der Balken bewegt sich weiter im 10-Hz-Takt**, nicht pro Frame: `emitStats` ist die
+  einzige Quelle der Anzeige, und das war vor dieser Etappe genauso. Auf 100 ms fällt das
+  nicht auf; wer es feiner will, ändert die Taktrate und nicht die Leiste.
+
+**Was dabei auffiel und NICHT dazugehört:** `nudge` räumt die Karte weg (`raeumeKarte`),
+statt sie auf die neue Filmsekunde zu stellen — wer im Halt Einzelbilder schaltet, sieht
+nichts. Das ist eine Lücke von E15, keine der Leiste, und sie gehört zur Feinplatzierung
+(§11), wo das Einzelbild ohnehin das Werkzeug ist.
+
 **Danach — Feinplatzierung** (§11). Nach den Zeit-Etappen: Vorher stellte man Werte ein, die
 der Player nicht einhält.
 
@@ -889,6 +920,13 @@ Ebenfalls nicht: die Rampen im Studio nachbilden (§5).
    Wetter und `next.km`; Filmanteil für Balken, Playhead, Profil-x und Dot-x. Das
    Zeitleisten-Papier führt „zwei Film-Koordinatensysteme in einer Geste" als Falle und nennt
    es *immer* einen Bug. Zwei getrennte Feldnamen, keine Doppelbedeutung.
+   **Umgesetzt so:** `Telemetrie` trägt `frac` UND `filmFrac`, die Scrub-Wege heißen
+   `filmFrac` und `filmAnteilAt`. Die Kante zwischen beiden liegt in `UI.stats` und nirgends
+   sonst: Balken und Playhead oben, ab `syncDots` wieder der Ort. Der eine Aufruf, der still
+   kippen konnte, ist `onTick` — er treibt die Tag/Nacht-Regie an, die daraus
+   `pointAt(route, frac · total)` rechnet; mit dem Filmanteil wanderte die Sonne im Halt
+   weiter, während der Film steht. Gemessene Gegenprobe: `leiste-filmlinear.mjs` schneidet
+   mit, was `onTick` bekommt, und vergleicht es gegen `tour.s / route.total`.
 2. **`istAktiv` und `sfxSollFeuern` rechnen in `frac` — beide gehören in Etappe 4b**, nicht
    erst zur Leiste. Über einem Halt-Plateau bewegt sich `frac` nicht, ein Sprung darüber
    hinweg schon; und ein Klip ganz im Halt hat `f0 === f1` und ist damit nie aktiv. Beide sind

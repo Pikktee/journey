@@ -533,14 +533,15 @@ export class Tour {
   }
 
   /**
-   * Zu einem Streckenanteil springen.
+   * Zu einem FILManteil springen (0..1 der Filmdauer).
    *
-   * Der Anteil ist der der STRECKE (die Fortschrittsleiste zeichnet ihn so);
-   * die Achse macht daraus die Filmsekunde, ab der die Engine rechnet. Im Halt
-   * ist das seine ANKUNFT — mitten in einen Halt zu scrubben bekommt erst mit
-   * Etappe 5 eine Fläche, die man treffen kann.
+   * Seit Etappe 5 zeichnet die Fortschrittsleiste den Filmanteil, also nimmt
+   * dieser Weg ihn auch entgegen. Vorher kam ein Streckenanteil an und wurde
+   * über die Achse übersetzt — im Halt fiel jede Eingabe damit auf dessen
+   * ANKUNFT zusammen, denn ein Halt hatte auf der Strecke keine Breite. Jetzt
+   * hat er sie in der Zeit, und man kann mitten hinein.
    */
-  seek(frac: number): void {
+  seek(filmFrac: number): void {
     if (this.phase === 'intro') this.ui.hideIntro()
     if (this.phase === 'finale') this.ui.hideFinale()
     this.phase = 'ride'
@@ -548,7 +549,7 @@ export class Tour {
     // Aufruf, und sie ist seit E15 eine Funktion der Filmzeit. Weggenommen
     // blitzte sie bei jedem Sprung weg und baute sich mit vollem Auftritt neu
     // auf — auch wenn man im selben Halt landet.
-    this.setzeFilm(this.film.filmBeiS(Math.max(0, Math.min(1, frac)) * this.route.total))
+    this.setzeFilm(Math.max(0, Math.min(1, filmFrac)) * this.film.gesamtS)
     const s = this.s
     this.speed = 0
     this.dir = 1
@@ -577,7 +578,7 @@ export class Tour {
   // — Timeline-Scrubbing (Ziehen wie im Video-Editor) —
   // Während des Ziehens folgt die Kamera straff der Position, aber es wird
   // nichts ausgelöst: keine Halte, kein Finale, kein Fortschritt von selbst.
-  beginScrub(frac: number): void {
+  beginScrub(filmFrac: number): void {
     if (this.phase === 'finale') this.ui.hideFinale()
     this.scrubbing = true
     this.phase = 'ride'
@@ -586,18 +587,18 @@ export class Tour {
     // weg — man scrubbte blind an jedem Foto vorbei.
     this.settled = false
     this.speed = 0
-    this.scrub(frac)
+    this.scrub(filmFrac)
   }
 
-  scrub(frac: number): void {
-    this.setzeFilm(this.film.filmBeiS(Math.max(0, Math.min(1, frac)) * this.route.total))
+  scrub(filmFrac: number): void {
+    this.setzeFilm(Math.max(0, Math.min(1, filmFrac)) * this.film.gesamtS)
     this.glide = Math.min(this.glide, 0.5) // Kamera zieht straff nach statt zu schweben
     this.emitStats() // Kopf und Telemetrie sofort, nicht erst beim 10-Hz-Takt
   }
 
-  endScrub(frac: number): void {
+  endScrub(filmFrac: number): void {
     this.scrubbing = false
-    this.seek(frac) // setzt Kurs, nächsten Stopp und Wiedergabe wie ein Sprung
+    this.seek(filmFrac) // setzt Kurs, nächsten Stopp und Wiedergabe wie ein Sprung
   }
 
   /**
@@ -722,7 +723,9 @@ export class Tour {
   // springt dabei auf die ANKUNFT des Halts; alles Weitere folgt daraus.
   jumpToPhoto(s: number): void {
     const idx = this.stops.findIndex((st) => Math.abs(st.s - s) < 1)
-    if (idx === -1) return this.seek(Math.max(0, s - 600) / this.route.total)
+    // Kein bekannter Halt: 600 m davor einsteigen. `seek` nimmt seit Etappe 5
+    // einen FILManteil — der Ort muss also erst durch die Achse.
+    if (idx === -1) return this.seek(this.film.filmBeiS(Math.max(0, s - 600)) / this.film.gesamtS)
     const st = this.stops[idx]!
     this.raeumeKarte()
     if (this.phase === 'finale') this.ui.hideFinale()
@@ -1179,6 +1182,10 @@ export class Tour {
       km: this.s / 1000,
       ele: p[2],
       frac: this.s / this.route.total,
+      // Der Anteil, den die LEISTE zeichnet — aus `this.filmS` und nie aus `s`
+      // zurückgerechnet: Im Halt steht `s`, der Rückweg über die Achse lieferte
+      // dort die ganze Standzeit lang die Ankunft, und der Kopf stünde still.
+      filmFrac: this.film.gesamtS > 0 ? this.filmS / this.film.gesamtS : 0,
       modeKey: mo.mode,
       next: next ? { title: next.items[0]!.title, km: (next.s - this.s) / 1000 } : null,
     })
