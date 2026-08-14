@@ -1166,6 +1166,16 @@
        die Backing-Auflösung aus der Layoutgröße rechnet, wüchse er über den
        ResizeObserver in jedem Schritt um das dpr-Fache, bis der Tab steht. */
     #weather { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+    /* Der Wetter-Schleier: zwei Farbflächen (und bei Nebel ein Verlauf) über
+       der Karte, gesetzt als `background-image` bei jedem Kopfschritt. Ein DIV
+       und kein Canvas — zu zeichnen sind Flächen, und CSS braucht dafür weder
+       Kontext noch Auflösung. Über der Karte, UNTER Markern und Bedienung:
+       Wetter färbt die Landschaft, es verdeckt nicht, worauf man klickt. */
+    .karten-schleier {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      transition: background-image 220ms linear;
+    }
+    .karten-schleier[hidden] { display: none; }
     #editor-map .maplibregl-canvas:focus,
     #editor-map .maplibregl-canvas:focus-visible { outline: none; }
     #editor-map.platzieren .maplibregl-canvas { cursor: crosshair; }

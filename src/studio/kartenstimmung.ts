@@ -5,21 +5,30 @@
 // die Lücke, und zwar mit dem Teil der Player-Regie, der auch auf einer
 // Draufsicht trägt.
 //
-// **Was übertragbar ist, ist das GRADING** (`raster-brightness-*`,
-// `raster-saturation`, `raster-contrast` aus `paramsAt`) und das
-// Partikel-Overlay. Was NICHT trägt, ist `setLight` (braucht Gelände, damit
-// eine Lichtrichtung überhaupt etwas beleuchtet) und `setSky` (braucht einen
-// Horizont, den eine Draufsicht nicht hat). Beides bleibt deshalb im Player.
+// **Alles hier ist eine FUNKTION der Kopfposition.** Das ist die eigentliche
+// Anforderung, und sie entscheidet, was übertragbar ist: Der Editor springt in
+// einer Datei umher, also muss jedes Bild aus der Filmzeit allein folgen —
+// vorwärts, rückwärts und nach einem Sprung. Übertragbar sind damit das GRADING
+// des Satellitenbilds (`paramsAt`) und der SCHLEIER aus `wetterhimmel.ts`.
 //
-// **Ein Paint je Änderung, keine Schleife.** Der Player ruft seine Regie pro
-// Frame auf, weil dort die Pseudo-Uhr läuft; hier ändert sich die Stimmung nur,
-// wenn der Kopf sich bewegt. Gesetzt wird erst, wenn sich ein gerundeter Wert
-// tatsächlich unterscheidet — sonst kostet jedes Scrub-Frame vier
-// `setPaintProperty`-Aufrufe für dasselbe Bild.
+// **Nicht übertragbar ist das Partikel-Overlay** (weather.ts), und ein erster
+// Anlauf damit hat genau das gezeigt: Es regnete bei stehendem Abspielkopf
+// weiter, es klang beim Scrubben, der Ton lief nach dem Verlassen des Editors
+// weiter — und Wolken und Nebel fehlten ganz, weil sie dort kein Profil haben
+// (ihren Himmel zeichnet im Player die Atmosphäre, die es hier nicht gibt).
+// Ein Partikelsystem ist Zustand: Jeder Tropfen wird aus dem vorigen Bild
+// fortgeschrieben. Das lässt sich nicht anfahren, nur abspielen.
+//
+// Ebenfalls nicht übertragbar: `setLight` (braucht Gelände, damit eine
+// Lichtrichtung etwas beleuchtet) und `setSky` (braucht einen Horizont).
+//
+// **Ein Paint je Änderung, keine Schleife** (Konzept §10). Gesetzt wird erst,
+// wenn sich ein gerundeter Wert tatsächlich unterscheidet — sonst kostet jedes
+// Scrub-Frame vier `setPaintProperty`-Aufrufe für dasselbe Bild.
 
 import { paramsAt, rastergrading, type Rastergrading } from '../daynight.js'
 import { sunPosition } from '../sun.js'
-import { createWeather, type Wetteroverlay } from '../weather.js'
+import { schleierFuer, type SzenenWetter } from '../wetterhimmel.js'
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
 // die tragen genau diese Liste (`WETTER_MODI`, gewacht gegen das Server-Schema).
@@ -42,8 +51,6 @@ export interface Kartenstimmung {
   setze(zeitIso: string, ort: [number, number], wetter: Wetterstand | null): void
   setTagNacht(an: boolean): void
   setWetter(an: boolean): void
-  /** Wie im Player: false friert das Overlay ein (mit Blende ins Standbild). */
-  setGate(fn: () => boolean): void
   readonly tagNachtAn: boolean
   readonly wetterAn: boolean
 }
@@ -51,21 +58,38 @@ export interface Kartenstimmung {
 /**
  * @param karte  die Editor-Karte
  * @param layer  Raster-Layer, der gegradet wird (im Editor `sat`, im Player hieße er `satellite`)
- * @param buehne Element, in das der Wetter-Canvas gehängt wird (die Kartenbühne)
+ * @param buehne Element, in das der Schleier gehängt wird (die Kartenbühne)
  */
 export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne: HTMLElement): Kartenstimmung {
   let tagNacht = false
   let wetterAn = false
-  let wetter: Wetteroverlay | null = null
-  let gate: (() => boolean) | null = null
   // Zuletzt GESETZTE Werte — der Vergleich hält die Paint-Aufrufe draußen.
   let gesetzt: Rastergrading | null = null
-  let letzterModus: WetterModus | null = null
-  let letzteStaerke = -1
+  let letzterSchleier = ''
   // Letzter bekannter Stand, damit ein Schalter sofort greift statt erst beim
   // nächsten Kopfschritt: Wer „Wetter an" drückt und nichts sieht, drückt noch
   // einmal.
   let stand: { zeitIso: string; ort: [number, number]; wetter: Wetterstand | null } | null = null
+
+  /**
+   * Der Schleier ist ein DIV, kein Canvas.
+   *
+   * Was zu zeichnen ist, sind zwei Flächen und ein Verlauf — dafür ist CSS das
+   * kleinere Werkzeug: kein Kontext, keine Auflösung, keine Größenrechnung (und
+   * damit auch keine Rückkopplung zwischen geschriebener und gemessener Größe,
+   * die den Tab schon einmal angehalten hat). Er entsteht beim ersten
+   * Einschalten und bleibt danach liegen.
+   */
+  let schleierEl: HTMLElement | null = null
+  const holeSchleier = (): HTMLElement => {
+    if (!schleierEl) {
+      schleierEl = document.createElement('div')
+      schleierEl.className = 'karten-schleier'
+      schleierEl.setAttribute('aria-hidden', 'true')
+      buehne.appendChild(schleierEl)
+    }
+    return schleierEl
+  }
 
   const gradiere = (g: Rastergrading): void => {
     if (
@@ -86,51 +110,48 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
     gesetzt = g
   }
 
-  /**
-   * Das Overlay entsteht beim ERSTEN Einschalten und bleibt danach liegen.
-   *
-   * Nicht beim Start: Es hängt einen Canvas in den DOM, lädt Klang-Loops und
-   * startet eine rAF-Schleife — für einen Schalter, der in der Vorgabe aus ist,
-   * wäre das alles umsonst. Nicht wieder abgeräumt: Wer einmal geschaut hat,
-   * schaltet meist wieder ein, und ein zweiter Aufbau kostete die Loops erneut.
-   */
-  const hole = (): Wetteroverlay => {
-    if (!wetter) {
-      wetter = createWeather(buehne)
-      if (gate) wetter.setGate(gate)
+  /** Der Wetter-Anteil des Bildes: Schleier über der Karte, Schnee im Grading. */
+  const wetterBild = (w: Wetterstand | null): { schnee: number } => {
+    const modus: SzenenWetter = (wetterAn && w ? w.mode : 'off') as SzenenWetter
+    const s = schleierFuer(modus, w?.staerke ?? 0.7)
+    // Zwei Farbflächen übereinander plus, bei Nebel, ein weicher Verlauf von
+    // den Rändern her — dieselbe Reihenfolge wie im Player (`wash` über `dark`).
+    const nebel =
+      s.nebel > 0
+        ? `, radial-gradient(120% 100% at 50% 50%, rgba(226,232,240,${(0.1 * s.nebel).toFixed(3)}) 0%, rgba(226,232,240,${(0.42 * s.nebel).toFixed(3)}) 100%)`
+        : ''
+    const bild = modus === 'off' ? '' : `linear-gradient(${s.wasch}, ${s.wasch}), linear-gradient(${s.schatten}, ${s.schatten})${nebel}`
+    if (bild !== letzterSchleier) {
+      // Erst bauen, wenn wirklich etwas zu zeigen ist — wer das Wetter nie
+      // einschaltet, bekommt auch kein Element in den DOM.
+      if (bild || schleierEl) {
+        const el = holeSchleier()
+        el.style.backgroundImage = bild
+        el.hidden = !bild
+      }
+      letzterSchleier = bild
     }
-    return wetter
-  }
-
-  const zeigeWetter = (w: Wetterstand | null): void => {
-    const modus: WetterModus = wetterAn && w ? w.mode : 'off'
-    // Kein Overlay und nichts zu zeigen: gar nicht erst bauen.
-    if (!wetter && modus === 'off') return
-    const o = hole()
-    if (modus !== letzterModus) {
-      o.setMode(modus)
-      letzterModus = modus
-    }
-    const staerke = w?.staerke ?? 0.7
-    if (modus !== 'off' && staerke !== letzteStaerke) {
-      o.setIntensity(staerke)
-      letzteStaerke = staerke
-    }
+    return { schnee: s.schnee }
   }
 
   const anwenden = (): void => {
     if (!stand) return
+    const { schnee } = wetterBild(stand.wetter)
     if (tagNacht) {
       // Der Sonnenstand hängt an Datum UND Ort — deshalb beides. Die
       // Stunden-Heuristik des Uhr-Symbols reicht hier nicht: Sie kennt weder
       // die Jahreszeit noch den Breitengrad, und auf der Karte sähe man den
       // Unterschied sofort (Mitternachtssonne gegen Polarnacht).
       const sonne = sunPosition(new Date(stand.zeitIso), stand.ort[1], stand.ort[0])
-      gradiere(rastergrading(paramsAt(sonne.altitude)))
+      gradiere(rastergrading(paramsAt(sonne.altitude), schnee))
+    } else if (schnee > 0) {
+      // Ohne Tageszeit-Regie trotzdem die Schneedecke: Sie gehört zum WETTER,
+      // nicht zum Licht. Volles Tageslicht als Grundlage — genau das, was
+      // „Tageszeit aus" bedeutet.
+      gradiere(rastergrading({ br: 1, sat: 0, con: 0, li: 0.4, sky: '', hor: '', fog: '', lc: '' }, schnee))
     } else {
       gradiere(NEUTRAL)
     }
-    zeigeWetter(stand.wetter)
   }
 
   return {
@@ -148,10 +169,6 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
       wetterAn = an
       anwenden()
     },
-    setGate(fn) {
-      gate = fn
-      wetter?.setGate(fn)
-    },
     get tagNachtAn() {
       return tagNacht
     },
@@ -160,4 +177,3 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
     },
   }
 }
-

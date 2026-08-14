@@ -23,6 +23,7 @@ import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
 import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
 import { createWeather, type Wetteroverlay } from './weather.js'
+import { himmelBei, WETTER_HIMMEL, type SzenenWetter } from './wetterhimmel.js'
 import { createMusic, type Hintergrundmusik } from './music.js'
 import { createAudioTracks, KURATIERTER_PEGEL, type AudioSpuren } from './audiotracks.js'
 import { createVehicle, type Fahrzeugton } from './vehicle.js'
@@ -719,28 +720,17 @@ map.on('load', () => {
   const WEATHER_INT: Record<string, number> = { leicht: 0.4, mittel: 0.7, stark: 1 }
   let weatherInt = 'mittel'
   const stufenStaerke = () => WEATHER_INT[weatherInt] ?? 0.7
-  // Himmel je Wetter-Modus: Wolkendeckung als SPANNE [c0..c1] über die Stärke —
-  // die Atmosphäre formt daraus die Wolken selbst (locker → aufgerissen →
+  // Himmel je Wetter-Modus: Wolkendeckung als SPANNE über die Stärke — die
+  // Atmosphäre formt daraus die Wolken selbst (locker → aufgerissen →
   // geschlossen). „Wolkig" spannt den ganzen Bogen: Leicht = einzelne Wolken
-  // (Sonne frei), Mittel = aufgerissener Himmel, Stark = geschlossene Decke ohne
-  // sichtbare Sonne. Niederschlags-Modi starten dagegen schon bedeckt (auch
-  // leichter Regen fällt nicht aus heiterem Himmel). Die Atmosphäre existiert erst
-  // nach dem Tag/Nacht-Block (cfg.time) → später via atmoWeather-Hook gekoppelt.
-  const WEATHER_SKY: Record<string, { c0: number; c1: number; dark: number; fog: number }> = {
-    off: { c0: 0, c1: 0, dark: 0, fog: 0 },
-    clouds: { c0: 0.28, c1: 0.98, dark: 0.34, fog: 0 },
-    fog: { c0: 0.22, c1: 0.45, dark: 0.2, fog: 1 },
-    rain: { c0: 0.72, c1: 1, dark: 0.55, fog: 0.16 },
-    snow: { c0: 0.62, c1: 0.96, dark: 0.3, fog: 0.4 },
-    storm: { c0: 0.88, c1: 1, dark: 0.8, fog: 0.12 },
-  }
-  const skyFor = (m: string, k: number) => {
-    const b = WEATHER_SKY[m] ?? WEATHER_SKY.off!
-    // k läuft im UI 0.4..1 (Leicht..Stark); darunter (künftiges Echtwetter,
-    // stufenlos) bleibt die Deckung am unteren Ende der Spanne
-    const t = Math.max(0, Math.min(1, (k - 0.4) / 0.6))
-    return { cover: b.c0 + (b.c1 - b.c0) * t, dark: b.dark * (0.4 + 0.6 * k), fog: b.fog * (0.35 + 0.65 * k) }
-  }
+  // (Sonne frei), Mittel = aufgerissener Himmel, Stark = geschlossene Decke.
+  //
+  // Die Tabelle steht seit §10 in [wetterhimmel.ts](wetterhimmel.ts) und ist
+  // mit dem Editor GETEILT: Dort wird aus denselben drei Zahlen ein flacher
+  // Schleier über der Karte, hier gehen sie an Atmosphäre und Grading. Was
+  // sich nicht teilen ließ, sind die Partikel — die sind Zustand, und der
+  // Editor braucht eine Funktion (Konzept §10).
+  const skyFor = (m: string, k: number) => himmelBei(m as SzenenWetter, k)
   let atmoWeather: (() => void) | null = null // () => atmo.setWeather(skyFor(...)), gesetzt sobald atmo existiert
   let groundSnow: (() => void) | null = null // () => dayNight.setSnow(...), gesetzt sobald die Tag/Nacht-Regie existiert
   const weatherBtn = $('btn-weather')
@@ -834,7 +824,7 @@ map.on('load', () => {
     if (savedI && WEATHER_INT[savedI]) weatherInt = savedI
     const savedW = localStorage.getItem(WEATHER_KEY)
     if (savedW == null || savedW === 'auto') applyWeather('auto', false)
-    else if (WEATHER_SKY[savedW] && savedW !== 'off') applyWeather(savedW, false)
+    else if (savedW in WETTER_HIMMEL && savedW !== 'off') applyWeather(savedW, false)
     else syncWeatherUI('off')
   } catch { syncWeatherUI('off') }
 

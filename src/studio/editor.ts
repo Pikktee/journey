@@ -5143,12 +5143,12 @@ function merkeStimmungWahl(): void {
 function baueStimmung(k: maplibregl.Map): void {
   const buehne = document.querySelector<HTMLElement>('.karten-buehne')
   if (!buehne) return
+  // Kein Gate mehr: Das Konzept sah eines vor, weil es mit dem Partikel-Overlay
+  // rechnete — eine rAF-Schleife, die man während eines Zugs anhalten muss, um
+  // das gemessene 5,5-ms-Ziehbudget zu halten. Die Stimmung läuft stattdessen
+  // ganz ohne Schleife: zwei Farbflächen und vier Paint-Werte, gesetzt nur bei
+  // echter Änderung. Was nichts kostet, muss man nicht anhalten.
   stimmung = erzeugeKartenstimmung(k, 'sat', buehne)
-  // Wie im Player: Das Overlay friert ein, sobald die Szene nicht animiert —
-  // hier während eines Zugs an der Zeitleiste. Das hält das gemessene
-  // 5,5-ms-Ziehbudget frei (Konzept §10, Falle 3); die Blende ins Standbild
-  // bringt `weather.ts` selbst mit.
-  stimmung.setGate(() => !zug)
   const wahl = liesStimmungWahl()
   stimmung.setTagNacht(wahl.tagNacht)
   stimmung.setWetter(wahl.wetter)
