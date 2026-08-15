@@ -42,4 +42,17 @@ describe('App-Version', () => {
     expect(minor).toBeLessThan(100)
     expect(patch).toBeLessThan(100)
   })
+
+  it('steht auf der Landing nicht als zweite Zahl', () => {
+    // Dieselbe Falle wie in Gradle: v0.1.0 blieb stehen, die Fußzeile zeigte 0.62.0.
+    const landing = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+    expect(landing).not.toMatch(/v0\.\d+\.\d+/)
+    expect(landing).toContain('id="app-fassung"')
+    expect(landing).toContain('APP_VERSION')
+    expect(landing.match(/class="phone-slide/g)?.length).toBe(4)
+    expect(landing).toContain('andi-mark')
+    expect(landing.match(/class="store-soon"/g)?.length).toBe(2)
+    expect(landing).toContain('Google Play')
+    expect(landing).toContain('App Store')
+  })
 })

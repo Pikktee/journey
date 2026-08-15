@@ -129,6 +129,40 @@ describe('app-nav', () => {
     expect(konto).not.toMatch(/--wrap:\s*780px/)
   })
 
+  it('legt auf der Landing Konto vor die Seitenanker und Meine Touren ins Panel', () => {
+    const landing = readFileSync(join(wurzel, 'index.html'), 'utf8')
+    const panel = landing.slice(
+      landing.indexOf('id="nav-panel"'),
+      landing.indexOf('</nav>'),
+    )
+    expect(panel.indexOf('Konto')).toBeLessThan(panel.indexOf('Auf der Seite'))
+    expect(panel).toMatch(/class="nav-panel-cta" data-dabei>Meine Touren/)
+    expect(panel).not.toMatch(/nav-nur-xs[^>]*>Meine Touren/)
+    expect(landing).toMatch(/class="nav-cta nav-hide-sm" data-dabei>Meine Touren/)
+  })
+
+  it('lässt Studio in der Landing-Nav, streicht So-funktioniert und macht daraus keine Tür', () => {
+    const landing = readFileSync(join(wurzel, 'index.html'), 'utf8')
+    const nav = landing.slice(landing.indexOf('<nav class="nav"'), landing.indexOf('</nav>'))
+    const middle = nav.slice(nav.indexOf('nav-middle'), nav.indexOf('nav-end'))
+    expect(middle).toContain('href="#touren"')
+    expect(middle).toContain('href="#app"')
+    expect(middle).toContain('href="#editor"')
+    expect(middle).toContain('Studio')
+    expect(middle).not.toContain('so-funktionierts')
+
+    const panel = nav.slice(nav.indexOf('id="nav-panel"'))
+    expect(panel).toContain('href="#editor"')
+    expect(panel).not.toContain('so-funktionierts')
+
+    const studio = landing.slice(
+      landing.indexOf('id="editor"'),
+      landing.indexOf('class="band cta-band"'),
+    )
+    expect(studio).not.toContain('/registrieren')
+    expect(studio).not.toContain('href="/app"')
+  })
+
   it('trägt #app-header schon im HTML deckungsgleich zu appHeaderHtml', () => {
     // Sonst blitzt beim MPA-Wechsel wieder die leere Schale — View Transition
     // hin oder her. Der Inhalt MUSS exakt schreibeAppHeader entsprechen.

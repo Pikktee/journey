@@ -2631,7 +2631,15 @@
       transition: color 140ms ease;
     }
     .sfx-suche-feld:focus-within svg { color: var(--akzent); }
-    .sfx-suche {
+    /* `input.sfx-suche` und nicht `.sfx-suche`: In werkzeug.css steht das
+       Feld-Grundmaß unter `input[type='search']` — Attribut plus Typ schlägt
+       eine blanke Klasse, egal in welcher Reihenfolge die Blätter hängen. Die
+       Regel hier verlor deshalb still ihr `padding-left`, das Feld bekam die
+       12 px des Grundmaßes und die absolut gesetzte Lupe lag auf dem ersten
+       Buchstaben des Platzhalters. Die Nachbarn (`.suche input` oben,
+       `.suchfeld input` in der Verwaltung) tragen ihren Typ schon im
+       Selektor und waren nie betroffen. */
+    input.sfx-suche {
       width: 100%; padding: 9px 14px 9px 38px; font-size: 13.5px;
       font-family: var(--font-ui); color: var(--text);
       background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-md);

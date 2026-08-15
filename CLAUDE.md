@@ -56,6 +56,14 @@ und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 Sprache im gesamten Projekt (Code-Kommentare, UI, Doku, Commit-Messages) ist **Deutsch** —
 auch in server/ und android/ (deutsche Bezeichner).
 
+**In NEUEN Texten steht kein langer Gedankenstrich.** Weder in der Oberfläche noch in
+Überschriften, Bildunterschriften oder Doku, die frisch entsteht. Wo einer stünde, trennt ein
+Punkt, ein Komma oder ein Doppelpunkt; oft sind zwei Sätze die bessere Antwort. Der Bestand
+bleibt, wie er ist: Diese Datei und die Kommentare im Code benutzen ihn seit jeher, ein Umbau
+wäre eine Diff über das halbe Repo ohne Gewinn. Zwei Wörter sind im selben Zug verworfen und
+gehören nicht in Produkttexte: „Formular" (grenzt technisch ab, statt zu sagen, was man tut)
+und „wie das Wetter steht".
+
 **Design System.** Kanonische Quelle für Marke, Farben, Typografie und UI-Dos/Don’ts ist
 [`DESIGN.md`](DESIGN.md) (Google DESIGN.md-Format). Coding-Assistenten und UI-Arbeit folgen
 dieser Datei; CSS-Variablen, [`src/brand.ts`](src/brand.ts) und Android `Theme.kt` /

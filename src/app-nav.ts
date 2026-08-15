@@ -17,6 +17,8 @@ import { version as APP_VERSION } from '../package.json'
 import { montiereStandChip, standChipHtml } from './entwicklungsstand.js'
 import { feedbackKnopfHtml, montiereFeedbackKnopf } from './feedbackknopf.js'
 
+export { APP_VERSION }
+
 /**
  * Auf welcher Seite die Nav steht. 'profil', 'konto' und 'admin' tauchen selbst
  * NICHT in der Nav auf — sie markieren nur, dass keiner der beiden Einträge
@@ -290,7 +292,7 @@ export async function montiereNavRechts(
         ? `<img class="punkt" src="${avatar}" alt="" width="20" height="20" />`
         : `<span class="punkt">${initial}</span>`
       container.innerHTML = `
-        ${cta ? `<a href="${cta.href}" class="nav-cta" data-dabei>${cta.text}</a>` : ''}
+        ${cta ? `<a href="${cta.href}" class="nav-cta nav-hide-sm" data-dabei>${cta.text}</a>` : ''}
         <div class="konto-wrap" data-dabei>
           <button type="button" class="benutzer-chip" id="nav-profil" aria-haspopup="true" aria-expanded="false">
             ${avatarHtml}<span class="nav-profil-name">${name}</span>
