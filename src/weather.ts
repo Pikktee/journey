@@ -65,6 +65,17 @@ export interface Wetteroverlay {
   setIntensity(v: number): void
   setGate(fn: () => boolean): void
   setSoundEnabled(on: boolean): void
+  /**
+   * Alles zurücknehmen: Bildschleife anhalten, Klänge stoppen, Beobachter
+   * abhängen, Canvas aus dem DOM.
+   *
+   * Im Player gab es dafür nie einen Anlass — dort lebt das Overlay so lange
+   * wie die Seite. Der Editor öffnet und schließt Touren, und ohne diesen Weg
+   * blieben Regenklänge hörbar, nachdem man die Tour längst verlassen hatte
+   * (gemeldet, und genau so passiert). Danach ist das Objekt tot; wer wieder
+   * Wetter will, ruft `createWeather` erneut.
+   */
+  zerstoere(): void
   readonly mode: WetterModus
   readonly intensity: number
 }
@@ -552,27 +563,51 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   // Zeitleiste größer gezogen. Der Vergleich mit dem letzten Wert ist Pflicht:
   // Der Observer feuert auch für Änderungen, die keine sind, und `resize`
   // verwirft dabei jedes Mal die Transform-Matrix.
-  new ResizeObserver(() => {
-    const f = flaeche()
-    if (Math.round(f.w) !== w || Math.round(f.h) !== h) resize()
-  }).observe(container)
-  // Der Viewport-Fall braucht sein eigenes Ereignis: Ein `fixed` Canvas ändert
-  // seine Fläche mit dem FENSTER, und dessen Größe meldet kein Observer auf
-  // einem Element (der `body` kann dabei unverändert bleiben).
-  window.addEventListener('resize', () => {
+  const beobachter = new ResizeObserver(() => {
     const f = flaeche()
     if (Math.round(f.w) !== w || Math.round(f.h) !== h) resize()
   })
+  beobachter.observe(container)
+  // Der Viewport-Fall braucht sein eigenes Ereignis: Ein `fixed` Canvas ändert
+  // seine Fläche mit dem FENSTER, und dessen Größe meldet kein Observer auf
+  // einem Element (der `body` kann dabei unverändert bleiben).
+  const beiGroesse = (): void => {
+    const f = flaeche()
+    if (Math.round(f.w) !== w || Math.round(f.h) !== h) resize()
+  }
+  window.addEventListener('resize', beiGroesse)
   // Autoplay-Policy: war das Audio beim Auto-Restore blockiert, nach der ersten
   // User-Geste den laufenden Loop nachstarten.
-  window.addEventListener('pointerdown', () => {
+  const beiGeste = (): void => {
     if (frozen || !loopAct) return
     const a = loops[loopAct]
     if (a) { a._blocked = false; if (a.paused && pAct) tryPlay(a) } // Lautstärke hebt step() (Level-Kopplung)
-  }, { passive: true })
+  }
+  window.addEventListener('pointerdown', beiGeste, { passive: true })
 
   // Ton an-/ausblenden ohne das Visual anzutasten (Finale). Beim Einschalten sofort
   // voll (kein Einblend-Lag beim Neustart), beim Ausschalten weiche Rampe in step().
   const setSoundEnabled = (on: boolean) => { soundGainTgt = on ? 1 : 0; if (on) soundGain = 1 }
-  return { setMode, setIntensity, setGate: (fn: () => boolean) => { gate = fn }, setSoundEnabled, get mode() { return mode }, get intensity() { return k } }
+  const zerstoere = (): void => {
+    // `shutdown` hält Bild und Klang an (rAF weg, Loops pausiert). Was es NICHT
+    // tut, ist das Objekt aus der Welt nehmen — deshalb hier die drei Anhänge
+    // und der Canvas. Ohne sie hielte ein geschlossener Editor seine Beobachter
+    // und sein Element weiter.
+    shutdown()
+    mode = 'off'
+    beobachter.disconnect()
+    window.removeEventListener('resize', beiGroesse)
+    window.removeEventListener('pointerdown', beiGeste)
+    canvas.remove()
+  }
+
+  return {
+    setMode,
+    setIntensity,
+    setGate: (fn: () => boolean) => { gate = fn },
+    setSoundEnabled,
+    zerstoere,
+    get mode() { return mode },
+    get intensity() { return k },
+  }
 }

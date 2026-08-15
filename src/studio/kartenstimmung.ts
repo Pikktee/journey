@@ -5,21 +5,28 @@
 // die Lücke, und zwar mit dem Teil der Player-Regie, der auch auf einer
 // Draufsicht trägt.
 //
-// **Alles hier ist eine FUNKTION der Kopfposition.** Das ist die eigentliche
-// Anforderung, und sie entscheidet, was übertragbar ist: Der Editor springt in
-// einer Datei umher, also muss jedes Bild aus der Filmzeit allein folgen —
-// vorwärts, rückwärts und nach einem Sprung. Übertragbar sind damit das GRADING
-// des Satellitenbilds (`paramsAt`) und der SCHLEIER aus `wetterhimmel.ts`.
+// **Der Editor hat ZWEI Betriebsarten, und sie verlangen Verschiedenes.**
 //
-// **Nicht übertragbar ist das Partikel-Overlay** (weather.ts), und ein erster
-// Anlauf damit hat genau das gezeigt: Es regnete bei stehendem Abspielkopf
-// weiter, es klang beim Scrubben, der Ton lief nach dem Verlassen des Editors
-// weiter — und Wolken und Nebel fehlten ganz, weil sie dort kein Profil haben
-// (ihren Himmel zeichnet im Player die Atmosphäre, die es hier nicht gibt).
-// Ein Partikelsystem ist Zustand: Jeder Tropfen wird aus dem vorigen Bild
-// fortgeschrieben. Das lässt sich nicht anfahren, nur abspielen.
+// Beim Stehen und beim Scrubben muss jedes Bild eine FUNKTION der Kopfposition
+// sein — vorwärts, rückwärts und nach einem Sprung. Das können das GRADING des
+// Satellitenbilds (`paramsAt`) und der SCHLEIER aus `wetterhimmel.ts`; ein
+// Partikelsystem kann es nicht, denn es ist Zustand: Jeder Tropfen wird aus
+// dem vorigen Bild fortgeschrieben.
 //
-// Ebenfalls nicht übertragbar: `setLight` (braucht Gelände, damit eine
+// Beim ABSPIELEN läuft dagegen ein Film in Echtzeit vorwärts, und dort sind
+// Partikel und Klang genau richtig — das Abspielen ist die Schnittprüfung, und
+// wer prüft, soll hören und sehen, was der Player später zeigt. Deshalb hängt
+// das Overlay an `setLauf` und schweigt sonst. Dieselbe Regel wie beim Video im
+// Editor, das ebenfalls nur bei Tempo 1 läuft.
+//
+// Ein erster Anlauf hängte die Partikel dauerhaft hinein, und alles, was daran
+// falsch war, hing an dieser fehlenden Bindung: Es regnete bei stehendem Kopf,
+// es klang beim Scrubben, der Ton lief nach dem Verlassen der Tour weiter.
+// Geblieben ist aus jener Runde der Befund zu `clouds`/`fog` — die haben in
+// weather.ts kein Profil (ihren Himmel zeichnet im Player die Atmosphäre), für
+// sie trägt der Schleier allein.
+//
+// Nicht übertragbar bleiben `setLight` (braucht Gelände, damit eine
 // Lichtrichtung etwas beleuchtet) und `setSky` (braucht einen Horizont).
 //
 // **Ein Paint je Änderung, keine Schleife** (Konzept §10). Gesetzt wird erst,
@@ -28,6 +35,7 @@
 
 import { paramsAt, rastergrading, type Rastergrading } from '../daynight.js'
 import { sunPosition } from '../sun.js'
+import { createWeather, type Wetteroverlay } from '../weather.js'
 import { bildwirkung, schleierFuer, type SzenenWetter, type Wettergrading } from '../wetterhimmel.js'
 // Bewusst der Studio-Typ und nicht der aus `autoweather.ts`: Was hier ankommt,
 // sind die Grenzen aus dem Edit-Overlay bzw. dem Auto-Wetter des Servers, und
@@ -51,6 +59,16 @@ export interface Kartenstimmung {
   setze(zeitIso: string, ort: [number, number], wetter: Wetterstand | null): void
   setTagNacht(an: boolean): void
   setWetter(an: boolean): void
+  /**
+   * Läuft der Film gerade — und mit welchem Tempo?
+   *
+   * Daran hängt, ob es zusätzlich zum Schleier auch REGNET: Partikel und Klang
+   * brauchen eine vorwärts laufende Echtzeit, und die gibt es nur beim
+   * Abspielen bei Tempo 1. Dieselbe Regel wie beim Video im Editor.
+   */
+  setLauf(tempo: number): void
+  /** Beim Schließen der Tour: Bildschleife, Klänge und Canvas zurücknehmen. */
+  zerstoere(): void
   readonly tagNachtAn: boolean
   readonly wetterAn: boolean
 }
@@ -80,6 +98,31 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
    * die den Tab schon einmal angehalten hat). Er entsteht beim ersten
    * Einschalten und bleibt danach liegen.
    */
+  /**
+   * Das Partikel-Overlay — nur beim ABSPIELEN, und nur bei Tempo 1.
+   *
+   * Der erste Anlauf hängte es dauerhaft in den Editor, und das war falsch: Es
+   * regnete bei stehendem Kopf, klang beim Scrubben und lief nach dem Verlassen
+   * der Tour weiter. Der Fehler war aber nicht das Overlay, sondern die fehlende
+   * BINDUNG. Ein Partikelsystem braucht eine vorwärts laufende Echtzeit — genau
+   * die, die das Abspielen herstellt. Steht der Kopf, wird gescrubbt oder läuft
+   * der Schnelllauf, friert es ein und verstummt; der Schleier trägt dann allein
+   * die Auskunft, was für Wetter dort ist. Dieselbe Regel wie beim Video im
+   * Editor, das ebenfalls nur bei Tempo 1 läuft und sonst schweigt.
+   */
+  let partikel: Wetteroverlay | null = null
+  let laeuft = false
+  const holePartikel = (): Wetteroverlay => {
+    if (!partikel) {
+      partikel = createWeather(buehne)
+      // Das Overlay fragt selbst, ob es zeichnen darf — so bringt es seine
+      // eigene Blende ins Standbild mit, statt hart zu stoppen.
+      partikel.setGate(() => laeuft)
+      partikel.setSoundEnabled(laeuft)
+    }
+    return partikel
+  }
+
   let schleierEl: HTMLElement | null = null
   const holeSchleier = (): HTMLElement => {
     if (!schleierEl) {
@@ -141,6 +184,15 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
       }
       letzterSchleier = bild
     }
+    // Die Partikel bekommen dieselbe Lage. Gebaut wird das Overlay erst, wenn
+    // tatsächlich abgespielt wird: Wer nur schneidet, bekommt weder Canvas noch
+    // Klang-Loops. `clouds`/`fog` haben dort ohnehin keine Tropfen — für sie
+    // bleibt es beim Schleier, und das ist richtig so.
+    if (partikel || (laeuft && modus !== 'off')) {
+      const o = holePartikel()
+      if (o.mode !== modus) o.setMode(modus)
+      if (modus !== 'off') o.setIntensity(w?.staerke ?? 0.7)
+    }
     return { schnee: s.schnee, bild: bildwirkung(modus, w?.staerke ?? 0.7) }
   }
 
@@ -187,7 +239,24 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
     setWetter(an) {
       if (an === wetterAn) return
       wetterAn = an
+      // Ausschalten heißt auch: keine Tropfen mehr. `anwenden` setzt das
+      // Overlay über `wetterBild` auf 'off', der Rest klingt von selbst aus.
       anwenden()
+    },
+    setLauf(tempo) {
+      const neu = tempo === 1
+      if (neu === laeuft) return
+      laeuft = neu
+      partikel?.setSoundEnabled(neu)
+      // Das Gate liest `laeuft` selbst; ein Aufruf von `anwenden` baut das
+      // Overlay nach, falls gerade zum ersten Mal abgespielt wird.
+      anwenden()
+    },
+    zerstoere() {
+      partikel?.zerstoere()
+      partikel = null
+      schleierEl?.remove()
+      schleierEl = null
     },
     get tagNachtAn() {
       return tagNacht

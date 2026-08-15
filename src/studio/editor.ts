@@ -424,9 +424,13 @@ function schliesse(): void {
   verbergeFoto()
   karte?.remove()
   karte = null
-  // Die Stimmung hängt an DIESER Karte (Paint-Properties) und an einem Canvas
-  // in DIESER Bühne — beides ist mit `remove()` weg. Der Schalter-Zustand lebt
-  // dagegen in localStorage weiter und wird beim nächsten Aufbau gelesen.
+  // Die Stimmung muss AUSDRÜCKLICH zurückgenommen werden. Die Paint-Properties
+  // gehen mit `karte.remove()`, aber das Partikel-Overlay hängt an der Bühne
+  // und bringt eigene Klang-Loops mit — ohne diesen Aufruf blieben Regenklänge
+  // hörbar, nachdem man die Tour längst verlassen hatte (gemeldet). Der
+  // Schalter-Zustand lebt in localStorage weiter und wird beim nächsten Aufbau
+  // gelesen.
+  stimmung?.zerstoere()
   stimmung = null
   z = null
   letzterStand = null
@@ -6545,6 +6549,11 @@ function verbergeFoto(): void {
 }
 
 function zeigeTempo(tempo: number): void {
+  // Hier läuft JEDE Tempoänderung durch — Play, Pause, J/K/L und jedes
+  // `halteAbspielen` einer manuellen Geste. Deshalb hängt die Kartenstimmung
+  // hier: Regen und Klang gibt es nur bei Tempo 1, sonst friert das Overlay
+  // ein und der Schleier trägt die Auskunft allein.
+  stimmung?.setLauf(tempo)
   const knopf = document.getElementById('tp-play')
   if (!knopf) return
   knopf.querySelector('use')?.setAttribute('href', tempo !== 0 ? '#i-pause' : '#i-play')
