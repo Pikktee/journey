@@ -5842,7 +5842,7 @@ function verdrahteZeitleiste(): void {
     if (!z || e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
-    halteAbspielen()
+    const weiter = scrubGeste()
     document.body.classList.add('scrubbt')
     const skala = aktuelleAchse()
     // Scrubben meint eine Stelle auf der LEISTE, also eine Filmsekunde — in
@@ -5862,6 +5862,7 @@ function verdrahteZeitleiste(): void {
       rand.stop()
       document.body.classList.remove('scrubbt')
       unterdrueckeKlick = true
+      weiter()
     }
     window.addEventListener('pointermove', zieh)
     window.addEventListener('pointerup', los)
@@ -5873,7 +5874,7 @@ function verdrahteZeitleiste(): void {
     e.preventDefault()
     const skala = aktuelleAchse()
     if (!skala) return
-    halteAbspielen()
+    const weiter = scrubGeste()
     setzeKopfFilm(anteilZuFilm(skala, spurAnteil(e.clientX)))
     document.body.classList.add('scrubbt')
     const setze = (clientX: number): void => setzeKopfFilm(anteilZuFilm(skala, spurAnteil(clientX)))
@@ -5888,6 +5889,7 @@ function verdrahteZeitleiste(): void {
       rand.stop()
       document.body.classList.remove('scrubbt')
       renderAlles()
+      weiter()
     }
     window.addEventListener('pointermove', zieh)
     window.addEventListener('pointerup', los)
@@ -6268,13 +6270,34 @@ function folgeKarteTick(): void {
   const dx = nach.x - von.x
   const dy = nach.y - von.y
   const dist2 = dx * dx + dy * dy
-  // Unter ~2 px stehen bleiben — sonst rauscht die Kamera am Zielpunkt.
-  if (dist2 < 4) {
+
+  /**
+   * Beim ABSPIELEN gibt die Kamera das Ziel nicht auf.
+   *
+   * Die 2-px-Schwelle unten ist gegen RAUSCHEN am ruhenden Zielpunkt gedacht
+   * und dort richtig. Beim laufenden Film gibt es aber keinen ruhenden Punkt:
+   * Die Kamera nähert sich an, gibt auf (`folgeZiel = null`), der Kopf zieht
+   * davon, sie läuft neu an — jedes Neuanlaufen ist ein Ruck.
+   *
+   * **Ehrlich gemessen ist die Wirkung klein**: 103 → 96 Frames ohne Bewegung
+   * von 119, in beiden Fällen ohne einen einzigen gegenläufigen Schritt. Das
+   * gemeldete Zittern ist damit NICHT erklärt — die Änderung ist trotzdem
+   * richtig, weil eine Abbruchbedingung für einen ruhenden Punkt in einer
+   * laufenden Verfolgung nichts zu suchen hat. Wer der Sache weiter nachgeht,
+   * findet den eigentlichen Grund eher darin, dass das Ziel nur mit ~25 Hz neu
+   * gesetzt wird (`renderPlayhead`, nicht `rAF`) und die Restbewegung dazwischen
+   * unter der Pixelauflösung von `project`/`unproject` verschwindet.
+   */
+  const spielt = (abspieler?.tempo() ?? 0) !== 0
+  if (!spielt && dist2 < 4) {
+    // Unter ~2 px stehen bleiben — sonst rauscht die Kamera am Zielpunkt.
     folgeZiel = null
     return
   }
   // Je weiter weg, desto beherzter; nah am Ziel weich (kein Überschwingen).
-  const alpha = Math.min(0.28, 0.08 + Math.sqrt(dist2) / 500)
+  // Im Lauf eine feste, straffere Rate: Sie muss die Lücke zwischen zwei
+  // Zielen füllen, ohne der Bewegung nachzuhinken.
+  const alpha = spielt ? 0.34 : Math.min(0.28, 0.08 + Math.sqrt(dist2) / 500)
   const ziel = karte.unproject([von.x + dx * alpha, von.y + dy * alpha])
   karte.jumpTo({ center: ziel })
   folgeRaf = requestAnimationFrame(folgeKarteTick)
@@ -6592,6 +6615,31 @@ async function spielUmschalten(): Promise<void> {
 /** Jede manuelle Geste hält an — man scrubbt nicht gegen einen laufenden Kopf. */
 function halteAbspielen(): void {
   abspieler?.halteAn()
+}
+
+/**
+ * Für SCRUB-Gesten: anhalten und beim Loslassen dort weiterspielen.
+ *
+ * Der Unterschied zu `halteAbspielen` ist die Absicht der Geste. Wer eine
+ * Grenze zieht oder einen Klip verschiebt, ändert die Achse, gegen die der
+ * Spielplan läuft — da ist Anhalten richtig und Weiterlaufen wäre ein Lauf
+ * gegen veraltete Halte. Wer dagegen am Kopf oder am Maßband zieht, ändert nur
+ * die STELLE: Er sucht sich einen Punkt und will von dort aus weitersehen. Ihn
+ * dafür jedes Mal neu starten zu lassen, ist die Sorte Reibung, die man beim
+ * Schneiden hundertmal am Tag hat.
+ *
+ * Genau so verhält sich der Player: `seek` behält den Wiedergabezustand.
+ * Der Schnelllauf wird mitgenommen — wer bei 4× sucht, sucht bei 4× weiter.
+ */
+function scrubGeste(): () => void {
+  const vorher = abspieler?.tempo() ?? 0
+  halteAbspielen()
+  return () => {
+    if (vorher === 0) return
+    void spielUmschalten().then(() => {
+      if (vorher !== 1) abspieler?.setzeTempo(vorher)
+    })
+  }
 }
 
 // — Speichern / Neu verarbeiten —
