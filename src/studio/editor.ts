@@ -6240,6 +6240,23 @@ function folgeKopf(anteil: number): void {
 /** Karte weich auf die Marke ziehen — nicht jedes Frame hart setzen.
  *  Hartes `setCenter` pro Abspiel-Tick ließ Track und Marker zittern. */
 let folgeZiel: [number, number] | null = null
+/**
+ * Die geglättete Kameraposition als EIGENER Zustand — nicht aus der Karte
+ * zurückgelesen.
+ *
+ * `getCenter()` liefert, was `jumpTo` hineingeschrieben hat, durch zwei
+ * Projektionen und eine Fließkomma-Rundung. Wer daraus die nächste Position
+ * rechnet, führt eine Rückkopplung: Der Rundungsrest jedes Frames geht in den
+ * nächsten ein, und weil er auch NEGATIV sein kann, wackelt die Kamera um
+ * Bruchteile eines Pixels. Sichtbar wird das erst beim Herauszoomen — dort ist
+ * die echte Bewegung pro Frame so klein, dass der Rest sie überstimmt, und
+ * genau so wurde es gemeldet („Mikro-Zittern, vielleicht um einen Pixel").
+ *
+ * Dieselbe Regel wie in scripts/messungen/README.md, Falle 7: **gemessen wird
+ * nie das Element, in das man schreibt.** `null` heißt „noch nichts geglättet"
+ * — dann gilt einmalig die echte Kartenmitte (Start, Zoom, Nutzer-Schub).
+ */
+let folgeIst: [number, number] | null = null
 let folgeRaf = 0
 /** Bis wann Follow pausiert (Nutzer zoomt) — sonst bricht `jumpTo` die Zoom-Animation ab. */
 let folgePauseBis = 0
@@ -6253,6 +6270,10 @@ function folgeKarte(): void {
 /** Follow kurz aussetzen, damit Rad/Pinch/±-Knöpfe ungestört zoomen können. */
 function pausiereKartenFolge(ms = 450): void {
   folgePauseBis = performance.now() + ms
+  // Der eigene Glättungs-Zustand ist nach einem fremden Eingriff überholt —
+  // die Karte steht dann irgendwo anders. Beim nächsten Tick wird er einmal
+  // aus der Karte neu gesetzt.
+  folgeIst = null
 }
 
 function folgeKarteTick(): void {
@@ -6264,8 +6285,14 @@ function folgeKarteTick(): void {
     folgeRaf = requestAnimationFrame(folgeKarteTick)
     return
   }
-  const c = karte.getCenter()
-  const von = karte.project(c)
+  // Die eigene geglättete Position, nicht die zurückgelesene Kartenmitte
+  // (s. `folgeIst`). Beim ersten Frame und nach jedem Nutzer-Eingriff wird sie
+  // einmal aus der Karte gesetzt — danach schreibt nur noch dieser Folger.
+  if (!folgeIst) {
+    const c0 = karte.getCenter()
+    folgeIst = [c0.lng, c0.lat]
+  }
+  const von = karte.project(folgeIst)
   const nach = karte.project(folgeZiel)
   const dx = nach.x - von.x
   const dy = nach.y - von.y
@@ -6298,13 +6325,44 @@ function folgeKarteTick(): void {
   // Im Lauf eine feste, straffere Rate: Sie muss die Lücke zwischen zwei
   // Zielen füllen, ohne der Bewegung nachzuhinken.
   const alpha = spielt ? 0.34 : Math.min(0.28, 0.08 + Math.sqrt(dist2) / 500)
+  const schritt = Math.hypot(dx * alpha, dy * alpha)
+
+  /**
+   * Unter einem halben Pixel wird gar nicht bewegt — gesammelt statt gekrochen.
+   *
+   * Beim Herauszoomen sind die Frame-Schritte winzig (bei Zoom 9 im Hundertstel
+   * eines Pixels). Eine Kamera, die pro Frame ein Hundertstel Pixel weiterrückt,
+   * bewegt das BILD nicht gleichmäßig: Kachel-Raster, Marker-Positionen und
+   * Linien-Antialiasing rasten auf Pixel ein und springen dabei — als
+   * „Mikro-Zittern um einen Pixel" gemeldet, und beim Herauszoomen am
+   * deutlichsten, weil die echte Bewegung dort am kleinsten ist.
+   *
+   * Also lieber warten, bis sich ein halber Pixel angesammelt hat, und dann
+   * einmal sauber setzen. Der Rückstand bleibt erhalten (`folgeIst` bewegt sich
+   * ja nicht), er wird im nächsten Frame mitgerechnet — die Kamera verliert
+   * nichts, sie rückt nur seltener und dafür sichtbar nach.
+   *
+   * ANMERKUNG ZUR HERKUNFT: Drei Hypothesen zum gemeldeten Zittern ließen sich
+   * mit Gegenproben NICHT bestätigen (Abbruchschwelle, Rückkopplung über
+   * `getCenter`, Marker-Drift) — in der Messung von `project()` gab es nie
+   * einen gegenläufigen Schritt. Diese Schwelle setzt deshalb nicht an einer
+   * bewiesenen Ursache an, sondern an der Bedingung, unter der jede von ihnen
+   * sichtbar würde: Bewegung unterhalb der Bildauflösung.
+   */
+  if (schritt < 0.5) {
+    folgeRaf = requestAnimationFrame(folgeKarteTick)
+    return
+  }
+
   const ziel = karte.unproject([von.x + dx * alpha, von.y + dy * alpha])
+  folgeIst = [ziel.lng, ziel.lat]
   karte.jumpTo({ center: ziel })
   folgeRaf = requestAnimationFrame(folgeKarteTick)
 }
 
 function halteKartenFolge(): void {
   folgeZiel = null
+  folgeIst = null
   folgePauseBis = 0
   if (folgeRaf) {
     cancelAnimationFrame(folgeRaf)
