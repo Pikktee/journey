@@ -177,3 +177,9 @@ Player seine Größe vorher per `style.width` selbst setzte. Zwei Regeln daraus:
 `height` gehören ins CSS**, und **gemessen wird nie das Element, in das man schreibt**
 (`flaeche()` in [src/weather.ts](../../src/weather.ts) misst Container bzw. Viewport, je nach
 `position`).
+
+**Falle 8: Der erste Lauf direkt nach `npm run build` schlägt gern fehl.** Der Dev-Server von
+devhub lädt beim Bauen seine Module neu; wer in genau dieses Fenster misst, bekommt „1 von 2
+Touren starten nicht" oder eine leere Messung. Zweimal wiederholen, bevor man einen Fehler
+diagnostiziert — beobachtet an [player-startet.mjs](player-startet.mjs), reproduzierbar, und
+danach jedes Mal grün.

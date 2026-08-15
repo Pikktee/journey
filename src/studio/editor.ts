@@ -6257,6 +6257,25 @@ let folgeZiel: [number, number] | null = null
  * — dann gilt einmalig die echte Kartenmitte (Start, Zoom, Nutzer-Schub).
  */
 let folgeIst: [number, number] | null = null
+/**
+ * Führt die Karte gerade nach — oder ruht sie in der toten Zone?
+ *
+ * **Die Karte zentriert nicht dauernd, sie holt nur ein.** Das war der
+ * eigentliche Befund hinter dem gemeldeten „Mikro-Zittern": Nicht die einzelne
+ * Bewegung war unruhig, sondern dass ÜBERHAUPT in jedem Frame bewegt wurde —
+ * die ganze Karte samt Kacheln, Track und Markern rastet dabei fortwährend neu
+ * auf Pixel ein, und beim Herauszoomen bleibt von der echten Fahrt so wenig
+ * übrig, dass nur noch das Einrasten zu sehen ist.
+ *
+ * Also dasselbe Muster wie in Navigations-Apps: Solange der Punkt in der
+ * inneren Zone liegt, bleibt die Karte STEHEN. Verlässt er sie, wird
+ * nachgeführt — und zwar bis er wieder mittig steht, nicht bloß bis zur
+ * Zonenkante. Diese Hysterese ist Pflicht: Ohne sie löste jede Kante ein
+ * Mikro-Nachführen aus und man hätte das Zittern zurück, nur seltener.
+ */
+let folgeAktiv = false
+/** Anteil der Fensterbreite/-höhe, in dem die Karte ruht (zentriert). */
+const RUHEZONE = 0.42
 let folgeRaf = 0
 /** Bis wann Follow pausiert (Nutzer zoomt) — sonst bricht `jumpTo` die Zoom-Animation ab. */
 let folgePauseBis = 0
@@ -6298,62 +6317,45 @@ function folgeKarteTick(): void {
   const dy = nach.y - von.y
   const dist2 = dx * dx + dy * dy
 
-  /**
-   * Beim ABSPIELEN gibt die Kamera das Ziel nicht auf.
-   *
-   * Die 2-px-Schwelle unten ist gegen RAUSCHEN am ruhenden Zielpunkt gedacht
-   * und dort richtig. Beim laufenden Film gibt es aber keinen ruhenden Punkt:
-   * Die Kamera nähert sich an, gibt auf (`folgeZiel = null`), der Kopf zieht
-   * davon, sie läuft neu an — jedes Neuanlaufen ist ein Ruck.
-   *
-   * **Ehrlich gemessen ist die Wirkung klein**: 103 → 96 Frames ohne Bewegung
-   * von 119, in beiden Fällen ohne einen einzigen gegenläufigen Schritt. Das
-   * gemeldete Zittern ist damit NICHT erklärt — die Änderung ist trotzdem
-   * richtig, weil eine Abbruchbedingung für einen ruhenden Punkt in einer
-   * laufenden Verfolgung nichts zu suchen hat. Wer der Sache weiter nachgeht,
-   * findet den eigentlichen Grund eher darin, dass das Ziel nur mit ~25 Hz neu
-   * gesetzt wird (`renderPlayhead`, nicht `rAF`) und die Restbewegung dazwischen
-   * unter der Pixelauflösung von `project`/`unproject` verschwindet.
-   */
   const spielt = (abspieler?.tempo() ?? 0) !== 0
-  if (!spielt && dist2 < 4) {
-    // Unter ~2 px stehen bleiben — sonst rauscht die Kamera am Zielpunkt.
-    folgeZiel = null
-    return
-  }
-  // Je weiter weg, desto beherzter; nah am Ziel weich (kein Überschwingen).
-  // Im Lauf eine feste, straffere Rate: Sie muss die Lücke zwischen zwei
-  // Zielen füllen, ohne der Bewegung nachzuhinken.
-  const alpha = spielt ? 0.34 : Math.min(0.28, 0.08 + Math.sqrt(dist2) / 500)
-  const schritt = Math.hypot(dx * alpha, dy * alpha)
 
   /**
-   * Unter einem halben Pixel wird gar nicht bewegt — gesammelt statt gekrochen.
+   * Die RUHEZONE: Solange der Punkt mittig genug steht, bewegt sich nichts.
    *
-   * Beim Herauszoomen sind die Frame-Schritte winzig (bei Zoom 9 im Hundertstel
-   * eines Pixels). Eine Kamera, die pro Frame ein Hundertstel Pixel weiterrückt,
-   * bewegt das BILD nicht gleichmäßig: Kachel-Raster, Marker-Positionen und
-   * Linien-Antialiasing rasten auf Pixel ein und springen dabei — als
-   * „Mikro-Zittern um einen Pixel" gemeldet, und beim Herauszoomen am
-   * deutlichsten, weil die echte Bewegung dort am kleinsten ist.
+   * Das ist die Antwort auf das gemeldete Zittern, und sie liegt nicht in der
+   * Feinheit der Bewegung, sondern in ihrer HÄUFIGKEIT. Wer in jedem Frame
+   * zentriert, lässt die ganze Karte in jedem Frame neu auf Pixel einrasten —
+   * Kacheln, Track, Marker. Beim Herauszoomen bleibt von der echten Fahrt so
+   * wenig übrig, dass nur noch dieses Einrasten zu sehen ist. Drei Versuche,
+   * die einzelne Bewegung zu glätten, haben deshalb nichts gebracht: Das
+   * Problem war, dass überhaupt bewegt wurde.
    *
-   * Also lieber warten, bis sich ein halber Pixel angesammelt hat, und dann
-   * einmal sauber setzen. Der Rückstand bleibt erhalten (`folgeIst` bewegt sich
-   * ja nicht), er wird im nächsten Frame mitgerechnet — die Kamera verliert
-   * nichts, sie rückt nur seltener und dafür sichtbar nach.
-   *
-   * ANMERKUNG ZUR HERKUNFT: Drei Hypothesen zum gemeldeten Zittern ließen sich
-   * mit Gegenproben NICHT bestätigen (Abbruchschwelle, Rückkopplung über
-   * `getCenter`, Marker-Drift) — in der Messung von `project()` gab es nie
-   * einen gegenläufigen Schritt. Diese Schwelle setzt deshalb nicht an einer
-   * bewiesenen Ursache an, sondern an der Bedingung, unter der jede von ihnen
-   * sichtbar würde: Bewegung unterhalb der Bildauflösung.
+   * Ausgelöst wird beim Verlassen der Zone, nachgeführt bis zur MITTE — die
+   * Hysterese ist Pflicht. Ohne sie klebte der Punkt an der Zonenkante und
+   * jedes Frame löste ein Mikro-Nachführen aus: dasselbe Zittern, nur weiter
+   * außen.
    */
-  if (schritt < 0.5) {
-    folgeRaf = requestAnimationFrame(folgeKarteTick)
+  const feld = karte.getContainer()
+  const halbeBreite = (feld.clientWidth * RUHEZONE) / 2
+  const halbeHoehe = (feld.clientHeight * RUHEZONE) / 2
+  const ausserhalb = Math.abs(dx) > halbeBreite || Math.abs(dy) > halbeHoehe
+  if (ausserhalb) folgeAktiv = true
+  // Mittig angekommen (< 2 px): Nachführen beenden und ruhen lassen.
+  else if (folgeAktiv && dist2 < 4) folgeAktiv = false
+
+  if (!folgeAktiv) {
+    if (spielt) {
+      // Im Lauf wach bleiben — der Punkt wandert weiter auf die Zonenkante zu.
+      folgeRaf = requestAnimationFrame(folgeKarteTick)
+    } else {
+      // Steht der Film, gibt es nichts zu erwarten: Kette beenden.
+      folgeZiel = null
+    }
     return
   }
 
+  // Je weiter weg, desto beherzter; nah am Ziel weich (kein Überschwingen).
+  const alpha = Math.min(0.28, 0.08 + Math.sqrt(dist2) / 500)
   const ziel = karte.unproject([von.x + dx * alpha, von.y + dy * alpha])
   folgeIst = [ziel.lng, ziel.lat]
   karte.jumpTo({ center: ziel })
@@ -6363,6 +6365,7 @@ function folgeKarteTick(): void {
 function halteKartenFolge(): void {
   folgeZiel = null
   folgeIst = null
+  folgeAktiv = false
   folgePauseBis = 0
   if (folgeRaf) {
     cancelAnimationFrame(folgeRaf)
