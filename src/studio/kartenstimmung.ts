@@ -67,6 +67,14 @@ export interface Kartenstimmung {
    * Abspielen bei Tempo 1. Dieselbe Regel wie beim Video im Editor.
    */
   setLauf(tempo: number): void
+  /**
+   * Liegt gerade eine Foto-Karte auf der Bühne?
+   *
+   * Dann tritt der Niederschlag zurück. Im Player übernimmt das der
+   * `.photo-backdrop` (Schleier plus Weichzeichner über der ganzen Szene) —
+   * hier genügt die Deckkraft, denn die Karte darunter bleibt Arbeitsfläche.
+   */
+  setFoto(liegt: boolean): void
   /** Beim Schließen der Tour: Bildschleife, Klänge und Canvas zurücknehmen. */
   zerstoere(): void
   readonly tagNachtAn: boolean
@@ -248,15 +256,23 @@ export function erzeugeKartenstimmung(karte: MapLibreMap, layer: string, buehne:
       if (neu === laeuft) return
       laeuft = neu
       partikel?.setSoundEnabled(neu)
+      // Die Klasse steuert die Sichtbarkeit (CSS blendet über 900 ms), das Gate
+      // im Overlay hält danach das Zeichnen an. Beides zusammen: Der Übergang
+      // ist weich UND die Schleife läuft nicht weiter, während man schneidet.
+      buehne.classList.toggle('wetter-laeuft', neu)
       // Das Gate liest `laeuft` selbst; ein Aufruf von `anwenden` baut das
       // Overlay nach, falls gerade zum ersten Mal abgespielt wird.
       anwenden()
+    },
+    setFoto(liegt) {
+      buehne.classList.toggle('foto-liegt', liegt)
     },
     zerstoere() {
       partikel?.zerstoere()
       partikel = null
       schleierEl?.remove()
       schleierEl = null
+      buehne.classList.remove('wetter-laeuft', 'foto-liegt')
     },
     get tagNachtAn() {
       return tagNacht

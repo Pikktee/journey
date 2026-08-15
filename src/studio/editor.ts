@@ -6434,6 +6434,10 @@ function synchronisiereFoto(): void {
   const tempo = abspieler?.tempo() ?? 0
   const stand = achse && Math.abs(tempo) <= 1 ? haltBeiFilmS(achse, kopfFilm()) : null
   const stueck = stand?.stueck ?? null
+  // Solange eine Karte liegt, tritt der Niederschlag zurück — sonst regnet es
+  // scharf über einem Foto, das die volle Aufmerksamkeit haben soll. Im Player
+  // erledigt das der `.photo-backdrop` mit Schleier und Weichzeichner.
+  stimmung?.setFoto(!!stueck)
   if (!stueck) {
     if (eingeblendet) verbergeFoto()
     return

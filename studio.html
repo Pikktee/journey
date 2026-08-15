@@ -1165,7 +1165,23 @@
        liegende Kanten. Ohne sie bliebe der Canvas 300×150 — und weil `resize()`
        die Backing-Auflösung aus der Layoutgröße rechnet, wüchse er über den
        ResizeObserver in jedem Schritt um das dpr-Fache, bis der Tab steht. */
-    #weather { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+    #weather {
+      position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none;
+      /* Der Niederschlag ist NUR beim Abspielen zu sehen. Ein eingefrorenes
+         Partikelbild ist kein Standbild, sondern ein Fehler: stehende Tropfen
+         in der Luft, die niemand als „pausiert" liest. Also blendet er aus,
+         sobald der Kopf steht oder gescrubbt wird — der Schleier trägt die
+         Auskunft dann allein. Die Sekunde Übergang deckt das Einfrieren zu,
+         das `weather.ts` intern ohnehin macht. */
+      opacity: 0;
+      transition: opacity 900ms ease;
+    }
+    .karten-buehne.wetter-laeuft #weather { opacity: 1; }
+    /* Liegt eine Foto-Karte, tritt das Wetter zurück — im Player übernimmt das
+       der `.photo-backdrop` mit Schleier und Weichzeichner, hier genügt die
+       Deckkraft: Die Karte darunter soll lesbar bleiben, ein Blur über der
+       ganzen Bühne nähme dem Editor die Arbeitsfläche. */
+    .karten-buehne.wetter-laeuft.foto-liegt #weather { opacity: 0.28; }
     /* Der Wetter-Schleier: zwei Farbflächen (und bei Nebel ein Verlauf) über
        der Karte, gesetzt als `background-image` bei jedem Kopfschritt. Ein DIV
        und kein Canvas — zu zeichnen sind Flächen, und CSS braucht dafür weder
