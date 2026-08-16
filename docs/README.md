@@ -51,7 +51,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`konzept_tempoempfinden.md`](concepts/konzept_tempoempfinden.md) — Warum sich der Film an manchen Stellen zu schnell anfühlt: drei behobene Ursachen, zwei offene Kandidaten, die Messwerkzeuge dazu.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
-* [`konzept_video_export.md`](concepts/konzept_video_export.md) — Ganze Tour als ~1-Minuten-MP4 (Share-Achse). Konzept, nichts gebaut.
+* [`konzept_video_export.md`](concepts/konzept_video_export.md) — Tour als MP4. Etappe 0 gebaut (10 s Probe). v1 ist der Film in Player-Tempo, der geraffte Clip kommt danach.
 * [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).
 
 ### 5. `mockups/` (Aktuelle Vorlagen)

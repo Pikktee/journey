@@ -21,8 +21,8 @@ Prioritäts-Hinweis aus der Session (nur Orientierung, keine Roadmap):
 ## 1. Schnell, hoher Hebel
 
 1. **Teilen als Clip** — ausgelagert nach
-   [konzept_video_export.md](konzept_video_export.md). Ganze Tour als
-   ~1-Minuten-MP4 (Zeitraffer), nicht 30 s aus der Player-Mitte.
+   [konzept_video_export.md](konzept_video_export.md). Zuerst der Film in
+   Player-Tempo, danach optional gerafft. Nicht 30 s aus der Player-Mitte.
 2. **Besucher-Modus mit Kapitel** — Scrubber zeigt benannte Halte („Strand“,
    „Pass“) statt nur km. Wenig UI, viel Orientierung für Fremde.
 3. **Erste-Tour-Zauber** — Nach Upload: 3 Defaults (Musik, Tempo, 1 Moment) +

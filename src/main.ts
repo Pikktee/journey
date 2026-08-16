@@ -2,7 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
 import type { Map as MapLibreKarte, Marker } from 'maplibre-gl'
 import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } from './tours.js'
-import { loadRemoteTour, createTimeAt, type RemoteTourCfg } from './remote.js'
+import { loadRemoteTour, ladeServerTouren, createTimeAt, type RemoteTourCfg } from './remote.js'
 import { tourAusPfad, tourPfad } from './routen.js'
 import { buildRoute, dist, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
 import { klipDauerS, standzeitS } from './einblendung.js'
@@ -18,14 +18,14 @@ import {
   type Streckenhalt,
 } from './filmachse.js'
 import { baueSBeiF } from './streckenanker.js'
-import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers } from './map.js'
+import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, KARTE_EXTRA_QUELLEN } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
 import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
 import { createWeather, type Wetteroverlay } from './weather.js'
 import { himmelBei, WETTER_HIMMEL, type SzenenWetter } from './wetterhimmel.js'
 import { createMusic, type Hintergrundmusik } from './music.js'
-import { createAudioTracks, KURATIERTER_PEGEL, type AudioSpuren } from './audiotracks.js'
+import { createAudioTracks, KURATIERTER_PEGEL, istAktiv, loopAktiv, musikVersatzS, type AudioSpuren } from './audiotracks.js'
 import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
@@ -173,6 +173,12 @@ const tourParam = ausPfad ?? params.get('tour') ?? 'kohphangan'
 // Tourliste der App bzw. im Studio. body.app blendet beides aus (style.css).
 const appModus = params.get('app') === '1'
 if (appModus) document.body.classList.add('app')
+
+// Video-Export Etappe 0: Query oder schon gesetztes `body.export`. Klasse
+// steht VOR createMap, damit der Viewport 1280×720 und preserveDrawingBuffer
+// greifen, bevor MapLibre die Zeichenfläche misst.
+const exportModus = params.get('export') === '1' || document.body.classList.contains('export')
+if (exportModus) document.body.classList.add('export')
 
 // — Verfügbare Viewport-Höhe als CSS-Variable —
 // Die Foto-Karte bemisst sich daran (--photo-h in style.css). CSS-Einheiten
@@ -508,7 +514,13 @@ if (!appModus) {
   }
 }
 
-const map = createMap('map', [start[0], start[1]])
+const map = createMap(
+  'map',
+  [start[0], start[1]],
+  // 1,5× auf 720p = 1080p-Framebuffer, unter dem 5-MP-Deckel. 1× ließ das
+  // Satellitenraster weich; 2× wäre der verbotene 1080p-Hochzug aus Konzept §8.7.
+  exportModus ? { preserveDrawingBuffer: true, pixelRatio: 1.5 } : {},
+)
 Object.assign(window.__j, { map, route, tourAudio })
 
 // Boot-Screen sanft ausblenden, sobald die Karte da ist. 'idle' gibt das
@@ -638,6 +650,8 @@ map.on('load', () => {
   // Pausen, längstes Frame) sind der Blick darauf, was auf einem langsamen
   // Gerät tatsächlich passiert — sichtbar in der Konsole statt still.
   Object.assign(window.__j, { tour, rider, uhr: tour.uhr })
+  // Export: Intro-Orbit aus, Kamera auf Filmsekunde 0, bevor der Encoder startet.
+  if (exportModus) tour.stelleExportFrame(0, 0.9, true)
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
   // Keyframes, beim Laden EINMAL in Filmsekunden übersetzt (E10) — aus `filmS`,
@@ -663,7 +677,7 @@ map.on('load', () => {
     const defaultPreset = document.querySelector<HTMLElement>('.preset-btn.active')?.dataset.preset ?? 'mittel'
     let kamAktiv: string | null = null // zuletzt angewendete Preset+Skala-Kennung (gegen Dauer-Reapply)
     kamFolger = (filmS) => {
-      if (kamManuell) return
+      if (exportModus || kamManuell) return
       // Lineare Suche reicht (≤100 Einträge) und übersteht Rückwärts/Sprünge
       let k: { filmS: number; preset: string; skala?: number } | null = null
       for (const kf of keyframes) if (kf.filmS <= filmS) k = kf
@@ -1321,6 +1335,7 @@ map.on('load', () => {
 
   // Tastatursteuerung des Players (wie in Videoschnitt-Software)
   window.addEventListener('keydown', (e) => {
+    if (exportModus) return
     // In Textfeldern (z. B. Google-Key-Dialog) nichts abfangen
     if (istTextfeld(e.target)) return
     if (tour.phase === 'intro') return // vor dem Start hat der Player keine Tasten
@@ -1359,6 +1374,51 @@ map.on('load', () => {
         break
     }
   })
+
+  // Video-Export Etappe 0: ~10 s steppen, MP4 herunterladen. Kein Studio-Blatt.
+  if (exportModus) {
+    void (async () => {
+      const { baueExportStand, fuehreExportAus, istEigeneBereiteTour, EXPORT_DAUER_S } = await import(
+        './exportfilm.js'
+      )
+      const stand = baueExportStand()
+      const liste = await ladeServerTouren()
+      if (!remoteCfg || !istEigeneBereiteTour(tourParam, liste)) {
+        stand.textContent = 'Export nur für eigene, fertige Touren.'
+        return
+      }
+      const spur = audioSpuren?.find((a) => a.type === 'music' && istAktiv(a, 0.05))
+      const clipS = Math.min(EXPORT_DAUER_S, tour.film.gesamtS)
+      await fuehreExportAus({
+        map,
+        tour,
+        titel: remoteCfg.brandTitle || cfg.kicker,
+        stand,
+        extraQuellen: KARTE_EXTRA_QUELLEN,
+        reiter: rider,
+        ...(window.__j.eleReady ? { hoehenBereit: window.__j.eleReady } : {}),
+        ...(spur?.src
+          ? {
+              musik: {
+                src: spur.src,
+                vonS: musikVersatzS(0.05 - spur.filmVonS, 0, spur.startS ?? 0, loopAktiv(spur)),
+                dauerS: clipS,
+                gain: (spur.gain ?? 1) * (cfg.audioPegel ?? KURATIERTER_PEGEL),
+              },
+            }
+          : hatEigeneMusik
+            ? {}
+            : {
+                musik: {
+                  src: '/audio/ambient.mp3',
+                  vonS: 0,
+                  dauerS: clipS,
+                  gain: 0.16,
+                },
+              }),
+      })
+    })()
+  }
 })
 
 /** Tastendrücke in Eingabefeldern gehören dem Feld, nicht dem Player. */

@@ -1657,6 +1657,61 @@ body.app .app-exit {
   display: inline-flex;
 }
 
+/* Video-Export Etappe 0: fester 720p-Viewport, Chrome aus, nur Stand-Schild. */
+html:has(body.export),
+body.export {
+  width: 1280px;
+  height: 720px;
+}
+
+body.export #map {
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 720px;
+}
+
+body.export .zurueck,
+body.export .intro,
+body.export .dock,
+body.export .photo-layer,
+body.export .finale,
+body.export .karten-info,
+body.export .next-stop,
+body.export .cine,
+body.export .vignette,
+body.export .grain,
+body.export .blink,
+body.export #boot,
+body.export #atmosphere,
+body.export #weather,
+body.export #farblur,
+body.export .rider {
+  display: none !important;
+}
+
+.export-stand {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+  padding: 10px 14px;
+  border-radius: var(--radius-karte);
+  background: var(--glas);
+  border: 1px solid var(--glas-rand);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+body.export .export-stand {
+  display: block;
+}
+
 /* — Bewegung reduzieren — respektiert die System-Einstellung: die kinematischen
    Animationen (Reveal, Ken-Burns, Puls, Dock-Slide) werden still/gesetzt, die
    Inhalte bleiben aber sichtbar (kein „unsichtbar, weil animation-start"). */

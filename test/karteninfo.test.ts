@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sammleQuellen } from '../src/karteninfo'
+import { sammleQuellen, htmlAlsText, quellenAlsText, quellenAlsEinbrand } from '../src/karteninfo'
 
 describe('sammleQuellen', () => {
   it('nennt jede Quelle mit Attribution — auch eine unbekannte', () => {
@@ -34,5 +34,30 @@ describe('sammleQuellen', () => {
       { rolle: 'Wetter', html: 'Open-Meteo' },
     ])
     expect(quellen.at(-1)).toEqual({ rolle: 'Wetter', html: 'Open-Meteo' })
+  })
+})
+
+describe('htmlAlsText / quellenAlsText', () => {
+  it('nimmt Tags und Entities aus der Rechtezeile', () => {
+    expect(htmlAlsText('© <a href="https://www.esri.com/">Esri</a>, Maxar')).toBe('© Esri, Maxar')
+    expect(htmlAlsText('A &amp; B&nbsp;&lt;C&gt; &copy;')).toBe('A & B <C> ©')
+  })
+
+  it('setzt Rolle und Rechte in eine Einbrand-Zeile', () => {
+    expect(
+      quellenAlsText([
+        { rolle: 'Satellitenbild', html: '© <a href="#">Esri</a>' },
+        { rolle: 'Routen', html: 'OpenStreetMap' },
+      ]),
+    ).toBe('Satellitenbild: © Esri · Routen: OpenStreetMap')
+  })
+
+  it('lässt die Rollen im Clip-Einbrand weg', () => {
+    expect(
+      quellenAlsEinbrand([
+        { rolle: 'Satellitenbild', html: '© <a href="#">Esri</a>' },
+        { rolle: 'Routen', html: 'OpenStreetMap' },
+      ]),
+    ).toBe('© Esri · OpenStreetMap')
   })
 })

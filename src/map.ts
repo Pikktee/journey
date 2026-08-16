@@ -9,8 +9,28 @@ import maplibregl, {
 } from 'maplibre-gl'
 import { indexAt, type Route } from './geo.js'
 import { registerDemClean } from './demclean.js'
-import { createKartenInfo } from './karteninfo.js'
+import { createKartenInfo, type Datenquelle } from './karteninfo.js'
 import type { Modus } from './tours.js'
+
+/**
+ * Quellen ohne Kachel im Stil: Routing ist ein abgeleitetes OSM-Werk, Open-Meteo
+ * die Lizenzbedingung des Auto-Wetters. Dieselbe Liste hängt am ⓘ-Popup und
+ * geht in den Video-Einbrand (Etappe 0).
+ */
+export const KARTE_EXTRA_QUELLEN: readonly Datenquelle[] = [
+  {
+    rolle: 'Routen',
+    html: 'Routing © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · ODbL',
+  },
+  { rolle: 'Wetter', html: '<a href="https://open-meteo.com/">Open-Meteo</a> · CC BY 4.0' },
+]
+
+/** Optionen nur für den Export-Lauf: fester Viewport, Canvas bleibt lesbar. */
+export interface KartenOptionen {
+  preserveDrawingBuffer?: boolean
+  /** Fehlt: `targetPixelRatio()`. Export setzt 1, sonst zieht 1080p auf 2×. */
+  pixelRatio?: number
+}
 
 export const EXAGGERATION = 1.35
 
@@ -83,7 +103,12 @@ export function overlayPixelRatio() {
   return COARSE ? 1 : targetPixelRatio()
 }
 
-export function createMap(container: HTMLElement | string, center: LngLatLike): MapLibreMap {
+export function createMap(
+  container: HTMLElement | string,
+  center: LngLatLike,
+  optionen: KartenOptionen = {},
+): MapLibreMap {
+  const festesPixelRatio = optionen.pixelRatio != null
   const map = new maplibregl.Map({
     container,
     center,
@@ -115,7 +140,11 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
     // 4K und schwächere GPUs unter der 60→30-fps-Füllraten-Klippe, ohne kleine Fenster
     // anzutasten. pixelRatio skaliert MapLibres GESAMTE Pipeline (Raster-Decode, Terrain-
     // Mesh, readPixels-Tiefenpuffer, Fill), die im Profil ~72–90 % der Frame-Zeit trägt.
-    pixelRatio: targetPixelRatio(),
+    pixelRatio: optionen.pixelRatio ?? targetPixelRatio(),
+    // Nur im Export: sonst ist drawImage(mapCanvas) leer (Konzept Video-Export §6).
+    ...(optionen.preserveDrawingBuffer
+      ? { canvasContextAttributes: { preserveDrawingBuffer: true } }
+      : {}),
     // Mehr Zoomstufen im Tile-Cache halten: bei schnellen Zooms (Preset-Wechsel,
     // Foto-Sprünge) sind Eltern-/Kind-Tiles dann oft noch da statt neu zu laden
     maxTileCacheZoomLevels: 7,
@@ -189,25 +218,22 @@ export function createMap(container: HTMLElement | string, center: LngLatLike): 
   // abgeleitetes Werk — die ODbL verlangt die Nennung unabhängig davon, ob gerade
   // OSM-Kacheln geladen werden. Seit die Gebäude-Ebene (OpenFreeMap) entfallen ist,
   // gäbe es sonst gar keine OSM-Nennung mehr.
-  createKartenInfo(map, [
-    {
-      rolle: 'Routen',
-      html: 'Routing © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · ODbL',
-    },
-    { rolle: 'Wetter', html: '<a href="https://open-meteo.com/">Open-Meteo</a> · CC BY 4.0' },
-  ])
+  createKartenInfo(map, KARTE_EXTRA_QUELLEN)
   // Pixelbudget beim Fenster-Resize neu einregeln: Aufziehen von klein → 4K-Vollbild
   // würde sonst die Zeichenfläche über die Füllraten-Klippe treiben (pixelRatio bleibt
   // bei MapLibre über Resizes konstant). Gedrosselt + Schwellwert, damit das Ziehen am
   // Fensterrand keinen Dauer-Realloc des Framebuffers auslöst.
-  let prTimer: ReturnType<typeof setTimeout> | undefined
-  window.addEventListener('resize', () => {
-    clearTimeout(prTimer)
-    prTimer = setTimeout(() => {
-      const pr = targetPixelRatio()
-      if (Math.abs(map.getPixelRatio() - pr) > 0.05) map.setPixelRatio(pr)
-    }, 250)
-  })
+  // Export sperrt die Ratio auf 1: ein Resize darf 720p nicht auf 2× ziehen.
+  if (!festesPixelRatio) {
+    let prTimer: ReturnType<typeof setTimeout> | undefined
+    window.addEventListener('resize', () => {
+      clearTimeout(prTimer)
+      prTimer = setTimeout(() => {
+        const pr = targetPixelRatio()
+        if (Math.abs(map.getPixelRatio() - pr) > 0.05) map.setPixelRatio(pr)
+      }, 250)
+    })
+  }
   return map
 }
 

@@ -521,7 +521,7 @@ export class Tour {
    * Einzelbild und der laufende Film gehen alle hier durch. Sonst gäbe es
    * wieder Zustände, in denen `s` und `filmS` verschiedene Dinge behaupten.
    */
-  private setzeFilm(filmS: number): void {
+  setzeFilm(filmS: number): void {
     this.filmS = Math.max(0, Math.min(this.film.gesamtS, filmS))
     this.s = this.film.sBeiFilm(this.filmS)
     // Auch beim Scrubben: „Im Halt" ist ein ZUSTAND der Kurve und kein
@@ -833,23 +833,30 @@ export class Tour {
   // Ideale Fahrt-Pose (Kameraposition + Blickpunkt) für Streckenmeter s berechnen,
   // OHNE etwas zu setzen. Spiegelt bewusst die Rahmung des else-Zweigs in update().
   // Geteilt vom harten Snap und vom weichen Scrub-Schwenk.
-  _ridePose(s: number): Fahrtpose {
+  _ridePose(
+    s: number,
+    course = bearingAt(this.route, s),
+    opt?: { sc?: Kameradistanz; k?: number; gelaendeDeckel?: boolean },
+  ): Fahrtpose {
     const { route, preset } = this
     const rider = pointAt(route, s)
-    const course = bearingAt(route, s)
     const backDir = this.yawedBackDir(course) // Golden Hour: zur Sonne eindrehen (Pause/Scrub konsistent)
     const riderG = this.groundAlt([rider[0], rider[1]], rider[2])
-    const sc = this.film.skalaBeiS(s)
+    const sc = opt?.sc ?? this.film.skalaBeiS(s)
     const behind = preset.behind * sc.behind
     const hover = preset.hover * sc.hover
-    let k = 1
-    while (k > 0.4) {
-      const cand = destination([rider[0], rider[1]], behind * k, backDir)
-      if (this.groundAlt(cand, rider[2]) + 110 <= riderG + hover * k) break
-      k -= 0.12
+    let k = opt?.k ?? 1
+    if (opt?.k == null) {
+      while (k > 0.4) {
+        const cand = destination([rider[0], rider[1]], behind * k, backDir)
+        if (this.groundAlt(cand, rider[2]) + 110 <= riderG + hover * k) break
+        k -= 0.12
+      }
     }
     const cgPos = destination([rider[0], rider[1]], behind * k, backDir)
-    const alt = Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110)
+    const alt = opt?.gelaendeDeckel === false
+      ? riderG + hover * k
+      : Math.max(riderG + hover * k, this.groundAlt(cgPos, rider[2]) + 110)
     return {
       course, sc, k,
       cg: cgPos,
@@ -859,10 +866,13 @@ export class Tour {
     }
   }
 
-  // Fahrt-Kamera für this.s ohne Glättung setzen (harter Snap), nur mit .set().
-  _snapRideCamera(): void {
-    const p = this._ridePose(this.s)
-    this.course = p.course
+  // Fahrt-Kamera für this.s ohne Smooth-Rest setzen (harter Snap), nur mit .set().
+  // `course` mitgeben: den geglätteten Kurs halten (Export). Fehlt er, gilt der
+  // Rohkurs der Stelle, wie Seek und Einzelbild ihn wollen.
+  _snapRideCamera(course?: number): void {
+    const kurs = course ?? bearingAt(this.route, this.s)
+    const p = this._ridePose(this.s, kurs)
+    this.course = kurs
     this.scaleSm.set(p.sc.behind)
     this.hoverSm.set(p.sc.hover)
     this.tuck.set(p.k)
@@ -874,6 +884,64 @@ export class Tour {
     this.ltAlt.set(p.ltAlt)
     this.glide = 1
     this.applyCamera()
+  }
+
+  /**
+   * Eine Filmsekunde für den Encoder.
+   *
+   * `hart` nur zum Einschwingen (Intro-Orbit → Startpose). Danach folgt die
+   * Kamera derselben Smooth-Pipeline wie die Fahrt, mit längeren taus: DEM-
+   * Kacheln und GPS-Ecken dürfen das Bild nicht zum Wackeln bringen. Tuck und
+   * Geländedeckel bleiben aus. Ein Hang im Rücken zog sonst in einem Frame an.
+   */
+  stelleExportFrame(filmS: number, skalaMin = 0.9, hart = false): void {
+    if (this.phase === 'intro') this.ui.hideIntro()
+    if (this.phase === 'finale') this.ui.hideFinale()
+    this.phase = 'ride'
+    this.playing = false
+    this.scrubbing = false
+    this.repose = false
+    this.reposeTween = null
+    const dt = Math.abs(filmS - this.filmS)
+    this.setzeFilm(filmS)
+    const sc = this.film.skalaBeiS(this.s)
+    const geklemmt = {
+      behind: Math.max(sc.behind, skalaMin),
+      hover: Math.max(sc.hover, skalaMin),
+    }
+    if (hart) {
+      this.course = bearingAt(this.route, this.s)
+    } else if (dt > 1e-4) {
+      this.course += angleDelta(this.course, bearingAt(this.route, this.s)) * (1 - Math.exp(-dt / 3.6))
+    }
+    this.tuck.set(1)
+    const p = this._ridePose(this.s, this.course, { sc: geklemmt, k: 1, gelaendeDeckel: false })
+    this.scaleSm.set(p.sc.behind)
+    this.hoverSm.set(p.sc.hover)
+    this.glide = 1
+    if (hart) {
+      this.cg.lng.set(p.cg[0])
+      this.cg.lat.set(p.cg[1])
+      this.alt.set(p.alt)
+      this.lt.lng.set(p.lt[0])
+      this.lt.lat.set(p.lt[1])
+      this.ltAlt.set(p.ltAlt)
+    } else if (dt > 1e-4) {
+      const d = dt
+      this.cg.lng.to(p.cg[0], d, 3.2)
+      this.cg.lat.to(p.cg[1], d, 3.2)
+      this.alt.to(p.alt, d, 4.2)
+      this.lt.lng.to(p.lt[0], d, 0.8)
+      this.lt.lat.to(p.lt[1], d, 0.8)
+      this.ltAlt.to(p.ltAlt, d, 1.1)
+    }
+    this.applyCamera()
+    this.settled = true
+    this.camSnap = this._camNow()
+    this.synchronisiereKarte(this.halt)
+    this.ui.updateTrace(this.s, pointAt(this.route, this.s))
+    this.ui.syncDots(this.s)
+    this.emitStats()
   }
 
   // Kurzer, zeitbasierter Kameraschwenk auf die ideale Fahrt-Pose der aktuellen

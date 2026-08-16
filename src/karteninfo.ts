@@ -60,6 +60,35 @@ export function sammleQuellen(
   return aus
 }
 
+/** HTML-Rechtezeile zu reinem Text (für eingebrannte Attribution im Export). */
+export function htmlAlsText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&copy;/g, '©')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Eine Zeile für den Einbrand: Rolle und Rechte, durch Punkte getrennt.
+ * Dieselben Felder wie das Popup, ohne Markup.
+ */
+export function quellenAlsText(quellen: readonly Datenquelle[]): string {
+  return quellen.map((q) => `${q.rolle}: ${htmlAlsText(q.html)}`).join(' · ')
+}
+
+/**
+ * Einbrand ohne Rollen-Präfix: im Clip zählt der Rechteinhaber, nicht die
+ * Zeilenüberschrift des Popups. Kürzer, dieselben Quellen.
+ */
+export function quellenAlsEinbrand(quellen: readonly Datenquelle[]): string {
+  return quellen.map((q) => htmlAlsText(q.html)).join(' · ')
+}
+
 const ICON =
   '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" ' +
   'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
