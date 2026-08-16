@@ -6,13 +6,13 @@ verloren gehen. Was sich lohnt, wird später zu einem eigenen Konzeptpapier
 (wie `foto-tour.md`, `editor-ausbau.md`, …).
 
 **Nicht doppelt führen:** Tracker-Integrationen, Foto-Tour ohne GPX, Reisen/
-Sammlungen, Editor-Ausbau, Social Login, Play Store, i18n, Newsletter Teil B
-und Modi-Konsolidierung haben bereits eigene Dateien unter `docs/concepts/`.
-Hier stehen nur Ideen *neben* diesen Papieren.
+Sammlungen, Editor-Ausbau, Social Login, Play Store, i18n, Newsletter Teil B,
+Modi-Konsolidierung, Live mitverfolgen und Video-Export haben bereits eigene
+Dateien unter `docs/concepts/`. Hier stehen nur Ideen *neben* diesen Papieren.
 
 Prioritäts-Hinweis aus der Session (nur Orientierung, keine Roadmap):
 
-- Mehr fertige, geteilte Touren → Clip-Export, Erste-Tour-Zauber, Kapitel-Scrubber
+- Mehr fertige, geteilte Touren → Clip-Export (eigenes Konzept) + Erste-Tour-Zauber, Kapitel-Scrubber
 - Moat gegen Relive → Tracker (eigenes Konzept) + Gemeinsame Fahrt + Offline-Paket
 - Studio als Kreativwerkzeug → Editor-Ausbau (eigenes Konzept) + Stimme + Blickziel
 
@@ -20,9 +20,9 @@ Prioritäts-Hinweis aus der Session (nur Orientierung, keine Roadmap):
 
 ## 1. Schnell, hoher Hebel
 
-1. **Teilen als Clip** — 15–30 s Auto-Export (Intro → ein Foto-Orbit → Finale)
-   als stummes/vertontes MP4 für Stories. Relive gewinnt oft über WhatsApp/
-   Instagram, nicht über den Player-Link.
+1. **Teilen als Clip** — ausgelagert nach
+   [konzept_video_export.md](konzept_video_export.md). Ganze Tour als
+   ~1-Minuten-MP4 (Zeitraffer), nicht 30 s aus der Player-Mitte.
 2. **Besucher-Modus mit Kapitel** — Scrubber zeigt benannte Halte („Strand“,
    „Pass“) statt nur km. Wenig UI, viel Orientierung für Fremde.
 3. **Erste-Tour-Zauber** — Nach Upload: 3 Defaults (Musik, Tempo, 1 Moment) +
