@@ -272,16 +272,24 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   Ablauf: Auf der wartenden Karte steht „wartet auf …", auf der anderen
   „blockiert …". Notiert wird nur die eine Richtung, die andere leitet der
   Viewer ab — zwei gepflegte Angaben liefen beim ersten Umplanen auseinander.
-* **Die Reihenfolge in einer Phase ist eine Rangfolge** und lässt sich durch
-  ZIEHEN ändern (nur mit Dev-Server). Zwei Pfeilknöpfe standen dort zuerst — sie
-  überlagerten das × und waren drei Griffe für eine Geste. Gezogen wird nur
-  innerhalb einer Phase: Ein Zug in die Nachbarspalte wäre ein Phasenwechsel und
-  würde stillschweigend die Verbindlichkeit ändern, dafür gibt es das Menü.
-  Sortiert wird live im DOM, geschrieben EINMAL am Ende der Geste — ein Aufruf je
-  überfahrenem Nachbar wären zehn Anfragen und zehn Neubauten für einen Zug.
-  Was die Seite nicht mitschickt, behält seine Lage am Ende: So kann eine
-  veraltete Ansicht die Datei nicht leer räumen. Auf Touch-Geräten gibt es die
-  Geste nicht (HTML5-Ziehen kennt keine Berührung); die Datei bleibt der Weg.
+* **Die Reihenfolge in einer Phase ist eine Rangfolge** und lässt sich am GRIFF
+  links der Karte ziehen (nur mit Dev-Server, Maus/Finger/Stift über
+  Pointer-Events); die Pfeiltasten verschieben um einen Platz, Esc bricht ab und
+  stellt die alte Ordnung wieder her. Die Liste sortiert sich dabei LIVE um, die
+  Nachbarn rücken weich (FLIP) — die Lücke ist die Vorschau und braucht keine
+  zweite Erklärung. Drei Fassungen davor sind gescheitert: zwei Pfeilknöpfe je
+  Karte (überlagerten das ×), HTML5-`draggable` (Geisterbild des Browsers, keine
+  Berührung, kein sichtbarer Griff) und eine Einfüge-Linie bei stehender Liste
+  (die Lücke blieb am alten Platz). Gezogen wird nur innerhalb einer Phase: Ein
+  Zug in die Nachbarspalte wäre ein Phasenwechsel und würde stillschweigend die
+  Verbindlichkeit ändern — dafür gibt es das Menü. Geschrieben wird EINMAL beim
+  Loslassen, und was die Seite nicht mitschickt, behält seine Lage am Ende: So
+  kann eine veraltete Ansicht die Datei nicht leer räumen.
+  Zwei Fallen in der Mechanik, beide gemessen: Beim Umsortieren wandert die
+  LAYOUT-Position der gezogenen Karte, das muss auf `startY` — ohne Ausgleich
+  rutscht sie unter dem Finger weg, mit doppeltem pendelt sie zwischen zwei
+  Plätzen. Und eine feste Breite auf der gehobenen Karte ist genau der Fehler,
+  den sie verhindern soll: Sie fiel damit auf 90 px zusammen.
 * **Kein Fortschrittsbalken, und das ist gemessen:** Von den 17 Einträgen hat
   genau EINER Etappen-Überschriften, aus denen sich zählen ließe, und dort
   tragen zwei von vier keine Marke „gebaut/offen". Ein Balken wäre bei keinem

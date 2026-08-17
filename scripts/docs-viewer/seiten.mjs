@@ -567,10 +567,16 @@ function roadmapAbschnitt(roadmap, bereiche) {
         `<span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(status)}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span>`,
       )
 
-    // Ziehbar, damit sich die Rangfolge dort ändern lässt, wo man sie sieht.
-    // Zwei Pfeilknöpfe standen hier vorher — sie überlagerten das × und waren
-    // drei Griffe für eine Geste.
-    return `<li draggable="true" data-datei="${escape(e.quelle)}"${widerspruch ? ' class="widerspruch"' : ''}>
+    // Der GRIFF macht sichtbar, dass die Rangfolge veränderbar ist. Ohne ihn
+    // war die Karte ziehbar und niemand konnte es wissen; mit ihm ist es eine
+    // Einladung. Er ist ein Knopf, damit ihn die Tastatur auch erreicht.
+    const griff =
+      stufe <= 1
+        ? `<button type="button" class="rm-griff" data-rm-griff aria-label="Verschieben (Pfeiltasten)" title="Ziehen oder mit den Pfeiltasten verschieben"><i></i><i></i><i></i></button>`
+        : ''
+
+    return `<li data-datei="${escape(e.quelle)}"${widerspruch ? ' class="widerspruch"' : ''}>
+      ${griff}
       <a class="rm-ziel" href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}${
         status ? ` title="${escape(status)}"` : ''
       }>

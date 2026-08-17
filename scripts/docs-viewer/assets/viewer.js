@@ -686,64 +686,117 @@
 
     /* ── Rangfolge ziehen ────────────────────────────────────────────────
      * Die Reihenfolge in einer Phase ist eine Rangfolge, und sie wird dort
-     * geändert, wo man sie sieht. Vorher standen zwei Pfeilknöpfe an jeder
-     * Karte: Sie überlagerten das × und waren drei Griffe für eine Geste.
+     * geändert, wo man sie sieht.
      *
-     * Gezogen wird nur INNERHALB einer Phase. Ein Zug in die Nachbarspalte wäre
-     * ein Phasenwechsel und würde stillschweigend die Verbindlichkeit ändern —
-     * dafür gibt es das Menü, das die Phase beim Namen nennt.
+     * DREI FASSUNGEN VORHER, und jede scheiterte an etwas anderem: zwei
+     * Pfeilknöpfe je Karte (sie überlagerten das × und waren drei Griffe für
+     * eine Geste); HTML5-`draggable` (das Geisterbild gehört dem Browser, es
+     * kennt keine Berührung, und ohne Griff war die Karte ziehbar, ohne dass
+     * jemand es wissen konnte); dann eine Einfüge-LINIE bei stehender Liste —
+     * die Lücke blieb dabei am alten Platz, und die Karte schwebte über einem
+     * Loch, das nichts erklärte.
      *
-     * Sortiert wird live im DOM, gespeichert wird EINMAL am Ende der Geste: Ein
-     * Aufruf je überfahrenem Nachbar wären zehn Anfragen und zehn Neubauten für
-     * einen Zug.
+     * Jetzt sortiert die Liste LIVE um: Die Nachbarn machen Platz, und die
+     * Lücke ist die Vorschau. Das ist die Bewegung, die man von Notion und
+     * Linear kennt, und sie braucht keine zweite Erklärung neben sich.
+     *
+     * Vier Dinge, an denen so eine Geste stirbt:
+     *
+     * 1. Beim Umsortieren SPRINGT der Bezugspunkt. Die Karte bleibt im Fluss,
+     *    also ändert sich ihre Layout-Position — ohne Ausgleich (`startY`)
+     *    rutscht sie unter dem Finger weg. Gemessen wird vor und nach dem
+     *    Umhängen, die Differenz geht in den Startpunkt.
+     * 2. Der Nachbar würde ohne FLIP hart umspringen: erst die alte Position
+     *    merken, nach dem Umhängen die Differenz als `transform` setzen und
+     *    die dann auf null animieren.
+     * 3. `touch-action: none` am Griff ist die Bedingung dafür, dass ein Finger
+     *    zieht statt zu scrollen.
+     * 4. Geschrieben wird EINMAL beim Loslassen — nicht je überfahrenem
+     *    Nachbar, das wären zehn Anfragen und zehn Neubauten für einen Zug.
      */
     ;[].slice.call(document.querySelectorAll('.rm-liste[data-phase]')).forEach(function (liste) {
-      var gezogen = null
-      var vorher = ''
+      var zug = null
 
-      var reihenfolge = function () {
-        return [].slice.call(liste.children).map(function (li) {
-          return li.getAttribute('data-datei')
+      var karten = function () {
+        return [].slice.call(liste.children).filter(function (k) {
+          return k.tagName === 'LI'
         })
       }
 
-      liste.addEventListener('dragstart', function (e) {
-        var li = e.target.closest('li')
-        if (!li || li.parentElement !== liste) return
-        gezogen = li
-        vorher = reihenfolge().join('|')
-        li.classList.add('zieht')
-        // Ohne gesetzte Daten bricht Firefox die Geste sofort ab.
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', li.getAttribute('data-datei') || '')
+      /* Der Nachbar rückt weich an seinen neuen Platz: alte Lage merken, nach
+         dem Umhängen die Differenz zurückstellen, dann auf null laufen lassen. */
+      var ruecke = function (el, vorherOben) {
+        var delta = vorherOben - el.getBoundingClientRect().top
+        if (!delta) return
+        el.style.transition = 'none'
+        el.style.transform = 'translateY(' + delta + 'px)'
+        // Ein erzwungenes Neuberechnen, sonst fasst der Browser beide
+        // Zuweisungen zusammen und es gibt keine Bewegung zu sehen.
+        void el.offsetHeight
+        el.style.transition = 'transform 0.16s ease'
+        el.style.transform = ''
+      }
+
+      var sortiere = function (y) {
+        var alle = karten()
+        var eigene = alle.indexOf(zug.karte)
+        var kasten = zug.karte.getBoundingClientRect()
+        var mitte = kasten.top + kasten.height / 2
+
+        for (var i = 0; i < alle.length; i++) {
+          if (alle[i] === zug.karte) continue
+          var nachbar = alle[i].getBoundingClientRect()
+          var nachOben = i < eigene && mitte < nachbar.top + nachbar.height / 2
+          var nachUnten = i > eigene && mitte > nachbar.top + nachbar.height / 2
+          if (!nachOben && !nachUnten) continue
+
+          var lageNachbar = nachbar.top
+          var lageEigene = kasten.top
+          liste.insertBefore(zug.karte, nachOben ? alle[i] : alle[i].nextSibling)
+          /* (1) Der eigene Bezugspunkt wandert mit dem Umhängen.
+           *
+           * Beide Messungen enthalten dasselbe `transform`, ihre Differenz ist
+           * also genau die Verschiebung der LAYOUT-Position. Sie kommt auf
+           * `startY`, damit die Karte optisch stehen bleibt. Ein zusätzliches
+           * `+ dy` zählte die Bewegung doppelt — die Karte sprang dann pro
+           * Zeigerbewegung hin und zurück und pendelte zwischen zwei Plätzen. */
+          zug.startY += zug.karte.getBoundingClientRect().top - lageEigene
+          zug.dy = y - zug.startY
+          zug.karte.style.transform = 'translateY(' + zug.dy + 'px)'
+          // (2) Der Nachbar bewegt sich sichtbar dorthin, wo er jetzt steht.
+          ruecke(alle[i], lageNachbar)
+          zug.geaendert = true
+          return
         }
-      })
+      }
 
-      liste.addEventListener('dragover', function (e) {
-        if (!gezogen) return
-        e.preventDefault()
-        var ziel = e.target.closest('li')
-        if (!ziel || ziel === gezogen || ziel.parentElement !== liste) return
-        // Über der Mitte davor einsortieren, darunter dahinter — sonst springt
-        // der Eintrag beim Überfahren hin und her.
-        var kasten = ziel.getBoundingClientRect()
-        var davor = e.clientY < kasten.top + kasten.height / 2
-        liste.insertBefore(gezogen, davor ? ziel : ziel.nextSibling)
-      })
+      var beende = function (abbrechen) {
+        if (!zug) return
+        var k = zug.karte
+        var geaendert = zug.geaendert
+        var urspruenglich = zug.urspruenglich
+        k.classList.remove('greift')
+        k.style.transform = ''
+        document.body.classList.remove('zieht-gerade')
+        zug = null
 
-      liste.addEventListener('drop', function (e) {
-        e.preventDefault()
-      })
+        if (abbrechen) {
+          // Wirklich abbrechen heißt: die alte Ordnung wiederherstellen, nicht
+          // nur die Karte fallen lassen.
+          if (geaendert) urspruenglich.forEach(function (li) { liste.appendChild(li) })
+          return
+        }
+        if (geaendert) speichere()
+      }
 
-      liste.addEventListener('dragend', function () {
-        if (!gezogen) return
-        gezogen.classList.remove('zieht')
-        gezogen = null
-        var jetzt = reihenfolge()
-        if (jetzt.join('|') === vorher) return
+      var speichere = function () {
         melde('Reihenfolge …')
-        ruf('roadmap-ordnen', { phase: liste.getAttribute('data-phase'), reihenfolge: jetzt })
+        ruf('roadmap-ordnen', {
+          phase: liste.getAttribute('data-phase'),
+          reihenfolge: karten().map(function (li) {
+            return li.getAttribute('data-datei')
+          }),
+        })
           .then(function (a) {
             melde(a.meldung)
           })
@@ -751,6 +804,60 @@
             melde(f.message, true)
             location.reload()
           })
+      }
+
+      ;[].slice.call(liste.querySelectorAll('[data-rm-griff]')).forEach(function (griff) {
+        var karte = griff.closest('li')
+
+        griff.addEventListener('pointerdown', function (e) {
+          if (e.button !== undefined && e.button !== 0) return
+          e.preventDefault()
+          zug = {
+            karte: karte,
+            startY: e.clientY,
+            dy: 0,
+            geaendert: false,
+            urspruenglich: karten(),
+          }
+          karte.classList.add('greift')
+          document.body.classList.add('zieht-gerade')
+          if (griff.setPointerCapture) griff.setPointerCapture(e.pointerId)
+        })
+
+        griff.addEventListener('pointermove', function (e) {
+          if (!zug || zug.karte !== karte) return
+          e.preventDefault()
+          zug.dy = e.clientY - zug.startY
+          karte.style.transform = 'translateY(' + zug.dy + 'px)'
+          sortiere(e.clientY)
+        })
+
+        griff.addEventListener('pointerup', function () {
+          beende(false)
+        })
+        griff.addEventListener('pointercancel', function () {
+          beende(true)
+        })
+
+        /* Die Tastatur bewegt um einen Platz — derselbe Weg, dieselbe Rückgabe.
+           Ein Griff, der ein Knopf ist, muss auch ohne Zeiger bedienbar sein. */
+        griff.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+          e.preventDefault()
+          var alle = karten()
+          var i = alle.indexOf(karte)
+          var j = i + (e.key === 'ArrowUp' ? -1 : 1)
+          if (j < 0 || j >= alle.length) return melde('Steht schon am Rand seiner Phase')
+          var lage = alle[j].getBoundingClientRect().top
+          liste.insertBefore(karte, e.key === 'ArrowUp' ? alle[j] : alle[j].nextSibling)
+          ruecke(alle[j], lage)
+          griff.focus()
+          speichere()
+        })
+      })
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && zug) beende(true)
       })
     })
 

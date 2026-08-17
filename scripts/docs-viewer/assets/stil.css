@@ -2087,16 +2087,65 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .rm-marke .rm-weg { position: static; margin: 0 5px 0 2px; opacity: 0; }
 .mit-dienst .rm-marke:hover .rm-weg { opacity: 1; }
 
-/* Ziehen statt Pfeile: EIN Griff für eine Geste. Zwei Pfeilknöpfe lagen vorher
-   neben dem × und überlagerten es sogar — drei absolut positionierte Knöpfe auf
-   20 px Breite. */
-.mit-dienst .rm-liste[data-phase] li { cursor: grab; }
-.mit-dienst .rm-liste[data-phase] li:active { cursor: grabbing; }
-.rm-liste li.zieht {
-  opacity: 0.45;
-  /* Der gezogene Eintrag bleibt sichtbar, aber erkennbar in Bewegung — ein
-     ausgeblendeter hinterlässt eine Lücke, in der man die Einfügestelle
-     erraten müsste. */
-  outline: 1px dashed var(--rand-hell);
-  outline-offset: 2px;
+/* ── Rangfolge ziehen ─────────────────────────────────────────────────────
+ * Ein sichtbarer GRIFF macht aus einer versteckten Fähigkeit eine Einladung.
+ * Er liegt im linken Rand der Karte, außerhalb des Textes, und erscheint beim
+ * Überfahren — dauerhaft wären es zehn Griffe auf einer Übersicht.
+ *
+ * `touch-action: none` ist kein Detail, sondern die Bedingung: Ohne die Zeile
+ * scrollt der Finger die Seite, statt die Karte zu ziehen. */
+.rm-liste[data-phase] { position: relative; }
+.rm-liste[data-phase] li { padding-left: 16px; }
+
+.rm-griff {
+  position: absolute;
+  left: -6px;
+  top: 10px;
+  display: none;
+  flex-direction: column;
+  gap: 3px;
+  width: 18px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.14s;
 }
+.mit-dienst .rm-liste[data-phase] .rm-griff { display: flex; }
+.mit-dienst .rm-liste[data-phase] li:hover .rm-griff,
+.rm-griff:focus-visible { opacity: 1; }
+/* Drei Punktpaare — das übliche Zeichen für „hier anfassen", gezeichnet statt
+   als Schriftzeichen: ⠿ sieht in jeder Schrift anders aus. */
+.rm-griff i {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-3);
+}
+.rm-griff:hover i { background: var(--text-2); }
+.rm-griff:active { cursor: grabbing; }
+
+/* Die gezogene Karte wird herausgehoben: Schatten, leichte Vergrößerung, über
+   allem. Sie bleibt SICHTBAR — ein ausgeblendetes Element hinterlässt eine
+   Lücke, in der man die Einfügestelle erraten müsste. */
+/* Die gehobene Karte: Schatten, leichte Vergrößerung, über allem — und KEINE
+   feste Breite. Die hatte eine frühere Fassung gesetzt und damit genau den
+   Fehler erzeugt, den sie verhindern sollte: Die Karte fiel auf 90 px zusammen
+   und der Text brach dreizeilig. Im Fluss bleibend braucht sie keine. */
+.rm-liste li.greift {
+  position: relative;
+  z-index: 5;
+  border-radius: var(--radius-md);
+  background: var(--fl-2);
+  box-shadow: var(--schatten);
+  scale: 1.015;
+  cursor: grabbing;
+}
+.rm-liste li.greift .rm-griff { opacity: 1; }
+/* Während eines Zuges darf nichts anderes Text markieren oder aufleuchten. */
+body.zieht-gerade { user-select: none; }
+body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
+
