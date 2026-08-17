@@ -297,11 +297,14 @@ Der INHALT kommt deshalb aus denselben Elementen, die der Player füllt
 [exportformat.ts](../../src/exportformat.ts) (`introTafelSicht`,
 `finaleTafelSicht`) und tragen die Player-Zeiten (1,2 s bzw. 0,9 s).
 
-**Das ist die letzte echte Driftquelle**, und sie ist nicht theoretisch: Der
-Ken Burns läuft im Export heute in die GEGENRICHTUNG, „Entwickeln", Blitz,
-Standzeit-Balken und die Kennzahl-Pillen fehlen ganz. Der Weg dahin, die Karte
-im Player selbst auf eine Leinwand zu ziehen, steht samt Begründung und
-Etappen in [die-foto-karte-auf-eine-leinwand.md](die-foto-karte-auf-eine-leinwand.md).
+**Das war die letzte echte Driftquelle**, und sie war nicht theoretisch: Der Ken
+Burns lief im Export in die GEGENRICHTUNG, „Entwickeln", Blitz, Standzeit-Balken
+und die Kennzahl-Pillen fehlten ganz. **Erledigt am 2026-08-17**
+([die-foto-karte-auf-eine-leinwand.md](die-foto-karte-auf-eine-leinwand.md)): Die
+Karte liegt im Player auf einer Leinwand, der Export holt sie mit demselben
+`drawImage` wie Wetter und Atmosphäre. Für die TAFELN gilt der Absatz weiter —
+Startscreen und „Ziel erreicht" baut der Export noch selbst nach
+([die-tafeln-auf-die-leinwand.md](die-tafeln-auf-die-leinwand.md)).
 
 Kein html2canvas. Zahlen in [src/einblendung.ts](../../src/einblendung.ts).
 Der Export zeichnet Bild, Ken-Burns-Stand dieser Filmsekunde, Unterschrift.

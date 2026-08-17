@@ -589,7 +589,7 @@ Damit gibt es sie nur noch ZWEIMAL statt dreimal: Der Video-Export holt sie mit
 eigener Nachbau ist weg. Der hatte Ken Burns in der GEGENRICHTUNG laufen, kein „Entwickeln",
 keinen Blitz, keinen Balken, keine Pillen — und las die Texte per `textContent` aus dem DOM
 zurück, das der Player gerade gefüllt hatte
-([docs/concepts/konzept_kartenleinwand.md](docs/concepts/die-foto-karte-auf-eine-leinwand.md)).
+([docs/concepts/die-foto-karte-auf-eine-leinwand.md](docs/concepts/die-foto-karte-auf-eine-leinwand.md)).
 Sieben Dinge, die man dabei kippt:
 
 - **Was Bildinhalt ist, geht auf die Leinwand; was Umgebung oder Bedienung ist, bleibt DOM.**

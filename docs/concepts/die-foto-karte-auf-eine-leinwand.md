@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-17
-status: Etappe 1 und 2 gebaut, Etappe 3 offen
+status: abgearbeitet: Karte auf der Leinwand, Tafeln herausgelöst
 betrifft:
   - Player (src/kartenmaler.ts, src/kartenschicht.ts, src/ui.ts, erlebnis.html)
   - Studio-Editor (src/studio/abspielen.ts, studio.html)
@@ -11,8 +11,22 @@ betrifft:
 # Die Foto-Karte auf eine Leinwand
 
 **Ziel:** Die letzte Stelle schließen, an der die Bühnen auseinanderlaufen
-können — die Einblendungen. Alles andere im Film ist seit dem Takt-Umbau
-geteilter Code; Foto-Karte, Startscreen und Finale-Tafel sind es nicht.
+können — die Foto-Karte. Alles andere im Film ist seit dem Takt-Umbau geteilter
+Code, sie war es nicht.
+
+**Erledigt am 2026-08-17.** Die Karte liegt auf einer Leinwand, der Export holt
+sie mit einem `drawImage`, und die Zahlen beider Bühnen stehen in einer Tabelle
+mit einem Wächter darauf. Was hier steht, ist deshalb keine Absicht mehr, sondern
+die Begründung des Ist-Stands: Wer eine dieser Zahlen anfasst, findet hier,
+warum sie so ist.
+
+Die TAFELN — Startscreen und „Ziel erreicht" — standen bis zuletzt als Etappe 3
+in diesem Dokument und sind herausgelöst nach
+[Die Tafeln auf die Leinwand](die-tafeln-auf-die-leinwand.md). Nicht nur wegen
+des Termins: Bei der Karte hieß das Ziel „deckungsgleich", bei den Tafeln heißt
+es das ausdrücklich nicht (die Titeltafel des Films ist bewusst keine
+abfotografierte Oberfläche). Zwei Ziele in einem Dokument hätten sich
+gegenseitig missverstanden.
 
 **Es waren DREI Fassungen, nicht zwei.** Player (DOM + CSS), Studio-Editor
 (eigenes DOM + eigenes CSS) und Video-Export (Canvas). Das war der erste
@@ -21,10 +35,9 @@ die Abweichungen grob sind. Nachgemessen weichen aber auch Player und Editor
 voneinander ab, feiner und deshalb schlimmer, weil man sie für gewollt halten
 könnte (§2). Beim zweiten Nachzählen sind es nicht vier Stellen, sondern acht.
 
-**Seit Etappe 2 (2026-08-17) sind es ZWEI**, und für die Foto-Karte ist das der
-ganze Umbau: Der Player malt sie auf eine Leinwand, der Export holt sie von dort
-mit einem `drawImage`. Die dritte Fassung ist der Editor, und die bleibt (§3.6).
-Startscreen und Finale-Tafel haben ihren Nachbau noch — das ist Etappe 3.
+**Seit Etappe 2 (2026-08-17) sind es ZWEI**, und das ist der ganze Umbau: Der
+Player malt die Karte auf eine Leinwand, der Export holt sie von dort mit einem
+`drawImage`. Die zweite Fassung ist der Editor, und die bleibt (§3.6).
 
 Verwandt, aber anders:
 - [konzept_video_export.md](konzept_video_export.md). Dort steht, warum der
@@ -46,10 +59,10 @@ Verwandt, aber anders:
 Der Player baut sie aus DOM und CSS. Der Editor baut sie ein zweites Mal, mit
 eigenem DOM und eigenem CSS — bewusst, weil er in einer Datei umherspringt,
 während der Player einen Film voraus streamt (§6A des Gleichlauf-Konzepts). Und
-der Export kann DOM überhaupt nicht greifen — ein `drawImage` nimmt nur
-Leinwände —, also zeichnet er sie ein drittes Mal auf seine Komposition
-(`zeichneFotoKarte`, `zeichneIntroTafel`, `zeichneFinaleTafel`; zusammen knapp
-200 Zeilen).
+der Export konnte DOM überhaupt nicht greifen — ein `drawImage` nimmt nur
+Leinwände —, also zeichnete er sie ein drittes Mal auf seine Komposition
+(`zeichneFotoKarte`, ~70 Zeilen; die Tafeln daneben haben ihren Nachbau noch,
+s. das Tafel-Konzept).
 
 Das ist dieselbe Sorte Fehler, die der Takt-Umbau bei der Kamera behoben hat,
 nur eine Ebene höher: nicht zwei Uhren, sondern drei Zeichner. Und wie dort
@@ -619,13 +632,13 @@ Retina-Bildschirm dazu:
   halb außerhalb des Fensters. Unsichtbar bei Ratio 1 und unsichtbar im Film,
   weil die Komposition den Puffer nimmt und die Seite nicht ansieht.
 
-### Etappe 3 — Die Tafeln (offen)
+### Etappe 3 — herausgelöst
 
-Startscreen und Finale auf dieselbe Schicht. Sie sind die leichtere Hälfte
-(Text und Linien, kein Ken Burns, kein Video), aber sie kommen zuletzt: Der
-Startscreen ist am Bildschirm eine Bühne mit Knöpfen, und die müssen dabei
-bedienbar bleiben. Der Weg dafür steht seit Etappe 2 bereit — Bild auf die
-Leinwand, Bedienung als mitgeführtes DOM aus `KartenMasse`. Einzelheiten in §9.
+Startscreen und Finale-Tafel standen hier als dritte Etappe. Sie sind ein eigenes
+Vorhaben geworden: [Die Tafeln auf die Leinwand](die-tafeln-auf-die-leinwand.md).
+Das Werkzeug dafür ist mit Etappe 2 entstanden und wartet dort — Bezugshöhe,
+Kurven, Textumbruch, Puffer und das Muster „Bild auf die Leinwand, Bedienung als
+mitgeführtes DOM".
 
 ---
 
@@ -720,35 +733,23 @@ Leinwand, Bedienung als mitgeführtes DOM aus `KartenMasse`. Einzelheiten in §9
 
 ---
 
-## 9. Auftrag für den nächsten Kontext
+## 9. Was davon weiterlebt
 
-Etappe 1 und 2 sind gebaut. Was bleibt, ist Etappe 3 — die Tafeln.
+Der Plan ist durch. Zwei Dinge bleiben trotzdem gültig, und beide betreffen
+Leute, die dieses Dokument nicht suchen, sondern in den Code stolpern:
 
-1. **Startscreen und Finale auf dieselbe Schicht.** Sie sind die leichtere
-   Hälfte (Text und Linien, kein Ken Burns, kein Video), aber der Startscreen ist
-   am Bildschirm eine Bühne mit KNÖPFEN. Die Trennung aus Etappe 2 gilt dort
-   genauso: Bild auf die Leinwand, Bedienung als mitgeführtes DOM darüber
-   (`KartenMasse` ist das Muster). Der Export baut sie heute nach
-   (`zeichneIntroTafel`, `zeichneFinaleTafel`, zusammen ~130 Zeilen) und liest
-   ihren INHALT per `textContent` aus dem DOM des Players — derselbe Umweg, den
-   Etappe 2 für die Karte beseitigt hat.
-2. **Der Maler bringt alles mit, was dafür fehlte:** Bezugshöhe und `mass`,
-   Kurven, Textumbruch mit Kürzen, die Puffer-Mechanik. Die Tafeln brauchen
-   keinen zweiten Maßstab und keine zweite Bezugshöhe.
-3. **Zwei Dinge, die dort neu sind.** Der Startscreen hat eine `h1` (die einzige
-   des Players) — die versteckte Textfassung ist keine Kür, sondern die
-   Überschrift der Seite. Und die Intro-Tafel des Films ist ABSICHTLICH keine
-   abfotografierte Oberfläche (kein Startknopf, Kennzahlen als Zeile statt
-   Pillen, s. den Kommentar an `zeichneIntroTafel`); wer sie mit dem Startscreen
-   verschmilzt, macht den Film zum Screenshot. Das ist ein Kandidat für eine
-   benannte Bühnen-Variante, nicht für Gleichmacherei.
-4. **Der Schleier ist die offene Messfrage** (§5A): Auf dem M4 ist der
-   Vollbild-`backdrop-filter` im Halt nicht messbar, auf einem schwachen Gerät
-   könnte er der teuerste Posten der Szene sein. Erst messen, dann entscheiden —
-   und wenn er fällt, fällt er auf BEIDEN Bildschirm-Bühnen zugleich, sonst ist
-   §2.2 wieder eine Zeile länger.
-5. **Nicht anfassen, ohne in die Tabelle zu sehen.** `KARTE` und `KARTE_BUEHNE`
-   in [einblendung.ts](../../src/einblendung.ts) sind die geteilten Zahlen; die
-   Geometrie der Player-Bühne steht in `KARTEN_MASSE`
+1. **Nicht anfassen, ohne in die Tabelle zu sehen.** `KARTE` und `KARTE_BUEHNE`
+   in [einblendung.ts](../../src/einblendung.ts) sind die geteilten Zahlen von
+   Player und Editor; die Geometrie der Player-Bühne steht in `KARTEN_MASSE`
    ([kartenmaler.ts](../../src/kartenmaler.ts)) und ist ausdrücklich NICHT
    geteilt. Wer eine Zahl im Maler ändert, ändert sie für Bildschirm UND Film.
+   Ein Wert, der auf zwei Bühnen zufällig anders ist, gilt als Fehler und nicht
+   als Geschmack (§3.7) — acht Werte sind genau so entstanden.
+2. **Eine Messung ist offen, aber keine Etappe:** der Schleier (§5A). Auf dem M4
+   ist der Vollbild-`backdrop-filter` im Halt nicht messbar, auf einem schwachen
+   Gerät könnte er der teuerste Posten der Szene sein. Erst messen, dann
+   entscheiden — und wenn er fällt, fällt er auf BEIDEN Bildschirm-Bühnen
+   zugleich, sonst ist §2.2 wieder eine Zeile länger. Weitergetragen wird die
+   Frage im [Tafel-Konzept](die-tafeln-auf-die-leinwand.md), weil dort dieselbe
+   Sorte Glasfläche zur Entscheidung steht und weil ein erledigtes Dokument
+   niemand mehr aufschlägt.
