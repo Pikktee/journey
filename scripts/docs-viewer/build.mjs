@@ -44,13 +44,10 @@ import {
   mockupSeite,
   kartenSeite,
 } from './seiten.mjs'
-import { nimmVorschauenAuf } from './vorschau.mjs'
 
 const SITE = join(DOCS, '_site')
 const HIER = dirname(new URL(import.meta.url).pathname)
 const args = process.argv.slice(2)
-const ohneBilder = args.includes('--ohne-bilder')
-const neuBauen = args.includes('--neu')
 const oeffnen = args.includes('--oeffnen')
 
 const schreibe = (rel, inhalt) => {
@@ -92,7 +89,6 @@ const nachAbs = new Map(dokumente.map((d) => [d.abs, d]))
 // erreichbar über alte Links, aber von nichts mehr verlinkt.
 if (existsSync(SITE))
   for (const eintrag of readdirSync(SITE)) {
-    if (eintrag === 'vorschau') continue
     // Die einmal geladene Schrift überlebt das Leeren — sonst hinge jeder Bau
     // wieder am Netz.
     if (eintrag === 'assets' && existsSync(join(SITE, 'assets', 'outfit.woff2'))) {
@@ -204,8 +200,6 @@ schreibe('karte.html', kartenSeite({ dokumente, bereiche: BEREICHE, schriftLokal
 schreibe('assets/index.js', 'window.DOCS_INDEX = ' + JSON.stringify(index) + ';\n')
 
 /* Vorschauen */
-let bericht = { aufgenommen: 0, uebersprungen: mockups.length, grund: 'übersprungen (--ohne-bilder)' }
-if (!ohneBilder) bericht = await nimmVorschauenAuf(mockups, DOCS, SITE, { neuBauen })
 
 /* Was der Bau NICHT von selbst weiß — einmal laut sagen, statt still zu raten. */
 for (const bereich of BEREICHE.filter((b) => b.ergaenzt))
@@ -269,9 +263,6 @@ if (alt.length) {
 const worte = dokumente.reduce((s, d) => s + d.worte, 0)
 console.log(
   `  ${dokumente.length} Dokumente · ${Math.round(worte / 1000)}k Wörter · ${mockups.length} Mockups · ${bilder.length} Bilder`,
-)
-console.log(
-  `  Vorschauen: ${bericht.aufgenommen} neu, ${bericht.uebersprungen} unverändert${bericht.grund ? ' — ' + bericht.grund : ''}`,
 )
 console.log(`  fertig in ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 console.log('  Ansehen: http://maptale.localhost:5123/doku/ (devhub) oder docs/_site/index.html öffnen')

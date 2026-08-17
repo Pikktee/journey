@@ -18,10 +18,10 @@ npm run docs
 
 Baut aus diesem Ordner eine kleine Website nach `docs/_site/`. Sie ist in drei
 Ebenen aufgebaut, damit nicht alles auf einmal auf einen einprasselt:
-**Übersicht** (wo anfangen, Roadmap, die Bereiche, zuletzt Bewegtes) →
+**Übersicht** (Roadmap, die Bereiche, zuletzt Bewegtes) →
 **Bereich** (die Dokumente eines Bereichs, nach Status filterbar) →
 **Dokument** (Text mit Inhaltsverzeichnis und Querverweisen). Dazu Volltextsuche
-(⌘K), die Mockups als aufgenommene Vorschauen und die **Verweis-Karte**: ein
+(⌘K), die Mockups als Kachelliste und die **Verweis-Karte**: ein
 Graph über den ganzen Viewport (Kräfte-Layout, beim Bauen gerechnet und
 deterministisch), zoombar mit dem Mausrad, verschiebbar durch Ziehen, mit
 Bereichsfiltern und einer Suche, die Treffer hervorhebt statt zu filtern.
@@ -40,9 +40,18 @@ Ansehen auf zwei Wegen:
   nicht gebaut, antwortet der Dev-Server mit dem nötigen Befehl statt mit der
   Landing.
 
-* `npm run docs -- --ohne-bilder` überspringt die Mockup-Screenshots (~1 s statt ~30 s).
-* `npm run docs -- --neu` nimmt alle Vorschauen neu auf.
 * `npm run docs -- --oeffnen` öffnet die Übersicht gleich im Browser.
+
+**Ohne Vorschaubilder, und zwar absichtlich.** Die Mockup-Kacheln zeigten
+Screenshots, die ein Headless-Chrome beim Bauen aufnahm — und die führten in die
+Irre: Unsere Prototypen sind als DOKUMENTE gebaut, mit Marke, Titel und einem
+Merksatz vor der eigentlichen Oberfläche. Die Aufnahme traf den Viewport am
+Anfang, also die Titelseite; zwölf Kacheln nebeneinander sahen alle gleich aus
+und keine zeigte, was sie zeigen sollte. Mit ihnen sind `vorschau.mjs`, die Flags
+`--ohne-bilder` / `--neu` und ~30 Sekunden Bauzeit weg (jetzt ~1 s). Die Kachel
+trägt genug, um zu wählen: Titel, Klappentext, Systemteil und „Gehört zu".
+Wer sie zurückholt, behebt zuerst die Ursache — eine Angabe im Prototyp, ab
+welchem Element die Aufnahme schauen soll.
 
 Die Ausgabe steht in `.gitignore` und ist **kein Vite-Einstieg**: Diese Seiten
 bleiben lokal — hier stehen Verträge, Zugänge und Preisüberlegungen. Der

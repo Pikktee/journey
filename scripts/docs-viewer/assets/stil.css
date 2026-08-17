@@ -456,10 +456,6 @@ kbd {
 }
 /* KEIN `overflow: hidden` auf der Karte: Es schnitt das Aktionsmenü an der
    Kartenkante ab. Die Bildrundung macht deshalb der Bildkasten selbst. */
-.mockup-bild {
-  overflow: hidden;
-  border-radius: calc(var(--radius-karte) - 1px) calc(var(--radius-karte) - 1px) 0 0;
-}
 /* Eine Karte mit offenem Menü liegt über ihren Nachbarn — sonst schiebt sich
    die nächste Karte über die Klappe. */
 .dok-karte:has(.aktionen.offen), .mockup:has(.aktionen.offen) { z-index: 5; }
@@ -608,17 +604,6 @@ kbd {
 /* ── Mockup-Karten ────────────────────────────────────────────────────── */
 
 .mockup-gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
-.mockup-bild { background: var(--bg-tief); border-bottom: 1px solid var(--rand); }
-.mockup-bild img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  object-position: top center;
-}
-.mockup.ohne-bild .mockup-bild { display: grid; place-items: center; aspect-ratio: 16 / 9; }
-.mockup.ohne-bild .mockup-bild::before { content: 'keine Vorschau'; color: var(--text-3); font-size: 13px; }
-.mockup.ohne-bild img { display: none; }
 .mockup-text { display: flex; flex-direction: column; gap: 8px; flex: 1; padding: 14px 16px 12px; }
 .archiv-gitter { opacity: 0.75; }
 
@@ -639,17 +624,6 @@ kbd {
 .prototyp-aktionen .aktionen-knopf { width: 38px; height: 38px; border-color: var(--rand); background: var(--fl-1); }
 .prototyp-aktionen .aktionen-klappe { bottom: auto; top: calc(100% + 6px); }
 
-.prototyp-buehne {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  border: 1px solid var(--rand);
-  border-radius: var(--radius-xl);
-  background: var(--bg-tief);
-}
-.prototyp-buehne img { display: block; width: 100%; max-height: 520px; object-fit: cover; object-position: top center; }
-.prototyp-buehne.ohne-bild img { display: none; }
-.prototyp-buehne.ohne-bild::before { content: 'keine Vorschau'; display: grid; place-items: center; height: 300px; color: var(--text-3); }
 .buehne-marke {
   position: absolute;
   right: 14px;
@@ -1119,23 +1093,7 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
   background: var(--fl-1);
   scroll-margin-top: 84px;
 }
-.mockup-bild { position: relative; display: block; background: var(--bg-tief); }
-.mockup-bild img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: top center; }
-.mockup.ohne-bild .mockup-bild { display: grid; place-items: center; aspect-ratio: 4 / 3; }
-.mockup.ohne-bild .mockup-bild::before { content: 'keine Vorschau'; color: var(--text-3); font-size: 13px; }
-.mockup.ohne-bild img { display: none; }
-.oeffnen {
-  position: absolute;
-  inset: auto 0 0 0;
-  padding: 10px 14px;
-  background: linear-gradient(transparent, rgb(0 0 0 / 0.72));
-  color: var(--text);
-  font-size: 13px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.mockup-bild:hover .oeffnen { opacity: 1; }
-.mockup-text { padding: 14px 16px 16px; }
+.mockup:hover .mockup-text { padding: 14px 16px 16px; }
 .mockup-text h3 { margin: 0 0 5px; font-size: 16px; font-weight: 600; }
 .mockup-text p { margin: 0 0 8px; color: var(--text-gedaempft); font-size: 14px; }
 

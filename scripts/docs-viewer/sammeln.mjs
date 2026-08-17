@@ -454,9 +454,6 @@ export function sammleMockups() {
           genannt: kopf.systemteile,
         }),
         archiv,
-        vorschau: `vorschau/${rel.replace(/[/.]/g, '-')}.webp`,
-        // Jeder Prototyp hat seine eigene Seite im Viewer — die Kachel führt
-        // dorthin und nicht mehr direkt in ein neues Fenster.
       }
     })
 }

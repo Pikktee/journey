@@ -443,10 +443,6 @@ function mockupKarte(m, auf, roadmap) {
      data-titel="${escape(m.titel.toLowerCase())}" data-datum="" data-minuten="0" data-verweise="0"
      data-suchtext="${escape((m.titel + ' ' + (m.klappentext || '')).toLowerCase())}">
     <a class="karte-flaeche" href="${auf}${escape(m.quelle)}" target="_blank" rel="noopener"><span class="nur-vorlesen">${escape(m.titel)} öffnen</span></a>
-    <div class="mockup-bild">
-      <img src="${auf}${escape(m.vorschau)}" alt="Vorschau von ${escape(m.titel)}" loading="lazy"
-           onerror="this.closest('.mockup').classList.add('ohne-bild')" />
-    </div>
     <div class="mockup-text">
       <div class="karte-marken">${m.archiv ? '<span class="ampel ampel-ruht">Archiv</span>' : ''}${teilChips(m.teile, 2)}</div>
       <h3>${escape(m.titel)}</h3>

@@ -130,16 +130,22 @@ Eine `.html` in `docs/mockups/`, Namenspräfix bestimmt den Systemteil:
 - Bilder relativ aus `docs/mockups/landing|titelbilder|tourbilder/` laden. Diese
   Ordner sind Arbeitskopien für die Prototypen, kein Bildarchiv; ungenutzte Dateien
   meldet der Bau.
-- Die Vorschau nimmt der Bau mit Headless-Chrome auf (`--neu` erzwingt es). Im
-  Dev-Server bekommt ein geöffneter Prototyp automatisch eine Leiste mit „← Doku",
-  Datei-Griffen und Archivieren — KEINE Roadmap-Phase, die kommt ans Konzept.
+- **Keine Vorschaubilder mehr.** Die Kacheln zeigten Screenshots, die den Anfang
+  des Prototyps trafen — bei uns also Marke, Titel und Merksatz statt der
+  Oberfläche. Im Dev-Server bekommt ein geöffneter Prototyp eine Leiste mit
+  „← Doku", Datei-Griffen und Archivieren — KEINE Roadmap-Phase, die kommt ans
+  Konzept.
+- **Zu welchem Konzept gehört der Entwurf?** Wird aus den Links abgeleitet: Wer
+  im Konzept den Prototyp verlinkt, stellt die Beziehung her, und die Kachel
+  zeigt „Gehört zu …". Fehlt der Link, obwohl die Beziehung besteht:
+  `<meta name="maptale:gehoert-zu" content="concepts/x.md">`.
 - Design-Tokens aus [`DESIGN.md`](../../../DESIGN.md) verwenden, damit der Prototyp
   aussieht wie das Produkt.
 
 ## 6. Danach
 
 ```bash
-npm run docs -- --ohne-bilder   # ~1 s, ohne Mockup-Screenshots
+npm run docs                    # ~1 s
 npm test                        # der Wächter prüft Bereiche, Systemteile, Roadmap
 ```
 
