@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { codeVollstaendig, formatiereEinladungscode } from '../src/einladungscode.js'
 import {
   beschreibeEinladung,
+  istLokal,
   beschreibeProtokoll,
   filtereProtokoll,
   formatiereZeitpunkt,
@@ -456,5 +457,19 @@ describe('Protokoll', () => {
   it('nennt die Fehler gesondert, wenn es welche gibt', () => {
     expect(beschreibeProtokoll(12, 3, null)).toBe('12 Meldungen, davon 3 Fehler.')
     expect(beschreibeProtokoll(1, 0, null)).toBe('1 Meldung.')
+  })
+})
+
+describe('istLokal', () => {
+  it('erkennt den eigenen Rechner', () => {
+    for (const host of ['localhost', '127.0.0.1', '[::1]', 'maptale.localhost'])
+      expect(istLokal(host), host).toBe(true)
+  })
+
+  it('lässt sich von einem Namen mit „localhost" darin nicht täuschen', () => {
+    // Der Doku-Link hängt daran (src/admin/admin.ts): Er soll auf dem Server
+    // nicht erscheinen, und „enthält localhost" wäre dafür zu wenig.
+    for (const host of ['maptale.io', 'www.maptale.io', 'localhost.angreifer.example'])
+      expect(istLokal(host), host).toBe(false)
   })
 })

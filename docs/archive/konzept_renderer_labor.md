@@ -1,5 +1,7 @@
 # Umbauplan: Renderer-Labor begrenzen
 
+Archiviert aus: concepts
+
 > **Archiviert am 2026-08-11.** Die hier beschriebenen Renderer sind aus dem
 > Hauptprojekt ausgebaut; der Code hängt am Tag `labor/renderer-v1`. Was
 > geblieben ist und wie man es zurückholt: [renderer-labor.md](renderer-labor.md).

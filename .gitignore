@@ -4,6 +4,9 @@ dist
 .DS_Store
 .env
 
+# Doku-Viewer: lokal erzeugt (npm run docs), nie im Deploy
+docs/_site
+
 # Backend: lokale Dev-Daten (SQLite + Tour-Ablage) und Coverage-Berichte
 server/daten
 server/coverage

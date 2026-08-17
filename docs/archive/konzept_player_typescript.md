@@ -1,5 +1,7 @@
 # Umbauplan: Player von JavaScript nach TypeScript
 
+Archiviert aus: concepts
+
 > **Erledigt und archiviert am 2026-08-12**, ausgeliefert mit **v0.60.0**. Unter
 > `src/` liegt keine `.js` mehr, `tsc --noEmit` deckt den kompletten Player-Pfad.
 > Dieses Blatt ist Historie — es bleibt lesenswert für die Methodik (topologische

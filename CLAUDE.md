@@ -805,8 +805,16 @@ automatisch, sobald unter `android/` gearbeitet wird.
 ## Konventionen
 
 - Design / Marke: [`DESIGN.md`](DESIGN.md) — Single Source of Truth für Assistenten und UI.
-- Doku-Index: [`docs/README.md`](docs/README.md). `docs/archive/` ist Historie — nicht als
-  Implementierungsquelle nutzen (widerspricht oft dem Ist-Stand).
+- Doku-Index: [`docs/README.md`](docs/README.md). Zum LESEN gibt es den lokalen
+  Viewer: `npm run docs`, dann <http://maptale.localhost:5123/doku/> (Übersicht mit
+  Roadmap, Bereiche, Volltextsuche, Mockup-Vorschauen, Verweis-Graph). Er leitet
+  Bereiche, Systemteile und Archiv-Herkunft aus den Dateien ab und schreibt im
+  Dev-Server auch zurück (bearbeiten, archivieren, einplanen). Wer ein Dokument,
+  Konzept oder Mockup ANLEGT, folgt dem Skill
+  [`doku-anlegen`](.claude/skills/doku-anlegen/SKILL.md) — er lädt automatisch.
+  `docs/archive/` ist Historie: nicht als Implementierungsquelle nutzen (widerspricht
+  oft dem Ist-Stand). Im Viewer ist das Archiv kein eigener Bereich, sondern hängt
+  unter dem Bereich, aus dem ein Dokument kam.
 - `window.__j` bündelt Debug-Handles des Players (`map`, `route`, `tour`, `rider`, `eleReady`
   u.a.); das Studio hat analog `window.__studio` mit den Accessoren `karte()` und `zustand()`.
 - Externe Datenquellen brauchen sichtbare Attribution (Esri/Maxar, AWS Terrain) — auch in

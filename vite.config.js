@@ -1,3 +1,6 @@
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { extname, join } from 'node:path'
+
 import { defineConfig } from 'vite'
 
 import { HANDLE_REGELN } from './src/handle.ts'
@@ -54,6 +57,132 @@ function saubereUrls() {
   }
   return {
     name: 'maptale-saubere-urls',
+    configureServer: middleware,
+    configurePreviewServer: middleware,
+  }
+}
+
+/**
+ * Der Doku-Viewer unter `/doku` — nur im Dev-Server und in der Vorschau.
+ *
+ * Er liegt fertig gebaut in `docs/_site/` (`npm run docs`) und wird von hier
+ * ROH ausgeliefert. Das ist der Punkt: Bäte man Vite darum, ginge jede
+ * `.css`-Datei durch seine Transformation und käme als `text/javascript`
+ * zurück — die Seiten stünden dann ungestaltet da. Deshalb ein eigener
+ * Handler mit eigener Typ-Tabelle statt `publicDir` oder einem Alias.
+ *
+ * `apply: 'serve'` ist kein Detail: Die interne Doku hat im `dist/` nichts zu
+ * suchen, und der Ordner steht in `.gitignore`.
+ */
+function dokuAusliefern() {
+  const TYPEN = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.webp': 'image/webp',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.md': 'text/plain; charset=utf-8',
+  }
+  const middleware = (server) => {
+    // Die schreibende Seite: bearbeiten, archivieren, zurückholen. Sie hängt
+    // bewusst hier und nicht im Backend — sie schreibt in den Arbeitsbaum
+    // dieses Rechners und hat auf einem Server nichts verloren.
+    server.middlewares.use('/doku/api/', async (req, res) => {
+      const antworte = (code, koerper) => {
+        res.statusCode = code
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify(koerper))
+      }
+      try {
+        const aktion = decodeURI((req.url || '/').split(/[?#]/)[0]).replace(/^\/+/, '')
+        const roh = await new Promise((fertig, fehler) => {
+          let puffer = ''
+          req.on('data', (stueck) => {
+            puffer += stueck
+            if (puffer.length > 4_000_000) fehler(new Error('Zu groß'))
+          })
+          req.on('end', () => fertig(puffer))
+          req.on('error', fehler)
+        })
+        const { fuehreAus } = await import('./scripts/docs-viewer/dienst.mjs')
+        antworte(200, { ok: true, ...fuehreAus(aktion, roh ? JSON.parse(roh) : {}) })
+      } catch (fehler) {
+        antworte(400, { ok: false, meldung: String(fehler.message || fehler) })
+      }
+    })
+
+    server.middlewares.use('/doku', (req, res, next) => {
+      const pfad = decodeURI((req.url || '/').split(/[?#]/)[0])
+      // `..` im Pfad zeigte aus dem Ordner heraus — ein Dev-Server ist kein
+      // Grund, das Repo über HTTP anzubieten.
+      if (pfad.includes('..')) return next()
+      const wurzel = join(process.cwd(), 'docs', '_site')
+
+      // OHNE abschließenden Schrägstrich ist die Seite kaputt, nicht nur
+      // unschön: Der Browser löst `assets/stil.css` dann gegen das ÜBERGEORDNETE
+      // Verzeichnis auf, also gegen die Wurzel des Servers — die Seite kommt an,
+      // ihr Blatt nicht. Deshalb erst umleiten, dann ausliefern; dasselbe gilt
+      // für jeden Ordner darunter (`/doku/concepts`).
+      const original = (req.originalUrl || req.url || '').split(/[?#]/)[0]
+      const zeigtAufOrdner =
+        pfad === '/' ||
+        (!pfad.endsWith('/') &&
+          existsSync(join(wurzel, pfad, 'index.html')) &&
+          statSync(join(wurzel, pfad)).isDirectory())
+      if (zeigtAufOrdner && !original.endsWith('/')) {
+        res.writeHead(301, { Location: original + '/' })
+        return res.end()
+      }
+
+      const rel = pfad.endsWith('/') ? pfad + 'index.html' : pfad
+      const datei = join(wurzel, rel)
+      if (!existsSync(datei) || !statSync(datei).isFile()) {
+        // Ohne gebaute Doku fiele die Anfrage in Vites SPA-Fallback und
+        // lieferte die Landing — man klickt auf „Doku" und landet auf der
+        // Startseite, ohne zu erfahren, warum.
+        if (!existsSync(join(wurzel, 'index.html'))) {
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/html; charset=utf-8')
+          return res.end(
+            '<!doctype html><meta charset="utf-8"><title>Doku nicht gebaut</title>' +
+              '<body style="margin:0;display:grid;place-items:center;min-height:100vh;' +
+              'background:#090c11;color:#f2ede3;font:400 16px/1.6 system-ui,sans-serif">' +
+              '<div style="max-width:36ch;text-align:center">' +
+              '<h1 style="font-size:22px;margin:0 0 10px">Die Doku ist noch nicht gebaut</h1>' +
+              '<p style="color:#a7b1bf;margin:0 0 16px">Einmal bauen, dann steht sie unter <code>/doku/</code>:</p>' +
+              '<code style="display:block;padding:12px 16px;border-radius:10px;background:#161e2c">npm run docs</code>' +
+              '</div></body>',
+          )
+        }
+        return next()
+      }
+      const endung = extname(datei).toLowerCase()
+      res.setHeader('Content-Type', TYPEN[endung] || 'application/octet-stream')
+
+      // Einem geöffneten PROTOTYP gibt der Dev-Server eine kleine Leiste mit
+      // (zurück zur Doku, Roadmap, Archivieren). Sie wird beim Ausliefern
+      // angehängt und steht NICHT in der Datei: Das Mockup ist eine Vorlage
+      // und soll auch im Finder genau das zeigen, was es zeigt.
+      const istPrototyp = /^\/(mockups|archive\/mockups)\//.test(rel) && endung === '.html'
+      if (istPrototyp) {
+        const quelle = 'docs' + rel
+        const inhalt = readFileSync(datei, 'utf8')
+        const leiste = `<script src="/doku/assets/mockupleiste.js" data-datei="${quelle}"></script>`
+        return res.end(
+          inhalt.includes('</body>')
+            ? inhalt.replace('</body>', leiste + '</body>')
+            : inhalt + leiste,
+        )
+      }
+      res.end(readFileSync(datei))
+    })
+  }
+  return {
+    name: 'maptale-doku',
+    apply: 'serve',
     configureServer: middleware,
     configurePreviewServer: middleware,
   }
@@ -137,7 +266,7 @@ export function basisZuerst() {
 }
 
 export default defineConfig({
-  plugins: [saubereUrls(), basisZuerst()],
+  plugins: [saubereUrls(), dokuAusliefern(), basisZuerst()],
   build: {
     // main.ts lädt Remote-Touren per Top-Level-Await (Boot-Screen überbrückt).
     // Vites Default-Target (u. a. Chrome 87/Safari 14) kann kein TLA — diese

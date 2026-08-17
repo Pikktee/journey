@@ -486,3 +486,19 @@ export function kontextZeile(r: AdminRueckmeldung): string {
     .map(([k, v]) => `${k}: ${v}`)
     .join(' · ')
 }
+
+/**
+ * Läuft diese Seite auf dem eigenen Rechner?
+ *
+ * Der Prüfstein ist nicht „enthält localhost": `localhost.angreifer.example`
+ * täte das auch. Es zählt der ganze Name oder ein Punkt davor — devhub
+ * bedient jedes Projekt unter `<name>.localhost`.
+ */
+export function istLokal(host: string): boolean {
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost')
+  )
+}

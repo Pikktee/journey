@@ -10,7 +10,8 @@
     "release": "bash scripts/release.sh",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs": "node scripts/docs-viewer/build.mjs"
   },
   "dependencies": {
     "maplibre-gl": "^5.6.0",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "@types/three": "^0.185.4",
+    "marked": "^18.0.9",
     "puppeteer-core": "^25.3.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",

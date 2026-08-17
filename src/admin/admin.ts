@@ -7,7 +7,8 @@
 // Verwaltung gilt es ein zweites Mal: Die vier Bereiche sind Reiter, alle vier
 // Panels liegen im DOM, sichtbar ist eins.
 
-import { montiereAppHeader, schreibeAppFooter } from '../app-nav.js'
+import { montiereAppHeader, schreibeAppFooter, type AppFooterLink } from '../app-nav.js'
+import { pfad } from '../routen.js'
 import { haengePasswortfeld } from '../passwortfeld.js'
 import * as api from './api.js'
 import {
@@ -54,6 +55,7 @@ import {
   type Rolle,
   type TabId,
   type WartelistenFilter,
+  istLokal,
 } from './adminmodell.js'
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -397,12 +399,34 @@ function rendereStatistiken(s: api.AdminStatistiken): void {
   }
 }
 
+/**
+ * Die Links der Fußzeile — auf dem eigenen Rechner mit dem Weg zur Doku.
+ *
+ * Sie steht in der FUSSZEILE und nicht in der Hauptnavigation: Die Kopfleiste
+ * ist die Navigation des Produkts (Meine Touren, Entdecken), und ein
+ * Werkzeug-Link, den es auf dem Server gar nicht gibt, hat dort nichts
+ * verloren. Die Fußzeile der Verwaltung trägt ohnehin, was den Betreiber
+ * angeht.
+ *
+ * Die Doku selbst liegt unter `/doku` und wird nur vom Dev- und
+ * Vorschau-Server ausgeliefert (Plugin `maptale-doku` in vite.config.js);
+ * geprüft wird deshalb der Hostname (`istLokal` im Modell).
+ */
+function fussLinks(): { links: AppFooterLink[] } {
+  const links: AppFooterLink[] = [
+    { href: pfad('impressum'), label: 'Impressum' },
+    { href: pfad('datenschutz'), label: 'Datenschutz' },
+  ]
+  if (istLokal(location.hostname)) links.push({ href: '/doku/', label: 'Doku (lokal)' })
+  return { links }
+}
+
 async function start(): Promise<void> {
   await montiereAppHeader(document.getElementById('app-header'), {
     aktiv: 'admin',
     variante: 'admin',
   })
-  schreibeAppFooter(document.getElementById('app-footer'))
+  schreibeAppFooter(document.getElementById('app-footer'), fussLinks())
   const sitzung = await api.me()
   if (!sitzung.benutzer) {
     els.sperreTitel.textContent = 'Nicht angemeldet'

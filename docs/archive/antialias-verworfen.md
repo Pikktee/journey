@@ -1,5 +1,7 @@
 # Antialiasing im Player — gemessen und verworfen
 
+Archiviert aus: architecture
+
 **Ergebnis (2026-08-11): MSAA bringt in diesem Player nichts Sichtbares. Es
 bleibt aus, beide toten Flags sind entfernt, es gibt keine Einstellung dafür.**
 
