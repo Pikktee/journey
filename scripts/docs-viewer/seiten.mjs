@@ -541,7 +541,7 @@ function roadmapAbschnitt(roadmap, bereiche) {
    * in der keiner steht.
    *
    * Deshalb trägt jede Karte ALLES, was sie hat, und die Phase entscheidet nur
-   * über die DARSTELLUNG. Die läuft über CSS am Elternteil (`.rm-phase.band …`)
+   * über die DARSTELLUNG. Die läuft über CSS am Elternteil (`.rm-phase.stufe-2 …`)
    * und passt sich damit von selbst an, sobald die Karte umzieht — ohne dass
    * jemand DOM umschreiben muss.
    *
@@ -599,17 +599,12 @@ function roadmapAbschnitt(roadmap, bereiche) {
     </li>`
   }
 
-  const letzte = roadmap.phasen.length - 1
-  const alsBand = (i) => i === letzte && i > 1
-  const phase = (ph, i) => `<section class="rm-phase stufe-${i}${i === 0 ? ' jetzt' : ''}${
-    alsBand(i) ? ' band' : ''
-  }">
+  const phase = (ph, i) => `<section class="rm-phase stufe-${i}${i === 0 ? ' jetzt' : ''}">
     <header>
       <div class="rm-kopf">
         <h3>${escape(ph.name)}</h3>
         <span class="rm-zahl">${ph.eintraege.length}</span>
       </div>
-      ${i === 0 && ph.text ? `<p>${escape(ph.text)}</p>` : ''}
     </header>
     <ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
       .map(eintrag)

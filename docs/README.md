@@ -310,11 +310,14 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   **Der Griff hat eine eigene Gitterspalte**, keinen absoluten Platz über dem
   Text — dort lag er auf den ersten Buchstaben des Titels, in den knappen Zeilen
   der letzten Phase unübersehbar.
-  **Die letzte Phase ist deshalb wieder eine Liste**, kein Pillenband: Aus einer
-  Wolke kann man nicht herausziehen, und der häufigste Zug holt etwas aus
-  „Angedacht" nach vorn. Eine gezogene Karte ist eine Zeile, und eine Zeile mitten
-  in einem Pillenband sieht falsch aus. Kompakt bleibt sie über die volle Breite
-  mit knappen Zeilen.
+  **Die letzte Phase zeigt nur den Titel** und steht wieder als dritte SPALTE.
+  Sie war zwischenzeitlich eine Pillenwolke (aus der man nicht herausziehen kann)
+  und dann ein Band über die volle Breite (unverhältnismäßig breit für den
+  unverbindlichsten Inhalt, der dort ganz links in einer leeren Fläche stand).
+  Ein Titel passt in eine schmale Spalte, damit ist beides gelöst. Ausgeblendet
+  wird der Schritt per CSS und nicht beim Rendern — die Karte trägt ihn weiter,
+  damit sie beim Zug vollständig ist. Die Ketten bleiben sichtbar: Eine Blockade
+  ist ein Fakt und kein Beiwerk.
   **Die Zeiger-Ereignisse hängen am DOKUMENT, nicht am Griff.** Am Griff war der
   Fehler, der sich als „manchmal dropped es nicht" zeigte: `setPointerCapture`
   gibt die Erfassung frei, sobald das haltende Element aus dem Dokument genommen
@@ -346,9 +349,10 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
 * **Der Linktext in `roadmap.md` ist der Kartenname.** „Studio-Editor
   zerlegen" statt „Umbauplan: Studio-Editor zerlegen (editor.ts)". Steht dort
   noch ein Dateiname, nimmt die Karte den Dokumenttitel.
-* **Die letzte Phase ist ein Band, keine Spalte.** Als schmale dritte Spalte
-  bekam das Unverbindlichste dieselbe Fläche wie das Laufende; über die volle
-  Breite mit knappen Zeilen liest es sich ruhiger.
+* **Drei Spalten mit abnehmender Dichte**: ausführlich, knapp, nur der Titel.
+  Der erklärende Satz je Phase ist entfallen — die Namen „In Arbeit",
+  „Beschlossen" und „Angedacht" sagen es, und drei Absätze über drei Listen sind
+  Text über Text.
 Die Phasen heißen **In Arbeit · Beschlossen · Angedacht** — benannt nach dem
 Grad der Entscheidung, nicht nach einem Datum, das ein Entwurf ohnehin nicht
 halten kann. Die

@@ -1791,20 +1791,18 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
  * die hinterste Phase die größte Fläche — der Blick folgt der Fläche, und er
  * landete beim Unverbindlichsten. */
 
-/* ZWEI Spalten und ein Band darunter — nicht drei gleichrangige Kästen.
-   Die letzte Phase ist die unverbindlichste; als schmale dritte Spalte bekam
-   sie dieselbe Fläche wie das Laufende, und ihre Marken standen dort einzeln
-   untereinander, weil 190 px für zwei nebeneinander nicht reichen. Als Band
-   über die volle Breite braucht sie zwei Zeilen statt sieben, und die
-   abnehmende Verbindlichkeit hat endlich eine Form. */
+/* DREI Spalten, mit abnehmender Breite. Die letzte war zwischenzeitlich ein Band
+   über die volle Breite — nötig, solange sie ihre Einträge als Pillen zeigte
+   (sieben davon stapelten sich in 190 px untereinander) und später als Liste.
+   Beides ist vorbei: Sie zeigt jetzt nur den Titel, und ein Titel passt in eine
+   schmale Spalte. Als Band war sie unverhältnismäßig breit für den
+   unverbindlichsten Inhalt, und der stand ganz links in einer leeren Fläche. */
 .roadmap {
   display: grid;
-  grid-template-columns: 1.25fr 1fr;
+  grid-template-columns: 1.3fr 1.05fr 0.9fr;
   align-items: start;
   gap: 16px;
 }
-.rm-phase.band { grid-column: 1 / -1; }
-.rm-phase.band header { margin-bottom: 10px; }
 .rm-phase {
   display: flex;
   flex-direction: column;
@@ -2149,15 +2147,20 @@ body.zieht-gerade { user-select: none; }
 body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
 
 
-/* ── Band und Zielspalte ──────────────────────────────────────────────────
- * Die letzte Phase war eine Wolke aus Pillen. Das war kompakt, aber man konnte
- * nicht aus ihr HERAUSziehen — und genau das ist der häufigste Zug: etwas aus
- * „Angedacht" nach vorn holen. Eine gezogene Karte ist eine Zeile, und eine
- * Zeile mitten in einem Pillenband sieht falsch aus. Also wieder eine Liste,
- * über die volle Breite und mit knappen Zeilen. */
-.rm-phase.band .rm-liste li { padding: 7px 0; }
-.rm-phase.band .rm-titel { font-size: 14px; font-weight: 400; color: var(--text-2); }
-.rm-phase.band .rm-liste li:hover .rm-titel { color: var(--text); }
+/* ── Die letzte Phase: nur der Titel ──────────────────────────────────────
+ * „Angedacht" ist das Unverbindlichste der Datei. Ein nächster Schritt steht
+ * dort ohnehin selten, und wo er steht, ist er eine Absichtserklärung, keine
+ * Handlung. Ausgeblendet wird er per CSS und nicht beim Rendern: Die Karte trägt
+ * ihn weiter mit sich, damit sie beim Zug in eine andere Spalte vollständig ist
+ * (das war der Fehler, der die Karten unaustauschbar machte).
+ *
+ * Die Ketten bleiben SICHTBAR. Eine Blockade ist ein Fakt und kein Beiwerk —
+ * sie zu verbergen, weil die Spalte knapp ist, wäre die eine Auskunft, die man
+ * dort am wenigsten verlieren will. */
+.rm-phase.stufe-2 .rm-liste li { padding: 6px 0; }
+.rm-phase.stufe-2 .rm-titel { font-size: 13.8px; font-weight: 400; color: var(--text-2); }
+.rm-phase.stufe-2 .rm-liste li:hover .rm-titel { color: var(--text); }
+.rm-phase.stufe-2 .rm-schritt { display: none; }
 
 /* Die Zielspalte während eines Zuges. Ein Rahmen und ein Hauch Fläche genügen:
    Sie ist beschriftet, man muss ihr nichts erklären. */
