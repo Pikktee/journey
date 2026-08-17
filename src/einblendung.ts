@@ -186,6 +186,219 @@ export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number):
 }
 
 /**
+ * Die OPTIK der Foto-Karte — die Zahlen, die auf allen Bühnen dieselben sein
+ * sollen.
+ *
+ * Bis hierher standen sie dreimal da: im Player (`src/style.css`), im Editor
+ * (`studio.html`) und im Video-Export (`src/exportfilm.ts`, Canvas). Die Zeiten
+ * waren geteilt und blieben deckungsgleich; die WERTE waren es nicht und liefen
+ * an acht Stellen auseinander — Ken-Burns-Ende, Entwickeln-Ende, Ruhewinkel,
+ * Blitz, Schleier und zwei Rückfalldauern. Keine dieser Abweichungen war eine
+ * Entscheidung, aber jede sah nach einer aus. Genau das ist der Grund für diese
+ * Tabelle: Sie macht Absicht von Versehen unterscheidbar
+ * (docs/concepts/konzept_kartenleinwand.md §3.7).
+ *
+ * Die Regel dazu: **Was auf zwei Bühnen gleich aussehen soll, kommt aus einer
+ * Zahl hier; was verschieden sein darf, steht als benannte Bühnen-Variante
+ * daneben (`KARTE_BUEHNE`) — mit ihrem Grund.** Ein Wert, der auf zwei Bühnen
+ * zufällig anders ist, gilt danach als Fehler und nicht als Geschmack.
+ *
+ * Bewacht von test/einblendung-css.test.ts, das CSS und HTML gegen diese
+ * Tabelle liest. Nach Etappe 2 des Konzepts steht die Player-Optik nicht mehr
+ * in `style.css`, sondern im Maler — die Tabelle überlebt das, der Lesecode des
+ * Wächters für diese eine Seite nicht.
+ */
+export const KARTE = {
+  /**
+   * Ken Burns: Anfangs- und Endgröße des Bildes im Rahmen. Es zoomt HERAUS.
+   *
+   * Die Richtung ist die Bildsprache der Foto-Stopps und keine Nuance: Der
+   * Export zoomt heute in die Gegenrichtung (§2.1, wird in Etappe 2 behoben).
+   * Das Ende stand im Player auf 1.01 und im Editor auf 1.02; gemeint ist
+   * 1.02, denn der Reduced-Motion-Block BEIDER Bühnen legt die stehende Karte
+   * seit jeher auf genau diese Größe. Wer den Player als Vorbild nimmt, weil er
+   * die Hauptbühne ist, zementiert den Ausreißer.
+   */
+  kenBurnsVon: 1.12,
+  kenBurnsBis: 1.02,
+
+  /**
+   * Größe der stehenden Karte: wenn Ken Burns für das Medium abgeschaltet ist
+   * (`display.kenBurns === false`) und bei `prefers-reduced-motion`.
+   *
+   * Das ist kein eigener Wert, sondern das ENDE des Zugs — die Ruhe, die der
+   * Zug ansteuert. Vorher standen dafür drei Zahlen im Repo: `transform: none`
+   * (= 1.0) im Player, `scale(1.04)` im Editor, und in beiden
+   * Reduced-Motion-Blöcken `scale(1.02)`. Die dritte war die richtige.
+   */
+  ruheSkala: 1.02,
+
+  /**
+   * Rückfalldauer des Ken-Burns-Zugs, falls `--kb-dauer`/`--fe-kb-dauer` fehlt.
+   *
+   * Abgeleitet, nicht gewählt: `klipDauerS(HOLD_HIDE)` = 5,2 + 0,8. Der Player
+   * stand auf 7 s, der Editor auf 6 s — und weil ein Rückfallwert nur greift,
+   * wenn die Custom Property fehlt, sieht man den Unterschied dort nie als
+   * Bruch, sondern als leicht anderen Film. Das ist die heimtückischste Sorte
+   * Abweichung, die dieses Konzept kennt.
+   */
+  kbDauerRueckfallS: HOLD_HIDE + HOLD_AUSBLEND,
+
+  /**
+   * „Entwickeln": die Filterblende, mit der das Foto wie ein Sofortbild kommt.
+   *
+   * Das Ende ist nicht neutral, sondern behält einen minimalen Druck-Look
+   * (Kontrast +2 %, Sättigung +5 %) — im Player ist es zugleich der
+   * Grundzustand des Bildes. Der Editor endete auf `filter: none` und zeigte
+   * dasselbe Foto dadurch dauerhaft eine Spur flacher.
+   */
+  entwickelnDauerS: 1.6,
+  entwickelnVon: { brightness: 1.45, contrast: 0.82, saturate: 0.55 },
+  entwickelnBis: { brightness: 1, contrast: 1.02, saturate: 1.05 },
+
+  /**
+   * Auftritt: Blende und Flug laufen gleichzeitig mit verschiedenen Kurven,
+   * die Blende setzt `blendeVersatzS` später ein.
+   */
+  blendeDauerS: 0.5,
+  blendeVersatzS: 0.04,
+  flugDauerS: 0.95,
+  flugKurve: 'cubic-bezier(0.19, 1.16, 0.32, 1)',
+
+  /**
+   * Geometrie des Auftritts — ohne die Flugweite, die eine Bühnen-Variante ist
+   * (s. `KARTE_BUEHNE`).
+   *
+   * Die Winkel waren es NICHT: 1.4° gegen 1.6° Startdrehung, 10° gegen 9°
+   * Kippung, −0.4° gegen −0.5° Ruhelage. Drei Paare, bei denen sich nicht sagen
+   * ließ, welche Zahl gemeint war.
+   */
+  flugSkala: 0.9,
+  flugDrehungGrad: 1.4,
+  flugKippungGrad: 10,
+  ruheDrehungGrad: -0.4,
+
+  /** Abgang: die Karte hebt ab, schrumpft leicht und dreht sich weg. */
+  abgangHubPx: -22,
+  abgangSkala: 0.96,
+  abgangDrehungGrad: -1.4,
+
+  /**
+   * Kamerablitz beim Erreichen des Halts.
+   *
+   * Er hängt am Kopf und nicht an einem Timer — sonst feuerte er bei jedem
+   * Überfahren neu. Player und Editor blitzten 750 gegen 700 ms, mit Spitze bei
+   * 10 % gegen 12 % und um 0,05 verschiedenen Deckkräften im Verlauf.
+   */
+  blitzDauerS: 0.75,
+  /** Anteil der Dauer, an dem die Spitze liegt. */
+  blitzSpitzeBei: 0.1,
+  blitzSpitze: 0.95,
+  /** Mitte des Radialverlaufs in Anteilen der Fläche. */
+  blitzMitteX: 0.5,
+  blitzMitteY: 0.45,
+  /** Deckkraft des Verlaufs innen und am mittleren Halt. */
+  blitzInnen: 0.95,
+  blitzAussen: 0.55,
+
+  /**
+   * Schleier hinter der Karte.
+   *
+   * Er bleibt auf beiden Bildschirm-Bühnen eine DOM-Schicht mit
+   * `backdrop-filter` — auf einer Leinwand hat der kein Gegenstück, und der
+   * naheliegende Ausweg über einen eingefrorenen Puffer trägt nicht (Konzept
+   * §4). Die Farbe ist bewusst hell: Das frühere 0.5-Schwarz lief über dunklen
+   * Szenen mit Vignette und Cine-Balken auf einen schwarzen Bildrand hinaus;
+   * die Trennung übernimmt der Blur. Der Editor stand auf 0.34 mit blur(10px)
+   * und ohne Entsättigung, also genau in die zurückgenommene Richtung.
+   */
+  schleierFarbe: 'rgba(6, 10, 16, 0.3)',
+  schleierBlurPx: 14,
+  schleierSaturate: 0.85,
+  schleierBrightness: 0.96,
+
+  /** Eckenradius des Bildrahmens innerhalb der Karte. */
+  rahmenRadiusPx: 5,
+} as const
+
+/**
+ * Was zwischen den Bühnen verschieden sein DARF — benannt und mit Grund.
+ *
+ * Der Sinn dieser zweiten Tabelle liegt nicht in den Werten, sondern darin,
+ * dass es sie gibt: Ohne sie wäre die nächste Vereinheitlichung eine
+ * Verschlechterung, weil niemand mehr sähe, dass hier eine Entscheidung steht.
+ */
+export const KARTE_BUEHNE = {
+  /**
+   * Flugweite des Auftritts.
+   *
+   * Der Player zeigt die Karte fast bildschirmfüllend; ein Anflug über 70 px
+   * ist dort ein kurzer Weg. Die Editor-Karte liegt klein auf der Karten-Bühne
+   * wie auf einem Leuchttisch — dieselben 70 px wären dort mehr als eine halbe
+   * Kartenhöhe.
+   */
+  flugHubPx: { player: 70, editor: 48 },
+} as const
+
+/**
+ * Bekannte Abweichungen des Video-Exports von der Tabelle — Etappe 1 behebt
+ * sie NICHT, sie benennt sie.
+ *
+ * Der Export ist in dieser Etappe der dritte Vergleichspunkt und nichts sonst:
+ * Er malt die Karte von Hand auf seine Komposition, ohne DOM und ohne CSS, und
+ * dieser Nachbau verschwindet mit Etappe 2 vollständig. Ihn jetzt Zahl für Zahl
+ * nachzuziehen hieße, Code zu pflegen, der gelöscht wird.
+ *
+ * Wozu die Liste dann? Damit sie SCHRUMPFT. Der Wächter prüft, dass jede hier
+ * genannte Abweichung im Export tatsächlich noch so dasteht — wer eine behebt
+ * oder den Nachbau entfernt, muss die Zeile hier streichen. Ohne das wäre die
+ * Liste nach Etappe 2 eine Beschreibung von Code, den es nicht mehr gibt.
+ *
+ * `spur` ist die Stelle in src/exportfilm.ts, an der die Abweichung steht.
+ */
+export const KARTE_EXPORT_ABWEICHUNGEN: readonly {
+  was: string
+  spur: string
+  soll: string
+}[] = [
+  {
+    was: 'Ken Burns läuft in die GEGENRICHTUNG — das Bild zoomt hinein statt heraus, linear über feste 6 s statt über die Klip-Länge.',
+    spur: '1 + 0.06 * Math.min(1, imS / 6)',
+    soll: 'kenBurnsVon → kenBurnsBis über die Klip-Länge',
+  },
+  {
+    was: 'Das „Entwickeln" fehlt ganz.',
+    spur: 'ctx.drawImage(quelle,',
+    soll: 'entwickelnVon → entwickelnBis über entwickelnDauerS',
+  },
+  {
+    was: 'Der Auftritt ist eine lineare Deckkraft ohne Flug — keine Geometrie, keine Kurve.',
+    spur: 'if (imS < 0.5) a = Math.max(0, imS / 0.5)',
+    soll: 'Blende UND Flug, mit flugKurve',
+  },
+  {
+    was: 'Kamerablitz, Standzeit-Balken und die Kennzahlen-Pillen fehlen.',
+    spur: 'const textH = titel || unter ?',
+    soll: 'Blitz, Balken (balkenAnteil) und Pillen wie auf der Bühne',
+  },
+  {
+    was: 'Der Schleier ist eine flache Füllung — das ist gewollt (Konzept §4, der Export komponiert selbst), aber die FARBE weicht zusätzlich ab.',
+    spur: "ctx.fillStyle = 'rgba(6, 10, 16, 0.28)'",
+    soll: 'schleierFarbe (flach: benannte Variante, 0.28 statt 0.3: nicht)',
+  },
+  {
+    was: 'Das Seitenverhältnis ist roh statt geklemmt.',
+    spur: '(quelle.naturalWidth || 3) / (quelle.naturalHeight || 2)',
+    soll: 'klemmeSeitenverhaeltnis',
+  },
+  {
+    was: 'Texte werden aus dem DOM zurückgelesen, das der Player gerade gefüllt hat.',
+    spur: "layer.querySelector('.photo-title')?.textContent",
+    soll: 'dieselben Daten wie der Player, nicht dessen Ergebnis',
+  },
+]
+
+/**
  * Reihenfolge der Aufnahmen INNERHALB eines Halts.
  *
  * `reihe` ist eine Entscheidung des Autors und schlägt deshalb alles andere;

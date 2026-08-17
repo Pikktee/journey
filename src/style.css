@@ -608,7 +608,7 @@ body:not(.ui-clean) .photo-layer {
    (`--kb-dauer`, aus ui.ts) — vorher `holdS + 1.8` gegen die 0,8 des Editors,
    die 1-Sekunden-Abweichung aus §6C des Gleichlauf-Konzepts. */
 .photo-card.in .photo-frame img:not(.video-standbild) {
-  animation: develop 1.6s ease-out both, kenburns var(--kb-dauer, 7s) ease-out both;
+  animation: develop 1.6s ease-out both, kenburns var(--kb-dauer, 6s) ease-out both;
   animation-delay: var(--karte-zeit, 0s), var(--karte-zeit, 0s);
   animation-play-state: paused;
 }
@@ -627,18 +627,20 @@ body:not(.ui-clean) .photo-layer {
     transform: scale(1.12);
   }
   to {
-    transform: scale(1.01);
+    transform: scale(1.02);
   }
 }
 
 /* Ken-Burns pro Medium abschaltbar (display.kenBurns === false, Studio): nur
    der DRIFT entfällt — das „Entwickeln" (Filterblende) gehört zur
-   Foto-Signatur und bleibt. */
+   Foto-Signatur und bleibt. Die stehende Karte liegt auf dem ENDE des Zugs
+   (KARTE.ruheSkala), nicht auf 1.0: Das Bild soll ohne Drift genauso im Rahmen
+   sitzen wie mit ihm, nur eben von Anfang an. */
 .photo-card.in .photo-frame.kein-kb img:not(.video-standbild) {
   animation: develop 1.6s ease-out both;
   animation-delay: var(--karte-zeit, 0s);
   animation-play-state: paused;
-  transform: none;
+  transform: scale(1.02);
 }
 
 /* Video-Stopp (M4): nicht beschneiden (auch Hochformat-Handyvideos), schwarzer

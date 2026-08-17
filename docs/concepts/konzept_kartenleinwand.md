@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-17
-status: Entwurf, nichts gebaut
+status: Etappe 1 gebaut, Etappe 2 und 3 offen
 betrifft:
   - Player (src/ui.ts, src/style.css, erlebnis.html)
   - Studio-Editor (src/studio/abspielen.ts, studio.html)
@@ -122,6 +122,42 @@ Das ist die eigentliche Krankheit, und sie ist schlimmer als die groben
 Abweichungen aus §2.1: Ein Fehler, den man sieht, wird behoben. Einer, den man
 für Absicht halten kann, bleibt.
 
+### 2.3 Gegenprobe am Tag des Umbaus (2026-08-17)
+
+Beide Tabellen stimmten Zeile für Zeile. Drei Nachträge, die dabei anfielen:
+
+- **§4 nennt die falsche Titelgröße.** `clamp(18px, 2.2vw, 28px)` ist der Wert
+  des EDITORS (`.fe-titel`); der Player läuft auf
+  `clamp(22px, 2.3vw, 32px)`. Für das Skalierungsmodell in §5 ist das die
+  Bezugsgröße, also die teurere Verwechslung von beiden.
+- **Eine neunte Abweichung, aber keine Zahl:** Der Player lässt Titel,
+  Unterschrift und Pille zeitversetzt einlaufen (`bildunterschrift`, 0,6 s, bei
+  +0,35 / +0,45 / +0,55 s). Der Editor hat dafür gar keine Animation. Das ist
+  kein auseinandergelaufener Wert, sondern ein fehlendes Bauteil, und es gehört
+  deshalb nicht in die Tabelle, sondern in Etappe 2.
+- Die Rückfalldauer des Ken-Burns-Zugs war ableitbar und musste nicht gewählt
+  werden: `klipDauerS(HOLD_HIDE)` = 6 s, also der Wert des Editors.
+
+**Entschieden wurde (Etappe 1):** Ken-Burns-Ende, Ruhewert bei abgeschaltetem
+Ken Burns, Entwickeln-Ende, Auftritts- und Ruhewinkel, Blitz und Schleier sind
+geteilt und stehen auf den Player-Werten, mit zwei Ausnahmen: Das Ken-Burns-Ende
+ist 1.02 (der Editor-Wert, s. o.), und die stehende Karte liegt auf genau diesem
+Ende statt auf `none` oder 1.04. Benannte Bühnen-Variante ist einzig die
+Flugweite.
+
+**Der Schleier wurde nachträglich am Bildschirm überprüft — und die Zweifel
+haben nicht gehalten.** Er war der eine geteilte Wert, bei dem eine benannte
+Variante denkbar schien: Auf der Bühne deckt die Karte gemessen rund vier
+Fünftel des Bildes ab (der Schleier ist dort ein schmaler Rand), im Editor
+liegt sie klein auf einer Karten-Bühne, die man zum Beurteilen der Platzierung
+mitliest. Die Gegenprobe im laufenden Editor, gleiche Tour und gleiche
+Filmsekunde, nur die vier Werte getauscht: Der Unterschied ist da, aber klein,
+und keine der beiden Fassungen macht die Karte darunter unbrauchbar. Am
+deutlichsten ist er bei heller Szenerie (Berner Oberland), wo der frühere
+Editor-Wert etwas mehr Geländestruktur stehen lässt; bei dunkler Szenerie ist
+er kaum auszumachen. **Der Wert bleibt geteilt.** Eine Variante braucht einen
+Grund, und „ein bisschen mehr Struktur" ist keiner.
+
 ---
 
 ## 3. Leitentscheidungen
@@ -181,8 +217,9 @@ Was schwieriger wird als in CSS:
   `text-overflow: ellipsis`. Der Umbruch steht mit `brichAttribution` in
   [exportfilm.ts](../../src/exportfilm.ts) schon da und gehört mit in den Maler;
   das KÜRZEN steht dort noch nicht, das ist neu. Dazu kommt, was heute
-  unsichtbar in CSS steckt: Der Titel läuft auf
-  `clamp(18px, 2.2vw, 28px)`, die Karte auf `min(1500px, 92vw)` mit einer
+  unsichtbar in CSS steckt: Der Titel läuft auf der Bühne auf
+  `clamp(22px, 2.3vw, 32px)` (im Editor auf `clamp(18px, 2.2vw, 28px)`, s.
+  §2.3), die Karte auf `min(1500px, 92vw)` mit einer
   Höhenrechnung aus `--photo-chrome` und `--vh-app`. Alles davon ist
   Layout-Logik, die der Maler ausdrücklich nachbauen muss (s. §5,
   „Skalierungsmodell").
@@ -266,7 +303,7 @@ bereit", auf das der Export wartet, statt zu encodieren.
 prüfbare Aussage ist.** Die Kartengeometrie hängt heute an festen Pixelwerten
 und Viewport-Einheiten: `min(1500px, 92vw)`, `--photo-chrome` 235 px, das auf
 335 px springt, sobald die Bedienung steht, dazu `--vh-app` und
-`clamp(18px, 2.2vw, 28px)` für den Titel. Ein 1920×1080-Film und ein
+`clamp(22px, 2.3vw, 32px)` für den Titel der Bühne. Ein 1920×1080-Film und ein
 1280×800-Bildschirm ergeben damit verschieden große Karten und verschieden
 große Schrift, und zwar AUCH mit einem einzigen Maler. Ein gemeinsamer Zeichner
 allein macht zwei Bühnen nicht deckungsgleich.
@@ -370,7 +407,7 @@ Filmachsen-Konzept stehen hat.
 
 ## 6. Etappen
 
-### Etappe 1 — Der Wächter über ALLE DREI Bühnen (klein, sofort wertvoll)
+### Etappe 1 — Der Wächter über ALLE DREI Bühnen ✅ gebaut (2026-08-17)
 
 Die Zahlen der Einblendung wandern nach `einblendung.ts` — als geteilte Werte
 oder als benannte Bühnen-Varianten mit Begründung (§3.7). Ein Test liest
@@ -387,6 +424,17 @@ das ausdrücklich) und hat die acht Abweichungen aus §2.2 durchgelassen.
 **Auch wenn Etappe 2 nie kommt, ist das die Hälfte des Gewinns:** Es macht
 Absicht von Versehen unterscheidbar, und zwar für Player, Editor und Export
 zugleich.
+
+**Gebaut als:** `KARTE` (geteilte Werte), `KARTE_BUEHNE` (benannte Varianten,
+heute nur die Flugweite) und `KARTE_EXPORT_ABWEICHUNGEN` in
+[einblendung.ts](../../src/einblendung.ts); der Wächter in
+[test/einblendung-css.test.ts](../../test/einblendung-css.test.ts) liest
+`src/style.css` und `studio.html` dagegen. Der Export bekam KEINEN Maler und
+keine Korrektur, er ist der dritte Vergleichspunkt: Geprüft wird, dass er die
+zwei Zahlen teilt, die er heute schon rechnet (Auftritts-Blende, Ausblend-
+Rückfall), und dass seine sieben bekannten Abweichungen noch genau so dastehen.
+Der Zweck dieser Liste ist, dass sie SCHRUMPFT. Wer in Etappe 2 den Nachbau
+entfernt, muss sie leeren, sonst beschreibt sie Code, den es nicht mehr gibt.
 
 **Bekannter Folgeschritt, damit er später nicht wie ein Rückschritt aussieht:**
 Nach Etappe 2 steht die Player-Optik nicht mehr in `style.css`, sondern im

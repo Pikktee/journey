@@ -1482,7 +1482,7 @@
       position: absolute; left: 50%; top: 50%; z-index: 5;
       margin: 0; padding: 13px 13px 0; border-radius: var(--radius-lg);
       background: var(--papier); box-shadow: 0 46px 120px rgba(0, 0, 0, 0.72), 0 14px 40px rgba(0, 0, 0, 0.5);
-      opacity: 0; transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.6deg) rotateX(9deg);
+      opacity: 0; transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.4deg) rotateX(10deg);
       pointer-events: none;
     }
     .foto-einblendung:empty { display: none; }
@@ -1507,12 +1507,16 @@
       animation-play-state: paused;
     }
     @keyframes feEinBlende { from { opacity: 0; } to { opacity: 1; } }
+    /* Die WINKEL sind geteilt (KARTE in src/einblendung.ts), die Flugweite
+       nicht: 48 px statt der 70 des Players, weil diese Karte klein auf der
+       Karten-Bühne liegt und nicht bildschirmfüllend — dieselben 70 px wären
+       hier mehr als eine halbe Kartenhöhe (KARTE_BUEHNE.flugHubPx). */
     @keyframes feEinFlug {
-      from { transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.6deg) rotateX(9deg); }
-      to { transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-0.5deg) rotateX(0deg); }
+      from { transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.4deg) rotateX(10deg); }
+      to { transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg); }
     }
     @keyframes feAbgang {
-      from { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-0.5deg) rotateX(0deg); }
+      from { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg); }
       to { opacity: 0; transform: translate(-50%, -50%) translateY(-22px) scale(0.96) rotate(-1.4deg); }
     }
     /* Das Seitenverhältnis ist GEMESSEN, nicht gesetzt (`--fe-ar`, aus
@@ -1554,7 +1558,7 @@
        beim Scrubben ab 0 los und beim Stillstand weiter. Die Drift-Dauer ist die
        Standzeit des Klips (`--fe-kb-dauer`), wie `--kb-dauer` im Player. */
     .foto-einblendung.an .fe-frame img {
-      animation: feEntwickeln 1.6s ease-out both, feKenburns var(--fe-kb-dauer, 6s) ease-out both;
+      animation: feEntwickeln 1.6s ease-out both, feKenburns var(--fe-kb-dauer, 6s) ease-out both; /* 6s = klipDauerS(HOLD_HIDE), s. KARTE.kbDauerRueckfallS */
       animation-delay: var(--fe-zeit, 0s), var(--fe-zeit, 0s);
       animation-play-state: paused;
     }
@@ -1563,10 +1567,18 @@
       animation: feEntwickeln 1.6s ease-out both;
       animation-delay: var(--fe-zeit, 0s);
       animation-play-state: paused;
-      transform: scale(1.04);
+      transform: scale(1.02);
     }
-    @keyframes feEntwickeln { from { filter: brightness(1.45) contrast(0.82) saturate(0.55); } to { filter: none; } }
+    /* Das Entwickeln endet nicht neutral, sondern auf einem minimalen
+       Druck-Look — im Player ist das zugleich der Grundzustand des Bildes.
+       Hier stand `filter: none`, dasselbe Foto war dadurch dauerhaft eine Spur
+       flacher als auf der Bühne (KARTE.entwickelnBis). */
+    @keyframes feEntwickeln { from { filter: brightness(1.45) contrast(0.82) saturate(0.55); } to { filter: brightness(1) contrast(1.02) saturate(1.05); } }
     @keyframes feKenburns { from { transform: scale(1.12); } to { transform: scale(1.02); } }
+    /* 1.02 ist auch der Wert bei abgeschaltetem Ken Burns und bei
+       reduzierter Bewegung: die stehende Karte liegt auf dem ENDE des Zugs
+       (KARTE.ruheSkala). Hier stand 1.04, im Player `none` — drei Zahlen für
+       eine Ruhelage. */
     .fe-cap { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 12px; padding: 11px 6px 13px; }
     .fe-titel {
       font-family: var(--font-display); font-weight: 600;
@@ -1578,26 +1590,32 @@
       border-radius: var(--radius-full); padding: 4px 10px;
     }
     .fe-sub { grid-column: 1 / -1; font-family: var(--font-ui); font-size: 12.5px; color: rgba(28, 23, 18, 0.6); }
-    /* Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist (Player-Backdrop) */
+    /* Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist — derselbe
+       Schleier wie im Player (KARTE.schleier*). Er stand hier auf 0.34 Schwarz
+       mit blur(10px) und ohne Entsättigung, also dunkler und weniger unscharf:
+       genau die Richtung, die im Player einmal ausdrücklich zurückgenommen
+       wurde, weil dunkle Szenen darunter zulaufen. */
     .karten-buehne::after {
       content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-      background: rgba(6, 10, 16, 0.34); opacity: 0;
+      background: rgba(6, 10, 16, 0.3); opacity: 0;
       transition: opacity 500ms ease, backdrop-filter 500ms ease, -webkit-backdrop-filter 500ms ease;
     }
-    .karten-buehne.foto-an::after { opacity: 1; backdrop-filter: blur(10px) brightness(0.92); -webkit-backdrop-filter: blur(10px) brightness(0.92); }
-    /* Kamerablitz beim Erscheinen */
+    .karten-buehne.foto-an::after { opacity: 1; backdrop-filter: blur(14px) saturate(0.85) brightness(0.96); -webkit-backdrop-filter: blur(14px) saturate(0.85) brightness(0.96); }
+    /* Kamerablitz beim Erscheinen — Dauer, Spitze und Verlauf wie im Player
+       (KARTE.blitz*); hier waren es 700 ms mit Spitze bei 12 % und einem um
+       0,05 dunkleren Verlauf. */
     .foto-flash {
       position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0;
-      background: radial-gradient(circle at 50% 46%, rgba(255, 250, 240, 0.9) 0%, rgba(255, 250, 240, 0.5) 42%, transparent 78%);
+      background: radial-gradient(circle at 50% 45%, rgba(255, 250, 240, 0.95) 0%, rgba(255, 250, 240, 0.55) 42%, transparent 78%);
     }
     /* Auch der Blitz gehört dem Kopf: als Timer-Klasse (`blinke`) feuerte er
        bei jedem Überfahren neu und lief dann nach Wanduhr weiter. */
     .foto-flash.blitz {
-      animation: fotoBlitz 700ms ease-out both;
+      animation: fotoBlitz 750ms ease-out both;
       animation-delay: var(--fe-zeit, 0s);
       animation-play-state: paused;
     }
-    @keyframes fotoBlitz { 0% { opacity: 0; } 12% { opacity: 0.9; } 100% { opacity: 0; } }
+    @keyframes fotoBlitz { 0% { opacity: 0; } 10% { opacity: 0.95; } 100% { opacity: 0; } }
     @media (prefers-reduced-motion: reduce) {
       .foto-einblendung { transition: opacity 200ms ease; transform: translate(-50%, -50%); }
       .foto-einblendung.an { animation: none; opacity: 1; transform: translate(-50%, -50%); }
