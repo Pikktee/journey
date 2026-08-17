@@ -31,6 +31,9 @@
 /** Die erlaubten Felder, in der Reihenfolge, in der sie geschrieben werden. */
 export const FELDER = ['stand', 'status', 'betrifft', 'systemteile', 'archiviert_aus']
 
+/** Zusätzlich in Prototypen: zu welchem Konzept gehört dieser Entwurf? */
+export const HTML_FELDER = [...FELDER, 'gehoert_zu']
+
 const LISTENFELDER = new Set(['betrifft', 'systemteile'])
 
 /* ── Lesen ────────────────────────────────────────────────────────────── */
@@ -231,6 +234,10 @@ export function kopfAusHtml(text) {
     betrifft: alsListe(daten.betrifft),
     systemteile: alsListe(daten.systemteile),
     archiviertAus: alsText(daten.archiviert_aus) || null,
+    // Übersteuert die Ableitung aus den Links: Für die vier
+    // `studio-zeitleiste-kopf`-Runden besteht die Beziehung, nur nennt das
+    // Konzept sie nicht.
+    gehoertZu: alsText(daten.gehoert_zu) || null,
     strukturiert: Object.keys(daten).length > 0,
   }
 }

@@ -680,6 +680,61 @@ export function standVeraltet(dok, heute = Date.now()) {
   return tage >= STAND_FRIST_TAGE ? { stand: treffer[0], tage } : null
 }
 
+/* ── Konzept und Prototyp ─────────────────────────────────────────────────
+ * Ein Mockup gehört meist zu einem Konzept, aber nicht immer, und manchmal zu
+ * zweien. Gemessen am 2026-08-17: 11 von 25 werden von einem Konzept verlinkt,
+ * einer von zwei (`studio-konto.html`), 14 von keinem — und bei mehreren davon
+ * ist das richtig: `logo-varianten.html` wurde gezeichnet und direkt gebaut, ein
+ * Konzeptpapier dazu wäre ein erfundenes Dokument.
+ *
+ * ABGELEITET, NICHT VERLANGT: Die Konzepte verlinken ihre Prototypen ohnehin im
+ * Text („Mockups: player-leiste-runde3.html (dritte Runde …)"). Wer verlinkt,
+ * stellt damit die Beziehung her — ein Pflichtfeld wäre beim nächsten Prototyp
+ * vergessen. Wo der Link fehlt, die Beziehung aber besteht, übersteuert
+ * `<meta name="maptale:gehoert-zu" content="architecture/zeitleiste-umbau.md">`.
+ *
+ * Geführt wird sie in BEIDE Richtungen: Der Prototyp nennt sein Konzept, das
+ * Konzept seine Prototypen. Eine Richtung genügte für die Anzeige, aber die
+ * zweite ist dieselbe Information — sie hier abzuleiten ist billiger, als sie
+ * später an zwei Stellen zu suchen.
+ */
+export function verknuepfeMockups(dokumente, mockups) {
+  const nachRel = new Map(mockups.map((m) => [m.quelle, m]))
+  for (const m of mockups) {
+    m.konzepte = []
+    m.gehoertZu = m.kopf?.gehoertZu ?? null
+  }
+  for (const d of dokumente) d.prototypen = []
+
+  const verbinde = (dok, mockup) => {
+    if (!dok || !mockup) return
+    if (!mockup.konzepte.some((k) => k.quelle === dok.quelle))
+      mockup.konzepte.push({ quelle: dok.quelle, titel: dok.titel, ziel: dok.ziel })
+    if (!dok.prototypen.some((p) => p.quelle === mockup.quelle))
+      dok.prototypen.push({ quelle: mockup.quelle, titel: mockup.titel })
+  }
+
+  // 1. Was ein Dokument verlinkt.
+  for (const d of dokumente) {
+    if (d.archiviert) continue
+    for (const t of d.text.matchAll(/\]\(([^)\s]+\.html)(?:#[^)]*)?\)/g)) {
+      if (/^https?:/.test(t[1])) continue
+      const rel = relative(DOCS, resolve(dirname(d.abs), t[1]))
+      verbinde(d, nachRel.get(rel))
+    }
+  }
+
+  // 2. Was ein Prototyp selbst angibt — das schlägt die Ableitung nicht, es
+  //    ergänzt sie: Beides sind Nennungen derselben Beziehung.
+  const dokNachQuelle = new Map(dokumente.map((d) => [d.quelle, d]))
+  for (const m of mockups) {
+    if (!m.gehoertZu) continue
+    const rel = m.gehoertZu.replace(/^docs\//, '')
+    verbinde(dokNachQuelle.get('docs/' + rel), m)
+  }
+  return mockups
+}
+
 /** Bilder aus `docs/mockups/**` — die Galerie am Ende der Mockup-Seite. */
 export function sammleBilder() {
   const raus = []

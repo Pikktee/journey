@@ -34,6 +34,7 @@ import {
   sammleBilder,
   sammleRoadmap,
   standVeraltet,
+  verknuepfeMockups,
 } from './sammeln.mjs'
 import { rendere } from './markdown.mjs'
 import {
@@ -79,6 +80,9 @@ const BEREICHE = bereicheDieserDoku()
 const dokumente = sammleDokumente()
 const mockups = sammleMockups()
 const bilder = sammleBilder()
+// Die Beziehung Konzept↔Prototyp wird abgeleitet, bevor irgendetwas gerendert
+// wird: Beide Seiten zeigen sie an, und beide bekommen sie aus derselben Quelle.
+verknuepfeMockups(dokumente, mockups)
 const roadmap = sammleRoadmap(dokumente, mockups)
 const nachAbs = new Map(dokumente.map((d) => [d.abs, d]))
 
@@ -240,6 +244,11 @@ for (const pfad of roadmap.prototypen ?? [])
   console.warn(
     `  ! docs/roadmap.md nennt den Prototyp ${pfad} — auf die Roadmap kommen KONZEPTE.\n` +
       '    Lege ein Konzept an, verlinke den Prototyp darin und plane das Konzept ein.',
+  )
+const ohneKonzept = mockups.filter((m) => !m.archiv && !m.konzepte.length)
+if (ohneKonzept.length)
+  console.log(
+    `  Prototypen: ${ohneKonzept.length} von ${mockups.filter((m) => !m.archiv).length} gehören zu keinem Konzept — kein Fehler (manches wurde gezeichnet und direkt gebaut), aber eine Beziehung, die der Viewer dann nicht zeigen kann`,
   )
 if (roadmap.offen.length)
   console.log(`  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`)

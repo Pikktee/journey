@@ -2249,3 +2249,10 @@ body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
 /* Die Zielspalte während eines Zuges: nur Fläche, denn Rahmen gibt es hier
    keine mehr. Sie ist beschriftet, man muss ihr nichts erklären. */
 .rm-phase.ziel { background: color-mix(in srgb, var(--ton, var(--akzent)) 11%, transparent); }
+
+/* Zu welchem Konzept gehört dieser Entwurf? Eine Zeile auf der Kachel — die
+   Antwort stand bisher nur im Fließtext des Konzepts, also dort, wo man sie
+   nicht sucht. */
+.mockup-konzept { margin: 8px 0 0; color: var(--text-3); font-size: 12.5px; }
+.mockup-konzept a { color: var(--text-2); }
+.mockup-konzept a:hover { color: var(--akzent); }

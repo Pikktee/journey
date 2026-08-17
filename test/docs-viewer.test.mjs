@@ -24,7 +24,7 @@ import {
   uebersichtSeite,
 } from '../scripts/docs-viewer/seiten.mjs'
 import { escape } from '../scripts/docs-viewer/markdown.mjs'
-import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
+import { SYSTEMTEILE, systemteileVon, verknuepfeMockups } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
   editorBefehl,
@@ -433,6 +433,55 @@ describe('Ampel aus dem Status', () => {
     expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe('unterwegs')
     expect(ampelAus({ status: 'Etappen 1–7 umgesetzt' }, 'architecture').art).toBe('unterwegs')
     expect(ampelAus({ status: 'live seit 2026-08-10' }, 'concepts').art).toBe('fertig')
+  })
+})
+
+describe('Konzept und Prototyp kennen sich', () => {
+  // ABGELEITET, NICHT VERLANGT: Die Konzepte verlinken ihre Prototypen ohnehin
+  // im Text. Ein Pflichtfeld wäre beim nächsten Prototyp vergessen; wer
+  // verlinkt, stellt die Beziehung her. Wo der Link fehlt, sie aber besteht,
+  // übersteuert `<meta name="maptale:gehoert-zu">`.
+  // Die MODULWEITEN `dokumente` verknüpfen, nicht eine frische Kopie: Sonst
+  // hängt die Rückrichtung an Objekten, die der Test danach nie ansieht.
+  const eigene = verknuepfeMockups(dokumente, sammleMockups())
+
+  it('führt die Beziehung in beide Richtungen', () => {
+    const mitKonzept = eigene.filter((m) => m.konzepte.length)
+    expect(mitKonzept.length, 'kein Prototyp mit Konzept').toBeGreaterThan(5)
+    for (const m of mitKonzept)
+      for (const k of m.konzepte) {
+        const dok = dokumente.find((d) => d.quelle === k.quelle)
+        expect(dok, k.quelle).toBeTruthy()
+        expect(dok.prototypen.map((p) => p.quelle), `${k.quelle} kennt ${m.quelle} nicht`).toContain(
+          m.quelle,
+        )
+      }
+  })
+
+  it('erlaubt mehrere Konzepte je Prototyp', () => {
+    // `studio-konto.html` gehört zu Profil/Konto UND Newsletter. Eine
+    // 1:1-Beziehung hätte einen der beiden verschluckt.
+    const mehrfach = eigene.filter((m) => m.konzepte.length > 1)
+    expect(mehrfach.length).toBeGreaterThan(0)
+  })
+
+  it('erfindet kein Konzept, wo keins ist', () => {
+    // 14 von 25 gehören zu keinem, und bei mehreren ist das richtig:
+    // `logo-varianten.html` wurde gezeichnet und direkt gebaut.
+    const ohne = eigene.filter((m) => !m.konzepte.length)
+    expect(ohne.length).toBeGreaterThan(0)
+    for (const m of ohne) expect(m.konzepte).toEqual([])
+  })
+
+  it('zeigt die Beziehung auf der Kachel', () => {
+    const html = mockupSeite({
+      mockups: eigene,
+      bereiche,
+      roadmap: sammleRoadmap(dokumente, eigene),
+      schriftLokal: false,
+    })
+    expect(html).toContain('mockup-konzept')
+    expect(html).toContain('Gehört zu')
   })
 })
 

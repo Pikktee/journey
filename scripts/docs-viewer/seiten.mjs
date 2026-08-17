@@ -451,6 +451,21 @@ function mockupKarte(m, auf, roadmap) {
       <div class="karte-marken">${m.archiv ? '<span class="ampel ampel-ruht">Archiv</span>' : ''}${teilChips(m.teile, 2)}</div>
       <h3>${escape(m.titel)}</h3>
       ${m.klappentext ? `<p>${escape(m.klappentext)}</p>` : ''}
+      ${
+        // WOZU gehört dieser Entwurf? Die Frage stellt man sich bei jedem
+        // Prototyp, und bis hierher stand die Antwort nur im Fließtext des
+        // Konzepts — also genau dort, wo man sie nicht sucht.
+        (m.konzepte ?? []).length
+          ? `<p class="mockup-konzept">Gehört zu ${m.konzepte
+              .map(
+                (k) =>
+                  `<a href="${auf}${escape(k.ziel)}">${escape(
+                    k.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''),
+                  )}</a>`,
+              )
+              .join(' · ')}</p>`
+          : ''
+      }
       <footer class="karte-fuss">
         <span class="karte-meta">${escape(m.name)}</span>
         ${aktionsmenue({
@@ -978,6 +993,16 @@ function kopftafel(dok, roadmap) {
     )}
     ${zeile('Status', status)}
     ${zeile('Roadmap', escape(phaseVon(roadmap, dok.quelle) || ''), 'Phase in docs/roadmap.md')}
+    ${zeile(
+      (dok.prototypen ?? []).length === 1 ? 'Prototyp' : 'Prototypen',
+      (dok.prototypen ?? [])
+        .map(
+          (p) =>
+            `<a class="tafel-tat" href="${escape(hoch(dok.ziel) + p.quelle)}" target="_blank" rel="noopener">${escape(p.titel)}</a>`,
+        )
+        .join('<span class="tafel-punkt">·</span>'),
+      'HTML-Entwürfe, die dieses Dokument verlinkt',
+    )}
     ${zeile('Betrifft', betrifft)}
     ${zeile(
       'Länge',
