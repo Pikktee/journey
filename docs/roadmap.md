@@ -42,11 +42,11 @@ jeweiligen Dokuments. Wer eine Etappe abschließt, ändert sie dort.
 
 Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
-* [Monetarisierung](concepts/konzept_monetarisierung.md) — Die Esri-Lizenz klären.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
 * [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch.
+* [Maptale App, vorhandene Bilder hinzufügen](mockups/app-aufnahmen-hinzufuegen.html)
 
 ## Beschlossen · als Nächstes
 
@@ -57,6 +57,7 @@ Entschieden und vorbereitet, aber noch nicht angefangen.
 * [Newsletter](concepts/konzept_newsletter.md) — Teil B: der redaktionelle Versand.
 * [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — Die Leiste nach Paket G.
 * [Studio-Editor zerlegen](concepts/konzept_editor_zerlegung.md) — Bevor `editor.ts` weiter wächst.
+* [Eine Bühne, ein Maler](concepts/eine-buehne-ein-maler.md) — Erst der Editor auf den Maler, dann der Blitz. [wartet auf: concepts/konzept_editor_zerlegung.md]
 
 ## Angedacht · ohne Termin
 
@@ -70,3 +71,4 @@ Gewollt, aber ohne Reihenfolge. Was hier steht, wartet auf einen Anlass.
 * [Modi konsolidieren](concepts/modi-konsolidierung.md) — Ein neuer Modus soll eine Zeile sein.
 * [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) — Vertagt, Glossar gilt schon.
 * [Die Tafeln auf die Leinwand](concepts/die-tafeln-auf-die-leinwand.md) — Erst die Klickflächen von Startscreen und Finale, dann die Optik.
+* [Monetarisierung](concepts/konzept_monetarisierung.md) — Die Esri-Lizenz klären.

@@ -1,15 +1,27 @@
 ---
-stand: 2026-08-07
+stand: 2026-08-17
 status: Entwurf, nichts davon umgesetzt
 betrifft: [src/studio/editor.ts]
 ---
 
 # Umbauplan: Studio-Editor zerlegen (`editor.ts`)
 
-**Ziel:** [src/studio/editor.ts](../../src/studio/editor.ts) (~6 100 Zeilen, ~184
-Funktionen) so aufteilen, dass Alltagsänderungen (Inspector-Feld, Kartenmarker,
-Zeitleisten-Geste, Spur-Menü) in einer überschaubaren Datei landen — ohne Verhalten
-zu ändern.
+**Ziel:** [src/studio/editor.ts](../../src/studio/editor.ts) so aufteilen, dass
+Alltagsänderungen (Inspector-Feld, Kartenmarker, Zeitleisten-Geste, Spur-Menü) in
+einer überschaubaren Datei landen, ohne Verhalten zu ändern.
+
+**Nachgezählt am 2026-08-17: 7 181 Zeilen.** Beim Schreiben dieses Plans waren es
+rund 6 100. Die Datei ist in zehn Tagen um etwa 18 Prozent gewachsen, und das ist
+die Zahl hier, die für sich spricht: Die Prämisse „bevor `editor.ts` weiter wächst"
+ist keine Vorsorge mehr, sie ist überfällig. Die Bestandsaufnahme in §1 schätzt die
+Blöcke deshalb zu klein. Ihre Verhältnisse dürften noch stimmen, die absoluten
+Zahlen nicht, und wer den Plan aufnimmt, zählt zuerst nach.
+
+**Ein Vorhaben wartet konkret darauf:** [Eine Bühne, ein Maler](eine-buehne-ein-maler.md)
+zieht die Editor-Vorschau der Foto-Karte auf den Maler des Players und berührt
+dabei genau den Block, den §1 „Rest" nennt. Es macht ihn kleiner (die
+`--fe-*`-Choreografie und fünf Keyframes fallen weg) und sollte in der
+Faserrichtung dieses Plans landen, nicht dagegen.
 
 Ergänzt
 [editor-ausbau.md](editor-ausbau.md) (Was) und

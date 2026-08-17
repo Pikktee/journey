@@ -420,6 +420,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
 * [`die-foto-karte-auf-eine-leinwand.md`](concepts/die-foto-karte-auf-eine-leinwand.md) — Warum die Foto-Karte im Player auf einer Leinwand liegt und der Export sie nur holt. Abgearbeitet; das Dokument ist jetzt die Begründung der Zahlen, die in `KARTE` und im Kartenmaler stehen.
 * [`die-tafeln-auf-die-leinwand.md`](concepts/die-tafeln-auf-die-leinwand.md) — Startscreen und „Ziel erreicht“: der letzte Canvas-Nachbau im Video-Export. Anders als bei der Karte ist „deckungsgleich“ hier ausdrücklich NICHT das Ziel. Entwurf, nichts gebaut.
+* [`eine-buehne-ein-maler.md`](concepts/eine-buehne-ein-maler.md) — Die Editor-Vorschau auf denselben Maler wie Player und Film, danach der Blitz zurück. Warum die Begründung für zwei Bühnen abgelaufen ist. Entwurf, nichts gebaut.
 * [`konzept_video_export.md`](concepts/konzept_video_export.md) — Tour als MP4. Etappe 1 gebaut (Film in Player-Tempo, Studio-Blatt). Der geraffte Clip und der Cloud-Auftrag kommen danach.
 * [`konzept_monetarisierung.md`](concepts/konzept_monetarisierung.md) — Esri-Lizenz (anonyme World Imagery vs. Location Platform) und wer zahlt (Hersteller, nicht Zuschauer). Vertragstexte E204/E300 im Wortlaut: Player als Produkt erlaubt, **MP4-Export nicht**. Dazu Kostendeckel (Esri hat keinen) und zweite Bildquelle. Entwurf, nichts gebaut.
 * [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).
