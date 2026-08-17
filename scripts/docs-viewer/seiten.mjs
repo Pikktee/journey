@@ -444,7 +444,20 @@ function mockupKarte(m, auf, roadmap) {
      data-suchtext="${escape((m.titel + ' ' + (m.klappentext || '')).toLowerCase())}">
     <a class="karte-flaeche" href="${auf}${escape(m.quelle)}" target="_blank" rel="noopener"><span class="nur-vorlesen">${escape(m.titel)} öffnen</span></a>
     <div class="mockup-text">
-      <div class="karte-marken">${m.archiv ? '<span class="ampel ampel-ruht">Archiv</span>' : ''}${teilChips(m.teile, 2)}</div>
+      <div class="karte-marken">${m.archiv ? '<span class="ampel ampel-ruht">Archiv</span>' : ''}${teilChips(
+        m.teile,
+        2,
+      )}${
+        // Die ABWESENHEIT gehört zu den Marken, nicht in die Wertzeile. Als
+        // „Konzept — keines verlinkt" stand sie im selben Grau wie ein
+        // ausgefüllter Wert und ging unter; hier oben landet das Auge zuerst.
+        // In Warnfarbe wie „Stand prüfen" auf der Roadmap: ein Hinweis zum
+        // Nachsehen, kein Alarm — bei einem Drittel der Prototypen ist es in
+        // Ordnung so.
+        (m.konzepte ?? []).length || m.archiv
+          ? ''
+          : '<span class="marke-fehlt" title="Kein Konzept verlinkt dieses Mockup. Entweder wurde es gezeichnet und direkt gebaut, oder der Link im Konzept fehlt.">ohne Konzept</span>'
+      }</div>
       <h3>${escape(m.titel)}</h3>
       ${m.klappentext ? `<p>${escape(m.klappentext)}</p>` : ''}
       ${
@@ -470,7 +483,7 @@ function mockupKarte(m, auf, roadmap) {
                   )}</a>`,
               )
               .join('<span class="tafel-punkt">·</span>')}</span></div>`
-          : `<div class="mockup-konzept ohne"><span class="mockup-konzept-etikett">Konzept</span><span class="mockup-konzept-wert">keines verlinkt</span></div>`
+          : ''
       }
       <footer class="karte-fuss">
         <span class="karte-meta">${escape(m.name)}</span>

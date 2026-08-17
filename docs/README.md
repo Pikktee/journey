@@ -208,9 +208,16 @@ Prototyp-Kachel bietet keine Phase mehr an, und der Dienst weist sie ab.
 **Auf der Kachel steht sie als ETIKETT**, nicht als Satzanfang: `Konzept` und
 daneben der verlinkte Titel — dieselbe Form wie in der Kopftafel eines Dokuments.
 Als „Gehört zu …" musste man lesen, um zu merken, dass da eine Beziehung steht.
-Und sie steht auch da, wenn keine besteht („keines verlinkt"): Das ist eine
-Auskunft, eine fehlende Zeile wäre eine Lücke, bei der man nicht weiß, ob niemand
-nachgesehen hat oder ob es nichts gibt.
+
+**Fehlt die Beziehung, sagt es eine MARKE oben** („ohne Konzept", Warnfarbe,
+gestrichelter Rahmen) und nicht die Wertzeile. Als „Konzept — keines verlinkt"
+stand die Abwesenheit im selben Grau wie ein ausgefüllter Wert und ging unter;
+oben bei den übrigen Marken landet das Auge zuerst. Gestrichelt und in Warnfarbe
+statt rot, weil es bei einem Drittel der Prototypen in Ordnung ist: Ein Hinweis
+zum Nachsehen, kein Alarm — dieselbe Linie wie bei „Stand prüfen" auf der
+Roadmap. Jede Kachel trägt ENTWEDER die Zeile ODER die Marke; ein Wächter hält
+das fest, weil beides zugleich oder nichts von beidem genau die Fälle sind, die
+niemandem auffallen.
 
 **Karten heben beim Überfahren, ohne sich zu bewegen.** Sie hatten
 `transform: translateY(-2px)`, und das ist ein Hover, der gegen den Zeiger

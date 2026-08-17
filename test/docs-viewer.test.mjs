@@ -473,22 +473,32 @@ describe('Konzept und Prototyp kennen sich', () => {
     for (const m of ohne) expect(m.konzepte).toEqual([])
   })
 
-  it('kennzeichnet die Beziehung mit einem Etikett, auch wenn keine besteht', () => {
+  it('sagt an JEDER Kachel, ob eine Beziehung besteht — Zeile oder Marke', () => {
+    // Drei Fassungen, jede an derselben Frage gescheitert: „Gehört zu …" war ein
+    // Satzanfang und zu leise; das Etikett mit „keines verlinkt" stand im selben
+    // Grau wie ein ausgefüllter Wert und ging unter. Jetzt trägt die Kachel
+    // ENTWEDER die Beziehung als Zeile ODER die Marke „ohne Konzept" oben bei
+    // den übrigen Marken — nie beides und nie keins von beiden.
     const html = mockupSeite({
       mockups: eigene,
       bereiche,
       roadmap: sammleRoadmap(dokumente, eigene),
       schriftLokal: false,
     })
-    // Als Satzanfang („Gehört zu …") war die Zeile zu leise — man musste lesen,
-    // um zu merken, dass da eine Beziehung steht. Und sie steht AUCH DA, wenn
-    // keine besteht: „keines verlinkt" ist eine Auskunft, eine fehlende Zeile
-    // eine Lücke, bei der man nicht weiß, ob niemand nachgesehen hat.
-    const kacheln = html.split('<article class="mockup"').length - 1
-    const etiketten = (html.match(/mockup-konzept-etikett/g) ?? []).length
-    expect(etiketten).toBe(kacheln)
-    expect(html).toContain('keines verlinkt')
+    const kacheln = html.split('<article class="mockup"').slice(1)
+    expect(kacheln.length).toBe(eigene.length)
+    for (const kachel of kacheln) {
+      const bis = kachel.indexOf('</article>')
+      const inhalt = kachel.slice(0, bis === -1 ? undefined : bis)
+      const hatZeile = inhalt.includes('mockup-konzept-etikett')
+      const hatMarke = inhalt.includes('marke-fehlt')
+      const archiviert = inhalt.includes('ampel-ruht')
+      // Im Archiv steht keine Marke: Was dort liegt, wird nicht mehr eingeplant.
+      if (archiviert) continue
+      expect(hatZeile !== hatMarke, inhalt.slice(0, 90)).toBe(true)
+    }
     expect(html).not.toContain('Gehört zu')
+    expect(html).not.toContain('keines verlinkt')
   })
 
   it('hebt Karten beim Überfahren ohne sie zu BEWEGEN', () => {
