@@ -981,14 +981,27 @@ export function maleKarte(
   const dichte = klemme(Math.abs(ctx.getTransform().a) || 1, 1, 3)
 
   // Der Blitz liegt über der Szene und UNTER der Karte, wie sein DOM-Vorgänger.
+  //
+  // Der Radius ist der von CSS: `radial-gradient(circle at 50% 45%, …)` ohne
+  // Größenangabe heißt `farthest-corner`, also der Abstand zur weitesten Ecke.
+  // Mit `max(Breite, Höhe) × 0.78` gerechnet (so stand es hier zuerst) wird er
+  // bei 1920 × 1080 um ein Drittel zu groß, und weil die Halte am Anteil des
+  // Radius hängen, wandern sie mit: Der Blitz wurde zur bildschirmfüllenden
+  // weißen Wäsche statt zu einem Aufflammen in der Bildmitte. Die zwei Halte
+  // stehen deshalb in `KARTE` und nicht mehr als Zahlen hier.
   if (phasen.blitz > 0.004) {
     const cx = buehne.breite * KARTE.blitzMitteX
     const cy = buehne.hoehe * KARTE.blitzMitteY
-    const r = Math.max(buehne.breite, buehne.hoehe) * 0.78
+    const r = Math.hypot(
+      Math.max(cx, buehne.breite - cx),
+      Math.max(cy, buehne.hoehe - cy),
+    )
     const verlauf = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
     verlauf.addColorStop(0, `rgba(${KARTEN_FARBEN.blitz}, ${KARTE.blitzInnen})`)
-    verlauf.addColorStop(0.42 / 0.78, `rgba(${KARTEN_FARBEN.blitz}, ${KARTE.blitzAussen})`)
-    verlauf.addColorStop(1, `rgba(${KARTEN_FARBEN.blitz}, 0)`)
+    verlauf.addColorStop(KARTE.blitzHaltAussen, `rgba(${KARTEN_FARBEN.blitz}, ${KARTE.blitzAussen})`)
+    // Ab hier durchsichtig: Canvas führt die Farbe des letzten Halts nach außen
+    // weiter, ein vierter Halt bei 1 wäre derselbe Wert zweimal.
+    verlauf.addColorStop(KARTE.blitzHaltEnde, `rgba(${KARTEN_FARBEN.blitz}, 0)`)
     ctx.save()
     ctx.globalAlpha = phasen.blitz
     ctx.fillStyle = verlauf

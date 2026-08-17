@@ -301,6 +301,22 @@ export const KARTE = {
   /** Deckkraft des Verlaufs innen und am mittleren Halt. */
   blitzInnen: 0.95,
   blitzAussen: 0.55,
+  /**
+   * Die beiden Halte des Verlaufs, als Anteil seines RADIUS.
+   *
+   * Und der Radius ist der eines CSS-`radial-gradient(circle at …)` ohne
+   * Größenangabe, also `farthest-corner`: der Abstand zur weitesten Ecke,
+   * `hypot(0.5 · Breite, 0.55 · Höhe)`. Diese zwei Zahlen standen bis zum
+   * 2026-08-17 nur im CSS beider Bühnen und im Wächter als nackte `42%`; der
+   * Maler rechnete seinen Radius stattdessen aus `max(Breite, Höhe) × 0.78` und
+   * legte die Halte auf denselben Anteil. Bei 1920 × 1080 ergab das einen Radius
+   * von 1498 statt 1129 Pixeln, den halben Halt bei 806 statt 474 und
+   * Durchsichtigkeit erst bei 1498 statt 881: aus einem Blitz in der Bildmitte
+   * wurde eine fast bildschirmfüllende weiße Wäsche. Deshalb stehen sie jetzt
+   * hier und werden gegen beide Bühnen bewacht.
+   */
+  blitzHaltAussen: 0.42,
+  blitzHaltEnde: 0.78,
 
   /**
    * Schleier hinter der Karte.

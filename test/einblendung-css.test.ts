@@ -338,7 +338,17 @@ describe('Foto-Karte: Maler und Editor teilen die WERTE', () => {
     const g = wert(regel(studioHtml, '.foto-flash'), 'background')
     expect(g).toContain(`circle at ${KARTE.blitzMitteX * 100}% ${KARTE.blitzMitteY * 100}%`)
     expect(g).toContain(`, ${KARTE.blitzInnen}) 0%`)
-    expect(g).toContain(`, ${KARTE.blitzAussen}) 42%`)
+    // Die HALTE des Verlaufs, und zwar aus der Tabelle statt als nackte „42%".
+    // Genau daran lief der Maler auseinander: Er rechnete seinen Radius anders
+    // (`max(Breite, Höhe) × 0.78` statt `farthest-corner`) und legte die Halte
+    // auf denselben Anteil — bei 1920 × 1080 war der Blitz dadurch um ein
+    // Drittel zu groß und blieb bis zum Bildrand hell.
+    expect(g).toContain(`, ${KARTE.blitzAussen}) ${KARTE.blitzHaltAussen * 100}%`)
+    expect(g).toContain(`transparent ${KARTE.blitzHaltEnde * 100}%`)
+    expect(malerTs).toContain('KARTE.blitzHaltAussen')
+    expect(malerTs).toContain('KARTE.blitzHaltEnde')
+    // Und der Radius ist der von CSS: `farthest-corner`, nicht die längere Seite.
+    expect(malerTs).toContain('Math.hypot(')
 
     // Und der Maler blitzt dieselben drei Stufen. Die Kurve liegt zwischen
     // JEDEM Paar von Stufen und nicht über die ganze Dauer — sonst flammt der
