@@ -24,6 +24,7 @@ import {
   editorBefehl,
   loeseHeraus,
   ordnePhase,
+  roadmapVerschieben,
   pruefePfad,
   rueckZiel,
   saubererName,
@@ -523,6 +524,18 @@ describe('Reihenfolge in einer Phase', () => {
     expect(nach[2]).toContain('[C]')
     expect(punkte.some((z) => z.includes('[A]'))).toBe(true)
     expect(punkte.some((z) => z.includes('[B]'))).toBe(true)
+  })
+
+  it('prüft die ganze Reihenfolge, BEVOR es schreibt', () => {
+    // Ein Phasenwechsel sind zwei Schreibvorgänge. Scheitert der zweite, stand
+    // die Phase schon woanders, während die Meldung „Außerhalb der Doku"
+    // behauptete, es sei nichts passiert. Genau so beobachtet.
+    const datei = join(WURZEL, 'docs/roadmap.md')
+    const vorher = readFileSync(datei, 'utf8')
+    expect(() =>
+      roadmapVerschieben('docs/concepts/editor-ausbau.md', 'In Arbeit', ['concepts/gibtsnicht.md']),
+    ).toThrow(/Außerhalb der Doku|Gibt es nicht/)
+    expect(readFileSync(datei, 'utf8'), 'roadmap.md wurde trotz Fehler angefasst').toBe(vorher)
   })
 
   it('meldet „nichts zu tun", wo sich nichts ändert', () => {

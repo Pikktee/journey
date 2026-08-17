@@ -2069,23 +2069,6 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .rm-fund b { color: var(--text); font-weight: 500; }
 .rm-fund i { font-style: normal; color: var(--text-3); opacity: 0.5; }
 
-/* „Angedacht" als Wolke: ein Drittel der Höhe einer Liste, und der Blick bleibt
-   dort, wo entschieden ist. */
-.rm-wolke { display: flex; flex-wrap: wrap; gap: 7px; }
-.rm-marke {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--rand);
-  border-radius: var(--radius-full);
-  background: var(--fl-1);
-}
-.rm-marke a { padding: 4px 4px 4px 12px; color: var(--text-2); font-size: 13px; }
-.rm-marke:hover { border-color: var(--rand-hell); }
-.rm-marke:hover a { color: var(--text); text-decoration: none; }
-/* Wie bei den Listen: Das × erscheint nur, wo ein Dienst antworten kann.
-   Ohne ihn wäre es ein Knopf, der nichts tut. */
-.rm-marke .rm-weg { position: static; margin: 0 5px 0 2px; opacity: 0; }
-.mit-dienst .rm-marke:hover .rm-weg { opacity: 1; }
 
 /* ── Rangfolge ziehen ─────────────────────────────────────────────────────
  * Ein sichtbarer GRIFF macht aus einer versteckten Fähigkeit eine Einladung.
@@ -2149,3 +2132,20 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 body.zieht-gerade { user-select: none; }
 body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
 
+
+/* ── Band und Zielspalte ──────────────────────────────────────────────────
+ * Die letzte Phase war eine Wolke aus Pillen. Das war kompakt, aber man konnte
+ * nicht aus ihr HERAUSziehen — und genau das ist der häufigste Zug: etwas aus
+ * „Angedacht" nach vorn holen. Eine gezogene Karte ist eine Zeile, und eine
+ * Zeile mitten in einem Pillenband sieht falsch aus. Also wieder eine Liste,
+ * über die volle Breite und mit knappen Zeilen. */
+.rm-phase.band .rm-liste li { padding: 7px 0; }
+.rm-phase.band .rm-titel { font-size: 14px; font-weight: 400; color: var(--text-2); }
+.rm-phase.band .rm-liste li:hover .rm-titel { color: var(--text); }
+
+/* Die Zielspalte während eines Zuges. Ein Rahmen und ein Hauch Fläche genügen:
+   Sie ist beschriftet, man muss ihr nichts erklären. */
+.rm-phase.ziel {
+  border-color: color-mix(in srgb, var(--ton, var(--akzent)) 55%, transparent);
+  background: color-mix(in srgb, var(--ton, var(--akzent)) 5%, var(--fl-1));
+}

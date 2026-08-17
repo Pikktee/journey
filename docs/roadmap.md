@@ -44,7 +44,6 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 * [Monetarisierung](concepts/konzept_monetarisierung.md) — Die Esri-Lizenz klären.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
-* [Die Foto-Karte auf eine Leinwand](concepts/die-foto-karte-auf-eine-leinwand.md)
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
 * [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch.
@@ -70,3 +69,4 @@ Gewollt, aber ohne Reihenfolge. Was hier steht, wartet auf einen Anlass.
 * [Tour nur aus Fotos](concepts/foto-tour.md) — Ganz ohne GPS-Track.
 * [Modi konsolidieren](concepts/modi-konsolidierung.md) — Ein neuer Modus soll eine Zeile sein.
 * [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) — Vertagt, Glossar gilt schon.
+* [Die Tafeln auf die Leinwand](concepts/die-tafeln-auf-die-leinwand.md) — Erst die Klickflächen von Startscreen und Finale, dann die Optik.

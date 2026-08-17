@@ -280,11 +280,26 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   zweite Erklärung. Drei Fassungen davor sind gescheitert: zwei Pfeilknöpfe je
   Karte (überlagerten das ×), HTML5-`draggable` (Geisterbild des Browsers, keine
   Berührung, kein sichtbarer Griff) und eine Einfüge-Linie bei stehender Liste
-  (die Lücke blieb am alten Platz). Gezogen wird nur innerhalb einer Phase: Ein
-  Zug in die Nachbarspalte wäre ein Phasenwechsel und würde stillschweigend die
-  Verbindlichkeit ändern — dafür gibt es das Menü. Geschrieben wird EINMAL beim
-  Loslassen, und was die Seite nicht mitschickt, behält seine Lage am Ende: So
-  kann eine veraltete Ansicht die Datei nicht leer räumen.
+  (die Lücke blieb am alten Platz).
+  **Gezogen wird auch ZWISCHEN den Spalten** — das ist ein Phasenwechsel, und die
+  Zielspalte hebt sich dabei hervor. Eine frühere Fassung verbot ihn mit dem
+  Argument, er ändere die Verbindlichkeit „stillschweigend"; das war falsch, denn
+  über der Spalte steht ihr Name. Ein Zug dorthin ist die direkteste Form, die
+  Entscheidung auszudrücken — die Pfeiltasten bleiben auf die eigene Phase
+  beschränkt, denn eine Taste, die eine Spalte weiterspringt, wäre ohne
+  Beschriftung. Geschrieben wird EINMAL beim Loslassen (Phase setzen und
+  Reihenfolge in einem Aufruf, damit Kurzname, Schritt und Blockade mitgehen), und
+  was die Seite nicht mitschickt, behält seine Lage am Ende: So kann eine
+  veraltete Ansicht die Datei nicht leer räumen. **Geprüft wird die ganze
+  Reihenfolge, bevor irgendetwas geschrieben wird** — sonst stand nach einem
+  Fehler die Phase schon woanders, während die Meldung behauptete, es sei nichts
+  passiert. Die Zahlen über den Spalten zieht die Seite live nach; sie kommen aus
+  der Bauzeit und hätten sonst „5" über vier Einträgen gezeigt.
+  **Die letzte Phase ist deshalb wieder eine Liste**, kein Pillenband: Aus einer
+  Wolke kann man nicht herausziehen, und der häufigste Zug holt etwas aus
+  „Angedacht" nach vorn. Eine gezogene Karte ist eine Zeile, und eine Zeile mitten
+  in einem Pillenband sieht falsch aus. Kompakt bleibt sie über die volle Breite
+  mit knappen Zeilen.
   **Die Zeiger-Ereignisse hängen am DOKUMENT, nicht am Griff.** Am Griff war der
   Fehler, der sich als „manchmal dropped es nicht" zeigte: `setPointerCapture`
   gibt die Erfassung frei, sobald das haltende Element aus dem Dokument genommen
@@ -317,8 +332,8 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   zerlegen" statt „Umbauplan: Studio-Editor zerlegen (editor.ts)". Steht dort
   noch ein Dateiname, nimmt die Karte den Dokumenttitel.
 * **Die letzte Phase ist ein Band, keine Spalte.** Als schmale dritte Spalte
-  bekam das Unverbindlichste dieselbe Fläche wie das Laufende; als Marken über
-  die volle Breite braucht es zwei Zeilen statt sieben.
+  bekam das Unverbindlichste dieselbe Fläche wie das Laufende; über die volle
+  Breite mit knappen Zeilen liest es sich ruhiger.
 Die Phasen heißen **In Arbeit · Beschlossen · Angedacht** — benannt nach dem
 Grad der Entscheidung, nicht nach einem Datum, das ein Entwurf ohnehin nicht
 halten kann. Die
@@ -370,7 +385,8 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`konzept_tempoempfinden.md`](concepts/konzept_tempoempfinden.md) — Warum sich der Film an manchen Stellen zu schnell anfühlt: drei behobene Ursachen, zwei offene Kandidaten, die Messwerkzeuge dazu.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
-* [`die-foto-karte-auf-eine-leinwand.md`](concepts/die-foto-karte-auf-eine-leinwand.md) — Die Foto-Karte auf eine Leinwand: die letzte Stelle, an der Player und Video-Export auseinanderlaufen (der Ken Burns läuft im Export heute in die Gegenrichtung). Entwurf.
+* [`die-foto-karte-auf-eine-leinwand.md`](concepts/die-foto-karte-auf-eine-leinwand.md) — Warum die Foto-Karte im Player auf einer Leinwand liegt und der Export sie nur holt. Abgearbeitet; das Dokument ist jetzt die Begründung der Zahlen, die in `KARTE` und im Kartenmaler stehen.
+* [`die-tafeln-auf-die-leinwand.md`](concepts/die-tafeln-auf-die-leinwand.md) — Startscreen und „Ziel erreicht“: der letzte Canvas-Nachbau im Video-Export. Anders als bei der Karte ist „deckungsgleich“ hier ausdrücklich NICHT das Ziel. Entwurf, nichts gebaut.
 * [`konzept_video_export.md`](concepts/konzept_video_export.md) — Tour als MP4. Etappe 1 gebaut (Film in Player-Tempo, Studio-Blatt). Der geraffte Clip und der Cloud-Auftrag kommen danach.
 * [`konzept_monetarisierung.md`](concepts/konzept_monetarisierung.md) — Esri-Lizenz (anonyme World Imagery vs. Location Platform) und wer zahlt (Hersteller, nicht Zuschauer). Vertragstexte E204/E300 im Wortlaut: Player als Produkt erlaubt, **MP4-Export nicht**. Dazu Kostendeckel (Esri hat keinen) und zweite Bildquelle. Entwurf, nichts gebaut.
 * [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).

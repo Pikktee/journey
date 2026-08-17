@@ -42,13 +42,6 @@ const AMPEL_WORT = {
   ohne: 'Ohne Angabe',
 }
 
-/** Die drei Dokumente, mit denen man anfängt, wenn man nichts kennt. */
-const EINSTIEG = [
-  ['CLAUDE.md', 'Wie das Projekt gebaut ist. Das dickste Dokument und das erste.'],
-  ['docs/architecture/systemuebersicht.md', 'Der Überblick in Diagrammen: drei Laufzeiten, ein Produkt.'],
-  ['DESIGN.md', 'Marke, Farben, Typografie. Verbindlich für alles Sichtbare.'],
-]
-
 /** `../` so oft, wie die Zielseite tief liegt. */
 function hoch(ziel) {
   const tiefe = ziel.split('/').length - 1
@@ -570,10 +563,10 @@ function roadmapAbschnitt(roadmap, bereiche) {
     // Der GRIFF macht sichtbar, dass die Rangfolge veränderbar ist. Ohne ihn
     // war die Karte ziehbar und niemand konnte es wissen; mit ihm ist es eine
     // Einladung. Er ist ein Knopf, damit ihn die Tastatur auch erreicht.
-    const griff =
-      stufe <= 1
-        ? `<button type="button" class="rm-griff" data-rm-griff aria-label="Verschieben (Pfeiltasten)" title="Ziehen oder mit den Pfeiltasten verschieben"><i></i><i></i><i></i></button>`
-        : ''
+    // JEDE Phase bekommt Griffe, auch die letzte: Der häufigste Zug geht aus
+    // „Angedacht" heraus nach vorn. Eine Spalte, in die man nur hinein ziehen
+    // kann, wäre eine Falle.
+    const griff = `<button type="button" class="rm-griff" data-rm-griff aria-label="Verschieben (Pfeiltasten, Ziehen zwischen den Spalten)" title="Ziehen — auch in eine andere Phase"><i></i><i></i><i></i></button>`
 
     return `<li data-datei="${escape(e.quelle)}"${widerspruch ? ' class="widerspruch"' : ''}>
       ${griff}
@@ -591,27 +584,6 @@ function roadmapAbschnitt(roadmap, bereiche) {
     </li>`
   }
 
-  /*
-   * Die letzte Spalte ist eine WOLKE, keine Liste.
-   *
-   * Dort standen sieben Titel untereinander, jeder in einer eigenen Zeile —
-   * dieselbe Fläche wie die laufenden Vorhaben, für das Unverbindlichste der
-   * Datei. Als Marken nebeneinander braucht sie ein Drittel der Höhe und zieht
-   * den Blick nicht mehr dorthin, wo am wenigsten entschieden ist.
-   */
-  const wolke = (ph) =>
-    `<div class="rm-wolke">${ph.eintraege
-      .map((e) => {
-        const objekt = e.art === 'mockup' ? e.mockup : e.dok
-        const titel =
-          e.beschriftung || String(objekt.titel).replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
-        const ziel = e.art === 'mockup' ? e.mockup.quelle : e.dok.ziel
-        return `<span class="rm-marke"><a href="${escape(ziel)}">${escape(titel)}</a><button
-          type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
-          title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button></span>`
-      })
-      .join('')}</div>`
-
   const letzte = roadmap.phasen.length - 1
   const alsBand = (i) => i === letzte && i > 1
   const phase = (ph, i) => `<section class="rm-phase stufe-${i}${i === 0 ? ' jetzt' : ''}${
@@ -624,13 +596,9 @@ function roadmapAbschnitt(roadmap, bereiche) {
       </div>
       ${i === 0 && ph.text ? `<p>${escape(ph.text)}</p>` : ''}
     </header>
-    ${
-      alsBand(i)
-        ? wolke(ph)
-        : `<ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
-            .map((e) => eintrag(e, i))
-            .join('')}</ol>`
-    }
+    <ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
+      .map((e) => eintrag(e, i))
+      .join('')}</ol>
   </section>`
 
   /*
@@ -716,10 +684,6 @@ export function uebersichtSeite({ bereiche, dokumente, mockups, bilder, roadmap,
   const aktuelle = zuletzt.filter((d) => !d.archiviert)
   const rest = zuletzt.filter((d) => !aktuelle.slice(0, 5).includes(d))
 
-  const einstieg = EINSTIEG.map(([quelle, satz]) => ({ d: nachQuelle.get(quelle), satz })).filter(
-    (e) => e.d,
-  )
-
   const zeile = (d) => `<li style="--ton:${bereiche.find((b) => b.id === d.bereich)?.ton}">
       <span class="zeit">${escape(datum(d.geaendert))}</span>
       <a href="${escape(d.ziel)}">${escape(d.titel)}</a>
@@ -748,24 +712,6 @@ export function uebersichtSeite({ bereiche, dokumente, mockups, bilder, roadmap,
   </section>
 
   ${roadmapAbschnitt(roadmap, bereiche)}
-
-  <section class="streifen">
-    <div class="streifen-kopf"><h2>Wo anfangen</h2></div>
-    <div class="einstieg">
-      ${einstieg
-        .map(
-          ({ d, satz }, i) => `<a class="einstiegskarte" href="${escape(d.ziel)}">
-        <span class="nummer">${i + 1}</span>
-        <div>
-          <h3>${escape(d.titel)}</h3>
-          <p>${escape(satz)}</p>
-          <span class="dauer">${d.minuten} min</span>
-        </div>
-      </a>`,
-        )
-        .join('')}
-    </div>
-  </section>
 
   <section class="streifen" id="bereiche">
     <div class="streifen-kopf">

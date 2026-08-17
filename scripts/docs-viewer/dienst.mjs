@@ -443,6 +443,11 @@ export async function fuehreAus(aktion, daten = {}) {
           : `Umbenannt: ${pfad}`,
       }
     }
+    case 'roadmap-verschieben': {
+      const { pfad, phase } = roadmapVerschieben(daten.datei, daten.phase, daten.reihenfolge)
+      baueNeu()
+      return { pfad, meldung: `Nach „${phase}" verschoben` }
+    }
     case 'roadmap-ordnen': {
       const { bewegt } = roadmapOrdnen(daten.phase, daten.reihenfolge)
       if (!bewegt) return { meldung: 'Reihenfolge unverändert' }
@@ -569,6 +574,26 @@ export function roadmapOrdnen(phase, pfade) {
   if (!neu) return { bewegt: false }
   writeFileSync(ROADMAP(), neu.join('\n'))
   return { bewegt: true }
+}
+
+/**
+ * Ein Zug in eine andere Spalte: Phase wechseln UND die Reihenfolge dort setzen.
+ *
+ * Zwei Schritte, ein Aufruf — und der erste ist der vorhandene Phasenwechsel,
+ * damit Kurzname, nächster Schritt und `[wartet auf: …]` mitgehen. Sie
+ * nachzubauen wäre die zweite Stelle, an der dieselbe Zeile entsteht.
+ */
+export function roadmapVerschieben(rel, phase, reihenfolge) {
+  // ERST prüfen, DANN schreiben. Zwei Schreibvorgänge hintereinander, und der
+  // zweite scheitert: Dann steht die Phase schon woanders, während die Meldung
+  // „Außerhalb der Doku" behauptet, es sei nichts passiert. Genau so gesehen,
+  // an einem falschen Pfad in der Reihenfolge.
+  const liste = Array.isArray(reihenfolge) ? reihenfolge : []
+  for (const p of liste) pruefePfad(p)
+
+  const pfad = roadmapSetzen(rel, phase)
+  if (liste.length) roadmapOrdnen(phase, liste)
+  return { pfad, phase }
 }
 
 export function roadmapSetzen(rel, phase, beschriftung) {
