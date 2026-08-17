@@ -443,6 +443,44 @@ describe('Datei und Editor auf der Seite', () => {
     expect(html.indexOf('</h1>')).toBeLessThan(html.indexOf('kopftafel'))
   })
 
+  it('schreibt den Stand auf Deutsch', () => {
+    // Im Dokument steht ISO, weil sich das sortieren lässt. Gelesen wird es von
+    // Menschen — und „2026-08-17" ist ein Sortierschlüssel, kein Datum.
+    const dok = dokumente.find((d) => d.kopf.stand === '2026-08-17')
+    expect(dok, 'kein Dokument mit ISO-Stand').toBeTruthy()
+    const html = dokumentSeite({
+      dok,
+      html: '<h1>T</h1>',
+      ueberschriften: [],
+      dokumente,
+      bereiche,
+      nachAbs: new Map(dokumente.map((d) => [d.abs, d])),
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+    const tafel = html.slice(html.indexOf('kopftafel'), html.indexOf('</dl>'))
+    expect(tafel).toContain('17. August 2026')
+    expect(tafel).not.toContain('2026-08-17')
+  })
+
+  it('erfindet keinen Tag, wo keiner behauptet wurde', () => {
+    // „August 2026" bleibt „August 2026": Ein Datum daraus zu machen wäre eine
+    // Genauigkeit, die das Dokument nie zugesagt hat.
+    const dok = dokumente.find((d) => /^[A-ZÄÖÜ][a-zäöü]+ \d{4}$/.test(d.kopf.stand))
+    if (!dok) return
+    const html = dokumentSeite({
+      dok,
+      html: '<h1>T</h1>',
+      ueberschriften: [],
+      dokumente,
+      bereiche,
+      nachAbs: new Map(dokumente.map((d) => [d.abs, d])),
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+    expect(html.slice(html.indexOf('kopftafel'), html.indexOf('</dl>'))).toContain(dok.kopf.stand)
+  })
+
   it('bietet Umbenennen, Editor und Pfad an jedem Objekt an', () => {
     const html = bereichSeite({
       bereich: bereiche.find((b) => b.id === 'concepts'),

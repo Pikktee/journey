@@ -926,60 +926,113 @@ kbd {
 .mermaid-huelle pre.mermaid[data-processed] { font-family: var(--font-ui); text-align: center; }
 
 /* ── Kopftafel: was das Dokument über sich sagt ────────────────────────
- * Eine Definitionsliste in zwei Spalten. Die Etiketten laufen schmal und
- * gesperrt wie überall im Viewer, der Wert nimmt den Rest — und „Betrifft" und
- * „Datei" dürfen über die ganze Breite, weil dort Pfade stehen, die man nicht
- * umbrechen will. */
+ * KEIN Kasten. Eine Tafel mit Rahmen, Füllfarbe und farbigem Streifen links
+ * behauptet, hier stünde ein Einschub — dabei ist das die Kopfzeile des
+ * Dokuments, also Teil seines Satzspiegels. Deshalb nur zwei Haarlinien, eine
+ * schmale Etikettenspalte und Zeilen, die durch eine Linie getrennt sind: die
+ * Form einer Datenzeile, wie sie jede technische Doku benutzt.
+ *
+ * Die Etiketten laufen in SATZSCHRIFT, nicht als Versalien-Sperrsatz — die
+ * gibt es auf derselben Seite schon dreimal (Inhaltsverzeichnis, Fußnote), und
+ * vier weitere untereinander lesen sich als Tabellenkopf statt als Beiwerk. */
 
 .kopftafel {
+  position: relative;
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 9px 18px;
+  grid-template-columns: 76px 1fr;
   max-width: var(--lesebreite);
-  margin: 0 0 30px;
-  padding: 18px 20px;
-  border: 1px solid var(--rand);
-  border-left: 2px solid var(--ton, var(--rand-hell));
-  border-radius: var(--radius-lg);
-  background: var(--fl-1);
-  font-size: 14px;
+  margin: 2px 0 36px;
+  padding: 3px 0;
+  border-top: 1px solid var(--rand);
+  border-bottom: 1px solid var(--rand);
+  font-size: 14.5px;
 }
-.kopftafel > div { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; }
-.kopftafel dt { color: var(--text-3); font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; }
-.kopftafel dd { margin: 0; color: var(--text-2); }
-.kopftafel .tafel-weit dd { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
-.kopftafel code {
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--fl-2);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: 12.5px;
+/* EINE senkrechte Haarlinie ordnet Etikett und Wert — statt einer Linie je
+   Zeile. Das gibt der Tafel eine Achse, ohne sie in ein Gitter zu zerlegen;
+   waagerechte Trenner zwischen vier Zeilen sahen aus wie eine Tabelle mit
+   fehlendem Kopf. */
+.kopftafel::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 86px;
+  width: 1px;
+  background: var(--rand-hell);
 }
-.tafel-trenner { color: var(--text-3); }
+.kopftafel > div {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  gap: 21px;
+  align-items: baseline;
+  padding: 8px 0;
+}
+.kopftafel dt { color: var(--text-3); font-weight: 400; font-size: 13.5px; text-align: right; }
+.kopftafel dd { margin: 0; color: var(--text); line-height: 1.45; }
 
-.tafel-pfad {
+.tafel-datum { font-variant-numeric: tabular-nums; }
+
+/* Der Punkt trägt die Farbe der Ampel — dieselben Rollen wie das Abzeichen
+   über der Überschrift, damit beides als eine Auskunft gelesen wird.
+   Über ein ATTRIBUT und nicht über `ampel-offen`: Diese Klassen sind weiter
+   oben gefüllte Pillen, der Satz bekäme sonst einen farbigen Hintergrund. */
+.tafel-status { display: inline-flex; gap: 9px; align-items: baseline; }
+.tafel-status::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 0.42em;
+  border-radius: 50%;
+  background: var(--punkt, var(--text-3));
+}
+.tafel-status[data-art='offen'] { --punkt: var(--warn); }
+.tafel-status[data-art='unterwegs'] { --punkt: var(--blau); }
+.tafel-status[data-art='fertig'] { --punkt: var(--gruen); }
+
+.kopftafel code {
+  display: inline-block;
+  margin: 0 4px 0 0;
   padding: 2px 7px;
-  border: 1px solid var(--rand);
   border-radius: var(--radius-sm);
-  background: var(--fl-2);
-  color: var(--blau);
+  background: color-mix(in srgb, var(--fl-2) 70%, transparent);
+  color: var(--text-2);
   font-family: var(--font-mono);
   font-size: 12.5px;
-  cursor: pointer;
 }
-.tafel-pfad:hover { border-color: var(--blau); color: var(--text); }
-.tafel-tat {
-  padding: 2px 9px;
-  border: 1px solid var(--rand);
-  border-radius: var(--radius-sm);
-  background: transparent;
+
+/* Die Dateizeile: Pfad links, die zwei Wege rechts. Rechtsbündig, weil dort
+   Handlungen stehen und nicht Auskunft — das Auge findet sie als Spalte. */
+.kopftafel > div:last-child dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.tafel-pfad {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--text-2);
-  font: inherit;
+  font-family: var(--font-mono);
   font-size: 13px;
+  text-align: left;
   cursor: pointer;
 }
-.tafel-tat:hover { border-color: var(--rand-hell); color: var(--text); background: var(--fl-2); }
+.tafel-pfad:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.tafel-taten { display: flex; gap: 14px; align-items: baseline; }
+.tafel-tat {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--akzent);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.tafel-tat:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* Ohne Dev-Server gibt es niemanden, der einen Editor startet. Der Knopf steht
    im Markup, weil dieselbe Ausgabe beide Wege bedient — sichtbar wird er erst,
    wenn die Seite über HTTP kam. */

@@ -91,6 +91,25 @@ function datum(iso) {
   })
 }
 
+/**
+ * Der Stand, wie ein Mensch ihn schreibt: „17. August 2026".
+ *
+ * Im Dokument steht ISO, weil sich das sortieren lässt — gelesen wird es aber
+ * von Menschen, und `2026-08-17` ist eine Sortierschlüssel-Schreibweise. Was
+ * KEIN vollständiges Datum ist, bleibt unangetastet: „August 2026" behauptet
+ * absichtlich keinen Tag, und einen zu erfinden wäre eine Genauigkeit, die das
+ * Dokument nie zugesagt hat.
+ */
+function standLang(roh) {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(roh || '').trim())
+  if (!iso) return String(roh || '')
+  return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).toLocaleDateString('de-DE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function ampelChip(ampel) {
   if (!ampel) return ''
   return `<span class="ampel ampel-${ampel.art}">${escape(AMPEL_WORT[ampel.art] || ampel.wort)}</span>`
@@ -880,24 +899,32 @@ function werkzeuge(dok, roadmap) {
  * der Seite, und beim nächsten Mal wäre eine der beiden Angaben alt.
  */
 function kopftafel(dok) {
-  const zeile = (name, inhalt, klasse = '') =>
-    inhalt ? `<div class="${klasse}"><dt>${escape(name)}</dt><dd>${inhalt}</dd></div>` : ''
+  const zeile = (name, inhalt) =>
+    inhalt ? `<div><dt>${escape(name)}</dt><dd>${inhalt}</dd></div>` : ''
 
-  const betrifft = dok.kopf.betrifft
-    .map((b) => `<code>${escape(b)}</code>`)
-    .join('<span class="tafel-trenner">·</span>')
+  // Pfade als eigene Marken. Nur durch Kommas getrennt gingen die Trenner
+  // zwischen den Mono-Zeichen unter, und die Aufzählung las sich als ein Pfad.
+  const betrifft = dok.kopf.betrifft.map((b) => `<code>${escape(b)}</code>`).join('')
+
+  // Der Punkt vor dem Status trägt die Farbe der Ampel. Er wiederholt kein
+  // Wort — er bindet den Satz an das Abzeichen über der Überschrift, sodass
+  // „gilt das noch?" ohne Lesen halb beantwortet ist.
+  const status = dok.kopf.status
+    ? `<span class="tafel-status" data-art="${dok.ampel?.art ?? 'ruht'}">${escape(dok.kopf.status)}</span>`
+    : ''
 
   return `<dl class="kopftafel">
-    ${zeile('Stand', dok.kopf.stand ? escape(dok.kopf.stand) : '')}
-    ${zeile('Status', dok.kopf.status ? escape(dok.kopf.status) : '')}
-    ${zeile('Betrifft', betrifft, 'tafel-weit')}
+    ${zeile('Stand', dok.kopf.stand ? `<span class="tafel-datum">${escape(standLang(dok.kopf.stand))}</span>` : '')}
+    ${zeile('Status', status)}
+    ${zeile('Betrifft', betrifft)}
     ${zeile(
       'Datei',
       `<button type="button" class="tafel-pfad" data-pfad-kopieren
-               title="Pfad in die Zwischenablage">${escape(dok.quelle)}</button>
-       <button type="button" class="tafel-tat nur-dienst" data-editor-oeffnen>Im Editor öffnen</button>
-       <a class="tafel-tat" href="${escape(hoch(dok.ziel) + '../../' + dok.quelle)}">Quelltext ansehen</a>`,
-      'tafel-weit tafel-datei',
+               title="Pfad in die Zwischenablage kopieren">${escape(dok.quelle)}</button>
+       <span class="tafel-taten">
+         <button type="button" class="tafel-tat nur-dienst" data-editor-oeffnen>Editor</button>
+         <a class="tafel-tat" href="${escape(hoch(dok.ziel) + '../../' + dok.quelle)}">Quelltext</a>
+       </span>`,
     )}
   </dl>`
 }
