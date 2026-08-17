@@ -293,6 +293,12 @@ Der INHALT kommt deshalb aus denselben Elementen, die der Player füllt
 [exportformat.ts](../../src/exportformat.ts) (`introTafelSicht`,
 `finaleTafelSicht`) und tragen die Player-Zeiten (1,2 s bzw. 0,9 s).
 
+**Das ist die letzte echte Driftquelle**, und sie ist nicht theoretisch: Der
+Ken Burns läuft im Export heute in die GEGENRICHTUNG, „Entwickeln", Blitz,
+Standzeit-Balken und die Kennzahl-Pillen fehlen ganz. Der Weg dahin, die Karte
+im Player selbst auf eine Leinwand zu ziehen, steht samt Begründung und
+Etappen in [konzept_kartenleinwand.md](konzept_kartenleinwand.md).
+
 Kein html2canvas. Zahlen in [src/einblendung.ts](../../src/einblendung.ts).
 Der Export zeichnet Bild, Ken-Burns-Stand dieser Filmsekunde, Unterschrift.
 Video im Halt: `videoStandS`. Rückwärts gibt es nicht.
