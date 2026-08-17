@@ -567,7 +567,10 @@ function roadmapAbschnitt(roadmap, bereiche) {
         `<span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(status)}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span>`,
       )
 
-    return `<li${widerspruch ? ' class="widerspruch"' : ''}>
+    // Ziehbar, damit sich die Rangfolge dort ändern lässt, wo man sie sieht.
+    // Zwei Pfeilknöpfe standen hier vorher — sie überlagerten das × und waren
+    // drei Griffe für eine Geste.
+    return `<li draggable="true" data-datei="${escape(e.quelle)}"${widerspruch ? ' class="widerspruch"' : ''}>
       <a class="rm-ziel" href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}${
         status ? ` title="${escape(status)}"` : ''
       }>
@@ -577,14 +580,8 @@ function roadmapAbschnitt(roadmap, bereiche) {
       ${stufe <= 1 && e.schritt ? `<span class="rm-schritt">${escape(e.schritt)}</span>` : ''}
       ${marken.length ? `<span class="rm-ketten">${marken.join('')}</span>` : ''}
       ${fuss.length ? `<span class="rm-fuss">${fuss.join('')}</span>` : ''}
-      <span class="rm-griffe">
-        <button type="button" class="rm-schieb" data-roadmap-schieben="hoch" data-datei="${escape(e.quelle)}"
-                title="Weiter nach vorn" aria-label="Weiter nach vorn">↑</button>
-        <button type="button" class="rm-schieb" data-roadmap-schieben="runter" data-datei="${escape(e.quelle)}"
-                title="Weiter nach hinten" aria-label="Weiter nach hinten">↓</button>
-        <button type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
-                title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button>
-      </span>
+      <button type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
+              title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button>
     </li>`
   }
 
@@ -624,7 +621,9 @@ function roadmapAbschnitt(roadmap, bereiche) {
     ${
       alsBand(i)
         ? wolke(ph)
-        : `<ol class="rm-liste">${ph.eintraege.map((e) => eintrag(e, i)).join('')}</ol>`
+        : `<ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
+            .map((e) => eintrag(e, i))
+            .join('')}</ol>`
     }
   </section>`
 

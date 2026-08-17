@@ -23,7 +23,7 @@ import {
   archivZiel,
   editorBefehl,
   loeseHeraus,
-  tauscheZeilen,
+  ordnePhase,
   pruefePfad,
   rueckZiel,
   saubererName,
@@ -484,37 +484,50 @@ describe('Roadmap als Ablauf', () => {
 })
 
 describe('Reihenfolge in einer Phase', () => {
-  // Die Reihenfolge in einer Phase ist eine Rangfolge. Bisher konnte man sie nur
-  // von Hand in roadmap.md ändern, und der Viewer hängte Neues stumm ans Ende.
-  // Geprüft wird die ECHTE Funktion aus dem Dienst, nur an Zeilen statt an der
-  // Datei. Eine nachgebaute Kopie im Test wäre grün geblieben, während der
-  // Code daneben bricht.
+  // Gezogen wird mit der Maus, geschrieben wird die ganze Reihenfolge EINER
+  // Phase. Geprüft wird die echte Funktion aus dem Dienst, nur an Zeilen statt
+  // an der Datei — eine nachgebaute Kopie im Test wäre grün geblieben, während
+  // der Code daneben bricht.
   const zeilen = () => [
     '## In Arbeit',
     '',
     '* [A](concepts/a.md) — Erstens.',
-    '* [B](concepts/b.md) — Zweitens.',
+    '* [B](concepts/b.md) — Zweitens. [wartet auf: concepts/a.md]',
+    '* [C](concepts/c.md) — Drittens.',
     '',
     '## Beschlossen',
     '',
-    '* [C](concepts/c.md) — Drittens.',
+    '* [D](concepts/d.md) — Viertens.',
   ]
 
-  it('tauscht ganze Zeilen samt Schritt und Blockade', () => {
-    const roh = zeilen()
-    roh[3] = '* [B](concepts/b.md) — Zweitens. [wartet auf: concepts/a.md]'
-    const nach = tauscheZeilen(roh, 'concepts/b.md', 'hoch')
-    expect(nach[2]).toContain('[B]')
-    expect(nach[2]).toContain('[wartet auf: concepts/a.md]')
-    expect(nach[3]).toContain('[A]')
+  it('ordnet die Zeilen einer Phase neu, samt Schritt und Blockade', () => {
+    const nach = ordnePhase(zeilen(), 'In Arbeit', ['concepts/c.md', 'concepts/b.md', 'concepts/a.md'])
+    expect(nach[2]).toContain('[C]')
+    expect(nach[3]).toContain('[B]')
+    expect(nach[3]).toContain('[wartet auf: concepts/a.md]')
+    expect(nach[4]).toContain('[A]')
   })
 
-  it('springt NICHT über die Phasengrenze', () => {
-    // Ein Sprung über die Grenze wäre ein Phasenwechsel, und dafür gibt es das
-    // Menü — sonst ändert ein Pfeil nach unten stillschweigend die Verbindlichkeit.
-    expect(tauscheZeilen(zeilen(), 'concepts/b.md', 'runter')).toBe(null)
-    expect(tauscheZeilen(zeilen(), 'concepts/a.md', 'hoch')).toBe(null)
-    expect(tauscheZeilen(zeilen(), 'concepts/c.md', 'hoch')).toBe(null)
+  it('lässt die anderen Phasen unberührt', () => {
+    const nach = ordnePhase(zeilen(), 'In Arbeit', ['concepts/c.md', 'concepts/a.md', 'concepts/b.md'])
+    expect(nach[8]).toContain('[D]')
+    expect(nach[6]).toBe('## Beschlossen')
+  })
+
+  it('verliert nichts, was in der Reihenfolge fehlt', () => {
+    // Eine veraltete Seite darf die Datei nicht leer räumen: Was sie nicht
+    // nennt, behält seine Lage am Ende.
+    const nach = ordnePhase(zeilen(), 'In Arbeit', ['concepts/c.md'])
+    const punkte = nach.filter((z) => z.startsWith('* ['))
+    expect(punkte.length).toBe(4)
+    expect(nach[2]).toContain('[C]')
+    expect(punkte.some((z) => z.includes('[A]'))).toBe(true)
+    expect(punkte.some((z) => z.includes('[B]'))).toBe(true)
+  })
+
+  it('meldet „nichts zu tun", wo sich nichts ändert', () => {
+    expect(ordnePhase(zeilen(), 'In Arbeit', ['concepts/a.md', 'concepts/b.md', 'concepts/c.md'])).toBe(null)
+    expect(ordnePhase(zeilen(), 'Gibt es nicht', ['concepts/a.md'])).toBe(null)
   })
 })
 

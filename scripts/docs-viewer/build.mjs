@@ -33,6 +33,7 @@ import {
   sammleMockups,
   sammleBilder,
   sammleRoadmap,
+  standVeraltet,
 } from './sammeln.mjs'
 import { rendere } from './markdown.mjs'
 import {
@@ -235,6 +236,19 @@ if (ohneTeil.length)
   )
 if (roadmap.offen.length)
   console.log(`  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`)
+
+/* Der `status`-Satz ist von Hand gepflegt, und sein einziger Feind ist stilles
+ * Veralten. Gemeldet wird deshalb nur der Fall ohne Ratespiel: Was laut Roadmap
+ * LÄUFT und dessen Kopf seit Wochen unangetastet ist, ist entweder nicht mehr
+ * in Arbeit oder sein Stand ist alt. */
+const laufendeDoks = (roadmap.phasen[0]?.eintraege ?? []).map((e) => e.dok).filter(Boolean)
+const alt = laufendeDoks.map((d) => [d, standVeraltet(d)]).filter(([, v]) => v)
+if (alt.length) {
+  console.log(
+    `  Stand prüfen: ${alt.length} laufende${alt.length === 1 ? 's Vorhaben' : ' Vorhaben'} mit unangetastetem Kopf:`,
+  )
+  for (const [d, v] of alt) console.log(`    ${d.quelle} — stand ${v.stand}, vor ${v.tage} Tagen`)
+}
 
 const worte = dokumente.reduce((s, d) => s + d.worte, 0)
 console.log(

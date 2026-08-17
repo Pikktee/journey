@@ -684,25 +684,72 @@
       })
     })
 
-    /* Die Reihenfolge in einer Phase ist eine Rangfolge — geändert wird sie
-       dort, wo man sie sieht, und nicht in einem Menü auf einer anderen Seite. */
-    ;[].slice.call(document.querySelectorAll('[data-roadmap-schieben]')).forEach(function (k) {
-      k.addEventListener('click', function () {
-        ruf('roadmap-schieben', {
-          datei: k.getAttribute('data-datei'),
-          richtung: k.getAttribute('data-roadmap-schieben'),
+    /* ── Rangfolge ziehen ────────────────────────────────────────────────
+     * Die Reihenfolge in einer Phase ist eine Rangfolge, und sie wird dort
+     * geändert, wo man sie sieht. Vorher standen zwei Pfeilknöpfe an jeder
+     * Karte: Sie überlagerten das × und waren drei Griffe für eine Geste.
+     *
+     * Gezogen wird nur INNERHALB einer Phase. Ein Zug in die Nachbarspalte wäre
+     * ein Phasenwechsel und würde stillschweigend die Verbindlichkeit ändern —
+     * dafür gibt es das Menü, das die Phase beim Namen nennt.
+     *
+     * Sortiert wird live im DOM, gespeichert wird EINMAL am Ende der Geste: Ein
+     * Aufruf je überfahrenem Nachbar wären zehn Anfragen und zehn Neubauten für
+     * einen Zug.
+     */
+    ;[].slice.call(document.querySelectorAll('.rm-liste[data-phase]')).forEach(function (liste) {
+      var gezogen = null
+      var vorher = ''
+
+      var reihenfolge = function () {
+        return [].slice.call(liste.children).map(function (li) {
+          return li.getAttribute('data-datei')
         })
+      }
+
+      liste.addEventListener('dragstart', function (e) {
+        var li = e.target.closest('li')
+        if (!li || li.parentElement !== liste) return
+        gezogen = li
+        vorher = reihenfolge().join('|')
+        li.classList.add('zieht')
+        // Ohne gesetzte Daten bricht Firefox die Geste sofort ab.
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', li.getAttribute('data-datei') || '')
+        }
+      })
+
+      liste.addEventListener('dragover', function (e) {
+        if (!gezogen) return
+        e.preventDefault()
+        var ziel = e.target.closest('li')
+        if (!ziel || ziel === gezogen || ziel.parentElement !== liste) return
+        // Über der Mitte davor einsortieren, darunter dahinter — sonst springt
+        // der Eintrag beim Überfahren hin und her.
+        var kasten = ziel.getBoundingClientRect()
+        var davor = e.clientY < kasten.top + kasten.height / 2
+        liste.insertBefore(gezogen, davor ? ziel : ziel.nextSibling)
+      })
+
+      liste.addEventListener('drop', function (e) {
+        e.preventDefault()
+      })
+
+      liste.addEventListener('dragend', function () {
+        if (!gezogen) return
+        gezogen.classList.remove('zieht')
+        gezogen = null
+        var jetzt = reihenfolge()
+        if (jetzt.join('|') === vorher) return
+        melde('Reihenfolge …')
+        ruf('roadmap-ordnen', { phase: liste.getAttribute('data-phase'), reihenfolge: jetzt })
           .then(function (a) {
             melde(a.meldung)
-            // Am Rand seiner Phase passiert nichts — dann auch kein Neuladen,
-            // sonst springt die Seite für eine Änderung, die es nicht gab.
-            if (a.meldung.indexOf('Rand') === -1)
-              setTimeout(function () {
-                location.reload()
-              }, 350)
           })
           .catch(function (f) {
             melde(f.message, true)
+            location.reload()
           })
       })
     })

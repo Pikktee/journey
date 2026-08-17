@@ -443,11 +443,11 @@ export async function fuehreAus(aktion, daten = {}) {
           : `Umbenannt: ${pfad}`,
       }
     }
-    case 'roadmap-schieben': {
-      const { pfad, bewegt } = roadmapSchieben(daten.datei, daten.richtung)
-      if (!bewegt) return { pfad, meldung: 'Steht schon am Rand seiner Phase' }
+    case 'roadmap-ordnen': {
+      const { bewegt } = roadmapOrdnen(daten.phase, daten.reihenfolge)
+      if (!bewegt) return { meldung: 'Reihenfolge unverändert' }
       baueNeu()
-      return { pfad, meldung: daten.richtung === 'hoch' ? 'Weiter nach vorn' : 'Weiter nach hinten' }
+      return { meldung: 'Reihenfolge gespeichert' }
     }
     case 'zurueckholen': {
       const pfad = holeZurueck(daten.datei, daten.bereich)
@@ -516,43 +516,59 @@ export function roadmapEntfernen(rel) {
  * Phasengrenze passiert nichts, denn ein Sprung über sie hinweg wäre ein
  * Phasenwechsel und dafür gibt es das Menü.
  */
-export function tauscheZeilen(zeilen, pfad, richtung) {
+/**
+ * Ordnet die Listenzeilen EINER Phase in der übergebenen Reihenfolge neu.
+ *
+ * Die ganze Reihenfolge statt eines Tauschs: Ein Zug mit der Maus kann an jede
+ * Stelle gehen, und wer zwei Plätze überspringt, will nicht zwei Anfragen. Was
+ * in `pfade` fehlt, behält seine relative Lage am Ende — so kann eine veraltete
+ * Seite die Datei nicht leer räumen.
+ *
+ * Reine Funktion über Zeilen, damit sie prüfbar ist, ohne in `roadmap.md` zu
+ * schreiben.
+ */
+export function ordnePhase(zeilen, phase, pfade) {
   const istPunkt = (z) => /^\*\s+\[[^\]]+\]\(/.test(z)
-  const eigene = zeilen.findIndex((z) => {
-    const t = z.match(/^\*\s+\[[^\]]+\]\(([^)]+)\)/)
-    return t && t[1] === pfad
-  })
-  if (eigene === -1) return null
+  const pfadVon = (z) => z.match(/^\*\s+\[[^\]]+\]\(([^)]+)\)/)?.[1] ?? ''
 
-  const schritt = richtung === 'hoch' ? -1 : 1
-  let nachbar = eigene + schritt
-  // Zwischen zwei Punkten derselben Phase dürfen Leerzeilen liegen; eine
-  // `##`-Überschrift ist die Grenze und beendet die Suche.
-  while (zeilen[nachbar] !== undefined && !istPunkt(zeilen[nachbar])) {
-    if (/^##\s+/.test(zeilen[nachbar])) return null
-    nachbar += schritt
+  let start = -1
+  for (let i = 0; i < zeilen.length; i++) {
+    const kopf = zeilen[i].match(/^##\s+(.+)$/)
+    if (!kopf) continue
+    if (kopf[1].split('·')[0].trim() === phase) {
+      start = i
+      break
+    }
   }
-  if (zeilen[nachbar] === undefined) return null
+  if (start === -1) return null
+
+  // Die Punkte dieser Phase, mit ihren Zeilennummern.
+  const stellen = []
+  for (let i = start + 1; i < zeilen.length && !/^##\s+/.test(zeilen[i]); i++)
+    if (istPunkt(zeilen[i])) stellen.push(i)
+  if (!stellen.length) return null
+
+  const vorhanden = stellen.map((i) => zeilen[i])
+  const nachPfad = new Map(vorhanden.map((z) => [pfadVon(z), z]))
+  const gewuenscht = pfade.map((p) => nachPfad.get(p)).filter(Boolean)
+  const rest = vorhanden.filter((z) => !gewuenscht.includes(z))
+  const neu = [...gewuenscht, ...rest]
+  if (neu.every((z, k) => z === vorhanden[k])) return null
 
   const kopie = [...zeilen]
-  kopie[eigene] = zeilen[nachbar]
-  kopie[nachbar] = zeilen[eigene]
+  stellen.forEach((zeile, k) => {
+    kopie[zeile] = neu[k]
+  })
   return kopie
 }
 
-export function roadmapSchieben(rel, richtung) {
-  const pfad = roadmapPfad(rel)
-  const zeilen = roadmapZeilen()
-  const nach = tauscheZeilen(zeilen, pfad, richtung)
-  if (!nach) {
-    // Kein Nachbar in dieser Phase — oder der Eintrag steht gar nicht auf der
-    // Roadmap. Das zweite ist ein Fehler, das erste nur ein Rand.
-    if (!zeilen.some((z) => z.includes(`](${pfad})`)))
-      throw new DienstFehler('Steht nicht auf der Roadmap')
-    return { pfad, bewegt: false }
-  }
-  writeFileSync(ROADMAP(), nach.join('\n'))
-  return { pfad, bewegt: true }
+export function roadmapOrdnen(phase, pfade) {
+  if (!Array.isArray(pfade) || !pfade.length) throw new DienstFehler('Keine Reihenfolge angegeben')
+  const inDocs = pfade.map((p) => relative(DOCS, pruefePfad(p)))
+  const neu = ordnePhase(roadmapZeilen(), String(phase || ''), inDocs)
+  if (!neu) return { bewegt: false }
+  writeFileSync(ROADMAP(), neu.join('\n'))
+  return { bewegt: true }
 }
 
 export function roadmapSetzen(rel, phase, beschriftung) {

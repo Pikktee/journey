@@ -272,10 +272,16 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   Ablauf: Auf der wartenden Karte steht „wartet auf …", auf der anderen
   „blockiert …". Notiert wird nur die eine Richtung, die andere leitet der
   Viewer ab — zwei gepflegte Angaben liefen beim ersten Umplanen auseinander.
-* **Die Reihenfolge in einer Phase ist eine Rangfolge** und mit den Pfeilen an
-  der Karte änderbar (nur mit Dev-Server). Getauscht werden ganze Zeilen in
-  `roadmap.md`, samt Schritt und Blockade; an der Phasengrenze passiert nichts,
-  denn ein Sprung darüber wäre ein Phasenwechsel und dafür gibt es das Menü.
+* **Die Reihenfolge in einer Phase ist eine Rangfolge** und lässt sich durch
+  ZIEHEN ändern (nur mit Dev-Server). Zwei Pfeilknöpfe standen dort zuerst — sie
+  überlagerten das × und waren drei Griffe für eine Geste. Gezogen wird nur
+  innerhalb einer Phase: Ein Zug in die Nachbarspalte wäre ein Phasenwechsel und
+  würde stillschweigend die Verbindlichkeit ändern, dafür gibt es das Menü.
+  Sortiert wird live im DOM, geschrieben EINMAL am Ende der Geste — ein Aufruf je
+  überfahrenem Nachbar wären zehn Anfragen und zehn Neubauten für einen Zug.
+  Was die Seite nicht mitschickt, behält seine Lage am Ende: So kann eine
+  veraltete Ansicht die Datei nicht leer räumen. Auf Touch-Geräten gibt es die
+  Geste nicht (HTML5-Ziehen kennt keine Berührung); die Datei bleibt der Weg.
 * **Kein Fortschrittsbalken, und das ist gemessen:** Von den 17 Einträgen hat
   genau EINER Etappen-Überschriften, aus denen sich zählen ließe, und dort
   tragen zwei von vier keine Marke „gebaut/offen". Ein Balken wäre bei keinem
@@ -349,7 +355,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`konzept_tempoempfinden.md`](concepts/konzept_tempoempfinden.md) — Warum sich der Film an manchen Stellen zu schnell anfühlt: drei behobene Ursachen, zwei offene Kandidaten, die Messwerkzeuge dazu.
 * [`editor-ausbau.md`](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
 * [`foto-tour.md`](concepts/foto-tour.md) — Foto-basierte Touren ohne GPS-Track.
-* [`konzept_kartenleinwand.md`](concepts/konzept_kartenleinwand.md) — Die Foto-Karte auf eine Leinwand: die letzte Stelle, an der Player und Video-Export auseinanderlaufen (der Ken Burns läuft im Export heute in die Gegenrichtung). Entwurf.
+* [`die-foto-karte-auf-eine-leinwand.md`](concepts/die-foto-karte-auf-eine-leinwand.md) — Die Foto-Karte auf eine Leinwand: die letzte Stelle, an der Player und Video-Export auseinanderlaufen (der Ken Burns läuft im Export heute in die Gegenrichtung). Entwurf.
 * [`konzept_video_export.md`](concepts/konzept_video_export.md) — Tour als MP4. Etappe 1 gebaut (Film in Player-Tempo, Studio-Blatt). Der geraffte Clip und der Cloud-Auftrag kommen danach.
 * [`konzept_monetarisierung.md`](concepts/konzept_monetarisierung.md) — Esri-Lizenz (anonyme World Imagery vs. Location Platform) und wer zahlt (Hersteller, nicht Zuschauer). Vertragstexte E204/E300 im Wortlaut: Player als Produkt erlaubt, **MP4-Export nicht**. Dazu Kostendeckel (Esri hat keinen) und zweite Bildquelle. Entwurf, nichts gebaut.
 * [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).

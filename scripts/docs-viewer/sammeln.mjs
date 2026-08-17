@@ -640,6 +640,34 @@ function zielSeite(objekt) {
   return objekt?.ziel ?? objekt?.quelle ?? ''
 }
 
+/* ── Ist der Status veraltet? ─────────────────────────────────────────────
+ * Der `status`-Satz ist eine BEHAUPTUNG von Hand, und seine einzige Schwäche
+ * ist stilles Veralten: Wer eine Etappe baut und vergisst, den Satz
+ * nachzuziehen, hinterlässt eine Doku, die aussieht wie gepflegt.
+ *
+ * ZWEIMAL VERSUCHT, ES AM CODE ZU MESSEN, und zweimal verworfen: Ob die Dateien
+ * aus `betrifft` sich bewegt haben, sagt nichts über das Vorhaben —
+ * `src/ui.ts` und `src/studio/editor.ts` werden von allem angefasst. Die
+ * Prüfung schlug bei 7 bis 8 von 17 Konzepten an, fast immer falsch, und eine
+ * Warnung, die meistens falsch ist, erzieht zum Wegsehen.
+ *
+ * Was BLEIBT, ist die Frage ohne Korrelation: Ein Vorhaben, das laut Roadmap
+ * LÄUFT und dessen Kopf seit Wochen unangetastet ist, ist entweder nicht mehr
+ * in Arbeit oder sein Stand ist alt. Beides will man wissen, und beides steht
+ * ohne Umweg in den Daten.
+ */
+const STAND_FRIST_TAGE = 21
+
+export function standVeraltet(dok, heute = Date.now()) {
+  const treffer = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dok.kopf?.stand || '').trim())
+  // Ohne Tagesdatum stellt sich die Frage nicht: „August 2026" nennt
+  // absichtlich keinen Tag, und einen zu erfinden wäre eine Genauigkeit, die
+  // das Dokument nie zugesagt hat.
+  if (!treffer) return null
+  const tage = Math.floor((heute - Date.UTC(+treffer[1], +treffer[2] - 1, +treffer[3])) / 86400000)
+  return tage >= STAND_FRIST_TAGE ? { stand: treffer[0], tage } : null
+}
+
 /** Bilder aus `docs/mockups/**` — die Galerie am Ende der Mockup-Seite. */
 export function sammleBilder() {
   const raus = []
