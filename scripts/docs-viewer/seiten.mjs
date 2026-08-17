@@ -1002,6 +1002,13 @@ function kopftafel(dok, roadmap) {
           dok.kopf.stand ? 'geändert ' : ''
         }${escape(geaendert.text)}</span>`
       : '',
+    // Der Weg in den Verlauf steht HIER und nicht als eigene Zeile: Er
+    // beantwortet dieselbe Frage wie Stand und Änderungsdatum, nur
+    // ausführlich. Als eigene Tafelzeile wäre er eine dritte Angabe über
+    // dasselbe.
+    (dok.verlauf ?? []).length
+      ? `<a class="tafel-tat" href="#verlauf">Verlauf (${dok.verlauf.length})</a>`
+      : '',
   ]
     .filter(Boolean)
     .join('<span class="tafel-punkt">·</span>')
@@ -1047,6 +1054,84 @@ function kopftafel(dok, roadmap) {
        </span>`,
     )}
   </dl>`
+}
+
+/* ── Verlauf ──────────────────────────────────────────────────────────────
+ * Was ein Dokument über sich sagt, steht in seinem Kopf; was mit ihm passiert
+ * IST, stand bis hierher nur in der Git-Historie — also außerhalb des Viewers.
+ * Beides nebeneinander beantwortet die Frage, die man an eine Doku stellt:
+ * Stimmt das noch, und wenn nicht, seit wann?
+ *
+ * DREI ENTSCHEIDUNGEN:
+ *
+ * 1. **Die Kopfänderung steht ÜBER dem Betreff, nicht darunter.** Sie ist die
+ *    Auskunft, wegen der die Liste existiert („Status: Entwurf → Etappe 1
+ *    gebaut"); der Commit-Betreff ist die Begleitung dazu. In der zweiten
+ *    Zeile las man erst vierzig Betreffs und fand die drei Sprünge nicht.
+ * 2. **Zugeklappt, aber nicht versteckt.** Ein `<details>` mit der Zahl in der
+ *    Zusammenfassung: Wer den Verlauf sucht, sieht sofort, dass es ihn gibt;
+ *    wer das Dokument liest, bekommt keine vierzig Zeilen Fußnote.
+ * 3. **Kein Klick auf eine alte Fassung.** Der Verlauf sagt, WANN sich etwas
+ *    geändert hat. Alte Fassungen zu rendern hieße, jede davon als Seite zu
+ *    bauen — und der gebaute Viewer liegt lokal in `docs/_site/`.
+ */
+
+/** Ein Commit-Eintrag: Kopfänderung, Datum, Betreff, Kürzel. */
+function verlaufEintrag(c) {
+  const zeit = zeitRelativ(c.datum)
+  const kopf = (c.kopf ?? [])
+    .map(
+      (k) =>
+        `<span class="verlauf-feld"><b>${escape(k.etikett)}</b><span class="verlauf-wert">${
+          k.von
+            ? `<span class="verlauf-alt">${escape(k.von)}</span><i>→</i>`
+            : '<span class="verlauf-neu-marke">neu</span>'
+        }<span class="verlauf-neu">${escape(k.nach || '—')}</span></span></span>`,
+    )
+    .join('')
+  return `<li${kopf ? ' class="hat-kopf"' : ''}>
+    <div class="verlauf-zeile">
+      <time datetime="${escape(c.datum)}" title="${escape(zeit.titel)}">${escape(datum(c.datum))}</time>
+      <span class="verlauf-betreff">${escape(c.betreff)}</span>
+      <button type="button" class="verlauf-sha" data-sha-kopieren
+              title="Commit ${escape(c.sha)} — klicken kopiert das Kürzel">${escape(c.kurz)}</button>
+    </div>
+    ${kopf ? `<div class="verlauf-kopf">${kopf}</div>` : ''}
+  </li>`
+}
+
+/**
+ * Der Verlauf unter dem Text. Ohne Git (oder ohne einen einzigen Commit) fällt
+ * er ganz weg — eine leere Klappe wäre eine Auskunft über nichts.
+ */
+function verlaufBlock(dok) {
+  const commits = dok.verlauf ?? []
+  if (!commits.length && !dok.offen) return ''
+  const spruenge = commits.reduce((n, c) => n + ((c.kopf ?? []).length ? 1 : 0), 0)
+  return `<section class="verlauf" id="verlauf">
+    <details>
+      <summary>
+        <span class="verlauf-titel">Verlauf</span>
+        <span class="verlauf-menge">${commits.length} ${
+          commits.length === 1 ? 'Überarbeitung' : 'Überarbeitungen'
+        }${spruenge ? ` · ${spruenge}× Kopf geändert` : ''}</span>
+      </summary>
+      <ol class="verlauf-liste">
+        ${
+          // Der Arbeitsstand steht ganz oben und ist kein Commit. Ohne ihn
+          // endete die Liste beim vorletzten Stand — und die eigene Änderung
+          // von eben sähe aus, als wäre sie verloren.
+          dok.offen
+            ? `<li class="verlauf-offen"><div class="verlauf-zeile">
+                 <time>jetzt</time>
+                 <span class="verlauf-betreff">Arbeitsstand, noch nicht committet</span>
+               </div></li>`
+            : ''
+        }
+        ${commits.map(verlaufEintrag).join('\n')}
+      </ol>
+    </details>
+  </section>`
 }
 
 /** HTML-Entitäten zurück in Text — die fünf, die `escape()` erzeugt, plus Zahlen. */
@@ -1102,15 +1187,32 @@ function seitenleiste(dokumente, bereiche, dok, auf) {
       <a class="leiste-zurueck" href="${auf}index.html">← Übersicht</a>
       ${bereiche
         .map((b) => {
-          const eigene = dokumente.filter((d) => d.bereich === b.id)
-          if (!eigene.length) return ''
+          const alle = dokumente.filter((d) => d.bereich === b.id)
+          // ARCHIVIERTES steht hier nicht. Es hängt zwar unter seinem Bereich
+          // (das ist richtig), aber die Leiste ist die Nachbarschaft, in der
+          // man weiterliest — und in „Architektur" waren 3 von 7 Einträgen
+          // Historie, die den heutigen Stand oft gerade NICHT beschreibt. Die
+          // Bereichsseite zeigt es weiter, dort hinter einer eigenen Falte;
+          // der Weg dorthin ist „Alle in … →" am Fuß der Gruppe.
+          const eigene = alle.filter((d) => !d.archiviert)
+          // Die eine Ausnahme: das Dokument, das gerade offen ist. Fehlte es,
+          // stünde man in einer Liste ohne sich selbst und die Leiste hätte
+          // keinen Bezug mehr zur Seite.
+          const liste = alle.some((d) => d.archiviert && d.ziel === dok.ziel)
+            ? [...eigene, alle.find((d) => d.ziel === dok.ziel)]
+            : eigene
+          if (!liste.length) return ''
           const hier = b.id === dok.bereich
           return `<details class="leiste-gruppe" style="--ton:${b.ton}"${hier ? ' open' : ''}>
             <summary><span>${escape(b.name)}</span><b>${eigene.length}</b></summary>
-            <ul>${eigene
+            <ul>${liste
               .map(
                 (d) =>
-                  `<li><a href="${auf}${escape(d.ziel)}"${d.ziel === dok.ziel ? ' class="hier" aria-current="page"' : ''}>${escape(d.titel)}</a></li>`,
+                  `<li><a href="${auf}${escape(d.ziel)}"${d.ziel === dok.ziel ? ' class="hier" aria-current="page"' : ''}${
+                    d.archiviert ? ' data-archiv="1"' : ''
+                  }>${escape(d.titel)}${
+                    d.archiviert ? '<span class="leiste-archiv">Archiv</span>' : ''
+                  }</a></li>`,
               )
               .join('')}
             <li class="leiste-alle"><a href="${auf}${b.id}/index.html">Alle in ${escape(b.name)} →</a></li></ul>
@@ -1178,6 +1280,7 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
     }
     <article class="prosa" data-prosa>${nachDerUeberschrift(html, kopftafel(dok, roadmap))}</article>
     ${schreibtisch(dok)}
+    ${verlaufBlock(dok)}
     <footer class="dok-fussnote">
       ${verwandt(dok.verweise, 'Zeigt auf')}
       ${verwandt(dok.rueckverweise, 'Wird genannt von')}

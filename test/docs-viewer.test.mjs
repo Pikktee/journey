@@ -46,7 +46,7 @@ import {
   setzeKopf,
   teileKopf,
 } from '../scripts/docs-viewer/kopf.mjs'
-import { ampelAus } from '../scripts/docs-viewer/sammeln.mjs'
+import { ampelAus, kopfDiff, kopfWerteAus } from '../scripts/docs-viewer/sammeln.mjs'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -969,6 +969,137 @@ describe('Datei und Editor auf der Seite', () => {
       expect(html).toContain(marke)
     // Die Maske liegt in JEDER Seite, weil in jeder Seite Objekte stehen.
     expect(html).toContain('data-umbenennen-schicht')
+  })
+
+  it('führt in der Seitenleiste keine Historie — außer der offenen Seite', () => {
+    const seite = (dok) =>
+      dokumentSeite({
+        dok,
+        html: '<h1>T</h1>',
+        ueberschriften: [],
+        dokumente,
+        bereiche,
+        nachAbs: new Map(dokumente.map((d) => [d.abs, d])),
+        roadmap: sammleRoadmap(dokumente, mockups),
+        schriftLokal: false,
+      })
+    const leiste = (html) => html.slice(html.indexOf('<aside class="leiste"'), html.indexOf('</aside>'))
+
+    // Die Leiste ist die Nachbarschaft, in der man weiterliest. Archiviertes
+    // beschreibt oft gerade NICHT den heutigen Stand — es steht auf der
+    // Bereichsseite hinter seiner eigenen Falte.
+    const historie = dokumente.find((d) => d.archiviert)
+    const lebend = dokumente.find((d) => !d.archiviert && d.bereich === historie.bereich)
+    expect(leiste(seite(lebend))).not.toContain(escape(historie.titel))
+
+    // Die Ausnahme: das offene Dokument. Ohne sie stünde man in einer Liste
+    // ohne sich selbst.
+    const alt = dokumente.find((d) => d.archiviert)
+    const eigene = leiste(seite(alt))
+    expect(eigene).toContain(escape(alt.titel))
+    expect(eigene).toContain('aria-current="page"')
+    expect(eigene).toContain('leiste-archiv')
+  })
+
+  it('zeigt den Verlauf und darin die Sprünge des Kopfes', () => {
+    const dok = dokumente.find((d) => (d.verlauf ?? []).some((c) => c.kopf.length))
+    expect(dok, 'kein Dokument mit erkannter Kopfänderung — liest der Diff noch mit?').toBeTruthy()
+    const html = dokumentSeite({
+      dok,
+      html: '<h1>T</h1>',
+      ueberschriften: [],
+      dokumente,
+      bereiche,
+      nachAbs: new Map(dokumente.map((d) => [d.abs, d])),
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+    expect(html).toContain('class="verlauf"')
+    // Der Weg dorthin steht in der Kopftafel — ohne ihn findet den Block niemand.
+    expect(html).toContain('href="#verlauf"')
+    const sprung = dok.verlauf.find((c) => c.kopf.length).kopf[0]
+    expect(html).toContain(escape(sprung.nach))
+  })
+
+  it('erfindet keine Kopfänderung, wo nur Fließtext steht', () => {
+    // Der Kopfbereich wird über die Hunk-Zeilennummern abgegrenzt. Fiele diese
+    // Grenze weg, würde jedes `status:` in einem Codeblock zur Statusänderung —
+    // und in der Doku ÜBER den Viewer steht so etwas dutzendfach.
+    for (const dok of dokumente)
+      for (const c of dok.verlauf ?? [])
+        for (const k of c.kopf) {
+          expect(k.von === '' && k.nach === '').toBe(false)
+          // Der Kopf trägt Werte, keine Markdown-Absätze.
+          expect(k.nach.length + k.von.length).toBeLessThan(400)
+        }
+  })
+
+  it('liest den Kopf aus beiden Formen — Front Matter und alte Prosa-Zeile', () => {
+    // Die Umstellung auf Front Matter ist vom 2026-08-17. Wer nur YAML liest,
+    // hat für die gesamte Historie davor einen leeren Verlauf.
+    expect(kopfWerteAus(['status: Entwurf, nichts gebaut', 'stand: 2026-08-17'])).toEqual({
+      status: 'Entwurf, nichts gebaut',
+      stand: '2026-08-17',
+    })
+    expect(kopfWerteAus(['Stand: **2026-08-07** · Status: **Konzept, nichts gebaut** ·'])).toEqual({
+      stand: '2026-08-07',
+      status: 'Konzept, nichts gebaut',
+    })
+    expect(kopfWerteAus([])).toEqual({})
+  })
+
+  it('meldet nur Felder, die sich wirklich geändert haben', () => {
+    const gleich = { status: 'Entwurf', stand: '2026-08-01' }
+    expect(kopfDiff(gleich, { ...gleich })).toEqual([])
+    const [eins] = kopfDiff({ status: 'Entwurf' }, { status: 'Etappe 1 gebaut' })
+    expect(eins).toMatchObject({ feld: 'status', von: 'Entwurf', nach: 'Etappe 1 gebaut' })
+    // Ein neu angelegtes Dokument hat kein Vorher — das ist kein Sprung, aber
+    // eine Angabe: „Status: neu Entwurf".
+    expect(kopfDiff({}, { status: 'Entwurf' })[0].von).toBe('')
+  })
+
+  it('führt die Historie über Umbenennungen und Archiv-Umzüge hinweg', () => {
+    // Ohne `-M` und die `rename from`-Zeilen bräche der Verlauf genau an der
+    // Umbenennung ab — und der Viewer benennt selbst um (`git mv`).
+    const umgezogen = execFileSync(
+      'git',
+      ['log', '-M', '--diff-filter=R', '--name-status', '--format=', '--', 'docs'],
+      { cwd: WURZEL, encoding: 'utf8' },
+    )
+      .split('\n')
+      .map((z) => z.split('\t'))
+      .filter((t) => t[0]?.startsWith('R') && t[2]?.endsWith('.md'))
+    if (!umgezogen.length) return
+    for (const [, alt, neu] of umgezogen) {
+      const dok = dokumente.find((d) => d.quellePfad === neu || 'docs/' + d.quelle === neu)
+      // Das Ziel kann seinerseits weitergezogen sein — dann greift der Test
+      // beim letzten Namen der Kette.
+      if (!dok || !dok.verlauf.length) continue
+      const vorDemUmzug = execFileSync('git', ['log', '--format=%H', '--', alt], {
+        cwd: WURZEL,
+        encoding: 'utf8',
+      })
+        .split('\n')
+        .filter(Boolean)
+      const bekannt = new Set(dok.verlauf.map((c) => c.sha))
+      expect(
+        vorDemUmzug.filter((sha) => bekannt.has(sha)).length,
+        `${neu} hat die Commits von ${alt} verloren`,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  it('legt den Konzept-Link einer Mockup-Kachel ÜBER die Kartenfläche', () => {
+    // `.karte-flaeche` ist ein unsichtbarer Link über der ganzen Kachel. Ein
+    // Konzept-Titel darunter sieht aus wie ein Link, öffnet aber den Prototyp —
+    // die Beziehung stand da und war der einzige Weg, der nicht funktionierte.
+    const css = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
+    const zIndex = (wahl) => {
+      const block = new RegExp(`${wahl}\\s*\\{([^}]*)\\}`).exec(css)
+      const treffer = /z-index:\s*(-?\d+)/.exec(block?.[1] ?? '')
+      return treffer ? Number(treffer[1]) : 0
+    }
+    expect(zIndex('\\.mockup-konzept a')).toBeGreaterThan(zIndex('\\.karte-flaeche'))
   })
 
   it('führt im Fuß Startseite, Impressum und Datenschutz', () => {

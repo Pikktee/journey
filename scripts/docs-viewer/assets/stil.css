@@ -739,6 +739,18 @@ kbd {
   line-height: 1.4;
 }
 .leiste-gruppe li a:hover { color: var(--text); text-decoration: none; }
+/* Der eine archivierte Eintrag, der in der Leiste stehen darf: der gerade
+   offene. Er trägt sein Etikett mit, damit die Liste nicht so aussieht, als
+   wäre Historie wieder Teil der Nachbarschaft. */
+.leiste-archiv {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--rand-hell) 70%, transparent);
+  border-radius: var(--radius-full);
+  color: var(--text-3);
+  font-size: 10.5px;
+  vertical-align: 1px;
+}
 .leiste-gruppe li a.hier {
   border-left-color: var(--ton, var(--akzent));
   background: linear-gradient(90deg, color-mix(in srgb, var(--ton, var(--akzent)) 12%, transparent), transparent);
@@ -1018,6 +1030,148 @@ kbd {
 .nur-dienst { display: none; }
 body.mit-dienst .nur-dienst { display: inline-flex; }
 
+/* ── Verlauf ──────────────────────────────────────────────────────────────
+ * Eine Liste, die nach ZWEI Dingen gelesen wird: „wann wurde das zuletzt
+ * angefasst" (überfliegen) und „wann sprang der Status" (suchen). Deshalb
+ * tragen nur die Einträge mit Kopfänderung eine zweite Zeile und einen
+ * Farbpunkt an der Kante — der Rest bleibt eine ruhige Datumsspalte, an der
+ * das Auge vorbeiläuft. */
+
+.verlauf {
+  max-width: var(--lesebreite);
+  margin-top: 44px;
+  scroll-margin-top: 92px;
+}
+.verlauf details {
+  border: 1px solid var(--rand);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--fl-1) 60%, transparent);
+}
+.verlauf summary {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 13px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.verlauf summary::-webkit-details-marker { display: none; }
+/* Der Pfeil dreht sich, statt zu verschwinden: Das ist die Auskunft „hier ist
+   noch mehr" und sie muss auch im offenen Zustand stimmen. */
+.verlauf summary::before {
+  content: '›';
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+.verlauf details[open] summary::before { transform: rotate(90deg); }
+.verlauf-titel { font-weight: 600; font-size: 14px; }
+.verlauf-menge { color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.verlauf-liste {
+  margin: 0;
+  padding: 4px 16px 14px;
+  list-style: none;
+  border-top: 1px solid var(--rand);
+}
+.verlauf-liste > li { padding: 8px 0 8px 13px; position: relative; }
+.verlauf-liste > li + li { border-top: 1px solid color-mix(in srgb, var(--rand) 55%, transparent); }
+/* Nur wo sich der Kopf geändert hat, steht ein Punkt an der Kante. Bei jedem
+   Eintrag wäre es eine Aufzählung und keine Auszeichnung mehr. */
+.verlauf-liste > li.hat-kopf::before,
+.verlauf-liste > li.verlauf-offen::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--akzent);
+}
+.verlauf-liste > li.verlauf-offen::before { background: var(--warn); }
+
+.verlauf-zeile {
+  display: grid;
+  grid-template-columns: 92px 1fr max-content;
+  gap: 12px;
+  align-items: baseline;
+}
+.verlauf-zeile time {
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* EINZEILIG: Ein umbrechender Commit-Betreff schöbe die Kopfänderung darunter
+   weg, und die ist der Grund, warum die Liste existiert. */
+.verlauf-betreff {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.verlauf-offen .verlauf-betreff { color: var(--warn); }
+.verlauf-sha {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.verlauf-sha:hover { color: var(--text); }
+
+/* Etikett und Wert in ZWEI Spalten, ein Feld je Zeile.
+ *
+ * Nebeneinander in einer Flex-Reihe brach ein langer Statussatz mitten im
+ * Wert um („Etappe 1 und 2 gebaut, / Etappe 3 offen → abgearbeitet: …") und
+ * der Pfeil landete irgendwo in der Mitte. Mit einer eigenen Wertspalte
+ * bricht der Text unter sich selbst, und die Ablösung bleibt als Form
+ * erkennbar. */
+.verlauf-kopf {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 12px;
+  margin-top: 6px;
+  padding-left: 104px;
+  font-size: 13px;
+}
+.verlauf-feld { display: contents; }
+.verlauf-wert { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; min-width: 0; }
+.verlauf-feld b {
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  /* Auf der Grundlinie der ersten Wertzeile, nicht in der Mitte des Blocks:
+     Bei einem dreizeiligen Statussatz stünde das Etikett sonst neben seiner
+     zweiten Zeile. */
+  align-self: baseline;
+}
+.verlauf-feld i { color: var(--text-3); font-style: normal; }
+/* Der alte Wert ist durchgestrichen und leise, der neue steht normal: Damit
+   liest sich die Zeile in Leserichtung als Ablösung und nicht als zwei Werte,
+   von denen man raten muss, welcher gilt. */
+.verlauf-alt { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+.verlauf-neu { color: var(--text); }
+.verlauf-neu-marke {
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--akzent) 18%, transparent);
+  color: var(--akzent);
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .verlauf-zeile { grid-template-columns: 1fr max-content; }
+  .verlauf-zeile time { grid-column: 1 / -1; }
+  .verlauf-kopf { padding-left: 0; }
+}
+
 /* ── Fußnote des Dokuments ────────────────────────────────────────────── */
 
 .dok-fussnote {
@@ -1147,8 +1301,15 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
   font-size: 11.5px;
   cursor: help;
 }
-.mockup-konzept a { color: var(--text-2); }
-.mockup-konzept a:hover { color: var(--akzent); }
+/* ÜBER der Kartenfläche, sonst ist der Link keiner.
+ *
+ * `.karte-flaeche` liegt als unsichtbarer Link auf der ganzen Kachel (z-index
+ * 1) — der Konzept-Titel lag darunter und war zwar blau und unterstrichen,
+ * aber jeder Klick darauf öffnete den PROTOTYP. Die Beziehung stand also da,
+ * und der einzige Weg zum Konzept führte über die Suche. Dasselbe Muster wie
+ * beim Aktionsmenü, das seine Klicks aus demselben Grund selbst abfängt. */
+.mockup-konzept a { position: relative; z-index: 2; color: var(--text-2); }
+.mockup-konzept a:hover { color: var(--akzent); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Der Fuß trägt die Identität der Datei und das Menü — durch eine Haarlinie
    vom Inhalt getrennt, damit er nicht als weitere Textzeile gelesen wird. */

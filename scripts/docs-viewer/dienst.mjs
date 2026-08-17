@@ -23,7 +23,14 @@ import { execFile, execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 
-import { WURZEL, DOCS, dateienUnter } from './sammeln.mjs'
+import {
+  WURZEL,
+  DOCS,
+  dateienUnter,
+  sammleDokumente,
+  sammleMockups,
+  verknuepfeMockups,
+} from './sammeln.mjs'
 import { setzeKopf } from './kopf.mjs'
 
 /** Ordner unter `docs/`, in die zurückgeholt werden darf. */
@@ -379,6 +386,28 @@ export function baueNeu() {
 }
 
 /**
+ * Die Konzepte, zu denen ein Prototyp gehört — für die Leiste im geöffneten
+ * Prototyp. Der Pfad ist relativ zu `docs/`.
+ *
+ * Es wird der ganze Sammler gefragt und nichts nachgebaut: Die Beziehung
+ * entsteht aus zwei Quellen (das Konzept verlinkt die Datei, der Prototyp
+ * nennt sein Konzept), und eine zweite Fassung dieser Regel liefe beim ersten
+ * Sonderfall auseinander. Der Aufruf kostet unter einer Sekunde und passiert
+ * einmal beim Öffnen — der Neubau nach jeder Änderung kostet mehr.
+ */
+export function konzepteZu(rel) {
+  try {
+    const mockups = verknuepfeMockups(sammleDokumente(), sammleMockups())
+    const treffer = mockups.find((m) => m.quelle === rel)
+    return (treffer?.konzepte ?? []).map((k) => ({ titel: k.titel, ziel: k.ziel }))
+  } catch {
+    // Ohne Konzeptliste bleibt die Leiste, was sie war. Ein Prototyp soll sich
+    // öffnen lassen, auch wenn der Sammler an einer anderen Datei scheitert.
+    return []
+  }
+}
+
+/**
  * Führt eine Aktion aus und baut danach neu. Rückgabe geht als JSON an die
  * Seite; ein Fehler wird zur Meldung, nicht zum Absturz des Dev-Servers.
  */
@@ -405,7 +434,18 @@ export async function fuehreAus(aktion, daten = {}) {
         const punkt = zeile.match(/^\*\s+\[[^\]]+\]\(([^)]+)\)/)
         if (punkt && punkt[1] === rel) phase = aktuell
       }
-      return { phasen, phase, archiv: rel.startsWith('archive/'), titel: rel.split('/').pop() }
+      return {
+        phasen,
+        phase,
+        archiv: rel.startsWith('archive/'),
+        titel: rel.split('/').pop(),
+        // WOZU gehört dieser Entwurf? Auf der Kachel steht die Antwort; im
+        // geöffneten Prototyp stand sie nirgends, und der Weg zum Konzept
+        // führte über die Suche. Die Beziehung wird abgeleitet (das Konzept
+        // verlinkt die Datei) oder genannt (`maptale:gehoert_zu`) — beides
+        // kann nur der Sammler, deshalb wird er hier gefragt.
+        konzepte: konzepteZu(rel),
+      }
     }
     case 'speichern': {
       const pfad = schreibeQuelle(daten.datei, daten.text)

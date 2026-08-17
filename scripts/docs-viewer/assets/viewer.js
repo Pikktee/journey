@@ -448,9 +448,11 @@
    * niemanden, der antwortet. Öffnen und Umbenennen brauchen ihn.
    */
 
-  function kopierePfad(pfad) {
+  // `wort` benennt, WAS kopiert wurde — Pfad, wo nichts dabeisteht, und
+  // „Commit" beim Verlauf. Eine Meldung „Pfad kopiert: 30cae4f" wäre falsch.
+  function kopierePfad(pfad, wort) {
     var fertig = function () {
-      melde('Pfad kopiert: ' + pfad)
+      melde((wort || 'Pfad') + ' kopiert: ' + pfad)
     }
     if (navigator.clipboard && navigator.clipboard.writeText)
       return navigator.clipboard.writeText(pfad).then(fertig, ersatzKopie)
@@ -492,6 +494,29 @@
       kopierePfad(k.textContent.trim())
     })
   })
+  /* ── Verlauf ──────────────────────────────────────────────────────────
+   * Zwei Kleinigkeiten, ohne die der Block halb funktioniert: Der SHA lässt
+   * sich kopieren (er ist nur als Kürzel abgedruckt, der volle steht im
+   * `title`), und der Sprung aus der Kopftafel klappt die Liste AUF. Ein
+   * `<details>` öffnet sich beim Fragment-Sprung nur, wenn das Ziel INNEN
+   * liegt — hier trägt der Rahmen die Kennung, und der Link landete auf einer
+   * zugeklappten Klappe. */
+
+  ;[].slice.call(document.querySelectorAll('[data-sha-kopieren]')).forEach(function (k) {
+    k.addEventListener('click', function () {
+      var voll = (k.getAttribute('title') || '').split(' ')[1] || k.textContent.trim()
+      kopierePfad(voll, 'Commit')
+    })
+  })
+
+  function oeffneVerlauf() {
+    if (location.hash !== '#verlauf') return
+    var klappe = document.querySelector('.verlauf details')
+    if (klappe) klappe.open = true
+  }
+  window.addEventListener('hashchange', oeffneVerlauf)
+  oeffneVerlauf()
+
   ;[].slice.call(document.querySelectorAll('.kopftafel [data-editor-oeffnen]')).forEach(function (k) {
     var tafel = k.closest('.kopftafel')
     var pfadKnopf = tafel && tafel.querySelector('[data-pfad-kopieren]')

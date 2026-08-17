@@ -85,6 +85,22 @@
       zurueck.href = '/doku/mockups.html'
       zurueck.style.textDecoration = 'none'
 
+      // Der Weg zum Konzept. Er gehört in die LEISTE und nicht ins Menü: Ein
+      // Prototyp ist die Antwort auf eine Frage, die woanders gestellt wird,
+      // und wer ihn ansieht, will als Nächstes meist genau dorthin. Bei
+      // mehreren Konzepten trägt der Knopf die Zahl und öffnet die Auswahl —
+      // eine Reihe von vier Titeln machte aus der Leiste eine Zeile Text.
+      var konzepte = stand.konzepte || []
+      var konzeptGriff = null
+      if (konzepte.length === 1) {
+        konzeptGriff = el('a', K.knopf, 'Konzept ↗')
+        konzeptGriff.href = '/doku/' + konzepte[0].ziel
+        konzeptGriff.title = konzepte[0].titel
+        konzeptGriff.style.textDecoration = 'none'
+      } else if (konzepte.length > 1) {
+        konzeptGriff = el('button', K.knopf, 'Konzepte (' + konzepte.length + ')')
+      }
+
       // KEIN Roadmap-Griff: Auf die Roadmap kommen Konzepte, nicht Prototypen.
       // Ein Prototyp ist eine Antwort in einem Konzept — geplant wird das
       // Konzept, und der Prototyp steht in seinem nächsten Schritt.
@@ -169,19 +185,43 @@
         }),
       )
 
+      // Die Auswahl bei mehreren Konzepten — dieselbe Optik wie das ⋯-Menü,
+      // nur mit Links statt Handlungen.
+      var konzeptKlappe = null
+      if (konzepte.length > 1) {
+        konzeptKlappe = el('div', K.klappe)
+        konzeptKlappe.style.display = 'none'
+        konzeptKlappe.appendChild(el('div', K.titel, 'Gehört zu'))
+        konzepte.forEach(function (k) {
+          var a = el('a', K.eintrag, k.titel)
+          a.href = '/doku/' + k.ziel
+          a.style.textDecoration = 'none'
+          konzeptKlappe.appendChild(a)
+        })
+        konzeptGriff.addEventListener('click', function (e) {
+          e.stopPropagation()
+          klappe.style.display = 'none'
+          konzeptKlappe.style.display = konzeptKlappe.style.display === 'none' ? 'block' : 'none'
+        })
+      }
+
       griff.addEventListener('click', function (e) {
         e.stopPropagation()
+        if (konzeptKlappe) konzeptKlappe.style.display = 'none'
         klappe.style.display = klappe.style.display === 'none' ? 'block' : 'none'
       })
       document.addEventListener('click', function () {
         klappe.style.display = 'none'
+        if (konzeptKlappe) konzeptKlappe.style.display = 'none'
       })
 
       leiste.appendChild(marke)
       leiste.appendChild(griff)
+      if (konzeptGriff) leiste.appendChild(konzeptGriff)
       leiste.appendChild(zurueck)
       document.body.appendChild(leiste)
       document.body.appendChild(klappe)
+      if (konzeptKlappe) document.body.appendChild(konzeptKlappe)
     })
     .catch(function () {
       /* Ohne Dienst keine Leiste — der Prototyp bleibt, wie er ist. */

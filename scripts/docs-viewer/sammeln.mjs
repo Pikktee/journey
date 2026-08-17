@@ -18,7 +18,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative, basename, dirname, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-import { kopfAusHtml, kopfVon, saeubere } from './kopf.mjs'
+import { kopfAusHtml, kopfAusProsa, kopfVon, leseYaml, saeubere } from './kopf.mjs'
 
 export { saeubere }
 
@@ -233,36 +233,195 @@ function verweiseAus(text, datei) {
   return [...raus]
 }
 
-/* ── Git ──────────────────────────────────────────────────────────────── */
+/* ── Git ──────────────────────────────────────────────────────────────────
+ * Der Verlauf eines Dokuments — WANN wurde es angefasst, und was hat sich
+ * dabei an seinem KOPF geändert.
+ *
+ * Ein Aufruf für beides, und zwar `git log -p`: Die reine Commit-Liste käme
+ * mit `--name-only` billiger, aber der Kopf-Diff ist die eigentliche Auskunft
+ * („wann sprang der Status von ‚Entwurf' auf ‚Etappe 2 gebaut'?"), und die
+ * steht nur im Patch. Gemessen über die ganze Doku-Historie: 3 MB in 0,26 s,
+ * einmal pro Bau — 99 % davon wird beim Lesen sofort weggeworfen.
+ *
+ * VIER DINGE, die man dabei falsch baut:
+ *
+ * 1. **`--follow` gibt es nicht**, es nimmt nur EINEN Pfad. Umbenennungen
+ *    passieren hier aber laufend (der Viewer selbst benennt per `git mv` um),
+ *    und ohne sie bricht die Historie genau an der Umbenennung ab. Deshalb
+ *    `-M` und die `rename from/to`-Zeilen des Patches: Wir laufen rückwärts
+ *    durch die Zeit und führen mit, unter welchem Namen eine Datei HEUTE
+ *    steht.
+ * 2. **Der Kopfbereich wird über die HUNK-ZEILENNUMMERN abgegrenzt**, nicht
+ *    über die Textform. Ein `status:` im Fließtext oder in einem Codeblock
+ *    (in Doku über den Viewer selbst steht so etwas ständig) wäre sonst eine
+ *    erfundene Statusänderung.
+ * 3. **Gelesen wird mit denselben Regeln wie die Kopftafel** (`kopf.mjs`) —
+ *    Front Matter UND die alte Prosa-Zeile. Die Umstellung auf Front Matter
+ *    ist vom 2026-08-17; wer nur YAML liest, hat für die gesamte Historie
+ *    davor einen leeren Verlauf.
+ * 4. **Der ARBEITSSTAND gehört dazu.** Der Viewer schreibt selbst in die
+ *    Dateien; ohne den Eintrag „noch nicht committet" sähe eine Liste, die
+ *    mit dem vorletzten Stand endet, wie ein Datenverlust aus.
+ */
+
+/** Wie weit hinten im Diff eine Zeile noch zum Kopf gehören kann. */
+const KOPF_ZEILEN = 40
 
 /**
- * Letzte Änderung und Zahl der Überarbeitungen. Ein Dokument, das zwölfmal
- * angefasst wurde, ist ein anderes als eines, das einmal hingelegt wurde —
- * und ohne Git-Datum wäre die Sortierung „zuletzt geändert" geraten.
+ * Liest `stand`/`status` aus losen Zeilen — denen eines Diffs, nicht einer
+ * ganzen Datei. Front Matter schlägt Prosa, Feld für Feld, wie in `kopfVon`.
+ *
+ * Dass beide Formen nebeneinander laufen können, liegt an der GROSSSCHREIBUNG:
+ * Front Matter schreibt `status:`, die Prosa-Zeile `Status:` — `leseYaml`
+ * greift nur die kleine, `kopfAusProsa` nur die große.
+ */
+export function kopfWerteAus(zeilen) {
+  if (!zeilen.length) return {}
+  const text = zeilen.join('\n')
+  const yaml = leseYaml(text)
+  const prosa = kopfAusProsa(text)
+  const raus = {}
+  for (const feld of ['stand', 'status']) {
+    const wert = yaml[feld] ?? prosa[feld]
+    if (typeof wert === 'string' && wert.trim()) raus[feld] = saeubere(wert)
+  }
+  return raus
+}
+
+/** Die Felder, die im Verlauf als Änderung erscheinen — mit ihrem Etikett. */
+const VERLAUF_FELDER = [
+  ['status', 'Status'],
+  ['stand', 'Stand'],
+]
+
+/** Was sich zwischen zwei Kopf-Fassungen geändert hat. */
+export function kopfDiff(vorher, nachher) {
+  const raus = []
+  for (const [feld, etikett] of VERLAUF_FELDER) {
+    const von = vorher[feld] || ''
+    const nach = nachher[feld] || ''
+    if (von === nach) continue
+    raus.push({ feld, etikett, von, nach })
+  }
+  return raus
+}
+
+/**
+ * Dateien mit ungespeicherten Änderungen im Arbeitsverzeichnis. Nur die Frage
+ * „ist diese Datei angefasst?", nicht die Art der Änderung: Für den Verlauf
+ * zählt allein, dass die letzte Fassung noch in keinem Commit steht.
+ */
+function gitArbeitsstand() {
+  try {
+    const roh = execFileSync('git', ['status', '--porcelain', '--', 'docs', '.'], {
+      cwd: WURZEL,
+      encoding: 'utf8',
+      maxBuffer: 8 * 1024 * 1024,
+    })
+    const raus = new Set()
+    for (const zeile of roh.split('\n')) {
+      if (zeile.length < 4) continue
+      // `XY pfad` — bei Umbenennungen `XY alt -> neu`; uns interessiert das Ziel.
+      const pfad = zeile.slice(3).split(' -> ').pop().trim().replace(/^"|"$/g, '')
+      if (pfad) raus.add(pfad)
+    }
+    return raus
+  } catch {
+    return new Set()
+  }
+}
+
+/**
+ * Letzte Änderung, Zahl der Überarbeitungen und der volle Verlauf je Datei.
+ * Ein Dokument, das zwölfmal angefasst wurde, ist ein anderes als eines, das
+ * einmal hingelegt wurde — und ohne Git-Datum wäre die Sortierung „zuletzt
+ * geändert" geraten.
  */
 function gitStandFuer(pfade) {
   const stand = new Map()
+  const offen = gitArbeitsstand()
   try {
     const roh = execFileSync(
       'git',
-      ['log', '--format=%H|%aI', '--name-only', '--', ...pfade],
-      { cwd: WURZEL, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+      ['log', '-M', '-U0', '--format=%x00%H|%aI|%an|%s', '-p', '--', ...pfade],
+      { cwd: WURZEL, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 },
     )
-    let datum = ''
+
+    // Unter welchem Namen steht eine damalige Datei HEUTE? Wir laufen von der
+    // Gegenwart in die Vergangenheit; jede Umbenennung, der wir begegnen,
+    // trägt den heutigen Namen eine Stufe weiter zurück.
+    const heute = new Map()
+    const heutiger = (pfad) => heute.get(pfad) ?? pfad
+
+    let commit = null
+    let datei = null // { pfad, vorher: [], nachher: [] }
+    // Unendlich und nicht 0: Solange kein `@@` gelesen ist, liegt KEINE Zeile
+    // im Kopfbereich. Mit 0 gälte jede Zeile einer reinen Umbenennung als
+    // Kopfzeile, und die Statusanzeige erfände eine Änderung.
+    let hunkAlt = Number.POSITIVE_INFINITY
+    let hunkNeu = Number.POSITIVE_INFINITY
+
+    const schliesseDatei = () => {
+      if (!datei || !commit) return
+      const eintrag = stand.get(datei.pfad) ?? { datum: commit.datum, aenderungen: 0, commits: [] }
+      eintrag.aenderungen++
+      eintrag.commits.push({
+        ...commit,
+        kopf: kopfDiff(kopfWerteAus(datei.vorher), kopfWerteAus(datei.nachher)),
+      })
+      stand.set(datei.pfad, eintrag)
+      datei = null
+    }
+
     for (const zeile of roh.split('\n')) {
-      if (/^[0-9a-f]{7,}\|/.test(zeile)) {
-        datum = zeile.split('|')[1]
+      if (zeile.startsWith('\0')) {
+        schliesseDatei()
+        const [sha, datum, autor, ...rest] = zeile.slice(1).split('|')
+        // Der Betreff darf selbst ein `|` enthalten — er ist der REST, nicht
+        // das vierte Feld.
+        commit = { sha, kurz: sha.slice(0, 7), datum, autor, betreff: rest.join('|') }
         continue
       }
-      const pfad = zeile.trim()
-      if (!pfad) continue
-      const vorher = stand.get(pfad)
-      if (!vorher) stand.set(pfad, { datum, aenderungen: 1 })
-      else vorher.aenderungen++
+      if (!commit) continue
+
+      const kopf = zeile.match(/^diff --git a\/(.+) b\/(.+)$/)
+      if (kopf) {
+        schliesseDatei()
+        datei = { pfad: heutiger(kopf[2]), vorher: [], nachher: [] }
+        hunkAlt = Number.POSITIVE_INFINITY
+        hunkNeu = Number.POSITIVE_INFINITY
+        continue
+      }
+      if (!datei) continue
+
+      // Eine Umbenennung: Wer heute `datei.pfad` heißt, hieß davor anders.
+      const von = zeile.match(/^rename from (.+)$/)
+      if (von) {
+        heute.set(von[1], datei.pfad)
+        continue
+      }
+
+      const hunk = zeile.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+      if (hunk) {
+        hunkAlt = Number(hunk[1])
+        hunkNeu = Number(hunk[2])
+        continue
+      }
+      if (zeile.startsWith('---') || zeile.startsWith('+++')) continue
+      if (zeile.startsWith('-') && hunkAlt <= KOPF_ZEILEN) datei.vorher.push(zeile.slice(1))
+      else if (zeile.startsWith('+') && hunkNeu <= KOPF_ZEILEN) datei.nachher.push(zeile.slice(1))
     }
+    schliesseDatei()
   } catch {
     /* kein Git, keine Historie — die Seite steht trotzdem. */
   }
+
+  for (const [pfad, eintrag] of stand) eintrag.offen = offen.has(pfad)
+  // Eine gerade erst angelegte Datei steht in keinem Commit und käme sonst
+  // ohne jeden Eintrag zurück — der Verlauf sagte „kein Git", obwohl es einen
+  // Arbeitsstand gibt.
+  for (const pfad of offen)
+    if (!stand.has(pfad)) stand.set(pfad, { datum: '', aenderungen: 0, commits: [], offen: true })
   return stand
 }
 
@@ -400,6 +559,10 @@ export function sammleDokumente() {
       minuten: Math.max(1, Math.round(worte / 220)),
       geaendert: git.get(imRepo)?.datum || '',
       aenderungen: git.get(imRepo)?.aenderungen || 0,
+      // Der Verlauf: die Commits dieser Datei, jüngster zuerst, jeder mit dem,
+      // was sich dabei an ihrem Kopf geändert hat.
+      verlauf: git.get(imRepo)?.commits ?? [],
+      offen: git.get(imRepo)?.offen ?? false,
       text,
     }
   })
