@@ -411,6 +411,56 @@ describe('Ampel aus dem Status', () => {
   })
 })
 
+describe('Keine Angabe steht zweimal', () => {
+  // Über dem Titel standen fünf Marken, drei davon Kompressionen des Textes
+  // einen Zentimeter tiefer: „Entwurf" für den ganzen Statussatz, „Player" für
+  // die Pfadliste, „zuletzt 17. Aug." neben einem „Stand: 17. August". Die
+  // Regel dagegen gilt zweimal: DIE ZUSAMMENFASSUNG ERSCHEINT NUR, WO DIE
+  // AUSFÜHRUNG FEHLT.
+  const seite = (dok) =>
+    dokumentSeite({
+      dok,
+      html: '<h1>T</h1>',
+      ueberschriften: [],
+      dokumente,
+      bereiche,
+      nachAbs: new Map(dokumente.map((d) => [d.abs, d])),
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+
+  it('zeigt die Ampel nicht neben ihrem eigenen Statussatz', () => {
+    const mitStatus = dokumente.find((d) => d.kopf.status && d.ampel)
+    expect(mitStatus, 'kein Dokument mit Status').toBeTruthy()
+    const html = seite(mitStatus)
+    expect(html).toContain(mitStatus.kopf.status.slice(0, 20))
+    expect(html).not.toContain('class="ampel ampel-')
+  })
+
+  it('zeigt sie weiterhin, wo kein Satz dasteht', () => {
+    // Die Handbuch-Dateien tragen „Verbindlich", und das steht in keinem Satz.
+    const ohneStatus = dokumente.find((d) => !d.kopf.status && d.ampel)
+    expect(ohneStatus, 'kein Dokument ohne Status').toBeTruthy()
+    expect(seite(ohneStatus)).toContain('class="ampel ampel-')
+  })
+
+  it('führt das Git-Datum nur EINMAL, und nicht in der Form des Stands', () => {
+    // Zwei Daten in derselben Form aus zwei Quellen (Autor und Git) sind
+    // schlimmer als eines: Man sieht ihnen nicht an, welches welches ist.
+    const dok = dokumente.find((d) => d.geaendert && d.kopf.stand)
+    const html = seite(dok)
+    expect(html).not.toContain('zuletzt ')
+    expect(html).toContain('>Geändert</dt>')
+  })
+
+  it('zeigt Systemteile nur, wo „Betrifft" fehlt', () => {
+    const mitBetrifft = dokumente.find((d) => d.kopf.betrifft.length && d.teile.length)
+    if (mitBetrifft) expect(seite(mitBetrifft)).not.toContain('class="teil-chip')
+    const ohneBetrifft = dokumente.find((d) => !d.kopf.betrifft.length && d.teile.length)
+    if (ohneBetrifft) expect(seite(ohneBetrifft)).toContain('class="teil-chip')
+  })
+})
+
 describe('Im Editor öffnen', () => {
   // Eine Prüfung, die nicht vom Rechner abhängt: Sie schreibt vor, WELCHE
   // Quellen befragt werden, nicht welcher Editor gefunden wird.

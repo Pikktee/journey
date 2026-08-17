@@ -1991,3 +1991,9 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .schicht-hinweis { margin: 0 0 18px; color: var(--text-3); font-size: 13px; }
 .schicht-hinweis code { font-family: var(--font-mono); font-size: 12px; }
 .schicht-fuss { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Das Git-Datum in der Kopftafel: leiser als der Stand. Es ist die Gegenprobe
+   zu dessen Behauptung, nicht die Aussage selbst. */
+.tafel-leise { color: var(--text-2); }
+.tafel-leise[title] { cursor: help; }
+.kopftafel dt[title] { cursor: help; }

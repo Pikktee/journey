@@ -899,12 +899,22 @@ function werkzeuge(dok, roadmap) {
  * der Seite, und beim nächsten Mal wäre eine der beiden Angaben alt.
  */
 function kopftafel(dok) {
-  const zeile = (name, inhalt) =>
-    inhalt ? `<div><dt>${escape(name)}</dt><dd>${inhalt}</dd></div>` : ''
+  const zeile = (name, inhalt, titel = '') =>
+    inhalt
+      ? `<div><dt${titel ? ` title="${escape(titel)}"` : ''}>${escape(name)}</dt><dd>${inhalt}</dd></div>`
+      : ''
 
   // Pfade als eigene Marken. Nur durch Kommas getrennt gingen die Trenner
   // zwischen den Mono-Zeichen unter, und die Aufzählung las sich als ein Pfad.
-  const betrifft = dok.kopf.betrifft.map((b) => `<code>${escape(b)}</code>`).join('')
+  //
+  // Ohne `betrifft` im Kopf steht hier die ABGELEITETE Antwort auf dieselbe
+  // Frage: die Systemteile. Sie standen vorher als Marken über dem Titel und
+  // waren dort neben der Pfadliste eine zweite Auskunft über dasselbe — die
+  // Kompression von genau diesen Pfaden. Jetzt erscheint sie nur, wo die
+  // ausführliche Antwort fehlt, und das ist bei jedem Dokument ohne Kopf.
+  const betrifft = dok.kopf.betrifft.length
+    ? dok.kopf.betrifft.map((b) => `<code>${escape(b)}</code>`).join('')
+    : teilChips(dok.teile, 4)
 
   // Der Punkt vor dem Status trägt die Farbe der Ampel. Er wiederholt kein
   // Wort — er bindet den Satz an das Abzeichen über der Überschrift, sodass
@@ -913,9 +923,27 @@ function kopftafel(dok) {
     ? `<span class="tafel-status" data-art="${dok.ampel?.art ?? 'ruht'}">${escape(dok.kopf.status)}</span>`
     : ''
 
+  // „Stand" ist die Behauptung des Autors, „Geändert" die Auskunft von Git.
+  // Sie stehen ABSICHTLICH nebeneinander: Erst im Vergleich sagen sie etwas —
+  // „Stand: März, geändert: gestern" heißt, dass der Stand nicht stimmt. Als
+  // Marke über dem Titel („zuletzt 17. Aug.") stand das Git-Datum in derselben
+  // Form wie der Stand und war von ihm nicht zu unterscheiden.
+  const geaendert = zeitRelativ(dok.geaendert)
+
   return `<dl class="kopftafel">
-    ${zeile('Stand', dok.kopf.stand ? `<span class="tafel-datum">${escape(standLang(dok.kopf.stand))}</span>` : '')}
+    ${zeile(
+      'Stand',
+      dok.kopf.stand ? `<span class="tafel-datum">${escape(standLang(dok.kopf.stand))}</span>` : '',
+      'Was das Dokument selbst über seinen Stand sagt',
+    )}
     ${zeile('Status', status)}
+    ${zeile(
+      'Geändert',
+      geaendert.text
+        ? `<span class="tafel-leise" title="${escape(geaendert.titel)}">${escape(geaendert.text)}</span>`
+        : '',
+      'Letzte Änderung an der Datei, aus der Git-Historie',
+    )}
     ${zeile('Betrifft', betrifft)}
     ${zeile(
       'Datei',
@@ -1004,14 +1032,24 @@ function seitenleiste(dokumente, bereiche, dok, auf) {
 export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, nachAbs, roadmap, schriftLokal }) {
   const auf = hoch(dok.ziel)
   const bereich = bereiche.find((b) => b.id === dok.bereich)
-  // Der Stand steht in der Kopftafel darunter und nicht mehr als Chip: Zweimal
-  // dieselbe Zahl in zwei Zeilen liest man als zwei verschiedene Angaben.
-  const chips = [
-    `<span class="chip">${dok.minuten} min</span>`,
-    dok.geaendert ? `<span class="chip">zuletzt ${escape(datum(dok.geaendert))}</span>` : '',
-  ]
-    .filter(Boolean)
-    .join('')
+  /*
+   * Über dem Titel steht nur, was die Tafel darunter NICHT sagt.
+   *
+   * Vorher standen dort fünf Marken, und drei davon waren Kompressionen des
+   * Textes, der einen Zentimeter tiefer ausführlich stand: „Entwurf" für den
+   * ganzen Statussatz, „Player" für die Pfadliste, „zuletzt 17. Aug." neben
+   * einem „Stand: 17. August". Die letzte war die schlimmste — zwei Daten in
+   * derselben Form aus zwei verschiedenen Quellen, ohne dass man ihnen ansah,
+   * welches welches ist.
+   *
+   * Die Regel dahinter gilt zweimal: DIE ZUSAMMENFASSUNG ERSCHEINT NUR, WO DIE
+   * AUSFÜHRUNG FEHLT. Der Ampel-Chip bleibt also bei Dokumenten OHNE Statussatz
+   * (die Handbuch-Dateien tragen „Verbindlich", und das steht in keinem Satz),
+   * die Systemteile bleiben als Rückfall in der Betrifft-Zeile. Was hier
+   * dauerhaft steht, sind die zwei Angaben, die nirgends sonst vorkommen: wo
+   * das Dokument auf der Roadmap steht und wie lang es ist.
+   */
+  const chips = `<span class="chip">${dok.minuten} min</span>`
 
   const verwandt = (liste, wort) => {
     const eintraege = liste.map((a) => nachAbs.get(a)).filter(Boolean)
@@ -1036,7 +1074,7 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
       <a href="${auf}${dok.bereich}/index.html">${escape(bereich?.name ?? '')}</a>
     </div>
     <div class="dok-titelzeile">
-      ${ampelChip(dok.ampel)}${phasenChip(phaseVon(roadmap, dok.quelle))}${teilChips(dok.teile, 4)}${chips}
+      ${dok.kopf.status ? '' : ampelChip(dok.ampel)}${phasenChip(phaseVon(roadmap, dok.quelle))}${chips}
       ${werkzeuge(dok, roadmap)}
     </div>
     ${
