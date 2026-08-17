@@ -1673,6 +1673,11 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .falte[open] > summary .falte-winkel { transform: rotate(180deg); }
 .falte[open] > summary .falte-titel { color: var(--text); }
 .falte-inhalt { padding: 4px 0 26px; }
+/* Eine Chip-Reihe ist 34 px hoch, eine Kartenliste ein Vielfaches davon. Die
+   26 px darunter sind für die Liste bemessen; unter der Reihe waren sie fast so
+   hoch wie der Inhalt selbst und ließen die zwei Töpfe wie leere Abschnitte
+   aussehen. Die Marge des nächsten `.falte` (22 px) trägt den Abstand ohnehin. */
+.falte-inhalt:has(.rm-offen) { padding-bottom: 6px; }
 
 /* Bildmaterial: nach Ordnern gruppiert, jede Gruppe mit ihrem Ort. */
 .bild-gruppe + .bild-gruppe { margin-top: 26px; }
@@ -1881,8 +1886,47 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 
 .rm-phase.stufe-2 .rm-liste li { padding: 8px 0; }
 .rm-phase.stufe-2 .rm-titel { font-size: 14px; font-weight: 400; color: var(--text-2); }
-.rm-offen { columns: 2; column-gap: 24px; }
-.rm-offen li { break-inside: avoid; }
+/* ── „Abgearbeitet" und „Ohne Phase": eine Liste von NAMEN ────────────────
+ *
+ * Beide Aufklapper bekommen denselben Karten-Bauteil wie die Phasenspalten,
+ * nur mit leerem nächsten Schritt. Das war die Verwechslung: Eine Phasenkarte
+ * ist eine RANGFOLGE mit einer Handlung darauf (Schritt, Trennlinie, Griff,
+ * „von der Roadmap nehmen"). Diese zwei Töpfe haben keine Rangfolge und keine
+ * Handlung — sie sind ein Bestandsverzeichnis. Mit dem Karten-Bauteil kam
+ * dreimal Unordnung heraus, und gemessen war es das:
+ *
+ *   · `columns: 2` schob den zweiten Eintrag in die rechte Spalte, wo
+ *     `li:first-child` nicht mehr greift: Er behielt Trennlinie und
+ *     `padding-top` und saß 11 px TIEFER als sein Nachbar, mit einem Strich
+ *     über sich, der nichts trennte.
+ *   · Der Titellink ist ein `flex` mit `space-between`, also 593 px breit für
+ *     einen 250 px langen Namen. Zwei Namen füllten 1200 px Bühne mit Leere.
+ *   · Bei EINEM Eintrag blieb die zweite Spalte trotzdem reserviert.
+ *
+ * Jetzt eine umbrechende Reihe von Namens-Chips. Sie braucht keine
+ * Media-Query mehr (die alte schaltete unter 900 px auf eine Spalte), weil
+ * `flex-wrap` das von selbst tut, und sie sagt durch ihre Form, was sie ist:
+ * etwas zum Nachschlagen, nichts zum Abarbeiten.
+ */
+.rm-offen { display: flex; flex-wrap: wrap; gap: 8px; }
+.rm-offen li { padding: 0; border-top: 0; }
+.rm-offen .rm-inhalt { display: block; }
+.rm-offen .rm-ziel {
+  display: block;
+  padding: 5px 11px;
+  border: 1px solid var(--rand);
+  border-radius: var(--radius-full);
+  background: var(--fl-3);
+  transition: border-color 0.15s, background 0.15s;
+}
+.rm-offen .rm-ziel:hover { border-color: color-mix(in srgb, var(--ton, var(--akzent)) 45%, var(--rand)); }
+.rm-offen .rm-titel { font-size: 13.4px; font-weight: 400; color: var(--text-2); }
+.rm-offen .rm-ziel:hover .rm-titel { color: var(--text); }
+/* Kein Griff und kein × : In einem Topf ohne Rangfolge gibt es nichts zu
+   ziehen, und „von der Roadmap nehmen" ist für etwas, das nicht auf der
+   Roadmap steht, keine Handlung, sondern eine Irreführung. */
+.rm-offen .rm-griff,
+.rm-offen .rm-weg { display: none !important; }
 .rm-art {
   flex: none;
   padding: 2px 8px;
@@ -1916,7 +1960,6 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 
 @media (max-width: 900px) {
   .roadmap { grid-template-columns: 1fr; }
-  .rm-offen { columns: 1; }
 }
 
 /* ── Meta-Zeile der Karten ────────────────────────────────────────────────
