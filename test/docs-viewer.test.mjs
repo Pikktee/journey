@@ -18,6 +18,7 @@ import {
   sammleRoadmap,
 } from '../scripts/docs-viewer/sammeln.mjs'
 import { bereichSeite, dokumentSeite, uebersichtSeite } from '../scripts/docs-viewer/seiten.mjs'
+import { escape } from '../scripts/docs-viewer/markdown.mjs'
 import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
@@ -482,6 +483,55 @@ describe('Roadmap als Ablauf', () => {
     if (roadmap.imCode.length) expect(html).toContain('in keiner Phase')
   })
 
+})
+
+describe('Karten sind zwischen den Phasen austauschbar', () => {
+  // Seit man Einträge zwischen den Spalten ZIEHEN kann, darf ihr Inhalt nicht
+  // mehr an der Phase hängen. Vorher wurde der nächste Schritt nur in den ersten
+  // zwei Spalten gerendert und „Stand prüfen" nur in der ersten: Ein Eintrag aus
+  // „Angedacht" stand nach dem Zug ohne Schritt zwischen Nachbarn, die alle
+  // einen haben. Die Phase entscheidet jetzt nur über die DARSTELLUNG (CSS am
+  // Elternteil), und die passt sich beim Umzug von selbst an.
+  const roadmap = sammleRoadmap(dokumente, mockups)
+  const html = uebersichtSeite({
+    dokumente,
+    bereiche,
+    mockups,
+    bilder: [],
+    roadmap,
+    schriftLokal: false,
+  })
+
+  it('rendert den nächsten Schritt in JEDER Phase', () => {
+    for (const phase of roadmap.phasen) {
+      const mitSchritt = phase.eintraege.filter((e) => e.schritt)
+      expect(mitSchritt.length, `${phase.name} hat keine Einträge mit Schritt`).toBeGreaterThan(0)
+      for (const e of mitSchritt)
+        expect(html, `${phase.name}: ${e.quelle}`).toContain(escape(e.schritt))
+    }
+  })
+
+  it('trägt den Widerspruchs-Marker als Daten, nicht als Berechnung', () => {
+    // `data-ampel` steht am Eintrag, sichtbar macht ihn die CSS-Regel der
+    // laufenden Phase. Als JS-Berechnung wäre er nach jedem Zug veraltet.
+    expect(html).toContain('data-ampel="offen"')
+    const entwuerfeSpaeterePhasen = (roadmap.phasen[2]?.eintraege ?? []).filter(
+      (e) => e.dok?.ampel?.art === 'offen',
+    )
+    expect(entwuerfeSpaeterePhasen.length, 'kein Entwurf in der letzten Phase').toBeGreaterThan(0)
+    // Auch dort steht der Marker im Markup — nur unsichtbar.
+    expect(html.match(/Stand prüfen/g).length).toBeGreaterThan(
+      (roadmap.phasen[0]?.eintraege ?? []).length,
+    )
+  })
+
+  it('gibt dem Griff eine eigene Spalte, keinen Platz über dem Text', () => {
+    // Absolut positioniert lag er auf den ersten Buchstaben des Titels — in den
+    // knappen Zeilen der letzten Phase war das nicht zu übersehen.
+    const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
+    expect(blatt).toMatch(/\.rm-liste\[data-phase\] li \{[^}]*grid-template-columns/)
+    expect(html).toContain('class="rm-inhalt"')
+  })
 })
 
 describe('Reihenfolge in einer Phase', () => {

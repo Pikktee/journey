@@ -295,6 +295,21 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   Fehler die Phase schon woanders, während die Meldung behauptete, es sei nichts
   passiert. Die Zahlen über den Spalten zieht die Seite live nach; sie kommen aus
   der Bauzeit und hätten sonst „5" über vier Einträgen gezeigt.
+  **Eine Karte trägt in jeder Phase dasselbe.** Vorher hing ihr INHALT an der
+  Spalte: Der nächste Schritt wurde nur in den ersten beiden gerendert, „Stand
+  prüfen" nur in der ersten. Solange eine Karte blieb, wo sie gebaut wurde, ging
+  das gut; seit man sie ziehen kann, stand ein Eintrag aus „Angedacht" in „In
+  Arbeit" ohne Schritt zwischen Nachbarn, die alle einen haben. Jetzt trägt jede
+  Karte alles, was sie hat, und die Phase entscheidet nur über die DARSTELLUNG —
+  über CSS am Elternteil, das passt sich beim Umzug von selbst an (nachgemessen:
+  Titel 14,6 px/500 → 14 px/400 in dem Moment, in dem die Karte ins Band
+  wechselt). Der Widerspruchs-Marker steht immer im Markup, `data-ampel` am
+  Eintrag sagt, ob das Dokument „nichts gebaut" meldet, und sichtbar macht ihn
+  die Regel der laufenden Phase; als JS-Berechnung wäre er nach jedem Zug
+  veraltet.
+  **Der Griff hat eine eigene Gitterspalte**, keinen absoluten Platz über dem
+  Text — dort lag er auf den ersten Buchstaben des Titels, in den knappen Zeilen
+  der letzten Phase unübersehbar.
   **Die letzte Phase ist deshalb wieder eine Liste**, kein Pillenband: Aus einer
   Wolke kann man nicht herausziehen, und der häufigste Zug holt etwas aus
   „Angedacht" nach vorn. Eine gezogene Karte ist eine Zeile, und eine Zeile mitten

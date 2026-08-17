@@ -1860,10 +1860,17 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
   font-size: 13.2px;
   line-height: 1.5;
 }
-.rm-fuss { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.rm-fuss { flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .rm-alter { color: var(--text-3); font-size: 12px; }
 /* Zwei Wochen unberührt ist keine Farbe wert, eine Woche schon ein Hinweis. */
 .rm-alter.ruht { color: var(--warn); }
+/* „Stand prüfen" steht immer im Markup und wird erst von der PHASE sichtbar:
+   Nur in der laufenden Spalte ist „nichts gebaut" ein Widerspruch. Als
+   JS-Berechnung wäre der Marker nach jedem Zug in eine andere Spalte veraltet;
+   als CSS-Regel stimmt er in dem Moment, in dem die Karte umzieht. */
+.rm-fuss { display: none; }
+.rm-phase.jetzt li[data-ampel='offen'] .rm-fuss { display: flex; }
+.rm-phase.jetzt li[data-ampel='offen'] .rm-titel { color: var(--text); }
 .rm-warnung {
   padding: 2px 8px;
   border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
@@ -1873,7 +1880,6 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
   font-weight: 600;
   cursor: help;
 }
-.rm-liste li.widerspruch .rm-titel { color: var(--text); }
 
 .rm-phase.stufe-2 .rm-liste li { padding: 8px 0; }
 .rm-phase.stufe-2 .rm-titel { font-size: 14px; font-weight: 400; color: var(--text-2); }
@@ -2077,18 +2083,28 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
  *
  * `touch-action: none` ist kein Detail, sondern die Bedingung: Ohne die Zeile
  * scrollt der Finger die Seite, statt die Karte zu ziehen. */
+/* Der Eintrag ist ein GITTER aus Griffspalte und Inhalt — nicht ein absolut
+   positionierter Griff über dem Text. Absolut lag er auf den ersten Buchstaben
+   des Titels, und in den knappen Zeilen der letzten Phase war die Überlagerung
+   nicht zu übersehen. Als eigene Spalte kann er den Text gar nicht treffen, und
+   er sitzt in JEDER Dichte richtig. */
 .rm-liste[data-phase] { position: relative; }
-.rm-liste[data-phase] li { padding-left: 16px; }
+.rm-liste[data-phase] li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: start;
+  padding-left: 0;
+}
+.rm-inhalt { min-width: 0; }
 
 .rm-griff {
-  position: absolute;
-  left: -6px;
-  top: 10px;
+  grid-column: 1;
+  margin-top: 3px;
   display: none;
   flex-direction: column;
   gap: 3px;
-  width: 18px;
-  padding: 5px 6px;
+  width: 14px;
+  padding: 4px 3px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;

@@ -529,18 +529,35 @@ function roadmapAbschnitt(roadmap, bereiche) {
    * er der Phase WIDERSPRICHT: „Stand prüfen" ist keine Wiederholung, sondern
    * ein Fund.
    */
-  const eintrag = (e, stufe) => {
+  /*
+   * EINE Karte, in jeder Phase dieselbe.
+   *
+   * Vorher hing ihr INHALT an der Phase: Der nächste Schritt wurde nur in den
+   * ersten beiden Spalten gerendert, „Stand prüfen" nur in der ersten. Solange
+   * eine Karte dort blieb, wo sie gebaut wurde, ging das gut. Seit man sie
+   * ZIEHEN kann, ist es ein Fehler: Ein Eintrag aus „Angedacht" landete in
+   * „In Arbeit" und stand dort ohne seinen Schritt zwischen Nachbarn, die alle
+   * einen haben — und umgekehrt schleppte einer seinen Schritt in eine Spalte,
+   * in der keiner steht.
+   *
+   * Deshalb trägt jede Karte ALLES, was sie hat, und die Phase entscheidet nur
+   * über die DARSTELLUNG. Die läuft über CSS am Elternteil (`.rm-phase.band …`)
+   * und passt sich damit von selbst an, sobald die Karte umzieht — ohne dass
+   * jemand DOM umschreiben muss.
+   *
+   * Denselben Weg geht der Widerspruchs-Marker: Er steht immer im Markup,
+   * `data-ampel` am Eintrag sagt, ob das Dokument „nichts gebaut" meldet, und
+   * sichtbar macht ihn erst die Regel für die laufende Phase. Als
+   * JS-Berechnung wäre er nach jedem Zug veraltet.
+   */
+  const eintrag = (e) => {
     const istMockup = e.art === 'mockup'
     const objekt = istMockup ? e.mockup : e.dok
     const ziel = istMockup ? e.mockup.quelle : e.dok.ziel
     const titel =
       e.beschriftung || String(objekt.titel).replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
     const status = istMockup ? '' : e.dok.kopf.status
-
-    // Der Widerspruch: In der ersten Phase steht, was läuft — ein Dokument, das
-    // selbst „nichts gebaut" sagt, gehört dort entweder nicht hin oder trägt
-    // einen veralteten Stand.
-    const widerspruch = stufe === 0 && e.dok?.ampel?.art === 'offen'
+    const ampel = e.dok?.ampel?.art ?? ''
 
     const marken = []
     if (e.wartet)
@@ -554,31 +571,29 @@ function roadmapAbschnitt(roadmap, bereiche) {
             title="Solange das hier steht, geht das andere nicht weiter">blockiert ${escape(b.titel)}</a>`,
       )
 
-    const fuss = []
-    if (widerspruch)
-      fuss.push(
-        `<span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(status)}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span>`,
-      )
-
     // Der GRIFF macht sichtbar, dass die Rangfolge veränderbar ist. Ohne ihn
-    // war die Karte ziehbar und niemand konnte es wissen; mit ihm ist es eine
-    // Einladung. Er ist ein Knopf, damit ihn die Tastatur auch erreicht.
-    // JEDE Phase bekommt Griffe, auch die letzte: Der häufigste Zug geht aus
-    // „Angedacht" heraus nach vorn. Eine Spalte, in die man nur hinein ziehen
-    // kann, wäre eine Falle.
+    // war die Karte ziehbar und niemand konnte es wissen. Er ist ein Knopf,
+    // damit ihn die Tastatur erreicht, und liegt in einer eigenen Spalte —
+    // absolut über dem Text lag er auf den ersten Buchstaben.
     const griff = `<button type="button" class="rm-griff" data-rm-griff aria-label="Verschieben (Pfeiltasten, Ziehen zwischen den Spalten)" title="Ziehen — auch in eine andere Phase"><i></i><i></i><i></i></button>`
 
-    return `<li data-datei="${escape(e.quelle)}"${widerspruch ? ' class="widerspruch"' : ''}>
+    return `<li data-datei="${escape(e.quelle)}" data-ampel="${escape(ampel)}">
       ${griff}
-      <a class="rm-ziel" href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}${
-        status ? ` title="${escape(status)}"` : ''
-      }>
-        <span class="rm-titel">${escape(titel)}</span>
-        ${istMockup ? '<span class="rm-art">Mockup</span>' : ''}
-      </a>
-      ${stufe <= 1 && e.schritt ? `<span class="rm-schritt">${escape(e.schritt)}</span>` : ''}
-      ${marken.length ? `<span class="rm-ketten">${marken.join('')}</span>` : ''}
-      ${fuss.length ? `<span class="rm-fuss">${fuss.join('')}</span>` : ''}
+      <span class="rm-inhalt">
+        <a class="rm-ziel" href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}${
+          status ? ` title="${escape(status)}"` : ''
+        }>
+          <span class="rm-titel">${escape(titel)}</span>
+          ${istMockup ? '<span class="rm-art">Mockup</span>' : ''}
+        </a>
+        ${e.schritt ? `<span class="rm-schritt">${escape(e.schritt)}</span>` : ''}
+        ${marken.length ? `<span class="rm-ketten">${marken.join('')}</span>` : ''}
+        ${
+          status
+            ? `<span class="rm-fuss"><span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(status)}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span></span>`
+            : ''
+        }
+      </span>
       <button type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
               title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button>
     </li>`
@@ -597,7 +612,7 @@ function roadmapAbschnitt(roadmap, bereiche) {
       ${i === 0 && ph.text ? `<p>${escape(ph.text)}</p>` : ''}
     </header>
     <ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
-      .map((e) => eintrag(e, i))
+      .map(eintrag)
       .join('')}</ol>
   </section>`
 
@@ -632,7 +647,7 @@ function roadmapAbschnitt(roadmap, bereiche) {
         'Abgearbeitet',
         roadmap.erledigt.length,
         `<ol class="rm-liste rm-offen">${roadmap.erledigt
-          .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }, 2))
+          .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }))
           .join('')}</ol>`,
         { satz: 'Der Plan ist durch. Steht nicht mehr an.' },
       ),
@@ -644,7 +659,7 @@ function roadmapAbschnitt(roadmap, bereiche) {
         'Ohne Phase',
         nurGedacht.length,
         `<ol class="rm-liste rm-offen">${nurGedacht
-          .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }, 2))
+          .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }))
           .join('')}</ol>`,
         { satz: 'Weder eingeplant noch angefangen.' },
       ),
