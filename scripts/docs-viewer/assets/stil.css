@@ -2122,13 +2122,10 @@ body.zieht-gerade .rm-liste li:hover { background: none; }
   font-size: 12px;
   line-height: 1.5;
 }
-/* KEINE Emoji davor. „wartet auf" und „blockiert" stehen als Wörter in der
-   Marke, ein Zeichen daneben sagt dasselbe ein zweites Mal — und Emoji sehen
-   auf jedem System anders aus. Unterschieden werden die Richtungen durch die
-   Farbe: Warten ist ein Zustand (gedämpft), Blockieren ein Befund (Warnfarbe). */
-.rm-kette.blockiert { border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
+/* KEINE Emoji davor. „wartet auf" steht als Wort in der Marke, ein Zeichen
+   daneben sagt dasselbe ein zweites Mal — und Emoji sehen auf jedem System
+   anders aus. */
 .rm-kette:hover { border-color: var(--rand-hell); color: var(--text); text-decoration: none; }
-.rm-kette.blockiert:hover { border-color: var(--warn); color: var(--warn); }
 
 
 /* Der Fund: im Code, aber in keiner Phase. Eine Zeile ÜBER den Spalten, weil
@@ -2165,9 +2162,20 @@ body.zieht-gerade .rm-liste li:hover { background: none; }
 .rm-liste[data-phase] { position: relative; }
 .rm-liste[data-phase] li {
   display: grid;
-  grid-template-columns: 20px 1fr;
+  /* Drei Spalten: Griff, Inhalt, Schließen. Das × lag vorher absolut in der Ecke
+     und hing dort zwischen den Zeilen — mit einer eigenen Spalte sitzt es auf
+     der Höhe des Titels, weil das Gitter es dort hinstellt. Die Spalte ist
+     immer reserviert, auch wenn das × erst beim Überfahren erscheint: Sonst
+     rückte der Text bei jedem Zeigerwechsel um 22 px. */
+  grid-template-columns: 20px 1fr 22px;
   align-items: start;
   padding-left: 0;
+}
+.rm-liste[data-phase] .rm-weg {
+  position: static;
+  grid-column: 3;
+  align-self: start;
+  margin: 0;
 }
 .rm-inhalt { min-width: 0; }
 

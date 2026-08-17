@@ -269,9 +269,12 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   angeschnittene Sätze in einer schmalen Spalte liest niemand. Der Stand hängt
   im Tooltip und wird sichtbar, wo er der Phase widerspricht.
 * **`[wartet auf: <pfad>]`** am Ende einer Zeile macht aus der Liste einen
-  Ablauf: Auf der wartenden Karte steht „wartet auf …", auf der anderen
-  „blockiert …". Notiert wird nur die eine Richtung, die andere leitet der
-  Viewer ab — zwei gepflegte Angaben liefen beim ersten Umplanen auseinander.
+  Ablauf: Auf der wartenden Karte steht „wartet auf …". Die Gegenrichtung leitet
+  der Viewer weiter ab (`e.blockiert` — die Grundlage dafür, dass die Beziehung
+  überhaupt geprüft werden kann), ZEIGT sie aber nicht: Dieselbe Abhängigkeit
+  stand damit zweimal auf derselben Seite, und handeln muss man an der wartenden
+  Karte. Dort ändert die Marke, was man tun kann; an der blockierenden war sie
+  eine Auskunft über den Nachbarn.
 * **Die Reihenfolge in einer Phase ist eine Rangfolge** und lässt sich am GRIFF
   links der Karte ziehen (nur mit Dev-Server, Maus/Finger/Stift über
   Pointer-Events); die Pfeiltasten verschieben um einen Platz, Esc bricht ab und

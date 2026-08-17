@@ -95,7 +95,12 @@ describe('Roadmap', () => {
     // Drei Töpfe, und jedes Konzept liegt in genau einem: eingeplant,
     // abgearbeitet oder ohne Phase. Fiele eines aus allen dreien, wüsste
     // niemand davon — das ist der Fehler, den diese Ansicht verhindern soll.
-    const inPhasen = new Set(roadmap.phasen.flatMap((p) => p.eintraege.map((e) => e.dok.abs)))
+    // Auf der Roadmap dürfen auch MOCKUPS stehen (ein Prototyp ist oft der
+    // nächste Schritt) — die haben kein `dok`. Der Zugriff ohne Fragezeichen
+    // brach in dem Moment, in dem der erste Prototyp eingeplant wurde.
+    const inPhasen = new Set(
+      roadmap.phasen.flatMap((p) => p.eintraege.map((e) => e.dok?.abs).filter(Boolean)),
+    )
     const erledigt = new Set(roadmap.erledigt.map((d) => d.abs))
     const offen = new Set([...roadmap.offen.map((d) => d.abs), ...erledigt])
     // Archivierte Konzepte gehören nicht auf die Roadmap: Sie sind erledigt
@@ -126,9 +131,18 @@ describe('Roadmap-Ansicht', () => {
   it('markiert den Widerspruch zwischen Phase und Stand', () => {
     // „In Arbeit" plus „nichts gebaut" ist entweder falsch einsortiert oder
     // veraltet — die Ansicht soll das zeigen und nicht glätten.
+    //
+    // Seit man Einträge zwischen den Spalten ZIEHEN kann, steht der Marker immer
+    // im Markup; sichtbar macht ihn die CSS-Regel der laufenden Phase anhand von
+    // `data-ampel`. Geprüft wird deshalb die Mechanik und nicht die Anwesenheit
+    // einer Zeichenkette: Der Eintrag trägt das Attribut, und das Blatt hat die
+    // Regel, die daraus den Marker macht. Die alte Fassung prüfte einen
+    // `else`-Zweig, der seither nie mehr zutreffen kann.
     const strittig = (roadmap.phasen[0]?.eintraege ?? []).filter((e) => e.dok?.ampel?.art === 'offen')
-    if (strittig.length) expect(html).toContain('Stand prüfen')
-    else expect(html).not.toContain('Stand prüfen')
+    for (const e of strittig)
+      expect(html).toContain(`data-datei="${e.quelle}" data-ampel="offen"`)
+    const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
+    expect(blatt).toMatch(/\.rm-phase\.jetzt li\[data-ampel='offen'\] \.rm-fuss/)
   })
 })
 
@@ -438,8 +452,12 @@ describe('Roadmap als Ablauf', () => {
       if (!ziel) continue
       expect(ziel.blockiert.map((b) => b.quelle)).toContain(e.quelle)
     }
+    // Gezeigt wird nur die WARTENDE Seite: Dieselbe Abhängigkeit stand sonst
+    // zweimal auf derselben Seite, und handeln muss man dort, wo etwas wartet.
+    // Die Gegenrichtung bleibt im Modell — sie ist die Grundlage der Prüfung
+    // oben und macht die Beziehung nachvollziehbar.
     expect(html).toContain('wartet auf')
-    expect(html).toContain('blockiert')
+    expect(html).not.toContain('class="rm-kette blockiert"')
   })
 
   it('nimmt den Linktext aus roadmap.md als Kartennamen', () => {

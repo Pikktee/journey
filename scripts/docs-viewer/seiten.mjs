@@ -559,16 +559,21 @@ function roadmapAbschnitt(roadmap, bereiche) {
     const status = istMockup ? '' : e.dok.kopf.status
     const ampel = e.dok?.ampel?.art ?? ''
 
+    /*
+     * NUR die wartende Seite trägt eine Marke.
+     *
+     * Die Gegenrichtung („blockiert Video-Export" an der Monetarisierung) leitet
+     * der Sammler weiter ab — sie steht in `e.blockiert` und ist die Grundlage
+     * dafür, dass die Beziehung überhaupt geprüft werden kann. Gezeigt wird sie
+     * nicht: Dieselbe Abhängigkeit stand damit zweimal auf derselben Seite, und
+     * handeln muss man an der wartenden Karte. Dort ändert die Marke, was man
+     * tun kann; an der blockierenden war sie eine Auskunft über den Nachbarn.
+     */
     const marken = []
     if (e.wartet)
       marken.push(
         `<a class="rm-kette wartet" href="${escape(e.wartet.ziel)}"
             title="Kann erst weitergehen, wenn das erledigt ist">wartet auf ${escape(e.wartet.titel)}</a>`,
-      )
-    for (const b of e.blockiert || [])
-      marken.push(
-        `<a class="rm-kette blockiert" href="${escape(b.ziel)}"
-            title="Solange das hier steht, geht das andere nicht weiter">blockiert ${escape(b.titel)}</a>`,
       )
 
     // Der GRIFF macht sichtbar, dass die Rangfolge veränderbar ist. Ohne ihn
