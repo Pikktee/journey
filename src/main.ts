@@ -669,7 +669,14 @@ map.on('load', () => {
   // `uhr` ist die Filmuhr der Engine: Ihre Zähler (verworfene Sekunden,
   // Pausen, längstes Frame) sind der Blick darauf, was auf einem langsamen
   // Gerät tatsächlich passiert — sichtbar in der Konsole statt still.
-  Object.assign(window.__j, { tour, rider, uhr: tour.uhr })
+  // `kartenStand` ist der Abnahme-Griff der Foto-Leinwand: Was auf ihr steht,
+  // liegt sonst nirgends im DOM (s. scripts/messungen/kartenleinwand.mjs).
+  Object.assign(window.__j, {
+    tour,
+    rider,
+    uhr: tour.uhr,
+    kartenStand: () => ui.kartenStand(),
+  })
   // Export: Intro-Orbit stehen lassen. stelleExportFrame(ride) würde Anfang und
   // Ende abschneiden. Der Encoder snappt das erste Intro-Frame selbst.
 
@@ -1524,6 +1531,7 @@ map.on('load', () => {
         nachKamera: () => {
           if (wxTimeline) applyAutoNow()
         },
+        kartenBereit: () => ui.kartenBereit(),
       })
     })()
   }

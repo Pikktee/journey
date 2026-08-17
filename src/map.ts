@@ -103,6 +103,21 @@ export function overlayPixelRatio() {
   return COARSE ? 1 : targetPixelRatio()
 }
 
+/**
+ * Auflösung der KARTEN-Leinwand (Foto-Karte, src/kartenmaler.ts) — die eine
+ * Overlay-Schicht, die nicht nur Verläufe trägt, sondern TEXT.
+ *
+ * Bei Partikeln sieht man den `COARSE`-Rückfall auf 1,0 kaum, bei einer
+ * Bildunterschrift sofort. Deshalb gilt hier das Kartenbudget und nicht das
+ * Overlay-Budget — und das ist bezahlbar, weil die Schicht ausschließlich im
+ * HALT liegt: Dort steht die Kamera still, MapLibre hat weder Kachelarbeit noch
+ * Repaint, und der Maler bekommt die 72–90 % der Frame-Zeit geschenkt, die sonst
+ * der Karte gehören (docs/concepts/konzept_kartenleinwand.md §5A).
+ */
+export function kartenPixelRatio() {
+  return targetPixelRatio()
+}
+
 export function createMap(
   container: HTMLElement | string,
   center: LngLatLike,

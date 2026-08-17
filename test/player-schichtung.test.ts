@@ -26,7 +26,7 @@ function zIndex(selektor: string): number {
 
 describe('Schichtung der Player-Bühne', () => {
   it('legt Steuerleiste und Weg zurück über Foto-Karte und Finale', () => {
-    const bild = Math.max(zIndex('.photo-layer'), zIndex('.finale'))
+    const bild = Math.max(zIndex('.karten-leinwand'), zIndex('.finale'))
     // Die Steuerleiste — der Griff, den man beim Scrubben braucht.
     expect(zIndex('.dock')).toBeGreaterThan(bild)
     // Oben links steht genau EIN Element: der Weg hinaus.
@@ -39,16 +39,24 @@ describe('Schichtung der Player-Bühne', () => {
     expect(zIndex('.intro')).toBeGreaterThan(zIndex('.dock'))
   })
 
-  // Der Auftritt der Karte hängt an der FILMZEIT, nicht an der Wanduhr: Die
-  // Animationen stehen dauerhaft auf `paused`, ihr Fortschritt kommt aus dem
-  // negativen Delay `--karte-zeit` (E15). Eine `transition` an derselben Stelle
-  // wäre der Rückfall — sie startet beim Klassenwechsel und läuft für sich.
-  it('fährt Auftritt, Ken Burns und Beschriftung als pausierte Animationen', () => {
-    for (const selektor of ['.photo-card.in {', '.photo-card.in .photo-frame img:not(.video-standbild) {']) {
-      const block = css.slice(css.indexOf(selektor))
-      const regel = block.slice(0, block.indexOf('}'))
-      expect(regel, `${selektor} muss pausiert laufen`).toContain('animation-play-state: paused')
-      expect(regel, `${selektor} braucht den Stand aus --karte-zeit`).toContain('--karte-zeit')
-    }
+  // Seit Etappe 2 der Kartenleinwand sind es DREI Schichten, wo eine war, und
+  // ihre Reihenfolge ist der ganze Umbau: Schleier (DOM, weil `backdrop-filter`
+  // auf einer Leinwand kein Gegenstück hat), darüber das Bild (Leinwand),
+  // darüber die Bedienung (DOM, weil Knöpfe im Film nichts zu suchen haben).
+  // Vertauscht man die oberen zwei, ist die Karte über ihren eigenen Knöpfen.
+  it('stapelt Schleier, Bild und Bedienung in dieser Reihenfolge', () => {
+    expect(zIndex('.photo-backdrop')).toBeLessThan(zIndex('.karten-leinwand'))
+    expect(zIndex('.karten-leinwand')).toBeLessThan(zIndex('.photo-layer'))
+    // Und die Bedienung der Karte bleibt unter der Steuerleiste: Wer scrubbt,
+    // greift die Leiste, auch wenn die Karte liegt (E17).
+    expect(zIndex('.photo-layer')).toBeLessThan(zIndex('.dock'))
   })
+
+  // Der Stand der Karte hängt an der FILMZEIT und nicht an einer Wanduhr (E15).
+  // Bis Etappe 2 stellte das CSS das mit dauerhaft pausierten Animationen und
+  // einem negativen Delay nach; hier stand deshalb ein Wächter auf
+  // `animation-play-state: paused`. Der Maler braucht den Kniff nicht — er
+  // bekommt die Filmsekunde als Zahl. Geprüft wird das jetzt an der Rechnung
+  // selbst (test/kartenmaler.test.ts, test/einblendung-css.test.ts), nicht mehr
+  // an einer Zeichenkette im Blatt.
 })

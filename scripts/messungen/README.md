@@ -89,6 +89,7 @@ Der Dev-Server läuft über `devhub` (nicht selbst starten); die Adresse kommt a
 | [bildschirmtempo.mjs](bildschirmtempo.mjs) | Zwei Zahlen für die Frage „wirkt es schnell?": das sichtbare Tempo gegen das von der Achse GEMEINTE (der Kurven-Effekt der Catmull-Rom-Glättung) und das Bildschirm-Tempo (Fahrtempo ÷ Kameradistanz). **Abnahme für die Vorverdichtung und für die Kamera-Kopplung.** | `node …` |
 | [routen-laenge.ts](routen-laenge.ts) | Wie viel länger `route.total` (Catmull-Rom + 14-m-Resample) gegenüber der Rohgeometrie ist, in der der Server `f` misst. | `npx tsx …` |
 | [anker-versatz.ts](anker-versatz.ts) | Den Rest, den keine Uhr behebt: wo ein `f`-Anker landet gegen den Ort, den der Server gemeint hat — **je Ankerklasse**, alter Weg (`f × route.total`) gegen neuen (Wegpunkt-Tabelle). **Abnahmekriterium für Etappe 2.** | `npx tsx …` |
+| [kartenleinwand.mjs](kartenleinwand.mjs) | Drei Zahlen für die Foto-Karte auf der Leinwand: (1) Bühne gegen Film bei GLEICHEM Format — die Karte muss Pixel für Pixel dieselbe sein; (2) wie weit die gepufferte Überblendung des „Entwickelns" von einem `ctx.filter` pro Bild abweicht (die erwartete Näherung, sie legt die Toleranz fest); (3) Frame-Zeit über die ganze Standzeit. **Abnahmekriterium für Etappe 2 der Kartenleinwand.** `NUR=bild\|entwickeln\|leistung` grenzt ein. | `node …` |
 
 Die `.ts`-Skripte importieren `src/geo.ts` und laufen deshalb über `tsx`, nicht über `node`.
 

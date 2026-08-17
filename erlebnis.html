@@ -178,35 +178,54 @@
     </div>
   </section>
 
-  <!-- Foto-Overlay -->
+  <!-- Foto-Karte (Etappe 2 der Kartenleinwand) —
+       Das BILD liegt seit dem Umbau auf einer Leinwand (src/kartenmaler.ts, per
+       src/kartenschicht.ts eingehängt): Karte, Foto, Ken Burns, „Entwickeln",
+       Blitz, Balken und die Beschriftung. Der Video-Export greift genau diese
+       Leinwand mit einem `drawImage`, wie er es mit Wetter und Atmosphäre tut —
+       vorher malte er alles ein zweites Mal, mit Ken Burns in der Gegenrichtung.
+
+       Was hier noch im DOM steht, sind drei Sorten Dinge, und jede aus einem
+       eigenen Grund (docs/concepts/konzept_kartenleinwand.md §3.3/§3.4, §4):
+         · der Schleier — `backdrop-filter` hat auf einer Leinwand kein
+           Gegenstück, er liegt deshalb UNTER ihr;
+         · die Bedienung — Klickfläche, Ton-Knopf, „Weiter ▸" und das
+           „Angehalten"-Abzeichen sind Knöpfe, keine Bildinhalte, und haben im
+           Film nichts zu suchen. Ihre Flächen setzt die Schicht pro Frame aus
+           den Rechtecken des Malers;
+         · die Zeichenquellen und eine versteckte Textfassung — eine Leinwand
+           hat keinen Text, ohne die Kopie verlöre der Player die
+           Bildunterschrift für Screenreader. -->
+  <!-- Die Zeichenquellen stehen AUSSERHALB der Bedienungs-Schicht: Der Export
+       versteckt die mit `display: none`, und ein so versteckter `<video>` ist in
+       manchen Browsern kein zuverlässiger Frame-Lieferant. Gezeichnet werden sie
+       ohnehin auf die Leinwand, sichtbar sein müssen sie nie. -->
+  <div class="photo-quellen" aria-hidden="true">
+    <img id="photo-img" alt="" decoding="async" />
+    <!-- Video-Stopp (M4): Ton standardmäßig an; muted-Attr. nur bis JS greift.
+         Das Standbild überbrückt, bis das Video seinen ersten Frame liefert —
+         der Maler nimmt es genau so lange (`_kartenQuelle` in ui.ts). -->
+    <img id="photo-video-standbild" class="video-standbild" alt="" decoding="async" hidden />
+    <video id="photo-video" playsinline muted preload="auto" hidden></video>
+  </div>
+  <div class="photo-backdrop" id="photo-backdrop" aria-hidden="true"></div>
   <section class="photo-layer" id="photo-layer" aria-hidden="true">
-    <div class="photo-backdrop" id="photo-backdrop"></div>
-    <div class="photo-flash" id="photo-flash"></div>
     <figure class="photo-card" id="photo-card" title="Klick: anhalten / weiterlaufen">
-      <div class="photo-frame">
-        <img id="photo-img" alt="" decoding="async" />
-        <!-- Video-Stopp (M4): Ton standardmäßig an; muted-Attr. nur bis JS greift.
-             Standbild hält das Poster, bis der erste Video-Frame da ist — sonst
-             springt der Browser hart von Poster-Attr. auf Frame 0. -->
-        <img id="photo-video-standbild" class="video-standbild" alt="" decoding="async" hidden />
-        <video id="photo-video" playsinline muted preload="auto" hidden></video>
-        <button class="photo-sound" id="photo-sound" hidden aria-pressed="true" aria-label="Video-Ton ein/aus" title="Ton ein/aus">
-          <svg class="ico-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
-          <svg class="ico-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
-        </button>
-        <div class="photo-held" aria-hidden="true">Angehalten, Klick zum Weiterlaufen</div>
-        <div class="photo-hold" aria-hidden="true"><div class="photo-hold-fill" id="photo-hold-fill"></div></div>
-      </div>
-      <figcaption class="photo-caption">
-        <div class="photo-title" id="photo-title">–</div>
-        <div class="photo-badges">
-          <div class="photo-chip" id="photo-count" hidden>Foto 1/2</div>
-          <div class="photo-chip" id="photo-chip">KM 0.0</div>
-        </div>
-        <button class="photo-next" id="photo-next" title="Nächstes Foto / weiterfahren">Weiter&ensp;▸</button>
-        <div class="photo-sub" id="photo-sub">–</div>
+      <figcaption class="sr-only">
+        <div id="photo-title">–</div>
+        <div id="photo-sub">–</div>
+        <div id="photo-count" hidden>Foto 1/2</div>
+        <div id="photo-chip">0.0 km</div>
       </figcaption>
     </figure>
+    <div class="photo-bild" id="photo-bild">
+      <button class="photo-sound" id="photo-sound" hidden aria-pressed="true" aria-label="Video-Ton ein/aus" title="Ton ein/aus">
+        <svg class="ico-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
+        <svg class="ico-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
+      </button>
+      <div class="photo-held" aria-hidden="true">Angehalten, Klick zum Weiterlaufen</div>
+    </div>
+    <button class="photo-next" id="photo-next" title="Nächstes Foto / weiterfahren">Weiter&ensp;▸</button>
   </section>
 
   <!-- Finale -->

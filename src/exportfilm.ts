@@ -108,16 +108,11 @@ export function attributionAusKarte(
   return quellenAlsEinbrand(sammleQuellen(sources, extra))
 }
 
-/**
- * Deckkraft der Foto-Karte aus den Klip-Zeiten (Auftritt 0,5 s, Abgang aus
- * `ausZeitS`). 1 = voll sichtbar.
- */
-export function kartenSicht(imS: number, ausZeitS: number, ausDauerS: number): number {
-  let a = 1
-  if (imS < 0.5) a = Math.max(0, imS / 0.5)
-  if (ausZeitS < 0) a = Math.min(a, Math.max(0, 1 + ausZeitS / Math.max(0.01, ausDauerS)))
-  return a
-}
+// `kartenSicht` stand hier: eine lineare Deckkraft über 0,5 s, die einzige
+// Auftritts-Bewegung, die der Export je hatte. Sie ist mit dem Nachbau
+// gegangen — die Deckkraft der Karte rechnet jetzt `kartenPhasen`
+// (src/kartenmaler.ts) aus derselben Blende und demselben Abgang wie am
+// Bildschirm, mit den Kurven aus `KARTE`.
 
 function warteMs(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -406,80 +401,6 @@ function zeichneReiter(
   ctx.drawImage(sprite, p.x - seite / 2, p.y - seite / 2, seite, seite)
 }
 
-function parseZeitVar(el: HTMLElement, name: string): number {
-  const roh = el.style.getPropertyValue(name).trim()
-  const n = Number.parseFloat(roh)
-  return Number.isFinite(n) ? n : 0
-}
-
-function zeichneFotoKarte(ctx: CanvasRenderingContext2D, breite: number, hoehe: number): void {
-  const layer = document.getElementById('photo-layer')
-  if (!(layer instanceof HTMLElement) || !layer.classList.contains('show')) return
-  const imS = -parseZeitVar(layer, '--karte-zeit')
-  const ausZeitS = parseZeitVar(layer, '--karte-aus-zeit')
-  const ausDauerS = parseZeitVar(layer, '--karte-aus-dauer') || 0.8
-  const sicht = kartenSicht(imS, ausZeitS, ausDauerS)
-  if (sicht <= 0.02) return
-
-  const video = layer.querySelector<HTMLVideoElement>('.photo-frame video')
-  const img = layer.querySelector<HTMLImageElement>('.photo-frame img:not(.video-standbild)')
-  const quelle =
-    video && !video.hidden && video.readyState >= 2 ? video : img && img.complete ? img : null
-  if (!quelle) return
-
-  const titel = layer.querySelector('.photo-title')?.textContent?.trim() ?? ''
-  const unter = layer.querySelector('.photo-sub')?.textContent?.trim() ?? ''
-  const ar = quelle instanceof HTMLVideoElement
-    ? (quelle.videoWidth || 3) / (quelle.videoHeight || 2)
-    : (quelle.naturalWidth || 3) / (quelle.naturalHeight || 2)
-
-  const maxW = breite * 0.72
-  const maxH = hoehe * 0.58
-  let bildW = maxW
-  let bildH = bildW / ar
-  if (bildH > maxH) {
-    bildH = maxH
-    bildW = bildH * ar
-  }
-  const pad = 14
-  const textH = titel || unter ? 52 : 8
-  const karteW = bildW + pad * 2
-  const karteH = bildH + pad + textH
-  const x = (breite - karteW) / 2
-  const y = (hoehe - karteH) / 2 - 12
-  const kb = 1 + 0.06 * Math.min(1, imS / 6)
-
-  ctx.save()
-  ctx.globalAlpha = sicht
-  ctx.fillStyle = 'rgba(6, 10, 16, 0.28)'
-  ctx.fillRect(0, 0, breite, hoehe)
-  ctx.fillStyle = tokenFarbe('--papier', '#efe8dc')
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
-  ctx.shadowBlur = 40
-  ctx.beginPath()
-  ctx.roundRect(x, y, karteW, karteH, 12)
-  ctx.fill()
-  ctx.shadowBlur = 0
-  ctx.save()
-  ctx.beginPath()
-  ctx.roundRect(x + pad, y + pad, bildW, bildH, 5)
-  ctx.clip()
-  const zw = bildW * kb
-  const zh = bildH * kb
-  ctx.drawImage(quelle, x + pad - (zw - bildW) / 2, y + pad - (zh - bildH) / 2, zw, zh)
-  ctx.restore()
-  ctx.fillStyle = '#1c1712'
-  ctx.font = '600 16px Outfit, system-ui, sans-serif'
-  ctx.textBaseline = 'top'
-  if (titel) ctx.fillText(titel, x + pad, y + pad + bildH + 10, bildW)
-  if (unter) {
-    ctx.font = '500 13px Outfit, system-ui, sans-serif'
-    ctx.globalAlpha = sicht * 0.7
-    ctx.fillText(unter, x + pad, y + pad + bildH + 30, bildW)
-  }
-  ctx.restore()
-}
-
 /**
  * Die Spur bleibt die der KARTE.
  *
@@ -698,7 +619,13 @@ function komponiereFrame(
   zeichneOverlay(ctx, 'atmosphere', ziel.width, ziel.height)
   zeichneOverlay(ctx, 'weather', ziel.width, ziel.height)
   if (reiter && sprite) zeichneReiter(ctx, map, reiter, sprite, reiterPx)
-  zeichneFotoKarte(ctx, ziel.width, ziel.height)
+  // Die Foto-Karte ist seit Etappe 2 der Kartenleinwand eine Leinwand des
+  // PLAYERS und wird hier nur noch geholt — dieselbe Zeile wie für Wetter und
+  // Atmosphäre. Vorher stand hier ein eigener Nachbau: Ken Burns in der
+  // Gegenrichtung, kein „Entwickeln", kein Blitz, kein Balken, keine Pillen, und
+  // die Texte per `textContent` aus dem DOM zurückgelesen
+  // (docs/concepts/konzept_kartenleinwand.md §2.1).
+  zeichneOverlay(ctx, 'karte', ziel.width, ziel.height)
   zeichneIntroTafel(ctx, ziel.width, ziel.height, tafeln.intro)
   zeichneFinaleTafel(ctx, ziel.width, ziel.height, tafeln.finale)
   zeichneAttribution(ctx, attribution, ziel.width, ziel.height, attribSicht)
@@ -792,6 +719,15 @@ export interface ExportLauf {
   taktOverlays?: (dt: number) => void
   /** Nach jedem Kamerasprung: Wetter der Stelle anwenden. */
   nachKamera?: () => void
+  /**
+   * Steht das Bild der Foto-Karte? (`ui.kartenBereit`)
+   *
+   * `drawImage` auf einem noch suchenden `<video>` zeichnet ohne Fehler das ALTE
+   * Bild. Am Bildschirm fällt das nicht auf, im Film ist es ein falsches
+   * Einzelbild in der Datei — deshalb wartet der Lauf hier, statt zu encodieren
+   * (Konzept §5, „Bild und Video").
+   */
+  kartenBereit?: () => boolean
 }
 
 const MOTOR_SRC: Record<string, string> = {
@@ -1112,6 +1048,13 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
         await warten.frame(lauf.map)
       }
       uhr.buche('kacheln')
+      // Höchstens ein paar Bilder: Bleibt der Frame aus (Datei kaputt, Seek
+      // hängt), ist ein Bild mit dem vorigen Stand besser als ein Lauf, der
+      // nicht endet.
+      for (let w = 0; w < 6 && lauf.kartenBereit && !lauf.kartenBereit(); w++) {
+        await naechstesBild()
+        lauf.tour.exportSchritt(0)
+      }
       const sprite = holeSprite ? await holeSprite(lauf.tour.modeAt(lauf.tour.s).mode) : null
       komponiereFrame(
         ziel,

@@ -1,25 +1,30 @@
 ---
 stand: 2026-08-17
-status: Etappe 1 gebaut, Etappe 2 und 3 offen
+status: Etappe 1 und 2 gebaut, Etappe 3 offen
 betrifft:
-  - Player (src/ui.ts, src/style.css, erlebnis.html)
+  - Player (src/kartenmaler.ts, src/kartenschicht.ts, src/ui.ts, erlebnis.html)
   - Studio-Editor (src/studio/abspielen.ts, studio.html)
   - Video-Export (src/exportfilm.ts)
   - geteilte Zahlen (src/einblendung.ts)
 ---
 
-# Konzept: Die Foto-Karte auf eine Leinwand
+# Die Foto-Karte auf eine Leinwand
 
 **Ziel:** Die letzte Stelle schließen, an der die Bühnen auseinanderlaufen
 können — die Einblendungen. Alles andere im Film ist seit dem Takt-Umbau
 geteilter Code; Foto-Karte, Startscreen und Finale-Tafel sind es nicht.
 
-**Es sind DREI Fassungen, nicht zwei.** Player (DOM + CSS), Studio-Editor
+**Es waren DREI Fassungen, nicht zwei.** Player (DOM + CSS), Studio-Editor
 (eigenes DOM + eigenes CSS) und Video-Export (Canvas). Das war der erste
 Entwurf dieses Konzepts zu eng gefasst: Er nannte nur Player↔Export, weil dort
 die Abweichungen grob sind. Nachgemessen weichen aber auch Player und Editor
 voneinander ab, feiner und deshalb schlimmer, weil man sie für gewollt halten
 könnte (§2). Beim zweiten Nachzählen sind es nicht vier Stellen, sondern acht.
+
+**Seit Etappe 2 (2026-08-17) sind es ZWEI**, und für die Foto-Karte ist das der
+ganze Umbau: Der Player malt sie auf eine Leinwand, der Export holt sie von dort
+mit einem `drawImage`. Die dritte Fassung ist der Editor, und die bleibt (§3.6).
+Startscreen und Finale-Tafel haben ihren Nachbau noch — das ist Etappe 3.
 
 Verwandt, aber anders:
 - [konzept_video_export.md](konzept_video_export.md). Dort steht, warum der
@@ -58,7 +63,13 @@ benennen.
 
 Kein einziger Punkt hier ist eine Befürchtung. Alle stehen heute so im Code.
 
-### 2.1 Player gegen Export — grob
+Die beiden Tabellen darunter beschreiben den Stand VOR dem Umbau. Sie bleiben
+stehen, weil sie der Beleg dafür sind, dass keine dieser Zahlen eine Entscheidung
+war — und weil man ohne sie nicht sieht, warum es die Tabelle in
+`einblendung.ts` gibt. §2.1 ist mit Etappe 2 vollständig erledigt, §2.2 mit
+Etappe 1.
+
+### 2.1 Player gegen Export — grob (behoben in Etappe 2)
 
 | Was | Player | Export |
 |---|---|---|
@@ -308,18 +319,62 @@ und Viewport-Einheiten: `min(1500px, 92vw)`, `--photo-chrome` 235 px, das auf
 große Schrift, und zwar AUCH mit einem einzigen Maler. Ein gemeinsamer Zeichner
 allein macht zwei Bühnen nicht deckungsgleich.
 
-Der Maler rechnet deshalb aus einer **Bezugshöhe** (Vorschlag: 1080 CSS-Pixel):
-Jede feste Länge im Maler ist ein Wert bei Bezugshöhe, multipliziert mit
-`hoehe / 1080`. Was NICHT mitskaliert, ist eine Entscheidung und wird benannt
-(Kandidat: die Mindest-Schriftgröße, damit die Unterschrift auf dem Telefon
-lesbar bleibt).
+Der Maler rechnet deshalb aus einer **Bezugshöhe**. Festgelegt (Etappe 2):
 
-Zwei Dinge fallen dabei ausdrücklich weg: **`--photo-chrome` gilt nur am
-Bildschirm.** Dass die Karte kleiner wird, sobald die Steuerleiste steht, ist
-eine Antwort auf eine Leiste, die es im Film nicht gibt. Im Export gilt die
-`ui-clean`-Größe, immer. Und das **Seitenverhältnis** ist auf beiden Bühnen das
-geklemmte aus `klemmeSeitenverhaeltnis` (§2.1, letzte Zeile) — das rohe im
-Export war nie gemeint.
+**`BEZUGSHOEHE` = 900 CSS-Pixel, `mass = klemme(hoehe / 900, 0.7, 2.6)`.** Jede
+feste Länge im Maler ist ein Wert BEI Bezugshöhe, multipliziert mit `mass`
+([kartenmaler.ts](../../src/kartenmaler.ts), `KARTEN_MASSE`).
+
+**Warum 900 und nicht 1080.** Die Zahl ist nicht frei: Sie ist die Höhe, bei der
+der Maler genau das ergibt, was heute im Browser steht. Die CSS-Fassung mischt
+feste Pixel (Chrome 235, Kartenrand-Obergrenze 16, Balken 4) mit
+Viewport-Einheiten (`clamp(22px, 2.3vw, 32px)`, `92vw`), und die beiden wachsen
+verschieden. Bei 1600 × 900 liegen ALLE `clamp()` auf ihrer Obergrenze — dort
+sind die festen Pixel und die vw-Anteile deckungsgleich, und nur dort lässt sich
+ein einziger Faktor an die bestehende Optik anschließen. Mit 1080 als Bezug
+wäre der Bildschirm bei 800 px Höhe sichtbar anders geworden als am Tag davor.
+
+**Was mitskaliert:** alle Längen — Kartenrand, Chrome-Reserve, Bildradius,
+Kartenradius, Balkenhöhe, Schatten, Pillen- und Knopfpolster, Zeilenhöhen UND
+alle Schriftgrößen. Der Maler kennt keine feste Pixelgröße, die nicht durch
+`mass` läuft.
+
+**Was NICHT mitskaliert, und warum:**
+
+- **Die vw-Anteile der heutigen `clamp()` entfallen ersatzlos.** Die Schrift hängt
+  ab jetzt an der HÖHE, nicht an der Breite. Ein 21:9-Fenster machte den Titel
+  sonst größer, ohne dass die Karte mehr Platz hätte — die Kartenhöhe kommt aus
+  der Höhe. Die Breite steuert weiterhin genau eine Größe: die maximale
+  Kartenbreite (92 % der Bühne, 89 % schmal, 62 % quer).
+- **Drei Mindest-Schriftgrößen** (`KARTEN_MASSE.*.mindest`): Titel 19 px,
+  Bildunterschrift 11,5 px, Pille 8,5 px. Unter 0,8 Bezugshöhe — also auf dem
+  Telefon — greifen sie und halten die Zeile lesbar. Im Film greifen sie nie
+  (`mass ≥ 1` bei jedem Ausgabeformat), sie sind also ausdrücklich eine
+  Bildschirm-Regel und keine Kartengeometrie.
+- **Der Rahmenradius hat einen Boden von 3 px.** Ein Radius unter 3 px ist auf
+  einem 1× -Bildschirm kein Radius mehr, sondern ein unruhiger Pixelrand.
+- **Alles Dimensionslose** — Ken-Burns-Skalen, Winkel, Deckkräfte, Kurven — ist
+  ohnehin kein Maß und läuft nicht durch `mass`.
+
+**Und zwei Dinge fallen ausdrücklich weg:** `--photo-chrome` gilt nur am
+Bildschirm. Dass die Karte kleiner wird und hochrückt, sobald die Steuerleiste
+steht, ist eine Antwort auf eine Leiste, die es im Film nicht gibt; der Maler
+bekommt das als Schalter `bedienungSteht`, und der Export setzt ihn NIE. Und das
+**Seitenverhältnis** ist auf beiden Bühnen das geklemmte aus
+`klemmeSeitenverhaeltnis` (§2.1, letzte Zeile) — das rohe im Export war nie
+gemeint.
+
+**Die Lage leitet der Maler selbst ab**, aus Breite und Höhe und aus nichts
+sonst: `quer` (Bild links, Text rechts) bei `breite > hoehe && hoehe ≤ 560`,
+`schmal` (Titel auf eigener Zeile) bei `breite ≤ 700`, sonst `breit`. Das sind
+dieselben Schwellen, an denen heute `body.kompakt-quer` (main.ts) und
+`@media (max-width: 700px)` hängen. Ein vierter Aufruf-Schalter dafür wäre eine
+zweite Wahrheit über dieselbe Geometrie.
+
+**Der Preis, und er ist gewollt:** Unter 900 px Höhe ist die Karte ein paar
+Prozent kleiner als am Tag davor, darüber ein paar Prozent größer. Vorher war
+sie auf einem 4K-Film ein Briefmarkenrahmen mit Fußnotenschrift — genau der
+Fehler, den ein Maler ohne Bezugshöhe NICHT behebt (Falle 6).
 
 ### Auflösung
 
@@ -403,6 +458,31 @@ plus CDP-Profiler auf dem Dev-Server). Die
 Zahl gehört danach hierher, so wie die Rampen-Kalibrierung ihre Zahl im
 Filmachsen-Konzept stehen hat.
 
+### Gemessen (2026-08-17, Etappe 2)
+
+Koh Pha-ngan, erster Foto-Halt, 1920 × 1080, `body.ui-clean`, Chromium headless
+auf dem M4. Vorher ist der Etappe-1-Stand (1fe46a1) aus einem eigenen
+Arbeitsbaum, damit BEIDE Fassungen zur selben Zeit auf derselben Maschine laufen;
+je drei Läufe, genommen ist der mittlere.
+
+| | Mittel | Median | p95 | Bilder/s |
+|---|---|---|---|---|
+| **Vorher** (DOM-Karte) | 14,39 ms | 13,30 ms | 27,10 ms | 69,5 |
+| **Nachher** (Leinwand) | 14,02 ms | 12,90 ms | 27,10 ms | 71,3 |
+
+**Also unverändert, und das ist die richtige Lesart.** Die 2,6 % liegen innerhalb
+der Streuung der Einzelläufe (13,88–14,73 ms). Die Erwartung „eher besser" hat
+sich NICHT eingelöst — und der Grund steht oben in diesem Abschnitt: Der teuerste
+Posten der alten Fassung war der Vollbild-`backdrop-filter`, und der ist geblieben
+(§4, der Schleier bleibt DOM). Was hinzukam — eine Vollbild-Leinwand mehr im
+Stapel, ein skalierter `drawImage` je Frame — verschwindet dagegen im Rauschen,
+wie vorhergesagt.
+
+Zwei Schlüsse daraus. Erstens: **`ctx.filter` pro Frame war die richtige Sorge
+und ist umgangen.** Zweitens: **Der Schleier ist jetzt der einzige verbliebene
+Kandidat für eine Messung**, und zwar auf einem schwachen Gerät — auf dem M4 ist
+die Szene im Halt so billig, dass 5 MP Blur nicht wehtun.
+
 ---
 
 ## 6. Etappen
@@ -442,33 +522,110 @@ Maler. Der Wächter vergleicht dann Maler-Konstanten gegen `studio.html` statt
 CSS gegen CSS. Die Tabelle in `einblendung.ts` überlebt beide Fassungen, der
 Lesecode für die eine Seite nicht. Das ist eingeplant und kein Versäumnis.
 
-### Etappe 2 — Die Foto-Karte
+**So eingetreten (2026-08-17).** Die Player-Seite ist von einem Regex auf CSS auf
+die RECHNUNG des Malers umgestellt (`kartenPhasen`, `blitzDeckkraft`), der Editor
+bleibt die Textseite, denn seine Optik IST CSS. Das ist die bessere Hälfte des
+Tauschs: Ein Regex prüft, welche Zeichenkette dasteht, eine Rechnung prüft, was
+herauskommt. Dazu kam ein zweiter Wächter, den es vorher nicht geben konnte — er
+verlangt, dass die alten Keyframes und `--photo-*`-Variablen aus `style.css`
+VERSCHWUNDEN sind. Eine vergessene Regel wäre kein Fehler, den man sieht: Sie
+liefe auf einem Element, das es nicht mehr gibt, bis jemand es wieder anlegt. Und
+`KARTE_EXPORT_ABWEICHUNGEN` ist leer — die Liste ist bei null angekommen, wozu
+sie gedacht war.
+
+### Etappe 2 — Die Foto-Karte ✅ gebaut (2026-08-17)
 
 `kartenmaler.ts` plus die Schicht im Player, Export-Nachbau raus.
 
+**Gebaut als:** [src/kartenmaler.ts](../../src/kartenmaler.ts) (DOM-frei, aus
+Filmsekunde und Halt, Werte aus `KARTE`) und
+[src/kartenschicht.ts](../../src/kartenschicht.ts) (die Leinwand `#karte` auf
+z-index 12, ihr einziger Aufrufer). `ui.ts` füllt nur noch Werte, `style.css`
+ist um die Karten-Animationen leichter, und `zeichneFotoKarte` in
+[exportfilm.ts](../../src/exportfilm.ts) ist einer Zeile gewichen:
+`zeichneOverlay(ctx, 'karte', …)` — dieselbe wie für Wetter und Atmosphäre.
+`KARTE_EXPORT_ABWEICHUNGEN` ist leer.
+
+Drei Dinge stehen bewusst NICHT auf der Leinwand: der Schleier (DOM darunter,
+§4), die Bedienung (DOM darüber, §3.3 — ihre Flächen setzt die Schicht pro Frame
+aus den Rechtecken des Malers) und eine versteckte Textfassung im `figcaption`
+(§3.4). Die Abnahme lief mit
+[scripts/messungen/kartenleinwand.mjs](../../scripts/messungen/kartenleinwand.mjs).
+
 **Abnahme, und zwar präziser als „deckungsgleich":** dieselbe Tour, dieselbe
-Filmsekunde, Player-Screenshot gegen Export-Frame — bei GLEICHEM Format und mit
-`body.ui-clean` am Bildschirm (sonst vergleicht der Test die Fensterbreite und
-den Stand der Steuerleiste, s. §5 „Skalierungsmodell"). Verglichen wird nach
-Normierung auf die Bezugshöhe; die erreichte Abweichung gehört als Zahl ins
-Konzept. Dazu die Leistungsmessung aus §5A am selben Halt.
+Filmsekunde, Bühne gegen Film — bei GLEICHEM Format und mit `body.ui-clean` am
+Bildschirm (sonst vergleicht der Test die Fensterbreite und den Stand der
+Steuerleiste, s. §5 „Skalierungsmodell").
+
+**Gemessen bei 1920 × 1080:** Karte 1235 × 951 px, Bild 1197 × 798, Titel
+38,4 px, Maßstab 1,200, Lage `breit`. Geometrie über beide Wege **identisch**,
+Abweichung im Karteninneren (1203 × 919 px) **max 0 von 255**.
+
+Verglichen wird das INNERE der Karte, um den Eckenradius eingerückt. Das ist
+keine Bequemlichkeit: Durch die runden Ecken und den weichen Schatten schaut der
+Schleier hindurch, und der ist die eine benannte Bühnen-Variante (§4). Über den
+ganzen Umschließungskasten gemessen sind es 68 von 255 an den Kanten — also genau
+der Unterschied, der erlaubt ist. Wer das nicht einrückt, bekommt einen roten
+Test für die Entscheidung aus §4.
+
+**Was diese Messung NICHT ist, und das gehört dazu:** Sie malt denselben Stand
+zweimal mit demselben Maler in derselben Seite und ändert nur die
+Bühnen-Schalter. Sie belegt damit das Skalierungsmodell und dass der flache
+Schleier nicht ins Karteninnere blutet — nicht, dass ein Player-Screenshot einem
+Export-Bild gleicht. Das war vor dem Umbau die interessante Frage; seit der
+Export dieselbe Leinwand mit einem `drawImage` holt, ist sie es nicht mehr: Es
+IST dasselbe Bild, und übrig bleibt allein das Skalieren des Puffers auf die
+Zielgröße. Wer die Zahl später verschärfen will, vergleicht die Leinwand des
+Bildschirms gegen ein fertig komponiertes Export-Bild — dann misst er genau
+dieses Skalieren und sonst nichts.
 
 **Zwei Zeitfenster, zwei Maßstäbe.** Ab dem Ende des Entwickelns (Auftritt plus
 1,6 s) wird hart auf Deckungsgleichheit geprüft: Geometrie, Ken-Burns-Stand,
 Schrift, Balken. WÄHREND der 1,6 s gilt eine eigene Toleranz, weil die
-Überblendung zweier gepufferter Fassungen die Filterkurve nur annähert (§5A);
-geprüft wird dort, dass Anfang und Ende exakt stimmen und die Abweichung
-dazwischen unter der Toleranz bleibt. Die Zahl wird beim Bauen gemessen und
-hier eingetragen, nicht vorab geraten. Wer stattdessen einen einzigen harten
-Vergleich über den ganzen Auftritt legt, bekommt einen roten Test für eine
-Entscheidung, die bewusst so getroffen wurde.
+Überblendung zweier gepufferter Fassungen die Filterkurve nur annähert (§5A).
+**Gemessen gegen die ideale Kurve** (ein `ctx.filter` mit interpoliertem Wert je
+Bild), Kanal-Abweichung von 255:
 
-### Etappe 3 — Die Tafeln
+| Fortschritt | 0 | 0,10 | 0,25 | 0,50 | 0,75 | 0,90 | 1 |
+|---|---|---|---|---|---|---|---|
+| max | 0 | 7 | 17 | **24** | 20 | 10 | 0 |
+| Mittel | 0,00 | 0,98 | 2,11 | **3,00** | 2,12 | 1,29 | 0,00 |
+
+**Anfang und Ende sind exakt, die Kurvenmitte weicht um höchstens 24 von 255 ab
+(Mittel 3,0) — das ist die Toleranz des Fensters.** Sie steht genau dort, wo §5A
+sie vorhergesagt hat: in der MITTE, wo sich die drei Filterwerte multiplizieren
+und das Mischen zweier beschnittener Bilder nicht dasselbe ist wie das
+Beschneiden des gemischten. Am Bildschirm ist das nicht auszumachen (3 von 255
+über 1,6 s einer weichen Blende), nachweisbar ist es sehr wohl. Wer hier einen
+Fehler sucht, sucht die Entscheidung.
+
+**Drei Fehler, die erst der Bildschirm gezeigt hat.** Die ersten beiden sind von
+derselben Sorte — eine Leinwand zeichnet sich nicht von selbst neu, eine Custom
+Property tat es —, der dritte kam erst bei der Durchsicht auf einem
+Retina-Bildschirm dazu:
+
+- **Der Auto-Rückzug der UI kippt im angehaltenen Halt.** Dort läuft kein
+  Kopfschritt, die Karte behielt die alte Größe, und die Steuerleiste deckte ihre
+  Bildunterschrift zu — genau der Defekt, gegen den `--photo-chrome` einmal
+  eingeführt wurde. Dasselbe gilt für einen Fenster-Resize: Das Schreiben von
+  `canvas.width` LÖSCHT die Leinwand. Die Schicht beobachtet deshalb Größe UND
+  die Klasse am body und zeichnet den letzten Stand neu.
+- **Die Lage `quer` reservierte zwei Textzeilen und zeichnete drei.** Die
+  Kilometer-Pille lief in die dritte Zeile hinein. Am 844 × 390-Bild gesehen, in
+  keinem Unit-Test sichtbar: Beide Zahlen für sich waren plausibel.
+- **Die Leinwand lag in ihrer Pixelgröße über der Seite** (Falle 12): `inset: 0`
+  spannt ein ersetztes Element nicht auf, es fehlten `width: 100%; height: 100%`.
+  Bei `devicePixelRatio` 2 war die Karte dadurch fast doppelt so groß und saß
+  halb außerhalb des Fensters. Unsichtbar bei Ratio 1 und unsichtbar im Film,
+  weil die Komposition den Puffer nimmt und die Seite nicht ansieht.
+
+### Etappe 3 — Die Tafeln (offen)
 
 Startscreen und Finale auf dieselbe Schicht. Sie sind die leichtere Hälfte
 (Text und Linien, kein Ken Burns, kein Video), aber sie kommen zuletzt: Der
 Startscreen ist am Bildschirm eine Bühne mit Knöpfen, und die müssen dabei
-bedienbar bleiben.
+bedienbar bleiben. Der Weg dafür steht seit Etappe 2 bereit — Bild auf die
+Leinwand, Bedienung als mitgeführtes DOM aus `KartenMasse`. Einzelheiten in §9.
 
 ---
 
@@ -477,13 +634,14 @@ bedienbar bleiben.
 1. **Zugänglichkeit ist die eigentliche Gefahr.** Eine Leinwand hat keinen
    Text. Ohne die versteckte Kopie verliert der Player Bildunterschriften für
    Screenreader — und niemand merkt es, weil das Bild gleich aussieht.
-2. **`prefers-reduced-motion` fällt beim Umbau still weg.** Der Player hat
-   heute einen ausführlichen Reduce-Block für die Karte (Ken Burns aus,
-   Auftritt aus, Blitz aus); eine Leinwand erbt davon nichts, der Maler muss
-   `matchMedia` selbst lesen. Und er darf es im EXPORT gerade nicht tun: Die
-   Einstellung des rendernden Rechners hätte sonst Einfluss auf die
-   ausgelieferte Datei. Also ein Schalter im Aufruf, kein Blick des Malers auf
-   die Umgebung. Dieselbe Sorte Verlust wie Falle 1, nur unsichtbarer.
+2. **`prefers-reduced-motion` fällt beim Umbau still weg.** Der Player hatte
+   einen ausführlichen Reduce-Block für die Karte (Ken Burns aus, Auftritt aus,
+   Blitz aus); eine Leinwand erbt davon nichts. Der Maler darf die Einstellung
+   aber auch nicht selbst lesen: Im EXPORT hätte der rendernde Rechner sonst
+   Einfluss auf die ausgelieferte Datei. Also ein Schalter im Aufruf
+   (`buehne.ruhig`), gesetzt von der Schicht, und im Export immer aus. Dieselbe
+   Sorte Verlust wie Falle 1, nur unsichtbarer — deshalb verbietet der Wächter
+   dem Maler jedes `matchMedia`.
 3. **`ctx.font` scheitert leise.** Fehlt die Schrift noch, wird ohne Fehler die
    Ersatzschrift gezeichnet. `document.fonts.ready`.
 4. **`backdrop-filter` hat kein Gegenstück, und der Puffer-Trick trägt nicht.**
@@ -492,10 +650,13 @@ bedienbar bleiben.
    Normalbetrieb, und das Wetter läuft im Halt weiter (§4). Der Schleier bleibt
    DOM, die flache Füllung im Film ist eine benannte Variante.
 5. **Der Klick auf die Karte muss bleiben, und er ist kein statischer Kasten.**
-   „Klick: anhalten / weiterlaufen" hängt heute am `figure`, dazu kommen der
-   Ton-Knopf des Videos und „Weiter ▸". Auf einer Leinwand braucht es
-   mitgeführte, unsichtbare DOM-Rechtecke — und die müssen mitwandern, wenn die
-   Karte springt, weil die Bedienung erscheint oder verschwindet.
+   „Klick: anhalten / weiterlaufen" hängt am `figure`, dazu kommen der Ton-Knopf
+   des Videos und „Weiter ▸". Auf einer Leinwand braucht es mitgeführte,
+   unsichtbare DOM-Rechtecke — und die müssen mitwandern, wenn die Karte springt,
+   weil die Bedienung erscheint oder verschwindet. `maleKarte` gibt sie deshalb
+   zurück (`KartenMasse`), die Schicht legt sie an. Beim Bauen kam eine
+   ZEHNTE Falle derselben Familie dazu, und sie ist die teuerste des ganzen
+   Umbaus, s. Falle 10.
 6. **Nicht in Gerätepixeln rechnen.** Der Maler bekommt CSS-Pixel; wer `dpr` in
    die Geometrie einrechnet, bekommt am Bildschirm und im Film verschiedene
    Karten. Genau der Fehler, den das Konzept beheben soll. Die zweite Hälfte
@@ -510,7 +671,39 @@ bedienbar bleiben.
    Ton. Und er darf keinen Frame malen, der noch gesucht wird (§5).
 9. **Canvas ist nicht von selbst schneller.** Pro Frame Text messen, `ctx.filter`
    setzen und `shadowBlur` auf die große Karte legen macht die Leinwand
-   langsamer als das DOM, das sie ersetzt (§5A).
+   langsamer als das DOM, das sie ersetzt (§5A). Der Maler puffert deshalb drei
+   Dinge: die zwei Bildfassungen, den Schatten (in EIGENER, niedriger Auflösung —
+   ein Verlauf über 140 px hat keine feine Struktur) und jeden Textblock.
+10. **Eine Leinwand zeichnet sich nicht von selbst neu — und das ist die Falle,
+    die beim Bauen wirklich zugeschlagen hat.** Eine Custom Property tat es: Wer
+    `--photo-chrome` änderte, hatte im nächsten Bild die neue Kartengröße. Auf
+    einer Leinwand hängt jede Änderung am nächsten Kopfschritt, und im
+    ANGEHALTENEN Halt läuft keiner. Zwei Fälle waren dadurch beide kaputt: Der
+    Auto-Rückzug der UI kippt genau dort (die Steuerleiste deckte die
+    Bildunterschrift zu — der Defekt, gegen den `--photo-chrome` erfunden
+    wurde), und ein Fenster-Resize LÖSCHT die Leinwand, weil er `canvas.width`
+    schreibt. Die Schicht beobachtet deshalb beides und zeichnet den letzten
+    Stand neu. Wer eine neue Größe einführt, die die Karte betrifft, gibt ihr
+    einen Beobachter — oder sie gilt erst beim nächsten Bild.
+11. **Text auf einer Leinwand muss GEKÜRZT werden.** Canvas kennt kein
+    `text-overflow: ellipsis`, und die Kartenhöhe ist auf eine feste Zahl Zeilen
+    gerechnet. Reserviert und gezeichnet müssen dieselbe Zahl sein: In der Lage
+    `quer` standen zwei Zeilen im Platz und drei auf dem Papier, und die
+    Kilometer-Pille lief hinein. Beide Zahlen waren für sich plausibel, und kein
+    Unit-Test konnte es sehen.
+12. **`inset: 0` spannt eine Leinwand NICHT auf, und auf einem Bildschirm mit
+    Gerätepixel-Verhältnis 1 merkt man es nicht.** Ein `canvas` ist ein
+    ERSETZTES Element: Sein `width: auto` löst auf die intrinsische Größe auf,
+    also auf das `width`-Attribut, und `right`/`bottom` werden dann still
+    ignoriert. `.karten-leinwand` lag dadurch in ihrer PIXELgröße über der
+    Seite — bei `devicePixelRatio` 2 fast doppelt so groß wie das Fenster, die
+    Karte doppelt so groß und halb außerhalb. Am Bildschirm mit Ratio 1 stimmen
+    Pixel- und CSS-Größe zufällig überein, und im Film stimmt es immer, weil die
+    Komposition den Puffer direkt nimmt und die Seite gar nicht ansieht: Der
+    Fehler war also genau dort unsichtbar, wo geprüft wurde. `#atmosphere` und
+    `#weather` tragen `width: 100%; height: 100%` aus diesem Grund seit jeher;
+    der neuen Schicht fehlten sie. Gefunden erst beim Nachsehen auf einem
+    Retina-Bildschirm.
 
 ---
 
@@ -529,21 +722,33 @@ bedienbar bleiben.
 
 ## 9. Auftrag für den nächsten Kontext
 
-1. Etappe 1 bauen: den Wächter über alle drei Bühnen. Er ist billig und deckt
-   den Rest der Zeit ab, in der es drei Fassungen gibt.
-2. Dabei die acht Zeilen aus §2.2 EINZELN entscheiden: geteilte Zahl oder
-   benannte Bühnen-Variante. Nicht stillschweigend gleichziehen — die Flugweite
-   soll verschieden bleiben, und ohne Begründung im Code wäre die nächste
-   Vereinheitlichung eine Verschlechterung. Beim Ken-Burns-Ende ist `1.02` der
-   gemeinte Wert, nicht der des Players (§2.2, letzter Absatz).
-3. Etappe 2 erst danach, und mit dem Bildvergleich als Abnahme. Vorher steht
-   das Skalierungsmodell (§5), sonst misst der Vergleich das Fenster.
-4. Vorher §2 gegenprüfen — beide Tabellen sind am Code von heute abgelesen und
-   sollten am Tag des Umbaus noch stimmen. Beim ersten Gegenprüfen wuchs §2.2
-   von vier auf acht Zeilen; das ist die Erwartung, nicht die Ausnahme.
-5. Die Leistungsfrage ist beantwortet, aber nicht gemessen (§5A): Erwartung
-   „eher besser", Risiko konzentriert auf `ctx.filter`. Die Messung gehört an
-   Etappe 2, nicht davor — vorher gibt es nichts zu messen. Wer dort die
-   Überblendung statt `ctx.filter` baut, legt die Toleranz für die 1,6 s des
-   Entwickelns gleich mit fest: Die Abweichung ist erwartet und keine
-   Fehlersuche wert.
+Etappe 1 und 2 sind gebaut. Was bleibt, ist Etappe 3 — die Tafeln.
+
+1. **Startscreen und Finale auf dieselbe Schicht.** Sie sind die leichtere
+   Hälfte (Text und Linien, kein Ken Burns, kein Video), aber der Startscreen ist
+   am Bildschirm eine Bühne mit KNÖPFEN. Die Trennung aus Etappe 2 gilt dort
+   genauso: Bild auf die Leinwand, Bedienung als mitgeführtes DOM darüber
+   (`KartenMasse` ist das Muster). Der Export baut sie heute nach
+   (`zeichneIntroTafel`, `zeichneFinaleTafel`, zusammen ~130 Zeilen) und liest
+   ihren INHALT per `textContent` aus dem DOM des Players — derselbe Umweg, den
+   Etappe 2 für die Karte beseitigt hat.
+2. **Der Maler bringt alles mit, was dafür fehlte:** Bezugshöhe und `mass`,
+   Kurven, Textumbruch mit Kürzen, die Puffer-Mechanik. Die Tafeln brauchen
+   keinen zweiten Maßstab und keine zweite Bezugshöhe.
+3. **Zwei Dinge, die dort neu sind.** Der Startscreen hat eine `h1` (die einzige
+   des Players) — die versteckte Textfassung ist keine Kür, sondern die
+   Überschrift der Seite. Und die Intro-Tafel des Films ist ABSICHTLICH keine
+   abfotografierte Oberfläche (kein Startknopf, Kennzahlen als Zeile statt
+   Pillen, s. den Kommentar an `zeichneIntroTafel`); wer sie mit dem Startscreen
+   verschmilzt, macht den Film zum Screenshot. Das ist ein Kandidat für eine
+   benannte Bühnen-Variante, nicht für Gleichmacherei.
+4. **Der Schleier ist die offene Messfrage** (§5A): Auf dem M4 ist der
+   Vollbild-`backdrop-filter` im Halt nicht messbar, auf einem schwachen Gerät
+   könnte er der teuerste Posten der Szene sein. Erst messen, dann entscheiden —
+   und wenn er fällt, fällt er auf BEIDEN Bildschirm-Bühnen zugleich, sonst ist
+   §2.2 wieder eine Zeile länger.
+5. **Nicht anfassen, ohne in die Tabelle zu sehen.** `KARTE` und `KARTE_BUEHNE`
+   in [einblendung.ts](../../src/einblendung.ts) sind die geteilten Zahlen; die
+   Geometrie der Player-Bühne steht in `KARTEN_MASSE`
+   ([kartenmaler.ts](../../src/kartenmaler.ts)) und ist ausdrücklich NICHT
+   geteilt. Wer eine Zahl im Maler ändert, ändert sie für Bildschirm UND Film.

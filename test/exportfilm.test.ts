@@ -19,7 +19,6 @@ import {
   istEigeneBereiteTour,
   istExportAnfrage,
   attributionSicht,
-  kartenSicht,
   introTafelSicht,
   finaleTafelSicht,
   leseExportFormat,
@@ -154,15 +153,11 @@ describe('Clip-Zeit', () => {
   })
 })
 
-describe('kartenSicht', () => {
-  it('blendet auf und am Ende wieder aus', () => {
-    expect(kartenSicht(0, 5, 0.8)).toBe(0)
-    expect(kartenSicht(0.25, 5, 0.8)).toBeCloseTo(0.5)
-    expect(kartenSicht(2, 3, 0.8)).toBe(1)
-    expect(kartenSicht(6, -0.4, 0.8)).toBeCloseTo(0.5)
-    expect(kartenSicht(7, -0.8, 0.8)).toBe(0)
-  })
-})
+// `kartenSicht` stand hier und ist mit dem Karten-Nachbau gegangen (Etappe 2
+// der Kartenleinwand): Die Deckkraft der Foto-Karte rechnet jetzt
+// `kartenPhasen` in src/kartenmaler.ts — für Bildschirm und Film aus einer
+// Quelle, mit Blende UND Abgang statt einer linearen Rampe. Geprüft wird sie
+// in test/kartenmaler.test.ts.
 
 describe('Ton-Mix aus filmS', () => {
   it('verschiebt Studio-Spuren hinter das Intro', () => {

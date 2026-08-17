@@ -414,19 +414,82 @@ body.cinema .cine {
    bleibt, muss die Leiste erreichbar sein, WÄHREND sie liegt. Der Auto-Rückzug
    (body.ui-clean) ändert daran nichts: Er blendet die Leiste aus, und wenn sie
    auf Regung wiederkommt, liegt sie oben. */
+/* Die LEINWAND der Foto-Karte (src/kartenschicht.ts hängt sie ein) — an der
+   Stelle, an der bis Etappe 2 die DOM-Karte lag. Der Export komponiert sie
+   ebenda: nach Wetter und Reiter, vor der Attribution. */
+.karten-leinwand {
+  position: fixed;
+  inset: 0;
+  /* `inset: 0` allein spannt eine Leinwand NICHT auf: Ein `canvas` ist ein
+     ersetztes Element, seine `width: auto` löst auf die INTRINSISCHE Größe auf
+     (das `width`-Attribut), und `right`/`bottom` werden dann still ignoriert.
+     Die Leinwand legte sich dadurch in ihrer Pixelgröße über die Seite — bei
+     `devicePixelRatio` 2 also fast doppelt so groß wie das Fenster, die Karte
+     saß halb außerhalb. Auf einem Bildschirm mit Ratio 1 fällt es nicht auf,
+     weil Pixel- und CSS-Größe dort zufällig übereinstimmen. `#atmosphere` und
+     `#weather` tragen diese zwei Zeilen aus demselben Grund. */
+  width: 100%;
+  height: 100%;
+  z-index: 12;
+  pointer-events: none;
+}
+
+/* Und darüber die Bedienung. Sie liegt HÖHER als das Bild und tiefer als die
+   Steuerleiste (20): Ein Knopf, den das eigene Bild verdeckt, ist kein Knopf.
+   Kein `place-items: center` und keine `perspective` mehr — beides brauchte die
+   DOM-Karte, die Lage jedes Teils kommt jetzt aus den Rechtecken des Malers. */
 .photo-layer {
   position: fixed;
   inset: 0;
-  z-index: 12;
-  display: grid;
-  place-items: center;
+  z-index: 14;
   pointer-events: none;
-  perspective: 1300px;
 }
 
-.photo-backdrop {
+/* Die Zeichenquellen. Sie müssen im Dokument stehen (der Browser dekodiert und
+   spielt nur, was er lädt), sichtbar sein müssen sie nicht: Gezeichnet werden
+   sie auf die Leinwand. `visibility: hidden` und nicht `display: none` — ein
+   `display: none` Video liefert in manchen Browsern keine Frames. */
+.photo-quellen {
   position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photo-quellen img,
+.photo-quellen video {
+  width: 1px;
+  height: 1px;
+}
+
+/* Nur für Screenreader: Eine Leinwand hat keinen Text, und ohne diese Kopie
+   verlöre der Player Titel und Bildunterschrift — niemandem fiele es auf, weil
+   das Bild gleich aussieht (Konzept, Falle 1). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Der Schleier bleibt DOM und liegt UNTER der Leinwand: `backdrop-filter` hat
+   auf einer Leinwand kein Gegenstück, und der Ausweg über einen eingefrorenen
+   Puffer trägt nicht (Konzept §4) — dafür bräuchte es `preserveDrawingBuffer`
+   im Normalbetrieb, und das Wetter läuft im Halt weiter. Im Film ist er eine
+   flache Füllung, gemalt vom Maler: eine benannte Bühnen-Variante. */
+.photo-backdrop {
+  position: fixed;
   inset: 0;
+  z-index: 11;
   pointer-events: none;
   /* Bewusst heller Schleier: das frühere 0.5-Schwarz + brightness(0.85) lief über
      dunklen Szenen (Schärenwasser) zusammen mit Vignette + cine-Balken auf einen
@@ -439,259 +502,51 @@ body.cinema .cine {
   transition: opacity 0.8s ease, backdrop-filter 0.8s ease, -webkit-backdrop-filter 0.8s ease;
 }
 
-.photo-layer.show .photo-backdrop {
+/* Am BODY und nicht an `.photo-layer.show`: Der Schleier ist seit Etappe 2 ein
+   Geschwister der Leinwand und liegt außerhalb der Bedienungs-Schicht. */
+body.cinema .photo-backdrop {
   opacity: 1;
   backdrop-filter: blur(14px) saturate(0.85) brightness(0.96);
   -webkit-backdrop-filter: blur(14px) saturate(0.85) brightness(0.96);
 }
 
-/* Kamerablitz beim Erreichen des Foto-Spots */
-.photo-flash {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(circle at 50% 45%, rgba(255, 250, 240, 0.95) 0%, rgba(255, 250, 240, 0.55) 42%, transparent 78%);
-}
-
-/* Auch der Blitz gehört dem Kopf: als Timer-Klasse feuerte er bei jedem
-   Überfahren neu und lief dann nach Wanduhr weiter. Die Klasse steht, solange
-   die Karte liegt; wo im Blitz man ist, sagt `--karte-zeit`. */
-.photo-flash.on {
-  animation: flash 0.75s ease-out both;
-  animation-delay: var(--karte-zeit, 0s);
-  animation-play-state: paused;
-}
-
-@keyframes flash {
-  0% {
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.95;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
+/* Die Klickfläche der Karte: „Klick: anhalten / weiterlaufen".
+   Lage und Größe setzt `kartenschicht.ts` pro Frame aus den Rechtecken des
+   Malers — mitgeführt und kein statischer Kasten, weil die Karte springt,
+   sobald die Bedienung erscheint oder verschwindet (Konzept, Falle 5). */
 .photo-card {
-  position: relative;
-  margin: 0;
-  pointer-events: none;
-  cursor: pointer;
-  background: var(--papier);
-  padding: clamp(10px, 1.1vw, 16px);
-  padding-bottom: 0;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 50px 140px rgba(0, 0, 0, 0.7), 0 12px 36px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transform: translateY(70px) scale(0.9) rotate(1.4deg) rotateX(10deg);
-  will-change: transform;
-}
-
-.photo-layer.show .photo-card {
-  pointer-events: auto;
-}
-
-/* Auftritt und Abgang hängen an der FILMZEIT, nicht an einer Uhr (E15).
-   Als `transition` (so war es) ließ sich das gar nicht ansteuern: Eine
-   Transition startet beim Klassenwechsel und läuft danach nach Wanduhr —
-   rückwärts gab es sie nicht, beim Scrubben sprang die Karte sofort auf ihren
-   Zielzustand. Jetzt stehen die Animationen dauerhaft auf `paused` und ihr
-   Fortschritt kommt aus dem negativen Delay `--karte-zeit`, das
-   `synchronisiereKarte` (ui.ts) bei jedem Kopfschritt setzt.
-   Drei Animationen, weil Blende und Flug verschiedene Kurven haben; der Abgang
-   steht ZULETZT und gewinnt dadurch, solange er läuft. Sein `forwards` (statt
-   `both`) hält ihn davor still — mit `both` läge sein Anfangsbild über dem
-   Auftritt. */
-.photo-card.in {
-  animation:
-    karteBlende 0.5s ease both,
-    karteFlug 0.95s cubic-bezier(0.19, 1.16, 0.32, 1) both,
-    karteAbgang var(--karte-aus-dauer, 0.8s) ease-in forwards;
-  animation-delay: calc(var(--karte-zeit, 0s) + 0.04s), var(--karte-zeit, 0s), var(--karte-aus-zeit, 0s);
-  animation-play-state: paused;
-}
-
-@keyframes karteBlende {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes karteFlug {
-  from {
-    transform: translateY(70px) scale(0.9) rotate(1.4deg) rotateX(10deg);
-  }
-  to {
-    transform: translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg);
-  }
-}
-
-@keyframes karteAbgang {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-22px) scale(0.96) rotate(-1.4deg);
-  }
-}
-
-/* Fast bildschirmfüllend, aber IMMER im Viewport. Leitgröße ist die HÖHE (Caption +
-   Kartenrand = --photo-chrome abgezogen), die Breite folgt aus dem Seitenverhältnis
-   --photo-ar; passt die Breite nicht, begrenzt der zweite min()-Zweig über die Höhe.
-   Früher stand die Breite fest und die Höhe ergab sich — quer gehaltene Telefone
-   ließen die Karte dadurch oben UND unten aus dem Bild ragen („zerhackt").
-   --photo-ar setzt ui.js aus dem echten Medium (Default 3:2): ein Hochformat-Foto
-   aus der App bekommt so einen hochkant stehenden Rahmen statt eines Mittelstreifens. */
-.photo-frame {
-  --photo-ar: 1.5;
-  --photo-chrome: 235px;
-  --photo-breite: min(1500px, 92vw);
-  /* --vh-app kommt aus main.js (window.innerHeight, bei resize nachgeführt).
-     NICHT dvh verwenden: in der Android-WebView der App ist `100dvh` NULL —
-     sie hat keine ein-/ausblendende Adressleiste und damit keinen dynamischen
-     Viewport. `CSS.supports('height','100dvh')` meldet dort trotzdem `true`,
-     ein @supports-Fallback greift also nicht. Am Gerät gemessen: der Rahmen
-     kollabierte auf 0×0 und die Fotos blieben unsichtbar. `100vh` bleibt der
-     Fallback, falls das Skript (noch) nicht gelaufen ist. */
-  --photo-h: min(calc(var(--vh-app, 100vh) - var(--photo-chrome)), calc(var(--photo-breite) / var(--photo-ar)));
-  position: relative;
-  overflow: hidden;
-  border-radius: 5px;
-  height: var(--photo-h);
-  width: calc(var(--photo-h) * var(--photo-ar));
-  background: #d8d2c4;
-  /* Weich, weil `--photo-chrome` springt, sobald die Bedienung kommt oder geht
-     (s. u.) — eine Custom Property lässt sich nicht animieren, die daraus
-     gerechnete Höhe schon. */
-  transition: height 220ms ease, width 220ms ease;
-}
-
-/* Solange die Bedienung STEHT, macht die Karte ihr Platz. Seit E17 liegt die
-   Leiste ÜBER dem Bild (vorher darunter — das trug nur, weil die Karte beim
-   Scrubben verschwand), und sie verdeckte gemessen die unteren 88 px: genau die
-   Bildunterschrift. Verschieben allein reicht nicht, die Karte ist dafür zu
-   hoch — sie muss kleiner werden. Videoplayer lösen es ebenso, dort rücken die
-   Untertitel hoch, sobald die Controls erscheinen. Sobald die UI sich
-   zurückzieht (`body.ui-clean`), nimmt die Karte die volle Bühne zurück. */
-body:not(.ui-clean) .photo-frame {
-  --photo-chrome: 335px;
-}
-
-/* Und sie rückt hoch: Kleiner allein reicht nicht, weil die Karte in der vollen
-   Bühne zentriert bleibt — gemessen blieben 48 px Überlappung. Das Polster ist
-   der Raum der Leiste, die Karte zentriert sich im Rest. */
-body:not(.ui-clean) .photo-layer {
-  padding-bottom: 96px;
-}
-
-.photo-frame img:not(.video-standbild) {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.12);
-  filter: brightness(1) contrast(1.02) saturate(1.05);
-}
-
-/* „Entwickeln" und Ken-Burns-Drift hängen an derselben Filmzeit wie die Karte
-   (E15). Der Drift war eine `transition` und damit Wanduhr: Unter dem
-   „Angehalten"-Abzeichen lief er weiter, während der Halt stand, und beim
-   Scrubben begann er von vorn. Die Drift-DAUER ist die Klip-Länge
-   (`--kb-dauer`, aus ui.ts) — vorher `holdS + 1.8` gegen die 0,8 des Editors,
-   die 1-Sekunden-Abweichung aus §6C des Gleichlauf-Konzepts. */
-.photo-card.in .photo-frame img:not(.video-standbild) {
-  animation: develop 1.6s ease-out both, kenburns var(--kb-dauer, 6s) ease-out both;
-  animation-delay: var(--karte-zeit, 0s), var(--karte-zeit, 0s);
-  animation-play-state: paused;
-}
-
-@keyframes develop {
-  from {
-    filter: brightness(1.45) contrast(0.82) saturate(0.55);
-  }
-  to {
-    filter: brightness(1) contrast(1.02) saturate(1.05);
-  }
-}
-
-@keyframes kenburns {
-  from {
-    transform: scale(1.12);
-  }
-  to {
-    transform: scale(1.02);
-  }
-}
-
-/* Ken-Burns pro Medium abschaltbar (display.kenBurns === false, Studio): nur
-   der DRIFT entfällt — das „Entwickeln" (Filterblende) gehört zur
-   Foto-Signatur und bleibt. Die stehende Karte liegt auf dem ENDE des Zugs
-   (KARTE.ruheSkala), nicht auf 1.0: Das Bild soll ohne Drift genauso im Rahmen
-   sitzen wie mit ihm, nur eben von Anfang an. */
-.photo-card.in .photo-frame.kein-kb img:not(.video-standbild) {
-  animation: develop 1.6s ease-out both;
-  animation-delay: var(--karte-zeit, 0s);
-  animation-play-state: paused;
-  transform: scale(1.02);
-}
-
-/* Video-Stopp (M4): nicht beschneiden (auch Hochformat-Handyvideos), schwarzer
-   Rahmen füllt das Feld. Kein Ken-Burns/„Entwickeln“ wie beim Foto.
-   Standbild liegt ÜBER dem <video>, bis der erste Frame da ist — sonst springt
-   der Browser hart vom Poster-Attribut auf Frame 0 (sichtbarer Bildwechsel). */
-.photo-frame video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-.photo-frame .video-standbild {
   position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 0.22s ease;
-}
-.photo-frame .video-standbild.weg {
+  margin: 0;
+  cursor: pointer;
   opacity: 0;
+  pointer-events: none;
 }
-/* [hidden] muss display:block von img/video/standbild schlagen */
-.photo-frame img[hidden],
-.photo-frame video[hidden],
-.photo-frame .video-standbild[hidden] {
-  display: none;
+
+/* Der Bildbereich — trägt Ton-Knopf und „Angehalten"-Abzeichen, sonst nichts.
+   `--karten-mass` ist der Maßstab der Bühne (kartenschicht.ts); die beiden
+   Kinder skalieren damit, sonst wären sie im 4K-Film Briefmarken. */
+.photo-bild {
+  position: absolute;
+  --karten-mass: 1;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Ton-Umschalter im Video (Opt-in wegen der Autoplay-Policy) */
 .photo-sound {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 3;
+  top: calc(10px * var(--karten-mass));
+  right: calc(10px * var(--karten-mass));
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: calc(40px * var(--karten-mass));
+  height: calc(40px * var(--karten-mass));
   border: none;
   border-radius: 50%;
   background: rgba(10, 8, 5, 0.55);
   color: var(--text);
   cursor: pointer;
+  pointer-events: auto;
   backdrop-filter: blur(4px);
   transition: background 0.2s ease, transform 0.15s ease;
 }
@@ -702,169 +557,66 @@ body:not(.ui-clean) .photo-layer {
   transform: scale(0.94);
 }
 .photo-sound svg {
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--karten-mass));
+  height: calc(20px * var(--karten-mass));
 }
 .photo-sound[aria-pressed='true'] {
   background: rgba(245, 165, 36, 0.9);
   color: var(--auf-akzent);
 }
 
-/* Anzeige-Fortschritt am unteren Bildrand — steht, wenn angehalten */
-.photo-hold {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  height: 4px;
-  background: rgba(10, 8, 5, 0.3);
-}
-
-.photo-hold-fill {
-  height: 100%;
-  transform: scaleX(0);
-  transform-origin: left;
-  background: linear-gradient(90deg, #f5a524, var(--akzent-2));
-}
-
-/* Badge, solange die Anzeige angehalten ist */
+/* Abzeichen, solange die Anzeige angehalten ist. Es gehört der Bedienung und
+   nicht dem Bild: Im Film hätte „Angehalten" nichts zu sagen. */
 .photo-held {
   position: absolute;
   left: 50%;
-  top: 18px;
-  z-index: 2;
+  top: calc(18px * var(--karten-mass));
   transform: translate(-50%, -8px);
-  padding: 8px 16px;
+  max-width: calc(100% - 18px);
+  padding: calc(8px * var(--karten-mass)) calc(16px * var(--karten-mass));
   border-radius: var(--radius-full);
   background: rgba(8, 10, 14, 0.72);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--text);
-  font-size: 12px;
+  font-size: calc(12px * var(--karten-mass));
   font-weight: 500;
   letter-spacing: -0.005em;
+  text-align: center;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.photo-card.held .photo-held {
+/* Die Klasse sitzt weiter auf der Klickfläche (ui.ts, `setPlaying`) — das
+   Abzeichen ist ihr Geschwister, nicht ihr Kind. */
+.photo-card.held ~ .photo-bild .photo-held {
   opacity: 1;
   transform: translate(-50%, 0);
 }
 
-.photo-caption {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 2px 16px;
-  padding: 13px 6px 15px;
-  /* Nicht zur intrinsischen Kartenbreite beitragen — sonst zieht eine lange
-     Bildunterschrift die Karte breiter als den Foto-Rahmen (mobil: über den
-     Viewport hinaus). Breite bestimmt allein der Rahmen. */
-  width: 0;
-  min-width: 100%;
-}
-
-.photo-badges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* „Weiter ▸" — Lage, Schriftgrad und Radius kommen aus dem Maler; der Rest
+   bleibt der Knopf, der er war. */
 .photo-next {
+  position: absolute;
+  display: grid;
+  place-items: center;
   font-family: var(--font-ui);
-  font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #171106;
   background: linear-gradient(135deg, #f8bb4b, #ef8c37);
   border: none;
-  border-radius: var(--radius-full);
-  padding: 10px 18px;
+  padding: 0;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
   box-shadow: 0 6px 18px rgba(239, 140, 55, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .photo-next:hover {
-  transform: translateY(-1px);
   box-shadow: 0 10px 26px rgba(239, 140, 55, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-.photo-next:active {
-  transform: scale(0.95);
-}
-
-/* Die Beschriftung tritt gestaffelt auf — und zwar ebenfalls aus der Filmzeit:
-   Als Transition mit `transition-delay` fing sie beim Klassenwechsel an, ein
-   Scrub mitten in einen Halt hätte sie also noch einmal einfliegen lassen. Die
-   Staffelung steckt jetzt im Delay, nicht in der Verzögerung. Ein eigenes
-   Umblenden zwischen zwei Aufnahmen braucht es dafür nicht mehr: Jede hat
-   ihren eigenen Klip, also ihren eigenen Auf- und Abgang. */
-.photo-title,
-.photo-sub,
-.photo-chip {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.photo-card.in .photo-title,
-.photo-card.in .photo-sub,
-.photo-card.in .photo-chip {
-  animation: bildunterschrift 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-play-state: paused;
-}
-
-.photo-card.in .photo-title {
-  animation-delay: calc(var(--karte-zeit, 0s) + 0.35s);
-}
-
-.photo-card.in .photo-sub {
-  animation-delay: calc(var(--karte-zeit, 0s) + 0.45s);
-}
-
-.photo-card.in .photo-chip {
-  animation-delay: calc(var(--karte-zeit, 0s) + 0.55s);
-}
-
-@keyframes bildunterschrift {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.photo-title {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: clamp(22px, 2.3vw, 32px);
-  letter-spacing: -0.02em;
-  color: #1c1712;
-}
-
-.photo-chip {
-  justify-self: end;
-  font-size: 11.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
-  color: #8a7a63;
-  border: 1px solid rgba(28, 23, 18, 0.2);
-  border-radius: var(--radius-full);
-  padding: 4px 10px;
-}
-
-.photo-sub {
-  grid-column: 1 / -1;
-  font-size: clamp(11.5px, 1.05vw, 14px);
-  line-height: 1.55;
-  color: rgba(28, 23, 18, 0.62);
 }
 
 /* — Finale — */
@@ -1679,8 +1431,12 @@ body.export #map {
   height: var(--export-h, 720px);
 }
 
+/* Die Karten-Leinwand steht hier bei den Overlays und NICHT bei den
+   Verstecken: Sie IST das Bild der Foto-Karte, und der Export greift sie mit
+   demselben `drawImage` wie Wetter und Atmosphäre. */
 body.export #atmosphere,
 body.export #weather,
+body.export #karte,
 body.export #farblur {
   position: absolute;
   inset: 0;
@@ -1689,6 +1445,11 @@ body.export #farblur {
   display: block !important;
 }
 
+/* Der Schleier geht dagegen weg: Im Film malt ihn der Maler als flache Füllung
+   (benannte Bühnen-Variante, Konzept §4), ein zweiter aus dem DOM läge doppelt.
+   Die Bedienung der Karte (`.photo-layer`) ebenso — Knöpfe gehören nicht in
+   eine Datei. */
+body.export .photo-backdrop,
 body.export .zurueck,
 body.export .intro,
 body.export .dock,
@@ -1739,27 +1500,12 @@ body.export .export-stand {
     opacity: 1 !important;
     transform: none !important;
   }
-  .photo-frame img:not(.video-standbild),
-  .photo-card.in .photo-frame img:not(.video-standbild) {
-    transform: scale(1.02) !important;
-    animation: none !important;
-  }
-  /* Ohne Bewegung liegt die Karte einfach da — die pausierten Animationen
-     würden sonst mit 0,001 ms Dauer auf ihr Endbild springen. */
-  .photo-card {
-    transition: opacity 0.2s ease;
-  }
-  .photo-card.in,
-  .photo-card.in .photo-title,
-  .photo-card.in .photo-sub,
-  .photo-card.in .photo-chip {
-    animation: none !important;
-    opacity: 1;
-    transform: none;
-  }
-  .photo-flash.on {
-    animation: none !important;
-  }
+  /* Die Foto-Karte steht hier NICHT mehr. Sie ist eine Leinwand, und eine
+     Leinwand erbt von einem Reduce-Block nichts — der Maler bekommt die
+     Einstellung als Schalter (`buehne.ruhig`, kartenschicht.ts) und lässt Ken
+     Burns, Flug und Blitz dann weg. Und zwar ausdrücklich nur am Bildschirm:
+     Im Export ist der Schalter aus, sonst hätte die Einstellung des rendernden
+     Rechners Einfluss auf die ausgelieferte Datei (Konzept, Falle 2). */
   .rider-pulse,
   .photo-dot.is-next {
     animation: none !important;
@@ -1968,50 +1714,10 @@ body.export .export-stand {
     font-size: 13px;
   }
 
-  /* Foto-Karte: Caption zweizeilig — Titel oben, Badges links + Weiter rechts.
-     89vw statt 92vw: mit Kartenrand + leichter Rotation blieb sonst kein Rand */
-  .photo-frame {
-    --photo-breite: 89vw;
-    --photo-chrome: 205px;
-  }
-
-  .photo-caption {
-    grid-template-columns: 1fr auto;
-    gap: 6px 10px;
-    padding: 10px 4px 12px;
-  }
-
-  .photo-title {
-    grid-column: 1 / -1;
-    font-size: 19px;
-  }
-
-  .photo-badges {
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .photo-chip {
-    font-size: 8.5px;
-    padding: 3px 8px;
-  }
-
-  .photo-next {
-    padding: 9px 14px;
-    font-size: 10px;
-  }
-
-  .photo-sub {
-    font-size: 11px;
-    line-height: 1.45;
-  }
-
-  .photo-held {
-    top: 12px;
-    padding: 7px 12px;
-    font-size: 9px;
-    white-space: nowrap;
-  }
+  /* Die Foto-Karte hat hier keine Media Query mehr: Ihre schmale Lage leitet
+     der Maler aus Breite und Höhe selbst ab (`kartenLage`, Schwelle 700 px —
+     dieselbe wie diese Query). Ein Aufruf-Schalter oder ein zweiter Satz
+     CSS-Werte daneben wäre eine zweite Wahrheit über dieselbe Geometrie. */
 
   /* Steuerleiste: drei Zeilen — Tasten + Presets · Telemetrie · Höhenprofil */
   .dock {
@@ -2258,89 +1964,11 @@ body.kompakt-quer .tele-value {
   white-space: nowrap;
 }
 
-body.kompakt-quer /* — Foto-Karte quer: Bild links,
-body.kompakt-quer Text rechts — */
-.photo-card {
-  display: flex;
-  align-items: stretch;
-  gap: 12px;
-  max-width: 96vw;
-  padding: 9px;
-  padding-bottom: 9px;
-}
-
-body.kompakt-quer .photo-frame {
-  --photo-breite: 62vw;
-  /* Quer steht die Caption NEBEN dem Bild, vertikal kostet also nur der
-     Kartenrand — plus Luft, damit die leicht gedrehte Karte (rotate) mit
-     ihren Ecken nicht an die Bildkanten stößt. */
-  --photo-chrome: 64px;
-}
-
-/* Die Luft für die Bedienung (s. oben bei `.photo-frame`) — quer ist die Bühne
-   flacher, dort kostet dieselbe Leiste weniger Bildhöhe, und die allgemeine
-   Regel oben würde die Karte über den oberen Rand schieben (gemessen −3 px). */
-body.kompakt-quer:not(.ui-clean) .photo-frame {
-  --photo-chrome: 116px;
-}
-
-body.kompakt-quer:not(.ui-clean) .photo-layer {
-  padding-bottom: 44px;
-}
-
-body.kompakt-quer .photo-caption {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 9px;
-  text-align: left;
-  /* Grundregel spannt die Caption auf die volle Kartenbreite (width:0 +
-     min-width:100%) — quer ist sie eine eigene, schmale Spalte. */
-  width: min(34vw, 280px);
-  min-width: 0;
-  padding: 4px 6px 4px 0;
-}
-
-body.kompakt-quer .photo-title {
-  order: 1;
-  font-size: 17px;
-}
-
-body.kompakt-quer .photo-sub {
-  order: 2;
-  display: block; /* quer ist neben dem Bild Platz für die Bildunterschrift */
-  font-size: 10.5px;
-  line-height: 1.45;
-}
-
-body.kompakt-quer .photo-badges {
-  order: 3;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-body.kompakt-quer .photo-chip {
-  font-size: 8.5px;
-  padding: 3px 8px;
-}
-
-body.kompakt-quer .photo-next {
-  order: 4;
-  align-self: flex-start;
-  padding: 9px 15px;
-  font-size: 10px;
-}
-
-body.kompakt-quer .photo-held {
-  top: 10px;
-  padding: 6px 11px;
-  font-size: 9px;
-  /* Kein nowrap: bei einem Hochformat-Foto ist der Rahmen schmal, der Hinweis
-     liefe sonst rechts und links über die Bildkante hinaus. */
-  max-width: calc(100% - 18px);
-  text-align: center;
-}
+/* — Foto-Karte quer — steht hier nicht mehr.
+   Die Lage „Bild links, Text rechts" leitet der Maler aus Breite und Höhe ab
+   (`kartenLage`: breite > hoehe && hoehe <= 560 — dieselbe Schwelle, an der
+   main.ts `body.kompakt-quer` setzt). Die Maße dieser Lage stehen als eigener
+   Satz in `KARTEN_MASSE.quer`. */
 
 body.kompakt-quer /* — Intro zweispaltig: Titel links,
 body.kompakt-quer Aktionen rechts — */

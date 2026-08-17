@@ -2,7 +2,9 @@
 import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
 import type { Wegpunkt } from './tours.js'
 import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
-import { ausschnittDauerS, balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis, videoStandS } from './einblendung.js'
+import { ausschnittDauerS, klemmeSeitenverhaeltnis, videoStandS } from './einblendung.js'
+import { createKartenSchicht, type KartenSchicht } from './kartenschicht.js'
+import type { KartenMedium, KartenQuelle, KartenText } from './kartenmaler.js'
 
 /**
  * Ein Medium, wie die Anzeige es braucht — Foto ODER Video (M4). Bewusst das
@@ -108,17 +110,16 @@ export class UI {
     dock: HTMLElement
     layer: HTMLElement
     card: HTMLElement
-    frame: HTMLElement
+    bild: HTMLElement
+    weiter: HTMLElement
     img: HTMLImageElement
     video: VideoMitFrameCallback
     standbild: HTMLImageElement
     sound: HTMLButtonElement
-    flash: HTMLElement
     pTitle: HTMLElement
     pSub: HTMLElement
     pChip: HTMLElement
     pCount: HTMLElement
-    holdFill: HTMLElement
     finale: HTMLElement
     profileBase: SVGPathElement
     profileFill: SVGPathElement
@@ -154,8 +155,11 @@ export class UI {
   private _preloadImgs: HTMLImageElement[]
   private _soundOn: boolean
   private _videoTonGemeldet: number
-  /** Zuletzt geschriebene Karten-Zeiten — die Sync läuft in JEDEM Frame. */
-  private _kartenStand: string
+  /** Die Leinwand der Foto-Karte — der eine Aufrufer des Malers. */
+  private karten: KartenSchicht
+  /** Was auf der Karte liegt: Medium und Beschriftung, DOM-frei als Werte. */
+  private _kartenMedium: KartenMedium
+  private _kartenText: KartenText
   private _standbildTimer: number
   private _standbildGen: number
   private _mode?: string
@@ -172,18 +176,16 @@ export class UI {
       dock: $('dock'),
       layer: $('photo-layer'),
       card,
-      // .photo-frame trägt keine id — Träger der Ken-Burns-Klasse/-Dauer (display)
-      frame: pflicht<HTMLElement>(card, '.photo-frame'),
+      bild: $('photo-bild'),
+      weiter: $('photo-next'),
       img: $<HTMLImageElement>('photo-img'),
       video: $<VideoMitFrameCallback>('photo-video'),
       standbild: $<HTMLImageElement>('photo-video-standbild'),
       sound: $<HTMLButtonElement>('photo-sound'),
-      flash: $('photo-flash'),
       pTitle: $('photo-title'),
       pSub: $('photo-sub'),
       pChip: $('photo-chip'),
       pCount: $('photo-count'),
-      holdFill: $('photo-hold-fill'),
       finale: $('finale'),
       profileBase: $<SVGPathElement>('profile-base'),
       profileFill: $<SVGPathElement>('profile-fill'),
@@ -215,7 +217,15 @@ export class UI {
     // stumm und spielt weiter, statt gar nichts zu zeigen.
     this._soundOn = true
     this._videoTonGemeldet = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
-    this._kartenStand = ''
+    this._kartenMedium = { art: 'foto', ar: null }
+    this._kartenText = { titel: '', unter: '', kmText: '', zaehlerText: '' }
+    // Die Leinwand hängt am body wie Wetter und Atmosphäre; ihren Platz in der
+    // Schichtung bestimmt das CSS (`.karten-leinwand`, z-index 12).
+    this.karten = createKartenSchicht(
+      document.body,
+      { karte: this.els.card, bild: this.els.bild, weiter: this.els.weiter },
+      document.body.classList.contains('export'),
+    )
     this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.ts
     this._standbildTimer = 0
     this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel
@@ -263,7 +273,6 @@ export class UI {
     clearTimeout(this._standbildTimer)
     const { video: v, standbild } = this.els
     standbild.hidden = true
-    standbild.classList.remove('weg')
     standbild.removeAttribute('src')
     this._meldeVideoTon(0)
     if (!v.getAttribute('src')) return
@@ -273,8 +282,13 @@ export class UI {
     v.load()
   }
 
-  // Ersten Video-Frame abwarten, dann Standbild weich ausblenden — ohne das
-  // springt der Browser hart von Standbild/Poster auf den dekodierten Frame.
+  // Ersten Video-Frame abwarten, dann das Standbild abräumen.
+  //
+  // Seit die Karte auf einer Leinwand liegt, gibt es hier keine Überblendung
+  // mehr: Der Maler nimmt das Standbild nur, SOLANGE das Video keinen Frame
+  // liefert (`_kartenQuelle`), und schaltet danach von sich aus um. Die alte
+  // 240-ms-Blende war eine CSS-Transition auf zwei gestapelten Elementen — von
+  // denen keines mehr sichtbar ist.
   _warteAufErstenFrame(video: VideoMitFrameCallback, gen: number): void {
     let fertig = false
     const weiter = () => {
@@ -298,14 +312,9 @@ export class UI {
     if (gen !== this._standbildGen) return
     const { standbild } = this.els
     if (standbild.hidden) return
-    standbild.classList.add('weg')
     clearTimeout(this._standbildTimer)
-    this._standbildTimer = window.setTimeout(() => {
-      if (gen !== this._standbildGen) return
-      standbild.hidden = true
-      standbild.classList.remove('weg')
-      standbild.removeAttribute('src')
-    }, 240)
+    standbild.hidden = true
+    standbild.removeAttribute('src')
   }
 
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
@@ -495,23 +504,26 @@ export class UI {
   }
 
   setPhotoContent(photo: PlayerMedium, idx: number, count: number): void {
-    const { frame, img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
+    const { img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'
     // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar.
-    // Die Drift-DAUER kommt nicht mehr von hier, sondern aus der Filmzeit
-    // (`--kb-dauer` in synchronisiereKarte, = Klip-Länge). Sie stand hier auf
-    // `holdS + 1.8` gegen die 0,8 des Editors — die 1-Sekunden-Abweichung aus
-    // §6C des Gleichlauf-Konzepts.
-    frame.classList.toggle('kein-kb', photo.display?.kenBurns === false)
-    // Seitenverhältnis erst setzen, wenn das neue Medium vermessen ist — das alte
-    // --photo-ar belassen (kein Zwischen-Reset auf 3:2), sonst springt der Rahmen.
+    // Die Drift-DAUER kommt nicht von hier, sondern aus der Filmzeit (die
+    // Klip-Länge). Sie stand hier einmal auf `holdS + 1.8` gegen die 0,8 des
+    // Editors — die 1-Sekunden-Abweichung aus §6C des Gleichlauf-Konzepts.
+    this._kartenMedium = {
+      art: istVideo ? 'video' : 'foto',
+      // Das Seitenverhältnis des VORIGEN Mediums bleibt stehen, bis das neue
+      // vermessen ist: Ein Zwischen-Reset auf 3:2 ließe den Rahmen zucken.
+      ar: this._kartenMedium.ar,
+      ...(photo.display?.kenBurns === false ? { keinKenBurns: true } : {}),
+    }
     const merkeSeitenverhaeltnis = (el: HTMLImageElement | HTMLVideoElement) => {
       const bild = el instanceof HTMLImageElement
       const b = bild ? el.naturalWidth : el.videoWidth
       const h = bild ? el.naturalHeight : el.videoHeight
       const ar = klemmeSeitenverhaeltnis(b, h)
       if (ar === null) return
-      frame.style.setProperty('--photo-ar', ar.toFixed(4))
+      this._kartenMedium = { ...this._kartenMedium, ar }
     }
     if (istVideo) {
       this._stopVideo() // ein evtl. noch laufendes Video sauber ablösen
@@ -550,13 +562,73 @@ export class UI {
       if (img.complete) merkeSeitenverhaeltnis(img)
       else img.addEventListener('load', () => merkeSeitenverhaeltnis(img), { once: true })
     }
+    // Die Beschriftung geht ZWEIMAL heraus, und das ist Absicht: als Werte an
+    // den Maler (er liest kein `textContent` — genau das war der Weg, auf dem
+    // der Export bisher an die Texte kam) und als versteckte Kopie ins
+    // Dokument, damit ein Screenreader sie weiter findet (Konzept §3.4/Falle 1).
+    // „12.3 km" statt „KM 12.3": Die Pillen stehen in Satzschrift, das
+    // vorangestellte Versal-Kürzel war Teil des alten Sperrsatz-Etiketts.
+    const kmText = `${(photo.s / 1000).toFixed(1)} km`
+    const zaehlerText = count < 2 ? '' : `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
+    this._kartenText = { titel: photo.title, unter: photo.caption, kmText, zaehlerText }
     pTitle.textContent = photo.title
     pSub.textContent = photo.caption
-    // „12.3 km" statt „KM 12.3": Die Chips stehen jetzt in Satzschrift, das
-    // vorangestellte Versal-Kürzel war Teil des alten Sperrsatz-Etiketts.
-    pChip.textContent = `${(photo.s / 1000).toFixed(1)} km`
-    pCount.hidden = count < 2
-    pCount.textContent = `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
+    pChip.textContent = kmText
+    pCount.hidden = !zaehlerText
+    pCount.textContent = zaehlerText
+  }
+
+  /**
+   * Die Zeichenquelle dieser Filmsekunde — Foto, Video oder das Standbild, das
+   * ein Video überbrückt, bis sein erster Frame da ist.
+   *
+   * `bereit` ist die Zusicherung, die der Maler braucht: `drawImage` auf einem
+   * noch suchenden `<video>` zeichnet ohne Fehler das ALTE Bild (Konzept §5).
+   */
+  private _kartenQuelle(): { quelle: KartenQuelle | null; bereit: boolean } {
+    const { img, video, standbild } = this.els
+    if (!video.hidden && video.getAttribute('src')) {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        return {
+          quelle: { bild: video, breite: video.videoWidth, hoehe: video.videoHeight, kennung: video.src },
+          bereit: !video.seeking,
+        }
+      }
+      // Noch kein Frame: das Poster hält die Stelle. Es ist ein anderes Bild als
+      // das Video, aber ein richtiges — ein leerer Rahmen wäre die schlechtere
+      // Auskunft, und im Film wäre er ein schwarzes Feld.
+      if (!standbild.hidden && standbild.complete && standbild.naturalWidth > 0) {
+        return {
+          quelle: { bild: standbild, breite: standbild.naturalWidth, hoehe: standbild.naturalHeight, kennung: standbild.src },
+          bereit: true,
+        }
+      }
+      return { quelle: null, bereit: false }
+    }
+    if (!img.hidden && img.complete && img.naturalWidth > 0) {
+      return {
+        quelle: { bild: img, breite: img.naturalWidth, hoehe: img.naturalHeight, kennung: img.src },
+        bereit: true,
+      }
+    }
+    return { quelle: null, bereit: false }
+  }
+
+  /** Stand der letzten Zeichnung — der Video-Export fragt danach (Konzept §5). */
+  kartenBereit(): boolean {
+    return this.karten.bereit()
+  }
+
+  /**
+   * Abnahme-Griff: die Werte, aus denen die Leinwand gerade gemalt ist.
+   *
+   * Ein Screenshot zeigt das Bild, aber nicht seine Eingaben — und der
+   * Bildvergleich der Etappe 2 braucht genau die, um denselben Stand ein zweites
+   * Mal mit den Film-Einstellungen zu malen
+   * (scripts/messungen/kartenleinwand.mjs).
+   */
+  kartenStand(): unknown {
+    return this.karten.stand()
   }
 
   /**
@@ -568,16 +640,13 @@ export class UI {
    * „neu zu starten", der Stand kommt aus dem Delay.
    */
   zeigeKarte(photo: PlayerMedium, idx: number, count: number): void {
-    const { layer, card, flash } = this.els
+    const { layer } = this.els
     this.setPhotoContent(photo, idx, count)
-    this._kartenStand = '' // die Zeiten des neuen Klips müssen einmal durch
     layer.classList.add('show')
     layer.setAttribute('aria-hidden', 'false')
+    // Trägt den Schleier unter der Leinwand — der ist Geschwister der Schicht
+    // und hängt deshalb am body, nicht an `.photo-layer.show`.
     document.body.classList.add('cinema')
-    // Der Blitz gehört zum Auftritt und damit dem Kopf: Die Klasse steht,
-    // solange die Karte liegt; wo im Blitz man ist, sagt `--karte-zeit`.
-    flash.classList.add('on')
-    card.classList.add('in')
     this.syncDots(photo.s)
   }
 
@@ -594,20 +663,16 @@ export class UI {
    * (ein Seek je Frame ruckelt sichtbar).
    */
   synchronisiereKarte(imS: number, dauerS: number, tempo: number): void {
-    const { layer, holdFill, video } = this.els
-    const z = kartenZeiten(imS, dauerS)
-    const zeit = `${z.zeitS.toFixed(3)}s`
-    const stand = `${zeit}|${z.kbDauerS.toFixed(3)}|${z.ausZeitS.toFixed(3)}`
-    if (this._kartenStand !== stand) {
-      this._kartenStand = stand
-      // Auf der SCHICHT, nicht auf der Karte: Der Kamerablitz ist ihr
-      // Geschwister und erbt die Zeiten von dort.
-      layer.style.setProperty('--karte-zeit', zeit)
-      layer.style.setProperty('--kb-dauer', `${z.kbDauerS.toFixed(3)}s`)
-      layer.style.setProperty('--karte-aus-zeit', `${z.ausZeitS.toFixed(3)}s`)
-      layer.style.setProperty('--karte-aus-dauer', `${z.ausDauerS.toFixed(3)}s`)
-    }
-    holdFill.style.transform = `scaleX(${balkenAnteil(imS, dauerS).toFixed(4)})`
+    const { video } = this.els
+    const { quelle, bereit } = this._kartenQuelle()
+    this.karten.male({
+      imS,
+      dauerS,
+      medium: this._kartenMedium,
+      text: this._kartenText,
+      quelle,
+      bereit,
+    })
 
     if (video.hidden || !video.getAttribute('src')) {
       this._meldeVideoTon(0)
@@ -664,17 +729,15 @@ export class UI {
 
   /** Die Karte wegnehmen — außerhalb jedes Halts und beim Verlassen der Tour. */
   verbergeKarte(): void {
-    const { layer, card, flash } = this.els
+    const { layer, card } = this.els
     this._stopVideo() // Video anhalten + Ressource freigeben (+ Ducking aus)
     this.els.video.hidden = true
     this.els.sound.hidden = true
-    card.classList.remove('in')
     card.classList.remove('held')
-    flash.classList.remove('on')
     layer.classList.remove('show')
     layer.setAttribute('aria-hidden', 'true')
     document.body.classList.remove('cinema')
-    this._kartenStand = ''
+    this.karten.raeume()
   }
 
   showFinale(): void {

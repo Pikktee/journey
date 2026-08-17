@@ -301,7 +301,7 @@ Der INHALT kommt deshalb aus denselben Elementen, die der Player füllt
 Ken Burns läuft im Export heute in die GEGENRICHTUNG, „Entwickeln", Blitz,
 Standzeit-Balken und die Kennzahl-Pillen fehlen ganz. Der Weg dahin, die Karte
 im Player selbst auf eine Leinwand zu ziehen, steht samt Begründung und
-Etappen in [konzept_kartenleinwand.md](konzept_kartenleinwand.md).
+Etappen in [die-foto-karte-auf-eine-leinwand.md](die-foto-karte-auf-eine-leinwand.md).
 
 Kein html2canvas. Zahlen in [src/einblendung.ts](../../src/einblendung.ts).
 Der Export zeichnet Bild, Ken-Burns-Stand dieser Filmsekunde, Unterschrift.

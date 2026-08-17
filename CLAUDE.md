@@ -563,10 +563,11 @@ auseinander, wer die eine anfasst, sieht die andere nicht.
 `UI.synchronisiereKarte`), keine Wanduhr-Animation mehr. Jede Aufnahme eines Halts ist ein
 KLIP von Standzeit + Ausblendung (`klipDauerS` in [einblendung.ts](src/einblendung.ts));
 steht `filmS` darin, liegt ihre Karte auf der Bühne — mit dem Auftritt, dem „Entwickeln", dem
-Ken-Burns-Stand und dem Video-Frame genau dieser Filmsekunde. Technisch stehen die Animationen
-dauerhaft auf `animation-play-state: paused`, ihr Fortschritt kommt aus einem NEGATIVEN Delay
-(`--karte-zeit`, gesetzt bei jedem Frame) — die Technik, mit der man ein Standbild aus einer
-Animation zieht, aus dem Editor übernommen (`--fe-zeit`). Vier Dinge fallen damit zusammen:
+Ken-Burns-Stand und dem Video-Frame genau dieser Filmsekunde. Technisch **malt sie seit dem
+2026-08-17 ein Maler auf eine LEINWAND** (s. den nächsten Abschnitt); bis dahin standen die
+Animationen dauerhaft auf `animation-play-state: paused` und ihr Fortschritt kam aus einem
+NEGATIVEN Delay (`--karte-zeit`) — die Technik, mit der man ein Standbild aus einer Animation
+zieht. Im Editor steht sie unverändert so (`--fe-zeit`). Vier Dinge fallen damit zusammen:
 Die Karte erscheint auch rückwärts und animiert rückwärts; **Ken Burns ist pausierbar** (als
 `transition` lief er unter dem „Angehalten"-Abzeichen weiter, gemessen: Bildskala hält jetzt
 über 2,2 s Wanduhr exakt); Scrubben durch einen Halt zeigt endlich etwas (`beginScrub` räumte
@@ -580,6 +581,55 @@ eigenen Auf- und Abgang. Was geteilt wird, sind die RECHNUNGEN (`kartenZeiten`,
 `balkenAnteil`, `klipDauerS`, `videoStandS` in [einblendung.ts](src/einblendung.ts)) und die
 Filmzeit — **nicht die Mechanik**: Ein gemeinsames DOM-Bauteil ist ausdrücklich nicht gewollt
 (Konzept §6A), der Player streamt einen Film voraus, der Editor springt in einer Datei umher.
+
+**Und die Karte des PLAYERS liegt auf einer Leinwand** ([kartenmaler.ts](src/kartenmaler.ts),
+DOM-frei; eingehängt von [kartenschicht.ts](src/kartenschicht.ts) als `#karte` auf z-index 12).
+Damit gibt es sie nur noch ZWEIMAL statt dreimal: Der Video-Export holt sie mit
+`zeichneOverlay(ctx, 'karte', …)`, derselben Zeile wie für Wetter und Atmosphäre, und sein
+eigener Nachbau ist weg. Der hatte Ken Burns in der GEGENRICHTUNG laufen, kein „Entwickeln",
+keinen Blitz, keinen Balken, keine Pillen — und las die Texte per `textContent` aus dem DOM
+zurück, das der Player gerade gefüllt hatte
+([docs/concepts/konzept_kartenleinwand.md](docs/concepts/die-foto-karte-auf-eine-leinwand.md)).
+Sieben Dinge, die man dabei kippt:
+
+- **Was Bildinhalt ist, geht auf die Leinwand; was Umgebung oder Bedienung ist, bleibt DOM.**
+  Der Schleier liegt DARUNTER (z 11), weil `backdrop-filter` auf einer Leinwand kein Gegenstück
+  hat und ein eingefrorener Puffer nicht trägt (er bräuchte `preserveDrawingBuffer` im
+  Normalbetrieb, und das Wetter läuft im Halt weiter). Klickfläche, Ton-Knopf, „Weiter ▸" und
+  das „Angehalten"-Abzeichen liegen DARÜBER (z 14) — Knöpfe haben im Film nichts zu suchen.
+- **Die Klickflächen sind MITGEFÜHRT.** `maleKarte` gibt seine Rechtecke zurück
+  (`KartenMasse`), die Schicht legt die DOM-Elemente pro Frame darauf. Ein statischer Kasten
+  wäre falsch, sobald die Karte springt, weil die Bedienung erscheint oder verschwindet.
+- **Eine Leinwand zeichnet sich nicht von selbst neu.** Eine Custom Property tat es; hier hängt
+  jede Änderung am nächsten Kopfschritt, und im ANGEHALTENEN Halt läuft keiner. Der Rückzug der
+  UI kippt genau dort (die Steuerleiste deckte die Bildunterschrift zu), und ein Resize LÖSCHT
+  die Leinwand, weil er `canvas.width` schreibt. Die Schicht beobachtet deshalb Größe UND die
+  Klasse am body.
+- **`prefers-reduced-motion` ist ein SCHALTER im Aufruf** (`buehne.ruhig`) und kein Blick des
+  Malers nach draußen — im Export ist er immer aus, sonst hätte die Einstellung des rendernden
+  Rechners Einfluss auf die ausgelieferte Datei. Ein Wächter verbietet dem Maler `matchMedia`.
+- **Es gibt eine BEZUGSHÖHE** (900 CSS-Pixel, `mass = klemme(hoehe/900, 0.7, 2.6)`): Jede feste
+  Länge im Maler ist ein Wert bei dieser Höhe. Ohne sie wäre die Karte im 4K-Film ein
+  Briefmarkenrahmen mit Fußnotenschrift — ein gemeinsamer Zeichner allein macht zwei Bühnen
+  nicht deckungsgleich. Nicht mit skalieren nur drei Mindest-Schriftgrößen (Telefon) und der
+  Boden des Bildradius. Die LAGE (`breit`/`schmal`/`quer`) leitet der Maler selbst aus Breite
+  und Höhe ab, an denselben Schwellen, an denen vorher `body.kompakt-quer` und
+  `@media (max-width: 700px)` hingen.
+- **Das „Entwickeln" ist eine Überblendung zweier gepufferter Fassungen, nicht `ctx.filter` pro
+  Frame.** Der ist je nach Browser nicht beschleunigt. Es ist eine NÄHERUNG (gemessen: max 24
+  von 255 in der Kurvenmitte, Anfang und Ende exakt) und hat in der Abnahme eine eigene
+  Toleranz. Gepuffert werden ebenso der Schatten (in niedriger Auflösung) und jeder Textblock:
+  Pro Frame Text messen und `shadowBlur` auf die große Karte legen macht eine Leinwand
+  LANGSAMER als das DOM, das sie ersetzt.
+- **Der Text bleibt im Dokument.** Eine versteckte Kopie (`figcaption.sr-only`) trägt Titel und
+  Bildunterschrift weiter für Screenreader — ohne sie wäre der Umbau eine
+  Zugänglichkeits-Regression, die niemandem auffällt, weil das Bild gleich aussieht.
+
+Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts)),
+bewacht gegen `studio.html`; die Geometrie der Player-Bühne (`KARTEN_MASSE`) ist ausdrücklich
+NICHT geteilt — der Editor hat eine kleine Karte auf einem Leuchttisch. Gemessen wurde mit
+[scripts/messungen/kartenleinwand.mjs](scripts/messungen/kartenleinwand.mjs): Bühne gegen Film
+bei gleichem Format max 0 von 255, Frame-Zeit im Halt unverändert (14,4 → 14,0 ms).
 **Und die Leiste ist die ZEITACHSE des Films** (Etappe 5), nicht mehr die Strecke. Damit hat
 jeder Halt die Breite, die er im Film einnimmt — und weil sich eine Breite anfahren lässt,
 kann man mitten in einen Halt scrubben und sieht dort den Stand dieser Filmsekunde. Vorher

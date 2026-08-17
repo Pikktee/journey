@@ -203,10 +203,11 @@ export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number):
  * daneben (`KARTE_BUEHNE`) — mit ihrem Grund.** Ein Wert, der auf zwei Bühnen
  * zufällig anders ist, gilt danach als Fehler und nicht als Geschmack.
  *
- * Bewacht von test/einblendung-css.test.ts, das CSS und HTML gegen diese
- * Tabelle liest. Nach Etappe 2 des Konzepts steht die Player-Optik nicht mehr
- * in `style.css`, sondern im Maler — die Tabelle überlebt das, der Lesecode des
- * Wächters für diese eine Seite nicht.
+ * Bewacht von test/einblendung-css.test.ts. Seit Etappe 2 steht die Player-Optik
+ * nicht mehr in `style.css`, sondern im Maler (src/kartenmaler.ts): Der Wächter
+ * vergleicht deshalb die RECHNUNG des Malers gegen `studio.html` statt CSS gegen
+ * CSS. Die Tabelle hat den Wechsel überlebt, der Lesecode für die eine Seite
+ * nicht — genau wie in Etappe 1 vorgemerkt.
  */
 export const KARTE = {
   /**
@@ -341,62 +342,27 @@ export const KARTE_BUEHNE = {
 } as const
 
 /**
- * Bekannte Abweichungen des Video-Exports von der Tabelle — Etappe 1 behebt
- * sie NICHT, sie benennt sie.
+ * Bekannte Abweichungen des Video-Exports von der Tabelle — **leer, und das ist
+ * das Ergebnis von Etappe 2.**
  *
- * Der Export ist in dieser Etappe der dritte Vergleichspunkt und nichts sonst:
- * Er malt die Karte von Hand auf seine Komposition, ohne DOM und ohne CSS, und
- * dieser Nachbau verschwindet mit Etappe 2 vollständig. Ihn jetzt Zahl für Zahl
- * nachzuziehen hieße, Code zu pflegen, der gelöscht wird.
+ * In Etappe 1 standen hier sieben Zeilen: Ken Burns in der Gegenrichtung, kein
+ * „Entwickeln", ein Auftritt ohne Flug, fehlender Blitz, fehlender Balken,
+ * fehlende Pillen, ein rohes Seitenverhältnis und Texte, die per `textContent`
+ * aus dem DOM zurückgelesen wurden. Sie wurden nicht Zahl für Zahl nachgezogen —
+ * der ganze Nachbau (`zeichneFotoKarte`) ist weg. Der Export holt die Karte
+ * jetzt mit einem `drawImage` von der Leinwand des Players, genau wie Wetter und
+ * Atmosphäre (docs/concepts/konzept_kartenleinwand.md §3.1).
  *
- * Wozu die Liste dann? Damit sie SCHRUMPFT. Der Wächter prüft, dass jede hier
- * genannte Abweichung im Export tatsächlich noch so dasteht — wer eine behebt
- * oder den Nachbau entfernt, muss die Zeile hier streichen. Ohne das wäre die
- * Liste nach Etappe 2 eine Beschreibung von Code, den es nicht mehr gibt.
- *
- * `spur` ist die Stelle in src/exportfilm.ts, an der die Abweichung steht.
+ * Die Liste bleibt als Feld stehen und nicht als Kommentar, weil ihr Zweck
+ * bleibt: Sie ist der Ort für die NÄCHSTE Abweichung, und der Wächter verlangt
+ * für jeden Eintrag eine Spur im Code und einen Sollzustand. Wer dem Export
+ * wieder eigene Optik gibt, trägt sie hier ein oder hat einen roten Test.
  */
 export const KARTE_EXPORT_ABWEICHUNGEN: readonly {
   was: string
   spur: string
   soll: string
-}[] = [
-  {
-    was: 'Ken Burns läuft in die GEGENRICHTUNG — das Bild zoomt hinein statt heraus, linear über feste 6 s statt über die Klip-Länge.',
-    spur: '1 + 0.06 * Math.min(1, imS / 6)',
-    soll: 'kenBurnsVon → kenBurnsBis über die Klip-Länge',
-  },
-  {
-    was: 'Das „Entwickeln" fehlt ganz.',
-    spur: 'ctx.drawImage(quelle,',
-    soll: 'entwickelnVon → entwickelnBis über entwickelnDauerS',
-  },
-  {
-    was: 'Der Auftritt ist eine lineare Deckkraft ohne Flug — keine Geometrie, keine Kurve.',
-    spur: 'if (imS < 0.5) a = Math.max(0, imS / 0.5)',
-    soll: 'Blende UND Flug, mit flugKurve',
-  },
-  {
-    was: 'Kamerablitz, Standzeit-Balken und die Kennzahlen-Pillen fehlen.',
-    spur: 'const textH = titel || unter ?',
-    soll: 'Blitz, Balken (balkenAnteil) und Pillen wie auf der Bühne',
-  },
-  {
-    was: 'Der Schleier ist eine flache Füllung — das ist gewollt (Konzept §4, der Export komponiert selbst), aber die FARBE weicht zusätzlich ab.',
-    spur: "ctx.fillStyle = 'rgba(6, 10, 16, 0.28)'",
-    soll: 'schleierFarbe (flach: benannte Variante, 0.28 statt 0.3: nicht)',
-  },
-  {
-    was: 'Das Seitenverhältnis ist roh statt geklemmt.',
-    spur: '(quelle.naturalWidth || 3) / (quelle.naturalHeight || 2)',
-    soll: 'klemmeSeitenverhaeltnis',
-  },
-  {
-    was: 'Texte werden aus dem DOM zurückgelesen, das der Player gerade gefüllt hat.',
-    spur: "layer.querySelector('.photo-title')?.textContent",
-    soll: 'dieselben Daten wie der Player, nicht dessen Ergebnis',
-  },
-]
+}[] = []
 
 /**
  * Reihenfolge der Aufnahmen INNERHALB eines Halts.
