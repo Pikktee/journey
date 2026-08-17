@@ -937,12 +937,26 @@ kbd {
  * vier weitere untereinander lesen sich als Tabellenkopf statt als Beiwerk. */
 
 .kopftafel {
+  /* ZWEI Maße, aus denen alles Übrige folgt: die Etikettenspalte und die Luft
+     neben der Achse. Vorher standen Spaltenbreite, Spaltenabstand und die
+     Position der Linie als drei unabhängige Zahlen da — die Linie klebte
+     dadurch am Wert, und wer eine Zahl anfasste, verschob sie weiter. Jetzt
+     kann sie nicht mehr driften: Sie sitzt per Definition in der Mitte. */
+  --tafel-spalte: 84px;
+  --tafel-luft: 22px;
+
   position: relative;
   display: grid;
-  grid-template-columns: 76px 1fr;
+  grid-template-columns: var(--tafel-spalte) 1fr;
+  /* Der Abstand gehört HIERHER und nicht in die Zeile: Eine Zeile mit
+     `grid-template-columns: subgrid` übernimmt die Spalten UND die Abstände des
+     Elternteils, ihr eigenes `gap` bleibt in dieser Achse wirkungslos. Genau
+     daran lag die Linie vorher auf der Kante des Wertes statt zwischen den
+     Spalten — sichtbar als „Trenner klebt am Text". */
+  column-gap: calc(var(--tafel-luft) * 2);
   max-width: var(--lesebreite);
-  margin: 2px 0 36px;
-  padding: 3px 0;
+  margin: 6px 0 40px;
+  padding: 7px 0;
   border-top: 1px solid var(--rand);
   border-bottom: 1px solid var(--rand);
   font-size: 14.5px;
@@ -954,9 +968,13 @@ kbd {
 .kopftafel::before {
   content: '';
   position: absolute;
-  top: 11px;
-  bottom: 11px;
-  left: 86px;
+  /* Eingezogen auf die Höhe der ersten und letzten Textzeile (Rahmenpolster
+     7px + Zeilenpolster 9px), damit die Achse dort beginnt, wo der Inhalt
+     beginnt, und die Rahmenlinien nicht berührt: Ein Kreuz aus Haarlinien
+     liest sich als Tabellenecke. */
+  top: 16px;
+  bottom: 16px;
+  left: calc(var(--tafel-spalte) + var(--tafel-luft));
   width: 1px;
   background: var(--rand-hell);
 }
@@ -964,12 +982,19 @@ kbd {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
-  gap: 21px;
   align-items: baseline;
-  padding: 8px 0;
+  padding: 9px 0;
 }
-.kopftafel dt { color: var(--text-3); font-weight: 400; font-size: 13.5px; text-align: right; }
-.kopftafel dd { margin: 0; color: var(--text); line-height: 1.45; }
+.kopftafel dt {
+  color: var(--text-3);
+  font-size: 13.5px;
+  font-weight: 400;
+  /* Rechtsbündig GEGEN die Achse: Etikett und Wert bekommen dadurch je eine
+     Kante, und die Tafel eine Mitte. Linksbündig standen vier Wörter
+     unterschiedlicher Länge frei im Raum. */
+  text-align: right;
+}
+.kopftafel dd { margin: 0; color: var(--text); line-height: 1.5; }
 
 .tafel-datum { font-variant-numeric: tabular-nums; }
 
