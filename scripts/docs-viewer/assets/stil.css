@@ -304,34 +304,6 @@ kbd {
 
 /* ── Einstieg ─────────────────────────────────────────────────────────── */
 
-.einstieg { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-.einstiegskarte {
-  display: flex;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid var(--rand);
-  border-radius: var(--radius-karte);
-  background: linear-gradient(140deg, color-mix(in srgb, var(--akzent) 7%, var(--fl-1)), var(--fl-1) 60%);
-  color: var(--text);
-  transition: border-color 0.16s, transform 0.16s;
-}
-.einstiegskarte:hover { border-color: color-mix(in srgb, var(--akzent) 50%, var(--rand)); transform: translateY(-2px); text-decoration: none; }
-.einstiegskarte .nummer {
-  flex: none;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--akzent) 18%, transparent);
-  color: var(--akzent);
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.einstiegskarte h3 { margin: 3px 0 5px; font-size: 16.5px; font-weight: 600; letter-spacing: -0.015em; }
-.einstiegskarte p { margin: 0 0 8px; color: var(--text-gedaempft); font-size: 14.2px; line-height: 1.5; }
-.einstiegskarte .dauer { color: var(--text-3); font-size: 12.5px; }
 
 /* ── Bereichskacheln ──────────────────────────────────────────────────── */
 
@@ -344,11 +316,11 @@ kbd {
   border-radius: var(--radius-karte);
   background: var(--fl-1);
   color: var(--text);
-  transition: border-color 0.16s, transform 0.16s;
+  transition: border-color 0.16s, box-shadow 0.16s;
 }
 .bereich-kachel:hover {
   border-color: color-mix(in srgb, var(--ton) 60%, var(--rand));
-  transform: translateY(-2px);
+  box-shadow: 0 8px 22px -10px rgb(2 5 10 / 0.7);
   text-decoration: none;
 }
 /* Ohne die eigene Höhe nimmt ein SVG seine Standardhöhe von 150 px und läuft
@@ -452,7 +424,7 @@ kbd {
   border-radius: var(--radius-karte);
   background: var(--fl-1);
   color: var(--text);
-  transition: border-color 0.16s, background 0.16s, transform 0.16s;
+  transition: border-color 0.16s, background 0.16s, box-shadow 0.16s;
 }
 /* KEIN `overflow: hidden` auf der Karte: Es schnitt das Aktionsmenü an der
    Kartenkante ab. Die Bildrundung macht deshalb der Bildkasten selbst. */
@@ -460,9 +432,19 @@ kbd {
    die nächste Karte über die Klappe. */
 .dok-karte:has(.aktionen.offen), .mockup:has(.aktionen.offen) { z-index: 5; }
 .dok-karte { gap: 8px; padding: 18px 19px 14px; }
+/* Hover HEBT, aber BEWEGT NICHT.
+ *
+ * Hier stand `transform: translateY(-2px)`, und das war ein Hover, der gegen den
+ * Zeiger arbeitet: Die Karte wandert unter ihm weg, verliert an der Kante den
+ * Hover, fällt zurück, bekommt ihn wieder — sie zuckt. Bei den hohen Kacheln mit
+ * Vorschaubild fiel es kaum auf; seit sie kurz sind, liegt der Zeiger viel öfter
+ * nahe einer Kante.
+ *
+ * Ein Schatten macht denselben Eindruck, ohne die Geometrie anzufassen. Damit
+ * kann die Karte den Zeiger nicht mehr verlieren. */
 .dok-karte:hover, .mockup:hover {
   border-color: color-mix(in srgb, var(--ton, var(--akzent)) 55%, var(--rand));
-  transform: translateY(-2px);
+  box-shadow: 0 8px 22px -10px rgb(2 5 10 / 0.7);
 }
 .dok-karte:has(.karte-flaeche:focus-visible), .mockup:has(.karte-flaeche:focus-visible) {
   outline: 2px solid var(--akzent);
@@ -1093,7 +1075,6 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
   background: var(--fl-1);
   scroll-margin-top: 84px;
 }
-.mockup:hover .mockup-text { padding: 14px 16px 16px; }
 .mockup-text h3 { margin: 0 0 5px; font-size: 16px; font-weight: 600; }
 .mockup-text p { margin: 0 0 8px; color: var(--text-gedaempft); font-size: 14px; }
 
@@ -2208,9 +2189,31 @@ body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
    keine mehr. Sie ist beschriftet, man muss ihr nichts erklären. */
 .rm-phase.ziel { background: color-mix(in srgb, var(--ton, var(--akzent)) 11%, transparent); }
 
-/* Zu welchem Konzept gehört dieser Entwurf? Eine Zeile auf der Kachel — die
-   Antwort stand bisher nur im Fließtext des Konzepts, also dort, wo man sie
-   nicht sucht. */
-.mockup-konzept { margin: 8px 0 0; color: var(--text-3); font-size: 12.5px; }
+/* Zu welchem Konzept gehört dieser Entwurf?
+ *
+ * Mit einem ETIKETT davor, nicht als Satzanfang („Gehört zu …"): Das Etikett
+ * sagt, was das Folgende ist, und man erkennt die Zeile, ohne sie zu lesen.
+ * Dieselbe Form wie in der Kopftafel eines Dokuments — Etikett, dann Wert.
+ *
+ * Und sie steht AUCH DA, wenn kein Konzept verlinkt ist. „keines verlinkt" ist
+ * eine Auskunft; eine fehlende Zeile ist eine Lücke, bei der man nicht weiß, ob
+ * niemand nachgesehen hat oder ob es nichts gibt. */
+.mockup-konzept {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  margin: 9px 0 0;
+  font-size: 13px;
+}
+.mockup-konzept-etikett {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--fl-3);
+  color: var(--text-3);
+  font-size: 11.5px;
+}
 .mockup-konzept a { color: var(--text-2); }
 .mockup-konzept a:hover { color: var(--akzent); }
+.mockup-konzept.ohne { color: var(--text-3); }

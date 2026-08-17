@@ -448,19 +448,29 @@ function mockupKarte(m, auf, roadmap) {
       <h3>${escape(m.titel)}</h3>
       ${m.klappentext ? `<p>${escape(m.klappentext)}</p>` : ''}
       ${
-        // WOZU gehört dieser Entwurf? Die Frage stellt man sich bei jedem
-        // Prototyp, und bis hierher stand die Antwort nur im Fließtext des
-        // Konzepts — also genau dort, wo man sie nicht sucht.
+        /*
+         * WOZU gehört dieser Entwurf? Die Frage stellt man sich bei jedem
+         * Prototyp, und bis hierher stand die Antwort nur im Fließtext des
+         * Konzepts — also genau dort, wo man sie nicht sucht.
+         *
+         * Als Satzanfang („Gehört zu Live mitverfolgen") war sie zu leise: Man
+         * musste lesen, um zu merken, dass da eine BEZIEHUNG steht und keine
+         * Bildunterschrift. Jetzt ein benanntes Etikett — „Konzept" sagt, was
+         * das Folgende ist, und der Titel daneben ist der Link. Dieselbe Form
+         * wie in der Kopftafel eines Dokuments: Etikett, dann Wert.
+         */
         (m.konzepte ?? []).length
-          ? `<p class="mockup-konzept">Gehört zu ${m.konzepte
+          ? `<p class="mockup-konzept"><span class="mockup-konzept-etikett">${
+              m.konzepte.length === 1 ? 'Konzept' : 'Konzepte'
+            }</span>${m.konzepte
               .map(
                 (k) =>
                   `<a href="${auf}${escape(k.ziel)}">${escape(
                     k.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''),
                   )}</a>`,
               )
-              .join(' · ')}</p>`
-          : ''
+              .join('<span class="tafel-punkt">·</span>')}</p>`
+          : `<p class="mockup-konzept ohne"><span class="mockup-konzept-etikett">Konzept</span>keines verlinkt</p>`
       }
       <footer class="karte-fuss">
         <span class="karte-meta">${escape(m.name)}</span>

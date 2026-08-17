@@ -473,15 +473,47 @@ describe('Konzept und Prototyp kennen sich', () => {
     for (const m of ohne) expect(m.konzepte).toEqual([])
   })
 
-  it('zeigt die Beziehung auf der Kachel', () => {
+  it('kennzeichnet die Beziehung mit einem Etikett, auch wenn keine besteht', () => {
     const html = mockupSeite({
       mockups: eigene,
       bereiche,
       roadmap: sammleRoadmap(dokumente, eigene),
       schriftLokal: false,
     })
+    // Als Satzanfang („Gehört zu …") war die Zeile zu leise — man musste lesen,
+    // um zu merken, dass da eine Beziehung steht. Und sie steht AUCH DA, wenn
+    // keine besteht: „keines verlinkt" ist eine Auskunft, eine fehlende Zeile
+    // eine Lücke, bei der man nicht weiß, ob niemand nachgesehen hat.
+    const kacheln = html.split('<article class="mockup"').length - 1
+    const etiketten = (html.match(/mockup-konzept-etikett/g) ?? []).length
+    expect(etiketten).toBe(kacheln)
+    expect(html).toContain('keines verlinkt')
+    expect(html).not.toContain('Gehört zu')
+  })
+
+  it('hebt Karten beim Überfahren ohne sie zu BEWEGEN', () => {
+    // `transform: translateY(-2px)` auf `:hover` ist ein Hover, der gegen den
+    // Zeiger arbeitet: Die Karte wandert unter ihm weg, verliert an der Kante
+    // den Hover, fällt zurück — sie zuckt. Bei kurzen Kacheln ständig.
+    // KOMMENTARE ZUERST WEG: Die erste Fassung dieses Wächters schlug an ihrem
+    // eigenen Begleittext an, der die verworfene Regel zitiert.
+    const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+    const hoverRegeln = blatt.match(/[^}]*:hover[^{]*\{[^}]*\}/g) ?? []
+    const bewegend = hoverRegeln.filter((r) => /transform:\s*translate/.test(r))
+    expect(bewegend, 'Hover verschiebt ein Element').toEqual([])
+  })
+
+  it('verlinkt das Konzept von der Kachel aus', () => {
+    const html = mockupSeite({
+      mockups: eigene,
+      bereiche,
+      roadmap: sammleRoadmap(dokumente, eigene),
+      schriftLokal: false,
+    })
+    const mit = eigene.find((m) => m.konzepte.length)
     expect(html).toContain('mockup-konzept')
-    expect(html).toContain('Gehört zu')
+    expect(html).toContain(`href="${mit.konzepte[0].ziel}"`)
   })
 })
 

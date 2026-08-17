@@ -205,6 +205,22 @@ her, die der Viewer sonst nicht kennt. Wer trotzdem einen Prototyp in
 `roadmap.md` einträgt, bekommt beim Bauen eine Meldung; das Menü an einer
 Prototyp-Kachel bietet keine Phase mehr an, und der Dienst weist sie ab.
 
+**Auf der Kachel steht sie als ETIKETT**, nicht als Satzanfang: `Konzept` und
+daneben der verlinkte Titel — dieselbe Form wie in der Kopftafel eines Dokuments.
+Als „Gehört zu …" musste man lesen, um zu merken, dass da eine Beziehung steht.
+Und sie steht auch da, wenn keine besteht („keines verlinkt"): Das ist eine
+Auskunft, eine fehlende Zeile wäre eine Lücke, bei der man nicht weiß, ob niemand
+nachgesehen hat oder ob es nichts gibt.
+
+**Karten heben beim Überfahren, ohne sich zu bewegen.** Sie hatten
+`transform: translateY(-2px)`, und das ist ein Hover, der gegen den Zeiger
+arbeitet: Die Karte wandert unter ihm weg, verliert an der Kante den Hover, fällt
+zurück, bekommt ihn wieder — sie zuckt. Bei den hohen Kacheln mit Vorschaubild
+fiel es kaum auf, seit sie kurz sind ständig. Ein Schatten macht denselben
+Eindruck, ohne die Geometrie anzufassen; ein Wächter verbietet `translate` in
+jeder `:hover`-Regel (und musste dabei lernen, vorher die Kommentare zu
+entfernen — die erste Fassung schlug an ihrem eigenen Begleittext an).
+
 **Die Beziehung ist n:m und keine Pflicht.** Gemessen am 2026-08-17: 11 von 25
 Prototypen werden von einem Konzept verlinkt, einer von zwei (`studio-konto.html`
 → Profil/Konto und Newsletter), 14 von keinem. Bei mehreren davon ist das
