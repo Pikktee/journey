@@ -460,17 +460,17 @@ function mockupKarte(m, auf, roadmap) {
          * wie in der Kopftafel eines Dokuments: Etikett, dann Wert.
          */
         (m.konzepte ?? []).length
-          ? `<p class="mockup-konzept"><span class="mockup-konzept-etikett">${
+          ? `<div class="mockup-konzept"><span class="mockup-konzept-etikett">${
               m.konzepte.length === 1 ? 'Konzept' : 'Konzepte'
-            }</span>${m.konzepte
+            }</span><span class="mockup-konzept-wert">${m.konzepte
               .map(
                 (k) =>
                   `<a href="${auf}${escape(k.ziel)}">${escape(
                     k.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''),
                   )}</a>`,
               )
-              .join('<span class="tafel-punkt">·</span>')}</p>`
-          : `<p class="mockup-konzept ohne"><span class="mockup-konzept-etikett">Konzept</span>keines verlinkt</p>`
+              .join('<span class="tafel-punkt">·</span>')}</span></div>`
+          : `<div class="mockup-konzept ohne"><span class="mockup-konzept-etikett">Konzept</span><span class="mockup-konzept-wert">keines verlinkt</span></div>`
       }
       <footer class="karte-fuss">
         <span class="karte-meta">${escape(m.name)}</span>
