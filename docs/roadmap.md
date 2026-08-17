@@ -43,29 +43,29 @@ jeweiligen Dokuments. Wer eine Etappe abschließt, ändert sie dort.
 Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
-* [Monetarisierung](concepts/konzept_monetarisierung.md) — die Esri-Lizenz klären.
-* [Tempoempfinden](concepts/konzept_tempoempfinden.md) — die zwei offenen Kandidaten messen.
-* [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — nach Polar der zweite Anbieter.
-* [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — die App-Seite fehlt noch.
+* [Monetarisierung](concepts/konzept_monetarisierung.md) — Die Esri-Lizenz klären.
+* [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
+* [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
+* [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch.
 
 ## Beschlossen · als Nächstes
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Play Store](concepts/konzept_play_store_interner_test.md) — die App aus dem APK-Versand herausholen.
+* [Play Store](concepts/konzept_play_store_interner_test.md) — Die App aus dem APK-Versand herausholen.
 * [Social Login](concepts/konzept_social_login.md) — Anmelden mit Google.
 * [Newsletter](concepts/konzept_newsletter.md) — Teil B: der redaktionelle Versand.
-* [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — die Leiste nach Paket G.
-* [Studio-Editor zerlegen](concepts/konzept_editor_zerlegung.md) — bevor `editor.ts` weiter wächst.
+* [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — Die Leiste nach Paket G.
+* [Studio-Editor zerlegen](concepts/konzept_editor_zerlegung.md) — Bevor `editor.ts` weiter wächst.
 
 ## Angedacht · ohne Termin
 
 Gewollt, aber ohne Reihenfolge. Was hier steht, wartet auf einen Anlass.
 
 * [Live mitverfolgen](concepts/konzept_live_mitverfolgen.md) — Live-Link während der Aufnahme.
-* [Reisen und Sammlungen](concepts/konzept-reisen-sammlungen.md) — mehrtägige Touren zusammenfassen.
+* [Reisen und Sammlungen](concepts/konzept-reisen-sammlungen.md) — Mehrtägige Touren zusammenfassen.
 * [Mehrsprachigkeit](concepts/konzept_mehrsprachigkeit_i18n.md) — `/de/` und `/en/`.
-* [Editor-Ausbau](concepts/editor-ausbau.md) — erzählerische Werkzeuge im Studio.
-* [Tour nur aus Fotos](concepts/foto-tour.md) — ganz ohne GPS-Track.
-* [Modi konsolidieren](concepts/modi-konsolidierung.md) — ein neuer Modus soll eine Zeile sein.
-* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) — vertagt, Glossar gilt schon.
+* [Editor-Ausbau](concepts/editor-ausbau.md) — Erzählerische Werkzeuge im Studio.
+* [Tour nur aus Fotos](concepts/foto-tour.md) — Ganz ohne GPS-Track.
+* [Modi konsolidieren](concepts/modi-konsolidierung.md) — Ein neuer Modus soll eine Zeile sein.
+* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) — Vertagt, Glossar gilt schon.

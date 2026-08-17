@@ -1844,16 +1844,22 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 /* Der nächste Schritt trägt einen Pfeil: Ohne ihn stehen Stand und Schritt als
    zwei gleich aussehende graue Zeilen untereinander, und man liest beide als
    einen Satz. */
+/* Der nächste Schritt — die einzige Handlung auf der Karte.
+ *
+ * Markiert von einer HAARLINIE und nicht von einem Pfeil-Zeichen. Zwei Gründe,
+ * und der zweite ist der wichtigere: Das Zeichen saß bei 14 px Einzug direkt am
+ * Text („→die Esri-Lizenz klären"), und es markierte nur die ERSTE ZEILE — die
+ * Sätze hier brechen aber über zwei bis drei. Eine Linie am linken Rand gehört
+ * dem ganzen Block, egal wie oft er umbricht. Dieselbe Sprache wie die Achse in
+ * der Kopftafel: Ordnung durch Linien, nicht durch Symbole.
+ */
 .rm-schritt {
   display: block;
-  margin-top: 3px;
-  padding-left: 14px;
-  position: relative;
-  color: var(--text-gedaempft);
-  font-size: 12.8px;
-  line-height: 1.45;
+  margin-top: 5px;
+  color: var(--text-2);
+  font-size: 13.2px;
+  line-height: 1.5;
 }
-.rm-schritt::before { content: '→'; position: absolute; left: 0; color: var(--text-3); }
 .rm-fuss { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .rm-alter { color: var(--text-3); font-size: 12px; }
 /* Zwei Wochen unberührt ist keine Farbe wert, eine Woche schon ein Hinweis. */
@@ -2031,9 +2037,10 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
   font-size: 12px;
   line-height: 1.5;
 }
-.rm-kette::before { font-size: 11px; opacity: 0.9; }
-.rm-kette.wartet::before { content: '⏳'; }
-.rm-kette.blockiert::before { content: '⛔'; }
+/* KEINE Emoji davor. „wartet auf" und „blockiert" stehen als Wörter in der
+   Marke, ein Zeichen daneben sagt dasselbe ein zweites Mal — und Emoji sehen
+   auf jedem System anders aus. Unterschieden werden die Richtungen durch die
+   Farbe: Warten ist ein Zustand (gedämpft), Blockieren ein Befund (Warnfarbe). */
 .rm-kette.blockiert { border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
 .rm-kette:hover { border-color: var(--rand-hell); color: var(--text); text-decoration: none; }
 .rm-kette.blockiert:hover { border-color: var(--warn); color: var(--warn); }
