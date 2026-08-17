@@ -264,6 +264,29 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
 * **Drei Töpfe statt einem**: eingeplant, **Abgearbeitet** (der Plan ist durch)
   und **Ohne Phase**. Vorher lag beides zusammen und die Liste behauptete
   Versäumnisse, wo Erledigtes stand.
+* **Ein Satz je Karte** — der nächste Schritt, vollständig. Vorher standen
+  Statussatz und Schritt übereinander, der erste auf 64 Zeichen gekappt; zwei
+  angeschnittene Sätze in einer schmalen Spalte liest niemand. Der Stand hängt
+  im Tooltip und wird sichtbar, wo er der Phase widerspricht.
+* **`[wartet auf: <pfad>]`** am Ende einer Zeile macht aus der Liste einen
+  Ablauf: Auf der wartenden Karte steht „wartet auf …", auf der anderen
+  „blockiert …". Notiert wird nur die eine Richtung, die andere leitet der
+  Viewer ab — zwei gepflegte Angaben liefen beim ersten Umplanen auseinander.
+* **„Code bewegt vor …"** misst an den Dateien, die ein Konzept unter
+  `betrifft` nennt, NICHT am Dokument selbst. Das Git-Datum des Dokuments misst
+  nicht den Fortschritt am Vorhaben: Die Umstellung der Köpfe auf Front Matter
+  hat an einem Tag jede Datei angefasst, und danach stand bei allen laufenden
+  Einträgen „heute". Wo ein Konzept keine Dateien nennt, bleibt die Angabe weg.
+* **„N Vorhaben sind im Code, aber in keiner Phase"** steht über den Spalten.
+  Das ist der teurere Teil von „ohne Phase": Woran gearbeitet wird, ohne dass
+  es eingeplant ist, taucht auf der Roadmap gar nicht auf — und fällt genau
+  deshalb niemandem auf.
+* **Der Linktext in `roadmap.md` ist der Kartenname.** „Studio-Editor
+  zerlegen" statt „Umbauplan: Studio-Editor zerlegen (editor.ts)". Steht dort
+  noch ein Dateiname, nimmt die Karte den Dokumenttitel.
+* **Die letzte Phase ist ein Band, keine Spalte.** Als schmale dritte Spalte
+  bekam das Unverbindlichste dieselbe Fläche wie das Laufende; als Marken über
+  die volle Breite braucht es zwei Zeilen statt sieben.
 Die Phasen heißen **In Arbeit · Beschlossen · Angedacht** — benannt nach dem
 Grad der Entscheidung, nicht nach einem Datum, das ein Entwurf ohnehin nicht
 halten kann. Die

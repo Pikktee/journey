@@ -18,7 +18,7 @@ import {
   sammleRoadmap,
 } from '../scripts/docs-viewer/sammeln.mjs'
 import { bereichSeite, dokumentSeite, uebersichtSeite } from '../scripts/docs-viewer/seiten.mjs'
-import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
+import { codePfadeAus, SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
   editorBefehl,
@@ -408,6 +408,72 @@ describe('Ampel aus dem Status', () => {
     expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe('unterwegs')
     expect(ampelAus({ status: 'Etappen 1–7 umgesetzt' }, 'architecture').art).toBe('unterwegs')
     expect(ampelAus({ status: 'live seit 2026-08-10' }, 'concepts').art).toBe('fertig')
+  })
+})
+
+describe('Roadmap als Ablauf', () => {
+  const roadmap = sammleRoadmap(dokumente, mockups)
+  const html = uebersichtSeite({
+    dokumente,
+    bereiche,
+    mockups,
+    bilder: [],
+    roadmap,
+    schriftLokal: false,
+  })
+
+  it('leitet die Gegenrichtung einer Blockade selbst ab', () => {
+    // Notiert wird nur EINE Richtung (`[wartet auf: …]` am wartenden Eintrag).
+    // Stünden beide in der Datei, liefen sie beim ersten Umplanen auseinander.
+    const wartend = roadmap.phasen.flatMap((p) => p.eintraege).filter((e) => e.wartet)
+    expect(wartend.length, 'keine Blockade in roadmap.md').toBeGreaterThan(0)
+    for (const e of wartend) {
+      const ziel = roadmap.phasen
+        .flatMap((p) => p.eintraege)
+        .find((a) => a.quelle === e.wartet.quelle)
+      if (!ziel) continue
+      expect(ziel.blockiert.map((b) => b.quelle)).toContain(e.quelle)
+    }
+    expect(html).toContain('wartet auf')
+    expect(html).toContain('blockiert')
+  })
+
+  it('nimmt den Linktext aus roadmap.md als Kartennamen', () => {
+    // Dort steht der kurze Name; der Dokumenttitel ist oft „Umbauplan: … (x.ts)".
+    const mitNamen = roadmap.phasen.flatMap((p) => p.eintraege).filter((e) => e.beschriftung)
+    expect(mitNamen.length).toBeGreaterThan(0)
+    for (const e of mitNamen.slice(0, 5)) expect(html).toContain(`>${e.beschriftung}<`)
+  })
+
+  it('zeigt den Statussatz nicht mehr als Text auf der Karte', () => {
+    // Zwei angeschnittene Sätze übereinander liest niemand. Der Stand hängt im
+    // Tooltip; sichtbar bleibt er nur als Fund („Stand prüfen").
+    const laufend = roadmap.phasen[0].eintraege.filter((e) => e.dok?.kopf.status)
+    expect(laufend.length).toBeGreaterThan(0)
+    expect(html).not.toContain('class="rm-stand"')
+  })
+
+  it('meldet, was im Code ist, aber in keiner Phase steht', () => {
+    // Der teurere Teil von „ohne Phase": Ein Vorhaben, an dem gearbeitet wird,
+    // taucht auf der Roadmap gar nicht auf — und fällt genau deshalb niemandem
+    // auf. Dieselbe Frage wie „Stand prüfen", nur andersherum.
+    expect(roadmap.imCode).toBeDefined()
+    expect(roadmap.nurGedacht.every((d) => !roadmap.imCode.includes(d))).toBe(true)
+    if (roadmap.imCode.length) expect(html).toContain('in keiner Phase')
+  })
+
+  it('misst das Alter am CODE und nicht am Dokument', () => {
+    // Das Git-Datum des Dokuments misst nicht den Fortschritt am Vorhaben: Die
+    // Umstellung der Köpfe hat an einem Tag jede Datei angefasst, danach stand
+    // bei allen laufenden Einträgen „heute".
+    const mitPfaden = roadmap.phasen[0].eintraege.filter(
+      (e) => codePfadeAus(e.dok?.kopf.betrifft).length,
+    )
+    expect(mitPfaden.length, 'kein laufender Eintrag nennt Dateien').toBeGreaterThan(0)
+    for (const e of mitPfaden) expect(e.codeStand, e.quelle).toBeTruthy()
+    // Wo nichts genannt ist, wird nichts geraten.
+    for (const e of roadmap.phasen[0].eintraege)
+      if (!codePfadeAus(e.dok?.kopf.betrifft).length) expect(e.codeStand).toBeFalsy()
   })
 })
 

@@ -522,62 +522,97 @@ function ampelBalken(eigene) {
 function roadmapAbschnitt(roadmap, bereiche) {
   if (!roadmap || !roadmap.phasen.length) return ''
   const ton = bereiche.find((b) => b.id === 'concepts')?.ton ?? 'var(--akzent)'
-  const heute = Date.now()
 
-  const tageHer = (iso) => (iso ? Math.round((heute - new Date(iso).getTime()) / 86400000) : null)
-
+  /*
+   * EIN Satz je Karte, und zwar der NÄCHSTE SCHRITT.
+   *
+   * Vorher standen Statussatz und nächster Schritt übereinander, beide als
+   * Fließtext derselben Größe, der erste auf 64 Zeichen gekappt („Etappe 1
+   * gebaut und auf Player-Technik zurückgeführt, nächste…"). Zwei angeschnittene
+   * Sätze in einer schmalen Spalte liest niemand, und sie sagten halb dasselbe.
+   *
+   * Die Roadmap beantwortet „was ist zu tun" — das „wie weit" steht einen Klick
+   * entfernt im Dokument und hier im Tooltip. Sichtbar bleibt der Stand nur, wo
+   * er der Phase WIDERSPRICHT: „Stand prüfen" ist keine Wiederholung, sondern
+   * ein Fund.
+   */
   const eintrag = (e, stufe) => {
     const istMockup = e.art === 'mockup'
+    const objekt = istMockup ? e.mockup : e.dok
     const ziel = istMockup ? e.mockup.quelle : e.dok.ziel
-    const titel = istMockup ? e.mockup.titel : e.dok.titel.replace(/^Konzept:\s*/, '')
+    const titel =
+      e.beschriftung || String(objekt.titel).replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
     const status = istMockup ? '' : e.dok.kopf.status
-    const tage = istMockup ? null : tageHer(e.dok.geaendert)
 
     // Der Widerspruch: In der ersten Phase steht, was läuft — ein Dokument, das
     // selbst „nichts gebaut" sagt, gehört dort entweder nicht hin oder trägt
     // einen veralteten Stand.
     const widerspruch = stufe === 0 && e.dok?.ampel?.art === 'offen'
 
-    const zeilen = []
-    // Ein Stand, der nur „Konzept, nichts gebaut" sagt, wiederholt die Phase —
-    // in „Beschlossen" und „Angedacht" steht ohnehin nichts anderes zu
-    // erwarten. Gezeigt wird er nur, wo er etwas HINZUFÜGT.
-    if (stufe <= 1 && status && !/^(konzept|entwurf)[,.]?\s*(nichts gebaut)?$/i.test(status.trim()))
-      zeilen.push(`<span class="rm-stand">${escape(kurzSatz(status, 64))}</span>`)
-    if (stufe <= 1 && e.schritt)
-      zeilen.push(`<span class="rm-schritt">${escape(e.schritt)}</span>`)
+    const marken = []
+    if (e.wartet)
+      marken.push(
+        `<a class="rm-kette wartet" href="${escape(e.wartet.ziel)}"
+            title="Kann erst weitergehen, wenn das erledigt ist">wartet auf ${escape(e.wartet.titel)}</a>`,
+      )
+    for (const b of e.blockiert || [])
+      marken.push(
+        `<a class="rm-kette blockiert" href="${escape(b.ziel)}"
+            title="Solange das hier steht, geht das andere nicht weiter">blockiert ${escape(b.titel)}</a>`,
+      )
 
-    const ruht = stufe === 0 && tage != null && tage >= 7
-    const fuss =
-      stufe === 0 && tage != null
-        ? `<span class="rm-alter${ruht ? ' ruht' : ''}">${
-            tage === 0 ? 'heute' : tage === 1 ? 'gestern' : `vor ${tage} Tagen`
-          }</span>`
-        : ''
+    const bewegt = stufe === 0 ? codeAlter(e.codeStand) : null
+    const fuss = []
+    if (bewegt)
+      fuss.push(
+        `<span class="rm-alter${bewegt.ruht ? ' ruht' : ''}" title="Letzte Änderung an den Dateien, die dieses Konzept nennt (${escape(bewegt.genau)})">Code bewegt ${escape(bewegt.text)}</span>`,
+      )
+    if (widerspruch)
+      fuss.push(
+        `<span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(status)}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span>`,
+      )
 
     return `<li${widerspruch ? ' class="widerspruch"' : ''}>
-      <a href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}>
+      <a class="rm-ziel" href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}${
+        status ? ` title="${escape(status)}"` : ''
+      }>
         <span class="rm-titel">${escape(titel)}</span>
         ${istMockup ? '<span class="rm-art">Mockup</span>' : ''}
       </a>
-      ${zeilen.join('')}
-      ${
-        widerspruch || fuss
-          ? `<span class="rm-fuss">${fuss}${
-              widerspruch
-                ? `<span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(
-                    status,
-                  )}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span>`
-                : ''
-            }</span>`
-          : ''
-      }
+      ${stufe <= 1 && e.schritt ? `<span class="rm-schritt">${escape(e.schritt)}</span>` : ''}
+      ${marken.length ? `<span class="rm-ketten">${marken.join('')}</span>` : ''}
+      ${fuss.length ? `<span class="rm-fuss">${fuss.join('')}</span>` : ''}
       <button type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
               title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button>
     </li>`
   }
 
-  const phase = (ph, i) => `<section class="rm-phase stufe-${i}${i === 0 ? ' jetzt' : ''}">
+  /*
+   * Die letzte Spalte ist eine WOLKE, keine Liste.
+   *
+   * Dort standen sieben Titel untereinander, jeder in einer eigenen Zeile —
+   * dieselbe Fläche wie die laufenden Vorhaben, für das Unverbindlichste der
+   * Datei. Als Marken nebeneinander braucht sie ein Drittel der Höhe und zieht
+   * den Blick nicht mehr dorthin, wo am wenigsten entschieden ist.
+   */
+  const wolke = (ph) =>
+    `<div class="rm-wolke">${ph.eintraege
+      .map((e) => {
+        const objekt = e.art === 'mockup' ? e.mockup : e.dok
+        const titel =
+          e.beschriftung || String(objekt.titel).replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
+        const ziel = e.art === 'mockup' ? e.mockup.quelle : e.dok.ziel
+        return `<span class="rm-marke"><a href="${escape(ziel)}">${escape(titel)}</a><button
+          type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
+          title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button></span>`
+      })
+      .join('')}</div>`
+
+  const letzte = roadmap.phasen.length - 1
+  const alsBand = (i) => i === letzte && i > 1
+  const phase = (ph, i) => `<section class="rm-phase stufe-${i}${i === 0 ? ' jetzt' : ''}${
+    alsBand(i) ? ' band' : ''
+  }">
     <header>
       <div class="rm-kopf">
         <h3>${escape(ph.name)}</h3>
@@ -585,8 +620,38 @@ function roadmapAbschnitt(roadmap, bereiche) {
       </div>
       ${i === 0 && ph.text ? `<p>${escape(ph.text)}</p>` : ''}
     </header>
-    <ol class="rm-liste">${ph.eintraege.map((e) => eintrag(e, i)).join('')}</ol>
+    ${
+      alsBand(i)
+        ? wolke(ph)
+        : `<ol class="rm-liste">${ph.eintraege.map((e) => eintrag(e, i)).join('')}</ol>`
+    }
   </section>`
+
+  /*
+   * Über den Spalten steht, was man sonst zusammenzählen müsste — und ein Fund,
+   * den die Spalten NICHT zeigen können: ein Vorhaben, an dem schon gearbeitet
+   * wird, das aber in keiner Phase steht. Es taucht auf der Roadmap gar nicht
+   * auf, und genau deshalb fällt es niemandem auf.
+   */
+  const laufend = roadmap.phasen[0]?.eintraege ?? []
+  const ruhend = laufend.filter((e) => codeAlter(e.codeStand)?.ruht).length
+  const zahlen = [
+    `<span><b>${laufend.length}</b> laufen</span>`,
+    roadmap.phasen[1] ? `<span><b>${roadmap.phasen[1].eintraege.length}</b> als Nächstes</span>` : '',
+    ruhend ? `<span class="ruht"><b>${ruhend}</b> davon ruhen</span>` : '',
+  ]
+    .filter(Boolean)
+    .join('<i>·</i>')
+
+  const imCode = roadmap.imCode ?? []
+  const hinweisZeile = imCode.length
+    ? `<p class="rm-fund">
+        <b>${imCode.length} ${imCode.length === 1 ? 'Vorhaben ist' : 'Vorhaben sind'} im Code, aber in keiner Phase.</b>
+        ${imCode
+          .map((d) => `<a href="${escape(d.ziel)}">${escape(d.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''))}</a>`)
+          .join('<i>·</i>')}
+      </p>`
+    : ''
 
   const nebenbei = []
   if (roadmap.erledigt?.length)
@@ -600,27 +665,52 @@ function roadmapAbschnitt(roadmap, bereiche) {
         { satz: 'Der Plan ist durch. Steht nicht mehr an.' },
       ),
     )
-  if (roadmap.offen.length)
+  const nurGedacht = roadmap.nurGedacht ?? roadmap.offen
+  if (nurGedacht.length)
     nebenbei.push(
       falte(
         'Ohne Phase',
-        roadmap.offen.length,
-        `<ol class="rm-liste rm-offen">${roadmap.offen
+        nurGedacht.length,
+        `<ol class="rm-liste rm-offen">${nurGedacht
           .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }, 2))
           .join('')}</ol>`,
-        { satz: 'Weder eingeplant noch erledigt.' },
+        { satz: 'Weder eingeplant noch angefangen.' },
       ),
     )
 
   return `<section class="streifen" id="roadmap" style="--ton:${ton}">
     <div class="streifen-kopf">
       <h2>Roadmap${hinweis(
-        'Grobe Reihenfolge, keine Zusage. Die Reihenfolge wird in <code>docs/roadmap.md</code> gepflegt, der Stand kommt aus der <code>Status:</code>-Zeile der Dokumente. Wo beides sich widerspricht, steht „Stand prüfen".',
+        'Grobe Reihenfolge, keine Zusage. Die Reihenfolge wird in <code>docs/roadmap.md</code> gepflegt, der Stand kommt aus dem <code>status</code>-Feld der Dokumente. Wo beides sich widerspricht, steht „Stand prüfen". „Code bewegt" misst an den Dateien, die ein Konzept unter <code>betrifft</code> nennt.',
       )}</h2>
+      <div class="rm-zahlen">${zahlen}</div>
     </div>
+    ${hinweisZeile}
     <div class="roadmap">${roadmap.phasen.map(phase).join('')}</div>
     ${nebenbei.join('')}
   </section>`
+}
+
+/**
+ * Wie lange hat sich der CODE nicht bewegt? Ab zwei Wochen gilt ein laufendes
+ * Vorhaben als ruhend — das ist die interessanteste Zahl einer Roadmap und die
+ * einzige, die man nicht selbst sieht.
+ */
+function codeAlter(iso) {
+  if (!iso) return null
+  const tage = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  const genau = new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })
+  const text =
+    tage <= 0
+      ? 'heute'
+      : tage === 1
+        ? 'gestern'
+        : tage < 14
+          ? `vor ${tage} Tagen`
+          : tage < 60
+            ? `vor ${Math.round(tage / 7)} Wochen`
+            : `vor ${Math.round(tage / 30)} Monaten`
+  return { text, genau, ruht: tage >= 14 }
 }
 
 /** Ein Statussatz auf Kartenlänge — ohne den Halbsatz zu zerhacken. */

@@ -506,21 +506,28 @@ export function sammleRoadmap(dokumente, mockups = []) {
       continue
     }
     if (!aktuell) continue
-    const punkt = zeile.match(/^\*\s+\[[^\]]+\]\(([^)]+)\)\s*(?:[—–-]\s*(.+))?$/)
+    const punkt = zeile.match(/^\*\s+\[([^\]]+)\]\(([^)]+)\)\s*(?:[—–-]\s*(.+))?$/)
     if (punkt) {
-      const abs = resolve(DOCS, punkt[1])
-      const schritt = punkt[2] ? saeubere(punkt[2]) : ''
+      const abs = resolve(DOCS, punkt[2])
+      const { schritt, wartetAuf } = zerlegeSchritt(punkt[3])
+      // Die Beschriftung aus roadmap.md IST der Kartentitel — dort steht der
+      // kurze Name, den jemand für diesen Plan gewählt hat. Nur wo noch der
+      // Dateiname steht (die alte Form), nimmt die Karte den Dokumenttitel.
+      const beschriftung = /\.(md|html)$/.test(punkt[1].replace(/`/g, '')) ? '' : saeubere(punkt[1])
       const dok = nachAbs.get(abs)
       const mockup = mockupNachAbs.get(abs)
-      if (dok) aktuell.eintraege.push({ art: 'dokument', dok, quelle: dok.quelle, schritt })
+      if (dok)
+        aktuell.eintraege.push({ art: 'dokument', dok, quelle: dok.quelle, schritt, beschriftung, wartetAuf })
       else if (mockup)
         aktuell.eintraege.push({
           art: 'mockup',
           mockup,
           quelle: 'docs/' + mockup.quelle,
           schritt,
+          beschriftung,
+          wartetAuf,
         })
-      else unbekannt.push(punkt[1])
+      else unbekannt.push(punkt[2])
       continue
     }
     const text = zeile.trim()
@@ -544,15 +551,132 @@ export function sammleRoadmap(dokumente, mockups = []) {
   )
   const erledigt = uebrig.filter((d) => istErledigt(d.kopf.status))
   const offen = uebrig.filter((d) => !istErledigt(d.kopf.status))
+
+  /*
+   * „Ohne Phase" ist zwei verschiedene Dinge, und das teurere davon ging darin
+   * unter: ein Vorhaben, an dem SCHON GEARBEITET WIRD, das aber in keiner Phase
+   * steht. Genau das ist gerade der Fall — ein Konzept auf „Etappe 1 gebaut"
+   * erscheint auf der Roadmap überhaupt nicht, weil niemand es eingeplant hat.
+   * Das ist dieselbe Frage wie „Stand prüfen", nur andersherum: Dort widerspricht
+   * der Stand der Phase, hier gibt es gar keine.
+   */
+  const imCode = offen.filter((d) => ['unterwegs', 'fertig'].includes(d.ampel?.art))
+  const nurGedacht = offen.filter((d) => !imCode.includes(d))
+
+  const eintraegeAlle = phasen.flatMap((p) => p.eintraege)
+  verketteBlockaden(eintraegeAlle, nachAbs, mockupNachAbs)
+  for (const e of eintraegeAlle) if (e.dok) e.codeStand = codeStandFuer(e.dok)
+
   return {
     phasen: phasen.filter((p) => p.eintraege.length),
     offen,
+    imCode,
+    nurGedacht,
     unbekannt,
     // Die Namen ALLER Phasen (auch der leeren) — die Auswahlfelder im Viewer
     // müssen auch in eine noch leere Phase einsortieren können.
     erledigt,
     phasenNamen: phasen.map((p) => p.name),
     eingeplant,
+  }
+}
+
+/* ── Blockaden ────────────────────────────────────────────────────────────
+ * Die wichtigste Angabe der ganzen Datei stand bisher als Prosa in einer Zeile
+ * („Esri-Lizenz klären: sie blockiert den Video-Export") und war damit für die
+ * Ansicht unsichtbar. Aus einer sortierten Liste wird erst mit ihr ein Ablauf.
+ *
+ * Notiert wird sie am WARTENDEN Eintrag (`[wartet auf: …]`), nicht am
+ * blockierenden: Wer etwas einplant, weiß in diesem Moment, worauf es wartet —
+ * die andere Richtung müsste man in einer fremden Zeile nachtragen und würde
+ * sie vergessen. Die Gegenrichtung leitet der Sammler ab, damit sie nicht
+ * auseinanderlaufen kann.
+ *
+ * In der Zeile und nicht als Unterpunkt, weil `roadmapSetzen` beim Verschieben
+ * einer Phase GANZE ZEILEN umhängt: Ein Unterpunkt bliebe zurück.
+ */
+
+/** Trennt `[wartet auf: pfad]` vom nächsten Schritt. */
+function zerlegeSchritt(roh) {
+  if (!roh) return { schritt: '', wartetAuf: '' }
+  const treffer = roh.match(/\s*\[wartet auf:\s*([^\]]+)\]\s*$/i)
+  return {
+    schritt: saeubere(treffer ? roh.slice(0, treffer.index) : roh),
+    wartetAuf: treffer ? treffer[1].trim() : '',
+  }
+}
+
+/** Hängt beide Richtungen an die Einträge: `wartet` und `blockiert`. */
+function verketteBlockaden(eintraege, nachAbs, mockupNachAbs) {
+  const nachQuelle = new Map(eintraege.map((e) => [e.quelle, e]))
+  for (const e of eintraege) {
+    e.wartet = null
+    e.blockiert = e.blockiert || []
+  }
+  for (const e of eintraege) {
+    if (!e.wartetAuf) continue
+    const abs = resolve(DOCS, e.wartetAuf)
+    const ziel = nachAbs.get(abs) ?? mockupNachAbs.get(abs)
+    if (!ziel) continue
+    const quelle = ziel.abs ? relative(WURZEL, ziel.abs) : 'docs/' + ziel.quelle
+    const eintragDesZiels = nachQuelle.get(quelle)
+    e.wartet = { quelle, titel: kurzTitel(eintragDesZiels, ziel), ziel: zielSeite(ziel) }
+    // Die Gegenrichtung nur, wenn das Ziel selbst auf der Roadmap steht — sonst
+    // gibt es keine Karte, an der sie stehen könnte.
+    if (eintragDesZiels)
+      eintragDesZiels.blockiert.push({
+        quelle: e.quelle,
+        titel: kurzTitel(e, e.dok ?? e.mockup),
+        ziel: zielSeite(e.dok ?? e.mockup),
+      })
+  }
+}
+
+/** Der Name, den ein Eintrag auf der Karte trägt. */
+function kurzTitel(eintrag, objekt) {
+  if (eintrag?.beschriftung) return eintrag.beschriftung
+  return String(objekt?.titel ?? '').replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
+}
+
+function zielSeite(objekt) {
+  return objekt?.ziel ?? objekt?.quelle ?? ''
+}
+
+/* ── Wann hat sich der CODE bewegt? ───────────────────────────────────────
+ * Das Alter eines Roadmap-Eintrags kam bisher aus dem Git-Datum des DOKUMENTS.
+ * Das misst aber nicht den Fortschritt am Vorhaben: Die Umstellung der Köpfe
+ * auf Front Matter hat an einem Tag jede Datei angefasst, und danach stand bei
+ * allen fünf laufenden Einträgen „heute" — die Angabe, die als interessanteste
+ * Zahl der Roadmap gedacht war, war wertlos und irreführend.
+ *
+ * Gemessen wird deshalb an den Dateien, die das Konzept selbst nennt
+ * (`betrifft:`). Wo es keine nennt, bleibt die Angabe WEG: Eine geratene ist
+ * schlimmer als keine.
+ */
+const CODE_MUSTER = /(?:^|[\s(`,])((?:src|server|android|deploy|scripts|test|public|\.github)\/[A-Za-z0-9_./-]*|(?:index|studio|erlebnis|galerie|profil|konto|admin|feedback|impressum|datenschutz)\.html)/g
+
+export function codePfadeAus(betrifft) {
+  const raus = new Set()
+  for (const eintrag of betrifft || [])
+    for (const t of String(eintrag).matchAll(CODE_MUSTER)) {
+      const pfad = t[1].replace(/[.,)]+$/, '')
+      if (existsSync(join(WURZEL, pfad))) raus.add(pfad)
+    }
+  return [...raus]
+}
+
+function codeStandFuer(dok) {
+  const pfade = codePfadeAus(dok.kopf?.betrifft)
+  if (!pfade.length) return null
+  try {
+    const roh = execFileSync('git', ['log', '-1', '--format=%aI', '--', ...pfade], {
+      cwd: WURZEL,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim()
+    return roh || null
+  } catch {
+    return null
   }
 }
 

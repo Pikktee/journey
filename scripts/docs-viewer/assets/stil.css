@@ -1791,12 +1791,20 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
  * die hinterste Phase die größte Fläche — der Blick folgt der Fläche, und er
  * landete beim Unverbindlichsten. */
 
+/* ZWEI Spalten und ein Band darunter — nicht drei gleichrangige Kästen.
+   Die letzte Phase ist die unverbindlichste; als schmale dritte Spalte bekam
+   sie dieselbe Fläche wie das Laufende, und ihre Marken standen dort einzeln
+   untereinander, weil 190 px für zwei nebeneinander nicht reichen. Als Band
+   über die volle Breite braucht sie zwei Zeilen statt sieben, und die
+   abnehmende Verbindlichkeit hat endlich eine Form. */
 .roadmap {
   display: grid;
-  grid-template-columns: 1.35fr 1fr 0.85fr;
+  grid-template-columns: 1.25fr 1fr;
   align-items: start;
   gap: 16px;
 }
+.rm-phase.band { grid-column: 1 / -1; }
+.rm-phase.band header { margin-bottom: 10px; }
 .rm-phase {
   display: flex;
   flex-direction: column;
@@ -1833,13 +1841,6 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 
 /* Der Stand kommt aus dem Dokument und ist die eigentliche Auskunft: „Etappen
    0–6 gebaut, Polar live" sagt mehr als jede Ampel. */
-.rm-stand {
-  display: block;
-  margin-top: 4px;
-  color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.45;
-}
 /* Der nächste Schritt trägt einen Pfeil: Ohne ihn stehen Stand und Schritt als
    zwei gleich aussehende graue Zeilen untereinander, und man liest beide als
    einen Satz. */
@@ -2010,3 +2011,71 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 }
 .tafel-punkt { margin: 0 8px; color: var(--text-3); opacity: 0.55; }
 .tafel-datei { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+
+/* ── Roadmap: Kette, Zahlen, Fund, Wolke ──────────────────────────────────
+ * Vier Ergänzungen, die alle dasselbe Ziel haben: aus einer sortierten Liste
+ * einen Ablauf machen, ohne eine Zeitleiste zu bauen. */
+
+/* Blockaden. Zwei Richtungen, EIN Sachverhalt — deshalb dieselbe Form, nur der
+   Pfeil und die Farbe unterscheiden sie: Wer wartet, steht still (gedämpft);
+   wer blockiert, hält etwas auf (Warnfarbe). */
+.rm-ketten { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.rm-kette {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid var(--rand);
+  border-radius: var(--radius-full);
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.rm-kette::before { font-size: 11px; opacity: 0.9; }
+.rm-kette.wartet::before { content: '⏳'; }
+.rm-kette.blockiert::before { content: '⛔'; }
+.rm-kette.blockiert { border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
+.rm-kette:hover { border-color: var(--rand-hell); color: var(--text); text-decoration: none; }
+.rm-kette.blockiert:hover { border-color: var(--warn); color: var(--warn); }
+
+/* Die Kennzahlen neben der Überschrift: was man sonst zusammenzählen müsste. */
+.rm-zahlen { display: flex; flex-wrap: wrap; gap: 9px; align-items: baseline; color: var(--text-3); font-size: 13px; }
+.rm-zahlen b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.rm-zahlen i { font-style: normal; opacity: 0.4; }
+.rm-zahlen .ruht b { color: var(--warn); }
+
+/* Der Fund: im Code, aber in keiner Phase. Eine Zeile ÜBER den Spalten, weil
+   sie in keine davon gehört — genau das ist ja die Meldung. */
+.rm-fund {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+.rm-fund b { color: var(--text); font-weight: 500; }
+.rm-fund i { font-style: normal; color: var(--text-3); opacity: 0.5; }
+
+/* „Angedacht" als Wolke: ein Drittel der Höhe einer Liste, und der Blick bleibt
+   dort, wo entschieden ist. */
+.rm-wolke { display: flex; flex-wrap: wrap; gap: 7px; }
+.rm-marke {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--rand);
+  border-radius: var(--radius-full);
+  background: var(--fl-1);
+}
+.rm-marke a { padding: 4px 4px 4px 12px; color: var(--text-2); font-size: 13px; }
+.rm-marke:hover { border-color: var(--rand-hell); }
+.rm-marke:hover a { color: var(--text); text-decoration: none; }
+/* Wie bei den Listen: Das × erscheint nur, wo ein Dienst antworten kann.
+   Ohne ihn wäre es ein Knopf, der nichts tut. */
+.rm-marke .rm-weg { position: static; margin: 0 5px 0 2px; opacity: 0; }
+.mit-dienst .rm-marke:hover .rm-weg { opacity: 1; }
