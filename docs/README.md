@@ -285,7 +285,14 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   Verbindlichkeit ändern — dafür gibt es das Menü. Geschrieben wird EINMAL beim
   Loslassen, und was die Seite nicht mitschickt, behält seine Lage am Ende: So
   kann eine veraltete Ansicht die Datei nicht leer räumen.
-  Zwei Fallen in der Mechanik, beide gemessen: Beim Umsortieren wandert die
+  **Die Zeiger-Ereignisse hängen am DOKUMENT, nicht am Griff.** Am Griff war der
+  Fehler, der sich als „manchmal dropped es nicht" zeigte: `setPointerCapture`
+  gibt die Erfassung frei, sobald das haltende Element aus dem Dokument genommen
+  wird — und `insertBefore` nimmt es heraus, bei JEDEM Umsortieren. Nach dem
+  ersten Platzwechsel kam weder `pointermove` noch `pointerup` an: Die Karte
+  blieb hängen, gespeichert wurde nichts. Am Dokument endet die Geste an drei
+  Stellen: Loslassen, Systemabbruch, und Fokusverlust des Fensters.
+  Drei Fallen in der Mechanik, alle gemessen: Beim Umsortieren wandert die
   LAYOUT-Position der gezogenen Karte, das muss auf `startY` — ohne Ausgleich
   rutscht sie unter dem Finger weg, mit doppeltem pendelt sie zwischen zwei
   Plätzen. Und eine feste Breite auf der gehobenen Karte ist genau der Fehler,

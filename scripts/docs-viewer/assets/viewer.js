@@ -772,6 +772,7 @@
 
       var beende = function (abbrechen) {
         if (!zug) return
+        hoere(false)
         var k = zug.karte
         var geaendert = zug.geaendert
         var urspruenglich = zug.urspruenglich
@@ -806,37 +807,74 @@
           })
       }
 
+      /* Die Zeiger-Ereignisse hängen am DOKUMENT, nicht am Griff.
+       *
+       * Am Griff war der Fehler, der sich als „manchmal dropped es nicht"
+       * zeigte: `setPointerCapture` gibt die Erfassung frei, sobald das haltende
+       * Element aus dem Dokument genommen wird — und `insertBefore` nimmt es
+       * heraus, bei JEDEM Umsortieren. Nach dem ersten Platzwechsel kamen also
+       * weder `pointermove` noch `pointerup` an: Die Karte blieb gehoben, es
+       * wurde nichts gespeichert.
+       *
+       * (Mein erster Test hat das nicht gefunden, weil er `setPointerCapture`
+       * durch eine leere Funktion ersetzt und die Ereignisse direkt am Griff
+       * ausgelöst hat — er prüfte damit genau um die kaputte Stelle herum.)
+       *
+       * Am Dokument ist die Geste unabhängig davon, wohin der Zeiger gerät und
+       * was mit dem Element passiert. Sie endet an drei Stellen: Loslassen,
+       * Abbruch durch das System, und wenn das Fenster den Fokus verliert —
+       * ohne das Letzte bleibt eine Karte hängen, wenn man mitten im Zug das
+       * Programm wechselt.
+       */
+      var beiBewegung = function (e) {
+        if (!zug || e.pointerId !== zug.pointerId) return
+        e.preventDefault()
+        zug.dy = e.clientY - zug.startY
+        // Erst ab einer echten Bewegung heben — ein Klick auf den Griff soll
+        // die Karte nicht zappeln lassen.
+        if (!zug.hebt && Math.abs(zug.dy) < 4) return
+        if (!zug.hebt) {
+          zug.hebt = true
+          zug.karte.classList.add('greift')
+          document.body.classList.add('zieht-gerade')
+        }
+        zug.karte.style.transform = 'translateY(' + zug.dy + 'px)'
+        sortiere(e.clientY)
+      }
+      var beiEnde = function (e) {
+        if (!zug || (e && e.pointerId !== undefined && e.pointerId !== zug.pointerId)) return
+        beende(false)
+      }
+      var beiAbbruch = function () {
+        beende(true)
+      }
+
+      var hoere = function (an) {
+        var tu = an ? 'addEventListener' : 'removeEventListener'
+        document[tu]('pointermove', beiBewegung)
+        document[tu]('pointerup', beiEnde)
+        document[tu]('pointercancel', beiAbbruch)
+        window[tu]('blur', beiAbbruch)
+      }
+
       ;[].slice.call(liste.querySelectorAll('[data-rm-griff]')).forEach(function (griff) {
         var karte = griff.closest('li')
 
         griff.addEventListener('pointerdown', function (e) {
           if (e.button !== undefined && e.button !== 0) return
+          if (zug) beende(true)
           e.preventDefault()
           zug = {
             karte: karte,
+            griff: griff,
+            pointerId: e.pointerId,
             startY: e.clientY,
             dy: 0,
+            hebt: false,
             geaendert: false,
             urspruenglich: karten(),
           }
-          karte.classList.add('greift')
-          document.body.classList.add('zieht-gerade')
-          if (griff.setPointerCapture) griff.setPointerCapture(e.pointerId)
-        })
-
-        griff.addEventListener('pointermove', function (e) {
-          if (!zug || zug.karte !== karte) return
-          e.preventDefault()
-          zug.dy = e.clientY - zug.startY
-          karte.style.transform = 'translateY(' + zug.dy + 'px)'
-          sortiere(e.clientY)
-        })
-
-        griff.addEventListener('pointerup', function () {
-          beende(false)
-        })
-        griff.addEventListener('pointercancel', function () {
-          beende(true)
+          hoere(true)
         })
 
         /* Die Tastatur bewegt um einen Platz — derselbe Weg, dieselbe Rückgabe.
