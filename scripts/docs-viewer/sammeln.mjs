@@ -18,6 +18,10 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative, basename, dirname, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
+import { kopfAusHtml, kopfVon, saeubere } from './kopf.mjs'
+
+export { saeubere }
+
 /** Die Bereiche in Lesereihenfolge. `ton` ist die Leitfarbe, `motiv` das SVG. */
 export const BEREICHE = [
   {
@@ -130,7 +134,7 @@ export const DOCS = join(WURZEL, 'docs')
 /** Ordner, die nie Doku enthalten — `node_modules` liegt auch unter `server/`. */
 const NICHT_HINEIN = new Set(['node_modules', '_site', 'dist', 'build', 'coverage', 'daten'])
 
-function dateienUnter(ordner, endung) {
+export function dateienUnter(ordner, endung) {
   if (!existsSync(ordner)) return []
   const gefunden = []
   for (const eintrag of readdirSync(ordner)) {
@@ -150,33 +154,12 @@ function titelAus(text, datei) {
   return treffer ? saeubere(treffer[1]) : basename(datei, '.md')
 }
 
-/** Markdown-Auszeichnung aus einer Zeile lösen — sie soll als Text stehen. */
-function saeubere(zeile) {
-  return zeile
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[*_`]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 /**
- * Der Kopf vieler Dokumente trägt „Stand: … · Status: **…** · Betrifft: …".
- * Daraus werden die Chips über dem Text. Ohne Kopf bleibt es leer — ein
+ * Der Kopf eines Dokuments steht als Front Matter darin, wo einer gepflegt
+ * wird, und sonst als Prosa-Zeile darunter. Beides liest `kopf.mjs`; hier wird
+ * nur noch benutzt, was dabei herauskommt. Ohne Kopf bleibt es leer — ein
  * erfundener Status wäre schlimmer als keiner.
  */
-function kopfAus(text) {
-  const kopf = { stand: '', status: '', betrifft: '' }
-  const anfang = text.slice(0, 1400)
-  const stand = anfang.match(/Stand:\s*\*{0,2}([^·\n*]+)\*{0,2}/)
-  if (stand) kopf.stand = saeubere(stand[1]).replace(/\.$/, '')
-  const status = anfang.match(/Status:\s*\*{0,2}([^·\n]+?)\*{0,2}\s*(?:·|$)/m)
-  if (status) kopf.status = saeubere(status[1])
-  const betrifft = anfang.match(/Betrifft:\s*([^\n]+(?:\n[^\n#][^\n]*)?)/)
-  if (betrifft) kopf.betrifft = saeubere(betrifft[1]).replace(/[.,]$/, '')
-  const her = anfang.match(/^Archiviert aus:\s*(\S+)/m)
-  if (her) kopf.archiviertAus = saeubere(her[1])
-  return kopf
-}
 
 /**
  * Aus dem Status-Satz wird eine Ampel. Die Reihenfolge der Prüfungen ist die
@@ -187,7 +170,14 @@ export function ampelAus(kopf, bereichId, archiviert = false) {
   if (archiviert) return { art: 'ruht', wort: 'Historie' }
   const s = (kopf.status || '').toLowerCase()
   if (!s) return null
-  if (/nichts gebaut|entwurf|konzept,|nur gedacht|verworfen/.test(s))
+  // „noch nicht gebaut" und „nichts davon umgesetzt" enthalten beide Wörter,
+  // an denen die späteren Prüfungen hängen — sie müssen VOR ihnen stehen, sonst
+  // wird ein ungebautes Konzept grün.
+  if (
+    /nichts gebaut|noch nicht gebaut|nicht gebaut|nichts davon umgesetzt|nicht umgesetzt|vertagt|entwurf|konzept,|geplant|nur gedacht|verworfen/.test(
+      s,
+    )
+  )
     return { art: 'offen', wort: 'Entwurf' }
   if (/teilweise|etappe|paket|offen|steht aus|rest/.test(s))
     return { art: 'unterwegs', wort: 'Unterwegs' }
@@ -358,14 +348,23 @@ export function sammleDokumente() {
     const imHandbuch = !abs.startsWith(DOCS + '/')
     const rel = relative(imHandbuch ? WURZEL : DOCS, abs)
     const imRepo = relative(WURZEL, abs)
-    const text = readFileSync(abs, 'utf8')
-    const kopfDaten = kopfAus(text)
+    // Der ROHE Inhalt geht in den Editor, der KÖRPER in alles andere: Front
+    // Matter ist eine Angabe über das Dokument und kein Teil seines Textes —
+    // stünde er drin, zählte er als Lesezeit mit, würde durchsucht und
+    // erschiene als erster Absatz.
+    const roh = readFileSync(abs, 'utf8')
+    // Der Kopf wird nur unter `docs/` gelesen. `DESIGN.md` an der Wurzel trägt
+    // selbst einen YAML-Block (Google-DESIGN.md-Format) — und der IST dort der
+    // Inhalt: Farben, Schrift, Maße. Als Metadaten gedeutet verschwände das
+    // halbe Design-System aus der Ansicht, ohne dass eine Zeile fehlte.
+    const kopf = imHandbuch ? kopfVon('') : kopfVon(roh)
+    const text = imHandbuch ? roh : kopf.koerper
     const archiviert = !imHandbuch && rel.startsWith('archive/')
     // Ein archiviertes Dokument gehört weiterhin zu seinem Bereich — es steht
     // dort nur unter einer eigenen Überschrift. Ohne Herkunftszeile landet es
     // bei den Konzepten: der Ort, aus dem erfahrungsgemäß fast alles kommt.
     const bereichId = archiviert
-      ? (kopfDaten.archiviertAus ?? 'concepts')
+      ? (kopf.archiviertAus ?? 'concepts')
       : imHandbuch
         ? 'handbuch'
         : rel.split('/')[0]
@@ -373,7 +372,6 @@ export function sammleDokumente() {
     const ziel = imHandbuch
       ? `handbuch/${rel.replace(/\.md$/, '').replace(/\//g, '-').toLowerCase()}.html`
       : rel.replace(/\.md$/, '.html')
-    const kopf = kopfDaten
     const worte = text.split(/\s+/).filter(Boolean).length
     return {
       abs,
@@ -394,7 +392,10 @@ export function sammleDokumente() {
       ueberschriften: ueberschriftenAus(text),
       verweise: verweiseAus(text, abs),
       rueckverweise: [],
-      teile: systemteileVon(text, { quelle: relative(WURZEL, abs) }),
+      teile: systemteileVon(text, {
+        quelle: relative(WURZEL, abs),
+        genannt: kopf.systemteile,
+      }),
       worte,
       minuten: Math.max(1, Math.round(worte / 220)),
       geaendert: git.get(imRepo)?.datum || '',
@@ -414,9 +415,14 @@ export function sammleDokumente() {
 /**
  * Mockups sind HTML-Prototypen. Ihr Titel steht im `<title>`, ihr Klappentext
  * im Index — beides ohne DOM-Parser, ein Prototyp hat genau einen Titel.
+ *
+ * Stand und Status kommen aus `<meta name="maptale:…">`: HTML kennt kein Front
+ * Matter, aber dieselbe Frage („ist dieser Entwurf noch aktuell?") stellt sich
+ * an einem Prototyp genauso, und bisher konnte er sie nicht beantworten.
  */
 export function sammleMockups() {
   const klappentexte = klappentexteAusIndex()
+  const git = gitStandFuer(['docs/mockups', 'docs/archive/mockups'])
   return dateienUnter(join(DOCS, 'mockups'), '.html')
     .concat(dateienUnter(join(DOCS, 'archive', 'mockups'), '.html'))
     .map((p) => {
@@ -424,8 +430,14 @@ export function sammleMockups() {
       const text = readFileSync(p, 'utf8')
       const titel = text.match(/<title>([^<]*)<\/title>/i)
       const archiv = rel.startsWith('archive/')
+      const kopf = kopfAusHtml(text)
+      const imRepo = relative(WURZEL, p)
       return {
         quelle: rel,
+        quellePfad: imRepo,
+        kopf,
+        ampel: archiv ? { art: 'ruht', wort: 'Historie' } : ampelAus(kopf, 'mockups', false),
+        geaendert: git.get(imRepo)?.datum || '',
         name: basename(rel, '.html'),
         // „Mockup — Maptale App, Bilder hinzufügen" wird zu „Maptale App,
         // Bilder hinzufügen": Das Wort „Mockup" steht schon über der Kachel,
@@ -436,7 +448,11 @@ export function sammleMockups() {
               .replace(/\s*[·|]\s*Maptale\s*$/i, '')
           : basename(rel, '.html'),
         klappentext: klappentexte.get(rel) || '',
-        teile: systemteileVon(text, { name: basename(rel, '.html'), quelle: 'docs/' + rel }),
+        teile: systemteileVon(text, {
+          name: basename(rel, '.html'),
+          quelle: 'docs/' + rel,
+          genannt: kopf.systemteile,
+        }),
         archiv,
         vorschau: `vorschau/${rel.replace(/[/.]/g, '-')}.webp`,
         // Jeder Prototyp hat seine eigene Seite im Viewer — die Kachel führt
@@ -596,15 +612,14 @@ function teilFuerPfad(pfad) {
 const PFAD_MUSTER =
   /(?:\(|`|\s)((?:\.\.\/)*(?:src|server|android|deploy|scripts|test|public|\.github)\/[A-Za-z0-9_./-]+|(?:index|studio|erlebnis|galerie|profil|konto|admin)\.html)/g
 
-export function systemteileVon(text, { name = '', quelle = '' } = {}) {
-  // 1. Ausdrücklich genannt schlägt alles.
-  const kopf = text.slice(0, 1600).match(/^\s*Systemteile:\s*(.+)$/m)
-  if (kopf) {
-    const genannt = kopf[1]
-      .split(/[,;·]/)
-      .map((s) => TEIL_NACH_NAME.get(saeubere(s).toLowerCase()))
-      .filter(Boolean)
-    if (genannt.length) return [...new Set(genannt)]
+export function systemteileVon(text, { name = '', quelle = '', genannt = [] } = {}) {
+  // 1. Ausdrücklich genannt schlägt alles — aus dem Kopf der Datei (Front
+  //    Matter, `<meta>`) oder aus der alten Zeile `Systemteile: …` im Text.
+  const ausZeile = text.slice(0, 1600).match(/^\s*Systemteile:\s*(.+)$/m)
+  const worte = genannt.length ? genannt : ausZeile ? ausZeile[1].split(/[,;·]/) : []
+  if (worte.length) {
+    const ids = worte.map((s) => TEIL_NACH_NAME.get(saeubere(s).toLowerCase())).filter(Boolean)
+    if (ids.length) return [...new Set(ids)]
   }
 
   // 2. Sonst zählen, was das Dokument nennt.

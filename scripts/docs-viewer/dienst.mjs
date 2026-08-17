@@ -19,11 +19,12 @@
  *    Stand von vorhin und man ändert dieselbe Stelle zweimal.
  */
 
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 
-import { WURZEL, DOCS } from './sammeln.mjs'
+import { WURZEL, DOCS, dateienUnter } from './sammeln.mjs'
+import { setzeKopf } from './kopf.mjs'
 
 /** Ordner unter `docs/`, in die zurückgeholt werden darf. */
 export const ZIELBEREICHE = ['concepts', 'architecture', 'specs', 'ops']
@@ -117,7 +118,7 @@ export function archiviere(rel) {
   if (ziel.endsWith('.md')) {
     const text = readFileSync(ziel, 'utf8')
     if (!/^Archiviert aus:/m.test(text))
-      writeFileSync(ziel, text.replace(/^(#\s+.+\n)/, `$1\nArchiviert aus: ${herkunft}\n`))
+      writeFileSync(ziel, setzeKopf(text, { archiviert_aus: herkunft }))
   }
   return neu
 }
@@ -127,11 +128,183 @@ export function holeZurueck(rel, bereich) {
   const ziel = join(WURZEL, neu)
   if (ziel.endsWith('.md')) {
     const text = readFileSync(ziel, 'utf8')
-    // Zurückgeholt heißt: nicht mehr archiviert. Bliebe die Zeile stehen,
-    // stünde das Dokument im Viewer wieder unter „Archiv".
-    writeFileSync(ziel, text.replace(/^Archiviert aus:.*\n\n?/m, ''))
+    // Zurückgeholt heißt: nicht mehr archiviert. Blieben die Angaben stehen,
+    // stünde das Dokument im Viewer wieder unter „Archiv" — in beiden
+    // Schreibweisen, denn beide werden gelesen.
+    writeFileSync(ziel, setzeKopf(text, { archiviert_aus: null }).replace(/^Archiviert aus:.*\n\n?/m, ''))
   }
   return neu
+}
+
+/* ── Im Editor öffnen ─────────────────────────────────────────────────────
+ * Der Viewer zeigt, in welcher Datei etwas steht; von dort ist es ein Klick
+ * bis zur Stelle, an der man es ändert. Ein `vscode://`-Link im Markup wäre
+ * kürzer, würde aber auf einen bestimmten Editor festlegen — welcher hier
+ * läuft, weiß nur dieser Rechner.
+ */
+
+/** Editoren in der Reihenfolge, in der nach ihnen gesucht wird. */
+const EDITOREN = ['cursor', 'code', 'zed', 'subl', 'mate']
+
+function editorBefehl() {
+  const gesetzt = (process.env.MAPTALE_EDITOR || process.env.VISUAL || process.env.EDITOR || '').trim()
+  if (gesetzt) return gesetzt.split(/\s+/)
+  for (const name of EDITOREN) {
+    try {
+      execFileSync('which', [name], { stdio: 'pipe' })
+      return [name]
+    } catch {
+      /* nicht installiert */
+    }
+  }
+  // `open` überlässt dem System die Wahl. Ohne alles davon bleibt der Pfad —
+  // kopieren und selbst öffnen ist immer noch besser als eine leere Meldung.
+  if (process.platform === 'darwin') return ['open']
+  return null
+}
+
+export function oeffneImEditor(rel) {
+  const abs = pruefePfad(rel)
+  const befehl = editorBefehl()
+  if (!befehl) throw new DienstFehler('Keinen Editor gefunden — MAPTALE_EDITOR setzen')
+  // Losgelassen und nicht abgewartet: Ein Editor, der im Vordergrund bleibt,
+  // hielte die Antwort auf, und die Seite wartete auf ein Fenster.
+  const kind = execFile(befehl[0], [...befehl.slice(1), abs], { cwd: WURZEL })
+  kind.unref?.()
+  return { befehl: befehl[0], pfad: relative(WURZEL, abs) }
+}
+
+/* ── Umbenennen ───────────────────────────────────────────────────────────
+ * Zwei Namen, die man leicht für einen hält: die ÜBERSCHRIFT (was jemand
+ * liest) und der DATEINAME (worauf alles zeigt). Der Viewer ändert beide in
+ * einem Zug, denn wer eins von beidem ändert, meint fast immer beide.
+ *
+ * Der teure Teil ist nicht das Verschieben, sondern die VERWEISE: Ein Konzept
+ * wird von README, Roadmap, Handbuch und anderen Konzepten genannt, jeweils
+ * relativ zum eigenen Ort. Bliebe einer davon stehen, wäre die Umbenennung
+ * ein stiller toter Link — und tote Links merkt man erst, wenn man sie braucht.
+ */
+
+/** Ein Dateiname, der in einer URL und in einem Repo unauffällig bleibt. */
+export function saubererName(roh) {
+  const name = String(roh || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+  if (!name) throw new DienstFehler('Kein Dateiname')
+  return name
+}
+
+/** Setzt die erste Überschrift bzw. den `<title>` — je nach Art der Datei. */
+function setzeTitel(abs, titel) {
+  const text = readFileSync(abs, 'utf8')
+  if (abs.endsWith('.md')) {
+    if (!/^#\s+.+$/m.test(text)) throw new DienstFehler('Dokument hat keine Überschrift')
+    return text.replace(/^#\s+.+$/m, `# ${titel}`)
+  }
+  const alt = text.match(/<title>([^<]*)<\/title>/i)
+  if (!alt) throw new DienstFehler('Prototyp hat keinen <title>')
+  // Das Präfix „Mockup — " bleibt: Der Viewer schneidet es beim Anzeigen weg,
+  // und im Browser-Tab eines geöffneten Prototyps ist es die einzige Auskunft
+  // darüber, dass man einen Entwurf ansieht.
+  const praefix = /^Mockup\s*[—–·|-]\s*/i.exec(alt[1])
+  return text.replace(/<title>[^<]*<\/title>/i, `<title>${(praefix?.[0] ?? '') + titel}</title>`)
+}
+
+/** Jede Datei der Doku, in der ein Verweis stehen kann. */
+function verweisDateien() {
+  const inDocs = [...dateienUnter(DOCS, '.md'), ...dateienUnter(DOCS, '.html')]
+  const imHandbuch = dateienUnter(WURZEL, '.md').filter((p) => !relative(WURZEL, p).includes('/'))
+  return [...inDocs, ...imHandbuch]
+}
+
+/**
+ * Zieht alle Verweise auf `vonAbs` nach `nachAbs`. Verglichen werden AUFGELÖSTE
+ * Pfade und nicht Zeichenketten: Dasselbe Ziel heißt aus `docs/concepts/` `x.md`
+ * und aus der Wurzel `docs/concepts/x.md`, und ein Suchen-und-Ersetzen über den
+ * alten Dateinamen träfe zusätzlich jede Erwähnung im Fließtext.
+ */
+export function ziehVerweiseNach(vonAbs, nachAbs, namen = {}) {
+  const beruehrt = []
+  for (const datei of verweisDateien()) {
+    if (datei === nachAbs) continue
+    const alt = readFileSync(datei, 'utf8')
+    let neu = alt
+
+    // Markdown-Links zuerst, weil bei ihnen auch die BESCHRIFTUNG mitgehen
+    // kann: In `docs/roadmap.md` steht der Titel im Linktext, im Index oft der
+    // Dateiname. Bliebe er stehen, zeigte der Link richtig und läse sich falsch.
+    neu = neu.replace(/\[([^\]\n]*)\]\(([^)\s#]+)(#[^)\s]*)?\)/g, (ganz, text, ziel, anker = '') => {
+      if (/^(https?:|mailto:|#|\/)/.test(ziel)) return ganz
+      if (resolve(dirname(datei), decodeURI(ziel)) !== vonAbs) return ganz
+      return `[${neueBeschriftung(text, namen)}](${relative(dirname(datei), nachAbs)}${anker})`
+    })
+
+    neu = neu.replace(/(href="|href='|src="|src=')([^"'\s#]+)((?:#[^"'\s]*)?)/g, (ganz, vor, ziel, anker) => {
+      if (/^(https?:|mailto:|#|\/)/.test(ziel)) return ganz
+      if (resolve(dirname(datei), decodeURI(ziel)) !== vonAbs) return ganz
+      return vor + relative(dirname(datei), nachAbs) + anker
+    })
+
+    if (neu !== alt) {
+      writeFileSync(datei, neu)
+      beruehrt.push(relative(WURZEL, datei))
+    }
+  }
+  return beruehrt
+}
+
+/**
+ * Nur eine Beschriftung, die NUR der alte Name war, wird ersetzt. „Verweist auf
+ * [den Video-Export](…)" ist ein Satzteil und gehört dem Autor des Satzes —
+ * eine Umbenennung darf ihm nicht in den Text schreiben.
+ */
+function neueBeschriftung(text, { alterTitel, neuerTitel, alteDatei, neueDatei } = {}) {
+  const roh = text.replace(/`/g, '').trim()
+  const wieDatei = (name) => name && (roh === name || roh === name.replace(/\.(md|html)$/, ''))
+  if (alterTitel && neuerTitel && roh === alterTitel) return text.replace(alterTitel, neuerTitel)
+  if (wieDatei(alteDatei) && neueDatei)
+    return text.replace(roh, roh.endsWith('.md') || roh.endsWith('.html') ? neueDatei : neueDatei.replace(/\.(md|html)$/, ''))
+  return text
+}
+
+export function benenneUm(rel, { titel = '', name = '' } = {}) {
+  const abs = pruefePfad(rel)
+  const alterTitel = titelVon(abs)
+  const neuerTitel = String(titel || '').trim()
+  if (neuerTitel) writeFileSync(abs, setzeTitel(abs, neuerTitel))
+
+  const endung = extname(abs)
+  const alterName = basename(abs, endung)
+  const neuerName = name ? saubererName(name).replace(new RegExp(`${endung}$`), '') : alterName
+  if (neuerName === alterName) return { pfad: relative(WURZEL, abs), verweise: [] }
+
+  const ziel = join(dirname(abs), neuerName + endung)
+  const neu = verschiebe(abs, ziel)
+  return {
+    pfad: neu,
+    verweise: ziehVerweiseNach(abs, ziel, {
+      alterTitel,
+      neuerTitel: neuerTitel || alterTitel,
+      alteDatei: alterName + endung,
+      neueDatei: neuerName + endung,
+    }),
+  }
+}
+
+/** Die Überschrift bzw. der `<title>`, wie er JETZT dasteht. */
+function titelVon(abs) {
+  const text = readFileSync(abs, 'utf8')
+  const treffer = abs.endsWith('.md')
+    ? text.match(/^#\s+(.+)$/m)
+    : text.match(/<title>([^<]*)<\/title>/i)
+  return treffer ? treffer[1].replace(/^Mockup\s*[—–·|-]\s*/i, '').trim() : ''
 }
 
 /** Baut den Viewer neu — ohne Vorschau-Screenshots, das dauert sonst zu lang. */
@@ -188,6 +361,23 @@ export function fuehreAus(aktion, daten = {}) {
       return {
         pfad,
         meldung: daten.phase ? `Auf die Roadmap: ${daten.phase}` : 'Von der Roadmap genommen',
+      }
+    }
+    case 'oeffnen': {
+      // Kein Neubau: Es hat sich nichts geändert, es liegt nur ein Fenster
+      // mehr offen.
+      const { befehl, pfad } = oeffneImEditor(daten.datei)
+      return { pfad, meldung: `In ${befehl} geöffnet: ${pfad}` }
+    }
+    case 'umbenennen': {
+      const { pfad, verweise } = benenneUm(daten.datei, daten)
+      baueNeu()
+      return {
+        pfad,
+        verweise,
+        meldung: verweise.length
+          ? `Umbenannt: ${pfad} (${verweise.length} ${verweise.length === 1 ? 'Verweis' : 'Verweise'} nachgezogen)`
+          : `Umbenannt: ${pfad}`,
       }
     }
     case 'zurueckholen': {

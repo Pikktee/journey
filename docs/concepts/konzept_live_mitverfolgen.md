@@ -1,12 +1,20 @@
+---
+stand: 2026-08-07
+status: Konzept, nichts gebaut
+betrifft:
+  - android/
+  - server/
+  - Web-Player (eigene Live-Ansicht)
+  - src/routen.ts
+  - später ggf. iOS
+---
+
 # Konzept: Live mitverfolgen
 
 **Ziel:** Während jemand in der Android-App aufzeichnet, können andere über einen
 Link **in Echtzeit zuschauen** — wachsende Spur, Position, und Fotos/Videos, sobald
 sie ankommen. Derselbe magische Moment wie „ich bin unterwegs“, aber in Maptale-
 Sprache (Spur · Halt · Bild), nicht als generischer blauer Punkt.
-
-Stand: **2026-08-07** · Status: **Konzept, nichts gebaut** · Betrifft: `android/`,
-`server/`, Web-Player (eigene Live-Ansicht), `src/routen.ts`, später ggf. iOS.
 
 **Mockups:** [app-live-teilen.html](../mockups/app-live-teilen.html) (Aufnahme-Freigabe),
 [live-ansicht.html](../mockups/live-ansicht.html) (Zuschauer).

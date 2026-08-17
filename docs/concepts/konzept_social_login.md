@@ -1,8 +1,16 @@
-# Konzept: Social Login — Anmelden mit Google (und später Apple)
+---
+stand: 2026-08-07
+status: Konzept, nichts gebaut
+betrifft:
+  - server/src/auth/
+  - src/studio/ (Anmeldebühne)
+  - src/konto/
+  - android/
+  - später ios/
+  - datenschutz.html
+---
 
-Stand: 7. August 2026 · Status: **Konzept, nichts gebaut** · Betrifft: `server/src/auth/`,
-[src/studio/](../../src/studio/) (Anmeldebühne), [src/konto/](../../src/konto/), `android/`,
-später `ios/`, `datenschutz.html`
+# Konzept: Social Login — Anmelden mit Google (und später Apple)
 
 ## 1. Zielsetzung
 

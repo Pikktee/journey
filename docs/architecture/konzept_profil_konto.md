@@ -1,6 +1,10 @@
+---
+stand: 2026-08-06
+status: Etappen 1–7 umgesetzt (Umsetzungsprotokoll, keine offene Roadmap)
+---
+
 # Umsetzung: Profil & Kontoeinstellungen
 
-**Stand:** 6. August 2026 · Etappen 1–7 umgesetzt (Umsetzungsprotokoll, keine offene Roadmap).
 **Mockup:** [docs/mockups/studio-konto.html](../mockups/studio-konto.html)
 (Mockup-Leiste oben schaltet zwischen den Ansichten und Zuständen.)
 **Newsletter:** Einwilligung hier (Etappe 4); Versand noch offen in

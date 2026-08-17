@@ -1,6 +1,8 @@
-# Renderer-Labor: ausgebaut am 2026-08-11
+---
+archiviert_aus: architecture
+---
 
-Archiviert aus: architecture
+# Renderer-Labor: ausgebaut am 2026-08-11
 
 Die experimentellen Renderer und die MapLibre-Gebäudeebene sind aus dem
 Hauptprojekt entfernt. Dieses Blatt sagt, **was es gab, warum es ging und wie man

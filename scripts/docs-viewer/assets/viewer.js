@@ -442,6 +442,147 @@
       })
   }
 
+  /* ── Datei, Editor, Name ──────────────────────────────────────────────
+   * Drei Dinge am selben Ort: WO steht das, WIE öffne ich es, WIE heißt es.
+   * Das Kopieren geht auch ohne Dienst — es ist eine Zeichenkette und braucht
+   * niemanden, der antwortet. Öffnen und Umbenennen brauchen ihn.
+   */
+
+  function kopierePfad(pfad) {
+    var fertig = function () {
+      melde('Pfad kopiert: ' + pfad)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText)
+      return navigator.clipboard.writeText(pfad).then(fertig, ersatzKopie)
+    ersatzKopie()
+
+    // Ohne Zwischenablage-Recht (älterer Browser, unsicherer Kontext) bleibt
+    // der Weg über eine Auswahl. Er ist hässlich und funktioniert überall.
+    function ersatzKopie() {
+      var feld = document.createElement('textarea')
+      feld.value = pfad
+      feld.setAttribute('readonly', '')
+      feld.style.position = 'fixed'
+      feld.style.opacity = '0'
+      document.body.appendChild(feld)
+      feld.select()
+      try {
+        document.execCommand('copy')
+        fertig()
+      } catch (f) {
+        melde('Kopieren ging nicht: ' + pfad, true)
+      }
+      feld.remove()
+    }
+  }
+
+  function oeffneImEditor(pfad) {
+    if (!mitDienst) return melde('Ohne Dev-Server gibt es keinen Editor-Knopf', true)
+    ruf('oeffnen', { datei: pfad })
+      .then(function (a) {
+        melde(a.meldung)
+      })
+      .catch(function (f) {
+        melde(f.message, true)
+      })
+  }
+
+  ;[].slice.call(document.querySelectorAll('.kopftafel [data-pfad-kopieren]')).forEach(function (k) {
+    k.addEventListener('click', function () {
+      kopierePfad(k.textContent.trim())
+    })
+  })
+  ;[].slice.call(document.querySelectorAll('.kopftafel [data-editor-oeffnen]')).forEach(function (k) {
+    var tafel = k.closest('.kopftafel')
+    var pfadKnopf = tafel && tafel.querySelector('[data-pfad-kopieren]')
+    k.addEventListener('click', function () {
+      if (pfadKnopf) oeffneImEditor(pfadKnopf.textContent.trim())
+    })
+  })
+
+  /* ── Umbenennen ─────────────────────────────────────────────────────────
+   * Eine Schicht für alle Objekte der Seite. Sie merkt sich, WELCHES gemeint
+   * ist, statt vierzig Dialoge ins Markup zu legen. */
+
+  var umbSchicht = document.querySelector('[data-umbenennen-schicht]')
+  var umbZiel = ''
+
+  function oeffneUmbenennen(datei, titel) {
+    if (!umbSchicht) return
+    var feldTitel = umbSchicht.querySelector('[data-umbenennen-titel]')
+    var feldName = umbSchicht.querySelector('[data-umbenennen-name]')
+    var pfadZeile = umbSchicht.querySelector('[data-umbenennen-pfad]')
+    umbZiel = datei
+    var teile = datei.split('/')
+    var dateiname = teile.pop()
+    var punkt = dateiname.lastIndexOf('.')
+    feldTitel.value = titel || ''
+    feldName.value = punkt > 0 ? dateiname.slice(0, punkt) : dateiname
+    feldName.dataset.selbst = ''
+    pfadZeile.textContent = teile.join('/') + '/'
+    umbSchicht.hidden = false
+    document.body.classList.add('schicht-offen')
+    feldTitel.focus()
+    feldTitel.select()
+  }
+
+  if (umbSchicht) {
+    var umbTitel = umbSchicht.querySelector('[data-umbenennen-titel]')
+    var umbName = umbSchicht.querySelector('[data-umbenennen-name]')
+
+    var schliesseUmb = function () {
+      umbSchicht.hidden = true
+      document.body.classList.remove('schicht-offen')
+    }
+
+    // Der Dateiname folgt dem Titel, bis jemand ihn selbst anfasst: Wer den
+    // Titel ändert, meint meist beides — wer den Namen tippt, meint genau ihn.
+    umbName.addEventListener('input', function () {
+      umbName.dataset.selbst = '1'
+    })
+    umbTitel.addEventListener('input', function () {
+      if (umbName.dataset.selbst) return
+      umbName.value = umbTitel.value
+        .toLowerCase()
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-+|-+$/g, '')
+    })
+
+    var los = function () {
+      if (!umbZiel) return
+      if (!mitDienst) return melde('Ohne Dev-Server kann nichts umbenannt werden', true)
+      var titel = umbTitel.value.trim()
+      if (!titel) return melde('Ohne Titel geht es nicht', true)
+      schliesseUmb()
+      melde('Benenne um …')
+      ruf('umbenennen', { datei: umbZiel, titel: titel, name: umbName.value.trim() })
+        .then(nachAktion)
+        .catch(function (f) {
+          melde(f.message, true)
+        })
+    }
+
+    umbSchicht.querySelector('[data-umbenennen-los]').addEventListener('click', los)
+    umbSchicht.querySelector('[data-umbenennen-ab]').addEventListener('click', schliesseUmb)
+    umbSchicht.addEventListener('click', function (e) {
+      if (e.target === umbSchicht) schliesseUmb()
+    })
+    umbSchicht.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        los()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        schliesseUmb()
+      }
+    })
+  }
+
   if (mitDienst) {
     /* ── Ein Menü, viele Objekte ────────────────────────────────────────
      * Jede Kachel und jede Einzelseite trägt dasselbe Markup: ein Griff, eine
@@ -497,6 +638,27 @@
             })
         })
       })
+
+      var editor = klappe.querySelector('[data-editor-oeffnen]')
+      if (editor)
+        editor.addEventListener('click', function () {
+          schliesseSchwebend()
+          oeffneImEditor(datei)
+        })
+
+      var kopieren = klappe.querySelector('[data-pfad-kopieren]')
+      if (kopieren)
+        kopieren.addEventListener('click', function () {
+          schliesseSchwebend()
+          kopierePfad(datei)
+        })
+
+      var umbenennen = klappe.querySelector('[data-umbenennen]')
+      if (umbenennen)
+        umbenennen.addEventListener('click', function () {
+          schliesseSchwebend()
+          oeffneUmbenennen(datei, titel)
+        })
 
       var archivieren = klappe.querySelector('[data-archivieren]')
       if (archivieren)

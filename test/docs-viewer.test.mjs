@@ -17,14 +17,26 @@ import {
   sammleMockups,
   sammleRoadmap,
 } from '../scripts/docs-viewer/sammeln.mjs'
-import { bereichSeite, uebersichtSeite } from '../scripts/docs-viewer/seiten.mjs'
+import { bereichSeite, dokumentSeite, uebersichtSeite } from '../scripts/docs-viewer/seiten.mjs'
 import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
   pruefePfad,
   rueckZiel,
+  saubererName,
   ZIELBEREICHE,
 } from '../scripts/docs-viewer/dienst.mjs'
+import {
+  FELDER,
+  kopfVon,
+  leseYaml,
+  schreibeYaml,
+  setzeKopf,
+  teileKopf,
+} from '../scripts/docs-viewer/kopf.mjs'
+import { ampelAus } from '../scripts/docs-viewer/sammeln.mjs'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const dokumente = sammleDokumente()
 const bereiche = bereicheDieserDoku()
@@ -271,3 +283,191 @@ describe('Systemteile', () => {
   })
 })
 
+
+/* ── Der Kopf eines Dokuments ─────────────────────────────────────────────
+ * Front Matter ist die strukturierte Fassung dessen, was vorher als Prosa
+ * unter der Überschrift stand. Zwei Sorten Fehler sind dabei still, und genau
+ * die stehen hier: ein Feld, das falsch geschrieben ist (der Leser sieht die
+ * Angabe im Dokument, der Viewer nie), und ein Dokument, das den Stand ZWEIMAL
+ * trägt — einmal im Kopf, einmal noch als Zeile im Text. */
+
+describe('Front Matter', () => {
+  it('liest Skalare, Klammerlisten und Strichlisten', () => {
+    const { daten, koerper } = teileKopf(
+      '---\nstand: 2026-08-17\nsystemteile: [Player, Studio]\nbetrifft:\n  - src/ui.ts\n  - src/tour.ts\n---\n\n# Titel\n',
+    )
+    expect(daten.stand).toBe('2026-08-17')
+    expect(daten.systemteile).toEqual(['Player', 'Studio'])
+    expect(daten.betrifft).toEqual(['src/ui.ts', 'src/tour.ts'])
+    expect(koerper).toBe('# Titel\n')
+  })
+
+  it('erkennt nur einen Block in der ersten Zeile', () => {
+    // Mitten im Text ist `---` eine waagerechte Linie, und die kommt in
+    // unseren Konzepten vor.
+    const { roh } = teileKopf('# Titel\n\nText\n\n---\n\nMehr Text\n')
+    expect(roh).toBe(null)
+  })
+
+  it('zitiert Werte, die sonst die Zeile zerreißen', () => {
+    const roh = schreibeYaml({ status: 'Etappe 1: gebaut', stand: '2026-08-17' })
+    expect(leseYaml(roh).status).toBe('Etappe 1: gebaut')
+    expect(leseYaml(roh).stand).toBe('2026-08-17')
+  })
+
+  it('setzt und entfernt einzelne Felder', () => {
+    const mit = setzeKopf('# Titel\n\nText\n', { archiviert_aus: 'concepts' })
+    expect(teileKopf(mit).daten.archiviert_aus).toBe('concepts')
+    const ohne = setzeKopf(mit, { archiviert_aus: null })
+    expect(teileKopf(ohne).roh).toBe(null)
+    expect(ohne).toContain('# Titel')
+  })
+
+  it('lässt Front Matter die Prosa-Zeile FELDWEISE schlagen', () => {
+    // Nicht Block gegen Block: Ein Kopf mit nur `stand:` darf die übrigen
+    // Angaben des Dokuments nicht löschen.
+    const kopf = kopfVon('---\nstand: 2026-08-17\n---\n\n# T\n\nStatus: **Entwurf, nichts gebaut**\n')
+    expect(kopf.stand).toBe('2026-08-17')
+    expect(kopf.status).toBe('Entwurf, nichts gebaut')
+  })
+
+  it('gibt Betrifft immer als Liste zurück', () => {
+    expect(kopfVon('# T\n\nBetrifft: `src/ui.ts`, `src/tour.ts`\n').betrifft).toEqual([
+      'src/ui.ts',
+      'src/tour.ts',
+    ])
+    expect(kopfVon('---\nbetrifft: [src/ui.ts]\n---\n\n# T\n').betrifft).toEqual(['src/ui.ts'])
+  })
+
+  it('kennt jeden Feldnamen, der in der Doku steht', () => {
+    // Ein Tippfehler (`sytemteile:`) wird stumm ignoriert — das Dokument sieht
+    // dann vollständig aus und der Viewer weiß nichts davon. Geprüft wird nur
+    // `docs/`: DESIGN.md an der Wurzel trägt einen YAML-Block, der dort der
+    // INHALT ist (Farben, Schrift), und der wird bewusst nicht gedeutet.
+    for (const d of dokumente.filter((d) => d.quelle.startsWith('docs/'))) {
+      const { roh, daten } = teileKopf(readFileSync(join(WURZEL, d.quelle), 'utf8'))
+      if (roh == null) continue
+      for (const name of Object.keys(daten)) expect(FELDER, `${d.quelle}: ${name}`).toContain(name)
+    }
+  })
+
+  it('trägt dasselbe Feld nie zweimal', () => {
+    // Gemeint ist DASSELBE Feld an zwei Orten: Ein archiviertes Dokument mit
+    // `archiviert_aus` im Kopf und einer Prosa-Zeile „Stand: …" im Text ist in
+    // Ordnung — dort steht jede Angabe genau einmal. Zwei Ständen dagegen
+    // glaubt man dem falschen.
+    const doppelt = []
+    for (const d of dokumente.filter((d) => d.quelle.startsWith('docs/'))) {
+      const { roh, daten, koerper } = teileKopf(readFileSync(join(WURZEL, d.quelle), 'utf8'))
+      if (roh == null) continue
+      for (const [feld, wort] of [
+        ['stand', 'Stand'],
+        ['status', 'Status'],
+        ['betrifft', 'Betrifft'],
+        ['archiviert_aus', 'Archiviert aus'],
+      ])
+        if (daten[feld] != null && new RegExp(`^\\*{0,2}${wort}\\*{0,2}\\s*:`, 'm').test(koerper))
+          doppelt.push(`${d.quelle} (${feld})`)
+    }
+    expect(doppelt).toEqual([])
+  })
+
+  it('hält den Körper aus der Lesezeit heraus', () => {
+    // Front Matter ist eine Angabe ÜBER das Dokument, kein Teil seines Textes:
+    // Stünde er im Modell, zählte er als Lesezeit mit und wäre durchsuchbar.
+    for (const d of dokumente.filter((d) => d.quelle.startsWith('docs/')))
+      expect(d.text.trimStart().startsWith('---'), d.quelle).toBe(false)
+  })
+
+  it('lässt DESIGN.md seinen YAML-Kopf BEHALTEN', () => {
+    // Dort ist der Block der Inhalt (Google-DESIGN.md-Format): Farben,
+    // Schrift, Maße. Gedeutet als Metadaten verschwände das halbe
+    // Design-System aus der Ansicht, ohne dass eine Zeile fehlte.
+    const design = dokumente.find((d) => d.quelle === 'DESIGN.md')
+    expect(design, 'DESIGN.md fehlt im Modell').toBeTruthy()
+    expect(design.text).toContain('primary:')
+    expect(design.kopf.stand).toBe('')
+  })
+})
+
+describe('Ampel aus dem Status', () => {
+  it('macht aus „noch nicht gebaut" keinen fertigen Stand', () => {
+    // Die Falle: „noch nicht gebaut" und „nichts davon umgesetzt" enthalten
+    // beide Wörter, an denen die späteren Prüfungen hängen.
+    for (const satz of [
+      'geplant, noch nicht gebaut',
+      'nichts davon umgesetzt',
+      'am 13.08. geprüft und VERTAGT (§9), nichts davon umgesetzt',
+      'Entwurf, nichts gebaut',
+    ])
+      expect(ampelAus({ status: satz }, 'concepts').art, satz).toBe('offen')
+  })
+
+  it('erkennt Gebautes und Angefangenes weiterhin', () => {
+    expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe('unterwegs')
+    expect(ampelAus({ status: 'Etappen 1–7 umgesetzt' }, 'architecture').art).toBe('unterwegs')
+    expect(ampelAus({ status: 'live seit 2026-08-10' }, 'concepts').art).toBe('fertig')
+  })
+})
+
+describe('Umbenennen', () => {
+  it('macht aus einem Titel einen Dateinamen, der in eine URL passt', () => {
+    expect(saubererName('Probe: Ümbenennen 2!')).toBe('probe-uembenennen-2')
+    expect(saubererName('  Konzept — Föhn  ')).toBe('konzept-foehn')
+  })
+
+  it('verweigert einen leeren Namen', () => {
+    expect(() => saubererName('   ')).toThrow()
+    expect(() => saubererName('!!!')).toThrow()
+  })
+})
+
+describe('Datei und Editor auf der Seite', () => {
+  it('nennt auf jeder Dokumentseite ihre Quelldatei', () => {
+    // „Wo steht das?" war vorher eine Fußnote am Ende der Seite. Es ist die
+    // Frage, mit der man ein Konzept aufschlägt, wenn man es ändern will.
+    const dok = dokumente.find((d) => d.quelle === 'docs/concepts/konzept_video_export.md')
+    const html = dokumentSeite({
+      dok,
+      html: '<h1>T</h1><p>x</p>',
+      ueberschriften: [],
+      dokumente,
+      bereiche,
+      nachAbs: new Map(dokumente.map((d) => [d.abs, d])),
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+    expect(html).toContain(dok.quelle)
+    expect(html).toContain('data-editor-oeffnen')
+    // Die Tafel gehört UNTER den Titel: Sie sagt etwas über dieses Dokument.
+    expect(html.indexOf('</h1>')).toBeLessThan(html.indexOf('kopftafel'))
+  })
+
+  it('bietet Umbenennen, Editor und Pfad an jedem Objekt an', () => {
+    const html = bereichSeite({
+      bereich: bereiche.find((b) => b.id === 'concepts'),
+      dokumente,
+      bereiche,
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+    for (const marke of ['data-umbenennen>', 'data-editor-oeffnen', 'data-pfad-kopieren'])
+      expect(html).toContain(marke)
+    // Die Maske liegt in JEDER Seite, weil in jeder Seite Objekte stehen.
+    expect(html).toContain('data-umbenennen-schicht')
+  })
+
+  it('führt im Fuß Startseite, Impressum und Datenschutz', () => {
+    const html = uebersichtSeite({
+      dokumente,
+      bereiche,
+      mockups,
+      bilder: [],
+      roadmap: sammleRoadmap(dokumente, mockups),
+      schriftLokal: false,
+    })
+    expect(html).toContain('href="/impressum"')
+    expect(html).toContain('href="/datenschutz"')
+    expect(html).toContain('>Startseite<')
+  })
+})

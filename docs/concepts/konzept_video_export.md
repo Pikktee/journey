@@ -1,14 +1,18 @@
+---
+stand: 2026-08-17
+status: Etappe 1 gebaut und auf Player-Technik zurückgeführt, nächste Etappe ist der Auftrag
+betrifft:
+  - Web-Player (src/exportfilm.ts, src/exportformat.ts, src/tour.ts, src/main.ts)
+  - Studio-UI (src/studio/exportblatt.ts)
+  - später API-Auftrag wie der ZIP-Export
+  - Android nur als Auslöser
+---
+
 # Konzept: Video-Export
 
 **Ziel:** Aus einer fertigen Tour wird eine MP4, die man in WhatsApp, Instagram
 und Co. schickt. Relive gewinnt oft über genau diesen Weg, nicht über den
 Player-Link. Maptale hat den Link. Den Clip nicht.
-
-Stand: **2026-08-17** · Status: **Etappe 1 gebaut und auf Player-Technik zurückgeführt,
-nächste Etappe ist der Auftrag** ·
-Betrifft: Web-Player (`src/exportfilm.ts`, `src/exportformat.ts`, `src/tour.ts`,
-`src/main.ts`), Studio-UI (`src/studio/exportblatt.ts`), später API-Auftrag wie
-der ZIP-Export, Android nur als Auslöser.
 
 > **Lizenz-Vorbehalt (2026-08-17).** Dieses Konzept beschreibt die Technik. Mit
 > **Esri-Kacheln im Bild ist die MP4 nach Aktenlage nicht zulässig**, weder ihre

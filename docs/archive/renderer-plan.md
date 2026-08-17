@@ -1,6 +1,8 @@
-# Renderer-Plan: von MapLibre-Klötzen zur echten 3D-Szene
+---
+archiviert_aus: architecture
+---
 
-Archiviert aus: architecture
+# Renderer-Plan: von MapLibre-Klötzen zur echten 3D-Szene
 
 > **Archiviert am 2026-08-11.** Die hier beschriebenen Renderer sind aus dem
 > Hauptprojekt ausgebaut; der Code hängt am Tag `labor/renderer-v1`. Was

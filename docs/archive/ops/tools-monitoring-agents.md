@@ -1,6 +1,8 @@
-# Maptale Werkzeug- & Agenten-Empfehlungen
+---
+archiviert_aus: ops
+---
 
-Archiviert aus: ops
+# Maptale Werkzeug- & Agenten-Empfehlungen
 
 Diese Übersicht beschreibt spezialisierte Tools, Monitoring-Systeme und automatisierte KI-/CI-Agenten, die maßgeschneidert für den selbstgehosteten Stack von **Maptale** (Node.js/Fastify, SQLite, Nginx, MapLibre WebGL, Android Kotlin) eingesetzt werden können.
 

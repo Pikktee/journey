@@ -1,3 +1,7 @@
+---
+stand: 2026-08-15
+---
+
 # Schnittstellen-Zugänge — wo man sich registriert
 
 Arbeitsliste für die Tracker-Anbindung (`server/src/tracker/`). Sie sagt **nicht**, welcher
@@ -8,8 +12,6 @@ Adapter als Nächstes gebaut wird — das steht in
 Der Unterschied ist wichtig, weil beide Seiten verschieden lange dauern: Ein Adapter ist ein
 Tag Arbeit, eine Partner-Freigabe kann Wochen liegen oder nie kommen. Deshalb wird der
 Zugang **vor** dem Adapter beantragt, nicht danach.
-
-Stand: 2026-08-15.
 
 ## Status-Legende
 

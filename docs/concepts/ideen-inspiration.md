@@ -1,6 +1,12 @@
+---
+stand: 2026-08-07
+status: Entwurf, nichts davon beschlossen oder spezifiziert
+systemteile: [Player, Studio, Android-App, Backend]
+---
+
 # Ideen-Inspiration (Backlog)
 
-Stand: **2026-08-07**. Gesammelt aus einer Ideensession — **nichts davon ist
+Gesammelt aus einer Ideensession — **nichts davon ist
 beschlossen oder spezifiziert**. Die Datei hält Rohideen fest, damit sie nicht
 verloren gehen. Was sich lohnt, wird später zu einem eigenen Konzeptpapier
 (wie `foto-tour.md`, `editor-ausbau.md`, …).

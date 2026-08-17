@@ -128,6 +128,55 @@
         )
       }
 
+      // Dieselben drei Griffe wie im Menü einer Kachel: WO steht das, WIE
+      // öffne ich es, WIE heißt es. Umbenannt wird hier mit einer Eingabe statt
+      // mit einer Maske — die Leiste lebt in fremdem HTML, und ein Dialog
+      // darin träfe auf dessen CSS.
+      klappe.appendChild(el('div', K.titel, 'Datei'))
+      klappe.appendChild(
+        eintrag('Im Editor öffnen', function () {
+          klappe.style.display = 'none'
+          ruf('oeffnen', { datei: datei })
+            .then(function (a) {
+              melde(a.meldung)
+            })
+            .catch(function (f) {
+              melde(f.message, true)
+            })
+        }),
+      )
+      klappe.appendChild(
+        eintrag('Pfad kopieren', function () {
+          klappe.style.display = 'none'
+          var pfad = 'docs/' + datei.replace(/^docs\//, '')
+          if (navigator.clipboard && navigator.clipboard.writeText)
+            navigator.clipboard.writeText(pfad).then(function () {
+              melde('Pfad kopiert: ' + pfad)
+            })
+          else melde(pfad)
+        }),
+      )
+      klappe.appendChild(
+        eintrag('Umbenennen …', function () {
+          klappe.style.display = 'none'
+          var alt = (document.title || '').replace(/^Mockup\s*[—–·|-]\s*/i, '')
+          var titel = prompt('Titel des Prototyps', alt)
+          if (titel == null || !titel.trim()) return
+          var name = prompt('Dateiname (ohne .html)', datei.split('/').pop().replace(/\.html$/, ''))
+          if (name == null) return
+          ruf('umbenennen', { datei: datei, titel: titel.trim(), name: name.trim() })
+            .then(function (a) {
+              melde(a.meldung + ' — diese Seite ist umgezogen.')
+            })
+            .catch(function (f) {
+              melde(f.message, true)
+            })
+        }),
+      )
+      klappe.appendChild(
+        el('hr', 'margin:5px 4px;border:0;border-top:1px solid rgba(255,255,255,.1)'),
+      )
+
       klappe.appendChild(
         eintrag(stand.archiv ? 'Zurück nach Mockups' : 'Archivieren', function () {
           klappe.style.display = 'none'

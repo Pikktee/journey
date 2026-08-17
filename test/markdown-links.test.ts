@@ -74,6 +74,30 @@ const LINK = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g
 /** Ziele, die kein Pfad im Repo sind. */
 const EXTERN = /^(?:https?:|mailto:|tel:|data:|#)/
 
+/**
+ * Codeblöcke fallen heraus: Was in einem Block steht, ist ein BEISPIEL und kein
+ * Verweis — im gerenderten Markdown ist es nicht einmal anklickbar. Die Anleitung
+ * zum Anlegen neuer Doku (`.claude/skills/doku-anlegen/`) zeigt genau so eine
+ * Zeile mit einem erfundenen Dateinamen; auf eine echte Datei gerichtet wäre das
+ * Beispiel eine Behauptung über ein anderes Dokument.
+ *
+ * Der Preis ist klein: Ein Link im Block, der ins Leere zeigt, bleibt
+ * unbemerkt — er ist ohnehin kein Weg, den jemand geht.
+ */
+function ohneCodebloecke(text: string): string {
+  let drin = false
+  return text
+    .split('\n')
+    .map((zeile) => {
+      if (/^\s{0,3}(```|~~~)/.test(zeile)) {
+        drin = !drin
+        return ''
+      }
+      return drin ? '' : zeile
+    })
+    .join('\n')
+}
+
 describe('Markdown-Links zeigen auf existierende Dateien', () => {
   const dateien = markdownDateien().filter((d) => !AUSGENOMMEN.some((a) => d.startsWith(a)))
 
@@ -95,7 +119,7 @@ describe('Markdown-Links zeigen auf existierende Dateien', () => {
     const tot: string[] = []
     for (const datei of dateien) {
       const basis = join(wurzel, dirname(datei))
-      const text = readFileSync(join(wurzel, datei), 'utf8')
+      const text = ohneCodebloecke(readFileSync(join(wurzel, datei), 'utf8'))
       for (const treffer of text.matchAll(LINK)) {
         const ziel = treffer[1] as string
         if (EXTERN.test(ziel)) continue
@@ -116,7 +140,7 @@ describe('Markdown-Links zeigen auf existierende Dateien', () => {
     for (const datei of dateien) {
       const basis = dirname(datei)
       if (basis === '.') continue // die Wurzel-Dateien dürfen so schreiben
-      const text = readFileSync(join(wurzel, datei), 'utf8')
+      const text = ohneCodebloecke(readFileSync(join(wurzel, datei), 'utf8'))
       for (const treffer of text.matchAll(LINK)) {
         const ziel = treffer[1] as string
         if (EXTERN.test(ziel) || ziel.startsWith('.')) continue

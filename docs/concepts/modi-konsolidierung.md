@@ -1,11 +1,16 @@
+---
+stand: 2026-07-27
+status: Entwurf, nichts davon umgesetzt
+---
+
 # Umbauplan: Fortbewegungs-Modi konsolidieren
 
 **Ziel:** Ein neuer Modus (z. B. `car`, `run`, `train`, `ski`) soll im Web **eine Zeile**
 kosten statt acht verstreute Einträge — und die Maschine soll sagen, welche zwei Wörter
 in Server und App noch fehlen.
 
-Stand: **2026-07-27**, nichts davon umgesetzt. Voraussetzung für den Ausbau der
-Modus-Liste in [editor-ausbau.md](editor-ausbau.md), Abschnitt 9.
+Voraussetzung für den Ausbau der Modus-Liste in
+[editor-ausbau.md](editor-ausbau.md), Abschnitt 9.
 
 > Früher unter `docs/architecture/` — dort falsch, weil noch nicht gebaut.
 

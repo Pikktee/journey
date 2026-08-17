@@ -123,6 +123,7 @@ ${
 </head>
 <body class="${klasse}" data-auf="${auf}">
 ${inhalt}
+${umbenennenSchicht()}
 <script src="${auf}assets/index.js"></script>
 <script src="${auf}assets/viewer.js"></script>
 ${
@@ -133,6 +134,41 @@ ${
 }
 </body>
 </html>`
+}
+
+/**
+ * Umbenennen: Überschrift und Dateiname in einem Zug.
+ *
+ * ZWEI Felder und nicht eins, weil es zwei verschiedene Dinge sind — was
+ * jemand liest und worauf alles zeigt. Sie hängen aber zusammen: Ändert man nur
+ * die Überschrift, heißt die Datei danach noch wie die alte Idee, und der
+ * nächste sucht sie unter ihrem neuen Namen. Deshalb schlägt die Maske aus dem
+ * Titel einen Dateinamen VOR und lässt ihn stehen, sobald jemand ihn anfasst.
+ *
+ * Die Schicht liegt in jeder Seite, weil in jeder Seite Objekte stehen. Sie ist
+ * leer, bis ein Menü sie füllt — ein Dialog je Kachel wären auf der Übersicht
+ * vierzig.
+ */
+function umbenennenSchicht() {
+  return `<div class="schicht umbenennen-schicht" data-umbenennen-schicht hidden>
+  <div class="schicht-tafel" role="dialog" aria-modal="true" aria-labelledby="umbenennen-titel">
+    <h2 id="umbenennen-titel">Umbenennen</h2>
+    <label class="feld">
+      <span>Titel</span>
+      <input type="text" data-umbenennen-titel autocomplete="off" spellcheck="false" />
+    </label>
+    <label class="feld">
+      <span>Dateiname</span>
+      <input type="text" data-umbenennen-name autocomplete="off" spellcheck="false" />
+      <small data-umbenennen-pfad></small>
+    </label>
+    <p class="schicht-hinweis">Verweise in <code>docs/</code> und im Handbuch werden nachgezogen.</p>
+    <div class="schicht-fuss">
+      <button type="button" class="knopf knopf-haupt" data-umbenennen-los>Umbenennen</button>
+      <button type="button" class="knopf" data-umbenennen-ab>Abbrechen</button>
+    </div>
+  </div>
+</div>`
 }
 
 function kopfleiste(ziel, bereiche) {
@@ -210,11 +246,30 @@ function falte(titel, zahl, inhalt, opt = {}) {
   </details>`
 }
 
+/**
+ * Der Fuß trägt dieselben drei Links wie Impressum und Datenschutz:
+ * Startseite · Impressum · Datenschutz.
+ *
+ * Sie zeigen auf die ECHTEN Seiten und nicht auf Dateien im Viewer — beide
+ * bestehen nur gebaut, und die Doku liegt daneben. Deshalb absolute Pfade, die
+ * am selben Host aufgehen: Der Viewer läuft unter `/doku/` desselben
+ * Dev-Servers, unter dem auch `/impressum` liegt. Als Datei geöffnet (`file://`)
+ * gibt es keinen Host — dort führen sie ins Leere, und das ist der Preis dafür,
+ * dass die Doku überhaupt ohne Server lesbar ist.
+ */
 function fussleiste() {
+  const links = [
+    ['/', 'Startseite'],
+    ['/impressum', 'Impressum'],
+    ['/datenschutz', 'Datenschutz'],
+  ]
   return `<footer class="fuss">
     <p>Maptale-Doku${hinweis(
       'Erzeugt aus <code>docs/</code> mit <code>npm run docs</code>. Die Seiten liegen unter <code>docs/_site/</code>, stehen in <code>.gitignore</code> und gehen nie mit dem Deploy raus.',
     )}</p>
+    <nav class="fuss-links" aria-label="Rechtliches">${links
+      .map(([ziel, wort]) => `<a href="${ziel}">${escape(wort)}</a>`)
+      .join('<span class="fuss-sep" aria-hidden="true">·</span>')}</nav>
   </footer>`
 }
 
@@ -272,12 +327,20 @@ function aktionsmenue({ datei, titel, imArchiv, phasen = [], phase = '', oeffnen
        ).join('')}`
     : `<button type="button" class="menue-eintrag gefahr" data-archivieren>Archivieren</button>`
 
+  // Umbenennen, Editor und Pfad stehen an JEDEM Objekt: Man sucht sie dort, wo
+  // man das Objekt gerade vor sich hat, und nicht auf einer eigenen Seite.
+  const werkzeug = `<button type="button" class="menue-eintrag" data-umbenennen>Umbenennen …</button>
+     <button type="button" class="menue-eintrag" data-editor-oeffnen>Im Editor öffnen</button>
+     <button type="button" class="menue-eintrag" data-pfad-kopieren>Pfad kopieren</button>
+     <hr />`
+
   return `<div class="aktionen" data-aktionen data-datei="${escape(datei)}" data-titel="${escape(titel)}">
     <button type="button" class="aktionen-knopf" data-aktionen-knopf aria-haspopup="menu" aria-expanded="false" aria-label="Weitere Aktionen">
       <svg viewBox="0 0 16 4" aria-hidden="true"><circle cx="2" cy="2" r="1.6"/><circle cx="8" cy="2" r="1.6"/><circle cx="14" cy="2" r="1.6"/></svg>
     </button>
     <div class="aktionen-klappe" data-aktionen-klappe role="menu" hidden>
       ${oeffnen}
+      ${werkzeug}
       ${roadmap}
       ${ablage}
     </div>
@@ -803,6 +866,68 @@ function werkzeuge(dok, roadmap) {
   </span>`
 }
 
+/**
+ * Die Kopftafel über dem Text: was das Dokument über sich sagt, plus die Datei,
+ * in der es steht.
+ *
+ * Vorher stand beides nicht da. Der STATUS steckte im Fließtext des Dokuments
+ * („Stand: … · Status: … · Betrifft: …") und war damit eine Zeile Prosa unter
+ * vielen; die DATEI stand als Fußnote am Ende. Beides ist aber genau das, was
+ * man beim Aufschlagen wissen will: Gilt das noch, und wo ändere ich es?
+ *
+ * Die Zeile aus dem Fließtext ist dafür ERSATZLOS entfallen (Front Matter, s.
+ * `kopf.mjs`) — hätte man sie stehen lassen, stünde derselbe Stand zweimal auf
+ * der Seite, und beim nächsten Mal wäre eine der beiden Angaben alt.
+ */
+function kopftafel(dok) {
+  const zeile = (name, inhalt, klasse = '') =>
+    inhalt ? `<div class="${klasse}"><dt>${escape(name)}</dt><dd>${inhalt}</dd></div>` : ''
+
+  const betrifft = dok.kopf.betrifft
+    .map((b) => `<code>${escape(b)}</code>`)
+    .join('<span class="tafel-trenner">·</span>')
+
+  return `<dl class="kopftafel">
+    ${zeile('Stand', dok.kopf.stand ? escape(dok.kopf.stand) : '')}
+    ${zeile('Status', dok.kopf.status ? escape(dok.kopf.status) : '')}
+    ${zeile('Betrifft', betrifft, 'tafel-weit')}
+    ${zeile(
+      'Datei',
+      `<button type="button" class="tafel-pfad" data-pfad-kopieren
+               title="Pfad in die Zwischenablage">${escape(dok.quelle)}</button>
+       <button type="button" class="tafel-tat nur-dienst" data-editor-oeffnen>Im Editor öffnen</button>
+       <a class="tafel-tat" href="${escape(hoch(dok.ziel) + '../../' + dok.quelle)}">Quelltext ansehen</a>`,
+      'tafel-weit tafel-datei',
+    )}
+  </dl>`
+}
+
+/** HTML-Entitäten zurück in Text — die fünf, die `escape()` erzeugt, plus Zahlen. */
+function entkodiere(text) {
+  return String(text)
+    .replace(/&#(\d+);/g, (_, zahl) => String.fromCharCode(Number(zahl)))
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+/**
+ * Schiebt einen Block hinter die erste `h1` des gerenderten Textes.
+ *
+ * Die Tafel gehört UNTER den Titel und nicht darüber: Sie sagt etwas über
+ * dieses Dokument, und wovon sie redet, weiß man erst, wenn man seinen Namen
+ * gelesen hat. Über der Überschrift stand sie wie ein Vorwort ohne Bezug.
+ * Fehlt die `h1` (ein Dokument ohne Überschrift), kommt sie davor — dann ist
+ * sie das Erste, was dasteht, und das ist immer noch richtig.
+ */
+function nachDerUeberschrift(html, block) {
+  const ende = html.indexOf('</h1>')
+  if (ende === -1) return block + html
+  const schnitt = ende + '</h1>'.length
+  return html.slice(0, schnitt) + block + html.slice(schnitt)
+}
+
 /** Der Editor. Leer im Markup — den Text holt viewer.js beim Öffnen frisch. */
 function schreibtisch(dok) {
   return `<section class="schreibtisch" data-schreibtisch hidden>
@@ -852,16 +977,15 @@ function seitenleiste(dokumente, bereiche, dok, auf) {
 export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, nachAbs, roadmap, schriftLokal }) {
   const auf = hoch(dok.ziel)
   const bereich = bereiche.find((b) => b.id === dok.bereich)
+  // Der Stand steht in der Kopftafel darunter und nicht mehr als Chip: Zweimal
+  // dieselbe Zahl in zwei Zeilen liest man als zwei verschiedene Angaben.
   const chips = [
-    dok.kopf.stand ? `<span class="chip">Stand ${escape(dok.kopf.stand)}</span>` : '',
     `<span class="chip">${dok.minuten} min</span>`,
     dok.geaendert ? `<span class="chip">zuletzt ${escape(datum(dok.geaendert))}</span>` : '',
   ]
     .filter(Boolean)
     .join('')
 
-  // Status und „Betrifft" stehen im Fließtext der meisten Dokumente ohnehin;
-  // oben genügt die Ampel plus die Zahlen, die dort NICHT stehen.
   const verwandt = (liste, wort) => {
     const eintraege = liste.map((a) => nachAbs.get(a)).filter(Boolean)
     if (!eintraege.length) return ''
@@ -895,15 +1019,11 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
              ungeeignet, als Begründung, warum etwas so wurde, oft die einzige Quelle.</p>`
         : ''
     }
-    <article class="prosa" data-prosa>${html}</article>
+    <article class="prosa" data-prosa>${nachDerUeberschrift(html, kopftafel(dok))}</article>
     ${schreibtisch(dok)}
     <footer class="dok-fussnote">
       ${verwandt(dok.verweise, 'Zeigt auf')}
       ${verwandt(dok.rueckverweise, 'Wird genannt von')}
-      <div class="verwandt-block">
-        <h4>Quelle</h4>
-        <ul><li><a class="link-datei" href="${escape(auf + '../../' + dok.quelle)}">${escape(dok.quelle)}</a></li></ul>
-      </div>
     </footer>
   </main>
   <nav class="inhalt" aria-label="Inhalt dieses Dokuments">
@@ -913,7 +1033,10 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
       <ul>${ueberschriften
         .map(
           (u) =>
-            `<li class="e${u.ebene}"><a href="#${u.id}">${escape(u.titel.replace(/&[a-z]+;/g, ''))}</a></li>`,
+            // Die Titel kommen aus dem GERENDERTEN Markdown und sind damit schon
+            // HTML-kodiert. Ein zweites `escape()` machte aus „Do's" ein sichtbares
+            // „Do&#39;s" — also erst zurück in Text, dann einmal sauber kodieren.
+            `<li class="e${u.ebene}"><a href="#${u.id}">${escape(entkodiere(u.titel))}</a></li>`,
         )
         .join('')}</ul>
     </div>

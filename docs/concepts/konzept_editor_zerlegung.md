@@ -1,3 +1,9 @@
+---
+stand: 2026-08-07
+status: Entwurf, nichts davon umgesetzt
+betrifft: [src/studio/editor.ts]
+---
+
 # Umbauplan: Studio-Editor zerlegen (`editor.ts`)
 
 **Ziel:** [src/studio/editor.ts](../../src/studio/editor.ts) (~6 100 Zeilen, ~184
@@ -5,7 +11,7 @@ Funktionen) so aufteilen, dass Alltagsänderungen (Inspector-Feld, Kartenmarker,
 Zeitleisten-Geste, Spur-Menü) in einer überschaubaren Datei landen — ohne Verhalten
 zu ändern.
 
-Stand: **2026-08-07**, nichts davon umgesetzt. Ergänzt
+Ergänzt
 [editor-ausbau.md](editor-ausbau.md) (Was) und
 [zeitleiste-umbau.md](../architecture/zeitleiste-umbau.md) (Wie der Achse); hier geht
 es nur um **Code-Organisation**.

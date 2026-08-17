@@ -1,8 +1,13 @@
-# Wie schnell sich der Film anfühlt
+---
+stand: 2026-08-14
+status: teilweise behoben, ein Rest offen
+betrifft:
+  - src/filmachse.ts
+  - src/tour.ts
+  - src/geo.ts
+---
 
-Stand: 14. August 2026 · Status: **teilweise behoben, ein Rest offen** · Betrifft:
-[src/filmachse.ts](../../src/filmachse.ts), [src/tour.ts](../../src/tour.ts),
-[src/geo.ts](../../src/geo.ts)
+# Wie schnell sich der Film anfühlt
 
 Aufgekommen beim Abfahren von Paket E (Etappe 4, „Der Antrieb dreht sich um") gegen die
 Produktiv-Instanz. Gemeldet an einer Stelle: **Stockholm bei Pseudo-Uhrzeit 11:34** — der

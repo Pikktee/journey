@@ -1,8 +1,12 @@
+---
+stand: 2026-08-07
+status: 'am 13.08. geprüft und VERTAGT (§9), nichts davon umgesetzt'
+---
+
 # Konzept: Codebase-Bezeichner auf Englisch
 
-**Stand:** 7. August 2026 · **am 13.08. geprüft und VERTAGT** (§9) — nichts davon umgesetzt,
-und bis auf Weiteres bleibt auch neuer Code deutsch. Was jetzt schon gilt: die linke
-Glossar-Spalte (§6), ein Wort je Begriff.
+**Vertagt.** Bis auf Weiteres bleibt auch neuer Code deutsch. Was jetzt schon
+gilt: die linke Glossar-Spalte (§6), ein Wort je Begriff.
 **Anlass:** Zukunftssicherheit (Mitentwickler, Hiring, öffentliche APIs) bei
 weiterhin deutschem Chat und deutschen Produkttexten.
 **Leitplanke:** Coding-Agenten übernehmen die Tipparbeit; Menschen halten

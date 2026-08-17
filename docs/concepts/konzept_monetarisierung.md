@@ -1,13 +1,20 @@
+---
+stand: 2026-08-17
+status: Entwurf, nichts gebaut
+betrifft:
+  - Player (src/map.ts)
+  - Studio-Editor
+  - später Export-Auftrag
+  - Konten/Quota
+  - Location Platform
+---
+
 # Konzept: Monetarisierung und Esri-Lizenz
 
 **Ziel:** Festhalten, woran Maptale Geld verdienen kann und unter welcher
 Esri-Lizenz die Satellitenkarte überhaupt im Produkt stehen darf. Relive
 verkauft eine Datei. Maptale ist ein Player mit Link. Die Karte hängt an jedem
 öffentlichen Aufruf. Daraus folgen Lizenzweg und Paywalls.
-
-Stand: **2026-08-17** · Status: **Entwurf, nichts gebaut** · Betrifft: Player
-(`src/map.ts`), Studio-Editor, später Export-Auftrag, Konten/Quota, Location
-Platform.
 
 **Keine Rechtsberatung.** Die Sätze unten sind Lesarten öffentlicher Esri-Texte
 (Stand Recherche 2026-08-17, Vertragstexte E204 vom 21. Nov. 2025 und E300 vom

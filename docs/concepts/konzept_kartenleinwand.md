@@ -1,3 +1,13 @@
+---
+stand: 2026-08-17
+status: Entwurf, nichts gebaut
+betrifft:
+  - Player (src/ui.ts, src/style.css, erlebnis.html)
+  - Studio-Editor (src/studio/abspielen.ts, studio.html)
+  - Video-Export (src/exportfilm.ts)
+  - geteilte Zahlen (src/einblendung.ts)
+---
+
 # Konzept: Die Foto-Karte auf eine Leinwand
 
 **Ziel:** Die letzte Stelle schließen, an der die Bühnen auseinanderlaufen
@@ -7,14 +17,9 @@ geteilter Code; Foto-Karte, Startscreen und Finale-Tafel sind es nicht.
 **Es sind DREI Fassungen, nicht zwei.** Player (DOM + CSS), Studio-Editor
 (eigenes DOM + eigenes CSS) und Video-Export (Canvas). Das war der erste
 Entwurf dieses Konzepts zu eng gefasst: Er nannte nur Player↔Export, weil dort
-die Abweichungen grob sind. Nachgemessen weichen aber auch Player und Editor an
-vier Stellen voneinander ab — feiner, und deshalb schlimmer, weil man sie für
-gewollt halten könnte (§2).
-
-Stand: **2026-08-17** · Status: **Entwurf, nichts gebaut** ·
-Betrifft: Player (`src/ui.ts`, `src/style.css`, `erlebnis.html`), Studio-Editor
-(`src/studio/abspielen.ts`, `studio.html`), Video-Export (`src/exportfilm.ts`),
-geteilte Zahlen (`src/einblendung.ts`).
+die Abweichungen grob sind. Nachgemessen weichen aber auch Player und Editor
+voneinander ab, feiner und deshalb schlimmer, weil man sie für gewollt halten
+könnte (§2). Beim zweiten Nachzählen sind es nicht vier Stellen, sondern acht.
 
 Verwandt, aber anders:
 - [konzept_video_export.md](konzept_video_export.md). Dort steht, warum der
@@ -86,15 +91,32 @@ Die WERTE halten nicht:
 | Entwickeln-Ende | `brightness(1) contrast(1.02) saturate(1.05)` | `filter: none` |
 | Flug-Beginn | `translateY(70px) rotate(1.4deg) rotateX(10deg)` | `translateY(48px) rotate(1.6deg) rotateX(9deg)` |
 | Ruhelage der Karte | `rotate(-0.4deg)` | `rotate(-0.5deg)` |
+| Ken-Burns-Rückfalldauer | `--kb-dauer, 7s` | `--fe-kb-dauer, 6s` |
+| Ken Burns abgeschaltet | `transform: none` (also 1.0) | `scale(1.04)` |
+| Kamerablitz | `flash 0.75s ease-out`, Kurve über `radial-gradient(… 0.95 / 0.55)` | `fotoBlitz 700ms`, Spitze bei 12 %, Gradient `0.9 / 0.5` |
+| Schleier | `rgba(6,10,16,0.3)` + `blur(14px) saturate(0.85) brightness(0.96)` | `rgba(6,10,16,0.34)` + `blur(10px) brightness(0.92)` |
 
 **Und jetzt der Punkt, auf den es ankommt: Man kann nicht sagen, welche dieser
-vier Zeilen gewollt ist.** Die 48 px Flugweite gegen 70 px sind es
+acht Zeilen gewollt ist.** Die 48 px Flugweite gegen 70 px sind es
 offensichtlich — die Editor-Karte ist kleiner, sie liegt auf einem Leuchttisch
 und nicht bildschirmfüllend. Aber `1.01` gegen `1.02`? `-0.4°` gegen `-0.5°`?
 Ein Entwickeln, das im Player bei `contrast 1.02 / saturate 1.05` endet und im
 Editor bei `none`? Das sieht nach abgeschriebenen Zahlen aus, nicht nach einer
 Entscheidung. Nachweisen lässt es sich heute nicht, weil nirgends steht, was
 gleich sein SOLL.
+
+Die vier unteren Zeilen kamen erst bei der Gegenprobe dazu, und sie sind
+lehrreich, weil sie zeigen, wie die Krankheit fortschreitet: Zwei davon sind
+RÜCKFALLWERTE (`7s` gegen `6s`), stehen also nur da, wenn die Custom Property
+fehlt. Genau dann sieht man den Unterschied nicht als Bruch, sondern als leicht
+anderen Film.
+
+**Eine der vier ursprünglichen Fragen ist damit beantwortet.** Im
+Reduced-Motion-Block des Players steht die Karte auf `scale(1.02)`
+([style.css:1742](../../src/style.css)), also auf dem Editor-Wert. Die
+gemeinte Ruhegröße ist `1.02`; das `1.01` im Keyframe ist der Ausreißer. Wer
+beim Vereinheitlichen den Player als Vorbild nimmt, zementiert die falsche
+Zahl an drei Stellen.
 
 Das ist die eigentliche Krankheit, und sie ist schlimmer als die groben
 Abweichungen aus §2.1: Ein Fehler, den man sieht, wird behoben. Einer, den man
@@ -137,9 +159,12 @@ für Absicht halten kann, bleibt.
    [einblendung.ts](../../src/einblendung.ts); was verschieden sein DARF, steht
    dort als benannte Bühnen-Variante mit ihrem Grund. Ein Wert, der auf zwei
    Bühnen zufällig anders ist, gilt danach als Fehler und nicht als Geschmack.
-   Kandidat für die erste Variante: die Flugweite (bildschirmfüllend gegen
-   Leuchttisch). Kandidaten für „war nie gemeint": Ken-Burns-Ende,
-   Entwickeln-Ende, Ruhewinkel.
+   Kandidaten für benannte Varianten: die Flugweite (bildschirmfüllend gegen
+   Leuchttisch), der Schleier im Film (flache Füllung statt Blur, §4) und die
+   Kartengröße bei stehender Bedienung (die es im Film nicht gibt, §5).
+   Kandidaten für „war nie gemeint": Ken-Burns-Ende, Entwickeln-Ende,
+   Ruhewinkel, die beiden Rückfalldauern, der Ruhewert bei abgeschaltetem Ken
+   Burns, die Blitz-Dauer.
 
 ---
 
@@ -152,27 +177,50 @@ darin, dass es die Zeilen nur einmal gibt.
 
 Was schwieriger wird als in CSS:
 
-- **Textumbruch und Kürzen.** Canvas kann kein `text-overflow: ellipsis`. Der
-  Maler braucht Umbruch und Kürzen selbst — das steht mit `brichAttribution`
-  in [exportfilm.ts](../../src/exportfilm.ts) schon da und gehört mit in den Maler.
+- **Textumbruch, Kürzen und `clamp()`.** Canvas kann kein
+  `text-overflow: ellipsis`. Der Umbruch steht mit `brichAttribution` in
+  [exportfilm.ts](../../src/exportfilm.ts) schon da und gehört mit in den Maler;
+  das KÜRZEN steht dort noch nicht, das ist neu. Dazu kommt, was heute
+  unsichtbar in CSS steckt: Der Titel läuft auf
+  `clamp(18px, 2.2vw, 28px)`, die Karte auf `min(1500px, 92vw)` mit einer
+  Höhenrechnung aus `--photo-chrome` und `--vh-app`. Alles davon ist
+  Layout-Logik, die der Maler ausdrücklich nachbauen muss (s. §5,
+  „Skalierungsmodell").
 - **Schriften.** `ctx.font` zeichnet stumm mit der Ersatzschrift, wenn Outfit
   noch lädt. `document.fonts.ready` abwarten, bevor das erste Bild fällt — im
   Export ohnehin Pflicht, am Bildschirm ein Blitzen.
-- **Weichzeichnen hinter der Karte.** `backdrop-filter: blur(14px)` hat auf
-  einer Leinwand kein Gegenstück. `ctx.filter = 'blur(14px)'` gibt es, ist aber
-  langsam und nicht überall gleich. Der ehrliche Weg: den Karten-Ausschnitt der
-  Szene EINMAL beim Auftritt in einen Offscreen-Puffer weichzeichnen und den
-  liegen lassen — er ändert sich im Halt ohnehin nicht, weil die Kamera steht.
-  Das ist zugleich schneller als das heutige Live-Blur.
+- **Weichzeichnen hinter der Karte, und das ist die härteste Nuss.**
+  `backdrop-filter: blur(14px)` hat auf einer Leinwand kein Gegenstück, und der
+  naheliegende Ausweg trägt NICHT: Um den Hintergrund überhaupt in einen Puffer
+  zu bekommen, muss der Maler die MapLibre-Leinwand mit `drawImage` lesen, und
+  das geht nur mit `preserveDrawingBuffer`. Das steht heute allein im
+  Export-Zweig ([main.ts:541](../../src/main.ts)); dauerhaft eingeschaltet
+  kostet es Leistung an genau der Stelle, die ohnehin der Engpass ist
+  (gemessen: MapLibre 72–90 % der Frame-Zeit, s.
+  [scripts/messungen/README.md](../../scripts/messungen/README.md)). Und der
+  Puffer wäre auch inhaltlich falsch: Die Kamera steht im Halt zwar wirklich
+  still ([tour.ts:1094](../../src/tour.ts)), das WETTER aber nicht. Regen und
+  Schnee laufen an der Filmuhr weiter; ein eingefrorener Ausschnitt zeigt fünf
+  Sekunden lang stehenden Regen hinter der Karte.
+  **Entscheidung: Der Schleier bleibt eine DOM-Schicht mit `backdrop-filter`
+  UNTER der Leinwand**, und die flache Füllung im Film ist eine benannte
+  Bühnen-Variante nach §3.7 (Grund: Der Export komponiert selbst und hat den
+  Hintergrund ohnehin im Griff; ein exaktes Blur wäre dort ein eigener,
+  teurer Nachbau ohne Gewinn). Das ist keine Ausnahme von §3.1, sondern
+  dieselbe Linie wie §3.3: Was Bildinhalt ist, geht auf die Leinwand; was
+  Umgebung ist, darf DOM bleiben.
 - **Rundungen und Schatten** sind `roundRect` und `shadowBlur`, also kein Thema.
 
 Was leichter wird:
 
-- **Der Halt ist der Ruhefall.** Während die Karte liegt, steht die Kamera. Die
-  Leinwand muss also nur bei Änderung neu gemalt werden, nicht pro Frame.
 - **Rückwärts und Einzelbild fallen an.** Der Maler bekommt eine Filmsekunde
   und zeichnet den Stand dazu. Das ist genau das Modell, das die CSS-Fassung
   über `--karte-zeit` und pausierte Animationen mühsam nachstellt.
+- **Der Halt ist der ruhige Fall, aber nicht der Ruhefall.** Die Kamera steht,
+  MapLibre hat nichts zu tun. Der Maler aber schon: Ken Burns driftet über die
+  GANZE Klip-Länge, es wird also pro Frame neu gezeichnet. Der Gewinn ist ein
+  anderer und ein größerer, s. §5A: Der Maler arbeitet genau in der Phase, in
+  der das Frame-Budget frei ist.
 
 ---
 
@@ -205,12 +253,118 @@ zeichnet `drawImage` direkt. Für das Video bleibt es bei `videoStandS`: Der
 Maler malt den Frame, der zu dieser Filmsekunde gehört, das Seeken bleibt beim
 Aufrufer (er weiß, ob er streamt oder springt).
 
+**Dazu gehört eine Zusicherung, die es heute nicht braucht.** `drawImage` auf
+einem noch suchenden `<video>` zeichnet ohne Fehler das ALTE Bild. Am
+Bildschirm fällt das nicht auf, im Film ist es ein falsches Einzelbild in der
+Datei. Der Maler braucht deshalb entweder die Zusage des Aufrufers „der Frame
+steht" (im Export: `seeked` abgewartet) oder ein Rückgabesignal „noch nicht
+bereit", auf das der Export wartet, statt zu encodieren.
+
+### Skalierungsmodell
+
+**Das ist die Vorbedingung dafür, dass „deckungsgleich" überhaupt eine
+prüfbare Aussage ist.** Die Kartengeometrie hängt heute an festen Pixelwerten
+und Viewport-Einheiten: `min(1500px, 92vw)`, `--photo-chrome` 235 px, das auf
+335 px springt, sobald die Bedienung steht, dazu `--vh-app` und
+`clamp(18px, 2.2vw, 28px)` für den Titel. Ein 1920×1080-Film und ein
+1280×800-Bildschirm ergeben damit verschieden große Karten und verschieden
+große Schrift, und zwar AUCH mit einem einzigen Maler. Ein gemeinsamer Zeichner
+allein macht zwei Bühnen nicht deckungsgleich.
+
+Der Maler rechnet deshalb aus einer **Bezugshöhe** (Vorschlag: 1080 CSS-Pixel):
+Jede feste Länge im Maler ist ein Wert bei Bezugshöhe, multipliziert mit
+`hoehe / 1080`. Was NICHT mitskaliert, ist eine Entscheidung und wird benannt
+(Kandidat: die Mindest-Schriftgröße, damit die Unterschrift auf dem Telefon
+lesbar bleibt).
+
+Zwei Dinge fallen dabei ausdrücklich weg: **`--photo-chrome` gilt nur am
+Bildschirm.** Dass die Karte kleiner wird, sobald die Steuerleiste steht, ist
+eine Antwort auf eine Leiste, die es im Film nicht gibt. Im Export gilt die
+`ui-clean`-Größe, immer. Und das **Seitenverhältnis** ist auf beiden Bühnen das
+geklemmte aus `klemmeSeitenverhaeltnis` (§2.1, letzte Zeile) — das rohe im
+Export war nie gemeint.
+
 ### Auflösung
 
 Am Bildschirm zeichnet die Schicht mit `overlayPixelRatio()` wie Atmosphäre und
 Wetter (gemeinsames Pixelbudget, s. `map.ts`). Im Export mit dem Export-Ratio.
 Der Maler bekommt Breite und Höhe in CSS-Pixeln und eine Transform-Matrix — er
 rechnet nie in Gerätepixeln.
+
+**Ein Vorbehalt gegen die Analogie zu Wetter und Atmosphäre:**
+`overlayPixelRatio()` fällt auf schwachen Geräten (`COARSE`) auf `1` zurück
+([map.ts:102](../../src/map.ts)). Bei Partikeln sieht man das kaum, bei TEXT
+sofort. Wenn die Bildunterschrift dort sichtbar weich wird, ist die
+Karten-Schicht der eine Fall, der ein eigenes, höheres Verhältnis rechtfertigt
+— sie liegt nur im Halt, und im Halt ist das Budget frei (§5A). Das ist eine
+Messfrage, keine Vorabentscheidung: erst zeichnen, dann am Gerät ansehen.
+
+---
+
+## 5A. Was das für die Bildrate bedeutet
+
+Kurz: **eher besser, vor allem mobil**, mit einem einzigen ernsten Risiko.
+
+**Was wegfällt, ist der teuerste Posten der heutigen Fassung.** Solange die
+Karte liegt, weichzeichnet `backdrop-filter: blur(14px) saturate(0.85)
+brightness(0.96)` den GANZEN Viewport, live, Frame für Frame — bei bis zu 5 MP
+Zeichenfläche (`targetPixelRatio`). Full-Screen-Backdrop-Blur ist auf
+Mobilgeräten regelmäßig der Grund, warum eine Szene einbricht. Bleibt der
+Schleier als DOM-Schicht (§4), bleibt auch dieser Posten — der Umbau nimmt ihn
+also nicht automatisch weg, aber er macht ihn zum ersten Kandidaten für eine
+Messung.
+
+**Was hinzukommt, ist gedeckelt.** Eine Vollbild-Leinwand mehr im Stapel (wie
+Wetter und Atmosphäre), darauf ein skalierter `drawImage` in Kartengröße pro
+Frame. Das ist ein hardwarebeschleunigter Blit, seine Kosten wachsen mit der
+ZIELfläche, nicht mit der Fotogröße, und die Zielfläche ist rund die halbe
+Bühne.
+
+**Der entscheidende Umstand ist aber, WANN der Maler arbeitet.** Die Karte
+liegt nur im Halt, und im Halt steht die Kamera komplett still
+([tour.ts:1094](../../src/tour.ts)): MapLibre hat weder Kachelarbeit noch
+Repaint. Der Maler bekommt also genau die 72–90 % der Frame-Zeit geschenkt, die
+sonst der Karte gehören. Das gilt auch dann noch, wenn pro Frame neu gezeichnet
+wird — was er tut, weil Ken Burns über die ganze Klip-Länge driftet (§4).
+
+**Das eine ernste Risiko heißt `ctx.filter`.** Das „Entwickeln"
+(`brightness/contrast/saturate` über 1,6 s) ist in CSS ein Compositor-Effekt
+und praktisch gratis; in Canvas2D ist `ctx.filter` je nach Browser NICHT
+beschleunigt und kann pro Frame Millisekunden kosten. Im Repo wird es bis heute
+nirgends benutzt. Drei Auswege, in dieser Reihenfolge zu probieren: das Bild
+einmal in zwei Fassungen puffern (roh und „entwickelt") und zwischen ihnen
+überblenden; die Kurve über Composite-Operationen nachbauen; erst zuletzt
+`ctx.filter` und dann gemessen. Dass es nur 1,6 s je Halt betrifft, macht es
+erträglich, aber es sind die 1,6 s, in denen die Karte auffliegt.
+
+**Und der erste Ausweg ist eine NÄHERUNG, keine Identität — das muss man
+wissen, bevor der Pixelvergleich es meldet.** Die drei Filterwerte laufen
+gleichzeitig, ihre Wirkung multipliziert sich; eine lineare Überblendung
+zwischen Anfangs- und Endfassung trifft deshalb die MITTE der Kurve nicht
+exakt. Dazu kommt, dass `brightness(1.45)` Lichter abschneidet, und das Mischen
+zweier beschnittener Bilder ist nicht dasselbe wie das Beschneiden des
+gemischten. Sichtbar ist das voraussichtlich nicht, nachweisbar schon — und
+zwar genau in der Abnahme von Etappe 2. Wer das nicht weiß, sucht dort einen
+Fehler, der keiner ist. Konsequenz: Die 1,6 s des Entwickelns bekommen eine
+eigene Toleranz oder werden getrennt bewertet (s. Etappe 2).
+
+**Zwei kleinere Fallen derselben Art:** Text nicht pro Frame messen und setzen
+(einmal in einen Text-Puffer malen, dann blitten — der Text ändert sich im Halt
+nie), und `shadowBlur` nicht pro Frame auf die große Karte legen, sondern in
+den Kartenpuffer. Beides ist genau der Unterschied zwischen „Canvas ist
+schneller als DOM" und dem Gegenteil.
+
+**Im Export ist die Frage gegenstandslos.** Dort sind 98 % der Frame-Zeit
+Warten auf Kacheln (`window.__j.exportMess`), Engine plus Komposition plus
+Encode zusammen 1,2 ms. Der Maler verschwindet darin, und der heutige Umweg
+über das DOM (Texte per `textContent` zurücklesen) fällt weg.
+
+**Abnahme.** Vorher/Nachher an DEMSELBEN Halt, gleiche Tour, gleiche
+Filmsekunde, Frame-Zeit über die ganze Standzeit, Aufbau wie in
+[scripts/messungen/README.md](../../scripts/messungen/README.md) (Playwright
+plus CDP-Profiler auf dem Dev-Server). Die
+Zahl gehört danach hierher, so wie die Rampen-Kalibrierung ihre Zahl im
+Filmachsen-Konzept stehen hat.
 
 ---
 
@@ -227,19 +381,39 @@ Abgangs-Geometrie, Ruhewinkel, Dauern.
 Das Muster gibt es im Repo schon zweimal: der Drift-Wächter zwischen DESIGN.md
 und `basis.css` ([test/basis-css.test.ts](../../test/basis-css.test.ts)) und
 [test/einblendung-css.test.ts](../../test/einblendung-css.test.ts). Der zweite
-ist der Vorfahre dieses Tests — er prüft heute nur einen Teil und hat die vier
-Abweichungen aus §2.2 durchgelassen.
+ist der Vorfahre dieses Tests — er prüft heute nur einen Teil (die ZEITEN, und
+das ausdrücklich) und hat die acht Abweichungen aus §2.2 durchgelassen.
 
 **Auch wenn Etappe 2 nie kommt, ist das die Hälfte des Gewinns:** Es macht
 Absicht von Versehen unterscheidbar, und zwar für Player, Editor und Export
 zugleich.
 
+**Bekannter Folgeschritt, damit er später nicht wie ein Rückschritt aussieht:**
+Nach Etappe 2 steht die Player-Optik nicht mehr in `style.css`, sondern im
+Maler. Der Wächter vergleicht dann Maler-Konstanten gegen `studio.html` statt
+CSS gegen CSS. Die Tabelle in `einblendung.ts` überlebt beide Fassungen, der
+Lesecode für die eine Seite nicht. Das ist eingeplant und kein Versäumnis.
+
 ### Etappe 2 — Die Foto-Karte
 
-`kartenmaler.ts` plus die Schicht im Player, Export-Nachbau raus. Abnahme ist
-ein Vergleich: dieselbe Tour, dieselbe Filmsekunde, Player-Screenshot gegen
-Export-Frame. Sie müssen deckungsgleich sein — vorher gemessen, damit die Zahl
-im Konzept steht.
+`kartenmaler.ts` plus die Schicht im Player, Export-Nachbau raus.
+
+**Abnahme, und zwar präziser als „deckungsgleich":** dieselbe Tour, dieselbe
+Filmsekunde, Player-Screenshot gegen Export-Frame — bei GLEICHEM Format und mit
+`body.ui-clean` am Bildschirm (sonst vergleicht der Test die Fensterbreite und
+den Stand der Steuerleiste, s. §5 „Skalierungsmodell"). Verglichen wird nach
+Normierung auf die Bezugshöhe; die erreichte Abweichung gehört als Zahl ins
+Konzept. Dazu die Leistungsmessung aus §5A am selben Halt.
+
+**Zwei Zeitfenster, zwei Maßstäbe.** Ab dem Ende des Entwickelns (Auftritt plus
+1,6 s) wird hart auf Deckungsgleichheit geprüft: Geometrie, Ken-Burns-Stand,
+Schrift, Balken. WÄHREND der 1,6 s gilt eine eigene Toleranz, weil die
+Überblendung zweier gepufferter Fassungen die Filterkurve nur annähert (§5A);
+geprüft wird dort, dass Anfang und Ende exakt stimmen und die Abweichung
+dazwischen unter der Toleranz bleibt. Die Zahl wird beim Bauen gemessen und
+hier eingetragen, nicht vorab geraten. Wer stattdessen einen einzigen harten
+Vergleich über den ganzen Auftritt legt, bekommt einen roten Test für eine
+Entscheidung, die bewusst so getroffen wurde.
 
 ### Etappe 3 — Die Tafeln
 
@@ -255,22 +429,40 @@ bedienbar bleiben.
 1. **Zugänglichkeit ist die eigentliche Gefahr.** Eine Leinwand hat keinen
    Text. Ohne die versteckte Kopie verliert der Player Bildunterschriften für
    Screenreader — und niemand merkt es, weil das Bild gleich aussieht.
-2. **`ctx.font` scheitert leise.** Fehlt die Schrift noch, wird ohne Fehler die
+2. **`prefers-reduced-motion` fällt beim Umbau still weg.** Der Player hat
+   heute einen ausführlichen Reduce-Block für die Karte (Ken Burns aus,
+   Auftritt aus, Blitz aus); eine Leinwand erbt davon nichts, der Maler muss
+   `matchMedia` selbst lesen. Und er darf es im EXPORT gerade nicht tun: Die
+   Einstellung des rendernden Rechners hätte sonst Einfluss auf die
+   ausgelieferte Datei. Also ein Schalter im Aufruf, kein Blick des Malers auf
+   die Umgebung. Dieselbe Sorte Verlust wie Falle 1, nur unsichtbarer.
+3. **`ctx.font` scheitert leise.** Fehlt die Schrift noch, wird ohne Fehler die
    Ersatzschrift gezeichnet. `document.fonts.ready`.
-3. **`backdrop-filter` hat kein Gegenstück.** Nicht mit `ctx.filter` pro Frame
-   nachbauen, sondern einmal in einen Puffer (s. §4) — im Halt steht die Kamera.
-4. **Der Klick auf die Karte muss bleiben.** „Klick: anhalten / weiterlaufen"
-   hängt heute am `figure`. Auf einer Leinwand braucht es einen Treffertest
-   oder — besser — ein unsichtbares DOM-Rechteck, das mitgeführt wird.
-5. **Nicht in Gerätepixeln rechnen.** Der Maler bekommt CSS-Pixel; wer `dpr` in
+4. **`backdrop-filter` hat kein Gegenstück, und der Puffer-Trick trägt nicht.**
+   Weder pro Frame mit `ctx.filter` nachbauen noch einmal in einen Puffer
+   einfrieren: Für den Puffer bräuchte es `preserveDrawingBuffer` im
+   Normalbetrieb, und das Wetter läuft im Halt weiter (§4). Der Schleier bleibt
+   DOM, die flache Füllung im Film ist eine benannte Variante.
+5. **Der Klick auf die Karte muss bleiben, und er ist kein statischer Kasten.**
+   „Klick: anhalten / weiterlaufen" hängt heute am `figure`, dazu kommen der
+   Ton-Knopf des Videos und „Weiter ▸". Auf einer Leinwand braucht es
+   mitgeführte, unsichtbare DOM-Rechtecke — und die müssen mitwandern, wenn die
+   Karte springt, weil die Bedienung erscheint oder verschwindet.
+6. **Nicht in Gerätepixeln rechnen.** Der Maler bekommt CSS-Pixel; wer `dpr` in
    die Geometrie einrechnet, bekommt am Bildschirm und im Film verschiedene
-   Karten. Genau der Fehler, den das Konzept beheben soll.
-6. **Der Editor bleibt DOM (§3.6).** Wer beim Umbau „dann gleich überall"
+   Karten. Genau der Fehler, den das Konzept beheben soll. Die zweite Hälfte
+   davon ist das Skalierungsmodell (§5): Ein Maler ohne Bezugshöhe liefert bei
+   verschiedenen Formaten verschieden große Karten, auch ohne jeden `dpr`.
+7. **Der Editor bleibt DOM (§3.6).** Wer beim Umbau „dann gleich überall"
    denkt, kippt §6A des Gleichlauf-Konzepts. Umgekehrt gilt aber auch: Wer eine
    Zahl im Player anfasst, ohne in die Tabelle zu sehen, erzeugt die nächste
-   Zeile aus §2.2 — vier Werte sind so entstanden.
-7. **Das Video muss weiter nur bei Tempo 1 laufen.** Der Maler zeichnet, er
-   entscheidet nicht über Wiedergabe — sonst liefe im Schnelllauf plötzlich Ton.
+   Zeile aus §2.2 — acht Werte sind so entstanden.
+8. **Das Video muss weiter nur bei Tempo 1 laufen.** Der Maler zeichnet, er
+   entscheidet nicht über Wiedergabe — sonst liefe im Schnelllauf plötzlich
+   Ton. Und er darf keinen Frame malen, der noch gesucht wird (§5).
+9. **Canvas ist nicht von selbst schneller.** Pro Frame Text messen, `ctx.filter`
+   setzen und `shadowBlur` auf die große Karte legen macht die Leinwand
+   langsamer als das DOM, das sie ersetzt (§5A).
 
 ---
 
@@ -291,10 +483,19 @@ bedienbar bleiben.
 
 1. Etappe 1 bauen: den Wächter über alle drei Bühnen. Er ist billig und deckt
    den Rest der Zeit ab, in der es drei Fassungen gibt.
-2. Dabei die vier Zeilen aus §2.2 EINZELN entscheiden: geteilte Zahl oder
+2. Dabei die acht Zeilen aus §2.2 EINZELN entscheiden: geteilte Zahl oder
    benannte Bühnen-Variante. Nicht stillschweigend gleichziehen — die Flugweite
    soll verschieden bleiben, und ohne Begründung im Code wäre die nächste
-   Vereinheitlichung eine Verschlechterung.
-3. Etappe 2 erst danach, und mit dem Bildvergleich als Abnahme.
+   Vereinheitlichung eine Verschlechterung. Beim Ken-Burns-Ende ist `1.02` der
+   gemeinte Wert, nicht der des Players (§2.2, letzter Absatz).
+3. Etappe 2 erst danach, und mit dem Bildvergleich als Abnahme. Vorher steht
+   das Skalierungsmodell (§5), sonst misst der Vergleich das Fenster.
 4. Vorher §2 gegenprüfen — beide Tabellen sind am Code von heute abgelesen und
-   sollten am Tag des Umbaus noch stimmen.
+   sollten am Tag des Umbaus noch stimmen. Beim ersten Gegenprüfen wuchs §2.2
+   von vier auf acht Zeilen; das ist die Erwartung, nicht die Ausnahme.
+5. Die Leistungsfrage ist beantwortet, aber nicht gemessen (§5A): Erwartung
+   „eher besser", Risiko konzentriert auf `ctx.filter`. Die Messung gehört an
+   Etappe 2, nicht davor — vorher gibt es nichts zu messen. Wer dort die
+   Überblendung statt `ctx.filter` baut, legt die Toleranz für die 1,6 s des
+   Entwickelns gleich mit fest: Die Abweichung ist erwartet und keine
+   Fehlersuche wert.

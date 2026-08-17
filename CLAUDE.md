@@ -809,9 +809,15 @@ automatisch, sobald unter `android/` gearbeitet wird.
   Viewer: `npm run docs`, dann <http://maptale.localhost:5123/doku/> (Übersicht mit
   Roadmap, Bereiche, Volltextsuche, Mockup-Vorschauen, Verweis-Graph). Er leitet
   Bereiche, Systemteile und Archiv-Herkunft aus den Dateien ab und schreibt im
-  Dev-Server auch zurück (bearbeiten, archivieren, einplanen). Wer ein Dokument,
-  Konzept oder Mockup ANLEGT, folgt dem Skill
+  Dev-Server auch zurück (bearbeiten, archivieren, einplanen, umbenennen). Wer ein
+  Dokument, Konzept oder Mockup ANLEGT, folgt dem Skill
   [`doku-anlegen`](.claude/skills/doku-anlegen/SKILL.md) — er lädt automatisch.
+  **Der Kopf eines Dokuments ist Front Matter** (`stand`, `status`, `betrifft`,
+  `systemteile`, `archiviert_aus` — [`kopf.mjs`](scripts/docs-viewer/kopf.mjs)); die
+  alte Prosa-Zeile „Stand: … · Status: …" gilt feldweise als Rückfall, beides
+  zugleich verbietet der Wächter. `DESIGN.md` ist ausgenommen: Sein YAML-Block ist
+  der Inhalt, nicht der Kopf. **Umbenannt wird über den Viewer**, nicht von Hand —
+  er zieht die Verweise in `docs/` und im Handbuch nach.
   `docs/archive/` ist Historie: nicht als Implementierungsquelle nutzen (widerspricht
   oft dem Ist-Stand). Im Viewer ist das Archiv kein eigener Bereich, sondern hängt
   unter dem Bereich, aus dem ein Dokument kam.

@@ -1,9 +1,15 @@
-# Konzept: Die Android-App in den Play Store — interner Test als erster Schritt
+---
+stand: 2026-08-07
+status: Konzept, nichts gebaut
+betrifft:
+  - android/
+  - .github/workflows/deploy.yml
+  - docs/ops/android-release.md
+  - datenschutz.html
+  - index.html (Download-Knopf)
+---
 
-Stand: 7. August 2026 · Status: **Konzept, nichts gebaut** · Betrifft: `android/`,
-[.github/workflows/deploy.yml](../../.github/workflows/deploy.yml),
-[docs/ops/android-release.md](../ops/android-release.md), `datenschutz.html`,
-[index.html](../../index.html) (Download-Knopf)
+# Konzept: Die Android-App in den Play Store — interner Test als erster Schritt
 
 **Der Weg ist schon einmal gegangen worden** — mit Velosia (Repo `vintamie`, Paketname
 `com.velosia.app`, seit Juni 2026 im internen Test). Der dort erprobte Ablauf samt der

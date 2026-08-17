@@ -1,7 +1,12 @@
+---
+stand: 2026-07-22
+status: geplant, noch nicht gebaut
+---
+
 # Tour nur aus Fotos — ohne GPX
 
-Stand 2026-07-22, geplant, noch nicht gebaut. Ziel: Wer nur Fotos hat (Handy in der
-Hosentasche, keine Aufzeichnung gestartet), soll trotzdem eine Kamerafahrt bekommen.
+**Ziel:** Wer nur Fotos hat (Handy in der Hosentasche, keine Aufzeichnung
+gestartet), soll trotzdem eine Kamerafahrt bekommen.
 
 ## Warum das kleiner ist, als es klingt
 

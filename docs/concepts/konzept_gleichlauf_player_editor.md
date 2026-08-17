@@ -1,6 +1,13 @@
-# Gleichlauf: ein Film, zwei Bühnen
+---
+stand: 2026-08-14
+status: Pakete A–G gebaut — der Plan ist damit abgearbeitet; offen bleiben die freien Stücke (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung)
+betrifft:
+  - src/ (Player)
+  - src/studio/
+  - server/src/pipeline/
+---
 
-Stand: 14. August 2026 · Status: **Pakete A–G gebaut** — der Plan ist damit abgearbeitet; offen bleiben die freien Stücke (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung) · Betrifft: `src/` (Player), `src/studio/`, `server/src/pipeline/`
+# Gleichlauf: ein Film, zwei Bühnen
 
 **Ziel:** Der Studio-Editor zeigt denselben Film wie der Player — so genau, dass man **auf
 den Takt der Musik schneiden** kann. Heute weicht er an drei Achsen ab: hörbar (bis v0.60.4),

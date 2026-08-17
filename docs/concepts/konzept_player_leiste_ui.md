@@ -1,7 +1,14 @@
-# Die Steuerleiste des Players nach Paket G
+---
+stand: 2026-08-14
+status: Entwurf, nichts gebaut
+betrifft:
+  - src/ui.ts
+  - src/style.css
+  - erlebnis.html
+  - src/tour.ts (Telemetrie)
+---
 
-Stand: 14. August 2026 · Status: **Entwurf, nichts gebaut** · Betrifft: `src/ui.ts`, `src/style.css`,
-`erlebnis.html`, `src/tour.ts` (Telemetrie)
+# Die Steuerleiste des Players nach Paket G
 
 Mockups: [player-leiste-runde3.html](../mockups/player-leiste-runde3.html) (**dritte Runde, die
 offenen Fragen — der aktuelle Stand**), [player-ui-ideen.html](../mockups/player-ui-ideen.html)

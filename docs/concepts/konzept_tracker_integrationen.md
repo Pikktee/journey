@@ -1,7 +1,14 @@
-# Konzept: Tracker-Integrationen & Automatische Foto-Zuordnung
+---
+stand: August 2026
+status: Etappen 0–6 gebaut, Polar live (2026-08-10)
+betrifft:
+  - server/
+  - android/
+  - src/konto/
+  - später ios/
+---
 
-Stand: August 2026 · Status: **Etappen 0–6 gebaut**, Polar live (2026-08-10) ·
-Betrifft: `server/`, `android/`, `src/konto/`, später `ios/`
+# Konzept: Tracker-Integrationen & Automatische Foto-Zuordnung
 
 Was steht: die additive Medien-Route (Etappe 0, eigenes Konzept), der anbieterblinde Kern
 (Etappe 1), der **Polar-Adapter** (Etappe 3), die Kontoseite „Verbundene Dienste"

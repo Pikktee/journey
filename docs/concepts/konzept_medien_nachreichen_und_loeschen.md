@@ -1,7 +1,14 @@
-# Konzept: Medien nachreichen & endgültig löschen
+---
+stand: August 2026
+status: Server und Studio gebaut (2026-08-09), App offen
+betrifft:
+  - server/
+  - src/studio/
+  - android/
+  - datenschutz.html
+---
 
-Stand: August 2026 · Status: **Server und Studio gebaut** (2026-08-09), App offen ·
-Betrifft: `server/`, `src/studio/`, `android/`, [datenschutz.html](../../datenschutz.html)
+# Konzept: Medien nachreichen & endgültig löschen
 
 Mockups liegen fertig vor: [studio-aufnahmen-nachreichen.html](../mockups/studio-aufnahmen-nachreichen.html)
 (Studio) und [app-aufnahmen-hinzufuegen.html](../mockups/app-aufnahmen-hinzufuegen.html) (App).

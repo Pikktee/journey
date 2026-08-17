@@ -26,25 +26,40 @@ Farbe, Motiv und Satz fehlen (`BEREICHE` in `scripts/docs-viewer/sammeln.mjs`).
 
 ## 2. Der Kopf eines Dokuments
 
-Die erste `#`-Überschrift ist der Titel. Direkt darunter, jede Angabe optional:
+**Front Matter in der ersten Zeile**, danach die `#`-Überschrift. Jede Angabe
+ist freiwillig; der Viewer zeigt sie als Tafel unter dem Titel.
 
 ```markdown
-# Konzept: Sprechende Wegpunkte
+---
+stand: 2026-08-17
+status: Entwurf, nichts gebaut
+betrifft:
+  - src/tour.ts
+  - server/src/pipeline/
+systemteile: [Player, Backend]
+---
 
-Stand: 2026-08-17 · Status: **Entwurf, nichts gebaut** · Betrifft: `src/tour.ts`, `server/src/pipeline/`
-Systemteile: Player, Backend
+# Konzept: Sprechende Wegpunkte
 
 **Ziel:** Ein Satz, der sagt, was jemand danach kann und heute nicht.
 ```
 
-- **`Status:`** treibt die Ampel *und* steht als Satz auf der Roadmap-Karte. Deshalb
-  konkret schreiben: „Etappen 0–6 gebaut, Polar live" sagt etwas, „in Arbeit" nicht.
-  Wortwahl zählt: `nichts gebaut|Entwurf|Konzept,` → Entwurf, `teilweise|Etappe|Paket|offen`
-  → Unterwegs, `gebaut|live|erledigt` → Gebaut, `abgearbeitet|abgeschlossen` → gilt als
+- **`status`** treibt die Ampel *und* steht als Satz auf der Roadmap-Karte. Deshalb
+  konkret schreiben und als FREITEXT: „Etappen 0–6 gebaut, Polar live" sagt etwas,
+  „in Arbeit" nicht. Wortwahl zählt: `nichts gebaut|noch nicht gebaut|nichts davon
+  umgesetzt|vertagt|Entwurf|geplant` → Entwurf, `teilweise|Etappe|Paket|offen` →
+  Unterwegs, `gebaut|live|erledigt` → Gebaut, `abgearbeitet|abgeschlossen` → gilt als
   durch und verschwindet aus der Roadmap.
-- **`Systemteile:`** nur setzen, wenn die Ableitung danebenliegt — sie zählt die
-  genannten Pfade und gewichtet den eigenen Ort am schwersten.
-- **`Archiviert aus: <bereich>`** schreibt der Viewer beim Archivieren selbst.
+- **`stand`** als ISO-Datum (`2026-08-17`); „August 2026" bleibt stehen, wo der Tag
+  nie behauptet wurde.
+- **`betrifft`** ist eine Liste von Pfaden, aus der auch die Systemteile abgeleitet
+  werden. **`systemteile`** nur setzen, wenn diese Ableitung danebenliegt.
+- **`archiviert_aus`** schreibt der Viewer beim Archivieren selbst.
+- **Nur diese Feldnamen** werden gelesen; ein Tippfehler wäre stumm, deshalb hält
+  ein Wächter die Liste (`FELDER` in `scripts/docs-viewer/kopf.mjs`).
+- Die **alte Prosa-Zeile** (`Stand: … · Status: … · Betrifft: …`) gilt weiter als
+  Rückfall. Nicht BEIDES setzen: Zwei Stände sind einer zu viel, und der Wächter
+  meldet es.
 
 ## 3. Klappentext in `docs/README.md`
 
@@ -69,12 +84,22 @@ Im laufenden Viewer geht das auch per „…"-Menü an der Karte. Was in keiner 
 steht, erscheint unter „Ohne Phase" und wird beim Bauen gemeldet — vergessene
 Konzepte fallen dadurch auf.
 
+## 4b. Umbenennen statt neu anlegen
+
+Ändert sich der Name eines vorhandenen Dokuments, **nicht von Hand verschieben**:
+Das „…"-Menü im Viewer benennt Überschrift und Dateiname in einem Zug um und
+zieht die Verweise in `docs/` und im Handbuch nach (Index, Roadmap,
+Querverweise). Von Hand bleibt fast immer einer stehen, und ein toter Link fällt
+erst auf, wenn ihn jemand braucht.
+
 ## 5. Ein Mockup anlegen
 
 Eine `.html` in `docs/mockups/`, Namenspräfix bestimmt den Systemteil:
 `app-` (Android), `player-`, `studio-`, `live-` (öffentliche Seiten).
 
 - `<title>Mockup — <Was es zeigt></title>` — der Viewer schneidet „Mockup — " weg.
+- Stand und Status als `<meta name="maptale:stand|status|systemteile" content="…">`
+  im `<head>`. HTML kennt kein Front Matter; die Namen sind dieselben.
 - Bilder relativ aus `docs/mockups/landing|titelbilder|tourbilder/` laden. Diese
   Ordner sind Arbeitskopien für die Prototypen, kein Bildarchiv; ungenutzte Dateien
   meldet der Bau.

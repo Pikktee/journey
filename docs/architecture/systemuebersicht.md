@@ -1,7 +1,11 @@
+---
+stand: August 2026
+---
+
 # Maptale — Tech-Stack & Systemarchitektur
 
-Stand: August 2026 · High-Level-Überblick über das Monorepo. Detailentscheidungen
-stehen in den verlinkten Docs unter `architecture/`, `specs/` und `ops/`.
+High-Level-Überblick über das Monorepo. Detailentscheidungen stehen in den
+verlinkten Docs unter `architecture/`, `specs/` und `ops/`.
 
 Maptale erzeugt Relive-artige 3D-Kamerafahrten über GPS-Routen mit automatischen
 Foto-Stopps — vollständig auf freien Kartendaten. Aufgezeichnet wird auf dem

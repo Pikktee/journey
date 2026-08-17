@@ -231,7 +231,7 @@ if (ohneTeil.length)
     `  Systemteile: ${ohneTeil.length} Dokumente ohne Zuordnung (${ohneTeil
       .slice(0, 3)
       .map((d) => d.quelle)
-      .join(', ')}${ohneTeil.length > 3 ? ', …' : ''}) — eine Zeile "Systemteile: …" im Kopf hilft`,
+      .join(', ')}${ohneTeil.length > 3 ? ', …' : ''}) — "systemteile: [Studio, Backend]" im Front Matter hilft`,
   )
 if (roadmap.offen.length)
   console.log(`  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`)

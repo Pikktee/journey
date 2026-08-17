@@ -111,6 +111,81 @@ Wurzel; jeder Pfad wird aufgelöst und danach geprüft. Die Grenzen stehen in
 [`scripts/docs-viewer/dienst.mjs`](../scripts/docs-viewer/dienst.mjs) und
 werden vom Wächter mitgetestet.
 
+## Der Kopf eines Dokuments
+
+Was ein Dokument über sich sagt, steht als **Front Matter** in seiner ersten
+Zeile. Jedes Feld ist freiwillig:
+
+```markdown
+---
+stand: 2026-08-17
+status: Entwurf, nichts gebaut
+betrifft:
+  - src/ui.ts
+  - src/exportfilm.ts
+systemteile: [Player]
+---
+
+# Konzept: Sprechende Wegpunkte
+```
+
+Der Viewer zeigt die Angaben als Tafel unter der Überschrift, dazu die **Datei,
+in der das Dokument steht** — mit einem Knopf, der sie im Editor öffnet, und
+einem, der den Pfad kopiert. Vorher stand der Stand als Prosa-Zeile im Text
+(`Stand: … · Status: … · Betrifft: …`) und wurde von vier Regexen zerlegt; das
+trug, solange niemand die Reihenfolge tauschte, ein `·` in einen Statussatz
+schrieb oder die Zeile umbrach. Alles drei kam vor.
+
+Drei Regeln, damit daraus kein Pflegeschema wird:
+
+* **Der Kopf trägt nur, was NICHT ableitbar ist.** Bereich, Lesezeit,
+  Änderungsdatum, Verweise und Rückverweise stehen nicht darin — der Generator
+  kennt sie besser als jede gepflegte Angabe. `systemteile` nur, wo die
+  Ableitung danebenliegt.
+* **`status` ist FREITEXT, kein Zustandswort.** „Etappen 0–6 gebaut, Polar live"
+  ist die wertvollste Angabe der Roadmap-Karte; `status: unterwegs` wäre die
+  Ampel ohne ihren Grund. Die Ampel wird aus dem Satz abgeleitet.
+* **Die alte Prosa-Zeile gilt weiter.** Wo kein Front Matter steht, liest der
+  Viewer sie wie bisher — und zwar FELDWEISE, damit ein Kopf mit nur `stand:`
+  die übrigen Angaben nicht verdeckt. Ein Dokument muss nicht angefasst werden,
+  um vollständig zu erscheinen.
+
+Umgestellt wurde der Bestand mit
+[`scripts/docs-viewer/kopf-umstellen.mjs`](../scripts/docs-viewer/kopf-umstellen.mjs)
+(`--trocken` berichtet nur). Es ist absichtlich feige: Gewandelt wird, wo der
+Kopf vollständig aus bekannten Feldern besteht — „Stand 2026-07-22, geplant,
+noch nicht gebaut. Ziel: …" ist Prosa mit einem Datum davor und bleibt liegen.
+Acht solche Fälle wurden von Hand nachgezogen.
+
+**Mockups haben kein Front Matter** (HTML kennt keins). Ihr Gegenstück sind
+`<meta>`-Angaben mit denselben Namen — damit trägt ein Prototyp Stand und Status,
+die er vorher gar nicht ausdrücken konnte:
+
+```html
+<meta name="maptale:stand" content="2026-08-17" />
+<meta name="maptale:status" content="Entwurf, nichts gebaut" />
+```
+
+**`DESIGN.md` ist die Ausnahme.** Es trägt selbst einen YAML-Block, und der ist
+dort der INHALT (Farben, Schrift, Maße im Google-DESIGN.md-Format). Der Kopf
+wird deshalb nur unter `docs/` gedeutet; an der Wurzel bleibt der Text, wie er
+ist. Als Metadaten gelesen verschwände das halbe Design-System aus der Ansicht,
+ohne dass eine Zeile fehlte — ein Wächter hält das fest.
+
+## Umbenennen
+
+Titel und Dateiname ändert man im „…"-Menü jedes Dokuments und jedes Prototyps.
+Es sind **zwei Felder**, weil es zwei Dinge sind: was jemand liest und worauf
+alles zeigt. Der Dateiname folgt dem Titel, bis man ihn selbst anfasst.
+
+Der teure Teil ist nicht das Verschieben, sondern die **Verweise**: Ein Konzept
+wird von Index, Roadmap, Handbuch und anderen Konzepten genannt, jeweils relativ
+zum eigenen Ort. Der Dienst vergleicht deshalb AUFGELÖSTE Pfade und nicht
+Zeichenketten, zieht sie nach und meldet, wie viele es waren. Die
+**Beschriftung** geht nur dann mit, wenn sie genau der alte Titel oder der alte
+Dateiname war. Ein Link, dessen Text „den Video-Export" lautet, mitten in einem
+Satz, ist ein Satzteil und gehört dem, der den Satz geschrieben hat.
+
 ## Archiv
 
 Archivierte Dokumente liegen weiter in `docs/archive/`, sind im Viewer aber
@@ -119,13 +194,15 @@ aufklappbar am Ende von dessen Seite. Eine eigene Kachel führte in einen Raum,
 in dem Konzepte und Architektur-Notizen durcheinanderlagen; ihre Nachbarschaft
 bleibt so dort, wo sie hingehört.
 
-Woher ein Dokument kam, steht **in ihm**, direkt unter der Überschrift:
+Woher ein Dokument kam, steht **in ihm**, im Kopf der Datei:
 
 ```markdown
-Archiviert aus: concepts
+---
+archiviert_aus: concepts
+---
 ```
 
-Der Viewer schreibt diese Zeile beim Archivieren selbst und entfernt sie beim
+Der Viewer schreibt das Feld beim Archivieren selbst und entfernt es beim
 Zurückholen. Die Git-Historie kannte die Herkunft nur bei zweien von fünf
 Altfällen (der Rest wurde direkt im Archiv angelegt), und beim Lesen der Datei
 beantwortet sie die Frage gar nicht. Ohne Zeile landet ein Dokument bei den
@@ -142,10 +219,12 @@ Die Zuordnung wird **abgeleitet, nicht gepflegt**: Die Dokumente nennen ihre
 Dateien ohnehin (`src/studio/editor.ts`, `server/src/pipeline/…`), Mockups tragen
 ihren Teil im Dateinamen (`app-`, `player-`, `studio-`). Der eigene Ort wiegt dabei
 am schwersten — das Handbuch des Studios verweist mehr auf den Server als auf sich
-selbst. Wo die Ableitung danebenliegt, übersteuert eine Kopfzeile:
+selbst. Wo die Ableitung danebenliegt, übersteuert eine Angabe im Kopf:
 
 ```markdown
-Systemteile: Studio, Android-App
+---
+systemteile: [Studio, Android-App]
+---
 ```
 
 Angezeigt wird die Achse als Chip auf jeder Karte und Einzelseite, als Filter auf
@@ -180,7 +259,7 @@ Die Phasen heißen **In Arbeit · Beschlossen · Angedacht** — benannt nach de
 Grad der Entscheidung, nicht nach einem Datum, das ein Entwurf ohnehin nicht
 halten kann. Die
 **Reihenfolge** steht dort (eine Entscheidung), der **Stand** dagegen im
-Dokument selbst (`Status:`-Zeile) — zwei Quellen für zwei Fragen, damit die
+Dokument selbst (`status:` im Kopf) — zwei Quellen für zwei Fragen, damit die
 zweite Angabe nicht veraltet. Konzepte ohne Phase erscheinen unter „Noch nicht
 eingeplant" und werden beim Bauen gemeldet.
 
