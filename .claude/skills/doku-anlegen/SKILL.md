@@ -84,6 +84,29 @@ Im laufenden Viewer geht das auch per „…"-Menü an der Karte. Was in keiner 
 steht, erscheint unter „Ohne Phase" und wird beim Bauen gemeldet — vergessene
 Konzepte fallen dadurch auf.
 
+## 4a. Wenn eine Etappe fertig ist
+
+**Im selben Commit wie der Code**, nicht später:
+
+1. `status` auf den neuen Sachstand — konkret, nicht „in Arbeit": „Etappe 2
+   gebaut, 3 offen", „Server und Studio gebaut, App offen". Ist der PLAN durch
+   (nicht das Produkt), gehört „abgearbeitet" hinein; dann fällt das Konzept von
+   selbst aus der Roadmap.
+2. `stand` auf das heutige Datum (ISO). Ohne das ist der neue Status nicht von
+   einem alten zu unterscheiden.
+3. Den **nächsten Schritt** in [`docs/roadmap.md`](../../../docs/roadmap.md)
+   nachziehen — er ist das Einzige, was auf der Roadmap-Karte steht. Ist nichts
+   mehr zu tun, den Eintrag herausnehmen.
+4. Steht das Vorhaben in einer Phase, die nicht mehr stimmt (fertig, aber noch
+   „In Arbeit"), die Phase wechseln. Der Viewer zeigt den Widerspruch als
+   „Stand prüfen" an, aber erst, wenn ihn jemand ansieht.
+
+Warum von Hand: `status` ist eine Behauptung über Code, und die lässt sich nicht
+ableiten. Zwei Versuche, den Verdacht am Git-Datum der Dateien aus `betrifft` zu
+messen, sind gescheitert — `src/ui.ts` wird von allem angefasst, die Prüfung
+schlug bei 7 von 17 Konzepten falsch an. Der Bau meldet deshalb nur den Fall ohne
+Ratespiel: laufend, aber der Kopf seit über drei Wochen unangetastet.
+
 ## 4b. Umbenennen statt neu anlegen
 
 Ändert sich der Name eines vorhandenen Dokuments, **nicht von Hand verschieben**:

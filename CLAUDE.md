@@ -865,7 +865,20 @@ automatisch, sobald unter `android/` gearbeitet wird.
   **Der Kopf eines Dokuments ist Front Matter** (`stand`, `status`, `betrifft`,
   `systemteile`, `archiviert_aus` — [`kopf.mjs`](scripts/docs-viewer/kopf.mjs)); die
   alte Prosa-Zeile „Stand: … · Status: …" gilt feldweise als Rückfall, beides
-  zugleich verbietet der Wächter. `DESIGN.md` ist ausgenommen: Sein YAML-Block ist
+  zugleich verbietet der Wächter.
+  **WER EINE ETAPPE BAUT, ZIEHT `status` UND `stand` IM SELBEN COMMIT NACH.** Der
+  Satz in `status` ist die einzige Auskunft darüber, wie weit ein Vorhaben ist, und
+  er ist von Hand gepflegt: Niemand prüft ihn, also veraltet er still und die Doku
+  sieht danach gepflegt aus, ohne es zu sein. Konkret, sobald Code steht, den ein
+  Konzept beschreibt: `status` auf den neuen Sachstand („Etappe 2 gebaut, 3 offen"
+  statt „Entwurf"), `stand` auf das heutige Datum, und wenn der Plan durch ist,
+  „abgearbeitet" hineinschreiben — dann verschwindet er von selbst aus der
+  Roadmap. Der nächste Schritt in [`docs/roadmap.md`](docs/roadmap.md) gehört
+  ebenfalls dazu. **Nicht ableitbar**: Zweimal versucht, den Verdacht am Git-Datum
+  der Dateien aus `betrifft` zu messen, zweimal verworfen — `src/ui.ts` und
+  `src/studio/editor.ts` werden von allem angefasst, die Prüfung schlug bei 7 von
+  17 Konzepten falsch an. Gemeldet wird beim Bauen nur der Fall ohne Ratespiel:
+  was laut Roadmap LÄUFT und dessen Kopf seit über drei Wochen unangetastet ist. `DESIGN.md` ist ausgenommen: Sein YAML-Block ist
   der Inhalt, nicht der Kopf. **Umbenannt wird über den Viewer**, nicht von Hand —
   er zieht die Verweise in `docs/` und im Handbuch nach.
   `docs/archive/` ist Historie: nicht als Implementierungsquelle nutzen (widerspricht
