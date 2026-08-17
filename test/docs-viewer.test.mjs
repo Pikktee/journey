@@ -22,6 +22,7 @@ import { codePfadeAus, SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewe
 import {
   archivZiel,
   editorBefehl,
+  loeseHeraus,
   pruefePfad,
   rueckZiel,
   saubererName,
@@ -451,6 +452,23 @@ describe('Roadmap als Ablauf', () => {
     const laufend = roadmap.phasen[0].eintraege.filter((e) => e.dok?.kopf.status)
     expect(laufend.length).toBeGreaterThan(0)
     expect(html).not.toContain('class="rm-stand"')
+  })
+
+  it('behält den Kurznamen, wenn eine Phase gewechselt wird', () => {
+    // Ein Phasenwechsel löst die Zeile heraus und schreibt sie neu. Die
+    // Oberfläche übergibt dabei den DOKUMENTTITEL — ohne Schutz setzte jedes
+    // Verschieben den von Hand gewählten Kurznamen still zurück auf
+    // „Umbauplan: Studio-Editor zerlegen (editor.ts)".
+    const zeilen = [
+      '## In Arbeit',
+      '* [Studio-Editor zerlegen](concepts/x.md) — Bevor er wächst.',
+      '## Beschlossen',
+    ]
+    const { beschriftung, schritt } = loeseHeraus(zeilen, 'concepts/x.md')
+    expect(beschriftung).toBe('Studio-Editor zerlegen')
+    expect(schritt).toBe('Bevor er wächst.')
+    // Ein Dateiname als Linktext ist KEIN Kurzname — dort darf der Titel greifen.
+    expect(loeseHeraus(['* [x.md](concepts/x.md) — y'], 'concepts/x.md').beschriftung).toBe('')
   })
 
   it('meldet, was im Code ist, aber in keiner Phase steht', () => {

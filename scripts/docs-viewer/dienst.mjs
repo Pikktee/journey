@@ -474,15 +474,23 @@ function roadmapZeilen() {
 }
 
 /** Entfernt jede Listenzeile, die auf diese Datei zeigt. Gibt den Schritt zurück. */
-function loeseHeraus(zeilen, pfad) {
+export function loeseHeraus(zeilen, pfad) {
   let schritt = ''
+  let beschriftung = ''
   const uebrig = zeilen.filter((zeile) => {
-    const treffer = zeile.match(/^\*\s+\[[^\]]+\]\(([^)]+)\)\s*(?:[—–-]\s*(.*))?$/)
-    if (!treffer || treffer[1] !== pfad) return true
-    if (treffer[2]) schritt = treffer[2].trim()
+    const treffer = zeile.match(/^\*\s+\[([^\]]+)\]\(([^)]+)\)\s*(?:[—–-]\s*(.*))?$/)
+    if (!treffer || treffer[2] !== pfad) return true
+    // Der LINKTEXT ist der Name auf der Roadmap-Karte, von Hand kurz gewählt
+    // („Studio-Editor zerlegen"). Ein Phasenwechsel über das Menü löst die
+    // Zeile heraus und schreibt sie neu — ohne diese Zeile mit dem
+    // Dokumenttitel als Beschriftung, und der ist wieder lang („Umbauplan:
+    // Studio-Editor zerlegen (editor.ts)"). Das Verschieben hätte den Namen
+    // stillschweigend zurückgesetzt.
+    if (!/\.(md|html)$/.test(treffer[1].replace(/`/g, ''))) beschriftung = treffer[1].trim()
+    if (treffer[3]) schritt = treffer[3].trim()
     return false
   })
-  return { uebrig, schritt, gefunden: uebrig.length !== zeilen.length }
+  return { uebrig, schritt, beschriftung, gefunden: uebrig.length !== zeilen.length }
 }
 
 export function roadmapEntfernen(rel) {
@@ -496,7 +504,7 @@ export function roadmapEntfernen(rel) {
 export function roadmapSetzen(rel, phase, beschriftung) {
   const pfad = roadmapPfad(rel)
   if (!phase) return roadmapEntfernen(rel)
-  const { uebrig, schritt } = loeseHeraus(roadmapZeilen(), pfad)
+  const { uebrig, schritt, beschriftung: vorhanden } = loeseHeraus(roadmapZeilen(), pfad)
 
   // Eingefügt wird ans ENDE der Phase, nicht an ihren Anfang: Die Reihenfolge
   // innerhalb einer Phase ist eine Rangfolge, und ein neuer Eintrag drängelt
@@ -517,7 +525,9 @@ export function roadmapSetzen(rel, phase, beschriftung) {
     if (/^##\s+/.test(uebrig[ende])) break
     if (/^\*\s+/.test(uebrig[ende])) letzterPunkt = ende
   }
-  const zeile = `* [${beschriftung || basename(pfad)}](${pfad})${schritt ? ' — ' + schritt : ''}`
+  // Ein vorhandener Kurzname schlägt den übergebenen Titel: Wer eine Phase
+  // wechselt, will nicht den Namen ändern.
+  const zeile = `* [${vorhanden || beschriftung || basename(pfad)}](${pfad})${schritt ? ' — ' + schritt : ''}`
   const stelle = letzterPunkt === -1 ? ende : letzterPunkt + 1
   uebrig.splice(stelle, 0, zeile)
   writeFileSync(ROADMAP(), uebrig.join('\n'))
