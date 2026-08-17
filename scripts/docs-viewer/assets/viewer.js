@@ -821,17 +821,15 @@
         }, jetzt.getAttribute('data-phase'))
       }
 
-      /* Die Zahlen stammen aus der Bauzeit. Nach einem Spaltenwechsel stünde
-         über einer Spalte mit vier Einträgen weiter „5" — ein Neuladen wäre der
-         einfachere Weg, kostet aber einen Sprung mitten in der Arbeit. */
+      /* Die Zahlen am Spaltenkopf stammen aus der Bauzeit. Nach einem
+         Spaltenwechsel stünde über einer Spalte mit vier Einträgen weiter „5" —
+         ein Neuladen wäre der einfachere Weg, kostet aber einen Sprung mitten in
+         der Arbeit. */
       var zaehleNeu = function () {
         listen.forEach(function (l) {
           var kopf = (l.closest('.rm-phase') || l).querySelector('.rm-zahl')
           if (kopf) kopf.textContent = String(karten(l).length)
         })
-        var zahlen = document.querySelectorAll('.rm-zahlen b')
-        if (zahlen[0]) zahlen[0].textContent = String(karten(listen[0]).length)
-        if (zahlen[1] && listen[1]) zahlen[1].textContent = String(karten(listen[1]).length)
       }
 
       var speichere = function (aktion, daten, phase) {

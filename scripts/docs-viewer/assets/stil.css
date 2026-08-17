@@ -1831,30 +1831,49 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .rm-phase {
   display: flex;
   flex-direction: column;
-  padding: 18px 20px 16px;
+  padding: 20px 22px 18px;
 }
 /* Die Linie steht ZWISCHEN den Spalten, also nur links der zweiten und dritten. */
 .rm-phase + .rm-phase { border-left: 1px solid var(--rand); }
 /* Die laufende Phase ist getönt, nicht gerahmt: eine hervorgehobene Spalte im
    Feld, wie in einer Tabelle — kein Kasten im Kasten. */
 .rm-phase.jetzt { background: color-mix(in srgb, var(--ton) 5%, transparent); }
-.rm-phase header { margin-bottom: 12px; }
-.rm-kopf { display: flex; align-items: baseline; gap: 10px; }
-.rm-phase h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.rm-phase header { margin-bottom: 14px; }
+.rm-kopf { display: flex; align-items: baseline; gap: 9px; }
+.rm-phase h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
 .rm-phase.jetzt h3 { color: var(--ton); }
+/* Die Zahl ist eine Randnotiz, kein Abzeichen. Als gefüllte Pille stand neben
+   jeder Überschrift ein zweites Objekt und die Kopfzeile hatte zwei Schwerpunkte. */
 .rm-zahl {
-  padding: 1px 8px;
-  border-radius: var(--radius-full);
-  background: var(--fl-2);
   color: var(--text-3);
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .rm-phase header p { margin: 6px 0 0; color: var(--text-3); font-size: 13px; line-height: 1.45; }
 
+/* KEINE Trennlinien zwischen den Einträgen.
+ *
+ * Mit Linien zwischen den Spalten UND unter jedem Eintrag wurde aus dem Feld
+ * wieder ein Kästchengitter — bei achtzehn Einträgen sind das achtzehn
+ * waagerechte Striche, die alle dasselbe sagen: „hier endet eine Zeile". Das
+ * sieht man ohne sie auch.
+ *
+ * Getrennt wird durch LUFT, und die Zeile bekommt beim Überfahren eine eigene
+ * Fläche. Das ist zugleich die Auskunft, die vorher fehlte: dass ein Eintrag ein
+ * Objekt ist, das man anfassen kann. */
 .rm-liste { margin: 0; padding: 0; list-style: none; }
-.rm-liste li { position: relative; padding: 10px 0; border-top: 1px solid var(--rand); }
-.rm-liste li:first-child { border-top: 0; padding-top: 0; }
+.rm-liste li {
+  position: relative;
+  padding: 9px 0;
+  border-radius: var(--radius-md);
+  transition: background 0.12s;
+}
+/* Die Fläche greift 10 px in das Polster der Spalte hinein, damit sie nicht am
+   Text klebt. NUR in den Spalten: In den Aufklappern darunter gibt es kein
+   Polster, das den negativen Rand auffängt — dort ragten die Zeilen heraus. */
+.rm-liste[data-phase] li { margin: 0 -10px; padding: 9px 10px; }
+.rm-liste li:hover { background: color-mix(in srgb, var(--fl-3) 60%, transparent); }
+body.zieht-gerade .rm-liste li:hover { background: none; }
 .rm-liste a { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--text); }
 .rm-liste a:hover { text-decoration: none; }
 .rm-liste a:hover .rm-titel { color: var(--ton, var(--akzent)); }
@@ -2091,7 +2110,7 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 /* Blockaden. Zwei Richtungen, EIN Sachverhalt — deshalb dieselbe Form, nur der
    Pfeil und die Farbe unterscheiden sie: Wer wartet, steht still (gedämpft);
    wer blockiert, hält etwas auf (Warnfarbe). */
-.rm-ketten { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.rm-ketten { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .rm-kette {
   display: inline-flex;
   gap: 5px;
@@ -2111,11 +2130,6 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .rm-kette:hover { border-color: var(--rand-hell); color: var(--text); text-decoration: none; }
 .rm-kette.blockiert:hover { border-color: var(--warn); color: var(--warn); }
 
-/* Die Kennzahlen neben der Überschrift: was man sonst zusammenzählen müsste. */
-.rm-zahlen { display: flex; flex-wrap: wrap; gap: 9px; align-items: baseline; color: var(--text-3); font-size: 13px; }
-.rm-zahlen b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
-.rm-zahlen i { font-style: normal; opacity: 0.4; }
-.rm-zahlen .ruht b { color: var(--warn); }
 
 /* Der Fund: im Code, aber in keiner Phase. Eine Zeile ÜBER den Spalten, weil
    sie in keine davon gehört — genau das ist ja die Meldung. */

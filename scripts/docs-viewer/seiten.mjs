@@ -617,14 +617,6 @@ function roadmapAbschnitt(roadmap, bereiche) {
    * wird, das aber in keiner Phase steht. Es taucht auf der Roadmap gar nicht
    * auf, und genau deshalb fällt es niemandem auf.
    */
-  const laufend = roadmap.phasen[0]?.eintraege ?? []
-  const zahlen = [
-    `<span><b>${laufend.length}</b> laufen</span>`,
-    roadmap.phasen[1] ? `<span><b>${roadmap.phasen[1].eintraege.length}</b> als Nächstes</span>` : '',
-  ]
-    .filter(Boolean)
-    .join('<i>·</i>')
-
   const imCode = roadmap.imCode ?? []
   const hinweisZeile = imCode.length
     ? `<p class="rm-fund">
@@ -644,7 +636,6 @@ function roadmapAbschnitt(roadmap, bereiche) {
         `<ol class="rm-liste rm-offen">${roadmap.erledigt
           .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }))
           .join('')}</ol>`,
-        { satz: 'Der Plan ist durch. Steht nicht mehr an.' },
       ),
     )
   const nurGedacht = roadmap.nurGedacht ?? roadmap.offen
@@ -656,7 +647,6 @@ function roadmapAbschnitt(roadmap, bereiche) {
         `<ol class="rm-liste rm-offen">${nurGedacht
           .map((d) => eintrag({ dok: d, quelle: d.quelle, schritt: '' }))
           .join('')}</ol>`,
-        { satz: 'Weder eingeplant noch angefangen.' },
       ),
     )
 
@@ -665,7 +655,6 @@ function roadmapAbschnitt(roadmap, bereiche) {
       <h2>Roadmap${hinweis(
         'Grobe Reihenfolge, keine Zusage. Die Reihenfolge wird in <code>docs/roadmap.md</code> gepflegt, der Stand kommt aus dem <code>status</code>-Feld der Dokumente. Wo beides sich widerspricht, steht „Stand prüfen". „Code bewegt" misst an den Dateien, die ein Konzept unter <code>betrifft</code> nennt.',
       )}</h2>
-      <div class="rm-zahlen">${zahlen}</div>
     </div>
     ${hinweisZeile}
     <div class="roadmap">${roadmap.phasen.map(phase).join('')}</div>
