@@ -1065,26 +1065,47 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 
 /* ── Mockups ──────────────────────────────────────────────────────────── */
 
-/* `align-items: start` ist der Punkt: Ohne ihn streckt das Gitter jede Kachel
-   einer Reihe auf die Höhe der höchsten, und weil der Fuß per `margin-top: auto`
-   unten klebt, klaffte in kurzen Kacheln ein Loch von 80 Pixeln. Bei einer Liste
-   aus zwanzig Kacheln ist eine leicht unruhige Unterkante das kleinere Übel —
-   und sie ist ehrlich: Die Kacheln sind wirklich unterschiedlich lang. */
+/* Gleich hohe Kacheln, und zwar durch gleich hohe INHALTE — nicht durch
+   Streckung.
+   
+   Zuerst standen sie gestreckt (Gitter-Standard) mit dem Fuß per
+   `margin-top: auto` unten: In kurzen Kacheln klaffte ein Loch von 80 Pixeln.
+   Dann hugten sie ihren Inhalt (`align-items: start`), was das Loch beseitigte,
+   aber eine unruhige Unterkante hinterließ.
+   
+   Die Spanne kam gemessen aus drei Stellen: Titel ein- oder zweizeilig,
+   Beziehungszeile null-, ein- oder zweizeilig. Beide bekommen jetzt eine feste
+   Spur — zwei Zeilen für den Titel, eine für die Beziehung —, damit sind die
+   Kacheln von sich aus gleich hoch. Die Streckung bleibt als Netz für den
+   Sonderfall Klappentext, und der Fuß sitzt unten. */
 .mockup-gitter {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  align-items: start;
   gap: 18px;
 }
 .mockup {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--rand);
   border-radius: var(--radius-karte);
   background: var(--fl-1);
   scroll-margin-top: 84px;
 }
-.mockup-text { display: flex; flex-direction: column; gap: 0; padding: 16px 18px 13px; }
-.mockup-text h3 { margin: 9px 0 0; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.mockup-text { display: flex; flex-direction: column; flex: 1; gap: 0; padding: 16px 18px 13px; }
+/* Zwei Zeilen Spur für den Titel: Ein einzeiliger Titel lässt die zweite frei,
+   ein dreizeiliger wird gekappt (der ganze steht im Tooltip des Links). */
+.mockup-text h3 {
+  margin: 9px 0 0;
+  min-height: 2.6em;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .mockup-text p { margin: 6px 0 0; color: var(--text-gedaempft); font-size: 14px; line-height: 1.5; }
 
 /* Die Beziehung in der Sprache der Kopftafel: schmales Etikett, daneben der
@@ -1099,8 +1120,15 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
   gap: 10px;
   align-items: baseline;
   margin: 10px 0 0;
+  min-height: 1.5em;
   font-size: 13.5px;
 }
+/* Eine leere Spur hält die Kachel auf Höhe ihrer Nachbarn. Die Auskunft „ohne
+   Konzept" trägt die Marke oben; hier steht bewusst nichts. */
+.mockup-konzept.leer { display: block; }
+/* Der Wert bleibt EINZEILIG. Zwei Zeilen waren die zweite Quelle der
+   Höhenunterschiede; der vollständige Titel steht im Tooltip. */
+.mockup-konzept-wert { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mockup-konzept-etikett { color: var(--text-3); font-size: 12.5px; white-space: nowrap; }
 .mockup-konzept-wert { min-width: 0; color: var(--text-2); }
 

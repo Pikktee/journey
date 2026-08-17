@@ -478,12 +478,16 @@ function mockupKarte(m, auf, roadmap) {
             }</span><span class="mockup-konzept-wert">${m.konzepte
               .map(
                 (k) =>
-                  `<a href="${auf}${escape(k.ziel)}">${escape(
+                  `<a href="${auf}${escape(k.ziel)}" title="${escape(k.titel)}">${escape(
                     k.titel.replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, ''),
                   )}</a>`,
               )
               .join('<span class="tafel-punkt">·</span>')}</span></div>`
-          : ''
+          : // Die Zeile bleibt als LEERE Spur stehen, wo kein Konzept verlinkt
+            // ist: Sie hält die Kachel auf derselben Höhe wie ihre Nachbarn. Die
+            // Auskunft trägt die Marke oben, hier steht nichts — kein grauer
+            // Ersatztext, der wie ein Wert aussieht.
+            '<div class="mockup-konzept leer" aria-hidden="true"></div>'
       }
       <footer class="karte-fuss">
         <span class="karte-meta">${escape(m.name)}</span>

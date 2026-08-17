@@ -493,12 +493,29 @@ describe('Konzept und Prototyp kennen sich', () => {
       const hatZeile = inhalt.includes('mockup-konzept-etikett')
       const hatMarke = inhalt.includes('marke-fehlt')
       const archiviert = inhalt.includes('ampel-ruht')
+      // JEDE Kachel hat die Beziehungszeile — gefüllt oder als leere Spur, die
+      // sie auf Höhe ihrer Nachbarn hält. Ohne sie war die Höhenspanne 75 px.
+      expect(inhalt.includes('class="mockup-konzept'), 'Spur fehlt').toBe(true)
+      expect(inhalt.includes('mockup-konzept leer'), 'leere Spur falsch gesetzt').toBe(!hatZeile)
       // Im Archiv steht keine Marke: Was dort liegt, wird nicht mehr eingeplant.
       if (archiviert) continue
       expect(hatZeile !== hatMarke, inhalt.slice(0, 90)).toBe(true)
     }
     expect(html).not.toContain('Gehört zu')
     expect(html).not.toContain('keines verlinkt')
+  })
+
+  it('reserviert die Spuren, die die Kacheln gleich hoch machen', () => {
+    // Gleich hohe Kacheln entstehen aus gleich hohen INHALTEN, nicht aus
+    // Streckung: Gestreckt mit Fuß unten klaffte in kurzen Kacheln ein Loch von
+    // 80 px. Gemessen kam die Spanne (75 px) aus zwei Stellen — Titel ein- oder
+    // zweizeilig, Beziehungszeile null- bis zweizeilig. Beide haben jetzt eine
+    // feste Spur.
+    const blatt = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
+    expect(blatt).toMatch(/\.mockup-text h3 \{[^}]*min-height/)
+    expect(blatt).toMatch(/\.mockup-text h3 \{[^}]*line-clamp: 2/)
+    expect(blatt).toMatch(/\.mockup-konzept \{[^}]*min-height/)
+    expect(blatt).toMatch(/\.mockup-konzept-wert \{[^}]*text-overflow: ellipsis/)
   })
 
   it('hebt Karten beim Überfahren ohne sie zu BEWEGEN', () => {

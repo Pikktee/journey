@@ -209,6 +209,17 @@ Prototyp-Kachel bietet keine Phase mehr an, und der Dienst weist sie ab.
 daneben der verlinkte Titel — dieselbe Form wie in der Kopftafel eines Dokuments.
 Als „Gehört zu …" musste man lesen, um zu merken, dass da eine Beziehung steht.
 
+**Die Kacheln sind gleich hoch, und zwar durch gleich hohe INHALTE** — nicht
+durch Streckung. Gestreckt (Gitter-Standard) mit dem Fuß per `margin-top: auto`
+unten klaffte in kurzen Kacheln ein Loch von 80 px; ohne Streckung war die
+Unterkante unruhig. Gemessen kam die Spanne von 75 px aus zwei Stellen: Titel ein-
+oder zweizeilig, Beziehungszeile null- bis zweizeilig. Beide haben jetzt eine
+feste Spur (zwei Zeilen für den Titel, eine für die Beziehung, der Wert einzeilig
+mit Auslassung und ganzem Titel im Tooltip). Wo kein Konzept verlinkt ist, bleibt
+die Spur LEER — kein grauer Ersatztext, der wie ein Wert aussieht; die Auskunft
+trägt die Marke oben. Die Streckung bleibt als Netz für den Sonderfall
+Klappentext.
+
 **Fehlt die Beziehung, sagt es eine MARKE oben** („ohne Konzept", Warnfarbe,
 gestrichelter Rahmen) und nicht die Wertzeile. Als „Konzept — keines verlinkt"
 stand die Abwesenheit im selben Grau wie ein ausgefüllter Wert und ging unter;
