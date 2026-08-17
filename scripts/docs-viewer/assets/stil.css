@@ -1997,3 +1997,16 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .tafel-leise { color: var(--text-2); }
 .tafel-leise[title] { cursor: help; }
 .kopftafel dt[title] { cursor: help; }
+
+/* Die Zeile über dem Titel: links der Weg, rechts die Werkzeuge. Zwei Register
+   an zwei Rändern — dazwischen nichts, was man erst lesen müsste, um zu wissen,
+   ob es etwas sagt oder etwas tut. */
+.dok-kopfzeile {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+}
+.tafel-punkt { margin: 0 8px; color: var(--text-3); opacity: 0.55; }
+.tafel-datei { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }

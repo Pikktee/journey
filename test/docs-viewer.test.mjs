@@ -429,28 +429,50 @@ describe('Keine Angabe steht zweimal', () => {
       schriftLokal: false,
     })
 
-  it('zeigt die Ampel nicht neben ihrem eigenen Statussatz', () => {
-    const mitStatus = dokumente.find((d) => d.kopf.status && d.ampel)
-    expect(mitStatus, 'kein Dokument mit Status').toBeTruthy()
-    const html = seite(mitStatus)
-    expect(html).toContain(mitStatus.kopf.status.slice(0, 20))
-    expect(html).not.toContain('class="ampel ampel-')
+  /** Nur die Kopftafel, nicht der Text des Dokuments darunter. */
+  const tafelVon = (html) => html.slice(html.indexOf('kopftafel'), html.indexOf('</dl>'))
+
+  it('trägt keine Marken über dem Titel — dort stehen nur Weg und Werkzeuge', () => {
+    // Fünf Marken in einer Reihe, darunter eine HANDLUNG in derselben Form:
+    // Man musste jede lesen, um zu wissen, ob sie etwas sagt oder etwas tut.
+    const html = seite(dokumente.find((d) => d.kopf.status))
+    const kopfzeile = html.slice(html.indexOf('dok-kopfzeile'), html.indexOf('class="prosa"'))
+    expect(kopfzeile).not.toContain('class="chip"')
+    expect(kopfzeile).not.toContain('class="ampel')
+    expect(kopfzeile).not.toContain('phasen-chip')
+    expect(kopfzeile).toContain('data-bearbeiten')
   })
 
-  it('zeigt sie weiterhin, wo kein Satz dasteht', () => {
-    // Die Handbuch-Dateien tragen „Verbindlich", und das steht in keinem Satz.
-    const ohneStatus = dokumente.find((d) => !d.kopf.status && d.ampel)
-    expect(ohneStatus, 'kein Dokument ohne Status').toBeTruthy()
-    expect(seite(ohneStatus)).toContain('class="ampel ampel-')
+  it('nennt den Status genau einmal, und dort immer', () => {
+    const mitSatz = dokumente.find((d) => d.kopf.status && d.ampel)
+    expect(tafelVon(seite(mitSatz))).toContain(mitSatz.kopf.status.slice(0, 20))
+
+    // Ohne eigenen Satz steht dort das Wort der Ampel — die Handbuch-Dateien
+    // tragen „Verbindlich", und das sagt kein Satz im Dokument.
+    const ohneSatz = dokumente.find((d) => !d.kopf.status && d.ampel)
+    expect(ohneSatz, 'kein Dokument ohne Status').toBeTruthy()
+    expect(tafelVon(seite(ohneSatz))).toContain('tafel-status')
   })
 
-  it('führt das Git-Datum nur EINMAL, und nicht in der Form des Stands', () => {
+  it('stellt Stand und Git-Datum in EINE Zeile', () => {
     // Zwei Daten in derselben Form aus zwei Quellen (Autor und Git) sind
     // schlimmer als eines: Man sieht ihnen nicht an, welches welches ist.
+    // Nebeneinander liest man den Vergleich, und der ist die Auskunft.
     const dok = dokumente.find((d) => d.geaendert && d.kopf.stand)
-    const html = seite(dok)
-    expect(html).not.toContain('zuletzt ')
-    expect(html).toContain('>Geändert</dt>')
+    const tafel = tafelVon(seite(dok))
+    expect(tafel).toContain('>Stand</dt>')
+    expect(tafel).toContain('geändert ')
+    expect(tafel).not.toContain('>Geändert</dt>')
+    // Die alte Form war eine Pille „zuletzt 17. Aug. 2026" über dem Titel.
+    expect(seite(dok)).not.toContain('chip">zuletzt')
+  })
+
+  it('führt die Lesezeit in der Tafel und nicht über dem Titel', () => {
+    const dok = dokumente.find((d) => d.kopf.status)
+    const tafel = tafelVon(seite(dok))
+    expect(tafel).toContain('>Länge</dt>')
+    expect(tafel).toContain(`${dok.minuten} min`)
+    expect(tafel).toContain('Wörter')
   })
 
   it('zeigt Systemteile nur, wo „Betrifft" fehlt', () => {

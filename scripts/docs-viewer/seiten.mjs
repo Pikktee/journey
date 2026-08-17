@@ -898,7 +898,7 @@ function werkzeuge(dok, roadmap) {
  * `kopf.mjs`) — hätte man sie stehen lassen, stünde derselbe Stand zweimal auf
  * der Seite, und beim nächsten Mal wäre eine der beiden Angaben alt.
  */
-function kopftafel(dok) {
+function kopftafel(dok, roadmap) {
   const zeile = (name, inhalt, titel = '') =>
     inhalt
       ? `<div><dt${titel ? ` title="${escape(titel)}"` : ''}>${escape(name)}</dt><dd>${inhalt}</dd></div>`
@@ -916,11 +916,13 @@ function kopftafel(dok) {
     ? dok.kopf.betrifft.map((b) => `<code>${escape(b)}</code>`).join('')
     : teilChips(dok.teile, 4)
 
-  // Der Punkt vor dem Status trägt die Farbe der Ampel. Er wiederholt kein
-  // Wort — er bindet den Satz an das Abzeichen über der Überschrift, sodass
-  // „gilt das noch?" ohne Lesen halb beantwortet ist.
-  const status = dok.kopf.status
-    ? `<span class="tafel-status" data-art="${dok.ampel?.art ?? 'ruht'}">${escape(dok.kopf.status)}</span>`
+  // Der Status steht IMMER hier und nirgends sonst. Wo das Dokument einen Satz
+  // dazu hat, ist es dieser Satz; wo nicht, das Wort der Ampel („Verbindlich"
+  // bei den Handbuch-Dateien). Vorher war es beides an zwei Orten — als Pille
+  // über dem Titel und als Satz darunter —, und die Pille sagte weniger.
+  const statusWort = dok.kopf.status || (dok.ampel ? AMPEL_WORT[dok.ampel.art] || dok.ampel.wort : '')
+  const status = statusWort
+    ? `<span class="tafel-status" data-art="${dok.ampel?.art ?? 'ruht'}">${escape(statusWort)}</span>`
     : ''
 
   // „Stand" ist die Behauptung des Autors, „Geändert" die Auskunft von Git.
@@ -930,21 +932,45 @@ function kopftafel(dok) {
   // Form wie der Stand und war von ihm nicht zu unterscheiden.
   const geaendert = zeitRelativ(dok.geaendert)
 
+  // Behauptung und Gegenprobe in EINER Zeile: „17. August 2026 · geändert
+  // heute". Als zwei Zeilen las man zwei Daten, als eine liest man den
+  // Vergleich — und der ist die Auskunft. „Stand: März, geändert: gestern"
+  // heißt, dass der Stand nicht stimmt.
+  const stand = [
+    dok.kopf.stand ? `<span class="tafel-datum">${escape(standLang(dok.kopf.stand))}</span>` : '',
+    // Das Wort „geändert" steht nur, wo links ein Stand daneben steht — dort
+    // trennt es die beiden Angaben. Ohne Stand trägt es das Etikett, und
+    // „Geändert: geändert vor 4 Tagen" sagt es zweimal.
+    geaendert.text
+      ? `<span class="tafel-leise" title="${escape(geaendert.titel)}">${
+          dok.kopf.stand ? 'geändert ' : ''
+        }${escape(geaendert.text)}</span>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('<span class="tafel-punkt">·</span>')
+
   return `<dl class="kopftafel">
     ${zeile(
-      'Stand',
-      dok.kopf.stand ? `<span class="tafel-datum">${escape(standLang(dok.kopf.stand))}</span>` : '',
-      'Was das Dokument selbst über seinen Stand sagt',
+      dok.kopf.stand ? 'Stand' : 'Geändert',
+      stand,
+      dok.kopf.stand
+        ? 'Links, was das Dokument über seinen Stand sagt. Rechts, wann die Datei zuletzt angefasst wurde (aus der Git-Historie).'
+        : 'Letzte Änderung an der Datei, aus der Git-Historie',
     )}
     ${zeile('Status', status)}
-    ${zeile(
-      'Geändert',
-      geaendert.text
-        ? `<span class="tafel-leise" title="${escape(geaendert.titel)}">${escape(geaendert.text)}</span>`
-        : '',
-      'Letzte Änderung an der Datei, aus der Git-Historie',
-    )}
+    ${zeile('Roadmap', escape(phaseVon(roadmap, dok.quelle) || ''), 'Phase in docs/roadmap.md')}
     ${zeile('Betrifft', betrifft)}
+    ${zeile(
+      'Länge',
+      // Eigene Zeile und nicht bei der Datei: Dort standen Pfad, Lesezeit und
+      // zwei Aktionen zusammen auf 493 von 501 Pixeln, und die Aktionen fielen
+      // in die zweite Reihe. Mit der Wortzahl daneben sagt die Zeile außerdem
+      // mehr als die Pille „30 min" über dem Titel je gesagt hat.
+      `<span class="tafel-datum">${dok.minuten} min</span> Lesezeit
+       <span class="tafel-punkt">·</span>
+       <span class="tafel-leise">${dok.worte.toLocaleString('de-DE')} Wörter</span>`,
+    )}
     ${zeile(
       'Datei',
       `<button type="button" class="tafel-pfad" data-pfad-kopieren
@@ -1033,23 +1059,19 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
   const auf = hoch(dok.ziel)
   const bereich = bereiche.find((b) => b.id === dok.bereich)
   /*
-   * Über dem Titel steht nur, was die Tafel darunter NICHT sagt.
+   * Über dem Titel stehen KEINE Marken mehr.
    *
-   * Vorher standen dort fünf Marken, und drei davon waren Kompressionen des
-   * Textes, der einen Zentimeter tiefer ausführlich stand: „Entwurf" für den
-   * ganzen Statussatz, „Player" für die Pfadliste, „zuletzt 17. Aug." neben
-   * einem „Stand: 17. August". Die letzte war die schlimmste — zwei Daten in
-   * derselben Form aus zwei verschiedenen Quellen, ohne dass man ihnen ansah,
-   * welches welches ist.
+   * Dort standen fünf: „Entwurf", „In Arbeit", „Player", „20 min" und daneben
+   * „Bearbeiten" — ein Zustand, eine Planung, eine Zuordnung, eine Kennzahl und
+   * eine HANDLUNG, alle in derselben Größe und alle pillenförmig. Drei Register
+   * in einer Reihe lassen sich nicht überfliegen: Man muss jede Marke lesen, um
+   * zu wissen, ob sie etwas sagt oder etwas tut.
    *
-   * Die Regel dahinter gilt zweimal: DIE ZUSAMMENFASSUNG ERSCHEINT NUR, WO DIE
-   * AUSFÜHRUNG FEHLT. Der Ampel-Chip bleibt also bei Dokumenten OHNE Statussatz
-   * (die Handbuch-Dateien tragen „Verbindlich", und das steht in keinem Satz),
-   * die Systemteile bleiben als Rückfall in der Betrifft-Zeile. Was hier
-   * dauerhaft steht, sind die zwei Angaben, die nirgends sonst vorkommen: wo
-   * das Dokument auf der Roadmap steht und wie lang es ist.
+   * Getrennt ist es einfach: Die Zeile über dem Titel trägt links den Weg
+   * (Brotkrumen) und rechts die Werkzeuge. Alles Faktische steht in der
+   * Kopftafel unter dem Titel — jede Angabe mit ihrem Etikett davor, und damit
+   * benannt statt erraten.
    */
-  const chips = `<span class="chip">${dok.minuten} min</span>`
 
   const verwandt = (liste, wort) => {
     const eintraege = liste.map((a) => nachAbs.get(a)).filter(Boolean)
@@ -1069,12 +1091,16 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
 <div class="lesen">
   ${seitenleiste(dokumente, bereiche, dok, auf)}
   <main class="text" style="--ton:${bereich?.ton}">
-    <div class="brotkrumen">
-      <a href="${auf}index.html">Übersicht</a><i>/</i>
-      <a href="${auf}${dok.bereich}/index.html">${escape(bereich?.name ?? '')}</a>
-    </div>
-    <div class="dok-titelzeile">
-      ${dok.kopf.status ? '' : ampelChip(dok.ampel)}${phasenChip(phaseVon(roadmap, dok.quelle))}${chips}
+    <!-- EINE Zeile, ZWEI Register: links wo man ist, rechts was man tun kann.
+         Vorher standen dort außerdem Zustand, Phase und Lesezeit — drei
+         Pillen, die aussahen wie Knöpfe und nebeneinander nicht zu
+         unterscheiden waren. Fakten stehen jetzt ausschließlich in der
+         Kopftafel unter dem Titel, Handlungen ausschließlich hier. -->
+    <div class="dok-kopfzeile">
+      <div class="brotkrumen">
+        <a href="${auf}index.html">Übersicht</a><i>/</i>
+        <a href="${auf}${dok.bereich}/index.html">${escape(bereich?.name ?? '')}</a>
+      </div>
       ${werkzeuge(dok, roadmap)}
     </div>
     ${
@@ -1084,7 +1110,7 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
              ungeeignet, als Begründung, warum etwas so wurde, oft die einzige Quelle.</p>`
         : ''
     }
-    <article class="prosa" data-prosa>${nachDerUeberschrift(html, kopftafel(dok))}</article>
+    <article class="prosa" data-prosa>${nachDerUeberschrift(html, kopftafel(dok, roadmap))}</article>
     ${schreibtisch(dok)}
     <footer class="dok-fussnote">
       ${verwandt(dok.verweise, 'Zeigt auf')}
