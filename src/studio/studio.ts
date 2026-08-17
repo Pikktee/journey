@@ -915,6 +915,7 @@ function baueKarte(t: api.TourListe): HTMLElement {
             ? '<span class="fehler-punkt" title="Etwas ist schiefgelaufen, zum Öffnen klicken" aria-label="Fehler">!</span>'
             : `<button class="sicht${t.visibility === 'public' ? ' oeffentlich' : ''}" data-sicht aria-haspopup="true" aria-expanded="false" aria-label="Sichtbarkeit: ${SICHT_NAMEN[t.visibility] ?? t.visibility}">${icon(SICHT_ICONS[t.visibility] ?? 'schloss')}<span>${SICHT_NAMEN[t.visibility] ?? t.visibility}</span></button>`
         }
+        ${t.status === 'bereit' ? `<button class="stift-knopf" data-film="${t.id}" aria-label="Als Video">${icon('film')}<span>Video</span></button>` : ''}
         <button class="stift-knopf" data-bearbeiten="${t.id}" aria-label="Bearbeiten">${icon('stift')}<span>Bearbeiten</span></button>
       </div>`
 
@@ -931,7 +932,7 @@ function baueKarte(t: api.TourListe): HTMLElement {
     // nicht das einzige Ziel. Nur die Griffe oben rechts machen etwas anderes.
     el.addEventListener('click', (e) => {
       const ziel = e.target as HTMLElement
-      if (ziel.closest('[data-sicht]') || ziel.closest('[data-bearbeiten]')) return
+      if (ziel.closest('[data-sicht]') || ziel.closest('[data-bearbeiten]') || ziel.closest('[data-film]')) return
       if (t.status === 'fehler') void oeffneEditorFuer(t.id)
       else spielAb(t.id)
     })
@@ -942,6 +943,10 @@ function baueKarte(t: api.TourListe): HTMLElement {
     el.querySelector('[data-bearbeiten]')?.addEventListener('click', (e) => {
       e.stopPropagation()
       void oeffneEditorFuer(t.id)
+    })
+    el.querySelector('[data-film]')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      void oeffneFilmFuer(t)
     })
   }
   return el
@@ -962,12 +967,13 @@ function baueZeile(t: api.TourListe): HTMLElement {
         arbeitet
           ? '<span class="sichtpille">entsteht</span>'
           : `<span class="sichtpille${t.visibility === 'public' ? ' oeffentlich' : ''}">${SICHT_NAMEN[t.visibility] ?? t.visibility}</span>
-             ${t.status === 'bereit' ? `<button class="akt" data-spielen>${icon('play')}Abspielen</button>` : ''}
+             ${t.status === 'bereit' ? `<button class="akt" data-spielen>${icon('play')}Abspielen</button><button class="akt" data-film aria-label="Als Video">${icon('film')}Video</button>` : ''}
              <button class="akt" data-bearbeiten aria-label="Bearbeiten">${icon('stift')}</button>
              <button class="akt gefahr" data-loeschen aria-label="Tour löschen" title="Tour löschen">${icon('muell')}</button>`
       }
     </div>`
   el.querySelector('[data-spielen]')?.addEventListener('click', () => spielAb(t.id))
+  el.querySelector('[data-film]')?.addEventListener('click', () => void oeffneFilmFuer(t))
   el.querySelector('[data-bearbeiten]')?.addEventListener('click', () => void oeffneEditorFuer(t.id))
   el.querySelector<HTMLButtonElement>('[data-loeschen]')?.addEventListener('click', (e) => {
     void loescheZweistufig(e.currentTarget as HTMLButtonElement, t.id)
@@ -999,6 +1005,18 @@ async function loescheZweistufig(knopf: HTMLButtonElement, id: string): Promise<
  */
 function spielAb(id: string): void {
   location.href = tourPfad(`srv:${id}`)
+}
+
+async function oeffneFilmFuer(t: api.TourListe): Promise<void> {
+  const { oeffneExportBlatt } = await import('./exportblatt.js')
+  oeffneExportBlatt({
+    id: t.id,
+    title: t.title,
+    cover: t.coverThumb ?? t.cover,
+    spur: t.stats?.spur ?? null,
+    filmS: t.stats?.filmS ?? null,
+    finale: t.stats?.finale ?? null,
+  })
 }
 
 /** Tour-ID aus `?edit=` — Editor-Deep-Link. */

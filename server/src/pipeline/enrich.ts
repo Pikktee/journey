@@ -711,6 +711,8 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
         const spur = baueSignatur(segments.flatMap((s) => s.pts.map((p) => [p[0], p[1]] as const)))
         return spur ? { spur } : {}
       })(),
+      ...(achse ? { filmS: Math.round(achse.gesamtS * 10) / 10 } : {}),
+      ...(showFinale ? { finale: true } : {}),
     },
   }
 }

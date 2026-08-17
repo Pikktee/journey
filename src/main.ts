@@ -25,7 +25,7 @@ import { createAtmosphere, type Atmosphaere } from './atmosphere.js'
 import { createWeather, type Wetteroverlay } from './weather.js'
 import { himmelBei, WETTER_HIMMEL, type SzenenWetter } from './wetterhimmel.js'
 import { createMusic, type Hintergrundmusik } from './music.js'
-import { createAudioTracks, KURATIERTER_PEGEL, istAktiv, loopAktiv, musikVersatzS, type AudioSpuren } from './audiotracks.js'
+import { createAudioTracks, KURATIERTER_PEGEL, type AudioSpuren } from './audiotracks.js'
 import { createVehicle, type Fahrzeugton } from './vehicle.js'
 import { buildWeatherTimeline, weatherAt } from './autoweather.js'
 import { sampleElevations, smoothValues } from './elevation.js'
@@ -33,6 +33,18 @@ import { UI, $, type PlayerMedium } from './ui.js'
 import { Tour, mischeSkala, skalaFuer, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
 import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
+import {
+  EXPORT_INTRO_S,
+  istEingebettet,
+  EXPORT_NACHRICHT,
+  clipDauerS,
+  exportPixelRatio,
+  exportViewport,
+  frameAnzahl,
+  leseExportFormat,
+  verdichteAbschnitte,
+  type ExportMeldung,
+} from './exportformat.js'
 
 /**
  * Was der Verdrahter aus einer Tour liest — das SUBSET, in dem sich die
@@ -174,11 +186,17 @@ const tourParam = ausPfad ?? params.get('tour') ?? 'kohphangan'
 const appModus = params.get('app') === '1'
 if (appModus) document.body.classList.add('app')
 
-// Video-Export Etappe 0: Query oder schon gesetztes `body.export`. Klasse
-// steht VOR createMap, damit der Viewport 1280×720 und preserveDrawingBuffer
-// greifen, bevor MapLibre die Zeichenfläche misst.
+// Video-Export: Query oder schon gesetztes `body.export`. Klasse und Viewport
+// stehen VOR createMap, damit preserveDrawingBuffer und die Zeichenfläche greifen,
+// bevor MapLibre misst. Format aus der Query, Vorgabe Quer 720p.
 const exportModus = params.get('export') === '1' || document.body.classList.contains('export')
-if (exportModus) document.body.classList.add('export')
+const exportFormat = leseExportFormat(location.search)
+if (exportModus) {
+  document.body.classList.add('export')
+  const vp = exportViewport(exportFormat)
+  document.documentElement.style.setProperty('--export-b', `${vp.breite}px`)
+  document.documentElement.style.setProperty('--export-h', `${vp.hoehe}px`)
+}
 
 // — Verfügbare Viewport-Höhe als CSS-Variable —
 // Die Foto-Karte bemisst sich daran (--photo-h in style.css). CSS-Einheiten
@@ -517,9 +535,11 @@ if (!appModus) {
 const map = createMap(
   'map',
   [start[0], start[1]],
-  // 1,5× auf 720p = 1080p-Framebuffer, unter dem 5-MP-Deckel. 1× ließ das
-  // Satellitenraster weich; 2× wäre der verbotene 1080p-Hochzug aus Konzept §8.7.
-  exportModus ? { preserveDrawingBuffer: true, pixelRatio: 1.5 } : {},
+  // 1,5× auf 720p = 1080p-Framebuffer, unter dem 5-MP-Deckel. 1080p bleibt 1×
+  // (Konzept §8.7: kein zusätzlicher 2×-Hochzug).
+  exportModus
+    ? { preserveDrawingBuffer: true, pixelRatio: exportPixelRatio(exportFormat) }
+    : {},
 )
 Object.assign(window.__j, { map, route, tourAudio })
 
@@ -650,8 +670,8 @@ map.on('load', () => {
   // Pausen, längstes Frame) sind der Blick darauf, was auf einem langsamen
   // Gerät tatsächlich passiert — sichtbar in der Konsole statt still.
   Object.assign(window.__j, { tour, rider, uhr: tour.uhr })
-  // Export: Intro-Orbit aus, Kamera auf Filmsekunde 0, bevor der Encoder startet.
-  if (exportModus) tour.stelleExportFrame(0, 0.9, true)
+  // Export: Intro-Orbit stehen lassen. stelleExportFrame(ride) würde Anfang und
+  // Ende abschneiden. Der Encoder snappt das erste Intro-Frame selbst.
 
   // — Kamera-Folger (Kreativbaukasten, cfg.camera): vom Autor gesetzte Preset-
   // Keyframes, beim Laden EINMAL in Filmsekunden übersetzt (E10) — aus `filmS`,
@@ -952,6 +972,12 @@ map.on('load', () => {
   let audioOn = true
   try { musicOn = localStorage.getItem(MUSIC_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
   try { audioOn = localStorage.getItem(AUDIO_KEY) !== 'off' } catch { /* Storage evtl. gesperrt */ }
+  // Im Export ist NICHTS hörbar: Der Ton der Datei wird offline aus `filmS`
+  // gemischt (exportfilm.ts). Was hier klänge, wäre der Live-Graph — er liefe
+  // auf der Wanduhr, während das Bild in Filmzeit entsteht, gehörte also zu
+  // keiner Stelle des Films. Der Master deckt Motor, Musik und die Tour-Spuren
+  // ab; der Wetter-Ton hängt am 800-ms-Tick darunter.
+  if (exportModus) audioOn = false
   // Master wirkt auf Motor + Musik sofort; der Wetter-Ton hängt zusätzlich am 800-ms-Tick.
   // Tour-Audio: der Musik-Schalter steuert die Musik-Spuren, SFX hängen nur am Master.
   const applyAudio = () => {
@@ -1375,47 +1401,129 @@ map.on('load', () => {
     }
   })
 
-  // Video-Export Etappe 0: ~10 s steppen, MP4 herunterladen. Kein Studio-Blatt.
+  // Video-Export: ganze Tour, Intro/Fahrt/Finale, Ton aus filmS.
   if (exportModus) {
     void (async () => {
-      const { baueExportStand, fuehreExportAus, istEigeneBereiteTour, EXPORT_DAUER_S } = await import(
-        './exportfilm.js'
-      )
-      const stand = baueExportStand()
+      const {
+        baueExportStand,
+        fuehreExportAus,
+        istEigeneBereiteTour,
+        motorQuelle,
+        MOTOR_GAIN,
+        wetterQuelle,
+        tonKlipsAusSpuren,
+      } = await import('./exportfilm.js')
+      // Im Rahmen (Studio-Blatt) gibt es kein Stand-Schild: Der Balken steht
+      // eine Ebene höher, und zwei Fortschrittsanzeigen übereinander wären
+      // eine zu viel.
+      const imRahmen = istEingebettet(location.search) && window.parent !== window
+      const stand = imRahmen ? undefined : baueExportStand()
+      const melde = imRahmen
+        ? (m: ExportMeldung, uebergabe?: Transferable[]): void => {
+            window.parent.postMessage(m, location.origin, uebergabe ?? [])
+          }
+        : undefined
       const liste = await ladeServerTouren()
       if (!remoteCfg || !istEigeneBereiteTour(tourParam, liste)) {
-        stand.textContent = 'Export nur für eigene, fertige Touren.'
+        const satz = 'Export nur für eigene, fertige Touren.'
+        if (stand) stand.textContent = satz
+        melde?.({ typ: EXPORT_NACHRICHT, stand: 'fehler', text: satz })
         return
       }
-      const spur = audioSpuren?.find((a) => a.type === 'music' && istAktiv(a, 0.05))
-      const clipS = Math.min(EXPORT_DAUER_S, tour.film.gesamtS)
+      applyWeather('auto', false)
+      const bis = Date.now() + 8000
+      while (!wxTimeline && Date.now() < bis) await new Promise((r) => window.setTimeout(r, 200))
+
+      const fahrtS = tour.film.gesamtS
+      const introS = EXPORT_INTRO_S
+      const clipS = clipDauerS(fahrtS, tour.showFinale)
+      // Dieselbe Bildrate wie der Encoder: Die Ton-Abschnitte werden über
+      // dieselben Bilder verdichtet, mit denen das Bild entsteht.
+      const n = frameAnzahl(clipS, exportFormat.fps)
+      const dt = 1 / exportFormat.fps
+      const master = cfg.audioPegel ?? KURATIERTER_PEGEL
+      const ausSpuren = tonKlipsAusSpuren(audioSpuren ?? [], introS, fahrtS, master)
+      if (!hatEigeneMusik) {
+        ausSpuren.klips.push({
+          src: '/audio/ambient.mp3',
+          vonClipS: introS,
+          bisClipS: introS + fahrtS,
+          dateiVonS: 0,
+          loop: true,
+          gain: 0.16,
+        })
+      }
+      const motorAbs = verdichteAbschnitte(n, dt, (i) => {
+        const t = i * dt
+        if (t < introS || t >= introS + fahrtS) return null
+        const filmS = Math.min(fahrtS, t - introS)
+        if (tour.film.haltBeiFilm(filmS)) return null
+        const s = tour.film.sBeiFilm(filmS)
+        const src = motorQuelle(tour.film.modusBeiS(s))
+        return src ? { src, gain: MOTOR_GAIN } : null
+      })
+      const wetterAbs = verdichteAbschnitte(n, dt, (i) => {
+        const t = i * dt
+        if (t >= introS + fahrtS) return null
+        const filmS = t < introS ? 0 : Math.min(fahrtS, t - introS)
+        const s = tour.film.sBeiFilm(filmS)
+        const e = weatherAt(wxTimeline, s)
+        if (!e) return null
+        return wetterQuelle(e.mode, e.k)
+      })
+      const klips = [
+        ...ausSpuren.klips,
+        // Motor und Wetter kommen als Abschnitte aus der Achse; die Nähte
+        // blenden, wie sie es im Player tun (vehicle.ts ~0,7 s, weather.ts
+        // koppelt an die Intensität). Hart geschnitten knackt jede Kante.
+        ...motorAbs.map((a) => ({
+          src: a.src,
+          vonClipS: a.vonClipS,
+          bisClipS: a.bisClipS,
+          dateiVonS: 0,
+          loop: true,
+          gain: a.gain,
+          blendeS: 0.35,
+        })),
+        ...wetterAbs.map((a) => ({
+          src: a.src,
+          vonClipS: a.vonClipS,
+          bisClipS: a.bisClipS,
+          dateiVonS: 0,
+          loop: true,
+          gain: a.gain,
+          blendeS: 0.6,
+        })),
+      ]
+
       await fuehreExportAus({
         map,
         tour,
         titel: remoteCfg.brandTitle || cfg.kicker,
-        stand,
+        format: exportFormat,
+        ...(stand ? { stand } : {}),
+        ...(melde ? { melde } : {}),
         extraQuellen: KARTE_EXTRA_QUELLEN,
         reiter: rider,
         ...(window.__j.eleReady ? { hoehenBereit: window.__j.eleReady } : {}),
-        ...(spur?.src
-          ? {
-              musik: {
-                src: spur.src,
-                vonS: musikVersatzS(0.05 - spur.filmVonS, 0, spur.startS ?? 0, loopAktiv(spur)),
-                dauerS: clipS,
-                gain: (spur.gain ?? 1) * (cfg.audioPegel ?? KURATIERTER_PEGEL),
-              },
-            }
-          : hatEigeneMusik
-            ? {}
-            : {
-                musik: {
-                  src: '/audio/ambient.mp3',
-                  vonS: 0,
-                  dauerS: clipS,
-                  gain: 0.16,
-                },
-              }),
+        ton: { klips, schuesse: ausSpuren.schuesse },
+        vorbereitenOverlays: () => {
+          // Die Gates fragen sonst `tour.uhr.laeuft`/`playing` — im Export läuft
+          // die Wanduhr nicht, gemeint ist aber „der Film läuft".
+          weather.setGate(() => true)
+          window.__j.atmo?.setGate(() => true)
+          // Und beide auf FILMzeit: sonst bekämen Partikel, Böen, Wolkendrift
+          // und die Wetter-Blende pro Filmbild die 0,3–2 s Wandzeit, die das
+          // Warten auf die Kacheln gekostet hat (Konzept §8, „Zeit").
+          weather.externerTakt(true)
+          weather.setSoundEnabled(false) // der Mix kommt offline aus filmS
+          window.__j.atmo?.setzeTakt(1 / exportFormat.fps)
+          window.dispatchEvent(new Event('resize'))
+        },
+        taktOverlays: (dt) => weather.schritt(dt),
+        nachKamera: () => {
+          if (wxTimeline) applyAutoNow()
+        },
       })
     })()
   }

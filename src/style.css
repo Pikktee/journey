@@ -68,6 +68,8 @@ button:focus-visible {
 #atmosphere {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 2;
   pointer-events: none;
 }
@@ -1657,19 +1659,32 @@ body.app .app-exit {
   display: inline-flex;
 }
 
-/* Video-Export Etappe 0: fester 720p-Viewport, Chrome aus, nur Stand-Schild. */
+/* Video-Export: Viewport aus Format (Quer 1280×720 / Hoch 720×1280, dazu 1080p).
+   Overlay-Leinwände bleiben sichtbar, sonst ist der Grab leer (Konzept §8.13). */
 html:has(body.export),
 body.export {
-  width: 1280px;
-  height: 720px;
+  position: relative;
+  width: var(--export-b, 1280px);
+  height: var(--export-h, 720px);
+  overflow: hidden;
 }
 
 body.export #map {
   inset: auto;
   top: 0;
   left: 0;
-  width: 1280px;
-  height: 720px;
+  width: var(--export-b, 1280px);
+  height: var(--export-h, 720px);
+}
+
+body.export #atmosphere,
+body.export #weather,
+body.export #farblur {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block !important;
 }
 
 body.export .zurueck,
@@ -1684,9 +1699,6 @@ body.export .vignette,
 body.export .grain,
 body.export .blink,
 body.export #boot,
-body.export #atmosphere,
-body.export #weather,
-body.export #farblur,
 body.export .rider {
   display: none !important;
 }

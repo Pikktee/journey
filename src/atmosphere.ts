@@ -40,6 +40,16 @@ export interface Atmosphaere {
   setCamera(fn: () => Kamerablick): void
   setSky(horColor?: string | null, skyColor?: string | null, fogColor?: string | null): void
   render(pose: KameraPose): void
+  /**
+   * Feste Frame-Zeit statt Wanduhr (Video-Export), `null` = zurück zur Wanduhr.
+   *
+   * Im Export vergehen zwischen zwei Filmbildern 0,3–2 s echte Zeit
+   * (Kachel-Idle). Aus der Wanduhr gemessen zögen Wolken, Funkeln und die
+   * Wetter-Blende dann pro 1/30 Filmsekunde um bis zu 1,5 s weiter — in jedem
+   * Bild anders. Mit gesetztem Takt läuft alles hier in Filmzeit, und das
+   * Idle-Nachrendern schweigt: Der Encoder rendert genau einmal je Bild.
+   */
+  setzeTakt(dt: number | null): void
 }
 
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
@@ -230,6 +240,13 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   const stars = makeStars(3000)
   let twinkle = 0
   let lastT = performance.now() // für echtes dt (tour.onPose liefert keins)
+  let taktS: number | null = null // Video-Export: feste Frame-Zeit statt Wanduhr
+  // Zeitbasis der Gelände-Sondierung. Im Export ist das FILMzeit und nicht die
+  // Wanduhr: Zwischen zwei Filmbildern liegen dort 0,3–2 s echte Zeit, die
+  // 120-ms-Drossel wäre also in jedem Bild fällig — und genau die hält die
+  // DEM-Abfragen bei ~10 statt ~190 je Bild. Ohne diese Zeile kostet der
+  // inkrementelle Fächer im Film das Vielfache und bringt nichts.
+  let probeUhr = 0
   let getCam: (() => Kamerablick) | null = null // die ECHTE (geclampte) Render-Kamera aus MapLibre
   // Wetter-Himmel: cover = Wolkendeckung, dark = Wolken-Schwere, fog = Nebel.
   // wx ist das Ziel (vom Umschalter), wxCur zieht weich nach → Umschalten blendet.
@@ -258,18 +275,25 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   let hazeCv: HTMLCanvasElement | null = null, hazeCtx: CanvasRenderingContext2D | null = null // Offscreen für die horizontale Maskierung (lazy)
   let occRise = 0, occRiseTgt = 0 // Silhouetten-Überstand (ndc) am SONNEN-Azimut — dort versinkt die Scheibe
 
+  const flaeche = (): { w: number; h: number } => {
+    if (getComputedStyle(canvas).position === 'fixed') {
+      return { w: window.innerWidth, h: window.innerHeight }
+    }
+    const r = container.getBoundingClientRect()
+    return { w: r.width, h: r.height }
+  }
+
   const resize = () => {
-    dpr = overlayPixelRatio() // Fenster-Aufziehen (klein → 4K) zieht das Pixelbudget nach
-    w = window.innerWidth
-    h = window.innerHeight
+    dpr = overlayPixelRatio()
+    const f = flaeche()
+    w = Math.max(1, Math.round(f.w))
+    h = Math.max(1, Math.round(f.h))
     aspect = w / h
     canvas.width = w * dpr
     canvas.height = h * dpr
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    cloudCv = null // Wolken-Offscreen an die neue Größe anpassen (lazy)
-    hazeCv = null // dito Dunst-Offscreen
+    cloudCv = null
+    hazeCv = null
   }
   resize()
   window.addEventListener('resize', resize)
@@ -1127,12 +1151,12 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       const b = basisFrom(pose)
       if (!b) return clear()
       const now = performance.now()
-      let dt = (now - lastT) / 1000
+      let dt = taktS ?? (now - lastT) / 1000
       lastT = now
       // Großzügige Obergrenze: der Idle-Tick darf gedrosselt laufen (0,2–1 s sind
       // legitime Frame-Abstände in Pause/Hintergrund); die exponentielle Glättung
       // bleibt bei großem dt stabil. Nur echte Ausreißer (Tab-Rückkehr) kappen.
-      if (!(dt > 0) || dt > 1.5) dt = 0.016
+      if (!(dt > 0) || (taktS === null && dt > 1.5)) dt = 0.016
       twinkle += dt * 2.5
       // Wetter-Himmel weich ans Ziel blenden (Umschalten ohne harten Schnitt)
       const kw = 1 - Math.exp(-dt / 1.2)
@@ -1142,8 +1166,9 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       // Horizont-Sichtbarkeit (gedrosselt — 2×6 DEM-Lookups) weich nachziehen:
       // einmal am Blick-Bearing (Dunst-Band), einmal am Sonnen-Azimut (die Scheibe
       // versinkt an der GELÄNDE-Silhouette, nicht an der flachen Mercator-Linie)
-      if (now - lastProbe > PROBE_MS) {
-        lastProbe = now
+      probeUhr = taktS !== null ? probeUhr + dt * 1000 : now
+      if (probeUhr - lastProbe > PROBE_MS) {
+        lastProbe = probeUhr
         // INKREMENTELLER FÄCHER. Der volle Fächer kostet 7 Strahlen × 24 Stütz-
         // stellen = 168 DEM-Abfragen, mit dem Sonnenstrahl ~190 je Durchlauf.
         // queryTerrainElevation ist zwar ein reiner CPU-Lookup in die dekodierten
@@ -1186,6 +1211,15 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
       drawClouds(b, (animGate ? !!animGate() : true) ? dt : 0) // Wolken VOR der Sonne (sie verdecken die Scheibe)
       drawFog(b) // Nebel liegt vor allem
     },
+    setzeTakt(dt) {
+      taktS = dt != null && dt > 0 ? dt : null
+      // Zeitbasis wechselt — die alte Marke ist in der neuen Basis sinnlos.
+      // Ohne das Zurücksetzen stünde `lastProbe` auf einem Wanduhr-Zeitstempel,
+      // während `probeUhr` bei null anfängt: die Differenz bliebe für immer
+      // negativ und das Gelände würde nie wieder sondiert.
+      probeUhr = 0
+      lastProbe = -PROBE_MS
+    },
   }
 
   // Idle-Nachrendern: tour.onPose feuert nur, wenn sich die Kamera bewegt — in der
@@ -1195,7 +1229,7 @@ export function createAtmosphere(container: HTMLElement): Atmosphaere {
   // setInterval statt rAF: rAF wird ohne Paint-Arbeit (Pause, headless) auf 1 fps
   // gedrosselt; der lastRenderAt-Guard verhindert Doppel-Rendern bei Wiedergabe.
   setInterval(() => {
-    if (!lastPose) return
+    if (!lastPose || taktS !== null) return
     if (performance.now() - lastRenderAt < 70) return
     api.render(lastPose)
   }, 70)

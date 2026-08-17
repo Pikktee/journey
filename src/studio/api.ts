@@ -27,6 +27,10 @@ export interface TourListe {
     gainM: number
     fotos?: number
     spur?: { d: string; start: [number, number]; ende: [number, number] }
+    /** Länge des FILMS in Sekunden (nicht der Aufzeichnung), s. TourStats. */
+    filmS?: number
+    /** Endscreen „Ziel erreicht" — zählt zur Länge des exportierten Films. */
+    finale?: boolean
   } | null
   cover: string | null
   /** Kachel-Fassung des Titelbilds; fehlt bei Touren ohne aufbereitete Fassungen */

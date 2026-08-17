@@ -11,6 +11,7 @@ import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audio
 import { ausschnittDauerS, balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis } from '../einblendung.js'
 import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
+import { oeffneExportBlatt, schliesseExportBlatt } from './exportblatt.js'
 import {
   effektiveMedien,
   endgueltigZuLoeschen,
@@ -387,6 +388,7 @@ async function ladeDaten(tourId: string): Promise<void> {
   zeigeTitelImKopf()
   ;($('editor-vorschau') as HTMLAnchorElement).href = tourPfad(`srv:${tourId}`)
   ;($('editor-vorschau') as HTMLAnchorElement).style.display = daten.status === 'bereit' ? '' : 'none'
+  ;($('editor-film') as HTMLButtonElement).hidden = daten.status !== 'bereit'
 
   // Streckenmeter einmal je Tour vorrechnen — die km-Anzeige am Abspielkopf
   // fragt sie bei jeder Bewegung ab.
@@ -416,6 +418,7 @@ async function ladeDaten(tourId: string): Promise<void> {
 }
 
 function schliesse(): void {
+  schliesseExportBlatt()
   $('editor-view').hidden = true
   schliesseGross()
   stoppeVorschau()
@@ -6941,6 +6944,20 @@ function verdrahteEinmal(): void {
   verdrahtet = true
   $('editor-zurueck').addEventListener('click', schliesse)
   $('editor-speichern').addEventListener('click', () => void speichern())
+  $('editor-film').addEventListener('click', () => {
+    if (!z) return
+    const foto = z.daten.medien.find((m) => m.type === 'photo') ?? z.daten.medien[0]
+    // Der Editor kennt die Filmlänge selbst — und zwar die AKTUELLE, samt
+    // ungespeicherter Schnitte; `stats.filmS` vom Server ist die des letzten
+    // Renders. Die Signatur hat er dagegen nicht (sie entsteht beim Anreichern).
+    oeffneExportBlatt({
+      id: z.tourId,
+      title: z.daten.title,
+      cover: foto?.thumb ?? foto?.poster ?? foto?.src ?? null,
+      filmS: aktuelleAchse()?.kurve?.gesamtS ?? null,
+      finale: z.daten.finale,
+    })
+  })
   $('editor-titel-knopf').addEventListener('click', oeffneTourEinstellungen)
   // Was die ganze TOUR betrifft, steht im Kopf und nicht in einem „…"-Menü:
   // Zwei Einträge hinter einem Knopf, der nicht sagt, was er verbirgt, sind

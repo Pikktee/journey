@@ -95,6 +95,22 @@ export interface TourStats {
   fotos?: number
   /** Routen-Signatur (SVG-Pfad im 0..100-Kasten), s. pipeline/signatur.ts */
   spur?: RoutenSignatur
+  /**
+   * Länge des FILMS in Sekunden — nicht die der Aufzeichnung.
+   *
+   * Sie fällt beim Rendern ohnehin an (die Achse steht da), und ohne sie
+   * müsste jede Oberfläche, die „wie lang wird das?" beantworten will, die
+   * ganze Achse nachbauen: Das Studio-Blatt hat dafür weder die Wegpunkte noch
+   * die Halte. Wie `spur` und `fotos` haben ältere Touren sie erst nach ihrem
+   * nächsten Rendern — wer sie liest, muss ohne auskommen können.
+   */
+  filmS?: number
+  /**
+   * Hat die Tour einen Endscreen? Kein Messwert, sondern dasselbe Motiv wie
+   * `spur` und `fotos`: Die Bibliothek soll dafür keine Tour-Datei öffnen
+   * müssen. Der Video-Export braucht es, weil das Finale zur Filmlänge zählt.
+   */
+  finale?: boolean
 }
 
 // Anstiege zählen erst ab dieser Schwelle (m) — Standard-Hysterese gegen

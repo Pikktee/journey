@@ -236,6 +236,20 @@ export class Tour {
   onToMenu: (() => void) | null
   /** Atmosphäre-/Flare-Overlay hängt sich hier ein (main.ts) */
   onPose?: (pose: KameraPose) => void
+  /**
+   * Der Encoder stept die Kamera selbst. Solange das gilt, darf `tick` sie
+   * nicht auf der Wanduhr weiterdrehen: sonst kämpfen Intro-Orbit und Grab.
+   */
+  exportTakt = false
+  /**
+   * Untergrenze der Kameraskala im Export (0 = aus).
+   *
+   * Die EINZIGE Größe, die der Film anders rechnet als der Player, und sie hat
+   * einen Grund außerhalb der Engine: `MODUS_TEMPO.walk` zieht die Kamera so
+   * nah heran, dass Esris World Imagery zur Fläche wird. Am Bildschirm fällt
+   * das kaum auf, in einer Datei bleibt es stehen (Konzept-Falle 9).
+   */
+  exportSkalaMin = 0
 
   scaleSm: Smooth
   hoverSm: Smooth
@@ -887,61 +901,16 @@ export class Tour {
   }
 
   /**
-   * Eine Filmsekunde für den Encoder.
+   * Ein Filmschritt des Encoders — DERSELBE Weg wie `tick`, nur ohne Wanduhr.
    *
-   * `hart` nur zum Einschwingen (Intro-Orbit → Startpose). Danach folgt die
-   * Kamera derselben Smooth-Pipeline wie die Fahrt, mit längeren taus: DEM-
-   * Kacheln und GPS-Ecken dürfen das Bild nicht zum Wackeln bringen. Tuck und
-   * Geländedeckel bleiben aus. Ein Hang im Rücken zog sonst in einem Frame an.
+   * Es gibt bewusst keine zweite Kamera-Pipeline mehr. Die frühere
+   * `stelleExportFrame` baute Intro-Orbit, Finale-Orbit, Glide und die
+   * Phasenentscheidung nach; sie driftete genau dort von der Fahrt weg, wo
+   * niemand hinsieht (Verkehrsmittel-Wechsel, Foto-Karte, Halte). Der Encoder
+   * ruft jetzt dieselbe Schleife wie der Player, mit `dt = 1/30`.
    */
-  stelleExportFrame(filmS: number, skalaMin = 0.9, hart = false): void {
-    if (this.phase === 'intro') this.ui.hideIntro()
-    if (this.phase === 'finale') this.ui.hideFinale()
-    this.phase = 'ride'
-    this.playing = false
-    this.scrubbing = false
-    this.repose = false
-    this.reposeTween = null
-    const dt = Math.abs(filmS - this.filmS)
-    this.setzeFilm(filmS)
-    const sc = this.film.skalaBeiS(this.s)
-    const geklemmt = {
-      behind: Math.max(sc.behind, skalaMin),
-      hover: Math.max(sc.hover, skalaMin),
-    }
-    if (hart) {
-      this.course = bearingAt(this.route, this.s)
-    } else if (dt > 1e-4) {
-      this.course += angleDelta(this.course, bearingAt(this.route, this.s)) * (1 - Math.exp(-dt / 3.6))
-    }
-    this.tuck.set(1)
-    const p = this._ridePose(this.s, this.course, { sc: geklemmt, k: 1, gelaendeDeckel: false })
-    this.scaleSm.set(p.sc.behind)
-    this.hoverSm.set(p.sc.hover)
-    this.glide = 1
-    if (hart) {
-      this.cg.lng.set(p.cg[0])
-      this.cg.lat.set(p.cg[1])
-      this.alt.set(p.alt)
-      this.lt.lng.set(p.lt[0])
-      this.lt.lat.set(p.lt[1])
-      this.ltAlt.set(p.ltAlt)
-    } else if (dt > 1e-4) {
-      const d = dt
-      this.cg.lng.to(p.cg[0], d, 3.2)
-      this.cg.lat.to(p.cg[1], d, 3.2)
-      this.alt.to(p.alt, d, 4.2)
-      this.lt.lng.to(p.lt[0], d, 0.8)
-      this.lt.lat.to(p.lt[1], d, 0.8)
-      this.ltAlt.to(p.ltAlt, d, 1.1)
-    }
-    this.applyCamera()
-    this.settled = true
-    this.camSnap = this._camNow()
-    this.synchronisiereKarte(this.halt)
-    this.ui.updateTrace(this.s, pointAt(this.route, this.s))
-    this.ui.syncDots(this.s)
-    this.emitStats()
+  exportSchritt(dt: number): void {
+    this.schritt(Math.max(1e-4, dt))
   }
 
   // Kurzer, zeitbasierter Kameraschwenk auf die ideale Fahrt-Pose der aktuellen
@@ -992,7 +961,14 @@ export class Tour {
     // das Bild springen statt nachlaufen — und die Kamera rechnet auf DEMSELBEN
     // `dt`: ein eigener Deckel für sie ließe sie dauerhaft hinterherhängen.
     const dt = this.uhr.frame(now)
+    // Im Export taktet der Encoder (`exportSchritt`). Die Wanduhr darf die
+    // Kamera dann nicht zusätzlich weiterdrehen.
+    if (!this.exportTakt) this.schritt(dt)
+    requestAnimationFrame(this._tick)
+  }
 
+  /** Ein Bild der Engine aus gegebener Filmzeit. Von `tick` und vom Encoder. */
+  schritt(dt: number): void {
     if (this.phase === 'intro') {
       // Ruhiger, langsamer Orbit: das Intro ist Bühne, nicht Bewegungsschau — die
       // langsame Drift liegt hinter dem abgedunkelten/verwischten Titel-Scrim (style.css)
@@ -1040,12 +1016,13 @@ export class Tour {
       }
     }
 
+    // Im Export jedes Bild: an `emitStats` hängen Marker-Icon und Modus-Kante,
+    // und 0,1 s Verzug wären dort drei Frames mit dem falschen Fortbewegungsmittel.
     this.uiClock += dt
-    if (this.uiClock > 0.1) {
+    if (this.uiClock > 0.1 || this.exportTakt) {
       this.uiClock = 0
       this.emitStats()
     }
-    requestAnimationFrame(this._tick)
   }
 
   /**
@@ -1135,8 +1112,10 @@ export class Tour {
 
     if (this.filmS >= this.film.gesamtS && this.dir > 0 && !this.scrubbing && this.playing) {
       // Ohne Endscreen: wieder der Startscreen — kein „Ziel erreicht" ohne Ziel.
+      // Im Export nicht: Der Encoder weiß selbst, wann der Film aus ist, und
+      // ein Rücksprung ins Menü brächte den Startscreen ins letzte Bild.
       if (!this.showFinale) {
-        this.toMenu()
+        if (!this.exportTakt) this.toMenu()
       } else if (this.phase !== 'finale') {
         this.phase = 'finale'
         this.glide = 2.2
@@ -1161,8 +1140,8 @@ export class Tour {
       // Achse (dieselbe Rampe wie das Tempo), ein zweiter Tiefpass darüber
       // hinkte ihm nach und machte aus dem Wechsel einen Tempo-Ausreißer.
       const sc = this.film.skalaBeiS(this.s)
-      this.scaleSm.set(sc.behind)
-      this.hoverSm.set(sc.hover)
+      this.scaleSm.set(Math.max(sc.behind, this.exportSkalaMin))
+      this.hoverSm.set(Math.max(sc.hover, this.exportSkalaMin))
       const behind = preset.behind * this.scaleSm.v
       const hover = preset.hover * this.hoverSm.v
       // Steht eine Felswand hinter dem Fahrer, die Kamera nicht darüber heben

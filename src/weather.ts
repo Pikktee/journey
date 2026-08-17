@@ -66,6 +66,19 @@ export interface Wetteroverlay {
   setGate(fn: () => boolean): void
   setSoundEnabled(on: boolean): void
   /**
+   * Ein Bild aus GEGEBENER Zeit statt aus der Wanduhr (Video-Export).
+   *
+   * Der Encoder braucht 0,3–2 s Wandzeit je Filmbild (Kachel-Idle). Die
+   * eigene rAF-Schleife bekäme davon pro 1/30 Filmsekunde bis zu einer halben
+   * echten Sekunde Vorschub, jedes Bild verschieden — die Partikel springen
+   * dann statt zu fallen, und ein Moduswechsel, der am Bildschirm über
+   * Sekunden blendet, ist nach drei Bildern durch. `externerTakt(true)` hängt
+   * die Schleife ab, `schritt(dt)` treibt dieselbe `step`-Funktion mit
+   * Filmzeit.
+   */
+  externerTakt(on: boolean): void
+  schritt(dt: number): void
+  /**
    * Alles zurücknehmen: Bildschleife anhalten, Klänge stoppen, Beobachter
    * abhängen, Canvas aus dem DOM.
    *
@@ -168,6 +181,7 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
   let bolt: Blitz | null = null, boltLife = 0 // sichtbarer Blitz-Pfad (zusätzlich zum Vollbild-Flash)
   let flakeSprite: HTMLCanvasElement | null = null // weiches Flocken-Sprite (lazy, s. Schnee-Zeichnung)
   let raf: number | null = null, lastT = 0
+  let taktExtern = false // Video-Export treibt `step` selbst (s. `externerTakt`)
   let gate: (() => boolean) | null = null // () => true solange die Szene animiert; false ⇒ Overlay friert ein
   let frozen = false
 
@@ -546,7 +560,7 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     // die neuen Parameter (Regen→Gewitter wird von selbst dichter/schneller).
     pAct = PROFILES[pm]
     flash = 0; boltLife = 0; strikeIn = 1.5 + rand() * 3
-    if (!raf) { lastT = 0; raf = requestAnimationFrame(frame) }
+    if (!raf && !taktExtern) { lastT = 0; raf = requestAnimationFrame(frame) }
   }
 
   // Intensität 0..1 (UI: Leicht/Mittel/Stark; API bewusst stufenlos — späteres
@@ -601,9 +615,38 @@ export function createWeather(container: HTMLElement): Wetteroverlay {
     canvas.remove()
   }
 
+  // Video-Export: die Schleife kommt von außen (s. `externerTakt` im Interface).
+  const externerTakt = (on: boolean): void => {
+    taktExtern = on
+    if (on) {
+      // Ein Render ist keine Wiedergabe: Der Klang gehört in die Datei, nicht
+      // in den Raum. Hart auf null statt über die Rampe in `step` — die läuft
+      // seit dem Takt in FILMzeit und bräuchte dutzende Bilder, in denen es
+      // hörbar regnet.
+      soundGain = 0
+      soundGainTgt = 0
+      for (const key of LOOPS) {
+        const a = loops[key]
+        if (a) { a.volume = 0; if (!a.paused) a.pause() }
+      }
+      if (raf) cancelAnimationFrame(raf)
+      raf = null
+    } else if (pAct && !raf) {
+      lastT = 0
+      raf = requestAnimationFrame(frame)
+    }
+  }
+  const schritt = (dt: number): void => {
+    if (!pAct || !(dt > 0)) return
+    frozen = false
+    step(dt)
+  }
+
   return {
     setMode,
     setIntensity,
+    externerTakt,
+    schritt,
     setGate: (fn: () => boolean) => { gate = fn },
     setSoundEnabled,
     zerstoere,

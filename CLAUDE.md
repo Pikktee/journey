@@ -468,6 +468,29 @@ nichts angehalten, und ein „Angehalten"-Abzeichen beim Zurückkommen wäre die
 Hintergrund und Messwerte: [scripts/messungen/README.md](scripts/messungen/README.md),
 Konzept §8A und Falle 3.
 
+**Der Video-Export ist ein TAKTGEBER, kein zweiter Renderer**
+([src/exportfilm.ts](src/exportfilm.ts), Konzept
+[konzept_video_export.md](docs/concepts/konzept_video_export.md) §6 „Ein Takt"). `Tour.exportTakt`
+hängt `tick` von der Wanduhr ab, der Encoder ruft `Tour.exportSchritt(1/fps)` — und das ist
+DIESELBE `schritt`-Funktion. Die Bildrate (24/30/50/60, Vorgabe 30) ist dabei eine reine
+ABTASTUNG: `Smooth` rechnet `1 − exp(−dt/τ)`, also kommt bei 60 fps dieselbe Bewegung heraus,
+nur doppelt so oft gemessen — Filmlänge, Halte und Rampen ändern sich nicht. Intro-Orbit, Anfahrt (`tour.begin()`), Halte, Foto-Karte,
+Modus-Kanten und Finale sind Player-Code; die einzige Größe, die der Film anders rechnet, ist
+`exportSkalaMin` (Esri-Überzoom zu Fuß). Nachgebaut wird nur, was im DOM liegt und deshalb nicht
+grabbar ist: Foto-Karte, Startscreen, Finale-Tafel — und deren INHALT kommt aus denselben
+Elementen, die der Player füllt. Die Regel von oben gilt hier ein drittes Mal und ist teurer als
+im Player: Ein Filmbild kostet 0,3–2 s Wandzeit (Kachel-Idle), also bekäme jede eigene Schleife
+pro Filmbild bis zu einer halben echten Sekunde Vorschub — der Regen sprang, statt zu
+fallen. Deshalb `weather.externerTakt`/`weather.schritt` und `atmo.setzeTakt`. Wer eine neue
+Schleife anlegt (Partikel, Blende, Zähler), gibt ihr einen Schritt von außen.
+**Gerendert wird IM Studio-Tab**, in einem gleich-origin `iframe` mit der Export-Seite
+([src/studio/exportblatt.ts](src/studio/exportblatt.ts), Meldungen per `postMessage`, Kanal in
+[exportformat.ts](src/exportformat.ts)). Ein zweiter Tab wäre ein verdeckter Tab, und Chrome
+drosselt dessen `requestAnimationFrame`: gemessen 0,15 statt 15 Bilder je Sekunde. Der Rahmen
+muss dabei GEZEICHNET werden — `display: none` liefert kein WebGL-Bild —, also ist er sichtbar
+und zugleich die Vorschau. Von der Frame-Zeit sind 98 % das Warten auf Kacheln (`window.__j.exportMess`);
+Engine, Komposition und Encode zusammen 1,2 ms. Wer die Auflösung senkt, spart fast nichts.
+
 **Fortbewegungs-Modi** sind `walk | bike | moped | jeep | tram | ferry`. Die Liste muss an vier
 Stellen deckungsgleich bleiben: `MODUS_TEMPO` ([src/filmachse.ts](src/filmachse.ts)) samt
 `MODE_SCALE` ([src/tour.ts](src/tour.ts)),

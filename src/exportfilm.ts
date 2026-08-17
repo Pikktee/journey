@@ -1,23 +1,75 @@
 /**
- * Video-Export, Etappe 0: Probe ohne Produkt-UI.
+ * Video-Export: Encoder und Komposition.
  *
- * Feste ~10 s der ersten Filmsekunden, 720p quer. Karte, Fahrer, Atmosphäre,
- * Foto-Karte und Attribution auf ein H.264-MP4, Musik wenn die Tour welche hat.
- *
- * DOM-arm wo möglich: Anfrage, Dateiname, Framezahl und Einbrand-Text sind
- * reine Funktionen. Der Encoder (mediabunny) kommt erst im Lauf, per dynamischem
- * Import, damit er nicht im Player-Chunk landet.
+ * Ganze Tour in Player-Tempo, Intro/Fahrt/Finale, Bild und Ton wie der Player.
+ * Formate und Clip-Zeit stehen in exportformat.ts (DOM-frei, geteilt mit Studio).
+ * mediabunny kommt erst im Lauf, per dynamischem Import.
  */
 
 import type { Map as MapLibreKarte } from 'maplibre-gl'
-import { indexAt, pointAt, type Route } from './geo.js'
+import {
+  EXPORT_INTRO_S,
+  attributionSicht,
+  clipDauerS,
+  dateiname,
+  exportViewport,
+  filmSBeiFrame,
+  finaleTafelSicht,
+  introTafelSicht,
+  formatiereClipzeit,
+  fortschrittText,
+  pauseText,
+  frameAnzahl,
+  EXPORT_NACHRICHT,
+  type ExportFormat,
+  type ExportMeldung,
+  type ExportStand,
+} from './exportformat.js'
 import { quellenAlsEinbrand, sammleQuellen, type Datenquelle } from './karteninfo.js'
+import { hatBereich, loopAktiv, musikVersatzS, type SpielSpur } from './audiotracks.js'
 import type { Tour } from './tour.js'
 
-export const EXPORT_BREITE = 1280
-export const EXPORT_HOEHE = 720
-export const EXPORT_FPS = 30
-export const EXPORT_DAUER_S = 10
+export {
+  EXPORT_ATTRIBUTION_FADE_S,
+  EXPORT_ATTRIBUTION_S,
+  EXPORT_FINALE_S,
+  EXPORT_FPS,
+  EXPORT_FPS_WAHL,
+  EXPORT_INTRO_S,
+  EXPORT_VORGABE,
+  istExportFps,
+  attributionSicht,
+  clipDauerS,
+  dateiname,
+  exportPixelRatio,
+  exportQuery,
+  exportViewport,
+  istEingebettet,
+  restzeitS,
+  restzeitText,
+  filmSBeiFrame,
+  finaleTafelSicht,
+  formatiereClipzeit,
+  fortschrittText,
+  introTafelSicht,
+  pauseText,
+  frameAnzahl,
+  leseExportFormat,
+  verdichteAbschnitte,
+  EXPORT_NACHRICHT,
+} from './exportformat.js'
+export type {
+  ExportFps,
+  ExportMeldung,
+  ExportStand,
+  ExportFormat,
+  ExportGroesse,
+  ExportLage,
+  ExportPhase,
+  ExportViewport,
+  LoopAbschnitt,
+} from './exportformat.js'
+
 /** Marker auf 720p: etwas über dem Player-Puck (36 px), kein Ballon. */
 export const EXPORT_REITER_PX = 40
 /**
@@ -25,19 +77,6 @@ export const EXPORT_REITER_PX = 40
  * darunter wird das Satellitenbild zur Fläche. Export nicht näher als ~Rad.
  */
 export const EXPORT_SKALA_MIN = 0.9
-/** Relive-Muster: Quellen stehen im Abspann, nicht dauerhaft im Bild. */
-export const EXPORT_ATTRIBUTION_S = 2
-export const EXPORT_ATTRIBUTION_FADE_S = 0.4
-
-export function klemmeExportSkala(sc: { behind: number; hover: number }): {
-  behind: number
-  hover: number
-} {
-  return {
-    behind: Math.max(sc.behind, EXPORT_SKALA_MIN),
-    hover: Math.max(sc.hover, EXPORT_SKALA_MIN),
-  }
-}
 
 /** Query `?export=1` oder bereits gesetztes `body.export`. */
 export function istExportAnfrage(search: string, bodyHatKlasse: boolean): boolean {
@@ -62,50 +101,11 @@ export function istEigeneBereiteTour(
   return id != null && liste.some((t) => t.id === id)
 }
 
-export function frameAnzahl(dauerS: number, fps: number): number {
-  return Math.max(1, Math.round(dauerS * fps))
-}
-
-/** Clip-Zeit des Frames: `i / fps`, geklemmt auf die Filmdauer. */
-export function filmSBeiFrame(i: number, fps: number, gesamtS: number): number {
-  return Math.min(gesamtS, i / fps)
-}
-
-export function dateiname(titel: string): string {
-  const slug =
-    titel
-      .toLowerCase()
-      .replace(/ß/g, 'ss')
-      .normalize('NFD')
-      .replace(/\p{M}/gu, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'tour'
-  return `maptale-${slug}-quer-720.mp4`
-}
-
 export function attributionAusKarte(
   sources: Record<string, { attribution?: string | undefined } | undefined>,
   extra: readonly Datenquelle[] = [],
 ): string {
   return quellenAlsEinbrand(sammleQuellen(sources, extra))
-}
-
-/**
- * Deckkraft der Pflicht-Attribution. 0 während der Fahrt, 1 in den letzten
- * `EXPORT_ATTRIBUTION_S` Sekunden, mit kurzem Fade.
- */
-export function attributionSicht(
-  filmS: number,
-  clipS: number,
-  dauerS = EXPORT_ATTRIBUTION_S,
-  fadeS = EXPORT_ATTRIBUTION_FADE_S,
-): number {
-  if (!(clipS > 0) || dauerS <= 0) return 0
-  const von = Math.max(0, clipS - dauerS)
-  if (filmS < von) return 0
-  if (fadeS <= 0) return 1
-  return Math.min(1, (filmS - von) / fadeS)
 }
 
 /**
@@ -145,17 +145,106 @@ function naechstesBild(): Promise<void> {
   })
 }
 
+function warteBisSichtbar(): Promise<void> {
+  if (!document.hidden) return Promise.resolve()
+  return new Promise((resolve) => {
+    const weiter = () => {
+      if (document.hidden) return
+      document.removeEventListener('visibilitychange', weiter)
+      resolve()
+    }
+    document.addEventListener('visibilitychange', weiter)
+    if (!document.hidden) weiter()
+  })
+}
+
+async function pausiereWennVerdeckt(
+  melde: (stand: ExportStand, text: string, frame?: number) => void,
+  clipS: number,
+  fertig: number,
+  n: number,
+): Promise<boolean> {
+  if (!document.hidden) return false
+  melde('pause', pauseText(clipS, fertig, n), fertig)
+  await warteBisSichtbar()
+  return true
+}
+
 /**
- * Nach einem Kamerasprung erst ein Bild, dann kurz warten, bis MapLibre die
- * neuen Kachel-Anfragen gestellt hat, dann idle. Sonst feuert idle auf den
- * Overview-Kacheln der vorigen Pose (Konzept §8.4).
+ * Wartet, bis das Bild steht — und zwar so kurz wie möglich.
+ *
+ * Die feste 120-ms-Pause der ersten Fassung war der Preis für Falle 4: `idle`
+ * feuert sonst auf den Kacheln der VORIGEN Pose, weil MapLibre die neuen
+ * Anfragen erst nach einem Renderdurchlauf stellt. Bezahlt wurde sie aber in
+ * JEDEM Bild — bei 30 fps sind das mindestens vier Sekunden Wandzeit je
+ * Filmsekunde, bei einem Vier-Minuten-Film eine Viertelstunde reines Schlafen.
+ *
+ * Also justiert sich die Pause selbst: Sie schrumpft, solange die Karte danach
+ * schon vollständig war, und springt bei der ersten Fehlstelle auf den vollen
+ * Wert zurück. Ein Foto-Halt, ein langsamer Abschnitt oder eine zweite Runde
+ * durch geladene Kacheln kostet damit fast nichts mehr.
+ *
+ * Sie fällt bewusst nicht auf null: Ohne Aufgabe an die Ereignisschleife
+ * bekäme MapLibre keine Gelegenheit, die Anfragen überhaupt abzuschicken, und
+ * `idle` fiele wieder auf den alten Kacheln — der Fehler wäre ein unscharfes
+ * Bild, und das sieht man erst in der fertigen Datei.
  */
-async function warteKartenFrame(map: MapLibreKarte): Promise<void> {
-  await naechstesBild()
-  await warteMs(120)
-  await warteIdle(map, 6000)
-  if (!map.areTilesLoaded()) await warteIdle(map, 4000)
-  await naechstesBild()
+const WARTEN_MAX_MS = 120
+const WARTEN_MIN_MS = 30
+
+class Kachelwarten {
+  pauseMs = WARTEN_MAX_MS
+  /** Wie oft die Pause wieder auf den vollen Wert musste. Abnahme-Zähler. */
+  nachgeladen = 0
+
+  async frame(map: MapLibreKarte): Promise<void> {
+    await naechstesBild()
+    await warteMs(this.pauseMs)
+    if (map.areTilesLoaded()) {
+      this.pauseMs = Math.max(WARTEN_MIN_MS, Math.round(this.pauseMs * 0.75))
+      await naechstesBild()
+      return
+    }
+    this.nachgeladen++
+    this.pauseMs = WARTEN_MAX_MS
+    await warteIdle(map, 6000)
+    if (!map.areTilesLoaded()) await warteIdle(map, 4000)
+    await naechstesBild()
+  }
+}
+
+/**
+ * Wo die Wandzeit hingeht. Kein Profiler-Ersatz, sondern die vier Posten, die
+ * sich überhaupt unterscheiden lassen — und der Beleg dafür, dass eine
+ * Optimierung an der richtigen greift (`window.__j.exportMess`).
+ */
+export class Frameuhr {
+  readonly posten: Record<string, number> = {
+    engine: 0,
+    kacheln: 0,
+    komposition: 0,
+    encode: 0,
+  }
+  frames = 0
+  private t0 = 0
+
+  start(): void {
+    this.t0 = performance.now()
+  }
+
+  buche(posten: string): void {
+    const jetzt = performance.now()
+    this.posten[posten] = (this.posten[posten] ?? 0) + (jetzt - this.t0)
+    this.t0 = jetzt
+  }
+
+  /** Millisekunden je Bild, gerundet — das ist die Zahl, die man vergleicht. */
+  jeBild(): Record<string, number> {
+    const n = Math.max(1, this.frames)
+    const aus: Record<string, number> = {}
+    for (const [k, v] of Object.entries(this.posten)) aus[k] = Math.round((v / n) * 10) / 10
+    return aus
+  }
 }
 
 function tokenFarbe(name: string, fallback: string): string {
@@ -244,8 +333,26 @@ export interface ExportReiter {
   getElement(): HTMLElement
 }
 
-async function backeReiter(marker: ExportReiter): Promise<HTMLCanvasElement> {
-  const seite = EXPORT_REITER_PX
+/**
+ * Sprite-Vorrat je Fortbewegungsmittel.
+ *
+ * Vorher wurde EIN Sprite vor der Schleife gebacken. `emitStats` schaltete das
+ * Icon des DOM-Markers brav um, aber im Film blieb bis zum Ende das Symbol des
+ * ersten Modus stehen — der Verkehrsmittelwechsel war unsichtbar. Gebacken
+ * wird beim ersten Auftreten eines Modus, danach aus dem Vorrat.
+ */
+export function reiterVorrat(marker: ExportReiter, seite: number) {
+  const gebacken = new Map<string, HTMLCanvasElement>()
+  return async (modus: string): Promise<HTMLCanvasElement> => {
+    const da = gebacken.get(modus)
+    if (da) return da
+    const neu = await backeReiter(marker, seite)
+    gebacken.set(modus, neu)
+    return neu
+  }
+}
+
+async function backeReiter(marker: ExportReiter, seite: number): Promise<HTMLCanvasElement> {
   const c = document.createElement('canvas')
   const dpr = 2
   c.width = seite * dpr
@@ -293,9 +400,9 @@ function zeichneReiter(
   map: MapLibreKarte,
   marker: ExportReiter,
   sprite: HTMLCanvasElement,
+  seite: number,
 ): void {
   const p = map.project(marker.getLngLat())
-  const seite = EXPORT_REITER_PX
   ctx.drawImage(sprite, p.x - seite / 2, p.y - seite / 2, seite, seite)
 }
 
@@ -374,104 +481,203 @@ function zeichneFotoKarte(ctx: CanvasRenderingContext2D, breite: number, hoehe: 
 }
 
 /**
- * Bricht eine projizierte Kette, sobald Punkte hinter der Kamera explodieren.
- * Sonst kreuzt die Spur den ganzen Frame.
+ * Die Spur bleibt die der KARTE.
+ *
+ * Bis hierher zeichnete der Export eine eigene Linie über `map.project()`.
+ * Die kennt das Gelände nicht und verbindet die Stützpunkte roh — die Spur
+ * wirkte kantiger und gröber als im Player, und sie lag über dem Wetter statt
+ * darunter. Die nativen Layer sind gedrapt und geglättet; im Film bekommt nur
+ * die gepunktete Vorschau etwas mehr Gewicht, weil 2,4 px gestrichelt aus der
+ * Filmkamera verschwinden (Konzept-Falle 11). Dieselben Layer, andere Zahlen.
  */
-export function spurSegmente(
-  punkte: ReadonlyArray<{ x: number; y: number }>,
-  max: number,
-): Array<Array<{ x: number; y: number }>> {
-  const ketten: Array<Array<{ x: number; y: number }>> = []
-  let kette: Array<{ x: number; y: number }> = []
-  for (const p of punkte) {
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || Math.abs(p.x) > max || Math.abs(p.y) > max) {
-      if (kette.length >= 2) ketten.push(kette)
-      kette = []
-      continue
-    }
-    kette.push(p)
-  }
-  if (kette.length >= 2) ketten.push(kette)
-  return ketten
-}
-
-function zeichneKetten(
-  ctx: CanvasRenderingContext2D,
-  ketten: ReadonlyArray<ReadonlyArray<{ x: number; y: number }>>,
-  farbe: string,
-  breite: number,
-  glow = false,
-): void {
-  ctx.save()
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  for (const kette of ketten) {
-    if (kette.length < 2) continue
-    ctx.beginPath()
-    ctx.moveTo(kette[0]!.x, kette[0]!.y)
-    for (let i = 1; i < kette.length; i++) ctx.lineTo(kette[i]!.x, kette[i]!.y)
-    if (glow) {
-      ctx.strokeStyle = 'rgba(245, 165, 36, 0.38)'
-      ctx.lineWidth = breite * 2.4
-      ctx.stroke()
-    }
-    ctx.strokeStyle = farbe
-    ctx.lineWidth = breite
-    ctx.stroke()
-  }
-  ctx.restore()
-}
-
-function projektKette(
-  map: MapLibreKarte,
-  punkte: ReadonlyArray<readonly [number, number]>,
-  breite: number,
-  hoehe: number,
-): Array<Array<{ x: number; y: number }>> {
-  const max = Math.max(breite, hoehe) * 2.5
-  return spurSegmente(
-    punkte.map((c) => {
-      const p = map.project([c[0], c[1]])
-      return { x: p.x, y: p.y }
-    }),
-    max,
-  )
-}
-
-function zeichneSpur(
-  ctx: CanvasRenderingContext2D,
-  map: MapLibreKarte,
-  route: Route,
-  s: number,
-  breite: number,
-  hoehe: number,
-): void {
-  if (route.coords.length < 2) return
-  const hier = pointAt(route, s)
-  const i = indexAt(route, s)
-  const rest: Array<[number, number]> = [[hier[0], hier[1]]]
-  for (let k = i; k < route.coords.length; k++) {
-    const c = route.coords[k]!
-    rest.push([c[0], c[1]])
-  }
-  const bereist: Array<[number, number]> = []
-  for (let k = 0; k < i; k++) {
-    const c = route.coords[k]!
-    bereist.push([c[0], c[1]])
-  }
-  bereist.push([hier[0], hier[1]])
-  zeichneKetten(ctx, projektKette(map, rest, breite, hoehe), 'rgba(255, 255, 255, 0.78)', 3.4)
-  zeichneKetten(ctx, projektKette(map, bereist, breite, hoehe), '#f5a524', 5.6, true)
-}
-
-function versteckeKartenSpur(map: MapLibreKarte): void {
-  for (const id of ['route-full', 'route-glow', 'route-glow-tip', 'route-progress', 'route-tip']) {
+function verstaerkeKartenSpur(map: MapLibreKarte, faktor: number): void {
+  const setze = (id: string, name: string, wert: unknown): void => {
     try {
-      map.setLayoutProperty(id, 'visibility', 'none')
+      map.setPaintProperty(id, name as never, wert as never)
     } catch {
       /* Layer kann fehlen */
     }
   }
+  setze('route-full', 'line-width', 3.2 * faktor)
+  setze('route-full', 'line-color', 'rgba(255,255,255,0.72)')
+  setze('route-full', 'line-dasharray', [0.6, 1.9])
+  setze('route-glow', 'line-width', 13 * faktor)
+  setze('route-glow-tip', 'line-width', 13 * faktor)
+  setze('route-progress', 'line-width', 5.6 * faktor)
+  setze('route-tip', 'line-width', 5.6 * faktor)
+}
+
+/**
+ * Die Tafeln des Players auf die Leinwand.
+ *
+ * Startscreen und „Ziel erreicht" liegen im DOM und lassen sich nicht grabben —
+ * die einzige Stelle, an der der Export wirklich nachbaut. Der INHALT kommt
+ * deshalb aus denselben Elementen, die der Player füllt: Wer dort eine Zeile
+ * ändert, ändert sie im Film mit.
+ */
+function text(id: string): string {
+  const el = document.getElementById(id)
+  return el?.textContent?.trim() ?? ''
+}
+
+function zeichneScrim(ctx: CanvasRenderingContext2D, b: number, h: number, staerke: number): void {
+  const g = ctx.createRadialGradient(b / 2, h * 0.44, 0, b / 2, h * 0.44, Math.max(b, h) * 0.75)
+  g.addColorStop(0, `rgba(6, 9, 14, ${0.62 * staerke})`)
+  g.addColorStop(1, `rgba(5, 8, 12, ${0.94 * staerke})`)
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, b, h)
+}
+
+function zeichneMitte(ctx: CanvasRenderingContext2D, zeile: string, b: number, y: number): void {
+  ctx.fillText(zeile, b / 2, y)
+}
+
+/**
+ * Der Filmtitel.
+ *
+ * Inhaltlich der Startscreen, in der Form aber eine TITELTAFEL und keine
+ * abfotografierte Oberfläche: Der Startknopf und die Zurück-Pille fehlen, weil
+ * hier nichts zu bedienen ist, und die Kennzahlen stehen als ruhige Zeile statt
+ * als Pillen. Ein Rand und eine Glasfläche sagen „hier kann man klicken" — in
+ * einem Film sagt das niemandem etwas und sieht nach Screenshot aus.
+ *
+ * Der INHALT kommt aus denselben Elementen, die der Player füllt.
+ */
+export function zeichneIntroTafel(
+  ctx: CanvasRenderingContext2D,
+  b: number,
+  h: number,
+  sicht: number,
+): void {
+  if (sicht <= 0.02) return
+  const e = Math.min(b, h) / 720 // Maße sind auf 720p ausgemessen
+  const titel = (document.getElementById('intro-title')?.innerHTML ?? '')
+    .split(/<br\s*\/?>/i)
+    .map((z) => z.replace(/<[^>]*>/g, '').trim())
+    .filter(Boolean)
+  const kicker = text('intro-kicker')
+  const route = text('intro-route')
+  // Eine Zeile statt drei Pillen. Der schmale Zwischenraum um das Trennzeichen
+  // ist Absicht: „0,4 km · 11 hm" liest sich als eine Angabe, mit normalen
+  // Leerzeichen zerfiele die Zeile in drei.
+  const zahlen = ['chip-distance', 'chip-gain', 'chip-photos'].map(text).filter(Boolean).join('  ·  ')
+
+  ctx.save()
+  ctx.globalAlpha = sicht
+  zeichneScrim(ctx, b, h, 1)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const laengste = Math.max(1, ...titel.map((z) => z.length))
+  const titelPx = Math.min(96 * e, (b * 0.82) / (laengste * 0.54))
+  const zeilenH = titelPx * 1.02
+  const block = 30 * e + titel.length * zeilenH + 46 * e + (route ? 24 * e : 0) + (zahlen ? 30 * e : 0)
+  let y = h / 2 - block / 2 + 8 * e
+
+  ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
+  ctx.fillStyle = tokenFarbe('--akzent', '#f5a524')
+  if (kicker) zeichneMitte(ctx, kicker, b, y)
+  y += 24 * e + zeilenH / 2
+
+  ctx.fillStyle = tokenFarbe('--text', '#f2ede3')
+  ctx.font = `600 ${titelPx}px Outfit, system-ui, sans-serif`
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)'
+  ctx.shadowBlur = 40 * e
+  ctx.shadowOffsetY = 6 * e
+  for (const zeile of titel) {
+    zeichneMitte(ctx, zeile, b, y)
+    y += zeilenH
+  }
+  ctx.shadowBlur = 0
+  ctx.shadowOffsetY = 0
+  y += zeilenH * -0.5 + 34 * e
+
+  ctx.fillStyle = tokenFarbe('--akzent', '#f5a524')
+  ctx.globalAlpha = sicht * 0.85
+  ctx.fillRect(b / 2 - 38 * e, y, 76 * e, Math.max(1, e))
+  ctx.globalAlpha = sicht
+  y += 26 * e
+
+  if (route) {
+    ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = tokenFarbe('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    zeichneMitte(ctx, route, b, y)
+    y += 30 * e
+  }
+
+  if (zahlen) {
+    ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = tokenFarbe('--text', '#f2ede3')
+    ctx.globalAlpha = sicht * 0.9
+    zeichneMitte(ctx, zahlen, b, y)
+  }
+  ctx.restore()
+}
+
+/** „Ziel erreicht": Glaskarte mit Titel und den drei Kennzahlen. */
+export function zeichneFinaleTafel(
+  ctx: CanvasRenderingContext2D,
+  b: number,
+  h: number,
+  sicht: number,
+): void {
+  if (sicht <= 0.02) return
+  const e = Math.min(b, h) / 720
+  const kicker = document.querySelector('.finale-kicker')?.textContent?.trim() ?? 'Ziel erreicht'
+  const titel = text('finale-title')
+  const werte: Array<[string, string]> = [
+    ['Distanz', text('final-km')],
+    ['Höhenmeter', text('final-gain')],
+    ['Fotos', text('final-photos')],
+  ].filter((z) => z[1]) as Array<[string, string]>
+
+  ctx.save()
+  ctx.globalAlpha = sicht
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = `600 ${48 * e}px Outfit, system-ui, sans-serif`
+  const spalte = 120 * e
+  const karteW = Math.max(ctx.measureText(titel).width + 112 * e, werte.length * spalte + 32 * e)
+  const karteH = (werte.length ? 214 : 150) * e
+  const x = b / 2 - karteW / 2
+  const y = h / 2 - karteH / 2
+
+  ctx.fillStyle = tokenFarbe('--glas', 'rgba(18, 22, 28, 0.72)')
+  ctx.strokeStyle = tokenFarbe('--glas-rand', 'rgba(255,255,255,0.14)')
+  ctx.lineWidth = Math.max(1, e)
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
+  ctx.shadowBlur = 60 * e
+  ctx.beginPath()
+  ctx.roundRect(x, y, karteW, karteH, 22 * e)
+  ctx.fill()
+  ctx.shadowBlur = 0
+  ctx.stroke()
+
+  let cy = y + 42 * e
+  ctx.font = `500 ${13 * e}px Outfit, system-ui, sans-serif`
+  ctx.fillStyle = tokenFarbe('--akzent', '#f5a524')
+  zeichneMitte(ctx, kicker, b, cy)
+  cy += 16 * e + 27 * e
+  ctx.font = `600 ${48 * e}px Outfit, system-ui, sans-serif`
+  ctx.fillStyle = tokenFarbe('--text', '#f2ede3')
+  zeichneMitte(ctx, titel, b, cy)
+  cy += 27 * e + 46 * e
+
+  const links = b / 2 - ((werte.length - 1) * spalte) / 2
+  werte.forEach(([label, wert], i) => {
+    const cx = links + i * spalte
+    ctx.font = `500 ${12 * e}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = tokenFarbe('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    ctx.fillText(label, cx, cy)
+    ctx.font = `600 ${24 * e}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = tokenFarbe('--text', '#f2ede3')
+    ctx.fillText(wert, cx, cy + 26 * e)
+  })
+  ctx.restore()
+}
+
+export interface FrameTafeln {
+  intro: number
+  finale: number
 }
 
 function komponiereFrame(
@@ -480,23 +686,38 @@ function komponiereFrame(
   attribution: string,
   reiter: ExportReiter | undefined,
   sprite: HTMLCanvasElement | null,
+  reiterPx: number,
   attribSicht: number,
-  route: Route | undefined,
-  s: number,
+  tafeln: FrameTafeln,
 ): void {
   const ctx = ziel.getContext('2d')
   if (!ctx) throw new Error('Ziel-Canvas ohne 2D-Kontext.')
+  // Reihenfolge wie die Schichtung der Seite: Karte (mit ihrer Spur), darüber
+  // Atmosphäre und Wetter, dann was im DOM darüber liegt.
   ctx.drawImage(map.getCanvas(), 0, 0, ziel.width, ziel.height)
   zeichneOverlay(ctx, 'atmosphere', ziel.width, ziel.height)
   zeichneOverlay(ctx, 'weather', ziel.width, ziel.height)
-  if (route) zeichneSpur(ctx, map, route, s, ziel.width, ziel.height)
-  if (reiter && sprite) zeichneReiter(ctx, map, reiter, sprite)
+  if (reiter && sprite) zeichneReiter(ctx, map, reiter, sprite, reiterPx)
   zeichneFotoKarte(ctx, ziel.width, ziel.height)
+  zeichneIntroTafel(ctx, ziel.width, ziel.height, tafeln.intro)
+  zeichneFinaleTafel(ctx, ziel.width, ziel.height, tafeln.finale)
   zeichneAttribution(ctx, attribution, ziel.width, ziel.height, attribSicht)
 }
 
 function setzeStand(el: HTMLElement, text: string): void {
   el.textContent = text
+}
+
+/**
+ * Ein Ort für „wie weit ist der Film". Schreibt aufs Stand-Schild (eigener
+ * Tab) UND meldet nach draußen (Rahmen im Studio) — beides aus denselben
+ * Zahlen, damit die zwei Oberflächen nicht auseinanderlaufen.
+ */
+function baueMelder(lauf: ExportLauf, clipS: number, frames: number) {
+  return (stand: ExportStand, text: string, frame = 0): void => {
+    if (lauf.stand) setzeStand(lauf.stand, text)
+    lauf.melde?.({ typ: EXPORT_NACHRICHT, stand, frame, frames, clipS, text })
+  }
 }
 
 function ladeHerunter(buffer: ArrayBuffer, name: string): void {
@@ -511,76 +732,244 @@ function ladeHerunter(buffer: ArrayBuffer, name: string): void {
   URL.revokeObjectURL(url)
 }
 
-export interface ExportMusik {
+export interface ExportTonKlip {
   src: string
-  vonS: number
-  dauerS: number
+  vonClipS: number
+  bisClipS: number
+  dateiVonS: number
+  loop: boolean
   gain: number
+  /**
+   * Ein-/Ausblendung in Sekunden (0 = harter Schnitt).
+   *
+   * Motor und Wetterton entstehen als ABSCHNITTE aus der Filmachse und stoßen
+   * an jeder Modus-Kante und an jedem Halt aneinander. Hart geschnitten knackt
+   * dort jede Naht; im Player ist derselbe Wechsel ein Crossfade (`vehicle.ts`
+   * blendet über ~0,7 s). Die Studio-Spuren bleiben bei 0 — die bringen ihre
+   * eigene Blende mit.
+   */
+  blendeS?: number
+}
+
+export interface ExportTonSchuss {
+  src: string
+  beiClipS: number
+  gain: number
+}
+
+export interface ExportTon {
+  klips: ExportTonKlip[]
+  schuesse: ExportTonSchuss[]
 }
 
 export interface ExportLauf {
   map: MapLibreKarte
   tour: Tour
   titel: string
+  format: ExportFormat
   stand?: HTMLElement
+  /**
+   * Fortschritt nach draußen. Gesetzt, wenn der Lauf in einem Rahmen im
+   * Studio steckt: Dann gibt es kein Stand-Schild, sondern einen Balken im
+   * Studio-Blatt, und die fertige Datei geht als Puffer dorthin — der Nutzer
+   * soll sie auch nach einer weggeklickten Download-Leiste noch bekommen.
+   */
+  melde?: (m: ExportMeldung, uebergabe?: Transferable[]) => void
   extraQuellen?: readonly Datenquelle[]
   reiter?: ExportReiter
   hoehenBereit?: Promise<unknown>
-  musik?: ExportMusik
+  ton?: ExportTon
+  /**
+   * Overlays für den Film scharf machen: Gates auf „läuft", Canvases neu
+   * messen, Wetter und Atmosphäre auf EXTERNEN Takt (s. `taktOverlays`).
+   */
+  vorbereitenOverlays?: () => void
+  /**
+   * Ein Filmbild der Overlays. Ohne diesen Griff liefen Partikel, Böen und die
+   * Wetter-Blende auf der Wanduhr weiter — im Export sind das 0,3–2 s je
+   * Filmbild, und zwar jedes Mal andere.
+   */
+  taktOverlays?: (dt: number) => void
+  /** Nach jedem Kamerasprung: Wetter der Stelle anwenden. */
+  nachKamera?: () => void
 }
 
-async function schneideMusik(musik: ExportMusik, clipS: number): Promise<AudioBuffer | null> {
+const MOTOR_SRC: Record<string, string> = {
+  moped: '/audio/eng-moped.mp3',
+  jeep: '/audio/eng-jeep.mp3',
+  ferry: '/audio/eng-boat.mp3',
+}
+/** Wie `createVehicle({ volume: 0.2 })` im Player. */
+export const MOTOR_GAIN = 0.2
+const WETTER_SRC: Record<string, { src: string; gain: number }> = {
+  rain: { src: '/audio/rain.mp3', gain: 0.4 },
+  storm: { src: '/audio/storm.mp3', gain: 0.5 },
+  snow: { src: '/audio/wind.mp3', gain: 0.26 },
+}
+
+export function motorQuelle(mode: string): string | null {
+  return MOTOR_SRC[mode] ?? null
+}
+
+export function wetterQuelle(mode: string, k: number): { src: string; gain: number } | null {
+  const basis = WETTER_SRC[mode]
+  if (!basis) return null
+  return { src: basis.src, gain: basis.gain * (0.4 + 0.6 * Math.max(0, Math.min(1, k))) }
+}
+
+/** Studio-Spuren auf Clip-Zeit (Intro davor, Finale danach, dort stumm wie im Player). */
+export function tonKlipsAusSpuren(
+  spuren: readonly SpielSpur[],
+  introS: number,
+  fahrtS: number,
+  master: number,
+): { klips: ExportTonKlip[]; schuesse: ExportTonSchuss[] } {
+  const klips: ExportTonKlip[] = []
+  const schuesse: ExportTonSchuss[] = []
+  for (const spur of spuren) {
+    const gain = master * (spur.gain ?? 1)
+    if (hatBereich(spur)) {
+      const von = introS + Math.max(0, spur.filmVonS)
+      const bis = introS + Math.min(fahrtS, spur.filmBisS)
+      if (bis <= von) continue
+      klips.push({
+        src: spur.src,
+        vonClipS: von,
+        bisClipS: bis,
+        dateiVonS: musikVersatzS(Math.max(0, -spur.filmVonS), 0, spur.startS ?? 0, loopAktiv(spur)),
+        loop: loopAktiv(spur),
+        gain,
+      })
+    } else if (spur.filmVonS >= 0 && spur.filmVonS < fahrtS) {
+      schuesse.push({ src: spur.src, beiClipS: introS + spur.filmVonS, gain })
+    }
+  }
+  return { klips, schuesse }
+}
+
+async function ladePuffer(src: string): Promise<AudioBuffer | null> {
   try {
-    const antwort = await fetch(musik.src)
+    const antwort = await fetch(src)
     if (!antwort.ok) return null
     const ctx = new AudioContext()
     const voll = await ctx.decodeAudioData(await antwort.arrayBuffer())
     await ctx.close()
-    const n = Math.max(1, Math.round(clipS * voll.sampleRate))
-    const out = new AudioBuffer({
-      length: n,
-      sampleRate: voll.sampleRate,
-      numberOfChannels: voll.numberOfChannels,
-    })
-    const start = Math.max(0, Math.floor(musik.vonS * voll.sampleRate))
-    const gain = musik.gain
-    for (let ch = 0; ch < voll.numberOfChannels; ch++) {
-      const ein = voll.getChannelData(ch)
-      const aus = out.getChannelData(ch)
-      const len = ein.length
-      if (!len) continue
-      for (let i = 0; i < n; i++) aus[i] = ein[(start + i) % len]! * gain
-    }
-    return out
+    return voll
   } catch {
     return null
   }
 }
 
 /**
- * Stept ~10 s, komponiert die sichtbare Szene, muxed H.264-MP4, startet den Download.
+ * Mix aus filmS, nicht aus dem Live-Graphen. Der Encode stepped, die Wanduhr
+ * der Player-Elemente stünde woanders als der Frame.
+ */
+async function mischeTon(ton: ExportTon, clipS: number): Promise<AudioBuffer | null> {
+  const srcs = new Set<string>()
+  for (const k of ton.klips) srcs.add(k.src)
+  for (const s of ton.schuesse) srcs.add(s.src)
+  if (!srcs.size || !(clipS > 0)) return null
+  const puffer = new Map<string, AudioBuffer>()
+  await Promise.all(
+    [...srcs].map(async (src) => {
+      const b = await ladePuffer(src)
+      if (b) puffer.set(src, b)
+    }),
+  )
+  if (!puffer.size) return null
+  const rate = [...puffer.values()][0]!.sampleRate
+  const laenge = Math.max(1, Math.round(clipS * rate))
+  const offline = new OfflineAudioContext(2, laenge, rate)
+  const startKlip = (k: ExportTonKlip, buf: AudioBuffer): void => {
+    const src = offline.createBufferSource()
+    src.buffer = buf
+    src.loop = k.loop
+    if (k.loop) {
+      src.loopStart = 0
+      src.loopEnd = buf.duration
+    }
+    const g = offline.createGain()
+    const pegel = Math.max(0, Math.min(1, k.gain))
+    src.connect(g)
+    g.connect(offline.destination)
+    const offset = Math.max(0, Math.min(buf.duration, k.dateiVonS))
+    const when = Math.max(0, k.vonClipS)
+    const dauer = Math.max(0.02, k.bisClipS - k.vonClipS)
+    // Blende höchstens über die halbe Abschnittslänge, sonst überlappen sich
+    // Ein- und Ausblendung und der Abschnitt erreicht seinen Pegel nie.
+    const blende = Math.min(k.blendeS ?? 0, dauer / 2)
+    if (blende > 0.01) {
+      g.gain.setValueAtTime(0, when)
+      g.gain.linearRampToValueAtTime(pegel, when + blende)
+      g.gain.setValueAtTime(pegel, when + dauer - blende)
+      g.gain.linearRampToValueAtTime(0, when + dauer)
+    } else {
+      g.gain.value = pegel
+    }
+    try {
+      src.start(when, offset)
+      src.stop(when + dauer)
+    } catch {
+      /* Start hinter dem Ende: ignorieren */
+    }
+  }
+  for (const k of ton.klips) {
+    const buf = puffer.get(k.src)
+    if (buf) startKlip(k, buf)
+  }
+  for (const s of ton.schuesse) {
+    const buf = puffer.get(s.src)
+    if (!buf) continue
+    startKlip(
+      {
+        src: s.src,
+        vonClipS: s.beiClipS,
+        bisClipS: Math.min(clipS, s.beiClipS + buf.duration),
+        dateiVonS: 0,
+        loop: false,
+        gain: s.gain,
+      },
+      buf,
+    )
+  }
+  try {
+    return await offline.startRendering()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Stept die ganze Tour, komponiert die sichtbare Szene, muxed H.264-MP4.
  * Fehlt H.264, wird das auf dem Stand geschrieben, nicht als WebM heruntergeladen.
  */
 export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
   const stand = lauf.stand
-  const gesamtS = lauf.tour.film.gesamtS
-  if (!(gesamtS > 0)) {
+  const fahrtS = lauf.tour.film.gesamtS
+  if (!(fahrtS > 0)) {
     if (stand) setzeStand(stand, 'Die Tour hat keine Filmdauer.')
+    lauf.melde?.({ typ: EXPORT_NACHRICHT, stand: 'fehler', text: 'Die Tour hat keine Filmdauer.' })
     return
   }
-  const dauerS = Math.min(EXPORT_DAUER_S, gesamtS)
-  const n = frameAnzahl(dauerS, EXPORT_FPS)
+  const format = lauf.format
+  const vp = exportViewport(format)
+  // Die Bildrate ist eine reine ABTASTUNG (s. `EXPORT_FPS_WAHL`): Sie bestimmt,
+  // wie oft die Filmzeit gemessen wird, nicht wie der Film abläuft. Deshalb
+  // hängt alles im selben Atemzug daran — Bildzahl, Engine-Schritt,
+  // Overlay-Takt, Zeitstempel und die Bildrate der Spur.
+  const fps = format.fps
+  const dauerS = clipDauerS(fahrtS, lauf.tour.showFinale)
+  const n = frameAnzahl(dauerS, fps)
+  const melde = baueMelder(lauf, dauerS, n)
+  const dtFrame = 1 / fps
   lauf.map.resize()
   try {
     lauf.map.setPaintProperty('satellite', 'raster-fade-duration', 0)
   } catch {
     /* Layer-Name kann fehlen */
   }
-
-  if (document.hidden) {
-    if (stand) setzeStand(stand, 'Tab im Hintergrund. Export abgebrochen.')
-    return
-  }
+  lauf.vorbereitenOverlays?.()
+  await pausiereWennVerdeckt(melde, dauerS, 0, n)
 
   let sources: Record<string, { attribution?: string | undefined } | undefined> = {}
   try {
@@ -605,19 +994,25 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
   } = await import('mediabunny')
 
   const codec = await getFirstEncodableVideoCodec(['avc'], {
-    width: EXPORT_BREITE,
-    height: EXPORT_HOEHE,
+    width: vp.breite,
+    height: vp.hoehe,
     quality: QUALITY_HIGH,
   })
   if (codec !== 'avc') {
-    if (stand)
-      setzeStand(stand, 'H.264 fehlt in diesem Browser. In Chrome oder Safari öffnen.')
+    melde('fehler', 'H.264 fehlt in diesem Browser. In Chrome oder Safari öffnen.')
     return
   }
 
   const ziel = document.createElement('canvas')
-  ziel.width = EXPORT_BREITE
-  ziel.height = EXPORT_HOEHE
+  ziel.width = vp.breite
+  ziel.height = vp.hoehe
+  // Abnahme-Griff wie die übrigen `window.__j`: Was der Encoder sieht, ist
+  // sonst nirgends im DOM — ein Seiten-Screenshot zeigt Reiter, Foto-Karte und
+  // die Tafeln gerade NICHT, weil die auf diese Leinwand gezeichnet werden.
+  Object.assign((window as unknown as { __j?: Record<string, unknown> }).__j ?? {}, {
+    exportZiel: ziel,
+  })
+  const reiterPx = Math.round(EXPORT_REITER_PX * (Math.min(vp.breite, vp.hoehe) / 720))
 
   const target = new BufferTarget()
   const output = new Output({
@@ -631,78 +1026,132 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
     alpha: 'discard',
     latencyMode: 'quality',
   })
-  output.addVideoTrack(video, { frameRate: EXPORT_FPS })
+  output.addVideoTrack(video, { frameRate: fps })
 
   let audioQuelle: InstanceType<typeof AudioBufferSource> | null = null
-  let musikPuffer: AudioBuffer | null = null
-  if (lauf.musik) {
+  let tonPuffer: AudioBuffer | null = null
+  if (lauf.ton && (lauf.ton.klips.length || lauf.ton.schuesse.length)) {
     const aac = await getFirstEncodableAudioCodec(['aac'])
-    if (aac === 'aac') musikPuffer = await schneideMusik(lauf.musik, dauerS)
-    if (musikPuffer) {
+    if (aac === 'aac') {
+      melde('start', 'Ton mischen …')
+      tonPuffer = await mischeTon(lauf.ton, dauerS)
+    }
+    if (tonPuffer) {
       audioQuelle = new AudioBufferSource({ codec: 'aac', quality: QUALITY_HIGH })
       output.addAudioTrack(audioQuelle)
     }
   }
 
   await output.start()
-  if (audioQuelle && musikPuffer) {
-    await audioQuelle.add(musikPuffer)
+  if (audioQuelle && tonPuffer) {
+    await audioQuelle.add(tonPuffer)
     audioQuelle.close()
   }
 
-  let wache: WakeLockSentinel | null = null
-  try {
-    wache = (await navigator.wakeLock?.request('screen')) ?? null
-  } catch {
-    /* WakeLock ist Zugabe, kein Muss */
+  const holeWache = async (): Promise<WakeLockSentinel | null> => {
+    try {
+      return (await navigator.wakeLock?.request('screen')) ?? null
+    } catch {
+      return null
+    }
   }
+  let wache: WakeLockSentinel | null = await holeWache()
 
-  const sprite = lauf.reiter ? await backeReiter(lauf.reiter) : null
+  const holeSprite = lauf.reiter ? reiterVorrat(lauf.reiter, reiterPx) : null
 
   try {
-    if (stand) setzeStand(stand, 'Kacheln laden …')
+    await pausiereWennVerdeckt(melde, dauerS, 0, n)
+    wache = (await holeWache()) ?? wache
+    melde('start', `Film ${formatiereClipzeit(dauerS)}. Kacheln laden …`)
     if (lauf.hoehenBereit) {
       // Nicht mitten im Loop ankommen: sampleElevations schreibt die
       // Wegpunkt-Höhen in-place, die Kamera würde dann hart absacken.
       await Promise.race([lauf.hoehenBereit, warteMs(20000)])
     }
-    versteckeKartenSpur(lauf.map)
-    lauf.tour.stelleExportFrame(0, EXPORT_SKALA_MIN, true)
+    verstaerkeKartenSpur(lauf.map, Math.min(vp.breite, vp.hoehe) / 720)
+    // Ab hier taktet der Encoder. `tick` läuft weiter, rührt die Kamera aber
+    // nicht mehr an — sonst drehte die Wanduhr den Intro-Orbit mit.
+    lauf.tour.exportTakt = true
+    lauf.tour.exportSkalaMin = EXPORT_SKALA_MIN
+    // Ein paar Bilder einschwingen (die DEM-Kacheln kommen erst jetzt an),
+    // danach den Orbit-Winkel zurücksetzen: Der Film beginnt bei seinem Anfang.
+    const orbitStart = lauf.tour.orbitA
+    for (let k = 0; k < 30; k++) lauf.tour.exportSchritt(dtFrame)
+    lauf.tour.orbitA = orbitStart
     await warteMs(400)
-    await warteKartenFrame(lauf.map)
+    const warten = new Kachelwarten()
+    const uhr = new Frameuhr()
+    Object.assign((window as unknown as { __j?: Record<string, unknown> }).__j ?? {}, {
+      exportMess: () => ({ ...uhr.jeBild(), frames: uhr.frames, pauseMs: warten.pauseMs, nachgeladen: warten.nachgeladen }),
+    })
+    await warten.frame(lauf.map)
 
+    let finaleSeitS = -1
     for (let i = 0; i < n; i++) {
-      if (document.hidden) {
-        await output.cancel()
-        if (stand) setzeStand(stand, 'Tab im Hintergrund. Export abgebrochen.')
-        return
+      if (await pausiereWennVerdeckt(melde, dauerS, i, n)) {
+        wache = (await holeWache()) ?? wache
       }
-      if (stand) setzeStand(stand, `Frame ${i + 1} von ${n}`)
-      const filmS = filmSBeiFrame(i, EXPORT_FPS, gesamtS)
-      lauf.tour.stelleExportFrame(filmS, EXPORT_SKALA_MIN, false)
-      await warteKartenFrame(lauf.map)
-      await naechstesBild()
+      melde('laeuft', fortschrittText(dauerS, i + 1, n), i + 1)
+      uhr.start()
+      const t = filmSBeiFrame(i, fps, dauerS)
+      // Der Übergang vom Orbit in die Fahrt ist derselbe wie im Player: kein
+      // eigener Pfad, sondern der Griff, den auch „Tour starten" bedient.
+      if (t >= EXPORT_INTRO_S && lauf.tour.phase === 'intro') lauf.tour.begin()
+      lauf.tour.exportSchritt(dtFrame)
+      lauf.nachKamera?.()
+      lauf.taktOverlays?.(dtFrame)
+      // Beim EINTRITT auf 0 und nicht auf −1 + dt: sonst stünde die Tafel eine
+      // Sekunde lang bei „noch nicht sichtbar", und von sechs Finale-Sekunden
+      // wären zwei vertan.
+      finaleSeitS =
+        lauf.tour.phase === 'finale' ? (finaleSeitS < 0 ? 0 : finaleSeitS + dtFrame) : -1
+      uhr.buche('engine')
+      await warten.frame(lauf.map)
+      if (await pausiereWennVerdeckt(melde, dauerS, i, n)) {
+        wache = (await holeWache()) ?? wache
+        await warten.frame(lauf.map)
+      }
+      uhr.buche('kacheln')
+      const sprite = holeSprite ? await holeSprite(lauf.tour.modeAt(lauf.tour.s).mode) : null
       komponiereFrame(
         ziel,
         lauf.map,
         attribution,
         lauf.reiter,
         sprite,
-        attributionSicht(filmS, dauerS),
-        lauf.tour.route,
-        lauf.tour.s,
+        reiterPx,
+        attributionSicht(t, dauerS),
+        {
+          intro: introTafelSicht(t),
+          finale: finaleSeitS >= 0 ? finaleTafelSicht(finaleSeitS) : 0,
+        },
       )
-      await video.add(i / EXPORT_FPS, 1 / EXPORT_FPS, { keyFrame: i % EXPORT_FPS === 0 })
+      uhr.buche('komposition')
+      await video.add(i / fps, 1 / fps, { keyFrame: i % fps === 0 })
+      uhr.buche('encode')
+      uhr.frames++
     }
+    console.info('Video-Export, Wandzeit je Bild (ms):', uhr.jeBild(), 'Nachladen:', warten.nachgeladen)
     video.close()
     await output.finalize()
     const buffer = target.buffer
     if (!buffer) {
-      if (stand) setzeStand(stand, 'Muxer lieferte keine Datei.')
+      melde('fehler', 'Muxer lieferte keine Datei.')
       return
     }
-    ladeHerunter(buffer, dateiname(lauf.titel))
-    if (stand) setzeStand(stand, 'Fertig. Datei liegt im Download.')
+    const name = dateiname(lauf.titel, format)
+    if (lauf.melde) {
+      // Der Rahmen lädt NICHT selbst herunter: Ein Klick auf „Speichern" im
+      // Studio soll auch dann noch gehen, wenn die Download-Leiste des
+      // Browsers längst weg ist. Der Puffer wandert übergeben, nicht kopiert.
+      lauf.melde(
+        { typ: EXPORT_NACHRICHT, stand: 'fertig', frame: n, frames: n, clipS: dauerS, dateiname: name, daten: buffer },
+        [buffer],
+      )
+    } else {
+      ladeHerunter(buffer, name)
+      melde('fertig', 'Fertig. Datei liegt im Download.')
+    }
   } catch (err) {
     try {
       await output.cancel()
@@ -710,7 +1159,7 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
       /* schon tot */
     }
     const meldung = err instanceof Error ? err.message : String(err)
-    if (stand) setzeStand(stand, `Export gescheitert: ${meldung}`)
+    melde('fehler', `Export gescheitert: ${meldung}`)
     console.error('Video-Export:', err)
   } finally {
     try {
@@ -721,7 +1170,7 @@ export async function fuehreExportAus(lauf: ExportLauf): Promise<void> {
   }
 }
 
-/** Kleines Stand-Schild über der Karte. Kein Studio-Blatt. */
+/** Kleines Stand-Schild über der Karte. Fortschritt während des Encodes. */
 export function baueExportStand(): HTMLElement {
   const el = document.createElement('div')
   el.className = 'export-stand'
