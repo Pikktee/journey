@@ -609,6 +609,15 @@ export function roadmapVerschieben(rel, phase, reihenfolge) {
 export function roadmapSetzen(rel, phase, beschriftung) {
   const pfad = roadmapPfad(rel)
   if (!phase) return roadmapEntfernen(rel)
+  // AUF DIE ROADMAP KOMMEN KONZEPTE. Ein Prototyp ist eine Antwort darin, kein
+  // eigener Plan: Er hat keinen Status, keine Ampel und kann nie abgearbeitet
+  // sein — auf einer Karte neben Konzepten fehlte ihm genau die Auskunft, um die
+  // es dort geht. Ist er der nächste Schritt, steht das im Schritt-Text seines
+  // Konzepts, samt Link; der Link stellt zugleich die Beziehung her.
+  if (pfad.endsWith('.html'))
+    throw new DienstFehler(
+      'Auf die Roadmap kommen Konzepte, keine Prototypen. Lege ein Konzept an und verlinke den Prototyp darin.',
+    )
   const { uebrig, schritt, beschriftung: vorhanden } = loeseHeraus(roadmapZeilen(), pfad)
 
   // Eingefügt wird ans ENDE der Phase, nicht an ihren Anfang: Die Reihenfolge

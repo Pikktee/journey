@@ -93,7 +93,7 @@ Mockup ist eine Vorlage und soll auch im Finder genau das zeigen, was es zeigt.
 * **Archivieren / Zurückholen** — verschiebt per `git mv` nach
   `docs/archive/` und zurück in einen wählbaren Bereich. Mockups wandern nach
   `docs/archive/mockups/`.
-* **Roadmap** — im „…"-Menü jedes Konzepts und jedes Mockups: Phase wählen oder
+* **Roadmap** — im „…"-Menü jedes KONZEPTS: Phase wählen oder
   „Nicht eingeplant"; das × an einem Roadmap-Eintrag der Übersicht nimmt ihn
   ebenfalls heraus. Die aktuelle Phase steht als Chip auf der Karte, damit man
   dafür kein Menü öffnen muss.
@@ -180,6 +180,29 @@ dort der INHALT (Farben, Schrift, Maße im Google-DESIGN.md-Format). Der Kopf
 wird deshalb nur unter `docs/` gedeutet; an der Wurzel bleibt der Text, wie er
 ist. Als Metadaten gelesen verschwände das halbe Design-System aus der Ansicht,
 ohne dass eine Zeile fehlte — ein Wächter hält das fest.
+
+## Konzept und Prototyp
+
+**Auf die Roadmap kommen Konzepte, keine Prototypen.** Ein Mockup ist eine
+ANTWORT in einem Konzept und kein eigener Plan: Es hat keinen Status, keine Ampel
+und kann nie abgearbeitet sein — auf einer Karte neben Konzepten fehlte ihm genau
+die Auskunft, um die es dort geht. Der Anlass war handfest: „Maptale App,
+vorhandene Bilder hinzufügen" stand neben „Medien nachreichen — die App-Seite
+fehlt noch", also dasselbe Vorhaben zweimal, einmal mit Status und einmal ohne.
+
+Ist der Prototyp der nächste Schritt, steht das im **Schritt-Text seines
+Konzepts**, samt Link. Der Link stellt zugleich die Beziehung Konzept↔Prototyp
+her, die der Viewer sonst nicht kennt. Wer trotzdem einen Prototyp in
+`roadmap.md` einträgt, bekommt beim Bauen eine Meldung; das Menü an einer
+Prototyp-Kachel bietet keine Phase mehr an, und der Dienst weist sie ab.
+
+**Die Beziehung ist n:m und keine Pflicht.** Gemessen am 2026-08-17: 11 von 25
+Prototypen werden von einem Konzept verlinkt, einer von zwei (`studio-konto.html`
+→ Profil/Konto und Newsletter), 14 von keinem. Bei mehreren davon ist das
+richtig: `logo-varianten.html` und `ci-branding-mockup.html` wurden gezeichnet
+und direkt gebaut, ein Konzeptpapier dazu wäre ein erfundenes Dokument. Ein
+Prototyp ohne Konzept ist ein gültiger Zustand — er ist oft das ERSTE, was
+existiert.
 
 ## Umbenennen
 

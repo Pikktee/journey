@@ -489,13 +489,33 @@ export function istErledigt(status) {
 export function sammleRoadmap(dokumente, mockups = []) {
   const datei = join(DOCS, 'roadmap.md')
   const nachAbs = new Map(dokumente.map((d) => [d.abs, d]))
-  // Mockups zählen mit: Ein Prototyp IST oft der nächste Schritt („so soll es
-  // aussehen"), und ihn auf der Roadmap zu verbieten hieße, ihn zu vergessen.
+  /*
+   * AUF DIE ROADMAP KOMMEN NUR KONZEPTE, keine Prototypen.
+   *
+   * Vorher durften Mockups mit — mit der Begründung, ein Prototyp SEI oft der
+   * nächste Schritt. Das stimmt, aber daraus folgt nicht, dass er ein eigener
+   * Plan ist: Geplant wird eine Entscheidung, und die braucht ein Was und ein
+   * Warum. Ein Prototyp ist eine ANTWORT darin.
+   *
+   * Zwei Dinge haben es entschieden. Erstens war der eine Prototyp auf der
+   * Roadmap redundant: „Maptale App, vorhandene Bilder hinzufügen" stand neben
+   * „Medien nachreichen — die App-Seite fehlt noch", also dasselbe Vorhaben
+   * zweimal, einmal mit Status und einmal ohne. Zweitens kann ein Mockup keinen
+   * Status tragen: Es hat keine Ampel, kann nie „Stand prüfen" auslösen und nie
+   * abgearbeitet sein — auf einer Karte neben Konzepten fehlte ihm genau die
+   * Auskunft, um die es dort geht.
+   *
+   * Verloren geht nichts: Ist der Prototyp der nächste Schritt, steht das im
+   * Schritt-Text seines Konzepts, samt Link. Der Link stellt zugleich die
+   * Beziehung Konzept↔Prototyp her, die der Viewer sonst nicht kennt.
+   */
   const mockupNachAbs = new Map(mockups.map((m) => [join(DOCS, m.quelle), m]))
-  if (!existsSync(datei)) return { phasen: [], offen: [], unbekannt: [], phasenNamen: [] }
+  if (!existsSync(datei))
+    return { phasen: [], offen: [], unbekannt: [], prototypen: [], phasenNamen: [] }
 
   const phasen = []
   const unbekannt = []
+  const prototypen = []
   let aktuell = null
   for (const zeile of readFileSync(datei, 'utf8').split('\n')) {
     const ueberschrift = zeile.match(/^##\s+(.+)$/)
@@ -515,18 +535,11 @@ export function sammleRoadmap(dokumente, mockups = []) {
       // Dateiname steht (die alte Form), nimmt die Karte den Dokumenttitel.
       const beschriftung = /\.(md|html)$/.test(punkt[1].replace(/`/g, '')) ? '' : saeubere(punkt[1])
       const dok = nachAbs.get(abs)
-      const mockup = mockupNachAbs.get(abs)
-      if (dok)
-        aktuell.eintraege.push({ art: 'dokument', dok, quelle: dok.quelle, schritt, beschriftung, wartetAuf })
-      else if (mockup)
-        aktuell.eintraege.push({
-          art: 'mockup',
-          mockup,
-          quelle: 'docs/' + mockup.quelle,
-          schritt,
-          beschriftung,
-          wartetAuf,
-        })
+      if (dok) aktuell.eintraege.push({ dok, quelle: dok.quelle, schritt, beschriftung, wartetAuf })
+      // Ein Prototyp wird NICHT übergangen und nicht als fehlende Datei
+      // gemeldet — er wird beim Bauen mit dem Hinweis genannt, wie es richtig
+      // geht. Stumm zu verschwinden wäre die schlechtere von beiden Auskünften.
+      else if (mockupNachAbs.has(abs)) prototypen.push(punkt[2])
       else unbekannt.push(punkt[2])
       continue
     }
@@ -540,9 +553,7 @@ export function sammleRoadmap(dokumente, mockups = []) {
    * und ein Backlog, das selbst eine Ideensammlung ist. Als eine Liste gelesen
    * behauptete er drei Versäumnisse, wo eines war. Also getrennt.
    */
-  const eingeplant = new Set(
-    phasen.flatMap((p) => p.eintraege.map((e) => (e.art === 'mockup' ? e.mockup.quelle : e.dok.abs))),
-  )
+  const eingeplant = new Set(phasen.flatMap((p) => p.eintraege.map((e) => e.dok.abs)))
   // Archivierte Konzepte gehören nicht auf die Roadmap: Sie sind erledigt
   // oder verworfen, und als „noch nicht eingeplant" zu erscheinen wäre eine
   // Aufforderung, sie einzuplanen.
@@ -563,7 +574,7 @@ export function sammleRoadmap(dokumente, mockups = []) {
   const imCode = offen.filter((d) => ['unterwegs', 'fertig'].includes(d.ampel?.art))
   const nurGedacht = offen.filter((d) => !imCode.includes(d))
 
-  verketteBlockaden(phasen.flatMap((p) => p.eintraege), nachAbs, mockupNachAbs)
+  verketteBlockaden(phasen.flatMap((p) => p.eintraege), nachAbs)
 
   return {
     phasen: phasen.filter((p) => p.eintraege.length),
@@ -571,6 +582,7 @@ export function sammleRoadmap(dokumente, mockups = []) {
     imCode,
     nurGedacht,
     unbekannt,
+    prototypen,
     // Die Namen ALLER Phasen (auch der leeren) — die Auswahlfelder im Viewer
     // müssen auch in eine noch leere Phase einsortieren können.
     erledigt,
@@ -605,7 +617,7 @@ function zerlegeSchritt(roh) {
 }
 
 /** Hängt beide Richtungen an die Einträge: `wartet` und `blockiert`. */
-function verketteBlockaden(eintraege, nachAbs, mockupNachAbs) {
+function verketteBlockaden(eintraege, nachAbs) {
   const nachQuelle = new Map(eintraege.map((e) => [e.quelle, e]))
   for (const e of eintraege) {
     e.wartet = null
@@ -614,7 +626,7 @@ function verketteBlockaden(eintraege, nachAbs, mockupNachAbs) {
   for (const e of eintraege) {
     if (!e.wartetAuf) continue
     const abs = resolve(DOCS, e.wartetAuf)
-    const ziel = nachAbs.get(abs) ?? mockupNachAbs.get(abs)
+    const ziel = nachAbs.get(abs)
     if (!ziel) continue
     const quelle = ziel.abs ? relative(WURZEL, ziel.abs) : 'docs/' + ziel.quelle
     const eintragDesZiels = nachQuelle.get(quelle)

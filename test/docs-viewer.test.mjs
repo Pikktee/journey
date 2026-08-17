@@ -17,7 +17,12 @@ import {
   sammleMockups,
   sammleRoadmap,
 } from '../scripts/docs-viewer/sammeln.mjs'
-import { bereichSeite, dokumentSeite, uebersichtSeite } from '../scripts/docs-viewer/seiten.mjs'
+import {
+  bereichSeite,
+  dokumentSeite,
+  mockupSeite,
+  uebersichtSeite,
+} from '../scripts/docs-viewer/seiten.mjs'
 import { escape } from '../scripts/docs-viewer/markdown.mjs'
 import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
 import {
@@ -26,6 +31,7 @@ import {
   loeseHeraus,
   ordnePhase,
   roadmapOrdnen,
+  roadmapSetzen,
   roadmapVerschieben,
   pruefePfad,
   rueckZiel,
@@ -427,6 +433,44 @@ describe('Ampel aus dem Status', () => {
     expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe('unterwegs')
     expect(ampelAus({ status: 'Etappen 1–7 umgesetzt' }, 'architecture').art).toBe('unterwegs')
     expect(ampelAus({ status: 'live seit 2026-08-10' }, 'concepts').art).toBe('fertig')
+  })
+})
+
+describe('Auf die Roadmap kommen nur Konzepte', () => {
+  // Ein Prototyp ist eine ANTWORT in einem Konzept, kein eigener Plan: Er hat
+  // keinen Status, keine Ampel und kann nie abgearbeitet sein — auf einer Karte
+  // neben Konzepten fehlte ihm genau die Auskunft, um die es dort geht. Der
+  // Anlass war handfest: „Maptale App, vorhandene Bilder hinzufügen" stand neben
+  // „Medien nachreichen — die App-Seite fehlt noch", also dasselbe Vorhaben
+  // zweimal, einmal mit Status und einmal ohne.
+  const roadmap = sammleRoadmap(dokumente, mockups)
+
+  it('führt keinen Prototyp als Eintrag', () => {
+    for (const phase of roadmap.phasen)
+      for (const e of phase.eintraege) {
+        expect(e.dok, `${phase.name}: Eintrag ohne Dokument`).toBeTruthy()
+        expect(e.quelle.endsWith('.html'), e.quelle).toBe(false)
+      }
+  })
+
+  it('übergeht einen eingetragenen Prototyp nicht stumm', () => {
+    // Er landet in `prototypen` und wird beim Bauen genannt — als „fehlende
+    // Datei" gemeldet zu werden wäre die falsche Auskunft, und stumm zu
+    // verschwinden die schlechtere.
+    expect(roadmap.prototypen).toBeDefined()
+    expect(roadmap.unbekannt).toEqual([])
+  })
+
+  it('weist einen Prototyp beim Einplanen ab', () => {
+    const mockup = mockups.find((m) => !m.archiv)
+    expect(() => roadmapSetzen('docs/' + mockup.quelle, 'Angedacht')).toThrow(/Konzepte/)
+  })
+
+  it('bietet auf einer Prototyp-Kachel keine Phase an', () => {
+    // Ein Menü, das eine Phase anbietet, die der Sammler danach verweigert,
+    // wäre eine Einladung in eine Sackgasse.
+    const html = mockupSeite({ mockups, bereiche, roadmap, schriftLokal: false })
+    expect(html).not.toContain('data-roadmap-phase')
   })
 })
 

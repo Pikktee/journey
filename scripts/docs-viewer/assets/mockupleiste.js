@@ -85,8 +85,10 @@
       zurueck.href = '/doku/mockups.html'
       zurueck.style.textDecoration = 'none'
 
-      var phaseText = stand.phase || 'nicht eingeplant'
-      var griff = el('button', K.knopf, 'Roadmap: ' + phaseText + '  ▾')
+      // KEIN Roadmap-Griff: Auf die Roadmap kommen Konzepte, nicht Prototypen.
+      // Ein Prototyp ist eine Antwort in einem Konzept — geplant wird das
+      // Konzept, und der Prototyp steht in seinem nächsten Schritt.
+      var griff = el('button', K.knopf, '⋯')
       var klappe = el('div', K.klappe)
       klappe.style.display = 'none'
 
@@ -102,30 +104,6 @@
         })
         e.addEventListener('click', aktion)
         return e
-      }
-
-      if (!stand.archiv && stand.phasen.length) {
-        klappe.appendChild(el('div', K.titel, 'Roadmap'))
-        stand.phasen.concat(['']).forEach(function (name) {
-          var beschriftung = name || 'Nicht eingeplant'
-          klappe.appendChild(
-            eintrag(beschriftung + (name === stand.phase ? '  ✓' : ''), function () {
-              klappe.style.display = 'none'
-              ruf('roadmap', { datei: datei, titel: document.title, phase: name })
-                .then(function (a) {
-                  melde(a.meldung)
-                  griff.textContent = 'Roadmap: ' + (name || 'nicht eingeplant') + '  ▾'
-                  stand.phase = name
-                })
-                .catch(function (f) {
-                  melde(f.message, true)
-                })
-            }),
-          )
-        })
-        klappe.appendChild(
-          el('hr', 'margin:5px 4px;border:0;border-top:1px solid rgba(255,255,255,.1)'),
-        )
       }
 
       // Dieselben drei Griffe wie im Menü einer Kachel: WO steht das, WIE

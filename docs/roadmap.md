@@ -16,6 +16,13 @@ So funktioniert sie:
   aber noch nicht begonnen. **Angedacht** — gewollt, wartet auf einen Anlass.
   Wer die Namen ändert, ändert sie hier; der Viewer liest sie aus dieser Datei.
 * Der Absatz darunter sagt in einem Satz, worum es in der Phase geht.
+* **Eingeplant werden KONZEPTE, keine Prototypen.** Ein Mockup ist eine Antwort
+  in einem Konzept und kein eigener Plan: Es hat keinen Status, keine Ampel und
+  kann nie abgearbeitet sein — auf einer Karte neben Konzepten fehlte ihm genau
+  die Auskunft, um die es hier geht. Ist der Prototyp der nächste Schritt, steht
+  das im Schritt-Text seines Konzepts, samt Link. Der Link stellt zugleich die
+  Beziehung Konzept↔Prototyp her, die der Viewer sonst nicht kennt. Wer trotzdem
+  einen Prototyp einträgt, bekommt beim Bauen eine Meldung.
 * Jeder Listenpunkt verweist auf ein Dokument. **Der Linktext ist der Name auf der
   Karte** — kurz und einheitlich, nicht der Dateiname und nicht die volle
   Überschrift des Dokuments („Studio-Editor zerlegen" statt „Umbauplan:
@@ -45,8 +52,7 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
-* [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch.
-* [Maptale App, vorhandene Bilder hinzufügen](mockups/app-aufnahmen-hinzufuegen.html)
+* [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch; der Prototyp dafür steht ([app-aufnahmen-hinzufuegen.html](mockups/app-aufnahmen-hinzufuegen.html)).
 
 ## Beschlossen · als Nächstes
 

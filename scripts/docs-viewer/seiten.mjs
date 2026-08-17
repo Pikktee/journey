@@ -448,7 +448,7 @@ function mockupKarte(m, auf, roadmap) {
            onerror="this.closest('.mockup').classList.add('ohne-bild')" />
     </div>
     <div class="mockup-text">
-      <div class="karte-marken">${m.archiv ? '<span class="ampel ampel-ruht">Archiv</span>' : ''}${phasenChip(phase)}${teilChips(m.teile, 2)}</div>
+      <div class="karte-marken">${m.archiv ? '<span class="ampel ampel-ruht">Archiv</span>' : ''}${teilChips(m.teile, 2)}</div>
       <h3>${escape(m.titel)}</h3>
       ${m.klappentext ? `<p>${escape(m.klappentext)}</p>` : ''}
       <footer class="karte-fuss">
@@ -457,8 +457,10 @@ function mockupKarte(m, auf, roadmap) {
           datei: 'docs/' + m.quelle,
           titel: m.titel,
           imArchiv: m.archiv,
-          phasen: m.archiv ? [] : (roadmap?.phasenNamen ?? []),
-          phase,
+          // KEINE Phasen: Auf die Roadmap kommen Konzepte. Ein Menü, das eine
+          // Phase anbietet, die der Sammler danach verweigert, wäre eine
+          // Einladung in eine Sackgasse.
+          phasen: [],
           oeffnen: `<a class="menue-eintrag" href="${auf}${escape(m.quelle)}" target="_blank" rel="noopener">Prototyp öffnen ↗</a><hr />`,
         })}
       </footer>
@@ -551,13 +553,10 @@ function roadmapAbschnitt(roadmap, bereiche) {
    * JS-Berechnung wäre er nach jedem Zug veraltet.
    */
   const eintrag = (e) => {
-    const istMockup = e.art === 'mockup'
-    const objekt = istMockup ? e.mockup : e.dok
-    const ziel = istMockup ? e.mockup.quelle : e.dok.ziel
     const titel =
-      e.beschriftung || String(objekt.titel).replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
-    const status = istMockup ? '' : e.dok.kopf.status
-    const ampel = e.dok?.ampel?.art ?? ''
+      e.beschriftung || String(e.dok.titel).replace(/^(Konzept|Umbauplan|Umsetzung):\s*/, '')
+    const status = e.dok.kopf.status
+    const ampel = e.dok.ampel?.art ?? ''
 
     /*
      * NUR die wartende Seite trägt eine Marke.
@@ -585,11 +584,8 @@ function roadmapAbschnitt(roadmap, bereiche) {
     return `<li data-datei="${escape(e.quelle)}" data-ampel="${escape(ampel)}">
       ${griff}
       <span class="rm-inhalt">
-        <a class="rm-ziel" href="${escape(ziel)}"${istMockup ? ' target="_blank" rel="noopener"' : ''}${
-          status ? ` title="${escape(status)}"` : ''
-        }>
+        <a class="rm-ziel" href="${escape(e.dok.ziel)}"${status ? ` title="${escape(status)}"` : ''}>
           <span class="rm-titel">${escape(titel)}</span>
-          ${istMockup ? '<span class="rm-art">Mockup</span>' : ''}
         </a>
         ${e.schritt ? `<span class="rm-schritt">${escape(e.schritt)}</span>` : ''}
         ${marken.length ? `<span class="rm-ketten">${marken.join('')}</span>` : ''}

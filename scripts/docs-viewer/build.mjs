@@ -234,6 +234,13 @@ if (ohneTeil.length)
       .map((d) => d.quelle)
       .join(', ')}${ohneTeil.length > 3 ? ', …' : ''}) — "systemteile: [Studio, Backend]" im Front Matter hilft`,
   )
+/* Ein Prototyp in `roadmap.md` ist kein Tippfehler, sondern eine Regel, die
+ * jemand nicht kannte — also wird er benannt statt stumm übergangen. */
+for (const pfad of roadmap.prototypen ?? [])
+  console.warn(
+    `  ! docs/roadmap.md nennt den Prototyp ${pfad} — auf die Roadmap kommen KONZEPTE.\n` +
+      '    Lege ein Konzept an, verlinke den Prototyp darin und plane das Konzept ein.',
+  )
 if (roadmap.offen.length)
   console.log(`  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`)
 

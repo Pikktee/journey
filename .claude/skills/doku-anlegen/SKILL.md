@@ -72,8 +72,12 @@ Der Viewer nimmt den Satz aus der Liste dort; fehlt er, nimmt er den ersten Absa
 
 ## 4. Auf die Roadmap
 
-Nur für Konzepte und Mockups, und nur von Hand: Eine Reihenfolge ist eine
-Entscheidung. In [`docs/roadmap.md`](../../../docs/roadmap.md) unter die passende
+**Nur KONZEPTE, keine Prototypen**, und nur von Hand: Eine Reihenfolge ist eine
+Entscheidung. Ein Mockup ist eine Antwort in einem Konzept — es hat keinen
+Status, keine Ampel und kann nie abgearbeitet sein. Ist der Prototyp der nächste
+Schritt, steht das im Schritt-Text seines Konzepts samt Link (der Link stellt
+zugleich die Beziehung her). Ein Prototyp in `roadmap.md` wird beim Bauen
+gemeldet, und der Dienst weist ihn ab. In [`docs/roadmap.md`](../../../docs/roadmap.md) unter die passende
 Phase (`In Arbeit` · `Beschlossen` · `Angedacht`):
 
 ```markdown
@@ -128,7 +132,7 @@ Eine `.html` in `docs/mockups/`, Namenspräfix bestimmt den Systemteil:
   meldet der Bau.
 - Die Vorschau nimmt der Bau mit Headless-Chrome auf (`--neu` erzwingt es). Im
   Dev-Server bekommt ein geöffneter Prototyp automatisch eine Leiste mit „← Doku",
-  Roadmap und Archivieren.
+  Datei-Griffen und Archivieren — KEINE Roadmap-Phase, die kommt ans Konzept.
 - Design-Tokens aus [`DESIGN.md`](../../../DESIGN.md) verwenden, damit der Prototyp
   aussieht wie das Produkt.
 
