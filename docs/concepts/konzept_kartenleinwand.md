@@ -1,12 +1,20 @@
 # Konzept: Die Foto-Karte auf eine Leinwand
 
-**Ziel:** Die letzte Stelle schließen, an der Player und Video-Export
-auseinanderlaufen können — die Einblendungen. Alles andere im Film ist seit dem
-Takt-Umbau Player-Code; Foto-Karte, Startscreen und Finale-Tafel sind es nicht.
+**Ziel:** Die letzte Stelle schließen, an der die Bühnen auseinanderlaufen
+können — die Einblendungen. Alles andere im Film ist seit dem Takt-Umbau
+geteilter Code; Foto-Karte, Startscreen und Finale-Tafel sind es nicht.
+
+**Es sind DREI Fassungen, nicht zwei.** Player (DOM + CSS), Studio-Editor
+(eigenes DOM + eigenes CSS) und Video-Export (Canvas). Das war der erste
+Entwurf dieses Konzepts zu eng gefasst: Er nannte nur Player↔Export, weil dort
+die Abweichungen grob sind. Nachgemessen weichen aber auch Player und Editor an
+vier Stellen voneinander ab — feiner, und deshalb schlimmer, weil man sie für
+gewollt halten könnte (§2).
 
 Stand: **2026-08-17** · Status: **Entwurf, nichts gebaut** ·
-Betrifft: Player (`src/ui.ts`, `src/style.css`, `erlebnis.html`), Video-Export
-(`src/exportfilm.ts`), geteilte Zahlen (`src/einblendung.ts`).
+Betrifft: Player (`src/ui.ts`, `src/style.css`, `erlebnis.html`), Studio-Editor
+(`src/studio/abspielen.ts`, `studio.html`), Video-Export (`src/exportfilm.ts`),
+geteilte Zahlen (`src/einblendung.ts`).
 
 Verwandt, aber anders:
 - [konzept_video_export.md](konzept_video_export.md). Dort steht, warum der
@@ -14,29 +22,38 @@ Verwandt, aber anders:
   den Rest, den §6 dort als „die einzige Stelle" benennt.
 - [konzept_gleichlauf_player_editor.md](konzept_gleichlauf_player_editor.md) §6A.
   Dort ist ein GETEILTES DOM-Bauteil zwischen Player und Editor ausdrücklich
-  verworfen. Das bleibt so — hier geht es um Player↔Export, nicht um
-  Player↔Editor (s. §5).
+  verworfen — und das bleibt so. Aber „andere Mechanik" heißt nicht „andere
+  Zahlen": Was gleich aussehen soll, muss gleich SEIN, und was verschieden sein
+  darf, muss als verschieden dastehen (§3.7).
 
 ---
 
 ## 1. Das Problem in einem Satz
 
-> Die Karte, die der Zuschauer sieht, und die Karte, die in der Datei landet,
-> sind zwei verschiedene Programme.
+> Dieselbe Foto-Karte ist an drei Stellen ein anderes Programm: beim Zuschauen,
+> beim Schneiden und in der Datei.
 
-Der Player baut sie aus DOM und CSS. Der Export kann DOM nicht greifen — ein
-`drawImage` nimmt nur Leinwände — und zeichnet sie deshalb ein zweites Mal auf
-seine Komposition (`zeichneFotoKarte`, `zeichneIntroTafel`,
-`zeichneFinaleTafel`; zusammen knapp 200 Zeilen).
+Der Player baut sie aus DOM und CSS. Der Editor baut sie ein zweites Mal, mit
+eigenem DOM und eigenem CSS — bewusst, weil er in einer Datei umherspringt,
+während der Player einen Film voraus streamt (§6A des Gleichlauf-Konzepts). Und
+der Export kann DOM überhaupt nicht greifen — ein `drawImage` nimmt nur
+Leinwände —, also zeichnet er sie ein drittes Mal auf seine Komposition
+(`zeichneFotoKarte`, `zeichneIntroTafel`, `zeichneFinaleTafel`; zusammen knapp
+200 Zeilen).
 
 Das ist dieselbe Sorte Fehler, die der Takt-Umbau bei der Kamera behoben hat,
-nur eine Ebene höher: nicht zwei Uhren, sondern zwei Zeichner.
+nur eine Ebene höher: nicht zwei Uhren, sondern drei Zeichner. Und wie dort
+liegt die Lösung nicht darin, alle drei gleichzuschalten, sondern darin, die
+gemeinsame Substanz an einen Ort zu ziehen und den Rest als Absicht zu
+benennen.
 
 ---
 
 ## 2. Es ist nicht theoretisch — es ist schon falsch
 
-Kein einziger dieser Punkte ist eine Befürchtung. Alle stehen heute so im Code:
+Kein einziger Punkt hier ist eine Befürchtung. Alle stehen heute so im Code.
+
+### 2.1 Player gegen Export — grob
 
 | Was | Player | Export |
 |---|---|---|
@@ -54,9 +71,34 @@ Gegenrichtung.** Das ist keine Nuance, das ist die Bildsprache der Foto-Stopps �
 und niemandem ist es aufgefallen, weil man dafür Player und Datei
 nebeneinander an derselben Filmsekunde anhalten muss.
 
-Genau das ist das Argument: Eine Zweitfassung driftet nicht irgendwann, sie ist
-schon beim Schreiben anders. Jede spätere Änderung an der Karte macht es
-schlimmer, und keine davon fällt auf.
+### 2.2 Player gegen Editor — fein, und deshalb heimtückisch
+
+Hier ist die Mechanik ausdrücklich getrennt (§6A) und die ZEITEN sind sauber
+geteilt: Auftritt 500 ms Blende plus 950 ms Flug, dieselbe
+`cubic-bezier(0.19, 1.16, 0.32, 1)`, Entwickeln 1,6 s ease-out, Ken-Burns-Dauer
+die Klip-Länge. Das ist E15/Paket D, und es hält.
+
+Die WERTE halten nicht:
+
+| Was | Player | Editor |
+|---|---|---|
+| Ken-Burns-Ende | `scale(1.01)` | `scale(1.02)` |
+| Entwickeln-Ende | `brightness(1) contrast(1.02) saturate(1.05)` | `filter: none` |
+| Flug-Beginn | `translateY(70px) rotate(1.4deg) rotateX(10deg)` | `translateY(48px) rotate(1.6deg) rotateX(9deg)` |
+| Ruhelage der Karte | `rotate(-0.4deg)` | `rotate(-0.5deg)` |
+
+**Und jetzt der Punkt, auf den es ankommt: Man kann nicht sagen, welche dieser
+vier Zeilen gewollt ist.** Die 48 px Flugweite gegen 70 px sind es
+offensichtlich — die Editor-Karte ist kleiner, sie liegt auf einem Leuchttisch
+und nicht bildschirmfüllend. Aber `1.01` gegen `1.02`? `-0.4°` gegen `-0.5°`?
+Ein Entwickeln, das im Player bei `contrast 1.02 / saturate 1.05` endet und im
+Editor bei `none`? Das sieht nach abgeschriebenen Zahlen aus, nicht nach einer
+Entscheidung. Nachweisen lässt es sich heute nicht, weil nirgends steht, was
+gleich sein SOLL.
+
+Das ist die eigentliche Krankheit, und sie ist schlimmer als die groben
+Abweichungen aus §2.1: Ein Fehler, den man sieht, wird behoben. Einer, den man
+für Absicht halten kann, bleibt.
 
 ---
 
@@ -84,11 +126,20 @@ schlimmer, und keine davon fällt auf.
    `balkenAnteil`, `klipDauerS`, `videoStandS`, `klemmeSeitenverhaeltnis` in
    [einblendung.ts](../../src/einblendung.ts) sind schon geteilt und bleiben die
    Quelle. Der Maler benutzt sie, er ersetzt sie nicht.
-6. **Der Editor rührt sich nicht.** Er behält seine DOM-Einblendung. Das ist
-   kein Versehen, sondern §6A des Gleichlauf-Konzepts: Der Player streamt einen
-   Film voraus, der Editor springt in einer Datei umher. Geteilt sind die
-   Rechnungen, nicht die Mechanik. Ob der Editor später denselben Maler benutzt,
-   ist eine eigene Frage — und eine leichtere, sobald es einen Maler gibt.
+6. **Der Editor behält seine Mechanik.** Er bleibt DOM. Das ist kein Versehen,
+   sondern §6A des Gleichlauf-Konzepts: Der Player streamt einen Film voraus,
+   der Editor springt in einer Datei umher. Ob er später denselben Maler
+   benutzt, ist eine eigene Frage — und eine leichtere, sobald es einen Maler
+   gibt.
+7. **Aber jede Abweichung wird ERKLÄRT.** Aus §2.2 folgt die Regel, die dieses
+   Konzept über den Export hinaus trägt: Was auf zwei Bühnen gleich aussehen
+   soll, kommt aus einer Zahl in
+   [einblendung.ts](../../src/einblendung.ts); was verschieden sein DARF, steht
+   dort als benannte Bühnen-Variante mit ihrem Grund. Ein Wert, der auf zwei
+   Bühnen zufällig anders ist, gilt danach als Fehler und nicht als Geschmack.
+   Kandidat für die erste Variante: die Flugweite (bildschirmfüllend gegen
+   Leuchttisch). Kandidaten für „war nie gemeint": Ken-Burns-Ende,
+   Entwickeln-Ende, Ruhewinkel.
 
 ---
 
@@ -165,14 +216,23 @@ rechnet nie in Gerätepixeln.
 
 ## 6. Etappen
 
-### Etappe 1 — Der Wächter (klein, sofort wertvoll)
+### Etappe 1 — Der Wächter über ALLE DREI Bühnen (klein, sofort wertvoll)
 
-Ein Test, der Maler-Eingaben und die heutigen CSS-Zahlen gegeneinander hält:
-Ken-Burns-Richtung und -Endwerte, Entwickeln-Dauer, Klip-Länge, Balkenanteil.
-Er läuft ohne Browser, weil beide Seiten aus `einblendung.ts` kommen — und er
-hätte die Ken-Burns-Umkehrung aus §2 am Tag ihrer Entstehung gemeldet.
+Die Zahlen der Einblendung wandern nach `einblendung.ts` — als geteilte Werte
+oder als benannte Bühnen-Varianten mit Begründung (§3.7). Ein Test liest
+danach `src/style.css` und `studio.html` und vergleicht, was dort steht, gegen
+diese Tabelle: Ken-Burns-Richtung und -Ende, Entwickeln-Ende, Flug- und
+Abgangs-Geometrie, Ruhewinkel, Dauern.
 
-**Auch wenn Etappe 2 nie kommt, ist dieser Test die Hälfte des Gewinns.**
+Das Muster gibt es im Repo schon zweimal: der Drift-Wächter zwischen DESIGN.md
+und `basis.css` ([test/basis-css.test.ts](../../test/basis-css.test.ts)) und
+[test/einblendung-css.test.ts](../../test/einblendung-css.test.ts). Der zweite
+ist der Vorfahre dieses Tests — er prüft heute nur einen Teil und hat die vier
+Abweichungen aus §2.2 durchgelassen.
+
+**Auch wenn Etappe 2 nie kommt, ist das die Hälfte des Gewinns:** Es macht
+Absicht von Versehen unterscheidbar, und zwar für Player, Editor und Export
+zugleich.
 
 ### Etappe 2 — Die Foto-Karte
 
@@ -206,7 +266,9 @@ bedienbar bleiben.
    die Geometrie einrechnet, bekommt am Bildschirm und im Film verschiedene
    Karten. Genau der Fehler, den das Konzept beheben soll.
 6. **Der Editor bleibt DOM (§3.6).** Wer beim Umbau „dann gleich überall"
-   denkt, kippt §6A des Gleichlauf-Konzepts.
+   denkt, kippt §6A des Gleichlauf-Konzepts. Umgekehrt gilt aber auch: Wer eine
+   Zahl im Player anfasst, ohne in die Tabelle zu sehen, erzeugt die nächste
+   Zeile aus §2.2 — vier Werte sind so entstanden.
 7. **Das Video muss weiter nur bei Tempo 1 laufen.** Der Maler zeichnet, er
    entscheidet nicht über Wiedergabe — sonst liefe im Schnelllauf plötzlich Ton.
 
@@ -227,8 +289,12 @@ bedienbar bleiben.
 
 ## 9. Auftrag für den nächsten Kontext
 
-1. Etappe 1 bauen: den Wächter. Er ist billig und deckt den Rest der Zeit ab,
-   in der es zwei Fassungen gibt.
-2. Etappe 2 erst danach, und mit dem Bildvergleich als Abnahme.
-3. Vorher §2 gegenprüfen — die Tabelle ist am Code von heute abgelesen und
-   sollte am Tag des Umbaus noch stimmen.
+1. Etappe 1 bauen: den Wächter über alle drei Bühnen. Er ist billig und deckt
+   den Rest der Zeit ab, in der es drei Fassungen gibt.
+2. Dabei die vier Zeilen aus §2.2 EINZELN entscheiden: geteilte Zahl oder
+   benannte Bühnen-Variante. Nicht stillschweigend gleichziehen — die Flugweite
+   soll verschieden bleiben, und ohne Begründung im Code wäre die nächste
+   Vereinheitlichung eine Verschlechterung.
+3. Etappe 2 erst danach, und mit dem Bildvergleich als Abnahme.
+4. Vorher §2 gegenprüfen — beide Tabellen sind am Code von heute abgelesen und
+   sollten am Tag des Umbaus noch stimmen.
