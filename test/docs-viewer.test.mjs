@@ -18,11 +18,12 @@ import {
   sammleRoadmap,
 } from '../scripts/docs-viewer/sammeln.mjs'
 import { bereichSeite, dokumentSeite, uebersichtSeite } from '../scripts/docs-viewer/seiten.mjs'
-import { codePfadeAus, SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
+import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
   editorBefehl,
   loeseHeraus,
+  tauscheZeilen,
   pruefePfad,
   rueckZiel,
   saubererName,
@@ -480,18 +481,40 @@ describe('Roadmap als Ablauf', () => {
     if (roadmap.imCode.length) expect(html).toContain('in keiner Phase')
   })
 
-  it('misst das Alter am CODE und nicht am Dokument', () => {
-    // Das Git-Datum des Dokuments misst nicht den Fortschritt am Vorhaben: Die
-    // Umstellung der Köpfe hat an einem Tag jede Datei angefasst, danach stand
-    // bei allen laufenden Einträgen „heute".
-    const mitPfaden = roadmap.phasen[0].eintraege.filter(
-      (e) => codePfadeAus(e.dok?.kopf.betrifft).length,
-    )
-    expect(mitPfaden.length, 'kein laufender Eintrag nennt Dateien').toBeGreaterThan(0)
-    for (const e of mitPfaden) expect(e.codeStand, e.quelle).toBeTruthy()
-    // Wo nichts genannt ist, wird nichts geraten.
-    for (const e of roadmap.phasen[0].eintraege)
-      if (!codePfadeAus(e.dok?.kopf.betrifft).length) expect(e.codeStand).toBeFalsy()
+})
+
+describe('Reihenfolge in einer Phase', () => {
+  // Die Reihenfolge in einer Phase ist eine Rangfolge. Bisher konnte man sie nur
+  // von Hand in roadmap.md ändern, und der Viewer hängte Neues stumm ans Ende.
+  // Geprüft wird die ECHTE Funktion aus dem Dienst, nur an Zeilen statt an der
+  // Datei. Eine nachgebaute Kopie im Test wäre grün geblieben, während der
+  // Code daneben bricht.
+  const zeilen = () => [
+    '## In Arbeit',
+    '',
+    '* [A](concepts/a.md) — Erstens.',
+    '* [B](concepts/b.md) — Zweitens.',
+    '',
+    '## Beschlossen',
+    '',
+    '* [C](concepts/c.md) — Drittens.',
+  ]
+
+  it('tauscht ganze Zeilen samt Schritt und Blockade', () => {
+    const roh = zeilen()
+    roh[3] = '* [B](concepts/b.md) — Zweitens. [wartet auf: concepts/a.md]'
+    const nach = tauscheZeilen(roh, 'concepts/b.md', 'hoch')
+    expect(nach[2]).toContain('[B]')
+    expect(nach[2]).toContain('[wartet auf: concepts/a.md]')
+    expect(nach[3]).toContain('[A]')
+  })
+
+  it('springt NICHT über die Phasengrenze', () => {
+    // Ein Sprung über die Grenze wäre ein Phasenwechsel, und dafür gibt es das
+    // Menü — sonst ändert ein Pfeil nach unten stillschweigend die Verbindlichkeit.
+    expect(tauscheZeilen(zeilen(), 'concepts/b.md', 'runter')).toBe(null)
+    expect(tauscheZeilen(zeilen(), 'concepts/a.md', 'hoch')).toBe(null)
+    expect(tauscheZeilen(zeilen(), 'concepts/c.md', 'hoch')).toBe(null)
   })
 })
 

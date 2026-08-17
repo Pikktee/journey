@@ -563,9 +563,7 @@ export function sammleRoadmap(dokumente, mockups = []) {
   const imCode = offen.filter((d) => ['unterwegs', 'fertig'].includes(d.ampel?.art))
   const nurGedacht = offen.filter((d) => !imCode.includes(d))
 
-  const eintraegeAlle = phasen.flatMap((p) => p.eintraege)
-  verketteBlockaden(eintraegeAlle, nachAbs, mockupNachAbs)
-  for (const e of eintraegeAlle) if (e.dok) e.codeStand = codeStandFuer(e.dok)
+  verketteBlockaden(phasen.flatMap((p) => p.eintraege), nachAbs, mockupNachAbs)
 
   return {
     phasen: phasen.filter((p) => p.eintraege.length),
@@ -640,44 +638,6 @@ function kurzTitel(eintrag, objekt) {
 
 function zielSeite(objekt) {
   return objekt?.ziel ?? objekt?.quelle ?? ''
-}
-
-/* ── Wann hat sich der CODE bewegt? ───────────────────────────────────────
- * Das Alter eines Roadmap-Eintrags kam bisher aus dem Git-Datum des DOKUMENTS.
- * Das misst aber nicht den Fortschritt am Vorhaben: Die Umstellung der Köpfe
- * auf Front Matter hat an einem Tag jede Datei angefasst, und danach stand bei
- * allen fünf laufenden Einträgen „heute" — die Angabe, die als interessanteste
- * Zahl der Roadmap gedacht war, war wertlos und irreführend.
- *
- * Gemessen wird deshalb an den Dateien, die das Konzept selbst nennt
- * (`betrifft:`). Wo es keine nennt, bleibt die Angabe WEG: Eine geratene ist
- * schlimmer als keine.
- */
-const CODE_MUSTER = /(?:^|[\s(`,])((?:src|server|android|deploy|scripts|test|public|\.github)\/[A-Za-z0-9_./-]*|(?:index|studio|erlebnis|galerie|profil|konto|admin|feedback|impressum|datenschutz)\.html)/g
-
-export function codePfadeAus(betrifft) {
-  const raus = new Set()
-  for (const eintrag of betrifft || [])
-    for (const t of String(eintrag).matchAll(CODE_MUSTER)) {
-      const pfad = t[1].replace(/[.,)]+$/, '')
-      if (existsSync(join(WURZEL, pfad))) raus.add(pfad)
-    }
-  return [...raus]
-}
-
-function codeStandFuer(dok) {
-  const pfade = codePfadeAus(dok.kopf?.betrifft)
-  if (!pfade.length) return null
-  try {
-    const roh = execFileSync('git', ['log', '-1', '--format=%aI', '--', ...pfade], {
-      cwd: WURZEL,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim()
-    return roh || null
-  } catch {
-    return null
-  }
 }
 
 /** Bilder aus `docs/mockups/**` — die Galerie am Ende der Mockup-Seite. */

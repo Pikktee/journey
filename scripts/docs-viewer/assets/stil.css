@@ -2086,3 +2086,30 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
    Ohne ihn wäre es ein Knopf, der nichts tut. */
 .rm-marke .rm-weg { position: static; margin: 0 5px 0 2px; opacity: 0; }
 .mit-dienst .rm-marke:hover .rm-weg { opacity: 1; }
+
+/* Die Griffe an einem Roadmap-Eintrag: Reihenfolge und Entfernen. Sie liegen
+   oben rechts in der Karte und erscheinen erst beim Überfahren — sichtbar
+   dauerhaft wären sie drei Marken je Eintrag, und die Karte soll den Plan
+   zeigen, nicht ihre Bedienung. */
+.rm-griffe {
+  position: absolute;
+  top: 6px;
+  right: 0;
+  display: flex;
+  gap: 2px;
+}
+.rm-schieb {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+.mit-dienst .rm-liste li:hover .rm-schieb { opacity: 1; }
+.rm-schieb:hover { background: var(--fl-3); color: var(--text); }

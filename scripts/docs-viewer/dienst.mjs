@@ -443,6 +443,12 @@ export async function fuehreAus(aktion, daten = {}) {
           : `Umbenannt: ${pfad}`,
       }
     }
+    case 'roadmap-schieben': {
+      const { pfad, bewegt } = roadmapSchieben(daten.datei, daten.richtung)
+      if (!bewegt) return { pfad, meldung: 'Steht schon am Rand seiner Phase' }
+      baueNeu()
+      return { pfad, meldung: daten.richtung === 'hoch' ? 'Weiter nach vorn' : 'Weiter nach hinten' }
+    }
     case 'zurueckholen': {
       const pfad = holeZurueck(daten.datei, daten.bereich)
       baueNeu()
@@ -499,6 +505,54 @@ export function roadmapEntfernen(rel) {
   if (!gefunden) throw new DienstFehler('Steht nicht auf der Roadmap')
   writeFileSync(ROADMAP(), uebrig.join('\n'))
   return pfad
+}
+
+/**
+ * Verschiebt einen Eintrag INNERHALB seiner Phase um einen Platz.
+ *
+ * Die Reihenfolge in einer Phase ist eine Rangfolge — bisher konnte man sie nur
+ * in `roadmap.md` von Hand ändern, und der Viewer hängte neue Einträge stumm
+ * ans Ende. Getauscht werden ganze ZEILEN mit dem nächsten Listenpunkt; an der
+ * Phasengrenze passiert nichts, denn ein Sprung über sie hinweg wäre ein
+ * Phasenwechsel und dafür gibt es das Menü.
+ */
+export function tauscheZeilen(zeilen, pfad, richtung) {
+  const istPunkt = (z) => /^\*\s+\[[^\]]+\]\(/.test(z)
+  const eigene = zeilen.findIndex((z) => {
+    const t = z.match(/^\*\s+\[[^\]]+\]\(([^)]+)\)/)
+    return t && t[1] === pfad
+  })
+  if (eigene === -1) return null
+
+  const schritt = richtung === 'hoch' ? -1 : 1
+  let nachbar = eigene + schritt
+  // Zwischen zwei Punkten derselben Phase dürfen Leerzeilen liegen; eine
+  // `##`-Überschrift ist die Grenze und beendet die Suche.
+  while (zeilen[nachbar] !== undefined && !istPunkt(zeilen[nachbar])) {
+    if (/^##\s+/.test(zeilen[nachbar])) return null
+    nachbar += schritt
+  }
+  if (zeilen[nachbar] === undefined) return null
+
+  const kopie = [...zeilen]
+  kopie[eigene] = zeilen[nachbar]
+  kopie[nachbar] = zeilen[eigene]
+  return kopie
+}
+
+export function roadmapSchieben(rel, richtung) {
+  const pfad = roadmapPfad(rel)
+  const zeilen = roadmapZeilen()
+  const nach = tauscheZeilen(zeilen, pfad, richtung)
+  if (!nach) {
+    // Kein Nachbar in dieser Phase — oder der Eintrag steht gar nicht auf der
+    // Roadmap. Das zweite ist ein Fehler, das erste nur ein Rand.
+    if (!zeilen.some((z) => z.includes(`](${pfad})`)))
+      throw new DienstFehler('Steht nicht auf der Roadmap')
+    return { pfad, bewegt: false }
+  }
+  writeFileSync(ROADMAP(), nach.join('\n'))
+  return { pfad, bewegt: true }
 }
 
 export function roadmapSetzen(rel, phase, beschriftung) {

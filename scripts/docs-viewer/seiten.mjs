@@ -561,12 +561,7 @@ function roadmapAbschnitt(roadmap, bereiche) {
             title="Solange das hier steht, geht das andere nicht weiter">blockiert ${escape(b.titel)}</a>`,
       )
 
-    const bewegt = stufe === 0 ? codeAlter(e.codeStand) : null
     const fuss = []
-    if (bewegt)
-      fuss.push(
-        `<span class="rm-alter${bewegt.ruht ? ' ruht' : ''}" title="Letzte Änderung an den Dateien, die dieses Konzept nennt (${escape(bewegt.genau)})">Code bewegt ${escape(bewegt.text)}</span>`,
-      )
     if (widerspruch)
       fuss.push(
         `<span class="rm-warnung" title="Die Phase sagt „läuft", das Dokument sagt „${escape(status)}". Eines von beidem ist nicht mehr wahr.">Stand prüfen</span>`,
@@ -582,8 +577,14 @@ function roadmapAbschnitt(roadmap, bereiche) {
       ${stufe <= 1 && e.schritt ? `<span class="rm-schritt">${escape(e.schritt)}</span>` : ''}
       ${marken.length ? `<span class="rm-ketten">${marken.join('')}</span>` : ''}
       ${fuss.length ? `<span class="rm-fuss">${fuss.join('')}</span>` : ''}
-      <button type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
-              title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button>
+      <span class="rm-griffe">
+        <button type="button" class="rm-schieb" data-roadmap-schieben="hoch" data-datei="${escape(e.quelle)}"
+                title="Weiter nach vorn" aria-label="Weiter nach vorn">↑</button>
+        <button type="button" class="rm-schieb" data-roadmap-schieben="runter" data-datei="${escape(e.quelle)}"
+                title="Weiter nach hinten" aria-label="Weiter nach hinten">↓</button>
+        <button type="button" class="rm-weg" data-roadmap-weg data-datei="${escape(e.quelle)}"
+                title="Von der Roadmap nehmen" aria-label="Von der Roadmap nehmen">×</button>
+      </span>
     </li>`
   }
 
@@ -634,11 +635,9 @@ function roadmapAbschnitt(roadmap, bereiche) {
    * auf, und genau deshalb fällt es niemandem auf.
    */
   const laufend = roadmap.phasen[0]?.eintraege ?? []
-  const ruhend = laufend.filter((e) => codeAlter(e.codeStand)?.ruht).length
   const zahlen = [
     `<span><b>${laufend.length}</b> laufen</span>`,
     roadmap.phasen[1] ? `<span><b>${roadmap.phasen[1].eintraege.length}</b> als Nächstes</span>` : '',
-    ruhend ? `<span class="ruht"><b>${ruhend}</b> davon ruhen</span>` : '',
   ]
     .filter(Boolean)
     .join('<i>·</i>')
@@ -689,28 +688,6 @@ function roadmapAbschnitt(roadmap, bereiche) {
     <div class="roadmap">${roadmap.phasen.map(phase).join('')}</div>
     ${nebenbei.join('')}
   </section>`
-}
-
-/**
- * Wie lange hat sich der CODE nicht bewegt? Ab zwei Wochen gilt ein laufendes
- * Vorhaben als ruhend — das ist die interessanteste Zahl einer Roadmap und die
- * einzige, die man nicht selbst sieht.
- */
-function codeAlter(iso) {
-  if (!iso) return null
-  const tage = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
-  const genau = new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })
-  const text =
-    tage <= 0
-      ? 'heute'
-      : tage === 1
-        ? 'gestern'
-        : tage < 14
-          ? `vor ${tage} Tagen`
-          : tage < 60
-            ? `vor ${Math.round(tage / 7)} Wochen`
-            : `vor ${Math.round(tage / 30)} Monaten`
-  return { text, genau, ruht: tage >= 14 }
 }
 
 /** Ein Statussatz auf Kartenlänge — ohne den Halbsatz zu zerhacken. */

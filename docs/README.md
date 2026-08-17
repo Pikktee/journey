@@ -272,11 +272,22 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
   Ablauf: Auf der wartenden Karte steht „wartet auf …", auf der anderen
   „blockiert …". Notiert wird nur die eine Richtung, die andere leitet der
   Viewer ab — zwei gepflegte Angaben liefen beim ersten Umplanen auseinander.
-* **„Code bewegt vor …"** misst an den Dateien, die ein Konzept unter
-  `betrifft` nennt, NICHT am Dokument selbst. Das Git-Datum des Dokuments misst
-  nicht den Fortschritt am Vorhaben: Die Umstellung der Köpfe auf Front Matter
-  hat an einem Tag jede Datei angefasst, und danach stand bei allen laufenden
-  Einträgen „heute". Wo ein Konzept keine Dateien nennt, bleibt die Angabe weg.
+* **Die Reihenfolge in einer Phase ist eine Rangfolge** und mit den Pfeilen an
+  der Karte änderbar (nur mit Dev-Server). Getauscht werden ganze Zeilen in
+  `roadmap.md`, samt Schritt und Blockade; an der Phasengrenze passiert nichts,
+  denn ein Sprung darüber wäre ein Phasenwechsel und dafür gibt es das Menü.
+* **Kein Fortschrittsbalken, und das ist gemessen:** Von den 17 Einträgen hat
+  genau EINER Etappen-Überschriften, aus denen sich zählen ließe, und dort
+  tragen zwei von vier keine Marke „gebaut/offen". Ein Balken wäre bei keinem
+  Eintrag vollständig ableitbar — er sähe nach Messung aus und wäre geraten.
+  Voraussetzung dafür wären Etappen im Kopf des Dokuments (`etappen: 7`,
+  `fertig: 6`), also gepflegte Zahlen statt abgeleiteter.
+* **Kein „Code bewegt vor …"** mehr. Die Angabe hat es einen Nachmittag gegeben
+  und ist wieder verschwunden: Sie maß an den Dateien aus `betrifft`, und bei
+  fünf laufenden Einträgen sieht man Stillstand ohnehin selbst. Am Tag ihrer
+  Einführung stand bei allen fünf „heute", weil `src/`, `server/` und
+  `android/` an einem Morgen committet wurden — eine Angabe, die nur an ruhigen
+  Tagen etwas sagt, kostet mehr Aufmerksamkeit als sie gibt.
 * **„N Vorhaben sind im Code, aber in keiner Phase"** steht über den Spalten.
   Das ist der teurere Teil von „ohne Phase": Woran gearbeitet wird, ohne dass
   es eingeplant ist, taucht auf der Roadmap gar nicht auf — und fällt genau

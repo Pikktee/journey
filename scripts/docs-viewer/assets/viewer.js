@@ -684,6 +684,29 @@
       })
     })
 
+    /* Die Reihenfolge in einer Phase ist eine Rangfolge — geändert wird sie
+       dort, wo man sie sieht, und nicht in einem Menü auf einer anderen Seite. */
+    ;[].slice.call(document.querySelectorAll('[data-roadmap-schieben]')).forEach(function (k) {
+      k.addEventListener('click', function () {
+        ruf('roadmap-schieben', {
+          datei: k.getAttribute('data-datei'),
+          richtung: k.getAttribute('data-roadmap-schieben'),
+        })
+          .then(function (a) {
+            melde(a.meldung)
+            // Am Rand seiner Phase passiert nichts — dann auch kein Neuladen,
+            // sonst springt die Seite für eine Änderung, die es nicht gab.
+            if (a.meldung.indexOf('Rand') === -1)
+              setTimeout(function () {
+                location.reload()
+              }, 350)
+          })
+          .catch(function (f) {
+            melde(f.message, true)
+          })
+      })
+    })
+
     /* Das × an einem Roadmap-Eintrag der Übersicht. */
     ;[].slice.call(document.querySelectorAll('[data-roadmap-weg]')).forEach(function (k) {
       k.addEventListener('click', function () {
