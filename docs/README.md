@@ -349,10 +349,21 @@ Die Ansicht ist bewusst ungleich gewichtet und ehrlich statt glatt:
 * **Der Linktext in `roadmap.md` ist der Kartenname.** „Studio-Editor
   zerlegen" statt „Umbauplan: Studio-Editor zerlegen (editor.ts)". Steht dort
   noch ein Dateiname, nimmt die Karte den Dokumenttitel.
-* **Drei Spalten mit abnehmender Dichte**: ausführlich, knapp, nur der Titel.
-  Der erklärende Satz je Phase ist entfallen — die Namen „In Arbeit",
-  „Beschlossen" und „Angedacht" sagen es, und drei Absätze über drei Listen sind
-  Text über Text.
+* **EIN Feld mit drei Spalten**, nicht drei Kästen — abnehmende Dichte:
+  ausführlich, knapp, nur der Titel. Drei Karten nebeneinander hatten vier, fünf
+  und acht Einträge und damit drei verschiedene Höhen; drei ungleich hohe Rahmen
+  lesen sich als etwas Unfertiges, obwohl der Inhalt nur ungleich LANG ist. Im
+  Feld trennen Haarlinien die Spalten, und `align-items: stretch` (der Standard,
+  den die Kastenfassung mit `start` ausgeschaltet hatte) lässt sie durchlaufen:
+  Die Form gibt das Feld, nicht die Spalte. Die laufende Phase ist getönt statt
+  gerahmt — eine hervorgehobene Spalte, kein Kasten im Kasten.
+  **Kein `overflow: hidden` am Feld**, so verlockend es für die runden Ecken
+  wäre: Es schnitt die gehobene Karte ab, sobald man sie über den Rand hinaus
+  zieht — und genau dorthin zieht man, wenn ein Eintrag ganz nach oben soll
+  (nachgemessen: 40 px Überstand, vollständig sichtbar). Die Ecken lösen die
+  Randspalten selbst.
+  Der erklärende Satz je Phase ist entfallen — die Namen sagen es, und ein
+  Absatz über einer Liste ist Text über Text.
 Die Phasen heißen **In Arbeit · Beschlossen · Angedacht** — benannt nach dem
 Grad der Entscheidung, nicht nach einem Datum, das ein Entwurf ohnehin nicht
 halten kann. Die

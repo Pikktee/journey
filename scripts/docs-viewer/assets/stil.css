@@ -1802,24 +1802,42 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
    Beides ist vorbei: Sie zeigt jetzt nur den Titel, und ein Titel passt in eine
    schmale Spalte. Als Band war sie unverhältnismäßig breit für den
    unverbindlichsten Inhalt, und der stand ganz links in einer leeren Fläche. */
+/* EIN Feld mit drei Spalten, nicht drei Kästen.
+ *
+ * Drei Karten nebeneinander haben drei verschiedene Höhen — vier, fünf und acht
+ * Einträge —, und drei ungleich hohe Rahmen lesen sich als etwas Unfertiges.
+ * Der Inhalt ist aber nicht ungleich, sondern nur ungleich lang.
+ *
+ * Also ein Feld, in dem die Spalten durch HAARLINIEN getrennt sind. Der Trick
+ * dabei ist `align-items: stretch` (der Standard, den die frühere Fassung mit
+ * `start` ausgeschaltet hatte): Jede Spalte wird so hoch wie die höchste, die
+ * Trennlinien laufen durch, und aus drei Kästen wird eine Tafel. Ungleiche
+ * Längen fallen dann nicht mehr auf, weil nicht die Spalte die Form gibt,
+ * sondern das Feld. */
 .roadmap {
   display: grid;
   grid-template-columns: 1.3fr 1.05fr 0.9fr;
-  align-items: start;
-  gap: 16px;
-}
-.rm-phase {
-  display: flex;
-  flex-direction: column;
-  padding: 18px 18px 12px;
   border: 1px solid var(--rand);
   border-radius: var(--radius-karte);
   background: var(--fl-1);
 }
-.rm-phase.jetzt {
-  border-color: color-mix(in srgb, var(--ton) 45%, var(--rand));
-  background: linear-gradient(160deg, color-mix(in srgb, var(--ton) 8%, var(--fl-1)), var(--fl-1) 60%);
+/* KEIN `overflow: hidden` am Feld, so verlockend es für die runden Ecken wäre:
+   Es würde die gehobene Karte abschneiden, sobald man sie über den Rand hinaus
+   zieht — und genau dorthin zieht man, wenn ein Eintrag ganz nach oben soll.
+   Die Ecken lösen stattdessen die Randspalten selbst, damit ihre Tönung nicht
+   über die Rundung läuft. */
+.rm-phase:first-child { border-radius: var(--radius-karte) 0 0 var(--radius-karte); }
+.rm-phase:last-child { border-radius: 0 var(--radius-karte) var(--radius-karte) 0; }
+.rm-phase {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px 16px;
 }
+/* Die Linie steht ZWISCHEN den Spalten, also nur links der zweiten und dritten. */
+.rm-phase + .rm-phase { border-left: 1px solid var(--rand); }
+/* Die laufende Phase ist getönt, nicht gerahmt: eine hervorgehobene Spalte im
+   Feld, wie in einer Tabelle — kein Kasten im Kasten. */
+.rm-phase.jetzt { background: color-mix(in srgb, var(--ton) 5%, transparent); }
 .rm-phase header { margin-bottom: 12px; }
 .rm-kopf { display: flex; align-items: baseline; gap: 10px; }
 .rm-phase h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
@@ -1960,6 +1978,7 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 
 @media (max-width: 900px) {
   .roadmap { grid-template-columns: 1fr; }
+  .rm-phase + .rm-phase { border-left: 0; border-top: 1px solid var(--rand); }
 }
 
 /* ── Meta-Zeile der Karten ────────────────────────────────────────────────
@@ -2205,9 +2224,6 @@ body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
 .rm-phase.stufe-2 .rm-liste li:hover .rm-titel { color: var(--text); }
 .rm-phase.stufe-2 .rm-schritt { display: none; }
 
-/* Die Zielspalte während eines Zuges. Ein Rahmen und ein Hauch Fläche genügen:
-   Sie ist beschriftet, man muss ihr nichts erklären. */
-.rm-phase.ziel {
-  border-color: color-mix(in srgb, var(--ton, var(--akzent)) 55%, transparent);
-  background: color-mix(in srgb, var(--ton, var(--akzent)) 5%, var(--fl-1));
-}
+/* Die Zielspalte während eines Zuges: nur Fläche, denn Rahmen gibt es hier
+   keine mehr. Sie ist beschriftet, man muss ihr nichts erklären. */
+.rm-phase.ziel { background: color-mix(in srgb, var(--ton, var(--akzent)) 11%, transparent); }
