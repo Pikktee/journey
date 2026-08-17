@@ -21,6 +21,7 @@ import { bereichSeite, dokumentSeite, uebersichtSeite } from '../scripts/docs-vi
 import { SYSTEMTEILE, systemteileVon } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
+  editorBefehl,
   pruefePfad,
   rueckZiel,
   saubererName,
@@ -407,6 +408,44 @@ describe('Ampel aus dem Status', () => {
     expect(ampelAus({ status: 'Server und Studio gebaut, App offen' }, 'concepts').art).toBe('unterwegs')
     expect(ampelAus({ status: 'Etappen 1–7 umgesetzt' }, 'architecture').art).toBe('unterwegs')
     expect(ampelAus({ status: 'live seit 2026-08-10' }, 'concepts').art).toBe('fertig')
+  })
+})
+
+describe('Im Editor öffnen', () => {
+  // Eine Prüfung, die nicht vom Rechner abhängt: Sie schreibt vor, WELCHE
+  // Quellen befragt werden, nicht welcher Editor gefunden wird.
+  const pruefe = { imPfad: (n) => n === 'code', existiert: () => false }
+
+  it('fragt $EDITOR und $VISUAL NICHT', () => {
+    // Der Dev-Server erbt `EDITOR=vi`. Ein losgelassenes `vi` ohne Terminal
+    // öffnet nichts und beendet sich stumm — die Seite meldete trotzdem „In vi
+    // geöffnet". Genau dieser Fall.
+    expect(editorBefehl({ EDITOR: 'vi' }, pruefe)).toEqual(['code'])
+    expect(editorBefehl({ VISUAL: 'nano', EDITOR: 'vim' }, pruefe)).toEqual(['code'])
+  })
+
+  it('nimmt MAPTALE_EDITOR, wenn er im Pfad liegt', () => {
+    expect(editorBefehl({ MAPTALE_EDITOR: 'code' }, pruefe)).toEqual(['code'])
+    expect(editorBefehl({ MAPTALE_EDITOR: 'code --wait' }, pruefe)).toEqual(['code', '--wait'])
+  })
+
+  it('sagt es, wenn MAPTALE_EDITOR ein Terminal braucht', () => {
+    // Sonst behauptet der Knopf Erfolg und tut nichts, und man sucht den
+    // Fehler an der Datei.
+    expect(() => editorBefehl({ MAPTALE_EDITOR: 'vim' }, pruefe)).toThrow(/Terminal/)
+    expect(() => editorBefehl({ MAPTALE_EDITOR: 'gibtsnicht' }, pruefe)).toThrow(/nicht im Pfad/)
+  })
+
+  it('nimmt die App, wo das CLI-Kürzel fehlt', () => {
+    // Der Dev-Server startet über devhub, dessen PATH nicht der einer
+    // Anmeldeshell ist — ein Kürzel aus dem Terminal kann dort fehlen.
+    const nurApp = { imPfad: () => false, existiert: (p) => p === '/Applications/Zed.app' }
+    expect(editorBefehl({}, nurApp)).toEqual(['open', '-a', '/Applications/Zed.app'])
+    expect(editorBefehl({ MAPTALE_EDITOR: 'zed' }, nurApp)).toEqual([
+      'open',
+      '-a',
+      '/Applications/Zed.app',
+    ])
   })
 })
 

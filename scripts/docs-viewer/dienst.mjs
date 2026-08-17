@@ -141,24 +141,71 @@ export function holeZurueck(rel, bereich) {
  * bis zur Stelle, an der man es ändert. Ein `vscode://`-Link im Markup wäre
  * kürzer, würde aber auf einen bestimmten Editor festlegen — welcher hier
  * läuft, weiß nur dieser Rechner.
+ *
+ * `$EDITOR` und `$VISUAL` werden ABSICHTLICH NICHT gefragt. Sie benennen den
+ * Editor für ein TERMINAL, und auf diesem Rechner steht dort `vi`: Ein
+ * losgelassenes `vi` ohne Terminal öffnet nichts, beendet sich stumm — und die
+ * Seite meldete „In vi geöffnet". Ein Knopf, der Erfolg behauptet und nichts
+ * tut, ist schlimmer als keiner. Wer einen eigenen Editor will, setzt
+ * `MAPTALE_EDITOR`; ist es einer für das Terminal, sagt der Dienst das.
  */
 
-/** Editoren in der Reihenfolge, in der nach ihnen gesucht wird. */
-const EDITOREN = ['cursor', 'code', 'zed', 'subl', 'mate']
+/**
+ * Fenster-Editoren in der Reihenfolge, in der nach ihnen gesucht wird —
+ * erst als Befehl im Pfad, dann als App.
+ *
+ * Der zweite Weg ist nötig, weil der Dev-Server über `devhub` startet und
+ * dessen `PATH` nicht der einer Anmeldeshell ist: Ein CLI-Kürzel, das im
+ * Terminal liegt, kann dort fehlen. `open -a` braucht keines.
+ */
+const EDITOREN = [
+  { befehl: 'cursor', app: '/Applications/Cursor.app' },
+  { befehl: 'code', app: '/Applications/Visual Studio Code.app' },
+  { befehl: 'zed', app: '/Applications/Zed.app' },
+  { befehl: 'subl', app: '/Applications/Sublime Text.app' },
+  { befehl: 'mate', app: '/Applications/TextMate.app' },
+]
 
-function editorBefehl() {
-  const gesetzt = (process.env.MAPTALE_EDITOR || process.env.VISUAL || process.env.EDITOR || '').trim()
-  if (gesetzt) return gesetzt.split(/\s+/)
-  for (const name of EDITOREN) {
-    try {
-      execFileSync('which', [name], { stdio: 'pipe' })
-      return [name]
-    } catch {
-      /* nicht installiert */
-    }
+/** Editoren, die ein Terminal brauchen. Losgelassen tun sie nichts Sichtbares. */
+const IM_TERMINAL = new Set(['vi', 'vim', 'nvim', 'nano', 'pico', 'ed', 'emacs', 'micro', 'helix', 'hx'])
+
+function imPfad(name) {
+  try {
+    execFileSync('which', [name], { stdio: 'pipe' })
+    return true
+  } catch {
+    return false
   }
-  // `open` überlässt dem System die Wahl. Ohne alles davon bleibt der Pfad —
-  // kopieren und selbst öffnen ist immer noch besser als eine leere Meldung.
+}
+
+/**
+ * Welcher Befehl öffnet eine Datei in einem Fenster? Gibt die Argumentliste
+ * zurück, an die der Pfad angehängt wird — oder `null`.
+ */
+export function editorBefehl(umgebung = process.env, pruefe = { imPfad, existiert: existsSync }) {
+  const gesetzt = String(umgebung.MAPTALE_EDITOR || '').trim()
+  if (gesetzt) {
+    const teile = gesetzt.split(/\s+/)
+    const name = basename(teile[0])
+    if (IM_TERMINAL.has(name))
+      throw new DienstFehler(
+        `MAPTALE_EDITOR ist „${name}" — das braucht ein Terminal und öffnet hier kein Fenster.`,
+      )
+    if (teile[0].includes('/') || pruefe.imPfad(teile[0])) return teile
+    // Kein Kürzel im Pfad, aber ein Name, den wir als App kennen? Dann war die
+    // Absicht klar — „zed" heißt „öffne es in Zed", nicht „führe zed aus". Nur
+    // das CLI-Kürzel fehlt, und `open -a` braucht keines.
+    const bekannt = EDITOREN.find((e) => e.befehl === name && pruefe.existiert(e.app))
+    if (bekannt) return ['open', '-a', bekannt.app]
+    throw new DienstFehler(`MAPTALE_EDITOR „${teile[0]}" ist nicht im Pfad.`)
+  }
+
+  for (const editor of EDITOREN) {
+    if (pruefe.imPfad(editor.befehl)) return [editor.befehl]
+    if (pruefe.existiert(editor.app)) return ['open', '-a', editor.app]
+  }
+  // Zuletzt das System entscheiden lassen: `open` nimmt, was für `.md`
+  // eingestellt ist. Findet sich auch das nicht, bleibt der Pfad zum Kopieren.
   if (process.platform === 'darwin') return ['open']
   return null
 }
@@ -167,11 +214,27 @@ export function oeffneImEditor(rel) {
   const abs = pruefePfad(rel)
   const befehl = editorBefehl()
   if (!befehl) throw new DienstFehler('Keinen Editor gefunden — MAPTALE_EDITOR setzen')
+
   // Losgelassen und nicht abgewartet: Ein Editor, der im Vordergrund bleibt,
-  // hielte die Antwort auf, und die Seite wartete auf ein Fenster.
-  const kind = execFile(befehl[0], [...befehl.slice(1), abs], { cwd: WURZEL })
-  kind.unref?.()
-  return { befehl: befehl[0], pfad: relative(WURZEL, abs) }
+  // hielte die Antwort auf, und die Seite wartete auf ein Fenster. Ein FEHLER
+  // beim Starten wird aber noch abgefangen — sonst behauptet die Meldung etwas,
+  // was nicht passiert ist, und man sucht den Fehler an der Datei.
+  return new Promise((fertig, fehler) => {
+    const kind = execFile(befehl[0], [...befehl.slice(1), abs], { cwd: WURZEL }, (f) => {
+      if (f) fehler(new DienstFehler(`${befehl[0]} ließ sich nicht starten: ${f.message}`))
+    })
+    kind.unref?.()
+    // Wer bis hierher lebt, ist gestartet. Auf das Ende zu warten wäre falsch:
+    // `cursor <datei>` kehrt sofort zurück, `open -a` auch — ein Editor, der
+    // offen bleibt, täte es nie.
+    setTimeout(() => fertig({ befehl: benennung(befehl), pfad: relative(WURZEL, abs) }), 120)
+  })
+}
+
+/** „open -a /Applications/Cursor.app" heißt für einen Menschen „Cursor". */
+function benennung(befehl) {
+  if (befehl[0] === 'open' && befehl[1] === '-a') return basename(befehl[2], '.app')
+  return befehl[0]
 }
 
 /* ── Umbenennen ───────────────────────────────────────────────────────────
@@ -319,7 +382,7 @@ export function baueNeu() {
  * Führt eine Aktion aus und baut danach neu. Rückgabe geht als JSON an die
  * Seite; ein Fehler wird zur Meldung, nicht zum Absturz des Dev-Servers.
  */
-export function fuehreAus(aktion, daten = {}) {
+export async function fuehreAus(aktion, daten = {}) {
   switch (aktion) {
     case 'quelle':
       return { text: leseQuelle(daten.datei) }
@@ -365,8 +428,8 @@ export function fuehreAus(aktion, daten = {}) {
     }
     case 'oeffnen': {
       // Kein Neubau: Es hat sich nichts geändert, es liegt nur ein Fenster
-      // mehr offen.
-      const { befehl, pfad } = oeffneImEditor(daten.datei)
+      // mehr offen. Abgewartet wird nur, ob der Start überhaupt klappt.
+      const { befehl, pfad } = await oeffneImEditor(daten.datei)
       return { pfad, meldung: `In ${befehl} geöffnet: ${pfad}` }
     }
     case 'umbenennen': {

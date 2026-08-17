@@ -108,7 +108,7 @@ function dokuAusliefern() {
           req.on('error', fehler)
         })
         const { fuehreAus } = await import('./scripts/docs-viewer/dienst.mjs')
-        antworte(200, { ok: true, ...fuehreAus(aktion, roh ? JSON.parse(roh) : {}) })
+        antworte(200, { ok: true, ...(await fuehreAus(aktion, roh ? JSON.parse(roh) : {})) })
       } catch (fehler) {
         antworte(400, { ok: false, meldung: String(fehler.message || fehler) })
       }

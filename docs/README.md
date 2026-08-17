@@ -129,12 +129,21 @@ systemteile: [Player]
 # Konzept: Sprechende Wegpunkte
 ```
 
-Der Viewer zeigt die Angaben als Tafel unter der Überschrift, dazu die **Datei,
-in der das Dokument steht** — mit einem Knopf, der sie im Editor öffnet, und
-einem, der den Pfad kopiert. Vorher stand der Stand als Prosa-Zeile im Text
-(`Stand: … · Status: … · Betrifft: …`) und wurde von vier Regexen zerlegt; das
-trug, solange niemand die Reihenfolge tauschte, ein `·` in einen Statussatz
-schrieb oder die Zeile umbrach. Alles drei kam vor.
+Der Viewer zeigt die Angaben als Tafel unter der Überschrift. Vorher stand der
+Stand als Prosa-Zeile im Text (`Stand: … · Status: … · Betrifft: …`) und wurde
+von vier Regexen zerlegt; das trug, solange niemand die Reihenfolge tauschte,
+ein `·` in einen Statussatz schrieb oder die Zeile umbrach. Alles drei kam vor.
+
+In derselben Tafel steht die **Datei, in der das Dokument liegt** — mit einem
+Knopf, der sie im Editor öffnet, und einem, der den Pfad kopiert. Gesucht wird
+ein FENSTER-Editor (Cursor, VS Code, Zed, Sublime, TextMate), erst als Befehl im
+Pfad, dann als App über `open -a`, weil der Dev-Server über devhub startet und
+dessen `PATH` nicht der einer Anmeldeshell ist. `MAPTALE_EDITOR` übersteuert das.
+**`$EDITOR` und `$VISUAL` werden absichtlich nicht gefragt**: Sie benennen den
+Editor für ein TERMINAL, hier steht dort `vi`, und ein losgelassenes `vi` ohne
+Terminal öffnet nichts und beendet sich stumm — die Seite meldete trotzdem „In vi
+geöffnet". Ein Knopf, der Erfolg behauptet und nichts tut, ist schlimmer als
+keiner; deshalb wird jetzt auch ein Fehlstart abgefangen statt gemeldet.
 
 Drei Regeln, damit daraus kein Pflegeschema wird:
 
