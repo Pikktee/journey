@@ -814,11 +814,13 @@
         var reihenfolge = karten(jetzt).map(function (li) {
           return li.getAttribute('data-datei')
         })
-        if (jetzt === startListe) return speichere('roadmap-ordnen', { reihenfolge: reihenfolge })
-        speichere('roadmap-verschieben', {
-          datei: k.getAttribute('data-datei'),
-          reihenfolge: reihenfolge,
-        }, jetzt.getAttribute('data-phase'))
+        var phase = jetzt.getAttribute('data-phase')
+        if (jetzt === startListe) return speichere('roadmap-ordnen', { reihenfolge: reihenfolge }, phase)
+        speichere(
+          'roadmap-verschieben',
+          { datei: k.getAttribute('data-datei'), reihenfolge: reihenfolge },
+          phase,
+        )
       }
 
       /* Die Zahlen am Spaltenkopf stammen aus der Bauzeit. Nach einem
@@ -832,20 +834,37 @@
         })
       }
 
+      /*
+       * SCHWEIGEN bei Erfolg.
+       *
+       * Vorher meldete jeder Zug „Speichere …" und danach das Ergebnis. Beides
+       * ist überflüssig: Die Karte liegt sichtbar dort, wo man sie hingezogen
+       * hat — das IST die Rückmeldung, und eine Tafel am unteren Rand erklärt
+       * eine Bewegung, die man gerade selbst gemacht hat.
+       *
+       * Gemeldet wird nur, was man NICHT sehen kann: ein Fehlschlag. Dann kommt
+       * die Seite neu, damit die Ansicht nicht etwas anderes behauptet als die
+       * Datei.
+       *
+       * Die Phase muss dabei durchgereicht werden. Sie fehlte im Zweig für den
+       * Zug INNERHALB einer Spalte, und der Server ordnete daraufhin eine Phase
+       * mit dem Namen `''` — es passierte nichts, und die Antwort lautete
+       * „Reihenfolge unverändert". Genau diese Meldung war der sichtbare Teil des
+       * Fehlers: Sie erklärte nicht eine harmlose Nichtänderung, sondern dass
+       * das Umsortieren nie in der Datei ankam.
+       */
       var speichere = function (aktion, daten, phase) {
-        melde('Speichere …')
-        daten.phase = phase || zielPhase
+        // Ohne Phase kann der Server nichts ordnen. Das war der Fehler, und er
+        // war STILL: Die Antwort lautete „Reihenfolge unverändert", also genau
+        // das, was auch bei einer harmlosen Nichtänderung käme. Lieber laut.
+        if (!phase) return melde('Phase fehlt — bitte die Seite neu laden', true)
+        daten.phase = phase
         zaehleNeu()
-        ruf(aktion, daten)
-          .then(function (a) {
-            melde(a.meldung)
-          })
-          .catch(function (f) {
-            melde(f.message, true)
-            location.reload()
-          })
+        ruf(aktion, daten).catch(function (f) {
+          melde(f.message, true)
+          location.reload()
+        })
       }
-      var zielPhase = ''
 
       var beiBewegung = function (e) {
         if (!zug || e.pointerId !== zug.pointerId) return

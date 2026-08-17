@@ -25,6 +25,7 @@ import {
   editorBefehl,
   loeseHeraus,
   ordnePhase,
+  roadmapOrdnen,
   roadmapVerschieben,
   pruefePfad,
   rueckZiel,
@@ -604,6 +605,17 @@ describe('Reihenfolge in einer Phase', () => {
       roadmapVerschieben('docs/concepts/editor-ausbau.md', 'In Arbeit', ['concepts/gibtsnicht.md']),
     ).toThrow(/Außerhalb der Doku|Gibt es nicht/)
     expect(readFileSync(datei, 'utf8'), 'roadmap.md wurde trotz Fehler angefasst').toBe(vorher)
+  })
+
+  it('unterscheidet eine unbekannte Phase von einer Nichtänderung', () => {
+    // Beides fiel vorher auf dieselbe Antwort, und deshalb blieb ein echter
+    // Fehler still: Die Oberfläche schickte die Phase nicht mit, der Server
+    // ordnete eine Phase namens `''` — nichts passierte, und die Meldung lautete
+    // „Reihenfolge unverändert". Genau diese Verwechslung darf es nicht geben.
+    expect(() => roadmapOrdnen('', ['docs/concepts/editor-ausbau.md'])).toThrow(/Unbekannte Phase/)
+    expect(() => roadmapOrdnen('Gibt es nicht', ['docs/concepts/editor-ausbau.md'])).toThrow(
+      /Unbekannte Phase/,
+    )
   })
 
   it('meldet „nichts zu tun", wo sich nichts ändert', () => {

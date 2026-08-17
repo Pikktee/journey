@@ -569,8 +569,18 @@ export function ordnePhase(zeilen, phase, pfade) {
 
 export function roadmapOrdnen(phase, pfade) {
   if (!Array.isArray(pfade) || !pfade.length) throw new DienstFehler('Keine Reihenfolge angegeben')
+  const zeilen = roadmapZeilen()
+  // Eine unbekannte Phase ist ein Fehler des Aufrufers und keine Nichtänderung.
+  // Vorher fielen beide auf dieselbe Antwort („Reihenfolge unverändert") — und
+  // eine fehlende Phase sah damit aus wie ein Zug, bei dem sich nichts ergab.
+  const namen = zeilen
+    .map((z) => z.match(/^##\s+(.+)$/))
+    .filter(Boolean)
+    .map((t) => t[1].split('·')[0].trim())
+  if (!namen.includes(String(phase || '')))
+    throw new DienstFehler(`Unbekannte Phase: ${phase || '(leer)'}`)
   const inDocs = pfade.map((p) => relative(DOCS, pruefePfad(p)))
-  const neu = ordnePhase(roadmapZeilen(), String(phase || ''), inDocs)
+  const neu = ordnePhase(zeilen, String(phase), inDocs)
   if (!neu) return { bewegt: false }
   writeFileSync(ROADMAP(), neu.join('\n'))
   return { bewegt: true }
