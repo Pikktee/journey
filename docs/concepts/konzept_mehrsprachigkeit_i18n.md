@@ -1,3 +1,7 @@
+---
+icon: globus
+---
+
 # Konzept: Mehrsprachigkeit (i18n) & URL-Routing
 
 ## 1. Zielsetzung

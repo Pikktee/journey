@@ -1,3 +1,7 @@
+---
+icon: koffer
+---
+
 # Konzept: Touren vs. Reisen (Roadmap M8 / M9)
 
 Dieses Dokument beschreibt die funktionale und begriffliche Differenzierung zwischen **Einzel-Touren** und **Mehrtages-Reisen** in Maptale.

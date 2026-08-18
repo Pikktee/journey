@@ -6,6 +6,7 @@ betrifft:
   - android/
   - src/konto/
   - später ios/
+icon: puls
 ---
 
 # Konzept: Tracker-Integrationen & Automatische Foto-Zuordnung

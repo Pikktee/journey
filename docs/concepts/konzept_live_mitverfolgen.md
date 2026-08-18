@@ -7,6 +7,7 @@ betrifft:
   - Web-Player (eigene Live-Ansicht)
   - src/routen.ts
   - später ggf. iOS
+icon: antenne
 ---
 
 # Konzept: Live mitverfolgen

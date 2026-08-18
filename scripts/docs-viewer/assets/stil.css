@@ -307,7 +307,22 @@ kbd {
 
 /* ── Bereichskacheln ──────────────────────────────────────────────────── */
 
-.bereich-gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+/* SO VIELE SPALTEN, WIE ES BEREICHE GIBT (`--spalten` steht am Element).
+   Mit `auto-fill` und 330 px Mindestbreite passten bei 1440 px vier in die
+   Zeile — der fünfte Bereich stand allein in einer zweiten und ließ drei
+   Lücken. Die Zahl der Bereiche ist keine Frage des Platzes, sondern eine
+   Eigenschaft der Doku: Sie ändert sich alle paar Jahre, und dann soll die
+   Reihe wieder aufgehen und nicht ein Rest daneben stehen. */
+.bereich-gitter {
+  display: grid;
+  grid-template-columns: repeat(var(--spalten, 4), minmax(0, 1fr));
+  gap: 16px;
+}
+/* Schmaler wird aus der einen Reihe wieder ein Umbruch — fünf Kacheln unter
+   1100 px wären fünf Streifen. */
+@media (max-width: 1100px) {
+  .bereich-gitter { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
 .bereich-kachel {
   display: flex;
   flex-direction: column;
@@ -587,7 +602,7 @@ kbd {
 
 .archiv-gitter { opacity: 0.75; }
 
-/* ── Prototyp-Einzelseite ─────────────────────────────────────────────── */
+/* ── Mockup-Einzelseite ─────────────────────────────────────────────── */
 
 .prototyp-kopf { padding: 34px 0 20px; }
 .prototyp-titelzeile {
@@ -1314,7 +1329,7 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
  *
  * Dieselbe Sprache wie „Stand prüfen" auf der Roadmap: Warnfarbe, dünner
  * Rahmen, keine Fläche. Ein Hinweis zum Nachsehen und kein Alarm, denn bei
- * einem Drittel der Prototypen ist es in Ordnung so — `logo-varianten.html`
+ * einem Drittel der Mockups ist es in Ordnung so — `logo-varianten.html`
  * wurde gezeichnet und direkt gebaut. Rot wäre die Liste dauerhaft alarmiert,
  * und die eine echte Lücke ginge darin unter. */
 .marke-fehlt {
@@ -1338,7 +1353,12 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 /* Der Fuß trägt die Identität der Datei und das Menü — durch eine Haarlinie
    vom Inhalt getrennt, damit er nicht als weitere Textzeile gelesen wird. */
 .mockup .karte-fuss { margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--rand); }
-.mockup .karte-meta { color: var(--text-3); font-family: var(--font-mono); font-size: 12px; }
+/* Die Zeile trägt jetzt zwei Werte, und nur einer ist eine Kennung: Die Mono
+   gehört an den Dateinamen, nicht an das Datum — dort machte sie aus „vor 3
+   Tagen" eine Zeichenkette und stellte dieselbe Angabe anders dar als auf den
+   Dokument-Kacheln daneben. */
+.mockup .karte-meta { color: var(--text-3); font-size: 12px; }
+.mockup .meta-datei { font-family: var(--font-mono); }
 
 .bild-gitter { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .bildkachel { display: block; overflow: hidden; border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-1); color: var(--text-3); }
@@ -1398,28 +1418,68 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 }
 /* Die Etiketten sitzen in einer Gruppe, die viewer.js gegen den Zoom skaliert —
    ihre Größe steht deshalb hier fest und ändert sich beim Zoomen nicht. */
+/* Der HALO ist die Bedingung dafür, dass Schrift über einem Gespinst lesbar
+   bleibt: `paint-order: stroke` malt eine breite Kontur in der Grundfarbe
+   UNTER die Buchstaben, die Linie darunter verschwindet. Ohne ihn liest man
+   ein Etikett, das über einer Kante liegt, schlicht nicht — und das trifft
+   genau die dichten Stellen, an denen man es am nötigsten hat. */
 .verweiskarte text {
   fill: var(--text-3);
   font-family: var(--font-ui);
   font-size: 14px;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.14s;
 }
+
+/* Die Ablage der verweislosen Dokumente: eine Linie und ein Wort, beides so
+   leise wie möglich — sie ordnet, sie behauptet nichts. */
+.verweiskarte .ablage line { stroke: var(--rand); stroke-width: calc(1px / var(--k, 1)); }
+.verweiskarte .ablage text {
+  fill: var(--text-3);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+  stroke: none;
+}
+.verweiskarte .knoten.einsam text { opacity: 1; }
 /* Striche ebenso: Beim Hineinzoomen würde eine 1,4er Linie zum Balken, beim
    Hinauszoomen verschwände sie. --k ist die Zoomstufe aus viewer.js. */
+/* DIE KANTEN SIND GRAU, die Punkte tragen die Farbe.
+   Vorher trug jede Linie den Ton ihres Ausgangsbereichs: Bei 90 Kanten quer
+   durch das Feld ergab das ein Gespinst in fünf Farben, in dem die Punkte —
+   die einzige Stelle, an der die Farbe etwas BEDEUTET — untergingen. Die Farbe
+   der Kante kommt zurück, sobald sie gemeint ist: beim Zeigen auf einen Punkt
+   (`--ton` steht an jeder Linie bereit). */
 .verweiskarte .bogen {
-  stroke-width: calc(1.4px / var(--k, 1));
-  opacity: 0.3;
+  stroke: var(--rand-hell);
+  stroke-width: calc(1.2px / var(--k, 1));
+  opacity: 0.32;
   transition: opacity 0.15s;
 }
+/* Der Ring sagt: dazu gibt es ein Mockup. Strichlänge und Stärke werden
+   wie alles hier gegen den Zoom gerechnet — in Welteinheiten stünde beim
+   Hineinzoomen ein gepunkteter Reifen um den Punkt. */
+.verweiskarte .prototyp-ring {
+  stroke-width: calc(1.5px / var(--k, 1));
+  stroke-dasharray: calc(3.5px / var(--k, 1)) calc(3.5px / var(--k, 1));
+  opacity: 0.5;
+}
+.verweiskarte .knoten:hover .prototyp-ring { opacity: 0.9; }
 .verweiskarte .knoten { cursor: grab; }
 .verweiskarte .knoten:active { cursor: grabbing; }
-.verweiskarte .knoten.einsam text { fill: var(--rand-hell); }
 .verweiskarte .knoten:hover text { fill: var(--text); font-weight: 600; }
 .verweiskarte .bogen { transition: opacity 0.15s, stroke-width 0.15s; }
 .verweiskarte.fokussiert .bogen { opacity: 0.05; }
-.verweiskarte.fokussiert .bogen.aktiv { opacity: 0.95; stroke-width: calc(2.8px / var(--k, 1)); }
+.verweiskarte.fokussiert .bogen.aktiv {
+  stroke: var(--ton);
+  opacity: 0.95;
+  stroke-width: calc(2.8px / var(--k, 1));
+}
 .verweiskarte.fokussiert .knoten { opacity: 0.22; }
 .verweiskarte.fokussiert .knoten.aktiv { opacity: 1; }
 
@@ -1720,7 +1780,16 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 .karten-knopf.breit { width: auto; padding: 0 14px; font-size: 13.5px; }
 .karten-knopf:hover { border-color: var(--rand-hell); background: var(--fl-2); color: var(--text); }
 .karten-tipp { color: var(--text-3); font-size: 12.5px; }
-.verweiskarte { cursor: grab; touch-action: none; }
+/* KEINE TEXTAUSWAHL im Netz. Ziehen ist hier die Hauptgeste, und ein Zug, der
+   auf einem Etikett beginnt oder über eines läuft, ist für den Browser eine
+   Markierung: Der Titel blieb blau hinterlegt stehen, obwohl man einen Punkt
+   verschoben hat. `touch-action: none` erledigt das nur für den Finger. */
+.verweiskarte {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .verweiskarte.zieht { cursor: grabbing; }
 
 /* ── Graph: Beschriftungen ────────────────────────────────────────────────
@@ -1753,6 +1822,10 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 body.seite-karte { overflow: hidden; }
 .karten-vollflaeche { position: fixed; inset: var(--topbar-h) 0 0 0; }
 body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
+/* Im echten Vollbild malt der Browser hinter dem Element schwarz. Ohne eigene
+   Fläche stünde der Graph auf Schwarz statt auf dem Grund der Seite — und die
+   Bereichsfarben sind gegen diesen Grund ausgemessen, nicht gegen Schwarz. */
+.karten-vollflaeche:fullscreen { background: var(--bg); }
 
 .karte-hud {
   position: absolute;
@@ -2017,7 +2090,11 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
  * sondern das Feld. */
 .roadmap {
   display: grid;
-  grid-template-columns: 1.3fr 1.05fr 0.9fr;
+  /* Die Breiten folgen dem GEWICHT der Phase (vorne ausführlich, hinten knapp)
+     — aber gemessen an dem, was die Spalten wirklich tragen: In der dritten
+     steht nur ein Titel (breitester 168 px), sie bekam 383 und ließ mehr als
+     die Hälfte leer, während in der zweiten die Schritt-Zeile umbrach. */
+  grid-template-columns: 1.35fr 1.2fr 0.7fr;
   border: 1px solid var(--rand);
   border-radius: var(--radius-karte);
   background: var(--fl-1);
@@ -2065,10 +2142,42 @@ body.karte-vollbild .karten-vollflaeche { inset: 0; z-index: 80; }
 .rm-liste { margin: 0; padding: 0; list-style: none; }
 .rm-liste li {
   position: relative;
+  display: grid;
+  /* Auch in den Aufklappern darunter steht das Zeichen — eine Liste, in der
+     die Hälfte der Einträge eins hat, sähe nach Lücke aus. Dort gibt es nur
+     zwei Spalten: keinen Griff (man ordnet nichts) und kein × in der Zeile. */
+  grid-template-columns: 26px 1fr;
+  align-items: start;
   padding: 9px 0;
   border-radius: var(--radius-md);
   transition: background 0.12s;
 }
+
+/* Das Zeichen des Konzepts: eine Marke, kein Knopf. Es steht in der Farbe der
+   Spalte und tritt in den späteren Phasen mit zurück — dort ist der Titel die
+   Auskunft, das Bild nur der Anker. */
+.rm-marke {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--ton, var(--akzent));
+  opacity: 0.85;
+}
+.rm-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rm-phase.stufe-1 .rm-marke,
+.rm-phase.stufe-2 .rm-marke { color: var(--text-3); opacity: 1; }
+.rm-liste li:hover .rm-marke { color: var(--ton, var(--akzent)); opacity: 1; }
+.rm-liste:not([data-phase]) .rm-marke { color: var(--text-3); }
 /* Die Fläche greift 10 px in das Polster der Spalte hinein, damit sie nicht am
    Text klebt. NUR in den Spalten: In den Aufklappern darunter gibt es kein
    Polster, das den negativen Rand auffängt — dort ragten die Zeilen heraus. */
@@ -2222,8 +2331,15 @@ body.zieht-gerade .rm-liste li:hover { background: none; }
 /* Was in der letzten Woche angefasst wurde, sieht man an. */
 .meta-zeit.frisch { color: var(--text-2); }
 .meta-zeit.frisch::before { background: var(--gruen); border-color: var(--gruen); opacity: 0.9; }
-.meta-dauer { cursor: help; }
-.meta-dauer::before { content: '·'; margin-right: 8px; color: var(--rand-hell); }
+/* Der zweite Wert der Zeile: bei Dokumenten die Zahl der Verweise, bei
+   Mockups der Dateiname. Beide hängen an demselben Trennpunkt — er gehört
+   zur Zeile, nicht zum Wert, und steht deshalb nur einmal hier. */
+.meta-verweise { cursor: help; }
+.meta-verweise::before,
+.meta-datei::before { content: '·'; margin-right: 8px; color: var(--rand-hell); }
+/* Der Dateiname ist eine Kennung, keine Auskunft: Er steht leiser als das
+   Datum daneben und bricht nicht um. */
+.meta-datei { overflow: hidden; color: var(--text-3); text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Umbenennen ────────────────────────────────────────────────────────────
  * Dieselbe Bauform wie die Suchschicht: dunkler Grund, eine Tafel darüber.
@@ -2368,13 +2484,15 @@ body.zieht-gerade .rm-liste li:hover { background: none; }
      der Höhe des Titels, weil das Gitter es dort hinstellt. Die Spalte ist
      immer reserviert, auch wenn das × erst beim Überfahren erscheint: Sonst
      rückte der Text bei jedem Zeigerwechsel um 22 px. */
-  grid-template-columns: 20px 1fr 22px;
+  /* Vier: Griff, Zeichen, Inhalt, Schließen. */
+  grid-template-columns: 20px 26px 1fr 22px;
   align-items: start;
   padding-left: 0;
 }
+.rm-liste[data-phase] .rm-marke { grid-column: 2; }
 .rm-liste[data-phase] .rm-weg {
   position: static;
-  grid-column: 3;
+  grid-column: 4;
   align-self: start;
   margin: 0;
 }
@@ -2450,4 +2568,48 @@ body.zieht-gerade .rm-liste li:not(.greift):hover .rm-titel { color: inherit; }
 /* Die Zielspalte während eines Zuges: nur Fläche, denn Rahmen gibt es hier
    keine mehr. Sie ist beschriftet, man muss ihr nichts erklären. */
 .rm-phase.ziel { background: color-mix(in srgb, var(--ton, var(--akzent)) 11%, transparent); }
+
+/* Die leere Spalte. Sie bleibt stehen, auch wenn nichts darin ist — sonst gäbe
+   es keinen Ort, an den man etwas ziehen könnte. Und sie zeigt sich als ZIEL:
+   ein gestrichelter Rahmen ist die vertraute Form für „hier kann etwas
+   hinein", ein bloßer Satz war nur eine Auskunft. Der gestrichelte Rahmen ist
+   zugleich der einzige im ganzen Feld — die Spalten selbst haben keine —, und
+   genau deshalb liest man ihn als Angebot und nicht als Kasten.
+   Sichtbar ist das Ganze nur bei wirklich leerer Liste (`:empty` trägt, weil
+   die Liste ohne Einträge kein Zeichen enthält): Sobald eine Karte darin
+   landet, geht es von selbst. */
+.rm-leer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 2px 0 0;
+  padding: 26px 16px 28px;
+  border: 1px dashed var(--rand-hell);
+  border-radius: var(--radius-lg);
+  color: var(--text-3);
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.rm-leer svg {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 6px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+.rm-leer b { color: var(--text-2); font-size: 14px; font-weight: 600; }
+.rm-leer span { font-size: 12.5px; line-height: 1.45; }
+/* Während ein Zug läuft, ist die Spalte das Ziel — dann tritt der Rahmen aus
+   dem Grau heraus, in derselben Tönung, die auch die Spalte annimmt. */
+.rm-phase.ziel .rm-leer {
+  border-color: color-mix(in srgb, var(--ton, var(--akzent)) 55%, transparent);
+  background: color-mix(in srgb, var(--ton, var(--akzent)) 7%, transparent);
+  color: var(--text-2);
+}
+.rm-liste:not(:empty) + .rm-leer { display: none; }
 

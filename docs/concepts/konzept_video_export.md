@@ -6,6 +6,7 @@ betrifft:
   - Studio-UI (src/studio/exportblatt.ts)
   - später API-Auftrag wie der ZIP-Export
   - Android nur als Auslöser
+icon: film
 ---
 
 # Konzept: Video-Export

@@ -8,6 +8,7 @@ betrifft:
   - android/
   - später ios/
   - datenschutz.html
+icon: schluessel
 ---
 
 # Konzept: Social Login — Anmelden mit Google (und später Apple)

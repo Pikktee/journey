@@ -1,3 +1,7 @@
+---
+icon: stift
+---
+
 # Editor-Ausbau: erzählerische Werkzeuge
 
 Ideensammlung aus der Konzept-Diskussion vom **2026-07-27**. **Nichts davon ist

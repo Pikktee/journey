@@ -1327,6 +1327,46 @@
     passeAn()
     window.addEventListener('resize', passeAn)
 
+    /* DIE TAFEL LINKS VERDECKT KARTE.
+       Sie schwebt über der Fläche — das ist richtig, denn bei einem Graphen ist
+       die Fläche der Inhalt — aber der Graph beginnt darunter: Zwei Punkte
+       lagen hinter dem Glas und waren nur durch Ziehen zu finden. Die Startlage
+       rückt ihn deshalb neben die Tafel und verkleinert ihn so weit, dass er in
+       den Rest passt. Gerechnet wird gegen die WIRKLICHE Ausdehnung der Punkte
+       (nicht gegen die viewBox): Das Feld hat oben und unten Rand für die
+       Etiketten, und den zweimal zu berücksichtigen schrumpfte die Karte grundlos. */
+    var startLage = function () {
+      var lage = { k: 1, x: 0, y: 0 }
+      var r = karteSvg.getBoundingClientRect()
+      var hud = document.querySelector('.karte-hud')
+      if (!r.width || !r.height) return lage
+      var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      ;[].slice.call(karteSvg.querySelectorAll('.knoten')).forEach(function (g) {
+        var t = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(g.getAttribute('transform'))
+        if (!t) return
+        var x = parseFloat(t[1]), y = parseFloat(t[2]), rad = parseFloat(g.getAttribute('data-r')) || 6
+        // Der Zuschlag ist das ETIKETT: Es steht mittig unter dem Punkt und
+        // ragt seitlich weit über ihn hinaus. Ohne ihn schnitt der Rand die
+        // äußeren Namen ab — sichtbar war der Punkt, lesbar nichts.
+        x0 = Math.min(x0, x - rad - 110); x1 = Math.max(x1, x + rad + 110)
+        y0 = Math.min(y0, y - rad - 52); y1 = Math.max(y1, y + rad + 44)
+      })
+      if (!isFinite(x0)) return lage
+      var proPx = box.width / r.width
+      var frei = hud ? (hud.getBoundingClientRect().right - r.left + 22) * proPx : 0
+      var links = box.x + frei
+      var kx = (box.x + box.width - links) / (x1 - x0)
+      var ky = box.height / (y1 - y0)
+      // Auch VERGRÖSSERN, nicht nur verkleinern: Die Fläche ist meist breiter
+      // als das gebaute Feld, und der Rest stand als leerer Rand rechts. Die
+      // Etiketten wachsen dabei nicht mit (sie halten ihre Bildschirmgröße),
+      // also wird mit der Stufe auch der Abstand zwischen ihnen größer.
+      lage.k = Math.max(0.4, Math.min(1.15, kx, ky))
+      lage.x = links - x0 * lage.k
+      lage.y = box.y + (box.height - (y1 - y0) * lage.k) / 2 - y0 * lage.k
+      return lage
+    }
+
     var zeichne = function () {
       welt.setAttribute(
         'transform',
@@ -1341,6 +1381,18 @@
       if (typeof gegenSkalaHalter === 'function') gegenSkalaHalter(stand.k)
     }
 
+    // Die Startlage gilt, bis jemand selbst zoomt oder schiebt: Danach wäre ein
+    // Zurückspringen beim Fensterwechsel eine Bevormundung, davor wäre das
+    // Stehenbleiben ein halb verdeckter Graph.
+    var beruehrt = false
+    stand = startLage()
+    zeichne()
+    window.addEventListener('resize', function () {
+      if (beruehrt) return
+      stand = startLage()
+      zeichne()
+    })
+
     // Bildschirmpunkt → Koordinate der viewBox: Ohne diese Umrechnung zoomt
     // man in Pixeln auf einer Fläche, die in eigenen Einheiten rechnet.
     var inWelt = function (e) {
@@ -1352,7 +1404,8 @@
     }
 
     var zoomeAuf = function (neu, punkt) {
-      neu = Math.min(6, Math.max(0.8, neu))
+      beruehrt = true
+      neu = Math.min(6, Math.max(0.4, neu))
       if (neu === stand.k) return
       // Der Punkt unter dem Zeiger bleibt liegen: p = (p - x)/k  →  x = p - p'*k
       stand.x = punkt.x - ((punkt.x - stand.x) / stand.k) * neu
@@ -1375,6 +1428,7 @@
       // Auf einem Knoten beginnt kein FLÄCHEN-Zug: Dort zieht man den Knoten
       // selbst (s. unten) oder klickt ihn an.
       if (e.target.closest('.knoten')) return
+      beruehrt = true
       zieht = { x: e.clientX, y: e.clientY, ax: stand.x, ay: stand.y }
       karteSvg.setPointerCapture(e.pointerId)
       karteSvg.classList.add('zieht')
@@ -1396,25 +1450,49 @@
     }
     karteSvg.addEventListener('pointerup', loslassen)
     karteSvg.addEventListener('pointercancel', loslassen)
-    karteSvg.addEventListener('dblclick', function () {
-      stand = { k: 1, x: 0, y: 0 }
+    karteSvg.addEventListener('dblclick', function (e) {
+      // Auf einem Knoten heißt Doppelklick „öffnen" (s. unten) — dort wäre ein
+      // zurückspringender Ausschnitt genau die Bewegung, die man nicht wollte.
+      if (e.target.closest && e.target.closest('.knoten')) return
+      beruehrt = false
+      stand = startLage()
       zeichne()
     })
 
+    /* VOLLBILD ist das Vollbild des Bildschirms, nicht das des Dokuments.
+       Die Klasse allein räumte nur die Kopfleiste weg — Fensterrahmen, Tabs und
+       Menüleiste standen weiter da, und genau die sind der Grund, warum man bei
+       einem Graphen überhaupt danach greift. Also die Fullscreen-API, mit der
+       Klasse als Rückfall (sie trägt weiterhin das Layout, und wo die API
+       fehlt oder der Browser sie verweigert, bleibt es beim alten Verhalten).
+       Der Zustand wird NICHT selbst geführt: Verlassen kann man auch über Esc
+       oder die Browserleiste, davon erfährt man nur über `fullscreenchange`. */
+    var flaeche = document.querySelector('.karten-vollflaeche')
     var vollbild = document.querySelector('[data-vollbild]')
+    var zeigeStand = function (an) {
+      document.body.classList.toggle('karte-vollbild', an)
+      if (vollbild) vollbild.textContent = an ? 'Schließen' : 'Vollbild'
+      requestAnimationFrame(passeAn)
+    }
+    document.addEventListener('fullscreenchange', function () {
+      zeigeStand(!!document.fullscreenElement)
+    })
     if (vollbild)
       vollbild.addEventListener('click', function () {
-        var an = document.body.classList.toggle('karte-vollbild')
-        vollbild.textContent = an ? 'Schließen' : 'Vollbild'
-        // Erst nach dem Umschalten hat das Fenster seine neue Größe.
-        requestAnimationFrame(passeAn)
+        if (document.fullscreenElement) return document.exitFullscreen()
+        if (flaeche && flaeche.requestFullscreen)
+          // Schlägt es fehl (etwa ohne Nutzergeste oder per Richtlinie
+          // gesperrt), bleibt wenigstens die Kopfleiste weg.
+          flaeche.requestFullscreen().catch(function () {
+            zeigeStand(!document.body.classList.contains('karte-vollbild'))
+          })
+        else zeigeStand(!document.body.classList.contains('karte-vollbild'))
       })
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && document.body.classList.contains('karte-vollbild')) {
-        document.body.classList.remove('karte-vollbild')
-        if (vollbild) vollbild.textContent = 'Vollbild'
-        requestAnimationFrame(passeAn)
-      }
+      // Im echten Vollbild räumt Esc der Browser selbst ab; hier geht es nur
+      // um den Rückfall ohne API.
+      if (e.key === 'Escape' && !document.fullscreenElement && document.body.classList.contains('karte-vollbild'))
+        zeigeStand(false)
     })
 
     /* ── Filter und Suche im Graphen ────────────────────────────────────
@@ -1450,7 +1528,12 @@
         y: parseFloat(t[2]),
         vx: 0,
         vy: 0,
-        fest: null,
+        // Wer keine Kante hat, steht in der ABLAGE unter dem Feld und bleibt
+        // dort: Ohne Feder hat ein Punkt im Kräftespiel keinen Ort, er würde
+        // aus der Reihe geschoben und läge gleich wieder irgendwo. Die Reihe
+        // ist eine Ordnung von Hand — die darf die Simulation nicht auflösen.
+        fest: Number(g.getAttribute('data-grad')) ? null : { x: parseFloat(t[1]), y: parseFloat(t[2]) },
+        heim: { x: parseFloat(t[1]), y: parseFloat(t[2]) },
         grad: Number(g.getAttribute('data-grad')) || 0,
         etikett: g.querySelector('.etikett'),
         r: parseFloat(g.getAttribute('data-r')) || 6,
@@ -1472,8 +1555,22 @@
         return f.a && f.b
       })
 
-    var mitteX = box.x + box.width / 2
-    var mitteY = box.y + box.height / 2
+    /* Der Schwerpunkt liegt NEBEN der Tafel, nicht in der Mitte des Bildes.
+       Die Startlage rückt den Graphen rechts an die Tafel; die Kräfte ziehen
+       ihn danach zurück zur Bildmitte — nach ein paar Sekunden lagen wieder
+       Punkte hinter dem Glas. Gerechnet wird EINMAL (aus der Startlage in
+       Weltkoordinaten): Hinge der Zug am aktuellen Ausschnitt, liefe der Graph
+       jedem Schieben hinterher, statt sich schieben zu lassen. */
+    var freiLinks = (function () {
+      var r = karteSvg.getBoundingClientRect()
+      var hud = document.querySelector('.karte-hud')
+      if (!hud || !r.width) return 0
+      return hud.getBoundingClientRect().right - r.left + 22
+    })()
+    var mitteX =
+      (box.x + ((freiLinks + karteSvg.getBoundingClientRect().width) / 2 / Math.max(1, karteSvg.getBoundingClientRect().width)) * box.width - stand.x) /
+      stand.k
+    var mitteY = (box.y + box.height / 2 - stand.y) / stand.k
     var hitze = 0.35
     var laeuft = false
 
@@ -1487,7 +1584,12 @@
           var dx = b.x - a.x
           var dy = b.y - a.y
           var d2 = dx * dx + dy * dy || 0.01
-          var kraft = 30000 / d2
+          // DIESELBEN ZAHLEN WIE BEIM BAUEN (grafiken.mjs `verteile`).
+          // Standen sie auseinander, hatte der Browser ein anderes
+          // Gleichgewicht als die gebaute Lage: Der Graph dehnte sich in den
+          // ersten Sekunden um gut ein Zehntel, und der Ausschnitt, der beim
+          // Laden genau passte, schnitt danach oben und rechts ab.
+          var kraft = 26000 / d2
           var d = Math.sqrt(d2)
           a.vx -= (dx / d) * kraft
           a.vy -= (dy / d) * kraft
@@ -1499,8 +1601,8 @@
         var dx = f.b.x - f.a.x
         var dy = f.b.y - f.a.y
         var d = Math.max(1, Math.sqrt(dx * dx + dy * dy))
-        var ruhe = 150 + Math.min(140, (f.a.grad + f.b.grad) * 4)
-        var kraft = (d - ruhe) * 0.014
+        var ruhe = 130 + Math.min(120, (f.a.grad + f.b.grad) * 4)
+        var kraft = (d - ruhe) * 0.012
         f.a.vx += (dx / d) * kraft
         f.a.vy += (dy / d) * kraft
         f.b.vx -= (dx / d) * kraft
@@ -1566,7 +1668,12 @@
     gegenSkalaHalter(1)
 
     /* Knoten ziehen. Ein Zug ist erst ein Zug, wenn die Maus sich bewegt hat —
-       sonst verlöre man den Klick, der das Dokument öffnet. */
+       sonst verlöre man den Klick, der das Dokument öffnet.
+       GEFANGEN wird der Zeiger deshalb erst bei der ersten Bewegung. Am
+       `pointerdown` gesetzt, kostete die Fangleine genau den Klick, den der
+       Kommentar darüber retten will: Solange ein Element den Zeiger hält,
+       bekommt DIESES Element das `click`-Ereignis — es lief am Knoten vorbei
+       aufs SVG, und kein Dokument der Karte ließ sich mehr öffnen. */
     var zug = null
     karteSvg.addEventListener('pointerdown', function (e) {
       var g = e.target.closest && e.target.closest('.knoten')
@@ -1575,11 +1682,11 @@
       if (!p) return
       e.stopPropagation()
       var start = inWelt(e)
-      zug = { p: p, dx: p.x - start.x, dy: p.y - start.y, bewegt: false }
-      karteSvg.setPointerCapture(e.pointerId)
+      zug = { p: p, dx: p.x - start.x, dy: p.y - start.y, bewegt: false, id: e.pointerId }
     })
     karteSvg.addEventListener('pointermove', function (e) {
       if (!zug) return
+      if (!zug.bewegt) karteSvg.setPointerCapture(zug.id)
       var w = inWelt(e)
       zug.bewegt = true
       zug.p.fest = { x: w.x + zug.dx, y: w.y + zug.dy }
@@ -1589,8 +1696,9 @@
       if (!zug) return
       // Losgelassen wird der Knoten wieder frei: Ein Graph, in dem jeder
       // angefasste Punkt für immer klebt, ist nach zehn Zügen ein Diagramm
-      // von Hand — und das war er vorher schon.
-      zug.p.fest = null
+      // von Hand — und das war er vorher schon. Ein Punkt aus der Ablage kehrt
+      // dorthin zurück; im Feld hätte er nichts, was ihn hält.
+      zug.p.fest = zug.p.grad ? null : zug.p.heim
       erhitze(0.35)
       zug = null
     }
@@ -1645,7 +1753,8 @@
       k.addEventListener('click', function () {
         var richtung = Number(k.getAttribute('data-zoom'))
         if (!richtung) {
-          stand = { k: 1, x: 0, y: 0 }
+          beruehrt = false
+          stand = startLage()
           return zeichne()
         }
         zoomeAuf(stand.k * (richtung > 0 ? 1.35 : 1 / 1.35), {
@@ -1665,35 +1774,71 @@
   if (karte) {
     var knoten = [].slice.call(karte.querySelectorAll('.knoten'))
     var boegen = [].slice.call(karte.querySelectorAll('.bogen'))
+    var gehalten = null
+
     var zuruecksetzen = function () {
       karte.classList.remove('fokussiert')
       knoten.concat(boegen).forEach(function (el) {
         el.classList.remove('aktiv')
       })
     }
-    knoten.forEach(function (k) {
+
+    /** Ein Punkt und seine Nachbarschaft treten hervor, der Rest zurück. */
+    var hebeHervor = function (k) {
+      zuruecksetzen()
+      if (!k) return
       var abs = k.getAttribute('data-abs')
-      k.addEventListener('mouseenter', function () {
-        zuruecksetzen()
-        karte.classList.add('fokussiert')
-        k.classList.add('aktiv')
-        var nachbarn = {}
-        boegen.forEach(function (b) {
-          var von = b.getAttribute('data-von')
-          var nach = b.getAttribute('data-nach')
-          if (von === abs || nach === abs) {
-            b.classList.add('aktiv')
-            nachbarn[von] = nachbarn[nach] = true
-          }
-        })
-        knoten.forEach(function (n) {
-          if (nachbarn[n.getAttribute('data-abs')]) n.classList.add('aktiv')
-        })
+      karte.classList.add('fokussiert')
+      k.classList.add('aktiv')
+      var nachbarn = {}
+      boegen.forEach(function (b) {
+        var von = b.getAttribute('data-von')
+        var nach = b.getAttribute('data-nach')
+        if (von === abs || nach === abs) {
+          b.classList.add('aktiv')
+          nachbarn[von] = nachbarn[nach] = true
+        }
       })
-      k.addEventListener('mouseleave', zuruecksetzen)
+      knoten.forEach(function (n) {
+        if (nachbarn[n.getAttribute('data-abs')]) n.classList.add('aktiv')
+      })
+    }
+
+    knoten.forEach(function (k) {
+      k.addEventListener('mouseenter', function () {
+        hebeHervor(k)
+      })
+      // Beim Verlassen fällt die Karte auf das ZURÜCK, was festgehalten ist —
+      // nicht auf nichts. Sonst wäre ein gehaltener Punkt beim ersten
+      // Mausweg wieder weg.
+      k.addEventListener('mouseleave', function () {
+        hebeHervor(gehalten)
+      })
+
+      /* GEÖFFNET wird mit dem DOPPELKLICK.
+         Auf einem Einzelklick lag das Dokument denkbar ungünstig: Auf einer
+         Fläche, die man schiebt und zieht, ist der einfache Klick die Geste,
+         die dabei aus Versehen passiert — jeder Zug, der zu kurz gerät, war
+         eine Navigation weg von der Karte. Der Einzelklick HÄLT stattdessen die
+         Nachbarschaft fest. Das ist zugleich der Weg auf dem Touchgerät: Dort
+         gibt es kein Zeigen, und ohne Klickbedeutung wäre die Hervorhebung
+         dort gar nicht erreichbar. */
       k.addEventListener('click', function () {
+        gehalten = gehalten === k ? null : k
+        hebeHervor(gehalten)
+      })
+      k.addEventListener('dblclick', function (e) {
+        e.preventDefault()
         location.href = auf + k.getAttribute('data-ziel')
       })
+    })
+
+    // Ein Klick ins Leere lässt wieder los. Ohne ihn bliebe die halbe Karte
+    // gedimmt, und der einzige Weg zurück wäre, denselben Punkt wiederzufinden.
+    karte.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.knoten')) return
+      gehalten = null
+      zuruecksetzen()
     })
   }
 })()

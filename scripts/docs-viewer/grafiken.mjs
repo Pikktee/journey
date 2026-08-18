@@ -195,10 +195,25 @@ export function titelgrafik() {
  */
 
 /** Ein Kräfte-Layout in Handarbeit: Abstoßung, Federn, Heimatzug. */
-function verteile(knoten, kanten, bereiche) {
+function verteile(alleKnoten, kanten, bereiche) {
   const BREITE = 1600
   const HOEHE = 1100
   const z = streu(1337)
+
+  /*
+   * EINSAME PUNKTE GEHÖREN NICHT INS FELD.
+   *
+   * Ein Dokument ohne Verweise hat im Kräfte-Layout keine Feder, also auch
+   * keinen Ort: Es driftet dorthin, wo gerade Platz ist, und lag dann als
+   * namenloser Punkt irgendwo am Rand — Rauschen, das aussieht wie Struktur.
+   * Es wegzulassen wäre die falsche Antwort (dass ein Dokument mit niemandem
+   * verbunden ist, ist eine AUSKUNFT, und oft die interessantere). Also
+   * bekommen sie eine eigene Ablage unter dem Feld: eine Reihe, beschriftet,
+   * in Ruhe.
+   */
+  const knoten = alleKnoten.filter((k) => k.grad)
+  const einsam = alleKnoten.filter((k) => !k.grad)
+  const ABLAGE = einsam.length ? 170 : 0
 
   // Startlage: die Bereiche als Inseln auf einem Kreis, ihre Dokumente knapp
   // daneben. Ein zufälliger Start würde je nach Saat mal verschlungene, mal
@@ -289,15 +304,31 @@ function verteile(knoten, kanten, bereiche) {
   const minY = Math.min(...ys)
   const maxY = Math.max(...ys)
   const rand = 150
+  const feldHoehe = HOEHE - ABLAGE
   const skala = Math.min(
     (BREITE - rand * 2) / Math.max(1, maxX - minX),
-    (HOEHE - rand * 2) / Math.max(1, maxY - minY),
+    (feldHoehe - rand * 2) / Math.max(1, maxY - minY),
   )
   for (const k of knoten) {
     k.x = rand + (k.x - minX) * skala
     k.y = rand + (k.y - minY) * skala
   }
-  return { BREITE, HOEHE }
+
+  // Die Ablage: eine Reihe, mittig, notfalls mehrere. Der Abstand ist so
+  // gewählt, dass die Namen nebeneinander Platz haben — sie stehen hier immer,
+  // nicht erst beim Zeigen: Ein namenloser Punkt in einer Ablage wäre die
+  // Auskunft „hier ist etwas", ohne zu sagen, was.
+  const SPALTE = 260
+  const proReihe = Math.max(1, Math.floor((BREITE - 160) / SPALTE))
+  einsam.forEach((k, i) => {
+    const reihe = Math.floor(i / proReihe)
+    const inReihe = Math.min(proReihe, einsam.length - reihe * proReihe)
+    const spalte = i % proReihe
+    k.x = BREITE / 2 + (spalte - (inReihe - 1) / 2) * SPALTE
+    k.y = feldHoehe + 52 + reihe * 62
+  })
+
+  return { BREITE, HOEHE: feldHoehe + (einsam.length ? Math.ceil(einsam.length / proReihe) * 62 + 60 : 0), ABLAGE_Y: feldHoehe }
 }
 
 export function verweiskarte(dokumente, bereiche) {
@@ -310,13 +341,14 @@ export function verweiskarte(dokumente, bereiche) {
     ziel: d.ziel,
     bereich: d.bereich,
     teile: d.teile ?? [],
+    prototyp: (d.prototypen ?? []).length > 0,
     ton: bereiche.find((b) => b.id === d.bereich)?.ton ?? '#7e8a99',
     grad: d.verweise.filter((v) => bekannt.has(v)).length + d.rueckverweise.length,
   }))
   const kanten = dokumente.flatMap((d) =>
     d.verweise.filter((v) => bekannt.has(v)).map((v) => ({ von: d.abs, nach: v })),
   )
-  const { BREITE, HOEHE } = verteile(knoten, kanten, bereiche)
+  const { BREITE, HOEHE, ABLAGE_Y } = verteile(knoten, kanten, bereiche)
   const proAbs = new Map(knoten.map((k) => [k.abs, k]))
 
   /*
@@ -341,7 +373,7 @@ export function verweiskarte(dokumente, bereiche) {
       const a = proAbs.get(von)
       const b = proAbs.get(nach)
       if (!a || !b) return ''
-      return `<line class="bogen" data-von="${von}" data-nach="${nach}" data-bereich="${a.bereich}" x1="${rund(a.x)}" y1="${rund(a.y)}" x2="${rund(b.x)}" y2="${rund(b.y)}" stroke="${a.ton}"/>`
+      return `<line class="bogen" data-von="${von}" data-nach="${nach}" data-bereich="${a.bereich}" style="--ton:${a.ton}" x1="${rund(a.x)}" y1="${rund(a.y)}" x2="${rund(b.x)}" y2="${rund(b.y)}"/>`
     })
     .join('')
 
@@ -354,19 +386,68 @@ export function verweiskarte(dokumente, bereiche) {
         data-teile="${k.teile.join(' ')}" data-r="${rund(r)}" data-grad="${k.grad}"
         data-titel="${k.titel.toLowerCase().replace(/"/g, '')}">
         <circle r="${rund(r)}" fill="${k.ton}" opacity="${k.grad ? 0.9 : 0.5}"/>
+        ${
+          /*
+           * „Dazu gibt es ein Mockup" — als RING um den Punkt, nicht als
+           * eigener Punkt. Die 18 Mockups als Knoten aufzunehmen hieße 18
+           * Blätter mehr (12 mit genau einer Kante, 6 ganz ohne): Punkte, die
+           * zur Struktur nichts beitragen, in einem Bild, dessen ganzer Wert
+           * die Struktur ist. Ein Mockup ist eine ANTWORT in einem Konzept,
+           * kein Nachbar davon — dieselbe Linie wie auf der Roadmap.
+           * Gestrichelt, weil eine geschlossene Linie hier „ausgewählt" hieße.
+           */
+          k.prototyp ? `<circle class="prototyp-ring" r="${rund(r + 5)}" fill="none" stroke="${k.ton}"/>` : ''
+        }
         <circle class="halo" r="${rund(r + 14)}" fill="transparent"/>
-        <g class="etikett" transform="translate(0 ${rund(r + 8)})"><text text-anchor="middle" dominant-baseline="hanging">${kurz(k.titel, 28)}</text></g>
+        <g class="etikett" transform="translate(0 ${rund(r + 8)})"><text text-anchor="middle" dominant-baseline="hanging">${kurz(kartenName(k.titel), 30)}</text></g>
       </g>`
     })
     .join('')
 
+  // Die Trennlinie sagt, dass unten etwas ANDERES steht — ohne sie sähe die
+  // Reihe aus wie ein weiterer, besonders ordentlicher Teil des Graphen.
+  const ablage = knoten.some((k) => !k.grad)
+    ? `<g class="ablage">
+        <line x1="80" y1="${rund(ABLAGE_Y)}" x2="${BREITE - 80}" y2="${rund(ABLAGE_Y)}"/>
+        <text x="80" y="${rund(ABLAGE_Y + 24)}">Ohne Verweise</text>
+      </g>`
+    : ''
+
   return `<svg class="verweiskarte" viewBox="0 0 ${BREITE} ${HOEHE}" role="img"
       aria-label="Graph der Querverweise zwischen den Dokumenten">
     <g class="karten-welt" data-welt>
+      ${ablage}
       <g class="boegen">${linien}</g>
       <g class="knoten-schicht">${punkte}</g>
     </g>
   </svg>`
+}
+
+/**
+ * Der Name, wie er UNTER EINEM PUNKT steht — nicht der Titel des Dokuments.
+ *
+ * Auf der Karte waren 25 von 37 Etiketten gekappt („Konzept: Newsletter —
+ * Einwi…", „Umbauplan: Renderer-Labor b…"), und was dabei wegfiel, war jedes
+ * Mal der unterscheidende Teil. Weg müssen deshalb drei Sorten Ballast:
+ *
+ * 1. Die GATTUNG vorn („Konzept:", „Umbauplan:", „Handbuch:"). Sie steht an
+ *    fast jedem Titel, kostet ein Drittel der Zeile und sagt dasselbe wie die
+ *    Farbe des Punktes, die daneben ohnehin in der Legende erklärt ist.
+ * 2. Der UNTERTITEL hinter „ — ", „: " oder „ & ". Er beantwortet eine Frage,
+ *    die man an ein Dokument stellt, nicht an einen Punkt in einem Graphen.
+ * 3. Die Klammer am Ende („(editor.ts)", „(Backlog)").
+ *
+ * Gekürzt wird nur, solange etwas Kenntliches übrig bleibt (mindestens zehn
+ * Zeichen): „Maptale — Tech-Stack & Systemarchitektur" darf nicht zu „Maptale"
+ * werden, sonst heißt der Punkt wie das ganze Projekt.
+ */
+export function kartenName(titel) {
+  let name = String(titel).replace(/^(Konzept|Umbauplan|Umsetzung|Handbuch):\s*/, '')
+  for (const trenner of [' — ', ' – ', ': ', ' & ']) {
+    const i = name.indexOf(trenner)
+    if (i >= 10) name = name.slice(0, i)
+  }
+  return name.replace(/\s*\([^()]*\)\s*$/, '').trim() || String(titel)
 }
 
 /** Lange Titel werden gekappt — unter einem Punkt ist wenig Platz. */

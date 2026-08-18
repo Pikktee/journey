@@ -117,7 +117,7 @@ export function rendere(dok, nachAbs) {
     const rest = fragment ? '#' + fragment : ''
     if (ziel) return { href: relative(ausgabeOrdner, join(SITE, ziel.ziel)) + rest, art: 'doc' }
     if (!existsSync(abs)) return { href, art: 'tot' }
-    // Beiwerk aus docs/ (Bilder, HTML-Prototypen) liegt gespiegelt in der
+    // Beiwerk aus docs/ (Bilder, HTML-Mockups) liegt gespiegelt in der
     // Ausgabe — dorthin zeigen, nicht auf das Original daneben: Über den
     // Dev-Server ist /doku/ ein eigener Ast, aus dem `..` hinausführt.
     if (abs.startsWith(DOCS + '/') && !abs.endsWith('.md')) {

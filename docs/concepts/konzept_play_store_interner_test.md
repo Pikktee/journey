@@ -7,6 +7,7 @@ betrifft:
   - docs/ops/android-release.md
   - datenschutz.html
   - index.html (Download-Knopf)
+icon: paket
 ---
 
 # Konzept: Die Android-App in den Play Store — interner Test als erster Schritt

@@ -7,6 +7,7 @@ betrifft:
   - später Export-Auftrag
   - Konten/Quota
   - Location Platform
+icon: muenze
 ---
 
 # Konzept: Monetarisierung und Esri-Lizenz

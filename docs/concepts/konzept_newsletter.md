@@ -1,6 +1,7 @@
 ---
 stand: 2026-08-06
 status: Teil A (Einwilligung) ist umgesetzt, Teil B (Erzeugung und Versand) offen
+icon: brief
 ---
 
 # Konzept: Newsletter — Einwilligung, Erzeugung, Versand

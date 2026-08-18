@@ -24,14 +24,14 @@
  *
  * Für Mockups gibt es kein Front Matter: HTML hat keins. Ihr Gegenstück sind
  * `<meta name="maptale:status" …>`-Angaben im Kopf der Datei, mit denselben
- * Namen — damit trägt ein Prototyp endlich Stand und Systemteile, die er
+ * Namen — damit trägt ein Mockup endlich Stand und Systemteile, die es
  * vorher gar nicht ausdrücken konnte.
  */
 
 /** Die erlaubten Felder, in der Reihenfolge, in der sie geschrieben werden. */
-export const FELDER = ['stand', 'status', 'betrifft', 'systemteile', 'archiviert_aus']
+export const FELDER = ['stand', 'status', 'betrifft', 'systemteile', 'icon', 'archiviert_aus']
 
-/** Zusätzlich in Prototypen: zu welchem Konzept gehört dieser Entwurf? */
+/** Zusätzlich in Mockups: zu welchem Konzept gehört dieser Entwurf? */
 export const HTML_FELDER = [...FELDER, 'gehoert_zu']
 
 const LISTENFELDER = new Set(['betrifft', 'systemteile'])
@@ -213,13 +213,17 @@ export function kopfVon(text) {
     status: alsText(zusammen.status),
     betrifft: alsListe(zusammen.betrifft),
     systemteile: alsListe(zusammen.systemteile),
+    // Das Zeichen der Karte. Von Hand gewählt und nicht abgeleitet: Elf der
+    // achtzehn Roadmap-Konzepte nennen zwei bis vier Systemteile, ein Icon
+    // aus dem ersten davon träfe die Sache nicht besser als gar keins.
+    icon: alsText(zusammen.icon),
     archiviertAus: alsText(zusammen.archiviert_aus) || null,
     strukturiert: roh != null,
     koerper,
   }
 }
 
-/** Kopfangaben eines Prototyps: `<meta name="maptale:stand" content="…">`. */
+/** Kopfangaben eines Mockups: `<meta name="maptale:stand" content="…">`. */
 export function kopfAusHtml(text) {
   const daten = {}
   const kopfEnde = text.search(/<\/head>/i)

@@ -20,6 +20,7 @@
 
 import { escape } from './markdown.mjs'
 import { motiv, titelgrafik, verweiskarte } from './grafiken.mjs'
+import { icon } from './icons.mjs'
 import { ZIELBEREICHE } from './dienst.mjs'
 import { SYSTEMTEILE } from './sammeln.mjs'
 
@@ -134,6 +135,16 @@ ${
 <link rel="stylesheet" href="${auf}assets/stil.css" />
 </head>
 <body class="${klasse}" data-auf="${auf}">
+<script>
+  /* Läuft die Seite über einen Dienst, der schreiben kann? Das entscheidet
+     die Klasse "mit-dienst" am body, und sie entscheidet über LAYOUT: mit den Aktionsknöpfen
+     ist eine Mockup-Kachel 191 statt 185 Pixel hoch. Bis hierher setzte
+     viewer.js die Klasse — das Blatt liegt aber am Ende der Seite, also malte
+     der Browser einmal ohne und gleich darauf mit, und das ganze Gitter
+     sprang um sechs Pixel je Zeile. Hier steht es VOR dem Inhalt, damit es
+     schon im ersten Bild gilt. */
+  if (/^https?:$/.test(location.protocol)) document.body.classList.add('mit-dienst')
+</script>
 ${inhalt}
 ${umbenennenSchicht()}
 <script src="${auf}assets/index.js"></script>
@@ -203,7 +214,7 @@ function kopfleiste(ziel, bereiche) {
       </div>
     </div>
     <a href="${auf}mockups.html">Mockups</a>
-    <a href="${auf}karte.html">Karte</a>
+    <a href="${auf}karte.html">Netz</a>
   </nav>
   <button class="suchknopf" data-suche-oeffnen type="button"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="13.5" y1="13.5" x2="18" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Suchen</span><kbd>⌘K</kbd></button>
 </header>`
@@ -388,6 +399,28 @@ function phaseVon(roadmap, quelle) {
   return roadmap?.phasen.find((ph) => ph.eintraege.some((e) => e.quelle === quelle))?.name ?? ''
 }
 
+/**
+ * Die Reihenfolge, in der die Kacheln STEHEN — dieselbe, die viewer.js unter
+ * „zuletzt geändert" herstellt.
+ *
+ * Vorher kamen sie in Dateinamen-Reihenfolge aus dem Verzeichnis, und das
+ * Blatt sortierte sie beim Laden um: Die Seite stand einen Moment falsch da
+ * und sprang dann. Sortiert wird weiterhin im Browser (die Auswahl kann ja
+ * wechseln), er findet die Liste jetzt nur schon in seiner Voreinstellung vor.
+ * Wer den Vergleich hier ändert, ändert ihn dort mit — sonst springt es wieder.
+ */
+function nachDatum(liste) {
+  return liste.slice().sort((a, b) => {
+    const da = a.geaendert || ''
+    const db = b.geaendert || ''
+    if (!da && !db) return 0
+    // Ohne Datum (ungetrackt) ans Ende: Eine fehlende Angabe führt keine Liste an.
+    if (!da) return 1
+    if (!db) return -1
+    return db.localeCompare(da)
+  })
+}
+
 /* ── Karten ───────────────────────────────────────────────────────────────
  * Die Kachel ist EIN Ziel: Die ganze Fläche ist der Link (`.karte-flaeche`
  * liegt als Overlay darüber), das Menü liegt darüber und fängt seine Klicks
@@ -397,10 +430,11 @@ function phaseVon(roadmap, quelle) {
 function dokumentKarte(d, auf, ton, roadmap) {
   const phase = phaseVon(roadmap, d.quelle)
   const zeit = zeitRelativ(d.geaendert)
+  const verweise = d.verweise.length + d.rueckverweise.length
   return `<article class="dok-karte" style="--ton:${ton}"
      data-ampel="${d.ampel?.art ?? 'ohne'}" data-teile="${(d.teile ?? []).join(' ')}"
      data-datum="${escape(d.geaendert || '')}" data-titel="${escape(d.titel.toLowerCase())}"
-     data-minuten="${d.minuten}" data-verweise="${d.verweise.length + d.rueckverweise.length}"
+     data-minuten="${d.minuten}" data-verweise="${verweise}"
      data-suchtext="${escape((d.titel + ' ' + d.klappentext).toLowerCase())}">
     <a class="karte-flaeche" href="${auf}${escape(d.ziel)}"><span class="nur-vorlesen">${escape(d.titel)} öffnen</span></a>
     <div class="karte-marken">${ampelChip(d.ampel)}${phasenChip(phase)}${teilChips(d.teile, 2)}</div>
@@ -413,7 +447,22 @@ function dokumentKarte(d, auf, ton, roadmap) {
             ? `<span class="meta-zeit${zeit.frisch ? ' frisch' : ''}" title="Zuletzt geändert: ${escape(zeit.titel)}">${escape(zeit.text)}</span>`
             : ''
         }
-        <span class="meta-dauer" title="${d.worte.toLocaleString('de-DE')} Wörter">${d.minuten} min</span>
+        ${
+          /*
+           * Statt der LESEZEIT die Zahl der Verweise.
+           *
+           * „30 min" beantwortete eine Frage, die man an eine Kachel nicht
+           * stellt: Man sucht hier, welches Dokument man aufmacht, nicht wie
+           * lange man dann liest — und im Dokument selbst steht die Länge
+           * ohnehin (Kopftafel „Länge: 30 min · 7.400 Wörter"). Die Verweise
+           * dagegen sagen etwas über den Rang eines Dokuments im Bestand, und
+           * bis hierher konnte man danach SORTIEREN („meist verlinkt"), ohne
+           * die Zahl je zu sehen.
+           */
+          verweise
+            ? `<span class="meta-verweise" title="${d.rueckverweise.length} nennen dieses Dokument, ${d.verweise.length} werden hier genannt">${verweise} ${verweise === 1 ? 'Verweis' : 'Verweise'}</span>`
+            : ''
+        }
       </span>
       ${aktionsmenue({
         datei: d.quelle,
@@ -428,19 +477,20 @@ function dokumentKarte(d, auf, ton, roadmap) {
 
 /**
  * Die Mockup-Kachel. Sie führt auf die DETAILSEITE und nicht mehr direkt in den
- * Prototyp: Ein Klick, der ein neues Fenster öffnet, ist eine Einbahnstraße —
- * und alles, was man über den Prototyp wissen will (wozu, seit wann, welche
+ * Mockup: Ein Klick, der ein neues Fenster öffnet, ist eine Einbahnstraße —
+ * und alles, was man über das Mockup wissen will (wozu, seit wann, welche
  * Phase), passt nicht in eine Kachel.
  */
 function mockupKarte(m, auf, roadmap) {
   const phase = phaseVon(roadmap, 'docs/' + m.quelle)
-  // Die Kachel führt DIREKT in den Prototyp. Eine Zwischenseite dazwischen
+  const zeit = zeitRelativ(m.geaendert)
+  // Die Kachel führt DIREKT in das Mockup. Eine Zwischenseite dazwischen
   // beantwortete keine Frage, die die Kachel nicht schon beantwortet — und wer
   // auf ein Mockup klickt, will das Mockup sehen. Roadmap und Archiv liegen im
-  // Menü der Kachel und in der Leiste, die der Dev-Server dem Prototyp
+  // Menü der Kachel und in der Leiste, die der Dev-Server dem Mockup
   // mitgibt.
   return `<article class="mockup" id="${escape(m.name)}" data-teile="${(m.teile ?? []).join(' ')}"
-     data-titel="${escape(m.titel.toLowerCase())}" data-datum="" data-minuten="0" data-verweise="0"
+     data-titel="${escape(m.titel.toLowerCase())}" data-datum="${escape(m.geaendert || '')}" data-minuten="0" data-verweise="0"
      data-suchtext="${escape((m.titel + ' ' + (m.klappentext || '')).toLowerCase())}">
     <a class="karte-flaeche" href="${auf}${escape(m.quelle)}" target="_blank" rel="noopener"><span class="nur-vorlesen">${escape(m.titel)} öffnen</span></a>
     <div class="mockup-text">
@@ -452,7 +502,7 @@ function mockupKarte(m, auf, roadmap) {
         // „Konzept — keines verlinkt" stand sie im selben Grau wie ein
         // ausgefüllter Wert und ging unter; hier oben landet das Auge zuerst.
         // In Warnfarbe wie „Stand prüfen" auf der Roadmap: ein Hinweis zum
-        // Nachsehen, kein Alarm — bei einem Drittel der Prototypen ist es in
+        // Nachsehen, kein Alarm — bei einem Drittel der Mockups ist es in
         // Ordnung so.
         (m.konzepte ?? []).length || m.archiv
           ? ''
@@ -463,7 +513,7 @@ function mockupKarte(m, auf, roadmap) {
       ${
         /*
          * WOZU gehört dieser Entwurf? Die Frage stellt man sich bei jedem
-         * Prototyp, und bis hierher stand die Antwort nur im Fließtext des
+         * Mockup, und bis hierher stand die Antwort nur im Fließtext des
          * Konzepts — also genau dort, wo man sie nicht sucht.
          *
          * Als Satzanfang („Gehört zu Live mitverfolgen") war sie zu leise: Man
@@ -490,7 +540,22 @@ function mockupKarte(m, auf, roadmap) {
             '<div class="mockup-konzept leer" aria-hidden="true"></div>'
       }
       <footer class="karte-fuss">
-        <span class="karte-meta">${escape(m.name)}</span>
+        <span class="karte-meta">
+          ${
+            /*
+             * Wann zuletzt geändert — dieselbe Angabe wie auf den Dokument-
+             * Kacheln, und aus demselben Grund: Ein Mockup von vorgestern
+             * und einer vom letzten Frühjahr sind verschiedene Dinge, und
+             * ansehen muss man beiden das bisher nicht. Sie stand nicht einmal
+             * im Markup — die Kachel trug `data-datum=""`, wodurch die
+             * Voreinstellung „zuletzt geändert" alle Mockups für gleich alt
+             * hielt und faktisch nach nichts sortierte.
+             */
+            zeit.text
+              ? `<span class="meta-zeit${zeit.frisch ? ' frisch' : ''}" title="Zuletzt geändert: ${escape(zeit.titel)}">${escape(zeit.text)}</span>`
+              : ''
+          }
+        </span>
         ${aktionsmenue({
           datei: 'docs/' + m.quelle,
           titel: m.titel,
@@ -499,7 +564,7 @@ function mockupKarte(m, auf, roadmap) {
           // Phase anbietet, die der Sammler danach verweigert, wäre eine
           // Einladung in eine Sackgasse.
           phasen: [],
-          oeffnen: `<a class="menue-eintrag" href="${auf}${escape(m.quelle)}" target="_blank" rel="noopener">Prototyp öffnen ↗</a><hr />`,
+          oeffnen: `<a class="menue-eintrag" href="${auf}${escape(m.quelle)}" target="_blank" rel="noopener">Mockup öffnen ↗</a><hr />`,
         })}
       </footer>
     </div>
@@ -621,6 +686,16 @@ function roadmapAbschnitt(roadmap, bereiche) {
 
     return `<li data-datei="${escape(e.quelle)}" data-ampel="${escape(ampel)}">
       ${griff}
+      ${
+        /*
+         * Das Zeichen des Konzepts (Feld `icon:` im Kopf, Satz in icons.mjs).
+         * Achtzehn Karten in drei Spalten sahen sich alle gleich an; wer eine
+         * Roadmap überfliegt, sucht aber nicht Text, sondern WIEDER. Es steht
+         * VOR dem Titel und nicht im Titel-Link: Anklickbar ist der Name, das
+         * Zeichen ist eine Marke, kein zweites Ziel.
+         */
+        ''
+      }<span class="rm-marke">${icon(e.dok.kopf.icon, 'rm-icon')}</span>
       <span class="rm-inhalt">
         <a class="rm-ziel" href="${escape(e.dok.ziel)}"${status ? ` title="${escape(status)}"` : ''}>
           <span class="rm-titel">${escape(titel)}</span>
@@ -648,6 +723,15 @@ function roadmapAbschnitt(roadmap, bereiche) {
     <ol class="rm-liste" data-phase="${escape(ph.name)}">${ph.eintraege
       .map(eintrag)
       .join('')}</ol>
+    <div class="rm-leer">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+        <path d="M12 4v9"/>
+        <path d="M8.5 9.5 12 13l3.5-3.5"/>
+      </svg>
+      <b>Diese Phase ist leer</b>
+      <span>Karte aus einer anderen Spalte hierher ziehen</span>
+    </div>
   </section>`
 
   /*
@@ -736,7 +820,7 @@ export function uebersichtSeite({ bereiche, dokumente, mockups, bilder, roadmap,
       <h1>Alles, was über <em>Maptale</em> aufgeschrieben ist.</h1>
       <p class="titel-bilanz">
         <b>${dokumente.length}</b> Dokumente in <b>${bereiche.length}</b> Bereichen,
-        dazu <b>${mockups.length}</b> Prototypen.
+        dazu <b>${mockups.length}</b> Mockups.
       </p>
       <div class="titel-knoepfe">
         <button class="knopf knopf-haupt" type="button" data-suche-oeffnen>
@@ -757,7 +841,7 @@ export function uebersichtSeite({ bereiche, dokumente, mockups, bilder, roadmap,
         'Jeder Bereich hat eine eigene Seite, und seine Farbe begleitet ihn durch den ganzen Viewer. Der Balken unten zeigt, wie viele Dokumente darin gebaut, unterwegs oder Entwurf sind.',
       )}</h2>
     </div>
-    <div class="bereich-gitter">
+    <div class="bereich-gitter" style="--spalten:${bereiche.length}">
       ${bereiche
         .map((b) => {
           const eigene = dokumente.filter((d) => d.bereich === b.id)
@@ -896,7 +980,9 @@ export function bereichSeite({ bereich, dokumente, bereiche, roadmap, schriftLok
 
   ${filterleiste(eigene, { platzhalter: `In ${bereich.name} filtern …`, mitStatus: true })}
 
-  <div class="karten" data-karten>${eigene.map((d) => dokumentKarte(d, auf, bereich.ton, roadmap)).join('\n')}</div>
+  <div class="karten" data-karten>${nachDatum(eigene)
+    .map((d) => dokumentKarte(d, auf, bereich.ton, roadmap))
+    .join('\n')}</div>
   <p class="leer-hinweis" data-leer hidden>Nichts gefunden. Filter zurücksetzen oder <button type="button" class="alsLink" data-suche-oeffnen>alles durchsuchen</button>.</p>
 
   ${
@@ -1024,7 +1110,7 @@ function kopftafel(dok, roadmap) {
     ${zeile('Status', status)}
     ${zeile('Roadmap', escape(phaseVon(roadmap, dok.quelle) || ''), 'Phase in docs/roadmap.md')}
     ${zeile(
-      (dok.prototypen ?? []).length === 1 ? 'Prototyp' : 'Prototypen',
+      (dok.prototypen ?? []).length === 1 ? 'Mockup' : 'Mockups',
       (dok.prototypen ?? [])
         .map(
           (p) =>
@@ -1341,15 +1427,17 @@ export function mockupSeite({ mockups, bereiche, roadmap, schriftLokal }) {
   <section class="seiten-titel">
     <div class="brotkrumen"><a href="index.html">Übersicht</a><i>/</i><span>Mockups</span></div>
     <h1>Mockups${hinweis(
-      'Die Prototypen liegen in <code>docs/mockups/</code>; die Vorschaubilder nimmt der Generator beim Bauen mit einem Headless-Chrome auf.',
+      'Die Mockups liegen in <code>docs/mockups/</code>; die Vorschaubilder nimmt der Generator beim Bauen mit einem Headless-Chrome auf.',
     )}</h1>
-    <p>HTML-Prototypen als Vorlage. Ein Klick öffnet den Prototyp in einem neuen Tab.</p>
+    <p>HTML-Mockups als Vorlage. Ein Klick öffnet das Mockup in einem neuen Tab.</p>
   </section>
 
   <section class="streifen">
     <div class="streifen-kopf"><h2>Aktuelle Vorlagen <span class="zahl">${aktuell.length}</span></h2></div>
-    ${filterleiste(aktuell, { platzhalter: 'Prototypen filtern …' })}
-    <div class="mockup-gitter" data-karten>${aktuell.map((m) => mockupKarte(m, '', roadmap)).join('\n')}</div>
+    ${filterleiste(aktuell, { platzhalter: 'Mockups filtern …' })}
+    <div class="mockup-gitter" data-karten>${nachDatum(aktuell)
+      .map((m) => mockupKarte(m, '', roadmap))
+      .join('\n')}</div>
   </section>
 
   ${
@@ -1359,7 +1447,7 @@ export function mockupSeite({ mockups, bereiche, roadmap, schriftLokal }) {
       'Archiv',
       alt.length,
       `<div class="mockup-gitter archiv-gitter">${alt.map((m) => mockupKarte(m, '', roadmap)).join('\n')}</div>`,
-      { satz: 'Historische Prototypen. Nicht als Vorlage nutzen.' },
+      { satz: 'Historische Mockups. Nicht als Vorlage nutzen.' },
     )}
   </section>`
       : ''
@@ -1386,9 +1474,9 @@ export function kartenSeite({ dokumente, bereiche, schriftLokal }) {
     ${verweiskarte(dokumente, bereiche)}
 
     <div class="karte-hud hud-links">
-      <div class="brotkrumen"><a href="index.html">Übersicht</a><i>/</i><span>Karte</span></div>
+      <div class="brotkrumen"><a href="index.html">Übersicht</a><i>/</i><span>Netz</span></div>
       <h1>Verweise${hinweis(
-        'Jeder Punkt ist ein Dokument, seine Größe die Zahl seiner Verweise. Zeigen hebt die Nachbarschaft hervor, ein Klick öffnet das Dokument. Die Lage rechnet ein Kräfte-Layout beim Bauen: Was aufeinander zeigt, rückt zusammen.',
+        'Jeder Punkt ist ein Dokument, seine Größe die Zahl seiner Verweise. Zeigen hebt die Nachbarschaft hervor, ein Klick hält sie fest, ein Doppelklick öffnet das Dokument. Die Lage rechnet ein Kräfte-Layout beim Bauen: Was aufeinander zeigt, rückt zusammen. Wer auf niemanden zeigt und von niemandem genannt wird, steht in der Ablage darunter. Ein gestrichelter Ring heißt: zu diesem Dokument gibt es ein Mockup.',
       )}</h1>
       <input type="search" class="filterfeld karten-suchfeld" placeholder="Hervorheben …" data-karte-suche autocomplete="off" />
       <div class="filterchips" data-karte-bereiche>
@@ -1434,9 +1522,9 @@ export function kartenSeite({ dokumente, bereiche, schriftLokal }) {
       <button type="button" class="karten-knopf breit" data-zoom="0">Zurücksetzen</button>
       <button type="button" class="karten-knopf breit" data-vollbild>Vollbild</button>
     </div>
-    <span class="karten-tipp">Scrollen zoomt · Ziehen verschiebt · Doppelklick setzt zurück</span>
+    <span class="karten-tipp">Doppelklick öffnet · Scrollen zoomt · Ziehen verschiebt</span>
   </div>
 </main>
 ${suchschicht()}`
-  return huelle({ titel: 'Verweis-Karte', ziel: 'karte.html', klasse: 'seite-karte', inhalt, schriftLokal })
+  return huelle({ titel: 'Verweis-Netz', ziel: 'karte.html', klasse: 'seite-karte', inhalt, schriftLokal })
 }

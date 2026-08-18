@@ -5,6 +5,7 @@ betrifft:
   - src/filmachse.ts
   - src/tour.ts
   - src/geo.ts
+icon: tempo
 ---
 
 # Wie schnell sich der Film anfühlt

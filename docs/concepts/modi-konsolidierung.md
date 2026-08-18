@@ -1,6 +1,7 @@
 ---
 stand: 2026-07-27
 status: Entwurf, nichts davon umgesetzt
+icon: weiche
 ---
 
 # Umbauplan: Fortbewegungs-Modi konsolidieren

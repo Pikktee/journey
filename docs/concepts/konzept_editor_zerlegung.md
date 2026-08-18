@@ -2,6 +2,7 @@
 stand: 2026-08-17
 status: Entwurf, nichts davon umgesetzt
 betrifft: [src/studio/editor.ts]
+icon: module
 ---
 
 # Umbauplan: Studio-Editor zerlegen (`editor.ts`)

@@ -1,6 +1,7 @@
 ---
 stand: 2026-08-07
 status: 'am 13.08. geprüft und VERTAGT (§9), nichts davon umgesetzt'
+icon: buchstaben
 ---
 
 # Konzept: Codebase-Bezeichner auf Englisch

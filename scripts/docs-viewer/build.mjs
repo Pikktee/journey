@@ -24,6 +24,7 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { ICONS } from './icons.mjs'
 import {
   WURZEL,
   DOCS,
@@ -77,7 +78,7 @@ const BEREICHE = bereicheDieserDoku()
 const dokumente = sammleDokumente()
 const mockups = sammleMockups()
 const bilder = sammleBilder()
-// Die Beziehung Konzept↔Prototyp wird abgeleitet, bevor irgendetwas gerendert
+// Die Beziehung Konzept↔Mockup wird abgeleitet, bevor irgendetwas gerendert
 // wird: Beide Seiten zeigen sie an, und beide bekommen sie aus derselben Quelle.
 verknuepfeMockups(dokumente, mockups)
 const roadmap = sammleRoadmap(dokumente, mockups)
@@ -103,14 +104,14 @@ if (existsSync(SITE))
 mkdirSync(SITE, { recursive: true })
 
 /*
- * Alles, was in `docs/` KEIN Markdown ist, wird mitkopiert: die HTML-Prototypen
+ * Alles, was in `docs/` KEIN Markdown ist, wird mitkopiert: die HTML-Mockups
  * und ihre Bilder.
  *
  * Vorher zeigten die Kacheln mit `../mockups/…` auf das Original neben der
  * Ausgabe. Als Datei geöffnet ging das gut, über den Dev-Server nicht: `/doku/`
  * ist dort ein eigener Ast, `..` führt aus ihm heraus auf `/mockups/…` — eine
  * Adresse, die es nicht gibt. Vite antwortete mit seinem Fallback, also mit der
- * Landing; die Prototypen führten auf den Startscreen und die Bilder blieben
+ * Landing; die Mockups führten auf den Startscreen und die Bilder blieben
  * kaputte Rahmen. Eine Spiegelung im Ausgabeordner löst beide Wege zugleich.
  */
 function spiegleBeiwerk(von, nachRel = '') {
@@ -208,7 +209,7 @@ for (const bereich of BEREICHE.filter((b) => b.ergaenzt))
   )
 for (const pfad of roadmap.unbekannt)
   console.warn(`  ! docs/roadmap.md verweist auf ${pfad} — Datei fehlt oder wurde umbenannt`)
-/* Bilder, die kein Prototyp benutzt: Sie liegen in den Mockup-Ordnern, werden
+/* Bilder, die kein Mockup benutzt: Sie liegen in den Mockup-Ordnern, werden
  * aber von keiner Datei dort referenziert — meist Reste einer alten Fassung.
  * Der Viewer zeigt sie nicht mehr (sie sind Beiwerk, keine Doku); gemeldet
  * werden sie trotzdem, sonst wüchse der Ordner still weiter. */
@@ -218,7 +219,7 @@ const verwaist = bilder.filter(
 )
 if (verwaist.length)
   console.log(
-    `  Bildmaterial: ${verwaist.length} von ${bilder.length} Bildern nutzt kein Prototyp (${verwaist
+    `  Bildmaterial: ${verwaist.length} von ${bilder.length} Bildern nutzt kein Mockup (${verwaist
       .slice(0, 3)
       .map((x) => x.quelle)
       .join(', ')}${verwaist.length > 3 ? ', …' : ''})`,
@@ -232,20 +233,33 @@ if (ohneTeil.length)
       .map((d) => d.quelle)
       .join(', ')}${ohneTeil.length > 3 ? ', …' : ''}) — "systemteile: [Studio, Backend]" im Front Matter hilft`,
   )
-/* Ein Prototyp in `roadmap.md` ist kein Tippfehler, sondern eine Regel, die
+/* Ein Mockup in `roadmap.md` ist kein Tippfehler, sondern eine Regel, die
  * jemand nicht kannte — also wird er benannt statt stumm übergangen. */
 for (const pfad of roadmap.prototypen ?? [])
   console.warn(
-    `  ! docs/roadmap.md nennt den Prototyp ${pfad} — auf die Roadmap kommen KONZEPTE.\n` +
-      '    Lege ein Konzept an, verlinke den Prototyp darin und plane das Konzept ein.',
+    `  ! docs/roadmap.md nennt das Mockup ${pfad} — auf die Roadmap kommen KONZEPTE.\n` +
+      '    Lege ein Konzept an, verlinke das Mockup darin und plane das Konzept ein.',
   )
 const ohneKonzept = mockups.filter((m) => !m.archiv && !m.konzepte.length)
 if (ohneKonzept.length)
   console.log(
-    `  Prototypen: ${ohneKonzept.length} von ${mockups.filter((m) => !m.archiv).length} gehören zu keinem Konzept — kein Fehler (manches wurde gezeichnet und direkt gebaut), aber eine Beziehung, die der Viewer dann nicht zeigen kann`,
+    `  Mockups: ${ohneKonzept.length} von ${mockups.filter((m) => !m.archiv).length} gehören zu keinem Konzept — kein Fehler (manches wurde gezeichnet und direkt gebaut), aber eine Beziehung, die der Viewer dann nicht zeigen kann`,
   )
 if (roadmap.offen.length)
   console.log(`  Roadmap: ${roadmap.offen.length} Konzepte ohne Phase (stehen unter „Noch nicht eingeplant")`)
+
+/* Ein Konzept auf der Roadmap ohne `icon:` bekommt das neutrale Blatt — kein
+ * Fehler, aber in einer Spalte, in der jede andere Karte ihr eigenes Zeichen
+ * trägt, liest sich das Blatt als „hierzu fehlt etwas". Gemeldet wird es
+ * deshalb hier und nicht in der Ansicht. */
+const ohneIcon = roadmap.phasen.flatMap((p) => p.eintraege).filter((e) => !ICONS[e.dok.kopf.icon])
+if (ohneIcon.length)
+  console.log(
+    `  Zeichen: ${ohneIcon.length} Roadmap-Konzepte ohne gültiges „icon:" (${ohneIcon
+      .map((e) => e.quelle.replace('docs/concepts/', ''))
+      .slice(0, 3)
+      .join(', ')}${ohneIcon.length > 3 ? ', …' : ''}) — die Namen stehen in scripts/docs-viewer/icons.mjs`,
+  )
 
 /* Der `status`-Satz ist von Hand gepflegt, und sein einziger Feind ist stilles
  * Veralten. Gemeldet wird deshalb nur der Fall ohne Ratespiel: Was laut Roadmap

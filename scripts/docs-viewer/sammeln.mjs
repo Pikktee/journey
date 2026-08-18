@@ -576,12 +576,12 @@ export function sammleDokumente() {
 }
 
 /**
- * Mockups sind HTML-Prototypen. Ihr Titel steht im `<title>`, ihr Klappentext
- * im Index — beides ohne DOM-Parser, ein Prototyp hat genau einen Titel.
+ * Mockups sind HTML-Mockups. Ihr Titel steht im `<title>`, ihr Klappentext
+ * im Index — beides ohne DOM-Parser, ein Mockup hat genau einen Titel.
  *
  * Stand und Status kommen aus `<meta name="maptale:…">`: HTML kennt kein Front
  * Matter, aber dieselbe Frage („ist dieser Entwurf noch aktuell?") stellt sich
- * an einem Prototyp genauso, und bisher konnte er sie nicht beantworten.
+ * an einem Mockup genauso, und bisher konnte es sie nicht beantworten.
  */
 export function sammleMockups() {
   const klappentexte = klappentexteAusIndex()
@@ -650,14 +650,14 @@ export function sammleRoadmap(dokumente, mockups = []) {
   const datei = join(DOCS, 'roadmap.md')
   const nachAbs = new Map(dokumente.map((d) => [d.abs, d]))
   /*
-   * AUF DIE ROADMAP KOMMEN NUR KONZEPTE, keine Prototypen.
+   * AUF DIE ROADMAP KOMMEN NUR KONZEPTE, keine Mockups.
    *
-   * Vorher durften Mockups mit — mit der Begründung, ein Prototyp SEI oft der
+   * Vorher durften Mockups mit — mit der Begründung, ein Mockup SEI oft der
    * nächste Schritt. Das stimmt, aber daraus folgt nicht, dass er ein eigener
    * Plan ist: Geplant wird eine Entscheidung, und die braucht ein Was und ein
-   * Warum. Ein Prototyp ist eine ANTWORT darin.
+   * Warum. Ein Mockup ist eine ANTWORT darin.
    *
-   * Zwei Dinge haben es entschieden. Erstens war der eine Prototyp auf der
+   * Zwei Dinge haben es entschieden. Erstens war der eine Mockup auf der
    * Roadmap redundant: „Maptale App, vorhandene Bilder hinzufügen" stand neben
    * „Medien nachreichen — die App-Seite fehlt noch", also dasselbe Vorhaben
    * zweimal, einmal mit Status und einmal ohne. Zweitens kann ein Mockup keinen
@@ -665,9 +665,9 @@ export function sammleRoadmap(dokumente, mockups = []) {
    * abgearbeitet sein — auf einer Karte neben Konzepten fehlte ihm genau die
    * Auskunft, um die es dort geht.
    *
-   * Verloren geht nichts: Ist der Prototyp der nächste Schritt, steht das im
+   * Verloren geht nichts: Ist das Mockup der nächste Schritt, steht das im
    * Schritt-Text seines Konzepts, samt Link. Der Link stellt zugleich die
-   * Beziehung Konzept↔Prototyp her, die der Viewer sonst nicht kennt.
+   * Beziehung Konzept↔Mockup her, die der Viewer sonst nicht kennt.
    */
   const mockupNachAbs = new Map(mockups.map((m) => [join(DOCS, m.quelle), m]))
   if (!existsSync(datei))
@@ -696,7 +696,7 @@ export function sammleRoadmap(dokumente, mockups = []) {
       const beschriftung = /\.(md|html)$/.test(punkt[1].replace(/`/g, '')) ? '' : saeubere(punkt[1])
       const dok = nachAbs.get(abs)
       if (dok) aktuell.eintraege.push({ dok, quelle: dok.quelle, schritt, beschriftung, wartetAuf })
-      // Ein Prototyp wird NICHT übergangen und nicht als fehlende Datei
+      // Ein Mockup wird NICHT übergangen und nicht als fehlende Datei
       // gemeldet — er wird beim Bauen mit dem Hinweis genannt, wie es richtig
       // geht. Stumm zu verschwinden wäre die schlechtere von beiden Auskünften.
       else if (mockupNachAbs.has(abs)) prototypen.push(punkt[2])
@@ -737,14 +737,18 @@ export function sammleRoadmap(dokumente, mockups = []) {
   verketteBlockaden(phasen.flatMap((p) => p.eintraege), nachAbs)
 
   return {
-    phasen: phasen.filter((p) => p.eintraege.length),
+    // ALLE Phasen, auch die leeren. Eine leere Spalte wegzulassen kostet genau
+    // das, wofür die Ansicht gebaut ist: Ist „In Arbeit" gerade abgearbeitet,
+    // verschwindet die Spalte, und niemand kann etwas hineinziehen — die Phase
+    // wäre nur noch über die Datei erreichbar. Dazu kam ein stiller Folgefehler:
+    // `phasen[0]` ist die laufende Phase (Ruht-Warnung beim Bauen), und das war
+    // ohne die leere erste Spalte plötzlich „Beschlossen".
+    phasen,
     offen,
     imCode,
     nurGedacht,
     unbekannt,
     prototypen,
-    // Die Namen ALLER Phasen (auch der leeren) — die Auswahlfelder im Viewer
-    // müssen auch in eine noch leere Phase einsortieren können.
     erledigt,
     phasenNamen: phasen.map((p) => p.name),
     eingeplant,
@@ -840,21 +844,22 @@ export function standVeraltet(dok, heute = Date.now()) {
   return tage >= STAND_FRIST_TAGE ? { stand: treffer[0], tage } : null
 }
 
-/* ── Konzept und Prototyp ─────────────────────────────────────────────────
+/* ── Konzept und Mockup ─────────────────────────────────────────────────
  * Ein Mockup gehört meist zu einem Konzept, aber nicht immer, und manchmal zu
  * zweien. Gemessen am 2026-08-17: 11 von 25 werden von einem Konzept verlinkt,
  * einer von zwei (`studio-konto.html`), 14 von keinem — und bei mehreren davon
  * ist das richtig: `logo-varianten.html` wurde gezeichnet und direkt gebaut, ein
  * Konzeptpapier dazu wäre ein erfundenes Dokument.
  *
- * ABGELEITET, NICHT VERLANGT: Die Konzepte verlinken ihre Prototypen ohnehin im
+ * ABGELEITET, NICHT VERLANGT: Die Konzepte verlinken ihre Mockups ohnehin im
  * Text („Mockups: player-leiste-runde3.html (dritte Runde …)"). Wer verlinkt,
- * stellt damit die Beziehung her — ein Pflichtfeld wäre beim nächsten Prototyp
+ * stellt damit die Beziehung her — ein Pflichtfeld wäre beim nächsten Mockup
  * vergessen. Wo der Link fehlt, die Beziehung aber besteht, übersteuert
- * `<meta name="maptale:gehoert-zu" content="architecture/zeitleiste-umbau.md">`.
+ * `<meta name="maptale:gehoert_zu" content="architecture/zeitleiste-umbau.md">`
+ * — mit UNTERSTRICH, der Leser nimmt nur `[a-z_]`.
  *
- * Geführt wird sie in BEIDE Richtungen: Der Prototyp nennt sein Konzept, das
- * Konzept seine Prototypen. Eine Richtung genügte für die Anzeige, aber die
+ * Geführt wird sie in BEIDE Richtungen: Das Mockup nennt sein Konzept, das
+ * Konzept seine Mockups. Eine Richtung genügte für die Anzeige, aber die
  * zweite ist dieselbe Information — sie hier abzuleiten ist billiger, als sie
  * später an zwei Stellen zu suchen.
  */
@@ -884,7 +889,7 @@ export function verknuepfeMockups(dokumente, mockups) {
     }
   }
 
-  // 2. Was ein Prototyp selbst angibt — das schlägt die Ableitung nicht, es
+  // 2. Was ein Mockup selbst angibt — das schlägt die Ableitung nicht, es
   //    ergänzt sie: Beides sind Nennungen derselben Beziehung.
   const dokNachQuelle = new Map(dokumente.map((d) => [d.quelle, d]))
   for (const m of mockups) {

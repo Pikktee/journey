@@ -1,5 +1,5 @@
 /*
- * Die Leiste, die ein geöffneter Prototyp mitbekommt.
+ * Die Leiste, die ein geöffneter Mockup mitbekommt.
  *
  * Sie wird NICHT in die Mockup-Datei geschrieben — der Dev-Server hängt sie
  * beim Ausliefern an (`vite.config.js`, Plugin `maptale-doku`). Das Original in
@@ -7,7 +7,7 @@
  * zeigen, was es zeigt, auch wenn man es direkt im Finder öffnet.
  *
  * Alles Sichtbare trägt Inline-Stile und einen eigenen Namensraum. Ein
- * Prototyp bringt sein eigenes CSS mit, oft mit weiten Regeln (`button {…}`) —
+ * Mockup bringt sein eigenes CSS mit, oft mit weiten Regeln (`button {…}`) —
  * eine Leiste, die sich davon gestalten ließe, sähe in jedem Mockup anders aus.
  */
 ;(function () {
@@ -86,7 +86,7 @@
       zurueck.style.textDecoration = 'none'
 
       // Der Weg zum Konzept. Er gehört in die LEISTE und nicht ins Menü: Ein
-      // Prototyp ist die Antwort auf eine Frage, die woanders gestellt wird,
+      // Mockup ist die Antwort auf eine Frage, die woanders gestellt wird,
       // und wer ihn ansieht, will als Nächstes meist genau dorthin. Bei
       // mehreren Konzepten trägt der Knopf die Zahl und öffnet die Auswahl —
       // eine Reihe von vier Titeln machte aus der Leiste eine Zeile Text.
@@ -101,9 +101,9 @@
         konzeptGriff = el('button', K.knopf, 'Konzepte (' + konzepte.length + ')')
       }
 
-      // KEIN Roadmap-Griff: Auf die Roadmap kommen Konzepte, nicht Prototypen.
-      // Ein Prototyp ist eine Antwort in einem Konzept — geplant wird das
-      // Konzept, und der Prototyp steht in seinem nächsten Schritt.
+      // KEIN Roadmap-Griff: Auf die Roadmap kommen Konzepte, nicht Mockups.
+      // Ein Mockup ist eine Antwort in einem Konzept — geplant wird das
+      // Konzept, und das Mockup steht in seinem nächsten Schritt.
       var griff = el('button', K.knopf, '⋯')
       var klappe = el('div', K.klappe)
       klappe.style.display = 'none'
@@ -154,7 +154,7 @@
         eintrag('Umbenennen …', function () {
           klappe.style.display = 'none'
           var alt = (document.title || '').replace(/^Mockup\s*[—–·|-]\s*/i, '')
-          var titel = prompt('Titel des Prototyps', alt)
+          var titel = prompt('Titel des Mockups', alt)
           if (titel == null || !titel.trim()) return
           var name = prompt('Dateiname (ohne .html)', datei.split('/').pop().replace(/\.html$/, ''))
           if (name == null) return
@@ -224,6 +224,6 @@
       if (konzeptKlappe) document.body.appendChild(konzeptKlappe)
     })
     .catch(function () {
-      /* Ohne Dienst keine Leiste — der Prototyp bleibt, wie er ist. */
+      /* Ohne Dienst keine Leiste — das Mockup bleibt, wie es ist. */
     })
 })()

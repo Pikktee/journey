@@ -24,6 +24,7 @@ import {
   uebersichtSeite,
 } from '../scripts/docs-viewer/seiten.mjs'
 import { escape } from '../scripts/docs-viewer/markdown.mjs'
+import { ICONS, icon } from '../scripts/docs-viewer/icons.mjs'
 import { SYSTEMTEILE, systemteileVon, verknuepfeMockups } from '../scripts/docs-viewer/sammeln.mjs'
 import {
   archivZiel,
@@ -102,9 +103,9 @@ describe('Roadmap', () => {
     // Drei Töpfe, und jedes Konzept liegt in genau einem: eingeplant,
     // abgearbeitet oder ohne Phase. Fiele eines aus allen dreien, wüsste
     // niemand davon — das ist der Fehler, den diese Ansicht verhindern soll.
-    // Auf der Roadmap dürfen auch MOCKUPS stehen (ein Prototyp ist oft der
+    // Auf der Roadmap dürfen auch MOCKUPS stehen (ein Mockup ist oft der
     // nächste Schritt) — die haben kein `dok`. Der Zugriff ohne Fragezeichen
-    // brach in dem Moment, in dem der erste Prototyp eingeplant wurde.
+    // brach in dem Moment, in dem der erste Mockup eingeplant wurde.
     const inPhasen = new Set(
       roadmap.phasen.flatMap((p) => p.eintraege.map((e) => e.dok?.abs).filter(Boolean)),
     )
@@ -166,7 +167,7 @@ describe('Übersichtsseite', () => {
     // „sechs Bereiche" stand einmal im Text und blieb stehen, als der siebte
     // dazukam. Zahlwörter vor einer zählbaren Sache sind hier deshalb verboten.
     const zahlwort =
-      /\b(ein|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)\s+(Bereiche|Bereichen|Dokumente|Dokumenten|Prototypen|Mockups|Konzepte|Konzepten)\b/i
+      /\b(ein|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)\s+(Bereiche|Bereichen|Dokumente|Dokumenten|Mockups|Mockups|Konzepte|Konzepten)\b/i
     expect(html.match(zahlwort)?.[0] ?? null).toBeNull()
   })
 
@@ -175,7 +176,7 @@ describe('Übersichtsseite', () => {
     // wird auf das Auszeichnungs-Muster geprüft und nicht auf den ganzen Satz.
     expect(html).toContain(`<b>${dokumente.length}</b> Dokumente`)
     expect(html).toContain(`<b>${bereiche.length}</b> Bereichen`)
-    expect(html).toContain(`<b>${mockups.length}</b> Prototypen`)
+    expect(html).toContain(`<b>${mockups.length}</b> Mockups`)
   })
 
   it('verlinkt jeden Bereich', () => {
@@ -436,9 +437,9 @@ describe('Ampel aus dem Status', () => {
   })
 })
 
-describe('Konzept und Prototyp kennen sich', () => {
-  // ABGELEITET, NICHT VERLANGT: Die Konzepte verlinken ihre Prototypen ohnehin
-  // im Text. Ein Pflichtfeld wäre beim nächsten Prototyp vergessen; wer
+describe('Konzept und Mockup kennen sich', () => {
+  // ABGELEITET, NICHT VERLANGT: Die Konzepte verlinken ihre Mockups ohnehin
+  // im Text. Ein Pflichtfeld wäre beim nächsten Mockup vergessen; wer
   // verlinkt, stellt die Beziehung her. Wo der Link fehlt, sie aber besteht,
   // übersteuert `<meta name="maptale:gehoert-zu">`.
   // Die MODULWEITEN `dokumente` verknüpfen, nicht eine frische Kopie: Sonst
@@ -447,7 +448,7 @@ describe('Konzept und Prototyp kennen sich', () => {
 
   it('führt die Beziehung in beide Richtungen', () => {
     const mitKonzept = eigene.filter((m) => m.konzepte.length)
-    expect(mitKonzept.length, 'kein Prototyp mit Konzept').toBeGreaterThan(5)
+    expect(mitKonzept.length, 'kein Mockup mit Konzept').toBeGreaterThan(5)
     for (const m of mitKonzept)
       for (const k of m.konzepte) {
         const dok = dokumente.find((d) => d.quelle === k.quelle)
@@ -458,7 +459,7 @@ describe('Konzept und Prototyp kennen sich', () => {
       }
   })
 
-  it('erlaubt mehrere Konzepte je Prototyp', () => {
+  it('erlaubt mehrere Konzepte je Mockup', () => {
     // `studio-konto.html` gehört zu Profil/Konto UND Newsletter. Eine
     // 1:1-Beziehung hätte einen der beiden verschluckt.
     const mehrfach = eigene.filter((m) => m.konzepte.length > 1)
@@ -545,7 +546,7 @@ describe('Konzept und Prototyp kennen sich', () => {
 })
 
 describe('Auf die Roadmap kommen nur Konzepte', () => {
-  // Ein Prototyp ist eine ANTWORT in einem Konzept, kein eigener Plan: Er hat
+  // Ein Mockup ist eine ANTWORT in einem Konzept, kein eigener Plan: Er hat
   // keinen Status, keine Ampel und kann nie abgearbeitet sein — auf einer Karte
   // neben Konzepten fehlte ihm genau die Auskunft, um die es dort geht. Der
   // Anlass war handfest: „Maptale App, vorhandene Bilder hinzufügen" stand neben
@@ -553,7 +554,7 @@ describe('Auf die Roadmap kommen nur Konzepte', () => {
   // zweimal, einmal mit Status und einmal ohne.
   const roadmap = sammleRoadmap(dokumente, mockups)
 
-  it('führt keinen Prototyp als Eintrag', () => {
+  it('führt kein Mockup als Eintrag', () => {
     for (const phase of roadmap.phasen)
       for (const e of phase.eintraege) {
         expect(e.dok, `${phase.name}: Eintrag ohne Dokument`).toBeTruthy()
@@ -561,7 +562,7 @@ describe('Auf die Roadmap kommen nur Konzepte', () => {
       }
   })
 
-  it('übergeht einen eingetragenen Prototyp nicht stumm', () => {
+  it('übergeht einen eingetragenen Mockup nicht stumm', () => {
     // Er landet in `prototypen` und wird beim Bauen genannt — als „fehlende
     // Datei" gemeldet zu werden wäre die falsche Auskunft, und stumm zu
     // verschwinden die schlechtere.
@@ -569,12 +570,12 @@ describe('Auf die Roadmap kommen nur Konzepte', () => {
     expect(roadmap.unbekannt).toEqual([])
   })
 
-  it('weist einen Prototyp beim Einplanen ab', () => {
+  it('weist ein Mockup beim Einplanen ab', () => {
     const mockup = mockups.find((m) => !m.archiv)
     expect(() => roadmapSetzen('docs/' + mockup.quelle, 'Angedacht')).toThrow(/Konzepte/)
   })
 
-  it('bietet auf einer Prototyp-Kachel keine Phase an', () => {
+  it('bietet auf einer Mockup-Kachel keine Phase an', () => {
     // Ein Menü, das eine Phase anbietet, die der Sammler danach verweigert,
     // wäre eine Einladung in eine Sackgasse.
     const html = mockupSeite({ mockups, bereiche, roadmap, schriftLokal: false })
@@ -623,8 +624,10 @@ describe('Roadmap als Ablauf', () => {
   it('zeigt den Statussatz nicht mehr als Text auf der Karte', () => {
     // Zwei angeschnittene Sätze übereinander liest niemand. Der Stand hängt im
     // Tooltip; sichtbar bleibt er nur als Fund („Stand prüfen").
-    const laufend = roadmap.phasen[0].eintraege.filter((e) => e.dok?.kopf.status)
-    expect(laufend.length).toBeGreaterThan(0)
+    // Über ALLE Phasen und nicht über die erste: Die laufende Spalte darf leer
+    // sein (und ist es, sobald abgearbeitet ist, was in Arbeit war).
+    const mitStatus = roadmap.phasen.flatMap((p) => p.eintraege).filter((e) => e.dok?.kopf.status)
+    expect(mitStatus.length).toBeGreaterThan(0)
     expect(html).not.toContain('class="rm-stand"')
   })
 
@@ -643,6 +646,34 @@ describe('Roadmap als Ablauf', () => {
     expect(schritt).toBe('Bevor er wächst.')
     // Ein Dateiname als Linktext ist KEIN Kurzname — dort darf der Titel greifen.
     expect(loeseHeraus(['* [x.md](concepts/x.md) — y'], 'concepts/x.md').beschriftung).toBe('')
+  })
+
+  it('gibt jeder Karte ein eigenes Zeichen', () => {
+    // Das Icon steht von Hand im Kopf (`icon:`), und genau deshalb kann es
+    // fehlen oder sich verschreiben. Beides ist still: Die Karte bekommt das
+    // neutrale Blatt und sieht aus, als gehörte sie dorthin. Zwei Wächter:
+    // jeder Name muss es geben, und auf der Roadmap muss jeder eins haben.
+    for (const d of dokumente)
+      if (d.kopf.icon) expect(Object.keys(ICONS), `${d.quelle}: icon: ${d.kopf.icon}`).toContain(d.kopf.icon)
+    for (const e of roadmap.phasen.flatMap((p) => p.eintraege))
+      expect(ICONS[e.dok.kopf.icon], `${e.quelle} hat kein Zeichen`).toBeTruthy()
+    // Und der Rückfall trägt: ein unbekannter Name kostet keine Karte.
+    expect(icon('gibtesnicht')).toContain('<svg')
+    expect(icon('gibtesnicht')).toBe(icon('blatt'))
+  })
+
+  it('zeigt eine leere Phase trotzdem als Spalte', () => {
+    // Der Grund ist nicht Vollständigkeit, sondern Bedienbarkeit: In eine
+    // Spalte, die nicht da ist, kann man nichts ziehen. Räumt man „In Arbeit"
+    // leer, wäre die Phase sonst nur noch über die Datei erreichbar — und der
+    // Platzhalter sagt, dass die leere Spalte ein Angebot ist und kein Fehler.
+    const leer = { ...roadmap, phasen: [{ name: 'In Arbeit', zeitraum: '', text: '', eintraege: [] }, ...roadmap.phasen.slice(1)] }
+    const seite = uebersichtSeite({ dokumente, bereiche, mockups, bilder: [], roadmap: leer, schriftLokal: false })
+    expect(seite).toContain('data-phase="In Arbeit"')
+    expect(seite).toContain('rm-leer')
+    // Und die laufende Phase bleibt die erste: `phasen[0]` ist die Grundlage
+    // der Ruht-Warnung beim Bauen — ohne die leere Spalte wäre das „Beschlossen".
+    expect(leer.phasen[0].name).toBe('In Arbeit')
   })
 
   it('meldet, was im Code ist, aber in keiner Phase steht', () => {
@@ -674,12 +705,17 @@ describe('Karten sind zwischen den Phasen austauschbar', () => {
   })
 
   it('rendert den nächsten Schritt in JEDER Phase', () => {
+    let gesehen = 0
     for (const phase of roadmap.phasen) {
+      // Eine LEERE Phase ist erlaubt — sie steht trotzdem als Spalte da, damit
+      // man etwas hineinziehen kann. Geprüft wird, was sie trägt, nicht dass
+      // sie etwas trägt.
       const mitSchritt = phase.eintraege.filter((e) => e.schritt)
-      expect(mitSchritt.length, `${phase.name} hat keine Einträge mit Schritt`).toBeGreaterThan(0)
+      gesehen += mitSchritt.length
       for (const e of mitSchritt)
         expect(html, `${phase.name}: ${e.quelle}`).toContain(escape(e.schritt))
     }
+    expect(gesehen, 'keine einzige Phase hat einen Schritt').toBeGreaterThan(0)
   })
 
   it('trägt den Widerspruchs-Marker als Daten, nicht als Berechnung', () => {
@@ -1091,7 +1127,7 @@ describe('Datei und Editor auf der Seite', () => {
 
   it('legt den Konzept-Link einer Mockup-Kachel ÜBER die Kartenfläche', () => {
     // `.karte-flaeche` ist ein unsichtbarer Link über der ganzen Kachel. Ein
-    // Konzept-Titel darunter sieht aus wie ein Link, öffnet aber den Prototyp —
+    // Konzept-Titel darunter sieht aus wie ein Link, öffnet aber das Mockup —
     // die Beziehung stand da und war der einzige Weg, der nicht funktionierte.
     const css = readFileSync(join(WURZEL, 'scripts/docs-viewer/assets/stil.css'), 'utf8')
     const zIndex = (wahl) => {

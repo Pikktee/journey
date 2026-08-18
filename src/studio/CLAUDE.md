@@ -522,10 +522,13 @@ Drei Regeln, die man dabei leicht kippt:
   selbst auf [0, gesamtS] — „ans Ende" ist deshalb schlicht `Infinity`.
 
 Entwürfe und die verworfenen Varianten:
-[docs/mockups/studio-zeitleiste-kopf.html](../../docs/mockups/studio-zeitleiste-kopf.html) (vier
-Varianten), [`…-entscheidungen.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-entscheidungen.html)
+[`…-kopf.html`](../../docs/archive/mockups/studio-zeitleiste-kopf.html) (vier
+Varianten), [`…-v2.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-v2.html),
+[`…-entscheidungen.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-entscheidungen.html)
 (Play-Register, Abgrenzung der Zahlenpaare, Ort der Ablage),
 [`…-final.html`](../../docs/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
+Im Viewer steht nur der letzte: frühere Runden gehören ins Archiv, sonst stehen
+vier Kacheln nebeneinander und keine sagt, welche gilt.
 
 **Die Ablage sitzt an der Szenen-Bahn, nicht in der Kopfleiste.** Dort steht sonst nur, WOMIT
 man arbeitet — die Ablage sagt, WAS in der Tour ist, und aus ihr ZIEHT man auf genau diese

@@ -279,9 +279,9 @@ function setzeTitel(abs, titel) {
     return text.replace(/^#\s+.+$/m, `# ${titel}`)
   }
   const alt = text.match(/<title>([^<]*)<\/title>/i)
-  if (!alt) throw new DienstFehler('Prototyp hat keinen <title>')
+  if (!alt) throw new DienstFehler('Mockup hat keinen <title>')
   // Das Präfix „Mockup — " bleibt: Der Viewer schneidet es beim Anzeigen weg,
-  // und im Browser-Tab eines geöffneten Prototyps ist es die einzige Auskunft
+  // und im Browser-Tab eines geöffneten Mockups ist es die einzige Auskunft
   // darüber, dass man einen Entwurf ansieht.
   const praefix = /^Mockup\s*[—–·|-]\s*/i.exec(alt[1])
   return text.replace(/<title>[^<]*<\/title>/i, `<title>${(praefix?.[0] ?? '') + titel}</title>`)
@@ -414,7 +414,7 @@ export function konzepteZu(rel) {
     const treffer = mockups.find((m) => m.quelle === rel)
     return (treffer?.konzepte ?? []).map((k) => ({ titel: k.titel, ziel: k.ziel }))
   } catch {
-    // Ohne Konzeptliste bleibt die Leiste, was sie war. Ein Prototyp soll sich
+    // Ohne Konzeptliste bleibt die Leiste, was sie war. Ein Mockup soll sich
     // öffnen lassen, auch wenn der Sammler an einer anderen Datei scheitert.
     return []
   }
@@ -429,7 +429,7 @@ export async function fuehreAus(aktion, daten = {}) {
     case 'quelle':
       return { text: leseQuelle(daten.datei) }
     case 'stand': {
-      // Für die Leiste, die der Dev-Server einem geöffneten Prototyp mitgibt:
+      // Für die Leiste, die der Dev-Server einem geöffneten Mockup mitgibt:
       // Welche Phasen gibt es, in welcher steht diese Datei, liegt sie im
       // Archiv? Sie kann das nicht wissen — sie läuft in fremdem HTML.
       const rel = relative(DOCS, pruefePfad(daten.datei))
@@ -453,7 +453,7 @@ export async function fuehreAus(aktion, daten = {}) {
         archiv: rel.startsWith('archive/'),
         titel: rel.split('/').pop(),
         // WOZU gehört dieser Entwurf? Auf der Kachel steht die Antwort; im
-        // geöffneten Prototyp stand sie nirgends, und der Weg zum Konzept
+        // geöffneten Mockup stand sie nirgends, und der Weg zum Konzept
         // führte über die Suche. Die Beziehung wird abgeleitet (das Konzept
         // verlinkt die Datei) oder genannt (`maptale:gehoert_zu`) — beides
         // kann nur der Sammler, deshalb wird er hier gefragt.
@@ -662,14 +662,14 @@ export function roadmapVerschieben(rel, phase, reihenfolge) {
 export function roadmapSetzen(rel, phase, beschriftung) {
   const pfad = roadmapPfad(rel)
   if (!phase) return roadmapEntfernen(rel)
-  // AUF DIE ROADMAP KOMMEN KONZEPTE. Ein Prototyp ist eine Antwort darin, kein
+  // AUF DIE ROADMAP KOMMEN KONZEPTE. Ein Mockup ist eine Antwort darin, kein
   // eigener Plan: Er hat keinen Status, keine Ampel und kann nie abgearbeitet
   // sein — auf einer Karte neben Konzepten fehlte ihm genau die Auskunft, um die
   // es dort geht. Ist er der nächste Schritt, steht das im Schritt-Text seines
   // Konzepts, samt Link; der Link stellt zugleich die Beziehung her.
   if (pfad.endsWith('.html'))
     throw new DienstFehler(
-      'Auf die Roadmap kommen Konzepte, keine Prototypen. Lege ein Konzept an und verlinke den Prototyp darin.',
+      'Auf die Roadmap kommen Konzepte, keine Mockups. Lege ein Konzept an und verlinke das Mockup darin.',
     )
   const { uebrig, schritt, beschriftung: vorhanden } = loeseHeraus(roadmapZeilen(), pfad)
 
@@ -695,7 +695,18 @@ export function roadmapSetzen(rel, phase, beschriftung) {
   // Ein vorhandener Kurzname schlägt den übergebenen Titel: Wer eine Phase
   // wechselt, will nicht den Namen ändern.
   const zeile = `* [${vorhanden || beschriftung || basename(pfad)}](${pfad})${schritt ? ' — ' + schritt : ''}`
-  const stelle = letzterPunkt === -1 ? ende : letzterPunkt + 1
+  // Die LEERE Phase ist der Fall, den es erst gibt, seit auch eine leere Spalte
+  // auf der Roadmap steht: `ende` zeigt auf die nächste Überschrift, und ohne
+  // Rückschritt landet der erste Eintrag ohne Leerzeile direkt darüber — eine
+  // Liste, die an einer Überschrift klebt. Also hinter den letzten Text der
+  // Phase, mit einer Leerzeile davor; die Abstände zur nächsten Überschrift
+  // bleiben, wo sie waren.
+  let stelle = letzterPunkt === -1 ? ende : letzterPunkt + 1
+  if (letzterPunkt === -1) {
+    while (stelle > start + 1 && uebrig[stelle - 1].trim() === '') stelle--
+    uebrig.splice(stelle, 0, '')
+    stelle++
+  }
   uebrig.splice(stelle, 0, zeile)
   writeFileSync(ROADMAP(), uebrig.join('\n'))
   return pfad

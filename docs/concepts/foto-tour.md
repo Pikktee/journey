@@ -1,6 +1,7 @@
 ---
 stand: 2026-07-22
 status: geplant, noch nicht gebaut
+icon: kamera
 ---
 
 # Tour nur aus Fotos — ohne GPX

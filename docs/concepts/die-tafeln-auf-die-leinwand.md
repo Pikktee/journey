@@ -5,6 +5,7 @@ betrifft:
   - Player (erlebnis.html, src/style.css, src/ui.ts)
   - Video-Export (src/exportfilm.ts, src/exportformat.ts)
   - Leinwand-Werkzeug (src/kartenmaler.ts, src/kartenschicht.ts)
+icon: leinwand
 ---
 
 # Die Tafeln auf die Leinwand

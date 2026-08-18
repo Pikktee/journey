@@ -6,6 +6,7 @@ betrifft:
   - src/studio/
   - android/
   - datenschutz.html
+icon: bilder
 ---
 
 # Konzept: Medien nachreichen & endgültig löschen
