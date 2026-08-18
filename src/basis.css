@@ -105,6 +105,12 @@
      Hierarchie über Tonwerte und feine Ränder, nicht über Schattenstapel. */
   --schatten:
     0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35);
+  /* Der Fokus-Halo für Elemente, die schon einen Rand haben (Felder). Wer
+     keinen hat (Knöpfe, Links, Karten), bekommt stattdessen die 2px-Outline —
+     s. DESIGN.md, Shapes. Beides zusammen war der Doppelring, der im Studio
+     stand: Rand amber, Outline daneben, Fläche dunkler, drei Signale für einen
+     Zustand. */
+  --fokus-ring: 0 0 0 3px color-mix(in srgb, var(--akzent) 22%, transparent);
 
   /* ─── Schrift ───
      EINE UI-Schrift. Zahlen richtet `font-variant-numeric: tabular-nums` aus,

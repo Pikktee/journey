@@ -359,8 +359,11 @@ async function backeReiter(marker: ExportReiter, seite: number): Promise<HTMLCan
   const cy = seite / 2
   const r = seite * 0.42
   const g = x.createLinearGradient(cx - r, cy - r, cx + r, cy + r)
-  g.addColorStop(0, '#f8bb4b')
-  g.addColorStop(1, '#ef8f35')
+  // Derselbe Marken-Verlauf wie der Puck auf der Bühne (.rider-pulse in
+  // style.css) — vorher standen hier zwei Amber-Zwillinge, die es sonst
+  // nirgends gab.
+  g.addColorStop(0, tokenFarbe('--akzent', '#f59e0b'))
+  g.addColorStop(1, tokenFarbe('--akzent-2', '#ff6f52'))
   x.beginPath()
   x.arc(cx, cy, r, 0, Math.PI * 2)
   x.fillStyle = g
@@ -372,7 +375,7 @@ async function backeReiter(marker: ExportReiter, seite: number): Promise<HTMLCan
   if (svgEl) {
     const clone = svgEl.cloneNode(true) as SVGElement
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-    clone.setAttribute('stroke', '#171106')
+    clone.setAttribute('stroke', tokenFarbe('--auf-akzent', '#1a1206'))
     clone.setAttribute('fill', 'none')
     const url =
       'data:image/svg+xml;charset=utf-8,' +
@@ -438,7 +441,36 @@ function verstaerkeKartenSpur(map: MapLibreKarte, faktor: number): void {
  */
 function text(id: string): string {
   const el = document.getElementById(id)
-  return el?.textContent?.trim() ?? ''
+  // Ein ausgehängtes Element hat weiter seinen alten Text: Der Player versteckt
+  // Chips, die nichts sagen („0 hm"), und die Stationszeile, wenn sie nur den
+  // Titel wiederholt. Ohne diese Prüfung stünden sie im FILM trotzdem.
+  if (!el || el.hidden || el.closest('[hidden]')) return ''
+  return el.textContent?.trim() ?? ''
+}
+
+/**
+ * Ein Absatz in Zeilen, die in `maxPx` passen — für die Beschreibung.
+ *
+ * Nimmt nur `measureText`, damit der Umbruch ohne Leinwand prüfbar ist: Die
+ * Schriftmaße hängen an `ctx.font`, die Wortlogik nicht.
+ */
+export function umbrich(
+  ctx: { measureText(text: string): { width: number } },
+  satz: string,
+  maxPx: number,
+): string[] {
+  const woerter = satz.split(/\s+/).filter(Boolean)
+  const zeilen: string[] = []
+  let laufend = ''
+  for (const wort of woerter) {
+    const versuch = laufend ? `${laufend} ${wort}` : wort
+    if (laufend && ctx.measureText(versuch).width > maxPx) {
+      zeilen.push(laufend)
+      laufend = wort
+    } else laufend = versuch
+  }
+  if (laufend) zeilen.push(laufend)
+  return zeilen
 }
 
 function zeichneScrim(ctx: CanvasRenderingContext2D, b: number, h: number, staerke: number): void {
@@ -478,10 +510,19 @@ export function zeichneIntroTafel(
     .filter(Boolean)
   const kicker = text('intro-kicker')
   const route = text('intro-route')
+  const beschreibung = text('intro-desc')
+  // Die Herkunft steht auch im Film — nur ohne Link und ohne Avatar: Ein Bild
+  // aus dem Netz wäre eine weitere Ladequelle mitten im Rendern.
+  const autorName = text('intro-autor-name')
+  const autorDatum = text('intro-autor-datum')
+  const autor = [autorName, autorDatum].filter(Boolean).join('  ·  ')
   // Eine Zeile statt drei Pillen. Der schmale Zwischenraum um das Trennzeichen
   // ist Absicht: „0,4 km · 11 hm" liest sich als eine Angabe, mit normalen
   // Leerzeichen zerfiele die Zeile in drei.
-  const zahlen = ['chip-distance', 'chip-gain', 'chip-photos'].map(text).filter(Boolean).join('  ·  ')
+  const zahlen = ['chip-dauer-text', 'chip-distance', 'chip-gain', 'chip-photos']
+    .map(text)
+    .filter(Boolean)
+    .join('  ·  ')
 
   ctx.save()
   ctx.globalAlpha = sicht
@@ -491,7 +532,21 @@ export function zeichneIntroTafel(
   const laengste = Math.max(1, ...titel.map((z) => z.length))
   const titelPx = Math.min(96 * e, (b * 0.82) / (laengste * 0.54))
   const zeilenH = titelPx * 1.02
-  const block = 30 * e + titel.length * zeilenH + 46 * e + (route ? 24 * e : 0) + (zahlen ? 30 * e : 0)
+  // Die Beschreibung muss VOR der Blockhöhe umbrochen werden — sie ist der
+  // einzige Teil der Tafel, dessen Höhe vom Text abhängt.
+  const beschreibungPx = 15 * e
+  const beschreibungBreite = Math.min(b * 0.62, 620 * e)
+  ctx.font = `300 ${beschreibungPx}px Outfit, system-ui, sans-serif`
+  const beschreibungZeilen = beschreibung ? umbrich(ctx, beschreibung, beschreibungBreite) : []
+  const beschreibungZeilenH = beschreibungPx * 1.5
+  const block =
+    30 * e +
+    titel.length * zeilenH +
+    46 * e +
+    (autor ? 26 * e : 0) +
+    (route ? 24 * e : 0) +
+    (beschreibungZeilen.length ? beschreibungZeilen.length * beschreibungZeilenH + 8 * e : 0) +
+    (zahlen ? 30 * e : 0)
   let y = h / 2 - block / 2 + 8 * e
 
   ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
@@ -518,11 +573,28 @@ export function zeichneIntroTafel(
   ctx.globalAlpha = sicht
   y += 26 * e
 
+  if (autor) {
+    ctx.font = `500 ${14 * e}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = tokenFarbe('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    zeichneMitte(ctx, autor, b, y)
+    y += 26 * e
+  }
+
   if (route) {
     ctx.font = `500 ${13.5 * e}px Outfit, system-ui, sans-serif`
     ctx.fillStyle = tokenFarbe('--text-gedaempft', 'rgba(242,237,227,0.62)')
     zeichneMitte(ctx, route, b, y)
     y += 30 * e
+  }
+
+  if (beschreibungZeilen.length) {
+    ctx.font = `300 ${beschreibungPx}px Outfit, system-ui, sans-serif`
+    ctx.fillStyle = tokenFarbe('--text-gedaempft', 'rgba(242,237,227,0.62)')
+    for (const zeile of beschreibungZeilen) {
+      zeichneMitte(ctx, zeile, b, y)
+      y += beschreibungZeilenH
+    }
+    y += 8 * e
   }
 
   if (zahlen) {

@@ -588,7 +588,7 @@
     .suche { position: relative; width: min(320px, 32vw); }
     .suche input { width: 100%; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 8px 14px 8px 36px; font-size: 13.5px; }
     .suche input::placeholder { color: var(--text-3); }
-    .suche input:focus { outline: none; border-color: var(--akzent); background: var(--bg-tief); }
+    .suche input:focus { outline: none; border-color: var(--akzent); box-shadow: var(--fokus-ring); }
     .suche svg { position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; color: var(--text-3); }
     .suche kbd { position: absolute; right: 10px; top: 50%; translate: 0 -50%; font-family: var(--font-ui); font-size: 11px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
 
@@ -1371,7 +1371,20 @@
     }
     .insp-tour[hidden] { display: none !important; }
     .insp-tour .insp-inhalt { flex: 1 1 auto; }
-    .tour-fuss { margin: 0; font-size: 12px; color: var(--text-3); }
+    /* Die Felder als EINE Gruppe mit gleichem Abstand — vorher trug jedes Feld
+       seinen eigenen Hinweis, und die Abstände ergaben sich aus deren Höhe.
+       Seit die Hinweise an einem Griff hängen (src/studio/tipp.ts), steht hier
+       ein Rhythmus statt einer Summe. */
+    .tour-felder { display: flex; flex-direction: column; gap: 16px; }
+    /* Der Endscreen ist eine Entscheidung, keine Angabe: eigene Gruppe hinter
+       einer Linie. */
+    .tour-gruppe {
+      display: flex; flex-direction: column; gap: 12px;
+      padding-top: 16px; border-top: 1px solid var(--rand);
+    }
+    /* Das Zielfeld gehört zum Häkchen darüber — die Einrückung sagt das, ohne
+       eine zweite Überschrift zu brauchen. */
+    .feld.eingerueckt { margin-left: 23px; }
     .kb {
       display: flex; align-items: center; gap: 8px;
       font-size: 13px; color: var(--text-2); cursor: pointer; user-select: none;
@@ -2546,9 +2559,55 @@
       padding-bottom: 12px; border-bottom: 1px solid var(--rand);
     }
     /* Nur noch für Tour-Einstellungen — bei Zeitleisten-Objekten reicht der Kicker. */
-    .insp-titel { font-family: var(--font-display); font-size: 19px; line-height: 1.25; margin: -6px 0 0; }
-    /* Erklärung unter einem Feld — soll gelesen werden können, ohne zu drängen */
+    .insp-titel {
+      font-family: var(--font-display); font-size: 19px; line-height: 1.25;
+      margin: -6px 0 0; padding-bottom: 14px; border-bottom: 1px solid var(--rand);
+    }
+    /* Erklärung unter einem Feld — soll gelesen werden können, ohne zu drängen.
+       In den Tour-Einstellungen abgelöst durch den Tipp-Griff; anderswo (Medien,
+       Ton) steht sie weiter unter dem Feld. */
     .insp-hinweis { margin: -4px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-3); }
+    /* Label links, Griff daneben, Zähler rechts außen — eine Zeile über dem
+       Feld statt zwei Zeilen darum herum. */
+    .feld-kopf { display: flex; align-items: center; gap: 6px; }
+    .feld-kopf > label { margin: 0; }
+    .feld-kopf .feld-zaehler { margin-left: auto; }
+    .feld-zaehler { flex: none; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .feld-zaehler.knapp { color: var(--warn); }
+    /* Der Griff: so groß wie die Schrift daneben, damit er die Zeile nicht
+       aufreißt, aber mit einer Klickfläche, die man trifft. */
+    .tipp {
+      width: 15px; height: 15px; flex: none; padding: 0;
+      display: inline-grid; place-items: center;
+      border: 1px solid var(--rand-hell); border-radius: 999px;
+      background: transparent; color: var(--text-3);
+      font-family: var(--font-ui); font-size: 10px; font-weight: 600; line-height: 1;
+      cursor: help;
+    }
+    .tipp:hover, .tipp:focus-visible { color: var(--auf-akzent); background: var(--akzent); border-color: transparent; }
+    /* Die Blase hängt am BODY, nicht im Panel: Der Inspector scrollt, ein Kind
+       darin würde an seiner Kante abgeschnitten (z-index hilft dagegen nicht). */
+    .tipp-blase {
+      position: fixed; z-index: 60; max-width: 260px;
+      padding: 8px 11px; border-radius: var(--radius-md);
+      background: var(--fl-3); border: 1px solid var(--rand-hell);
+      box-shadow: var(--schatten);
+      font-size: 12px; line-height: 1.45; color: var(--text);
+      pointer-events: none;
+    }
+    .tipp-blase[hidden] { display: none; }
+    /* Die Ebenen des Geocoders als Vorschläge: ein Klick setzt sie ins Feld.
+       Keine Auswahlliste — der Text bleibt frei, das hier ist die Abkürzung. */
+    .ebenen-wahl { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+    .ebenen-wahl button {
+      font-size: 11.5px; padding: 4px 10px; border-radius: var(--radius-full);
+      border: 1px solid var(--rand-hell); background: transparent; color: var(--text-2);
+      cursor: pointer; line-height: 1.3;
+    }
+    .ebenen-wahl button:hover { color: var(--text); border-color: var(--akzent); }
+    .ebenen-wahl button[aria-pressed='true'] {
+      background: var(--akzent); border-color: transparent; color: var(--auf-akzent); font-weight: 500;
+    }
 
     /* — Aufnahme-Details: ausklappbarer Block über <details>. Geschlossen ist er
        eine ruhige Zeile, offen ein Angaben-Raster; das Pfeil-Icon dreht sich. */
@@ -2570,7 +2629,7 @@
     .insp-info summary svg:last-child { margin-left: auto; transition: transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
     .insp-info[open] summary { color: var(--text); border-bottom: 1px solid var(--rand); }
     .insp-info[open] summary svg:last-child { transform: rotate(90deg); }
-    .insp-info summary:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.55); }
+    .insp-info summary:focus-visible { outline: 2px solid var(--akzent); outline-offset: -2px; box-shadow: none; }
     .insp-info-raster { margin: 0; padding: 4px 12px 10px; }
     /* Beschriftung links, Wert rechts — Zahlen mit tabular-nums, damit
        Auflösungen und Zeiten untereinander stehen (DESIGN.md). */
@@ -2596,7 +2655,7 @@
     }
     .feld-wie svg { width: 12.5px; height: 12.5px; }
     .feld-wie:hover, .feld-wie:focus { color: var(--text-2); }
-    .feld-wie:focus-visible { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55); }
+    .feld-wie:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; box-shadow: none; }
     .feld-wie-blase {
       position: absolute; left: -8px; top: calc(100% + 8px);
       width: max-content; max-width: 250px; padding: 8px 11px 9px; border-radius: var(--radius-md);
@@ -2640,7 +2699,7 @@
       cursor: var(--scrub);
     }
     .zf:hover { border-color: var(--rand-hell); }
-    .zf:focus-within { border-color: var(--akzent); }
+    .zf:focus-within { border-color: var(--akzent); box-shadow: var(--fokus-ring); }
     .zf.scrub { border-color: var(--akzent); }
     .zf.scrub, .zf.scrub *,
     .zf.zieht, .zf.zieht * { user-select: none; }
@@ -2829,7 +2888,7 @@
     }
     .sfx-suche::placeholder { color: var(--text-3); }
     .sfx-suche:hover { border-color: var(--rand-hell); }
-    .sfx-suche:focus { outline: none; border-color: var(--akzent); }
+    .sfx-suche:focus { outline: none; border-color: var(--akzent); box-shadow: var(--fokus-ring); }
     .sfx-suche::-webkit-search-cancel-button { -webkit-appearance: none; }
 
     /* Art-Reiter: Textreiter mit Zähler (kein Pill-Segment). Bei laufender
@@ -2877,7 +2936,7 @@
     }
     .sfx-wie svg { width: 13.5px; height: 13.5px; }
     .sfx-wie:hover, .sfx-wie:focus { color: var(--text-2); }
-    .sfx-wie:focus-visible { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55); }
+    .sfx-wie:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; box-shadow: none; }
     .sfx-wie-blase {
       position: absolute; left: -8px; top: calc(100% + 9px);
       width: max-content; max-width: 280px; padding: 8px 12px 9px; border-radius: var(--radius-md);
@@ -3965,26 +4024,62 @@
             <!-- Keine Art-Zeile „Tour" über dem Titel: seit die Art die
                  Panel-Überschrift ist, wären das zwei Überschriften. -->
             <h2 class="insp-titel">Tour-Einstellungen</h2>
-            <div class="feld">
-              <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
-                   per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
-              <label for="editor-titel">Titel</label>
-              <input id="editor-titel" type="text" placeholder="Titel der Tour" />
+            <div class="tour-felder">
+              <div class="feld">
+                <!-- Die kleine Zeile ÜBER dem Titel. Vorher stand dort erzeugt
+                     „Aufgezeichnet am 14. Mai 2026"; das Datum steht jetzt neben
+                     dem Namen des Aufnehmers. Was hier hingehört — Ort, Gegend,
+                     Sehenswürdigkeit oder ein Satzanfang —, weiß nur der Autor:
+                     Der Geocoder liefert je nach Gegend eine andere Ebene. -->
+                <div class="feld-kopf">
+                  <label for="editor-dachzeile">Dachzeile</label>
+                  <button type="button" class="tipp" data-tipp="Steht klein über dem Titel. Leer = keine Zeile." aria-label="Was ist die Dachzeile?">?</button>
+                </div>
+                <input id="editor-dachzeile" type="text" maxlength="80" placeholder="z. B. Völklingen" />
+                <div class="ebenen-wahl" id="editor-dachzeile-ebenen" hidden></div>
+              </div>
+              <div class="feld">
+                <!-- Kein „leer = automatisch": ein einmal vergebener Titel lässt sich
+                     per PATCH nicht auf Auto-Benennung zurücksetzen (bewusst, v1) -->
+                <div class="feld-kopf">
+                  <label for="editor-titel">Titel</label>
+                </div>
+                <input id="editor-titel" type="text" placeholder="Titel der Tour" />
+              </div>
+              <div class="feld">
+                <!-- 150 Zeichen: Der Text steht im Startscreen des Players UND in
+                     der Vorschau geteilter Links. Die kürzt bei 200 an der
+                     Wortgrenze (server/src/seiten.ts) — unter 150 bleibt er
+                     überall ungekürzt, und auf dem Telefon ein Absatz statt eines
+                     Blocks. Bestandstexte dürfen länger sein, das Feld sperrt sie
+                     nicht (maxlength gilt nur der Eingabe). -->
+                <div class="feld-kopf">
+                  <label for="editor-beschreibung">Beschreibung</label>
+                  <button type="button" class="tipp" data-tipp="Steht im Startscreen und in der Vorschau geteilter Links." aria-label="Wo steht die Beschreibung?">?</button>
+                  <!-- Der Zähler steht in der Kopfzeile und nicht unter dem Feld:
+                       Dort stand vorher der Hinweis, und ein Fuß mit einer
+                       einzigen Zahl darin sähe aus wie ein Rest. -->
+                  <span class="feld-zaehler" id="editor-beschreibung-zaehler">0 / 150</span>
+                </div>
+                <textarea id="editor-beschreibung" rows="3" maxlength="150" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
+              </div>
             </div>
-            <div class="feld">
-              <label for="editor-beschreibung">Beschreibung</label>
-              <textarea id="editor-beschreibung" rows="4" placeholder="Worum ging es auf dieser Reise? (optional)"></textarea>
+            <!-- Der Endscreen ist eine Entscheidung, keine Angabe: eigene Gruppe,
+                 abgesetzt durch eine Linie. Das Zielfeld gehört sichtbar zu ihm
+                 und rückt deshalb ein, statt als viertes Feld dazwischenzustehen. -->
+            <div class="tour-gruppe">
+              <label class="kb" for="editor-finale">
+                <input id="editor-finale" type="checkbox" />
+                Endscreen „Ziel erreicht“ zeigen
+              </label>
+              <div class="feld eingerueckt" id="editor-finale-ziel-feld" hidden>
+                <div class="feld-kopf">
+                  <label for="editor-finale-ziel">Ziel</label>
+                  <button type="button" class="tipp" data-tipp="Leer = Ortsname am Streckenende." aria-label="Was steht im Ziel?">?</button>
+                </div>
+                <input id="editor-finale-ziel" type="text" placeholder="z. B. Grindelwald" maxlength="200" />
+              </div>
             </div>
-            <label class="kb" for="editor-finale">
-              <input id="editor-finale" type="checkbox" />
-              Endscreen „Ziel erreicht“ zeigen
-            </label>
-            <div class="feld" id="editor-finale-ziel-feld" hidden>
-              <label for="editor-finale-ziel">Ziel</label>
-              <input id="editor-finale-ziel" type="text" placeholder="z. B. Grindelwald" maxlength="200" />
-              <p class="insp-hinweis">Leer = Ortsname am Streckenende.</p>
-            </div>
-            <p class="tour-fuss">Wird mit „Speichern“ übernommen.</p>
           </div>
         </div>
         <div class="insp-inhalt" id="insp-inhalt" hidden></div>

@@ -624,6 +624,22 @@ Beschreibung und Endscreen gehören keinem Objekt der Zeitleiste; sie liegen in
 im rechten Panel, nicht als Modal und nicht als Leerzustand (der las sich
 früher wie eine Einstellung des Nichts).
 
+**Erklärungen hängen an einem Griff, nicht unter dem Feld.** In den
+Tour-Einstellungen stand unter drei Feldern je ein Satz Kleingedrucktes — beim
+ersten Mal nützlich, danach Grundrauschen, und zu dritt zerfiel das Panel in Text
+mit ein paar Feldern dazwischen. Sie sitzen jetzt an einem `?` neben dem Label
+([src/studio/tipp.ts](tipp.ts), `data-tipp`). Drei Dinge, die man dabei kippt:
+Die **Blase gehört an den `body`** — der Inspector scrollt, ein Kind darin wird
+an seiner Kante abgeschnitten, und `z-index` hilft nicht (dieselbe Familie wie
+der Auswahl-Rahmen weiter unten). Sie liegt **LINKS neben dem Griff**, weil das
+Panel am rechten Rand klebt: nach unten deckte sie das Feld zu, zu dem sie
+gehört, nach oben die Panel-Überschrift; links liegt die Karte, und die erklärt
+in diesem Moment nichts. Und **`title` allein reicht nicht** (erst nach einer
+Sekunde, nur mit Maus, Systemschrift) — es bleibt als Rückfall stehen. Die
+Lage-Rechnung ist DOM-frei und getestet (`lageFuer`), samt dem Fall
+„Fenster meldet 0×0": Die Browser-Pane tut das, sobald sie unsichtbar ist, und
+ohne Rückfall klemmte jede Rechnung die Blase in die linke obere Ecke.
+
 **Die globalen Knopf-Regeln schlagen jede Klasse.** `button:hover { background: … }` wiegt durch
 die Pseudoklasse mehr als `.knopf-primaer` oder `.kopf-griff` — wer einem Knopf eine eigene
 Fläche gibt, muss sie in der `:hover`-Regel WIEDERHOLEN, sonst wird er beim Zeigen grau (der

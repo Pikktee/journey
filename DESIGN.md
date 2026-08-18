@@ -85,6 +85,7 @@ rounded:
   full: 999px
 elevation:
   shadow: "0 14px 34px rgba(2, 5, 10, 0.5), 0 2px 8px rgba(2, 5, 10, 0.35)"
+  focus-ring: "0 0 0 3px color-mix(in srgb, var(--akzent) 22%, transparent)"
 spacing:
   wrap: 1160px
   page-gutter: 22px
@@ -244,7 +245,20 @@ Primär-CTAs dürfen einen warmen Amber-Glow tragen. Player: dezentes Grain + Vi
   Formular-Dialogen — dort stehen Knöpfe neben Feldern, und die sind Kästen.
 - Menüs und Dialogfelder: 12px → `--radius-lg`. Karten und Tafeln: 14px →
   `--radius-karte`. Dialoge: 16px → `--radius-xl`.
-- Fokus: 2px Amber-Outline mit Offset.
+- **Fokus, zwei Fälle — und zwar nach dem Element, nicht nach der Seite:**
+  - *Hat es einen eigenen Rand* (Eingabefeld, Textbereich, Auswahlfeld)? Dann
+    färbt sich der Rand amber und bekommt den Halo `--fokus-ring` (3px,
+    22 % Amber). **Keine Outline.** Ein Feld zeigt seine Grenze schon; eine
+    Outline zieht mit Abstand eine zweite daneben, und das liest sich als zwei
+    Objekte statt als ein fokussiertes Feld.
+  - *Hat es keinen* (Knopf, Link, Karte, Chip)? Dann `outline: 2px solid`
+    Amber mit `outline-offset: 2px`. Ein anderer Offset ist ein Fehler, außer
+    das Element beschneidet seinen Überstand (`overflow: hidden`) — dann −2px
+    nach innen, mit Begründung im Code.
+  - Zusammen ergibt der Feld-Fall 4px Amber an der Kante, also mehr als die
+    2px-Outline, die er ersetzt. Ein zusätzlicher Wechsel der Feldfläche ist
+    ausdrücklich NICHT vorgesehen: Drei Signale für einen Zustand sind zwei zu
+    viel.
 
 **Fünf Stufen, sonst keine.** Der Bestand trug 8, 10, 13 und 15 daneben — pro
 Seite eine eigene Antwort auf dieselbe Frage. Wer einen sechsten Wert braucht,

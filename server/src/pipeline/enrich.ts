@@ -179,6 +179,11 @@ export interface EnrichEingabe {
   /** Nutzer-Overrides aus der DB (PATCH); null = Auto-Benennung */
   titelOverride: string | null
   beschreibungOverride: string | null
+  /**
+   * Die Dachzeile über dem Titel. `null` = nie gesetzt (Vorbelegung greift),
+   * leerer String = ausdrücklich keine Zeile (s. baueBenennung).
+   */
+  dachzeileOverride?: string | null
   /** Endscreen zeigen? Default false — die meisten Touren haben kein konkretes Ziel */
   showFinale?: boolean
   /** Zielname für den Endscreen; null/leer = geocodierter Ortsname */
@@ -227,6 +232,7 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
     manifest,
     titelOverride,
     beschreibungOverride,
+    dachzeileOverride,
     showFinale = false,
     finaleZielOverride = null,
     edits,
@@ -262,11 +268,18 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
   const nutzerTitel = titelOverride ?? manifest.title ?? null
   let benennung: Benennung
   if (orte) {
-    benennung = baueBenennung({ ...orte, nutzerTitel, zeitStart: manifest.time.start, zone: manifest.time.zone })
+    benennung = baueBenennung({
+      ...orte,
+      nutzerTitel,
+      dachzeile: dachzeileOverride ?? null,
+      zeitStart: manifest.time.start,
+      zone: manifest.time.zone,
+    })
   } else {
     if (!geocoder) throw new Error('reichereAn: weder orte noch geocoder übergeben')
     benennung = await benenneTour({
       nutzerTitel,
+      dachzeile: dachzeileOverride ?? null,
       startPunkt: [startPunkt[0], startPunkt[1]],
       zielPunkt: [zielPunkt[0], zielPunkt[1]],
       zeitStart: manifest.time.start,

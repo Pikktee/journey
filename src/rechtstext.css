@@ -102,7 +102,7 @@ nav.nav .wrap {
 footer a:focus-visible,
 .prosa a:focus-visible {
   outline: 2px solid var(--akzent);
-  outline-offset: 3px;
+  outline-offset: 2px;
   border-radius: 4px;
 }
 .nav-gegen {
@@ -141,7 +141,7 @@ footer a:focus-visible,
 }
 .zurueck:focus-visible {
   outline: 2px solid var(--akzent);
-  outline-offset: 3px;
+  outline-offset: 2px;
   border-radius: 4px;
 }
 .zurueck span {
@@ -155,7 +155,7 @@ footer a:focus-visible,
 header.kopf {
   padding: 40px 0 6px;
   background:
-    radial-gradient(90% 120% at 0% 0%, rgba(245, 158, 11, 0.07), transparent 60%),
+    radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--akzent) 7%, transparent), transparent 60%),
     linear-gradient(180deg, var(--bg), transparent 70%);
 }
 header.kopf h1 {
@@ -217,12 +217,12 @@ header.kopf .stand {
   margin: 7px 0;
 }
 .prosa li::marker {
-  color: rgba(245, 158, 11, 0.65);
+  color: color-mix(in srgb, var(--akzent) 65%, transparent);
 }
 .prosa a {
   color: var(--akzent);
   text-decoration: none;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+  border-bottom: 1px solid color-mix(in srgb, var(--akzent) 35%, transparent);
 }
 .prosa a:hover {
   border-bottom-color: var(--akzent);
@@ -245,7 +245,7 @@ header.kopf .stand {
 .merk {
   margin: 22px 0 0;
   padding: 2px 0 2px 18px;
-  border-left: 2px solid rgba(245, 158, 11, 0.55);
+  border-left: 2px solid color-mix(in srgb, var(--akzent) 55%, transparent);
   color: var(--text);
 }
 
@@ -294,7 +294,7 @@ main.wrap {
 }
 .inhalt a:hover {
   color: var(--text);
-  border-color: rgba(245, 158, 11, 0.5);
+  border-color: color-mix(in srgb, var(--akzent) 50%, transparent);
 }
 
 @media (min-width: 1120px) {

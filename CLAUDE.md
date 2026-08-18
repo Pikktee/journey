@@ -70,6 +70,16 @@ dieser Datei; CSS-Variablen, [`src/brand.ts`](src/brand.ts) und Android `Theme.k
 `Typografie.kt` sind Ableitungen. Kurzregel: Outfit überall; Zahlen mit
 `font-variant-numeric: tabular-nums` (Compose: `fontFeatureSettings = "tnum"`), nicht Mono.
 
+**Der FOKUS hat zwei Fälle, und zwar nach dem Element**: Was einen eigenen Rand hat (Felder),
+färbt ihn amber und bekommt den Halo `--fokus-ring`; was keinen hat (Knöpfe, Links, Karten),
+bekommt `outline: 2px` mit `outline-offset: 2px`. Beides zusammen war der Doppelring, der im
+Studio stand — Rand amber, Outline mit Abstand daneben, Fläche dunkler: drei Signale für einen
+Zustand, und keines davon so in DESIGN.md. Ein Wächter hält jetzt beide Hälften
+([test/basis-css.test.ts](test/basis-css.test.ts)): jeder abweichende Offset (er war einmal
+3 px, einmal −2 px) und jeder selbst gemischte Halo (15 %, 22 %, 55 % Amber für dieselbe
+Sache) fällt auf. Nach innen darf die Outline nur, wo der Überstand ohnehin beschnitten wird —
+die Galerie-Karte und der Aufklapper im Inspector stehen als benannte Ausnahmen im Test.
+
 **Im Web sind die Tokens genau eine Datei:** [`src/basis.css`](src/basis.css) — Farben,
 Radien, Schrift, Maße, aus dem YAML-Kopf von DESIGN.md abgeleitet. Daneben liegen die
 geteilten Bausteine: [`grundelemente.css`](src/grundelemente.css) (Kopfleiste, Konto-Menü,
@@ -728,6 +738,44 @@ den die Studio-Zeitleiste am 2026-08-05 verlassen hat). Vier Dinge, die man dabe
 Abnahme: [scripts/messungen/leiste-filmlinear.mjs](scripts/messungen/leiste-filmlinear.mjs).
 Was **noch fehlt**, ist das Einzelbild im Halt: `nudge` räumt die Karte weg, statt sie auf die
 neue Filmsekunde zu stellen (eine Lücke von E15, gehört zur Feinplatzierung).
+
+**Der Startscreen sagt, WAS einen erwartet — nicht, wann es aufgenommen wurde**
+(2026-08-18, Entwurf: [player-startscreen.html](docs/mockups/player-startscreen.html)).
+Vorher stand über dem Titel das Aufnahmedatum in der Akzentfarbe, die Beschreibung aus dem
+Studio kam nirgends an, und der Knopf trug einen Amber-Verlauf, den es sonst nirgends im
+Produkt gab. Die Rechenteile stehen DOM-frei in [src/tourtexte.ts](src/tourtexte.ts), damit
+Player, Studio und Tests dieselbe Antwort bekommen. Sechs Regeln, die man beim nächsten
+Anfassen leicht kippt:
+
+- **Die Dachzeile gehört dem Autor, nicht dem Geocoder.** Was dort hingehört — Ort, Gegend,
+  Sehenswürdigkeit oder ein Satzanfang —, kann niemand ableiten: Nominatim liefert je nach
+  Gegend eine andere Ebene (Stadtteil, Stadt, Landkreis). Also ein Feld (`tours.dachzeile`)
+  mit drei Zuständen: NULL = nie gesetzt (Vorbelegung greift, und die gibt es NUR bei der
+  Rundtour), '' = ausdrücklich keine Zeile, sonst der Text. Die Vorschläge im Studio sind die
+  Adress-Ebenen aus derselben Geocoder-Antwort, aus der schon der Ortsname kommt — sie lagen
+  bisher ungenutzt in der Antwort. **Bestandstouren tragen im gerenderten JSON noch den
+  Alt-Kicker**; die Route wirft ihn weg, solange keine eigene Zeile gesetzt ist, sonst stünde
+  das Datum doppelt auf der Seite.
+- **Der AUTOR steht nicht in der gerenderten Datei**, sondern wird bei jeder Auslieferung
+  frisch eingesetzt ([server/src/routes/tours.ts](server/src/routes/tours.ts)) — eingebacken
+  wäre er nach dem nächsten Namenswechsel falsch. Verlinkt sind nur Avatar und Name, nicht das
+  Datum; im App-Modus gar nicht, weil ein Profilsprung im WebView keinen Rückweg hat.
+- **Die Beschreibung wird BEGRENZT statt geklemmt** (150 Zeichen, `BESCHREIBUNG_MAX`). Am
+  Startscreen zu klemmen hieße raten, wo ein Satz endet, und zwar bei jeder Bildschirmbreite
+  anders. Unter 150 bleibt der Text auch in der Vorschaukarte geteilter Links ungekürzt.
+- **Die Filmdauer kommt aus der Achse** (`filmachse.gesamtS`) und ist damit keine Schätzung.
+  Sie steht als erster Chip und nicht im Knopf: Der Knopf ist eine Handlung, und im
+  Video-Export gibt es ihn nicht — die Kennzahlenzeile dagegen zeichnet er mit.
+- **Eine Null ist keine Angabe.** „0 hm" stand neben „0.1 km" wie ein Defekt; Chips ohne Wert
+  fallen weg. Die Stationszeile erscheint nur, wenn mindestens eine Station nicht schon im
+  Titel steht — bei automatisch benannten Touren kommen Titel UND Stationen aus denselben zwei
+  geocodierten Endpunkten, die Zeile wiederholte dort wortgleich den Titel.
+- **Die Kennzahlen hängen NICHT am Kartenladen.** Sie standen im `load`-Handler und zeigten
+  bis zur ersten Kachel „– km", obwohl Route und Achse längst gebaut sind.
+
+Der Export zieht überall mit ([exportfilm.ts](src/exportfilm.ts) `zeichneIntroTafel`): Er
+liest die Inhalte per `textContent` aus denselben Elementen und überspringt seit dem Umbau
+ausgehängte (`hidden`) — sonst stünde im Film, was der Player gerade weglässt.
 
 **Oben links steht genau EIN Element: der Weg hinaus** — die Pille `.zurueck`, fest positioniert
 über dem Intro. Sie steht die ganze Fahrt über da (nicht nur im Startscreen), trägt das Wort der

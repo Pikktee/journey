@@ -58,6 +58,11 @@ export interface TourZeile {
   client_tour_id: string | null
   title: string | null
   description: string | null
+  /**
+   * Die Dachzeile über dem Titel. NULL = nie gesetzt (die Benennung nimmt ihre
+   * Vorbelegung), '' = ausdrücklich keine Zeile.
+   */
+  dachzeile: string | null
   /** 0/1: Endscreen „Ziel erreicht" zeigen (Default 0) */
   finale: number
   /** Zielname für den Endscreen; null/leer = geocodierter Ortsname am Ende */
@@ -345,6 +350,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
     Body: {
       title?: string
       description?: string
+      dachzeile?: string
       finale?: boolean
       finaleZiel?: string
       visibility?: TourZeile['visibility']
@@ -359,6 +365,10 @@ export function registriereTourRouten(app: FastifyInstance): void {
           properties: {
             title: { type: 'string', minLength: 1, maxLength: 200 },
             description: { type: 'string', maxLength: 5000 },
+            // Die Dachzeile darf LEER sein: Das ist die Art, sie loszuwerden.
+            // Ohne den leeren String bliebe eine einmal gesetzte Zeile für
+            // immer stehen, so wie es dem Titel bis heute geht.
+            dachzeile: { type: 'string', maxLength: 80 },
             finale: { type: 'boolean' },
             finaleZiel: { type: 'string', maxLength: 200 },
             visibility: { enum: ['private', 'unlisted', 'public'] },
@@ -372,16 +382,18 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const tour = nurOwner(app, request.params.id, benutzer.id, reply)
       if (!tour) return
 
-      const { title, description, finale, finaleZiel, visibility } = request.body
+      const { title, description, dachzeile, finale, finaleZiel, visibility } = request.body
       // finale: undefined → NULL → COALESCE behält den alten Wert; false → 0, true → 1.
       const finaleWert = finale === undefined ? null : finale ? 1 : 0
       db.prepare(
         `UPDATE tours SET title = COALESCE(?, title), description = COALESCE(?, description),
+         dachzeile = COALESCE(?, dachzeile),
          finale = COALESCE(?, finale), finale_ziel = COALESCE(?, finale_ziel),
          visibility = COALESCE(?, visibility), updated_at = ? WHERE id = ?`,
       ).run(
         title ?? null,
         description ?? null,
+        dachzeile ?? null,
         finaleWert,
         finaleZiel ?? null,
         visibility ?? null,
@@ -398,6 +410,7 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const textGeaendert =
         title !== undefined ||
         description !== undefined ||
+        dachzeile !== undefined ||
         finale !== undefined ||
         finaleZiel !== undefined
       if (tour.status === 'bereit' && textGeaendert) {
@@ -558,11 +571,26 @@ export function registriereTourRouten(app: FastifyInstance): void {
       .filter((d) => istAudioDatei(d.name))
       .map((d) => ({ datei: d.name, groesse: d.groesse }))
 
+    // Die Vorschläge für die Dachzeile: die Adress-Ebenen des Startpunkts, wie
+    // sie beim Geocoding ohnehin anfielen. Aus dem Cache und nie frisch geholt —
+    // eine Netzabfrage beim Öffnen des Editors wäre ein Aufruf pro Klick.
+    let dachzeileVorschlaege: string[] = []
+    if (await storage.info(tour.id, ANREICHERUNG_PFAD)) {
+      try {
+        const cache = JSON.parse((await storage.lese(tour.id, ANREICHERUNG_PFAD)).toString()) as AnreicherungsCache
+        dachzeileVorschlaege = cache.orte?.startEbenen ?? []
+      } catch {
+        // Ein kaputter Cache kostet die Vorschläge, nicht den Editor.
+      }
+    }
+
     return {
       id: tour.id,
       status: tour.status,
       title: tour.title,
       description: tour.description,
+      dachzeile: tour.dachzeile,
+      dachzeileVorschlaege,
       finale: !!tour.finale,
       finaleZiel: tour.finale_ziel,
       time: manifest.time,
@@ -633,8 +661,47 @@ export function registriereTourRouten(app: FastifyInstance): void {
       const istOwner = request.benutzer?.id === tour.owner_id
       return reply.code(200).send({ id: tour.id, status: tour.status, ...(istOwner ? { fehler: tour.fehler } : {}) })
     }
-    const tourJson = await storage.lese(tour.id, TOURJSON_PFAD)
-    return reply.header('content-type', 'application/json; charset=utf-8').send(tourJson)
+    // Der Autor kommt NICHT aus der Datei, sondern frisch aus der Datenbank:
+    // Eingebacken wäre er beim nächsten Namens- oder Handle-Wechsel veraltet,
+    // und ein Re-Render aller Touren dafür wäre absurd. Dieselbe Linie wie die
+    // Galerie-Karte (server/src/routes/galerie.ts): Ohne gesetzten Anzeigenamen
+    // bleibt die Tour anonym, statt ersatzweise Klarname oder Mailadresse zu
+    // zeigen, und der Link auf das Profil entsteht nur, wenn es dieses Profil
+    // öffentlich gibt.
+    const tourJson = JSON.parse((await storage.lese(tour.id, TOURJSON_PFAD)).toString()) as Record<
+      string,
+      unknown
+    >
+    // Bestandstouren tragen im gerenderten JSON noch den erzeugten Alt-Kicker
+    // („Aufgezeichnet am 14. Mai 2026"). Er stünde jetzt DOPPELT auf der Seite:
+    // einmal über dem Titel und einmal in der Herkunftszeile neben dem Namen.
+    // Ein Re-Render aller Touren nur dafür wäre unverhältnismäßig, also fällt
+    // er hier weg — solange niemand eine eigene Dachzeile gesetzt hat. Beim
+    // nächsten Render der Tour entsteht der Wert regulär in `baueBenennung`.
+    if (tour.dachzeile === null && /^Aufgezeichnet am /.test(String(tourJson.kicker ?? ''))) tourJson.kicker = ''
+
+    const besitzer = app.deps.db
+      .prepare('SELECT id, handle, anzeigename, avatar, profil_sichtbarkeit FROM users WHERE id = ?')
+      .get(tour.owner_id) as
+      | {
+          id: string
+          handle: string | null
+          anzeigename: string | null
+          avatar: string | null
+          profil_sichtbarkeit: string
+        }
+      | undefined
+    if (besitzer?.anzeigename) {
+      const oeffentlich = besitzer.profil_sichtbarkeit === 'public'
+      tourJson.autor = {
+        anzeigename: besitzer.anzeigename,
+        avatarUrl: besitzer.avatar
+          ? `/api/benutzer/${besitzer.id}/avatar?v=${encodeURIComponent(besitzer.avatar)}`
+          : null,
+        ...(oeffentlich ? { id: besitzer.id, handle: besitzer.handle } : {}),
+      }
+    }
+    return reply.send(tourJson)
   })
 
   // — Löschen —
@@ -1075,6 +1142,7 @@ async function verarbeite(
       manifest,
       titelOverride: tour.title,
       beschreibungOverride: tour.description,
+      dachzeileOverride: tour.dachzeile,
       showFinale: !!tour.finale,
       finaleZielOverride: tour.finale_ziel,
       ...(edits ? { edits } : {}),

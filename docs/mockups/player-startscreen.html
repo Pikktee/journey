@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Mockup — Player-Startscreen</title>
+<meta name="maptale:stand" content="2026-08-18">
+<meta name="maptale:status" content="gebaut (Player, Studio, Server, Export)">
+<meta name="maptale:systemteile" content="Player">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --akzent: #f59e0b;
+    --akzent-2: #ff6f52;
+    --auf-akzent: #1a1206;
+    --text: #f2ede3;
+    --muted: rgba(242, 237, 227, 0.64);
+    --faint: rgba(242, 237, 227, 0.42);
+    --glas-rand: rgba(255, 255, 255, 0.1);
+    --grund: #06080c;
+    --flaeche: #111722;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 46px 40px 120px;
+    background: var(--grund); color: var(--text);
+    font-family: Outfit, system-ui, sans-serif; font-weight: 300;
+    font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 8px; }
+  .lead { color: var(--muted); max-width: 74ch; line-height: 1.62; margin: 0 0 6px; font-size: 15.5px; }
+  .lead strong { color: var(--text); font-weight: 500; }
+  .lead + .lead { margin-bottom: 20px; }
+
+  h2.kapitel { font-size: 12px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 500;
+               color: var(--akzent); margin: 0 0 5px; padding-top: 52px; }
+  .kapitel-satz { color: var(--muted); max-width: 80ch; line-height: 1.62; margin: 0 0 26px; font-size: 15px; }
+  .kapitel-satz em { font-style: normal; color: var(--text); }
+
+  .reihe { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .spalte { flex: 1 1 620px; min-width: 520px; }
+  .spalten-kopf { display: flex; align-items: baseline; gap: 10px; margin-bottom: 9px; }
+  .spalten-kopf h3 { font-size: 15px; font-weight: 500; margin: 0; }
+  .marke { font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint);
+           border: 1px solid rgba(242,237,227,0.2); border-radius: 999px; padding: 2px 9px; }
+  .marke.neu { color: var(--akzent); border-color: rgba(245,158,11,0.45); }
+  .marke.alt { color: #e5484d; border-color: rgba(229,72,77,0.4); }
+  .notiz { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin: 11px 0 0; }
+  .notiz b { color: var(--text); font-weight: 500; }
+
+  /* ——— Bühne: der Player im Kleinen (16:9) ——— */
+  .buehne {
+    position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: #0b0e13;
+    display: grid; place-items: center; text-align: center;
+    /* `size` und nicht `inline-size`: Alle Maße unten stehen in cqh, damit sich
+       ein Kasten wie ein Vollbild verhält (im Player hängt die Typografie an der
+       Bildhöhe, nicht an der Breite). */
+    container-type: size;
+  }
+  .buehne.hoch { aspect-ratio: 9 / 16; max-width: 320px; }
+  /* Die unscharfe Karte darunter: Straßenraster, wie es der Orbit hinterlässt */
+  .karte {
+    position: absolute; inset: -8%;
+    background:
+      repeating-linear-gradient(64deg, rgba(255,255,255,0.055) 0 2px, transparent 2px 46px),
+      repeating-linear-gradient(-31deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 72px),
+      repeating-linear-gradient(64deg, rgba(255,255,255,0.03) 0 8px, transparent 8px 150px),
+      radial-gradient(120% 90% at 62% 22%, #1c2530 0%, #131a24 46%, #0a0e14 100%);
+    filter: blur(2.5px) saturate(0.9);
+  }
+  .scrim {
+    position: absolute; inset: 0;
+    background: radial-gradient(125% 95% at 50% 44%, rgba(6,9,14,0.62) 0%, rgba(5,8,12,0.94) 100%);
+  }
+  .inhalt { position: relative; padding: 4cqh 6cqh; width: 100%; }
+
+  .zurueck {
+    position: absolute; top: 3.4cqh; left: 3.4cqh; z-index: 5; display: inline-flex; align-items: center;
+    gap: 0.8cqh; padding: 1.2cqh 2.2cqh 1.2cqh 1.8cqh; border-radius: 999px;
+    background: rgba(8,11,16,0.42); border: 1px solid rgba(242,237,227,0.14);
+    font-size: 2.2cqh; color: var(--muted); backdrop-filter: blur(7px);
+  }
+
+  /* Bausteine des Startscreens, alle in cqh */
+  .kicker { font-size: 2.3cqh; font-weight: 500; letter-spacing: 0.01em; color: var(--akzent); }
+  .titel {
+    margin: 2.4cqh 0 0; font-weight: 600; font-size: 9.4cqh; line-height: 0.98;
+    letter-spacing: -0.03em; text-shadow: 0 6px 40px rgba(0,0,0,0.6);
+  }
+  .titel.gebaendigt { max-width: 13ch; margin-inline: auto; text-wrap: balance; }
+  .strich { width: 8cqh; height: 1px; margin: 4cqh auto 3cqh; background: var(--akzent); opacity: 0.85; }
+  .route { font-size: 2.3cqh; font-weight: 500; letter-spacing: 0.04em; color: var(--muted); }
+
+  /* Autorzeile: Avatar + Name + Datum, eine leise Herkunftsangabe */
+  .autor {
+    display: inline-flex; align-items: center; gap: 1.3cqh; font-size: 2.5cqh; color: var(--muted);
+  }
+  .autor .avatar {
+    width: 4.2cqh; height: 4.2cqh; border-radius: 999px; display: grid; place-items: center;
+    background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+    color: var(--auf-akzent); font-weight: 600; font-size: 2.2cqh;
+  }
+  .autor .name { color: var(--text); font-weight: 500; }
+  .autor .punkt { opacity: 0.45; }
+
+  .beschreibung {
+    margin: 3cqh auto 0; max-width: 46ch; font-size: 2.6cqh; line-height: 1.5;
+    color: var(--muted); font-weight: 300;
+  }
+
+  .chips { margin-top: 3.6cqh; display: flex; justify-content: center; gap: 1.4cqh; flex-wrap: wrap; }
+  .chip {
+    font-size: 2.3cqh; font-weight: 500; padding: 1.3cqh 2.5cqh; border-radius: 999px;
+    border: 1px solid var(--glas-rand); background: rgba(255,255,255,0.05);
+    display: inline-flex; align-items: center; gap: 1cqh;
+  }
+  .chip.dauer { border-color: rgba(245,158,11,0.42); background: rgba(245,158,11,0.1); color: var(--text); }
+  .chip.dauer svg { width: 2.7cqh; height: 2.7cqh; stroke: var(--akzent); }
+  .chip.tot { color: var(--faint); border-style: dashed; }
+
+  .start {
+    margin-top: 5cqh; font-family: inherit; font-size: 2.7cqh; font-weight: 600; letter-spacing: -0.01em;
+    border: none; border-radius: 999px; padding: 2.6cqh 6.6cqh; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 1.4cqh;
+  }
+  .start.alt {
+    color: #171106; background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+    box-shadow: 0 14px 44px rgba(245,165,36,0.35), inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .start.neu {
+    color: var(--auf-akzent); background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+    box-shadow: 0 14px 44px rgba(245,110,60,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .start .dauer-im-knopf { opacity: 0.62; font-weight: 500; }
+  .start .trenner { opacity: 0.35; }
+
+  /* Hochformat: der Player setzt dort eigene Maße (body.kompakt), hier dasselbe in cqh */
+  .buehne.hoch .zurueck { font-size: 1.5cqh; padding: 1cqh 1.8cqh 1cqh 1.4cqh; }
+  .buehne.hoch .inhalt { padding: 3cqh 6cqh; }
+  .buehne.hoch .kicker { font-size: 1.6cqh; }
+  .buehne.hoch .titel { font-size: 6cqh; margin-top: 2cqh; max-width: 10ch; }
+  .buehne.hoch .strich { width: 6cqh; margin: 3.2cqh auto 2.6cqh; }
+  .buehne.hoch .autor { font-size: 1.7cqh; gap: 1cqh; }
+  .buehne.hoch .autor .avatar { width: 2.8cqh; height: 2.8cqh; font-size: 1.5cqh; }
+  .buehne.hoch .beschreibung { font-size: 1.8cqh; max-width: 24ch; margin-top: 2.2cqh; }
+  .buehne.hoch .chips { margin-top: 2.8cqh; gap: 1cqh; }
+  .buehne.hoch .chip { font-size: 1.6cqh; padding: 0.9cqh 1.7cqh; }
+  .buehne.hoch .chip.dauer svg { width: 1.9cqh; height: 1.9cqh; }
+  .buehne.hoch .start { font-size: 1.9cqh; padding: 2cqh 5cqh; margin-top: 4cqh; }
+
+  /* ——— Studio-Felder (wie sie im Editor stünden) ——— */
+  .feldtafel {
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: var(--flaeche);
+    padding: 20px 22px;
+  }
+  .feld + .feld { margin-top: 22px; }
+  .feld label { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-bottom: 7px; }
+  .feld .eingabe {
+    background: #0b0f16; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+    padding: 10px 12px; font-size: 14.5px; color: var(--text); min-height: 40px;
+  }
+  .feld .eingabe.leer { color: var(--faint); }
+  .feld textarea.eingabe { width: 100%; resize: none; font-family: inherit; line-height: 1.5; }
+  .feldfuss { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 7px; }
+  .feldfuss .hinweis { font-size: 12.5px; color: var(--faint); }
+  .zaehler { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .zaehler.knapp { color: var(--warn, #e8a13c); }
+
+  .ebenen { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+  .ebene {
+    font-size: 12.5px; padding: 5px 11px; border-radius: 999px; color: var(--muted);
+    border: 1px solid rgba(242,237,227,0.16); background: rgba(255,255,255,0.03);
+  }
+  .ebene.gewaehlt { color: var(--auf-akzent); background: var(--akzent); border-color: transparent; font-weight: 500; }
+  .ebene.frei { border-style: dashed; }
+
+  /* Kleine Bühnen zum Durchspielen der Dachzeile */
+  .mini-reihe { display: flex; gap: 14px; flex-wrap: wrap; }
+  .mini { flex: 1 1 240px; min-width: 220px; }
+  .mini .buehne { aspect-ratio: 4 / 3; }
+  /* Die kleinen Kästen sind halb so hoch wie die großen — sonst wäre genau das
+     Element unlesbar, um das es hier geht. */
+  .mini .kicker { font-size: 4.2cqh; }
+  .mini .titel { font-size: 12cqh; margin-top: 3.4cqh; }
+  .mini .strich { width: 12cqh; margin: 5cqh auto 4cqh; }
+  .mini .route { font-size: 4cqh; }
+  .mini .autor { font-size: 4.2cqh; gap: 2cqh; }
+  .mini .autor .avatar { width: 7cqh; height: 7cqh; font-size: 3.6cqh; }
+  .mini .inhalt { padding: 6cqh; }
+  .mini-text { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.55; }
+  .mini-text b { color: var(--text); font-weight: 500; }
+
+  /* ——— Farbvergleich ——— */
+  .farbreihe { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+  .farbkarte {
+    flex: 1 1 260px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+    background: var(--flaeche); padding: 16px; min-width: 240px;
+  }
+  .balken { height: 46px; border-radius: 999px; margin-bottom: 12px; }
+  .balken.alt { background: linear-gradient(135deg, #f8bb4b, #ef8c37); }
+  .balken.neu { background: linear-gradient(120deg, #f59e0b, #ff6f52); }
+  .farbkarte h4 { margin: 0 0 6px; font-size: 14px; font-weight: 500; }
+  .farbkarte p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .farbkarte code { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text); }
+
+  .tafel {
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: var(--flaeche);
+    padding: 18px 20px; margin-top: 18px;
+  }
+  .tafel ul { margin: 0; padding-left: 18px; }
+  .tafel li { font-size: 14px; color: var(--muted); line-height: 1.72; }
+  .tafel li b { color: var(--text); font-weight: 500; }
+  .tafel li code { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--akzent); }
+
+  .frage { border-left: 2px solid var(--akzent); padding-left: 14px; margin: 22px 0 0; }
+  .frage p { margin: 0; font-size: 14.5px; color: var(--muted); line-height: 1.65; max-width: 80ch; }
+  .frage p b { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>Startscreen des Players</h1>
+<p class="lead">Der Startscreen ist die einzige Seite, die jemand sieht, <strong>bevor</strong> er sich für
+  die Tour entscheidet. Heute steht dort das Aufnahmedatum in der Akzentfarbe, die Beschreibung aus dem
+  Studio fehlt ganz, und der Knopf trägt einen Amber-Verlauf, den es sonst nirgends im Produkt gibt.</p>
+<p class="lead">Die Bühnen unten sind Vollbilder in klein: Alle Maße hängen an der Höhe des Kastens, wie im
+  Player an der Bildhöhe. Nur die Nebentexte sind leicht überzeichnet, sonst wären sie hier nicht lesbar.</p>
+
+<h2 class="kapitel">1 · Aufgezeichnete Tour</h2>
+<p class="kapitel-satz">Der Fall aus dem Screenshot. Eine Runde bei Völklingen: <em>eine</em> Station, keine
+  Höhenmeter, ein knapper Weg. Genau hier fällt jede leere Angabe auf.</p>
+
+<div class="reihe">
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Heute</h3><span class="marke alt">Ist-Stand</span></div>
+    <div class="buehne">
+      <div class="karte"></div><div class="scrim"></div>
+      <div class="zurueck">‹ Studio</div>
+      <div class="inhalt">
+        <div class="kicker">Aufgezeichnet am 14. Mai 2026</div>
+        <div class="titel">Runde bei Völklingen</div>
+        <div class="strich"></div>
+        <div class="route">Völklingen</div>
+        <div class="chips">
+          <span class="chip">0.1 km</span>
+          <span class="chip tot">0 hm</span>
+          <span class="chip">8 Fotos</span>
+        </div>
+        <button class="start alt">Tour starten</button>
+      </div>
+    </div>
+    <p class="notiz">Das Datum bekommt die kräftigste Farbe der Seite, der Ort steht grau darunter und
+      wiederholt dabei den Titel. <b>0 hm</b> behauptet eine Angabe, die es nicht gibt, und der Punkt statt
+      des Kommas liest sich wie ein Fehler. Wer die Tour aufgenommen hat, steht nirgends.</p>
+  </div>
+
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Vorschlag</h3><span class="marke neu">Entwurf</span></div>
+    <div class="buehne">
+      <div class="karte"></div><div class="scrim"></div>
+      <div class="zurueck">‹ Studio</div>
+      <div class="inhalt">
+        <div class="kicker">Völklingen</div>
+        <div class="titel gebaendigt">Runde bei Völklingen</div>
+        <div class="strich"></div>
+        <div class="autor">
+          <span class="avatar">H</span>
+          <span class="name">Henrik</span>
+          <span class="punkt">·</span>
+          <span>14. Mai 2026</span>
+        </div>
+        <p class="beschreibung">Kurzer Abstecher zur Alten Hütte, spätnachmittags. Das Licht zwischen den
+          Gebläsehallen war den Umweg wert.</p>
+        <div class="chips">
+          <span class="chip dauer">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            2:40 Min
+          </span>
+          <span class="chip">0,1 km</span>
+          <span class="chip">8 Fotos</span>
+        </div>
+        <button class="start neu">Tour starten</button>
+      </div>
+    </div>
+    <p class="notiz">Der <b>Ort</b> führt, das Datum wandert leise in die Herkunftszeile neben den Namen.
+      Die <b>Beschreibung</b> aus dem Studio steht endlich da, wo sie hingehört. Die <b>Filmdauer</b> ist der
+      erste Chip und der einzige mit Akzentkontur: Sie beantwortet die Frage, die man vor dem Klick hat.
+      „0 hm“ fällt weg statt Null zu behaupten.</p>
+  </div>
+</div>
+
+<h2 class="kapitel">2 · Kuratierte Tour mit mehreren Stationen</h2>
+<p class="kapitel-satz">Bei Koh Pha-ngan trägt die Route echte Information: vier Orte, die man nacheinander
+  sieht. <em>Deshalb würde ich sie nicht ersatzlos streichen</em>, sondern nur dann zeigen, wenn sie mehr
+  sagt als der Titel.</p>
+
+<div class="reihe">
+  <div class="spalte">
+    <div class="buehne">
+      <div class="karte"></div><div class="scrim"></div>
+      <div class="zurueck">‹ Entdecken</div>
+      <div class="inhalt">
+        <div class="kicker">Von Mittag bis Mitternacht auf</div>
+        <div class="titel gebaendigt">Koh Pha-ngan</div>
+        <div class="strich"></div>
+        <div class="route">Thong Sala&ensp;→&ensp;Baan Tai&ensp;→&ensp;Phaeng&ensp;→&ensp;Haad Rin</div>
+        <p class="beschreibung">Einmal quer über die Insel, vom Fährhafen bis zum Strand im Süden. Zwölf
+          Halte, ein Gewitter und die blaue Stunde über dem Bergkamm.</p>
+        <div class="chips">
+          <span class="chip dauer">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            8:10 Min
+          </span>
+          <span class="chip">41,8 km</span>
+          <span class="chip">612 hm</span>
+          <span class="chip">12 Fotos</span>
+        </div>
+        <button class="start neu">Tour starten</button>
+      </div>
+    </div>
+    <p class="notiz">Dieselbe Anordnung, nur trägt hier die Route etwas bei und die Autorzeile entfällt
+      (kuratierte Touren haben keinen Aufnehmer). <b>Die Regel</b>: Die Route erscheint, wenn mindestens eine
+      Station nicht schon im Titel steht.</p>
+    <p class="notiz">Das gilt für beide Sorten Touren, denn <code>stops</code> kommt bei den aufgezeichneten
+      aus den zwei geocodierten Endpunkten und wird dort zum selben Text wie der Titel: „Runde bei
+      Völklingen“ über „Völklingen“, „Völklingen → Saarbrücken“ über „Völklingen → Saarbrücken“. Erst wenn
+      jemand einen eigenen Titel schreibt („Nach Hause durchs Warndt“), sagen die Stationen wieder etwas
+      Eigenes. Deshalb eine Bedingung und keine Fallunterscheidung nach Tour-Art.</p>
+  </div>
+
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Hochformat</h3><span class="marke">Telefon</span></div>
+    <div class="buehne hoch">
+      <div class="karte"></div><div class="scrim"></div>
+      <div class="zurueck">‹ Entdecken</div>
+      <div class="inhalt">
+        <div class="kicker">Völklingen</div>
+        <div class="titel gebaendigt">Runde bei Völklingen</div>
+        <div class="strich"></div>
+        <div class="autor">
+          <span class="avatar">H</span>
+          <span class="name">Henrik</span>
+          <span class="punkt">·</span>
+          <span>14. Mai 2026</span>
+        </div>
+        <p class="beschreibung">
+          Kurzer Abstecher zur Alten Hütte, spätnachmittags.</p>
+        <div class="chips">
+          <span class="chip dauer">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            2:40 Min
+          </span>
+          <span class="chip">0,1 km</span>
+          <span class="chip">8 Fotos</span>
+        </div>
+        <button class="start neu">Tour starten</button>
+      </div>
+    </div>
+    <p class="notiz">Auf dem Telefon steht derselbe Text, nur kleiner und schmaler. Abgeschnitten wird
+      nichts, dafür sorgt die Grenze im Studio (Kapitel 4).</p>
+  </div>
+</div>
+
+<h2 class="kapitel">3 · Die Dachzeile gehört dem Autor</h2>
+<p class="kapitel-satz">Heute steht dort ein erzeugter Satz, und der Ort, den ich hineinsetzen wollte, wäre
+  ebenfalls erzeugt. <em>Nominatim liefert je nach Gegend eine andere Ebene</em>: mal den Stadtteil, mal die
+  Stadt, mal den Landkreis. Wir wissen nicht, was gemeint ist, der Autor schon.</p>
+
+<div class="reihe">
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Im Studio</h3><span class="marke neu">neues Feld</span></div>
+    <div class="feldtafel">
+      <div class="feld">
+        <label for="dachzeile">Dachzeile <span style="color: var(--faint); font-weight: 400">(optional)</span></label>
+        <div class="eingabe" id="dachzeile">Völklingen</div>
+        <div class="ebenen">
+          <span class="ebene gewaehlt">Völklingen</span>
+          <span class="ebene">Regionalverband Saarbrücken</span>
+          <span class="ebene">Saarland</span>
+          <span class="ebene">Deutschland</span>
+          <span class="ebene frei">eigener Text</span>
+        </div>
+        <div class="feldfuss">
+          <span class="hinweis">Leer lassen heißt: keine Zeile. Der Titel rückt dann nach oben.</span>
+        </div>
+      </div>
+    </div>
+    <p class="notiz">Die Vorschläge sind <b>keine neue Abfrage</b>: Nominatim schickt die vollständige
+      Adress-Aufteilung schon heute mit, wir behalten davon nur den ersten Treffer einer festen Kette und
+      werfen den Rest weg. Wer sie in den Anreicherungs-Cache legt, kann statt zu raten die Wahl anbieten.
+      Ein eigener Text bleibt jederzeit möglich, für Sehenswürdigkeiten oder einen Satzanfang.</p>
+  </div>
+
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Vier Fälle, dieselbe Zeile</h3></div>
+    <div class="mini-reihe">
+      <div class="mini">
+        <div class="buehne">
+          <div class="karte"></div><div class="scrim"></div>
+          <div class="inhalt">
+            <div class="kicker">Völklingen</div>
+            <div class="titel gebaendigt">Runde bei Völklingen</div>
+            <div class="strich"></div>
+            <div class="autor"><span class="avatar">H</span><span class="name">Henrik</span><span class="punkt">·</span><span>14. Mai 2026</span></div>
+          </div>
+        </div>
+        <p class="mini-text"><b>Ort.</b> Die Vorbelegung bei einer Rundtour.</p>
+      </div>
+      <div class="mini">
+        <div class="buehne">
+          <div class="karte"></div><div class="scrim"></div>
+          <div class="inhalt">
+            <div class="kicker">Völklinger Hütte</div>
+            <div class="titel gebaendigt">Runde bei Völklingen</div>
+            <div class="strich"></div>
+            <div class="autor"><span class="avatar">H</span><span class="name">Henrik</span><span class="punkt">·</span><span>14. Mai 2026</span></div>
+          </div>
+        </div>
+        <p class="mini-text"><b>Sehenswürdigkeit.</b> Von Hand gesetzt, weil sie der Grund der Tour war.</p>
+      </div>
+      <div class="mini">
+        <div class="buehne">
+          <div class="karte"></div><div class="scrim"></div>
+          <div class="inhalt">
+            <div class="kicker">Von Mittag bis Mitternacht auf</div>
+            <div class="titel gebaendigt">Koh Pha-ngan</div>
+            <div class="strich"></div>
+            <div class="route">Thong Sala&ensp;→&ensp;Haad Rin</div>
+          </div>
+        </div>
+        <p class="mini-text"><b>Satzanfang.</b> Was die kuratierten Touren heute schon tun.</p>
+      </div>
+      <div class="mini">
+        <div class="buehne">
+          <div class="karte"></div><div class="scrim"></div>
+          <div class="inhalt">
+            <div class="titel gebaendigt">Saarschleife und zurück</div>
+            <div class="strich"></div>
+            <div class="autor"><span class="avatar">H</span><span class="name">Henrik</span><span class="punkt">·</span><span>2. Juni 2026</span></div>
+          </div>
+        </div>
+        <p class="mini-text"><b>Leer.</b> Der Titel sagt schon alles, die Zeile entfällt ersatzlos.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tafel">
+  <ul>
+    <li><b>Bei A nach B bleibt sie leer.</b> Dort trägt die Route beide Orte, eine Dachzeile mit dem Startort
+      wäre die dritte Nennung derselben Gegend.</li>
+    <li><b>Das Datum verschwindet nicht</b>, es steht ab jetzt in der Herkunftszeile neben dem Namen. Wer
+      seine Dachzeile leert, verliert also keine Angabe.</li>
+  </ul>
+</div>
+
+<h2 class="kapitel">4 · Die Beschreibung: 150 Zeichen</h2>
+<p class="kapitel-satz">Statt am Startscreen zu klemmen und zu raten, wo ein Satz endet, bekommt das Feld eine
+  Grenze. <em>Dann sieht der Text auf jedem Format gut aus, ohne dass irgendwo etwas abgeschnitten wird.</em></p>
+
+<div class="reihe">
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Im Studio</h3><span class="marke neu">mit Zähler</span></div>
+    <div class="feldtafel">
+      <div class="feld">
+        <label for="beschr">Beschreibung</label>
+        <textarea class="eingabe" id="beschr" rows="3" readonly>Kurzer Abstecher zur Alten Hütte, spätnachmittags. Das Licht zwischen den Gebläsehallen war den Umweg wert.</textarea>
+        <div class="feldfuss">
+          <span class="hinweis">Steht auf dem Startscreen und in der Vorschau geteilter Links.</span>
+          <span class="zaehler">107 / 150</span>
+        </div>
+      </div>
+    </div>
+    <p class="notiz"><b>Warum 150.</b> Dasselbe Feld füttert die Vorschaukarte geteilter Links, und
+      <code>alsBeschreibung</code> in <code>server/src/seiten.ts</code> kürzt sie dort heute schon bei 200
+      Zeichen an der Wortgrenze. Unter 150 bleibt der Text überall ungekürzt: kein Auslassungszeichen, keine
+      Regel, die wir uns ausdenken müssen. Und im Querformat sind es zwei Zeilen, auf dem Telefon vier bis
+      fünf, also überall ein Absatz und kein Block.</p>
+    <p class="notiz"><b>Der Bestand darf länger sein.</b> Das Schema erlaubt 5000 Zeichen, es gibt also
+      vielleicht schon lange Texte. Die zeigt der Startscreen mit derselben Funktion gekürzt an, statt sie
+      abzulehnen. Neu geschrieben wird ab jetzt innerhalb der Grenze.</p>
+  </div>
+
+  <div class="spalte">
+    <div class="spalten-kopf"><h3>Die Grenze ausgereizt</h3><span class="marke">150 Zeichen</span></div>
+    <div class="reihe" style="gap: 14px">
+      <div class="buehne" style="flex: 1 1 300px">
+        <div class="karte"></div><div class="scrim"></div>
+        <div class="inhalt">
+          <div class="kicker">Völklingen</div>
+          <div class="titel gebaendigt">Runde bei Völklingen</div>
+          <div class="strich"></div>
+          <div class="autor"><span class="avatar">H</span><span class="name">Henrik</span><span class="punkt">·</span><span>14. Mai 2026</span></div>
+          <p class="beschreibung">Kurzer Abstecher zur Alten Hütte, spätnachmittags. Das Licht zwischen den
+            Gebläsehallen war den Umweg wert, auch wenn der Hinweg wenig hergab.</p>
+          <div class="chips">
+            <span class="chip dauer"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>2:40 Min</span>
+            <span class="chip">0,1 km</span>
+            <span class="chip">8 Fotos</span>
+          </div>
+          <button class="start neu">Tour starten</button>
+        </div>
+      </div>
+      <div class="buehne hoch" style="flex: 0 0 232px; max-width: 232px">
+        <div class="karte"></div><div class="scrim"></div>
+        <div class="inhalt">
+          <div class="kicker">Völklingen</div>
+          <div class="titel gebaendigt">Runde bei Völklingen</div>
+          <div class="strich"></div>
+          <div class="autor"><span class="avatar">H</span><span class="name">Henrik</span><span class="punkt">·</span><span>14. Mai 2026</span></div>
+          <p class="beschreibung">Kurzer Abstecher zur Alten Hütte, spätnachmittags. Das Licht zwischen den
+            Gebläsehallen war den Umweg wert, auch wenn der Hinweg wenig hergab.</p>
+          <div class="chips">
+            <span class="chip dauer"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>2:40 Min</span>
+            <span class="chip">0,1 km</span>
+            <span class="chip">8 Fotos</span>
+          </div>
+          <button class="start neu">Tour starten</button>
+        </div>
+      </div>
+    </div>
+    <p class="notiz">Links das Querformat, rechts das Telefon, beide mit dem längsten erlaubten Text. Auf dem
+      Telefon füllt er den Block unter dem Titel, ohne die Chips oder den Knopf zu verdrängen. Wird es noch
+      enger, hilft nicht die Grenze, sondern die Schrift: Dort steht der Text kleiner und die Zeile schmaler.</p>
+  </div>
+</div>
+
+<h2 class="kapitel">5 · Der Knopf, in Marken-Orange</h2>
+<p class="kapitel-satz">Der Player ist heute die einzige Oberfläche mit einem eigenen Akzentverlauf.
+  Landing, Kopfleiste, Galerie und Studio nutzen alle dasselbe Paar aus <em>Sonne</em> und <em>Koralle</em>.</p>
+
+<div class="farbreihe">
+  <div class="farbkarte">
+    <div class="balken alt"></div>
+    <h4>Heute im Player</h4>
+    <p><code>linear-gradient(135deg, #f8bb4b, #ef8c37)</code> auf <code>#171106</code>. Beide Werte roh
+      hingeschrieben, kein Token. Das Paar steht sechsmal in <code>style.css</code> und einmal im
+      Export-Reiter.</p>
+  </div>
+  <div class="farbkarte">
+    <div class="balken neu"></div>
+    <h4>Marke</h4>
+    <p><code>linear-gradient(120deg, var(--akzent), var(--akzent-2))</code> auf <code>var(--auf-akzent)</code>.
+      Sonne <code>#f59e0b</code> nach Koralle <code>#ff6f52</code>, wie auf jeder anderen Seite.</p>
+  </div>
+</div>
+
+<div class="tafel">
+  <ul>
+    <li>Der Drift-Wächter in <code>test/basis-css.test.ts</code> verbietet rohe Marken-Farben, prüft aber nur
+      HTML-Dateien. <b><code>src/style.css</code> sieht er nicht an</b> — deshalb konnte der Player still
+      abdriften. Die Prüfung auf die CSS-Blätter auszuweiten wäre der eigentliche Fix.</li>
+    <li>Auch der Schlagschatten trägt ein siebtes Amber (<code>rgba(245, 165, 36, …)</code>).</li>
+  </ul>
+</div>
+
+<h2 class="kapitel">6 · Was das im Code bedeutet</h2>
+<div class="tafel">
+  <ul>
+    <li><b>Beschreibung durchreichen</b>: <code>baueCfg</code> in <code>src/remote.ts</code> übernimmt
+      <code>description</code> heute nicht in die <code>cfg</code>. Das Feld ist ab dort tot, obwohl Editor,
+      Datenbank und Tour-JSON es tragen.</li>
+    <li><b>Filmdauer</b>: steht exakt in der Filmachse (<code>src/filmachse.ts</code>), ist also keine
+      Schätzung. Sie kann erst gezeigt werden, wenn die Achse gebaut ist.</li>
+    <li><b>Autor</b>: Handle und Anzeigename müsste das Tour-JSON mitliefern. Bei kuratierten
+      <code>TOURS</code> gibt es keinen, die Zeile entfällt dort.</li>
+    <li><b>Export</b>: <code>zeichneIntroTafel</code> in <code>src/exportfilm.ts</code> baut die Tafel nach und
+      liest die Inhalte per <code>textContent</code> aus denselben Elementen. Neue Zeilen erscheinen dort
+      <b>nicht</b> von selbst, und der Block wird höher. Im Film bleibt der Knopf weg, die Autorzeile gehört
+      hinein.</li>
+  </ul>
+</div>
+
+<div class="frage">
+  <p><b>Zwei Dinge sind noch offen.</b> Erstens die Route: Ich würde sie nicht ganz streichen, sondern an die
+    Bedingung „mindestens zwei Stationen und nicht im Titel enthalten“ hängen. Bei aufgezeichneten Touren
+    verschwindet sie damit fast immer von selbst, bei den kuratierten bleibt sie. Zweitens die Dauer: Sie
+    steht hier als erster Chip. Sie könnte stattdessen auch im Knopf stehen („Tour starten · 2:40“), dann
+    wäre die Chip-Reihe ruhiger, aber die Zahl weniger auffindbar. Offen ist außerdem, ob die Herkunftszeile
+    auf <code>/@handle</code> verlinkt: Dann ist sie der zweite Weg aus dem Player heraus, neben der
+    Zurück-Pille.</p>
+</div>
+
+</body>
+</html>

@@ -38,7 +38,7 @@ body {
 }
 
 ::selection {
-  background: rgba(245, 165, 36, 0.4);
+  background: color-mix(in srgb, var(--akzent) 40%, transparent);
 }
 
 button {
@@ -244,6 +244,12 @@ button:focus-visible {
 
 .intro-title {
   margin: 18px 0 0;
+  /* Ein selbst geschriebener Titel bekommt vom Server genau EINEN Umbruch
+     (titleZuHtml). Ohne Deckel liefe ein langer Titel dann als zwei sehr breite
+     Zeilen über die ganze Bühne; `balance` verteilt, was übrig bleibt. */
+  max-width: 15ch;
+  margin-inline: auto;
+  text-wrap: balance;
   font-family: var(--font-display);
   font-weight: 600;
   font-size: clamp(48px, 10vw, 112px);
@@ -268,6 +274,72 @@ button:focus-visible {
   color: var(--text-gedaempft);
 }
 
+/* Die Herkunft: Avatar + Name als ein Griff, das Datum daneben als Text.
+   Kein zweiter Weg aus dem Player heraus im App-Modus — dort führt die Liste
+   der App zurück, ein Profilsprung im WebView hätte keinen Rückweg. */
+.intro-autor {
+  margin-top: -4px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-gedaempft);
+}
+
+.intro-autor-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  transition: color 0.2s ease;
+}
+
+.intro-autor-person:hover {
+  color: var(--akzent);
+}
+
+/* Ohne Handle ist der Name kein Link — dann darf er auch nicht wie einer
+   aussehen (der Player setzt dafür `aria-disabled`). */
+.intro-autor-person[aria-disabled='true'] {
+  pointer-events: none;
+}
+
+.intro-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2)) center / cover no-repeat;
+  color: var(--auf-akzent);
+  font-size: 11px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.intro-autor-punkt {
+  opacity: 0.45;
+}
+
+/* Die Beschreibung: ein Absatz, keine Spalte. `text-wrap: pretty` verhindert
+   die einzelne Restzeile aus einem Wort. */
+.intro-desc {
+  margin: 16px auto 0;
+  max-width: 46ch;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.55;
+  color: var(--text-gedaempft);
+  text-wrap: pretty;
+}
+
 .intro-meta {
   margin-top: 20px;
   display: flex;
@@ -277,6 +349,9 @@ button:focus-visible {
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 500;
@@ -289,25 +364,41 @@ button:focus-visible {
   -webkit-backdrop-filter: blur(8px);
 }
 
+/* Die Filmdauer ist der einzige Chip mit Akzentkontur: Sie beantwortet die
+   Frage, die man VOR dem Klick hat, und steht deshalb als erste in der Reihe.
+   Im Knopf wäre sie kürzer, aber im Video-Export gibt es keinen Knopf — die
+   Kennzahlenzeile dagegen zeichnet er mit. */
+.chip-dauer {
+  border-color: color-mix(in srgb, var(--akzent) 42%, transparent);
+  background: color-mix(in srgb, var(--akzent) 10%, transparent);
+  color: var(--text);
+}
+
+.chip-dauer svg {
+  width: 14px;
+  height: 14px;
+  color: var(--akzent);
+}
+
 .btn-start {
   margin-top: 42px;
   font-family: var(--font-ui);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #171106;
-  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+  color: var(--auf-akzent);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
   border: none;
   border-radius: var(--radius-full);
   padding: 17px 46px;
   cursor: pointer;
-  box-shadow: 0 14px 44px rgba(245, 165, 36, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 0 14px 44px color-mix(in srgb, var(--akzent) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.45);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .btn-start:hover {
   transform: translateY(-2px);
-  box-shadow: 0 20px 60px rgba(245, 165, 36, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 0 20px 60px color-mix(in srgb, var(--akzent) 50%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .btn-start:active {
@@ -342,7 +433,7 @@ button:focus-visible {
 }
 .zurueck:hover {
   color: var(--text);
-  border-color: rgba(245, 165, 36, 0.5);
+  border-color: color-mix(in srgb, var(--akzent) 50%, transparent);
   background: rgba(8, 11, 16, 0.62);
 }
 .zurueck .zurueck-chevron {
@@ -553,7 +644,7 @@ body.cinema .photo-backdrop {
   height: calc(20px * var(--karten-mass));
 }
 .photo-sound[aria-pressed='true'] {
-  background: rgba(245, 165, 36, 0.9);
+  background: color-mix(in srgb, var(--akzent) 90%, transparent);
   color: var(--auf-akzent);
 }
 
@@ -596,19 +687,19 @@ body.cinema .photo-backdrop {
   font-family: var(--font-ui);
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #171106;
-  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+  color: var(--auf-akzent);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
   border: none;
   padding: 0;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  box-shadow: 0 6px 18px rgba(239, 140, 55, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--akzent-2) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: box-shadow 0.2s ease;
 }
 
 .photo-next:hover {
-  box-shadow: 0 10px 26px rgba(239, 140, 55, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--akzent-2) 50%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 /* — Finale — */
@@ -709,11 +800,11 @@ body.cinema .photo-backdrop {
 
 .btn-replay {
   color: var(--akzent);
-  border: 1px solid rgba(245, 165, 36, 0.55);
+  border: 1px solid color-mix(in srgb, var(--akzent) 55%, transparent);
 }
 
 .btn-replay:hover {
-  background: rgba(245, 165, 36, 0.14);
+  background: color-mix(in srgb, var(--akzent) 14%, transparent);
   transform: translateY(-1px);
 }
 
@@ -783,7 +874,7 @@ body.cinema .photo-backdrop {
 }
 
 .icon-btn:hover {
-  border-color: rgba(245, 165, 36, 0.5);
+  border-color: color-mix(in srgb, var(--akzent) 50%, transparent);
   color: var(--akzent);
   transform: translateY(-1px);
 }
@@ -805,10 +896,10 @@ body.cinema .photo-backdrop {
   place-items: center;
   border: none;
   border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
-  color: #171106;
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
+  color: var(--auf-akzent);
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(245, 165, 36, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--akzent) 40%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -820,7 +911,7 @@ body.cinema .photo-backdrop {
 
 .play-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 14px 40px rgba(245, 165, 36, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 14px 40px color-mix(in srgb, var(--akzent) 55%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .play-btn:active {
@@ -857,7 +948,7 @@ body.cinema .photo-backdrop {
 }
 
 .preset-btn.active {
-  background: rgba(245, 165, 36, 0.18);
+  background: color-mix(in srgb, var(--akzent) 18%, transparent);
   color: var(--akzent);
 }
 
@@ -928,7 +1019,7 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
 
 #profile-fill {
   fill: url(#prog-grad);
-  filter: drop-shadow(0 0 6px rgba(245, 165, 36, 0.45));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--akzent) 45%, transparent));
 }
 
 /* Aktuelle Position als vertikaler Playhead über die ganze Leistenhöhe (wie im
@@ -995,7 +1086,7 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   height: 11px;
   padding: 0;
   border-radius: 50%;
-  border: 1.5px solid rgba(23, 17, 6, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--auf-akzent) 35%, transparent);
   background: var(--papier);
   cursor: pointer;
   transition: background 0.3s ease, border-color 0.3s ease, border-width 0.2s ease, transform 0.2s ease;
@@ -1042,7 +1133,7 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   height: 46px;
   margin: -23px;
   border-radius: 50%;
-  border: 2px solid rgba(245, 165, 36, 0.65);
+  border: 2px solid color-mix(in srgb, var(--akzent) 65%, transparent);
   animation: pulse 2.2s ease-out infinite;
 }
 
@@ -1067,10 +1158,10 @@ body.cam-locked .maplibregl-canvas-container.maplibregl-interactive {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: #171106;
-  background: linear-gradient(145deg, #f8bb4b, #ef8f35);
+  color: var(--auf-akzent);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
   border: 2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 24px rgba(245, 165, 36, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 24px color-mix(in srgb, var(--akzent) 40%, transparent);
 }
 
 .rider-puck svg {
@@ -1118,9 +1209,9 @@ body.ui-clean * {
 }
 
 .icon-btn.active {
-  border-color: rgba(245, 165, 36, 0.6);
+  border-color: color-mix(in srgb, var(--akzent) 60%, transparent);
   color: var(--akzent);
-  background: rgba(245, 165, 36, 0.14);
+  background: color-mix(in srgb, var(--akzent) 14%, transparent);
 }
 
 /* Ebenen-/Renderer-Dropdown (ersetzt die einzelnen Gebäude-/Google-Buttons) */
@@ -1279,7 +1370,7 @@ body:not(.dev) .dev-only {
   font-weight: 600;
   letter-spacing: 0.16em;
   color: var(--akzent);
-  border: 1px solid rgba(245, 165, 36, 0.5);
+  border: 1px solid color-mix(in srgb, var(--akzent) 50%, transparent);
   border-radius: 6px;
   padding: 3px 6px;
 }
@@ -1351,7 +1442,7 @@ body:not(.dev) .dev-only {
 }
 
 .opt-switch[aria-checked='true'] {
-  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
 }
 
 .opt-knob {
@@ -1384,8 +1475,8 @@ body:not(.dev) .dev-only {
   border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
-  color: #171106;
-  background: linear-gradient(135deg, #f8bb4b, #ef8c37);
+  color: var(--auf-akzent);
+  background: linear-gradient(120deg, var(--akzent), var(--akzent-2));
 }
 
 /* — App-Modus (?app=1, WebView der Android-App) —
@@ -1607,7 +1698,7 @@ body.export .export-stand {
 .karten-info-popup a {
   color: var(--text);
   text-decoration: none;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.5);
+  border-bottom: 1px solid color-mix(in srgb, var(--akzent) 50%, transparent);
 }
 
 .karten-info-popup a:hover {

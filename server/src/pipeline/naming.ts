@@ -6,6 +6,16 @@
 export interface Geocoder {
   /** Ortsname zu einer Koordinate, null wenn nicht auflösbar. */
   ortsname(lng: number, lat: number): Promise<string | null>
+  /**
+   * Die Adress-Ebenen derselben Stelle, von fein nach grob: „Völklingen",
+   * „Regionalverband Saarbrücken", „Saarland", „Deutschland".
+   *
+   * Optional, damit Tests und der feste Geocoder unverändert bleiben. Sie sind
+   * die Vorschläge für die Dachzeile im Studio — vorher behielten wir vom
+   * Geocoding genau einen Treffer einer festen Prioritätenkette und warfen den
+   * Rest weg, obwohl die Antwort ihn schon enthielt.
+   */
+  ortsebenen?(lng: number, lat: number): Promise<string[]>
 }
 
 /** Nominatim (OSM) — bitte fair nutzen: eigener User-Agent, keine Request-Flut. */
@@ -15,18 +25,69 @@ export class NominatimGeocoder implements Geocoder {
     private readonly userAgent = 'Maptale/0.1 (https://maptale.io)',
   ) {}
 
-  async ortsname(lng: number, lat: number): Promise<string | null> {
+  /**
+   * Die letzte Antwort, damit `ortsname` und `ortsebenen` derselben Stelle
+   * EINEN Aufruf teilen. Nominatim bittet ausdrücklich um sparsame Nutzung, und
+   * beide Fragen beantwortet dieselbe Adress-Aufteilung.
+   */
+  private letzte: { schluessel: string; adresse: Record<string, string> | null } | null = null
+
+  private async adresse(lng: number, lat: number): Promise<Record<string, string> | null> {
+    const schluessel = `${lng},${lat}`
+    if (this.letzte?.schluessel === schluessel) return this.letzte.adresse
+    let adresse: Record<string, string> | null = null
     try {
       const url = `${this.basisUrl}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&accept-language=de`
       const antwort = await fetch(url, { headers: { 'User-Agent': this.userAgent } })
-      if (!antwort.ok) return null
-      const json = (await antwort.json()) as { address?: Record<string, string> }
-      const a = json.address ?? {}
-      return a.village ?? a.town ?? a.city ?? a.municipality ?? a.hamlet ?? a.suburb ?? a.county ?? null
+      if (antwort.ok) {
+        const json = (await antwort.json()) as { address?: Record<string, string> }
+        adresse = json.address ?? {}
+      }
     } catch {
-      return null
+      adresse = null
     }
+    this.letzte = { schluessel, adresse }
+    return adresse
   }
+
+  async ortsname(lng: number, lat: number): Promise<string | null> {
+    const a = await this.adresse(lng, lat)
+    if (!a) return null
+    return a.village ?? a.town ?? a.city ?? a.municipality ?? a.hamlet ?? a.suburb ?? a.county ?? null
+  }
+
+  async ortsebenen(lng: number, lat: number): Promise<string[]> {
+    const a = await this.adresse(lng, lat)
+    return a ? ebenenAusAdresse(a) : []
+  }
+}
+
+/**
+ * Die Adress-Aufteilung zu einer Liste von fein nach grob, ohne Dubletten.
+ *
+ * Bewusst NICHT der Straßenname und nicht die Hausnummer: Die Dachzeile steht
+ * über dem Titel einer Reise, nicht über einer Anschrift. Was ein
+ * Sehenswürdigkeits-Name wäre (`tourism`, `attraction`), kommt bei `zoom=14`
+ * ohnehin nicht mit — wer ihn will, schreibt ihn selbst hinein.
+ */
+export function ebenenAusAdresse(a: Record<string, string>): string[] {
+  const kandidaten = [
+    a.village,
+    a.hamlet,
+    a.suburb,
+    a.town,
+    a.city,
+    a.municipality,
+    a.county,
+    a.state,
+    a.country,
+  ]
+  const aus: string[] = []
+  for (const k of kandidaten) {
+    const wert = k?.trim()
+    if (wert && !aus.includes(wert)) aus.push(wert)
+  }
+  return aus
 }
 
 export class FesterGeocoder implements Geocoder {
@@ -67,6 +128,12 @@ const datumDeutsch = (iso: string, zone: string): string => {
 export interface Endpunkte {
   startOrt: string | null
   zielOrt: string | null
+  /**
+   * Die Adress-Ebenen des STARTpunkts (fein → grob) als Vorschläge für die
+   * Dachzeile. Fehlt bei Caches aus der Zeit davor und bei Geocodern, die sie
+   * nicht liefern — dann bietet das Studio nur den Ortsnamen an.
+   */
+  startEbenen?: string[]
 }
 
 /**
@@ -80,8 +147,12 @@ export async function geocodiereEndpunkte(
   zielPunkt: [number, number],
 ): Promise<Endpunkte> {
   const startOrt = await geocoder.ortsname(startPunkt[0], startPunkt[1])
+  // Die Ebenen VOR dem Zielpunkt holen: Der Nominatim-Geocoder hält genau eine
+  // Antwort vor, ein Aufruf für den Zielpunkt dazwischen würfe sie weg und
+  // kostete eine zweite Abfrage derselben Stelle.
+  const startEbenen = (await geocoder.ortsebenen?.(startPunkt[0], startPunkt[1])) ?? []
   const zielOrt = await geocoder.ortsname(zielPunkt[0], zielPunkt[1])
-  return { startOrt, zielOrt }
+  return { startOrt, zielOrt, ...(startEbenen.length ? { startEbenen } : {}) }
 }
 
 /**
@@ -95,10 +166,17 @@ export function baueBenennung(args: {
   startOrt: string | null
   zielOrt: string | null
   nutzerTitel: string | null
+  /**
+   * Die Dachzeile, wie sie im Studio steht. `null` heißt „nie gesetzt" und
+   * nimmt die Vorbelegung (den Startort einer Rundtour), der LEERE String heißt
+   * „ausdrücklich keine Zeile". Beides ist unterscheidbar, weil nur so jemand
+   * die Zeile auch wieder loswerden kann.
+   */
+  dachzeile?: string | null
   zeitStart: string
   zone: string
 }): Benennung {
-  const { startOrt, zielOrt, nutzerTitel, zeitStart, zone } = args
+  const { startOrt, zielOrt, nutzerTitel, dachzeile, zeitStart, zone } = args
   const datum = datumDeutsch(zeitStart, zone)
 
   const rundtour = startOrt !== null && startOrt === zielOrt
@@ -115,11 +193,23 @@ export function baueBenennung(args: {
     title = `Tour vom ${datum}`
   }
 
+  // Die Dachzeile.
+  //
+  // Bis hierher stand dort „Aufgezeichnet am 14. Mai 2026" — ein Datum, in der
+  // kräftigsten Farbe der Seite, über dem Titel. Das Datum steht jetzt in der
+  // Herkunftszeile neben dem Namen, und die Dachzeile gehört dem Autor.
+  //
+  // Die VORBELEGUNG gibt es nur bei der Rundtour: Dort nennt der Titel schon
+  // den Ort („Runde bei Völklingen"), und die Zeile darüber ordnet ihn ein. Bei
+  // A nach B stehen beide Orte bereits im Titel oder in der Stationszeile — ein
+  // Startort obendrüber wäre die dritte Nennung derselben Gegend.
+  const kicker = dachzeile === null || dachzeile === undefined ? (rundtour ? (startOrt ?? '') : '') : dachzeile.trim()
+
   return {
     title,
     brandTitle: title,
     titleHtml: titleZuHtml(title),
-    kicker: `Aufgezeichnet am ${datum}`,
+    kicker,
     stops: stops.length ? stops : [title],
     finaleTitle: zielOrt ?? stops[stops.length - 1] ?? title,
   }
@@ -132,15 +222,16 @@ export function baueBenennung(args: {
  */
 export async function benenneTour(args: {
   nutzerTitel: string | null
+  dachzeile?: string | null
   startPunkt: [number, number]
   zielPunkt: [number, number]
   zeitStart: string
   zone: string
   geocoder: Geocoder
 }): Promise<Benennung> {
-  const { nutzerTitel, startPunkt, zielPunkt, zeitStart, zone, geocoder } = args
+  const { nutzerTitel, dachzeile, startPunkt, zielPunkt, zeitStart, zone, geocoder } = args
   const orte = await geocodiereEndpunkte(geocoder, startPunkt, zielPunkt)
-  return baueBenennung({ ...orte, nutzerTitel, zeitStart, zone })
+  return baueBenennung({ ...orte, nutzerTitel, dachzeile: dachzeile ?? null, zeitStart, zone })
 }
 
 /**

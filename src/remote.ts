@@ -42,6 +42,19 @@ export interface TourJsonAntwort {
   showFinale?: boolean
   finaleTitle: string
   description: string | null
+  /**
+   * Wer die Tour aufgenommen hat. Steht NICHT in der gerenderten Datei, sondern
+   * setzt die Route bei jeder Auslieferung frisch ein (server/src/routes/tours.ts)
+   * — ein eingebackener Name wäre nach dem nächsten Wechsel falsch. Fehlt, wenn
+   * niemand einen Anzeigenamen gesetzt hat; `handle`/`id` nur bei öffentlichem
+   * Profil, sonst gibt es keine Seite, auf die der Name führen könnte.
+   */
+  autor?: {
+    anzeigename: string
+    avatarUrl: string | null
+    id?: string
+    handle?: string | null
+  }
   time: { start: string; end: string; zone: string }
   segments: Array<{
     mode: string
@@ -84,6 +97,10 @@ export interface RemoteTourCfg {
   kicker: string
   titleHtml: string
   stops: string[]
+  /** Der Satz unter dem Titel — aus dem Studio, gekürzt in src/tourtexte.ts. */
+  description?: string | null
+  /** Aufnehmer der Tour; fehlt bei Konten ohne Anzeigenamen */
+  autor?: NonNullable<TourJsonAntwort['autor']>
   /** true = Endscreen; fehlt/false = zurück zum Startscreen */
   showFinale?: boolean
   finaleTitle: string
@@ -169,6 +186,11 @@ export function adaptiereTour(tour: TourJsonAntwort): RemoteTourCfg {
     kicker: tour.kicker,
     titleHtml: tour.titleHtml,
     stops: tour.stops,
+    // Die Beschreibung. Sie stand im Antwort-Typ, kam aber nie in der cfg an —
+    // der Editor pflegte sie, die Datenbank hielt sie, und der Player warf sie
+    // an genau dieser Stelle weg.
+    description: tour.description,
+    ...(tour.autor ? { autor: tour.autor } : {}),
     showFinale: tour.showFinale === true,
     finaleTitle: tour.finaleTitle,
     time: tour.time,

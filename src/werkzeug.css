@@ -80,12 +80,12 @@ button.primaer,
   border: none;
   font-weight: 600;
   padding: 10px 16px;
-  box-shadow: 0 6px 18px rgba(245, 133, 40, 0.22);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--akzent-2) 22%, transparent);
 }
 button.primaer:hover,
 .knopf.primaer:hover {
   background: linear-gradient(100deg, var(--akzent), var(--akzent-2));
-  box-shadow: 0 8px 24px rgba(245, 133, 40, 0.34);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--akzent-2) 34%, transparent);
   filter: brightness(1.06);
 }
 
@@ -101,8 +101,11 @@ button svg,
   flex: none;
 }
 
-/* Fokus: 2px Amber-Outline mit Offset (DESIGN.md, Shapes). */
-:is(button, .knopf, input, select, textarea, [role='button'], a):focus-visible {
+/* Fokus, Fall 1: Elemente OHNE eigenen Rand (DESIGN.md, Shapes).
+   Felder sind hier ausgenommen — sie haben einen Rahmen, der sich färben kann,
+   und bekamen mit beidem einen Doppelring: die Outline zog mit 2px Luft eine
+   zweite Grenze neben die vorhandene. */
+:is(button, .knopf, [role='button'], a):focus-visible {
   outline: 2px solid var(--akzent);
   outline-offset: 2px;
   border-radius: var(--radius-md);
@@ -126,15 +129,21 @@ textarea {
   width: 100%;
   transition:
     border-color 160ms ease,
+    box-shadow 160ms ease,
     background 160ms ease;
 }
 :is(input, select, textarea):hover {
   border-color: var(--rand-hell);
 }
+/* Fokus, Fall 2: Elemente MIT eigenem Rand. Der Rand färbt sich, der Halo
+   verstärkt genau diese Kante — zusammen 4px Amber, mehr als die 2px-Outline,
+   die er ersetzt. Der frühere Flächenwechsel (`background: #0a0e15`) ist weg:
+   Er war das dritte Signal für denselben Zustand und zugleich eine rohe Farbe,
+   die kein Token war. */
 :is(input, select, textarea):focus {
   border-color: var(--akzent);
   outline: none;
-  background: #0a0e15;
+  box-shadow: var(--fokus-ring);
 }
 ::placeholder {
   color: var(--text-3);

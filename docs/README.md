@@ -498,6 +498,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`app-aufnahmen-hinzufuegen.html`](mockups/app-aufnahmen-hinzufuegen.html) — Medien nachträglich in der App.
 * [`app-live-teilen.html`](mockups/app-live-teilen.html) — Live-Freigabe während der Android-Aufnahme.
 * [`live-ansicht.html`](mockups/live-ansicht.html) — Live-Zuschaueransicht (`/live/…`).
+* [`player-startscreen.html`](mockups/player-startscreen.html) — Startscreen des Players: Beschreibung, Autorzeile, Filmdauer und der Knopf in Marken-Orange.
 
 ### 6. `archive/` (Historie)
 Siehe [`archive/README.md`](archive/README.md). Enthält u. a. den Tool-Katalog,

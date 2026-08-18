@@ -12,6 +12,8 @@ import { ausschnittDauerS, klemmeSeitenverhaeltnis } from '../einblendung.js'
 import type { KartenMedium, KartenQuelle, KartenText } from '../kartenmaler.js'
 import { createKartenSchicht, type KartenSchicht } from '../kartenschicht.js'
 import { pfad, tourPfad } from '../routen.js'
+import { BESCHREIBUNG_MAX } from '../tourtexte.js'
+import { verdrahteTipps } from './tipp.js'
 import * as api from './api.js'
 import { oeffneExportBlatt, schliesseExportBlatt } from './exportblatt.js'
 import {
@@ -383,6 +385,9 @@ async function ladeDaten(tourId: string): Promise<void> {
   letzterStand = edits
   ;($('editor-titel') as HTMLInputElement).value = daten.title ?? ''
   ;($('editor-beschreibung') as HTMLTextAreaElement).value = daten.description ?? ''
+  zaehleBeschreibung()
+  ;($('editor-dachzeile') as HTMLInputElement).value = daten.dachzeile ?? ''
+  baueEbenenWahl(daten.dachzeileVorschlaege ?? [])
   const finaleAn = !!daten.finale
   ;($('editor-finale') as HTMLInputElement).checked = finaleAn
   ;($('editor-finale-ziel') as HTMLInputElement).value = daten.finaleZiel ?? ''
@@ -1242,15 +1247,83 @@ function nachDialog(): HTMLDialogElement {
  * statt es kommentarlos zu verwerfen (die Fußzeile des Dialogs verspricht
  * ausdrücklich „Deine Schnitte bleiben").
  */
+/**
+ * Die Vorschläge unter der Dachzeile.
+ *
+ * Sie kommen aus derselben Geocoder-Antwort, aus der schon der Ortsname
+ * stammt — vorher behielten wir davon einen Treffer einer festen Kette
+ * (village ?? town ?? city ?? …) und warfen den Rest weg. Welche Ebene richtig
+ * ist, hängt aber daran, wie eine Gegend in OSM erfasst ist: dieselbe Runde
+ * ergibt in der Stadt einen Stadtteil und auf dem Land einen Landkreis.
+ *
+ * Ein Klick SETZT nur den Text, er wählt nichts aus: Das Feld bleibt frei
+ * beschreibbar, die Knöpfe sind die Abkürzung. Deshalb auch kein Menü — die
+ * Vorschläge sind zu zweit bis zu viert und sollen sichtbar sein, statt sich
+ * hinter einem Klick zu verstecken.
+ */
+function baueEbenenWahl(vorschlaege: readonly string[]): void {
+  const kasten = $('editor-dachzeile-ebenen') as HTMLElement | null
+  const feld = $('editor-dachzeile') as HTMLInputElement | null
+  if (!kasten || !feld) return
+  kasten.replaceChildren()
+  kasten.hidden = vorschlaege.length === 0
+  for (const wert of vorschlaege) {
+    const knopf = document.createElement('button')
+    knopf.type = 'button'
+    knopf.textContent = wert
+    knopf.setAttribute('aria-pressed', String(feld.value.trim() === wert))
+    knopf.addEventListener('click', () => {
+      // Noch einmal auf denselben Vorschlag: die Zeile wieder loswerden. Sonst
+      // müsste man das Feld von Hand leeren, um die Zeile abzuschalten.
+      feld.value = feld.value.trim() === wert ? '' : wert
+      markiereEbenenWahl()
+    })
+    kasten.append(knopf)
+  }
+}
+
+/** Welcher Vorschlag steht gerade im Feld? */
+function markiereEbenenWahl(): void {
+  const kasten = $('editor-dachzeile-ebenen') as HTMLElement | null
+  const feld = $('editor-dachzeile') as HTMLInputElement | null
+  if (!kasten || !feld) return
+  const wert = feld.value.trim()
+  for (const knopf of kasten.querySelectorAll('button'))
+    knopf.setAttribute('aria-pressed', String(knopf.textContent === wert))
+}
+
+/**
+ * Der Zähler unter der Beschreibung.
+ *
+ * `maxlength` hält die Eingabe an, sagt aber nichts — und die Grenze ist hier
+ * eine gestalterische Angabe und keine technische: Der Text steht im
+ * Startscreen des Players und in der Vorschau geteilter Links, und nur unter
+ * BESCHREIBUNG_MAX Zeichen bleibt er an beiden Stellen ungekürzt. Bestandstexte
+ * dürfen länger sein (das Feld lehnt sie nicht ab); dann zählt der Zähler über
+ * die Grenze hinaus und färbt sich.
+ */
+function zaehleBeschreibung(): void {
+  const feld = $('editor-beschreibung') as HTMLTextAreaElement | null
+  const zaehler = $('editor-beschreibung-zaehler') as HTMLElement | null
+  if (!feld || !zaehler) return
+  const laenge = feld.value.trim().length
+  zaehler.textContent = `${laenge} / ${BESCHREIBUNG_MAX}`
+  zaehler.classList.toggle('knapp', laenge > BESCHREIBUNG_MAX)
+}
+
 function hatUngespeichertes(zustand: Zustand): boolean {
   if (JSON.stringify(zustand.edits) !== zustand.gespeichert) return true
   const titel = ($('editor-titel') as HTMLInputElement).value.trim()
   const beschreibung = ($('editor-beschreibung') as HTMLTextAreaElement).value.trim()
+  const dachzeile = ($('editor-dachzeile') as HTMLInputElement).value.trim()
   const finale = ($('editor-finale') as HTMLInputElement).checked
   const finaleZiel = ($('editor-finale-ziel') as HTMLInputElement).value.trim()
   return (
     (!!titel && titel !== (zustand.daten.title ?? '')) ||
     beschreibung !== (zustand.daten.description ?? '') ||
+    // Gegen `?? ''` und nicht gegen null: Ein Feld, das noch nie gesetzt wurde,
+    // ist leer — erst wenn jemand etwas hineinschreibt, gibt es eine Änderung.
+    dachzeile !== (zustand.daten.dachzeile ?? '') ||
     finale !== !!zustand.daten.finale ||
     finaleZiel !== (zustand.daten.finaleZiel ?? '')
   )
@@ -6875,16 +6948,19 @@ async function speichern(): Promise<void> {
     //    bewusst NACH dem Overlay, damit sich die Renderer nie überlappen
     const titel = ($('editor-titel') as HTMLInputElement).value.trim()
     const beschreibung = ($('editor-beschreibung') as HTMLTextAreaElement).value.trim()
+    const dachzeile = ($('editor-dachzeile') as HTMLInputElement).value.trim()
     const finale = ($('editor-finale') as HTMLInputElement).checked
     const finaleZiel = ($('editor-finale-ziel') as HTMLInputElement).value.trim()
     const felder: {
       title?: string
       description?: string
+      dachzeile?: string
       finale?: boolean
       finaleZiel?: string
     } = {}
     if (titel && titel !== (z.daten.title ?? '')) felder.title = titel
     if (beschreibung !== (z.daten.description ?? '')) felder.description = beschreibung
+    if (dachzeile !== (z.daten.dachzeile ?? '')) felder.dachzeile = dachzeile
     if (finale !== !!z.daten.finale) felder.finale = finale
     if (finaleZiel !== (z.daten.finaleZiel ?? '')) felder.finaleZiel = finaleZiel
     if (Object.keys(felder).length) {
@@ -7025,6 +7101,10 @@ function verdrahteEinmal(): void {
   // Der Kopf zeigt den Titel — er muss dem Feld folgen, sonst steht dort der
   // alte Name, bis die Tour neu geladen wird.
   $('editor-titel').addEventListener('input', zeigeTitelImKopf)
+  $('editor-beschreibung').addEventListener('input', zaehleBeschreibung)
+  $('editor-dachzeile').addEventListener('input', markiereEbenenWahl)
+  // Die Erklärungen der Tour-Einstellungen hängen an ihren Griffen (data-tipp).
+  verdrahteTipps(document)
   $('editor-finale').addEventListener('change', syncFinaleZielFeld)
   $('editor-undo').addEventListener('click', rueckgaengig)
   $('editor-redo').addEventListener('click', wiederherstellen)

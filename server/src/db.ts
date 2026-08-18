@@ -542,6 +542,23 @@ const MIGRATIONEN: Migration[] = [
   );
   CREATE INDEX idx_rueckmeldungen_status ON rueckmeldungen(status, angelegt_am DESC);
   `,
+
+  // Die Dachzeile des Startscreens — der kleine Satz über dem Titel.
+  //
+  // Vorher war das eine erzeugte Zeile („Aufgezeichnet am 14. Mai 2026"), und
+  // der naheliegende Ersatz wäre der geocodierte Ortsname gewesen. Beides ist
+  // geraten: Nominatim liefert je nach Gegend eine andere Ebene (Stadtteil,
+  // Stadt, Landkreis), und ob überhaupt ein Ort dort stehen soll oder eine
+  // Sehenswürdigkeit, ein Satzanfang oder gar nichts, weiß nur der Autor.
+  //
+  // Deshalb ein Feld und kein Algorithmus. Drei Zustände, die man
+  // auseinanderhalten muss: NULL heißt „nie etwas gesetzt" (der Render nimmt
+  // die Vorbelegung aus dem Ortsnamen), der leere String heißt „ausdrücklich
+  // keine Zeile", und ein Text ist der Text. Ein einzelnes Textfeld ohne NULL
+  // könnte den ersten Fall nicht vom zweiten unterscheiden.
+  `
+  ALTER TABLE tours ADD COLUMN dachzeile TEXT;
+  `,
 ]
 
 /**

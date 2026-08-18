@@ -163,7 +163,9 @@ describe('DESIGN.md ↔ src/basis.css', () => {
     const masse = ausDesign('spacing')
     expect(gleich(token('--wrap'), masse.wrap ?? '')).toBe(true)
     expect(gleich(token('--topbar-h'), masse['topbar-h'] ?? '')).toBe(true)
-    expect(gleich(token('--schatten'), ausDesign('elevation').shadow ?? '')).toBe(true)
+    const tiefe = ausDesign('elevation')
+    expect(gleich(token('--schatten'), tiefe.shadow ?? '')).toBe(true)
+    expect(gleich(token('--fokus-ring'), tiefe['focus-ring'] ?? '')).toBe(true)
   })
 })
 
@@ -203,6 +205,129 @@ describe('Ein Namenssystem', () => {
       for (const [wert, name] of werte) {
         const treffer = ohneDatenUrls.match(new RegExp(`${wert}\\b`, 'i'))
         expect(treffer, `${datei} schreibt ${wert} roh hin — dafür gibt es ${name}`).toBeNull()
+      }
+    }
+  })
+
+  it('lässt keine Akzentfarbe roh in einer Regel stehen', () => {
+    // Der zweite Befund derselben Sorte, und der teurere: Nicht der EXAKTE
+    // Token-Wert stand in den Regeln, sondern ein ZWILLING davon. Der Player
+    // trug `#f8bb4b → #ef8c37` als Startknopf, dazu `rgba(245, 165, 36, …)` als
+    // Schatten und `#171106` als Text darauf — drei Ambertöne, die es im
+    // Namenssystem nicht gibt. Der Test oben griff nicht, weil er nur nach den
+    // Token-Werten selbst sucht, und so driftete die einzige Seite ab, auf der
+    // die Marke am größten steht.
+    //
+    // Geprüft wird deshalb die FAMILIE, nicht der Wert: Was warm und kräftig
+    // ist (Farbton 15°–55°, Sättigung über 45 %), gehört in den Regeln aus
+    // `var(--akzent)`, `var(--akzent-2)` oder `var(--auf-akzent)` zu kommen —
+    // für Deckkraft über `color-mix(in srgb, var(--akzent) 35%, transparent)`.
+    const warm = (r: number, g: number, b: number): boolean => {
+      const max = Math.max(r, g, b) / 255
+      const min = Math.min(r, g, b) / 255
+      if (max === min) return false
+      const l = (max + min) / 2
+      const s = l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min)
+      const rn = r / 255
+      const gn = g / 255
+      const bn = b / 255
+      let h = 0
+      if (max === rn) h = ((gn - bn) / (max - min)) % 6
+      else if (max === gn) h = (bn - rn) / (max - min) + 2
+      else h = (rn - gn) / (max - min) + 4
+      h = (h * 60 + 360) % 360
+      return h >= 15 && h <= 55 && s > 0.45
+    }
+
+    const funde = (datei: string): string[] => {
+      const inhalt = lies(datei)
+      const regeln = datei.endsWith('.css')
+        ? inhalt
+        : [...inhalt.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1] ?? '').join('\n')
+      const ohne = regeln
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/url\("data:[^"]*"\)/g, '')
+      const treffer = new Set<string>()
+      for (const [ganz, hex] of ohne.matchAll(/#([0-9a-fA-F]{6})\b/g)) {
+        const r = Number.parseInt((hex ?? '').slice(0, 2), 16)
+        const g = Number.parseInt((hex ?? '').slice(2, 4), 16)
+        const b = Number.parseInt((hex ?? '').slice(4, 6), 16)
+        if (warm(r, g, b)) treffer.add(ganz)
+      }
+      for (const [ganz, r, g, b] of ohne.matchAll(/rgba?\((\d+),\s*(\d+),\s*(\d+)/g))
+        if (warm(Number(r), Number(g), Number(b))) treffer.add(`${ganz})`)
+      return [...treffer].sort()
+    }
+
+    // Der Player ist bereinigt und bleibt es.
+    for (const datei of ['src/style.css', 'src/grundelemente.css', 'src/rechtstext.css', 'src/werkzeug.css', 'erlebnis.html'])
+      expect(
+        funde(datei),
+        `${datei} schreibt eine Akzentfarbe roh hin — var(--akzent)/var(--akzent-2) oder color-mix nehmen`,
+      ).toEqual([])
+
+    // Der Bestand: Studio, Konto, Profil, Admin und die Landing tragen dieselben
+    // Zwillinge, teils als eigene Aufhellungen auf Akzentflächen. Sie stehen
+    // hier als ZAHL und nicht als Freibrief — die Liste darf schrumpfen, nicht
+    // wachsen. Wer eine Seite anfasst, räumt sie mit auf.
+    const bestand: Record<string, number> = {
+      'index.html': 4,
+      'studio.html': 13,
+      'konto.html': 4,
+      'profil.html': 3,
+      'admin.html': 3,
+    }
+    for (const [datei, erlaubt] of Object.entries(bestand)) {
+      const anzahl = funde(datei).length
+      expect(
+        anzahl,
+        `${datei} hat jetzt ${anzahl} rohe Akzentfarben statt ${erlaubt} — die Bestandsliste darf nur kleiner werden`,
+      ).toBeLessThanOrEqual(erlaubt)
+    }
+  })
+
+  it('zeigt den Fokus auf genau eine Art je Element', () => {
+    // Der Befund: Ein Textfeld im Studio trug DREI gleichzeitige Signale —
+    // amber gefärbter Rand, 2px-Outline mit Abstand daneben und eine dunklere
+    // Fläche. Die Outline stammte aus der allgemeinen Regel, der Rand aus der
+    // Feld-Regel, und beide trafen zu. DESIGN.md kennt seither zwei Fälle:
+    // Rand vorhanden → Rand + `--fokus-ring`, kein Rand → Outline mit 2px.
+    //
+    // Geprüft werden die zwei Dinge, die man beim nächsten Mal falsch macht:
+    // ein anderer Offset (er war einmal 2px, einmal 3px, einmal -2px) und ein
+    // selbst gemischter Halo statt des Tokens.
+    const OFFSET_AUSNAHMEN = [
+      // Beide beschneiden ihren Überstand (`overflow: hidden` bzw. bündige
+      // Panel-Spalte) — außen läge die Outline unter der Kante.
+      '.karte-haupt:focus-visible',
+      '.insp-info summary:focus-visible',
+    ]
+    for (const datei of [...SEITEN, ...BLAETTER, 'public/404.html']) {
+      const inhalt = lies(datei)
+      const regeln = datei.endsWith('.css')
+        ? inhalt
+        : [...inhalt.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1] ?? '').join('\n')
+      const ohneKommentare = regeln.replace(/\/\*[\s\S]*?\*\//g, '')
+
+      for (const [block] of ohneKommentare.matchAll(/[^{}]*:focus[^{}]*\{[^}]*\}/g)) {
+        if (!/outline-offset/.test(block)) continue
+        const offset = block.match(/outline-offset:\s*(-?[\d.]+px)/)?.[1]
+        const negativErlaubt = OFFSET_AUSNAHMEN.some((a) => block.includes(a.split(':')[0] ?? ''))
+        expect(
+          offset === '2px' || (negativErlaubt && offset === '-2px'),
+          `${datei}: outline-offset ${offset} — DESIGN.md sagt 2px (nach innen nur, wo der Überstand beschnitten wird)`,
+        ).toBe(true)
+      }
+
+      // Ein Halo darf nur aus dem Token kommen. Selbst gemischt lief er schon
+      // dreifach auseinander: 15 %, 22 % und 55 % Amber für dieselbe Sache.
+      for (const [block] of ohneKommentare.matchAll(/[^{}]*:focus[^{}]*\{[^}]*\}/g)) {
+        const schatten = block.match(/box-shadow:\s*([^;]+);/)?.[1]?.trim()
+        if (!schatten || schatten === 'none') continue
+        expect(
+          schatten.includes('var(--fokus-ring)'),
+          `${datei}: eigener Fokus-Schatten „${schatten}" — var(--fokus-ring) nehmen`,
+        ).toBe(true)
       }
     }
   })

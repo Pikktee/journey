@@ -567,7 +567,7 @@ button.still:disabled {
 .sp-feld textarea:focus-visible {
   outline: none;
   border-color: var(--akzent);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+  box-shadow: var(--fokus-ring);
 }
 
 /* ═══════════════ Meldung nach einer erledigten Sache ═══════════════

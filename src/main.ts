@@ -3,7 +3,7 @@ import './style.css'
 import type { Map as MapLibreKarte, Marker } from 'maplibre-gl'
 import { TOURS, type Ankerpunkt, type TourAudio, type TourZeit, type Wegpunkt } from './tours.js'
 import { loadRemoteTour, ladeServerTouren, createTimeAt, type RemoteTourCfg } from './remote.js'
-import { tourAusPfad, tourPfad } from './routen.js'
+import { profilPfad, tourAusPfad, tourPfad } from './routen.js'
 import { buildRoute, dist, gruppiereStopps, nearestS, pointAt, type Route } from './geo.js'
 import { klipDauerS, standzeitS } from './einblendung.js'
 import {
@@ -18,6 +18,7 @@ import {
   type Streckenhalt,
 } from './filmachse.js'
 import { baueSBeiF } from './streckenanker.js'
+import { kennzahlen, kuerzeBeschreibung, zeigeRoute } from './tourtexte.js'
 import { createMap, addRouteLayers, createRider, setRiderIcon, addSpotLayers, KARTE_EXTRA_QUELLEN } from './map.js'
 import { createDayNight } from './daynight.js'
 import { sunPosition } from './sun.js'
@@ -83,6 +84,10 @@ interface SpielerTour {
   kicker: string
   titleHtml: string
   stops: string[]
+  /** Der Satz unter dem Titel (Studio, max. 150 Zeichen) — kuratierte Touren haben keinen */
+  description?: string | null
+  /** Aufnehmer (nur aufgezeichnete Touren, s. remote.ts) */
+  autor?: { anzeigename: string; avatarUrl: string | null; id?: string; handle?: string | null }
   finaleTitle: string
   showFinale?: boolean
   /** Ohne `time` bleibt die Tag/Nacht-Regie (und damit die Atmosphäre) aus */
@@ -493,11 +498,97 @@ const start = pointAt(route, 0)
 const setText = (id: string, text: string) => ($(id).textContent = text)
 document.title = 'Maptale · deine Reisen als kinematische 3D-Erlebnisse'
 setText('intro-kicker', cfg.kicker)
+$('intro-kicker').hidden = !cfg.kicker.trim()
 $('intro-title').innerHTML = cfg.titleHtml
-setText('intro-route', cfg.stops.join('  →  '))
 setText('finale-title', cfg.finaleTitle)
-setText('chip-photos', `${photos.length} Fotos`)
 setText('final-photos', String(photos.length))
+
+// Die Stationszeile nur, wenn sie etwas beiträgt: Bei aufgezeichneten Touren
+// kommen Titel UND Stationen aus denselben zwei geocodierten Endpunkten, sie
+// wiederholte dort wortgleich den Titel („Runde bei Völklingen" über
+// „Völklingen"). src/tourtexte.ts entscheidet, diese Datei zeigt nur.
+const routeSichtbar = zeigeRoute(cfg.stops, cfg.titleHtml)
+setText('intro-route', cfg.stops.join('  →  '))
+$('intro-route').hidden = !routeSichtbar
+
+// Die Beschreibung aus dem Studio. Sie war bis hierher nie angekommen: Der
+// Antwort-Typ trug sie, `baueCfg` ließ sie fallen.
+const beschreibung = kuerzeBeschreibung(cfg.description)
+if (beschreibung) setText('intro-desc', beschreibung)
+$('intro-desc').hidden = !beschreibung
+
+// — Die Kennzahlen des Startscreens —
+// Eine Null ist keine Angabe: „0 hm" stand neben „0.1 km" wie ein Defekt.
+// Welche Chips es gibt und wie sie heißen, entscheidet src/tourtexte.ts; hier
+// werden sie nur gesetzt und ein- oder ausgehängt. Die FILMDAUER kommt aus der
+// Achse und ist damit keine Schätzung, sondern die Länge, die der Film hat.
+//
+// Auf Modulebene und nicht im `load`-Handler der Karte: Der Startscreen steht
+// lange, bevor die erste Kachel da ist, und zeigte bis dahin „– km". Nach dem
+// Eintreffen der DEM-Höhen ruft `setGain` sie ein zweites Mal (die Höhenmeter
+// ändern sich dann noch).
+function setzeKennzahlen(hoehenmeter: number): void {
+  const werte = kennzahlen({
+    filmDauerS: filmachse.gesamtS,
+    km: route.total / 1000,
+    hoehenmeter,
+    fotos: photos.length,
+  })
+  const chip = (art: string) => werte.find((w) => w.art === art)
+  const setze = (id: string, textId: string, wert: { text: string } | undefined) => {
+    if (wert) $(textId).textContent = wert.text
+    $(id).hidden = !wert
+  }
+  setze('chip-dauer', 'chip-dauer-text', chip('dauer'))
+  setze('chip-distance', 'chip-distance', chip('km'))
+  setze('chip-gain', 'chip-gain', chip('hm'))
+  setze('chip-photos', 'chip-photos', chip('fotos'))
+}
+setzeKennzahlen(route.gain)
+
+// — Die Herkunft: von wem und wann —
+// Sie ersetzt das Datum, das früher als Kicker über dem Titel stand: Ein
+// Aufnahmedatum ist eine Randnotiz und bekam dort die kräftigste Farbe der
+// Seite. Das Datum kommt aus der Aufnahmezeit der Tour, nicht aus einem
+// eigenen Feld — es ist dieselbe Angabe.
+const autor = cfg.autor
+const aufnahmeDatum = (() => {
+  if (!cfg.time?.start) return ''
+  const ms = Date.parse(cfg.time.start)
+  if (!Number.isFinite(ms)) return ''
+  try {
+    return new Intl.DateTimeFormat('de-DE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      ...(cfg.time.zone ? { timeZone: cfg.time.zone } : {}),
+    }).format(ms)
+  } catch {
+    // Eine unbekannte Zeitzone darf die Zeile nicht kosten, nur ihre Genauigkeit.
+    return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }).format(ms)
+  }
+})()
+if (autor?.anzeigename) {
+  setText('intro-autor-name', autor.anzeigename)
+  setText('intro-autor-datum', aufnahmeDatum)
+  $('intro-autor-datum').hidden = !aufnahmeDatum
+  ;($('intro-autor').querySelector('.intro-autor-punkt') as HTMLElement).hidden = !aufnahmeDatum
+  const avatar = $('intro-avatar')
+  if (autor.avatarUrl) avatar.style.backgroundImage = `url("${autor.avatarUrl}")`
+  // Ohne Bild die Initiale, wie überall sonst im Produkt.
+  else avatar.textContent = [...autor.anzeigename.trim()][0]?.toUpperCase() ?? ''
+  // Verlinkt wird nur, wenn es eine Profilseite gibt UND der Sprung dorthin
+  // einen Rückweg hat: In der App-WebView führt die Tourliste zurück, ein
+  // Profil im selben Fenster hätte nur ein Schließkreuz.
+  const ziel = autor.handle ? profilPfad(autor.handle) : autor.id ? `/profil?id=${autor.id}` : null
+  const link = $('intro-autor-link') as HTMLAnchorElement
+  if (ziel && !appModus) link.href = ziel
+  else {
+    link.removeAttribute('href')
+    link.setAttribute('aria-disabled', 'true')
+  }
+  $('intro-autor').hidden = false
+}
 
 // — Der Weg zurück führt DORTHIN, WO MAN HERKAM —
 // Wer aus dem Studio, dem Entdecken-Bereich oder einem Profil kommt, will dorthin
@@ -618,10 +709,11 @@ map.on('load', () => {
 
   const km = `${(route.total / 1000).toFixed(1)} km`
   const setGain = (hm: number) => {
-    $('chip-gain').textContent = `${Math.round(hm)} hm`
+    // Das Finale zeigt die Höhenmeter auch dann, wenn es keine gab — dort ist es
+    // eine Bilanz der gefahrenen Tour und keine Ankündigung.
     $('final-gain').textContent = `${Math.round(hm)} hm`
+    setzeKennzahlen(hm)
   }
-  $('chip-distance').textContent = km
   $('final-km').textContent = km
   setGain(route.gain)
 

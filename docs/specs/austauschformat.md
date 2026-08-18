@@ -104,12 +104,13 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   "no": "N°07",
   "status": "bereit",
   "brandTitle": "Lauterbrunnen → Grindelwald",
-  "kicker": "Aufgezeichnet am 4. Juli 2026",
+  "kicker": "Lauterbrunnen",
   "titleHtml": "Lauterbrunnen<br />→ Grindelwald",
   "stops": ["Lauterbrunnen", "Grindelwald"],
   "showFinale": false,
   "finaleTitle": "Grindelwald",
   "description": null,
+  "autor": { "anzeigename": "Henrik", "avatarUrl": null, "id": "u_…", "handle": "henrik" },
   "time": { "start": "…", "end": "…", "zone": "Europe/Zurich" },
   "timeline": [{ "f": 0.0, "t": "…" }, { "f": 1.0, "t": "…" }],
   "segments": [{ "mode": "walk", "label": "Zu Fuß", "pts": [[7.9086, 46.5934, 802.1]], "f": [0.0] }],
@@ -124,6 +125,28 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
 }
 ```
 
+- **`kicker` ist die Dachzeile über dem Titel und kommt aus einem FELD**
+  (`tours.dachzeile`), nicht mehr aus einem erzeugten Satz. Bis 2026-08-18 stand
+  dort „Aufgezeichnet am 4. Juli 2026"; das Datum steht jetzt in der
+  Herkunftszeile neben dem Namen des Aufnehmers. Drei Zustände: Spalte `NULL` =
+  nie gesetzt, dann nimmt `baueBenennung` die Vorbelegung (bei einer Rundtour den
+  Startort, sonst nichts); leerer String = ausdrücklich keine Zeile; sonst der
+  Text. Ohne die Unterscheidung ließe sich eine einmal gesetzte Zeile nie wieder
+  loswerden. Die Vorschläge im Studio (`dachzeileVorschlaege` im Editor-
+  Datensatz) sind die Adress-Ebenen des Startpunkts aus dem Anreicherungs-Cache
+  — dieselbe Geocoder-Antwort, aus der schon der Ortsname stammt.
+- **`autor` steht NICHT in der gerenderten Datei.** Die Route setzt ihn bei jeder
+  Auslieferung frisch aus der Datenbank ein: Ein eingebackener Name wäre nach dem
+  nächsten Wechsel falsch, und ein Re-Render aller Touren dafür unverhältnismäßig.
+  Er fehlt ganz, wenn niemand einen Anzeigenamen gesetzt hat (dann bleibt die
+  Tour anonym, statt ersatzweise Klarname oder Mailadresse zu zeigen); `id` und
+  `handle` kommen nur bei öffentlichem Profil dazu, sonst gibt es keine Seite,
+  auf die der Name führen könnte. Dieselbe Linie wie die Galerie-Karte.
+- **`description` ist auf 150 Zeichen ausgelegt** (`BESCHREIBUNG_MAX` in
+  `src/tourtexte.ts`). Das Schema erlaubt weiter 5000 — Bestandstexte sollen
+  nicht abgelehnt werden —, das Studio-Feld begrenzt neue Eingaben, und der
+  Startscreen kürzt Längeres an der Wortgrenze. Unter 150 bleibt der Text auch in
+  der Vorschaukarte geteilter Links ungekürzt (die kürzt bei 200).
 - Die Kopf-Felder (`no`…`finaleTitle`) sind bewusst deckungsgleich mit der
   statischen `TOURS`-Registry (`src/tours.ts`) — der Adapter reicht sie durch.
   `showFinale` steuert den Endscreen: `false` (Default bei aufgezeichneten

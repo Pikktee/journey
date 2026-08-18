@@ -20,6 +20,7 @@ import {
   istExportAnfrage,
   attributionSicht,
   introTafelSicht,
+  umbrich,
   finaleTafelSicht,
   leseExportFormat,
   motorQuelle,
@@ -289,5 +290,32 @@ describe('Rahmen im Studio', () => {
     expect(restzeitText(70)).toBe('noch etwa 1 Minute')
     expect(restzeitText(870)).toBe('noch etwa 15 Minuten')
     expect(restzeitText(7400)).toBe('noch etwa 2 Stunden')
+  })
+})
+
+describe('umbrich (Beschreibung auf der Titeltafel)', () => {
+  // Die Tafel ist der einzige Ort, an dem der Export Text SETZT statt ihn zu
+  // grabben — die Beschreibung ist zugleich der einzige Teil, dessen Höhe vom
+  // Inhalt abhängt. Ein falscher Umbruch verschöbe den ganzen Block.
+  const ctx = { measureText: (t: string) => ({ width: t.length * 10 }) }
+
+  it('bricht an der Wortgrenze, sobald die Zeile nicht mehr passt', () => {
+    expect(umbrich(ctx, 'eins zwei drei vier', 100)).toEqual(['eins zwei', 'drei vier'])
+  })
+
+  it('lässt einen kurzen Satz in einer Zeile', () => {
+    expect(umbrich(ctx, 'kurz und gut', 1000)).toEqual(['kurz und gut'])
+  })
+
+  it('gibt ein überlanges Wort als eigene Zeile aus, statt zu hängen', () => {
+    expect(umbrich(ctx, 'Donaudampfschifffahrtsgesellschaft ja', 100)).toEqual([
+      'Donaudampfschifffahrtsgesellschaft',
+      'ja',
+    ])
+  })
+
+  it('macht aus Leerraum keine leeren Zeilen', () => {
+    expect(umbrich(ctx, '  ', 100)).toEqual([])
+    expect(umbrich(ctx, 'a\n\nb', 1000)).toEqual(['a b'])
   })
 })

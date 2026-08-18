@@ -280,6 +280,17 @@ export interface EditorDaten {
   status: string
   title: string | null
   description: string | null
+  /**
+   * Die Dachzeile über dem Titel. `null` = nie gesetzt (der Render nimmt seine
+   * Vorbelegung), `''` = ausdrücklich keine Zeile.
+   */
+  dachzeile: string | null
+  /**
+   * Vorschläge dafür: die Adress-Ebenen des Startpunkts, fein → grob
+   * („Völklingen", „Regionalverband Saarbrücken", „Saarland", „Deutschland").
+   * Leer bei Touren, die vor dieser Änderung gerendert wurden.
+   */
+  dachzeileVorschlaege?: string[]
   /** Endscreen „Ziel erreicht" (Default false) */
   finale: boolean
   /** Zielname für den Endscreen; null/leer = Ortsname am Ende */
@@ -312,6 +323,7 @@ export function patchTour(
   felder: {
     title?: string
     description?: string
+    dachzeile?: string
     finale?: boolean
     finaleZiel?: string
     visibility?: 'private' | 'unlisted' | 'public'

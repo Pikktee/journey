@@ -79,6 +79,12 @@ export interface TourConfig {
   kicker: string
   titleHtml: string
   stops: string[]
+  /**
+   * Der Satz unter dem Titel im Startscreen (max. 150 Zeichen, s.
+   * src/tourtexte.ts). Die kuratierten Touren tragen ihn nicht: Ihre Einladung
+   * ist der Titel selbst. Aufgezeichnete bekommen ihn aus dem Studio.
+   */
+  description?: string | null
   /** true = Endscreen; fehlt/false = zurück zum Startscreen */
   showFinale?: boolean
   finaleTitle: string
