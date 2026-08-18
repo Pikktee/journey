@@ -19,23 +19,48 @@
 //
 // Verifiziert offline gegen die echten Kacheln: Stockholm 335 m → 56 m,
 // 801 m → 51 m; Oberland/Eiger (elMax ~4000 m) 0 Pixel geändert.
+//
+// **Gerechnet wird im WORKER, und das ist keine Kosmetik.** Der
+// `addProtocol`-Rückruf läuft im Main-Thread, also in derselben Kette wie die
+// Kamera: Eine Kachel kostete dort gemessen bis zu 515 ms, das längste Frame
+// einer 30-Sekunden-Fahrt lag bei 704 ms statt 65 ms. Weil es am Eintreffen
+// einer Kachel hängt und nicht am Gelände, fiel es unvorhersehbar an und sah
+// wie ein zufälliger Aussetzer aus. Der `fetch` bleibt hier (er kennt das
+// Abbruch-Signal), nur die Bildarbeit geht hinüber.
 
-const SIZE = 256
-const R = 3 // 7×7-Fenster
-const CAND = 35 // m über lokalem Minimum → überhaupt Kandidat (billiger Vorfilter)
-const SPIKE = 50 // m über lokalem Median → als Ausreißer kappen
-const LOWLAND = 140 // m: nur in flacher/küstennaher Umgebung kappen, nie im Gebirge
-const MAX_PASSES = 4 // iterieren, bis auch die Randpixel des Flecks weg sind
+import { bereinigeHoehen, KACHEL } from './demclean-rechnung.js'
 
-const decode = (r: number, g: number, b: number) => r * 256 + g + b / 256 - 32768
+/** Antwort des Workers: `data === null` heißt „nichts geändert". */
+interface Antwort { id: number; data: ArrayBuffer | null }
 
-// Höhe → Terrarium-RGB zurückschreiben (Alpha unangetastet lassen)
-function encode(data: Uint8ClampedArray, i: number, e: number) {
-  const T = Math.max(0, Math.min(65535.996, e + 32768))
-  const f = Math.floor(T)
-  data[i] = Math.floor(T / 256)
-  data[i + 1] = f % 256
-  data[i + 2] = Math.round((T - f) * 256) % 256
+let naechsteId = 1
+const offen = new Map<number, (data: ArrayBuffer | null) => void>()
+let arbeiter: Worker[] | null = null
+let reihum = 0
+
+/**
+ * Zwei Worker, nicht einer und nicht acht: MapLibre lädt Kacheln in Schüben,
+ * ein einzelner Arbeiter reichte sie durch und das Terrain käme spät; mehr als
+ * zwei nähmen dem Renderer Kerne weg, ohne dass jemand darauf wartet.
+ */
+function hole(): Worker[] | null {
+  if (arbeiter) return arbeiter
+  if (typeof Worker === 'undefined') return null
+  try {
+    arbeiter = [0, 1].map(() => {
+      const w = new Worker(new URL('./demclean.worker.js', import.meta.url), { type: 'module' })
+      w.addEventListener('message', (ev: MessageEvent<Antwort>) => {
+        const fertig = offen.get(ev.data.id)
+        if (!fertig) return
+        offen.delete(ev.data.id)
+        fertig(ev.data.data)
+      })
+      return w
+    })
+  } catch {
+    arbeiter = null // z. B. blockierte Worker-Erzeugung: unten läuft der Rückfall
+  }
+  return arbeiter
 }
 
 // Registriert das demclean://-Protokoll einmalig. DEM-Quelle nutzt dann
@@ -53,7 +78,7 @@ export function registerDemClean(maplibregl: { addProtocol: typeof import('mapli
     // Feine Kacheln (native Auflösung) sind sauber → unverändert durchreichen.
     if (z == null || z > 12 || typeof OffscreenCanvas === 'undefined') return { data: buf }
     try {
-      const cleaned = await cleanTile(buf)
+      const cleaned = await bereinige(buf)
       return { data: cleaned ?? buf }
     } catch {
       return { data: buf } // im Zweifel Originaldaten, nie die Kachel verlieren
@@ -66,60 +91,30 @@ function zoomOf(url: string): number | null {
   return m?.[1] ? +m[1] : null
 }
 
-async function cleanTile(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
+/**
+ * Schickt eine Kachel zum Worker. Ohne Worker wird im Main-Thread gerechnet:
+ * Das ruckelt (deshalb der Umbau), liefert aber ein richtiges Gelände — und
+ * ein Spike, der aus dem Wasser ragt, ist der sichtbarere Fehler.
+ */
+async function bereinige(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
+  const pool = hole()
+  if (!pool) return await imMainThread(buf)
+  const id = naechsteId++
+  const kopie = buf.slice(0) // der Aufrufer behält seine Originalbytes als Rückfall
+  const antwort = new Promise<ArrayBuffer | null>((fertig) => offen.set(id, fertig))
+  pool[reihum++ % pool.length]!.postMessage({ id, buf: kopie }, [kopie])
+  return await antwort
+}
+
+async function imMainThread(buf: ArrayBuffer): Promise<ArrayBuffer | null> {
   const bmp = await createImageBitmap(new Blob([buf], { type: 'image/png' }))
-  const cv = new OffscreenCanvas(SIZE, SIZE)
+  const cv = new OffscreenCanvas(KACHEL, KACHEL)
   const ctx = cv.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return null // kein 2D-Kontext → Originalbytes behalten
+  if (!ctx) return null
   ctx.drawImage(bmp, 0, 0)
   bmp.close?.()
-  const img = ctx.getImageData(0, 0, SIZE, SIZE)
-  const d = img.data
-
-  // Alle Puffer sind exakt SIZE×SIZE groß und jede Schleife unten läuft über
-  // geklemmte Indizes — die `!` stehen deshalb für „nachweislich im Bereich" und
-  // nicht für „wird schon passen". Ein Bereichs-Check pro Pixel wäre in dieser
-  // Schleife (65 536 Pixel × 49er-Fenster × bis zu 4 Durchläufe) messbar teuer.
-  const orig = new Float32Array(SIZE * SIZE)
-  for (let p = 0, i = 0; p < orig.length; p++, i += 4) orig[p] = decode(d[i]!, d[i + 1]!, d[i + 2]!)
-
-  // Iterativer Despeckle: jeder Durchlauf liest die Baseline aus dem Stand des
-  // Vor-Durchlaufs, sonst schirmen die Fleck-Pixel ihre Nachbarn gegenseitig ab.
-  const cur = orig.slice()
-  let total = 0
-  for (let pass = 0; pass < MAX_PASSES; pass++) {
-    const snap = cur.slice()
-    let changed = 0
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        const e = snap[y * SIZE + x]!
-        const x0 = Math.max(0, x - R), x1 = Math.min(SIZE - 1, x + R)
-        const y0 = Math.max(0, y - R), y1 = Math.min(SIZE - 1, y + R)
-        let mn = Infinity
-        for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
-          const v = snap[yy * SIZE + xx]!
-          if (v < mn) mn = v
-        }
-        // billiger Vorfilter: kein lokaler Ausreißer oder gar kein Tiefland → weiter
-        if (e - mn <= CAND || mn >= LOWLAND) continue
-        const win: number[] = []
-        for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) win.push(snap[yy * SIZE + xx]!)
-        win.sort((a, b) => a - b)
-        const med = win[win.length >> 1]!
-        if (e - med > SPIKE && med < LOWLAND) {
-          cur[y * SIZE + x] = med
-          changed++
-        }
-      }
-    }
-    total += changed
-    if (!changed) break
-  }
-
-  if (!total) return null // nichts geändert → Originalbytes behalten (exakt, kein Re-Encode)
-
-  for (let p = 0, i = 0; p < cur.length; p++, i += 4) if (cur[p] !== orig[p]) encode(d, i, cur[p]!)
+  const img = ctx.getImageData(0, 0, KACHEL, KACHEL)
+  if (!bereinigeHoehen(img.data)) return null
   ctx.putImageData(img, 0, 0)
-  const outBlob = await cv.convertToBlob({ type: 'image/png' })
-  return await outBlob.arrayBuffer()
+  return await (await cv.convertToBlob({ type: 'image/png' })).arrayBuffer()
 }
