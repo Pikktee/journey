@@ -489,17 +489,19 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`eine-buehne-ein-maler.md`](archive/eine-buehne-ein-maler.md) — Die Editor-Vorschau auf denselben Maler wie Player und Film, danach der Blitz zurück. Warum die Begründung für zwei Bühnen abgelaufen ist. Entwurf, nichts gebaut.
 * [`konzept_video_export.md`](concepts/konzept_video_export.md) — Tour als MP4. Etappe 1 gebaut (Film in Player-Tempo, Studio-Blatt). Der geraffte Clip und der Cloud-Auftrag kommen danach.
 * [`konzept_monetarisierung.md`](concepts/konzept_monetarisierung.md) — Esri-Lizenz (anonyme World Imagery vs. Location Platform) und wer zahlt (Hersteller, nicht Zuschauer). Vertragstexte E204/E300 im Wortlaut: Player als Produkt erlaubt, **MP4-Export nicht**. Dazu Kostendeckel (Esri hat keinen) und zweite Bildquelle. Entwurf, nichts gebaut.
+* [`konzept_touren_uebersicht.md`](concepts/konzept_touren_uebersicht.md) — Die Bibliothek des Studios: Kachel entschieden, Liste, Lösch-Muster und Titelbild-Wähler zur Wahl. Entwurf, nichts gebaut.
 * [`ideen-inspiration.md`](concepts/ideen-inspiration.md) — Rohideen-Backlog (nichts beschlossen).
 
 ### 5. `mockups/` (Aktuelle Vorlagen)
-* [`studio-login.html`](mockups/studio-login.html) — Anmeldebühne.
+* [`studio-touren-uebersicht.html`](mockups/studio-touren-uebersicht.html) — „Meine Touren": die ruhige Kachel, drei Listen-Formen, drei Lösch-Muster und der Titelbild-Wähler. Runde 2, fasst die drei Sitzungen vom 13. August zusammen.
+* [`studio-login.html`](archive/mockups/studio-login.html) — Anmeldebühne (umgesetzt, archiviert).
 * [`studio-konto.html`](archive/mockups/studio-konto.html) — Profil & Kontoeinstellungen (abgenommen, in `DESIGN.md` referenziert).
 * [`studio-aufnahmen-nachreichen.html`](mockups/studio-aufnahmen-nachreichen.html) — Medien nachträglich im Studio.
 * [`app-aufnahmen-hinzufuegen.html`](mockups/app-aufnahmen-hinzufuegen.html) — Medien nachträglich in der App.
 * [`app-live-teilen.html`](mockups/app-live-teilen.html) — Live-Freigabe während der Android-Aufnahme.
 * [`live-ansicht.html`](mockups/live-ansicht.html) — Live-Zuschaueransicht (`/live/…`).
-* [`player-startscreen.html`](mockups/player-startscreen.html) — Startscreen des Players: Beschreibung, Autorzeile, Filmdauer und der Knopf in Marken-Orange.
-* [`studio-fotokarte-ohne-titel.html`](mockups/studio-fotokarte-ohne-titel.html) — Was die Foto-Karte zeigt, wenn die Aufnahme keinen Titel hat: fünf Antworten von „Gattung als Überschrift" bis „nur das Bild im dünnen Rahmen".
+* [`player-startscreen.html`](archive/mockups/player-startscreen.html) — Startscreen des Players: Beschreibung, Autorzeile, Filmdauer und der Knopf in Marken-Orange (umgesetzt, archiviert).
+* [`studio-fotokarte-ohne-titel.html`](archive/mockups/studio-fotokarte-ohne-titel.html) — Was die Foto-Karte zeigt, wenn die Aufnahme keinen Titel hat: fünf Antworten von „Gattung als Überschrift" bis „nur das Bild im dünnen Rahmen" (umgesetzt, archiviert).
 
 ### 6. `archive/` (Historie)
 Siehe [`archive/README.md`](archive/README.md). Enthält u. a. den Tool-Katalog,

@@ -42,7 +42,7 @@ Wortmarke gehört in den **zentrierten Titelblock**, nicht nach oben links: dort
 Player genau EIN Element, der Weg hinaus. Ihr Text spricht von **Maptale**, nicht vom Studio —
 ein Konto braucht auch, wer nur mit der App aufzeichnet (die App verweist zum Registrieren
 ausdrücklich auf die Website). Entwurf und die beiden verworfenen Varianten (Tag/Nacht-Himmel,
-Feld aus Routen-Signaturen): [docs/mockups/studio-login.html](../../docs/mockups/studio-login.html).
+Feld aus Routen-Signaturen): [docs/archive/mockups/studio-login.html](../../docs/archive/mockups/studio-login.html).
 
 **Jedes Feld sagt, ob es sein muss.** In den vier Auth-Formularen (Anmelden, Registrieren,
 Passwort, Warteliste) trägt jedes Label ein Wort: „Pflicht" oder „optional". Sternchen mit
@@ -526,7 +526,7 @@ Entwürfe und die verworfenen Varianten:
 Varianten), [`…-v2.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-v2.html),
 [`…-entscheidungen.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-entscheidungen.html)
 (Play-Register, Abgrenzung der Zahlenpaare, Ort der Ablage),
-[`…-final.html`](../../docs/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
+[`…-final.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
 Im Viewer steht nur der letzte: frühere Runden gehören ins Archiv, sonst stehen
 vier Kacheln nebeneinander und keine sagt, welche gilt.
 

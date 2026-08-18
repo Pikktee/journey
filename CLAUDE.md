@@ -666,7 +666,7 @@ Sieben Dinge, die man dabei kippt:
 dreimal auf derselben Fläche: als Pille rechts unten, im Editor als Titel-Rückfall und im
 Player als „Foto · 14:32" aus der Pipeline — jedes Mal in der größten Schrift die eine
 Auskunft, die man dem Bild ansieht. Entwurf und Herleitung:
-[studio-fotokarte-ohne-titel.html](docs/mockups/studio-fotokarte-ohne-titel.html). Sechs Regeln
+[studio-fotokarte-ohne-titel.html](docs/archive/mockups/studio-fotokarte-ohne-titel.html). Sechs Regeln
 daneben, die man beim nächsten Anfassen leicht kippt:
 
 - **Die FORM bleibt, ob mit Titel oder ohne.** Die Zeile behält die Höhe des Titelgrades, auch
@@ -825,7 +825,7 @@ Was **noch fehlt**, ist das Einzelbild im Halt: `nudge` räumt die Karte weg, st
 neue Filmsekunde zu stellen (eine Lücke von E15, gehört zur Feinplatzierung).
 
 **Der Startscreen sagt, WAS einen erwartet — nicht, wann es aufgenommen wurde**
-(2026-08-18, Entwurf: [player-startscreen.html](docs/mockups/player-startscreen.html)).
+(2026-08-18, Entwurf: [player-startscreen.html](docs/archive/mockups/player-startscreen.html)).
 Vorher stand über dem Titel das Aufnahmedatum in der Akzentfarbe, die Beschreibung aus dem
 Studio kam nirgends an, und der Knopf trug einen Amber-Verlauf, den es sonst nirgends im
 Produkt gab. Die Rechenteile stehen DOM-frei in [src/tourtexte.ts](src/tourtexte.ts), damit

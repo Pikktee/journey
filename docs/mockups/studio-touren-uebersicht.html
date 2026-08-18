@@ -1,0 +1,1531 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Meine Touren: Kachel, Liste, Löschen, Titelbild</title>
+<meta name="maptale:stand" content="2026-08-18">
+<meta name="maptale:status" content="Entwurf, nichts gebaut">
+<meta name="maptale:systemteile" content="Studio">
+<meta name="maptale:gehoert_zu" content="concepts/konzept_touren_uebersicht.md">
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — „Meine Touren": die Bibliothek des Studios, an einem Ort.
+
+   Diese Datei fasst die drei Sitzungen vom 13. August zusammen und ist
+   damit Runde 2. Die Vorgänger liegen im Archiv und sind oben verlinkt:
+   Runde 1 hatte die Kachel noch als A/B/C zur Wahl, die zweite Sitzung
+   hat sie in vier Detailfragen zerlegt, die dritte den Bildwähler.
+   Hier steht nur noch, was gilt. Die verworfenen Varianten bleiben im
+   Archiv nachlesbar und in der Übersicht unten benannt.
+
+   VIER FRAGEN, EINE OBERFLÄCHE:
+     1 Kachel     — was steht darauf, was bewegt sich beim Zeigen?
+     2 Liste      — dieselben Touren für eine andere Frage
+     3 Löschen    — es gibt keinen Papierkorb, also welches Muster?
+     4 Titelbild  — ein Menüpunkt, der ein Fenster öffnet
+
+   HARTE RANDBEDINGUNGEN (aus dem Code, keine Annahmen):
+   · `DELETE /api/tours/:id` löscht Datenbankzeile UND Medien
+     (server/src/routes/tours.ts). Kein Papierkorb, also kein
+     „Rückgängig"-Toast; er wäre eine Zusage, die der Server nicht hält.
+   · `edits.titelbild` existiert (src/studio/editmodell.ts) und der Server
+     respektiert es (server/src/pipeline/enrich.ts `bestimmeCover`),
+     gesetzt wird es aber nur von der Android-App. Im Web gibt es dafür
+     bis heute keine Oberfläche.
+   · Jedes Medium trägt im Tour-JSON eine Kachel-Fassung `thumb`; der
+     Wähler lädt also keine Originale, und `api.tour(id)` holt die Liste
+     schon heute. Ein neuer Endpunkt ist nicht nötig.
+   · Die Filmdauer steht seit dem Video-Export in der Listen-Antwort
+     (`stats.filmS`, dazu `spur` und `finale`) — die Kachel zeigt sie nur nicht.
+     Sie ist OPTIONAL: Touren, die seither nicht gerendert wurden, tragen sie
+     nicht, und die Kachel muss ohne sie auskommen.
+   · Den Video-Export gibt es in der Bibliothek schon, aber NUR in der Zeile
+     (`data-film` in src/studio/studio.ts, öffnet das Export-Blatt). Die Kachel
+     kann ihn nicht — derselbe Bruch wie beim Löschen, nur später entstanden.
+
+   NUR ENTWURF. Tokens aus src/basis.css kopiert, damit die Datei allein
+   steht. Alle Varianten sind ECHT bedienbar; „Hover fixiert" oben setzt
+   dieselben Regeln über `:is(:hover, .hv)`, keine Sonderoptik.
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b; --akzent-2: #ff6f52; --auf-akzent: #1a1206;
+  --text: #f2ede3; --text-gedaempft: rgba(242,237,227,0.64); --text-zart: rgba(242,237,227,0.42);
+  --text-2: #a7b1bf; --text-3: #7e8a99;
+  --bg: #090c11; --bg-tief: #06080c; --fl-1: #111722; --fl-2: #161e2c; --fl-3: #1e283a;
+  --rand: #232d3d; --rand-hell: #2e3b4e; --linie: rgba(255,255,255,0.08);
+  --gruen: #3ecf8e; --rot: #e5484d; --blau: #5b9dff; --warn: #e8a13c;
+  --radius-sm: 7px; --radius-md: 8px; --radius-lg: 12px; --radius-karte: 14px; --radius-xl: 16px; --radius-full: 999px;
+  --schatten: 0 14px 34px rgba(2,5,10,0.5), 0 2px 8px rgba(2,5,10,0.35);
+  --font-ui: 'Outfit', system-ui, sans-serif; --font-display: 'Outfit', system-ui, sans-serif;
+  --wrap: 1160px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui);
+  font-size: 14px; -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 480; letter-spacing: -0.02em; margin: 0; }
+svg { width: 16px; height: 16px; }
+
+/* — Gerüst des Mockups (nicht Teil des Produkts) — */
+.m-kopf {
+  position: sticky; top: 0; z-index: 90; backdrop-filter: blur(14px);
+  background: rgba(13,17,24,0.88); border-bottom: 1px solid var(--rand);
+}
+.m-kopf .innen { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 13px 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.m-kopf .marke { font-family: var(--font-display); font-size: 15px; }
+.m-kopf .marke em { font-style: italic; color: var(--akzent); }
+.m-kopf .sp { flex: 1; }
+.m-schalter {
+  display: inline-flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-2);
+  border: 1px solid var(--rand); background: var(--fl-1); border-radius: var(--radius-full); padding: 6px 13px 6px 10px;
+}
+.m-schalter input { accent-color: var(--akzent); width: 15px; height: 15px; }
+.m-sprung { display: flex; gap: 4px; flex-wrap: wrap; }
+.m-sprung a { font-size: 12px; color: var(--text-3); text-decoration: none; border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 4px 10px; }
+.m-sprung a:hover { color: var(--text); border-color: var(--rand-hell); }
+
+main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120px; }
+.m-intro { max-width: 74ch; color: var(--text-2); line-height: 1.6; }
+.m-intro h1 { font-size: 32px; margin-bottom: 12px; }
+.m-intro p { margin: 0 0 10px; }
+.m-intro code { font-size: 12.5px; background: var(--fl-2); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; }
+
+.m-abschnitt { margin-top: 64px; }
+.m-abschnitt > h2 { font-size: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--rand); margin-bottom: 8px; }
+.m-variante { margin-top: 40px; }
+.m-variante > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.m-variante h3 { font-size: 19px; }
+.m-marke {
+  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--akzent);
+  border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-full); padding: 2px 9px;
+}
+.m-marke.still { color: var(--text-3); border-color: var(--rand); }
+.m-marke.rat { color: var(--gruen); border-color: rgba(62,207,142,0.4); }
+.m-warum { max-width: 78ch; color: var(--text-2); line-height: 1.6; margin: 0 0 18px; }
+.m-warum b { color: var(--text); font-weight: 500; }
+.m-buehne { background: var(--bg-tief); border: 1px solid var(--rand); border-radius: var(--radius-xl); padding: 22px; }
+.m-fuss-note { display: flex; gap: 10px; margin-top: 14px; font-size: 12.5px; color: var(--text-3); line-height: 1.55; }
+.m-fuss-note b { color: var(--text-2); font-weight: 500; }
+.m-hv-fahne {
+  font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3);
+  margin-bottom: 9px; display: flex; align-items: center; gap: 7px;
+}
+.m-hv-fahne::before { content: ''; width: 18px; height: 1px; background: var(--rand-hell); }
+
+/* — Die Runden-Zeile: wo die Vorgänger liegen — */
+.runden { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0 20px; font-size: 12px; }
+.runden > span { color: var(--akzent); border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-full); padding: 3px 11px; }
+.runden a { color: var(--text-3); text-decoration: none; border-bottom: 1px solid var(--rand-hell); padding-bottom: 1px; }
+.runden a:hover { color: var(--text); border-color: var(--akzent); }
+.regel { max-width: 80ch; border-left: 2px solid var(--akzent); padding: 6px 0 6px 16px; margin: 22px 0; color: var(--text); font-size: 15px; line-height: 1.6; }
+.m-reihe { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+.m-reihe.drei { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.m-fall > .k { margin-bottom: 12px; }
+.tag { font-size: 11px; letter-spacing: 0.03em; color: var(--akzent); border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-full); padding: 2px 9px; margin-left: 6px; }
+.tag.still { color: var(--text-3); border-color: var(--rand); }
+.tag.aus { color: #f0868a; border-color: rgba(229,72,77,0.4); }
+
+/* ——— Kachel-Grundform (aus studio.html) ——— */
+.k {
+  position: relative; border-radius: var(--radius-karte); cursor: pointer;
+  background: var(--fl-1); border: 1px solid var(--rand);
+  transition: transform 200ms cubic-bezier(0.2,0.7,0.2,1), border-color 200ms ease, box-shadow 200ms ease;
+}
+.k:is(:hover, .hv) { transform: translateY(-2px); border-color: var(--rand-hell); box-shadow: var(--schatten); }
+.k .bild { position: relative; aspect-ratio: 16/10; background: var(--fl-2); overflow: hidden; border-radius: var(--radius-karte); }
+.k .bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 260ms ease; }
+.k .bild::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,8,12,0.05) 0%, rgba(6,8,12,0.5) 72%, rgba(6,8,12,0.86) 100%); }
+.k .fuss { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 13px 14px 12px; pointer-events: none; }
+.k .fuss .t { font-family: var(--font-display); font-size: 16.5px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k .fuss .m { font-size: 12.5px; font-weight: 500; color: rgba(242,237,227,0.62); margin-top: 4px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.k .schleier { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(42% 42% at 50% 50%, rgba(6,8,12,0.42), transparent 72%); opacity: 0; transition: opacity 200ms ease; }
+.k:is(:hover, .hv) .schleier { opacity: 1; }
+
+/* Signet */
+.k .spur {
+  position: absolute; top: 9px; left: 11px; z-index: 2;
+  width: 64px; height: 50px; padding: 5px; pointer-events: none;
+  background: rgba(6,8,12,0.45); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 11px;
+  transition: width 250ms cubic-bezier(0.2,0.7,0.2,1), height 250ms cubic-bezier(0.2,0.7,0.2,1), background 250ms ease, opacity 220ms ease;
+}
+.k .spur svg { width: 100%; height: 100%; }
+.k .spur .linie { fill: none; stroke: rgba(255,255,255,0.92); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; stroke-dasharray: 400; stroke-dashoffset: 0; }
+.k .spur .start { fill: var(--akzent); }
+.k .spur .ende { fill: none; stroke: var(--akzent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+@keyframes spurZeichnen { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+/* G1 — Bestand: Kasten wächst UND Linie zeichnet sich */
+.k.g1:is(:hover, .hv) .spur { width: 80px; height: 62px; background: rgba(6,8,12,0.6); }
+.k.g1:is(:hover, .hv) .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3,0.6,0.2,1); }
+/* G2 — fest: nur die Linie zeichnet sich nach, die Geometrie steht */
+.k.g2:is(:hover, .hv) .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3,0.6,0.2,1); }
+/* G3 — weicht: macht die Ecke für Auswahl/Griffe frei */
+.k.g3:is(:hover, .hv) .spur { opacity: 0; }
+
+/* Griffe oben rechts */
+.k .griffe { position: absolute; top: 9px; right: 11px; z-index: 5; display: flex; flex-direction: row-reverse; align-items: center; gap: 6px; }
+.glasknopf {
+  display: inline-flex; align-items: center; gap: 0; font-size: 11px; padding: 5px; border-radius: var(--radius-full);
+  background: rgba(6,8,12,0.55); backdrop-filter: blur(7px);
+  border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.82);
+  transition: opacity 180ms ease, gap 200ms cubic-bezier(0.2,0.7,0.2,1), padding 200ms cubic-bezier(0.2,0.7,0.2,1), background 180ms ease, color 160ms ease, border-color 160ms ease;
+}
+.glasknopf svg { width: 12px; height: 12px; flex: none; }
+.glasknopf span { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width 200ms cubic-bezier(0.2,0.7,0.2,1); }
+.glasknopf:hover, .glasknopf[aria-expanded='true'] { gap: 5px; padding: 5px 10px 5px 8px; background: rgba(6,8,12,0.9); color: #fff; }
+.glasknopf:hover span, .glasknopf[aria-expanded='true'] span { max-width: 110px; }
+.glasknopf[aria-expanded='true'] { border-color: var(--akzent); color: var(--akzent); }
+.glasknopf.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,0.4); }
+.glasknopf.leise { opacity: 0; }
+.k:is(:hover, .hv, :focus-within) .glasknopf.leise { opacity: 1; }
+/* Ein einzelnes ⋯ steht IMMER, aber schwach: es ist der einzige Weg zu allem
+   Weiteren; erscheint es erst beim Zeigen, ist es auf Touch unauffindbar. */
+.glasknopf.immer { opacity: 0.55; }
+.k:is(:hover, .hv, :focus-within) .glasknopf.immer { opacity: 1; }
+
+/* Menü */
+.karten-menue {
+  position: absolute; top: 42px; right: 11px; z-index: 30; min-width: 214px;
+  background: rgba(14,19,26,0.98); backdrop-filter: blur(14px);
+  border: 1px solid var(--rand-hell); border-radius: var(--radius-karte); padding: 5px;
+  box-shadow: 0 22px 50px rgba(2,5,10,0.7); animation: menueRein 140ms ease backwards;
+}
+@keyframes menueRein { from { opacity: 0; transform: translateY(-4px); } }
+.karten-menue button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; color: var(--text-2); padding: 8px 10px; border-radius: var(--radius-md); font-size: 13px; }
+.karten-menue button:hover { background: var(--fl-3); color: var(--text); }
+.karten-menue button svg { width: 14px; height: 14px; opacity: 0.85; flex: none; }
+.karten-menue button kbd { margin-left: auto; font-family: var(--font-ui); font-size: 11px; color: var(--text-3); border: 1px solid var(--rand); border-radius: 5px; padding: 0 5px; }
+.karten-menue hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+.karten-menue .gefahr { color: #f0868a; }
+.karten-menue .gefahr:hover { background: rgba(229,72,77,0.14); color: #ff9a9d; }
+.k.menue-offen { z-index: 20; }
+
+/* — Play-Varianten — */
+/* P1: die Taste in der Bildmitte (Bestand) */
+.k .play-mitte {
+  position: absolute; top: 50%; left: 50%; z-index: 4;
+  width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(10,14,20,0.55); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.28); color: #fff; padding: 0;
+  transform: translate(-50%,-50%) scale(0.82); opacity: 0;
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2,0.8,0.2,1), background 180ms ease;
+}
+.k .play-mitte svg { width: 19px; height: 19px; margin-left: 2px; }
+.k:is(:hover, .hv, :focus-within) .play-mitte { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+.k .play-mitte:hover { background: rgba(10,14,20,0.8); border-color: rgba(255,255,255,0.85); }
+
+  display: inline-flex; align-items: center; gap: 5px; pointer-events: auto;
+  font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums;
+  padding: 3px 9px 3px 7px; border-radius: var(--radius-full);
+  background: rgba(6,8,12,0.5); border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.9);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+
+  position: absolute; right: 13px; bottom: 13px; z-index: 5;
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,0.94); color: #0d1119; border: none; padding: 0;
+  transform: scale(0.8); opacity: 0;
+  transition: opacity 170ms ease, transform 210ms cubic-bezier(0.2,0.8,0.2,1), background 160ms ease;
+}
+.k:is(:hover, .hv, :focus-within) .play-eck { opacity: 1; transform: none; }
+
+/* Feinstufen der Play-Einblendung (Abschnitt „Gewählt") */
+.k.f2 .play-mitte { transform: translate(-50%,-50%) scale(0.94); }
+.k.f2:is(:hover, .hv, :focus-within) .play-mitte { transform: translate(-50%,-50%) scale(1); }
+.k.f3 .play-mitte { transform: translate(-50%,-50%); opacity: 0.34; transition: opacity 180ms ease, background 180ms ease, border-color 180ms ease; }
+.k.f3:is(:hover, .hv, :focus-within) .play-mitte { transform: translate(-50%,-50%); opacity: 1; }
+/* Der Fokusring muss die Taste auch dann zeigen, wenn sie ausgeblendet ist —
+   sonst wandert der Tastatur-Fokus in etwas Unsichtbares. */
+.k .play-mitte:focus-visible { opacity: 1; outline: 2px solid var(--akzent); outline-offset: 3px; }
+
+/* — Sichtbarkeits-Varianten — */
+/* S2: als Chip in der Metazeile des Fußes */
+.sicht-inline {
+  display: inline-flex; align-items: center; gap: 5px; pointer-events: auto;
+  font-size: 11.5px; padding: 2px 9px 2px 7px; border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,0.16); color: rgba(242,237,227,0.72); background: rgba(6,8,12,0.35);
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.sicht-inline svg { width: 11px; height: 11px; }
+.sicht-inline:hover { border-color: rgba(255,255,255,0.5); color: #fff; background: rgba(6,8,12,0.6); }
+.sicht-inline.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,0.4); }
+/* S3: nur ein Punkt vor dem Titel */
+
+/* — Bewegungs-Zählung — */
+.zaehler { display: grid; gap: 7px; margin-top: 14px; }
+.zaehl-zeile { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text-2); }
+.zaehl-zeile .name { width: 118px; flex: none; color: var(--text-3); }
+.zaehl-punkte { display: flex; gap: 4px; }
+.zaehl-punkte i { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); display: block; }
+.zaehl-punkte i.ruhig { background: var(--rand-hell); }
+.zaehl-zeile .was { color: var(--text-3); font-size: 12px; }
+
+/* — Tabelle — */
+.m-tabelle { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+.m-tabelle th, .m-tabelle td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linie); vertical-align: top; line-height: 1.5; }
+.m-tabelle th { font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); font-weight: 500; }
+.m-tabelle td { color: var(--text-2); }
+.m-tabelle td:first-child { color: var(--text); white-space: nowrap; }
+.m-tabelle .ja { color: var(--gruen); }
+.m-tabelle .nein { color: var(--text-3); }
+.m-tabelle .mittel { color: var(--warn); }
+
+/* Bestands-Liste */
+.liste { display: flex; flex-direction: column; gap: 8px; }
+.zeile {
+  display: flex; align-items: center; gap: 15px; padding: 9px 14px 9px 9px;
+  background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.zeile:is(:hover, .hv) { background: var(--fl-2); border-color: var(--rand-hell); }
+.zeile .mini { width: 74px; height: 48px; border-radius: var(--radius-md); overflow: hidden; flex: none; background: var(--fl-2); display: grid; place-items: center; color: var(--text-3); }
+.zeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.zeile .txt { flex: 1; min-width: 0; }
+.zeile .txt .t { font-family: var(--font-display); font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zeile .txt .m { font-size: 12.5px; font-weight: 500; color: var(--text-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.zeile .rechts { display: flex; align-items: center; gap: 8px; }
+.sichtpille { font-size: 11.5px; color: var(--text-3); border: 1px solid var(--rand); border-radius: var(--radius-full); padding: 3px 10px; white-space: nowrap; }
+.sichtpille.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,0.35); }
+.akt {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--rand); background: var(--fl-2);
+  border-radius: var(--radius-full); padding: 7px 12px; font-size: 12.5px; color: var(--text-2);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.akt:hover { border-color: rgba(245,158,11,0.6); color: var(--text); }
+.akt svg { width: 15px; height: 15px; }
+.akt.gefahr:hover { border-color: rgba(229,72,77,0.6); color: var(--rot); }
+
+/* ————————————————————————————————————————————————————————————————
+   L1 — Tabelle mit Spaltenköpfen
+   ———————————————————————————————————————————————————————————————— */
+.tab { --spalten: minmax(0,1fr) 92px 108px 132px 116px 150px; display: flex; flex-direction: column; }
+.tab .kopf, .tab .tz { display: grid; grid-template-columns: var(--spalten); align-items: center; gap: 14px; }
+.tab .kopf { padding: 0 14px 9px; border-bottom: 1px solid var(--rand); }
+.tab .kopf button {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500;
+  letter-spacing: 0.02em; color: var(--text-3); padding: 4px 0;
+}
+.tab .kopf button:hover { color: var(--text-2); }
+.tab .kopf button[aria-sort] { color: var(--text); }
+.tab .kopf button svg { width: 11px; height: 11px; opacity: 0; transition: opacity 140ms ease, transform 160ms ease; }
+.tab .kopf button:hover svg { opacity: 0.45; }
+.tab .kopf button[aria-sort] svg { opacity: 1; color: var(--akzent); }
+.tab .kopf button[aria-sort='ascending'] svg { transform: rotate(180deg); }
+.tab .kopf .r, .tab .tz .r { justify-self: end; text-align: right; }
+.tab .tz {
+  padding: 8px 14px; border-bottom: 1px solid var(--linie); cursor: pointer;
+  transition: background 140ms ease;
+}
+.tab .tz:is(:hover, .hv) { background: var(--fl-1); }
+.tab .tz .name { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.tab .tz .mini {
+  position: relative; width: 62px; height: 40px; border-radius: var(--radius-sm); overflow: hidden; flex: none; background: var(--fl-2);
+}
+.tab .tz .mini img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 160ms ease; }
+.tab .tz .mini .pl {
+  position: absolute; inset: 0; display: grid; place-items: center; color: #fff;
+  background: rgba(6,8,12,0.45); opacity: 0; transition: opacity 150ms ease;
+}
+.tab .tz .mini .pl svg { width: 15px; height: 15px; margin-left: 1px; }
+.tab .tz:is(:hover, .hv) .mini .pl { opacity: 1; }
+.tab .tz .name .t { font-family: var(--font-display); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .tz .name .o { font-size: 12px; color: var(--text-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .tz .zahl { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tab .tz .zahl .e { color: var(--text-3); font-size: 11.5px; margin-left: 2px; }
+/* Der Platz für die Aktionen steht IMMER — sonst rutschen beim Zeigen die
+   Spalten, und die Tabelle wackelt Zeile für Zeile. */
+.tab .tz .werkzeug { display: flex; justify-content: flex-end; gap: 4px; opacity: 0; transition: opacity 140ms ease; }
+.tab .tz:is(:hover, .hv, :focus-within) .werkzeug { opacity: 1; }
+.tab .tz .werkzeug button {
+  width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--radius-md);
+  color: var(--text-3); border: 1px solid transparent; transition: background 140ms, color 140ms, border-color 140ms;
+}
+.tab .tz .werkzeug button:hover { background: var(--fl-3); color: var(--text); border-color: var(--rand-hell); }
+.tab .tz .werkzeug button.gefahr:hover { background: rgba(229,72,77,0.16); color: #ff9a9d; border-color: rgba(229,72,77,0.5); }
+.tab .tz .werkzeug button svg { width: 15px; height: 15px; }
+.sicht-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 4px 10px 4px 8px;
+  border: 1px solid var(--rand); border-radius: var(--radius-full); color: var(--text-3); background: transparent;
+  transition: border-color 140ms, color 140ms, background 140ms;
+}
+.sicht-chip svg { width: 12px; height: 12px; }
+.sicht-chip:hover { color: var(--text); border-color: var(--rand-hell); background: var(--fl-2); }
+.sicht-chip.oeffentlich { color: #9ff0c6; border-color: rgba(62,207,142,0.35); }
+.sicht-chip.link { color: #cfd8e4; border-color: var(--rand-hell); }
+
+/* ————————————————————————————————————————————————————————————————
+   L2 — Reisezeile: eine Zeile, die aussieht wie eine Reise
+   ———————————————————————————————————————————————————————————————— */
+.rliste { display: flex; flex-direction: column; gap: 10px; }
+.rzeile {
+  position: relative; display: flex; align-items: center; gap: 17px; padding: 11px 14px 11px 11px;
+  background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte); cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms cubic-bezier(0.2,0.7,0.2,1);
+}
+.rzeile:is(:hover, .hv) { background: var(--fl-2); border-color: var(--rand-hell); transform: translateX(2px); }
+.rzeile .mini { position: relative; width: 108px; height: 68px; border-radius: var(--radius-lg); overflow: hidden; flex: none; background: var(--fl-2); }
+.rzeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rzeile .mini .pl { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6,8,12,0.42); color: #fff; opacity: 0; transition: opacity 160ms ease; }
+.rzeile .mini .pl svg { width: 20px; height: 20px; margin-left: 2px; }
+.rzeile:is(:hover, .hv) .mini .pl { opacity: 1; }
+.rzeile .mini .sig { position: absolute; right: 5px; bottom: 5px; width: 30px; height: 24px; padding: 3px; border-radius: 7px; background: rgba(6,8,12,0.55); border: 1px solid rgba(255,255,255,0.12); }
+.rzeile .mini .sig svg { width: 100%; height: 100%; }
+.rzeile .mini .sig .linie { fill: none; stroke: rgba(255,255,255,0.9); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.rzeile .txt { flex: 1; min-width: 0; }
+.rzeile .txt .t { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rzeile .fakten { display: flex; align-items: center; gap: 7px; margin-top: 6px; flex-wrap: wrap; }
+.rzeile .fakt {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.rzeile .fakt svg { width: 13px; height: 13px; opacity: 0.75; }
+.rzeile .fakt + .fakt::before { content: ''; width: 3px; height: 3px; border-radius: 50%; background: var(--rand-hell); margin-right: 3px; }
+.rzeile .rechts { display: flex; align-items: center; gap: 8px; flex: none; }
+.rzeile .werkzeug { display: flex; gap: 4px; opacity: 0; transform: translateX(4px); transition: opacity 150ms ease, transform 180ms cubic-bezier(0.2,0.7,0.2,1); }
+.rzeile:is(:hover, .hv, :focus-within) .werkzeug { opacity: 1; transform: none; }
+.rzeile .werkzeug button {
+  width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--radius-md);
+  color: var(--text-3); border: 1px solid var(--rand); background: var(--fl-2);
+  transition: background 140ms, color 140ms, border-color 140ms;
+}
+.rzeile .werkzeug button:hover { color: var(--text); border-color: var(--rand-hell); background: var(--fl-3); }
+.rzeile .werkzeug button.gefahr:hover { color: #ff9a9d; border-color: rgba(229,72,77,0.55); background: rgba(229,72,77,0.16); }
+.rzeile .werkzeug button svg { width: 16px; height: 16px; }
+.rzeile.arbeitet { cursor: default; }
+.rzeile.arbeitet .mini img { filter: grayscale(0.6) brightness(0.5); }
+.rzeile .lauf { position: absolute; left: 11px; right: 14px; bottom: 6px; height: 2px; background: rgba(255,255,255,0.06); border-radius: var(--radius-full); overflow: hidden; }
+.rzeile .lauf span { position: absolute; top: 0; height: 100%; width: 38%; border-radius: var(--radius-full); background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: wandern 1.5s cubic-bezier(0.65,0,0.35,1) infinite; }
+@keyframes wandern { from { left: -38%; } to { left: 100%; } }
+
+/* ————————————————————————————————————————————————————————————————
+   L3 — nach Monat gruppiert, mit Zeitachse
+   ———————————————————————————————————————————————————————————————— */
+.gruppe + .gruppe { margin-top: 26px; }
+.gruppe > h4 {
+  display: flex; align-items: baseline; gap: 10px; margin: 0 0 8px; padding-left: 2px;
+  font-family: var(--font-display); font-size: 14px; font-weight: 500; color: var(--text-2);
+}
+.gruppe > h4 em { font-style: normal; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.gruppe > h4::after { content: ''; flex: 1; height: 1px; background: var(--rand); }
+.gzeile {
+  position: relative; display: flex; align-items: center; gap: 14px; padding: 7px 12px 7px 0;
+  cursor: pointer; border-radius: var(--radius-md); transition: background 140ms ease;
+}
+.gzeile:is(:hover, .hv) { background: var(--fl-1); }
+.gzeile .tag {
+  width: 54px; flex: none; text-align: right; font-variant-numeric: tabular-nums;
+  font-size: 12.5px; color: var(--text-3); padding-right: 14px; position: relative;
+}
+.gzeile .tag::after {
+  content: ''; position: absolute; right: -1px; top: -8px; bottom: -8px; width: 1px; background: var(--rand);
+}
+.gzeile .punkt {
+  position: absolute; right: -4px; top: 50%; translate: 0 -50%; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--rand-hell); border: 2px solid var(--bg-tief); transition: background 140ms ease;
+}
+.gzeile:is(:hover, .hv) .punkt { background: var(--akzent); }
+.gzeile .mini { width: 52px; height: 34px; border-radius: 6px; overflow: hidden; flex: none; background: var(--fl-2); }
+.gzeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gzeile .txt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.gzeile .txt .t { font-family: var(--font-display); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gzeile .txt .m { font-size: 12px; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gzeile .rechts { display: flex; align-items: center; gap: 6px; }
+.gzeile .werkzeug { display: flex; gap: 2px; opacity: 0; transition: opacity 140ms ease; }
+.gzeile:is(:hover, .hv, :focus-within) .werkzeug { opacity: 1; }
+.gzeile .werkzeug button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-3); }
+.gzeile .werkzeug button:hover { background: var(--fl-3); color: var(--text); }
+.gzeile .werkzeug button.gefahr:hover { background: rgba(229,72,77,0.16); color: #ff9a9d; }
+.gzeile .werkzeug button svg { width: 15px; height: 15px; }
+
+/* ————————————————————————————————————————————————————————————————
+   Lösch-Muster
+   ———————————————————————————————————————————————————————————————— */
+.m-drei { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+.m-fall { background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-karte); padding: 18px; }
+.m-fall h4 { font-family: var(--font-display); font-size: 15.5px; margin: 0 0 4px; font-weight: 500; }
+.m-fall .rat { font-size: 12px; color: var(--text-3); margin: 0 0 14px; line-height: 1.55; }
+.m-fall .rat b { color: var(--text-2); font-weight: 500; }
+
+.dialog {
+  background: rgba(18,23,32,0.99); border: 1px solid var(--rand-hell); border-radius: var(--radius-xl);
+  padding: 20px; box-shadow: var(--schatten); max-width: 380px;
+}
+.dialog .kopf { display: flex; gap: 13px; align-items: flex-start; }
+.dialog .zeichen {
+  width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(229,72,77,0.16); color: #ff9a9d; border: 1px solid rgba(229,72,77,0.32);
+}
+.dialog h5 { font-family: var(--font-display); font-size: 17px; font-weight: 500; margin: 0 0 5px; letter-spacing: -0.01em; }
+.dialog p { margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.55; }
+.dialog .was {
+  margin: 15px 0 0; display: flex; gap: 11px; align-items: center;
+  background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-lg); padding: 9px 11px;
+}
+.dialog .was img { width: 54px; height: 36px; border-radius: 6px; object-fit: cover; flex: none; }
+.dialog .was .t { font-family: var(--font-display); font-size: 14px; }
+.dialog .was .m { font-size: 12px; color: var(--text-3); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.dialog .warnung {
+  display: flex; gap: 8px; margin-top: 12px; font-size: 12.5px; color: #f0b6b8; line-height: 1.5;
+}
+.dialog .warnung svg { width: 15px; height: 15px; flex: none; margin-top: 1px; color: var(--rot); }
+.dialog .knoepfe { display: flex; gap: 9px; justify-content: flex-end; margin-top: 18px; }
+.dialog .knoepfe button { border-radius: var(--radius-full); padding: 9px 17px; font-size: 13px; border: 1px solid var(--rand); background: var(--fl-2); color: var(--text-2); }
+.dialog .knoepfe button:hover { color: var(--text); border-color: var(--rand-hell); }
+.dialog .knoepfe button.weg { background: var(--rot); border-color: var(--rot); color: #fff; font-weight: 500; }
+.dialog .knoepfe button.weg:hover { filter: brightness(1.1); color: #fff; }
+
+.zweistufig { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.toast {
+  display: flex; align-items: center; gap: 14px; padding: 11px 12px 11px 16px;
+  background: rgba(20,26,36,0.98); border: 1px solid var(--rand-hell); border-radius: var(--radius-full);
+  box-shadow: var(--schatten); font-size: 13px; color: var(--text-2);
+}
+.toast .weg-wort { color: var(--text); }
+.toast button { color: var(--akzent); font-size: 13px; font-weight: 500; border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-full); padding: 5px 13px; }
+.toast button:hover { background: rgba(245,158,11,0.14); }
+.toast .uhr { width: 18px; height: 18px; flex: none; }
+.toast .uhr circle { fill: none; stroke-width: 2.5; }
+.toast .uhr .bahn { stroke: var(--rand-hell); }
+.toast .uhr .rest { stroke: var(--akzent); stroke-dasharray: 44; stroke-dashoffset: 12; transform: rotate(-90deg); transform-origin: 50% 50%; }
+
+.m-tabelle { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+
+
+/* ——— gemeinsame Bild-Kachel im Wähler ——— */
+.bk {
+  position: relative; aspect-ratio: 16/10; border-radius: var(--radius-md); overflow: hidden;
+  border: 1.5px solid transparent; background: var(--fl-2); padding: 0; display: block; width: 100%;
+  transition: border-color 140ms ease, transform 140ms cubic-bezier(0.2,0.7,0.2,1);
+}
+.bk img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter 140ms ease; }
+.bk::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); border-radius: inherit; pointer-events: none; }
+.bk:hover { border-color: var(--rand-hell); }
+.bk:hover img { filter: brightness(1.08); }
+.bk.gewaehlt { border-color: var(--akzent); }
+.bk .haken {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--akzent); color: var(--auf-akzent);
+  opacity: 0; transform: scale(0.7); transition: opacity 140ms ease, transform 160ms cubic-bezier(0.2,0.8,0.2,1);
+}
+.bk .haken svg { width: 13px; height: 13px; }
+.bk.gewaehlt .haken { opacity: 1; transform: none; }
+.bk .marke {
+  position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; padding: 2px 7px 2px 5px; border-radius: var(--radius-full);
+  background: rgba(6,8,12,0.7); border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.86);
+}
+.bk .marke svg { width: 11px; height: 11px; }
+.bk .marke.warn { color: #ffd9a3; border-color: rgba(232,161,60,0.45); }
+/* „Automatisch": kein Bild, sondern die Ansage, dass Maptale wählt */
+.bk.auto { display: grid; place-items: center; gap: 4px; background: radial-gradient(90% 70% at 50% 0%, rgba(245,158,11,0.09), transparent 70%), var(--fl-2); border: 1.5px dashed var(--rand-hell); color: var(--text-2); }
+.bk.auto svg.zeichen { width: 19px; height: 19px; color: var(--akzent); }
+.bk.auto .w { font-size: 12.5px; }
+.bk.auto .n { font-size: 10.5px; color: var(--text-3); }
+.bk.auto.gewaehlt { border-style: solid; border-color: var(--akzent); }
+
+/* ——— V1: Streifen-Popover ——— */
+.streifen-pop {
+  position: absolute; top: 42px; right: 11px; z-index: 40; width: 330px;
+  background: rgba(14,19,26,0.98); backdrop-filter: blur(14px);
+  border: 1px solid var(--rand-hell); border-radius: var(--radius-karte); padding: 11px; box-shadow: 0 22px 50px rgba(2,5,10,0.7);
+}
+.streifen-pop .kopf { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
+.streifen-pop .kopf .t { font-family: var(--font-display); font-size: 13.5px; }
+.streifen-pop .kopf .n { font-size: 11px; color: var(--text-3); }
+.streifen { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.streifen .bk { width: 96px; flex: none; }
+.streifen::-webkit-scrollbar { height: 6px; }
+.streifen::-webkit-scrollbar-thumb { background: var(--rand-hell); border-radius: 3px; }
+
+/* ——— V2: Dialog ——— */
+.dlg {
+  width: 660px; max-width: 100%; background: rgba(17,23,32,0.99);
+  border: 1px solid var(--rand-hell); border-radius: var(--radius-xl); box-shadow: var(--schatten); overflow: hidden;
+}
+.dlg .kopf { padding: 18px 20px 14px; border-bottom: 1px solid var(--rand); }
+.dlg .kopf h4 { font-family: var(--font-display); font-size: 18px; font-weight: 500; margin: 0 0 4px; letter-spacing: -0.01em; }
+.dlg .kopf p { margin: 0; font-size: 12.5px; color: var(--text-3); line-height: 1.5; }
+.dlg .rumpf { padding: 16px 20px; max-height: 400px; overflow-y: auto; }
+.dlg .raster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.dlg .gruppe-titel { font-size: 11.5px; color: var(--text-3); letter-spacing: 0.03em; margin: 16px 0 8px; display: flex; align-items: center; gap: 9px; }
+.dlg .gruppe-titel::after { content: ''; flex: 1; height: 1px; background: var(--rand); }
+.dlg .gruppe-titel:first-child { margin-top: 0; }
+.dlg .fuss { display: flex; align-items: center; gap: 10px; padding: 13px 20px; border-top: 1px solid var(--rand); background: rgba(9,12,17,0.6); }
+.dlg .fuss .stand { font-size: 12.5px; color: var(--text-3); flex: 1; }
+.dlg .fuss .stand b { color: var(--text-2); font-weight: 500; }
+.dlg .fuss button { border-radius: var(--radius-full); padding: 8px 16px; font-size: 13px; border: 1px solid var(--rand); background: var(--fl-2); color: var(--text-2); }
+.dlg .fuss button:hover { color: var(--text); border-color: var(--rand-hell); }
+.dlg .fuss button.primaer { background: linear-gradient(120deg, var(--akzent), var(--akzent-2)); border-color: transparent; color: var(--auf-akzent); font-weight: 600; }
+.dlg .fuss button.primaer:hover { filter: brightness(1.06); color: var(--auf-akzent); }
+
+/* ——— V3: das Panel, das zu viel will ——— */
+.panel { width: 720px; max-width: 100%; background: var(--fl-1); border: 1px solid var(--rand); border-radius: var(--radius-xl); overflow: hidden; opacity: 0.92; }
+.panel .leiste { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--rand); flex-wrap: wrap; }
+.panel .reiter { display: inline-flex; background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 3px; gap: 3px; }
+.panel .reiter button { font-size: 12px; padding: 4px 10px; border-radius: 6px; color: var(--text-3); }
+.panel .reiter button[aria-pressed='true'] { background: var(--fl-3); color: var(--text); }
+.panel .feld { flex: 1; min-width: 120px; background: var(--fl-2); border: 1px solid var(--rand); border-radius: var(--radius-md); padding: 6px 11px; font-size: 12.5px; color: var(--text-3); }
+.panel .werkzeug { display: inline-flex; gap: 4px; }
+.panel .werkzeug button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--rand); border-radius: var(--radius-md); color: var(--text-3); background: var(--fl-2); }
+.panel .haupt { display: grid; grid-template-columns: 1fr 210px; }
+.panel .buehne { position: relative; padding: 16px; display: grid; place-items: center; background: var(--bg-tief); }
+.panel .buehne .foto { position: relative; width: 100%; aspect-ratio: 16/10; border-radius: var(--radius-md); overflow: hidden; }
+.panel .buehne .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.panel .buehne .rahmen { position: absolute; inset: 12% 16%; border: 2px solid var(--akzent); border-radius: 4px; box-shadow: 0 0 0 9999px rgba(6,8,12,0.55); }
+.panel .buehne .kreuz { position: absolute; left: 46%; top: 52%; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; }
+.panel .buehne .kreuz::before, .panel .buehne .kreuz::after { content: ''; position: absolute; background: #fff; }
+.panel .buehne .kreuz::before { left: 50%; top: -8px; bottom: -8px; width: 1px; }
+.panel .buehne .kreuz::after { top: 50%; left: -8px; right: -8px; height: 1px; }
+.panel .seite { border-left: 1px solid var(--rand); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.panel .seite .zeile { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-3); }
+.panel .schieber { height: 4px; border-radius: 2px; background: var(--fl-3); position: relative; }
+.panel .schieber i { position: absolute; left: 40%; top: 50%; translate: -50% -50%; width: 12px; height: 12px; border-radius: 50%; background: var(--akzent); }
+.panel .seite .mini-raster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.panel .seite .mini-raster .bk { border-radius: 5px; }
+
+.warnband {
+  display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; padding: 12px 14px;
+  border: 1px solid rgba(229,72,77,0.35); background: rgba(229,72,77,0.08); border-radius: var(--radius-lg);
+  font-size: 12.5px; color: #f0b6b8; line-height: 1.55; max-width: 80ch;
+}
+.warnband svg { width: 16px; height: 16px; flex: none; color: var(--rot); margin-top: 1px; }
+.warnband b { color: #ffd2d3; font-weight: 500; }
+
+.m-tabelle { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+.m-tabelle th, .m-tabelle td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linie); vertical-align: top; line-height: 1.5; }
+.m-tabelle th { font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); font-weight: 500; }
+.m-tabelle td { color: var(--text-2); }
+.m-tabelle td:first-child { color: var(--text); white-space: nowrap; }
+.m-tabelle .ja { color: var(--gruen); }
+.m-tabelle .nein { color: var(--rot); }
+.m-tabelle .mittel { color: var(--warn); }
+.regel { max-width: 80ch; border-left: 2px solid var(--akzent); padding: 6px 0 6px 16px; margin: 22px 0; color: var(--text); font-size: 15px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6L19 12z"/></symbol>
+  <symbol id="i-stift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8a2.8 2.8 0 10-4-4L4 16z"/></symbol>
+  <symbol id="i-muell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-mehr" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/></symbol>
+  <symbol id="i-schloss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+  <symbol id="i-schloss-offen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 017.5-2"/></symbol>
+  <symbol id="i-welt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8M12 3.6c2.2 2.4 3.3 5.3 3.3 8.4s-1.1 6-3.3 8.4c-2.2-2.4-3.3-5.3-3.3-8.4S9.8 6 12 3.6z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 14a4 4 0 006 .5l2-2a4 4 0 10-5.7-5.7L11 8"/><path d="M14 10a4 4 0 00-6-.5l-2 2A4 4 0 0011.7 17L13 16"/></symbol>
+  <symbol id="i-haken" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.6 4.5L19 7"/></symbol>
+  <symbol id="i-pfeil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12M6.5 12.5L12 18l5.5-5.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 4.5L21 19.5H3z"/><path d="M12 10v4M12 17.2v.1"/></symbol>
+  <symbol id="i-foto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="13" rx="2.4"/><circle cx="12" cy="13" r="3.4"/><path d="M8.5 6.5l1.2-2h4.6l1.2 2"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a4 4 0 010 8h-3a4 4 0 000 8"/></symbol>
+  <symbol id="i-uhr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3 2"/></symbol>
+  <symbol id="i-moped" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="2.6"/><circle cx="18.5" cy="17" r="2.6"/><path d="M8 17h8M15 6h3l1.5 8M15 6l-4 6h5"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.6" r="1.9"/><path d="M11 21l1.6-6-2.6-2.4V8.6l3.6-1.2 2.6 3.2 2.4.9M10 12.4L7 15l-.8 6"/></symbol>
+  <symbol id="i-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17" r="3.2"/><circle cx="18.5" cy="17" r="3.2"/><path d="M5.5 17l4-8h5l4 8M9 9h5.5l2 4M14 6.5h2.5"/></symbol>
+  <symbol id="i-teilen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="17.5" cy="6" r="2.6"/><circle cx="6.5" cy="12" r="2.6"/><circle cx="17.5" cy="18" r="2.6"/><path d="M8.9 10.8l6.3-3.5M8.9 13.2l6.3 3.5"/></symbol>
+  <symbol id="i-kopie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.2"/><path d="M5 15H4.5A1.5 1.5 0 013 13.5V5.5A1.5 1.5 0 014.5 4h8A1.5 1.5 0 0114 5.5V6"/></symbol>
+  <symbol id="i-schrift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><path d="M5 7V5.5h14V7M12 5.5V19M9 19h6"/></symbol>
+  <symbol id="i-pfeil-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h12M13 6.5L18.5 12 13 17.5"/></symbol>
+  <symbol id="i-funke" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9zM18.5 16l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="M3 9.5h18M8 5v4.5M16 5v4.5"/></symbol>
+  <symbol id="i-ortlos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-6.2 6.5-10.5a6.5 6.5 0 10-13 0C5.5 14.8 12 21 12 21z"/><path d="M4 4l16 16"/></symbol>
+  <symbol id="i-hoch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="3.5" width="9" height="17" rx="2"/></symbol>
+  <symbol id="i-lupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"><circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.4-4.4"/></symbol>
+  <symbol id="i-zuschnitt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6.5 2.5v15h15M2.5 6.5h15v15"/></symbol>
+  <symbol id="i-regler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h4M12 16h8"/><circle cx="16" cy="8" r="2"/><circle cx="10" cy="16" r="2"/></symbol>
+</svg>
+
+<header class="m-kopf">
+  <div class="innen">
+    <span class="marke">Mockup · <em>Meine Touren</em></span>
+    <nav class="m-sprung">
+      <a href="#kachel">Kachel</a>
+      <a href="#listen">Liste</a>
+      <a href="#loeschen">Löschen</a>
+      <a href="#titelbild">Titelbild</a>
+      <a href="#umsetzung">Umsetzung</a>
+    </nav>
+    <span class="sp"></span>
+    <label class="m-schalter"><input type="checkbox" id="hv-schalter" /> Hover fixiert</label>
+  </div>
+</header>
+
+<main>
+  <div class="m-intro">
+    <h1>Meine Touren: eine Kachel, eine Liste, vier Aktionen</h1>
+    <nav class="runden">
+      <span>Runde 2</span>
+      <a href="../archive/mockups/studio-touren-karten.html">Runde 1: Kacheln A–C, Listen, Löschen</a>
+      <a href="../archive/mockups/studio-kachel-ruhe.html">Runde 1b: die vier Fragen an die Kachel</a>
+      <a href="../archive/mockups/studio-titelbild-waehler.html">Runde 1c: der Bildwähler</a>
+    </nav>
+    <p>
+      Die Bibliothek ist die erste Seite nach dem Anmelden und die einzige, die jeder
+      Nutzer täglich sieht. Sie kann heute zwei Dinge weniger als die Zeile darunter:
+      <b>aus der Kachel lässt sich weder löschen noch ein Video exportieren</b>. Dazu
+      kommt, dass sich das Titelbild im Web überhaupt nicht wählen lässt. Und beim
+      Überfahren bewegen sich sechs Dinge gleichzeitig.
+    </p>
+    <p>
+      Diese Datei zeigt den Stand nach drei Sitzungen: <b>die Kachel ist entschieden</b>
+      und steht oben als Vergleich, <b>Liste, Lösch-Muster und Bildwähler stehen mit
+      Empfehlung zur Wahl</b>. Jede Variante ist anfassbar. Der Video-Export ist
+      inzwischen dazugekommen und deshalb überall mitgeführt: Er ist keine neue
+      Entscheidung, sondern eine Aktion, die den Weg an die Kachel noch nicht gefunden
+      hat.
+    </p>
+    <p class="regel">
+      Die Linie, an der alles Weitere gemessen wird: Das ⋯-Menü verwaltet die Tour
+      <b>als Eintrag</b>: Name, Sichtbarkeit, Link, Titelbild, Löschen. Der Editor
+      bearbeitet den <b>Film</b>: Schnitt, Kamera, Wetter, Musik, Modi. Und beide
+      Ansichten tragen <b>dieselben Aktionen unter denselben Namen</b>: Dass die Zeile
+      heute löschen und exportieren kann und die Kachel nicht, ist der Fehler, der hier
+      verschwindet. Er entsteht immer wieder neu, weil eine neue Aktion in der Zeile
+      billiger unterzubringen ist als auf der Kachel.
+    </p>
+  </div>
+
+  <!-- ————————————————————————— KACHEL ————————————————————————— -->
+  <section class="m-abschnitt" id="kachel">
+    <h2>Die Kachel <span class="tag">entschieden</span></h2>
+    <p class="m-warum">
+      Vier Fragen standen zur Wahl (Menü-Inhalt, Signet, Play-Taste, Sichtbarkeit), jede
+      mit drei bis vier Antworten. Sie stehen einzeln durchgespielt in
+      <a href="../archive/mockups/studio-kachel-ruhe.html">Runde 1b</a>. Das Ergebnis ist
+      <b>M2 · G2 · P1 · S2</b>: ein einziges Zeichen oben rechts, ein Signet, das
+      stillsteht, die Play-Taste bleibt (sie ist das einzige benannte Abspiel-Ziel für
+      Tastatur und Screenreader), und die Sichtbarkeit zieht zu den Fakten in den Fuß.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">links Bestand · rechts Vorschlag — beide im Zeigen-Zustand</div>
+      <div class="m-reihe">
+        <div class="m-fall">
+          <h4>Heute</h4>
+          <p class="rat">Sechs bewegte Dinge beim Zeigen. Löschen und Video-Export gibt es nur in der Zeile.</p>
+          <article class="k g1 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf leise"><svg><use href="#i-stift"/></svg><span>Bearbeiten</span></button>
+              <button class="glasknopf"><svg><use href="#i-schloss"/></svg><span>Privat</span></button>
+            </div>
+            <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m">41,8 km · 12 Aufnahmen · 3. August</div></div>
+            <div class="schleier"></div>
+            <button class="play-mitte"><svg><use href="#i-play"/></svg></button>
+          </article>
+          <div class="zaehler">
+            <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="was">Kachel · Signet-Kasten · Signet-Linie · Stift · Play · Schleier</span></div>
+          </div>
+        </div>
+
+        <div class="m-fall">
+          <h4>Vorschlag <span class="tag">M2 · G2 · P1 · S2 · F2</span></h4>
+          <p class="rat">Drei bewegte Dinge, die Taste nur noch minimal. Das ⋯ öffnet alles Weitere; <b>anklicken</b>.</p>
+          <article class="k g2 f2 hv-ziel">
+            <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+            <div class="griffe">
+              <button class="glasknopf immer" data-menue aria-expanded="false" aria-label="Mehr"><svg><use href="#i-mehr"/></svg></button>
+            </div>
+            <div class="fuss">
+              <div class="t">Koh Pha-ngan, Inselrunde</div>
+              <div class="m">
+                <button class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</button>
+                6:20 · 41,8 km · 12 Aufnahmen
+              </div>
+            </div>
+            <div class="schleier"></div>
+            <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+          </article>
+          <div class="zaehler">
+            <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i></span><span class="was">Kachel · Schleier · Play (kaum)</span></div>
+            <div class="zaehl-zeile"><span class="name">Wechselt Farbe</span><span class="zaehl-punkte"><i class="ruhig"></i></span><span class="was">⋯ (die Signet-Linie zeichnet nach)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <table class="m-tabelle">
+        <thead><tr><th>Frage</th><th>Bestand</th><th>Vorschlag</th><th>Was sich dadurch ändert</th></tr></thead>
+        <tbody>
+          <tr><td>Menü-Inhalt</td><td>Stift + ⋯, Menü wiederholt beides</td><td class="ja">nur ⋯, Menü vollständig</td><td>ein Zeichen statt drei; der Rechtsklick kann dasselbe Menü öffnen</td></tr>
+          <tr><td>Signet</td><td>wächst 64 → 80 px</td><td class="ja">steht fest, Linie zeichnet nach</td><td>die auffälligste Layout-Bewegung fällt weg</td></tr>
+          <tr><td>Play</td><td>Taste wächst aus <code>scale(0.82)</code></td><td class="ja">bleibt, wächst aus 0,94</td><td>das benannte Abspiel-Ziel bleibt, die Unruhe geht</td></tr>
+          <tr><td>Filmdauer</td><td class="mittel">liegt in <code>stats.filmS</code>, wird nicht gezeigt</td><td class="ja">im Fuß, als Angabe ohne Griff</td><td>„6:20 · 41,8 km · 12 Aufnahmen", auch auf Touch sichtbar</td></tr>
+          <tr><td>Sichtbarkeit</td><td>Glaspille über dem Bild</td><td class="ja">Chip bei den Fakten</td><td>steht bei ihresgleichen, die Ecke wird frei</td></tr>
+          <tr><td>Löschen</td><td class="nein">nur in der Zeile</td><td class="ja">im ⋯-Menü, mit Dialog</td><td>siehe <a href="#loeschen">Wie wird gelöscht?</a></td></tr>
+          <tr><td>Video-Export</td><td class="nein">nur in der Zeile</td><td class="ja">im ⋯-Menü, öffnet dasselbe Export-Blatt</td><td>die Aktion gibt es längst, nur nicht an dieser Kachel</td></tr>
+        </tbody>
+      </table>
+
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Zwei Dinge, die dazugehören.</b> Der Fokusring muss die Taste auch im
+        ausgeblendeten Zustand zeigen (<code>:focus-visible</code> setzt <code>opacity: 1</code>),
+        sonst springt der Tastatur-Fokus in etwas Unsichtbares; mit der Tab-Taste auf einer
+        Kachel nachprüfbar. Und <b><code>stats.filmS</code> ist optional</b>: Touren, die seit
+        dem Video-Export nicht neu gerendert wurden, tragen keine Filmdauer. Der Fuß zeigt
+        dann km und Aufnahmen, ohne Lücke davor.</span>
+      </div>
+    </div>
+
+    <div class="m-variante">
+      <header><h3>Die Einblendung der Taste</h3><span class="m-marke rat">F2</span></header>
+      <p class="m-warum">
+        Nicht die Taste war die Unruhe, sondern ihr Wachsen. Drei Stufen, alle drei fertig
+        gebaut; der Unterschied ist nur die Einblendung. <b>Auf jede Kachel zeigen.</b>
+      </p>
+      <div class="m-buehne">
+        <div class="m-hv-fahne">Unterschied nur in der Einblendung der Taste</div>
+        <div class="m-reihe drei">
+          <div class="m-fall">
+            <h4>F1 — wie heute <span class="tag still">scale 0,82 → 1</span></h4>
+            <p class="rat">Die Taste wächst spürbar. Auf einer langen Liste ist das die Bewegung, die beim Überfahren am meisten auffällt.</p>
+            <article class="k g2">
+              <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+              <div class="griffe"><button class="glasknopf immer"><svg><use href="#i-mehr"/></svg></button></div>
+              <div class="fuss"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="m"><button class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</button> 6:20 · 41,8 km · 12 Aufnahmen</div></div>
+              <div class="schleier"></div>
+              <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+            </article>
+          </div>
+          <div class="m-fall">
+            <h4>F2 — kaum <span class="tag">empfohlen</span></h4>
+            <p class="rat">Dieselbe Geste, aber aus 0,94: Man sieht, dass etwas erscheint, ohne dass es zuckt. Die Ansage bleibt, die Unruhe geht.</p>
+            <article class="k g2 f2">
+              <div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+              <div class="griffe"><button class="glasknopf immer"><svg><use href="#i-mehr"/></svg></button></div>
+              <div class="fuss"><div class="t">Stockholm, Schären am Abend</div><div class="m"><button class="sicht-inline oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button> 4:05 · 18,4 km · 8 Aufnahmen</div></div>
+              <div class="schleier"></div>
+              <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+            </article>
+          </div>
+          <div class="m-fall">
+            <h4>F3 — steht immer, schwach <span class="tag still">Touch-freundlich</span></h4>
+            <p class="rat">Keine Größenänderung, nur Deckkraft 0,34 → 1. Die Kachel sagt auch <b>ohne Zeiger</b>, dass sie abspielt — der einzige Zustand, den ein Handy je sieht.</p>
+            <article class="k g2 f3">
+              <div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+              <div class="griffe"><button class="glasknopf immer"><svg><use href="#i-mehr"/></svg></button></div>
+              <div class="fuss"><div class="t">Lissabon, Alfama hinunter</div><div class="m"><button class="sicht-inline"><svg><use href="#i-schloss-offen"/></svg>Per Link</button> 5:10 · 6,2 km · 14 Aufnahmen</div></div>
+              <div class="schleier"></div>
+              <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————————————— LISTEN ————————————————————————— -->
+<section class="m-abschnitt" id="listen">
+    <h2>Listen: dieselben Touren, andere Frage</h2>
+    <p class="m-warum">
+      Die Kachel beantwortet „welche Reise war das?" — das Bild trägt sie. Die Liste
+      wird für die andere Frage gewählt: <b>vergleichen und aufräumen</b>. Also gehören
+      dort Zahlen hin, die untereinander stehen, und Aktionen, die man in Serie ausführt.
+    </p>
+
+    <!-- L1 -->
+    <div class="m-variante">
+      <header>
+        <h3>L1 — Tabelle mit Spaltenköpfen</h3>
+        <span class="m-marke rat">Empfehlung</span>
+      </header>
+      <p class="m-warum">
+        Echte Spalten, Zahlen rechtsbündig mit <code>tabular-nums</code>: 41,8 steht unter
+        6,2, und der Unterschied ist auf einen Blick zu sehen. <b>Die Spaltenköpfe sortieren</b>
+        und ersetzen damit das Sortier-Auswahlfeld im Kopf — man sortiert dort, wo die
+        Werte stehen. Die Zeile ist ganz klickbar (Abspielen, die Miniatur sagt es mit
+        einem Play-Schleier), die Werkzeuge rechts erscheinen beim Zeigen —
+        <b>ihr Platz ist aber immer reserviert</b>, sonst rutschen die Spalten und die
+        Tabelle wackelt Zeile für Zeile.
+      </p>
+      <div class="m-buehne">
+        <div class="m-hv-fahne">zweite Zeile: Zeigen-Zustand</div>
+        <div class="tab">
+          <div class="kopf">
+            <button>Tour <svg><use href="#i-pfeil"/></svg></button>
+            <button class="r">Strecke <svg><use href="#i-pfeil"/></svg></button>
+            <button class="r">Aufnahmen <svg><use href="#i-pfeil"/></svg></button>
+            <button class="r" aria-sort="descending">Aufgenommen <svg><use href="#i-pfeil"/></svg></button>
+            <button>Sichtbar für</button>
+            <span></span>
+          </div>
+          <div class="tz">
+            <div class="name">
+              <div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+              <div style="min-width:0"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="o">Thong Sala → Haad Rin → Bergkamm</div></div>
+            </div>
+            <div class="zahl r">41,8<span class="e">km</span></div>
+            <div class="zahl r">12</div>
+            <div class="zahl r">3. Aug 2026</div>
+            <div><button class="sicht-chip"><svg><use href="#i-schloss"/></svg>Privat</button></div>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button title="Link kopieren"><svg><use href="#i-link"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+          <div class="tz hv-ziel">
+            <div class="name">
+              <div class="mini"><img src="tourbilder/stockholm.jpg" alt="" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+              <div style="min-width:0"><div class="t">Stockholm, Schären am Abend</div><div class="o">Södermalm → Djurgården → Fjäderholmarna</div></div>
+            </div>
+            <div class="zahl r">18,4<span class="e">km</span></div>
+            <div class="zahl r">8</div>
+            <div class="zahl r">28. Jul 2026</div>
+            <div><button class="sicht-chip oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button></div>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button title="Link kopieren"><svg><use href="#i-link"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+          <div class="tz">
+            <div class="name">
+              <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+              <div style="min-width:0"><div class="t">Lissabon, Alfama hinunter</div><div class="o">Graça → Alfama → Cais do Sodré</div></div>
+            </div>
+            <div class="zahl r">6,2<span class="e">km</span></div>
+            <div class="zahl r">14</div>
+            <div class="zahl r">21. Jul 2026</div>
+            <div><button class="sicht-chip link"><svg><use href="#i-schloss-offen"/></svg>Per Link</button></div>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button title="Link kopieren"><svg><use href="#i-link"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="m-fuss-note">
+          <span>⚑</span>
+          <span><b>Neu gegenüber heute:</b> die Ortszeile unter dem Titel (der Server kennt
+          die Namen längst — sie stehen bisher nur im Player), sortierende Spaltenköpfe,
+          ausgerichtete Zahlen, klickbare Zeile. <b>Auf Handy-Breite</b> fallen Strecke
+          und Aufnahmen weg und die Tabelle wird wieder zur Zeile (L2).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- L2 -->
+    <div class="m-variante">
+      <header>
+        <h3>L2 — Reisezeile</h3>
+        <span class="m-marke">Bild bleibt wichtig</span>
+      </header>
+      <p class="m-warum">
+        Kein Tabellenraster, sondern eine großzügige Zeile: Miniatur mit Routen-Signet,
+        Titel in Anzeigengröße, darunter die Fakten als Kette mit Zeichen (Fortbewegung,
+        Strecke, Aufnahmen, Filmdauer). Rechts eine Werkzeugleiste, die beim Zeigen von
+        rechts einläuft. Das ist die Liste für jemanden, der <b>trotzdem noch am Bild
+        erkennt</b>, welche Tour gemeint ist — und der Zustand „entsteht gerade" hat hier
+        endlich Platz (unterste Zeile).
+      </p>
+      <div class="m-buehne">
+        <div class="m-hv-fahne">zweite Zeile: Zeigen-Zustand</div>
+        <div class="rliste">
+          <div class="rzeile">
+            <div class="mini">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <span class="pl"><svg><use href="#i-play"/></svg></span>
+              <span class="sig"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/></svg></span>
+            </div>
+            <div class="txt">
+              <div class="t">Koh Pha-ngan, Inselrunde</div>
+              <div class="fakten">
+                <span class="fakt"><svg><use href="#i-moped"/></svg>Moped</span>
+                <span class="fakt">41,8 km</span>
+                <span class="fakt">12 Aufnahmen</span>
+                <span class="fakt"><svg><use href="#i-uhr"/></svg>6:20 Film</span>
+                <span class="fakt">3. August 2026</span>
+              </div>
+            </div>
+            <div class="rechts">
+              <button class="sicht-chip"><svg><use href="#i-schloss"/></svg>Privat</button>
+              <div class="werkzeug">
+                <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+                <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+                <button title="Teilen"><svg><use href="#i-teilen"/></svg></button>
+                <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="rzeile hv-ziel">
+            <div class="mini">
+              <img src="tourbilder/stockholm.jpg" alt="" />
+              <span class="pl"><svg><use href="#i-play"/></svg></span>
+              <span class="sig"><svg viewBox="-6 -6 112 112"><path class="linie" d="M12 20c18 6 10 30 28 36s34-6 46 8"/></svg></span>
+            </div>
+            <div class="txt">
+              <div class="t">Stockholm, Schären am Abend</div>
+              <div class="fakten">
+                <span class="fakt"><svg><use href="#i-bike"/></svg>Rad</span>
+                <span class="fakt">18,4 km</span>
+                <span class="fakt">8 Aufnahmen</span>
+                <span class="fakt"><svg><use href="#i-uhr"/></svg>4:05 Film</span>
+                <span class="fakt">28. Juli 2026</span>
+              </div>
+            </div>
+            <div class="rechts">
+              <button class="sicht-chip oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button>
+              <div class="werkzeug">
+                <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+                <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+                <button title="Teilen"><svg><use href="#i-teilen"/></svg></button>
+                <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="rzeile arbeitet">
+            <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="txt">
+              <div class="t">Lissabon, Alfama hinunter</div>
+              <div class="fakten">
+                <span class="fakt">entsteht gerade — Orte werden benannt</span>
+                <span class="fakt">14 Aufnahmen</span>
+              </div>
+            </div>
+            <div class="rechts"><span class="sichtpille">entsteht</span></div>
+            <div class="lauf"><span></span></div>
+          </div>
+        </div>
+        <div class="m-fuss-note">
+          <span>⚑</span>
+          <span><b>Preis:</b> pro Zeile ~92 px statt ~57 px — auf einen Bildschirm passen
+          sechs statt zehn Touren. <b>Gewinn:</b> die Zeile ist auf Handy-Breite dieselbe
+          Zeile, nur ohne die hinteren Fakten. L1 braucht dort einen zweiten Bauplan.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- L3 -->
+    <div class="m-variante">
+      <header>
+        <h3>L3 — nach Monat gruppiert</h3>
+        <span class="m-marke still">wenn es viele werden</span>
+      </header>
+      <p class="m-warum">
+        Dichteste Form: eine Zeitachse links, Monatsköpfe als Zwischenüberschriften.
+        Touren sind Ereignisse mit Datum — wer eine bestimmte sucht, weiß meistens noch
+        „irgendwann im Juli". Erst ab etwa 20 Touren ist der Gewinn größer als der Preis
+        (die Sortierung ist dann faktisch auf „nach Datum" festgenagelt: nach Strecke
+        sortierte Monatsgruppen ergeben keinen Sinn).
+      </p>
+      <div class="m-buehne">
+        <div class="m-hv-fahne">erste Zeile im August: Zeigen-Zustand</div>
+        <div class="gruppe">
+          <h4>August 2026 <em>2 Touren · 48,0 km</em></h4>
+          <div class="gzeile hv-ziel">
+            <div class="tag">3. Aug<span class="punkt"></span></div>
+            <div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+            <div class="txt"><span class="t">Koh Pha-ngan, Inselrunde</span><span class="m">41,8 km · 12 Aufnahmen</span></div>
+            <div class="rechts">
+              <button class="sicht-chip"><svg><use href="#i-schloss"/></svg>Privat</button>
+              <div class="werkzeug">
+                <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+                <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+                <button title="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="gzeile">
+            <div class="tag">1. Aug<span class="punkt"></span></div>
+            <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="txt"><span class="t">Frankfurt, Westend im Regen</span><span class="m">6,2 km · 5 Aufnahmen</span></div>
+            <div class="rechts">
+              <button class="sicht-chip link"><svg><use href="#i-schloss-offen"/></svg>Per Link</button>
+              <div class="werkzeug">
+                <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+                <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+                <button title="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gruppe">
+          <h4>Juli 2026 <em>2 Touren · 24,6 km</em></h4>
+          <div class="gzeile">
+            <div class="tag">28. Jul<span class="punkt"></span></div>
+            <div class="mini"><img src="tourbilder/stockholm.jpg" alt="" /></div>
+            <div class="txt"><span class="t">Stockholm, Schären am Abend</span><span class="m">18,4 km · 8 Aufnahmen</span></div>
+            <div class="rechts">
+              <button class="sicht-chip oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button>
+              <div class="werkzeug">
+                <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+                <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+                <button title="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="gzeile">
+            <div class="tag">21. Jul<span class="punkt"></span></div>
+            <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+            <div class="txt"><span class="t">Lissabon, Alfama hinunter</span><span class="m">6,2 km · 14 Aufnahmen</span></div>
+            <div class="rechts">
+              <button class="sicht-chip link"><svg><use href="#i-schloss-offen"/></svg>Per Link</button>
+              <div class="werkzeug">
+                <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+                <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+                <button title="Mehr"><svg><use href="#i-mehr"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————————————— LÖSCHEN ————————————————————————— -->
+<section class="m-abschnitt" id="loeschen">
+    <h2>Wie wird gelöscht?</h2>
+    <p class="m-warum">
+      Drei Muster, gemessen an der Randbedingung: <b>der Server löscht hart</b>, samt
+      aller Fotos und Videos. Ein Wiederherstellen gibt es nicht.
+    </p>
+    <div class="m-drei">
+      <div class="m-fall">
+        <h4>1 · Dialog mit Namen</h4>
+        <p class="rat"><b>Empfohlen.</b> Zeigt, <em>was</em> verschwindet — Titelbild, Titel,
+        Zahl der Aufnahmen — und benennt die Folge. Bei öffentlichen Touren kommt die
+        Zeile über den toten Link dazu.</p>
+        <div class="dialog">
+          <div class="kopf">
+            <span class="zeichen"><svg><use href="#i-muell"/></svg></span>
+            <div>
+              <h5>Diese Tour löschen?</h5>
+              <p>Der Film, die Aufnahmen und die Aufzeichnung werden vom Server entfernt.</p>
+            </div>
+          </div>
+          <div class="was">
+            <img src="tourbilder/stockholm.jpg" alt="" />
+            <div><div class="t">Stockholm, Schären am Abend</div><div class="m">18,4 km · 8 Aufnahmen · 412 MB</div></div>
+          </div>
+          <div class="warnung">
+            <svg><use href="#i-warn"/></svg>
+            <span>Die Tour ist öffentlich. Der geteilte Link und der Eintrag in deinem
+            Profil führen danach ins Leere. Rückgängig geht das nicht.</span>
+          </div>
+          <div class="knoepfe">
+            <button>Abbrechen</button>
+            <button class="weg">Endgültig löschen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="m-fall">
+        <h4>2 · Zweistufig an Ort und Stelle</h4>
+        <p class="rat">Der Bestand in der Liste: erster Klick schärft, zweiter löscht,
+        nach 3,5 s entschärft sich der Knopf. <b>Schnell und ohne Unterbrechung</b> — sagt
+        aber nichts darüber, was verlorengeht, und ist auf Touch ein Doppeltipp an
+        derselben Stelle. Gut für die Kachel-Variante B, nicht für eine 400-MB-Reise.
+        <b>Ausprobieren:</b></p>
+        <div class="zweistufig">
+          <button class="akt gefahr" data-zweistufig-liste><svg><use href="#i-muell"/></svg><span class="wort">Löschen</span></button>
+          <span style="font-size:12px;color:var(--text-3)">zweimal klicken</span>
+        </div>
+      </div>
+
+      <div class="m-fall">
+        <h4>3 · Sofort löschen, mit „Rückgängig"</h4>
+        <p class="rat"><b>Geht hier nicht</b> — und das ist die wichtigste Erkenntnis dieses
+        Abschnitts. Der Toast verspricht eine Umkehr, die der Server nicht kann: die
+        Medien sind dann bereits gelöscht. Machbar wäre er nur mit einem echten
+        Papierkorb (Tour auf <code>geloescht_am</code> setzen, Dateien erst nach 30 Tagen
+        entfernen) — das ist eine Server-Entscheidung, keine Oberflächen-Frage.</p>
+        <div class="toast" style="opacity:0.55">
+          <svg class="uhr" viewBox="0 0 20 20"><circle class="bahn" cx="10" cy="10" r="7"/><circle class="rest" cx="10" cy="10" r="7"/></svg>
+          <span><span class="weg-wort">„Stockholm, Schären am Abend"</span> gelöscht</span>
+          <button>Rückgängig</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————————————— TITELBILD ————————————————————————— -->
+  <section class="m-abschnitt" id="titelbild">
+    <h2>Titelbild wählen: bleibt das ein Menüpunkt?</h2>
+    <p class="m-warum">
+      Der eine Menüpunkt, der ein eigenes Fenster öffnet, und Bildwähler haben die
+      Angewohnheit, zu wachsen (Zuschnitt, Fokuspunkt, Helligkeit, Filter …). Drei
+      Bauformen von leicht nach schwer, damit die Grenze sichtbar wird, ab der es kein
+      Menüpunkt mehr ist. <b>Ein Befund vorweg:</b> Im Web kann man das Titelbild heute
+      überhaupt nicht wählen. Das Feld gibt es, der Server respektiert es, gesetzt wird
+      es nur von der Android-App. „Dem Editor überlassen" hieße also, es weiter niemandem
+      zu überlassen.
+    </p>
+<div class="m-variante" id="v1">
+    <h3>V1 — Streifen direkt am Menü <span class="tag still">leichteste Form</span></h3>
+    <p class="m-warum">
+      Der Menüpunkt öffnet kein Fenster, sondern ersetzt das Menü durch einen
+      Bildstreifen — dieselbe Stelle, dieselbe Größe. Charmant bei fünf Bildern.
+      Bei zwölf oder dreißig wird es zum Nadelöhr: <b>horizontales Scrollen</b> geht mit
+      dem Mausrad nur mit Zusatztaste, und man sieht nie mehr als vier Bilder gleichzeitig
+      — genau das, was man beim Vergleichen braucht.
+    </p>
+    <div class="m-buehne">
+      <article class="k">
+        <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+        <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+        <div class="griffe"><button class="glasknopf"><svg><use href="#i-mehr"/></svg></button></div>
+        <div class="fuss">
+          <div class="t">Koh Pha-ngan, Inselrunde</div>
+          <div class="m"><span class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</span> 6:20 · 41,8 km</div>
+        </div>
+        <div class="streifen-pop">
+          <div class="kopf"><span class="t">Titelbild</span><span class="n">12 Aufnahmen</span></div>
+          <div class="streifen">
+            <button class="bk auto"><svg class="zeichen"><use href="#i-funke"/></svg><span class="w">Auto</span></button>
+            <button class="bk gewaehlt"><img src="tourbilder/stockholm.jpg" alt="" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 30% 50%" /></button>
+            <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 70% 40%" /></button>
+            <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 20% 60%" /></button>
+            <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 80% 30%" /></button>
+          </div>
+        </div>
+      </article>
+    </div>
+    <div class="m-fuss-note">
+      <span>⚑</span>
+      <span><b>Was hier fehlt und nicht hineinpasst:</b> die Unterscheidung „ohne Ort" gegen
+      platziert, das Video-Zeichen, und der Hinweis auf Hochformat-Beschnitt. Alles drei ist
+      keine Zierde — s. V2.</span>
+    </div>
+  </div>
+<div class="m-variante" id="v2">
+    <h3>V2 — kleiner Dialog mit Raster <span class="tag">Empfehlung</span></h3>
+    <p class="m-warum">
+      Ein Fenster, ein Raster, ein Klick. Vier Dinge, die es leisten muss — und die alle
+      <b>Anzeige</b> sind, keine Werkzeuge:
+    </p>
+    <p class="m-warum">
+      <b>1 · Jede Kachel zeigt den echten Beschnitt.</b> Das Titelbild erscheint überall im
+      Format 16:10; ein Hochkantfoto verliert dabei oben und unten. Wer das volle Foto zur
+      Wahl stellt, lässt jemanden ein Bild wählen, das er so nie zu sehen bekommt — deshalb
+      hat jede Kachel im Wähler dasselbe Seitenverhältnis wie die Bibliothekskachel, und
+      Hochformate tragen ein Zeichen.
+      <b>2 · „Automatisch" muss zurückführbar sein</b> — heute wählt der Server
+      (<code>bestimmeCover</code>), und wer einmal von Hand gewählt hat, muss dorthin
+      zurückkönnen.
+      <b>3 · Videos gehören dazu</b> (sie liefern ein Standbild) und sind als solche
+      erkennbar.
+      <b>4 · Auch Aufnahmen ohne Ort</b> stehen zur Wahl — sie sind im Film nicht platziert,
+      als Schaufenster aber oft die besten. Sie stehen in einer eigenen Gruppe, damit klar
+      ist, warum sie im Film nicht vorkommen.
+    </p>
+    <div class="m-buehne">
+      <div class="dlg">
+        <div class="kopf">
+          <h4>Titelbild wählen</h4>
+          <p>Das Bild steht in deiner Bibliothek, in der Galerie, auf deinem Profil und in
+          geteilten Links. Ausschnitt wie hier gezeigt.</p>
+        </div>
+        <div class="rumpf">
+          <div class="gruppe-titel">Im Film platziert · 9</div>
+          <div class="raster" data-raster>
+            <button class="bk auto gewaehlt">
+              <svg class="zeichen"><use href="#i-funke"/></svg>
+              <span class="w">Automatisch</span><span class="n">Maptale wählt</span>
+              <span class="haken"><svg><use href="#i-haken"/></svg></span>
+            </button>
+            <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 35% 45%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 78% 35%" /><span class="marke"><svg><use href="#i-film"/></svg>Video</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 15% 65%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 80% 20%" /><span class="marke warn"><svg><use href="#i-hoch"/></svg>Hochformat</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 30% 70%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 60% 25%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 50% 80%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+          </div>
+          <div class="gruppe-titel">Ohne Ort · 3 <span style="color:var(--text-3);font-size:11px">— im Film nicht platziert</span></div>
+          <div class="raster" data-raster>
+            <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 10% 30%" /><span class="marke"><svg><use href="#i-ortlos"/></svg>ohne Ort</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 90% 50%" /><span class="marke"><svg><use href="#i-ortlos"/></svg>ohne Ort</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+            <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 20% 20%" /><span class="marke"><svg><use href="#i-ortlos"/></svg>ohne Ort</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
+          </div>
+        </div>
+        <div class="fuss">
+          <span class="stand" data-stand>Gewählt: <b>Automatisch</b></span>
+          <button data-schliessen>Abbrechen</button>
+          <button class="primaer" data-schliessen>Übernehmen</button>
+        </div>
+      </div>
+    </div>
+    <div class="m-fuss-note">
+      <span>⚑</span>
+      <span><b>Warum „Übernehmen" und nicht sofort wirken?</b> Weil ein Klick hier ein Bild
+      auf der Galerie und in jedem geteilten Link austauscht. Der Weg zurück wäre zwar da
+      („Automatisch"), aber die Wahl geschieht im Vergleichen — man klickt drei Bilder
+      durch, bevor man sich entscheidet. Jeder dieser Klicks wäre sonst ein Schreibvorgang.</span>
+    </div>
+  </div>
+<div class="m-variante" id="v3">
+    <h3>V3 — was passiert, wenn man nachgibt <span class="tag aus">verworfen</span></h3>
+    <p class="m-warum">
+      Dieselbe Aufgabe, aber jeder naheliegende Wunsch ist erfüllt: Suche, Reiter für Fotos
+      und Videos, Zuschnitt-Rahmen, Fokuspunkt, Helligkeit. Jede einzelne Zutat ist zu
+      rechtfertigen — zusammen ist es <b>kein Menüpunkt mehr, sondern ein Editor-Panel</b>,
+      und dann gehört es auch dorthin. Das ist die Grenze, die Ihre Frage gemeint hat.
+    </p>
+    <div class="m-buehne">
+      <div class="panel">
+        <div class="leiste">
+          <div class="reiter">
+            <button aria-pressed="true">Alle</button><button>Fotos</button><button>Videos</button><button>Ohne Ort</button>
+          </div>
+          <span class="feld">Suchen …</span>
+          <span class="werkzeug">
+            <button><svg><use href="#i-zuschnitt"/></svg></button>
+            <button><svg><use href="#i-regler"/></svg></button>
+            <button><svg><use href="#i-lupe"/></svg></button>
+          </span>
+        </div>
+        <div class="haupt">
+          <div class="buehne">
+            <div class="foto">
+              <img src="tourbilder/stockholm.jpg" alt="" />
+              <div class="rahmen"></div>
+              <div class="kreuz"></div>
+            </div>
+          </div>
+          <div class="seite">
+            <div class="zeile"><span>Zuschnitt</span><span>16 : 10</span></div>
+            <div class="schieber"><i></i></div>
+            <div class="zeile"><span>Helligkeit</span><span>+8</span></div>
+            <div class="schieber"><i style="left:62%"></i></div>
+            <div class="zeile"><span>Fokuspunkt</span><span>46 / 52</span></div>
+            <div class="mini-raster">
+              <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" /></button>
+              <button class="bk gewaehlt"><img src="tourbilder/stockholm.jpg" alt="" /></button>
+              <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" /></button>
+              <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 70% 40%" /></button>
+              <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 20% 60%" /></button>
+              <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 80% 30%" /></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="warnband">
+      <svg><use href="#i-warn"/></svg>
+      <span><b>Und noch etwas kippt hier still:</b> Zuschnitt und Helligkeit erzeugen eine
+      <em>neue Bildfassung</em>. Damit wäre das Titelbild nicht mehr „eines der Fotos",
+      sondern ein eigenes Werk mit eigener Datei, eigener Quota, eigenem Neu-Rendern beim
+      Ändern der Medien. Der Menüpunkt hätte dann eine Pipeline hinter sich.</span>
+    </div>
+  </div>
+<div class="m-variante" id="urteil">
+    <h3>Urteil</h3>
+    <p class="m-warum">
+      <b>V2, und das Titelbild bleibt im Menü.</b> Der Wähler besteht ausschließlich aus
+      Anzeige — Raster, Beschnitt-Vorschau, drei Zeichen, ein Häkchen. Er hat kein einziges
+      Werkzeug, das den Bildinhalt verändert; genau daran hängt, ob er leicht bleibt.
+      Die Regel für später ist damit auch gesetzt: <b>Kommt ein Wunsch, der das Bild
+      selbst verändert (Zuschnitt, Fokus, Helligkeit), gehört er in den Editor — nicht in
+      diesen Dialog.</b>
+    </p>
+    <table class="m-tabelle">
+      <thead><tr><th>Bauform</th><th>Größe</th><th>Bei 30 Aufnahmen</th><th>Zeigt den Beschnitt</th><th>Bleibt Menüpunkt</th></tr></thead>
+      <tbody>
+        <tr><td>V1 — Streifen</td><td>~330 × 150 px</td><td class="nein">horizontales Scrollen</td><td class="mittel">nur klein</td><td class="ja">ja</td></tr>
+        <tr><td>V2 — Dialog</td><td>660 px, Raster 4×</td><td class="ja">Scrollen, 12 auf einen Blick</td><td class="ja">ja, 16:10 wie die Kachel</td><td class="ja">ja</td></tr>
+        <tr><td>V3 — Panel</td><td>720 px + Seitenspalte</td><td class="ja">ja</td><td class="ja">ja</td><td class="nein">nein — das ist der Editor</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:34px;font-size:17px">Was die Umsetzung braucht (aus dem Code gelesen)</h3>
+    <table class="m-tabelle">
+      <thead><tr><th>Punkt</th><th>Stand heute</th><th>Nötig</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Medienliste</td>
+          <td><code>api.tour(id)</code> liefert das Tour-JSON samt <code>media[].thumb</code> (Kachel-Fassung)</td>
+          <td class="ja">kein neuer Endpunkt — ein Aufruf beim Öffnen des Dialogs</td>
+        </tr>
+        <tr>
+          <td>Wahl speichern</td>
+          <td><code>edits.titelbild</code> existiert, wird aber nur von der Android-App geschrieben</td>
+          <td>Web-Weg dorthin — dieselbe Overlay-Änderung wie in der App</td>
+        </tr>
+        <tr>
+          <td>Sofort sichtbar</td>
+          <td><code>cover</code>/<code>cover_thumb</code> der Tour-Zeile entstehen beim <b>Rendern</b></td>
+          <td class="mittel">direkt mitschreiben (Muster: <code>bildnachtrag.ts</code>) — ein Re-Render für eine Bildwahl wäre absurd</td>
+        </tr>
+        <tr>
+          <td>„Automatisch"</td>
+          <td><code>bestimmeCover</code> wählt ohne <code>titelbild</code> selbst</td>
+          <td class="ja">Feld löschen genügt — der Rückweg ist geschenkt</td>
+        </tr>
+        <tr>
+          <td>Gelöschte Medien</td>
+          <td><code>editmodell.ts:364</code> räumt ein <code>titelbild</code> auf, das ins Leere zeigt</td>
+          <td class="ja">bereits gelöst</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  </section>
+
+  <!-- ————————————————————————— UMSETZUNG ————————————————————————— -->
+  <section class="m-abschnitt" id="umsetzung">
+    <h2>Was zu bauen wäre</h2>
+    <p class="m-warum">
+      Der Vorschlag im Ganzen: <b>die ruhige Kachel (M2 · G2 · P1 · S2 · F2), Liste L1,
+      Lösch-Dialog 1 und der Bildwähler V2.</b> Vier Stücke, die unabhängig voneinander
+      gebaut werden können; nur das Menü ist die Voraussetzung für zwei davon.
+    </p>
+    <table class="m-tabelle">
+      <thead><tr><th>Stück</th><th>Hängt ab von</th><th>Stand heute</th></tr></thead>
+      <tbody>
+        <tr><td>Ruhige Kachel</td><td>nichts</td><td>reine Oberfläche: ein Zeichen weniger, zwei Übergänge weniger</td></tr>
+        <tr><td>⋯-Menü</td><td>nichts</td><td class="mittel">neu — trägt Abspielen, Bearbeiten, Umbenennen, Link, Titelbild, Löschen</td></tr>
+        <tr><td>Löschen aus der Kachel</td><td>Menü</td><td class="ja">Route existiert; der Dialog ist neu</td></tr>
+        <tr><td>Filmdauer im Fuß</td><td>nichts</td><td class="ja"><code>stats.filmS</code> kommt schon mit; nur der Fall „fehlt" braucht einen Zweig</td></tr>
+        <tr><td>Video-Export aus der Kachel</td><td>Menü</td><td class="ja">Export-Blatt existiert (<code>oeffneExportBlatt</code>); es fehlt nur der Weg dorthin</td></tr>
+        <tr><td>Ortszeile in der Liste</td><td>Server</td><td class="mittel">die Namen sind bekannt, stehen bisher nur im Player</td></tr>
+        <tr><td>Sortierende Spaltenköpfe</td><td>nichts</td><td class="ja">ersetzt das Sortier-Auswahlfeld im Kopf</td></tr>
+        <tr><td>Titelbild-Wähler</td><td>Menü</td><td class="ja">kein neuer Endpunkt; <code>edits.titelbild</code> existiert, der Web-Weg dorthin fehlt</td></tr>
+      </tbody>
+    </table>
+    <div class="m-fuss-note">
+      <span>⚑</span>
+      <span><b>Was ausdrücklich NICHT vorgeschlagen wird:</b> die Mehrfachauswahl mit
+      Sammelleiste (Variante C der ersten Runde). Sie lohnt erst, wenn Bibliotheken groß
+      genug sind, und sie setzt auf allem auf, was hier steht. Ebenso der
+      Rückgängig-Toast: Er verspricht eine Umkehr, die der Server nicht kann. Beides ist
+      in <a href="../archive/mockups/studio-touren-karten.html">Runde 1</a> ausgezeichnet.</span>
+    </div>
+  </section>
+</main>
+
+<script>
+/* Mockup-Bedienung. Kein Produktcode — nur so viel, dass die Entwürfe
+   anfassbar sind: Hover-Fixierung, ⋯-Menü, zweistufiges Löschen, Bildwahl. */
+
+// — Hover fixiert: DIESELBEN Regeln, nur ohne Zeiger (`:is(:hover, .hv)`) —
+const schalter = document.getElementById('hv-schalter')
+function setzeHover() {
+  document.querySelectorAll('.hv-ziel').forEach((el) => el.classList.toggle('hv', schalter.checked))
+}
+schalter.addEventListener('change', setzeHover)
+// `?hv=1` startet mit fixiertem Hover — für Abnahme-Screenshots und zum Verlinken.
+if (new URLSearchParams(location.search).has('hv')) { schalter.checked = true; setzeHover() }
+
+// — Das ⋯-Menü der Kachel —
+const MENUE = `
+  <button><svg><use href="#i-play"/></svg>Abspielen</button>
+  <button><svg><use href="#i-stift"/></svg>Bearbeiten</button>
+  <button><svg><use href="#i-schrift"/></svg>Umbenennen</button>
+  <button><svg><use href="#i-kopie"/></svg>Link kopieren</button>
+  <button data-zum-titelbild><svg><use href="#i-foto"/></svg>Titelbild wählen …</button>
+  <button><svg><use href="#i-film"/></svg>Als Video exportieren …</button>
+  <hr />
+  <button class="gefahr"><svg><use href="#i-muell"/></svg>Tour löschen …</button>`
+
+function schliesseMenues() {
+  document.querySelectorAll('.karten-menue').forEach((m) => m.remove())
+  document.querySelectorAll('.menue-offen').forEach((k) => k.classList.remove('menue-offen'))
+  document.querySelectorAll('[data-menue][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'))
+}
+
+document.addEventListener('click', (e) => {
+  const knopf = e.target.closest('[data-menue]')
+  if (!knopf) { schliesseMenues(); return }
+  e.stopPropagation()
+  const karte = knopf.closest('.k')
+  const offen = karte.classList.contains('menue-offen')
+  schliesseMenues()
+  if (offen) return
+  const menue = document.createElement('div')
+  menue.className = 'karten-menue'
+  menue.innerHTML = MENUE
+  menue.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    if (ev.target.closest('.gefahr')) { schliesseMenues(); zeigeDialog() }
+    // Der Menüpunkt führt zu dem Kapitel, das ihn ausbaut — die drei Bauformen
+    // stehen weiter unten, statt in einem zweiten Mockup.
+    if (ev.target.closest('[data-zum-titelbild]')) {
+      schliesseMenues()
+      document.getElementById('titelbild').scrollIntoView({ behavior: 'smooth' })
+    }
+  })
+  karte.appendChild(menue)
+  karte.classList.add('menue-offen')
+  knopf.setAttribute('aria-expanded', 'true')
+})
+
+// — Zweistufiges Löschen (Muster 2) —
+document.querySelectorAll('[data-zweistufig-liste]').forEach((b) => {
+  const wort = b.querySelector('.wort')
+  b.addEventListener('click', () => {
+    if (!b.dataset.scharf) {
+      b.dataset.scharf = '1'
+      wort.textContent = 'Wirklich?'
+      setTimeout(() => {
+        if (!b.dataset.scharf) return
+        delete b.dataset.scharf
+        wort.textContent = 'Löschen'
+      }, 3500)
+      return
+    }
+    delete b.dataset.scharf
+    wort.textContent = 'Löschen'
+  })
+})
+
+// — Lösch-Dialog aus Kachel und Listen heraus —
+function zeigeDialog() {
+  const schicht = document.createElement('div')
+  schicht.style.cssText = 'position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:rgba(4,6,10,0.7);backdrop-filter:blur(3px)'
+  schicht.innerHTML = document.querySelector('.m-fall .dialog').outerHTML
+  schicht.addEventListener('click', (e) => {
+    if (e.target === schicht || e.target.closest('button')) schicht.remove()
+  })
+  document.body.appendChild(schicht)
+}
+document.querySelectorAll('[data-dialog]').forEach((b) => {
+  b.addEventListener('click', (e) => { e.stopPropagation(); zeigeDialog() })
+})
+
+// — Der Bildwähler: Auswahl im Raster und im Streifen —
+document.querySelectorAll('[data-raster]').forEach((r) => {
+  r.addEventListener('click', (e) => {
+    const kachel = e.target.closest('.bk')
+    if (!kachel) return
+    const dlg = kachel.closest('.dlg')
+    dlg.querySelectorAll('.bk.gewaehlt').forEach((k) => k.classList.remove('gewaehlt'))
+    kachel.classList.add('gewaehlt')
+    const auto = kachel.classList.contains('auto')
+    const nr = [...dlg.querySelectorAll('.bk')].indexOf(kachel)
+    dlg.querySelector('[data-stand]').innerHTML = auto
+      ? 'Gewählt: <b>Automatisch</b>'
+      : `Gewählt: <b>Aufnahme ${nr}</b>`
+  })
+})
+document.querySelectorAll('.streifen .bk').forEach((k) => {
+  k.addEventListener('click', () => {
+    k.closest('.streifen').querySelectorAll('.bk').forEach((x) => x.classList.remove('gewaehlt'))
+    k.classList.add('gewaehlt')
+  })
+})
+document.querySelectorAll('[data-schliessen]').forEach((b) => {
+  b.addEventListener('click', () => {
+    b.closest('.dlg').animate([{ opacity: 1 }, { opacity: 0.4 }, { opacity: 1 }], { duration: 420 })
+  })
+})
+</script>
+</body>
+</html>
