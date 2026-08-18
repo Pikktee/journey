@@ -1145,6 +1145,20 @@ function entkodiere(text) {
 }
 
 /**
+ * Bindet ein abschließendes Zeichen-Kürzel (das ✅ hinter „Etappe 3") mit einem
+ * geschützten Leerzeichen an das letzte Wort.
+ *
+ * In der schmalen Inhaltsspalte brach es sonst als EINZIGES Zeichen in eine
+ * zweite Zeile — bei acht Etappen-Überschriften untereinander sah das
+ * Verzeichnis dadurch aus, als stünde die Hälfte der Einträge doppelt. Der Text
+ * selbst bleibt unangetastet: Es ist eine Setzregel der Spalte, keine Änderung
+ * am Dokument.
+ */
+function zusammenAmEnde(titel) {
+  return String(titel).replace(/ (\p{Extended_Pictographic}[\uFE0F]?)\s*$/u, '\u00a0$1')
+}
+
+/**
  * Schiebt einen Block hinter die erste `h1` des gerenderten Textes.
  *
  * Die Tafel gehört UNTER den Titel und nicht darüber: Sie sagt etwas über
@@ -1291,13 +1305,15 @@ export function dokumentSeite({ dok, html, ueberschriften, dokumente, bereiche, 
       <span class="inhalt-titel">Auf dieser Seite</span>
       <div class="fortschritt"><i data-fortschritt></i></div>
       <ul>${ueberschriften
-        .map(
-          (u) =>
-            // Die Titel kommen aus dem GERENDERTEN Markdown und sind damit schon
-            // HTML-kodiert. Ein zweites `escape()` machte aus „Do's" ein sichtbares
-            // „Do&#39;s" — also erst zurück in Text, dann einmal sauber kodieren.
-            `<li class="e${u.ebene}"><a href="#${u.id}">${escape(entkodiere(u.titel))}</a></li>`,
-        )
+        .map((u) => {
+          // Die Titel kommen aus dem GERENDERTEN Markdown und sind damit schon
+          // HTML-kodiert. Ein zweites `escape()` machte aus „Do's" ein sichtbares
+          // „Do&#39;s" — also erst zurück in Text, dann einmal sauber kodieren.
+          const roh = entkodiere(u.titel)
+          return `<li class="e${u.ebene}"><a href="#${u.id}" title="${escape(roh)}">${escape(
+            zusammenAmEnde(roh),
+          )}</a></li>`
+        })
         .join('')}</ul>
     </div>
   </nav>

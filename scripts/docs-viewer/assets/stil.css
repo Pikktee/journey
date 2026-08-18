@@ -1204,18 +1204,42 @@ body.mit-dienst .nur-dienst { display: inline-flex; }
 .inhalt-titel { display: block; margin-bottom: 10px; color: var(--text-3); font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; }
 .fortschritt { height: 2px; margin-bottom: 14px; border-radius: 2px; background: var(--rand); overflow: hidden; }
 .fortschritt i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--akzent-2), var(--akzent)); }
-.inhalt ul { margin: 0; padding: 0; list-style: none; }
+/* Die durchgehende Linie gehört der LISTE, nicht den einzelnen Zeilen. Trug
+   sie jede Zeile selbst, mussten die Zeilen lückenlos aneinanderstoßen, sonst
+   bekam die Spur Löcher — und lückenlos hieß: Bei Titeln, die umbrechen (in
+   232 px die Mehrheit), verschmolz das Verzeichnis zu einer Textwand, in der
+   man nicht sah, wo ein Eintrag endet. Jetzt liegt die Spur hinter allem und
+   die Einträge dürfen atmen. */
+.inhalt ul { margin: 0; padding: 0 0 0 1px; list-style: none; border-left: 1px solid var(--rand); }
 .inhalt li a {
   display: block;
-  padding: 4px 0 4px 12px;
-  border-left: 1px solid var(--rand);
-  color: var(--text-3);
+  position: relative;
+  margin-bottom: 5px;
+  padding: 3px 0 3px 12px;
+  color: var(--text-2);
   font-size: 13.2px;
   line-height: 1.4;
+  transition: color 0.15s ease;
 }
-.inhalt li.e3 a { padding-left: 24px; font-size: 12.8px; }
-.inhalt li a:hover { color: var(--text-2); text-decoration: none; }
-.inhalt li a.hier { border-left-color: var(--akzent); color: var(--text); }
+/* Unterpunkte treten zurück: Ohne den Farbunterschied war die Einrückung das
+   einzige Signal, und bei umbrochenen Titeln ist sie ab der zweiten Zeile
+   nicht mehr zu sehen. */
+.inhalt li.e3 a { padding-left: 24px; color: var(--text-3); font-size: 12.8px; }
+.inhalt li a:hover { color: var(--text); text-decoration: none; }
+/* Die Marke ist ein eigener Streifen ÜBER der Spur, kein dickerer Rand: Ein
+   2-px-Rand schöbe den Text der Zeile um ein Pixel nach rechts, und beim
+   Scrollen wanderte diese Stufe durch das ganze Verzeichnis. */
+.inhalt li a.hier { color: var(--text); font-weight: 500; }
+.inhalt li a.hier::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -2px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--akzent);
+}
 
 /* ── Mockups ──────────────────────────────────────────────────────────── */
 

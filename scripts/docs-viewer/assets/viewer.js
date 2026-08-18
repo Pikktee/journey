@@ -1073,6 +1073,136 @@
     }
   }
 
+
+  /* ── Scrollspy im Inhaltsverzeichnis ──────────────────────────────────
+   * Zwei Anzeigen aus einer Messung: der Balken sagt, WIE WEIT man im Text
+   * ist, die hervorgehobene Zeile sagt, WO. Das CSS für beides (`.fortschritt
+   * i`, `.inhalt li a.hier`) stand längst da, nur gesetzt hat es niemand.
+   *
+   * Vier Dinge, die man dabei leicht falsch herum baut:
+   *
+   *   - Die Lesemarke wird nicht geraten, sondern aus dem CSS abgeleitet, das
+   *     auch der Anker-Sprung benutzt: `scroll-padding-top` des `html` PLUS
+   *     `scroll-margin-top` der Überschrift (92 + 84 = 176). Genau dort legt
+   *     der Browser sie ab. Mit der Höhe der Kopfleiste (58) hat das nichts zu
+   *     tun — mit ihr als Marke galt die eben angesprungene Überschrift als
+   *     noch nicht erreicht, man klickte einen Punkt an und der vorige blieb
+   *     markiert.
+   *   - Am Dokumentende wird die LETZTE Überschrift erzwungen: Der Schluss ist
+   *     oft kürzer als ein Bildschirm und wanderte nie über die Marke — man
+   *     liest ihn, und im Verzeichnis leuchtet der Abschnitt davor. Gemessen
+   *     wird das am `scrollingElement`, nicht am `body`: Gescrollt wird hier
+   *     das `html` (`overflow-y: auto`), und die beiden Höhen sind nicht
+   *     dieselbe Zahl. Mit der falschen sprang der Klick auf den letzten
+   *     Eintrag ans Seitenende und markierte trotzdem den vorletzten.
+   *   - Mitgeführt wird über `scrollTop` der eigenen Spalte, nicht über
+   *     `scrollIntoView`: Das scrollt den nächsten scrollbaren Vorfahren mit,
+   *     also die Seite — und die Seite bewegt gleich wieder den Scrollspy.
+   *   - Gemessen wird im `requestAnimationFrame`, nicht je Scroll-Ereignis;
+   *     `getBoundingClientRect` in der Ereignisschleife ist ein Layout je Rad-
+   *     rastung.
+   */
+
+  var inhaltNav = document.querySelector('.inhalt')
+  if (inhaltNav) {
+    var balken = inhaltNav.querySelector('[data-fortschritt]')
+    var spalte = inhaltNav.querySelector('.inhalt-innen')
+    var prosa = document.querySelector('[data-prosa]')
+
+    var eintraege = []
+    Array.prototype.forEach.call(inhaltNav.querySelectorAll('a[href^="#"]'), function (a) {
+      var ziel = document.getElementById(decodeURIComponent(a.getAttribute('href').slice(1)))
+      if (ziel) eintraege.push({ a: a, ziel: ziel })
+    })
+
+    if (eintraege.length) {
+      var aktiv = null
+      var geplant = false
+
+      function zahl(wert) {
+        var n = parseFloat(wert)
+        return isNaN(n) ? 0 : n
+      }
+
+      function linie(ziel) {
+        // Die vier Pixel Puffer fangen die Rundung des Sprungziels ab.
+        return zahl(getComputedStyle(document.documentElement).scrollPaddingTop) +
+          zahl(getComputedStyle(ziel).scrollMarginTop) + 4
+      }
+
+      function fuehreMit(a) {
+        if (!spalte || spalte.scrollHeight <= spalte.clientHeight) return
+        var oben = a.offsetTop - spalte.offsetTop
+        var unten = oben + a.offsetHeight
+        if (oben < spalte.scrollTop + 8) spalte.scrollTop = oben - 8
+        else if (unten > spalte.scrollTop + spalte.clientHeight - 8)
+          spalte.scrollTop = unten - spalte.clientHeight + 8
+      }
+
+      function setze(eintrag) {
+        if (eintrag === aktiv) return
+        if (aktiv) aktiv.a.classList.remove('hier')
+        aktiv = eintrag
+        if (!aktiv) return
+        aktiv.a.classList.add('hier')
+        aktiv.a.setAttribute('aria-current', 'true')
+        eintraege.forEach(function (e) {
+          if (e !== aktiv) e.a.removeAttribute('aria-current')
+        })
+        fuehreMit(aktiv.a)
+      }
+
+      function miss() {
+        geplant = false
+        var se = document.scrollingElement || document.documentElement
+        var amEnde = se.scrollTop + se.clientHeight >= se.scrollHeight - 2
+
+        var treffer = amEnde ? eintraege[eintraege.length - 1] : null
+        if (!treffer) {
+          for (var i = 0; i < eintraege.length; i++) {
+            var e = eintraege[i]
+            if (e.ziel.getBoundingClientRect().top - linie(e.ziel) <= 0) treffer = e
+            else break
+          }
+          // Vor der ersten Überschrift steht die Kopftafel; dort ist noch
+          // nichts erreicht, aber „nichts hervorgehoben" liest sich wie ein
+          // Defekt — also gilt der erste Eintrag.
+          if (!treffer) treffer = eintraege[0]
+        }
+        setze(treffer)
+
+        // Der Balken misst die PROSA und nicht das Dokument: Verlaufs-Klappe
+        // und Fußnote hängen darunter, und mit ihnen stünde der Balken am
+        // Textende noch bei zwei Dritteln. Voll ist er, wenn die letzte
+        // Textzeile im Bild steht.
+        if (balken) {
+          var k = prosa || document.body
+          var start = k.getBoundingClientRect().top + window.scrollY
+          var anteil = k.offsetHeight > 0 ? (window.scrollY + window.innerHeight - start) / k.offsetHeight : 1
+          balken.style.width = Math.max(0, Math.min(1, anteil)) * 100 + '%'
+        }
+      }
+
+      function plane() {
+        if (geplant) return
+        geplant = true
+        requestAnimationFrame(miss)
+      }
+
+      window.addEventListener('scroll', plane, { passive: true })
+      window.addEventListener('resize', plane)
+      // Ein Klick springt sofort — auf das Scroll-Ereignis zu warten, ließe die
+      // angeklickte Zeile einen Wimpernschlag lang unmarkiert.
+      inhaltNav.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a[href^="#"]')
+        if (!a) return
+        for (var i = 0; i < eintraege.length; i++)
+          if (eintraege[i].a === a) return setze(eintraege[i])
+      })
+      miss()
+    }
+  }
+
   /* ── Bereichs-Klappe im Kopf ─────────────────────────────────────────── */
 
   var menueKnopf = document.querySelector('[data-menue-knopf]')
