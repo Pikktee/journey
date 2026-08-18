@@ -63,7 +63,6 @@ Entschieden und vorbereitet, aber noch nicht angefangen.
 * [Newsletter](concepts/konzept_newsletter.md) — Teil B: der redaktionelle Versand.
 * [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — Die Leiste nach Paket G.
 * [Studio-Editor zerlegen](concepts/konzept_editor_zerlegung.md) — Bevor `editor.ts` weiter wächst.
-* [Eine Bühne, ein Maler](concepts/eine-buehne-ein-maler.md) — Erst der Editor auf den Maler, dann der Blitz. [wartet auf: concepts/konzept_editor_zerlegung.md]
 
 ## Angedacht · ohne Termin
 

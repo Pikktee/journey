@@ -746,8 +746,14 @@ map.on('load', () => {
   // Uhr, steht der Ton; die Position hält er (audiotracks.ts: Pause INNERHALB
   // eines Bereichs setzt nicht zurück), also läuft er nach der Rückkehr genau
   // dort weiter, wo das Bild steht.
+  // Und `tour.playing` steht daneben — OHNE `|| tour.scrubbing`. Das Scrubben ist
+  // keine Wiedergabe, sondern ein Blättern: Wer angehalten hat und dann über die
+  // Leiste zieht, hörte sonst Regen und Musik wieder anlaufen, obwohl der Film
+  // steht (gemessen: `rain.mp3` und die Tour-Musik kamen beim Ziehen zurück und
+  // verstummten beim Loslassen). Beim Ziehen WÄHREND der Wiedergabe ändert sich
+  // nichts: Dort ist `playing` ohnehin wahr.
   const sceneAnimating = () =>
-    tour.uhr.laeuft && (tour.playing || tour.scrubbing || tour.phase === 'intro' || tour.phase === 'finale')
+    tour.uhr.laeuft && (tour.playing || tour.phase === 'intro' || tour.phase === 'finale')
   weather.setGate(sceneAnimating)
   window.__j.weather = weather
 
@@ -944,7 +950,7 @@ map.on('load', () => {
   music?.setGate(() => tour.uhr.laeuft && tempoEins() && tour.phase !== 'intro' && tour.phase !== 'finale')
   window.__j.music = music
 
-  // Tour-Audio-Gate: Musik läuft während Fahrt/Foto/Scrub. Pause stoppt sie
+  // Tour-Audio-Gate: Musik läuft während Fahrt und Halt. Pause stoppt sie
   // sofort und hält die Abspielposition (audiotracks.ts); Bereichsgrenzen und
   // Menü/Finale blenden weich aus. Bewusst anders als music.ts — die eigene
   // Musik gehört zur SZENE, nicht zur App.
@@ -953,13 +959,18 @@ map.on('load', () => {
   // die einzige Auskunft darüber, ob der Film läuft — mit der Oder-Klausel lief
   // die Musik unter der angehaltenen Einblendung weiter und stand danach an
   // einer anderen Stelle als der Schnitt im Studio.
+  //
+  // Ein `|| tour.scrubbing` stand daneben und war dieselbe Sorte Ausnahme: Wer
+  // angehalten hatte und dann über die Leiste zog, hörte die Musik wieder
+  // anlaufen und beim Loslassen verstummen. Scrubben ist Blättern, keine
+  // Wiedergabe — und beim Ziehen während der Wiedergabe trägt `playing`.
   tourAudio?.setGate(
     () =>
       tour.uhr.laeuft &&
       tempoEins() &&
       tour.phase !== 'intro' &&
       tour.phase !== 'finale' &&
-      (tour.playing || tour.scrubbing),
+      tour.playing,
   )
 
   // Video mit Ton → laufende Musikspur crossfaden (Ambient und Tour-Musik).

@@ -124,32 +124,13 @@ button:focus-visible {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
 }
 
-/* Letterbox-Balken während der Foto-Momente */
-.cine {
-  position: fixed;
-  left: 0;
-  right: 0;
-  height: 9vh;
-  background: #04060a;
-  z-index: 7;
-  pointer-events: none;
-  transform: scaleY(0);
-  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.cine-top {
-  top: 0;
-  transform-origin: top;
-}
-
-.cine-bottom {
-  bottom: 0;
-  transform-origin: bottom;
-}
-
-body.cinema .cine {
-  transform: scaleY(1);
-}
+/* Die Letterbox-Balken (`.cine`, 9vh oben und unten) sind ERSATZLOS entfallen.
+   Sie stammen aus der Zeit, als der Halt fast nichts hatte, was ihn ankündigte;
+   inzwischen tut das der Schleier, und der tut es besser: Er lässt die Szene
+   stehen, statt ein Fünftel des Bildes zuzudecken. Zwei schwarze Flächen dafür
+   zu opfern, war teuer — auf 1080p 194 px, genau dort, wo unten die
+   Steuerleiste und oben der Weg hinaus liegen. `body.cinema` bleibt, es schaltet
+   jetzt nur noch den `backdrop-filter` des Schleiers. */
 
 .blink {
   position: fixed;
@@ -496,16 +477,27 @@ body.cinema .cine {
      komplett schwarzen oberen Bildrand hinaus — die Szene bleibt jetzt hinter der
      Karte erkennbar, die Trennung übernimmt der Blur. */
   background: rgba(6, 10, 16, 0.3);
-  opacity: 0;
+  /* Die Deckkraft kommt aus der FILMZEIT und nicht mehr aus einer Transition:
+     `kartenschicht.ts` schreibt `--schleier-sicht` pro Frame, und das ist die
+     Deckkraft der Karte. Damit kommt der Schleier über den Flug hoch und geht
+     mit dem Abgang wieder weg — rückwärts wie vorwärts und beim Scrubben. Als
+     0,8-s-Transition an einer Klasse blieb er beim Scrubben hinter der Karte
+     zurück und kam rückwärts gar nicht mit; seit der Kamerablitz zurückgebaut
+     ist, ist er das Einzige, was den Halt markiert. */
+  opacity: var(--schleier-sicht, 0);
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
-  transition: opacity 0.8s ease, backdrop-filter 0.8s ease, -webkit-backdrop-filter 0.8s ease;
 }
 
-/* Am BODY und nicht an `.photo-layer.show`: Der Schleier ist seit Etappe 2 ein
-   Geschwister der Leinwand und liegt außerhalb der Bedienungs-Schicht. */
+/* Die Klasse schaltet nur noch den FILTER, nicht die Sichtbarkeit — sie braucht
+   deshalb auch keine Transition mehr: Beim Umschalten steht die Karte noch bei
+   Deckkraft 0, man sieht den Sprung nicht. Ein bildschirmfüllender
+   `backdrop-filter`, der dauernd stünde, wäre auf einem schwachen Gerät der
+   teuerste Posten der Seite.
+   Am BODY und nicht an `.photo-layer.show`: Der Schleier ist seit der
+   Kartenleinwand ein Geschwister der Schicht und liegt außerhalb der
+   Bedienungs-Schicht. */
 body.cinema .photo-backdrop {
-  opacity: 1;
   backdrop-filter: blur(14px) saturate(0.85) brightness(0.96);
   -webkit-backdrop-filter: blur(14px) saturate(0.85) brightness(0.96);
 }
@@ -1457,7 +1449,6 @@ body.export .photo-layer,
 body.export .finale,
 body.export .karten-info,
 body.export .next-stop,
-body.export .cine,
 body.export .vignette,
 body.export .grain,
 body.export .blink,

@@ -148,14 +148,39 @@ describe('Kartengeometrie', () => {
 
   it('macht der stehenden Bedienung Platz und rückt hoch', () => {
     // Das gilt NUR am Bildschirm: Im Film gibt es keine Steuerleiste, der
-    // Export setzt den Schalter nie (Konzept §5).
+    // Export setzt den Anteil nie (Konzept §5).
     const frei = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO)
-    const belegt = kartenGeometrie({ breite: 1600, hoehe: 900, bedienungSteht: true }, FOTO)
+    const belegt = kartenGeometrie({ breite: 1600, hoehe: 900, bedienung: 1 }, FOTO)
     expect(belegt.bild.hoehe).toBeLessThan(frei.bild.hoehe)
     // Kleiner allein reicht nicht: Zentriert bliebe die Karte in der Leiste
     // hängen (gemessen 48 px Überlappung, als es noch CSS war).
     const mitte = (g: typeof frei) => g.karte.y + g.karte.hoehe / 2
     expect(mitte(belegt)).toBeLessThan(mitte(frei))
+  })
+
+  it('und der Weg dorthin ist STETIG — es gibt jeden Zwischenstand', () => {
+    // Als Schalter sprang die Karte zwischen zwei Größen, sobald sich die Maus
+    // bewegte oder die UI sich nach 3,2 s zurückzog: ein Umsprung mitten im
+    // stehenden Bild, den nichts erklärt. Der Anteil macht daraus eine Bewegung,
+    // und dafür muss die Geometrie über ihm MONOTON sein — mit einer Kante
+    // darin wäre die gefahrene Größe ein Ruckeln statt eines Zugs.
+    const bei = (bedienung: number) =>
+      kartenGeometrie({ breite: 1600, hoehe: 900, bedienung }, FOTO)
+    const stufen = [0, 0.25, 0.5, 0.75, 1].map(bei)
+    for (let i = 1; i < stufen.length; i++) {
+      expect(stufen[i]!.bild.hoehe).toBeLessThan(stufen[i - 1]!.bild.hoehe)
+      expect(stufen[i]!.karte.y + stufen[i]!.karte.hoehe / 2).toBeLessThan(
+        stufen[i - 1]!.karte.y + stufen[i - 1]!.karte.hoehe / 2,
+      )
+    }
+    // Die halbe Strecke liegt in der Mitte — eine lineare Mischung, keine Kurve
+    // im Maler: Die Kurve gehört der Schicht, die den Anteil fährt.
+    expect(stufen[2]!.bild.hoehe).toBeCloseTo(
+      (stufen[0]!.bild.hoehe + stufen[4]!.bild.hoehe) / 2,
+      6,
+    )
+    // Ohne Angabe gilt „keine Bedienung" — der Film bekommt sie nie.
+    expect(bei(0).karte.hoehe).toBe(kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO).karte.hoehe)
   })
 
   it('Bild und Beschriftung liegen INNERHALB der Karte', () => {
@@ -198,13 +223,12 @@ describe('Phasen', () => {
   })
 
   it('bei reduzierter Bewegung bleibt genau eine Bewegung übrig', () => {
-    // Ken Burns aus, Flug aus, Blitz aus, Beschriftung sofort da — aber KEIN
-    // harter Schnitt: Im Film wäre der ein Bildsprung. Und der Schalter kommt
-    // von außen; läse der Maler die Einstellung selbst, hätte der rendernde
+    // Ken Burns aus, Flug aus, Beschriftung sofort da — aber KEIN harter
+    // Schnitt: Im Film wäre der ein Bildsprung. Und der Schalter kommt von
+    // außen; läse der Maler die Einstellung selbst, hätte der rendernde
     // Rechner Einfluss auf die Datei (Konzept, Falle 2).
     const p = kartenPhasen(0.1, KLIP_S, { ruhig: true })
     expect(p.flug).toBe(1)
-    expect(p.blitz).toBe(0)
     expect(p.entwickeln).toBe(1)
     expect(p.kbSkala).toBe(KARTE.ruheSkala)
     expect(p.titel.deckkraft).toBe(1)

@@ -17,7 +17,7 @@ ist keine Vorsorge mehr, sie ist überfällig. Die Bestandsaufnahme in §1 schä
 Blöcke deshalb zu klein. Ihre Verhältnisse dürften noch stimmen, die absoluten
 Zahlen nicht, und wer den Plan aufnimmt, zählt zuerst nach.
 
-**Ein Vorhaben wartet konkret darauf:** [Eine Bühne, ein Maler](eine-buehne-ein-maler.md)
+**Ein Vorhaben wartet konkret darauf:** [Eine Bühne, ein Maler](../archive/eine-buehne-ein-maler.md)
 zieht die Editor-Vorschau der Foto-Karte auf den Maler des Players und berührt
 dabei genau den Block, den §1 „Rest" nennt. Es macht ihn kleiner (die
 `--fe-*`-Choreografie und fünf Keyframes fallen weg) und sollte in der

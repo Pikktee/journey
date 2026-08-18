@@ -57,11 +57,26 @@ export function kartenMass(hoehe: number): number {
 export type KartenLage = 'breit' | 'schmal' | 'quer'
 
 /**
- * Welche Lage gilt — abgeleitet, nicht übergeben.
+ * Die Bühnen, die diesen Maler benutzen.
+ *
+ * `player` ist zugleich die Bühne des FILMS: Der Export malt dieselbe Geometrie,
+ * er komponiert sie nur anders (Schleier flach, keine Steuerleiste). `editor`
+ * ist die kleine Karte auf dem Leuchttisch der Editor-Bühne.
+ */
+export type KartenBuehnenName = 'player' | 'editor'
+
+/**
+ * Welche Lage gilt — auf der Player-Bühne abgeleitet, nicht übergeben.
  *
  * Dieselben Schwellen, an denen bis Etappe 2 `body.kompakt-quer` (main.ts,
  * `KOMPAKT_HOEHE`) und `@media (max-width: 700px)` hingen. Ein eigener Schalter
- * im Aufruf wäre eine zweite Wahrheit über dieselbe Geometrie.
+ * im Aufruf wäre dort eine zweite Wahrheit über dieselbe Geometrie.
+ *
+ * Auf der EDITOR-Bühne gilt das nicht (Konzept „Eine Bühne, ein Maler", Falle 5):
+ * Eine Editor-Fläche von etwa 700 × 500 ist breiter als hoch und höchstens 560
+ * hoch, fiele hier also in `quer` und bekäme das Layout „Bild links, Text rechts"
+ * eines liegenden Telefons. Die Lage gehört deshalb zum Bühnen-Satz und wird
+ * dort gesetzt — s. `kartenSatz`.
  */
 export function kartenLage(breite: number, hoehe: number): KartenLage {
   if (breite > hoehe && hoehe <= 560) return 'quer'
@@ -114,20 +129,24 @@ export interface KartenMassSatz {
 }
 
 /**
- * Die Nennmaße der drei Lagen.
+ * Die Nennmaße der drei Lagen der PLAYER-Bühne.
  *
  * Die Zahlen der Lage `breit` sind die, die die abgelöste CSS-Fassung bei
  * 1600 × 900 ergab; `schmal` und `quer` stammen aus deren Media-Query bzw. aus
  * `body.kompakt-quer`. Sie stehen hier und nicht in `einblendung.ts`, weil der
- * Editor eine eigene, kleine Karte auf einem Leuchttisch hat: Diese Geometrie
- * ist nicht geteilt und war es nie (§3.7 — was verschieden sein darf, steht als
- * solches da).
+ * Editor eine eigene, kleine Karte auf einem Leuchttisch hat (`EDITOR_MASSE`
+ * weiter unten): Diese Geometrie ist nicht geteilt und war es nie (§3.7 — was
+ * verschieden sein darf, steht als solches da).
  */
 export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
   breit: {
     polster: 16,
     chrome: 235,
-    chromeBedienung: 335,
+    // 380 und nicht die 335 der CSS-Fassung: Auf einem 1080p-Bildschirm blieben
+    // damit 31 px zwischen Kartenkante und Steuerleiste — zu wenig, um als Luft
+    // zu lesen, und die Bildunterschrift stand knapp über der Leiste. Gemessen
+    // am Halt, nicht geschätzt.
+    chromeBedienung: 380,
     breiteAnteil: 0.92,
     breiteMax: 1500,
     textOben: 13,
@@ -153,7 +172,11 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
     kartenRadius: 12,
     tonSeite: 40,
     tonRand: 10,
-    hubBedienung: 48,
+    // 64 und nicht die 48 der CSS-Fassung: Mit der kleineren Karte
+    // (`chromeBedienung` 380) blieben oben 94 und unten 57 px — die Karte saß
+    // sichtbar tief. Jetzt liegt sie mittig zwischen dem Weg hinaus und der
+    // Steuerleiste. Gemessen auf 1080p.
+    hubBedienung: 64,
   },
   schmal: {
     polster: 10,
@@ -219,6 +242,98 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
   },
 }
 
+/**
+ * Der Satz der EDITOR-Bühne — eine kleine Karte auf einem Leuchttisch.
+ *
+ * Er ist keine Variante der drei oben, sondern ihr Gegenstück: Die Player-Bühne
+ * ist der Bildschirm, die Editor-Bühne ist die Kartenfläche neben der
+ * Zeitleiste. Die Zahlen schließen an das abgelöste CSS von `studio.html` an
+ * (`.foto-einblendung`, `.fe-frame`, `.fe-cap`) — dort standen sie als feste
+ * Pixel und Container-Query-Anteile.
+ *
+ * Die eine, die man nicht raten darf, ist `chrome`: `hoehe − chrome × mass` ist
+ * die Bildhöhe, und weil `mass` im ungeklemmten Bereich `hoehe / 900` IST, ergibt
+ * 306 = 0,34 × 900 genau die `66cqh` der CSS-Fassung — bei jeder Bühnenhöhe.
+ * Die Beschriftung reserviert EINE Zeile (`unterZeilen`), nicht zwei wie im
+ * Player: Dort steht eine Bildunterschrift, hier „15:58 Uhr · km 12,3".
+ */
+export const EDITOR_MASSE: KartenMassSatz = {
+  polster: 22,
+  chrome: 306,
+  // Der Editor hat keine Steuerleiste, die Platz verlangt — derselbe Wert.
+  chromeBedienung: 306,
+  breiteAnteil: 0.82,
+  breiteMax: 1600,
+  textOben: 18,
+  textSeiten: 10,
+  textUnten: 22,
+  lueckeX: 20,
+  lueckeY: 5,
+  titel: 40,
+  titelMindest: 17,
+  titelZeile: 1.15,
+  unter: 20,
+  unterMindest: 11,
+  unterZeile: 1.45,
+  unterZeilen: 1,
+  pille: 18,
+  pilleMindest: 10,
+  pillePolsterX: 16,
+  pillePolsterY: 6,
+  // Kein „Weiter ▸": Die Editor-Karte hat keine Knöpfe, sie ist eine Vorschau.
+  // Eine 0 hier ist die Ansage dafür — `weiterBreite` reserviert dann nichts.
+  weiter: 0,
+  weiterPolsterX: 0,
+  weiterPolsterY: 0,
+  balken: 7,
+  kartenRadius: 22,
+  // Und keinen Ton-Knopf: Der Ton des Videos läuft, bedient wird er nicht.
+  tonSeite: 0,
+  tonRand: 0,
+  hubBedienung: 0,
+}
+
+/**
+ * Maßstabsgrenzen der Editor-Bühne.
+ *
+ * Weiter unten als die des Players (0,7), weil die Bühne selbst kleiner ist: Mit
+ * 0,7 wäre bei 480 px Höhe schon geklemmt, das Bild bekäme statt 66 % nur 55 %
+ * der Fläche und die Karte säße auf einem Leuchttisch, der ihr nicht passt.
+ */
+export const EDITOR_MASS_MIN = 0.55
+export const EDITOR_MASS_MAX = 1.8
+
+/** Lage der Editor-Bühne — GESETZT und nicht abgeleitet (Falle 5, s. `kartenLage`). */
+export const EDITOR_LAGE: KartenLage = 'breit'
+
+/** Was eine Bühne dem Maler an Geometrie vorgibt. */
+export interface KartenSatz {
+  lage: KartenLage
+  satz: KartenMassSatz
+  mass: number
+  /** Flugweite des Auftritts — die eine benannte Bühnen-Variante. */
+  flugHubPx: number
+}
+
+/** Maßsatz, Lage und Maßstab dieser Bühne. */
+export function kartenSatz(buehne: KartenBuehne): KartenSatz {
+  if (buehne.name === 'editor') {
+    return {
+      lage: EDITOR_LAGE,
+      satz: EDITOR_MASSE,
+      mass: klemme(buehne.hoehe / BEZUGSHOEHE, EDITOR_MASS_MIN, EDITOR_MASS_MAX),
+      flugHubPx: KARTE_BUEHNE.flugHubPx.editor,
+    }
+  }
+  const lage = kartenLage(buehne.breite, buehne.hoehe)
+  return {
+    lage,
+    satz: KARTEN_MASSE[lage],
+    mass: kartenMass(buehne.hoehe),
+    flugHubPx: KARTE_BUEHNE.flugHubPx.player,
+  }
+}
+
 /** Boden des Bildradius: darunter ist es kein Radius mehr, nur ein Pixelrand. */
 const RAHMEN_RADIUS_MIN = 3
 
@@ -235,7 +350,6 @@ export const KARTEN_FARBEN = {
   balken: 'rgba(10, 8, 5, 0.3)',
   balkenVon: '#f5a524',
   balkenBis: '#ff6f52',
-  blitz: '255, 250, 240',
   schatten: 'rgba(0, 0, 0, 0.55)',
 } as const
 
@@ -244,12 +358,25 @@ export interface KartenBuehne {
   breite: number
   hoehe: number
   /**
-   * Steht die Steuerleiste? Dann macht die Karte ihr Platz und rückt hoch.
+   * Welche Bühne — Vorgabe `player`. Sie entscheidet über Maßsatz, Lage,
+   * Maßstabsgrenzen und Flugweite (`kartenSatz`), über nichts sonst: Alles, was
+   * auf beiden Bühnen gleich AUSSEHEN soll, steht in `KARTE`.
+   */
+  name?: KartenBuehnenName
+  /**
+   * Wie weit die Steuerleiste STEHT — 0 = zurückgezogen, 1 = ganz da.
+   *
+   * Ein Anteil und kein Schalter: Die Karte macht der Leiste Platz und rückt
+   * hoch, und das soll man ihr ansehen. Als Boolean sprang sie zwischen zwei
+   * Größen, sobald sich die Maus bewegte oder die UI sich nach 3,2 s zurückzog —
+   * ein Umsprung mitten im stehenden Bild, den nichts erklärt. Wer den Anteil
+   * über die Zeit führt (`kartenschicht.ts`), bekommt aus demselben Umstand eine
+   * Bewegung, die als gewollt liest.
    *
    * Nur am Bildschirm: Im Film gibt es keine Leiste, der Export setzt das
    * niemals (Konzept §5).
    */
-  bedienungSteht?: boolean
+  bedienung?: number
   /**
    * `prefers-reduced-motion` — als Schalter, nicht als Blick nach draußen
    * (Falle 2). Im Export immer `false`.
@@ -442,8 +569,6 @@ export interface KartenPhasen {
   kbSkala: number
   /** „Entwickeln" 0..1 — 0 = frisch aus der Kamera, 1 = fertig. */
   entwickeln: number
-  /** Deckkraft des Kamerablitzes. */
-  blitz: number
   /** Füllstand des Standzeit-Balkens. */
   balken: number
   titel: TextAuftritt
@@ -497,7 +622,6 @@ export function kartenPhasen(
       abgang: 0,
       kbSkala: stehendeSkala,
       entwickeln: 1,
-      blitz: 0,
       balken,
       titel: { deckkraft: 1, hub: 0 },
       unter: { deckkraft: 1, hub: 0 },
@@ -521,27 +645,11 @@ export function kartenPhasen(
     abgang,
     kbSkala,
     entwickeln,
-    blitz: blitzDeckkraft(imS),
     balken,
     titel: textAuftritt(imS, TEXT_VERSATZ_S.titel, false),
     unter: textAuftritt(imS, TEXT_VERSATZ_S.unter, false),
     pille: textAuftritt(imS, TEXT_VERSATZ_S.pille, false),
   }
-}
-
-/**
- * Der Kamerablitz — drei Keyframe-Stufen (0 → Spitze → 0), jede mit `ease-out`.
- *
- * CSS legt die Kurve zwischen JEDES Paar von Stufen, nicht über die ganze
- * Animation. Wer sie einmal über die Gesamtdauer legt, bekommt einen Blitz, der
- * langsamer aufflammt und schneller verschwindet als der im Editor.
- */
-export function blitzDeckkraft(imS: number): number {
-  const t = imS / KARTE.blitzDauerS
-  if (t <= 0 || t >= 1) return 0
-  const spitzeBei = KARTE.blitzSpitzeBei
-  if (t < spitzeBei) return KARTE.blitzSpitze * KURVE.easeOut(t / spitzeBei)
-  return KARTE.blitzSpitze * (1 - KURVE.easeOut((t - spitzeBei) / (1 - spitzeBei)))
 }
 
 // — Geometrie —
@@ -580,13 +688,14 @@ function grad(nenn: number, mass: number, mindest: number): number {
  */
 export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): KartenGeometrie {
   const { breite, hoehe } = buehne
-  const mass = kartenMass(hoehe)
-  const lage = kartenLage(breite, hoehe)
-  const satz = KARTEN_MASSE[lage]
+  const { mass, lage, satz } = kartenSatz(buehne)
   const px = (nenn: number) => nenn * mass
 
   const ar = klemme(medium.ar ?? 1.5, AR_MIN, AR_MAX)
-  const chrome = px(buehne.bedienungSteht ? satz.chromeBedienung : satz.chrome)
+  // Die Reserve wächst STETIG mit der Leiste, sie schaltet nicht um: Zwischen
+  // beiden Werten liegt jeder Zwischenstand, und den fährt die Schicht ab.
+  const bed = klemme(buehne.bedienung ?? 0, 0, 1)
+  const chrome = px(mische(satz.chrome, satz.chromeBedienung, bed))
   const maxB = Math.min(px(satz.breiteMax), breite * satz.breiteAnteil)
   const bildH = Math.max(1, Math.min(hoehe - chrome, maxB / ar))
   const bildB = Math.max(1, bildH * ar)
@@ -695,8 +804,7 @@ export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): Kar
   }
 
   const x = (breite - karteB) / 2
-  const yMitte =
-    (hoehe - karteH) / 2 - (buehne.bedienungSteht ? px(satz.hubBedienung) : 0)
+  const yMitte = (hoehe - karteH) / 2 - px(satz.hubBedienung) * bed
 
   // Bis hier ist alles KARTEN-relativ gerechnet, weil die Beschriftung sich an
   // Bild und Kartenrand ausrichtet. Nach außen gilt EIN Bezugssystem: die Bühne.
@@ -980,34 +1088,13 @@ export function maleKarte(
   const g = kartenGeometrie(buehne, stand.medium)
   const dichte = klemme(Math.abs(ctx.getTransform().a) || 1, 1, 3)
 
-  // Der Blitz liegt über der Szene und UNTER der Karte, wie sein DOM-Vorgänger.
-  //
-  // Der Radius ist der von CSS: `radial-gradient(circle at 50% 45%, …)` ohne
-  // Größenangabe heißt `farthest-corner`, also der Abstand zur weitesten Ecke.
-  // Mit `max(Breite, Höhe) × 0.78` gerechnet (so stand es hier zuerst) wird er
-  // bei 1920 × 1080 um ein Drittel zu groß, und weil die Halte am Anteil des
-  // Radius hängen, wandern sie mit: Der Blitz wurde zur bildschirmfüllenden
-  // weißen Wäsche statt zu einem Aufflammen in der Bildmitte. Die zwei Halte
-  // stehen deshalb in `KARTE` und nicht mehr als Zahlen hier.
-  if (phasen.blitz > 0.004) {
-    const cx = buehne.breite * KARTE.blitzMitteX
-    const cy = buehne.hoehe * KARTE.blitzMitteY
-    const r = Math.hypot(
-      Math.max(cx, buehne.breite - cx),
-      Math.max(cy, buehne.hoehe - cy),
-    )
-    const verlauf = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-    verlauf.addColorStop(0, `rgba(${KARTEN_FARBEN.blitz}, ${KARTE.blitzInnen})`)
-    verlauf.addColorStop(KARTE.blitzHaltAussen, `rgba(${KARTEN_FARBEN.blitz}, ${KARTE.blitzAussen})`)
-    // Ab hier durchsichtig: Canvas führt die Farbe des letzten Halts nach außen
-    // weiter, ein vierter Halt bei 1 wäre derselbe Wert zweimal.
-    verlauf.addColorStop(KARTE.blitzHaltEnde, `rgba(${KARTEN_FARBEN.blitz}, 0)`)
-    ctx.save()
-    ctx.globalAlpha = phasen.blitz
-    ctx.fillStyle = verlauf
-    ctx.fillRect(0, 0, buehne.breite, buehne.hoehe)
-    ctx.restore()
-  }
+  // Hier lag der Kamerablitz — ein Radialverlauf über der Szene und unter der
+  // Karte, die teuerste einzelne Operation eines Kartenbildes (2,0 gegen 1,1 ms
+  // im Median). Er ist zurückgebaut: Auf seiner Spitze steht die Karte bei 7 %
+  // Deckkraft und das „Entwickeln" bei `brightness(1.45)` — das Foto war dort
+  // schon ein heller Schleier, der Blitz legte eine zweite weiße Schicht auf
+  // eine, die längst da war. Die Begründung in voller Länge steht bei `KARTE`
+  // (einblendung.ts); den Halt markiert seither der Schleier allein.
 
   if (phasen.sicht <= 0.004) return { masse: null, bereit: true }
 
@@ -1023,7 +1110,7 @@ export function maleKarte(
   }
 
   // Flug und Abgang: um die Kartenmitte, damit die Drehung nicht am Eck hängt.
-  const hubFlug = mische(KARTE_BUEHNE.flugHubPx.player * g.mass, 0, phasen.flug)
+  const hubFlug = mische(kartenSatz(buehne).flugHubPx * g.mass, 0, phasen.flug)
   const skalaFlug = mische(KARTE.flugSkala, 1, phasen.flug)
   const drehFlug = mische(KARTE.flugDrehungGrad, KARTE.ruheDrehungGrad, phasen.flug)
   // `rotateX` unter `perspective` hat auf einer Leinwand kein Gegenstück; die
@@ -1120,7 +1207,7 @@ export function maleKarte(
     hoehe: g.text.weiter.hoehe,
   }
   const tonRoh: Rechteck | null =
-    stand.medium.art === 'video'
+    stand.medium.art === 'video' && g.satz.tonSeite > 0
       ? {
           x: g.bild.x + g.bild.breite - (g.satz.tonSeite + g.satz.tonRand) * g.mass,
           y: g.bild.y + g.satz.tonRand * g.mass,
@@ -1208,8 +1295,15 @@ function malFoto(
   return true
 }
 
-/** Breite des „Weiter"-Knopfes — die DOM-Fläche folgt ihr. */
+/**
+ * Breite des „Weiter"-Knopfes — die DOM-Fläche folgt ihr.
+ *
+ * Ohne Schriftgrad im Satz gibt es den Knopf auf dieser Bühne nicht (Editor):
+ * Dann darf die Beschriftung auch keinen Platz für ihn freihalten, sonst klaffte
+ * rechts eine Lücke um einen Knopf, den niemand sieht.
+ */
 function weiterBreite(ctx: CanvasRenderingContext2D, g: KartenGeometrie): number {
+  if (g.satz.weiter <= 0) return 0
   ctx.save()
   ctx.font = schrift(g.text.weiter.schrift, 600)
   const b = ctx.measureText(WEITER_TEXT).width

@@ -221,11 +221,15 @@ export class UI {
     this._kartenText = { titel: '', unter: '', kmText: '', zaehlerText: '' }
     // Die Leinwand hängt am body wie Wetter und Atmosphäre; ihren Platz in der
     // Schichtung bestimmt das CSS (`.karten-leinwand`, z-index 12).
-    this.karten = createKartenSchicht(
-      document.body,
-      { karte: this.els.card, bild: this.els.bild, weiter: this.els.weiter },
-      document.body.classList.contains('export'),
-    )
+    this.karten = createKartenSchicht({
+      container: document.body,
+      bedienung: { karte: this.els.card, bild: this.els.bild, weiter: this.els.weiter },
+      // Der Schleier liegt unter der Leinwand und bekommt seine Deckkraft aus
+      // der Filmzeit — er ist das, was den Halt seit dem Rückbau des
+      // Kamerablitzes markiert.
+      schleier: document.getElementById('photo-backdrop'),
+      imExport: document.body.classList.contains('export'),
+    })
     this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.ts
     this._standbildTimer = 0
     this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel

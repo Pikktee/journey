@@ -10,7 +10,7 @@ Was gebaut wurde und wo es steht:
 denen die Umsetzung dieses Papier schärft (Schalter statt Sperre bei unbestätigter
 Adresse, Label statt Wortlaut in der Historie, Aufräum-Lauf für die drei Jahre).
 **Betrifft:** Registrierung ([studio.html](../../studio.html)), Kontoeinstellungen
-([docs/mockups/studio-konto.html](../mockups/studio-konto.html)), Mail-Schicht
+([docs/mockups/studio-konto.html](../archive/mockups/studio-konto.html)), Mail-Schicht
 ([server/src/mail.ts](../../server/src/mail.ts), `mailvorlagen.ts`), Verwaltung
 ([src/admin/](../../src/admin/)).
 

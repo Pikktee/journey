@@ -5,7 +5,7 @@ status: Etappen 1–7 umgesetzt (Umsetzungsprotokoll, keine offene Roadmap)
 
 # Umsetzung: Profil & Kontoeinstellungen
 
-**Mockup:** [docs/mockups/studio-konto.html](../mockups/studio-konto.html)
+**Mockup:** [docs/mockups/studio-konto.html](../archive/mockups/studio-konto.html)
 (Mockup-Leiste oben schaltet zwischen den Ansichten und Zuständen.)
 **Newsletter:** Einwilligung hier (Etappe 4); Versand noch offen in
 [konzept_newsletter.md](../concepts/konzept_newsletter.md).

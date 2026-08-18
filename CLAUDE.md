@@ -567,7 +567,8 @@ Ken-Burns-Stand und dem Video-Frame genau dieser Filmsekunde. Technisch **malt s
 2026-08-17 ein Maler auf eine LEINWAND** (s. den nächsten Abschnitt); bis dahin standen die
 Animationen dauerhaft auf `animation-play-state: paused` und ihr Fortschritt kam aus einem
 NEGATIVEN Delay (`--karte-zeit`) — die Technik, mit der man ein Standbild aus einer Animation
-zieht. Im Editor steht sie unverändert so (`--fe-zeit`). Vier Dinge fallen damit zusammen:
+zieht. **Der Editor malt seit demselben Tag ebenfalls** (s. übernächster Abschnitt); die
+`--fe-*`-Choreografie ist weg. Vier Dinge fallen damit zusammen:
 Die Karte erscheint auch rückwärts und animiert rückwärts; **Ken Burns ist pausierbar** (als
 `transition` lief er unter dem „Angehalten"-Abzeichen weiter, gemessen: Bildskala hält jetzt
 über 2,2 s Wanduhr exakt); Scrubben durch einen Halt zeigt endlich etwas (`beginScrub` räumte
@@ -625,11 +626,83 @@ Sieben Dinge, die man dabei kippt:
   Bildunterschrift weiter für Screenreader — ohne sie wäre der Umbau eine
   Zugänglichkeits-Regression, die niemandem auffällt, weil das Bild gleich aussieht.
 
-Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts)),
-bewacht gegen `studio.html`; die Geometrie der Player-Bühne (`KARTEN_MASSE`) ist ausdrücklich
-NICHT geteilt — der Editor hat eine kleine Karte auf einem Leuchttisch. Gemessen wurde mit
+Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts));
+die GEOMETRIE ist ausdrücklich nicht geteilt und steht als benannter Bühnen-Satz im Maler:
+`KARTEN_MASSE` für den Player (drei Lagen, abgeleitet), `EDITOR_MASSE` für den Editor.
+Gemessen wurde mit
 [scripts/messungen/kartenleinwand.mjs](scripts/messungen/kartenleinwand.mjs): Bühne gegen Film
 bei gleichem Format max 0 von 255, Frame-Zeit im Halt unverändert (14,4 → 14,0 ms).
+
+**Und seit dem 2026-08-17 malt derselbe Maler auch im STUDIO** — die dritte Bühne, „Eine
+Bühne, ein Maler" Etappe 1 ([docs/archive/eine-buehne-ein-maler.md](docs/archive/eine-buehne-ein-maler.md)).
+Der Editor rief `createKartenSchicht` mit dem Satz `editor` und verlor dabei 150 Zeilen CSS:
+fünf Keyframes, die `--fe-*`-Choreografie, einen eigenen Reduce-Block. Was ihn leicht macht,
+ist, dass seine Karte **keine Knöpfe** hat — der aufwendigste Teil der Player-Migration, die
+mitgeführten Klickflächen, entfällt dort ganz. Vier Dinge, die man dabei kippt:
+
+- **Die Lage wird GESETZT, nicht abgeleitet.** `kartenLage` fragt Breite und Höhe, und für ein
+  Vollbild ist das richtig; eine Editor-Fläche von 700 × 500 fiele damit in `quer` und bekäme
+  das Layout „Bild links, Text rechts" eines liegenden Telefons. Sie gehört zum Bühnen-Satz.
+- **`chrome: 306` ist ein ANTEIL, keine Reserve in Pixeln.** Die Bildhöhe ist
+  `hoehe − chrome × mass`, und weil `mass` ungeklemmt `hoehe / 900` IST, ergibt 306 genau die
+  `66cqh` der abgelösten CSS-Fassung — bei jeder Bühnenhöhe. Deshalb reicht der Maßstab dort
+  auch tiefer (0,55 statt 0,7): Sonst wäre auf einer 480-px-Bühne immer geklemmt.
+- **Eine Leinwand zeichnet sich nicht von selbst neu — und im Editor STEHT der Kopf.** Das ist
+  der Fall, den die Falle des Player-Umbaus nicht nennt: Ein `img` in der DOM-Karte erschien
+  von selbst, sobald es geladen war. Hier sah man beim Scrubben die Karte fliegen und liegen
+  bleiben, mit LEEREM Bildfeld. `zeigeFoto` hängt deshalb an `load` (Bild) und
+  `loadeddata`/`seeked` (Video) einen Rückruf auf `synchronisiereFoto`.
+- **Der Schleier bleibt DOM** (`.karten-buehne::after`) und ist damit der eine Teil der Karte,
+  der weiterhin zweimal als CSS dasteht und Text gegen Text bewacht wird.
+
+**Der Kamerablitz ist zurückgebaut** (Etappe 2, am selben Tag). Nicht wegen der Kosten, obwohl
+er die teuerste einzelne Operation eines Kartenbildes war (2,0 gegen 1,1 ms im Median), sondern
+wegen einer Beobachtung am Bild: Auf seiner Spitze steht die Karte bei 7 % Deckkraft und das
+„Entwickeln" beginnt bei `brightness(1.45)` — das Foto IST dort schon ein heller Schleier, der
+Blitz legte eine zweite weiße Schicht auf eine, die längst da war. Drei Gründe daneben: Die
+METAPHER ist verkehrt (ein Blitz sagt „hier wird gerade fotografiert", diese Fotos sind längst
+aufgenommen und werden gezeigt), er STROBTE (er hing am Klip und nicht am Halt, feuerte also
+bei jedem Bildwechsel innerhalb eines Halts neu), und der Auftritt war ohnehin voll.
+
+**Und die Letterbox-Balken sind am selben Tag gefallen** (`.cine`, je 9vh oben und unten — auf
+1080p zusammen 194 px). Sie stammen aus der Zeit, als der Halt fast nichts hatte, was ihn
+ankündigte; teuer waren sie genau dort, wo etwas liegt: unten die Steuerleiste, oben der Weg
+hinaus. `body.cinema` bleibt und schaltet nur noch den `backdrop-filter` des Schleiers.
+
+**An seine Stelle tritt der SCHLEIER — und der hängt seither an der FILMZEIT.** Der Halt wird
+dadurch markiert, dass die Umgebung zurücktritt. `kartenschicht.ts` schreibt pro Frame
+`--schleier-sicht`, die Deckkraft der Karte; damit kommt er über den Flug hoch und geht mit dem
+Abgang wieder weg, rückwärts wie vorwärts und beim Scrubben. Als 0,8-s-Transition an einer
+Klasse blieb er beim Scrubben hinter der Karte zurück und kam rückwärts gar nicht mit — die
+letzte Stelle der Karte, an der noch eine Wanduhr lief. Drei Dinge, die man dabei kippt: Es ist
+eine **Custom Property und kein `style.opacity`** (im Editor ist der Schleier ein `::after`,
+und ein Pseudo-Element nimmt keine Inline-Stile — seinen Host kann man beschriften); die
+**Klasse bleibt und schaltet nur noch den FILTER** (ein bildschirmfüllender `backdrop-filter`,
+der dauernd stünde, wäre auf einem schwachen Gerät der teuerste Posten der Seite); und die
+**Transition muss WEG, nicht kürzer werden** — sie liefe sonst über die Werte, die die Filmzeit
+setzt.
+
+**Die Karte FÄHRT mit der Steuerleiste, sie springt nicht.** `KartenBuehne.bedienung` ist ein
+Anteil 0..1 und kein Schalter; die Schicht führt ihn über 0,5 s mit `ease` — **Dauer und Kurve
+der Leiste selbst** (`.dock`, `.zurueck`, `.next-stop` in style.css). Damit ist es eine Geste:
+Die Leiste kommt, die Karte macht ihr Platz. Drei Dinge, die man dabei kippt: Die Geometrie muss
+über dem Anteil **monoton** sein (der Maler mischt linear zwischen `chrome` und
+`chromeBedienung`, die Kurve gehört der Schicht — eine Kante darin wäre ein Ruckeln); die
+Schleife zeichnet **nur, wenn es im laufenden Bild noch niemand getan hat** (läuft der Film,
+ruft er ohnehin jeden Frame `male()`, steht er, ist sie die einzige, die zeichnet — Falle 2 zum
+dritten Mal); und **eine neu erscheinende Karte fährt nicht mit**, sie beginnt bei dem Anteil,
+der gilt. Bei stehender Leiste ist die Karte außerdem kleiner geworden und sitzt höher
+(`chromeBedienung` 335 → 380, `hubBedienung` 48 → 64): Auf 1080p blieben vorher 31 px zwischen
+Kartenkante und Leiste bei 94 px oben, jetzt sind es 76 unten und 75 oben.
+
+**Und die Karte hängt am HALT, nicht an einer Phasen-Flanke.** `update` räumte sie nur, wenn
+die vorige Phase `photo` oder `moment` war — `beginScrub` schreibt aber `phase = 'ride'`, bevor
+der erste Kopfschritt sie lesen kann. Wer bei einem Foto anhielt und dann scrubbte, behielt
+deshalb die Karte, egal wohin er zog (gemessen: `filmS` 88 → 232, `s` 8974 → 26576, dieselbe
+Aufnahme); geheilt hat es sich nur, wenn man zufällig durch einen ZWEITEN Halt zog. `raeumeKarte()`
+steht jetzt unbedingt da, wo kein Halt ist; die Flanke trägt nur noch, was wirklich eine ist —
+das weiche Anziehen der Kamera. Dieselbe Lehre wie E13, an einer Stelle, die davon nichts
+mitbekommen hatte: *Ein Halt ist ein Zustand der Kurve, kein getriggerter Wechsel.*
 **Und die Leiste ist die ZEITACHSE des Films** (Etappe 5), nicht mehr die Strecke. Damit hat
 jeder Halt die Breite, die er im Film einnimmt — und weil sich eine Breite anfahren lässt,
 kann man mitten in einen Halt scrubben und sieht dort den Stand dieser Filmsekunde. Vorher
@@ -702,11 +775,19 @@ Partikel-Overlay) liegen über der Karte. Das Wetter kommt entweder aus der kura
 [src/autoweather.ts](src/autoweather.ts) (Open-Meteo an den Foto-Ankern).
 [src/audiotracks.ts](src/audiotracks.ts) spielt die im Studio gesetzten Musik-/SFX-Spuren.
 
-**Die Tour-Musik hängt am Zustand `playing`, nicht an der Phase.** Ihr Gate stand einmal auf
-`playing || scrubbing || phase === 'photo'` — und genau die letzte Klausel hob die Pause dort
-auf, wo man sie am ehesten drückt: Im Foto-/Video-Halt ist `playing` die einzige Auskunft
-darüber, ob der Film läuft, also spielte die Musik unter der angehaltenen Einblendung weiter und
-stand danach woanders als der Schnitt im Studio. Aus demselben Grund läuft `holdT` in
+**Die Tour-Musik hängt am Zustand `playing` — an nichts sonst.** Ihr Gate stand einmal auf
+`playing || scrubbing || phase === 'photo'`, und BEIDE Oder-Klauseln waren dieselbe Sorte
+Ausnahme: eine Stelle, an der die Pause nicht griff. Die letzte hob sie dort auf, wo man sie am
+ehesten drückt — im Foto-/Video-Halt ist `playing` die einzige Auskunft darüber, ob der Film
+läuft, also spielte die Musik unter der angehaltenen Einblendung weiter und stand danach
+woanders als der Schnitt im Studio. Die mittlere ließ sie beim Scrubben wieder anlaufen: Wer
+angehalten hatte und dann über die Leiste zog, hörte Musik und Regen zurückkommen und beim
+Loslassen verstummen (gemessen an `mus-nachtfahrt.mp3` und `rain.mp3`). **Scrubben ist Blättern,
+keine Wiedergabe** — und beim Ziehen WÄHREND der Wiedergabe ändert sich nichts, dort trägt
+`playing`. Dieselbe Klausel steckte im `sceneAnimating` von Wetter und Atmosphäre und ist auch
+dort weg. Die EINE Ausnahme, die bleibt, ist der kuratierte Ambient-Loop
+([music.ts](src/music.ts)): Er hat `playing` bewusst nicht im Gate — er ist ein Bett der App,
+nicht Teil der Szene, und läuft deshalb durch eine Pause hindurch. Aus demselben Grund läuft `holdT` in
 [src/tour.ts](src/tour.ts) nur bei `playing` weiter — sonst blendete das Foto unter dem
 „Angehalten"-Abzeichen von selbst weiter. Der PEGEL steht absolut (Studio-Regler, Vorgabe 0.8);
 der Master 0.22 gilt nur den kuratierten Touren, deren `gain` gegen ihn ausgemessen ist
@@ -859,7 +940,16 @@ automatisch, sobald unter `android/` gearbeitet wird.
   Viewer: `npm run docs`, dann <http://maptale.localhost:5123/doku/> (Übersicht mit
   Roadmap, Bereiche, Volltextsuche, Mockup-Vorschauen, Verweis-Graph). Er leitet
   Bereiche, Systemteile und Archiv-Herkunft aus den Dateien ab und schreibt im
-  Dev-Server auch zurück (bearbeiten, archivieren, einplanen, umbenennen). Wer ein
+  Dev-Server auch zurück (bearbeiten, archivieren, einplanen, umbenennen).
+  **Jedes Dokument trägt seinen VERLAUF** (Klappe unter dem Text, Weg dorthin in
+  der Kopftafel): die Commits dieser Datei, und je Commit, was sich dabei an
+  ihrem Kopf geändert hat („Status: Entwurf → Etappe 1 gebaut"). Damit steht die
+  Gegenprobe zum handgepflegten `status` in derselben Ansicht wie die
+  Behauptung. Gelesen wird EIN `git log -M -U0 -p` über `docs/` — `--follow`
+  scheidet aus (es nimmt nur einen Pfad), Umbenennungen kommen aus den
+  `rename from`-Zeilen, und der Kopfbereich wird über die Hunk-Zeilennummern
+  abgegrenzt, sonst wäre jedes `status:` in einem Codeblock ein Statussprung.
+  Wer ein
   Dokument, Konzept oder Mockup ANLEGT, folgt dem Skill
   [`doku-anlegen`](.claude/skills/doku-anlegen/SKILL.md) — er lädt automatisch.
   **Der Kopf eines Dokuments ist Front Matter** (`stand`, `status`, `betrifft`,

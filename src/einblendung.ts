@@ -193,7 +193,7 @@ export function ausschnittDauerS(dateiDauerS: number, vonS = 0, endeS?: number):
  * (`studio.html`) und im Video-Export (`src/exportfilm.ts`, Canvas). Die Zeiten
  * waren geteilt und blieben deckungsgleich; die WERTE waren es nicht und liefen
  * an acht Stellen auseinander — Ken-Burns-Ende, Entwickeln-Ende, Ruhewinkel,
- * Blitz, Schleier und zwei Rückfalldauern. Keine dieser Abweichungen war eine
+ * Kamerablitz, Schleier und zwei Rückfalldauern. Keine dieser Abweichungen war eine
  * Entscheidung, aber jede sah nach einer aus. Genau das ist der Grund für diese
  * Tabelle: Sie macht Absicht von Versehen unterscheidbar
  * (docs/concepts/konzept_kartenleinwand.md §3.7).
@@ -235,13 +235,18 @@ export const KARTE = {
   ruheSkala: 1.02,
 
   /**
-   * Rückfalldauer des Ken-Burns-Zugs, falls `--kb-dauer`/`--fe-kb-dauer` fehlt.
+   * Rückfalldauer des Ken-Burns-Zugs, falls niemand eine Klip-Länge nennt.
    *
    * Abgeleitet, nicht gewählt: `klipDauerS(HOLD_HIDE)` = 5,2 + 0,8. Der Player
    * stand auf 7 s, der Editor auf 6 s — und weil ein Rückfallwert nur greift,
-   * wenn die Custom Property fehlt, sieht man den Unterschied dort nie als
-   * Bruch, sondern als leicht anderen Film. Das ist die heimtückischste Sorte
+   * wenn die Angabe fehlt, sieht man den Unterschied dort nie als Bruch,
+   * sondern als leicht anderen Film. Das ist die heimtückischste Sorte
    * Abweichung, die dieses Konzept kennt.
+   *
+   * Getragen wurde er einmal von den Custom Properties `--kb-dauer` (Player) und
+   * `--fe-kb-dauer` (Editor); beide gibt es nicht mehr, seit die Karte auf einer
+   * Leinwand liegt. Der Wert bleibt: Er ist die Klip-Länge, und die prüft der
+   * Wächter gegen `klipDauerS(HOLD_HIDE)`.
    */
   kbDauerRueckfallS: HOLD_HIDE + HOLD_AUSBLEND,
 
@@ -285,38 +290,28 @@ export const KARTE = {
   abgangDrehungGrad: -1.4,
 
   /**
-   * Kamerablitz beim Erreichen des Halts.
+   * Der Kamerablitz ist ZURÜCKGEBAUT (2026-08-17, „Eine Bühne, ein Maler"
+   * Etappe 2) — hier standen acht Zeilen für Dauer, Spitze, Mitte und die zwei
+   * Halte seines Radialverlaufs.
    *
-   * Er hängt am Kopf und nicht an einem Timer — sonst feuerte er bei jedem
-   * Überfahren neu. Player und Editor blitzten 750 gegen 700 ms, mit Spitze bei
-   * 10 % gegen 12 % und um 0,05 verschiedenen Deckkräften im Verlauf.
-   */
-  blitzDauerS: 0.75,
-  /** Anteil der Dauer, an dem die Spitze liegt. */
-  blitzSpitzeBei: 0.1,
-  blitzSpitze: 0.95,
-  /** Mitte des Radialverlaufs in Anteilen der Fläche. */
-  blitzMitteX: 0.5,
-  blitzMitteY: 0.45,
-  /** Deckkraft des Verlaufs innen und am mittleren Halt. */
-  blitzInnen: 0.95,
-  blitzAussen: 0.55,
-  /**
-   * Die beiden Halte des Verlaufs, als Anteil seines RADIUS.
+   * Der Grund war nicht die Leistung, obwohl er die teuerste Operation eines
+   * Kartenbildes war (2,0 statt 1,1 ms im Median). Der Grund ist eine
+   * Beobachtung am Bild: Auf seiner Spitze steht die Karte bei 7 % Deckkraft und
+   * das „Entwickeln" beginnt bei `brightness(1.45)` — das Foto IST dort schon
+   * ein heller Schleier. Der Blitz legte eine zweite weiße Schicht auf eine, die
+   * längst da war: zwei Gesten für dieselbe Sache im selben Moment.
    *
-   * Und der Radius ist der eines CSS-`radial-gradient(circle at …)` ohne
-   * Größenangabe, also `farthest-corner`: der Abstand zur weitesten Ecke,
-   * `hypot(0.5 · Breite, 0.55 · Höhe)`. Diese zwei Zahlen standen bis zum
-   * 2026-08-17 nur im CSS beider Bühnen und im Wächter als nackte `42%`; der
-   * Maler rechnete seinen Radius stattdessen aus `max(Breite, Höhe) × 0.78` und
-   * legte die Halte auf denselben Anteil. Bei 1920 × 1080 ergab das einen Radius
-   * von 1498 statt 1129 Pixeln, den halben Halt bei 806 statt 474 und
-   * Durchsichtigkeit erst bei 1498 statt 881: aus einem Blitz in der Bildmitte
-   * wurde eine fast bildschirmfüllende weiße Wäsche. Deshalb stehen sie jetzt
-   * hier und werden gegen beide Bühnen bewacht.
+   * Drei Gründe daneben, unabhängig davon: Die METAPHER ist verkehrt (ein Blitz
+   * sagt „hier wird gerade fotografiert", diese Fotos sind längst aufgenommen
+   * und werden gezeigt — „Entwickeln" ist das richtige Bild, und es sitzt auf
+   * dem Foto statt über der Szene); er STROBTE (er hing am Klip, nicht am Halt,
+   * feuerte also bei jedem Bildwechsel innerhalb eines Halts neu); und der
+   * Auftritt ist ohnehin voll — Blende, Flug mit Überschwingen, Entwickeln,
+   * gestaffelte Beschriftung, er war der vierte gleichzeitige Effekt.
+   *
+   * Was an seine Stelle tritt, steht schon da: der SCHLEIER. Der Halt wird
+   * dadurch markiert, dass die Umgebung zurücktritt, nicht dass etwas aufblitzt.
    */
-  blitzHaltAussen: 0.42,
-  blitzHaltEnde: 0.78,
 
   /**
    * Schleier hinter der Karte.
@@ -328,6 +323,15 @@ export const KARTE = {
    * Szenen mit Vignette und Cine-Balken auf einen schwarzen Bildrand hinaus;
    * die Trennung übernimmt der Blur. Der Editor stand auf 0.34 mit blur(10px)
    * und ohne Entsättigung, also genau in die zurückgenommene Richtung.
+   *
+   * Seine DECKKRAFT hängt seit dem Rückbau des Blitzes an der FILMZEIT und nicht
+   * mehr an einer Wanduhr-Transition: Sie ist die der Karte (`phasen.sicht`),
+   * geschrieben pro Frame als `--schleier-sicht`. Damit kommt er über den Flug
+   * hoch und geht mit dem Abgang wieder weg — rückwärts wie vorwärts und beim
+   * Scrubben. Das ist dieselbe Regel wie überall sonst im Film; sie fehlte hier
+   * als letzte. Die Klasse (`body.cinema` / `.foto-an`) schaltet nur noch den
+   * FILTER: Ein bildschirmfüllender `backdrop-filter`, der dauernd stünde, wäre
+   * auf schwachen Geräten der teuerste Posten der Seite.
    */
   schleierFarbe: 'rgba(6, 10, 16, 0.3)',
   schleierBlurPx: 14,

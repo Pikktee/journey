@@ -1401,11 +1401,12 @@
     }
     .insp-griff:hover::before, .insp-griff.zieht::before { background: var(--akzent); }
     .editor-rumpf.zieht-breite { user-select: none; }
-    /* `perspective` lässt die Foto-Karte beim Erscheinen echt kippen, die
-       Größen-Container-Query bemisst sie an der Kartenfläche (s. .fe-frame). */
+    /* Weder `perspective` noch `container-type` mehr: Beide trugen die
+       DOM-Foto-Karte — das Kippen des Auftritts und die Größen-Container-Query
+       des Bildrahmens. Die Karte liegt seit „Eine Bühne, ein Maler" auf einer
+       Leinwand, und der Maler rechnet seine Geometrie selbst. */
     .karten-buehne {
       position: relative; flex: 1; min-height: 0; min-width: 0; background: var(--bg-tief);
-      perspective: 1300px; container-type: size;
     }
     #editor-map { position: absolute; inset: 0; }
     /* Das Wetter-Overlay (src/weather.ts) hängt seinen Canvas als #weather in
@@ -1474,122 +1475,34 @@
     #editor-medien-hinweis:empty { display: none; }
 
     /* — Foto-Einblendung beim Abspielen —
-         Dieselbe Foto-PRINT-Karte wie im Player: Bild auf Papier, Titel in
-         Kursiv darunter, FOTO/VIDEO-Chip. Sie fliegt gedreht und gekippt herein
-         und „entwickelt" sich wie ein Sofortbild — man soll den Halt nicht nur
-         registrieren, sondern ihn sehen wie später im Film. */
-    .foto-einblendung {
-      position: absolute; left: 50%; top: 50%; z-index: 5;
-      margin: 0; padding: 13px 13px 0; border-radius: var(--radius-lg);
-      background: var(--papier); box-shadow: 0 46px 120px rgba(0, 0, 0, 0.72), 0 14px 40px rgba(0, 0, 0, 0.5);
-      opacity: 0; transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.4deg) rotateX(10deg);
-      pointer-events: none;
-    }
-    .foto-einblendung:empty { display: none; }
-    /* Auftritt und Abgang hängen am ABSPIELKOPF, nicht an einer Uhr — dieselbe
-       Technik wie beim Entwickeln/Ken-Burns unten: pausierte Animationen, deren
-       Fortschritt aus einem negativen Delay kommt. Als `transition` (so war es)
-       ließ sich das gar nicht ansteuern: Eine Transition startet beim
-       Klassenwechsel und läuft nach Wanduhr — beim Scrubben sprang die Karte
-       deshalb sofort auf ihren Zielzustand.
-       Drei Animationen, weil Blende und Flug verschiedene Kurven haben:
-       `feEinBlende` (opacity, 40 ms später als der Flug), `feEinFlug`
-       (transform) und `feAbgang`, der beide in den letzten `--fe-aus-dauer`
-       des Klips wieder zurücknimmt. Der Abgang steht ZULETZT und gewinnt
-       dadurch, solange er läuft; sein `forwards` (statt `both`) hält ihn
-       davor still — mit `both` läge sein Anfangsbild über dem Auftritt. */
-    .foto-einblendung.an {
-      animation:
-        feEinBlende 500ms ease both,
-        feEinFlug 950ms cubic-bezier(0.19, 1.16, 0.32, 1) both,
-        feAbgang var(--fe-aus-dauer, 800ms) ease-in forwards;
-      animation-delay: calc(var(--fe-zeit, 0s) + 40ms), var(--fe-zeit, 0s), var(--fe-aus-zeit, 0s);
-      animation-play-state: paused;
-    }
-    @keyframes feEinBlende { from { opacity: 0; } to { opacity: 1; } }
-    /* Die WINKEL sind geteilt (KARTE in src/einblendung.ts), die Flugweite
-       nicht: 48 px statt der 70 des Players, weil diese Karte klein auf der
-       Karten-Bühne liegt und nicht bildschirmfüllend — dieselben 70 px wären
-       hier mehr als eine halbe Kartenhöhe (KARTE_BUEHNE.flugHubPx). */
-    @keyframes feEinFlug {
-      from { transform: translate(-50%, -50%) translateY(48px) scale(0.9) rotate(1.4deg) rotateX(10deg); }
-      to { transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg); }
-    }
-    @keyframes feAbgang {
-      from { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1) rotate(-0.4deg) rotateX(0deg); }
-      to { opacity: 0; transform: translate(-50%, -50%) translateY(-22px) scale(0.96) rotate(-1.4deg); }
-    }
-    /* Das Seitenverhältnis ist GEMESSEN, nicht gesetzt (`--fe-ar`, aus
-       klemmeSeitenverhaeltnis in src/einblendung.ts — dieselbe Klemme wie im
-       Player). Feste 3/2 mit `object-fit: cover` schnitten ein Hochformat auf
-       den Mittelstreifen, und genau den will die Karte zeigen. Die 3/2 bleiben
-       der Wert, bis das erste Medium vermessen ist (1.5 = 3/2).
+         Dieselbe Foto-PRINT-Karte wie im Player, und zwar buchstäblich: Sie
+         kommt aus demselben Maler (src/kartenmaler.ts) und liegt auf einer
+         LEINWAND. Die 150 Zeilen CSS, die sie hier ein zweites Mal beschrieben —
+         fünf Keyframes, die `--fe-*`-Choreografie, ein eigener Reduce-Block —
+         sind ersatzlos weg; was von ihnen geteilt war, steht in `KARTE`
+         (src/einblendung.ts), was verschieden sein darf, im Bühnen-Satz
+         `EDITOR_MASSE` des Malers.
 
-       Der dritte Term der `min()` deckelt die BREITE — über die Höhe, nicht per
-       `max-width`: Ein `max-width` neben gesetzter Höhe kappt die Box, ohne die
-       Höhe mitzunehmen, das Verhältnis wäre wieder ein anderes als das des
-       Bildes und `cover` schnitte an. Bei AR 1,85 wäre die Karte sonst breiter
-       als die Kartenfläche, an der sie hängt. */
-    .fe-frame {
-      position: relative; overflow: hidden; border-radius: 5px; background: #d8d2c4;
-      aspect-ratio: var(--fe-ar, 1.5);
-      height: min(66cqh, 58cqw, calc(82cqw / var(--fe-ar, 1.5)));
+         Der Schleier bleibt DOM (`.karten-buehne::after`, s. u.): Auf einer
+         Leinwand hat `backdrop-filter` kein Gegenstück. */
+    .karten-leinwand {
+      position: absolute; inset: 0;
+      /* `inset: 0` allein spannt eine Leinwand NICHT auf — ein `canvas` ist ein
+         ersetztes Element und löst `width: auto` auf seine PIXELgröße auf. Bei
+         `devicePixelRatio` 2 läge die Karte dadurch halb außerhalb der Bühne,
+         bei Ratio 1 fiele es nicht auf. Dieselben zwei Zeilen wie bei #weather. */
+      width: 100%; height: 100%;
+      z-index: 5; pointer-events: none;
     }
-    .fe-frame img, .fe-frame video { width: 100%; height: 100%; display: block; }
-    .fe-frame img { object-fit: cover; transform: scale(1.12); }
-    /* Video läuft UNGESCHNITTEN (contain) auf Schwarz — kein Anschnitt. */
-    .fe-frame video { object-fit: contain; background: #000; }
-    /* Anzeige-Fortschritt am unteren Bildrand — wie `.photo-hold` im Player. */
-    .fe-hold {
-      position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
-      background: rgba(10, 8, 5, 0.3);
+    /* Die Zeichenquellen. Sie müssen im Dokument stehen (der Browser dekodiert
+       und spielt nur, was er lädt), sichtbar sein müssen sie nicht: Gezeichnet
+       werden sie auf die Leinwand. `opacity: 0` und nicht `display: none` — ein
+       `display: none` Video liefert in manchen Browsern keine Frames. */
+    .foto-quellen {
+      position: absolute; top: 0; left: 0; width: 1px; height: 1px;
+      overflow: hidden; opacity: 0; pointer-events: none;
     }
-    /* Der Balken wird bei JEDEM Kopfschritt gesetzt (synchronisiereFoto), nicht
-       über eine Dauer animiert: eine Animation kennt nur „seit dem Start" und
-       stünde beim Scrubben und nach jeder Pause neben der Wahrheit. */
-    .fe-hold-fill {
-      height: 100%; transform: scaleX(0); transform-origin: left;
-      background: linear-gradient(90deg, #f5a524, var(--akzent-2));
-    }
-    /* „Entwickeln" + Ken-Burns-Drift wie im Player — beide hängen am ABSPIELKOPF,
-       nicht an einer eigenen Uhr: Die Animationen stehen dauerhaft auf `paused`,
-       ihr Fortschritt kommt aus dem negativen Delay `--fe-zeit`, das
-       synchronisiereBild() bei jedem Kopfschritt setzt. Ohne das lief der Zoom
-       beim Scrubben ab 0 los und beim Stillstand weiter. Die Drift-Dauer ist die
-       Standzeit des Klips (`--fe-kb-dauer`), wie `--kb-dauer` im Player. */
-    .foto-einblendung.an .fe-frame img {
-      animation: feEntwickeln 1.6s ease-out both, feKenburns var(--fe-kb-dauer, 6s) ease-out both; /* 6s = klipDauerS(HOLD_HIDE), s. KARTE.kbDauerRueckfallS */
-      animation-delay: var(--fe-zeit, 0s), var(--fe-zeit, 0s);
-      animation-play-state: paused;
-    }
-    /* Wer Ken Burns für dieses Foto abgeschaltet hat, sieht es hier auch ruhig. */
-    .foto-einblendung.an.ruhig .fe-frame img {
-      animation: feEntwickeln 1.6s ease-out both;
-      animation-delay: var(--fe-zeit, 0s);
-      animation-play-state: paused;
-      transform: scale(1.02);
-    }
-    /* Das Entwickeln endet nicht neutral, sondern auf einem minimalen
-       Druck-Look — im Player ist das zugleich der Grundzustand des Bildes.
-       Hier stand `filter: none`, dasselbe Foto war dadurch dauerhaft eine Spur
-       flacher als auf der Bühne (KARTE.entwickelnBis). */
-    @keyframes feEntwickeln { from { filter: brightness(1.45) contrast(0.82) saturate(0.55); } to { filter: brightness(1) contrast(1.02) saturate(1.05); } }
-    @keyframes feKenburns { from { transform: scale(1.12); } to { transform: scale(1.02); } }
-    /* 1.02 ist auch der Wert bei abgeschaltetem Ken Burns und bei
-       reduzierter Bewegung: die stehende Karte liegt auf dem ENDE des Zugs
-       (KARTE.ruheSkala). Hier stand 1.04, im Player `none` — drei Zahlen für
-       eine Ruhelage. */
-    .fe-cap { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 12px; padding: 11px 6px 13px; }
-    .fe-titel {
-      font-family: var(--font-display); font-weight: 600;
-      font-size: clamp(18px, 2.2vw, 28px); line-height: 1.1; letter-spacing: -0.02em; color: #1c1712;
-    }
-    .fe-chip {
-      justify-self: end; font-family: var(--font-ui); font-size: 11.5px; font-weight: 500;
-      color: #8a7a63; border: 1px solid rgba(28, 23, 18, 0.22);
-      border-radius: var(--radius-full); padding: 4px 10px;
-    }
-    .fe-sub { grid-column: 1 / -1; font-family: var(--font-ui); font-size: 12.5px; color: rgba(28, 23, 18, 0.6); }
+    .foto-quellen img, .foto-quellen video { width: 1px; height: 1px; }
     /* Karte unscharf + abgedunkelt, solange ein Foto zu sehen ist — derselbe
        Schleier wie im Player (KARTE.schleier*). Er stand hier auf 0.34 Schwarz
        mit blur(10px) und ohne Entsättigung, also dunkler und weniger unscharf:
@@ -1597,31 +1510,27 @@
        wurde, weil dunkle Szenen darunter zulaufen. */
     .karten-buehne::after {
       content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-      background: rgba(6, 10, 16, 0.3); opacity: 0;
-      transition: opacity 500ms ease, backdrop-filter 500ms ease, -webkit-backdrop-filter 500ms ease;
+      background: rgba(6, 10, 16, 0.3);
+      /* Die Deckkraft kommt aus der FILMZEIT: `kartenschicht.ts` schreibt
+         `--schleier-sicht` pro Frame auf die BÜHNE — ein Pseudo-Element nimmt
+         keine Inline-Stile, seinen Host kann man dagegen beschriften. Als
+         Transition an einer Klasse blieb der Schleier beim Scrubben hinter der
+         Karte zurück und kam rückwärts gar nicht mit. */
+      opacity: var(--schleier-sicht, 0);
     }
-    .karten-buehne.foto-an::after { opacity: 1; backdrop-filter: blur(14px) saturate(0.85) brightness(0.96); -webkit-backdrop-filter: blur(14px) saturate(0.85) brightness(0.96); }
-    /* Kamerablitz beim Erscheinen — Dauer, Spitze und Verlauf wie im Player
-       (KARTE.blitz*); hier waren es 700 ms mit Spitze bei 12 % und einem um
-       0,05 dunkleren Verlauf. */
-    .foto-flash {
-      position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0;
-      background: radial-gradient(circle at 50% 45%, rgba(255, 250, 240, 0.95) 0%, rgba(255, 250, 240, 0.55) 42%, transparent 78%);
-    }
-    /* Auch der Blitz gehört dem Kopf: als Timer-Klasse (`blinke`) feuerte er
-       bei jedem Überfahren neu und lief dann nach Wanduhr weiter. */
-    .foto-flash.blitz {
-      animation: fotoBlitz 750ms ease-out both;
-      animation-delay: var(--fe-zeit, 0s);
-      animation-play-state: paused;
-    }
-    @keyframes fotoBlitz { 0% { opacity: 0; } 10% { opacity: 0.95; } 100% { opacity: 0; } }
-    @media (prefers-reduced-motion: reduce) {
-      .foto-einblendung { transition: opacity 200ms ease; transform: translate(-50%, -50%); }
-      .foto-einblendung.an { animation: none; opacity: 1; transform: translate(-50%, -50%); }
-      .foto-einblendung.an .fe-frame img { animation: none; transform: scale(1.02); }
-      .foto-flash.blitz { animation: none; }
-    }
+    /* Die Klasse schaltet nur noch den FILTER (ohne Transition: beim Umschalten
+       steht die Karte bei Deckkraft 0, man sieht den Sprung nicht). Ein
+       bildschirmfüllender `backdrop-filter`, der dauernd stünde, wäre der
+       teuerste Posten der Bühne. */
+    .karten-buehne.foto-an::after { backdrop-filter: blur(14px) saturate(0.85) brightness(0.96); -webkit-backdrop-filter: blur(14px) saturate(0.85) brightness(0.96); }
+    /* Der Kamerablitz stand hier als eigenes `.foto-flash`-Geschwister mit
+       eigenen Keyframes. Er ist zurückgebaut (Begründung bei `KARTE` in
+       src/einblendung.ts): Auf seiner Spitze war das Foto durch das
+       „Entwickeln" ohnehin schon ein heller Schleier. Den Halt markiert jetzt,
+       dass die Umgebung zurücktritt — der Schleier oben, an der Filmzeit.
+       „Bewegung reduzieren" liest die Schicht einmal und gibt es dem Maler als
+       Schalter weiter (`buehne.ruhig`); ein Reduce-Block hier hätte darauf
+       keinen Zugriff mehr. */
 
     .editor-seite {
       border-left: 1px solid var(--rand);
@@ -3866,10 +3775,12 @@
         <div class="karten-buehne">
           <div id="editor-map"></div>
           <div id="editor-medien-hinweis"></div>
-          <!-- Beim Abspielen: Kamerablitz und die Foto-Karte, die der Player
-               später an genau diesem Halt zeigt. Inhalt baut editor.ts. -->
-          <div class="foto-flash" id="foto-flash" aria-hidden="true"></div>
-          <div class="foto-einblendung" id="foto-einblendung" aria-hidden="true"></div>
+          <!-- Beim Abspielen: die Foto-Karte, die der Player später an genau
+               diesem Halt zeigt — gemalt auf eine Leinwand, die editor.ts
+               einhängt (createKartenSchicht). Hier steht nur das Fach für die
+               ZEICHENQUELLEN: Bild und Video müssen im Dokument liegen, damit
+               der Browser sie dekodiert und spielt. -->
+          <div class="foto-quellen" id="foto-quellen" aria-hidden="true"></div>
           <!-- Rechte Werkzeugspalte: Darstellung, darunter der Zoom. Zwei
                Gruppen mit Abstand und nicht eine Leiste — „wie sieht die Karte
                aus" ist keine dritte Zoomstufe. -->

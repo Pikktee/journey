@@ -1101,9 +1101,25 @@ export class Tour {
       return
     }
 
+    // Kein Halt an dieser Filmsekunde, also keine Karte. Das hängt AUSDRÜCKLICH
+    // nicht an der Phasen-Flanke darunter, und das ist der Unterschied zwischen
+    // „Zustand der Kurve" und „getriggertem Wechsel" (E13).
+    //
+    // Es hing einmal daran, und dann brach es genau dort, wo jemand die Phase
+    // vorher setzt: `beginScrub` schreibt `phase = 'ride'`, bevor der erste
+    // Kopfschritt sie lesen kann. Wer bei einem Foto anhielt und dann scrubbte,
+    // sah `warPhase === 'ride'` — die Flanke war weg, die Karte blieb stehen,
+    // egal wohin man zog (gemessen: filmS 88 → 232, s 8974 → 26576, Titel
+    // unverändert). Geheilt hat es sich nur, wenn man zufällig durch einen
+    // ZWEITEN Halt zog, denn der setzte die Phase neu.
+    //
+    // `raeumeKarte` ist idempotent; außerhalb eines Halts kostet der Aufruf
+    // einen Boolean-Vergleich je Frame.
+    this.raeumeKarte()
     if (warPhase === 'photo' || warPhase === 'moment') {
       // Halt verlassen — in beide Richtungen derselbe Weg zurück in die Fahrt.
-      this.raeumeKarte()
+      // Die Flanke trägt nur noch, was WIRKLICH eine ist: das weiche Anziehen
+      // der Kamera.
       this.phase = 'ride'
       this.glide = 1.5
     } else if (this.phase !== 'finale') {

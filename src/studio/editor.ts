@@ -8,7 +8,9 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
-import { ausschnittDauerS, balkenAnteil, kartenZeiten, klemmeSeitenverhaeltnis } from '../einblendung.js'
+import { ausschnittDauerS, klemmeSeitenverhaeltnis } from '../einblendung.js'
+import type { KartenMedium, KartenQuelle, KartenText } from '../kartenmaler.js'
+import { createKartenSchicht, type KartenSchicht } from '../kartenschicht.js'
 import { pfad, tourPfad } from '../routen.js'
 import * as api from './api.js'
 import { oeffneExportBlatt, schliesseExportBlatt } from './exportblatt.js'
@@ -401,6 +403,7 @@ async function ladeDaten(tourId: string): Promise<void> {
     await new Promise<void>((erfuellt) => karte?.once('load', () => erfuellt()))
     baueTrackLayer(karte)
     baueStimmung(karte)
+    baueKartenSchicht()
   }
   passeAusschnittAn()
   // Abspielkopf auf den Anfang der Tour stellen — er ist ab jetzt immer
@@ -435,6 +438,11 @@ function schliesse(): void {
   // gelesen.
   stimmung?.zerstoere()
   stimmung = null
+  // Die Leinwand hängt an der Bühne und bringt zwei Beobachter (Resize) mit —
+  // ohne diesen Aufruf blieben sie auf einem Container liegen, den die nächste
+  // Tour neu bespielt.
+  kartenSchicht?.zerstoere()
+  kartenSchicht = null
   z = null
   letzterStand = null
   marker = new Map()
@@ -5162,6 +5170,27 @@ function baueStimmung(k: maplibregl.Map): void {
   zeigeStimmungWahl()
 }
 
+/**
+ * Die Leinwand der Foto-Karte über die Bühne legen.
+ *
+ * Sie liegt ÜBER dem Schleier (`.karten-buehne::after`, z-index 2) und unter dem
+ * Panel-Beiwerk — dieselbe Schichtung wie im Player, wo der Schleier auf 11 und
+ * die Leinwand auf 12 liegt. Er bleibt DOM, weil `backdrop-filter` auf einer
+ * Leinwand kein Gegenstück hat (Karten-Konzept §4).
+ */
+function baueKartenSchicht(): void {
+  const buehne = document.querySelector<HTMLElement>('.karten-buehne')
+  if (!buehne || kartenSchicht) return
+  // Der Schleier ist das `::after` DIESER Bühne — beschriftet wird deshalb sie
+  // selbst (`--schleier-sicht`), ein Pseudo-Element nimmt keine Inline-Stile.
+  kartenSchicht = createKartenSchicht({
+    container: buehne,
+    buehne: 'editor',
+    id: 'foto-karte',
+    schleier: buehne,
+  })
+}
+
 /** Schalterstellungen und den Knopf-Zustand an die Oberfläche schreiben. */
 function zeigeStimmungWahl(): void {
   const tag = document.getElementById('stimmung-tagnacht') as HTMLInputElement | null
@@ -6109,6 +6138,16 @@ let eingeblendet: string | null = null
  */
 const seitenverhaeltnisse = new Map<string, number>()
 
+/**
+ * Die Leinwand der Foto-Karte über der Editor-Bühne — derselbe Maler wie im
+ * Player, nur mit dem Bühnen-Satz `editor` und ohne Bedienung: Diese Karte hat
+ * keine Knöpfe, sie ist eine Vorschau.
+ */
+let kartenSchicht: KartenSchicht | null = null
+/** Was der Maler über die liegende Aufnahme wissen muss (`zeigeFoto` füllt beides). */
+let kartenMedium: KartenMedium = { art: 'foto', ar: null }
+let kartenText: KartenText = { titel: '', unter: '', kmText: '', zaehlerText: '' }
+
 /** Schnappschuss für eine Wiedergabe — bei jedem Start neu eingesammelt. */
 function holeSpielplan(): Spielplan | null {
   if (!z?.auswahl) return null
@@ -6401,6 +6440,12 @@ function blinke(el: Element | null, klasse: string, ms: number): void {
 /**
  * Die Aufnahme, die der Player an diesem Halt zeigt — als dieselbe Foto-Karte
  * auf Papier. Sie steht genau so lange, wie im Inspector als Standzeit gewählt.
+ *
+ * „Dieselbe" ist seit „Eine Bühne, ein Maler" wörtlich zu nehmen: Gemalt wird
+ * sie von `src/kartenmaler.ts`, demselben Zeichner, der die Karte des Players
+ * und die des Films macht. Hier entsteht nur noch, was der Maler nicht selbst
+ * beschaffen kann — die ZEICHENQUELLE (ein `img` oder `video` im Dokument,
+ * unsichtbar) und der TEXT.
  */
 function zeigeFoto(id: string): void {
   if (!z) return
@@ -6409,25 +6454,34 @@ function zeigeFoto(id: string): void {
   eingeblendet = id
   blinke(mitMedienId('.halt-klip', id), 'puls', 700)
   blinke(mitMedienId('.medien-punkt', id), 'puls', 1400)
-  // Der Blitz gehört zum Auftritt und damit dem Kopf: Die Klasse steht,
-  // solange die Karte liegt, der Fortschritt kommt aus `--fe-zeit`. Als
-  // Timer-Effekt (`blinke`) feuerte er bei jedem Überfahren neu.
-  document.getElementById('foto-flash')?.classList.add('blitz')
 
-  const karteEl = $('foto-einblendung')
-  const rahmen = document.createElement('div')
-  rahmen.className = 'fe-frame'
-  // Der Rahmen bekommt das GEMESSENE Seitenverhältnis, wie im Player
-  // (ui.ts, `--photo-ar`) und mit derselben Klemme. Gemerkt wird es je
-  // Medium, weil `zeigeFoto` beim Scrubben oft läuft und ein neu gebauter
-  // Rahmen sonst bei jedem Auftritt kurz auf 3:2 stünde.
-  const bekannt = seitenverhaeltnisse.get(m.id)
-  if (bekannt !== undefined) rahmen.style.setProperty('--fe-ar', bekannt.toFixed(4))
+  const quellen = $('foto-quellen')
+  // Das GEMESSENE Seitenverhältnis, mit derselben Klemme wie im Player. Gemerkt
+  // wird es je Medium, weil `zeigeFoto` beim Scrubben oft läuft und der Rahmen
+  // sonst bei jedem Auftritt kurz auf 3:2 stünde.
+  kartenMedium = {
+    art: m.type === 'video' ? 'video' : 'foto',
+    ar: seitenverhaeltnisse.get(m.id) ?? null,
+    ...(m.display?.kenBurns === false ? { keinKenBurns: true } : {}),
+  }
   const merkeSeitenverhaeltnis = (b: number, h: number): void => {
     const ar = klemmeSeitenverhaeltnis(b, h)
     if (ar === null) return
     seitenverhaeltnisse.set(m.id, ar)
-    rahmen.style.setProperty('--fe-ar', ar.toFixed(4))
+    if (eingeblendet === m.id) kartenMedium = { ...kartenMedium, ar }
+  }
+  /**
+   * Die Quelle ist da — noch einmal zeichnen.
+   *
+   * Der teuerste Unterschied zwischen einer Leinwand und dem DOM, das sie
+   * ersetzt: Ein `img` in der Karte erschien von selbst, sobald es geladen war.
+   * Eine Leinwand tut das nicht, und im Editor STEHT der Kopf meistens — wer in
+   * einen Halt scrubbte, sah die Karte mit leerem Bildfeld und bekam das Foto
+   * erst beim nächsten Kopfschritt. Im Player fiel es nie auf, weil dort der
+   * Film läuft und jeder Frame ohnehin neu zeichnet.
+   */
+  const quelleDa = (): void => {
+    if (eingeblendet === m.id) synchronisiereFoto()
   }
   if (m.type === 'video') {
     const video = document.createElement('video')
@@ -6455,7 +6509,12 @@ function zeigeFoto(id: string): void {
     video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video.videoWidth, video.videoHeight), {
       once: true,
     })
-    rahmen.appendChild(video)
+    // `loadedmetadata` liefert nur die Maße (readyState 1) — ein Frame steht erst
+    // mit `loadeddata`, und nach jedem Seek erst mit `seeked`. Solange der Kopf
+    // steht, ist das der einzige Anlass, das neue Einzelbild zu zeichnen.
+    video.addEventListener('loadeddata', quelleDa)
+    video.addEventListener('seeked', quelleDa)
+    quellen.replaceChildren(video)
   } else {
     const bild = document.createElement('img')
     bild.src = m.src
@@ -6463,43 +6522,64 @@ function zeigeFoto(id: string): void {
     // Aus dem Browser-Cache ist `complete` schon beim Anlegen wahr — dann
     // feuert `load` nicht mehr.
     if (bild.complete && bild.naturalWidth) merkeSeitenverhaeltnis(bild.naturalWidth, bild.naturalHeight)
-    else bild.addEventListener('load', () => merkeSeitenverhaeltnis(bild.naturalWidth, bild.naturalHeight), { once: true })
-    rahmen.appendChild(bild)
+    else
+      bild.addEventListener(
+        'load',
+        () => {
+          merkeSeitenverhaeltnis(bild.naturalWidth, bild.naturalHeight)
+          quelleDa()
+        },
+        { once: true },
+      )
+    quellen.replaceChildren(bild)
   }
-  // Fortschrittsbalken wie im Player (`photo-hold`) — wie lange die Karte noch
-  // steht. Er läuft NICHT als CSS-Animation über eine Dauer, sondern wird bei
-  // jedem Kopfschritt gesetzt: eine Animation kennt nur „seit dem Start", und
-  // damit stünde sie beim Scrubben (und nach jeder Pause) neben der Wahrheit.
-  const hold = document.createElement('div')
-  hold.className = 'fe-hold'
-  hold.setAttribute('aria-hidden', 'true')
-  const holdFill = document.createElement('div')
-  holdFill.className = 'fe-hold-fill'
-  hold.appendChild(holdFill)
-  rahmen.appendChild(hold)
 
-  const fuss = document.createElement('div')
-  fuss.className = 'fe-cap'
-  const titel = document.createElement('div')
-  titel.className = 'fe-titel'
-  // Ohne eigenen Text steht dort, was auch der Player ohne Beschriftung zeigt:
-  // die Maschinenangabe. Mit Text wird DER zur Überschrift (s. enrich.ts).
-  titel.textContent = m.caption || (m.type === 'video' ? 'Video' : 'Foto')
-  const chip = document.createElement('div')
-  chip.className = 'fe-chip'
-  chip.textContent = m.type === 'video' ? 'Video' : 'Foto'
-  const unten = document.createElement('div')
-  unten.className = 'fe-sub'
+  // Der TEXT der Karte. Der Maler kennt vier Felder; die Editor-Bühne belegt sie
+  // mit dem, was hier bisher im `.fe-cap`-Raster stand — Titel, die Pille rechts
+  // („Foto"/„Video" statt der Kilometer des Players) und darunter Uhrzeit und
+  // Kilometerstand. Ohne eigenen Text steht im Titel, was auch der Player ohne
+  // Beschriftung zeigt: die Maschinenangabe (s. enrich.ts).
   const meter = m.anchor
     ? meterZuOffset(kumStrecke, z.track, projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3])
     : null
-  unten.textContent = `${uhrzeitKurz(m.takenAt)} Uhr${meter !== null ? ` · km ${kmText(meter)}` : ''}`
-  fuss.append(titel, chip, unten)
-
-  karteEl.replaceChildren(rahmen, fuss)
-  karteEl.classList.toggle('ruhig', m.display?.kenBurns === false)
-  karteEl.classList.add('an')
+  const art = m.type === 'video' ? 'Video' : 'Foto'
+  kartenText = {
+    titel: m.caption || art,
+    unter: `${uhrzeitKurz(m.takenAt)} Uhr${meter !== null ? ` · km ${kmText(meter)}` : ''}`,
+    kmText: art,
+    zaehlerText: '',
+  }
   document.querySelector('.karten-buehne')?.classList.add('foto-an')
+}
+
+/**
+ * Die Zeichenquelle dieser Filmsekunde — dieselbe Frage wie im Player
+ * (`_kartenQuelle` in ui.ts), nur ohne Video-Standbild: Der Editor liefert den
+ * ungeschnittenen Master aus, ein Poster gibt es dazu nicht.
+ *
+ * `bereit` ist die Zusicherung, die der Maler braucht: `drawImage` auf einem
+ * noch suchenden `<video>` zeichnet ohne Fehler das ALTE Bild.
+ */
+function kartenQuelle(): { quelle: KartenQuelle | null; bereit: boolean } {
+  const quellen = document.getElementById('foto-quellen')
+  const video = quellen?.querySelector('video')
+  if (video) {
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      return {
+        quelle: { bild: video, breite: video.videoWidth, hoehe: video.videoHeight, kennung: video.src },
+        bereit: !video.seeking,
+      }
+    }
+    return { quelle: null, bereit: false }
+  }
+  const bild = quellen?.querySelector('img')
+  if (bild && bild.complete && bild.naturalWidth > 0) {
+    return {
+      quelle: { bild, breite: bild.naturalWidth, hoehe: bild.naturalHeight, kennung: bild.src },
+      bereit: true,
+    }
+  }
+  return { quelle: null, bereit: false }
 }
 
 /**
@@ -6530,9 +6610,6 @@ function synchronisiereFoto(): void {
     return
   }
   if (stueck.id !== eingeblendet) zeigeFoto(stueck.id)
-  // Der Balken zeigt den Stand IM Klip — auch, wenn man mitten hineinscrubbt.
-  const fuellung = document.querySelector<HTMLElement>('#foto-einblendung .fe-hold-fill')
-  if (fuellung) fuellung.style.transform = `scaleX(${balkenAnteil(stueck.imS, stueck.dauerS).toFixed(4)})`
   synchronisiereBild(stueck.imS, stueck.dauerS, tempo)
 }
 
@@ -6540,43 +6617,24 @@ function synchronisiereFoto(): void {
  * Bild und Video stehen an der Stelle, an der der KOPF steht — nicht an der,
  * die eine eigene Uhr seit dem Erscheinen erreicht hat.
  *
- * Der Ken-Burns-Zug lief als gewöhnliche CSS-Animation ab dem Einfügen des
- * `img`: Wer in die Mitte eines Halts scrubbte, sah den Zoom trotzdem bei 0
- * beginnen und weiterlaufen, obwohl der Kopf stand. Deshalb ist die Animation
- * dauerhaft PAUSIERT und ihr Fortschritt kommt aus einem negativen Delay
- * (`--fe-zeit`) — genau die Technik, mit der ein Standbild aus einer Animation
- * gezogen wird. Ihre Dauer ist die Standzeit des Klips (`--fe-kb-dauer`), wie
- * im Player (`--kb-dauer`, ui.ts): eine feste 6-s-Drift wäre an einem 20-s-Halt
- * nach einem Viertel fertig.
+ * Der Ken-Burns-Zug lief einmal als gewöhnliche CSS-Animation ab dem Einfügen
+ * des `img`: Wer in die Mitte eines Halts scrubbte, sah den Zoom trotzdem bei 0
+ * beginnen und weiterlaufen, obwohl der Kopf stand. Der Ausweg waren dauerhaft
+ * pausierte Animationen mit negativem Delay — der Behelf für genau das, was ein
+ * MALER von Natur aus tut. Seit „Eine Bühne, ein Maler" bekommt er die
+ * Filmsekunde als Zahl und zeichnet den Stand dazu; Auftritt, „Entwickeln",
+ * Ken-Burns-Zug, Balken und Abgang kommen alle von dort.
  *
- * Das Video hing an demselben Fehler, nur sichtbarer: `autoplay` + `loop`
- * spielten ab Sekunde 0 in Echtzeit. Es folgt jetzt derselben Regel — laufen
- * nur bei normaler Vorwärtsfahrt, sonst auf dem Frame der Kopfposition stehen.
+ * Was hier bleibt, ist das, was der Maler nicht kann: Der Video-Frame muss
+ * GESUCHT werden, und der Ton der Aufnahme hat eine Hülle. Beide Rechnungen
+ * teilt der Editor mit dem Player, verschieden ist nur, was ankommt — dort die
+ * geschnittene Fassung, hier der ungeschnittene Master mit beiden Kanten.
  */
 function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
-  const karteEl = document.getElementById('foto-einblendung')
-  if (!karteEl) return
-  // Die Zeiten stehen auf der BÜHNE, nicht auf der Karte: Der Kamerablitz ist
-  // ihr Geschwister und erbt sie von dort — auf der Karte gesetzt käme er nie
-  // an sie heran.
-  const buehne = document.querySelector<HTMLElement>('.karten-buehne') ?? karteEl
-  // Dieselbe Rechnung wie im Player (`kartenZeiten` in src/einblendung.ts):
-  // Der Abgang liegt in den letzten `HOLD_AUSBLEND` des Klips — genau die
-  // Spanne, um die der Klip länger ist als die Standzeit. Vor seinem Beginn ist
-  // sein Delay positiv und damit eine Verzögerung: die Animation steht noch aus.
-  const z = kartenZeiten(imS, dauerS)
-  const zeit = `${z.zeitS.toFixed(3)}s`
-  const dauer = `${z.kbDauerS.toFixed(3)}s`
-  // Nur bei Änderung schreiben — die Funktion läuft in jedem Kopf-Frame.
-  if (buehne.dataset['feStand'] !== `${zeit}|${dauer}`) {
-    buehne.dataset['feStand'] = `${zeit}|${dauer}`
-    buehne.style.setProperty('--fe-zeit', zeit)
-    buehne.style.setProperty('--fe-kb-dauer', dauer)
-    buehne.style.setProperty('--fe-aus-zeit', `${z.ausZeitS.toFixed(3)}s`)
-    buehne.style.setProperty('--fe-aus-dauer', `${z.ausDauerS.toFixed(3)}s`)
-  }
+  const { quelle, bereit } = kartenQuelle()
+  kartenSchicht?.male({ imS, dauerS, medium: kartenMedium, text: kartenText, quelle, bereit })
 
-  const video = karteEl.querySelector('video')
+  const video = document.getElementById('foto-quellen')?.querySelector('video')
   if (!video) return
   const vonS = Number(video.dataset['vonS'] ?? 0)
   // Das Ende kommt aus dem Schnitt bzw. der Server-Länge — und zusätzlich aus
@@ -6628,12 +6686,12 @@ function setzeVideoZeit(video: HTMLVideoElement, sekunde: number): void {
 
 function verbergeFoto(): void {
   eingeblendet = null
-  const karteEl = document.getElementById('foto-einblendung')
-  karteEl?.classList.remove('an')
-  document.getElementById('foto-flash')?.classList.remove('blitz')
+  kartenSchicht?.raeume()
   document.querySelector('.karten-buehne')?.classList.remove('foto-an')
+  const quellen = document.getElementById('foto-quellen')
   // Ein laufendes Video würde sonst unsichtbar weiterspielen
-  karteEl?.querySelector('video')?.pause()
+  quellen?.querySelector('video')?.pause()
+  quellen?.replaceChildren()
   // Und seine Dämpfung mitnehmen: Ohne das bliebe die Musik nach dem letzten
   // Video-Halt für den Rest der Wiedergabe leise.
   abspieler?.setzeDucking(0)

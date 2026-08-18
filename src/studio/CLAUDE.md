@@ -523,7 +523,7 @@ Drei Regeln, die man dabei leicht kippt:
 
 Entwürfe und die verworfenen Varianten:
 [docs/mockups/studio-zeitleiste-kopf.html](../../docs/mockups/studio-zeitleiste-kopf.html) (vier
-Varianten), [`…-entscheidungen.html`](../../docs/mockups/studio-zeitleiste-kopf-entscheidungen.html)
+Varianten), [`…-entscheidungen.html`](../../docs/archive/mockups/studio-zeitleiste-kopf-entscheidungen.html)
 (Play-Register, Abgrenzung der Zahlenpaare, Ort der Ablage),
 [`…-final.html`](../../docs/mockups/studio-zeitleiste-kopf-final.html) (der umgesetzte Stand).
 
@@ -699,19 +699,57 @@ gilt nicht nur dafür, WELCHES Medium liegt, sondern auch für seinen Stand. Bei
 nach eigener Uhr weiter: Der Ken-Burns-Zug war eine gewöhnliche CSS-Animation ab dem Einfügen
 des `img`, das Video hing an `autoplay` + `loop`. Wer in die Mitte eines Halts scrubbte, sah
 den Zoom trotzdem bei 0 anfangen und weiterlaufen, obwohl der Kopf stand, und im Video
-irgendeinen Frame statt des gemeinten. Jetzt stehen beide Animationen dauerhaft auf
-`animation-play-state: paused` und ihr Fortschritt kommt aus einem NEGATIVEN Delay
-(`--fe-zeit`, gesetzt bei jedem Kopfschritt) — dieselbe Linie wie beim Fortschrittsbalken, nur
-mit dem Kunstgriff, mit dem man ein Standbild aus einer Animation zieht. **Seit E15 fährt der
-Player dasselbe Modell** (`--karte-zeit`), und die vier Rechnungen darunter sind geteilt:
-`kartenZeiten`, `balkenAnteil`, `klipDauerS` und `videoStandS` stehen in
-[src/einblendung.ts](../einblendung.ts) — `videoStandS` ist von hier dorthin gezogen und wird
-unter seinem Namen re-exportiert. Geteilt sind die ZAHLEN, nicht das DOM (Konzept §6A). Die Drift-Dauer ist
-die Klip-Dauer (`--fe-kb-dauer`, wie `--kb-dauer` im Player): fest gesetzte 6 s wären an einem
-20-s-Halt nach einem Viertel fertig. Das Video wird auf `trim.vonS + imS` gesetzt und läuft nur
+irgendeinen Frame statt des gemeinten. Der Ausweg waren dauerhaft PAUSIERTE Animationen mit
+negativem Delay (`--fe-zeit`) — der Kunstgriff, mit dem man ein Standbild aus einer Animation
+zieht, und der Behelf für genau das, was ein MALER von Natur aus tut. **Seit dem 2026-08-17
+gibt es den Maler auch hier** (s. den nächsten Absatz), und die `--fe-*`-Choreografie ist weg.
+Das Video wird weiter auf `trim.vonS + imS` gesetzt und läuft nur
 bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtbar); **beide
 Trim-Kanten** stehen im `dataset` des Elements, weil die ausgelieferte Datei der ungeschnittene
 Master ist und der Schnitt erst in der Pipeline entsteht.
+
+**Und die Karte MALT seit dem 2026-08-17 derselbe Zeichner wie im Player und im Film** —
+`maleKarte` in [src/kartenmaler.ts](../kartenmaler.ts), eingehängt über
+`createKartenSchicht({ buehne: 'editor' })` („Eine Bühne, ein Maler" Etappe 1,
+[docs/concepts/eine-buehne-ein-maler.md](../../docs/archive/eine-buehne-ein-maler.md)). Damit
+ist die Begründung aus §6A des Gleichlauf-Konzepts abgelaufen: Sie richtete sich gegen ein
+gemeinsames DOM-BAUTEIL, das zwei Zeitmodelle tragen müsste — ein Maler trägt keines, er
+bekommt eine Filmsekunde und zeichnet. Was der Editor noch selbst tut, sind die zwei Dinge,
+die der Maler nicht beschaffen kann: die ZEICHENQUELLE (ein `img`/`video` in `#foto-quellen`,
+unsichtbar im Dokument, weil der Browser nur dekodiert und spielt, was er lädt) und der TEXT.
+Fünf Dinge, die man dabei kippt:
+
+- **Die Lage wird GESETZT** (`EDITOR_LAGE`), nicht aus Breite und Höhe abgeleitet: Eine
+  Editor-Bühne von 700 × 500 fiele in `quer` und bekäme das Telefon-Layout „Bild links, Text
+  rechts". Ebenso Maßsatz (`EDITOR_MASSE`), Maßstabsgrenzen und Flugweite — alles vier
+  liefert `kartenSatz(buehne)`.
+- **Eine Leinwand zeichnet sich nicht von selbst neu, und hier STEHT der Kopf meistens.** Ein
+  `img` in der alten DOM-Karte erschien von selbst, sobald es geladen war; auf der Leinwand
+  sah man beim Scrubben die Karte mit LEEREM Bildfeld liegen. `zeigeFoto` hängt deshalb an
+  `load` (Bild) und `loadeddata`/`seeked` (Video) einen Rückruf auf `synchronisiereFoto`. Im
+  Player fällt das nie auf, weil dort der Film läuft und jeder Frame ohnehin zeichnet.
+- **Der Schleier bleibt DOM** (`.karten-buehne::after`, z-index 2, Leinwand darüber auf 5):
+  `backdrop-filter` hat auf einer Leinwand kein Gegenstück. Er ist damit der EINE Teil der
+  Karte, der weiter zweimal als CSS dasteht und Text gegen Text bewacht wird. Seine DECKKRAFT
+  kommt seit dem Rückbau des Kamerablitzes aus der Filmzeit: `kartenschicht.ts` schreibt
+  `--schleier-sicht` auf die BÜHNE (ein `::after` nimmt keine Inline-Stile, sein Host schon),
+  die Klasse `foto-an` schaltet nur noch den Filter, und eine Transition darf dort nicht mehr
+  stehen — sie liefe über die Werte, die die Filmzeit setzt.
+- **Der Fortschrittsbalken ist Bildinhalt** und kommt aus dem Maler — `.fe-hold-fill` und der
+  `scaleX`-Schreiber in `synchronisiereFoto` sind weg.
+- **`prefers-reduced-motion` liest die SCHICHT** und gibt es dem Maler als Schalter weiter
+  (`buehne.ruhig`); ein `@media`-Block im CSS hätte darauf keinen Zugriff mehr.
+- **Keine versteckte Textkopie, und das ist eine Entscheidung.** Der Player trägt Titel und
+  Bildunterschrift als `figcaption.sr-only` weiter, weil seine Karte in dem Moment der GANZE
+  Inhalt der Seite ist. Hier steht jede Angabe dauerhaft als Text daneben — der Titel im Klip
+  der Szenen-Bahn, Uhrzeit und Kilometer im Pult —, eine Kopie wäre dieselbe Auskunft ein
+  zweites Mal in einer ohnehin dichten Oberfläche. Der Wächter hält die Player-Regel fest und
+  nennt den Editor als benannte Ausnahme. Das gilt nur, solange die Angaben daneben stehen:
+  Verlöre die Szenen-Bahn ihre Titel, wäre die Karte die einzige Quelle.
+
+Die vier geteilten Rechnungen bleiben, wo sie waren: `kartenZeiten`, `balkenAnteil`,
+`klipDauerS` und `videoStandS` in [src/einblendung.ts](../einblendung.ts) — dort auch die
+geteilten ZAHLEN (`KARTE`) und die benannten Bühnen-Varianten (`KARTE_BUEHNE`).
 
 **Das Video KLINGT — und duckt dabei die Musik.** Es lief lange mit hartem `muted = true`, und
 damit prüfte das Abspielen einen Film, den es nicht gibt: Im Player hat die Aufnahme ihre eigene
@@ -744,17 +782,17 @@ Der Browser klemmt `currentTime` still, die Abweichung bleibt dadurch dauerhaft 
 0,34-s-Schwelle, und die Wiedergabe seekte in JEDEM Frame ans Ende — das sichtbare Zittern am
 Klip-Ende. Gemessen an einer 6-s-Datei: Ziel 6,80 s → `currentTime` 6,00 s, Abweichung 0,80 s.
 
-**Auch Auftritt und Abgang der Karte hängen am Kopf** — sie waren bis zuletzt eine
+**Auch Auftritt, Abgang und Kamerablitz hängen am Kopf** — der Auftritt war bis E15 eine
 `transition` (opacity 500 ms, transform 950 ms), und eine Transition hat keine ansteuerbare
 Zeitachse: Sie startet beim Klassenwechsel und läuft nach Wanduhr, beim Scrubben sprang die
-Karte deshalb sofort auf ihren Zielzustand. Jetzt sind es drei pausierte Animationen mit
-negativem Delay (`feEinBlende`/`feEinFlug` an `--fe-zeit`, `feAbgang` an `--fe-aus-zeit`, das
-in den letzten `HALT_AUSBLEND_S` des Klips negativ wird). Drei Dinge tragen das: Der Abgang
-steht **zuletzt** in der Liste (bei gleicher Property gewinnt die letzte laufende) und trägt
-`forwards` statt `both` — mit `both` läge sein Anfangsbild schon vor seinem Beginn über dem
-Auftritt; die Zeitvariablen stehen auf der **Bühne** (`.karten-buehne`) und nicht auf der
-Karte, weil der Kamerablitz ihr Geschwister ist und sie von dort erbt; und der Blitz ist
-deshalb keine Timer-Klasse (`blinke`) mehr, sondern steht, solange die Karte liegt.
+Karte deshalb sofort auf ihren Zielzustand. Danach waren es drei pausierte Animationen mit
+negativem Delay, seit dem 2026-08-17 rechnet der Maler sie (`kartenPhasen`). **Der Kamerablitz
+ist am selben Tag ganz entfallen**: Auf seiner Spitze steht die Karte bei 7 % Deckkraft und das
+„Entwickeln" bei `brightness(1.45)` — das Foto ist dort ohnehin ein heller Schleier, zwei
+Gesten für dieselbe Sache im selben Moment. Er strobte außerdem (er hing am Klip, nicht am
+Halt, feuerte also bei jedem Bildwechsel innerhalb eines Halts neu), und seine Metapher war
+verkehrt: Ein Blitz sagt „hier wird gerade fotografiert", diese Fotos sind längst aufgenommen.
+Den Halt markiert jetzt der Schleier allein — dass die Umgebung zurücktritt.
 
 **Dieselbe Regel gilt für die Kartenmitte.** `folgeKarte()` hängt ebenfalls an
 `renderPlayhead`, nicht am Abspieler. Vorher stand der Aufruf allein in `setzeMarkeAnteil` —
