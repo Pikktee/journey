@@ -1365,7 +1365,12 @@ map.on('load', () => {
   const setClean = (on: boolean) => document.body.classList.toggle('ui-clean', on)
   // Menü-Rücksprung (Dock, Finale-Button, Tourende ohne Endscreen) räumt den
   // Kino-Modus auf — ein Hook am Tour-Objekt, weil setClean erst hier entsteht.
-  tour.onToMenu = () => setClean(false)
+  // Der Ton geht an beiden Schlüssen weich aus statt abrupt: Der Kopf steht am
+  // Tour-Ende oft mitten in einem Musik-Bereich, und dort ist ein zugehendes Gate
+  // sonst dasselbe wie die Pause-Taste — sofortiger Stopp mit gehaltener Position.
+  const tonVerklingen = () => { tourAudio?.verklinge(); music?.verklinge() }
+  tour.onToMenu = () => { setClean(false); tonVerklingen() }
+  tour.onFinale = tonVerklingen
 
   // — Auto-Rückzug der Bedienelemente (jede Zeigerart) —
   // Wie in einem Videoplayer: während der FAHRT zieht sich die UI nach kurzer Ruhe

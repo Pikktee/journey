@@ -16,6 +16,8 @@ import {
   VIDEO_DUCK,
   VIDEO_FADE_S,
   videoTonHuelle,
+  gerampterPegel,
+  VIDEO_PEGEL_PRO_S,
   videoLautstaerke,
   videoMusikDuck,
 } from '../src/audiotracks.js'
@@ -195,5 +197,40 @@ describe('hatBereich (Klip oder Marke?)', () => {
     // Genau der Klip, den enrich.ts bis E10 mit „liegt ganz in einer Standzeit"
     // verworfen hat — in Filmzeit gemessen hat er 3,2 Sekunden.
     expect(hatBereich({ filmVonS: 102, filmBisS: 105.2 })).toBe(true)
+  })
+})
+
+describe('gerampterPegel (Knacks-Schutz des Video-Tons)', () => {
+  it('lässt den Pegel stehen, solange keine Zeit vergangen ist', () => {
+    // Der Export ruft je Filmbild auf, ohne dass eine Wanduhr die Rampe führte —
+    // dort setzt ui.ts den Zielwert selbst, hier darf nichts kriechen.
+    expect(gerampterPegel(0.3, 1, 0)).toBeCloseTo(0.3, 6)
+    expect(gerampterPegel(0.3, 1, -1)).toBeCloseTo(0.3, 6)
+  })
+
+  it('deckelt den Sprung eines verspätet anlaufenden Videos', () => {
+    // Genau der Knackser: Die Hülle steht schon bei 1, weil die Filmzeit
+    // weiterlief, während die Datei noch lud. Ein Frame darf davon nur ein
+    // Stück nehmen.
+    expect(gerampterPegel(0, 1, 1 / 60)).toBeCloseTo(VIDEO_PEGEL_PRO_S / 60, 6)
+  })
+
+  it('zählt einen Ruckler nur bis zum Deckel', () => {
+    // 0,5 s Frame-Lücke: ohne Deckel wäre die Rampe übersprungen.
+    expect(gerampterPegel(0, 1, 0.5)).toBeCloseTo(VIDEO_PEGEL_PRO_S * 0.05, 6)
+  })
+
+  it('kommt in rund 125 ms an und schießt nicht über', () => {
+    let p = 0
+    for (let i = 0; i < 8; i++) p = gerampterPegel(p, 1, 1 / 60)
+    expect(p).toBe(1)
+    expect(gerampterPegel(1, 1, 1 / 60)).toBe(1)
+  })
+
+  it('rampt auch nach unten und bleibt im Band 0..1', () => {
+    expect(gerampterPegel(1, 0, 1 / 60)).toBeCloseTo(1 - VIDEO_PEGEL_PRO_S / 60, 6)
+    expect(gerampterPegel(0.02, 0, 1 / 60)).toBe(0)
+    // Ziel außerhalb des Bandes wird geklemmt, der Schritt bleibt gedeckelt
+    expect(gerampterPegel(0.5, 5, 1)).toBeCloseTo(0.5 + VIDEO_PEGEL_PRO_S * 0.05, 6)
   })
 })

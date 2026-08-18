@@ -134,6 +134,15 @@ export interface TourOptionen {
   showFinale?: boolean
   /** Optional: UI-Aufräumen beim Rücksprung ins Menü (Kino-Modus aus) */
   onToMenu?: (() => void) | null
+  /**
+   * Optional: Die Tour ist zu Ende und der Endscreen kommt.
+   *
+   * Der Ton hängt daran (main.ts): Beim Schluss soll er ausklingen und nicht
+   * anhalten. Über das Gate allein ist dieser Moment nicht zu erkennen — dort
+   * sieht die Bereichs-Musik nur, dass zugemacht wurde, und das tut auch die
+   * Pause-Taste. Der Rückweg ins Menü meldet sich über `onToMenu`.
+   */
+  onFinale?: (() => void) | null
 }
 
 /** Kamerastand als Signatur (Vergleich für den bedingten Resume-Fade) */
@@ -234,6 +243,7 @@ export class Tour {
   modes: ModusGrenze[]
   showFinale: boolean
   onToMenu: (() => void) | null
+  onFinale: (() => void) | null
   /** Atmosphäre-/Flare-Overlay hängt sich hier ein (main.ts) */
   onPose?: (pose: KameraPose) => void
   /**
@@ -320,6 +330,7 @@ export class Tour {
     // Sonst zurück zum Startscreen — die meisten Touren haben kein konkretes Ziel.
     this.showFinale = opts.showFinale === true
     this.onToMenu = opts.onToMenu ?? null
+    this.onFinale = opts.onFinale ?? null
     const sc0 = skalaFuer(this.modes[0]!.mode)
     this.scaleSm = new Smooth(sc0.behind)
     this.hoverSm = new Smooth(sc0.hover)
@@ -1120,6 +1131,7 @@ export class Tour {
         this.glide = 2.2
         this.orbitA = bearing([this.mid[0], this.mid[1]], [this.cg.lng.v, this.cg.lat.v])
         this.ui.showFinale()
+        this.onFinale?.() // Ton ausklingen lassen statt anhalten
       }
       if (this.phase === 'finale') {
         this.orbitA += 3 * dt

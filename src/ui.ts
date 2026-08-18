@@ -1,7 +1,7 @@
 // DOM-Schicht: Overlays, Steuerleiste, Höhenprofil, Telemetrie. Keine Map-Logik.
 import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
 import type { Wegpunkt } from './tours.js'
-import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
+import { gerampterPegel, videoLautstaerke, videoTonHuelle } from './audiotracks.js'
 import {
   ausschnittDauerS,
   klemmeSeitenverhaeltnis,
@@ -169,6 +169,10 @@ export class UI {
   private _videoHatteFrame: boolean
   /** Wanduhr-Marke des letzten begonnenen Suchlaufs (`performance.now()`). */
   private _letzterSuchlauf: number
+  /** Geführter Pegel des Video-Tons 0..1 (s. `gerampterPegel`). */
+  private _videoHuelle: number
+  /** Wanduhr-Marke des letzten Pegel-Schritts (`performance.now()`). */
+  private _videoPegelZeit: number
   /** Läuft diese Seite als Export-Takt? (`body.export`) */
   private _imExport: boolean
   private _mode?: string
@@ -258,6 +262,8 @@ export class UI {
     this._standbildGen = 0 // verwirft veraltete Poster-Rückrufe nach Stopp/Wechsel
     this._videoHatteFrame = false
     this._letzterSuchlauf = -Infinity
+    this._videoHuelle = 0
+    this._videoPegelZeit = 0
     this._imExport = document.body.classList.contains('export')
     try {
       const gemerkt = sessionStorage.getItem('maptale:video-sound')
@@ -305,6 +311,8 @@ export class UI {
     standbild.removeAttribute('src')
     this._videoHatteFrame = false
     this._letzterSuchlauf = -Infinity
+    this._videoHuelle = 0
+    this._videoPegelZeit = 0
     this._meldeVideoTon(0)
     if (!v.getAttribute('src')) return
     v.pause()
@@ -802,11 +810,28 @@ export class UI {
     // Geteilt mit dem Editor (`ausschnittDauerS`): Der Player liefert die
     // geschnittene Fassung aus, sein linker Schnitt ist also 0.
     const ausschnittS = ausschnittDauerS(dauerS, 0, endeS)
-    const huelle = laeuft && !video.muted ? videoTonHuelle(imS, ausschnittS) : 0
-    const laut = videoLautstaerke(huelle)
+    // Die Hülle wird von ZWEI Uhren geführt, und es gilt die kleinere: der
+    // Filmzeit (dort liegen die Schnittkanten) und der Wiedergabeposition der
+    // Datei. Die zweite ist der Knacks-Schutz — läuft das Video verspätet an,
+    // steht die Filmzeit schon mitten im Klip, und der Ton setzte bisher mit
+    // voller Lautstärke ein. Wer sucht oder noch keinen Frame hat, klingt gar
+    // nicht: Dort gibt es nichts zu hören, was leiser werden könnte.
+    const hoerbar = laeuft && !video.muted && !video.seeking && video.readyState >= VIDEO_HAT_FRAME
+    const ziel = hoerbar
+      ? Math.min(videoTonHuelle(imS, ausschnittS), videoTonHuelle(video.currentTime, ausschnittS))
+      : 0
+    // Und über beidem die Rampe — sie deckelt jeden Sprung, den ein Anlauf, ein
+    // Suchlauf oder ein Tempowechsel sonst hart in den Pegel schriebe. Im Export
+    // gibt es keine Wanduhr, die sie führen könnte (ein Filmbild kostet dort
+    // 0,3–2 s), also steht dort der Zielwert.
+    const jetzt = performance.now()
+    const dtS = (jetzt - this._videoPegelZeit) / 1000
+    this._videoPegelZeit = jetzt
+    this._videoHuelle = this._imExport ? ziel : gerampterPegel(this._videoHuelle, ziel, dtS)
+    const laut = videoLautstaerke(this._videoHuelle)
     // Nur bei Bedarf setzen — sonst feuert mancher Browser volumechange im Kreis
     if (Math.abs(video.volume - laut) > 0.004) video.volume = laut
-    this._meldeVideoTon(huelle)
+    this._meldeVideoTon(this._videoHuelle)
   }
 
   private _setzeVideoZeit(sekunde: number): void {

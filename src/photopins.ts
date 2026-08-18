@@ -602,6 +602,7 @@ export function installPhotoPins(
     // Signaturgleich zu addSpotLayers: „besucht" ab Erreichen (20 m Vorlauf), danach
     // ist der erste offene Pin der nächste.
     sync(s) {
+      let anstossen = false
       const sWerte = pins.map((p) => p.sp.s)
       const zust = zustaende(sWerte, s)
       const ziele = stufenZiele(pins.length, naechsterIndex(sWerte, s), FENSTER)
@@ -611,11 +612,20 @@ export function installPhotoPins(
         if (!pin || !z) continue
         if (z !== pin.zustand) {
           pin.zustand = z
+          anstossen = true
           neuZeichnen(pin) // Kopf-Textur trägt die Zustandsfarben
         }
-        pin.zielStufe = ziele[i] ?? 0
+        const zielNeu = ziele[i] ?? 0
+        if (zielNeu !== pin.zielStufe) anstossen = true
+        pin.zielStufe = zielNeu
       }
-      map.triggerRepaint() // auch ohne Zustandswechsel: die Blende muss anlaufen
+      // Angestoßen wird nur, wenn sich WIRKLICH etwas geändert hat — ein
+      // Zustand, ein Blendenziel, oder eine Blende, die noch unterwegs ist.
+      // Unbedingt gerufen hielt diese Zeile die Karte im stehenden Halt am
+      // Zeichnen, denn `sync` läuft in jedem Frame (ui.updateTrace): MapLibre
+      // rendert dann das ganze Bild neu, Terrain-Pass inklusive. Eine laufende
+      // Blende trägt sich selbst weiter (s. `render`).
+      if (anstossen || pins.some((p) => p.stufe !== p.zielStufe)) map.triggerRepaint()
     },
     // Fenstergröße zur Laufzeit: __j.pins.setFenster({ vor: 3, zurueck: 1 })
     setFenster({ vor, zurueck } = {}) {

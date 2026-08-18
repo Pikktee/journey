@@ -318,7 +318,20 @@ export function addRouteLayers(map: MapLibreMap, route: Route): (s: number, pos:
   })
 
   let committed = -1
+  let letztesS = NaN
+  let letztePos: LngLat2D | null = null
   return (s: number, pos: LngLat2D) => {
+    // **Steht der Fahrer, wird die Spur nicht angefasst.** `setData` ist kein
+    // stiller Schreibvorgang: Es stößt einen Style-Update an, der einen
+    // `triggerRepaint` nach sich zieht — und MapLibre zeichnet daraufhin das
+    // ganze Bild neu, Terrain-Pass inklusive. Weil diese Funktion in JEDEM
+    // Frame läuft, hielt sie die Karte auch dort am Rendern, wo sich nichts
+    // bewegt: im Foto- und Video-Halt (die Kamera steht dort komplett still,
+    // s. tour.ts) und in der Pause. Gemessen waren das 380 der 434 Repaints in
+    // vier Sekunden — auf dem Telefon genau die Leistung, die dem Video fehlt.
+    if (s === letztesS && letztePos && pos[0] === letztePos[0] && pos[1] === letztePos[1]) return
+    letztesS = s
+    letztePos = [pos[0], pos[1]]
     const base = Math.max(1, indexAt(route, Math.min(s, route.total))) - 1 // letzter Stützpunkt vor s
     const commit = base - (base % COMMIT_STRIDE)
     if (commit !== committed) {

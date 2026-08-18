@@ -206,25 +206,44 @@ button:focus-visible {
   text-align: center;
   /* Ruhige Bühne: die live rotierende Karte wird nach hinten geschoben — kräftigerer
      Scrim (Mitte 0.62 statt 0.3) plus leichter Blur macht sie zur Atmosphäre statt zum
-     Fokus-Konkurrenten des Titels. Der Blur läuft nur im Intro (vor dem Tour-Start). */
-  background: radial-gradient(125% 95% at 50% 44%, rgba(6, 9, 14, 0.62) 0%, rgba(5, 8, 12, 0.94) 100%);
+     Fokus-Konkurrenten des Titels. Der Blur läuft nur im Intro (vor dem Tour-Start).
+     Der Scrim liegt auf dem ::before, NICHT hier: Ein Element mit `backdrop-filter`
+     darf seine eigene Deckkraft nicht animieren (s. den Block unter `.finale`) — der
+     Blur schaltet sonst erst am Ende der Blende schlagartig zu. */
   backdrop-filter: blur(3px) saturate(0.92);
   -webkit-backdrop-filter: blur(3px) saturate(0.92);
   /* Weicher Übergang in die Tour: der unscharfe, dunkle Schleier löst sich langsam auf
      (2 s) und gibt die scharfe Szene sanft frei. visibility gleich lang, damit das Intro
      während des Fades sichtbar bleibt und erst am Ende ausgehängt wird (die Sonder-
      Interpolation von visibility zeigt es beim Zurück ins Menü sofort wieder). */
-  transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1), visibility 2s;
+  transition: backdrop-filter 2s cubic-bezier(0.4, 0, 0.2, 1),
+    -webkit-backdrop-filter 2s cubic-bezier(0.4, 0, 0.2, 1), visibility 2s;
+}
+
+.intro::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(125% 95% at 50% 44%, rgba(6, 9, 14, 0.62) 0%, rgba(5, 8, 12, 0.94) 100%);
+  transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .intro.gone {
-  opacity: 0;
+  /* Kein `opacity: 0` — der Schleier geht über Scrim und Blur weg, beide über
+     dieselbe Dauer. */
+  backdrop-filter: blur(0) saturate(1);
+  -webkit-backdrop-filter: blur(0) saturate(1);
   visibility: hidden;
   pointer-events: none;
 }
 
+.intro.gone::before {
+  opacity: 0;
+}
+
 .intro-inner {
   padding: 24px;
+  position: relative; /* über dem Scrim des ::before */
   /* Vordergrund (Titel/Chips/Button) blendet etwas früher als der Schleier — erst geht
      der Text, dann lichtet sich langsam die Bühne. Beides deutlich ruhiger als zuvor. */
   transition: opacity 1.5s ease;
@@ -688,24 +707,58 @@ body.cinema .photo-backdrop {
   display: grid;
   place-items: center;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.9s ease;
 }
 
-.finale.in {
-  opacity: 1;
+/* Ohne die Zeile bliebe die Tafel liegen: `display: grid` oben schlägt das
+   `[hidden] { display: none }` des Browsers, und die Karte fing dann in der
+   Bildmitte unsichtbar Klicks ab (sie setzt `pointer-events: auto`). Solange
+   getragen hat das nur, dass die Tafel zusätzlich `opacity: 0` stand.
+   `visibility` und NICHT `display: none`: Ein Element, das aus `display: none`
+   auftaucht, hat keinen Vorzustand — der Browser überspringt dann jede
+   Transition, und die Tafel stand ohne Blende sofort fertig da (gemessen: Blur
+   und Fläche schon im ersten Bild am Ziel). */
+.finale[hidden] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
+/* **Die Karte blendet über ihre EIGENSCHAFTEN ein, nicht über ihre Deckkraft.**
+   Ein Element mit `backdrop-filter` und einer laufenden `opacity`-Transition wird
+   als Gruppe komponiert, und in dieser Gruppe greift der Filter nicht: Die Karte
+   blendete sanft ein, und in dem Moment, in dem die Blende bei 1 ankam, sprangen
+   Blur und Sättigung schlagartig zu (gemessen: bei 0.5 ist ein 3-px-Blur über
+   einem Streifenmuster nicht messbar, bei 0.999 voll da). Also fährt hier alles
+   einzeln hoch, was die Karte ausmacht — Fläche, Rand, Schatten und der Filter —,
+   und die Deckkraft bleibt bei 1. Der INHALT darf faden: Er trägt keinen Filter. */
 .finale-card {
   pointer-events: auto;
   text-align: center;
   padding: 42px 56px;
   border-radius: 22px;
+  background: transparent;
+  border: 1px solid transparent;
+  backdrop-filter: blur(0) saturate(1);
+  -webkit-backdrop-filter: blur(0) saturate(1);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0);
+  transition: background-color 0.9s ease, border-color 0.9s ease, box-shadow 0.9s ease,
+    backdrop-filter 0.9s ease, -webkit-backdrop-filter 0.9s ease;
+}
+
+.finale.in .finale-card {
   background: var(--glas);
-  border: 1px solid var(--glas-rand);
+  border-color: var(--glas-rand);
   backdrop-filter: blur(20px) saturate(1.3);
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
   box-shadow: 0 34px 100px rgba(0, 0, 0, 0.55);
+}
+
+.finale-card > * {
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.finale.in .finale-card > * {
+  opacity: 1;
 }
 
 /* Wie der Intro-Kicker eine gelesene Zeile, keine gesperrte Dachzeile */

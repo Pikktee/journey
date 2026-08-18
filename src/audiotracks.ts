@@ -140,6 +140,35 @@ export function videoTonHuelle(t: number, dauer: number, fadeS = VIDEO_FADE_S): 
   return x
 }
 
+/**
+ * Höchste Pegeländerung je Sekunde Wanduhr für den Video-Ton — die volle Strecke
+ * dauert damit rund 125 ms.
+ *
+ * Die Hülle allein reicht als Knacks-Schutz nicht, denn sie läuft über die
+ * FILMzeit: Braucht die Datei eine Sekunde bis zum ersten Bild (Mobilfunk,
+ * WebView), steht die Hülle beim Anlauf schon bei 1 und der Ton setzt mit voller
+ * Lautstärke mitten im Klip ein — genau das kurze Knacken beim Einblenden.
+ * Dasselbe gilt nach jedem Suchlauf. Die Rampe deckelt jeden solchen Sprung,
+ * ohne die gewollte 1,4-s-Blende an den Schnittkanten spürbar zu verzögern.
+ */
+export const VIDEO_PEGEL_PRO_S = 8
+
+/** Größter Zeitschritt, den die Rampe zählt — ein Ruckler soll sie nicht überspringen. */
+const VIDEO_RAMPE_MAX_DT_S = 0.05
+
+/**
+ * Einen Schritt der Pegel-Rampe rechnen (DOM-frei): vom Ist-Wert Richtung Ziel,
+ * höchstens `proS` je Sekunde. `dtS ≤ 0` heißt „keine Zeit vergangen" und lässt
+ * den Pegel stehen.
+ */
+export function gerampterPegel(ist: number, ziel: number, dtS: number, proS = VIDEO_PEGEL_PRO_S): number {
+  const z = Math.max(0, Math.min(1, Number(ziel) || 0))
+  const i = Math.max(0, Math.min(1, Number(ist) || 0))
+  if (!(dtS > 0)) return i
+  const schritt = proS * Math.min(dtS, VIDEO_RAMPE_MAX_DT_S)
+  return Math.max(0, Math.min(1, i + Math.max(-schritt, Math.min(schritt, z - i))))
+}
+
 /** Equal-Power-Kurve fürs Video (sin): konstante empfundene Lautheit im Crossfade. */
 export function videoLautstaerke(huelle: number): number {
   const g = Math.max(0, Math.min(1, huelle))
@@ -196,6 +225,20 @@ export interface AudioSpuren {
   setMusikEnabled(on: boolean): void
   setSfxEnabled(on: boolean): void
   setDucking(pegel: DuckPegel): void
+  /**
+   * Den laufenden Ton ausklingen lassen, statt ihn zu stoppen — der Weg zum
+   * Endscreen und zurück zum Startscreen.
+   *
+   * Nötig ist das wegen der Pause-Regel: Steht der Playhead IM Bereich und geht
+   * das Gate zu, hält der Ton sofort an und friert seine Position ein (man hat
+   * die Pause gedrückt und will genau dort weiterhören). Am Tour-Ende ist
+   * dieselbe Lage aber keine Pause, sondern ein Schluss — und der klang, als
+   * hätte jemand den Stecker gezogen. Solange das Verklingen läuft, gilt für
+   * jede Bereichs-Spur Ziel 0 mit der schnellen Blende (`VERKLING_BLENDE`),
+   * unabhängig davon, ob der Kopf noch im Bereich steht. Der nächste Frame mit
+   * offenem Gate hebt es auf.
+   */
+  verklinge(): void
   /** Höchster Blend-Pegel aller Bereichs-Spuren (Debug/E2E) */
   readonly level: number
   /** Quelle der Spur unter dem Playhead (Debug/E2E) */
@@ -238,6 +281,13 @@ export const KURATIERTER_PEGEL = 0.22
  */
 export const STUDIO_PEGEL_VORGABE = 0.8
 
+/**
+ * Blend-Faktor je 60-ms-Tick beim Verklingen (`verklinge`): rund 0,9 s bis zur
+ * Stille. Die gewöhnliche Bereichsblende (0.06 ≈ 2,5 s) wäre hier zu träge —
+ * der Startscreen steht dann längst und die Musik läuft noch darunter weiter.
+ */
+export const VERKLING_BLENDE = 0.14
+
 export function createAudioTracks(
   tracks: SpielSpur[],
   { volume = KURATIERTER_PEGEL }: { volume?: number } = {},
@@ -257,6 +307,7 @@ export function createAudioTracks(
   let vorherS = 0 // interne Vorher-Position für die SFX-Kantenerkennung
   let duckTgt = 1
   let duck = 1
+  let verklingt = false // s. `verklinge` — gilt bis der Ton still ist oder das Gate wieder öffnet
 
   const vol = (t: TourAudio) => Math.max(0, Math.min(1, volume * (t.gain ?? 1)))
 
@@ -281,6 +332,7 @@ export function createAudioTracks(
   // Timer wie music.ts, damit der Ton unabhängig von der Render-Schleife läuft.
   const timer = setInterval(() => {
     const offen = gate()
+    if (offen) verklingt = false // Wiedergabe ist zurück — wieder der gewöhnliche Betrieb
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s), ohne zu rattern
     for (const spur of musik) {
       const drin = istAktiv(spur, jetztS)
@@ -324,14 +376,18 @@ export function createAudioTracks(
       // Ducking gilt der MUSIK: Ein Effekt, der zum Video gehört (Brandung unter
       // einer Strandaufnahme), soll nicht unter dessen eigenem Ton wegtauchen.
       const pegelDuck = spur.type === 'music' ? duck : 1
-      if (drin && !offen) {
+      // `verklingt` nimmt genau diesen Zweig aus: Am Tour-Ende steht der Kopf
+      // oft mitten im Bereich, und dort ist das Zumachen des Gates kein
+      // Anhalten, sondern ein Schluss (s. `verklinge`).
+      if (drin && !offen && !verklingt) {
         if (!el.paused) el.pause()
         el.volume = Math.max(0, Math.min(1, spur.level * pegelDuck))
         continue
       }
 
       const tgt = want ? vol(spur) : 0
-      spur.level += (tgt - spur.level) * 0.06 // ~2,5 s Blende bei 60 ms Tick (wie music.ts)
+      // Beim Verklingen kürzer: rund 0,9 s statt der 2,5 s einer Bereichsgrenze.
+      spur.level += (tgt - spur.level) * (verklingt ? VERKLING_BLENDE : 0.06) // 60-ms-Tick (wie music.ts)
       el.volume = Math.max(0, Math.min(1, spur.level * pegelDuck))
       // Retry nach Autoplay-Block bzw. nach Pause-Einfrieren. `ended` schließt
       // den Fall aus, den es ohne Loop jetzt gibt: eine durchgelaufene Datei
@@ -369,6 +425,8 @@ export function createAudioTracks(
     setSfxEnabled: (on: boolean) => { sfxEnabled = on },
     // Video-Ton-Hülle 0..1 → Musik ducken (Equal-Power); true/false bleibt kompatibel.
     setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
+    // Ausklingen statt Stoppen (Endscreen / zurück zum Startscreen).
+    verklinge: () => { verklingt = true },
     get level() { return musik.reduce((m, s) => Math.max(m, s.level), 0) }, // Debug/E2E
     get aktiveSpur() { return musik.find((s) => istAktiv(s, jetztS))?.src ?? null }, // Debug/E2E
     get tonStand() {

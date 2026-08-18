@@ -151,7 +151,15 @@ export function createDayNight(
     // Die virtuelle Uhr läuft schnell (~3°/s Sonnenbewegung) — 2–4 Updates/s
     // reichen, die 300-ms-Paint-Transitionen glätten die Stufen
     const now = performance.now()
-    if (Math.abs(sun.altitude - lastAlt) < 0.15 && now - lastApply < 1200) return
+    const geaendert = Math.abs(sun.altitude - lastAlt)
+    // Steht die Sonne exakt still, ist nichts zu tun — und das ist keine
+    // Feinheit: Die Pseudo-Uhrzeit kommt aus dem STRECKENanteil, im Foto- und
+    // Video-Halt steht sie also. Das Grading dennoch alle 1,2 s neu zu
+    // schreiben, stieß über `raster-brightness-min-transition` (2,5 s) eine
+    // Paint-Transition an, und die hielt MapLibre für ihre ganze Dauer am
+    // Zeichnen — im stehenden Halt lückenlos.
+    if (geaendert < 1e-9) return
+    if (geaendert < 0.15 && now - lastApply < 1200) return
     lastAlt = sun.altitude
     lastApply = now
     const p = paramsAt(sun.altitude)

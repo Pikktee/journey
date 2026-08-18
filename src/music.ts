@@ -4,13 +4,20 @@
 // aktiviert ist — sonst blendet sie sanft aus und pausiert.
 // Ducking bei Video-Ton: folgt der Video-Hülle (Equal-Power), s. audiotracks.ts.
 import { SeamlessLoop } from './audioloop.js'
-import { alsHuelle, videoMusikDuck, type DuckPegel } from './audiotracks.js'
+import { alsHuelle, VERKLING_BLENDE, videoMusikDuck, type DuckPegel } from './audiotracks.js'
 
 export interface Hintergrundmusik {
   setGate(fn: () => boolean): void
   setEnabled(on: boolean): void
   /** Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel. */
   setDucking(pegel: DuckPegel): void
+  /**
+   * Schneller ausklingen als an einer gewöhnlichen Gate-Kante (~0,9 s statt
+   * 2,5 s) — der Weg zum Endscreen und zurück zum Startscreen. Die Tour-Musik
+   * kennt dasselbe Wort (audiotracks.ts), damit beide Quellen zusammen enden
+   * und nicht die eine noch unter dem stehenden Startscreen weiterläuft.
+   */
+  verklinge(): void
   readonly enabled: boolean
   /** Debug/Abnahme */
   readonly playing: boolean
@@ -26,13 +33,15 @@ export function createMusic(url: string, { volume = 0.16 }: { volume?: number } 
   let master = 0
   let duckTgt = 1
   let duck = 1
+  let verklingt = false
 
   // Träge Blende + Play/Pause nach Ziel (aktiviert && Gate). Eigener Timer, damit die
   // Musik unabhängig von der Wetter-/Kamera-Schleife läuft.
   const timer = setInterval(() => {
     const want = enabled && gate()
+    if (want) verklingt = false
     const tgt = want ? volume : 0
-    master += (tgt - master) * 0.06 // ~2,5 s Blende bei 60 ms Tick
+    master += (tgt - master) * (verklingt ? VERKLING_BLENDE : 0.06) // 2,5 s, beim Verklingen 0,9 s
     duck += (duckTgt - duck) * 0.45 // folgt der Video-Hülle eng (~0,15 s)
     if (want && loop.paused && !loop._blocked) loop.play().catch(() => {})
     loop.volume = master * duck
@@ -47,6 +56,7 @@ export function createMusic(url: string, { volume = 0.16 }: { volume?: number } 
     setEnabled: (on: boolean) => { enabled = on },
     // Video-Ton-Hülle 0..1 → Musik ducken; true/false bleibt kompatibel.
     setDucking: (pegel: DuckPegel) => { duckTgt = videoMusikDuck(alsHuelle(pegel)) },
+    verklinge: () => { verklingt = true },
     get enabled() { return enabled },
     get playing() { return !loop.paused }, // Debug/Abnahme
     get level() { return master }, // Debug/Abnahme
