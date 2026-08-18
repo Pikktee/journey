@@ -3,33 +3,40 @@
 // Outfit trägt UI, Titel, Schaltflächen und Kennzahlen. Gleichbreite Ziffern
 // kommen über OpenType `tnum` (`fontFeatureSettings`), nicht über Mono —
 // sonst zucken live tickende Werte, und die App driftet vom Web-Look.
+//
+// **Vier STATISCHE Schnitte, nicht eine variable Datei.** Vorher lag hier eine
+// einzige `outfit.ttf` (Variable Font, `wght` 100–900) und jeder Schnitt kam
+// über `FontVariation.Settings`. Am Gerät griff das nicht — und der DEFAULT
+// dieser Datei ist `wght=100`, also Thin. Die ganze App rendelte dadurch in
+// Haarstrichen: gemessen 32 von 1000 em Stammbreite, wo für SemiBold 136
+// vorgesehen sind, also rund ein Viertel der gemeinten Strichstärke. Sichtbar
+// war das als „die Schrift auf den Knöpfen ist nicht lesbar", und zwar
+// unabhängig von Farbe und Zustand — der Text war schlicht zu dünn zum Lesen.
+//
+// Der Umweg ist deshalb kein Geschmacksurteil: `variationSettings` hängt an
+// Compose-Interna (Ressourcen-Cache je Font-ID) und fällt still auf den
+// Dateidefault zurück, wenn es nicht greift. Ein statischer Schnitt trägt sein
+// Gewicht in der Datei und kann gar nicht danebenliegen. Erzeugt werden sie
+// aus derselben variablen Quelle mit `fontTools.varLib.instancer`; wer sie neu
+// baut, setzt `OS/2.usWeightClass` mit, sonst meldet jede Datei weiterhin 100.
 package app.maptale.ui
 
 import androidx.compose.material3.Typography
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.maptale.R
 
-/** Ein Schnitt der variablen Outfit-Datei, auf Gewicht eingestellt. */
-@OptIn(ExperimentalTextApi::class)
-private fun outfit(gewicht: Int) = Font(
-    R.font.outfit,
-    weight = FontWeight(gewicht),
-    variationSettings = FontVariation.Settings(
-        FontVariation.weight(gewicht),
-    ),
-)
-
 /** Titel, Überschriften, UI und Kennzahlen. */
 val Sans = FontFamily(
-    outfit(400), outfit(500), outfit(600), outfit(700),
+    Font(R.font.outfit_regular, FontWeight.Normal),
+    Font(R.font.outfit_medium, FontWeight.Medium),
+    Font(R.font.outfit_semibold, FontWeight.SemiBold),
+    Font(R.font.outfit_bold, FontWeight.Bold),
 )
 
 /**
