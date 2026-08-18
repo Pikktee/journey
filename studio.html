@@ -2097,7 +2097,9 @@
       position: absolute; top: 0; bottom: 0; border-radius: 5px;
       display: flex; align-items: center; padding: 0 7px;
       font-size: 11.5px; color: #10141b; overflow: hidden;
-      cursor: pointer; border: 1px solid transparent;
+      /* PFEIL, kein Finger: Ein Band ist ein Gegenstand der Leiste, kein Link
+         und kein Knopf. Der Finger versprach ein Springen, das es nicht tut. */
+      cursor: default; border: 1px solid transparent;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.17), 0 1px 2px rgba(0, 0, 0, 0.32);
     }
     /* Dezenter Verlauf gibt Volumen, ohne die Beschriftung zu stören. */
@@ -2268,12 +2270,12 @@
     .halt-klip.moment .info b { color: #ffd9cc; }
 
     /* — Musik & Effekte: Klips (Dauer) unten, Effekt-Pins (Zeitpunkt) oben —
-       Cursor wie bei den Zustandsbändern (Finger), nicht die Pan-Hand —
+       Cursor wie bei den Zustandsbändern (Pfeil), nicht die Pan-Hand —
        Greifen zeigt erst `.schiebt` / :active. */
     .zl-klip {
       position: absolute; top: 3px; height: 22px; border-radius: 5px;
       background: linear-gradient(180deg, rgba(245, 165, 36, 0.42), rgba(255, 111, 82, 0.42));
-      cursor: pointer; touch-action: none; min-width: 10px;
+      cursor: default; touch-action: none; min-width: 10px;
       /* KEIN overflow:hidden — das clippt die überstehenden Kanten-Griffe weg
          und macht Anfang/Ende ungreifbar. Der Name clippt selbst. */
     }
@@ -2327,7 +2329,7 @@
        Klip-Zeile, als die Pins noch eine eigene Zeile darüber hatten. Jetzt
        steht der Pin an der Stelle, an der der Klip stünde — wüsste die Leiste
        schon, wie lang die Datei ist. */
-    .zl-sfx { position: absolute; top: 8px; width: 11px; height: 11px; margin-left: -5.5px; cursor: pointer; touch-action: none; z-index: 8; }
+    .zl-sfx { position: absolute; top: 8px; width: 11px; height: 11px; margin-left: -5.5px; cursor: default; touch-action: none; z-index: 8; }
     .zl-sfx:active { cursor: grabbing; }
     .zl-sfx i { display: block; width: 100%; height: 100%; transform: rotate(45deg); background: var(--lila); border: 1.5px solid rgba(6, 8, 12, 0.8); border-radius: 2px; }
     .zl-sfx.fokus i { box-shadow: 0 0 0 2px #fff5e4, 0 0 10px rgba(197, 139, 255, 0.6); }
@@ -2346,7 +2348,7 @@
       position: absolute; top: 7px; bottom: 2px; min-width: 4px; padding: 0;
       border-radius: var(--radius-sm); overflow: visible; container-type: inline-size;
       border: 1px solid var(--rand-hell); background: var(--fl-2);
-      cursor: pointer; touch-action: none; transition: border-color 140ms ease;
+      cursor: default; touch-action: none; transition: border-color 140ms ease;
     }
     /* Die globalen Knopf-Regeln schlagen jede Klasse: `button:hover` setzt eine
        eigene Fläche (der Klip würde grau), und `button:active { transform }`
