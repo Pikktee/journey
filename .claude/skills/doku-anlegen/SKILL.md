@@ -1,6 +1,6 @@
 ---
 name: doku-anlegen
-description: Neue Dokumente, Konzepte und HTML-Mockups für Maptale anlegen — wohin sie gehören, welchen Kopf sie tragen, wie sie in Viewer und Roadmap erscheinen. Nutzen, wenn ein Konzept, eine Architektur-Notiz, ein Runbook, eine Spezifikation oder ein Prototyp entsteht, umbenannt, archiviert oder eingeplant wird.
+description: Neue Dokumente, Konzepte und Runbooks für Maptale anlegen — wohin sie gehören, welchen Kopf sie tragen, wie sie in Viewer und Roadmap erscheinen. Nutzen, wenn ein Konzept, eine Architektur-Notiz, ein Runbook oder eine Spezifikation entsteht, umbenannt, archiviert oder eingeplant wird. Für HTML-Mockups gibt es den Skill mockup-anlegen.
 ---
 
 # Doku anlegen
@@ -18,7 +18,7 @@ meldet er beim Bauen. Vollständige Beschreibung: [`docs/README.md`](../../../do
 | `docs/architecture/` | umgesetzte Entscheidungen | Wie funktioniert es heute? |
 | `docs/specs/` | Datenformate, Schnittstellen | Was ist verbindlich? |
 | `docs/ops/` | Deployment, Zugänge, Release | Wie mache ich es nach? |
-| `docs/mockups/` | HTML-Prototypen als Vorlage | Wie soll es aussehen? |
+| `docs/mockups/` | HTML-Mockups als Vorlage | Wie soll es aussehen? |
 | `docs/archive/` | Erledigtes, Verworfenes | Warum wurde es so? |
 
 Ein **neuer Ordner** wird automatisch ein eigener Bereich; der Bau warnt, dass ihm
@@ -54,6 +54,14 @@ systemteile: [Player, Backend]
   nie behauptet wurde.
 - **`betrifft`** ist eine Liste von Pfaden, aus der auch die Systemteile abgeleitet
   werden. **`systemteile`** nur setzen, wenn diese Ableitung danebenliegt.
+- **`icon`** ist das Zeichen der Roadmap-Karte, aus dem Satz in
+  `scripts/docs-viewer/icons.mjs` (`film`, `muenze`, `globus`, `paket`, …). Von Hand
+  und nicht abgeleitet: Elf der achtzehn Roadmap-Konzepte nennen zwei bis vier
+  Systemteile, ein Icon aus dem ersten davon träfe die Sache nicht. Fehlt es,
+  steht dort das neutrale Blatt — auf einer Roadmap, deren übrige Karten ein
+  eigenes Zeichen tragen, liest sich das als Lücke, deshalb meldet der Bau es.
+  Passt kein Name, lieber einen neuen Pfad in `icons.mjs` ergänzen (24×24, nur
+  Konturen, keine eigene Strichstärke) als einen ungefähren nehmen.
 - **`archiviert_aus`** schreibt der Viewer beim Archivieren selbst.
 - **Nur diese Feldnamen** werden gelesen; ein Tippfehler wäre stumm, deshalb hält
   ein Wächter die Liste (`FELDER` in `scripts/docs-viewer/kopf.mjs`).
@@ -72,11 +80,11 @@ Der Viewer nimmt den Satz aus der Liste dort; fehlt er, nimmt er den ersten Absa
 
 ## 4. Auf die Roadmap
 
-**Nur KONZEPTE, keine Prototypen**, und nur von Hand: Eine Reihenfolge ist eine
+**Nur KONZEPTE, keine Mockups**, und nur von Hand: Eine Reihenfolge ist eine
 Entscheidung. Ein Mockup ist eine Antwort in einem Konzept — es hat keinen
-Status, keine Ampel und kann nie abgearbeitet sein. Ist der Prototyp der nächste
+Status, keine Ampel und kann nie abgearbeitet sein. Ist das Mockup der nächste
 Schritt, steht das im Schritt-Text seines Konzepts samt Link (der Link stellt
-zugleich die Beziehung her). Ein Prototyp in `roadmap.md` wird beim Bauen
+zugleich die Beziehung her). Ein Mockup in `roadmap.md` wird beim Bauen
 gemeldet, und der Dienst weist ihn ab. In [`docs/roadmap.md`](../../../docs/roadmap.md) unter die passende
 Phase (`In Arbeit` · `Beschlossen` · `Angedacht`):
 
@@ -121,26 +129,14 @@ erst auf, wenn ihn jemand braucht.
 
 ## 5. Ein Mockup anlegen
 
-Eine `.html` in `docs/mockups/`, Namenspräfix bestimmt den Systemteil:
-`app-` (Android), `player-`, `studio-`, `live-` (öffentliche Seiten).
+Eigener Skill: [`mockup-anlegen`](../mockup-anlegen/SKILL.md). Dort steht der
+Kopf (`<meta name="maptale:…">` statt Front Matter), was ein Mockup zeigen und
+wie nah es am Endzustand sein muss, wann ein Mini-Konzept dazugehört und wie
+eine neue Runde die alte ablöst.
 
-- `<title>Mockup — <Was es zeigt></title>` — der Viewer schneidet „Mockup — " weg.
-- Stand und Status als `<meta name="maptale:stand|status|systemteile" content="…">`
-  im `<head>`. HTML kennt kein Front Matter; die Namen sind dieselben.
-- Bilder relativ aus `docs/mockups/landing|titelbilder|tourbilder/` laden. Diese
-  Ordner sind Arbeitskopien für die Prototypen, kein Bildarchiv; ungenutzte Dateien
-  meldet der Bau.
-- **Keine Vorschaubilder mehr.** Die Kacheln zeigten Screenshots, die den Anfang
-  des Prototyps trafen — bei uns also Marke, Titel und Merksatz statt der
-  Oberfläche. Im Dev-Server bekommt ein geöffneter Prototyp eine Leiste mit
-  „← Doku", Datei-Griffen und Archivieren — KEINE Roadmap-Phase, die kommt ans
-  Konzept.
-- **Zu welchem Konzept gehört der Entwurf?** Wird aus den Links abgeleitet: Wer
-  im Konzept den Prototyp verlinkt, stellt die Beziehung her, und die Kachel
-  zeigt „Gehört zu …". Fehlt der Link, obwohl die Beziehung besteht:
-  `<meta name="maptale:gehoert-zu" content="concepts/x.md">`.
-- Design-Tokens aus [`DESIGN.md`](../../../DESIGN.md) verwenden, damit der Prototyp
-  aussieht wie das Produkt.
+Die zwei Regeln, die von hier aus gelten: **Auf die Roadmap kommt das Konzept,
+nie das Mockup**, und die **Beziehung entsteht im Konzept** (wer dort die
+HTML-Datei verlinkt, stellt sie her).
 
 ## 6. Danach
 
@@ -150,7 +146,7 @@ npm test                        # der Wächter prüft Bereiche, Systemteile, Roa
 ```
 
 Der Bau meldet, was er nicht erraten konnte: Dokumente ohne Systemteil, Konzepte
-ohne Phase, Bilder, die kein Prototyp nutzt, tote Verweise in `roadmap.md`.
+ohne Phase, Bilder, die kein Mockup nutzt, tote Verweise in `roadmap.md`.
 
 ## Sprache
 
