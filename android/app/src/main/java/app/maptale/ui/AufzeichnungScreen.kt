@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -175,13 +176,13 @@ fun AufzeichnungScreen(
             Icon(
                 Icons.Default.PhotoCamera,
                 contentDescription = null,
-                tint = AufCta,
+                tint = LocalContentColor.current,
                 modifier = Modifier.size(18.dp),
             )
             Text(
                 "Foto aufnehmen",
                 Modifier.padding(start = 10.dp),
-                color = AufCta,
+                color = LocalContentColor.current,
                 style = MaterialTheme.typography.labelLarge,
             )
         }

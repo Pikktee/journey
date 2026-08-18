@@ -56,6 +56,24 @@ val Alarm = Color(0xFFE5484D)
 /** Amber → Coral, Primär-CTAs. */
 val VerlaufPrimaer = Brush.linearGradient(listOf(Sonne, Koralle))
 
+/**
+ * Ein GESPERRTER CTA ist eine eigene Gestalt, kein abgedunkelter aktiver.
+ *
+ * Vorher lag ein Schleier (Tinte @ 60 % Nacht) über dem Amber-Verlauf,
+ * während die Schrift `AufCta` blieb — die ist dunkel, weil sie auf Amber
+ * steht. Nach dem Abdunkeln standen dann dunkle Schrift auf dunklem Grund:
+ * gemessen 2,1:1, also unter jeder Lesbarkeitsschwelle (4,5:1). Am Telefon
+ * sah der Anmelde-Knopf dadurch nicht gesperrt aus, sondern kaputt.
+ *
+ * Deshalb kippt der gesperrte Zustand BEIDES: gedämpfte Fläche UND helle
+ * Schrift, zusammen 4,4:1. Wer hier etwas ändert, prüft das Paar und nicht
+ * eine Hälfte davon.
+ */
+val KnopfGesperrt = Color(0x1FF2EDE3)
+
+/** Schrift auf `KnopfGesperrt` — Tinte @ 50 %. */
+val AufKnopfGesperrt = Color(0x80F2EDE3)
+
 private val DunklesSchema = darkColorScheme(
     primary = Sonne,
     onPrimary = AufCta,

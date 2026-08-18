@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -89,13 +90,13 @@ fun AnmeldungScreen(viewModel: EinstellungenViewModel) {
                 CircularProgressIndicator(
                     Modifier.size(16.dp).padding(end = 8.dp),
                     strokeWidth = 2.dp,
-                    color = AufCta,
+                    color = LocalContentColor.current,
                 )
             }
             Text(
                 "Anmelden",
                 style = MaterialTheme.typography.labelLarge,
-                color = AufCta,
+                color = LocalContentColor.current,
             )
         }
 

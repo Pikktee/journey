@@ -441,17 +441,30 @@ fun KameraScreen(zurueck: () -> Unit) {
 
             // Foto/Video als Wortpaar statt als Chips: Chips sehen nach Filter
             // aus, hier wird die Betriebsart gewechselt.
+            //
+            // Der halbdunkle Grund ist derselbe wie an der Zoom-Pille und aus
+            // demselben Grund da: Die Wörter liegen auf dem LIVE-Bild, und über
+            // einer hellen Wand oder Himmel stand hier heller Text auf hellem
+            // Motiv. Das nicht gewählte Wort trug zusätzlich nur 65 % Deckkraft
+            // und verschwand dann ganz. Gedämpft wird es weiterhin, aber gegen
+            // den eigenen Grund und nicht gegen ein Bild, das niemand kennt.
             if (aufnahmeLaeuft == null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    Modifier
+                        .background(Color(0x8A06090E), RoundedCornerShape(50))
+                        .padding(horizontal = 5.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     AufnahmeModus.entries.forEach { eintrag ->
                         val gewaehlt = modus == eintrag
                         Text(
                             if (eintrag == AufnahmeModus.FOTO) "FOTO" else "VIDEO",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (gewaehlt) Sonne else Tinte.copy(alpha = 0.65f),
+                            color = if (gewaehlt) Sonne else Tinte,
                             modifier = Modifier
                                 .clip(CircleShape)
                                 .clickable { modus = eintrag }
+                                .background(if (gewaehlt) Color(0x26FFFFFF) else Color.Transparent)
                                 .padding(horizontal = 14.dp, vertical = 8.dp),
                         )
                     }

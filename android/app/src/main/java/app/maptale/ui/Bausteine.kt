@@ -31,12 +31,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -139,6 +141,12 @@ fun MarkenFeld(
 
 /**
  * Primär-CTA: Amber→Coral-Verlauf, Pill, Text auf dunklem Braun.
+ *
+ * **Die Inhaltsfarbe kommt VON HIER, nicht vom Aufrufer.** Nur der Knopf
+ * weiß, ob er gerade den Verlauf trägt oder gesperrt ist, und die Schrift
+ * muss zum Grund passen — genau daran war der gesperrte Zustand zerbrochen
+ * (s. `KnopfGesperrt`). Aufrufer nehmen `LocalContentColor.current`; wer
+ * dort wieder `AufCta` hart hinschreibt, baut denselben Fehler nach.
  */
 @Composable
 fun PrimaerKnopf(
@@ -152,10 +160,9 @@ fun PrimaerKnopf(
         modifier
             .height(52.dp)
             .clip(Pill)
-            .background(VerlaufPrimaer, Pill)
             .then(
-                if (!enabled) Modifier.background(Color(0x9906090E), Pill)
-                else Modifier,
+                if (enabled) Modifier.background(VerlaufPrimaer, Pill)
+                else Modifier.background(KnopfGesperrt, Pill),
             )
             .clickable(
                 enabled = enabled,
@@ -165,10 +172,12 @@ fun PrimaerKnopf(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) { inhalt() }
+        CompositionLocalProvider(LocalContentColor provides if (enabled) AufCta else AufKnopfGesperrt) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) { inhalt() }
+        }
     }
 }
 
