@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mockup — Meine Touren: Kachel, Liste, Löschen, Titelbild</title>
-<meta name="maptale:stand" content="2026-08-18">
-<meta name="maptale:status" content="Entwurf, nichts gebaut">
+<meta name="maptale:stand" content="2026-08-19">
+<meta name="maptale:status" content="Entwurf. Kachel, Löschen und Bildwähler abgenommen, Listenform offen">
 <meta name="maptale:systemteile" content="Studio">
 <meta name="maptale:gehoert_zu" content="concepts/konzept_touren_uebersicht.md">
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -574,9 +574,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 .dlg .kopf p { margin: 0; font-size: 12.5px; color: var(--text-3); line-height: 1.5; }
 .dlg .rumpf { padding: 16px 20px; max-height: 400px; overflow-y: auto; }
 .dlg .raster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.dlg .gruppe-titel { font-size: 11.5px; color: var(--text-3); letter-spacing: 0.03em; margin: 16px 0 8px; display: flex; align-items: center; gap: 9px; }
-.dlg .gruppe-titel::after { content: ''; flex: 1; height: 1px; background: var(--rand); }
-.dlg .gruppe-titel:first-child { margin-top: 0; }
 .dlg .fuss { display: flex; align-items: center; gap: 10px; padding: 13px 20px; border-top: 1px solid var(--rand); background: rgba(9,12,17,0.6); }
 .dlg .fuss .stand { font-size: 12.5px; color: var(--text-3); flex: 1; }
 .dlg .fuss .stand b { color: var(--text-2); font-weight: 500; }
@@ -627,6 +624,90 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 .m-tabelle .nein { color: var(--rot); }
 .m-tabelle .mittel { color: var(--warn); }
 .regel { max-width: 80ch; border-left: 2px solid var(--akzent); padding: 6px 0 6px 16px; margin: 22px 0; color: var(--text); font-size: 15px; line-height: 1.6; }
+
+/* ————————————————————————————————————————————————————————————————
+   „Nach Monaten" — L3 weitergefeilt. Eigene Klassen (.mo-*), damit die
+   Fassung aus Runde 1 daneben unverändert stehen bleibt und man den
+   Unterschied sieht.
+   ———————————————————————————————————————————————————————————————— */
+.mo { display: flex; flex-direction: column; }
+/* Der Jahrestrenner ist KEINE Überschrift wie der Monat: Er erscheint nur
+   dort, wo das Jahr wechselt, und trägt deshalb die Jahreszahl groß und
+   die Bilanz klein. Ohne ihn steht „Dezember" über „Januar" ohne jeden
+   Hinweis, dass dazwischen ein Jahr liegt. */
+.mo-jahr { display: flex; align-items: baseline; gap: 12px; margin: 26px 0 6px; }
+.mo-jahr:first-child { margin-top: 0; }
+.mo-jahr b { font-family: var(--font-display); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.mo-jahr span { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.mo-jahr::after { content: ''; flex: 1; height: 1px; background: var(--rand-hell); }
+
+.mo-monat { display: flex; align-items: baseline; gap: 10px; margin: 20px 0 4px; padding-left: 76px; }
+.mo-monat h5 { font-family: var(--font-display); font-size: 14.5px; font-weight: 500; margin: 0; color: var(--text-2); }
+.mo-monat .zahlen { display: flex; gap: 7px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.mo-monat .zahlen span + span::before { content: '·'; margin-right: 7px; color: var(--rand-hell); }
+.mo-monat::after { content: ''; flex: 1; height: 1px; background: var(--linie); }
+
+.mo-zeile {
+  position: relative; display: flex; align-items: center; gap: 14px; padding: 6px 12px 6px 0;
+  cursor: pointer; border-radius: var(--radius-md); transition: background 140ms ease;
+}
+.mo-zeile:is(:hover, .hv) { background: var(--fl-1); }
+.mo-zeile .tag {
+  width: 56px; flex: none; text-align: right; padding-right: 14px; position: relative;
+  font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums;
+}
+.mo-zeile .tag em { display: block; font-style: normal; font-size: 10.5px; color: var(--text-zart); }
+/* Die Achse läuft DURCH die Zeilen, nicht je Zeile neu: sie ist die Zeit,
+   nicht die Zeile. Deshalb ragt sie oben und unten über. */
+.mo-zeile .tag::after { content: ''; position: absolute; right: -1px; top: -10px; bottom: -10px; width: 1px; background: var(--rand); }
+.mo-zeile .punkt {
+  position: absolute; right: -4px; top: 50%; translate: 0 -50%; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--rand-hell); border: 2px solid var(--bg-tief); transition: background 140ms ease, scale 140ms ease;
+}
+.mo-zeile:is(:hover, .hv) .punkt { background: var(--akzent); scale: 1.15; }
+.mo-zeile .mini { position: relative; border-radius: 7px; overflow: hidden; flex: none; background: var(--fl-2); }
+.mo-zeile .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mo-zeile .mini .pl { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6,8,12,0.45); color: #fff; opacity: 0; transition: opacity 150ms ease; }
+.mo-zeile .mini .pl svg { width: 15px; height: 15px; margin-left: 1px; }
+.mo-zeile:is(:hover, .hv) .mini .pl { opacity: 1; }
+.mo-zeile .txt { flex: 1; min-width: 0; }
+.mo-zeile .txt .t { font-family: var(--font-display); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-zeile .txt .f { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; margin-top: 1px; }
+.mo-zeile .txt .f svg { width: 12px; height: 12px; opacity: 0.75; }
+.mo-zeile .txt .f span + span::before { content: '·'; margin-right: 7px; color: var(--rand-hell); }
+.mo-zeile .rechts { display: flex; align-items: center; gap: 7px; flex: none; }
+.mo-zeile .werkzeug { display: flex; gap: 2px; opacity: 0; transition: opacity 140ms ease; }
+.mo-zeile:is(:hover, .hv, :focus-within) .werkzeug { opacity: 1; }
+.mo-zeile .werkzeug button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-3); }
+.mo-zeile .werkzeug button:hover { background: var(--fl-3); color: var(--text); }
+.mo-zeile .werkzeug button.gefahr:hover { background: rgba(229,72,77,0.16); color: #ff9a9d; }
+.mo-zeile .werkzeug button svg { width: 15px; height: 15px; }
+
+/* Dichte: dieselbe Zeile, drei Miniaturgrößen. Die MINDESTHÖHE gehört dazu:
+   Ohne sie ist die Zeile so hoch wie ihr Inhalt, und die eine Tour ohne
+   Werkzeuge (die gerade entsteht) sitzt 7 px flacher als der Rest. In einer
+   Liste, die man überfliegt, ist genau das der Ausreißer, den man sieht. */
+.mo.d1 .mo-zeile { min-height: 49px; }
+.mo.d2 .mo-zeile { min-height: 62px; }
+.mo.d3 .mo-zeile { min-height: 81px; }
+.mo.d1 .mo-zeile .mini { width: 44px; height: 28px; }
+.mo.d2 .mo-zeile .mini { width: 68px; height: 43px; }
+.mo.d3 .mo-zeile .mini { width: 104px; height: 65px; }
+.mo.d3 .mo-zeile { padding-top: 8px; padding-bottom: 8px; }
+.mo.d3 .mo-zeile .txt .t { font-size: 16px; }
+
+/* Die Tour, die gerade entsteht: sie hat weder Datum noch Bild, gehört aber
+   in den Monat, in dem sie aufgenommen wurde. */
+.mo-zeile.arbeitet { cursor: default; }
+.mo-zeile.arbeitet .mini { display: grid; place-items: center; color: var(--text-3); }
+.mo-zeile.arbeitet .mini img { filter: grayscale(0.7) brightness(0.45); }
+.mo-zeile .lauf { position: absolute; left: 70px; right: 12px; bottom: 2px; height: 2px; background: rgba(255,255,255,0.06); border-radius: var(--radius-full); overflow: hidden; }
+.mo-zeile .lauf span { position: absolute; top: 0; height: 100%; width: 38%; border-radius: var(--radius-full); background: linear-gradient(90deg, transparent, var(--akzent), var(--akzent-2)); animation: wandern 1.5s cubic-bezier(0.65,0,0.35,1) infinite; }
+
+/* Eine Lücke im Kalender ist eine AUSSAGE („in diesen Monaten warst du nicht
+   unterwegs") und darf trotzdem keinen Platz fressen: eine Zeile, kein Kopf. */
+.mo-luecke { display: flex; align-items: center; gap: 10px; padding: 7px 0 7px 76px; font-size: 12px; color: var(--text-zart); }
+.mo-luecke::after { content: ''; flex: 1; height: 1px; background: repeating-linear-gradient(90deg, var(--rand) 0 3px, transparent 3px 7px); }
 </style>
 </head>
 <body>
@@ -668,6 +749,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
     <nav class="m-sprung">
       <a href="#kachel">Kachel</a>
       <a href="#listen">Liste</a>
+      <a href="#monate">Nach Monaten</a>
       <a href="#loeschen">Löschen</a>
       <a href="#titelbild">Titelbild</a>
       <a href="#umsetzung">Umsetzung</a>
@@ -1038,12 +1120,13 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
     <div class="m-variante">
       <header>
         <h3>L3 — nach Monat gruppiert</h3>
-        <span class="m-marke still">wenn es viele werden</span>
+        <span class="m-marke rat">weitergefeilt unten</span>
       </header>
       <p class="m-warum">
         Dichteste Form: eine Zeitachse links, Monatsköpfe als Zwischenüberschriften.
         Touren sind Ereignisse mit Datum — wer eine bestimmte sucht, weiß meistens noch
-        „irgendwann im Juli". Erst ab etwa 20 Touren ist der Gewinn größer als der Preis
+        „irgendwann im Juli". Das ist die Fassung aus Runde 1; wie sie aussieht, wenn man
+        ihr die harten Fälle beibringt, steht in <a href="#monate">Nach Monaten</a>. Erst ab etwa 20 Touren ist der Gewinn größer als der Preis
         (die Sortierung ist dann faktisch auf „nach Datum" festgenagelt: nach Strecke
         sortierte Monatsgruppen ergeben keinen Sinn).
       </p>
@@ -1111,12 +1194,239 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
     </div>
   </section>
 
+
+  <!-- ————————————————————————— NACH MONATEN ————————————————————————— -->
+  <section class="m-abschnitt" id="monate">
+    <h2>Nach Monaten, weitergefeilt <span class="tag">L3</span></h2>
+    <p class="m-warum">
+      L3 war in Runde 1 die Ansicht „für später, wenn es viele werden". Sie ist aber die
+      einzige, die zu dem passt, was eine Tour ist: <b>ein Ereignis mit Datum</b>. Wer
+      eine bestimmte sucht, weiß fast nie die Kilometerzahl und fast immer noch die
+      Jahreszeit. Unten steht sie mit dem, was in Runde 1 fehlte: Jahreswechsel, Lücken,
+      die Tour, die gerade entsteht, und eine Antwort auf die Dichte.
+    </p>
+    <p class="m-warum">
+      <b>Was sie kostet, gehört dazu:</b> Nach Monaten gruppiert ist die Sortierung
+      faktisch auf „nach Datum" festgelegt — nach Strecke sortierte Monatsgruppen ergeben
+      keinen Sinn. Wer vergleichen und aufräumen will, braucht L1 daneben. Die offene
+      Frage ist also nicht „L3 oder L1", sondern: <b>ist L3 die Hauptansicht und L1 die
+      Nebenform?</b>
+    </p>
+
+    <div class="m-buehne">
+      <div class="m-hv-fahne">zweite Zeile im August: Zeigen-Zustand · alle harten Fälle echt gebaut</div>
+      <div class="mo d2">
+        <div class="mo-jahr"><b>2026</b><span>7 Touren · 142,6 km</span></div>
+
+        <div class="mo-monat"><h5>August</h5><div class="zahlen"><span>3 Touren</span><span>54,2 km</span><span>1 240 hm</span></div></div>
+
+        <div class="mo-zeile arbeitet">
+          <div class="tag">heute<em>Mittwoch</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div>
+          <div class="txt">
+            <div class="t">Aufnahme vom 19. August</div>
+            <div class="f"><span>entsteht gerade, Orte werden benannt</span><span>14 Aufnahmen</span></div>
+          </div>
+          <div class="rechts"><span class="sichtpille">entsteht</span></div>
+          <div class="lauf"><span></span></div>
+        </div>
+
+        <div class="mo-zeile hv-ziel">
+          <div class="tag">3. Aug<em>Montag</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+          <div class="txt">
+            <div class="t">Koh Pha-ngan, Inselrunde</div>
+            <div class="f"><span><svg><use href="#i-moped"/></svg>Moped</span><span>41,8 km</span><span>6:20 Film</span><span>12 Aufnahmen</span></div>
+          </div>
+          <div class="rechts">
+            <button class="sicht-chip"><svg><use href="#i-schloss"/></svg>Privat</button>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mo-zeile">
+          <div class="tag">1. Aug<em>Samstag</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 30% 60%" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+          <div class="txt">
+            <div class="t">Frankfurt, Westend im Regen bis hinunter zum Mainufer und zurück über die Alte Brücke</div>
+            <div class="f"><span><svg><use href="#i-bike"/></svg>Rad</span><span>6,2 km</span><span>2:05 Film</span><span>5 Aufnahmen</span></div>
+          </div>
+          <div class="rechts">
+            <button class="sicht-chip link"><svg><use href="#i-schloss-offen"/></svg>Per Link</button>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mo-monat"><h5>Juli</h5><div class="zahlen"><span>2 Touren</span><span>24,6 km</span><span>310 hm</span></div></div>
+
+        <div class="mo-zeile">
+          <div class="tag">28. Jul<em>Dienstag</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/stockholm.jpg" alt="" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+          <div class="txt">
+            <div class="t">Stockholm, Schären am Abend</div>
+            <div class="f"><span><svg><use href="#i-bike"/></svg>Rad</span><span>18,4 km</span><span>4:05 Film</span><span>8 Aufnahmen</span></div>
+          </div>
+          <div class="rechts">
+            <button class="sicht-chip oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mo-zeile">
+          <div class="tag">21. Jul<em>Dienstag</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+          <div class="txt">
+            <div class="t">Lissabon, Alfama hinunter</div>
+            <div class="f"><span><svg><use href="#i-walk"/></svg>Zu Fuß</span><span>6,2 km</span><span>5:10 Film</span><span>14 Aufnahmen</span></div>
+          </div>
+          <div class="rechts">
+            <button class="sicht-chip link"><svg><use href="#i-schloss-offen"/></svg>Per Link</button>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mo-luecke">April bis Juni: keine Touren</div>
+
+        <div class="mo-monat"><h5>März</h5><div class="zahlen"><span>1 Tour</span><span>63,8 km</span><span>820 hm</span></div></div>
+
+        <div class="mo-zeile">
+          <div class="tag">14. Mär<em>Samstag</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 70% 40%" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+          <div class="txt">
+            <div class="t">Berner Oberland, Talstraße</div>
+            <div class="f"><span><svg><use href="#i-bike"/></svg>Rad</span><span>63,8 km</span><span>9:40 Film</span><span>21 Aufnahmen</span></div>
+          </div>
+          <div class="rechts">
+            <button class="sicht-chip oeffentlich"><svg><use href="#i-welt"/></svg>Öffentlich</button>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mo-jahr"><b>2025</b><span>2 Touren · 31,4 km</span></div>
+        <div class="mo-monat"><h5>Dezember</h5><div class="zahlen"><span>1 Tour</span><span>12,9 km</span></div></div>
+        <div class="mo-zeile">
+          <div class="tag">27. Dez<em>Samstag</em><span class="punkt"></span></div>
+          <div class="mini"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 20% 70%" /><span class="pl"><svg><use href="#i-play"/></svg></span></div>
+          <div class="txt">
+            <div class="t">Taunus, Feldberg im Schnee</div>
+            <div class="f"><span><svg><use href="#i-walk"/></svg>Zu Fuß</span><span>12,9 km</span><span>3:15 Film</span><span>9 Aufnahmen</span></div>
+          </div>
+          <div class="rechts">
+            <button class="sicht-chip"><svg><use href="#i-schloss"/></svg>Privat</button>
+            <div class="werkzeug">
+              <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
+              <button title="Als Video"><svg><use href="#i-film"/></svg></button>
+              <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Vier Dinge, die Runde 1 nicht hatte</b> und die man beim Bauen sonst
+        einzeln nachreicht: der <b>Jahrestrenner</b> (ohne ihn steht „Dezember" über
+        „Januar", und niemand sieht die Jahresgrenze); die <b>Lücke</b> als eine Zeile
+        statt als fehlende Monate (dass ein Vierteljahr leer war, ist eine Auskunft, aber
+        keine drei leeren Köpfe wert); die Tour, die <b>gerade entsteht</b>, oben im
+        laufenden Monat statt in einem Sonderbereich; und der <b>Wochentag</b> unter dem
+        Datum, weil eine Tour meistens am Wochenende liegt und man sie so wiederfindet.
+        Der <b>lange Titel</b> in der zweiten August-Zeile zeigt zugleich, dass die Zeile
+        ihn abschneiden muss, nicht umbrechen: Sonst wackelt die Achse links.</span>
+      </div>
+    </div>
+
+    <!-- ————————— Feinfrage: die Dichte ————————— -->
+    <div class="m-variante">
+      <header><h3>Wie dicht?</h3><span class="m-marke rat">D2</span></header>
+      <p class="m-warum">
+        Dieselben Zeilen, drei Miniaturgrößen. Die Frage ist nicht Geschmack, sondern
+        <b>wie viele Touren auf einen Bildschirm passen</b>, ohne dass man das Bild
+        aufgibt, an dem man die Reise erkennt.
+      </p>
+      <div class="m-buehne">
+        <div class="m-reihe drei">
+          <div class="m-fall">
+            <h4>D1 — kompakt <span class="tag still">44 px</span></h4>
+            <p class="rat">~18 Touren je Bildschirm. Das Bild ist nur noch ein Farbfleck; man liest die Titel.</p>
+            <div class="mo d1">
+              <div class="mo-monat"><h5>August</h5><div class="zahlen"><span>3 Touren</span></div></div>
+              <div class="mo-zeile"><div class="tag">3. Aug<span class="punkt"></span></div><div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="txt"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="f"><span>41,8 km</span><span>6:20</span></div></div></div>
+              <div class="mo-zeile"><div class="tag">1. Aug<span class="punkt"></span></div><div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="txt"><div class="t">Frankfurt, Westend im Regen</div><div class="f"><span>6,2 km</span><span>2:05</span></div></div></div>
+            </div>
+          </div>
+          <div class="m-fall">
+            <h4>D2 — mittel <span class="tag">empfohlen</span></h4>
+            <p class="rat">~12 Touren. Das Titelbild ist groß genug, um die Reise zu erkennen, die Zeile bleibt eine Zeile.</p>
+            <div class="mo d2">
+              <div class="mo-monat"><h5>August</h5><div class="zahlen"><span>3 Touren</span></div></div>
+              <div class="mo-zeile"><div class="tag">3. Aug<span class="punkt"></span></div><div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="txt"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="f"><span>41,8 km</span><span>6:20</span></div></div></div>
+              <div class="mo-zeile"><div class="tag">1. Aug<span class="punkt"></span></div><div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="txt"><div class="t">Frankfurt, Westend im Regen</div><div class="f"><span>6,2 km</span><span>2:05</span></div></div></div>
+            </div>
+          </div>
+          <div class="m-fall">
+            <h4>D3 — Bildkarte <span class="tag still">104 px</span></h4>
+            <p class="rat">~8 Touren. Schön bei wenigen Reisen, aber dann ist die Kachelansicht die ehrlichere Wahl: Sie zeigt dasselbe Bild größer.</p>
+            <div class="mo d3">
+              <div class="mo-monat"><h5>August</h5><div class="zahlen"><span>3 Touren</span></div></div>
+              <div class="mo-zeile"><div class="tag">3. Aug<span class="punkt"></span></div><div class="mini"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="txt"><div class="t">Koh Pha-ngan, Inselrunde</div><div class="f"><span>41,8 km</span><span>6:20</span></div></div></div>
+              <div class="mo-zeile"><div class="tag">1. Aug<span class="punkt"></span></div><div class="mini"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="txt"><div class="t">Frankfurt, Westend im Regen</div><div class="f"><span>6,2 km</span><span>2:05</span></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="m-fuss-note">
+          <span>⚑</span>
+          <span>Die Zahlen sind bei 900 px Fensterhöhe gemessen. <b>D3 ist der Fall, der
+          sich selbst widerlegt:</b> Wer Bilder in dieser Größe will, will die Kacheln,
+          und die gibt es schon.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-variante">
+      <header><h3>Was im Monatskopf steht</h3><span class="m-marke rat">Kennzahlen, keine Karte</span></header>
+      <p class="m-warum">
+        Der Kopf trägt <b>Monat, Zahl der Touren, Kilometer und Höhenmeter</b> — die Summe
+        dessen, was darunter steht. Das kostet nichts (der Server liefert beides je Tour)
+        und macht aus der Gruppierung eine Auskunft: „August 2026: 3 Touren, 54,2 km".
+        Eine <b>Mini-Karte je Monat</b> wäre der nächste naheliegende Wunsch und ist
+        bewusst nicht hier: Sie müsste je Monat aus mehreren Spuren zusammengesetzt und
+        gezeichnet werden, also ein Bild pro Gruppe, das beim Scrollen entsteht. Das ist
+        eine eigene Entscheidung mit eigenen Kosten, keine Beigabe zur Gruppierung.
+      </p>
+    </div>
+  </section>
+
   <!-- ————————————————————————— LÖSCHEN ————————————————————————— -->
 <section class="m-abschnitt" id="loeschen">
-    <h2>Wie wird gelöscht?</h2>
+    <h2>Wie wird gelöscht? <span class="tag">entschieden</span></h2>
     <p class="m-warum">
-      Drei Muster, gemessen an der Randbedingung: <b>der Server löscht hart</b>, samt
-      aller Fotos und Videos. Ein Wiederherstellen gibt es nicht.
+      <b>Vorerst hart, mit Dialog.</b> Der Server löscht Datenbankzeile und Medien in
+      einem Zug; ein Wiederherstellen gibt es nicht, und ein Papierkorb wäre kein
+      Oberflächen-Entwurf, sondern ein Feld <code>geloescht_am</code>, ein Aufräumlauf und
+      eine zweite Antwort auf jede Frage „wie viel Platz belegt das?". Solange es ihn
+      nicht gibt, ist Muster 1 die einzige Absicherung, die zur Härte der Löschung passt:
+      Es steht im Dialog, WAS verschwindet.
     </p>
     <div class="m-drei">
       <div class="m-fall">
@@ -1162,7 +1472,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
       </div>
 
       <div class="m-fall">
-        <h4>3 · Sofort löschen, mit „Rückgängig"</h4>
+        <h4>3 · Sofort löschen, mit „Rückgängig" <span class="tag aus">verworfen</span></h4>
         <p class="rat"><b>Geht hier nicht</b> — und das ist die wichtigste Erkenntnis dieses
         Abschnitts. Der Toast verspricht eine Umkehr, die der Server nicht kann: die
         Medien sind dann bereits gelöscht. Machbar wäre er nur mit einem echten
@@ -1244,9 +1554,11 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
       zurückkönnen.
       <b>3 · Videos gehören dazu</b> (sie liefern ein Standbild) und sind als solche
       erkennbar.
-      <b>4 · Auch Aufnahmen ohne Ort</b> stehen zur Wahl — sie sind im Film nicht platziert,
-      als Schaufenster aber oft die besten. Sie stehen in einer eigenen Gruppe, damit klar
-      ist, warum sie im Film nicht vorkommen.
+      <b>4 · Auch Aufnahmen ohne Ort</b> stehen zur Wahl, denn sie sind im Film nicht
+      platziert, als Schaufenster aber oft die besten. Sie stehen MIT in der Liste und
+      tragen nur ein Zeichen: Eine eigene Gruppe hätte den Dialog nach dem Film sortiert,
+      obwohl hier das Schaufenster gewählt wird, und in einer Tour ohne platzierte
+      Aufnahmen bestünde die Liste aus einer leeren und einer vollen Abteilung.
     </p>
     <div class="m-buehne">
       <div class="dlg">
@@ -1256,7 +1568,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
           geteilten Links. Ausschnitt wie hier gezeigt.</p>
         </div>
         <div class="rumpf">
-          <div class="gruppe-titel">Im Film platziert · 9</div>
           <div class="raster" data-raster>
             <button class="bk auto gewaehlt">
               <svg class="zeichen"><use href="#i-funke"/></svg>
@@ -1273,8 +1584,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 60% 25%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
             <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 50% 80%" /><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
           </div>
-          <div class="gruppe-titel">Ohne Ort · 3 <span style="color:var(--text-3);font-size:11px">— im Film nicht platziert</span></div>
-          <div class="raster" data-raster>
             <button class="bk"><img src="tourbilder/kohphangan.jpg" alt="" style="object-position: 10% 30%" /><span class="marke"><svg><use href="#i-ortlos"/></svg>ohne Ort</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
             <button class="bk"><img src="tourbilder/stockholm.jpg" alt="" style="object-position: 90% 50%" /><span class="marke"><svg><use href="#i-ortlos"/></svg>ohne Ort</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>
             <button class="bk"><img src="tourbilder/lissabon.jpg" alt="" style="object-position: 20% 20%" /><span class="marke"><svg><use href="#i-ortlos"/></svg>ohne Ort</span><span class="haken"><svg><use href="#i-haken"/></svg></span></button>

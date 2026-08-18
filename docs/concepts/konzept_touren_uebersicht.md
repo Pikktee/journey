@@ -1,6 +1,6 @@
 ---
-stand: 2026-08-18
-status: Entwurf, nichts gebaut
+stand: 2026-08-19
+status: Entwurf. Kachel, Löschen und Bildwähler abgenommen, Listenform offen
 betrifft:
   - src/studio/studio.ts
   - studio.html
@@ -40,9 +40,9 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
 | Stück | Vorschlag | Steht offen |
 | --- | --- | --- |
 | Kachel | `M2 · G2 · P1 · S2` mit der weichen Einblendung `F2`: ein ⋯ statt drei Zeichen, Signet steht still, Play bleibt (das einzige benannte Abspiel-Ziel für Tastatur und Screenreader), Sichtbarkeit und Filmdauer wandern in den Fuß | entschieden |
-| Liste | `L1`, Tabelle mit sortierenden Spaltenköpfen und ausgerichteten Zahlen | ja |
-| Löschen | Dialog mit Namen und Folgen, kein Rückgängig-Toast | ja |
-| Titelbild | `V2`, kleiner Dialog mit Raster, aus dem ⋯-Menü heraus | ja |
+| Liste | `L3` nach Monaten als Hauptansicht, `L1` als Tabelle daneben | offen: eine oder beide? |
+| Löschen | Dialog mit Namen und Folgen, hart, kein Papierkorb | entschieden |
+| Titelbild | `V2`, kleiner Dialog mit Raster, **eine** Liste ohne Gruppen | entschieden |
 | Video-Export | derselbe Menüpunkt öffnet das vorhandene Export-Blatt | entschieden, nur der Weg fehlt |
 
 
@@ -62,6 +62,42 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
   widerruft. Aus demselben Grund verlässt er auch die Werkzeugspalte der Liste:
   Die hat für die Sichtbarkeit eine eigene Spalte.
 
+## Nach Monaten ist die naheliegende Ansicht
+
+Eine Tour ist ein **Ereignis mit Datum**. Wer eine bestimmte sucht, weiß fast nie
+die Kilometerzahl und fast immer noch die Jahreszeit. Deshalb ist `L3` aus Runde 1
+weitergefeilt worden, und zwar an den Stellen, die ein Entwurf gern auslässt:
+Jahrestrenner, Monate ohne Touren als eine Zeile statt als fehlende Köpfe, die
+Tour, die gerade entsteht, im laufenden Monat, und der Wochentag unter dem Datum.
+Die Dichte ist entschieden (`D2`, Miniatur 68 × 43): Bei der größten Stufe zeigt
+die Ansicht dasselbe Bild kleiner als die Kachelansicht und widerlegt sich selbst.
+
+**Der Preis gehört dazu:** Nach Monaten gruppiert ist die Sortierung faktisch auf
+„nach Datum" festgelegt, denn nach Strecke sortierte Monatsgruppen ergeben keinen
+Sinn. Vergleichen und Aufräumen bleibt damit die Aufgabe von `L1`. Offen ist
+also nicht „L3 oder L1", sondern ob L3 die Hauptansicht wird und L1 die Nebenform.
+
+Eine **Mini-Karte je Monat** ist bewusst nicht Teil des Vorschlags: Sie müsste je
+Gruppe aus mehreren Spuren zusammengesetzt und beim Scrollen gezeichnet werden.
+Das ist eine eigene Entscheidung mit eigenen Kosten.
+
+## Löschen bleibt hart
+
+Entschieden: **Dialog mit Namen, dann weg.** Der Dialog zeigt, WAS verschwindet
+(Titelbild, Titel, Zahl der Aufnahmen, Speicherplatz) und nennt bei öffentlichen
+Touren den toten Link. Ein Papierkorb wäre kein Oberflächen-Entwurf, sondern ein
+Feld `geloescht_am`, ein Aufräumlauf und eine zweite Antwort auf jede Frage nach
+belegtem Speicher; solange es ihn nicht gibt, ist ein „Rückgängig"-Toast eine
+Zusage, die der Server nicht halten kann.
+
+## Der Bildwähler zeigt eine Liste
+
+Keine Trennung zwischen „im Film platziert" und „ohne Ort". Die Gruppierung hätte
+den Dialog nach dem FILM sortiert, obwohl darin das SCHAUFENSTER gewählt wird, und
+in einer Tour ohne platzierte Aufnahmen bestünde er aus einer leeren und einer
+vollen Abteilung. Das Zeichen an der einzelnen Kachel bleibt: Es sagt etwas über
+das Bild, ohne eine Wand zu ziehen.
+
 ## Die harten Randbedingungen
 
 - **`DELETE /api/tours/:id` löscht hart**, samt Fotos und Videos
@@ -70,7 +106,7 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
   Server nicht halten kann. Wer ihn will, braucht zuerst ein `geloescht_am` und
   einen Aufräumlauf, und das ist eine Server-Entscheidung.
 - **Die Filmdauer liegt schon in der Listen-Antwort** (`stats.filmS`, zusammen mit
-  `spur` und `finale`) — der Video-Export hat sie dorthin gebracht, die Kachel
+  `spur` und `finale`): Der Video-Export hat sie dorthin gebracht, die Kachel
   zeigt sie nur nicht. Sie ist optional: Touren, die seither nicht neu gerendert
   wurden, tragen sie nicht, und der Kachelfuß muss ohne sie auskommen.
 - **Das Export-Blatt existiert** (`oeffneExportBlatt`, aus Bibliothek und Editor
