@@ -377,20 +377,33 @@ function titelVon(abs) {
   return treffer ? treffer[1].replace(/^Mockup\s*[—–·|-]\s*/i, '').trim() : ''
 }
 
-/** Baut den Viewer neu — ohne Vorschau-Screenshots, das dauert sonst zu lang. */
+/** Die Argumente des Neubaus — ohne Vorschau-Screenshots, das dauert sonst zu lang. */
+const BAU_ARGUMENTE = () => [join(WURZEL, 'scripts', 'docs-viewer', 'build.mjs'), '--ohne-bilder']
+
+/** Baut den Viewer neu und WARTET — für die Schreibaktionen, die danach antworten. */
 export function baueNeu() {
-  execFileSync('node', [join(WURZEL, 'scripts', 'docs-viewer', 'build.mjs'), '--ohne-bilder'], {
-    cwd: WURZEL,
-    stdio: 'pipe',
+  execFileSync('node', BAU_ARGUMENTE(), { cwd: WURZEL, stdio: 'pipe' })
+}
+
+/**
+ * Dasselbe, aber ohne den Aufrufer anzuhalten.
+ *
+ * Der Wächter des Dev-Servers baut bei jedem Speichern neu, und er läuft IM
+ * Vite-Prozess: Mit `execFileSync` stünde der ganze Server dabei eine Sekunde,
+ * also auch der Player im Nebentab.
+ */
+export function baueNeuNebenher() {
+  return new Promise((fertig, fehler) => {
+    execFile('node', BAU_ARGUMENTE(), { cwd: WURZEL }, (f) => (f ? fehler(f) : fertig()))
   })
 }
 
 /**
- * Die Konzepte, zu denen ein Prototyp gehört — für die Leiste im geöffneten
- * Prototyp. Der Pfad ist relativ zu `docs/`.
+ * Die Konzepte, zu denen ein Mockup gehört — für die Leiste im geöffneten
+ * Mockup. Der Pfad ist relativ zu `docs/`.
  *
  * Es wird der ganze Sammler gefragt und nichts nachgebaut: Die Beziehung
- * entsteht aus zwei Quellen (das Konzept verlinkt die Datei, der Prototyp
+ * entsteht aus zwei Quellen (das Konzept verlinkt die Datei, das Mockup
  * nennt sein Konzept), und eine zweite Fassung dieser Regel liefe beim ersten
  * Sonderfall auseinander. Der Aufruf kostet unter einer Sekunde und passiert
  * einmal beim Öffnen — der Neubau nach jeder Änderung kostet mehr.

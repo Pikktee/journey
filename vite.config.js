@@ -86,7 +86,22 @@ function dokuAusliefern() {
     '.png': 'image/png',
     '.md': 'text/plain; charset=utf-8',
   }
-  const middleware = (server) => {
+  /**
+   * Im Dev-Server bekommt jede ausgelieferte Doku-Seite Vites eigenen Client
+   * angehängt — DIE Zeile, an der das automatische Neuladen hängt.
+   *
+   * Die Doku ist rohes, gebautes HTML und geht durch keine Vite-Transformation:
+   * Ohne diesen Verweis besteht keine Verbindung zum Dev-Server, und ein
+   * `full-reload` ginge ins Leere. In der Vorschau (`npm run preview`) bleibt
+   * er weg — dort prüft man die gebaute Fassung, und die hat keinen Wächter.
+   */
+  const mitDevClient = (inhalt, dev) => {
+    if (!dev) return inhalt
+    const marke = '<script type="module" src="/@vite/client"></script>'
+    return inhalt.includes('</body>') ? inhalt.replace('</body>', marke + '</body>') : inhalt + marke
+  }
+
+  const middleware = (server, dev) => {
     // Die schreibende Seite: bearbeiten, archivieren, zurückholen. Sie hängt
     // bewusst hier und nicht im Backend — sie schreibt in den Arbeitsbaum
     // dieses Rechners und hat auf einem Server nichts verloren.
@@ -161,31 +176,114 @@ function dokuAusliefern() {
       }
       const endung = extname(datei).toLowerCase()
       res.setHeader('Content-Type', TYPEN[endung] || 'application/octet-stream')
+      // Ohne diese Zeile ist der Wächter die halbe Miete: Die Seite lädt neu,
+      // holt `assets/stil.css` aber aus dem Speicher-Cache des Browsers und
+      // zeigt weiter die alte Fassung. Die Doku trägt keine Hashes im
+      // Dateinamen, an denen der Browser eine neue Fassung erkennen könnte.
+      if (dev) res.setHeader('Cache-Control', 'no-store')
 
       // Einem geöffneten PROTOTYP gibt der Dev-Server eine kleine Leiste mit
       // (zurück zur Doku, Roadmap, Archivieren). Sie wird beim Ausliefern
       // angehängt und steht NICHT in der Datei: Das Mockup ist eine Vorlage
       // und soll auch im Finder genau das zeigen, was es zeigt.
-      const istPrototyp = /^\/(mockups|archive\/mockups)\//.test(rel) && endung === '.html'
-      if (istPrototyp) {
+      const istMockup = /^\/(mockups|archive\/mockups)\//.test(rel) && endung === '.html'
+      if (istMockup) {
         const quelle = 'docs' + rel
         const inhalt = readFileSync(datei, 'utf8')
         const leiste = `<script src="/doku/assets/mockupleiste.js" data-datei="${quelle}"></script>`
         return res.end(
-          inhalt.includes('</body>')
-            ? inhalt.replace('</body>', leiste + '</body>')
-            : inhalt + leiste,
+          mitDevClient(
+            inhalt.includes('</body>')
+              ? inhalt.replace('</body>', leiste + '</body>')
+              : inhalt + leiste,
+            dev,
+          ),
         )
       }
+      if (endung === '.html') return res.end(mitDevClient(readFileSync(datei, 'utf8'), dev))
       res.end(readFileSync(datei))
     })
   }
   return {
     name: 'maptale-doku',
     apply: 'serve',
-    configureServer: middleware,
-    configurePreviewServer: middleware,
+    // Vite darf das GEBAUTE Verzeichnis nicht beobachten. Sonst meldet es jede
+    // der ~100 Dateien, die ein Doku-Bau schreibt, als geänderte Quelle und
+    // schickt eine Lawine eigener Reload-Nachrichten hinterher — in der die
+    // eine, auf die es ankommt, untergeht.
+    config: () => ({ server: { watch: { ignored: ['**/docs/_site/**'] } } }),
+    configureServer: (server) => {
+      middleware(server, true)
+      beobachteDoku(server)
+    },
+    configurePreviewServer: (server) => middleware(server, false),
   }
+}
+
+/**
+ * Der Wächter über den Quellen der Doku: speichern, hinschauen, fertig.
+ *
+ * Der Viewer ist eine GEBAUTE Website — `docs/_site/` entsteht aus `docs/*.md`
+ * und den Skripten unter `scripts/docs-viewer/`. Wer eine Quelle änderte, sah
+ * bis hierher weiter die alte Fassung, bis er von Hand `npm run docs` aufrief.
+ * Die Tücke daran ist, dass es sich als INHALTLICHER Fehler tarnt: Ein
+ * korrigiertes Skript verhält sich unverändert falsch, weil der Browser die
+ * Fassung von vorgestern ausführt.
+ *
+ * Die Mechanik gab es halb schon — `dienst.mjs` ruft `baueNeu()` nach jeder
+ * Schreibaktion des Viewers. Sie greift nur nicht für das, was im Editor
+ * passiert. Genau diese Lücke schließt der Wächter.
+ *
+ * Vier Dinge, die man dabei kippt:
+ *
+ *   - `docs/_site/` liegt SELBST unter `docs/`. Ohne den Ausschluss löst der
+ *     Bau die nächste Runde aus, und die übernächste.
+ *   - Gebaut wird, ohne den Server anzuhalten (`baueNeuNebenher`): Der Wächter
+ *     läuft im Vite-Prozess, ein synchroner Bau hielte auch den Player an.
+ *   - Ein Speichern über mehrere Dateien ist EIN Anlass, nicht acht — 150 ms
+ *     Ruhe, und während eines laufenden Baus wird gemerkt statt gestartet.
+ *   - Der Browser erfährt davon nur, weil jede Doku-Seite im Dev Vites Client
+ *     trägt (s. `mitDevClient`). Ohne ihn baut der Wächter still vor sich hin.
+ */
+function beobachteDoku(server) {
+  if (!server.watcher || !server.ws) return
+  const wurzel = process.cwd()
+  const quellen = [join(wurzel, 'docs'), join(wurzel, 'scripts', 'docs-viewer')]
+  const gebaut = join(wurzel, 'docs', '_site')
+
+  let laeuft = false
+  let nochmal = false
+  let warteAuf = null
+
+  const bauen = async () => {
+    if (laeuft) return void (nochmal = true)
+    laeuft = true
+    try {
+      const { baueNeuNebenher } = await import('./scripts/docs-viewer/dienst.mjs')
+      await baueNeuNebenher()
+      server.ws.send({ type: 'full-reload', path: '*' })
+      server.config.logger.info('  \x1b[32m\u279c\x1b[0m  Doku neu gebaut')
+    } catch (fehler) {
+      // Ein kaputtes Dokument soll den Dev-Server nicht mitnehmen: melden,
+      // stehen bleiben, beim nächsten Speichern wieder versuchen.
+      server.config.logger.error('  Doku-Bau fehlgeschlagen: ' + (fehler.message || fehler))
+    }
+    laeuft = false
+    if (nochmal) {
+      nochmal = false
+      bauen()
+    }
+  }
+
+  const beruehrt = (pfad) => {
+    if (pfad.startsWith(gebaut)) return
+    if (!quellen.some((q) => pfad.startsWith(q))) return
+    clearTimeout(warteAuf)
+    warteAuf = setTimeout(bauen, 150)
+  }
+
+  server.watcher.add(quellen)
+  for (const art of ['add', 'change', 'unlink']) server.watcher.on(art, beruehrt)
 }
 
 /**
