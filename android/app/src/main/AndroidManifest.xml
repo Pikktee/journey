@@ -2,7 +2,8 @@
 <!-- Maptale-Aufnahme: GPS-Track + Fotos aufzeichnen, Touren hochladen und im
      WebView-Player abspielen. Kein ACCESS_BACKGROUND_LOCATION nötig — der
      Foreground-Service startet, während die App im Vordergrund ist. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -28,6 +29,14 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Hochladen läuft als Vordergrunddienst. Das ist keine Kosmetik: Eine App
+         im Hintergrund-Cache bekommt auf Geräten mit eigener Energieverwaltung
+         (gemessen an HyperOS) GAR KEIN Netz — `dumpsys netpolicy` meldete für
+         die App `effective=APP_BACKGROUND`, während dasselbe WLAN für alles
+         andere stand. Der Upload scheiterte deshalb endlos im Backoff. Als
+         Vordergrunddienst hat der Prozess `procState=FGS`, und genau die
+         Ausnahme FOREGROUND hebt die Sperre auf. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -66,6 +75,16 @@
             android:name=".aufzeichnung.AufzeichnungsService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- WorkManager bringt diesen Dienst selbst mit, aber OHNE Typ — und ab
+             Android 14 muss jeder Vordergrunddienst einen nennen, sonst wirft
+             das System beim Start. `merge` ergänzt nur das Attribut und lässt
+             die Deklaration der Bibliothek im Übrigen stehen. Wer den Typ hier
+             entfernt, nimmt Upload und Foto-Nachzug ihren Netzzugang zurück. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <!-- Push: weckt die App, wenn eine Cloud-Tour fertig ist. Der Dienst
              läuft auch ohne google-services.json im Build mit — Firebase

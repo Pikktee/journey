@@ -3,19 +3,37 @@
 // hochgeladene werden übersprungen — Wiederaufnahme pro Datei) → Finalize →
 // kurzes Status-Polling. WorkManager retried den ganzen Worker mit Backoff;
 // da jede Stufe idempotent ist, ist das unbedenklich.
+//
+// **Der Upload läuft als VORDERGRUNDARBEIT, und das ist die Voraussetzung
+// dafür, dass er überhaupt stattfindet.** Eine App im Hintergrund-Cache
+// bekommt auf Geräten mit eigener Energieverwaltung kein Netz: An einem Xiaomi
+// (HyperOS) meldete `dumpsys netpolicy` für die App `effective=APP_BACKGROUND`
+// und der JobScheduler `Unsatisfied constraints: CONNECTIVITY`, während
+// dasselbe WLAN für jede andere App stand. Die Folge war kein Fehler, sondern
+// eine Endlosschleife: Worker startet, findet kein Netz, `vermerkeUndRetry`,
+// Backoff, von vorn. Als Vordergrunddienst hat der Prozess `procState=FGS` und
+// fällt unter die Ausnahme FOREGROUND — dieselbe, die griff, sobald die App
+// nur offen auf dem Schirm lag. Deshalb `setForeground` VOR dem ersten
+// Netzzugriff und nicht irgendwann später.
 package app.maptale.upload
 
+import android.app.Notification
 import android.content.Context
+import android.content.pm.ServiceInfo
+import androidx.core.app.NotificationCompat
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.maptale.MaptaleApp
+import app.maptale.R
 import app.maptale.benennung.TourBenennung
 import app.maptale.daten.MediumUploadStatus
 import app.maptale.daten.TourStatus
@@ -47,6 +65,9 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
         return try {
             repo.setzeStatus(tourId, TourStatus.LAEDT_HOCH)
+            // Vor dem ERSTEN Netzzugriff, sonst ist die Benennung des Ortes
+            // schon der Aufruf, der ins Leere läuft.
+            zeigeUebertragung(tour.titel, 0, 0)
 
             val punkte = repo.punkte(tourId)
             if (punkte.size < 2) {
@@ -94,11 +115,17 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val vorPatch = repo.tour(tourId) ?: aktuelleTour
             runCatching { app.apiClient.patchTour(serverId, vorPatch.titel, vorPatch.beschreibung) }
 
-            for (medium in repo.medien(tourId)) {
+            // Die Zählung nennt ALLE Medien der Tour, nicht nur die offenen:
+            // Nach einem Abbruch bei Datei 9 von 12 stünde sonst „1 von 3" da,
+            // und das sieht aus, als finge der Upload wieder von vorn an.
+            val medien = repo.medien(tourId)
+            for ((nummer, medium) in medien.withIndex()) {
+                zeigeUebertragung(aktuelleTour.titel, nummer, medien.size)
                 if (medium.uploadStatus == MediumUploadStatus.HOCHGELADEN) continue
                 app.apiClient.mediumHochladen(serverId, medium.id, repo.mediumDatei(medium))
                 repo.setzeMediumHochgeladen(tourId, medium.id)
             }
+            zeigeUebertragung(aktuelleTour.titel, medien.size, medien.size)
 
             try {
                 app.apiClient.finalisiere(serverId)
@@ -153,6 +180,53 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     }
 
     /**
+     * WorkManager fragt das ab, wenn es den Auftrag von sich aus in den
+     * Vordergrund hebt (auf Android 11 und darunter jeder beschleunigte
+     * Auftrag). Es muss dieselbe Meldung sein wie in `zeigeUebertragung`,
+     * sonst blitzte beim Start kurz eine zweite auf.
+     */
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val titel = inputData.getString(EINGABE_TOUR_ID)?.let { app.repository.tour(it)?.titel }
+        return vordergrund(meldung(titel, 0, 0))
+    }
+
+    /**
+     * Den Auftrag in den Vordergrund heben und dabei den Stand zeigen.
+     *
+     * **Der Fehlschlag wird verschluckt, und zwar bewusst.** Ab Android 12
+     * lehnt das System den Start eines Vordergrunddienstes aus dem Hintergrund
+     * in bestimmten Lagen ab (`ForegroundServiceStartNotAllowedException`).
+     * Das ist kein Grund, den Upload aufzugeben: Er läuft dann als gewöhnliche
+     * Arbeit weiter und hat dieselben Aussichten wie vor diesem Umbau. Ein
+     * `throw` an dieser Stelle hätte aus einer Verbesserung einen neuen
+     * Fehlerweg gemacht.
+     *
+     * Ohne die Benachrichtigungs-Erlaubnis (ab Android 13) läuft der Dienst
+     * ebenfalls, nur sieht man ihn nicht. Auch das ist kein Abbruchgrund: Es
+     * geht hier um den Netzzugang, die Meldung ist die Gegenleistung dafür.
+     */
+    private suspend fun zeigeUebertragung(titel: String?, fertig: Int, gesamt: Int) {
+        runCatching { setForeground(vordergrund(meldung(titel, fertig, gesamt))) }
+    }
+
+    private fun vordergrund(meldung: Notification) =
+        ForegroundInfo(MELDUNG_ID, meldung, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+
+    private fun meldung(titel: String?, fertig: Int, gesamt: Int): Notification =
+        NotificationCompat.Builder(applicationContext, MaptaleApp.KANAL_UPLOAD)
+            .setSmallIcon(R.drawable.ic_launcher_vordergrund)
+            .setContentTitle(titel?.ifBlank { null } ?: "Tour wird übertragen")
+            .setContentText(
+                // „Aufnahmen" wie im Foto-Nachzug: In dem Stapel liegen Fotos
+                // und Videos nebeneinander.
+                if (gesamt > 0) "Aufnahmen … $fertig von $gesamt" else "Wird übertragen …",
+            )
+            .setProgress(gesamt, fertig, gesamt <= 0)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .build()
+
+    /**
      * Foto-Titel nachreichen, die WÄHREND des Uploads getippt wurden.
      *
      * Das Manifest ist zu diesem Zeitpunkt längst beim Server; ein danach
@@ -189,6 +263,9 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         const val EINGABE_TOUR_ID = "tourId"
         const val AUSGABE_SERVER_ID = "serverId"
 
+        /** Eigene ID: 1 gehört der Aufzeichnung, 4711 den Cloud-Importen. */
+        private const val MELDUNG_ID = 4712
+
         /** Name der eindeutigen Arbeit je Tour — auch für die Fortschritts-Anzeige. */
         fun arbeitsname(tourId: String): String = "upload-$tourId"
 
@@ -204,6 +281,18 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 .setInputData(workDataOf(EINGABE_TOUR_ID to tourId))
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, Duration.ofSeconds(15))
+                // Beschleunigt, weil der Upload direkt am Beenden der Aufnahme
+                // hängt: Wer die Tour abschließt, erwartet, dass sie GEHT, und
+                // nicht, dass sie in einem Wartefenster liegt. Auf einem Gerät
+                // im Standby-Bucket RARE (an einem frisch installierten Xiaomi
+                // gemessen) ist dieses Fenster viertelstundenlang.
+                //
+                // `RUN_AS_NON_EXPEDITED_WORK_REQUEST` ist Pflicht und nicht
+                // Geschmack: Das Kontingent für beschleunigte Aufträge ist
+                // begrenzt, und ohne den Rückfall würde das Einreihen werfen,
+                // sobald es aufgebraucht ist. Der Netzzugang hängt ohnehin
+                // nicht hieran, sondern am `setForeground` im Auftrag selbst.
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 arbeitsname(tourId),

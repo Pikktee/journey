@@ -18,6 +18,36 @@ und Kilometer). Der Upload startet automatisch beim Beenden der Aufnahme; der Na
 App-Start reiht mit **`ExistingWorkPolicy.KEEP`** ein, sonst setzt er einen wartenden Backoff
 zurück und startet doppelt.
 
+**Der Upload läuft als VORDERGRUNDARBEIT, und ohne das findet er auf manchen Geräten gar
+nicht statt.** Eine App im Hintergrund-Cache bekommt bei herstellereigener Energieverwaltung
+kein Netz: An einem Xiaomi (HyperOS, frisch installierte App, Standby-Bucket RARE) meldete
+`dumpsys netpolicy` für die UID `blocked=APP_BACKGROUND, allowed=NONE,
+effective=APP_BACKGROUND` und der JobScheduler `Unsatisfied constraints: CONNECTIVITY` —
+während dasselbe WLAN für jede andere App stand. Das erzeugt keinen Fehler, sondern eine
+Endlosschleife: Worker startet, findet kein Netz, `vermerkeUndRetry` setzt `ENTWURF`, Backoff,
+von vorn. Sichtbar war das nur als abwechselnd „Wird hochgeladen" und „Wird geladen, sobald
+eine Verbindung besteht", also als Verbindungsproblem an einem funktionierenden WLAN. Sobald
+die App im Vordergrund lag, war `allowed=FOREGROUND|TOP` und der Upload lief sofort durch.
+Vier Dinge, die man dabei kippt:
+
+- **`setForeground` steht VOR dem ersten Netzzugriff.** Danach wäre die Ortsbenennung schon
+  der Aufruf, der ins Leere läuft.
+- **Sein Fehlschlag wird verschluckt.** Ab Android 12 darf ein Vordergrunddienst nicht aus
+  jeder Lage heraus starten; ein `throw` an der Stelle machte aus einer Verbesserung einen
+  neuen Fehlerweg. Ohne Benachrichtigungs-Erlaubnis läuft der Dienst ebenfalls, nur unsichtbar
+  — es geht um den Netzzugang, die Meldung ist die Gegenleistung dafür.
+- **Der Typ `dataSync` muss ins Manifest**, und zwar an WorkManagers eigenen
+  `SystemForegroundService` (`tools:node="merge"`). Ab Android 14 wirft ein Vordergrunddienst
+  ohne Typ beim Start. Die Berechtigung `FOREGROUND_SERVICE_DATA_SYNC` gehört dazu.
+- **`setExpedited` braucht `RUN_AS_NON_EXPEDITED_WORK_REQUEST`**: Das Kontingent für
+  beschleunigte Aufträge ist begrenzt, ohne den Rückfall wirft schon das Einreihen. Der
+  Netzzugang hängt ohnehin nicht daran, sondern am `setForeground` im Auftrag selbst.
+
+Der `FotoNachzugWorker` trifft dieselbe Sperre und ist noch NICHT umgestellt: Seine Meldung
+und die spätere Import-Meldung teilen sich eine ID (4711, „eine Meldung, eine Wahrheit"), und
+WorkManager räumt die Vordergrund-Meldung beim Ende des Auftrags weg — die Endmeldung
+verschwände mit. Das braucht eine eigene Überlegung, keinen schnellen Handgriff.
+
 **Medien-IDs** (`m1`, `m2`, …) werden aus der HÖCHSTEN vergebenen Nummer plus eins gebildet,
 nicht aus der Anzahl — sonst kollidiert nach dem Löschen eines Fotos die nächste ID im
 Verbund-Primärschlüssel `(tourId, id)`.

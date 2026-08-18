@@ -110,6 +110,19 @@ class MaptaleApp : Application(), ImageLoaderFactory {
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply { description = "Meldet Touren, die aus einer verbundenen Uhr angekommen sind" },
         )
+        // Dritter Kanal für das Übertragen. Er hängt an einem
+        // Vordergrunddienst und ist damit Pflicht, aber er ist auch inhaltlich
+        // ein eigenes Anliegen: Die Aufzeichnungs-Meldung steht, WÄHREND man
+        // unterwegs ist, diese, während Daten gehen. Wer die eine
+        // stummschaltet, meint selten die andere. IMPORTANCE_LOW, weil ein
+        // Upload nichts ist, wofür ein Telefon Geräusche machen sollte.
+        manager.createNotificationChannel(
+            NotificationChannel(
+                KANAL_UPLOAD,
+                "Touren übertragen",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply { description = "Läuft, während eine Tour zum Server geladen wird" },
+        )
         // Kontostand mitlesen, damit der Bild-Lader synchron an das Token kommt
         einstellungen.konto.launchIn(appScope)
 
@@ -150,5 +163,6 @@ class MaptaleApp : Application(), ImageLoaderFactory {
     companion object {
         const val KANAL_AUFZEICHNUNG = "aufzeichnung"
         const val KANAL_IMPORTE = "importe"
+        const val KANAL_UPLOAD = "upload"
     }
 }
