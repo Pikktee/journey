@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mockup — Meine Touren: Kachel, Liste, Löschen, Titelbild</title>
 <meta name="maptale:stand" content="2026-08-19">
-<meta name="maptale:status" content="Entwurf. Kachel, Löschen und Bildwähler abgenommen, Listenform offen">
+<meta name="maptale:status" content="Entwurf, abgenommen bis auf die Listenform">
 <meta name="maptale:systemteile" content="Studio">
 <meta name="maptale:gehoert_zu" content="concepts/konzept_touren_uebersicht.md">
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -889,13 +889,13 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
           </tr>
           <tr>
             <td class="bereich"><a href="#telefon">Auf dem Telefon</a></td>
-            <td>Das ⋯ bekommt eine Trefferfläche von 44 px, und aus dem Menü wird dort <b>eine Tafel von unten</b>. Ohne beides ist die Kachel auf dem Gerät, das die meisten benutzen, nicht bedienbar.</td>
-            <td><span class="marke-stand neu">neu, zur Abnahme</span></td>
+            <td>Das ⋯ bekommt eine Trefferfläche von 44 px, der Chip ein 44 px hohes Band, und aus dem Menü wird dort <b>eine Tafel von unten</b>.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
           </tr>
           <tr>
             <td class="bereich"><a href="#zeigen">Zeigen-Zustand</a></td>
-            <td>Vorschlag: <b>die Kachel hebt sich nicht mehr an</b> (Z2). Rand und Schatten sagen dasselbe, ohne dass die Nachbarn nachrücken.</td>
-            <td><span class="marke-stand neu">neu, zur Abnahme</span></td>
+            <td><b>Die Kachel hebt sich nicht mehr an</b> (Z2). Rand und Schatten sagen dasselbe, ohne dass die Nachbarn nachrücken.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
           </tr>
           <tr>
             <td class="bereich"><a href="#monate">Liste</a></td>
@@ -920,7 +920,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
         </tbody>
       </table>
     </div>
-
     <p class="regel">
       Die Linie, an der alles Weitere gemessen wird: Das ⋯-Menü verwaltet die Tour
       <b>als Eintrag</b>: Name, Sichtbarkeit, Titelbild, Video, Löschen. Der Editor
@@ -1075,17 +1074,17 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 
   <!-- ————————————————————————— AUF DEM TELEFON ————————————————————————— -->
   <section class="m-abschnitt" id="telefon">
-    <h2>Auf dem Telefon <span class="tag">offene Frage aus der Abnahme</span></h2>
+    <h2>Auf dem Telefon <span class="tag">entschieden</span></h2>
     <p class="m-warum">
-      Ehrliche Antwort auf „ist das ⋯ mobiltauglich?": <b>so wie es hier steht, nicht
-      ganz.</b> Zwei Dinge sind schon richtig, zwei fehlen. Richtig ist, dass das ⋯
+      Die Frage aus der Abnahme lautete „ist das ⋯ mobiltauglich?", und die Antwort war:
+      <b>so wie es stand, nicht ganz.</b> Zwei Dinge sind schon richtig, zwei fehlen. Richtig ist, dass das ⋯
       dauerhaft sichtbar ist und nicht erst beim Zeigen erscheint (auf Touch gibt es kein
       Zeigen, ein Griff, der auf Hover wartet, existiert dort nicht), und dass der
       Sicht-Chip im Fuß ebenfalls immer steht. Es fehlen die <b>Trefferfläche</b> und die
       <b>Form des Menüs</b>.
     </p>
     <div class="m-buehne">
-      <div class="m-hv-fahne">links wie heute · rechts der Vorschlag · beide Geräte sind 360 px breit</div>
+      <div class="m-hv-fahne">links wie heute · rechts die gewählte Fassung · beide Geräte sind 360 px breit</div>
       <div class="m-reihe">
         <div class="m-fall">
           <h4>So wie jetzt</h4>
@@ -1118,7 +1117,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
         </div>
 
         <div class="m-fall">
-          <h4>Vorschlag <span class="tag">44 px und eine Tafel</span></h4>
+          <h4>So wird es <span class="tag">44 px und eine Tafel</span></h4>
           <p class="rat">Die <b>anfassbaren</b> Flächen wachsen auf 44 px, sichtbar bleibt alles gleich groß (amber gezeigt: rund um das ⋯, als hohes Band um den Chip). Das Menü wird zur <b>Tafel von unten</b>: 48-px-Zeilen in Daumenreichweite, der Titel der Tour im Kopf, Griff und Schattenfläche als Rückweg.</p>
           <div class="tel zeigflaeche">
             <div class="kopf"><b>Meine Touren</b><span>7 Touren</span></div>
@@ -1172,10 +1171,10 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 
   <!-- ————————————————————————— ZEIGEN-ZUSTAND ————————————————————————— -->
   <section class="m-abschnitt" id="zeigen">
-    <h2>Was passiert unter dem Zeiger? <span class="tag">Z2</span></h2>
+    <h2>Was passiert unter dem Zeiger? <span class="tag">Z2, entschieden</span></h2>
     <p class="m-warum">
-      Zur zweiten Frage aus der Abnahme: <b>Das Anheben um zwei Pixel ist nicht falsch,
-      aber es ist die schwächste der vier Antworten.</b> Es sagt „hier bin ich", indem es
+      <b>Das Anheben um zwei Pixel ist nicht falsch, aber es war die schwächste der vier
+      Antworten.</b> Es sagt „hier bin ich", indem es
       die Kachel aus der Reihe schiebt, und in einem Raster stehen dann die Nachbarn
       sichtbar tiefer. Wer mit dem Zeiger über eine Reihe fährt, löst eine Welle aus.
       Unten stehen vier Fassungen, jede mit zwei Nachbarn, damit man genau das sieht.
@@ -1193,7 +1192,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
           </div>
         </div>
         <div class="m-fall">
-          <h4>Z2 — stehen bleiben <span class="tag">empfohlen</span></h4>
+          <h4>Z2 — stehen bleiben <span class="tag">gewählt</span></h4>
           <p class="rat">Rand und Schatten wie bei Z1, aber <b>kein Versatz</b>. Die Auskunft ist dieselbe, die Reihe bleibt eine Reihe.</p>
           <div class="nachbarn">
             <article class="k g2 f2 z2"><div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div><div class="fuss"><div class="t">Stockholm</div></div></article>

@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-19
-status: Entwurf. Kachel, Löschen und Bildwähler abgenommen, Listenform offen
+status: Entwurf, abgenommen bis auf die Listenform
 betrifft:
   - src/studio/studio.ts
   - studio.html
@@ -44,6 +44,8 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
 | Löschen | Dialog mit Namen und Folgen, hart, kein Papierkorb | entschieden |
 | Titelbild | `V2`, kleiner Dialog mit Raster, **eine** Liste ohne Gruppen | entschieden |
 | Video-Export | derselbe Menüpunkt öffnet das vorhandene Export-Blatt | entschieden, nur der Weg fehlt |
+| Telefon | 44 px Trefferflächen, Menü als Tafel von unten | entschieden |
+| Zeigen-Zustand | `Z2`: Rand und Schatten, kein Anheben | entschieden |
 
 
 ## Zwei Nachbesserungen aus der Abnahme
@@ -62,7 +64,7 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
   widerruft. Aus demselben Grund verlässt er auch die Werkzeugspalte der Liste:
   Die hat für die Sichtbarkeit eine eigene Spalte.
 
-## Auf dem Telefon reicht das ⋯ allein nicht
+## Auf dem Telefon reicht das ⋯ allein nicht (entschieden)
 
 Zwei Dinge sind am Entwurf schon richtig: Das ⋯ steht dauerhaft und wartet nicht
 auf einen Zeiger, den es dort nicht gibt, und der Sicht-Chip ebenso. Zwei fehlen:
@@ -84,12 +86,12 @@ abgesetzt** (der Daumen trifft die unterste Zeile am leichtesten, dort darf nich
 das Gefährlichste liegen), und die Tafel braucht `env(safe-area-inset-bottom)`,
 sonst liegt sie auf dem Strich zum Zurückwischen.
 
-## Der Zeigen-Zustand: die Kachel bleibt stehen
+## Der Zeigen-Zustand: die Kachel bleibt stehen (entschieden)
 
 Das Anheben um zwei Pixel ist nicht falsch, aber die schwächste von vier
 Antworten: Es sagt „hier bin ich", indem es die Kachel aus der Reihe schiebt, und
 im Raster stehen die Nachbarn danach sichtbar tiefer. Wer über eine Reihe fährt,
-löst eine Welle aus. Vorschlag ist deshalb **Z2**: Rand und Schatten wie bisher,
+löst eine Welle aus. Entschieden ist deshalb **Z2**: Rand und Schatten wie bisher,
 kein Versatz.
 
 Nicht gewählt wurden der Bildzoom (er setzt die Bewegung auf das Motiv, und die
