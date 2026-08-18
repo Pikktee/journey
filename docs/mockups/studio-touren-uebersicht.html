@@ -708,6 +708,84 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
    unterwegs") und darf trotzdem keinen Platz fressen: eine Zeile, kein Kopf. */
 .mo-luecke { display: flex; align-items: center; gap: 10px; padding: 7px 0 7px 76px; font-size: 12px; color: var(--text-zart); }
 .mo-luecke::after { content: ''; flex: 1; height: 1px; background: repeating-linear-gradient(90deg, var(--rand) 0 3px, transparent 3px 7px); }
+
+/* ————————————————————————————————————————————————————————————————
+   Der Stand ganz oben: was entschieden ist und was noch offen.
+   ———————————————————————————————————————————————————————————————— */
+.stand { border: 1px solid var(--rand); border-radius: var(--radius-xl); background: var(--fl-1); overflow: hidden; margin: 26px 0 8px; }
+.stand table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.stand th, .stand td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--linie); vertical-align: top; line-height: 1.5; }
+.stand tr:last-child td { border-bottom: none; }
+.stand th { font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-3); font-weight: 500; background: var(--bg-tief); }
+.stand td { color: var(--text-2); }
+.stand td.bereich { white-space: nowrap; }
+.stand td.bereich a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--rand-hell); }
+.stand td.bereich a:hover { color: var(--akzent); border-color: var(--akzent); }
+.stand b { color: var(--text); font-weight: 500; }
+.marke-stand { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11.5px; padding: 3px 10px 3px 8px; border-radius: var(--radius-full); border: 1px solid var(--rand); color: var(--text-3); }
+.marke-stand::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.marke-stand.ja { color: var(--gruen); border-color: rgba(62,207,142,0.35); }
+.marke-stand.offen { color: var(--warn); border-color: rgba(232,161,60,0.4); }
+.marke-stand.neu { color: var(--blau); border-color: rgba(91,157,255,0.4); }
+
+/* ————————————————————————————————————————————————————————————————
+   Auf dem Telefon: Trefferflächen und die Tafel von unten.
+   ———————————————————————————————————————————————————————————————— */
+/* Die Bühne ist ein Gerät, kein Bild davon: 360 x 640 CSS-Pixel, wie ein
+   schmales Telefon sie hat. Alles darin ist echtes Layout. */
+.tel { width: 360px; height: 640px; position: relative; overflow: hidden; border: 1px solid var(--rand-hell); border-radius: 26px; background: var(--bg); padding: 14px 12px; }
+.tel .kopf { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.tel .kopf b { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
+.tel .kopf span { font-size: 11.5px; color: var(--text-3); }
+.tel .k { margin-bottom: 12px; }
+
+/* Die sichtbare Fläche bleibt klein, die ANFASSBARE wird 44 px. Ohne das
+   Pseudo-Element müsste das Glas-Plättchen doppelt so groß werden und säße
+   dann als Kachel auf dem Foto. */
+.griff44 { position: relative; }
+.griff44::before { content: ''; position: absolute; top: 50%; left: 50%; translate: -50% -50%; width: 44px; height: 44px; border-radius: 50%; }
+/* Nur zum Zeigen: die Fläche wird im Mockup sichtbar gemacht. */
+.zeigflaeche :is(.griff44, .griff-hoch)::before { background: rgba(245,158,11,0.22); outline: 1px dashed rgba(245,158,11,0.6); }
+.zeigflaeche .sicht-inline:not(.griff-hoch) { outline: 1px dashed rgba(229,72,77,0.7); outline-offset: 3px; }
+/* Beim Chip geht die runde Fläche nicht: Er ist breit und flach, und ein
+   44er Kreis darum träfe die Play-Taste. Also wächst nur die HÖHE, über die
+   ganze Breite des Chips. */
+.griff-hoch { position: relative; }
+.griff-hoch::before { content: ''; position: absolute; top: 50%; left: -4px; right: -4px; translate: 0 -50%; height: 44px; border-radius: var(--radius-full); }
+
+/* Die Tafel von unten. Sie liegt IM Gerät (position: absolute), damit man im
+   Mockup sieht, wie viel sie verdeckt. */
+.tafel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 40; background: rgba(17,23,32,0.99); border-top: 1px solid var(--rand-hell); border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding: 8px 8px 14px; box-shadow: 0 -18px 50px rgba(2,5,10,0.6); }
+.tafel .griff { width: 38px; height: 4px; border-radius: 2px; background: var(--rand-hell); margin: 2px auto 10px; }
+.tafel .titel { font-size: 12px; color: var(--text-3); padding: 0 12px 8px; border-bottom: 1px solid var(--linie); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tafel button { display: flex; align-items: center; gap: 13px; width: 100%; text-align: left; color: var(--text); padding: 0 12px; height: 48px; border-radius: var(--radius-md); font-size: 15px; }
+.tafel button:active { background: var(--fl-3); }
+.tafel button svg { width: 19px; height: 19px; opacity: 0.8; flex: none; }
+.tafel hr { border: none; border-top: 1px solid var(--rand); margin: 6px 8px; }
+.tafel .gefahr { color: #f0868a; }
+.tel .schatten { position: absolute; inset: 0; z-index: 30; background: rgba(4,6,10,0.55); }
+
+/* Der Vergleich: dasselbe Menü als Desktop-Popover in einem Telefon. */
+.tel .karten-menue { top: 116px; right: 18px; }
+
+.mass { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12.5px; color: var(--text-3); }
+.mass div { display: flex; align-items: center; gap: 7px; }
+.mass i { width: 10px; height: 10px; border-radius: 3px; display: block; }
+.mass i.gut { background: var(--gruen); }
+.mass i.schlecht { background: var(--rot); }
+
+/* ————————————————————————————————————————————————————————————————
+   Der Zeigen-Zustand: vier Antworten auf „was passiert unter dem Zeiger?"
+   ———————————————————————————————————————————————————————————————— */
+.k.z2:is(:hover, .hv) { transform: none; }
+.k.z3:is(:hover, .hv) { transform: none; }
+.k.z3 .bild img { transition: filter 260ms ease, transform 300ms cubic-bezier(0.2,0.7,0.2,1); }
+.k.z3:is(:hover, .hv) .bild img { transform: scale(1.045); }
+.k.z4:is(:hover, .hv) { transform: none; border-color: var(--rand); box-shadow: none; }
+/* Die Reihe zeigt die Nachbarn mit: der Versatz fällt erst im Raster auf. */
+.nachbarn { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
+.nachbarn .k .fuss .t { font-size: 14px; }
+.nachbarn .k .fuss { padding: 10px 11px 9px; }
 </style>
 </head>
 <body>
@@ -749,6 +827,8 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
     <nav class="m-sprung">
       <a href="#kachel">Kachel</a>
       <a href="#listen">Liste</a>
+      <a href="#telefon">Telefon</a>
+      <a href="#zeigen">Zeigen</a>
       <a href="#monate">Nach Monaten</a>
       <a href="#loeschen">Löschen</a>
       <a href="#titelbild">Titelbild</a>
@@ -783,6 +863,64 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
       Entscheidung, sondern eine Aktion, die den Weg an die Kachel noch nicht gefunden
       hat.
     </p>
+    <div class="stand">
+      <table>
+        <thead><tr><th>Bereich</th><th>Entscheidung</th><th>Stand</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="bereich"><a href="#kachel">Kachel</a></td>
+            <td><b>M2 · G2 · P1 · S2 · F2.</b> Ein ⋯ statt drei Zeichen, Signet ganz still, Play bleibt und blendet weich ein, Sichtbarkeit und Filmdauer stehen im Fuß.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#kachel">⋯-Menü</a></td>
+            <td>Sechs Einträge: Abspielen, Bearbeiten, Umbenennen, Titelbild, Als Video, Löschen. <b>Ohne „Link kopieren"</b>, der hängt an der Sichtbarkeit.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#kachel">Sichtbarkeit &amp; Link</a></td>
+            <td>Chip im Fuß, öffnet die drei Stufen. <b>„Link kopieren" steht darin</b> und ist bei „Privat" sichtbar gesperrt, weil es dort keinen Link gibt.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#kachel">Video-Export</a></td>
+            <td>Als Menüpunkt, öffnet dasselbe Export-Blatt wie die Zeile. Die Aktion gibt es längst, nur nicht an der Kachel.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#telefon">Auf dem Telefon</a></td>
+            <td>Das ⋯ bekommt eine Trefferfläche von 44 px, und aus dem Menü wird dort <b>eine Tafel von unten</b>. Ohne beides ist die Kachel auf dem Gerät, das die meisten benutzen, nicht bedienbar.</td>
+            <td><span class="marke-stand neu">neu, zur Abnahme</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#zeigen">Zeigen-Zustand</a></td>
+            <td>Vorschlag: <b>die Kachel hebt sich nicht mehr an</b> (Z2). Rand und Schatten sagen dasselbe, ohne dass die Nachbarn nachrücken.</td>
+            <td><span class="marke-stand neu">neu, zur Abnahme</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#monate">Liste</a></td>
+            <td><b>Nach Monaten (L3)</b> mit Dichte D2, Jahrestrennern, Lücken und dem Wochentag. Offen bleibt: Hauptansicht, und ist L1 als Tabelle daneben nötig?</td>
+            <td><span class="marke-stand offen">Richtung steht</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#loeschen">Löschen</a></td>
+            <td><b>Vorerst hart, mit Dialog.</b> Kein Papierkorb, deshalb auch kein „Rückgängig".</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#titelbild">Titelbild</a></td>
+            <td><b>V2</b>, kleiner Dialog mit Raster. <b>Eine Liste ohne Gruppen</b>; „ohne Ort" bleibt ein Zeichen an der Kachel.</td>
+            <td><span class="marke-stand ja">entschieden</span></td>
+          </tr>
+          <tr>
+            <td class="bereich"><a href="#umsetzung">Umsetzung</a></td>
+            <td>Vier Stücke, unabhängig baubar. Nur das Menü ist Voraussetzung für zwei davon.</td>
+            <td><span class="marke-stand offen">nicht begonnen</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <p class="regel">
       Die Linie, an der alles Weitere gemessen wird: Das ⋯-Menü verwaltet die Tour
       <b>als Eintrag</b>: Name, Sichtbarkeit, Titelbild, Video, Löschen. Der Editor
@@ -838,9 +976,9 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
         </div>
 
         <div class="m-fall">
-          <h4>Vorschlag <span class="tag">M2 · G2 · P1 · S2 · F2</span></h4>
-          <p class="rat">Drei bewegte Dinge, die Taste nur noch minimal. Das ⋯ öffnet alles Weitere; <b>anklicken</b>.</p>
-          <article class="k g2 f2 hv-ziel">
+          <h4>Vorschlag <span class="tag">M2 · G2 · P1 · S2 · F2 · Z2</span></h4>
+          <p class="rat">Zwei bewegte Dinge, die Taste nur noch minimal. Das ⋯ öffnet alles Weitere; <b>anklicken</b>.</p>
+          <article class="k g2 f2 z2 hv-ziel">
             <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
             <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
             <div class="griffe">
@@ -857,8 +995,8 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             <button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button>
           </article>
           <div class="zaehler">
-            <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i></span><span class="was">Kachel · Schleier · Play (kaum)</span></div>
-            <div class="zaehl-zeile"><span class="name">Wechselt Farbe</span><span class="zaehl-punkte"><i class="ruhig"></i></span><span class="was">⋯ — oben links bleibt alles still</span></div>
+            <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i></span><span class="was">Schleier · Play (kaum); die Kachel selbst steht (Z2)</span></div>
+            <div class="zaehl-zeile"><span class="name">Wechselt Farbe</span><span class="zaehl-punkte"><i class="ruhig"></i></span><span class="was">⋯ · oben links bleibt alles still</span></div>
           </div>
         </div>
       </div>
@@ -930,6 +1068,170 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             </article>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ————————————————————————— AUF DEM TELEFON ————————————————————————— -->
+  <section class="m-abschnitt" id="telefon">
+    <h2>Auf dem Telefon <span class="tag">offene Frage aus der Abnahme</span></h2>
+    <p class="m-warum">
+      Ehrliche Antwort auf „ist das ⋯ mobiltauglich?": <b>so wie es hier steht, nicht
+      ganz.</b> Zwei Dinge sind schon richtig, zwei fehlen. Richtig ist, dass das ⋯
+      dauerhaft sichtbar ist und nicht erst beim Zeigen erscheint (auf Touch gibt es kein
+      Zeigen, ein Griff, der auf Hover wartet, existiert dort nicht), und dass der
+      Sicht-Chip im Fuß ebenfalls immer steht. Es fehlen die <b>Trefferfläche</b> und die
+      <b>Form des Menüs</b>.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">links wie heute · rechts der Vorschlag · beide Geräte sind 360 px breit</div>
+      <div class="m-reihe">
+        <div class="m-fall">
+          <h4>So wie jetzt</h4>
+          <p class="rat">Das Glas-Plättchen misst <b>24 × 24 px</b>, der Sicht-Chip ist <b>21 px hoch</b>. Empfohlen sind 44 (Apple) bis 48 (Material). Das Menü ist ein Popover mit 33 px hohen Zeilen, das die halbe Kachel verdeckt und keinen sichtbaren Rückweg hat.</p>
+          <div class="tel zeigflaeche">
+            <div class="kopf"><b>Meine Touren</b><span>7 Touren</span></div>
+            <article class="k g2 f2 z2">
+              <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+              <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+              <div class="griffe"><button class="glasknopf immer"><svg><use href="#i-mehr"/></svg></button></div>
+              <div class="fuss">
+                <div class="t">Koh Pha-ngan, Inselrunde</div>
+                <div class="m"><button class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</button> 6:20 · 41,8 km</div>
+              </div>
+            </article>
+            <div class="karten-menue">
+              <button><svg><use href="#i-play"/></svg>Abspielen</button>
+              <button><svg><use href="#i-stift"/></svg>Bearbeiten</button>
+              <button><svg><use href="#i-schrift"/></svg>Umbenennen</button>
+              <button><svg><use href="#i-foto"/></svg>Titelbild wählen …</button>
+              <button><svg><use href="#i-film"/></svg>Als Video exportieren …</button>
+              <hr />
+              <button class="gefahr"><svg><use href="#i-muell"/></svg>Tour löschen …</button>
+            </div>
+          </div>
+          <div class="mass">
+            <div><i class="schlecht"></i>⋯ 24 px · Chip 21 px hoch</div>
+            <div><i class="schlecht"></i>Menüzeilen 33 px</div>
+          </div>
+        </div>
+
+        <div class="m-fall">
+          <h4>Vorschlag <span class="tag">44 px und eine Tafel</span></h4>
+          <p class="rat">Die <b>anfassbaren</b> Flächen wachsen auf 44 px, sichtbar bleibt alles gleich groß (amber gezeigt: rund um das ⋯, als hohes Band um den Chip). Das Menü wird zur <b>Tafel von unten</b>: 48-px-Zeilen in Daumenreichweite, der Titel der Tour im Kopf, Griff und Schattenfläche als Rückweg.</p>
+          <div class="tel zeigflaeche">
+            <div class="kopf"><b>Meine Touren</b><span>7 Touren</span></div>
+            <article class="k g2 f2 z2">
+              <div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div>
+              <div class="spur"><svg viewBox="-6 -6 112 112"><path class="linie" d="M8 82C22 60 18 40 34 30s34 12 46 2 12-18 12-18"/><circle class="start" cx="8" cy="82" r="3.2"/><circle class="ende" cx="92" cy="14" r="3.2"/></svg></div>
+              <div class="griffe"><button class="glasknopf immer griff44"><svg><use href="#i-mehr"/></svg></button></div>
+              <div class="fuss">
+                <div class="t">Koh Pha-ngan, Inselrunde</div>
+                <div class="m"><button class="sicht-inline griff-hoch"><svg><use href="#i-schloss"/></svg>Privat</button> 6:20 · 41,8 km</div>
+              </div>
+            </article>
+            <div class="schatten"></div>
+            <div class="tafel">
+              <div class="griff"></div>
+              <div class="titel">Koh Pha-ngan, Inselrunde</div>
+              <button><svg><use href="#i-play"/></svg>Abspielen</button>
+              <button><svg><use href="#i-stift"/></svg>Bearbeiten</button>
+              <button><svg><use href="#i-schrift"/></svg>Umbenennen</button>
+              <button><svg><use href="#i-foto"/></svg>Titelbild wählen …</button>
+              <button><svg><use href="#i-film"/></svg>Als Video exportieren …</button>
+              <hr />
+              <button class="gefahr"><svg><use href="#i-muell"/></svg>Tour löschen …</button>
+            </div>
+          </div>
+          <div class="mass">
+            <div><i class="gut"></i>⋯ 44 px anfassbar</div>
+            <div><i class="gut"></i>Tafelzeilen 48 px</div>
+            <div><i class="gut"></i>Chip 44 px anfassbar</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Gemessen an den beiden Geräten oben:</b> Das Popover ist 214 px breit und
+        verdeckt <b>44 % der Kachel</b>, auf die es sich bezieht; die Tafel nimmt zwar 58 %
+        des Bildschirms, lässt die Kachel aber <b>vollständig sichtbar</b>. Das ist der
+        eigentliche Unterschied: Man sieht, worüber man gerade entscheidet.
+        <br><br><b>Vier Regeln, die man beim Bauen leicht übergeht.</b> Der Tipp auf das ⋯
+        darf <b>nicht durchschlagen</b>: Die ganze Kachel spielt ab, also muss der Griff
+        das Ereignis stoppen, sonst startet der Film hinter der Tafel. Der Sicht-Chip
+        braucht dieselbe Behandlung und dieselbe Tafel. <b>Löschen steht abgesetzt</b>,
+        mit Trennlinie und Abstand, weil der Daumen die unterste Zeile am leichtesten
+        trifft und ausgerechnet dort das Gefährlichste läge. Und die Tafel braucht unten
+        Platz für die Systemleiste (<code>env(safe-area-inset-bottom)</code>), sonst liegt
+        „Löschen" auf dem Strich zum Zurückwischen.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————————————————————————— ZEIGEN-ZUSTAND ————————————————————————— -->
+  <section class="m-abschnitt" id="zeigen">
+    <h2>Was passiert unter dem Zeiger? <span class="tag">Z2</span></h2>
+    <p class="m-warum">
+      Zur zweiten Frage aus der Abnahme: <b>Das Anheben um zwei Pixel ist nicht falsch,
+      aber es ist die schwächste der vier Antworten.</b> Es sagt „hier bin ich", indem es
+      die Kachel aus der Reihe schiebt, und in einem Raster stehen dann die Nachbarn
+      sichtbar tiefer. Wer mit dem Zeiger über eine Reihe fährt, löst eine Welle aus.
+      Unten stehen vier Fassungen, jede mit zwei Nachbarn, damit man genau das sieht.
+    </p>
+    <div class="m-buehne">
+      <div class="m-hv-fahne">jeweils die mittlere Kachel im Zeigen-Zustand</div>
+      <div class="m-reihe">
+        <div class="m-fall">
+          <h4>Z1 — anheben <span class="tag still">wie heute</span></h4>
+          <p class="rat">2 px nach oben, Schatten, hellerer Rand. Die Kachel verlässt die Zeile; ihre Nachbarn stehen danach tiefer.</p>
+          <div class="nachbarn">
+            <article class="k g2 f2"><div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div><div class="fuss"><div class="t">Stockholm</div></div></article>
+            <article class="k g2 f2 hv-ziel"><div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="fuss"><div class="t">Koh Pha-ngan</div></div><div class="schleier"></div><button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button></article>
+            <article class="k g2 f2"><div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="fuss"><div class="t">Lissabon</div></div></article>
+          </div>
+        </div>
+        <div class="m-fall">
+          <h4>Z2 — stehen bleiben <span class="tag">empfohlen</span></h4>
+          <p class="rat">Rand und Schatten wie bei Z1, aber <b>kein Versatz</b>. Die Auskunft ist dieselbe, die Reihe bleibt eine Reihe.</p>
+          <div class="nachbarn">
+            <article class="k g2 f2 z2"><div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div><div class="fuss"><div class="t">Stockholm</div></div></article>
+            <article class="k g2 f2 z2 hv-ziel"><div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="fuss"><div class="t">Koh Pha-ngan</div></div><div class="schleier"></div><button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button></article>
+            <article class="k g2 f2 z2"><div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="fuss"><div class="t">Lissabon</div></div></article>
+          </div>
+        </div>
+      </div>
+      <div class="m-reihe" style="margin-top:20px">
+        <div class="m-fall">
+          <h4>Z3 — das Bild wächst <span class="tag still">im Rahmen</span></h4>
+          <p class="rat">Kein Versatz, dafür ein Bildzoom auf 1,045 innerhalb der Kante. Lebendig, aber es ist wieder Bewegung, und diesmal auf dem Motiv selbst.</p>
+          <div class="nachbarn">
+            <article class="k g2 f2 z3"><div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div><div class="fuss"><div class="t">Stockholm</div></div></article>
+            <article class="k g2 f2 z3 hv-ziel"><div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="fuss"><div class="t">Koh Pha-ngan</div></div><div class="schleier"></div><button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button></article>
+            <article class="k g2 f2 z3"><div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="fuss"><div class="t">Lissabon</div></div></article>
+          </div>
+        </div>
+        <div class="m-fall">
+          <h4>Z4 — nur der Schleier <span class="tag still">radikal</span></h4>
+          <p class="rat">Weder Versatz noch Rand noch Schatten: Nur Schleier und Play erscheinen. Am ruhigsten, aber die Kachel sagt nicht mehr, dass sie als Ganzes anfassbar ist.</p>
+          <div class="nachbarn">
+            <article class="k g2 f2 z4"><div class="bild"><img src="tourbilder/stockholm.jpg" alt="" /></div><div class="fuss"><div class="t">Stockholm</div></div></article>
+            <article class="k g2 f2 z4 hv-ziel"><div class="bild"><img src="tourbilder/kohphangan.jpg" alt="" /></div><div class="fuss"><div class="t">Koh Pha-ngan</div></div><div class="schleier"></div><button class="play-mitte" aria-label="Abspielen"><svg><use href="#i-play"/></svg></button></article>
+            <article class="k g2 f2 z4"><div class="bild"><img src="tourbilder/lissabon.jpg" alt="" /></div><div class="fuss"><div class="t">Lissabon</div></div></article>
+          </div>
+        </div>
+      </div>
+      <div class="m-fuss-note">
+        <span>⚑</span>
+        <span><b>Warum Z2 und nicht Z3:</b> Beide vermeiden den Versatz, aber Z3 setzt die
+        Bewegung wieder auf das Motiv, und die Kachel ist zu 90 % Motiv. Nach dem
+        stillgestellten Signet wäre das der Rückweg zu genau der Unruhe, die eben
+        verschwunden ist. <b>Und warum nicht Z4:</b> Ohne Rand und Schatten unterscheidet
+        sich die berührte Kachel nur noch dort, wo der Schleier liegt: auf dem Bild.
+        Rand und Schatten sind die Auskunft „das Ganze ist ein Knopf", und die kostet
+        keine Bewegung. Auf Touch ist die Frage ohnehin gegenstandslos: Dort gibt es
+        keinen Zeigen-Zustand, nur den kurzen Druck.</span>
       </div>
     </div>
   </section>

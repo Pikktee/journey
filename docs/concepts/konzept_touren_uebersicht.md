@@ -62,6 +62,43 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
   widerruft. Aus demselben Grund verlässt er auch die Werkzeugspalte der Liste:
   Die hat für die Sichtbarkeit eine eigene Spalte.
 
+## Auf dem Telefon reicht das ⋯ allein nicht
+
+Zwei Dinge sind am Entwurf schon richtig: Das ⋯ steht dauerhaft und wartet nicht
+auf einen Zeiger, den es dort nicht gibt, und der Sicht-Chip ebenso. Zwei fehlen:
+
+- **Die Trefferflächen.** Gemessen sind das ⋯ 24 × 24 px und der Chip 21 px hoch;
+  empfohlen sind 44 (Apple) bis 48 (Material). Beide wachsen deshalb im
+  Anfassbaren, nicht im Sichtbaren: ein 44er Kreis um das ⋯, ein 44 px hohes Band
+  über die Breite des Chips. Ein runder Bereich am Chip schiede aus, er träfe die
+  Play-Taste.
+- **Die Form des Menüs.** Als Popover verdeckt es 44 % der Kachel, auf die es sich
+  bezieht, hat 33 px hohe Zeilen und keinen sichtbaren Rückweg. Als **Tafel von
+  unten** hat es 48-px-Zeilen in Daumenreichweite, den Titel der Tour im Kopf,
+  einen Griff, und die Kachel bleibt vollständig sichtbar: Man sieht, worüber man
+  entscheidet.
+
+Drei Regeln daneben: Der Tipp auf das ⋯ darf **nicht durchschlagen** (die ganze
+Kachel spielt ab, sonst startet der Film hinter der Tafel), **Löschen steht
+abgesetzt** (der Daumen trifft die unterste Zeile am leichtesten, dort darf nicht
+das Gefährlichste liegen), und die Tafel braucht `env(safe-area-inset-bottom)`,
+sonst liegt sie auf dem Strich zum Zurückwischen.
+
+## Der Zeigen-Zustand: die Kachel bleibt stehen
+
+Das Anheben um zwei Pixel ist nicht falsch, aber die schwächste von vier
+Antworten: Es sagt „hier bin ich", indem es die Kachel aus der Reihe schiebt, und
+im Raster stehen die Nachbarn danach sichtbar tiefer. Wer über eine Reihe fährt,
+löst eine Welle aus. Vorschlag ist deshalb **Z2**: Rand und Schatten wie bisher,
+kein Versatz.
+
+Nicht gewählt wurden der Bildzoom (er setzt die Bewegung auf das Motiv, und die
+Kachel ist zu 90 % Motiv, also der Rückweg zu der Unruhe, die mit dem Signet
+gerade verschwunden ist) und die ganz nackte Fassung (ohne Rand und Schatten
+unterscheidet sich die berührte Kachel nur noch auf dem Bild; beides zusammen ist
+die Auskunft „das Ganze ist ein Knopf", und die kostet keine Bewegung). Auf Touch
+ist die Frage gegenstandslos, dort gibt es nur den kurzen Druck.
+
 ## Nach Monaten ist die naheliegende Ansicht
 
 Eine Tour ist ein **Ereignis mit Datum**. Wer eine bestimmte sucht, weiß fast nie
