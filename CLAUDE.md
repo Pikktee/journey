@@ -720,6 +720,16 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   breit rundum wäre falsch: Ein Abzug mit Beschriftung hat oben und seitlich denselben
   schmalen Rand und unten einen breiteren, und das liest sich nur als gewollt, solange oben
   und seitlich gleich sind.
+- **Quer ist die Textspalte so breit wie ihr TEXT, und ihre Zeilen stehen linksbündig
+  untereinander.** Beides stammt aus der Zeit mit Bildunterschrift: Die feste Breite
+  (`min(34vw, 280px)`) füllte sie, und `text.angaben.x` durfte die rechte Kante meinen, weil
+  der Maler ihn quer als linke liest. Ohne die Unterschrift blieb neben zwei kurzen Zeilen
+  eine leere weiße Fläche stehen, und die Angaben begannen `polster + textSeiten` vor der
+  Kartenkante und liefen aus der Karte heraus — auf dem quer gehaltenen Telefon grau auf dem
+  Bild daneben. Die Breite kommt jetzt aus dem gemessenen Text (`KartenInhalt.textBreite`,
+  gedeckelt auf die alte Spaltenbreite); ohne Text fällt die Spalte samt ihrer Lücke ganz
+  weg, sonst wäre die Karte das Bild plus ein leeres Feld. Das BILD ändert sich dabei nicht:
+  Die Spalte kommt zur Karte dazu, sie nimmt ihm nichts.
 
 Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts));
 die GEOMETRIE ist ausdrücklich nicht geteilt und steht als benannter Bühnen-Satz im Maler:

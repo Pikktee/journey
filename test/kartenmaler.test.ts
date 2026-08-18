@@ -105,6 +105,34 @@ describe('Lage — abgeleitet, nicht übergeben', () => {
     const breit = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
     expect(breit.text.titel.y).toBeGreaterThan(breit.bild.y + breit.bild.hoehe)
   })
+
+  it('quer setzt Titel und Angaben linksbündig in DIESELBE Spalte', () => {
+    // `x` der Angaben ist überall die rechte Kante — außer quer, wo der Maler
+    // ihn als linke Kante nimmt (beide stehen dort untereinander und
+    // linksbündig). Stand hier die rechte Kante der Spalte, begann die Zeile
+    // kurz vor dem Kartenrand und lief aus der Karte heraus.
+    const quer = kartenGeometrie({ breite: 916, hoehe: 300 }, FOTO, INHALT)
+    expect(quer.lage).toBe('quer')
+    expect(quer.text.angaben.x).toBe(quer.text.titel.x)
+    expect(quer.text.angaben.x).toBeLessThan(quer.karte.x + quer.karte.breite)
+  })
+
+  it('quer gibt der Spalte die Breite des TEXTES, nicht eine feste', () => {
+    // Die feste Breite stammt aus der Zeit, als in der Spalte eine
+    // Bildunterschrift stand. Ohne sie blieb neben zwei kurzen Zeilen eine
+    // leere weiße Fläche stehen. Ohne Text fällt die Spalte ganz weg.
+    const buehne = { breite: 916, hoehe: 300 }
+    const lang = kartenGeometrie(buehne, FOTO, { angabenEigeneZeile: false, textBreite: 190 })
+    const kurz = kartenGeometrie(buehne, FOTO, { angabenEigeneZeile: false, textBreite: 60 })
+    const ohne = kartenGeometrie(buehne, FOTO, { angabenEigeneZeile: false, textBreite: 0 })
+    expect(lang.karte.breite).toBeGreaterThan(kurz.karte.breite)
+    expect(kurz.karte.breite).toBeGreaterThan(ohne.karte.breite)
+    // Ohne Text ist die Karte das Bild plus Rand — kein leeres Feld daneben.
+    expect(ohne.karte.breite).toBeCloseTo(ohne.bild.breite + (ohne.bild.x - ohne.karte.x) * 2, 4)
+    // Das BILD bleibt in allen drei Fällen gleich groß: Die Spalte kommt zur
+    // Karte dazu, sie nimmt dem Bild nichts weg.
+    expect(kurz.bild.breite).toBeCloseTo(lang.bild.breite, 4)
+  })
 })
 
 describe('Kartengeometrie', () => {
