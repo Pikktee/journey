@@ -471,6 +471,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 ### 4. `concepts/` (Offene Konzepte)
 * [`konzept_play_store_interner_test.md`](concepts/konzept_play_store_interner_test.md) — Android Play Store, interner Test als erster Schritt.
 * [`konzept_social_login.md`](concepts/konzept_social_login.md) — Anmelden mit Google (später Apple).
+* [`konzept_maptale_als_ios_webapp.md`](concepts/konzept_maptale_als_ios_webapp.md) — Maptale zum Home-Bildschirm: der Ersatz für die native App, die es auf iOS nicht gibt. Offen ist zuerst, was der Editor auf einem Telefon sein soll. Entwurf, nichts gebaut.
 * [`konzept_newsletter.md`](concepts/konzept_newsletter.md) — Teil B: redaktioneller Newsletter-Versand (Teil A ist live).
 * [`konzept_mehrsprachigkeit_i18n.md`](concepts/konzept_mehrsprachigkeit_i18n.md) — Mehrsprachigkeit & `/de/` / `/en/`-Routing.
 * [`konzept_tracker_integrationen.md`](concepts/konzept_tracker_integrationen.md) — Garmin/Strava Sync & automatische Foto-Zuordnung.

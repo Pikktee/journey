@@ -34,6 +34,7 @@ import { UI, $, type PlayerMedium } from './ui.js'
 import { Tour, mischeSkala, skalaFuer, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
 import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
+import { betreteVollbild, verlasseVollbild } from './vollbild.js'
 import {
   EXPORT_INTRO_S,
   istEingebettet,
@@ -226,6 +227,11 @@ setzeViewportHoehe()
 window.addEventListener('resize', setzeViewportHoehe)
 window.addEventListener('orientationchange', setzeViewportHoehe)
 window.visualViewport?.addEventListener('resize', setzeViewportHoehe)
+// Der Wechsel ins Vollbild und zurück ändert die Höhe, ohne dass zwingend ein
+// `resize` käme (der ResizeObserver unten fängt es zwar auch, aber das hier ist
+// das direkte Signal).
+document.addEventListener('fullscreenchange', setzeViewportHoehe)
+document.addEventListener('webkitfullscreenchange', setzeViewportHoehe)
 // Sicherheitsnetz: ein ResizeObserver meldet Größenänderungen auch dort, wo kein
 // resize-Event ankommt (WebViews, eingebettete Ansichten) — sonst bliebe nach
 // einer Drehung das Layout des vorherigen Formats stehen.
@@ -598,6 +604,11 @@ if (autor?.anzeigename) {
 // Besucher überall „Entdecken".
 const HERKUNFT: Record<string, string> = { '/app': 'Studio', '/galerie': 'Entdecken', '/profil': 'Profil' }
 if (!appModus) {
+  // Wer den Player verlässt, verlässt auch das Vollbild — sonst stünde die
+  // Galerie ohne Adressleiste da. Die Browser räumen das bei einer Navigation
+  // zwar selbst ab; hier steht es, weil es zur Geste gehört und nicht zur
+  // Hoffnung. Der Listener hängt unabhängig davon, ob es einen Referrer gibt.
+  document.querySelector('.zurueck')?.addEventListener('click', () => verlasseVollbild())
   let her: URL | null = null
   try {
     const r = new URL(document.referrer)
@@ -1021,7 +1032,14 @@ map.on('load', () => {
   ui.syncDots(0)
 
   // — Steuerung —
-  $('btn-start').addEventListener('click', () => tour.begin())
+  // Der Start-Knopf ist zugleich die Nutzergeste fürs Vollbild: Im mobilen
+  // Browser nimmt das die Adressleiste weg, die im Querformat am meisten kostet.
+  // Kann der Browser es nicht (altes iOS), passiert nichts weiter — die Tour
+  // startet in jedem Fall. In der App-WebView ist ohnehin schon Vollbild.
+  $('btn-start').addEventListener('click', () => {
+    tour.begin()
+    if (!appModus) betreteVollbild()
+  })
   $('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
   $('btn-replay').addEventListener('click', () => tour.restart())
   // Vom „Ziel erreicht“-Screen zurück ins Hauptmenü (wie der Dock-Menü-Knopf)

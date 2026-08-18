@@ -78,3 +78,4 @@ Gewollt, aber ohne Reihenfolge. Was hier steht, wartet auf einen Anlass.
 * [Die Tafeln auf die Leinwand](concepts/die-tafeln-auf-die-leinwand.md) — Erst die Klickflächen von Startscreen und Finale, dann die Optik.
 * [Monetarisierung](concepts/konzept_monetarisierung.md) — Die Esri-Lizenz klären.
 * [Social Login](concepts/konzept_social_login.md) — Anmelden mit Google.
+* [Maptale als iOS-Web-App](concepts/konzept_maptale_als_ios_webapp.md) — Erst die Gegenprobe am Gerät: Bleibt man in der installierten Fassung angemeldet?

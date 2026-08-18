@@ -876,6 +876,23 @@ ein zweites Fenster hätte keinen Weg zurück, nur ein Schließkreuz. Im App-Mod
 bleibt die Pille aus — dort führt `.app-exit` in der Steuerleiste in die Tourliste.
 Die einzige `h1` des Players ist seither der Intro-Titel.
 
+**Der Start-Knopf ist zugleich die Nutzergeste fürs VOLLBILD**
+([src/vollbild.ts](src/vollbild.ts)). Im mobilen Browser frisst die Adressleiste
+den Streifen, der im Querformat am meisten kostet; die Fullscreen API nimmt sie
+weg, auf Android samt Systemleiste. Vier Regeln, die man beim nächsten Anfassen
+kippt: Gefragt wird nach der FÄHIGKEIT und nie nach dem Gerät (`fullscreenEnabled`
+— auf dem iPhone gab es Vollbild jahrelang nur für `<video>`, seit Safari 26 für
+jedes Element; altes iOS fällt still durch, und ein `iframe` ohne
+`allow="fullscreen"` ebenso, was für den Export-Rahmen die richtige Antwort ist).
+**Nichts hängt am Erfolg**: Der Aufruf kann trotz Nutzergeste ablehnen, und eine
+unbehandelte Ablehnung risse den Start-Handler ab — dann startete die Tour nicht,
+WEIL das Vollbild nicht klappte (`test/vollbild.test.ts` hält beide Wege).
+`--vh-app` muss mitgehen, deshalb hört [main.ts](src/main.ts) zusätzlich auf
+`fullscreenchange`. Und **in der App-WebView wird nicht gerufen** (`body.app`),
+dort ist ohnehin Vollbild. Eine Web-App auf dem Home-Bildschirm ist ausdrücklich
+etwas anderes und steht als eigenes Konzept daneben
+([konzept_maptale_als_ios_webapp.md](docs/concepts/konzept_maptale_als_ios_webapp.md)).
+
 **Typografie im Player folgt [`DESIGN.md`](DESIGN.md):** Outfit überall, Kennzahlen mit
 `font-variant-numeric: tabular-nums` — **kein Mono und kein Versalien-Sperrsatz**. Der einzige
 verbleibende Mono-Platz ist das API-Schlüssel-Feld des Google-3D-Testmodus (Debug); die
