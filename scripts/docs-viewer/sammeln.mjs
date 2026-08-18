@@ -134,11 +134,17 @@ export const DOCS = join(WURZEL, 'docs')
 /** Ordner, die nie Doku enthalten — `node_modules` liegt auch unter `server/`. */
 const NICHT_HINEIN = new Set(['node_modules', '_site', 'dist', 'build', 'coverage', 'daten'])
 
+/*
+ * Die Bauordner neben der Ausgabe (`_site.bau.<pid>`, s. build.mjs): Sie leben
+ * wenige Sekunden — und in genau diesen läuft der Sammler des nächsten Laufs.
+ */
+const IST_BAUORDNER = (name) => /^_site\./.test(name)
+
 export function dateienUnter(ordner, endung) {
   if (!existsSync(ordner)) return []
   const gefunden = []
   for (const eintrag of readdirSync(ordner)) {
-    if (eintrag.startsWith('.') || NICHT_HINEIN.has(eintrag)) continue
+    if (eintrag.startsWith('.') || NICHT_HINEIN.has(eintrag) || IST_BAUORDNER(eintrag)) continue
     const pfad = join(ordner, eintrag)
     if (statSync(pfad).isDirectory()) gefunden.push(...dateienUnter(pfad, endung))
     else if (eintrag.endsWith(endung)) gefunden.push(pfad)

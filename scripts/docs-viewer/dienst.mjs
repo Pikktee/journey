@@ -380,9 +380,28 @@ function titelVon(abs) {
 /** Die Argumente des Neubaus — ohne Vorschau-Screenshots, das dauert sonst zu lang. */
 const BAU_ARGUMENTE = () => [join(WURZEL, 'scripts', 'docs-viewer', 'build.mjs'), '--ohne-bilder']
 
+/*
+ * Wann der letzte Bau von HIER aus fertig war.
+ *
+ * Der Wächter des Dev-Servers beobachtet `docs/` und baut bei jeder Änderung
+ * neu — auch bei der, die diese Datei gerade selbst geschrieben hat. Ein
+ * Archivieren löste dadurch ZWEI Bauläufe aus: den eigenen, nach dem die
+ * Seite umzieht, und eine Sekunde später den des Wächters, der die frisch
+ * geladene Seite gleich wieder neu lud. Der Zeitstempel beantwortet die
+ * Frage, die dahintersteckt: Lag die Änderung vor dem Bau, ist sie darin
+ * schon enthalten.
+ */
+let gebautSeit = 0
+
+/** Der Zeitpunkt, zu dem der letzte Bau des Dienstes fertig war. */
+export function letzterEigenerBau() {
+  return gebautSeit
+}
+
 /** Baut den Viewer neu und WARTET — für die Schreibaktionen, die danach antworten. */
 export function baueNeu() {
   execFileSync('node', BAU_ARGUMENTE(), { cwd: WURZEL, stdio: 'pipe' })
+  gebautSeit = Date.now()
 }
 
 /**
@@ -394,7 +413,10 @@ export function baueNeu() {
  */
 export function baueNeuNebenher() {
   return new Promise((fertig, fehler) => {
-    execFile('node', BAU_ARGUMENTE(), { cwd: WURZEL }, (f) => (f ? fehler(f) : fertig()))
+    execFile('node', BAU_ARGUMENTE(), { cwd: WURZEL }, (f) => {
+      gebautSeit = Date.now()
+      f ? fehler(f) : fertig()
+    })
   })
 }
 

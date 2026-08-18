@@ -1115,6 +1115,17 @@ automatisch, sobald unter `android/` gearbeitet wird.
   der Tab lud sonst neu und zeigte das alte Blatt). Ohne den Wächter tarnt sich
   das Ganze als INHALTLICHER Fehler: Ein korrigiertes Skript verhält sich
   unverändert falsch, weil der Browser die Fassung von vorgestern ausführt.
+  **Gebaut wird NEBEN der Ausgabe** (`docs/_site.bau.<pid>/`, danach zwei
+  Umbenennungen; die Prozessnummer trennt zwei gleichzeitige Läufe): In-place geleert fehlte `index.html` rund eine Sekunde lang,
+  und jede Anfrage in diesem Fenster bekam „Die Doku ist noch nicht gebaut" —
+  genau dorthin fiel der Reload nach dem Archivieren. Aus demselben Anlass
+  überspringt der Wächter, was der Viewer SELBST geschrieben hat
+  (`letzterEigenerBau()` in [dienst.mjs](scripts/docs-viewer/dienst.mjs)); sonst
+  baut er die Änderung ein zweites Mal und lädt die gerade umgezogene Seite auf
+  ihre alte Adresse. Und eine Doku-Seite, die es nicht mehr gibt, fiele in Vites
+  SPA-Fallback und käme als LANDING mit Status 200 zurück: Der Handler leitet
+  stattdessen auf den neuen Ort um, wenn der Dateiname genau einmal im gebauten
+  Baum vorkommt, und antwortet sonst mit einer eigenen 404.
   **Jedes Dokument trägt seinen VERLAUF** (Klappe unter dem Text, Weg dorthin in
   der Kopftafel): die Commits dieser Datei, und je Commit, was sich dabei an
   ihrem Kopf geändert hat („Status: Entwurf → Etappe 1 gebaut"). Damit steht die

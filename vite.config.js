@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
 
 import { defineConfig } from 'vite'
@@ -172,6 +172,34 @@ function dokuAusliefern() {
               '</div></body>',
           )
         }
+        // Eine Doku-Seite, die es nicht (mehr) gibt, fiele hier in Vites
+        // SPA-Fallback und käme als LANDING zurück — mit Status 200. Wer
+        // einem alten Link folgt, stünde also auf der Startseite des
+        // Produkts und wüsste nicht, warum. Zwei Antworten sind besser:
+        // Wurde die Datei nur verschoben (archiviert, umbenannt), führt der
+        // Weg dorthin; sonst sagt eine Seite im Viewer-Ton, was fehlt.
+        if (rel.endsWith('.html')) {
+          const name = rel.split('/').pop()
+          const treffer = readdirSync(wurzel, { recursive: true })
+            .map((e) => String(e))
+            .filter((e) => e.endsWith('/' + name) || e === name)
+          if (treffer.length === 1) {
+            res.writeHead(302, { Location: '/doku/' + treffer[0] })
+            return res.end()
+          }
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/html; charset=utf-8')
+          return res.end(
+            '<!doctype html><meta charset="utf-8"><title>Nicht gefunden</title>' +
+              '<body style="margin:0;display:grid;place-items:center;min-height:100vh;' +
+              'background:#090c11;color:#f2ede3;font:400 16px/1.6 system-ui,sans-serif">' +
+              '<div style="max-width:40ch;text-align:center">' +
+              '<h1 style="font-size:22px;margin:0 0 10px">Diese Seite gibt es hier nicht</h1>' +
+              '<p style="color:#a7b1bf;margin:0 0 16px">Vielleicht wurde sie umbenannt oder archiviert.</p>' +
+              '<a href="/doku/" style="color:#e8b04b">Zur Übersicht</a>' +
+              '</div></body>',
+          )
+        }
         return next()
       }
       const endung = extname(datei).toLowerCase()
@@ -211,7 +239,7 @@ function dokuAusliefern() {
     // der ~100 Dateien, die ein Doku-Bau schreibt, als geänderte Quelle und
     // schickt eine Lawine eigener Reload-Nachrichten hinterher — in der die
     // eine, auf die es ankommt, untergeht.
-    config: () => ({ server: { watch: { ignored: ['**/docs/_site/**'] } } }),
+    config: () => ({ server: { watch: { ignored: ['**/docs/_site*/**'] } } }),
     configureServer: (server) => {
       middleware(server, true)
       beobachteDoku(server)
@@ -255,12 +283,20 @@ function beobachteDoku(server) {
   let nochmal = false
   let warteAuf = null
 
-  const bauen = async () => {
+  const bauen = async (anlassUm = 0) => {
     if (laeuft) return void (nochmal = true)
+    const dienst = await import('./scripts/docs-viewer/dienst.mjs')
+    // Was der Viewer SELBST geschrieben hat (archivieren, umbenennen,
+    // speichern), hat er auch schon gebaut, und die Seite ist danach längst
+    // umgezogen — ein zweiter Lauf lädt sie bloß noch einmal neu, und zwar
+    // auf die Adresse, die es nicht mehr gibt. Die KULANZ hängt daran, dass
+    // `anlassUm` die Meldezeit des Dateisystems ist und nicht die
+    // Schreibzeit: Sie trifft gelegentlich erst nach dem Bau ein.
+    const KULANZ = 400
+    if (anlassUm && anlassUm < dienst.letzterEigenerBau() + KULANZ) return
     laeuft = true
     try {
-      const { baueNeuNebenher } = await import('./scripts/docs-viewer/dienst.mjs')
-      await baueNeuNebenher()
+      await dienst.baueNeuNebenher()
       server.ws.send({ type: 'full-reload', path: '*' })
       server.config.logger.info('  \x1b[32m\u279c\x1b[0m  Doku neu gebaut')
     } catch (fehler) {
@@ -276,10 +312,13 @@ function beobachteDoku(server) {
   }
 
   const beruehrt = (pfad) => {
+    // `gebaut` ist ein Präfix und deckt damit auch die kurzlebigen
+    // Nachbarordner des Baus ab (`_site.neu`, `_site.alt`, s. build.mjs).
     if (pfad.startsWith(gebaut)) return
     if (!quellen.some((q) => pfad.startsWith(q))) return
     clearTimeout(warteAuf)
-    warteAuf = setTimeout(bauen, 150)
+    const anlassUm = Date.now()
+    warteAuf = setTimeout(() => bauen(anlassUm), 150)
   }
 
   server.watcher.add(quellen)

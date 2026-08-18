@@ -21,6 +21,8 @@ import {
   existsSync,
   readFileSync,
   readdirSync,
+  renameSync,
+  statSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -46,10 +48,37 @@ import {
   kartenSeite,
 } from './seiten.mjs'
 
-const SITE = join(DOCS, '_site')
+/*
+ * Gebaut wird NEBEN der Ausgabe, getauscht wird am Ende in einem Zug.
+ *
+ * Vorher wurde `docs/_site/` in-place geleert und wieder gefüllt: Dazwischen
+ * lag rund eine Sekunde, in der es keine `index.html` gab — und der
+ * Dev-Server antwortete jeder Anfrage in diesem Fenster mit „Die Doku ist
+ * noch nicht gebaut". Genau dort hinein fällt der Reload nach dem
+ * Archivieren, weshalb die Aktion aussah, als hätte sie den Viewer zerlegt.
+ * Zwei Umbenennungen später ist das Fenster so lang wie ein `rename` — und
+ * ein FEHLGESCHLAGENER Bau lässt die alte Fassung stehen, statt sie zu
+ * löschen und nichts an ihre Stelle zu setzen.
+ */
+const ZIEL = join(DOCS, '_site')
+/*
+ * Der Bauordner trägt die PROZESSNUMMER, und das ist keine Kosmetik: Der
+ * Wächter des Dev-Servers baut nebenher, und wer gleichzeitig `npm run docs`
+ * aufruft, hatte sonst zwei Läufe in EINEM Ordner — der zweite leert ihn,
+ * während der erste hineinschreibt, und getauscht wird ein halbes
+ * Verzeichnis (zuletzt: `assets/` ohne Blätter, die Doku stand ungestaltet
+ * da). Mit eigenem Ordner je Lauf tauschen beide nacheinander eine
+ * vollständige Fassung; die letzte gewinnt.
+ */
+const SITE = join(DOCS, `_site.bau.${process.pid}`)
+const VORIG = join(DOCS, `_site.alt.${process.pid}`)
 const HIER = dirname(new URL(import.meta.url).pathname)
 const args = process.argv.slice(2)
 const oeffnen = args.includes('--oeffnen')
+
+/* Der Bauordner gehört DIESEM Prozess: Endet er, ist der Ordner Müll — auch
+ * und gerade, wenn er über einen Fehler endet. */
+process.on('exit', () => rmSync(SITE, { recursive: true, force: true }))
 
 const schreibe = (rel, inhalt) => {
   const pfad = join(SITE, rel)
@@ -84,24 +113,21 @@ verknuepfeMockups(dokumente, mockups)
 const roadmap = sammleRoadmap(dokumente, mockups)
 const nachAbs = new Map(dokumente.map((d) => [d.abs, d]))
 
-// Die Ausgabe wird VOLLSTÄNDIG geleert, nur die Vorschaubilder bleiben: Sie
-// sind teuer und hängen allein an den Mockups. Gezielt einzelne Ordner zu
-// löschen ließ die Seiten eines Bereichs stehen, den es nicht mehr gibt —
-// erreichbar über alte Links, aber von nichts mehr verlinkt.
-if (existsSync(SITE))
-  for (const eintrag of readdirSync(SITE)) {
-    // Die einmal geladene Schrift überlebt das Leeren — sonst hinge jeder Bau
-    // wieder am Netz.
-    if (eintrag === 'assets' && existsSync(join(SITE, 'assets', 'outfit.woff2'))) {
-      const bewahrt = readFileSync(join(SITE, 'assets', 'outfit.woff2'))
-      rmSync(join(SITE, eintrag), { recursive: true, force: true })
-      mkdirSync(join(SITE, 'assets'), { recursive: true })
-      writeFileSync(join(SITE, 'assets', 'outfit.woff2'), bewahrt)
-      continue
-    }
-    rmSync(join(SITE, eintrag), { recursive: true, force: true })
+// Der Bauordner beginnt leer — er ist der Rest eines abgebrochenen Laufs oder
+// gibt es noch gar nicht. Die einmal geladene Schrift wandert aus der
+// stehenden Ausgabe herüber, sonst hinge jeder Bau wieder am Netz.
+rmSync(SITE, { recursive: true, force: true })
+/* Ein abgestürzter Lauf lässt seinen Ordner liegen. Er gehört einem Prozess,
+ * den es nicht mehr gibt, also räumt ihn niemand außer dem nächsten Bau —
+ * und der wartet dafür eine Stunde ab, um keinem laufenden dazwischenzukommen. */
+for (const eintrag of readdirSync(DOCS))
+  if (/^_site\.(bau|alt)\./.test(eintrag) && join(DOCS, eintrag) !== SITE) {
+    const alter = Date.now() - statSync(join(DOCS, eintrag)).mtimeMs
+    if (alter > 60 * 60 * 1000) rmSync(join(DOCS, eintrag), { recursive: true, force: true })
   }
-mkdirSync(SITE, { recursive: true })
+mkdirSync(join(SITE, 'assets'), { recursive: true })
+if (existsSync(join(ZIEL, 'assets', 'outfit.woff2')))
+  cpSync(join(ZIEL, 'assets', 'outfit.woff2'), join(SITE, 'assets', 'outfit.woff2'))
 
 /*
  * Alles, was in `docs/` KEIN Markdown ist, wird mitkopiert: die HTML-Mockups
@@ -116,7 +142,8 @@ mkdirSync(SITE, { recursive: true })
  */
 function spiegleBeiwerk(von, nachRel = '') {
   for (const eintrag of readdirSync(von, { withFileTypes: true })) {
-    if (eintrag.name.startsWith('.') || eintrag.name === '_site') continue
+    // `_site`, `_site.neu`, `_site.alt`: die Ausgabe spiegelt sich nicht selbst.
+    if (eintrag.name.startsWith('.') || eintrag.name.startsWith('_site')) continue
     const quelle = join(von, eintrag.name)
     const rel = nachRel ? `${nachRel}/${eintrag.name}` : eintrag.name
     if (eintrag.isDirectory()) spiegleBeiwerk(quelle, rel)
@@ -281,4 +308,24 @@ console.log(
 console.log(`  fertig in ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 console.log('  Ansehen: http://maptale.localhost:5123/doku/ (devhub) oder docs/_site/index.html öffnen')
 
-if (oeffnen) execFileSync('open', [join(SITE, 'index.html')])
+/*
+ * Der Tausch. Zwischen den beiden Umbenennungen liegt der einzige Moment, in
+ * dem `docs/_site/` fehlt — deshalb stehen sie direkt hintereinander und
+ * NICHTS dazwischen.
+ */
+for (let versuch = 0; ; versuch++) {
+  try {
+    rmSync(VORIG, { recursive: true, force: true })
+    if (existsSync(ZIEL)) renameSync(ZIEL, VORIG)
+    renameSync(SITE, ZIEL)
+    break
+  } catch (fehler) {
+    // Zwei Läufe zugleich: Der andere hat `_site` in genau dem Augenblick
+    // wieder angelegt, in dem dieser es weggeräumt sah — dann ist das
+    // Umbenennen ein `ENOTEMPTY`. Der nächste Anlauf räumt es mit.
+    if (versuch >= 3) throw fehler
+  }
+}
+rmSync(VORIG, { recursive: true, force: true })
+
+if (oeffnen) execFileSync('open', [join(ZIEL, 'index.html')])
