@@ -56,7 +56,6 @@ import {
 interface SpielerFoto {
   src: string
   title: string
-  caption: string
   anchor: Ankerpunkt
   /** Aufgezeichnete Touren bringen den Zeitstempel mit (Auto-Wetter spart das EXIF) */
   takenAt?: string
@@ -658,6 +657,14 @@ map.on('load', () => {
   const rider = createRider(map, [start[0], start[1]], startModus)
 
   const ui = new UI(stops, route, filmspur)
+  // Die Uhrzeit auf der Foto-Karte gilt in der Zone der TOUR, nicht in der des
+  // Betrachters (s. `UI.zeitzone`).
+  ui.zeitzone = cfg.time?.zone ?? null
+  {
+    const von = Date.parse(cfg.time?.start ?? '')
+    const bis = Date.parse(cfg.time?.end ?? '')
+    ui.zeitfenster = Number.isFinite(von) && Number.isFinite(bis) ? [von, bis] : null
+  }
   /** Zählerstand der verworfenen Frames beim letzten Nachziehen (s. updateTrace). */
   let gesehenVerworfen = 0
   let kamFolger: ((filmS: number) => void) | null = null // Kamera-Keyframe-Folger (nur bei cfg.camera, s. unten)
@@ -1343,13 +1350,14 @@ map.on('load', () => {
     })
   }
 
-  // Klick aufs Foto hält die Anzeige an (und löst sie wieder); „Weiter“
-  // springt zum nächsten Foto des Stopps bzw. setzt die Fahrt fort
+  // Klick aufs Foto hält die Anzeige an und löst sie wieder. Ein „Weiter ▸"
+  // daneben gab es bis zum 2026-08-18: Er sprang zur nächsten Aufnahme des
+  // Halts und stammte aus der Zeit, als ein Halt auf der Fortschrittsleiste
+  // keine Breite hatte — man kam gar nicht in ihn hinein. Seit die Leiste in
+  // Filmzeit läuft, zieht man einfach durch. Was mit ihm entfallen ist: der
+  // gezielte Sprung zur EINZELNEN Aufnahme eines Halts; den bekommt die Leiste
+  // (docs/concepts/konzept_player_leiste_ui.md, „Was danach noch offen ist").
   $('photo-card').addEventListener('click', () => tour.togglePhotoHold())
-  $('photo-next').addEventListener('click', (e) => {
-    e.stopPropagation()
-    tour.photoNext()
-  })
   // Video-Stopp durchgelaufen: weiter wie nach einem abgelaufenen Foto-HOLD (M4)
   ui.onMediaEnded = () => tour.onMediaEnded()
 

@@ -616,23 +616,6 @@ export class Tour {
   }
 
   /**
-   * „Weiter“: zur nächsten Aufnahme des Halts springen, sonst hinter den Halt.
-   *
-   * Das ist jetzt ein Sprung in der FILMZEIT und keine Zustandsänderung mehr —
-   * die Karte folgt daraus von selbst. Holt die Tour auch aus einer Foto-Pause
-   * zurück.
-   */
-  photoNext(): void {
-    const halt = this.halt
-    if (this.phase !== 'photo' || !halt?.stopp || !this.photoShown) return
-    const naechstes = halt.stuecke[this.itemIdx + 1]
-    this.setzeFilm(naechstes ? halt.filmVon + naechstes.abS : halt.filmBis)
-    this.ui.syncDots(this.s)
-    if (!this.playing) this.setPlaying(true)
-    else this.emitStats()
-  }
-
-  /**
    * Ein Video ist durchgelaufen (ui.onMediaEnded) — der NOTAUSGANG, mehr nicht.
    *
    * Bis Etappe 4 endete der Halt hier: `ended` schaltete weiter. Weicht die

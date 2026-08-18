@@ -13,7 +13,7 @@ gerendert mit MapLibre GL JS. **Player und Studio sind vollständig TypeScript**
 fiele erst am Aufrufer auf (`TS7016`). Das übrige JS des Repos (`vite.config.js`,
 `vitest.config.js`, `scripts/*.mjs`) läuft unter Node bzw. Vites Config-Loader und bleibt.
 
-**Maptale wird von einem Prototyp zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
+**Maptale wird von einer Machbarkeitsstudie zu einem echten Produkt ausgebaut** (Aufnahme-Plattform,
 Meilensteine M1–M9): eigene Touren aufzeichnen (Android), hochladen, serverseitig anreichern
 und mit der vorhandenen Player-Engine abspielen. Das Repo ist ein **Monorepo**:
 
@@ -636,6 +636,65 @@ Sieben Dinge, die man dabei kippt:
   Bildunterschrift weiter für Screenreader — ohne sie wäre der Umbau eine
   Zugänglichkeits-Regression, die niemandem auffällt, weil das Bild gleich aussieht.
 
+**Und die Karte zeigt seit dem 2026-08-18 keine Gattung mehr.** „Foto" und „Video" standen
+dreimal auf derselben Fläche: als Pille rechts unten, im Editor als Titel-Rückfall und im
+Player als „Foto · 14:32" aus der Pipeline — jedes Mal in der größten Schrift die eine
+Auskunft, die man dem Bild ansieht. Entwurf und Herleitung:
+[studio-fotokarte-ohne-titel.html](docs/mockups/studio-fotokarte-ohne-titel.html). Sechs Regeln
+daneben, die man beim nächsten Anfassen leicht kippt:
+
+- **Die FORM bleibt, ob mit Titel oder ohne.** Die Zeile behält die Höhe des Titelgrades, auch
+  wenn nichts darin steht, und die Angaben bleiben RECHTS stehen. Ohne beides wäre die
+  unbeschriftete Karte 11 px flacher und ihre einzige Zeile spränge nach links: Beim Blättern
+  durch die Halte bewegte sich damit ausgerechnet das, was bleibt. Eine rahmenlose Fassung
+  („nur das Bild") war die schönere EINZELkarte und ist genau daran gescheitert.
+- **Titel links, Angaben rechts, eine Zeile — mit Rückfall.** Passen beide nicht mit dem
+  doppelten `lueckeX` dazwischen nebeneinander, bekommt jede ihre eigene Zeile
+  (`angabenPasstNicht`). Die Karte ist so breit wie ihr Bild: Bei einer Hochkant-Aufnahme sind
+  das keine 200 px, dort blieben dem Titel 64 von 158 gebrauchten Pixeln. Deshalb kennt die
+  Geometrie den INHALT (`KartenInhalt`) und wird im Bedarfsfall zweimal gerechnet — sie ist
+  reine Rechnung, der zweite Durchgang kostet nichts.
+- **Die Angaben haben keinen Rahmen mehr und stehen zweistufig** (`teileAngaben`): Ziffern
+  dunkler und in 500, „Uhr" und „km" zurückgenommen. Ein Kasten sagt „hier steht eine Marke",
+  und das ist eine Uhrzeit nicht. Der Kilometerstand bleibt auf JEDER Bühne, auch im Editor,
+  obwohl der Zeitleisten-Kopf dieselbe Zahl trägt: Die Karte soll überall dieselbe sein, sonst
+  sieht man beim Schneiden nicht, was ausgeliefert wird.
+- **Der Knopf „Weiter ▸" ist ersatzlos entfallen.** Er sprang zur nächsten Aufnahme desselben
+  Halts und stammte aus der Zeit, als ein Halt auf der Fortschrittsleiste keine Breite hatte.
+  Seit Etappe 5 zieht man einfach durch. Was mit ihm entfallen ist, ist der GEZIELTE Sprung
+  zur einzelnen Aufnahme — den bekommt die Leiste
+  ([konzept_player_leiste_ui.md](docs/concepts/konzept_player_leiste_ui.md)). Mit ihm weg sind
+  `tour.photoNext`, `#photo-next`, `.photo-next` und das `weiter`-Rechteck des Malers.
+- **Die Karte hat keine BILDUNTERSCHRIFT mehr.** Ein Halt steht 5,2 s
+  (`HOLD_HIDE`), nach Auftritt und Abgang bleiben rund vier; die kuratierten
+  Beschreibungen waren im Median 84 Zeichen lang und die längste 239 — der Median
+  füllte die Standzeit vollständig aus, wer las, sah das Bild nicht. Dazu kam,
+  dass das Studio nie ein Feld dafür hatte: Nur `tours.ts` konnte sie setzen.
+  Entfallen sind deshalb `KartenText.unter`, die Unterschrift-Geometrie samt
+  ihren Maßsatz-Feldern, `#photo-sub` und die 28 Beschreibungen der kuratierten
+  Touren. Der Player trägt seither `title`, `1/2` und die Angaben als
+  `figcaption.sr-only`, sonst nichts.
+- **Die UHRZEIT ist eine Angabe und kein Text.** Sie steht rechts neben dem Kilometerstand
+  („09:09 Uhr · 2,4 km") und wird im Player aus `takenAt` gerechnet (`UI.zeitzone`,
+  `UI._uhrzeit`) — nicht mehr als fertige Zeichenkette vom Server. Vorher lieferte
+  [enrich.ts](server/src/pipeline/enrich.ts) „Foto · 09:09" als `title` bzw. als `caption`, und
+  damit sah dieselbe Aufnahme im Player anders aus als im Editor: Uhrzeit unter dem Titel statt
+  daneben, dazu die Gattung davor. Jetzt trägt das JSON in beiden Feldern NUR den Nutzertext;
+  `caption` bleibt echten Bildunterschriften der kuratierten Touren vorbehalten. Drei Dinge,
+  die man dabei kippt: Die Zone ist die der TOUR (`cfg.time.zone`) und nicht die des
+  Betrachters; die Prüfung „liegt `takenAt` überhaupt in der Tour-Zeitspanne?" ist mit der
+  Uhrzeit in den Player gewandert (`UI.zeitfenster`, sonst zeigte ein mtime-Fallback eine
+  Uhrzeit von vorgestern); und der Kilometerstand steht mit KOMMA, wie im Editor.
+  Bestandstouren tragen die alten Texte, bis sie neu gerendert werden.
+- **Der Rand ist schmaler, der Fuß bleibt der eine breite Rand** (Editor: `polster` 22 → 12,
+  `balken` 7 → 5, Balken-Rest 0,3 → 0,16; `textUnten` Editor 22 → 24 und Player 15 → 18).
+  Gemessen wird am MALER und nicht am Entwurf — dort galt eine andere Geometrie, und eine 6
+  sah dort richtig aus, ergab hier aber 13,5 px unten gegen 25 oben, also eine Karte, die unten
+  abgeschnitten aussah. Jetzt sind es 27,5 zu 25 (Editor) und 24,8 zu 22,4 (Player). Gleich
+  breit rundum wäre falsch: Ein Abzug mit Beschriftung hat oben und seitlich denselben
+  schmalen Rand und unten einen breiteren, und das liest sich nur als gewollt, solange oben
+  und seitlich gleich sind.
+
 Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts));
 die GEOMETRIE ist ausdrücklich nicht geteilt und steht als benannter Bühnen-Satz im Maler:
 `KARTEN_MASSE` für den Player (drei Lagen, abgeleitet), `EDITOR_MASSE` für den Editor.
@@ -989,6 +1048,20 @@ automatisch, sobald unter `android/` gearbeitet wird.
   Roadmap, Bereiche, Volltextsuche, Mockup-Vorschauen, Verweis-Graph). Er leitet
   Bereiche, Systemteile und Archiv-Herkunft aus den Dateien ab und schreibt im
   Dev-Server auch zurück (bearbeiten, archivieren, einplanen, umbenennen).
+  Er ist eine **gebaute** Website (`docs/_site/`, aus `docs/*.md` und
+  `scripts/docs-viewer/`) — was der Dev-Server ausliefert, hat also nie die
+  Quellen gesehen. Damit das nicht zur Falle wird, baut er selbst nach: Ein
+  Wächter in [vite.config.js](vite.config.js) (`beobachteDoku`) beobachtet beide
+  Quellorte, ruft nach 150 ms Ruhe `baueNeuNebenher()` und lädt den offenen Tab
+  neu (gemessen: 1,5–2 s vom Speichern bis zur sichtbaren Änderung). Nötig war
+  dafür dreierlei, und jedes einzeln kippt es lautlos: `docs/_site/` gehört aus
+  Vites Watcher (`server.watch.ignored`, sonst löst der Bau die nächste Runde
+  aus), jede Doku-Seite trägt im Dev Vites Client (sie geht durch keine
+  Transformation, ein `full-reload` ginge sonst ins Leere), und die Auslieferung
+  setzt `Cache-Control: no-store` (die Doku trägt keine Hashes im Dateinamen —
+  der Tab lud sonst neu und zeigte das alte Blatt). Ohne den Wächter tarnt sich
+  das Ganze als INHALTLICHER Fehler: Ein korrigiertes Skript verhält sich
+  unverändert falsch, weil der Browser die Fassung von vorgestern ausführt.
   **Jedes Dokument trägt seinen VERLAUF** (Klappe unter dem Text, Weg dorthin in
   der Kopftafel): die Commits dieser Datei, und je Commit, was sich dabei an
   ihrem Kopf geändert hat („Status: Entwurf → Etappe 1 gebaut"). Damit steht die
@@ -998,8 +1071,10 @@ automatisch, sobald unter `android/` gearbeitet wird.
   `rename from`-Zeilen, und der Kopfbereich wird über die Hunk-Zeilennummern
   abgegrenzt, sonst wäre jedes `status:` in einem Codeblock ein Statussprung.
   Wer ein
-  Dokument, Konzept oder Mockup ANLEGT, folgt dem Skill
-  [`doku-anlegen`](.claude/skills/doku-anlegen/SKILL.md) — er lädt automatisch.
+  Dokument oder Konzept ANLEGT, folgt dem Skill
+  [`doku-anlegen`](.claude/skills/doku-anlegen/SKILL.md), wer ein MOCKUP zeichnet
+  dem Skill [`mockup-anlegen`](.claude/skills/mockup-anlegen/SKILL.md) — beide
+  laden automatisch.
   **Der Kopf eines Dokuments ist Front Matter** (`stand`, `status`, `betrifft`,
   `systemteile`, `archiviert_aus` — [`kopf.mjs`](scripts/docs-viewer/kopf.mjs)); die
   alte Prosa-Zeile „Stand: … · Status: …" gilt feldweise als Rückfall, beides

@@ -106,18 +106,13 @@ export interface KartenMassSatz {
   titel: number
   titelMindest: number
   titelZeile: number
-  unter: number
-  unterMindest: number
-  unterZeile: number
-  /** Höchstzahl der Zeilen der Bildunterschrift — darüber wird gekürzt. */
-  unterZeilen: number
-  pille: number
-  pilleMindest: number
-  pillePolsterX: number
-  pillePolsterY: number
-  weiter: number
-  weiterPolsterX: number
-  weiterPolsterY: number
+  /**
+   * Uhrzeit und Kilometerstand. Hieß bis zum Wegfall des Rahmens `pille` — sie
+   * standen in einem eigenen Kasten, und der sagte „hier steht eine Marke",
+   * wo nur eine Angabe steht.
+   */
+  angaben: number
+  angabenMindest: number
   /** Höhe des Standzeit-Balkens am unteren Bildrand. */
   balken: number
   kartenRadius: number
@@ -151,23 +146,17 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
     breiteMax: 1500,
     textOben: 13,
     textSeiten: 6,
-    textUnten: 15,
+    // 18 statt 15: Gemessen stehen über dem Titel 22,4 px, darunter waren es
+    // 22,2 — gleich viel, und damit wirkte die Karte nach unten offen. Mit 18
+    // sind es 25,2. Dieselbe Rechnung wie im Editor, nur eine Bühne kleiner.
+    textUnten: 18,
     lueckeX: 16,
     lueckeY: 2,
     titel: 32,
     titelMindest: 19,
     titelZeile: 1.2,
-    unter: 14,
-    unterMindest: 11.5,
-    unterZeile: 1.55,
-    unterZeilen: 2,
-    pille: 11.5,
-    pilleMindest: 8.5,
-    pillePolsterX: 10,
-    pillePolsterY: 4,
-    weiter: 13,
-    weiterPolsterX: 18,
-    weiterPolsterY: 10,
+    angaben: 12.5,
+    angabenMindest: 9.5,
     balken: 4,
     kartenRadius: 12,
     tonSeite: 40,
@@ -192,17 +181,8 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
     titel: 19,
     titelMindest: 15,
     titelZeile: 1.25,
-    unter: 11,
-    unterMindest: 10,
-    unterZeile: 1.45,
-    unterZeilen: 2,
-    pille: 8.5,
-    pilleMindest: 7.5,
-    pillePolsterX: 8,
-    pillePolsterY: 3,
-    weiter: 10,
-    weiterPolsterX: 14,
-    weiterPolsterY: 9,
+    angaben: 10,
+    angabenMindest: 8.5,
     balken: 4,
     kartenRadius: 12,
     tonSeite: 34,
@@ -223,17 +203,8 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
     titel: 17,
     titelMindest: 14,
     titelZeile: 1.25,
-    unter: 10.5,
-    unterMindest: 9.5,
-    unterZeile: 1.45,
-    unterZeilen: 3,
-    pille: 8.5,
-    pilleMindest: 7.5,
-    pillePolsterX: 8,
-    pillePolsterY: 3,
-    weiter: 10,
-    weiterPolsterX: 15,
-    weiterPolsterY: 9,
+    angaben: 10,
+    angabenMindest: 8.5,
     balken: 4,
     kartenRadius: 12,
     tonSeite: 34,
@@ -258,7 +229,13 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
  * Player: Dort steht eine Bildunterschrift, hier „15:58 Uhr · km 12,3".
  */
 export const EDITOR_MASSE: KartenMassSatz = {
-  polster: 22,
+  // 12 und nicht mehr 22: Der breite Rand stammt aus der Zeit, als die Karte
+  // gegen einen hellen Schleier stand und ihn brauchte, um sich zu halten.
+  // Heute liegt sie auf einem dunklen Bild und trägt sich selbst; die Breite
+  // bekommt das Bild. Der FUSS bleibt der eine breite Rand — das ist die Form
+  // jedes Passepartouts, und sie liest sich nur als gewollt, solange oben und
+  // seitlich gleich schmal sind.
+  polster: 12,
   chrome: 306,
   // Der Editor hat keine Steuerleiste, die Platz verlangt — derselbe Wert.
   chromeBedienung: 306,
@@ -266,26 +243,21 @@ export const EDITOR_MASSE: KartenMassSatz = {
   breiteMax: 1600,
   textOben: 18,
   textSeiten: 10,
-  textUnten: 22,
+  // Am MALER gemessen (nicht am Entwurf, dort galt eine andere Geometrie und
+  // eine 6 sah richtig aus): Über dem Titel stehen 25 px bis zur
+  // Versalienoberkante, darunter mit 24 noch 27,5 bis zur Kartenkante. Etwas
+  // mehr unten ist richtig — über dem Titel drückt das Bild, unter ihm steht
+  // nichts mehr. Mit 6 waren es 13,5 unten gegen 25 oben, und die Karte sah
+  // unten abgeschnitten aus.
+  textUnten: 24,
   lueckeX: 20,
   lueckeY: 5,
   titel: 40,
   titelMindest: 17,
   titelZeile: 1.15,
-  unter: 20,
-  unterMindest: 11,
-  unterZeile: 1.45,
-  unterZeilen: 1,
-  pille: 18,
-  pilleMindest: 10,
-  pillePolsterX: 16,
-  pillePolsterY: 6,
-  // Kein „Weiter ▸": Die Editor-Karte hat keine Knöpfe, sie ist eine Vorschau.
-  // Eine 0 hier ist die Ansage dafür — `weiterBreite` reserviert dann nichts.
-  weiter: 0,
-  weiterPolsterX: 0,
-  weiterPolsterY: 0,
-  balken: 7,
+  angaben: 19,
+  angabenMindest: 11,
+  balken: 5,
   kartenRadius: 22,
   // Und keinen Ton-Knopf: Der Ton des Videos läuft, bedient wird er nicht.
   tonSeite: 0,
@@ -341,13 +313,18 @@ const RAHMEN_RADIUS_MIN = 3
 export const KARTEN_FARBEN = {
   papier: '#f6f1e7',
   titel: '#1c1712',
-  unter: 'rgba(28, 23, 18, 0.62)',
-  pille: '#8a7a63',
-  pilleRand: 'rgba(28, 23, 18, 0.2)',
+  /**
+   * Die Angaben stehen zweistufig: Die ZIFFERN tragen die Auskunft, „Uhr" und
+   * „km" sagen nur, wovon die Rede ist.
+   */
+  angabenZahl: 'rgba(28, 23, 18, 0.82)',
+  angabenWort: 'rgba(28, 23, 18, 0.5)',
   /** Bildfeld, solange das Foto noch fehlt — dasselbe Papiergrau wie vorher. */
   bildfeld: '#d8d2c4',
   video: '#000',
-  balken: 'rgba(10, 8, 5, 0.3)',
+  // 0.16 statt 0.3: Der ungespielte Rest lag als grauer Streifen über dem
+  // Bildfuß und las sich fast wie ein Fehler des Fotos.
+  balken: 'rgba(10, 8, 5, 0.16)',
   balkenVon: '#f5a524',
   balkenBis: '#ff6f52',
   schatten: 'rgba(0, 0, 0, 0.55)',
@@ -404,10 +381,9 @@ export interface KartenMedium {
 
 export interface KartenText {
   titel: string
-  unter: string
-  /** „12.3 km" — steht immer. */
+  /** „12.3 km" im Player; im Editor leer (dort trägt die Karte keine Pille). */
   kmText: string
-  /** „Foto 1/2" — leer, wenn der Halt nur eine Aufnahme hat. */
+  /** „1/2" — leer, wenn der Halt nur eine Aufnahme hat. */
   zaehlerText: string
 }
 
@@ -459,8 +435,6 @@ export interface Rechteck {
 export interface KartenMasse {
   karte: Rechteck
   bild: Rechteck
-  /** „Weiter ▸": Lage UND Schriftgrad, damit der Knopf mitskaliert. */
-  weiter: Rechteck & { schrift: number; radius: number }
   /** Ton-Knopf des Videos; `null` bei einem Foto. */
   ton: Rechteck | null
   /** Deckkraft der ganzen Karte — die DOM-Bedienung blendet mit. */
@@ -538,8 +512,8 @@ export const KURVE = {
   text: bezier(0.22, 1, 0.36, 1),
 } as const
 
-/** Staffelung der Beschriftung: Titel, Unterschrift, Pille (Sekunden Versatz). */
-export const TEXT_VERSATZ_S = { titel: 0.35, unter: 0.45, pille: 0.55 } as const
+/** Staffelung der Beschriftung: erst der Titel, dann die Angaben (Sekunden). */
+export const TEXT_VERSATZ_S = { titel: 0.35, angaben: 0.5 } as const
 export const TEXT_DAUER_S = 0.6
 /** Weg, den ein Beschriftungsteil beim Auftritt zurücklegt (bei Bezugshöhe). */
 export const TEXT_HUB_PX = 10
@@ -572,8 +546,7 @@ export interface KartenPhasen {
   /** Füllstand des Standzeit-Balkens. */
   balken: number
   titel: TextAuftritt
-  unter: TextAuftritt
-  pille: TextAuftritt
+  angaben: TextAuftritt
 }
 
 function klemme(v: number, min: number, max: number): number {
@@ -624,8 +597,7 @@ export function kartenPhasen(
       entwickeln: 1,
       balken,
       titel: { deckkraft: 1, hub: 0 },
-      unter: { deckkraft: 1, hub: 0 },
-      pille: { deckkraft: 1, hub: 0 },
+      angaben: { deckkraft: 1, hub: 0 },
     }
   }
 
@@ -647,8 +619,7 @@ export function kartenPhasen(
     entwickeln,
     balken,
     titel: textAuftritt(imS, TEXT_VERSATZ_S.titel, false),
-    unter: textAuftritt(imS, TEXT_VERSATZ_S.unter, false),
-    pille: textAuftritt(imS, TEXT_VERSATZ_S.pille, false),
+    angaben: textAuftritt(imS, TEXT_VERSATZ_S.angaben, false),
   }
 }
 
@@ -664,13 +635,34 @@ export interface KartenGeometrie {
   /** Die Beschriftung, in Karten-Koordinaten (relativ zu `karte`). */
   text: {
     titel: { x: number; y: number; breite: number; schrift: number }
-    unter: { x: number; y: number; breite: number; schrift: number; zeile: number }
-    pillen: { x: number; y: number; hoehe: number; schrift: number; rechtsAusgerichtet: true }
-    weiter: Rechteck & { schrift: number; radius: number }
+    /**
+     * Uhrzeit und Kilometerstand. `x` ist die RECHTE Kante: Die Zeile steht
+     * rechts, auch wenn links kein Titel dasteht. Wanderte sie bei einer
+     * unbeschrifteten Aufnahme nach links, bewegte sich beim Blättern
+     * ausgerechnet das Einzige, was in der Karte bleibt.
+     */
+    angaben: { x: number; y: number; hoehe: number; schrift: number }
   }
   rahmenRadius: number
   kartenRadius: number
   balkenHoehe: number
+}
+
+/**
+ * Was der Maler über den INHALT wissen muss, bevor er die Karte vermisst.
+ *
+ * Die Geometrie hing bis hierher nur an Bühne und Medium. Das reichte, solange
+ * jede Karte dieselben Textzeilen hatte. Seit die Beschriftung wegfallen kann
+ * (kein Titel, keine Bildunterschrift) und die Angaben je nach Platz auf der
+ * Titelzeile stehen oder darunter, entscheidet der Inhalt über die Höhe.
+ *
+ * Nicht enthalten ist der Titel selbst: Ob einer dasteht, ändert die Höhe
+ * NICHT — die Zeile behält den Titelgrad, sonst wäre die unbeschriftete Karte
+ * flacher als die beschriftete und die Form spränge beim Blättern.
+ */
+export interface KartenInhalt {
+  /** Stehen Uhrzeit und km unter dem Titel statt neben ihm? */
+  angabenEigeneZeile: boolean
 }
 
 /** Nennmaß × Maßstab, aber nie unter einem Mindestwert (die Lesbarkeits-Böden). */
@@ -686,7 +678,11 @@ function grad(nenn: number, mass: number, mindest: number): number {
  * folgt) ragte die Karte auf quer gehaltenen Telefonen oben UND unten aus dem
  * Bild — der Grund, aus dem die CSS-Fassung es schon so rechnete.
  */
-export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): KartenGeometrie {
+export function kartenGeometrie(
+  buehne: KartenBuehne,
+  medium: KartenMedium,
+  inhalt: KartenInhalt,
+): KartenGeometrie {
   const { breite, hoehe } = buehne
   const { mass, lage, satz } = kartenSatz(buehne)
   const px = (nenn: number) => nenn * mass
@@ -701,13 +697,11 @@ export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): Kar
   const bildB = Math.max(1, bildH * ar)
 
   const titelSchrift = grad(satz.titel, mass, satz.titelMindest)
-  const unterSchrift = grad(satz.unter, mass, satz.unterMindest)
-  const pilleSchrift = grad(satz.pille, mass, satz.pilleMindest)
-  const weiterSchrift = grad(satz.weiter, mass, satz.pilleMindest)
-  const pilleH = pilleSchrift * 1.35 + px(satz.pillePolsterY) * 2
-  const weiterH = weiterSchrift * 1.25 + px(satz.weiterPolsterY) * 2
+  const angabenSchrift = grad(satz.angaben, mass, satz.angabenMindest)
   const titelH = titelSchrift * satz.titelZeile
-  const unterZeile = unterSchrift * satz.unterZeile
+  // Die Zeile der Angaben ist so hoch wie die des Titels, auch wenn keiner
+  // dasteht. Sonst wäre die unbeschriftete Karte um die Differenz flacher.
+  const angabenH = titelH
 
   const polster = px(satz.polster)
   const textOben = px(satz.textOben)
@@ -722,21 +716,18 @@ export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): Kar
   let bildY: number
   const text: KartenGeometrie['text'] = {
     titel: { x: 0, y: 0, breite: 0, schrift: titelSchrift },
-    unter: { x: 0, y: 0, breite: 0, schrift: unterSchrift, zeile: unterZeile },
-    pillen: { x: 0, y: 0, hoehe: pilleH, schrift: pilleSchrift, rechtsAusgerichtet: true },
-    weiter: { x: 0, y: 0, breite: 0, hoehe: weiterH, schrift: weiterSchrift, radius: weiterH / 2 },
+    angaben: { x: 0, y: 0, hoehe: angabenH, schrift: angabenSchrift },
   }
 
   if (lage === 'quer') {
     // Bild links, Text als eigene Spalte rechts.
     //
-    // Der Textblock reserviert `unterZeilen` Zeilen für die Bildunterschrift und
-    // nicht zwei: Die Spalte ist schmal, drei Zeilen sind dort der Normalfall,
-    // und mit zwei reservierten lief die Kilometer-Pille in die dritte Zeile
-    // hinein (am 844 × 390-Bild gemessen).
+    // Der Textblock reserviert `unterZeilen` Zeilen für die Bildunterschrift,
+    // aber nur so viele, wie wirklich gebraucht werden: Fällt die Unterschrift
+    // weg, entstünde hier sonst eine Lücke MITTEN in der Spalte, weil sie
+    // senkrecht zentriert sitzt.
     const spalteB = Math.min(breite * 0.34, px(280))
-    const unterH = unterZeile * satz.unterZeilen
-    const blockH = titelH + lueckeY + unterH + lueckeY + pilleH + lueckeY + weiterH
+    const blockH = titelH + lueckeY + angabenH
     karteB = polster * 2 + bildB + lueckeX + spalteB
     karteH = polster * 2 + Math.max(bildH, blockH)
     bildX = polster
@@ -746,61 +737,28 @@ export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): Kar
     let y = (karteH - blockH) / 2
     text.titel = { x: sx, y, breite: innen, schrift: titelSchrift }
     y += titelH + lueckeY
-    text.unter = { x: sx, y, breite: innen, schrift: unterSchrift, zeile: unterZeile }
-    y += unterH + lueckeY
-    text.pillen = { x: sx, y, hoehe: pilleH, schrift: pilleSchrift, rechtsAusgerichtet: true }
-    y += pilleH + lueckeY
-    text.weiter = { x: sx, y, breite: 0, hoehe: weiterH, schrift: weiterSchrift, radius: weiterH / 2 }
+    text.angaben = { x: sx + innen, y, hoehe: angabenH, schrift: angabenSchrift }
   } else {
+    // Titel links, Angaben rechts — auf DERSELBEN Zeile, solange beide
+    // nebeneinander passen. Die Lagen `breit` und `schmal` unterscheiden sich
+    // dabei nicht mehr: Sie taten es nur wegen „Weiter ▸", der die untere
+    // Zeile für sich brauchte.
     karteB = bildB + polster * 2
     bildX = polster
     bildY = polster
     const innenX = polster + textSeiten
     const innenB = bildB - textSeiten * 2
-    const zeileH = Math.max(titelH, pilleH, weiterH)
     let y = polster + bildH + textOben
-    if (lage === 'schmal') {
-      // Titel auf eigener Zeile, darunter Pillen links und „Weiter" rechts.
-      text.titel = { x: innenX, y, breite: innenB, schrift: titelSchrift }
+    text.titel = { x: innenX, y, breite: innenB, schrift: titelSchrift }
+    if (inhalt.angabenEigeneZeile) {
       y += titelH + lueckeY
-      const zeile2 = Math.max(pilleH, weiterH)
-      text.pillen = {
-        x: innenX,
-        y: y + (zeile2 - pilleH) / 2,
-        hoehe: pilleH,
-        schrift: pilleSchrift,
-        rechtsAusgerichtet: true,
-      }
-      text.weiter = {
-        x: innenX + innenB,
-        y: y + (zeile2 - weiterH) / 2,
-        breite: 0,
-        hoehe: weiterH,
-        schrift: weiterSchrift,
-        radius: weiterH / 2,
-      }
-      y += zeile2 + lueckeY
+      text.angaben = { x: innenX + innenB, y, hoehe: angabenH, schrift: angabenSchrift }
+      y += angabenH
     } else {
-      text.titel = { x: innenX, y: y + (zeileH - titelH) / 2, breite: innenB, schrift: titelSchrift }
-      text.pillen = {
-        x: innenX + innenB,
-        y: y + (zeileH - pilleH) / 2,
-        hoehe: pilleH,
-        schrift: pilleSchrift,
-        rechtsAusgerichtet: true,
-      }
-      text.weiter = {
-        x: innenX + innenB,
-        y: y + (zeileH - weiterH) / 2,
-        breite: 0,
-        hoehe: weiterH,
-        schrift: weiterSchrift,
-        radius: weiterH / 2,
-      }
-      y += zeileH + lueckeY
+      text.angaben = { x: innenX + innenB, y, hoehe: angabenH, schrift: angabenSchrift }
+      y += titelH
     }
-    text.unter = { x: innenX, y, breite: innenB, schrift: unterSchrift, zeile: unterZeile }
-    karteH = y + unterZeile * satz.unterZeilen + textUnten
+    karteH = y + textUnten
   }
 
   const x = (breite - karteB) / 2
@@ -811,9 +769,7 @@ export function kartenGeometrie(buehne: KartenBuehne, medium: KartenMedium): Kar
   // Zwei gemischte Systeme waren der erste Fehler dieses Malers — die
   // Textblöcke landeten in der Lage `quer` um die halbe Kartenbreite versetzt.
   text.titel = { ...text.titel, x: text.titel.x + x, y: text.titel.y + yMitte }
-  text.unter = { ...text.unter, x: text.unter.x + x, y: text.unter.y + yMitte }
-  text.pillen = { ...text.pillen, x: text.pillen.x + x, y: text.pillen.y + yMitte }
-  text.weiter = { ...text.weiter, x: text.weiter.x + x, y: text.weiter.y + yMitte }
+  text.angaben = { ...text.angaben, x: text.angaben.x + x, y: text.angaben.y + yMitte }
 
   return {
     mass,
@@ -1085,8 +1041,15 @@ export function maleKarte(
     ...(stand.medium.keinKenBurns === true ? { keinKenBurns: true } : {}),
     ...(buehne.ruhig === true ? { ruhig: true } : {}),
   })
-  const g = kartenGeometrie(buehne, stand.medium)
   const dichte = klemme(Math.abs(ctx.getTransform().a) || 1, 1, 3)
+  // Der INHALT entscheidet über die Höhe: keine Bildunterschrift, keine Zeile
+  // dafür. Und Titel und Angaben teilen sich eine Zeile, solange sie
+  // nebeneinander passen — das kann erst entschieden werden, wenn beide
+  // gemessen sind, also einmal vermessen, prüfen, im Bedarfsfall neu vermessen.
+  // Die Geometrie ist reine Rechnung, ein zweiter Durchgang kostet nichts.
+  let g = kartenGeometrie(buehne, stand.medium, { angabenEigeneZeile: false })
+  const eigeneZeile = angabenPasstNicht(ctx, g, stand.text)
+  if (eigeneZeile) g = kartenGeometrie(buehne, stand.medium, { angabenEigeneZeile: true })
 
   // Hier lag der Kamerablitz — ein Radialverlauf über der Szene und unter der
   // Karte, die teuerste einzelne Operation eines Kartenbildes (2,0 gegen 1,1 ms
@@ -1185,7 +1148,7 @@ export function maleKarte(
   }
   ctx.restore()
 
-  malBeschriftung(ctx, g, stand.text, phasen, dichte)
+  malBeschriftung(ctx, g, stand.text, phasen, dichte, eigeneZeile)
   ctx.restore()
 
   // Die Rechtecke der DOM-Bedienung — bewegt, aber ohne Drehung: Eine
@@ -1197,15 +1160,6 @@ export function maleKarte(
     breite: r.breite * skala,
     hoehe: r.hoehe * skala * stauchung,
   })
-  const weiterB = weiterBreite(ctx, g)
-  const weiterRoh: Rechteck = {
-    // In `breit`/`schmal` nennt die Geometrie die RECHTE Kante (der Knopf steht
-    // rechts außen), quer die linke.
-    x: g.text.weiter.x - (g.lage === 'quer' ? 0 : weiterB),
-    y: g.text.weiter.y,
-    breite: weiterB,
-    hoehe: g.text.weiter.hoehe,
-  }
   const tonRoh: Rechteck | null =
     stand.medium.art === 'video' && g.satz.tonSeite > 0
       ? {
@@ -1221,11 +1175,6 @@ export function maleKarte(
     masse: {
       karte: skaliere(g.karte),
       bild: skaliere(g.bild),
-      weiter: {
-        ...skaliere(weiterRoh),
-        schrift: g.text.weiter.schrift * skala,
-        radius: g.text.weiter.radius * skala,
-      },
       ton: tonRoh ? skaliere(tonRoh) : null,
       sicht: phasen.sicht,
       mass: g.mass,
@@ -1296,23 +1245,68 @@ function malFoto(
 }
 
 /**
- * Breite des „Weiter"-Knopfes — die DOM-Fläche folgt ihr.
+ * Passen Titel und Angaben nebeneinander?
  *
- * Ohne Schriftgrad im Satz gibt es den Knopf auf dieser Bühne nicht (Editor):
- * Dann darf die Beschriftung auch keinen Platz für ihn freihalten, sonst klaffte
- * rechts eine Lücke um einen Knopf, den niemand sieht.
+ * Wenn nicht, bekommt jede ihre eigene Zeile. Die Karte ist so breit wie ihr
+ * Bild, und bei einer Hochkant-Aufnahme sind das keine 200 px: Dort blieben
+ * dem Titel gemessene 64 px bei 158 gebrauchten, er wäre also zu „Ha…" gekürzt
+ * gewesen, obwohl darunter eine ganze Zeile frei war.
+ *
+ * In der Lage `quer` gibt es die Frage nicht — dort stehen beide ohnehin
+ * untereinander in der Spalte.
  */
-function weiterBreite(ctx: CanvasRenderingContext2D, g: KartenGeometrie): number {
-  if (g.satz.weiter <= 0) return 0
+function angabenPasstNicht(
+  ctx: CanvasRenderingContext2D,
+  g: KartenGeometrie,
+  text: KartenText,
+): boolean {
+  if (g.lage === 'quer') return false
+  const angaben = angabenText(text)
+  if (!angaben || !text.titel) return false
   ctx.save()
-  ctx.font = schrift(g.text.weiter.schrift, 600)
-  const b = ctx.measureText(WEITER_TEXT).width
+  let breite = 0
+  for (const t of teileAngaben(angaben)) {
+    ctx.font = schrift(g.text.angaben.schrift, t.zahl ? 500 : 400)
+    breite += ctx.measureText(t.stueck).width
+  }
+  ctx.font = schrift(g.text.titel.schrift, 600)
+  const titelB = ctx.measureText(text.titel).width
   ctx.restore()
-  return b + g.satz.weiterPolsterX * g.mass * 2
+  // Der geforderte Zwischenraum ist DOPPELT so groß wie der gesetzte: Passen
+  // beide nur mit einer Lücke nebeneinander, stehen sie zwar nebeneinander,
+  // lesen sich aber als ein Block. An der Hochkant-Karte (323 px breit)
+  // ergaben sich rechnerisch 285 verfügbare gegen 284 gebrauchte Pixel — sie
+  // berührten sich fast, und genau dieser Fall soll zwei Zeilen bekommen.
+  return titelB + g.satz.lueckeX * g.mass * 2 + breite > g.text.titel.breite
 }
 
-/** Steht im Knopf und wird nur GEMESSEN — gezeichnet wird er im DOM (§3.3). */
-export const WEITER_TEXT = 'Weiter ▸'
+/**
+ * Uhrzeit und Kilometerstand als EIN Text: „14:54 Uhr · 4,1 km".
+ *
+ * Zwei Felder und eine Zeile, weil beide dasselbe beantworten (wo in der Tour
+ * ist das hier) und je Bühne verschieden belegt sind: Der Player schickt die
+ * Zählung und den Kilometerstand, der Editor Uhrzeit und Kilometerstand.
+ */
+export function angabenText(text: KartenText): string {
+  return [text.zaehlerText, text.kmText].filter(Boolean).join(' · ')
+}
+
+/**
+ * Zerlegt die Angaben in Ziffern und Wörter.
+ *
+ * Zweistufig gesetzt trägt die Zeile ihre Auskunft besser: „14:54" und „4,1"
+ * sind die Antwort, „Uhr" und „km" sagen nur, wovon die Rede ist. Die Trennung
+ * hier und nicht in der Datenstruktur, weil sie eine SATZ-Entscheidung ist —
+ * die Aufrufer sollen weiter fertige Zeichenketten schicken.
+ */
+export function teileAngaben(text: string): { stueck: string; zahl: boolean }[] {
+  const teile: { stueck: string; zahl: boolean }[] = []
+  for (const m of text.matchAll(/[0-9][0-9.,:]*|[^0-9]+/g)) {
+    const stueck = m[0]
+    if (stueck) teile.push({ stueck, zahl: /^[0-9]/.test(stueck) })
+  }
+  return teile
+}
 
 function malBeschriftung(
   ctx: CanvasRenderingContext2D,
@@ -1320,75 +1314,65 @@ function malBeschriftung(
   text: KartenText,
   phasen: KartenPhasen,
   dichte: number,
+  eigeneZeile: boolean,
 ): void {
   const kx = g.karte.x
   const ky = g.karte.y
-  const weiterB = g.lage === 'quer' ? 0 : weiterBreite(ctx, g)
-  const pillen = [text.zaehlerText, text.kmText].filter(Boolean)
 
-  // Pillen — rechts ausgerichtet, in der Reihenfolge Zähler, Kilometer.
-  ctx.save()
-  ctx.font = schrift(g.text.pillen.schrift, 500)
-  const pillenMasse = pillen.map((t) => ({
-    text: t,
-    breite: ctx.measureText(t).width + g.satz.pillePolsterX * g.mass * 2,
-  }))
-  ctx.restore()
-  const pillenLuecke = 8 * g.mass
-  const pillenGesamt =
-    pillenMasse.reduce((s, p) => s + p.breite, 0) + Math.max(0, pillenMasse.length - 1) * pillenLuecke
-  // In `breit` sitzt die Pillenreihe LINKS von „Weiter" am rechten Rand; quer
-  // und schmal stehen beide links, dort ist `pillen.x` schon die linke Kante.
-  let px =
-    g.lage === 'breit'
-      ? g.text.pillen.x - kx - weiterB - g.satz.lueckeX * g.mass - pillenGesamt
-      : g.text.pillen.x - kx
-  for (const p of pillenMasse) {
+  // Angaben — rechtsbündig, ohne Rahmen. Der Kasten drumherum ist gefallen:
+  // Ein Rand und eine Fläche sagen „hier steht eine Marke", und das ist eine
+  // Uhrzeit nicht.
+  const angaben = angabenText(text)
+  let angabenB = 0
+  if (angaben) {
+    const teile = teileAngaben(angaben)
+    ctx.save()
+    angabenB = teile.reduce((sum, t) => {
+      ctx.font = schrift(g.text.angaben.schrift, t.zahl ? 500 : 400)
+      return sum + ctx.measureText(t.stueck).width
+    }, 0)
+    ctx.restore()
+    const hoehe = g.text.angaben.hoehe
     malTextPuffer(
       ctx,
       dichte,
       {
-        schluessel: `pille|${p.text}|${g.text.pillen.schrift.toFixed(1)}|${p.breite.toFixed(0)}x${g.text.pillen.hoehe.toFixed(0)}|${g.mass.toFixed(2)}`,
-        breite: p.breite,
-        hoehe: g.text.pillen.hoehe,
+        schluessel: `angaben|${angaben}|${g.text.angaben.schrift.toFixed(1)}|${angabenB.toFixed(0)}`,
+        breite: angabenB + 2,
+        hoehe,
         malen: (c) => {
-          c.strokeStyle = KARTEN_FARBEN.pilleRand
-          c.lineWidth = Math.max(1, g.mass)
-          c.beginPath()
-          c.roundRect(
-            c.lineWidth / 2,
-            c.lineWidth / 2,
-            p.breite - c.lineWidth,
-            g.text.pillen.hoehe - c.lineWidth,
-            g.text.pillen.hoehe / 2,
-          )
-          c.stroke()
-          c.fillStyle = KARTEN_FARBEN.pille
-          c.font = schrift(g.text.pillen.schrift, 500)
           c.textBaseline = 'middle'
-          c.fillText(p.text, g.satz.pillePolsterX * g.mass, g.text.pillen.hoehe / 2)
+          let x = 0
+          for (const t of teile) {
+            c.font = schrift(g.text.angaben.schrift, t.zahl ? 500 : 400)
+            c.fillStyle = t.zahl ? KARTEN_FARBEN.angabenZahl : KARTEN_FARBEN.angabenWort
+            c.fillText(t.stueck, x, hoehe / 2)
+            x += c.measureText(t.stueck).width
+          }
         },
       },
-      px,
-      g.text.pillen.y - ky + phasen.pille.hub * g.mass,
-      phasen.pille.deckkraft,
+      // `x` der Geometrie ist die RECHTE Kante (quer: die linke der Spalte).
+      (g.lage === 'quer' ? g.text.angaben.x : g.text.angaben.x - angabenB) - kx,
+      g.text.angaben.y - ky + phasen.angaben.hub * g.mass,
+      phasen.angaben.deckkraft,
     )
-    px += p.breite + pillenLuecke
   }
 
   // Titel — eine Zeile, gekürzt. Ein zweizeiliger Titel verschöbe das Bild:
   // Die Kartenhöhe ist auf eine Titelzeile gerechnet.
   if (text.titel) {
+    // Auf der gemeinsamen Zeile bleibt dem Titel, was die Angaben übrig
+    // lassen. Steht er allein (eigene Zeile oder Spalte), die volle Breite.
     const maxB =
-      g.lage === 'breit'
-        ? g.text.titel.breite - pillenGesamt - weiterB - g.satz.lueckeX * g.mass * 2
+      !eigeneZeile && angabenB > 0 && g.lage !== 'quer'
+        ? g.text.titel.breite - angabenB - g.satz.lueckeX * g.mass
         : g.text.titel.breite
     ctx.save()
     ctx.font = schrift(g.text.titel.schrift, 600)
     const gekuerzt = kuerzeText(text.titel, Math.max(20, maxB), (s) => ctx.measureText(s).width)
     const breite = Math.max(1, ctx.measureText(gekuerzt).width)
     ctx.restore()
-    const zeileH = g.text.titel.schrift * g.satz.titelZeile
+    const zeileH = g.text.angaben.hoehe
     malTextPuffer(
       ctx,
       dichte,
@@ -1407,41 +1391,5 @@ function malBeschriftung(
       g.text.titel.y - ky + phasen.titel.hub * g.mass,
       phasen.titel.deckkraft,
     )
-  }
-
-  // Bildunterschrift — umgebrochen, höchstens `unterZeilen` Zeilen.
-  if (text.unter) {
-    ctx.save()
-    ctx.font = schrift(g.text.unter.schrift, 500)
-    const zeilen = brichText(
-      text.unter,
-      g.text.unter.breite,
-      g.satz.unterZeilen,
-      (s) => ctx.measureText(s).width,
-    )
-    ctx.restore()
-    if (zeilen.length) {
-      const h = zeilen.length * g.text.unter.zeile
-      malTextPuffer(
-        ctx,
-        dichte,
-        {
-          schluessel: `unter|${zeilen.join(' ')}|${g.text.unter.schrift.toFixed(1)}|${g.text.unter.breite.toFixed(0)}`,
-          breite: g.text.unter.breite + 2,
-          hoehe: h,
-          malen: (c) => {
-            c.fillStyle = KARTEN_FARBEN.unter
-            c.font = schrift(g.text.unter.schrift, 500)
-            c.textBaseline = 'middle'
-            zeilen.forEach((z, i) =>
-              c.fillText(z, 0, g.text.unter.zeile * (i + 0.5)),
-            )
-          },
-        },
-        g.text.unter.x - kx,
-        g.text.unter.y - ky + phasen.unter.hub * g.mass,
-        phasen.unter.deckkraft,
-      )
-    }
   }
 }

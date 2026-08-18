@@ -40,8 +40,6 @@ export interface KartenBedienung {
   karte: HTMLElement
   /** Der Bildbereich — trägt Ton-Knopf und „Angehalten"-Abzeichen. */
   bild: HTMLElement
-  /** „Weiter ▸". */
-  weiter: HTMLElement
 }
 
 export interface KartenSchichtStand {
@@ -265,7 +263,6 @@ export function createKartenSchicht(opt: KartenSchichtOptionen): KartenSchicht {
     if (!bedienung) return
     lege(bedienung.karte, null, 0)
     lege(bedienung.bild, null, 0)
-    lege(bedienung.weiter, null, 0)
   }
 
   const zeichne = (stand: KartenSchichtStand): void => {
@@ -294,11 +291,6 @@ export function createKartenSchicht(opt: KartenSchichtOptionen): KartenSchicht {
     const m = ergebnis.masse
     lege(bedienung.karte, m.karte, m.sicht)
     lege(bedienung.bild, m.bild, m.sicht)
-    lege(bedienung.weiter, m.weiter, m.sicht)
-    // Der Knopf skaliert mit der Bühne — sonst wäre er im 4K-Film eine
-    // Briefmarke neben einer großen Karte.
-    bedienung.weiter.style.fontSize = `${m.weiter.schrift.toFixed(2)}px`
-    bedienung.weiter.style.borderRadius = `${m.weiter.radius.toFixed(1)}px`
     bedienung.bild.style.setProperty('--karten-mass', m.mass.toFixed(3))
   }
 

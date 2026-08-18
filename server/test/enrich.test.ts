@@ -99,31 +99,36 @@ describe('reichereAn', () => {
     })
   })
 
-  it('rendert Medien mit URL, Uhrzeit-Titel und Anker', async () => {
+  it('rendert Medien mit URL und Anker, ohne erfundene Texte', async () => {
     const tour = await reichereAn(eingabe())
     expect(tour.media).toHaveLength(1)
     const m = tour.media[0]
     expect(m?.src).toBe('/api/media/t_test1234/m1.jpg')
-    expect(m?.title).toBe('Foto · 09:01')
+    // Ohne Beschriftung bleiben BEIDE Felder leer: „Foto · 09:01" stand als
+    // Titel in der größten Schrift der Karte und sagte, was man dem Bild
+    // ohnehin ansieht. Die Uhrzeit ist eine Angabe und kein Text — der Player
+    // setzt sie aus `takenAt` neben den Kilometerstand.
+    expect(m?.title).toBe('')
     expect(m?.anchor).toEqual([7.9105, 46.59])
     expect(m?.placement).toBe('gps') // Anker liegt auf dem Track
-    expect(m?.caption).toBe('') // ohne Nutzertext bleibt die Unterzeile leer
+    expect(m?.caption).toBe('')
+    expect(m?.takenAt).toBe('2026-07-04T09:01:12+02:00')
   })
 
-  it('beschriftetes Foto: Nutzertext wird Überschrift, Uhrzeit die Unterzeile', async () => {
+  it('beschriftetes Foto: der Nutzertext wird die Überschrift', async () => {
     const manifest = beispielManifest()
     manifest.media[0]!.caption = 'Blick über das Tal'
     const tour = await reichereAn(eingabe({ manifest }))
     const m = tour.media[0]
     expect(m?.title).toBe('Blick über das Tal')
-    expect(m?.caption).toBe('Foto · 09:01')
+    expect(m?.caption).toBe('')
   })
 
   it('Leerraum als Beschriftung zählt als keine Beschriftung', async () => {
     const manifest = beispielManifest()
     manifest.media[0]!.caption = '   '
     const tour = await reichereAn(eingabe({ manifest }))
-    expect(tour.media[0]?.title).toBe('Foto · 09:01')
+    expect(tour.media[0]?.title).toBe('')
     expect(tour.media[0]?.caption).toBe('')
   })
 
@@ -134,7 +139,9 @@ describe('reichereAn', () => {
     manifest.media[0]!.caption = 'Trotzdem beschriftet'
     const tour = await reichereAn(eingabe({ manifest }))
     expect(tour.media[0]?.title).toBe('Trotzdem beschriftet')
-    expect(tour.media[0]?.caption).toBe('Foto')
+    // Keine Uhrzeit, und die Gattung ist kein Ersatz dafür: Die Unterzeile
+    // bleibt leer, statt „Foto" zu behaupten.
+    expect(tour.media[0]?.caption).toBe('')
   })
 
   it('setzt Video-Src, Poster und Dauer aus der Aufbereitung (M4)', async () => {
@@ -154,7 +161,7 @@ describe('reichereAn', () => {
     expect(v?.src).toBe('/api/media/t_test1234/m2.web.mp4') // transkodierte Datei
     expect(v?.poster).toBe('/api/media/t_test1234/m2.poster.jpg')
     expect(v?.durationS).toBe(12.5)
-    expect(v?.title).toBe('Video · 10:15')
+    expect(v?.title).toBe('')
   })
 
   it('fällt ohne Video-Aufbereitung auf das Original ohne Poster zurück', async () => {
@@ -192,18 +199,19 @@ describe('reichereAn', () => {
     expect(m2?.anchor).toBeNull()
   })
 
-  it('lässt die Uhrzeit im Titel weg, wenn takenAt außerhalb der Tour-Zeit liegt (Bughunt-Befund)', async () => {
+  it('reicht auch tourfremde Zeitstempel durch — geprüft wird beim Anzeigen', async () => {
     const manifest = beispielManifest()
-    // VOR time.start (08:12): mtime-Fallback einer tourfremden Datei —
-    // die Uhrzeit wäre Unsinn, der Titel bleibt nackt.
+    // VOR time.start (08:12) bzw. NACH time.end (14:03): mtime-Fallback
+    // tourfremder Dateien. Die Uhrzeit wäre Unsinn — sie wird deshalb NICHT
+    // angezeigt, aber das entscheidet der Player (`UI.zeitfenster` in
+    // src/ui.ts), nicht die Pipeline: `takenAt` bleibt roh im JSON, weil das
+    // Auto-Wetter und die Sortierung daran hängen.
     manifest.media.push({ id: 'vorher', type: 'photo', file: 'x.jpg', takenAt: '2026-07-04T06:00:00+02:00' })
-    // NACH time.end (14:03) — Video, gleiche Regel
     manifest.media.push({ id: 'nachher', type: 'video', file: 'y.mp4', takenAt: '2026-07-04T20:00:00+02:00' })
     const tour = await reichereAn(eingabe({ manifest }))
-    expect(tour.media.find((m) => m.id === 'vorher')?.title).toBe('Foto')
-    expect(tour.media.find((m) => m.id === 'nachher')?.title).toBe('Video')
-    // Innerhalb der Spanne bleibt die Uhrzeit
-    expect(tour.media.find((m) => m.id === 'm1')?.title).toBe('Foto · 09:01')
+    expect(tour.media.find((m) => m.id === 'vorher')?.takenAt).toBe('2026-07-04T06:00:00+02:00')
+    expect(tour.media.find((m) => m.id === 'nachher')?.takenAt).toBe('2026-07-04T20:00:00+02:00')
+    expect(tour.media.every((m) => m.title === '' || m.title.length > 0)).toBe(true)
   })
 
   it('sortiert Medien nach Aufnahmezeit', async () => {

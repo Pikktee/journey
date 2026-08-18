@@ -32,7 +32,6 @@ export interface TourSegment {
 export interface TourFoto {
   src: string
   title: string
-  caption: string
   anchor: Ankerpunkt
 }
 
@@ -496,37 +495,31 @@ export const TOURS = {
       {
         src: '/photos/oberland/01-lauterbrunnen.jpg',
         title: 'Staubbachfall',
-        caption: 'Erstes Licht im Tal, 300 Meter freier Fall, die Wände noch im Schatten.',
         anchor: [7.90747, 46.59479], // km 0,4 · ~06:34, klar
       },
       {
         src: '/photos/oberland/02-weisse-luetschine.jpg',
         title: 'Weisse Lütschine',
-        caption: 'Talauswärts am Gletscherfluss, die Sonne steht endlich über den Felswänden.',
         anchor: [7.90186, 46.61263], // km 2,5 · ~08:31, sonnig
       },
       {
         src: '/photos/oberland/03-zweiluetschinen.jpg',
         title: 'Zweilütschinen',
-        caption: 'Wo Weisse und Schwarze Lütschine sich treffen, ab hier geht es bergan.',
         anchor: [7.90494, 46.63167], // km 5,0 · ~10:47, klar
       },
       {
         src: '/photos/oberland/04-luetschental.jpg',
         title: 'Lütschental',
-        caption: 'Der Nachmittag zieht zu, erste Tropfen auf der Strasse, Quellwolken über den Graten.',
         anchor: [7.96337, 46.63829], // km 9,8 · ~15:11, leichter Schauer
       },
       {
         src: '/photos/oberland/05-eiger-anfahrt.jpg',
         title: 'Vor Grindelwald',
-        caption: 'Die Wolken reissen auf, die Eigernordwand tritt hervor, der lange Anstieg lohnt sich.',
         anchor: [8.01073, 46.62701], // km 14,0 · ~18:58, halb bewölkt, aufklarend
       },
       {
         src: '/photos/oberland/06-grindelwald.jpg',
         title: 'Grindelwald',
-        caption: 'Goldene Stunde am Ziel, Wetterhorn und Eiger glühen über dem Dorf.',
         anchor: [8.02873, 46.62531], // km 15,5 · ~20:20, klar
       },
     ],
@@ -716,61 +709,51 @@ export const TOURS = {
         // Intro-Anflug abgeschlossen ist, bevor der erste Stopp auslöst
         src: '/photos/stockholm/kungstradgarden.jpg',
         title: 'Kungsträdgården',
-        caption: 'Stockholms grünes Wohnzimmer, Linden, Fontäne, Sommerpause.',
         anchor: [18.07087, 59.3302],
       },
       {
         src: '/photos/stockholm/strandvagen.jpg',
         title: 'Strandvägen',
-        caption: 'Aus der Tram 7: Prachtfassaden links, Segler am Kai rechts.',
         anchor: [18.086, 59.3315],
       },
       {
         src: '/photos/stockholm/02-vasa.jpg',
         title: 'Vasamuseet',
-        caption: 'Ein Kriegsschiff von 1628, fast unversehrt aus dem Hafenschlamm geborgen.',
         anchor: [18.0916, 59.3281],
       },
       {
         src: '/photos/stockholm/vasa-heck.jpg',
         title: 'Galionsfiguren',
-        caption: 'Vergoldete Löwen und Wappen, das Heck sollte Feinde beeindrucken.',
         anchor: [18.0916, 59.3281],
       },
       {
         src: '/photos/stockholm/grona-lund.jpg',
         title: 'Gröna Lund',
-        caption: 'Kurz vor dem Ablegen, Schreie vom Freifallturm, Zuckerwatte in der Luft.',
         anchor: [18.09619, 59.32442],
       },
       {
         src: '/photos/stockholm/saltsjon.jpg',
         title: 'Saltsjön',
-        caption: 'Rückblick vom Achterdeck, die Stadt versinkt langsam im Kielwasser.',
         anchor: [18.12801, 59.31892],
       },
       {
         src: '/photos/stockholm/03-schaeren.jpg',
         title: 'Fjäderholmarna',
-        caption: 'Achterdeck, Kielwasser, die ersten Schären ziehen vorbei.',
         anchor: [18.154, 59.32018],
       },
       {
         src: '/photos/stockholm/hoggarnsfjarden.jpg',
         title: 'Höggarnsfjärden',
-        caption: 'Offenes Wasser, Segler in der Brise, Schären bis zum Horizont.',
         anchor: [18.25202, 59.35444],
       },
       {
         src: '/photos/stockholm/kastell.jpg',
         title: 'Vaxholm Kastell',
-        caption: 'Die Festung wächst aus dem Sund, die Überfahrt ist fast geschafft.',
         anchor: [18.34926, 59.39686],
       },
       {
         src: '/photos/stockholm/04-vaxholm.jpg',
         title: 'Vaxholm',
-        caption: 'Pastellhäuser am Kai, das Kastell im Sund, Endstation Idylle.',
         anchor: [18.351, 59.40303],
       },
     ],
@@ -1210,73 +1193,61 @@ export const TOURS = {
       {
         src: '/photos/kohphangan/01-thong-sala.jpg',
         title: 'Thong Sala',
-        caption: 'Ankunft am Strand von Thong Sala, schwüle Luft, über dem Golf türmen sich dunkle Wolken, das Gewitter kündigt sich an.',
         anchor: [99.98615, 9.70895], // ~14:12 · auf dem Sand des Thong-Sala-Stadtstrands (nicht am Pier/Wasser)
       },
       {
         src: '/photos/kohphangan/02-baan-tai.jpg',
         title: 'Haad Baan Tai',
-        caption: 'Südküste bei Baan Tai, schwüler grauer Himmel über bleigrauem Meer, die Palmen hängen reglos; der Regen braut sich noch in der Ferne zusammen.',
         anchor: [100.00884, 9.70367], // ~15:03 · coast · noch trocken, Regen setzt km 4,75 danach ein
       },
       {
         src: '/photos/kohphangan/03-phaeng.jpg',
         title: 'Nam Tok Phaeng',
-        caption: 'Phaeng-Wasserfall im Inselinneren, Regenguss im Dschungel, der Fall führt braunes Hochwasser.',
         anchor: [100.014, 9.7339], // interior
       },
       {
         src: '/photos/kohphangan/04-dschungelbach.jpg',
         title: 'Dschungelbach',
-        caption: 'Tief im tropfenden Regenwald quert die Piste einen angeschwollenen Bach, der Jeep pflügt durchs lehmbraune Wasser, Regen rauscht durchs Blätterdach, Nebel hängt zwischen den Stämmen.',
         anchor: [100.0172, 9.7134], // interior · ~17:15 · Jeep-Aufstieg im Regen
       },
       {
         src: '/photos/kohphangan/05-dschungelpiste.jpg',
         title: 'Dschungelpiste',
-        caption: 'Die Betonrampe hinauf in den Inselkern, der Jeep wühlt sich durch rotbraune Pfützen, Regen peitscht durchs Scheinwerferlicht, Donner grollt über dem Kamm.',
         anchor: [100.03753, 9.72145], // interior · unterer Anstieg · Gewitter-Höhepunkt (~18:10)
       },
       {
         src: '/photos/kohphangan/06-bergpiste.jpg',
         title: 'Bergkamm',
-        caption: 'Oben auf dem Kamm reißt das Gewitter auf, die letzten Wolken glühen im Abendrot, die nasse Betonrampe glänzt, tief unten dampft der Dschungel.',
         anchor: [100.04633, 9.72766], // interior · echter Grat-Hochpunkt (~326 m) · Aufklaren am Sonnenuntergang (~18:37)
       },
       {
         src: '/photos/kohphangan/07-daemmerung.jpg',
         title: 'Blaue Stunde',
-        caption: 'Kammabfahrt zur Ostküste, 40 Minuten nach Sonnenuntergang glüht ein letzter Streifen Violett überm Golf, das Gewitter ist durchgezogen, der Vollmond steigt durch die aufreissenden Wolken; tief unten öffnet sich die Bucht von Thong Nai Pan.',
         anchor: [100.0494, 9.7512], // interior · Jeep-Abfahrt NO-Flanke (~291 m) · ~19:20 · blaue Stunde, Aufklaren nach dem Gewitter
       },
       {
         src: '/photos/kohphangan/08-thong-nai-pan.jpg',
         title: 'Thong Nai Pan',
-        caption: 'Das Gewitter ist durchgezogen, über der Doppelbucht reißen die Wolken auf, der volle Mond steigt übers Meer und legt einen Silberpfad auf den nassen Sand.',
         anchor: [100.0582, 9.7702], // land · Einbruch der Nacht
       },
       {
         src: '/photos/kohphangan/09-ostkueste.jpg',
         title: 'Wilde Ostküste',
-        caption: 'Die einsame Ostküste hinab, der Longtail tuckert unter dem Vollmond an schwarzen Dschungelbergen und verborgenen Buchten (Than Sadet) vorbei, Mondlicht zittert auf dem Wasser.',
         anchor: [100.07947, 9.75823], // water · ~21:24, füllt die lange Boot-Lücke
       },
       {
         src: '/photos/kohphangan/10-longtail.jpg',
         title: 'Auf dem Golf',
-        caption: 'Longtail auf dem Golf, der Regen ist vorbei, unter dichten Wolken gleitet das Boot durch die dunkle Nacht über den weiten Golf.',
         anchor: [100.0845, 9.718], // water
       },
       {
         src: '/photos/kohphangan/11-vor-haad-rin.jpg',
         title: 'Vor Haad Rin',
-        caption: 'Klare Nacht vor der Ostküste, der volle Mond steht hoch, vorn tauchen die Lichter von Haad Rin auf.',
         anchor: [100.08, 9.686], // water
       },
       {
         src: '/photos/kohphangan/12-haad-rin.jpg',
         title: 'Haad Rin',
-        caption: 'Mitternacht am Sunrise Beach, Feuertänzer, Bass und Neon, der Vollmond überm Meer: die Full Moon Party.',
         anchor: [100.0679, 9.67635], // land
       },
     ],

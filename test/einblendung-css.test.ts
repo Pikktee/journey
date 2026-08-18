@@ -280,13 +280,14 @@ describe('Foto-Karte: die zwei Bühnen-Sätze sind nur GEOMETRIE', () => {
     expect(kartenSatz({ breite: 1600, hoehe: 900, name: 'editor' }).satz).toBe(EDITOR_MASSE)
   })
 
-  it('die Editor-Karte hat keine Knöpfe', () => {
-    // Kein „Weiter ▸" und kein Ton-Knopf: Sie ist eine Vorschau, keine
-    // Bedienung. Die 0 im Satz ist die Ansage dafür — stünde dort ein Grad,
-    // hielte die Beschriftung Platz für einen Knopf frei, den niemand sieht.
-    expect(EDITOR_MASSE.weiter).toBe(0)
+  it('die Editor-Karte hat keinen Ton-Knopf', () => {
+    // Sie ist eine Vorschau, keine Bedienung: Der Ton des Videos läuft, bedient
+    // wird er nicht. Die 0 im Satz ist die Ansage dafür.
+    //
+    // „Weiter ▸" stand hier als zweiter Fall — den Knopf gibt es seit dem
+    // 2026-08-18 auf KEINER Bühne mehr, auch nicht im Player.
     expect(EDITOR_MASSE.tonSeite).toBe(0)
-    expect(KARTEN_MASSE.breit.weiter).toBeGreaterThan(0)
+    expect(KARTEN_MASSE.breit.tonSeite).toBeGreaterThan(0)
   })
 
   it('die Flugweite kommt aus der einen Tabelle und nicht aus dem Maler', () => {
@@ -322,6 +323,7 @@ describe('Foto-Karte: die zwei Bühnen-Sätze sind nur GEOMETRIE', () => {
       const g = kartenGeometrie(
         { breite: 1200, hoehe, name: 'editor' },
         { art: 'foto', ar: 1.5 },
+        { angabenEigeneZeile: false },
       )
       expect(g.bild.hoehe / hoehe).toBeCloseTo(0.66, 2)
       // Und die Karte bleibt auf der Bühne — sie ist kleiner als ihre Fläche.
@@ -382,8 +384,8 @@ describe('Die Karte steht nirgends mehr als CSS', () => {
   }
 
   it('der PLAYER trägt seinen Text weiter im Dokument', () => {
-    // Eine Leinwand hat keinen Text. Ohne diese Kopie verlöre der Player Titel
-    // und Bildunterschrift — und niemandem fiele es auf, weil das Bild gleich
+    // Eine Leinwand hat keinen Text. Ohne diese Kopie verlöre der Player den
+    // Titel und die Angaben — und niemandem fiele es auf, weil das Bild gleich
     // aussieht (Karten-Konzept, Falle 1). Dort ist sie Pflicht, weil die Karte
     // in diesem Moment der GANZE Inhalt der Seite ist: Es gibt nichts daneben.
     //
@@ -397,7 +399,10 @@ describe('Die Karte steht nirgends mehr als CSS', () => {
     const player = readFileSync(new URL('../erlebnis.html', import.meta.url), 'utf8')
     const figcaption = /<figcaption[^>]*class="sr-only"[\s\S]*?<\/figcaption>/.exec(player)
     expect(figcaption, 'die sr-only-Kopie der Foto-Karte fehlt').not.toBeNull()
-    for (const id of ['photo-title', 'photo-sub', 'photo-chip']) {
+    // `photo-sub` stand hier bis zum 2026-08-18: die Bildunterschrift. Sie ist
+    // entfallen, weil ein Halt 5,2 s steht und die kuratierten Texte im Median
+    // 84 Zeichen hatten — wer sie las, sah das Bild nicht.
+    for (const id of ['photo-title', 'photo-chip']) {
       expect((figcaption as RegExpExecArray)[0], `${id} nicht in der Kopie`).toContain(id)
     }
     expect(regel(playerCss, '.sr-only')).toContain('clip-path')

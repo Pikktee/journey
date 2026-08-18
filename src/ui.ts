@@ -15,9 +15,15 @@ import type { KartenMedium, KartenQuelle, KartenText } from './kartenmaler.js'
 export interface PlayerMedium extends StoppFoto {
   src: string
   title: string
-  caption: string
   /** fehlt bei den statischen Touren — dort ist alles ein Foto */
   type?: 'photo' | 'video'
+  /**
+   * Aufnahmezeit (ISO mit Offset). Nur aufgezeichnete Touren haben sie; die
+   * Karte zeigt daraus die Uhrzeit neben dem Kilometerstand, genau wie der
+   * Editor. Vorher stand sie als TEXT in `caption` und damit unter dem Titel,
+   * wo sie wie eine Bildunterschrift aussah.
+   */
+  takenAt?: string
   /** Standbild eines Videos (auch Quelle des Seitenverhältnisses) */
   poster?: string
   /** Kachel-Fassung für den Pin-Kopf */
@@ -111,13 +117,11 @@ export class UI {
     layer: HTMLElement
     card: HTMLElement
     bild: HTMLElement
-    weiter: HTMLElement
     img: HTMLImageElement
     video: VideoMitFrameCallback
     standbild: HTMLImageElement
     sound: HTMLButtonElement
     pTitle: HTMLElement
-    pSub: HTMLElement
     pChip: HTMLElement
     pCount: HTMLElement
     finale: HTMLElement
@@ -164,6 +168,22 @@ export class UI {
   private _standbildGen: number
   private _mode?: string
 
+  /**
+   * Zone der Tour (`cfg.time.zone`) — für die Uhrzeit auf der Karte. Ohne sie
+   * rechnete `Intl` in die Zone des BETRACHTERS um, und eine Tour in Thailand
+   * zeigte in Frankfurt eine andere Uhrzeit als im Studio.
+   */
+  zeitzone: string | null = null
+
+  /**
+   * Zeitspanne der Tour (`cfg.time`) in ms — die Uhrzeit erscheint NUR, wenn die
+   * Aufnahmezeit darin liegt. Der Befund stammt aus der Pipeline und ist mit der
+   * Uhrzeit hierher gewandert: Wo kein EXIF steht, fällt die App auf die
+   * Dateizeit zurück, und die kann Tage neben der Tour liegen. „14:32 Uhr" wäre
+   * dann eine Angabe, die nichts mit der Aufnahme zu tun hat.
+   */
+  zeitfenster: [number, number] | null = null
+
   constructor(stops: PlayerStopp[], route: Route, film: Filmleiste) {
     this.stops = stops // [{ s, items: [Foto, …] }]
     this.route = route
@@ -177,13 +197,11 @@ export class UI {
       layer: $('photo-layer'),
       card,
       bild: $('photo-bild'),
-      weiter: $('photo-next'),
       img: $<HTMLImageElement>('photo-img'),
       video: $<VideoMitFrameCallback>('photo-video'),
       standbild: $<HTMLImageElement>('photo-video-standbild'),
       sound: $<HTMLButtonElement>('photo-sound'),
       pTitle: $('photo-title'),
-      pSub: $('photo-sub'),
       pChip: $('photo-chip'),
       pCount: $('photo-count'),
       finale: $('finale'),
@@ -218,12 +236,12 @@ export class UI {
     this._soundOn = true
     this._videoTonGemeldet = -1 // gerundeter Hüllen-Pegel; -1 = noch nie gemeldet
     this._kartenMedium = { art: 'foto', ar: null }
-    this._kartenText = { titel: '', unter: '', kmText: '', zaehlerText: '' }
+    this._kartenText = { titel: '', kmText: '', zaehlerText: '' }
     // Die Leinwand hängt am body wie Wetter und Atmosphäre; ihren Platz in der
     // Schichtung bestimmt das CSS (`.karten-leinwand`, z-index 12).
     this.karten = createKartenSchicht({
       container: document.body,
-      bedienung: { karte: this.els.card, bild: this.els.bild, weiter: this.els.weiter },
+      bedienung: { karte: this.els.card, bild: this.els.bild },
       // Der Schleier liegt unter der Leinwand und bekommt seine Deckkraft aus
       // der Filmzeit — er ist das, was den Halt seit dem Rückbau des
       // Kamerablitzes markiert.
@@ -508,7 +526,7 @@ export class UI {
   }
 
   setPhotoContent(photo: PlayerMedium, idx: number, count: number): void {
-    const { img, video, standbild, sound, pTitle, pSub, pChip, pCount } = this.els
+    const { img, video, standbild, sound, pTitle, pChip, pCount } = this.els
     const istVideo = photo.type === 'video'
     // Anzeige-Optionen aus dem Studio (Kreativbaukasten): Ken-Burns abschaltbar.
     // Die Drift-DAUER kommt nicht von hier, sondern aus der Filmzeit (die
@@ -572,14 +590,44 @@ export class UI {
     // Dokument, damit ein Screenreader sie weiter findet (Konzept §3.4/Falle 1).
     // „12.3 km" statt „KM 12.3": Die Pillen stehen in Satzschrift, das
     // vorangestellte Versal-Kürzel war Teil des alten Sperrsatz-Etiketts.
-    const kmText = `${(photo.s / 1000).toFixed(1)} km`
-    const zaehlerText = count < 2 ? '' : `${istVideo ? 'Video' : 'Foto'} ${idx + 1}/${count}`
-    this._kartenText = { titel: photo.title, unter: photo.caption, kmText, zaehlerText }
+    //
+    // Uhrzeit UND Kilometerstand stehen rechts auf der Titelzeile, wie im
+    // Editor. Bis zum 2026-08-18 kam die Uhrzeit als fertiger TEXT vom Server
+    // („Foto · 09:09") und landete in der Unterzeile, wo sie wie eine
+    // Bildunterschrift aussah — dieselbe Aufnahme sah in Editor und Player
+    // verschieden aus. Jetzt rechnet sie der Player aus `takenAt`; die
+    // Unterzeile bleibt echten Bildunterschriften vorbehalten (die
+    // kuratierten Touren haben sie).
+    const km = `${(photo.s / 1000).toFixed(1).replace('.', ',')} km`
+    const uhr = this._uhrzeit(photo.takenAt)
+    const kmText = uhr ? `${uhr} · ${km}` : km
+    // Nur die Zählung, ohne das Wort „Foto"/„Video": Was man sieht, muss die
+    // Karte nicht auch noch benennen. Was man NICHT sieht, ist, dass dieser Halt
+    // mehrere Aufnahmen hat — das bleibt.
+    const zaehlerText = count < 2 ? '' : `${idx + 1}/${count}`
+    this._kartenText = { titel: photo.title, kmText, zaehlerText }
     pTitle.textContent = photo.title
-    pSub.textContent = photo.caption
     pChip.textContent = kmText
     pCount.hidden = !zaehlerText
     pCount.textContent = zaehlerText
+  }
+
+  /** „09:09 Uhr" in der Zone der Tour; leer, wenn die Aufnahmezeit fehlt. */
+  private _uhrzeit(iso?: string): string {
+    if (!iso) return ''
+    const ms = Date.parse(iso)
+    if (!Number.isFinite(ms)) return ''
+    if (this.zeitfenster && (ms < this.zeitfenster[0] || ms > this.zeitfenster[1])) return ''
+    try {
+      const f = new Intl.DateTimeFormat('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        ...(this.zeitzone ? { timeZone: this.zeitzone } : {}),
+      })
+      return `${f.format(new Date(iso))} Uhr`
+    } catch {
+      return ''
+    }
   }
 
   /**

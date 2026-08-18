@@ -117,13 +117,24 @@ per Link). Renderer: `server/src/pipeline/enrich.ts`; Player-Adapter:
   "media": [
     { "id": "m1", "type": "photo", "src": "/api/media/t_V1kQz9xY/m1.w1920.jpg",
       "thumb": "/api/media/t_V1kQz9xY/m1.t480.jpg",
-      "title": "Foto · 09:01", "caption": "", "anchor": [7.9105, 46.59],
+      "title": "", "caption": "", "anchor": [7.9105, 46.59],
       "takenAt": "2026-07-04T09:01:12+02:00" }
   ],
   "weather": [{ "f": 0.0, "mode": "clouds", "k": 0.5, "source": "openmeteo" }],
   "stats": { "km": 21.4, "gainM": 1250 }
 }
 ```
+
+- **Eine Aufnahme trägt genau EINEN Text: `title`.** Er ist der Nutzertext aus
+  dem Studio, sonst leer. Bis 2026-08-18 setzte die Pipeline dort „Foto · 09:01"
+  ein und schob die Uhrzeit nach `caption` — beides ist entfallen: Die Gattung
+  sieht man dem Bild an, und die Uhrzeit ist eine Angabe, die der Player aus
+  `takenAt` neben den Kilometerstand setzt (in der Zone der Tour, und nur wenn
+  sie in `time` liegt). **`caption` bleibt im Schema und ist immer leer** — die
+  Foto-Karte hat keine Bildunterschrift mehr. Ein Halt steht 5,2 Sekunden, die
+  kuratierten Beschreibungen waren im Median 84 Zeichen lang: Wer sie las, sah
+  das Bild nicht. Bestandstouren tragen ihre alten Texte, bis sie neu gerendert
+  werden.
 
 - **`kicker` ist die Dachzeile über dem Titel und kommt aus einem FELD**
   (`tours.dachzeile`), nicht mehr aus einem erzeugten Satz. Bis 2026-08-18 stand

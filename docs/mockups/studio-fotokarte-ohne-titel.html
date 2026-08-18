@@ -1,0 +1,1435 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup — Die Foto-Karte im Editor ohne Titel</title>
+<meta name="maptale:stand" content="2026-08-18" />
+<meta name="maptale:status" content="umgesetzt am 2026-08-18" />
+<meta name="maptale:systemteile" content="Studio, Player" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ————————————————————————————————————————————————————————————————
+   MOCKUP — Was zeigt die Foto-Karte, wenn die Aufnahme keinen Titel hat?
+
+   Heute steht dort die Gattung als Überschrift: „Foto". Genau das Wort,
+   das eben als Pille rechts unten gefallen ist, nur in 40er-Schrift.
+
+   Fünf Antworten, alle mit demselben Bild und derselben Bühne:
+     A  Bestand
+     B  Nur Bild, dünner weißer Rahmen, kein Papierfuß
+     C  wie B, Angaben zart auf dem Bild
+     D  wie B, Angaben unter der Karte auf dem Leuchttisch
+     E  Papier bleibt, die Angaben rücken an die Titelstelle
+
+   NUR ENTWURF. Tokens aus src/basis.css und KARTEN_FARBEN kopiert, die
+   Maße sind EDITOR_MASSE aus src/kartenmaler.ts mit `mass` als Faktor,
+   damit der Entwurf dieselben Verhältnisse hat wie die Leinwand.
+   ———————————————————————————————————————————————————————————————— */
+
+:root {
+  --akzent: #f59e0b; --akzent-2: #ff6f52;
+  --text: #f2ede3; --text-2: #a7b1bf; --text-3: #7e8a99;
+  --bg: #090c11; --fl-1: #111722; --fl-2: #161e2c;
+  --rand: #232d3d; --linie: rgba(255,255,255,0.08);
+  --gruen: #3ecf8e; --rot: #e5484d;
+  --radius-md: 8px; --radius-lg: 12px; --radius-full: 999px;
+  --font-ui: 'Outfit', system-ui, sans-serif;
+
+  /* KARTEN_FARBEN */
+  --papier: #f6f1e7;
+  --k-titel: #1c1712;
+  --k-unter: rgba(28, 23, 18, 0.62);
+  --k-balken: rgba(10, 8, 5, 0.3);
+  --k-balken-von: #f5a524;
+  --k-balken-bis: #ff6f52;
+
+  /* EDITOR_MASSE, Nennwerte. `--mass` ist hoehe/900, geklemmt 0,55…1,8. */
+  --mass: 0.62;
+  --polster: calc(22px * var(--mass));
+  --text-oben: calc(18px * var(--mass));
+  --text-seiten: calc(10px * var(--mass));
+  --text-unten: calc(22px * var(--mass));
+  --luecke-y: calc(5px * var(--mass));
+  --titel: calc(40px * var(--mass));
+  --unter: calc(20px * var(--mass));
+  --balken: calc(7px * var(--mass));
+  --karten-radius: calc(22px * var(--mass));
+  --rahmen-radius: calc(10px * var(--mass));
+
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--font-ui); font-size: 14px; -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 96px; }
+
+h1 { font-size: 30px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lead { color: var(--text-2); max-width: 74ch; line-height: 1.6; margin: 0 0 8px; }
+h2 { font-size: 19px; font-weight: 600; margin: 0 0 4px; }
+.frage { color: var(--text-3); font-size: 13px; margin: 0 0 16px; }
+
+.blocks { display: grid; gap: 34px; margin-top: 34px; }
+.block {
+  border: 1px solid var(--rand); border-radius: var(--radius-lg);
+  background: var(--fl-1); padding: 20px 20px 22px;
+}
+.kopf { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.marke {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  color: #1a1206; background: var(--akzent);
+  border-radius: var(--radius-full); padding: 3px 10px;
+}
+.marke.aus { background: transparent; color: var(--text-3); border: 1px solid var(--rand); }
+.urteil { margin: 14px 0 0; color: var(--text-2); line-height: 1.6; max-width: 78ch; }
+.urteil b { color: var(--text); font-weight: 500; }
+.pro { color: var(--gruen); }
+.contra { color: var(--rot); }
+
+/* — Der Leuchttisch: die Editor-Bühne, auf der die Leinwand liegt — */
+.buehne {
+  position: relative;
+  min-height: 440px;
+  padding: 30px 20px 34px;
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(120% 90% at 50% 8%, #1b2331 0%, #0d1119 60%, #080b11 100%);
+  display: grid; place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--linie);
+}
+.buehne.zwei { display: flex; gap: 26px; align-items: center; justify-content: center; }
+.buehne::after {
+  content: attr(data-notiz);
+  position: absolute; left: 12px; bottom: 10px;
+  font-size: 11.5px; color: var(--text-3); letter-spacing: 0.02em;
+}
+
+/* — Die Karte: Papier mit Bild, wie sie der Maler zeichnet — */
+.karte {
+  background: var(--papier);
+  border-radius: var(--karten-radius);
+  padding: var(--polster);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  width: max-content;
+}
+.bild {
+  position: relative;
+  width: 420px; aspect-ratio: 3 / 2;
+  border-radius: var(--rahmen-radius);
+  overflow: hidden;
+  background: #d8d2c4;
+}
+.bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.balken {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--balken);
+  background: var(--k-balken);
+}
+.balken i {
+  display: block; height: 100%; width: 46%;
+  background: linear-gradient(90deg, var(--k-balken-von), var(--k-balken-bis));
+}
+.fuss { padding: var(--text-oben) var(--text-seiten) 0; }
+.fuss .titel {
+  font-size: var(--titel); line-height: 1.15; font-weight: 600;
+  color: var(--k-titel); letter-spacing: -0.015em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fuss .meta {
+  font-size: var(--unter); line-height: 1.45; color: var(--k-unter);
+  margin-top: var(--luecke-y);
+  padding-bottom: var(--text-unten);
+}
+.fuss.nur-meta .meta { margin-top: 0; }
+
+/* B/C/D — die rahmenlose Fassung: kein Papier, nur ein dünner heller Rand */
+.blank {
+  position: relative;
+  border-radius: calc(var(--karten-radius) * 0.7);
+  padding: 3px;                      /* der „dünne weiße Rahmen" */
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  width: max-content;
+}
+.blank .bild { border-radius: calc(var(--karten-radius) * 0.7 - 3px); }
+.blank.gross .bild { width: 560px; }
+
+/* C — Angaben auf dem Bild */
+.aufdruck {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 34px 14px calc(6px + var(--balken));
+  border-radius: 0 0 calc(var(--karten-radius) * 0.7 - 3px) calc(var(--karten-radius) * 0.7 - 3px);
+  background: linear-gradient(to top, rgba(8,6,4,0.62), rgba(8,6,4,0));
+  color: rgba(255,255,255,0.9);
+  font-size: calc(var(--unter) * 1.05); line-height: 1.3;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+/* D — Angaben unter der Karte, auf dem Leuchttisch */
+.untertitel {
+  margin-top: 12px; text-align: center;
+  font-size: calc(var(--unter) * 1.05);
+  color: var(--text-3);
+}
+
+.saeule { display: grid; justify-items: center; }
+
+/* Der Titel-Fall in den rahmenlosen Varianten. Standard: es gibt keinen Titel,
+   deshalb steht hier nichts. Schaltet man oben auf „mit Titel", muss jede
+   Variante zeigen, WOHIN er dann geht — das ist der eigentliche Prüfstein. */
+.nur-ohne-titel { display: none; }
+body.mit-titel .nur-ohne-titel { display: block; }
+body.mit-titel .blank .aufdruck .zeile-titel { display: block; }
+.aufdruck .zeile-titel { display: none; font-weight: 600; font-size: calc(var(--titel) * 0.52); margin-bottom: 2px; color: #fff; }
+.untertitel .zeile-titel { display: none; color: var(--text); font-weight: 500; font-size: calc(var(--unter) * 1.25); }
+body.mit-titel .untertitel .zeile-titel { display: block; }
+/* B kann den Titel nicht tragen: Dort kommt das Papier zurück, und genau
+   diesen Sprung soll man sehen. */
+.rueckfall { display: none; }
+body.mit-titel .rueckfall { display: block; }
+body.mit-titel .rueckfall-aus { display: none; }
+
+
+/* — Der Titel-Fall: eine Zeile statt zwei — */
+.fuss.eine-zeile {
+  display: flex; align-items: baseline; gap: calc(20px * var(--mass));
+  padding-bottom: var(--text-unten);
+}
+.fuss.eine-zeile .titel { flex: 1 1 auto; min-width: 0; }
+.fuss.eine-zeile .meta { margin: 0; padding: 0; flex: 0 0 auto; white-space: nowrap; }
+
+/* Ohne Titel behält die Zeile die HÖHE des Titelgrades und seine Grundlinie.
+   Ohne das wäre die Karte 11 px flacher als die beschriftete, und die Form
+   wäre eben doch nicht gleich. Der Platzhalter nimmt zugleich den Raum des
+   Titels ein (`flex: 1`), damit die Angaben rechts stehen bleiben, wo sie auch
+   mit Titel stehen: Beim Blättern springt dann nichts. */
+.fuss.eine-zeile.ohne-titel::before {
+  content: "\00a0"; font-size: var(--titel); line-height: 1.15;
+  width: 0; overflow: hidden; flex: 1 1 auto;
+}
+/* Nur für die Gegenüberstellung: die verworfene Fassung, Angaben links. */
+.fuss.eine-zeile.ohne-titel.links::before { flex: 0 0 auto; }
+
+/* Optisch ausgeglichen: unten etwas weniger als die Zeilenhöhe vorgibt. */
+.fuss.geglichen { padding-bottom: calc(var(--text-unten) * 0.72); }
+
+/* Der Balken: dünner, der ungespielte Rest deutlich schwächer. */
+.bild.fein .balken { height: calc(5px * var(--mass)); background: rgba(10,8,5,0.16); }
+
+/* Das Trennzeichen bekommt Luft. */
+.meta .tz { padding: 0 0.32em; opacity: 0.75; }
+
+/* Bildunterschrift der Vergleichssäulen. */
+.notiz-saeule { margin-top: 10px; font-size: 12.5px; color: var(--text-3); text-align: center; }
+
+
+/* — Weißraum unter dem Titel: der Nennwert des unteren Polsters — */
+.fuss.w0 { padding-bottom: 0; }
+.fuss.w6 { padding-bottom: calc(6px * var(--mass)); }
+.fuss.w22 { padding-bottom: calc(22px * var(--mass)); }
+
+/* — Fassungen der Angabenzeile — */
+.meta .zahl { color: rgba(28, 23, 18, 0.82); font-weight: 500; }
+.meta .wort { opacity: 0.78; }
+.meta .sonne {
+  display: inline-block; width: 0.62em; height: 0.62em; border-radius: 50%;
+  background: #e8a13c; margin-right: 0.42em; vertical-align: baseline;
+}
+.meta.weit { display: inline-flex; gap: 1.1em; }
+
+/* Der Fuß-Vergleich: nur Papierstreifen, kein ganzes Bild je Fassung. */
+.streifen {
+  background: var(--papier); border-radius: calc(var(--karten-radius) * 0.6);
+  padding: calc(12px * var(--mass)) calc(16px * var(--mass));
+  display: flex; align-items: baseline; gap: calc(20px * var(--mass));
+  min-width: 0;
+}
+.streifen .titel {
+  flex: 1 1 auto; font-size: var(--titel); line-height: 1.15; font-weight: 600;
+  color: var(--k-titel); letter-spacing: -0.015em;
+}
+.streifen .meta { flex: 0 0 auto; font-size: var(--unter); color: var(--k-unter); white-space: nowrap; }
+.streifen-reihe { display: grid; gap: 12px; width: min(660px, 100%); }
+.streifen-zeile { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: 16px; }
+.streifen-zeile > b { color: var(--text-3); font-weight: 500; font-size: 12.5px; }
+
+/* — Die Abfolge — */
+.abfolge { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 900px) { .abfolge { grid-template-columns: 1fr; } }
+.reihe-kopf { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.reihe-kopf b { font-size: 14px; font-weight: 600; }
+.reihe-kopf span { color: var(--text-3); font-size: 12.5px; }
+.lauf {
+  position: relative; min-height: 300px; display: grid; place-items: center;
+  border-radius: var(--radius-md); border: 1px solid var(--linie);
+  background: radial-gradient(120% 90% at 50% 8%, #1b2331 0%, #0d1119 60%, #080b11 100%);
+  padding: 24px;
+}
+.lauf .halt { display: none; }
+.lauf .halt.an { display: block; }
+.spielknopf {
+  font: inherit; font-size: 13px; font-weight: 600; color: #1a1206;
+  background: var(--akzent); border: 0; border-radius: var(--radius-full);
+  padding: 7px 16px; cursor: pointer;
+}
+.spielknopf:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
+
+
+/* — Hochkant und Telefon ————————————————————————————————
+   Eigene Maßsätze, weil der Maler drei Lagen kennt und nicht eine:
+   `breit` (Desktop), `schmal` (Telefon hochkant), `quer` (Telefon liegend,
+   Bild links und Text als Spalte rechts). Die Nennwerte stammen aus
+   KARTEN_MASSE in src/kartenmaler.ts. */
+.geraet {
+  border-radius: 30px; background: #05070b; padding: 10px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07) inset;
+}
+.schirm {
+  position: relative; overflow: hidden; border-radius: 22px;
+  background: radial-gradient(120% 80% at 50% 10%, #22303f, #0a0f16 70%);
+  display: grid; place-items: center;
+}
+.geraet.hoch .schirm { width: 234px; height: 506px; }
+.geraet.liegend .schirm { width: 506px; height: 234px; }
+
+/* Die Karte in Telefongröße: dieselbe Bauart, kleinere Nennwerte. */
+.karte.klein { --polster: 9px; --karten-radius: 11px; padding: var(--polster); }
+.karte.klein .fuss { padding: 9px 4px 0; }
+.karte.klein .titel { font-size: 17px; line-height: 1.25; }
+.karte.klein .meta { font-size: 10.5px; line-height: 1.45; }
+.karte.klein .balken { height: 4px; }
+
+/* Lage `schmal`: Titel auf eigener Zeile, darunter die Angaben links und
+   „Weiter" rechts. */
+.fuss.schmal-zeile { display: block; padding-bottom: 8px; }
+.fuss.schmal-zeile .zweite {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px;
+}
+.weiter {
+  font-size: 10px; font-weight: 600; color: var(--k-titel);
+  border: 1px solid rgba(28,23,18,0.22); border-radius: var(--radius-full);
+  padding: 5px 11px; white-space: nowrap;
+}
+
+/* Lage `quer`: Bild links, Textspalte rechts. */
+.karte.quer { display: flex; gap: 12px; align-items: center; }
+.karte .titel { color: var(--k-titel); font-weight: 600; letter-spacing: -0.015em; }
+.karte .meta { color: var(--k-unter); }
+.karte.quer .spalte { width: 128px; display: flex; flex-direction: column; gap: 7px; }
+.karte.quer .titel { font-size: 15px; line-height: 1.25; }
+.karte.quer .meta { font-size: 10px; line-height: 1.45; }
+.karte.quer .weiter { align-self: flex-start; }
+
+
+/* — Wie viel Rahmen? Der Nennwert des Polsters rundum — */
+.karte.r22 { --polster: calc(22px * var(--mass)); }
+.karte.r12 { --polster: calc(12px * var(--mass)); --karten-radius: calc(16px * var(--mass)); }
+.karte.r6  { --polster: calc(6px * var(--mass));  --karten-radius: calc(12px * var(--mass)); }
+.karte.r22, .karte.r12, .karte.r6 { padding: var(--polster); border-radius: var(--karten-radius); width: 328px; }
+.karte.r22 .bild, .karte.r12 .bild, .karte.r6 .bild { width: 100% !important; }
+/* Der Fuß behält seinen seitlichen Einzug, sonst klebt der Titel bei kleinem
+   Polster an der Bildkante. */
+.karte.r12 .fuss, .karte.r6 .fuss { padding-left: calc(6px * var(--mass)); padding-right: calc(6px * var(--mass)); }
+
+
+/* — Empfehlungen sichtbar machen ————————————————————————
+   Ein Entwurf mit zwölf Varianten ist ohne Kennzeichnung eine Sammlung, keine
+   Antwort. Empfohlenes trägt einen grünen Haken, Verworfenes bleibt stehen und
+   sagt, warum. */
+.empf {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+  color: #0b1f16; background: var(--gruen);
+  border-radius: var(--radius-full); padding: 3px 9px 3px 7px;
+}
+.empf::before { content: "✓"; font-size: 12px; }
+.empf.aus { background: transparent; color: var(--text-3); border: 1px solid var(--rand); }
+.empf.aus::before { content: "·"; }
+.saeule.gewaehlt .karte, .saeule.gewaehlt .blank { outline: 2px solid var(--gruen); outline-offset: 8px; border-radius: inherit; }
+.saeule .notiz-saeule .empf { margin-left: 6px; }
+.block.entschieden { border-color: rgba(62, 207, 142, 0.34); }
+
+/* — Der Vorschlag ganz oben — */
+.vorschlag { border-color: rgba(62, 207, 142, 0.34); background: linear-gradient(180deg, rgba(62,207,142,0.06), transparent 60%), var(--fl-1); }
+.vorschlag .buehne { min-height: 400px; }
+.vorschlag ol { margin: 14px 0 0; padding-left: 20px; color: var(--text-2); line-height: 1.7; max-width: 80ch; }
+.vorschlag ol li { margin: 4px 0; }
+.vorschlag ol b { color: var(--text); font-weight: 500; }
+.vorschlag ol code, .liste code { background: var(--fl-2); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+
+
+/* — Der „Weiter"-Knopf: drei Fassungen ——————————————————
+   Gezeigt im Telefon-Hochformat, weil dort der Platz knapp ist und der Knopf
+   die halbe Fußzeile einnimmt. Die angedeutete Steuerleiste unten ist derselbe
+   Anteil, an dem die Karte schon heute ihre Größe und Lage führt
+   (`KartenBuehne.bedienung`). */
+.dockleiste {
+  position: absolute; left: 12px; right: 12px; bottom: 10px; height: 34px;
+  border-radius: var(--radius-full); background: rgba(12, 16, 22, 0.82);
+  border: 1px solid rgba(255,255,255,0.09);
+  display: flex; align-items: center; gap: 6px; padding: 0 10px;
+  opacity: 0; transform: translateY(14px); transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.dockleiste i { display: block; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.22); }
+.dockleiste i:first-child { width: 12px; background: rgba(255,255,255,0.5); }
+.dockleiste i:nth-child(2) { flex: 1; }
+.dockleiste i:last-child { width: 22px; }
+.knopfprobe.leiste-an .dockleiste { opacity: 1; transform: none; }
+
+.knopfprobe .schirm .karte { transition: transform 0.5s ease; }
+.knopfprobe.leiste-an .schirm .karte { transform: translateY(-18px); }
+
+/* K2: der Knopf gehört zur Bedienung und geht mit ihr. */
+.weiter.mit-leiste { opacity: 0; transition: opacity 0.4s ease; }
+.knopfprobe.leiste-an .weiter.mit-leiste { opacity: 1; }
+/* K3: gar keiner. Die Angabenzeile hat dann die Zeile für sich. */
+.fuss.schmal-zeile.ohne-knopf .zweite { justify-content: flex-end; }
+
+/* — Die Umschalt-Leiste — */
+.schalter {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin: 22px 0 0; padding: 12px 14px;
+  border: 1px solid var(--rand); border-radius: var(--radius-md); background: var(--fl-2);
+}
+.schalter span { color: var(--text-3); font-size: 12.5px; margin-right: 4px; }
+.schalter button {
+  font: inherit; font-size: 13px; color: var(--text-2);
+  background: transparent; border: 1px solid var(--rand);
+  border-radius: var(--radius-full); padding: 5px 13px; cursor: pointer;
+}
+.schalter button[aria-pressed="true"] { background: var(--akzent); color: #1a1206; border-color: transparent; font-weight: 600; }
+.schalter button:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
+
+.liste { margin: 10px 0 0; padding-left: 18px; color: var(--text-2); line-height: 1.65; max-width: 78ch; }
+.liste li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Die Foto-Karte im Editor, wenn kein Titel da ist</h1>
+  <p class="lead">
+    Fast jede frisch hochgeladene Aufnahme hat keine Beschriftung. Heute füllt die Karte
+    die Lücke mit der Gattung: „Foto" steht dann als Überschrift auf dem Papier, in
+    derselben Schriftgröße wie ein echter Titel. Das ist genau die Auskunft, die man dem
+    Bild ansieht. Fünf Antworten darauf, alle am selben Bild.
+  </p>
+
+  <div class="schalter">
+    <span>Titel der Aufnahme:</span>
+    <button type="button" data-titel="ohne" aria-pressed="true">ohne Titel</button>
+    <button type="button" data-titel="mit" aria-pressed="false">mit Titel („Haad Baan Tai")</button>
+    <span style="margin-left:14px">Angaben:</span>
+    <button type="button" data-meta="an" aria-pressed="true">Uhrzeit und km zeigen</button>
+    <button type="button" data-meta="aus" aria-pressed="false">nichts</button>
+  </div>
+
+  <div class="blocks">
+
+    <!-- DER VORSCHLAG ————————————————————————————————— -->
+    <section class="block vorschlag" id="vorschlag">
+      <div class="kopf">
+        <span class="empf">Der Vorschlag</span>
+        <h2>So sähe die Karte danach aus</h2>
+      </div>
+      <p class="frage">
+        Links mit Titel, rechts ohne. Gleiches Papier, gleicher Rand, gleiche Größe. Alles
+        darunter ist die Herleitung, Variante für Variante.
+        <b>Gebaut am 2026-08-18</b> in <code>src/kartenmaler.ts</code> (Geometrie, Angabenzeile,
+        Maße), <code>src/studio/editor.ts</code>, <code>src/ui.ts</code> und
+        <code>server/src/pipeline/enrich.ts</code>.
+      </p>
+      <div class="buehne zwei" data-notiz="Beide Fälle in der empfohlenen Fassung">
+        <div class="saeule gewaehlt">
+          <div class="karte r12">
+            <div class="bild fein">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">mit Titel</div>
+        </div>
+        <div class="saeule gewaehlt">
+          <div class="karte r12">
+            <div class="bild fein">
+              <img src="tourbilder/stockholm.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel w6"><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">ohne Titel: nur der Titel fehlt, sonst ändert sich nichts</div>
+        </div>
+      </div>
+      <ol>
+        <li><b>Keine Gattungs-Pille und kein Gattungs-Titel.</b> „Foto" und „Video"
+          verschwinden aus der Karte, in beiden Bühnen.</li>
+        <li><b>Die Form bleibt gleich</b>, ob mit Titel oder ohne. Der rahmenlose Abzug ist
+          die schönere Einzelkarte, aber die Karte ist nie einzeln (Block „Abfolge").</li>
+        <li><b>Titel und Angaben auf eine Zeile</b>, gemeinsame Grundlinie (T2/T3). Passen
+          sie nicht nebeneinander, fällt die Karte auf zwei Zeilen zurück, wie heute
+          (Block H). Ohne Titel bleiben die Angaben rechts stehen, wo sie auch mit Titel
+          stehen.</li>
+        <li><b>Die Zeile behält die Höhe des Titelgrades, auch wenn kein Titel dasteht.</b>
+          Ohne das wäre die titellose Karte 11 px flacher als die beschriftete, gemessen
+          in diesem Entwurf, und die Form wäre eben doch nicht gleich. Die Angaben sitzen
+          dabei auf der Grundlinie, auf der sonst der Titel steht.</li>
+        <li><b>Rand rundum von 22 auf 12</b>, der Fuß bleibt der eine breite Rand
+          (Block R). Unteres Polster von 22 auf 6 (Block W).</li>
+        <li><b>Angaben als „14:54 Uhr · 4,1 km"</b>, Ziffern dunkler und etwas kräftiger,
+          Wörter zurückgenommen, <code>tabular-nums</code> (M2 + M3). Der Kilometerstand
+          bleibt auf jeder Bühne, auch im Editor.</li>
+        <li><b>Balken von 7 auf 5</b>, der ungespielte Rest von 30 auf 16 Prozent.</li>
+        <li><b>Der „Weiter ▸"-Knopf fällt weg</b> (Block K). Er stammt aus der Zeit, als der
+          Halt auf der Leiste keine Breite hatte. Die Fußzeile gehört danach ganz den
+          Angaben, und im Player entfällt der einzige Knopf im Bild. Der gezielte Sprung zur
+          einzelnen Aufnahme eines Halts wandert in die Leiste, wenn sie die Fotos einzeln
+          anwählbar macht.</li>
+        <li><b>Danach offen:</b> der Titelvorschlag aus der Bildanalyse. Er würde den
+          titellosen Halt zur Ausnahme machen, ist aber ein eigenes Vorhaben und keine
+          Sache dieses Entwurfs.</li>
+      </ol>
+      <p class="urteil">
+        <b>Wo es hingehört:</b> Punkte 3 bis 6 sind Zahlen und eine Fallunterscheidung in
+        <code>kartenGeometrie</code> und <code>maleKarte</code>
+        (<code>src/kartenmaler.ts</code>), Punkt 1 betrifft zusätzlich <code>ui.ts</code>
+        und den Editor. Player, Studio und Film ziehen dadurch gemeinsam mit, weil alle
+        drei denselben Maler benutzen.
+      </p>
+    </section>
+
+
+    <!-- A ————————————————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke aus">A</span>
+        <h2>Bestand</h2>
+      </div>
+      <p class="frage">Die Gattung als Überschrift. So sieht es heute aus.</p>
+      <div class="buehne" data-notiz="Karte 561 × 442, Bild 535 × 356">
+        <div class="karte">
+          <div class="bild">
+            <img src="tourbilder/kohphangan.jpg" alt="" />
+            <div class="balken"><i></i></div>
+          </div>
+          <div class="fuss">
+            <div class="titel" data-rolle="titel">Foto</div>
+            <div class="meta" data-rolle="meta">14:54 Uhr · km 4,1</div>
+          </div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="contra">Das Wort trägt nichts.</b> Es steht an der prominentesten Stelle
+        der Karte und sagt dasselbe wie das Bild darunter. Dazu kostet der Fuß rund ein
+        Fünftel der Kartenhöhe, ohne dafür etwas zu zeigen.
+      </p>
+    </section>
+
+    <!-- B ————————————————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">B</span>
+        <h2>Nur das Bild, dünner weißer Rahmen</h2>
+      </div>
+      <p class="frage">Kein Papierfuß. Der frei werdende Platz geht ans Bild.</p>
+      <div class="buehne" data-notiz="Bild 560 × 373 statt 535 × 356, gleiche Bühnenhöhe">
+        <div class="blank gross rueckfall-aus">
+          <div class="bild">
+            <img src="tourbilder/kohphangan.jpg" alt="" />
+            <div class="balken"><i></i></div>
+          </div>
+        </div>
+        <div class="karte rueckfall">
+          <div class="bild">
+            <img src="tourbilder/kohphangan.jpg" alt="" />
+            <div class="balken"><i></i></div>
+          </div>
+          <div class="fuss">
+            <div class="titel">Haad Baan Tai</div>
+            <div class="meta" data-rolle="meta">14:54 Uhr · km 4,1</div>
+          </div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="pro">Ruhig, und das Bild gewinnt.</b> Die Karte ist wieder ein Abzug und
+        kein Etikett. Der Rahmen hält sie gegen den dunklen Leuchttisch, ohne etwas zu
+        behaupten.
+        <b class="contra">Offen bleibt</b>: Uhrzeit und Kilometerstand sind im Editor die
+        einzige Auskunft darüber, wo in der Tour diese Aufnahme sitzt. Wer nur die Karte
+        ansieht, verliert sie hier. Deshalb C und D. Und schaltet man oben auf „mit Titel",
+        kommt das Papier zurück: B ist keine neue Karte, sondern der Sonderfall der
+        leeren Beschriftung.
+      </p>
+    </section>
+
+    <!-- C ————————————————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">C</span>
+        <h2>Angaben zart auf dem Bild</h2>
+      </div>
+      <p class="frage">Der Rahmen bleibt leer, die Angabe liegt im Bild.</p>
+      <div class="buehne" data-notiz="Verlauf nach unten, damit die Zeile auf jedem Motiv steht">
+        <div class="blank gross">
+          <div class="bild">
+            <img src="tourbilder/kohphangan.jpg" alt="" />
+            <div class="aufdruck"><span class="zeile-titel">Haad Baan Tai</span><span data-rolle="meta">14:54 Uhr · km 4,1</span></div>
+            <div class="balken"><i></i></div>
+          </div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="pro">Bild groß, Auskunft da.</b> Die Zeile hängt an der Aufnahme und
+        wandert mit ihr.
+        <b class="contra">Der Preis:</b> Ein Verlauf über dem Bildfuß ist eine Schicht auf
+        dem Foto, und bei hellen Motiven muss er kräftig werden, sonst verschwindet die
+        Schrift. Im Player wäre das ein Rückschritt, dort liegt die Beschriftung bewusst
+        neben dem Bild und nicht darauf.
+      </p>
+    </section>
+
+    <!-- D ————————————————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">D</span>
+        <h2>Angaben unter der Karte, auf dem Leuchttisch</h2>
+      </div>
+      <p class="frage">Das Bild bleibt unberührt, die Angabe steht daneben statt darin.</p>
+      <div class="buehne" data-notiz="Die Zeile gehört zur Bühne, nicht zur Karte">
+        <div class="saeule">
+          <div class="blank gross">
+            <div class="bild">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+          </div>
+          <div class="untertitel"><div class="zeile-titel">Haad Baan Tai</div><div data-rolle="meta">14:54 Uhr · km 4,1</div></div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="pro">Sauberste Trennung.</b> Auf dem Papier steht nur, was zur Tour
+        gehört; was der Editor über die Aufnahme weiß, steht auf seinem Tisch. Ein Bild
+        ohne Titel bleibt dadurch ein Bild.
+        <b class="contra">Aber:</b> Diese Zeile gehört dann der Editor-Oberfläche und
+        nicht mehr dem Maler. Sie wäre die eine Stelle, an der Editor und Film wieder
+        auseinandergehen.
+      </p>
+    </section>
+
+    <!-- E ————————————————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">E</span>
+        <h2>Papier bleibt, die Angaben rücken hoch</h2>
+      </div>
+      <p class="frage">Kein Titel, kein Ersatzwort. Uhrzeit und km stehen an der Titelstelle.</p>
+      <div class="buehne" data-notiz="Eine Textzeile statt zwei, Karte 44 px flacher">
+        <div class="karte">
+          <div class="bild">
+            <img src="tourbilder/kohphangan.jpg" alt="" />
+            <div class="balken"><i></i></div>
+          </div>
+          <div class="fuss nur-meta">
+            <div class="meta" data-rolle="meta" style="font-size: calc(var(--unter) * 1.25)">14:54 Uhr · km 4,1</div>
+          </div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="pro">Die kleinste Änderung.</b> Der Maler behält seinen Fuß, nur die
+        Belegung wechselt: Ist ein Titel da, steht er oben und die Angaben darunter. Ist
+        keiner da, rücken die Angaben nach oben und die zweite Zeile fällt weg.
+        <b class="contra">Dagegen spricht:</b> Das Papier bleibt, und damit auch der
+        Platz, den es dem Bild nimmt.
+      </p>
+    </section>
+
+    <!-- Kilometerfrage ————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke aus">Geprüft</span>
+        <h2>Braucht die Karte den Kilometerstand?</h2>
+      </div>
+      <p class="frage">Nachgesehen, wo die Zahl sonst noch steht, während die Karte liegt.</p>
+      <ul class="liste">
+        <li><b>Im Editor: nein.</b> Über der Zeitleiste steht dauerhaft
+          „12,4 / 41,8 km" (<code>#kopf-km</code> in studio.html) und daneben die Uhrzeit,
+          beide auf dem Stand des Playheads. Liegt die Karte, ist das dieselbe Stelle und
+          damit dieselbe Zahl. Die Metazeile wiederholt sie wörtlich, eine Handbreit
+          unter dem Original.</li>
+        <li><b>Im Player: doch.</b> Die Telemetrie („Distanz 12.3 km") liegt in der
+          Steuerleiste, und die zieht sich nach 3,2 Sekunden Ruhe zurück. Der Halt zählt
+          zur laufenden Wiedergabe, also ist die Karte im ruhigen Halt die einzige Stelle,
+          an der die Zahl noch steht.</li>
+        <li><b>Im Film: erst recht.</b> Der Export zeichnet keine Steuerleiste. Ohne die
+          Angabe gäbe es im ganzen Film keine Ortsangabe mehr, nur die Gesamtdistanz im
+          Startscreen und am Ende.</li>
+        <li><b>Die Uhrzeit bleibt in jedem Fall.</b> „14:54 Uhr" erzählt etwas über die
+          Aufnahme. Der Kilometerstand sagt etwas über die Position im Werkzeug, und die
+          zeigt im Editor der Playhead.</li>
+      </ul>
+      <p class="urteil">
+        <b>Entschieden: der Kilometerstand bleibt überall</b>, auch im Editor. Die
+        Wiederholung im Zeitleisten-Kopf ist der schwächere Einwand: Die Karte soll für
+        sich stehen und auf jeder Bühne dieselbe sein. Eine Karte, die im Editor anders
+        aussieht als im Film, wäre eine zweite Wahrheit über dieselbe Sache, und wer im
+        Editor schneidet, sähe nicht mehr, was hinterher ausgeliefert wird. Der Befund
+        oben bleibt trotzdem stehen, denn er sagt, was die Zahl im Editor NICHT leisten
+        muss: Sie ist dort kein Wegweiser, sondern Teil des Bildes.
+      </p>
+    </section>
+
+    <!-- Mit Titel ————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">T</span>
+        <h2>Und die Karte MIT Titel</h2>
+      </div>
+      <p class="frage">Der häufigere Fall, und der bisher unangetastete. Vier Schritte.</p>
+
+      <div class="buehne zwei" data-notiz="Gleiche Kartenhöhe: was der Fuß spart, bekommt das Bild (330 → 361 px breit)">
+        <div class="saeule">
+          <div class="karte">
+            <div class="bild" style="width: 330px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss">
+              <div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr · km 4,1</div>
+            </div>
+          </div>
+          <div class="notiz-saeule">T1 Bestand</div>
+        </div>
+        <div class="saeule">
+          <div class="karte">
+            <div class="bild" style="width: 361px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile">
+              <div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr<span class="tz">·</span>km 4,1</div>
+            </div>
+          </div>
+          <div class="notiz-saeule">T2 Angaben auf die Titelzeile</div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="pro">T2 nutzt die Zeile, die die Pille frei gemacht hat.</b> Titel links,
+        Angaben rechts an derselben Grundlinie. Die Karte wird flacher, und weil ihre Höhe
+        die Bildhöhe bestimmt, wird das Bild größer.
+        <b class="contra">Grenze:</b> Ein langer Titel und eine lange Angabe stoßen
+        zusammen. Der Titel wird schon heute gekürzt, das gilt dann früher.
+      </p>
+
+      <div class="buehne zwei" data-notiz="T3 und T4 mit ausgeglichenem Fuß · rechts zusätzlich die zweistufigen Ziffern">
+        <div class="saeule gewaehlt">
+          <div class="karte">
+            <div class="bild fein" style="width: 367px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile geglichen">
+              <div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr<span class="tz">·</span>km 4,1</div>
+            </div>
+          </div>
+          <div class="notiz-saeule">T3 Balken dünner, Fuß ausgeglichen</div>
+        </div>
+        <div class="saeule gewaehlt">
+          <div class="karte">
+            <div class="bild fein" style="width: 367px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile geglichen">
+              <div class="titel">Haad Baan Tai</div>
+              <div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div>
+            </div>
+          </div>
+          <div class="notiz-saeule">T4 Angaben zweistufig (M3) <span class="empf">empfohlen</span></div>
+        </div>
+      </div>
+      <ul class="liste">
+        <li><b>Der Balken</b> geht von 7 auf 5 herunter, der ungespielte Rest von 30 auf
+          16 Prozent Deckkraft. Vorher lag ein grauer Streifen über dem Bildfuß, der sich
+          fast wie ein Fehler des Fotos las.</li>
+        <li><b>Der Fuß</b> ist unten um gut ein Viertel gekürzt. Die Zeilenhöhe reserviert
+          Platz für Unterlängen, den eine einzelne Zeile selten braucht, und dadurch stand
+          unten mehr Luft als oben.</li>
+        <li><b>Das Trennzeichen</b> hat Luft bekommen. Vorher klebten „Uhr" und „km" am
+          Punkt.</li>
+        <li><b>T4 zeigt zusätzlich die zweistufige Schreibweise</b> aus M3: Ziffern
+          dunkler und etwas kräftiger, „Uhr" und „km" zurückgenommen. Dieselbe Zeile,
+          dieselbe Länge, nur besser gewichtet.</li>
+      </ul>
+    </section>
+
+    <!-- Wo stehen die Angaben ohne Titel? ————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">S</span>
+        <h2>Wo stehen die Angaben, wenn kein Titel da ist?</h2>
+      </div>
+      <p class="frage">
+        Mit Titel stehen sie rechts. Ohne Titel könnten sie an die Titelstelle rücken oder
+        rechts stehen bleiben. Die Karte mit Titel steht zum Vergleich daneben.
+      </p>
+      <div class="buehne zwei" data-notiz="S1 rücken nach links · S2 bleiben rechts · rechts daneben dieselbe Karte MIT Titel">
+        <div class="saeule">
+          <div class="karte r12">
+            <div class="bild fein">
+              <img src="tourbilder/stockholm.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel links w6"><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">S1 an die Titelstelle</div>
+        </div>
+        <div class="saeule gewaehlt">
+          <div class="karte r12">
+            <div class="bild fein">
+              <img src="tourbilder/stockholm.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel w6"><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">S2 rechts wie immer <span class="empf">empfohlen</span></div>
+        </div>
+        <div class="saeule">
+          <div class="karte r12">
+            <div class="bild fein">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">zum Vergleich: mit Titel</div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="pro">S2 ist richtig, und aus demselben Grund wie die ganze Abfolge.</b>
+        Beim Blättern durch die Halte wechseln beschriftete und unbeschriftete Aufnahmen.
+        Rückt die Zeile dabei von rechts nach links und wieder zurück, wandert das
+        Einzige, was sich in der Karte überhaupt bewegt, und der Blick folgt ihm jedes Mal.
+        Bleibt sie stehen, fällt nur weg, was fehlt: der Titel.
+        <b class="contra">Der Einwand gegen S2</b> wäre die leere linke Hälfte. Sie sieht
+        aber nicht nach Lücke aus, sondern nach Rand, weil links ohnehin nie etwas anderes
+        steht als der Titel.
+      </p>
+    </section>
+
+    <!-- Weißraum ————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">W</span>
+        <h2>Der Weißraum unter dem Titel</h2>
+      </div>
+      <p class="frage">
+        Gemessen an T3: über dem Titel 20,0 px von der Bildkante bis zur Versalienoberkante,
+        darunter 30,5 px von der Grundlinie bis zur Kartenkante. Also gut das Anderthalbfache.
+      </p>
+      <div class="buehne zwei" data-notiz="W1 gleich · W2 ein Fünftel mehr unten · W3 Bestand">
+        <div class="saeule">
+          <div class="karte">
+            <div class="bild fein" style="width: 330px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w0"><div class="titel">Haad Baan Tai</div><div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div></div>
+          </div>
+          <div class="notiz-saeule">W1 gleich (20 / 20,7)</div>
+        </div>
+        <div class="saeule">
+          <div class="karte">
+            <div class="bild fein" style="width: 330px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div></div>
+          </div>
+          <div class="notiz-saeule">W2 ein Fünftel mehr (20 / 24,4) <span class="empf">empfohlen</span></div>
+        </div>
+        <div class="saeule">
+          <div class="karte">
+            <div class="bild fein" style="width: 330px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w22"><div class="titel">Haad Baan Tai</div><div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div></div>
+          </div>
+          <div class="notiz-saeule">W3 Bestand (20 / 34,3)</div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b>Harmonisch ist nicht gleich.</b> Eine Karte, die unten genauso wenig Rand hat wie
+        oben, wirkt nach unten offen: Über dem Titel steht das Bild und drückt, unter ihm
+        steht nichts mehr. Deshalb bekommt der Fuß etwas mehr, aber deutlich weniger als
+        heute. <b class="pro">W2 ist der Vorschlag</b> (unteres Polster von 22 auf 6, das
+        Bild wächst dadurch noch einmal um gut 10 px). W1 ist die knappe Variante, wenn dir
+        die Karte zu schwer unten wirkt.
+      </p>
+    </section>
+
+    <!-- Angabenzeile ————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">M</span>
+        <h2>Uhrzeit und Kilometerstand, fünf Fassungen</h2>
+      </div>
+      <p class="frage">
+        Nur die Fußzeile, damit man den Unterschied sieht und nicht das Bild. Alle in
+        derselben Karte, derselben Größe.
+      </p>
+      <div class="buehne" data-notiz="Papierstreifen statt ganzer Karten">
+        <div class="streifen-reihe">
+          <div class="streifen-zeile"><b>M1 Bestand</b>
+            <div class="streifen"><div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr · km 4,1</div></div></div>
+          <div class="streifen-zeile"><b>M2 Einheit hinten</b>
+            <div class="streifen"><div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div></div></div>
+          <div class="streifen-zeile"><b>M3 zweistufig <span class="empf">empfohlen</span></b>
+            <div class="streifen"><div class="titel">Haad Baan Tai</div>
+              <div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div></div>
+          <div class="streifen-zeile"><b>M4 mit Tageszeit</b>
+            <div class="streifen"><div class="titel">Haad Baan Tai</div>
+              <div class="meta"><span class="sonne"></span><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div></div>
+          <div class="streifen-zeile"><b>M5 ohne Punkt</b>
+            <div class="streifen"><div class="titel">Haad Baan Tai</div>
+              <div class="meta weit"><span><span class="zahl">14:54</span> <span class="wort">Uhr</span></span><span><span class="zahl">4,1</span> <span class="wort">km</span></span></div></div></div>
+        </div>
+      </div>
+      <ul class="liste">
+        <li><b>M2 ist keine Kosmetik, sondern eine Angleichung.</b> Der Player schreibt
+          „12.3 km", der Editor „km 4,1". Dieselbe Größe, zwei Schreibweisen. Die Einheit
+          gehört hinter die Zahl, wie überall sonst im Produkt.</li>
+        <li><b>M3 trennt Zahl und Wort.</b> Die Ziffern tragen die Auskunft, „Uhr" und „km"
+          sagen nur, wovon die Rede ist. Ziffern etwas kräftiger und dunkler, Wörter
+          zurückgenommen. Dazu <code>tabular-nums</code>, damit die Zeile beim Blättern
+          nicht zappelt.</li>
+        <li><b>M4 nimmt den Trick des Zeitleisten-Kopfes auf:</b> Dort steht neben der Uhrzeit
+          ein Sonnen- oder Mondsymbol, das sich nach der Tageszeit färbt und dadurch selbst
+          die Auskunft ist, statt sie zu etikettieren. Auf der Karte hätte es denselben Wert,
+          und die Karte steht bei Tag wie bei Nacht auf demselben Papier.</li>
+        <li><b>M5 verzichtet auf das Trennzeichen.</b> Weniger Zeichen, aber die Zeile
+          zerfällt in zwei Inseln, und rechtsbündig wandert die erste dann mit der Länge der
+          zweiten. Nur als Gegenprobe da.</li>
+        <li><b class="pro">Vorschlag: M3 mit der Schreibweise aus M2</b>, das Tageszeit-Symbol
+          aus M4 als Zugabe, wenn es dir gefällt.</li>
+      </ul>
+    </section>
+
+    <!-- Abfolge ——————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">Abfolge</span>
+        <h2>Wenn auf ein Foto mit Titel eines ohne folgt</h2>
+      </div>
+      <p class="frage">
+        Deine Sorge, und sie lässt sich nur im Ablauf beantworten. Drei Halte hintereinander:
+        mit Titel, ohne Titel, mit Titel. Oben wechselt die Karte ihre Form, unten behält sie
+        sie.
+      </p>
+      <p><button class="spielknopf" type="button" data-spielen>Abfolge abspielen</button></p>
+
+      <div class="abfolge">
+        <div>
+          <div class="reihe-kopf"><b>Form wechselt</b><span>B für titellose Aufnahmen, T3 für beschriftete</span></div>
+          <div class="lauf" data-lauf="wechsel">
+            <div class="halt an"><div class="karte">
+            <div class="bild fein" style="width: 268px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div></div>
+          </div></div>
+            <div class="halt"><div class="blank"><div class="bild fein" style="width: 292px">
+              <img src="tourbilder/stockholm.jpg" alt="" /><div class="balken"><i></i></div></div></div></div>
+            <div class="halt"><div class="karte">
+            <div class="bild fein" style="width: 268px">
+              <img src="tourbilder/lissabon.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Miradouro da Graça</div><div class="meta">15:31 Uhr<span class="tz">·</span>6,8 km</div></div>
+          </div></div>
+          </div>
+        </div>
+        <div>
+          <div class="reihe-kopf"><span class="empf">empfohlen</span><b>Form bleibt</b><span>immer T3, ohne Titel fällt nur der Titel weg</span></div>
+          <div class="lauf" data-lauf="bleibt">
+            <div class="halt an"><div class="karte">
+            <div class="bild fein" style="width: 268px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div></div>
+          </div></div>
+            <div class="halt"><div class="karte">
+            <div class="bild fein" style="width: 268px">
+              <img src="tourbilder/stockholm.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel w6"><div class="meta"><span class="zahl">15:12</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">5,6</span> <span class="wort">km</span></div></div>
+          </div></div>
+            <div class="halt"><div class="karte">
+            <div class="bild fein" style="width: 268px">
+              <img src="tourbilder/lissabon.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Miradouro da Graça</div><div class="meta">15:31 Uhr<span class="tz">·</span>6,8 km</div></div>
+          </div></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="urteil">
+        <b>Der Wechsel fällt auf, und zwar mehr als das fehlende Wort.</b> Oben springt die
+        Karte zwischen Papier und Abzug, das Bild wechselt die Größe und der Fuß erscheint
+        und verschwindet. Unten bleibt die Karte, was sie ist, und nur die Zeile darunter
+        sagt einmal einen Namen und einmal eine Uhrzeit.
+        <b class="pro">Deshalb: die Form bleibt.</b> Deine rahmenlose Fassung ist die
+        schönere Einzelkarte, aber die Karte ist nie einzeln.
+      </p>
+      <ul class="liste">
+        <li><b>Es sei denn, es gibt fast nie einen titellosen Halt.</b> Dann ist der Sprung
+          selten genug, und die schönere Einzelkarte gewinnt. Genau darauf zielt die Idee
+          unten.</li>
+      </ul>
+    </section>
+
+    <!-- Idee ————————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke aus">Idee</span>
+        <h2>Den Fall seltener machen, statt ihn zu gestalten</h2>
+      </div>
+      <ul class="liste">
+        <li><b>Ein Titelvorschlag aus der Bildanalyse.</b> Die Pipeline schickt jedes Foto
+          ohnehin durch eine Bildanalyse (heute für die Wetter-Verfeinerung), und die kostet
+          Bruchteile eines Cents. Ein kurzer Vorschlag daraus („Longtailboot am Strand") wäre
+          im Studio ein Feld, das schon gefüllt ist und das man ändern oder leeren kann.
+          Damit wäre der titellose Halt die Ausnahme statt der Normalfall.</li>
+        <li><b>Kein automatischer Titel ohne Zutun.</b> Ein erfundener Satz, der ungefragt
+          im Film steht, wäre schlimmer als gar keiner. Der Vorschlag muss als Vorschlag
+          erkennbar sein, und wer ihn stehen lässt, hat ihn gewählt.</li>
+        <li><b>Der Ortsname ist keine Alternative.</b> Geocodiert werden nur Start und Ziel
+          einer Tour (<code>geocodiereEndpunkte</code>), nicht jede Aufnahme. Ein Ortsname je
+          Foto wären so viele Nominatim-Abfragen wie Fotos.</li>
+        <li><b>Der Player hat denselben Fall.</b> Ohne Beschriftung schreibt die Pipeline
+          heute „Foto · 14:32" als Titel (<code>enrich.ts</code>). Das ist dasselbe Wort an
+          derselben Stelle, nur mit Uhrzeit dahinter. Was hier entschieden wird, gilt dort
+          mit.</li>
+      </ul>
+    </section>
+
+    <!-- Rahmen ————————————————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">R</span>
+        <h2>Wie viel Rahmen? Und für beide gleich viel</h2>
+      </div>
+      <p class="frage">
+        Der Einwand: In der rahmenlosen Fassung sind es 3 px rundum, auf dem Papier 22.
+        Zwei Karten in einer Tour, zwei völlig verschiedene Ränder.
+      </p>
+      <ul class="liste">
+        <li><b>Der Sprung selbst ist mit der Abfolge oben schon entschieden:</b> Die Form
+          bleibt, also gibt es die 3-px-Fassung gar nicht mehr. Beide Fälle stehen auf
+          demselben Papier, mit demselben Rand. Der titellose bekommt keinen anderen
+          Rahmen, sondern eine Zeile weniger Text.</li>
+        <li><b>Was bleibt, ist eine andere Frage:</b> wie viel Rand das Papier haben soll.
+          Und da ist die Asymmetrie kein Fehler. Ein Abzug mit Beschriftung hat oben und
+          seitlich denselben schmalen Rand und unten einen breiteren, weil dort etwas
+          steht. Das ist die Form, die jedes Passepartout und jedes Sofortbild hat, und
+          das Auge liest sie als gewollt, sobald oben und seitlich gleich sind.</li>
+        <li><b>Also drei Stufen zur Wahl</b>, alle mit demselben Fuß. Unten jeweils
+          dieselbe Karte ohne Titel: Der Rand ist überall identisch, nur die Zeile
+          wechselt.</li>
+      </ul>
+
+      <div class="buehne zwei" data-notiz="R1 Bestand (22) · R2 schmaler (12) · R3 fast randlos (6)">
+        <div class="saeule">
+          <div class="karte r22">
+            <div class="bild fein" style="width: 300px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">R1 Bestand: 22</div>
+        </div>
+        <div class="saeule gewaehlt">
+          <div class="karte r12">
+            <div class="bild fein" style="width: 300px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">R2 schmaler: 12 <span class="empf">empfohlen</span></div>
+        </div>
+        <div class="saeule">
+          <div class="karte r6">
+            <div class="bild fein" style="width: 300px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6"><div class="titel">Haad Baan Tai</div><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">R3 fast randlos: 6</div>
+        </div>
+      </div>
+
+      <div class="buehne zwei" data-notiz="Dieselben drei, ohne Titel: gleicher Rand, eine Zeile">
+        <div class="saeule">
+          <div class="karte r22">
+            <div class="bild fein" style="width: 300px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel w6"><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">R1 ohne Titel</div>
+        </div>
+        <div class="saeule">
+          <div class="karte r12">
+            <div class="bild fein" style="width: 300px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel w6"><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">R2 ohne Titel</div>
+        </div>
+        <div class="saeule">
+          <div class="karte r6">
+            <div class="bild fein" style="width: 300px">
+              <img src="tourbilder/kohphangan.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile ohne-titel w6"><div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div></div>
+          </div>
+          <div class="notiz-saeule">R3 ohne Titel</div>
+        </div>
+      </div>
+
+      <p class="urteil">
+        <b class="pro">R2 ist mein Vorschlag.</b> 22 stammt aus der Zeit, als die Karte
+        gegen einen hellen Schleier stand und der Rand sie halten musste; heute liegt sie
+        auf einem dunklen Bild und trägt sich selbst. Mit 12 wirkt sie moderner, das Bild
+        gewinnt auf jeder Seite gut 6 px, und der Fuß bleibt als der eine breite Rand
+        erkennbar, der er sein soll.
+        <b class="contra">R3 kippt:</b> Bei 6 px berührt das Bild fast die Kante, das
+        Papier wird zum Strich, und der Fuß sieht aus, als wäre er angeklebt statt Teil
+        derselben Fläche.
+      </p>
+    </section>
+
+    <!-- Der Weiter-Knopf ————————————————————————————— -->
+    <section class="block knopfprobe" id="knopfprobe">
+      <div class="kopf">
+        <span class="marke">K</span>
+        <h2>Braucht die Karte den „Weiter"-Knopf noch?</h2>
+      </div>
+      <p class="frage">
+        Er stammt aus der Zeit, als der Halt auf der Leiste keine Breite hatte: Der Kopf
+        stand die ganze Standzeit still und sprang danach über sie hinweg, man konnte also
+        gar nicht in einen Halt hineinziehen. Seit die Leiste in Filmzeit läuft, geht das.
+      </p>
+      <p>
+        <button class="spielknopf" type="button" data-leiste="an">Steuerleiste steht</button>
+        <button class="spielknopf" type="button" data-leiste="aus" style="background: transparent; color: var(--text-2); border: 1px solid var(--rand)">zurückgezogen</button>
+      </p>
+      <div class="buehne zwei" data-notiz="Telefon hochkant. Die Leiste unten ist angedeutet, die Karte rückt mit ihr hoch.">
+        <div class="saeule">
+          <div class="geraet hoch">
+            <div class="schirm">
+              <div class="karte klein">
+                <div class="bild fein" style="width: 196px">
+                  <img src="tourbilder/kohphangan.jpg" alt="" />
+                  <div class="balken"><i></i></div>
+                </div>
+                <div class="fuss schmal-zeile">
+                  <div class="titel">Haad Baan Tai</div>
+                  <div class="zweite">
+                    <span class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></span>
+                    <span class="weiter">Weiter ▸</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dockleiste"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div class="notiz-saeule">K1 immer sichtbar (Bestand)</div>
+        </div>
+        <div class="saeule">
+          <div class="geraet hoch">
+            <div class="schirm">
+              <div class="karte klein">
+                <div class="bild fein" style="width: 196px">
+                  <img src="tourbilder/kohphangan.jpg" alt="" />
+                  <div class="balken"><i></i></div>
+                </div>
+                <div class="fuss schmal-zeile">
+                  <div class="titel">Haad Baan Tai</div>
+                  <div class="zweite">
+                    <span class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></span>
+                    <span class="weiter mit-leiste">Weiter ▸</span>
+                    <span class="weiter mit-leiste">Weiter ▸</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dockleiste"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div class="notiz-saeule">K2 mit der Bedienung</div>
+        </div>
+        <div class="saeule gewaehlt">
+          <div class="geraet hoch">
+            <div class="schirm">
+              <div class="karte klein">
+                <div class="bild fein" style="width: 196px">
+                  <img src="tourbilder/kohphangan.jpg" alt="" />
+                  <div class="balken"><i></i></div>
+                </div>
+                <div class="fuss schmal-zeile ohne-knopf">
+                  <div class="titel">Haad Baan Tai</div>
+                  <div class="zweite">
+                    <span class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></span>
+                    
+                  </div>
+                </div>
+              </div>
+              <div class="dockleiste"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+          <div class="notiz-saeule">K3 gar keiner <span class="empf">entschieden</span></div>
+        </div>
+      </div>
+      <ul class="liste">
+        <li><b>Was er als Einziger kann:</b> zur nächsten Aufnahme DESSELBEN Stopps
+          springen. Auf der Leiste ist ein Stopp ein Punkt und nicht drei, wer bei einem
+          Halt mit drei Fotos gezielt zum zweiten will, müsste innerhalb weniger Pixel
+          Haltbreite treffen. Am Telefon ist er außerdem die einzige einfache Geste: ein
+          Tipp statt eines präzisen Zugs auf einer schmalen Leiste.</li>
+        <li><b>Was gegen ihn spricht:</b> Er ist der einzige Knopf im Bild. Im Hochformat
+          nimmt er die halbe Fußzeile, und im ruhigen Halt zieht sich alles andere zurück,
+          nur er bleibt stehen.</li>
+        <li><b class="pro">Entschieden ist K3: Der Knopf fällt.</b> Er löste ein Problem,
+          das es seit der filmlinearen Leiste nicht mehr gibt, und war der einzige Knopf im
+          Bild. Damit gehört die Fußzeile ganz den Angaben, und die Karte ist auf beiden
+          Bühnen wieder das, was sie sein soll: ein Bild mit einer Beschriftung.</li>
+        <li><b>Was dadurch offen bleibt, wandert in die Leiste:</b> der gezielte Sprung zur
+          einzelnen Aufnahme eines Halts. Heute ist ein Stopp dort ein Punkt und nicht drei.
+          Die Leiste soll die Fotos künftig einzeln anwählbar machen, dann übernimmt sie die
+          Aufgabe an der Stelle, an der man ohnehin navigiert. Bis dahin bleiben
+          Durchziehen und Schnelllauf.</li>
+        <li><b>K2 wäre der Mittelweg gewesen</b> (Knopf hängt am Anteil der Steuerleiste und
+          geht mit ihr). Verworfen, weil er die Funktion nur versteckt, statt die Frage zu
+          beantworten, wo sie hingehört.</li>
+        <li><b>Nicht empfohlen: ein Tipp auf die rechte Bildhälfte</b> wie bei Stories. Der
+          Klick auf die Karte hält heute an, und zwei Bedeutungen für dieselbe Fläche wären
+          die Sorte Doppelbelegung, die niemand errät.</li>
+      </ul>
+    </section>
+
+    <!-- Hochkant und Telefon ————————————————————————— -->
+    <section class="block">
+      <div class="kopf">
+        <span class="marke">H</span>
+        <h2>Hochkant und Telefon</h2>
+      </div>
+      <p class="frage">
+        Bisher stand hier nur ein liegendes Foto auf einer breiten Bühne. Beides ist im
+        Alltag die Ausnahme: Aufgenommen wird mit dem Telefon, und angesehen oft auch.
+      </p>
+
+      <div class="buehne zwei" data-notiz="Editor, Hochkant-Aufnahme: H1 einzeilig · H2 mit Rückfall">
+        <div class="saeule">
+          <div class="karte" style="width: 211px">
+            <div class="bild fein" style="width: 184px; aspect-ratio: 3 / 4">
+              <img src="tourbilder/lissabon.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss eine-zeile w6">
+              <div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div>
+            </div>
+          </div>
+          <div class="notiz-saeule">H1 einzeilig: der Titel wird gekürzt</div>
+        </div>
+        <div class="saeule gewaehlt">
+          <div class="karte" style="width: 211px">
+            <div class="bild fein" style="width: 184px; aspect-ratio: 3 / 4">
+              <img src="tourbilder/lissabon.jpg" alt="" />
+              <div class="balken"><i></i></div>
+            </div>
+            <div class="fuss w6">
+              <div class="titel">Haad Baan Tai</div>
+              <div class="meta">14:54 Uhr<span class="tz">·</span>4,1 km</div>
+            </div>
+          </div>
+          <div class="notiz-saeule">H2 Rückfall auf zwei Zeilen <span class="empf">empfohlen</span></div>
+        </div>
+      </div>
+      <p class="urteil">
+        <b class="contra">Die einzeilige Fassung hat eine Mindestbreite.</b> Die Karte ist
+        so breit wie ihr Bild, und bei einem Hochkant-Foto sind das keine 200 px. Titel und
+        Angaben nebeneinander gehen sich dort nicht aus, der Titel wird zu „Haad B…"
+        gekürzt, obwohl darunter eine ganze Zeile frei wäre.
+        <b class="pro">Also eine Regel statt einer Wahl:</b> Passen beide nebeneinander,
+        steht es einzeilig (T3). Passen sie nicht, fällt die Karte auf zwei Zeilen zurück,
+        wie heute. Das ist dieselbe Messung, die <code>kuerzeText</code> ohnehin macht, nur
+        eine Zeile früher ausgewertet.
+      </p>
+
+      <div class="buehne zwei" data-notiz="Player auf dem Telefon: hochkant (Lage „schmal") und liegend (Lage „quer")">
+        <div class="saeule">
+          <div class="geraet hoch">
+            <div class="schirm">
+              <div class="karte klein">
+                <div class="bild fein" style="width: 196px">
+                  <img src="tourbilder/kohphangan.jpg" alt="" />
+                  <div class="balken"><i></i></div>
+                </div>
+                <div class="fuss schmal-zeile ohne-knopf">
+                  <div class="titel">Haad Baan Tai</div>
+                  <div class="zweite">
+                    <span class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="notiz-saeule">P1 Telefon hochkant, Lage „schmal"</div>
+        </div>
+        <div class="saeule">
+          <div class="geraet liegend">
+            <div class="schirm">
+              <div class="karte klein quer">
+                <div class="bild fein" style="width: 250px">
+                  <img src="tourbilder/kohphangan.jpg" alt="" />
+                  <div class="balken"><i></i></div>
+                </div>
+                <div class="spalte">
+                  <div class="titel">Haad Baan Tai</div>
+                  <div class="meta"><span class="zahl">14:54</span> <span class="wort">Uhr</span><span class="tz">·</span><span class="zahl">4,1</span> <span class="wort">km</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="notiz-saeule">P2 Telefon liegend, Lage „quer"</div>
+        </div>
+      </div>
+      <ul class="liste">
+        <li><b>Auf dem Telefon war die Zeile bisher zweizeilig</b>, weil sie sich die
+          untere mit „Weiter ▸" teilte. Mit dem Wegfall des Knopfes (Block K) gilt dort
+          dieselbe Regel wie überall: eine Zeile, wenn Titel und Angaben nebeneinander
+          passen, sonst zwei.</li>
+        <li><b>Die Lage „quer" ist der heikle Fall</b>, und der ist im Bestand schon knapp:
+          Die Textspalte reserviert drei Zeilen Bildunterschrift, dazu eine Zeile für die
+          Angaben und eine für „Weiter". Fällt dort etwas weg, entsteht keine Luft, sondern
+          eine Lücke in der Mitte, weil die Spalte senkrecht mittig sitzt. Wer die
+          Angabenzeile leert, muss ihre reservierte Höhe mit entfernen.</li>
+        <li><b>Hochkant-Fotos sind nicht die Ausnahme, sondern das Übliche</b>, und der
+          Maler kennt sie: Er klemmt das Seitenverhältnis auf 0,62 bis 1,85
+          (<code>AR_MIN</code>/<code>AR_MAX</code>). Ein 9:16-Video ist also von Haus aus
+          etwas breiter dargestellt, als es aufgenommen wurde. Die schmalste Karte, die
+          entstehen kann, ist damit rechenbar, und an ihr entscheidet sich die Regel oben.</li>
+        <li><b>Der Editor bleibt Desktop</b>, dort gilt nur die Lage „breit". Die
+          Telefon-Fälle betreffen Player und Film.</li>
+      </ul>
+    </section>
+
+    <section class="block">
+      <div class="kopf">
+        <span class="marke aus">Anmerkung</span>
+        <h2>Was für den Player daraus folgt</h2>
+      </div>
+      <ul class="liste">
+        <li>Im Player steht im Fuß zusätzlich „Weiter ▸", das Papier bleibt dort also
+          ohnehin. Der Kilometerstand bleibt ebenfalls, s. den geprüften Abschnitt oben.</li>
+        <li>Der Balken muss in jeder rahmenlosen Fassung mitwandern. Er sitzt am unteren
+          Bildrand und braucht dort den Bildradius, sonst stehen zwei Ecken quer zum
+          Rahmen.</li>
+        <li>Wird B oder D gewählt, entscheidet der Aufrufer über den Fuß, nicht der
+          Maler: Er bekäme einen leeren Text und müsste daraus eine andere Geometrie
+          bauen. Das ist eine Zeile in <code>kartenGeometrie</code>, keine zweite Bühne.</li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+
+<script>
+// Die Umschalter setzen nur Klassen. Alles andere ist CSS, damit jede
+// Variante wirklich das zeigt, was sie im Produkt zeigen würde.
+const setz = (attr, wert) => {
+  document.querySelectorAll(`.schalter button[data-${attr}]`).forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset[attr] === wert))
+  })
+}
+document.querySelectorAll('.schalter button').forEach((b) => {
+  b.addEventListener('click', () => {
+    if (b.dataset.titel) {
+      setz('titel', b.dataset.titel)
+      const mit = b.dataset.titel === 'mit'
+      document.body.classList.toggle('mit-titel', mit)
+      document.querySelectorAll('[data-rolle="titel"]').forEach((el) => {
+        el.textContent = mit ? 'Haad Baan Tai' : 'Foto'
+      })
+      // Wohin der Titel geht, ist je Variante verschieden: B holt dafür das
+      // Papier zurück, C schreibt ihn ins Bild, D auf den Leuchttisch. Eine
+      // Klasse am body, den Rest macht CSS.
+    }
+    if (b.dataset.meta) {
+      setz('meta', b.dataset.meta)
+      const an = b.dataset.meta === 'an'
+      document.querySelectorAll('[data-rolle="meta"]').forEach((el) => {
+        el.style.visibility = an ? '' : 'hidden'
+      })
+    }
+  })
+})
+
+// Die Abfolge: drei Halte, beide Reihen im Gleichschritt. Der Sprung zwischen
+// zwei Karten ist der eigentliche Prüfstein, und den sieht man nur in Bewegung.
+document.querySelector('[data-spielen]')?.addEventListener('click', (ev) => {
+  const knopf = ev.currentTarget
+  if (knopf.dataset.laeuft) return
+  knopf.dataset.laeuft = '1'
+  const laeufe = [...document.querySelectorAll('.lauf')]
+  let i = 0
+  const zeig = () => {
+    laeufe.forEach((l) => {
+      const halte = [...l.querySelectorAll('.halt')]
+      halte.forEach((h, k) => h.classList.toggle('an', k === i % halte.length))
+    })
+  }
+  const takt = setInterval(() => {
+    i++
+    zeig()
+    if (i >= 5) {
+      clearInterval(takt)
+      delete knopf.dataset.laeuft
+      i = 0
+      zeig()
+    }
+  }, 1400)
+})
+
+// Die Knopfprobe: derselbe Anteil, an dem die Karte schon ihre Größe führt.
+document.querySelectorAll('[data-leiste]').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.getElementById('knopfprobe')?.classList.toggle('leiste-an', b.dataset.leiste === 'an')
+  })
+})
+</script>
+</body>
+</html>

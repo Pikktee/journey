@@ -1,11 +1,12 @@
 ---
-stand: 2026-08-14
+stand: 2026-08-18
 status: Entwurf, nichts gebaut
 betrifft:
   - src/ui.ts
   - src/style.css
   - erlebnis.html
   - src/tour.ts (Telemetrie)
+icon: regler
 ---
 
 # Die Steuerleiste des Players nach Paket G
@@ -221,6 +222,13 @@ Ein-/Ausblenden (~120 ms), sonst blinkt er.
 
 ### Was danach noch offen ist
 
+- **Jede Aufnahme einzeln anwählbar** (2026-08-18 dazugekommen). Auf der Bahn ist ein Foto-Stopp
+  heute EIN Punkt, auch wenn drei Aufnahmen darin liegen. Solange es den Knopf „Weiter ▸" auf der
+  Karte gab, war das verkraftbar: Er sprang zur nächsten Aufnahme desselben Halts. Der Knopf
+  fällt (Entwurf [studio-fotokarte-ohne-titel.html](../mockups/studio-fotokarte-ohne-titel.html),
+  Block K), also übernimmt die Leiste diese Aufgabe an der Stelle, an der man ohnehin navigiert.
+  Zu klären beim Bauen: Wie mehrere Aufnahmen innerhalb eines Halt-Blocks anfassbar werden, ohne
+  dass die Punkte auf dem Telefon zusammenlaufen. Bis dahin bleiben Durchziehen und Schnelllauf.
 - **Modus-Marken in der Bahn** (§4) — unverändert eine Produktfrage, nicht entschieden.
 - **Höhenprofil oben rechts** (§4) — unverändert „warten, bis es jemand vermisst".
 - **Verbleibend statt verstrichen** (`−4:27`) — später.

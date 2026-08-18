@@ -28,6 +28,9 @@ import {
 } from '../src/kartenmaler.js'
 
 const KLIP_S = klipDauerS(HOLD_HIDE)
+/** Der Normalfall: Angaben neben dem Titel. */
+const INHALT = { angabenEigeneZeile: false }
+
 const FOTO = { art: 'foto', ar: 1.5 } as const
 /** Eine Messfunktion ohne Canvas: 8 px je Zeichen reicht für die Bruchlogik. */
 const mass8 = (s: string) => s.length * 8
@@ -39,7 +42,7 @@ describe('Skalierungsmodell', () => {
     // einziger Faktor an die bestehende Optik an.
     expect(BEZUGSHOEHE).toBe(900)
     expect(kartenMass(BEZUGSHOEHE)).toBe(1)
-    const g = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO)
+    const g = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
     expect(g.kartenRadius).toBe(KARTEN_MASSE.breit.kartenRadius)
     expect(g.text.titel.schrift).toBe(KARTEN_MASSE.breit.titel)
   })
@@ -48,8 +51,8 @@ describe('Skalierungsmodell', () => {
     // Ohne das war die Karte im 4K-Film ein Briefmarkenrahmen mit
     // Fußnotenschrift: Die alten Werte waren feste Pixel, und ein Filmpixel ist
     // kein Bildschirmpixel (Konzept, Falle 6).
-    const klein = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO)
-    const gross = kartenGeometrie({ breite: 3200, hoehe: 1800 }, FOTO)
+    const klein = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
+    const gross = kartenGeometrie({ breite: 3200, hoehe: 1800 }, FOTO, INHALT)
     expect(gross.mass).toBe(2)
     expect(gross.text.titel.schrift).toBeCloseTo(klein.text.titel.schrift * 2, 6)
     expect(gross.karte.breite).toBeCloseTo(klein.karte.breite * 2, 6)
@@ -65,19 +68,18 @@ describe('Skalierungsmodell', () => {
     // Sie sind die eine benannte Ausnahme des Modells: eine Bildschirm-Regel für
     // das Telefon, nicht Kartengeometrie. Im Film greifen sie nie, weil jedes
     // Ausgabeformat über der Bezugshöhe liegt.
-    const winzig = kartenGeometrie({ breite: 360, hoehe: 480 }, FOTO)
+    const winzig = kartenGeometrie({ breite: 360, hoehe: 480 }, FOTO, INHALT)
     const satz = KARTEN_MASSE[winzig.lage]
     expect(winzig.mass).toBeLessThan(1)
     expect(winzig.text.titel.schrift).toBe(satz.titelMindest)
-    expect(winzig.text.unter.schrift).toBe(satz.unterMindest)
-    expect(winzig.text.pillen.schrift).toBe(satz.pilleMindest)
+    expect(winzig.text.angaben.schrift).toBe(satz.angabenMindest)
   })
 
   it('der Bildradius hat einen Boden — darunter ist er ein Pixelrand', () => {
-    const winzig = kartenGeometrie({ breite: 360, hoehe: 480 }, FOTO)
+    const winzig = kartenGeometrie({ breite: 360, hoehe: 480 }, FOTO, INHALT)
     expect(winzig.rahmenRadius).toBeGreaterThanOrEqual(3)
     // Bei Bezugshöhe steht er auf dem geteilten Wert aus der Tabelle.
-    expect(kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO).rahmenRadius).toBe(
+    expect(kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT).rahmenRadius).toBe(
       KARTE.rahmenRadiusPx,
     )
   })
@@ -97,10 +99,10 @@ describe('Lage — abgeleitet, nicht übergeben', () => {
   })
 
   it('quer stellt den Text neben das Bild, breit darunter', () => {
-    const quer = kartenGeometrie({ breite: 900, hoehe: 480 }, FOTO)
+    const quer = kartenGeometrie({ breite: 900, hoehe: 480 }, FOTO, INHALT)
     expect(quer.lage).toBe('quer')
     expect(quer.text.titel.x).toBeGreaterThan(quer.bild.x + quer.bild.breite)
-    const breit = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO)
+    const breit = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
     expect(breit.text.titel.y).toBeGreaterThan(breit.bild.y + breit.bild.hoehe)
   })
 })
@@ -110,8 +112,8 @@ describe('Kartengeometrie', () => {
     // Umgekehrt (Breite fest, Höhe folgt) ragte die Karte auf quer gehaltenen
     // Telefonen oben UND unten aus dem Bild — der Grund, aus dem die abgelöste
     // CSS-Fassung es schon so rechnete.
-    const hoch = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 0.7 })
-    const quer = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 1.8 })
+    const hoch = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 0.7 }, INHALT)
+    const quer = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 1.8 }, INHALT)
     expect(hoch.bild.breite / hoch.bild.hoehe).toBeCloseTo(0.7, 4)
     expect(quer.bild.breite / quer.bild.hoehe).toBeCloseTo(1.8, 4)
     expect(hoch.bild.breite).toBeLessThan(quer.bild.breite)
@@ -128,7 +130,7 @@ describe('Kartengeometrie', () => {
       [720, 720],
     ] as const) {
       for (const ar of [AR_MIN, 1, 1.5, AR_MAX]) {
-        const g = kartenGeometrie({ breite: b, hoehe: h }, { art: 'foto', ar })
+        const g = kartenGeometrie({ breite: b, hoehe: h }, { art: 'foto', ar }, INHALT)
         expect(g.karte.breite, `${b}×${h} ar ${ar}`).toBeLessThanOrEqual(b)
         expect(g.karte.hoehe, `${b}×${h} ar ${ar}`).toBeLessThanOrEqual(h)
         expect(g.karte.x).toBeGreaterThanOrEqual(0)
@@ -140,17 +142,17 @@ describe('Kartengeometrie', () => {
   it('klemmt das Seitenverhältnis und nimmt 3:2, wo noch nichts vermessen ist', () => {
     // Das ROHE Verhältnis war eine der sieben Export-Abweichungen: Ein
     // 3:1-Panorama wäre breiter als das Fenster, ein 9:19-Handyfoto höher.
-    const panorama = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 4 })
+    const panorama = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: 4 }, INHALT)
     expect(panorama.bild.breite / panorama.bild.hoehe).toBeCloseTo(AR_MAX, 4)
-    const unbekannt = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: null })
+    const unbekannt = kartenGeometrie({ breite: 1600, hoehe: 900 }, { art: 'foto', ar: null }, INHALT)
     expect(unbekannt.bild.breite / unbekannt.bild.hoehe).toBeCloseTo(1.5, 4)
   })
 
   it('macht der stehenden Bedienung Platz und rückt hoch', () => {
     // Das gilt NUR am Bildschirm: Im Film gibt es keine Steuerleiste, der
     // Export setzt den Anteil nie (Konzept §5).
-    const frei = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO)
-    const belegt = kartenGeometrie({ breite: 1600, hoehe: 900, bedienung: 1 }, FOTO)
+    const frei = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
+    const belegt = kartenGeometrie({ breite: 1600, hoehe: 900, bedienung: 1 }, FOTO, INHALT)
     expect(belegt.bild.hoehe).toBeLessThan(frei.bild.hoehe)
     // Kleiner allein reicht nicht: Zentriert bliebe die Karte in der Leiste
     // hängen (gemessen 48 px Überlappung, als es noch CSS war).
@@ -165,7 +167,7 @@ describe('Kartengeometrie', () => {
     // und dafür muss die Geometrie über ihm MONOTON sein — mit einer Kante
     // darin wäre die gefahrene Größe ein Ruckeln statt eines Zugs.
     const bei = (bedienung: number) =>
-      kartenGeometrie({ breite: 1600, hoehe: 900, bedienung }, FOTO)
+      kartenGeometrie({ breite: 1600, hoehe: 900, bedienung }, FOTO, INHALT)
     const stufen = [0, 0.25, 0.5, 0.75, 1].map(bei)
     for (let i = 1; i < stufen.length; i++) {
       expect(stufen[i]!.bild.hoehe).toBeLessThan(stufen[i - 1]!.bild.hoehe)
@@ -180,17 +182,19 @@ describe('Kartengeometrie', () => {
       6,
     )
     // Ohne Angabe gilt „keine Bedienung" — der Film bekommt sie nie.
-    expect(bei(0).karte.hoehe).toBe(kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO).karte.hoehe)
+    expect(bei(0).karte.hoehe).toBe(kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT).karte.hoehe)
   })
 
   it('Bild und Beschriftung liegen INNERHALB der Karte', () => {
-    const g = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO)
+    const g = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
     expect(g.bild.x).toBeGreaterThanOrEqual(g.karte.x)
     expect(g.bild.y).toBeGreaterThanOrEqual(g.karte.y)
     expect(g.bild.x + g.bild.breite).toBeLessThanOrEqual(g.karte.x + g.karte.breite + 0.01)
-    const unterEnde =
-      g.text.unter.y + g.text.unter.zeile * KARTEN_MASSE.breit.unterZeilen
-    expect(unterEnde).toBeLessThanOrEqual(g.karte.y + g.karte.hoehe + 0.01)
+    // Die Beschriftung endet innerhalb der Karte: Die Angabenzeile ist die
+    // unterste, seit die Bildunterschrift entfallen ist.
+    expect(g.text.angaben.y + g.text.angaben.hoehe).toBeLessThanOrEqual(
+      g.karte.y + g.karte.hoehe + 0.01,
+    )
   })
 })
 
@@ -206,17 +210,16 @@ describe('Phasen', () => {
     expect(kartenPhasen(KLIP_S, KLIP_S).balken).toBe(1)
   })
 
-  it('die Beschriftung tritt gestaffelt auf: Titel, Unterschrift, Pille', () => {
+  it('die Beschriftung tritt gestaffelt auf: erst der Titel, dann die Angaben', () => {
     // Die Staffelung steckt im Versatz, nicht in einer Verzögerung — als
     // Transition fing sie beim Klassenwechsel an, ein Scrub mitten in einen Halt
     // hätte sie noch einmal einfliegen lassen.
     const p = kartenPhasen(0.5, KLIP_S)
-    expect(p.titel.deckkraft).toBeGreaterThan(p.unter.deckkraft)
-    expect(p.unter.deckkraft).toBeGreaterThan(p.pille.deckkraft)
+    expect(p.titel.deckkraft).toBeGreaterThan(p.angaben.deckkraft)
     // Und sie kommt von unten herauf, nicht aus dem Nichts.
     expect(p.titel.hub).toBeGreaterThan(0)
     const fertig = kartenPhasen(2, KLIP_S)
-    for (const t of [fertig.titel, fertig.unter, fertig.pille]) {
+    for (const t of [fertig.titel, fertig.angaben]) {
       expect(t.deckkraft).toBe(1)
       expect(t.hub).toBe(0)
     }

@@ -348,23 +348,27 @@ export async function reichereAn(eingabe: EnrichEingabe): Promise<TourJson> {
       // fehlgeschlagene Aufbereitung — bleibt der Originalname stehen.
       const fassungen = fotoMeta?.get(m.id)
       const datei = meta?.videoDatei ?? fassungen?.anzeigeDatei ?? mediumDateiname(m)
-      // Uhrzeit NUR, wenn takenAt in der Tour-Zeitspanne liegt — mtime-Fallback-
-      // Zeiten tourfremder Dateien sind Unsinn (Bughunt-Befund).
-      const takenMs = Date.parse(m.takenAt)
-      const art = m.type === 'video' ? 'Video' : 'Foto'
-      const inSpanne = Number.isFinite(takenMs) && takenMs >= startMs && takenMs <= endeMs
-      const zeitangabe = inSpanne ? `${art} · ${uhrzeit(m.takenAt, manifest.time.zone)}` : art
-      // Hat der Nutzer das Medium beschriftet, gehört SEIN Text nach oben: der
-      // Player zeigt `title` groß und `caption` klein darunter. „Foto · 14:32"
-      // als Überschrift zu setzen und den einzigen menschlichen Satz in die
-      // Unterzeile zu verbannen, hatte die Sache genau verkehrt herum.
+      // Der Nutzertext ist der TITEL der Aufnahme, und er ist der einzige Text,
+      // den eine Aufnahme trägt.
+      //
+      // Bis zum 2026-08-18 standen hier zwei erfundene Texte: „Foto · 09:09" als
+      // Titel, wenn keiner gesetzt war, und die Uhrzeit als `caption`. Beide
+      // sind weg. „Foto" war die eine Auskunft, die man dem Bild ansieht, und
+      // sie stand in der größten Schrift der Karte. Die Uhrzeit ist eine ANGABE
+      // und keine Bildunterschrift — der Player setzt sie aus `takenAt` neben
+      // den Kilometerstand, genau wie der Editor (src/ui.ts).
+      //
+      // `caption` bleibt im Schema und ist seither IMMER leer: Die Foto-Karte
+      // hat keine Bildunterschrift mehr (ein Halt steht 5,2 s, die kuratierten
+      // Texte waren im Median 84 Zeichen — wer sie las, sah das Bild nicht).
+      // Das Feld bleibt nur, weil Bestandstouren es tragen.
       const nutzertext = m.caption?.trim() ?? ''
       const eintrag: TourJson['media'][number] = {
         id: m.id,
         type: m.type,
         src: `/api/media/${tourId}/${datei}`,
-        title: nutzertext || zeitangabe,
-        caption: nutzertext ? zeitangabe : '',
+        title: nutzertext,
+        caption: '',
         anchor,
         placement,
         takenAt: m.takenAt,

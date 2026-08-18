@@ -6,7 +6,7 @@ docs/
 ├── specs/           # Datenformate, Schnittstellen & Datenmodell-Spezifikationen
 ├── architecture/    # Umgesetzte Architektur-Entscheidungen & technische Designs
 ├── concepts/        # Offene Zukunfts-Features & Entwürfe (noch nicht / nicht ganz gebaut)
-├── mockups/         # Aktuelle HTML-Prototypen als Vorlage
+├── mockups/         # Aktuelle HTML-Mockups als Vorlage
 └── archive/         # Historie — Ablage, keine Gliederung (s. unten)
 ```
 
@@ -44,13 +44,13 @@ Ansehen auf zwei Wegen:
 
 **Ohne Vorschaubilder, und zwar absichtlich.** Die Mockup-Kacheln zeigten
 Screenshots, die ein Headless-Chrome beim Bauen aufnahm — und die führten in die
-Irre: Unsere Prototypen sind als DOKUMENTE gebaut, mit Marke, Titel und einem
+Irre: Unsere Mockups sind als DOKUMENTE gebaut, mit Marke, Titel und einem
 Merksatz vor der eigentlichen Oberfläche. Die Aufnahme traf den Viewport am
 Anfang, also die Titelseite; zwölf Kacheln nebeneinander sahen alle gleich aus
 und keine zeigte, was sie zeigen sollte. Mit ihnen sind `vorschau.mjs`, die Flags
 `--ohne-bilder` / `--neu` und ~30 Sekunden Bauzeit weg (jetzt ~1 s). Die Kachel
 trägt genug, um zu wählen: Titel, Klappentext, Systemteil und „Gehört zu".
-Wer sie zurückholt, behebt zuerst die Ursache — eine Angabe im Prototyp, ab
+Wer sie zurückholt, behebt zuerst die Ursache — eine Angabe im Mockup, ab
 welchem Element die Aufnahme schauen soll.
 
 Die Ausgabe steht in `.gitignore` und ist **kein Vite-Einstieg**: Diese Seiten
@@ -91,7 +91,7 @@ schreiben — die API dafür hängt in [`vite.config.js`](../vite.config.js) und
 gibt es nur dort:
 
 Zu erreichen sind sie über das **„…"-Menü** an jeder Karte und auf jeder
-Dokumentseite. Ein Klick auf eine Mockup-Kachel öffnet direkt den Prototyp;
+Dokumentseite. Ein Klick auf eine Mockup-Kachel öffnet direkt das Mockup;
 dort hängt der Dev-Server eine kleine **Leiste** an (zurück zur Doku, Roadmap,
 Archivieren) — angehängt beim Ausliefern, nicht in die Datei geschrieben: Das
 Mockup ist eine Vorlage und soll auch im Finder genau das zeigen, was es zeigt.
@@ -176,7 +176,7 @@ noch nicht gebaut. Ziel: …" ist Prosa mit einem Datum davor und bleibt liegen.
 Acht solche Fälle wurden von Hand nachgezogen.
 
 **Mockups haben kein Front Matter** (HTML kennt keins). Ihr Gegenstück sind
-`<meta>`-Angaben mit denselben Namen — damit trägt ein Prototyp Stand und Status,
+`<meta>`-Angaben mit denselben Namen — damit trägt ein Mockup Stand und Status,
 die er vorher gar nicht ausdrücken konnte:
 
 ```html
@@ -190,20 +190,20 @@ wird deshalb nur unter `docs/` gedeutet; an der Wurzel bleibt der Text, wie er
 ist. Als Metadaten gelesen verschwände das halbe Design-System aus der Ansicht,
 ohne dass eine Zeile fehlte — ein Wächter hält das fest.
 
-## Konzept und Prototyp
+## Konzept und Mockup
 
-**Auf die Roadmap kommen Konzepte, keine Prototypen.** Ein Mockup ist eine
+**Auf die Roadmap kommen Konzepte, keine Mockups.** Ein Mockup ist eine
 ANTWORT in einem Konzept und kein eigener Plan: Es hat keinen Status, keine Ampel
 und kann nie abgearbeitet sein — auf einer Karte neben Konzepten fehlte ihm genau
 die Auskunft, um die es dort geht. Der Anlass war handfest: „Maptale App,
 vorhandene Bilder hinzufügen" stand neben „Medien nachreichen — die App-Seite
 fehlt noch", also dasselbe Vorhaben zweimal, einmal mit Status und einmal ohne.
 
-Ist der Prototyp der nächste Schritt, steht das im **Schritt-Text seines
-Konzepts**, samt Link. Der Link stellt zugleich die Beziehung Konzept↔Prototyp
-her, die der Viewer sonst nicht kennt. Wer trotzdem einen Prototyp in
+Ist das Mockup der nächste Schritt, steht das im **Schritt-Text seines
+Konzepts**, samt Link. Der Link stellt zugleich die Beziehung Konzept↔Mockup
+her, die der Viewer sonst nicht kennt. Wer trotzdem ein Mockup in
 `roadmap.md` einträgt, bekommt beim Bauen eine Meldung; das Menü an einer
-Prototyp-Kachel bietet keine Phase mehr an, und der Dienst weist sie ab.
+Mockup-Kachel bietet keine Phase mehr an, und der Dienst weist sie ab.
 
 **Auf der Kachel steht sie als ETIKETT**, nicht als Satzanfang: `Konzept` und
 daneben der verlinkte Titel — dieselbe Form wie in der Kopftafel eines Dokuments.
@@ -224,7 +224,7 @@ Klappentext.
 gestrichelter Rahmen) und nicht die Wertzeile. Als „Konzept — keines verlinkt"
 stand die Abwesenheit im selben Grau wie ein ausgefüllter Wert und ging unter;
 oben bei den übrigen Marken landet das Auge zuerst. Gestrichelt und in Warnfarbe
-statt rot, weil es bei einem Drittel der Prototypen in Ordnung ist: Ein Hinweis
+statt rot, weil es bei einem Drittel der Mockups in Ordnung ist: Ein Hinweis
 zum Nachsehen, kein Alarm — dieselbe Linie wie bei „Stand prüfen" auf der
 Roadmap. Jede Kachel trägt ENTWEDER die Zeile ODER die Marke; ein Wächter hält
 das fest, weil beides zugleich oder nichts von beidem genau die Fälle sind, die
@@ -240,16 +240,16 @@ jeder `:hover`-Regel (und musste dabei lernen, vorher die Kommentare zu
 entfernen — die erste Fassung schlug an ihrem eigenen Begleittext an).
 
 **Die Beziehung ist n:m und keine Pflicht.** Gemessen am 2026-08-17: 11 von 25
-Prototypen werden von einem Konzept verlinkt, einer von zwei (`studio-konto.html`
+Mockups werden von einem Konzept verlinkt, eines von zweien (`studio-konto.html`
 → Profil/Konto und Newsletter), 14 von keinem. Bei mehreren davon ist das
 richtig: `logo-varianten.html` und `ci-branding-mockup.html` wurden gezeichnet
 und direkt gebaut, ein Konzeptpapier dazu wäre ein erfundenes Dokument. Ein
-Prototyp ohne Konzept ist ein gültiger Zustand — er ist oft das ERSTE, was
+Mockup ohne Konzept ist ein gültiger Zustand — es ist oft das ERSTE, was
 existiert.
 
 ## Umbenennen
 
-Titel und Dateiname ändert man im „…"-Menü jedes Dokuments und jedes Prototyps.
+Titel und Dateiname ändert man im „…"-Menü jedes Dokuments und jedes Mockups.
 Es sind **zwei Felder**, weil es zwei Dinge sind: was jemand liest und worauf
 alles zeigt. Der Dateiname folgt dem Titel, bis man ihn selbst anfasst.
 
@@ -499,6 +499,7 @@ Ist-Stand oder beschreibt erledigte Arbeit).
 * [`app-live-teilen.html`](mockups/app-live-teilen.html) — Live-Freigabe während der Android-Aufnahme.
 * [`live-ansicht.html`](mockups/live-ansicht.html) — Live-Zuschaueransicht (`/live/…`).
 * [`player-startscreen.html`](mockups/player-startscreen.html) — Startscreen des Players: Beschreibung, Autorzeile, Filmdauer und der Knopf in Marken-Orange.
+* [`studio-fotokarte-ohne-titel.html`](mockups/studio-fotokarte-ohne-titel.html) — Was die Foto-Karte zeigt, wenn die Aufnahme keinen Titel hat: fünf Antworten von „Gattung als Überschrift" bis „nur das Bild im dünnen Rahmen".
 
 ### 6. `archive/` (Historie)
 Siehe [`archive/README.md`](archive/README.md). Enthält u. a. den Tool-Katalog,

@@ -2493,8 +2493,9 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
   }
   huelle.appendChild(bildHuelle)
 
-  // Der Nutzertext wird beim Rendern zur ÜBERSCHRIFT des Foto-Stopps, die
-  // Uhrzeit rutscht darunter — deshalb hier „Titel", nicht „Bildunterschrift".
+  // Der Nutzertext wird beim Rendern zur ÜBERSCHRIFT des Foto-Stopps — deshalb
+  // hier „Titel", nicht „Bildunterschrift". Die Uhrzeit steht seit dem
+  // 2026-08-18 NEBEN dem Titel und nicht darunter (src/kartenmaler.ts).
   const titel = document.createElement('input')
   titel.type = 'text'
   titel.value = m.caption
@@ -2505,7 +2506,7 @@ function baueMediumFelder(m: MediumAnzeige): HTMLElement {
     renderAlles()
   })
   huelle.appendChild(
-    feld('Titel', titel, 'Erscheint im Film als Überschrift des Foto-Stopps; die Uhrzeit rutscht darunter.'),
+    feld('Titel', titel, 'Erscheint im Film als Überschrift des Foto-Stopps, rechts daneben stehen Uhrzeit und Kilometerstand.'),
   )
 
   if (m.type === 'photo') {
@@ -5923,14 +5924,13 @@ function verdrahteZeitleiste(): void {
         zz.fokus = { art: 'audio', index: war.index }
         renderAlles()
       } else {
-        // Spur, Maßband UND Bandkante: alle drei meinen beim bloßen Antippen
-        // die Stelle und das Band darunter.
-        const skala = aktuelleAchse()
-        if (skala) {
-          setzeKopfFilm(anteilZuFilm(skala, spurAnteil(e.clientX)))
-          zz.fokus = war.fokus ?? null
-          renderAlles()
-        }
+        // Ein Klick in die SPUREN wählt nur aus — den Abspielkopf setzt allein
+        // das Maßband (und sein eigener Griff). Vorher sprang er bei jedem
+        // Klick auf ein Band oder eine Bandkante mit, während er bei den
+        // Ton-Klips stehen blieb: dieselbe Geste, zwei verschiedene Wirkungen.
+        // Ein Band anzufassen heißt, es zu meinen, nicht die Stelle darunter.
+        zz.fokus = war.fokus ?? null
+        renderAlles()
       }
     }
   }
@@ -6219,7 +6219,7 @@ const seitenverhaeltnisse = new Map<string, number>()
 let kartenSchicht: KartenSchicht | null = null
 /** Was der Maler über die liegende Aufnahme wissen muss (`zeigeFoto` füllt beides). */
 let kartenMedium: KartenMedium = { art: 'foto', ar: null }
-let kartenText: KartenText = { titel: '', unter: '', kmText: '', zaehlerText: '' }
+let kartenText: KartenText = { titel: '', kmText: '', zaehlerText: '' }
 
 /** Schnappschuss für eine Wiedergabe — bei jedem Start neu eingesammelt. */
 function holeSpielplan(): Spielplan | null {
@@ -6607,19 +6607,24 @@ function zeigeFoto(id: string): void {
     quellen.replaceChildren(bild)
   }
 
-  // Der TEXT der Karte. Der Maler kennt vier Felder; die Editor-Bühne belegt sie
-  // mit dem, was hier bisher im `.fe-cap`-Raster stand — Titel, die Pille rechts
-  // („Foto"/„Video" statt der Kilometer des Players) und darunter Uhrzeit und
-  // Kilometerstand. Ohne eigenen Text steht im Titel, was auch der Player ohne
-  // Beschriftung zeigt: die Maschinenangabe (s. enrich.ts).
+  // Der TEXT der Karte: der Titel der Aufnahme, rechts daneben Uhrzeit und
+  // Kilometerstand.
+  //
+  // Ohne Beschriftung bleibt der Titel LEER. Dort stand einmal „Foto" bzw.
+  // „Video" — die Gattung als Überschrift, in 40er-Schrift, und damit genau
+  // die Auskunft, die man dem Bild ansieht. Die Karte behält trotzdem ihre
+  // Form: Die Zeile hat die Höhe des Titelgrades, die Angaben stehen rechts,
+  // wo sie auch mit Titel stehen. Sonst spränge beim Blättern durch die Halte
+  // ausgerechnet das, was bleibt.
   const meter = m.anchor
     ? meterZuOffset(kumStrecke, z.track, projiziereAufTrack(z.track, m.anchor[0], m.anchor[1]).punkt[3])
     : null
-  const art = m.type === 'video' ? 'Video' : 'Foto'
   kartenText = {
-    titel: m.caption || art,
-    unter: `${uhrzeitKurz(m.takenAt)} Uhr${meter !== null ? ` · km ${kmText(meter)}` : ''}`,
-    kmText: art,
+    titel: m.caption || '',
+    // Uhrzeit UND Kilometerstand stehen rechts auf der Titelzeile. Ohne Titel
+    // bleiben sie an derselben Stelle stehen. „4,1 km" und nicht „km 4,1" —
+    // der Player schreibt die Einheit seit jeher hinter die Zahl.
+    kmText: `${uhrzeitKurz(m.takenAt)} Uhr${meter !== null ? ` · ${kmText(meter)} km` : ''}`,
     zaehlerText: '',
   }
   document.querySelector('.karten-buehne')?.classList.add('foto-an')
