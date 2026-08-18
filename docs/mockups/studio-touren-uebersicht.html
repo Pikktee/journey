@@ -133,6 +133,24 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 .tag.still { color: var(--text-3); border-color: var(--rand); }
 .tag.aus { color: #f0868a; border-color: rgba(229,72,77,0.4); }
 
+/* — Das Sichtbarkeits-Popover: es hängt am Chip im FUSS und nicht am ⋯. Dort
+     liegt der Link, weil es ihn nur gibt, solange die Tour nicht privat ist:
+     Die Stufe und ihr Link sind dieselbe Entscheidung. — */
+.sicht-pop {
+  position: absolute; left: 12px; bottom: 46px; z-index: 30; min-width: 208px;
+  background: rgba(14,19,26,0.98); backdrop-filter: blur(14px);
+  border: 1px solid var(--rand-hell); border-radius: var(--radius-karte); padding: 5px;
+  box-shadow: 0 22px 50px rgba(2,5,10,0.7); animation: menueRein 140ms ease backwards;
+}
+.sicht-pop button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; color: var(--text-2); padding: 8px 10px; border-radius: var(--radius-md); font-size: 13px; }
+.sicht-pop button:hover { background: var(--fl-3); color: var(--text); }
+.sicht-pop button svg { width: 14px; height: 14px; opacity: 0.85; flex: none; }
+.sicht-pop button[aria-checked='true'] { color: var(--text); }
+.sicht-pop button[aria-checked='true']::after { content: ''; margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--akzent); }
+.sicht-pop hr { border: none; border-top: 1px solid var(--rand); margin: 4px 6px; }
+.sicht-pop .kopieren { color: var(--text-2); }
+.sicht-pop .kopieren:hover { color: var(--akzent); }
+
 /* ——— Kachel-Grundform (aus studio.html) ——— */
 .k {
   position: relative; border-radius: var(--radius-karte); cursor: pointer;
@@ -165,8 +183,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 /* G1 — Bestand: Kasten wächst UND Linie zeichnet sich */
 .k.g1:is(:hover, .hv) .spur { width: 80px; height: 62px; background: rgba(6,8,12,0.6); }
 .k.g1:is(:hover, .hv) .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3,0.6,0.2,1); }
-/* G2 — fest: nur die Linie zeichnet sich nach, die Geometrie steht */
-.k.g2:is(:hover, .hv) .spur .linie { animation: spurZeichnen 1.1s cubic-bezier(0.3,0.6,0.2,1); }
+/* G2 — still: die Geometrie steht, und die Linie zeichnet sich nicht nach */
 /* G3 — weicht: macht die Ecke für Auswahl/Griffe frei */
 .k.g3:is(:hover, .hv) .spur { opacity: 0; }
 
@@ -308,7 +325,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
 /* ————————————————————————————————————————————————————————————————
    L1 — Tabelle mit Spaltenköpfen
    ———————————————————————————————————————————————————————————————— */
-.tab { --spalten: minmax(0,1fr) 92px 108px 132px 116px 150px; display: flex; flex-direction: column; }
+.tab { --spalten: minmax(0,1fr) 92px 108px 132px 116px 128px; display: flex; flex-direction: column; }
 .tab .kopf, .tab .tz { display: grid; grid-template-columns: var(--spalten); align-items: center; gap: 14px; }
 .tab .kopf { padding: 0 14px 9px; border-bottom: 1px solid var(--rand); }
 .tab .kopf button {
@@ -686,7 +703,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
     </p>
     <p class="regel">
       Die Linie, an der alles Weitere gemessen wird: Das ⋯-Menü verwaltet die Tour
-      <b>als Eintrag</b>: Name, Sichtbarkeit, Link, Titelbild, Löschen. Der Editor
+      <b>als Eintrag</b>: Name, Sichtbarkeit, Titelbild, Video, Löschen. Der Editor
       bearbeitet den <b>Film</b>: Schnitt, Kamera, Wetter, Musik, Modi. Und beide
       Ansichten tragen <b>dieselben Aktionen unter denselben Namen</b>: Dass die Zeile
       heute löschen und exportieren kann und die Kachel nicht, ist der Fehler, der hier
@@ -705,6 +722,16 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
       <b>M2 · G2 · P1 · S2</b>: ein einziges Zeichen oben rechts, ein Signet, das
       stillsteht, die Play-Taste bleibt (sie ist das einzige benannte Abspiel-Ziel für
       Tastatur und Screenreader), und die Sichtbarkeit zieht zu den Fakten in den Fuß.
+    </p>
+    <p class="m-warum">
+      Zwei Nachbesserungen aus der Abnahme stecken darin. <b>Das Signet zeichnet seine
+      Linie nicht mehr nach</b>: G2 hielt zwar den Kasten fest, ließ die Route beim
+      Zeigen aber aufblitzen, und damit blieb oben links der letzte bewegte Rest. Und
+      <b>„Link kopieren" ist aus dem Menü verschwunden</b>: Der Link hängt an der
+      Sichtbarkeit, also steht er dort, wo sie entschieden wird: im Chip unten links.
+      Es gibt ihn nur, solange die Tour nicht privat ist; als eigener Menüpunkt hätte er
+      einen Zustand versprochen, den die Stufe darüber gerade widerruft.
+      <b>Der Chip ist anklickbar.</b>
     </p>
     <div class="m-buehne">
       <div class="m-hv-fahne">links Bestand · rechts Vorschlag — beide im Zeigen-Zustand</div>
@@ -740,7 +767,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             <div class="fuss">
               <div class="t">Koh Pha-ngan, Inselrunde</div>
               <div class="m">
-                <button class="sicht-inline"><svg><use href="#i-schloss"/></svg>Privat</button>
+                <button class="sicht-inline" data-sicht aria-expanded="false"><svg><use href="#i-schloss"/></svg>Privat</button>
                 6:20 · 41,8 km · 12 Aufnahmen
               </div>
             </div>
@@ -749,7 +776,7 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
           </article>
           <div class="zaehler">
             <div class="zaehl-zeile"><span class="name">Bewegt sich</span><span class="zaehl-punkte"><i></i><i></i><i></i><i class="ruhig"></i><i class="ruhig"></i><i class="ruhig"></i></span><span class="was">Kachel · Schleier · Play (kaum)</span></div>
-            <div class="zaehl-zeile"><span class="name">Wechselt Farbe</span><span class="zaehl-punkte"><i class="ruhig"></i></span><span class="was">⋯ (die Signet-Linie zeichnet nach)</span></div>
+            <div class="zaehl-zeile"><span class="name">Wechselt Farbe</span><span class="zaehl-punkte"><i class="ruhig"></i></span><span class="was">⋯ — oben links bleibt alles still</span></div>
           </div>
         </div>
       </div>
@@ -757,8 +784,8 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
       <table class="m-tabelle">
         <thead><tr><th>Frage</th><th>Bestand</th><th>Vorschlag</th><th>Was sich dadurch ändert</th></tr></thead>
         <tbody>
-          <tr><td>Menü-Inhalt</td><td>Stift + ⋯, Menü wiederholt beides</td><td class="ja">nur ⋯, Menü vollständig</td><td>ein Zeichen statt drei; der Rechtsklick kann dasselbe Menü öffnen</td></tr>
-          <tr><td>Signet</td><td>wächst 64 → 80 px</td><td class="ja">steht fest, Linie zeichnet nach</td><td>die auffälligste Layout-Bewegung fällt weg</td></tr>
+          <tr><td>Menü-Inhalt</td><td>Stift + ⋯, Menü wiederholt beides</td><td class="ja">nur ⋯, ohne „Link kopieren"</td><td>ein Zeichen statt drei; der Link steht beim Sicht-Chip, wo die Stufe entschieden wird</td></tr>
+          <tr><td>Signet</td><td>wächst 64 → 80 px, Linie zeichnet nach</td><td class="ja">steht ganz still</td><td>oben links bewegt sich nichts mehr; die nachzeichnende Linie zog den Blick dorthin, wo gerade nichts geschieht</td></tr>
           <tr><td>Play</td><td>Taste wächst aus <code>scale(0.82)</code></td><td class="ja">bleibt, wächst aus 0,94</td><td>das benannte Abspiel-Ziel bleibt, die Unruhe geht</td></tr>
           <tr><td>Filmdauer</td><td class="mittel">liegt in <code>stats.filmS</code>, wird nicht gezeigt</td><td class="ja">im Fuß, als Angabe ohne Griff</td><td>„6:20 · 41,8 km · 12 Aufnahmen", auch auf Touch sichtbar</td></tr>
           <tr><td>Sichtbarkeit</td><td>Glaspille über dem Bild</td><td class="ja">Chip bei den Fakten</td><td>steht bei ihresgleichen, die Ecke wird frei</td></tr>
@@ -872,7 +899,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             <div class="werkzeug">
               <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
               <button title="Als Video"><svg><use href="#i-film"/></svg></button>
-              <button title="Link kopieren"><svg><use href="#i-link"/></svg></button>
               <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
             </div>
           </div>
@@ -888,7 +914,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             <div class="werkzeug">
               <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
               <button title="Als Video"><svg><use href="#i-film"/></svg></button>
-              <button title="Link kopieren"><svg><use href="#i-link"/></svg></button>
               <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
             </div>
           </div>
@@ -904,7 +929,6 @@ main { width: min(var(--wrap), 100% - 44px); margin: 0 auto; padding: 34px 0 120
             <div class="werkzeug">
               <button title="Bearbeiten"><svg><use href="#i-stift"/></svg></button>
               <button title="Als Video"><svg><use href="#i-film"/></svg></button>
-              <button title="Link kopieren"><svg><use href="#i-link"/></svg></button>
               <button class="gefahr" title="Löschen" data-dialog><svg><use href="#i-muell"/></svg></button>
             </div>
           </div>
@@ -1429,7 +1453,6 @@ const MENUE = `
   <button><svg><use href="#i-play"/></svg>Abspielen</button>
   <button><svg><use href="#i-stift"/></svg>Bearbeiten</button>
   <button><svg><use href="#i-schrift"/></svg>Umbenennen</button>
-  <button><svg><use href="#i-kopie"/></svg>Link kopieren</button>
   <button data-zum-titelbild><svg><use href="#i-foto"/></svg>Titelbild wählen …</button>
   <button><svg><use href="#i-film"/></svg>Als Video exportieren …</button>
   <hr />
@@ -1465,6 +1488,42 @@ document.addEventListener('click', (e) => {
   karte.appendChild(menue)
   karte.classList.add('menue-offen')
   knopf.setAttribute('aria-expanded', 'true')
+})
+
+// — Das Sichtbarkeits-Popover am Chip im Fuß —
+//    Die drei Stufen und der Link stehen zusammen: „Link kopieren" ist bei
+//    „Privat" ausgegraut, weil es dort keinen Link zum Weitergeben gibt.
+const STUFEN = [
+  ['schloss', 'Privat', 'nur ich'],
+  ['schloss-offen', 'Per Link', 'wer die Adresse hat'],
+  ['welt', 'Öffentlich', 'in der Galerie'],
+]
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-sicht]')
+  document.querySelectorAll('.sicht-pop').forEach((p) => p.remove())
+  document.querySelectorAll('[data-sicht][aria-expanded="true"]').forEach((c) => c.setAttribute('aria-expanded', 'false'))
+  if (!chip) return
+  e.stopPropagation()
+  if (chip.dataset['offen'] === '1') { delete chip.dataset['offen']; return }
+  document.querySelectorAll('[data-sicht]').forEach((c) => delete c.dataset['offen'])
+  chip.dataset['offen'] = '1'
+  const jetzt = chip.textContent.trim()
+  const pop = document.createElement('div')
+  pop.className = 'sicht-pop'
+  pop.innerHTML = STUFEN.map(([ikone, name, was]) =>
+    `<button role="menuitemradio" aria-checked="${name === jetzt}"><svg><use href="#i-${ikone}"/></svg>${name}<span style="color:var(--text-3);font-size:11.5px;margin-left:4px">${was}</span></button>`).join('')
+    + `<hr /><button class="kopieren"${jetzt === 'Privat' ? ' disabled style="opacity:0.4;cursor:default"' : ''}><svg><use href="#i-link"/></svg>Link kopieren</button>`
+  pop.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    const wahl = ev.target.closest('button:not(.kopieren)')
+    if (!wahl) return
+    chip.innerHTML = wahl.querySelector('svg').outerHTML + wahl.childNodes[1].textContent
+    chip.classList.toggle('oeffentlich', wahl.textContent.startsWith('Öffentlich'))
+    pop.remove()
+    delete chip.dataset['offen']
+  })
+  chip.closest('.k').appendChild(pop)
+  chip.setAttribute('aria-expanded', 'true')
 })
 
 // — Zweistufiges Löschen (Muster 2) —

@@ -45,6 +45,23 @@ und der Schleier. Auf einer Seite voller Kacheln ist das kein Detail.
 | Titelbild | `V2`, kleiner Dialog mit Raster, aus dem ⋯-Menü heraus | ja |
 | Video-Export | derselbe Menüpunkt öffnet das vorhandene Export-Blatt | entschieden, nur der Weg fehlt |
 
+
+## Zwei Nachbesserungen aus der Abnahme
+
+- **Das Signet zeichnet seine Linie nicht mehr nach.** `G2` hielt den Kasten fest,
+  ließ die Route beim Zeigen aber aufblitzen; damit blieb oben links der letzte
+  bewegte Rest. Eine Linie, die sich in einer Kachelreihe von selbst zeichnet,
+  zieht den Blick genau dorthin, wo gerade nichts geschieht. Die Bestands-Kachel
+  im Vergleich behält die Animation, sonst zeigt sie nicht mehr, was heute
+  wirklich passiert.
+- **„Link kopieren" ist kein Menüpunkt.** Der Link hängt an der Sichtbarkeit, also
+  steht er dort, wo sie entschieden wird: im Chip unten links, zusammen mit den
+  drei Stufen. Es gibt ihn nur, solange die Tour nicht privat ist, und bei
+  „Privat" ist er im Entwurf sichtbar gesperrt statt verborgen. Als eigener
+  Menüpunkt hätte er einen Zustand versprochen, den die Stufe darüber gerade
+  widerruft. Aus demselben Grund verlässt er auch die Werkzeugspalte der Liste:
+  Die hat für die Sichtbarkeit eine eigene Spalte.
+
 ## Die harten Randbedingungen
 
 - **`DELETE /api/tours/:id` löscht hart**, samt Fotos und Videos
