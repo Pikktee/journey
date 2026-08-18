@@ -25,6 +25,14 @@ Fullscreen API, die auf Android und auf neuem iOS greift und sonst still
 durchfällt. Die beiden Vorhaben wurden im Gespräch mehrfach verwechselt, deshalb
 steht die Trennung hier oben.
 
+**Ein Argument für dieses Konzept ist dabei aus A herausgefallen:** Chrome auf
+Android legt bei jedem Eintritt ins Vollbild seinen eigenen Hinweis über das Bild
+(„Zum Beenden des Vollbildmodus: von oben ziehen"). Der gehört dem Browser, keine
+Seite kann ihn abstellen, und er erscheint jedes Mal neu. Eine installierte
+Web-App mit `display: fullscreen` bekommt ihn nicht, weil es dort keine
+Adressleiste gibt, die man zurückholen könnte. Das gilt auch auf Android — der
+Hinweis ist also ein Grund, dieses Konzept nicht als reine iOS-Sache zu denken.
+
 ## Warum überhaupt
 
 Für Android gibt es die Aufnahme-App ([android/](../../android/)). Auf iOS gibt es

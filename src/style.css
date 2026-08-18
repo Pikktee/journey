@@ -433,8 +433,8 @@ button:focus-visible {
    das beim Start durch ein anderes ersetzt wird. Unter den Dialogen (45+). */
 .zurueck {
   position: fixed;
-  top: clamp(20px, 3.4vh, 36px);
-  left: clamp(20px, 3.4vw, 44px);
+  top: max(clamp(20px, 3.4vh, 36px), env(safe-area-inset-top));
+  left: max(clamp(20px, 3.4vw, 44px), env(safe-area-inset-left));
   z-index: 31;
   display: inline-flex;
   align-items: center;
@@ -1634,7 +1634,7 @@ body.export .export-stand {
    der Szene. */
 .karten-info {
   position: fixed;
-  right: 10px;
+  right: max(10px, env(safe-area-inset-right));
   bottom: 10px;
   z-index: 22;
 }
@@ -1743,7 +1743,7 @@ body.export .export-stand {
 @media (max-width: 700px) {
   .zurueck {
     top: max(14px, env(safe-area-inset-top));
-    left: 14px;
+    left: max(14px, env(safe-area-inset-left));
     padding: 7px 13px 7px 10px;
   }
 
@@ -1753,7 +1753,7 @@ body.export .export-stand {
 
   .next-stop {
     top: max(14px, env(safe-area-inset-top));
-    right: 12px;
+    right: max(12px, env(safe-area-inset-right));
     max-width: 45vw;
     padding: 7px 11px 8px;
     border-radius: 11px;
@@ -1955,8 +1955,8 @@ body.export .export-stand {
  `orientation: landscape` und `max-height: 500px` als zutreffend, wodurch
  dieses kompakte Layout im Hochformat zuschlug. */
 body.kompakt-quer .next-stop {
-  top: max(8px, env(safe-area-inset-top));
-  right: 12px;
+  top: max(11px, env(safe-area-inset-top));
+  right: max(22px, env(safe-area-inset-right));
   max-width: 40vw;
   padding: 6px 10px 7px;
   border-radius: var(--radius-md);
@@ -1985,8 +1985,8 @@ body.kompakt-quer .next-stop-km {
 
 body.kompakt-quer /* — Steuerstreifen: eine Zeile über die volle Breite — */
 .dock {
-  left: 8px;
-  right: 8px;
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
   bottom: calc(6px + env(safe-area-inset-bottom));
   width: auto;
   flex-wrap: nowrap;
@@ -2137,10 +2137,24 @@ body.kompakt-quer .btn-start {
 
 
 /* Quer ist nur die HÖHE knapp — die Pille wird flacher, das Ziel bleibt lesbar
-   (neben dem früheren Titelblock hatte sie hier keinen Platz dafür). */
+   (neben dem früheren Titelblock hatte sie hier keinen Platz dafür).
+
+   SEITLICH braucht sie dagegen MEHR Rand als hochkant, nicht weniger, und das
+   aus zwei Gründen, die beide erst im Vollbild auffallen (dort ist die Kante des
+   Bildschirms auch die Kante der Seite):
+
+   1. Im Querformat wandert der Kamera-Ausschnitt an eine SEITE. `env(…-top)`
+      stand hier von Anfang an, `env(…-left/right)` nirgends im ganzen Blatt —
+      also war genau die Richtung ungeschützt, in der der Ausschnitt liegt, wenn
+      dieses Layout gilt.
+   2. Die Ecke ist RUND, und eine Ecke frisst über die Diagonale. Ein Punkt bei
+      (12, 8) ist rechnerisch 14 px von der Ecke weg, liegt bei einem Radius von
+      40 px aber schon außerhalb des Bildschirms — beides einzeln sieht großzügig
+      aus, zusammen nicht. Deshalb 22 statt 12, symmetrisch auch für den Chip
+      rechts. */
 body.kompakt-quer .zurueck {
-  top: max(8px, env(safe-area-inset-top));
-  left: 12px;
+  top: max(11px, env(safe-area-inset-top));
+  left: max(22px, env(safe-area-inset-left));
   height: 30px;
   padding: 0 14px 0 10px;
 }
