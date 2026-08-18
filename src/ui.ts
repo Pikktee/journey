@@ -2,7 +2,13 @@
 import { pointAt, type Route, type Stopp, type StoppFoto } from './geo.js'
 import type { Wegpunkt } from './tours.js'
 import { videoLautstaerke, videoTonHuelle } from './audiotracks.js'
-import { ausschnittDauerS, klemmeSeitenverhaeltnis, videoStandS } from './einblendung.js'
+import {
+  ausschnittDauerS,
+  klemmeSeitenverhaeltnis,
+  VIDEO_HAT_FRAME,
+  videoNachfuehrung,
+  videoStandS,
+} from './einblendung.js'
 import { createKartenSchicht, type KartenSchicht } from './kartenschicht.js'
 import type { KartenMedium, KartenQuelle, KartenText } from './kartenmaler.js'
 
@@ -75,14 +81,6 @@ export interface Filmleiste {
 }
 
 /**
- * `requestVideoFrameCallback` steht nicht in jeder lib.dom-Fassung und fehlt in
- * manchen Browsern ganz — deshalb die schmale Erweiterung statt einer Zusage.
- */
-type VideoMitFrameCallback = HTMLVideoElement & {
-  requestVideoFrameCallback?: (cb: () => void) => number
-}
-
-/**
  * Pflicht-Element aus [erlebnis.html](../erlebnis.html) — fehlt es, ist der Player kaputt.
  * Exportiert, weil der Verdrahter (main.ts) auf dasselbe DOM zugreift und die
  * benannte Meldung dort genauso zählt wie hier.
@@ -118,7 +116,7 @@ export class UI {
     card: HTMLElement
     bild: HTMLElement
     img: HTMLImageElement
-    video: VideoMitFrameCallback
+    video: HTMLVideoElement
     standbild: HTMLImageElement
     sound: HTMLButtonElement
     pTitle: HTMLElement
@@ -157,6 +155,8 @@ export class UI {
   private _lastSyncS: number
   private _preloaded: Set<number>
   private _preloadImgs: HTMLImageElement[]
+  /** Vorab geholte Video-Köpfe (s. `_weckeVideo`). */
+  private _geweckteVideos: HTMLVideoElement[]
   private _soundOn: boolean
   private _videoTonGemeldet: number
   /** Die Leinwand der Foto-Karte — der eine Aufrufer des Malers. */
@@ -164,8 +164,13 @@ export class UI {
   /** Was auf der Karte liegt: Medium und Beschriftung, DOM-frei als Werte. */
   private _kartenMedium: KartenMedium
   private _kartenText: KartenText
-  private _standbildTimer: number
   private _standbildGen: number
+  /** Hat das laufende Video schon je einen Frame geliefert? (s. `_kartenQuelle`) */
+  private _videoHatteFrame: boolean
+  /** Wanduhr-Marke des letzten begonnenen Suchlaufs (`performance.now()`). */
+  private _letzterSuchlauf: number
+  /** Läuft diese Seite als Export-Takt? (`body.export`) */
+  private _imExport: boolean
   private _mode?: string
 
   /**
@@ -198,7 +203,7 @@ export class UI {
       card,
       bild: $('photo-bild'),
       img: $<HTMLImageElement>('photo-img'),
-      video: $<VideoMitFrameCallback>('photo-video'),
+      video: $<HTMLVideoElement>('photo-video'),
       standbild: $<HTMLImageElement>('photo-video-standbild'),
       sound: $<HTMLButtonElement>('photo-sound'),
       pTitle: $('photo-title'),
@@ -224,6 +229,7 @@ export class UI {
     this._lastSyncS = -1
     this._preloaded = new Set()
     this._preloadImgs = [] // Referenzen halten, sonst darf der Browser abbrechen
+    this._geweckteVideos = []
 
     // Video-Stopps (M4): Die Ton-Wahl bleibt für die Session gemerkt. Ende des
     // Videos → onMediaEnded stößt denselben Weiter-Pfad an wie ein abgelaufenes
@@ -249,8 +255,10 @@ export class UI {
       imExport: document.body.classList.contains('export'),
     })
     this.onVideoTon = null // (huelle: 0..1) → Musik-Ducking in main.ts
-    this._standbildTimer = 0
-    this._standbildGen = 0 // verwirft veraltete Frame-Callbacks nach Stopp/Wechsel
+    this._standbildGen = 0 // verwirft veraltete Poster-Rückrufe nach Stopp/Wechsel
+    this._videoHatteFrame = false
+    this._letzterSuchlauf = -Infinity
+    this._imExport = document.body.classList.contains('export')
     try {
       const gemerkt = sessionStorage.getItem('maptale:video-sound')
       if (gemerkt !== null) this._soundOn = gemerkt === '1'
@@ -291,11 +299,12 @@ export class UI {
 
   // Laufendes Video anhalten und die Ressource freigeben (Stopp-Wechsel/Ausblenden)
   _stopVideo(): void {
-    this._standbildGen++ // ausstehende Frame-Callbacks verwerfen
-    clearTimeout(this._standbildTimer)
+    this._standbildGen++ // ausstehende Poster-Rückrufe verwerfen
     const { video: v, standbild } = this.els
     standbild.hidden = true
     standbild.removeAttribute('src')
+    this._videoHatteFrame = false
+    this._letzterSuchlauf = -Infinity
     this._meldeVideoTon(0)
     if (!v.getAttribute('src')) return
     v.pause()
@@ -304,45 +313,10 @@ export class UI {
     v.load()
   }
 
-  // Ersten Video-Frame abwarten, dann das Standbild abräumen.
-  //
-  // Seit die Karte auf einer Leinwand liegt, gibt es hier keine Überblendung
-  // mehr: Der Maler nimmt das Standbild nur, SOLANGE das Video keinen Frame
-  // liefert (`_kartenQuelle`), und schaltet danach von sich aus um. Die alte
-  // 240-ms-Blende war eine CSS-Transition auf zwei gestapelten Elementen — von
-  // denen keines mehr sichtbar ist.
-  _warteAufErstenFrame(video: VideoMitFrameCallback, gen: number): void {
-    let fertig = false
-    const weiter = () => {
-      if (fertig || gen !== this._standbildGen) return
-      fertig = true
-      this._videoStandbildWeg(gen)
-    }
-    if (typeof video.requestVideoFrameCallback === 'function') {
-      video.requestVideoFrameCallback(() => weiter())
-    }
-    video.addEventListener('playing', () => {
-      // Fallback ohne rvfc: zwei rAFs ≈ Frame ist auf dem Screen
-      requestAnimationFrame(() => requestAnimationFrame(weiter))
-    }, { once: true })
-    // Notausgang: lieber Standbild weg als ewig darüber hängen
-    clearTimeout(this._standbildTimer)
-    this._standbildTimer = window.setTimeout(weiter, 1500)
-  }
-
-  _videoStandbildWeg(gen: number): void {
-    if (gen !== this._standbildGen) return
-    const { standbild } = this.els
-    if (standbild.hidden) return
-    clearTimeout(this._standbildTimer)
-    standbild.hidden = true
-    standbild.removeAttribute('src')
-  }
-
   // Fotos gestaffelt vorladen: immer nur den nächsten und übernächsten Stopp —
   // alle auf einmal (bis ~14 MB) würden beim Start mit den Karten-Tiles um
   // die Bandbreite konkurrieren
-  preloadStop(i: number): void {
+  preloadStop(i: number, mitVideo = false): void {
     const st = this.stops[i]
     if (!st || this._preloaded.has(i)) return
     this._preloaded.add(i)
@@ -350,10 +324,43 @@ export class UI {
       // Video-Stopps laden ihr Poster vor — daraus setzen wir beim Öffnen sofort
       // das Seitenverhältnis und das Standbild (kein Sprung auf 3:2).
       const url = p.type === 'video' ? p.poster : p.src
-      if (!url) continue
-      const img = new Image()
-      img.src = url
-      this._preloadImgs.push(img)
+      if (url) {
+        const img = new Image()
+        img.src = url
+        this._preloadImgs.push(img)
+      }
+      if (mitVideo && p.type === 'video' && p.src) this._weckeVideo(p.src)
+    }
+  }
+
+  /**
+   * Den Kopf eines Videos schon vor dem Halt holen.
+   *
+   * Das Video-Element bekommt seine Datei erst, wenn der Halt beginnt — auf dem
+   * Telefon über Mobilfunk vergeht danach rund eine Sekunde, bis der erste
+   * Frame steht, und genau in dieser Sekunde lief die Karte vorher leer. Hier
+   * wird nur der KOPF geholt (`metadata`), nicht die ganze Datei: Ein Halt kann
+   * zwei Videos haben, und `auto` zöge zweistellige Megabytes neben den
+   * Kartenkacheln, um dieselbe Bandbreite. Der HTTP-Cache der Medien ist
+   * `immutable` (server/src/routes/media.ts) — das eigentliche Element findet
+   * den Kopf also vor.
+   *
+   * Die Elemente werden gehalten, weil ein eingesammeltes Element seinen Abruf
+   * abbricht; mehr als vier sind es nie, sonst hingen an einer Tour mit vielen
+   * Videos beliebig viele Puffer.
+   */
+  private _weckeVideo(src: string): void {
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.muted = true
+    v.playsInline = true
+    v.src = src
+    this._geweckteVideos.push(v)
+    while (this._geweckteVideos.length > 4) {
+      const alt = this._geweckteVideos.shift()
+      if (!alt) break
+      alt.removeAttribute('src')
+      alt.load()
     }
   }
 
@@ -472,7 +479,10 @@ export class UI {
     // 300 m Vorlauf: auch der Stopp, dessen Anfahrt gerade beginnt, zählt noch
     const n = this.stops.findIndex((st) => st.s >= s - 300)
     if (n !== -1) {
-      this.preloadStop(n)
+      // Nur der NÄCHSTE Halt weckt sein Video: der übernächste liegt oft noch
+      // Minuten entfernt, und zwei Köpfe gleichzeitig wären zwei Abrufe neben
+      // den Kacheln, von denen einer sicher zu früh kommt.
+      this.preloadStop(n, true)
       this.preloadStop(n + 1)
     }
   }
@@ -556,19 +566,26 @@ export class UI {
       video.volume = 0 // Einblendung übernimmt _aktualisiereVideoTon ab dem ersten Frame
       this._syncSoundBtn()
       // Poster als eigenes Standbild (nicht video.poster): Rahmen-AR sofort aus dem
-      // oft schon vorgeladenen JPEG, und weicher Übergang zum ersten Frame.
+      // oft schon vorgeladenen JPEG, und es überbrückt, bis der erste Frame da
+      // ist. Es bleibt bis zum Stopp-Wechsel liegen — abgeräumt wird es NICHT
+      // mehr nach einer Frist: Der Maler nimmt von selbst das Video, sobald es
+      // einen Frame hat (`_kartenQuelle`), und die alte 1,5-s-Frist nahm auf dem
+      // Telefon genau das Bild weg, das über das Laden hinweghalf. Danach stand
+      // die Karte schwarz, bis das Video lief.
       const gen = this._standbildGen
       if (photo.poster) {
-        standbild.classList.remove('weg')
         standbild.hidden = false
         standbild.src = photo.poster
         if (standbild.complete && standbild.naturalWidth) merkeSeitenverhaeltnis(standbild)
-        else standbild.addEventListener('load', () => merkeSeitenverhaeltnis(standbild), { once: true })
+        else {
+          standbild.addEventListener('load', () => {
+            if (gen === this._standbildGen) merkeSeitenverhaeltnis(standbild)
+          }, { once: true })
+        }
       } else {
         standbild.hidden = true
       }
       video.addEventListener('loadedmetadata', () => merkeSeitenverhaeltnis(video), { once: true })
-      this._warteAufErstenFrame(video, gen)
       video.src = photo.src
       // Kein `play()` hier: Ob das Video läuft, sagt die FILMZEIT — der nächste
       // Kopfschritt startet es (synchronisiereKarte). Ein Start von hier aus
@@ -631,19 +648,31 @@ export class UI {
   }
 
   /**
-   * Die Zeichenquelle dieser Filmsekunde — Foto, Video oder das Standbild, das
-   * ein Video überbrückt, bis sein erster Frame da ist.
+   * Die Zeichenquelle dieser Filmsekunde — Foto, Video oder das Poster, das ein
+   * Video überbrückt, bis sein erster Frame da ist.
    *
    * `bereit` ist die Zusicherung, die der Maler braucht: `drawImage` auf einem
    * noch suchenden `<video>` zeichnet ohne Fehler das ALTE Bild (Konzept §5).
+   * Der Maler zeichnet es trotzdem — das alte Bild ist auf der Bühne die
+   * bessere Auskunft als ein schwarzes Feld —, und der Video-Export wartet
+   * genau auf diese Zusicherung, bevor er ein Bild abgreift.
+   *
+   * **Sobald das Video einmal einen Frame geliefert hat, bleibt es die Quelle.**
+   * `readyState` fällt bei einem Suchlauf und beim Nachpuffern wieder unter
+   * `VIDEO_HAT_FRAME` zurück; ohne diesen Merker wechselte die Karte dort auf
+   * das Poster und beim nächsten Frame zurück — auf dem Telefon (langsame
+   * Suchläufe, Mobilfunk-Nachpuffern) war das ein Flackern zwischen zwei
+   * Bildern. Das Poster überbrückt nur den Anfang, nicht jede Störung.
    */
   private _kartenQuelle(): { quelle: KartenQuelle | null; bereit: boolean } {
     const { img, video, standbild } = this.els
     if (!video.hidden && video.getAttribute('src')) {
-      if (video.readyState >= 2 && video.videoWidth > 0) {
+      const hatFrame = video.readyState >= VIDEO_HAT_FRAME
+      if (hatFrame) this._videoHatteFrame = true
+      if (video.videoWidth > 0 && (hatFrame || this._videoHatteFrame)) {
         return {
           quelle: { bild: video, breite: video.videoWidth, hoehe: video.videoHeight, kennung: video.src },
-          bereit: !video.seeking,
+          bereit: hatFrame && !video.seeking,
         }
       }
       // Noch kein Frame: das Poster hält die Stelle. Es ist ein anderes Bild als
@@ -738,26 +767,35 @@ export class UI {
     // Ein Video kann nicht rückwärts spielen: Im Schnelllauf und rückwärts
     // steht es auf dem Frame der Kopfposition und schweigt — wie im Editor.
     const laeuft = tempo === 1 && !ausgelaufen
-    if (laeuft) {
-      // Im Lauf trägt das Video seine eigene Uhr; nachgezogen wird erst, wenn
-      // es merklich auseinanderläuft.
-      if (Math.abs(video.currentTime - zielS) > 0.34) this._setzeVideoZeit(zielS)
-      if (video.paused) {
-        video.play().catch(() => {
-          // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt → stumm
-          // erzwingen, damit das Bild überhaupt läuft; sonst stünde am
-          // Video-Halt ein Standbild. Ein Klick auf den Ton-Knopf schaltet ihn
-          // danach nach der Gesten-Regel wieder ein.
-          video.muted = true
-          this._soundOn = false
-          this._syncSoundBtn()
-          video.play().catch(() => {})
-        })
-      }
-    } else if (!video.paused) {
-      video.pause()
+    // Die Entscheidung ist DOM-frei und mit dem Editor geteilt
+    // (`videoNachfuehrung` in einblendung.ts): Wann gesucht werden DARF, hängt
+    // an einem laufenden Suchlauf, am Pufferstand und an der Wanduhr — ohne
+    // diese drei Rückfragen wurde auf dem Telefon in jedem Frame neu gesucht
+    // und keiner der Suchläufe kam je an.
+    const nach = videoNachfuehrung({
+      zielS,
+      istS: video.currentTime,
+      laeuft,
+      paused: video.paused,
+      seeking: video.seeking,
+      readyState: video.readyState,
+      seitSuchlaufS: (performance.now() - this._letzterSuchlauf) / 1000,
+      bildgenau: this._imExport,
+    })
+    if (nach.suchen) this._setzeVideoZeit(zielS)
+    if (nach.starten) {
+      video.play().catch(() => {
+        // Unmuted-Autoplay ohne frische Nutzergeste wird geblockt → stumm
+        // erzwingen, damit das Bild überhaupt läuft; sonst stünde am
+        // Video-Halt ein Standbild. Ein Klick auf den Ton-Knopf schaltet ihn
+        // danach nach der Gesten-Regel wieder ein.
+        video.muted = true
+        this._soundOn = false
+        this._syncSoundBtn()
+        video.play().catch(() => {})
+      })
     }
-    if (!laeuft && Math.abs(video.currentTime - zielS) > 0.04) this._setzeVideoZeit(zielS)
+    if (nach.anhalten) video.pause()
 
     // Ton-Hülle über den Ausschnitt: Ein- und Ausblende liegen an den
     // Schnittkanten, und sie steuert zugleich das Ducking der Musik.
@@ -772,6 +810,11 @@ export class UI {
   }
 
   private _setzeVideoZeit(sekunde: number): void {
+    // Die Marke wird VOR dem Sprung gesetzt: `videoNachfuehrung` misst damit die
+    // Ruhe zwischen zwei Suchläufen, und die beginnt mit dem Anstoß, nicht mit
+    // dem Eintreffen. Auch ein fehlgeschlagener Sprung zählt — sonst versuchte
+    // es der nächste Frame sofort wieder.
+    this._letzterSuchlauf = performance.now()
     try {
       this.els.video.currentTime = Math.max(0, sekunde)
     } catch {

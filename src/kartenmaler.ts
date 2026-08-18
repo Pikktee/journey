@@ -1122,17 +1122,25 @@ export function maleKarte(
   ctx.fillRect(bx, by, g.bild.breite, g.bild.hoehe)
 
   let bereit = true
-  if (stand.quelle && stand.bereit) {
+  if (stand.quelle) {
     if (stand.medium.art === 'video') {
       // Video: `contain`, schwarzer Rahmen, kein Ken Burns und kein
       // „Entwickeln" — wie in der abgelösten CSS-Fassung. Und ohne Puffer: Der
       // Frame wechselt, ein Puffer wäre pro Bild ein neuer.
+      //
+      // Gezeichnet wird AUCH ohne die Zusicherung: Ein suchendes oder gerade
+      // nachpufferndes `<video>` liefert bei `drawImage` das ALTE Bild, und das
+      // ist auf der Bühne die bessere Auskunft als das schwarze Bildfeld. Auf
+      // dem Telefon war genau das der sichtbare Teil des Suchsturms — zwischen
+      // den Bildern blitzte Schwarz auf. `bereit: false` geht trotzdem heraus:
+      // Der Video-Export wartet darauf, statt ein altes Bild einzubacken.
       malVideo(ctx, stand.quelle, bx, by, g.bild.breite, g.bild.hoehe)
-    } else {
+      bereit = stand.bereit
+    } else if (stand.bereit) {
       bereit = malFoto(ctx, stand.quelle, phasen, bx, by, g.bild, dichte)
+    } else {
+      bereit = false
     }
-  } else if (stand.quelle) {
-    bereit = false
   }
 
   // Standzeit-Balken am unteren Bildrand

@@ -8,7 +8,12 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { STUDIO_PEGEL_VORGABE, videoLautstaerke, videoTonHuelle } from '../audiotracks.js'
-import { ausschnittDauerS, klemmeSeitenverhaeltnis } from '../einblendung.js'
+import {
+  ausschnittDauerS,
+  klemmeSeitenverhaeltnis,
+  VIDEO_HAT_FRAME,
+  videoNachfuehrung,
+} from '../einblendung.js'
 import type { KartenMedium, KartenQuelle, KartenText } from '../kartenmaler.js'
 import { createKartenSchicht, type KartenSchicht } from '../kartenschicht.js'
 import { pfad, tourPfad } from '../routen.js'
@@ -6220,6 +6225,10 @@ let kartenSchicht: KartenSchicht | null = null
 /** Was der Maler über die liegende Aufnahme wissen muss (`zeigeFoto` füllt beides). */
 let kartenMedium: KartenMedium = { art: 'foto', ar: null }
 let kartenText: KartenText = { titel: '', kmText: '', zaehlerText: '' }
+/** Hat das liegende Video schon je einen Frame geliefert? (s. `kartenQuelle`) */
+let videoHatteFrame = false
+/** Wanduhr-Marke des letzten begonnenen Suchlaufs (`performance.now()`). */
+let letzterSuchlauf = -Infinity
 
 /** Schnappschuss für eine Wiedergabe — bei jedem Start neu eingesammelt. */
 function holeSpielplan(): Spielplan | null {
@@ -6557,6 +6566,10 @@ function zeigeFoto(id: string): void {
     if (eingeblendet === m.id) synchronisiereFoto()
   }
   if (m.type === 'video') {
+    // Neues Element, neue Rechnung: Frame-Merker und Suchlauf-Marke gehören zu
+    // DIESER Datei.
+    videoHatteFrame = false
+    letzterSuchlauf = -Infinity
     const video = document.createElement('video')
     video.src = m.src
     // Der Ton der Aufnahme gehört zum Schnitt: Ohne ihn prüfte das Abspielen
@@ -6636,16 +6649,24 @@ function zeigeFoto(id: string): void {
  * ungeschnittenen Master aus, ein Poster gibt es dazu nicht.
  *
  * `bereit` ist die Zusicherung, die der Maler braucht: `drawImage` auf einem
- * noch suchenden `<video>` zeichnet ohne Fehler das ALTE Bild.
+ * noch suchenden `<video>` zeichnet ohne Fehler das ALTE Bild. Der Maler
+ * zeichnet es trotzdem — ein Bild von vorhin ist die bessere Auskunft als das
+ * schwarze Bildfeld; die Zusicherung ist für den Video-Export da.
+ *
+ * Sobald das Video einmal einen Frame geliefert hat, bleibt es die Quelle:
+ * `readyState` fällt bei jedem Suchlauf wieder unter `VIDEO_HAT_FRAME` zurück,
+ * und ohne diesen Merker wechselte die Karte dort auf ein leeres Bildfeld.
  */
 function kartenQuelle(): { quelle: KartenQuelle | null; bereit: boolean } {
   const quellen = document.getElementById('foto-quellen')
   const video = quellen?.querySelector('video')
   if (video) {
-    if (video.readyState >= 2 && video.videoWidth > 0) {
+    const hatFrame = video.readyState >= VIDEO_HAT_FRAME
+    if (hatFrame) videoHatteFrame = true
+    if (video.videoWidth > 0 && (hatFrame || videoHatteFrame)) {
       return {
         quelle: { bild: video, breite: video.videoWidth, hoehe: video.videoHeight, kennung: video.src },
-        bereit: !video.seeking,
+        bereit: hatFrame && !video.seeking,
       }
     }
     return { quelle: null, bereit: false }
@@ -6722,23 +6743,30 @@ function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
   const endeS = Math.min(Number(video.dataset['bisS'] ?? 0) || Infinity, dateiEndeS)
   const { zielS, ausgelaufen } = videoStandS(vonS, endeS, imS)
   const laeuft = tempo === 1 && !ausgelaufen
-  if (laeuft) {
-    // Im Lauf trägt das Video seine eigene Uhr; nachgezogen wird erst, wenn es
-    // merklich auseinanderläuft — ein Seek pro Frame ruckelte sichtbar.
-    if (Math.abs(video.currentTime - zielS) > 0.34) setzeVideoZeit(video, zielS)
-    if (video.paused) {
-      void video.play().catch(() => {
-        // Unmuted-Autoplay ohne frische Geste wird geblockt (wie im Player,
-        // src/ui.ts): stumm erzwingen, damit das Bild überhaupt läuft — sonst
-        // stünde am Video-Halt ein Standbild und der Schnitt wäre nicht zu prüfen.
-        video.muted = true
-        void video.play().catch(() => {})
-      })
-    }
-  } else if (!video.paused) {
-    video.pause()
+  // Wann gesucht werden DARF, entscheidet die geteilte Nachführung
+  // (`videoNachfuehrung` in einblendung.ts) — dieselbe Rechnung wie im Player.
+  // Ohne ihre Rückfragen (laufender Suchlauf, Pufferstand, Wanduhr-Ruhe) wurde
+  // in jedem Frame neu gesucht und keiner der Suchläufe kam je an.
+  const nach = videoNachfuehrung({
+    zielS,
+    istS: video.currentTime,
+    laeuft,
+    paused: video.paused,
+    seeking: video.seeking,
+    readyState: video.readyState,
+    seitSuchlaufS: (performance.now() - letzterSuchlauf) / 1000,
+  })
+  if (nach.suchen) setzeVideoZeit(video, zielS)
+  if (nach.starten) {
+    void video.play().catch(() => {
+      // Unmuted-Autoplay ohne frische Geste wird geblockt (wie im Player,
+      // src/ui.ts): stumm erzwingen, damit das Bild überhaupt läuft — sonst
+      // stünde am Video-Halt ein Standbild und der Schnitt wäre nicht zu prüfen.
+      video.muted = true
+      void video.play().catch(() => {})
+    })
   }
-  if (!laeuft && Math.abs(video.currentTime - zielS) > 0.04) setzeVideoZeit(video, zielS)
+  if (nach.anhalten) video.pause()
 
   // Ton-Hülle über den AUSSCHNITT (nicht die Datei): Ein- und Ausblende liegen
   // an den Schnittkanten. Die Rechnung teilt sich der Editor mit dem Player
@@ -6755,6 +6783,10 @@ function synchronisiereBild(imS: number, dauerS: number, tempo: number): void {
 }
 
 function setzeVideoZeit(video: HTMLVideoElement, sekunde: number): void {
+  // Die Marke wird VOR dem Sprung gesetzt: Gemessen wird die Ruhe seit dem
+  // Anstoß, nicht seit dem Eintreffen — und ein fehlgeschlagener Sprung zählt
+  // mit, sonst versuchte es der nächste Kopfschritt sofort wieder.
+  letzterSuchlauf = performance.now()
   try {
     video.currentTime = Math.max(0, sekunde)
   } catch {

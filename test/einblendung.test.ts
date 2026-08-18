@@ -11,11 +11,18 @@ import {
   AR_MIN,
   HOLD_AUSBLEND,
   HOLD_HIDE,
+  VIDEO_DRIFT_LAUF_S,
+  VIDEO_DRIFT_STAND_S,
+  VIDEO_HAT_FRAME,
+  VIDEO_HAT_MASSE,
+  VIDEO_LAEUFT_WEITER,
+  VIDEO_SUCH_PAUSE_S,
   ausschnittDauerS,
   balkenAnteil,
   kartenZeiten,
   klemmeSeitenverhaeltnis,
   klipDauerS,
+  videoNachfuehrung,
 } from '../src/einblendung.js'
 
 describe('Standzeit der Foto-Karte', () => {
@@ -145,5 +152,94 @@ describe('ausschnittDauerS', () => {
     expect(ausschnittDauerS(Number.NaN)).toBe(0)
     expect(ausschnittDauerS(Number.POSITIVE_INFINITY, 0, Number.NaN)).toBe(0)
     expect(ausschnittDauerS(5, 9)).toBe(0) // linke Kante hinter dem Ende
+  })
+})
+
+// Die Nachführung des Videos — der Teil, an dem der Player auf dem Telefon
+// scheiterte. Sichtbar war es als Ruckeln mit schwarzen Bildern dazwischen; die
+// Ursache war eine Bedingung ohne Rückfragen: `|currentTime − ziel| > 0.34` in
+// JEDEM Frame. Über Mobilfunk braucht ein Video rund eine Sekunde bis zum ersten
+// Frame — nach 0,34 s Filmzeit wurde also gesucht, im nächsten Frame erneut, und
+// keiner der Suchläufe kam je an. Genau diese vier Regeln stehen hier.
+describe('Video-Nachführung', () => {
+  /** Der Normalfall: läuft, spielt, gut gepuffert, lange kein Suchlauf. */
+  const lauf = (drift: number, mehr: Partial<Parameters<typeof videoNachfuehrung>[0]> = {}) =>
+    videoNachfuehrung({
+      zielS: 10,
+      istS: 10 - drift,
+      laeuft: true,
+      paused: false,
+      seeking: false,
+      readyState: VIDEO_LAEUFT_WEITER,
+      seitSuchlaufS: 99,
+      ...mehr,
+    })
+
+  it('lässt das Video im Lauf seine eigene Uhr tragen', () => {
+    expect(lauf(VIDEO_DRIFT_LAUF_S - 0.01).suchen).toBe(false)
+    expect(lauf(VIDEO_DRIFT_LAUF_S + 0.01).suchen).toBe(true)
+    // Voraus zählt wie zurück — beides ist Versatz.
+    expect(lauf(-(VIDEO_DRIFT_LAUF_S + 0.01)).suchen).toBe(true)
+  })
+
+  it('überholt keinen laufenden Suchlauf', () => {
+    // Der Sturm in einer Zeile: Das Ziel wandert weiter, also verlangt jeder
+    // Frame den nächsten Sprung — und jeder neue bricht den vorigen ab.
+    expect(lauf(3, { seeking: true }).suchen).toBe(false)
+  })
+
+  it('springt im Lauf nicht in ungepufferte Daten', () => {
+    expect(lauf(3, { readyState: VIDEO_HAT_FRAME }).suchen).toBe(false)
+    expect(lauf(3, { readyState: VIDEO_HAT_MASSE }).suchen).toBe(false)
+    expect(lauf(3, { readyState: 0 }).suchen).toBe(false)
+  })
+
+  it('lässt zwischen zwei Suchläufen Wanduhr-Ruhe', () => {
+    expect(lauf(3, { seitSuchlaufS: VIDEO_SUCH_PAUSE_S - 0.01 }).suchen).toBe(false)
+    expect(lauf(3, { seitSuchlaufS: VIDEO_SUCH_PAUSE_S }).suchen).toBe(true)
+  })
+
+  // Im Stand führt der Finger. Dort IST die gesuchte Stelle das, was man sehen
+  // will — also feine Schwelle, kein Warten auf Puffer, keine Ruhe; nur ein
+  // laufender Suchlauf wird abgewartet, sonst käme keiner an.
+  it('folgt im Stand fein und ohne Wartezeit', () => {
+    const stand = (drift: number, mehr = {}) =>
+      videoNachfuehrung({
+        zielS: 10,
+        istS: 10 - drift,
+        laeuft: false,
+        paused: true,
+        seeking: false,
+        readyState: VIDEO_HAT_MASSE,
+        seitSuchlaufS: 0,
+        ...mehr,
+      })
+    expect(stand(VIDEO_DRIFT_STAND_S + 0.001).suchen).toBe(true)
+    expect(stand(VIDEO_DRIFT_STAND_S - 0.001).suchen).toBe(false)
+    expect(stand(1, { seeking: true }).suchen).toBe(false)
+    expect(stand(1, { readyState: 0 }).suchen).toBe(false)
+  })
+
+  // Im Film gibt es keine Toleranz: Je Filmbild vergehen 0,3–2 s Wanduhr, ein
+  // nebenher laufendes Video stünde beim Abgreifen irgendwo. Also steht es und
+  // wird gesucht — dieselbe Regel wie im Stand.
+  it('sucht für den Export jedes Bild und lässt das Video nie laufen', () => {
+    const film = (drift: number, mehr = {}) => lauf(drift, { bildgenau: true, ...mehr })
+    expect(film(0.1).suchen).toBe(true)
+    expect(film(0.1).anhalten).toBe(true)
+    expect(film(0.1, { paused: true }).starten).toBe(false)
+    // Auch hier gilt: einen laufenden Suchlauf abwarten.
+    expect(film(0.1, { seeking: true }).suchen).toBe(false)
+    // Aber keine Wanduhr-Ruhe — sie käme aus einer Uhr, die der Film nicht hat.
+    expect(film(0.1, { seitSuchlaufS: 0 }).suchen).toBe(true)
+  })
+
+  it('startet nur im Lauf und hält nur außerhalb an', () => {
+    expect(lauf(0, { paused: true }).starten).toBe(true)
+    expect(lauf(0).starten).toBe(false)
+    expect(lauf(0).anhalten).toBe(false)
+    const aus = lauf(0, { laeuft: false })
+    expect(aus.anhalten).toBe(true)
+    expect(aus.starten).toBe(false)
   })
 })

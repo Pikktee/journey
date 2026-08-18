@@ -723,7 +723,11 @@ negativem Delay (`--fe-zeit`) — der Kunstgriff, mit dem man ein Standbild aus 
 zieht, und der Behelf für genau das, was ein MALER von Natur aus tut. **Seit dem 2026-08-17
 gibt es den Maler auch hier** (s. den nächsten Absatz), und die `--fe-*`-Choreografie ist weg.
 Das Video wird weiter auf `trim.vonS + imS` gesetzt und läuft nur
-bei Tempo 1 selbst (dort mit 0,34-s-Toleranz, ein Seek je Frame ruckelte sichtbar); **beide
+bei Tempo 1 selbst; WANN dabei gesucht wird, entscheidet die mit dem Player geteilte
+`videoNachfuehrung` ([einblendung.ts](../einblendung.ts), Regeln in der Wurzel-CLAUDE.md).
+Die Toleranz im Lauf ist 0,5 s und im Stand 0,04 s, und ein begonnener Suchlauf wird
+abgewartet: Ein Sprung je Frame ruckelte sichtbar, und auf einem langsamen Gerät kam gar
+keiner mehr an. **Beide
 Trim-Kanten** stehen im `dataset` des Elements, weil die ausgelieferte Datei der ungeschnittene
 Master ist und der Schnitt erst in der Pipeline entsteht.
 
@@ -798,7 +802,7 @@ ihn ausgemessen ist — `KURATIERTER_PEGEL`). Zusammen ein Faktor 3,6. Jetzt sch
 HALT_AUSBLEND_S`) — deshalb klemmt `videoStandS` das Ziel auf einen Frame vor dem Ende
 (Schnitt-`bisS`, sonst `video.duration`). Ohne die Klemme lief `vonS + imS` darüber hinaus:
 Der Browser klemmt `currentTime` still, die Abweichung bleibt dadurch dauerhaft über der
-0,34-s-Schwelle, und die Wiedergabe seekte in JEDEM Frame ans Ende — das sichtbare Zittern am
+Nachzieh-Schwelle, und die Wiedergabe seekte in JEDEM Frame ans Ende — das sichtbare Zittern am
 Klip-Ende. Gemessen an einer 6-s-Datei: Ziel 6,80 s → `currentTime` 6,00 s, Abweichung 0,80 s.
 
 **Auch Auftritt, Abgang und Kamerablitz hängen am Kopf** — der Auftritt war bis E15 eine

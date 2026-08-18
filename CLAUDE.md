@@ -593,6 +593,32 @@ eigenen Auf- und Abgang. Was geteilt wird, sind die RECHNUNGEN (`kartenZeiten`,
 Filmzeit — **nicht die Mechanik**: Ein gemeinsames DOM-Bauteil ist ausdrücklich nicht gewollt
 (Konzept §6A), der Player streamt einen Film voraus, der Editor springt in einer Datei umher.
 
+**Wann ein Video GESUCHT wird, entscheidet eine geteilte Rechnung** (`videoNachfuehrung` in
+[einblendung.ts](src/einblendung.ts), benutzt von Player und Editor). Vorher stand an beiden
+Bühnen dieselbe Bedingung direkt am Element: „weicht `currentTime` um mehr als 0,34 s ab, dann
+springen", in jedem Frame gefragt. Auf dem Telefon war das ein SUCHSTURM. Über Mobilfunk
+braucht ein Video rund eine Sekunde bis zum ersten Bild, die Filmzeit läuft dabei weiter, und
+nach 0,34 s wurde gesucht. Der begonnene Suchlauf wurde im nächsten Frame durch den nächsten
+ersetzt, und keiner kam je an. Sichtbar war es als Ruckeln mit schwarzen Bildern dazwischen:
+Ein suchendes Video liefert keinen Frame, und ohne Frame malte die Karte ihr schwarzes
+Bildfeld. Vier Regeln halten das auf, und jede einzelne reicht dafür allein nicht: **Ein
+laufender Suchlauf wird nie überholt** (das Ziel wandert, jeder neue wäre der Abbruch des
+vorigen); **im Lauf wird nur gesucht, wenn das Video weiterlaufen könnte** (`HAVE_FUTURE_DATA`,
+sonst führt der Sprung in ungepufferte Daten und verlängert das Puffern); **nach einem Suchlauf
+liegt eine Wanduhr-Ruhe** von 0,5 s (er kostet selbst Zeit, in der der Film weiterläuft); und
+**die Schwelle ist im Lauf grob und im Stand fein** (0,5 s gegen 0,04 s), denn beim Scrubben
+IST die gesuchte Stelle das, was man sehen will. Drei Dinge daneben: Der **Maler zeichnet auch
+ohne die Zusicherung** `bereit` (ein `drawImage` auf ein suchendes `<video>` liefert das alte
+Bild, und das ist auf der Bühne die bessere Auskunft als Schwarz); das **Poster bleibt bis zum
+Stopp-Wechsel liegen**, statt nach einer Frist von 1,5 s abgeräumt zu werden (genau die nahm auf
+dem Telefon das Bild weg, das über das Laden hinweghalf), und sobald das Video einmal einen
+Frame geliefert hat, bleibt es die Quelle, weil `readyState` bei jedem Suchlauf zurückfällt;
+und der **Export sucht jedes Bild** (`bildgenau`), statt das Video nebenher laufen zu lassen.
+Dort vergeht je Filmbild 0,3 bis 2 s Wanduhr, die Toleranz des Laufs landete also als falsches
+Einzelbild in der Datei. Den Anfang entschärft `_weckeVideo` in [ui.ts](src/ui.ts): Der nächste
+Halt holt schon während der Anfahrt den KOPF seiner Datei (`preload="metadata"`, nicht die
+ganze Datei, die konkurrierte mit den Kacheln).
+
 **Und die Karte des PLAYERS liegt auf einer Leinwand** ([kartenmaler.ts](src/kartenmaler.ts),
 DOM-frei; eingehängt von [kartenschicht.ts](src/kartenschicht.ts) als `#karte` auf z-index 12).
 Damit gibt es sie nur noch ZWEIMAL statt dreimal: Der Video-Export holt sie mit

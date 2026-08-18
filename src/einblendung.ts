@@ -140,6 +140,103 @@ export function videoStandS(
 }
 
 /**
+ * Bereitschaftsstufen eines `<video>` (`HTMLMediaElement.readyState`) — als
+ * Namen, weil die Nachführung unten drei davon unterscheidet und `>= 2` nichts
+ * darüber sagt, was an der Stelle entschieden wird.
+ */
+/** Maße und Dauer stehen, ein Frame noch nicht (`HAVE_METADATA`). */
+export const VIDEO_HAT_MASSE = 1
+/** Für die aktuelle Stelle liegt ein Frame vor (`HAVE_CURRENT_DATA`). */
+export const VIDEO_HAT_FRAME = 2
+/** Es ist genug gepuffert, um weiterzulaufen (`HAVE_FUTURE_DATA`). */
+export const VIDEO_LAEUFT_WEITER = 3
+
+/** Abweichung, ab der im LAUF nachgesucht wird. */
+export const VIDEO_DRIFT_LAUF_S = 0.5
+/** Abweichung, ab der im STAND nachgesucht wird (Scrubben, Pause, Rückwärts). */
+export const VIDEO_DRIFT_STAND_S = 0.04
+/** Wanduhr-Ruhe zwischen zwei Suchläufen im Lauf. */
+export const VIDEO_SUCH_PAUSE_S = 0.5
+
+/** Was ein Video-Element über sich sagt — alles, was die Nachführung braucht. */
+export interface VideoLage {
+  /** Die Stelle, an der der FILM steht (aus `videoStandS`). */
+  zielS: number
+  /** Die Stelle, an der das VIDEO steht (`currentTime`). */
+  istS: number
+  /** Filmzeit läuft vorwärts in Tempo 1 und der Ausschnitt ist nicht ausgelaufen. */
+  laeuft: boolean
+  paused: boolean
+  seeking: boolean
+  readyState: number
+  /** Wanduhr-Sekunden seit dem letzten BEGONNENEN Suchlauf. */
+  seitSuchlaufS: number
+  /**
+   * Der Video-Export braucht EXAKT den Frame dieser Filmsekunde.
+   *
+   * Dort vergeht je Filmbild 0,3 bis 2 Sekunden Wanduhr — ein Video, das
+   * nebenher liefe, wäre nach jedem Bild woanders, und die Toleranz des Laufs
+   * landete als falsches Einzelbild in der Datei. Also läuft es gar nicht: Es
+   * steht und wird auf die Stelle gesucht, wie beim Scrubben.
+   */
+  bildgenau?: boolean
+}
+
+/** Die drei Handgriffe am Video-Element, die aus einer Lage folgen. */
+export interface VideoNachfuehrung {
+  suchen: boolean
+  starten: boolean
+  anhalten: boolean
+}
+
+/**
+ * Was in dieser Filmsekunde am Video-Element zu tun ist.
+ *
+ * Die Filmzeit führt, das Video folgt — aber es folgt nicht in jedem Frame:
+ * Ein Suchlauf kostet auf dem Telefon ein paar Hundert Millisekunden, in denen
+ * der Film weiterläuft. Genau daran lief die alte Fassung (Bedingung direkt am
+ * Element, Schwelle 0,34 s, keine Rückfrage) auf Mobilgeräten in einen
+ * SUCHSTURM: Beim Öffnen eines Video-Halts steht `currentTime` noch auf 0,
+ * während das Laden über Mobilfunk eine Sekunde und mehr braucht — nach 0,34 s
+ * Filmzeit wurde gesucht, der begonnene Suchlauf im nächsten Frame durch den
+ * nächsten ersetzt, und keiner kam je an. Sichtbar war das als Ruckeln mit
+ * schwarzen Bildern dazwischen: Ein suchendes Video liefert keinen Frame, und
+ * ohne Frame malte die Karte ihr schwarzes Bildfeld.
+ *
+ * Vier Regeln, und jede einzelne hält den Sturm auf:
+ *
+ * - **Ein laufender Suchlauf wird nie überholt** (`seeking`). Das Ziel wandert
+ *   ja weiter, also wäre jeder neue Suchlauf der Abbruch des vorigen.
+ * - **Im Lauf wird nur gesucht, wenn das Video überhaupt weiterlaufen könnte**
+ *   (`VIDEO_LAEUFT_WEITER`). Puffert es gerade, führt ein Sprung nach vorn in
+ *   ungepufferte Daten — das verlängert das Puffern, statt es zu beenden.
+ * - **Nach einem Suchlauf ist eine Wanduhr-Ruhe** (`VIDEO_SUCH_PAUSE_S`).
+ *   Sonst verlangt der nächste Frame sofort den nächsten Sprung, weil der
+ *   letzte selbst Zeit gekostet hat.
+ * - **Im Lauf ist die Schwelle groß, im Stand klein.** Im Lauf trägt das Video
+ *   seine eigene Uhr und ein halbe Sekunde Versatz sieht niemand; im Stand
+ *   (Scrubben) IST die gesuchte Stelle das, was man sehen will — dort gilt nur
+ *   die erste Regel, damit der Finger führt und nicht der Suchlauf.
+ */
+export function videoNachfuehrung(lage: VideoLage): VideoNachfuehrung {
+  // „Läuft" heißt: Das Video trägt seine eigene Uhr. Im Export tut es das nicht,
+  // dort wird jedes Bild gesucht.
+  const eigeneUhr = lage.laeuft && lage.bildgenau !== true
+  const drift = Math.abs(lage.istS - lage.zielS)
+  const schwelle = eigeneUhr ? VIDEO_DRIFT_LAUF_S : VIDEO_DRIFT_STAND_S
+  const darfSuchen =
+    !lage.seeking &&
+    (eigeneUhr
+      ? lage.readyState >= VIDEO_LAEUFT_WEITER && lage.seitSuchlaufS >= VIDEO_SUCH_PAUSE_S
+      : lage.readyState >= VIDEO_HAT_MASSE)
+  return {
+    suchen: darfSuchen && drift > schwelle,
+    starten: eigeneUhr && lage.paused,
+    anhalten: !eigeneUhr && !lage.paused,
+  }
+}
+
+/**
  * Grenzen des Seitenverhältnisses der Foto-Karte (Breite ÷ Höhe).
  *
  * Extreme Panoramen und Hochformate würden die Bühne sonst sprengen: Ein
