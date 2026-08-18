@@ -31,7 +31,7 @@ import {
   sammleMockups,
   verknuepfeMockups,
 } from './sammeln.mjs'
-import { setzeKopf } from './kopf.mjs'
+import { kopfVon, setzeKopf } from './kopf.mjs'
 
 /** Ordner unter `docs/`, in die zurückgeholt werden darf. */
 export const ZIELBEREICHE = ['concepts', 'architecture', 'specs', 'ops']
@@ -70,15 +70,27 @@ export function archivZiel(rel) {
   return join(DOCS, unter, rest.join('/'))
 }
 
-/** Wohin eine archivierte Datei zurückkehrt. */
+/**
+ * Wohin eine archivierte Datei zurückkehrt.
+ *
+ * Der Bereich ist ein VORSCHLAG des Aufrufers und wird nur gebraucht, wo die
+ * Datei selbst nichts sagt: Ein Mockup kommt immer aus `docs/mockups/`, ein
+ * Dokument trägt seine Herkunft seit dem Archivieren im Kopf
+ * (`archiviert_aus`). Nur alte Archivstände ohne diese Zeile brauchen die
+ * Angabe — und im Viewer ist genau das der einzige Fall, in dem noch gefragt
+ * wird.
+ */
 export function rueckZiel(rel, bereich) {
   const abs = pruefePfad(rel)
   const inDocs = relative(DOCS, abs)
   if (!inDocs.startsWith('archive/')) throw new DienstFehler('Liegt nicht im Archiv')
   const name = inDocs.split('/').pop()
   if (inDocs.startsWith('archive/mockups/')) return join(DOCS, 'mockups', name)
-  if (!ZIELBEREICHE.includes(bereich)) throw new DienstFehler(`Unbekannter Bereich: ${bereich}`)
-  return join(DOCS, bereich, name)
+  const ausKopf = kopfVon(readFileSync(abs, 'utf8')).archiviertAus
+  const ziel = ZIELBEREICHE.includes(bereich) ? bereich : ausKopf
+  if (!ZIELBEREICHE.includes(ziel))
+    throw new DienstFehler(`Unbekannter Bereich: ${bereich ?? ausKopf ?? '—'}`)
+  return join(DOCS, ziel, name)
 }
 
 function verschiebe(vonAbs, nachAbs) {

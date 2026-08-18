@@ -43,6 +43,21 @@
     return e
   }
 
+  /*
+   * Nach dem Verschieben liegt DIESE Seite woanders — also geht sie mit.
+   *
+   * Vorher stand nur „diese Seite ist umgezogen" in der Meldung, und was die
+   * Adresse danach neu lud, war der Wächter des Dev-Servers: auf den alten
+   * Pfad, den es nicht mehr gibt. Der Dienst nennt den neuen (`docs/…`),
+   * unter `/doku/` liegt er gespiegelt.
+   */
+  function zieheUm(pfad) {
+    if (!pfad) return location.reload()
+    setTimeout(function () {
+      location.replace('/doku/' + String(pfad).replace(/^docs\//, ''))
+    }, 700)
+  }
+
   function ruf(aktion, daten) {
     return fetch(api + aktion, {
       method: 'POST',
@@ -160,7 +175,8 @@
           if (name == null) return
           ruf('umbenennen', { datei: datei, titel: titel.trim(), name: name.trim() })
             .then(function (a) {
-              melde(a.meldung + ' — diese Seite ist umgezogen.')
+              melde(a.meldung)
+              zieheUm(a.pfad)
             })
             .catch(function (f) {
               melde(f.message, true)
@@ -175,9 +191,11 @@
         eintrag(stand.archiv ? 'Zurück nach Mockups' : 'Archivieren', function () {
           klappe.style.display = 'none'
           var aktion = stand.archiv ? 'zurueckholen' : 'archivieren'
-          ruf(aktion, { datei: datei, bereich: 'concepts' })
+          // Kein Bereich: Ein Mockup kehrt nach `docs/mockups/` zurück, immer.
+          ruf(aktion, { datei: datei })
             .then(function (a) {
-              melde(a.meldung + ' — diese Seite ist umgezogen.')
+              melde(a.meldung)
+              zieheUm(a.pfad)
             })
             .catch(function (f) {
               melde(f.message, true)

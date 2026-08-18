@@ -262,11 +262,24 @@ describe('Schreibende Seite', () => {
     expect(archivZiel('docs/' + mockup.quelle)).toContain('/docs/archive/mockups/')
   })
 
-  it('holt nur in bekannte Bereiche zurück', () => {
-    const archiviert = dokumente.find((d) => d.archiviert)
-    if (!archiviert) return
-    expect(() => rueckZiel(archiviert.quelle, 'irgendwo')).toThrow()
-    expect(rueckZiel(archiviert.quelle, ZIELBEREICHE[0])).toContain('/docs/' + ZIELBEREICHE[0] + '/')
+  it('holt dorthin zurück, wo die Datei herkam', () => {
+    // Ein Mockup kennt nur einen Weg zurück — der Bereich ist dabei ohne
+    // Belang, weil er für ein Mockup keine Bedeutung hat.
+    const mockup = mockups.find((m) => m.archiv)
+    if (mockup) expect(rueckZiel('docs/' + mockup.quelle)).toContain('/docs/mockups/')
+
+    // Ein Dokument nennt seine Herkunft im Kopf: Sie gilt auch dann, wenn der
+    // Aufrufer keinen oder einen unsinnigen Bereich mitschickt.
+    const mitHerkunft = dokumente.find((d) => d.archiviert && d.kopf.archiviertAus)
+    if (mitHerkunft) {
+      const her = mitHerkunft.kopf.archiviertAus
+      expect(rueckZiel(mitHerkunft.quelle)).toContain('/docs/' + her + '/')
+      expect(rueckZiel(mitHerkunft.quelle, 'irgendwo')).toContain('/docs/' + her + '/')
+      // Ein ausdrücklich genannter Bereich schlägt sie — das ist der Fall,
+      // den die Auswahl im Viewer noch anbietet.
+      const anders = ZIELBEREICHE.find((b) => b !== her)
+      expect(rueckZiel(mitHerkunft.quelle, anders)).toContain('/docs/' + anders + '/')
+    }
   })
 
   it('nimmt kein Dokument doppelt ins Archiv', () => {

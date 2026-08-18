@@ -26,12 +26,15 @@ import { SYSTEMTEILE } from './sammeln.mjs'
 
 const TEIL_NAME = new Map(SYSTEMTEILE.map((t) => [t.id, t.name]))
 
-/** Anzeigenamen der Bereiche, in die man zurückholen kann. */
+/** Anzeigenamen der Orte, an die man zurückholen kann. */
 const BEREICHSNAME = {
   concepts: 'Konzepte',
   architecture: 'Architektur',
   specs: 'Spezifikationen',
   ops: 'Betrieb',
+  // Ein Mockup hat mit den Bereichen nichts zu tun — es kommt aus
+  // `docs/mockups/` und kehrt genau dorthin zurück.
+  mockups: 'Mockups',
 }
 
 const AMPEL_WORT = {
@@ -329,7 +332,7 @@ function bilderNachOrdner(bilder) {
  * Das Menü steht im Markup jeder Kachel, wird aber nur mit laufendem Dienst
  * eingeblendet (`body.mit-dienst`).
  */
-function aktionsmenue({ datei, titel, imArchiv, phasen = [], phase = '', oeffnen = '' }) {
+function aktionsmenue({ datei, titel, imArchiv, zurueck = '', phasen = [], phase = '', oeffnen = '' }) {
   const roadmap = phasen.length
     ? `<div class="menue-titel">Roadmap</div>
        ${phasen
@@ -342,8 +345,22 @@ function aktionsmenue({ datei, titel, imArchiv, phasen = [], phase = '', oeffnen
        <hr />`
     : ''
 
+  /*
+   * Zurückgeholt wird an den Ort, aus dem die Datei KAM — die Auswahl war eine
+   * Frage, deren Antwort danebensteht. Ein Mockup kommt immer aus
+   * `docs/mockups/` und hat mit den Bereichen nichts zu tun; bei einem
+   * Dokument nennt `archiviert_aus` im Kopf die Herkunft, und die steht dort,
+   * seit das Archivieren sie hineinschreibt.
+   *
+   * Gefragt wird nur noch im einen Fall, in dem die Frage echt ist: ein altes
+   * archiviertes Dokument ohne Herkunftszeile. Der Viewer zeigt es unter
+   * „Konzepte", aber das ist geraten — und ein geratener Ort, der sich beim
+   * Zurückholen als endgültig herausstellt, ist schlechter als eine Frage.
+   */
   const ablage = imArchiv
-    ? `<div class="menue-titel">Zurückholen nach</div>
+    ? zurueck
+      ? `<button type="button" class="menue-eintrag" data-zurueckholen data-bereich="${zurueck}">Zurück nach ${escape(BEREICHSNAME[zurueck] ?? zurueck)}</button>`
+      : `<div class="menue-titel">Zurückholen nach</div>
        ${ZIELBEREICHE.map(
          (b) =>
            `<button type="button" class="menue-eintrag" data-zurueckholen data-bereich="${b}">${escape(BEREICHSNAME[b] ?? b)}</button>`,
@@ -468,6 +485,7 @@ function dokumentKarte(d, auf, ton, roadmap) {
         datei: d.quelle,
         titel: d.titel,
         imArchiv: d.archiviert,
+        zurueck: d.kopf.archiviertAus ?? '',
         phasen: d.archiviert ? [] : (roadmap?.phasenNamen ?? []),
         phase,
       })}
@@ -560,6 +578,7 @@ function mockupKarte(m, auf, roadmap) {
           datei: 'docs/' + m.quelle,
           titel: m.titel,
           imArchiv: m.archiv,
+          zurueck: 'mockups',
           // KEINE Phasen: Auf die Roadmap kommen Konzepte. Ein Menü, das eine
           // Phase anbietet, die der Sammler danach verweigert, wäre eine
           // Einladung in eine Sackgasse.
@@ -1021,6 +1040,7 @@ function werkzeuge(dok, roadmap) {
       datei: dok.quelle,
       titel: dok.titel,
       imArchiv,
+      zurueck: dok.kopf.archiviertAus ?? '',
       phasen: imArchiv ? [] : (roadmap?.phasenNamen ?? []),
       phase,
     })}
