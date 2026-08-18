@@ -16,13 +16,13 @@ So funktioniert sie:
   aber noch nicht begonnen. **Angedacht** — gewollt, wartet auf einen Anlass.
   Wer die Namen ändert, ändert sie hier; der Viewer liest sie aus dieser Datei.
 * Der Absatz darunter sagt in einem Satz, worum es in der Phase geht.
-* **Eingeplant werden KONZEPTE, keine Prototypen.** Ein Mockup ist eine Antwort
+* **Eingeplant werden KONZEPTE, keine Mockups.** Ein Mockup ist eine Antwort
   in einem Konzept und kein eigener Plan: Es hat keinen Status, keine Ampel und
   kann nie abgearbeitet sein — auf einer Karte neben Konzepten fehlte ihm genau
-  die Auskunft, um die es hier geht. Ist der Prototyp der nächste Schritt, steht
+  die Auskunft, um die es hier geht. Ist das Mockup der nächste Schritt, steht
   das im Schritt-Text seines Konzepts, samt Link. Der Link stellt zugleich die
-  Beziehung Konzept↔Prototyp her, die der Viewer sonst nicht kennt. Wer trotzdem
-  einen Prototyp einträgt, bekommt beim Bauen eine Meldung.
+  Beziehung Konzept↔Mockup her, die der Viewer sonst nicht kennt. Wer trotzdem
+  ein Mockup einträgt, bekommt beim Bauen eine Meldung.
 * Jeder Listenpunkt verweist auf ein Dokument. **Der Linktext ist der Name auf der
   Karte** — kurz und einheitlich, nicht der Dateiname und nicht die volle
   Überschrift des Dokuments („Studio-Editor zerlegen" statt „Umbauplan:
@@ -49,17 +49,17 @@ jeweiligen Dokuments. Wer eine Etappe abschließt, ändert sie dort.
 
 Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
-* [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
-* [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
-* [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
-* [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch; der Prototyp dafür steht ([app-aufnahmen-hinzufuegen.html](mockups/app-aufnahmen-hinzufuegen.html)).
+* [Play Store](concepts/konzept_play_store_interner_test.md) — Die App aus dem APK-Versand herausholen.
 
 ## Beschlossen · als Nächstes
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Play Store](concepts/konzept_play_store_interner_test.md) — Die App aus dem APK-Versand herausholen.
 * [Social Login](concepts/konzept_social_login.md) — Anmelden mit Google.
+* [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
+* [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
+* [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch; das Mockup dafür steht ([app-aufnahmen-hinzufuegen.html](mockups/app-aufnahmen-hinzufuegen.html)).
+* [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
 * [Newsletter](concepts/konzept_newsletter.md) — Teil B: der redaktionelle Versand.
 * [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — Die Leiste nach Paket G.
 * [Studio-Editor zerlegen](concepts/konzept_editor_zerlegung.md) — Bevor `editor.ts` weiter wächst.
