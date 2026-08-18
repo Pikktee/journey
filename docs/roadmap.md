@@ -49,19 +49,19 @@ jeweiligen Dokuments. Wer eine Etappe abschließt, ändert sie dort.
 
 Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
-* [Play Store](concepts/konzept_play_store_interner_test.md) — Die App aus dem APK-Versand herausholen.
+* [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — Die Leiste nach Paket G.
+
 
 ## Beschlossen · als Nächstes
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Social Login](concepts/konzept_social_login.md) — Anmelden mit Google.
+* [Play Store](concepts/konzept_play_store_interner_test.md) — Die App aus dem APK-Versand herausholen.
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]
 * [Medien nachreichen](concepts/konzept_medien_nachreichen_und_loeschen.md) — Die App-Seite fehlt noch; das Mockup dafür steht ([app-aufnahmen-hinzufuegen.html](mockups/app-aufnahmen-hinzufuegen.html)).
 * [Tracker-Anbindung](concepts/konzept_tracker_integrationen.md) — Nach Polar der zweite Anbieter.
 * [Newsletter](concepts/konzept_newsletter.md) — Teil B: der redaktionelle Versand.
-* [Steuerleiste des Players](concepts/konzept_player_leiste_ui.md) — Die Leiste nach Paket G.
 * [Studio-Editor zerlegen](concepts/konzept_editor_zerlegung.md) — Bevor `editor.ts` weiter wächst.
 
 ## Angedacht · ohne Termin
@@ -77,3 +77,4 @@ Gewollt, aber ohne Reihenfolge. Was hier steht, wartet auf einen Anlass.
 * [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) — Vertagt, Glossar gilt schon.
 * [Die Tafeln auf die Leinwand](concepts/die-tafeln-auf-die-leinwand.md) — Erst die Klickflächen von Startscreen und Finale, dann die Optik.
 * [Monetarisierung](concepts/konzept_monetarisierung.md) — Die Esri-Lizenz klären.
+* [Social Login](concepts/konzept_social_login.md) — Anmelden mit Google.
