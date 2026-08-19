@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-19
-status: beschlossen am 2026-08-19, zweite Fassung nach Review, Wellen und Verträge inventarisiert, nichts umgesetzt
+status: beschlossen am 2026-08-19, zweite Fassung nach Review; Werkzeug-Vorstufe (Prettier, ESLint, CI-Gate, Namensformen §6.0, Signatur-Regel §4.3) am selben Tag gebaut, die Wellen selbst nicht begonnen
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -323,6 +323,15 @@ alte Form genau einmal, in Ruhe, vor dem ersten Request. Drei Regeln:
   gelöscht und beim Render neu gebaut (kostet Geocoding und Bildanalyse, nichts
   Unwiederbringliches). Die Migration bildet sie trotzdem ab, weil die
   Bildanalyse der teuerste Posten der Pipeline ist.
+- **Die Signaturen werden NEU BERECHNET, nicht abgebildet.** `trimSignatur` und
+  `videoSchnittSignatur` sind kein Schlüssel, sondern stringifiziertes JSON der
+  Edits (`JSON.stringify(edits.trim)`, [anreicherung.ts](../../server/src/pipeline/anreicherung.ts)).
+  Nach der Umbenennung `start/ende` und `vonS/bisS` passt die gespeicherte
+  Zeichenkette nie wieder zur neu gerechneten: Jede Tour liefe in die volle
+  Anreicherung, Geocoding und Bildanalyse inklusive. Die Start-Migration ruft
+  deshalb dieselben Signatur-Funktionen über den migrierten Edits auf und
+  schreibt das Ergebnis in die migrierte `enrichment.json` (Befund vom
+  2026-08-19, Review der zweiten Fassung).
 
 Die Start-Migration bleibt im Code, solange irgendwo Stand-1-Daten liegen
 können (Snapshots, Geräte des Betreibers). Sie wird in einer späteren Welle
@@ -507,6 +516,46 @@ ohnehin öffnet:
 **Der eine Streitpunkt aus der ersten Fassung ist entschieden:** `stop` ist der
 Ort, `hold` ist die Dauer dort. Beides ist im Englischen üblich (ein Kamera-
 „hold" auf einem Motiv) und das Feld `holdS` existiert in drei Verträgen.
+
+### 6.0 Namensformen
+
+Das Glossar regelt die Wörter, dieser Abschnitt die Formen. Er gilt für jede
+Welle; die Umbenenn-Agenten wenden ihn tausendfach an, also steht er hier und
+nicht im Kopf eines Agenten-Prompts.
+
+| Ebene | Form |
+|---|---|
+| Funktionen, Variablen, JSON-Felder | `camelCase` |
+| Typen, Klassen, Interfaces, Enums | `PascalCase` (kein `I`-, kein `T`-Präfix) |
+| Konstanten | `SCREAMING_SNAKE` |
+| Dateinamen, API-Pfade | `kebab-case` |
+| SQLite (Tabellen, Spalten) | `snake_case` |
+| Kotlin-Enum-Speicherwerte | `SCREAMING_SNAKE` |
+
+Dazu neun Regeln, jede eine Zeile:
+
+1. **Einheiten stehen im Namen**: `…S` Sekunden, `…Ms` Millisekunden, `…M`
+   Meter, `…Km` Kilometer; Zeitstempel `…At` (DB: `…_at`). Das ist heute schon
+   Praxis (`holdS`, `filmS`, `RAMPE_M`) und bleibt Pflicht.
+2. **Booleans** sind Adjektiv oder tragen `is`/`has`/`can` (`removed`,
+   `enabled`, `canView`); nie negiert (kein `notVisible`, sondern `hidden`).
+3. **Funktionen verb-first** nach Wirkung: `build…`/`load…`/`set…`/`validate…`,
+   immutable Updates `with…`/`without…`, Handler `on…`. Ein Verb je Bedeutung:
+   `load` für DB und Datei, nicht abwechselnd `fetch`/`get`/`read`.
+4. **Sammlungen Plural, Element Singular**; Zähler heißen `…Count`
+   (`file_count`), nie das Plural-Wort als Zahl.
+5. **Amerikanisches Englisch**: `color`, `canceled`, `traveled`.
+6. **Füllwörter verboten**: `data`, `info`, `manager`, `helper`, `util` als
+   Namensbestandteil ohne Aussage.
+7. **Abkürzungen** nur etablierte: `id`, `url`, `api`, `db`, `sfx`.
+8. **`type` vor `kind`**: `type` für die Gattung eines Dings (`mediaType`);
+   `kind` nur, wo `type` kollidiert oder schon vergeben ist (`moments[].kind`).
+9. **Der Stil ist Werkzeug**: Prettier (`semi: false`, `singleQuote`,
+   `printWidth 100`) und ESLint laufen im Deploy-Gate (eingeführt am
+   2026-08-19, Format-Commit steht in `.git-blame-ignore-revs`). Die
+   ESLint-Aus-Liste in [eslint.config.mjs](../../eslint.config.mjs) trägt
+   Zählstände und schrumpft pro Welle; Kotlin folgt dem offiziellen
+   Kotlin-Style (ktlint ist offen und kommt spätestens mit Welle 7).
 
 ### 6.1 Domain-Kern
 
@@ -878,6 +927,8 @@ halben Jahr jemand fragt, warum die Rampe 120 m ist und nicht 200.
 ## 8. Abnahme je Welle
 
 - [ ] Web: `npm test` + `npm run typecheck`
+- [ ] `npm run lint` + `npm run format:check` (braucht node_modules BEIDER
+      Welten, sonst meldet die unsafe-Familie Phantom-Befunde)
 - [ ] Server: `cd server && npm test` (Coverage-Gate 80 % wie in der CI)
 - [ ] Android ab Welle 1 (Room, Manifest, Edits): `./gradlew test`
 - [ ] Manuell: Anmelden, Tour öffnen, Modus-Grenze ziehen, Speichern, Player
@@ -960,6 +1011,14 @@ gegen den Code gefallen (§0). Ersetzt durch diese Fassung.
 ---
 
 ## 11. Nächster Schritt
+
+**Erledigt am 2026-08-19, vor Welle 0:** die Werkzeug-Vorstufe. Prettier
+(De-facto-Stil festgeschrieben, einmaliger Format-Lauf über alle TS/JS-Dateien,
+Commit in `.git-blame-ignore-revs`) und ESLint (typbasiert über beide
+tsconfig-Welten, Aus-Liste mit Zählständen in
+[eslint.config.mjs](../../eslint.config.mjs)) laufen im Deploy-Gate. CSS und
+HTML bleiben vorerst unformatiert: Wächter-Tests lesen dort Quelltext als
+Zeichenkette. ktlint für Android ist offen (spätestens Welle 7).
 
 **Welle 0**, konkret und in dieser Reihenfolge:
 
