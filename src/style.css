@@ -1640,7 +1640,7 @@ body.export .export-stand {
    der Szene. */
 .karten-info {
   position: fixed;
-  right: max(10px, env(safe-area-inset-right));
+  right: clamp(10px, env(safe-area-inset-right), 24px);
   bottom: 10px;
   z-index: 22;
 }
@@ -1961,8 +1961,8 @@ body.export .export-stand {
  `orientation: landscape` und `max-height: 500px` als zutreffend, wodurch
  dieses kompakte Layout im Hochformat zuschlug. */
 body.kompakt-quer .next-stop {
-  top: max(11px, env(safe-area-inset-top));
-  right: max(22px, env(safe-area-inset-right));
+  top: max(10px, env(safe-area-inset-top));
+  right: clamp(16px, env(safe-area-inset-right), 24px);
   max-width: 40vw;
   padding: 6px 10px 7px;
   border-radius: var(--radius-md);
@@ -1991,8 +1991,8 @@ body.kompakt-quer .next-stop-km {
 
 body.kompakt-quer /* — Steuerstreifen: eine Zeile über die volle Breite — */
 .dock {
-  left: max(8px, env(safe-area-inset-left));
-  right: max(8px, env(safe-area-inset-right));
+  left: clamp(8px, env(safe-area-inset-left), 28px);
+  right: clamp(8px, env(safe-area-inset-right), 28px);
   bottom: calc(6px + env(safe-area-inset-bottom));
   width: auto;
   flex-wrap: nowrap;
@@ -2145,22 +2145,28 @@ body.kompakt-quer .btn-start {
 /* Quer ist nur die HÖHE knapp — die Pille wird flacher, das Ziel bleibt lesbar
    (neben dem früheren Titelblock hatte sie hier keinen Platz dafür).
 
-   SEITLICH braucht sie dagegen MEHR Rand als hochkant, nicht weniger, und das
-   aus zwei Gründen, die beide erst im Vollbild auffallen (dort ist die Kante des
-   Bildschirms auch die Kante der Seite):
+   SEITLICH ist der Rand ein clamp, und das ist der Punkt, an dem hier zweimal
+   danebengegriffen wurde (dort ist im Vollbild die Kante des Bildschirms auch
+   die Kante der Seite):
 
-   1. Im Querformat wandert der Kamera-Ausschnitt an eine SEITE. `env(…-top)`
-      stand hier von Anfang an, `env(…-left/right)` nirgends im ganzen Blatt —
-      also war genau die Richtung ungeschützt, in der der Ausschnitt liegt, wenn
-      dieses Layout gilt.
-   2. Die Ecke ist RUND, und eine Ecke frisst über die Diagonale. Ein Punkt bei
-      (12, 8) ist rechnerisch 14 px von der Ecke weg, liegt bei einem Radius von
-      40 px aber schon außerhalb des Bildschirms — beides einzeln sieht großzügig
-      aus, zusammen nicht. Deshalb 22 statt 12, symmetrisch auch für den Chip
-      rechts. */
+   `env(…-left)` reserviert den GANZEN linken Streifen, weil irgendwo darauf ein
+   Ausschnitt liegt. Der Ausschnitt sitzt aber in der MITTE der Kante (quer
+   gedreht ist es die Lochkamera, die hochkant oben mittig steht), und diese
+   Elemente sitzen in den ECKEN. Ein Eck-Element braucht deshalb keinen
+   Kamera-Streifen, sondern Abstand von der RUNDUNG — folgt es dem vollen Inset,
+   rückt es sichtbar zu weit nach innen.
+
+   Umgekehrt ist ein fester kleiner Wert zu wenig: Bei 12 px stand die Pille am
+   Gerät fast in der Rundung. Beides ist am Pixel 9 gesehen worden, und der
+   clamp ist die Antwort dazwischen: mindestens 16, höchstens 24, dazwischen so
+   viel, wie die Safe Area verlangt. Damit liegt der Rand in beiden Fällen
+   richtig, ohne dass jemand den Inset des Geräts kennen muss.
+
+   Der Streifen bleibt dort ungekürzt, wo ein Element wirklich über die ganze
+   Kante läuft — die Steuerleiste unten. */
 body.kompakt-quer .zurueck {
-  top: max(11px, env(safe-area-inset-top));
-  left: max(22px, env(safe-area-inset-left));
+  top: max(10px, env(safe-area-inset-top));
+  left: clamp(16px, env(safe-area-inset-left), 24px);
   height: 30px;
   padding: 0 14px 0 10px;
 }
