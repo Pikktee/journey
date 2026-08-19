@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-19
-status: beschlossen am 2026-08-19, zweite Fassung nach Review; Werkzeug-Vorstufe (Prettier, ESLint, CI-Gate, Namensformen §6.0, Signatur-Regel §4.3) am selben Tag gebaut, die Wellen selbst nicht begonnen
+status: beschlossen am 2026-08-19, dritte Fassung nach zwei Reviews (sieben plus zehn Befunde eingearbeitet); Werkzeug-Vorstufe (Prettier, ESLint, CI-Gate, Namensformen §6.0) gebaut, die Wellen selbst nicht begonnen
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -73,6 +73,18 @@ Dazu: Glossar-Lücken gefüllt (`export` als neues Homonym, `Aufnahme`, `Pause`,
 API-Pfade), die Modultabelle vollständig, die Messskripte als blinder Fleck
 benannt, Topf C korrigiert, ein Rückweg in §8.
 
+**Ein drittes Review am Abend des 19.08.** (Agent adversarial gegen den Code,
+57 Prüfschritte) hat zehn weitere Befunde ergeben; sie sind direkt in die
+Abschnitte eingearbeitet: Env-Variablen und Fragment-Schlüssel als
+eingefrorene Verträge (§3.4), die WebView-Brücke und die CSS-`<link>`-Namen
+als Nähte (§3.3), SQL-Strings als in-Welt-blinder Fleck (§3.1, §8), die
+korrigierte Re-Render-Mechanik samt `luhambo/*@1` (§4.3), Android als
+`tour.json`-Leser (§3.2, §5), die korrigierten Enum-Fakten und WorkManager
+(§4.4), `mail_templates.key`/`settings.key` und die Banner-Pfade (§4.2), das
+`fehler`-Feld der Ablehnungsantwort und die App-Seite des Rückwegs (§4.1,
+§8), dazu Zählkorrekturen (16 Tabellen, 7 CHECK-Tabellen), die
+vervollständigte Dateiliste (§6.6) und fünf Glossar-Nachträge.
+
 ---
 
 ## 1. Ziel und Nicht-Ziel
@@ -90,8 +102,9 @@ DataStore-Schlüssel.
 - UI-Texte, Mail-Vorlagen, Rechtstexte, Hilfetexte
 - Commit-Messages, Produktchat, Konzepte und Specs als Prosa
 - Der Inhalt der Tabelle `mailvorlagen` (Text, keine Struktur)
-- Die Texte der Einwilligungs-Historie (`textfassung`): Das ist eine Zusage
-  nach Art. 7 DSGVO, kein Schlüssel
+- Die Kennungen der Einwilligungs-Historie (`textfassung`, z. B.
+  `registrierung-2026-08-06`): Das ist Beweismaterial nach Art. 7 DSGVO,
+  kein Schlüssel
 
 ### Nicht-Ziel
 
@@ -113,7 +126,7 @@ DataStore-Schlüssel.
 | Studio, Konto, Profil, Admin, Galerie | deutsch |
 | Server (`server/src`, 74 Dateien) | deutsch, Verträge gemischt (`upload@1` fast englisch, `edits@1` fast deutsch, `tour@1` gemischt) |
 | Android (59 Kotlin-Dateien) | deutsch |
-| SQLite | 17 Tabellen, `user_version` 22; 11 Tabellennamen und rund 80 Spalten deutsch, 8 `CHECK`-Wertemengen deutsch |
+| SQLite | 16 Tabellen, `user_version` 22; 11 Tabellennamen und rund 80 Spalten deutsch, 7 `CHECK`-Wertemengen deutsch |
 | HTTP-API | 73 Pfade, rund 45 mit deutschen Wörtern; Feldnamen überwiegend deutsch |
 
 Grobzählung der `export`-Deklarationen: `src/` 816, `server/src/` 414, jeweils
@@ -175,7 +188,12 @@ liegt**. Getrennt kompiliert sind hier vier Welten: `src/` (Web), `server/src/`
 (eigener `rootDir`, `tsconfig.json` der Wurzel schließt `server` aus),
 `android/` (Kotlin) und die Skripte unter `scripts/` (nicht typgeprüft). Eine
 Umbenennung innerhalb einer Welt fängt der Compiler; eine Umbenennung ÜBER eine
-Grenze hinweg fängt niemand.
+Grenze hinweg fängt niemand. Eine Ausnahme gilt auch INNERHALB der Server-Welt:
+SQL steht als roher String in Hunderten `db.prepare(…)`-Aufrufen, Spalten wie
+Werte (`SET status = 'fehler' WHERE status = 'verarbeitung'` in
+[app.ts](../../server/src/app.ts), `KARTEN_SPALTEN` in
+[galerie.ts](../../server/src/routes/galerie.ts), viele weitere). `tsc` bleibt
+dabei grün; der Halt ist die Testsuite plus der Abnahme-Grep aus §8.
 
 ### 3.2 Die Verträge und ihre Leser
 
@@ -185,13 +203,14 @@ Grenze hinweg fängt niemand.
 | `original/manifest.json` | Datenordner | Server (Pipeline), Android (Schreiber) | `maptale/upload@1` |
 | `edits.json` | Datenordner | Server, Studio (über API), **Android** (`EditsFortschreibung.kt`, rohes `JsonObject`) | `maptale/edits@1` |
 | `anreicherung.json` | Datenordner | nur Server (Cache) | `maptale/anreicherung@1` |
-| `tour.json` | Datenordner | Player (`src/remote.ts`), Export-ZIP | `maptale/tour@1` |
+| `tour.json` | Datenordner | Player (`src/remote.ts`), **Android** (`ApiClient.kt` parst es aus `GET /api/tours/:id`: `ServerTourDetail`, Foto-Nachzug-Abgleich), Export-ZIP | `maptale/tour@1` |
 | JSON in DB-Spalten | `tours.stats_json`, `rueckmeldungen.kontext`, `mail_tokens.nutzlast`, `tracker_verknuepfungen.tokens` | Server, Web (`stats` in Listen) | keine |
 | **HTTP-API** | `server/src/routes/*`, `server/src/app.ts` | Web (`src/studio/api.ts`, `src/remote.ts`, `src/konto`, `src/profil`, `src/admin`, `src/galerie`, `src/app-nav.ts`), **Android** (`ApiClient.kt`, `TourenScreen.kt`, `ImportViewModel.kt`, `TrackerModell.kt`) | keine |
 | Room | `Entities.kt`, `LuhamboDb.kt` | nur App | Version 3, zwei Migrationen |
 | DataStore | `api_token`, `email`, `server_url`, `fotos_automatisch` | nur App | keine |
 | Cookies | `maptale_session`, `maptale_dabei` | Browser | keine |
-| localStorage | `maptale.ansicht` | Browser | keine |
+| localStorage | `maptale.ansicht`, `maptale.editor.stimmung`, `maptale_profil_cache`, `maptale:weather`, `maptale:weather-int`, `maptale:music`, `maptale:audio`; sessionStorage `maptale:video-sound` | Browser | keine |
+| WebView-Brücke | `maptale:hintergrund`/`maptale:vordergrund` (Events), `window.MaptaleApp.verlassen()` | App (`PlayerScreen.kt`) ↔ Player (`src/main.ts`) | keine |
 | `postMessage`-Kanal | `src/exportformat.ts` | Studio ↔ Export-Rahmen, gleiche Welt | keine |
 | `window.__j`, `window.__studio` | Player, Studio | **`scripts/messungen/*`** (Playwright) | keine |
 | Query-Parameter | `?tour`, `?app`, `?dev`, `?pins3d`, `?reverse` | Android-WebView (`?app=1`), Bookmarks | keine |
@@ -216,7 +235,9 @@ zugehörigen Test laufen:
 | Server-Spiegel ohne Import | `server/src/webpfade.ts`, `server/src/handle.ts`, `server/src/pipeline/filmtempo.ts`, `filmachse.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routen.test.ts`, `test/filmachse.test.ts`, `test/audio*.test.ts` |
 | Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-hinweis.test.ts`, `test/routen.test.ts`, `test/basis-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
 | Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/filmachse`, `src/einblendung`, `src/kartenmaler`, `src/streckenanker`, `src/geo` und lesen `window.__j.filmachse`, `.filmS`, `.uhr`, `.exportMess`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 und 6 ziehen `scripts/` mit; Abnahme: jedes Messskript einmal gestartet |
-| Vhost | `deploy/cloudpanel-nginx.conf` proxyt nur `/api` als Präfix und `/sitemap-*.xml` | unberührt, solange `/api/` Präfix bleibt |
+| Vhost | `deploy/cloudpanel-nginx.conf` proxyt `/api`, `/@`, `/tour/`, `/umami` und die Sitemaps | unberührt, solange `/api/` Präfix bleibt |
+| WebView-Brücke | `maptale:hintergrund`/`vordergrund` + `window.MaptaleApp.verlassen()` verbinden Welle 5 (Player) und Welle 7 (App); versagt LAUTLOS (Optional-Chaining schluckt den toten Exit, ohne das Hintergrund-Event kommt der Ton-Drift zurück) | Welle 5 lässt beide Kanäle unangetastet; Welle 7 ändert beide Seiten in EINEM Commit (derselbe Tag baut Web und APK) |
+| CSS-`<link>`-Namen | `basis.css`, `grundelemente.css`, `werkzeug.css`, `rechtstext.css` hängen als `<link>` in den HTML-Köpfen, dazu `basisZuerst()` in vite.config.js | Welle 6 ändert HTML, CSS-Dateinamen und vite.config zusammen; danach jede Seite im Dev UND gebaut ansehen |
 | Extern registrierte URLs | OAuth-Callback und Webhook der Tracker-Anbieter (`/api/tracker/:provider/callback`, `/api/webhooks/tracker/:provider`) | schon englisch, **bleiben wortgleich**; eine Änderung hieße Neuregistrierung beim Anbieter |
 | Mail-Links auf die API | `/api/export/:token` (48 h gültig), `/api/newsletter/ein-klick/:token` (noch kein Versand live) | Welle 1 zu einem Zeitpunkt ohne laufenden Export; Newsletter-Versand ist Teil B und noch nicht gebaut |
 
@@ -230,6 +251,27 @@ zugehörigen Test laufen:
 - **Extern registrierte Pfade** (Tracker-Callback, Webhook): schon englisch.
 - **Die Ordnerstruktur je Tour** (`original/`, `media/`): schon englisch;
   `anreicherung.json` wird zu `enrichment.json` (§4.3).
+- **Die Umgebungsvariablen** (`MAPTALE_*`, gelesen in
+  [config.ts](../../server/src/config.ts), rund 20 Stück, viele deutsch:
+  `MAPTALE_DATEN_DIR`, `MAPTALE_ADMIN_PASSWORT`, `MAPTALE_HINTER_TLS` …). Sie
+  werden aus einer VPS-`.env` und aus CI-Secrets gesetzt, die AUSSERHALB jedes
+  Diffs liegen: Eine Umbenennung wäre unsichtbar, bis der Container mit dem
+  Default `./daten` startet und der Datenordner leer aussieht. Sie bleiben
+  wortgleich; eine spätere Umbenennung wäre ein eigener Ops-Schritt mit
+  Doppelbelegung (alte UND neue Namen lesen), nie Teil einer Welle.
+- **Die Fragment-Schlüssel der Mail- und Einladungslinks** (`#einladung=`,
+  `#newsletter-aus=`, `#email=`, `#reset=`): Sie stehen in bereits
+  verschickten Mails, und der Abmeldelink ist ausdrücklich ohne Frist
+  (Art. 7 Abs. 3 DSGVO). Gebaut vom Server
+  ([warteliste.ts](../../server/src/routes/warteliste.ts),
+  [newsletter.ts](../../server/src/newsletter.ts)), geparst im Web
+  ([konto.ts](../../src/konto/konto.ts), [studio.ts](../../src/studio/studio.ts)),
+  ein drittes Mal gebaut in [adminmodell.ts](../../src/admin/adminmodell.ts):
+  kein Compiler verbindet die Seiten. Eingefroren wie die Seiten-Pfade.
+- **Die Notification-Kanal-IDs der App** (`aufzeichnung`, `importe`, `upload`,
+  [LuhamboApp.kt](../../android/app/src/main/java/app/maptale/LuhamboApp.kt)):
+  Sie persistieren je Installation SAMT den Einstellungen, die jemand pro
+  Kanal getroffen hat. Bleiben wortgleich.
 
 ---
 
@@ -251,6 +293,13 @@ verschiedene Dinge. Der Satz in der Spec, das Backend „darf alte
 Manifest-Versionen weiter annehmen", wird in Welle 1 ersetzt durch: „nimmt genau
 die aktuelle an; ältere werden mit Hinweis abgelehnt."
 
+Damit die Bestands-App den Hinweis auch ZEIGT, trägt genau diese eine
+Ablehnungsantwort den Klartext zusätzlich im alten Feld `fehler` (neben
+`error`): Die alte App liest ihre Fehlermeldungen aus `fehler`
+([ApiClient.kt](../../android/app/src/main/java/app/maptale/upload/ApiClient.kt))
+und zeigte sonst den rohen JSON-Body. Das ist die einzige bewusste
+Alt-Ausnahme des ganzen Umbaus und im Code als solche markiert.
+
 ### 4.2 SQLite: Spalten per `RENAME`, Werte per Neubau
 
 **Spalten und Tabellen** sind ein weiterer Schritt in der `user_version`-Leiter
@@ -258,8 +307,9 @@ die aktuelle an; ältere werden mit Hinweis abgelehnt."
 und `RENAME TO`. Keine Datenbewegung. 11 Tabellennamen und rund 80 Spalten, die
 vollständige Abbildung steht in §6.8.
 
-**Werte** sind etwas anderes. Acht Tabellen tragen deutsche Werte in
-`CHECK`-Constraints, und `RENAME COLUMN` kann die nicht ändern:
+**Werte** sind etwas anderes. Sieben Tabellen tragen deutsche Werte in
+`CHECK`-Constraints, und `RENAME COLUMN` kann die nicht ändern (die achte
+Zeile der Tabelle, `mail_tokens.zweck`, ist schon englisch und bleibt):
 
 | Tabelle | Spalte | Werte heute | Werte danach |
 |---|---|---|---|
@@ -287,6 +337,23 @@ werden im selben Migrationsschritt per `UPDATE` über die Glossartabelle
 umgeschrieben. `nutzlast` und `tokens` tragen nur fremde oder schon englische
 Schlüssel und bleiben.
 
+**Und zwei Tabellen tragen deutsche Schlüssel als ZEILEN ohne `CHECK`:**
+`mail_templates.key` hält die Admin-Abweichungen unter den Code-Schlüsseln
+`verifikation`, `email-wechsel`, `warteliste`, `warteliste-einladung`
+([mailvorlagen.ts](../../server/src/mailvorlagen.ts)); `settings.key` die
+Betriebs-Schalter `einladung_pflicht` und `warteliste_offen`. Beide bekommen
+im selben Migrationsschritt ein `UPDATE … SET key = CASE …` und je eine Zeile
+im Leiter-Test. Ohne das fällt der neue Code STILL zurück: Die im Admin
+angepasste Vorlage wird unter `verification` nicht gefunden und der
+Code-Standard verschickt, `einladung_pflicht` gilt wieder als ungesetzt.
+
+**`users.titelbild` und `users.avatar` speichern PFADE** in deutsche
+Ordner (`titelbild/<ts>.jpg`, `avatar/<ts>.jpg`,
+[routes/auth.ts](../../server/src/routes/auth.ts)); der Satz „Ordnerstruktur
+schon englisch" aus §3.4 gilt nur je Tour. Die Start-Migration benennt die
+Benutzer-Ordner um und schreibt die Werte im selben Schritt: Nur die Spalte
+umzubenennen bräche jedes Banner, nur die Werte ohne die Dateien ebenso.
+
 ### 4.3 JSON auf Platte: Start-Migration, und `tour.json` wird neu gerendert
 
 Die erste Fassung wollte ein Einmal-Skript unter `scripts/`, das nach dem Lauf
@@ -311,14 +378,31 @@ alte Form genau einmal, in Ruhe, vor dem ersten Request. Drei Regeln:
   von einem Test gegen die zod-Schemata gehalten: Jeder neue Schlüssel muss im
   Schema vorkommen, jeder alte darf es nicht mehr.
 - **`tour.json` wird nicht umgeschrieben, sondern neu gerendert.** Nach der
-  Migration stößt die Start-Migration für jede Tour mit Status `ready` ein
-  Re-Render an (dieselbe Warteschlange wie `reprocess`, aus dem Cache, also
-  ohne Geocoding und Bildanalyse). Eine Schlüssel-Abbildung auf `tour.json`
+  Migration rendert der Server jede Tour mit Status `ready` neu, und zwar
+  SERIELL und über den Edits-Speichern-Pfad
+  (`verarbeite(app, id, { frisch: false })`), nicht über `reprocess`: Der ist
+  per Definition `frisch: true` und verwirft genau den Cache, den dieser Lauf
+  braucht ([tours.ts](../../server/src/routes/tours.ts)). Eine „Warteschlange"
+  gibt es auch nicht; `app.verarbeitungen` ist eine Map sofort gestarteter,
+  parallel laufender Promises, und parallel hieße: alle Touren gleichzeitig
+  gegen Nominatim (1 req/s) und die bezahlte Bildanalyse. Das Nachholen hängt
+  an der DATEI, nicht am Marker: Bei jedem Start wird jede `ready`-Tour, deren
+  `tour.json` noch `@1` trägt, neu gerendert, bis keine mehr da ist. Damit
+  heilt sich ein Absturz mitten im Lauf von selbst. Touren, die zum
+  Migrationszeitpunkt in `verarbeitung` oder `fehler` stehen, bekommen kein
+  automatisches Re-Render (ihr nächster `reprocess` rendert ohnehin frisch);
+  die Abnahme in §8 zählt sie. Eine Schlüssel-Abbildung auf `tour.json`
   träfe nicht, was der neue Code anders ableitet, und die Bestandstouren-
   Rückfälle aus `CLAUDE.md` („tragen die alten Texte, bis sie neu gerendert
   werden"; `f` statt `filmS`; Alt-Kicker) erledigen sich dabei mit. Bis das
   Render durch ist, antwortet `/api/tours/:id` mit `processing`; der Player
   zeigt das wie heute.
+- **Die Abbildung nimmt auch die Alt-Kennungen `luhambo/*@1` an.**
+  [upload.ts](../../server/src/schema/upload.ts),
+  [edits.ts](../../server/src/schema/edits.ts) und
+  [remote.ts](../../src/remote.ts) akzeptieren sie heute; die ältesten Touren
+  tragen sie noch. Ohne die zweite Zeile in der Abbildung fielen genau die
+  durch.
 - **`enrichment.json` ist ein Cache.** Klemmt die Abbildung, wird die Datei
   gelöscht und beim Render neu gebaut (kostet Geocoding und Bildanalyse, nichts
   Unwiederbringliches). Die Migration bildet sie trotzdem ab, weil die
@@ -351,14 +435,30 @@ Version 4, `fallbackToDestructiveMigration()` im Builder, der Kommentar im
 selben Commit umgeschrieben. Nach Welle 7 kommt die Zusage zurück: Aufruf raus,
 Kommentar wieder hin, ab v5 wieder echte Migrationen.
 
-Mit umzubenennen sind die **Enum-Speicherwerte** (`TourStatus.AUFNAHME, ENTWURF,
-LAEDT_HOCH, HOCHGELADEN, FEHLER`, `MediumUploadStatus.LOKAL, HOCHGELADEN`,
-`Bewegungsart.ZU_FUSS, RAD, FAHRZEUG`): Die `TypeConverter` speichern `.name`,
-also liegen sie als Strings in der DB. Wer nur die Kotlin-Namen ändert, lässt
-sie stehen. Die Room-Tabellennamen (`touren`, …) und Spalten (`titel`,
-`beschreibung`, `endeMs`, `distanzM`, `genauigkeitM`, `aufgenommenMs`,
-`ankerLng`, `typ`, `datei`, `modusAutomatisch`) gehen mit; bei destruktiver
-Migration ist das eine Umbenennung im Code, sonst nichts.
+Mit umzubenennen sind die **Enum-Speicherwerte**, aber nur zwei Enums
+speichern überhaupt per `.name`: `TourStatus` (`AUFNAHME, ENTWURF, LAEDT_HOCH,
+HOCHGELADEN, FEHLER`) und `MediumUploadStatus` (`LOKAL, HOCHGELADEN`), s.
+`EnumKonverter` in
+[LuhamboDb.kt](../../android/app/src/main/java/app/maptale/daten/LuhamboDb.kt).
+**`Modus` speichert `.schluessel`** und die sind schon englisch (`walk`,
+`bike`, …): Wer den Converter auf `.name` „vereinheitlicht", schreibt `WALK`
+in die DB und ins Manifest und bricht den `upload@2`-Vertrag, dessen Werte
+gerade NICHT wandern. Und **`Bewegungsart` liegt in keiner Tabelle** (kein
+Converter, lebt nur im Speicher der Aufzeichnung): reine Kotlin-Umbenennung
+in Welle 7, keine Speicherwerte. Die Room-Tabellennamen (`touren`, …) und
+Spalten (`titel`, `beschreibung`, `endeMs`, `distanzM`, `genauigkeitM`,
+`aufgenommenMs`, `ankerLng`, `typ`, `datei`, `modusAutomatisch`) gehen mit;
+bei destruktiver Migration ist das eine Umbenennung im Code, sonst nichts.
+
+**WorkManager ist ein zweites Room.** Er persistiert Worker-KLASSENNAMEN und
+Unique-Work-Namen in einer eigenen, updatefesten Datenbank: `"upload-$tourId"`
+([UploadWorker.kt](../../android/app/src/main/java/app/maptale/upload/UploadWorker.kt)),
+periodisch `"tracker-abfrage"`, `"fotonachzug-$tourId"`. Ein APK-Update mit
+umbenannten Worker-Klassen lässt eingereihte Uploads und den periodischen
+Tracker-Abruf mit ClassNotFound scheitern; dieselbe Fehlerklasse, für die
+oben Room v4 eingeführt wird, ein Stockwerk tiefer. Welle 7 cancelt beim
+ersten Start einmalig die alten Unique-Works und reiht sie unter den neuen
+Klassen neu ein. Die Notification-Kanal-IDs bleiben wortgleich (§3.4).
 
 ### 4.5 Die Annahme, und wann sie verfällt
 
@@ -410,7 +510,9 @@ und in dieser Reihenfolge, jeder Schritt für sich atomar und deploybar:
    Admin-Routen) + Web- und Android-Leser dieser Felder
 2. `upload@2` + Android-Manifestbau + `POST /api/tours/:id/media`
 3. `edits@2` + Studio-Typen + `EditsFortschreibung.kt`
-4. `enrichment@2` + `tour@2` + Player-Leser + Re-Render
+4. `enrichment@2` + `tour@2` + Player-Leser + App-Leser (`ApiClient.kt`
+   parst das Tour-JSON: `ServerTourDetail`, Foto-Nachzug) + Re-Render;
+   App-Release am selben Tag, wie bei Schritt 1 bis 3
 5. API-Pfade (rein mechanisch, zuletzt, weil sie nichts Fachliches ändern)
 
 Nicht nach Modul aufteilen. Jeder Schritt bringt seine Start-Migration mit.
@@ -587,6 +689,8 @@ Dazu neun Regeln, jede eine Zeile:
 | Datenexport (Art. 20 DSGVO) | `dataExport` | Tabelle `data_exports` |
 | Befund (Bildanalyse) | `finding` | |
 | Befund (Upload-Prüfung) | `importReport` | |
+| Fehler (Statuswert) | `failed` | §4.2; nie `error` als Status |
+| Fehler (Feldname der Meldung) | `error` | §6.7; zwei englische Wörter für ein deutsches, bewusst getrennt |
 
 ### 6.2 Auth, Konto, Profil
 
@@ -624,6 +728,7 @@ Dazu neun Regeln, jede eine Zeile:
 | Trim (Tour) | `tourTrim` | Video: `mediaTrim` |
 | Klangbibliothek | `audioLibrary` | |
 | Nachreichen (Medien) | `addMedia` | Route `POST /api/tours/:id/media` |
+| AchsenKurve (Zeit→Strecke) | `AxisCurve` | `zeitleiste.ts` |
 
 ### 6.3a Player und Film
 
@@ -653,6 +758,9 @@ Dazu neun Regeln, jede eine Zeile:
 | Weg hinaus (Pille oben links) | `exitPill` | |
 | Startscreen / Finale-Tafel | `introPanel` / `finalePanel` | |
 | Entwickeln (der Karte) | `develop` | |
+| Stützpunkt (Routen-Verdichtung) | `vertex`, `VERTEX_MAX_M` | `geo.ts`; nicht `waypoint` (das ist der Wegpunkt) |
+| Pegel (Lautstärke) | `level` | `STUDIO_LEVEL`, `CURATED_LEVEL`, `audioLevel` |
+| Filmspur | `FilmTrack` | `tour.ts` |
 
 ### 6.4 Server / Pipeline
 
@@ -673,6 +781,7 @@ Dazu neun Regeln, jede eine Zeile:
 | Bremse (Rate-Limit) | `rateLimit` | |
 | Manifestsperre | `manifestLock` | |
 | Bildfassung | `imageVariant` | |
+| Gehabschnitt | `walkSegment` | `pipeline/tempo.ts` |
 
 ### 6.5 Android
 
@@ -683,7 +792,7 @@ Dazu neun Regeln, jede eine Zeile:
 | AufzeichnungsService | `RecordingService` | |
 | starteAufnahme / beendeAufnahme | `startRecording` / `finishRecording` | |
 | Bewegungserkennung | `activityRecognition` | |
-| Bewegungsart | `ActivityKind`, Werte `ON_FOOT`, `CYCLING`, `VEHICLE` | Speicherwerte, Welle 1 |
+| Bewegungsart | `ActivityKind`, Werte `ON_FOOT`, `CYCLING`, `VEHICLE` | nicht persistiert (kein Converter), Welle 7 |
 | AufnahmeModus (Foto/Video) | `captureMode` | nicht `travelMode` |
 | TourStatus | `RECORDING`, `DRAFT`, `UPLOADING`, `UPLOADED`, `FAILED` | Speicherwerte, Welle 1 |
 | MediumUploadStatus | `LOCAL`, `UPLOADED` | Speicherwerte, Welle 1 |
@@ -702,7 +811,7 @@ Ordner, dessen Inhalt die Welle benennt.
 | `src/studio/editmodell.ts` | `edit-model.ts` | 4 |
 | `src/studio/zeitleiste.ts` | `timeline.ts` | 4 |
 | `src/studio/tonklip.ts` | `audio-clip.ts` | 4 |
-| `src/studio/stopps.ts` | `stops.ts` | 4 |
+| `src/studio/stopps.ts` | `stops.ts` | 5 (nicht 4: [einblendung.ts](../../src/einblendung.ts) und [geo.ts](../../src/geo.ts) importieren es, die Umbenennung öffnet Player-Kern-Dateien) |
 | `src/studio/pruefung.ts` | `import-validation.ts` | 4 |
 | `src/studio/abspielen.ts` | `playback.ts` | 4 |
 | `src/studio/exportblatt.ts` | `export-sheet.ts` | 4 |
@@ -748,7 +857,12 @@ Ordner, dessen Inhalt die Welle benennt.
 | `server/src/pipeline/musikwahl.ts` / `schienen.ts` / `signatur.ts` / `zeit.ts` | `music-choice.ts` / `rails.ts` / `signature.ts` / `time.ts` | 2 |
 | `server/src/exportinhalt.ts` / `exportlauf.ts` / `export.ts` | `data-export-content.ts` / `data-export-run.ts` / `data-export.ts` | 2 |
 | `server/src/bremse.ts` / `manifestsperre.ts` / `mailvorlagen.ts` / `maillayout.ts` | `rate-limit.ts` / `manifest-lock.ts` / `mail-templates.ts` / `mail-layout.ts` | 2 |
-| `server/src/protokoll.ts` / `rueckmeldungen.ts` / `profilfelder.ts` / `titelbilder.ts` / `seiten.ts` / `webpfade.ts` | `audit-log.ts` / `feedback.ts` / `profile-fields.ts` / `profile-banners.ts` / `pages.ts` / `web-paths.ts` | 2 |
+| `server/src/protokoll.ts` / `rueckmeldungen.ts` / `profilfelder.ts` / `titelbilder.ts` / `webpfade.ts` | `audit-log.ts` / `feedback.ts` / `profile-fields.ts` / `profile-banners.ts` / `web-paths.ts` | 2 |
+| `server/src/seiten.ts` (Meta-Kopf-Logik) / `server/src/routes/seiten.ts` | `page-meta.ts` / `routes/pages.ts` (zwei Dateien, zwei Namen: gleichnamig liefe die Suche ins Leere) | 2 |
+| `server/src/routes/galerie.ts` / `bibliothek.ts` / `warteliste.ts` / `rueckmeldungen.ts` | `routes/gallery.ts` / `audio-library.ts` / `waitlist.ts` / `feedback.ts` | 2 |
+| `server/src/auth/einladungen.ts` / `warteliste.ts` / `passwort.ts` | `auth/invitations.ts` / `waitlist.ts` / `password.ts` | 2 |
+| `server/src/tracker/krypto.ts` / `touranleger.ts` / `importlauf.ts` / `normalisierer.ts` / `testprovider.ts` | `tracker/crypto.ts` / `tour-creator.ts` / `import-run.ts` / `normalizer.ts` / `test-provider.ts` | 2 |
+| `src/basis.css` / `grundelemente.css` / `werkzeug.css` / `rechtstext.css` | `base.css` / `page-elements.css` / `toolkit.css` / `legal-text.css` (samt `<link>`-Zeilen in den HTML-Köpfen und `basisZuerst()` in vite.config.js, s. Nahtliste) | 6 |
 | `server/src/migrationen/` (neu in Welle 1) | `migrations/` | 2 |
 | `android/…/daten/LuhamboDb.kt` | `MaptaleDb.kt` | 7 |
 
@@ -798,9 +912,15 @@ schon englisch ist (`/api/tours/:id/editor|edits|finalize|reprocess|track|audio`
 | `POST /api/tours/:id/medien` | `POST /api/tours/:id/media` (Sammlung; `PUT/DELETE …/media/:mid` bleiben) |
 | `/api/tracker/imports/gesehen` | `/api/tracker/imports/seen` |
 
-Die Vollzählung der Aufrufer erzeugt Welle 0 mechanisch: `grep -rhoE
-"'/api/[^']+'" server/src | sort -u` gegen dieselbe Suche über `src/` und
-`android/`; jeder Pfad, der nur auf einer Seite vorkommt, ist ein Befund.
+Die Vollzählung der Aufrufer erzeugt Welle 0 mechanisch, aber NICHT mit dem
+naiven Einzeiler: Eine Suche nur nach einfach gequoteten Literalen fand beim
+Review 23 von 97 Registrierungen. Template-Literale im Web, mehrzeilige
+Registrierungen im Server und Kotlin-Doppelquotes fallen durch. Welle 0 nutzt
+ein kleines Skript, das alle drei Quote-Arten und mehrzeilige Aufrufe abdeckt;
+jeder Pfad, der nur auf einer Seite vorkommt, ist ein Befund. Query-Parameter
+gehen mit den Pfaden: `?gesehen=1` an `/api/tracker/imports/pending` wird
+`?seen=1` ([ApiClient.kt](../../android/app/src/main/java/app/maptale/upload/ApiClient.kt)
+↔ [tracker.ts](../../server/src/routes/tracker.ts)).
 
 **Felder.** Request- und Response-Körper folgen §6.1 bis §6.5. Die häufigsten:
 `anzeigename` → `displayName`, `titelbild[Url]` → `banner[Url]`, `suchmaschinen`
@@ -954,6 +1074,11 @@ Zusätzlich für Welle 1:
 - [ ] Grep über den Datenordner nach den alten Schlüsseln: keine Treffer;
       `daten/.schema` = 2
 - [ ] Grep über `src/` und `android/` nach alten API-Pfaden: keine Treffer
+- [ ] Grep über `server/src` nach ALLEN alten Tabellen-, Spalten- und
+      Wertenamen: keine Treffer (SQL-Strings sieht kein Compiler, §3.1)
+- [ ] Keine `ready`-Tour trägt mehr `tour.json@1`; Touren in `fehler` oder
+      `verarbeitung` zum Migrationszeitpunkt sind gezählt und benannt (§4.3)
+- [ ] Banner und Avatare aller Konten laden (Pfad-Werte + Ordner, §4.2)
 - [ ] Kein laufender Datenexport zum Zeitpunkt des Deploys (48-h-Links)
 
 **Rückweg für Welle 1** (der einzige irreversible Schritt): altes Image-Tag in
@@ -961,6 +1086,14 @@ Zusätzlich für Welle 1:
 zurückspielen, DB aus dem Snapshot, `dist/` des vorigen Tags per `rsync`. Das
 ist ein Handgriff von zehn Minuten, aber nur, solange Kopie und Snapshot
 existieren; beides wird erst nach Abnahme der Welle 2 gelöscht.
+
+**Und der Rückweg hat eine App-Seite**, die der Handgriff nicht abdeckt: Ein
+APK-Downgrade auf einem Gerät mit Room v4 stürzt ab (es gibt keinen
+Downgrade-Pfad), und die neue App sendet `upload@2` gegen den
+zurückgerollten Server, der das nur als opaken Schema-Fehler kennt. Also:
+Rollback nur, solange seit dem App-Update keine Aufnahme entstanden ist;
+sonst die Aufnahme VOR dem Rollback gegen den neuen Server hochladen, oder
+das Gerät auf der neuen App lassen und den nächsten Anlauf abwarten.
 
 ---
 
