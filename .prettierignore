@@ -13,3 +13,7 @@ coverage/
 server/coverage/
 package-lock.json
 server/package-lock.json
+# Agenten-Worktrees liegen INNERHALB des Repos (.claude/worktrees/); ohne diese
+# Zeile prüft Prettier einen alten Stand ein zweites Mal und meldet 190 fremde
+# Dateien.
+.claude/worktrees/

@@ -1,6 +1,6 @@
 ---
 stand: 2026-08-19
-status: beschlossen am 2026-08-19, dritte Fassung nach zwei Reviews (sieben plus zehn Befunde eingearbeitet); Werkzeug-Vorstufe (Prettier, ESLint, CI-Gate, Namensformen §6.0) gebaut, die Wellen selbst nicht begonnen
+status: beschlossen am 2026-08-19, dritte Fassung nach den Reviews aus §0; Werkzeug-Vorstufe gebaut, Wellen nicht begonnen
 betrifft:
   - server/src/db.ts
   - server/src/schema/edits.ts
@@ -26,8 +26,7 @@ icon: buchstaben
 
 **Beschlossen.** Interne Bezeichner gehen auf Englisch, einschließlich aller
 persistierten Verträge und der HTTP-API. Die vertagte Fassung vom 13.08. ist
-überholt (§10), die erste beschlossene Fassung vom Vormittag des 19.08. ist durch
-diese ersetzt (§0).
+überholt (§10), die früheren Fassungen vom 19.08. sind durch diese ersetzt (§0).
 
 **Leitplanke:** Coding-Agenten übernehmen die Tipparbeit; Menschen halten
 Glossar, Wellengrenze und Review. Kein Big-Bang. Kein Rückwärtsleser.
@@ -53,7 +52,7 @@ ihren Abschnitt:
    erhöhen die `@`-Version", `austauschformat.md`). Die Kennung wird erhöht,
    ein Leser für die alte Fassung wird NICHT gebaut (§4.1). Das ist kein
    Kompatibilitätsweg, sondern die Fehlermeldung.
-4. **„Keine Datenbewegung" stimmt nur für Spaltennamen.** Acht Tabellen tragen
+4. **„Keine Datenbewegung" stimmt nur für Spaltennamen.** Sieben Tabellen tragen
    deutsche Werte in `CHECK`-Constraints, dazu ein partieller Index auf
    `'laeuft'` und JSON-Blobs in Spalten. Werte gehen mit, und das ist je Tabelle
    ein Neubau, kein `RENAME` (§4.2).
@@ -84,6 +83,25 @@ korrigierte Re-Render-Mechanik samt `luhambo/*@1` (§4.3), Android als
 `fehler`-Feld der Ablehnungsantwort und die App-Seite des Rückwegs (§4.1,
 §8), dazu Zählkorrekturen (16 Tabellen, 7 CHECK-Tabellen), die
 vervollständigte Dateiliste (§6.6) und fünf Glossar-Nachträge.
+
+**Eine parallele Code-Prüfung vom selben Tag** (zweite Sitzung, am 19.08.
+abends zusammengeführt) hat dieselbe Fassung unabhängig gegen den Code
+gestellt. Was sie zusätzlich fand, steht an Ort und Stelle; die Stücke, die
+den Bauplan ändern und nicht nur den Text: `mail_tokens.nutzlast` ist KEIN
+JSON-Blob, sondern ein roher String (§4.2); die Platzhalter `{{frist}}`,
+`{{groesse}}`, `{{austragenLink}}` stehen wörtlich im gespeicherten Text der
+`mailvorlagen`-Zeilen und gehen im selben `UPDATE` mit (§4.2); der Marker
+`daten/.schema` ist eine Leiter, kein Schalter (§4.3); das Re-Render schaltet
+den Status je Tour und nicht für alle zugleich, weil Galerie und Profile hart
+auf `bereit` filtern (§4.3); es gibt kein zod im Projekt (§4.3); `verarbeite`
+ist heute nicht exportiert (§3.3); die Push-Nutzlast `typ: 'import-fertig'` und
+der Import von `src/routen.ts` in `vite.config.js` sind Nähte (§3.3); die
+kuratierten Klangdateien unter `public/audio/sfx/` sind persistierte DATEN und
+wandern nicht (§3.4); `placement` trägt deutsche Werte und `stats.fotos` zählt
+Medien, nicht Fotos (§6.9); dazu CSS, DOM und Custom Properties als eigene Sorte
+(§6.10), `/api/push/geraete` (§6.7), das Front Matter der Doku (§7), der
+Totalausfall der alten App im Deploy-Fenster (§5), neun Glossar-Zeilen und
+die Abbildungstabelle als Werkstück von Welle 0 (§11).
 
 ---
 
@@ -204,7 +222,7 @@ dabei grün; der Halt ist die Testsuite plus der Abnahme-Grep aus §8.
 | `edits.json` | Datenordner | Server, Studio (über API), **Android** (`EditsFortschreibung.kt`, rohes `JsonObject`) | `maptale/edits@1` |
 | `anreicherung.json` | Datenordner | nur Server (Cache) | `maptale/anreicherung@1` |
 | `tour.json` | Datenordner | Player (`src/remote.ts`), **Android** (`ApiClient.kt` parst es aus `GET /api/tours/:id`: `ServerTourDetail`, Foto-Nachzug-Abgleich), Export-ZIP | `maptale/tour@1` |
-| JSON in DB-Spalten | `tours.stats_json`, `rueckmeldungen.kontext`, `mail_tokens.nutzlast`, `tracker_verknuepfungen.tokens` | Server, Web (`stats` in Listen) | keine |
+| JSON in DB-Spalten | `tours.stats_json`, `rueckmeldungen.kontext`, `tracker_verknuepfungen.tokens` (`mail_tokens.nutzlast` ist ein roher String, §4.2) | Server, Web (`stats` in Listen) | keine |
 | **HTTP-API** | `server/src/routes/*`, `server/src/app.ts` | Web (`src/studio/api.ts`, `src/remote.ts`, `src/konto`, `src/profil`, `src/admin`, `src/galerie`, `src/app-nav.ts`), **Android** (`ApiClient.kt`, `TourenScreen.kt`, `ImportViewModel.kt`, `TrackerModell.kt`) | keine |
 | Room | `Entities.kt`, `LuhamboDb.kt` | nur App | Version 3, zwei Migrationen |
 | DataStore | `api_token`, `email`, `server_url`, `fotos_automatisch` | nur App | keine |
@@ -234,7 +252,11 @@ zugehörigen Test laufen:
 | `test/fixtures/filmachse.json` | EIN Fixture, zwei Testwelten (`test/filmachse.test.ts`, `server/test/filmtempo.test.ts`) | Welle 5 ändert Fixture und Server-Spiegel zusammen |
 | Server-Spiegel ohne Import | `server/src/webpfade.ts`, `server/src/handle.ts`, `server/src/pipeline/filmtempo.ts`, `filmachse.ts`, `STUDIO_PEGEL` in `schema/edits.ts` | bestehende Drift-Wächter in `test/routen.test.ts`, `test/filmachse.test.ts`, `test/audio*.test.ts` |
 | Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-hinweis.test.ts`, `test/routen.test.ts`, `test/basis-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
-| Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/filmachse`, `src/einblendung`, `src/kartenmaler`, `src/streckenanker`, `src/geo` und lesen `window.__j.filmachse`, `.filmS`, `.uhr`, `.exportMess`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 und 6 ziehen `scripts/` mit; Abnahme: jedes Messskript einmal gestartet |
+| Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/filmachse`, `src/einblendung`, `src/kartenmaler`, `src/streckenanker`, `src/geo` und lesen `window.__j.filmachse`, `.filmS`, `.uhr`, `.exportMess`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 zieht `scripts/messungen` mit, Welle 6 den Rest von `scripts/`; Abnahme: jedes Messskript einmal gestartet |
+| `vite.config.js` → `src/routen.ts` | die Config importiert `EINSTIEGE`, `PFAD_ZU_DATEI`, `ROUTEN` und `tourAusPfad`; sie ist kein TypeScript und läuft in Vites eigenem Loader | Welle 6, im selben Commit. Fällt laut auf (die Config lädt nicht), steht aber sonst auf keiner Liste |
+| `camera[].preset` → `PRESETS` in `src/tour.ts` | der Player löst den Wert über `PRESETS[name] ?? PRESETS.mittel` auf; der Rückfall ist STILL. Welle 1 benennt die Werte, `tour.ts` ist Welle 5: Dazwischen fiele jede Kamerakante auf „mittel" | Welle 1 zieht die Schlüssel von `PRESETS` (und `MODE_SCALE` bleibt, Modi wandern nicht) im selben Commit mit |
+| `verarbeite` in `routes/tours.ts` | heute NICHT exportiert; die Start-Migration aus §4.3 muss sie rufen | Welle 1 exportiert oder verschiebt sie, bevor die Migration entsteht |
+| Push-Nutzlast Server → App | [push.ts](../../server/src/push.ts) sendet `{ typ: 'import-fertig', tourId, importId }`, [MaptalePushDienst.kt](../../android/app/src/main/java/app/maptale/push/MaptalePushDienst.kt) vergleicht `data["typ"] != "import-fertig"`. Schlüssel UND Wert deutsch, und die Leser liegen in verschiedenen Wellen (Server 2, App 7) | Welle 1, zusammen mit den übrigen API-Feldern. Sonst kommt jede Import-fertig-Meldung still nie mehr an |
 | Vhost | `deploy/cloudpanel-nginx.conf` proxyt `/api`, `/@`, `/tour/`, `/umami` und die Sitemaps | unberührt, solange `/api/` Präfix bleibt |
 | WebView-Brücke | `maptale:hintergrund`/`vordergrund` + `window.MaptaleApp.verlassen()` verbinden Welle 5 (Player) und Welle 7 (App); versagt LAUTLOS (Optional-Chaining schluckt den toten Exit, ohne das Hintergrund-Event kommt der Ton-Drift zurück) | Welle 5 lässt beide Kanäle unangetastet; Welle 7 ändert beide Seiten in EINEM Commit (derselbe Tag baut Web und APK) |
 | CSS-`<link>`-Namen | `basis.css`, `grundelemente.css`, `werkzeug.css`, `rechtstext.css` hängen als `<link>` in den HTML-Köpfen, dazu `basisZuerst()` in vite.config.js | Welle 6 ändert HTML, CSS-Dateinamen und vite.config zusammen; danach jede Seite im Dev UND gebaut ansehen |
@@ -246,11 +268,33 @@ zugehörigen Test laufen:
 - **Seiten-Pfade** (§1). Auch `/@handle`, `/tour/t_…`, `/sitemap-*.xml`.
 - **Tour-IDs** `t_…`: Das Präfix IST die Unterscheidung zu den kuratierten
   `TOURS` und steht so im Player-Vertrag.
-- **Der Inhalt** von `mailvorlagen`, `newsletter_einwilligungen.textfassung`
-  und allen Rechtstexten.
+- **Der Inhalt** von `mailvorlagen` (Ausnahme: die Platzhalter darin, §4.2),
+  `newsletter_einwilligungen.textfassung` und allen Rechtstexten.
 - **Extern registrierte Pfade** (Tracker-Callback, Webhook): schon englisch.
 - **Die Ordnerstruktur je Tour** (`original/`, `media/`): schon englisch;
   `anreicherung.json` wird zu `enrichment.json` (§4.3).
+- **Die WERTE der mitgelieferten Titelbilder** (`serpentinen.jpg`, `kueste.jpg`,
+  `nachtstadt.jpg`, `wueste.jpg` unter `public/titelbilder/`): `users.titelbild`
+  trägt sie als blanken Dateinamen, [profilfelder.ts](../../server/src/profilfelder.ts)
+  baut daraus `/titelbilder/<name>`. Die Spalte wird umbenannt (§6.8), die
+  Dateinamen selbst bleiben: Sie sind Daten, keine Bezeichner. Der ORDNER
+  `public/titelbilder/` bleibt ebenfalls wortgleich: Sein Präfix baut der
+  SERVER (`profilfelder.ts`, Welle 2), der Ordner liegt im Web-Build (Welle 6),
+  zwei Wellen und zwei Compiler-Welten für einen Pfad, und ein statischer
+  Ordnername ist kein Bezeichner. Die EIGENEN Uploads unter `titelbild/<ts>.jpg`
+  sind der andere Fall und stehen in §4.2.
+- **Die kuratierten Klangdateien** unter `public/audio/sfx/` (`amb-bach.mp3`,
+  `amb-bergwind.mp3`, `mus-nachtfahrt.mp3`, …, 28 Stück). Ihre Namen sind als
+  `audio[].datei` in jedem `edits.json` und als `src` in jedem `tour.json`
+  PERSISTIERT; der Katalog steht in
+  [sfxbibliothek.ts](../../src/studio/sfxbibliothek.ts), die acht
+  Auto-Musik-Stücke gespiegelt in
+  [musikwahl.ts](../../server/src/pipeline/musikwahl.ts) (Drift-Wächter in
+  `test/studio-baukasten.test.ts`), `mus-nachtfahrt.mp3` zusätzlich in
+  [tours.ts](../../src/tours.ts). Wer sie in Welle 5 oder 6 „mitnimmt", bricht
+  jede Bestandstour mit Ton. Daten, keine Bezeichner. Die Motorloops
+  `public/audio/eng-*.mp3` und die Wetter-Loops daneben sind der harmlosere
+  Fall: nur `vehicle.ts`/`weather.ts` kennen sie, nie ein `edits.json`.
 - **Die Umgebungsvariablen** (`MAPTALE_*`, gelesen in
   [config.ts](../../server/src/config.ts), rund 20 Stück, viele deutsch:
   `MAPTALE_DATEN_DIR`, `MAPTALE_ADMIN_PASSWORT`, `MAPTALE_HINTER_TLS` …). Sie
@@ -258,16 +302,33 @@ zugehörigen Test laufen:
   Diffs liegen: Eine Umbenennung wäre unsichtbar, bis der Container mit dem
   Default `./daten` startet und der Datenordner leer aussieht. Sie bleiben
   wortgleich; eine spätere Umbenennung wäre ein eigener Ops-Schritt mit
-  Doppelbelegung (alte UND neue Namen lesen), nie Teil einer Welle.
+  Doppelbelegung (alte UND neue Namen lesen), nie Teil einer Welle. Für den
+  Fall, dass er einmal kommt, drei Fakten, die die parallele Prüfung erhoben
+  hat: `konfigAusEnv` hat für fast alles eine Vorgabe, der Fehler ist also
+  lautlos (Schaden bei `MAPTALE_HINTER_TLS`: Cookies ohne `Secure`;
+  `MAPTALE_BASIS_URL`: Mail-Links auf `localhost:5173`; dazu Absender,
+  Admin-Passwort, Speicher-Limit). Der Signaturschlüssel ist NICHT betroffen
+  (`MAPTALE_COOKIE_SECRET` ist englisch, und
+  [docker-compose.cloudpanel.yml](../../docker-compose.cloudpanel.yml) erzwingt
+  ihn mit `${…:?}` beim Start). Und die `.env` allein reicht nie: Das
+  Compose-File reicht jede Variable NAMENTLICH in den Container, und
+  [server/Dockerfile](../../server/Dockerfile) setzt `MAPTALE_DATEN_DIR=/data`
+  als Vorgabe; beide liegen im Repo.
 - **Die Fragment-Schlüssel der Mail- und Einladungslinks** (`#einladung=`,
-  `#newsletter-aus=`, `#email=`, `#reset=`): Sie stehen in bereits
+  `#newsletter-aus=`, `#email=`, `#reset=`, `#verify=`): Sie stehen in bereits
   verschickten Mails, und der Abmeldelink ist ausdrücklich ohne Frist
   (Art. 7 Abs. 3 DSGVO). Gebaut vom Server
   ([warteliste.ts](../../server/src/routes/warteliste.ts),
-  [newsletter.ts](../../server/src/newsletter.ts)), geparst im Web
-  ([konto.ts](../../src/konto/konto.ts), [studio.ts](../../src/studio/studio.ts)),
-  ein drittes Mal gebaut in [adminmodell.ts](../../src/admin/adminmodell.ts):
-  kein Compiler verbindet die Seiten. Eingefroren wie die Seiten-Pfade.
+  [newsletter.ts](../../server/src/newsletter.ts), [auth.ts](../../server/src/routes/auth.ts)),
+  geparst im Web ([konto.ts](../../src/konto/konto.ts),
+  [studio.ts](../../src/studio/studio.ts)), ein drittes Mal gebaut in
+  [adminmodell.ts](../../src/admin/adminmodell.ts): kein Compiler verbindet die
+  Seiten. Eingefroren wie die Seiten-Pfade. `#tracker=` (Werte
+  `verbunden/abgebrochen/abgelaufen/fehler`, OAuth-Rücksprung aus
+  [tracker.ts](../../server/src/routes/tracker.ts), gelesen in
+  [trackerkarte.ts](../../src/konto/trackerkarte.ts)) steht in keiner Mail und
+  ist flüchtig; es friert der Einheitlichkeit wegen mit ein, dieselbe Naht,
+  dieselbe Regel.
 - **Die Notification-Kanal-IDs der App** (`aufzeichnung`, `importe`, `upload`,
   [LuhamboApp.kt](../../android/app/src/main/java/app/maptale/LuhamboApp.kt)):
   Sie persistieren je Installation SAMT den Einstellungen, die jemand pro
@@ -298,7 +359,19 @@ Ablehnungsantwort den Klartext zusätzlich im alten Feld `fehler` (neben
 `error`): Die alte App liest ihre Fehlermeldungen aus `fehler`
 ([ApiClient.kt](../../android/app/src/main/java/app/maptale/upload/ApiClient.kt))
 und zeigte sonst den rohen JSON-Body. Das ist die einzige bewusste
-Alt-Ausnahme des ganzen Umbaus und im Code als solche markiert.
+Alt-Ausnahme des ganzen Umbaus und im Code als solche markiert. Sie ist eine
+Zeile in der Ablehnungsantwort und kein Rückwärtsleser: Sie gilt nur für
+abgelehnte `@1`-Uploads und verschwindet zusammen mit der Start-Migration in
+Welle 8, nicht früher. Gebraucht wird sie, solange irgendwo eine alte App
+laufen kann; die Start-Migration dagegen läuft schon beim ersten Start des
+neuen Servers.
+
+**Mit `@2` fällt auch der Alt-Alias `luhambo/…@1`.** `remote.ts` akzeptiert
+heute `luhambo/tour@1` gleichberechtigt neben `maptale/tour@1`, die
+Schema-Köpfe von `upload.ts` und `edits.ts` nennen `luhambo/upload@1` und
+`luhambo/edits@1` kompatibel. Die Start-Migration erkennt beide alten Kennungen
+(§4.3); der neue Code kennt nur noch `maptale/…@2`. Das ist Teil dieser Welle
+und keine Nachlässigkeit.
 
 ### 4.2 SQLite: Spalten per `RENAME`, Werte per Neubau
 
@@ -332,20 +405,36 @@ Version 0 hochfährt, bekommt je Tabelle eine Zeile mit altem Wert, die danach
 den neuen tragen muss.
 
 **JSON-Blobs in Spalten** (`tours.stats_json` mit `fotos`, `spur`;
-`rueckmeldungen.kontext`; `mail_tokens.nutzlast`; `tracker_verknuepfungen.tokens`)
-werden im selben Migrationsschritt per `UPDATE` über die Glossartabelle
-umgeschrieben. `nutzlast` und `tokens` tragen nur fremde oder schon englische
-Schlüssel und bleiben.
+`rueckmeldungen.kontext`; `tracker_verknuepfungen.tokens`) werden im selben
+Migrationsschritt per `UPDATE` über die Glossartabelle umgeschrieben. `tokens`
+trägt nur fremde Schlüssel und bleibt. **`mail_tokens.nutzlast` ist KEIN
+Blob**, sondern ein roher String (die neue Mail-Adresse beim Adresswechsel,
+[auth.ts](../../server/src/routes/auth.ts), `eingeloest.nutzlast`); dort wird
+nur die Spalte zu `payload`, der Inhalt bleibt unangetastet. Wer ihn als JSON
+zu lesen versucht, findet keine Schlüssel und „repariert" ihn im schlimmsten
+Fall.
 
 **Und zwei Tabellen tragen deutsche Schlüssel als ZEILEN ohne `CHECK`:**
-`mail_templates.key` hält die Admin-Abweichungen unter den Code-Schlüsseln
-`verifikation`, `email-wechsel`, `warteliste`, `warteliste-einladung`
-([mailvorlagen.ts](../../server/src/mailvorlagen.ts)); `settings.key` die
-Betriebs-Schalter `einladung_pflicht` und `warteliste_offen`. Beide bekommen
-im selben Migrationsschritt ein `UPDATE … SET key = CASE …` und je eine Zeile
-im Leiter-Test. Ohne das fällt der neue Code STILL zurück: Die im Admin
+`mailvorlagen.schluessel` (nach §6.8 `mail_templates.key`) hält die
+Admin-Abweichungen unter den Code-Schlüsseln `verifikation`, `email-wechsel`,
+`warteliste`, `warteliste-einladung`
+([mailvorlagen.ts](../../server/src/mailvorlagen.ts));
+`einstellungen.schluessel` (`settings.key`) die Betriebs-Schalter
+`einladung_pflicht` und `warteliste_offen`. Beide bekommen im selben
+Migrationsschritt ein `UPDATE … SET key = CASE …` und je eine Zeile im
+Leiter-Test. Ohne das fällt der neue Code STILL zurück: Die im Admin
 angepasste Vorlage wird unter `verification` nicht gefunden und der
-Code-Standard verschickt, `einladung_pflicht` gilt wieder als ungesetzt.
+Code-Standard verschickt, `einladung_pflicht` gilt wieder als ungesetzt (die
+Vorgabe ist zufällig „zu").
+
+**Die Platzhalter in gespeicherten Vorlagen gehen mit.** `mailvorlagen.ts` nutzt
+`{{link}}`, `{{code}}`, `{{name}}`, `{{frist}}`, `{{groesse}}`,
+`{{austragenLink}}`. Die letzten drei sind deutsch und stehen **wörtlich im
+Inhalt** der `mailvorlagen`-Zeilen, den §1 sonst deutsch lässt. Wer sie nur im
+Code umbenennt, lässt jede angepasste Vorlage künftig `{{frist}}` als Klartext
+in die Mail rendern. Also: Code UND gespeicherter Text im selben `UPDATE`. Das
+ist die eine Stelle, an der die Migration Produkttext anfasst, und sie fasst
+nur die Platzhalter an, nicht die Sprache drumherum.
 
 **`users.titelbild` und `users.avatar` speichern PFADE** in deutsche
 Ordner (`titelbild/<ts>.jpg`, `avatar/<ts>.jpg`,
@@ -363,26 +452,37 @@ Smoke-Instanz (`MAPTALE_DATEN_DIR`) und jeder Snapshot von vor Welle 1 brauchen
 dasselbe Werkzeug; und zwischen `docker compose up` des neuen Images und dem
 Skriptlauf läse der neue Code alte Schlüssel.
 
-Deshalb: **eine Start-Migration im Server, neben der DB-Leiter.** Beim Start
+Deshalb: **eine Start-Migration im Server, neben der DB-Leiter.** Der Marker
+`daten/.schema` ist eine LEITER wie `user_version` und kein Schalter: Wird die
+Welle nach §5 in fünf Teilschritte gebrochen, bringt jeder seinen eigenen Stand
+mit (2, 3, 4 …), sonst läuft der zweite Schritt gegen Daten, deren Stand er
+nicht kennt, oder gar nicht. Beim Start
 liest der Server `daten/.schema` (Marker, heute nicht vorhanden = Stand 1),
 durchläuft bei Stand 1 alle Tour-Ordner, bildet die Schlüssel von
 `original/manifest.json`, `edits.json` und `anreicherung.json` nach der
 Glossartabelle ab, benennt `anreicherung.json` in `enrichment.json` um,
 schreibt die Kennungen auf `@2` und setzt den Marker auf 2. Idempotent, in
 einer Transaktion je Tour (Schreiben in `.neu`, dann `rename`), eingecheckt
-unter `server/src/migrationen/`. Das ist **kein Rückwärtsleser**: Es liest die
-alte Form genau einmal, in Ruhe, vor dem ersten Request. Drei Regeln:
+unter `server/src/migrations/`. **Gleich englisch benannt**: Welle 0 hat die
+Sprachregel schon gesetzt, und neu entstehender Code wäre sonst der erste
+Verstoß gegen sie. Das ist **kein Rückwärtsleser**: Es liest die
+alte Form genau einmal, in Ruhe, vor dem ersten Request. Sechs Regeln:
 
 - **Die Abbildung ist dieselbe Tabelle wie im Code**, nicht zwei Listen. Sie
-  steht als Datenstruktur in `server/src/migrationen/schluessel-v2.ts` und wird
-  von einem Test gegen die zod-Schemata gehalten: Jeder neue Schlüssel muss im
-  Schema vorkommen, jeder alte darf es nicht mehr.
+  steht als Datenstruktur in `server/src/migrations/keys-v2.ts` und wird
+  von einem Test gegen die Schema-Dateien gehalten: Jeder neue Schlüssel muss im
+  Schema vorkommen, jeder alte darf es nicht mehr. **Es gibt kein zod im
+  Projekt**; die Verträge sind handgeschriebene JSON-Schema-Objekte plus
+  TypeScript-Typen in `server/src/schema/*.ts`, und genau dagegen läuft der Test.
 - **`tour.json` wird nicht umgeschrieben, sondern neu gerendert.** Nach der
   Migration rendert der Server jede Tour mit Status `ready` neu, und zwar
   SERIELL und über den Edits-Speichern-Pfad
-  (`verarbeite(app, id, { frisch: false })`), nicht über `reprocess`: Der ist
+  (`verarbeite(app, id, { frisch: false })`, heute nicht exportiert, s. §3.3),
+  nicht über `reprocess`: Der ist
   per Definition `frisch: true` und verwirft genau den Cache, den dieser Lauf
-  braucht ([tours.ts](../../server/src/routes/tours.ts)). Eine „Warteschlange"
+  braucht ([tours.ts](../../server/src/routes/tours.ts)). Wer sich hier vertut,
+  bezahlt für jede Bestandstour Bildanalyse, Reverse-Geocoding und Wetter und
+  macht aus einem Fenster von Minuten eines von Stunden. Eine „Warteschlange"
   gibt es auch nicht; `app.verarbeitungen` ist eine Map sofort gestarteter,
   parallel laufender Promises, und parallel hieße: alle Touren gleichzeitig
   gegen Nominatim (1 req/s) und die bezahlte Bildanalyse. Das Nachholen hängt
@@ -394,9 +494,17 @@ alte Form genau einmal, in Ruhe, vor dem ersten Request. Drei Regeln:
   die Abnahme in §8 zählt sie. Eine Schlüssel-Abbildung auf `tour.json`
   träfe nicht, was der neue Code anders ableitet, und die Bestandstouren-
   Rückfälle aus `CLAUDE.md` („tragen die alten Texte, bis sie neu gerendert
-  werden"; `f` statt `filmS`; Alt-Kicker) erledigen sich dabei mit. Bis das
-  Render durch ist, antwortet `/api/tours/:id` mit `processing`; der Player
-  zeigt das wie heute.
+  werden"; `f` statt `filmS`; Alt-Kicker) erledigen sich dabei mit.
+- **Der Status wechselt je Tour, nicht für alle zugleich.** Er wird erst
+  unmittelbar vor ihrem Render auf `processing` gezogen und danach zurück; bis
+  dahin antwortet `/api/tours/:id` für DIESE Tour mit `processing`, der Player
+  zeigt das wie heute. Alle gleichzeitig umzustellen legt nicht nur den Player
+  still: Galerie, Profile und die Tour-Sitemap filtern hart auf
+  `status = 'bereit'` ([galerie.ts](../../server/src/routes/galerie.ts),
+  [seiten.ts](../../server/src/routes/seiten.ts)), also wäre die öffentliche
+  Galerie leer, jedes Profil zeigte null Touren, und jeder geteilte
+  `/tour/t_…`-Link samt seiner Vorschaukarte antwortete mit Fehler. Gestaffelt
+  ist immer nur eine Tour unsichtbar.
 - **Die Abbildung nimmt auch die Alt-Kennungen `luhambo/*@1` an.**
   [upload.ts](../../server/src/schema/upload.ts),
   [edits.ts](../../server/src/schema/edits.ts) und
@@ -484,13 +592,13 @@ mit Leser.
 
 | Welle | Inhalt | Risiko |
 |------:|--------|--------|
-| **0** | Glossar vollständig und eingefroren, Sprachregel in `CLAUDE.md`, Zahlen aus §4.5, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
+| **0** | Zahlen aus §4.5, **Abbildungstabelle** gebaut und abgenommen (§11), Glossar eingefroren, Sprachregel in `CLAUDE.md`, DB-Snapshot, Abnahme-Checkliste, Roadmap sortiert | keins |
 | **1** | **Verträge und ihre Leser**: SQLite (Spalten, Tabellen, Werte, Blobs), `upload@2`, `edits@2`, `enrichment@2`, `tour@2`, **HTTP-API** (Pfade und Felder), Room v4, Start-Migration, Re-Render, plus aller Code, der dadurch rot wird, plus die Nähte aus §3.3; die beiden Specs | mittel, und heute am billigsten |
 | **2** | Server-Internals: Pipeline, Routen-Handler, Mail-Bausteine, Auth, Dateiumbenennungen in `server/src` | mittel |
 | **3** | Studio, DOM-freie Module (`editmodell`, `zeitleiste`, `tonklip`, `stopps`, `pruefung`) | niedrig |
 | **4** | Studio-Verdrahtung (`editor.ts`, `studio.ts`, `abspielen`, `exportblatt`, `nachreichen`, `sfxbibliothek`, `tipp`, `kartenstimmung`) + Dateiumbenennungen | mittel |
 | **5** | Player-Engine (`tour`, `filmachse`, `filmuhr`, `kartenmaler`, `kartenschicht`, `einblendung`, `streckenanker`, `ui`, `main`, `exportfilm`, `exportformat`, `vollbild`, `karteninfo`, `tourtexte`, `wetterhimmel`, `pinmodell`) + `window.__j` + `scripts/messungen` + `test/fixtures/filmachse.json` mit Server-Spiegel | mittel |
-| **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`, `demclean*`) + localStorage | niedrig |
+| **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
 | **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
 | **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
 
@@ -513,9 +621,18 @@ und in dieser Reihenfolge, jeder Schritt für sich atomar und deploybar:
 4. `enrichment@2` + `tour@2` + Player-Leser + App-Leser (`ApiClient.kt`
    parst das Tour-JSON: `ServerTourDetail`, Foto-Nachzug) + Re-Render;
    App-Release am selben Tag, wie bei Schritt 1 bis 3
-5. API-Pfade (rein mechanisch, zuletzt, weil sie nichts Fachliches ändern)
+5. Alle ÜBRIGEN API-Pfade (rein mechanisch, zuletzt, weil sie nichts
+   Fachliches ändern). `POST /api/tours/:id/medien` → `…/media` gehört zu
+   Schritt 2: Er ist Teil des Upload-Vertrags und nicht bloß ein Pfad
 
-Nicht nach Modul aufteilen. Jeder Schritt bringt seine Start-Migration mit.
+Nicht nach Modul aufteilen. Jeder Schritt bringt seine Start-Migration und
+seinen eigenen Marker-Stand mit (§4.3).
+
+**Die Bruchlinie verkleinert das WEB-Risiko, nicht das Android-Risiko.** Schon
+Schritt 1 ändert die Felder und Statuswerte, die die App liest; die Bedingung
+„App-Release am selben Tag" gilt danach für jeden der fünf Schritte, also
+fünfmal statt einmal. Wer den Split wählt, um die Kopplung zur App loszuwerden,
+wählt ihn aus dem falschen Grund.
 
 **Verhältnis zu Astro und i18n: beide kommen danach.** Entschieden am
 2026-08-19. Der [Astro-Umstieg](konzept_astro_umstieg.md) fasst dieselben
@@ -534,8 +651,8 @@ englischen Modulnamen aufbaut.
 | Felder in `tour.json` und `enrichment.json`; Re-Render aller Touren | Prosa in `docs/` außer den zwei Specs |
 | **API-Pfade unter `/api/` und alle Request-/Response-Felder** (§6.7) | extern registrierte Pfade (Tracker) |
 | Web-Leser: `src/studio/api.ts`, `src/remote.ts`, `src/konto/*`, `src/profil/*`, `src/admin/*`, `src/galerie/*`, `src/app-nav.ts` (nur die API-Typen und Feldzugriffe, nicht die Modulnamen) | Umbenennungen, die weder Compiler noch Nahtliste verlangen |
-| Android-Leser: `ApiClient.kt`, `Manifest.kt`, `EditsFortschreibung.kt`, `TourenScreen.kt`/`ImportViewModel.kt` (Statuswerte), Room-Entities, Enum-Speicherwerte, Room v4 | Android-Screens, ViewModels, Service-Namen (Welle 7) |
-| Start-Migration in `server/src/migrationen/` | |
+| Android-Leser: `ApiClient.kt`, `Manifest.kt`, `EditsFortschreibung.kt`, `TourenScreen.kt`/`ImportViewModel.kt` (Statuswerte), `MaptalePushDienst.kt` (Push-Schlüssel, mit `push.ts`), Room-Entities, Enum-Speicherwerte, Room v4 | Android-Screens, ViewModels, Service-Namen (Welle 7) |
+| Start-Migration in `server/src/migrations/` (entsteht gleich englisch, §4.3) | |
 | `docs/specs/austauschformat.md` und `overlay-und-tourjson.md` | |
 
 Die Regel, die trägt: In Welle 1 wird umbenannt, **was die Vertragsänderung rot
@@ -549,7 +666,18 @@ sie die gefährlichste Datei im Repo.
 **Deploy von Welle 1 ist EIN Tag**, der Server und App zusammen baut (das tut
 der Release-Lauf ohnehin). Die App auf den Geräten des Betreibers wird am selben
 Tag aktualisiert; bis dahin antwortet der Server einer alten App mit dem
-Klartext aus §4.1.
+Klartext aus §4.1, und zwar in beiden Feldnamen.
+
+**Was eine alte App in diesem Fenster erlebt, ist ein Totalausfall**, nicht eine
+Fehlermeldung: `session-aus-token` heißt anders (die Player-WebView bekommt
+keine Sitzung), `/api/auth/me/profil` und `/api/push/geraete` sind 404, und die
+Statuswerte der Tourliste sind unbekannt, also zeigt jede Tour „Wird
+verarbeitet" ([TourenScreen.kt](../../android/app/src/main/java/app/maptale/ui/TourenScreen.kt)
+fällt in den `else`-Zweig). Für die Geräte des Betreibers ist das tragbar.
+Findet die Messung aus §4.5 ein FREMDES App-Gerät, ist es das nicht mehr, und
+dann wird vorher eine tolerante App-Fassung ausgeliefert, die beide Feld- und
+Wortmengen liest. Das ist ein Vorwärtsleser im eigenen Client für zwei Wochen
+und kein Rückwärtsleser im Server.
 
 ### Wellen 3 bis 6: Namen
 
@@ -684,6 +812,12 @@ Dazu neun Regeln, jede eine Zeile:
 | Pause (GPS-Stillstand) | `pause`, `collapsePauses` | |
 | Pause (Wiedergabe angehalten) | `paused` | Zustand, nie `pause` als Substantiv |
 | Overlay / Edits | `editOverlay` | |
+| GPS-Spur | `track` | |
+| Bahn der Zeitleiste | `lane` | nicht `track` |
+| Ton-Zeile | `audioClip` / `audioTrack` | drittes „Spur": ohne Regel drei Synonyme (§6.3) |
+| Pegel je Klip | `volume` | Feld `lautstaerke` → `volume` (§6.9) |
+| Pegel, gerendert | `gain` | steht schon so im Tour-JSON (`audio[].gain`) |
+| Pegel, Master | `masterGain` | `KURATIERTER_PEGEL` → `CURATED_GAIN`, `STUDIO_PEGEL` → `STUDIO_GAIN` |
 | gelöscht (Overlay) | `removed` | Feld `geloescht` geht in Welle 1 mit |
 | Video-Export | `filmExport` | nicht bloß `export` |
 | Datenexport (Art. 20 DSGVO) | `dataExport` | Tabelle `data_exports` |
@@ -759,8 +893,11 @@ Dazu neun Regeln, jede eine Zeile:
 | Startscreen / Finale-Tafel | `introPanel` / `finalePanel` | |
 | Entwickeln (der Karte) | `develop` | |
 | Stützpunkt (Routen-Verdichtung) | `vertex`, `VERTEX_MAX_M` | `geo.ts`; nicht `waypoint` (das ist der Wegpunkt) |
-| Pegel (Lautstärke) | `level` | `STUDIO_LEVEL`, `CURATED_LEVEL`, `audioLevel` |
-| Filmspur | `FilmTrack` | `tour.ts` |
+| Pegel (Lautstärke) | `volume` / `gain` / `masterGain` | nach Bedeutung, s. §6.1; NICHT `level` (wäre das dritte Wort für einen Begriff) |
+| Filmspur | `FilmTrack` | `tour.ts`; die GPS-Spur ist `track`, die Zeitleisten-Bahn `lane` |
+| Karten-Kachel (MapLibre) | `tile` | `KACHEL` in `demclean-rechnung.ts` → `TILE`, `kachelA/kachelB` in `atmosphere.ts` → `tileA/tileB` |
+| Listen-Kachel (Tour in Galerie) | `thumbnail` | nicht `tile`: das ist die Kartenkachel |
+| Foto-Karte als DOM-Artefakt | `photoCard` | `card` allein wird sonst wieder mehrdeutig, s. `trackerkarte.ts` → `tracker-card.ts` und die Bildkarten der Galerie |
 
 ### 6.4 Server / Pipeline
 
@@ -804,7 +941,15 @@ Dazu neun Regeln, jede eine Zeile:
 
 Vollständig für `src/` flach, `src/studio/`, und die deutschen Dateien unter
 `server/src/`. Was nicht in der Tabelle steht, ist schon englisch oder ein
-Ordner, dessen Inhalt die Welle benennt.
+Ordner, dessen Inhalt die Welle benennt. **Diese Tabelle ist der Anfang der
+Abbildungstabelle, nicht ihr Ende** (§11): Vollständigkeit wird in Welle 0
+maschinell erhoben; was hier steht, sind die Fälle, bei denen die Zielform eine
+Entscheidung war. Zwei bekannte Lücken, damit niemand sie für abgedeckt hält:
+die Ordnernamen `src/konto/`, `src/profil/`, `src/galerie/` (stehen in jedem
+Importpfad und sind nirgends entschieden) und die Testdateien
+(`test/vollbild.test.ts`, `test/kartenmaler.test.ts`,
+`server/test/anreicherung.test.ts`, …), die mit ihrem Modul in dessen Welle
+gehen.
 
 | Ist | Soll | Welle |
 |-----|------|------:|
@@ -861,9 +1006,9 @@ Ordner, dessen Inhalt die Welle benennt.
 | `server/src/seiten.ts` (Meta-Kopf-Logik) / `server/src/routes/seiten.ts` | `page-meta.ts` / `routes/pages.ts` (zwei Dateien, zwei Namen: gleichnamig liefe die Suche ins Leere) | 2 |
 | `server/src/routes/galerie.ts` / `bibliothek.ts` / `warteliste.ts` / `rueckmeldungen.ts` | `routes/gallery.ts` / `audio-library.ts` / `waitlist.ts` / `feedback.ts` | 2 |
 | `server/src/auth/einladungen.ts` / `warteliste.ts` / `passwort.ts` | `auth/invitations.ts` / `waitlist.ts` / `password.ts` | 2 |
-| `server/src/tracker/krypto.ts` / `touranleger.ts` / `importlauf.ts` / `normalisierer.ts` / `testprovider.ts` | `tracker/crypto.ts` / `tour-creator.ts` / `import-run.ts` / `normalizer.ts` / `test-provider.ts` | 2 |
+| `server/src/tracker/krypto.ts` / `touranleger.ts` / `importlauf.ts` / `normalisierer.ts` / `testprovider.ts` / `vertrag.ts` | `tracker/crypto.ts` / `tour-creator.ts` / `import-run.ts` / `normalizer.ts` / `test-provider.ts` / `contract.ts` | 2 |
 | `src/basis.css` / `grundelemente.css` / `werkzeug.css` / `rechtstext.css` | `base.css` / `page-elements.css` / `toolkit.css` / `legal-text.css` (samt `<link>`-Zeilen in den HTML-Köpfen und `basisZuerst()` in vite.config.js, s. Nahtliste) | 6 |
-| `server/src/migrationen/` (neu in Welle 1) | `migrations/` | 2 |
+| `server/src/migrations/` (neu in Welle 1) | entsteht **gleich englisch** (§4.3) | 1 |
 | `android/…/daten/LuhamboDb.kt` | `MaptaleDb.kt` | 7 |
 
 `anreicherung.json` auf Platte wird in Welle 1 zu `enrichment.json`, nicht mit
@@ -874,7 +1019,9 @@ dem Modul.
 **Pfade.** Alles unter `/api/`. Präfix bleibt, der Vhost kennt nur ihn. Was
 schon englisch ist (`/api/tours/:id/editor|edits|finalize|reprocess|track|audio`,
 `/api/media/…`, `/api/tracker/…`, `/api/webhooks/…`, `/api/export/:token`,
-`/api/push/…`, `/api/auth/login|logout|register|me`), bleibt wortgleich.
+`/api/auth/login|logout|register|me`), bleibt wortgleich. **`/api/push/` gehört
+NICHT dazu**: Der einzige Pfad darunter ist `/api/push/geraete`, und der steht
+in der Tabelle.
 
 | Ist | Soll |
 |---|---|
@@ -987,7 +1134,8 @@ Nachreichen) → `media`. Rest bleibt.
 **`edits@2`**: `medien` → `media`; je Medium `geloescht` → `removed`, `reihe` →
 `order`, `trim.vonS/bisS` → `trim.fromS/toS`; `modi` → `travelModes` mit `ab` →
 `from`; `trim.start/ende` → `trim.start/end`; `kamera` → `camera` mit `preset`
-`nah/mittel/weit/standard` → `near/medium/far/default`, `skala` → `scale`;
+`nah/mittel/weit/standard` → `near/mid/far/default` (nicht `medium`: das Wort ist
+in §6.1 die einzelne Aufnahme), `skala` → `scale`;
 `momente` → `moments` mit `art` → `kind` (`umkreisen/aufstieg/innehalten` →
 `orbit/ascend/linger`), `dauerS` → `durationS`; `audio[]` mit `datei` → `file`,
 `typ musik/sfx` → `type music/sfx`, `ab/bis` → `from/to`, `lautstaerke` →
@@ -1002,9 +1150,80 @@ mit `staerke` → `intensity`; `titelbild` → `cover`.
 
 **`tour@2`**: `reihe` → `order`, `moments[].art` → `kind`, `dauerS` →
 `durationS`, `camera[].skala` → `scale`, `autor` → `author` mit `anzeigename`
-→ `displayName`, `fehler` → `error`, `stats.fotos` → `stats.photos`,
-`stats.spur` → `stats.trackSignature`. Die Statuswerte nach §4.2. Wird nicht
-migriert, sondern neu gerendert (§4.3).
+→ `displayName`, `fehler` → `error`, `stats.spur` → `stats.trackSignature`,
+`camera[].preset` mit denselben Werten wie in `edits@2` (`near/mid/far/default`).
+Die Statuswerte nach §4.2. Wird nicht migriert, sondern neu gerendert (§4.3).
+
+Zwei Werte in `tour@2`, die man beim Abschreiben übersieht:
+
+- **`placement`** trägt deutsche WERTE: `'gps' | 'zeit' | 'manuell' |
+  'unplatziert'` ([placement.ts](../../server/src/pipeline/placement.ts)),
+  `editmodell.ts` SCHREIBT `'manuell'`, `editor.ts` vergleicht darauf und
+  schlägt in `PLACEMENT_NAMEN` nach; der Typ ist dabei blankes `string`
+  (`api.ts`, `editmodell.ts`), der Compiler sieht also nichts. Sie gehen mit,
+  zu `gps/time/manual/unplaced`, samt Schreiber, Vergleich und Tabelle im
+  Studio. Ohne diese Zeile
+  bleibt ein deutscher Wertesatz im „fertig migrierten" Vertrag stehen, oder er
+  wird umbenannt und der Editor-Vergleich läuft still leer.
+- **`stats.fotos` wird NICHT `stats.photos`, sondern `stats.placedMedia`.** Der
+  Wert zählt `media.filter((m) => m.anchor)` ([enrich.ts](../../server/src/pipeline/enrich.ts)),
+  also Fotos UND Videos. `photos` wäre derselbe Fehler, den §6.1 gerade
+  verbietet: die einzelne Aufnahme heißt `medium`, nicht `photo`. Dasselbe gilt
+  für `tours.stats_json` in der DB (§4.2), das denselben Schlüssel trägt.
+
+### 6.10 CSS, DOM und Custom Properties
+
+Eine eigene Sorte, die in den ersten Fassungen nur als Dateinamen vorkam: weder
+Code-Bezeichner, den ein Compiler kennt, noch Produkttext. Diese Namen stehen
+gleichzeitig in `.ts`, `.css` und `.html`, und drei davon werden von Werkzeug
+gelesen, nicht von Menschen.
+
+**21 von 40 Custom Properties** in [basis.css](../../src/basis.css) sind
+deutsch: `--akzent`, `--akzent-2`, `--auf-akzent`, `--blau`, `--gruen`, `--rot`,
+`--lila`, `--papier`, `--tafel`, `--linie`, `--glas`, `--glas-rand`,
+`--schatten`, `--rand`, `--rand-hell`, `--bg-tief`, `--text-gedaempft`,
+`--text-zart`, `--fokus-ring`, `--radius-karte`, `--blatt-basis`.
+
+**Die übrigen kommen dazu und liegen verstreut**: `--blatt-grundelemente` und
+`--blatt-werkzeug` in ihren Blättern, `--konto-lesebreite` in
+`grundelemente.css` und `konto.html`, `--lesebreite` in `rechtstext.css`,
+`--seitenrand` und `--navh-leiste` in `index.html`, `--streifen-rand`,
+`--zeit-breite` und `--inspector-breite` in `studio.html` und den
+Studio-Modulen (`editor.ts`, `tonklip.ts`), `--karten-mass` und
+`--schleier-sicht` in `style.css` und `kartenschicht.ts`. Wer die Inventur aus
+`basis.css` allein zieht, findet die Hälfte nicht, und wer nur CSS-Dateien
+durchsucht, verfehlt die HTML-Köpfe und die `.ts`, die sie setzen. Dazu Klassen und ids quer
+durch Player und Studio: `.halt-flaeche`, `.karten-leinwand`, `.karten-info`,
+`.karten-info-popup`, `.zurueck`, `.zurueck-wort`, `.kompakt-quer`,
+`body.info-offen`, `dataset.s`. Die Blattdateinamen selbst stehen in §6.6 und
+auf der Nahtliste.
+
+**Sie gehen mit, in der Welle ihres Moduls** (Player-Klassen in Welle 5,
+Produktseiten in Welle 6). Drei Fallen:
+
+- **`--blatt-basis` ist Werkzeug, kein Stil.** An dieser Custom Property erkennt
+  `basisZuerst()` in [vite.config.js](../../vite.config.js) die Basisblätter
+  nach dem Bauen, weil Vite eine CSS-Datei nach ihrem JS-Chunk benennt. Wer sie
+  umbenennt und die Config vergisst, kippt die CSS-Kaskade, und zwar NUR im
+  Build. Der Dev-Server sieht richtig aus.
+- **Mindestens fünf Wächter lesen diese Namen als Text**
+  ([basis-css](../../test/basis-css.test.ts),
+  [player-schichtung](../../test/player-schichtung.test.ts) mit
+  `.karten-leinwand`, `.dock`, `.zurueck`, `.karten-info`,
+  [app-nav](../../test/app-nav.test.ts), [einblendung-css](../../test/einblendung-css.test.ts),
+  [entwicklungsstand](../../test/entwicklungsstand.test.ts)). Sie werden rot,
+  und das ist die gute Nachricht; angepasst wird der Wächter, nicht der Code.
+- **`DESIGN.md` führt seine Tokens SCHON englisch** (`primary`, `amber`, `text`,
+  `muted`, `bg`, `surface`, `glass`, `paper`), und `basis.css` leitet daraus
+  deutsche Variablennamen ab. Der Drift-Wächter hält beides deckungsgleich und
+  überbrückt dabei heute eine Übersetzung. Das ist die einzige Stelle im Repo,
+  an der Deutsch und Englisch bereits per Test aneinandergebunden sind: Gehen
+  die Tokens mit, verschwindet die Übersetzung und der Wächter wird einfacher.
+  Bleiben sie, ist `--fokus-ring` neben `focus-ring` in DESIGN.md dauerhaft genau der
+  Hybrid, den §1 vermeiden will.
+
+`DESIGN.md` selbst bleibt unangetastet: Sein YAML ist der Inhalt, nicht der Kopf,
+und die Tokens dort sind bereits die Zielform.
 
 ---
 
@@ -1036,6 +1255,16 @@ Absichtstexte enthalten kaum Namen.
 | **B** | Absichts-Konzepte für Ungebautes | unangetastet |
 | **C** | abgearbeitete Befund-Dokumente: `die-foto-karte-auf-eine-leinwand.md` (Status „abgearbeitet"), `docs/architecture/zeitleiste-umbau.md` (kein Kopf, seit 05.08. umgesetzt), `konzept_gleichlauf_player_editor.md` | ins Archiv, deutsch eingefroren. **Vorher** wandern die offenen Stücke des Gleichlauf-Konzepts (§9 Szene-Schicht, §10 Tag/Nacht im Editor, §11 Feinplatzierung) als eigene Zeilen in die Roadmap, sonst archiviert man offene Arbeit. Umgehängt wird über den Doku-Viewer |
 | **D** | `docs/archive/` | nie anfassen |
+
+**Das Front Matter bricht in ALLEN Töpfen, auch in B.** Jedes Dokument trägt
+`betrifft:`-Pfade, aus denen der Viewer Bereiche und Systemteile ableitet
+([kopf.mjs](../../scripts/docs-viewer/kopf.mjs)); dieses Dokument selbst listet
+`src/studio/editmodell.ts`. Nach den Wellen 4 bis 6 zeigen diese Pfade in fast
+allen 45 Dokumenten ins Leere, und „unangetastet" für Topf B gilt nur für den
+TEXT. Also: **je Umbenennungs-Welle ein mechanischer Lauf über alle
+`betrifft:`-Listen**, gegen dieselbe Dateitabelle aus §6.6. Das ist kein
+Lesedurchgang und kostet nichts; vergessen fällt es dagegen erst auf, wenn im
+Viewer die Hälfte der Zuordnungen fehlt.
 
 **Was hier nicht gebündelt wird:** „Wir haben zu viel Doku" und „wir wechseln
 die Sprache" sind zwei Entscheidungen. Zusammengelegt wird der Sprachwechsel
@@ -1080,6 +1309,21 @@ Zusätzlich für Welle 1:
       `verarbeitung` zum Migrationszeitpunkt sind gezählt und benannt (§4.3)
 - [ ] Banner und Avatare aller Konten laden (Pfad-Werte + Ordner, §4.2)
 - [ ] Kein laufender Datenexport zum Zeitpunkt des Deploys (48-h-Links)
+- [ ] Galerie und ein Profil WÄHREND des Re-Renders geöffnet: nie leer (§4.3)
+- [ ] Eine angepasste Mail-Vorlage aus der Verwaltung verschickt: Platzhalter
+      gefüllt, nicht als `{{…}}` im Text (§4.2)
+- [ ] `einladung_pflicht` und `warteliste_offen` nach der Migration gelesen:
+      Wert wie vorher, nicht die Vorgabe
+- [ ] `placement`-Werte und `stats.placedMedia` in einer neu gerenderten
+      `tour.json`; der Editor markiert eine von Hand gesetzte Aufnahme weiter
+      als manuell platziert (§6.9)
+- [ ] Eine Import-fertig-Push-Meldung auf dem Gerät angekommen (§3.3)
+
+Zusätzlich für Welle 5 und 7:
+
+- [ ] Player aus der App heraus gestartet, in den Hintergrund und zurück: Ton
+      und Bild laufen synchron (die WebView-Brücke aus §3.3)
+- [ ] Jedes Messskript unter `scripts/messungen/` einmal gestartet (Welle 5)
 
 **Rückweg für Welle 1** (der einzige irreversible Schritt): altes Image-Tag in
 `docker-compose.cloudpanel.yml` eintragen, Datenordner aus der Kopie
@@ -1154,17 +1398,56 @@ tsconfig-Welten, Aus-Liste mit Zählständen in
 HTML bleiben vorerst unformatiert: Wächter-Tests lesen dort Quelltext als
 Zeichenkette. ktlint für Android ist offen (spätestens Welle 7).
 
-**Welle 0**, konkret und in dieser Reihenfolge:
+**Welle 0, und ihr Ergebnis ist EIN Werkstück: die Abbildungstabelle.** Sie
+ist nicht Beiwerk zum Umbau, sie IST der Umbau. Jede spätere Welle, jedes
+Migrationsskript, jeder Agenten-Prompt und der Lauf über die `betrifft:`-Listen
+(§7) lesen dieselbe Tabelle. Solange sie nicht steht und abgenommen ist, fällt
+keine Zeile Code. Konkret und in dieser Reihenfolge:
 
-1. Zahlen aus §4.5 auf dem Server erheben und eintragen. Liegt eine über der
-   Schwelle, endet Welle 0 hier und §4 wird neu entschieden.
-2. Roadmap: Play Store hinter dieses Vorhaben; Einladungen bis Ende Welle 1
-   pausieren.
-3. Glossar §6 auf Vollständigkeit prüfen: Agent erzeugt die Liste aller
-   deutschen Exporte in `src/`, `server/src`, `android/` und aller API-Felder je
-   Route; was nicht im Glossar steht, wird eingetragen. Ergebnis:
-   `docs/specs/api.md` (Ist-Stand) und ein eingefrorenes §6.
-4. Sprachregel in `CLAUDE.md` anpassen (§2).
-5. DB-Snapshot und Kopie des Datenordners.
-6. Erst danach Welle 1, Schritt 1 (§5): SQLite + die Felder, die direkt aus
-   Zeilen kommen.
+1. **Zahlen aus §4.5** auf dem Server erheben und eintragen. Liegt eine über
+   der Schwelle, endet Welle 0 hier und §4 wird neu entschieden; die Tabelle
+   wird dann trotzdem gebraucht, aber für einen anderen Plan.
+2. **Roadmap**: Play Store hinter dieses Vorhaben; Einladungen bis Ende
+   Welle 1 pausieren.
+3. **Tabelle bauen**, maschinenlesbar und an einer Stelle. Sie führt je
+   Eintrag: Ist-Name, Zielform, Art, **Fundort**, Welle, Bemerkung. Quellen sind
+   §6.1 bis §6.10 und die Liste aller deutschen Exporte in `src/`,
+   `server/src`, `android/` samt aller API-Felder je Route, die ein Agent
+   erzeugt; was im Glossar fehlt, wird beim Bauen sichtbar (§6.6 nennt die
+   bekannten Lücken). Nebenprodukt: `docs/specs/api.md` (Ist-Stand).
+
+   Drei Eigenschaften entscheiden, ob die Tabelle ausführbar ist oder nur
+   aussieht wie eine Tabelle:
+
+   - **Sie führt ganze Bezeichner, nie Wortbestandteile.** `karte` steckt in
+     `kartenmaler` (card), `karteninfo` (map), `kartenstimmung` (map) und
+     `--radius-karte` (Galerie-Karte, also weder noch). Eine Zeile je
+     Kompositum, und die Ersetzung greift nur auf vollständige Bezeichner. Wer
+     je Wortstamm ersetzt, baut drei Fehler in einem Lauf.
+   - **Der Fundort ist eine eigene Spalte, weil die Art nicht reicht.**
+     Derselbe Ist-Name hat kontextabhängig zwei Zielformen: `titelbild` ist
+     `banner` in `users`, API und Profil, aber `cover` in `edits` und Tour;
+     `fehler` ist `error` als Feld und `failed` als Statuswert; `quelle` ist
+     als Feld überall `source`, aber seine WERTE wandern in
+     `newsletter_einwilligungen` (`registrierung/konto/abmeldelink`) und
+     bleiben in `rueckmeldungen` (`web/app`); `Befund` ist `finding` in der
+     Pipeline und `importReport` beim Upload. Ohne Fundort ist die Tabelle
+     mehrdeutig und ein Agent rät.
+   - **Die Art-Liste ist länger als sie aussieht**: Bezeichner, DB-Spalte,
+     DB-Wert, DB-Schlüsselzeile (§4.2), JSON-Feld, JSON-Wert, API-Pfad,
+     API-Feld, Datei, Ordner, CSS-Variable, CSS-Klasse, DOM-id,
+     Storage-Schlüssel, Cookie (`maptale_dabei`), Push-Schlüssel (§3.3),
+     Mail-Platzhalter (§4.2). Push-Schlüssel und Mail-Platzhalter hat erst
+     die parallele Prüfung gefunden; sie stehen sonst in keiner Welle. Eingefrorenes (Env,
+     Fragment-Schlüssel, Kanal-IDs, §3.4) steht mit Zielform „bleibt" in der
+     Tabelle, damit die Entscheidung lesbar bleibt und niemand sie als Lücke
+     nachträgt.
+4. **Tabelle abnehmen.** Der Betreiber liest sie durch, bevor sie eingefroren
+   wird. Streitpunkte, die dabei fallen müssen: `Halt` → `stop` neben `holdS`,
+   `mid` gegen `medium` (§6.9), die drei Bedeutungen von „Spur" (§6.1), die
+   Pegel-Wörter (`volume`/`gain`/`masterGain`, §6.1), und ob die CSS-Tokens
+   mitgehen (§6.10). Ergebnis: ein eingefrorenes §6.
+5. **Sprachregel in `CLAUDE.md`** anpassen (§2).
+6. **DB-Snapshot und Kopie** des Datenordners (§8).
+7. Erst danach Welle 1, Schritt 1 (§5): SQLite + die Felder, die direkt aus
+   Zeilen kommen. Sie beginnt mit der Migration, nicht mit dem Rename.

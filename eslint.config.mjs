@@ -23,6 +23,9 @@ export default tseslint.config(
       'android/',
       'coverage/',
       'server/coverage/',
+      // Agenten-Worktrees liegen innerhalb des Repos; sonst prüft ESLint einen
+      // alten Stand ein zweites Mal (dasselbe steht in .prettierignore).
+      '.claude/worktrees/',
     ],
   },
 

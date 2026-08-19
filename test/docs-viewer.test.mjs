@@ -1118,8 +1118,10 @@ describe('Datei und Editor auf der Seite', () => {
       for (const c of dok.verlauf ?? [])
         for (const k of c.kopf) {
           expect(k.von === '' && k.nach === '').toBe(false)
-          // Der Kopf trägt Werte, keine Markdown-Absätze.
-          expect(k.nach.length + k.von.length).toBeLessThan(400)
+          // Der Kopf trägt Werte, keine Markdown-Absätze. Die Schwelle trennt
+          // eine lange `status`-Zeile (gemessen bis 217 Zeichen, also alt + neu
+          // über 400) von einem Absatz (Tausende); sie normiert keine Satzlänge.
+          expect(k.nach.length + k.von.length).toBeLessThan(800)
         }
   })
 
