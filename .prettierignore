@@ -1,0 +1,15 @@
+# Formatiert werden nur TS/JS (die Skript-Globs in package.json). CSS, HTML und
+# Markdown bleiben bewusst draußen: Mehrere Wächter-Tests lesen Quelltext als
+# Zeichenkette (test/basis-css.test.ts, test/routen.test.ts u. a.), ein
+# Formatter-Lauf darüber würde sie blind machen oder brechen. Erst prüfen,
+# dann erweitern.
+dist/
+server/dist/
+docs/_site/
+docs/_site.bau.*/
+public/
+android/
+coverage/
+server/coverage/
+package-lock.json
+server/package-lock.json
