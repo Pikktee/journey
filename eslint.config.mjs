@@ -45,39 +45,44 @@ export default tseslint.config(
   {
     files: ['scripts/**/*', '**/*.mjs', '**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],
+    rules: {
+      // Messskripte greifen bewusst lose in window.__j und Playwright-Seiten:
+      // `any` ist dort Werkzeug, kein Versehen (21 Stellen, alle in
+      // scripts/messungen). In src/ und server/src steht die Regel scharf.
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
   },
 
   {
     rules: {
-      // AUS-LISTE, Zählstand vom 2026-08-19. Die unsafe-Familie (7209 von
-      // 7553 Befunden) sitzt fast vollständig in Server-Routen und -Tests:
-      // Fastify-Bodies und Test-JSON sind heute `any` und werden erst mit den
-      // typisierten API-Verträgen der Wellen 1 und 2 sauber. Vorher wäre jede
-      // Abschaltung ein Feld voller eslint-disable-Kommentare.
-      '@typescript-eslint/no-unsafe-member-access': 'off', // 3497
-      '@typescript-eslint/no-unsafe-call': 'off', // 2478
-      '@typescript-eslint/no-unsafe-assignment': 'off', // 803
-      '@typescript-eslint/no-unsafe-return': 'off', // 247
-      '@typescript-eslint/no-unsafe-argument': 'off', // 184
-      '@typescript-eslint/require-await': 'off', // 124
-      '@typescript-eslint/no-unnecessary-type-assertion': 'off', // 75, autofixbar
-      '@typescript-eslint/no-unused-vars': 'off', // 37
+      // AUS-LISTE, Zählstand vom 2026-08-19 (gemessen mit installierten
+      // node_modules beider Welten, 502 Befunde gesamt). Achtung: Ohne
+      // server/node_modules sind alle Fastify-Typen `any` und die
+      // unsafe-Familie meldet Tausende Phantom-Befunde. Die echten
+      // unsafe-Treffer verschwinden größtenteils mit den typisierten
+      // API-Verträgen der Wellen 1 und 2.
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off', // 236, autofixbar
+      '@typescript-eslint/require-await': 'off', // 72
       '@typescript-eslint/no-misused-promises': 'off', // 36
-      '@typescript-eslint/no-explicit-any': 'off', // 21
+      '@typescript-eslint/no-unsafe-assignment': 'off', // 32
+      '@typescript-eslint/no-unsafe-member-access': 'off', // 30
+      '@typescript-eslint/no-unused-vars': 'off', // 27
+      '@typescript-eslint/no-unsafe-call': 'off', // 14
       'no-useless-assignment': 'off', // 9
       '@typescript-eslint/no-base-to-string': 'off', // 9
+      '@typescript-eslint/no-unsafe-argument': 'off', // 7
       'no-redeclare': 'off', // 6
       'no-empty': 'off', // 5
+      'prefer-const': 'off', // 5, autofixbar
       '@typescript-eslint/no-floating-promises': 'off', // 5
-      'prefer-const': 'off', // 4, autofixbar
-      '@typescript-eslint/no-unused-expressions': 'off', // 3
-      '@typescript-eslint/no-redundant-type-constituents': 'off', // 2
       'no-useless-escape': 'off', // 1
       'no-control-regex': 'off', // 1
       '@typescript-eslint/restrict-template-expressions': 'off', // 1
       '@typescript-eslint/unbound-method': 'off', // 1
+      '@typescript-eslint/no-unused-expressions': 'off', // 1
       'no-irregular-whitespace': 'off', // 1
       '@typescript-eslint/ban-ts-comment': 'off', // 1
+      '@typescript-eslint/no-unsafe-return': 'off', // 1
       '@typescript-eslint/no-non-null-asserted-optional-chain': 'off', // 1
     },
   },

@@ -1,0 +1,5 @@
+# Commits, die git blame überspringen soll (GitHub liest diese Datei
+# automatisch; lokal: git config blame.ignoreRevsFile .git-blame-ignore-revs).
+
+# Einmaliger Prettier-Lauf über alle TS/JS-Dateien (2026-08-19)
+87c48c99903099da1bcae0da85bd6eb513049304
