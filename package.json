@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "prelint": "node -e \"if(!require('fs').existsSync('server/node_modules')){console.error('server/node_modules fehlt: erst (cd server && npm ci). Ohne die Server-Typen ist jeder Fastify-Body any und die unsafe-Familie meldet Tausende Phantom-Befunde.');process.exit(1)}\"",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,js,mjs}\"",
     "format:check": "prettier --check \"**/*.{ts,js,mjs}\"",

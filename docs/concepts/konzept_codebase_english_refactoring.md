@@ -928,7 +928,8 @@ halben Jahr jemand fragt, warum die Rampe 120 m ist und nicht 200.
 
 - [ ] Web: `npm test` + `npm run typecheck`
 - [ ] `npm run lint` + `npm run format:check` (braucht node_modules BEIDER
-      Welten, sonst meldet die unsafe-Familie Phantom-Befunde)
+      Welten; das Lint-Script prüft das selbst und bricht sonst mit Klartext
+      ab, statt Tausende Phantom-Befunde zu melden)
 - [ ] Server: `cd server && npm test` (Coverage-Gate 80 % wie in der CI)
 - [ ] Android ab Welle 1 (Room, Manifest, Edits): `./gradlew test`
 - [ ] Manuell: Anmelden, Tour öffnen, Modus-Grenze ziehen, Speichern, Player
