@@ -56,7 +56,7 @@ Angefangen und noch nicht fertig. Was hier steht, ist im Code sichtbar.
 
 Entschieden und vorbereitet, aber noch nicht angefangen.
 
-* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Welle 0: Zahlen aus §4.5 erheben, dann die Abbildungstabelle bauen und abnehmen lassen (§11). Vorher fällt keine Zeile Code. Danach Welle 1: die Verträge samt API.
+* [Bezeichner auf Englisch](concepts/konzept_codebase_english_refactoring.md) - Welle 0: Zahlen aus §4.5 erheben, dann die Abbildungstabelle bauen und abnehmen lassen (§11). Vorher fällt keine Zeile Code. Danach Welle 1: die Verträge samt API. Ganz am Ende Schritt 9: die Env-Variablen als eigener Ops-Schritt.
 * [Play Store](concepts/konzept_play_store_interner_test.md) - Die App aus dem APK-Versand herausholen. [wartet auf: concepts/konzept_codebase_english_refactoring.md]
 * [Tempoempfinden](concepts/konzept_tempoempfinden.md) — Die zwei offenen Kandidaten messen.
 * [Video-Export](concepts/konzept_video_export.md) — Etappe 2 (der Auftrag). [wartet auf: concepts/konzept_monetarisierung.md]

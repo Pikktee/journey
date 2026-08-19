@@ -254,7 +254,7 @@ zugehörigen Test laufen:
 | Text-Wächter | Tests, die Quelltext als Zeichenkette lesen (`test/newsletter-einwilligung.test.ts`, `test/session-hinweis.test.ts`, `test/routen.test.ts`, `test/basis-css.test.ts`) | laufen ohnehin; wer rot wird, passt den Wächter an, nicht den Code |
 | Messskripte | `scripts/messungen/*.ts|mjs` importieren `src/filmachse`, `src/einblendung`, `src/kartenmaler`, `src/streckenanker`, `src/geo` und lesen `window.__j.filmachse`, `.filmS`, `.uhr`, `.exportMess`; `scripts/seed-demo-touren.mjs` importiert `src/tours` | Welle 5 zieht `scripts/messungen` mit, Welle 6 den Rest von `scripts/`; Abnahme: jedes Messskript einmal gestartet |
 | `vite.config.js` → `src/routen.ts` | die Config importiert `EINSTIEGE`, `PFAD_ZU_DATEI`, `ROUTEN` und `tourAusPfad`; sie ist kein TypeScript und läuft in Vites eigenem Loader | Welle 6, im selben Commit. Fällt laut auf (die Config lädt nicht), steht aber sonst auf keiner Liste |
-| `camera[].preset` → `PRESETS` in `src/tour.ts` | der Player löst den Wert über `PRESETS[name] ?? PRESETS.mittel` auf; der Rückfall ist STILL. Welle 1 benennt die Werte, `tour.ts` ist Welle 5: Dazwischen fiele jede Kamerakante auf „mittel" | Welle 1 zieht die Schlüssel von `PRESETS` (und `MODE_SCALE` bleibt, Modi wandern nicht) im selben Commit mit |
+| `camera[].preset` → `PRESETS` in `src/tour.ts` | der Player löst den Wert über `PRESETS[name] ?? PRESETS.mittel` auf; der Rückfall ist STILL. Welle 1 benennt die Werte, `tour.ts` ist Welle 5: Dazwischen fiele jede Kamerakante auf „mittel" | Welle 1 zieht BEIDE Stellen im selben Commit mit: die Schlüssel von `PRESETS` UND den Vergleich `k.preset === 'standard'` in `src/main.ts` (`kamFolger`): `standard` steht gar nicht in `PRESETS`, sondern wird dort abgefangen und auf die Einstellung des Zuschauers gelegt; nach `default` liefe er in `distanzFuer`, fiele still auf „mittel" und überschriebe genau die Wahl, die er respektieren soll. `MODE_SCALE` bleibt, Modi wandern nicht |
 | `verarbeite` in `routes/tours.ts` | heute NICHT exportiert; die Start-Migration aus §4.3 muss sie rufen | Welle 1 exportiert oder verschiebt sie, bevor die Migration entsteht |
 | Push-Nutzlast Server → App | [push.ts](../../server/src/push.ts) sendet `{ typ: 'import-fertig', tourId, importId }`, [MaptalePushDienst.kt](../../android/app/src/main/java/app/maptale/push/MaptalePushDienst.kt) vergleicht `data["typ"] != "import-fertig"`. Schlüssel UND Wert deutsch, und die Leser liegen in verschiedenen Wellen (Server 2, App 7) | Welle 1, zusammen mit den übrigen API-Feldern. Sonst kommt jede Import-fertig-Meldung still nie mehr an |
 | Vhost | `deploy/cloudpanel-nginx.conf` proxyt `/api`, `/@`, `/tour/`, `/umami` und die Sitemaps | unberührt, solange `/api/` Präfix bleibt |
@@ -301,10 +301,13 @@ zugehörigen Test laufen:
   werden aus einer VPS-`.env` und aus CI-Secrets gesetzt, die AUSSERHALB jedes
   Diffs liegen: Eine Umbenennung wäre unsichtbar, bis der Container mit dem
   Default `./daten` startet und der Datenordner leer aussieht. Sie bleiben
-  wortgleich; eine spätere Umbenennung wäre ein eigener Ops-Schritt mit
-  Doppelbelegung (alte UND neue Namen lesen), nie Teil einer Welle. Für den
-  Fall, dass er einmal kommt, drei Fakten, die die parallele Prüfung erhoben
-  hat: `konfigAusEnv` hat für fast alles eine Vorgabe, der Fehler ist also
+  **bis zum Schluss** wortgleich und wandern als eigener Ops-Schritt 9 NACH
+  Welle 8 (§5), nie innerhalb einer Code-Welle: Sie hängen an keinem Vertrag
+  und keinem Leser außer `config.ts`, können also zu jedem Zeitpunkt gehen, und
+  am Ende ist der stille Konfigurationsfehler der einzige Schritt des Tages
+  statt einer Nebensache im Lärm eines Migrations-Deploys. Drei Fakten dafür,
+  die die parallele Prüfung erhoben hat: `konfigAusEnv` hat für fast alles
+  eine Vorgabe, der Fehler ist also
   lautlos (Schaden bei `MAPTALE_HINTER_TLS`: Cookies ohne `Secure`;
   `MAPTALE_BASIS_URL`: Mail-Links auf `localhost:5173`; dazu Absender,
   Admin-Passwort, Speicher-Limit). Der Signaturschlüssel ist NICHT betroffen
@@ -601,6 +604,7 @@ mit Leser.
 | **6** | Übrige `src/`-Module: Konto, Profil, Admin, Galerie, die flachen Produktmodule (`routen`, `handle`, `app-nav`, `sichtbarkeit`, `passwort*`, `feedback*`, `einladungscode`, `session-hinweis`, `entwicklungsstand`, `rechtstextgliederung`, `dialogschicht`) + localStorage und sessionStorage | niedrig |
 | **7** | Android: ViewModels, Screens, Services, Enum-Namen, DataStore-Schlüssel; Zusage in `LuhamboDb.kt` zurück | niedrig (nur eigene Geräte) |
 | **8** | Doku nach §7: Topf A übersetzen, Topf C archivieren, Start-Migration ausbauen, wenn der Marker überall 2 ist | niedrig |
+| **9** | Betrieb: die `MAPTALE_*`-Env-Variablen (§3.4) samt `docker-compose.cloudpanel.yml`, `server/Dockerfile`, CI-Secrets und den Runbooks in `docs/ops/`. Handgriff in drei Schritten: neue Namen ZUSÄTZLICH in die Server-`.env`, deployen, alte Zeilen entfernen. Kein Code-Rename in den Wellen davor, ein Ops-Schritt mit eigenem Rollback (`.env` zurück, voriges Image) | niedrig, aber still: kein Compiler, kein Test, kein Diff sieht den Fehler |
 
 **Warum Welle 1 zuerst und nicht zuletzt.** Die Feldnamen sind das, worum sich
 alles andere herumbaut. Käme sie zuletzt, hätte Welle 3 Typen umbenannt, deren
@@ -1324,6 +1328,17 @@ Zusätzlich für Welle 5 und 7:
 - [ ] Player aus der App heraus gestartet, in den Hintergrund und zurück: Ton
       und Bild laufen synchron (die WebView-Brücke aus §3.3)
 - [ ] Jedes Messskript unter `scripts/messungen/` einmal gestartet (Welle 5)
+
+Zusätzlich für Schritt 9 (Env-Variablen):
+
+- [ ] `.env` auf dem Server trägt BEIDE Namenssätze, BEVOR deployt wird, und
+      `docker-compose.cloudpanel.yml`, `server/Dockerfile` und die
+      CI-Secrets sind im selben Commit mitgegangen (§3.4)
+- [ ] Nach dem Deploy: `docker compose exec api env | grep MAPTALE_` zeigt die
+      neuen Namen mit den erwarteten Werten; eine Mail ausgelöst, der Link
+      zeigt auf die echte Domain und nicht auf `localhost:5173`; der
+      Datenordner ist der befüllte unter `/data`
+- [ ] Erst danach die alten Zeilen aus der `.env` entfernt
 
 **Rückweg für Welle 1** (der einzige irreversible Schritt): altes Image-Tag in
 `docker-compose.cloudpanel.yml` eintragen, Datenordner aus der Kopie
