@@ -191,20 +191,20 @@ export const KARTEN_MASSE: Record<KartenLage, KartenMassSatz> = {
   },
   quer: {
     polster: 9,
-    chrome: 64,
-    chromeBedienung: 116,
+    chrome: 110,
+    chromeBedienung: 162,
     breiteAnteil: 0.62,
     breiteMax: 1500,
-    textOben: 4,
+    textOben: 8,
     textSeiten: 6,
-    textUnten: 4,
+    textUnten: 10,
     lueckeX: 12,
     lueckeY: 9,
-    titel: 17,
-    titelMindest: 14,
+    titel: 27,
+    titelMindest: 17,
     titelZeile: 1.25,
-    angaben: 10,
-    angabenMindest: 8.5,
+    angaben: 14,
+    angabenMindest: 9,
     balken: 4,
     kartenRadius: 12,
     tonSeite: 34,
@@ -663,14 +663,6 @@ export interface KartenGeometrie {
 export interface KartenInhalt {
   /** Stehen Uhrzeit und km unter dem Titel statt neben ihm? */
   angabenEigeneZeile: boolean
-  /**
-   * Nur `quer`: wie breit der Text WIRKLICH ist (die längere der beiden
-   * Zeilen, gemessen). Die Spalte war eine feste Breite — sie stammt aus der
-   * Zeit, als dort eine Bildunterschrift stand und sie füllte. Ohne die
-   * blieb neben zwei kurzen Zeilen eine leere weiße Fläche stehen, halb so
-   * breit wie das Bild. Fehlt der Wert, gilt weiter die volle Spalte.
-   */
-  textBreite?: number
 }
 
 /** Nennmaß × Maßstab, aber nie unter einem Mindestwert (die Lesbarkeits-Böden). */
@@ -699,17 +691,21 @@ export function kartenGeometrie(
   // Die Reserve wächst STETIG mit der Leiste, sie schaltet nicht um: Zwischen
   // beiden Werten liegt jeder Zwischenstand, und den fährt die Schicht ab.
   const bed = klemme(buehne.bedienung ?? 0, 0, 1)
-  const chrome = px(mische(satz.chrome, satz.chromeBedienung, bed))
-  const maxB = Math.min(px(satz.breiteMax), breite * satz.breiteAnteil)
-  const bildH = Math.max(1, Math.min(hoehe - chrome, maxB / ar))
-  const bildB = Math.max(1, bildH * ar)
-
   const titelSchrift = grad(satz.titel, mass, satz.titelMindest)
   const angabenSchrift = grad(satz.angaben, mass, satz.angabenMindest)
   const titelH = titelSchrift * satz.titelZeile
-  // Die Zeile der Angaben ist so hoch wie die des Titels, auch wenn keiner
-  // dasteht. Sonst wäre die unbeschriftete Karte um die Differenz flacher.
+  // Die Zeile der Angaben ist so hoch wie die des Titels (s. unten).
   const angabenH = titelH
+
+  // Der zweizeilige Fuß (Titel und Angaben passen nicht nebeneinander) macht
+  // die Karte um eine Zeile höher — die Reserve muss das WISSEN, sonst wächst
+  // die Karte über sie hinaus. Quer bleiben sonst 2 px Luft zum Bühnenrand.
+  const chrome =
+    px(mische(satz.chrome, satz.chromeBedienung, bed)) +
+    (inhalt.angabenEigeneZeile ? angabenH + px(satz.lueckeY) : 0)
+  const maxB = Math.min(px(satz.breiteMax), breite * satz.breiteAnteil)
+  const bildH = Math.max(1, Math.min(hoehe - chrome, maxB / ar))
+  const bildB = Math.max(1, bildH * ar)
 
   const polster = px(satz.polster)
   const textOben = px(satz.textOben)
@@ -727,60 +723,25 @@ export function kartenGeometrie(
     angaben: { x: 0, y: 0, hoehe: angabenH, schrift: angabenSchrift },
   }
 
-  if (lage === 'quer') {
-    // Bild links, Text als eigene Spalte rechts. Beide Zeilen stehen
-    // untereinander und linksbündig, senkrecht zur Bildmitte ausgerichtet.
-    //
-    // Die Spalte ist so breit, wie der Text sie braucht — bis zum Deckel.
-    // Steht gar kein Text, fällt sie samt ihrer Lücke weg: Dann ist die Karte
-    // das Bild, und nicht das Bild plus ein leeres Feld daneben.
-    const spalteMax = Math.min(breite * 0.34, px(280))
-    const spalteB =
-      inhalt.textBreite === undefined
-        ? spalteMax
-        : inhalt.textBreite > 0
-          ? klemme(inhalt.textBreite + textSeiten, 0, spalteMax)
-          : 0
-    const spalte = spalteB > 0 ? lueckeX + spalteB : 0
-    const blockH = titelH + lueckeY + angabenH
-    karteB = polster * 2 + bildB + spalte
-    karteH = polster * 2 + Math.max(bildH, blockH)
-    bildX = polster
-    bildY = (karteH - bildH) / 2
-    const sx = polster + bildB + lueckeX
-    const innen = spalteB - textSeiten
-    let y = (karteH - blockH) / 2
-    text.titel = { x: sx, y, breite: innen, schrift: titelSchrift }
+  // Titel links, Angaben rechts — auf DERSELBEN Zeile, solange beide
+  // nebeneinander passen. ALLE DREI Lagen teilen sich diesen Weg (Probe): quer
+  // stand hier bis eben ein eigener Zweig mit Textspalte NEBEN dem Bild.
+  karteB = bildB + polster * 2
+  bildX = polster
+  bildY = polster
+  const innenX = polster + textSeiten
+  const innenB = bildB - textSeiten * 2
+  let y = polster + bildH + textOben
+  text.titel = { x: innenX, y, breite: innenB, schrift: titelSchrift }
+  if (inhalt.angabenEigeneZeile) {
     y += titelH + lueckeY
-    // Die LINKE Kante der Spalte, nicht die rechte: Quer stehen Titel und
-    // Angaben untereinander und beide linksbündig, wie in der abgelösten
-    // CSS-Fassung (`align-items: flex-start`). Stand hier `sx + innen`, nahm
-    // der Maler diesen Wert als Startpunkt der Zeile — sie begann dann
-    // `polster + textSeiten` vor der Kartenkante und lief aus der Karte
-    // heraus: auf dem quer gehaltenen Telefon grau auf der Karte daneben.
-    text.angaben = { x: sx, y, hoehe: angabenH, schrift: angabenSchrift }
+    text.angaben = { x: innenX + innenB, y, hoehe: angabenH, schrift: angabenSchrift }
+    y += angabenH
   } else {
-    // Titel links, Angaben rechts — auf DERSELBEN Zeile, solange beide
-    // nebeneinander passen. Die Lagen `breit` und `schmal` unterscheiden sich
-    // dabei nicht mehr: Sie taten es nur wegen „Weiter ▸", der die untere
-    // Zeile für sich brauchte.
-    karteB = bildB + polster * 2
-    bildX = polster
-    bildY = polster
-    const innenX = polster + textSeiten
-    const innenB = bildB - textSeiten * 2
-    let y = polster + bildH + textOben
-    text.titel = { x: innenX, y, breite: innenB, schrift: titelSchrift }
-    if (inhalt.angabenEigeneZeile) {
-      y += titelH + lueckeY
-      text.angaben = { x: innenX + innenB, y, hoehe: angabenH, schrift: angabenSchrift }
-      y += angabenH
-    } else {
-      text.angaben = { x: innenX + innenB, y, hoehe: angabenH, schrift: angabenSchrift }
-      y += titelH
-    }
-    karteH = y + textUnten
+    text.angaben = { x: innenX + innenB, y, hoehe: angabenH, schrift: angabenSchrift }
+    y += titelH
   }
+  karteH = y + textUnten
 
   const x = (breite - karteB) / 2
   const yMitte = (hoehe - karteH) / 2 - px(satz.hubBedienung) * bed
@@ -1069,19 +1030,8 @@ export function maleKarte(
   // gemessen sind, also einmal vermessen, prüfen, im Bedarfsfall neu vermessen.
   // Die Geometrie ist reine Rechnung, ein zweiter Durchgang kostet nichts.
   let g = kartenGeometrie(buehne, stand.medium, { angabenEigeneZeile: false })
-  let eigeneZeile = false
-  if (g.lage === 'quer') {
-    // Quer bestimmt der Text die BREITE der Spalte (er steht neben dem Bild),
-    // nicht die Zeilenaufteilung — dort stehen beide Zeilen ohnehin
-    // untereinander.
-    g = kartenGeometrie(buehne, stand.medium, {
-      angabenEigeneZeile: false,
-      textBreite: textSpalteBreite(ctx, g, stand.text),
-    })
-  } else {
-    eigeneZeile = angabenPasstNicht(ctx, g, stand.text)
-    if (eigeneZeile) g = kartenGeometrie(buehne, stand.medium, { angabenEigeneZeile: true })
-  }
+  const eigeneZeile = angabenPasstNicht(ctx, g, stand.text)
+  if (eigeneZeile) g = kartenGeometrie(buehne, stand.medium, { angabenEigeneZeile: true })
 
   // Hier lag der Kamerablitz — ein Radialverlauf über der Szene und unter der
   // Karte, die teuerste einzelne Operation eines Kartenbildes (2,0 gegen 1,1 ms
@@ -1296,44 +1246,11 @@ function angabenBreite(ctx: CanvasRenderingContext2D, schriftGrad: number, angab
   return breite
 }
 
-/**
- * Wie breit die Textspalte der Lage `quer` sein muss: die längere der beiden
- * Zeilen. Der Deckel steht in der Geometrie — ein langer Titel wird dort
- * gekürzt, wie in jeder anderen Lage auch.
- */
-function textSpalteBreite(
-  ctx: CanvasRenderingContext2D,
-  g: KartenGeometrie,
-  text: KartenText,
-): number {
-  const angaben = angabenText(text)
-  let breite = angaben ? angabenBreite(ctx, g.text.angaben.schrift, angaben) : 0
-  if (text.titel) {
-    ctx.save()
-    ctx.font = schrift(g.text.titel.schrift, 600)
-    breite = Math.max(breite, ctx.measureText(text.titel).width)
-    ctx.restore()
-  }
-  return breite
-}
-
-/**
- * Passen Titel und Angaben nebeneinander?
- *
- * Wenn nicht, bekommt jede ihre eigene Zeile. Die Karte ist so breit wie ihr
- * Bild, und bei einer Hochkant-Aufnahme sind das keine 200 px: Dort blieben
- * dem Titel gemessene 64 px bei 158 gebrauchten, er wäre also zu „Ha…" gekürzt
- * gewesen, obwohl darunter eine ganze Zeile frei war.
- *
- * In der Lage `quer` gibt es die Frage nicht — dort stehen beide ohnehin
- * untereinander in der Spalte.
- */
 function angabenPasstNicht(
   ctx: CanvasRenderingContext2D,
   g: KartenGeometrie,
   text: KartenText,
 ): boolean {
-  if (g.lage === 'quer') return false
   const angaben = angabenText(text)
   if (!angaben || !text.titel) return false
   const breite = angabenBreite(ctx, g.text.angaben.schrift, angaben)
@@ -1415,8 +1332,10 @@ function malBeschriftung(
           }
         },
       },
-      // `x` der Geometrie ist die RECHTE Kante (quer: die linke der Spalte).
-      (g.lage === 'quer' ? g.text.angaben.x : g.text.angaben.x - angabenB) - kx,
+      // `x` der Geometrie ist die RECHTE Kante der Zeile — in JEDER Lage. Der
+      // Sonderfall stand hier, solange quer eine Textspalte hatte; blieb er
+      // stehen, lief die Zeile auf dem Telefon rechts aus der Karte heraus.
+      g.text.angaben.x - angabenB - kx,
       g.text.angaben.y - ky + phasen.angaben.hub * g.mass,
       phasen.angaben.deckkraft,
     )

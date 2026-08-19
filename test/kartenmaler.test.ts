@@ -98,40 +98,46 @@ describe('Lage — abgeleitet, nicht übergeben', () => {
     expect(kartenLage(700, 390)).toBe('quer')
   })
 
-  it('quer stellt den Text neben das Bild, breit darunter', () => {
-    const quer = kartenGeometrie({ breite: 900, hoehe: 480 }, FOTO, INHALT)
-    expect(quer.lage).toBe('quer')
-    expect(quer.text.titel.x).toBeGreaterThan(quer.bild.x + quer.bild.breite)
-    const breit = kartenGeometrie({ breite: 1600, hoehe: 900 }, FOTO, INHALT)
-    expect(breit.text.titel.y).toBeGreaterThan(breit.bild.y + breit.bild.hoehe)
+  it('quer beschriftet UNTER dem Bild — wie breit und schmal', () => {
+    // Bis zum Umbau stand der Text quer in einer Spalte NEBEN dem Bild. Das
+    // war die einzige Lage mit eigener Bauform, und beide Fehler der Karte
+    // (Zeile lief aus der Karte, leere Papierfläche) hingen daran.
+    for (const [b, h] of [
+      [916, 412],
+      [1600, 900],
+      [390, 844],
+    ] as const) {
+      const g = kartenGeometrie({ breite: b, hoehe: h }, FOTO, INHALT)
+      expect(g.text.titel.y).toBeGreaterThan(g.bild.y + g.bild.hoehe)
+      expect(g.text.titel.x).toBeLessThan(g.bild.x + g.bild.breite)
+    }
   })
 
-  it('quer setzt Titel und Angaben linksbündig in DIESELBE Spalte', () => {
-    // `x` der Angaben ist überall die rechte Kante — außer quer, wo der Maler
-    // ihn als linke Kante nimmt (beide stehen dort untereinander und
-    // linksbündig). Stand hier die rechte Kante der Spalte, begann die Zeile
-    // kurz vor dem Kartenrand und lief aus der Karte heraus.
-    const quer = kartenGeometrie({ breite: 916, hoehe: 300 }, FOTO, INHALT)
-    expect(quer.lage).toBe('quer')
-    expect(quer.text.angaben.x).toBe(quer.text.titel.x)
-    expect(quer.text.angaben.x).toBeLessThan(quer.karte.x + quer.karte.breite)
+  it('die Angaben-x ist in JEDER Lage die RECHTE Kante der Zeile', () => {
+    // Der Maler zieht die gemessene Textbreite davon ab. Stand hier ein
+    // Sonderfall, lief die Zeile auf dem Telefon aus der Karte heraus.
+    for (const [b, h] of [
+      [916, 412],
+      [1600, 900],
+      [390, 844],
+    ] as const) {
+      const g = kartenGeometrie({ breite: b, hoehe: h }, FOTO, INHALT)
+      expect(g.text.angaben.x).toBeGreaterThan(g.text.titel.x)
+      expect(g.text.angaben.x).toBeLessThanOrEqual(g.karte.x + g.karte.breite)
+    }
   })
 
-  it('quer gibt der Spalte die Breite des TEXTES, nicht eine feste', () => {
-    // Die feste Breite stammt aus der Zeit, als in der Spalte eine
-    // Bildunterschrift stand. Ohne sie blieb neben zwei kurzen Zeilen eine
-    // leere weiße Fläche stehen. Ohne Text fällt die Spalte ganz weg.
-    const buehne = { breite: 916, hoehe: 300 }
-    const lang = kartenGeometrie(buehne, FOTO, { angabenEigeneZeile: false, textBreite: 190 })
-    const kurz = kartenGeometrie(buehne, FOTO, { angabenEigeneZeile: false, textBreite: 60 })
-    const ohne = kartenGeometrie(buehne, FOTO, { angabenEigeneZeile: false, textBreite: 0 })
-    expect(lang.karte.breite).toBeGreaterThan(kurz.karte.breite)
-    expect(kurz.karte.breite).toBeGreaterThan(ohne.karte.breite)
-    // Ohne Text ist die Karte das Bild plus Rand — kein leeres Feld daneben.
-    expect(ohne.karte.breite).toBeCloseTo(ohne.bild.breite + (ohne.bild.x - ohne.karte.x) * 2, 4)
-    // Das BILD bleibt in allen drei Fällen gleich groß: Die Spalte kommt zur
-    // Karte dazu, sie nimmt dem Bild nichts weg.
-    expect(kurz.bild.breite).toBeCloseTo(lang.bild.breite, 4)
+  it('der zweizeilige Fuß kostet BILDHÖHE, nicht die Luft zum Rand', () => {
+    // Passen Titel und Angaben nicht nebeneinander, wird die Karte um eine
+    // Zeile höher. Wüsste die Chrome-Reserve das nicht, klebte die Karte am
+    // Bühnenrand: quer blieben bei einer Hochkant-Aufnahme 2 px.
+    const buehne = { breite: 916, hoehe: 412 }
+    const hoch = { art: 'foto', ar: 0.667 } as const
+    const eins = kartenGeometrie(buehne, hoch, { angabenEigeneZeile: false })
+    const zwei = kartenGeometrie(buehne, hoch, { angabenEigeneZeile: true })
+    expect(zwei.bild.hoehe).toBeLessThan(eins.bild.hoehe)
+    expect(zwei.karte.hoehe).toBeCloseTo(eins.karte.hoehe, 4)
+    expect(zwei.karte.y).toBeGreaterThan(8)
   })
 })
 

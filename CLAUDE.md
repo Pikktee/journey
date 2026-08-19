@@ -720,16 +720,19 @@ daneben, die man beim nächsten Anfassen leicht kippt:
   breit rundum wäre falsch: Ein Abzug mit Beschriftung hat oben und seitlich denselben
   schmalen Rand und unten einen breiteren, und das liest sich nur als gewollt, solange oben
   und seitlich gleich sind.
-- **Quer ist die Textspalte so breit wie ihr TEXT, und ihre Zeilen stehen linksbündig
-  untereinander.** Beides stammt aus der Zeit mit Bildunterschrift: Die feste Breite
-  (`min(34vw, 280px)`) füllte sie, und `text.angaben.x` durfte die rechte Kante meinen, weil
-  der Maler ihn quer als linke liest. Ohne die Unterschrift blieb neben zwei kurzen Zeilen
-  eine leere weiße Fläche stehen, und die Angaben begannen `polster + textSeiten` vor der
-  Kartenkante und liefen aus der Karte heraus — auf dem quer gehaltenen Telefon grau auf dem
-  Bild daneben. Die Breite kommt jetzt aus dem gemessenen Text (`KartenInhalt.textBreite`,
-  gedeckelt auf die alte Spaltenbreite); ohne Text fällt die Spalte samt ihrer Lücke ganz
-  weg, sonst wäre die Karte das Bild plus ein leeres Feld. Das BILD ändert sich dabei nicht:
-  Die Spalte kommt zur Karte dazu, sie nimmt ihm nichts.
+- **Quer beschriftet UNTER dem Bild — wie breit und schmal.** Die Textspalte NEBEN dem Bild
+  ist weg, und mit ihr der letzte Sonderfall der Lage: `lage === 'quer'` kommt in der
+  Geometrie nicht mehr vor. Sie stammte aus der Zeit mit Bildunterschrift, die sie füllte;
+  ohne die stand dort eine leere Papierfläche, und beide Fehler der Karte hingen an ihr —
+  erst lief die Angaben-Zeile links aus der Karte (die Geometrie lieferte die rechte Kante,
+  der Maler las sie als linke), nach dem Umbau auf die Fußzeile dieselbe Zeile nach rechts
+  hinaus, weil `malBeschriftung` seinen `lage === 'quer'`-Zweig behielt. **`text.angaben.x`
+  ist in JEDER Lage die RECHTE Kante der Zeile**; ein Sonderfall daneben ist genau der
+  Fehler, den man zweimal baut. Der Preis der Fußzeile ist gemessen und klein: Bild 501 × 334
+  statt 549 × 366 auf dem Pixel 9 quer (−17 % Fläche, Titel dafür 18,9 statt 14 px). Und die
+  **Chrome-Reserve kennt den zweizeiligen Fuß** (`inhalt.angabenEigeneZeile`): Passen Titel
+  und Angaben nicht nebeneinander, wird die Karte um eine Zeile höher — ohne das blieben bei
+  einer Hochkant-Aufnahme quer 2 px Luft zum Bühnenrand. Jetzt trägt das BILD die Zeile.
 
 Die geteilten ZAHLEN bleiben in `KARTE`/`KARTE_BUEHNE` ([einblendung.ts](src/einblendung.ts));
 die GEOMETRIE ist ausdrücklich nicht geteilt und steht als benannter Bühnen-Satz im Maler:
