@@ -578,9 +578,14 @@ hier eingetragen**, nicht geglaubt:
 
 | Annahme | Prüfung | Stand 2026-08-19 |
 |---|---|---|
-| Es gibt so gut wie keine fremden Nutzerdaten | `SELECT count(*) FROM users WHERE rolle='nutzer'`; `SELECT count(*) FROM tours WHERE owner_id <> <Betreiber>`; aktive `sessions`/`tokens` je Konto | **offen, in Welle 0 eintragen** |
-| Der APK läuft nur auf Geräten des Betreibers | Download-Zahl des GitHub-Releases; `tokens`-Zeilen mit App-Label fremder Konten | **offen**; der Knopf hängt öffentlich an der Landing ([index.html](../../index.html), `releases/latest/download/maptale-android.apk`) |
+| Es gibt so gut wie keine fremden Nutzerdaten | `SELECT count(*) FROM users WHERE rolle='nutzer'`; `SELECT count(*) FROM tours WHERE owner_id <> <Betreiber>`; aktive `sessions`/`tokens` je Konto | **gemessen 2026-08-19: 0 fremde.** 3 Konten (2 davon `nutzer`), 15 Touren auf 2 Besitzer, alle Konten laut Betreiber seine eigenen |
+| Der APK läuft nur auf Geräten des Betreibers | Download-Zahl des GitHub-Releases; `tokens`-Zeilen mit App-Label fremder Konten | **gemessen 2026-08-19: ja.** 17 Downloads über ~50 Releases (Muster 0–2 je Release), 3 App-Tokens auf 2 Konten, beide der Betreiber. Der Knopf hängt weiter öffentlich an der Landing, die Messung altert also |
 | Ein Datenverlust wäre verschmerzbar | Betreiber-Entscheid, hier festgehalten | ja, laut Entscheid vom 19.08. |
+
+**Das Tor ist damit offen** (Stand 2026-08-19): keine Zahl über der Schwelle,
+§4 gilt wie beschlossen. Die Messung ist eine Momentaufnahme; liegt zwischen
+ihr und dem Welle-1-Deploy mehr als ein Monat, wird sie wiederholt (drei
+Abfragen, fünf Minuten).
 
 Daraus zwei Regeln bis zum Ende von Welle 1: **Keine neuen Einladungen** aus
 der Warteliste, und **Play Store** ([konzept_play_store_interner_test.md](konzept_play_store_interner_test.md))
