@@ -892,7 +892,7 @@ Die einzige `h1` des Players ist seither der Intro-Titel.
 **Der Start-Knopf ist zugleich die Nutzergeste fürs VOLLBILD**
 ([src/vollbild.ts](src/vollbild.ts)). Im mobilen Browser frisst die Adressleiste
 den Streifen, der im Querformat am meisten kostet; die Fullscreen API nimmt sie
-weg, auf Android samt Systemleiste. Vier Regeln, die man beim nächsten Anfassen
+weg, auf Android samt Systemleiste. Fünf Regeln, die man beim nächsten Anfassen
 kippt: Gefragt wird nach der FÄHIGKEIT und nie nach dem Gerät (`fullscreenEnabled`
 — auf dem iPhone gab es Vollbild jahrelang nur für `<video>`, seit Safari 26 für
 jedes Element; altes iOS fällt still durch, und ein `iframe` ohne
@@ -901,8 +901,15 @@ jedes Element; altes iOS fällt still durch, und ein `iframe` ohne
 unbehandelte Ablehnung risse den Start-Handler ab — dann startete die Tour nicht,
 WEIL das Vollbild nicht klappte (`test/vollbild.test.ts` hält beide Wege).
 `--vh-app` muss mitgehen, deshalb hört [main.ts](src/main.ts) zusätzlich auf
-`fullscreenchange`. Und **in der App-WebView wird nicht gerufen** (`body.app`),
-dort ist ohnehin Vollbild. Eine Web-App auf dem Home-Bildschirm ist ausdrücklich
+`fullscreenchange`. **Können und Wollen sind zwei Fragen**: Am Schreibtisch hat
+das Fenster die Größe, die jemand ihm gegeben hat, und die Adressleiste kostet
+daran fast nichts — dort wäre die Übernahme des Schirms eine Anmaßung.
+`vollbildErwuenscht()` fragt deshalb `(hover: none) and (pointer: coarse)`, also
+„Finger und keine Maus": Ein Notebook mit Berührungsbildschirm hat ein Trackpad,
+meldet `hover: hover` und fällt heraus; Tablets fallen hinein. Nicht an der
+BREITE festgemacht, denn ein schmales Browserfenster ist kein Telefon. Und **in
+der App-WebView wird gar nicht erst gerufen** (`body.app`), dort ist ohnehin
+Vollbild. Eine Web-App auf dem Home-Bildschirm ist ausdrücklich
 etwas anderes und steht als eigenes Konzept daneben
 ([konzept_maptale_als_ios_webapp.md](docs/concepts/konzept_maptale_als_ios_webapp.md)).
 

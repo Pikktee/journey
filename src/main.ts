@@ -34,7 +34,7 @@ import { UI, $, type PlayerMedium } from './ui.js'
 import { Tour, mischeSkala, skalaFuer, type Filmspur, type KameraMoment, type ModusGrenze, type Spielhalt } from './tour.js'
 import type { Filmuhr } from './filmuhr.js'
 import type { PinStopp, PinSteuerung } from './photopins.js'
-import { betreteVollbild, verlasseVollbild } from './vollbild.js'
+import { betreteVollbild, verlasseVollbild, vollbildErwuenscht } from './vollbild.js'
 import {
   EXPORT_INTRO_S,
   istEingebettet,
@@ -1035,10 +1035,11 @@ map.on('load', () => {
   // Der Start-Knopf ist zugleich die Nutzergeste fürs Vollbild: Im mobilen
   // Browser nimmt das die Adressleiste weg, die im Querformat am meisten kostet.
   // Kann der Browser es nicht (altes iOS), passiert nichts weiter — die Tour
-  // startet in jedem Fall. In der App-WebView ist ohnehin schon Vollbild.
+  // startet in jedem Fall. In der App-WebView ist ohnehin schon Vollbild, und am
+  // Schreibtisch ist es unerwünscht (s. `vollbildErwuenscht`).
   $('btn-start').addEventListener('click', () => {
     tour.begin()
-    if (!appModus) betreteVollbild()
+    if (!appModus && vollbildErwuenscht()) betreteVollbild()
   })
   $('btn-play').addEventListener('click', () => tour.setPlaying(!tour.playing))
   $('btn-replay').addEventListener('click', () => tour.restart())

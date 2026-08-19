@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { vollbildMoeglich, imVollbild, betreteVollbild, verlasseVollbild } from '../src/vollbild'
+import { vollbildMoeglich, vollbildErwuenscht, imVollbild, betreteVollbild, verlasseVollbild } from '../src/vollbild'
 
 // Die Umgebung ist `node` (vitest.config.js) — es gibt also kein `document`.
 // Das ist hier kein Hindernis, sondern der Punkt: Das Modul fragt nur nach
@@ -34,6 +34,29 @@ describe('vollbildMoeglich', () => {
   })
 })
 
+describe('vollbildErwuenscht', () => {
+  const setzeFenster = (mm: unknown) => {
+    ;(globalThis as unknown as { window: unknown }).window = { matchMedia: mm }
+  }
+  afterEach(() => delete (globalThis as unknown as { window?: unknown }).window)
+
+  it('sagt ja bei Finger ohne Maus (Telefon, Tablet)', () => {
+    setzeFenster((q: string) => ({ matches: q === '(hover: none) and (pointer: coarse)' }))
+    expect(vollbildErwuenscht()).toBe(true)
+  })
+
+  it('sagt nein am Schreibtisch — auch mit Berührungsbildschirm', () => {
+    // Ein Notebook mit Touchscreen hat ein Trackpad: hover: hover, pointer: fine.
+    setzeFenster(() => ({ matches: false }))
+    expect(vollbildErwuenscht()).toBe(false)
+  })
+
+  it('sagt nein, wo es matchMedia gar nicht gibt', () => {
+    setzeFenster(undefined)
+    expect(vollbildErwuenscht()).toBe(false)
+  })
+})
+
 describe('betreteVollbild', () => {
   it('ruft gar nicht erst, wenn der Browser es nicht kann', () => {
     const requestFullscreen = vi.fn()
@@ -54,7 +77,7 @@ describe('betreteVollbild', () => {
     expect(requestFullscreen).not.toHaveBeenCalled()
   })
 
-  it('ruft mit Vorsatz, wo es die unpräfixierte Fassung nicht gibt', () => {
+  it('ruft die präfixierte Fassung, wo es die andere nicht gibt', () => {
     const webkitRequestFullscreen = vi.fn()
     setzeDokument({ webkitFullscreenEnabled: true, documentElement: { webkitRequestFullscreen } })
     betreteVollbild()

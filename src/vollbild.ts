@@ -19,12 +19,14 @@
  *   Abspielen ist der Zweck.
  * - **Der Aufruf braucht eine Nutzergeste.** Beim Laden ruft ihn niemand
  *   erfolgreich; der Ort ist der Start-Knopf, an dem ohnehin getippt wird.
+ * - **Können und Wollen sind zwei Fragen.** Der Schreibtisch KANN Vollbild und
+ *   soll es trotzdem nicht bekommen (`vollbildErwuenscht`).
  * - **Die Viewport-Höhe muss mitgehen.** Der Wechsel ändert `innerHeight`, und
  *   daran hängt `--vh-app` (die Foto-Karte bemisst sich daran). `main.ts` hört
  *   deshalb zusätzlich auf `fullscreenchange`.
  */
 
-/** Ältere Safari-Fassungen kennen die Namen nur mit `webkit`-Vorsatz. */
+/** Ältere Safari-Fassungen kennen die Namen nur mit `webkit`-Präfix. */
 type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => unknown }
 type WebkitDokument = Document & {
   webkitFullscreenEnabled?: boolean
@@ -33,6 +35,28 @@ type WebkitDokument = Document & {
 }
 
 const dok = () => document as WebkitDokument
+
+/**
+ * LOHNT sich Vollbild hier — unabhängig davon, ob es ginge?
+ *
+ * Am Schreibtisch nicht. Dort hat das Fenster die Größe, die jemand ihm gegeben
+ * hat, und die Adressleiste kostet keinen nennenswerten Anteil daran; den Schirm
+ * zu übernehmen ist dann eine Anmaßung, kein Dienst. Auf dem Telefon frisst die
+ * Leiste im Querformat genau den Streifen, um den es geht, und ein Fenster gibt
+ * es nicht.
+ *
+ * Gefragt wird auch das nach der FÄHIGKEIT und nie nach dem Gerät:
+ * `(hover: none) and (pointer: coarse)` heißt „Finger und keine Maus". Ein
+ * Notebook mit Berührungsbildschirm hat ein Trackpad und meldet `hover: hover` —
+ * es fällt also heraus, und das ist richtig. Tablets fallen hinein, und auch das
+ * ist richtig: Sie haben dieselbe Leiste und dasselbe fehlende Fenster.
+ *
+ * Nicht an der BREITE festgemacht: Ein schmales Browserfenster am Schreibtisch
+ * ist kein Telefon, und ein Tablet quer ist breiter als mancher Laptop.
+ */
+export function vollbildErwuenscht(): boolean {
+  return window.matchMedia?.('(hover: none) and (pointer: coarse)').matches ?? false
+}
 
 /** Kann dieses Dokument überhaupt ins Vollbild? */
 export function vollbildMoeglich(): boolean {
